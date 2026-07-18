@@ -79,7 +79,7 @@ function CountCard({
   note: string;
 }) {
   return (
-    <div className="rounded-2xl border border-ink/10 bg-cream p-4">
+    <div className="sn-tile p-4">
       <div className="flex items-center gap-2 text-ink/60">
         <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         <span className="font-mono text-[10px] uppercase tracking-[0.15em]">{label}</span>

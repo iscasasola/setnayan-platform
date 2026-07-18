@@ -26,7 +26,7 @@ export async function HeroVideoSurface() {
     <div>
       <div className="mb-6">
         <div className="text-[11px] uppercase tracking-wider text-[var(--m-slate,#6a6e76)] mb-1">Content</div>
-        <h1 className="text-2xl font-semibold text-[var(--m-ink,#1e2229)]">Homepage hero video</h1>
+        <h1 className="text-2xl font-semibold text-[var(--m-ink,#1b1a17)]">Homepage hero video</h1>
         <p className="text-[14px] leading-relaxed text-[var(--m-slate,#4f535b)] mt-2">
           Upload a short video and it becomes the homepage hero — a full-screen scroll-scrub that ends on a
           {' '}&ldquo;Start your wedding planning here — free&rdquo; call to action. Frames are extracted right here in

@@ -38,7 +38,7 @@ export function SendProposalCard({
   }
 
   const field =
-    'h-10 w-full rounded-lg border border-ink/15 bg-cream px-3 text-sm text-ink focus:border-mulberry focus:outline-none';
+    'h-10 w-full rounded-lg border border-ink/15 bg-white/70 px-3 text-sm text-ink focus:border-mulberry focus:outline-none';
 
   return (
     <div className="rounded-xl border border-mulberry/25 bg-mulberry/[0.04] p-3">
@@ -46,7 +46,7 @@ export function SendProposalCard({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="inline-flex h-10 items-center gap-2 rounded-lg border border-mulberry/30 bg-cream px-4 text-sm font-medium text-mulberry hover:border-mulberry/60"
+          className="inline-flex h-10 items-center gap-2 rounded-lg border border-mulberry/30 bg-white/70 px-4 text-sm font-medium text-mulberry hover:border-mulberry/60"
         >
           <span aria-hidden>📄</span> Send a proposal
         </button>

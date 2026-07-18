@@ -112,11 +112,11 @@ export default async function LaunchHubPage({ params }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
-      <header className="space-y-1">
-        <p className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+      <header className="sn-reveal space-y-1">
+        <p className="sn-eye">
           <Rocket aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Day-of
         </p>
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Launch your services</h1>
+        <h1 className="sn-h1">Launch your services</h1>
         <p className="text-sm text-ink/60">
           {ownedCount > 0
             ? 'Start each of your live services as the day unfolds.'
@@ -130,8 +130,8 @@ export default async function LaunchHubPage({ params }: Props) {
           return (
             <article
               key={s.key}
-              className={`flex items-center justify-between gap-4 rounded-2xl border p-4 sm:p-5 ${
-                s.owned ? 'border-ink/10 bg-white shadow-sm' : 'border-dashed border-ink/15 bg-ink/[0.02]'
+              className={`sn-row flex items-center justify-between gap-4 p-4 sm:p-5 ${
+                s.owned ? '' : 'border-dashed'
               }`}
             >
               <div className="flex min-w-0 items-start gap-3">
@@ -174,7 +174,7 @@ export default async function LaunchHubPage({ params }: Props) {
           active page below with no change. */}
       <section className="mt-10">
         <header className="space-y-1">
-          <p className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <p className="sn-eye">
             <Globe aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Your public site
           </p>
           <h2 className="text-lg font-semibold tracking-tight sm:text-xl">Four pages, one link</h2>
@@ -192,8 +192,8 @@ export default async function LaunchHubPage({ params }: Props) {
             return (
               <article
                 key={page.key}
-                className={`flex flex-col gap-3 rounded-2xl border p-4 sm:p-5 ${
-                  isActive ? 'border-terracotta/40 bg-terracotta/[0.03] shadow-sm' : 'border-ink/10 bg-white'
+                className={`sn-row flex flex-col gap-3 p-4 sm:p-5 ${
+                  isActive ? 'border-terracotta/40 bg-terracotta/[0.03]' : ''
                 }`}
               >
                 <div className="flex items-start gap-3">

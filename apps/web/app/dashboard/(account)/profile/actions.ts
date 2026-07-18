@@ -3,7 +3,15 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
+import {
+  normalizeReligion,
+  normalizeCivilStatus,
+  normalizeSex,
+  consentPatch,
+} from '@/lib/profile-personalization';
 
 // 2026-05-22 brand pivot (CLAUDE.md decision-log). 5-theme list retired —
 // replaced with 3-mode (Light · Dark · Auto). Owner directive: "make our
@@ -97,6 +105,40 @@ export async function updatePersonalInfo(formData: FormData) {
   const birth_date = birthDateStr || null;
   const public_greeting_opt_in = publicGreetingRaw === 'on';
 
+  // Optional, REFERENCE-ONLY sensitive-PI personalization (date-anchor model,
+  // owner 2026-07-12): religion + civil status. Unknown/empty → null (the
+  // "prefer not to say" / withdrawal state). Consent is stamped per field on
+  // the transition to a value, cleared on withdrawal (RA 10173 §3(l)).
+  const religion = normalizeReligion(formData.get('religion'));
+  const civil_status = normalizeCivilStatus(formData.get('civil_status'));
+  const sex = normalizeSex(formData.get('sex'));
+
+  // RA 10173 durable proof-of-consent (migration 20270705000000). Read the
+  // current opt-in state so we only STAMP marketing_consent_at on an actual
+  // transition — opting in sets now(), opting out clears it to NULL, and an
+  // unrelated profile save while already opted-in leaves the original consent
+  // timestamp untouched (unlike updated_at, which every save overwrites).
+  const { data: existing } = await supabase
+    .from('users')
+    .select('marketing_opt_in, religion, civil_status, sex')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  const wasOptedIn = existing?.marketing_opt_in === true;
+
+  const nowIso = new Date().toISOString();
+  const marketingConsent: { marketing_consent_at?: string | null } = {};
+  if (marketing_opt_in && !wasOptedIn) {
+    marketingConsent.marketing_consent_at = nowIso;
+  } else if (!marketing_opt_in && wasOptedIn) {
+    marketingConsent.marketing_consent_at = null;
+  }
+
+  // Per-field sensitive-PI consent transitions (stamp on first value, clear on
+  // withdrawal, untouched when unchanged).
+  const religionConsent = consentPatch(religion, existing?.religion ?? null, nowIso);
+  const civilConsent = consentPatch(civil_status, existing?.civil_status ?? null, nowIso);
+  const sexConsent = consentPatch(sex, existing?.sex ?? null, nowIso);
+
   const { error } = await supabase
     .from('users')
     .update({
@@ -104,9 +146,22 @@ export async function updatePersonalInfo(formData: FormData) {
       phone,
       profile_photo_url,
       marketing_opt_in,
+      ...marketingConsent,
       birth_date,
       public_greeting_opt_in,
-      updated_at: new Date().toISOString(),
+      religion,
+      ...(religionConsent.consent_at !== undefined
+        ? { religion_consent_at: religionConsent.consent_at }
+        : {}),
+      civil_status,
+      ...(civilConsent.consent_at !== undefined
+        ? { civil_status_consent_at: civilConsent.consent_at }
+        : {}),
+      sex,
+      ...(sexConsent.consent_at !== undefined
+        ? { sex_consent_at: sexConsent.consent_at }
+        : {}),
+      updated_at: nowIso,
     })
     .eq('user_id', user.id);
 
@@ -275,6 +330,180 @@ export async function updatePlannerMode(formData: FormData) {
   if (error) throw new Error(error.message);
 
   revalidatePath('/dashboard', 'layout');
+}
+
+// ---------------------------------------------------------------------------
+// Social-sharing follow-through #7a — vanity slug editor.
+//
+// The public account handle at /u/[slug] was auto-backfilled from the real
+// display name with NO rename UI (migration 20270424889744). Deriving a public
+// identifier from a person's name without giving them control over it is an
+// RA-10173 exposure; this action makes the handle user-controllable.
+//
+// The `users.slug` column mirrors the events.slug contract: 3–32 chars of
+// lowercase / digit / hyphen, unique case-insensitively. RLS `user_owns_row`
+// (FOR ALL, USING/WITH CHECK user_id = auth.uid()) already permits an account
+// to set its OWN slug, so the UPDATE runs under the user's session — no admin
+// escalation for the write. The admin client is used only for the
+// cross-account uniqueness probe (must see rows the caller's RLS hides) and to
+// append the slug_change_log redirect ledger row (admin-write only), matching
+// the event-slug rename in app/dashboard/[eventId]/invitation/actions.ts.
+// ---------------------------------------------------------------------------
+
+// Durable rename cap: at most this many successful renames per rolling window,
+// counted from the slug_change_log ledger (survives serverless cold starts,
+// unlike the in-memory lib/rate-limit). A handle is a stable public identifier;
+// a few corrections are fine, a churn loop is not.
+const SLUG_RENAME_LIMIT = 5;
+const SLUG_RENAME_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+const SLUG_PATTERN = /^[a-z0-9-]{3,32}$/;
+
+export async function updateUserSlug(formData: FormData) {
+  const requested = String(formData.get('slug') ?? '')
+    .trim()
+    .toLowerCase();
+
+  if (!SLUG_PATTERN.test(requested)) {
+    return redirect(
+      `/dashboard/profile?slug_error=${encodeURIComponent(
+        'Use 3–32 characters: lowercase letters, numbers, and hyphens only.',
+      )}#url-slug`,
+    );
+  }
+  if (RESERVED_SLUGS.has(requested)) {
+    return redirect(
+      `/dashboard/profile?slug_error=${encodeURIComponent(
+        'That handle is reserved. Please pick another.',
+      )}#url-slug`,
+    );
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const admin = createAdminClient();
+
+  // Read the caller's current slug (via their own session — RLS-scoped).
+  const { data: mine } = await supabase
+    .from('users')
+    .select('slug')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  const currentSlug = (mine?.slug as string | null) ?? null;
+
+  // No-op: same handle (case-insensitive) — nothing to change or log.
+  if (currentSlug && currentSlug.toLowerCase() === requested) {
+    return redirect('/dashboard/profile?slug_saved=1#url-slug');
+  }
+
+  // Durable rename rate-limit from the ledger.
+  const windowStart = new Date(Date.now() - SLUG_RENAME_WINDOW_MS).toISOString();
+  const { count: recentRenames } = await admin
+    .from('slug_change_log')
+    .select('id', { count: 'exact', head: true })
+    .eq('entity_type', 'user')
+    .eq('entity_id', user.id)
+    .gte('changed_at', windowStart);
+  if ((recentRenames ?? 0) >= SLUG_RENAME_LIMIT) {
+    return redirect(
+      `/dashboard/profile?slug_error=${encodeURIComponent(
+        'You’ve changed your handle a few times today. Please try again tomorrow.',
+      )}#url-slug`,
+    );
+  }
+
+  // Case-insensitive uniqueness across ALL accounts (admin client so the probe
+  // sees rows the caller's RLS would hide).
+  const { data: clash } = await admin
+    .from('users')
+    .select('user_id')
+    .ilike('slug', requested)
+    .neq('user_id', user.id)
+    .maybeSingle();
+  if (clash) {
+    return redirect(
+      `/dashboard/profile?slug_error=${encodeURIComponent(
+        'That handle is already taken. Please pick another.',
+      )}#url-slug`,
+    );
+  }
+
+  // Self-set under the user's own session (RLS user_owns_row permits it).
+  const { error: updateErr } = await supabase
+    .from('users')
+    .update({ slug: requested, updated_at: new Date().toISOString() })
+    .eq('user_id', user.id);
+  if (updateErr) {
+    // A concurrent claimant can still lose the unique-index race (23505) —
+    // surface it as "taken" rather than a raw constraint error.
+    if (updateErr.code === '23505') {
+      return redirect(
+        `/dashboard/profile?slug_error=${encodeURIComponent(
+          'That handle was just taken. Please pick another.',
+        )}#url-slug`,
+      );
+    }
+    await insertFaultLog({
+      event_type: 'SUPABASE_SAVE_ERROR',
+      element_name: 'Update account slug',
+      file_path: 'app/dashboard/(account)/profile/actions.ts',
+      error_message: updateErr.message,
+      payload_snapshot: { userId: user.id },
+    });
+    return redirect(
+      `/dashboard/profile?slug_error=${encodeURIComponent(updateErr.message)}#url-slug`,
+    );
+  }
+
+  // Append the 90-day redirect ledger row so the old handle keeps resolving
+  // (entity_type 'user' is permitted by migration 20270424889744). Best-effort:
+  // a ledger hiccup must not fail an already-committed rename.
+  if (currentSlug) {
+    await admin.from('slug_change_log').insert({
+      entity_type: 'user',
+      entity_id: user.id,
+      old_slug: currentSlug,
+      new_slug: requested,
+      changed_by: user.id,
+    });
+  }
+
+  revalidatePath('/dashboard', 'layout');
+  redirect('/dashboard/profile?slug_saved=1#url-slug');
+}
+
+// Social-sharing follow-through #7b — per-account public-profile toggle.
+// DORMANT by default (`public_profile_enabled` DEFAULT FALSE): the owner opts
+// IN to a shareable/indexable /u/[slug] showcase. Distinct from per-event
+// `landing_page_visibility` (the /u page still only ever lists public events);
+// this governs whether the /u shell itself is reachable by strangers at all.
+export async function updatePublicProfileEnabled(formData: FormData) {
+  const raw = formData.get('public_profile_enabled');
+  if (raw !== 'true' && raw !== 'false') {
+    throw new Error('Invalid public-profile preference');
+  }
+  const enabled = raw === 'true';
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase
+    .from('users')
+    .update({ public_profile_enabled: enabled, updated_at: new Date().toISOString() })
+    .eq('user_id', user.id);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath('/dashboard', 'layout');
+  revalidatePath('/u', 'layout');
+  redirect('/dashboard/profile?public_profile_saved=1#url-slug');
 }
 
 // Couple-side "Planning reminders" on/off (2026-06-03). Toggles

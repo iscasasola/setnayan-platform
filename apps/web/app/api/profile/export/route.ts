@@ -14,10 +14,13 @@ import { displayUrlsForStoredAssets } from '@/lib/uploads';
  * `vendor_profile` / `vendor_submitted_media` as the durable record, since the
  * resolved URLs are presigned and time-limited.
  *
+ * Includes (2026-07-05 NPC/RA 10173 completeness) the subject's own order +
+ * payment records (iteration 0034) and their own face-enrollment CONSENT
+ * metadata (iteration 0012) — raw face_vector embeddings are excluded.
+ *
  * Not in scope for V1:
  *   • Audit log of past API access (no user-scoped access-log table — the
  *     0033 gateway ships api_keys only, consistent with "no public endpoints").
- *   • Payment records (waits on 0034).
  */
 export async function GET() {
   const supabase = await createClient();
@@ -28,7 +31,19 @@ export async function GET() {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
-  const [profileRes, eventsRes, ownedEventsRes, vendorProfileRes, messagesRes] = await Promise.all([
+  const [
+    profileRes,
+    eventsRes,
+    ownedEventsRes,
+    vendorProfileRes,
+    messagesRes,
+    ordersRes,
+    paymentsRes,
+    faceEnrollmentsRes,
+    dependentsRes,
+    godparentsRes,
+    communityMembershipsRes,
+  ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
       .from('event_members')
@@ -61,6 +76,73 @@ export async function GET() {
       .select('message_id, thread_id, sender_role, body, created_at')
       .eq('sender_user_id', user.id)
       .order('created_at', { ascending: true }),
+    // RA 10173 completeness (2026-07-05) — the subject's OWN order records
+    // (iteration 0034). Self-scoped: orders_owner_read RLS is widened to
+    // co-hosts, so we add an explicit user_id filter to keep the export to the
+    // subject's own orders only. Admin-only fields (admin_notes) are dropped.
+    supabase
+      .from('orders')
+      .select(
+        'public_id, event_id, service_key, description, requested_total_php, ' +
+          'confirmed_total_php, status, reference_code, created_at, updated_at',
+      )
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true }),
+    // The subject's OWN payment records. payments_owner_read scopes to
+    // user_id = auth.uid(); we filter explicitly for defense in depth. Admin
+    // reconciliation fields (admin_notes, reviewed_by_user_id) are dropped.
+    supabase
+      .from('payments')
+      .select(
+        'payment_id, order_id, amount_php, channel, reference_number, ' +
+          'paid_at, status, created_at, updated_at',
+      )
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true }),
+    // The subject's OWN biometric face-enrollment METADATA (iteration 0012).
+    // guest_reads_own_face_enrollment RLS scopes SELECT to guest rows the
+    // subject owns via event_members. We deliberately EXCLUDE face_vector (the
+    // raw embedding) — the export ships consent/provenance metadata only, per
+    // RA 10173 (disclose what biometric data we hold, not the biometric itself).
+    supabase
+      .from('guest_face_enrollments')
+      .select(
+        'enrollment_id, event_id, source, consent_at, consent_source, ' +
+          'revoked_at, quality_score, vector_model, created_at, updated_at',
+      )
+      .order('created_at', { ascending: true }),
+    // RA 10173 (2026-07-17) — Alaga (dependents) records: what the subject
+    // stores as a guardian, what they claimed as their own profile, and what
+    // they handed over (read-only history). Spouse-SHARED rows the OTHER
+    // guardian owns are deliberately excluded — that's the other guardian's
+    // stored data, not the subject's. Active claim_token values are excluded
+    // (a live token is redeemable — exporting it would leak a bearer secret);
+    // the consent stamps ARE included (durable RA 10173 proof).
+    supabase
+      .from('dependents')
+      .select(
+        'public_id, dependent_kind, name, birth_date, sex, religion, relationship, ' +
+          'shared_with_spouse, birth_date_consent_at, religion_consent_at, ' +
+          'handed_over_at, owner_user_id, claimed_user_id, handed_over_by_user_id, created_at, updated_at',
+      )
+      .or(
+        `owner_user_id.eq.${user.id},claimed_user_id.eq.${user.id},handed_over_by_user_id.eq.${user.id}`,
+      )
+      .order('created_at', { ascending: true }),
+    // Godparent (ninong/ninang) edges — the subject's own rows as guardian
+    // plus, via godparents_subject_read, the edges on a profile they claimed.
+    supabase
+      .from('godparents')
+      .select('godparent_id, dependent_id, godparent_name, godparent_email, role, created_at')
+      .order('created_at', { ascending: true }),
+    // RA 10173 (2026-07-17) — samahan memberships: the group's user-chosen
+    // name, the subject's role, and when they joined. No kind/category exists
+    // by design (owner 2026-07-17 — the platform never classifies groups).
+    supabase
+      .from('community_members')
+      .select('role, joined_at, communities(public_id, name)')
+      .eq('user_id', user.id)
+      .order('joined_at', { ascending: true }),
   ]);
 
   // Resolve the vendor's own media to usable URLs (additive — the raw r2:// keys
@@ -140,9 +222,22 @@ export async function GET() {
     vendor_portfolio_media: vendorPortfolioMedia,
     vendor_submitted_media: vendorSubmittedMedia,
     chat_messages_authored: messagesRes.data ?? [],
+    // RA 10173 (2026-07-05) — the subject's own commerce + biometric records.
+    orders: ordersRes.data ?? [],
+    payments: paymentsRes.data ?? [],
+    // Biometric CONSENT metadata only — raw face_vector embeddings are
+    // intentionally excluded from the export.
+    face_enrollments: faceEnrollmentsRes.data ?? [],
+    // RA 10173 (2026-07-17) — Alaga records (guardian-stored, claimed-as-own,
+    // and handed-over history) + godparent edges. Consent stamps included.
+    alaga_dependents: dependentsRes.data ?? [],
+    alaga_godparents: godparentsRes.data ?? [],
+    // Samahan memberships — group name (user-chosen), role, joined_at.
+    samahan_memberships: communityMembershipsRes.data ?? [],
     not_included: [
       'audit_log (API access — no user-scoped access-log table in V1)',
-      'payment records (iteration 0034)',
+      'face_vector embeddings (biometric raw data — metadata only is exported)',
+      'active alaga claim_token values (live bearer secrets — never exported)',
     ],
   };
 

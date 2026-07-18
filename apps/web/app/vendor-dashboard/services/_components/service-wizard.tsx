@@ -249,7 +249,7 @@ export function ServiceWizard({
               key={c}
               type="button"
               onClick={() => setPerk(c)}
-              className="rounded-full border border-ink/15 bg-cream px-2.5 py-1 text-xs text-ink/70 hover:bg-ink/5"
+              className="rounded-full border border-ink/15 bg-white/70 px-2.5 py-1 text-xs text-ink/70 hover:bg-ink/5"
             >
               {c}
             </button>
@@ -295,7 +295,7 @@ export function ServiceWizard({
       {/* 5 · Review & publish */}
       <section {...show('review')} className="space-y-3">
         <p className="text-sm font-medium text-ink">Review</p>
-        <dl className="space-y-1.5 rounded-lg border border-ink/10 bg-cream p-4 text-sm">
+        <dl className="space-y-1.5 rounded-lg border border-ink/10 bg-white/70 p-4 text-sm">
           <Recap k="Category" v={categoryLabel} />
           <Recap k="Cover photo" v={hasPhoto ? 'Added' : '— none yet (required to publish)'} />
           {title ? <Recap k="Title" v={title} /> : null}

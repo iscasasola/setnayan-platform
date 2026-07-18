@@ -33,6 +33,9 @@ const ENABLED_TYPES = [
   'tournament',
   'travel',
   'celebration',
+  'anniversary',
+  'graduation',
+  'reunion',
 ] as const;
 
 test('every enabled type has services for all 6 personas (non-empty)', () => {
@@ -105,7 +108,7 @@ test('result is deduped (no repeated key)', () => {
 });
 
 test('no pack for the key → [] (safe PR2 fallback)', () => {
-  for (const key of ['generic', 'anniversary', '', undefined, null]) {
+  for (const key of ['generic', 'gala_night', '', undefined, null]) {
     assert.deepEqual(derivePackServices(key as string | null | undefined, 'keepsake', 'balanced'), []);
   }
 });

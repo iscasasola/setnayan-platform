@@ -214,8 +214,17 @@ export function CustomerSidebar({
 
   return (
     <>
+      {/* The event identity plaque used to render here as a Link to the
+       *  all-events picker. Council Verdict 2026-07-16 (Plaque-as-Menu): it
+       *  now lives in DoorwaySidebarHeader's identity slot as the
+       *  <SwitcherPlaqueTrigger> account menu — composed in layout.tsx, NOT
+       *  here, so this rail can never ship two adjacent identity controls. */}
       {groups.map((group) => (
-        <SidebarSection key={group.key} group={group} pathname={pathname}>
+        // `eyebrow` — Glass PR-2 shell polish: section labels render as `.sn-eye`
+        // gold eyebrows on the customer doorway only (opt-in; vendor/admin adopt
+        // it in PR-6/PR-8). No-op on the header-less root group, which renders no
+        // section heading — kept as the opt-in wiring for any labelled group.
+        <SidebarSection key={group.key} group={group} pathname={pathname} eyebrow>
           {group.items.map((item) => (
             <SidebarItem key={item.key} item={item} pathname={pathname} />
           ))}

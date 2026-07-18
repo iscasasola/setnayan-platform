@@ -69,7 +69,7 @@ export default async function OurPhotosEditorPage({
 
   return (
     <section className="space-y-6">
-      <header className="space-y-3">
+      <header className="sn-reveal space-y-3">
         <Link
           href={`/dashboard/${eventId}/website`}
           className="inline-flex items-center gap-1.5 text-xs font-medium text-terracotta hover:text-terracotta-700"
@@ -78,11 +78,11 @@ export default async function OurPhotosEditorPage({
           Back to website
         </Link>
         <div>
-          <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <p className="sn-eye flex items-center gap-2">
             <Images aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Our photos
           </p>
-          <h1 className="mt-1 font-serif text-3xl italic tracking-tight sm:text-4xl">
+          <h1 className="sn-h1 mt-1">
             Your own gallery
           </h1>
           <p className="mt-2 max-w-prose text-sm text-ink/65">

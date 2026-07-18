@@ -65,7 +65,7 @@ export async function NotificationsSurface() {
       ) : null}
 
       {items.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">
+        <div className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center">
           <Bell aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
           <p className="text-sm font-medium text-ink">No notifications yet.</p>
           <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
@@ -81,7 +81,7 @@ export async function NotificationsSurface() {
               <li
                 key={n.notification_id}
                 className={`flex items-start gap-3 rounded-xl border p-4 ${
-                  unread ? 'border-terracotta/30 bg-terracotta/5' : 'border-ink/10 bg-cream'
+                  unread ? 'border-terracotta/30 bg-terracotta/5' : 'border-ink/10 bg-white/70'
                 }`}
               >
                 <span

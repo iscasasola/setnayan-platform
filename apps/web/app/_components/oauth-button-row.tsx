@@ -4,6 +4,7 @@ import {
 } from '@/app/auth/oauth-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { GoogleGIcon, AppleIcon } from '@/app/_components/oauth-icons';
+import { OAuthAccountTypeMirror } from '@/app/_components/oauth-account-type-mirror';
 
 /**
  * OAuth provider button row — Google + Apple.
@@ -61,21 +62,28 @@ type Props = {
   /** Post-auth redirect destination, validated by safeNext() upstream. */
   next: string;
   /**
-   * Color treatment. 'light' (default) is the Clean Editorial alabaster button
-   * used on /signup and the legacy /login card. 'dark' is the translucent
-   * light-on-dark treatment for the full-bleed sign-in rail (frosted obsidian
-   * panel) — white text + a white Apple glyph so the buttons read on the dark
-   * surface. Default keeps every existing call site unchanged.
+   * /signup only: carry the Couple/Vendor selection into the OAuth forms so a
+   * vendor signing up via Google/Apple isn't misclassified as a customer. Each
+   * form gets a hidden `account_type` input mirrored from the radio by
+   * <OAuthAccountTypeMirror>. Omitted on /login (existing users — no selector),
+   * keeping that surface byte-identical.
    */
-  variant?: 'light' | 'dark';
+  withAccountType?: boolean;
+  /**
+   * SSR default for the hidden OAuth `account_type` (only when withAccountType).
+   * Pass the URL-derived intent (e.g. /signup?as=vendor → 'vendor') so a
+   * deep-linked vendor's OAuth submit carries the right value BEFORE the mirror
+   * hydrates — and even with JS off. The mirror then only tracks runtime radio
+   * toggles. Defaults to 'customer'.
+   */
+  defaultAccountType?: 'customer' | 'vendor';
 };
 
-// Button chrome per variant. Light = alabaster/obsidian (unchanged). Dark =
-// translucent white on the obsidian rail, mirroring the mockup's OAuth pills.
+// Button chrome — Clean Editorial alabaster/obsidian, used on the greige /login
+// card and /signup. (The obsidian-rail 'dark' treatment was removed with the
+// obsidian login; the greige card is the single login now.)
 const BTN_LIGHT =
   'flex w-full items-center justify-center gap-3 rounded-md border border-ink/20 bg-white px-4 py-2.5 text-sm font-medium text-ink/90 transition-colors hover:border-ink/40 hover:bg-ink/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40';
-const BTN_DARK =
-  'flex w-full items-center justify-center gap-3 rounded-full border border-white/15 bg-white/10 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:border-white/30 hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40';
 
 // Env-flag gates. Without these flags, clicking the Continue with
 // Google / Apple buttons hits Supabase's /auth/v1/authorize endpoint
@@ -100,18 +108,33 @@ const APPLE_ENABLED = process.env.NEXT_PUBLIC_OAUTH_APPLE_ENABLED === 'true';
  */
 export const ANY_OAUTH_ENABLED = GOOGLE_ENABLED || APPLE_ENABLED;
 
-export function OAuthButtonRow({ next, variant = 'light' }: Props) {
+export function OAuthButtonRow({
+  next,
+  withAccountType = false,
+  defaultAccountType = 'customer',
+}: Props) {
   // Both providers off → render nothing. /login + /signup also use
   // ANY_OAUTH_ENABLED to drop the divider line when there's no row.
   if (!GOOGLE_ENABLED && !APPLE_ENABLED) return null;
-  const btn = variant === 'dark' ? BTN_DARK : BTN_LIGHT;
-  // White Apple glyph on the dark rail (the black default is invisible there).
-  const appleFill = variant === 'dark' ? '#FFFFFF' : '#000000';
+  const btn = BTN_LIGHT;
+  const appleFill = '#000000';
+  // /signup: a hidden account_type input per OAuth form, SSR'd to the URL-derived
+  // intent (so a deep-linked vendor is correct pre-hydration / no-JS) and kept in
+  // sync with the Couple/Vendor radio at runtime by <OAuthAccountTypeMirror>.
+  const accountTypeField = withAccountType ? (
+    <input
+      type="hidden"
+      name="account_type"
+      defaultValue={defaultAccountType}
+      data-oauth-account-type
+    />
+  ) : null;
   return (
     <div className="space-y-2.5">
       {GOOGLE_ENABLED ? (
         <form action={signInWithGoogle}>
           <input type="hidden" name="next" value={next} />
+          {accountTypeField}
           <SubmitButton className={btn} pendingLabel="Redirecting to Google…">
             <GoogleGIcon />
             Continue with Google
@@ -121,12 +144,14 @@ export function OAuthButtonRow({ next, variant = 'light' }: Props) {
       {APPLE_ENABLED ? (
         <form action={signInWithApple}>
           <input type="hidden" name="next" value={next} />
+          {accountTypeField}
           <SubmitButton className={btn} pendingLabel="Redirecting to Apple…">
             <AppleIcon fill={appleFill} />
             Continue with Apple
           </SubmitButton>
         </form>
       ) : null}
+      {withAccountType ? <OAuthAccountTypeMirror /> : null}
     </div>
   );
 }

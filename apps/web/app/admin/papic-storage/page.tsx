@@ -196,7 +196,7 @@ export default async function PapicStoragePage() {
 
 function Tile({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
-    <div className="rounded-lg border border-ink/10 bg-cream/50 p-3">
+    <div className="sn-tile p-3">
       <p className="text-[11px] uppercase tracking-wide text-ink/50">{label}</p>
       <p className="mt-0.5 text-xl font-semibold tabular-nums text-ink">{value}</p>
       <p className="text-[11px] text-ink/55">{sub}</p>

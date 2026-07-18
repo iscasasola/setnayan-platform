@@ -589,7 +589,7 @@ function SaveBanner({
     );
   }
   return (
-    <div className="mb-6 rounded-2xl border border-ink/15 bg-cream p-4">
+    <div className="mb-6 rounded-2xl border border-ink/15 bg-white/70 p-4">
       <p className="text-sm text-ink/70">
         No changes to save — everything already matches what&apos;s live.{skippedNote}
       </p>
@@ -599,7 +599,7 @@ function SaveBanner({
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-ink/5 bg-cream p-3">
+    <div className="rounded-md border border-white/60 bg-white/70 p-3">
       <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">{label}</p>
       <p className="mt-1 text-lg font-semibold tracking-tight text-ink">{value}</p>
     </div>

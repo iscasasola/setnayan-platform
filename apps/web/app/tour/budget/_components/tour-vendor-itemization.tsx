@@ -42,11 +42,11 @@ export function TourVendorItemization({ summary }: { summary: VendorBudgetSummar
   } = summary;
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-[#1E2229]/10 bg-[#FBF8F1]">
-      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-[#1E2229]/10 px-5 py-4">
+    <article className="overflow-hidden rounded-2xl border border-[#1B1A17]/10 bg-[#FBF8F1]">
+      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-[#1B1A17]/10 px-5 py-4">
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="truncate font-serif text-lg tracking-tight text-[#1E2229]">{vendor.vendor_name}</h3>
+            <h3 className="truncate font-serif text-lg tracking-tight text-[#1B1A17]">{vendor.vendor_name}</h3>
             <PriceSourceChip priceSource={priceSource} />
           </div>
           <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-[#5F5E5A]">
@@ -67,7 +67,7 @@ export function TourVendorItemization({ summary }: { summary: VendorBudgetSummar
         <Money label="Remaining" value={formatPhp(remaining)} tone={remaining > 0 ? 'warn' : 'good'} />
       </dl>
 
-      <div className="grid gap-0 border-t border-[#1E2229]/10 lg:grid-cols-2 lg:divide-x lg:divide-[#1E2229]/10">
+      <div className="grid gap-0 border-t border-[#1B1A17]/10 lg:grid-cols-2 lg:divide-x lg:divide-[#1B1A17]/10">
         <LineItemSection
           priceSource={priceSource}
           vendorControlledItems={vendorControlledItems}
@@ -94,7 +94,7 @@ function PriceSourceChip({ priceSource }: { priceSource: VendorPriceSource }) {
   }
   // 'pending'
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-[#C5A059]/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-[#8C6932]">
+    <span className="inline-flex items-center gap-1 rounded-full bg-[#A9834B]/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-[#8C6932]">
       Awaiting pricing
     </span>
   );
@@ -111,14 +111,14 @@ function Money({
 }) {
   const color =
     tone === 'warn'
-      ? 'text-[#1E2229]'
+      ? 'text-[#1B1A17]'
       : tone === 'good'
         ? 'text-emerald-700'
         : tone === 'muted'
           ? 'text-[#5F5E5A]'
-          : 'text-[#1E2229]';
+          : 'text-[#1B1A17]';
   return (
-    <div className="rounded-md bg-[#1E2229]/[0.03] p-2">
+    <div className="rounded-md bg-[#1B1A17]/[0.03] p-2">
       <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#5F5E5A]">{label}</dt>
       <dd className={`mt-0.5 text-sm font-semibold ${color}`}>{value}</dd>
     </div>
@@ -152,17 +152,17 @@ function LineItemSection({
             {vendorControlledItems.map((item) => (
               <li
                 key={item.source_id}
-                className="flex items-center justify-between gap-2 rounded-md border border-[#C5A059]/25 bg-[#C5A059]/[0.07] px-3 py-2 text-sm"
+                className="flex items-center justify-between gap-2 rounded-md border border-[#A9834B]/25 bg-[#A9834B]/[0.07] px-3 py-2 text-sm"
               >
                 <div className="min-w-0 space-y-0.5">
-                  <p className="truncate font-medium text-[#1E2229]">{item.label}</p>
+                  <p className="truncate font-medium text-[#1B1A17]">{item.label}</p>
                   <p className="text-xs text-[#5F5E5A]">
                     {item.source_kind === 'package' ? 'Package item' : 'Starting price'}
                     {' · '}
                     {item.vendor_business_name}
                   </p>
                 </div>
-                <span className="font-mono text-sm font-semibold text-[#1E2229]">{formatPhp(item.amount_php)}</span>
+                <span className="font-mono text-sm font-semibold text-[#1B1A17]">{formatPhp(item.amount_php)}</span>
               </li>
             ))}
           </ul>
@@ -170,7 +170,7 @@ function LineItemSection({
       ) : null}
 
       {priceSource === 'pending' && !hasVendorControlled ? (
-        <p className="rounded-md border border-dashed border-[#C5A059]/40 bg-[#FBF6EA] px-3 py-3 text-sm text-[#5F5E5A]">
+        <p className="rounded-md border border-dashed border-[#A9834B]/40 bg-[#FBF6EA] px-3 py-3 text-sm text-[#5F5E5A]">
           This vendor hasn&rsquo;t shared pricing yet. Their catalog will appear here once they publish it.
         </p>
       ) : null}
@@ -184,10 +184,10 @@ function LineItemSection({
             {lineItems.map((li) => (
               <li
                 key={li.line_item_id}
-                className="flex items-center justify-between gap-2 rounded-md bg-[#1E2229]/[0.03] px-3 py-2 text-sm"
+                className="flex items-center justify-between gap-2 rounded-md bg-[#1B1A17]/[0.03] px-3 py-2 text-sm"
               >
                 <div className="min-w-0 space-y-0.5">
-                  <p className="truncate font-medium text-[#1E2229]">{li.label}</p>
+                  <p className="truncate font-medium text-[#1B1A17]">{li.label}</p>
                   {li.due_date ? (
                     <p className="inline-flex items-center gap-1 text-xs text-[#5F5E5A]">
                       <Calendar className="h-3 w-3" strokeWidth={1.75} />
@@ -195,7 +195,7 @@ function LineItemSection({
                     </p>
                   ) : null}
                 </div>
-                <span className="font-mono text-sm font-semibold text-[#1E2229]">{formatPhp(li.amount_php)}</span>
+                <span className="font-mono text-sm font-semibold text-[#1B1A17]">{formatPhp(li.amount_php)}</span>
               </li>
             ))}
           </ul>

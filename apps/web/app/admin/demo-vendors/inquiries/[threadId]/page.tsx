@@ -12,6 +12,7 @@ import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchThreadById, fetchMessages, formatChatTimestamp } from '@/lib/chat';
+import { isInquiryRevealed, inquiryPlaceholderLabel, inquiryCityLabel } from '@/lib/inquiry-mask.server';
 import { adminAcceptInquiry, adminDeclineInquiry, adminReplyAsVendor } from '../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
@@ -40,18 +41,30 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
 
   const { data: eventRaw } = await admin
     .from('events')
-    .select('display_name, event_date')
+    .select('display_name, event_date, event_type, region')
     .eq('event_id', thread.event_id)
     .maybeSingle();
-  const event = eventRaw as { display_name: string | null; event_date: string | null } | null;
+  const event = eventRaw as {
+    display_name: string | null;
+    event_date: string | null;
+    event_type: string | null;
+    region: string | null;
+  } | null;
 
   const messages = await fetchMessages(admin, threadId);
   const vendorName = vendor.business_name ?? 'Demo vendor';
-  const coupleLabel = event?.display_name ?? 'Couple';
+  // Anonymization-until-accept (Glass PR-6b): demo mirrors production — pre-accept
+  // shows the neutral placeholder, post-accept the couple's event display_name.
+  const coupleLabel = isInquiryRevealed(thread)
+    ? (event?.display_name ?? 'Couple')
+    : inquiryPlaceholderLabel({
+        eventType: event?.event_type ?? null,
+        city: inquiryCityLabel(event?.region ?? null),
+      });
 
   return (
     <section className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
-      <header className="space-y-1 rounded-xl border border-ink/10 bg-cream p-4">
+      <header className="space-y-1 sn-tile p-4">
         <Link
           href="/admin/demo-vendors/inquiries"
           className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta"
@@ -71,7 +84,7 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
       </header>
 
       {/* Message stream (server-rendered; admin acts via service-role) */}
-      <div className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-4">
+      <div className="flex flex-col gap-3 sn-tile p-4">
         {messages.length === 0 ? (
           <p className="py-6 text-center text-sm text-ink/55">No messages yet.</p>
         ) : (
@@ -104,7 +117,7 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
       {thread.inquiry_status === 'accepted' ? (
         <form
           action={adminReplyAsVendor}
-          className="flex items-end gap-2 rounded-xl border border-ink/10 bg-cream p-3"
+          className="flex items-end gap-2 sn-tile p-3"
         >
           <input type="hidden" name="thread_id" value={threadId} />
           <textarea

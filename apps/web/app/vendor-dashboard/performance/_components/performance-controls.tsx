@@ -28,9 +28,6 @@ export function PerformanceControls({
   monthlySeries,
   dailySeries,
   scopeLabel,
-  nullExcludedYear,
-  nullExcludedMonth,
-  nullExcludedDay,
   serviceSelector,
   windowedSection = null,
 }: {
@@ -43,9 +40,6 @@ export function PerformanceControls({
   monthlySeries: MomentumCardMonthlySeries;
   dailySeries: MomentumCardDailySeries;
   scopeLabel: string | null;
-  nullExcludedYear: number | null;
-  nullExcludedMonth: number | null;
-  nullExcludedDay: number | null;
   /** Server-rendered <ServiceScopeSelector/> (or null when <2 active services). */
   serviceSelector: ReactNode;
   /** Pre-rendered ROI+funnel+by-source per window (Pro+), swapped by the toggle.
@@ -64,9 +58,6 @@ export function PerformanceControls({
       );
     }
   };
-
-  const nullServiceExcluded =
-    mode === 'year' ? nullExcludedYear : mode === 'month' ? nullExcludedMonth : nullExcludedDay;
 
   const activeWindowed = windowedSection
     ? mode === 'year'
@@ -99,7 +90,6 @@ export function PerformanceControls({
             monthlySeries={monthlySeries}
             dailySeries={dailySeries}
             scopeLabel={scopeLabel}
-            nullServiceExcluded={nullServiceExcluded}
           />
         </Reanimate>
 

@@ -44,8 +44,8 @@ export async function OnboardingSurface({ searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-3xl">
       <header className="mb-6 space-y-2">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">Setnayan · Internal ops</p>
-        <h1 className="m-display-tight text-3xl text-[color:var(--m-ink)] sm:text-4xl">
+        <p className="sn-eye">Setnayan · Internal ops</p>
+        <h1 className="sn-h1">
           Onboarding
         </h1>
         <p className="text-base text-ink/65">
@@ -68,7 +68,7 @@ export async function OnboardingSurface({ searchParams }: Props) {
       ) : null}
 
       {/* ── WEDDING ONBOARDING ─────────────────────────────────────────── */}
-      <section className="rounded-2xl border border-ink/10 bg-cream/40 p-5 sm:p-6">
+      <section className="sn-tile p-5 sm:p-6">
         <header className="mb-4 flex items-center gap-2">
           <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-mulberry/10 text-mulberry">
             <Heart className="h-5 w-5" strokeWidth={1.75} aria-hidden />
@@ -85,7 +85,7 @@ export async function OnboardingSurface({ searchParams }: Props) {
         <div className="rounded-xl border border-ink/10 bg-white p-5">
           <div className="mb-1 flex items-center gap-2">
             <Music className="h-4 w-4 text-terracotta" strokeWidth={1.75} aria-hidden />
-            <h3 className="m-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+            <h3 className="sn-eye">
               Background music
             </h3>
           </div>
@@ -153,7 +153,7 @@ export async function OnboardingSurface({ searchParams }: Props) {
       </section>
 
       {/* ── FUTURE TYPES ───────────────────────────────────────────────── */}
-      <section className="mt-6 rounded-2xl border border-dashed border-ink/15 bg-cream/20 p-5 text-sm text-ink/55">
+      <section className="mt-6 rounded-2xl border border-dashed border-ink/15 bg-white/50 p-5 text-sm text-ink/55">
         <p className="font-semibold text-ink/70">More onboarding flows</p>
         <p className="mt-1">
           As Setnayan opens new event types (birthday, celebration, corporate,

@@ -129,7 +129,7 @@ export async function DemoModeSurface({ searchParams }: Props) {
         </FormFlash>
       ) : null}
 
-      <section className="space-y-5 rounded-xl border border-ink/10 bg-cream p-5">
+      <section className="space-y-5 sn-tile p-5">
         <div className="flex items-center gap-3">
           <span
             className={
@@ -187,7 +187,7 @@ export async function DemoModeSurface({ searchParams }: Props) {
         )}
       </section>
 
-      <section className="mt-6 space-y-3 rounded-xl border border-ink/10 bg-cream p-5">
+      <section className="mt-6 space-y-3 sn-tile p-5">
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           Quick links
         </h2>
@@ -231,7 +231,7 @@ export async function DemoModeSurface({ searchParams }: Props) {
         </p>
       </section>
 
-      <section className="mt-6 rounded-xl border border-ink/10 bg-cream p-5 text-sm text-ink/65">
+      <section className="mt-6 sn-tile p-5 text-sm text-ink/65">
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           Shortcut
         </h2>

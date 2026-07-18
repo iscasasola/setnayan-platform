@@ -50,10 +50,16 @@ const SIZE_TOKENS: Record<Size, { box: string; text: string; px: number }> = {
 export function EventMonogram({
   event,
   size = 'md',
+  shape = 'circle',
   className,
 }: {
   event: Event;
   size?: Size;
+  /** OPT-IN chip shape (home-launcher pixel pass 2026-07-15): 'square' renders
+   *  the badge as a rounded-square chip (the prototype's 12px-radius event-card
+   *  monogram) instead of the default circle. Only the launcher passes it —
+   *  every other mount keeps the circular badge unchanged. */
+  shape?: 'circle' | 'square';
   className?: string;
 }) {
   const { text, color } = resolveMonogram({
@@ -73,6 +79,9 @@ export function EventMonogram({
   });
   const ink = design?.color ?? color;
   const { box, text: textSize, px } = SIZE_TOKENS[size];
+  // Radius token per shape — 'square' uses the md radius token (--m-r-md ≈ the
+  // prototype's 12px chip corner; nearest owner-locked step).
+  const shapeClass = shape === 'square' ? 'rounded-xl' : 'rounded-full';
 
   // Custom mark (Cipher / Bespoke AI) outranks the lettered design — when one
   // exists it IS the couple's monogram, so the chrome icon shows the SAME mark
@@ -87,7 +96,7 @@ export function EventMonogram({
     return (
       <span
         aria-hidden
-        className={`inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-cream ${box} ${
+        className={`inline-flex shrink-0 items-center justify-center overflow-hidden bg-cream ${shapeClass} ${box} ${
           className ?? ''
         }`
           .replace(/\s+/g, ' ')
@@ -187,7 +196,7 @@ export function EventMonogram({
   return (
     <span
       aria-hidden
-      className={`inline-flex shrink-0 items-center justify-center rounded-full border bg-cream font-semibold ${
+      className={`inline-flex shrink-0 items-center justify-center border bg-cream font-semibold ${shapeClass} ${
         design ? '' : 'font-serif italic'
       } ${box} ${textSize} ${className ?? ''}`
         .replace(/\s+/g, ' ')

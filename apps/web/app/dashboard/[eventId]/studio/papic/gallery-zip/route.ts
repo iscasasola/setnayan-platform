@@ -6,6 +6,7 @@ import archiver from 'archiver';
 import { createClient } from '@/lib/supabase/server';
 import { getR2Client } from '@/lib/r2';
 import { parseStoredAsset } from '@/lib/uploads';
+import { stripPhotoMetadata } from '@/lib/papic-derivatives';
 
 // "Download all" — stream the couple's Papic captures (photos + clip videos) as
 // a ZIP, so they can pull the whole gallery to their phone/computer WITHOUT
@@ -62,49 +63,75 @@ export async function GET(_req: Request, ctx: { params: Promise<{ eventId: strin
       .limit(MAX_ITEMS),
   ]);
 
-  type Item = { id: string; ref: string; kind: 'photo' | 'clip'; at: string | null };
+  type Item = {
+    id: string;
+    ref: string;
+    kind: 'photo' | 'clip';
+    at: string | null;
+    // Whether the fetched bytes still need an on-the-fly metadata strip before
+    // they leave the server (true only for a raw PHOTO original with no derivative).
+    needsStrip: boolean;
+    ext: string;
+  };
   const items: Item[] = [];
-  // Download-ref with the 3-month-drop fallback: once a PHOTO's full-res original
-  // was dropped from R2 (full_res_dropped_at set), zip the AVIF web copy instead —
-  // the couple still gets every photo (compressed), never a broken/missing file.
-  // Clips keep r2_object_key (their video is never dropped). Tags + metadata live
-  // on the row and are never affected by the drop.
+  // PRIVACY (RA 10173 · CLAUDE.md "geo stripped on outbound shares") + owner
+  // 2026-07-16 "Download all stays FULL-RESOLUTION": a PHOTO's full-res original
+  // carries EXIF GPS (DSLR-bridge / native-app / camera-roll sources), so it must
+  // NEVER leave the server RAW — but the couple/guest still get FULL resolution.
+  // Order: (1) the full-res original, run through an on-the-fly `stripPhotoMetadata`
+  // sharp pass (rotate → drop EXIF/GPS → full-res JPEG, `.jpg`) — this is the
+  // normal path and keeps whatever resolution the original has; (2) ONLY if the
+  // original's R2 pixels are already gone (3-month drop) fall back to the stripped
+  // AVIF `display_r2_key` web copy (`.avif`) so the download never 404s. We do NOT
+  // downgrade to the derivative while the original exists. CLIPS keep their video
+  // original (`.mp4`) — MP4/container GPS strip needs an ffmpeg pass Vercel can't
+  // run on the serving path, so it is DEFERRED; browser-captured Papic clips carry
+  // no GPS anyway.
   const dl = (
     orig: string | null,
     display: string | null,
     dropped: string | null,
     isClip: boolean,
-  ): string | null => (!isClip && dropped ? (display ?? orig) : orig);
+  ): Pick<Item, 'ref' | 'needsStrip' | 'ext'> | null => {
+    if (isClip) return orig ? { ref: orig, needsStrip: false, ext: 'mp4' } : null;
+    // Full-res original, stripped on the fly — the target for a normal gallery.
+    if (orig && !dropped) return { ref: orig, needsStrip: true, ext: 'jpg' };
+    // Original dropped after 3 months → the stripped web copy is what's left.
+    if (display) return { ref: display, needsStrip: false, ext: 'avif' };
+    // Flagged dropped but a key is still recorded — strip it, never serve raw.
+    if (orig) return { ref: orig, needsStrip: true, ext: 'jpg' };
+    return null;
+  };
   for (const r of seatRows ?? []) {
     const isClip = r.photo_type === 'clip';
-    const ref = dl(
+    const sel = dl(
       r.r2_object_key as string | null,
       r.display_r2_key as string | null,
       r.full_res_dropped_at as string | null,
       isClip,
     );
-    if (ref) {
+    if (sel) {
       items.push({
         id: r.photo_id as string,
-        ref,
         kind: isClip ? 'clip' : 'photo',
         at: (r.captured_at as string) ?? null,
+        ...sel,
       });
     }
   }
   for (const r of guestRows ?? []) {
-    const ref = dl(
+    const sel = dl(
       r.r2_object_key as string | null,
       r.display_r2_key as string | null,
       r.full_res_dropped_at as string | null,
       false,
     );
-    if (ref) {
+    if (sel) {
       items.push({
         id: r.capture_id as string,
-        ref,
         kind: 'photo',
         at: (r.captured_at as string) ?? null,
+        ...sel,
       });
     }
   }
@@ -129,10 +156,22 @@ export async function GET(_req: Request, ctx: { params: Promise<{ eventId: strin
         );
         if (!obj.Body) continue;
         const bytes = await obj.Body.transformToByteArray();
-        const ext = it.kind === 'clip' ? 'mp4' : 'jpg';
+        // Last-line geo strip: a raw photo original (no derivative) is scrubbed of
+        // EXIF/GPS here before it enters the zip. Best-effort — if the strip fails
+        // we DROP the item rather than ship the geo-bearing original.
+        let out: Buffer;
+        if (it.needsStrip) {
+          try {
+            out = await stripPhotoMetadata(bytes);
+          } catch {
+            continue;
+          }
+        } else {
+          out = Buffer.from(bytes);
+        }
         const day = (it.at ?? '').slice(0, 10) || 'photo';
-        archive.append(Buffer.from(bytes), {
-          name: `${day}-${String(++n).padStart(4, '0')}-${it.id}.${ext}`,
+        archive.append(out, {
+          name: `${day}-${String(++n).padStart(4, '0')}-${it.id}.${it.ext}`,
         });
       } catch {
         // Skip a missing/failed object — never abort the whole download.

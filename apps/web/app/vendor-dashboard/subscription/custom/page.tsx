@@ -88,8 +88,8 @@ export default async function VendorCustomPlanPage({ searchParams }: Props) {
       </Link>
 
       <header className="mb-6 mt-3 sm:mb-8">
-        <p className="m-eyebrow">Beyond Enterprise</p>
-        <h1 className="m-display-tight mt-1 flex items-center gap-2 text-3xl sm:text-4xl">
+        <p className="sn-eye">Beyond Enterprise</p>
+        <h1 className="sn-h1 mt-1 flex items-center gap-2">
           <Sparkles className="h-7 w-7 text-orange" strokeWidth={1.75} aria-hidden />
           Compose a Custom plan.
         </h1>

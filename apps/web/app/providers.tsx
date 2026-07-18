@@ -25,6 +25,7 @@ import { BrandProvider } from './_components/brand-provider';
 import { LoaderConfigProvider } from './_components/loader-config-provider';
 import { DEFAULT_LOADER_CONFIG, type LoaderConfig } from '@/lib/loader-config';
 import { DeferredObservability } from './_components/deferred-observability';
+import { DeviceCapture } from './_components/device-capture';
 import { GlobalHaptics } from './_components/global-haptics';
 import { GlobalSliderHint } from './_components/global-slider-hint';
 import { PostHogProvider } from './_components/posthog-provider';
@@ -198,6 +199,13 @@ export function Providers({
           untouched and continues to capture server errors eagerly.
         */}
         <DeferredObservability />
+        {/*
+          Device-fingerprint capture (fake-inquiry protection · Phase E). Deferred,
+          once-per-session, flag-gated OFF by default — records a coarse first-party
+          device id into user_devices to power fraud identity-clustering. No-ops
+          entirely until NEXT_PUBLIC_DEVICE_FINGERPRINT_ENABLED is on.
+        */}
+        <DeviceCapture />
         {/*
           App-wide tap haptics — one passive pointerdown listener fires a
           light `tick` on any interactive control. Owner directive 2026-06-03.

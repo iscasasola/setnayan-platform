@@ -274,7 +274,10 @@ export const getVendorPrices = cache(async () => {
   const entYr = price('enterprise_vendor_annual');
   const branch = price('vendor_branch_28day');
   const pack = rows.find((r) => r.offering_type === 'token_pack' && r.token_grant_count);
-  const tokenUnit = pack && pack.token_grant_count ? pack.price_php / pack.token_grant_count : 100;
+  // Fallback mirrors the live flat ₱200/token ladder (2026-07-15 catalog
+  // restructure: ₱1,000 = 5 tokens) so a DB-unreachable build never renders a
+  // stale ₱100. The live read (price_php ÷ token_grant_count) wins when present.
+  const tokenUnit = pack && pack.token_grant_count ? pack.price_php / pack.token_grant_count : 200;
   const fmt = (n: number | null, fb: string) => (n == null ? fb : `₱${formatPeso(n)}`);
   const save = (mo: number | null, yr: number | null, fb: string) =>
     mo != null && yr != null ? `₱${formatPeso(mo * 13 - yr)}` : fb;

@@ -2,6 +2,7 @@ import {
   ShieldCheck,
   Star,
   Store,
+  Users,
   RefreshCw,
   ShieldAlert,
   EyeOff,
@@ -57,7 +58,7 @@ type FlagStatus = 'open' | 'dismissed' | 'confirmed_fraud' | 'listing_hidden';
 type FlagRow = {
   id: number;
   public_id: string;
-  kind: 'review_fraud' | 'ghost_listing';
+  kind: 'review_fraud' | 'ghost_listing' | 'inquiry_concentration';
   subject_vendor_id: string;
   subject_review_id: string | null;
   score: number;
@@ -69,7 +70,12 @@ type FlagRow = {
   created_at: string;
 };
 
-type Tab = 'reviews' | 'listings';
+/** inquiry_concentration reason labels (detect_inquiry_concentration). */
+const INQUIRY_CONCENTRATION_REASON_LABEL: Record<string, string> = {
+  sock_puppet_concentration: 'Linked accounts targeting one vendor',
+};
+
+type Tab = 'reviews' | 'listings' | 'inquiries';
 type StatusFilter = 'open' | 'confirmed' | 'dismissed' | 'all';
 
 const STATUS_LABEL: Record<FlagStatus, string> = {
@@ -93,7 +99,9 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
 ];
 
 function normalizeTab(raw: string | undefined): Tab {
-  return raw === 'listings' ? 'listings' : 'reviews';
+  if (raw === 'listings') return 'listings';
+  if (raw === 'inquiries') return 'inquiries';
+  return 'reviews';
 }
 function normalizeStatus(raw: string | undefined): StatusFilter {
   return (['open', 'confirmed', 'dismissed', 'all'] as const).includes(
@@ -112,7 +120,11 @@ function scoreTone(s: number): string {
 
 function reasonLabel(kind: FlagRow['kind'], reason: string): string {
   const map =
-    kind === 'review_fraud' ? REVIEW_FRAUD_REASON_LABEL : GHOST_LISTING_REASON_LABEL;
+    kind === 'review_fraud'
+      ? REVIEW_FRAUD_REASON_LABEL
+      : kind === 'ghost_listing'
+        ? GHOST_LISTING_REASON_LABEL
+        : INQUIRY_CONCENTRATION_REASON_LABEL;
   return map[reason] ?? reason;
 }
 
@@ -132,7 +144,7 @@ function evidenceChips(row: FlagRow): string[] {
       );
     if (rd.linkage?.peer_reviewer_count)
       chips.push(`shares a device with ${rd.linkage.peer_reviewer_count} reviewer(s)`);
-  } else {
+  } else if (row.kind === 'ghost_listing') {
     const gd = d as unknown as GhostListingDetail;
     if (gd.has_logo === false) chips.push('no logo');
     if (gd.active_service_count === 0) chips.push('no active services');
@@ -140,6 +152,17 @@ function evidenceChips(row: FlagRow): string[] {
       chips.push(`${gd.inbound_message_count} message(s), 0 replies`);
     if (gd.dormant_days > 120) chips.push(`dormant ${gd.dormant_days}d`);
     if (gd.duplicate_of_count) chips.push(`duplicate of ${gd.duplicate_of_count} listing(s)`);
+  } else {
+    // inquiry_concentration — one linked identity-cluster spraying this vendor.
+    const id = d as {
+      cluster_label?: string;
+      distinct_accounts?: number;
+      window_days?: number;
+    };
+    if (id.distinct_accounts)
+      chips.push(`${id.distinct_accounts} linked accounts → this vendor`);
+    if (id.window_days) chips.push(`within ${id.window_days}d`);
+    if (id.cluster_label) chips.push(`cluster ${id.cluster_label}`);
   }
   return chips;
 }
@@ -158,7 +181,12 @@ export default async function AdminIntegrityWatchPage({
   const search = await searchParams;
   const tab = normalizeTab(search.tab);
   const status = normalizeStatus(search.status);
-  const kind = tab === 'reviews' ? 'review_fraud' : 'ghost_listing';
+  const kind =
+    tab === 'reviews'
+      ? 'review_fraud'
+      : tab === 'listings'
+        ? 'ghost_listing'
+        : 'inquiry_concentration';
 
   const admin = createAdminClient();
 
@@ -208,7 +236,15 @@ export default async function AdminIntegrityWatchPage({
     .select('id', { count: 'exact', head: true })
     .eq('kind', 'ghost_listing')
     .eq('status', 'open');
+  const { count: openInquiries } = await admin
+    .from('integrity_flags')
+    .select('id', { count: 'exact', head: true })
+    .eq('kind', 'inquiry_concentration')
+    .eq('status', 'open');
 
+  // Inquiries have no rescan — they're raised by the cron-free fraud-cluster
+  // sweep, not an on-demand backfill.
+  const hasRescan = tab !== 'inquiries';
   const rescanAction = tab === 'reviews' ? rescanReviewsForFraud : rescanGhostListings;
   const rescanLabel = tab === 'reviews' ? 'Rescan reviews' : 'Rescan listings';
 
@@ -220,24 +256,28 @@ export default async function AdminIntegrityWatchPage({
             <ShieldCheck className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
             <h1 className="text-2xl font-semibold tracking-tight">Integrity watch</h1>
           </div>
-          <form action={rescanAction}>
-            <SubmitButton
-              className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]"
-              pendingLabel="Rescanning…"
-            >
-              <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />{' '}
-              {rescanLabel}
-            </SubmitButton>
-          </form>
+          {hasRescan && (
+            <form action={rescanAction}>
+              <SubmitButton
+                className="inline-flex items-center gap-1.5 rounded-md border border-white/60 bg-white/70 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]"
+                pendingLabel="Rescanning…"
+              >
+                <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />{' '}
+                {rescanLabel}
+              </SubmitButton>
+            </form>
+          )}
         </div>
         <p className="text-sm text-ink/65">
-          Deterministic fraud + ghost-listing screening. <span className="font-medium">Reviews</span>{' '}
+          Deterministic integrity screening. <span className="font-medium">Reviews</span>{' '}
           scores every submitted review on velocity/burst, rating anomaly, and
           shared-device reviewer clusters; <span className="font-medium">Listings</span>{' '}
-          flags placeholder / abandoned / duplicate marketplace listings.
-          Detect-and-review only — resolving records a verdict; a review flag
-          never auto-deletes the review, and a listing is only hidden on an
-          explicit click. Demo vendors are excluded.
+          flags placeholder / abandoned / duplicate marketplace listings;{' '}
+          <span className="font-medium">Inquiries</span> flags a linked identity-cluster
+          spraying one vendor with fake inquiries (the vendor is the victim —
+          never penalized). Detect-and-review only — resolving records a verdict; a
+          review flag never auto-deletes the review, and a listing is only hidden
+          on an explicit click. Demo vendors are excluded.
         </p>
       </header>
 
@@ -275,6 +315,17 @@ export default async function AdminIntegrityWatchPage({
           <Store aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Listings
           {openListings ? ` · ${openListings}` : ''}
         </Link>
+        <Link
+          href="/admin/integrity-watch?tab=inquiries"
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ${
+            tab === 'inquiries'
+              ? 'bg-ink text-cream'
+              : 'border border-ink/15 text-ink/70 hover:bg-ink/[0.04]'
+          }`}
+        >
+          <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Inquiries
+          {openInquiries ? ` · ${openInquiries}` : ''}
+        </Link>
       </div>
 
       {/* Status filters */}
@@ -302,11 +353,13 @@ export default async function AdminIntegrityWatchPage({
       )}
 
       {rows.length === 0 ? (
-        <p className="rounded-md border border-ink/10 bg-cream px-4 py-3 text-sm text-ink/65">
+        <p className="rounded-md border border-white/60 bg-white/70 px-4 py-3 text-sm text-ink/65">
           No flags in this view.
           {tab === 'listings'
             ? ' Use “Rescan listings” to sweep the marketplace.'
-            : ' Reviews are screened automatically on submit — use “Rescan reviews” to backfill historical ones.'}
+            : tab === 'inquiries'
+              ? ' Linked-account inquiry sprays surface here automatically (shadow mode) once device-fingerprint capture is on.'
+              : ' Reviews are screened automatically on submit — use “Rescan reviews” to backfill historical ones.'}
         </p>
       ) : (
         <ul className="space-y-4">
@@ -371,7 +424,7 @@ export default async function AdminIntegrityWatchPage({
                         name="note"
                         placeholder="Optional note…"
                         maxLength={500}
-                        className="min-w-0 flex-1 rounded-md border border-ink/15 bg-cream px-2.5 py-1.5 text-xs text-ink/80 placeholder:text-ink/40 sm:w-48 sm:flex-none"
+                        className="min-w-0 flex-1 rounded-md border border-white/60 bg-white/70 px-2.5 py-1.5 text-xs text-ink/80 placeholder:text-ink/40 sm:w-48 sm:flex-none"
                       />
                       {r.kind === 'review_fraud' ? (
                         <button
@@ -383,7 +436,7 @@ export default async function AdminIntegrityWatchPage({
                           <ShieldAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                           Confirm fraud
                         </button>
-                      ) : (
+                      ) : r.kind === 'ghost_listing' ? (
                         <button
                           type="submit"
                           name="action"
@@ -392,6 +445,18 @@ export default async function AdminIntegrityWatchPage({
                         >
                           <EyeOff aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                           Hide listing
+                        </button>
+                      ) : (
+                        // inquiry_concentration: confirm the ATTACK (verdict only —
+                        // never touches the victim vendor). No "hide listing".
+                        <button
+                          type="submit"
+                          name="action"
+                          value="confirm_fraud"
+                          className="inline-flex items-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta-700 hover:bg-terracotta/10"
+                        >
+                          <ShieldAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                          Confirm attack
                         </button>
                       )}
                       <button
@@ -424,9 +489,10 @@ export default async function AdminIntegrityWatchPage({
       )}
 
       <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-        Source · review-fraud screener + ghost-listing detector · table{' '}
-        <code>integrity_flags</code> (migration 20270412000042) · deterministic ·
-        detect-and-review only · non-PII evidence
+        Source · review-fraud screener + ghost-listing detector +
+        inquiry-concentration sweep · table <code>integrity_flags</code>{' '}
+        (migration 20270412000042) · deterministic · detect-and-review only ·
+        non-PII evidence
       </p>
     </div>
   );

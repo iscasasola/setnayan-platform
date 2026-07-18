@@ -64,7 +64,16 @@ export interface TierCaps {
   importCustomerTokenCost: number;
   /** Portfolio photo cap. Infinity = unlimited. */
   portfolioPhotos: number;
-  /** Eligible to be tagged in editorial. */
+  /**
+   * Eligible to be tagged in editorial (the showcase credit chip — logo +
+   * /v/[slug] link). RETIRED AS A TIER DISTINCTION 2026-07-16 (owner-ratified
+   * Simplicity Canon rule 2, Creator_Economy_Discount_Collab_Build_Plan:
+   * "Being credited in a story is always free — editorial or chapter, any
+   * tier. You never pay to be named in a story."). Now TRUE for every tier;
+   * kept as a field so the matrix shape (and any external read) is unchanged.
+   * Pro keeps its other perks. Name display still respects the hybrid-
+   * anonymity mechanic at the read sites (resolveVendorDisplayName).
+   */
   editorialTagged: boolean;
   /** Review star average is counted/shown. */
   reviewStarsCounted: boolean;
@@ -106,10 +115,21 @@ export interface TierCaps {
   performanceAdvanced: boolean;
   /** Solo business back-office (earnings analytics + recap sharing). Solo+ (2026-07-01 beef-up). */
   soloBusinessTools: boolean;
+  /**
+   * In-thread 1:1 voice/video CALLS with couples (the "Call" tab + appointment
+   * video/voice join). PAID-tier capability — any paid plan (Solo+), NOT
+   * Free/Verified (owner 2026-07-13: "a service for the paid"). The media is
+   * free P2P; a TURN relay covers hard-NAT couples, so gating it to paying
+   * vendors also keeps the relay a paid-vendor cost. Enforced flag-dark via
+   * isVendorFeatureGateEnabled() — see lib/vendor-feature-gate.ts — so the
+   * transport un-gates unchanged until the owner flips the gate on.
+   */
+  calls: boolean;
 }
 
 export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   free: {
+    calls: false,
     serviceRadiusKm: 0,
     servicesPerLeaf: 2,
     chat: 'none',
@@ -129,7 +149,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     performanceTrends: false,
     performanceAdvanced: false,
     soloBusinessTools: false,
-    editorialTagged: false,
+    editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
     reviewStarsCounted: false,
     reviewCommentsViewable: false,
     website: 'basic',
@@ -143,6 +163,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // still keeps its 10/week cap, enforced in unlock_vendor_event). Solo stays
   // strictly better (servicesPerLeaf 3 vs 2, inAppCustomersPerWeek ∞ vs 10).
   verified: {
+    calls: false,
     serviceRadiusKm: 20,
     servicesPerLeaf: 2,
     chat: 'chat',
@@ -162,7 +183,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inAppGated: true,
     importCustomerTokenCost: 0,
     portfolioPhotos: 50,
-    editorialTagged: false,
+    editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
     reviewStarsCounted: true,
     reviewCommentsViewable: false,
     website: 'custom',
@@ -174,6 +195,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // Token-burn model same as Pro/Enterprise (inAppGated = true). One agent seat
   // (owner 2026-07-02 — Solo now sits one seat above Free · Verified's 0).
   solo: {
+    calls: true,
     serviceRadiusKm: 20,
     servicesPerLeaf: 3,
     marketIntel: false,
@@ -193,7 +215,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inAppGated: true,
     importCustomerTokenCost: 0,
     portfolioPhotos: 50,
-    editorialTagged: false,
+    editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
     reviewStarsCounted: true,
     reviewCommentsViewable: false,
     website: 'custom',
@@ -201,6 +223,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inquireLink: true,
   },
   pro: {
+    calls: true,
     serviceRadiusKm: 50,
     // Market intel (cross-business Demand Radar + Price-Position) is PRO-AND-UP
     // (owner 2026-07-11 — supersedes the 2026-07-01 "Enterprise-only" call, which
@@ -238,6 +261,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // multi-location / truly-unlimited. Left unbounded: parentCategories ("all
   // categories" — taxonomy-bounded already) + servicesPerLeaf + inApp volume.
   enterprise: {
+    calls: true,
     serviceRadiusKm: 100, // nationwide-marketed (top of the Local→20→50→100 ladder)
     marketIntel: true,
     theftWatch: true,
@@ -273,6 +297,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // caps.ts) — the static base here is the Enterprise clone, never edited per
   // vendor. Keep this in lockstep with `enterprise` above on any Enterprise edit.
   custom: {
+    calls: true,
     serviceRadiusKm: 100,
     marketIntel: true,
     theftWatch: true,
@@ -361,7 +386,7 @@ export const TIER_SUBSCRIPTION_BUNDLE_TOKENS: Record<
 export const TOKEN_BUY_PRICE_PHP = 100;
 
 /**
- * May purchase additional lifetime tokens (₱100/token)?
+ * May purchase additional lifetime tokens (₱200/token)?
  *
  * VERIFICATION-GATED (owner 2026-07-01: "they can only purchase tokens and
  * subscribe when they are verified"). Only a VERIFIED store may buy — i.e. any
@@ -481,4 +506,7 @@ export function canSeePerformanceAdvanced(tier: string | null | undefined): bool
 }
 export function canUseSoloBusinessTools(tier: string | null | undefined): boolean {
   return tierCaps(tier).soloBusinessTools; // earnings dashboard + recap sharing (Solo+)
+}
+export function canUseCalls(tier: string | null | undefined): boolean {
+  return tierCaps(tier).calls; // in-thread voice/video calls with couples — any paid plan (Solo+)
 }

@@ -121,7 +121,7 @@ export async function PatiktokSurface() {
         {(['queued', 'processing', 'completed', 'failed', 'cancelled'] as const).map((s) => (
           <span
             key={s}
-            className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-cream px-3 py-1 font-mono uppercase tracking-[0.15em] text-ink/70"
+            className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-white/70 px-3 py-1 font-mono uppercase tracking-[0.15em] text-ink/70"
           >
             {s} · {counts[s] ?? 0}
           </span>
@@ -129,11 +129,11 @@ export async function PatiktokSurface() {
       </div>
 
       {jobs.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-6 text-center text-sm text-ink/55">
+        <p className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-6 text-center text-sm text-ink/55">
           No Patiktok render jobs yet.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-ink/10 bg-cream">
+        <div className="sn-tile overflow-x-auto !p-0">
           <table className="w-full min-w-[760px] text-left text-sm">
             <thead>
               <tr className="border-b border-ink/10 text-[11px] uppercase tracking-[0.15em] text-ink/55">

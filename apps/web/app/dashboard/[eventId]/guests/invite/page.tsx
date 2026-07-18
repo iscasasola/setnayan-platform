@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, ArrowRight, Send } from 'lucide-react';
+import { ArrowLeft, ArrowRight, QrCode, Send } from 'lucide-react';
 import QRCode from 'qrcode';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -83,7 +83,7 @@ export default async function GuestInvitePage({ params }: Props) {
         errorCorrectionLevel: 'M',
         margin: 2,
         width: 320,
-        color: { dark: '#1E2229', light: '#FBFBFA' },
+        color: { dark: '#1B1A17', light: '#FBFBFA' },
       })
     : null;
 
@@ -164,6 +164,34 @@ export default async function GuestInvitePage({ params }: Props) {
           />
         </Link>
       ) : null}
+
+      {/* Event QR (crew pairing) — a DIFFERENT QR from the guest invite above.
+          This one pairs your photo + livestream vendors' capture DEVICES to the
+          event; it is NOT a guest invite. The Event QR tool (/event-qr) was
+          orphaned when the Home/Overview redesigns dropped its tile, so this
+          quiet secondary row gives it one findable home (2026-07-15). */}
+      <Link
+        href={`/dashboard/${eventId}/event-qr`}
+        className="group mt-4 flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-ink/[0.02] px-4 py-3 transition-colors hover:border-ink/20 hover:bg-ink/[0.04]"
+      >
+        <span className="flex items-start gap-2.5 text-sm text-ink/70">
+          <QrCode
+            aria-hidden
+            className="mt-0.5 h-4 w-4 shrink-0 text-ink/45"
+            strokeWidth={1.75}
+          />
+          <span>
+            <span className="font-medium text-ink">Event QR for your crew</span> — pairs
+            your photo &amp; livestream vendors&rsquo; devices to this event. Not for
+            guest invites.
+          </span>
+        </span>
+        <ArrowRight
+          aria-hidden
+          className="mt-0.5 h-4 w-4 shrink-0 text-ink/40 transition-transform group-hover:translate-x-0.5"
+          strokeWidth={1.75}
+        />
+      </Link>
     </div>
   );
 }

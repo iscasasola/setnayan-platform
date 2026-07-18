@@ -154,20 +154,16 @@ export default async function AdminVerifyPage({ searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       {/*
-       * v2.1 chrome overlay (2026-05-28) — eyebrow uses .m-eyebrow, heading
-       * uses .m-display-tight (Saira Condensed). Matches admin overview +
-       * couple/vendor dashboard treatment. Logic + queue table preserved.
+       * Atelier-Glass chrome — eyebrow uses .sn-eye, heading uses .sn-h1 (Hanken
+       * Grotesk). Matches admin overview + couple/vendor dashboard treatment.
+       * Logic + queue table preserved.
        */}
       <header className="mb-6 space-y-2">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">
-          Iteration 0006 · § Vendor Verification · 0023 § 3.2
-        </p>
-        <h1 className="m-display-tight text-2xl text-[color:var(--m-ink)] sm:text-3xl">
-          Verification queue
-        </h1>
-        <p className="max-w-2xl text-sm text-ink/65">
-          Vendors submit a 12-document checklist; Setnayan reviews within 3–5
-          business days and flips them to <span className="font-medium">Verified</span>.
+        <p className="sn-eye">Trust &amp; supply · verification</p>
+        <h1 className="sn-h1">Verification queue</h1>
+        <p className="max-w-2xl text-sm text-[color:var(--sn-ink-500)]">
+          Vendors submit a 12-document checklist; Setnayan reviews within 72
+          hours and flips them to <span className="font-medium">Verified</span>.
           The companion <span className="font-medium">Visibility</span> surface
           governs marketplace listing state (coming_soon · verified · hidden ·
           archived) independent of the verification workflow.
@@ -197,10 +193,7 @@ function SurfaceTabs({ current }: { current: 'applications' | 'visibility' }) {
     { key: 'visibility', label: 'Listing visibility' },
   ];
   return (
-    <nav
-      className="mb-4 inline-flex gap-1 rounded-lg border border-ink/15 bg-cream p-1"
-      aria-label="Verification surfaces"
-    >
+    <nav className="mb-4 inline-flex flex-wrap gap-2" aria-label="Verification surfaces">
       {tabs.map((t) => {
         const active = current === t.key;
         return (
@@ -208,11 +201,7 @@ function SurfaceTabs({ current }: { current: 'applications' | 'visibility' }) {
             key={t.key}
             href={`/admin/verify?surface=${t.key}`}
             aria-pressed={active}
-            className={
-              active
-                ? 'inline-flex items-center rounded-md bg-ink px-3 py-1.5 text-xs font-medium text-cream sn-bounce'
-                : 'inline-flex items-center rounded-md px-3 py-1.5 text-xs text-ink/70 hover:bg-ink/5'
-            }
+            className={`sn-chip${active ? ' selected' : ''}`}
           >
             {t.label}
           </Link>
@@ -467,7 +456,7 @@ async function ApplicationsSurface({
       {error ? null : null}
 
       {fullRows.length === 0 && demotedFallback.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-ink/20 bg-cream p-10 text-center text-sm text-ink/55">
+        <p className="rounded-card border border-dashed border-ink/15 bg-white/50 p-10 text-center text-sm text-[color:var(--sn-ink-400)]">
           {tabFilter.emptyHint}
         </p>
       ) : (
@@ -579,11 +568,7 @@ function ApplicationsTabs({ current }: { current: string }) {
             key={t.key}
             href={`/admin/verify?surface=applications&status=${t.key}`}
             aria-pressed={active}
-            className={
-              active
-                ? 'inline-flex items-center rounded-full bg-ink px-3 py-1 text-xs font-medium text-cream'
-                : 'inline-flex items-center rounded-full border border-ink/20 bg-cream px-3 py-1 text-xs text-ink/70 hover:bg-ink/5'
-            }
+            className={`sn-chip${active ? ' selected' : ''}`}
           >
             {t.label}
           </Link>
@@ -615,7 +600,7 @@ function ApplicationCard({
   );
 
   return (
-    <article className="space-y-4 rounded-xl border border-ink/10 bg-cream p-5">
+    <article className="sn-row space-y-4 p-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-base font-semibold text-ink">
@@ -1318,7 +1303,7 @@ async function VisibilitySurface({
       {error ? null : null}
 
       {vendors.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-ink/20 bg-cream p-10 text-center text-sm text-ink/55">
+        <p className="rounded-card border border-dashed border-ink/15 bg-white/50 p-10 text-center text-sm text-[color:var(--sn-ink-400)]">
           Queue is empty for this filter. Try widening the status.
         </p>
       ) : (
@@ -1367,11 +1352,7 @@ function VisibilityTabs({ current }: { current: string }) {
             key={t.key}
             href={`/admin/verify?surface=visibility&status=${t.key}`}
             aria-pressed={active}
-            className={
-              active
-                ? 'inline-flex items-center rounded-full bg-ink px-3 py-1 text-xs font-medium text-cream'
-                : 'inline-flex items-center rounded-full border border-ink/20 bg-cream px-3 py-1 text-xs text-ink/70 hover:bg-ink/5'
-            }
+            className={`sn-chip${active ? ' selected' : ''}`}
           >
             {t.label}
           </Link>
@@ -1385,7 +1366,7 @@ function VerifyCard({ vendor }: { vendor: VendorVisibilityRow }) {
   const visibility = parseVisibility(vendor.public_visibility);
   const slug = vendor.business_slug ?? null;
   return (
-    <article className="flex h-full flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-4">
+    <article className="sn-row flex h-full flex-col gap-3 p-4">
       <header className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <Avatar logoUrl={vendor.logo_url} name={vendor.business_name || 'Vendor'} />

@@ -91,12 +91,13 @@ export default async function EditorialProBuyPage({ params }: Props) {
         <ArrowLeft aria-hidden className="h-4 w-4" /> Back to services
       </Link>
 
-      <header className="flex items-start gap-3">
+      <header className="sn-reveal flex items-start gap-3">
         <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-ink/10 text-ink">
           <Newspaper aria-hidden className="h-6 w-6" strokeWidth={1.75} />
         </span>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-ink">Editorial PRO</h1>
+          <p className="sn-eye">Editorial</p>
+          <h1 className="sn-h1 mt-1.5">Editorial PRO</h1>
           <p className="mt-1 text-sm text-ink/65">
             Your wedding, told as a front-page story — authored by you.
           </p>
@@ -104,7 +105,7 @@ export default async function EditorialProBuyPage({ params }: Props) {
       </header>
 
       {/* What it does — benefit language, no implementation names. */}
-      <ul className="space-y-2 rounded-xl border border-ink/10 bg-cream p-5">
+      <ul className="sn-tile space-y-2 p-5">
         {BENEFITS.map((b) => (
           <li key={b} className="flex items-start gap-2 text-sm text-ink/75">
             <PenLine aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-[#8A6A2F]" strokeWidth={1.75} />

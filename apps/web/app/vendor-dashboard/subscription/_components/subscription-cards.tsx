@@ -179,7 +179,7 @@ export function SubscriptionCards({
           return (
             <section
               key={card.sku}
-              className="m-card flex flex-col p-6"
+              className="sn-tile flex flex-col p-6"
               style={
                 card.tier === 'pro'
                   ? { borderColor: 'var(--m-orange)' }
@@ -187,7 +187,7 @@ export function SubscriptionCards({
               }
             >
               <div className="mb-1 flex items-center justify-between gap-2">
-                <p className="m-label-mono">{TIER_NAME[card.tier]}</p>
+                <p className="sn-eye">{TIER_NAME[card.tier]}</p>
                 {card.isCurrent ? (
                   <span className="rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
                     Current

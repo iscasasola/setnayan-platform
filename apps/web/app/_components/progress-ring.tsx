@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 /**
  * ProgressRing — the signature "Energy, not skin" progress primitive (reskin
@@ -21,6 +21,8 @@ export function ProgressRing({
   children,
   className,
   color = 'rgb(var(--color-mulberry))',
+  trackColor = 'rgb(var(--color-ink) / 0.12)',
+  sweep,
 }: {
   /** 0–100; clamped. Non-finite → 0. */
   pct: number;
@@ -34,6 +36,14 @@ export function ProgressRing({
   /** Progress-stroke colour. Defaults to the wine CTA token; override with a
    *  palette variable on guest surfaces. */
   color?: string;
+  /** Track-stroke colour override (opt-in; other call sites untouched). */
+  trackColor?: string;
+  /** OPT-IN entrance sweep (home-launcher pixel pass 2026-07-15): animates the
+   *  ring 0→pct via the `sn-ring-sweep` keyframe (1.3s, sn-ease-out, `both`)
+   *  after `delayMs`. Off by default so the ring's other mounts (couple
+   *  countdown, vendor completeness) render exactly as before. The global
+   *  prefers-reduced-motion freeze snaps it to the final state. */
+  sweep?: { delayMs?: number };
 }) {
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
@@ -57,7 +67,7 @@ export function ProgressRing({
           r={r}
           fill="none"
           strokeWidth={stroke}
-          style={{ stroke: 'rgb(var(--color-ink) / 0.12)' }}
+          style={{ stroke: trackColor }}
         />
         <circle
           cx={size / 2}
@@ -68,10 +78,19 @@ export function ProgressRing({
           strokeLinecap="round"
           strokeDasharray={circ}
           strokeDashoffset={offset}
-          style={{
-            stroke: color,
-            transition: 'stroke-dashoffset 0.6s ease',
-          }}
+          style={
+            {
+              stroke: color,
+              transition: 'stroke-dashoffset 0.6s ease',
+              ...(sweep
+                ? {
+                    '--sn-ring-circ': `${circ}px`,
+                    animation: 'sn-ring-sweep 1.3s var(--sn-ease-out) both',
+                    animationDelay: `${sweep.delayMs ?? 0}ms`,
+                  }
+                : {}),
+            } as CSSProperties
+          }
         />
       </svg>
       {children != null ? (

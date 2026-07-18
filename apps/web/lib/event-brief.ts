@@ -60,6 +60,10 @@ export type EventBriefSource = {
   story_tone?: string | null;
   together_since?: string | null;
   special_message?: string | null;
+  // specialty — per-type deep signals (the generalised love_story). Raw per-type
+  // JSONB column; NULL/{} when nothing captured. Weddings alias love_story here;
+  // the specialty KIND derives from event_type (no field needed for it).
+  signature_details?: Record<string, unknown> | string | null;
   // priorities (experience quiz — flag-gated capture upstream)
   experience_axes?: Record<string, unknown> | string | null;
   experience_persona?: string | null;
@@ -127,6 +131,22 @@ export type EventBrief = {
     togetherSince: string | null;
     specialMessage: string | null;
   };
+  /** The 5th layer — the type-specific deep signals that most personalise output.
+   *  Each event type has its OWN specialty: a wedding surfaces its love story
+   *  (kind 'love_story', also mirrored into `story`); a debut its 18-roses court;
+   *  a christening its godparents; a birthday its milestone. A type that declares
+   *  no specialty (simple_event) is `applicable: false` and is never penalised for
+   *  lacking one. */
+  specialty: {
+    /** 'love_story' | 'debut' | 'christening' | … ; null = type declares none. */
+    kind: string | null;
+    /** Does this event type HAVE a specialty at all? Drives the richness denominator. */
+    applicable: boolean;
+    /** At least one signature field captured. */
+    present: boolean;
+    /** The captured per-type signature fields (admit-unknown generic bag). */
+    fields: Record<string, unknown>;
+  };
   /** 0..1 — how complete the Brief is. Under Rule 1 this predicts how
    *  personalised the AI's output can be (thin → generic, rich → personal). */
   richness: number;
@@ -173,11 +193,45 @@ function fullName(first: string | null, whole: string | null): string | null {
 
 // ── the assembler ────────────────────────────────────────────────────────────
 
+/**
+ * Which specialty each event type declares — 1:1 with event_type. Kept as a
+ * static map so the Brief stays pure/DB-free (no profile lookup): the wedding's
+ * specialty IS its love story; every other listed type reads its own signature
+ * pack. Types NOT listed (simple_event; any brand-new admin type we haven't
+ * catalogued a specialty for) resolve to kind=null → applicable=false, so they
+ * are never penalised for lacking a specialty we never defined.
+ */
+export const SPECIALTY_KIND_BY_TYPE: Record<string, string> = {
+  wedding: 'love_story',
+  debut: 'debut',
+  christening: 'christening',
+  birthday: 'birthday',
+  gender_reveal: 'gender_reveal',
+  anniversary: 'anniversary',
+  graduation: 'graduation',
+  reunion: 'reunion',
+  gala_night: 'gala_night',
+  corporate: 'corporate',
+  tournament: 'tournament',
+  travel: 'travel',
+  celebration: 'celebration',
+  // simple_event: intentionally absent → applicable=false, never penalised.
+};
+
 export function buildEventBrief(source: EventBriefSource | null | undefined): EventBrief {
   const src = source ?? {};
   const style = obj(src.style_preferences);
   const axesRaw = obj(src.experience_axes);
   const love = obj(src.love_story);
+  const sig = obj(src.signature_details);
+  // Specialty KIND is derived from event_type (not stored) so the function stays
+  // DB-free. Unlisted types (simple_event, uncatalogued admin types) → null.
+  const specialtyKind = SPECIALTY_KIND_BY_TYPE[str(src.event_type) ?? ''] ?? null;
+  // Weddings alias love_story as their specialty instance (love_story is the
+  // canonical store; signature_details stays NULL for weddings). Other types read
+  // their signature_details bag directly.
+  const specialtyFields =
+    specialtyKind === 'love_story' && Object.keys(sig).length === 0 ? love : sig;
 
   // dates
   const candidates = strArr(src.date_candidates);
@@ -260,6 +314,12 @@ export function buildEventBrief(source: EventBriefSource | null | undefined): Ev
       togetherSince: str(src.together_since),
       specialMessage: str(src.special_message),
     },
+    specialty: {
+      kind: specialtyKind,
+      applicable: specialtyKind != null,
+      present: Object.keys(specialtyFields).length > 0,
+      fields: specialtyFields,
+    },
     richness: 0,
   };
 
@@ -270,31 +330,36 @@ export function buildEventBrief(source: EventBriefSource | null | undefined): Ev
 /**
  * 0..1 completeness of the Brief, weighted by how much each signal moves the
  * quality of deterministic output. Constraints are table-stakes; the Priorities
- * and Story layers are the personalisation multiplier, so they carry weight
- * even though they're the layers most often switched off today.
+ * and Specialty layers are the personalisation multiplier.
+ *
+ * Applicability-aware: a weight counts in BOTH the numerator and the denominator
+ * only when the signal APPLIES to this event type. The Specialty layer is the one
+ * type-varying signal — a simple_event declares no specialty, so it is neither
+ * credited nor penalised for lacking one (its weight leaves the denominator).
  */
 export function computeRichness(brief: EventBrief): number {
   const c = brief.constraints;
-  const checks: Array<[boolean, number]> = [
+  // [applicable, satisfied, weight]
+  const checks: Array<[boolean, boolean, number]> = [
     // Constraints (facts) — 0.50
-    [c.date.mode !== 'unset', 0.1],
-    [c.location.hasPin || c.location.region != null, 0.1],
-    [c.pax != null, 0.08],
-    [c.budget.amountCentavos != null || c.budget.band != null, 0.12],
-    [c.ceremony.type != null, 0.1],
+    [true, c.date.mode !== 'unset', 0.1],
+    [true, c.location.hasPin || c.location.region != null, 0.1],
+    [true, c.pax != null, 0.08],
+    [true, c.budget.amountCentavos != null || c.budget.band != null, 0.12],
+    [true, c.ceremony.type != null, 0.1],
     // Taste (texture) — 0.22
-    [brief.taste.categories.length > 0, 0.08],
-    [brief.taste.moodFeel != null || brief.taste.palette.length > 0, 0.07],
-    [brief.taste.songs.length > 0, 0.07],
+    [true, brief.taste.categories.length > 0, 0.08],
+    [true, brief.taste.moodFeel != null || brief.taste.palette.length > 0, 0.07],
+    [true, brief.taste.songs.length > 0, 0.07],
     // Priorities (the boost) — 0.18
-    [brief.priorities.forWhom != null, 0.1],
-    [brief.priorities.persona != null, 0.08],
-    // Story (personalisation) — 0.10
-    [brief.story.hasStory, 0.1],
+    [true, brief.priorities.forWhom != null, 0.1],
+    [true, brief.priorities.persona != null, 0.08],
+    // Specialty (personalisation) — 0.10 — only weighed when the type declares one.
+    [brief.specialty.applicable, brief.specialty.present, 0.1],
   ];
-  const total = checks.reduce((sum, [, w]) => sum + w, 0);
-  const got = checks.reduce((sum, [ok, w]) => sum + (ok ? w : 0), 0);
-  return Math.round((got / total) * 100) / 100;
+  const total = checks.reduce((sum, [ap, , w]) => sum + (ap ? w : 0), 0);
+  const got = checks.reduce((sum, [ap, ok, w]) => sum + (ap && ok ? w : 0), 0);
+  return total === 0 ? 0 : Math.round((got / total) * 100) / 100;
 }
 
 /** The single date deterministic deadlines should anchor on (or null). */

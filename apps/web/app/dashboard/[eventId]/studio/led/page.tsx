@@ -95,8 +95,9 @@ export default async function LedBackgroundPage({ params }: Props) {
         the /studio/about learn-more page (reached by non-owners). 2026-06-25.
       */}
       {!owns && (
-        <header className="space-y-3">
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+        <header className="sn-reveal space-y-3">
+          <p className="sn-eye">LED Wall</p>
+          <h1 className="sn-h1">
             8K loop generators for your venue&rsquo;s LED wall
           </h1>
           <p className="max-w-2xl text-base text-ink/65">
@@ -105,7 +106,7 @@ export default async function LedBackgroundPage({ params }: Props) {
             stick for offline playback &mdash; no venue Wi-Fi required.
           </p>
           <ul className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            <li className="flex items-start gap-2 rounded-lg border border-ink/10 bg-cream p-3 text-sm text-ink/75">
+            <li className="sn-row flex items-start gap-2 p-3 text-sm text-ink/75">
               <Sparkles
                 aria-hidden
                 className="mt-0.5 h-4 w-4 shrink-0 text-terracotta"
@@ -119,7 +120,7 @@ export default async function LedBackgroundPage({ params }: Props) {
                 </span>
               </span>
             </li>
-            <li className="flex items-start gap-2 rounded-lg border border-ink/10 bg-cream p-3 text-sm text-ink/75">
+            <li className="sn-row flex items-start gap-2 p-3 text-sm text-ink/75">
               <Tv
                 aria-hidden
                 className="mt-0.5 h-4 w-4 shrink-0 text-terracotta"
@@ -133,7 +134,7 @@ export default async function LedBackgroundPage({ params }: Props) {
                 </span>
               </span>
             </li>
-            <li className="flex items-start gap-2 rounded-lg border border-ink/10 bg-cream p-3 text-sm text-ink/75">
+            <li className="sn-row flex items-start gap-2 p-3 text-sm text-ink/75">
               <Usb
                 aria-hidden
                 className="mt-0.5 h-4 w-4 shrink-0 text-terracotta"
@@ -242,9 +243,9 @@ async function UnownedView({
   const pricePhp = skuRecord?.price_php ?? null;
 
   return (
-    <section className="rounded-2xl border border-ink/10 bg-cream p-5">
+    <section className="sn-tile p-5">
       <header className="space-y-1">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+        <p className="sn-eye">
           What you get
         </p>
         <h2 className="text-xl font-semibold tracking-tight">

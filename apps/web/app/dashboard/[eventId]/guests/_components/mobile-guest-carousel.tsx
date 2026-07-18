@@ -255,7 +255,7 @@ export function MobileGuestCarousel({
             {(
               [
                 { key: 'build', label: 'Build', Icon: PencilLine, href: buildHref({}), active: true },
-                { key: 'invite', label: 'Invite', Icon: Send, href: `/dashboard/${eventId}/guests/claims`, badge: unsent, word: 'to send' },
+                { key: 'invite', label: 'Invite', Icon: Send, href: `/dashboard/${eventId}/guests/invite`, badge: unsent, word: 'to send' },
                 { key: 'confirm', label: 'Confirm', Icon: CircleCheck, href: `/dashboard/${eventId}/guests/claims`, badge: pendingClaims, word: 'to review' },
                 { key: 'seat', label: 'Seat', Icon: LayoutGrid, href: `/dashboard/${eventId}/seating`, badge: unseated, word: 'to seat' },
                 { key: 'dayof', label: 'Day-of', Icon: QrCode, href: `/dashboard/${eventId}/guests/checkin`, badge: arrived, done: true, word: 'arrived' },

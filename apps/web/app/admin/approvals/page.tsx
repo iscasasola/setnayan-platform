@@ -122,10 +122,10 @@ export default async function AdminApprovalsPage() {
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-8 space-y-2">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">
+        <p className="sn-eye">
           Setnayan · Internal ops · Four-eyes (§9.1)
         </p>
-        <h1 className="m-display-tight text-3xl text-[color:var(--m-ink)] sm:text-4xl">
+        <h1 className="sn-h1">
           Two-admin approvals
         </h1>
         <p className="text-base text-ink/65">
@@ -150,7 +150,7 @@ export default async function AdminApprovalsPage() {
 
       {/* NEW REQUEST */}
       <section className="mb-10 rounded-2xl border border-terracotta/20 bg-gradient-to-br from-cream to-terracotta-50/30 p-5 sm:p-6">
-        <h2 className="mb-1 m-mono text-[11px] uppercase tracking-[0.2em] text-terracotta-700">
+        <h2 className="mb-1 sn-eye">
           New request
         </h2>
         <p className="mb-4 text-xs text-ink/55">
@@ -215,7 +215,7 @@ export default async function AdminApprovalsPage() {
       {/* PENDING */}
       <section className="mb-10">
         <div className="mb-3 flex items-baseline justify-between gap-2">
-          <h2 className="m-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="sn-eye">
             Pending ({pending.length})
           </h2>
           <p className="text-xs text-ink/45">
@@ -226,7 +226,7 @@ export default async function AdminApprovalsPage() {
         </div>
 
         {pending.length === 0 ? (
-          <div className="m-card p-8 text-center text-sm text-ink/55">
+          <div className="sn-row p-8 text-center text-sm text-ink/55">
             No approvals pending. Set na ’yan.
           </div>
         ) : (
@@ -234,7 +234,7 @@ export default async function AdminApprovalsPage() {
             {pending.map((r) => {
               const mine = r.initiated_by === meId;
               return (
-                <li key={r.approval_id} className="m-card p-4">
+                <li key={r.approval_id} className="sn-row p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
@@ -294,10 +294,10 @@ export default async function AdminApprovalsPage() {
       {/* RECENTLY DECIDED */}
       {decided.length > 0 ? (
         <section>
-          <h2 className="mb-3 m-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="mb-3 sn-eye">
             Recently decided
           </h2>
-          <div className="m-card overflow-hidden p-0">
+          <div className="sn-tile overflow-hidden !p-0">
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="border-b border-ink/10 text-left text-[11px] uppercase tracking-wide text-ink/45">

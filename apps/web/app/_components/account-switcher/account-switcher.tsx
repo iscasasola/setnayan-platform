@@ -1,16 +1,17 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
-  Users,
   LogOut,
   Store,
   ShieldCheck,
   Home,
+  UserRound,
   ChevronDown,
+  Wand2,
+  Clapperboard,
 } from 'lucide-react';
 import type { SwitcherData } from './get-switcher-data';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -19,23 +20,22 @@ type Props = {
   data: SwitcherData;
   /** When provided, shown next to the avatar in the trigger pill (e.g. event display name). */
   currentEventName?: string | null;
+  /** Panel "Home" item label override (couple surfaces pass
+   *  "Home · all your events" — see SwitcherPanelBody). */
+  homeLabel?: string;
 };
 
 /**
  * AccountSwitcher — unified identity panel (account-switcher iteration).
  *
- * Trigger: avatar pill in the app header (top-left on mobile, icon-rail on
- * desktop). Opens a bottom sheet on mobile / side drawer on desktop.
- *
- * Panel sections (top → bottom) — events-first redesign (owner 2026-06-22):
- *   1. Events: a prominent "Add event" button + the events the user organises
- *      OR attends (active ★ first). The only content couples need.
- *   2. Context rail (conditional) — vendor / Setnayan-team only:
- *       – hidden for plain users (no vendor, not admin)
- *       – [User | Shop] for vendor accounts
- *       – [User | HQ] for admin-only accounts
- *       – [User | Shop | HQ] for admin + vendor accounts
- *   3. Slim footer: Profile · Settings · Sign out (+ Hosts when co-hosting)
+ * Triggers (all open the same SwitcherPanelBody):
+ *   – <AccountSwitcher> avatar pill — mobile top bars + the launcher/account
+ *     slim top bar. Bottom sheet on mobile / side drawer on desktop.
+ *   – <SwitcherPlaqueTrigger> — the desktop-rail identity plaque (event /
+ *     business / HQ), Council Verdict 2026-07-16 "Plaque-as-Menu": the plaque
+ *     is THE popup trigger on desktop rails; the old email pill
+ *     (AccountSwitcherStandalone) is retired. Going home is the rail
+ *     wordmark's job (DoorwaySidebarHeader), not the plaque's.
  *
  * Motion:
  *   – Mobile: bottom sheet slides up (translateY 100% → 0) + backdrop fades in
@@ -43,45 +43,80 @@ type Props = {
  *   Both: CSS transitions 0.3s ease
  */
 /**
- * SwitcherPanelBody — the shared interior of both the mobile bottom-sheet and
- * the desktop drawer. Kept in ONE place so the two triggers can never drift.
+ * SwitcherPanelBody — the ONE shared interior of the mobile bottom-sheet, the
+ * launcher avatar drawer, and the desktop-rail plaque drawer. Kept in ONE
+ * place so the triggers can never drift.
  *
- * Slimmed to a home-hub jump (owner 2026-07-10): the panel used to re-list every
- * event, add-event, and Collection — all of which the home hub already shows.
- * The switcher now just gets you back home (or to another console) and out.
+ * Slimmed to a home-hub jump (owner 2026-07-10); identity header added by the
+ * 2026-07-16 council verdict (the retired desktop email pill was the only
+ * signed-in-account disclosure on the couple rail — that disclosure now lives
+ * here, one click away on every surface).
  *
- *   1. Home — jumps to /dashboard (the home hub: events, add-event, Collection).
- *   2. Console rail (conditional) — vendor / Setnayan-team only. Home already
+ *   1. Identity header — avatar + "Signed in as {name} · {email}".
+ *   2. Home — /dashboard (the home hub: events, add-event, Collection).
+ *      ⚠ LOAD-BEARING on mobile: event/vendor/admin mobile top bars have NO
+ *      wordmark, so this item is mobile's ONLY path home. Do not remove in a
+ *      future slimming pass.
+ *   3. Console rail (conditional) — vendor / Setnayan-team only. Home already
  *      covers the User console, so the rail only offers Shop / HQ.
- *   3. Footer — Hosts (co-hosting) · Secure-your-plan (anonymous) · Sign out.
+ *   4. Footer — Profile & settings (→ /dashboard/profile) · Setnayan AI ·
+ *      Your Story (→ /dashboard/creator, the Storyteller chapters surface —
+ *      doorway added per the 2026-07-16 creator readiness verdict B4) ·
+ *      Secure-your-plan (anonymous) / Sign out. (The Hosts link moved to the
+ *      event Overview's Hosts card, owner 2026-07-12.)
+ *
+ * Home / Shop / HQ are real <Link>s (not router.push buttons) so middle-click
+ * / new-tab work and screen readers announce navigation semantics.
  */
 function SwitcherPanelBody({
   data,
   close,
-  navigate,
-  hostsHref,
+  homeLabel = 'Home',
 }: {
   data: SwitcherData;
   close: () => void;
-  navigate: (href: string) => void;
-  hostsHref: string | null;
+  homeLabel?: string;
 }) {
   const showShop = data.context.hasVendor;
   const showHQ = data.context.isAdmin;
   const showContextRail = showShop || showHQ;
+  const initial = data.email?.charAt(0).toUpperCase() ?? '?';
 
   return (
     <div className="flex-1 overflow-y-auto">
+      {/* ── Identity header — who is signed in ── */}
+      <div className="flex items-center gap-2.5 border-b border-ink/10 px-4 py-3">
+        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-terracotta/15 text-xs font-semibold text-terracotta-700">
+          {data.photoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={data.photoUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            initial
+          )}
+        </span>
+        <div className="min-w-0">
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">
+            Signed in as
+          </p>
+          <p className="truncate text-sm font-semibold text-ink">
+            {data.displayName ?? (data.email || 'Guest — draft plan')}
+          </p>
+          {data.displayName && data.email ? (
+            <p className="truncate text-xs text-ink/50">{data.email}</p>
+          ) : null}
+        </div>
+      </div>
+
       {/* ── Home — the switcher just jumps back to the home hub ── */}
       <div className="px-4 pt-4 pb-2">
-        <button
-          type="button"
-          onClick={() => navigate('/dashboard')}
+        <Link
+          href="/dashboard"
+          onClick={close}
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-terracotta px-3 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-700"
         >
           <Home aria-hidden className="h-4 w-4" strokeWidth={2.5} />
-          Home
-        </button>
+          {homeLabel}
+        </Link>
       </div>
 
       {/* ── Console rail — vendor / Setnayan-team only ── */}
@@ -92,9 +127,9 @@ function SwitcherPanelBody({
           </span>
           <div className="mt-2 flex gap-1.5">
             {showShop ? (
-              <button
-                type="button"
-                onClick={() => navigate('/vendor-dashboard')}
+              <Link
+                href="/vendor-dashboard"
+                onClick={close}
                 className="flex flex-1 flex-col items-center gap-1 rounded-xl border border-ink/15 px-3 py-2.5 text-center text-xs font-medium text-ink/80 hover:bg-terracotta/10"
               >
                 <Store aria-hidden className="h-5 w-5 text-terracotta-700" strokeWidth={1.75} />
@@ -104,35 +139,65 @@ function SwitcherPanelBody({
                     {data.context.vendorName}
                   </span>
                 ) : null}
-              </button>
+              </Link>
             ) : null}
 
             {showHQ ? (
-              <button
-                type="button"
-                onClick={() => navigate('/admin')}
+              <Link
+                href="/admin"
+                onClick={close}
                 className="flex flex-1 flex-col items-center gap-1 rounded-xl border border-ink/15 px-3 py-2.5 text-center text-xs font-medium text-ink/80 hover:bg-purple-50"
               >
                 <ShieldCheck aria-hidden className="h-5 w-5 text-purple-700" strokeWidth={1.75} />
                 <span>HQ</span>
                 <span className="text-[10px] font-normal text-ink/50">Setnayan</span>
-              </button>
+              </Link>
             ) : null}
           </div>
         </div>
       ) : null}
 
-      {/* ── Footer — Hosts · Secure-your-plan (anon) · Sign out (set apart) ── */}
+      {/* ── Footer — Profile & settings (left) · Secure-your-plan (anon) /
+          Sign out (pushed right, set apart) ── */}
       <div className="border-t border-ink/10 px-4 py-2.5">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-          {hostsHref ? (
-            <button
-              type="button"
-              onClick={() => navigate(hostsHref)}
-              className="inline-flex items-center gap-1 text-ink/60 hover:text-terracotta-700"
+          {/* Profile & settings — the account-level personal profile
+              (/dashboard/profile). Restored here 2026-07-13 after the panel was
+              slimmed to a home-hub jump on 2026-07-10 and lost it. */}
+          <Link
+            href="/dashboard/profile"
+            className="inline-flex items-center gap-1 font-medium text-ink/70 hover:text-terracotta"
+            onClick={close}
+          >
+            <UserRound aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Profile &amp; settings
+          </Link>
+          {/* Setnayan AI — moved into the avatar "You" menu by the four-surface
+              home remodel (owner-approved 2026-07-15): the launcher's on-page
+              "Your account" section is gone, so the account-level Setnayan AI
+              surface (/dashboard/setnayan-ai) lives here beside Profile.
+              Hidden for anon-drafts (they get the Secure-your-plan CTA instead
+              of account surfaces, matching the Sign-out swap below). */}
+          {!data.isAnonymous ? (
+            <Link
+              href="/dashboard/setnayan-ai"
+              className="inline-flex items-center gap-1 font-medium text-ink/70 hover:text-terracotta"
+              onClick={close}
             >
-              <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Hosts
-            </button>
+              <Wand2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Setnayan AI
+            </Link>
+          ) : null}
+          {/* Your Story — the Storyteller chapters surface (/dashboard/creator).
+              The authoring funnel had NO doorway anywhere (creator readiness
+              verdict 2026-07-16 · B4 — the wayfinding rule: a page ships with
+              its doorway). Hidden for anon-drafts, matching Setnayan AI. */}
+          {!data.isAnonymous ? (
+            <Link
+              href="/dashboard/creator"
+              className="inline-flex items-center gap-1 font-medium text-ink/70 hover:text-terracotta"
+              onClick={close}
+            >
+              <Clapperboard aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Your Story
+            </Link>
           ) : null}
           {data.isAnonymous ? (
             <Link
@@ -155,8 +220,7 @@ function SwitcherPanelBody({
   );
 }
 
-export function AccountSwitcher({ data, currentEventName }: Props) {
-  const router = useRouter();
+export function AccountSwitcher({ data, currentEventName, homeLabel }: Props) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -172,18 +236,6 @@ export function AccountSwitcher({ data, currentEventName }: Props) {
   useModalA11y({ open, onClose: close, containerRef: panelRef });
 
   const initial = data.email?.charAt(0).toUpperCase() ?? '?';
-
-  function navigate(href: string) {
-    close();
-    router.push(href);
-  }
-
-  // Hosts is event-scoped (/dashboard/[eventId]/hosts) — no /dashboard/hosts
-  // route exists. Target the user's primary OWNED event (role 'couple'),
-  // falling back to the first owned event; null when they organize none.
-  const ownedEvents = data.events.filter((e) => e.role === 'couple');
-  const hostsEvent = ownedEvents.find((e) => e.is_primary) ?? ownedEvents[0] ?? null;
-  const hostsHref = hostsEvent ? `/dashboard/${hostsEvent.event_id}/hosts` : null;
 
   // ─── Inner panel content ────────────────────────────────────────────────
 
@@ -221,7 +273,7 @@ export function AccountSwitcher({ data, currentEventName }: Props) {
         {/* Drag handle (mobile only) */}
         <div aria-hidden className="mx-auto mb-1 mt-2 h-1 w-10 shrink-0 rounded-full bg-ink/15 lg:hidden" />
 
-        <SwitcherPanelBody data={data} close={close} navigate={navigate} hostsHref={hostsHref} />
+        <SwitcherPanelBody data={data} close={close} homeLabel={homeLabel} />
       </div>
     );
   }
@@ -319,12 +371,51 @@ export function AccountSwitcherIconTrigger({
 }
 
 /**
- * Standalone desktop drawer wrapper — for use in sidebars where the panel
- * needs to be self-contained with its own open/close state.
- * Renders the icon trigger (used in the desktop icon rail) + the full panel.
+ * SwitcherPlaqueTrigger — the desktop-rail identity plaque that IS the account
+ * menu (Council Verdict 2026-07-16 "Plaque-as-Menu, Wordmark-as-Home",
+ * superseding the retired AccountSwitcherStandalone email pill).
+ *
+ * ONE component, three parameterizations — never fork per doorway:
+ *   – couple:  chip = event monogram ("C&I") · title = event name · metaLine =
+ *              "{Type} · {date}" · homeLabel = "Home · all your events"
+ *   – vendor:  chip = <VendorAvatar> · title = business name · metaLine =
+ *              "Verified vendor" / "Unverified"
+ *   – admin:   chip = shield glyph · title = "Setnayan HQ" · metaLine = name
+ *
+ * Anatomy: a single whole-surface <button aria-haspopup="dialog"> styled as
+ * the dark-glass plaque (atelier kit), with a trailing ChevronDown as VISUAL
+ * AFFORDANCE ONLY (not a separate click zone — a split control was rejected by
+ * the council as the "2 things there" ambiguity the owner asked to remove).
+ * Going home is NOT this control's job — the rail wordmark link above it
+ * (DoorwaySidebarHeader) carries 1-click home; the panel's Home item is the
+ * 2-click fallback.
+ *
+ * Collapsed 64px rail: the plaque hides and the shipped
+ * AccountSwitcherIconTrigger (avatar circle) takes over — same open state,
+ * same panel, so the five account actions never vanish with the rail.
  */
-export function AccountSwitcherStandalone({ data }: Props) {
-  const router = useRouter();
+export function SwitcherPlaqueTrigger({
+  data,
+  chip,
+  title,
+  metaLine,
+  ariaLabel,
+  homeLabel,
+}: {
+  data: SwitcherData;
+  /** Content of the 36px identity chip — text initials ("C&I"), a
+   *  <VendorAvatar>, or an icon glyph. The trigger owns the chip frame. */
+  chip: ReactNode;
+  /** Plaque headline — event name / business name / "Setnayan HQ". */
+  title: string;
+  /** Optional mono sub-line — "{Type} · {date}" / verification / admin name. */
+  metaLine?: string | null;
+  /** Honest menu semantics, e.g. `"Cale & Ice — account menu"` — never
+   *  "switch events": the slimmed panel holds no event list. */
+  ariaLabel: string;
+  /** Panel "Home" label override (couple: "Home · all your events"). */
+  homeLabel?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -338,70 +429,74 @@ export function AccountSwitcherStandalone({ data }: Props) {
   // Focus trap, Esc-to-close, body-scroll-lock, focus-restore (shared hook).
   useModalA11y({ open, onClose: close, containerRef: panelRef });
 
-  function navigate(href: string) {
-    close();
-    router.push(href);
-  }
-
-  // Hosts is event-scoped (/dashboard/[eventId]/hosts) — no /dashboard/hosts
-  // route exists. Target the user's primary OWNED event (role 'couple'),
-  // falling back to the first owned event; null when they organize none.
-  const ownedEvents = data.events.filter((e) => e.role === 'couple');
-  const hostsEvent = ownedEvents.find((e) => e.is_primary) ?? ownedEvents[0] ?? null;
-  const hostsHref = hostsEvent ? `/dashboard/${hostsEvent.event_id}/hosts` : null;
-
-  const initial = data.email?.charAt(0).toUpperCase() ?? '?';
-
   return (
     <>
-      {/* Expanded row trigger — matches SidebarRow visual language exactly:
-          same rounded-md radius, px-3 py-2.5 spacing, gap-3, min-h-[44px]
-          touch target, and --m-paper hover so it reads as one nav family. */}
+      {/* Expanded plaque — dark glass mini-card (design:
+          event_dashboard_v2_2026-07-15.html), hidden on the 64px collapsed
+          rail where the icon trigger below takes over. */}
       <button
         type="button"
-        aria-label="Open account switcher"
+        aria-label={ariaLabel}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full min-h-[44px] items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium transition-colors hover:bg-[var(--m-paper)] focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-        style={{ outlineColor: 'var(--m-orange)', color: 'var(--m-ink)' }}
+        className="flex w-full items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-left transition-transform hover:-translate-y-0.5 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 [[data-sidebar-collapsed='1']_&]:hidden"
+        style={{
+          background:
+            'radial-gradient(70% 60% at 85% -10%, rgba(203,167,102,.18), transparent 60%), var(--sn-glass-dark-bg, rgba(23,22,15,.82))',
+          borderColor: 'var(--sn-glass-dark-line, rgba(255,255,255,.18))',
+          color: 'var(--sn-gold-100, #F3ECDF)',
+          outlineColor: 'var(--sn-gold-500, #CBA766)',
+        }}
       >
-        {/* Avatar — slightly larger than a nav icon to signal identity, not a
-            destination. Shares the terracotta/15 tint with active nav items. */}
         <span
-          className="inline-flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-semibold"
-          style={{ background: 'rgba(201,107,58,0.15)', color: 'var(--m-orange-2)' }}
+          className="flex h-9 w-9 flex-none items-center justify-center overflow-hidden rounded-xl text-[11px] font-extrabold"
+          style={{
+            background: 'linear-gradient(135deg, #8a6b39, #5a3b28)',
+            border: '1.5px solid rgba(255,255,255,.35)',
+            color: '#FFFDF8',
+          }}
         >
-          {data.photoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={data.photoUrl} alt="" className="h-full w-full object-cover" />
-          ) : (
-            initial
-          )}
+          {chip}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate" style={{ color: 'var(--m-ink)' }}>
-            {data.displayName ?? data.email}
+          <span className="block truncate text-sm font-extrabold tracking-[-0.01em]">
+            {title}
           </span>
-          {data.displayName ? (
-            <span className="block truncate text-xs" style={{ color: 'var(--m-slate)' }}>
-              {data.email}
+          {metaLine ? (
+            <span
+              className="mt-0.5 block truncate font-mono text-[9px] uppercase tracking-[0.1em]"
+              style={{ color: 'rgba(243,236,223,.6)' }}
+            >
+              {metaLine}
             </span>
           ) : null}
         </span>
+        {/* Menu affordance — load-bearing, not polish: a name-card that is
+            secretly a button is undiscoverable without it. */}
         <ChevronDown
           aria-hidden
           className={`h-3.5 w-3.5 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
           strokeWidth={2}
-          style={{ color: 'var(--m-slate-2)' }}
+          style={{ color: 'rgba(243,236,223,.55)' }}
         />
       </button>
+
+      {/* Collapsed 64px rail — avatar icon trigger, same open state + panel. */}
+      <span className="hidden justify-center [[data-sidebar-collapsed='1']_&]:flex">
+        <AccountSwitcherIconTrigger
+          data={data}
+          open={open}
+          onToggle={() => setOpen((v) => !v)}
+        />
+      </span>
+
       {open && mounted && typeof document !== 'undefined'
         ? createPortal(
             <>
               <button
                 type="button"
-                aria-label="Close account switcher"
+                aria-label="Close account menu"
                 onClick={close}
                 className="fixed inset-0 z-[51] bg-ink/40 backdrop-blur-[2px]"
                 style={{ animation: 'sn-switcher-backdrop 0.3s ease' }}
@@ -414,11 +509,11 @@ export function AccountSwitcherStandalone({ data }: Props) {
                 ref={panelRef}
                 role="dialog"
                 aria-modal="true"
-                aria-label="Account switcher"
+                aria-label="Account menu"
                 className="focus:outline-none fixed inset-y-0 left-0 z-[52] flex w-80 flex-col overflow-hidden rounded-r-2xl border-r border-ink/10 bg-[var(--m-paper)] shadow-2xl"
                 style={{ animation: 'sn-switcher-drawer-in 0.3s ease' }}
               >
-                <SwitcherPanelBody data={data} close={close} navigate={navigate} hostsHref={hostsHref} />
+                <SwitcherPanelBody data={data} close={close} homeLabel={homeLabel} />
               </div>
             </>,
             document.body,

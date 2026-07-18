@@ -4,6 +4,7 @@ import { Tile } from './_overview-tile';
 import { AppleSecretReminder } from './_apple-secret-reminder';
 import { KpiStatCard } from './_components/kpi-stat-card';
 import { ProgressRing } from '@/app/_components/progress-ring';
+import { CountUp } from '@/app/_components/count-up';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import {
@@ -204,10 +205,6 @@ export default async function AdminOverview() {
     },
   ];
 
-  // Total covers EVERY digest queue (urgency.totalOpen) + taxonomy (the one
-  // standalone queue). Derived from the digest, NOT the tile roster, so a tile
-  // dropped from a lane can't make the "all clear" banner read false.
-  const totalOpen = urgency.totalOpen + Math.max(0, taxonomy ?? 0);
   // Tell "genuinely empty" from "read failed": a null count (degraded query)
   // must NOT render a reassuring all-clear. taxonomy is the standalone queue, so
   // a null there counts as unavailable too.
@@ -217,6 +214,37 @@ export default async function AdminOverview() {
   const queueTotal = Object.keys(ADMIN_QUEUE_META).length;
   const clearedQueues = Object.values(urgency.states).filter((st) => st === 'clear').length;
   const clearedPct = queueTotal > 0 ? (clearedQueues / queueTotal) * 100 : 0;
+
+  // Exception-Desk focal headline (Glass PR-8 · rollout plan § 1.3 + § 3.4):
+  // open items across the ACTIONABLE work lanes, computed EXACTLY as the
+  // launcher HQ "awaiting review" signal does (lib/admin/queue-counts +
+  // dashboard/(launcher)/page.tsx) — iterate ADMIN_QUEUE_META, exclude the
+  // `support` lane so ongoing help-desk volume doesn't inflate the count next
+  // to real gating decisions, sum the digest counts. Same source, same number
+  // as the launcher card by construction.
+  const actionableOpen = Object.entries(ADMIN_QUEUE_META).reduce(
+    (sum, [key, meta]) =>
+      meta.lane === 'support' ? sum : sum + Math.max(0, digest[key]?.count ?? 0),
+    0,
+  );
+  // Top-3 busiest INDIVIDUAL queues for the focal preview (Exception Desk
+  // fidelity, 2026-07-16) — the proto ranks the single busiest queues, each with
+  // its open count AND its oldest-open age, not the coarse 4-lane rollups. Flatten
+  // every lane's tiles, rank by open count, take three. All from the
+  // already-fetched digest-backed tile values (no new query); ties break on the
+  // tile declaration order via a stable sort.
+  const topQueues = lanes
+    .flatMap((lane) => lane.tiles)
+    .filter((t) => (t.value ?? 0) > 0)
+    .sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
+    .slice(0, 3)
+    .map((t) => ({
+      label: t.label,
+      href: t.href,
+      count: t.value ?? 0,
+      state: t.state,
+      age: t.oldestAt ? ageShort(t.oldestAt, nowMs) : null,
+    }));
 
   // Recent admin activity — the last few admin_audit_log entries (real data,
   // not a fake feed) so an admin lands and sees what teammates just did, which
@@ -256,9 +284,11 @@ export default async function AdminOverview() {
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-8 space-y-2">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">Setnayan · Internal ops</p>
-        <h1 className="m-display-tight text-3xl text-[color:var(--m-ink)] sm:text-4xl">Overview</h1>
-        <p className="text-base text-ink/65">
+        <p className="sn-eye">Setnayan · Internal ops</p>
+        <h1 className="sn-h1">
+          Overview <span className="sn-h1-tail">— what needs you</span>
+        </h1>
+        <p className="max-w-3xl text-base text-[color:var(--sn-ink-500)]">
           Everything that needs admin action right now — requests, transactions
           awaiting approval, reports, and disputes at a glance. Tap a card to
           clear it. <strong className="text-ink">Accounts</strong> looks people
@@ -274,105 +304,163 @@ export default async function AdminOverview() {
           rest of the year. See ./_apple-secret-reminder.tsx. */}
       <AppleSecretReminder />
 
-      {/* ACTION QUEUES · every pending queue grouped by the overview's own
-       *  curated consequence lanes (Trust & supply / Money / Recourse /
-       *  Approvals & support — overview-only, distinct from the canonical
-       *  ADMIN_QUEUE_META lanes). Ops-shaped nav redesign
-       *  (Admin_Console_Nav_Redesign_2026-06-08 · owner sign-off 2026-06-08):
-       *  surfaces ALL pending queues so an admin lands and sees the whole
-       *  workload. The "Money to reconcile" lane is the always-visible
-       *  one-stop money view (the dissolved Money group's queues, reunited).
-       *  Per-queue counts come from the shared digest, so they agree with the
-       *  nav badges + /admin/work + the digest email by construction. */}
+      {/* EXCEPTION DESK · the obsidian focal (rollout plan § 1.3 · the one
+       *  .sn-tile-dark this view is allowed). Headline = open items across the
+       *  ACTIONABLE work lanes, computed EXACTLY as the launcher HQ signal does
+       *  (support lane excluded). Below: the urgency sub-line, a cleared-queues
+       *  ring, the top-3 busiest queues, and the two triage links. Lands last in
+       *  the entrance cascade via `sn-bloom`. */}
       <section
-        aria-label="Action queues"
-        className="mb-8 rounded-2xl border border-mulberry/20 bg-gradient-to-br from-cream to-mulberry/5 p-5 sm:p-6"
+        aria-label="Exception desk"
+        className="sn-tile-dark sn-bloom mb-6 p-5 sm:p-6"
       >
-        {/* KPI cluster (council fix #10) — the ring is the cleared-queues
-            share; the flanking stats surface all three urgency tiers,
-            including due-soon, which was computed but never rendered here.
-            Degraded counts are called out even when work is open (fix #3). */}
-        <div className="mb-5 flex flex-wrap items-center gap-x-5 gap-y-3">
-          <ProgressRing pct={clearedPct} size={64} stroke={6}>
-            <span
-              className="text-lg font-semibold tracking-tight tabular-nums"
-              style={{ fontFamily: "var(--font-condensed), 'Saira Condensed', sans-serif", color: 'var(--m-ink)' }}
-            >
-              {totalOpen}
-            </span>
-          </ProgressRing>
-          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
-            <span className="font-semibold tabular-nums text-ink">
-              {totalOpen} open
-            </span>
-            <span
-              className={`tabular-nums ${
-                urgency.overdue > 0 ? 'font-semibold text-red-700' : 'text-ink/70'
-              }`}
-            >
-              {urgency.overdue} past SLA
-            </span>
-            <span
-              className={`tabular-nums ${
-                urgency.dueSoon > 0 ? 'font-semibold text-warn-700' : 'text-ink/70'
-              }`}
-            >
-              {urgency.dueSoon} due soon
-            </span>
-            {anyUnavailable ? (
-              <span className="text-ink/70">some counts unavailable</span>
-            ) : null}
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 space-y-3">
+            <p className="sn-eye sn-eye-on-dark">Exception desk</p>
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="font-mono text-5xl font-semibold leading-none tabular-nums text-[color:var(--sn-gold-100)]">
+                <CountUp value={actionableOpen} />
+              </span>
+              <span className="text-sm text-[color:var(--sn-gold-300)]">
+                {actionableOpen === 1 ? 'item needs you' : 'items need you'}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs">
+              <span
+                className={`font-mono tabular-nums ${
+                  urgency.overdue > 0
+                    ? 'font-semibold text-[color:var(--sn-danger)]'
+                    : 'text-white/55'
+                }`}
+              >
+                {urgency.overdue} past SLA
+              </span>
+              <span
+                className={`font-mono tabular-nums ${
+                  urgency.dueSoon > 0
+                    ? 'font-semibold text-[color:var(--sn-warning)]'
+                    : 'text-white/55'
+                }`}
+              >
+                {urgency.dueSoon} due soon
+              </span>
+              {anyUnavailable ? (
+                <span className="text-white/55">some counts unavailable</span>
+              ) : null}
+            </div>
           </div>
-          <div className="ml-auto flex items-center gap-3">
-            {/* The ranked, busiest-first worklist — same data, single-screen
-                triage view (overdue → due-soon → busiest). */}
-            <Link
-              href="/admin/work"
-              className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-mulberry hover:text-mulberry-600"
-            >
-              <ListChecks aria-hidden className="h-3.5 w-3.5" />
-              Open the work list
-            </Link>
-            {/* Ongoing platform work — the owner's "things we need to upgrade"
-                lives in the App Performance Action Center (AI credits, plan
-                limits, renewals, rotations). Linked rather than duplicated so
-                the cockpit stays the one source for those items. */}
-            <Link
-              href="/admin/app-performance"
-              className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-mulberry hover:text-mulberry-600"
-            >
-              <AlertTriangle aria-hidden className="h-3.5 w-3.5" />
-              Platform upgrades
-            </Link>
+          <div className="flex shrink-0 items-center gap-3">
+            <ProgressRing pct={clearedPct} size={72} stroke={6} sweep={{ delayMs: 200 }}>
+              <span className="font-mono text-sm font-semibold tabular-nums text-[color:var(--sn-gold-100)]">
+                <CountUp value={Math.round(clearedPct)} suffix="%" delayMs={200} />
+              </span>
+            </ProgressRing>
+            <span className="hidden text-[11px] leading-tight text-white/55 sm:block">
+              queues
+              <br />
+              cleared
+            </span>
           </div>
         </div>
 
-        <div className="space-y-5">
-          {lanes.map((lane) => {
-            const roll = laneRollup(lane.tiles);
-            return (
-            <div key={lane.key}>
+        {/* Top-3 busiest queues — a preview; each links straight into its queue,
+            with the oldest-open age so an admin sees which is most behind. Act on
+            the full set in the lane bento below. */}
+        {topQueues.length > 0 ? (
+          <div className="mt-5 grid gap-2 border-t border-white/10 pt-4 sm:grid-cols-3">
+            {topQueues.map((qq) => (
+              <Link
+                key={qq.href}
+                href={qq.href}
+                className="sn-press flex items-center justify-between gap-2 rounded-xl bg-white/[0.06] px-3 py-2 transition-colors hover:bg-white/[0.1]"
+              >
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="flex min-w-0 items-center gap-2 text-sm text-[color:var(--sn-gold-100)]">
+                    <span
+                      aria-hidden
+                      className={`h-1.5 w-1.5 shrink-0 rounded-full ${queueDot(qq.state)}`}
+                    />
+                    <span className="truncate">{qq.label}</span>
+                  </span>
+                  {qq.age ? (
+                    <span className="pl-3.5 text-[11px] text-white/55">
+                      oldest {qq.age}
+                      {qq.state === 'overdue'
+                        ? ' · past SLA'
+                        : qq.state === 'due-soon'
+                          ? ' · due soon'
+                          : ''}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="font-mono text-sm font-semibold tabular-nums text-[color:var(--sn-gold-100)]">
+                  {qq.count}
+                </span>
+              </Link>
+            ))}
+          </div>
+        ) : anyUnavailable ? null : (
+          <p className="mt-5 border-t border-white/10 pt-4 text-sm text-white/60">
+            All actionable queues are clear.
+          </p>
+        )}
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          {/* The ranked, busiest-first worklist — same data, single-screen
+              triage view (overdue → due-soon → busiest). */}
+          <Link
+            href="/admin/work"
+            className="sn-press inline-flex items-center gap-1.5 rounded-full bg-[color:var(--sn-gold-500)] px-4 py-2 text-xs font-semibold text-[color:var(--sn-ink-900)] transition-transform hover:-translate-y-0.5"
+          >
+            <ListChecks aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Open the work list
+          </Link>
+          {/* Ongoing platform work — the owner's "things we need to upgrade"
+              lives in the App Performance Action Center (AI credits, plan
+              limits, renewals, rotations). Linked rather than duplicated so
+              the cockpit stays the one source for those items. */}
+          <Link
+            href="/admin/app-performance"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[color:var(--sn-gold-300)] hover:text-[color:var(--sn-gold-100)]"
+          >
+            <AlertTriangle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Platform upgrades
+          </Link>
+        </div>
+      </section>
+
+      {/* LANE BENTO · the overview's own curated consequence lanes (Trust &
+       *  supply / Money / Recourse / Approvals & support — overview-only,
+       *  distinct from the canonical ADMIN_QUEUE_META lanes). One glass
+       *  `.sn-tile` per lane (blur budget § 1.6: 4 tiles + the focal = 5
+       *  blurred, well under the 8-cap); the ActionQueueTiles inside stay
+       *  OPAQUE (nested-in-glass → flat) with Space-Mono counts. Per-queue
+       *  counts come from the shared digest, so they agree with the nav badges
+       *  + /admin/work + the digest email by construction. */}
+      <div className="mb-8 grid gap-4 lg:grid-cols-2">
+        {lanes.map((lane) => {
+          const roll = laneRollup(lane.tiles);
+          return (
+            <section key={lane.key} aria-label={lane.label} className="sn-tile">
               {/* Lane rollup (2026-07-10) — per-lane aggregate open-count +
                   worst-urgency tone, derived from the same digest-backed tile
                   values (no new query). Lets an admin size a lane before
-                  scanning its four tiles. */}
-              <div className="mb-2 flex items-center gap-2">
-                <p className="m-mono text-[11px] uppercase tracking-[0.18em] text-[color:var(--m-slate-2)]">
-                  {lane.label}
-                </p>
+                  scanning its tiles. */}
+              <div className="mb-3 flex items-center gap-2">
+                <h2 className="sn-sec">{lane.label}</h2>
                 {roll.open > 0 ? (
                   <span
-                    className={`m-mono inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums ${roll.chip}`}
+                    className={`inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold tabular-nums ${roll.chip}`}
                   >
                     {roll.open} open
                   </span>
                 ) : roll.unavailable ? (
-                  <span className="m-mono text-[10px] text-ink/45">counts unavailable</span>
+                  <span className="font-mono text-[10px] text-ink/45">counts unavailable</span>
                 ) : (
-                  <span className="m-mono text-[10px] text-ink/40">clear</span>
+                  <span className="font-mono text-[10px] text-ink/40">clear</span>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3">
                 {lane.tiles.map((t) => (
                   <ActionQueueTile
                     key={t.href}
@@ -387,11 +475,10 @@ export default async function AdminOverview() {
                   />
                 ))}
               </div>
-            </div>
-            );
-          })}
-        </div>
-      </section>
+            </section>
+          );
+        })}
+      </div>
 
       {/* MORE QUEUES · the act-now queues whose open count is COMPUTED per item
        *  (cross-table joins / severity from a jsonb array / a JS "stuck" cut)
@@ -403,15 +490,25 @@ export default async function AdminOverview() {
        *  each is a plain destination. Several are time-sensitive (fraud /
        *  corrections / repost watch). */}
       <section aria-label="More queues" className="mb-8">
-        <h2 className="mb-1 m-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          More queues
-        </h2>
-        <p className="mb-4 text-sm text-ink/65">
+        <h2 className="sn-sec">More queues</h2>
+        <p className="mb-4 mt-0.5 text-sm text-[color:var(--sn-ink-500)]">
           These carry no live count — their open work is worked out per item, so
           open each to see what&rsquo;s waiting. Fraud, corrections, and repost
           watch are time-sensitive.
         </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Tile
+            href="/admin/data-privacy"
+            icon="shield-check"
+            title="Data Privacy"
+            body="Approve each privacy-sensitive capability (RA 10173) — the control board."
+          />
+          <Tile
+            href="/admin/npc-readiness"
+            icon="list-checks"
+            title="NPC Filing"
+            body="Work down the NPC pre-filing checklist — counsel review is the gate."
+          />
           <Tile
             href="/admin/fraud"
             icon="shield-check"
@@ -470,14 +567,12 @@ export default async function AdminOverview() {
 
       {/* Recent admin activity — real admin_audit_log entries (§3.4 of the
           redesign). Shows who-did-what so admins don't collide on the same row.
-          Migrated onto the canonical `.m-card` chrome (was an ad-hoc
-          rounded-2xl/bg-cream box) in the #2965 .m-card unification pass. */}
-      <section className="m-card mb-8 p-5 sm:p-6">
-        <h2 className="mb-3 m-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Recent admin activity
-        </h2>
+          Glass PR-8: ONE glass `.sn-tile` panel (below the fold, within the blur
+          budget); the audit rows stay opaque (divide-y, no per-row blur). */}
+      <section className="sn-tile mb-8">
+        <h2 className="sn-sec mb-3">Recent admin activity</h2>
         {activity.length === 0 ? (
-          <p className="text-sm text-ink/70">No admin actions logged yet.</p>
+          <p className="text-sm text-[color:var(--sn-ink-500)]">No admin actions logged yet.</p>
         ) : (
           <ul className="divide-y divide-ink/5">
             {activity.map((a) => {
@@ -502,7 +597,7 @@ export default async function AdminOverview() {
                     ) : null}
                   </span>
                   <span
-                    className={`m-mono hidden shrink-0 items-center rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] sm:inline-flex ${chip.pill}`}
+                    className={`hidden shrink-0 items-center rounded-full px-2 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.12em] sm:inline-flex ${chip.pill}`}
                   >
                     {chip.label}
                   </span>
@@ -595,6 +690,7 @@ function friendlyAction(action: string): string {
 function laneRollup(tiles: LaneTile[]): {
   open: number;
   unavailable: boolean;
+  state: 'overdue' | 'due-soon' | 'open' | 'clear';
   chip: string;
 } {
   let open = 0;
@@ -610,14 +706,30 @@ function laneRollup(tiles: LaneTile[]): {
     if (t.state === 'overdue') overdue = true;
     else if (t.state === 'due-soon') dueSoon = true;
   }
-  const chip = overdue
-    ? 'bg-red-100 text-red-800'
+  // Worst-urgency state + warm-semantic chip (Glass PR-8): the canonical
+  // #A6483B danger / #B77E2E warning tones replace the stock red-*/warn-*
+  // Tailwind scales so the rollup reads as ONE intentional system.
+  const state: 'overdue' | 'due-soon' | 'open' | 'clear' = overdue
+    ? 'overdue'
     : dueSoon
-      ? 'bg-warn-100 text-warn-900'
+      ? 'due-soon'
       : open > 0
-        ? 'bg-warn-50 text-warn-800'
+        ? 'open'
+        : 'clear';
+  const chip =
+    state === 'overdue'
+      ? 'bg-[var(--sn-danger-soft)] text-[var(--sn-danger)]'
+      : state === 'due-soon' || state === 'open'
+        ? 'bg-[var(--sn-warning-soft)] text-[var(--sn-warning)]'
         : 'bg-ink/5 text-ink/60';
-  return { open, unavailable, chip };
+  return { open, unavailable, state, chip };
+}
+
+/** Dot colour for a queue's oldest-item urgency on the obsidian focal. */
+function queueDot(state?: AdminQueueDueState): string {
+  if (state === 'overdue') return 'bg-[var(--sn-danger)]';
+  if (state === 'due-soon') return 'bg-[var(--sn-warning)]';
+  return 'bg-[var(--sn-gold-300)]';
 }
 
 /**
@@ -630,12 +742,24 @@ function activityChip(action: string): { label: string; pill: string; dot: strin
   const a = (action.split(':')[0] ?? action).toLowerCase();
   const has = (...needles: string[]) => needles.some((n) => a.includes(n));
   if (has('reject', 'fail', 'delete', 'ban', 'decline', 'remove', 'disable', 'suspend')) {
-    return { label: 'action', pill: 'bg-red-100 text-red-800', dot: 'bg-red-500/70' };
+    return {
+      label: 'action',
+      pill: 'bg-[var(--sn-danger-soft)] text-[color:var(--sn-danger)]',
+      dot: 'bg-[var(--sn-danger)]',
+    };
   }
   if (has('approve', 'confirm', 'promote', 'verify', 'release', 'enable', 'map', 'resolve', 'create', 'add')) {
-    return { label: 'done', pill: 'bg-success-100 text-success-700', dot: 'bg-success-500/70' };
+    return {
+      label: 'done',
+      pill: 'bg-[var(--sn-success-soft)] text-[color:var(--sn-success)]',
+      dot: 'bg-[var(--sn-success)]',
+    };
   }
-  return { label: 'update', pill: 'bg-stone-100 text-stone-700', dot: 'bg-mulberry/60' };
+  return {
+    label: 'update',
+    pill: 'bg-ink/5 text-[color:var(--sn-ink-500)]',
+    dot: 'bg-[var(--sn-gold-300)]',
+  };
 }
 
 /**
@@ -680,40 +804,46 @@ function ActionQueueTile({
   // has-work amber; everything-else-with-work stays amber; clear is muted.
   const overdue = dueState === 'overdue';
   const dueSoon = dueState === 'due-soon';
+  // Three-step WARM-semantic tone ladder (Glass PR-8 · § 3.4 — the canonical
+  // #A6483B danger / #B77E2E warning tones replace the stock red-*/warn-*
+  // scales). Opaque tints, no backdrop-filter: these nest inside the lane's
+  // glass `.sn-tile`, so they stay flat (blur budget § 1.6). overdue → danger ·
+  // due-soon → warning · open-but-fine → calm white w/ warm numerals · clear →
+  // muted ink.
   const tone = overdue
     ? {
-        border: 'border-red-300/70 bg-red-50/70 hover:bg-red-50',
-        icon: 'text-red-700',
-        label: 'text-red-800',
-        arrow: 'text-red-700',
-        value: 'text-red-900',
-        sub: 'text-red-800',
+        card: 'border-white/50 bg-[var(--sn-danger-soft)]',
+        icon: 'text-[color:var(--sn-danger)]',
+        label: 'text-[color:var(--sn-danger)]',
+        arrow: 'text-[color:var(--sn-danger)]',
+        value: 'text-[color:var(--sn-danger)]',
+        sub: 'text-[color:var(--sn-danger)]',
       }
     : dueSoon
       ? {
-          border: 'border-warn-400/70 bg-warn-50 ring-1 ring-warn-300/60 hover:bg-warn-100/60',
-          icon: 'text-warn-700',
-          label: 'text-warn-800',
-          arrow: 'text-warn-700',
-          value: 'text-warn-900',
-          sub: 'text-warn-800',
+          card: 'border-white/50 bg-[var(--sn-warning-soft)]',
+          icon: 'text-[color:var(--sn-warning)]',
+          label: 'text-[color:var(--sn-warning)]',
+          arrow: 'text-[color:var(--sn-warning)]',
+          value: 'text-[color:var(--sn-warning)]',
+          sub: 'text-[color:var(--sn-warning)]',
         }
       : hasWork
         ? {
-            border: 'border-warn-300/60 bg-warn-50/60 hover:bg-warn-50',
-            icon: 'text-warn-700',
-            label: 'text-warn-800',
-            arrow: 'text-warn-700',
-            value: 'text-warn-900',
-            sub: 'text-warn-800',
+            card: 'border-white/60 bg-white/75',
+            icon: 'text-[color:var(--sn-warning)]',
+            label: 'text-[color:var(--sn-warning)]',
+            arrow: 'text-[color:var(--sn-warning)]',
+            value: 'text-[color:var(--sn-ink-900)]',
+            sub: 'text-[color:var(--sn-ink-500)]',
           }
         : {
-            border: 'border-ink/10 bg-cream/80 hover:bg-ink/[0.03]',
+            card: 'border-white/60 bg-white/70',
             icon: '',
-            label: 'text-ink/55',
-            arrow: 'text-ink/35',
-            value: 'text-ink',
-            sub: 'text-ink/70',
+            label: 'text-[color:var(--sn-ink-400)]',
+            arrow: 'text-[color:var(--sn-ink-300)]',
+            value: 'text-[color:var(--sn-ink-900)]',
+            sub: 'text-[color:var(--sn-ink-500)]',
           };
 
   // SLA-pressure readout (council fix #11) — the digest already carried the
@@ -732,7 +862,7 @@ function ActionQueueTile({
   return (
     <Link
       href={href}
-      className={`block rounded-xl border p-4 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--m-nav-active)] ${tone.border}`}
+      className={`sn-press block rounded-card border p-4 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--sn-gold-500)] ${tone.card}`}
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
@@ -744,7 +874,7 @@ function ActionQueueTile({
             />
           ) : null}
           <span
-            className={`m-mono text-[10px] uppercase tracking-[0.15em] ${tone.label}`}
+            className={`font-mono text-[10px] uppercase tracking-[0.15em] ${tone.label}`}
           >
             {label}
           </span>
@@ -752,15 +882,14 @@ function ActionQueueTile({
         <ArrowRight aria-hidden className={`h-3.5 w-3.5 shrink-0 ${tone.arrow}`} />
       </div>
       <p
-        className={`text-3xl font-semibold tracking-tight tabular-nums ${tone.value}`}
-        style={{ fontFamily: "var(--font-condensed), 'Saira Condensed', sans-serif" }}
+        className={`font-mono text-3xl font-semibold tracking-tight tabular-nums ${tone.value}`}
       >
-        {value === null ? '—' : value}
+        {value === null ? '—' : <CountUp value={value} />}
       </p>
       {pressurePct !== null ? (
         <div aria-hidden className="mt-2 h-[3px] overflow-hidden rounded-full bg-ink/10">
           <div
-            className={`h-full rounded-full ${overdue ? 'bg-red-500' : 'bg-warn-500'}`}
+            className={`h-full rounded-full ${overdue ? 'bg-[var(--sn-danger)]' : 'bg-[var(--sn-warning)]'}`}
             style={{ width: `${pressurePct}%` }}
           />
         </div>

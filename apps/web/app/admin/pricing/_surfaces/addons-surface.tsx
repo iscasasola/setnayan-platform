@@ -229,7 +229,7 @@ export async function AddonsSurface({ searchParams }: Props) {
     <div>
       <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-2">
-          <p className="m-eyebrow text-[color:var(--m-orange-2)]">
+          <p className="sn-eye">
             Iteration 0023 · § 3.12
           </p>
           <h1 className="text-2xl font-semibold tracking-tight">
@@ -293,7 +293,7 @@ function CustomerGrid({
       // Per CLAUDE.md 2026-05-23 5-sweep audit (Sweep 5) — polite brand voice,
       // no schema jargon (`service_catalog` + `supabase/migrations/`) leaking
       // into the admin empty-state surface.
-      <div className="rounded-xl border border-dashed border-ink/15 bg-cream/40 p-10 text-center text-sm text-ink/60">
+      <div className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-10 text-center text-sm text-ink/60">
         No customer add-ons surfaced yet. Once active SKUs land, they appear
         here grouped by category.
       </div>
@@ -337,7 +337,7 @@ function CardLink({
     <Link
       href={href}
       scroll={false}
-      className={`group flex h-full flex-col gap-3 rounded-xl border bg-cream p-4 transition-shadow ${
+      className={`group flex h-full flex-col gap-3 rounded-xl border bg-white/70 p-4 transition-shadow ${
         isSelected
           ? 'border-terracotta/50 ring-2 ring-terracotta/35 ring-offset-2 ring-offset-cream'
           : 'border-ink/10 hover:border-ink/25 hover:shadow-sm'
@@ -489,7 +489,7 @@ function ExpandedCard({
   return (
     <section
       aria-labelledby="addon-expanded-heading"
-      className="mb-6 rounded-2xl border border-terracotta/40 bg-cream p-5 shadow-sm"
+      className="mb-6 rounded-2xl border border-terracotta/40 bg-white/70 p-5 shadow-sm"
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-4">
@@ -562,7 +562,7 @@ function Stat({
   hint?: string;
 }) {
   return (
-    <div className="rounded-lg border border-ink/10 bg-cream/60 px-4 py-3">
+    <div className="sn-tile px-4 py-3">
       <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
         {label}
       </p>
@@ -605,7 +605,7 @@ function EligibilityDetail({
   ];
 
   return (
-    <div className="mt-5 rounded-lg border border-ink/10 bg-cream/60 p-4">
+    <div className="mt-5 sn-tile p-4">
       <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
         Eligibility
       </p>

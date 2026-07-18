@@ -1,11 +1,16 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { runRetentionSweep } from '@/lib/retention-sweep';
 
 // Data Retention Schedule enforcement (2026-07-11 · class 1 chat · 5-yr default).
 //
+// NO LONGER on Vercel Cron — the schedule moved to the CRON-FREE pattern
+// (maybeRunRetentionSweep in lib/retention-sweep.ts, fired from admin-layout
+// after() + a weekly DB claim). This route is RETAINED as a manual / curl
+// trigger for the destructive sweep.
+//
 // POST /api/cron/retention-sweep
-// Auth: EITHER `Authorization: Bearer <CRON_SECRET>` (Vercel Cron sends this)
-//   OR `x-cron-secret: <CRON_SECRET>` (manual / external). Timing-safe, fail-closed.
+// Auth: EITHER `Authorization: Bearer <CRON_SECRET>` OR `x-cron-secret`.
+// Timing-safe, fail-closed.
 //
 // Calls purge_expired_chat() (migration 20270714177342), which hard-deletes whole
 // threads (cascading chat_messages + chat_thread_reads) for events older than
@@ -21,8 +26,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-const RETENTION_YEARS = 5;
 
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -43,15 +46,6 @@ export async function POST(req: NextRequest) {
     (headerSecret.length > 0 && timingSafeEqual(headerSecret, expected));
   if (!ok) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
 
-  const admin = createAdminClient();
-  const { data, error } = await admin.rpc('purge_expired_chat', { p_years: RETENTION_YEARS });
-  if (error) {
-    // Pre-migration (function absent) or a transient error — surface it (500) so
-    // the run is visibly skipped rather than silently reporting 0 purged. The
-    // sweep is idempotent, so the next scheduled run retries cleanly.
-    return NextResponse.json({ error: error.message, retention_years: RETENTION_YEARS }, { status: 500 });
-  }
-
-  const purged = typeof data === 'number' ? data : Number(data ?? 0);
-  return NextResponse.json({ purged: Number.isFinite(purged) ? purged : 0, retention_years: RETENTION_YEARS });
+  const { purged } = await runRetentionSweep();
+  return NextResponse.json({ purged, retention_years: 5 });
 }

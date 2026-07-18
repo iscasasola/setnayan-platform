@@ -118,7 +118,7 @@ export default async function AdminEditUnclaimedVendorPage({
           await saveUnclaimedVendorProfile(formData);
           redirect(`/admin/vendors/${vendorProfileId}/edit?saved=1`);
         }}
-        className="space-y-5 rounded-2xl border border-ink/10 bg-cream p-5"
+        className="space-y-5 sn-tile p-5"
       >
         <input type="hidden" name="vendor_profile_id" value={vendorProfileId} />
 

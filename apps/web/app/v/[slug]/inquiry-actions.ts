@@ -37,6 +37,12 @@ import {
   isPersistableCanonicalService,
 } from '@/lib/requirements-capture';
 import { inquiryGateEnabled, evaluateInquiryVelocity } from '@/lib/inquiry-gate';
+import { isInquirySource, type InquirySource } from '@/lib/inquiry-source';
+import {
+  resolveReferringChapter,
+  resolveIsReturning,
+  stampThreadProvenance,
+} from '@/lib/inquiry-attribution';
 
 const INQUIRY_BODY =
   "Hi! We're planning our wedding and would love to hear about your " +
@@ -52,6 +58,15 @@ export type StartServiceInquiryResult =
 
 export async function startServiceInquiry(input: {
   vendorProfileId: string;
+  /**
+   * Event-scoped callers (the couple's shortlist / build workspace, which is
+   * bound to ONE event) pass the explicit event this inquiry belongs to. It is
+   * VALIDATED against the caller's own couple events — a non-owned / unknown id
+   * resolves to `no_event`, never a cross-event write. Omitted → the couple's
+   * primary event (events[0]), the public-profile composer default.
+   * (owner 2026-07-17 — shortlist inquiry-source wiring.)
+   */
+  eventId?: string | null;
   /**
    * Who initiated this call. 'manual' (default) = the couple pressed Inquire in
    * the composer → subject to the Phase-A velocity gate. 'system' = a legitimate
@@ -86,6 +101,23 @@ export async function startServiceInquiry(input: {
     /** "Auto-send to my next inquiries" → event_vendor_preferences.auto_send. */
     autoSend?: boolean;
   };
+  /**
+   * Creator Economy PR-C — CTA-click attribution. The chapter public_id
+   * (S89C-…) carried by the Book CTA (`/v/[slug]?ref_chapter=…`). Validated
+   * server-side (published chapter · public profile · substrate credits THIS
+   * vendor) before anything is stamped; a forged/stale value degrades to an
+   * ordinary website inquiry. Stamped only on a BRAND-NEW thread — the chapter
+   * whose CTA STARTED the thread keeps the credit (owner paper-lock).
+   */
+  referringChapterPublicId?: string | null;
+  /**
+   * Inquiry-source taxonomy (owner 2026-07-17). Caller-declared origin for
+   * NON-chapter sources whose trigger surface is live (e.g. 'editorial' from a
+   * /realstories credit chip). Validated against the enum; 'influencer' is
+   * derived from a VALIDATED referral only, never trusted from this field.
+   * Omitted/null = website default (stored NULL).
+   */
+  inquirySource?: InquirySource | string | null;
 }): Promise<StartServiceInquiryResult> {
   const vendorProfileId = String(input.vendorProfileId ?? '').trim();
   const initialServiceId = String(input.initialServiceId ?? '').trim();
@@ -105,10 +137,17 @@ export async function startServiceInquiry(input: {
   // uid + event, so nothing is lost). Dormant unless anon-draft is live.
   if (user.is_anonymous) return { status: 'not_secured' };
 
-  // Primary event — the public-profile composer targets the couple's single
-  // active event. Multi-event hosts pick the event explicitly on the dashboard.
+  // Event resolution. An event-scoped caller (shortlist / build workspace) may
+  // pass an explicit event — HONORED only after validating the couple actually
+  // hosts it (a forged / non-owned id resolves to no_event, never a cross-event
+  // write). No explicit event → the public-profile composer default: the
+  // couple's primary / single active event. Multi-event hosts pick the event
+  // explicitly on the dashboard.
   const events = await fetchUserEvents(supabase, user.id, 'couple');
-  const eventId = events[0]?.event_id ?? null;
+  const requestedEventId = String(input.eventId ?? '').trim();
+  const eventId = requestedEventId
+    ? (events.find((e) => e.event_id === requestedEventId)?.event_id ?? null)
+    : (events[0]?.event_id ?? null);
   if (!eventId) return { status: 'no_event' };
 
   const admin = createAdminClient();
@@ -247,6 +286,43 @@ export async function startServiceInquiry(input: {
       .from('chat_threads')
       .update({ pax_at_inquiry: livePax })
       .eq('thread_id', threadId);
+  }
+
+  // ── Creator Economy PR-C · provenance stamp (brand-NEW threads only) ───────
+  // CTA-click attribution lock: the chapter whose Book CTA STARTED the thread
+  // gets the credit — a resumed thread keeps its original provenance untouched.
+  // A validated chapter referral wins ('influencer'); otherwise an enum-valid
+  // caller-declared source (e.g. 'editorial') is stored; otherwise NULL =
+  // Website Inquiry. is_returning is a companion flag computed from the same
+  // returning=1-token signal the token bands used. All best-effort.
+  if (!isExisting) {
+    const [resolvedReferral, returning] = await Promise.all([
+      resolveReferringChapter(input.referringChapterPublicId, vendorProfileId),
+      resolveIsReturning(vendorProfileId, eventId),
+    ]);
+    // Self-referral guard (G2, PR-C money-path review): a creator must not tick
+    // their OWN "inquiries driven" count by inquiring through their own chapter's
+    // Book CTA. When the credited chapter belongs to the inquirer, DROP the
+    // referral (treat as a normal Website inquiry) — never error the inquiry.
+    const referral =
+      resolvedReferral && resolvedReferral.creatorUserId === user.id
+        ? null
+        : resolvedReferral;
+    // Caller-declared source is only honored for enum values whose trigger
+    // surface the SERVER doesn't own: 'influencer' is derived from a validated
+    // referral, and 'degree' is unwired (server-set only) — reject both if a
+    // client supplies them.
+    const declaredSource =
+      isInquirySource(input.inquirySource) &&
+      input.inquirySource !== 'influencer' &&
+      input.inquirySource !== 'degree'
+        ? input.inquirySource
+        : null;
+    await stampThreadProvenance(threadId, {
+      referringChapterId: referral?.chapterId ?? null,
+      inquirySource: referral ? 'influencer' : declaredSource,
+      isReturning: returning,
+    });
   }
 
   // Only post the inquiry note when the thread has no messages yet — a resumed

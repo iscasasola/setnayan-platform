@@ -20,8 +20,10 @@ import { Wordmark } from '@/app/_components/brand-marks';
  * renders only a slim top bar: the brand mark (→ /dashboard), the notifications
  * bell, and the account menu (Profile & Settings · sign out · switch
  * account/console live inside the AccountSwitcher panel). Every other account
- * surface (People · Memories Hub · Settings · Notifications · Setnayan AI) keeps
- * the `(account)` sidebar; the launcher links into them as tiles.
+ * surface (People · Memories Hub · Settings · Notifications · Setnayan AI) now
+ * renders this SAME chrome-less top bar (owner 2026-07-13 — the old `(account)`
+ * sidebar was retired for the launcher paradigm); the launcher links into them
+ * as tiles and each spoke backs out via its own "Back to home" link.
  *
  * Auth/profile/deleted/vendor gating + the welcome tour stay in the parent
  * `dashboard/layout.tsx` (which renders the chrome-free `app-surface`). This
@@ -54,18 +56,29 @@ export default async function LauncherLayout({
   ]);
 
   return (
-    <div className="min-h-dvh">
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
+    // The ambient Atelier wash — the warm paper + gold/green/slate glows the
+    // frosted home cards sit ON. Now the canonical `.sn-ambient` (Glass PR-1,
+    // 2026-07-15): ONE wash source shared with every shell (event / vendor /
+    // admin / account spokes) so the whole app "feels similar," replacing the
+    // launcher-only `.sn-wash-home` splash and the 2026-07-13 white-flatten.
+    <div className="sn-ambient min-h-dvh">
+      <header
+        className="sn-reveal mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8"
+        style={{ animationDelay: '0.12s' }}
+      >
         <Link href="/dashboard" aria-label="Setnayan — home">
           <Wordmark />
         </Link>
-        <div className="flex items-center gap-2">
+        {/* Top-bar utility pill (proto .utilpill) — bell + avatar in one
+            frosted capsule over the wash. */}
+        <div className="flex items-center gap-1 rounded-full border border-white/[0.65] bg-white/45 p-1 shadow-[0_12px_30px_-22px_rgba(30,26,18,0.45)] backdrop-blur-[16px]">
           <UnreadBellBadge
             userId={user.id}
             initialUnread={unreadCount}
             href="/dashboard/notifications"
             ariaBaseLabel="Notifications"
             ariaUnreadSuffix="unread"
+            pulse
           />
           <AccountSwitcher data={switcherData} />
         </div>

@@ -163,6 +163,7 @@ export function ProposalMaker({
   packages = [],
   coupleCrewProvider = null,
   paymentMethods = [],
+  viewerPromo = null,
 }: {
   threadId: string;
   /** Seeded from thread.pax_at_inquiry so the opening quote is sized to what they asked for. */
@@ -174,6 +175,15 @@ export function ProposalMaker({
   coupleCrewProvider?: string | null;
   /** The vendor's published payment methods (§ 9) — the couple sees the picked subset. */
   paymentMethods?: ProposalPaymentMethodOption[];
+  /**
+   * Creator Economy PR-C — this thread came through a storyteller's chapter and
+   * the vendor promised the audience rate below (accepted collab,
+   * audience_rate_terms). Surfaces a banner beside the Discount input and
+   * labels the composed discount line "Viewer promo — {terms}" so the
+   * customer-facing quote reflects the promo. The vendor still types the peso
+   * amount (terms are freeform text; Setnayan never computes the discount).
+   */
+  viewerPromo?: { terms: string; creatorName?: string | null } | null;
 }) {
   const [open, setOpen] = useState(false);
   const [pax, setPax] = useState(requestedPax);
@@ -254,7 +264,25 @@ export function ProposalMaker({
       li.push({ label: 'Transportation', detail: 'Quoted after site check', amount_centavos: null });
     }
     if (discountC > 0) {
-      li.push({ label: 'Discount', detail: null, amount_centavos: -discountC });
+      // PR-C: on an attributed thread the discount IS the promised viewer
+      // promo — label it so the customer quote reflects the chapter deal.
+      li.push(
+        viewerPromo
+          ? {
+              label: 'Viewer promo',
+              detail: viewerPromo.terms,
+              amount_centavos: -discountC,
+            }
+          : { label: 'Discount', detail: null, amount_centavos: -discountC },
+      );
+    } else if (viewerPromo) {
+      // No peso amount entered yet — still reflect the promised promo on the
+      // quote as an informational line (null amount renders label+detail only).
+      li.push({
+        label: 'Viewer promo',
+        detail: viewerPromo.terms,
+        amount_centavos: null,
+      });
     }
     if (crew.mode === 'offset' && cr > 0) {
       li.push({
@@ -264,7 +292,7 @@ export function ProposalMaker({
       });
     }
     return { subtotal: sub, gross: grs, credit: cr, netPayable: net, lineItems: li };
-  }, [items, crew, transport, discountPhp, pax, hours]);
+  }, [items, crew, transport, discountPhp, pax, hours, viewerPromo]);
 
   // Self-balancing schedule — resolved against the quote total (gross, before the
   // crew credit) so the downpayment is a % of the full contract; the credit then
@@ -764,12 +792,26 @@ export function ProposalMaker({
 
       {/* Totals */}
       <div className="space-y-2 border-b border-ink/10 bg-cream/70 p-4">
+        {/* PR-C — viewer-promo nudge: this inquiry arrived through a storyteller
+            chapter whose accepted collab promised the audience rate below. The
+            vendor enters the peso value as the Discount; the composed line is
+            labeled "Viewer promo" so the couple's quote reflects the deal. */}
+        {viewerPromo ? (
+          <div className="rounded-lg border border-amber-300/60 bg-amber-50/70 px-3 py-2 text-xs text-ink/80">
+            <span className="font-semibold text-ink">Viewer promo promised</span>
+            {viewerPromo.creatorName ? (
+              <> via {viewerPromo.creatorName}&rsquo;s chapter</>
+            ) : null}
+            : <span className="font-medium text-ink">{viewerPromo.terms}</span>.
+            Enter the peso value below as the discount — it settles off-platform.
+          </div>
+        ) : null}
         <div className="flex items-baseline justify-between text-sm text-ink/60">
           <span>Subtotal</span>
           <span className="font-serif tabular-nums">{formatCentavos(subtotal)}</span>
         </div>
         <div className="flex items-center justify-between text-sm text-ink/60">
-          <span>Discount</span>
+          <span>{viewerPromo ? 'Discount · viewer promo' : 'Discount'}</span>
           <span className="flex items-center gap-1">
             ₱
             <input

@@ -179,7 +179,7 @@ export async function BrainSurface() {
   return (
     <div>
       <header className="mb-6 space-y-2">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">
+        <p className="sn-eye">
           Iteration 0023 § 3.13 · Today&apos;s Focus brain
         </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
@@ -263,7 +263,7 @@ export async function BrainSurface() {
           <details
             key={topic.filename}
             open={isOpen}
-            className="mb-4 overflow-hidden rounded-2xl border border-ink/10 bg-cream"
+            className="mb-4 overflow-hidden sn-tile"
           >
             <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-3 px-5 py-4 hover:bg-terracotta/[0.04]">
               <div className="min-w-0 flex-1 space-y-1">
@@ -279,7 +279,7 @@ export async function BrainSurface() {
                     : `${rowsForTopic.length} chunks`}
                 </span>
                 {paidCount > 0 ? (
-                  <span className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-violet-800">
+                  <span className="inline-flex items-center rounded-full bg-[var(--sn-info-soft)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-[color:var(--sn-info)]">
                     {paidCount} paid-tier
                   </span>
                 ) : null}
@@ -362,7 +362,7 @@ function ChunkRowView({
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-semibold text-ink">{row.chunk_title}</p>
             {row.paid_tier_only ? (
-              <span className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-violet-800">
+              <span className="inline-flex items-center rounded-full bg-[var(--sn-info-soft)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-[color:var(--sn-info)]">
                 Paid tier
               </span>
             ) : null}

@@ -65,6 +65,7 @@ import { snapshotPolicyAcknowledgement } from '@/lib/vendor-service-payment-sche
 import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { isPaymentGatedLockEnabled } from '@/lib/payment-gated-lock';
+import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock';
 
 function isValidCategory(value: unknown): value is VendorCategory {
   return typeof value === 'string' && (VENDOR_CATEGORIES as readonly string[]).includes(value);
@@ -578,6 +579,12 @@ export type FinalizeVendorResult =
       /** The service's downpayment amount when resolvable (prefill), else null. */
       suggestedAmountPhp: number | null;
     }
+  // Coordinator "propose a lock" (corpus spec § 4). When the caller is a
+  // coordinator (a non-couple host) and NEXT_PUBLIC_COORDINATOR_PROPOSE_LOCK_ENABLED
+  // is on, finalizeVendor does NOT lock — it records a pending
+  // vendor_lock_proposals row and returns this so the couple can confirm.
+  // Money-adjacent guard (locking seeds the payment schedule).
+  | { status: 'proposed'; vendorId: string; vendorName: string }
   | { status: 'error'; message: string };
 
 const LOCKED_STATUS: VendorStatus = 'contracted';
@@ -698,6 +705,38 @@ export async function finalizeVendor(
     (CONFIRMED_VENDOR_STATUSES as readonly string[]).includes(targetVendor.status)
   ) {
     return { status: 'already_locked', vendorId };
+  }
+
+  // Coordinator "propose a lock" (corpus spec § 4) — money-adjacent guard.
+  // Locking commits the couple to a vendor and seeds the payment schedule, so a
+  // coordinator (a non-couple host) may only PROPOSE it; the couple confirms.
+  // Flag-gated: OFF = coordinators lock directly (current behavior via the
+  // event_vendors_moderator_write RLS policy).
+  if (isCoordinatorProposeLockEnabled()) {
+    const { data: coupleMember } = await supabase
+      .from('event_members')
+      .select('user_id')
+      .eq('event_id', eventId)
+      .eq('user_id', user.id)
+      .eq('member_type', 'couple')
+      .maybeSingle();
+    if (!coupleMember) {
+      // Record a pending proposal instead of locking. Idempotent — the partial
+      // unique index (one pending per vendor) collapses re-proposals; a
+      // duplicate 23505 is a no-op, the proposal already stands.
+      await createAdminClient()
+        .from('vendor_lock_proposals')
+        .insert({
+          event_id: eventId,
+          event_vendor_id: vendorId,
+          proposed_by_user_id: user.id,
+        });
+      return {
+        status: 'proposed',
+        vendorId,
+        vendorName: targetVendor.vendor_name ?? 'this vendor',
+      };
+    }
   }
 
   // Hard-single conflict check. The DB enforces the invariant via the
@@ -2012,6 +2051,25 @@ export async function finalizeVendor(
       // eslint-disable-next-line no-console
       console.error(`[finalizeVendor] downpayment persist failed for vendor_id=${vendorId}:`, e);
     }
+  }
+
+  // Couple locked a vendor a coordinator had proposed — resolve the pending
+  // proposal so it drops off the couple's "to confirm" strip. Best-effort; the
+  // lock already succeeded. No-op when there was no proposal.
+  try {
+    await createAdminClient()
+      .from('vendor_lock_proposals')
+      .update({
+        status: 'confirmed',
+        resolved_at: new Date().toISOString(),
+        resolved_by_user_id: user.id,
+      })
+      .eq('event_id', eventId)
+      .eq('event_vendor_id', vendorId)
+      .eq('status', 'pending');
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error(`[finalizeVendor] proposal auto-resolve failed for vendor_id=${vendorId}:`, e);
   }
 
   return { status: 'ok', vendorId, lockedStatus: LOCKED_STATUS, milestone };
@@ -3973,4 +4031,51 @@ export async function withdrawChangeOrder(
   if (env.status === 'ok') return { status: 'ok' };
   if (env.status === 'already') return { status: 'already' };
   return { status: 'error', message: `Unexpected change-order status: ${env.status ?? 'none'}` };
+}
+
+/**
+ * Dismiss a coordinator's pending vendor-lock proposal (corpus spec § 4).
+ * Couple-only — the couple decides not to lock this vendor now. Flag-gated
+ * mechanic (NEXT_PUBLIC_COORDINATOR_PROPOSE_LOCK_ENABLED); harmless when off.
+ */
+export async function dismissVendorLockProposal(
+  formData: FormData,
+): Promise<{ ok: boolean }> {
+  const eventId = formData.get('event_id');
+  const proposalIdRaw = formData.get('proposal_id');
+  if (typeof eventId !== 'string' || typeof proposalIdRaw !== 'string') {
+    return { ok: false };
+  }
+  const proposalId = Number(proposalIdRaw);
+  if (!Number.isFinite(proposalId)) return { ok: false };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false };
+
+  // Couple-only: only the couple resolves a proposal.
+  const { data: coupleMember } = await supabase
+    .from('event_members')
+    .select('user_id')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .eq('member_type', 'couple')
+    .maybeSingle();
+  if (!coupleMember) return { ok: false };
+
+  await createAdminClient()
+    .from('vendor_lock_proposals')
+    .update({
+      status: 'dismissed',
+      resolved_at: new Date().toISOString(),
+      resolved_by_user_id: user.id,
+    })
+    .eq('id', proposalId)
+    .eq('event_id', eventId)
+    .eq('status', 'pending');
+
+  revalidatePath(`/dashboard/${eventId}/vendors`);
+  return { ok: true };
 }

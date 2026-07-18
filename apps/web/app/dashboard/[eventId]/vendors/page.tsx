@@ -59,6 +59,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { PlanBudgetAccordion, type VendorReviewStatus } from './_components/plan-budget-accordion';
 import { reviewState } from '@/lib/completion-handshake';
 import { ShortlistCategories } from './_components/shortlist-categories';
+import {
+  PendingLockProposals,
+  type PendingLockProposal,
+} from './_components/pending-lock-proposals';
+import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock';
 import { WaitingForQuotes, type WaitingInquiry } from './_components/waiting-for-quotes';
 import { buildShortlistFolders } from '@/lib/shortlist-taxonomy';
 import { buildCoupleFaithSet } from '@/lib/taxonomy-filters';
@@ -180,6 +185,46 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const daysUntilWedding = eventDate
     ? Math.round((new Date(eventDate).getTime() - Date.now()) / 86_400_000)
     : null;
+
+  // Coordinator "propose a lock" (spec § 4) — pending proposals for the couple
+  // to confirm. Only the couple sees the confirm strip (the money-adjacent
+  // decision is theirs), and the whole mechanic is flag-gated. The page admits
+  // coordinators too, so resolve couple-vs-coordinator from event_members.
+  let pendingLockProposals: PendingLockProposal[] = [];
+  if (isCoordinatorProposeLockEnabled()) {
+    const proposalAdmin = createAdminClient();
+    const { data: coupleRow } = await proposalAdmin
+      .from('event_members')
+      .select('user_id')
+      .eq('event_id', eventId)
+      .eq('user_id', user.id)
+      .eq('member_type', 'couple')
+      .maybeSingle();
+    if (coupleRow) {
+      const { data: props } = await proposalAdmin
+        .from('vendor_lock_proposals')
+        .select('id, event_vendor_id')
+        .eq('event_id', eventId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true });
+      const rows = props ?? [];
+      if (rows.length > 0) {
+        const vids = rows.map((r) => r.event_vendor_id);
+        const { data: vs } = await proposalAdmin
+          .from('event_vendors')
+          .select('vendor_id, vendor_name')
+          .in('vendor_id', vids);
+        const nameById = new Map(
+          (vs ?? []).map((v) => [v.vendor_id as string, v.vendor_name ?? 'A vendor']),
+        );
+        pendingLockProposals = rows.map((r) => ({
+          id: r.id as number,
+          eventVendorId: r.event_vendor_id as string,
+          vendorName: nameById.get(r.event_vendor_id as string) ?? 'A vendor',
+        }));
+      }
+    }
+  }
 
   // ── Card enrichment (CLAUDE.md 2026-05-31 "finish the data wiring") ──────
   // The card UI already renders photo / distance / stars / Verified+Setnayan
@@ -868,6 +913,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           still has a home, now atop the bench it actually governs. */}
       <SummaryAiToggle eventId={eventId} enabled={model.personalizationEnabled} />
       <WaitingForQuotes items={waitingForQuotes} />
+      <PendingLockProposals eventId={eventId} proposals={pendingLockProposals} />
       <ShortlistCategories
         folders={shortlistFolders}
         eventId={eventId}

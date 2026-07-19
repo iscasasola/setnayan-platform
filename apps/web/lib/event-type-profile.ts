@@ -194,9 +194,34 @@ export const SIMPLE_PROFILE: EventTypeProfile = {
   statutoryPackKey: null,
 };
 
+/**
+ * Travel — the roaming multi-day trip (ai-travel-scheduling, migration
+ * 20270825683668). Mirrors the seeded DB row (20270221005058 terminology +
+ * the composable trio set to roaming/multi-day by 20270807254184 and
+ * re-asserted by 20270825683668) so a DB hiccup degrades to the SAME traits
+ * the row carries — the itinerary surface (lib/schedule-travel.ts) never
+ * flips single-day on a read error. Surfaces/packs match GENERIC_PROFILE.
+ */
+export const TRAVEL_PROFILE: EventTypeProfile = {
+  ...GENERIC_PROFILE,
+  eventType: 'travel',
+  terminology: {
+    organizerNoun: 'organizer',
+    personA: null,
+    personB: null,
+    seatWord: 'seat',
+    eventWord: 'trip',
+    vipTierLabel: 'Travelers',
+  },
+  layerMode: 'roaming',
+  multiDay: true,
+  onboardingFlowKey: 'travel',
+};
+
 function fallbackFor(eventType: string): EventTypeProfile {
   if (eventType === 'wedding') return WEDDING_PROFILE;
   if (eventType === 'simple_event') return SIMPLE_PROFILE;
+  if (eventType === 'travel') return TRAVEL_PROFILE;
   return { ...GENERIC_PROFILE, eventType };
 }
 

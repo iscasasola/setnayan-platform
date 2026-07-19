@@ -297,6 +297,12 @@ const PROGRAMS: Record<string, Beat[]> = {
   corporate: CORPORATE,
   gender_reveal: GENDER_REVEAL,
   graduation: GRADUATION,
+  // Travel deliberately seeds NOTHING (ai-travel-scheduling): a trip is a
+  // multi-day itinerary built from hotel night-blocks + tour time-blocks
+  // (lib/schedule-travel.ts), not a single-evening party spine — the GENERIC
+  // guest-arrival/meal/socials fallback would pollute the itinerary with
+  // wrong-shaped beats on day one.
+  travel: [],
 };
 
 /** Anchor a local clock time to the event date, else a placeholder the host

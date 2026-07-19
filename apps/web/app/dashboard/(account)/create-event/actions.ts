@@ -12,6 +12,11 @@ import { safeNext } from '@/lib/auth';
 import { getBudgetBands } from '@/lib/budget-bands';
 import { resolveCreateCapture } from '@/lib/create-event-capture';
 import { anchorForType, isAnchorOrigin, parseISO, canToggleRecur } from '@/lib/event-anchor';
+import {
+  buildNextYearClonePayload,
+  canPlanNextYear,
+  type SourceEventForClone,
+} from '@/lib/event-recurrence';
 import { isGatedLifeType } from '@/lib/life-event-gate';
 import { hasInPlanningWeddingForUser } from './wedding-guard';
 import { getBlockingLifeEvent } from './life-event-guard';
@@ -448,6 +453,117 @@ export async function createWeddingEvent(formData: FormData) {
     return redirect(next);
   }
   return redirect(`/dashboard/${insertedEvent.event_id}`);
+}
+
+/**
+ * "Plan next year" — clone a recurring event forward (owner-locked 2026-07-12,
+ * scope "Details, not the guest list"). Creates next year's fresh planning
+ * instance from last year's: identity + captured details + the recurring anchor
+ * carry forward (buildNextYearClonePayload); the guest list, schedule, payments,
+ * venue, and date start fresh. Mirrors createWeddingEvent's write path exactly —
+ * unique slug + admin insert + event_members couple row + on_event_created
+ * trigger — so all the CHECK constraints and is_primary behave identically.
+ *
+ * Access is RLS-gated: the source SELECT runs on the user-scoped client, so a
+ * non-member reads NULL and is bounced. Only recurrence-capable, non-wedding
+ * types are eligible (canPlanNextYear).
+ */
+export async function planNextYearEvent(formData: FormData) {
+  const sourceIdRaw = formData.get('event_id');
+  if (typeof sourceIdRaw !== 'string' || sourceIdRaw.length === 0) {
+    return redirect('/dashboard');
+  }
+  const sourceId = sourceIdRaw;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return redirect('/login');
+
+  // RLS-gated read = the membership gate: a non-member reads NULL here.
+  const { data: source } = await supabase
+    .from('events')
+    .select(
+      'event_type, display_name, honoree_label, honoree_dependent_id, signature_details, anchor_kind, anchor_date, anchor_origin, estimated_pax, budget_band, estimated_budget_centavos, region, venue_latitude, venue_longitude, style_preferences',
+    )
+    .eq('event_id', sourceId)
+    .maybeSingle();
+  if (!source) return redirect('/dashboard');
+
+  if (!canPlanNextYear(source.event_type as string | null)) {
+    // Not a recurring-capable event — nothing to clone; back to the event.
+    return redirect(`/dashboard/${sourceId}`);
+  }
+
+  // Life-event cardinality (council 2026-07-17, PR #3373): the clone is an
+  // events insert like any other, so gated life types (birthday, among the
+  // recurrence-capable set) contend for the same ONE-in-planning-per
+  // (account × type × honoree) slot. Once this year's party date passes the
+  // slot frees and "Plan next year" goes through; while it's still in
+  // planning the existing-event surface explains the block. Lifestyle types
+  // (anniversary, reunion, corporate) return null here — zero rules.
+  const blocking = await getBlockingLifeEvent(supabase, user.id, {
+    eventType: source.event_type as string,
+    honoreeLabel: (source.honoree_label as string | null) ?? null,
+    honoreeDependentId: (source.honoree_dependent_id as string | null) ?? null,
+  });
+  if (blocking) {
+    return redirect(
+      `/dashboard/create-event?error=life_event_exists&existing=${encodeURIComponent(blocking.eventId)}&event_type=${encodeURIComponent(source.event_type as string)}`,
+    );
+  }
+
+  const admin = createAdminClient();
+  const displayName = (source.display_name as string | null) ?? 'My Event';
+  const slug = await generateUniqueSlug(admin, displayName);
+
+  const { data: inserted, error: insertError } = await admin
+    .from('events')
+    .insert({
+      ...buildNextYearClonePayload(source as SourceEventForClone),
+      slug,
+      is_primary: true,
+      // Non-wedding by construction → the ceremony-lock columns travel as NULL.
+      ceremony_type_locked_at: null,
+      ceremony_type_locked_by: null,
+    })
+    .select('event_id')
+    .single();
+
+  if (insertError || !inserted) {
+    return redirect(
+      `/dashboard/${sourceId}?error=${encodeURIComponent('plan_next_year_failed: ' + (insertError?.message ?? 'unknown'))}`,
+    );
+  }
+
+  const { error: memberError } = await admin.from('event_members').insert({
+    event_id: inserted.event_id,
+    user_id: user.id,
+    member_type: 'couple',
+    joined_via: 'created_event',
+  });
+  if (memberError) {
+    return redirect(
+      `/dashboard/${sourceId}?error=${encodeURIComponent('member_link_failed: ' + memberError.message)}`,
+    );
+  }
+
+  try {
+    await captureEvent({
+      distinctId: user.id,
+      event: 'event_created',
+      properties: {
+        event_id: inserted.event_id,
+        event_type: source.event_type,
+        via: 'plan_next_year',
+      },
+    });
+  } catch {
+    // analytics never breaks the user-facing flow.
+  }
+
+  return redirect(`/dashboard/${inserted.event_id}`);
 }
 
 // Iteration 0043 — email capture for "Coming Soon" ceremony types. Returns a

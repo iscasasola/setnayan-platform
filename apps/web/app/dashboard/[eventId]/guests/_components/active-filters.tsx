@@ -7,6 +7,7 @@ import {
   type RsvpStatus,
 } from '@/lib/guests';
 import { ROLE_GROUP_LABELS, type RoleGroup } from '@/lib/role-groups';
+import { SIDE_DOT } from '@/lib/side-colors';
 
 // -----------------------------------------------------------------------
 // ActiveFilters · the single, always-visible home for "what am I looking
@@ -87,7 +88,7 @@ export function ActiveFilters({
     chips.push({
       key: 'team',
       label: TEAM_SIDE_LABELS[team],
-      dot: team === 'bride' ? 'bg-rose-500' : 'bg-sky-600',
+      dot: SIDE_DOT[team],
     });
   if (rsvp && RSVP_LABELS[rsvp]) chips.push({ key: 'rsvp', label: RSVP_LABELS[rsvp] });
   if (view && view !== ('all' as RoleGroup) && ROLE_GROUP_LABELS[view])

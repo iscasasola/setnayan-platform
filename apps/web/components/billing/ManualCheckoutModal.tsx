@@ -27,7 +27,8 @@
  * Spec corpus: V2_Cutover_Plan_2026-05-28.md Phase B (billing surface).
  */
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 /**
  * Append a cache-buster query param to a QR image URL so that newly-uploaded
@@ -90,26 +91,10 @@ export default function ManualCheckoutModal({
   const [copied, setCopied] = useState(false);
   const [screenshotUploading, setScreenshotUploading] = useState(false);
   const [screenshotResult, setScreenshotResult] = useState<'idle' | 'success' | 'error'>('idle');
+  const dialogRef = useRef<HTMLDivElement>(null);
 
-  // ESC + outside-click closes.
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [isOpen, onClose]);
-
-  // Lock body scroll while open.
-  useEffect(() => {
-    if (!isOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [isOpen]);
+  // Focus trap + restore + Esc-to-close + body-scroll-lock via the shared hook.
+  useModalA11y({ open: isOpen, onClose, containerRef: dialogRef });
 
   // Reset channel + screenshot state when the modal re-opens fresh.
   useEffect(() => {
@@ -185,10 +170,11 @@ export default function ManualCheckoutModal({
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby="manual-checkout-title"
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md focus:outline-none"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -243,7 +229,7 @@ export default function ManualCheckoutModal({
               </span>
               <span className="text-sm text-zinc-500">{response.currency ?? 'PHP'}</span>
               {response.discount_applied === false ? (
-                <span className="ml-auto inline-flex items-center rounded-full border border-amber-300/40 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-amber-200">
+                <span className="ml-auto inline-flex items-center rounded-full border border-warn-300/40 bg-warn-400/10 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-warn-200">
                   100% retail · zero discount
                 </span>
               ) : null}
@@ -340,9 +326,9 @@ export default function ManualCheckoutModal({
                 type="button"
                 onClick={copyRef}
                 className="
-                  rounded-lg border border-amber-300/40 bg-amber-400/10 px-3 py-2.5
-                  text-xs font-medium uppercase tracking-[0.14em] text-amber-200
-                  transition hover:bg-amber-400/20
+                  rounded-lg border border-warn-300/40 bg-warn-400/10 px-3 py-2.5
+                  text-xs font-medium uppercase tracking-[0.14em] text-warn-200
+                  transition hover:bg-warn-400/20
                 "
                 style={{ transitionDuration: `${FADE_MS}ms` }}
               >
@@ -361,7 +347,7 @@ export default function ManualCheckoutModal({
             </p>
             {response.instructions.slaMinutes ? (
               <p className="mt-3 inline-flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900/60 px-3 py-1 text-xs font-medium text-zinc-400">
-                <span className="size-2 rounded-full bg-amber-400" aria-hidden />
+                <span className="size-2 rounded-full bg-warn-400" aria-hidden />
                 Reconciliation SLA · {response.instructions.slaMinutes} minutes after we see your transfer
               </p>
             ) : null}
@@ -374,7 +360,7 @@ export default function ManualCheckoutModal({
                 className="
                   flex cursor-pointer flex-col items-start gap-2 rounded-xl border
                   border-dashed border-zinc-700 bg-zinc-900/40 px-4 py-3 text-sm
-                  text-zinc-300 transition hover:border-amber-300/40 hover:bg-zinc-900/70
+                  text-zinc-300 transition hover:border-warn-300/40 hover:bg-zinc-900/70
                 "
               >
                 <input
@@ -413,10 +399,10 @@ export default function ManualCheckoutModal({
             type="button"
             onClick={copyRef}
             className="
-              rounded-full bg-gradient-to-b from-amber-200 via-amber-300 to-amber-400
+              rounded-full bg-gradient-to-b from-warn-200 via-warn-300 to-warn-400
               px-5 py-2 text-sm font-semibold text-zinc-900
               shadow-[0_6px_18px_-6px_rgba(251,191,36,0.5)]
-              transition hover:from-amber-100 hover:via-amber-200 hover:to-amber-300
+              transition hover:from-warn-100 hover:via-warn-200 hover:to-warn-300
             "
           >
             {copied ? 'Reference copied ✓' : 'Copy reference + open my app'}

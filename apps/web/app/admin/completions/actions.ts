@@ -2,10 +2,12 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 
+// Shared admin gate (require-admin.ts) — identical contract to the local
+// requireAdmin this file used to duplicate (login redirect · Forbidden throw).
+import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
 /**
  * /admin/completions actions — the human backstop for the per-vendor completion
  * handshake (Event Lifecycle Menu §6.1). Two outcomes on a stuck/disputed row:
@@ -26,23 +28,6 @@ import { emitNotification } from '@/lib/notification-emit';
 
 // Copied per the admin-actions convention (each admin actions file defines its
 // own — see disputes/actions.ts + payments/actions.ts).
-async function requireAdmin(): Promise<{ userId: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { data: me } = await supabase
-    .from('users')
-    .select('is_internal, is_team_member, account_type')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (!(me?.is_internal || me?.is_team_member || me?.account_type === 'admin')) {
-    throw new Error('Forbidden');
-  }
-  return { userId: user.id };
-}
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -84,6 +69,81 @@ async function vendorUserId(
     .eq('vendor_profile_id', marketplaceVendorId)
     .maybeSingle();
   return (data as { user_id: string | null } | null)?.user_id ?? null;
+}
+
+/**
+ * Open a vendor_disputes row so the demotion cron has input (cross-account QA,
+ * 2026-06-19). `vendor_disputes` was orphaned for INSERT, severing the
+ * completion-dispute → 30-day auto-demotion chain
+ * (api/admin/cron/dispute-counter). When an admin UPHOLDS a non-delivery the
+ * vendor genuinely didn't deliver, so it must count toward demotion.
+ *
+ * Constraints honored (same as the couple-side helper in review/actions.ts):
+ *  • vendor_profile_id resolved from the already-looked-up marketplace_vendor_id;
+ *    SKIP when null (off-platform vendor — nothing to demote, FK would reject).
+ *  • CHECK (payout_id OR order_id): link the most recent matching order when one
+ *    exists; otherwise the insert can't satisfy the CHECK and is swallowed —
+ *    fail-soft so the uphold write always commits.
+ *  • Idempotent: dedupe on linked order_id when present, else (vendor, opener,
+ *    category, open) so a re-uphold doesn't stack open disputes.
+ */
+async function openUpheldDispute(
+  admin: ReturnType<typeof createAdminClient>,
+  args: {
+    eventId: string;
+    vendorProfileId: string | null;
+    openedByUserId: string | null;
+    note: string | null;
+  },
+): Promise<void> {
+  try {
+    const vendorProfileId = args.vendorProfileId;
+    if (!vendorProfileId) return; // off-platform vendor — nothing to demote.
+
+    const { data: orderRow } = await admin
+      .from('orders')
+      .select('order_id')
+      .eq('event_id', args.eventId)
+      .eq('vendor_profile_id', vendorProfileId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const orderId = (orderRow as { order_id: string } | null)?.order_id ?? null;
+
+    let dedupe = admin
+      .from('vendor_disputes')
+      .select('dispute_id')
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('status', 'open');
+    dedupe = orderId
+      ? dedupe.eq('order_id', orderId)
+      : args.openedByUserId
+        ? dedupe.eq('opened_by_user_id', args.openedByUserId).eq('category', 'quality_issue')
+        : dedupe.eq('category', 'quality_issue');
+    const { data: existing } = await dedupe.limit(1).maybeSingle();
+    if (existing) return;
+
+    const { error: insErr } = await admin.from('vendor_disputes').insert({
+      vendor_profile_id: vendorProfileId,
+      order_id: orderId,
+      opened_by_user_id: args.openedByUserId,
+      category: 'quality_issue',
+      description:
+        'Setnayan team upheld a non-delivery report — the vendor did not deliver the service.' +
+        (args.note ? ` ${args.note}` : ''),
+      counts_toward_demotion: true,
+    });
+    if (insErr) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[openUpheldDispute] insert skipped (event_id=${args.eventId}):`,
+        insErr.message,
+      );
+    }
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('[openUpheldDispute] failed (non-fatal):', e);
+  }
 }
 
 async function writeAudit(
@@ -257,6 +317,19 @@ export async function upholdNonDelivery(formData: FormData) {
     actorUserId: adminUserId,
     beforeStatus: ev.completion_status,
     afterStatus: 'disputed',
+    note,
+  });
+
+  // Re-arm the demotion chain (cross-account QA, 2026-06-19): an upheld
+  // non-delivery must count toward the 30-day auto-demotion, so open a
+  // vendor_disputes row the dispute-counter cron can see. Attribute it to a
+  // couple member (the harmed party) when resolvable. Idempotent + fail-soft —
+  // never blocks the uphold write above.
+  const [openerUserId] = await coupleUserIds(admin, eventId);
+  await openUpheldDispute(admin, {
+    eventId,
+    vendorProfileId: ev.marketplace_vendor_id,
+    openedByUserId: openerUserId ?? null,
     note,
   });
 

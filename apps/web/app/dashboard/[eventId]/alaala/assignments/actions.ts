@@ -1,0 +1,244 @@
+'use server';
+
+import { after } from 'next/server';
+import { revalidatePath } from 'next/cache';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
+import { emitNotification } from '@/lib/notification-emit';
+import { isEmailConfigured, sendEmail } from '@/lib/email';
+import { renderBrandedEmail } from '@/lib/email-template';
+import type { KwentoMomentKey } from '@/lib/kwento-moments';
+import { KWENTO_MOMENT_BY_KEY } from '@/lib/kwento-moments';
+
+const MAX_NUDGES = 3;
+const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/+$/, '');
+
+type ActionResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Kwento assignment mutations write via the service-role client (RLS bypass)
+ * and can email a guest, so they must confirm the caller actually hosts the
+ * event — this couple-membership check was missing (an IDOR) — and is not a
+ * native anonymous draft principal (anon-draft users can't email third parties
+ * until they secure their plan).
+ */
+async function requireCoupleForKwento(
+  eventId: string,
+): Promise<{ ok: true; userId: string } | { ok: false; error: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Not authenticated' };
+  if (user.is_anonymous) {
+    return { ok: false, error: 'Secure your account to assign storytellers.' };
+  }
+  const { data: membership } = await supabase
+    .from('event_members')
+    .select('event_id')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .eq('member_type', 'couple')
+    .maybeSingle();
+  if (!membership) return { ok: false, error: 'Not authorized for this event.' };
+  return { ok: true, userId: user.id };
+}
+
+export async function createAssignment(
+  eventId: string,
+  momentKey: KwentoMomentKey,
+  guestId: string,
+): Promise<ActionResult> {
+  const auth = await requireCoupleForKwento(eventId);
+  if (!auth.ok) return auth;
+
+  const admin = createAdminClient();
+  const { error } = await admin.from('kwento_assignments').insert({
+    event_id: eventId,
+    moment_key: momentKey,
+    assigned_guest_id: guestId,
+    assigned_by_user_id: auth.userId,
+  });
+
+  if (error) {
+    if (error.code === '23505') return { ok: false, error: 'This guest is already assigned to that moment' };
+    return { ok: false, error: error.message };
+  }
+
+  after(async () => {
+    await dispatchNudgeEmail(admin, eventId, guestId, momentKey, 'assigned');
+  });
+
+  revalidatePath(`/dashboard/${eventId}/alaala/assignments`);
+  return { ok: true };
+}
+
+export async function removeAssignment(
+  eventId: string,
+  momentKey: KwentoMomentKey,
+  guestId: string,
+): Promise<ActionResult> {
+  const auth = await requireCoupleForKwento(eventId);
+  if (!auth.ok) return auth;
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('kwento_assignments')
+    .delete()
+    .eq('event_id', eventId)
+    .eq('moment_key', momentKey)
+    .eq('assigned_guest_id', guestId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/dashboard/${eventId}/alaala/assignments`);
+  return { ok: true };
+}
+
+export async function nudgeAssignee(assignmentId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Not authenticated' };
+  if (user.is_anonymous) {
+    return { ok: false, error: 'Secure your account to nudge storytellers.' };
+  }
+
+  const admin = createAdminClient();
+
+  const { data: row, error: readErr } = await admin
+    .from('kwento_assignments')
+    .select('assignment_id, event_id, moment_key, assigned_guest_id, nudge_count')
+    .eq('assignment_id', assignmentId)
+    .maybeSingle();
+
+  if (readErr || !row) return { ok: false, error: 'Assignment not found' };
+
+  // Authorize against the assignment's own event — previously any authenticated
+  // user could nudge (email) any guest by enumerating assignment ids.
+  const { data: membership } = await supabase
+    .from('event_members')
+    .select('event_id')
+    .eq('event_id', row.event_id as string)
+    .eq('user_id', user.id)
+    .eq('member_type', 'couple')
+    .maybeSingle();
+  if (!membership) return { ok: false, error: 'Not authorized for this event.' };
+  if ((row.nudge_count as number) >= MAX_NUDGES) {
+    return { ok: false, error: `Nudge limit reached (${MAX_NUDGES} per assignment)` };
+  }
+
+  const { error: updErr } = await admin
+    .from('kwento_assignments')
+    .update({
+      nudge_count: (row.nudge_count as number) + 1,
+      last_nudged_at: new Date().toISOString(),
+    })
+    .eq('assignment_id', assignmentId);
+
+  if (updErr) return { ok: false, error: updErr.message };
+
+  after(async () => {
+    await dispatchNudgeEmail(
+      admin,
+      row.event_id as string,
+      row.assigned_guest_id as string,
+      row.moment_key as KwentoMomentKey,
+      'nudge',
+    );
+  });
+
+  revalidatePath(`/dashboard/${row.event_id as string}/alaala/assignments`);
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Internal helper — sends email + optional in-app notification to the guest
+// ---------------------------------------------------------------------------
+
+async function dispatchNudgeEmail(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  guestId: string,
+  momentKey: KwentoMomentKey,
+  variant: 'assigned' | 'nudge',
+): Promise<void> {
+  try {
+    const moment = KWENTO_MOMENT_BY_KEY.get(momentKey);
+    if (!moment) return;
+
+    const [{ data: guest }, { data: event }] = await Promise.all([
+      admin
+        .from('guests')
+        .select('first_name, display_name, email')
+        .eq('guest_id', guestId)
+        .maybeSingle(),
+      admin
+        .from('events')
+        .select('display_name, event_date, slug')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    ]);
+
+    if (!guest?.email) return;
+
+    const guestName = (guest.display_name as string) || (guest.first_name as string) || 'Guest';
+    const coupleName = (event?.display_name as string) || 'the couple';
+    // The one job of this email is "go add your story" — it MUST carry a link to
+    // the couple's page (Guest Legibility Floor: the job must be reachable from
+    // the inbox). Falls back to the Setnayan home if the slug isn't published.
+    const slug = (event?.slug as string) || null;
+    const pageUrl = slug ? `${APP_URL}/${slug}` : APP_URL;
+
+    const subject =
+      variant === 'assigned'
+        ? `You've been asked to tell a story — ${moment.label}`
+        : `A gentle reminder: share your story of the ${moment.label}`;
+
+    const text =
+      variant === 'assigned'
+        ? `Hi ${guestName},\n\n${coupleName} would love to hear your story of the ${moment.label}.\n\nAdd your message here — it'll become part of their living wedding memory:\n${pageUrl}\n\nSetnayan`
+        : `Hi ${guestName},\n\n${coupleName} wanted to remind you — they'd still love to hear your story of the ${moment.label}.\n\nAdd your message here:\n${pageUrl}\n\nYour words mean more than you know.\n\nSetnayan`;
+
+    const html = renderBrandedEmail({
+      heading: variant === 'assigned' ? 'Share your story' : 'A gentle reminder',
+      paragraphs:
+        variant === 'assigned'
+          ? [
+              `Hi ${guestName},`,
+              `${coupleName} would love to hear your story of the ${moment.label}. It'll become part of their living wedding memory.`,
+            ]
+          : [
+              `Hi ${guestName},`,
+              `${coupleName} wanted to remind you — they'd still love to hear your story of the ${moment.label}. Your words mean more than you know.`,
+            ],
+      ctaLabel: 'Add my message',
+      ctaHref: pageUrl,
+      footnote: `Or open this link: ${pageUrl}`,
+    });
+
+    if (await isEmailConfigured()) {
+      await sendEmail({ to: guest.email as string, subject, text, html });
+    }
+
+    // In-app notification if the guest has a linked account
+    const { data: member } = await admin
+      .from('event_members')
+      .select('user_id')
+      .eq('event_id', eventId)
+      .eq('guest_id', guestId)
+      .maybeSingle();
+
+    if (member?.user_id) {
+      await emitNotification({
+        userId: member.user_id as string,
+        type: 'kwento_assignment_nudge',
+        title: subject,
+        relatedUrl: `/dashboard/${eventId}/alaala`,
+      });
+    }
+  } catch (e) {
+    console.error('[kwento-assignments] nudge email failed:', e);
+  }
+}

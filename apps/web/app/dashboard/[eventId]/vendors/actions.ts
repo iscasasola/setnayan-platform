@@ -8,16 +8,20 @@
 // manual reload. Same canonical fix as wizard-actions.ts (PR #514) — see
 // CLAUDE.md 2026-05-24 "Fix: chrome monogram (+ layout-cached fields) stay
 // stale after wizard save".
+import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { autoInviteCoordinator } from '@/lib/coordinator-grant';
 import { emitNotification } from '@/lib/notification-emit';
 import { uploadPublicAsset } from '@/lib/storage';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
+import { resolveLivePax } from '@/lib/pax';
 import {
   VENDOR_CATEGORIES,
   VENDOR_STATUSES,
+  displayServiceLabel,
   type VendorCategory,
   type VendorStatus,
 } from '@/lib/vendors';
@@ -27,7 +31,18 @@ import {
   planGroupForCategory,
 } from '@/lib/wedding-plan-groups';
 import { CONFIRMED_VENDOR_STATUSES, recomputeReceptionAnchor } from '@/lib/events';
+import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
+import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
+import { intersectViableCandidates, formatCandidateDate } from '@/lib/candidate-dates';
+import { computeFinalizeReady } from '@/lib/lock-milestones';
+import {
+  computeAuspiciousReasons,
+  type CeremonyType,
+  type MeaningfulDateKind,
+} from '@/lib/auspicious-date';
+import { isChineseWedding } from '@/lib/chinese-wedding';
 import { buildClaimUrl, ensureAutoShareInvite } from '@/lib/vendor-invites';
+import { renderUrlQrSvg } from '@/lib/qr';
 import {
   fetchSlotsForCoupleBooking,
   type VendorServiceTimeSlot,
@@ -36,7 +51,23 @@ import {
   acquireSchedulePools,
   releaseSchedulePools,
   resolvePoolIdsForService,
+  resolvePoolIdsForCategory,
 } from '@/lib/schedule-pools';
+import {
+  computePlanInstances,
+  defaultPaymentScheduleRows,
+  downpaymentPolicyFromRows,
+  isProtectedPolicy,
+  type PaymentScheduleItemRow,
+  type PolicySnapshot,
+} from '@/lib/vendor-service-payment-schedules';
+import { snapshotPolicyAcknowledgement } from '@/lib/vendor-service-payment-schedules.server';
+import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
+import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
+import { isPaymentGatedLockEnabled } from '@/lib/payment-gated-lock';
+import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock';
+import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
+import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
 
 function isValidCategory(value: unknown): value is VendorCategory {
   return typeof value === 'string' && (VENDOR_CATEGORIES as readonly string[]).includes(value);
@@ -44,6 +75,23 @@ function isValidCategory(value: unknown): value is VendorCategory {
 
 function isValidStatus(value: unknown): value is VendorStatus {
   return typeof value === 'string' && (VENDOR_STATUSES as readonly string[]).includes(value);
+}
+
+const CEREMONY_TYPE_VALUES = [
+  'catholic',
+  'civil',
+  'inc',
+  'christian',
+  'muslim',
+  'cultural',
+  'mixed',
+] as const;
+
+function asCeremonyType(value: unknown): CeremonyType | null {
+  return typeof value === 'string' &&
+    (CEREMONY_TYPE_VALUES as readonly string[]).includes(value)
+    ? (value as CeremonyType)
+    : null;
 }
 
 function parseMoney(raw: FormDataEntryValue | null): number | null {
@@ -123,86 +171,58 @@ export async function updateVendorCosts(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  const newTotal = parseMoney(formData.get('total_cost_php'));
+
+  // #7 (money bug-hunt): a manual edit of the base total must re-baseline the
+  // pax-surcharge bookkeeping — otherwise the stale pax_surcharge_php /
+  // pax_quote_base would charge against the NEW total on the next guest-count
+  // confirm (wrong amount). Only re-baseline when the total actually CHANGED
+  // (the form also carries transport/food). The edited total is the price for
+  // the CURRENT pax, so the surcharge re-derives from there (zero until pax
+  // grows further).
+  const { data: existing } = await supabase
+    .from('event_vendors')
+    .select('total_cost_php')
+    .eq('vendor_id', vendorId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const totalChanged =
+    existing != null && Number(existing.total_cost_php ?? 0) !== Number(newTotal ?? 0);
+
+  // Crew-meal coverage (2026-07-09): when the couple marks this vendor's crew as
+  // fed by the event's crew-meal provider, its own crew-meal line
+  // (food_allowance_php) is SUPERSEDED — nulled here so the budget rollup counts
+  // the crew-meal cost ONCE (in the provider's package), never twice. crew_size
+  // is the crew this vendor brings (feeds the provider's derived meal count).
+  const crewMealCovered = formData.get('crew_meal_covered') === 'on';
+  const crewSizeRaw = formData.get('crew_size');
+  const crewSizeNum =
+    typeof crewSizeRaw === 'string' && crewSizeRaw.trim() !== '' ? Number(crewSizeRaw) : NaN;
+  const crewSize = Number.isFinite(crewSizeNum) ? Math.max(0, Math.trunc(crewSizeNum)) : null;
+
+  const updatePayload: Record<string, unknown> = {
+    total_cost_php: newTotal,
+    transport_php: parseMoney(formData.get('transport_php')),
+    food_allowance_php: crewMealCovered ? null : parseMoney(formData.get('food_allowance_php')),
+    crew_size: crewSize,
+    crew_meal_covered: crewMealCovered,
+  };
+  if (totalChanged) {
+    const livePax = await resolveLivePax(supabase, eventId);
+    updatePayload.pax_quote_base = livePax;
+    updatePayload.pax_surcharge_php = 0;
+    updatePayload.cost_basis_pax = livePax;
+  }
+
   const { error } = await supabase
     .from('event_vendors')
-    .update({
-      total_cost_php: parseMoney(formData.get('total_cost_php')),
-      transport_php: parseMoney(formData.get('transport_php')),
-      food_allowance_php: parseMoney(formData.get('food_allowance_php')),
-    })
+    .update(updatePayload)
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
 
   revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`, 'layout');
-}
-
-// ============================================================================
-// Inline custom-vendor add from the home-page planner cards (2026-05-21).
-//
-// Same insert shape as createVendor but returns a Result so the client
-// component can render pending / added / error states without the
-// "thrown error → page-level fault" UX that createVendor produces inside
-// a `<form action={...}>`.
-// ============================================================================
-
-export type AddCustomVendorResult =
-  | { status: 'ok'; eventVendorId: string }
-  | { status: 'not_signed_in' }
-  | { status: 'error'; message: string };
-
-export async function addCustomVendor(
-  formData: FormData,
-): Promise<AddCustomVendorResult> {
-  const eventId = formData.get('event_id');
-  const name = formData.get('vendor_name');
-  const category = formData.get('category');
-
-  if (typeof eventId !== 'string' || eventId.length === 0) {
-    return { status: 'error', message: 'Missing event id' };
-  }
-  if (typeof name !== 'string') {
-    return { status: 'error', message: 'Missing vendor name' };
-  }
-  if (!isValidCategory(category)) {
-    return { status: 'error', message: 'Unknown category' };
-  }
-  const trimmedName = name.trim();
-  if (trimmedName.length === 0) {
-    return { status: 'error', message: 'Vendor name is required' };
-  }
-  if (trimmedName.length > 128) {
-    return { status: 'error', message: 'Name must be 128 chars or fewer' };
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { status: 'not_signed_in' };
-  }
-
-  const { data: inserted, error } = await supabase
-    .from('event_vendors')
-    .insert({
-      event_id: eventId,
-      category,
-      vendor_name: trimmedName,
-      status: 'considering',
-      source: 'host_manual',
-    })
-    .select('vendor_id')
-    .single();
-
-  if (error || !inserted) {
-    return { status: 'error', message: error?.message ?? 'Insert failed' };
-  }
-
-  revalidatePath(`/dashboard/${eventId}`, 'layout');
-  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
-  return { status: 'ok', eventVendorId: inserted.vendor_id };
 }
 
 export async function updateVendorStatus(formData: FormData) {
@@ -225,7 +245,7 @@ export async function updateVendorStatus(formData: FormData) {
   // the white→BOOKED capacity transition for the schedule-pool gate.
   const { data: prev } = await supabase
     .from('event_vendors')
-    .select('status, vendor_name, marketplace_vendor_id, service_id')
+    .select('status, vendor_name, marketplace_vendor_id, service_id, category, contact_email')
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
     .maybeSingle();
@@ -243,6 +263,8 @@ export async function updateVendorStatus(formData: FormData) {
     vendor_name?: string;
     marketplace_vendor_id?: string | null;
     service_id?: string | null;
+    category?: string | null;
+    contact_email?: string | null;
   } | null;
   const wasConsuming = prevRow?.status
     ? DOWNPAID_STATUSES.has(prevRow.status)
@@ -252,13 +274,25 @@ export async function updateVendorStatus(formData: FormData) {
     !wasConsuming
     && willConsume
     && prevRow?.marketplace_vendor_id
-    && prevRow.service_id
+    && (prevRow.service_id || prevRow.category)
   ) {
-    const poolIds = await resolvePoolIdsForService(
-      supabase,
-      prevRow.marketplace_vendor_id,
-      prevRow.service_id,
-    );
+    // Resolve by service when this row picked a specific service; else by
+    // category. The category path closes the PACKAGE bypass: lockPackage
+    // cascade-rows carry a category but no service_id, so the service-only gate
+    // used to skip them and a packaged booking consumed no capacity (could
+    // overbook a full date). A booked package now consumes capacity like any
+    // other booking (owner "bundles lock every pool they span").
+    const poolIds = prevRow.service_id
+      ? await resolvePoolIdsForService(
+          supabase,
+          prevRow.marketplace_vendor_id,
+          prevRow.service_id,
+        )
+      : await resolvePoolIdsForCategory(
+          supabase,
+          prevRow.marketplace_vendor_id,
+          prevRow.category,
+        );
     if (poolIds.length > 0) {
       const acq = await acquireSchedulePools(supabase, eventId, vendorId, poolIds);
       if (acq.status === 'full') {
@@ -266,9 +300,17 @@ export async function updateVendorStatus(formData: FormData) {
           `That date is fully booked for ${acq.poolLabel || 'this category'} on the vendor's schedule — message the vendor or adjust the date before marking the deposit paid.`,
         );
       }
-      if (acq.status === 'blocked') {
+      if (acq.status === 'blocked' || acq.status === 'locked') {
+        // PHASE 5: 'locked' is a vendor's explicit hard hold on the date —
+        // same couple-facing outcome as a closure block (never who/why).
         throw new Error(
           "The vendor has closed this date on their calendar — message them before marking the deposit paid.",
+        );
+      }
+      if (acq.status === 'whitelist') {
+        // PHASE 5: the vendor wants to approve bookings on this date first.
+        throw new Error(
+          "This date needs the vendor to confirm before it can be booked — message them before marking the deposit paid.",
         );
       }
       if (acq.status === 'error') {
@@ -300,6 +342,31 @@ export async function updateVendorStatus(formData: FormData) {
     await releaseSchedulePools(supabase, vendorId, 'status_downgrade');
   }
 
+  // Coordinator auto-grant (owner 2026-06-22): the FIRST time a planner_coordinator
+  // booking reaches a downpaid/booked state, auto-invite the coordinator with host
+  // (full planning, no money) access — the same delegate the manual "Promote your
+  // coordinator" creates, fired automatically on the downpayment milestone. The
+  // coordinator still activates it via the /host/accept link, so access is never
+  // granted without their acceptance. Idempotent (skips an existing invite) and
+  // best-effort: a failed invite never rolls back the booking-status change.
+  if (
+    !wasConsuming
+    && willConsume
+    && prevRow?.category === 'planner_coordinator'
+    && prevRow?.contact_email
+  ) {
+    try {
+      await autoInviteCoordinator(createAdminClient(), {
+        eventId,
+        email: prevRow.contact_email,
+        displayLabel: prevRow.vendor_name ?? null,
+        invitedByUserId: user.id,
+      });
+    } catch {
+      // best-effort — never block the booking-status write on the auto-invite.
+    }
+  }
+
   // Phase-2 review-request emit: the moment a vendor's service is marked
   // delivered (and wasn't already delivered/complete), drop a notification
   // on the couple's tray + send a Resend email asking them to leave a
@@ -318,6 +385,14 @@ export async function updateVendorStatus(formData: FormData) {
       body: 'Their service is marked delivered. Take a minute to leave a public review.',
       relatedUrl: `/dashboard/${eventId}/vendors/${vendorId}/review`,
     });
+  }
+
+  // A marketplace vendor's booking status just changed — refresh their
+  // finalized_booking_count / inquiry_to_booking_pct off the request path
+  // (cron-free; after() runs post-response; wrapper swallows its own errors).
+  if (prevRow?.marketplace_vendor_id) {
+    const vpid = prevRow.marketplace_vendor_id;
+    after(() => triggerVendorActivityRecompute(vpid));
   }
 
   revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
@@ -417,9 +492,31 @@ export async function deleteVendor(formData: FormData) {
 // signed-out users; everything beyond that is RLS-enforced.
 // ============================================================================
 
+/** What the just-completed lock unlocked — drives the milestone congrats card. */
+export type LockMilestone = {
+  /** "Reception venue" — the plan-group (or category) the couple just picked. */
+  pickedLabel: string;
+  /** True when this action ALSO finalized the wedding date (force-to-one flow). */
+  dateLocked: boolean;
+  /** Set only when the new lock completed a downstream feature's prerequisites. */
+  finalizeReady: { featureLabel: string; helper: string; href: string } | null;
+};
+
 export type FinalizeVendorResult =
-  | { status: 'ok'; vendorId: string; lockedStatus: string }
+  | { status: 'ok'; vendorId: string; lockedStatus: string; milestone: LockMilestone }
+  // Locking this vendor narrows the couple's remaining candidate dates to a
+  // single day — so confirming the lock also finalizes the wedding date. The
+  // UI surfaces "Locking this service will finally set your date to {date} —
+  // continue?"; on confirm it re-calls with confirm_date_lock=1.
+  | {
+      status: 'date_will_lock';
+      vendorId: string;
+      vendorName: string;
+      resultingDate: string; // 'YYYY-MM-DD'
+      dateLabel: string; // "Saturday, September 12, 2027"
+    }
   | { status: 'not_signed_in' }
+  | { status: 'not_secured' }
   | { status: 'not_found' }
   | { status: 'already_locked'; vendorId: string }
   | {
@@ -456,6 +553,40 @@ export type FinalizeVendorResult =
       vendorId: string;
       vendorName: string;
     }
+  // No-Show Downpayment Protection — the booked service's downpayment carries a
+  // PROTECTED reservation policy (non-refundable downpayment and/or no-show
+  // forfeit) the couple must explicitly acknowledge before the lock commits.
+  // The UI surfaces a "Reservation terms" gate with the frozen terms text + a
+  // tick-box; on confirm it re-calls with acknowledge_reservation_terms=1. The
+  // server snapshots the acknowledged policy into an immutable evidence row at
+  // lock. No money moves — this is the couple's consent + the paper trail.
+  | {
+      status: 'reservation_terms_required';
+      vendorId: string;
+      vendorName: string;
+      policy: PolicySnapshot;
+    }
+  // Payment-gated lock — HARD server gate (NEXT_PUBLIC_PAYMENT_GATED_LOCK_ENABLED).
+  // Every "can I lock" gate has passed, but a marketplace vendor with published
+  // payment methods requires the downpayment BEFORE the lock commits. The UI
+  // opens the downpayment picker (methods + required screenshot); on submit it
+  // re-calls with deposit_method_id + deposit_php + proof, which commits the
+  // lock AND records the downpayment atomically. Off-platform / no-published-
+  // methods vendors never see this (nothing to pay through) — they lock directly.
+  | {
+      status: 'downpayment_required';
+      vendorId: string;
+      vendorName: string;
+      methods: CoupleFacingMethod[];
+      /** The service's downpayment amount when resolvable (prefill), else null. */
+      suggestedAmountPhp: number | null;
+    }
+  // Coordinator "propose a lock" (corpus spec § 4). When the caller is a
+  // coordinator (a non-couple host) and NEXT_PUBLIC_COORDINATOR_PROPOSE_LOCK_ENABLED
+  // is on, finalizeVendor does NOT lock — it records a pending
+  // vendor_lock_proposals row and returns this so the couple can confirm.
+  // Money-adjacent guard (locking seeds the payment schedule).
+  | { status: 'proposed'; vendorId: string; vendorName: string }
   | { status: 'error'; message: string };
 
 const LOCKED_STATUS: VendorStatus = 'contracted';
@@ -518,6 +649,14 @@ export async function finalizeVendor(
     typeof chosenSlotIdRaw === 'string' && chosenSlotIdRaw.length > 0
       ? chosenSlotIdRaw
       : null;
+  // Set by the date-lock confirmation modal — the couple agreed that locking
+  // this vendor (which narrows their candidates to one) also finalizes the date.
+  const confirmDateLockRaw = formData.get('confirm_date_lock');
+  const confirmDateLock = confirmDateLockRaw === '1' || confirmDateLockRaw === 'true';
+  // No-Show Downpayment Protection — set when the couple ticked the reservation-
+  // terms acknowledgement in the lock gate. Drives the acknowledgement snapshot.
+  const ackTermsRaw = formData.get('acknowledge_reservation_terms');
+  const acknowledgedReservationTerms = ackTermsRaw === '1' || ackTermsRaw === 'true';
 
   if (typeof eventId !== 'string' || eventId.length === 0) {
     return { status: 'error', message: 'Missing event id' };
@@ -533,6 +672,12 @@ export async function finalizeVendor(
   if (!user) {
     return { status: 'not_signed_in' };
   }
+  // Anon-draft guard: locking a vendor emits booking_confirmed to that vendor.
+  // An anon couple can't reach here without first inquiring (already gated), so
+  // this is defense-in-depth — secure the account before contracting a vendor.
+  if (user.is_anonymous) {
+    return { status: 'not_secured' };
+  }
 
   // Read the target vendor and any already-locked siblings in one trip.
   // marketplace_vendor_id added 2026-05-22 — drives the auto-add cascade
@@ -542,7 +687,7 @@ export async function finalizeVendor(
   // marketplace link being non-null.
   const { data: targetVendor, error: targetErr } = await supabase
     .from('event_vendors')
-    .select('vendor_id, category, status, vendor_name, marketplace_vendor_id, manual_vendor_id, service_id')
+    .select('vendor_id, category, status, vendor_name, marketplace_vendor_id, manual_vendor_id, service_id, total_cost_php')
     .eq('event_id', eventId)
     .eq('vendor_id', vendorId)
     .maybeSingle();
@@ -562,6 +707,62 @@ export async function finalizeVendor(
     (CONFIRMED_VENDOR_STATUSES as readonly string[]).includes(targetVendor.status)
   ) {
     return { status: 'already_locked', vendorId };
+  }
+
+  // Coordinator "propose a lock" (corpus spec § 4) — money-adjacent guard.
+  // Locking commits the couple to a vendor and seeds the payment schedule, so a
+  // coordinator (a non-couple host) may only PROPOSE it; the couple confirms.
+  // Flag-gated: OFF = coordinators lock directly (current behavior via the
+  // event_vendors_moderator_write RLS policy).
+  if (isCoordinatorProposeLockEnabled()) {
+    const { data: coupleMember } = await supabase
+      .from('event_members')
+      .select('user_id')
+      .eq('event_id', eventId)
+      .eq('user_id', user.id)
+      .eq('member_type', 'couple')
+      .maybeSingle();
+    if (!coupleMember) {
+      // Record a pending proposal instead of locking. Idempotent — the partial
+      // unique index (one pending per vendor) collapses re-proposals; a
+      // duplicate 23505 is a no-op, the proposal already stands.
+      await createAdminClient()
+        .from('vendor_lock_proposals')
+        .insert({
+          event_id: eventId,
+          event_vendor_id: vendorId,
+          proposed_by_user_id: user.id,
+        });
+      return {
+        status: 'proposed',
+        vendorId,
+        vendorName: targetVendor.vendor_name ?? 'this vendor',
+      };
+    }
+  }
+
+  // Consent-scoped coordinator vendor lock (owner 2026-07-19 #5). A direct
+  // lock from here commits the couple to a vendor and seeds the payment
+  // schedule. Behind NEXT_PUBLIC_COORDINATOR_CONSENT_GATE_ENABLED, a
+  // non-couple caller may lock directly only when the couple granted the
+  // 'vendor_lock' scope at invite time (coordinator_access_consents.scopes).
+  // Runs AFTER the propose-lock branch so that flag (if ever ON) keeps its
+  // propose path untouched; flag OFF = exact current behavior (helper returns
+  // true without reading).
+  {
+    const lockAllowed = await coordinatorMoneyScopeAllowed(
+      createAdminClient(),
+      eventId,
+      user.id,
+      'vendor_lock',
+    );
+    if (!lockAllowed) {
+      return {
+        status: 'error',
+        message:
+          'The couple has not approved vendor locking for your coordinator access — ask them to re-invite you with vendor-lock permission.',
+      };
+    }
   }
 
   // Hard-single conflict check. The DB enforces the invariant via the
@@ -632,6 +833,213 @@ export async function finalizeVendor(
       return { status: 'error', message: revertErr.message };
     }
   }
+
+  // ── Candidate-date narrowing gate (date-as-output, force-to-one) ─────────
+  // If the couple has NOT yet locked a wedding date but committed candidate
+  // dates at onboarding, locking this marketplace vendor narrows those
+  // candidates to the days every locked vendor (the already-contracted ones +
+  // this target) is free. When that leaves exactly ONE candidate, confirming
+  // the lock should ALSO finalize the wedding date — so we gate behind a
+  // confirmation: return 'date_will_lock' unless the couple already confirmed.
+  // forcedDateKey is carried to the post-lock block, which writes the date.
+  // Off-platform vendors (no marketplace profile) can't constrain a date and
+  // never trigger this gate.
+  let forcedDateKey: string | null = null;
+  if (targetVendor.marketplace_vendor_id) {
+    const { data: dateRow } = await supabase
+      .from('events')
+      .select('event_date, date_candidates')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    const existingDate = (dateRow as { event_date?: string | null } | null)?.event_date ?? null;
+    const candidates = Array.isArray(
+      (dateRow as { date_candidates?: unknown } | null)?.date_candidates,
+    )
+      ? ((dateRow as { date_candidates: unknown[] }).date_candidates).filter(
+          (s): s is string => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s),
+        )
+      : [];
+
+    if (!existingDate && candidates.length > 0) {
+      // Profile ids of vendors that constrain the date: already-locked
+      // marketplace vendors + this target.
+      const { data: lockedRows } = await supabase
+        .from('event_vendors')
+        .select('marketplace_vendor_id')
+        .eq('event_id', eventId)
+        .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[])
+        .is('archived_at', null)
+        .not('marketplace_vendor_id', 'is', null);
+      const profileIds = [
+        ...new Set<string>([
+          ...(lockedRows ?? []).map((r) => r.marketplace_vendor_id as string),
+          targetVendor.marketplace_vendor_id,
+        ]),
+      ];
+
+      const sorted = [...candidates].sort();
+      const [ys = 2027, ms = 1, ds = 1] = (sorted[0] ?? '2027-01-01').split('-').map(Number);
+      const [ye = 2027, me = 1, de = 1] = (sorted[sorted.length - 1] ?? sorted[0] ?? '2027-01-01')
+        .split('-')
+        .map(Number);
+      const avail = await getBatchVendorAvailableDays(
+        createAdminClient(),
+        profileIds,
+        new Date(ys, ms - 1, ds),
+        new Date(ye, me - 1, de),
+      );
+      const viable = intersectViableCandidates(candidates, avail, profileIds);
+
+      if (viable.length === 1) {
+        forcedDateKey = viable[0]!;
+        if (!confirmDateLock) {
+          return {
+            status: 'date_will_lock',
+            vendorId,
+            vendorName: targetVendor.vendor_name as string,
+            resultingDate: forcedDateKey,
+            dateLabel: formatCandidateDate(forcedDateKey),
+          };
+        }
+      }
+    }
+  }
+
+  // No-Show Downpayment Protection — reservation-terms acknowledgement gate.
+  //
+  // If the booked service's downpayment (seq 0) carries a PROTECTED policy
+  // (non-refundable downpayment and/or no-show forfeit), the couple must
+  // explicitly acknowledge the terms before the lock commits. We resolve the
+  // policy + its frozen snapshot here (BEFORE any lock side-effect: the slot
+  // acquire and the status flip below), so a couple who hasn't ticked the box
+  // is sent back the 'reservation_terms_required' result to surface the gate.
+  // Setnayan holds no money — this records the couple's consent + (post-lock)
+  // freezes the policy text into immutable evidence for a forfeit dispute.
+  //
+  // Only marketplace services carry a schedule (off-platform/manual vendors have
+  // no vendor_services row), so the gate is naturally scoped to them. Reading
+  // the template needs the vendor's owner-RLS'd rows — use the admin client
+  // (the couple has already proven they own this booking via the supabase
+  // lookups above). reservationSnapshot is reused by the post-lock evidence
+  // write so the policy is read once.
+  let reservationSnapshot: PolicySnapshot | null = null;
+  if (targetVendor.marketplace_vendor_id && targetVendor.service_id) {
+    const { data: schedRows } = await createAdminClient()
+      .from('vendor_service_payment_schedules')
+      .select('*')
+      .eq('vendor_service_id', targetVendor.service_id)
+      .order('seq', { ascending: true });
+    const rows = (schedRows ?? []) as PaymentScheduleItemRow[];
+    const policy = downpaymentPolicyFromRows(rows);
+    if (isProtectedPolicy(policy) && policy) {
+      const dpRow = rows.find((r) => r.seq === 0) ?? null;
+      const totalCostPhp =
+        typeof targetVendor.total_cost_php === 'string'
+          ? Number(targetVendor.total_cost_php)
+          : ((targetVendor.total_cost_php as number | null) ?? null);
+      // Resolve the downpayment amount for the evidence snapshot when possible.
+      let downpaymentAmountPhp: number | null = null;
+      if (dpRow) {
+        if (dpRow.amount_kind === 'fixed' && dpRow.amount_centavos != null) {
+          downpaymentAmountPhp = Math.round(dpRow.amount_centavos / 100);
+        } else if (
+          dpRow.amount_kind === 'percent' &&
+          dpRow.percent_bps != null &&
+          totalCostPhp != null
+        ) {
+          downpaymentAmountPhp = Math.round((totalCostPhp * dpRow.percent_bps) / 10000);
+        }
+      }
+      reservationSnapshot = {
+        ...policy,
+        downpayment_label: dpRow?.label ?? null,
+        downpayment_amount_php: downpaymentAmountPhp,
+      };
+      // Gate: the couple must have ticked the acknowledgement. Surface the terms
+      // so the UI can render the gate with the exact policy text.
+      if (!acknowledgedReservationTerms) {
+        return {
+          status: 'reservation_terms_required',
+          vendorId,
+          vendorName: targetVendor.vendor_name as string,
+          policy: reservationSnapshot,
+        };
+      }
+    }
+  }
+
+  // ── Payment-gated lock · HARD server gate ────────────────────────────────
+  // (NEXT_PUBLIC_PAYMENT_GATED_LOCK_ENABLED). Every couple-interaction gate above
+  // has passed. A MARKETPLACE vendor that PUBLISHES payment methods now requires
+  // the downpayment BEFORE the lock commits — the gate is enforced server-side at
+  // each commit point below (slot-acquire + the generic lock write), so a lock
+  // can't slip through without it. When the couple submits the downpayment
+  // (deposit_method_id + deposit_php + proof), we validate it here (pre-commit)
+  // and persist it AFTER a successful commit. Off-platform / no-published-methods
+  // vendors have nothing to pay through → the gate no-ops and they lock directly.
+  const dpFlagOn = isPaymentGatedLockEnabled();
+  const dpMethodIdRaw = formData.get('deposit_method_id');
+  const dpProvided =
+    typeof dpMethodIdRaw === 'string' && dpMethodIdRaw.length > 0;
+  const dpWantGate = dpFlagOn && !!targetVendor.marketplace_vendor_id;
+  let dpMethodsCache: CoupleFacingMethod[] | null = null;
+  const getDpMethods = async (): Promise<CoupleFacingMethod[]> => {
+    if (dpMethodsCache) return dpMethodsCache;
+    dpMethodsCache = await fetchPublishedMethodsForCouple({
+      authedClient: supabase,
+      adminClient: createAdminClient(),
+      eventId,
+      eventVendorId: vendorId,
+    });
+    return dpMethodsCache;
+  };
+
+  // Pre-commit VALIDATION when the couple submitted a downpayment: the chosen
+  // method must be one of THIS vendor's published methods (blocks a forged id),
+  // the amount > 0, and the proof present. Invalid → return before committing.
+  let dpChosen: CoupleFacingMethod | null = null;
+  let dpAmountPhp: number | null = null;
+  if (dpWantGate && dpProvided) {
+    const methods = await getDpMethods();
+    dpChosen = methods.find((m) => m.payment_method_id === dpMethodIdRaw) ?? null;
+    if (!dpChosen) {
+      return {
+        status: 'error',
+        message: 'That payment method is no longer available — pick another and try again.',
+      };
+    }
+    dpAmountPhp = parseMoney(formData.get('deposit_php'));
+    if (dpAmountPhp === null || dpAmountPhp <= 0) {
+      return { status: 'error', message: 'Enter the downpayment amount you paid.' };
+    }
+    const proofEntry = formData.get('proof');
+    if (!(proofEntry instanceof File) || proofEntry.size === 0) {
+      return {
+        status: 'error',
+        message: 'Attach a screenshot of your payment to confirm the lock.',
+      };
+    }
+  }
+
+  // The gate itself — fires ONLY when the flag is on, the vendor is marketplace,
+  // no downpayment was provided yet, AND the vendor actually publishes methods
+  // (else there is nothing to pay through → lock directly). Checked at each
+  // commit point below so neither the slot path nor the generic path can commit
+  // a lock without it.
+  const downpaymentGate = async (): Promise<
+    Extract<FinalizeVendorResult, { status: 'downpayment_required' }> | null
+  > => {
+    if (!dpWantGate || dpProvided) return null;
+    const methods = await getDpMethods();
+    if (methods.length === 0) return null;
+    return {
+      status: 'downpayment_required',
+      vendorId,
+      vendorName: targetVendor.vendor_name as string,
+      methods,
+      suggestedAmountPhp: null,
+    };
+  };
 
   // PR A · Soft-hold limit gate (Rule 3 of the lock/delete/overlap
   // architecture — CLAUDE.md 2026-05-24 row "Canonical wizard sequence
@@ -708,6 +1116,10 @@ export async function finalizeVendor(
           vendorName: targetVendor.vendor_name as string,
         };
       }
+      // HARD payment gate — the slot RPC commits the lock atomically, so the
+      // downpayment must be collected BEFORE it. Slot is chosen; ask to pay now.
+      const dpGateSlot = await downpaymentGate();
+      if (dpGateSlot) return dpGateSlot;
       const { data: acq, error: acqErr } = await supabase.rpc(
         'acquire_service_time_slot',
         {
@@ -747,6 +1159,23 @@ export async function finalizeVendor(
             vendorName: targetVendor.vendor_name as string,
             currentLimit: 0,
             existingHoldCount: 0,
+          };
+        case 'locked':
+          // PHASE 5 gapfix: the vendor has a hard hold on this date — same
+          // couple-facing outcome as a closure (never who / why / which state).
+          // Mirrors the pool path's 'blocked'/'locked' copy above.
+          return {
+            status: 'error',
+            message:
+              "The vendor has closed this date on their calendar — message them before booking this time.",
+          };
+        case 'whitelist':
+          // PHASE 5 gapfix: the vendor wants to approve bookings on this date
+          // first. Mirrors the pool path's 'whitelist' copy above.
+          return {
+            status: 'error',
+            message:
+              "This date needs the vendor to confirm before it can be booked — message them before booking this time.",
           };
         case 'slot_required':
         case 'slot_not_found':
@@ -829,7 +1258,7 @@ export async function finalizeVendor(
       await Promise.all([
         supabase
           .from('events')
-          .select('wedding_date')
+          .select('event_date')
           .eq('event_id', eventId)
           .maybeSingle(),
         supabase
@@ -845,7 +1274,7 @@ export async function finalizeVendor(
       return { status: 'error', message: vpErr.message };
     }
 
-    const weddingDate = eventRow?.wedding_date as string | null | undefined;
+    const weddingDate = eventRow?.event_date as string | null | undefined;
     const limit = (vendorProfileRow?.max_soft_holds_per_date as number | undefined) ?? null;
 
     // Skip the check when the event has no wedding date, OR when the
@@ -866,7 +1295,7 @@ export async function finalizeVendor(
       const { data: sameDateEvents, error: sdeErr } = await supabase
         .from('events')
         .select('event_id')
-        .eq('wedding_date', weddingDate);
+        .eq('event_date', weddingDate);
       if (sdeErr) {
         return { status: 'error', message: sdeErr.message };
       }
@@ -906,13 +1335,44 @@ export async function finalizeVendor(
   // flipped status→'contracted' + stamped service_time_slot_id inside the
   // acquire RPC's lock, so it skips this write (slotPathLocked).
   if (!slotPathLocked) {
+    // HARD payment gate — the generic write below flips status→'contracted'.
+    // Collect the downpayment first (marketplace + published-methods vendors);
+    // off-platform / no-methods vendors no-op through and lock directly.
+    const dpGateGeneric = await downpaymentGate();
+    if (dpGateGeneric) return dpGateGeneric;
     // Status precondition (conflict-guard re-audit 2026-06-13, item 4): never
     // let this soft-hold lock-write clobber a row that concurrently advanced
     // to a money status. Without it, a finalize racing a downpayment could
     // downgrade deposit_paid/delivered/complete back to 'contracted'.
+    //
+    // selection_match_rank = 1 (owner-approved 2026-06-19): the locked vendor
+    // IS the couple's chosen pick for that leaf category, so stamp it as the
+    // RECOMMENDED #1 pick here. This activates the vendor-side "From Your
+    // Vendors" editorial-media feature + the #1-match stat, both of which gate
+    // on selection_match_rank = 1 (findRecommendedEventVendorId,
+    // lib/editorial-vendor-media.ts; editorial firstPick stat,
+    // app/[slug]/_components/editorial/data.ts). Idempotent — the write always
+    // sets rank=1 on the lock transition, and the lock path is guarded against
+    // re-running on an already-confirmed row (CONFIRMED_VENDOR_STATUSES
+    // already_locked short-circuit above).
+    //
+    // linked_vendor_profile_id (QA fix 2026-06-19): the marketplace-attribution
+    // FK was NEVER written by the lock path, so the public completed-events
+    // count stayed permanently 0 and the Pro/Enterprise editorial credit never
+    // fired (both join event_vendors → vendor_profiles ON
+    // linked_vendor_profile_id; see 20260515020000_public_stats_exclusion.sql).
+    // Stamp it to the chosen vendor's profile id alongside the lock. Same FK
+    // target as marketplace_vendor_id (vendor_profiles.vendor_profile_id), so
+    // they're interchangeable here. NULL for off-platform / custom vendors
+    // (no profile to attribute to) — left NULL, which is correct.
     const { error: lockErr } = await supabase
       .from('event_vendors')
-      .update({ status: LOCKED_STATUS, updated_at: new Date().toISOString() })
+      .update({
+        status: LOCKED_STATUS,
+        selection_match_rank: 1,
+        linked_vendor_profile_id: targetVendor.marketplace_vendor_id ?? null,
+        updated_at: new Date().toISOString(),
+      })
       .eq('vendor_id', vendorId)
       .eq('event_id', eventId)
       .not('status', 'in', '("deposit_paid","delivered","complete")');
@@ -1047,6 +1507,153 @@ export async function finalizeVendor(
   }
 
   // ----------------------------------------------------------------------
+  // Payment-plan SNAPSHOT (Vendor Transaction Lifecycle · Phase 2 · PR-B).
+  //
+  // At lock, freeze the booked service's PAYMENT SCHEDULE TEMPLATE (PR-A's
+  // vendor_service_payment_schedules) into a CONCRETE per-booking plan in
+  // event_vendor_payment_plan, then tell the couple their payment info is
+  // ready (payment_info_sent). The couple's workspace renders the plan
+  // alongside the existing "how to pay" (PR-B render).
+  //
+  // Resolution (computePlanInstances, pure):
+  //   • amount: percent → total_cost_php * percent_bps / 10000; fixed →
+  //     amount_centavos / 100. A percent installment with NO total snapshots
+  //     amount_php:null + retains percent_bps so it resolves later.
+  //   • due_date: on_lock → lock date + offset; before_event → event_date -
+  //     offset (null when the event has no/tentative date).
+  //
+  // A service with NO schedule still gets a plan row (empty instances) so the
+  // couple sees "pay the vendor directly" via the existing methods.
+  //
+  // Best-effort + fully fail-soft — wrapped exactly like the booking_confirmed
+  // emit + the audit inserts: a snapshot error must NEVER roll back the lock.
+  // Only marketplace vendors carry a schedule (off-platform / manual vendors
+  // have no vendor_services rows), so the snapshot is gated on the marketplace
+  // link — but we still create an empty plan for them so the workspace render
+  // has a consistent read.
+  // ----------------------------------------------------------------------
+  try {
+    const planAdmin = createAdminClient();
+
+    // Pull the booking total + event date for the resolution inputs.
+    const [{ data: evRow }, { data: eventRow }] = await Promise.all([
+      planAdmin
+        .from('event_vendors')
+        .select('total_cost_php')
+        .eq('event_id', eventId)
+        .eq('vendor_id', vendorId)
+        .maybeSingle(),
+      planAdmin
+        .from('events')
+        .select('event_date')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    ]);
+    const totalCostPhp =
+      (evRow as { total_cost_php: number | null } | null)?.total_cost_php ?? null;
+    const eventDateIso =
+      (eventRow as { event_date: string | null } | null)?.event_date ?? null;
+    const lockDateIso = new Date().toISOString().slice(0, 10);
+
+    // Read the booked service's schedule template (seq-ordered). Off-platform /
+    // serviceless bookings → no rows → empty plan (direct-pay fallback).
+    let scheduleRows: PaymentScheduleItemRow[] = [];
+    if (targetVendor.service_id) {
+      const { data: rows } = await planAdmin
+        .from('vendor_service_payment_schedules')
+        .select('*')
+        .eq('vendor_service_id', targetVendor.service_id)
+        .order('seq', { ascending: true });
+      scheduleRows = (rows ?? []) as PaymentScheduleItemRow[];
+    }
+
+    // Default-seed: a marketplace vendor with a known total but NO configured
+    // schedule would otherwise hand the couple an empty plan / silent "pay
+    // directly". Seed a 50/50 ESTIMATED plan instead (flagged below) so the
+    // couple always sees a downpayment + balance they can confirm. Skipped when
+    // there's no total to estimate against — an empty plan is the honest state.
+    const seededDefault = scheduleRows.length === 0 && totalCostPhp != null;
+    if (seededDefault) {
+      scheduleRows = defaultPaymentScheduleRows();
+    }
+
+    const instances = computePlanInstances({
+      scheduleRows,
+      totalCostPhp,
+      lockDateIso,
+      eventDateIso,
+    });
+
+    // Upsert one plan row per (event, event_vendor) — re-locking refreshes it.
+    const { error: planErr } = await planAdmin
+      .from('event_vendor_payment_plan')
+      .upsert(
+        {
+          event_id: eventId,
+          event_vendor_id: vendorId,
+          instances_json: instances,
+          // Flag an estimated 50/50 fallback so the couple's workspace can label
+          // it "estimated — confirm with your vendor". Always written, so a
+          // re-lock after the vendor sets a real schedule flips this back false.
+          is_default_seeded: seededDefault,
+          // #15 (money bug-hunt): a re-lock re-snapshots the instances, so the
+          // plan must start UNCLEARED — otherwise a previously-cleared plan keeps
+          // cleared_at and a freshly-recomputed (possibly larger) balance shows
+          // as fully settled. planAdmin is service_role, so this bypasses the
+          // cleared_at write-guard. The couple re-confirms via the gated path.
+          cleared_at: null,
+          cleared_by: null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'event_id,event_vendor_id' },
+      );
+    if (planErr) {
+      console.error(
+        `[finalizeVendor] payment-plan snapshot upsert failed for vendor_id=${vendorId} event_id=${eventId}:`,
+        planErr.message,
+      );
+    } else {
+      // Tell the COUPLE (the acting host) their payment info is ready. Deep-link
+      // to the per-vendor workspace Payments section.
+      await emitNotification({
+        userId: user.id,
+        type: 'payment_info_sent',
+        title: 'Your payment info is ready',
+        body: seededDefault
+          ? `Your booking with ${targetVendor.vendor_name as string} is locked. We've prepared an estimated payment plan — open the workspace to review it and confirm the terms with your vendor.`
+          : instances.length > 0
+            ? `Your booking is locked. We've prepared the payment plan for ${targetVendor.vendor_name as string} — open the workspace to see each payment and how to pay.`
+            : `Your booking with ${targetVendor.vendor_name as string} is locked. Open the workspace to see how to pay them directly.`,
+        relatedUrl: `/dashboard/${eventId}/vendors/${vendorId}/workspace#payments`,
+      });
+    }
+
+    // No-Show Downpayment Protection — freeze the acknowledged reservation
+    // policy into immutable evidence. reservationSnapshot is non-null only when
+    // the booked service carried a PROTECTED policy AND the couple ticked the
+    // acknowledgement gate above (otherwise we returned reservation_terms_required
+    // and never reach here). Write-once via the service-role client; a re-lock
+    // never overwrites the original acknowledgement. Best-effort — never rolls
+    // back the lock (this is the same fail-soft contract as the plan upsert).
+    if (reservationSnapshot) {
+      await snapshotPolicyAcknowledgement({
+        adminClient: planAdmin,
+        eventId,
+        eventVendorId: vendorId,
+        vendorProfileId: targetVendor.marketplace_vendor_id ?? null,
+        snapshot: reservationSnapshot,
+        acknowledgedBy: user.id,
+      });
+    }
+  } catch (e) {
+    // Fail-soft — the lock already succeeded; never roll it back.
+    console.error(
+      `[finalizeVendor] payment-plan snapshot failed for vendor_id=${vendorId} event_id=${eventId}:`,
+      e,
+    );
+  }
+
+  // ----------------------------------------------------------------------
   // Finalize auto-cleanup (CLAUDE.md 2026-05-22 owner directive — Task #26).
   //
   // Owner verbatim: "when the vendor is finalized, the other vendors there
@@ -1095,6 +1702,152 @@ export async function finalizeVendor(
   }
 
   // ----------------------------------------------------------------------
+  // EXCLUSIVITY on lock (payment-gated lock · NEXT_PUBLIC_PAYMENT_GATED_LOCK_ENABLED).
+  //
+  // Archiving above hides the couple's OWN losing picks. This also closes out
+  // the OTHER SIDE: when the couple locks a HARD-SINGLE pick (one venue /
+  // officiant / coordinator / host / LED at a time), the other marketplace
+  // vendors they were inquiring in the same group are out of the running.
+  // Displace their open inquiry threads (chat_inquiry_status → 'displaced' — the
+  // provisioned "slot filled by another booking · REVIVABLE" state) so BOTH
+  // sides stop chasing a dead lead, and notify each released vendor.
+  //
+  // Couple-authorized: the couple owns their side of these threads
+  // (chat_threads_member_write · event_id IN current_couple_event_ids), and the
+  // only inquiry_status trigger fires solely on →'accepted', so this couple-RLS
+  // write is unblocked. HARD-SINGLE groups only — a multi-pick category (e.g.
+  // two entertainers) excludes no one. Best-effort + fail-soft: the lock already
+  // succeeded, so a displacement/notify hiccup never rolls it back. Gated behind
+  // the payment-gated-lock flag so it ships dormant until the owner flips it.
+  // ----------------------------------------------------------------------
+  if (isPaymentGatedLockEnabled() && isHardSingle) {
+    try {
+      const winnerVpid = targetVendor.marketplace_vendor_id ?? null;
+      // Other marketplace vendors the couple has in the same hard-single GROUP
+      // (may span >1 category), excluding the winner.
+      const { data: groupRows } = await supabase
+        .from('event_vendors')
+        .select('marketplace_vendor_id')
+        .eq('event_id', eventId)
+        .in('category', groupCategories as unknown as string[])
+        .not('marketplace_vendor_id', 'is', null);
+      const loserVpids = Array.from(
+        new Set(
+          (groupRows ?? [])
+            .map((r) => (r as { marketplace_vendor_id: string | null }).marketplace_vendor_id)
+            .filter((id): id is string => !!id && id !== winnerVpid),
+        ),
+      );
+      if (loserVpids.length > 0) {
+        // The couple's OPEN inquiry threads with those vendors on this event.
+        // inquiry_status is carried so we can (a) stamp displaced_from_status
+        // for the revive-on-unlock path (revertVendorToConsidering) and (b)
+        // refund vendors whose thread was 'accepted' — they burned 1-3 tokens
+        // to answer; 'pending' vendors spent nothing.
+        const { data: threadRows } = await supabase
+          .from('chat_threads')
+          .select('thread_id, vendor_profile_id, inquiry_status')
+          .eq('event_id', eventId)
+          .in('vendor_profile_id', loserVpids)
+          .in('inquiry_status', ['pending', 'accepted']);
+        const openThreads = (threadRows ?? []) as {
+          thread_id: string;
+          vendor_profile_id: string;
+          inquiry_status: 'pending' | 'accepted';
+        }[];
+        if (openThreads.length > 0) {
+          // Displace them (couple-RLS write — the couple owns these threads),
+          // stamping the PRIOR status into displaced_from_status so a later
+          // un-lock can revive each thread to exactly where it was. Partition by
+          // prior status because Supabase .update() can't copy column→column.
+          const nowIso = new Date().toISOString();
+          let displaceFailed = false;
+          for (const priorStatus of ['pending', 'accepted'] as const) {
+            const ids = openThreads
+              .filter((t) => t.inquiry_status === priorStatus)
+              .map((t) => t.thread_id);
+            if (ids.length === 0) continue;
+            const { error: dispErr } = await supabase
+              .from('chat_threads')
+              .update({
+                inquiry_status: 'displaced',
+                displaced_from_status: priorStatus,
+                updated_at: nowIso,
+              })
+              .in('thread_id', ids);
+            if (dispErr) {
+              displaceFailed = true;
+              console.warn(
+                `[finalizeVendor] displace-others failed for event=${eventId} group=${groupId}:`,
+                dispErr.message,
+              );
+            }
+          }
+          if (!displaceFailed) {
+            // REFUND (fairness · payment-gated) — vendors whose thread was
+            // 'accepted' burned tokens via unlock_vendor_event. Losing the
+            // couple to a rival they never got to compete against should not
+            // cost them, so credit those tokens back. Refund is per
+            // (vendor, event) — one unlock covers all a vendor's services — and
+            // idempotent: refund_displaced_inquiry_unlock guards on
+            // refunded_at, so a re-displace after a revive never double-refunds,
+            // and it leaves the unlock row so revival never re-charges. The
+            // couple is the actor; the RPC is SECURITY DEFINER + couple-scoped
+            // (current_couple_event_ids) because no couple RLS reaches vendor
+            // wallets. Best-effort: a refund hiccup must never roll back the
+            // lock.
+            const refundVpids = Array.from(
+              new Set(
+                openThreads
+                  .filter((t) => t.inquiry_status === 'accepted')
+                  .map((t) => t.vendor_profile_id),
+              ),
+            );
+            for (const vpid of refundVpids) {
+              const { error: refundErr } = await supabase.rpc(
+                'refund_displaced_inquiry_unlock',
+                { p_vendor_profile_id: vpid, p_event_id: eventId },
+              );
+              if (refundErr) {
+                console.warn(
+                  `[finalizeVendor] displacement refund failed for event=${eventId} vendor=${vpid}:`,
+                  refundErr.message,
+                );
+              }
+            }
+            // Notify each released vendor — cross-party, so resolve their auth
+            // user via the admin client (same pattern as booking_confirmed).
+            const notifyAdmin = createAdminClient();
+            const { data: vps } = await notifyAdmin
+              .from('vendor_profiles')
+              .select('vendor_profile_id, user_id')
+              .in('vendor_profile_id', loserVpids);
+            const userByVpid = new Map(
+              ((vps ?? []) as { vendor_profile_id: string; user_id: string | null }[])
+                .filter((v) => !!v.user_id)
+                .map((v) => [v.vendor_profile_id, v.user_id as string]),
+            );
+            for (const t of openThreads) {
+              const uid = userByVpid.get(t.vendor_profile_id);
+              if (!uid) continue;
+              await emitNotification({
+                userId: uid,
+                type: 'inquiry_displaced',
+                title: 'An inquiry was released',
+                body: 'The couple booked another vendor for this service, so your inquiry has been released. We’ll let you know if it reopens.',
+                relatedUrl: `/vendor-dashboard/messages/${t.thread_id}`,
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // Fail-soft — the lock already succeeded; never roll it back.
+      console.warn(`[finalizeVendor] exclusivity block failed for event=${eventId}:`, e);
+    }
+  }
+
+  // ----------------------------------------------------------------------
   // Auto-add cascade on finalize — REMOVED (owner 2026-06-12, link-gated
   // rule; supersedes the CLAUDE.md 2026-05-22 "everything-cascade"
   // directive).
@@ -1132,13 +1885,220 @@ export async function finalizeVendor(
     await recomputeReceptionAnchor(createAdminClient(), eventId);
   }
 
-  // Refresh both the event home (FinalizedChipStrip + PlanningGroups read
-  // from the same event_vendors fetch) and the vendor tracker (separate
-  // surface that lists every vendor + status).
+  // ── Force-to-one: finalize the wedding date the lock just narrowed to. ───
+  // Only fires when the gate above set forcedDateKey AND the couple confirmed.
+  // Guarded with `.is('event_date', null)` so a concurrent date-lock wins
+  // (never clobbers an existing date). Mirrors lockEventDate's writes:
+  // event_date + precision 'day' + date_status 'locked' + auspicious_reasons.
+  // Best-effort — the vendor lock already succeeded; a date-write hiccup must
+  // never roll it back.
+  let dateLockedNow = false;
+  if (forcedDateKey && confirmDateLock) {
+    const { data: stillRow } = await supabase
+      .from('events')
+      .select('event_date, ceremony_type, secondary_ceremony_type')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    const stillNoDate = !(stillRow as { event_date?: string | null } | null)?.event_date;
+    if (stillNoDate) {
+      const ceremonyType = asCeremonyType(
+        (stillRow as { ceremony_type?: unknown } | null)?.ceremony_type,
+      );
+      const meaningAdmin = createAdminClient();
+      const { data: meaningfulRows } = await meaningAdmin
+        .from('event_meaningful_dates')
+        .select('meaningful_date, kind, note')
+        .eq('event_id', eventId);
+      const [yy = 2027, mm = 1, dd = 1] = forcedDateKey.split('-').map(Number);
+      const reasons = computeAuspiciousReasons(
+        new Date(yy, mm - 1, dd),
+        ceremonyType,
+        (meaningfulRows ?? []).map((r) => ({
+          date: r.meaningful_date as string,
+          kind: r.kind as MeaningfulDateKind,
+          note: (r.note as string | null) ?? null,
+        })),
+        isChineseWedding(stillRow),
+      );
+      const { error: dateErr } = await supabase
+        .from('events')
+        .update({
+          event_date: forcedDateKey,
+          event_date_precision: 'day',
+          date_status: 'locked',
+          auspicious_reasons: reasons,
+        })
+        .eq('event_id', eventId)
+        .is('event_date', null);
+      if (!dateErr) dateLockedNow = true;
+    }
+  }
+
+  // ── Milestone: "you picked X" + optional "you can now finalize Y". ───────
+  // Best-effort — failure here must never roll back the lock. Reads the
+  // post-lock confirmed set so a venue lock that completes both venues (plus a
+  // date) surfaces the Save-the-Date finalize CTA on this very lock.
+  const lockedGroupId = planGroupForCategory(targetCategory);
+  let milestone: LockMilestone = {
+    pickedLabel: displayServiceLabel(targetCategory),
+    dateLocked: dateLockedNow,
+    finalizeReady: null,
+  };
+  try {
+    const { PLAN_GROUPS: planGroups } = await import('@/lib/wedding-plan-groups');
+    const pickedLabel =
+      planGroups.find((g) => g.id === lockedGroupId)?.label ??
+      displayServiceLabel(targetCategory);
+
+    const [{ data: confirmedRows }, { data: evDateRow }] = await Promise.all([
+      supabase
+        .from('event_vendors')
+        .select('category')
+        .eq('event_id', eventId)
+        .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[])
+        .is('archived_at', null),
+      supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
+    ]);
+    const confirmedGroupIds = new Set<string>();
+    for (const r of confirmedRows ?? []) {
+      const gid = planGroupForCategory(r.category as VendorCategory);
+      if (gid) confirmedGroupIds.add(gid);
+    }
+    const hasDateNow = Boolean((evDateRow as { event_date?: string | null } | null)?.event_date);
+
+    const finalizeDef = computeFinalizeReady({
+      hasDate: hasDateNow,
+      confirmedGroupIds,
+      justLockedGroupId: lockedGroupId,
+      dateJustLocked: dateLockedNow,
+    });
+    milestone = {
+      pickedLabel,
+      dateLocked: dateLockedNow,
+      finalizeReady: finalizeDef
+        ? {
+            featureLabel: finalizeDef.featureLabel,
+            helper: finalizeDef.helper,
+            href: finalizeDef.href(eventId),
+          }
+        : null,
+    };
+  } catch (e) {
+    console.error(`[finalizeVendor] milestone compute failed for event=${eventId}:`, e);
+  }
+
+  // Refresh both the event home (FinalizedChipStrip + Today's-one-thing
+  // hero read from the same event_vendors fetch) and the vendor tracker
+  // (separate surface that lists every vendor + status).
   revalidatePath(`/dashboard/${eventId}`, 'layout');
   revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
 
-  return { status: 'ok', vendorId, lockedStatus: LOCKED_STATUS };
+  // The vendor just reached the first FINALIZED status ('contracted') — refresh
+  // their finalized_booking_count / inquiry_to_booking_pct off the request path
+  // (cron-free; after() runs post-response; wrapper swallows its own errors).
+  if (targetVendor.marketplace_vendor_id) {
+    const vpid = targetVendor.marketplace_vendor_id as string;
+    after(() => triggerVendorActivityRecompute(vpid));
+  }
+
+  // Payment-gated lock: the couple submitted the downpayment WITH this lock
+  // (validated pre-commit above). Persist it now that the lock is committed —
+  // proof → R2, stamp the deposit markers + method provenance, log the couple's
+  // ledger row, notify the vendor to confirm. Best-effort: the lock already
+  // committed, so a persist hiccup never rolls it back (the couple can re-submit
+  // from the workspace). deposit_recorded_at is set fresh (first record).
+  if (dpProvided && dpChosen) {
+    try {
+      const proofEntry = formData.get('proof');
+      let proofUrl: string | null = null;
+      if (proofEntry instanceof File && proofEntry.size > 0) {
+        const up = await uploadPublicAsset({
+          pathPrefix: `${DEPOSIT_PROOF_PATH_PREFIX}/${eventId}`,
+          file: proofEntry,
+        });
+        if (up.ok) proofUrl = up.publicUrl;
+      }
+      const methodLabel = buildMethodLabel(dpChosen);
+      // SINGLE-WINNER marker stamp: the `.is('deposit_recorded_at', null)`
+      // precondition makes exactly ONE concurrent finalize record the deposit
+      // (two tabs / a server-action retry race here since the generic-write
+      // status precondition doesn't exclude 'contracted'). Only the winner logs
+      // the ledger row + notifies — no double-log, no duplicate notification.
+      const { data: stampWon } = await supabase
+        .from('event_vendors')
+        .update({
+          deposit_recorded_at: new Date().toISOString(),
+          deposit_method_id: dpChosen.payment_method_id,
+          deposit_method_label: methodLabel,
+          ...(proofUrl ? { deposit_proof_url: proofUrl } : {}),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('vendor_id', vendorId)
+        .eq('event_id', eventId)
+        .is('deposit_recorded_at', null)
+        .select('vendor_id');
+      const wonDepositRecord = (stampWon ?? []).length > 0;
+      if (wonDepositRecord) {
+        const { error: payErr } = await supabase.from('event_vendor_payments').insert({
+          event_id: eventId,
+          vendor_id: vendorId,
+          amount_php: dpAmountPhp ?? 0,
+          method: methodLabel,
+          reference: nullIfBlank(formData.get('reference')),
+          notes: 'Downpayment (lock · awaiting vendor confirmation)',
+        });
+        if (payErr) {
+          // Never silent — a lost ledger row is a money-tracking gap ops must see.
+          // eslint-disable-next-line no-console
+          console.error(
+            `[finalizeVendor] downpayment ledger insert failed for vendor_id=${vendorId}:`,
+            payErr.message,
+          );
+        }
+        if (targetVendor.marketplace_vendor_id) {
+          const { data: vp } = await createAdminClient()
+            .from('vendor_profiles')
+            .select('user_id')
+            .eq('vendor_profile_id', targetVendor.marketplace_vendor_id)
+            .maybeSingle();
+          const vendorUserId = (vp as { user_id?: string } | null)?.user_id ?? null;
+          if (vendorUserId) {
+            await emitNotification({
+              userId: vendorUserId,
+              type: 'payment_logged',
+              title: 'Downpayment submitted — please confirm',
+              body: `A couple submitted their lock downpayment via ${methodLabel} and the date is held. Open the client to confirm you received it.`,
+              relatedUrl: `/vendor-dashboard/clients/${eventId}`,
+            });
+          }
+        }
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error(`[finalizeVendor] downpayment persist failed for vendor_id=${vendorId}:`, e);
+    }
+  }
+
+  // Couple locked a vendor a coordinator had proposed — resolve the pending
+  // proposal so it drops off the couple's "to confirm" strip. Best-effort; the
+  // lock already succeeded. No-op when there was no proposal.
+  try {
+    await createAdminClient()
+      .from('vendor_lock_proposals')
+      .update({
+        status: 'confirmed',
+        resolved_at: new Date().toISOString(),
+        resolved_by_user_id: user.id,
+      })
+      .eq('event_id', eventId)
+      .eq('event_vendor_id', vendorId)
+      .eq('status', 'pending');
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error(`[finalizeVendor] proposal auto-resolve failed for vendor_id=${vendorId}:`, e);
+  }
+
+  return { status: 'ok', vendorId, lockedStatus: LOCKED_STATUS, milestone };
 }
 
 // ============================================================================
@@ -1165,213 +2125,13 @@ export async function listLockTimeSlots(
 }
 
 // ============================================================================
-// addRecommendedVendorToCategory (2026-05-22) — Cross-category vendor
-// recommendations · CLAUDE.md owner directive.
-//
-// When the host picks Vendor A in Catering, and Vendor A also offers Cake +
-// Mobile Bar services via their vendor_services rows, the planning grid
-// surfaces Vendor A as RECOMMENDED on the Cake card + Music & Entertainment
-// card. This action lets the host accept that recommendation — adding Vendor
-// A to the new category with the same marketplace link + service link as
-// their existing pick.
-//
-// Two modes via the `status` form field:
-//   - 'considering' — adds as a new option-on-the-table for the host to
-//     compare against other vendors they might browse.
-//   - 'contracted' — locks the vendor in the new category directly (the
-//     host already trusts them from the source category, the "Lock too"
-//     shortcut). Cascades the finalize cleanup (auto-archive other
-//     considering picks in this category).
-//
-// Verification at the action boundary:
-//   - host must be signed in (redirect to /login if not).
-//   - host must have access to this event (RLS on event_vendors gates writes).
-//   - the source vendor row must exist on this event (defensive — the
-//     recommendation surfaces only when the home page bundled this vendor,
-//     but a stale form submission with a wrong vendor_id should fail
-//     loudly rather than insert a phantom pick).
-//   - vendor_services row must exist + be active + match the requested
-//     category (defensive — the form submits service_id + category, so
-//     we verify they match what the vendor actually offers).
-// ============================================================================
-
-export type AddRecommendedVendorResult =
-  | { status: 'ok'; eventVendorId: string; locked: boolean }
-  | { status: 'not_signed_in' }
-  | { status: 'source_vendor_not_found' }
-  | { status: 'service_not_found' }
-  | { status: 'invalid_category' }
-  | { status: 'already_picked' }
-  | { status: 'error'; message: string };
-
-export async function addRecommendedVendorToCategory(
-  formData: FormData,
-): Promise<AddRecommendedVendorResult> {
-  const eventId = formData.get('event_id');
-  const sourceMarketplaceVendorId = formData.get('marketplace_vendor_id');
-  const serviceId = formData.get('service_id');
-  const categoryRaw = formData.get('category');
-  const desiredStatusRaw = formData.get('desired_status');
-
-  if (typeof eventId !== 'string' || eventId.length === 0) {
-    return { status: 'error', message: 'Missing event id' };
-  }
-  if (
-    typeof sourceMarketplaceVendorId !== 'string' ||
-    sourceMarketplaceVendorId.length === 0
-  ) {
-    return { status: 'error', message: 'Missing marketplace vendor id' };
-  }
-  if (typeof serviceId !== 'string' || serviceId.length === 0) {
-    return { status: 'error', message: 'Missing service id' };
-  }
-  if (!isValidCategory(categoryRaw)) {
-    return { status: 'invalid_category' };
-  }
-  const lockImmediately =
-    desiredStatusRaw === 'contracted' || desiredStatusRaw === 'lock';
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { status: 'not_signed_in' };
-  }
-
-  // Verify the source vendor row exists on this event AND is linked to
-  // the marketplace vendor we're recommending. Belt-and-suspenders against
-  // stale form submissions — the recommendation surface only renders when
-  // the home page bundled this vendor as a pick.
-  const { data: sourcePick, error: sourceErr } = await supabase
-    .from('event_vendors')
-    .select('vendor_id, vendor_name, status')
-    .eq('event_id', eventId)
-    .eq('marketplace_vendor_id', sourceMarketplaceVendorId)
-    .is('archived_at', null)
-    .limit(1)
-    .maybeSingle();
-  if (sourceErr) {
-    return { status: 'error', message: sourceErr.message };
-  }
-  if (!sourcePick) {
-    return { status: 'source_vendor_not_found' };
-  }
-
-  // Defensive: confirm the vendor_services row matches the marketplace
-  // vendor + category we were told. The form data is host-supplied so a
-  // race condition (vendor deactivates a service after the page renders
-  // but before the host clicks Consider) should fail cleanly.
-  // We use the admin client because vendor_services RLS restricts to
-  // the vendor's own user_id — same reason page.tsx uses adminClient
-  // for the cross-category fetch.
-  const { createAdminClient } = await import('@/lib/supabase/admin');
-  const adminClient = createAdminClient();
-  const { data: serviceRow, error: serviceErr } = await adminClient
-    .from('vendor_services')
-    .select('vendor_service_id, vendor_profile_id, category, is_active')
-    .eq('vendor_service_id', serviceId)
-    .maybeSingle();
-  if (serviceErr) {
-    return { status: 'error', message: serviceErr.message };
-  }
-  if (
-    !serviceRow ||
-    !serviceRow.is_active ||
-    serviceRow.vendor_profile_id !== sourceMarketplaceVendorId ||
-    serviceRow.category !== categoryRaw
-  ) {
-    return { status: 'service_not_found' };
-  }
-
-  // Already picked in this category? Idempotent no-op — surface the state
-  // so the UI can collapse the action without a misleading "added" toast.
-  const { data: existing, error: existingErr } = await supabase
-    .from('event_vendors')
-    .select('vendor_id')
-    .eq('event_id', eventId)
-    .eq('marketplace_vendor_id', sourceMarketplaceVendorId)
-    .eq('category', categoryRaw)
-    .is('archived_at', null)
-    .limit(1)
-    .maybeSingle();
-  if (existingErr) {
-    return { status: 'error', message: existingErr.message };
-  }
-  if (existing) {
-    return { status: 'already_picked' };
-  }
-
-  // Look up the canonical vendor name from vendor_profiles for the new row.
-  // Falls back to the source pick's vendor_name if the join misses (the
-  // marketplace vendor row was deleted after the recommendation rendered).
-  const { data: marketplaceProfile } = await adminClient
-    .from('vendor_profiles')
-    .select('business_name')
-    .eq('vendor_profile_id', sourceMarketplaceVendorId)
-    .maybeSingle();
-  const insertedVendorName =
-    marketplaceProfile?.business_name ?? sourcePick.vendor_name;
-
-  // Insert the new pick. Same marketplace_vendor_id + service_id as the
-  // source — that's what makes this a cross-category recommendation
-  // rather than a brand-new vendor entry. Status defaults to 'considering'
-  // (lockImmediately flag handled below as a follow-up update).
-  const { data: inserted, error: insertErr } = await supabase
-    .from('event_vendors')
-    .insert({
-      event_id: eventId,
-      category: categoryRaw,
-      vendor_name: insertedVendorName,
-      status: 'considering',
-      marketplace_vendor_id: sourceMarketplaceVendorId,
-      service_id: serviceId,
-    })
-    .select('vendor_id')
-    .single();
-  if (insertErr || !inserted) {
-    return {
-      status: 'error',
-      message: insertErr?.message ?? 'Insert failed',
-    };
-  }
-
-  // Lock-too path: chain into the finalize action. This goes through the
-  // same hard-single conflict + cleanup logic so the host gets one
-  // coherent flow regardless of entry point.
-  let locked = false;
-  if (lockImmediately) {
-    const lockForm = new FormData();
-    lockForm.set('event_id', eventId);
-    lockForm.set('vendor_id', inserted.vendor_id);
-    // Don't override existing locked vendors silently — if the host hits
-    // Lock-too on a category that already has a locked vendor, they need
-    // to see the SwitchVendorConfirm modal explicitly. The result surface
-    // for that is already handled in PlanCardCompare's existing finalize
-    // flow; we just return ok+locked=false here so the UI can route the
-    // host into that modal.
-    lockForm.set('override_existing', '0');
-    const finalizeResult = await finalizeVendor(lockForm);
-    locked = finalizeResult.status === 'ok';
-    // Note: we don't surface the conflict result up here — the
-    // recommendation UI is a "Consider" path; locking is a secondary
-    // affordance. If the lock fails, the row still exists as a
-    // considering pick, which is the correct safe default.
-  }
-
-  revalidatePath(`/dashboard/${eventId}`, 'layout');
-  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
-  return { status: 'ok', eventVendorId: inserted.vendor_id, locked };
-}
-
-// ============================================================================
 // revertVendorToConsidering (2026-05-22) — Undo for the lock action.
 //
 // Companion to finalizeVendor. Used by the 5-second Undo affordance on the
 // confirmation toast so a host who clicks Lock then immediately realizes
 // they meant a different vendor can roll back without leaving the compare
 // drawer. Sets the row's status back to 'considering' (the canonical
-// pre-lock state for picks added via /vendors or addCustomVendor).
+// pre-lock state for picks added via /vendors or the manual-add flow).
 // ============================================================================
 
 export type RevertVendorResult =
@@ -1403,7 +2163,7 @@ export async function revertVendorToConsidering(
 
   const { data: current, error: readErr } = await supabase
     .from('event_vendors')
-    .select('status')
+    .select('status, marketplace_vendor_id, category')
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
     .maybeSingle();
@@ -1423,17 +2183,129 @@ export async function revertVendorToConsidering(
     return { status: 'not_locked' };
   }
 
+  // Un-picking a vendor must also drop the #1-pick flag + the marketplace
+  // editorial credit (QA fix 2026-06-19). finalizeVendor stamps both
+  // selection_match_rank=1 and linked_vendor_profile_id on lock; reverting to
+  // 'considering' clears them so a no-longer-chosen vendor stops counting as
+  // the recommended pick AND stops contributing to the vendor's public
+  // completed-events count / Pro-Enterprise editorial credit.
   const { error: revertErr } = await supabase
     .from('event_vendors')
-    .update({ status: 'considering', updated_at: new Date().toISOString() })
+    .update({
+      status: 'considering',
+      selection_match_rank: null,
+      linked_vendor_profile_id: null,
+      updated_at: new Date().toISOString(),
+    })
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId);
   if (revertErr) {
     return { status: 'error', message: revertErr.message };
   }
 
+  // ── REVIVE displaced inquiries (fairness · payment-gated) ────────────────
+  // Un-locking a HARD-SINGLE pick reverses the exclusivity displacement its
+  // lock caused: restore the inquiries this couple's lock pushed to 'displaced'
+  // back to the status they held before it (chat_threads.displaced_from_status,
+  // stamped by finalizeVendor's exclusivity block), then clear the marker.
+  // 'displaced' is the documented REVIVABLE state — this closes the loop.
+  // Scoped to THIS event + the reverted pick's hard-single GROUP categories;
+  // only that group's inquiries were ever displaced by this lock. Couple-RLS
+  // write (the couple owns these threads). Gated behind the same
+  // payment-gated-lock flag as the displace it undoes. Best-effort + fail-soft:
+  // the un-lock already succeeded, so a revive hiccup never rolls it back.
+  //
+  // Token accounting (refund ↔ revival): a revived 'accepted' thread is NOT
+  // re-charged. The vendor was already refunded on displacement and keeps its
+  // (refunded, still-present) unlock row, so answering the revived inquiry costs
+  // nothing — a displace→revive flip-flop is the couple's indecision and must
+  // never bill the vendor twice nor double-refund them (the refund RPC's
+  // refunded_at guard enforces the no-double-refund half).
+  const revertedCategory = (current as { category?: string | null }).category;
+  const revertGroupId =
+    typeof revertedCategory === 'string' && isValidCategory(revertedCategory)
+      ? planGroupForCategory(revertedCategory)
+      : null;
+  if (
+    isPaymentGatedLockEnabled() &&
+    revertGroupId &&
+    HARD_SINGLE_PICK_GROUPS.has(revertGroupId)
+  ) {
+    try {
+      const revertGroupCategories = VENDOR_CATEGORIES.filter(
+        (c) => planGroupForCategory(c) === revertGroupId,
+      );
+      // Marketplace vendors the couple has in this event's group (the reverted
+      // winner + the ones its lock displaced).
+      const { data: groupRows } = await supabase
+        .from('event_vendors')
+        .select('marketplace_vendor_id')
+        .eq('event_id', eventId)
+        .in('category', revertGroupCategories as unknown as string[])
+        .not('marketplace_vendor_id', 'is', null);
+      const groupVpids = Array.from(
+        new Set(
+          (groupRows ?? [])
+            .map((r) => (r as { marketplace_vendor_id: string | null }).marketplace_vendor_id)
+            .filter((id): id is string => !!id),
+        ),
+      );
+      if (groupVpids.length > 0) {
+        // Displaced threads with a recoverable prior status for those vendors.
+        const { data: displacedRows } = await supabase
+          .from('chat_threads')
+          .select('thread_id, displaced_from_status')
+          .eq('event_id', eventId)
+          .in('vendor_profile_id', groupVpids)
+          .eq('inquiry_status', 'displaced')
+          .not('displaced_from_status', 'is', null);
+        const revivable = (displacedRows ?? []) as {
+          thread_id: string;
+          displaced_from_status: 'pending' | 'accepted';
+        }[];
+        // Restore each thread to its prior status + clear the marker. Partition
+        // by target status (Supabase .update() can't copy column→column).
+        const reviveNowIso = new Date().toISOString();
+        for (const targetStatus of ['pending', 'accepted'] as const) {
+          const ids = revivable
+            .filter((t) => t.displaced_from_status === targetStatus)
+            .map((t) => t.thread_id);
+          if (ids.length === 0) continue;
+          const { error: reviveErr } = await supabase
+            .from('chat_threads')
+            .update({
+              inquiry_status: targetStatus,
+              displaced_from_status: null,
+              updated_at: reviveNowIso,
+            })
+            .in('thread_id', ids);
+          if (reviveErr) {
+            console.warn(
+              `[revertVendorToConsidering] revive failed for event=${eventId} group=${revertGroupId}:`,
+              reviveErr.message,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      // Fail-soft — the un-lock already succeeded; never roll it back.
+      console.warn(
+        `[revertVendorToConsidering] revive block failed for event=${eventId}:`,
+        e,
+      );
+    }
+  }
+
   revalidatePath(`/dashboard/${eventId}`, 'layout');
   revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
+
+  // Reverting out of a CONFIRMED status drops this vendor from
+  // finalized_booking_count — refresh their stats off the request path
+  // (cron-free; after() runs post-response; wrapper swallows its own errors).
+  const revertedVpid = (current as { marketplace_vendor_id?: string | null }).marketplace_vendor_id;
+  if (revertedVpid) {
+    after(() => triggerVendorActivityRecompute(revertedVpid));
+  }
 
   return { status: 'ok', vendorId };
 }
@@ -1824,7 +2696,7 @@ export async function attachManualVendorToCategory(
 // ============================================================================
 
 export type ManualVendorInviteResult =
-  | { ok: true; url: string }
+  | { ok: true; url: string; qrSvg: string }
   | { ok: false; error: string };
 
 export async function createManualVendorInvite(input: {
@@ -1872,7 +2744,12 @@ export async function createManualVendorInvite(input: {
   if (!invite) {
     return { ok: false, error: 'Could not create the invite link. Try again.' };
   }
-  return { ok: true, url: buildClaimUrl(invite.claim_token) };
+  // The couple shows this QR to the off-platform vendor — scanning it opens
+  // the claim/login page on the vendor's phone (owner 2026-07-01: "Add
+  // manually will create a QR code for the vendor to log in from"). Rendered
+  // server-side (the `qrcode` lib is server-only); the client just paints it.
+  const url = buildClaimUrl(invite.claim_token);
+  return { ok: true, url, qrSvg: await renderUrlQrSvg(url) };
 }
 
 // ============================================================================
@@ -1894,9 +2771,9 @@ export async function createManualVendorInvite(input: {
 //
 // Auth: host must be signed in. We use the admin client for the
 // vendor_profiles + vendor_services reads because vendor_services RLS
-// restricts to the vendor's own user_id (same pattern as
-// addRecommendedVendorToCategory at line 763). The signed-in check still
-// gates the action — anonymous browsers can't search.
+// restricts to the vendor's own user_id (same admin-client pattern as
+// the other marketplace-add actions in this file). The signed-in check
+// still gates the action — anonymous browsers can't search.
 //
 // Graceful-degrade: if vendor_profiles / vendor_services / event_vendors
 // tables aren't on prod (42P01) or columns are missing (42703), the
@@ -1963,7 +2840,7 @@ export async function searchMarketplaceVendorsByName(
   }
 
   // adminClient bypasses RLS on vendor_services (restricted to vendor's
-  // own user_id) the same way addRecommendedVendorToCategory does. The
+  // own user_id) the same way the other marketplace-add actions do. The
   // signed-in check above + the per-event filter below remain the
   // authorization gates.
   const { createAdminClient } = await import('@/lib/supabase/admin');
@@ -2093,16 +2970,16 @@ export async function searchMarketplaceVendorsByName(
 // attachManualVendorToCategory; called when the host picks a marketplace
 // vendor from the autocomplete dropdown.
 //
-// Reuses the same shape as addRecommendedVendorToCategory (above at line
-// 702) — insert an event_vendors row with marketplace_vendor_id +
+// Reuses the cross-category recommended-add shape — insert an
+// event_vendors row with marketplace_vendor_id +
 // service_id (when an active service exists for the category) + status =
 // 'considering' + source = 'host_marketplace_search'. Idempotent: if
 // (event_id, marketplace_vendor_id, category) already exists, returns
 // 'already_attached' so the UI can surface a friendly toast instead of
 // a duplicate row.
 //
-// Unlike addRecommendedVendorToCategory, this action doesn't require a
-// "source pick" on the event — the host is starting from a name-search
+// Unlike the cross-category recommended-add flow, this action doesn't
+// require a "source pick" on the event — the host is starting from a name-search
 // in a brand-new card, not from a cross-category recommendation. The
 // service_id is best-effort: if the vendor has an active service for
 // the current category we attach it; if not, the row inserts WITHOUT a
@@ -2185,8 +3062,8 @@ export async function attachMarketplaceVendorToCategory(
 
   // Look up the marketplace vendor's canonical name + the active
   // vendor_services row for this category. adminClient bypasses
-  // vendor_services RLS (same pattern as addRecommendedVendorToCategory
-  // line 763).
+  // vendor_services RLS (same admin-client pattern as the other
+  // marketplace-add actions).
   const { createAdminClient } = await import('@/lib/supabase/admin');
   const adminClient = createAdminClient();
   const { data: profile, error: profileErr } = await adminClient
@@ -2592,4 +3469,706 @@ export async function cancelBookingAsHost(
   revalidatePath(`/dashboard/${eventIdRaw}/vendors`, 'layout');
 
   return { status: 'ok', vendorId: ev.vendor_id, vendorName: ev.vendor_name };
+}
+
+// ==========================================================================
+// Deposit Reservation Lock-Free (Wave 3 · booking-lifecycle cluster)
+//
+// The missing booking-lifecycle state: "the host RECORDED a deposit → the date
+// is HELD → awaiting the vendor's confirmation" — DISTINCT from confirmed-paid.
+//
+// OFF-PLATFORM MONEY / 0% COMMISSION (owner lock): Setnayan NEVER holds funds.
+// recordDeposit + acknowledgeDeposit are RECORD + ACKNOWLEDGE + date-hold ONLY
+// — not money movement, no gateway, no OR, no tax. The deposit amount is a
+// host-entered PHP figure for the couple's own ledger.
+//
+// ORTHOGONAL MARKERS (owner lock): these write the orthogonal
+// deposit_recorded_at / deposit_acknowledged_at / deposit_proof_url columns —
+// they NEVER repurpose the event_vendors.status enum (precedent:
+// contract_signed_at). The host can still advance status separately.
+// ==========================================================================
+
+const DEPOSIT_PROOF_PATH_PREFIX = 'deposit-proof';
+
+/**
+ * recordDeposit — COUPLE side.
+ *
+ * Records that the host paid a deposit off-platform: stamps
+ * deposit_recorded_at = now(), optionally uploads a proof artifact to R2 →
+ * deposit_proof_url, logs an event_vendor_payments row, and — crucially — HOLDS
+ * the date the INSTANT the deposit is logged by calling the existing
+ * acquireSchedulePools with pools resolved via resolvePoolIdsForService /
+ * resolvePoolIdsForCategory (same gate updateVendorStatus uses on the booked
+ * transition). Then notifies the vendor (payment_logged).
+ *
+ * Does NOT flip status — recorded-but-unsettled is orthogonal to the status
+ * enum. The host advances status (→ deposit_paid) separately when ready.
+ *
+ * Idempotent-friendly: re-recording on an already-recorded row leaves
+ * deposit_recorded_at at its original value (we COALESCE) but still logs the
+ * new payment row + refreshes the hold; the vendor's acknowledge is the
+ * single-winner half (acknowledge_vendor_deposit RPC).
+ */
+export async function recordDeposit(
+  formData: FormData,
+): Promise<{ status: 'ok' | 'error' | 'not_signed_in'; message?: string }> {
+  const eventId = formData.get('event_id');
+  const vendorId = formData.get('vendor_id');
+  if (typeof eventId !== 'string' || typeof vendorId !== 'string') {
+    return { status: 'error', message: 'Invalid input' };
+  }
+  const amountPhp = parseMoney(formData.get('deposit_php'));
+  if (amountPhp === null || amountPhp <= 0) {
+    return { status: 'error', message: 'Enter the deposit amount you paid.' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: 'not_signed_in' };
+
+  // Consent-scoped coordinator payment handling (owner 2026-07-19 #5).
+  // Recording a deposit stamps money state + holds the vendor's date. Behind
+  // NEXT_PUBLIC_COORDINATOR_CONSENT_GATE_ENABLED, a non-couple member may
+  // record a deposit only when the couple granted the 'checkout' scope at
+  // invite time (coordinator_access_consents.scopes). Flag OFF = exact
+  // current behavior (helper returns true without reading). We also resolve
+  // whether the caller is a couple member here — the ledger insert below is
+  // RLS'd couple-only (migration 20260513110000), so a consent-authorized
+  // coordinator writes it through the admin client instead.
+  const { data: callerMember } = await supabase
+    .from('event_members')
+    .select('member_type')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  const callerIsCouple =
+    (callerMember as { member_type?: string } | null)?.member_type === 'couple';
+  if (!callerIsCouple) {
+    const depositAllowed = await coordinatorMoneyScopeAllowed(
+      createAdminClient(),
+      eventId,
+      user.id,
+      'checkout',
+    );
+    if (!depositAllowed) {
+      return {
+        status: 'error',
+        message:
+          'The couple has not approved payment handling for your coordinator access — ask them to re-invite you with payment permission.',
+      };
+    }
+  }
+
+  // RLS-gated read (couple-on-event only). We need the pool-resolution inputs
+  // and the prior recorded marker so a re-record doesn't reset the hold clock.
+  const { data: row, error: readErr } = await supabase
+    .from('event_vendors')
+    .select(
+      'vendor_id, vendor_name, marketplace_vendor_id, service_id, category, deposit_recorded_at, contact_email',
+    )
+    .eq('vendor_id', vendorId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (readErr) return { status: 'error', message: readErr.message };
+  if (!row) return { status: 'error', message: 'Vendor not found on this event.' };
+
+  const ev = row as {
+    vendor_id: string;
+    vendor_name: string | null;
+    marketplace_vendor_id: string | null;
+    service_id: string | null;
+    category: string | null;
+    deposit_recorded_at: string | null;
+    contact_email: string | null;
+  };
+
+  // Optional proof artifact. Same uploadPublicAsset pipeline manual-vendor
+  // photos use — validates MIME/size, falls back to Supabase Storage in dev,
+  // returns a public URL we persist. Record-keeping only; Setnayan is not the
+  // payee and does not verify funds.
+  let proofUrl: string | null = null;
+  const proofEntry = formData.get('proof');
+  if (proofEntry instanceof File && proofEntry.size > 0) {
+    const uploadResult = await uploadPublicAsset({
+      pathPrefix: `${DEPOSIT_PROOF_PATH_PREFIX}/${eventId}`,
+      file: proofEntry,
+    });
+    if (!uploadResult.ok) {
+      return { status: 'error', message: uploadResult.error };
+    }
+    proofUrl = uploadResult.publicUrl;
+  }
+
+  // HOLD THE DATE the instant the deposit is logged (not only on full payment).
+  // Reuse the exact pool-resolution + acquire path updateVendorStatus uses on
+  // the booked transition. Off-platform vendors (no marketplace_vendor_id) and
+  // rows without a booked service degrade open — no shared scheduling primitive.
+  if (ev.marketplace_vendor_id && (ev.service_id || ev.category)) {
+    const poolIds = ev.service_id
+      ? await resolvePoolIdsForService(supabase, ev.marketplace_vendor_id, ev.service_id)
+      : await resolvePoolIdsForCategory(supabase, ev.marketplace_vendor_id, ev.category);
+    if (poolIds.length > 0) {
+      const acq = await acquireSchedulePools(supabase, eventId, vendorId, poolIds);
+      if (acq.status === 'full') {
+        return {
+          status: 'error',
+          message: `That date is fully booked for ${acq.poolLabel || 'this category'} on the vendor's schedule — message the vendor or adjust the date before recording the deposit.`,
+        };
+      }
+      if (acq.status === 'blocked' || acq.status === 'locked') {
+        // PHASE 5: 'locked' = the vendor's explicit hard hold — couple-facing
+        // outcome identical to a closure block (privacy lock — never who/why).
+        return {
+          status: 'error',
+          message: "The vendor has closed this date on their calendar — message them before recording the deposit.",
+        };
+      }
+      if (acq.status === 'whitelist') {
+        // PHASE 5: the vendor wants to approve bookings on this date first.
+        return {
+          status: 'error',
+          message: "This date needs the vendor to confirm before it can be booked — message them before recording the deposit.",
+        };
+      }
+      if (acq.status === 'error') {
+        return { status: 'error', message: acq.message };
+      }
+      // 'ok' | 'no_date' | 'no_pools' | 'not_authorized' fall through:
+      // no_date/no_pools degrade open; not_authorized can't happen past the
+      // RLS-gated read above.
+    }
+  }
+
+  // Stamp the orthogonal markers. COALESCE keeps the ORIGINAL recorded moment
+  // on a re-record (the date was held then); a re-record never reopens the
+  // vendor's acknowledgement (we leave deposit_acknowledged_at alone — only the
+  // RPC may set it). Update proof_url only when a new file was uploaded.
+  const update: Record<string, unknown> = {
+    deposit_recorded_at: ev.deposit_recorded_at ?? new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  if (proofUrl !== null) update.deposit_proof_url = proofUrl;
+
+  const { error: updateErr } = await supabase
+    .from('event_vendors')
+    .update(update)
+    .eq('vendor_id', vendorId)
+    .eq('event_id', eventId);
+  if (updateErr) {
+    // The acquire above may have held a date for a record that never landed —
+    // free it so the date isn't phantom-held (only when WE just acquired it,
+    // i.e. this is the first record).
+    if (!ev.deposit_recorded_at) {
+      await releaseSchedulePools(supabase, vendorId, 'status_downgrade');
+    }
+    return { status: 'error', message: updateErr.message };
+  }
+
+  // Log the money against the couple's ledger (their own record — not a charge
+  // through Setnayan). FAIL-CONSISTENT (bug fix 2026-07-19, unconditional): the
+  // old best-effort posture let the deposit marker land while the ledger insert
+  // failed silently — which is exactly what happened for coordinators, whose
+  // insert dies under the couple-only event_vendor_payments RLS (migration
+  // 20260513110000) while their event_vendors stamp succeeds. Now a failed
+  // ledger insert rolls back the marker we just stamped + releases the date
+  // hold and returns the error, so deposit state and ledger never diverge.
+  //
+  // IDEMPOTENT WITH THE MARKER: only insert the payment row on the FIRST record.
+  // The deposit_recorded_at marker above is COALESCE-idempotent (a re-record /
+  // double-submit / retry keeps the original moment), so the ledger insert must
+  // match — guarding on the PRE-update marker (ev.deposit_recorded_at) means a
+  // second call lands NO duplicate payment row (which would overstate "paid").
+  if (!ev.deposit_recorded_at) {
+    // A consent-authorized coordinator (flag ON, 'checkout' scope verified
+    // above) writes the ledger through the admin client — the RLS policy is
+    // couple-only and predates consent-scoped coordinator authority. Couples
+    // (and everyone when the flag is OFF) keep the RLS-scoped write.
+    const ledgerClient =
+      !callerIsCouple && isCoordinatorConsentGateEnabled()
+        ? createAdminClient()
+        : supabase;
+    const { error: payErr } = await ledgerClient.from('event_vendor_payments').insert({
+      event_id: eventId,
+      vendor_id: vendorId,
+      amount_php: amountPhp,
+      method: nullIfBlank(formData.get('method')),
+      reference: nullIfBlank(formData.get('reference')),
+      notes: 'Deposit (date held · awaiting vendor confirmation)',
+    });
+    if (payErr) {
+      // eslint-disable-next-line no-console
+      console.error(`[recordDeposit] ledger insert failed for vendor_id=${vendorId}:`, payErr.message);
+      // Roll back the marker THIS call stamped (we're in the first-record
+      // branch, so the pre-update value was NULL) and free the date hold the
+      // acquire above may have taken — same unwind the updateErr path does.
+      const { error: rollbackErr } = await supabase
+        .from('event_vendors')
+        .update({ deposit_recorded_at: null, updated_at: new Date().toISOString() })
+        .eq('vendor_id', vendorId)
+        .eq('event_id', eventId);
+      if (rollbackErr) {
+        // eslint-disable-next-line no-console
+        console.error(
+          `[recordDeposit] marker rollback failed for vendor_id=${vendorId}:`,
+          rollbackErr.message,
+        );
+      }
+      await releaseSchedulePools(supabase, vendorId, 'status_downgrade');
+      return {
+        status: 'error',
+        message:
+          'Could not record the deposit in your payment ledger — nothing was saved. Please try again.',
+      };
+    }
+  }
+
+  // Notify the vendor that a deposit was logged against their booking. Reuses
+  // the existing payment_logged type (vendor-recipient). emitNotification fails
+  // soft — never rolls back the record above.
+  if (ev.marketplace_vendor_id) {
+    const { data: vp } = await createAdminClient()
+      .from('vendor_profiles')
+      .select('user_id')
+      .eq('vendor_profile_id', ev.marketplace_vendor_id)
+      .maybeSingle();
+    const vendorUserId = (vp as { user_id?: string } | null)?.user_id ?? null;
+    if (vendorUserId) {
+      await emitNotification({
+        userId: vendorUserId,
+        type: 'payment_logged',
+        title: 'Deposit recorded — please confirm',
+        body: 'A couple recorded a deposit for your booking and the date is held. Open the client to confirm you received it.',
+        relatedUrl: `/vendor-dashboard/clients/${eventId}`,
+      });
+    }
+  }
+
+  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`, 'layout');
+  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
+  return { status: 'ok' };
+}
+
+/**
+ * acknowledgeDeposit — VENDOR side.
+ *
+ * Calls the single-winner acknowledge_vendor_deposit RPC (SELECT … FOR UPDATE +
+ * deposit_acknowledged_at-IS-NULL precondition; idempotent). Ownership is
+ * enforced inside the SECURITY DEFINER RPC (current_vendor_event_vendor_ids /
+ * is_admin), so this wrapper just forwards. No money moves — acknowledge is a
+ * signal.
+ */
+export async function acknowledgeDeposit(
+  formData: FormData,
+): Promise<{ status: 'ok' | 'already' | 'not_recorded' | 'error' | 'not_signed_in'; message?: string }> {
+  const eventVendorId = formData.get('vendor_id');
+  const eventId = formData.get('event_id');
+  if (typeof eventVendorId !== 'string') {
+    return { status: 'error', message: 'Invalid input' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: 'not_signed_in' };
+
+  const { data, error } = await supabase.rpc('acknowledge_vendor_deposit', {
+    p_event_vendor_id: eventVendorId,
+  });
+  if (error) return { status: 'error', message: error.message };
+
+  const env = (data ?? {}) as { status?: string };
+  if (typeof eventId === 'string' && eventId.length > 0) {
+    revalidatePath(`/vendor-dashboard/clients/${eventId}`, 'layout');
+    revalidatePath(`/dashboard/${eventId}/vendors/${eventVendorId}/workspace`, 'layout');
+  }
+  if (env.status === 'ok') return { status: 'ok' };
+  if (env.status === 'already') return { status: 'already' };
+  if (env.status === 'not_recorded') return { status: 'not_recorded' };
+  return { status: 'error', message: `Unexpected acknowledge status: ${env.status ?? 'none'}` };
+}
+
+// ==========================================================================
+// Payment-gated lock (flag: NEXT_PUBLIC_PAYMENT_GATED_LOCK_ENABLED).
+//
+// Reverses the "Lock-Free" default: after a couple locks a vendor, the lock
+// button opens a mandatory downpayment prompt that records the deposit through
+// the vendor's PUBLISHED payment method with a REQUIRED screenshot. finalizeVendor
+// is UNTOUCHED — these two actions run AFTER a successful lock (which already
+// held the date). The vendor then confirms via the existing acknowledge path.
+//
+// OFF-PLATFORM / 0% COMMISSION (owner lock): unchanged — the couple pays the
+// vendor directly off-platform and uploads proof; Setnayan is never the payee.
+// ==========================================================================
+
+/** A short, provenance-grade label frozen at pay-time (survives method edits). */
+function buildMethodLabel(m: CoupleFacingMethod): string {
+  const parts: string[] = [];
+  if (m.label && m.label.trim().length > 0) parts.push(m.label.trim());
+  if (m.provider) parts.push(m.provider);
+  if (m.method_type === 'bank' && m.account_number) {
+    const tail = m.account_number.replace(/\s+/g, '').slice(-4);
+    if (tail) parts.push(`•••• ${tail}`);
+  } else if (m.method_type === 'link' && m.link_domain) {
+    parts.push(m.link_domain);
+  }
+  const label = parts.join(' · ').slice(0, 200);
+  return label.length > 0 ? label : 'Payment method';
+}
+
+
+// ==========================================================================
+// Delivery Handover (Wave 4 · day-of run-of-show & handover)
+//
+// The COUPLE confirms receipt of a vendor-posted handover (gallery link / file
+// / note / sign-off). acknowledge_handover is a single-winner SECURITY DEFINER
+// RPC (FOR UPDATE + status='delivered' precondition + ROW_COUNT + idempotent),
+// couple-gated via current_event_ids. On a successful first acknowledge we
+// OPTIONALLY advance event_vendors.status→'delivered' by REUSING the existing
+// delivered transition in updateVendorStatus (which owns the review-request
+// emit + schedule-pool gate) — no duplicate emit, no money. The vendor-side
+// post action lives in vendor-dashboard/clients/[eventId]/actions.ts.
+// ==========================================================================
+
+/**
+ * acknowledgeHandover — COUPLE confirms receipt of a vendor delivery handover.
+ *
+ * Calls the single-winner acknowledge_handover RPC, then — only on the first
+ * 'ok' (the single-winner that flipped delivered→acknowledged) and when the
+ * caller opted in (advance_status) — advances the booking to 'delivered' by
+ * reusing updateVendorStatus, which is the SOLE owner of the review-request
+ * emit. We never re-implement that emit here.
+ */
+export async function acknowledgeHandover(
+  formData: FormData,
+): Promise<{ status: 'ok' | 'already' | 'not_ackable' | 'error' | 'not_signed_in'; message?: string }> {
+  const handoverId = formData.get('handover_id');
+  const eventId = formData.get('event_id');
+  const vendorId = formData.get('vendor_id');
+  const advanceStatus = formData.get('advance_status') === 'on';
+  if (typeof handoverId !== 'string') {
+    return { status: 'error', message: 'Invalid input' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: 'not_signed_in' };
+
+  const { data, error } = await supabase.rpc('acknowledge_handover', {
+    p_handover_id: handoverId,
+  });
+  if (error) return { status: 'error', message: error.message };
+
+  const env = (data ?? {}) as { status?: string; event_vendor_id?: string | null };
+
+  // Optionally advance the booking to 'delivered' — but ONLY on the first
+  // acknowledge (status 'ok'), and ONLY by reusing updateVendorStatus so the
+  // existing review-request emit fires exactly once (it self-guards against a
+  // re-emit when the row is already delivered/complete).
+  if (env.status === 'ok' && advanceStatus) {
+    const eventVendorId = env.event_vendor_id ?? (typeof vendorId === 'string' ? vendorId : null);
+    if (eventVendorId && typeof eventId === 'string' && eventId.length > 0) {
+      try {
+        const fd = new FormData();
+        fd.set('event_id', eventId);
+        fd.set('vendor_id', eventVendorId);
+        fd.set('status', 'delivered');
+        await updateVendorStatus(fd);
+      } catch {
+        // Best-effort — a failed status advance never undoes the acknowledge
+        // (the receipt is already recorded). The couple can mark delivered
+        // manually from the vendor row if needed.
+      }
+    }
+  }
+
+  if (typeof eventId === 'string' && eventId.length > 0) {
+    revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
+    if (typeof vendorId === 'string' && vendorId.length > 0) {
+      revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`, 'layout');
+    }
+    revalidatePath(`/vendor-dashboard/clients/${eventId}`, 'layout');
+  }
+
+  if (env.status === 'ok') return { status: 'ok' };
+  if (env.status === 'already') return { status: 'already' };
+  if (env.status === 'not_ackable') return { status: 'not_ackable' };
+  return { status: 'error', message: `Unexpected acknowledge status: ${env.status ?? 'none'}` };
+}
+
+// ==========================================================================
+// Change-Order Trail (Wave 3 · booking-lifecycle cluster)
+//
+// The missing booking-lifecycle artifact: a BOTH-ACKNOWLEDGED record of a
+// mid-plan add-on or removal. Line items (event_vendor_line_items) are
+// unilaterally couple-edited today — no audit trail, no vendor sign-off when
+// scope/price changes after booking. A change order is a propose →
+// accept/decline/withdraw STATE MACHINE on a ROW (like vendor_proposals /
+// event_schedule_suggestions) — NEVER a 2-way write into the other side's data.
+//
+// OFF-PLATFORM MONEY / 0% COMMISSION (owner lock): Setnayan NEVER holds funds.
+// delta_amount_php is a host/vendor-entered PHP figure (signed: +add-on /
+// −removal). On ACCEPT the single-winner accept_change_order RPC settles it into
+// the existing budget ledger (event_vendor_line_items) — the single source of
+// truth — and is single-winner + idempotent. No gateway, no OR, no tax.
+//
+// These are the COUPLE-side actions (raise / accept / decline / withdraw); the
+// VENDOR-side mirror lives in vendor-dashboard/clients/[eventId]/actions.ts.
+// ==========================================================================
+
+/**
+ * raiseChangeOrder — COUPLE raises a change order against a booked vendor.
+ *
+ * Inserts a `proposed` vendor_change_orders row (RLS-gated: couple-on-event +
+ * raised_by='couple' + proposed_by_user_id=auth.uid()). The signed delta is
+ * derived from a positive magnitude (`amount_php`) and an explicit
+ * `change_kind` ∈ add-on/removal — removals are stored negative. The vendor
+ * acknowledges (accept/decline) on their client page; only on ACCEPT does the
+ * RPC settle the delta into the budget ledger. Notifies the vendor best-effort.
+ */
+export async function raiseChangeOrder(
+  formData: FormData,
+): Promise<{ status: 'ok' | 'error' | 'not_signed_in'; message?: string }> {
+  const eventId = formData.get('event_id');
+  const vendorId = formData.get('vendor_id');
+  if (typeof eventId !== 'string' || typeof vendorId !== 'string') {
+    return { status: 'error', message: 'Invalid input' };
+  }
+  const title = nullIfBlank(formData.get('title'));
+  if (!title) {
+    return { status: 'error', message: 'Give the change order a short title.' };
+  }
+  const magnitude = parseMoney(formData.get('amount_php'));
+  if (magnitude === null || magnitude <= 0) {
+    return { status: 'error', message: 'Enter the change amount in pesos.' };
+  }
+  const kind = formData.get('change_kind');
+  const isRemoval = kind === 'removal';
+  const delta = isRemoval ? -magnitude : magnitude;
+  const dueDateRaw = formData.get('proposed_due_date');
+  const dueDate = typeof dueDateRaw === 'string' && dueDateRaw.length > 0 ? dueDateRaw : null;
+  const description = (() => {
+    const d = nullIfBlank(formData.get('description'));
+    return d ? d.slice(0, 2000) : null;
+  })();
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: 'not_signed_in' };
+
+  // RLS-gated read (couple-on-event). Resolve the vendor profile so the row
+  // carries the denormalized vendor_profile_id the vendor-side read RLS keys on.
+  const { data: row, error: readErr } = await supabase
+    .from('event_vendors')
+    .select('vendor_id, vendor_name, marketplace_vendor_id')
+    .eq('vendor_id', vendorId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (readErr) return { status: 'error', message: readErr.message };
+  if (!row) return { status: 'error', message: 'Vendor not found on this event.' };
+  const ev = row as {
+    vendor_id: string;
+    vendor_name: string | null;
+    marketplace_vendor_id: string | null;
+  };
+
+  const { error: insertErr } = await supabase.from('vendor_change_orders').insert({
+    event_vendor_id: vendorId,
+    event_id: eventId,
+    vendor_profile_id: ev.marketplace_vendor_id,
+    raised_by: 'couple',
+    title: title.slice(0, 120),
+    description,
+    delta_amount_php: delta,
+    proposed_due_date: dueDate,
+    status: 'proposed',
+    proposed_by_user_id: user.id,
+  });
+  if (insertErr) return { status: 'error', message: insertErr.message };
+
+  // Notify the vendor a change order awaits their acknowledgement. Best-effort.
+  if (ev.marketplace_vendor_id) {
+    const { data: vp } = await createAdminClient()
+      .from('vendor_profiles')
+      .select('user_id')
+      .eq('vendor_profile_id', ev.marketplace_vendor_id)
+      .maybeSingle();
+    const vendorUserId = (vp as { user_id?: string } | null)?.user_id ?? null;
+    if (vendorUserId) {
+      await emitNotification({
+        userId: vendorUserId,
+        type: 'schedule_suggestion',
+        title: 'A couple proposed a change order',
+        body: `${title.slice(0, 80)} — open the client to accept or decline.`,
+        relatedUrl: `/vendor-dashboard/clients/${eventId}`,
+      });
+    }
+  }
+
+  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`, 'layout');
+  return { status: 'ok' };
+}
+
+/**
+ * respondChangeOrder — COUPLE accepts/declines a VENDOR-raised change order.
+ *
+ * Forwards to the single-winner accept_change_order / decline_change_order
+ * SECURITY DEFINER RPCs (SELECT … FOR UPDATE + status=proposed precondition;
+ * idempotent). Ownership (couple is the counterparty to a vendor-raised order)
+ * is enforced inside the RPC. On accept the RPC settles the delta into
+ * event_vendor_line_items atomically. Notifies the vendor best-effort.
+ */
+export async function respondChangeOrder(
+  formData: FormData,
+): Promise<{ status: 'ok' | 'already' | 'error' | 'not_signed_in'; message?: string }> {
+  const eventId = formData.get('event_id');
+  const vendorId = formData.get('vendor_id');
+  const changeOrderId = formData.get('change_order_id');
+  const decision = formData.get('decision');
+  if (
+    typeof eventId !== 'string' ||
+    typeof vendorId !== 'string' ||
+    typeof changeOrderId !== 'string' ||
+    (decision !== 'accept' && decision !== 'decline')
+  ) {
+    return { status: 'error', message: 'Invalid input' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: 'not_signed_in' };
+
+  const { data, error } =
+    decision === 'accept'
+      ? await supabase.rpc('accept_change_order', { p_change_order_id: changeOrderId })
+      : await supabase.rpc('decline_change_order', {
+          p_change_order_id: changeOrderId,
+          p_reason: nullIfBlank(formData.get('reason')),
+        });
+  if (error) return { status: 'error', message: error.message };
+  const env = (data ?? {}) as { status?: string };
+
+  // Notify the vendor only on a fresh resolution (status 'ok'). Best-effort.
+  if (env.status === 'ok') {
+    const { data: co } = await supabase
+      .from('vendor_change_orders')
+      .select('vendor_profile_id, title')
+      .eq('change_order_id', changeOrderId)
+      .maybeSingle();
+    const vendorProfileId = (co as { vendor_profile_id?: string } | null)?.vendor_profile_id ?? null;
+    const coTitle = (co as { title?: string } | null)?.title ?? 'Change order';
+    if (vendorProfileId) {
+      const { data: vp } = await createAdminClient()
+        .from('vendor_profiles')
+        .select('user_id')
+        .eq('vendor_profile_id', vendorProfileId)
+        .maybeSingle();
+      const vendorUserId = (vp as { user_id?: string } | null)?.user_id ?? null;
+      if (vendorUserId) {
+        await emitNotification({
+          userId: vendorUserId,
+          type: 'schedule_suggestion',
+          title: decision === 'accept' ? 'Change order accepted' : 'Change order declined',
+          body: `The couple ${decision === 'accept' ? 'accepted' : 'declined'} "${coTitle.slice(0, 80)}".`,
+          relatedUrl: `/vendor-dashboard/clients/${eventId}`,
+        });
+      }
+    }
+  }
+
+  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`, 'layout');
+  if (env.status === 'ok') return { status: 'ok' };
+  if (env.status === 'already') return { status: 'already' };
+  return { status: 'error', message: `Unexpected change-order status: ${env.status ?? 'none'}` };
+}
+
+/**
+ * withdrawChangeOrder — COUPLE retracts their own (couple-raised) proposed
+ * change order. Forwards to the single-winner withdraw_change_order RPC.
+ */
+export async function withdrawChangeOrder(
+  formData: FormData,
+): Promise<{ status: 'ok' | 'already' | 'error' | 'not_signed_in'; message?: string }> {
+  const eventId = formData.get('event_id');
+  const vendorId = formData.get('vendor_id');
+  const changeOrderId = formData.get('change_order_id');
+  if (
+    typeof eventId !== 'string' ||
+    typeof vendorId !== 'string' ||
+    typeof changeOrderId !== 'string'
+  ) {
+    return { status: 'error', message: 'Invalid input' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: 'not_signed_in' };
+
+  const { data, error } = await supabase.rpc('withdraw_change_order', {
+    p_change_order_id: changeOrderId,
+  });
+  if (error) return { status: 'error', message: error.message };
+  const env = (data ?? {}) as { status?: string };
+
+  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`, 'layout');
+  if (env.status === 'ok') return { status: 'ok' };
+  if (env.status === 'already') return { status: 'already' };
+  return { status: 'error', message: `Unexpected change-order status: ${env.status ?? 'none'}` };
+}
+
+/**
+ * Dismiss a coordinator's pending vendor-lock proposal (corpus spec § 4).
+ * Couple-only — the couple decides not to lock this vendor now. Flag-gated
+ * mechanic (NEXT_PUBLIC_COORDINATOR_PROPOSE_LOCK_ENABLED); harmless when off.
+ */
+export async function dismissVendorLockProposal(
+  formData: FormData,
+): Promise<{ ok: boolean }> {
+  const eventId = formData.get('event_id');
+  const proposalIdRaw = formData.get('proposal_id');
+  if (typeof eventId !== 'string' || typeof proposalIdRaw !== 'string') {
+    return { ok: false };
+  }
+  const proposalId = Number(proposalIdRaw);
+  if (!Number.isFinite(proposalId)) return { ok: false };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false };
+
+  // Couple-only: only the couple resolves a proposal.
+  const { data: coupleMember } = await supabase
+    .from('event_members')
+    .select('user_id')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .eq('member_type', 'couple')
+    .maybeSingle();
+  if (!coupleMember) return { ok: false };
+
+  await createAdminClient()
+    .from('vendor_lock_proposals')
+    .update({
+      status: 'dismissed',
+      resolved_at: new Date().toISOString(),
+      resolved_by_user_id: user.id,
+    })
+    .eq('id', proposalId)
+    .eq('event_id', eventId)
+    .eq('status', 'pending');
+
+  revalidatePath(`/dashboard/${eventId}/vendors`);
+  return { ok: true };
 }

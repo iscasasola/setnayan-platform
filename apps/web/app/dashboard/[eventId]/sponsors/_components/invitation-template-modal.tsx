@@ -2,6 +2,8 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { Copy, Mail, Send, X } from 'lucide-react';
+import { SubmitButton } from '@/app/_components/submit-button';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 type Props = {
   /** Identifies this sponsor in the global "open modal for X" dance. */
@@ -36,9 +38,11 @@ export function InvitationTemplateModal({
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState(initialMessage);
   const [copied, setCopied] = useState(false);
-  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const headingId = useId();
+
+  useModalA11y({ open, onClose: () => setOpen(false), containerRef: dialogRef });
 
   // Reset message + copied state when opening a fresh modal.
   useEffect(() => {
@@ -50,16 +54,6 @@ export function InvitationTemplateModal({
       return () => window.clearTimeout(t);
     }
   }, [open, initialMessage]);
-
-  // Close on Escape · trap focus loosely (full focus-trap is overkill for V1).
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false);
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open]);
 
   async function copyToClipboard() {
     try {
@@ -86,16 +80,16 @@ export function InvitationTemplateModal({
 
       {open ? (
         <div
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby={headingId}
-          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/45 p-3 sm:items-center sm:p-6"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/45 p-3 focus:outline-none sm:items-center sm:p-6"
           onClick={(e) => {
             if (e.target === e.currentTarget) setOpen(false);
           }}
         >
           <div
-            ref={dialogRef}
             className="relative max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-ink/10 bg-cream shadow-2xl"
           >
             <header className="flex items-start justify-between gap-3 border-b border-ink/10 bg-cream/80 px-5 py-4">
@@ -166,13 +160,13 @@ export function InvitationTemplateModal({
               <form action={formAction}>
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="sponsor_id" value={sponsorId} />
-                <button
-                  type="submit"
+                <SubmitButton
+                  pendingLabel="Marking sent…"
                   className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream hover:bg-mulberry-600"
                 >
                   <Send aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                   Mark invitation sent
-                </button>
+                </SubmitButton>
               </form>
             </footer>
           </div>

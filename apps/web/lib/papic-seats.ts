@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
+import { eventActiveSkus, eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 
 /**
  * apps/web/lib/papic-seats.ts
@@ -41,6 +41,32 @@ export const PAPIC_SEATS_SERVICE_KEY = 'PAPIC_SEATS';
 export const PAPIC_SEATS_PRICE_PHP = 2999; // v2.1 brief § 5 · ₱2,999
 
 /**
+ * Login-free seat claim flag (owner-gated · 2026-06-21).
+ *
+ * When ON, a friend claims a seat WITHOUT signing in: claimPapicSeat mints a
+ * Supabase NATIVE anonymous session (a real auth.uid()) on the claim POST, so
+ * every existing claimer-keyed RLS policy/RPC keeps working unchanged. The
+ * friend's whole experience becomes scan QR → one "Start shooting" tap →
+ * camera. (The tap can't be zero — claim happens on a POST, never on the GET
+ * page load, so a chat-app link-preview bot can't silently claim the seat.)
+ *
+ * Default OFF. Going live needs the SAME three owner actions anon onboarding
+ * needs (they share the native-anon-session machinery):
+ *   1. Enable `enable_anonymous_sign_ins` in the Supabase Auth dashboard.
+ *   2. Apply migration 20270205204166 (null-email-tolerant auth-user trigger —
+ *      anonymous users have no email; the pre-existing trigger would crash the
+ *      NOT NULL insert into public.users).
+ *   …then set NEXT_PUBLIC_PAPIC_SEAT_ANON_ENABLED=true.
+ *
+ * A SIBLING flag (not anonOnboardingEnabled) so login-free seat claim can flip
+ * independently of anon onboarding. NEXT_PUBLIC_ so the claim page (server
+ * component) and the claim action read the SAME flag — one source of truth.
+ */
+export function papicSeatAnonEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_PAPIC_SEAT_ANON_ENABLED === 'true';
+}
+
+/**
  * One owned PAPIC_SEATS order provisions this many paparazzi seats. The V2
  * pass is the five-seat pass (the V1 3-seat tier was dropped in the merge).
  */
@@ -65,7 +91,7 @@ export async function eventOwnsPapicSeats(
 
 /**
  * Are the paid Papic seats ACTIVE (admin-approved)? The handshake FEATURE GATE —
- * the paid Papic feature set (crew, moderation, sampler→paid) unlocks only after
+ * the paid Papic feature set (crew, moderation) unlocks only after
  * the Setnayan team verifies the payment (owner 2026-06-18). The buy surface
  * keeps eventOwnsPapicSeats (which counts a pending order).
  */
@@ -76,19 +102,65 @@ export async function eventPapicSeatsActive(
   return eventSkuActive(supabase, eventId, PAPIC_SEATS_SERVICE_KEY);
 }
 
-// ── Free Papic sampler (owner-locked 2026-06-16) ─────────────────────────────
-// A couple can TRY Papic free so they experience the tag→gallery loop: 3 seats,
-// 8 photos + 2 clips EACH (the 5-sec clip cap still applies), kept 30 days unless
-// they connect Drive (their own copy) or upgrade to paid Papic. Reuses the whole
-// seat→claim→capture→tag pipeline; sampler seats carry is_free_sampler = TRUE and
-// live in their own seat_index range (101..103) so they never collide with the
-// paid pass's 1..5. Provisioned by papic_provision_sampler() (migration
-// 20270103000000). FREE entitlement — never zeroes the paid PAPIC_SEATS ₱2,999.
-export const PAPIC_SAMPLER_SERVICE_KEY = 'PAPIC_SEATS_FREE';
-export const PAPIC_SAMPLER_SEAT_COUNT = 3;
-export const PAPIC_SAMPLER_PHOTO_CAP = 8; // per seat
-export const PAPIC_SAMPLER_CLIP_CAP = 2; // per seat
-export const PAPIC_SAMPLER_RETENTION_DAYS = 30;
+/**
+ * Papic-inclusive SKUs/bundles — owning ANY active one means "Papic is set up"
+ * for the event. Three keys transitively cover every Papic-inclusive bundle
+ * because eventActiveSkus() expands bundle children into the active set:
+ *   • PAPIC_SEATS  — direct, OR via MEDIA_PACK (Complete) child.
+ *   • PAPIC_GUEST  — direct, OR via GUIDED_PACK (Essentials) / MEDIA_PACK child.
+ *   • PAPIC_UNLOCK — the per-Papic umbrella (its own bundle key; NOT a child of
+ *                    any other bundle, so it must be listed explicitly).
+ * (owner 2026-06-26 · the "add-ons require Papic active" prerequisite.)
+ */
+const PAPIC_INCLUSIVE_SKUS = ['PAPIC_UNLOCK', 'PAPIC_SEATS', 'PAPIC_GUEST'] as const;
+
+/**
+ * Is "Papic active" for this event — the prerequisite every Papic ADD-ON
+ * (Kwento · Photo Wall · Thank You · Stories · Pabati · Camera Bridge) gates on
+ * (owner 2026-06-26). TRUE when EITHER:
+ *   1. the event has any active (non-revoked) paparazzi_seats row — a paid camera
+ *      ("Papic is going"); or
+ *   2. the event owns an active Papic-inclusive SKU/bundle (PAPIC_UNLOCK /
+ *      PAPIC_SEATS / PAPIC_GUEST — which transitively covers MEDIA_PACK +
+ *      GUIDED_PACK, see PAPIC_INCLUSIVE_SKUS).
+ *
+ * ⚠ Bundle owners are ALWAYS Papic-active (Complete → PAPIC_SEATS, Essentials →
+ * PAPIC_GUEST, Unlock-all → PAPIC_UNLOCK) even if they NEVER set up cameras — so
+ * the add-on gate never wrongly blocks a Complete/Essentials/Unlock-all buyer who
+ * owns the add-on via the bundle. This is the critical correctness property of the
+ * prerequisite.
+ *
+ * Pass an ADMIN client at guest-facing surfaces (the recorder/composer have no
+ * RLS session); the couple's session is fine on the dashboard. Fails OPEN only on
+ * a genuine seat-read error (never block an owner on a transient hiccup — the
+ * add-on's own ownership gate is the primary protection); a clean "nothing found"
+ * → not active.
+ */
+export async function eventPapicActive(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<boolean> {
+  // 1) Any active (non-revoked) seat — a paid camera.
+  const { data: seats, error: seatErr } = await supabase
+    .from('paparazzi_seats')
+    .select('seat_id')
+    .eq('event_id', eventId)
+    .is('revoked_at', null)
+    .limit(1);
+  if (!seatErr && (seats?.length ?? 0) > 0) return true;
+  // A missing/legacy table (42P01 / 42703) is a clean "no seats", not a failure.
+  const seatReadFailed =
+    !!seatErr && seatErr.code !== '42P01' && seatErr.code !== '42703';
+
+  // 2) Owns an active Papic-inclusive SKU/bundle. eventActiveSkus() resolves the
+  //    whole event in one query and expands bundle children, so a bundle owner is
+  //    matched here even with no seats provisioned (the critical case above).
+  const { active } = await eventActiveSkus(supabase, eventId);
+  if (PAPIC_INCLUSIVE_SKUS.some((k) => active.has(k))) return true;
+
+  // No positive Papic signal — block, unless a read genuinely failed (fail-open).
+  return seatReadFailed;
+}
 
 // ─────────────────────────────────────────────────────────────────────────
 // Seat rows — the read shape + provisioning helpers. The paparazzi_seats
@@ -105,7 +177,6 @@ export type PapicSeatRow = {
   claimer_user_id: string | null;
   claimed_at: string | null;
   revoked_at: string | null;
-  is_free_sampler: boolean;
 };
 
 /**
@@ -118,31 +189,10 @@ export async function fetchPapicSeats(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<PapicSeatRow[]> {
-  return fetchSeatRows(supabase, eventId, false);
-}
-
-/**
- * Fetch this event's FREE SAMPLER seats (is_free_sampler = TRUE). Same graceful-
- * degrade as fetchPapicSeats so a pre-migration DB shows the "start sampler"
- * prompt instead of crashing.
- */
-export async function fetchPapicSamplerSeats(
-  supabase: SupabaseClient,
-  eventId: string,
-): Promise<PapicSeatRow[]> {
-  return fetchSeatRows(supabase, eventId, true);
-}
-
-async function fetchSeatRows(
-  supabase: SupabaseClient,
-  eventId: string,
-  sampler: boolean,
-): Promise<PapicSeatRow[]> {
   const { data, error } = await supabase
     .from('paparazzi_seats')
-    .select('seat_id, seat_index, claim_qr_token, claimer_user_id, claimed_at, revoked_at, is_free_sampler')
+    .select('seat_id, seat_index, claim_qr_token, claimer_user_id, claimed_at, revoked_at')
     .eq('event_id', eventId)
-    .eq('is_free_sampler', sampler)
     .order('seat_index', { ascending: true });
 
   if (error) {
@@ -177,4 +227,91 @@ export function generateSeatClaimToken(): string {
 export function papicSeatClaimUrl(appUrl: string, token: string): string {
   const base = appUrl.replace(/\/+$/, '');
   return `${base}/papic/claim/${encodeURIComponent(token)}`;
+}
+
+/**
+ * Build the public HYBRID join URL for a seat token (`/papic/join/[token]`).
+ *
+ * This is the one entry link the couple shares on a seat QR. On a phone where
+ * the Setnayan native app is installed, the OS intercepts the Universal/App
+ * Link (scoped to /papic/* in the .well-known files) and opens the app
+ * directly; everywhere else the web route resolves the token and forwards into
+ * the existing /papic/claim flow (no duplicated capture UI). The `?kind=seat`
+ * hint lets the join route skip the guest-token lookup — the seat resolve is a
+ * single indexed read either way, so the hint is a small latency win, not a
+ * correctness requirement (the route still infers the kind if it's absent).
+ *
+ * The legacy papicSeatClaimUrl() above keeps working unchanged — any QR printed
+ * before this hybrid link still lands on /papic/claim directly.
+ */
+export function papicSeatJoinUrl(appUrl: string, token: string): string {
+  const base = appUrl.replace(/\/+$/, '');
+  return `${base}/papic/join/${encodeURIComponent(token)}?kind=seat`;
+}
+
+/**
+ * Admin-side idempotent seat provisioning — the activation-hook half of "a paid
+ * feature is ready with NO manual activate step once the order is approved".
+ *
+ * The couple-facing provisionPapicSeats() server action goes through the
+ * SECURITY DEFINER papic_provision_seats() RPC, but that RPC raises on
+ * `auth.uid() IS NULL` — so it can't be called from the PAPIC_SEATS activation
+ * hook, which runs under the SERVICE-ROLE admin client (no auth.uid()). This
+ * helper does the SAME idempotent insert directly with the admin client (which
+ * bypasses RLS) so the seats exist the instant the Setnayan team approves the
+ * order — the approval IS the activation moment. The couple lands on /crew with
+ * five ready-to-share links instead of a "set up your seats" button.
+ *
+ * Idempotent + a strict TOP-UP: it reads the existing seat_index set first and
+ * inserts ONLY the missing indexes in 1..PAPIC_SEAT_COUNT, so re-running on a
+ * re-approved order (or after the couple already provisioned via /crew) never
+ * duplicates a seat and never disturbs an already-claimed one. The
+ * (event_id, seat_index) UNIQUE constraint is the hard backstop. Mirrors the
+ * RPC's behaviour exactly (dense 1..5, sku_code 'PAPIC_SEATS', fresh token).
+ *
+ * Best-effort + non-fatal: any error returns 0 so a write failure here can never
+ * roll back the payment approval. Returns the number of NEW seats inserted (0
+ * when all five already existed).
+ */
+export async function provisionPapicSeatsAdmin(
+  admin: SupabaseClient,
+  eventId: string,
+): Promise<number> {
+  if (!eventId) return 0;
+  try {
+    // Which paid pack seat indexes (1..5) already exist?
+    const { data: existing, error: readError } = await admin
+      .from('paparazzi_seats')
+      .select('seat_index')
+      .eq('event_id', eventId)
+      .lte('seat_index', PAPIC_SEAT_COUNT);
+    // Missing/legacy table (42P01) or column (42703) → a pre-bootstrap DB; the
+    // couple can still self-serve from /crew once migrated. Don't throw.
+    if (readError) return 0;
+
+    const have = new Set((existing ?? []).map((r) => r.seat_index as number));
+    const missing = [];
+    for (let i = 1; i <= PAPIC_SEAT_COUNT; i += 1) {
+      if (!have.has(i)) {
+        missing.push({
+          event_id: eventId,
+          seat_index: i,
+          sku_code: PAPIC_SEATS_SERVICE_KEY,
+          claim_qr_token: generateSeatClaimToken(),
+        });
+      }
+    }
+    if (missing.length === 0) return 0; // already fully provisioned — no-op.
+
+    // ignoreDuplicates so a seat raced in between the read and this insert
+    // (the UNIQUE (event_id, seat_index) backstop) is silently skipped, never
+    // a hard error — same DO-NOTHING semantics as the RPC's ON CONFLICT.
+    const { error: insertError } = await admin
+      .from('paparazzi_seats')
+      .upsert(missing, { onConflict: 'event_id,seat_index', ignoreDuplicates: true });
+    if (insertError) return 0;
+    return missing.length;
+  } catch {
+    return 0;
+  }
 }

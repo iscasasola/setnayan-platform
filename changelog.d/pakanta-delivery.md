@@ -1,0 +1,13 @@
+## 2026-06-22 · feat(pakanta): song-delivery pipeline — music-team upload auto-plays on the couple's site
+
+Closes the delivery half of iteration 0036 (Pakanta · the couple's custom wedding song). The buy + intake + Suno-brief back-office already existed; this adds the path from "song is written" to "song plays on the wedding site" with **zero manual couple step** — but **never clobbering a couple who already set their own site song**.
+
+- **Migration** `20270213200000_pakanta_song_delivery.sql` — additive, nullable, idempotent columns on `public.events`: `pakanta_song_r2_key`, `pakanta_song_status` (`in_production` | `ready`), `pakanta_song_filename`, `pakanta_song_delivered_at`, `pakanta_song_adopted_as_site_music` (default false). No new RLS (events row policies already cover them). Applied to prod statement-by-statement (ledger drift from a sibling unapplied migration blocked `db push`); 5 columns confirmed; ledger row inserted manually. All code reads of these columns graceful-degrade (42703/42P01 → not-delivered).
+
+- **Admin upload + non-destructive auto-adopt** (`/admin/pakanta`) — the queue now lists **bundle buyers too** (events with an approved direct PAKANTA order OR a MEDIA_PACK/Complete bundle order, even with no intake draft — union of orders + drafts, confirmed per row via the bundle-aware `eventSkuActive`). Each active row gets a `<FileUpload bucket="media">` audio control → `deliverPakantaSong({eventId, songRef, filename})` (re-`assertAdmin` + re-`eventSkuActive('PAKANTA')`, service-role write). The auto-adopt sets the song as `site_bg_music_*` (source `'pakanta'`, enabled) **only when** `site_bg_music_r2_key` is empty or was a previous Pakanta adoption — a couple's own song is left untouched. The landing `BackgroundMusic` player then plays it on next render with **no player change**.
+
+- **Studio owned-states** (`/dashboard/[eventId]/studio/pakanta`) — gated on `eventSkuActive('PAKANTA')`: not-owned → buy/intake form (unchanged); owned + `in_production` (or song NULL) → "Your song is in production" + the intake stays editable (save-only, no re-pay CTA); owned + `ready` → "Delivered ✓ {filename}" + audio preview + a one-tap "Use this song on my site" (`adoptPakantaSongAsSiteMusic`, re-verified) shown only when not already adopted.
+
+- Did NOT touch `[slug]/page.tsx` or `background-music.tsx` — adoption flows entirely through the existing `site_bg_music_*` fields.
+
+SPEC IMPACT: 0036 Pakanta — delivery pipeline: music-team upload auto-adopts as the site song (non-destructive) + Studio owned/in-production/ready states; gate `eventSkuActive('PAKANTA')`. Logged at the bottom of `DECISION_LOG.md` per the relaxed sync mandate.

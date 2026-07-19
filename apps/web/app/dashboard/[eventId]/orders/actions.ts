@@ -4,10 +4,13 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { activateOrderSku } from '@/lib/sku-activation';
 import { uploadPublicAsset } from '@/lib/storage';
 import { sendEmail } from '@/lib/email';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
+import { notifyAdminsOrderAwaitingReconciliation } from '@/lib/order-admin-notify';
+import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -57,6 +60,12 @@ export async function createOrder(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+  // Anon-draft money floor: an order can't be owned by a placeholder identity
+  // (charge, BIR receipt, refund contactability). Route anonymous buyers to
+  // /signup (convert-in-place) and bring them back to this event afterwards.
+  if (user.is_anonymous) {
+    redirect(`/signup?next=${encodeURIComponent(`/dashboard/${eventId}`)}`);
+  }
 
   // Decision 1 (CLAUDE.md 2026-05-15) — § 3.1a Self-purchase confirm.
   // The new-order page injects `self_purchase_action` when the user is a
@@ -100,6 +109,38 @@ export async function createOrder(formData: FormData) {
     redirect(`/dashboard/${eventId}/orders/${orderResult.orderId}?self_comp=1`);
   }
 
+  // #13 (money bug-hunt): a standard customer order must be for an event the
+  // buyer belongs to. The orders RLS only checks `user_id = auth.uid()`, so a
+  // forged `event_id` would otherwise bind the order to a stranger's event. The
+  // self-comp branch returns above (a vendor self-comping isn't an event member).
+  const { data: membership } = await supabase
+    .from('event_members')
+    .select('event_id')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (!membership) {
+    throw new Error('You can only create an order for your own event.');
+  }
+
+  // Consent-scoped coordinator checkout (owner 2026-07-19 #5). The membership
+  // check above admits ANY event member — including coordinators. Behind
+  // NEXT_PUBLIC_COORDINATOR_CONSENT_GATE_ENABLED, a non-couple member may
+  // create an order only when the couple granted the 'checkout' scope at
+  // invite time (coordinator_access_consents.scopes). Flag OFF = exact
+  // current behavior (helper returns true without reading).
+  const checkoutAllowed = await coordinatorMoneyScopeAllowed(
+    createAdminClient(),
+    eventId,
+    user.id,
+    'checkout',
+  );
+  if (!checkoutAllowed) {
+    throw new Error(
+      'The couple has not approved payment handling for your coordinator access — ask them to re-invite you with payment permission.',
+    );
+  }
+
   // Mint the reference code locally so we can both store it AND pass it to
   // the payment-instructions email below — we'd otherwise have to round-trip
   // back to the row to read it. Same 'SN<8-hex>' shape used by the legacy
@@ -130,6 +171,19 @@ export async function createOrder(formData: FormData) {
     });
     throw new Error(error?.message ?? 'Could not create order');
   }
+
+  // Admin confirmation (best-effort · Notification Foundation Phase B) — fan
+  // out to every admin/internal/team user that a new order is in the
+  // /admin/payments reconciliation queue so the 24-hr SLA starts on submit,
+  // not on the next time someone opens the queue. The self-comp branch above
+  // returns before reaching here, so comp grants (which skip payment-pending)
+  // correctly never fire this. Fail-soft: never blocks the order.
+  await notifyAdminsOrderAwaitingReconciliation({
+    orderId: data.order_id as string,
+    description: trimmedDesc,
+    amountPhp: requestedTotalPhp,
+    referenceCode,
+  });
 
   // Wire payment instructions email · iteration 0034 apply-then-pay manual
   // reconciliation flow (CLAUDE.md 2026-05-12 lock · System_Wiring_Map RED #2
@@ -329,7 +383,24 @@ async function createSelfCompOrder(args: {
     throw new Error(orderInsert.error?.message ?? 'Could not create comp order.');
   }
 
-  return { orderId: orderInsert.data.order_id as string };
+  const orderId = orderInsert.data.order_id as string;
+
+  // Run the SKU's activation hook so a self-comped flag-backed SKU (e.g.
+  // SETNAYAN_AI's events.setnayan_ai_active boolean) is actually PROVISIONED,
+  // not merely owned. This path flips an order straight to 'paid', so without
+  // it ownership checks suppress the buy CTA while the feature gate stays dark.
+  // Mirrors admin approvePayment — the only other path that pays an order.
+  // Non-fatal + idempotent by contract (activateOrderSku never throws); a null
+  // serviceKey (ad-hoc self-comp) resolves to '' → no registered hook → no-op.
+  await activateOrderSku({
+    admin,
+    orderId,
+    eventId: args.eventId,
+    serviceKey: args.serviceKey ?? '',
+    actorUserId: args.userId,
+  });
+
+  return { orderId };
 }
 
 export async function cancelOrder(formData: FormData) {
@@ -388,6 +459,41 @@ export async function logPayment(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  // Ownership guard (money bug-hunt 2026-06-26, #11): only log a payment against
+  // an order you're actually allowed to see. RLS (orders_owner_read) scopes this
+  // read to your own orders + your events' orders; a foreign order_id returns
+  // null → reject. Without this, the payments INSERT (whose RLS only checks
+  // payments.user_id = auth.uid()) let a user pin a payment row onto a
+  // stranger's order and pollute their reconciliation/order totals.
+  const { data: ownedOrder } = await supabase
+    .from('orders')
+    .select('order_id, event_id')
+    .eq('order_id', orderId)
+    .maybeSingle();
+  if (!ownedOrder || ownedOrder.event_id !== eventId) {
+    throw new Error('Order not found for this event');
+  }
+
+  // Consent-scoped coordinator payment handling (owner 2026-07-19 #5). The
+  // orders SELECT above is satisfied by ANY event member (migration
+  // 20270129279924 widened the read to all members), so a coordinator could
+  // attach payment proof to the couple's orders. Behind
+  // NEXT_PUBLIC_COORDINATOR_CONSENT_GATE_ENABLED, a non-couple member may log
+  // a payment only when the couple granted the 'checkout' scope at invite
+  // time (coordinator_access_consents.scopes). Flag OFF = exact current
+  // behavior (helper returns true without reading).
+  const checkoutAllowed = await coordinatorMoneyScopeAllowed(
+    createAdminClient(),
+    eventId,
+    user.id,
+    'checkout',
+  );
+  if (!checkoutAllowed) {
+    throw new Error(
+      'The couple has not approved payment handling for your coordinator access — ask them to re-invite you with payment permission.',
+    );
+  }
 
   // Optional screenshot — TWO supported shapes:
   //

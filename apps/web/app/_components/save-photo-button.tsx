@@ -11,6 +11,10 @@ import { saveImageToDevice } from '@/lib/save-to-device';
 // couple's Papic gallery + the guest day-of wall.
 export function SavePhotoButton({ url, filename }: { url: string; filename: string }) {
   const [state, setState] = useState<'idle' | 'saving' | 'done'>('idle');
+  // Guest Legibility Floor: the "save my photo" action must be a VISIBLE,
+  // ≥44px-tappable, labelled control — not a 20px icon-only corner dot an older
+  // guest can't see or hit. A scrim pill keeps it legible over any photo.
+  const label = state === 'saving' ? 'Saving…' : state === 'done' ? 'Saved' : 'Save';
   return (
     <button
       type="button"
@@ -23,16 +27,16 @@ export function SavePhotoButton({ url, filename }: { url: string; filename: stri
         setState(r === 'failed' ? 'idle' : 'done');
         if (r !== 'failed') setTimeout(() => setState('idle'), 1500);
       }}
-      className="absolute left-1 top-1 rounded-full bg-black/55 p-1 text-cream transition active:scale-95"
+      className="absolute left-1.5 top-1.5 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-black/60 px-3 text-sm font-semibold text-cream shadow-sm backdrop-blur-[2px] transition active:scale-95"
     >
       {state === 'saving' ? (
-        <Loader2 aria-hidden className="h-3 w-3 animate-spin" strokeWidth={2} />
+        <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
       ) : state === 'done' ? (
-        <Check aria-hidden className="h-3 w-3" strokeWidth={2.5} />
+        <Check aria-hidden className="h-4 w-4" strokeWidth={2.5} />
       ) : (
-        <Download aria-hidden className="h-3 w-3" strokeWidth={2} />
+        <Download aria-hidden className="h-4 w-4" strokeWidth={2} />
       )}
-      <span className="sr-only">Save to phone</span>
+      <span>{label}</span>
     </button>
   );
 }

@@ -43,6 +43,15 @@ export type CategoryTileData = {
    * `secondary_folders` on their TaxonomyEntry.
    */
   primaryFolderHint?: WeddingFolder;
+  /**
+   * Resolved display URL for the tile's `service_categories.sample_photo_r2_key`
+   * (r2:// refs presigned server-side; `/public` paths verbatim), or null when
+   * the tile has no photo. When set, the card renders a quiet editorial photo
+   * banner above the title for scanability; when null/failed it falls back to
+   * the text card exactly as before (no layout shift — the banner is simply not
+   * rendered). Wired 2026-07-03 (Taxonomy Studio · PR 4).
+   */
+  photoUrl?: string | null;
 };
 
 const LIVE_PHASES: ReadonlySet<TaxonomyPhase> = new Set([
@@ -122,6 +131,21 @@ export async function CategoryTile({
 
   return (
     <Link href={href} aria-label={ariaLabel} className={containerClass}>
+      {/* Editorial photo banner (Taxonomy Studio · PR 4). Quiet 3:2 media slot
+          above the title for scanability — only when the tile has a resolved
+          photo. -m-4 mb-1 bleeds the banner to the card edges past the p-4
+          gutter; rounded-top matches the card radius. A CSS background-image
+          (not <img>) so a failed/expired URL degrades to the neutral box tint
+          rather than a broken-image glyph, and the fixed aspect-ratio box means
+          no layout shift whether or not the photo loads. When photoUrl is null
+          the banner isn't rendered and the card reads exactly as before. */}
+      {data.photoUrl ? (
+        <div
+          aria-hidden
+          className="-mx-4 -mt-4 mb-1 aspect-[3/2] w-[calc(100%+2rem)] overflow-hidden rounded-t-2xl bg-ink/5 bg-cover bg-center"
+          style={{ backgroundImage: `url("${data.photoUrl}")` }}
+        />
+      ) : null}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="truncate text-sm font-semibold text-ink group-hover:text-terracotta">
@@ -212,13 +236,13 @@ function StatePill({ state }: { state: TileState }) {
       );
     case 'populated':
       return (
-        <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-emerald-800">
+        <span className="shrink-0 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-success-800">
           {state.verified + state.comingSoon} listed
         </span>
       );
     case 'recruiting':
       return (
-        <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-amber-900">
+        <span className="shrink-0 rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-warn-900">
           Recruiting
         </span>
       );

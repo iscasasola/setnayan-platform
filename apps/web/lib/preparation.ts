@@ -55,6 +55,11 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { completeByDate, DOCUMENT_META, type PaperworkDocumentType } from './paperwork';
+import {
+  resolveAppointmentLabel,
+  APPOINTMENT_KIND_LABEL,
+  type AppointmentKind,
+} from './appointments';
 
 // ----------------------------------------------------------------------------
 // Public types
@@ -417,6 +422,101 @@ async function fetchMeetingItems(
 }
 
 // ----------------------------------------------------------------------------
+// Source 3b — confirmed vendor appointments (event_appointments)
+//
+// The two-sided Appointments scheduler (Relationship Workspace + Appointments)
+// writes event_appointments. A couple's CONFIRMED appointments — a food
+// tasting, a fitting, a pre-shoot call scheduled with their booked/shortlisted
+// vendors — are dated obligations that belong on the same runway as ad-hoc
+// vendor_meetings, so they render under the SAME 'meeting' source (one
+// vocabulary, no new chip). Only confirmed rows WITH a scheduled_at are shown;
+// proposed rows still awaiting a decision live in the vendor workspace, and
+// cancelled/done are not upcoming prep. Graceful-degrades to [] if the table is
+// missing on a stale deploy.
+//
+// Appointments carry the marketplace vendor_profile_id, not the event_vendors
+// PK — so the vendor name + couple-side workspace link resolve via a single
+// batched event_vendors lookup keyed on marketplace_vendor_id.
+// ----------------------------------------------------------------------------
+
+type AppointmentRow = {
+  appointment_id: string;
+  vendor_profile_id: string | null;
+  kind: string;
+  type: string;
+  custom_label: string | null;
+  location: string | null;
+  scheduled_at: string | null;
+};
+
+async function fetchAppointmentItems(
+  supabase: SupabaseClient,
+  eventId: string,
+  now: Date,
+): Promise<PreparationItem[]> {
+  const { data, error } = await supabase
+    .from('event_appointments')
+    .select('appointment_id, vendor_profile_id, kind, type, custom_label, location, scheduled_at')
+    .eq('event_id', eventId)
+    .eq('status', 'confirmed')
+    .not('scheduled_at', 'is', null)
+    .order('scheduled_at', { ascending: true });
+  if (error) {
+    if (isMissingRelation(error)) return [];
+    console.error('[preparation] appointments:', error.message);
+    return [];
+  }
+  const rows = (data ?? []) as AppointmentRow[];
+  if (rows.length === 0) return [];
+
+  // Resolve each appointment's vendor (name + workspace link) from the
+  // marketplace profile id it carries → the couple's event_vendors row. RLS
+  // already scopes event_vendors to the host.
+  const profileIds = Array.from(
+    new Set(rows.map((r) => r.vendor_profile_id).filter((v): v is string => !!v)),
+  );
+  const vendorByProfile = new Map<string, { vendorId: string; name: string }>();
+  if (profileIds.length > 0) {
+    const { data: vendors } = await supabase
+      .from('event_vendors')
+      .select('vendor_id, vendor_name, marketplace_vendor_id')
+      .eq('event_id', eventId)
+      .in('marketplace_vendor_id', profileIds);
+    for (const v of (vendors ?? []) as Array<{
+      vendor_id: string;
+      vendor_name: string;
+      marketplace_vendor_id: string | null;
+    }>) {
+      if (v.marketplace_vendor_id) {
+        vendorByProfile.set(v.marketplace_vendor_id, { vendorId: v.vendor_id, name: v.vendor_name });
+      }
+    }
+  }
+
+  const fmt = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' });
+  return rows.map((row) => {
+    const date = new Date(row.scheduled_at as string);
+    // No catalog fetch — resolveAppointmentLabel falls back to a humanized type
+    // key when no label map is supplied (custom rows use their custom_label).
+    const title = resolveAppointmentLabel(row, {});
+    const kindLabel = APPOINTMENT_KIND_LABEL[row.kind as AppointmentKind] ?? 'Appointment';
+    const vendor = row.vendor_profile_id ? vendorByProfile.get(row.vendor_profile_id) : undefined;
+    const where = row.location ? ` · ${row.location}` : ` with ${vendor?.name ?? 'your vendor'}`;
+    return {
+      id: `appointment:${row.appointment_id}`,
+      source: 'meeting' as const,
+      date,
+      daysFromNow: daysBetween(date, now),
+      title,
+      subtitle: `${fmt.format(date)} · ${kindLabel}${where}`,
+      href: vendor
+        ? `/dashboard/${eventId}/vendors/${vendor.vendorId}/workspace`
+        : `/dashboard/${eventId}/vendors`,
+    };
+  });
+}
+
+// ----------------------------------------------------------------------------
 // Source 4 — computed statutory planning milestones from events.event_date
 // ----------------------------------------------------------------------------
 
@@ -663,6 +763,12 @@ export type FetchPreparationInput = {
   eventDate: string | null;
   ceremonyType: string | null | undefined;
   now: Date;
+  // Iteration 0053 P4 Unit 1: whether this event type has a statutory
+  // (PH-marriage) prep pack. The caller derives it from the Event-Type Profile
+  // (profile.statutoryPackKey === 'ph_marriage'). Defaults TRUE so any caller
+  // that omits it keeps today's wedding behaviour byte-identical; a non-wedding
+  // event passes false → no PSA/CENOMAR/marriage-license milestones.
+  statutory?: boolean;
 };
 
 /**
@@ -677,17 +783,27 @@ export type FetchPreparationInput = {
 export async function fetchPreparationAgenda(
   input: FetchPreparationInput,
 ): Promise<PreparationAgenda> {
-  const { supabase, eventId, eventDate, ceremonyType, now } = input;
+  const { supabase, eventId, eventDate, ceremonyType, now, statutory = true } = input;
 
-  const [payments, paperwork, meetings, manual] = await Promise.all([
+  const [payments, paperwork, meetingsRaw, manual, appointments] = await Promise.all([
     fetchPaymentItems(supabase, eventId, now),
     fetchPaperworkItems(supabase, eventId, eventDate, now),
     fetchMeetingItems(supabase, eventId, now),
     // Source 5 — hybrid manual + vendor-added rows. Graceful-degrades to []
     // when event_preparation_items doesn't exist yet (pre-migration deploy).
     fetchManualItems(supabase, eventId, now),
+    // Source 3b — confirmed appointments from the two-sided scheduler. Folded
+    // into the 'meeting' source so they share the Meeting chip/vocabulary.
+    fetchAppointmentItems(supabase, eventId, now),
   ]);
-  const milestones = buildStatutoryMilestones(eventId, eventDate, ceremonyType, now);
+  // Ad-hoc vendor_meetings + confirmed appointments are both "meeting" rows.
+  const meetings = [...meetingsRaw, ...appointments];
+  // Iteration 0053 P4 Unit 1: PH-marriage statutory milestones only for events
+  // whose profile has the statutory pack (weddings). statutory defaults TRUE so
+  // weddings are byte-identical; non-weddings pass false → no milestones.
+  const milestones = statutory
+    ? buildStatutoryMilestones(eventId, eventDate, ceremonyType, now)
+    : [];
 
   const items = [
     ...payments,

@@ -21,8 +21,8 @@
  *   - faith adapts to kind (single-pick Religious · pick-2 Mixed · note for Civil)
  *   - name screen: live monogram from the couple's names + Frame/Font cyclers
  *   - date screen: 2-mode calendar (specific 1-4 dates within a 90-day cluster ·
- *     flexible window ≤30 days) + the why-this-date nugget
- *   - region screen: top-5 + "Somewhere else" expand + 13 more + per-region nugget
+ *     flexible window ≤30 days)
+ *   - region screen: top-5 + "Somewhere else" expand + 13 more
  *   - pax screen: slider (10-500) + always-on exact box (any number) + tier photo
  *   - budget screen: feel-band chips + a look photo keyed to pax-tier × band
  *   - picker screen: 53 services grouped by the 10 parents + sticky preview +
@@ -42,7 +42,6 @@ import '../_styles/onboarding.css';
 // Desktop-only editorial canvas around the locked phone frame (owner 2026-06-13).
 // Layered ON TOP of the prototype CSS — see onboarding-desktop.css header.
 import '../_styles/onboarding-desktop.css';
-import { OnboardingDesktopAside } from './desktop-aside';
 // Phase-5 cutover: the lazy DB commit + the existing auth server actions reused
 // at the account gate (no new auth code — same OAuth/signup the marketing site uses).
 import {
@@ -54,6 +53,11 @@ import {
 } from '../actions';
 import { signInWithGoogle } from '@/app/auth/oauth-actions';
 import { signUp } from '@/app/signup/actions';
+import { TurnstileField } from '@/app/_components/auth/turnstile-field';
+import { mintTurnstileToken } from '@/lib/turnstile-client';
+import { SubmitButton } from '@/app/_components/submit-button';
+import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
+import { experienceQuizEnabled } from '@/lib/experience-quiz';
 import {
   EMPTY_ONBOARDING_STATE,
   ONBOARDING_DRAFT_KEY,
@@ -64,14 +68,17 @@ import {
   type OnboardingState,
 } from '../types';
 import { FAITH_REGISTRY, FAITH_LABELS } from '@/lib/faith-registry';
+import { allRegions } from '@/lib/region-source';
 import { cityByKey } from '../_data/wedding-cities';
 import { LocationStep } from './location-step';
-import type { OnboardingPricing, OnboardingBundleVM } from './onboarding-pricing';
+import type { OnboardingPricing } from './onboarding-pricing';
 import { MonoLockup, type MonoDesign } from './mono-lockup';
 import { SongBankStep } from './song-bank-step';
 import { OnboardingMusic } from './onboarding-music';
 import { REFINEMENTS_BY_KEY, REFINEMENTS_DATA, type RefineLeaf, type RefineOption } from '../_data/refinements';
+import { EXP_AXES, EXP_DIALS, EXP_PERSONA_BY_KEY, resolvePersona, derivePlanFromPersona, type ExpAxisId, type ExpForWhom } from '../_data/experience-personas';
 import { type OnboardingPickChip } from '@/lib/onboarding-refinements';
+import { type BudgetBand, BUDGET_BANDS_FALLBACK } from '@/lib/budget-bands-shared';
 import {
   weaveStory,
   masthead as weaveMasthead,
@@ -118,7 +125,15 @@ import { SDLoader } from '@/components/sd-loader';
    anchor to the real wedding year. The old single `love_met` (which crammed the Spark
    AND the Almost onto one page) is split into `love_spark` + `love_almost` so each page
    is ONE clearly-titled story (owner 2026-06-08 — "set each page to be 1 story"). */
-const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','alaala_promise','region','pax','budget','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','congrats','plan','bundle','services','summary'] as const;
+/* Experience-persona reorientation (iteration 0016 · flag-gated · owner 2026-06-21):
+   the 5-axis experience quiz (exp_for_whom…exp_effort) + the persona reveal (exp_reveal)
+   are inserted RIGHT AFTER budget, BEFORE team_intro (which is the venue intro). When
+   NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED is ON, buildSequence drops the legacy picker chain
+   (aigate + team_basics/refine_basic/team_extras/refine_extras + songs/mood) and the
+   persona DERIVES picks/refinements/feel/services on the reveal. When OFF, the exp_*
+   screens are filtered out and the flow is byte-identical to today. Order: the couple
+   designs the EXPERIENCE first, then locks the venue (team_intro → reception_setting → find). */
+const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','alaala_promise','region','pax','budget','exp_for_whom','exp_feel','exp_energy','exp_roots','exp_effort','exp_help','exp_source','exp_reveal','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','congrats','plan','services','summary'] as const;
 type ScreenId = typeof FLOW_IDS[number];
 /* The love collection screens dropped when the couple skips the stage (love_intro,
    the gate, always stays). */
@@ -136,12 +151,52 @@ const TEAM_AI_ONLY: ReadonlySet<ScreenId> = new Set(['team_basics','refine_basic
    Stylist/Decorator (mood IS that refinement now). Both still ride the AI gate above; picks
    are known by these screens (they follow team_basics/team_extras in the flow). */
 const SONG_PICK_CATS: ReadonlySet<string> = new Set(['live_band', 'orchestra', 'wedding_singer']);
+// Anon-draft onboarding (flag-gated · 2026-06-20): when ON, NOBODY hits the
+// mid-flow account wall — account-less visitors finish and the commit action
+// mints a Supabase anonymous session, dropping them in the dashboard with a
+// "secure your plan" nudge instead of a signup gate. Module-level so every
+// buildSequence call site reads the same value. NEXT_PUBLIC_* → inlined at build.
+const ANON_DRAFT_ENABLED = anonOnboardingEnabled();
+// Experience-persona reorientation (0016 · flag-gated · owner 2026-06-21). ON → the
+// exp_* experience quiz + reveal run and the legacy manual-picker chain is dropped (the
+// persona DERIVES the plan); OFF → exp_* are filtered out and the flow is byte-identical
+// to today. Module-level so every buildSequence call site reads the same value.
+const EXPERIENCE_QUIZ_ENABLED = experienceQuizEnabled();
+const EXP_SCREENS: ReadonlySet<ScreenId> = new Set(['exp_for_whom', 'exp_feel', 'exp_energy', 'exp_roots', 'exp_effort', 'exp_help', 'exp_source', 'exp_reveal']);
+// The manual "dream team" picker chain the experience quiz REPLACES when the flag is on
+// (the persona derives picks/refinements/feel/services instead of the couple hand-picking
+// 53 tiles + per-leaf refinements + music + palette).
+const LEGACY_PICKER_SCREENS: ReadonlySet<ScreenId> = new Set(['aigate', 'team_basics', 'refine_basic', 'team_extras', 'refine_extras', 'songs', 'mood']);
+// Paywall tail dropped from onboarding when the flag is ON (owner 2026-06-21 "no paywall in
+// onboarding"): the Setnayan AI upsell (`plan`), the bundle offer, the à-la-carte services
+// carousel + the purchase summary all move to the dashboard. Onboarding then ends FREE on
+// `congrats` (the dashboard-bloom reveal) → "Go to my dashboard". The persona's derived
+// services are still STORED (style_preferences.interested_services) for the dashboard to
+// surface — they're just not sold here.
+const PAYWALL_SCREENS: ReadonlySet<ScreenId> = new Set(['plan', 'services', 'summary']);
+// Screens filtered OUT of the flow. REVERSIBLE — empty this set to restore every screen.
+//   • Owner 2026-06-22: pure no-input interstitials removed to run question→question —
+//     welcome · alaala_promise · team_intro · team_payoff · exp_reveal.
+//   • Owner 2026-07-12: the LOVE-STORY arc is RESTORED (it was removed 2026-06-22). It feeds the
+//     richer Event Brief (the taste/story signals behind the now-free budget/faith matching) plus
+//     the website editorial + the Pakanta song. It stays OPT-IN — `love_intro` is the "tell it /
+//     add it later" fork and its 5 questions are LOVE_SKIPPABLE — so it never forces a longer flow
+//     ("easier, not more complex").
+// The persona derive that used to run on `exp_reveal` now fires when the 5 quiz answers complete
+// (see the derive effect). JSX sections stay in place (just never become active).
+const REMOVED_SCREENS: ReadonlySet<ScreenId> = new Set([
+  'welcome', 'alaala_promise', 'team_intro', 'team_payoff', 'exp_reveal',
+]);
 function buildSequence(kind: OnboardingState['kind'], authed: boolean, loveSkipped: boolean, ai: boolean | null, picks: string[]): ScreenId[] {
   const hasMusician = picks.some((p) => SONG_PICK_CATS.has(p));
   const hasStylist = picks.includes('stylist');
   return FLOW_IDS.filter((id) =>
+    !REMOVED_SCREENS.has(id) &&                     // owner 2026-06-22 — info-only steps + love-story arc removed for now
     !(id === 'faith' && kind === 'civil') &&        // Civil skips the faith screen
-    !(id === 'account' && authed) &&                // signed-in users skip the account gate
+    !(EXP_SCREENS.has(id) && !EXPERIENCE_QUIZ_ENABLED) &&         // exp_* experience quiz only when the flag is ON
+    !(EXPERIENCE_QUIZ_ENABLED && LEGACY_PICKER_SCREENS.has(id)) && // flag ON drops the manual picker chain (the persona derives it)
+    !(EXPERIENCE_QUIZ_ENABLED && PAYWALL_SCREENS.has(id)) &&       // flag ON drops the in-onboarding paywall tail (moves to the dashboard)
+    !(id === 'account' && (authed || ANON_DRAFT_ENABLED)) &&  // signed-in users — and, with anon-draft on, everyone — skip the account gate
     !(loveSkipped && LOVE_SKIPPABLE.has(id)) &&     // "Add it later" drops the 5 love collection screens
     !(ai !== true && TEAM_AI_ONLY.has(id)) &&       // team_basics/team_extras/songs/mood only when the couple opted into AI matching (aigate=Yes)
     !(id === 'songs' && !hasMusician) &&            // songs only when a Band / Orchestra / Wedding Singer is picked
@@ -163,9 +218,6 @@ const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
   // states the guardrail); chrome Continue advances, canContinue defaults true.
   alaala_promise:'Continue',
   account:'Create account', find:'Continue', congrats:'Continue', plan:'Continue',
-  // bundle (owner 2026-06-08): chrome CTA = the "skip the offer, build à la carte" advance to
-  // `services`. The two bundle cards carry their OWN "Get {title}" CTAs that route to checkout.
-  bundle:'Continue',
   services:'Review my picks', summary:'Done',
   // Dream Team chapter. aigate carries its OWN two in-screen CTAs (chrome CTA hidden
   // via AIGATE_NOCTA) — its key is required only to satisfy the exhaustive Record.
@@ -176,6 +228,10 @@ const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
   // CHROME CTA label for a refine screen is computed dynamically ("Next service" mid-queue,
   // "Continue" on the last leaf) in the `nextLabel` derivation, never read from here.
   refine_basic:'Continue', refine_extras:'Continue',
+  // Experience-persona quiz (0016 · flag-gated). Each axis advances with Continue;
+  // exp_effort leads into the reveal; exp_reveal continues on to reception_setting.
+  exp_for_whom:'Continue', exp_feel:'Continue', exp_energy:'Continue', exp_roots:'Continue', exp_effort:'Continue',
+  exp_help:'Continue', exp_source:'Continue', exp_reveal:'Continue',
 };
 /* Which screens show a Skip button. Skippable: team_extras · songs · mood · find · the
    à-la-carte services review — they sort/refine, never gate. The love collection screens
@@ -188,9 +244,6 @@ const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
 const CAN_SKIP_BY_ID: Partial<Record<ScreenId, boolean>> = {
   love_spark:true, love_almost:true, love_proposal:true, love_milestones:true, love_tone:true,
   team_extras:true, songs:true, mood:true, find:true, services:true,
-  // bundle (owner 2026-06-08): Skip = advance to `services` (the à-la-carte path). The
-  // in-screen "I'll pick à la carte instead" link is the primary escape; this is parity.
-  bundle:true,
 };
 /* The love gate + reveal carry their OWN button rows (a primary CTA + a ghost) — the chrome
    Continue is hidden for these, the same way the account gate + summary are (data-nocta). */
@@ -275,24 +328,19 @@ const PAXTIERS = [
 ];
 const paxTierFor = (n: number) => PAXTIERS.find((x) => n <= x.max) ?? PAXTIERS[PAXTIERS.length - 1]!;
 
-/* ── budget feel-band ladder (prototype buildBudget B{} + budgetTier) ── */
-const BUDGET_BANDS: { value: string; label: string; tag: string; med: number }[] = [
-  { value: 'essentials', label: 'Essentials', tag: 'Lean & intentional', med: 2000 },
-  { value: 'simple', label: 'Simple', tag: 'Comfortable', med: 3500 },
-  { value: 'classic', label: 'Classic', tag: 'The sweet spot', med: 5000 },
-  { value: 'elevated', label: 'Elevated', tag: 'Polished', med: 7500 },
-  { value: 'premium', label: 'Premium', tag: 'Entry luxury', med: 11000 },
-  { value: 'luxury', label: 'Luxury', tag: 'No-compromise', med: 15000 },
-  { value: 'no_limit', label: 'No limit', tag: 'No ceiling', med: 0 },
-];
+/* ── budget feel-band ladder (prototype buildBudget B{} + budgetTier) ──
+   The BUDGET_BANDS literal moved to a DB-backed prop (owner 2026-06-19): the bands
+   now come from budget_band_config via getBudgetBands(), DB-first with
+   BUDGET_BANDS_FALLBACK as the in-code fallback. Because the band ladder is no
+   longer a module-level const, the helpers that read it (PRICED_BANDS,
+   budgetFloor, budgetCeiling, nearestBand, effectiveBudgetPesos) are derived
+   INSIDE the component from the `budgetBands` prop — see OnboardingShell. */
 const budgetTierBand = (band: string) =>
   band === 'essentials' || band === 'simple' ? 'lean' : band === 'premium' || band === 'luxury' || band === 'no_limit' ? 'lavish' : 'mid';
 
 /* ── budget AMOUNT math (owner 2026-06-02: text box + line picker + min-floor + max-of-range) ──
-   Per-head median × pax, ±20%, rounded to the nearest ₱50k. Floor = the essentials low
-   (the recommended-lowest for that guest count — the text box can't go below it).
-   Ceiling = the luxury high. nolimit has no amount (med 0). */
-const PRICED_BANDS = BUDGET_BANDS.filter((b) => b.med > 0);
+   Per-head median × pax, ±20%, rounded to the nearest ₱50k. These are pure (no band
+   array dependency), so they stay module-scope; the band-aware helpers live in-component. */
 const round50k = (n: number) => Math.round(n / 50000) * 50000;
 const bandLo = (med: number, pax: number) => round50k(med * 0.8 * pax);
 const bandHi = (med: number, pax: number) => {
@@ -301,38 +349,26 @@ const bandHi = (med: number, pax: number) => {
   if (z <= a) z = a + 50000;
   return z;
 };
-const budgetFloor = (pax: number) => bandLo(2000, pax); // essentials low = recommended floor
-const budgetCeiling = (pax: number) => bandHi(15000, pax); // luxury high
-const nearestBand = (amount: number, pax: number) =>
-  PRICED_BANDS.reduce(
-    (best, b) => (Math.abs(b.med * pax - amount) < Math.abs(best.med * pax - amount) ? b : best),
-    PRICED_BANDS[2] ?? PRICED_BANDS[0]!,
-  );
 const fmtPeso = (n: number) =>
   n >= 1e6 ? `₱${(n / 1e6).toFixed(2).replace(/\.?0+$/, '')}M` : `₱${Math.round(n / 1000)}K`;
-/* the working-budget value the couple effectively chose: their typed/dragged amount,
-   else the current band's MAX for the pax (the "set to max of the range chosen" default). */
-function effectiveBudgetPesos(band: string, amount: number | null, pax: number): number | null {
-  if (band === 'no_limit') return null;
-  if (typeof amount === 'number' && amount > 0) return amount;
-  const b = PRICED_BANDS.find((x) => x.value === band) ?? PRICED_BANDS[2] ?? PRICED_BANDS[0]!;
-  return bandHi(b.med, pax);
-}
 
-/* ── region labels (prototype REGLABEL) — region key → display label for the screen-13 recap ── */
-const REGLABEL: Record<string, string> = {
-  ncr: 'Metro Manila', calabarzon: 'CALABARZON', 'c-visayas': 'Central Visayas', 'w-visayas': 'Western Visayas',
-  'c-luzon': 'Central Luzon', ilocos: 'Ilocos', cagayan: 'Cagayan Valley', bicol: 'Bicol', mimaropa: 'MIMAROPA',
-  'e-visayas': 'Eastern Visayas', zamboanga: 'Zamboanga', 'n-mindanao': 'Northern Mindanao', davao: 'Davao',
-  soccsksargen: 'SOCCSKSARGEN', caraga: 'Caraga', barmm: 'BARMM', car: 'Cordillera · CAR', abroad: 'Outside the PH',
-};
+/* ── region labels (recap) — region key → display label for the screen-13 recap.
+   Now sourced from the CANONICAL region source (lib/region-source) instead of a
+   hand-maintained literal: built once from allRegions() keyed by canonical slug,
+   so the recap label always matches the picker + validator vocabulary. Reads the
+   static fallback table when the DB is empty (this cycle), so it's identical to
+   the prior literal. The three lookup sites below (REGLABEL[rk] ?? …) are
+   unchanged — this stays an indexable Record<string,string>. ── */
+const REGLABEL: Record<string, string> = Object.fromEntries(
+  allRegions().map((r) => [r.slug, r.display_label]),
+);
 /* Region picker (REGNUG / REGION_TOP / REGION_MORE) retired 2026-06-04 — replaced by the
    Top-30 location step (location-step.tsx). REGLABEL above is kept for the recap label. */
 
 /* ════════════ PHASE 3 — picker (screen 9) + style sub-stepper (screen 10) ════════════ */
 
 /* ── "What would you love?" picker — 53 services grouped by the 10 taxonomy parents (prototype lines 780-830). Rows = chip rows (solo or pair). `s` = default-selected. ── */
-type PickChip = { cat: string; label: string };
+type PickChip = { cat: string; label: string; photoUrl?: string | null };
 type PickGroup = { label: string; rows: PickChip[][] };
 const PICK_GROUPS_FALLBACK: PickGroup[] = [
   { label: 'Venue', rows: [[{ cat: 'reception', label: 'Reception venue' }, { cat: 'ceremony', label: 'Ceremony venue' }]] },
@@ -567,7 +603,6 @@ function RefineStep({
   hideProgress = false,
   eyebrow: eyebrowProp,
   title: titleProp,
-  subtitle: subtitleProp,
 }: {
   scope?: 'basic' | 'extras';
   queue?: string[];
@@ -578,10 +613,9 @@ function RefineStep({
   onToggle: (leaf: string, optKey: string) => void;
   /** Standalone (non-queue) use — hides the "Service N of M" progress + dots. */
   hideProgress?: boolean;
-  /** Override eyebrow / title / sub for a standalone screen (reception, mood). */
+  /** Override eyebrow / title for a standalone screen (reception, mood). */
   eyebrow?: string;
   title?: string;
-  subtitle?: string;
 }) {
   const leaf = leafData.key;
   // Ceremony is faith-adaptive: resolve its options from ceremonyOptsFor + reuse the /prefs photos.
@@ -591,8 +625,6 @@ function RefineStep({
       : leafData.options;
   const eyebrow = eyebrowProp ?? (scope === 'basic' ? 'Refine your essentials' : 'Refine the extras you love');
   const title = titleProp ?? `What kind of ${leafData.label.toLowerCase()}?`;
-  const subtitle =
-    subtitleProp ?? `${leafData.description ? leafData.description + ' ' : ''}Pick the ones that feel like you — we’ll match the rest.`;
   return (
     <div className="prefstep refinestep">
       <div className="viewzone">
@@ -610,7 +642,6 @@ function RefineStep({
         ) : null}
         <div className="eyebrow">{eyebrow}</div>
         <h1 className="q">{title}</h1>
-        <p className="sub">{subtitle}</p>
       </div>
       <div className="tapzone">
         <Rail className="car refine-rail">
@@ -634,7 +665,7 @@ function RefineStep({
     is the graceful fallback when no photo is set / it 404s before generation. */
 function RefineCard({ emoji, label, photo, selected, onClick }: { emoji: string; label: string; photo: string | null; selected: boolean; onClick: () => void }) {
   return (
-    <div className={`pcard refine-card${selected ? ' sel' : ''}`} onClick={onClick}>
+    <button type="button" className={`pcard refine-card${selected ? ' sel' : ''}`} aria-pressed={selected} onClick={onClick}>
       <div className={`pimg refine-img ${photo ? 'haspic' : 'imgph'}`} style={photo ? { backgroundImage: `url(${photo})` } : undefined}>
         {photo ? null : <span className="g">{emoji}</span>}
       </div>
@@ -642,7 +673,7 @@ function RefineCard({ emoji, label, photo, selected, onClick }: { emoji: string;
         {label}
         <span className="ck" />
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -650,7 +681,7 @@ function RefineCard({ emoji, label, photo, selected, onClick }: { emoji: string;
     reception-setting + AI-team basics pickers (the refine cards use RefineCard above). */
 function PCard({ emoji, label, photoKey, selected, onClick }: { emoji: string; label: string; photoKey?: string; selected: boolean; onClick: () => void }) {
   return (
-    <div className={`pcard${selected ? ' sel' : ''}`} onClick={onClick}>
+    <button type="button" className={`pcard${selected ? ' sel' : ''}`} aria-pressed={selected} onClick={onClick}>
       <div className={`pimg ${photoKey ? 'haspic' : 'imgph'}`} style={photoKey ? { backgroundImage: `url(${PREFS_ASSET(photoKey)})` } : undefined}>
         {photoKey ? null : <span className="g">{emoji}</span>}
       </div>
@@ -658,7 +689,7 @@ function PCard({ emoji, label, photoKey, selected, onClick }: { emoji: string; l
         {label}
         <span className="ck" />
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -706,13 +737,18 @@ function Rail({ children, className, wrapClassName }: { children: ReactNode; cla
   );
 }
 
-/* Picker service card — per-service photo + label + select check (owner 2026-06-05). */
-function PickCard({ cat, label, desc, selected, onClick }: { cat: string; label: string; desc?: string; selected: boolean; onClick: () => void }) {
+/* Picker service card — per-service photo + label + select check (owner 2026-06-05).
+   `photoUrl` (Taxonomy Studio · PR 4) is the DB-first tile photo from
+   service_categories.sample_photo_r2_key; when set it wins over the static
+   /onboarding/picker/<cat>.webp asset, and a missing DB photo falls back to the
+   static asset — never a broken image (a failed bg just shows the neutral tint). */
+function PickCard({ cat, label, desc, selected, photoUrl, onClick }: { cat: string; label: string; desc?: string; selected: boolean; photoUrl?: string | null; onClick: () => void }) {
+  const bg = photoUrl || PICKER_ASSET(cat);
   return (
     // key flips with `selected` so the button remounts on each pick → the .sn-bounce
     // selection-feedback animation replays every time this card becomes selected.
     <button key={selected ? 'on' : 'off'} type="button" className={`svccard${selected ? ' sel sn-bounce' : ''}`} onClick={onClick} aria-pressed={selected} title={desc} aria-label={desc ? `${label} — ${desc}` : label}>
-      <span className="svcph" style={{ backgroundImage: `url(${PICKER_ASSET(cat)})` }} />
+      <span className="svcph" style={{ backgroundImage: `url("${bg}")` }} />
       <span className="svcck" aria-hidden="true">✓</span>
       <span className="svclb">{label}</span>
     </button>
@@ -747,7 +783,6 @@ const MAXSPAN = 29;
 const MAXMULTI = 4;
 const CLUSTER = 90;
 const M_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const DOW_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const keyOf = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 const toISO = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const fromISO = (s: string) => {
@@ -757,11 +792,10 @@ const fromISO = (s: string) => {
 const fmtFull = (d: Date) => `${M_FULL[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
 const fmtShort = (d: Date) => `${(M_FULL[d.getMonth()] ?? '').slice(0, 3)} ${d.getDate()}`;
 const daysBetween = (a: Date, b: Date) => Math.round((b.getTime() - a.getTime()) / DAY);
-const seasonOf = (m: number) => (m >= 6 && m <= 9 ? 'rainy' : m >= 2 && m <= 4 ? 'dry' : 'cool-and-clear');
 
 /* ── predicted demand "heat" (deterministic · cold-start-safe · spec Date-Aligner §L.1).
-   Stacks the same calendar signals the why-nugget already reads (peak month · weekday ·
-   repeating/symbolic) into a 0–4 tier. This is the PREDICTED half only — the observed
+   Stacks the calendar signals (peak month · weekday ·
+   repeating/symbolic) into a 0–4 tier driving the cell colour ramp. This is the PREDICTED half only — the observed
    inquiry/relative-to-supply escalation (§L.2) is deferred until the marketplace has
    inquiry data (founder-only today → it would be dead code). Mirrors the verified
    prototype Hot_Date_Heat_Calendar_Prototype_2026-06-09.html. */
@@ -778,21 +812,16 @@ function heatTier(d: Date): 0 | 1 | 2 | 3 | 4 {
   if (dow === 6 && m + 1 === n) s += 1; // Saturday + repeating combo
   return s <= 0 ? 0 : s <= 2 ? 1 : s === 3 ? 2 : s <= 5 ? 3 : 4;
 }
-const DEMAND_LABEL = ['Open', 'Quiet', 'Popular', 'In-demand', 'Hottest'] as const;
-const flamesFor = (t: number) => (t >= 3 ? '🔥' : ''); // single restrained accent on the hot tiers; the 1–4 gradient lives in the cell colour ramp
-const demandOf = (tier: number) => ({ tier, label: DEMAND_LABEL[tier]!, flames: flamesFor(tier) });
-
-type WhyView = {
-  tone: 'good' | 'note';
-  title: string;
-  reasons: [string, string][];
-  more: string;
-  demand?: { tier: number; label: string; flames: string };
-} | null;
 
 /** Fade-in hero image (prototype setHero: add `loaded` on load; gradient shows on error/missing). */
 function HeroImg({ src, alt = '' }: { src: string; alt?: string }) {
   const [loaded, setLoaded] = useState(false);
+  // Several screens pass src='' as a deliberate "no image yet" state (pax/budget
+  // before a value, the faith placeholder, etc.). Rendering <img src=""> trips a
+  // React warning AND makes the browser re-request the whole current page — so
+  // render nothing until there's a real src; the figure's own placeholder styling
+  // already fills the space. (Hooks stay above the guard — rules-of-hooks safe.)
+  if (!src) return null;
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -968,97 +997,8 @@ function DateCalendar({
     cells.push({ d, cur, cls, disabled });
   }
 
-  /* ── derived: readout + why-nugget (prototype updatePick) ── */
-  const dateReasons = (d: Date): WhyView => {
-    const dow = d.getDay();
-    const m = d.getMonth();
-    const n = d.getDate();
-    const r: [string, string][] = [];
-    let note = false;
-    if (dow === 6) r.push(['Saturday', 'the day most Filipino weddings are held.']);
-    else if (dow === 5) r.push(['Friday', 'Venus’s day — the day for love.']);
-    else if (dow === 0) r.push(['Sunday', 'intimate, and vendors often cost a little less.']);
-    else r.push(['A weekday', 'lower vendor rates and easier venue booking.']);
-    if (m === 11) {
-      r.push(['December', 'peak season — family’s home for the holidays, so lock vendors early.']);
-      note = true;
-    } else if (m >= 6 && m <= 9) {
-      r.push(['Rainy / typhoon window', 'lush and dramatic, but plan a wet-weather backup.']);
-      note = true;
-    } else if (m >= 2 && m <= 4) r.push(['Dry season', 'outdoor-friendly — just mind the summer heat.']);
-    else r.push(['Cool, clear months', 'comfortable for an outdoor celebration.']);
-    if (n === 8 || n === 18 || n === 28) r.push([`The ${n}th`, 'a number of prosperity in Chinese-Filipino tradition.']);
-    else if (n === 4 || n === 14 || n === 24) {
-      r.push([`The ${n}th`, 'some families avoid 4 — worth a quick word with the elders.']);
-      note = true;
-    }
-    return {
-      tone: note ? 'note' : 'good',
-      title: note ? '✦ A few things to note' : '✦ Why this date works',
-      reasons: r.slice(0, 3),
-      more: 'See all 5 layers — liturgical · numerology · folklore · weather · astrology — with Setnayan Concierge →',
-      demand: demandOf(heatTier(d)),
-    };
-  };
-  const rangeReasons = (a: Date, b: Date): WhyView => {
-    const r: [string, string][] = [];
-    let note = false;
-    let sat = 0;
-    let peakTier = 0;
-    const mid = new Date(a.getTime() + (b.getTime() - a.getTime()) / 2);
-    for (let t = a.getTime(); t <= b.getTime(); t += DAY) {
-      const dd = new Date(t);
-      if (dd.getDay() === 6) sat++;
-      peakTier = Math.max(peakTier, heatTier(dd));
-    }
-    r.push(['We lock the date, not you', 'we pick the day in this window every chosen vendor is free — nobody’s double-booked.']);
-    if (sat > 0) r.push([`${sat} Saturday${sat > 1 ? 's' : ''} in here`, 'the prime wedding days — best shot your shortlist lines up.']);
-    const mm = mid.getMonth();
-    if (mm === 11) {
-      r.push(['Crosses December', 'peak — a wider window helps you land popular vendors.']);
-      note = true;
-    } else if (mm >= 6 && mm <= 9) {
-      r.push(['Rainy-season window', 'flexibility lets us dodge the worst weather too.']);
-      note = true;
-    } else r.push(['Good-weather window', 'comfortable months — easy on outdoor plans.']);
-    return {
-      tone: note ? 'note' : 'good',
-      title: '✦ Why a flexible window works',
-      reasons: r.slice(0, 3),
-      more: 'As you shortlist vendors, your day settles on the date they’re all open inside this window.',
-      demand: demandOf(peakTier),
-    };
-  };
-  const commonReasons = (ds: Date[]): WhyView => {
-    const r: [string, string][] = [];
-    let note = false;
-    const dows = ds.map((d) => d.getDay());
-    const months = ds.map((d) => d.getMonth());
-    const nums = ds.map((d) => d.getDate());
-    const allSame = <T,>(a: T[]) => a.every((x) => x === a[0]);
-    const span = daysBetween(ds[0]!, ds[ds.length - 1]!);
-    if (allSame(dows))
-      r.push([`All ${DOW_FULL[dows[0]!]}s`, dows[0] === 6 ? 'the prime wedding day — vendors’ busiest slot, so options really help.' : 'one weekday pattern — easier for a vendor to hold one of them.']);
-    else if (dows.every((x) => x === 0 || x === 6)) r.push(['All weekends', 'the days most vendors work — best odds your shortlist lines up.']);
-    if (allSame(months)) r.push([`All in ${M_FULL[months[0]!]}`, 'one month to staff — a vendor only needs one open slot in it.']);
-    else if (allSame(ds.map((d) => seasonOf(d.getMonth())))) {
-      const s = seasonOf(ds[0]!.getMonth());
-      r.push([`All in the ${s} season`, s === 'rainy' ? 'plan a wet-weather backup — but vendors book easier off-peak.' : 'consistent weather across your options.']);
-    }
-    if (allSame(nums) && [8, 18, 28].includes(nums[0]!)) r.push([`All land on the ${nums[0]}th`, 'a prosperity number in Chinese-Filipino tradition.']);
-    r.push([`${span === 0 ? 'same' : `within ${span}`} days`, 'tight enough that one vendor’s calendar can cover them — as schedules fill, we lock the one they all share.']);
-    if (months.includes(11)) note = true;
-    return {
-      tone: note ? 'note' : 'good',
-      title: '✦ What your dates share',
-      reasons: r.slice(0, 3),
-      more: 'As vendors book up, your day settles on whichever of these stays open for all of them.',
-      demand: demandOf(Math.max(...ds.map(heatTier))),
-    };
-  };
 
   let pickHtml: ReactNode;
-  let why: WhyView = null;
   let warn: string | null = null;
   if (mode === 'specific') {
     if (multi.length === 0) {
@@ -1071,7 +1011,6 @@ function DateCalendar({
           <span className="addhint">· or add up to 3 nearby</span>
         </>
       );
-      why = dateReasons(sorted[0]!);
     } else {
       const lk = multi.length >= MAXMULTI;
       pickHtml = (
@@ -1080,7 +1019,6 @@ function DateCalendar({
           <span className="addhint">· {lk ? '4 set' : `add ${MAXMULTI - multi.length} more`}</span>
         </>
       );
-      why = commonReasons(sorted);
       if (lk) warn = '4 dates set — tap one to swap.';
     }
   } else if (!rEnd) {
@@ -1097,7 +1035,6 @@ function DateCalendar({
         <span className="addhint">· we find the shared date</span>
       </>
     );
-    why = rangeReasons(rStart, rEnd);
   }
 
   const setRangeMsg =
@@ -1107,26 +1044,10 @@ function DateCalendar({
 
   return (
     <>
-      {/* viewzone — title + the "why these dates" nugget sits up top, above the calendar (owner 2026-06-05) */}
+      {/* viewzone — title only; the "why these dates" nugget was removed (owner 2026-06-21: clear question, clear answer, no side notes) */}
       <div className="viewzone">
         <div className="eyebrow">Your wedding</div>
         <h1 className="q">When{'’'}s the big day?</h1>
-        {why && (
-          <div className="whydate">
-            <div className="whead">
-              <span className={`wtone ${why.tone}`}>{why.title}</span>
-              {why.demand && why.demand.tier > 0 && (
-                <span className={`wdemand d${why.demand.tier}`}>
-                  {why.demand.flames && <span className="wflame">{why.demand.flames}</span>}
-                  {why.demand.label}
-                </span>
-              )}
-            </div>
-            <div className="wsum">
-              <b>{why.reasons[0]?.[0]}</b> — {why.reasons[0]?.[1]} <span className="wmore">{why.more}</span>
-            </div>
-          </div>
-        )}
       </div>
       <div className="tapzone">
         <div className="calpick">{pickHtml}</div>
@@ -1152,9 +1073,16 @@ function DateCalendar({
               c.d == null ? (
                 <div key={`e${i}`} className={c.cls} />
               ) : (
-                <div key={`d${i}`} className={c.cls} onClick={c.disabled ? undefined : () => c.cur && clickDay(c.cur)}>
+                <button
+                  key={`d${i}`}
+                  type="button"
+                  className={c.cls}
+                  disabled={c.disabled}
+                  aria-pressed={c.cls.split(' ').some((t) => t === 'sel' || t === 'rstart' || t === 'rend')}
+                  onClick={() => c.cur && clickDay(c.cur)}
+                >
                   {c.d}
-                </div>
+                </button>
               ),
             )}
           </div>
@@ -1169,13 +1097,12 @@ function DateCalendar({
    onboarding-pricing.ts → buildOnboardingPricing reading platform_retail_catalog_v2). These maps carry
    only display copy + posters; pricing.svc[k] carries the numbers. */
 const BUNDLE_ITEMS: Record<string, string> = {
-  advanced_website: 'Advanced Website', papic_guest: 'Papic for guests', sde: 'Same-Day Edit', guest_stories: 'Guest Stories', pabati: 'Pabati guestbook', papic_seats: 'Papic · 5 seats', animated_monogram: 'Animated Monogram', thank_you: 'Thank-You Video', pakanta: 'Pakanta · your song', custom_qr: 'Custom QR per guest', panood: 'Panood livestream', live_background: 'Live Background', live_photowall: 'Live Photo Wall', indoor_blueprint: 'Indoor Blueprint', high_res: 'High-Res Archive',
+  advanced_website: 'Advanced Website', papic_guest: 'Papic for guests', guest_stories: 'Guest Stories', pabati: 'Pabati guestbook', papic_seats: 'Papic · 5 seats', animated_monogram: 'Animated Monogram', thank_you: 'Thank-You Video', pakanta: 'Pakanta · your song', custom_qr: 'Custom QR per guest', panood: 'Panood livestream', live_background: 'Live Background', live_photowall: 'Live Photo Wall', indoor_blueprint: 'Indoor Blueprint', high_res: 'High-Res Archive',
 };
 /* Plain-language benefit copy — functional outcome + emotional anchor (JTBD · Bundle_Benefits_Best_Practices_2026-06-02.md). */
 const BUNDLE_BENEFIT: Record<string, string> = {
   advanced_website: "One link replaces 200 group-chat messages. RSVP, schedule, dress code, photos — your guests find their own answers, you stay present.",
   papic_guest: "Every guest's phone becomes a camera — their candids land in your gallery live, so you keep the unposed moments a single photographer would miss.",
-  sde: "A 3-minute wedding film, edited and screened the same night at your reception — the rare gift of reliving your day with the people who lived it with you.",
   guest_stories: "Tito Boy's joke, Lola's blessing, your maid of honor's tears — short video greetings captured at the event, before the night blurs.",
   pabati: "A video guestbook — short wishes from everyone you love, kept forever. Better than a signed card you'll file away and forget.",
   papic_seats: "Five trusted friends, five cameras roaming the venue — the candid angles a single photographer can't catch from the front of the aisle.",
@@ -1215,7 +1142,7 @@ const groupDigits = (raw: string) => {
    the inapp keys here map 1:1 to service_codes in onboarding-pricing.ts INAPP_TO_SERVICE_CODE. */
 // indoor_blueprint RETIRED from the catalog (owner 2026-06-08) → removed from the offered set
 // (a retired SKU drops out of fetchV2CustomerCatalog → would otherwise render at ₱0).
-const INAPP_KEYS = ['papic_seats', 'advanced_website', 'animated_monogram', 'panood', 'papic_guest', 'sde', 'pakanta', 'custom_qr', 'live_background', 'pabati', 'guest_stories', 'thank_you', 'live_photowall'];
+const INAPP_KEYS = ['papic_seats', 'advanced_website', 'animated_monogram', 'panood', 'papic_guest', 'pakanta', 'custom_qr', 'live_background', 'pabati', 'guest_stories', 'thank_you', 'live_photowall'];
 // Onboarding pick → its in-app add-on checkout route (the InlineCheckoutDrawer · BDO/GCash QR +
 // reference card). Only services with a BUILT checkout page are listed; Purchase Now jumps to the
 // first picked one of these, else falls back to the Services tab (owner 2026-06-06).
@@ -1227,7 +1154,7 @@ const INAPP_TO_ADDON_SLUG: Record<string, string> = {
   indoor_blueprint: 'indoor-blueprint',
 };
 const INAPP_VS: Record<string, string> = {
-  papic_seats: '5 hired photographers', advanced_website: 'a hired web developer', animated_monogram: 'a motion studio', panood: 'a livestream crew', papic_guest: '20+ disposable cams + developing', sde: 'a same-day-edit crew', pakanta: 'a composer + singer', custom_qr: 'an invitation designer', indoor_blueprint: 'a floor-plan service', live_background: 'an LED wall rental + crew', pabati: 'a guestbook booth + attendant', guest_stories: 'per-guest manual editing', thank_you: 'a hired cinematographer', live_photowall: 'an onsite slideshow team',
+  papic_seats: '5 hired photographers', advanced_website: 'a hired web developer', animated_monogram: 'a motion studio', panood: 'a livestream crew', papic_guest: '20+ disposable cams + developing', pakanta: 'a composer + singer', custom_qr: 'an invitation designer', indoor_blueprint: 'a floor-plan service', live_background: 'an LED wall rental + crew', pabati: 'a guestbook booth + attendant', guest_stories: 'per-guest manual editing', thank_you: 'a hired cinematographer', live_photowall: 'an onsite slideshow team',
 };
 
 /* Onboarding promo — 20% off any in-app add-on when added during onboarding (owner 2026-06-05,
@@ -1248,12 +1175,12 @@ const PICK_TO_INAPP: Record<string, string[]> = {
   cake: ['papic_guest'], stations: ['papic_guest'],
   // Design
   stylist: ['animated_monogram', 'live_background'], florist: ['animated_monogram'], lights_sound: ['live_background'],
-  dance_floor: ['live_photowall'], led_wall: ['live_background'], fireworks: ['sde', 'thank_you'], outdoor: ['panood'],
+  dance_floor: ['live_photowall'], led_wall: ['live_background'], fireworks: ['thank_you'], outdoor: ['panood'],
   // Program
   host_mc: ['pabati'], live_band: ['pakanta'], orchestra: ['pakanta'], choir: ['pakanta'], wedding_singer: ['pakanta'],
-  dj: ['pakanta'], performers: ['sde'], choreographer: ['sde'],
+  dj: ['pakanta'], performers: ['thank_you'], choreographer: ['thank_you'],
   // Documentary
-  photo_video: ['sde', 'thank_you', 'guest_stories', 'papic_guest'], livestream: ['panood'], editorial: ['advanced_website'],
+  photo_video: ['thank_you', 'guest_stories', 'papic_guest'], livestream: ['panood'], editorial: ['advanced_website'],
   // Look
   bride_attire: ['animated_monogram'], groom_attire: ['animated_monogram'], women_attire: ['animated_monogram'],
   men_attire: ['animated_monogram'], filipiniana: ['animated_monogram'], jewelry: ['animated_monogram'],
@@ -1266,11 +1193,11 @@ const PICK_TO_INAPP: Record<string, string[]> = {
   // Prints
   printing: ['custom_qr', 'animated_monogram'], souvenirs: ['custom_qr', 'animated_monogram'],
   // Transport
-  bridal_car: ['sde'], guest_shuttle: ['custom_qr'], escort: ['custom_qr'],
+  bridal_car: ['thank_you'], guest_shuttle: ['custom_qr'], escort: ['custom_qr'],
 };
 /* Priority order for the recommended set. Dedup against the picks bounds the union to the ≤14
    in-app services, so every chosen leaf surfaces its matched add-on(s) — no cap (owner 2026-06-05). */
-const REC_PRIORITY = ['sde', 'papic_seats', 'thank_you', 'animated_monogram', 'pakanta', 'panood', 'live_background', 'live_photowall', 'papic_guest', 'guest_stories', 'pabati', 'advanced_website', 'custom_qr'];
+const REC_PRIORITY = ['papic_seats', 'thank_you', 'animated_monogram', 'pakanta', 'panood', 'live_background', 'live_photowall', 'papic_guest', 'guest_stories', 'pabati', 'advanced_website', 'custom_qr'];
 function recommendedInappFor(picks: string[]): string[] {
   const set = new Set<string>();
   for (const p of picks) for (const k of (PICK_TO_INAPP[p] ?? [])) set.add(k);
@@ -1488,14 +1415,21 @@ export function OnboardingShell({
   authed,
   resume,
   activeFaiths = null,
+  religionDefault = null,
   pricing,
   bgMusicUrl = null,
   refinements = REFINEMENTS_DATA,
   hiddenCats = [],
   dynamicTiles = [],
+  budgetBands = BUDGET_BANDS_FALLBACK,
+  nextPath = null,
 }: {
   authed: boolean;
   resume: boolean;
+  /** Date-anchor model: the user's profile religion (already validated against
+   *  activeFaiths by the page). Pre-selects the faith when they choose a
+   *  Religious wedding; null = no pre-select. Never overrides a resumed draft. */
+  religionDefault?: string | null;
   /** Picker EXTRAS cats to hide (no live marketplace supply) — spec §0 available-only. */
   hiddenCats?: string[];
   /**
@@ -1533,10 +1467,65 @@ export function OnboardingShell({
    * shell falls back to the static PICK_GROUPS_FALLBACK unchanged.
    */
   dynamicTiles?: OnboardingPickChip[];
+  /**
+   * Admin-tunable budget feel-bands (owner 2026-06-19, screen 9) — fetched
+   * server-side via getBudgetBands() in page.tsx (DB-first, falls back to
+   * BUDGET_BANDS_FALLBACK). Drives the budget step's bands + amount math.
+   * Defaults to the in-code fallback so the shell renders without the prop.
+   */
+  budgetBands?: BudgetBand[];
+  /**
+   * Optional internal return path (vendor-invite claim loop, 2026-06-30). When a
+   * 0-event couple is sent here from /vendor-invite/[slug] to create their first
+   * event, the plain-finish navigation returns them to it (so they can finish
+   * shortlisting the vendor) instead of landing on Home. Purchase/bundle CTAs
+   * keep precedence. Already safeNext()-validated in page.tsx.
+   */
+  nextPath?: string | null;
 }) {
   const router = useRouter();
   const [state, setState] = useState<OnboardingState>(EMPTY_ONBOARDING_STATE);
   const [hydrated, setHydrated] = useState(false);
+
+  /* ── budget feel-band ladder (DB-backed prop · owner 2026-06-19) ────────────
+     The band ladder now arrives as the `budgetBands` prop (DB-first via
+     getBudgetBands, falling back to BUDGET_BANDS_FALLBACK). All band-aware budget
+     helpers are derived from it INSIDE the component so an admin edit at
+     /admin/budget-planner propagates with no code change. Behaviour is identical
+     to the old module-level consts; only the source of the bands moved. */
+  const BUDGET_BANDS = budgetBands;
+  const PRICED_BANDS = useMemo(() => BUDGET_BANDS.filter((b) => b.med > 0), [BUDGET_BANDS]);
+  // Floor = the essentials low (recommended-lowest for this pax); ceiling = the
+  // luxury high. Per-head medians come from the bands (fallback 2000 / 15000 if a
+  // band is missing — never invents below/above the known ladder).
+  const budgetFloor = useCallback(
+    (p: number) => bandLo(BUDGET_BANDS.find((b) => b.value === 'essentials')?.med ?? 2000, p),
+    [BUDGET_BANDS],
+  );
+  const budgetCeiling = useCallback(
+    (p: number) => bandHi(BUDGET_BANDS.find((b) => b.value === 'luxury')?.med ?? 15000, p),
+    [BUDGET_BANDS],
+  );
+  const nearestBand = useCallback(
+    (amount: number, p: number) =>
+      PRICED_BANDS.reduce(
+        (best, b) => (Math.abs(b.med * p - amount) < Math.abs(best.med * p - amount) ? b : best),
+        PRICED_BANDS[2] ?? PRICED_BANDS[0]!,
+      ),
+    [PRICED_BANDS],
+  );
+  /* the working-budget value the couple effectively chose: their typed/dragged
+     amount, else the current band's MAX for the pax (the "set to max of the
+     range chosen" default). */
+  const effectiveBudgetPesos = useCallback(
+    (band: string, amount: number | null, p: number): number | null => {
+      if (band === 'no_limit') return null;
+      if (typeof amount === 'number' && amount > 0) return amount;
+      const b = PRICED_BANDS.find((x) => x.value === band) ?? PRICED_BANDS[2] ?? PRICED_BANDS[0]!;
+      return bandHi(b.med, p);
+    },
+    [PRICED_BANDS],
+  );
 
   /* ── Taxonomy-driven PICK step (2026-06-17) ────────────────────────────────
      `pickGroups` merges the static PICK_GROUPS_FALLBACK with any NEW tiles from
@@ -1563,7 +1552,10 @@ export function OnboardingShell({
       let group = result.find((g) => g.label === groupLabel);
       if (!group) { group = { label: groupLabel, rows: [] }; result.push(group); }
       // Append as its own row (single-chip row) so layout stays clean.
-      group.rows.push([{ cat: chip.cat, label: chip.label }]);
+      // Carry the DB-resolved tile photo (Taxonomy Studio · PR 4) so the
+      // PickCard shows the seeded editorial photo instead of a missing static
+      // /onboarding/picker/<db_tile_id>.webp for these DB-only tiles.
+      group.rows.push([{ cat: chip.cat, label: chip.label, photoUrl: chip.photoUrl ?? null }]);
     }
     return result;
   }, [dynamicTiles]);
@@ -1974,6 +1966,36 @@ export function OnboardingShell({
     }));
   }, [activeId, state.servicesSeeded, state.picks]);
 
+  /* Experience-persona derive (0016 · flag-gated · owner 2026-06-21). On entering the
+     reveal, resolve the persona from the 5 axes and derive the WHOLE plan — picks +
+     refinements + palette feel + signature in-app services. Deterministic + idempotent
+     (re-runs only when an axis answer changes), so going back to edit an answer re-derives.
+     pickerTouched is latched so applyBudgetHighlight can't re-seed picks over the derived
+     set. The legacy 53-tile picker is dropped from the flow when the flag is on — the persona
+     IS the plan; the existing commit already reads picks/refinements/feel/interestedServices. */
+  useEffect(() => {
+    // Fires as soon as the 5 quiz answers are complete (was gated to the `exp_reveal`
+    // screen, which the owner removed 2026-06-22 — so we derive on answer-complete instead).
+    // Idempotent + re-runs when an axis answer changes, so editing an answer re-derives.
+    if (!EXPERIENCE_QUIZ_ENABLED) return;
+    const axes = state.experienceAxes;
+    if (EXP_AXES.some((a) => !axes[a.id])) return; // wait until all 5 axes are answered
+    const personaKey = resolvePersona(axes);
+    const plan = derivePlanFromPersona(personaKey, axes);
+    setState((s) => {
+      if (s.experiencePersona === personaKey && s.picks.length > 0) return s; // already derived for this persona
+      return {
+        ...s,
+        experiencePersona: personaKey,
+        picks: plan.picks,
+        pickerTouched: true,
+        refinements: plan.refinements,
+        interestedServices: Array.from(new Set([...plan.services, ...s.interestedServices])),
+        prefs: { ...s.prefs, feel: plan.feel },
+      };
+    });
+  }, [state.experienceAxes]);
+
   /* picker card tap — toggles the pick (multi); latches pickerTouched. */
   const pickChip = (cat: string) => {
     setState((s) => {
@@ -2169,7 +2191,23 @@ export function OnboardingShell({
 
   // No faith is pre-selected — the couple picks their tradition on the faith screen
   // (owner 2026-06-05: no prefilled onboarding values).
-  const selectKind = (k: OnboardingKind) => patch({ kind: k, faith: [] });
+  const selectKind = (k: OnboardingKind) =>
+    patch({
+      kind: k,
+      // Date-anchor pre-select: a Religious wedding pre-fills the faith from the
+      // user's profile religion (page-validated as an active faith). Civil/Mixed
+      // reset to empty as before. They can still change it on the faith screen.
+      faith: k === 'religious' && religionDefault ? [religionDefault as OnboardingFaith] : [],
+    });
+
+  /* Experience-quiz axis pick (0016) — store the answer; the persona resolves on the reveal.
+     setState (not patch) so the nested experienceAxes object merges instead of replacing. */
+  const selectExp = (axis: ExpAxisId, key: string) =>
+    setState((s) => ({ ...s, experienceAxes: { ...s.experienceAxes, [axis]: key } }));
+
+  /* Intent dials (0016) — help level + vendor sourcing; captured after the quiz, before the reveal. */
+  const selectHelp = (k: OnboardingState['helpLevel']) => patch({ helpLevel: k });
+  const selectSource = (k: OnboardingState['vendorSourcing']) => patch({ vendorSourcing: k });
 
   const selectFaith = (f: OnboardingFaith) => {
     if (kind === 'mixed') {
@@ -2308,8 +2346,6 @@ export function OnboardingShell({
     const other = v === 'me' ? b : v === 'them' ? g : '';
     return other ? `${other} — how did it actually feel right then?` : 'How did you actually feel right then?';
   })();
-  // S1 whose-turn cue, pre-filled from the groom name (neutral default).
-  const sparkTurn = state.groomFirstName.trim() ? `${state.groomFirstName.trim()}, you noticed first` : 'The spark';
 
   /* ── pax ── */
   const pax = state.pax ?? 150;
@@ -2365,7 +2401,7 @@ export function OnboardingShell({
       const clamped = Math.max(budgetFloorV, Math.min(budgetCeilingV, Math.round(raw)));
       applyBudget(nearestBand(clamped, pax).value, clamped);
     },
-    [applyBudget, budgetFloorV, budgetCeilingV, pax],
+    [applyBudget, budgetFloorV, budgetCeilingV, pax, nearestBand],
   );
   /* Text-box buffer: free typing while focused, clamp-to-floor on commit (blur/Enter)
      so the box "won't accept anything lower than the recommended floor" without
@@ -2433,6 +2469,22 @@ export function OnboardingShell({
       case 'love_tone':
       case 'love_preview':
         return true;
+      // Experience-persona quiz (0016) — each axis must be answered before Continue
+      // (the persona resolves from all 5); the reveal is read-only.
+      case 'exp_for_whom':
+      case 'exp_feel':
+      case 'exp_energy':
+      case 'exp_roots':
+      case 'exp_effort': {
+        const axisId = activeId.slice(4) as ExpAxisId; // strip the 'exp_' prefix
+        return state.experienceAxes[axisId] != null;
+      }
+      case 'exp_help':
+        return state.helpLevel != null;
+      case 'exp_source':
+        return state.vendorSourcing != null;
+      case 'exp_reveal':
+        return true;
       default:
         return true;
     }
@@ -2446,7 +2498,12 @@ export function OnboardingShell({
      flourish via NEXT_LABEL_BY_ID (PR-3 — the retired prefs sub-stepper supplied it before).
      PR-4: a refine screen's CHROME CTA reads "Next service" while there are more queued
      leaves in the pass, then "Continue" on the last leaf (go() walks refineIdx, then steps). */
-  const nextLabel = REFINE_SCREENS.has(activeId)
+  /* When the flag is ON the paywall tail (plan/bundle/services/summary) is dropped, so the LAST
+     screen (congrats) is the free terminal — its chrome CTA commits → dashboard, not advance. */
+  const isLastScreen = stepClamped === seq.length - 1;
+  const nextLabel = isLastScreen && EXPERIENCE_QUIZ_ENABLED
+    ? 'Go to my dashboard'
+    : REFINE_SCREENS.has(activeId)
     ? (refinePosClamped < activeRefineQueue.length - 1 ? 'Next service' : 'Continue')
     : (NEXT_LABEL_BY_ID[activeId] ?? 'Continue');
 
@@ -2506,8 +2563,6 @@ export function OnboardingShell({
   const teamMatched = venues?.length ?? 0;
   const teamShortlisted = state.shortlist.length;
   const teamHoursSaved = Math.max(8, Math.round(teamMatched * 2.8));
-  const VENUE_POOL_TOTAL = 312;
-  const teamVenuePool = Math.max(VENUE_POOL_TOTAL, teamMatched);
   const starStr = (r: number) => {
     const full = Math.max(0, Math.min(5, Math.round(r)));
     return '★★★★★'.slice(0, full) + '☆☆☆☆☆'.slice(0, 5 - full);
@@ -2528,7 +2583,6 @@ export function OnboardingShell({
   })();
   const recapWhere = REGLABEL[state.region ?? 'ncr'] ?? 'Philippines';
   const recapGuests = state.pax != null ? String(state.pax) : '—';
-  const shortlistCount = state.shortlist.length;
   /* live per-couple savings — replaces the hardcoded demo strip (owner 2026-06-02) */
   const savings = computeOnboardingSavings(state, new Date());
 
@@ -2565,24 +2619,7 @@ export function OnboardingShell({
   const recapReception = state.prefs.reception.length
     ? state.prefs.reception.map((k) => RECEPTION_SETTINGS.find((x) => x[2] === k)?.[1] ?? k).join(', ')
     : null;
-  const recapCeremony = state.prefs.ceremony
-    ? (ceremonyOptsFor(state.faith).find((x) => x[2] === state.prefs.ceremony)?.[1] ?? null)
-    : null;
-  const recapCatering = (() => {
-    const parts = state.prefs.cuisine.map((k) => CUISINE_OPTS.find((x) => x[2] === k)?.[1] ?? k);
-    if (state.prefs.serviceStyle) parts.push(state.prefs.serviceStyle);
-    if (state.prefs.dietary.includes('halal')) parts.push('Halal');
-    if (state.prefs.dietary.includes('alcohol_free')) parts.push('Alcohol-free');
-    return parts.length ? parts.join(' · ') : null;
-  })();
-  const recapPV = (() => {
-    const parts = state.prefs.pvLook.map((k) => PV_LOOKS.find((x) => x[2] === k)?.[1] ?? k);
-    if (state.prefs.pvNeed) parts.push(state.prefs.pvNeed);
-    if (state.prefs.pvIncluded.length) parts.push(state.prefs.pvIncluded.join(', '));
-    return parts.length ? parts.join(' · ') : null;
-  })();
   const recapMood = state.prefs.feel ? (FEELLBL[state.prefs.feel] ?? cap(state.prefs.feel)) : null;
-  const recapSongs = state.prefs.music.length ? `${state.prefs.music.length} song${state.prefs.music.length === 1 ? '' : 's'}` : null;
   /* countdown anchor — the nearest picked date (earliest candidate · window start) */
   const earliestDateISO =
     state.dateMode === 'window'
@@ -2808,6 +2845,12 @@ export function OnboardingShell({
       // 3 projectable leaves ALSO ride prefs via the projection above). Projection onto
       // prefs landed PR-4 (live in patchRefine + idempotent in stylePreferences above).
       refinements: s.refinements,
+      // Experience-persona profile (0016 · flag-gated) — the resolved persona + the
+      // for-whom axis + the raw 5-axis answers. The derived picks/refinements/feel/
+      // services already ride the fields above; these carry the intent for the columns.
+      experiencePersona: s.experiencePersona,
+      experienceForWhom: (s.experienceAxes.for_whom as 'couple' | 'guests' | 'both' | undefined) ?? null,
+      experienceAxes: { ...s.experienceAxes, ...(s.helpLevel ? { help: s.helpLevel } : {}), ...(s.vendorSourcing ? { source: s.vendorSourcing } : {}) } as Record<string, string>,
       // BYO vendors (screen-12 "Add your own vendor" sheet) — off-platform contacts
       // the couple typed in. Persisted at commit as event_vendors 'considering'
       // freeform rows so they show on the dashboard Services tab.
@@ -2822,12 +2865,16 @@ export function OnboardingShell({
       storyTone: s.loveSkipped ? null : s.storyTone,
       storyLanguage: s.storyLanguage,
       specialMessage: s.specialMessage.trim() ? s.specialMessage : null,
-      togetherSince: s.togetherSince.trim() ? s.togetherSince : null,
+      // The dedicated togetherSince state has no UI input — the "together since" YEAR
+      // the couple types in the love stage only ever lands in state.loveStory.together_since
+      // (screen love_spark). Fall back to it so events.together_since stops committing NULL.
+      togetherSince:
+        (s.togetherSince.trim() || s.loveStory.together_since.trim()) || null,
     }),
-    [],
+    [effectiveBudgetPesos],
   );
 
-  const handleFinish = useCallback(async (purchase = false, bundleOverride?: 'essentials' | 'complete' | null, addonSlugOverride?: string) => {
+  const handleFinish = useCallback(async (purchase = false, addonSlugOverride?: string) => {
     if (committingRef.current) return;
     setCommitError(null);
 
@@ -2838,43 +2885,33 @@ export function OnboardingShell({
     // More once they land (owner 2026-06-02).
     const goToDashboard = (eventId: string, toServices = false) => {
       const base = `/dashboard/${eventId}`;
-      // Bundle branch (owner 2026-06-08): if the couple chose an Essentials/Complete bundle on
-      // the new `bundle` screen, Purchase Now routes to the bundle checkout (add-ons/bundle?code=
-      // <package_code>), which resolves the package price SERVER-SIDE from the live package
-      // catalog and mounts InlineCheckoutDrawer keyed service_key=package_code. Mutually
-      // exclusive with the à-la-carte path: a bundle pick takes precedence and the
-      // interestedServices paySlug logic below is skipped entirely. Null (no bundle) →
-      // identical à-la-carte behavior as before.
-      // Use the explicit override (the card's own "Get {title}" CTA passes its key, since
-      // setState in the same tick hasn't flushed yet) and fall back to committed state.
-      const sel = bundleOverride !== undefined ? bundleOverride : state.selectedBundle;
-      const bundleVM = toServices && sel ? pricing.bundles[sel] : null;
       // Purchase Now jumps straight to the in-app checkout card (InlineCheckoutDrawer · BDO/GCash QR
       // + reference) for the FIRST picked service that has a built checkout page (owner 2026-06-06)
       // — the couple pays there; the rest stay payable on the Services tab. Falls back to the
       // Services tab when no pick is mappable; continue-free lands on Home.
-      const paySlug = toServices && !bundleVM
+      const paySlug = toServices
         ? state.interestedServices.map((k) => INAPP_TO_ADDON_SLUG[k]).find(Boolean)
         : undefined;
       // AI keep-card override (Your Plan screen): commit then land straight on the
       // Setnayan AI checkout card. Highest precedence — takes the couple to pay for
-      // the planner regardless of bundle/pick state.
+      // the planner regardless of pick state.
       const dest = addonSlugOverride
-        ? `${base}/add-ons/${addonSlugOverride}`
-        : bundleVM
-        ? `${base}/add-ons/bundle?code=${encodeURIComponent(bundleVM.code)}`
+        ? `${base}/studio/${addonSlugOverride}`
         : paySlug
-          ? `${base}/add-ons/${paySlug}`
+          ? `${base}/studio/${paySlug}`
           : toServices
             ? `${base}/vendors`
-            : base;
+            // Plain "continue free" finish: if the couple was sent here from a
+            // vendor-invite claim to create their first event, return them to it
+            // (vendor-invite/[slug]) to finish shortlisting; else land on Home.
+            : (nextPath ?? base);
       try {
         router.prefetch(base); // Home
         router.prefetch(`${base}/guests`); // Guests
         router.prefetch(`${base}/vendors`); // Services
         router.prefetch(`${base}/website`); // Website
         router.prefetch(`${base}/more`); // More
-        if (paySlug || bundleVM || addonSlugOverride) router.prefetch(dest); // the checkout card we're landing on
+        if (paySlug || addonSlugOverride) router.prefetch(dest); // the checkout card we're landing on
       } catch {
         /* prefetch is best-effort */
       }
@@ -2934,6 +2971,10 @@ export function OnboardingShell({
       // Purchase Now carries the couple's selected paid services into the commit (persisted to
       // events.style_preferences.interested_services); "continue with the free plan" drops them.
       if (!purchase) payload.interestedServices = [];
+      // Anon-draft commit mints a Supabase anonymous session, which global
+      // Supabase captcha gates. Mint a Turnstile token so the commit succeeds
+      // under captcha. No-op (undefined, instant) when Turnstile is unconfigured.
+      payload.captchaToken = await mintTurnstileToken('onboarding');
       const res = await commitOnboardingWedding(payload);
       committingRef.current = false;
       setCommitting(false);
@@ -2952,10 +2993,27 @@ export function OnboardingShell({
         // persist effect from re-writing it. The overlay stays up, then we navigate.
         goToDashboard(res.eventId, purchase);
       } else if (res.error === 'not_authenticated') {
-        // Session lost mid-flow — drop the overlay + bounce to the account gate.
         setFinishing(false);
-        setCommitError('Please create your account to save your plan.');
-        goToId('account');
+        if (ANON_DRAFT_ENABLED) {
+          // Anon-draft is on but the server couldn't mint an anonymous session
+          // (Supabase enable_anonymous_sign_ins not flipped, or the null-email
+          // trigger migration not applied yet). The account gate has been
+          // dropped from the sequence, so there's nowhere to bounce — surface
+          // an inline retry instead of stranding them.
+          setCommitError('Something went wrong saving your plan. Please try again.');
+        } else {
+          // Session lost mid-flow — drop the overlay + bounce to the account gate.
+          setCommitError('Please create your account to save your plan.');
+          goToId('account');
+        }
+      } else if (res.error === 'wedding_exists') {
+        // Wedding cardinality (owner-locked 2026-07-12, wired into this commit
+        // path 2026-07-17): one wedding in planning at a time — same rule the
+        // create-event picker already explains with its guided router.
+        setFinishing(false);
+        setCommitError(
+          'You already have a wedding in planning — you can only plan one at a time. Open it from your dashboard, or archive it first to start a new one.',
+        );
       } else {
         // Surface the error + let them retry — don't strand them on the overlay.
         setFinishing(false);
@@ -2981,13 +3039,10 @@ export function OnboardingShell({
       setFinishing(false);
       setCommitError('Something went wrong saving your plan. Please try again.');
     }
-  }, [committedEventId, state, buildCommitPayload, router, goToId, pricing]);
+  }, [committedEventId, state, buildCommitPayload, router, goToId, nextPath]);
 
   return (
     <div className="onbw">
-      {/* Desktop-only editorial canvas (≥1024px) beside the phone frame. Hidden
-          on mobile + tablet; the phone frame below is byte-for-byte unchanged. */}
-      <OnboardingDesktopAside />
       {/* Blocking completion overlay — covers the whole viewport so the customer
           can't touch anything while we create the event + preload the dashboard
           (owner 2026-06-02). Stays up until the dashboard navigation swaps in. */}
@@ -3113,11 +3168,10 @@ export function OnboardingShell({
           </section>
 
           {/* 2 ROLE */}
-          <section className={`screen${activeId === 'role' ? ' active' : ''}`} id="screen-role">
+          <section className={`screen onb-twopane${activeId === 'role' ? ' active' : ''}`} id="screen-role">
             <div className="viewzone">
               <div className="eyebrow">About you</div>
               <h1 className="q">Who are you in this wedding?</h1>
-              <p className="sub">This account is just you {'—'} your partner can join as a co-host anytime.</p>
               <figure className="rolephoto">
                 <HeroImg src={ASSET('role')} />
                 <figcaption className="rolecap">
@@ -3130,24 +3184,23 @@ export function OnboardingShell({
                 {ROLE_OPTIONS.map((o) => (
                   // key includes `role` on the selected card so it remounts when the
                   // selection moves → the .sn-bounce replays on each newly-picked role.
-                  <div key={role === o.value ? `${o.value}-sel-${role}` : o.value} className={`opt${sel(role === o.value)}${role === o.value ? ' sn-bounce' : ''}`} onClick={() => selectRole(o.value)}>
+                  <button type="button" key={role === o.value ? `${o.value}-sel-${role}` : o.value} className={`opt${sel(role === o.value)}${role === o.value ? ' sn-bounce' : ''}`} aria-pressed={role === o.value} onClick={() => selectRole(o.value)}>
                     <div className="otrow">
                       <div className="ot">{o.title}</div>
                       <span className="check" />
                     </div>
                     <div className="od">{o.desc}</div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
           </section>
 
           {/* 3 KIND */}
-          <section className={`screen${activeId === 'kind' ? ' active' : ''}`} id="screen-kind">
+          <section className={`screen onb-twopane${activeId === 'kind' ? ' active' : ''}`} id="screen-kind">
             <div className="viewzone">
               <div className="eyebrow">Your wedding</div>
               <h1 className="q">What kind of wedding?</h1>
-              <p className="sub">This shapes your timeline, your paperwork, and which vendors we show.</p>
               <figure className="kindphoto">
                 <HeroImg src={ASSET(kindPhoto.img)} />
                 <figcaption className="kindcap">
@@ -3160,27 +3213,26 @@ export function OnboardingShell({
                 {KIND_OPTIONS.map((o) => (
                   // key includes `kind` on the selected card so it remounts when the
                   // selection moves → the .sn-bounce replays on each newly-picked kind.
-                  <div key={kind === o.value ? `${o.value}-sel-${kind}` : o.value} className={`opt${sel(kind === o.value)}${kind === o.value ? ' sn-bounce' : ''}`} onClick={() => selectKind(o.value)}>
+                  <button type="button" key={kind === o.value ? `${o.value}-sel-${kind}` : o.value} className={`opt${sel(kind === o.value)}${kind === o.value ? ' sn-bounce' : ''}`} aria-pressed={kind === o.value} onClick={() => selectKind(o.value)}>
                     <div className="otrow">
                       <div className="ot">{o.title}</div>
                       <span className="check" />
                     </div>
                     <div className="od">{o.desc}</div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
           </section>
 
           {/* 4 FAITH — adaptive */}
-          <section className={`screen${activeId === 'faith' ? ' active' : ''}`} id="screen-faith">
+          <section className={`screen onb-twopane${activeId === 'faith' ? ' active' : ''}`} id="screen-faith">
             <div className="viewzone">
               <div className="eyebrow">
                 {faithView.eyebrow}
                 {faithView.mode === 'mixed' && <span className="tag new">Interfaith</span>}
               </div>
               <h1 className="q">{faithView.h1}</h1>
-              <p className="sub">{faithView.sub}</p>
               <figure className="faithphoto">
                 <HeroImg src={ASSET(faithView.photo.img)} />
                 <figcaption className="faithcap">
@@ -3189,14 +3241,7 @@ export function OnboardingShell({
               </figure>
             </div>
             <div className="tapzone">
-              {faithView.mode === 'civil' ? (
-                <div className="note">
-                  <span>{'✦'}</span>
-                  <div>
-                    <b>Civil ceremony</b> {'—'} no religious tradition to set. We{'’'}ll skip this step in the real flow.
-                  </div>
-                </div>
-              ) : (
+              {faithView.mode === 'civil' ? null : (
                 <div className="chips" {...(faithView.mode === 'religious' ? { 'data-single': '' } : { 'data-max': '2' })}>
                   {FAITH_CHIPS.map((c) => {
                     // Gate on the launch status when we have it (admin
@@ -3224,7 +3269,7 @@ export function OnboardingShell({
           </section>
 
           {/* 5 NAME — live monogram + Frame/Font cyclers + bride/groom */}
-          <section className={`screen${activeId === 'name' ? ' active' : ''}`} id="screen-name">
+          <section className={`screen onb-twopane${activeId === 'name' ? ' active' : ''}`} id="screen-name">
             <div className="viewzone">
               <div className="eyebrow">Your wedding</div>
               <h1 className="q">The two of you.</h1>
@@ -3355,7 +3400,6 @@ export function OnboardingShell({
               <div className="loveglyph">{'♡'}</div>
               <div className="eyebrow">Your wedding website</div>
               <h1 className="q">How did the two of you happen?</h1>
-              <p className="sub">Tell it like you{'’'}d tell a friend over coffee — we{'’'}ll write it onto your page and read it back to you. Two minutes, mostly tapping.</p>
               <div className="duet">
                 <span className="vpill muted"><span className="dot her" />{loveDuetBride}</span>
                 <span className="vpill muted"><span className="dot" />{loveDuetGroom}</span>
@@ -3363,7 +3407,7 @@ export function OnboardingShell({
             </div>
             <div className="tapzone">
               <button type="button" className="btn btn-primary" style={{ width: '100%', marginBottom: 6 }} onClick={loveStart}>Tell it</button>
-              <div className="ghost" onClick={loveSkip}><u>Add it later</u></div>
+              <button type="button" className="ghost" onClick={loveSkip}><u>Add it later</u></button>
             </div>
           </section>
 
@@ -3373,7 +3417,6 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">Your love story · 1 of 4 · how you met</div>
               <h1 className="q">How you two met</h1>
-              <p className="sub">{sparkTurn} — what{'’'}s the very first thing you noticed about each other?</p>
               {/* the Spark stem */}
               <div className="stem">
                 <span className="stem-pre">The first thing I noticed was{'…'}</span>
@@ -3392,7 +3435,7 @@ export function OnboardingShell({
                   { stem: '📍 the place — ', label: '📍 the place' },
                   { stem: '😅 the awkward part — ', label: '😅 the awkward part' },
                 ].map((c) => (
-                  <span key={state.loveStory.spark_anchor === c.stem ? `${c.stem}-sel` : c.stem} className={`sc${sel(state.loveStory.spark_anchor === c.stem)}${state.loveStory.spark_anchor === c.stem ? ' sn-bounce' : ''}`} onClick={() => dropSpark(c.stem)}>{c.label}</span>
+                  <button type="button" key={state.loveStory.spark_anchor === c.stem ? `${c.stem}-sel` : c.stem} className={`sc${sel(state.loveStory.spark_anchor === c.stem)}${state.loveStory.spark_anchor === c.stem ? ' sn-bounce' : ''}`} aria-pressed={state.loveStory.spark_anchor === c.stem} onClick={() => dropSpark(c.stem)}>{c.label}</button>
                 ))}
               </div>
               <div className={`followup${state.loveStory.spark.trim() ? ' show' : ''}`}>
@@ -3419,7 +3462,6 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">Your love story · 2 of 4 · the almost</div>
               <h1 className="q">The almost</h1>
-              <p className="sub">Every story has an almost — it{'’'}s what makes the ending land. If yours was easy, skip it.</p>
               <div className="stem tight">
                 <span className="stem-pre">There was a moment we almost didn{'’'}t make it because{'…'}</span>
                 <textarea
@@ -3437,7 +3479,7 @@ export function OnboardingShell({
                   { kind: 'different_paths', label: 'Different dreams?' },
                   { kind: 'doubt', label: 'Just wasn’t sure?' },
                 ].map((c) => (
-                  <span key={state.loveStory.obstacle_kind === c.kind ? `${c.kind}-sel` : c.kind} className={`sc${sel(state.loveStory.obstacle_kind === c.kind)}${state.loveStory.obstacle_kind === c.kind ? ' sn-bounce' : ''}`} onClick={() => pickCue(c.kind)}>{c.label}</span>
+                  <button type="button" key={state.loveStory.obstacle_kind === c.kind ? `${c.kind}-sel` : c.kind} className={`sc${sel(state.loveStory.obstacle_kind === c.kind)}${state.loveStory.obstacle_kind === c.kind ? ' sn-bounce' : ''}`} aria-pressed={state.loveStory.obstacle_kind === c.kind} onClick={() => pickCue(c.kind)}>{c.label}</button>
                 ))}
               </div>
               <div className={`followup${state.loveStory.obstacle.trim() ? ' show' : ''}`}>
@@ -3450,7 +3492,7 @@ export function OnboardingShell({
                   onChange={(e) => setLoveText('obstacle_kept', e.target.value)}
                 />
               </div>
-              <div className="ghost" style={{ textAlign: 'left', marginTop: 9 }} onClick={skipAlmost}><u>Ours was easy — skip</u></div>
+              <button type="button" className="ghost" style={{ textAlign: 'left', marginTop: 9 }} onClick={skipAlmost}><u>Ours was easy — skip</u></button>
             </div>
           </section>
 
@@ -3459,7 +3501,6 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">Your love story · 3 of 4 · the yes</div>
               <h1 className="q">The proposal</h1>
-              <p className="sub">Where it happened, how it felt, who asked.</p>
               <div className="sparkchips">
                 {[
                   { prop: 'beach', label: 'Beach' },
@@ -3468,7 +3509,7 @@ export function OnboardingShell({
                   { prop: 'trip', label: 'On a trip' },
                   { prop: 'meaningful', label: 'Somewhere meaningful' },
                 ].map((c) => (
-                  <span key={state.loveStory.proposal_setting === c.prop ? `${c.prop}-sel` : c.prop} className={`sc${sel(state.loveStory.proposal_setting === c.prop)}${state.loveStory.proposal_setting === c.prop ? ' sn-bounce' : ''}`} onClick={() => pickProposal(c.prop)}>{c.label}</span>
+                  <button type="button" key={state.loveStory.proposal_setting === c.prop ? `${c.prop}-sel` : c.prop} className={`sc${sel(state.loveStory.proposal_setting === c.prop)}${state.loveStory.proposal_setting === c.prop ? ' sn-bounce' : ''}`} aria-pressed={state.loveStory.proposal_setting === c.prop} onClick={() => pickProposal(c.prop)}>{c.label}</button>
                 ))}
               </div>
               <div className="stem">
@@ -3488,7 +3529,7 @@ export function OnboardingShell({
                   { voice: 'them', label: 'They asked' },
                   { voice: 'both', label: 'We both knew' },
                 ].map((c) => (
-                  <span key={c.voice} className={`wa${sel(state.loveStory.proposal_voice === c.voice)}`} onClick={() => pickProposalVoice(c.voice)}>{c.label}</span>
+                  <button type="button" key={c.voice} className={`wa${sel(state.loveStory.proposal_voice === c.voice)}`} aria-pressed={state.loveStory.proposal_voice === c.voice} onClick={() => pickProposalVoice(c.voice)}>{c.label}</button>
                 ))}
               </div>
               <div className="stem tight" style={{ marginTop: 12 }}>
@@ -3513,7 +3554,6 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">Your love story · 4 of 4 · the little things</div>
               <h1 className="q">The stuff only you two would know.</h1>
-              <p className="sub" style={{ marginBottom: 12 }}>Tap what{'’'}s yours. Skip the rest.</p>
               <div className="lovetiles">
                 {([
                   { k: 'song' as const, ic: '🎵', lbl: 'Our song', ph: 'the song that was always playing' },
@@ -3576,7 +3616,7 @@ export function OnboardingShell({
                   <div className="mf-lbl">{momentEditIdx != null ? 'Edit this moment' : 'Add a moment'}</div>
                   <div className="mf-chips">
                     {MOMENT_CHIPS.map((c) => (
-                      <span key={c} className="mf-chip" onClick={() => setMfTitle(c)}>{c}</span>
+                      <button type="button" key={c} className="mf-chip" onClick={() => setMfTitle(c)}>{c}</button>
                     ))}
                   </div>
                   <input className="field mf-title" placeholder="Our first trip together…" maxLength={48} autoComplete="off" value={mfTitle} onChange={(e) => setMfTitle(e.target.value)} />
@@ -3601,7 +3641,6 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">Your love story · the voice</div>
               <h1 className="q">How should it sound?</h1>
-              <p className="sub" style={{ marginBottom: 14 }}>Same story, your voice — change it anytime.</p>
               <div className="sitecard" style={{ marginBottom: 14 }}>
                 <div className="sc-inner" style={{ padding: '18px 18px' }}>
                   <div className="sc-pull" style={{ fontSize: 20, margin: 0 }} dangerouslySetInnerHTML={{ __html: tonePreviewHtml }} />
@@ -3613,7 +3652,7 @@ export function OnboardingShell({
                   { tone: 'playful' as const, label: 'Playful' },
                   { tone: 'formal' as const, label: 'Formal' },
                 ]).map((c) => (
-                  <div key={c.tone} className={`chip${sel(loveTone === c.tone)}`} onClick={() => pickTone(c.tone)}>{c.label}</div>
+                  <button type="button" key={c.tone} className={`chip${sel(loveTone === c.tone)}`} aria-pressed={loveTone === c.tone} onClick={() => pickTone(c.tone)}>{c.label}</button>
                 ))}
               </div>
               <div className="lovebadge">● Appears as &quot;Our Love Story&quot;</div>
@@ -3625,7 +3664,6 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">Your love story · the reveal</div>
               <h1 className="q">Here{'’'}s the two of you.</h1>
-              <p className="sub" style={{ marginBottom: 14 }}>This is how it{'’'}ll read on your wedding page.</p>
               <div className="sitecard">
                 <div className="sc-inner">
                   <div className="sc-masthead" dangerouslySetInnerHTML={{ __html: lovePreviewMasthead }} />
@@ -3638,12 +3676,15 @@ export function OnboardingShell({
             </div>
             <div className="tapzone">
               <button type="button" className="btn btn-primary" style={{ width: '100%', marginBottom: 6 }} onClick={() => go(1)}>This is us</button>
-              <div className="ghost" onClick={() => goToId('love_spark')}><u>Change a line</u></div>
+              <button type="button" className="ghost" onClick={() => goToId('love_spark')}><u>Change a line</u></button>
             </div>
           </section>
 
-          {/* 6 DATE — 2-mode calendar + why-this-date nugget (DateCalendar owns its viewzone title + nugget) */}
-          <section className={`screen${activeId === 'date' ? ' active' : ''}`}>
+          {/* 6 DATE — 2-mode calendar (DateCalendar owns its viewzone title). onb-twopane:
+              DateCalendar renders the standard .viewzone + .tapzone skeleton, so on desktop the
+              headline goes LEFT and the toggle+calendar fill the RIGHT column (was a narrow
+              centred column in a wide sheet). Mobile (<1024) unaffected. */}
+          <section className={`screen onb-twopane${activeId === 'date' ? ' active' : ''}`} id="screen-date">
             <DateCalendar
               mode={state.dateMode}
               candidates={state.dateCandidates}
@@ -3660,18 +3701,10 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">Our promise</div>
               <h1 className="q">Your day, kept alive.</h1>
-              <p className="sub">
-                Everything you just shared {'—'} and everything that happens on the day {'—'} we keep
-                as your <em>Alaala</em>: the moments you{'’'}ll be too busy to see, the people who
-                can{'’'}t be there, the stories your guests tell. A living memory, not a frozen album.
-              </p>
-              <p className="sub" style={{ opacity: 0.72, marginTop: 8 }}>
-                And we stay out of the way. The day is yours to live {'—'} we just quietly remember it.
-              </p>
             </div>
           </section>
 
-          {/* 7 REGION — top-5 + Somewhere-else expand + 13 more + nugget */}
+          {/* 7 REGION — top-5 + Somewhere-else expand + 13 more */}
           <section className={`screen${activeId === 'region' ? ' active' : ''}`} id="screen-region">
             <LocationStep
               value={state.places}
@@ -3682,11 +3715,10 @@ export function OnboardingShell({
           </section>
 
           {/* 8 PAX — slider + exact box + tier photo */}
-          <section className={`screen${activeId === 'pax' ? ' active' : ''}`} id="screen-pax">
+          <section className={`screen onb-twopane${activeId === 'pax' ? ' active' : ''}`} id="screen-pax">
             <div className="viewzone">
               <div className="eyebrow">The day</div>
               <h1 className="q">How many guests?</h1>
-              <p className="sub">Your starting headcount, shared with vendors — be as specific as you can for the best matches.</p>
               <figure className="paxphoto" data-tier={state.pax == null ? 'none' : paxTier.t}>
                 <HeroImg src={state.pax == null ? '' : ASSET(`pax/${paxTier.t}`)} />
                 <figcaption className="paxcap">
@@ -3725,6 +3757,7 @@ export function OnboardingShell({
                 max={500}
                 value={state.pax == null ? 10 : Math.min(500, Math.max(10, state.pax))}
                 className="paxslider"
+                data-sn-hint
                 aria-label="Guest count slider"
                 style={{ background: `linear-gradient(to right,var(--gold) 0%,var(--gold) ${state.pax == null ? 0 : paxFill}%,#e7dfce ${state.pax == null ? 0 : paxFill}%,#e7dfce 100%)` }}
                 onChange={(e) => patch({ pax: parseInt(e.target.value, 10) })}
@@ -3734,11 +3767,10 @@ export function OnboardingShell({
           </section>
 
           {/* 9 BUDGET — feel-band chips + a look photo keyed to pax-tier × band */}
-          <section className={`screen${activeId === 'budget' ? ' active' : ''}`} id="screen-budget">
+          <section className={`screen onb-twopane${activeId === 'budget' ? ' active' : ''}`} id="screen-budget">
             <div className="viewzone">
               <div className="eyebrow">The day</div>
               <h1 className="q">Your working budget?</h1>
-              <p className="sub">Set your number — we{'’'}ll show the feel it buys for ~{pax} guests.</p>
               <figure className="budgetphoto budgetphoto--compact" data-band={budgetSet ? budgetView.dataBand : 'none'}>
                 <HeroImg src={budgetSet ? ASSET(budgetView.img) : ''} />
                 <figcaption className="budgetcap">
@@ -3799,6 +3831,7 @@ export function OnboardingShell({
                     step={10000}
                     value={budgetSet ? budgetSliderVal : budgetFloorV}
                     className="paxslider"
+                    data-sn-hint
                     aria-label="Working budget slider"
                     style={{
                       background: `linear-gradient(to right,var(--gold) 0%,var(--gold) ${budgetSet ? budgetFill : 0}%,#e7dfce ${budgetSet ? budgetFill : 0}%,#e7dfce 100%)`,
@@ -3822,13 +3855,112 @@ export function OnboardingShell({
               service/vendor-shaped copy — no song / editorial / pricing leak. ════════ */}
 
           {/* TEAM_INTRO — education: the reception is home base (prototype s1edu). */}
+          {/* ════ EXPERIENCE QUIZ (iteration 0016 · flag-gated · owner 2026-06-21) ════
+              5 single-pick axes (for_whom · feel · energy · roots · effort) rendered with
+              the SAME .screen/.stack[data-single]/.opt markup as role/kind. The persona
+              resolves + the plan derives on exp_reveal (see the derive effect). These
+              sections are filtered out of the sequence entirely when the flag is OFF. */}
+          {EXP_AXES.map((axis) => {
+            const picked = state.experienceAxes[axis.id] ?? null;
+            return (
+              <section key={axis.id} className={`screen onb-twopane${activeId === `exp_${axis.id}` ? ' active' : ''}`} id={`screen-exp-${axis.id}`}>
+                <div className="viewzone">
+                  <div className="eyebrow">{axis.eyebrow}</div>
+                  <h1 className="q">{axis.question}</h1>
+                </div>
+                <div className="tapzone">
+                  <div className="stack" data-single="">
+                    {axis.options.map((o) => (
+                      // key includes the selection so the card remounts on re-pick → .sn-bounce replays.
+                      <div
+                        key={picked === o.key ? `${o.key}-sel-${picked}` : o.key}
+                        className={`opt${sel(picked === o.key)}${picked === o.key ? ' sn-bounce' : ''}`}
+                        onClick={() => selectExp(axis.id, o.key)}
+                      >
+                        <div className="otrow"><div className="ot">{o.title}</div><span className="check" /></div>
+                        <div className="od">{o.desc}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            );
+          })}
+
+          {/* EXPERIENCE DIALS (0016) — help level + vendor sourcing; single-pick like the axes
+              but driven by state.helpLevel / state.vendorSourcing. Flag-gated via EXP_SCREENS. */}
+          {EXP_DIALS.map((dial) => {
+            const picked = dial.id === 'help' ? state.helpLevel : state.vendorSourcing;
+            return (
+              <section key={dial.id} className={`screen onb-twopane${activeId === `exp_${dial.id}` ? ' active' : ''}`} id={`screen-exp-${dial.id}`}>
+                <div className="viewzone">
+                  <div className="eyebrow">{dial.eyebrow}</div>
+                  <h1 className="q">{dial.question}</h1>
+                </div>
+                <div className="tapzone">
+                  <div className="stack" data-single="">
+                    {dial.options.map((o) => (
+                      <div
+                        key={picked === o.key ? `${o.key}-sel-${picked}` : o.key}
+                        className={`opt${sel(picked === o.key)}${picked === o.key ? ' sn-bounce' : ''}`}
+                        onClick={() => (dial.id === 'help' ? selectHelp(o.key as OnboardingState['helpLevel']) : selectSource(o.key as OnboardingState['vendorSourcing']))}
+                      >
+                        <div className="otrow"><div className="ot">{o.title}</div><span className="check" /></div>
+                        <div className="od">{o.desc}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            );
+          })}
+
+          {/* EXPERIENCE REVEAL (0016) — the resolved persona + the plan it derived. The derive
+              effect has already written picks/refinements/feel/interestedServices into state;
+              this screen just shows the couple what their answers built. */}
+          <section className={`screen${activeId === 'exp_reveal' ? ' active' : ''}`} id="screen-exp-reveal">
+            {activeId === 'exp_reveal' && (() => {
+              const persona = state.experiencePersona ? EXP_PERSONA_BY_KEY[state.experiencePersona] : null;
+              const forWhom = state.experienceAxes.for_whom as ExpForWhom | undefined;
+              const focusLabel = forWhom === 'couple' ? 'You two' : forWhom === 'guests' ? 'Your guests' : forWhom === 'both' ? 'Both' : '—';
+              const help = state.helpLevel ?? 'build';
+              const helpHead = help === 'options' ? 'Here are your options.' : help === 'self' ? 'Your canvas is ready.' : 'Here’s your complete plan.';
+              return (
+                <>
+                  <div className="viewzone">
+                    <div className="loveglyph">{'✶'}</div>
+                    <div className="eyebrow">Your experience</div>
+                    {/* Editorial-title reveal (owner 2026-06-22): the persona NAME stands alone as
+                        the hero, its tagline beneath, and the help dial outcome as a gold kicker —
+                        replaces the old "You’re a {name} couple" frame (clunky + an a/an bug). */}
+                    <h1 className="q" style={{ fontSize: 32 }}>{persona ? persona.name : 'Your plan is ready.'}</h1>
+                    {persona && (
+                      <p style={{ fontFamily: 'var(--sans)', fontSize: 13.5, lineHeight: 1.5, color: 'var(--ink-soft)', margin: '4px 0 0', maxWidth: 360 }}>
+                        {persona.tagline}
+                      </p>
+                    )}
+                    <div className="statstrip">
+                      <div className="stat"><b>{state.picks.length}</b><span>vendors<br />lined up</span></div>
+                      <div className="stat"><b>{state.interestedServices.length}</b><span>Setnayan<br />add-ons</span></div>
+                      <div className="stat"><b>{focusLabel}</b><span>built<br />around</span></div>
+                    </div>
+                    {persona && (
+                      <p style={{ fontFamily: 'var(--sans)', fontSize: 12.5, fontWeight: 600, color: 'var(--gold-deep)', margin: '12px 0 0' }}>
+                        {helpHead}
+                      </p>
+                    )}
+                  </div>
+                  <div className="tapzone" />
+                </>
+              );
+            })()}
+          </section>
+
           <section className={`screen${activeId === 'team_intro' ? ' active' : ''}`} id="screen-team-intro">
             <div className="viewzone">
               <div className="loveglyph">{'⛬'}</div>
               <div className="eyebrow">Your venue</div>
               <h1 className="q">Let{'’'}s start with your reception.</h1>
-              <p className="sub">Your reception venue is home base. Once we know <i>where</i> you{'’'}re celebrating, we match every other vendor by who can actually get there.</p>
-              <div className="note mul"><span>✦</span><div>Lock your venue and it becomes your <b>home base</b>. We sort every caterer, photographer &amp; stylist by <b>who can get there</b> — far ones flagged <b>{'“'}travel fee may apply.{'”'}</b></div></div>
             </div>
             <div className="tapzone" />
           </section>
@@ -3857,7 +3989,6 @@ export function OnboardingShell({
                   hideProgress
                   eyebrow="Reception"
                   title="What setting do you love?"
-                  subtitle="Pick one or two — we’ll lead with venues that match."
                 />
               ) : null;
             })()}
@@ -3871,7 +4002,6 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">Your essentials</div>
               <h1 className="q">Your basic services.</h1>
-              <p className="sub">The must-haves. Tap the ones you still need {'—'} we{'’'}ll match each.</p>
               <figure className="styhero" style={{ backgroundImage: `url(${PICKER_ASSET(basicFocus)})` }}>
                 <figcaption className="styhcap">
                   <span className="bft">{PICK_LABEL[basicFocus] ?? basicFocus}</span>
@@ -3922,7 +4052,6 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">The extras</div>
               <h1 className="q">The extras you love.</h1>
-              <p className="sub">Everything that turns a wedding into <i>your</i> wedding. Tap a category to browse {'—'} pick any.</p>
             </div>
             <div className="tapzone">
               <div className="exscroll">
@@ -3953,7 +4082,7 @@ export function OnboardingShell({
                           {open && (
                             <Rail className="pgrid car">
                               {g.leaves.map((c) => (
-                                <PickCard key={c.cat} cat={c.cat} label={c.label} desc={PICK_INFO[c.cat]?.d} selected={state.picks.includes(c.cat)} onClick={() => pickChip(c.cat)} />
+                                <PickCard key={c.cat} cat={c.cat} label={c.label} desc={PICK_INFO[c.cat]?.d} selected={state.picks.includes(c.cat)} photoUrl={c.photoUrl} onClick={() => pickChip(c.cat)} />
                               ))}
                             </Rail>
                           )}
@@ -3992,7 +4121,6 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">Music</div>
               <h1 className="q">Your songs</h1>
-              <p className="sub">Browse the top 100, search for any song, or check your playlist. Pick at least 10 {'—'} we{'’'}ll build the rest.</p>
             </div>
             <div className="tapzone">
               <SongBankStep
@@ -4025,7 +4153,6 @@ export function OnboardingShell({
                 <div className="viewzone">
                   <div className="eyebrow">Your overall feel</div>
                   <h1 className="q">Set the mood</h1>
-                  <p className="sub">Pick the look you love {'—'} see it in its colors. It guides your stylist, florist, cake &amp; gown.</p>
                   {FEELS[feel] ? (
                     <figure className="feelphoto">
                       <HeroImg src={PREFS_ASSET(`feel_${feel}_${budgetTier}`)} />
@@ -4074,13 +4201,13 @@ export function OnboardingShell({
             <div className="stack">
               <form action={signInWithGoogle}>
                 <input type="hidden" name="next" value={RESUME_NEXT} />
-                <button
+                <SubmitButton
+                  pendingLabel="Redirecting…"
                   className="opt"
-                  type="submit"
                   style={{ width: '100%', font: 'inherit', cursor: 'pointer', textAlign: 'center', justifyContent: 'center' }}
                 >
                   <div className="ot" style={{ justifyContent: 'center', width: '100%' }}>Continue with Google</div>
-                </button>
+                </SubmitButton>
               </form>
             </div>
             {emailMode ? (
@@ -4088,6 +4215,7 @@ export function OnboardingShell({
                 <input type="hidden" name="next" value={RESUME_NEXT} />
                 <input type="hidden" name="account_type" value="customer" />
                 <input type="hidden" name="public_summary_consent" value="yes" />
+                <TurnstileField action="signup" />
                 <input
                   className="field"
                   name="email"
@@ -4105,13 +4233,18 @@ export function OnboardingShell({
                   placeholder="Create a password (8+ characters)"
                   style={{ fontFamily: 'var(--sans)', fontStyle: 'normal', fontSize: 15 }}
                 />
-                <button className="byo-send" type="submit">Create account</button>
+                <SubmitButton className="byo-send" pendingLabel="Creating account…">Create account</SubmitButton>
               </form>
             ) : (
-              <div className="ghost" onClick={() => setEmailMode(true)} style={{ cursor: 'pointer' }}>
+              <button type="button" className="ghost" onClick={() => setEmailMode(true)} style={{ cursor: 'pointer' }}>
                 <u>Use email instead</u>
-              </div>
+              </button>
             )}
+            <div className="ghost" style={{ marginTop: 4 }}>
+              <a href={`/login?next=${encodeURIComponent(RESUME_NEXT)}`} style={{ color: 'inherit' }}>
+                Already have an account? <u>Sign in</u>
+              </a>
+            </div>
           </section>
 
           {/* 12 FIND FIRST VENDOR — REAL reception venues from the marketplace
@@ -4119,7 +4252,6 @@ export function OnboardingShell({
           <section className={`screen${activeId === 'find' ? ' active' : ''}`} id="screen-find">
             <div className="eyebrow">Find your first vendor</div>
             <h1 className="q" style={{ fontSize: 30 }}>{findHeading}</h1>
-            <p className="sub">Sorted for you: your style first, then everyone who can host you. <b>Tap one to shortlist.</b></p>
             {venuesLoading && (
               <div className="vskel-wrap" aria-live="polite" aria-busy="true">
                 <div className="grouplbl">★ Finding the best venues for you…</div>
@@ -4193,7 +4325,6 @@ export function OnboardingShell({
                     </>
                   )}
                   <div className="removednote">🚫 <span>Venues that can’t fit your guest count, aren’t free on your date, or don’t match your ceremony aren’t shown — change those details to see more.</span></div>
-                  <div className="note mul"><span>✦</span><div>Your venue is your <b>home base</b>. Every other vendor — caterer, florist, photographer — is then sorted by <b>who can reach it</b>; ones outside their service area still appear, flagged <b>“travel fee may apply.”</b></div></div>
                 </>
               );
             })()}
@@ -4215,16 +4346,13 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">The payoff</div>
               <h1 className="q" style={{ fontSize: 30 }}>Look how far you are.</h1>
-              <p className="sub" style={{ marginBottom: 10 }}>Out of <b>{teamVenuePool}</b> reception venues, we found you <b>{teamMatched}</b> to start.</p>
               <div className="statstrip">
                 <div className="stat"><b>{teamMatched}</b><span>venues<br />matched</span></div>
                 <div className="stat"><b>~{teamHoursSaved}</b><span>hours<br />saved</span></div>
                 <div className="stat"><b>{teamShortlisted}</b><span>on your<br />shortlist</span></div>
               </div>
             </div>
-            <div className="tapzone">
-              <div className="note mul" style={{ marginTop: 0, marginBottom: 0 }}><span>✦</span><div>This is just your reception. Next, <b>Setnayan AI</b> can match every other vendor the same way.</div></div>
-            </div>
+            <div className="tapzone" />
           </section>
 
           {/* AIGATE — the AI offer · TWO in-screen CTAs (Yes / No thanks) · chrome Continue
@@ -4234,11 +4362,6 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">Setnayan AI <span className="tag new">New</span></div>
               <h1 className="q">You did the venue. Let us do the rest.</h1>
-              <div className="note mul" style={{ marginTop: 2, marginBottom: 14 }}>
-                <span>✦</span>
-                <div>You just matched <b>{teamMatched}</b> {teamMatched === 1 ? 'venue' : 'venues'} in a few taps — and saved about <b>~{teamHoursSaved} hours</b> already. Let Setnayan do that for every other vendor too.</div>
-              </div>
-              <p className="sub" style={{ marginBottom: 13 }}>Finding one venue took a few taps. You still need a caterer, photographer, coordinator and more — <b>we match every one</b> the same way.</p>
               <div className="aibenefits">
                 <div className="aibene"><div className="ic">✓</div><div className="tx"><b>Verified vendors, matched to you</b><span>Region · date · guest count · budget · venue · style — checked all at once, every vendor confirmed real.</span></div></div>
                 <div className="aibene"><div className="ic">⚡</div><div className="tx"><b>Tuned to your taste</b><span>One quick {'“'}what kind?{'”'} per service narrows it to exactly your style.</span></div></div>
@@ -4259,6 +4382,10 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">You did the hard part</div>
               <div className="dash-site">
+                {/* Two-pane (owner 2026-06-22): hero + countdown LEFT, recap + share RIGHT on desktop
+                    so the finish fits a laptop without scrolling; `.dash-col-*` are plain blocks, so
+                    on mobile (<1024) they simply stack — the single-column compact card. */}
+                <div className="dash-col dash-col-l">
                 {/* HERO — the live monogram + initials/names + the identity headline */}
                 <div className="dash-sec dash-hero">
                   {monoReady ? (
@@ -4281,6 +4408,8 @@ export function OnboardingShell({
                     <WeddingCountdown iso={earliestDateISO} active={activeId === 'congrats'} />
                   </div>
                 ) : null}
+                </div>
+                <div className="dash-col dash-col-r">
                 {/* OUR LOVE STORY — woven in the couple's chosen voice (COVERT: titled only "Our Love
                     Story"). Omitted gracefully if the love stage was skipped or left empty. */}
                 {bloomStoryProse ? (
@@ -4292,21 +4421,19 @@ export function OnboardingShell({
                 {/* THE RECAP — "here's your wedding", every captured answer */}
                 <div className="dash-sec">
                   <div className="dash-eb">Your Wedding</div>
+                  {/* Compacted to the essential, non-redundant facts so the whole congrats card
+                      fits one screen (owner 2026-06-22). The per-service rows (Reception/Ceremony/
+                      Catering/Photo&Video) + Song list + Shortlisted are dropped — they're already
+                      covered by the "Services" line (and live in full on the dashboard). The short
+                      rows flow into a 2-column grid on desktop; Services spans full width. */}
                   <div className="recap tight">
-                    <div className="recapline"><span className="rk">Wedding</span><span className="rv">{coupleDisplay}{isHelper ? <span className="rv-sub"> · you’re helping plan</span> : null}</span></div>
                     {recapType ? <div className="recapline"><span className="rk">Type</span><span className="rv">{recapType}</span></div> : null}
                     <div className="recapline"><span className="rk">Date</span><span className="rv">{recapDate}</span></div>
                     <div className="recapline"><span className="rk">Where</span><span className="rv">{recapLocations ?? recapWhere}</span></div>
                     <div className="recapline"><span className="rk">Guests</span><span className="rv">{recapGuests}</span></div>
                     {recapBudget ? <div className="recapline"><span className="rk">Budget</span><span className="rv">{recapBudget}</span></div> : null}
-                    {recapServices ? <div className="recapline col"><span className="rk">Services</span><span className="rv">{recapServices}</span></div> : null}
-                    {recapReception ? <div className="recapline"><span className="rk">Reception</span><span className="rv">{recapReception}</span></div> : null}
-                    {recapCeremony ? <div className="recapline"><span className="rk">Ceremony</span><span className="rv">{recapCeremony}</span></div> : null}
-                    {recapCatering ? <div className="recapline col"><span className="rk">Catering</span><span className="rv">{recapCatering}</span></div> : null}
-                    {recapPV ? <div className="recapline col"><span className="rk">Photo &amp; Video</span><span className="rv">{recapPV}</span></div> : null}
                     {recapMood ? <div className="recapline"><span className="rk">Mood board</span><span className="rv">{recapMood}</span></div> : null}
-                    {recapSongs ? <div className="recapline"><span className="rk">Song list</span><span className="rv">{recapSongs}</span></div> : null}
-                    <div className="recapline"><span className="rk">Shortlisted</span><span className="rv">{shortlistCount} {shortlistCount === 1 ? 'venue' : 'venues'}</span></div>
+                    {recapServices ? <div className="recapline col"><span className="rk">Services</span><span className="rv">{recapServices}</span></div> : null}
                   </div>
                 </div>
                 {/* SHARE footer — covert, website-framed (display-only; the real link lives on the dashboard) */}
@@ -4317,6 +4444,7 @@ export function OnboardingShell({
                   </div>
                   <div className="dash-guests">{state.pax != null ? `${state.pax} guests` : 'Your guests'} will see this page</div>
                 </div>
+                </div>
               </div>
             </div>
           </section>
@@ -4325,7 +4453,6 @@ export function OnboardingShell({
           <section className={`screen${activeId === 'plan' ? ' active' : ''}`} id="screen-plan">
             <div className="eyebrow">Your plan</div>
             <h1 className="q" style={{ fontSize: 31, lineHeight: 1.08 }}><span>{coupleDisplay}</span></h1>
-            <p className="sub" style={{ marginTop: -3 }}>Your wedding, planned.</p>
             <FreeValueSlider tools={savings.breakdown} money={savings.money} hours={savings.hours} active={activeId === 'plan'} />
             <div className="grouplbl">The part that did the work</div>
             <div className="aikeep">
@@ -4343,11 +4470,11 @@ export function OnboardingShell({
               {pricing.setnayanAi && (
                 <div className="aikeep-price">
                   <span className="aikeep-now">{pricing.setnayanAi.label}</span>
-                  <span className="aikeep-unit">your whole wedding</span>
+                  <span className="aikeep-unit">active until your wedding day</span>
                   <span className="aikeep-anchor">₱30,000+ coordinator</span>
                 </div>
               )}
-              <button type="button" className="aikeep-cta" disabled={committing} onClick={() => { void handleFinish(true, undefined, 'setnayan-ai'); }}>{committing ? 'Setting up…' : `Keep Setnayan AI${pricing.setnayanAi ? ` · ${pricing.setnayanAi.label}` : ''}`}</button>
+              <button type="button" className="aikeep-cta" disabled={committing} onClick={() => { void handleFinish(true, 'setnayan-ai'); }}>{committing ? 'Setting up…' : `Keep Setnayan AI${pricing.setnayanAi ? ` · ${pricing.setnayanAi.label}` : ''}`}</button>
               <div className="aikeep-later"><u onClick={() => go(1)}>Maybe later — I&apos;ll browse on my own (free)</u></div>
             </div>
             {matchAvail === true && (
@@ -4366,86 +4493,16 @@ export function OnboardingShell({
             )}
           </section>
 
-          {/* 14b THE BUNDLE OFFER — Essentials/Complete (onboarding-only · owner 2026-06-08).
-              Lives BEFORE services so "get the bundle" precedes "build your own à la carte".
-              Reads pricing.bundles (live price + struck worth + savings from the admin package
-              catalog). Selecting a card sets state.selectedBundle → Purchase Now routes to the
-              bundle checkout (goToDashboard bundle branch). The chrome "Continue" + the in-screen
-              "I'll pick à la carte instead" link both leave selectedBundle null → the unchanged
-              à-la-carte services/summary path. COVERT: pricing/offer copy only — not a love screen. */}
-          <section className={`screen${activeId === 'bundle' ? ' active' : ''}`} id="screen-bundle">
-            {(() => {
-              const eB = pricing.bundles.essentials;
-              const cB = pricing.bundles.complete;
-              // Catalog read failure → both null: render only the escape so the couple is never stranded.
-              if (!eB && !cB) {
-                return (
-                  <>
-                    <div className="eyebrow">Make it unforgettable</div>
-                    <h1 className="q" style={{ fontSize: 29, lineHeight: 1.06 }}>Two ways to make it unforgettable.</h1>
-                    <p className="sub">Pick the bundle that fits your day — or keep planning free.</p>
-                    <div className="plan-skip"><u onClick={() => { patch({ selectedBundle: null }); go(1); }}>I&apos;ll pick à la carte instead</u></div>
-                  </>
-                );
-              }
-              const card = (k: 'essentials' | 'complete', b: OnboardingBundleVM) => {
-                const sel = state.selectedBundle === k;
-                const reco = k === 'complete';
-                return (
-                  <div
-                    key={k}
-                    className={`bdl-card${sel ? ' sel' : ''}${reco ? ' reco' : ''}`}
-                    role="button"
-                    tabIndex={0}
-                    aria-pressed={sel}
-                    onClick={() => patch({ selectedBundle: k })}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); patch({ selectedBundle: k }); } }}
-                  >
-                    {reco && <div className="bc-reco"><span className="bcr-star">★</span> Best value</div>}
-                    <div className="bc-name">{b.title}</div>
-                    <div className="bc-pricerow">
-                      {b.worth > b.price && <span className="bc-was">{pesoB(b.worth)}</span>}
-                      <span className="bc-now">{pesoB(b.price)}</span>
-                    </div>
-                    {b.savings > 0 && <div className="bc-save">Save {pesoB(b.savings)} vs buying each on its own</div>}
-                    {b.items.length > 0 && (
-                      <ul className="bc-items">
-                        {b.items.map((it) => (
-                          <li key={it}><span className="bci-ck">✓</span>{it}</li>
-                        ))}
-                      </ul>
-                    )}
-                    <button
-                      type="button"
-                      className="bc-cta"
-                      disabled={committing}
-                      onClick={(e) => { e.stopPropagation(); patch({ selectedBundle: k }); void handleFinish(true, k); }}
-                    >
-                      {committing ? 'Setting up…' : `Get ${b.title} · ${pesoB(b.price)}`}
-                    </button>
-                  </div>
-                );
-              };
-              return (
-                <>
-                  <div className="eyebrow">Make it unforgettable</div>
-                  <h1 className="q" style={{ fontSize: 29, lineHeight: 1.06 }}>Two ways to make it unforgettable.</h1>
-                  <p className="sub">Pick the bundle that fits your day — or keep planning free.</p>
-                  <div className="bdl-cards">
-                    {eB && card('essentials', eB)}
-                    {cB && card('complete', cB)}
-                  </div>
-                  <div className="plan-skip"><u onClick={() => { patch({ selectedBundle: null }); go(1); }}>I&apos;ll pick à la carte instead</u></div>
-                </>
-              );
-            })()}
-          </section>
+          {/* 14b THE BUNDLE OFFER (Essentials/Complete) was RETIRED 2026-06-29 ("no more
+              essentials and complete"; model is Free → Setnayan AI → à-la-carte). The inert
+              screen, its state, and the /studio/bundle checkout route were deleted 2026-07-15
+              (dead-route cleanup). Historical bundle-order activation still lives in
+              entitlements.ts / sku-activation.ts. */}
 
           {/* 15 BOOST & ENHANCE — paid in-app services: focused detail + bottom carousel (owner 2026-06-05) */}
           <section className={`screen${activeId === 'services' ? ' active' : ''}`} id="screen-services">
             <div className="eyebrow">Boost &amp; enhance your wedding</div>
             <h1 className="q" style={{ fontSize: 29, lineHeight: 1.06 }}>Make it unforgettable</h1>
-            <p className="sub">Optional add-ons — each one a tool, priced honestly. Add what you love.</p>
             {(() => {
               const fk = focusedService || INAPP_KEYS[0]!;
               const p = pricing.svc[fk] ?? { set: 0, out: 0, label: '', isPax: false, buildStatus: 'not_built' as const };
@@ -4490,7 +4547,6 @@ export function OnboardingShell({
           <section className={`screen${activeId === 'summary' ? ' active' : ''}`} id="screen-services-summary">
             <div className="eyebrow">Your picks</div>
             <h1 className="q" style={{ fontSize: 28, lineHeight: 1.08 }}>Services you&apos;re interested in</h1>
-            <p className="sub" style={{ marginBottom: 12 }}>Pay only when you&apos;re ready — no charge yet.</p>
             {/* Grand total — the climactic "what you saved, and how fast" stat (owner 2026-06-05). */}
             <div className="svc-grand">
               <div className="svc-grand-h"><CountUp value={grandMoney} prefix="₱" active={activeId === 'summary'} /> <span className="svc-grand-and">·</span> <CountUp value={savings.hours} suffix=" hrs" active={activeId === 'summary'} /></div>
@@ -4559,6 +4615,9 @@ export function OnboardingShell({
               type="button"
               onClick={() => {
                 if (!canContinue || committing) return;
+                // Flag ON: the paywall tail is gone, so the last screen (congrats) is the free
+                // terminal — commit straight to the dashboard instead of advancing.
+                if (isLastScreen && EXPERIENCE_QUIZ_ENABLED) { void handleFinish(false); return; }
                 go(1);
               }}
               disabled={!canContinue || committing}

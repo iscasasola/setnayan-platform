@@ -4,7 +4,16 @@ import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
-import { sendEmail } from '@/lib/email';
+import { applyReconcileForEvent } from '@/lib/seating-reconcile';
+
+/**
+ * Invite/Join v2 reconcile actions (0000 ADDENDUM 2026-06-25).
+ *
+ * Unlisted joiners are optimistically admitted as `guests` rows tagged
+ * `entry_source = 'self_added_unlisted'`. This surface lets the couple reconcile
+ * them: KEEP (promote to a normal list member), REMOVE (soft-delete + revoke the
+ * account membership), or LINK (merge into an existing guest already on the list).
+ */
 
 /** Throw unless the caller is a couple member of this event. */
 async function assertCouple(eventId: string) {
@@ -22,103 +31,166 @@ async function assertCouple(eventId: string) {
   return user;
 }
 
-/**
- * Approve a claim. `mode=matched` binds to the fuzzy-matched seed row;
- * `mode=new` (or no match) mints a fresh seed row from the claimer's name.
- * Either way it's the couple's deliberate decision — the privacy gate.
- */
-export async function approveClaimAction(eventId: string, formData: FormData) {
-  const reviewer = await assertCouple(eventId);
-  const claimId = String(formData.get('claim_id') ?? '');
-  const mode = String(formData.get('mode') ?? 'matched');
-  if (!claimId) return;
-
-  const admin = createAdminClient();
-  const { data: claim } = await admin
-    .from('guest_claims')
-    .select('claim_id, event_id, target_guest_id, claimer_name, claimer_email, requested_role, status')
-    .eq('claim_id', claimId)
+/** Read + validate the guest_id from the form, scoped to an unlisted row. */
+async function readUnlistedGuest(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  formData: FormData,
+) {
+  const guestId = String(formData.get('guest_id') ?? '');
+  if (!guestId) return null;
+  const { data } = await admin
+    .from('guests')
+    .select('guest_id, entry_source, deleted_at')
+    .eq('guest_id', guestId)
     .eq('event_id', eventId)
     .maybeSingle();
+  if (!data || data.deleted_at || data.entry_source !== 'self_added_unlisted') return null;
+  return data.guest_id as string;
+}
 
-  if (!claim || claim.status === 'confirmed' || claim.status === 'rejected') {
-    revalidatePath(`/dashboard/${eventId}/guests/claims`);
-    return;
-  }
-
-  let guestId: string | null = claim.target_guest_id;
-
-  if (mode === 'new' || !guestId) {
-    const parts = claim.claimer_name.trim().split(/\s+/);
-    const first = parts[0] || 'Guest';
-    const last = parts.slice(1).join(' ') || '—';
-    const { data: newGuest } = await admin
-      .from('guests')
-      .insert({
-        event_id: eventId,
-        first_name: first,
-        last_name: last,
-        side: 'both',
-        group_category: 'friends',
-        role: claim.requested_role,
-        email: claim.claimer_email,
-        rsvp_status: 'pending',
-        photo_consent: true,
-      })
-      .select('guest_id')
-      .single();
-    guestId = newGuest?.guest_id ?? null;
-  }
-
+/** KEEP: promote an unlisted joiner to a normal list member. */
+export async function keepGuestAction(eventId: string, formData: FormData) {
+  await assertCouple(eventId);
+  const admin = createAdminClient();
+  const guestId = await readUnlistedGuest(admin, eventId, formData);
   if (!guestId) {
     revalidatePath(`/dashboard/${eventId}/guests/claims`);
     return;
   }
 
-  const { data: result } = await admin.rpc('finalize_guest_claim', {
-    p_claim_id: claim.claim_id,
-    p_guest_id: guestId,
-    p_reviewer: reviewer.id,
-  });
+  // Promote out of the reconcile queue. Drop the legacy self_joined tag too so
+  // the row reads as a clean host-list member.
+  const { data: row } = await admin
+    .from('guests')
+    .select('custom_tags')
+    .eq('guest_id', guestId)
+    .maybeSingle();
+  const tags = ((row?.custom_tags as string[] | null) ?? []).filter((t) => t !== 'self_joined');
 
-  if (claim.claimer_email && (result as { linked?: boolean } | null)?.linked) {
-    await sendEmail({
-      to: claim.claimer_email,
-      subject: "You're on the guest list 🎉",
-      text: [
-        `Good news — the couple confirmed you on their Setnayan guest list.`,
-        ``,
-        `Open your invite link again to see your details, schedule, and seat.`,
-        ``,
-        `—`,
-        `Set na 'yan.`,
-      ].join('\n'),
-    });
-  }
+  await admin
+    .from('guests')
+    .update({ entry_source: 'host_seeded', custom_tags: tags, updated_at: new Date().toISOString() })
+    .eq('guest_id', guestId)
+    .eq('event_id', eventId);
+
+  // Smart seat-plan Phase 5: a kept joiner is now a real list member — gap-fill
+  // them into a provisional seat if they don't have one.
+  await applyReconcileForEvent(admin, eventId);
 
   revalidatePath(`/dashboard/${eventId}/guests/claims`);
   revalidatePath(`/dashboard/${eventId}/guests`);
 }
 
-/** Decline a pending claim. */
-export async function rejectClaimAction(eventId: string, formData: FormData) {
-  const reviewer = await assertCouple(eventId);
-  const claimId = String(formData.get('claim_id') ?? '');
-  if (!claimId) return;
-
+/** REMOVE: soft-delete the unlisted guest and revoke any account membership. */
+export async function removeGuestAction(eventId: string, formData: FormData) {
+  await assertCouple(eventId);
   const admin = createAdminClient();
+  const guestId = await readUnlistedGuest(admin, eventId, formData);
+  if (!guestId) {
+    revalidatePath(`/dashboard/${eventId}/guests/claims`);
+    return;
+  }
+
+  // Revoke the account membership (signed-in joiner) — no-op for accountless
+  // (cookie-only) joiners, who have no event_members row.
+  await admin.from('event_members').delete().eq('event_id', eventId).eq('guest_id', guestId);
+
+  // Soft-delete the guest row (the list + reconcile queue both filter deleted_at).
   await admin
-    .from('guest_claims')
-    .update({
-      status: 'rejected',
-      reviewed_by_user_id: reviewer.id,
-      reviewed_at: new Date().toISOString(),
-      otp_code_hmac: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('claim_id', claimId)
-    .eq('event_id', eventId)
-    .neq('status', 'confirmed');
+    .from('guests')
+    .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('guest_id', guestId)
+    .eq('event_id', eventId);
 
   revalidatePath(`/dashboard/${eventId}/guests/claims`);
+  revalidatePath(`/dashboard/${eventId}/guests`);
+}
+
+/**
+ * LINK: the unlisted joiner is actually someone already on the list (a different
+ * spelling, a nickname). Merge them — move the joiner's account membership onto
+ * the existing guest (inheriting that guest's host-assigned role), carry their
+ * email over, then soft-delete the duplicate unlisted row.
+ *
+ * Guards: the target must be a real, non-deleted guest in this event, and we
+ * never merge into a seat already claimed by a DIFFERENT account (the couple can
+ * Remove instead). Accountless joiners have no membership to move — we still
+ * carry the email + soft-delete the dupe; their device cookie pointed at the old
+ * row, so they'd re-scan / use an email link to land on the merged guest.
+ */
+export async function linkGuestAction(eventId: string, formData: FormData) {
+  await assertCouple(eventId);
+  const admin = createAdminClient();
+  const backTo = `/dashboard/${eventId}/guests/claims`;
+
+  const sourceId = await readUnlistedGuest(admin, eventId, formData);
+  const targetId = String(formData.get('target_guest_id') ?? '');
+  if (!sourceId || !targetId || targetId === sourceId) {
+    revalidatePath(backTo);
+    return;
+  }
+
+  // Target must be a real, non-deleted guest in this event.
+  const { data: target } = await admin
+    .from('guests')
+    .select('guest_id, email, role, deleted_at')
+    .eq('guest_id', targetId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (!target || target.deleted_at) {
+    revalidatePath(backTo);
+    return;
+  }
+
+  const [{ data: targetBinding }, { data: sourceMember }, { data: source }] = await Promise.all([
+    admin
+      .from('event_members')
+      .select('user_id')
+      .eq('event_id', eventId)
+      .eq('guest_id', targetId)
+      .maybeSingle(),
+    admin
+      .from('event_members')
+      .select('member_id, user_id')
+      .eq('event_id', eventId)
+      .eq('guest_id', sourceId)
+      .maybeSingle(),
+    admin.from('guests').select('email').eq('guest_id', sourceId).maybeSingle(),
+  ]);
+
+  // Don't merge into a seat already claimed by a different account.
+  if (targetBinding && sourceMember && targetBinding.user_id !== sourceMember.user_id) {
+    revalidatePath(backTo);
+    return;
+  }
+
+  // Carry the joiner's email onto the target if it has none.
+  if (source?.email && !target.email) {
+    await admin
+      .from('guests')
+      .update({ email: source.email, updated_at: new Date().toISOString() })
+      .eq('guest_id', targetId)
+      .eq('event_id', eventId);
+  }
+
+  // Move the joiner's account membership onto the target (inherit its role).
+  // event_members carries the (event_id, guest_id) partial-unique backstop; the
+  // target-unclaimed check above keeps this from colliding.
+  if (sourceMember && !targetBinding) {
+    await admin
+      .from('event_members')
+      .update({ guest_id: targetId, role: (target.role as string) ?? 'guest' })
+      .eq('member_id', sourceMember.member_id);
+  }
+
+  // Soft-delete the merged-away unlisted row.
+  await admin
+    .from('guests')
+    .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('guest_id', sourceId)
+    .eq('event_id', eventId);
+
+  revalidatePath(backTo);
+  revalidatePath(`/dashboard/${eventId}/guests`);
 }

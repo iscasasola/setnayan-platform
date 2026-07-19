@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { tierCaps } from './vendor-tier-caps';
 
 /**
  * Vendor Branches — Enterprise sub-location accounts ("multiple accounts
@@ -21,9 +22,22 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * order; auto-charge is N/A in the apply-then-pay model (no card on file).
  */
 
-/** Fixed Additional-Branch fee (owner-locked 2026-06-05 · ₱999 charm). */
+/**
+ * Additional-Branch fee FALLBACK (owner-locked 2026-06-05 · ₱999 charm).
+ *
+ * The canonical, admin-managed price now lives in the `vendor_billing_catalog`
+ * row `vendor_additional_branch` (price stored in PHP — owner rule 2026-06-19
+ * "prices are admin-managed"). Read it server-side with `fetchBranchFeePhp()`.
+ * This literal is the BACKWARD-COMPATIBLE fallback used when the catalog row is
+ * missing (e.g. the seeding migration hasn't been applied yet) — so the branch
+ * flow keeps working at ₱999 regardless of migration state. The UI still
+ * imports this for static copy; the order-creation path resolves the live price.
+ */
 export const BRANCH_FEE_PHP = 999;
 export const BRANCH_FEE_CENTAVOS = BRANCH_FEE_PHP * 100;
+
+/** The catalog sku_code the branch fee is read from (seeded by migration). */
+export const BRANCH_SKU_CODE = 'vendor_additional_branch';
 
 /** 28-day billing window. The admin approval hook stamps orders.expires_at. */
 export const BRANCH_PERIOD_DAYS = 28;
@@ -46,10 +60,52 @@ export function branchIdFromServiceKey(serviceKey: string): string | null {
   return id.length > 0 ? id : null;
 }
 
+/**
+ * Resolve the live Additional-Branch fee (in PHP) from the admin-managed
+ * catalog, falling back to the {@link BRANCH_FEE_PHP} literal when the
+ * `vendor_additional_branch` row is missing or unreadable. Mirrors how every
+ * other vendor SKU is read (vendor_billing_catalog · `Number(price_php)`).
+ *
+ * Backward-compatible by construction: if the seeding migration hasn't been
+ * applied yet (or RLS hides the row), the order is still created at ₱999. Any
+ * non-positive / non-finite price is treated as missing and falls back too.
+ */
+export async function fetchBranchFeePhp(
+  supabase: SupabaseClient,
+): Promise<number> {
+  try {
+    const { data, error } = await supabase
+      .from('vendor_billing_catalog')
+      .select('price_php')
+      .eq('sku_code', BRANCH_SKU_CODE)
+      .eq('is_active', true)
+      .maybeSingle();
+    if (error || !data) return BRANCH_FEE_PHP;
+    const price = Number((data as { price_php: number | string }).price_php);
+    return Number.isFinite(price) && price > 0 ? price : BRANCH_FEE_PHP;
+  } catch {
+    return BRANCH_FEE_PHP;
+  }
+}
+
 export const BRANCH_RADIUS_MIN_KM = 1;
 export const BRANCH_RADIUS_MAX_KM = 200;
 export const BRANCH_LABEL_MAX = 120;
 export const BRANCH_CITY_MAX = 120;
+export const BRANCH_ADDRESS_MAX = 300;
+
+/**
+ * Automatic branch service radius (km). Range is no longer a manual input
+ * (owner 2026-07-02 "range is automatic") — a branch inherits the Enterprise
+ * tier reach (vendor-tier-caps · serviceRadiusKm), clamped to the column's
+ * stored max. Branches are Enterprise-only, so this resolves to the Enterprise
+ * ceiling; the clamp is a defensive floor/ceiling if that cap ever changes.
+ */
+export function branchAutoRadiusKm(): number {
+  const reach = tierCaps('enterprise').serviceRadiusKm;
+  if (!Number.isFinite(reach) || reach <= 0) return BRANCH_RADIUS_MAX_KM;
+  return Math.min(Math.max(BRANCH_RADIUS_MIN_KM, Math.round(reach)), BRANCH_RADIUS_MAX_KM);
+}
 
 export type BranchStatus = 'active' | 'pending_payment' | 'expired' | 'cancelled';
 
@@ -59,6 +115,9 @@ export type VendorBranchRow = {
   branch_label: string;
   branch_city: string;
   branch_radius_km: number;
+  branch_latitude: number | null;
+  branch_longitude: number | null;
+  branch_address: string | null;
   branch_subscription_active: boolean;
   created_at: string;
   cancelled_at: string | null;
@@ -111,7 +170,7 @@ export async function fetchVendorBranches(
   const { data, error } = await supabase
     .from('vendor_branches')
     .select(
-      'branch_id,parent_vendor_profile_id,branch_label,branch_city,branch_radius_km,branch_subscription_active,created_at,cancelled_at',
+      'branch_id,parent_vendor_profile_id,branch_label,branch_city,branch_radius_km,branch_latitude,branch_longitude,branch_address,branch_subscription_active,created_at,cancelled_at',
     )
     .eq('parent_vendor_profile_id', vendorProfileId)
     .order('created_at', { ascending: true });

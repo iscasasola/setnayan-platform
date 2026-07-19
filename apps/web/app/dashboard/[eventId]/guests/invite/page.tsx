@@ -1,11 +1,14 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, ArrowRight, Send } from 'lucide-react';
+import { ArrowLeft, ArrowRight, QrCode, Send } from 'lucide-react';
 import QRCode from 'qrcode';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { InviteLink } from './_components/invite-link';
+import { RegenerateQrButton } from './_components/regenerate-qr-button';
 
 export const metadata = { title: 'Invite guests' };
 
@@ -37,14 +40,17 @@ export default async function GuestInvitePage({ params }: Props) {
     .maybeSingle();
   if (!membership) redirect(`/dashboard/${eventId}`);
 
-  const [tokenRes, pendingRes] = await Promise.all([
+  const [tokenRes, pendingRes, eventRes] = await Promise.all([
     supabase.from('event_join_tokens').select('token').eq('event_id', eventId).maybeSingle(),
-    // Requests already waiting (the Confirm stage) — surfaced as a forward nudge.
+    // Unlisted joiners waiting to be reconciled (the Confirm stage) — Invite/Join
+    // v2: real guest rows optimistically admitted whose name didn't match.
     supabase
-      .from('guest_claims')
-      .select('claim_id', { count: 'exact', head: true })
+      .from('guests')
+      .select('guest_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
-      .in('status', ['pending_review', 'otp_sent']),
+      .eq('entry_source', 'self_added_unlisted')
+      .is('deleted_at', null),
+    supabase.from('events').select('slug').eq('event_id', eventId).maybeSingle(),
   ]);
 
   if (tokenRes.error) {
@@ -57,9 +63,17 @@ export default async function GuestInvitePage({ params }: Props) {
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
-  const joinUrl = tokenRes.data?.token
-    ? `${appUrl}/join/${eventId}?token=${tokenRes.data.token}`
-    : null;
+  // Branded invite link when the event has a public slug (e.g. /cale-ice/invite) —
+  // the /[slug]/invite route resolves the token server-side, so it stays out of
+  // the shared URL + QR. Fall back to the opaque token URL otherwise.
+  const slug = (eventRes.data?.slug as string | null) ?? null;
+  // Nested /u/ under the cutover flag, bare root otherwise (self-noops OFF).
+  const ownerSlug = slug ? await resolveEventOwnerSlug(createAdminClient(), eventId) : null;
+  const joinUrl = slug
+    ? `${appUrl}${publicEventPath(slug, ownerSlug)}/invite`
+    : tokenRes.data?.token
+      ? `${appUrl}/join/${eventId}?token=${tokenRes.data.token}`
+      : null;
   const pendingClaims = pendingRes.count ?? 0;
 
   // SVG QR of the join link — crisp at any size, ~3KB inline, no client JS.
@@ -69,7 +83,7 @@ export default async function GuestInvitePage({ params }: Props) {
         errorCorrectionLevel: 'M',
         margin: 2,
         width: 320,
-        color: { dark: '#1E2229', light: '#FBFBFA' },
+        color: { dark: '#1B1A17', light: '#FBFBFA' },
       })
     : null;
 
@@ -113,6 +127,13 @@ export default async function GuestInvitePage({ params }: Props) {
                 Send it by text, email, or your group chat — or let guests scan the QR on a
                 printed invite. The same link works for everyone.
               </p>
+              <div className="border-t border-ink/10 pt-3">
+                <RegenerateQrButton eventId={eventId} />
+                <p className="mt-1.5 text-xs leading-relaxed text-ink/45">
+                  Shared the link too widely, or want to shut off an old printed QR? Regenerate to
+                  get a fresh one — the previous link stops working.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -143,6 +164,34 @@ export default async function GuestInvitePage({ params }: Props) {
           />
         </Link>
       ) : null}
+
+      {/* Event QR (crew pairing) — a DIFFERENT QR from the guest invite above.
+          This one pairs your photo + livestream vendors' capture DEVICES to the
+          event; it is NOT a guest invite. The Event QR tool (/event-qr) was
+          orphaned when the Home/Overview redesigns dropped its tile, so this
+          quiet secondary row gives it one findable home (2026-07-15). */}
+      <Link
+        href={`/dashboard/${eventId}/event-qr`}
+        className="group mt-4 flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-ink/[0.02] px-4 py-3 transition-colors hover:border-ink/20 hover:bg-ink/[0.04]"
+      >
+        <span className="flex items-start gap-2.5 text-sm text-ink/70">
+          <QrCode
+            aria-hidden
+            className="mt-0.5 h-4 w-4 shrink-0 text-ink/45"
+            strokeWidth={1.75}
+          />
+          <span>
+            <span className="font-medium text-ink">Event QR for your crew</span> — pairs
+            your photo &amp; livestream vendors&rsquo; devices to this event. Not for
+            guest invites.
+          </span>
+        </span>
+        <ArrowRight
+          aria-hidden
+          className="mt-0.5 h-4 w-4 shrink-0 text-ink/40 transition-transform group-hover:translate-x-0.5"
+          strokeWidth={1.75}
+        />
+      </Link>
     </div>
   );
 }

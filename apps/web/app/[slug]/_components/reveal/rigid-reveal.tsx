@@ -22,6 +22,8 @@ import type { CSSProperties, ReactNode } from 'react';
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import { RigidStage } from './rigid-stage';
 import { RigidFlaps } from './rigid-flaps';
+import type { RevealParticleKind } from './reveal-particles';
+import type { RevealEffectsLook } from '@/lib/reveal-config';
 
 export type RigidVariant = 'two-flap-vertical' | 'two-flap-horizontal' | 'church-doors';
 
@@ -39,6 +41,12 @@ type Props = {
   fallbackSeed?: number;
   /** Fired once the flaps have scrubbed fully open. */
   onOpened: () => void;
+  /** Preview/demo mode — auto-plays the open, ignores gestures (dashboard chooser). */
+  autoPlay?: boolean;
+  /** Decorative effect that plays as the doors/flaps part (butterflies / petals). */
+  effect?: RevealParticleKind | null;
+  /** Admin calibration for the effect particles. */
+  effectLook?: RevealEffectsLook;
 };
 
 const FOLD = 'absolute will-change-transform [transform-style:preserve-3d]';
@@ -161,6 +169,9 @@ export function RigidReveal({
   config = null,
   fallbackSeed,
   onOpened,
+  autoPlay = false,
+  effect = null,
+  effectLook,
 }: Props) {
   return (
     <RigidStage
@@ -170,8 +181,17 @@ export function RigidReveal({
       config={config}
       fallbackSeed={fallbackSeed}
       onOpened={onOpened}
+      autoPlay={autoPlay}
+      effect={effect}
+      effectLook={effectLook}
       renderFlaps={(p) => (
-        <RigidFlaps variant={variant} progress={p} monogramText={monogram} cssFallback={flaps(variant, p)} />
+        <RigidFlaps
+          variant={variant}
+          progress={p}
+          monogramText={monogram}
+          cssFallback={flaps(variant, p)}
+          forcePreviewCss={autoPlay}
+        />
       )}
     />
   );

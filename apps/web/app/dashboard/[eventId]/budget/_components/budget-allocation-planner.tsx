@@ -58,6 +58,8 @@ import {
 import { computeBudgetOverspend } from '@/lib/budget-overspend';
 import type { PlannerLeafInput } from '@/lib/budget-allocation-data';
 import { formatPhp } from '@/lib/budget';
+import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useSaveLoader } from '@/components/sd-loader';
 import {
   saveAllocationSnapshot,
   type SnapshotLeaf,
@@ -99,6 +101,7 @@ export function BudgetAllocationPlanner({
   const [openLeaf, setOpenLeaf] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle' });
   const [isSaving, startSaving] = useTransition();
+  const save = useSaveLoader();
 
   // Label lookup so we render the human label, not the plan_group_id key.
   const labelByLeaf = useMemo(() => {
@@ -215,13 +218,17 @@ export function BudgetAllocationPlanner({
 
     startSaving(async () => {
       try {
-        const res = await saveAllocationSnapshot({
-          eventId,
-          totalBudgetPhp: budgetPhp,
-          region,
-          pax,
-          leaves: snapshotLeaves,
-        });
+        const res = await save.run(
+          () =>
+            saveAllocationSnapshot({
+              eventId,
+              totalBudgetPhp: budgetPhp,
+              region,
+              pax,
+              leaves: snapshotLeaves,
+            }),
+          { steps: ['Saving your budget plan'], hint: 'Saving' },
+        );
         if (res.ok) {
           setSaveState({ kind: 'saved', count: res.count });
         } else {
@@ -241,7 +248,7 @@ export function BudgetAllocationPlanner({
 
   if (budgetPhp == null || final == null || recommended == null) {
     return (
-      <div className="rounded-2xl border border-dashed border-ink/20 bg-cream p-8 text-center">
+      <div className="sn-row border-dashed p-8 text-center">
         <PiggyBank
           aria-hidden
           className="mx-auto h-8 w-8 text-ink/35"
@@ -264,14 +271,14 @@ export function BudgetAllocationPlanner({
   return (
     <div className="space-y-4">
       {/* Header — total budget + the cushion / over-budget readout. */}
-      <div className="rounded-2xl border border-ink/10 bg-white p-5 shadow-sm sm:p-6">
+      <div className="sn-tile sm:p-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="space-y-1">
-            <p className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-              <Wallet aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} />
+            <p className="sn-eye">
+              <Wallet aria-hidden strokeWidth={1.75} />
               Total budget
             </p>
-            <p className="font-display text-3xl text-ink sm:text-4xl">
+            <p className="font-mono text-3xl font-bold text-ink sm:text-4xl">
               {formatPhp(budgetPhp)}
             </p>
           </div>
@@ -280,11 +287,11 @@ export function BudgetAllocationPlanner({
               {overBudget ? 'Over budget' : 'Cushion'}
             </p>
             {overBudget ? (
-              <p className="font-display text-2xl text-terracotta-700 sm:text-3xl">
+              <p className="font-mono text-2xl font-bold text-terracotta-700 sm:text-3xl">
                 {formatPhp(Math.abs(cushion))}
               </p>
             ) : (
-              <p className="font-display text-2xl text-emerald-700 sm:text-3xl">
+              <p className="font-mono text-2xl font-bold text-success-700 sm:text-3xl">
                 {formatPhp(cushion)}
               </p>
             )}
@@ -341,7 +348,7 @@ export function BudgetAllocationPlanner({
       {/* Save plan — sticky to the bottom so the couple can save from anywhere
           in the list. The save itself runs through a transition (pending state). */}
       <div className="sticky bottom-3 z-10 mt-2">
-        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-ink/10 bg-white/95 p-3 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-white/80">
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/60 bg-white/80 p-3 shadow-lg backdrop-blur-xl">
           <button
             type="button"
             onClick={handleSave}
@@ -361,7 +368,7 @@ export function BudgetAllocationPlanner({
           {saveState.kind === 'saved' ? (
             <p
               role="status"
-              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800"
+              className="inline-flex items-center gap-1.5 rounded-full bg-success-50 px-3 py-1.5 text-xs font-medium text-success-800"
             >
               <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
               Saved
@@ -370,7 +377,7 @@ export function BudgetAllocationPlanner({
           {saveState.kind === 'error' ? (
             <p
               role="alert"
-              className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-800"
+              className="inline-flex items-center gap-1.5 rounded-full bg-danger-50 px-3 py-1.5 text-xs font-medium text-danger-800"
             >
               <AlertTriangle aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
               {saveState.message}
@@ -425,14 +432,14 @@ function OverspendBanner({
       role="status"
       className={`mt-4 flex items-start gap-2 rounded-xl border px-3 py-2.5 text-sm ${
         emerald
-          ? 'border-emerald-300/60 bg-emerald-50/60 text-ink/80'
+          ? 'border-success-300/60 bg-success-50/60 text-ink/80'
           : 'border-terracotta/30 bg-terracotta/[0.06] text-ink/80'
       }`}
     >
       {emerald ? (
         <CheckCircle2
           aria-hidden
-          className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700"
+          className="mt-0.5 h-4 w-4 shrink-0 text-success-700"
           strokeWidth={1.75}
         />
       ) : (
@@ -487,7 +494,7 @@ function LeafRow({
       <button
         type="button"
         onClick={onOpen}
-        className="group flex w-full items-center gap-3 rounded-xl border border-ink/10 bg-cream p-4 text-left transition-colors hover:border-terracotta/40 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-1 focus-visible:ring-offset-cream"
+        className="sn-row group flex w-full items-center gap-3 p-4 text-left transition-colors hover:border-terracotta/40 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-1"
         aria-label={`Adjust ${label} — suggested ${formatPhp(leaf.amountPhp)}`}
       >
         <div className="min-w-0 flex-1 space-y-1.5">
@@ -501,7 +508,7 @@ function LeafRow({
               </span>
             ) : null}
             {leaf.belowFloor ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/60 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-900">
+              <span className="inline-flex items-center gap-1 rounded-full border border-warn-300/60 bg-warn-50 px-2 py-0.5 text-[10px] font-medium text-warn-900">
                 <Info aria-hidden className="h-3 w-3" strokeWidth={2} />
                 below typical floor
               </span>
@@ -513,7 +520,7 @@ function LeafRow({
         </div>
 
         <div className="shrink-0 text-right">
-          <p className="font-display text-xl text-ink tabular-nums">
+          <p className="font-mono text-xl font-bold text-ink tabular-nums">
             {formatPhp(leaf.amountPhp)}
           </p>
           <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
@@ -532,7 +539,7 @@ function ConfidenceChip({ confidence }: { confidence: LeafAllocation['confidence
   if (confidence === 'high') {
     return (
       <span
-        className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700"
+        className="inline-flex items-center gap-1 text-[11px] font-medium text-success-700"
         title="Backed by plenty of real vendor prices"
       >
         <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2} />
@@ -574,6 +581,16 @@ function TiltEditor({
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
 
+  // This sub-component only mounts while the editor is open (parent renders
+  // `{openLeafAlloc ? <TiltEditor/> : null}`), so mount = open. Focus the close
+  // button on open — calm default, matches the canonical modal.
+  useModalA11y({
+    open: true,
+    onClose,
+    containerRef: overlayRef,
+    initialFocusRef: closeBtnRef,
+  });
+
   // The peso input is pre-filled with the leaf's CURRENT (final) amount and
   // tracked as a display string so the couple can type freely.
   const [draft, setDraft] = useState<string>(formatPlain(leaf.amountPhp));
@@ -583,20 +600,6 @@ function TiltEditor({
   useEffect(() => {
     setDraft(formatPlain(leaf.amountPhp));
   }, [leaf.canonicalService, leaf.amountPhp]);
-
-  // Focus the close button on open — calm default, matches the canonical modal.
-  useEffect(() => {
-    closeBtnRef.current?.focus();
-  }, []);
-
-  // ESC dismissal.
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
 
   const splurgeAmt = roundToThousand(recommendedAmountPhp * 1.25);
   const saveAmt = roundToThousand(recommendedAmountPhp * 0.8);
@@ -614,12 +617,12 @@ function TiltEditor({
       role="dialog"
       aria-modal="true"
       aria-labelledby="tilt-editor-headline"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose();
       }}
     >
-      <div className="relative w-full max-w-md rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl sm:p-6">
+      <div className="sn-modal-panel sn-pop-in relative w-full max-w-md border border-white/60 p-5 sm:p-6">
         <button
           ref={closeBtnRef}
           type="button"
@@ -630,12 +633,10 @@ function TiltEditor({
           <X aria-hidden className="h-4 w-4" strokeWidth={2} />
         </button>
 
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Adjust this service
-        </p>
+        <p className="sn-eye">Adjust this service</p>
         <h2
           id="tilt-editor-headline"
-          className="mt-1 font-display text-2xl italic tracking-tight text-ink"
+          className="mt-1 text-2xl font-bold tracking-tight text-ink"
         >
           {label}
         </h2>
@@ -705,11 +706,11 @@ function TiltEditor({
                 }
               }}
               placeholder={formatPlain(recommendedAmountPhp)}
-              className="input-field h-12 flex-1 text-xl tabular-nums"
+              className="input-field h-12 flex-1 font-mono text-xl tabular-nums"
             />
           </div>
           {leaf.belowFloor ? (
-            <p className="flex items-start gap-1.5 text-xs text-amber-800">
+            <p className="flex items-start gap-1.5 text-xs text-warn-800">
               <Info aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} />
               That&rsquo;s below the cheapest price we&rsquo;ve seen for this — still
               fine, just worth knowing.

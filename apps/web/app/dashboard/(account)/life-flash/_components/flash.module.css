@@ -1,0 +1,296 @@
+/**
+ * Life Story · the flash — feature-scoped dark "Night" palette (Build Plan §6).
+ *
+ * The rest of the app is warm paper; the flash is the inverse — a dark, filmic,
+ * immersive room. Palette lives HERE (module CSS) so the app's paper tokens are
+ * untouched. Accent = the brand's champagne gold on dark; silver = the ✦
+ * in-memoriam key; ember = "another person's camera" (the perspective beat).
+ *
+ * SAFETY: no keyframe here ever changes luminance faster than a slow ease —
+ * cross-dissolves and gentle scale only. No strobe, ever.
+ */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80; /* above the STD film stack (z-50/60/70) */
+  background: #161311;
+  color: rgba(248, 243, 240, 0.86);
+  display: flex;
+  flex-direction: column;
+}
+
+.stage {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.layer {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden; /* gsap autoAlpha drives both */
+}
+
+.mediaWrap {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.media {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.02); /* Ken Burns starts here; gsap eases it up */
+}
+
+.placeholder {
+  position: absolute;
+  inset: 0;
+}
+
+.vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 90% at 50% 40%, transparent 45%, rgba(0, 0, 0, 0.62) 100%);
+}
+
+.cap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 26px clamp(20px, 4vw, 44px) 30px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.66));
+}
+
+.kwento {
+  font-family: var(--font-display), ui-serif, Georgia, serif;
+  font-size: clamp(20px, 3.4vw, 34px);
+  line-height: 1.16;
+  color: #fff;
+  text-wrap: balance;
+}
+
+.kwentoItalic {
+  composes: kwento;
+  font-style: italic;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: rgba(248, 243, 240, 0.58);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--m-r-full);
+  padding: 5px 11px;
+}
+
+.chipEmber {
+  composes: chip;
+  color: #d98a54;
+  border-color: rgba(217, 138, 84, 0.35);
+}
+
+.chipSilver {
+  composes: chip;
+  color: #c9cee0;
+  border-color: rgba(201, 206, 224, 0.3);
+  background: rgba(201, 206, 224, 0.12);
+}
+
+/* ---- the opening face ---- */
+.faceFrame {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+
+.orb {
+  width: clamp(90px, 16vw, 150px);
+  height: clamp(90px, 16vw, 150px);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  margin: 0 auto;
+  font-family: var(--font-display), ui-serif, Georgia, serif;
+  font-size: clamp(38px, 7vw, 64px);
+  color: #fff;
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.6);
+}
+
+.who {
+  margin-top: 22px;
+  font-family: var(--font-display), ui-serif, Georgia, serif;
+  font-size: clamp(22px, 3.4vw, 30px);
+}
+
+.rec {
+  margin-top: 10px;
+  font-size: 13px;
+  letter-spacing: 0.03em;
+  color: #a9834b; /* champagne gold on dark */
+}
+
+/* ---- the ending ---- */
+.endFrame {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 24px;
+}
+
+.endLine {
+  font-family: var(--font-display), ui-serif, Georgia, serif;
+  font-style: italic;
+  font-size: clamp(22px, 4vw, 38px);
+  max-width: 18ch;
+  line-height: 1.2;
+  color: #fff;
+}
+
+.endSub {
+  margin-top: 14px;
+  font-size: 14px;
+  color: rgba(248, 243, 240, 0.58);
+}
+
+/* ---- chrome ---- */
+.progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 3;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.progressBar {
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  transform: scaleX(0);
+  background: #a9834b;
+  box-shadow: 0 0 10px rgba(197, 160, 89, 0.55);
+}
+
+.badge {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  z-index: 4;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(248, 243, 240, 0.58);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--m-r-full);
+  padding: 5px 11px;
+}
+
+.controls {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  z-index: 4;
+  display: flex;
+  gap: 8px;
+}
+
+.controlBtn {
+  border-radius: var(--m-r-full);
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.45);
+  color: rgba(248, 243, 240, 0.86);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.controlBtn:hover {
+  border-color: #a9834b;
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.controlBtn:focus-visible {
+  outline: 2px solid #a9834b;
+  outline-offset: 2px;
+}
+
+.endActions {
+  margin-top: 24px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.endCta {
+  composes: controlBtn;
+  border-color: #a9834b;
+  color: #fff;
+}
+
+/* ---- reduced-motion contact sheet ---- */
+.sheet {
+  flex: 1;
+  overflow-y: auto;
+  padding: clamp(16px, 4vw, 40px);
+}
+
+.sheetNote {
+  font-size: 13px;
+  color: rgba(248, 243, 240, 0.58);
+  margin-bottom: 16px;
+  max-width: 60ch;
+}
+
+.sheetGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.sheetCard {
+  position: relative;
+  border-radius: var(--m-r-sm);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  aspect-ratio: 4 / 3;
+  background: #1e1a16;
+}
+
+.sheetCap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 8px 10px;
+  font-family: var(--font-display), ui-serif, Georgia, serif;
+  font-size: 12.5px;
+  color: #fff;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+}

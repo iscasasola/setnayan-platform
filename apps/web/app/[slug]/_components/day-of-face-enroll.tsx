@@ -43,8 +43,8 @@ export function DayOfFaceEnroll({
 
   if (phase === 'done') {
     return (
-      <section className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 text-center shadow-sm sm:p-6">
-        <Check aria-hidden className="mx-auto h-7 w-7 text-emerald-600" strokeWidth={1.75} />
+      <section className="rounded-2xl border border-success-200 bg-success-50/60 p-5 text-center shadow-sm sm:p-6">
+        <Check aria-hidden className="mx-auto h-7 w-7 text-success-600" strokeWidth={1.75} />
         <h2 className="mt-2 text-lg font-semibold tracking-tight text-ink">
           You&rsquo;re set
         </h2>
@@ -68,15 +68,16 @@ export function DayOfFaceEnroll({
             Add your face
           </h2>
           <p className="mt-1 text-sm text-ink/65">
-            Take one selfie and the candid shots of you get gathered for you
-            automatically — no scanning, no searching.
+            Take a few quick selfies — or upload up to 3 photos — and the candid
+            shots of you get gathered for you automatically. No scanning, no
+            searching.
           </p>
         </div>
       </div>
 
       <form action={submit} className="mt-4 space-y-4">
         <input type="hidden" name="enroll_context" value={context} />
-        <SelfieCapture onReadyChange={setReady} />
+        <SelfieCapture onReadyChange={setReady} multiShot />
 
         <div className="flex flex-wrap items-center gap-3">
           <button

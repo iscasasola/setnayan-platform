@@ -20,7 +20,14 @@
  */
 
 import Link from 'next/link';
-import { CalendarClock, CheckCircle2, ChevronDown, MapPin, UtensilsCrossed } from 'lucide-react';
+import {
+  CalendarClock,
+  CheckCircle2,
+  ChevronDown,
+  MapPin,
+  PartyPopper,
+  UtensilsCrossed,
+} from 'lucide-react';
 import type { ScheduleBlockRow } from '@/lib/schedule';
 
 // ---- Types from the parent page ------------------------------------------
@@ -43,6 +50,9 @@ export type GuestHubData = {
   slug: string;
   /** Whether the guest is a limited +1 (hides certain links). */
   isLimitedPlusOne: boolean;
+  /** True once this guest has scanned in at the door on the day-of (a
+   *  guest_checkins row exists). Flips the seat tile to a warm arrival state. */
+  arrived: boolean;
 };
 
 // ---- Helpers ---------------------------------------------------------------
@@ -56,20 +66,20 @@ function rsvpMeta(status: RsvpStatus): {
     case 'attending':
       return {
         label: 'Going',
-        dot: 'bg-emerald-500',
-        badge: 'bg-emerald-50 text-emerald-800 border border-emerald-200',
+        dot: 'bg-success-500',
+        badge: 'bg-success-50 text-success-800 border border-success-200',
       };
     case 'declined':
       return {
         label: 'Declined',
-        dot: 'bg-rose-400',
-        badge: 'bg-rose-50 text-rose-800 border border-rose-200',
+        dot: 'bg-danger-400',
+        badge: 'bg-danger-50 text-danger-800 border border-danger-200',
       };
     case 'maybe':
       return {
         label: 'Maybe',
-        dot: 'bg-amber-400',
-        badge: 'bg-amber-50 text-amber-800 border border-amber-200',
+        dot: 'bg-warn-400',
+        badge: 'bg-warn-50 text-warn-800 border border-warn-200',
       };
     default:
       return {
@@ -148,7 +158,12 @@ export function pickNextScheduleBlock(
  * guest previously collapsed it.
  */
 export function GuestHubCard({ data }: { data: GuestHubData }) {
-  const { firstName, displayName, rsvpStatus, tableLabel, mealPreference, dietaryRestrictions, nextScheduleBlock, slug, isLimitedPlusOne } = data;
+  const { firstName, displayName, rsvpStatus, tableLabel, mealPreference, dietaryRestrictions, nextScheduleBlock, slug, isLimitedPlusOne, arrived } = data;
+  // Day-of arrival: once the guest has checked in at the door AND has a seat,
+  // the seat tile greets them by name with a gentle bloom instead of the
+  // neutral "Your seat" copy. Needs both — a checked-in guest with no assigned
+  // table still gets the normal "not yet assigned" tile.
+  const showArrival = arrived && Boolean(tableLabel);
   const rsvp = rsvpMeta(rsvpStatus);
   const meal = formatMeal(mealPreference);
   const restrictions = (dietaryRestrictions ?? '').trim();
@@ -187,7 +202,7 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
               <span className="font-serif text-base italic leading-snug text-ink">
                 Hi again, {firstName}.
               </span>
-              <span className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
+              <span className="mt-0.5 font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
                 Your invitation summary
               </span>
             </div>
@@ -213,7 +228,7 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {/* RSVP status */}
             <div className="flex flex-col gap-1 rounded-xl border border-ink/8 bg-cream p-3.5">
-              <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-ink/45">
+              <span className="font-mono text-xs uppercase tracking-[0.18em] text-ink/45">
                 RSVP
               </span>
               <span className="flex items-center gap-1.5 text-sm font-medium text-ink">
@@ -221,36 +236,55 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
                 {rsvp.label}
               </span>
               {rsvpStatus === 'attending' ? (
-                <span className="mt-0.5 text-[11px] text-emerald-700">
+                <span className="mt-0.5 text-xs text-success-700">
                   Your place is reserved.
                 </span>
               ) : rsvpStatus === 'pending' ? (
-                <span className="mt-0.5 text-[11px] text-amber-700">
+                <span className="mt-0.5 text-xs text-warn-700">
                   Please confirm you&apos;re coming.
                 </span>
               ) : null}
             </div>
 
-            {/* Table assignment */}
-            <div className="flex flex-col gap-1 rounded-xl border border-ink/8 bg-cream p-3.5">
-              <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-ink/45">
-                Your seat
+            {/* Table assignment — blooms into a warm arrival greeting once the
+                guest has checked in at the door (showArrival). The CSS keyframe
+                is frozen by the global prefers-reduced-motion block. */}
+            <div
+              className={`flex flex-col gap-1 rounded-xl border p-3.5 ${
+                showArrival
+                  ? 'sn-arrival-bloom border-champagne-gold/40 bg-gradient-to-br from-cream to-champagne-gold/10'
+                  : 'border-ink/8 bg-cream'
+              }`}
+            >
+              <span className="font-mono text-xs uppercase tracking-[0.18em] text-ink/45">
+                {showArrival ? 'You’ve arrived' : 'Your seat'}
               </span>
-              <span className="flex items-center gap-1.5 text-sm font-medium text-ink">
-                <MapPin aria-hidden className="h-4 w-4 shrink-0 text-ink/40" strokeWidth={1.5} />
-                {tableLabel ?? (
-                  <span className="text-ink/50">Not yet assigned</span>
+              <span className="flex items-center gap-1.5 text-ink">
+                {showArrival ? (
+                  <PartyPopper aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
+                ) : (
+                  <MapPin aria-hidden className="h-4 w-4 shrink-0 text-ink/40" strokeWidth={1.5} />
+                )}
+                {tableLabel ? (
+                  <span className="font-serif text-lg italic leading-tight">{tableLabel}</span>
+                ) : (
+                  <span className="text-sm font-medium text-ink/50">Not yet assigned</span>
                 )}
               </span>
+              {showArrival ? (
+                <span className="mt-0.5 text-xs text-emerald-700">
+                  Welcome, {firstName} — you&rsquo;re checked in.
+                </span>
+              ) : null}
               {tableLabel ? (
                 <Link
                   href={`/${slug}/find-my-table`}
-                  className="mt-0.5 text-[11px] text-terracotta underline-offset-2 hover:underline"
+                  className="mt-0.5 text-xs text-terracotta underline-offset-2 hover:underline"
                 >
                   See venue map →
                 </Link>
               ) : (
-                <span className="mt-0.5 text-[11px] text-ink/45">
+                <span className="mt-0.5 text-xs text-ink/45">
                   The couple will assign seats closer to the date.
                 </span>
               )}
@@ -258,7 +292,7 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
 
             {/* Meal + dietary */}
             <div className="flex flex-col gap-1 rounded-xl border border-ink/8 bg-cream p-3.5">
-              <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-ink/45">
+              <span className="font-mono text-xs uppercase tracking-[0.18em] text-ink/45">
                 Meal
               </span>
               <span className="flex items-center gap-1.5 text-sm font-medium text-ink">
@@ -266,7 +300,7 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
                 {meal ?? <span className="text-ink/50">No preference set</span>}
               </span>
               {restrictions ? (
-                <span className="mt-0.5 text-[11px] text-ink/60">
+                <span className="mt-0.5 text-xs text-ink/60">
                   Notes: {restrictions}
                 </span>
               ) : null}
@@ -282,10 +316,10 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
                 strokeWidth={1.5}
               />
               <div className="min-w-0">
-                <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-ink/50">
+                <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/50">
                   Coming up
                 </p>
-                <p className="mt-0.5 text-sm font-medium text-ink">
+                <p className="mt-0.5 font-serif text-base italic leading-snug text-ink">
                   {nextScheduleBlock.label}
                 </p>
                 <p className="mt-0.5 text-xs text-ink/60">
@@ -300,7 +334,7 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
 
           {/* Quick-nav links */}
           <div className="flex flex-wrap items-center gap-2 pt-0.5">
-            <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-ink/40">
+            <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/40">
               Quick links
             </span>
             <Link
@@ -321,7 +355,7 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
           </div>
 
           {/* Greeter */}
-          <p className="text-[11px] text-ink/40">
+          <p className="text-xs text-ink/40">
             Signed in as <span className="font-medium text-ink/60">{displayName}</span>
           </p>
         </div>

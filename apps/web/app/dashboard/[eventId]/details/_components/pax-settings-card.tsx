@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { CalendarClock } from 'lucide-react';
 import { updatePaxSettings } from '../../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 /**
  * Adaptive Pax Pricing couple settings (decisions #5 + #6). Two controls:
@@ -24,6 +25,7 @@ export function PaxSettingsCard({
   const [pending, start] = useTransition();
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const save = useSaveLoader();
 
   return (
     <form
@@ -34,7 +36,10 @@ export function PaxSettingsCard({
         setSaved(false);
         setErr(null);
         start(async () => {
-          const res = await updatePaxSettings(fd);
+          const res = await save.run(() => updatePaxSettings(fd), {
+            steps: ['Saving your settings'],
+            hint: 'Saving',
+          });
           if (res.ok) setSaved(true);
           else setErr(res.message);
         });
@@ -97,8 +102,8 @@ export function PaxSettingsCard({
         <button type="submit" className="button-primary" disabled={pending}>
           {pending ? 'Saving…' : 'Save'}
         </button>
-        {saved ? <span className="text-sm text-emerald-700">Saved.</span> : null}
-        {err ? <span className="text-sm text-rose-700">{err}</span> : null}
+        {saved ? <span className="text-sm text-success-700">Saved.</span> : null}
+        {err ? <span className="text-sm text-danger-700">{err}</span> : null}
       </div>
     </form>
   );

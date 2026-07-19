@@ -67,9 +67,9 @@ export const INVITE_PILL_COPY: Record<VendorPillVariant, string> = {
 };
 
 export const INVITE_PILL_TONE: Record<VendorPillVariant, string> = {
-  on_platform: 'bg-emerald-100 text-emerald-800',
-  invite_sent: 'bg-amber-100 text-amber-900',
-  invite_declined: 'bg-rose-100 text-rose-800',
+  on_platform: 'bg-success-100 text-success-800',
+  invite_sent: 'bg-warn-100 text-warn-900',
+  invite_declined: 'bg-danger-100 text-danger-800',
   invite_expired: 'bg-ink/5 text-ink/55',
   invite_revoked: 'bg-ink/5 text-ink/55',
   manual_entry: 'bg-ink/5 text-ink/55 ring-1 ring-inset ring-dashed ring-ink/15',

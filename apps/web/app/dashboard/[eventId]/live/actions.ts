@@ -66,3 +66,27 @@ export async function setWallMode(
   revalidatePath(`/dashboard/${clean}/live`);
   return { ok: true };
 }
+
+/**
+ * Toggle the Flash auto-wall gate for this event.
+ * When ON (default), clean Flash Kwentos are posted to the wall automatically
+ * after a 5-second delay. When OFF, Flash behaves like Story: goes to the
+ * couple review queue.
+ */
+export async function toggleFlashAutoWall(
+  eventId: string,
+  enabled: boolean,
+): Promise<ActionResult> {
+  const clean = eventId?.trim();
+  if (!clean) return { ok: false, error: 'missing_event' };
+  await requireCoupleOrCoordinator(clean);
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('events')
+    .update({ kwento_flash_auto_wall: enabled })
+    .eq('event_id', clean);
+  if (error) return { ok: false, error: error.message.slice(0, 80) };
+  revalidatePath(`/dashboard/${clean}/live`);
+  return { ok: true };
+}

@@ -29,7 +29,7 @@ import { TaxonomySearch, type TaxonomyOption } from './taxonomy-search';
  *
  * THEME: Clean Editorial `--m-*` marketing tokens (paper / ink / slate /
  * champagne-gold accent) so the hero reads as a premium-calm marketing band,
- * consistent with the homepage + /features + /for-vendors surfaces. The
+ * consistent with the homepage + /features + /vendors surfaces. The
  * `m-surface` wrapper swaps the font family to the marketing sans stack.
  */
 
@@ -116,6 +116,16 @@ export function ExploreSearchHero({
             ))}
           </div>
         ) : null}
+
+        <p className="mt-6 text-[13px] text-[color:var(--m-slate)]">
+          Not sure where to start?{' '}
+          <Link
+            href="/tour"
+            className="font-medium text-[color:var(--m-mulberry)] underline decoration-[color:var(--m-mulberry)]/30 underline-offset-2 transition-colors hover:decoration-[color:var(--m-mulberry)]"
+          >
+            Walk through a real wedding →
+          </Link>
+        </p>
       </div>
     </section>
   );

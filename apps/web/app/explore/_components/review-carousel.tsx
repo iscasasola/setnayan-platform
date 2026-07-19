@@ -128,7 +128,7 @@ function ReviewCard({ review }: { review: VendorReviewPreview }) {
         <span className="inline-flex items-center gap-1 font-mono text-[11px] text-ink">
           <Star
             aria-hidden
-            className="h-3 w-3 fill-amber-400 text-amber-500"
+            className="h-3 w-3 fill-warn-400 text-warn-500"
             strokeWidth={1.75}
           />
           {formatStarRating(review.rating_overall)}

@@ -1,4 +1,5 @@
 import 'server-only';
+import { resolveTikTokAccessToken } from '@/lib/integration-config';
 
 /**
  * apps/web/lib/social/tiktok.ts
@@ -68,8 +69,8 @@ export type TikTokPostResult =
  * auto-post adapter is wired but INERT until this is true — and even then the
  * client must be audited for the PUBLIC_TO_EVERYONE post to clear.
  */
-export function isTikTokConfigured(): boolean {
-  return Boolean(process.env.TIKTOK_ACCESS_TOKEN);
+export async function isTikTokConfigured(): Promise<boolean> {
+  return Boolean(await resolveTikTokAccessToken());
 }
 
 /**
@@ -87,7 +88,7 @@ export async function postPhotoToTikTok({
   title: string;
   caption: string;
 }): Promise<TikTokPostResult> {
-  const accessToken = process.env.TIKTOK_ACCESS_TOKEN;
+  const accessToken = await resolveTikTokAccessToken();
   if (!accessToken) {
     return { ok: false, error: 'TikTok is not configured (TIKTOK_ACCESS_TOKEN missing).' };
   }

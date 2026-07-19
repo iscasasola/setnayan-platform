@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Pax changes · Admin' };
 
 /**
@@ -38,6 +39,7 @@ const peso = (n: number | null) =>
   n == null ? '—' : `₱${Math.round(n).toLocaleString('en-PH')}`;
 
 export default async function AdminPaxChangesPage() {
+  await requireAdmin();
   const admin = createAdminClient();
 
   const { data, error } = await admin
@@ -93,7 +95,7 @@ export default async function AdminPaxChangesPage() {
       </header>
 
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-ink/15 bg-cream p-8 text-center text-ink/60">
+        <div className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center text-ink/60">
           No pax-driven cost changes yet.
         </div>
       ) : (
@@ -127,7 +129,7 @@ export default async function AdminPaxChangesPage() {
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         r.action === 'accept'
-                          ? 'bg-emerald-100 text-emerald-800'
+                          ? 'bg-success-100 text-success-800'
                           : 'bg-ink/10 text-ink/70'
                       }`}
                     >

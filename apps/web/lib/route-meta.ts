@@ -34,7 +34,6 @@ import {
   CalendarDays,
   Camera,
   CheckCheck,
-  Church,
   CircleUser,
   ClipboardList,
   Coins,
@@ -69,7 +68,6 @@ import {
   Music,
   Newspaper,
   Palette,
-  PartyPopper,
   Pencil,
   PiggyBank,
   Printer,
@@ -85,7 +83,6 @@ import {
   ShieldCheck,
   Shirt,
   ShoppingBag,
-  SlidersHorizontal,
   Sparkles,
   Star,
   Tag,
@@ -121,7 +118,9 @@ export const routeMeta = {
     directory: { icon: Users, label: 'Directory' },
     discountCodes: { icon: Tag, label: 'Discount codes' },
     disputes: { icon: Shield, label: 'Disputes' },
-    eventTypes: { icon: PartyPopper, label: 'Event Types' },
+    // eventTypes REMOVED 2026-07-03 — /admin/event-types retired to a
+    // redirect(/admin/taxonomy?view=vocab-event); the event-type roster folded
+    // into the Taxonomy Studio's Vocabularies → Event types rail.
     events: { icon: CalendarDays, label: 'Events' },
     forceMajeure: { icon: AlertOctagon, label: 'Force majeure' },
     funnels: { icon: BarChart3, label: 'Funnels' },
@@ -146,7 +145,8 @@ export const routeMeta = {
     realStories: { icon: Newspaper, label: 'Real Stories' },
     recaps: { icon: Images, label: 'Recaps' },
     receipts: { icon: Receipt, label: 'Receipts' },
-    refinements: { icon: SlidersHorizontal, label: 'Refinements' },
+    // 'refinements' route-meta REMOVED 2026-07-03 — mirrors routes.ts; the
+    // /admin/refinements route was retired to a redirect(/admin/taxonomy).
     reviews: { icon: Star, label: 'Reviews' },
     settings: {
       index: { icon: Settings, label: 'Settings' },
@@ -166,7 +166,8 @@ export const routeMeta = {
     verify: { icon: BadgeCheck, label: 'Verify' },
     website: { icon: Globe, label: 'Website' },
     weddingTraditions: { icon: BookOpen, label: 'Wedding traditions' },
-    weddingTypes: { icon: Church, label: 'Wedding types' },
+    // weddingTypes REMOVED 2026-07-03 — /admin/wedding-types retired to a
+    // redirect(/admin/taxonomy?view=vocab-faith); folded into the Taxonomy Studio.
     work: { icon: ListChecks, label: 'Work' },
   },
   api: {
@@ -267,7 +268,6 @@ export const routeMeta = {
     proposals: { icon: FileText, label: 'Proposals' },
     realStories: { icon: Sparkles, label: 'Real Stories' },
     recaps: { icon: Images, label: 'Recaps' },
-    redeemCode: { icon: Tag, label: 'Redeem code' },
     repertoire: { icon: Music, label: 'Repertoire' },
     reviews: { icon: Star, label: 'Reviews' },
     services: { icon: ClipboardList, label: 'Services' },

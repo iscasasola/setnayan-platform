@@ -23,12 +23,20 @@ import {
   type CeremonyType,
   type MeaningfulDate,
 } from '@/lib/auspicious-date';
+import { isChineseWedding } from '@/lib/chinese-wedding';
+import { ChineseSpecialistNudge } from './chinese-specialist-nudge';
 
 type Props = {
   /** YYYY-MM-DD */
   date: string;
   /** Host's ceremony type from events.ceremony_type, null when not yet set. */
   ceremonyType: CeremonyType | null;
+  /**
+   * Host's secondary ceremony type from events.secondary_ceremony_type. Carries
+   * the common Tsinoy "church-primary + Chinese-overlay" case. Together with
+   * ceremonyType this drives the Chinese advisory layer via isChineseWedding().
+   */
+  secondaryCeremonyType?: string | null;
   /** Optional: meaningful dates flagged by the host — surfaces personal resonance. */
   meaningfulDates?: MeaningfulDate[];
   /**
@@ -45,6 +53,7 @@ type Props = {
 export function AuspiciousCard({
   date,
   ceremonyType,
+  secondaryCeremonyType = null,
   meaningfulDates = [],
   preComputedReasons,
   variant = 'full',
@@ -58,11 +67,19 @@ export function AuspiciousCard({
     return null;
   }
 
+  // Chinese tradition applies as the primary rite OR as the secondary/overlay
+  // rite (the common Tsinoy church-primary case). Derived from the shared
+  // predicate so the advisory nudge + CTA below fire for both.
+  const chineseTradition = isChineseWedding({
+    ceremony_type: ceremonyType,
+    secondary_ceremony_type: secondaryCeremonyType,
+  });
+
   const dateObj = new Date(year, month - 1, day);
   const reasons =
     preComputedReasons && preComputedReasons.length > 0
       ? preComputedReasons
-      : computeAuspiciousReasons(dateObj, ceremonyType, meaningfulDates);
+      : computeAuspiciousReasons(dateObj, ceremonyType, meaningfulDates, chineseTradition);
 
   const prettyDate = formatAuspiciousDate(date);
   const dow = dayOfWeekLabel(dateObj);
@@ -138,6 +155,12 @@ export function AuspiciousCard({
           Every date holds its own meaning — this one is yours to shape.
         </p>
       )}
+
+      {chineseTradition ? <ChineseSpecialistNudge /> : null}
     </article>
   );
 }
+
+// ChineseSpecialistNudge now lives in ./chinese-specialist-nudge so the
+// date-selection page (and any future surface) can mount it directly — this
+// card is not the only place the advisory appears.

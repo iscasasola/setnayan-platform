@@ -34,14 +34,77 @@ export type GuestRole =
   | 'flower_girl'
   | 'officiant'
   | 'reader_lector'
-  | 'soloist_musician';
+  | 'soloist_musician'
+  // Generic (non-wedding) roles — iteration 0053 Phase 2. Additive enum values
+  // (migration 20270220984328) for the GENERIC profile's role set. All
+  // multi-instance (no singleton index). Only surface for non-wedding events.
+  | 'host'
+  | 'vip'
+  | 'family'
+  | 'helper'
+  // Muslim wedding Nikah roles — the structural participants of the Islamic
+  // marriage contract. Enum values added via migration 20270308910536. These
+  // surface ONLY for muslim weddings via the ceremony-aware MUSLIM_ROLE_SET
+  // (lib/role-sets.ts). wali/imam/wakil are at-most-one-per-event (partial
+  // unique indexes, migration 20270308998862); witness is multi-instance (a
+  // nikah needs at least two).
+  | 'wali'
+  | 'witness'
+  | 'imam'
+  | 'wakil';
 
 /**
  * Roles that may exist at most once per event. Enforced at the DB layer
  * via partial unique indexes (migration 20260531010000); UI uses this
  * list to filter the role dropdown.
  */
-export const SINGLETON_GUEST_ROLES: ReadonlyArray<GuestRole> = ['bride', 'groom'];
+export const SINGLETON_GUEST_ROLES: ReadonlyArray<GuestRole> = [
+  'bride',
+  'groom',
+  // Muslim Nikah singletons (migration 20270308998862). witness is NOT here — a
+  // nikah needs at least two, which a one-per-event guard would forbid.
+  'wali',
+  'imam',
+  'wakil',
+];
+
+// What a guest's 3D seat-plan avatar wears. 'neutral' is the stored default; the
+// renderer treats it as "unset" and falls back to a role-implied guess (below).
+export type GuestAttire = 'gown' | 'suit' | 'neutral';
+
+// Role → attire for the gendered wedding-party roles, so the entourage dresses
+// itself without the couple tagging every member. Everyone else (generic guests,
+// ungendered sponsors/family) stays 'neutral' until the couple sets it. Kept
+// deliberately conservative: only roles whose gender is unambiguous are mapped.
+const ATTIRE_BY_ROLE: Partial<Record<GuestRole, GuestAttire>> = {
+  bride: 'gown',
+  maid_of_honor: 'gown',
+  matron_of_honor: 'gown',
+  bridesmaid: 'gown',
+  flower_girl: 'gown',
+  groom: 'suit',
+  best_man: 'suit',
+  groomsman: 'suit',
+  ring_bearer: 'suit',
+  bible_bearer: 'suit',
+  coin_bearer: 'suit',
+  // Muslim Nikah principals whose role is gendered male (the wali is the
+  // bride's male guardian; the imam/qadi and the groom's wakil are male).
+  // witness is left 'neutral' (a witness may be of any gender).
+  wali: 'suit',
+  imam: 'suit',
+  wakil: 'suit',
+};
+
+/**
+ * Resolve what a guest wears: an explicit couple-set value wins; otherwise a
+ * gendered wedding-party role implies it; otherwise 'neutral'. Pure + shared so
+ * the 3D lab and any future surface (print, day-of) dress guests identically.
+ */
+export function resolveGuestAttire(role: GuestRole, attire: GuestAttire): GuestAttire {
+  if (attire !== 'neutral') return attire;
+  return ATTIRE_BY_ROLE[role] ?? 'neutral';
+}
 
 export type GuestSide = 'bride' | 'groom' | 'both';
 export type GuestGroupCategory =
@@ -90,6 +153,7 @@ export type GuestRow = {
   dietary_restrictions: string | null;
   photo_consent: boolean;
   faceblock_enabled: boolean;
+  face_recognition_excluded: boolean;
   photo_url: string | null;
   photo_source: GuestPhotoSource | null;
   photo_updated_at: string | null;
@@ -101,6 +165,14 @@ export type GuestRow = {
   // Explicit seating-priority tier override (1–4); null = derive from role +
   // group via lib/seating guestTier(). Written by the seat-plan editor.
   seating_priority: number | null;
+  // What this guest wears on their 3D seat-plan avatar (see resolveGuestAttire).
+  attire: GuestAttire;
+  // Chinese tea-ceremony serving order — within-side serve order (lower serves
+  // first; null = unset, falls back to role importance) + a free-text relation
+  // label ("Grandparents", "Eldest Uncle"). Both optional · migration
+  // 20270309030000_guest_seniority.sql.
+  seniority_rank: number | null;
+  relation: string | null;
   created_at: string;
 };
 
@@ -144,6 +216,10 @@ const INNER_CIRCLE_ROLES: ReadonlySet<GuestRole> = new Set([
   'bridesmaid',
   'groomsman',
   'principal_sponsor',
+  // Muslim Nikah principals are inner-circle (invited to every block).
+  'wali',
+  'imam',
+  'wakil',
 ]);
 
 /**
@@ -199,7 +275,47 @@ export const ROLE_LABELS: Record<GuestRole, string> = {
   officiant: 'Officiant',
   reader_lector: 'Reader / Lector',
   soloist_musician: 'Soloist / Musician',
+  // Generic (non-wedding) roles — iteration 0053 Phase 2.
+  host: 'Host',
+  vip: 'VIP',
+  family: 'Family',
+  helper: 'Helper',
+  // Muslim wedding Nikah roles.
+  wali: "Wali (Bride's Guardian)",
+  witness: 'Witness (Shahid)',
+  imam: 'Imam / Qadi (Officiant)',
+  wakil: "Wakil (Groom's Proxy)",
 };
+
+// --- Singleton-role messaging (one source for every guest write path) -------
+// bride/groom + the Muslim Nikah singletons (wali/imam/wakil) are one-per-event,
+// enforced both in the UI (SINGLETON_GUEST_ROLES) and at the DB layer (the
+// guests_one_<role>_per_event partial-unique indexes, which raise 23505). These
+// helpers keep the user-facing copy + the constraint-name detection in ONE
+// place, so adding a future singleton only touches SINGLETON_GUEST_ROLES +
+// SINGLETON_INDEX_RE — not a half-dozen drifting bride/groom ternaries.
+
+/** Copy when a couple tries to ADD a singleton role as a second/extra role. */
+export function singletonRoleConflictMessage(role: GuestRole): string {
+  return `${ROLE_LABELS[role]} can only be one person — change their primary role instead.`;
+}
+
+/** Copy when the DB blocks a duplicate singleton (a 23505 on its index). */
+export function singletonRoleDuplicateMessage(role: GuestRole): string {
+  return `There’s already a ${ROLE_LABELS[role]} in this event — change theirs first.`;
+}
+
+const SINGLETON_INDEX_RE = /guests_one_(bride|groom|wali|imam|wakil)_per_event/;
+
+/** Map a Postgres 23505 message on a guests_one_<role>_per_event index back to
+ *  the offending role; null if the message isn't one of those constraints. */
+export function singletonRoleFromIndexError(
+  message: string | null | undefined,
+): GuestRole | null {
+  if (!message) return null;
+  const m = SINGLETON_INDEX_RE.exec(message);
+  return m ? (m[1] as GuestRole) : null;
+}
 
 export const SIDE_LABELS: Record<GuestSide, string> = {
   bride: "Bride's side",
@@ -233,7 +349,7 @@ export type GuestStats = {
 };
 
 const GUEST_FIELDS =
-  'guest_id,public_id,event_id,first_name,last_name,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,qr_token,custom_tags,seating_priority,created_at';
+  'guest_id,public_id,event_id,first_name,last_name,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,face_recognition_excluded,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,qr_token,custom_tags,seating_priority,attire,seniority_rank,relation,created_at';
 
 // Bride & groom are the foundation of the event — always Attending, never
 // Pending (owner directive 2026-06-03). The DB trigger from migration
@@ -288,6 +404,39 @@ export async function fetchGuestsByEvent(
   }
 
   return ((data ?? []) as unknown as GuestRow[]).map(coupleAttending);
+}
+
+/**
+ * Lean guest head-count for the event — powers the sidebar Guests badge. Uses a
+ * HEAD count (no rows transferred) and excludes soft-deleted guests, mirroring
+ * `fetchGuestsByEvent`'s `deleted_at IS NULL` filter. Fully fail-soft: any error
+ * (RLS denial, schema drift, network) returns `null` so the chrome simply omits
+ * the badge rather than crashing the layout — same graceful-degrade contract as
+ * every other layout chrome fetcher.
+ */
+export async function countGuestsByEvent(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<number | null> {
+  try {
+    const { count, error } = await supabase
+      .from('guests')
+      .select('guest_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .is('deleted_at', null);
+    if (error) {
+      logQueryError(
+        'countGuestsByEvent',
+        error,
+        { event_id: eventId, missing_relation_match: isMissingRelationError(error) },
+        'graceful_degrade',
+      );
+      return null;
+    }
+    return count ?? 0;
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchGuestById(
@@ -387,6 +536,17 @@ export type PaxProgress = {
   overBy: number;
   /** Guests still needed to reach the floor (0 once met). */
   remaining: number;
+  // ── Unassigned-pax pool (S1 · smart seat-plan guest-reactive, 2026-07-08) ──
+  // A target-vs-listed view: the pool starts full at event creation (0 guests →
+  // unassigned = target) and fills as guests are LISTED (any non-declined guest),
+  // independent of the attending-based meter above. Display-only — pricing and
+  // final_pax stay on the attending basis (owner-locked headcount_basis).
+  /** Everyone still on the list (total − declined) — what fills the pool. */
+  listed: number;
+  /** Seats left toward the target: max(0, target − listed). Full at 0 guests. */
+  unassigned: number;
+  /** Listed guests above the target (0 until the list passes the floor). */
+  overListed: number;
 };
 
 // Progress of the live headcount toward the couple's minimum pax (the pricing
@@ -402,6 +562,10 @@ export function computePaxProgress(
   if (!estimatedPax || estimatedPax <= 0) return null;
   const headcount = headcountForBasis(stats, basis);
   const livePax = Math.max(estimatedPax, headcount);
+  // The pool always counts everyone still on the list (non-declined), regardless
+  // of the display basis, so "list a guest → fills the pool" holds even when the
+  // meter above is showing sure-attending only.
+  const listed = headcountForBasis(stats, 'invited');
   return {
     target: estimatedPax,
     headcount,
@@ -410,6 +574,9 @@ export function computePaxProgress(
     exceeded: headcount > estimatedPax,
     overBy: Math.max(0, headcount - estimatedPax),
     remaining: Math.max(0, estimatedPax - headcount),
+    listed,
+    unassigned: Math.max(0, estimatedPax - listed),
+    overListed: Math.max(0, listed - estimatedPax),
   };
 }
 
@@ -508,7 +675,7 @@ export const TEAM_SIDE_LABELS: Record<GuestGroupTeamSide, string> = {
 // the sidebar group row tint, the per-guest GroupChipList chip on the
 // table, and any future team_side chrome.
 export const TEAM_SIDE_CHIP: Record<GuestGroupTeamSide, string> = {
-  bride: 'bg-rose-100 text-rose-800 ring-1 ring-rose-200',
+  bride: 'bg-danger-100 text-danger-800 ring-1 ring-danger-200',
   groom: 'bg-sky-100 text-sky-800 ring-1 ring-sky-200',
   // Amethyst (purple) — distinct from bride's rose + groom's sky.
   // Replaces the prior amber treatment so "Both sides" reads as a

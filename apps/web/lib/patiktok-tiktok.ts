@@ -1,10 +1,13 @@
 /**
  * Iteration 0017 Phase 3 — TikTok OAuth helpers (server-side only).
  *
- * Implements the OAuth 2.0 authorization-code flow against TikTok's v2 API
- * for Personal-tier Patiktok couples (₱1,999/day). Setnayan-tier couples
- * (₱999/day) post to @SetnayanWeddings using platform-owned credentials
- * held separately on the worker; this module does not handle that path.
+ * Patiktok is a single admin-managed SKU (PATIKTOK_COMPILER); there is no
+ * per-day or per-tier pricing axis. This module handles only the per-event
+ * (path-A) OAuth 2.0 authorization-code grant against TikTok's v2 API, which
+ * lets a couple connect their OWN TikTok account so a rendered compilation can
+ * be auto-posted there. If a worker-side refresh token is ever used to post to
+ * a Setnayan-owned handle instead, that credential is managed worker-side and
+ * does not flow through this module.
  *
  * TikTok endpoints (per developers.tiktok.com/doc/oauth-user-access-token-management):
  *   AUTHORIZE  https://www.tiktok.com/v2/auth/authorize/
@@ -19,14 +22,12 @@
  *                              on the TikTok app (e.g.
  *                              https://www.setnayan.com/api/tiktok/auth/callback)
  *
- * Setnayan-tier (master handle) credentials are managed separately on the
- * worker side and do not flow through this module:
- *   TIKTOK_SETNAYAN_REFRESH_TOKEN — long-lived refresh for @SetnayanWeddings
- *
  * THIS MODULE IS SERVER-SIDE ONLY. Never import from a client component.
  */
 
 import 'server-only';
+import { resolveOAuthClientConfig } from '@/lib/integration-config';
+import { OAUTH_SPECS } from '@/lib/integrations/registry';
 
 const TIKTOK_AUTHORIZE_URL = 'https://www.tiktok.com/v2/auth/authorize/';
 const TIKTOK_TOKEN_URL = 'https://open.tiktokapis.com/v2/oauth/token/';
@@ -35,24 +36,25 @@ const TIKTOK_USERINFO_URL = 'https://open.tiktokapis.com/v2/user/info/';
 const SPEC_SCOPES = ['user.info.basic', 'video.upload', 'video.publish'] as const;
 
 export type PatiktokTiktokConfigStatus =
-  | { ready: true; clientKey: string; redirectUri: string }
+  | { ready: true; clientKey: string; clientSecret: string; redirectUri: string }
   | { ready: false; missing: ReadonlyArray<string> };
 
 /**
- * Read the TikTok OAuth config from env. Returns a status object that lets
- * routes / UI surface a clear "TikTok not yet configured — owner action
- * required" message rather than throwing at request time.
+ * Read the TikTok OAuth config (DB-first via the Integration Activation Console,
+ * env-fallback). Byte-identical when the DB is empty (resolves to TIKTOK_* env).
+ * The ready shape now carries `clientSecret` so the token-exchange callback uses
+ * the RESOLVED secret instead of re-reading process.env directly.
  */
-export function getTiktokOAuthConfig(): PatiktokTiktokConfigStatus {
-  const clientKey = process.env.TIKTOK_CLIENT_KEY ?? '';
-  const clientSecret = process.env.TIKTOK_CLIENT_SECRET ?? '';
-  const redirectUri = process.env.TIKTOK_OAUTH_REDIRECT_URI ?? '';
+export async function getTiktokOAuthConfig(): Promise<PatiktokTiktokConfigStatus> {
+  // OAUTH_SPECS.tiktok maps clientId→clientKey for TikTok's naming.
+  const { clientId: clientKey, clientSecret, redirectUri } =
+    await resolveOAuthClientConfig(OAUTH_SPECS.tiktok);
   const missing: string[] = [];
   if (!clientKey) missing.push('TIKTOK_CLIENT_KEY');
   if (!clientSecret) missing.push('TIKTOK_CLIENT_SECRET');
   if (!redirectUri) missing.push('TIKTOK_OAUTH_REDIRECT_URI');
   if (missing.length > 0) return { ready: false, missing };
-  return { ready: true, clientKey, redirectUri };
+  return { ready: true, clientKey, clientSecret, redirectUri };
 }
 
 export function buildAuthorizeUrl(input: {
@@ -162,10 +164,15 @@ export async function fetchTiktokUserInfo(
  * sequence). Phase 2's render worker calls this once the compilation MP4 is
  * available in R2.
  *
+ * NOTE: `tier` here is NOT a pricing tier (Patiktok is one flat SKU). It only
+ * selects the auto-post TARGET ACCOUNT — `'personal'` posts to the couple's own
+ * TikTok via the path-A grant; `'setnayan'` posts to a Setnayan-owned master
+ * handle.
+ *
  * TODO(0017-phase3): wire the real chunked upload flow against the TikTok
- *   Content Posting API. For Personal tier, reads the per-event access_token
- *   from `patiktok_oauth_grants` (refreshing if expired). For Setnayan tier,
- *   uses TIKTOK_SETNAYAN_REFRESH_TOKEN on the master account.
+ *   Content Posting API. For the `'personal'` target, reads the per-event
+ *   access_token from `patiktok_oauth_grants` (refreshing if expired). For the
+ *   `'setnayan'` target, uses a worker-side refresh token on the master account.
  */
 export async function publishPatiktokCompilation(_input: {
   tier: 'setnayan' | 'personal';

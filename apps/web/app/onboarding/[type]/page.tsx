@@ -1,0 +1,109 @@
+/**
+ * /onboarding/[type] — the GENERIC (non-wedding) onboarding flow (0053 Phase 3,
+ * PR2). A thin Server Component; all interactivity lives in the GenericOnboarding
+ * client shell. Wedding keeps its own dedicated wizard at /onboarding/wedding —
+ * this route refuses 'wedding'.
+ *
+ * DARK until go-live: the whole route 404s unless NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED
+ * is on (the owner's go-live switch). Until then the create-event picker keeps its
+ * inline name-form for non-wedding types (PR3 wires the picker to this route).
+ */
+import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+import { safeNext } from '@/lib/auth';
+import { createClient } from '@/lib/supabase/server';
+import { getCreatableEventTypes } from '@/lib/event-types-db';
+import { resolveProfile } from '@/lib/event-type-profile';
+import { resolveOnboardingFlow } from '@/lib/onboarding/flow-config';
+import { getOnboardingSpec } from '@/lib/onboarding/onboarding-db';
+import { getOnboardingTiles } from '@/lib/onboarding-refinements';
+import { experienceQuizEnabled } from '@/lib/experience-quiz';
+import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
+import { onboardingV2BriefEnabled } from '@/lib/onboarding-v2-brief-flag';
+import { getSelfPersonalization } from '@/lib/self-personalization';
+import { deriveOnboardingPrefill, EMPTY_PREFILL } from '@/lib/onboarding/prefill';
+import { GenericOnboarding } from './_components/generic-onboarding';
+
+export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = {
+  title: 'Plan your event · Setnayan',
+  description:
+    "A few quick questions and we'll shape a plan made for your celebration. Free to start, always.",
+  robots: { index: false, follow: false },
+};
+
+export default async function GenericOnboardingPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ type: string }>;
+  searchParams: Promise<{ resume?: string; next?: string }>;
+}) {
+  const { type } = await params;
+  const sp = await searchParams;
+  // Optional vendor-invite return path (2026-06-30): a 0-event couple sent here
+  // from /vendor-invite/[slug] to create their first (non-wedding) event is
+  // returned to it after the commit so they can finish shortlisting the vendor.
+  // The create-event picker threads `next` via withNext() (#2452); the wedding
+  // route already honors it — this closes the gap for the generic flow.
+  // safeNext() keeps it to internal paths only.
+  const nextPath = safeNext(sp.next);
+
+  // Dark until the experience-quiz flag is flipped on (the go-live switch).
+  if (!experienceQuizEnabled()) notFound();
+
+  // Validate the type against the LIVE vocab: must be creatable (active AND
+  // enabled) and NOT 'wedding'. events.event_type is a FK to event_type_vocab,
+  // so this guards the commit's FK before we ever insert.
+  const creatable = await getCreatableEventTypes();
+  const row = creatable.find((t) => t.key === type);
+  if (!row || type === 'wedding') notFound();
+
+  const profile = await resolveProfile(type);
+  const flow = resolveOnboardingFlow(profile);
+
+  const supabase = await createClient();
+  // The type's applicable taxonomy categories (PR3) drive the experience-quiz's
+  // derived starter plan; getOnboardingTiles scopes to the type + degrades to [].
+  // getOnboardingSpec resolves the admin-editable content (questions / plan /
+  // reveal / intro) for this type — DB override OR the TS default (0053 2026-06-28).
+  const [{ data: userData }, tiles, spec] = await Promise.all([
+    supabase.auth.getUser(),
+    getOnboardingTiles(type),
+    getOnboardingSpec(type, flow.personaPackKey),
+  ]);
+  const user = userData.user;
+
+  // Profile prefill (onboarding_v2_brief · owner 2026-07-13): read the four
+  // self-consented facts (religion/civil status/birthdate/gender) and derive the
+  // per-type answers they already settle, so onboarding pre-fills those and only
+  // asks what's missing. Flag OFF (default) → EMPTY_PREFILL → the flow is
+  // byte-identical. SELF facts only; RLS scopes the read to this user.
+  const prefill = onboardingV2BriefEnabled()
+    ? deriveOnboardingPrefill(type, await getSelfPersonalization())
+    : EMPTY_PREFILL;
+
+  return (
+    <GenericOnboarding
+      eventType={type}
+      label={row.label}
+      emoji={row.emoji ?? '🎉'}
+      organizerNoun={profile.terminology.organizerNoun}
+      eventWord={profile.terminology.eventWord}
+      flowKey={flow.flowKey}
+      personaPackKey={flow.personaPackKey}
+      tiles={tiles}
+      intro={spec.intro}
+      questions={spec.questions}
+      personaPack={spec.personaPack}
+      revealByPersona={spec.revealByPersona}
+      quizAxes={spec.axes}
+      authed={!!user}
+      anonEnabled={anonOnboardingEnabled()}
+      resume={sp.resume === '1'}
+      nextPath={nextPath !== '/' ? nextPath : null}
+      prefill={prefill}
+    />
+  );
+}

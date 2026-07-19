@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, ExternalLink, Trash2, Send } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { FileUpload } from '@/app/_components/file-upload';
+import { CopyButton } from '@/app/_components/copy-button';
 import { createClient } from '@/lib/supabase/server';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
@@ -117,7 +118,7 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
       {flash ? (
         <p
           role="status"
-          className="rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+          className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
         >
           {flash}
         </p>
@@ -144,9 +145,9 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
       {resubmitRequested ? (
         <div
           role="alert"
-          className="space-y-2 rounded-2xl border border-amber-300/60 bg-amber-50 p-5 text-amber-900"
+          className="space-y-2 rounded-2xl border border-warn-300/60 bg-warn-50 p-5 text-warn-900"
         >
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-amber-900/70">
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-warn-900/70">
             Please upload your payment again
           </p>
           <p className="text-sm">
@@ -154,29 +155,27 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
             Here&rsquo;s what the Setnayan team flagged:
           </p>
           {resubmitRequested.notice ? (
-            <p className="whitespace-pre-wrap rounded-md bg-white/70 p-3 text-sm text-amber-900">
+            <p className="whitespace-pre-wrap rounded-md bg-white/70 p-3 text-sm text-warn-900">
               {resubmitRequested.notice}
             </p>
           ) : null}
-          <p className="text-xs text-amber-900/85">
+          <p className="text-xs text-warn-900/85">
             Use the &ldquo;Log a payment&rdquo; form below to send a corrected screenshot or
             reference number &mdash; you don&rsquo;t need to create a new order.
           </p>
           {resubmitRequested.reviewedAt ? (
-            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-amber-900/60">
+            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-warn-900/60">
               Requested {resubmitRequested.reviewedAt.slice(0, 10)}
             </p>
           ) : null}
         </div>
       ) : null}
 
-      <header className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+      <header className="sn-tile sn-reveal space-y-3 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
-            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-              Order {order.public_id}
-            </p>
-            <h1 className="text-xl font-semibold tracking-tight">
+            <p className="sn-eye">Order <span className="font-mono normal-case">{order.public_id}</span></p>
+            <h1 className="sn-sec text-xl">
               Reference{' '}
               <span className="font-mono text-terracotta-700">{order.reference_code}</span>
             </h1>
@@ -230,7 +229,7 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="order_id" value={orderId} />
             <SubmitButton
-              className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-rose-700 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-danger-700 disabled:opacity-60"
               pendingLabel="Cancelling…"
             >
               <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -241,14 +240,14 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
       </header>
 
       {receipt ? (
-        <section className="space-y-2 rounded-2xl border border-emerald-300/60 bg-emerald-50/60 p-5">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-emerald-900">
+        <section className="space-y-2 rounded-2xl border border-success-300/60 bg-success-50/60 p-5">
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-success-900">
             Transaction receipt issued
           </p>
-          <p className="text-base font-semibold text-emerald-900">
+          <p className="text-base font-semibold text-success-900">
             {formatReceiptNumber(receipt.or_serial, receipt.issued_at)}
           </p>
-          <p className="text-sm text-emerald-900/85">
+          <p className="text-sm text-success-900/85">
             App-issued transaction receipt &mdash; generated when payment was matched.
             Not a BIR Official Receipt; the BIR OR (where applicable) is issued by
             Setnayan separately. Open the transaction receipt below to print or save
@@ -258,7 +257,7 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
             href={`/receipts/${receipt.receipt_id}`}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-cream hover:bg-emerald-800"
+            className="inline-flex items-center gap-2 rounded-md bg-success-700 px-4 py-2 text-sm font-medium text-cream hover:bg-success-800"
           >
             <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Open receipt
@@ -266,76 +265,101 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
         </section>
       ) : null}
 
-      <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Payment instructions
-        </h2>
-        <ul className="list-inside list-disc space-y-1 text-sm text-ink/75">
-          <li>
-            Send <span className="font-mono">{formatPhp(totals.headlineTotal)}</span> via BDO
-            or GCash to the merchant account
-            {hasMerchantPaymentInfo(settings)
-              ? ' below.'
-              : ' (details emailed once your order is confirmed).'}
-          </li>
-          <li>
-            Include the reference code{' '}
-            <span className="font-mono text-terracotta-700">{order.reference_code}</span> in
-            the transfer notes so we can match your payment automatically.
-          </li>
-          <li>Take a screenshot of the receipt and log it below.</li>
-        </ul>
+      <section className="sn-tile space-y-4 p-5">
+        <h2 className="sn-eye">Payment instructions</h2>
+
+        {/* The two values a couple must get exactly right — amount + reference. */}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-ink/[0.02] px-4 py-3">
+            <div className="min-w-0">
+              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/50">
+                Amount to send
+              </p>
+              <p className="font-mono text-lg font-semibold text-ink">
+                {formatPhp(totals.headlineTotal)}
+              </p>
+            </div>
+            <CopyButton value={String(totals.headlineTotal)} label="Copy" />
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-terracotta/40 bg-terracotta/[0.06] px-4 py-3">
+            <div className="min-w-0">
+              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-terracotta-700">
+                Reference code
+              </p>
+              <p className="truncate font-mono text-lg font-semibold text-ink">
+                {order.reference_code}
+              </p>
+            </div>
+            <CopyButton value={order.reference_code} label="Copy" />
+          </div>
+        </div>
+        <p className="text-xs leading-relaxed text-ink/60">
+          Send the amount via BDO or GCash
+          {hasMerchantPaymentInfo(settings)
+            ? ' to the account below'
+            : ' (details emailed once your order is confirmed)'}
+          , include the{' '}
+          <span className="font-semibold text-ink">reference code</span> in your
+          transfer note so we can match it instantly, then take a screenshot and
+          log it below.
+        </p>
 
         {hasMerchantPaymentInfo(settings) ? (
-          <div className="grid gap-3 border-t border-ink/10 pt-3 sm:grid-cols-2">
+          <div className="grid gap-3 border-t border-ink/10 pt-4 sm:grid-cols-2">
             {settings.bdo_account_number || settings.bdo_qr_url ? (
-              <div className="space-y-2 rounded-md bg-ink/[0.03] p-3">
-                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-                  BDO bank transfer
-                </p>
+              <div className="sn-row space-y-2 p-4">
+                <p className="sn-eye">BDO bank transfer</p>
                 {settings.bdo_account_name ? (
                   <p className="text-sm font-medium text-ink">
                     {settings.bdo_account_name}
                   </p>
                 ) : null}
                 {settings.bdo_account_number ? (
-                  <p className="break-all font-mono text-sm text-ink">
-                    {settings.bdo_account_number}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="break-all font-mono text-sm text-ink">
+                      {settings.bdo_account_number}
+                    </p>
+                    <CopyButton value={settings.bdo_account_number} label="Copy" />
+                  </div>
                 ) : null}
                 {settings.bdo_qr_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={settings.bdo_qr_url}
-                    alt="BDO merchant QR"
-                    className="mt-2 h-40 w-40 rounded-md border border-ink/10 bg-cream object-contain"
-                  />
+                  <div className="mt-1 w-fit rounded-xl border border-ink/10 bg-white p-2.5 shadow-sm">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={settings.bdo_qr_url}
+                      alt="BDO merchant QR"
+                      className="h-40 w-40 rounded-lg object-contain"
+                    />
+                  </div>
                 ) : null}
               </div>
             ) : null}
 
             {settings.gcash_number || settings.gcash_qr_url ? (
-              <div className="space-y-2 rounded-md bg-ink/[0.03] p-3">
-                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-                  GCash
-                </p>
+              <div className="sn-row space-y-2 p-4">
+                <p className="sn-eye">GCash</p>
                 {settings.gcash_account_name ? (
                   <p className="text-sm font-medium text-ink">
                     {settings.gcash_account_name}
                   </p>
                 ) : null}
                 {settings.gcash_number ? (
-                  <p className="break-all font-mono text-sm text-ink">
-                    {settings.gcash_number}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="break-all font-mono text-sm text-ink">
+                      {settings.gcash_number}
+                    </p>
+                    <CopyButton value={settings.gcash_number} label="Copy" />
+                  </div>
                 ) : null}
                 {settings.gcash_qr_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={settings.gcash_qr_url}
-                    alt="GCash QR"
-                    className="mt-2 h-40 w-40 rounded-md border border-ink/10 bg-cream object-contain"
-                  />
+                  <div className="mt-1 w-fit rounded-xl border border-ink/10 bg-white p-2.5 shadow-sm">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={settings.gcash_qr_url}
+                      alt="GCash QR"
+                      className="h-40 w-40 rounded-lg object-contain"
+                    />
+                  </div>
                 ) : null}
               </div>
             ) : null}
@@ -344,10 +368,8 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
       </section>
 
       {canLogPayment ? (
-        <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Log a payment
-          </h2>
+        <section className="sn-tile space-y-3 p-5">
+          <h2 className="sn-eye">Log a payment</h2>
           <form
             action={logPayment}
             className="grid grid-cols-1 gap-3 sm:grid-cols-2"
@@ -369,6 +391,7 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
               <input
                 name="amount_php"
                 type="number"
+                inputMode="decimal"
                 min={0}
                 step="0.01"
                 required
@@ -404,7 +427,10 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
             </label>
             <div className="sm:col-span-2">
               <FileUpload
-                bucket="media"
+                // Privacy-critical: payment proofs are PRIVATE. Route to the
+                // private thread-files bucket (read only via short-lived presigned
+                // GETs) — never the public `media` bucket.
+                bucket="thread-files"
                 pathPrefix={`payments/${orderId}`}
                 name="screenshot_ref"
                 label="Screenshot"
@@ -434,12 +460,10 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
         </section>
       ) : null}
 
-      <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Payment log
-        </h2>
+      <section className="sn-tile space-y-3 p-5">
+        <h2 className="sn-eye">Payment log</h2>
         {payments.length === 0 ? (
-          <p className="rounded-md border border-dashed border-ink/15 bg-cream p-4 text-center text-xs text-ink/55">
+          <p className="sn-row border-dashed p-4 text-center text-xs text-ink/55">
             Nothing logged yet.
           </p>
         ) : (
@@ -511,7 +535,7 @@ function Stat({
           tone === 'warn'
             ? 'text-terracotta-700'
             : tone === 'good'
-              ? 'text-emerald-700'
+              ? 'text-success-700'
               : tone === 'muted'
                 ? 'text-ink/55'
                 : 'text-ink'

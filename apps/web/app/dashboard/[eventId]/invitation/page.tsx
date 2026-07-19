@@ -1,10 +1,19 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ExternalLink } from 'lucide-react';
+import { Download, ExternalLink } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchGuestsByEvent, guestDisplayName, ROLE_LABELS, RSVP_LABELS } from '@/lib/guests';
-import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
+import {
+  buildInvitationUrl,
+  renderBrandedInvitationQrSvg,
+  renderInvitationQrSvg,
+  resolveBrandedQrColors,
+} from '@/lib/qr';
+import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
+import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
+import { eventSkuActive } from '@/lib/entitlements';
 import { deriveMonogram, resolveMonogram } from '@/lib/monogram';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { reissueGuestToken, updateEventSlug, updateMonogram } from './actions';
@@ -44,7 +53,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key',
+      'event_id, public_id, display_name, event_date, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, role_palette',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -54,19 +63,66 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
 
   const monogram = resolveMonogram(event);
 
-  // Render QR thumbnails server-side with monogram composited in the center.
+  // Auto-show the paid CUSTOM_QR_GUEST upgrade in context: when the event has an
+  // ADMIN-APPROVED order (eventSkuActive, not the pending-inclusive
+  // eventOwnsSku — owner-locked 2026-06-22), every guest's QR on this surface
+  // renders BRANDED (palette-tinted modules + monogram) instead of the plain
+  // default, and the print sheet + per-guest downloads point at the branded
+  // PNG endpoint. When NOT active, the plain QR renders exactly as before — zero
+  // change for non-owners.
+  //
+  // Read ownership with the ADMIN client: ownership is an EVENT-level fact, but
+  // `orders` RLS is purchaser-scoped (user_id = auth.uid()), so reading it under
+  // the user client would mis-gate a co-host who didn't personally place the
+  // order. The !event redirect above is the membership authorization.
+  // eventSkuActive throws on a non-graceful DB error, so we degrade to the plain
+  // (default) QR on any failure rather than crashing this always-rendered page.
+  let brandedActive = false;
+  try {
+    brandedActive = await eventSkuActive(createAdminClient(), eventId, 'CUSTOM_QR_GUEST');
+  } catch {
+    brandedActive = false;
+  }
+
+  // Branded palette color (only resolved/used when the upgrade is active) —
+  // same source order as the studio surface + PNG endpoint: reception → bride →
+  // ceremony → monogram color. resolveBrandedQrColors keeps the QR scannable.
+  const palette = sanitizeRolePalette(event.role_palette ?? {});
+  const brandColor =
+    getPrimaryColor(palette, 'reception') ??
+    getPrimaryColor(palette, 'bride') ??
+    getPrimaryColor(palette, 'ceremony') ??
+    event.monogram_color ??
+    null;
+  const brandedColors = resolveBrandedQrColors(brandColor);
+
+  // Render QR thumbnails server-side with monogram composited in the center —
+  // branded (palette-tinted) when the upgrade is active, plain default otherwise.
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
+  // Canonical URL form for the printed/shared QRs — nested /u/ under the cutover
+  // flag, bare root otherwise (resolve self-noops OFF; no query pre-cutover).
+  const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), eventId);
   const qrEntries = await Promise.all(
     guests.map(async (g) => ({
       guestId: g.guest_id,
-      url: buildInvitationUrl({ appUrl, slug: event.slug ?? eventId, qrToken: g.qr_token }),
-      svg: await renderInvitationQrSvg({
-        appUrl,
-        slug: event.slug ?? eventId,
-        qrToken: g.qr_token,
-        monogram,
-      }),
+      url: buildInvitationUrl({ appUrl, slug: event.slug ?? eventId, qrToken: g.qr_token, ownerSlug }),
+      svg: brandedActive
+        ? await renderBrandedInvitationQrSvg({
+            appUrl,
+            slug: event.slug ?? eventId,
+            qrToken: g.qr_token,
+            monogram,
+            colors: brandedColors,
+            ownerSlug,
+          })
+        : await renderInvitationQrSvg({
+            appUrl,
+            slug: event.slug ?? eventId,
+            qrToken: g.qr_token,
+            monogram,
+            ownerSlug,
+          }),
     })),
   );
   const qrByGuest = new Map(qrEntries.map((e) => [e.guestId, e]));
@@ -86,7 +142,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
 
   // Public landing URL for the event.
   const publicLandingUrl = event.slug
-    ? `${appUrl}/${event.slug}`
+    ? publicEventUrl(appUrl, event.slug, ownerSlug)
     : null;
 
   const slugAction = updateEventSlug.bind(null, eventId);
@@ -97,29 +153,43 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   // current monogram + color.
   const previewGuest = guests[0];
   const previewQrSvg = previewGuest
-    ? await renderInvitationQrSvg({
-        appUrl,
-        slug: event.slug ?? eventId,
-        qrToken: previewGuest.qr_token,
-        monogram,
-      })
+    ? brandedActive
+      ? await renderBrandedInvitationQrSvg({
+          appUrl,
+          slug: event.slug ?? eventId,
+          qrToken: previewGuest.qr_token,
+          monogram,
+          colors: brandedColors,
+          ownerSlug,
+        })
+      : await renderInvitationQrSvg({
+          appUrl,
+          slug: event.slug ?? eventId,
+          qrToken: previewGuest.qr_token,
+          monogram,
+          ownerSlug,
+        })
     : null;
   const defaultDerived = deriveMonogram(event.display_name);
 
   return (
     <section className="space-y-6">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <header className="sn-reveal flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <p className="sn-eye">
             Invitation site
           </p>
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h1 className="sn-h1">
             {guests.length} guest{guests.length === 1 ? '' : 's'} · QRs &amp; print sheet
           </h1>
         </div>
         <div className="flex gap-2">
           <Link
-            href={`/dashboard/${eventId}/invitation/print`}
+            href={
+              brandedActive
+                ? `/dashboard/${eventId}/studio/custom-qr-guest/print`
+                : `/dashboard/${eventId}/invitation/print`
+            }
             className="button-secondary"
             target="_blank"
           >
@@ -131,7 +201,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
       {reissuedGuestId ? (
         <p
           role="status"
-          className="rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+          className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
         >
           Token rotated. The previously-printed QR for this guest is now invalid — reprint
           and re-send their card.
@@ -139,10 +209,10 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
       ) : null}
 
       {/* Branding: monogram in QR center + hero */}
-      <section className="rounded-xl border border-ink/10 bg-cream p-5">
+      <section className="sn-tile p-5">
         <header className="flex items-start justify-between gap-4">
           <div>
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+            <p className="sn-eye">
               Branding
             </p>
             <h2 className="mt-1 text-xl font-semibold tracking-tight">Your monogram</h2>
@@ -203,17 +273,17 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
           </p>
         ) : null}
         {monoSaved ? (
-          <p role="status" className="mt-3 text-xs text-emerald-700">
+          <p role="status" className="mt-3 text-xs text-success-700">
             Monogram saved. Every guest&rsquo;s QR + invitation page now uses your new branding.
           </p>
         ) : null}
       </section>
 
       {/* Invitation site URL + slug editor */}
-      <section className="rounded-xl border border-ink/10 bg-cream p-5">
+      <section className="sn-tile p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-2">
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+            <p className="sn-eye">
               Your invitation site
             </p>
             <p className="text-sm text-ink/60">
@@ -252,7 +322,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
           </p>
         ) : null}
         {slugSaved ? (
-          <p role="status" className="mt-2 text-xs text-emerald-700">
+          <p role="status" className="mt-2 text-xs text-success-700">
             Slug saved.
           </p>
         ) : null}
@@ -301,14 +371,28 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                     </code>
                   </td>
                   <td className="px-3 py-3 text-right">
-                    <form action={reissueAction} className="inline">
-                      <SubmitButton
-                        className="text-sm text-terracotta-700 underline-offset-4 hover:underline disabled:opacity-60"
-                        pendingLabel="…"
-                      >
-                        Re-issue
-                      </SubmitButton>
-                    </form>
+                    <div className="flex items-center justify-end gap-3">
+                      {brandedActive ? (
+                        <a
+                          href={`/api/website/qr/guest/${guest.guest_id}`}
+                          download={`qr-${guestDisplayName(guest)
+                            .replace(/[^a-z0-9]+/gi, '-')
+                            .toLowerCase()}.png`}
+                          className="inline-flex items-center gap-1 text-sm text-ink/70 underline-offset-4 hover:text-ink hover:underline"
+                        >
+                          <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                          PNG
+                        </a>
+                      ) : null}
+                      <form action={reissueAction} className="inline">
+                        <SubmitButton
+                          className="text-sm text-terracotta-700 underline-offset-4 hover:underline disabled:opacity-60"
+                          pendingLabel="…"
+                        >
+                          Re-issue
+                        </SubmitButton>
+                      </form>
+                    </div>
                   </td>
                 </tr>
               );
@@ -325,7 +409,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
           return (
             <li
               key={guest.guest_id}
-              className="space-y-3 rounded-lg border border-ink/10 bg-cream p-4"
+              className="sn-row space-y-3 p-4"
             >
               <div className="flex items-start gap-3">
                 <div
@@ -344,14 +428,28 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                   <p className="text-xs text-ink/55">RSVP: {RSVP_LABELS[guest.rsvp_status]}</p>
                 </div>
               </div>
-              <form action={reissueAction}>
-                <SubmitButton
-                  className="text-sm text-terracotta-700 underline-offset-4 hover:underline disabled:opacity-60"
-                  pendingLabel="…"
-                >
-                  Re-issue token
-                </SubmitButton>
-              </form>
+              <div className="flex items-center gap-4">
+                <form action={reissueAction}>
+                  <SubmitButton
+                    className="text-sm text-terracotta-700 underline-offset-4 hover:underline disabled:opacity-60"
+                    pendingLabel="…"
+                  >
+                    Re-issue token
+                  </SubmitButton>
+                </form>
+                {brandedActive ? (
+                  <a
+                    href={`/api/website/qr/guest/${guest.guest_id}`}
+                    download={`qr-${guestDisplayName(guest)
+                      .replace(/[^a-z0-9]+/gi, '-')
+                      .toLowerCase()}.png`}
+                    className="inline-flex items-center gap-1 text-sm text-ink/70 underline-offset-4 hover:text-ink hover:underline"
+                  >
+                    <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                    Download PNG
+                  </a>
+                ) : null}
+              </div>
             </li>
           );
         })}

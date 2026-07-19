@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { PostGigDrawer } from './_components/post-gig-drawer';
 import type { ManpowerGigRow, ManpowerGigStatus } from '@/app/vendor-dashboard/manpower/actions';
 import { cancelGigFromHost } from './host-actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 /**
  * V2 Phase F · Host-side manpower surface.
@@ -36,10 +37,10 @@ const STATUS_LABEL: Record<ManpowerGigStatus, string> = {
 };
 
 const STATUS_STYLE: Record<ManpowerGigStatus, string> = {
-  pending: 'bg-amber-50 text-amber-900 ring-amber-300/40',
-  accepted: 'bg-emerald-50 text-emerald-900 ring-emerald-300/40',
+  pending: 'bg-warn-50 text-warn-900 ring-warn-300/40',
+  accepted: 'bg-success-50 text-success-900 ring-success-300/40',
   completed: 'bg-slate-100 text-slate-800 ring-slate-300/40',
-  cancelled: 'bg-rose-50 text-rose-900 ring-rose-300/40',
+  cancelled: 'bg-danger-50 text-danger-900 ring-danger-300/40',
 };
 
 function formatPhp(centavos: number): string {
@@ -136,15 +137,15 @@ export default async function HostManpowerPage({
           Back to event home
         </Link>
 
-        <header className="mt-6">
+        <header className="sn-reveal mt-6">
           <p
-            className="m-label-mono uppercase text-slate-500"
+            className="sn-eye"
             style={{ letterSpacing: '0.2em', fontSize: '11px' }}
           >
             Phase F · ₱15K offline cash
           </p>
           <h1
-            className="m-display-tight mt-2"
+            className="sn-h1 mt-2"
             style={{ fontSize: 'clamp(2rem, 5vw, 2.75rem)' }}
           >
             Manpower
@@ -159,7 +160,7 @@ export default async function HostManpowerPage({
         {sp.posted ? (
           <div
             role="status"
-            className="mt-6 rounded-md border border-emerald-300/50 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+            className="mt-6 rounded-md border border-success-300/50 bg-success-50 px-4 py-3 text-sm text-success-900"
           >
             Gig posted. Vendors near your venue can now accept.
           </div>
@@ -167,7 +168,7 @@ export default async function HostManpowerPage({
         {sp.cancelled ? (
           <div
             role="status"
-            className="mt-6 rounded-md border border-amber-300/50 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+            className="mt-6 rounded-md border border-warn-300/50 bg-warn-50 px-4 py-3 text-sm text-warn-900"
           >
             Gig cancelled. The vendor (if assigned) has been notified.
           </div>
@@ -175,7 +176,7 @@ export default async function HostManpowerPage({
         {sp.error ? (
           <div
             role="alert"
-            className="mt-6 rounded-md border border-rose-300/50 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+            className="mt-6 rounded-md border border-danger-300/50 bg-danger-50 px-4 py-3 text-sm text-danger-900"
           >
             {decodeURIComponent(sp.error)}
           </div>
@@ -188,11 +189,11 @@ export default async function HostManpowerPage({
         {/* BIR posture callout — surfaced honestly so the host knows what
             Setnayan does and does not do. Brand voice, no legalese. */}
         <aside
-          className="mt-6 rounded-lg border border-slate-200/60 bg-white p-4"
+          className="mt-6 sn-tile p-4"
           style={{ boxShadow: 'var(--m-shadow-sm)' }}
         >
           <p
-            className="m-eyebrow uppercase text-slate-500"
+            className="sn-eye"
             style={{ letterSpacing: '0.2em', fontSize: '11px' }}
           >
             Setnayan note
@@ -269,7 +270,7 @@ function GigGroup({
           {gigs.map((gig) => (
             <li
               key={gig.gig_id}
-              className="rounded-lg border border-slate-200/60 bg-white p-4"
+              className="sn-row p-4"
               style={{ boxShadow: 'var(--m-shadow-sm)' }}
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
@@ -300,7 +301,7 @@ function GigGroup({
                     </p>
                   ) : null}
                   {gig.cancellation_reason ? (
-                    <p className="mt-2 text-sm text-rose-700">
+                    <p className="mt-2 text-sm text-danger-700">
                       Cancellation reason: {gig.cancellation_reason}
                     </p>
                   ) : null}
@@ -318,7 +319,7 @@ function GigGroup({
                   <input type="hidden" name="event_id" value={gig.event_id} />
                   <label className="flex-1 min-w-[180px]">
                     <span
-                      className="m-label-mono mb-1 block uppercase text-slate-500"
+                      className="sn-eye mb-1"
                       style={{ letterSpacing: '0.2em', fontSize: '11px' }}
                     >
                       Reason
@@ -333,12 +334,12 @@ function GigGroup({
                       className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none"
                     />
                   </label>
-                  <button
-                    type="submit"
-                    className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-rose-700 hover:bg-rose-50"
+                  <SubmitButton
+                    pendingLabel="Cancelling…"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-danger-700 hover:bg-danger-50"
                   >
                     Cancel gig
-                  </button>
+                  </SubmitButton>
                 </form>
               ) : null}
             </li>

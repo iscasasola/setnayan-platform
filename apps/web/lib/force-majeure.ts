@@ -50,13 +50,13 @@ export const FLAG_STATUS_LABEL: Record<FlagStatus, string> = {
 // Tone colours follow the existing palette (terracotta for action-needed,
 // amber for in-flight, emerald for happy resolutions, rose for dismissed).
 export const FLAG_STATUS_TONE: Record<FlagStatus, string> = {
-  open: 'bg-rose-100 text-rose-800',
-  under_review: 'bg-amber-100 text-amber-900',
-  refund_issued: 'bg-emerald-100 text-emerald-800',
-  rescheduled: 'bg-emerald-100 text-emerald-800',
-  partial_credit: 'bg-emerald-100 text-emerald-800',
+  open: 'bg-danger-100 text-danger-800',
+  under_review: 'bg-warn-100 text-warn-900',
+  refund_issued: 'bg-success-100 text-success-800',
+  rescheduled: 'bg-success-100 text-success-800',
+  partial_credit: 'bg-success-100 text-success-800',
   mediation: 'bg-violet-100 text-violet-800',
-  resolved: 'bg-emerald-200 text-emerald-900',
+  resolved: 'bg-success-200 text-success-900',
   dismissed: 'bg-ink/10 text-ink/55',
 };
 

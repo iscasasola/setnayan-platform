@@ -1,0 +1,29 @@
+-- mood_board_share notification type
+-- ============================================================================
+-- 20270308120000_mood_board_share_notification_type.sql
+-- Mood Board "Share with vendors" (2026-06-28). Adds the 'mood_board_share'
+-- value to public.notification_type so the couple's one-click "Share with
+-- vendors" action (apps/web/app/dashboard/[eventId]/studio/mood-board/actions.ts
+-- → shareMoodBoardWithVendors) can drop an in-app notification to each booked
+-- marketplace vendor, deep-linking to the read-only vendor mood board at
+-- /vendor-dashboard/clients/[eventId]/mood-board.
+--
+-- Recipient: VENDOR (each booked marketplace vendor on the event). The booked
+-- vendor already has READ access to the board via the get_vendor_mood_board
+-- SECURITY DEFINER RPC; this is a free convenience layer that pings them when
+-- the couple is ready for their eyes on it — no paywall, no schema change beyond
+-- the enum value.
+--
+-- NOT added to the email/push allowlists in lib/notification-emit.ts — sharing a
+-- mood board is an informational nudge, not a transactional money/booking/account
+-- signal, so it stays in-app only (consistent with how 'gift' and the other
+-- informational types are handled).
+--
+-- ALTER TYPE … ADD VALUE IF NOT EXISTS is idempotent and re-run safe. ADD VALUE
+-- cannot run inside an explicit transaction block, so this migration is
+-- intentionally bare (no BEGIN/COMMIT). Matches the pattern in
+-- 20270221018919_add_order_reconciliation_notification_type.sql and
+-- 20270213450358_gift_notification_type.sql.
+-- ============================================================================
+
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'mood_board_share';

@@ -22,7 +22,7 @@ const pesoFromPhp = (php: number | null) =>
 const LOCKED = new Set(['contracted', 'deposit_paid', 'delivered', 'complete']);
 
 const LOCK_BTN_CLASS =
-  'mt-2 inline-flex w-full items-center justify-center rounded-[10px] bg-mulberry px-3 py-2.5 text-[12.5px] font-semibold text-cream transition-colors hover:bg-mulberry-700 disabled:opacity-60';
+  'mt-2 inline-flex w-full items-center justify-center rounded-md bg-mulberry px-3 py-2.5 text-[12.5px] font-semibold text-cream transition-colors hover:bg-mulberry-700 disabled:opacity-60';
 
 /** The committed anchors shown as summary tiles atop the locked list (prototype
  *  `.lock-sum`). Date label + region come from the event; budget + committed come
@@ -153,10 +153,10 @@ export function BuildLocked({
             {lockedRows.map((r, i) => (
               <li
                 key={`${r.group}-${r.name}-${i}`}
-                className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 px-4 py-3"
+                className="flex items-center justify-between gap-3 rounded-xl border border-success-200 bg-success-50/60 px-4 py-3"
               >
                 <span className="flex min-w-0 items-center gap-2.5">
-                  <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" strokeWidth={1.75} aria-hidden />
+                  <CheckCircle2 className="h-5 w-5 shrink-0 text-success-600" strokeWidth={1.75} aria-hidden />
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold text-ink">{r.name}</span>
                     <span className="block font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45">

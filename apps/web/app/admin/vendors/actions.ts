@@ -365,20 +365,42 @@ export async function grantTokensToVendor(formData: FormData): Promise<void> {
 
   const admin = createAdminClient();
 
-  // Snapshot vendor for audit metadata.
+  // Snapshot vendor for audit metadata + the founder id (the store-wallet owner).
   const { data: vendor } = await admin
     .from('vendor_profiles')
-    .select('business_name, public_id')
+    .select('business_name, public_id, user_id')
     .eq('vendor_profile_id', vendorId)
     .maybeSingle();
   if (!vendor) {
     throw new Error('Vendor not found.');
   }
 
-  // Call the helper. Returns the voucher_id (or NULL on key collision).
-  const { data: voucherId, error: rpcErr } = await admin.rpc(
-    'grant_admin_direct_tokens',
-    {
+  // Optional recipient (multi-admin org model). Blank or the founder → the
+  // store's earned-voucher wallet (existing path). A non-founder teammate →
+  // their personal purchased balance (never-expire, non-transferable).
+  const holderRaw = formData.get('holder_user_id');
+  const holder =
+    typeof holderRaw === 'string' && holderRaw.trim().length > 0
+      ? holderRaw.trim()
+      : null;
+  const toMember = holder !== null && holder !== vendor.user_id;
+
+  let voucherId: unknown = null;
+  if (toMember) {
+    const { error: memErr } = await admin.rpc('grant_member_purchased_tokens', {
+      p_vendor_id: vendorId,
+      p_member_user_id: holder,
+      p_token_count: tokenCount,
+      p_granted_by_admin_id: adminUserId,
+      p_rationale: reason ?? `Admin member grant · ${tokenCount} tokens`,
+      p_idempotency_key: idempotencyKey,
+    });
+    if (memErr) {
+      throw new Error(`Could not grant tokens: ${memErr.message}`);
+    }
+  } else {
+    // Founder / store wallet — expiring earned voucher. Returns voucher_id.
+    const { data: vId, error: rpcErr } = await admin.rpc('grant_admin_direct_tokens', {
       p_vendor_id: vendorId,
       p_token_count: tokenCount,
       p_ttl_days: ttlDays,
@@ -386,10 +408,11 @@ export async function grantTokensToVendor(formData: FormData): Promise<void> {
       p_granted_by_admin_id: adminUserId,
       p_rationale: reason ?? `Admin direct grant · ${tokenCount} tokens`,
       p_idempotency_key: idempotencyKey,
-    },
-  );
-  if (rpcErr) {
-    throw new Error(`Could not grant tokens: ${rpcErr.message}`);
+    });
+    if (rpcErr) {
+      throw new Error(`Could not grant tokens: ${rpcErr.message}`);
+    }
+    voucherId = vId;
   }
 
   // Audit-log canonical pattern matches issueCompGrant.
@@ -401,9 +424,11 @@ export async function grantTokensToVendor(formData: FormData): Promise<void> {
       business_name: vendor.business_name,
       public_id: vendor.public_id,
       token_count: tokenCount,
-      ttl_days: ttlDays,
+      ttl_days: null, // tokens never expire (owner 2026-07-01)
       grant_reason: reason,
       voucher_id: voucherId,
+      recipient_user_id: toMember ? holder : vendor.user_id,
+      recipient_kind: toMember ? 'member_purchased' : 'founder_earned',
       idempotency_key: idempotencyKey,
     },
   });
@@ -437,17 +462,30 @@ export async function setVendorTier(formData: FormData): Promise<void> {
     throw new Error('Invalid tier.');
   }
 
+  // Parse optional end-date. Free tier always clears it; paid tiers use the
+  // admin-supplied date or null (open-ended comp access).
+  let tierExpiresAt: string | null = null;
+  if (tier !== 'free') {
+    const raw = String(formData.get('tier_expires_at') ?? '').trim();
+    if (raw.length > 0) {
+      const parsed = new Date(raw);
+      if (isNaN(parsed.getTime())) throw new Error('Invalid end date.');
+      if (parsed <= new Date()) throw new Error('End date must be in the future.');
+      tierExpiresAt = parsed.toISOString();
+    }
+  }
+
   const admin = createAdminClient();
   const { data: before } = await admin
     .from('vendor_profiles')
-    .select('tier_state, business_name, public_id')
+    .select('tier_state, tier_expires_at, business_name, public_id')
     .eq('vendor_profile_id', vendorId)
     .maybeSingle();
   if (!before) throw new Error('Vendor not found.');
 
   const { error } = await admin
     .from('vendor_profiles')
-    .update({ tier_state: tier })
+    .update({ tier_state: tier, tier_expires_at: tierExpiresAt })
     .eq('vendor_profile_id', vendorId);
   if (error) throw new Error(error.message);
 
@@ -460,6 +498,8 @@ export async function setVendorTier(formData: FormData): Promise<void> {
       public_id: before.public_id,
       from_tier: before.tier_state ?? null,
       to_tier: tier,
+      from_expires_at: (before as { tier_expires_at?: string | null }).tier_expires_at ?? null,
+      to_expires_at: tierExpiresAt,
     },
   });
   if (auditErr) {

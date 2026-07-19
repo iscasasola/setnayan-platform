@@ -56,6 +56,11 @@ const REQUIRED_MARKERS = [
   'nav-pill-stretch', // the travel-stretch animation hook
   'nav-press-flash', // the press-down light bloom hook
   'aria-label="Primary navigation"',
+  // NAV-9 (2026-06-21) — the frosted-paper bar fill (--m-paper-2 @ 92% alpha).
+  // The locked white press-light reads against THIS surface; silently changing
+  // or stripping it makes the press bloom invisible. The verifier flagged it as
+  // unprotected — pin the literal so an edit to the fill fails the guard.
+  'rgba(248, 246, 240, 0.92)',
 ];
 
 function walk(dir) {

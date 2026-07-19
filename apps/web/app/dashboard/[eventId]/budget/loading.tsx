@@ -1,2 +1,5 @@
-// Loading shell mirroring the Budget route (header → stats → per-vendor line items).
-export { ListPageSkeleton as default } from '@/components/skeletons';
+import { ListPageSkeleton } from '@/components/skeletons';
+
+export default function BudgetLoading() {
+  return <ListPageSkeleton rows={6} toolbar={false} stats={4} actions={0} />;
+}

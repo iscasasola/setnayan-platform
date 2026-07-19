@@ -5,13 +5,19 @@ import { redirect } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  setWeddingTypeStatusCore,
+  setWeddingTypeThresholdCore,
+  type LaunchStatus,
+} from '@/lib/wedding-types-mutations';
 
 /**
- * Admin actions for the per-religion launch gate (wedding_type_launch_status).
- * Lets an admin flip a religion live / coming-soon / disabled and set the
- * vendor-readiness threshold. Mirrors the admin-auth gate used across the
- * console; the table's RLS (`public.is_admin()` write) is the server-side
- * backstop, but the redirect-on-fail UX is nicer than a silent RLS rejection.
+ * Legacy per-religion launch-gate actions. The standalone /admin/wedding-types
+ * surface was folded into the Taxonomy Studio's Vocabularies rail (Taxonomy
+ * Studio PR 6) and the page now redirect()s to /admin/taxonomy. These wrappers
+ * are retained for any bookmarked form POST and delegate to the shared cores in
+ * lib/wedding-types-mutations.ts (the same cores the Studio calls). New edits
+ * happen in the Studio; nothing new should import from here.
  */
 
 async function requireAdmin() {
@@ -31,11 +37,8 @@ async function requireAdmin() {
   return user.id;
 }
 
-const ALLOWED_STATUS = ['active', 'coming_soon', 'disabled'] as const;
-type Status = (typeof ALLOWED_STATUS)[number];
-
 function revalidateGateSurfaces() {
-  revalidatePath('/admin/wedding-types');
+  revalidatePath('/admin/taxonomy');
   // The couple-facing gate reads the same table — refresh the picker surfaces
   // so a flip takes effect without waiting for their cache to lapse.
   revalidatePath('/dashboard/create-event');
@@ -43,57 +46,27 @@ function revalidateGateSurfaces() {
 }
 
 export async function setWeddingTypeStatus(formData: FormData) {
-  await requireAdmin();
+  const userId = await requireAdmin();
   const ceremonyType = String(formData.get('ceremony_type') ?? '').trim();
   const region = String(formData.get('region') ?? 'all').trim();
-  const status = String(formData.get('status') ?? '').trim();
-  if (!ceremonyType || !ALLOWED_STATUS.includes(status as Status)) {
-    throw new Error('Invalid input');
-  }
+  const status = String(formData.get('status') ?? '').trim() as LaunchStatus;
 
   const admin = createAdminClient();
-  const patch: Record<string, unknown> = {
-    status,
-    updated_at: new Date().toISOString(),
-  };
-  // Stamp activated_at the first time a religion goes live; leave it on
-  // subsequent edits so the original open date is preserved.
-  if (status === 'active') {
-    const { data: existing } = await admin
-      .from('wedding_type_launch_status')
-      .select('activated_at')
-      .eq('ceremony_type', ceremonyType)
-      .eq('region', region)
-      .maybeSingle();
-    if (!existing?.activated_at) patch.activated_at = new Date().toISOString();
-  }
-
-  const { error } = await admin
-    .from('wedding_type_launch_status')
-    .update(patch)
-    .eq('ceremony_type', ceremonyType)
-    .eq('region', region);
-  if (error) throw new Error(error.message);
+  const res = await setWeddingTypeStatusCore(admin, userId, ceremonyType, region, status);
+  if (!res.ok) throw new Error(res.error);
 
   revalidateGateSurfaces();
 }
 
 export async function setWeddingTypeThreshold(formData: FormData) {
-  await requireAdmin();
+  const userId = await requireAdmin();
   const ceremonyType = String(formData.get('ceremony_type') ?? '').trim();
   const region = String(formData.get('region') ?? 'all').trim();
-  const raw = Number(formData.get('threshold'));
-  if (!ceremonyType || !Number.isInteger(raw) || raw < 0 || raw > 100000) {
-    throw new Error('Invalid threshold');
-  }
+  const threshold = Number(formData.get('threshold'));
 
   const admin = createAdminClient();
-  const { error } = await admin
-    .from('wedding_type_launch_status')
-    .update({ vendor_count_threshold: raw, updated_at: new Date().toISOString() })
-    .eq('ceremony_type', ceremonyType)
-    .eq('region', region);
-  if (error) throw new Error(error.message);
+  const res = await setWeddingTypeThresholdCore(admin, userId, ceremonyType, region, threshold);
+  if (!res.ok) throw new Error(res.error);
 
   revalidateGateSurfaces();
 }

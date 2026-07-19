@@ -10,8 +10,9 @@ The Setnayan V1 implementation. **All product specs and decision logs live OUTSI
 
 | File | Purpose |
 |---|---|
-| `STATUS.md` | Snapshot of where the project is — current sprint, last completed step, what's next. Updated after every milestone. |
-| `CHANGELOG.md` | Append-only log of every code change, dated, with spec-impact callouts. Append after every meaningful change. |
+| `changelog.d/` | Per-PR changelog **fragments** — one new file per change. The conflict-free per-PR unit; `CHANGELOG.md` is generated from these. See `changelog.d/README.md`. |
+| `CHANGELOG.md` | The collected running log. **Generated** from `changelog.d/` via `scripts/changelog-collect.mjs` — do NOT edit it directly in a feature PR. |
+| `STATUS.md` | Snapshot of where the project is — current sprint, last completed step, what's next. A refreshed snapshot, updated on its own, NOT appended once per PR. |
 | `COWORK_INBOX.md` | Active worklist of pending spec-corpus updates the owner must apply via Cowork. Items removed once actioned. |
 | `CLAUDE.md` (this file) | Persistent instructions for future Claude Code sessions. |
 
@@ -19,10 +20,10 @@ The Setnayan V1 implementation. **All product specs and decision logs live OUTSI
 
 **After ANY non-trivial code change you must:**
 
-1. Append a `CHANGELOG.md` entry with: date, commit SHA, what changed, and a `SPEC IMPACT:` line (even if it says "None")
+1. Add a changelog **fragment** — a NEW file `changelog.d/<branch-slug>.md` containing a dated `## YYYY-MM-DD · type(scope): summary` block with a `SPEC IMPACT:` line (even if "None"). **Do NOT edit `CHANGELOG.md` or `STATUS.md` directly in a feature PR** — a unique fragment file can never conflict, so the PR goes `BEHIND` (auto-mergeable, since branch protection is non-strict) instead of `CONFLICTING`. (`node scripts/changelog-collect.mjs` folds fragments into `CHANGELOG.md` at release; see `changelog.d/README.md`.)
 2. If `SPEC IMPACT` is **not** "None", apply the spec edit **directly** in the corpus at `~/Documents/Claude/Projects/Setnayan/` (per the 2026-06-04 direct-edit authorization — see "Cowork — the spec-update boundary" below), following the `COWORK.md` sequence. No longer append `[PENDING]` to `COWORK_INBOX.md`.
-3. Update `STATUS.md` if the project state advanced (new step, new iteration, new known gap)
-4. Commit all doc updates in the same commit as the code change
+3. `STATUS.md` is a refreshed snapshot, not a per-PR log — update it in place only when the project's current state genuinely changes, in its own commit/PR, NOT appended in every feature PR (that was the other half of the merge-conflict treadmill).
+4. Commit the fragment + any spec/corpus notes in the same commit as the code change.
 
 ## Cowork — the spec-update boundary
 
@@ -78,7 +79,7 @@ For each `NNNN` iteration in the spec corpus:
 4. Apply the matching RLS pattern from `02_Specifications/RLS_Policy_Pattern.md` § 5 mapping table
 5. Translate the `.html` prototype into React components (don't reinterpret)
 6. Pass every checkbox in `tests.md` before opening a PR
-7. Append a `CHANGELOG.md` entry + update `STATUS.md` before committing
+7. Add a `changelog.d/` fragment before committing (do NOT edit `CHANGELOG.md`/`STATUS.md` directly in a feature PR — see the doc contract above)
 
 ## PR workflow — auto-merge is the default
 

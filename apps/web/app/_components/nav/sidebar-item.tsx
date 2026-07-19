@@ -14,11 +14,15 @@
  * arbitrary-variant selectors on the parent `[data-sidebar-collapsed="1"]`
  * — no prop drilling.
  *
- * ACTIVE TREATMENT: 3px left accent bar in --m-orange + tint background
- * (--m-orange-4) + ink text color + orange icon. Inactive: slate text +
- * slate icon + transparent bg. Hover: paper-3 tint. Matches the v2.1
- * editorial restraint of the template — no heavy fills, no shadows on
- * active state.
+ * ACTIVE TREATMENT (dark-panel chrome · "Energy, not skin" 2026-07-09): the
+ * sidebar is a permanently-dark obsidian island, so every row reads on the
+ * `--m-sidebar-*` token set (globals.css). Active = 3px left accent bar +
+ * accent wash (`--m-sidebar-accent` / `-soft`) + near-white label
+ * (`--m-sidebar-fg`) + lighter accent icon (`--m-sidebar-accent-fg`). Inactive:
+ * soft-light label + icon (`--m-sidebar-fg-soft`), transparent bg. Hover:
+ * `--m-sidebar-hover` wash. The accent is Atelier GOLD for every doorway
+ * (`--m-sidebar-accent`); the admin violet fork was retired in Glass PR-1
+ * (2026-07-15).
  *
  * BADGE TONES (NavBadgeTone union from types.ts):
  *   - 'neutral' — stone tint (generic count)
@@ -41,9 +45,15 @@
  * arbitrary-variant selector the labels use.
  */
 
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams, type ReadonlyURLSearchParams } from 'next/navigation';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { NavItem, NavBadgeTone } from './types';
+import { BB_TAB_EVENT, goToBuildTab, type BudgetBuildTab } from '@/lib/budget-build';
+import { matchesPath } from './match-path';
 
 type Props = {
   item: NavItem;
@@ -51,27 +61,20 @@ type Props = {
 };
 
 /**
- * True when `pathname` is within this item's route — exact href OR strict
- * prefix-match with a trailing slash (so /budgets doesn't light /budget).
- * Mirrors the established active-detection rule from bottom-nav.tsx +
- * admin-nav.tsx.
- */
-function matchesPath(item: NavItem, pathname: string): boolean {
-  const matchPrefix = item.matchPrefix ?? item.href;
-  return pathname === item.href || pathname.startsWith(matchPrefix + '/');
-}
-
-/**
  * The most-specific matching child's key, or null. "Most specific" = longest
  * matchPrefix, so /guests/invite lights Invite (not Build, even though /guests
  * is a prefix of it) — the same longest-wins rule as lib/guest-journey.
  */
-function activeChildKey(children: NavItem[], pathname: string): string | null {
+function activeChildKey(
+  children: NavItem[],
+  pathname: string,
+  currentParams: URLSearchParams | ReadonlyURLSearchParams | null,
+): string | null {
   let bestKey: string | null = null;
   let bestLen = -1;
   for (const child of children) {
     const matchPrefix = child.matchPrefix ?? child.href;
-    if (matchesPath(child, pathname) && matchPrefix.length > bestLen) {
+    if (matchesPath(child, pathname, currentParams) && matchPrefix.length > bestLen) {
       bestLen = matchPrefix.length;
       bestKey = child.key;
     }
@@ -81,16 +84,53 @@ function activeChildKey(children: NavItem[], pathname: string): string | null {
 
 export function SidebarItem({ item, pathname }: Props) {
   const children = item.children ?? [];
+  const hasTabChildren = children.some((c) => c.tab);
+
+  // Current query — query-aware active-state (e.g. /admin/accounts?tab=users
+  // lights the Users sub-item, not Events). useSearchParams() may be empty on
+  // first paint / before hydration; matchesPath treats that as "no params",
+  // which is safe — it resolves to the correct row once the params arrive.
+  const searchParams = useSearchParams();
+
+  // Tab-child active state — seeded from ?tab= on navigation, kept live via BB_TAB_EVENT.
+  // Only meaningful when the item has tab-type children (e.g. Explore's 5 tabs).
+  const [activeTab, setActiveTab] = useState<string>('');
+  useEffect(() => {
+    if (!hasTabChildren) return;
+    const tabChildren = children.filter((c) => c.tab);
+    const t = new URLSearchParams(window.location.search).get('tab');
+    const valid = t && tabChildren.some((c) => c.tab === t);
+    setActiveTab(valid ? (t as string) : (tabChildren[0]?.tab ?? ''));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, hasTabChildren]);
+  useEffect(() => {
+    if (!hasTabChildren) return;
+    const onTab = (e: Event) => {
+      const next = (e as CustomEvent<string>).detail;
+      if (next) setActiveTab(next);
+    };
+    window.addEventListener(BB_TAB_EVENT, onTab);
+    return () => window.removeEventListener(BB_TAB_EVENT, onTab);
+  }, [hasTabChildren]);
 
   // Leaf (no children) — unchanged behavior. Vendor + admin sidebars and most
   // customer rows hit this path.
   if (children.length === 0) {
-    return <SidebarRow item={item} active={matchesPath(item, pathname)} />;
+    return <SidebarRow item={item} active={matchesPath(item, pathname, searchParams)} />;
   }
 
   // Parent with a sub-journey — the desktop expansion of the mobile <SubNav>.
-  const activeKey = activeChildKey(children, pathname);
-  const inSection = matchesPath(item, pathname) || activeKey !== null;
+  // Tab children use tab-state for active detection; route children use pathname.
+  const routeActiveKey = hasTabChildren
+    ? null
+    : activeChildKey(children, pathname, searchParams);
+  const tabActiveKey = hasTabChildren
+    ? (children.find((c) => c.tab === activeTab)?.key ??
+       children.find((c) => c.tab)?.key ??
+       null)
+    : null;
+  const activeKey = routeActiveKey ?? tabActiveKey;
+  const inSection = matchesPath(item, pathname, searchParams) || routeActiveKey !== null;
 
   return (
     <li>
@@ -99,14 +139,34 @@ export function SidebarItem({ item, pathname }: Props) {
           hidden entirely on the collapsed 64px rail (icons-only, no room). */}
       {inSection ? (
         <ul className="mt-0.5 flex flex-col gap-0.5 [[data-sidebar-collapsed='1']_&]:hidden">
-          {children.map((child) => (
-            <SidebarRow
-              key={child.key}
-              item={child}
-              active={child.key === activeKey}
-              nested
-            />
-          ))}
+          {children.map((child) =>
+            child.tab ? (
+              <TabChildRow
+                key={child.key}
+                item={child}
+                active={child.key === activeKey}
+                onSelect={() => {
+                  const t = child.tab!;
+                  setActiveTab(t);
+                  try {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('tab', t);
+                    window.history.replaceState(null, '', url);
+                  } catch {
+                    // history unavailable — panel still switches via event
+                  }
+                  goToBuildTab(t as BudgetBuildTab);
+                }}
+              />
+            ) : (
+              <SidebarRow
+                key={child.key}
+                item={child}
+                active={child.key === activeKey}
+                nested
+              />
+            ),
+          )}
         </ul>
       ) : null}
     </li>
@@ -138,30 +198,30 @@ function SidebarRow({
         href={item.href}
         aria-current={active ? 'page' : undefined}
         title={item.description ?? item.label}
-        className={`relative flex items-center gap-3 rounded-md font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 hover:bg-[var(--m-paper)] ${
+        className={`relative flex items-center gap-3 rounded-md font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 hover:bg-[var(--m-sidebar-hover)] ${
           nested
             ? 'min-h-[40px] py-2 pl-9 pr-3 text-[13px]'
             : 'min-h-[44px] px-3 py-2.5 text-sm'
         }${active ? ' sn-bounce' : ''}`}
         style={{
-          color: active ? 'var(--m-ink)' : 'var(--m-slate)',
-          background: active ? 'var(--m-orange-4)' : 'transparent',
+          color: active ? 'var(--m-sidebar-fg)' : 'var(--m-sidebar-fg-soft)',
+          background: active ? 'var(--m-sidebar-accent-soft)' : 'transparent',
           opacity: dim ? 0.5 : 1,
-          outlineColor: 'var(--m-orange)',
+          outlineColor: 'var(--m-sidebar-accent)',
         }}
       >
         {active ? (
           <span
             aria-hidden
             className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-sm"
-            style={{ background: 'var(--m-orange)' }}
+            style={{ background: 'var(--m-sidebar-accent)' }}
           />
         ) : null}
         <Icon
           aria-hidden
           className={`${nested ? 'h-5 w-5' : 'h-6 w-6'} shrink-0`}
           strokeWidth={1.75}
-          style={{ color: active ? 'var(--m-orange)' : 'var(--m-slate)' }}
+          style={{ color: active ? 'var(--m-sidebar-accent-fg)' : 'var(--m-sidebar-fg-soft)' }}
         />
         {/* Label hides when sidebar collapsed via parent shell's data attr.
             Arbitrary-variant selector keeps this a server component. */}
@@ -193,18 +253,18 @@ function ParentRow({ item, inSection }: { item: NavItem; inSection: boolean }) {
     <Link
       href={item.href}
       title={item.description ?? item.label}
-      className="relative flex min-h-[44px] items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 hover:bg-[var(--m-paper)]"
+      className="relative flex min-h-[44px] items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 hover:bg-[var(--m-sidebar-hover)]"
       style={{
-        color: inSection ? 'var(--m-ink)' : 'var(--m-slate)',
+        color: inSection ? 'var(--m-sidebar-fg)' : 'var(--m-sidebar-fg-soft)',
         background: 'transparent',
-        outlineColor: 'var(--m-orange)',
+        outlineColor: 'var(--m-sidebar-accent)',
       }}
     >
       <Icon
         aria-hidden
         className="h-6 w-6 shrink-0"
         strokeWidth={1.75}
-        style={{ color: inSection ? 'var(--m-orange)' : 'var(--m-slate)' }}
+        style={{ color: inSection ? 'var(--m-sidebar-accent-fg)' : 'var(--m-sidebar-fg-soft)' }}
       />
       <span className="truncate [[data-sidebar-collapsed='1']_&]:hidden">
         {item.label}
@@ -216,9 +276,56 @@ function ParentRow({ item, inSection }: { item: NavItem; inSection: boolean }) {
         aria-hidden
         className="ml-auto h-3.5 w-3.5 shrink-0 [[data-sidebar-collapsed='1']_&]:hidden"
         strokeWidth={2}
-        style={{ color: 'var(--m-slate-2)' }}
+        style={{ color: 'var(--m-sidebar-fg-muted)' }}
       />
     </Link>
+  );
+}
+
+/**
+ * Renders a tab-type child as a <button> (not a <Link>) so clicking fires
+ * the BB_TAB_EVENT bus without a server round-trip. Visually identical to
+ * <SidebarRow nested> — same indent, icon size, and active treatment.
+ */
+function TabChildRow({
+  item,
+  active,
+  onSelect,
+}: {
+  item: NavItem;
+  active: boolean;
+  onSelect: () => void;
+}) {
+  const Icon = item.icon;
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onSelect}
+        title={item.description ?? item.label}
+        className={`relative flex w-full min-h-[40px] items-center gap-3 rounded-md py-2 pl-9 pr-3 text-[13px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 hover:bg-[var(--m-sidebar-hover)]${active ? ' sn-bounce' : ''}`}
+        style={{
+          color: active ? 'var(--m-sidebar-fg)' : 'var(--m-sidebar-fg-soft)',
+          background: active ? 'var(--m-sidebar-accent-soft)' : 'transparent',
+          outlineColor: 'var(--m-sidebar-accent)',
+        }}
+      >
+        {active ? (
+          <span
+            aria-hidden
+            className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-sm"
+            style={{ background: 'var(--m-sidebar-accent)' }}
+          />
+        ) : null}
+        <Icon
+          aria-hidden
+          className="h-5 w-5 shrink-0"
+          strokeWidth={1.75}
+          style={{ color: active ? 'var(--m-sidebar-accent-fg)' : 'var(--m-sidebar-fg-soft)' }}
+        />
+        <span className="truncate [[data-sidebar-collapsed='1']_&]:hidden">{item.label}</span>
+      </button>
+    </li>
   );
 }
 
@@ -233,7 +340,7 @@ function Badge({
 }) {
   const tones: Record<NavBadgeTone, { bg: string; fg: string }> = {
     neutral: { bg: 'bg-stone-100', fg: 'text-stone-700' },
-    amber: { bg: 'bg-amber-100', fg: 'text-amber-900' },
+    amber: { bg: 'bg-warn-100', fg: 'text-warn-900' },
     red: { bg: 'bg-red-100', fg: 'text-red-900' },
     // Brand-accent variant uses --m-orange tokens directly — not Tailwind
     // amber-orange — so the badge stays palette-consistent with the
@@ -252,8 +359,10 @@ function Badge({
         aria-label={label ?? `${count} new`}
         className="ml-auto inline-flex min-w-[20px] items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold leading-none [[data-sidebar-collapsed='1']_&]:hidden"
         style={{
-          background: 'rgba(201, 107, 58, 0.15)',
-          color: 'var(--m-orange-2)',
+          // Composites over the DARK panel now — lift to a lighter gold text on
+          // a slightly stronger gold wash so the count stays legible on obsidian.
+          background: 'color-mix(in srgb, var(--m-orange) 22%, transparent)',
+          color: 'var(--m-orange-3)',
         }}
       >
         {display}

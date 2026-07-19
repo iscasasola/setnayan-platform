@@ -25,19 +25,30 @@
  * is the one source of truth (no magic numbers scattered in the matcher).
  */
 
-/** Per-dimension weights · must sum to 1. §2 starting recommendation. */
+/** Per-dimension weights · must sum to 1. §2 starting recommendation, rebalanced
+ *  2026-07-12 to seat the two dims the Event Brief now feeds — budgetFit +
+ *  faithFit — alongside the pre-existing five. Admin-tunable surface is a later PR. */
 export const COMPAT_WEIGHTS = {
-  /** How well the vendor matches what the couple asked for (refinements /
-   *  song overlap for music). Strongest "is this what I want" signal. */
-  refinement: 0.3,
+  /** How well the vendor matches what the couple asked for (style refinements /
+   *  preference-facet overlap / song overlap for music). Strongest "is this what
+   *  I want" signal. */
+  refinement: 0.22,
+  /** How the vendor's "starts at" fits the couple's per-category budget (from the
+   *  Event Brief). The gate never filters on price, so this is the couple's
+   *  most-asked signal that only the score can express. */
+  budgetFit: 0.2,
   /** Proximity to the couple's reception anchor (closer = cheaper logistics). */
-  distance: 0.25,
+  distance: 0.18,
   /** Rating × volume (Bayesian-adjusted so 1 five-star review ≠ 50). */
-  reviews: 0.2,
+  reviews: 0.18,
   /** Date flexibility — free on more of the candidate dates = lower risk. */
-  dateHeadroom: 0.15,
+  dateHeadroom: 0.08,
+  /** Vendor explicitly serves the couple's ceremony/faith. The gate already keeps
+   *  only faith-compatible vendors, so this is a light lift for declared
+   *  specialists — never a penalty for the "serves all" generalists. */
+  faithFit: 0.07,
   /** Verified / Setnayan-Pay-boosted / profile completeness. */
-  trust: 0.1,
+  trust: 0.07,
 } as const;
 
 /** A dimension we have no data for scores at this neutral baseline (slightly
@@ -71,6 +82,30 @@ export type CompatInputs = {
   /** Fraction of the couple's candidate dates the vendor is free on (0–1).
    *  Null = neutral (we haven't resolved per-date availability for this row). */
   dateHeadroomRatio?: number | null;
+  /** Generalised refinement fit for NON-music categories: the fraction of the
+   *  couple's expressed preference dimensions this vendor's facet tags satisfy
+   *  (0–1). Feeds the refinement dim when songOverlapRatio is absent. Null =
+   *  neutral (no preference signal resolved for this row). */
+  preferenceMatchRatio?: number | null;
+  /** Budget fit in [0,1] — how well the vendor's pax-adjusted "starts at" sits
+   *  inside the couple's per-category budget (caller computes via lib/smart-sort
+   *  priceFitScore against the Event Brief budget). 1 = within budget, decays as
+   *  it goes over. Null = no price or no budget → neutral (admit-unknown). */
+  budgetFitRatio?: number | null;
+  /** True when the vendor's compatible_ceremony_types EXPLICITLY lists one of the
+   *  couple's faiths (a declared specialist). Undefined/false = "serves all" or
+   *  unknown → neutral — never a penalty, since the gate already guaranteed
+   *  compatibility. */
+  faithMatch?: boolean;
+  /** First-Look Window (Wave 2): the vendor replied to recent in-region
+   *  inquiries within the admin SLA → earns a responsiveness head-start.
+   *  Undefined/false = no head-start (sits at neutral, never a penalty). */
+  respondsFast?: boolean;
+  /** Admin-managed `platform_settings.firstlook_boost_weight` (0–0.5). The
+   *  fast-responder blend scales the five-dimension score by (1 - boostWeight)
+   *  and adds boostWeight for fast responders, so COMPAT_WEIGHTS still sum to 1
+   *  internally. Default 0 → no effect (every existing caller is unchanged). */
+  boostWeight?: number;
 };
 
 const DEFAULT_RADIUS_KM = 25;
@@ -117,20 +152,42 @@ function trustSub(verified: boolean | undefined, boosted: boolean | undefined): 
  * Inputs that are null/absent fall back to a neutral baseline (admit-unknown).
  */
 export function computeCompatScore(input: CompatInputs): { score: number; tier: CompatTier } {
-  const refinement = input.songOverlapRatio == null ? NEUTRAL : clamp01(input.songOverlapRatio);
+  // Refinement fit: prefer the concrete music song-overlap, else the general
+  // preference-facet ratio, else neutral (admit-unknown).
+  const refinement =
+    input.songOverlapRatio != null
+      ? clamp01(input.songOverlapRatio)
+      : input.preferenceMatchRatio != null
+        ? clamp01(input.preferenceMatchRatio)
+        : NEUTRAL;
+  const budgetFit = input.budgetFitRatio == null ? NEUTRAL : clamp01(input.budgetFitRatio);
   const distance = distanceSub(input.distanceKm, input.travelRadiusKm);
   const reviews = reviewsSub(input.avgRating, input.reviewCount);
   const dateHeadroom = input.dateHeadroomRatio == null ? NEUTRAL : clamp01(input.dateHeadroomRatio);
+  const faithFit = input.faithMatch === true ? 0.95 : NEUTRAL;
   const trust = trustSub(input.verified, input.boosted);
 
   const raw =
     COMPAT_WEIGHTS.refinement * refinement +
+    COMPAT_WEIGHTS.budgetFit * budgetFit +
     COMPAT_WEIGHTS.distance * distance +
     COMPAT_WEIGHTS.reviews * reviews +
     COMPAT_WEIGHTS.dateHeadroom * dateHeadroom +
+    COMPAT_WEIGHTS.faithFit * faithFit +
     COMPAT_WEIGHTS.trust * trust;
 
-  const score = Math.round(clamp01(raw) * 100);
+  // First-Look Window responsiveness blend (Wave 2). Admin-tunable boostWeight
+  // (default 0 → no-op, so existing callers are byte-for-byte unchanged). A fast
+  // responder's responsiveness sub-score is 1; an unknown/slow vendor sits at
+  // NEUTRAL — a head-start for the fast, never a penalty for the rest. Mixing as
+  // (1 - bw)·raw + bw·respSub keeps the five COMPAT_WEIGHTS summing to 1
+  // internally: the boost is a top-level blend, not a sixth weight that would
+  // break the normalization.
+  const bw = Math.max(0, Math.min(input.boostWeight ?? 0, 0.5));
+  const respSub = input.respondsFast === true ? 1 : NEUTRAL;
+  const blended = bw > 0 ? (1 - bw) * raw + bw * respSub : raw;
+
+  const score = Math.round(clamp01(blended) * 100);
   const tier: CompatTier = score >= 80 ? 'strong' : score >= 60 ? 'good' : 'fair';
   return { score, tier };
 }
@@ -154,10 +211,21 @@ export function computeCompatScore(input: CompatInputs): { score: number; tier: 
 export function explainCompatScore(input: CompatInputs): string[] {
   const reasons: string[] = [];
 
-  // refinement (.30) — strongest "is this what I want" signal. Above neutral
-  // only when the couple's style/song overlap is genuinely high.
-  if (input.songOverlapRatio != null && clamp01(input.songOverlapRatio) > NEUTRAL) {
+  // refinement (.22) — strongest "is this what I want" signal. Fires when either
+  // the music song-overlap OR the general preference-facet fit is genuinely high.
+  const refinementRatio =
+    input.songOverlapRatio != null
+      ? clamp01(input.songOverlapRatio)
+      : input.preferenceMatchRatio != null
+        ? clamp01(input.preferenceMatchRatio)
+        : null;
+  if (refinementRatio != null && refinementRatio > NEUTRAL) {
     reasons.push('Matches your style');
+  }
+
+  // budgetFit (.20) — the vendor's starts-at sits comfortably inside the budget.
+  if (input.budgetFitRatio != null && clamp01(input.budgetFitRatio) > NEUTRAL) {
+    reasons.push('Fits your budget');
   }
 
   // distance (.25) — "close" means the decay scores above neutral, which the
@@ -182,7 +250,12 @@ export function explainCompatScore(input: CompatInputs): string[] {
     );
   }
 
-  // dateHeadroom (.15) — free on most candidate dates.
+  // faithFit (.07) — the vendor explicitly declares the couple's ceremony/faith.
+  if (input.faithMatch === true) {
+    reasons.push('Fits your ceremony');
+  }
+
+  // dateHeadroom (.08) — free on most candidate dates.
   if (input.dateHeadroomRatio != null && clamp01(input.dateHeadroomRatio) > NEUTRAL) {
     reasons.push('Free on your dates');
   }

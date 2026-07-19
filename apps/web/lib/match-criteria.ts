@@ -18,29 +18,27 @@
  *   Personalized chip shows); edited as a peso amount, stored ×100.
  */
 
+import { allRegions } from '@/lib/region-source';
+
 export type Option = { value: string; label: string };
 
-/** Onboarding screen-7 regions (canonical slugs · matches REGION_LABEL). */
-export const REGION_OPTIONS: readonly Option[] = [
-  { value: 'ncr', label: 'Metro Manila' },
-  { value: 'calabarzon', label: 'CALABARZON' },
-  { value: 'central_luzon', label: 'Central Luzon' },
-  { value: 'central_visayas', label: 'Central Visayas' },
-  { value: 'western_visayas', label: 'Western Visayas' },
-  { value: 'eastern_visayas', label: 'Eastern Visayas' },
-  { value: 'ilocos', label: 'Ilocos Region' },
-  { value: 'cagayan_valley', label: 'Cagayan Valley' },
-  { value: 'bicol', label: 'Bicol Region' },
-  { value: 'mimaropa', label: 'MIMAROPA' },
-  { value: 'zamboanga', label: 'Zamboanga Peninsula' },
-  { value: 'northern_mindanao', label: 'Northern Mindanao' },
-  { value: 'davao', label: 'Davao Region' },
-  { value: 'soccsksargen', label: 'SOCCSKSARGEN' },
-  { value: 'caraga', label: 'Caraga' },
-  { value: 'barmm', label: 'BARMM' },
-  { value: 'car', label: 'Cordillera (CAR)' },
-  { value: 'outside_ph', label: 'Outside the Philippines' },
-] as const;
+/**
+ * Region options for the Personalization region <select>. Derived from the
+ * canonical region source (lib/region-source.allRegions) — `value` is the
+ * CANONICAL hyphen slug ('c-visayas'), `label` is the display label. This
+ * replaces the hand-maintained underscore list so the picker, the validator,
+ * and the stored value share one vocabulary.
+ *
+ * NOTE: values are now hyphen slugs (the value actually stored by onboarding in
+ * events.region), NOT the old underscore slugs. updateEventMatchCriteria
+ * normalizes any incoming spelling to the canonical hyphen slug, and the edit
+ * form normalizes the stored value to its canonical slug for preselect — so
+ * legacy underscore-stored rows keep working.
+ */
+export const REGION_OPTIONS: readonly Option[] = allRegions().map((r) => ({
+  value: r.slug,
+  label: r.display_label,
+}));
 
 /** events.mood_feel_key CHECK — the 8-feel ladder (onboarding palette screen). */
 export const FEEL_OPTIONS: readonly Option[] = [
@@ -54,8 +52,23 @@ export const FEEL_OPTIONS: readonly Option[] = [
   { value: 'others', label: 'Still deciding' },
 ] as const;
 
+/**
+ * Server-side validation set for a region value. CRITICAL: accepts BOTH the
+ * canonical hyphen slugs (new writes / picker values) AND every legacy spelling
+ * — the underscore variants ('central_visayas'), PSGC codes, 'cagayan-valley',
+ * 'outside_ph' — because existing events.region rows were written in the old
+ * underscore vocabulary and must stay valid. Built from every region's
+ * canonical slug + all its aliases (lower-cased). The action still NORMALIZES
+ * the accepted value to the canonical hyphen slug before storing, so new writes
+ * converge on one spelling. resolveRegion(value) !== null is the equivalent
+ * runtime check; this Set is the cheap pre-validated membership test.
+ */
 export const ALLOWED_REGIONS: ReadonlySet<string> = new Set(
-  REGION_OPTIONS.map((o) => o.value),
+  allRegions().flatMap((r) => [
+    r.slug.toLowerCase(),
+    ...(r.psgc_code ? [r.psgc_code.toLowerCase()] : []),
+    ...r.aliases.map((a) => a.toLowerCase()),
+  ]),
 );
 export const ALLOWED_FEELS: ReadonlySet<string> = new Set(
   FEEL_OPTIONS.map((o) => o.value),

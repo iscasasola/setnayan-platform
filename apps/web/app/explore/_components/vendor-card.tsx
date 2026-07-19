@@ -30,7 +30,6 @@
  * Existing card concerns we preserve (unchanged from the old
  * VendorMarketCard):
  *   - Coming-soon visibility state hides the Follow CTA + dims border.
- *   - Sponsored / Boosted ad accents win the border treatment.
  *   - Demo-mode chip + starting-price label for admin demo browsing
  *     (2026-05-22 evening lock).
  *   - Save-vendor button gated on authenticated + has-event + bookable.
@@ -56,21 +55,21 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { MapPin, Navigation, Sparkles, Star, ExternalLink, Zap, Clock, AlertCircle } from 'lucide-react';
+import { MapPin, Navigation, Sparkles, Star, ExternalLink, Zap, Clock, AlertCircle, Snowflake } from 'lucide-react';
 
 import { displayServiceLabel, formatPhp, resolveVendorDisplayName, VENDOR_PLACEHOLDER_PHOTO } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
+import { experienceTier } from '@/lib/vendor-experience';
 import { formatStarRating } from '@/lib/reviews';
 import { haversineKm, formatDistanceKm } from '@/lib/distance';
 import { parseVisibility, isBookable } from '@/lib/vendor-visibility';
 import type { VendorPublicVisibility } from '@/lib/vendor-visibility';
-import type { ActiveAdLookup } from '@/lib/vendor-ads';
 import type { VendorBadge } from '@/lib/vendor-badges';
 import type { VendorReviewPreview } from '@/lib/vendor-reviews-preview';
 import { FollowGate } from '@/app/_components/follow-gate';
 import { SaveVendorButton } from './save-vendor-button';
 import { ReviewCarousel } from './review-carousel';
-import { VendorBadgeRow } from './vendor-badge-row';
+import { VendorBadgeRow, OffSeasonBadge } from './vendor-badge-row';
 
 /**
  * Row shape consumed by the card. Mirrors `VendorCardRow` in page.tsx
@@ -175,6 +174,13 @@ export type VendorCardData = {
     recommending_vendor_name: string;
     discount_pct: number | null;
   } | null;
+  /**
+   * Off-Season Promos (Wave 5). A LIVE off-peak offer on one of the vendor's
+   * active services — `vendor_services.discount_type='off_peak'` with a future
+   * `discount_expires_at`. Resolved at page level. Null = no live deal. Drives
+   * the "Off-season savings" badge + savings band on this card.
+   */
+  off_peak_offer?: { value: number; expiresAt: string } | null;
 };
 
 type Props = {
@@ -186,7 +192,6 @@ type Props = {
   isSaved: boolean;
   eventId: string | null;
   venueAnchor: { lat: number; lng: number } | null;
-  ad: ActiveAdLookup | null;
   badges: ReadonlyArray<VendorBadge>;
   reviews: ReadonlyArray<VendorReviewPreview>;
 };
@@ -200,7 +205,6 @@ export function VendorCard({
   isSaved,
   eventId,
   venueAnchor,
-  ad,
   badges,
   reviews,
 }: Props) {
@@ -238,8 +242,6 @@ export function VendorCard({
   const visibility = parseVisibility(vendor.public_visibility);
   const bookable = isBookable(visibility);
   const isComingSoon = visibility === 'coming_soon';
-  const sponsoredAccent = ad?.tier === 'sponsored';
-  const boostedAccent = ad?.tier === 'boosted';
   const isDemoCard = vendor.is_demo === true;
 
   // Distance — both ends must exist or we skip the row entirely (no
@@ -272,14 +274,10 @@ export function VendorCard({
     <article
       className={`flex h-full flex-col gap-3 rounded-2xl border bg-cream p-4 transition-shadow hover:shadow-md ${
         isDemoCard
-          ? 'border-amber-300 ring-1 ring-amber-200/70'
+          ? 'border-warn-300 ring-1 ring-warn-200/70'
           : isComingSoon
             ? 'border-dashed border-ink/20 opacity-90'
-            : sponsoredAccent
-              ? 'border-amber-300 ring-1 ring-amber-200'
-              : boostedAccent
-                ? 'border-terracotta/30'
-                : 'border-ink/10'
+            : 'border-ink/10'
       }`}
     >
       {/* Photo full-row banner on top on ALL viewports (owner directive
@@ -308,7 +306,7 @@ export function VendorCard({
             </h2>
             {isDemoCard ? (
               <span
-                className="shrink-0 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-amber-800"
+                className="shrink-0 inline-flex items-center gap-1 rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-warn-800"
                 title="Synthetic vendor — visible only to admins in demo mode."
               >
                 <Sparkles className="h-3 w-3" strokeWidth={2} aria-hidden />
@@ -318,15 +316,6 @@ export function VendorCard({
             {isComingSoon ? (
               <span className="shrink-0 rounded-full bg-ink/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
                 Coming soon
-              </span>
-            ) : null}
-            {sponsoredAccent ? (
-              <span className="shrink-0 rounded-full bg-amber-400 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-amber-950">
-                Featured Sponsor
-              </span>
-            ) : boostedAccent ? (
-              <span className="shrink-0 rounded-full bg-terracotta px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-cream">
-                Boosted
               </span>
             ) : null}
           </div>
@@ -351,10 +340,13 @@ export function VendorCard({
           ) : null}
           {/* Badge row — placed below the name so it's visible at
               first glance even when the card is dense. Hidden when
-              the vendor has no badges (renders as empty <ul>). */}
-          {badges.length > 0 ? (
-            <div className="mt-2">
-              <VendorBadgeRow badges={badges} />
+              the vendor has no badges (renders as empty <ul>). The
+              Off-Season Promos badge (Wave 5) sits inline with the
+              trust badges when the vendor has a live off-peak offer. */}
+          {badges.length > 0 || vendor.off_peak_offer ? (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {badges.length > 0 ? <VendorBadgeRow badges={badges} /> : null}
+              {vendor.off_peak_offer ? <OffSeasonBadge /> : null}
             </div>
           ) : null}
       </div>
@@ -405,6 +397,21 @@ export function VendorCard({
         <p className="line-clamp-2 text-sm text-ink/65">{vendor.tagline}</p>
       ) : null}
 
+      {/* Off-Season Promos (Wave 5) — savings band. Renders only when the
+          vendor has a live off-peak offer. We don't assert a unit on the raw
+          discount value (it may be a % or a flat PHP amount, vendor-set) —
+          the band stays a calm "off-season deal" cue; the exact terms live in
+          the vendor's own conditions on their profile. */}
+      {vendor.off_peak_offer ? (
+        <div className="flex items-center gap-2 rounded-lg border border-sky-300/50 bg-sky-50 px-2.5 py-1.5 text-xs text-sky-900">
+          <Snowflake className="h-3.5 w-3.5 shrink-0 text-sky-600" strokeWidth={1.75} aria-hidden />
+          <span>
+            <span className="font-medium">Off-season deal</span> — book a quieter
+            month and save.
+          </span>
+        </div>
+      ) : null}
+
       {/* Price line — independent surface, doesn't share the badge
           row so it can sit above the meta-row consistently. Real
           vendors stay price-less in V1 (hide-prices lock); demo
@@ -412,7 +419,7 @@ export function VendorCard({
           `starting_price_php` light up. */}
       {priceLine ? (
         <p className={`font-mono text-xs ${
-          isDemoCard ? 'text-amber-800/90' : 'text-ink/70'
+          isDemoCard ? 'text-warn-800/90' : 'text-ink/70'
         }`}>
           {priceLine}
         </p>
@@ -434,7 +441,7 @@ export function VendorCard({
         <li className="inline-flex items-center gap-1">
           <Star
             className={`h-3.5 w-3.5 ${
-              rating > 0 ? 'fill-amber-400 text-amber-500' : 'text-ink/25'
+              rating > 0 ? 'fill-warn-400 text-warn-500' : 'text-ink/25'
             }`}
             strokeWidth={1.75}
           />
@@ -597,22 +604,19 @@ function ActivityBadges({
     lastActiveAt !== null &&
     now - Date.parse(lastActiveAt) > LOW_ACTIVITY_THRESHOLD_MS;
 
-  // Experience tier from finalized bookings.
-  let experienceTier: string | null = null;
-  if (finalizedBookingCount !== null && finalizedBookingCount > 0) {
-    if (finalizedBookingCount >= 200) experienceTier = 'Elite';
-    else if (finalizedBookingCount >= 51) experienceTier = 'Expert';
-    else if (finalizedBookingCount >= 11) experienceTier = 'Experienced';
-    else experienceTier = 'Established';
-  }
+  // Experience tier from finalized bookings (spec §5 · shared helper). The
+  // dense card suppresses the "New" tier — the VendorBadgeRow already carries
+  // a `new` badge — so only 1+ booking tiers surface a chip here.
+  const tier = experienceTier(finalizedBookingCount);
+  const experienceLabel = tier.isNew ? null : tier.label;
 
-  if (!showResponsive && !isInactive && !experienceTier) return null;
+  if (!showResponsive && !isInactive && !experienceLabel) return null;
 
   return (
     <ul className="flex flex-wrap gap-1.5">
       {showResponsive && avgResponseMinutes !== null ? (
         <li
-          className="inline-flex items-center gap-1 rounded-full border border-emerald-300/50 bg-emerald-50 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-emerald-900"
+          className="inline-flex items-center gap-1 rounded-full border border-success-300/50 bg-success-50 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-success-900"
           title="This vendor has a fast median response time and was active recently."
         >
           <Clock className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
@@ -622,19 +626,19 @@ function ActivityBadges({
         </li>
       ) : isInactive ? (
         <li
-          className="inline-flex items-center gap-1 rounded-full border border-amber-300/50 bg-amber-50 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-amber-900"
+          className="inline-flex items-center gap-1 rounded-full border border-warn-300/50 bg-warn-50 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-warn-900"
           title="This vendor hasn't logged in recently. Messages may take longer than usual."
         >
           <AlertCircle className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
           Low recent activity
         </li>
       ) : null}
-      {experienceTier ? (
+      {experienceLabel ? (
         <li
           className="inline-flex items-center gap-1 rounded-full border border-violet-300/50 bg-violet-50 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-violet-900"
           title={`${finalizedBookingCount} finalized events through Setnayan.`}
         >
-          {experienceTier}
+          {experienceLabel}
         </li>
       ) : null}
     </ul>

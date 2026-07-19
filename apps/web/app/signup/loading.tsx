@@ -15,7 +15,7 @@ export default function SignupLoading() {
     >
       <span className="sr-only">Loading…</span>
       <div
-        className="grid w-full max-w-[960px] overflow-hidden rounded-[18px] border lg:grid-cols-2"
+        className="grid w-full max-w-[960px] overflow-hidden rounded-2xl border lg:grid-cols-2"
         style={{ borderColor: 'var(--m-line)' }}
       >
         {/* Brand panel — left on lg, hidden on mobile (matches the card split). */}

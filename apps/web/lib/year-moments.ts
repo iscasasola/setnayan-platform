@@ -1,0 +1,320 @@
+/**
+ * year-moments.ts — the "Your Year" derivation.
+ *
+ * Turns the couple's events (+ an authored holiday ruleset) into the list of
+ * upcoming MOMENTS the Year view renders. Every moment is DERIVED at read time
+ * from an anchor — nothing is stored, nothing is auto-created (a moment becomes
+ * an event only on the user's go-signal tap). Pure + dependency-free (uses only
+ * the event-anchor derivation engine), so it's trivially unit-testable and free
+ * to run anywhere (Rule 1).
+ *
+ * PRIVACY: this first cut derives ONLY from anchor/wedding dates + fixed
+ * holidays — zero PII, no birthdates. Milestone birthdays arrive with the
+ * counsel-gated dependent People layer (PR-D); they are deliberately absent here.
+ */
+import {
+  nextAnniversary,
+  nextMonthsary,
+  nextOccurrence,
+  parseISO,
+  leadTimeFor,
+  type NudgeTier,
+} from './event-anchor';
+
+export type MomentEvent = {
+  event_id: string;
+  event_type: string;
+  display_name: string;
+  event_date: string | null;
+  anchor_date: string | null;
+  anchor_origin: string | null;
+  recurs: boolean | null;
+  archived?: boolean | null;
+};
+
+export type YearMomentKind =
+  | 'anniversary'
+  | 'monthsary'
+  | 'wedding'
+  | 'holiday'
+  | 'recurring'
+  | 'milestone';
+
+export type YearMoment = {
+  dateISO: string;
+  daysUntil: number;
+  label: string;
+  detail: string | null;
+  kind: YearMomentKind;
+  /** Link target — the event to open, or null for a holiday (a create prompt). */
+  eventId: string | null;
+  /** TRUE = gets a proactive nudge; ordinary years stay quiet lines. */
+  isMilestone: boolean;
+  tier: NudgeTier;
+};
+
+/**
+ * Authored calendar holidays (§ 3 of the setup design). Christmas + Valentine's
+ * are the owner-marked safe defaults; the rest of the set is an open owner
+ * sign-off, so this list is deliberately minimal and easy to extend.
+ */
+export const CALENDAR_HOLIDAYS: { monthDay: string; label: string; detail: string }[] = [
+  { monthDay: '12-25', label: 'Christmas', detail: 'The biggest gathering season — parties book early.' },
+  { monthDay: '02-14', label: "Valentine's Day", detail: 'A date worth planning something for.' },
+];
+
+const DAY_MS = 86400000;
+
+function daysBetween(fromISO: string, toISO: string): number {
+  const from = parseISO(fromISO);
+  const to = parseISO(toISO);
+  if (!from || !to) return 0;
+  return Math.round((to.getTime() - from.getTime()) / DAY_MS);
+}
+
+export function ordinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'] as const;
+  const v = n % 100;
+  const suffix = s[(v - 20) % 10] ?? s[v] ?? 'th';
+  return `${n}${suffix}`;
+}
+
+function anniversaryLabel(origin: string | null, n: number, displayName: string): string {
+  const nth = ordinal(n);
+  switch (origin) {
+    case 'wedding':
+      return `Your ${nth} wedding anniversary`;
+    case 'relationship':
+      return `Your ${nth} anniversary together`;
+    case 'milestone':
+    case 'matters':
+    default:
+      return `${displayName} — ${nth} year`;
+  }
+}
+
+/** A wedding/anniversary N is a milestone at the 1st, and the silver/golden years. */
+function anniversaryIsMilestone(n: number): boolean {
+  return n === 1 || n === 25 || n === 50;
+}
+
+/**
+ * A recurring BIRTHDAY's line. A stored date is only a time-gap measure, and a
+ * dependent can be a pet, a sentimental item, or an elder like Lolo Ramon — so
+ * the derived COUNT is safe to show (owner 2026-07-13: "dates only help to
+ * measure time gaps … is safe to count"). With a birth anchor we count the age →
+ * "Lolo Ramon — 70th birthday"; without one it degrades to a plain "— birthday"
+ * (added only when the title doesn't already say it).
+ *
+ * The age here is a pure COUNT off a date the user already chose to store — it
+ * does NOT relax the separate birthdate-STORAGE fence / minor-consent gate in
+ * lib/dependent-people.ts (that stays owner-locked + counsel-pending).
+ */
+function birthdayLabel(displayName: string, age: number | null): string {
+  if (age != null && age >= 1) return `${displayName} — ${ordinal(age)} birthday`;
+  if (/\bbirthday\b|\bbday\b/i.test(displayName)) return displayName;
+  return `${displayName} — birthday`;
+}
+
+/**
+ * FIRST-YEAR MONTHSARY (owner 2026-07-13: "monthsary for everything on the first
+ * year — new born, new marriage, new relationship"). Any new beginning is
+ * celebrated MONTHLY through year one; from month 12 on it graduates to the
+ * yearly anniversary / birthday instead. Returns the single NEXT monthsary as a
+ * quiet, non-milestone line — but ONLY while the anchor is still in its first
+ * year (ordinal 1..11). Returns null past year one, at the year mark (12 = the
+ * anniversary's date), or on a bad date. `label` receives the ordinal N.
+ */
+function firstYearMonthsary(
+  anchorISO: string,
+  todayISO: string,
+  label: (n: number) => string,
+  eventId: string,
+): YearMoment | null {
+  const ms = nextMonthsary(anchorISO, todayISO);
+  if (!ms || ms.n < 1 || ms.n > 11) return null;
+  return {
+    dateISO: ms.dateISO,
+    daysUntil: daysBetween(todayISO, ms.dateISO),
+    label: label(ms.n),
+    detail: 'Every month · first year',
+    kind: 'monthsary',
+    eventId,
+    isMilestone: false,
+    tier: 'light',
+  };
+}
+
+/**
+ * Build the upcoming moments for the Year view, within `withinDays` of `todayISO`
+ * (default a rolling year). Sorted soonest-first.
+ */
+export function buildYearMoments(
+  events: MomentEvent[],
+  todayISO: string,
+  opts: { withinDays?: number; includeHolidays?: boolean } = {},
+): YearMoment[] {
+  const withinDays = opts.withinDays ?? 366;
+  const includeHolidays = opts.includeHolidays ?? true;
+  const out: YearMoment[] = [];
+
+  for (const e of events) {
+    if (e.archived) continue;
+
+    // Recurring anniversary → derive off its anchor_date.
+    if (e.event_type === 'anniversary' && e.recurs && e.anchor_date) {
+      const ann = nextAnniversary(e.anchor_date, todayISO);
+      if (ann && ann.n >= 1) {
+        const lead = leadTimeFor('anniversary', ann.n);
+        out.push({
+          dateISO: ann.dateISO,
+          daysUntil: daysBetween(todayISO, ann.dateISO),
+          label: anniversaryLabel(e.anchor_origin, ann.n, e.display_name),
+          detail: e.anchor_origin === 'wedding' ? null : e.display_name,
+          kind: 'anniversary',
+          eventId: e.event_id,
+          isMilestone: anniversaryIsMilestone(ann.n),
+          tier: anniversaryIsMilestone(ann.n) ? lead.tier : 'light',
+        });
+      }
+
+      // NEW RELATIONSHIP monthsary — the couple's monthly "together since" line
+      // through year one (owner 2026-07-13). One quiet line; graduates to the
+      // yearly "anniversary together" at month 12.
+      if (e.anchor_origin === 'relationship') {
+        const ms = firstYearMonthsary(
+          e.anchor_date,
+          todayISO,
+          (n) => `Your ${ordinal(n)} monthsary`,
+          e.event_id,
+        );
+        if (ms) out.push(ms);
+      }
+      continue;
+    }
+
+    // Wedding → its own anniversary once it's in the past (mirrors the cron), or
+    // a countdown while it's still upcoming.
+    if (e.event_type === 'wedding' && e.event_date) {
+      const wed = parseISO(e.event_date);
+      const today = parseISO(todayISO);
+      if (wed && today) {
+        if (wed.getTime() < today.getTime()) {
+          const ann = nextAnniversary(e.event_date, todayISO);
+          if (ann && ann.n >= 1) {
+            out.push({
+              dateISO: ann.dateISO,
+              daysUntil: daysBetween(todayISO, ann.dateISO),
+              label: anniversaryLabel('wedding', ann.n, e.display_name),
+              detail: e.display_name,
+              kind: 'anniversary',
+              eventId: e.event_id,
+              isMilestone: anniversaryIsMilestone(ann.n),
+              tier: anniversaryIsMilestone(ann.n) ? leadTimeFor('anniversary', ann.n).tier : 'light',
+            });
+          }
+          // NEW MARRIAGE monthsary — a newlywed's monthly line through year one
+          // (owner 2026-07-13); graduates to the 1st wedding anniversary at
+          // month 12.
+          const ms = firstYearMonthsary(
+            e.event_date,
+            todayISO,
+            (n) => `Your ${ordinal(n)} wedding monthsary`,
+            e.event_id,
+          );
+          if (ms) out.push(ms);
+        } else {
+          out.push({
+            dateISO: e.event_date,
+            daysUntil: daysBetween(todayISO, e.event_date),
+            label: `${e.display_name} — your wedding`,
+            detail: 'The day itself.',
+            kind: 'wedding',
+            eventId: e.event_id,
+            isMilestone: true,
+            tier: 'grand',
+          });
+        }
+      }
+      continue;
+    }
+
+    // Recurring birthday → COUNT the age off the birth anchor when present (a
+    // date is only a time-gap measure; the count is safe to show for any
+    // dependent kind — a pet, a sentimental item, or an elder like Lolo Ramon —
+    // owner 2026-07-13). With a birth anchor the line reads "Lolo Ramon — 70th
+    // birthday"; without one it degrades to a plain "— birthday" off the next
+    // occurrence. The count does NOT relax the birthdate-storage fence.
+    if (e.event_type === 'birthday' && e.recurs) {
+      const occ = e.anchor_date ? nextAnniversary(e.anchor_date, todayISO) : null;
+      const dateISO =
+        occ?.dateISO ?? (e.event_date ? nextOccurrence(e.event_date, todayISO) : null);
+      if (dateISO) {
+        out.push({
+          dateISO,
+          daysUntil: daysBetween(todayISO, dateISO),
+          label: birthdayLabel(e.display_name, occ?.n ?? null),
+          detail: 'Every year',
+          kind: 'recurring',
+          eventId: e.event_id,
+          isMilestone: false,
+          tier: 'light',
+        });
+      }
+      // NEW BORN monthsary — a baby's monthly milestones through year one (owner
+      // 2026-07-13). Only when a birth anchor is present AND the child is still
+      // in its first year (firstYearMonthsary caps at month 11); it graduates to
+      // the 1st birthday at month 12.
+      if (e.anchor_date) {
+        const ms = firstYearMonthsary(
+          e.anchor_date,
+          todayISO,
+          (n) => `${e.display_name} — ${ordinal(n)} month`,
+          e.event_id,
+        );
+        if (ms) out.push(ms);
+      }
+      continue;
+    }
+
+    // Generic recurring event (travel/corporate/gala/celebration/reunion/
+    // tournament with the yearly toggle) → its next annual occurrence off the
+    // chosen event_date.
+    if (e.recurs && e.event_date) {
+      const dateISO = nextOccurrence(e.event_date, todayISO);
+      if (dateISO) {
+        out.push({
+          dateISO,
+          daysUntil: daysBetween(todayISO, dateISO),
+          label: e.display_name,
+          detail: 'Every year',
+          kind: 'recurring',
+          eventId: e.event_id,
+          isMilestone: false,
+          tier: 'light',
+        });
+      }
+    }
+  }
+
+  if (includeHolidays) {
+    for (const h of CALENDAR_HOLIDAYS) {
+      const dateISO = nextOccurrence(`2000-${h.monthDay}`, todayISO);
+      if (!dateISO) continue;
+      out.push({
+        dateISO,
+        daysUntil: daysBetween(todayISO, dateISO),
+        label: h.label,
+        detail: h.detail,
+        kind: 'holiday',
+        eventId: null,
+        isMilestone: false,
+        tier: 'season',
+      });
+    }
+  }
+
+  return out
+    .filter((m) => m.daysUntil >= 0 && m.daysUntil <= withinDays)
+    .sort((a, b) => a.daysUntil - b.daysUntil || a.label.localeCompare(b.label));
+}

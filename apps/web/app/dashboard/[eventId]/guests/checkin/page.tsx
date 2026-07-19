@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, QrCode } from 'lucide-react';
+import { ArrowLeft, Gift, QrCode } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { guestDisplayName, type GuestRole, type GuestSide } from '@/lib/guests';
@@ -118,6 +118,12 @@ export default async function CheckinDeskPage({ params }: Props) {
           Scan a guest&rsquo;s QR (or search their name) as they arrive — you&rsquo;ll see their
           table and party at a glance, and the headcount keeps itself.
         </p>
+        <Link
+          href={`/dashboard/${eventId}/guests/souvenirs`}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:underline"
+        >
+          <Gift className="h-4 w-4" strokeWidth={1.75} /> Souvenir table →
+        </Link>
       </header>
 
       <CheckinDesk eventId={eventId} guests={guests} initialCheckins={checkins} expected={expected} />

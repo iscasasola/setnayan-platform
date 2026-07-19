@@ -1,25 +1,20 @@
 import 'server-only';
-import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
 
 /**
- * Guest invite-CLAIM helpers (migration 20261021_guest_invite_claim).
+ * Guest-list name matcher (Invite/Join v2 · 0000 ADDENDUM 2026-06-25).
  *
- * The "Reverse Contact-Drop" matching done the Setnayan-native, privacy-first
- * way: a signed-in guest whose email does NOT exactly match the couple's seed
- * list (public.guests) is fuzzy-matched by NAME against unclaimed seed rows.
+ * A signed-in or accountless joiner's presented name is fuzzy-matched by NAME
+ * against the couple's unclaimed seed rows (public.guests). A confident,
+ * unambiguous match links them (inheriting the host-assigned role); anything
+ * else is optimistically admitted + flagged for the couple to reconcile.
  *
- *   - exactly one confident, unambiguous match WITH a seed email → email-OTP
- *   - one confident match but no seed email                       → couple review
- *   - ambiguous (same-name collision) or no match                 → couple review
+ * There is NO public guest search field anywhere — matching only ever runs for a
+ * visitor who already holds a valid universal join token, against their OWN
+ * presented name. Pure + deterministic; no I/O.
  *
- * There is NO public guest search field anywhere — matching only ever runs for
- * an authenticated user who already holds a valid universal join token, against
- * their OWN presented name. We surface only the single best candidate's masked
- * email, never a directory.
- *
- * All of this is server-only: the OTP code is HMAC'd with a server secret so it
- * never travels to or is computable by the client (a 6-digit SHA-256 is
- * trivially brute-forced; an HMAC with a secret is not).
+ * (The former privacy-first email-OTP claim path — generateOtpCode / hmacOtp /
+ * verifyOtp / maskEmail + the guest_claims ledger — was retired with the move to
+ * optimistic admit; only the matcher remains.)
  */
 
 // ── Tunables ────────────────────────────────────────────────────────────────
@@ -27,14 +22,6 @@ import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
 export const CONFIDENT_MATCH = 0.86;
 /** Top-1 must beat top-2 by this margin, else it's an ambiguous collision. */
 export const UNAMBIGUOUS_MARGIN = 0.08;
-export const OTP_TTL_MINUTES = 10;
-export const OTP_MAX_ATTEMPTS = 5; // mirrored as a literal in register_guest_claim_otp_attempt()
-/** Don't re-send a fresh code more often than this. */
-export const OTP_RESEND_COOLDOWN_SECONDS = 30;
-/** Anti-enumeration / anti-email-bomb: min gap between claim submissions per (user,event). */
-export const CLAIM_COOLDOWN_SECONDS = 20;
-/** Hard cap on claim submissions per (user,event); beyond it we stop matching/emailing and route to review. */
-export const CLAIM_MAX_ATTEMPTS = 15;
 /** Cap attacker-controlled name length before the O(n·m) match (DoS guard). */
 export const MAX_NAME_LENGTH = 120;
 
@@ -127,46 +114,4 @@ export function classifyClaimMatch(
     return { kind: 'ambiguous', topScore: top.score };
   }
   return { kind: 'confident', candidate: top.s, score: top.score };
-}
-
-// ── OTP (HMAC-stored) ─────────────────────────────────────────────────────────
-
-function otpSecret(): string {
-  // Dedicated secret if set; else fall back to the service-role key (always
-  // present server-side, never shipped to the client). Final fallback is a
-  // dev-only constant so local builds without secrets still function.
-  return (
-    process.env.GUEST_CLAIM_OTP_SECRET ??
-    process.env.SUPABASE_SERVICE_ROLE_KEY ??
-    'setnayan-dev-otp-secret'
-  );
-}
-
-/** A fresh 6-digit numeric code (crypto-strong, leading zeros preserved). */
-export function generateOtpCode(): string {
-  return String(randomInt(0, 1_000_000)).padStart(6, '0');
-}
-
-export function hmacOtp(code: string): string {
-  return createHmac('sha256', otpSecret()).update(code).digest('hex');
-}
-
-/** Constant-time HMAC compare. */
-export function verifyOtp(code: string, storedHmac: string | null): boolean {
-  if (!storedHmac) return false;
-  const a = Buffer.from(hmacOtp(code), 'hex');
-  const b = Buffer.from(storedHmac, 'hex');
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
-}
-
-/** "maria@gmail.com" → "m••••a@gmail.com" (enough to recognize, not to reveal). */
-export function maskEmail(email: string): string {
-  const at = email.indexOf('@');
-  if (at < 1) return '•••';
-  const local = email.slice(0, at);
-  const domain = email.slice(at + 1);
-  const head = local.slice(0, 1);
-  const tail = local.length > 2 ? local.slice(-1) : '';
-  return `${head}${'•'.repeat(Math.max(2, local.length - 2))}${tail}@${domain}`;
 }

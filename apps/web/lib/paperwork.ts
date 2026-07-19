@@ -70,6 +70,7 @@ export type CeremonyType =
   | 'christian'
   | 'muslim'
   | 'cultural'
+  | 'chinese'
   | 'aglipayan'
   | 'lds'
   | 'sda'
@@ -338,6 +339,18 @@ export const DOCUMENTS_BY_CEREMONY_TYPE: Record<
     'cenomar_partner_2',
     'marriage_license',
   ],
+  // Chinese (Tsinoy) weddings register the legal marriage through a paired
+  // church or civil rite, so the paperwork is the universal PH base — PSA +
+  // CENOMAR + Marriage License. The tea ceremony, betrothal gifts, and
+  // auspicious-date customs are tradition (see WEDDING_TRADITIONS_GUIDE),
+  // not government paperwork. See Chinese_Wedding_Traditions_Reference_2026-06-28.
+  chinese: [
+    'psa_birth_cert_partner_1',
+    'psa_birth_cert_partner_2',
+    'cenomar_partner_1',
+    'cenomar_partner_2',
+    'marriage_license',
+  ],
   // The 8 worldwide-expansion faiths (migration 20261117000000) start on
   // the universal base — PSA + CENOMAR + Marriage License apply to every
   // PH marriage regardless of rite. Faith-specific counseling/certificate
@@ -437,10 +450,10 @@ export const STATUS_LABEL: Record<PaperworkStatus, string> = {
 
 export const STATUS_TONE: Record<PaperworkStatus, string> = {
   not_started: 'bg-ink/5 text-ink/55',
-  requested: 'bg-amber-100 text-amber-900',
-  in_processing: 'bg-amber-100 text-amber-900',
-  received: 'bg-emerald-100 text-emerald-800',
-  expired: 'bg-rose-100 text-rose-800',
+  requested: 'bg-warn-100 text-warn-900',
+  in_processing: 'bg-warn-100 text-warn-900',
+  received: 'bg-success-100 text-success-800',
+  expired: 'bg-danger-100 text-danger-800',
 };
 
 /**
@@ -573,6 +586,7 @@ export function resolveCeremonyType(
     raw === 'christian' ||
     raw === 'muslim' ||
     raw === 'cultural' ||
+    raw === 'chinese' ||
     raw === 'aglipayan' ||
     raw === 'lds' ||
     raw === 'sda' ||

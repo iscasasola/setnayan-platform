@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Reveal, Blob } from './_motion';
 import { AlaalaOrb } from './AlaalaOrb';
+import { OurStoryPivotLine } from '@/app/our-story/_pivot-line';
 
 /**
  * OurStory — the "Living Memories" brand manifesto.
@@ -72,7 +73,11 @@ const KEPT: Array<{ mock: FeatureMockKind; eyebrow: string; title: string; line:
 // ─────────────────────────────────────────────────────────────────────────────
 // FULL PAGE BODY
 // ─────────────────────────────────────────────────────────────────────────────
-export function OurStoryManifesto() {
+// `clips` are presigned, playable Papic clip URLs that have cleared BOTH consent
+// gates (guest consent + couple showcase approval), resolved server-side by
+// lib/alaala-orb.ts and passed in by the /our-story page. Empty (cold-start, no
+// consented clip yet) → the orb keeps its CSS-gradient skin.
+export function OurStoryManifesto({ clips = [] }: { clips?: string[] }) {
   return (
     <section className="text-[var(--m-ink)]">
       {/* ───────────────────────────────────────────────────────────────
@@ -85,9 +90,13 @@ export function OurStoryManifesto() {
         <div className="relative mx-auto max-w-[1100px] px-5 pt-16 pb-12 sm:px-8 sm:pt-20 lg:px-14">
           {/* ── ACT 1 HERO: Orb + Alaala proposition ── */}
           <div className="flex flex-col items-center gap-10 lg:flex-row lg:items-center lg:gap-16 lg:pb-4">
-            {/* Orb — responsive size; cold-start renders CSS gradient skin */}
+            {/* Orb — responsive size; fed consented + couple-approved Papic
+                clips when any exist, else cold-start CSS gradient skin */}
             <div className="flex flex-shrink-0 justify-center">
-              <AlaalaOrb className="h-[260px] w-[260px] sm:h-[310px] sm:w-[310px] lg:h-[370px] lg:w-[370px]" />
+              <AlaalaOrb
+                clips={clips}
+                className="h-[260px] w-[260px] sm:h-[310px] sm:w-[310px] lg:h-[370px] lg:w-[370px]"
+              />
             </div>
 
             {/* Text — "Alaala / living memory / proposition" */}
@@ -158,7 +167,7 @@ export function OurStoryManifesto() {
                   style={{
                     background: e.now ? 'rgba(197,160,89,.08)' : 'rgba(255,255,255,.03)',
                     border: e.now ? '1px solid rgba(197,160,89,.45)' : '1px solid rgba(255,255,255,.08)',
-                    borderRadius: 16,
+                    borderRadius: 'var(--m-r-md)',
                     padding: '22px 22px 24px',
                     boxShadow: e.now ? '0 0 60px rgba(197,160,89,.16)' : 'none',
                   }}
@@ -228,15 +237,11 @@ export function OurStoryManifesto() {
             </p>
           </Reveal>
 
-          <Reveal delay={140}>
-            <p
-              className="m-serif italic mx-auto mt-10"
-              style={{ fontSize: 'clamp(1.4rem, 3.6vw, 2rem)', lineHeight: 1.3, maxWidth: 560 }}
-            >
-              A photograph can’t hold that. An album can’t move.{' '}
-              <span style={{ color: 'var(--m-mulberry)' }}>Until now.</span>
-            </p>
-          </Reveal>
+          {/* The Act 2 PIVOT line — the page's one bold motion moment. The serif
+              line-reveal ENACTS the thesis (stillness → motion); replaces the
+              former `<Reveal delay={140}>` wrapper (never nested — that would
+              fade-then-rise twice). See ./_pivot-line.tsx + _premium.tsx. */}
+          <OurStoryPivotLine />
         </div>
 
         {/* ─────────────────────────────────────────────────────────────

@@ -21,7 +21,7 @@ import {
  * to the target table.
  *
  * Shared by:
- *   • the couple's preview (/dashboard/[eventId]/add-ons/indoor-blueprint)
+ *   • the couple's preview (/dashboard/[eventId]/studio/indoor-blueprint)
  *   • the guest's find-my-table view (/[slug]/find-my-table)
  *
  * 'use client' only because it draws an interactive-free but
@@ -87,7 +87,7 @@ export function WayfindingMap({ tables, entrance, targetTableId }: Props) {
       {/* Stage / head — pinned at the top, matching the editor's StageBanner. */}
       <div
         aria-hidden
-        className="absolute left-1/2 top-3 -translate-x-1/2 rounded-md border border-ink/20 bg-ink/[0.04] px-6 py-1.5 font-mono text-[10px] uppercase tracking-[0.25em] text-ink/70"
+        className="absolute left-1/2 top-3 -translate-x-1/2 rounded-md border border-ink/20 bg-ink/[0.04] px-6 py-1.5 font-mono text-xs uppercase tracking-[0.12em] text-ink/70"
       >
         Stage / Head
       </div>
@@ -125,7 +125,7 @@ export function WayfindingMap({ tables, entrance, targetTableId }: Props) {
           <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-terracotta bg-cream text-terracotta shadow-sm">
             <DoorIcon />
           </span>
-          <span className="rounded bg-cream/90 px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-[0.16em] text-ink/70 shadow-sm">
+          <span className="rounded bg-cream/90 px-1.5 py-0.5 text-xs font-semibold text-ink/75 shadow-sm">
             Entrance
           </span>
         </div>
@@ -173,7 +173,7 @@ function TableMarker({
             : 'h-14 w-28 rounded-tr-[2rem] rounded-br-[2rem] rounded-tl-md rounded-bl-md';
 
   const tone = isTarget
-    ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-400/60'
+    ? 'border-success-500 bg-success-50 ring-2 ring-success-400/60'
     : 'border-ink/20 bg-cream/70';
 
   return (
@@ -181,14 +181,14 @@ function TableMarker({
       className={`flex flex-col items-center justify-center gap-0.5 border-2 px-1.5 text-center shadow-sm ${dimensions} ${tone}`}
     >
       <span
-        className={`line-clamp-2 max-w-full text-[9px] font-semibold leading-tight ${
-          isTarget ? 'text-emerald-900' : 'text-ink/55'
+        className={`line-clamp-2 max-w-full font-semibold leading-tight ${
+          isTarget ? 'text-xs text-success-900' : 'text-xs text-ink/60'
         }`}
       >
         {label}
       </span>
       {isTarget ? (
-        <span className="font-mono text-[7px] uppercase tracking-[0.14em] text-emerald-700">
+        <span className="text-xs font-bold leading-tight text-success-700">
           You&rsquo;re here
         </span>
       ) : null}

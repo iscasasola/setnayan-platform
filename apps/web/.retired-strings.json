@@ -18,7 +18,7 @@
       "pattern": "Custom Monogram Pack",
       "retired_at": "2026-05-14",
       "reason": "Superseded by Bespoke Monogram (iteration 0037). CLAUDE.md 2026-05-14 row. Live SKU code 'custom_monogram_pack' still exists in service_catalog and is referenced by the Panood setup page — that surface is allow-listed pending a separate spec-vs-code reconciliation ticket.",
-      "allow_paths": ["apps/web/app/dashboard/[eventId]/add-ons/panood/setup/page.tsx"]
+      "allow_paths": ["apps/web/app/dashboard/[eventId]/studio/panood/setup/page.tsx"]
     },
     {
       "pattern": "href=\"/apply\"",

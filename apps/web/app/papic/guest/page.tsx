@@ -2,10 +2,13 @@ import { Camera } from 'lucide-react';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
+import { eventKwentoEnabled } from '@/lib/kwento-access';
+import { asPapicStyle } from '@/lib/papic-photo-styles';
 import { PapicGuestCapture } from './_components/papic-guest-capture';
 
-// Papic · guest camera (PAPIC_GUEST · ₱2,999 — "Every guest's phone, a candid
-// camera"). The public guest-camera surface: a guest who has redeemed their
+// Papic · guest camera (PAPIC_GUEST — "Every guest's phone, a candid
+// camera"). Papic is priced per-camera (₱30 Ltd / ₱100 Unli per camera/day),
+// not a flat pack. The public guest-camera surface: a guest who has redeemed their
 // invite carries a setnayan_guest_session cookie (guest_id + event_id); this
 // page reads it, confirms the event owns the Premium Guest Camera Pack, and
 // hands the guest a browser camera with their per-guest 150-credit quota.
@@ -58,28 +61,52 @@ export default async function PapicGuestPage() {
     );
   }
 
-  const [{ data: ev }, { data: g }, quota, { data: liveEnrollment }] = await Promise.all([
-    admin.from('events').select('display_name').eq('event_id', session.event_id).maybeSingle(),
-    admin
-      .from('guests')
-      .select('first_name, display_name, ugc_terms_accepted_at')
-      .eq('guest_id', session.guest_id)
-      .maybeSingle(),
-    fetchGuestQuota(admin, session.event_id, session.guest_id),
-    // Active face enrollment? Drives the in-camera "add your face" fallback for
-    // the guest who skipped the optional RSVP selfie.
-    admin
-      .from('guest_face_enrollments')
-      .select('id')
-      .eq('event_id', session.event_id)
-      .eq('guest_id', session.guest_id)
-      .is('revoked_at', null)
-      .maybeSingle(),
-  ]);
+  const [
+    { data: ev },
+    { data: g },
+    quota,
+    { data: liveEnrollment },
+    canKwento,
+    { data: styleRow },
+  ] = await Promise.all([
+      admin.from('events').select('display_name').eq('event_id', session.event_id).maybeSingle(),
+      admin
+        .from('guests')
+        .select('first_name, display_name, ugc_terms_accepted_at')
+        .eq('guest_id', session.guest_id)
+        .maybeSingle(),
+      fetchGuestQuota(admin, session.event_id, session.guest_id),
+      // Active face enrollment? Drives the in-camera "add your face" fallback for
+      // the guest who skipped the optional RSVP selfie.
+      admin
+        .from('guest_face_enrollments')
+        .select('id')
+        .eq('event_id', session.event_id)
+        .eq('guest_id', session.guest_id)
+        .is('revoked_at', null)
+        .maybeSingle(),
+      // Kwento is a paid unlock — NEW EVENTS ONLY (grandfathered events stay
+      // free; newer events need KWENTO directly or via a bundle). When the event
+      // isn't enabled the composer must NOT show the "tell the story" prompt —
+      // POST /api/papic/kwento 403s feature_not_owned, so an ungated prompt would
+      // just silently fail. Mirror the server gate on the client.
+      eventKwentoEnabled(admin, session.event_id),
+      // Locked event-wide Papic look. Separate read (not folded into the event
+      // select) so a pre-migration DB without papic_style can't break the
+      // guest/event name above — asPapicStyle falls back to ORIG on a null.
+      admin
+        .from('events')
+        .select('papic_style')
+        .eq('event_id', session.event_id)
+        .maybeSingle(),
+    ]);
 
   const guestName =
     (g?.first_name as string | null) || (g?.display_name as string | null) || 'friend';
   const eventName = (ev?.display_name as string | null) || 'the wedding';
+  const eventStyle = asPapicStyle(
+    (styleRow as { papic_style?: string } | null)?.papic_style,
+  );
 
   // UGC moderation gate (Apple 1.2 / Google Play UGC): a guest can't be blocked
   // from this event's gallery and must have accepted the objectionable-content
@@ -113,10 +140,14 @@ export default async function PapicGuestPage() {
     <PapicGuestCapture
       guestName={guestName}
       eventName={eventName}
+      eventId={session.event_id}
       initialRemaining={quota.remaining}
       total={quota.total}
       termsAccepted={termsAccepted}
       needsFaceEnroll={!liveEnrollment}
+      canKwento={canKwento}
+      guestUnlimited={quota.unlimited}
+      eventStyle={eventStyle}
     />
   );
 }

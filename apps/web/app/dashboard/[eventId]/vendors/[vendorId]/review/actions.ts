@@ -13,6 +13,107 @@ import {
   type SelfReviewSignal,
 } from '@/lib/self-review-gate';
 
+/**
+ * Open a vendor_disputes row so the demotion cron has input (cross-account QA,
+ * 2026-06-19). Before this, `vendor_disputes` was orphaned for INSERT — the
+ * couple-side completion→non-delivery flow flipped `event_vendors.completion_status`
+ * to 'disputed' but never wrote a `vendor_disputes` row, so the 30-day
+ * demote-to-coming_soon cron (api/admin/cron/dispute-counter) had nothing to
+ * count and the chain was severed.
+ *
+ * Constraints honored:
+ *  • vendor_disputes.vendor_profile_id is NOT NULL + FK → vendor_profiles. We
+ *    resolve it from event_vendors.marketplace_vendor_id; if the booking is an
+ *    off-platform/manual vendor with no marketplace profile we SKIP (there's
+ *    nothing for the cron to demote and the FK would reject anyway).
+ *  • CHECK (payout_id IS NOT NULL OR order_id IS NOT NULL): we link the most
+ *    recent matching order when one exists. When neither an order nor a payout
+ *    is on file (the common case — vendor money is off-platform), the insert
+ *    can't satisfy the CHECK, so the whole helper is fail-soft: the caller's
+ *    completion write must always commit regardless.
+ *  • Idempotent: re-reporting the same event+vendor must not stack duplicate
+ *    open disputes. vendor_disputes has no event_id column, so we dedupe on the
+ *    linked order_id when present, else on (vendor_profile_id, opened_by, open).
+ *
+ * Returns void; never throws — wrapped fail-soft by design.
+ */
+async function openCompletionDispute(
+  admin: ReturnType<typeof createAdminClient>,
+  args: {
+    eventId: string;
+    vendorId: string; // event_vendors.vendor_id (the UUID PK)
+    openedByUserId: string | null;
+    category: 'no_show' | 'quality_issue';
+    description: string;
+  },
+): Promise<void> {
+  try {
+    // 1. Resolve the marketplace vendor_profile_id for this booking.
+    const { data: evRow } = await admin
+      .from('event_vendors')
+      .select('marketplace_vendor_id')
+      .eq('event_id', args.eventId)
+      .eq('vendor_id', args.vendorId)
+      .maybeSingle();
+    const vendorProfileId =
+      (evRow as { marketplace_vendor_id: string | null } | null)
+        ?.marketplace_vendor_id ?? null;
+    if (!vendorProfileId) return; // off-platform vendor — nothing to demote.
+
+    // 2. Find a linked order for the CHECK (payout_id OR order_id). orders.vendor_profile_id
+    //    is usually NULL today (couple-side orders rarely pin a vendor), so this
+    //    may be null — in which case the insert below will fail the CHECK and be
+    //    swallowed by the outer catch. That's acceptable: the demotion chain is
+    //    re-armed for the orders that DO link a vendor, and is a no-op (logged)
+    //    otherwise, while the caller's completion write always commits.
+    const { data: orderRow } = await admin
+      .from('orders')
+      .select('order_id')
+      .eq('event_id', args.eventId)
+      .eq('vendor_profile_id', vendorProfileId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const orderId = (orderRow as { order_id: string } | null)?.order_id ?? null;
+
+    // 3. Idempotency — don't stack duplicate OPEN disputes for the same booking.
+    let dedupe = admin
+      .from('vendor_disputes')
+      .select('dispute_id')
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('status', 'open');
+    dedupe = orderId
+      ? dedupe.eq('order_id', orderId)
+      : args.openedByUserId
+        ? dedupe.eq('opened_by_user_id', args.openedByUserId).eq('category', args.category)
+        : dedupe.eq('category', args.category);
+    const { data: existing } = await dedupe.limit(1).maybeSingle();
+    if (existing) return; // already an open dispute for this booking.
+
+    // 4. Insert. counts_toward_demotion=true so the cron's rolling window picks
+    //    it up (status defaults to 'open'). order_id only when found.
+    const { error: insErr } = await admin.from('vendor_disputes').insert({
+      vendor_profile_id: vendorProfileId,
+      order_id: orderId,
+      opened_by_user_id: args.openedByUserId,
+      category: args.category,
+      description: args.description,
+      counts_toward_demotion: true,
+    });
+    if (insErr) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[openCompletionDispute] insert skipped (event_id=${args.eventId} vendor_id=${args.vendorId}):`,
+        insErr.message,
+      );
+    }
+  } catch (e) {
+    // Fail-soft — the caller's completion write is the primary action.
+    // eslint-disable-next-line no-console
+    console.error('[openCompletionDispute] failed (non-fatal):', e);
+  }
+}
+
 /** Star-rated axes submitted by StarRatingInput (1–5 continuous). */
 const STAR_AXES: ReadonlyArray<ReviewAxis> = [
   'overall',
@@ -58,6 +159,14 @@ function parseOnTimeRating(raw: FormDataEntryValue | null): number {
  * BEFORE INSERT trigger refuses with SELF_REVIEW_BLOCKED, we route back to
  * the review URL with `?blocked=<signal>` so the page renders the disabled
  * + appeal flow instead of a generic error.
+ *
+ * "Host" = the couple OR a delegated coordinator. The host ★ review is the
+ * event's verdict on the vendor; the coordinator acts on the couple's behalf.
+ * We admit both with the canonical `.in('member_type', ['couple','coordinator'])`
+ * membership check used verbatim by the sibling host-side actions
+ * (coupleConfirmReceived / coupleReportNonDelivery). The DB-level RLS
+ * (current_couple_or_coordinator_event_ids) is the real gate; this fails fast
+ * with a clean redirect for non-members instead of bubbling an RLS error.
  */
 export async function submitCoupleReview(formData: FormData) {
   const eventId = formData.get('event_id');
@@ -95,14 +204,27 @@ export async function submitCoupleReview(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // Host gate — the couple OR a delegated coordinator of THIS event may submit
+  // the host review. Matches the sibling handshake actions verbatim.
+  const { data: membership } = await supabase
+    .from('event_members')
+    .select('member_type')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .in('member_type', ['couple', 'coordinator'])
+    .maybeSingle();
+  if (!membership) redirect(`/dashboard/${eventId}`);
+
+  let createdReviewId: string | null = null;
   try {
-    await createReview(supabase, {
+    const created = await createReview(supabase, {
       vendorProfileId,
       eventId,
       coupleUserId: user.id,
       ratings,
       body,
     });
+    createdReviewId = created.review_id;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const signal = parseSelfReviewBlock(message);
@@ -176,6 +298,31 @@ export async function submitCoupleReview(formData: FormData) {
   } catch {
     // vendor-activity.ts not yet merged — scores will be recomputed when it ships.
   }
+
+  // Review-fraud screener (No fake reviews) — deterministic velocity/burst +
+  // rating-anomaly + reviewer-device-linkage scoring. Runs in an after() task so
+  // it NEVER blocks or fails the couple's submit; the screener is internally
+  // fail-soft. A high score upserts a review_fraud row into the /admin/
+  // integrity-watch queue for a moderator — it NEVER auto-deletes the review or
+  // dings the vendor.
+  if (createdReviewId) {
+    const reviewIdForScreen = createdReviewId;
+    after(async () => {
+      const { screenReviewForFraud } = await import('@/lib/review-fraud-screener');
+      await screenReviewForFraud(reviewIdForScreen);
+    });
+  }
+
+  // Vendor-level fraud detection (Anti-Fraud Phase 3, § 4) — recompute the five
+  // vendor anomaly signals (ring / velocity / graph_isolation / import_spike /
+  // rating_shape) for THIS vendor now that a new review landed, upserting into
+  // fraud_signals for the Phase-4 admin queue. Distinct from the per-review
+  // screener above (different grain). Runs in an after() task, internally
+  // fail-soft — DETECT + SCORE ONLY, it never suspends/dings the vendor.
+  after(async () => {
+    const { scoreVendorFraud } = await import('@/lib/fraud-detection-runner');
+    await scoreVendorFraud(vendorProfileId);
+  });
 
   revalidatePath(`/dashboard/${eventId}/vendors`);
   redirect(`/dashboard/${eventId}/vendors?reviewed=${eventVendorId}`);
@@ -254,12 +401,18 @@ export async function submitReviewAppeal(formData: FormData) {
 }
 
 /**
- * Couple-side completion handshake (Event Lifecycle Menu §6.1). After the
- * vendor marks the service complete, the couple either confirms they received
+ * Host-side completion handshake (Event Lifecycle Menu §6.1). After the
+ * vendor marks the service complete, the host either confirms they received
  * everything — which unlocks the review + galleries — or reports a problem,
- * which freezes the gate (a non-delivery dispute) until it resolves. Both
- * verify couple ownership of the event, then write via the admin client (the
- * completion columns have no couple-update RLS path) and are idempotent.
+ * which freezes the gate (a non-delivery dispute) until it resolves.
+ *
+ * "Host" = the couple OR a delegated coordinator (lifecycle spec: "Couple
+ * (host) / Coordinator — either may drive; coordinator is the delegated host").
+ * We admit both with the canonical `.in('member_type', ['couple','coordinator'])`
+ * event-membership check used verbatim by the sibling host-side actions
+ * (setEventCeremonyType / updateEventBasics / closeOutTheDay). Both then write
+ * via the admin client (the completion columns have no host-update RLS path)
+ * and are idempotent. Scope stays tight to genuine members of THIS event.
  */
 export async function coupleConfirmReceived(formData: FormData) {
   const eventId = formData.get('event_id');
@@ -277,12 +430,17 @@ export async function coupleConfirmReceived(formData: FormData) {
     .select('member_type')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
-    .eq('member_type', 'couple')
+    .in('member_type', ['couple', 'coordinator'])
     .maybeSingle();
   if (!membership) redirect(`/dashboard/${eventId}`);
 
   const admin = createAdminClient();
-  await admin
+  // .select() so we learn whether a row actually flipped (it returns [] on the
+  // idempotent re-run / not-yet-marked-complete cases) AND grab the booking's
+  // marketplace_vendor_id + vendor_name in the same round-trip — both feed the
+  // vendor-side notify + score recompute below, which must fire ONCE, on the
+  // real first confirm only.
+  const { data: confirmedRows } = await admin
     .from('event_vendors')
     .update({
       customer_confirmed_received_at: new Date().toISOString(),
@@ -291,12 +449,77 @@ export async function coupleConfirmReceived(formData: FormData) {
     .eq('event_id', eventId)
     .eq('vendor_id', vendorId)
     .not('service_marked_complete_at', 'is', null) // only after the vendor marked complete
-    .is('customer_confirmed_received_at', null); // idempotent
+    .is('customer_confirmed_received_at', null) // idempotent
+    .select('marketplace_vendor_id, vendor_name');
+
+  const confirmed = (confirmedRows ?? [])[0] as
+    | { marketplace_vendor_id: string | null; vendor_name: string | null }
+    | undefined;
+
+  // Only on the real first confirm: tell the VENDOR (the other side of the
+  // handshake — they previously only learned by reopening the brief) and refresh
+  // their quality scores so the finalized booking counts. Off-platform vendors
+  // (no marketplace profile) have no user/profile to reach — safely skipped.
+  if (confirmed?.marketplace_vendor_id) {
+    const marketplaceVendorId = confirmed.marketplace_vendor_id;
+
+    // completion_accepted → vendor (best-effort, fail-soft). The couple can't
+    // read the vendor's user_id by RLS, so resolve it with the admin client —
+    // same vendor-resolution pattern as submitCoupleReview's review_received.
+    try {
+      const [{ data: profileRow }, { data: eventRow }] = await Promise.all([
+        admin
+          .from('vendor_profiles')
+          .select('user_id')
+          .eq('vendor_profile_id', marketplaceVendorId)
+          .maybeSingle(),
+        admin.from('events').select('display_name').eq('event_id', eventId).maybeSingle(),
+      ]);
+      const vendorUserId = (profileRow as { user_id: string | null } | null)?.user_id ?? null;
+      if (vendorUserId) {
+        const coupleName =
+          (eventRow as { display_name: string | null } | null)?.display_name ?? 'The couple';
+        await emitNotification({
+          userId: vendorUserId,
+          type: 'completion_accepted',
+          title: `${coupleName} confirmed your service`,
+          body: `${coupleName} confirmed they received everything — add a moment to their story.`,
+          relatedUrl: `/vendor-dashboard/clients/${eventId}/editorial-media`,
+        });
+      }
+    } catch (e) {
+      // Fail-soft — the confirm already committed; never block the couple.
+      // eslint-disable-next-line no-console
+      console.error(
+        `[coupleConfirmReceived] completion_accepted notify failed for marketplace_vendor_id=${marketplaceVendorId} event_id=${eventId}:`,
+        e,
+      );
+    }
+
+    // Refresh the vendor's quality scores so the finalized booking is reflected
+    // (Vendor_Quality_Rating_System §5). Fire-and-forget via after() — the
+    // wrapper never throws, so a recompute hiccup can't affect the confirm.
+    try {
+      const { triggerVendorActivityRecompute } = (await import('@/lib/vendor-activity')) as {
+        triggerVendorActivityRecompute: (id: string) => Promise<void>;
+      };
+      after(() => triggerVendorActivityRecompute(marketplaceVendorId));
+    } catch {
+      // vendor-activity unavailable — scores refresh on the next trigger.
+    }
+  }
 
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/review`);
   redirect(`/dashboard/${eventId}/vendors/${vendorId}/review`);
 }
 
+/**
+ * Host-side non-delivery report — the other branch of the §6.1 handshake.
+ * Admits the couple OR a delegated coordinator via the same canonical
+ * `.in('member_type', ['couple','coordinator'])` membership check (lifecycle
+ * spec: "coordinator is the delegated host"). Writes via the admin client and
+ * is idempotent (can't dispute an already-confirmed delivery).
+ */
 export async function coupleReportNonDelivery(formData: FormData) {
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
@@ -313,7 +536,7 @@ export async function coupleReportNonDelivery(formData: FormData) {
     .select('member_type')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
-    .eq('member_type', 'couple')
+    .in('member_type', ['couple', 'coordinator'])
     .maybeSingle();
   if (!membership) redirect(`/dashboard/${eventId}`);
 
@@ -327,6 +550,19 @@ export async function coupleReportNonDelivery(formData: FormData) {
     .eq('event_id', eventId)
     .eq('vendor_id', vendorId)
     .neq('completion_status', 'confirmed'); // can't dispute an already-confirmed delivery
+
+  // Re-arm the demotion chain (cross-account QA, 2026-06-19): also open a
+  // vendor_disputes row so the 30-day dispute-counter cron can see it. The
+  // helper is idempotent + fail-soft, so a repeat report or an off-platform
+  // vendor is a safe no-op and never blocks the completion write above.
+  await openCompletionDispute(admin, {
+    eventId,
+    vendorId,
+    openedByUserId: user.id,
+    category: 'no_show',
+    description:
+      'Couple reported non-delivery via the completion handshake — the service was not delivered.',
+  });
 
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/review`);
   redirect(`/dashboard/${eventId}/vendors/${vendorId}/review`);

@@ -11,17 +11,19 @@
  * route is pure string assembly and can't fail on a DB outage.
  */
 
-import { ALL_BLOG_ARTICLES, BLOG_LASTMOD } from '@/lib/blog';
+import { publishedBlogArticles, BLOG_LASTMOD } from '@/lib/blog';
 
 export const revalidate = 3600;
 
 export function GET(): Response {
   const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
+    process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com';
 
   const rows: Array<{ loc: string; lastmod: string; changefreq: string; priority: string }> = [
     { loc: `${baseUrl}/blog`, lastmod: BLOG_LASTMOD, changefreq: 'weekly', priority: '0.7' },
-    ...ALL_BLOG_ARTICLES.map((article) => ({
+    // Published-only: a future-dated drip article enters the sitemap on its day
+    // (this route is ISR-revalidated hourly), never advertising a future lastmod.
+    ...publishedBlogArticles().map((article) => ({
       loc: `${baseUrl}/blog/${article.slug}`,
       lastmod: article.updatedAt ?? article.publishedAt,
       changefreq: 'monthly',

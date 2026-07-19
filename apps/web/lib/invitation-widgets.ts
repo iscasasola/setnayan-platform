@@ -394,10 +394,16 @@ export function isWebsitePhasesEnabled(): boolean {
  * invitation on a wedding that happened a week ago — the day-of 'post' window
  * only lasts 24h.)
  *
- * A null event date (very early planning, no date set yet) maps to 'rsvp'.
+ * A null event date (very early planning, no date set yet) maps to
+ * 'save_the_date' — a couple with no finalized date is at the very START of the
+ * wedding lifecycle (the announcement stage), so their Save-the-Date shows. This
+ * is consistent with the future-date split below: the farther out the wedding,
+ * the earlier the phase; no date at all is "farthest out" → Save-the-Date. (Was
+ * 'rsvp', which skipped the Save-the-Date entirely for date-less weddings —
+ * owner 2026-06-18: a rendered Save-the-Date didn't show because of this.)
  */
 export function getLifecyclePhase(eventDate: string | null): LifecyclePhase {
-  if (!eventDate) return 'rsvp';
+  if (!eventDate) return 'save_the_date';
   switch (getDayOfPhase(eventDate)) {
     case 'live':
       return 'event';

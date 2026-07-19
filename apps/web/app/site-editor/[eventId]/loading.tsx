@@ -3,26 +3,13 @@
  * surface the couple's "Website" nav doorway actually opens (the retired
  * /dashboard/[eventId]/website route just redirects here).
  *
- * Was a one-line `export { BoardPageSkeleton as default }`. Owner 2026-06-05
- * ("make a loading for website … loading state tells what we are doing") → keep
- * the board/canvas-shaped skeleton, add a cycling <LoadingNarration> strip that
- * narrates the editor load.
+ * The board/canvas-shaped skeleton gives instant page structure; <BoardPageSkeleton>
+ * wraps <Screen>, which now fades in the unified gold-particle brand loader
+ * (owner 2026-07-05) with website-specific narration (ROUTE_STEPS.website). The
+ * earlier bespoke <LoadingNarration> strip is retired — the brand loader narrates.
  */
 import { BoardPageSkeleton } from '@/components/skeletons';
-import { LoadingNarration } from '@/components/loading-status';
-
-const WEBSITE_MESSAGES = [
-  'Opening your website editor…',
-  'Loading your design…',
-  'Bringing in your photos…',
-  'Almost ready…',
-];
 
 export default function SiteEditorLoading() {
-  return (
-    <div className="space-y-4">
-      <LoadingNarration messages={WEBSITE_MESSAGES} className="pt-2" />
-      <BoardPageSkeleton />
-    </div>
-  );
+  return <BoardPageSkeleton />;
 }

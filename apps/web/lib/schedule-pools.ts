@@ -29,6 +29,11 @@ export type PoolAcquireResult =
   | { status: 'ok'; poolIds: string[]; bookedDate: string }
   | { status: 'full'; poolId: string | null; poolLabel: string | null }
   | { status: 'blocked'; poolId: string | null }
+  // PHASE 5 6-state taxonomy — vendor-set day states that gate the acquire:
+  //   'locked'    = a hard hold (cannot book, like a closure).
+  //   'whitelist' = approve-first (booking held for the vendor to vet).
+  | { status: 'locked'; poolId: string | null }
+  | { status: 'whitelist'; poolId: string | null }
   | { status: 'no_date' }
   | { status: 'no_pools' }
   | { status: 'not_authorized' }
@@ -46,35 +51,104 @@ export async function resolvePoolIdsForService(
   marketplaceVendorId: string,
   serviceId: string,
 ): Promise<string[]> {
-  const categories = new Set<string>();
+  // Named Calendars rework (owner 2026-06-20): a service's OWN pool comes from
+  // its named-calendar membership (service-level) instead of its category. Bundle
+  // "comes with" legs stay CATEGORY-resolved so a bundle's lock footprint never
+  // silently narrows. LIVE by default (Phase A migration 20270209750853 applied +
+  // backfilled 2026-06-21, conservation check = 0 orphans), so a service's
+  // calendar pool == its category pool → identical pool_ids + acquire downstream.
+  // Kill-switch: NEXT_PUBLIC_NAMED_CALENDARS_ENABLED=false reverts to category pools.
+  const namedCalendars =
+    process.env.NEXT_PUBLIC_NAMED_CALENDARS_ENABLED !== 'false';
+
+  const poolIds = new Set<string>();
 
   const { data: svc } = await supabase
     .from('vendor_services')
     .select('category')
     .eq('vendor_service_id', serviceId)
     .maybeSingle();
-  const primary = (svc as { category?: string | null } | null)?.category;
-  if (primary) categories.add(primary);
+  const primary = (svc as { category?: string | null } | null)?.category ?? null;
 
-  const { data: links } = await supabase
-    .from('vendor_service_links')
-    .select('linked_canonical_service')
-    .eq('vendor_service_id', serviceId);
-  for (const row of (links ?? []) as { linked_canonical_service: string | null }[]) {
-    if (row.linked_canonical_service) categories.add(row.linked_canonical_service);
-  }
-
-  const poolIds = new Set<string>();
-  for (const categoryKey of categories) {
+  const resolveCategory = async (categoryKey: string) => {
     const { data } = await supabase.rpc('resolve_schedule_pool', {
       p_vendor_profile_id: marketplaceVendorId,
       p_category_key: categoryKey,
     });
     // NULL = category outside the vendor's catalog (resolver's junk-pool
-    // guard) — skip rather than fail; the primary category always resolves.
+    // guard) — skip rather than fail.
     if (typeof data === 'string' && data.length > 0) poolIds.add(data);
+  };
+
+  // ── The service's OWN pool ──────────────────────────────────────────────
+  if (namedCalendars) {
+    const { data: membership } = await supabase
+      .from('vendor_schedule_calendar_services')
+      .select('pool_id')
+      .eq('vendor_service_id', serviceId)
+      .maybeSingle();
+    const calendarPoolId =
+      (membership as { pool_id?: string | null } | null)?.pool_id ?? null;
+    if (calendarPoolId) {
+      poolIds.add(calendarPoolId);
+    } else if (primary) {
+      // Owner decision 2026-06-20: an unassigned service stays bookable via its
+      // category pool — never silently un-gated. Log so mis-seeding is visible.
+      await resolveCategory(primary);
+      console.warn(
+        `[named-calendars] service ${serviceId} has no calendar membership; fell back to its category pool`,
+      );
+    }
+  } else if (primary) {
+    await resolveCategory(primary);
   }
+
+  // ── Bundle "comes with" legs (always category-resolved) ─────────────────
+  const { data: links } = await supabase
+    .from('vendor_service_links')
+    .select('linked_canonical_service')
+    .eq('vendor_service_id', serviceId);
+  const linkedCategories = new Set<string>();
+  for (const row of (links ?? []) as { linked_canonical_service: string | null }[]) {
+    if (row.linked_canonical_service) linkedCategories.add(row.linked_canonical_service);
+  }
+  for (const categoryKey of linkedCategories) {
+    await resolveCategory(categoryKey);
+  }
+
   return [...poolIds];
+}
+
+/**
+ * Resolve the schedule pool for a vendor CATEGORY (no specific service).
+ *
+ * Used by the PACKAGE-booking path: lockPackage cascade-creates one
+ * event_vendors row per package item, each carrying a `category` but NO
+ * `service_id` (items map canonical_service → category, not to a vendor_service
+ * row). Those rows therefore can't go through resolvePoolIdsForService — and
+ * historically that meant the white→BOOKED capacity gate in updateVendorStatus
+ * (which requires service_id) silently skipped them, so a packaged booking
+ * consumed no capacity and could overbook a full date. A booked package must
+ * consume capacity like any other booking (owner "bundles lock every pool they
+ * span", 2026-06-20), so the deposit transition resolves by category instead.
+ *
+ * Flag-agnostic: category→pool is the same in both calendar modes
+ * (resolve_schedule_pool is the shared category resolver; named-calendar
+ * membership keys on service_id, which a package row doesn't have). Returns []
+ * when the category has no pool (resolver's junk-pool guard) — degrade open,
+ * same as any unpooled / off-platform booking.
+ */
+export async function resolvePoolIdsForCategory(
+  supabase: SupabaseClient,
+  marketplaceVendorId: string,
+  category: string | null | undefined,
+): Promise<string[]> {
+  if (!category) return [];
+  const { data } = await supabase.rpc('resolve_schedule_pool', {
+    p_vendor_profile_id: marketplaceVendorId,
+    p_category_key: category,
+  });
+  return typeof data === 'string' && data.length > 0 ? [data] : [];
 }
 
 /**
@@ -117,6 +191,10 @@ export async function acquireSchedulePools(
       };
     case 'blocked':
       return { status: 'blocked', poolId: env.pool_id ?? null };
+    case 'locked':
+      return { status: 'locked', poolId: env.pool_id ?? null };
+    case 'whitelist':
+      return { status: 'whitelist', poolId: env.pool_id ?? null };
     case 'no_date':
       return { status: 'no_date' };
     case 'no_pools':

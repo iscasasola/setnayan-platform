@@ -27,25 +27,36 @@ import {
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-async function readEventId(req: NextRequest): Promise<string | null> {
+async function readForm(
+  req: NextRequest,
+): Promise<{ eventId: string | null; slot: string | null }> {
   // Support both <form action="..."> POSTs (multipart/url-encoded) and
   // programmatic JSON callers from a future client-component disconnect UX.
+  // `slot=overflow` targets the 2nd Drive (provider='drive_overflow').
   const contentType = req.headers.get('content-type') ?? '';
   if (contentType.includes('application/json')) {
     const body = (await req.json().catch(() => null)) as
-      | { event_id?: string }
+      | { event_id?: string; slot?: string }
       | null;
-    return body?.event_id ?? null;
+    return { eventId: body?.event_id ?? null, slot: body?.slot ?? null };
   }
   const form = await req.formData().catch(() => null);
-  return (form?.get('event_id') as string | null) ?? null;
+  return {
+    eventId: (form?.get('event_id') as string | null) ?? null,
+    slot: (form?.get('slot') as string | null) ?? null,
+  };
 }
 
 export async function POST(req: NextRequest) {
-  const eventId = await readEventId(req);
+  const { eventId, slot } = await readForm(req);
   if (!eventId) {
     return NextResponse.json({ error: 'event_id required' }, { status: 400 });
   }
+  // slot=overflow → disconnect the 2nd Drive only (owner 2026-07-11). It has no
+  // events.* mirror, so it never touches Drive #1's photo-delivery pointer or the
+  // papic_storage_target.
+  const isOverflow = slot === 'overflow' || slot === '2';
+  const provider = isOverflow ? 'drive_overflow' : 'drive';
 
   // --- Auth check: signed-in user + couple membership ---
   const supabase = await createClient();
@@ -74,28 +85,32 @@ export async function POST(req: NextRequest) {
     .from('oauth_grants')
     .select('grant_id, refresh_token')
     .eq('event_id', eventId)
-    .eq('provider', 'drive')
+    .eq('provider', provider)
     .is('revoked_at', null)
     .maybeSingle();
 
-  // No grant = nothing to do; still flip storage target back to R2 just
-  // in case the event row is in an inconsistent state, then redirect.
-  if (!grant) {
-    await admin
-      .from('events')
-      .update({
+  // events.* mirror to reset — ONLY for the primary Drive (overflow has none).
+  const eventReset = isOverflow
+    ? null
+    : {
         papic_storage_target: 'setnayan_r2',
-        // Phase 0: this is now the shared Drive disconnect — clear the Photo
-        // Delivery panel state too so both surfaces return to idle together.
+        // Phase 0: the shared Drive disconnect clears the Photo Delivery panel
+        // state too so both surfaces return to idle together.
         photo_delivery_provider: null,
         photo_delivery_oauth_expires_at: null,
         photo_delivery_folder_id: null,
         photo_delivery_folder_name: null,
         photo_delivery_account_email: null,
         photo_delivery_status: 'idle',
-      })
-      .eq('event_id', eventId);
-    const target = new URL(`/dashboard/${eventId}/add-ons/papic`, req.url);
+      };
+
+  // No grant = nothing to do; still flip the primary's storage target back to R2
+  // just in case the event row is in an inconsistent state, then redirect.
+  if (!grant) {
+    if (eventReset) {
+      await admin.from('events').update(eventReset).eq('event_id', eventId);
+    }
+    const target = new URL(`/dashboard/${eventId}/studio/papic`, req.url);
     target.searchParams.set('drive_disconnected', '1');
     return NextResponse.redirect(target);
   }
@@ -104,7 +119,7 @@ export async function POST(req: NextRequest) {
   // We only call Google when env is configured. If not, we still flip
   // revoked_at locally — that's the source of truth for whether we'll
   // ever use this token again.
-  const config = getDriveOAuthConfig();
+  const config = await getDriveOAuthConfig();
   if (config.ready) {
     await revokeDriveToken(grant.refresh_token as string);
   }
@@ -117,23 +132,12 @@ export async function POST(req: NextRequest) {
       .from('oauth_grants')
       .update({ revoked_at: new Date().toISOString() })
       .eq('grant_id', grant.grant_id),
-    admin
-      .from('events')
-      .update({
-        papic_storage_target: 'setnayan_r2',
-        // Phase 0: this is now the shared Drive disconnect — clear the Photo
-        // Delivery panel state too so both surfaces return to idle together.
-        photo_delivery_provider: null,
-        photo_delivery_oauth_expires_at: null,
-        photo_delivery_folder_id: null,
-        photo_delivery_folder_name: null,
-        photo_delivery_account_email: null,
-        photo_delivery_status: 'idle',
-      })
-      .eq('event_id', eventId),
+    ...(eventReset
+      ? [admin.from('events').update(eventReset).eq('event_id', eventId)]
+      : []),
   ]);
 
-  const target = new URL(`/dashboard/${eventId}/add-ons/papic`, req.url);
+  const target = new URL(`/dashboard/${eventId}/studio/papic`, req.url);
   target.searchParams.set('drive_disconnected', '1');
   return NextResponse.redirect(target);
 }

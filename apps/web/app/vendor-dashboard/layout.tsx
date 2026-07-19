@@ -1,72 +1,49 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { runLoginGhostingCheck } from '@/lib/ghosting';
+import { maybeSweepGhostedLeadHolds } from '@/lib/lead-token-holds';
+import { maybeSweepExpiredCreatorOffers } from '@/lib/creator-offers';
 import { countUnread } from '@/lib/notifications';
-import { fetchUserRoleSummary } from '@/lib/roles';
-import { fetchUserEvents, sortEventsForSwitcher } from '@/lib/events';
+import { countUnreadMessages } from '@/lib/chat';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { EventSwitcher } from '@/app/dashboard/[eventId]/_components/event-switcher';
-import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
-import { Wordmark } from '@/app/_components/brand-marks';
-import { VendorSidebar } from './_components/vendor-sidebar';
+import { DoorwaySidebarHeader } from '@/app/_components/nav/doorway-sidebar-header';
+import { VendorSidebar, VendorSidebarFooter } from './_components/vendor-sidebar';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { VendorAvatar, deriveVendorInitials as deriveInitials } from '@/app/_components/vendor-avatar';
 import { isMusicVendor } from '@/lib/songs';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
+import { VendorNavFab } from './_components/vendor-nav-fab';
 import { resolveVendorRole } from '@/lib/vendor-role';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { PushNotificationRegistrar } from './_components/push-notification-registrar';
+import {
+  AccountSwitcher,
+  SwitcherPlaqueTrigger,
+} from '@/app/_components/account-switcher/account-switcher';
+import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
+import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
+import { ServerTimer } from '@/lib/server-timing';
 
 /**
  * Vendor dashboard layout — v2.1 Navigation Phase 2 (vendor doorway).
  *
- * WHY: CLAUDE.md tenth 2026-05-28 row v2.1 brief canonical lock + 14th
- * 2026-05-28 row System Wiring Map audit + Nav Phase 3 (admin · PR #606)
- * + Nav Phase 1 (customer · PR #625) pattern. Replaces the prior
- * 14-tab horizontal pill bar (apps/web/app/vendor-dashboard/_components/
- * subnav-tab.tsx) with the shared SidebarShell + SidebarSection +
- * SidebarItem primitives from PR #603. Mobile chrome moves to
- * VendorBottomNav with /vendor-dashboard/more as the overflow landing.
- *
  * STRUCTURE: SidebarShell owns the desktop layout split (sidebar at lg+,
- * main content area with offset). topBar slot carries the vendor
- * utilities cluster (brand logo · role-switch pill · live unread bell ·
- * display name · sign-out). Mobile chrome (VendorBottomNav at bottom)
- * is rendered as a sibling of SidebarShell — both auto-hide / show via
- * their own breakpoint primitives (sidebar lg:flex, bottom-nav lg:hidden).
+ * main content area with offset). The sidebarHeader carries the brand
+ * wordmark HOME-LINK + Vendor eyebrow + the business identity plaque
+ * (SwitcherPlaqueTrigger — the account-menu popup; Plaque-as-Menu council
+ * verdict 2026-07-16, matching the customer and admin doorway patterns).
+ * The topBar is right-aligned: unread bell · display name · sign-out ·
+ * AccountSwitcher (mobile-only pill; desktop uses the sidebar plaque).
  *
- * RETIRED from the previous layout shape:
- *   - 14-tab horizontal pill bar at <nav aria-label="Vendor sections">
- *     with 14 VendorSubnavTab instances + overflow-x-auto scroll. The
- *     pill bar provided no per-route grouping (Bookings + Services +
- *     Attributes read as siblings of Tax docs + Notifications even
- *     though they sit in different cognitive buckets). The new sidebar
- *     buckets surfaces into 6 groups (Home · Pipeline · Communicate ·
- *     Marketing · Money · Team).
- *   - Notifications-tab badge wiring via liveNotificationsUserId on the
- *     SubnavTab. Replaced with topbar UnreadBellBadge per the Nav Phase 1
- *     (customer · PR #625) pattern — bell sits in the utilities cluster
- *     and lives via Supabase Realtime. Single source of truth for unread.
- *   - VendorSubnavTab component itself. The file is retired in this PR.
- *     The shared SidebarItem primitive handles the same job (active
- *     state + label + icon + badge) for the desktop tree, and the
- *     UnreadBellBadge handles the live-unread case it specialized in.
- *
- * AUTHORIZATION + DATA FETCHING preserved verbatim from the prior layout
- * — see the canonical vendor-access gate comment block + the
- * hasVendorAccess fetcher pattern below. Nav Phase 2 is purely a chrome
- * refactor; no server-side semantics changed.
- *
- * NOTIFICATIONS — UnreadBellBadge in topbar handles the live unread
- * count + click-through to /vendor-dashboard/notifications. The
- * Notifications surface is NOT given a sidebar entry on desktop because
- * the topbar bell IS the canonical entry point (matches admin chrome).
- * On mobile chrome the /more landing surfaces /vendor-dashboard/
- * notifications via its activeMatch list, so the More tab lights up
- * when the vendor views the notifications page directly.
+ * EventSwitcher was retired from this doorway on 2026-06-18 — the unified
+ * account panel owns identity + cross-console hopping on all three doorways,
+ * consistent with the customer doorway; going HOME is the wordmark's job.
  */
 export default async function VendorDashboardLayout({
   children,
@@ -77,41 +54,202 @@ export default async function VendorDashboardLayout({
   if (!user) redirect(loginRedirectPath('/vendor-dashboard'));
   const supabase = await createClient();
 
-  const [profileRes, unreadCount, roles, events, vendorRole, vendorProfile] = await Promise.all([
-    supabase
-      .from('users')
-      .select('account_type, email, display_name, deleted_at')
-      .eq('user_id', user.id)
-      .maybeSingle(),
-    countUnread(supabase, user.id),
-    fetchUserRoleSummary(supabase, user.id),
-    // Couple events for the top-left EventSwitcher (owner directive
-    // 2026-06-02: switcher visible on all 3 dashboards, same top-left spot
-    // as the customer doorway). Defensive .catch() so a throw in this
-    // non-critical chrome fetch can't crash the vendor layout — degrade to
-    // the empty "+" monogram. Mirrors DashboardLayout's 5th-hotfix pattern.
-    fetchUserEvents(supabase, user.id, 'couple').catch((err: unknown) => {
-      logQueryError(
-        'VendorDashboardLayout (fetchUserEvents threw)',
-        err instanceof Error ? err : new Error(String(err)),
-        { user_id: user.id },
-        'graceful_degrade',
-      );
-      return [] as Awaited<ReturnType<typeof fetchUserEvents>>;
-    }),
-    // Vendor team role for the role-aware nav shell (owner/admin = full nav,
-    // agent/viewer = scoped). Resolved here so both the sidebar + bottom-nav
-    // render from one source. Independent of the others → safe in Promise.all.
-    resolveVendorRole(supabase, user.id),
-    // Vendor profile (own or via team membership) — drives service-aware nav:
-    // Repertoire only exists for music acts (owner directive 2026-06-13;
-    // mirrors the page-level isMusicVendor gate that already shipped).
-    // Defensive .catch(): nav gating must never crash the layout.
-    fetchOwnVendorProfile(supabase, user.id).catch(() => null),
-  ]);
+  const minimalSwitcherFallback: SwitcherData = {
+    userId: user.id,
+    displayName: null,
+    email: user.email ?? '',
+    isAnonymous: !!user.is_anonymous,
+    photoUrl: null,
+    events: [],
+    context: { hasVendor: true, vendorName: null, isAdmin: false },
+  };
+
+  // Server-render timing (2026-07-01) — one structured stdout line per layout
+  // render → log drain. See lib/server-timing.ts.
+  const timer = new ServerTimer('vendor-dashboard/layout');
+
+  // Vendor profile (own or via team membership) — drives service-aware nav +
+  // the tier/wallet read below. Kicked off on its own (not folded into the
+  // big Promise.all) so the tier/wallet queries below can chain directly off
+  // it instead of waiting on the whole batch — see the latency note below.
+  const vendorProfilePromise = fetchOwnVendorProfile(supabase, user.id).catch(() => null);
+
+  // Sidebar chrome data (proto-shell) — the identity card + footer chips.
+  //   • tier          — soft-probed tier_state (not in the shared profile
+  //                     select), normalized in VendorSidebarFooter.
+  //   • tokenBalance  — the SAME wallet read the /tokens page uses: purchased +
+  //                     earned. Fail-soft to 0 so the sidebar never blocks on a
+  //                     wallet error. The expiry sweep that used to run inline
+  //                     before this read is now deferred to after() (see below).
+  //
+  // PERF FIX (2026-07-01, "sidebar nav feels slow"): this used to `await` the
+  // whole chrome Promise.all (below) — which includes getSwitcherData()'s own
+  // 3-stage sequential chain (membership batch → events → gallery counts) —
+  // before even ISSUING the tier/wallet queries, then awaited those as a
+  // 4th sequential round trip. That serialized an independent 2-query read
+  // behind the single slowest, unrelated fetch in the layout, on *every*
+  // sidebar click (this layout re-renders server-side on every navigation
+  // since it reads cookies via getCurrentUser()). Chaining off
+  // vendorProfilePromise directly lets tier/wallet fire as soon as the
+  // vendor profile resolves, overlapping with switcherData's remaining
+  // stages instead of queuing behind them — cuts one full round trip off
+  // the critical path of every sidebar navigation.
+  const tierWalletPromise = vendorProfilePromise.then(async (vp) => {
+    if (!vp?.vendor_profile_id) {
+      return { tier: null as string | null, tokenBalance: 0, earnedTokens: 0, vendorId: null as string | null };
+    }
+    const vendorId = vp.vendor_profile_id;
+    const [tierRes, walletRes] = await Promise.all([
+      supabase
+        .from('vendor_profiles')
+        .select('tier_state')
+        .eq('vendor_profile_id', vendorId)
+        .maybeSingle(),
+      supabase
+        .from('vendor_wallets')
+        .select('purchased_tokens, earned_tokens')
+        .eq('vendor_id', vendorId)
+        .maybeSingle(),
+    ]);
+    const earnedTokens = walletRes.data?.earned_tokens ?? 0;
+    return {
+      tier: (tierRes.data as { tier_state?: string | null } | null)?.tier_state ?? null,
+      tokenBalance: (walletRes.data?.purchased_tokens ?? 0) + earnedTokens,
+      earnedTokens,
+      vendorId,
+    };
+  });
+
+  // Sidebar Bookings badge — count of inquiry threads still awaiting the vendor's
+  // Accept/Decline (inquiry_status='pending'). Real, RLS-scoped, indexed head
+  // count chained off the vendor profile (fires as soon as the id resolves, in
+  // parallel with the chrome batch); fail-soft to 0 so the badge simply omits on
+  // any error — never fabricated. The Threads badge (unread chat threads) uses
+  // the existing countUnreadMessages RPC in the batch below.
+  const bookingsPendingPromise = vendorProfilePromise
+    .then(async (vp) => {
+      if (!vp?.vendor_profile_id) return 0;
+      const { count, error } = await supabase
+        .from('chat_threads')
+        .select('thread_id', { count: 'exact', head: true })
+        .eq('vendor_profile_id', vp.vendor_profile_id)
+        .eq('inquiry_status', 'pending');
+      return error ? 0 : count ?? 0;
+    })
+    .catch(() => 0);
+
+  // Single parallel batch for all chrome data with no inter-dependency. The
+  // nav-registry overrides (getNavSlotMap) used to run sequentially near the
+  // bottom of the layout — it has no dependency on anything, so it joins the
+  // batch here (2026-07-01 perf) and stops sitting on the critical path.
+  const [
+    profileRes,
+    unreadCount,
+    switcherData,
+    vendorRole,
+    vendorProfile,
+    navSlots,
+    tierWallet,
+    threadsUnread,
+    bookingsPending,
+  ] =
+    await timer.track('chrome', () => Promise.all([
+      supabase
+        .from('users')
+        .select('account_type, email, display_name, deleted_at')
+        .eq('user_id', user.id)
+        .maybeSingle(),
+      countUnread(supabase, user.id),
+      getSwitcherData(user.id).catch((err: unknown) => {
+        logQueryError(
+          'VendorDashboardLayout (getSwitcherData threw)',
+          err instanceof Error ? err : new Error(String(err)),
+          { user_id: user.id },
+          'graceful_degrade',
+        );
+        return minimalSwitcherFallback;
+      }),
+      // Vendor team role for the role-aware nav shell (owner/admin = full nav,
+      // agent/viewer = scoped). Resolved here so both the sidebar + bottom-nav
+      // render from one source.
+      resolveVendorRole(supabase, user.id),
+      // Vendor profile (own or via team membership) — drives service-aware nav:
+      // Repertoire only exists for music acts (owner directive 2026-06-13).
+      // Defensive .catch(): nav gating must never crash the layout.
+      vendorProfilePromise,
+      // Nav registry: admin-managed name+icon overrides, resolved server-side
+      // and handed to the (client) vendor nav. Cached via NAV_REGISTRY_TAG,
+      // fails open. No dependency → batched here rather than run sequentially.
+      getNavSlotMap(),
+      tierWalletPromise,
+      // Threads badge — unread chat threads for this user (existing graceful RPC,
+      // already used on the couple chrome). Independent of the vendor profile.
+      countUnreadMessages(supabase, user.id),
+      // Bookings badge — pending-inquiry count (chained on the vendor profile).
+      bookingsPendingPromise,
+    ]));
   const profile = profileRes.data;
   // Service-aware nav: Repertoire is a music-act surface only.
   const showRepertoire = isMusicVendor(vendorProfile?.services);
+
+  //   • verified      — public_visibility === 'verified' (matches the Overview
+  //                     page's isVerified derivation).
+  //   • initials      — up to 2 uppercase letters from the business name.
+  const vendorSidebarName =
+    vendorProfile?.business_name ?? profile?.display_name ?? profile?.email ?? 'Vendor';
+  const vendorInitials = deriveInitials(vendorSidebarName);
+  const vendorIsVerified = vendorProfile?.public_visibility === 'verified';
+  // Identity-card avatar shows the uploaded logo when present (owner
+  // 2026-07-02), initials otherwise. Presign is local crypto (no network);
+  // best-effort — a hiccup just falls back to initials.
+  const vendorLogoUrl = vendorProfile?.logo_url
+    ? await displayUrlForStoredAsset(vendorProfile.logo_url).catch(() => null)
+    : null;
+  const vendorTier = tierWallet.tier;
+  const vendorTokenBalance = tierWallet.tokenBalance;
+
+  // Expiry sweep moved OFF the render path (2026-07-01 perf). It used to be an
+  // awaited write RPC that blocked every layout render — including every
+  // Server-Action-triggered re-render of this dynamic layout. Deferring it to
+  // after() (post-response, same cron-free pattern as the ghosting check)
+  // keeps expiry current without gating first paint. Trade-off: the sidebar
+  // token pill can be one load stale after an expiry — accepted by owner
+  // 2026-07-01. `supabase` is captured in the closure (holds the access token
+  // in memory), so the post-response call still authenticates.
+  //
+  // GATED (2026-07-01 gap-fix): only *earned* tokens expire, so the sweep is
+  // a guaranteed no-op when the wallet holds none. Skipping it there avoids a
+  // pointless background write on every render for the majority of vendors
+  // (those with a zero earned balance).
+  if (tierWallet.vendorId && tierWallet.earnedTokens > 0) {
+    const vendorId = tierWallet.vendorId;
+    after(async () => {
+      await supabase
+        .rpc('evaluate_earned_token_expiry', { p_vendor_id: vendorId })
+        .then(() => undefined, () => undefined);
+    });
+  }
+
+  // Login-driven vendor TIER lapse (no cron) — same post-response, downgrade-only,
+  // idempotent pattern as the token sweep above. sweep_vendor_tier_expiry reverts
+  // a tier past its tier_expires_at (pro/enterprise → verified-or-free; custom →
+  // verified-or-free + demotes the active custom plan). Only fired for a sweepable
+  // PAID tier — for free/verified it is a guaranteed no-op, so skip the background
+  // RPC (the same pointless-write avoidance the token sweep uses). The api_access
+  // gate already denies expired access inline; this reconciles tier_state + the
+  // caps overlay so a lapsed vendor stops reading Custom/Pro ceilings.
+  if (
+    tierWallet.vendorId &&
+    vendorTier != null &&
+    (['pro', 'enterprise', 'custom'] as readonly string[]).includes(vendorTier)
+  ) {
+    const vendorId = tierWallet.vendorId;
+    after(async () => {
+      await supabase
+        .rpc('sweep_vendor_tier_expiry', { p_vendor_id: vendorId })
+        .then(() => undefined, () => undefined);
+    });
+  }
 
   if (profile?.deleted_at) {
     await supabase.auth.signOut();
@@ -120,149 +258,109 @@ export default async function VendorDashboardLayout({
 
   // Login-driven ghosting check (no cron) — after the response, once per login
   // (gated inside the helper). Vendor side: nudge if inquiries they received
-  // sit unanswered past the threshold. No-op for a user with no vendor profile.
+  // sit unanswered past the threshold.
   after(() => runLoginGhostingCheck(user.id, 'vendor'));
+  // Ghosted lead-hold sweep (fake-inquiry protection) — CRON-FREE: rides vendor
+  // traffic via after() + a durable daily DB claim (replaces the retired Vercel
+  // cron). The RPC is global + idempotent, so any vendor's visit sweeps every
+  // vendor's ghosts; a no-op when the hold feature is off. Never throws.
+  after(() => maybeSweepGhostedLeadHolds().catch(() => {}));
+  // Expired creator-offer sweep (Creator Economy P1) — CRON-FREE, same pattern:
+  // an unanswered discount offer past its window RELEASES the vendor's held reach
+  // token (refund). Global + idempotent; any vendor's visit sweeps the fleet.
+  after(() => maybeSweepExpiredCreatorOffers().catch(() => {}));
 
-  // Vendor-access gate — canonical "do they have vendor access" rule lives in
-  // `fetchUserRoleSummary` (apps/web/lib/roles.ts:165-167): a user has access
-  // if they own a `vendor_profiles` row OR sit on any `vendor_team_members`
-  // row, regardless of `users.account_type`. This matches the rule the
-  // unified switcher uses to decide whether to offer the "Shop console"
-  // target (apps/web/app/dashboard/[eventId]/_components/event-switcher.tsx
-  // roleTargets builder — formerly the RoleSwitchPill, retired 2026-06-12).
-  //
-  // Before this 2026-05-29 fix the layout instead checked the rigid
-  // `profile?.account_type === 'vendor'` predicate, which bounced anyone
-  // whose primary account_type wasn't 'vendor' back to /dashboard — even
-  // when they legitimately owned a vendor_profile (e.g. the owner running
-  // §10a Internal Account with is_internal=TRUE who also owns a vendor
-  // profile for pilot dogfooding). The role pill would offer Shop console,
-  // the user would click it, and the layout would silently redirect them
-  // back to the customer dashboard. Per CLAUDE.md 2026-05-15 dual-role lock
-  // ("a single users row may carry account_type='vendor' AND own/host
-  // events as a customer · Vendor application is additive") + 2026-05-20
-  // Login-landing rule lock ("admin + vendor consoles reached via
-  // role-switch pill only"), the canonical access gate is the role pill,
-  // and any console layout must accept users the pill grants access to.
-  if (!roles.hasVendorAccess) {
+  // Vendor-access gate — canonical rule: a user has access if they own a
+  // vendor_profiles row OR sit on any vendor_team_members row. getSwitcherData
+  // resolves this via fetchUserRoleSummary internally and surfaces it as
+  // context.hasVendor. Matches what the unified AccountSwitcher uses for the
+  // "Shop console" target.
+  if (!switcherData.context.hasVendor) {
     redirect('/dashboard');
   }
 
   const displayName = profile?.display_name ?? profile?.email ?? 'Vendor';
 
-  // EventSwitcher data — same shape DashboardLayout feeds OuterDashboardHeader.
-  // Hide archived events; active-first + expired-rightmost; primary (or first
-  // active) is the anchor monogram. Zero events → the wrapper renders the
-  // empty "+" monogram linking to /dashboard/create-event.
-
-  // DB-driven creatable event types for the switcher's add-event sheet
-  // (2026-06-13 cutover) — request-cached, so layouts + pages share one read.
-  const creatableEventTypes = await getCreatableEventTypes();
-  const visibleEvents = events.filter((e) => !e.archived);
-  const activeEvents = sortEventsForSwitcher(visibleEvents);
-  const primaryEvent = visibleEvents.find((e) => e.is_primary) ?? activeEvents[0] ?? null;
-  const switcherEvents = activeEvents.map((e) => ({
-    event_id: e.event_id,
-    display_name: e.display_name,
-    event_date: e.event_date,
-    is_primary: e.is_primary,
-    monogram_text: e.monogram_text,
-    monogram_color: e.monogram_color,
-    // Carry the onboarding free-monogram design (owner-locked 2026-06-03) so the
-    // switcher's anchor + dropdown rows render the couple's REAL customized
-    // monogram, matching the customer doorway (the basic-badge bug otherwise).
-    monogram_frame_key: e.monogram_frame_key,
-    monogram_font_key: e.monogram_font_key,
-    monogram_style: e.monogram_style,
-    monogram_custom_svg: e.monogram_uploaded_svg ?? e.monogram_custom_svg,
-  }));
-
-  // Top bar — vendor utilities cluster: unified switcher, live unread bell,
-  // display name, sign-out form. The RoleSwitchPill (mobile topBar + desktop
-  // sidebar footer) is RETIRED 2026-06-12 per owner directive "single
-  // switcher" — the unified EventSwitcher top-left now owns BOTH event
-  // switching and cross-console hopping (Customer view / Setnayan HQ) on
-  // every viewport.
+  // Top bar — right-aligned utilities cluster. AccountSwitcher pill is
+  // mobile-only (lg:hidden); desktop users open the same panel from the
+  // SwitcherPlaqueTrigger business plaque in the sidebar header
+  // (Plaque-as-Menu, council 2026-07-16).
   const topBar = (
-    <div className="flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:mx-auto lg:px-8">
-      {/* Top-left unified switcher — same top-left corner it holds on the
-          customer doorway (owner directive 2026-06-02). Customer chrome
-          carries no brand wordmark in this corner either (2026-05-15 chrome
-          lock), so all three doorways read consistently. Zero couple events →
-          the switcher renders the empty "+" monogram anchor but the menu
-          (incl. the "Switch view" rows) still opens via the caret. */}
-      <EventSwitcher
-        currentRole="vendor"
-        currentEventId={primaryEvent?.event_id ?? null}
-        currentEventName={primaryEvent?.display_name ?? null}
-        currentEventDate={primaryEvent?.event_date ?? null}
-        currentMonogramText={primaryEvent?.monogram_text ?? null}
-        currentMonogramColor={primaryEvent?.monogram_color ?? null}
-        currentMonogramFrameKey={primaryEvent?.monogram_frame_key}
-        currentMonogramFontKey={primaryEvent?.monogram_font_key}
-        currentMonogramStyle={primaryEvent?.monogram_style}
-        currentMonogramCustomSvg={primaryEvent?.monogram_uploaded_svg ?? primaryEvent?.monogram_custom_svg}
-        events={switcherEvents}
-        hasCustomerAccess={roles.hasCustomerAccess}
-        hasVendorAccess={roles.hasVendorAccess}
-        hasAdminAccess={roles.hasAdminAccess}
-        vendorProfiles={roles.vendorProfiles}
-        eventTypes={creatableEventTypes}
+    <div className="flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-end gap-2 px-4 py-3 sm:px-6 lg:mx-auto lg:px-8">
+      {/* The mobile "More" overflow link was removed 2026-07-16 with the /more
+          landing it opened — under the 5-page IA the bottom nav already covers
+          every hub, and every deeper surface lives as a tab inside its hub. */}
+      <UnreadBellBadge
+        userId={user.id}
+        initialUnread={unreadCount}
+        href="/vendor-dashboard/notifications"
+        ariaBaseLabel="Notifications"
+        ariaUnreadSuffix="unread"
       />
-      <div className="flex items-center gap-2">
-        {/* Live unread bell — replaces the SubnavTab liveNotificationsUserId
-            wiring from the pre-Phase 2 layout. Single canonical surface
-            for unread count + click-through to /vendor-dashboard/
-            notifications. Matches the customer doorway pattern shipped
-            via Nav Phase 1 (PR #625). */}
-        <UnreadBellBadge
-          userId={user.id}
-          initialUnread={unreadCount}
-          href="/vendor-dashboard/notifications"
-          ariaBaseLabel="Notifications"
-          ariaUnreadSuffix="unread"
-        />
-        <span className="hidden text-sm text-ink/70 sm:inline">{displayName}</span>
-        <form action="/auth/sign-out" method="post">
-          <button className="button-secondary h-9 px-3 text-xs" type="submit">
-            Sign out
-          </button>
-        </form>
+      <span className="hidden text-sm text-ink/70 sm:inline">{displayName}</span>
+      <form action="/auth/sign-out" method="post">
+        <button className="button-secondary h-9 px-3 text-xs" type="submit">
+          Sign out
+        </button>
+      </form>
+      <div className="lg:hidden">
+        <AccountSwitcher data={switcherData} />
       </div>
     </div>
   );
 
-  // Nav registry: admin-managed name+icon overrides, resolved server-side and
-  // handed to the (client) vendor nav. Cached via NAV_REGISTRY_TAG, fails open.
-  const navSlots = await getNavSlotMap();
+  timer.flush();
 
   return (
-    // app-surface → Source Sans backend typeface (globals.css). Plain block
-    // wrapper: no transform/filter so the BottomNav's fixed positioning and
-    // SidebarShell's own offset math are unaffected.
     <div className="app-surface">
       <SidebarShell
         sidebarHeader={
-          <header className="px-4 py-3">
-            <Wordmark />
-            <p className="m-label-mono mt-1.5" style={{ color: 'var(--m-slate-2)' }}>Vendor</p>
-          </header>
+          <DoorwaySidebarHeader
+            label="Vendor"
+            accentColor="var(--m-sidebar-accent)"
+            identity={
+              <SwitcherPlaqueTrigger
+                data={switcherData}
+                chip={
+                  <VendorAvatar
+                    logoUrl={vendorLogoUrl}
+                    initials={vendorInitials}
+                    className="flex h-full w-full items-center justify-center rounded-lg text-[11px] font-semibold tracking-wide"
+                  />
+                }
+                title={vendorSidebarName}
+                metaLine={vendorIsVerified ? 'Verified vendor' : 'Unverified'}
+                ariaLabel={`${vendorSidebarName} — account menu`}
+              />
+            }
+          />
         }
-        sidebar={<VendorSidebar role={vendorRole} showRepertoire={showRepertoire} navSlots={navSlots} />}
+        sidebar={
+          <VendorSidebar
+            role={vendorRole}
+            showRepertoire={showRepertoire}
+            navSlots={navSlots}
+            bookingsBadge={bookingsPending}
+            threadsBadge={threadsUnread}
+          />
+        }
+        sidebarFooter={<VendorSidebarFooter tier={vendorTier} tokenBalance={vendorTokenBalance} />}
         topBar={topBar}
       >
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last
             row of content. SidebarShell already handles the desktop
             sidebar offset via its lg:pl-[var(--shell-main-offset)] math. */}
-        <div className="pb-20 lg:pb-0">{children}</div>
+        <div className="pb-[calc(env(safe-area-inset-bottom)+92px)] lg:pb-0">{children}</div>
       </SidebarShell>
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
           BottomNav primitive. Sits outside SidebarShell so it doesn't
           inherit the desktop sidebar offset. */}
       <VendorBottomNav role={vendorRole} navSlots={navSlots} />
+      {/* NAV-2 broken-out action — Check inquiries (a sibling of the pill,
+          never a tab). Hides itself when a docked SubNav is up. */}
+      <VendorNavFab />
       {/* Push notification opt-in banner. Client-only; renders null once the
-          vendor has granted push permission or dismissed the prompt. Sits above
-          the BottomNav (z-40) without blocking any interaction. */}
+          vendor has granted push permission or dismissed the prompt. */}
       <PushNotificationRegistrar />
     </div>
   );

@@ -7,7 +7,7 @@ import { DayOfModeBanner } from './banner';
 import { WhatsHappeningCard } from './whats-happening-card';
 import { YourTableCard } from './your-table-card';
 import { LivePhotoWallCard } from './live-photo-wall-card';
-import { VideoGuestbookCard } from './video-guestbook-card';
+import { VideoGuestbookCard, type PabatiClipThumb } from './video-guestbook-card';
 import { LiveScheduleCard } from './live-schedule-card';
 import { CoordinatorBroadcastCard } from './coordinator-broadcast-card';
 import { GetHelpCard } from './get-help-card';
@@ -27,6 +27,11 @@ type Props = {
   headTable: EventTableRow | null;
   nearbyTables: EventTableRow[];
   sameDayVendors?: SameDayVendor[];
+  /** PABATI video guestbook — resolved server-side. When false the card hides. */
+  pabatiActive?: boolean;
+  pabatiClips?: PabatiClipThumb[];
+  pabatiUsed?: number;
+  pabatiTotal?: number;
 };
 
 export function DayOfModeGrid({
@@ -35,6 +40,10 @@ export function DayOfModeGrid({
   headTable,
   nearbyTables,
   sameDayVendors = [],
+  pabatiActive = false,
+  pabatiClips = [],
+  pabatiUsed = 0,
+  pabatiTotal = 0,
 }: Props) {
   return (
     <section
@@ -51,7 +60,18 @@ export function DayOfModeGrid({
           nearbyTables={nearbyTables}
         />
         <LivePhotoWallCard />
-        <VideoGuestbookCard />
+        {pabatiActive ? (
+          <VideoGuestbookCard
+            pabatiActive
+            eventId={eventId}
+            clips={pabatiClips}
+            used={pabatiUsed}
+            total={pabatiTotal}
+            shareUrl={`/pabati/${eventId}`}
+          />
+        ) : (
+          <VideoGuestbookCard pabatiActive={false} />
+        )}
         <LiveScheduleCard eventId={eventId} blocks={blocks} />
         <CoordinatorBroadcastCard />
         <GetHelpCard sameDayVendors={sameDayVendors} />

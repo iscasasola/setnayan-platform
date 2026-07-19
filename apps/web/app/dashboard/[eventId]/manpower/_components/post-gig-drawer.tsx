@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { postManpowerGig } from '@/app/vendor-dashboard/manpower/actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 /**
  * V2 Phase F · Post-gig drawer (host-side).
@@ -29,7 +30,7 @@ export function PostGigDrawer({ eventId }: { eventId: string }) {
             background: 'var(--m-orange)',
             color: 'white',
             padding: '10px 18px',
-            borderRadius: 'var(--m-radius-md)',
+            borderRadius: 'var(--m-r-md)',
             fontSize: '14px',
             fontWeight: 500,
           }}
@@ -133,20 +134,20 @@ export function PostGigDrawer({ eventId }: { eventId: string }) {
               >
                 Cancel
               </button>
-              <button
-                type="submit"
+              <SubmitButton
+                pendingLabel="Posting…"
                 className="m-btn inline-flex items-center gap-1.5"
                 style={{
                   background: 'var(--m-orange)',
                   color: 'white',
                   padding: '8px 16px',
-                  borderRadius: 'var(--m-radius-md)',
+                  borderRadius: 'var(--m-r-md)',
                   fontSize: '14px',
                   fontWeight: 500,
                 }}
               >
                 Post gig
-              </button>
+              </SubmitButton>
             </div>
           </form>
         </div>

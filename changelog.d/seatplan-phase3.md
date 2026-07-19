@@ -1,0 +1,14 @@
+## 2026-06-22 · feat(seating): keep-apart constraints + constraint-aware solver (smart seat-plan · Phase 3)
+
+Owner "what's next" smart seat-plan, **Phase 3** (follows #1997 + #2002). The couple can declare **"these two guests can't sit together"** and Auto Arrange seats them — and their whole groups — at different tables.
+
+**Seating Guide.** A new couple-private panel in the seating editor: add keep-apart rules (pick guest A → "can't sit with" → guest B), see them as removable chips. Group-aware (kept private per RA 10173 — never shown to guests/vendors). After Auto Arrange, the notice reports the outcome ("Honored 18/20 keep-apart rules — couldn't separate 2 (not enough room)").
+
+- **Migration** `20270210882937_event_seating_constraints.sql` — new couple-owned table (kind `keep_apart`, guest A/B FKs `ON DELETE CASCADE`, `CHECK(a<>b)`), a **`CREATE UNIQUE INDEX` on `(event_id, LEAST(a,b), GREATEST(a,b))`** for unordered-pair dedup, and Pattern-B couple-only RLS mirroring `event_floor_plan`. Auto-applies on merge.
+- **`lib/seating.ts`** — `solveSeatPlan` (pure, **deterministic** greedy repair — no `Math.random`): warm-starts from `computeAutoSeat` (carrying Phase-2 priority + stage weighting), then relocates violating guests to the stage-closest conflict-free table. **Group-aware** (a pair expands to both guests' custom groups) and **link-group-aware** ("same table" = the linked-table pool, not just `table_id`). **Graceful degrade** — always returns `{assignments, violations, satisfiedCount, totalRules}`, never throws/empties. `fetchSeatingConstraints` + `KeepApartRule`/`SolveInput`/`SolveResult` types. **6 new unit tests** (15 total, `tsx --test` green).
+- **`actions.ts`** — lock-gated `addSeatingConstraint`/`removeSeatingConstraint` (UUID-validated, injection-safe delete filter, idempotent on the unordered-pair unique index). `autoArrange` now runs `solveSeatPlan` when rules exist and returns the keep-apart outcome.
+- **⚠ P2 fix folded in:** the live **Auto Arrange** button calls `autoArrange` (not the dead `autoSeatGuests`), which P2 never threaded `priority_order` into — so Phase-2 priority wasn't actually applied by the button. Phase 3 wires both `priorityOrder` **and** the solver into `autoArrange`, so priority order now takes effect on the real path.
+
+Seat plan stays a free couple tool (≈₱0/event). Adversarially reviewed (3 lenses — solver correctness/determinism · security/RLS/migration · UI wiring) → **SHIP**, no HIGH/MED findings. Known V1 limit (documented in `solveSeatPlan`): greedy repair is best-effort — it won't backtrack an innocent "anchor" guest, so a rare satisfiable layout can still report a violation; result is always valid + the violation list accurate. Phase 4 adds explainability (one-tap relax) + lock-and-fill.
+
+SPEC IMPACT: iteration 0008 — adds `event_seating_constraints` + the keep-apart solver. Logged in corpus DECISION_LOG.

@@ -24,6 +24,11 @@ type Props = {
   href: string;
   ariaBaseLabel: string;
   ariaUnreadSuffix: string;
+  /** OPT-IN live pulse + expanding gold ring on the unread badge (home-launcher
+   *  pixel pass 2026-07-15; proto bell dot pulse/ringGold). Off by default so
+   *  the component's other mounts are unchanged. The global reduced-motion
+   *  freeze caps both animations to a single instant run. */
+  pulse?: boolean;
 };
 
 export function UnreadBellBadge({
@@ -32,12 +37,13 @@ export function UnreadBellBadge({
   href,
   ariaBaseLabel,
   ariaUnreadSuffix,
+  pulse = false,
 }: Props) {
   const [unread, setUnread] = useState(initialUnread);
   // 2026-05-23 — Owner reported error-boundary flash post-login: "cannot
   // add `postgres_changes` callbacks for realtime:notif-unread-{userId}
   // after `subscribe()`". Root cause: this component mounts in BOTH
-  // /dashboard/layout.tsx (OuterDashboardHeader) AND
+  // the account layout's top bar (dashboard/(account)/layout.tsx) AND
   // /dashboard/[eventId]/layout.tsx — same userId in both → Supabase
   // Realtime returns the SAME channel singleton on the 2nd mount →
   // calling .on() on an already-subscribed channel throws. useId() gives
@@ -124,6 +130,11 @@ export function UnreadBellBadge({
         <span
           aria-hidden
           className="absolute -right-1 -top-1 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-terracotta px-1 font-mono text-[9px] font-semibold text-cream"
+          style={
+            pulse
+              ? { animation: 'sn-pulse 1.7s infinite, sn-ring 2.6s infinite' }
+              : undefined
+          }
         >
           {unread > 9 ? '9+' : unread}
         </span>

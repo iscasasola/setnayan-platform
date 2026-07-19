@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import QRCode from 'qrcode';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchGuestsByEvent, guestDisplayName } from '@/lib/guests';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
+import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,7 +64,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
-  const site = event.slug ? `${appUrl}/${event.slug}` : appUrl;
+  // Nested /u/ under the cutover flag, bare root otherwise (self-noops OFF).
+  const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), eventId);
+  const site = event.slug ? publicEventUrl(appUrl, event.slug, ownerSlug) : appUrl;
 
   // Group linked tables into ONE printed unit (identity + QR only — owner-locked
   // 2026-06-10): the unit prints a single sign under its shared label, carrying

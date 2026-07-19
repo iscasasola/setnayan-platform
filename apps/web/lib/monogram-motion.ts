@@ -6,16 +6,24 @@
  * (the market-default effect every template tool ships) with a motion
  * vocabulary the couple chooses from in the Monogram Maker.
  *
- * Each signature is implemented in AnimatedMonogramHero
- * (app/_components/animated-monogram-hero.tsx) as pure SVG + CSS — no Lottie,
- * no JS animation runtime, SSR-safe, and every one of them collapses to the
- * static painted monogram under `prefers-reduced-motion: reduce`.
+ * These six signatures (draw·foil·bloom·editorial·halo·stardust) are the LETTERED
+ * lockup motions, implemented in AnimatedMonogramHero
+ * (app/_components/animated-monogram-hero.tsx) as pure SVG + CSS — no Lottie, no
+ * JS runtime, SSR-safe, and every one collapses to the static painted monogram
+ * under `prefers-reduced-motion: reduce`.
+ *
+ * GOLD TURN + MOLTEN GOLD are NOT here — they are BESPOKE (studio/uploaded) mark
+ * reveals chosen in the Vector Studio "Animate the reveal" panel and stored in
+ * `monogram_studio_config.anim` (lib/monogram-studio-shared.ts ANIM_KINDS), not
+ * `monogram_motion_key` (owner 2026-06-23 unification). So the lettered library
+ * stays the six CSS signatures, matching the live `events_monogram_motion_key_check`
+ * constraint (which was never widened — gold/molten live in the studio jsonb).
  *
  * The chosen key persists as `events.monogram_motion_key`
- * (20261107000000_event_monogram_motion.sql). NULL means 'draw' so every
- * pre-library Animated Monogram keeps its exact original render. WHICH
- * animation plays is a free choice; WHETHER the landing hero animates at all
- * stays gated by ANIMATED_MONOGRAM order ownership (lib/animated-monogram.ts).
+ * (20261111000000_event_monogram_motion.sql). NULL means 'draw' so every
+ * pre-library Animated Monogram keeps its exact original render. WHICH animation
+ * plays is a free choice; WHETHER the monogram animates at all stays gated by
+ * ANIMATED_MONOGRAM order ownership (lib/animated-monogram.ts).
  */
 
 export type MonogramMotionKey =
@@ -79,6 +87,9 @@ export const MONOGRAM_MOTIONS: MonogramMotion[] = [
       'Tiny gold sparks twinkle around the circle as your initials fade in — a little celebration every time a guest arrives.',
   },
 ];
+// NOTE: Gold Turn + Molten Gold are NOT lettered motions — they're bespoke-mark
+// studio reveals (monogram_studio_config.anim / ANIM_KINDS), chosen in the Vector
+// Studio "Animate the reveal" panel. See lib/monogram-studio-shared.ts.
 
 export const MONOGRAM_MOTION_KEYS = MONOGRAM_MOTIONS.map((m) => m.key);
 

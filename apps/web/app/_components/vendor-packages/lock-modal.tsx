@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Package as PackageIcon, X, Check, AlertCircle } from 'lucide-react';
 import {
@@ -9,6 +9,7 @@ import {
   type VendorPackageItemRow,
   type VendorPackageWithItems,
 } from '@/lib/vendor-packages';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { lockPackage, type LockPackageResult } from '../../dashboard/[eventId]/vendors/packages/actions';
 
 /**
@@ -32,6 +33,7 @@ export function LockPackageModal({
   const [removedIds, setRemovedIds] = useState<string[]>([...defaultRemovedIds]);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   const { remainingConsumableCentavos, totalLockedCentavos, removedTotalCentavos } =
     useMemo(() => computeCustomization(pkg, removedIds), [pkg, removedIds]);
@@ -48,6 +50,8 @@ export function LockPackageModal({
     setOpen(false);
     setError(null);
   }
+
+  useModalA11y({ open, onClose: close, containerRef: dialogRef });
 
   function onLock() {
     setError(null);
@@ -98,7 +102,8 @@ export function LockPackageModal({
           onClick={close}
         >
           <div
-            className="flex max-h-[95vh] w-full flex-col overflow-hidden rounded-t-2xl bg-cream shadow-2xl sm:m-4 sm:h-full sm:max-h-full sm:w-[480px] sm:rounded-2xl"
+            ref={dialogRef}
+            className="flex max-h-[95vh] w-full flex-col overflow-hidden rounded-t-2xl bg-cream shadow-2xl focus:outline-none sm:m-4 sm:h-full sm:max-h-full sm:w-[480px] sm:rounded-2xl"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-labelledby="lock-package-title"
@@ -145,7 +150,7 @@ export function LockPackageModal({
                         className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
                           removed
                             ? 'border-ink/10 bg-cream/40 opacity-60'
-                            : 'border-emerald-300/50 bg-emerald-50/30'
+                            : 'border-success-300/50 bg-success-50/30'
                         }`}
                       >
                         <input
@@ -165,7 +170,7 @@ export function LockPackageModal({
                           {item.replacement_value_centavos > 0 ? (
                             <p
                               className={`mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] ${
-                                removed ? 'text-emerald-700' : 'text-ink/45'
+                                removed ? 'text-success-700' : 'text-ink/45'
                               }`}
                             >
                               {removed
@@ -193,7 +198,7 @@ export function LockPackageModal({
                 (pkg.consumable_budget_centavos > 0 || removedTotalCentavos > 0) ? (
                   <div className="flex items-center justify-between">
                     <dt className="text-ink/70">Consumable budget</dt>
-                    <dd className="font-mono text-emerald-800">
+                    <dd className="font-mono text-success-800">
                       {formatCentavosPhp(remainingConsumableCentavos)}
                     </dd>
                   </div>
@@ -201,7 +206,7 @@ export function LockPackageModal({
                 {!pkg.is_consumable_flexible && removedTotalCentavos > 0 ? (
                   <div className="flex items-center justify-between">
                     <dt className="text-ink/70">Saved</dt>
-                    <dd className="font-mono text-emerald-800">
+                    <dd className="font-mono text-success-800">
                       {formatCentavosPhp(removedTotalCentavos)}
                     </dd>
                   </div>
@@ -209,7 +214,7 @@ export function LockPackageModal({
               </dl>
 
               {error ? (
-                <p className="mb-3 flex items-start gap-2 rounded-lg border border-rose-300/50 bg-rose-50/40 px-3 py-2 text-xs text-rose-800">
+                <p className="mb-3 flex items-start gap-2 rounded-lg border border-danger-300/50 bg-danger-50/40 px-3 py-2 text-xs text-danger-800">
                   <AlertCircle
                     aria-hidden
                     className="mt-0.5 h-3.5 w-3.5 shrink-0"

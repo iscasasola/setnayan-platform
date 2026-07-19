@@ -1,5 +1,5 @@
-import Link from 'next/link';
-import { ArrowLeft, CreditCard, Smartphone, Trash2, Wallet } from 'lucide-react';
+import { CreditCard, Smartphone, Trash2, Wallet } from 'lucide-react';
+import { BackButton } from '@/app/_components/back-button';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -9,6 +9,7 @@ import { FormFlash } from '@/app/_components/forms/form-flash';
 import { QrUploadForm } from '../_components/qr-upload-form';
 import { removeMerchantQr, savePaymentInstruments } from '../actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Payment methods · Admin' };
 
 type PaymentMethodRow = {
@@ -60,6 +61,7 @@ type Props = {
  * CLAUDE.md V1→V2 cutover decision-log rows).
  */
 export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const admin = createAdminClient();
   const settings = await fetchPlatformSettings(admin);
@@ -82,13 +84,7 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
-      <Link
-        href="/admin/settings"
-        className="mb-4 inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-      >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to settings
-      </Link>
+      <BackButton href="/admin/settings" label="Back to settings" />
 
       <header className="mb-6 space-y-2">
         <div className="flex items-center gap-2">
@@ -228,7 +224,7 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
             Read-only configuration that ran during the V1 launch period —
             gateway fee, Setnayan Pay platform fee, and minimum-floor per rail.
           </p>
-          <p className="rounded-md border border-amber-200/60 bg-amber-50/60 px-3 py-2 text-xs text-amber-900">
+          <p className="rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">
             <span className="font-semibold">Retired 2026-05-28 V2 cutover —
             read-only historical view.</span> Setnayan Pay is no longer the
             checkout rail. Setnayan is now a software publisher — customer SKUs
@@ -247,12 +243,12 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
             issue — refresh in a moment or check Sentry for the full detail.
           </p>
         ) : rows.length === 0 ? (
-          <p className="rounded-md border border-dashed border-ink/15 bg-cream p-3 text-sm text-ink/55">
+          <p className="rounded-md border border-dashed border-ink/15 bg-white/50 p-3 text-sm text-ink/55">
             No historical Setnayan Pay rows recorded. (V2 doesn&apos;t write to
             this table; this is expected on fresh environments.)
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-ink/10 bg-cream">
+          <div className="sn-tile overflow-x-auto !p-0">
             <table className="min-w-full divide-y divide-ink/10 text-sm">
               <thead className="bg-ink/5">
                 <tr>
@@ -309,7 +305,7 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
                       </td>
                       <td className="px-3 py-2 text-xs">
                         {m.is_active ? (
-                          <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 font-medium text-emerald-800">
+                          <span className="inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 font-medium text-success-800">
                             Active
                           </span>
                         ) : (
@@ -347,7 +343,7 @@ function QrUploadBlock({
   currentUrl: string | null;
 }) {
   return (
-    <section className="space-y-3 rounded-xl border border-ink/10 bg-cream p-5">
+    <section className="space-y-3 sn-tile p-5">
       <h3 className="text-sm font-semibold text-ink">{label}</h3>
 
       {currentUrl ? (
@@ -356,14 +352,14 @@ function QrUploadBlock({
           <img
             src={currentUrl}
             alt={`${label} preview`}
-            className="h-40 w-40 rounded-md border border-ink/15 bg-cream object-contain"
+            className="h-40 w-40 rounded-md border border-white/60 bg-white/70 object-contain"
           />
           <div className="flex-1 space-y-2 text-sm text-ink/65">
             <p>Currently shown to couples on order detail pages.</p>
             <form action={removeMerchantQr}>
               <input type="hidden" name="kind" value={kind} />
               <SubmitButton
-                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-danger-700 disabled:cursor-not-allowed disabled:opacity-60"
                 pendingLabel="Removing…"
               >
                 <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -373,7 +369,7 @@ function QrUploadBlock({
           </div>
         </div>
       ) : (
-        <p className="rounded-md border border-dashed border-ink/15 bg-cream p-3 text-xs text-ink/55">
+        <p className="rounded-md border border-dashed border-ink/15 bg-white/50 p-3 text-xs text-ink/55">
           No {label} uploaded yet. Couples will see only account name +
           number on order detail pages.
         </p>

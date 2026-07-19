@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { Clock, Check, X, Pencil } from 'lucide-react';
 import { updateScheduleBlock } from '../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 /**
  * BlockTimeEditor — inline time-range edit affordance on BlockCard
@@ -72,6 +73,7 @@ export function BlockTimeEditor({
   const [editing, setEditing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const save = useSaveLoader();
 
   if (!editing) {
     return (
@@ -106,7 +108,10 @@ export function BlockTimeEditor({
         const fd = new FormData(e.currentTarget);
         startTransition(async () => {
           try {
-            await updateScheduleBlock(fd);
+            await save.run(() => updateScheduleBlock(fd), {
+              steps: ['Saving the block'],
+              hint: 'Saving',
+            });
             setEditing(false);
             setErrorMessage(null);
           } catch (err) {
@@ -174,7 +179,7 @@ export function BlockTimeEditor({
           Cancel
         </button>
         {errorMessage ? (
-          <span className="text-xs text-rose-700">{errorMessage}</span>
+          <span className="text-xs text-danger-700">{errorMessage}</span>
         ) : null}
       </div>
     </form>

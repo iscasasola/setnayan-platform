@@ -4,6 +4,11 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { emitNotification } from '@/lib/notification-emit';
+import { sendVendorFeaturedInStoryEmail } from '@/lib/vendor-email-triggers';
+
+const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
 
 /**
  * Setnayan HQ · Real Stories actions — curate which published, consent-gated
@@ -101,6 +106,89 @@ async function assertEligibleShowcase(
   return (ev.display_name as string | null)?.trim() || 'A Setnayan wedding';
 }
 
+/**
+ * Notify the couple (every couple-type event member) that their wedding was
+ * featured on Real Stories (Notification Foundation · Phase B). Deep-links to
+ * the public showcase index. Best-effort: a failed notification never affects
+ * the feature write that already landed. Fired on feature only — a pure admin
+ * re-order (setShowcaseRank) is internal curation and would be misleading to
+ * re-announce as "featured" each time, so it stays silent.
+ */
+async function notifyCoupleShowcaseFeatured(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  displayName: string,
+): Promise<void> {
+  try {
+    const { data: members } = await admin
+      .from('event_members')
+      .select('user_id')
+      .eq('event_id', eventId)
+      .eq('member_type', 'couple');
+    const memberIds = (members ?? [])
+      .map((m) => m.user_id as string)
+      .filter((id): id is string => Boolean(id));
+    if (memberIds.length === 0) return;
+
+    await Promise.all(
+      memberIds.map((userId) =>
+        emitNotification({
+          userId,
+          type: 'showcase_featured',
+          title: 'Your wedding is featured on Real Stories',
+          body: `${displayName} is now featured in the Setnayan Real Stories showcase. Couples planning their own day will see your story.`,
+          relatedUrl: '/realstories',
+        }),
+      ),
+    );
+  } catch (e) {
+    console.error('[real-stories] couple showcase-featured notify failed:', e);
+  }
+}
+
+/**
+ * The vendor-facing half of "you've been featured": email every CREDITED vendor
+ * on the event. Credited = a booked marketplace vendor whose
+ * linked_vendor_profile_id was stamped on lock (the same join that builds the
+ * editorial credit). Every tier is credited (Simplicity Canon rule 2,
+ * owner-ratified 2026-07-16 — the old free-tier credit hide is retired), so
+ * every tier is emailed. Best-effort: never blocks the admin feature action.
+ */
+async function notifyCreditedVendorsShowcaseFeatured(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  slug: string,
+  displayName: string,
+): Promise<void> {
+  try {
+    const { data: rows } = await admin
+      .from('event_vendors')
+      .select('linked_vendor_profile_id')
+      .eq('event_id', eventId)
+      .not('linked_vendor_profile_id', 'is', null);
+    const profileIds = Array.from(
+      new Set(
+        (rows ?? [])
+          .map((r) => r.linked_vendor_profile_id as string)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+    if (profileIds.length === 0) return;
+
+    // Rule 2 (2026-07-16): credit is free for every tier, so every credited
+    // vendor gets the "you've been featured" email — no tier filter anymore.
+    const eligible = profileIds;
+    if (eligible.length === 0) return;
+
+    const storyUrl = `${APP_URL}/${slug}`;
+    await Promise.all(
+      eligible.map((vpid) => sendVendorFeaturedInStoryEmail(vpid, storyUrl, displayName)),
+    );
+  } catch (e) {
+    console.error('[real-stories] credited-vendor featured email failed:', e);
+  }
+}
+
 /** Pin or unpin a wedding on /realstories. */
 export async function setShowcaseFeatured(formData: FormData) {
   const user = await requireAdmin();
@@ -119,6 +207,15 @@ export async function setShowcaseFeatured(formData: FormData) {
         eventId,
       );
     }
+    // Read prior state for idempotency (only email credited vendors on the FIRST
+    // feature, not on a re-feature/rank tweak) + the slug for the story link.
+    const { data: priorEv } = await admin
+      .from('events')
+      .select('slug, showcase_featured_at')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    const wasAlreadyFeatured = Boolean(priorEv?.showcase_featured_at);
+
     const { error } = await admin
       .from('events')
       .update({ showcase_featured_at: new Date().toISOString(), updated_at: new Date().toISOString() })
@@ -132,6 +229,18 @@ export async function setShowcaseFeatured(formData: FormData) {
       after_json: { showcase_featured_at: 'now' },
       actor_user_id: user.id,
     });
+    // Tell the couple they've been featured (best-effort · never blocks).
+    await notifyCoupleShowcaseFeatured(admin, eventId, name as string);
+    // Tell the credited vendors too — only on the first feature, and only if the
+    // event still has a public slug to link the story (best-effort · never blocks).
+    if (!wasAlreadyFeatured && priorEv?.slug) {
+      await notifyCreditedVendorsShowcaseFeatured(
+        admin,
+        eventId,
+        priorEv.slug as string,
+        name as string,
+      );
+    }
     revalidatePath('/realstories');
     revalidatePath(BASE);
     redirectBack('ok', `${name} is now featured on Real Stories.`, eventId);

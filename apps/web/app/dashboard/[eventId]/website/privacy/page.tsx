@@ -1,13 +1,23 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Check, Globe, Lock, EyeOff, Heart } from 'lucide-react';
+import {
+  ArrowLeft,
+  Check,
+  Globe,
+  Lock,
+  EyeOff,
+  Heart,
+  CalendarClock,
+  Rocket,
+} from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { updateLandingPageVisibility, setShowcaseConsent } from './actions';
+import { eventNoun } from '@/lib/event-noun';
 
-export const metadata = { title: 'Who can view your wedding page' };
+export const metadata = { title: 'Who can view your event page' };
 
 /**
  * /dashboard/[eventId]/website/privacy — landing-page visibility editor.
@@ -48,7 +58,7 @@ export default async function PrivacyEditorPage({
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, slug, landing_page_visibility',
+      'event_id, event_type, display_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -60,6 +70,21 @@ export default async function PrivacyEditorPage({
     | 'unlisted'
     | 'private';
   const saved = search.saved === '1';
+
+  // Launch status (read-only mirror — the controls live in the Save-the-Date
+  // studio, owner 2026-06-28). Live when public/launched; otherwise scheduled or
+  // private. Formatted in Manila time to match the studio scheduler.
+  const launched =
+    Boolean(event.std_launched_at) || currentVisibility === 'public';
+  const scheduledAt =
+    typeof event.scheduled_launch_at === 'string' ? event.scheduled_launch_at : null;
+  const scheduledLabel = scheduledAt
+    ? new Intl.DateTimeFormat('en-PH', {
+        timeZone: 'Asia/Manila',
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }).format(new Date(scheduledAt))
+    : null;
 
   // Real Weddings showcase consent (user-level). Read via the admin client so
   // the toggle reflects the true state regardless of users-table RLS; defaults
@@ -80,28 +105,28 @@ export default async function PrivacyEditorPage({
   return (
     <section className="space-y-8">
       {/* Header strip — back link + title */}
-      <header className="space-y-3">
+      <header className="sn-reveal space-y-3">
         <Link
           href={`/dashboard/${eventId}/website`}
           className="inline-flex items-center gap-1.5 text-sm text-terracotta hover:text-terracotta-700"
         >
           <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Back to your wedding website
+          Back to your {eventNoun(event.event_type)} website
         </Link>
         <div className="space-y-2">
-          <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <p className="sn-eye flex items-center gap-2">
             <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Who can view
           </p>
-          <h1 className="font-serif text-3xl italic tracking-tight sm:text-4xl">
-            Set who can see your wedding page
+          <h1 className="sn-h1">
+            Set who can see your {eventNoun(event.event_type)} page
           </h1>
           <p className="max-w-prose text-base text-ink/70">
-            Choose who can view {event.display_name ? <em>{event.display_name}</em> : 'your wedding'} at{' '}
+            Choose who can view {event.display_name ? <em>{event.display_name}</em> : `your ${eventNoun(event.event_type)}`} at{' '}
             {event.slug ? (
               <span className="font-mono text-sm">setnayan.com/{event.slug}</span>
             ) : (
-              'your wedding URL'
+              `your ${eventNoun(event.event_type)} URL`
             )}
             . You can change this anytime.
           </p>
@@ -112,12 +137,50 @@ export default async function PrivacyEditorPage({
       {saved ? (
         <div
           role="status"
-          className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+          className="flex items-start gap-3 rounded-lg border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900"
         >
           <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} />
-          <p>Saved. Your wedding page now follows this setting.</p>
+          <p>Saved. Your {eventNoun(event.event_type)} page now follows this setting.</p>
         </div>
       ) : null}
+
+      {/* Launch status — read-only mirror of the Save-the-Date studio control
+          (owner 2026-06-28). Tells the host whether their page is live, scheduled,
+          or private, and links to where they actually launch / schedule it. */}
+      <div className="flex flex-col gap-3 sn-tile p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          {launched ? (
+            <Globe aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-success-700" strokeWidth={1.75} />
+          ) : scheduledLabel ? (
+            <CalendarClock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-mulberry" strokeWidth={1.75} />
+          ) : (
+            <Lock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-ink/55" strokeWidth={1.75} />
+          )}
+          <div className="space-y-0.5">
+            <p className="text-sm font-semibold text-ink">
+              {launched
+                ? 'Your page is live'
+                : scheduledLabel
+                  ? 'Launch scheduled'
+                  : 'Your page is private'}
+            </p>
+            <p className="text-sm text-ink/65">
+              {launched
+                ? 'Your Save-the-Date is launched — anyone with your link can view your page.'
+                : scheduledLabel
+                  ? `Goes live ${scheduledLabel} (Manila time). Until then, only you and invited guests can see it.`
+                  : 'Launch your Save-the-Date to make your page public — now, or at a time you choose.'}
+            </p>
+          </div>
+        </div>
+        <Link
+          href={`/dashboard/${eventId}/website/launch`}
+          className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-mulberry/30 px-4 py-2 text-sm font-semibold text-mulberry transition hover:bg-mulberry/10 sm:self-center"
+        >
+          <Rocket aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          {launched ? 'Manage launch' : scheduledLabel ? 'Change schedule' : 'Launch or schedule'}
+        </Link>
+      </div>
 
       {/* The picker — three radio cards in a single form */}
       <form action={updateLandingPageVisibility} className="space-y-4">
@@ -131,7 +194,7 @@ export default async function PrivacyEditorPage({
             currentValue={currentVisibility}
             icon={<Globe aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />}
             title="Public"
-            blurb="Anyone with your wedding's URL can view your landing page. Search engines may index it after your wedding day."
+            blurb={`Anyone with your ${eventNoun(event.event_type)}'s URL can view your landing page. Search engines may index it after your ${eventNoun(event.event_type)} day.`}
           />
 
           <VisibilityCard
@@ -165,28 +228,28 @@ export default async function PrivacyEditorPage({
       </form>
 
       {/* Footnote — light context so the host knows what changes immediately */}
-      <footer className="rounded-xl border border-ink/10 bg-cream/60 p-5 text-sm text-ink/65">
+      <footer className="sn-tile p-5 text-sm text-ink/65">
         Changes apply right away. Anyone with your URL who already opened the page
         may see the previous view for up to a minute while their browser refreshes.
       </footer>
 
       {/* Real Weddings showcase consent — RA 10173 opt-in / one-click opt-out (0046) */}
-      <div className="space-y-4 rounded-xl border border-ink/10 bg-cream/60 p-5 sm:p-6">
+      <div className="space-y-4 sn-tile p-5 sm:p-6">
         <div className="space-y-2">
-          <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <p className="sn-eye flex items-center gap-2">
             <Heart aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Real Weddings
           </p>
           <h2 className="font-serif text-2xl italic tracking-tight">
-            Feature your wedding on Setnayan
+            Feature your {eventNoun(event.event_type)} on Setnayan
           </h2>
           <p className="max-w-prose text-sm text-ink/70">
-            With your okay, Setnayan can feature your wedding on our public{' '}
+            With your okay, Setnayan can feature your {eventNoun(event.event_type)} on our public{' '}
             <Link href="/realstories" className="text-terracotta hover:underline">
               Real Weddings
             </Link>{' '}
             page — your story, your photos, and the team behind your day — starting
-            30&nbsp;days after your wedding. It&rsquo;s completely optional, and you can
+            30&nbsp;days after your {eventNoun(event.event_type)}. It&rsquo;s completely optional, and you can
             turn it off anytime.
           </p>
         </div>
@@ -195,25 +258,25 @@ export default async function PrivacyEditorPage({
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
               showcaseOptedIn
-                ? 'bg-emerald-50 text-emerald-800'
+                ? 'bg-success-50 text-success-800'
                 : 'bg-ink/5 text-ink/60'
             }`}
           >
             {showcaseOptedIn
               ? 'On — eligible to be featured'
-              : 'Off — your wedding stays private'}
+              : `Off — your ${eventNoun(event.event_type)} stays private`}
           </span>
           <form action={setShowcaseConsent}>
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="opt_in" value={showcaseOptedIn ? '0' : '1'} />
             <SubmitButton className="button-primary" pendingLabel="Saving…">
-              {showcaseOptedIn ? 'Turn off featuring' : 'Feature our wedding'}
+              {showcaseOptedIn ? 'Turn off featuring' : `Feature our ${eventNoun(event.event_type)}`}
             </SubmitButton>
           </form>
         </div>
 
         <p className="text-xs text-ink/50">
-          Your wedding only ever appears after the day itself (a 30-day grace
+          Your {eventNoun(event.event_type)} only ever appears after the day itself (a 30-day grace
           window), and only while this is turned on. Details follow Setnayan&rsquo;s
           privacy rules (RA&nbsp;10173).
         </p>
@@ -242,10 +305,10 @@ function VisibilityCard({
   const selected = value === currentValue;
   return (
     <label
-      className={`group flex cursor-pointer items-start gap-4 rounded-xl border p-5 transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-terracotta ${
+      className={`group sn-row flex cursor-pointer items-start gap-4 p-5 transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-terracotta ${
         selected
           ? 'border-terracotta bg-white/80 ring-2 ring-terracotta ring-offset-2 ring-offset-cream'
-          : 'border-ink/10 bg-cream hover:border-terracotta/40 hover:bg-white/60'
+          : 'hover:border-terracotta/40 hover:bg-white/60'
       }`}
     >
       <input

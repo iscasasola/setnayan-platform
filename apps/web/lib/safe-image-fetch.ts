@@ -46,6 +46,26 @@ function isPrivateAddress(ip: string): boolean {
   return PRIVATE_V4.some((re) => re.test(v));
 }
 
+/**
+ * True when `hostname` resolves ONLY to public addresses — i.e. it is safe to
+ * fetch server-side. False on any private / loopback / link-local / metadata
+ * resolution AND on DNS failure (fail-closed: an unresolvable host is not a
+ * fetch target). Exported for the QR-media guard's redirect-hop resolution,
+ * which must re-check EVERY hop of a redirect chain (a public shortener can
+ * bounce through an attacker host).
+ */
+export async function hostResolvesPublic(hostname: string): Promise<boolean> {
+  try {
+    const host = hostname.replace(/^\[|\]$/g, '');
+    const addresses = isIP(host)
+      ? [host]
+      : (await lookup(host, { all: true })).map((a) => a.address);
+    return addresses.length > 0 && !addresses.some(isPrivateAddress);
+  } catch {
+    return false;
+  }
+}
+
 export async function safeFetchImageBytes(
   rawUrl: string,
   opts: { timeoutMs?: number; maxBytes?: number } = {},

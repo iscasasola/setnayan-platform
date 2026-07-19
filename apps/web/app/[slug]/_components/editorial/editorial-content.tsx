@@ -18,9 +18,25 @@
 // ============================================================================
 
 import { type ReactElement, type ReactNode } from 'react';
-import { loadEditorialData, type EditorialData } from './data';
+import { Printer } from 'lucide-react';
+import {
+  loadEditorialData,
+  resolveSectionOrder,
+  type EditorialData,
+  type EditorialOrderKey,
+} from './data';
+import { LivingMoments, KwentoClip } from './living-moments';
 import { composeCopy, type ComposedCopy } from './compose';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
+import { SaveStoryCardButton } from '@/app/[slug]/recap/_components/save-story-card-button';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import {
+  resolveEventMonogram,
+  HERO_MONOGRAM_COLUMNS,
+  type HeroMonogramData,
+} from '@/lib/hero-monogram-data';
+import { HeroMonogram } from '@/app/_components/hero-monogram';
 
 const SHARE_SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
@@ -74,6 +90,21 @@ export async function EditorialContent({
         }
       : null);
 
+  // File-asset share path (share-asset completion 2026-07-17): the 9:16 story
+  // card behind the "Save story card" button. IG feed / Stories / TikTok don't
+  // take web-URL shares — this hands the couple a postable file through the
+  // native share sheet. REAL published editorials only: the curated samples
+  // (share prop passed, slug null) have no ?format=story asset, and the OG
+  // route only renders the editorial card once the couple has PUBLISHED (the
+  // same gate that put this page in front of the reader).
+  const storyCard =
+    !share && data.published && data.slug
+      ? {
+          url: `${SHARE_SITE_URL}/api/og/realstory-slug/${data.slug}?format=story`,
+          filenameBase: `${data.slug}-story`,
+        }
+      : null;
+
   // A block shows unless the couple turned it off in the editorial editor.
   const isOn = (k: keyof NonNullable<typeof data.sections>) => data.sections?.[k] !== false;
 
@@ -81,6 +112,38 @@ export async function EditorialContent({
   // year runs Nov 18 → Nov 17; Vol. I = Nov 18 2026 → Nov 17 2027); No. = this
   // wedding's number within that cycle.
   const editionLeft = `Vol. ${toRoman(editionVolume(data.eventDate))} · No. ${data.editionNo ?? 1}`;
+
+  // The couple's canonical mark for the masthead — resolved like the public hero
+  // (animates iff they own the paid ANIMATED_MONOGRAM). Best-effort + wrapped so
+  // this component keeps its "never throws" contract; null → the text-circle
+  // fallback below. Admin client: the editorial is publicly viewable.
+  let mono: HeroMonogramData | null = null;
+  try {
+    const admin = createAdminClient();
+    const { data: monoRow } = await admin
+      .from('events')
+      .select(HERO_MONOGRAM_COLUMNS)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    mono = await resolveEventMonogram(admin, eventId, monoRow);
+  } catch {
+    mono = null;
+  }
+
+  // Paid COUPLE_WEBSITE_PRO perk (retired/unbundled) — when ACTIVE (admin-approved), the
+  // editorial sheds the freemium "Powered by Setnayan" colophon watermark
+  // (the masthead sign-off below), matching the wedding site + recap. The
+  // "Powered by Setnayan" SERVICE-CREDITS strip (SetnayanExperience chip row)
+  // is CONTENT, not a watermark, and is intentionally NOT gated. Best-effort +
+  // wrapped to keep this component's "never throws" contract → false (keep the
+  // watermark) on any error. eventCoupleWebsiteProActive already
+  // graceful-degrades on orders-table drift; the catch guards the rest.
+  let hideWatermark = false;
+  try {
+    hideWatermark = await eventCoupleWebsiteProActive(createAdminClient(), eventId);
+  } catch {
+    hideWatermark = false;
+  }
 
   return (
     <div className="min-h-screen bg-[#e7e2d6] px-3 py-6 text-ink sm:px-4 sm:py-10">
@@ -92,8 +155,23 @@ export async function EditorialContent({
 
         {/* Masthead ------------------------------------------------------------ */}
         <header className="py-3 text-center">
-          <Monogram text={data.monogramText} color={data.monogramColor} />
-          <p className="mt-3 font-mono text-[9px] uppercase tracking-[0.34em] text-terracotta">
+          {/* The couple's REAL mark (bare — the masthead sits on cream, so it
+              reads without a backing), replacing the local initials-circle.
+              Falls back to the text-circle when no mark resolves. */}
+          {mono ? (
+            <div className="flex justify-center">
+              <HeroMonogram
+                event={mono.design}
+                monogram={mono.monogram}
+                animatedMonogram={mono.animatedMonogram}
+                studioAnim={mono.studioAnim}
+                bespokeSvg={mono.bespokeSvg}
+              />
+            </div>
+          ) : (
+            <Monogram text={data.monogramText} color={data.monogramColor} />
+          )}
+          <p className="mt-3 font-mono text-xs uppercase tracking-[0.34em] text-terracotta">
             Set na &rsquo;yan &middot; Commemorative Edition
           </p>
           <h1 className="mt-2 font-display text-4xl font-semibold leading-[0.96] tracking-tight sm:text-6xl">
@@ -110,12 +188,21 @@ export async function EditorialContent({
           center={editionCenter(data)}
           right={
             effectiveShare ? (
-              <ShareButtons
-                compact
-                url={effectiveShare.url}
-                title={effectiveShare.title}
-                image={effectiveShare.image}
-              />
+              <span className="inline-flex items-center gap-2">
+                <ShareButtons
+                  compact
+                  url={effectiveShare.url}
+                  title={effectiveShare.title}
+                  image={effectiveShare.image}
+                />
+                {storyCard ? (
+                  <SaveStoryCardButton
+                    compact
+                    storyCardUrl={storyCard.url}
+                    filenameBase={storyCard.filenameBase}
+                  />
+                ) : null}
+              </span>
             ) : (
               'Priceless'
             )
@@ -125,7 +212,7 @@ export async function EditorialContent({
 
         {/* Lead headline + deck + byline -------------------------------------- */}
         <section className="py-5 text-center sm:py-6">
-          <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-mulberry">
+          <p className="font-mono text-xs uppercase tracking-[0.3em] text-mulberry">
             {copy.superKicker}
           </p>
           <h2 className="mx-auto mt-3 max-w-3xl font-display text-4xl font-bold leading-[0.95] tracking-tight sm:text-6xl">
@@ -136,7 +223,7 @@ export async function EditorialContent({
               {copy.deck}
             </p>
           ) : null}
-          <p className="mt-4 font-mono text-[9px] uppercase tracking-[0.16em] text-ink/45">
+          <p className="mt-4 font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
             {copy.byline}
             {data.eventDateFormatted ? ` · ${data.venueCity ?? ''}` : ''}
           </p>
@@ -166,9 +253,18 @@ export async function EditorialContent({
             {/* Editorial = post-event SHOWCASE: the love story now lives on the
                 run-up paths (Save the Date / RSVP / Event), not here. We keep
                 the thank-you pull-quote, drop the love-narrative paragraphs. */}
-            {/* Couple-written lead paragraphs only (full editorial control); the
-                auto-composed love narrative stays on the run-up paths. */}
-            <LeadArticle paragraphs={data.draft.leadParagraphs ?? []} pullQuote={copy.pullQuote} />
+            {/* Couple-written lead paragraphs (full editorial control). When the
+                couple wrote none, FALL BACK to their love_story prose so the
+                article body is never empty (FREE, no-Papic path); the
+                auto-composed love narrative otherwise stays on the run-up paths. */}
+            <LeadArticle
+              paragraphs={
+                data.draft.leadParagraphs?.length
+                  ? data.draft.leadParagraphs
+                  : data.loveStoryParagraphs
+              }
+              pullQuote={copy.pullQuote}
+            />
             {isOn('team') && data.vendors.length ? (
               <TeamBehindTheDay vendors={data.vendors} />
             ) : null}
@@ -181,66 +277,138 @@ export async function EditorialContent({
           ) : null}
         </div>
 
-        {/* From the couple (pull from special_message) ------------------------ */}
+        {/* ── The reorderable content run (Editorial PRO — "the Editor's Desk")
+            ────────────────────────────────────────────────────────────────────
+            Every reorderable section is built as a keyed node, then rendered in
+            the couple's saved order (resolveSectionOrder — default order when no
+            PRO order is saved, which is the case for every older editorial + all
+            samples). The LOCKED CLOSE — "From the Couple" then "Their Song" — is
+            NOT part of this run; it is appended AFTER it, always the last two
+            content sections before the colophon (Editorial_Experience_Spec §7).
+            A section whose data is absent renders null and simply drops out. --- */}
+        {(() => {
+          // Keyed nodes for the reorderable run. Each carries the SAME gating it
+          // had inline; an absent-data section is `null` and contributes nothing.
+          const nodes: Record<EditorialOrderKey, ReactNode> = {
+            // "As the Day Unfolded" (living chapters) or the legacy "Moments"
+            // essay fallback — one block, gated by the `gallery` toggle.
+            chapters:
+              isOn('gallery') && data.dayChapters.length ? (
+                <div key="chapters">
+                  <SectionRule title="As the Day Unfolded" />
+                  <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+                    photos and living moments, in the order they happened
+                  </p>
+                  <LivingMoments chapters={data.dayChapters} names={data.firstNames} />
+                </div>
+              ) : isOn('gallery') && data.essayPhotos.length ? (
+                <div key="chapters">
+                  <SectionRule title="Moments" />
+                  <MomentsEssay photos={data.essayPhotos} names={data.firstNames} />
+                </div>
+              ) : null,
+            // What They Whispered — approved Kwento guest wishes.
+            kwento:
+              isOn('kwento') && data.kwentoQuotes.length ? (
+                <div key="kwento">
+                  <SectionRule title="What They Whispered" />
+                  <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+                    best wishes, captured on the day
+                  </p>
+                  <KwentoWall quotes={data.kwentoQuotes} names={data.firstNames} />
+                </div>
+              ) : null,
+            // Shared photos from the day ("From the Day").
+            gallery:
+              isOn('gallery') && data.galleryPhotos.length ? (
+                <div key="gallery">
+                  <SectionRule title="From the Day" />
+                  <PhotoGallery photos={data.galleryPhotos} names={data.firstNames} />
+                </div>
+              ) : null,
+            // From your vendors — day-of media from the recommended vendor.
+            fromVendors:
+              isOn('fromVendors') && data.vendorMedia.length ? (
+                <div key="fromVendors">
+                  <SectionRule title="From Your Vendors" />
+                  <VendorMediaStrip items={data.vendorMedia} />
+                </div>
+              ) : null,
+            // Live Photo Wall (LIVE_WALL SKU).
+            liveWall:
+              isOn('liveWall') && data.photoWallActive && data.photoWallPhotos.length ? (
+                <div key="liveWall">
+                  <SectionRule title="Live Photo Wall" />
+                  <LivePhotoWall photos={data.photoWallPhotos} photoCount={data.metrics.photos} />
+                </div>
+              ) : null,
+            // Video guestbook (PABATI SKU) — fails closed.
+            videoGuestbook:
+              isOn('videoGuestbook') && data.pabatiActive && data.pabatiClips.length ? (
+                <div key="videoGuestbook">
+                  <SectionRule title="Video Guestbook" />
+                  <VideoGuestbookWall clips={data.pabatiClips} />
+                </div>
+              ) : null,
+            // Watch the Film — Live Studio (Panood) replay, gated in data.ts.
+            watchFilm:
+              isOn('watchFilm') && data.watchFilmEmbedUrl ? (
+                <div key="watchFilm">
+                  <SectionRule title="Watch the Film" />
+                  <WatchTheFilm embedUrl={data.watchFilmEmbedUrl} names={data.firstNames} />
+                </div>
+              ) : null,
+            // What they said (reviews). Renders even when empty (empty state).
+            reviews: isOn('reviews') ? (
+              <div key="reviews">
+                <SectionRule title="What They Said" />
+                {data.reviews.length ? <ReviewsWall reviews={data.reviews} /> : <ReviewsEmptyState />}
+              </div>
+            ) : null,
+            // Powered by Setnayan — the in-app services the couple availed.
+            poweredBy:
+              isOn('poweredBy') && data.servicesAvailed.length ? (
+                <div key="poweredBy">
+                  <SectionRule title="Powered by Setnayan" />
+                  <SetnayanExperience services={data.servicesAvailed} />
+                </div>
+              ) : null,
+            // Vendors we loved — the couple's opt-in recommendations.
+            vendorsWeLoved:
+              isOn('vendorsWeLoved') && data.vendorsWeLoved.length ? (
+                <div key="vendorsWeLoved">
+                  <SectionRule title="Vendors We Loved" />
+                  <VendorsWeLoved vendors={data.vendorsWeLoved} />
+                </div>
+              ) : null,
+          };
+          return resolveSectionOrder(data.sectionOrder).map((k) => nodes[k]);
+        })()}
+
+        {/* LOCKED CLOSE — always the last two content sections, in this order
+            (Editorial_Experience_Spec §7: every editorial closes with the
+            couple's words then their song). Pinned after the reorderable run;
+            excluded from sectionOrder so no reorder can move them. ------------- */}
         {isOn('fromTheCouple') && data.specialMessage ? (
           <>
             <SectionRule title="From the Couple" />
             <FromTheCouple message={data.specialMessage} attribution={data.firstNames} />
           </>
         ) : null}
-
-        {/* Shared photos from the day ----------------------------------------- */}
-        {isOn('gallery') && data.galleryPhotos.length ? (
+        {data.song.url || data.song.label ? (
           <>
-            <SectionRule title="From the Day" />
-            <PhotoGallery photos={data.galleryPhotos} names={data.firstNames} />
-          </>
-        ) : null}
-
-        {/* From your vendors — day-of media submitted by the couple's
-            recommended vendor. Clips are baked boomerangs (editorial rule). --- */}
-        {isOn('fromVendors') && data.vendorMedia.length ? (
-          <>
-            <SectionRule title="From Your Vendors" />
-            <VendorMediaStrip items={data.vendorMedia} />
-          </>
-        ) : null}
-
-        {/* Live Photo Wall (LIVE_WALL SKU) — a dense masonry of the day's
-            candid photos, surfaced only when the couple availed the wall. ---- */}
-        {isOn('liveWall') && data.photoWallActive && data.photoWallPhotos.length ? (
-          <>
-            <SectionRule title="Live Photo Wall" />
-            <LivePhotoWall photos={data.photoWallPhotos} photoCount={data.metrics.photos} />
-          </>
-        ) : null}
-
-        {/* What they said (reviews from guests / vendors / the couple) -------- */}
-        {isOn('reviews') ? (
-          <>
-            <SectionRule title="What They Said" />
-            {data.reviews.length ? <ReviewsWall reviews={data.reviews} /> : <ReviewsEmptyState />}
-          </>
-        ) : null}
-
-        {/* The Setnayan experience — in-app services the couple availed ------- */}
-        {isOn('poweredBy') && data.servicesAvailed.length ? (
-          <>
-            <SectionRule title="Powered by Setnayan" />
-            <SetnayanExperience services={data.servicesAvailed} />
-          </>
-        ) : null}
-
-        {/* Vendors we loved — the couple's opt-in recommendations (referral loop) */}
-        {isOn('vendorsWeLoved') && data.vendorsWeLoved.length ? (
-          <>
-            <SectionRule title="Vendors We Loved" />
-            <VendorsWeLoved vendors={data.vendorsWeLoved} />
+            <SectionRule title="Their Song" />
+            <TheirSong song={data.song} names={data.firstNames} />
           </>
         ) : null}
 
         {/* Colophon / cross-phase links --------------------------------------- */}
-        <Colophon names={data.displayName} city={data.venueCity} />
+        <Colophon
+          names={data.displayName}
+          city={data.venueCity}
+          hideWatermark={hideWatermark}
+          printSlug={data.slug}
+        />
       </article>
     </div>
   );
@@ -252,7 +420,7 @@ function GracefulFallback(): ReactElement {
   return (
     <div className="flex min-h-[60vh] items-center justify-center bg-cream px-4 py-16 text-ink">
       <div className="mx-auto max-w-md space-y-3 rounded-2xl border border-ink/10 bg-cream/60 p-8 text-center">
-        <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-terracotta">
+        <p className="font-mono text-xs uppercase tracking-[0.3em] text-terracotta">
           The Editorial
         </p>
         <h2 className="font-display text-2xl italic tracking-tight">
@@ -286,7 +454,7 @@ function PhaseRibbon(): ReactElement {
   return (
     <nav
       aria-label="Site phases"
-      className="flex flex-wrap items-center justify-center gap-4 pb-3 font-mono text-[9px] uppercase tracking-[0.14em] text-ink/60"
+      className="flex flex-wrap items-center justify-center gap-4 pb-3 font-mono text-xs uppercase tracking-[0.14em] text-ink/60"
     >
       <a href="#" className="border-b border-terracotta pb-0.5 text-ink/60 no-underline">
         &larr; The Invitation (RSVP)
@@ -309,7 +477,7 @@ function EditionLine({
   right: ReactNode;
 }): ReactElement {
   return (
-    <div className="py-2 font-mono text-[9px] uppercase tracking-[0.1em] text-ink/65">
+    <div className="py-2 font-mono text-xs uppercase tracking-[0.1em] text-ink/65">
       {/* Desktop: one dateline row — Vol·No · City·Date · Share. */}
       <div className="hidden items-center justify-between text-left sm:flex">
         <span>{left}</span>
@@ -370,7 +538,7 @@ function HeroPhoto({
           decoding="async"
         />
       ) : null}
-      <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/70 to-transparent px-3 pb-2 pt-5 font-mono text-[9px] uppercase tracking-[0.08em] text-cream">
+      <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/70 to-transparent px-3 pb-2 pt-5 font-mono text-xs uppercase tracking-[0.08em] text-cream">
         {names}, from the celebration — captured on the day.
       </figcaption>
     </figure>
@@ -412,14 +580,17 @@ function LeadArticle({
  *  tier badge OR a #1-match label. Tagged vendors show by default; the rest
  *  (plain credits) collapse under a native "Show more" disclosure. */
 function isTaggedVendor(v: EditorialData['vendors'][number]): boolean {
-  return v.tier === 'pro' || v.tier === 'enterprise' || v.isFirstPick;
+  // Pro-or-higher (Custom runs as Enterprise) get the featured editorial
+  // treatment; Solo/Verified render as plain credits.
+  return v.tier === 'pro' || v.tier === 'enterprise' || v.tier === 'custom' || v.isFirstPick;
 }
 
 function VendorRow({ v }: { v: EditorialData['vendors'][number] }): ReactElement {
   // §3 tier-aware showcase: Pro/Enterprise get their real logo + a tier badge +
   // a link to their marketplace profile; others render as a plain credit.
   // (Free vendors are already filtered out in data.ts.)
-  const featured = (v.tier === 'pro' || v.tier === 'enterprise') && !!v.slug;
+  const featured =
+    (v.tier === 'pro' || v.tier === 'enterprise' || v.tier === 'custom') && !!v.slug;
   return (
     <li className="flex items-center gap-2 border-b border-dotted border-ink/15 py-1.5 last:border-b-0">
       {v.logoUrl ? (
@@ -443,14 +614,23 @@ function VendorRow({ v }: { v: EditorialData['vendors'][number] }): ReactElement
           <span className="block truncate font-serif text-sm font-semibold leading-tight">{v.name}</span>
         )}
         {v.category ? (
-          <span className="block font-mono text-[8px] uppercase tracking-[0.06em] text-ink/45">
+          <span className="block font-mono text-xs uppercase tracking-[0.06em] text-ink/45">
             {prettyCategory(v.category)}
-            {v.isFirstPick ? ' · #1 match' : ''}
           </span>
         ) : null}
       </span>
-      {v.tier === 'pro' || v.tier === 'enterprise' ? (
-        <span className="shrink-0 rounded-full border border-terracotta/40 px-1.5 py-0.5 font-mono text-[7px] uppercase tracking-[0.12em] text-terracotta">
+      {/* #1 MATCH credit — the vendor the couple chose was Setnayan's top
+          recommendation for that category (selection_match_rank = 1). A subtle
+          mulberry pill keeps it editorial, distinct from the terracotta tier
+          badge. Replaces the old inline "· #1 match" caption so the credit
+          reads as a proper badge instead of buried metadata. */}
+      {v.isFirstPick ? (
+        <span className="shrink-0 rounded-full border border-mulberry/40 bg-mulberry/5 px-1.5 py-0.5 font-mono text-xs uppercase tracking-[0.12em] text-mulberry">
+          #1 Match
+        </span>
+      ) : null}
+      {v.tier === 'pro' || v.tier === 'enterprise' || v.tier === 'custom' ? (
+        <span className="shrink-0 rounded-full border border-terracotta/40 px-1.5 py-0.5 font-mono text-xs uppercase tracking-[0.12em] text-terracotta">
           {v.tier}
         </span>
       ) : null}
@@ -472,7 +652,7 @@ function TeamBehindTheDay({
 
   return (
     <div className="mt-5 border-t border-ink/15 pt-3">
-      <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.2em] text-ink/45">
+      <p className="mb-2 font-mono text-xs uppercase tracking-[0.2em] text-ink/45">
         The Team Behind the Day
       </p>
       <ul className="m-0 list-none p-0">
@@ -482,7 +662,7 @@ function TeamBehindTheDay({
       </ul>
       {collapsed.length ? (
         <details className="mt-2">
-          <summary className="cursor-pointer list-none font-mono text-[9px] uppercase tracking-[0.16em] text-terracotta hover:text-terracotta-700">
+          <summary className="cursor-pointer list-none font-mono text-xs uppercase tracking-[0.16em] text-terracotta hover:text-terracotta-700">
             + {collapsed.length} more {collapsed.length === 1 ? 'vendor' : 'vendors'}
           </summary>
           <ul className="m-0 mt-1 list-none p-0">
@@ -530,12 +710,12 @@ function VendorsWeLoved({
             {v.href ? (
               <a
                 href={v.href}
-                className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink underline-offset-2 hover:underline"
+                className="font-mono text-xs uppercase tracking-[0.12em] text-ink underline-offset-2 hover:underline"
               >
                 {v.businessName}
               </a>
             ) : (
-              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/70">
+              <span className="font-mono text-xs uppercase tracking-[0.12em] text-ink/70">
                 {v.businessName}
               </span>
             )}
@@ -548,12 +728,19 @@ function VendorsWeLoved({
 
 function ByTheNumbers({ data }: { data: EditorialData }): ReactElement {
   const m = data.metrics;
+  // "Photos & moments" sums the day's stills + living-moment clips when either is
+  // known; the photos cell reads that combined figure. "Living moments" surfaces
+  // the clip count on its own, and "Chapters" the number of story chapters. Each
+  // is omitted (— / hidden) when its underlying count is null, exactly like the
+  // photos stat has always been.
+  const photosAndMoments =
+    m.photos != null || m.clips != null ? (m.photos ?? 0) + (m.clips ?? 0) : null;
   return (
     <div className="border-2 border-ink">
       <div className="bg-ink px-2 py-2 text-center font-display text-xl font-bold text-cream">
         By the Numbers
       </div>
-      <p className="px-2 pb-0.5 pt-2 text-center font-mono text-[8px] uppercase tracking-[0.2em] text-terracotta">
+      <p className="px-2 pb-0.5 pt-2 text-center font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
         Setnayan&rsquo;s hand in the day
       </p>
 
@@ -585,18 +772,26 @@ function ByTheNumbers({ data }: { data: EditorialData }): ReactElement {
         note="estimated"
       />
 
-      {/* Supporting count strip (2×2): guests · photos · #1 picks · replied */}
+      {/* Supporting count strip (2×2). Row 1: guests · photos & moments (stills +
+          living-moment clips; falls back to attending when neither is known).
+          Row 2: living moments (clip count; falls back to #1 picks) · replied. */}
       <div className="text-center">
         <div className="grid grid-cols-2 border-b border-ink/15">
           <StripCell value={fmt(m.guests)} label="Guests" />
-          {m.photos != null ? (
-            <StripCell value={fmt(m.photos)} label="Photos" last />
+          {photosAndMoments != null ? (
+            <StripCell value={fmt(photosAndMoments)} label="Photos & moments" last />
           ) : (
             <StripCell value={m.attending ? fmt(m.attending) : '—'} label="Attending" last />
           )}
         </div>
         <div className="grid grid-cols-2 border-b border-ink/15">
-          <StripCell value={m.firstPickDen > 0 ? fmt(m.firstPickNum) : '—'} label="#1 Picks" />
+          {m.clips != null ? (
+            <StripCell value={fmt(m.clips)} label="Living moments" />
+          ) : m.chapters != null ? (
+            <StripCell value={fmt(m.chapters)} label="Chapters" />
+          ) : (
+            <StripCell value={m.firstPickDen > 0 ? fmt(m.firstPickNum) : '—'} label="#1 Picks" />
+          )}
           <StripCell value={m.rsvpPct != null ? `${m.rsvpPct}%` : '—'} label="Replied" last />
         </div>
       </div>
@@ -627,7 +822,7 @@ function Stat({
       </div>
       <div className="mt-1 font-serif text-[13.5px] leading-tight text-ink/70">{label}</div>
       {note ? (
-        <div className="mt-0.5 font-mono text-[7px] uppercase tracking-[0.18em] text-ink/40">
+        <div className="mt-0.5 font-mono text-xs uppercase tracking-[0.18em] text-ink/40">
           {note}
         </div>
       ) : null}
@@ -647,7 +842,7 @@ function StripCell({
   return (
     <div className={`px-1 py-2 ${last ? '' : 'border-r border-ink/15'}`}>
       <b className="block font-display text-lg font-bold leading-none">{value}</b>
-      <span className="font-mono text-[7px] uppercase tracking-[0.08em] text-ink/45">{label}</span>
+      <span className="font-mono text-xs uppercase tracking-[0.08em] text-ink/45">{label}</span>
     </div>
   );
 }
@@ -674,7 +869,7 @@ function FromTheCouple({
       <p className="m-0 font-display text-xl font-medium italic leading-snug text-ink sm:text-2xl">
         &ldquo;{message}&rdquo;
       </p>
-      <footer className="mt-3 font-mono text-[9px] uppercase tracking-[0.16em] text-ink/45">
+      <footer className="mt-3 font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
         &mdash; {attribution}
       </footer>
     </blockquote>
@@ -735,6 +930,78 @@ function PhotoGallery({ photos, names }: { photos: string[]; names: string }): R
 }
 
 /**
+ * "Their Song" — the couple's wedding song. When the DELIVERED Pakanta song is
+ * present (`song.url`), it renders a slim audio player so the recap actually
+ * plays the couple's own song. When there's only a typed title (`song.label`
+ * with no url — the love_story.anchors.song fallback), it credits the title in
+ * an editorial line, no player. One of url/label is guaranteed by the caller.
+ */
+function TheirSong({
+  song,
+  names,
+}: {
+  song: EditorialData['song'];
+  names: string;
+}): ReactElement {
+  return (
+    <figure className="mx-auto mt-4 max-w-xl text-center">
+      {song.label ? (
+        <figcaption className="font-serif text-xl italic leading-snug text-ink/80 sm:text-2xl">
+          &ldquo;{song.label}&rdquo;
+        </figcaption>
+      ) : null}
+      <p className="mt-1 font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+        {names}
+        {song.url ? ' · their wedding song' : ' · the song that follows them'}
+      </p>
+      {song.url ? (
+        // The delivered Pakanta song. Muted-by-default (no autoplay) — the recap
+        // is a quiet, scroll-paced read; the couple's guests press play.
+        // eslint-disable-next-line jsx-a11y/media-has-caption
+        <audio
+          controls
+          preload="none"
+          src={song.url}
+          aria-label={`${names} — their wedding song`}
+          className="mx-auto mt-3 w-full max-w-md"
+        />
+      ) : null}
+    </figure>
+  );
+}
+
+/**
+ * "Moments" — a paced photo-essay spread of the day. A larger, alternating
+ * layout (distinct from the dense gallery grid). Auto-filled from the day's
+ * Papic captures when the couple didn't curate `essay_photo_ids`.
+ */
+function MomentsEssay({ photos, names }: { photos: string[]; names: string }): ReactElement {
+  return (
+    <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+      {photos.slice(0, 9).map((url, i) => (
+        <figure
+          key={`${i}-${url.slice(0, 24)}`}
+          className={`relative overflow-hidden rounded-sm bg-ink/10 ${
+            // Let the first photo of each block of three breathe taller — a
+            // simple paced rhythm without a per-moment mapping.
+            i % 3 === 0 ? 'aspect-[3/4] row-span-2' : 'aspect-square'
+          }`}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={url}
+            alt={`${names} — a moment from the day`}
+            className="h-full w-full object-cover"
+            loading="lazy"
+            decoding="async"
+          />
+        </figure>
+      ))}
+    </div>
+  );
+}
+
+/**
  * "From Your Vendors" — day-of media the couple's RECOMMENDED vendor
  * (event_vendors.selection_match_rank = 1) submitted for this event. A credited
  * grid: photos render as stills; clips render as muted, looping, GIF-like
@@ -745,7 +1012,7 @@ function PhotoGallery({ photos, names }: { photos: string[]; names: string }): R
 function VendorMediaStrip({ items }: { items: EditorialData['vendorMedia'] }): ReactElement {
   return (
     <div className="mt-4 space-y-3">
-      <p className="text-center font-mono text-[9px] uppercase tracking-[0.16em] text-ink/45">
+      <p className="text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
         Captured by the couple&rsquo;s vendors
       </p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -779,17 +1046,17 @@ function VendorMediaStrip({ items }: { items: EditorialData['vendorMedia'] }): R
             )}
             <figcaption className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-ink/75 to-transparent px-2.5 pb-1.5 pt-6">
               <span className="min-w-0">
-                <span className="block truncate font-mono text-[8px] uppercase tracking-[0.08em] text-cream/90">
+                <span className="block truncate font-mono text-xs uppercase tracking-[0.08em] text-cream/90">
                   {m.vendorName}
                 </span>
                 {m.category ? (
-                  <span className="block truncate font-mono text-[7px] uppercase tracking-[0.06em] text-cream/55">
+                  <span className="block truncate font-mono text-xs uppercase tracking-[0.06em] text-cream/55">
                     {m.category}
                   </span>
                 ) : null}
               </span>
               {m.type === 'clip' ? (
-                <span className="flex-none font-mono text-[7px] uppercase tracking-[0.08em] text-cream/70">
+                <span className="flex-none font-mono text-xs uppercase tracking-[0.08em] text-cream/70">
                   ◆ loop
                 </span>
               ) : null}
@@ -817,7 +1084,7 @@ function LivePhotoWall({
 }): ReactElement {
   return (
     <div className="mt-4">
-      <p className="mb-3 text-center font-mono text-[9px] uppercase tracking-[0.16em] text-ink/45">
+      <p className="mb-3 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
         Powered by Setnayan
         {typeof photoCount === 'number' && photoCount > 0
           ? ` · ${photoCount.toLocaleString('en-PH')} photos captured live`
@@ -846,6 +1113,134 @@ function LivePhotoWall({
 }
 
 /**
+ * "Video Guestbook" — the PABATI add-on, surfaced on the recap as a grid of the
+ * day's 5-second video greetings (pabati_clips). Each clip is a controlled
+ * <video> the reader plays inline. Clean, non-hidden clips only (the data layer
+ * fails closed). Presigned URLs → raw <video> (the optimizer can't proxy video).
+ */
+function VideoGuestbookWall({ clips }: { clips: string[] }): ReactElement {
+  return (
+    <div className="mt-4">
+      <p className="mb-3 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+        {clips.length.toLocaleString('en-PH')} video {clips.length === 1 ? 'greeting' : 'greetings'} from the day
+      </p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+        {clips.slice(0, 24).map((url, i) => (
+          <figure
+            key={`${i}-${url.slice(0, 24)}`}
+            className="overflow-hidden rounded-sm bg-ink/10"
+          >
+            <video
+              src={url}
+              controls
+              playsInline
+              preload="metadata"
+              className="aspect-[3/4] w-full bg-ink object-cover"
+            />
+          </figure>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * "What They Whispered" — approved Kwento guest wishes (photo_messages). Owner
+ * (2026-07-04): "kwento are messages with videos or photos" — every wish shows its
+ * anchor media beside the words. A 2-column masonry (single column on mobile):
+ * each wish is a serif-italic quote opened by a large gold quotation glyph,
+ * attributed in mono, and — when its anchor resolved (fail-closed upstream) — sat
+ * above its media: a photo as a small ~4/3 figure, a clip as a small living frame
+ * (muted loop · tap-for-sound · poster · reduced-motion still) reusing the
+ * page-wide living-moments playback machinery (≤3 concurrent · one audible). The
+ * clip frame's thin Daily-Prophet double border lives in <KwentoClip>. Text-only
+ * wishes keep the pure-quote treatment. Fails closed upstream (approved + clean +
+ * not author-hidden; anchor gated per source table), so this only paints safe
+ * wishes and safe media.
+ */
+function KwentoWall({
+  quotes,
+  names,
+}: {
+  quotes: EditorialData['kwentoQuotes'];
+  names: string;
+}): ReactElement {
+  return (
+    <div className="mt-4 gap-4 [column-fill:_balance] sm:columns-2">
+      {quotes.slice(0, 8).map((q, i) => (
+        <figure
+          key={i}
+          className="mb-4 break-inside-avoid border-l-2 border-terracotta/40 pl-4"
+        >
+          {q.media?.type === 'clip' ? (
+            <KwentoClip url={q.media.url} posterUrl={q.media.posterUrl} names={names} />
+          ) : q.media?.type === 'photo' ? (
+            <div className="relative mb-3 aspect-[4/3] overflow-hidden rounded-sm bg-ink/10">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={q.media.url}
+                alt=""
+                aria-hidden
+                className="h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
+          ) : null}
+          <blockquote className="m-0 font-serif text-base italic leading-snug text-ink/85">
+            <span aria-hidden className="mr-1 font-display text-3xl leading-none text-terracotta">
+              &ldquo;
+            </span>
+            {q.body}
+          </blockquote>
+          {q.author ? (
+            <figcaption className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-ink/50">
+              {q.author}
+              {q.role ? ` · ${q.role}` : ''}
+            </figcaption>
+          ) : null}
+        </figure>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * "Watch the Film" — the Live Studio (Panood) broadcast replay. The couple's
+ * ceremony as it was broadcast, embedded in a Daily-Prophet double-border frame
+ * (matching the living-moments clip frame) with a paper shadow. The URL is already
+ * a youtube-nocookie embed (normalize-or-rejected in lib/panood-watch), so the
+ * iframe never carries a raw pasted URL. Lazy-loaded, titled.
+ */
+function WatchTheFilm({
+  embedUrl,
+  names,
+}: {
+  embedUrl: string;
+  names: string;
+}): ReactElement {
+  return (
+    <div className="mt-4">
+      <p className="mb-3 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+        the ceremony, as it was broadcast
+      </p>
+      <div className="mx-auto max-w-3xl border-double border-[3px] border-ink/80 p-1.5 shadow-[0_10px_30px_-12px_rgba(20,16,12,0.35)]">
+        <div className="relative aspect-video w-full overflow-hidden bg-ink">
+          <iframe
+            src={embedUrl}
+            title={`${names} — the ceremony broadcast replay`}
+            loading="lazy"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            className="absolute inset-0 h-full w-full"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
  * "What They Said" — guest / vendor / couple reviews. Reads
  * EditorialData.reviews (seeded today via event_editorial.draft_json.reviews;
  * the full event-bound review system §3 is a later increment). Newspaper
@@ -862,7 +1257,7 @@ function ReviewsWall({ reviews }: { reviews: EditorialData['reviews'] }): ReactE
           <blockquote className="font-serif text-base italic leading-snug text-ink/85">
             &ldquo;{r.quote}&rdquo;
           </blockquote>
-          <figcaption className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-ink/50">
+          <figcaption className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-ink/50">
             {r.stars ? (
               <span aria-hidden className="mr-1 text-terracotta">
                 {'★'.repeat(Math.max(1, Math.min(5, r.stars)))}
@@ -888,7 +1283,7 @@ function SetnayanExperience({ services }: { services: string[] }): ReactElement 
       {services.map((s, i) => (
         <span
           key={i}
-          className="rounded-full border border-ink/15 bg-cream px-3 py-1 font-mono text-[9px] uppercase tracking-[0.1em] text-ink/70"
+          className="rounded-full border border-ink/15 bg-cream px-3 py-1 font-mono text-xs uppercase tracking-[0.1em] text-ink/70"
         >
           {s}
         </span>
@@ -897,10 +1292,26 @@ function SetnayanExperience({ services }: { services: string[] }): ReactElement 
   );
 }
 
-function Colophon({ names, city }: { names: string; city: string | null }): ReactElement {
+function Colophon({
+  names,
+  city,
+  hideWatermark = false,
+  printSlug = null,
+}: {
+  names: string;
+  city: string | null;
+  /** Paid COUPLE_WEBSITE_PRO perk — drop the masthead "Powered by Setnayan"
+   *  watermark when the event owns the active upgrade. The cross-phase links +
+   *  couple names stay; only the freemium credit line goes. */
+  hideWatermark?: boolean;
+  /** The couple's real slug → a quiet on-screen "Print the keepsake" link to the
+   *  A3 broadsheet route (/[slug]/print). Null for the curated samples (no real
+   *  event row), which have no print route; the link is then omitted. */
+  printSlug?: string | null;
+}): ReactElement {
   return (
     <footer className="mt-7 border-t-[3px] border-double border-ink pt-3 text-center">
-      <div className="flex flex-wrap justify-center gap-5 font-mono text-[9px] uppercase tracking-[0.1em]">
+      <div className="flex flex-wrap justify-center gap-5 font-mono text-xs uppercase tracking-[0.1em]">
         <a href="#" className="border-b border-terracotta pb-0.5 text-ink no-underline">
           The Invitation (RSVP)
         </a>
@@ -911,8 +1322,20 @@ function Colophon({ names, city }: { names: string; city: string | null }): Reac
           Watch the Film
         </a>
       </div>
+      {/* Print the keepsake — a quiet on-screen-only web affordance into the A3
+          broadsheet route. `print:hidden` keeps it off the browser's own print
+          of the editorial page. Omitted for samples (no real slug). */}
+      {printSlug ? (
+        <a
+          href={`/${printSlug}/print`}
+          className="mt-3 inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.14em] text-ink/55 no-underline hover:text-terracotta print:hidden"
+        >
+          <Printer aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          Print the keepsake
+        </a>
+      ) : null}
       <p className="mt-3 font-serif text-sm italic text-ink/45">
-        Powered by Setnayan{city ? ` · ${city}` : ''} · {names}
+        {hideWatermark ? names : <>Powered by Setnayan{city ? ` · ${city}` : ''} · {names}</>}
       </p>
     </footer>
   );

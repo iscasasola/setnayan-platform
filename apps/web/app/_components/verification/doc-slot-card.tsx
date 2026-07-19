@@ -21,7 +21,8 @@
  */
 
 import type { ReactNode } from 'react';
-import { CheckCircle2 } from 'lucide-react';
+import Link from 'next/link';
+import { CheckCircle2, ArrowUpRight } from 'lucide-react';
 import { DOC_SLOTS, type DocSlot, type DocSlotKind } from '@/lib/vendor-verification';
 
 /**
@@ -38,7 +39,7 @@ export function SlotBadge({
 }) {
   if (complete) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-800">
+      <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
         <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2} />
         Complete
       </span>
@@ -46,7 +47,7 @@ export function SlotBadge({
   }
   if (kind === 'external') {
     return (
-      <span className="inline-flex rounded-full bg-amber-50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-amber-800">
+      <span className="inline-flex rounded-full bg-warn-50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-warn-800">
         Setnayan-run
       </span>
     );
@@ -84,7 +85,7 @@ export function DocSlotCard({
   return (
     <article
       className={`flex h-full flex-col gap-3 rounded-2xl border bg-cream p-4 ${
-        complete ? 'border-emerald-300/60' : 'border-ink/10'
+        complete ? 'border-success-300/60' : 'border-ink/10'
       }`}
     >
       <header className="flex items-start justify-between gap-3">
@@ -99,6 +100,18 @@ export function DocSlotCard({
         <SlotBadge kind={slot.kind} complete={complete} />
       </header>
       <p className="text-xs text-ink/65">{slot.hint}</p>
+
+      {slot.guideSlug ? (
+        <Link
+          href={`/help/${slot.guideSlug}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex w-fit items-center gap-1 text-xs font-medium text-terracotta underline-offset-4 hover:underline"
+        >
+          How to get this
+          <ArrowUpRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+        </Link>
+      ) : null}
 
       {children}
     </article>

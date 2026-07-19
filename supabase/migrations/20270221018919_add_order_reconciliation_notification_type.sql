@@ -1,0 +1,38 @@
+-- add de-tokenized order/subscription notification types
+-- ============================================================================
+-- 20270221018919_add_order_reconciliation_notification_type.sql
+-- Notification Foundation follow-up (2026-06-24) — "only keep the vendor
+-- tokens" (owner). De-tokenize notifications that are NOT vendor token-pack
+-- purchases but were borrowing the token enum values, so the tray badge stops
+-- reading "TOKEN PURCHASE AWAITING PAYMENT" / "TOKENS CREDITED" on couple
+-- orders and vendor subscriptions.
+--
+-- Adds two new values to public.notification_type:
+--   • order_awaiting_reconciliation — admin/internal-recipient "a payment is
+--     pending, reconcile it". Fired from lib/order-admin-notify.ts (couple
+--     apply-then-pay orders → /admin/payments) AND
+--     lib/subscription-purchase-notify.ts (vendor subscription purchases →
+--     /admin/subscriptions). Replaces the borrowed
+--     'vendor_token_purchase_pending'.
+--   • subscription_activated — vendor-recipient "your Pro/Enterprise plan is
+--     live". Fired from lib/subscription-purchase-notify.ts. Replaces the
+--     borrowed 'vendor_tokens_credited' (the plan-active body still mentions any
+--     bundled tokens — those ARE real vendor tokens and stay).
+--
+-- WHY: the notifications tray renders the TYPE as its badge
+-- (NOTIFICATION_TYPE_LABEL in lib/notifications.ts), so a couple's ₱-priced
+-- order (e.g. Animated Monogram) and a vendor subscription both wore token
+-- badges — wrong: the customer token wallet is RETIRED, and a subscription is
+-- not a token pack. Dedicated types fix the badge without mislabeling real
+-- vendor token-pack purchases, which keep 'vendor_token_purchase_pending' /
+-- 'vendor_tokens_credited'.
+--
+-- ALTER TYPE … ADD VALUE IF NOT EXISTS is idempotent and re-run safe. ADD VALUE
+-- cannot run inside an explicit transaction block, so this migration is
+-- intentionally bare (no BEGIN/COMMIT). Matches the pattern in
+-- 20270205806123_add_completion_accepted_notification_type.sql and
+-- 20270129155743_add_notification_types.sql.
+-- ============================================================================
+
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'order_awaiting_reconciliation';
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'subscription_activated';

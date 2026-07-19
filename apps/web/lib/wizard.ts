@@ -104,7 +104,6 @@ export type WizardTaskId =
   | 'papic'
   | 'panood'
   | 'patiktok'
-  | 'same_day_edit'
   | 'attire'
   | 'hair_makeup'
   | 'principal_sponsors'
@@ -583,7 +582,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
   },
   {
     // Added 2026-05-24 (owner directive · "where do we add the songlist").
-    // The playlist add-on surface at /dashboard/[eventId]/add-ons/playlist
+    // The playlist add-on surface at /dashboard/[eventId]/studio/playlist
     // shipped earlier but had no wizard card pointing at it. Card sits
     // between create_schedule (sets ceremony 3pm · cocktails 5pm ·
     // reception 7pm) and create_website. Couples build the playlist
@@ -626,7 +625,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'external_process',
     title: 'Upgrade your website',
     whyItMatters:
-      "Two paid upgrades transform your wedding website. Monogram Hero (₱1,999) gives you the animated SVG-trace monogram + custom video or photo background. Live Schedule (₱999) lights up the 'Happening now' card on the day, auto-scrolling through ceremony → cocktails → reception. Optional · the free version still ships beautifully.",
+      "Two paid upgrades transform your wedding website. Monogram Hero gives you the animated SVG-trace monogram + custom video or photo background. Live Schedule lights up the 'Happening now' card on the day, auto-scrolling through ceremony → cocktails → reception. Optional · the free version still ships beautifully. (See current prices when you add them.)",
     pillLabel: 'Programming',
     prerequisites: ['create_website'],
   },
@@ -635,7 +634,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     // REVEAL — the animation (envelope / bridal veil) that uncovers the
     // couple's invitation when a guest opens their wedding-page link. It
     // recolours from the Mood Board and plays automatically; the old paid
-    // ₱199 video-render flow is retired. The /add-ons/save-the-date route
+    // ₱199 video-render flow is retired. The /studio/save-the-date route
     // is the chooser/preview. (Task id kept as 'save_the_date_video' for
     // events.wizard_state schema stability — do not rename.)
     id: 'save_the_date_video',
@@ -655,7 +654,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     // book the add-on, designate guest paparazzi via QR enrollment, the
     // native app captures + auto-tags during the event. T-3mo entry,
     // T-14d floor (final paparazzi seat assignment). Card surfaces the
-    // intake + tier picker; the add-on surface at /add-ons/papic
+    // intake + tier picker; the add-on surface at /studio/papic
     // handles the actual setup. External-process kind · placeholder
     // body until inline activation UI ships V1.x.
     id: 'papic',
@@ -665,9 +664,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     // save_the_date_video). Rationale: the STD video copy can reference
     // these services (e.g., "we'll be livestreaming · QR your photo
     // contribution") AND it nudges couples to spend on Setnayan
-    // services earlier in the funnel. Same-Day Edit at order 17.8
-    // stays AFTER save_the_date_video — owner only specified the 3
-    // and SDE is a different purchase moment (₱9,999+ flagship).
+    // services earlier in the funnel.
     order: 16.6,
     phase: 'programming',
     kind: 'external_process',
@@ -698,11 +695,11 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
   },
   {
     // Added 2026-05-24 (owner directive · same row as Papic + Panood).
-    // Patiktok = physical TikTok booth at the venue (iteration 0017 ·
-    // CLAUDE.md row 2026-05-16). Dual-tier per-day pricing: Setnayan
-    // master TikTok ₱999/day · couple's own TikTok ₱1,999/day via OAuth.
-    // 40-video soft cap per booth per day + ₱49/+10 overage. T-3mo entry,
-    // T-14d floor.
+    // Patiktok = physical TikTok booth at the venue (iteration 0017).
+    // Un-retired 2026-07-01 as a SINGLE admin-managed SKU (PATIKTOK_COMPILER,
+    // priced in platform_retail_catalog_v2 — no per-day/dual-tier/overage).
+    // Unlimited recordings included; 40-video soft cap is pacing guidance only.
+    // T-3mo entry, T-14d floor.
     id: 'patiktok',
     // 2026-05-24 owner directive (see papic comment above): moved from
     // 17.7 to 16.8 · before save_the_date_video.
@@ -714,25 +711,6 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
       "TikTok booth at the venue — guests step up, pick a trending sound from the printed QR menu, perform the dance, the booth auto-compiles + posts. Pick which TikTok handle owns the content (Setnayan or yours). T-3 months gives time for sound curation + booth slot reservation.",
     pillLabel: 'Programming',
     prerequisites: ['reception_venue'],
-  },
-  {
-    // Added 2026-05-24 (owner directive · "what other services by our
-    // app that needs to be purchased as well"). Same-Day Edit (SDE) is
-    // the flagship cinematic edit — 3-5 minute story-arc reel edited
-    // DURING the reception by the SDE crew + AI vision, then projected
-    // at the reception's end as the reveal moment. Premium tier from
-    // ₱9,999 (positioned to underbid traditional PH SDE videographers
-    // who charge ₱50-150K). Activation is pre-event (T-2mo) so the SDE
-    // crew can plan their coverage alongside Photography + Panood.
-    id: 'same_day_edit',
-    order: 17.8,
-    phase: 'programming',
-    kind: 'external_process',
-    title: 'Activate Same-Day Edit (SDE)',
-    whyItMatters:
-      "Cinematic 3-5 minute reveal of your day, edited DURING the reception and projected before the send-off. Setnayan's SDE crew uses vision AI to surface the best moments + cut them into a story arc — from ₱9,999, dramatically under the ₱50-150K traditional PH SDE rate. T-2 months gives the crew time to plan coverage alongside your photo + Panood team.",
-    pillLabel: 'Programming',
-    prerequisites: ['reception_venue', 'photography'],
   },
   {
     // 2026-05-24 senior-planner reorder: was order 18 (position 22 ·
@@ -946,7 +924,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'external_process',
     title: 'Order your wedding song (Pakanta)',
     whyItMatters:
-      "Custom wedding song by Setnayan AI music. Pick a tier — Basic ₱1,999 / 24 hr, Premium ₱3,999 / 2-5 days with lyric approval, or the Wedding Suite ₱9,999 / 5-7 days for 3 matching songs. The song saves to your event so every Setnayan-rendered video uses it.",
+      "Custom wedding song by Setnayan AI music. Pick a tier — Basic / 24 hr, Premium / 2-5 days with lyric approval, or the Wedding Suite / 5-7 days for 3 matching songs. The song saves to your event so every Setnayan-rendered video uses it.",
     pillLabel: 'Style & Identity',
     prerequisites: ['set_wedding_date'],
   },
@@ -1229,7 +1207,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'external_process',
     title: 'Order your AI highlight reel',
     whyItMatters:
-      "Setnayan vision AI reads your full archive after the wedding and cuts it into a cinematic highlight. Pick the 60-second teaser (₱999, T+24hr) for socials · or the 3-minute story-arc reel (₱2,999, T+1 week) for the full ride. Both share the same source material; many couples get both.",
+      "Setnayan vision AI reads your full archive after the wedding and cuts it into a cinematic highlight. Pick the 60-second teaser (T+24hr) for socials · or the 3-minute story-arc reel (T+1 week) for the full ride. Both share the same source material; many couples get both.",
     pillLabel: 'Post-event',
     prerequisites: ['download_photos'],
   },
@@ -1247,7 +1225,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'external_process',
     title: 'Get your Couple Keepsake Bundle',
     whyItMatters:
-      "₱2,499 · the post-event memento bundle. Print-ready PDF album + photo download + Panood broadcast reel + your final playlist as a shareable artifact. One purchase · everything that made your day comes home with you.",
+      "The post-event memento bundle. Print-ready PDF album + photo download + Panood broadcast reel + your final playlist as a shareable artifact. One purchase · everything that made your day comes home with you.",
     pillLabel: 'Post-event',
     prerequisites: ['download_photos'],
   },

@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
   }
 
   // --- Graceful fallback: 503 when GOOGLE_DRIVE_OAUTH_* env vars missing ---
-  const config = getDriveOAuthConfig();
+  const config = await getDriveOAuthConfig();
   if (!config.ready) {
     return NextResponse.json(
       {
@@ -71,12 +71,20 @@ export async function GET(req: NextRequest) {
   // --- CSRF: persist a single-use state nonce via service role ---
   // Service role is used because oauth_state has no couple-write policy —
   // tokens never appear in browser-visible RLS scope.
+  // ?slot=overflow (or slot=2) → the couple is connecting their SECOND Drive for
+  // overflow when Drive #1 fills (owner 2026-07-11). Same drive.file scope + OAuth
+  // client; it just writes a separate provider='drive_overflow' grant. Must be a
+  // DIFFERENT Google account than Drive #1, so always force the account chooser.
+  const slot = req.nextUrl.searchParams.get('slot');
+  const isOverflow = slot === 'overflow' || slot === '2';
+  const provider = isOverflow ? 'drive_overflow' : 'drive';
+
   const state = generateDriveStateToken();
   const admin = createAdminClient();
   const { error: stateError } = await admin.from('oauth_state').insert({
     state_token: state,
     event_id: eventId,
-    provider: 'drive',
+    provider,
     initiated_by: user.id,
   });
   if (stateError) {
@@ -92,7 +100,9 @@ export async function GET(req: NextRequest) {
     state,
     // ?switch=1 → the couple is changing which Google account holds the Drive
     // copy; force the account chooser so they can actually pick a different one.
-    forceAccountChooser: req.nextUrl.searchParams.get('switch') === '1',
+    // The overflow (2nd Drive) ALWAYS forces it — it must be a different account.
+    forceAccountChooser:
+      isOverflow || req.nextUrl.searchParams.get('switch') === '1',
   });
 
   return NextResponse.redirect(authorizeUrl);

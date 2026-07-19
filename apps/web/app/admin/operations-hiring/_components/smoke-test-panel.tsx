@@ -96,15 +96,15 @@ export function SmokeTestPanel() {
       </div>
 
       {lastResult && lastResult.ok && (
-        <div className="mt-3 rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+        <div className="mt-3 rounded border border-success-200 bg-success-50 p-3 text-sm text-success-900">
           <strong>{lastResult.type} test fired ✓</strong>
           {lastResult.messageId && (
-            <span className="ml-2 text-emerald-700/80">message_id: <code className="font-mono text-xs">{lastResult.messageId}</code></span>
+            <span className="ml-2 text-success-700/80">message_id: <code className="font-mono text-xs">{lastResult.messageId}</code></span>
           )}
           {lastResult.recipient && (
-            <span className="ml-2 text-emerald-700/80">→ {lastResult.recipient}</span>
+            <span className="ml-2 text-success-700/80">→ {lastResult.recipient}</span>
           )}
-          <div className="mt-1 text-xs text-emerald-700/80">
+          <div className="mt-1 text-xs text-success-700/80">
             {lastResult.type === 'resend'
               ? 'Check your inbox at the OWNER_NOTIFICATION_EMAIL. If the email does not arrive within 60s, see the troubleshooting steps in the Resend dashboard.'
               : 'Check Sentry dashboard for the captured event. The error subject contains the trace_id you can search by.'}
@@ -113,7 +113,7 @@ export function SmokeTestPanel() {
       )}
 
       {lastResult && !lastResult.ok && (
-        <div className="mt-3 rounded border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
+        <div className="mt-3 rounded border border-danger-200 bg-danger-50 p-3 text-sm text-danger-900">
           <strong>{lastResult.type} test FAILED</strong>
           {lastResult.reason && <div className="mt-1 text-xs">reason: {lastResult.reason}</div>}
           {lastResult.error && <div className="mt-1 text-xs">error: {lastResult.error}</div>}
@@ -121,7 +121,7 @@ export function SmokeTestPanel() {
       )}
 
       {lastError && (
-        <div className="mt-3 rounded border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
+        <div className="mt-3 rounded border border-danger-200 bg-danger-50 p-3 text-sm text-danger-900">
           {lastError}
         </div>
       )}

@@ -23,6 +23,16 @@
 import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 
+/**
+ * Catalog price recurrence (migration 20270322883953). `one_time` = a single
+ * charge (every SKU but SETNAYAN_AI today · renders with NO period suffix,
+ * byte-identical to the pre-subscription path). `per_28d` = the price is per
+ * 28-day cycle (SETNAYAN_AI ₱499/28d · owner 2026-06-29) · renders "₱X / 28
+ * days", matching the vendor 28-day billing cadence. Both the number AND the
+ * unit come from the catalog row — never hardcoded.
+ */
+export type BillingPeriod = 'one_time' | 'per_28d' | 'per_day' | 'per_year';
+
 export type V2CustomerSku = {
   service_code: string;
   title: string;
@@ -31,6 +41,9 @@ export type V2CustomerSku = {
   is_token_able: boolean;
   description: string | null;
   build_status: BuildStatus;
+  // Recurrence — migration 20270322883953. Drives the "/ 28 days" suffix in
+  // formatSkuPriceLabel; defaults to 'one_time' for every existing SKU.
+  billing_period: BillingPeriod;
   // Pax-based pricing — migration 20260720000000 · owner-locked 2026-06-02.
   // is_pax_priced=false → retail_price_php is the flat charge (every SKU but
   // PAPIC_GUEST today · byte-identical to the pre-pax path). When true, the
@@ -58,7 +71,17 @@ export type V2VendorSku = {
   // ~17% off vs monthly × 12 · charm-priced -1 endings · same per-tier
   // capability shape as monthly equivalents (max_categories + max_sub_seats
   // identical) · only price + billing cadence differ.
-  offering_type: 'subscription_monthly' | 'subscription_annual' | 'token_pack';
+  // `branch` / `seat` / `custom_addon` extend the union as the vendor add-on
+  // ladder grew (extra branch #20270128654206 · extra seat #20270511762904 ·
+  // Custom-tier composition SKUs #20270512705572). fetchV2VendorCatalog reads
+  // EVERY active row (no offering_type filter), so all of these flow through.
+  offering_type:
+    | 'subscription_monthly'
+    | 'subscription_annual'
+    | 'token_pack'
+    | 'branch'
+    | 'seat'
+    | 'custom_addon';
   token_grant_count: number | null;
   max_categories: number | null;
   max_sub_seats: number | null;
@@ -86,29 +109,39 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   RSVP_PRO_WEBSITE:    'partial',  // RSVP Pro upgrade ₱4,499
   EVENT_WEBSITE:       'partial',  // during-event website ₱1,999
   PRO_RSVP:            'partial',  // the actually-seeded RSVP SKU (migration 20260915000000) · was missing → silently defaulted to not_built
-  COUPLE_WEBSITE_PRO:  'partial',  // the single ₱3,999 website unlock (migration 20270103020000) · collapses PRO_RSVP/EVENT_WEBSITE/PRO_WEBSITE · buy surface = follow-up
-  SETNAYAN_AI:         'live',     // the planner / first paywall · catalog SETNAYAN_AI ₱3,999 · gate lib/setnayan-ai.ts
+  COUPLE_WEBSITE_PRO:  'live',     // ₱4,999 website unlock (migration 20270103020000 · repriced 20270511151471) · collapses PRO_RSVP/EVENT_WEBSITE/PRO_WEBSITE · the UMBRELLA across STD·RSVP·on-the-day·Editorial · perk: removes "Powered by Setnayan" watermark from site+recap+editorial when active (lib/couple-website-pro.ts) · 2026-06-22
+  EDITORIAL_PRO:       'live',     // ₱3,499 à-la-carte editorial-authoring SKU (migration 20270511151471 · owner 2026-07-04) · marked live 2026-07-10 (owner "all features active")
+  SETNAYAN_AI:         'live',     // the planner / first paywall · catalog SETNAYAN_AI ₱499/28d subscription · gate lib/setnayan-ai.ts
   CUSTOM_QR_GUEST:     'live',     // branded per-guest QR (monogram + palette + print) · PR #727 · 2026-06-01
   INDOOR_BLUEPRINT:    'live',     // entrance→table wayfinding end-to-end: couple studio + guest find-my-table · migration 20260717000000 · 2026-06-02
 
   // Partially working
   ANIMATED_MONOGRAM:   'live',     // drawn-live monogram bound to the SKU · PR #729 · 2026-06-01
-  PANOOD_SYSTEM:       'partial',  // OAuth + UI shipped · pending YouTube verified-app
-  PATIKTOK_COMPILER:   'partial',  // booth scaffold · TikTok app review pending
+  PANOOD_SYSTEM:       'live',     // = Live Studio Desktop tier ₱2,499/day · marked live 2026-07-10 (owner "all features active") · YouTube verified-app is an external gate tracked separately
+  PANOOD_SYSTEM_MOBILE: 'live',    // Live Studio Mobile tier ₱1,299/day (owner-locked 2026-07-08 · migration 20270526326110) · marked live 2026-07-10
+  PATIKTOK_COMPILER:   'live',     // ₱1,499/day booth · marked live 2026-07-10 (owner "all features active") · TikTok app review tracked separately
   PAPIC_GUEST:         'live',     // guest camera end-to-end: cookie identity + server quota (150) + capture · 2026-06-02
   PAPIC_SEATS:         'live',     // photo crew end-to-end: provision + claim + capture · PR #731 + migration 20260718000000 · 2026-06-01
+  PAPIC_CAMERA_ROLL_DAY:      'live', // per-camera Ltd (Roll) rate ₱30/cam/day · 30 photos + 10 videos · #2246 · 2026-06-26
+  PAPIC_CAMERA_UNLIMITED_DAY: 'live', // per-camera Unli (Unlimited) rate ₱100/cam/day · #2246 · 2026-06-26
   HIGH_RES_ARCHIVE:    'partial',  // 0009 photo delivery partial
-  LIVE_BACKGROUND:     'partial',  // 0005 Pailaw engineering brief · code not verified
+  LIVE_BACKGROUND:     'live',     // ₱499 LED-wall background · marked live 2026-07-10 (owner "all features active")
+  PABATI:              'live',     // video guestbook end-to-end: gated day-of card + 5s guest recorder + recap section · collector exists · 2026-06-22
+  KWENTO:              'live',     // words-on-a-photo · paid-to-unlock ₱500 · gated at route + moderation · 2026-06-26
 
-  // Not built · catalog-only · no fulfillment yet
-  PABATI:                'not_built',
-  PAKANTA:               'not_built',
-  PAPIC_ADDON_STORIES:   'not_built',
-  PAPIC_ADDON_THANK_YOU: 'not_built',
-  SDE:                   'not_built',  // AI edit pipeline not built
-  CAMERA_BRIDGE:         'not_built',  // needs native iOS/Android + DSLR SDK
-  LIVE_WALL:             'not_built',  // WebSocket display surface not built
-  CALL_TIME_ESCALATOR:   'not_built',  // no SMS infrastructure
+  PAKANTA:               'live',       // custom-song delivery end-to-end: intake + admin upload → auto-plays on the couple's site (PR #2038) · 2026-06-22
+  // Activated 2026-07-10 (owner "all our features should now be active" · migration
+  // 20270710619774 flips SEATING_3D/STORIES/THANK_YOU is_active=true). These read
+  // Live; Camera Bridge + Live Wall are HELD as 'partial' ("In build") because
+  // their fulfillment infra genuinely isn't built yet (owner-confirmed hold).
+  SEATING_3D:            'live',     // ₱2,499 · 3D reception + seating walk · public 3D walk shipped (Fable slices)
+  PAPIC_ADDON_STORIES:   'live',     // ₱2,000 · 30s guest story maker
+  PAPIC_ADDON_THANK_YOU: 'live',     // ₱2,499 · compiled thank-you video
+  STD_PREMIUM_OPENINGS:  'live',     // ₱1,499 · Save-the-Date Cinematic Reveal openings · buy flow shipped #1705/#1709/#1718
+  CAMERA_BRIDGE:         'partial',  // ₱499 (reprice 2026-07-08 · migration 20270711042075) · HELD "In build" — needs native iOS/Android + DSLR SDK
+  LIVE_WALL:             'partial',  // ₱2,499 · HELD "In build" — WebSocket display surface not built
+  CALL_TIME_ESCALATOR:   'not_built',  // retired SKU (is_active=false) — no SMS infrastructure
+  EVENT_SUBDOMAIN:       'partial',  // ₱999/year · yourname.setnayan.com (owner 2026-07-10) · HELD "In build" — needs subdomain provisioning (wildcard DNS + subdomain-aware routing); ~₱0 COGS
 };
 
 /**
@@ -131,8 +164,8 @@ export async function fetchV2CustomerCatalog(): Promise<V2CustomerSku[]> {
   }
   const { data, error } = await admin
     .from('platform_retail_catalog_v2')
-    .select('service_code, title, retail_price_php, saas_overhead_cost_php, is_token_able, description, is_pax_priced, pax_floor, pax_floor_price_php, pax_increment_size, pax_increment_price_php')
-    // RETIRED SKUs must not surface on /pricing, /for-vendors, the admin discount
+    .select('service_code, title, retail_price_php, saas_overhead_cost_php, is_token_able, description, billing_period, is_pax_priced, pax_floor, pax_floor_price_php, pax_increment_size, pax_increment_price_php')
+    // RETIRED SKUs must not surface on /pricing, /vendors, the admin discount
     // picker, or the onboarding bundle — honor the is_active flag (owner 2026-06-08:
     // the only way to retire a customer SKU is is_active=false). Previously this
     // reader IGNORED is_active, so admin retirements had NO effect on the live site.
@@ -152,6 +185,9 @@ export async function fetchV2CustomerCatalog(): Promise<V2CustomerSku[]> {
     is_token_able: Boolean(row.is_token_able),
     description: (row.description as string | null) ?? null,
     build_status: BUILD_STATUS[row.service_code as string] ?? 'not_built',
+    // Coerce to the known union; a stale env without the column → 'one_time'
+    // (the column default), so the suffix never renders unexpectedly.
+    billing_period: (row.billing_period as BillingPeriod) ?? 'one_time',
     is_pax_priced: Boolean(row.is_pax_priced),
     pax_floor: row.pax_floor == null ? null : Number(row.pax_floor),
     pax_floor_price_php:
@@ -174,6 +210,13 @@ export async function fetchV2BundleCatalog(): Promise<V2BundleSku[]> {
   const { data, error } = await admin
     .from('platform_package_catalog')
     .select('package_code, title, retail_price_php')
+    // Honor is_active (owner 2026-06-29 "no more essentials and complete"):
+    // GUIDED_PACK + MEDIA_PACK are is_active=false, so this reader now returns
+    // ZERO bundles. Every consumer (onboarding `bundleVM`, /pricing tier cards
+    // + JSON-LD bundle map) finds nothing and renders nothing — defense-in-depth
+    // alongside the explicit UI removal in those files. Same is_active semantics
+    // as fetchV2CustomerCatalog + resolveBundleChargeCentavos.
+    .eq('is_active', true)
     .order('retail_price_php', { ascending: true });
 
   if (error || !data) return [];
@@ -205,7 +248,7 @@ export async function fetchV2VendorCatalog(): Promise<V2VendorSku[]> {
     sku_code: row.sku_code as string,
     title: row.title as string,
     price_php: Number(row.price_php),
-    offering_type: row.offering_type as 'subscription_monthly' | 'subscription_annual' | 'token_pack',
+    offering_type: row.offering_type as V2VendorSku['offering_type'],
     token_grant_count: (row.token_grant_count as number | null) ?? null,
     max_categories: (row.max_categories as number | null) ?? null,
     max_sub_seats: (row.max_sub_seats as number | null) ?? null,
@@ -214,7 +257,7 @@ export async function fetchV2VendorCatalog(): Promise<V2VendorSku[]> {
 }
 
 /**
- * Vendor pricing for the marketing pages — DERIVED FROM THE DB so /for-vendors,
+ * Vendor pricing for the marketing pages — DERIVED FROM THE DB so /vendors,
  * /how-it-works etc. never hardcode vendor prices (owner 2026-06-08 "make sure
  * these prices are based on the admin page and not hardcoded"). `cache()` dedupes
  * to a single query per request even if several server components call it. The
@@ -223,44 +266,54 @@ export async function fetchV2VendorCatalog(): Promise<V2VendorSku[]> {
 export const getVendorPrices = cache(async () => {
   const rows = await fetchV2VendorCatalog();
   const price = (code: string) => rows.find((r) => r.sku_code === code)?.price_php ?? null;
+  const soloMo = price('solo_vendor_monthly');
+  const soloYr = price('solo_vendor_annual');
   const proMo = price('pro_vendor_monthly');
   const proYr = price('pro_vendor_annual');
   const entMo = price('enterprise_vendor_monthly');
   const entYr = price('enterprise_vendor_annual');
   const branch = price('vendor_branch_28day');
   const pack = rows.find((r) => r.offering_type === 'token_pack' && r.token_grant_count);
-  const tokenUnit = pack && pack.token_grant_count ? pack.price_php / pack.token_grant_count : 100;
-  // formatPeso() returns the number only (no sign) — callers add ₱ themselves.
-  // These display strings are rendered bare by every consumer (matrix, FAQ,
-  // hero, how-it-works) and must include the ₱ to match the fallbacks + the
-  // hardcoded "₱0" Free/Verified prices. (The numeric `num.*` below is what the
-  // schema.org Offers use, so those stay sign-free.)
+  // Fallback mirrors the live flat ₱200/token ladder (2026-07-15 catalog
+  // restructure: ₱1,000 = 5 tokens) so a DB-unreachable build never renders a
+  // stale ₱100. The live read (price_php ÷ token_grant_count) wins when present.
+  const tokenUnit = pack && pack.token_grant_count ? pack.price_php / pack.token_grant_count : 200;
   const fmt = (n: number | null, fb: string) => (n == null ? fb : `₱${formatPeso(n)}`);
   const save = (mo: number | null, yr: number | null, fb: string) =>
     mo != null && yr != null ? `₱${formatPeso(mo * 13 - yr)}` : fb;
+  // Fallback strings/numbers mirror the LIVE vendor_billing_catalog ladder
+  // (Solo ₱999/₱9,999 · Pro ₱2,499/₱24,999 · Enterprise ₱7,999/₱79,999) so a
+  // DB-unreachable build never renders a stale pre-reprice price. They only
+  // ever surface if the catalog read returns empty — the live read wins.
   return {
-    verified: '₱0',
-    proMonthly: fmt(proMo, '₱6,000'),
-    proAnnual: fmt(proYr, '₱60,000'),
-    proAnnualSave: save(proMo, proYr, '₱18,000'),
-    enterpriseMonthly: fmt(entMo, '₱10,000'),
-    enterpriseAnnual: fmt(entYr, '₱100,000'),
-    enterpriseAnnualSave: save(entMo, entYr, '₱30,000'),
+    soloMonthly: fmt(soloMo, '₱999'),
+    soloAnnual: fmt(soloYr, '₱9,999'),
+    soloAnnualSave: save(soloMo, soloYr, '₱2,988'),
+    proMonthly: fmt(proMo, '₱2,499'),
+    proAnnual: fmt(proYr, '₱24,999'),
+    proAnnualSave: save(proMo, proYr, '₱7,488'),
+    enterpriseMonthly: fmt(entMo, '₱7,999'),
+    enterpriseAnnual: fmt(entYr, '₱79,999'),
+    enterpriseAnnualSave: save(entMo, entYr, '₱23,988'),
     branch: fmt(branch, '₱999'),
     tokenUnit: `₱${formatPeso(tokenUnit)}`,
     // Raw numbers for the schema.org JSON-LD Offers (need unformatted values).
     num: {
-      proMonthly: proMo ?? 6000,
-      proAnnual: proYr ?? 60000,
-      enterpriseMonthly: entMo ?? 10000,
-      enterpriseAnnual: entYr ?? 100000,
+      soloMonthly: soloMo ?? 999,
+      soloAnnual: soloYr ?? 9999,
+      proMonthly: proMo ?? 2499,
+      proAnnual: proYr ?? 24999,
+      enterpriseMonthly: entMo ?? 7999,
+      enterpriseAnnual: entYr ?? 79999,
     },
   };
 });
 
 /**
  * One ACTIVE customer-SKU price from the DB by service_code. cache()d per
- * code. Returns the formatted string, or null if unavailable.
+ * code. Returns the BARE formatted number (no "₱", no period suffix), or null
+ * if unavailable. Callers that need the recurrence unit pair this with
+ * `getCustomerSkuPriceLabel` (full "₱X / 28 days") instead.
  *
  * 2026-06-13: now honors is_active — the sole consumer is marketing copy
  * (homepage Setnayan AI price), and a retired SKU (e.g. TODAYS_FOCUS ₱1,499)
@@ -285,6 +338,64 @@ export const getCustomerSkuPrice = cache(
     return formatPeso(Number((data as { retail_price_php: number }).retail_price_php));
   },
 );
+
+/**
+ * One ACTIVE customer-SKU price as a FULL display label — "₱X" for one-time
+ * SKUs, "₱X / 28 days" for per-28-day subscription SKUs (SETNAYAN_AI). The
+ * number AND the recurrence unit both come from the catalog row, so a per_28d
+ * price can never render as a bare one-time "₱499". Returns null when the row
+ * is unreadable / inactive (caller supplies its own fallback copy).
+ *
+ * cache()d per code; honors is_active for the same reason as getCustomerSkuPrice.
+ */
+export const getCustomerSkuPriceLabel = cache(
+  async (serviceCode: string): Promise<string | null> => {
+    let admin;
+    try {
+      admin = createAdminClient();
+    } catch {
+      return null;
+    }
+    const { data, error } = await admin
+      .from('platform_retail_catalog_v2')
+      .select('retail_price_php, billing_period')
+      .eq('service_code', serviceCode)
+      .eq('is_active', true)
+      .maybeSingle();
+    if (error || !data) return null;
+    const row = data as { retail_price_php: number; billing_period: BillingPeriod | null };
+    return `₱${formatPeso(Number(row.retail_price_php))}${formatBillingPeriodSuffix(row.billing_period)}`;
+  },
+);
+
+/**
+ * The couple-facing period suffix for a recurring SKU. Verbose "/ 28 days"
+ * matches the vendor pricing house style (`/vendors` renders "/ 28 days"
+ * for the prepaid-block subs). `one_time` renders NOTHING, so flat SKUs are
+ * byte-identical to the pre-subscription path. The suffix is data-driven off
+ * the catalog `billing_period`, never hardcoded per surface.
+ */
+const BILLING_PERIOD_SUFFIX: Record<BillingPeriod, string> = {
+  one_time: '',
+  per_28d: ' / 28 days',
+  // Per event-day charge (Patiktok ₱1,499/day) — same event-day model as Panood;
+  // the amount is flat per purchase, the couple activates it per day.
+  per_day: ' / day',
+  // Annual prepaid block (Custom Subdomain ₱999/year · owner 2026-07-10) — manual
+  // renewal reminder before expiry, no auto-charge (mirrors the vendor prepaid blocks).
+  per_year: ' / year',
+};
+
+/**
+ * Period suffix for a catalog row, e.g. "" (one-time) or " / 28 days"
+ * (per-28-day subscription). Append to a formatted "₱X" so the unit always
+ * travels with the number.
+ */
+export function formatBillingPeriodSuffix(
+  billingPeriod: BillingPeriod | null | undefined,
+): string {
+  return BILLING_PERIOD_SUFFIX[billingPeriod ?? 'one_time'] ?? '';
+}
 
 /**
  * Format a peso amount with thousand separators · no decimals if whole.
@@ -320,7 +431,10 @@ export type PaxPricingConfig = Pick<
   | 'pax_floor_price_php'
   | 'pax_increment_size'
   | 'pax_increment_price_php'
->;
+> &
+  // Optional so callers that only have the pax subset still type-check; absent
+  // → treated as one_time → no suffix (the pre-subscription behaviour).
+  Partial<Pick<V2CustomerSku, 'billing_period'>>;
 
 /**
  * Authoritative price for a customer SKU at a given guest count, in CENTAVOS
@@ -364,21 +478,25 @@ export function computePaxPriceCentavos(
 
 /**
  * Human price label for a customer SKU.
- *   • Pax-priced SKU + NO event context (e.g. /pricing, for-vendors catalog)
+ *   • Pax-priced SKU + NO event context (e.g. /pricing, vendors catalog)
  *     → "from ₱X" off the floor (the price genuinely starts there + rises with
  *     guests · honest, not the old bare "₱2,999").
  *   • Pax-priced SKU + a known event pax → the exact "₱X" for that wedding.
  *   • Flat SKU → "₱X".
+ *   • per_28d SKU (SETNAYAN_AI) → the price + " / 28 days" suffix so ₱499 never
+ *     reads as a one-time fire-sale. The suffix is data-driven off the catalog
+ *     billing_period — one-time SKUs keep rendering exactly as before.
  */
 export function formatSkuPriceLabel(
   sku: PaxPricingConfig,
   pax?: number | null,
 ): string {
+  const suffix = formatBillingPeriodSuffix(sku.billing_period);
   if (sku.is_pax_priced && (pax === undefined || pax === null)) {
-    return `from ₱${formatPeso(sku.retail_price_php)}`;
+    return `from ₱${formatPeso(sku.retail_price_php)}${suffix}`;
   }
   const centavos = computePaxPriceCentavos(sku, pax ?? null);
-  return `₱${formatPeso(centavos / 100)}`;
+  return `₱${formatPeso(centavos / 100)}${suffix}`;
 }
 
 /**

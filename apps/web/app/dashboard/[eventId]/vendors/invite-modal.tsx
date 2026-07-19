@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { Send, X, Sparkles } from 'lucide-react';
+import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useSaveLoader } from '@/components/sd-loader';
 import {
   sendVendorInvite,
   connectExistingVendorProfile,
@@ -32,6 +34,28 @@ export function InviteVendorButton({
   const [view, setView] = useState<ModalView>({ kind: 'closed' });
   const [email, setEmail] = useState(defaultEmail ?? '');
   const [pending, startTransition] = useTransition();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const save = useSaveLoader();
+
+  // Focus trap + Esc-to-close + scroll lock while the modal is open.
+  useModalA11y({
+    open: view.kind !== 'closed',
+    onClose: () => setView({ kind: 'closed' }),
+    containerRef: dialogRef,
+  });
+
+  // Anon-draft: inviting/connecting a vendor is a vendor-contact action that
+  // needs a secured account. When a server action returns NOT_SECURED, send the
+  // anon couple to /signup to convert in place (returning here after), rather
+  // than showing a dead-end error. Returns true when it handled the redirect.
+  function routeIfNotSecured(code: string): boolean {
+    if (code === 'NOT_SECURED' || code === 'NOT_AUTHENTICATED') {
+      const next = encodeURIComponent(window.location.pathname + window.location.search);
+      window.location.href = `/signup?next=${next}`;
+      return true;
+    }
+    return false;
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -40,8 +64,12 @@ export function InviteVendorButton({
     form.set('event_id', eventId);
     form.set('email', email);
     startTransition(async () => {
-      const result: SendInviteResult = await sendVendorInvite(form);
+      const result: SendInviteResult = await save.run(() => sendVendorInvite(form), {
+        steps: ['Sending the invite'],
+        hint: 'Saving',
+      });
       if (!result.ok) {
+        if (routeIfNotSecured(result.code)) return;
         setView({ kind: 'error', message: result.message });
         return;
       }
@@ -66,8 +94,12 @@ export function InviteVendorButton({
     form.set('event_id', eventId);
     form.set('vendor_profile_id', vp);
     startTransition(async () => {
-      const result = await connectExistingVendorProfile(form);
+      const result = await save.run(() => connectExistingVendorProfile(form), {
+        steps: ['Connecting the profile'],
+        hint: 'Saving',
+      });
       if (!result.ok) {
+        if (routeIfNotSecured(result.code)) return;
         setView({ kind: 'error', message: result.message });
         return;
       }
@@ -91,16 +123,14 @@ export function InviteVendorButton({
 
       {view.kind !== 'closed' ? (
         <div
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/55 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/55 p-4 backdrop-blur-sm focus:outline-none"
         >
           <div className="w-full max-w-md rounded-xl bg-cream p-6 shadow-xl ring-1 ring-ink/10">
             <header className="flex items-start justify-between gap-3">
               <div className="space-y-1">
-                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
-                  Setnayan · Couple invite
-                </p>
                 <h2 className="text-lg font-semibold text-ink">
                   {view.kind === 'sent'
                     ? `Invite sent to ${vendorName}`
@@ -185,7 +215,7 @@ export function InviteVendorButton({
                     type="button"
                     onClick={handleConnect}
                     disabled={pending}
-                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-success-600 px-4 py-2 text-sm font-semibold text-white hover:bg-success-700 disabled:opacity-60"
                   >
                     {pending ? 'Connecting…' : 'Connect'}
                   </button>
@@ -212,8 +242,8 @@ export function InviteVendorButton({
 
             {view.kind === 'connected' ? (
               <div className="mt-4 space-y-3">
-                <p className="inline-flex items-center gap-2 text-sm text-emerald-800">
-                  <Sparkles className="h-4 w-4 text-emerald-600" strokeWidth={1.75} />
+                <p className="inline-flex items-center gap-2 text-sm text-success-800">
+                  <Sparkles className="h-4 w-4 text-success-600" strokeWidth={1.75} />
                   Connected to <strong>{view.businessName}</strong>. Chat is now unlocked.
                 </p>
                 <button
@@ -228,7 +258,7 @@ export function InviteVendorButton({
 
             {view.kind === 'error' ? (
               <div className="mt-4 space-y-3">
-                <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-800 ring-1 ring-inset ring-rose-200">
+                <p className="rounded-md bg-danger-50 px-3 py-2 text-sm text-danger-800 ring-1 ring-inset ring-danger-200">
                   {view.message}
                 </p>
                 <button

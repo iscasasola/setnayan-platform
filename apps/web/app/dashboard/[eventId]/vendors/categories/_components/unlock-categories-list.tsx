@@ -11,7 +11,10 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Check, Loader2 } from 'lucide-react';
+import { useSaveLoader } from '@/components/sd-loader';
 import { unlockCategoryWithInquiry } from '../../_actions/unlock-category';
+import { useAnonGate } from '@/app/_components/anon-gate/anon-gate-context';
+import { SaveToContinue, SaveGateHint } from '@/app/_components/anon-gate/save-to-continue';
 
 export type UnlockGroup = { groupId: string; label: string; hint: string };
 export type UnlockFolder = { folder: string; label: string; groups: UnlockGroup[] };
@@ -26,13 +29,23 @@ export function UnlockCategoriesList({
   folders: UnlockFolder[];
 }) {
   const router = useRouter();
+  const { isAnonymous } = useAnonGate();
   const [pending, startTransition] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [done, setDone] = useState<Record<string, DoneState>>({});
   const [errs, setErrs] = useState<Record<string, string>>({});
+  const [gateOpen, setGateOpen] = useState(false);
+  const save = useSaveLoader();
 
   function add(groupId: string) {
     if (pending) return;
+    // Pre-empt the server round-trip for anonymous users: adding a category
+    // opens a vendor thread, which needs a secured account. Show the
+    // "save your plan" prompt up front instead of optimistically failing.
+    if (isAnonymous) {
+      setGateOpen(true);
+      return;
+    }
     setBusyId(groupId);
     setErrs((e) => {
       const next = { ...e };
@@ -40,7 +53,10 @@ export function UnlockCategoriesList({
       return next;
     });
     startTransition(async () => {
-      const res = await unlockCategoryWithInquiry({ eventId, groupId });
+      const res = await save.run(() => unlockCategoryWithInquiry({ eventId, groupId }), {
+        steps: ['Unlocking the category'],
+        hint: 'Saving',
+      });
       setBusyId(null);
       if (res.status === 'ok') {
         setDone((d) => ({
@@ -56,6 +72,11 @@ export function UnlockCategoriesList({
           ...e,
           [groupId]: 'No vendors in this category yet — check back soon.',
         }));
+      } else if (res.status === 'not_secured') {
+        // Anon-draft: securing the account opens the vendor thread. Convert in
+        // place (same uid + event), returning to this page afterward.
+        const next = encodeURIComponent(window.location.pathname + window.location.search);
+        window.location.href = `/signup?next=${next}`;
       } else if (res.status === 'not_signed_in' || res.status === 'not_a_member') {
         setErrs((e) => ({ ...e, [groupId]: 'Please sign in again.' }));
       } else {
@@ -77,6 +98,11 @@ export function UnlockCategoriesList({
 
   return (
     <div className="space-y-7">
+      {isAnonymous ? (
+        <SaveGateHint>
+          Add anything you like — you’ll save your free account when you reach out to a vendor.
+        </SaveGateHint>
+      ) : null}
       {folders.map((f) => (
         <section key={f.folder}>
           <h2 className="mb-2.5 font-mono text-[11px] uppercase tracking-[0.18em] text-ink/45">
@@ -100,7 +126,7 @@ export function UnlockCategoriesList({
                       </p>
                     </div>
                     {d ? (
-                      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-2 text-[13px] font-medium text-emerald-700">
+                      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-success-50 px-3 py-2 text-[13px] font-medium text-success-700">
                         <Check className="h-4 w-4" aria-hidden />
                         Added
                       </span>
@@ -127,13 +153,14 @@ export function UnlockCategoriesList({
                         : "It's in your plan. Open it on your Services page to inquire."}
                     </p>
                   )}
-                  {err && <p className="mt-2 text-[13px] text-rose-600">{err}</p>}
+                  {err && <p className="mt-2 text-[13px] text-danger-600">{err}</p>}
                 </li>
               );
             })}
           </ul>
         </section>
       ))}
+      <SaveToContinue open={gateOpen} onClose={() => setGateOpen(false)} action="unlock" />
     </div>
   );
 }

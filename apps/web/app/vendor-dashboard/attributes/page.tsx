@@ -10,8 +10,10 @@ import {
   type ResolvedSchema,
   type VendorAttributePayload,
 } from '@/lib/vendor-service-attributes';
+import { visibleLeafAttributesForPayload } from '@/lib/leaf-attribute-schema';
 import { saveVendorServiceAttribute, removeVendorServiceAttribute } from './actions';
 import { AttributeFieldRenderer } from './_components/attribute-field-renderer';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Service attributes · Vendor · Setnayan' };
 
@@ -71,7 +73,7 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
     const profile = await fetchOwnVendorProfile(supabase, user.id);
     if (!profile) {
       return (
-        <div className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-12 sm:px-6 lg:px-8">
           <h1 className="text-2xl font-semibold tracking-tight">No vendor profile yet</h1>
           <p className="mt-2 text-sm text-ink/65">
             Set up your basic vendor profile first, then return here to fill in
@@ -124,7 +126,7 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
 
   if (!loaderState.ok) {
     return (
-      <div className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="flex items-start gap-3">
           <AlertTriangle aria-hidden className="mt-0.5 h-6 w-6 shrink-0 text-terracotta" strokeWidth={1.75} />
           <div className="space-y-1">
@@ -169,11 +171,8 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
   const addableCatalog = catalog.filter((c) => !existingKeys.has(c.canonical_service));
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Iteration 0044 · Per-service attributes
-        </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
           Service attributes
         </h1>
@@ -193,12 +192,12 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
         </div>
       ) : null}
       {savedService && missingFields.length === 0 ? (
-        <div role="status" className="mb-5 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <div role="status" className="mb-5 rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800">
           Saved attributes for <span className="font-medium">{savedService}</span>.
         </div>
       ) : null}
       {savedService && missingFields.length > 0 ? (
-        <div role="status" className="mb-5 rounded-md border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div role="status" className="mb-5 rounded-md border border-warn-300/60 bg-warn-50 px-4 py-3 text-sm text-warn-900">
           Saved <span className="font-medium">{savedService}</span> — but your listing
           won&rsquo;t surface in the marketplace yet. Still missing for the visibility gate:{' '}
           <span className="font-mono text-xs">{missingFields.join(', ')}</span>.
@@ -206,7 +205,7 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
         </div>
       ) : null}
       {removed ? (
-        <div role="status" className="mb-5 rounded-md border border-ink/15 bg-cream px-4 py-3 text-sm text-ink/70">
+        <div role="status" className="mb-5 rounded-md border border-ink/15 bg-white/70 px-4 py-3 text-sm text-ink/70">
           Removed that service&rsquo;s attribute payload.
         </div>
       ) : null}
@@ -238,9 +237,9 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
               </option>
             ))}
           </select>
-          <button type="submit" className="button-primary h-10 px-4 text-sm">
+          <SubmitButton pendingLabel="Adding…" className="button-primary h-10 px-4 text-sm">
             Add
-          </button>
+          </SubmitButton>
         </form>
         {addCandidateSchema ? (
           <div className="mt-6">
@@ -255,7 +254,7 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
 
       <section className="space-y-8">
         {payloads.length === 0 && !addCandidateSchema ? (
-          <div className="rounded-2xl border border-dashed border-ink/20 bg-cream p-8 text-center">
+          <div className="rounded-2xl border border-dashed border-ink/20 p-8 text-center">
             <p className="font-medium text-ink/75">No services attributed yet.</p>
             <p className="mt-1 text-sm text-ink/55">
               Pick a canonical service from the dropdown above to start filling in attributes.
@@ -278,7 +277,7 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
         )}
       </section>
 
-      <footer className="mt-10 rounded-xl border border-ink/10 bg-cream/60 px-5 py-4 text-xs text-ink/55">
+      <footer className="mt-10 rounded-xl border border-ink/10 bg-white/60 px-5 py-4 text-xs text-ink/55">
         Profile ID <span className="font-mono">{profile.vendor_profile_id}</span> ·
         Schema source <span className="font-mono">canonical_service_schemas + shared_attribute_groups</span> per iteration 0044.
       </footer>
@@ -299,11 +298,15 @@ function ServiceForm({
   const completeness = payload?.completeness_score ?? 0;
   const meetsVisibility = payload?.meets_visibility_minimum ?? false;
   const facetSet = new Set(schema.filter_facets);
+  // Hide refinements (or options) an admin RETIRED in the Taxonomy Studio — but
+  // keep any the vendor already answered so their saved value is never dropped
+  // on the next save (0044 never-orphan contract).
+  const visibleFields = visibleLeafAttributesForPayload(schema.fields, initialPayload);
 
   return (
     <article
       id={schema.canonical_service}
-      className="rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6"
+      className="sn-tile p-5 sm:p-6"
     >
       <header className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
         <div className="space-y-1">
@@ -326,12 +329,12 @@ function ServiceForm({
             <>
               <CompletenessBadge value={completeness} />
               {meetsVisibility ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-700">
+                <span className="inline-flex items-center gap-1 rounded-full bg-success-50 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-700">
                   <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2} />
                   listing-ready
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-amber-800">
+                <span className="inline-flex items-center gap-1 rounded-full bg-warn-50 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-warn-800">
                   <ChevronDown aria-hidden className="h-3 w-3" strokeWidth={2} />
                   visibility gate not met
                 </span>
@@ -344,7 +347,7 @@ function ServiceForm({
       <form action={saveVendorServiceAttribute} className="space-y-5">
         <input type="hidden" name="canonical_service" value={schema.canonical_service} />
 
-        {Object.entries(schema.fields).map(([fieldKey, def]) => (
+        {Object.entries(visibleFields).map(([fieldKey, def]) => (
           <AttributeFieldRenderer
             key={fieldKey}
             fieldKey={fieldKey}
@@ -355,9 +358,9 @@ function ServiceForm({
         ))}
 
         <div className="flex flex-wrap items-center gap-3 pt-2">
-          <button type="submit" className="button-primary h-10 px-4 text-sm">
+          <SubmitButton pendingLabel="Saving…" className="button-primary h-10 px-4 text-sm">
             {isNew ? 'Add service + save' : 'Save'}
-          </button>
+          </SubmitButton>
           {!isNew ? (
             <RemoveServiceButton canonicalService={schema.canonical_service} />
           ) : null}
@@ -370,9 +373,9 @@ function ServiceForm({
 function CompletenessBadge({ value }: { value: number }) {
   const tone =
     value >= 80
-      ? 'bg-emerald-100 text-emerald-800'
+      ? 'bg-success-100 text-success-800'
       : value >= 40
-        ? 'bg-amber-100 text-amber-800'
+        ? 'bg-warn-100 text-warn-800'
         : 'bg-ink/10 text-ink/70';
   return (
     <span
@@ -387,12 +390,12 @@ function RemoveServiceButton({ canonicalService }: { canonicalService: string })
   return (
     <form action={removeVendorServiceAttribute} className="inline">
       <input type="hidden" name="canonical_service" value={canonicalService} />
-      <button
-        type="submit"
+      <SubmitButton
+        pendingLabel="Removing…"
         className="text-xs font-medium text-terracotta hover:underline"
       >
         Remove this service&rsquo;s payload
-      </button>
+      </SubmitButton>
     </form>
   );
 }

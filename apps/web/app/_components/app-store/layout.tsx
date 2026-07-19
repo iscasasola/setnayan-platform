@@ -1,10 +1,16 @@
 import Link from 'next/link';
-import { ArrowLeft, ChevronRight, Star } from 'lucide-react';
+import { ArrowLeft, Check, ChevronRight, Star } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { StudioCardDemo, type DemoFrame } from './studio-card-demo';
+// RICH_DEMO_SLUGS comes from a SERVER-SAFE module, NOT from the 'use client'
+// studio-card-demo above: importing a data export from a client module into this
+// SERVER component yields a client-reference proxy whose .includes() is "not a
+// function" — the 3349409504 crash on every About page with no `demo` frames.
+import { isRichDemoSlug } from './rich-demo-slugs';
 import type { ReactNode } from 'react';
 
 // Shared App Store-style detail layout. Used by:
-//   • Customer add-on detail (apps/web/app/dashboard/[eventId]/add-ons/[addon]/page.tsx)
+//   • Customer add-on detail (apps/web/app/dashboard/[eventId]/studio/about/[addon]/page.tsx)
 //   • Vendor service detail (apps/web/app/explore/[slug]/services/[serviceId]/page.tsx)
 //     — fan-out planned after the 2026-05-17 Panood pilot ships.
 //
@@ -66,8 +72,17 @@ export type AccessibilityItem = {
   detail: string;    // "Single-key cam switching · take/preview pattern."
 };
 
+export type Highlights = {
+  // Optional section heading override — defaults to "What's included".
+  title?: string;
+  // Benefit-led bullets — "what you actually get" for this feature.
+  items: string[];
+};
+
 export type AppStoreLayoutProps = {
-  back: {
+  // Optional: the inspector-column variant omits the "Back to Studio" link — the
+  // panel chrome (✕ close + "Open full page ↗") owns wayfinding there.
+  back?: {
     href: string;
     label: string;
   };
@@ -80,10 +95,19 @@ export type AppStoreLayoutProps = {
     cta: ReactNode;
     secondary?: ReactNode;
   };
-  stats: StatTile[];
+  // Optional across the board so a lighter catalog-driven feature page can pass
+  // only what it has — every section below renders only when given content.
+  // The Panood pilot passes them all; generic add-on detail pages pass a subset.
+  stats?: StatTile[];
   justLaunchedChip?: string | null;
-  preview: PreviewItem[];
+  preview?: PreviewItem[];
+  /** Auto-playing on-card demo. When present, plays instead of the glyph rail. */
+  demo?: DemoFrame[];
+  /** Feature slug — enables high-fidelity native demo scenes when registered. */
+  demoSlug?: string;
   samples?: SampleItem[];
+  // Optional "What's included" bullet list, rendered right under About.
+  highlights?: Highlights;
   description: {
     paragraphs: string[];
     plans?: PlanRow[];
@@ -95,9 +119,9 @@ export type AppStoreLayoutProps = {
     reviewCount: number;
     distribution?: ReadonlyArray<{ stars: 1 | 2 | 3 | 4 | 5; count: number }>;
   };
-  privacy: PrivacyCategory[];
-  dataLinked: { linked: string[]; notLinked: string[] };
-  accessibility: AccessibilityItem[];
+  privacy?: PrivacyCategory[];
+  dataLinked?: { linked: string[]; notLinked: string[] };
+  accessibility?: AccessibilityItem[];
 };
 
 export function AppStoreLayout({
@@ -106,7 +130,10 @@ export function AppStoreLayout({
   stats,
   justLaunchedChip,
   preview,
+  demo,
+  demoSlug,
   samples,
+  highlights,
   description,
   reviews,
   privacy,
@@ -116,13 +143,15 @@ export function AppStoreLayout({
   const { Icon } = hero;
   return (
     <section className="space-y-8">
-      <Link
-        href={back.href}
-        className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-      >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        {back.label}
-      </Link>
+      {back ? (
+        <Link
+          href={back.href}
+          className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+        >
+          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+          {back.label}
+        </Link>
+      ) : null}
 
       {/* Hero */}
       <header className="space-y-4">
@@ -134,9 +163,6 @@ export function AppStoreLayout({
             <Icon className="h-8 w-8 sm:h-10 sm:w-10" strokeWidth={1.5} />
           </span>
           <div className="min-w-0 flex-1 space-y-1.5">
-            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-terracotta">
-              {hero.eyebrow}
-            </p>
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               {hero.title}
             </h1>
@@ -149,7 +175,7 @@ export function AppStoreLayout({
                   hero.statusPill.tone === 'accent'
                     ? 'inline-flex items-center rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta'
                     : hero.statusPill.tone === 'success'
-                      ? 'inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-900'
+                      ? 'inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-900'
                       : 'inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55'
                 }
               >
@@ -165,16 +191,25 @@ export function AppStoreLayout({
       </header>
 
       {/* Stat carousel — App Store row */}
-      <StatCarousel stats={stats} justLaunchedChip={justLaunchedChip ?? null} />
+      {stats && stats.length > 0 ? (
+        <StatCarousel stats={stats} justLaunchedChip={justLaunchedChip ?? null} />
+      ) : null}
 
-      {/* Preview */}
-      <Section title="Preview" id="preview">
-        <HorizontalRail>
-          {preview.map((item, i) => (
-            <PreviewCard key={i} item={item} />
-          ))}
-        </HorizontalRail>
-      </Section>
+      {/* Preview — the auto-playing demo (what it does + how to operate it)
+          when present, otherwise the static glyph rail. */}
+      {(demo && demo.length > 0) || isRichDemoSlug(demoSlug) ? (
+        <Section title="Preview" id="preview">
+          <StudioCardDemo frames={demo ?? []} slug={demoSlug} />
+        </Section>
+      ) : preview && preview.length > 0 ? (
+        <Section title="Preview" id="preview">
+          <HorizontalRail>
+            {preview.map((item, i) => (
+              <PreviewCard key={i} item={item} />
+            ))}
+          </HorizontalRail>
+        </Section>
+      ) : null}
 
       {/* Sample outputs — what the customer actually receives */}
       {samples && samples.length > 0 ? (
@@ -248,6 +283,24 @@ export function AppStoreLayout({
         ) : null}
       </Section>
 
+      {/* What's included — benefit-led bullets */}
+      {highlights && highlights.items.length > 0 ? (
+        <Section title={highlights.title ?? "What's included"} id="included">
+          <ul className="grid gap-2.5 rounded-2xl border border-ink/10 bg-cream p-5 sm:grid-cols-2 sm:p-6">
+            {highlights.items.map((item, i) => (
+              <li key={i} className="flex gap-2.5 text-sm text-ink/75">
+                <Check
+                  aria-hidden
+                  className="mt-0.5 h-4 w-4 shrink-0 text-terracotta-600"
+                  strokeWidth={2.25}
+                />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      ) : null}
+
       {/* Ratings & Reviews ▸ */}
       {reviews ? (
         <Link
@@ -271,7 +324,7 @@ export function AppStoreLayout({
               </p>
             </div>
             {reviews.avgRating !== null ? (
-              <span className="flex items-center gap-0.5 text-amber-500">
+              <span className="flex items-center gap-0.5 text-warn-500">
                 {[1, 2, 3, 4, 5].map((s) => (
                   <Star
                     key={s}
@@ -296,6 +349,7 @@ export function AppStoreLayout({
       ) : null}
 
       {/* Event Privacy */}
+      {privacy && privacy.length > 0 ? (
       <Section
         title="Event Privacy"
         id="privacy"
@@ -325,8 +379,10 @@ export function AppStoreLayout({
           ))}
         </div>
       </Section>
+      ) : null}
 
       {/* Data Linked to You */}
+      {dataLinked && (dataLinked.linked.length > 0 || dataLinked.notLinked.length > 0) ? (
       <Section title="Data Linked to You" id="data-linked">
         <div className="grid gap-3 sm:grid-cols-2">
           <article className="space-y-2 rounded-xl border border-ink/10 bg-cream p-4">
@@ -351,7 +407,7 @@ export function AppStoreLayout({
             <ul className="space-y-1 text-sm text-ink/75">
               {dataLinked.notLinked.map((item) => (
                 <li key={item} className="flex gap-2">
-                  <span aria-hidden className="text-emerald-600/70">
+                  <span aria-hidden className="text-success-600/70">
                     ○
                   </span>
                   {item}
@@ -361,8 +417,10 @@ export function AppStoreLayout({
           </article>
         </div>
       </Section>
+      ) : null}
 
       {/* Accessibility */}
+      {accessibility && accessibility.length > 0 ? (
       <Section title="Accessibility" id="accessibility">
         <ul className="divide-y divide-ink/10 rounded-2xl border border-ink/10 bg-cream">
           {accessibility.map((a) => (
@@ -373,6 +431,7 @@ export function AppStoreLayout({
           ))}
         </ul>
       </Section>
+      ) : null}
     </section>
   );
 }
@@ -433,7 +492,7 @@ function StatCarousel({
             <div className="mt-0.5 flex items-baseline gap-1">
               <p className="text-xl font-semibold tracking-tight text-ink">{s.value}</p>
               {typeof s.starFill === 'number' ? (
-                <span className="flex items-center text-amber-500">
+                <span className="flex items-center text-warn-500">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <Star
                       key={star}

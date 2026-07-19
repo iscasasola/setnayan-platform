@@ -32,7 +32,7 @@ export function OnTimeBinaryInput({ name, label, required = false }: Props) {
           aria-pressed={value === 5}
           className={`min-w-[64px] rounded-full border px-4 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta ${
             value === 5
-              ? 'border-emerald-600 bg-emerald-50 text-emerald-700'
+              ? 'border-success-600 bg-success-50 text-success-700'
               : 'border-ink/20 bg-transparent text-ink/70 hover:border-ink/40 hover:bg-ink/5'
           }`}
         >
@@ -44,7 +44,7 @@ export function OnTimeBinaryInput({ name, label, required = false }: Props) {
           aria-pressed={value === 1}
           className={`min-w-[64px] rounded-full border px-4 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta ${
             value === 1
-              ? 'border-rose-500 bg-rose-50 text-rose-700'
+              ? 'border-danger-500 bg-danger-50 text-danger-700'
               : 'border-ink/20 bg-transparent text-ink/70 hover:border-ink/40 hover:bg-ink/5'
           }`}
         >

@@ -2,7 +2,9 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { setTileEventTypeOffered, setFolderEventTypeOffered } from '../../actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Scope categories · Event Types · Admin' };
 // Admin-client DB read → keep dynamic (same rationale as the roster page).
 export const dynamic = 'force-dynamic';
@@ -32,7 +34,7 @@ type Params = Promise<{ eventType: string }>;
 type SearchParams = Promise<{ ok?: string; error?: string }>;
 
 const PILL_ON =
-  'rounded-full bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700';
+  'rounded-full bg-success-600 px-3 py-1 text-xs font-medium text-white hover:bg-success-700';
 const PILL_OFF =
   'rounded-full border border-ink/20 bg-white px-3 py-1 text-xs font-medium text-ink/55 hover:border-ink/40';
 const BULK_BTN =
@@ -45,6 +47,7 @@ export default async function ScopeCategoriesPage({
   params: Params;
   searchParams: SearchParams;
 }) {
+  await requireAdmin();
   const { eventType } = await params;
   const sp = await searchParams;
   const ok = sp.ok ? decodeURIComponent(sp.ok) : null;
@@ -81,12 +84,11 @@ export default async function ScopeCategoriesPage({
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link href="/admin/event-types" className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50 hover:text-terracotta">
-        ← Event Types
+      <Link href="/admin/taxonomy?view=vocab-event" className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50 hover:text-terracotta">
+        ← Event types
       </Link>
 
       <header className="mb-6 mt-3 space-y-2">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">Setnayan HQ · Scope categories</p>
         <h1 className="flex items-center gap-3 text-3xl font-semibold tracking-tight sm:text-4xl">
           <span aria-hidden className="text-3xl leading-none">{row.emoji}</span>
           {row.label_en}
@@ -104,10 +106,10 @@ export default async function ScopeCategoriesPage({
       </header>
 
       {ok ? (
-        <div role="status" className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{ok}</div>
+        <div role="status" className="mb-6 rounded-lg border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">{ok}</div>
       ) : null}
       {error ? (
-        <div role="alert" className="mb-6 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div>
+        <div role="alert" className="mb-6 rounded-lg border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-800">{error}</div>
       ) : null}
 
       <div className="space-y-4">
@@ -129,13 +131,13 @@ export default async function ScopeCategoriesPage({
                     <input type="hidden" name="event_type" value={eventType} />
                     <input type="hidden" name="folder_id" value={folder.id} />
                     <input type="hidden" name="offered" value="1" />
-                    <button type="submit" className={BULK_BTN}>Offer all</button>
+                    <SubmitButton pendingLabel="Updating…" className={BULK_BTN}>Offer all</SubmitButton>
                   </form>
                   <form action={setFolderEventTypeOffered}>
                     <input type="hidden" name="event_type" value={eventType} />
                     <input type="hidden" name="folder_id" value={folder.id} />
                     <input type="hidden" name="offered" value="0" />
-                    <button type="submit" className={BULK_BTN}>Hide all</button>
+                    <SubmitButton pendingLabel="Updating…" className={BULK_BTN}>Hide all</SubmitButton>
                   </form>
                 </div>
               </div>
@@ -149,13 +151,13 @@ export default async function ScopeCategoriesPage({
                         <input type="hidden" name="event_type" value={eventType} />
                         <input type="hidden" name="tile_id" value={t.id} />
                         <input type="hidden" name="offered" value={on ? '0' : '1'} />
-                        <button
-                          type="submit"
+                        <SubmitButton
+                          pendingLabel="…"
                           className={on ? PILL_ON : PILL_OFF}
                           aria-label={`${on ? 'Hide' : 'Offer'} ${t.label_en} ${on ? 'from' : 'to'} ${row.label_en}`}
                         >
                           {on ? 'Offered' : 'Hidden'}
-                        </button>
+                        </SubmitButton>
                       </form>
                     </li>
                   );

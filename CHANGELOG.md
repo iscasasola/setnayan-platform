@@ -4,18 +4,2156 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-18 · feat(payments): "payment under review" on the remaining add-on buy pages (handshake PR2)
+## 2026-06-22 · feat(admin): data-access log — admin account-access model Phase 1a
 
-Follow-up to the admin-approval handshake (#1718). The 6 add-on buy pages that weren't in the first PR now show the honest 3-state — **approved → "unlocked"/owned · pending → "payment under review" · none → buy-CTA** — so the dashboard no longer reads "owned" while the live feature is (correctly) withheld pending approval.
+RA 10173 "right to know who accessed my data" substrate for the admin account-access model (`Admin_Account_Access_Model_2026-06-22.md` · DECISION_LOG 2026-06-22). Records which admin VIEWED which account's data (distinct from `admin_audit_log`, which records admin write ACTIONS).
 
-- **New shared `<PaymentUnderReview feature="…">`** (`dashboard/[eventId]/_components/payment-under-review.tsx`) — the amber "we'll unlock it once we confirm your payment" badge; no buy-CTA renders alongside (double-buy stays prevented).
-- **6 buy surfaces** compute `active` (`eventSkuActive` / `eventAnimatedMonogramActive` / `eventPapicSeatsActive`) alongside the unchanged `owns`, querying only when owned: animated-monogram · custom-qr-guest · indoor-blueprint · papic (crew-pack section, conservative — no inner-JSX restructure) · setnayan-ai (keyed off the `setnayan_ai_active` approval flag, NOT the manual/free-launch path) · the Papic live-wall card.
+- **Migration `20270212405352_admin_data_access_log.sql`** — new `admin_data_access_log` table (admin_user_id, accessed_user_id, surface, context, created_at) + index + RLS. Admin-read via `is_admin()`; NO write policy → append-only for every non-service role (service-role client writes it). **Applied to prod** statement-by-statement via `supabase db query` + ledger row (the auto-apply pipeline is currently blocked by an unrelated unmerged parallel migration — see DECISION_LOG 2026-06-22). Additive + idempotent.
+- **`lib/admin-data-access.ts`** — `logAdminDataAccess()`, NON-FATAL by contract (a logging failure never breaks the admin surface).
+- **`app/admin/users/page.tsx`** — when an admin opens a user's detail panel (`?expand=<id>`), logs the view via Next `after()` (post-response, never blocks render); resolves the acting admin via `createClient().auth.getUser()`.
 
-No schema, no migration. tsc 0 · `next lint` clean · 332/332 unit. Display-only — the feature gates (active-only, shipped in #1718) already enforce the handshake.
+Phase 1a of the model. Next: Phase 1b = audit-log immutability (a trigger blocking UPDATE/DELETE even for the service-role client — RLS already denies admin mutation, so a REVOKE alone is insufficient); Phase 1c = the read-only consolidated user/vendor page. tsc 0 · `next lint` clean on changed files.
 
-**Also — a correctness fix from #1718 (caught by the `lint:papic-keep` guard):** the handshake gate-sweep mis-swapped `lib/papic-sampler.ts` `eventSamplerIsKept` to the active-only reader. That function is **retention, not a feature gate** — "keep this couple's free Papic sampler photos forever once they've converted (Drive OR paid Papic)." Reverted to the **pending-inclusive `eventOwnsPapicSeats`**: a couple who has *applied* to upgrade (order `submitted`, under review) must NOT lose their photos at the day-30 sweep before the payment is verified. The handshake gates feature ACCESS on approval; data retention stays pending-inclusive so a converting couple's photos are never destroyed.
+SPEC IMPACT: Recorded in `Admin_Account_Access_Model_2026-06-22.md` + DECISION_LOG 2026-06-22 + memory `project_setnayan_admin_account_access_model`. No SKU/price change; additive audit substrate.
+## 2026-06-22 · feat(privacy): admin chat-guard CI lint — Phase 0 of the admin account-access model
 
-SPEC IMPACT — completes the handshake UX across all paid SKUs + fixes the #1718 retention misclassification. → CHANGELOG + corpus DECISION_LOG.
+First build of the owner-locked admin account-access model (`Admin_Account_Access_Model_2026-06-22.md` · DECISION_LOG 2026-06-22). The model's privacy invariant: the admin surface may **never** read couple↔vendor chat bodies, thread attachments, or raw face vectors — not even inside an account takeover. This is the guard behind the published trust promise.
+
+- **`apps/web/scripts/lint-admin-chat-guard.mjs`** (new) — fails the build if any `app/admin/**` file (outside the `demo-vendors/**` allow-list) references `fetchMessages` / `chat_messages` / `chat_attachments` / `face_enrollments` / `vector_blob`. A deliberate, reviewed exception (e.g. the future force-majeure snippet RPC) is opted in per-line with `// chat-guard-allow: <reason>`, which surfaces in the diff.
+- **`.github/workflows/ci.yml`** — new `lint-admin-chat-guard` job (mirrors the sibling lint-* guards).
+- **`apps/web/package.json`** — `lint:chat-guard` script.
+
+WHY a lint guard, not RLS: chat row-level security is **already participant-only** — there is no admin grant to tighten (verified 2026-06-22). The only way admin code could read chat content is the service-role client (`createAdminClient()` bypasses RLS), so the guard fences the admin surface. Verified: passes clean on current code (only `app/admin/demo-vendors/inquiries/**`, `is_demo`-gated, reads chat — allow-listed); catches an injected violation; honors the per-line allow-marker.
+
+This is Phase 0 (lowest-risk, no migration). Phases 1–3 (read-only consolidated access page + immutable audit · consent-to-fix tier + DB-enforced two-admin · account-takeover with notification) are sequenced in the design doc; takeover (Phase 3) is owner-review-gated before prod.
+
+SPEC IMPACT: Recorded — new design doc `Admin_Account_Access_Model_2026-06-22.md` + DECISION_LOG 2026-06-22 + memory `project_setnayan_admin_account_access_model`. No SKU/price/runtime-behavior change (build-time guard only).
+
+---
+
+## 2026-06-22 · feat(integrations): generalized secret registry + OpenAI moderation (Integration Console PR2)
+
+Generalizes the Integration Activation Console into a **data-driven registry** so adding a "simple secret" integration (one encrypted API key, DB-first / env-fallback) is a data change, not new boilerplate. First registry entry: **OpenAI moderation**.
+
+- **Migration `20270210283954`** — adds `openai_api_key_enc` to the deny-by-default `platform_integration_secrets` table (AES-256-GCM). Idempotent; no RLS change. Applied to prod.
+- **`lib/integrations/registry.ts`** (new) — `SECRET_INTEGRATIONS` array; doubles as the **column allowlist** so the generic actions can never write an arbitrary column.
+- **`lib/integration-config.ts`** — generic `resolveIntegrationSecret(def)` (DB-first / env-fallback, uncached) + typed `resolveOpenAiKey()` + `getSecretPresenceMap()` (returns `{[col]: boolean}` — ciphertext never enters the console render tree).
+- **`lib/editorial-scan.ts`** — `runModeration` resolves the key DB-first; still **fails open** (no key → nothing flagged), byte-identical when the DB column is empty.
+- **`/admin/integrations`** — generic `saveIntegrationSecret` / `clearIntegrationSecret` actions (requireAdmin-gated, registry-validated, encrypted, never echoed) + a data-driven "More integrations" section rendering a `SecretCard` per registry entry.
+
+**Live-neutral:** column ships empty → resolver falls back to `OPENAI_API_KEY` env → behavior unchanged.
+
+**Reviewed** by a 4-lens adversarial workflow (security · byte-identical · build-time/`server-only` · correctness/UI): byte-identical and module-graph lenses passed clean; the two pass-with-nits findings (a `select('*')` ciphertext-in-render-tree footgun and stale header copy) are **fixed in this PR**.
+
+**Scope held tight (deliberate):** Recraft is offline-script-only (would break on `server-only`) → dropped. The dormant OAuth trio (YouTube / Google Drive / TikTok — needs a sync→async getter refactor) → **PR3**. The live/revenue/build-time set (Meta FB auto-publish, Maya payments, TikTok token, R2 public URL, VAPID) → **PR4**. Each becomes a registry entry on this proven pattern.
+
+tsc 0 · `next lint` clean (only pre-existing warnings) · `migration:check` green. CI prod build is the gate.
+
+SPEC IMPACT DECISION_LOG row (2026-06-22) + updates memory `project_setnayan_integration_activation_console` (PR2 shipped; PR3/PR4 scoped). No spec/SKU change.
+## 2026-06-22 · fix(seo): structured data no longer frames Setnayan AI (+ premium layer) as free
+
+Public human-readable copy already presents Setnayan AI as a paid ₱3,999 one-time/event upgrade (`/pricing`, `public/llms.txt`, marketing sections, `/about`), but three machine-readable blocks that Google + AI answer engines ingest as canonical framed the premium layer as free, no-price features:
+
+- **`app/page.tsx`** SoftwareApplication JSON-LD — `description` reframed "add the moments that set the day apart" → "add **optional paid upgrades** … each priced individually in PHP"; `featureList` now marks the five premium entries (Papic · Panood · Setnayan AI · Pakanta · Animated Monogram) **`(paid add-on)`**, completing the existing `(free)` convention on the baseline tools. (The block's `offers` node already declared `price 0` + "premium services priced individually" — this aligns the prose with it.)
+- **`app/layout.tsx`** Organization JSON-LD `description` — same "optional paid upgrades … each priced individually in PHP" reframe.
+- **`lib/wedding-essentials.ts`** + **`lib/officiant-auto-resolve.ts`** — stale `₱1,499` doc-comments (the retired price) made **price-agnostic** ("paid Setnayan AI") rather than swapped to ₱3,999, so they can't re-stale when the holistic pricing pass moves the number (per the admin-managed-prices rule — prices live in the catalog, never hardcoded in code).
+
+No live price/SKU/flow change — structured-data + comment hygiene. Deliberately did NOT bake the literal ₱3,999 into the JSON-LD (it's catalog/admin-managed + subject to the holistic pass); the fix makes the **paid status** explicit, which is the actual mis-signal engines were reading. Should land before any Setnayan AI paywall flip given engine cache/ingest lag.
+
+tsc 0 · `next lint` clean · `lint:retired` clean (0 retired strings) · production build green.
+
+SPEC IMPACT: None (public-surface hygiene; no SKU/price change). Aligns with the public-surface-hygiene rule + DECISION_LOG 2026-06-22 / `Pricing_Collection_2026-06-14.md` §8 item #2 (copy precondition).
+## 2026-06-22 · fix(orders): self-comp orders now provision flag-backed SKU entitlements
+
+`createSelfCompOrder` (vendor/admin self-comp at checkout) inserts an order straight at `status='paid'` but never ran the SKU activation dispatcher — so a self-comped **flag-backed** SKU (today `SETNAYAN_AI` → `events.setnayan_ai_active`; also concierge / vendor-branch) landed *owned-but-unprovisioned*: ownership checks count the paid order so the buy CTA is suppressed, yet the feature gate reads the never-stamped flag as false and the capability stays dark. Admin `approvePayment` was the **only** caller of `activateOrderSku`.
+
+- **`app/dashboard/[eventId]/orders/actions.ts`** — after the paid order insert in `createSelfCompOrder`, call `activateOrderSku({ admin, orderId, eventId, serviceKey: args.serviceKey ?? '', actorUserId })`, mirroring `approvePayment`. The hook is non-fatal + idempotent by contract; a null `serviceKey` (ad-hoc self-comp) resolves to `''` → no registered hook → no-op. Fixes every entitlement-gated SKU self-comped this way, not just AI.
+
+**Currently latent in prod** because the Setnayan-AI paywall is parked OFF (the new DB toggle defaults to env-OFF), so `setnayan_ai_active` is inert today — but this is a real correctness bug that must land **before** the paywall is ever flipped on. No paywall flip performed.
+
+Found via the 2026-06-22 paywall flip de-risk pass (DECISION_LOG 2026-06-22). tsc 0 · `next lint` clean on the changed file · `lint:entitlement-gates` clean. CI prod build is the gate.
+
+SPEC IMPACT: None (no SKU / price / flow change — a provisioning-correctness fix). Already recorded in the corpus 2026-06-22: DECISION_LOG row + `Pricing_Collection_2026-06-14.md` §8 item #4 (precondition #3 BUG_FOUND).
+
+---
+
+## 2026-06-22 · feat(integrations): Setnayan-AI paywall is now a no-redeploy DB toggle (Integration Console PR1, AI slice)
+
+Completes PR1 of the Integration Activation Console — the email slice already shipped (`platform_integration_secrets` + `resolveResendConfig` + `/admin/integrations`); the **AI-paywall half had not**, so monetizing/un-monetizing Setnayan AI still required a Vercel env change + redeploy.
+
+- **Migration `20270209911535_ai_paywall_flag_db_toggle.sql`** — adds tri-state `platform_settings.setnayan_ai_paywall_enabled BOOLEAN` (NULL = defer to env · TRUE = on · FALSE = off). Idempotent `ADD COLUMN IF NOT EXISTS`. Non-secret feature flag → world-readable `platform_settings`, **not** the secrets table.
+- **`lib/integration-config.ts`** — new `resolveSetnayanAiPaywallEnabled()` (DB-first / env-fallback, uncached so a flip takes effect on the next request).
+- **`lib/setnayan-ai.ts`** — `isSetnayanAiActive()` + `shouldOfferSetnayanAiPurchase()` take an OPTIONAL resolved-paywall arg defaulting to the env-only read; the leaf predicate **stays synchronous** (design caveat). `isSetnayanAiPaywallEnabled()` kept as the sync env fallback.
+- **6 server call sites threaded** — `dashboard/[eventId]/page.tsx`, `studio/setnayan-ai/page.tsx`, `vendors/page.tsx`, `vendors/build-3state-actions.ts`, `vendors/_actions/category-search.ts`, `v/[slug]/page.tsx` now `await resolveSetnayanAiPaywallEnabled()` and pass it in. The synthetic `tour/vendors` site is left on the env default (always-on demo).
+- **`/admin/integrations`** — new "Setnayan AI — paywall" card (effective/source readout + ON/OFF/use-env select) → `setAiPaywall` action.
+
+**Live behavior unchanged today:** the column ships NULL, so the resolver falls back to `SETNAYAN_AI_PAYWALL_ENABLED`, which is **OFF/parked in prod** — the ₱3,999 flip is parked for the holistic pricing pass (DECISION_LOG 2026-06-22), so Setnayan AI stays **free for every event**. Nothing live changes. This console is now the **no-redeploy mechanism to perform that parked flip** when the owner is ready (replacing `vercel env add SETNAYAN_AI_PAYWALL_ENABLED + redeploy`).
+
+⚠ **Deliberate deviation from the 2026-06-16 design (flagged for owner):** the design said the paywall resolver should be **OR-wins**. OR-wins is not a clean toggle — it can never turn the paywall OFF from the console once the env flag is set to `true`. Shipped as **DB-first / env-fallback** instead (tri-state), giving a real on/off toggle, matching the email slice's resolver, and byte-identical while the column is NULL.
+
+tsc 0 · `next lint` clean (only pre-existing warnings) · `migration:check` green. CI prod build is the gate. Migration applies via `supabase db query` (single idempotent ALTER) — code degrades gracefully (env fallback) if the column is absent.
+
+SPEC IMPACT DECISION_LOG row (2026-06-22): Integration Console PR1 AI-paywall slice shipped; paywall flag resolver = DB-first/env-fallback (supersedes design's OR-wins). Updates memory `project_setnayan_integration_activation_console` (PR1 now fully done).
+
+---
+## 2026-06-22 · feat(onboarding): experience-persona reveal → editorial titles + dead-copy purge (flag-gated OFF)
+
+Tuning pass on the experience-persona onboarding (PR #1937, flag `NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED`, default OFF) — owner reserved the persona NAMES + reveal copy for sign-off; this session the owner picked the **editorial-titles** direction.
+
+- **6 persona names → editorial titles** (`…/onboarding/wedding/_data/experience-personas.ts`): Keepsake → **The Keepsake** · Big Celebration → **The Grand Celebration** · Best of Both → **The Best of Both** · Intimate Romance → **Intimate & In Love** · Modern Statement → **The Modern Statement** · Rooted Tradition → **Rooted in Tradition**. Keys + resolver + every derived mapping (picks/services/feel/refinements) unchanged — display-string only.
+- **Reveal reframed** (`onboarding-shell.tsx` · `exp_reveal`): the old `"You’re a {name} couple — {helpHead}"` headline fought several names grammatically and hard-coded the article `a` (an a/an bug on "Intimate…"). Now the NAME stands alone as the serif hero, the persona **tagline** is surfaced beneath it (it was defined but never rendered), and the help-dial outcome ("Here’s your complete plan." / "Here are your options." / "Your canvas is ready.") becomes a gold kicker under the stat strip. Styling via inline design tokens — the locked `onboarding.css` is untouched.
+- **Dead first-draft "nugget" copy purged**: every axis/dial `sub` line (7) was defined but never rendered after the 2026-06-22 "clear question, clear answer" pass; removed the data + the `sub` type field so the stale side-notes can’t be re-surfaced.
+
+Flag-gated OFF → prod byte-identical until the owner flips the flag. tsc 0 · `next lint` clean (one pre-existing, unrelated `authed`-dep warning). No schema/SKU change.
+
+SPEC IMPACT iter 0016 (persona naming = owner-signed-off branding) → corpus DECISION_LOG + memory `project_setnayan_experience_persona_onboarding`.
+
+## 2026-06-22 · fix(monogram): animation "Delay" is now a start-to-start stagger
+
+Owner: *"the delay means how many seconds after one element starts. not after it finishes."* The Vector Studio's reveal "Delay" (`animDelay`) was added to a duration-derived spread — `step = (D·0.6)/(n−1) + DL` (handwriting) / `stag = (D·0.55)/(n−1) + DL` (droplet) — so each letter only began past the previous one's draw window, and the spacing also drifted with letter count. Now the per-element stagger is **just the delay**: `step = DL` / `stag = DL`, so a letter starts exactly `delay` seconds after the previous letter **starts** (delay 0 → all draw together; the per-letter draw duration still comes from the Speed slider, independently). `lib/monogram-studio/engine.ts` (the two `play()` presets; trace animates all-at-once so it's unaffected) + relabeled the slider "Delay · before next letter" → "Delay · between letter starts" in `markup.ts`. Applies to both the dashboard Vector Studio and the public `/monogram`.
+
+tsc 0 · `next lint` clean. No schema/SKU change.
+
+SPEC IMPACT None (animation-timing semantics only).
+
+---
+
+## 2026-06-22 · fix(seating): linked tables move as ONE (no tailing) + a combined unit name
+
+Owner feedback on the shipped linked-table grouping: "the linked tables will have a new table name. we do not want the other table tailing the other table. we want them to move as one."
+
+- **Tailing fixed** (`…/seating/_components/seating-editor.tsx`). The rigid group-translate already moved every member by the same delta each frame, but each table element carries `transition: left/top 140ms ease` and that ease was disabled (`transition: none`) **only for the grabbed table** — so the linked member eased 140ms behind and visibly *tailed*. Now a `dragGroupId` memo marks every member of the dragged unit as "dragging," so the whole unit gets `transition: none` + the raised z-index and moves in true lockstep. (Rotate keeps its smooth ease — only the reported move-as-one was tailing.)
+- **Combined unit name** (`…/seating/actions.ts` `linkTables`). Linking no longer silently adopts the first table's name; the unit gets its **own combined name** — `"{A} & {B}"` (e.g. "Table 3 & Table 4"), de-duped when re-linking the same unit and capped at 64 chars. Couples can still rename the unit from any member. The link notice copy updated to match.
+
+No schema change. tsc 0; `next lint` clean. CI build is the gate.
+
+SPEC IMPACT: Iteration 0008 (linked-table behaviour) — refines the 2026-06-21 grouping. Logged in DECISION_LOG.
+
+---
+
+## 2026-06-21 · fix(monogram): Vector Studio reliably mounts (prod race) + becomes the only monogram screen
+
+Owner: *"vector studio is not working… make the vector monogram the only screen for the monogram. and make it work."* — reported still broken on **live production** (dashboard `/dashboard/<id>/monogram`, stuck on "Loading the typeface…", blank canvas, but the names field showed the couple's real name).
+
+**Root cause (production-valid — NOT dev-only StrictMode).** The Vector Studio is an imperative paper.js/opentype.js engine whose editor DOM was injected via React `dangerouslySetInnerHTML={{ __html: STUDIO_HTML }}`. React's reconciler re-applies that prop whenever its **object reference** changes — and an inline `{{ __html }}` literal is a **new object every render** — so an ordinary re-render (this effect's own `setReady(true)`) re-set the host's `innerHTML`, **re-creating the `#cv`/`#load`/`#names` nodes**. The engine's `mountStudio()` returns synchronously but boots in an **async font fetch** (`loadFont('cardo')`) whose callback fires *after* that `setReady` re-render, so it ran `start()`/`applyConfig()` against the now-**detached** nodes it had captured: it hid a detached overlay + drew on a detached canvas (visible overlay stuck on "Loading the typeface…", canvas blank) while the name write landed on the surviving input (so the real name still showed — the exact reported paradox). This reproduces in `next build`/`next start` — no StrictMode double-invoke required. (Root-caused via a 7-agent parallel investigation + synthesis; the reconciler behavior was traced to `react-dom` `updateProperties` gating `dangerouslySetInnerHTML` on reference-inequality with no content guard.)
+
+- **Fix — the effect owns the editor DOM.** Both wrappers (`app/monogram/public-monogram-studio.tsx` + `app/dashboard/[eventId]/monogram/studio.tsx`) now set `root.innerHTML = STUDIO_HTML` imperatively in the effect (wiped on cleanup) instead of via `dangerouslySetInnerHTML`; the `<div ref>` is left empty so React has **no vdom children to reconcile** and never re-touches the subtree. The engine always binds to the on-screen nodes.
+- **Hardening (engine self-guards the unmount-mid-fetch case).** `lib/monogram-studio/engine.ts` gains a `destroyed` flag set first in `destroy()`; `loadFont` bails its async callbacks when destroyed, so a font fetch that resolves *after* a route nav away (an ordinary prod unmount) can never run `start()`/`applyConfig()` on a torn-down DOM — closing the residual race the wrapper fix alone leaves open. Plus an idempotency guard (`if (apiRef.current) return`) in both wrappers so a double-fire can't inject two engines.
+- **Verified in a real PRODUCTION build** (`next build` + `next start`, no StrictMode): `/monogram` mounts cleanly — overlay hidden, canvas at full res (1032×1360 @2×), monogram painted (26k+ non-bg samples), interactions repaint (name change re-derives letters; Yeseva font switches + reloads + repaints); a route nav away+back re-boots cleanly.
+- **Vector Studio is now the ONLY monogram screen** (`app/dashboard/[eventId]/monogram/page.tsx`): removed the "Upload your own" card **and** the Feature-Us opt-in **and** the paid "How it animates" upsell that sat below the studio (+ their now-unused imports / `owns` / `marketing_share_consents` query). Deleted the orphaned `upload-card.tsx`. Upload **server actions** + the downstream `monogram_uploaded_svg` **resolution** are kept so any couple who already uploaded still renders; only the input surface is retired. The Animated Monogram SKU stays discoverable from the Studio add-ons hub. ⚠ Reverses the 2026-06-15 "upload outranks the studio mark" lock (owner-authorized).
+
+**Deferred hardening (documented, lower-value / higher-risk):** per-instance `paper.PaperScope()` (the engine mutates the global paper singleton — only matters for two *simultaneous* live studios, impossible on one route once the `destroyed` guard lands; the engine is `@ts-nocheck` ported-verbatim so an engine-wide `paper.*`→`scope.*` rewrite is deferred to avoid injecting bugs into verified logic); a 0-size-host first-paint retry (not observed — the prod build paints correctly); and a public-page SSR skeleton (the editor markup is no longer server-rendered → ~100–200 ms blank-until-hydration on the force-static `/monogram` lead-magnet; acceptable for a JS-required tool, dashboard unaffected).
+
+tsc 0 · `next lint` clean · production build green. No schema/migration, no SKU/pricing change.
+
+SPEC IMPACT iter 0037 (monogram) — upload input surface retired, page reduced to studio-only, Vector Studio is the sole maker → logged in corpus DECISION_LOG (2026-06-21).
+## 2026-06-21 · feat(seating): swap guests / swap tables in 3D — reassign seats + animate
+
+Owner: "can we swap guests and it will animate that they left their seats and changed places? or swapping tables, will make all the guests change tables?" — yes, both.
+
+In the flag-gated 3D lab (`…/seating/lab/_components/seating-lab-3d.tsx`, Play mode):
+- **Swap two guests** — tap a seated guest in the list, then another → both reassigned (`assignGuest`, lock-gated, persisted to `event_seat_assignments` → mirrors into 2D) and **two avatars walk** from their old chairs to the new ones (steering around tables) and sit.
+- **Swap two tables** — "Swap two tables" arms a pick mode; tap two tables → **every occupant** reassigned to the mirror seat in the other table + all animate at once.
+- **Mechanics:** the swap IS the seat-assignment change (the truth); the walk is the animation. `moveGuestTo` persists via `assignGuest` + spawns a `MoverToken`; `movingGuests` (derived from the mover list) hides the static seat token while a guest is mid-flight; `onMoverDone` commits the new seat to local state + retires the mover. canEdit-gated through the same lock; lost-lock handled by the existing `persist` (notifyLost + refresh). Unseated guests still walk-in from the entrance; the RSVP colours from the previous PR ride along on the moving tokens.
+
+Adversarial 4-dimension review (persistence, animation↔state, edge-correctness, R3F) → findings folded in. No schema change (reuses `assignGuest` + the lock). Honest v1 notes: many simultaneous walkers (table swap) path around tables but can pass through each other (collision-avoidance is polish); and the deeper canonical-2D-engine RSVP rules remain the separate follow-up. tsc 0; `next lint` clean. CI build is the gate.
+
+SPEC IMPACT: Iteration 0008 (3D experience). The swap writes the same `event_seat_assignments` the 2D editor uses — one data model. Logged in DECISION_LOG.
+
+---
+
+## 2026-06-21 · feat(seating): 3D furniture + RSVP-coloured seats, and a Seat Plan card in Studio
+
+Owner build-out of the 3D seat-plan experience (flag-gated lab) + "add seatplan on studio also."
+
+**3D lab — real furniture + RSVP seats** (`lib/seating-3d.ts`, `…/seating/lab/page.tsx`, `…/seating/lab/_components/seating-lab-3d.tsx`):
+- `TableMesh` now renders **real furniture** — chairs (seat + backrest, oriented to face the table), a **draped tablecloth** (skirt-to-floor + top) with a bare-table fallback, and an optional **centerpiece**; palette-driven, with HUD toggles for Tablecloths / Centerpieces ("if requested").
+- **Seated guests render coloured by RSVP** — confirmed = solid (side-tinted), pending/maybe = translucent amber (held but tentative), declined = not rendered (seat freed). A **+1 reserved ghost seat** is held beside any `plus_one_allowed` guest whose +1 isn't already seated. Computed in a `seatedByTable` memo from the live assignments + each guest's `rsvp_status`/`side`/plus-one. New lib: `RsvpStatus`, `seatStatusOf`, `SIDE_COLOR`/`TENTATIVE_COLOR`/`PLUS_ONE_COLOR`; `Lab3DGuest` extended; `page.tsx` maps the fields. An RSVP legend in the HUD.
+
+**Studio hub — Seat Plan card** (`lib/add-ons-catalog.ts`, `lib/add-ons-detail.test.ts`):
+- Added a free **"Seat Plan"** card to the couple's Studio hub. Its href is **flag-aware** (`addOnHref`) — opens the 3D lab when `NEXT_PUBLIC_SEATING_3D==='true'`, else the normal 2D editor — and `appStoreDetailHref` routes it straight to the editor (no `/about` page, like panood/supplies). Nested under `branding` to match the existing layout-tool precedent (indoor-blueprint, mood-board) **without touching the owner-locked 4-section Studio sub-nav**. The two catalog invariant tests get a matching `seating` exemption (it owns its surface). ⚠ Surfaced: the old "Plan & organize" free-tools strip is dead code — the App-Store rewrite silently dropped *all four* core tools (Guests/Seating/Budget/Schedule) from Studio; this restores **Seating** per the ask (offer to restore the other three).
+
+No schema change. RSVP→seat *rules* in the canonical 2D engine (auto-hold pending, auto-free on decline, auto-reserve +1, caterer tentative counts) remain a separate, load-bearing follow-up. tsc 0; `next lint` clean; the add-ons-detail unit tests pass. CI build is the gate.
+
+SPEC IMPACT: Iteration 0008 (3D experience) + 0021 Studio surface (now lists the seat plan). The Studio card is a **user-visible** addition (not flag-gated); the 3D destination is flag-gated. Logged in DECISION_LOG.
+## 2026-06-21 · feat(studio): the website's 4 parts are 4 Studio cards + standalone editors
+
+Owner: *"on studio … the website is composed of 4 parts — Save the Date, RSVP, Event and Editorial. we want one for each … separate the content of the landing page. show the other 3 along with the save the date."* Chose **separate editor pages** (not just tabs) **+ keep a combined card**.
+
+- **Studio "Website" section now lists all four parts as their own cards** (`lib/add-ons-catalog.ts`): Save the Date (featured, unchanged) + new **RSVP · Event · Editorial** rows — all free, each with its own icon/poster — plus the existing catch-all relabeled **"Whole website"** (the combined editor). The `StudioGroup` doc-comment already promised this set ("website → Save the Date · RSVP · Event · Editorial"); the catalog now matches it.
+- **Three standalone full-screen editors** at `/site-editor/[eventId]/{rsvp,event,editorial}` — each is the same machinery as ONE tab of the combined editor via a new exported `PhaseEditor` (live per-phase preview + that phase's existing cards + the inline hero/backdrop sheets), minus the tab nav; ✕ returns to Studio (its launch point). Reuses every card builder + sheet already in `site-editor.tsx` (zero duplication) through a new shared `useInlineEditState` hook.
+- **One shared data loader** `_data.ts` (`loadSiteEditorData`) backs the combined editor **and** all three phase editors, so the couple-membership gate, the register-to-use gate, and the fetched prop shape are identical across all four. The combined `page.tsx` was slimmed to call it.
+- **Routing:** `addOnHref` / `appStoreDetailHref` send the three parts → `/site-editor/[eventId]/<phase>` and "Whole website" → `/site-editor/[eventId]` (no `/about` interstitial — these are free editing tools the couple revisits). `/studio/[addon]` mirrors the same-key redirect so a direct hit / old bookmark lands in the editor.
+- **Editorial cards fixed:** "Create editorial" + "Pick photos" now link their already-shipped editors (`website/editorial`, `website/our-photos`) — they were stale "coming soon"; reviews + thank-you stay honest coming-soon.
+- **Website hub handoff:** the "Your page through time" section at `/dashboard/[eventId]/website` now gives each of the four parts an **Edit** action into its own editor (+ a secondary **Preview**) — so the overview hub connects to the new per-part editors, not just the public previews.
+- **Invariant test updated:** `add-ons-detail.test.ts` learned a shared `OPENS_OWN_SURFACE` exception set (panood · seating · supplies + the four website parts) — these open their editor directly, so they're exempt from the "every hub feature has `/studio/about` detail content / routes under `/studio/about`" guards.
+
+tsc 0 · `next lint` clean (only pre-existing, unrelated warnings) · `test:unit` 345/345. No schema change; CI production build + the Vercel preview are the runtime gate.
+
+SPEC IMPACT: iter 0021 (Studio surface) + the website's four lifecycle parts (0002 RSVP/landing · 0024 Save the Date · 0031 day-of Event · 0038 Editorial) → CHANGELOG + DECISION_LOG.
+
+---
+
+## 2026-06-21 · feat(seating): 3D lab becomes a real editor — edits persist + Sims build-camera
+
+Owner: "yes do that pattern same as Sims" — make 3D editing real (writes the same plan as 2D) with a build-camera that snaps top-down while arranging. Follows the read-only spike (already merged). Still flag-gated (`NEXT_PUBLIC_SEATING_3D`, 404 when off).
+
+- **Edits persist through the SAME single-editor lock + server actions as 2D** (`apps/web/app/dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx`): drag → `updateTablePosition`, rotate (selection HUD ±15°) → `updateTableRotation`, delete → `deleteTable`, add → `createTable` + `router.refresh`. The lab acquires `useSeatingLock` on mount and is **view-only** (with a recovery/take-over button) when a 2D editor holds the lock — so 3D and 2D never write at once, and a 3D change mirrors into 2D.
+- **Sims build-camera** (`CameraRig`): Build mode eases to near-top-down with a tight polar clamp (precise placement); Play mode eases to a cinematic orbit. OrbitControls is parked (`camBusy`) during the tween so input + ease don't fight.
+- Selection HUD: rotate / delete a selected table; "+ Add table". `me` (id + name) now threads page → loader → component for the lock label.
+
+**Adversarial review (5 dimensions, 23 agents) → 12 verified findings, all fixed:**
+- **HIGH (lock-safety):** `persist()` swallowed the lost-lock error and kept `canEdit` true. Now matches the 2D editor — `isLockLost(err)` → `lock.notifyLost()` (drops to view-only at once) + reconciling `router.refresh()`; other errors surface without a misleading re-acquire.
+- **MEDIUM (write-path race):** the prop-sync effect blind-replaced local state on `router.refresh`, clobbering in-flight optimistic moves → now **merges new rows by id** (never overwrites a local edit).
+- **MEDIUM (data fidelity):** drag-commit clamped to `[2,98]%` unconditionally, collapsing free-board (no venue size) layouts → now **venue-aware** (free board keeps the wide range).
+- **LOW (×9, all addressed):** ghost selection persisting from Play → Build (no select in Play + clear on mode flip); camera lerp ending short (snap-to-target); `persist` unstable dep (stabilised on `notifyLost`/`router`); false "someone's editing in 2D" copy + a missing solo-recovery button (neutral copy + always-available recovery/take-over). Documented a known v1 limit: a free board doesn't yet fit-frame widely-spread tables (off-floor render) — fit-transform is the follow-up.
+
+tsc 0; `next lint` clean. CI production build is the gate. No schema change (reuses the canonical lock + actions).
+
+SPEC IMPACT: None to the shipped 2D editor (additive, flag-off; uses its existing lock + actions). The "3D + 2D = one data model, 3D edits persist" decision is logged in `DECISION_LOG.md`; the as-built doc `0008_Seating_AS_BUILT_2026-06-21.md` §13 invariants still hold.
+
+---
+
+## 2026-06-21 · feat(ux): vendor calendar legibility — redesign PR 3/N (DIR-2, safe half)
+
+Per-surface pass on the vendor calendar (`vendor-dashboard/calendar/page.tsx`). The audit flagged its `grid-cols-7` month views as cramped on phones with **9–10px** day-cell text.
+
+- **DIR-2 (legibility half) — raise day-cell text to the 11px floor.** The three sub-11px chip/label sizes (`text-[9px]` ×2 in the all-pools view, `text-[10px]` ×1 in the per-pool view) → `text-[11px]`. Cells already carry `min-h-16` and `truncate`, so they grow gracefully. The **day-state semantics and the semantic state colors** (closed / full / available) are left **exactly** as shipped (per the verifier's "keep day-state exactly" flag).
+
+Deferred + flagged for owner: the *other* DIR-2 half — replacing the 7-column month grid with a mobile week-scroller / agenda below `lg` — is a larger reshape that touches the shared day-state layout, so it's surfaced separately rather than bundled into a legibility fix.
+
+Verified: `pnpm typecheck` exit 0, `pnpm lint` exit 0.
+
+SPEC IMPACT: None (text-size legibility; no day-state, booking, SKU, schema, or pricing change).
+## 2026-06-21 · feat(seating): 3D seating lab — flag-gated R3F prototype (Sims build + walk-to-seat)
+
+Owner direction: make the seat plan feel "like a game where you move things around," explored via React Three Fiber (Next.js shell + React/Three engine, the SSR golden rule). This is a **flag-gated, READ-ONLY prototype** on a throwaway route — it does not touch the 2D editor and never persists.
+
+- **Route** `app/dashboard/[eventId]/seating/lab/page.tsx` — server component gated by `NEXT_PUBLIC_SEATING_3D` (404 when off, so it doesn't exist for users by default). Reads the couple's REAL tables / floor plan / guests / mood-board palette. No writes.
+- **`lib/seating-3d.ts`** — pure (no three.js) data→3D math: percent→world mapping, per-shape table + chair geometry, seat-world lookup, obstacle-avoiding path steering, palette resolution. Safe to import on the server (the page only uses its types + helpers).
+- **`_components/seating-lab-loader.tsx`** — the `dynamic(() => import('./seating-lab-3d'), { ssr: false })` client wrapper (the same proven pattern the Save-the-Date veil reveal uses).
+- **`_components/seating-lab-3d.tsx`** — the R3F scene: real tables + chairs in 3D, mood-palette-driven lighting/materials with a live switcher, **Build mode** (tap-select, drag-to-slide with game-feel, "+ Add table" → tap floor to drop), **Play mode** (tap a guest → an avatar walks from the entrance, steering around tables, to their chair and sits), glassmorphism floating HUD.
+- New deps: `@react-three/fiber@^9.6` + `@react-three/drei@^10.7` (React 19-compatible). `three@0.184` + `@types/three` were already present (the reveal uses raw three.js).
+- **Adversarial multi-agent review (6 dimensions, 32 agents) → 8 verified findings, all fixed:** OrbitControls eating the armed tap-to-drop on touch (`enabled={!draggingId && !addArmed}`); drag soft-lock on `pointercancel`/blur (added handlers); R3F synthetic-click-after-drag deselecting/dropping (`e.delta > 4` guard); table rotation sign mismatch between rendered chairs and the walk target (`rotateLocal` rewritten to match the +Y group rotation); null `x_pos/y_pos` tables stacking at the corner (grid fallback via `defaultTablePosition`, matching 2D); `sendGuest` ignoring removed chairs (seed occupancy with `removedSeats`, scan real capacity); perf (DPR→[1,1.5], ContactShadows 1024→512, shared chair/pedestal geometry). Instancing + GLTF + post-processing are the documented v2.
+
+Verified: tsc 0, `next lint` clean on all four files. The production build (R3F client bundle) is CI's required gate — no local env here; R3F is client-only + dynamically imported so it never runs on the server.
+
+SPEC IMPACT: None to the shipped seat plan (additive, flag-off prototype). Captured in the corpus `0008_Seating_AS_BUILT_2026-06-21.md` lineage + DECISION_LOG.
+
+---
+
+## 2026-06-21 · feat(nav): broken-out action (NAV-2) — vendor + admin doorways
+
+Owner-picked actions (2026-06-21) extend the broken-out Mulberry satellite to the other two doorways, reusing the `NavFab` primitive (locked `bottom-nav.tsx` still untouched; `lint:botnav` ✓):
+
+- **Vendor** → **Check inquiries** (`/vendor-dashboard/bookings`, the pipeline where new couple inquiries land). New `vendor-nav-fab.tsx`, mounted in the vendor layout. `bookings` is in the role-scoped keys, so every vendor role reaches it.
+- **Admin** → **Payment requests** (`/admin/payments`, which defaults to the `pending` reconciliation queue — the couples' submitted payment proofs awaiting the 24-hr-SLA review). New `admin-nav-fab.tsx`, mounted in the admin layout.
+
+Both are siblings of the pill (never a tab), float above its right end off `--sn-bottomnav-h`, and hide when a docked SubNav is up. The broken-out action is now live on all three primary doorways (couple = Add guest · vendor = Check inquiries · admin = Payment requests).
+
+Verified: `pnpm typecheck` 0 · `pnpm lint` 0 · `pnpm lint:botnav` ✓.
+
+SPEC IMPACT: Nav architecture — broken-out action on vendor + admin. No SKU/schema/pricing change.
+
+## 2026-06-21 · feat(nav): broken-out action satellite (NAV-2) — couple doorway
+
+Second step of the nav reroster (`Responsive_and_Mobile_UI_Ruleset_2026-06-21` · NAV-2) — the Shazam-style "broken-out" primary action. The **locked `bottom-nav.tsx` template is untouched** (`lint:botnav` ✓); the action is a separate floating sibling, never a 7th tab, never a fork.
+
+- **New primitive `app/_components/nav/nav-fab.tsx`** — `NavFab`: a fixed, `lg:hidden`, ≥56px **Mulberry** circle that floats above the right end of the pill, anchored off the bar's published `--sn-bottomnav-h` (so the gap is constant at any tab count). Hides whenever the docked SubNav is up (`useSubNavDocked`) to avoid sharing that band. Reduced-motion-safe. *(The locked pill is full-width, so the literal Shazam "beside the pill" needs a template edit — this floats **above** the pill instead, the standard FAB pattern, fully additive.)* Filename has no `bottom-nav` substring so the delegation guard doesn't flag it.
+- **New wrapper `customer-nav-fab.tsx`** + mounted in the couple layout as a sibling of `CustomerBottomNav`. Action = **Add guest** → `/guests/new` (the couple's most-repeated planning action; doesn't duplicate a pill tab). Hidden in the `after` phase. Client wrapper holds the Lucide icon (same Server→Client boundary pattern as `CustomerBottomNav`).
+
+Verified: `pnpm typecheck` 0 · `pnpm lint` 0 · `pnpm lint:botnav` ✓ (template integrity + delegation intact).
+
+PROVISIONAL / deferred: the per-doorway **action choice** is owner-tunable (a phase-aware Day-of variant — e.g. check-in/scan — is a follow-up), and the **vendor + admin FABs** are not wired here because their single dominant action is a genuine product call (the ruleset says the FAB is absent when a surface has no clear dominant action). Also still pending: NAV-5 Notion "More" rebuild + the lint hardening (≤5 count + frosted-fill guard).
+
+SPEC IMPACT: Nav architecture — adds the broken-out action (couple doorway). No SKU/schema/pricing/public-claim change.
+## 2026-06-21 · fix(studio): every Studio feature button now lands somewhere usable (no more "coming soon" dead-ends)
+
+**Owner ask:** after the App Store detail-route fix, "check the rest of Studio — all pages must have somewhere to go. Let the button open it, or go to the paywall if it must be purchased first; if it's a free service, let it open."
+
+**Audit (all 15 visible Studio features across Setnayan AI · Website · Capture · Branding).** 13 already land correctly: each opens its real functional surface, and every *paid* one gates usage behind the canonical `InlineCheckoutDrawer` paywall on that surface (papic, panood, patiktok, save-the-date premium openings, setnayan-ai, animated-monogram→/monogram, custom-qr-guest, indoor-blueprint, pakanta), while the free ones open straight through (mood-board, led, photo-delivery, playlist). **Two were dead-ends** — `landing-page` and `music-creator` have no Studio surface of their own, so their "Open" button hit the `[addon]` catch-all "coming soon" placeholder.
+
+**Fix — point the two no-surface features at their real homes:**
+- `landing-page` → `/dashboard/[eventId]/website` (the wedding-website hub — a real, free surface that hands off to the site editor).
+- `music-creator` → `/dashboard/[eventId]/studio/pakanta` (Pakanta — its own detail copy already frames it as "generate a custom score — Pakanta"; Pakanta carries its own paywall).
+- Wired in `addOnHref()` (`lib/add-ons-catalog.ts`) so the detail-page "Open" button links straight there, and in `SHIPPED_REDIRECTS` (`studio/[addon]/page.tsx`) so any direct hit / old bookmark to `/studio/landing-page` or `/studio/music-creator` redirects too. Removed both stale "coming soon" placeholder entries from `ADD_ON_META`.
+
+**Flagged for owner (not changed):** `music-creator` overlaps `pakanta` (and partly the free `playlist`) — it now routes to Pakanta, but you may want to retire the tile or give it a distinct scope (a free reel-music picker doesn't exist yet). `led` opens freely with no SKU wired (effectively free today); fine unless it's meant to be a paid Live-Background SKU. `photo-delivery`'s Drive connect shows an in-surface "coming soon" until `GOOGLE_DRIVE_OAUTH_CLIENT_ID` is set.
+
+SPEC IMPACT: None (routing/wiring fix; no product, pricing, or schema change — all prices still render live from the admin catalog).
+
+## 2026-06-21 · feat(seating): linked tables group as ONE (Keynote-style move + rotate) + full-screen editor
+
+Owner ask: "when we link seats, they will be grouped as one now. so when we rotate a table, it rotates as one… think of it like how Keynote groups shapes. and break apart will unlink them." Plus: "the page still doesn't look clean for seat plan creation… [the Seating title + description + Walkthrough link] we can remove this and spread the whole content to the screen."
+
+**What changed (all in `apps/web/app/dashboard/[eventId]/seating/`):**
+
+1. **Group-as-one geometry** (`_components/seating-editor.tsx`). Tables sharing a `link_group_id` now behave as one rigid unit on the floor:
+   - **Move as one** — dragging any member translates the whole unit (delta clamped so no member leaves the board); internal chain/align snap is skipped (the unit is already assembled). All members are marked dirty on drop.
+   - **Rotate as one** — every rotate path (the ±15°/Flip buttons, the desktop drag rotate-handle, and the two-finger twist gesture) now orbits each member around the unit's shared centroid AND spins each member's own angle by the same delta. Math goes through a px round-trip (`groupSnap` → `rotatePoint` → back to %) so a non-square canvas can't shear the unit. New helpers: `groupMemberIds`, `groupSnap`, `applyGroupRotation`, `persistGroupTransform`, `rotateGroupBy`.
+   - **Coherent persistence** — a group rotate persists positions *and* angles together (rotation already persisted instantly; the orbit it induces must too, or the unit would reload deformed). A group move persists on Save like any move.
+   - **Break apart** — the existing unlink, relabeled throughout ("Break apart"/"Group with another table"); link/unlink notices + the in-progress banner now describe move/rotate-as-one. `actions.ts` `linkTables`/`unlinkTable` are unchanged in behavior (still just set/clear `link_group_id`); only comments updated to record the new editor semantics + the owner authorization.
+
+2. **Full-screen layout cleanup** (`page.tsx`). Removed the hero `<h1>Seating</h1>` + the long description paragraph so the editor canvas fills the screen. The reserved→seated summary sits left; the Walkthrough-videos link became an icon-only button pinned upper-right (title/aria-label carry the meaning) so it stays out of the editor's way — kept, not orphaned. Page heading retained screen-reader-only for a11y/SEO. (Kept the `Video` icon rather than a route/compass "tour" glyph to avoid clashing with the separate Driver.js guided tour.)
+
+No schema/migration and no server-action behavior change — link grouping already existed as identity+QR; this adds client-side rigid-body geometry on top of it. typecheck clean (only pre-existing unrelated `paper`/`archiver` module errors); `next lint` clean on all three files.
+
+SPEC IMPACT: **Iteration 0008 (seating).** Reverses the 2026-06-10 "linked unit = identity + QR only, seating math/position stay per-table" lock → linked units now also move + rotate as one rigid body (owner-authorized 2026-06-21). Logged at the bottom of the corpus `DECISION_LOG.md`. Seating math (who sits where / capacity) still stays per-table.
+
+---
+
+## 2026-06-21 · feat(boundary): register-to-use gates on the in-app monogram studio + website builder (flag-gated · parked)
+
+Extends the register-gate boundary (same `NEXT_PUBLIC_REGISTER_GATES_ENABLED` flag) to the two **in-app public-identity surfaces**. When ON, an anonymous (unsecured) couple who opens the **monogram studio** (`/dashboard/[eventId]/monogram`) or the **website builder** (`/site-editor/[eventId]`) is redirected to `/signup?next=<surface>` to create a free account first — the signup flow converts the same anon session in place and returns them. One-line server-side gate after the existing `!user` redirect in each page, reading `user.is_anonymous` (the same field the dashboard's `SecureAccountBanner` already uses). OFF (default) → no gate, unchanged.
+
+Remaining boundary gate: planning-PDF downloads (register-to-download). `tsc` 0 · `lint` 0 (no warnings). Parked.
+
+SPEC IMPACT: iterations 0037 (monogram) + couple-website — the locked boundary "creating your public identity needs an account." No SKU/price change (still free — just register).
+
+## 2026-06-21 · feat(boundary): register-to-use gate on the public /monogram studio (flag-gated · parked)
+
+First slice of the locked **free/login/paid boundary** gates. New flag `NEXT_PUBLIC_REGISTER_GATES_ENABLED` (`lib/register-gates.ts`, default OFF). When ON, the public marketing-site monogram studio (`/monogram`) — today a free no-login lead magnet — becomes a **register wall**: the studio is replaced by a "Create your free account to design" card (→ `/signup?next=/monogram`, with a "Sign in" link → `/login?next=/monogram`), and the eyebrow/sub copy flip from "no sign-up" to "create an account." Owner 2026-06-21: *"Login to use it too — maximum capture; every visitor registers first."*
+
+Gated at the **page level** (build-time `NEXT_PUBLIC` flag), so the page stays statically rendered and the studio component is untouched. OFF (default) → the free no-login studio exactly as today. `tsc` 0 · `lint` 0 (no warnings). Parked.
+
+This establishes the register-gate flag + pattern. **Remaining gate surfaces (follow-ups, same flag):** in-app monogram studio + website builder (register-to-use), planning-PDF downloads (register-to-download) — all reuse `user.is_anonymous` + the existing `SecureAccountBanner` / `/signup?next=` convert-in-place flow.
+
+SPEC IMPACT: iteration 0037 (monogram) public surface — the locked boundary "creating your public identity needs an account"; logged in `DECISION_LOG.md`. No SKU/price change (still free — just register).
+
+## 2026-06-21 · feat(onboarding): strip the in-onboarding paywall tail — onboarding ends free (flag-gated · parked)
+
+Locked decision "**no paywall in onboarding**" (2026-06-21). When `NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED` is ON, `buildSequence` now also drops the monetization tail — `plan` (the Setnayan AI upsell), `bundle` (Essentials/Complete), `services` (à-la-carte carousel), `summary` (purchase). The flow ends **free** on `congrats` (the dashboard-bloom reveal), whose chrome CTA now reads **"Go to my dashboard"** and commits via `handleFinish(false)` straight to the dashboard — the chrome Continue commits on the last screen when the flag is on, `go(1)` otherwise. The persona's derived in-app services are still stored in `style_preferences.interested_services` for the **dashboard** to surface — they're just no longer sold during onboarding.
+
+- New `PAYWALL_SCREENS` set (`plan`/`bundle`/`services`/`summary`) + a flag-gated `buildSequence` filter; new `isLastScreen` terminal-commit on the chrome CTA.
+- **Behavior note:** the free auto-inquiry opt-in that lived on the dropped `plan` screen now uses defaults (guidance ON, top-inquiries OFF); that opt-in moves to the dashboard (follow-up).
+- Flag OFF → byte-identical (the tail + summary-terminal behave exactly as today). `tsc` 0. Parked (auto-merge OFF).
+
+SPEC IMPACT: iteration 0016 / 0034 — the "no paywall in onboarding" ruling (monetization relocates to the dashboard, not removed); logged in `DECISION_LOG.md`. No SKU/price change.
+
+## 2026-06-21 · feat(onboarding): intent dials — help level + sourcing on the experience flow (flag-gated · parked)
+
+Extends the parked experience-persona PR (#1937) with the two planning **dials** locked in the boundary design session:
+
+- **Dial 1 — help level** (`exp_help`): *build it all for me · give me options · I'll look myself*.
+- **Dial 2 — sourcing** (`exp_source`): *find on Setnayan · bring my own · both*.
+
+Inserted after the 5 experience axes, before `exp_reveal`, so the reveal reflects them. Single-pick screens, same `.screen/.stack[data-single]/.opt` markup as the axes; `EXP_DIALS` data lives alongside the personas (admin-tunable shape). New state `helpLevel` + `vendorSourcing`; the reveal **headline reflects the help level** ("here's your complete plan" / "here are your options" / "your canvas is ready") and adds a **sourcing line**. Captured into `events.experience_axes` JSONB at commit (no migration). Flag-gated via `EXP_SCREENS` (default OFF) — flow byte-identical when off.
+
+Part of the experience-first onboarding build (owner greenlit 2026-06-21). Remaining slices: strip the in-onboarding paywall tail (bundles/services → dashboard) · register-to-use gates (monogram, website) · register-to-download (planning PDFs) · no-login (anon-draft) posture. `tsc` 0 · `lint` 0. **Parked — auto-merge OFF, prototype-first review.**
+
+SPEC IMPACT: iteration 0016 — the intent dials from the locked free/login/paid boundary; logged in `DECISION_LOG.md`. No SKU/pricing change.
+
+## 2026-06-21 · feat(onboarding): experience-persona reorientation — the quiz derives the plan (flag-gated · PR pending, auto-merge)
+
+Owner reframe: the onboarding's job shifts from *"which vendors do you need?"* to *"what experience do you want to create?"* — memorable for the couple, their guests, or both — and that experience then **derives** the in-app services to surface and the vendor/service filtering. Owner picked the boldest shape: **experience fully derives the plan** (no manual 53-tile picker), a **full persona quiz**, built into the real flow. Shipped **flag-gated** (`NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED`, default OFF) so the live funnel is byte-identical until the owner flips it.
+
+- **New 5-axis experience quiz + persona reveal** (`exp_for_whom · exp_feel · exp_energy · exp_roots · exp_effort · exp_reveal`), inserted after `budget`, before the venue intro. Same `.screen/.stack[data-single]/.opt` markup as `role`/`kind` (prototype-direct port). Flag ON → `buildSequence` drops the legacy picker chain (`aigate` + `team_basics`/`refine_basic`/`team_extras`/`refine_extras` + `songs`/`mood`); flag OFF → the `exp_*` screens are filtered out entirely.
+- **Deterministic resolver + derive** (`app/onboarding/wedding/_data/experience-personas.ts`): the 5 answers resolve (weighted overlap, `for_whom` dominant — no LLM) to one of 6 named personas — **Keepsake · Big Celebration · Best of Both · Intimate Romance · Modern Statement · Rooted Tradition** — each deriving vendor categories (essentials + effort-scaled extras) + signature in-app Setnayan services + palette feel + per-leaf refinement seeds. Admin-tunable data shape (no logic baked into copy).
+- **Plugs into the existing matcher with zero matcher changes:** the derived `refinements` feed the deterministic matcher's 30% Refinement dimension; `picks` feed `interested_categories` + the recommended-services seed; `prefs.feel` → `mood_feel_key` + `basic_moodboard`. `buildCommitPayload` already maps all of these, so deriving into state is sufficient.
+- **New persisted intent** (`events.experience_persona` · `experience_for_whom` · `experience_axes` jsonb · migration `20270208703382`): additive/nullable/idempotent, RLS-unchanged. The commit **guards** these columns behind the same flag, so the insert never references them before the migration is applied — safe to merge flag-OFF regardless of DB state.
+- Files: `lib/experience-quiz.ts` (flag) · `_data/experience-personas.ts` (axes/personas/resolver/derive) · `app/onboarding/wedding/types.ts` (`experienceAxes` + `experiencePersona` state) · `_components/onboarding-shell.tsx` (FLOW_IDS swap, `buildSequence`, `canContinue`, `NEXT_LABEL_BY_ID`, derive effect, render) · `actions.ts` (guarded columns).
+
+⚠ Owner sign-off: persona NAMES + quiz copy are first-draft (easy to tune — all in one data module). Going live needs (1) apply migration `20270208703382`, (2) set `NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED=true`.
+
+SPEC IMPACT: iteration 0016 (Setnayan AI / step-by-step plan builder) — onboarding reorients from vendor-needs assessment to experience-first; logged at the bottom of `DECISION_LOG.md`. No SKU/pricing change (the derived in-app services map to existing keys).
+## 2026-06-21 · fix(studio): App Store About pages crashed in prod (server import of a `'use client'` data export)
+
+Every Studio "About" page whose feature has no `demo` frames threw the branded error boundary (`Reference: 3349409504`) in production — e.g. `/studio/about/animated-monogram`, `/studio/about/save-the-date`. (Surfaced once PR #1954 un-shadowed the About route so the pages actually render; before that they fell through to the feature builder and the crash never ran. Only `papic` escaped, because its `detail.demo` short-circuits the `||` past the bug.)
+
+**Root cause.** `app/_components/app-store/layout.tsx` is a SERVER component, but it imported `RICH_DEMO_SLUGS` from `studio-card-demo.tsx`, which is a `'use client'` module. When a server component imports a **data** export from a client module, Next.js gives it a client-reference proxy — not the array — so `RICH_DEMO_SLUGS.includes(demoSlug)` threw `includes is not a function` and crashed the render. Dev masked it (non-fatal overlay, page still 200'd); the production build threw it fatally.
+
+**Fix.** Moved the slug list to a new server-safe module `app/_components/app-store/rich-demo-slugs.ts` (plain `.ts`, no `'use client'`) and import it there from both the server layout and the client demo component.
+
+- `rich-demo-slugs.ts` — `RICH_DEMO_SLUGS` (+ `RichDemoSlug` type, + `isRichDemoSlug()` membership helper).
+- `layout.tsx` — imports `isRichDemoSlug` from the server-safe module (no longer imports any data from the client module; still imports the `StudioCardDemo` component + `DemoFrame` type, which is fine across the boundary).
+- `studio-card-demo.tsx` — `RICH_SCENES` is now typed `Record<RichDemoSlug, RichFrame[]>` so the scene map and the slug list can't drift (compile error if they do); removed its `RICH_DEMO_SLUGS = Object.keys(...)` export.
+
+Verified with a real `next build` + `next start` (NOT just dev, which had hidden it): the About pages render the App Store detail instead of crashing. typecheck clean.
+
+SPEC IMPACT: None (rendering bug fix; no product, pricing, or schema change).
+
+---
+
+## 2026-06-21 · chore(nav): lint-guard the locked BottomNav frosted fill (NAV-9 hardening)
+
+The redesign verifier found that `scripts/lint-bottom-nav.mjs` protected the bar's tuning knobs + animation hooks + aria-label, but **not** its frosted-paper fill — so an edit could silently change or strip `rgba(248, 246, 240, 0.92)` (the `--m-paper-2` @ 92% surface the locked white press-light reads against) and the guard would still pass, leaving the press bloom invisible.
+
+- Added `'rgba(248, 246, 240, 0.92)'` to `REQUIRED_MARKERS`. The integrity check already does `canonicalSrc.includes(marker)` for every entry, so this one line pins the fill — any future edit to it now fails the build with the existing owner-lock message.
+
+Verified: `pnpm lint:botnav` ✓ (the literal exists at `bottom-nav.tsx:684`, so the guard passes today and protects it going forward).
+
+Deferred (needs owner sign-off — NOT done here): the **≤5 tab-count assertion** half of NAV-1/NAV-9 hardening. A reliable build-time ≤5 guard requires lowering the template's own `Math.min(items.length, 6)` clamp to 5 — which is an edit to the owner-locked `bottom-nav.tsx` AND would disagree with the accordion path's "6 fixed top-level menus" contract until reconciled. Surfaced rather than silently changed.
+
+SPEC IMPACT: None (lint-guard hardening on the owner-locked template; no behavior change).
+
+## 2026-06-21 · fix(studio): Save-the-Date "About" page no longer collides with the builder route
+
+The Studio tile for Save-the-Date links (via `appStoreDetailHref('save-the-date')`) to `/studio/save-the-date/about`. But Save-the-Date owns a *literal* route folder (`studio/save-the-date/` — the builder + `loading.tsx`), which in Next.js **shadows** the dynamic `studio/[addon]/about` route. So that path fell through to the builder, and via client-side navigation the static/dynamic collision threw the branded error boundary (the `Reference: …` 500 the owner hit on `/studio/save-the-date/about`). Every other feature's About page works because they reach `[addon]/about`; `save-the-date` did not.
+
+- Extracted the App Store detail render from `studio/[addon]/about/page.tsx` into a shared `studio/_components/addon-detail-view.tsx` (no behavior change — `[addon]/about` now delegates to it).
+- Added an **explicit** `studio/save-the-date/about/page.tsx` that reuses the shared view with the add-on fixed to `save-the-date`. An explicit literal route is collision-proof — it always wins over the shadowed dynamic fallback, so the About page renders reliably on both hard load and client navigation.
+
+Verified locally (dev, signed in as the owner on a real event): `/studio/save-the-date/about` now renders the App Store About page (hero "The first time they feel your wedding.") instead of the builder; `/studio/papic/about` (dynamic route) and `/studio/save-the-date` (builder) still render correctly. `pnpm typecheck` exit 0; `next lint` clean for the changed files.
+
+Follow-up (not in this PR): other features that own a literal route folder (animated-monogram, custom-qr-guest, mood-board, photo-delivery, setnayan-ai, …) have the same shadowing, so their `/about` links resolve to the feature surface rather than the App Store detail. Harmless today (the tile still opens the feature) but worth a class fix.
+
+SPEC IMPACT: None (routing bug fix; no SKU, schema, or pricing change).
+
+---
+## 2026-06-21 · feat(nav): vendor + admin bottom nav → ≤5 tabs (redesign Wave 3 · NAV-1)
+
+First step of the ratified nav reroster (`Responsive_and_Mobile_UI_Ruleset_2026-06-21` · NAV-1). Drops the vendor and admin mobile pills from **6 tabs to 5** by demoting one destination each into "More". **Supersedes the 2026-06-15 owner-picked 6-tab rosters** (owner re-authorized via the redesign "do all / keep going"). The locked `bottom-nav.tsx` template is **NOT touched** — it is fully data-driven by the `items` array length, so passing 5 items instead of 6 just works (verified by a 3-agent read-only map of the owner-locked nav area).
+
+**Vendor** (`vendor-bottom-nav.tsx`): pill is now `Home · Bookings · Calendar · Messages · More` — **Website** demoted. Removed the unused `Globe` import. Added `/vendor-dashboard/website` to the More tab's `activeMatch` so it lights "More" on mobile (orphan-prevention); it was already a `/more` card + sidebar item (reachability confirmed).
+
+**Admin** (`admin-bottom-nav.tsx`): pill is now `Home · Work · Directory · Money · More` — **Insights** demoted. Removed the unused `BarChart3` import. Folded the 7 Insights routes (`/admin/insights` + growth/intelligence/funnels/operations-hiring/connection-logs/offline) into the More `activeMatch`. **Critically**, Insights was NOT in `/admin/more` (it would have been orphaned on mobile) — added an Insights card to `admin/more/page.tsx` → `/admin/insights` (the landing that fans out to all 7 analytics surfaces). Desktop sidebars keep their full Insights/Website groups (unchanged).
+
+**Registry** (`nav-registry-defaults.ts`): pruned the two now-orphaned defaults `vendor.bottom-nav.website` + `admin.bottom-nav.insights` so `/admin/menus` doesn't expose phantom editable tabs.
+
+Verified: `pnpm typecheck` exit 0 · `pnpm lint` exit 0 · `pnpm test:unit` (Phase-9 nav-registry integrity) **344/344 pass**. `lint:botnav` unaffected (the canonical template + its 7 markers are untouched).
+
+Deferred to follow-up PRs (blueprinted by the same workflow): the **broken-out Mulberry action satellite** (NAV-2 — a new sibling `nav-fab.tsx`, never a 7th tab/fork), the **Notion-style More** rebuild (NAV-5), and **lint hardening** (a ≤5 count assertion + protecting the frosted-fill token — both currently unguarded).
+
+SPEC IMPACT: Nav architecture — vendor/admin mobile pills drop to ≤5; supersedes the 2026-06-15 6-tab rosters. Logged in the corpus `DECISION_LOG.md`. No SKU/schema/pricing/public-claim change.
+## 2026-06-21 · fix(studio): un-shadow the App Store detail route — every "Learn more" / feature link was 404ing
+
+**Symptom (owner report):** on the Studio hub (`/dashboard/[eventId]/studio`) every "Learn more"/About link and every featured card was dead — clicking a feature went nowhere. Only `landing-page`, `music-creator`, and `panood` worked.
+
+**Root cause — Next.js route shadowing (single cause, not "everything's unwired").** The hub links each feature to its App Store detail page via `appStoreDetailHref()`, which returned `/studio/<key>/about`. But most features also own a static `app/dashboard/[eventId]/studio/<key>/` folder (papic, save-the-date, setnayan-ai, animated-monogram, led, mood-board, photo-delivery, custom-qr-guest, indoor-blueprint, patiktok, pakanta, playlist…). In the App Router a **literal** path segment beats the `[addon]` **dynamic** sibling and routing does **not** backtrack — so `/studio/papic/about` matched the static `papic/` folder, found no `about` child, and 404'd. Every feature with its own folder (11 of 14 visible, including all four flagships) was dead; only the three without a static folder resolved. The author had already hit this for two keys and band-aided them in `appStoreDetailHref` (the "an /about link 404s" comment) without realizing it was systemic.
+
+**Fix — move the detail route out from under the dynamic shadow.** Relocated `studio/[addon]/about/page.tsx` → `studio/about/[addon]/page.tsx` and pointed `appStoreDetailHref` at `/studio/about/<key>`. The literal `about` segment can't be shadowed by any feature key, so all 14 detail pages now resolve; the "Open" CTA on each detail page already pointed at the real feature surface via `addOnHref()`, so it works once the detail page is reachable. Panood + supplies-marketplace keep their existing straight-to-surface special-cases.
+
+**Reconciled with PR #1956 (parallel session, merged mid-flight).** #1956 fixed the same shadowing bug for Save-the-Date *only*, with a narrower strategy: keep links at the shadowed `/studio/<key>/about` and add an explicit per-key `<key>/about/page.tsx` inside each static folder (extracting the renderer into a shared `_components/addon-detail-view.tsx`). This relocated route supersedes that approach — one dynamic route under `/studio/about/<key>` fixes all 11 shadowed keys instead of one-wrapper-per-folder. Kept #1956's shared `addon-detail-view.tsx` (the relocated route mounts it); **removed the now-orphaned `studio/save-the-date/about/page.tsx`** (nothing links to `/studio/save-the-date/about` anymore) and corrected its comments so future sessions don't keep adding per-key about pages.
+
+- `apps/web/lib/add-ons-catalog.ts` — `appStoreDetailHref` now returns `/studio/about/<key>`; expanded the doc comment to explain the shadowing trap.
+- `apps/web/app/dashboard/[eventId]/studio/about/[addon]/page.tsx` — relocated detail page; mounts the shared `AddOnDetailView`.
+- `apps/web/app/dashboard/[eventId]/studio/save-the-date/about/page.tsx` — **deleted** (superseded orphan from #1956).
+- `apps/web/app/dashboard/[eventId]/studio/_components/addon-detail-view.tsx` — comment updated to describe the relocated-route mount point.
+- `apps/web/lib/add-ons-detail.test.ts` — added a regression guard asserting every detail href routes under the literal `/studio/about/` segment (fails the build if a key ever regresses to the shadowed shape); refreshed the path comment.
+- `apps/web/app/_components/app-store/layout.tsx`, `apps/web/lib/add-ons-detail.ts` — stale-path comment refreshes.
+
+No content/pricing/schema change — every visible feature already had authored detail content; prices still render live from `platform_retail_catalog_v2`.
+
+SPEC IMPACT: None (routing bugfix; no product, pricing, or schema change).
+
+## 2026-06-21 · chore(home): remove dead `Checklist` function from couple event-home
+
+Follow-up dead-code cleanup of `apps/web/app/dashboard/[eventId]/page.tsx`, same class as the helpers removed in #1939. The local `function Checklist(...)` (~95 lines) was never rendered — confirmed by grep (`<Checklist` has zero JSX usages; the live, rendered component is the *different* `ChecklistAsync`, untouched).
+
+- Deleted the dead `Checklist` function (it also held the file's last legacy `terracotta` color references).
+- Removed the 7 imports it was the **sole** consumer of (each verified to appear only at its import + inside `Checklist`): `CheckCircle2`, `Circle` (lucide-react); `STEPS`, `plannerProgress`, `type StepStatus` (`@/lib/planner`); `toggleJourneyStep` (`./actions`); `SubmitButton` (`@/app/_components/submit-button`).
+
+Noted, not changed (out of scope): the data chain that *fed* the dead `Checklist` — `stepStatuses` (computed but now unused) → `resolveStepStatuses` → `manualSteps` → `fetchManualStepCompletions` — is now fully dead too, but gutting it touches the main component's `Promise.all` data-fetch, so it's left for a separate, more careful pass. It remains valid and lint-tolerated.
+
+Net: ~100 deletions, 0 additions, no behavior change (none of the removed code rendered). Verified: `pnpm typecheck` exit 0, `pnpm lint` exit 0.
+
+SPEC IMPACT: None (dead-code removal, no behavior change).
+## 2026-06-21 · feat(ux): Couple Home cockpit — redesign PR 2/N (marketplace doorway)
+
+Per-surface pass on the couple event-home (`dashboard/[eventId]/page.tsx`). Home is already the owner-approved 5-beat single-column cockpit (countdown · next-action · needs-you · recent-activity · one marketplace doorway), so it was largely on-spec already — the one *live* presentation gap was the marketplace doorway (beat 5):
+
+- **CARD-1 + VIS-11 — modernize the "Browse your matched services" doorway.** Replaced the hand-rolled `rounded-2xl border border-dashed border-ink/15 bg-cream/60` chrome with the canonical `.m-card` primitive (gaining its built-in hover-lift), and swapped the legacy **terracotta** accent on the chevron chip for Clean Editorial **mulberry** (`bg-mulberry/10 text-mulberry`), aligning it with the palette lock.
+
+Verified: `pnpm typecheck` exit 0, `pnpm lint` exit 0. Vertical rhythm left untouched (the beats self-space; the layout wrapper adds no `space-y`, so a rhythm wrapper would double-space).
+
+Noted, not changed (flagged for a separate task): the local `Checklist` function in this file (~line 1754) is **dead** (never rendered — same class as the helpers removed in #1939) and holds the file's only other `terracotta` references. Out of scope for a presentation PR; spun off separately.
+
+SPEC IMPACT: None (presentation only — palette alignment on one Home card; no SKU/schema/pricing/public-claim change).
+
+## 2026-06-21 · feat(ux): presentation primitives — redesign PR 1/N (foundation)
+
+First step of the "arrangement & presentation" redesign (`Responsive_and_Mobile_UI_Ruleset_2026-06-21`). Purely **additive** CSS — establishes the shared building blocks the per-surface PRs adopt, so no existing surface changes yet. (Onboarding is excluded from the whole redesign — owner is working it in parallel.)
+
+- **DESK-1 — define `--sidebar-width`.** `sidebar-shell.tsx` consumed `var(--sidebar-width, 16rem)` but the token was never defined (always fell back). Now an explicit `:root` token (same 16rem → zero visual change, now themeable). Closes audit §9.7.
+- **ROW-1 / DIR-3 — `.m-row-scroll` + `.m-no-scrollbar`.** The canonical horizontal "peek" scroller for browsing a peer set (recent / suggested / gallery): `scroll-snap` x-mandatory with the next item's edge visible, scrollbar hidden. Replaces the per-surface re-rolls the audit found; surfaces migrate to it as they're touched.
+- **VIS-21 — `.m-img-overlay` (+ `-top`).** Gradient-scrim utility for text-over-photo so captions never sit on a flat full-screen scrim that flattens the image. Ink tint (#1E2229) matches the shadow ramp, on-palette.
+
+Already present and reused (no change): `.m-card` + `.m-shadow-*` ramp (CARD-1 / VIS-13), `.m-section` fluid spacing (SIZE-3), `.m-h-xl/lg/md` with the −2.5% tracking + 1.04 line-height tightening (VIS-9/10).
+
+Verified: `globals.css` braces balanced, `pnpm typecheck` exit 0, `pnpm lint` exit 0. CSS compiles via the CI production build.
+
+SPEC IMPACT: None (additive presentation primitives mirroring the ratified ruleset; no SKU/schema/pricing/public-claim change).
+
+## 2026-06-21 · feat(ux): global UX foundation — Wave 1 of the responsive ruleset
+
+First, lowest-risk slice of the ratified `Responsive_and_Mobile_UI_Ruleset_2026-06-21` (global laws every surface inherits; no locked-template surgery). Four safe, self-contained wins:
+
+- **SYS-1 — shared breakpoint/motion hook.** New `apps/web/lib/use-responsive.ts` exports `BREAKPOINTS` (mirrors the Tailwind screens), `useMediaQuery`, `useIsDesktop`/`useIsMobile` (default `lg` = 1024, the master switch), and `usePrefersReducedMotion`. The audit found ~16 inlined `matchMedia` copies + scattered magic numbers; this is the single source of truth they migrate to. Migrated the first two consumers off inline `matchMedia('(min-width:1024px)')`: the couple + vendor `/more` `desktop-redirect.tsx` (behavior-identical — the hook stays live on resize/rotate).
+- **A11Y-1 — global keyboard focus ring.** `globals.css` now paints a 2px Mulberry `:focus-visible` outline on every interactive element (links, custom buttons, `role=tab|button|menuitem|switch|link`, `summary`, focusable `[tabindex]`) — previously only `.btn`/`.btn-secondary` had one (WCAG 2.4.7 gap). Uses `:where()` (zero specificity) so components with their own focus styles override it cleanly; `:focus-visible` keeps it keyboard-only.
+- **PWA-1 — theme-color reconcile.** The app shipped three different near-whites: viewport `themeColor` `#FFFFFF`, manifest `theme_color`/`background_color` `#FAF7F2`, and the actual painted surface `--m-paper`/`bg-cream` `#FBFBFA`. Unified all to `#FBFBFA` (the real surface) so the standalone-PWA status bar + splash match the page with no seam.
+- **NAV-4 — touch target.** Marketing hamburger raised from `w-10 h-10` (40px) to `w-11 h-11` (44px), meeting the WCAG/Apple 44px floor.
+
+Deferred to later waves (flagged in the ruleset): A11Y-2 skip-to-content link (per-surface `<main>` targeting), the CARD-1 codemod, SIZE-3 fluid spacing, and the Wave-3 nav reroster (≤5 pill + broken-out action + Notion "More") which edits the lint-locked BottomNav template.
+
+Verified: `pnpm typecheck` exit 0, `pnpm lint` exit 0 (no findings in touched files).
+
+SPEC IMPACT: None (UX foundation; mirrors the already-ratified ruleset doc — no SKU, schema, pricing, or public-surface claim change).
+
+## 2026-06-21 · fix(std): Save-the-Date film no longer hangs on the uploaded-video beat
+
+Reported on `www.setnayan.com/cale-ice`: the couple's uploaded video "sometimes hangs in the center even on strong internet."
+
+Root cause — an autoplay-policy block, **not** buffering. The film's video beat (`save-the-date-film.tsx`) holds on `dur: Infinity` and only advances when the `<video>` fires `ended`. The clip is **unmuted** (the couple's keepsake), so `v.play()` requires recent user activation. By the time the film auto-advances into that beat (~30s of text beats after the reveal-lift), the activation is gone — and on iOS Safari a `play()` fired outside a gesture handler is blocked regardless; the no-reveal grace path and an auto-completing reveal never had a gesture at all. The rejected promise was swallowed by `.catch(() => {})`, so the clip froze on its first frame (centered, `object-contain` on black) and the film never advanced. Device/path-dependent → "sometimes."
+
+- `apps/web/app/[slug]/_components/save-the-date-film.tsx`: on an unmuted `v.play()` rejection, **retry muted** (always permitted by every engine) so the clip plays, fires `ended`, and the film advances — preserving the owner's "video autoplays, no clicking" intent without the hang. The soundtrack is kept playing under the now-silent clip (un-duck via `crossfade(1, 0)` + resume) so the beat isn't dead air.
+- **"Tap for sound" control** (follow-up): when the clip had to fall back to muted, a one-tap pill appears over the full-screen video (the only thing visible on that beat — the global mute button sits behind the opaque z-70 overlay). One tap is a user gesture, so `enableVideoSound()` unmutes the couple's own audio and ducks the soundtrack under it. Gated on `videoSoundBlocked && !muted && idx === videoSlideIndex`; resets per beat-entry; the crossfade RAF id moved to `videoFadeRef` so the handler can cancel an in-flight fade before unmuting. Guests still get the couple's audio on the blocked paths (iOS / no-reveal) without re-introducing a required click on the happy path.
+- Added an `error` listener (guarded to the active video beat so an early preload error can't jump a text beat) and a muted-retry-failure fallback — both advance off the `Infinity` beat so a mid-play decode/network error can't strand the guest either.
+- Corrected the effect's header comment, which wrongly asserted "the reveal gesture already granted the page media playback" (the exact false assumption behind the bug).
+
+Verified: `tsc --noEmit` clean for the file. Not browser-reproduced (autoplay-policy + real uploaded clip + reveal + ~30s of beats isn't reliably reproducible headless) — owner to confirm on the live page.
+
+SPEC IMPACT: None (robustness fix; the spec's "video autoplays then advances to the calendar close" behavior is unchanged — this makes it hold under the autoplay policy across iOS/desktop/no-reveal paths).
+
+## 2026-06-21 · chore(home): remove dead layout helpers + unused imports from couple event-home
+
+Dead-code cleanup of `apps/web/app/dashboard/[eventId]/page.tsx` left behind by the 2026-06-04 "home is a cockpit, not a catalog" decluttering. The helpers/components below were defined or imported but never rendered (confirmed: zero `<Tag` JSX usages, repo-wide grep for real `import` statements).
+
+- Deleted three unused local functions from `page.tsx`: `WelcomeHeader`, `StageStrip`, `NavGrid` (−183 lines incl. their imports).
+- Removed three unused imports from `page.tsx`: `YourPlanSection`, `PlanningGroups`, `MarketplaceTeaseStrip`.
+- Deleted the two component source files that were imported only by `page.tsx` and reference no sibling subtree: `_components/your-plan-section.tsx` (−273) and `_components/marketplace-tease-strip.tsx` (−221).
+- **Deferred (not in this change):** `_components/planning-groups.tsx` is also imported only by `page.tsx`, but it is a 1,502-line surface pulling 7 sub-components that are each imported by nothing else (`directions-buttons`, `plan-card-ctas`, `officiant-parish-ctas`, `plan-card-compare`, `plan-card-lock`, `recommended-vendor-row`, `switch-vendor-confirm`). Deleting it cascades to ~2,500 dead lines of a former central planning surface — surfaced for a deliberate decision rather than bundled into a "trivial dead-code" change. Its import line is already removed from `page.tsx`, so it is now unreferenced on disk.
+- **Left in place (still referenced or per task scope):** `EventMetaLine` import (task said keep; note it is only referenced in a comment now), and the `Stage` type / `STAGES` const / `currentStage` / `stage` / `TILES` identifiers (`Stage`/`currentStage` are still live via the `currentStage()` call at the date-stage computation; `STAGES`/`TILES`/`stage` are now orphaned-but-tolerated by lint — flagged for an optional follow-up).
+
+Net: 677 deletions, 0 additions across 3 files. No behavior change (none of the removed code rendered). Verified: `pnpm typecheck` exit 0, `pnpm lint` exit 0 (only pre-existing warnings in unrelated files).
+
+SPEC IMPACT: None (dead-code removal, no behavior change).
+
+## 2026-06-21 · fix(nav): account-switcher "Hosts" 404 + sibling `/venues` dead links
+
+The account switcher's **Hosts** action linked to `/dashboard/hosts` — a path with no static route, so Next routes it into the `[eventId]` segment (`eventId="hosts"`), the event lookup fails, and the user gets a **404** when opening Hosts. Reported as "adding host to events is causing error." The real Hosts page is event-scoped at `/dashboard/[eventId]/hosts`.
+
+- `apps/web/app/_components/account-switcher/account-switcher.tsx`: both panel variants (`AccountSwitcher` mobile sheet + `AccountSwitcherStandalone` desktop drawer) now derive an event-scoped `hostsHref` from `data.events` — the user's primary OWNED event (`role === 'couple'`), falling back to the first owned event. When the user organizes no event the Hosts item is **hidden** (a guest-only account has no hosts to manage) rather than linking to a 404.
+- Comprehensive same-class sweep (every literal nav target vs the real route tree + `next.config` redirects): the only other live 404s were content links to a non-existent public `/venues` route — fixed to `/explore` (matching their own sibling credit links):
+  - `apps/web/lib/blog.ts` — blog CTA "Explore venues".
+  - `apps/web/lib/real-weddings.ts` — all 8 "Venue" credits.
+- Noted, not changed: orphan `routes.venues` helper in `lib/routes.ts` (zero callers; points at the same 404 — optional future cleanup).
+
+Verified: `tsc --noEmit` clean; route-tree analysis confirms the `/dashboard/<word>` collision class now has no remaining offenders (other scan hits were regex flags, asset paths, test fixtures, `robots.ts` rules, the `/weddings`→`/realstories` redirect, the `/vendors` 308→200 redirect, and the intentional `/maria-and-jose` sample slug).
+
+SPEC IMPACT: None (routing bug fix; no SKU, schema, or spec surface change).
+
+## 2026-06-20 · feat(db): sample-event + demo-service flags (Maria & Jose foundation, Phase 1)
+
+Foundation migration for the planned "Maria & Jose" public sample/showcase experience. Additive, idempotent, RLS-unchanged. Migration file only — **not yet applied to prod** (applied deliberately via `supabase db push` when the seed is ready).
+
+- `migration 20270203791173_sample_event_and_demo_service_flags.sql`:
+  - `events.is_sample` (BOOLEAN, default FALSE) — marks the canonical showcase event so it's excluded from real-event stats + never billed, and drives the curated-tour entry.
+  - `vendor_services.is_demo` + `vendor_services.demo_batch_id` — **the owner requirement** ("the vendors here AND the services here will be marked as demo"). Until now a service was demo *only by its parent vendor*; this flags the service directly (mirrors `vendor_profiles.is_demo`) so exclusion/cleanup can key on the service itself. **Backfills** is_demo + demo_batch_id onto every existing demo vendor's services.
+  - Partial indexes on both new boolean flags.
+
+Next in Phase 1: populate Maria & Jose (guests/seating/budget/mood board/Papic) + attach demo vendors+services across every category. Then Phase 2 = the curated 5-stop public tour (owner-chosen over a full sandbox, to avoid exposing rough edges).
+
+SPEC IMPACT: None yet (schema only; the sample-event feature spec lands as the build progresses). Logged in `DECISION_LOG.md`: sample-event/demo-service-flag foundation + curated-tour direction.
+
+First cross-cutting wave of the 2-step-down program (`Usability_2Step_Remediation_Program_2026-06-20.md`, lever A). Every irreversible/cascade action on these surfaces was firing on a single click — a stray tap could publish to live social, hard-delete an account, free a sold date, or unfeature a story. Now they confirm with a specific title + plain-English consequence.
+
+- **`app/_components/confirm-form.tsx`** — prereq: widened `message` from `string` → `ReactNode` so a confirm body can carry a post preview / diff (the underlying `ConfirmDialog.body` was already `ReactNode`).
+- **`admin/social-queue`** — wrapped **Post now** + both **Pull** (scheduled + failed) in `ConfirmForm`; Post-now dialog shows the post's first line + the channels it will hit, and the button itself now reads **"Post now → Facebook + Instagram"** (computed from `enabled && configured`, threaded as a `channels` prop to `ScheduledPostCard`). These publish/retract to live external social — the highest-severity gap.
+- **`admin/users`** — moved the 3 destructive ops (force sign-out, delete, blacklist) behind a collapsed **"Danger zone"** `<details>` so they can't be hit next to the safe everyday actions; gave every guarded action a specific `title`/`confirmLabel` (was the default "Confirm action"); unblacklist marked non-destructive.
+- **`admin/real-stories`** — Feature/Unfeature now confirm (split into two dialogs with the right consequence copy); added **Cover / Most-loved #n** position chips so the bare numeric rank reads in plain English.
+- **`vendor/services`** — Delete-service (was a raw one-click trash) now confirms and names the cascade (bundle links + time slots).
+- **`vendor/clients` + `vendor/calendar`** — the "Remove" outside-client / block action (frees a sold date) now confirms with "their date opens back up"; fixed the 3 dead client-hub empty states to point at Bookings / the calendar.
+
+Verified: `tsc --noEmit` clean across the whole project (0 errors); grep-confirmed 0 raw `<form>` left on the guarded actions. Required CI (typecheck + lint + build) + Vercel preview are the gate (pnpm worktree — full lint/build can't run cross-worktree locally), auto-merge armed.
+
+SPEC IMPACT: UX hardening across iterations 0023 (admin) + 0022 (vendor); no schema/SKU/pricing change. Logged as a `DECISION_LOG.md` row + tracked in `Usability_2Step_Remediation_Program_2026-06-20.md` (Wave 1).
+## 2026-06-20 · feat(help): instant search on the Help Center + marketing-ads spec-drift flag (Wave 2 slice)
+
+Part of the 2-step-down program (`Usability_2Step_Remediation_Program_2026-06-20.md`, Wave 2). The Help Center promised full-text search in its metadata/spec but shipped without it — the audit's single biggest discoverability gap (~63 articles found only by self-selecting a role tile + scanning).
+
+- **`app/help/_components/help-search.tsx`** (new, `'use client'`) — instant in-memory filter over the existing 68-article corpus (`ALL_HELP_ARTICLES` shape `{slug,title,body}`). No fetch, no index, no dependency. Matches title + body + topic label. Empty box renders the same topic-grouped list with `id` anchors preserved (sidebar nav + `/help#slug` deep links still work); typing shows a flat, in-context result list; a real "no matches → message the team" state replaces the previously-unreachable empty branch.
+- **`app/help/page.tsx`** — mounts `<HelpSearch topics={visibleTopics} />` in place of the server-rendered article list (role filter still applies server-side); dropped the now-unused `HelpCircle` import; the FAQPage JSON-LD is untouched (server-rendered from the full corpus, so SEO/GEO is preserved).
+
+**Spec drift surfaced (no code):** the program's `vendor/marketing-ads` item (diff 3, "Boosted + Sponsored, being-redesigned banner, per-week pricing, unverified gate disables Start") describes a surface that **does not exist in shipped code** — there is no boosted-ads/sponsored vendor dashboard route. The closest surface, `/vendor-dashboard/subscription` (Pro/Enterprise), is already clean: no banner, no gate, DB-driven pricing from `vendor_billing_catalog`. That program row should be retired or re-scoped; not touched here.
+
+Verified: `tsc --noEmit` clean across the project (0 errors). Required CI (typecheck + lint + build) + Vercel preview are the gate; the search is interactive on the public `/help` preview for an owner eyeball.
+
+SPEC IMPACT: iteration 0029 (Help Center) — search now matches the long-standing spec/metadata promise. Logged in `DECISION_LOG.md` (incl. the marketing-ads drift). No schema/SKU change.
+## 2026-06-20 · feat(ux): couple self-serve simplification — budget + guests (Wave 2 slice)
+
+2-step-down program (`Usability_2Step_Remediation_Program_2026-06-20.md`, Wave 2) — the two crowded couple surfaces, default-then-disclose + never-dead-empty + clearer labels. Both bank 3→2.
+
+**Budget** (`budget/page.tsx` + `_components/vendor-itemization-card.tsx`):
+- The page showed the word **"Remaining" twice meaning two different things** (budget headroom = target − committed, vs unpaid balance = itemized − paid). Relabeled rather than deleted (both numbers are real): top strip → **"Budget left"**, itemization strip → **"Still to pay"**. Removes the same-word collision with zero data loss.
+- The always-open **5-field payment-log form** (the page's busiest input) is now **default-then-disclose** behind a `<details>` "Log a payment" trigger, matching the existing "Add an extra" disclosure pattern in the same card.
+- The **"no contracted vendor yet" empty state read as broken** ("Per-vendor budget tracking *unlocks*…"). Reframed to "you're still choosing vendors — exactly where you should be; itemized costs appear here once you contract one." (Per-line price chips skipped — line items are already visually grouped "From the vendor's catalog" vs "Your own additions".)
+
+**Guests** (`guests/page.tsx` + `_components/quick-add-sheet.tsx`):
+- The desktop header led with **four equal add buttons**. Now the bulk paths (**Import CSV**, **Quick add list**) tuck behind one **"More ways"** `<details>` disclosure; the single primary **"+ Add guest"** quick-add leads. (Mobile carousel unchanged.)
+- The **empty state** pointed a brand-new couple at the heavy detailed `/guests/new` form. It now leads with the **one-tap quick-add sheet** (`OpenQuickAddButton` gained an optional `label` prop), with "or use the full form" kept as a secondary link. (The single-field/display-name-split change touches the add data model — deferred.)
+
+Verified: `tsc --noEmit` clean across the project (0 errors). Required CI (typecheck + lint + build) + Vercel preview are the gate.
+
+SPEC IMPACT: UX simplification on iterations 0007 (budget) + 0001 (guests); no schema/SKU change. Logged in `DECISION_LOG.md`.
+
+## 2026-06-20 · feat(join): accountless guest self-join via event QR (Lola Remedios — deferred HIGH)
+
+Owner: "yes we allow this" — let an older guest who scans the event QR add themselves WITHOUT creating an account (the 1 HIGH deferred from the guest-legibility audit). Previously `/join/[eventId]` hard-walled behind sign-in/create-account before a guest could do anything.
+
+Design (from a Plan-agent investigation, in `Guest_Legibility_Audit_2026-06-20.md`): **route accountless joiners into the existing `guests` table + `setnayan_guest_session` cookie — the SAME mechanism `/[slug]/redeem` already uses — NOT into `event_members`.** Zero RLS changes, zero migration. `event_members` stays account-only (its `member_can_self_join` policy + `user_id NOT NULL` are untouched); the QR token + signed cookie are the authorization (admin-client write, same as redeem).
+
+- **`apps/web/app/join/[eventId]/actions.ts`** — new `selfJoinAction`: re-validates the join token (mandatory — the only gate), requires the event to have a public `slug` (else falls back to sign-in), is idempotent via `readGuestSession()` (no duplicate row on re-submit), enforces a `SELF_JOIN_CEILING` (1000) sanity cap on `self_joined`-tagged rows, inserts a `guests` row (couple's quick-add shape + `custom_tags:['self_joined']`, name split best-effort), signs the guest cookie via `setGuestSession()`, records a best-effort `scan_events` row (`entry:'self_join'`), and redirects to `/[slug]` where the guest RSVPs through the existing widget. Signed-in `joinEventAction` (event_members + privacy claim flow) is unchanged.
+- **`apps/web/app/join/[eventId]/page.tsx`** — removed the anonymous account-wall. Anonymous + event has a slug → render the name/role picker posting to `selfJoinAction` (+ "Have an account? Sign in" link, + skip-to-page if already self-joined on this device). Anonymous + no slug yet → keep the sign-in/create wall (nowhere public to land otherwise). Added `slug` to the event select; hoisted `errorMessage`; added `join_closed`/`join_failed` copy.
+
+Couple impact: self-joined guests appear on the dashboard guest list immediately (tagged `self_joined` for review/removal) and count toward RSVP/lifecycle. They get no account/dashboard access and no notifications (no email captured) — by design.
+
+Type contracts verified (`await headers()`, `scan_events` shape, JoinShell accepts the extra `slug`). Not built locally (pnpm worktree node_modules can't be cross-linked); required CI (typecheck + lint + build) is the gate, auto-merge armed.
+
+SPEC IMPACT: closes the deferred `/join` HIGH in `Guest_Legibility_Audit_2026-06-20.md` (status updated). Privacy note: anyone holding the event's single shared QR token can add a name + view the `/[slug]` page (gated for private events by the cookie) — mitigated by the token gate + `self_joined` tag + ceiling + couple delete; a couple-facing "disable self-join" toggle is a possible follow-up. Logged in `DECISION_LOG.md`.
+## 2026-06-20 · feat(seating): "Build my seating" — one-tap starting draft from the guest list
+
+Takes the couple Seating editor off a blank canvas — the `USABILITY_DIFFICULTY_HEATMAP_2026-06-18.md` rated it the hardest couple surface (diff 5), and the owner's "make everything ≤3" goal picked this as the biggest customer win. Auto Arrange already existed but is *disabled until tables exist*, so a couple first had to manually conjure the right number/types of tables before any power tool unlocked. This adds the missing "draft, don't blank" step.
+
+- **`lib/seating.ts`** — new pure `recommendTableSet(guests)`: recommends a table SET from the guest list — one Sweetheart for the couple + `ceil(non-declined ÷ 10)` round-10 tables (uniform — the PH reception workhorse), capped at 60. Sizing counts everyone not declined (attending + pending), since a floor is built before all RSVPs land.
+- **`actions.ts`** — new gated `buildSeatingDraft()`: recommend the set → insert the tables → lay them out stage-out (server-side `computeAutoLayout` against a nominal canvas; positions are percent so they render at any size) → seat the confirmed-attending by role tier (`computeAutoSeat`). Guarded to a truly empty floor (never clobbers an in-progress plan); reuses the exact lock-assert + `auto_seat_last_used_at` stamp as Auto Arrange. No migration — reuses `event_tables` + `event_seat_assignments`.
+- **`seating-editor.tsx`** — the empty-canvas text ("Add a table from the sidebar…") becomes a "Build my seating" CTA that says what it'll do (counts the couple's guests), gated on the editor lock like every other edit; the success notice teaches the next gesture (drag a table / tap a guest then a chair). Two secondary empty-states point at it.
+- **`seating-logic.spec.ts`** — 7 `recommendTableSet` cases (per-10 sizing + labels, pending counted, declined excluded, couple→Sweetheart, single-guest floor, the 60-table cap).
+
+Verified: `tsc --noEmit` clean across the whole project (0 errors); `recommendTableSet` exercised at runtime (9/9). Required CI (typecheck + lint + build) + Vercel preview are the gate (pnpm monorepo — full lint/build can't run cross-worktree locally), auto-merge armed.
+
+SPEC IMPACT: new UX affordance on iteration 0008 (seating). Corpus is archive per the AS-BUILT flip; logged as a row in `DECISION_LOG.md`. Honors the locked 0008 table catalog (no new types) and the seat-plan-stays-free principle (deterministic, zero-cost — no AI, no R2).
+## 2026-06-20 · ci(guest): "lint guest legibility" guardrail — stops tiny text regressing on guest surfaces
+
+The 2026-06-20 "Lola Remedios" audit found the dominant guest-facing failure was 7–11px load-bearing text. #1872/#1873 fixed the worst; this guard stops it coming back (the owner-approved "contrast/min-size lint").
+
+- **`apps/web/scripts/lint-guest-legibility.mjs`** (new, pure node — no install, mirrors the existing `lint-retired-strings`/`lint-nav-icon-source` guards): scans guest-facing source (`app/[slug]/**`, `app/join/**`, + shared guest components `save-photo-button` / `wayfinding-map`) for `text-[<=11px]` Tailwind classes and fails on any count that exceeds a committed **ratcheting baseline**. 12px / `text-xs`+ pass (the accepted small-label floor); pixel-literals below it are the smell. The per-file-count baseline is edit-stable (line shifts don't trip it) and one-directional — Pass-B fixes only lower it. Escape hatches: a `legibility-ok` line comment for genuinely decorative cases, or `pnpm lint:legibility -- --update-baseline` (committed diff is reviewed). Emits GitHub `::error` annotations; self-tested to fail on a new `text-[8px]` and pass after removal.
+- **`apps/web/.guest-legibility-baseline.json`** (new): snapshot of the current tail — 79 accepted occurrences across 12 files (mostly decorative `font-mono` eyebrows; `[slug]/page.tsx` 21 and `editorial-content.tsx` 25 are the biggest Pass-B targets).
+- **`apps/web/package.json`**: `lint:legibility` script.
+- **`.github/workflows/ci.yml`**: new `lint guest legibility` job (checkout + node 22 + run), alongside the sibling lint guards.
+
+SPEC IMPACT: enforces `Guest_Legibility_Floor_2026-06-20.md` §6 (the proposed code guardrail) — now built. Pass B (fixing the 79 baselined items) remains and shrinks the baseline as it lands. Logged in `DECISION_LOG.md`.
+
+## 2026-06-20 · feat(vendor): payment schedule defined at service-create (Vendor Transaction Lifecycle Phase 2 · PR-A)
+
+Lets a vendor, when creating/editing a service, define a PAYMENT SCHEDULE — a downpayment plus payment 1…X — as a reusable template on the service. Each installment carries a label, an amount (a % of the total OR a fixed ₱), and an optional anchored due date ("after booking is locked" / "before the event" + a number of days). Additive — no behaviour change to any existing flow; the schedule is OPTIONAL (a service may carry none). Couples can read it (a server helper is exposed); rendering on the couple workspace is PR-B.
+
+- **Migration** `supabase/migrations/20270202160004_vendor_service_payment_schedules.sql` — new `vendor_service_payment_schedules` table (one row per installment: `seq` 0=downpayment/1..X, `label`, `amount_kind` percent|fixed, `percent_bps`, `amount_centavos`, `due_anchor` on_lock|before_event, `due_offset_days`). RLS mirrors `vendor_service_links` EXACTLY (the closest analog — a child of `vendor_services` keyed by `vendor_service_id` with a denormalized `vendor_profile_id`): owner+admin write, public read gated on the parent service being active AND its vendor published. Not looser than the existing vendor-owned-table convention. Idempotent; `UNIQUE (vendor_service_id, seq)` + amount-payload CHECK. Applied to prod statement-by-statement (`db push` was blocked by pre-existing ledger drift — remote `20270128090927` not in local dir; unrelated to this change) + ledger row inserted. Verified: table present, RLS enabled, both policies (owner_write ALL · public_read SELECT), all indexes, ledger row.
+- **Lib** `apps/web/lib/vendor-service-payment-schedules.ts` — shared types + pure helpers (bps/centavos ↔ human units, `fetchOwnSchedule(s)ByService`). `…schedules.server.ts` — couple-read helper `fetchScheduleForCouple()` (modeled on `fetchPublishedMethodsForCouple`: couple RLS proves event_vendor ownership, then admin client reads after the vendor-owns-service guard). Exported for PR-B.
+- **Vendor editor** `apps/web/app/vendor-dashboard/services/_components/payment-schedule-editor.tsx` — client component: add/remove/reorder installments, per-row %/₱ toggle, optional due-date anchor+days. Submits parallel arrays to the new `setServicePaymentSchedule` action (`actions.ts`) which validates + assigns `seq` from array order + persists as a replace-all set (owner-scoped delete-then-insert, mirrors `setServiceLinks`). Wired into `services/page.tsx` as a sibling of `SlotEditor`/`setServiceLinks` (its own form — never nested in the edit form). Styling matches the existing service-editor blocks.
+
+Typecheck + lint pass locally (apps/web). Touched ONLY the schedule table + the vendor services form/actions + the couple-read helper — no lock / payment-confirm changes (PR-B/C/D). Auto-merge armed; required CI checks + Vercel preview are the gate.
+
+SPEC IMPACT: `02_Specifications/Vendor_Transaction_Lifecycle_2026-06-20.md` Phase 2 PR-A (vendor payment schedule at service-create). Schedule is a TEMPLATE on `vendor_services`; actual lock/payment records land in later PRs.
+
+## 2026-06-20 · fix(std): clamp reveal-effect sliders to [0,100] — close the last IndexSizeError path on the public Save-the-Date
+
+Investigated a Sentry `IndexSizeError` (DOMException code 1) on `/[slug]` (Mobile Safari, vercel-production, reported via the `/cale-ice` event). Root cause of the **live** crash — the `HTMLMediaElement.volume` setter throwing on an out-of-range crossfade value — was **already fixed the night before** (PRs #1831 + #1841 · `setVol` finite-guard + `[0,1]` clamp in `save-the-date-film.tsx`, in `origin/main` since 2026-06-19 ~22:58 +08). The alerting event was a **pre-fix occurrence**; nothing further needed there. This PR closes the one remaining latent path in the same crash family, found while tracing:
+
+`lib/reveal-config.ts` read the admin Reveal-Studio JSONB sliders with `num()` (finiteness only, **no range clamp**) — unlike `mergeTouchGlow()`, which already `clamp()`s. A persisted out-of-range value (e.g. a negative `petalSize`) would drive the petal/butterfly `ctx.ellipse()` / `ctx.arc()` radius **negative** in `reveal-particles.tsx` → `IndexSizeError`, crashing the public Save-the-Date page in *every* browser. Both reader paths are now clamped:
+
+- `mergeEffects()` — all 7 effect sliders → `clamp(…, 0, 100)`.
+- `mergeLook()` (VeilLook) — all 17 knobs → `clamp()` to each field's real Reveal-Studio `SliderDef` min/max (`logoSize` 2–30, `tilePx` 40–400, `folds` 4–30, `feather` 2–8, `reaches` 0–30, `topValance` 0–70, the rest 0–100).
+- Removed the now-dead `num()` helper (no remaining callers).
+- Added `lib/reveal-config.test.ts` (Node `tsx --test`): asserts out-of-range values clamp to the bound, valid configs pass through unchanged, and non-finite/missing/nullish configs fall back to the locked defaults.
+
+Behavior is identical for valid configs (current production rows are all in range); this is defense-in-depth — the Reveal-Studio UI already clamps on the write side. Verified by the new unit test + type/lint + CI, not a preview screenshot (not browser-observable without injecting malformed config). Not built locally (pnpm monorepo — node_modules can't be cross-linked between worktrees); required CI checks (typecheck + lint + unit tests + build) + Vercel preview are the gate, auto-merge armed.
+
+SPEC IMPACT: None (defensive code hardening; no SKU / schema / pricing / branding change).
+
+## 2026-06-20 · fix(guest): elder-legibility HIGH fixes across guest surfaces ("Lola Remedios" pass A)
+
+Acts on the 12 HIGH findings from the first guest-legibility audit (`Guest_Legibility_Audit_2026-06-20.md`), against the floor in `Guest_Legibility_Floor_2026-06-20.md`. The dominant failure was load-bearing text/controls at 7–14px in wide-tracked uppercase mono — the thing the guest most needs was the smallest thing on screen.
+
+- **Seat finding** — `find-seat/_components/name-search.tsx`: the table label (the whole payoff) was 14px in a chip next to the name; now it's the hero — `text-4xl font-bold` on its own line under "Your table". Dead-end "No match yet" copy 14px/ink-55 → `text-base`/ink-80. `_components/wayfinding-map.tsx`: target table label 9px→`text-xs`, "You're here" badge 7px wide-uppercase → 11px plain bold, "Entrance" 8px→11px, "Stage/Head" tracking tightened. (The find-my-table page already shows the number at `text-2xl/3xl`, so the map is orientation.)
+- **Save-the-Date film** — `save-the-date-film.tsx`: added a "Swipe up to continue ↑" hint pill (16px, scrim, matches the approved veil pattern; a hint, NOT the transport chrome the owner removed) — shows at the start and on the held video beat (which never auto-advances, the silent dead-end), fades after the guest's first manual advance (`advanced` flag set in `stepBeat` + tap-step). Mute toggle 32px/opacity-50 → 44px/opacity-75, icon 16→20px. "Add to calendar" CTA 13px→`text-base`. Beat captions (`std-themes.ts` + both `applyTextTone` tones) 10px/0.3em → `text-sm`/0.18em.
+- **Rigid openings** — `reveal/rigid-stage.tsx`: seal-gate instruction ("Drag the seal away") and open cue 11px/cream-85 → 16px full-cream on a scrim pill; "Scroll to open" → "Swipe up to open" (phone wording); open cue now stays visible until progress > 0.5 (was 0.12) so a hesitating guest isn't stranded.
+- **Papic guest gallery** — `[slug]/page.tsx`: photo grid 4-up→3-up (bigger photos + room); "Not me" correction 9px chip / sub-44px → 44px labelled pill; "{n} tagged" → "{n} so far" at `text-sm`; helper copy `text-sm`, "tagged" deglossed to "photo of you"; invitation URL 10px→`text-xs`. `_components/save-photo-button.tsx`: icon-only ~20px dot (sr-only label) → 44px labelled "Save" pill on a scrim (shared by couple gallery + guest day-of wall).
+- **QR join/verify** — `join/[eventId]/verify/page.tsx`: OTP recovery links (~17px bare text) → full-width `min-h-[44px]` bordered buttons, recovery-email link contrast ink-60→ink-80. `join/[eventId]/page.tsx`: name/role helper text 12px/ink-50 → `text-sm`/ink-70, deglossed "match you to their guest list" → "find you on their guest list". **The `/join` account wall (HIGH flow) is NOT changed here** — accountless join needs a different membership/RLS model (`event_members.user_id` is required), so it's a separate product decision, flagged for the owner.
+- **Kwento story email** — `dashboard/[eventId]/alaala/assignments/actions.ts`: the assignment/nudge email was plain-text with NO link — the one job (go add your story) was unreachable from the inbox. Now selects `events.slug`, builds `${APP_URL}/${slug}`, sends a branded HTML half via `renderBrandedEmail()` ("Add my message" CTA) and puts the URL in the plain-text body too.
+
+Type contracts verified against `renderBrandedEmail`/`sendEmail`. Not built locally (pnpm monorepo — node_modules can't be cross-linked between worktrees); required CI checks (typecheck + lint + build) + Vercel preview are the gate, auto-merge armed.
+
+SPEC IMPACT: implements `Guest_Legibility_Floor_2026-06-20.md` + clears most HIGH rows in `Guest_Legibility_Audit_2026-06-20.md`. The `/join` accountless-join decision is deferred to its own PR. Logged in `DECISION_LOG.md`.
+
+## 2026-06-20 · fix(std): veil reveal instruction is legible for older guests
+
+Owner: "for the unlock of veil, the text at the bottom should be visible. so old people can understand the app." The "Lift the veil ↑ / or double-tap to lift it for you" hint was set at `text-[11px]` / `text-[9px]` in cream with only a soft text-shadow — tiny, wide-tracked uppercase, and washed out when the veil colour was light/ivory (cream-on-cream). Hard for older wedding guests to read.
+
+- **`apps/web/app/[slug]/_components/reveal/reveal-overlay.tsx`** (veil branch only) — bumped the primary line to `text-base` (16px) at full `text-cream`, the secondary to `text-sm` (14px) at `text-cream/85`, tightened the tracking slightly for readability at the larger size, and wrapped both lines in a soft dark scrim pill (`bg-black/35` + `backdrop-blur-[2px]`, rounded) so the cream text never washes out regardless of the couple's veil colour. Stronger shadow (`0_1px_8px_rgba(0,0,0,0.7)`). Nudged up `bottom-10`→`bottom-16` to clear the home-indicator safe area. Still fades to `opacity-0` once the veil is lifted (`open`). Rigid openings (envelope/doors) untouched — they have no bottom hint.
+
+CSS-only legibility change; no logic, no schema. Not built locally (fresh worktree has no `node_modules`); required CI checks + Vercel preview are the verification gate, auto-merge armed.
+
+SPEC IMPACT: `0024_save_the_date/0024_Veil_Reveal_Spec_2026-06-17.md` — instruction-text legibility (size + contrast scrim) for accessibility. Minor; noted in the spec.
+
+## 2026-06-20 · feat(proposals): accepting a vendor proposal posts a priced shortlist pick (Phase 1 PR3)
+
+Confirmed bug: when a couple **Accepts** a `vendor_proposals` row, `respond_vendor_proposal` only flipped `status='accepted'` ("Accepting is a SIGNAL, not a booking" — `20261208006000_vendor_proposals.sql:13`; the live body is the concurrency-guarded one in `20261209000000_concurrency_guards.sql`). Nothing wrote a priced `event_vendors` row, so the couple's Build/Compare tabs showed nothing after acceptance. The only price-writer was the manual QuoteBridge "Log as service price" button (kept as a fallback — untouched).
+
+- **New migration `supabase/migrations/20270201674389_proposal_accept_writes_priced_pick.sql`** — `CREATE OR REPLACE FUNCTION public.respond_vendor_proposal(... , p_coarse_category TEXT DEFAULT NULL)`. Preserves the entire live body (SELECT … FOR UPDATE serialization + status-precondition UPDATE + rowcount guard). On `p_response='accepted'`, after the status write, UPSERTs the couple's `event_vendors` pick keyed `(event_id, vendor_profile_id)` (the same natural key `saveVendorToPicks` uses; **no UNIQUE constraint exists**, only plain indexes, so it's an explicit `SELECT … FOR UPDATE → UPDATE-else-INSERT`): existing row → set `total_cost_php = total_centavos/100` + bump `considering→shortlisted` ONLY (never downgrades a shortlisted/contracted/deposit_paid/delivered/complete row, never touches `category`); no row → INSERT a priced `shortlisted` row (`category = COALESCE(p_coarse_category,'misc')`, `vendor_name` resolved from `vendor_profiles.business_name`, `source='proposal_accept'`, `linked_vendor_profile_id` set). Kept inside the SECURITY DEFINER fn so it's atomic + RLS-safe; idempotent (the accept guard gates on `status IN ('sent','viewed')`, so a re-accept no-ops before the upsert).
+- **Schema surprise handled:** adding a DEFAULTed trailing param created an *overload* (both 2-arg and 3-arg fns coexisted) rather than replacing in place — a future 2-arg caller would silently skip the bridge. The migration `DROP FUNCTION IF EXISTS …(UUID, TEXT)` first; confirmed only the 3-arg signature remains on prod.
+- **Server action** `apps/web/app/vendor-dashboard/proposals/actions.ts` `respondToProposal` — on accept, fetches the proposal's `line_items`, recovers the canonical service key from `line_items[0].detail` (created with `_`→space, so reversed), resolves the coarse category via `resolveVendorCategory()`, and passes it as `p_coarse_category`. Decline passes NULL.
+- **Applied to prod + ROLLBACK-tested:** function + grants + comment applied via `supabase db query` (ledgered `20270201674389`); a DO-block test (`RAISE EXCEPTION` sentinel forcing rollback) exercised all 3 branches against real prod schema then rolled back (0 fixtures leaked). Observed: INSERT → `status=shortlisted, total_cost_php=45678.00, category=photographer, source=proposal_accept`; UPDATE → `considering→shortlisted, total_cost_php=99999.00, category preserved (catering, not overwritten despite a wrong coarse hint)`; no-downgrade → `contracted stays contracted, re-priced 55000.00`.
+- **Scope held tight:** only the proposal RPC migration + `respondToProposal` (+ this CHANGELOG). Build/Lock UI and the category Save path (PR1/PR2) untouched.
+
+Not built locally (fresh worktree has no `node_modules`); required CI checks are the verification gate, auto-merge armed.
+
+SPEC IMPACT: `Vendor_Transaction_Lifecycle_2026-06-20.md` Phase 1 PR3 — proposal accept writes a priced shortlist pick. Logged to `DECISION_LOG.md`.
+
+## 2026-06-20 · fix(explore): vendor Save resolves the real category — no more "MISC" (Phase 1 PR1)
+
+Confirmed bug: clicking **Save** on a marketplace vendor created an `event_vendors` row with `category='misc'` whenever the vendor's `vendor_profiles.services[]` held leaf/canonical taxonomy strings (the common case) instead of coarse `vendor_category` enum values. `coerceCategory` in `apps/web/app/explore/actions.ts` only did a direct enum match (`VENDOR_CATEGORIES.includes(...)`) and fell straight through to `'misc'` — so e.g. `services=['photography']` never matched `'photographer'` and the vendor showed up as **MISC** in the editorial "Team Behind the Day" and was mis-filed in the planner.
+
+- **Fix:** added a second pass in `coerceCategory` that runs each `services[]` string through the existing leaf→coarse map `resolveVendorCategory()` (`apps/web/lib/vendor-packages.ts`, e.g. `photography→photographer`, `cake_desserts→cake_maker`) and returns the first result that isn't `'misc'`. Resolution order is now: direct-enum-match → `resolveVendorCategory(services)` → `'misc'`. One new import; no behavior change for rows that already stored a coarse enum value.
+- **Scope held tight:** the explore search-category threading (search-context → … ) was evaluated and **skipped** — `SaveVendorButton` has 4 call sites including the public `/v/[slug]` profile page that has no browse-category context, so threading it is not the "small change" the brief allowed. Step 1 is the core fix and lands alone. Build/Lock/proposal files untouched (those are PR2/PR3).
+
+Not built locally (fresh worktree has no `node_modules`); required CI checks (typecheck + lint + production build + Lighthouse + Vercel preview) are the verification gate, auto-merge armed.
+
+SPEC IMPACT: `02_Specifications/Vendor_Transaction_Lifecycle_2026-06-20.md` Phase 1 PR1 — corrects the vendor-Save category derivation. Logged to `DECISION_LOG.md`.
+## 2026-06-20 · refactor(vendors): Build absorbs Lock — remove the standalone Lock tab, fold the lock surface into Build (Phase 1 PR2)
+
+Owner decision (Vendor Transaction Lifecycle Phase 1): the couple's `/vendors` takeover no longer has a separate fifth "Lock" sub-tab. The lock ACTION and the locked-service DISPLAY now live inside the **Build** tab, so the whole assemble → lock loop happens in one place. Tabs go Summary · Shortlist · Build · Compare · ~~Lock~~ → Summary · Shortlist · Build · Compare. UI-only; no schema, no migration, no SKU/pricing change, and `finalizeVendor` is untouched (still status-driven, called by `AccordionLockButton` exactly as before).
+
+- **`apps/web/lib/budget-build.ts`** — dropped `'lock'` from `BUDGET_BUILD_TABS` (now the 4-tab union) + removed the `lock:` `TAB_META` entry and the now-unused `Lock` lucide import. The desktop nav strip, the docked mobile sub-nav, and the customer menu tree all iterate this const, so the Lock tab disappears everywhere automatically.
+- **`apps/web/app/dashboard/[eventId]/vendors/_components/services-takeover.tsx`** — removed the `lockSlot` prop (signature + props type) and the `lock` entry in the slots record; refreshed the header doc comment.
+- **`apps/web/app/dashboard/[eventId]/vendors/page.tsx`** — composed `<BuildLocked>` (the existing "Ready to lock" finalize CTAs + read-only "Locked in" list) below `<Build3StateControl>` inside the **Build** slot, reusing the component verbatim. Deleted the old `lockSlot` JSX block and its `lockAvailability` computation; the now-orphaned `VendorAvailabilityIntersection` import + the `getCommonAvailableDays` / `formatDayKey` helpers were dropped (the standalone Lock-tab availability panel went with the tab). `BuildLocked` self-handles its empty state, so Build stays clean when nothing is built yet.
+- **`apps/web/app/dashboard/[eventId]/vendors/_components/build-compare.tsx`** — Compare's per-column "lock" button kept its label + "Lock" confirm-copy but now routes `goToBuildTab(destination === 'lock' ? 'build' : destination)` (was jumping to the removed Lock tab).
+- **`apps/web/app/dashboard/[eventId]/vendors/_components/build-picks-list.tsx`** — the in-Build "Lock your build" button was `goToBuildTab('lock')` (a dead no-op once the tab is gone — NOT in the original map; found by the `goToBuildTab` caller sweep); routed to `'build'`.
+- **`apps/web/lib/nav-registry-defaults.ts`** — removed the orphaned `customer.budget-subnav.lock` `NAV_SLOT_DEFAULTS` entry so the menu-name/icon registry SSOT stays in sync with the menu tree (which no longer emits a lock child).
+
+Dangling-reference sweep clean: no `goToBuildTab` caller targets a `'lock'` tab; the remaining `'lock'` strings are the intentional Compare confirm-label union and the `finalizeVendor` status check (`actions.ts:1258`, deliberately untouched). Not built locally (fresh worktree has no `node_modules`); required CI checks (typecheck + lint incl. the nav-registry-defaults integrity test + production build + Lighthouse + Vercel preview) are the verification gate, auto-merge armed.
+
+SPEC IMPACT: `Vendor_Transaction_Lifecycle_2026-06-20.md` Phase 1 PR2 — Build absorbs Lock; the standalone Lock tab is removed and locked services now display in Build. Also touches iter 0000 (nav/menu registry — one customer sub-nav slot removed). → logged in `DECISION_LOG.md`.
+
+## 2026-06-20 · feat(for-vendors): interactive "we step back at your door" scenario for the personal-touch skeptic
+
+Owner ask — convert the relationship-first vendor who says *"I value the personal touch; that's why I don't use online apps."* Added a new section to `/for-vendors`: a 6-beat click-through story built around one peer protagonist (**Marco**, an explicitly-labelled ILLUSTRATIVE composite) that **validates his premise first**, names the one true cost (couples message ten suppliers at once and book whoever replied first — not whoever's best), then shows the turn — Setnayan **filters → matches → walks one well-matched couple to his door → STEPS BACK**. He keeps the meeting, his price, his contract, the money (0% commission, paid-direct). Copy is research-backed (objection-handling frameworks + narrative-transportation + PH market: *tiwala* / *walang namamagitan* / "magkano?" ghost-quotes).
+
+- **New `apps/web/app/for-vendors/_components/vendor-door-scenario.tsx`** (`'use client'` + `useState`, the existing FAQ-toggle interactivity pattern). Consumes **only** shared `--m-*` tokens + `.m-*` classes — the cool/warm split is two real brand tokens (`--m-sage` = Setnayan's quiet work ↔ `--m-orange` = the vendor's world) — so a future palette restyle in `globals.css` carries this section automatically (the owner's explicit design-dependency ask: one source, no second copy to sync). Site is icon-font-free → inline SVG heart + "M" initial, not a Tabler icon. `prefers-reduced-motion` respected.
+- **`apps/web/app/for-vendors/page.tsx`** — import + render between `<EditorialBand />` and `<StackCloseVendor />` (the objection-handler lands right before the "what you get" stack). Placement is one line to move.
+- **Honesty:** an "Illustrative scenario" eyebrow + an always-visible disclaimer ("Marco … an illustrative example, not a real customer") keep the composite unambiguous (owner-approved 2026-06-20). Fabricated testimonials backfire hardest with this skeptical audience — swap in a real vendor quote once one exists.
+
+No schema, no migration, no pricing/SKU change. Not built locally (fresh worktree has no `node_modules`); the required CI checks (typecheck + lint + production build + Lighthouse + Vercel preview) are the verification gate, auto-merge armed.
+
+SPEC IMPACT: iter 0015 / 0022 public vendor surface — a new objection-handling marketing section; consistent with existing `/for-vendors` claims (0% commission · paid-direct · free during launch). Logged to `DECISION_LOG.md`.
+
+## 2026-06-20 · feat(nav): universal sidebar — account doorway joins SidebarShell + all 4 headers harmonized (PR pending, auto-merge)
+
+Owner: *"why does both sidebar/side nav is different"* → *"we want a universal style of side bar."* Root cause: the event-customer · vendor · admin dashboards already shared one chrome (`SidebarShell` + `SidebarSection`/`SidebarItem`, the v2.1 paper rail), but the **account-level customer pages** (`/dashboard`, `/dashboard/notifications`, `/dashboard/profile`, `/dashboard/create-event`, `/dashboard/api-keys`) still rendered the legacy `OuterDashboardHeader` — a near-empty 240px rail — so the sidebar visibly "changed" the moment you left an event.
+
+- **New shared header** `app/_components/nav/doorway-sidebar-header.tsx` — `Wordmark` + `m-label-mono` eyebrow + `AccountSwitcherStandalone`, parameterized by `label`. Replaces the three hand-rolled `sidebarHeader` blocks so all four doorways move together. The event-customer header gains the Wordmark + a "Planning" eyebrow (was switcher-only); vendor "Vendor" + admin "Setnayan HQ" are byte-for-byte the same (pure refactor).
+- **New account sidebar** `app/dashboard/(account)/_components/account-sidebar.tsx` (+ neutral `account-nav-config.ts` builder) — flat 5-item nav (My Events · Notifications · Profile & Settings · Marketplace · New event) on the shared primitives. Registry chokepoint (consumes `navSlots` + `navIconComponent`); 5 `customer.account.*` slots added to `NAV_SLOT_DEFAULTS` (admin-editable via /admin/menus). "My Events" uses the `__home__` sentinel matchPrefix so `/dashboard` doesn't stay lit on every account route.
+- **Account layout rewritten** onto `SidebarShell` (`(account)/layout.tsx`): drops the legacy `lg:pl-60` gutter (the shell owns the offset); mobile topBar keeps the unread bell + AccountSwitcher pill. No bottom-nav (faithful to the prior transient chrome).
+- **Retired** `outer-dashboard-header.tsx` (the account layout was its only importer) + the now-orphaned `nav/hide-on-scroll-header.tsx` (its sole consumer); scrubbed the stale `OuterDashboardHeader` comments left in 4 sibling files.
+
+Verified: nav-icon-source guard ✅ · nav-registry-defaults integrity 8/8 ✅ · tsc 0 · lint 0 (pre-existing warnings only) · production build green. Browser-visual deferred to the PR's Vercel preview (no runtime Supabase env on disk in this worktree).
+
+SPEC IMPACT: iter 0000 (app shell / nav) + 0021 / 0022 / 0023 (couple / vendor / admin dashboard chrome) — the account doorway now shares the universal SidebarShell and all four headers are unified via `DoorwaySidebarHeader` → logged in DECISION_LOG + memory. Owner sign-off flags carried in the PR: "Planning"/"Account" eyebrow copy; API-keys omitted from the account rail; no account-page bottom-nav on mobile.
+## 2026-06-18 · fix(orders): co-hosts can read their event's paid-SKU orders (RLS — NEEDS OWNER SIGN-OFF)
+
+Confirmed bug (verified via the do-everything assessment): `orders` RLS was buyer-only (`orders_owner_read` USING `user_id = auth.uid()`), but events are multi-member. A co-host who didn't click "buy" read **zero** order rows under the RLS-enforced anon client, so every event-scoped entitlement gate (`lib/entitlements.ts`) went dark for them — Studio, Papic live wall, Setnayan AI, budget ledger, launch/live surfaces, animated monogram.
+
+- **New migration** broadens **only the SELECT** policy to `user_id = auth.uid() OR event_id IN (current_event_ids()) OR is_admin()`. The WRITE policy is untouched — a co-host can read but never edit/cancel/refund/forge an order. Idempotent (`DROP POLICY IF EXISTS` + `CREATE`); null-safe on the nullable `event_id`.
+
+⚠ **NOT auto-merged — owner sign-off required.** This deliberately exposes one member's order line-items (amount, service_key, reference_code, voucher/discount, status, `admin_notes`) to every co-host on the event. That's the intended shared-planning behavior, but it's a real privacy widening — if any column is buyer-private, scope to a column-limited VIEW instead. The separate `payments` table (screenshots) is NOT touched.
+
+SPEC IMPACT iter 0034 — corrects a multi-member entitlement gap. → CHANGELOG + corpus DECISION_LOG (after sign-off).
+## 2026-06-18 · fix(profile): include vendor media in the RA 10173 data export
+
+The data-export endpoint claimed "vendor portfolio + media uploads (R2 wiring not yet built)" in its `not_included` list — but that's stale: `vendor_profiles.portfolio_r2_keys` ships live, and the raw keys were already in the payload (via `select('*')`), just as un-resolvable `r2://` refs. Additive fix, no new tables:
+
+- **`api/profile/export/route.ts`** — resolves the vendor's logo + `portfolio_r2_keys` to usable URLs (`displayUrlsForStoredAssets`) under `vendor_portfolio_media`, and includes the vendor's own day-of `editorial_vendor_media` (still/boomerang, resolved) under `vendor_submitted_media` — both via RLS-enforced reads, so a vendor only exports their OWN media. Raw `r2://` keys stay in the payload as the durable record; a `media_note` flags that resolved links are presigned/time-limited.
+- Corrected `not_included` to drop the stale portfolio line (now included) and keep the genuine gaps: the API-access audit log (no user-scoped access-log table in V1) + payment records (0034).
+
+tsc 0 · ESLint clean. Compliance-relevant (RA 10173 right-to-portability). The audit-log half stays a separate task (needs a new table + request instrumentation).
+
+SPEC IMPACT iter 0025 — completes the vendor-media half of the data export. → CHANGELOG.
+## 2026-06-18 · docs(owner-actions): prepend a "LAUNCH NOW" short list
+
+`OWNER_ACTIONS.md` had grown to 1,120 lines of history; the actual go-live gate was buried. Added a top-of-file **🚀 LAUNCH NOW** summary distilling the launch boundary verified this session: the code is launch-complete, and only **4 owner-config items** gate publicly accepting vendors (crypto secrets · business identity + payment accounts · R2 CORS + public host · `dpo@` mailbox — ~1 hr total). Marks the now-resolved items (migrations caught up, build not wedged, **vendor verification works via manual review**, web push live) and the deferred-with-fallback ones (Resend email, social login, AI paywall). The detailed phases below are unchanged.
+
+SPEC IMPACT None — owner-facing checklist clarity only.
+## 2026-06-18 · feat(admin): Integration Activation Console — PR1 (email slice)
+
+First slice of the owner-approved console (`/admin/integrations`): set the **Resend** API key + from-address from the app, so transactional email goes live **without a Vercel redeploy**.
+
+- **New migration** — `platform_integration_secrets` singleton (id=1, `resend_api_key_enc`), **RLS on / no policies** (deny-by-default → service-role only; the key is **AES-256-GCM-encrypted** via `lib/encryption.ts` before storage) + `platform_settings.resend_from_address` (non-secret).
+- **New `lib/integration-config.ts`** — `resolveResendConfig()` / `isResendConfigured()`: **DB-first, env-fallback**, uncached (a just-saved key takes effect immediately). Graceful-degrades to env if the table/column is absent (forward-compatible — safe to deploy before the migration applies).
+- **`lib/email.ts`** — `sendEmail` / `cancelScheduledEmail` / `isEmailConfigured` now read via the resolver. `isEmailConfigured()` is **async** (a DB-saved key must be honored even with no env key); the 6 call sites (alaala, guest-claim, notification-emit, papic-sampler ×2, patiktok-reel) now `await` it.
+- **`/admin/integrations`** — status (key source · from-address · last-tested), an encrypt-on-save form (blank key field = keep current; the stored secret is never echoed back), a "Send a test email" button (wraps `/api/admin/smoke-test?type=resend`), and a clear-key action. Team-member-aware admin gate. Admin-home tile added.
+
+tsc 0 · ESLint clean · nav-icon guard green. Env-only installs keep working byte-for-byte (resolver falls back to `RESEND_API_KEY` / `RESEND_FROM_ADDRESS`).
+
+⚠ **Security note (owner-approved 2026-06-16, re-surfaced):** storing the key in the DB (encrypted) is a deliberate trade vs env-only — not a security upgrade. `ENCRYPTION_KEY` is now a single point of failure for this key *and* the existing oauth_grants tokens; don't rotate it casually. `NEXT_PUBLIC_*` flags + the R2 public host still need a redeploy (that's PR4 scope).
+
+**Deferred to PR2:** the AI-paywall slice (needs the wider `setnayan-ai.ts` caller-threading) + social/Recraft/R2 cards.
+
+SPEC IMPACT — implements `Integration_Activation_Console_Design_2026-06-16.md` PR1 (email). → CHANGELOG + corpus DECISION_LOG.
+## 2026-06-18 · feat(seo/a11y): structured-data + metadata + a11y completeness on public pages
+
+Verified, additive quality wins from a public-surface audit (4-agent sweep) — no design/copy/pricing changes:
+
+- **`/help`** — added `alternates.canonical` + `openGraph` (it had title+description only; a ~90-article surface with no canonical/share-card).
+- **`/how-it-works`** — added `openGraph` (it had canonical + hreflang but no share card).
+- **Homepage WebSite JSON-LD** — added a `SearchAction` `potentialAction` (the Google sitelinks search box, pointed at `/explore?q=`) + `url` on the `SoftwareApplication` node.
+- **`_sections.tsx`** — `aria-hidden` on a decorative arrow SVG (removes screen-reader noise).
+
+Skipped audit false-positives after cross-checking: `/features` already emits JSON-LD via `_PageBody`; the `<img>`→next/image swap on `/explore/compare` (a dynamic vendor URL not in `remotePatterns` would break the image); the HeroScrub change (heavily-iterated, flagged colliding); the `/tl` `<html lang>` fix (touches the critical root layout — flagged for owner).
+
+tsc 0 · ESLint clean. Pure additive `<head>`/JSON-LD/ARIA — zero layout/behavior change.
+
+⚠ Surfaced, not changed: the `/pricing` page shows **stale availability labels** (e.g. Save-the-Date Cinematic Openings ₱799 marked "Coming Soon" though it shipped; Patiktok marked "In Build" though its render pipeline now exists). Prices + availability are owner-managed + mid-reconciliation — owner to reconcile.
+
+SPEC IMPACT None — SEO/accessibility hardening on existing public pages.
+
+## 2026-06-20 · revert(std): restore the Save-the-Date film mute toggle (it was the wrong icon)
+## 2026-06-20 · ux(std): stop the couple background-music speaker from bleeding over the veil reveal
+
+Follow-up to the 2026-06-19 film-mute removal. The actual speaker-with-✕ icon the owner saw on the veil was the couple-website **background-music player** (`background-music.tsx`), not the film's mute — its default (not-yet-playing) state renders a `VolumeX`. That floating control is gated only on `bgMusicUrl`, with **no phase check**, so it rendered during the Save-the-Date phase too and sat under the sheer veil, showing through the reveal.
+
+- **`apps/web/app/[slug]/page.tsx`** (both render paths — anonymous + identified-guest, ~lines 1421 & 1928): changed `{bgMusicUrl ? <BackgroundMusic …/> : null}` → `{bgMusicUrl && !showSaveTheDate ? <BackgroundMusic …/> : null}`. The player now renders only on the live wedding-site phases (RSVP / Event / Editorial), never during the Save-the-Date veil reveal. The STD film owns audio during that phase, so nothing is lost. `showSaveTheDate` is already in scope at both sites.
+
+SPEC IMPACT: None — conditional-render guard only; no schema, pricing, or product-surface change. The `BackgroundMusic` component and the couple's opt-in background-music feature are untouched on every other phase.
+
+---
+
+## 2026-06-19 · fix(ci): repair two advisory guards left stale by the Studio route rename (PR pending, auto-merge)
+
+The `add-ons` → `studio` route rename (PR #1815) added route redirects but missed two guard configs that hardcode the old paths, so `lint papic keep-permanent` and `lint retired strings` were **failing on `main`** (baseline) and on every open PR. **No actual bug** — verified the keep-permanent logic is intact at the new path (`studio/papic/actions.ts:141` still calls `makeSamplerPermanent` + `cancelSamplerExpiryWarnings`); only the guards' paths were stale.
+
+- `apps/web/scripts/lint-papic-keep-permanent.mjs` — check #3 path `add-ons/papic/actions.ts` → `studio/papic/actions.ts` (+ matching comment).
+- `apps/web/.retired-strings.json` — "Custom Monogram Pack" allow-path `add-ons/panood/setup/page.tsx` → `studio/panood/setup/page.tsx`.
+
+Verified: both guards run green locally (`retired-strings` 0 violations / 1117 files · `papic-keep-permanent` 6/6 sites intact).
+
+SPEC IMPACT: None (CI guard config only).
+## 2026-06-19 · ux(std): remove the Save-the-Date content-film mute toggle (owner)
+
+Reverts #1843. The owner's "remove this" pointed at a **speaker-with-✕** icon on the veil; with the full screenshot it became clear that's the bottom-LEFT couple background-music player (handled separately by gating it off during the STD phase), **not** the film's mute. The bottom-RIGHT music-note control is the film's mute — "the one that works" — and the owner wants it kept. #1843 had removed it.
+
+- **`git revert -m 1` of #1843's merge** (`15af5828`): restores in `apps/web/app/[slug]/_components/save-the-date-film.tsx` the `Music`/`VolumeX` import, the `const [muted, setMuted] = useState(false)` state, the `toggleMute` handler, and the bottom-right mute `<button>` (gated on `content.musicUrl || content.videoUrl`). Clean revert, no conflicts.
+
+SPEC IMPACT: None — restores prior UI behavior. Net state across the two open changes: the **left** background-music speaker no longer renders during the veil (#1845), the **right** film mute is back. No schema/pricing/surface change.
+
+---
+
+## 2026-06-19 · fix(std): close the NaN gap in the Save-the-Date volume clamp (+ correct the root-cause comment)
+
+Follow-up hardening to the earlier volume-clamp fix, after an adversarial root-cause review of the `/[slug]` Save-the-Date `IndexSizeError`. Two findings drove this:
+
+1. **The shipped clamp left a residual crash path.** `setVol`'s clamp `v < 0 ? 0 : v > 1 ? 1 : v` **passes `NaN` straight through** — `NaN < 0` and `NaN > 1` are both `false`, so the ternary returns `NaN`. And `m0 = a?.volume ?? 1` does **not** substitute for a `NaN` read-back (`NaN` is neither null nor undefined), so a `NaN` propagates through the whole fade ramp. A `NaN`/`Infinity` `.volume` (detached/unloaded media element in a WebView, or a non-monotonic clock making the fade ratio `NaN`) would therefore still throw *after* the first fix. Closed by guarding with `Number.isFinite`: `if (!el || !Number.isFinite(v)) return;` — non-finite values now skip the write (volume untouched that frame; inaudible; next frame self-corrects). The finite branch clamps exactly as before.
+
+2. **Corrected the root-cause comment.** The prior comment claimed "Chrome desktop silently clamps; WebKit … throw." That's **wrong**: the WHATWG HTML volume setter algorithm *requires* a throw for any value outside `[0,1]`, and Blink, WebKit, and Gecko **all throw** (verified against each engine's `setVolume` source — no engine clamps, and the only Blink mechanism that could store `>1`, the `MediaElementVolumeGreaterThanOne` flag, is default-disabled/test-only and unshipped). Desktop Chrome didn't crash here because those sessions never produced an out-of-range value — not because it clamps. Comment rewritten to say so. The original fix's behavior was correct regardless; only the *explanation* was imprecise.
+
+- **`apps/web/app/[slug]/_components/save-the-date-film.tsx`** — `setVol` gains the `Number.isFinite(v)` guard; doc comment rewritten to the spec-accurate account.
+
+Root-cause notes (for the record): the math is decisive that the `1.00243`/`1.01339` overshoots can't come from float rounding on clean inputs (the ramp is a convex combination, provably ≤ 1; rounding is ~10⁴–10¹³× too small), so an input genuinely left `[0,1]`. The most concretely supported app-side source is a **non-monotonic clock** (`now < t0` → `p < 0`) on the music **fade-down** branch, where `vol = m0·(1−p) > 1` — the ramp clamps `p`'s upper bound (`Math.min(1, …)`) but never its lower bound; mobile in-app WebViews (background throttling / clock corrections) are far more prone to this than desktop Chrome, which fits "only mobile/in-app browsers crashed." A `NaN` read-back is a second app-side source. The earlier "platform `.volume` read-back returns `>1`" theory is **retracted** — no engine source supports a conforming getter returning `>1`. All these paths are app-side and are fully closed by the clamp + this `NaN` guard. `tsc --noEmit` clean locally.
+
+SPEC IMPACT: None. Client-side defensive hardening + comment accuracy; no schema, pricing, or corpus surface touched.
+
+## 2026-06-19 · ux(std): veil-reveal hint now surfaces the hands-free double-tap
+
+The Save-the-Date veil reveal supports two lift gestures — grab-and-pull / swipe up (manual) **and** double-tap = hands-free auto-lift (`veil-reveal.tsx`, gesture block ~line 889; `doRevealAuto()` on the second tap). The bottom-of-screen hint only advertised the manual lift ("Lift the veil ↑"), so guests never learned the double-tap shortcut.
+
+- **`apps/web/app/[slug]/_components/reveal/reveal-overlay.tsx`** (veil branch, ~line 193): added a second, quieter hint line under the primary call — `or double-tap to lift it for you` (text-[9px], `text-cream/60`, same mono/uppercase/tracking + drop-shadow as the primary line). Primary "Lift the veil ↑" line and its styling are unchanged; the new line fades out with the rest of the hint group on `open`.
+
+SPEC IMPACT: None — copy-only hint surfacing an already-shipped gesture (double-tap auto-lift landed with the veil port #1671). No schema, pricing, behavior, or product-surface change. Corpus `0024_Veil_Reveal_Spec_2026-06-17.md` already documents both gestures.
+
+---
+
+## 2026-06-19 · fix(payouts): money-direction guard on payout dispatch + a release path for held payouts
+
+Two payout-safety fixes. Files: `lib/payouts.ts`, `app/admin/payments/actions.ts`. No schema change (all columns already exist).
+
+- **M1 — money-direction bug (vendor wrongly PAID for an order they were paying US for).** `schedulePayoutsForOrder()` (in `app/admin/payments/actions.ts`) guarded only on `if (!row.vendor_profile_id) return;`. A **vendor branch activation order** (`vendor_additional_branch__{id}`, owner-locked 2026-06-05 ₱999 Enterprise add-on) carries `vendor_profile_id` (the *paying* vendor) but **no `event_id`** — it's the vendor paying Setnayan, the opposite money direction. The old guard let it fall through and queued a vendor PAYOUT, i.e. Setnayan paying the vendor for an order the vendor paid us for. Added a guard that only dispatches payouts for **couple bookings**: bail when `event_id` is NULL, OR when `branchIdFromServiceKey(service_key) !== null` (belt-and-suspenders for any other vendor-pays-Setnayan SKU on this code path). Added `service_key` to the order select + row type for the second check; imported `branchIdFromServiceKey` from `lib/vendor-branches`.
+- **m3 — held payouts had no release path.** `holdPayout()` set `on_hold=true` / `hold_reason` with no admin-facing reversal — a held payout was stuck until a hand-edited DB write. Added `releasePayoutHold(adminClient, {payoutId, actorUserId, reason})` to `lib/payouts.ts` (sets `on_hold=false`, clears `hold_reason`, appends a `released_hold` audit_log entry; refuses if already paid; no-op-safe on a not-held payout) + `releasePayoutHoldAction(formData)` in `app/admin/payments/actions.ts` (gated by `requireAdmin`, redirect/flash pattern mirroring the sibling `holdPayoutAction`).
+- **Follow-up (not done — outside this unit's owned files):** wire a "Release hold" button into `app/admin/payouts/page.tsx` next to the existing Mark-paid / Place-on-hold controls (currently a held payout shows only the reason banner, no release control). The action is fully callable; only the 1-line form wiring remains.
+
+Self-reviewed against TS strict (no local `node_modules` → no typecheck/lint here; CI gates). New symbols all used; `service_key`/`event_id`/`on_hold`/`hold_reason`/`audit_log`/`paid_at` are pre-existing columns.
+
+SPEC IMPACT: None (payout-safety bug fix + new admin reversal action; no SKU/pricing/schema change — the vendor payout model + the branch ₱999 add-on are both already locked in the corpus). Behavioral note for the corpus payout section: branch/vendor-pays-Setnayan orders never generate a vendor payout, and held payouts now have an admin release path.
+## 2026-06-19 · fix(lint): re-point two repo-health guards after the /add-ons → /studio route rename
+
+The route rename (`7724deaa`) moved files but two **advisory** lint guards still referenced the old `add-ons/` paths, leaving them RED on `main`:
+
+- **`scripts/lint-papic-keep-permanent.mjs`** — check #3 pointed at `app/dashboard/[eventId]/add-ons/papic/actions.ts` → "FILE MISSING". **Verified the Papic keep-permanent wiring SURVIVED the move** (not a regression): `studio/papic/actions.ts:141` still calls `await makeSamplerPermanent(eventId)`, and the other 5 chain sites are unchanged. So this was purely a stale path — re-pointed to `…/studio/papic/actions.ts` (+ the chain-doc comment). Guard green (6 sites intact).
+- **`.retired-strings.json`** — the "Custom Monogram Pack" exception's `allow_paths` still listed `…/add-ons/panood/setup/page.tsx`; the page moved to `…/studio/panood/setup/page.tsx`. Updated the path (preserves the documented exception pending the spec-vs-code reconciliation). Guard green (0 violations, 1119 files scanned).
+
+No TypeScript touched (only a `.mjs` guard + a `.json` allow-list), so `tsc` is unaffected.
+
+SPEC IMPACT: None — CI tooling only; no product surface, schema, or copy change.
+
+## 2026-06-19 · fix(onboarding): events.together_since no longer commits NULL when entered in the love stage
+
+The dedicated `togetherSince` OnboardingState field has no UI input — the "together since" YEAR the couple types during the love stage only ever writes to `state.loveStory.together_since` (the `love_spark` screen). At commit, `buildCommitPayload` sourced the top-level `events.together_since` column solely from the empty dedicated state, so it committed `NULL` even when the couple supplied a year (the value survived only inside the `love_story` JSONB blob).
+
+- **`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`** (`buildCommitPayload`, ~line 2829): fall back to `s.loveStory.together_since.trim()` when `s.togetherSince.trim()` is empty, before defaulting to `null`. Both operands are non-optional `string` (per `types.ts`), so the change is type-safe with no optional chaining. A love-skipping couple who never entered a year still yields `null` (the live `LoveStory` state field is `''`); the `love_story` JSONB blob and every other payload field are untouched.
+
+SPEC IMPACT: None — bug fix only; restores the already-specified mapping of the love-stage "together since" year to the `events.together_since` column. No schema, pricing, or product-surface change.
+
+---
+
+## 2026-06-19 · fix(nav): menu-connectivity cleanup — all no-decision fixes from the 2026-06-19 menu audit
+
+Applies the six safe, no-decision fixes surfaced by the 2026-06-19 menu-connectivity audit (commit `70684a81`). Nav config only — no behavior, schema, or pricing change.
+
+- **HARD 404 fixed** — `app/_components/marketing/_sections.tsx`: the footer "Wedding venues" link pointed at `/venues`, which has no page and no redirect (and `venues` is a `RESERVED_TOP_LEVEL` segment), so it 404'd. Repointed the href to `/explore` (the venue/marketplace browse); visible label unchanged. (`RESERVED_TOP_LEVEL` untouched.)
+- **Vendor mobile More-tab highlight** — `app/vendor-dashboard/_components/vendor-bottom-nav.tsx`: added `partnerships`, `real-stories`, `recaps` to the More-tab `activeMatch[]` (placed to match the desktop sidebar's **Grow** group order). These pages already exist in `VENDOR_NAV_GROUPS` + the desktop sidebar; this only fixes the mobile More tab failing to light on those routes.
+- **Missing nav-registry defaults** — `lib/nav-registry-defaults.ts`: added 4 slot defaults so they become admin-editable (label + icon) instead of rendering hardcoded fallbacks: `customer.home-subnav.overview` (Overview / LayoutDashboard), `customer.home-subnav.checklist` (Checklist / ClipboardList), `admin.sidebar.editorial-review` (Editorial review / Newspaper), `admin.sidebar.papic-sampler` (Papic sampler / Camera). Each copies the shape/labels/icons from its hardcoded source (`lib/customer-menu.ts`, `ADMIN_NAV_GROUPS`).
+- **Stale registry route field** — `lib/nav-registry-defaults.ts`: `public.site-nav.real-stories` recorded `route: "/weddings"` (the live href is `/realstories`; `app/weddings/` doesn't exist — only a 301 redirect). Corrected the `route` field to `/realstories`.
+- **Dead registry defaults removed** — `lib/nav-registry-defaults.ts`: deleted the orphan `customer.bottom-nav.design` default (Design folded into Studio; `/design` redirects; no menu emits 'design') and the 19 dead `customer.studio.*` defaults under area `studio-addon-hub`. Verified by grep: `getNavArea()` (the only consumer of that area) has **zero call sites**, the add-ons hub renders from `lib/add-ons-catalog.ts`, and neither `customer.studio.*` nor `customer.bottom-nav.design` is referenced anywhere outside the defaults file. (`getNavArea` itself left in place — out of scope; now provably unused.)
+- **Admin Patiktok doorway** — `app/admin/_components/admin-sidebar.tsx`: `/admin/patiktok` existed as a page but had no nav entry (orphan doorway). Added a `patiktok` item to `ADMIN_NAV_GROUPS` in the **Platform** group next to `recaps` (icon `Film`, added to the lucide imports), mirroring the sibling content leaves. (`/admin/queues` legacy alias left alone.)
+
+Self-reviewed (no local `node_modules` → no typecheck/lint here; CI gates). Structural checks on the defaults file pass: 186 unique slot keys, balanced braces, all new lucide names (`LayoutDashboard`, `ClipboardList`, `Newspaper`, `Camera`, `Film`) are in the `nav-icons.ts` allowlist, enum/icon-consistency constraints from `nav-registry-defaults.test.ts` satisfied.
+
+SPEC IMPACT: None (nav configuration only — hrefs, activeMatch arrays, registry data, route metadata; no SKU/schema/pricing/behavior change).
+
+> ⚠ Owner note: before the admin override DB is relied on, confirm no `nav_slot_override` row references the deleted `customer.studio.*` / `customer.bottom-nav.design` keys (the resolver silently ignores orphan overrides — not a runtime bug, but a saved admin rename/hide on those would quietly no-op). Mirrors the pre-delete check done for PR #1581.
+
+---
+
+## 2026-06-19 · feat(save-the-date): view counter — unique-per-day, couple + HQ surfaces
+
+Owner: "add view count for the save the date (can be tallied for data)." Scope locked with the owner: **unique per day** · **couple + HQ** · **Save-the-Date phase only**.
+
+- **migration `20270128231476`** — `event_std_views(event_id, view_date, views, updated_at)` daily rollup (PK `(event_id, view_date)`, FK→`events(event_id)` cascade) + RLS (members read via `current_event_ids()` / admins; **no write policy** — writes are service-role only) + `record_std_view(p_event_id, p_date)` SECURITY DEFINER atomic-increment RPC. **Applied to prod** (out-of-band statement-by-statement + ledger row, around a parallel-session ledger-drift migration `20270128090927` left untouched). Privacy-first: the DB holds **only aggregate counts — no per-device data, no PII** (RA 10173).
+- **`lib/std-views.ts`** — `manilaToday()` (YYYY-MM-DD day buckets in Asia/Manila), the dedup-cookie parse/serialize (a small httpOnly `{slug:'YYYY-MM-DD'}` map, pruned to 50), and `summarizeStdViews()` (total / today / last-7).
+- **`app/api/std/view/route.ts`** (POST, nodejs) — the beacon endpoint. Cookie-dedups to one count per device per day; re-resolves the event + **re-checks the lifecycle phase server-side** (a forged POST can't count a non-STD page); **excludes the couple's/coordinators' own visits** (detects a signed-in host via the request's auth cookie); counts via the atomic RPC on the service-role client. Always returns 200 — a beacon never errors the page.
+- **`app/[slug]/_components/std-view-beacon.tsx`** — a silent `'use client'` island that fires one `keepalive` POST on mount.
+- **`app/[slug]/page.tsx`** — mounts `<StdViewBeacon>` in BOTH render paths (PublicLanding + InvitationSite), gated on `showSaveTheDate` (STD phase only). Owner-exclusion lives in the route, so no extra auth/queries on the hot public render.
+- **couple surface** — the STD builder (`studio/save-the-date/page.tsx`) shows **total · last 7 days · today** (read via the couple session under RLS).
+- **HQ surface** — the admin events list (`admin/events/page.tsx`) gains an **all-time "STD views"** column (aggregated via the service-role admin client).
+
+Verified: `pnpm typecheck` clean (resolves against the repo's hoisted node_modules). Lint runs in CI (the fresh worktree has no local `next` binary). No browser verify — beacon/counter not headlessly checkable; owner can watch the builder + admin numbers move.
+
+SPEC IMPACT: 0024 Save-the-Date gains a privacy-first view counter (new `event_std_views` table + `/api/std/view` beacon). Data/analytics only; STD stays free; no SKU/pricing/gating change. Will log in `DECISION_LOG.md`.
+
+---
+
+## 2026-06-19 · feat(save-the-date): film accent follows the Mood Board, with a manual override
+
+Owner: "yes moodboard is good and also manual color." The Save-the-Date film's "Add to calendar" button + accent marks were a hardcoded mulberry (`lib/std-themes.ts` SHARED). The accent now **defaults to the couple's Mood-Board palette** (so the film is on-brand with the rest of their wedding site), with a **manual hex override** the couple sets in the builder. Resolution order: `events.std_film_accent_hex` (manual) → `stdAccentFromPalette(role_palette)` (deep, button-legible Mood-Board accent) → brand mulberry.
+
+- **migration `20270128195377`** — `events.std_film_accent_hex text` (nullable; null = follow Mood Board → mulberry). Applied to prod.
+- **`lib/site-palette.ts`** — `stdAccentFromPalette()` (boldest swatch, darkened to AA 4.5 vs white so light button text reads; mirrors the site `cta` role) + `readableTextOn()` (contrast-safe button text: prefers the film's cream/ink tokens, escalates to pure black/white when a bold manual accent leaves both under AA — verified e.g. red #ff0000 → #000 at 5.25:1).
+- **`save-the-date-film.tsx`** — new optional `accentHex` prop. When set: the button uses inline `style` (Tailwind JIT can't emit a runtime hex) with derived contrast-safe text; the beat-1 divider + monogram text-initials follow the accent ONLY when no legibility tone is active (with a photo background, tone wins for readability). `accentHex` null → the original mulberry classes (full back-compat).
+- **`save-the-date.tsx` + `[slug]/page.tsx`** — thread the resolved accent (`stdAccentColor(event)`) through `SaveTheDateView` → film at BOTH public invocations (PublicLanding + InvitationSite); `std_film_accent_hex` added to the SELECT + `EventRow`.
+- **builder** (`studio/save-the-date/{page.tsx,actions.ts,_components/StdBuilderClient.tsx}`) — Step-1 "Accent colour" control (reuses the exported `ColorRow`: swatch + picker + "From your Mood Board" + Reset). Saved via `filmAccentColor` (validated `#rrggbb` → null); live preview recolours instantly. The Mood-Board default is shown beneath the picker.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. 3-lens adversarial review (correctness PASS; contrast lens caught the manual-accent AA gap, fixed above). Visual check on the PR's Vercel preview (local preview server is a different checkout).
+
+SPEC IMPACT: 0024 Save-the-Date — the film accent is no longer fixed mulberry; it inherits the Mood Board with a manual override. Presentation/data only; no SKU/pricing/gating change (STD stays free). Will log in `DECISION_LOG.md`.
+## 2026-06-19 · fix(std): clamp Save-the-Date film volume fades to [0,1] (crashed on WebKit + Facebook in-app browser)
+
+Production Sentry error on the couple website (`/[slug]`, e.g. `/cale-ice`): an uncaught `DOMException` from the auto-playing Save-the-Date content film. The audio↔video crossfade's linear ramp `vol = m0 + (target - m0) * p` (plus some in-app webviews' imprecise `.volume` read-back) could land a hair over `1.0` (Sentry saw `1.00243`). The HTML media spec rejects any volume outside `[0,1]`: **Chrome desktop silently clamps** (so it never surfaced locally), but **WebKit throws `IndexSizeError: The index is not in the allowed range`** and **Chromium/Facebook's in-app browser throws `Failed to set the 'volume' property … outside the range [0,1]`** — Sentry grouped both under one issue (same minified frame `r` in chunk `68896`) because WebKit's generic `IndexSizeError` text hid the real cause. Thrown inside a `requestAnimationFrame` tick, so it didn't white-screen the page, but it logged on every affected guest visit.
+
+- **`apps/web/app/[slug]/_components/save-the-date-film.tsx`** — added a module-scope `setVol(el, v)` helper that clamps to `[0,1]` (`v<0?0:v>1?1:v`) and no-ops on a null element, and routed all six volume writes through it: the two crossfade ramps (music + video), the start-silent `setVol(v,0)`, and the audio-unlock blip save/restore (`setVol(a,0)` / `setVol(a,vol)` ×2). Fade timing and audible result are identical — the only change is that an out-of-range value is pinned to the boundary instead of throwing. `p` was already clamped (`Math.min(1, dt/700)`); this guards the float/read-back overshoot the clamp on `p` can't catch.
+
+No behavior change on engines that already clamped; eliminates the throw on the strict ones. Typecheck passes locally (`tsc --noEmit`, clean); no node_modules in the worktree so lint/build are gated by CI required checks.
+
+SPEC IMPACT: None. Pure client-side defensive bugfix — no schema, migration, pricing/SKU, branding, or corpus surface touched.
+## 2026-06-19 · ui(std/website): replace the "Play music" pill with an icon-only mute toggle
+
+Owner ask: the floating "Play music" pill on the Save-the-Date / couple website (bottom-left) wasn't the right affordance — a mute icon reads more clearly. Swapped the labeled pill for a compact, icon-only circular toggle using the universal speaker glyph: `Volume2` when sound is on (tap to mute), `VolumeX` when muted/not-started (tap to play). Same position, same translucent-cream/terracotta styling, same tap-to-start behavior (browser autoplay still never force-plays). Shared component, so it updates both render sites on `/[slug]` (save-the-date view + main view).
+
+- **`apps/web/app/[slug]/_components/background-music.tsx`** — dropped the `Music`/`Pause` icons + the `Play music`/`Pause music` text span; now renders an `h-11 w-11` icon-only button toggling `Volume2` ⇄ `VolumeX`. `aria-pressed` retained; `aria-label` switches between "Mute background music" / "Play background music"; added a matching `title` tooltip. Doc comment updated to describe the speaker-on ⇄ muted toggle.
+
+SPEC IMPACT: None. Pure presentational refinement of an existing control; no SKU, schema, branding, or copy-of-record change. (Corpus 0024 STD docs describe the music control only at the feature level, not the icon.)
+
+## 2026-06-19 · fix(regions): one DB-backed canonical source collapses 4 incompatible PH-region spellings (fallback-safe)
+
+Owner-approved 2026-06-19. Four region vocabularies had drifted across the app and silently disagreed: V1 onboarding hyphen slugs (`c-visayas`, `n-mindanao`, `cagayan`, `abroad`) in `events.region`; V2 match-criteria underscore slugs (`central_visayas`, `outside_ph`); V3 PSGC codes (`VII`, `NCR`) in `vendor_profiles.hq_region`; V4 wedding-cities `cagayan-valley`; plus hand-maintained burn bands over three of those. This adds one canonical source (`public.regions` + `public.wedding_destinations`) and a single resolver every consumer reads through, with a built-in static fallback so behavior is **identical when the DB tables are absent/empty** (which they are this cycle — the orchestrator applies the migration separately).
+
+- **MIGRATION `supabase/migrations/20270128395443_regions_canonical_source.sql`** (additive, idempotent) — two new tables. `public.regions` = one canonical row per region (slug = the V1 hyphen slug, `aliases[]` absorbs every other spelling, `psgc_code`/`burn_band`/`centroid`/`sort_order`/`is_scopable`). `public.wedding_destinations` = the curated city carousel keyed to `regions.slug` (`city_aliases` seeded EMPTY — a follow-up backfills it). RLS at CREATE TABLE time: public read, admin write. Prefix allocator-sourced (`pnpm migration:new`) — unique + non-round; passes the timestamp guard.
+- **NEW `apps/web/lib/region-source.ts`** — the single resolver. Synchronous (consumers resolve regions inside sync `.filter()`/`.map()` callbacks and client-component render), client-bundle-safe (references no server module). Exposes `resolveRegion` (accepts ANY of the 4 vocabularies via slug/psgc/aliases), `regionBySlug`, `regionByPsgc`, `allRegions` (sorted), `regionLabel`, `regionDescriptor`, `regionCentroid`, `regionBurnBand`, `regionSlugForCity`. Backed by a built-in STATIC table mirroring the migration seed (itself derived from the existing consts), so on any DB miss it falls back and never breaks. DB hydration is dependency-injected (`hydrateRegionsFromRows`) so the module never imports `@/lib/supabase/server` / `next/headers`. No current caller invokes hydration — the static fallback is the live path this cycle.
+- **`apps/web/lib/v2/region-token-burn.ts`** — `regionBurnTokens()` resolves `burn_band` via `resolveRegion(region)` instead of the hand-maintained `REGION_TO_BAND`. `BURN_BAND_REGIONS` + `TOKEN_PRICE_PHP` + `BURN_CEILING_TOKENS` stay exported (deprecation comment). Pure, never-throws, `DEFAULT_BURN_BAND=1` floor preserved.
+- **`apps/web/lib/regions.ts`** — `regionForCity()` reads `wedding_destinations.city_aliases` (via `regionSlugForCity` → PSGC code) first, falling back to the frozen `CITY_TO_REGION` Map. Return contract unchanged (still a PSGC code). `PH_REGIONS` + `TOP_DESTINATIONS` + `CITY_TO_REGION` kept exported; header note marks the DB tables as the new canonical source + these consts as the compat shim. (`city_aliases` empty this cycle → Map fallback is the live path.)
+- **`apps/web/lib/match-criteria.ts`** — `REGION_OPTIONS` (value=canonical slug, label=display_label) + `ALLOWED_REGIONS` derived from `allRegions()`. `ALLOWED_REGIONS` accepts BOTH canonical hyphen slugs AND every legacy spelling (underscore variants, PSGC codes, `cagayan-valley`, `outside_ph`) so existing `events.region` rows stay valid.
+- **`apps/web/app/dashboard/[eventId]/actions.ts`** — `updateEventMatchCriteria` region validation now `resolveRegion(regionStr)` and **normalizes the stored value to the canonical hyphen slug** so new writes converge; existing rows still validate. Dropped the now-unused `ALLOWED_REGIONS` import.
+- **`apps/web/app/dashboard/[eventId]/details/_components/details-form.tsx`** — normalizes `initialRegion` to its canonical slug via `resolveRegion` in the `useState` initializer so the `<select>` preselects regardless of which of the 4 vocabularies the row was written in.
+- **`apps/web/app/onboarding/wedding/actions.ts`** — replaced the inline `ONBOARDING_REGION_TO_PSGC` map + `onboardingRegionToPsgc()` body with `resolveRegion(region)` → `psgc_code` (null when `is_scopable=false`/`abroad`/unknown). `events.region` still stores the canonical hyphen slug; no data migration of existing rows.
+- **`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`** — `REGLABEL` built from `allRegions()` (canonical slug → display_label) instead of a hand-maintained literal; the three lookup sites are unchanged. Recap labels are now the fuller canonical labels (e.g. "Ilocos Region" vs "Ilocos", "Outside the Philippines" vs "Outside the PH") — cosmetic, still accurate.
+- **DEFERRED `apps/web/app/onboarding/wedding/_data/wedding-cities.ts`** — left reading its TS literals (header note added). It's the last/riskiest consumer: `CITIES`/`TOP30`/`cityByKey`/`resolvePick`/`REGION_CENTROID` are consumed synchronously inside two client-component carousels (onboarding-shell, location-step) at render time, and `wedding_destinations` rows aren't verified live yet (`city_aliases` empty). A DB cutover here would need an async fetch from a sync client render path — outside the fallback guarantees — so it's deferred to a follow-up PR (server-side props hydrated from `public.wedding_destinations`, TS literals kept as the offline fallback). `resolvePick` still returns the canonical region slug.
+
+Behavior note: the Personalization region dropdown order changes (PSGC-numeric via `sort_order` rather than the old curated order) and gains NIR (Negros Island Region), which was missing from the old `REGION_OPTIONS`. No typecheck run locally (no node_modules); CI gates typecheck + lint + build.
+
+SPEC IMPACT: Flag, do not edit corpus. Corpus region docs (e.g. iteration 0006 / 0015 region references, `Taxonomy_Events_Faiths_Completeness_Audit`) may still reference the old per-surface spellings; the live code now treats the hyphen slug as canonical with all other spellings as aliases. Owner to decide if/when the corpus region tables are re-synced to the canonical `public.regions` vocabulary. No locked-SKU / branding / schema-rename surfaces touched (two NEW additive tables only).
+
+## 2026-06-19 · fix(vendors): "what do you offer" picker reflects live admin-taxonomy labels (display-only; storage/validation untouched)
+
+The vendor service/category picker rendered category labels from the in-code `VENDOR_CATEGORY_LABEL` constant only, so an admin renaming a taxonomy tile (e.g. "Photo & Video") never flowed through to the labels a vendor sees. Fix makes the DISPLAY label follow the live admin taxonomy while keeping the stored WIRE vocabulary (the 30 `VENDOR_CATEGORIES` enum keys) and all validation byte-for-byte unchanged — fully backward-compatible, no migration.
+
+- **`apps/web/lib/vendor-category-taxonomy.ts`** — added pure helper `labelForVendorCategory(cat, tax)` = `tax.tileLabel[primaryTileForVendorCategory(cat)] ?? VENDOR_CATEGORY_LABEL[cat]`. Fallback-safe by construction: exempt (bucket C) categories have no anchor tile → in-code literal; and `getTaxonomy()` itself falls back to `lib/taxonomy.ts` when the DB is unseeded. `tilesForVendorCategory`/`primaryTileForVendorCategory` are unchanged.
+- **`apps/web/app/vendor-dashboard/services/actions.ts`** — NO functional change to `parseCategory`; added a clarifying comment that the submitted `category` is the wire/stored enum key (NOT a tile key), anchored to the DB tree via `VENDOR_CATEGORY_CANONICAL` + `validateVendorCategoryMapping`. Still validates against `VENDOR_CATEGORIES`.
+- **`apps/web/app/vendor-dashboard/services/page.tsx`** — `await getTaxonomy()` (try/catch → degrades to in-code labels) and a `labelFor(cat)` helper feeding the three picker labels (left-column list, "Add:" heading, title placeholder). The `<input name="category">` value stays the enum key; `VENDOR_CATEGORIES`/`SERVICE_GROUPS` iteration order unchanged.
+- **`apps/web/app/vendor-dashboard/_components/services-picker.tsx`** — accepts optional `labels?: Record<string,string>`; renders `labels?.[cat] ?? VENDOR_CATEGORY_LABEL[cat]`; checkbox VALUE stays the enum key. Omitting the prop renders exactly as before.
+- **`apps/web/app/vendor-dashboard/profile/page.tsx`** — `await getTaxonomy()` (try/catch) → passes `labels={Object.fromEntries(VENDOR_CATEGORIES.map(c => [c, labelForVendorCategory(c, tax)]))}` into `<ServicesPicker/>`.
+- `apps/web/app/admin/taxonomy/page.tsx` already renders `validateVendorCategoryMapping(getTaxonomy())` as a drift warning banner — no change needed.
+
+NOTE for owner: because the label resolves to each category's PRIMARY anchor tile, sibling categories that share a tile (e.g. `photographer` + `videographer` → `photo_video`; `makeup_artist` + `hair_stylist` → `hmua`) will display the SAME tile label once the DB diverges from the in-code per-category names. The picker rows stay distinct (distinct enum values); only the visible text collapses. This is exactly the spec'd helper formula; flagging in case per-category labels are preferred.
+
+SPEC IMPACT: None. Display-only; stored vocabulary + validation (`VENDOR_CATEGORIES`/`CATEGORY_SET`/`parseCategory`) and the canonical anchoring map are unchanged. No schema, no migration, no corpus edit required.
+
+## 2026-06-19 · fix(vendors): locked vendor now stamped as the couple's #1 pick (`selection_match_rank = 1`)
+
+When a couple locks/contracts a vendor (`finalizeVendor`, the `status='contracted'` lock transition), the generic lock-write previously updated only `{status, updated_at}` — it never set `selection_match_rank`. As a result the locked vendor (which IS the couple's chosen pick for that leaf category) was never marked as the recommended #1 pick, so two downstream features stayed dormant:
+
+- The vendor-side **"From Your Vendors" editorial-media** feature (`lib/editorial-vendor-media.ts` → `findRecommendedEventVendorId`) — gates strictly on `event_vendors.selection_match_rank = 1`, so it returned `null` and the vendor could never submit editorial photos/clips.
+- The editorial **#1-match stat** (`app/[slug]/_components/editorial/data.ts` `firstPick` counter) — counts `selection_match_rank = 1` rows, so it always read 0.
+
+Fix (owner-approved 2026-06-19):
+
+- **`app/dashboard/[eventId]/vendors/actions.ts`** — in `finalizeVendor`'s generic lock write, also set `selection_match_rank: 1` on the row. Idempotent (always set on the lock transition) and scoped to the lock transition (guarded by the `already_locked` short-circuit on `CONFIRMED_VENDOR_STATUSES` and the money-status precondition). Single-column additive write; no behavior change to the slot-path lock (handled inside `acquire_service_time_slot`).
+
+SPEC IMPACT: None. (No schema change — `selection_match_rank` already exists on `event_vendors`; this only populates it on the lock path. No corpus edit needed.)
+## 2026-06-19 · feat(studio): Vector Monogram Studio "takes up the space" — full two-column desktop workspace + large live preview
+
+Owner: "we want this vector studio to open — make it take up the space, not just a small preview." The studio was a fixed ~430px-wide card with a 300px-tall canvas, dwarfed on a desktop page. Now it opens into a real workspace when it has room, on BOTH surfaces that share the editor (public `/monogram` + the couple dashboard studio at `/dashboard/[eventId]/monogram`).
+
+- **`lib/monogram-studio/engine.ts`** — the paper.js view height was hardcoded to 300px (`viewSize = Size(clientWidth, 300)`), so a taller CSS canvas would vertically stretch the mark. Now `syncViewSize()` sizes the view to the canvas host's **actual rendered box** (keeping `view.center` fixed so the origin-composed mark stays centred), and a `ResizeObserver` (rAF-debounced, torn down in `destroy()`) re-syncs on every reflow — breakpoint flips, window resize. The mark renders 1:1 and crisp at whatever size the layout gives it.
+- **`lib/monogram-studio/markup.ts`** (`STUDIO_CSS`) — `.vs` becomes a `container-type:inline-size` context; a `@container (min-width:760px)` rule turns the editor `.card` into a CSS grid (`top` spans both columns; large `canvas` left, scrollable `panel` right) and widens `.frame` to `max-width:1040px`. Below 760px the single-column mobile stack is **unchanged** (canvas height moved to `.sw2` as `clamp(320px,64vw,440px)` so it stays responsive instead of frozen by paper.js's inline size). Container-query so it keys off the studio's own width, not the viewport — graceful inside either host.
+- **`app/monogram/page.tsx`** — `<main>` `max-w-5xl` → `max-w-6xl` so the wider studio has room (header/steps/CTA keep their own narrower max-widths).
+
+Verified: `pnpm typecheck` clean. Visual check deferred to the PR's Vercel preview (the local preview server is rooted at a different checkout). No migration, no schema, no copy change.
+
+SPEC IMPACT: None — presentation/layout only; the editor's behaviour, exports, and shared-markup contract are unchanged. The studio remains the free vector mark (the-free-monogram-stays-free lock).
+
+## 2026-06-19 · fix(pwa/monogram): /monogram (+ other public routes) were stale-cached as "guest slugs" → Vector Studio stuck loading
+
+Owner: the Monogram Vector Studio (`/monogram`) was stuck on "Loading the typeface…". Diagnosis: the service worker's `isDayOfGuestNavigation` RESERVED set was **out of sync with the app routes** — it listed only a handful, so single-segment PUBLIC pages (`monogram`, `about`, `explore`, `features`, `our-story`, `download`, `how-it-works`, `privacy`, `terms`, `realstories`, `forgot-password`, `reset-password`, `waitlist`) were mistaken for guest slugs and stale-cached (SWR). The owner got an **old `/monogram` build** that hung. (Fonts + page are live on prod — verified HTTP 200 — so it was a caching/serve issue, not missing assets.)
+
+- **`public/sw.js`** — completed the `RESERVED` set with every real top-level route, so only an actual guest slug gets the day-of treatment. (Also bumps the SW bytes → forces the new worker to activate, evicting the stale `/monogram`.)
+- **`app/monogram/public-monogram-studio.tsx`** — added a 15 s load safety-net: if the engine/typeface never finishes (hung dynamic import / font fetch / stale build), it surfaces "Still loading — please refresh." instead of an infinite "Loading the typeface…"; the catch path now also says "…please refresh."
+
+Verified: `node --check public/sw.js` OK; `pnpm typecheck` + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `Caching_and_Offline_Strategy` § 3.2 — the day-of guest-nav matcher now excludes ALL public top-level routes (must stay in sync with `app/<route>/`). None for the corpus otherwise. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · fix(copy): retire stale "100 complimentary tokens on verification" claims (PR pending, auto-merge)
+
+The 100-free-tokens-on-verification grant was retired 2026-06-17 (migration `20270110320020_remove_verification_token_grant.sql`, PR #1446) — both AFTER INSERT/UPDATE triggers on `vendor_profiles` dropped, functions stubbed to no-ops; the admin approval action (`admin/verify/actions.ts`) grants no tokens. **Verified gone in the LIVE prod schema** (`information_schema.triggers` returns 0 `vendor_verified_bonus%` rows). Several vendor- and public-facing surfaces still advertised the retired grant; updated to current reality (verification is free; no token bonus), brand voice kept:
+
+- `vendor-dashboard/verify/page.tsx` — metadata description, the green callout (repurposed to "Verification is free during launch" + what approval unlocks, icon retained), and the ApprovedCard text.
+- `lib/help.ts` — "How are vendors verified" article (dropped the founder-bonus sentence).
+- `_components/marketing/_fixtures.ts` — removed the "100 free tokens on verification" `VENDOR_FEATURES` bullet (shown on `/for-vendors`).
+- `pricing/page.tsx` — dropped the "100 complimentary tokens once verified" paragraph sentence + the tier bullet (public pricing).
+- `vendor-dashboard/tokens/_components/voucher-list.tsx` — empty-state now lists real token sources (subscription bundles · admin grants · voucher codes).
+- `admin/vendors/[vendorProfileId]/tokens/page.tsx` — empty grant-history copy no longer claims the bonus "fires automatically on verification."
+
+Left in place: historical code comments + the token-expiry category list (legacy founder-bonus tokens already issued still expire — no retroactive clawback per the migration).
+
+Verified: copy-only; no schema, no logic. CI typecheck/lint/build gate the PR.
+
+SPEC IMPACT: The spec corpus still describes the 100-token verification grant in vendor/pricing specs (e.g. `Pricing.md`, CLAUDE.md vendor-token rows). The grant is retired and code is canonical (per AS_BUILT ground truth) — flagging for owner; corpus reconciliation can land separately. No corpus change blocks this copy PR.
+
+## 2026-06-19 · refactor(studio): rename the route `/dashboard/[eventId]/add-ons` → `/studio` (PR pending, auto-merge)
+
+Owner: the surface is branded "Studio" everywhere but the URL still read `/add-ons`. Renamed the route to match.
+
+- **Moved the whole folder** `app/dashboard/[eventId]/add-ons` → `…/studio` (100 files: the hub, the catalog-driven `[addon]/about` detail, and every feature surface — papic · panood · led · mood-board · save-the-date · monogram · qr · blueprint · pakanta · patiktok · photo-delivery · playlist · setnayan-ai · supplies · bundle).
+- **Updated all route strings + imports** (≈50 more files): the `addOnHref` / `appStoreDetailHref` helpers, the customer nav (`customer-menu.ts` Studio tab href + activeMatch + sectionMatch), nav-registry defaults, `revalidatePath`/`redirect` calls (var-name-agnostic literal replace), and every internal link. The `add-ons-catalog` / `add-ons-detail` / `add-on-stats` **module filenames are unchanged** (internal names, not routes).
+- **Redirect safety net** (`middleware.ts`): new `LEGACY_ADDONS_RE` → 308-redirects `/dashboard/:eventId/add-ons/:rest*` → `/studio/:rest*` (carries subpaths + query), so QR codes, bookmarks, older emails, and indexed links survive. The legacy `/services` redirect now also targets `/studio`.
+
+Verified: `pnpm typecheck` clean · **`pnpm build` green — 226/226 pages**, route table confirms all surfaces now at `/dashboard/[eventId]/studio/*`. No migration.
+
+SPEC IMPACT: iter 0021 Studio surface — canonical URL is now `/studio` (old `/add-ons` permanently redirects). See `DECISION_LOG.md` 2026-06-19.
+## 2026-06-19 · feat(admin): Reveal Studio can preview + tune the touch-glow in-place (PR pending, auto-merge)
+
+Owner follow-up: HQ couldn't see the press-to-glow inside the Reveal Studio (it's a public-page effect), so it could only be tuned blind. Added a **scoped mode** to `StdTouchGlow` (`containerRef` prop): instead of full-viewport on `window`, it confines itself to a given element, positions blooms relative to it, and listens on it in **capture phase** (so the veil's grab-zone can't swallow the press). The live STD path is unchanged (no `containerRef` → same `fixed` z-[80] window behavior).
+
+Wired into `/admin/reveal-studio`: the live phone-frame preview now mounts the scoped glow, so HQ can **press inside the frame and watch it tune live** with the colour / brightness / size sliders. Preview hint updated to "press to glow."
+
+Verified: `pnpm typecheck` clean. No migration.
+
+SPEC IMPACT: iter 0024 Reveal Studio — in-studio glow preview. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · copy(studio): Panood detail + hub row one-liners join the stories-and-results voice (PR pending, auto-merge)
+
+Owner follow-ups to the App Store copy pass: (1) bring Panood's bespoke detail page in line, (2) "punch them too" — the short hub-row blurbs.
+
+- **Panood detail page** (`add-ons/panood/page.tsx`) — rewrote hero ("No one misses your day."), preview captions, and About to sell the outcome (family everywhere watching live, the day saved forever) instead of the broadcaster mechanics. **Removed** the Event-Privacy / Data-linked / Accessibility sections (keyboard shortcuts, OAuth tokens, bitrate pings) and the mechanism `samples`/preview sub-lines; added a "What you'll have" block; trimmed `notIncluded` to two plain honest expectations. Kept its real stats + reviews (genuine social proof) and live catalog price.
+- **Hub row one-liners** (`add-ons-catalog.ts` `blurb` × 14) — rewrote every hub-visible blurb to a punchy, result-led line (e.g. Papic → "Your guests become the photographers — every candid in your gallery by morning."; LED → "Your name and monogram, twenty feet tall on the stage screen."). These are shared with the vendor Services tab, so it benefits there too. Hidden utility entries (Orders/Paprint) left as-is.
+
+Verified: `pnpm typecheck` clean · `lib/add-ons-detail.test.ts` 3/3 · no migration.
+
+SPEC IMPACT: None (copy/voice only; aligns with the locked public-surface-hygiene rule). See `DECISION_LOG.md` 2026-06-19.
+## 2026-06-19 · fix(std): a tap on the Save-the-Date video controls it, never leaves it (PR pending, auto-merge)
+
+Owner: *"when the video is playing and someone taps the video, it should not leave the video. When the video does not play and the video mini box is clicked, it should not go to the next slide and instead play the video in full screen."*
+
+The film's tap handler stepped the beat (prev/next) on any horizontal tap — including on the video beat — so a tap on the clip jumped to the next/previous slide. The fullscreen video overlay is `pointer-events-none`, so those taps fell straight through to the stage stepper.
+
+Fix (`save-the-date-film.tsx` `onPointerUp`): when the active beat IS the video beat, a tap now controls the **video**, never the film —
+- **paused / not-yet-playing → play it full screen.** The play() runs inside the tap gesture, so iOS allows it (and `requestFilmFullscreen()` fires) — this also covers the case where autoplay was blocked and the guest sees a paused clip.
+- **playing → pause it** (stays on the beat).
+- Either way it **returns before the prev/next stepper**, so a tap can never leave the video. Moving on is still a deliberate vertical swipe-scrub, or the video's natural end (→ calendar close).
+
+Verified: `pnpm typecheck` clean. (Tap/video playback can't be exercised headlessly — owner verifies on a phone.) No migration.
+
+SPEC IMPACT: iter 0024 Save-the-Date — video-beat tap behavior. See `DECISION_LOG.md` 2026-06-19.
+## 2026-06-19 · fix(std): Save-the-Date music now plays on the veil lift on MOBILE (PR pending, auto-merge)
+
+Owner: *"on mobile, the save the date music did not play when the veil was raised."*
+
+Root cause: the veil lift dispatches a **synthetic** `std-go-fullscreen` event (veil-reveal.tsx) and the film calls `audio.play()` inside that event's handler. iOS Safari does **not** treat a synthetically-dispatched (untrusted) event as a user gesture, so `play()` was silently blocked on phones — desktop is lenient, so it only failed on mobile.
+
+Fix (`save-the-date-film.tsx`): unlock the `<audio>` on the guest's **first real touch** via a **capture-phase** `pointerdown`/`touchstart` listener (capture fires even though the veil's grab-zone owns the gesture). It does a trusted, **muted** `play→pause→rewind`, which marks the element user-activated — so the real lift `play()` (`start()` on `std-reveal-done` + `onGoFs`) then works with no gesture. The unlock is volume-0 + rewound, so the music still **begins on the lift**, not on the grab. No blip, no double-play (the already-playing no-reveal path just continues).
+
+Verified: `pnpm typecheck` clean. (iOS audio can't be exercised headlessly — owner verifies on a phone.) No migration.
+
+SPEC IMPACT: iter 0024 Save-the-Date — mobile soundtrack-on-lift fix. See `DECISION_LOG.md` 2026-06-19.
+## 2026-06-19 · fix(hosts): "Could not send invitation: NEXT_REDIRECT" — couples couldn't add hosts (PR pending, auto-merge)
+
+Owner: *"i cannot add hosts. something went wrong."*
+
+Root cause: `inviteHost` in `app/dashboard/[eventId]/hosts/actions.ts` called the success `redirect(…?invite_sent=1&token=…)` **inside** a `try`. Next implements `redirect()` by throwing a `NEXT_REDIRECT` error, so the surrounding `catch (e)` swallowed it and re-redirected to `?invite_error=${e.message}` = `NEXT_REDIRECT`. The hosts page then rendered **"Could not send invitation: NEXT_REDIRECT"** on *every* invite — including ones that actually inserted the row. The same masking hid genuine DB/validation errors. Latent since the feature shipped (commit `e23f96e9`, 2026-05-24); surfaced now that the multi-host invite flow was exercised.
+
+Fix: re-throw Next's control-flow error in the catch — `if (isRedirectError(e)) throw e;` — before the `invite_error` fallback. Matches the existing convention in `app/signup/actions.ts`. Now the success redirect lands on `?invite_sent=1` (couple sees the share link), and only real failures (Forbidden, bad email/role, DB errors) surface their actual message.
+
+Verified: change mirrors the proven `isRedirectError` pattern already in `signup/actions.ts`; import path resolves against the installed Next 15.5.18 (`next/dist/client/components/redirect-error`). Relying on CI typecheck + build (auto-merge gate). No migration.
+
+SPEC IMPACT: None — restores the already-specced multi-host invite (iter 0048) to working order; no behavior/pricing/schema change.
+
+## 2026-06-19 · feat(std): press-to-glow on the Save-the-Date + admin Reveal Studio control (PR pending, auto-merge)
+
+Owner: *"when the screen is pressed it glow on the save the date — like how in movies the floor subtly glows when you touch it. And we can add settings on the admin for this."*
+
+- **The effect** — new `app/[slug]/_components/reveal/std-touch-glow.tsx`: a `pointer-events-none` z-[80] overlay that blooms a soft **screen-blended** radial light wherever a finger presses, **follows the finger** while held, and fades out (~620ms) on release. Multi-touch → multiple blooms (tracked per `pointerId` with a monotonic uid so a reused id never inherits a fading one). Honors `prefers-reduced-motion` (renders nothing).
+- **Mounted** by `reveal-overlay-server.tsx` — runs for the whole Save-the-Date phase (`enabled`) when the admin toggle is on, so it brightens **both** the reveal opening (touching the veil/doors) and the bare film underneath. Zero prop-drilling (the server wrapper already reads the config).
+- **Admin control** — added a **"Touch glow"** panel to `/admin/reveal-studio` (toggle + colour + Brightness + Size sliders). Persists in the existing `reveal_studio_config` JSON via `saveRevealStudio` — **no migration**. Defaults: ON, warm candlelight `#FBE9C8`, intensity 55, size 50 (couples never override; admin-tuned house default).
+
+Verified: `pnpm typecheck` clean · rendered the bloom against a dark stage via a throwaway route + synthetic presses (confirmed the screen-blend light appears + follows). No migration.
+
+SPEC IMPACT: iter 0024 Save-the-Date — new press-to-glow ambience + Reveal Studio control. See `DECISION_LOG.md` 2026-06-19.
+## 2026-06-19 · feat(std): slower petals + subtle "Created at SETNAYAN" mark
+
+Owner: "the petals need to fall slower" + "on the lower part add Created at SETNAYAN (subtle branding only)".
+
+- **Slower petals.** Dialled the veil-reveal petal gravity down ~0.6× across all three behaviours (feather −1.4→−0.85, rotate −2.7→−1.6, straight −3.6→−2.2) so they drift down more gently.
+- **No top-aligned petals.** Clingers now **release and fall** once the veil lifts (`lift > 0.5`) instead of riding the cloth up to the pinned crown and lining up along the top edge (owner 2026-06-19 "why are the petals aligned on the top").
+- **Subtle branding.** A tiny "Created at SETNAYAN" mark at the lower edge of the Save-the-Date film — mono, uppercase, `tracking-[0.3em]`, `opacity-35`, tone-aware colour, `pointer-events-none`. Lives in the outer container (not the scaled stage) so it stays small + consistent; hidden behind the full-screen video overlay. (Distinct from the removed prominent "Powered by Setnayan" footer.)
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` + `0024_Veil_Reveal_Spec` — petals fall ~0.6× slower; a subtle "Created at SETNAYAN" mark sits at the film's lower edge. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · fix(std): music holds during the video + resumes (never restarts)
+
+Owner: "the music should only continue after the video plays. it should not start over from the beginning."
+
+The crossfade left the music PLAYING silently (volume 0) under the video — so a `loop`-ed track looped back toward 0 during a long clip and sounded like it restarted afterwards. Now the music **pauses** (holds its exact position) once it fades out entering the video beat, and **resumes from there** when the film returns to the closing screen (`play()` never resets `currentTime`, and we never touch it). The video keeps its own audio + the ~700ms crossfade both ways; only the music's hold/resume changed.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the soundtrack pauses for the video and continues from where it left off (no restart). See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · fix(theme): register missing `paper` Tailwind color token — Build tab's [Build] button was a blank dark box (PR pending, auto-merge)
+
+Owner reported the Build tab ("Build your plan") showed no buttons for the build action — just a dark rectangle. Root cause: `paper` was used as a Tailwind color (`bg-paper` rows, `text-paper` on dark CTAs) across **21 files**, but it only ever existed as the `--m-paper` CSS variable — it was **never registered as a Tailwind color token** in `tailwind.config.ts`. So `bg-paper` / `text-paper` / `border-paper` compiled to **nothing**. On the Build button (`bg-ink text-paper` + Hammer icon), the dark `bg-ink` rendered but the `text-paper` label + `currentColor` icon inherited the ambient ink color → invisible on dark = blank box. This is the identical failure class the config already documents for the `burgundy` slot.
+
+- **`apps/web/tailwind.config.ts`** — added `paper: 'rgb(var(--color-cream) / <alpha-value>)'` aliased to the canonical cream surface channel (same Warm Alabaster value; flips correctly in dark mode), so `bg-paper` / `text-paper` / `border-paper` resolve and `<alpha-value>` modifiers like the existing `text-paper/70` (vendor subscription cycle toggle) work too. One-line, follows the `burgundy`→`mulberry` back-compat precedent in the same file.
+
+Verified at the CSS layer (Tailwind compile, before/after): original config emitted **no** `.text-paper`/`.bg-paper`/`.border-paper` rules; with the fix all three emit, plus `.text-paper/70` → `color: rgb(var(--color-cream) / 0.7)`. `.text-paper` resolves to alabaster on light / obsidian on dark, so the Build label + icon are now visible on the dark button. No migration.
+
+SPEC IMPACT: None (repo-side theme-token bug fix; no product, pricing, or spec change). Fixes the same latent gap for the other 20 files using `*-paper` (admin pricing/subscriptions/token pages, several build/details dashboard editors).
+
+## 2026-06-19 · copy(studio): App Store detail pages rewritten to sell stories + results (PR pending, auto-merge)
+
+Owner, looking at the Setnayan AI detail page: *"it should not explain how we do it or our program — we are selling stories and results."* (Register chosen: punchy & confident.) The first cut described the machinery ("ranks every vendor… a matching layer, not a chatbot… six signals"); rewrote all 14 catalog-driven feature detail pages to lead with the outcome.
+
+- **`lib/add-ons-detail.ts` fully rewritten** — every feature's hero title, tagline, About, "What you'll have" bullets, and preview captions are now short, declarative, benefit-only. No mechanism words (signals/pipeline/face-matching/QR fan-out/render engine). E.g. Setnayan AI → *"Your shortlist. Already made."*; Papic → *"The moments you'll miss, caught."*
+- **Dropped the mechanism sections from the sell page** — removed the stat/spec carousel (e.g. "6 signals") and the Event-Privacy / Data-linked explainers from the catalog-driven detail page; trimmed the `AddOnDetail` type to the story/result fields. The "What's included" section is retitled **"What you'll have."** (Panood's bespoke page keeps its own stats/privacy — unchanged.)
+- Hub featured-hero taglines pull from these taglines, so they punch up too. Pricing still renders live from the admin catalog.
+
+Verified: `pnpm typecheck` clean · `lib/add-ons-detail.test.ts` 3/3 (every hub feature still has detail content). No migration.
+
+SPEC IMPACT: None (copy/voice only; aligns with the locked public-surface-hygiene rule — benefits, never implementation). See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(studio): couple Studio becomes an iOS App Store browse + detail experience (PR pending, auto-merge)
+
+Owner: *"customer — studio should look like app store for iOS so we can see information of the different features. Also reorganize the studio: Setnayan AI, Website, Capture, Branding as the subnav."* The 4-section subnav already shipped; the gap was the hub (a flat one-line-blurb grid) and the detail layer (only Panood had the App Store detail — the 2026-05-17 pilot was never fanned out). This PR fans it out to **every** feature and rebuilds the hub.
+
+- **Hub `/dashboard/[eventId]/add-ons` rebuilt as an App Store browse surface.** Each of the four locked sections (Setnayan AI · Website · Capture · Branding) leads with a **featured hero** (poster-gradient card) and lists the rest as **App Store rows** — colourful squircle "app icon" (the feature's poster gradient), name, one-line subtitle, and a **GET / ₱price / Free / Active / Pending** pill. Whole row = one tap target → the feature's detail page (no nested interactive elements). New desktop sticky **section tab strip** (`studio-section-tabs.tsx`, scroll-spy, `lg:`-only — mobile already has the docked sub-nav). New components: `studio-app-row.tsx`, `studio-featured-card.tsx`, `studio-section-tabs.tsx` (the old `studio-card.tsx` grid is retired from the hub).
+- **App Store detail page fanned out to all features.** New catalog-driven route `/add-ons/[addon]/about/page.tsx` renders the shared `AppStoreLayout` from per-feature content in **`lib/add-ons-detail.ts`** (14 features: hero, preview rail, About, What's included, Plans, honest Event-Privacy / Data-linked). Panood keeps its bespoke detail at `/add-ons/panood` (hub links straight there).
+- **Pricing stays admin-managed.** The GET/price pills (hub) and Plans (detail) render **live from `platform_retail_catalog_v2`** by `serviceKey` — never hardcoded (respects the "admin pricing controls all prices" lock). The detail CTA hands off to the feature's own functional surface, which owns the buy/launch flow; "Active" only shows on `paid`/`fulfilled` (aligns with the 2026-06-18 admin-approval handshake).
+- **Shared layout made flexible.** `app-store/layout.tsx` props `stats`/`preview`/`privacy`/`dataLinked`/`accessibility` are now optional (render only when present) + a new optional **What's included** highlights section. Backward-compatible — Panood's page is unchanged. Visual unity: hub uses the same `ink/cream/terracotta/mulberry` tokens (= the Clean Editorial palette, dark-mode-ready) as the detail layout.
+
+Verified: `pnpm typecheck` clean · `pnpm lint` clean (fixed an `aria-disabled`-on-`li`) · new `lib/add-ons-detail.test.ts` (3 tests) guards that every available hub feature has detail content so no row 404s. Visual verification = the PR's Vercel preview (no local `.env.local` on disk in this environment). No migration.
+
+SPEC IMPACT: iter 0021 (couple dashboard · Studio/Services surface) + the 2026-05-17 App Store detail pilot generalized to all in-app services. See `DECISION_LOG.md` 2026-06-19.
+## 2026-06-19 · feat(std): the video plays FULL SCREEN (autoplay takeover)
+
+Owner: "why is the video not full screen?" When the video was switched to autoplay (no play button), it became a small inline clip inside the scaled film canvas (`max-h-520px`), so it no longer took over the screen.
+
+- On the live page the couple's clip now plays in a **full-screen overlay** (`fixed inset-0`, `z-[70]` — above the film AND the reveal/veil), `object-contain` on black, fading in on the video beat and out as the film advances to the calendar close. It still **autoplays** (no click) and crossfades the soundtrack; on its natural end it advances. The overlay is `pointer-events-none` so the wheel/scroll scrub still works through it and it never traps the guest.
+- The video beat's in-canvas node is now just the "Watch our story" label (the overlay holds the real video). In the **builder preview** the video still plays inline in the device frame (a fixed overlay would escape the frame).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the video beat is a full-screen autoplay takeover (was a small inline clip after the autoplay change). See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): manual ceremony venue + single date on the date beat
+
+Two owner film-content fixes.
+
+- **Ceremony venue — manual entry added.** The film's ceremony beat only auto-filled from a FINALIZED on-platform ceremony booking (`religious_venue`/`church_fees`); a couple who booked off-platform had no way to set it, so the slide never showed ("where is the ceremony venue — add it"). Added `events.std_film_ceremony_name` (migration `20270127000000`, applied) — the manual fallback paralleling the reception's `std_film_venue_name`. New editable "Ceremony venue" input in the Save-the-Date builder Content step (was a read-only booking display); the live page + builder resolve `ceremony = finalized booking ?? std_film_ceremony_name`. The ceremony slide (beat 4) renders whenever a ceremony venue resolves.
+- **Date shown once.** The date beat rendered BOTH the compact `MM.DD.YY` and the long-form "December 16, 2026" (the date appeared twice). Now it shows the **long-form as the single hero** (the compact is only a fallback when there's no long form).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. Migration `20270127000000` applied to prod (ledger clean, single pending).
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — ceremony venue now has a manual fallback (not booking-only); the date beat shows one date. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · fix(monogram): the Monogram Maker page 500'd in production for every couple (same PR #1798)
+
+Owner reported the maker page (`/dashboard/[eventId]/monogram`) showing **"Something on our end didn't work"** (a Server Components render error, message hidden in prod). Reproduced it in a local **production build** (dev was lenient and rendered fine): the real error was
+
+```
+TypeError: MONO_FONT_OPTIONS.some is not a function
+```
+
+**Root cause (a classic prod-only RSC trap):** the page is a Server Component, but it imported the *value* `MONO_FONT_OPTIONS` (+ `DEFAULT_FONT_FOR_STYLE`) from `monogram-maker.tsx`, which is a `'use client'` module. A server import of a **value** export from a client module resolves to `undefined` in the production RSC build (dev tolerates it), so `MONO_FONT_OPTIONS.some(...)` threw and crashed the whole page. Latent since the typeface picker (#1260) added that import; the monogram-studio `lib/` extraction (#1796) changed the route's module graph and tipped the prod bundler into actually stripping the export. (The Vector Studio code was not at fault — this is the lettered-maker font logic.)
+
+**Fix:** moved `MONO_FONT_OPTIONS` / `DEFAULT_FONT_FOR_STYLE` / `MonoFontOption` / `MonoStyle` into a new **non-client** `monogram-maker-shared.ts`. The server page imports the constants from there (a real array on the server); the client `monogram-maker.tsx` imports them from the same module; the component (`MonogramMaker`) is still imported from the client file (normal RSC). No other client→server value imports exist on the page.
+
+Verified: `pnpm typecheck` clean · `pnpm lint` 0 errors · reproduced the crash in a prod build, then confirmed the **prod build renders the authed monogram page 200** with the fix (no server error).
+
+SPEC IMPACT: none — bugfix. Hardening note: never import a non-component value from a `'use client'` module into a Server Component.
+## 2026-06-19 · fix(pwa): guest `/[slug]` page is network-first, not stale-while-revalidate
+
+**This is why every Save-the-Date deploy looked like nothing shipped.** The service worker (`public/sw.js`) classified any bare `/[slug]` navigation as a "day-of guest" page and served it **stale-while-revalidate** from `DAYOF_CACHE` — so the couple's landing page (e.g. `/cale-ice`) returned the **previous build's cached HTML** (→ the old JS chunks) on the first visit after each deploy, only refreshing in the background. The owner kept seeing the old film even though the code was merged + deployed.
+
+- Switched the `/[slug]` (+ `/find-my-table`) navigation to **network-first**: fetch fresh when online and update the cache; fall back to the cached copy **only** when the network fails. Keeps the offline / weak-signal day-of fallback intact while guaranteeing a fresh page whenever the network is up.
+- Static JS/CSS chunks (content-hashed) + images/fonts are unchanged (they can't go stale by filename). Only the document navigation strategy changed.
+
+⚠ One-reload lag: the FIX itself ships via the SW, so the new SW must activate once (a reload) before `/[slug]` becomes network-first; from then on every deploy is fresh on first load.
+
+Verified: `node --check public/sw.js` OK. No migration.
+
+SPEC IMPACT: `Caching_and_Offline_Strategy` § 3.2 — the day-of guest landing page is network-first (was SWR); offline fallback preserved. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · fix(std): uploaded song plays — drop the redundant veil-music gate
+
+Owner: "background music is not playing when the veil is up. I uploaded the music on the save the date page."
+
+`bgMusicUrl` (app/[slug]/page.tsx) required THREE flags: `site_bg_music_enabled` **AND** the track key **AND** `std_reveal_effects.music` (the veil "Add music" effect, which the veil canvas ignores — "handled at page level"). The Save-the-Date Music step's upload sets the first two, but the redundant third flag (off unless the couple toggled it) was nulling the music URL — so the film got no soundtrack at all even after the upload. Dropped the `&& stdEffectsForMusic.music` gate: `site_bg_music_enabled` is the single on/off, so an uploaded + enabled song now just plays (no re-save needed — the existing `site_bg_music_enabled=true` from the upload resolves the URL on the next load). Pairs with the recovered autoplay-on-lift fix (#1800), which actually starts it.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the couple's uploaded/enabled site song is the single source for the film soundtrack; the redundant veil `music` flag no longer gates it. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · fix(std): music autoplays · content waits for the veil · petals cling on hit (PR-W follow-up 4)
+
+Owner: "music did not auto play. and content will [only] play [once] the veil is up." + "[petals] can cling but only 30% of the petals, and only if the petals hit the veil."
+
+- **Content waits for the veil.** The film had a 2 s fallback that auto-started even when a veil was present — so the beats played UNDER the veil, and (because that start wasn't from a user gesture) the **music autoplay was blocked**. Now `RevealOverlay` publishes `window.__stdRevealActive` when a reveal will show; the film only auto-starts (after a short grace) when NO reveal is active, otherwise it holds until **`std-reveal-done`** (veil fully lifted). If the reveal can't run, veil-reveal already fires `std-reveal-done` itself, so it never hangs.
+- **Music autoplays.** On the lift gesture the veil dispatches `std-go-fullscreen` **synchronously**; the film now also **plays the soundtrack there** — inside that user activation — so audio-with-sound is allowed (browsers block it without a gesture). It's already playing as the veil rises.
+- **Petals cling on hit (≤30%).** Re-added clinging, but collision-based: a falling petal that hits the **covered** veil (lift low, on-screen, near the cloth front) rolls **once** — ~30% cling **where they landed** (snap to the nearest cloth point, keeping their offset), capped at **30% of petals**; the rest fall on. No random pre-seeding.
+
+Verified: `pnpm typecheck` (my files clean; monogram-studio `paper` errors are an unrelated local install gap) + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` + `0024_Veil_Reveal_Spec` — content holds until the veil lifts; music starts on the lift gesture; veil petals cling only on collision, ≤30%. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): uniform scale-to-fit film (one design canvas, transform-scaled) (PR-W follow-up 3)
+
+Owner: "resizing still did not work. we want to take the maximum width always without causing the texts to exceed both width and height, and keep everything at the same size."
+
+Replaced the breakpoint-based responsive sizing (discrete `sm:`/`lg:` font jumps + `md:max-w` stage widening — which scaled in steps and never truly filled the screen) with a single **uniform scale-to-fit**:
+
+- The film is now composed at ONE fixed logical canvas (`BASE_W 440 × BASE_H 780`); every beat's type + monogram are sized **once** (no responsive variants).
+- A `ResizeObserver` measures the container and sets `fitScale = clamp(min(cw/BASE_W, ch/BASE_H), 0.6, 2.3)` — the largest scale that fits within **both** width and height. The whole stage gets `transform: scale(fitScale)`, centred. So the content is as big as possible on any screen **without overflowing either dimension**, and **everything stays proportional** ("same size" = one uniform scale).
+- Applies identically on the live full-screen page and the builder preview frames.
+- Video clip cap switched from `68vh` → `520px` (stage-relative, so it scales with the canvas instead of fighting the transform).
+
+Verified: `pnpm typecheck` (my files clean; monogram-studio `paper` errors are an unrelated local install gap) + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the film scales as one uniform unit to fit any viewport (max size, no overflow), replacing breakpoint font bumps. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): video autoplays + audio crossfade · bigger desktop text · petals only fall (PR-W follow-up 2)
+
+Owner screenshot + notes: "the text are not larger on desktop. the leaves are randomly attaching to the veil but no leaf was falling on that direction. the video should autoplay, no more clicking. the background music will play automatically [and] crossfade to the video as the video plays, then crossfade again when it returns to the last screen."
+
+`save-the-date-film.tsx`:
+
+- **Video AUTOPLAYS** — removed the play-button → fullscreen interaction. The video plays by itself when its beat is active (the reveal gesture already granted the page media playback) inside the already-full-screen experience, and advances to the calendar close on its natural end. No clicking.
+- **Audio crossfade** — the soundtrack now **crossfades** (~700ms) to the video's audio as the video plays, then crossfades back to the music when the film returns to the closing screen (replaces the old hard music-pause/duck). Robust: the fade always converges to the target volume even if interrupted.
+- **Bigger on desktop** — the headline beats AND the monogram mark now scale up at `lg`: the close-beat date + monogram + invitation + venue sublines were missed before (the screenshot was the close beat). The monogram lockup/SVG uses responsive scale classes (`scale-[…] lg:scale-[…]`, `lg:h-44` etc.) so it's prominent on desktop, not an 80px chip.
+
+`reveal/veil-reveal.tsx`:
+
+- **Petals only fall** — removed the artificial "cling to a random veil grid point" (both the init seeding and the recycle path). Leaves were appearing stuck on the lifted veil where none had fallen; now every petal showers down from the top and none pre-attach. (Supersedes the §6 "petals cling / lowering shakes them loose" behaviour — owner-directed.)
+
+Verified: `pnpm typecheck` (my files clean; monogram-studio `paper` errors are an unrelated local install gap) + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` + `0024_Veil_Reveal_Spec` — the video autoplays with a music↔video crossfade; desktop type + monogram scale up; veil petals only fall (no random cling). See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · fix(monogram): the dashboard Vector Studio seeds from the couple's initials (same PR #1798)
+
+Owner: on the event's Monogram Maker (`/dashboard/[eventId]/monogram`), the Vector Studio opened on its built-in **"Maria & Juan"** placeholder instead of the couple's initials — so it didn't read as *their* monogram maker, and saving that generic mark **replaced the event's assigned monogram** with the wrong initials. Root cause: `VectorStudio` never received the event's initials — its sibling cards (Cipher / Bespoke / lettered Maker) all take `initialInitials` / `defaultInitials`, but `VectorStudio` took only `initialConfig` (the *saved* design), so a first-time open fell through to the engine's hardcoded default.
+
+- The page now passes `initialNames={monogram.text}` (the resolved "A & B" label).
+- The engine seeds the names field from it **on a first open only** — when there's no saved studio design to restore (a saved config carries its own names, so it's skipped then).
+- The public studio is unaffected (no event → keeps the generic demo default).
+
+So the editor now opens on the couple's real initials, and a save produces a mark consistent with their assigned monogram — no more generic clobber. (Also explains the reported "monogram saves overlap the assigned monogram": before the fix, the saved generic mark and the event's lettered mark disagreed across surfaces.)
+
+Verified: `pnpm typecheck` clean · `pnpm lint` 0 errors · `pnpm build` green.
+
+SPEC IMPACT: monogram Phase 5 — bugfix. None beyond the studio.
+
+## 2026-06-19 · feat(monogram): carry the public-studio design through sign-up (PR pending, auto-merge)
+
+Closes the loop on the public studio: a monogram designed on the free `/monogram` studio **before** sign-up now follows the visitor into their new wedding. No new server action — it reuses the existing `saveStudioAction` (which already re-sanitizes the SVG + enforces couple membership), so a client-controlled localStorage payload can never become an unsafe or cross-account mark.
+
+- **Bridge** `lib/monogram-studio/draft.ts` — `stashMonogramDraft` / `readMonogramDraft` / `clearMonogramDraft` over `localStorage` (sanitized SVG + re-editable config + 30-day TTL + size guard; SSR-safe — touches storage only inside functions). Device-bound by nature; the download is the cross-device fallback.
+- **Public studio** stashes the (sanitized) design on **download** and on the **"start planning · free"** CTA click.
+- **Dashboard restore card** `app/dashboard/[eventId]/monogram/draft-restore.tsx` — on the Monogram Maker, when a valid draft exists **and** the event has no custom mark yet, a "pick up the monogram you designed" card (with an inert data-URI preview) submits it to `saveStudioAction` → it becomes the official mark. Shows nothing otherwise (no layout cost).
+- **One-shot**: the draft is cleared as soon as a mark exists (right after Apply's redirect), so it never re-surfaces later if the couple clears their mark (adversarial-review fix). CTA copy corrected to point at the Monogram Maker specifically (not "your dashboard").
+
+Reviewed by a 14-agent adversarial pass (security · SSR/correctness · UX-flow · hygiene); 2 real issues found and fixed (draft cleanup after apply + CTA copy accuracy). The localStorage→server trust boundary is safe: `event_id` is server-rendered from the authed page, and `saveStudioAction` re-sanitizes.
+
+Verified: `pnpm typecheck` clean · `pnpm lint` 0 errors · `pnpm build` green (an initial run hit the flaky Next `webpack-runtime.js` worker error on an unrelated `/help` page; a clean rebuild passed).
+
+SPEC IMPACT: monogram Phase 5 — completes the public-studio funnel. DECISION_LOG + memory + corpus design doc updated.
+## 2026-06-19 · feat(std): auto-to-full-screen + robust window-level scroll-scrub (PR-W follow-up)
+
+Owner: "can we make it auto play to full screen? it is not scrubbing as well." (The scroll-scrub wasn't live yet — PR-W hadn't merged — and the wheel was bound to the centred stage only; both addressed here, same PR-W branch.)
+
+- **Auto-to-full-screen.** The film now requests the **Fullscreen API** so it plays with the browser chrome hidden. Browsers require a user gesture, so it fires on the reveal-lift (the veil dispatches `std-go-fullscreen` **synchronously** from its lift tap, preserving the activation) or, with no reveal, on the guest's first tap on the film. Targets `documentElement` (reveal + film both inside), once only, wrapped in try/catch — iOS Safari has no element-fullscreen so it silently stays the CSS full-viewport (already edge-to-edge).
+- **Scroll-scrub made robust.** Moved the wheel handler from the centred stage (`onWheel` prop — missed the desktop margins beside the `max-w-2xl` column) to a **`window` wheel listener**, so a mouse/trackpad scroll **anywhere** steps the beats (down = forward, up = back; debounced; manual mode). The vertical-swipe scrub (mobile) is unchanged.
+
+Verified: `pnpm typecheck` (my files clean; monogram-studio `paper` errors are an unrelated local install gap) + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the film auto-plays to true full screen on the reveal-lift gesture (best-effort; iOS stays full-viewport), and scrolls/scrubs anywhere on screen. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): responsive + per-beat animations + scroll-scrub (PR-W)
+
+Owner: "make save the date adjust for mobile and desktop version also. I also need a unique way to animate each information and it must be able to auto play or scrubbed via scroll to go back to information."
+
+`save-the-date-film.tsx`:
+
+- **Responsive desktop/mobile.** The full-screen stage was a phone-width `max-w-sm` column on every screen; it now widens — `md:max-w-xl lg:max-w-2xl` — and the headline beats scale up at `lg` (names → 7xl, date → 8xl, venues → 6xl, sentiment → 5xl) so desktop reads as a full composition, not a narrow strip. Mobile is unchanged (full-width). Slide padding eases in (`px-8 sm:px-10`).
+- **A unique animation per beat.** 9 keyframes (`FILM_ANIM_CSS`) — monogram **bloom**, names **rise**, date **zoom**, ceremony **slide-in-left**, reception **slide-in-right**, sentiment **breathe**, invitation **blur-in**, video **pop**, close **soft-rise**. The active slide applies its `anim` inline so it re-fires on every visit (forward or scrubbed back). Honors `prefers-reduced-motion` (animations off, plain cross-fade).
+- **Scroll-scrub (back + forward).** Mouse-wheel / trackpad scroll and a vertical swipe now step the beats (down/up-swipe = forward, up/down-swipe = back), debounced to one beat per flick, switching to MANUAL mode so the guest can scroll back to any earlier info. Auto-play still runs until the first scrub; horizontal taps stay a quick nudge that keeps it playing; press-hold still pauses.
+- **Re-applies the orphaned PR-T** (full-width legibility scrim + `hitControl` button-tap guard): #1792 auto-merged at the PR-S commit *before* PR-T was pushed, so those never reached `main` — folded back in here.
+- **Carries PR-V** (the veil/film spatial grab-zone) — this branch is a superset; #1795 is closed in favour of this PR.
+
+Verified: `pnpm typecheck` (my files clean; the `paper`/`paperjs-offset` errors are an unrelated local install gap from the monogram-studio merge — CI installs them) + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the film is responsive, each beat has its own entrance motion, and it scrubs by scroll/swipe (back + forward) as well as auto-playing. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(public): free no-login Monogram Studio on www.setnayan.com/monogram (PR pending, auto-merge)
+
+Owner: *"build this to www.setnayan.com"* + *"we already made a free monogram — should this be free too?"* → **yes, free** (the static/vector mark is free by the standing lock; the tool is an acquisition lead-magnet; an anonymous visitor can't take payment anyway; monetization stays downstream in the Animated Monogram reveal + tiers). New public route **`/monogram`** — the same Vector Studio, no login, design + **download** (crisp SVG + transparent PNG) + a *"start planning free"* CTA into the sign-up funnel.
+
+- **Shared extraction**: moved the engine to `lib/monogram-studio/engine.ts` and the editor DOM/CSS to `lib/monogram-studio/markup.ts` (`STUDIO_HTML` + `STUDIO_CSS`), so the couple-facing dashboard studio AND the public studio render the identical editor from one source (no dup). Dashboard `studio.tsx` now imports from `@/lib/monogram-studio/*`; its route bundle dropped 31 kB → 17.6 kB (markup moved to a shared chunk).
+- **Public component** `app/monogram/public-monogram-studio.tsx` (`'use client'`): reuses `mountStudio` via the same client-only dynamic import of paper.js/opentype.js (never touches SSR), but ends in **Download SVG** (`sanitizeStudioSvg` → Blob) and **Download PNG** (client raster: viewBox-aspect sizing, transparent alpha preserved, `encodeURIComponent` data-URI — Unicode-safe), plus the CTA. No server action, no eventId, no auth.
+- **Public page** `app/monogram/page.tsx` (server, static `○`): benefits-only copy, `WebApplication` JSON-LD (free, references the site `#organization`), 3-step explainer, "make it official" CTA. SEO metadata + canonical `/monogram`.
+- **Discoverability**: `/monogram` added to `NAV_ROUTES` (persistent chrome renders) + a footer "Monogram maker" link. NOT added to the locked 6-page top-nav link set (IA lock respected).
+- **Hygiene**: no implementation leak in public copy; guarded PostHog `public_monogram_downloaded` / `public_monogram_cta` events (no PII); Blob/data-URI downloads need no CSP change.
+
+Reviewed by a 44-agent adversarial pass (hygiene · security · SSR/reuse · download correctness · UX); the one real fix was the OG image (was the `/our-story` manifesto card → now the neutral `/brand/og-card.webp`). `?from=monogram` is harmless + URL-trackable via PostHog; deeper onboarding capture is an optional follow-up.
+
+Verified: `pnpm typecheck` clean · `pnpm lint` 0 errors · `pnpm build` green (`/monogram` prerenders static; paper.js in a separate dynamic chunk).
+
+SPEC IMPACT: monogram Phase 5 — public surface. Corpus design doc + DECISION_LOG + memory updated. Carry-the-design-through-signup (auto-apply to the new event) is the noted next enhancement.
+## 2026-06-19 · fix(std): veil AND film both reachable — spatial grab-zone (PR-V)
+
+Owner: "I still want the veil to be accessible. but I also want to be able to navigate the messages."
+
+PR-S made the veil layer `pointer-events-none` after reveal so swipes scrubbed the film — but that made the veil itself un-grabbable. This replaces the all-or-nothing release with a **spatial split** keyed to where the veil physically is:
+
+- `veil-reveal.tsx`: the canvas still renders full-screen, but pointer input is captured by a dedicated **grab-zone** child (the mount is now `pointer-events:none`; the grab-zone is `pointer-events:auto`). The RAF loop **resizes the grab-zone from `lift`**: full-screen while the veil COVERS the page (grab anywhere to lift), shrinking to the **top valance band** (`24vh`) once LIFTED — so swipes lower down fall through to the film (z-50) and scrub the messages, while the top stays the veil's. Hysteresis (0.6 up / 0.35 down) avoids flicker; capture moves to the grab-zone so a drag keeps tracking as it resizes. The two-way swipe-down-to-re-cover is **restored** (it works in the top band).
+- `reveal-overlay.tsx`: the veil wrapper is `pointer-events-none` (the grab-zone re-enables input for its region only) — replaces PR-S's `open`-gated full-layer release.
+- `save-the-date-film.tsx`: moved the mute toggle from top-right to **bottom-right** so it isn't covered by the top veil grab-zone (and stays tappable).
+
+Verified: `pnpm typecheck` (my files clean; pre-existing `paper` module errors are an unrelated local install gap from the monogram-studio merge — CI installs them) + `pnpm lint` clean.
+
+SPEC IMPACT: `0024_Veil_Reveal_Spec` / `0024_Save_the_Date_Content_and_Customization` — post-reveal the veil is grabbable in its top valance band while the film body scrubs the messages (supersedes PR-S's "two-way retired post-reveal"). See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): the film's logo falls back to the onboarding lockup (PR-U)
+
+Owner: "logo will be from the onboarding, but if they upload or use the monogram lab, it will bypass the onboarding logo."
+
+The film's monogram beats showed the uploaded/lab SVG when present, else plain initials in the film's own font. Now the fallback is the couple's **onboarding lockup** — the actual mark they designed at onboarding (bar / duo / script / infinity, framed, or the initials circle).
+
+- New `FilmMonogram` precedence: (1) `content.monogramSvg` — the uploaded / monogram-lab mark wins; (2) else the **onboarding lockup**, rendered via the canonical `HeroMonogram` (so the film matches the hero / chrome / QR mark exactly), scaled per beat; (3) last-resort initials in the film font (safety net only).
+- New `StdLockup` type + `lockup` prop on `SaveTheDateFilm`. Threaded from the live page (`stdLockupFor(event)` → `resolveMonogram` + design columns) on both the anonymous + signed-in paths, and from the builder (preview parity). Added `monogram_color` to `EventRow` and the builder SELECT (the design columns were already fetched).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — logo precedence is **uploaded → monogram-lab → onboarding lockup → initials**; the film's default mark is the onboarding lockup, not generic initials. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(monogram): studio colours — Ink / Outline / Backdrop presets + custom picker + Clear (same PR #1793)
+
+Owner: *"provide color choices and custom color for Ink, Outline (add clear), Backdrop (add clear)."* The studio's colour section is now three labelled rows, each with a curated preset palette **and** a native custom-colour picker (`<input type=color>`):
+
+- **Ink** — 7 presets (mulberry · gold · champagne · obsidian · navy · sage · dusty-rose) + custom.
+- **Outline** — was a hardcoded gold ring; now a **global outline colour** (6 metal/ink presets + custom) **+ Clear** (`none` → the outline ring isn't drawn even at width > 0). New `drawShape` reads `outlineHex`; default stays gold so existing marks are unchanged.
+- **Backdrop** — 6 presets + custom **+ Clear** (transparent checkerboard). Backdrop is the working canvas only — the **saved mark is always transparent** regardless (noted in-UI).
+
+Persistence: new `StudioConfig.outlineColor` (hex | `'none'`) added to `lib/monogram-studio-shared.ts` + `sanitizeStudioConfig` (clamped; ink/backdrop already accepted any `#rrggbb`). Engine gains `outlineHex` state, `selSwatch`/`syncColorInput` helpers, and click/`input` handlers for all three rows; `serialize`/`applyConfig` round-trip the colour. No schema change (the column is JSONB), no new dep.
+
+Verified: `pnpm typecheck` clean · `pnpm lint` 0 errors · `pnpm build` green.
+
+SPEC IMPACT: monogram Phase 5 increment — folded into the studio design doc + the existing DECISION_LOG row note. None beyond the studio.
+
+## 2026-06-19 · feat(monogram): Vector Monogram Studio — compose your mark from scratch, saved as the official monogram (PR pending, auto-merge)
+
+Built the **Vector Monogram Studio** into the Monogram Maker (`/dashboard/[eventId]/monogram`) — the app port of the v21 `show_widget` prototype (owner: *"build this to our monogram Lab"* + *"make sure what we render here will be our official monogram"*). Real font outlines (opentype.js) composed on a paper.js vector canvas: drag/pinch/twist letters, per-crossing **Combine / Cut / Delete** boolean interlock, per-letter outside-outline + cut-gap + auto-clean, a mirrored **fountain pen** (4 nib tips) for frames, **stamped vector symbols** (mirror on = frame, off = standalone), 8 OFL typefaces, undo/redo, and 3 ink-reveal animations (Handwriting / Trace / Droplet) with Speed/Delay/Smoothness. Renders as the flagship designer card — after Upload, before Cipher.
+
+**It IS the official monogram.** Save exports a tight-viewBox PURE-PATHS SVG (no webfont dependency) → `events.monogram_custom_svg`, the single canonical mark every surface already reads (chrome icon, QR centre, landing hero, save-the-date, seating/mood PDFs, social cards). A re-editable `events.monogram_studio_config` (new column) restores the composition. Saving clears `monogram_cipher_config` + `monogram_custom_generation_id` so exactly one source owns the mark; cipher-save + bespoke-apply now likewise clear `monogram_studio_config` (exclusivity), and `hasStudio` gates on `!monogram_uploaded_svg` (an upload still overrides).
+
+- **Migration** `20270126539355_add_events_monogram_studio_config_column.sql` (applied to prod · idempotent ADD COLUMN; RLS inherited on `events`).
+- **Deps:** `paper@^0.12.18` + `paperjs-offset@^1.0.8`, **dynamically imported client-only** (never touches SSR; opentype.js ^2 already present). `next.config.ts` `webpack` stubs paper's node-only `jsdom`/`canvas` requires (`resolve.alias … = false`) so the server compile resolves — paper's own `browser` field only covers the web target.
+- **Fonts:** 8 OFL TTFs vendored to `public/monogram-studio/fonts/` (+ `LICENSES.md`) — self-hosted, no CDN at runtime.
+- **New files:** `lib/monogram-studio-shared.ts` (config type + `sanitizeStudioConfig` + `sanitizeStudioSvg` — strict reject-don't-repair allowlist mirroring the bespoke SVG defense), `monogram/studio.tsx` (typed React wrapper + Save/Clear server-action forms), `monogram/monogram-studio-engine.ts` (`// @ts-nocheck` — the ported imperative paper.js engine; its public return is consumed type-safely), `monogram/studio-actions.ts` (`saveStudioAction`/`clearStudioAction` · couple-membership gate · sanitize-on-save).
+
+Because the boolean engine can't be cheaply re-run server-side (paper.js needs a canvas), the mark is rendered client-side and the server SANITIZES the client SVG — the same defense the bespoke AI path uses for externally-produced SVG (strict allowlist: no script/use/style/external refs/event handlers; viewBox required; size-capped).
+
+Verified: `pnpm typecheck` clean · `pnpm lint` 0 errors · `pnpm build` green.
+
+SPEC IMPACT: monogram overhaul **Phase 5** — `03_Strategy/Monogram_Studio_Design_2026-06-19.md` flipped from "PROTOTYPE · no app code yet" → SHIPPED; `DECISION_LOG.md` row added; memory `project_setnayan_monogram_overhaul` updated. ⚠ **Surfaced for owner sign-off:** the studio writes the same `monogram_custom_svg` as Cipher/Bespoke/Upload, so it is a **4th path to the one official mark** — no new SKU, the free monogram stays free.
+## 2026-06-19 · fix(std): post-reveal swipes scrub the film, not re-cover the veil (PR-S)
+
+Owner: "when I swipe down on a place without the veil, it should [not] bring the veil down — instead it should animate the texts via scrubbing."
+
+The veil is a persistent full-screen WebGL layer at `z-[60]` over the film (`z-[50]`). Even after it lifted it kept capturing pointer events, and `veil-reveal`'s `release()` reads a downward swipe as `setLift(0)` → re-covers. So a swipe on a now-uncovered area grabbed the transparent canvas instead of reaching the film.
+
+- `reveal-overlay.tsx` (veil branch): once the veil is revealed (`open`, set in `onRevealed`), the whole overlay flips to **`pointer-events-none`** — every gesture falls through to the film beneath, whose `onPointerUp` already steps the beats (tap/swipe the left third = back, otherwise = forward). The two-way "swipe down to re-cover" is **retired post-reveal** (the canvas's `window`-bound move/up listeners become harmless no-ops with no grab to act on).
+- The veil stays mounted + rendering (its drooped valance is still visible on top) — only its interactivity is released.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration. Shipped on the PR #1792 branch alongside the 9-beat spine (one branch to avoid the stacked-CHANGELOG churn).
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` / `0024_Veil_Reveal_Spec` — post-reveal the veil is non-interactive; swipes scrub the film (the 2026-06-18 two-way re-cover is retired once lifted). See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): the 9-beat film spine + video → full screen (PR-R)
+
+Owner respec of the film's beat order + the video behaviour:
+
+> "1. Logo 2. Together with their families… 3. Wedding Date 4. Ceremony Venue message with name of venue 5. and we will celebrate together at Reception Venue 6. We can't wait to celebrate with you 7. Formal Invitation to Follow · Arrives XXX 8. Watch our Video (press play button to go full screen, should go on top of everything) (or scroll the photos if photos) 9. Once the video ends, add to calendar invitation schedule."
+
+`save-the-date-film.tsx` rebuilt to that exact spine:
+
+- **Reordered + reworded beats.** 1 monogram · 2 names · 3 wedding date (**add-to-calendar removed from here**) · 4 ceremony — "We'll exchange our vows at **{ceremonyVenue}**" · 5 reception — "And we'll celebrate together at **{receptionVenue}**" · 6 "We can't wait to celebrate with you" · 7 "Formal invitation to follow · Arrives **{launchLabel}**" · 8 video/gallery · 9 **add-to-calendar** (terminal). Beats 6 + 7 + 9 were split out of the old combined close beat.
+- **Video beat → full screen.** The video no longer auto-plays inline. Beat 8 shows the clip with a play button; pressing it takes the `<video>` **full screen on top of everything** (`requestFullscreen` / WebKit `webkitEnterFullscreen` for the iOS native player) with sound, music ducked. On the video's natural **`ended`** it exits full screen, resumes music, and advances to the calendar close (beat 9). Leaving full screen early pauses + resumes music. The beat holds (`dur: Infinity`) until played or scrubbed past. In the builder preview the video plays inline + muted (no fullscreen in the device frame).
+- **Dropped the standalone "Our story" teaser beat** — not in the owner's spine. ⚠ Flagged for owner: `storyTeaser` is still resolved in `save-the-date-content.ts` but no longer rendered; say the word and we re-add a beat or strip the field.
+- **Simplified the engine.** Removed the now-dead scrub-fill RAF tracking + `fillRefs`, the inline-video orchestration effect, the landscape-tilt hint + orientation effect (the video is full screen now, so the tiny-landscape problem is gone). Auto-play + press-hold-pause + left/right-third scrub gestures unchanged.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean; `save-the-date-content` tests 22/22.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the film is now a fixed 9-beat spine (date card no longer carries the calendar CTA; the standalone story beat is dropped); the couple's video plays **full screen** on a play gesture and the calendar close shows once it ends. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): full-screen Save-the-Date — no top nav, no chrome (PR-Q)
+
+Owner: "we don't want the top nav, we want a full screen save the date."
+
+- `InvitationShell` gains a **`fullBleed`** mode: when the full-screen film is the body it renders just `<main>{children}</main>` — **no** "Setnayan · Invitation" top bar, **no** footer, **no** centred max-width column. Passed as `fullBleed={showSaveTheDate && stdFilm}` from both the anonymous (`PublicLanding`) and signed-in (`InvitationSite`) paths. The reveal overlay (z-60) + the film (z-50) fill the viewport edge-to-edge.
+- The film is now **terminal** in this phase: removed the "See your wedding page" dismiss + the `dismissed` state. There's no page beneath a Save-the-Date (the RSVP/widgets belong to later phases), so the film holds on its closing beat instead of dismissing to an empty, chrome-less page.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the Save-the-Date is a true full-screen experience (no site header/footer); the film is terminal (no dismiss) since there's no underlying page in the save-the-date phase. The static (`?film=0`) fallback keeps the normal chrome. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): wedding date chosen from the couple's onboarding dates (PR-P)
+
+Last of the builder-cleanup batch (A). Owner: the STD wedding date must come from the couple's own date choices, not a free-typed field — "based on their choices on onboarding, or the priority date if they've picked one / have only one."
+
+- The builder page resolves `dateOptions` from `events`: when a date is **locked** (`event_date`) that's the single priority option; otherwise the **onboarding `date_candidates`** (specific mode); window-mode with no specific picks → no options.
+- The builder's free `<input type="date">` is replaced: **1 option** → read-only display of the chosen date; **multiple** → a `<select>` of the onboarding candidates; **none** → a "Pick your date in Date Selection" link. The date defaults to the priority/first option. It can no longer be an arbitrary typed date.
+- Pairs with PR-L: picking the date still backfills `event_date` when none is locked yet.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the STD wedding date is constrained to the couple's onboarding date choices / the locked date. **The 2026-06-19 builder-cleanup batch is now complete** (F texts-only film · D colour-lag · E 5-fonts · C auto-3-month invite · A date-from-onboarding · B venues-from-bookings via PR-M · monogram from the monogram lab via PR-G). See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): font-only look + colour-picker lag fix + auto-3-month invite (PR-O)
+
+Three of the builder-cleanup batch (D + E + C).
+
+- **Colour-picker lag fixed (D):** the veil/petal colour pickers were rebuilding the whole WebGL cloth on every tick — `setColor` bumped `restartKey`, remounting `RevealPreview`. Removed that: `veil-reveal` already applies the colour live each frame (`colorRef`/`petalColorRef`), so a colour change is now a cheap, instant prop update with no remount.
+- **"Choose your look" → 5 fonts (E):** the multi-property themes (bg + colours + font) are reduced to a **font choice only** — "look doesn't matter because we have a custom background now." `std-themes.ts` repurposes the 5 ids as 5 distinct wedding fonts (Cormorant · Playfair · Caslon · Vidaloka · Script) sharing one neutral palette (colours come from the Background + legibility tone). The builder section is now **"Step 1 · Font — Pick your font"**, each option rendered in its own typeface. No migration (ids stable; legacy ids fall back to the first).
+- **Auto invitation date (C):** `defaultInvitationLaunchIso(weddingIso)` = wedding − 3 months. The live page + builder default `std_invitation_launch_date` to it (the close-beat "Arrives …" + the ics reminder), with manual entry overriding. Builder shows "Automatic: 3 months before — {date}."
+
+Verified: `pnpm typecheck` + `pnpm lint` clean; `save-the-date-content` tests 22/22.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the look choice is now font-only; veil/petal colour is instant; the invitation launch auto-defaults to 3 months before (manual override). Remaining batch item: wedding-date options sourced from the couple's onboarding date choices (PR-P). See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): strip the film chrome — texts only, no bars, no controls (PR-N)
+
+Owner: "we just want the texts. no controls. it auto plays or we can scrub. we don't want the white bars. we don't want the navigation controls."
+
+- **Removed** the stories-style white scrub/segment bars (top) and the entire bottom transport (prev / play-pause / next / replay / continue) from `save-the-date-film.tsx`, in both the live film and the builder preview.
+- **Kept** the auto-play + the invisible gestures — tap the left/right thirds to step, press-and-hold to pause — so it still "auto plays or we can scrub," just with no visible UI.
+- **Kept** one subtle mute toggle (the soundtrack auto-plays, so it needs an escape) and, on the final beat, a single clean "See your wedding page" exit (live only — the guest has to be able to leave the full-screen film).
+- Dropped the now-unused transport icons + `playPause`/`replay` helpers.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the film is text-only now (auto-play + gesture scrub, no chrome). Part of the 2026-06-19 builder-cleanup batch (also: theme→5-fonts, veil/petal colour-picker lag fix, date-from-onboarding, auto-invite-3-months — separate PRs). See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): auto-fill ceremony + reception venues from finalized bookings (PR-M)
+
+Owner directive: the Save-the-Date shouldn't be a manual form — when the couple finalizes their venues, the info should upload automatically; and there should be a separate **ceremony** and **reception** venue (the 7-beat spine). Implements the "auto from bookings + manual fallback" model.
+
+- **Resolver** `lib/std-venues.ts`: `resolveStdFinalizedVenues(admin, eventId)` reads `event_vendors` — the **ceremony** = the finalized `religious_venue`/`church_fees` booking, the **reception** = the finalized `venue` booking (finalized = status in `CONFIRMED_VENDOR_STATUSES`, most-recent wins). Names only; never throws.
+- **Content** `lib/save-the-date-content.ts`: `StdFilmContent` venue field split into `ceremonyVenue` + `receptionVenue` + `receptionCity` (was a single `venueName`/`venueCity`). The film (`save-the-date-film.tsx`) now has **two venue beats** — "The ceremony" then "The celebration" — each shown only when its venue resolves.
+- **Resolution** (live page + builder): ceremony = finalized booking; reception = finalized booking ?? the couple's manual entry (`std_film_venue_*`) ?? `events.venue_name`. Also **fixes the live film to honor the `std_film_venue_*` override** (the live page never read it before — only the builder did).
+- **Builder Content step**: the venue field is relabelled **Reception venue** (the manual fallback for off-platform/DIY couples); a read-only **Ceremony venue** line shows the booked ceremony when present. Auto-filled values surface as "Auto-filled from your booking."
+
+Verified: `pnpm typecheck` + `pnpm lint` clean; `save-the-date-content` tests pass. No migration (reads `event_vendors`; reception manual fallback reuses the existing `std_film_venue_*`).
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the Content step is now auto-fill-from-canonical: ceremony + reception venues come from the finalized bookings (manual reception fallback for DIY). FOLLOW-UPS (flagged for owner): (1) make the builder's date **read-only / sourced from Date Selection** (the date already comes from `event_date`; the builder UI still shows a free input — PR-N); (2) a manual **ceremony** fallback field for DIY couples (ceremony is booking-only today). See `DECISION_LOG.md` 2026-06-19.
+## 2026-06-19 · fix(std): raise the Save-the-Date video cap to 200 MB (PR-J)
+
+Owner reported a video upload silently failing — it was over the 60 MB cap, so the picker rejected it and `std_media` stayed `gallery` (no video). Immediate unblock: raise the cap.
+
+- `/api/upload` `video/` `TYPE_MAX_BYTES` 60 MB → **200 MB** (the signed content-length still binds the PUT; R2 egress is free).
+- `std-media-picker` `maxSizeMB` 60 → 200 + help text.
+
+This is the cap half of the owner's "raise the cap AND auto-compress" decision. The **client-side auto-compress** (ffmpeg.wasm, downscale + re-encode large videos to a web-friendly target so they fit + play fast for guests) is the follow-up PR; this raise is the safety-net ceiling.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — STD video cap is 200 MB (was 60). Note: the public Save-the-Date film only renders when the event is in the *save-the-date phase* (wedding > 90 days out) — a couple with no date set sees the RSVP-phase view, not the film (separate finding 2026-06-19).
+## 2026-06-19 · fix(std): the builder's date backfills the canonical wedding date (PR-L)
+
+Owner set the Save-the-Date date in the builder but the public page still showed nothing. Root cause: the builder's "Wedding date" field writes `std_film_date` (a film **display override** — "your event stays unchanged"), but the public page's lifecycle phase reads the canonical `events.event_date` to decide whether to show the film. With `event_date` null, the page sat in the RSVP phase and the film never rendered — even though the date, venue, background were all saved.
+
+- `saveAllStdContent`: when a film date is set **and** `events.event_date IS NULL`, backfill `event_date` from it (guarded to null so an existing wedding date is never clobbered; `std_film_date` stays the display-only override). So setting the date in the builder now actually moves the event into the Save-the-Date phase.
+- Builder copy: the date field's "No date set yet — add it in your event dashboard" → "set it here and it becomes your wedding date. Your Save-the-Date shows once your wedding is more than 90 days away" (the phase rule made explicit, no longer misleading).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. No migration. (Also applied the same fix to the affected live event directly so it shows immediately.)
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the STD builder's date now backfills `event_date` when empty; the public film still gates on the save-the-date phase (wedding > 90 days out), now surfaced in the builder copy.
+
+## 2026-06-19 · feat(std): Smart Auto + localized text scrim (PR-I)
+
+Upgrades the legibility Auto mode (PR-H) from a guess to a measurement, and keeps the photo vivid by protecting only the text.
+
+- **Smart Auto (measured):** baked each of the 10 scenes' centre-region luminance into the catalog (`StdRealisticBg.lum`, measured once with sharp). `resolveStdLegibility` auto now picks the text tone from the real value — `lum ≥ 0.7` → dark text, else light text. This fixes the cases a blanket rule got wrong (e.g. misty sunrise `0.82` → dark text; the rest read light over a dark scrim). Plain colours use their hex; uploads default to light text (the localized scrim makes it read on any photo).
+- **Localized text scrim (`save-the-date-film.tsx`):** a soft radial behind the centred text — dark halo under light text, cream halo under dark text — so the type reads while the **photo stays vivid**. Because of this, auto photos now use **no global veil** (`resolveStdLegibility` returns `veil: 'none'` for auto realistic/upload); the manual Lighten/Darken still apply their global wash for taste.
+- Net: the couple picks a scene and the names are readable automatically, without washing out the image. The Lighten/Darken control remains the manual override.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. Visual — verify on the Vercel preview; the radial strength (0.52/0.26) is a one-line tune if it reads heavy/light. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — background legibility is now measured + localized (vivid photo + auto-readable text). Luminance method (sharp, centre-64% crop) noted in `DECISION_LOG.md` 2026-06-19. Future scenes: measure + bake `lum`.
+
+## 2026-06-19 · feat(std): background legibility — Auto / Lighten / Darken (PR-H)
+
+Fixes text readability over a Save-the-Date background. The old layer had a fixed *dark* scrim while the film text was *dark* too — so dark text over a bright photo region (e.g. the aurora sky) was unreadable. Now the veil and the text colour are **paired**, with a couple-facing control.
+
+- **Model** `lib/std-backgrounds.ts`: `StdBackground.legibility` (`auto` | `lighten` | `darken`, default auto, persisted in the `std_background` JSONB — no migration). `resolveStdLegibility(bg)` → `{ veil, tone }` that always pair: **lighten** = cream wash + dark text · **darken** = dark wash + light text · **auto** = per-kind (plain by colour luminance, paper → dark text, photos → darken + light text, the safe universal).
+- **Veil** `std-background-layer.tsx`: the fixed dark scrim is replaced by the resolved veil (stronger at the top + bottom where the monogram + close beats sit); `none` for calm plain/paper auto.
+- **Text tone** `save-the-date-film.tsx`: a `tone` prop drives `applyTextTone(theme, tone)` — overrides only the theme's TEXT colours (keeps its accent button + display font), plus a soft text-shadow so the type pops off a busy photo. Wired so a dark plain colour also flips to light text automatically.
+- **Builder**: a "Step 1 · Readability" segmented control (Auto / Lighten / Darken) under the Background picker; legibility persists across background changes; the live preview reflects it. The font + base colours remain the separate "Step 1 · Fonts & colours" (theme) control.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. Visual — verify on the Vercel preview. No migration.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — backgrounds gain a readability treatment (veil + paired text tone) so names/dates stay legible over any scene/photo/colour. Couple-facing control in Step 1. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): the couple's real monogram mark in the film (PR-G)
+
+The Save-the-Date film's opening + closing beats showed plain text initials (e.g. "M & J"). When the couple has an actual monogram mark (uploaded · Cipher · bespoke) it now renders that mark instead — so the film leads and lands on their real mark, matching the reveal.
+
+- **Film** `save-the-date-film.tsx`: a `FilmMonogram` helper renders the sanitized mark as an inert `<img>` data-URI via `bespokeSvgToDataUri` (the hero's pattern — no `dangerouslySetInnerHTML`), object-contain so it's never clipped; falls back to the typographic initials when there's no mark. Used in the monogram beat (h-28→32) + close beat (h-16→20).
+- **Resolver** `lib/save-the-date-content.ts`: `StdFilmContent.monogramSvg` + `ResolveStdFilmInput.monogramSvg` (sanitized `uploaded_svg ?? custom_svg`).
+- **Live page** threads `bespokeSvg` (already resolved for the hero) into both `SaveTheDateView` paths — wired `bespokeSvg` into `PublicLanding` (the anonymous path lacked it) so the public STD also shows the mark, plus the signed-in path.
+- **Builder** passes `markSvg` so the preview shows the couple's mark too.
+
+No-mark couples are byte-for-byte unchanged (text initials). Verified: `pnpm typecheck` + `pnpm lint` clean; `save-the-date-content` tests 22/22.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the film's Monogram element now renders the couple's real mark (one of the 7 required content elements), not just initials. No schema. Note: the mark renders as-is (its own palette); on a dark film theme a dark mark could be low-contrast — a future design-pass refinement. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): orientation polish — video tilt hint + revealed-veil rotate (PR-F)
+
+Two orientation fixes now that the video island ships.
+
+- **Landscape-video tilt hint (film):** when the video island is a landscape clip and the guest is on a portrait phone, a small "Tilt your phone to landscape" pill shows over the video (orientation spec, content phase). It auto-clears the instant they rotate — driven by a `matchMedia('(orientation: portrait)')` + width listener; full-screen only (the builder preview is a fixed device frame). Portrait videos just fill, as before.
+- **Revealed veil survives a rotate:** the veil already rebuilds the cloth to the new aspect on rotate (debounced `applyView` — the stretch bug was long fixed), but `applyView` re-drapes to covered (`lift→0`). So rotating *after* the guest lifted the veil would silently **re-cover the film**. Now the debounced rebuild lerps a revealed veil straight back to lifted (`revealedRef → liftTarget = 1`) — a rotate re-fits, never re-covers.
+
+Verified: `pnpm typecheck` clean; lint clean (the lone `autoplay`/`lowRes` warning is pre-existing on the veil's mount-once effect, untouched here). These are device-rotation behaviors — verify on a phone via the Vercel preview.
+
+SPEC IMPACT: `0024_Veil_Reveal_Spec` / `0024_Save_the_Date_Content_and_Customization` — the orientation handling (tilt hint + rotate-safe reveal) the spec called for is now built. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): admin override for stuck Save-the-Date videos (PR-E)
+
+Closes the gap PR-B flagged: the automatic poster-frame screen is fail-open → a video can sit at `nsfw:'pending'` forever (poster extraction / model hiccup) and silently never go live, with no recourse. Now an admin can decide it.
+
+- **Reveal Studio panel** (`/admin/reveal-studio`): a "Save-the-Date videos · needs review" queue listing couple videos that are **pending** or **rejected** (auto-approved ones are presumed fine + omitted). Each row plays the clip (with its poster) and offers **Approve** / **Reject**. The panel hides entirely when the queue is empty — no clutter.
+- **Action** `setStdVideoModeration(eventId, decision)` (admin-gated via `assertAdmin`, service-role write): sets `events.std_media.nsfw` to `approved` (goes live) or `rejected` (gallery shows). Revalidates `/[slug]`.
+- The page query filters STD-video events and presigns the video + poster for review; fail-safe to an empty queue on any read error (never breaks the studio).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. Admin UI — verify on the Vercel preview. No migration (reuses `events.std_media`).
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the NSFW video gate now has the admin-manual-approve path noted as a PR-B follow-up. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): inline song upload in the Music step (PR-D)
+
+Completes the owner's "song pick/upload" for Step 4 — the Music step no longer just links out; the couple uploads their song right there.
+
+- **Inline `<FileUpload>`** (audio · MP3/M4A/AAC/OGG/WAV · 40 MB, matching `/api/upload`'s audio cap) in the Step-4 Music section. A fresh upload previews instantly via a local object URL (reuses the `onFilePicked` hook added in PR-B); uploading auto-flips the "Play music" toggle on.
+- **Single-source persistence:** `saveAllStdContent` gains `siteMusicKey` → writes `events.site_bg_music_r2_key` + `site_bg_music_enabled=true`. The STD film already reads the site song (the PR4 single-source decision — no separate STD-music column), so this sets the one wedding-site song. Upload/replace only; disable/remove stays on the dedicated site-chrome surface (we never clobber it here). A "Manage site music" + "Use your Pakanta song" link remain.
+- The preview soundtrack now reflects the fresh upload (gated by the play-music toggle).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. UI behind dashboard auth — verify on the Vercel preview.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the Music step (Step 4) now has inline song upload; honors the single-source music model (no new column). See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): the 5-step Save-the-Date builder (PR-C — reorg + Music step)
+
+PR-C of the Step-3 video reinstatement chain. Reframes the builder into the owner's 5-step flow and adds a dedicated Music step. No schema, no new persistence — pure reorg + consolidation of existing controls.
+
+- **New order** (left column): **1 Background** · **2 Content** · **3 Video / Gallery** · **4 Music** · **5 Opening** (reveal). The Opening picker, previously step 2, now sits LAST — the film is built, then you choose its entrance.
+- **Theme folds into Background (Step 1):** the standalone "Theme" step is gone; the theme picker now sits directly under Background as "Step 1 · Fonts & colours", relabelled to say it only drives **fonts + text colours** (Background sets the scene; both still recolour to the Mood Board).
+- **Step 4 · Music (new):** a "Play music in your film" toggle (bound to `std_reveal_effects.music`) + the song status (added / not) with add-or-change routes to **Pakanta** (custom song) and the site-chrome **upload**. The preview's soundtrack now mirrors the toggle.
+- **Content (Step 2)** drops its now-redundant status rows: the **Soundtrack** row moved to the Music step; the **Closing photos** row is owned by the Video/Gallery step (Step 3). "Your names" + the launch-date field stay.
+- Renumbered the in-component eyebrows (`RevealPreviewCard` → Step 5, `StdMediaPicker` → Step 3); refreshed the builder header copy + structural comments.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. UI reorg behind dashboard auth — verify on the Vercel preview.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the couple builder is the 5-step flow (Background → Content → Video → Music → Reveal), theme folded into Background. Follow-up (flagged for owner): the Music step links out to upload/Pakanta; an INLINE song uploader embedded in the step is a fast-follow if wanted. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): Video / Gallery — locked video island + NSFW gate + live render (PR-B)
+
+PR-B of the Step-3 video reinstatement. The couple's uploaded video now PLAYS — as a locked real-time "island" beat in the film — but only after it passes an NSFW screen, and only on the live page once approved.
+
+- **Film** `save-the-date-film.tsx`: `StdFilmContent.videoUrl` + a **video island slide** (replaces the gallery beat when a video is set). It plays to the end **with sound**; the segment bar tracks the **video clock** (not a timer — browsers don't hold `<video>` seeks during scroll, per the hero-scrub note); the soundtrack **ducks** while it plays and resumes after; the beat advances on `ended`. The new music-coordination effect is scoped to video films only, so existing photo-gallery films are unchanged. (Addendum §2/§6 "video island".)
+- **Live gate** `[slug]/page.tsx`: selects `std_media`, and presigns + plays the video **only when `stdVideoIsLive`** (`nsfw === 'approved'`); otherwise the photo gallery beat shows. Threaded `stdVideoUrl` through `PublicLanding` + `InvitationSite` → `SaveTheDateView` exactly like `stdBackgroundUrl`.
+- **NSFW screen** `lib/nsfw-screen.ts`: new `screenStdVideo` reuses `classifyImageBytes` + `decideNsfw` on a **poster frame** (nsfwjs is image-only + the lambda has no ffmpeg, so — like a Papic clip — the video is screened by one JPEG). Writes `events.std_media.nsfw` (`clean → approved` · `nsfw_blocked → rejected`), guarded to the same still-pending video; **fail-open → stays pending** (never goes live → gallery shows). Fired via `after()` from `saveAllStdContent`.
+- **Poster extraction:** `<FileUpload>` gains an optional `onFilePicked(file)` hook; `std-media-picker.tsx` grabs a frame from the **local File** (canvas → JPEG, same-origin so no taint), uploads it via `/api/upload`, and hands up `posterKey`. `StdMedia` gains `posterKey?`.
+- **SECURITY:** `saveAllStdContent` never trusts the client's `nsfw` value — a new/changed video is forced to `pending` (server-screened), an unchanged video keeps the server's verdict. (Else a couple could POST `nsfw:'approved'` and bypass the lock.)
+- **Builder preview:** a freshly-uploaded video previews instantly via its local object URL (the couple's private preview shows it regardless of NSFW status); the public gate stays approval-only.
+- Fixed PR-A's client/server size mismatch — the picker now caps video at **60 MB** (matching `/api/upload`'s `video/` cap), down from 64.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean; `save-the-date-content` unit tests 22/22 pass. No migration (reuses the PR-A `events.std_media` JSONB; `posterKey` rides along).
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` + `0024_ADDENDUM_envelope_open_experience_2026-06-14` §2/§6 — the video island playback + NSFW gate are now built. Owner note: admin-manual-approve of a stuck-`pending` video is a future follow-up (the automatic poster screen covers the normal path). See `DECISION_LOG.md` 2026-06-19.
+## 2026-06-19 · fix(pricing): the last display-only hardcodes now read the admin catalog
+
+PR 3b of the pricing-authority cleanup — removes the three remaining places that *displayed* a hardcoded price (none mis-charged; the charge path already re-resolves from the catalog). After this, every displayed price flows from `/admin/pricing` too.
+
+- **Papic seat-pack figure** — the "Section 2 · seat status" header showed `formatPhp(seatPackPrice(pack))` off the hardcoded `PAPIC_3/5_SEATS_PRICE` constants. Now displays `papicSeatsPricePhp` (already fetched from the catalog `PAPIC_SEATS` via `formatV2Sku`), threaded into `SeatStatusCard` as a `pricePhp` prop. Deleted the `seatPackPrice` helper + both constants.
+- **`/pricing` vendor-branch line** — the intro copy hardcoded "₱999 / 28 days each". Now interpolates `vendor_branch_28day`'s price from the catalog (`vendorSkus`), ₱999 fallback only if the row is missing.
+- **`lib/wizard.ts` planning copy** — five couple-facing guidance strings quoted stale self-prices (Monogram Hero ₱1,999 / Live Schedule ₱999 / SDE from ₱9,999 / Pakanta ₱1,999-9,999 / AI-Highlight ₱999-2,999 / memento ₱2,499). Since the live price always shows at the add-on/checkout (catalog-driven) and interpolating into prose is a fragile refactor of a static module, the stale self-prices are stripped from the copy (tiers, turnaround + the ₱50-150K *market* comparison kept).
+
+Files: `app/dashboard/[eventId]/add-ons/papic/page.tsx` · `app/pricing/page.tsx` · `lib/wizard.ts`. `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: none beyond display — no price values change; the wizard simply stops quoting prices that belong in the catalog. **Last pricing-authority item: delete the retired Boosted-Ads / Sponsored-Boost feature (separate PR).** DECISION_LOG row covered by the 2026-06-18 pricing-authority rows.
+## 2026-06-19 · chore(vendor): delete the retired Boosted-Ads / Sponsored-Boost product (owner "yes delete them")
+
+Final piece of the pricing-authority cleanup. The retired vendor advertising product (geo-radius "Boosted Ads" + quarterly/annual "Sponsored Boost") is fully removed — it was unused and its hardcoded prices were the last non-catalog price source flagged in the audit. Net `+37 / −1829` across 27 files.
+
+- **Deleted:** the `/admin/ads` route (page · actions · loading), the `/vendor-dashboard/marketing` route (page · actions · loading), and `lib/vendor-ads.ts` (the whole ad ladder + subscription helpers).
+- **Catalog/subscriptions:** dropped the 5 ad SKU rows + the `vendor_ads` `SkuCategory` member from `lib/sku-catalog.ts` (the 5 codes stay in `RETIRED_SKU_CODES` as intentional tombstones); removed `sponsored_boost_annual_30km` from the lapsed-subscription sweep lists in `lib/subscriptions.ts` + the stress-test copy.
+- **Explore:** removed the `ad_*` columns, the `ad_rank` SQL + in-memory sort, the `ActiveAdLookup` plumbing, and the "Featured Sponsor"/"Boosted" card badges + accent borders. The separate vendor-**partnerships** `sponsored_*` feature (`PartnershipBadge`) is untouched.
+- **Nav:** removed the `/admin/ads` + `/vendor-dashboard/marketing` entries from both sidebars, both bottom-navs, both `more` pages, `lib/routes.ts`, and the two slot rows in `lib/nav-registry-defaults.ts` (+ orphaned `Megaphone` imports). The vendor "Grow" group is preserved — only its Marketing *item* went.
+- **Public/marketing copy:** trimmed Boosted/Sponsored mentions from the for-vendors pricing matrix + deep-dive, the vendor verify page, an admin/addons label, a `vendor-badges` doc comment, the hiring-guide milestone email, and a public "Boosted Ads at ₱1,200/week" claim in `public/llms.txt`.
+
+Verified: `tsc` 0 · `next lint` clean · nav guard `lint-nav-icon-source` pass · nav-drift test 8/8 · full `test:unit` **332/332** · sibling guards (`lint:retired`/`lint:botnav`/`lint:entitlement-gates`/`lint:email-links`) all green.
+
+SPEC IMPACT: the vendor Boosted-Ads / Sponsored-Boost SKUs + surfaces are retired/removed (already RETIRED in the corpus). **DB follow-up (optional, separate):** the `vendor_ad_subscriptions` table + `vendor_active_ads` / `vendor_market_stats.ad_*` view columns still exist in prod — the app no longer reads them; a drop-migration can land later. DECISION_LOG row covered by the 2026-06-18 pricing-authority rows. **This closes the pricing-authority loop — every displayed + charged price now flows from `/admin/pricing`** (except the vendor token-burn bands on `/admin/token-bands`, by design).
+
+## 2026-06-19 · feat(std): Video / Gallery step — picker + persistence (PR-A of the video reinstatement)
+
+PR-A of the Step-3 "Video / Gallery Photo" feature (owner reinstated video 2026-06-18). The couple chooses how the film closes — their **photo gallery** (default) or an **uploaded video** — and uploads the video. Playback + NSFW gate + live render = PR-B; the full 5-step reorg = PR-C.
+
+- **Schema:** `events.std_media` JSONB `{type: gallery|video, videoKey?, nsfw?}` (migration `20270125872172`, applied + ledgered).
+- **Lib** `std-media.ts`: `resolveStdMedia` (validates; video → `nsfw:'pending'`) + `stdVideoIsLive` (only `'approved'` videos go public — the platform NSFW lock, enforced in PR-B).
+- **Picker** `std-media-picker.tsx`: Gallery vs Upload-a-video (`<FileUpload>` MP4/MOV/WebM, 64 MB) with a clear "screened before it goes live" note.
+- **Builder + save:** `StdBuilderClient` gets the picker (a new left-column step) + a video-upload handler that resets the NSFW gate to pending; `saveAllStdContent` persists `std_media`; the page resolves it + the saved video's presigned URL + the gallery count.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` + `0024_ADDENDUM_envelope_open_experience_2026-06-14` — video reinstated; Step-3 media choice persists. PR-B adds the locked-island playback + NSFW screening + live render. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): Step-1 Background — upload your own photo (the 4th kind)
+
+Replaces the "Soon" upload tile with a real photo upload, completing the Background picker's four kinds (plain · paper · realistic · upload).
+
+- `std-background-picker.tsx`: an `<FileUpload>` (bucket `media`, path `events/{eventId}/std-background`, image-only, 8 MB) → emits the `r2://` ref.
+- `StdBuilderClient`: `handleUpload(ref)` sets `background = {kind:'upload', value: ref}` and **presigns the ref** (new `presignStdBackground` action) so the preview shows the uploaded photo immediately; the background layer renders it cover-fit with the whole-image parallax lean + scrim.
+- Builder page resolves the saved upload's presigned URL (`initialUploadUrl`) for the initial preview; `saveAllStdContent` already persists it; the live `/[slug]` page already resolves + renders it (PR #1771).
+
+The static upload (photo as a cover-fit, leaning backdrop) works now. The **per-pixel 3D-depth** upgrade for uploads is still gated on the depth engine (a depth API key / hosted model — owner infra).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — Step-1 Background is now complete (all 4 kinds). No schema change (reuses `events.std_background`).
+
+## 2026-06-19 · feat(std): Step-1 background renders on the live guest page
+
+Completes Step 1 end-to-end — the couple's chosen background now shows on the live `/[slug]` Save-the-Date, not just the builder preview.
+
+- Moved `std-background-layer.tsx` from `dashboard/_components` → `[slug]/_components` (shared by both surfaces; respects the import boundary, like the reveal components) + updated the builder import.
+- Layer gains a `fixed` mode (position fixed, z-40; scrim z-41) so it sits behind the full-screen live film (z-50); the reveal overlay stays on top (z-60).
+- `save-the-date.tsx` (live STD view) accepts `background` + `backgroundImageUrl`, renders the layer behind the film, and sets the film `transparent` so the background shows through.
+- `[slug]/page.tsx`: selects `std_background`, resolves it (`resolveStdBackground`) + the image URL (realistic → scene src · upload → presigned R2), and threads `stdBackground`/`stdBackgroundUrl` through `PublicLanding` + `InvitationSite` to `SaveTheDateView`.
+
+Still flag-gated behind the film (`NEXT_PUBLIC_STD_FILM`) so prod is unchanged until the film goes live. Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: None — wires the existing Step-1 background onto the live render path.
+
+## 2026-06-19 · feat(std): Save-the-Date Step-1 Background picker (plain · paper · realistic · upload)
+
+Builds the new Step-1 "Background" — the backdrop the whole film plays over (owner-designed 2026-06-18/19; the 5-step builder is Background → Content → Video/Gallery → Music → Reveal). This PR ships the picker + persistence + the builder-preview render.
+
+- **Schema:** `events.std_background` JSONB `{kind: plain|paper|realistic|upload, value}` (migration `20270125138761`, applied to prod + ledgered).
+- **Library** (`lib/std-backgrounds.ts`): `resolveStdBackground`, the plain palette (8 presets), and **procedural CSS paper textures** (`paperBackgroundStyle` — base tone + SVG fractal-noise grain + per-style weave/veining; seamless + recolourable, no image assets).
+- **Picker** (`std-background-picker.tsx`): plain swatches + native colour input · 5 paper · 10 realistic thumbnails · an Upload tile labelled "Soon" (it ships with the parallax engine — its whole value is the auto-3D lean).
+- **Render** (`std-background-layer.tsx`): full-bleed layer behind the film, all 4 kinds, with a subtle **whole-image parallax lean** (pointer/tilt, inside an overscan; reduced-motion safe) + a legibility scrim on photo backgrounds. Real depth comes free because the content film floats above it.
+- **Film** (`save-the-date-film.tsx`): new `transparent` prop → the stage bg goes transparent so the Step-1 background shows through (Background replaces the theme's backdrop; theme still drives fonts + text/accent colours).
+- **Wiring:** `StdBuilderClient` gets the picker as Step 1 (Opening→2, Theme→3, Information→4) + the layer behind the preview film; `saveAllStdContent` persists `background`; the builder page resolves + passes it.
+
+Deferred to the next PRs (noted): the **live `/[slug]` page render** (same layer + transparent film; lands with the flag-gated film go-live), the **upload→R2 + per-pixel depth** (Depth Anything — the parallax engine), and the full 5-step reorg (video/music steps, reveal→last).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — Step-1 Background shipped (picker + persistence + builder render). See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-19 · feat(std): Save-the-Date background library — 10 realistic scenes generated (Step 1 assets)
+
+Generated + QC'd the **10 realistic parallax-background scenes** for the new Step-1 "Background" (owner spec 2026-06-18/19) and added the library manifest. Assets in `apps/web/public/std/backgrounds/` (~14MB, 1024² webp, center-safe for any crop): aurora · golden-hour · peonies field · rose-archway · open seascape · starlit · misty sunrise · bridgerton · candlelit ballroom · fairy-lights.
+
+- **Generation:** Recraft `realistic_image`, fanned out via a self-reviewing workflow (each scene generated → looked at its own output → regenerated for people/framing), then a manual QC + 2 targeted regen passes. Key lesson baked in: Recraft ignores "no X" negatives but obeys **reframing** (e.g. ceremony "arch" → rose "archway tunnel"; "beach" → "open seascape"; peony "rows" → "carpeted field" to kill the aisle).
+- **Library SSOT:** `lib/std-backgrounds.ts` — `STD_REALISTIC_BACKGROUNDS` (10, with src) + `STD_PAPER_BACKGROUNDS` (5) + kinds (`plain`/`paper`/`realistic`/`upload`).
+- **Paper pivot:** the 5 paper styles are NOT generated images — Recraft only ever produced styled product flat-lays for textures. They become **procedural CSS/SVG** (grain + tint) at the render layer: truly seamless, recolourable to the Mood Board, weightless. Right tool + better result.
+
+Not yet wired (next PRs): the Step-1 picker UI, the depth/parallax renderer (depth-map pipeline for realistic + upload), the paper CSS textures, and the plain-colour option.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — new Step-1 Background (plain · 5 paper · 10 realistic · upload), 1:1 center-safe + overscan, realistic+upload parallax. See `DECISION_LOG.md` 2026-06-19.
+
+## 2026-06-18 · fix(studio): the Monogram Maker is now reachable from Studio
+
+The Studio hub's only monogram card ("Monogram Creator" · CTA "Open studio") routed to `/dashboard/[eventId]/add-ons/animated-monogram` — the **paid ₱2,499 Animated-Monogram buy page** — not to the actual **Monogram Maker** (`/dashboard/[eventId]/monogram`, the free lettered/Cipher/Bespoke/upload design hub). So a couple on Studio who wanted to design their monogram hit a buy wall instead of the maker; the maker was only reachable from the Home "Your plan" list and a link buried inside the upsell page.
+
+- `add-ons-catalog.ts` · `addOnHref`: `animated-monogram` now resolves to `/dashboard/${eventId}/monogram` (the maker), alongside the existing `orders` special-case. The maker funnels to the paid animation via its own "See the Animated Monogram" CTAs, so `/add-ons/animated-monogram` stays reachable as the upsell.
+- `add-ons-catalog.ts` · the `animated-monogram` entry: label `Monogram Creator` → `Monogram Maker` (matches the page's own title + the couple's mental model); blurb rewritten to describe the maker's four paths (lettered · cipher · Setnayan AI · upload); CTA `Open studio` → `Open the maker`; added `tier: 'free'` so the card shows a "Free" chip (the maker is never gated) while `serviceKey: ANIMATED_MONOGRAM` still flips the chip to "Active" once the paid draw-on animation is owned.
+- Blast radius: `addOnHref` is also consumed by the Vendors-tab plan/budget accordion and the Alaala hub — both now consistently open the maker for the monogram entry, which is the intended funnel.
+
+Not browser-verified locally (auth-gated dashboard); relying on CI typecheck+lint + a preview link for the owner. The change is a route string + card-copy edit.
+
+SPEC IMPACT: None (routing/discoverability fix; no schema, no pricing change — the free maker and the paid ANIMATED_MONOGRAM SKU are both unchanged, only the Studio entry point is corrected).
+## 2026-06-18 · fix(papic): Pro Camera Bridge is now INCLUDED with Papic (no separate ₱1,499 purchase)
+
+Owner 2026-06-18: "camera bridge will be included on the papic service · no need to purchase as an additional." Part of the pricing-authority cleanup (PR 3a).
+
+The Papic add-on page's "Section 3 · DSLR Pro Camera Bridge" displayed a hardcoded `₱1,499` per-seat price (the `PRO_CAMERA_BRIDGE_PRICE` constant) and a disabled "Add bridge" CTA — a separate paid item that was never actually wired to a charge (no catalog row existed for it). Reframed as **included with Papic**: removed the price + the `PRO_CAMERA_BRIDGE_PRICE` constant, the heading now reads "Pair a real camera body — included with Papic", and the footnote states bridging is included with the seats (no extra purchase). The pairing CTA stays (a feature action, "coming with native app"), not a purchase.
+
+`app/dashboard/[eventId]/add-ons/papic/page.tsx` only. `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: iter 0012 (Papic) — the Pro Camera Bridge SKU (₱1,499/seat) is retired; DSLR pairing is bundled into Papic. **Remaining pricing cleanup (queued):** Papic seat-pack display figures → catalog · `lib/wizard.ts` price copy → catalog · `/pricing` "₱999/28 days" branch line → `getVendorPrices().branch` · **delete the retired Boosted-Ads / Sponsored-Boost feature** (owner "yes delete them" — ~16-file removal across `/admin/ads`, `/vendor-dashboard/marketing`, `/explore`, for-vendors, `lib/vendor-ads.ts` + `lib/sku-catalog.ts`, its own dedicated PR). DECISION_LOG row added.
+
+## 2026-06-18 · fix(db): apply the 2 unapplied migrations + repair the widget CHECK + reconcile the ledger
+
+Prod had merged features whose migrations were never applied (deploy-process gap). Fixed against prod directly:
+
+- **`kwento_assignments`** (`20270120760120`) — table + indexes + RLS + 4 policies applied (Kwento editorial assignments were broken in prod).
+- **`invitation_widgets` "our love story"** (`20270110320023`) — the `our_love_story` widget type + seed-trigger entry + a backfill row for all 55 events. **The migration's `widget_type` CHECK list was itself stale** (omitted `our_photos` + `what_to_bring`, both already in prod), so its DROP/ADD-CONSTRAINT failed mid-way and left the table briefly unconstrained — repaired by restoring the **complete 16-type constraint** (matches `WIDGET_TYPES`).
+- **Forward-fix migration** `20270125000000_invitation_widgets_widget_type_check_complete.sql` — so a fresh DB setup rebuilds the *complete* constraint, not the stale one (the buggy migration is already ledgered so it won't re-run on prod).
+- **Ledger reconciliation** — added `supabase_migrations.schema_migrations` rows for all 7 previously-drifted/unapplied versions (`std_theme`, `events_std_reveal_effects`, `drop_budget_category_flags`, `std_theme_remap_to_five_set`, `vendor_review_response`, + the 2 above). **No repo migration is now unledgered** in prod.
+
+SPEC IMPACT: None — applying existing-but-unpushed migrations + one forward-fix for constraint completeness. ⚠ Owner: the deploy process isn't auto-applying migrations on merge — several merged PRs' DB changes never reached prod. Worth a standing fix (apply-on-merge or a pre-deploy `db push` gate).
+
+## 2026-06-18 · feat(std): "No Reveal" — the free, no-opening choice
+
+The couple can now pick **No Reveal** in the Save-the-Date opening picker — the free option where the content film plays straight away with no opening to lift (the reveal templates are the premium "filter" on top). Distinct from "not chosen" so it's honoured even for couples who own the premium unlock.
+
+- `reveal-templates.ts`: `NO_REVEAL = 'none'` sentinel + `RevealChoice = RevealTemplate | 'none'` (kept OUT of the `RevealTemplate` union so the reveal switches don't need a 'none' case).
+- `reveal-preview-card.tsx`: a "No reveal · Free · just your film" tile (first); when selected the effect controls hide and the blurb explains it's the free option.
+- `StdBuilderClient.tsx`: `previewing`/`initialRevealTemplate` widened to `RevealChoice`; the preview skips the opening overlay entirely for No Reveal (film plays directly).
+- `reveal-overlay.tsx` (live): when the couple chose `'none'` (and there's no `?reveal=` override) the overlay renders nothing — even with the premium unlock. The film auto-starts via its existing 2 s fallback (no `std-reveal-done` needed).
+- `coerceTemplate` (builder page) + `coerceRevealTemplate` (live page) pass `'none'` through; `chooseRevealTemplate` accepts it.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — "No Reveal" is the explicit free baseline in the opening picker (reveals = premium filter on top). No schema change (reuses `events.std_reveal_template` = `'none'`).
+## 2026-06-18 · fix(std): a wedding with no date set is now in the Save-the-Date phase (so the STD actually shows)
+
+A couple rendered their Save-the-Date and the live page showed the generic RSVP-phase landing instead. Root cause: `getLifecyclePhase()` returned `'rsvp'` for a **null `event_date`**, and the STD film only renders in the `'save_the_date'` phase — so any wedding without a finalized date skipped the Save-the-Date entirely.
+
+`lib/invitation-widgets.ts`: a null `event_date` now maps to `'save_the_date'` (was `'rsvp'`). A couple with no finalized date is at the very start of the lifecycle (the announcement stage) — consistent with the future-date split (the farther out the wedding, the earlier the phase; no date = farthest = Save-the-Date). Only the live couple page (`app/[slug]/page.tsx`) consumes this version; the dashboard uses the separate `day-of-mode` `getLifecyclePhase` (unaffected).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean; no test pins the old default.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization` — the Save-the-Date is the lifecycle's first phase, including before a date is set. Aligns with the date-as-output philosophy. No schema change.
+
+## 2026-06-18 · fix(std): the veil stays on top — it's a persistent layer over the playing film, not a one-shot gate
+
+The veil used to fade out + unmount the moment it lifted, so the film only started after the veil was gone and the veil could never come back down. Now the veil is a **persistent top layer**: the first lift starts the film *underneath* (still dispatches `std-reveal-done`) while the veil stays mounted on top (z-60), so a guest can swipe it back **down** and it re-covers the still-playing film (VeilReveal is already two-way). Veil-specific — the rigid openings (envelope/doors) genuinely part and clear, so they keep fading/unmounting.
+
+- `reveal-overlay.tsx`: veil container no longer fades on `open`; `onRevealed` dispatches `std-reveal-done` once (guarded on `!open`) and no longer `setTimeout → setGone`. The "Lift the veil ↑" hint still fades.
+- `StdBuilderClient.tsx` preview: the opening overlay fades only for non-veil openings (`revealDone && previewing !== 'veil-sheer'`); the veil stays on top over the film, mirroring the live page.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. (Visual/interaction needs a real browser — three.js doesn't render headless.)
+
+SPEC IMPACT: `0024_Veil_Reveal_Spec` / `0024_Save_the_Date_Content_and_Customization` — the veil is a two-way persistent layer over the film, not a gate that disappears. No schema/API change.
+## 2026-06-18 · fix(pricing): Panood now reads the admin catalog (the real "saving doesn't propagate" bug)
+
+Owner: "the admin pricing controls all the prices on the app." PR 2 of the pricing-authority effort — fixes the one place a saved admin edit was genuinely ignored on a real charge.
+
+The Panood add-on page hardcoded a 5-SKU ladder (`PANOOD_SKUS`: Daily ₱2,499 / Annual ₱19,999 / AI-Highlight ₱999 / AI-Edited ₱3,499 / Same-Day-Edit ₱9,999) whose `sku_code`s were V1 keys (`panood_daily_broadcast`, `ai_video_highlight_60s`, …) **absent from `platform_retail_catalog_v2`**. The checkout passed those keys as the `service_key`, so `submitOrderAction`'s catalog re-resolve returned null and the **hardcoded client centavos billed regardless of admin edits**.
+
+Per owner decision (Option B), Panood collapses to **one per-day SKU = the catalog row `PANOOD_SYSTEM`** (₱2,499, read live via `formatV2Sku`). The checkout's `serviceKey` is now `PANOOD_SYSTEM`, so `submitOrderAction` re-resolves the price from the catalog (`resolvePaxPricedOrderCentavos`) — editing it at `/admin/pricing` now propagates to the charge. Removed the Annual / AI-Highlight / AI-Edited / Same-Day-Edit offerings from the buy flow, the plans table, the "from" price, and the now-misleading samples; the displayed price + the in-copy day price interpolate the live catalog value (no hardcoded ₱ in the page).
+
+`app/dashboard/[eventId]/add-ons/panood/page.tsx` only. `pnpm typecheck` + `pnpm lint` clean. The dropped V1 keys still linger harmlessly in `lib/add-on-stats.ts` / `lib/subscriptions.ts` / the legacy `lib/sku-catalog.ts` mirror (they handle historical orders; the mirror cleanup is PR3).
+
+SPEC IMPACT: iter 0011 (Panood) is now a single per-day SKU priced from the admin catalog (Annual + AI media SKUs retired from the buy flow). **Next — PR3:** replace the remaining display-only hardcodes (`lib/wizard.ts` copy, Papic display figures, `/pricing` branch line) + delete retired Boosted-Ads prices. DECISION_LOG row added.
+## 2026-06-18 · fix(std): preview veil is controllable (drag/double-tap) + Save-the-Date save no longer fails (missing prod columns)
+
+Two builder bugs reported on a live couple Save-the-Date builder:
+
+1. **Couldn't control the veil in the preview** — `veil-reveal.tsx` only attached the pointer listeners `if (!autoplay)`, and the preview passes `autoplay`, so drag + double-tap were dead. Now the listeners attach **always**; the preview keeps its hands-free auto-demo (`startAuto`) AND is controllable — a swipe/double-tap cleanly overrides the demo (`setLift`/`doRevealAuto` clear `auto`/`locked`; the gesture handlers never gated on them). Live page unchanged.
+
+2. **"Cannot save the details"** — the save hard-failed with `column "std_film_date" does not exist`. The migration `20270122468502_std_film_content_snapshot.sql` (adds `std_film_date` / `std_film_venue_name` / `std_film_venue_city` / `std_film_story`) was **never applied to prod**; the page's SELECT of those columns silently failed → `event` came back null (builder ran degraded) and the save UPDATE errored. **Applied the migration to prod** (idempotent `ADD COLUMN IF NOT EXISTS`) + recorded the ledger row `20270122468502`. Verified the action's UPDATE now succeeds. No code change for this one — the migration just hadn't been pushed.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: None — bug fixes (gesture-listener gating + applying an existing-but-unpushed migration).
+
+## 2026-06-18 · fix(std): couple opening picker honours the admin "allowed openings" map
+
+Deactivating an opening in the Reveal Studio had no effect on couples — the Step-1 picker rendered the full `REVEAL_LIBRARY` and ignored `reveal_studio_config.templates` (its own comment said it was "for the future chooser"). Now connected end-to-end:
+
+- **Picker** (`reveal-preview-card.tsx`): takes an `allowed` map, renders only `REVEAL_LIBRARY.filter((t) => allowed[t.id] !== false)` — a deactivated opening disappears from the couple's choices.
+- **Builder** (`StdBuilderClient.tsx` + `page.tsx`): threads `revealConfig.templates` → `allowedTemplates`; the preview defaults to an enabled opening (never a deactivated one, even if it was the saved pick).
+- **Live page** (`reveal-overlay.tsx`): a couple's chosen opening that's since been deactivated falls back to the house default (or the first still-enabled opening); the `?reveal=` preview override bypasses (admin/demo).
+
+Treats missing/true as enabled (only explicit `=== false` hides) so new templates default on. Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: None — wires an existing config field (`reveal_studio_config.templates`) that was always meant to gate the per-event chooser.
+
+## 2026-06-18 · feat(std): couple veil controls — Add music · Add petals · Veil colour · Petal colour
+
+The couple's veil customization in the Save-the-Date builder is now exactly four controls (owner 2026-06-18), and the builder preview mirrors the admin Reveal Studio's tuned veil:
+
+- **Effects model** (`lib/std-reveal-effects.ts`): `RevealEffects` extended `{butterflies, petals}` → adds `music: boolean`, `veilColor: string|null`, `petalColor: string|null`. Defaults: petals on, music on, colours inherit (null). Hex-coerced; resolves from the same `events.std_reveal_effects` JSONB (no migration — JSONB).
+- **Builder picker** (`reveal-preview-card.tsx`): when the veil is selected, shows the four controls — Add music · Add petals toggles + Veil colour · Petal colour pickers (each with a "Reset → from your Mood Board" inherit). Envelopes/doors keep their single decorative toggle + wax-seal note.
+- **Preview parity** (`reveal-preview.tsx` + builder `page.tsx` + `StdBuilderClient`): the couple builder preview now receives the admin `reveal_studio_config` veil `look` + rigid `effects` look + house petal colour, so it renders the *same calibrated veil* as `/admin/reveal-studio`. The couple's colour overrides win over the Mood-Board inherit.
+- **Live page** (`reveal-overlay.tsx`): the veil honours `eventEffects.veilColor` / `eventEffects.petalColor` (over the palette) and `eventEffects.music`.
+- **"Add music" is real** (`[slug]/page.tsx`): `bgMusicUrl` is now gated on `std_reveal_effects.music` (default on → no behaviour change), so turning the control off stops the song on the page.
+- **Action type** (`actions.ts`): `revealEffects` input typed as the full `RevealEffects` (was `{butterflies?,petals?}`).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: `0024_Save_the_Date_Content_and_Customization_2026-06-17.md` §2 — reconciled "colours are NOT a picker" → the veil has explicit couple colour controls (overrides; admin owns the veil LOOK). `DECISION_LOG.md` 2026-06-18 row covers it.
+
+## 2026-06-18 · fix(std): Reveal Studio previews all 5 reveals + petals always start from the top
+
+Two owner fixes:
+1. **All 5 reveals in the studio preview** — the calibration preview switch was Veil · Envelope · Doors (3); now **Veil · Four-flap · Side · Top · Doors** (all 5). `studio.tsx`: `PreviewTpl = RevealTemplateId` + a `PREVIEW_TPLS` list; the render branches veil → `VeilReveal`, four-flap → `FourFlapEnvelope` (butterflies), and the three remaining rigid variants → `RigidReveal variant={previewTpl}` (church-doors = petals, side/top = butterflies).
+2. **Petals always start from the top** — the veil's three.js `initPetals()` seeded the FIRST burst scattered across the whole screen height (`y = ±vh*1.4`), so on lift petals popped in mid-screen/bottom. Now seeded **above the top + staggered upward** (`y = vh*(1.05 + rnd*1.9)`) so the shower rains in from the top. (`spawnFalling` already spawned from above the top; the door/envelope canvas petals already spawn at `y:-8`.)
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: matches `0024_Save_the_Date_Content_and_Customization` §4 (petals on lift) + reveal-tuning §5. No schema/API change.
+
+## 2026-06-18 · feat(std): admin calibration for the reveal effects (butterflies + petals)
+
+Per owner ("settings of the effects on admin so I can calibrate them properly") + reveal-tuning spec §7/§8 ("author-time baked, admin-tunable"). The rigid-family particle effects were hardcoded; now they're calibrated from the Reveal Studio and read through to the live reveal.
+
+- `lib/reveal-config.ts` — new `RevealEffectsLook` (butterflySize/Count/Speed · petalSize/Density/Fall · shadow, 0–100) + `effects` on `RevealStudioConfig` + `DEFAULT_EFFECTS_LOOK` + `mergeEffects` (so the existing `saveRevealStudio` persists it via `mergeRevealConfig`, no migration — `reveal_studio_config` is open JSONB).
+- `reveal/reveal-particles.tsx` — reads the calibration `look`: maps the 0–100 sliders to particle count, spawn cadence, sizes, speeds, and cast-shadow strength (replaces the hardcoded constants).
+- Threaded `effectLook` through `rigid-stage` ← `rigid-reveal`/`four-flap` ← `reveal-overlay` (live page passes `config.effects`).
+- `app/admin/reveal-studio/studio.tsx` — new **"Effects — envelopes & doors"** slider group + a **preview-template switch (Veil · Envelope · Doors)** so the owner previews the rigid reveal with the butterflies/petals while calibrating (the veil preview only drove the veil sliders before).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. (Effects render only in a visible browser; the Reveal Studio preview is where the owner calibrates.)
+
+SPEC IMPACT: `0024_Reveal_Tuning_and_Door_Spec` §7/§8 — the butterfly + petal calibration is now admin-tunable (was hardcoded). DECISION_LOG 2026-06-18. Follow-up: thread `effectLook` into the couple builder preview too (today it shows the locked defaults).
+## 2026-06-18 · feat(admin): /admin/pricing editor v2 — roomier rows, ⓘ "what it's for", create-a-bundle
+
+Owner-requested fixes to the admin pricing editor (the single source of truth for app prices). Migration `20270124000000` (applied to prod via `db query` + ledger repair) adds an additive `description TEXT` column to `platform_package_catalog` + `vendor_billing_catalog` (retail already had one).
+
+- **Roomier layout + live margin** — the editable rows move to client islands (`_components/catalog-editor.tsx`) inside the existing server-action `<form>`. Rows are less cramped (the description is no longer an always-visible input), and **margin recomputes live** as you edit cost/price (it used to update only after saving).
+- **ⓘ "What this is for"** — every row (customer SKU · bundle · vendor) gets a collapsible info panel with an editable description, so codes like `PANOOD` / `GUIDED_PACK` are self-explanatory without re-cluttering the list. `saveAllPricing` now persists bundle + vendor descriptions too (diff + audit extended).
+- **Create a bundle** — a dedicated "Create a bundle" card (its own `<form>` → new `createBundle` action) inserts a `platform_package_catalog` row from a name + price (+ optional description); the `package_code` is derived from the name and de-duplicated. It appears in the Bundles section, ready to fine-tune. A bundle stores name + price + description only — what it *unlocks* is a separate follow-up (no membership table).
+
+Files: `supabase/migrations/20270124000000_pricing_catalog_descriptions.sql` · `app/admin/pricing/actions.ts` (bundle/vendor `description` + `createBundle`) · `app/admin/pricing/page.tsx` · `app/admin/pricing/_components/{catalog-editor.tsx,grids.ts}`. `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: iter 0023 (Admin Console) pricing surface — editor gains descriptions for all line items + a bundle creator. Additive schema only; no pricing values change. **Follow-ups queued (owner "yes"):** wire Panood to the catalog (the real "saving doesn't propagate" bug — it hardcodes prices + uses V1 keys absent from the catalog), then replace the remaining display-only hardcodes (wizard copy, Papic display figures, pricing-page branch line) + delete retired ad prices. DECISION_LOG row added.
+
+## 2026-06-18 · fix(std): soft cast shadows on reveal butterflies + petals (grounds them, not flat)
+
+Owner: the effects looked flat. The canvas-2D butterflies + petals drew with no shadow; now each casts a **soft, offset, blurred drop-shadow** onto the film (down-right, sized to the particle) — so they read as lit and airborne instead of pasted-on, per `0024_Reveal_Tuning_and_Door_Spec_2026-06-17.md` §5 ("lit, shadow-casting"). Single-file tweak to `reveal/reveal-particles.tsx` (`drawPetal` + `drawButterfly` use `ctx.shadow*`; butterfly body strut resets shadow so it stays crisp).
+
+SPEC IMPACT: matches §5 shadow intent. No schema/API/public-copy change.
+
+## 2026-06-18 · fix(std): butterflies fly OUT from the envelope (radial emanation)
+
+Owner: *"the butterflies fly out from the envelope as they open."* The reveal butterflies spawned mid-screen drifting up; now they **emerge from the envelope's centre** (where the flaps part) and **radiate outward to all edges**, with a slight upward bias and a gentle size-grow as they travel (the spec's "fly toward the screen, exit all corners/edges"). Single-file tweak to `reveal/reveal-particles.tsx` (butterfly spawn position/velocity + grow + exit-any-edge); petals unchanged.
+
+SPEC IMPACT: matches `0024_Reveal_Tuning_and_Door_Spec_2026-06-17.md` §5 envelope-effect intent (butterflies fly-to-screen + all-corner exit). No schema/API/public-copy change.
+
+## 2026-06-18 · feat(std): per-event reveal effects — wire butterflies + petals on (builder + live)
+
+Turns the effect layer on per-event (the capability shipped default-off in the same PR). Couple-facing Step-1 toggles, persisted + honored on the **builder preview AND the live guest page**. Wax seal stays always-on for envelopes (structural gate, owner-locked).
+
+- Migration `20270123686171_events_std_reveal_effects.sql` — `events.std_reveal_effects` JSONB `{butterflies,petals}` (length-capped, no RLS change; events already has `couple_can_update_event`). Applied to prod (column + CHECK live).
+- NEW `lib/std-reveal-effects.ts` — `RevealEffects` type · `resolveRevealEffects` (NULL → butterflies off, petals on) · `rigidEffectFor(template, effects)` (envelopes→butterflies, church-doors→petals, veil→null since it uses WebGL petals).
+- Builder: Step-1 picker card gains the per-opening toggle (envelope → *Add butterflies*; church/veil → *Add falling petals*) + an envelope "wax seal always on" note; `StdBuilderClient` holds `effects` state (toggling replays the opening so the change shows) and saves it on **Render** (`saveAllStdContent` → `std_reveal_effects`); `reveal-preview` feeds effects to the reveal (veil `features.petals` / rigid `effect`); `page.tsx` reads + resolves `initialEffects`.
+- Live: `[slug]/page.tsx` selects `std_reveal_effects` (+ `EventRow`), passes resolved effects to **both** `RevealOverlayServer` mounts (forwarded via `{...props}`); `RevealOverlay` drives the veil's `features.petals` + the rigid `effect` prop from the per-event toggles.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. (Live builder + reveal need auth/visible browser — Vercel preview is the visual proof; the canvas effect layer runs only in a visible browser, not the headless tool.)
+
+SPEC IMPACT: `0024_save_the_date/` — per-event reveal effects now exist (butterflies on envelopes, petals on doors + veil; wax seal always-on). DECISION_LOG 2026-06-18 effects rows. ⚠ Default petals-on now also applies to church doors (was veil-only) — intended per the 2026-06-17 reveal-tuning spec; near-zero existing data (no wedding had a saved theme).
+
+## 2026-06-18 · feat(std): consolidate to ONE live preview — opening plays → lifts away → film
+
+Per owner ("there should only be 1 live preview … the one by Render"), the builder's two separate previews (a Step-1 opening preview + a content-film preview) are collapsed into **one** device frame: the content film plays as the base layer while the chosen opening auto-plays on top and **lifts away to reveal it** — exactly how a guest experiences the live page, in miniature. Single device toggle, single Replay.
+
+- `reveal-preview.tsx` — new `onDone` callback (maps to the child's `onRevealed`/`onOpened`) so the opening can signal "lifted, reveal the film". Was hardcoded `noop`.
+- `reveal-preview-card.tsx` — reduced to a **controlled Step-1 picker** (tiles + active-opening blurb + "Make this mine"). Its in-card device preview + device toggle are removed; `previewing` is lifted to the parent.
+- `StdBuilderClient.tsx` — owns `previewing` + `revealDone`; Step-1 picker moves into the left column above Theme/Info; the single right-rail preview stacks `SaveTheDateFilm` (base) under `RevealPreview` (overlay, fades on `onDone`). Picking an opening / switching device / Replay all reset `revealDone` + remount so the opening replays. The two commits stay distinct (opening = eager `chooseRevealTemplate`; film = `Render`).
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. (Live builder needs auth — visual proof via the Vercel preview.)
+
+SPEC IMPACT: `0024_save_the_date/` — builder is now a single opening→film preview (was two). DECISION_LOG row added. Effect toggles (butterflies/petals) land in follow-up PRs C–E.
+## 2026-06-18 · feat(std): reveal effect layer — butterflies + petals for the rigid family (capability, default-off)
+
+First half of the owner-approved net-new Step-1 effects. The rigid reveal family (envelopes + church doors) had **no particle system** (only the WebGL veil has petals). Added a lightweight **canvas-2D effect layer** + threaded an opt-in `effect` prop through the rigid stack — **default `null` → no particles → the live guest page is byte-for-byte unchanged.** The next PR adds the per-event column + builder toggles that turn it on.
+
+- NEW `reveal/reveal-particles.tsx` — `RevealParticles` canvas-2D component; `kind: 'butterflies' | 'petals'`. Sizes to its parent (ResizeObserver), spawns over the ~5s open window then settles, caps at 44 particles, honors `prefers-reduced-motion` (renders nothing), `pointer-events-none`, no WebGL context (cheap on a phone). Optional `colors` override for Mood-Board petal tinting.
+- `reveal/rigid-stage.tsx` — new `effect?: RevealParticleKind | null`; mounts `<RevealParticles>` above the flaps once `progress > 0.02` (so it plays as the opening parts, not while the seal still gates a live envelope).
+- `reveal/rigid-reveal.tsx` + `reveal/four-flap.tsx` — forward the `effect` prop to RigidStage.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: None yet (capability only, default-off; nothing renders until a per-event effect is wired in the follow-up PR). `0024_save_the_date/` effects build — see DECISION_LOG 2026-06-18.
+
+## 2026-06-18 · feat(std): trim film themes 10 → 5 (Default · Mood Board · Heritage · Noir · Botanical)
+
+Owner-locked the Save-the-Date film theme set to five: **Default · Mood Board · Heritage · Noir · Botanical** (down from 10). `editorial` was renamed to `default` (same clean palette, relabelled "Default"); the five niche themes (`blush`, `midnight`, `coastal`, `sunset`, `plum`) were removed. The picker + film renderer + server-action allow-list all read `STD_THEMES`/`STD_THEME_IDS`, so trimming the array auto-propagates with no other code edits.
+
+- `lib/std-themes.ts` — `STD_THEME_IDS` and `STD_THEMES` reduced to the 5; `default` leads the list. `resolveStdTheme` fallback stays `moodboard` (NULL-theme weddings — i.e. all of them today — keep rendering Mood Board; no visual change).
+- Migration `20270123425451_std_theme_remap_to_five_set.sql` — idempotent remap of any saved `editorial → default` and `blush/midnight/coastal/sunset/plum → moodboard`. Applied to prod: **0 rows affected** (no wedding had set a non-default theme), so zero couple-facing change.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: `0024_save_the_date/` — film theme set is now the 5 above (was 10). DECISION_LOG row to follow with the consolidation/effects work.
+
+## 2026-06-18 · feat(save-the-date): builder batch 1 — more themes, reveal labels, preview Restart
+
+First of three owner-requested builder batches. (Batch 2 = drag-to-reorder film sequence; batch 3 = background music + optional video.)
+
+- **More themes (Step 2)** — owner: *"step 2 theme should be more of the color effects and font effects."* Added 5 themes to `STD_THEMES` (now 10): **Blush** (rose · Playfair), **Midnight Gold** (dark slate + gold · Vidaloka), **Coastal** (sky blue · Libre Caslon), **Sunset** (warm orange · Cormorant), **Plum** (fuchsia · Playfair) — each a distinct colour *and* font. Wired 4 already-loaded display faces (`--font-playfair` / `--font-libre-caslon` / `--font-vidaloka` / `--font-script`) as Tailwind `font-*` utilities in `tailwind.config.ts` so themes get real font variety (script reserved for accents — too ornate for body/date text).
+- **Reveal labels (Step 1)** — owner couldn't tell the openings apart because the previews are deliberately tiny + un-recordable (owner-locked 2026-06-18, NOT reversed). Added a plain-English `blurb` + a 2-3-word `motion` chip to each of the 5 `REVEAL_LIBRARY` openings. The chooser now shows the previewed opening's "what it does" line under the device frame, and a motion chip on every picker tile — so they're distinguishable without making the preview recordable.
+- **Preview Restart** — owner: *"live preview has a reset button."* Added a **Restart** button next to the device toggle in the live-preview column; it remounts the film (`key={restartKey}`) → replays from the first beat.
+
+Files: `lib/std-themes.ts` · `tailwind.config.ts` · `app/[slug]/_components/reveal/reveal-templates.ts` · `app/dashboard/[eventId]/_components/reveal-preview-card.tsx` · `app/dashboard/[eventId]/add-ons/save-the-date/_components/StdBuilderClient.tsx`. No schema. `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: iter 0024 (Save-the-Date) builder UX — theme library expanded 5→10, reveal openings gain descriptions, preview gains a Restart. No pricing / schema / public-data change. DECISION_LOG row added.
+
+## 2026-06-18 · feat(save-the-date): builder Information step — one-tap Autofill + interactive live preview
+
+Two owner-requested tweaks to the Save-the-Date builder's **Step 3 · Information** ("What your film shows") and the live preview.
+
+- **Autofill button** — the editable film fields (wedding date, venue name, city, story line) start blank and fall back to live event data implicitly, so the section read as "empty" even when the event had the details. Added an **"Autofill from my event details"** button that drops every available event value into the fields in one tap, so the Information step *shows all* the real values ready to fine-tune. Client-only — it just fills the inputs; nothing persists until **Render**, and clearing a field still reverts that line to live event data. The button only appears (`canAutofill`) when there's something to pull. Date autofill uses the event `dateIso` (sliced to `YYYY-MM-DD` for the date input); venue/city/story use the pre-resolved `initialContent`.
+- **Interactive preview** — the live-preview device frame wrapped the film in `pointerEvents: 'none'`, so it only auto-played. Removed the block: the film's own controls (tap to flip through, press-&-hold to pause, scrub bars, transport) are already wired in `preview` mode, so the couple can now *experience the real interaction* in the miniature. The frame stays small + watermarked (un-recordable); the helper copy now invites the interaction ("Try it — tap to flip through, press & hold to pause").
+
+`app/dashboard/[eventId]/add-ons/save-the-date/_components/StdBuilderClient.tsx` only. No schema, no server-action change, no new props. `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: iter 0024 (Save-the-Date) builder UX — the Information step gains an explicit Autofill action and the preview is interactive. No pricing / schema / public-page change. DECISION_LOG row added.
+
+## 2026-06-18 · feat(patiktok): reel delivery — email + persistent download + admin monitor (PR4 of 4)
+
+Closes the Patiktok record→render→download slice. Stacked on PR3 (#1741).
+
+- **New `lib/patiktok-reel-emails.ts`** — `sendPatiktokReelReadyEmail` (branded "your reel is ready" via Resend, mirrors the Papic sampler email pattern). Resolves the couple's email, links to the Patiktok dashboard (durable), stamps `delivered_at`. Self-guards on RESEND config; **never throws**. Fired from `finalizePatiktokRenderJob` via Next 15 **`after()`** — cron-free, non-blocking.
+- **Persistent download** — `page.tsx` "Your renders" now resolves a **fresh presigned GET** from the durable `output_object_key` for each completed reel and renders a real **Download** button (replaces the static "Download link emailed" line). Guarded by `isR2Configured`.
+- **New admin monitor `app/admin/patiktok/page.tsx`** — read-only render-job queue across all events (status counts + per-job event/template/mode/size/delivery/failure), so the team can spot reels that failed (no-WebCodecs device, R2 CORS not set). Linked from the admin home tile.
+
+tsc 0 · ESLint clean · `lint:navicon` green. Email no-ops cleanly until RESEND is keyed; downloads no-op until R2 is configured.
+
+This completes the architect triad for Patiktok: **couple** (gallery + in-browser render + download), **operator** (booth capture), **admin** (render monitor) — with the email connecting render → couple.
+
+SPEC IMPACT iter 0017 — Patiktok now delivers a real reel end-to-end (capture → render → download/email); only TikTok auto-post (verified-app audit) + owned music (Suno ingestion) remain owner/external-gated. → CHANGELOG + corpus DECISION_LOG.
+
+## 2026-06-18 · feat(patiktok): client-side WebCodecs reel render engine (PR3 of 4)
+
+The piece that makes Patiktok actually produce a video — replaces the 100ms placeholder worker with a real client-side renderer. Stacked on PR2 (#1723). Owner-locked render host: **client-side, ₱0 server compute**.
+
+- **New `lib/patiktok-render.ts`** — composites the booth clips cover-fit onto a 1080×1920 canvas with a template overlay and encodes a 9:16 MP4. **Primary path** = WebCodecs `VideoEncoder` → `mp4-muxer` (clean H.264 MP4, AVC config probed via `isConfigSupported` across High/Main/Baseline L4.0–4.2, deterministic frame-stepped at 30fps). **Fallback** = `MediaRecorder` over `canvas.captureStream()` (real-time, webm) for browsers without WebCodecs. Encoder backpressure, abort support, per-frame progress.
+- **New server actions** (`actions.ts`): `claimPatiktokRenderJob` (RLS-read = auth, gathers event clips as presigned GET URLs, resolves music, flips job → `processing` via service role), `finalizePatiktokRenderJob` (writes `output_object_key`/bytes/`render_mode`, records the job→clip junction, marks clips `included`, returns a 7-day presigned download), `failPatiktokRenderJob`.
+- **New `_components/reel-renderer.tsx`** (client) — drives claim → render (progress bar) → presigned reel upload → finalize → in-page preview + **Download reel** + render-again. Couple-readable errors with retry.
+- **`page.tsx`** — mounts `ReelRenderer` for the `?queued=<jobId>` job; the queued banner now points at in-browser render instead of "we'll email it".
+
+tsc 0 · ESLint clean. **NOT auto-merged** — this is the one piece CI can't exercise (the render needs a real browser + camera-captured clips + a CORS-configured R2). Verify on a device before merge.
+
+Music stays a plumbed-but-inert seam (`musicUrl` passed through; reels render silent until the owned Suno catalogue is ingested). Audio mux + TikTok auto-post remain out of scope (owner/TikTok-gated).
+
+SPEC IMPACT iter 0017 — the render worker is real (client-side); the Phase-1 placeholder `output_url` write is retired. → CHANGELOG + corpus DECISION_LOG.
+
+## 2026-06-18 · feat(patiktok): web booth capture + direct-to-R2 clip upload (PR2 of 4)
+
+The INPUT half of the render pipeline — turns the disabled "Start Recording" button into a real capture loop. Stacked on PR1 (#1713 schema).
+
+- **New `app/api/patiktok/upload/route.ts`** — video-shaped presigned-PUT endpoint (the generic `/api/upload` caps media at 10 MB, images-only). Whitelists `video/webm`/`mp4`/`quicktime`, per-kind caps (clip ≤ 60 MB, reel ≤ 150 MB), event-membership-gated, keys under `patiktok/clips/{eventId}/…` and `patiktok/renders/{eventId}/{jobId}.mp4` (reel kind is pre-wired for PR3). Graceful 503 when R2 isn't configured.
+- **New `_components/booth-capture.tsx`** (client) — `getUserMedia` (9:16, audio) → 3-2-1 countdown → `MediaRecorder` (target = template duration, hard cap 30s, manual stop) → in-place review with playback → retake (max 3) → "Keep this clip" uploads direct-to-R2 via the presign and records the row. Optional per-guest label; running session counter; "Continue to render" link; full timer/stream cleanup on unmount; permission/record/upload errors surfaced with retry. Safari-aware mimeType picker (mp4) with webm fallback (`render_mode` follows).
+- **New `recordPatiktokClip` server action** — RLS-scoped INSERT into `patiktok_source_clips` (cookie client, not admin — the DB enforces event membership).
+- **`booth/page.tsx`** — `RecordCTA` now mounts `BoothCapture`; removed the orphaned `Camera` import + the phase-4.1 TODO placeholders.
+
+tsc 0 · ESLint clean. No render yet (PR3 stitches these clips via client-side WebCodecs). Requires R2 CORS + credentials (owner action) for browser PUTs to succeed in prod.
+
+SPEC IMPACT iter 0017 — booth capture is now real (was a disabled stub). → CHANGELOG + corpus DECISION_LOG.
+## 2026-06-18 · feat(admin): /admin/pricing — single-form bulk price editor (one Save button for the whole catalog)
+
+`/admin/pricing` no longer makes you edit one row at a time. The old surface put every SKU / bundle / vendor row behind its own **Edit → Save → reload** round-trip (a `?edit=<code>` form + a separate server action per row), so changing a dozen prices meant a dozen reloads. The whole catalog is now ONE form: every row's price (+ title, cost, description, active) is an inline input, with a sticky **Save all changes** button that writes the entire catalog in a single submit. Owner-requested ("make it easier to insert new prices and just a single update button for all").
+
+- `app/admin/pricing/actions.ts` — replaced the four per-row actions (`updateRetailSku` / `updateBundleSku` / `updateVendorSku` / `updatePlatformFee`) with one `saveAllPricing`. It regroups the flat form fields (`retail.<field>.<code>` / `bundle.…` / `vendor.…` / `setnayan_pay_fee_pct`) back into rows, diffs each against the live DB row, and UPDATEs **only what changed** — across `platform_retail_catalog_v2` + `platform_package_catalog` + `vendor_billing_catalog` + `platform_settings`. A bad field (blank required title · negative price · vendor price ≤ 0, which the DB CHECK forbids) is **skipped** (keeps its live value) instead of failing the whole batch; the skip count comes back in the redirect. The per-table audit-log action names + the >₱500 / >2 pp `console.warn` gate are preserved. One `revalidatePath` sweep (`/pricing` · `/for-vendors` · `/admin/pricing`, + payments / vendor-dashboard when the fee moves). The fee diff compares against the *effective* prior (DB value, else the code constant) so re-saving the displayed fallback isn't a phantom write.
+- `app/admin/pricing/page.tsx` — rewrote the read-only-with-per-row-edit list into an all-editable, column-aligned grid (desktop column headers + per-field labels on mobile; rows reflow to a single column below `md`). Removed the `?edit=` URL mode, the `PLATFORM_FEE_EDIT_KEY` sentinel, the `Pencil` / `X` icon imports, and the four per-row forms. Added a result banner (saved N · skipped M · error) driven by the redirect params, a `Reset` button, and the shared `SubmitButton` spinner on the single save.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. (No DB writes during local verification — the save path is exercised by the Vercel preview / CI production build.)
+
+SPEC IMPACT: iter 0023 (Admin Console) pricing-catalog surface — the edit UX is now single-form bulk-save, not per-row. Internal-tool UX only; **no pricing values, SKUs, schema, or public surfaces change.** DECISION_LOG row added.
+
+## 2026-06-18 · feat(std): content-film preview now uses the iPhone/MacBook device frames + toggle
+
+The Step-2/3 content-film preview (the "Live preview" / Render column) now uses the **same device frames + iPhone↔MacBook toggle** as the Step-1 reveal chooser — replacing the plain CSS-scaled 220px rounded rectangle. Couples see their Save-the-Date film as it looks on a phone *and* a laptop. Owner-requested.
+
+- `save-the-date-film.tsx` — new `fill?: boolean` preview prop: fills the parent (device screen) with the themed bg + a centered portrait stage (`absolute inset-0 flex justify-center` + `max-w-sm` stage), identical to the live desktop layout. The film content is fluid (centered flex + absolute scrub bars) so it reads right in both the portrait iPhone screen and the landscape MacBook screen.
+- `device-frame.tsx` — extracted a shared `DeviceToggle` (iPhone / MacBook Pro 16" segmented control) now used by both the reveal chooser and the film preview.
+- `reveal-preview-card.tsx` — swapped its inline toggle for the shared `DeviceToggle`.
+- `StdBuilderClient.tsx` — replaced the transform-scale frame + standalone watermark with `<DeviceToggle>` + `<DeviceFrame>` wrapping `<SaveTheDateFilm preview fill>` (pointer-events-none, auto-plays). Removed the now-dead `FILM_NATURAL_*`/`PREVIEW_*` constants. Widened the sticky preview column 260px → 320px so the MacBook frame reads.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean.
+
+SPEC IMPACT: None (preview chrome only; the live `/[slug]` film + its desktop/mobile layouts are unchanged).
+
+## 2026-06-18 · feat(std): Step-1 reveal chooser — auto-play previews in iPhone/MacBook device frames
+
+The Step-1 "Opening reveal" chooser is rebuilt: instead of a full-screen, full-resolution, *interactive* (swipe-the-seal / drag-to-lift) overlay with no watermark, the couple now sees the selected opening **auto-play inside a device frame they can toggle between iPhone and MacBook Pro 16"** — small, low-resolution, watermarked (too small to screen-record). "Make this mine" still persists the choice. The full-quality interactive opening continues to ship on the live guest page (unchanged).
+
+**Reveal engine — new opt-in preview props (all default to live behavior):**
+- `rigid-stage.tsx` — `autoPlay?: boolean`: skips the seal gate, ramps `targetRef` 0→1 on a ~4.2s timer (feeds the same pipe gestures use, so the easing rAF still owns progress + fires `onOpened` once), and gates OFF all wheel/pointer/touch listeners so embedded previews never hijack the dashboard scroll. Scroll cue suppressed in preview.
+- `four-flap.tsx` / `rigid-reveal.tsx` — forward `autoPlay`; pass `forcePreviewCss={autoPlay}` so previews use the cheap CSS-3D flaps (no per-preview WebGL context).
+- `rigid-flaps.tsx` — new `forcePreviewCss?: boolean`, OR'd into the existing force-CSS guard (avoids colliding with the `?reveal3d=off` state).
+- `veil-reveal.tsx` — `autoplay?: boolean` (auto-lift on mount via existing `startAuto()`, gestures gated off) + `lowRes?: boolean` (caps `setPixelRatio` to 1). Petals off in preview.
+
+**New components (`apps/web/app/dashboard/[eventId]/_components/`):**
+- `device-frame.tsx` — fluid iPhone (9:19.5) / MacBook Pro 16" (16:10) shells via CSS `aspect-ratio`; pinned "Preview" watermark.
+- `reveal-preview.tsx` — mounts ONE opening in auto-play + low-res + non-interactive mode, filling the device screen. Veil lazy-loaded; one low-DPR WebGL context max (rigid templates are CSS-only).
+
+**Rewrote `reveal-preview-card.tsx`:** device toggle (iPhone ↔ MacBook) + auto-play preview + opening picker + "Make this mine". Deleted the full-screen `fixed inset-0` interactive overlay and its `tpl`/`revealed`/`launch`/`close`/`renderReveal`/`foldTimer` machinery.
+
+Verified: `pnpm typecheck` + `pnpm lint` clean. Architecture adversarially design-reviewed (6-agent pass): 5-template chooser costs ≤1 small WebGL context.
+
+SPEC IMPACT: `0024_Reveal_Tuning_and_Door_Spec_2026-06-17.md` §8/§10 — the couple-facing Step-1 chooser is now watermarked auto-play device-frame previews (full-screen in-dashboard interactive overlay retired; interactive reveal lives only on the live guest page). Owner-approved 2026-06-18. DECISION_LOG row added.
+
+## 2026-06-18 · feat(std): live preview builder — Reveal + Theme + one Render button — PR #1742
+
+3-step Save-the-Date builder replacing the old per-field form rows (each with their own Save + redirect). Couples now pick: (1) Reveal opening, (2) Visual theme, (3) see their auto-filled information. A CSS-scaled live phone preview (220px display, 384px natural width via `scale(0.573)`) updates in real time as theme changes. One **Render** button saves everything in a single DB write.
+
+**Migration `20260618000001_std_theme.sql` (applied directly via `db query` to prod):**
+- `events.std_theme TEXT` — stores the couple's chosen film theme (NULL → 'moodboard')
+
+**New: `apps/web/lib/std-themes.ts`:**
+- 5 themes: `moodboard` · `editorial` · `heritage` · `noir` · `botanical`
+- Each theme has: bg/fg/accent/font/scrub Tailwind class sets for full recoloring
+- `resolveStdTheme(id)` helper validates and defaults to 'moodboard'
+
+**Modified: `apps/web/app/[slug]/_components/save-the-date-film.tsx`:**
+- `themeId?: StdThemeId` prop — theme-aware class rendering replaces hardcoded Tailwind colors
+- `preview?: boolean` prop — suppresses audio/fullscreen in the builder's phone frame
+- All hardcoded `text-mulberry`, `bg-cream`, `font-display`, etc. replaced with `${theme.*}` variables
+
+**New: `apps/web/app/dashboard/[eventId]/add-ons/save-the-date/_components/StdBuilderClient.tsx`:**
+- Client component with `themeId` + `launchDate` state
+- `useMemo` live content derivation (only `launchLabel` can change; presigned URLs are server-resolved)
+- Two-column desktop layout (`lg:grid-cols-[1fr_260px]`): steps on left, sticky preview + Render on right
+- Watermark overlay ("Preview") on the small phone frame
+
+**Modified: `apps/web/app/dashboard/[eventId]/add-ons/save-the-date/page.tsx`:**
+- Complete rewrite: now renders `StdBuilderClient` + premium openings section + wax seal link
+- Selects `std_theme`, `slug`, `std_film_*` snapshot columns; passes initial content + theme to client
+- Removed: old per-field form JSX, `searchParams`, `SubmitButton`
+
+**Modified: `apps/web/app/dashboard/[eventId]/add-ons/save-the-date/actions.ts`:**
+- `saveAllStdContent` (new): saves `std_theme` + `std_invitation_launch_date` in one write, returns `{ ok: boolean }` (no redirect)
+- `saveInvitationLaunchDate` kept for backwards compat but no longer used by the page
+
+**Modified: `apps/web/app/[slug]/_components/save-the-date.tsx`, `apps/web/app/[slug]/page.tsx`:**
+- `[slug]/page.tsx`: adds `std_theme` to SELECT, passes `themeId` to both `SaveTheDateView` call sites
+- `save-the-date.tsx`: `themeId?: string | null` prop → `resolveStdTheme(themeId)` → `SaveTheDateFilm`
+
+**SPEC IMPACT:** `DECISION_LOG.md` row added (2026-06-18, STD builder redesign). `0024_save_the_date/` CLAUDE.md built-state updated.
+
+
+---
+
+## 2026-06-18 · feat(editorial): three-layer quality scan + admin review queue — PR #1730
+
+Auto-scan (OpenAI Moderation + LanguageTool) runs on every editorial before the couple sees it. Admin reviews flagged content and unlocks. Zero monthly cost (both APIs are free).
+
+**Migration `20270115451085_editorial_scan.sql` (applied directly via `db query` — pre-existing `invitation_widgets` constraint blocked `db push --include-all`):**
+- `event_editorial`: +`scan_status` (pending→scanning→clean→flagged→admin_cleared→skipped), +`scan_flags` JSONB, +`scan_completed_at`, +`unlocked_for_couple_at`
+- Partial index `event_editorial_scan_queue_idx` for admin queue fetch
+
+**`apps/web/lib/editorial-scan.ts` (new):**
+- `scanEditorial(editorialId)`: OpenAI Moderation batch → LanguageTool per-field (120ms gap) → store flags → auto-unlock if clean; on error sets `skipped` and auto-unlocks (never blocks couple)
+- `ScanFlag` interface with severity (`red`=vulgar/`yellow`=grammar) and resolution lifecycle
+
+**`apps/web/app/dashboard/[eventId]/website/editorial/actions.ts`:**
+- `saveEditorial()` now fires `after(() => scanEditorial(eid))` on first save (`scan_status=pending`)
+
+**`apps/web/app/admin/editorial-review/` (new):**
+- List page: sections for Needs review / Queued / Cleared with red/yellow badge counts
+- Detail page: per-flag cards with Mark OK + admin rewrite textarea; Unlock button gated on no pending red flags; Re-scan button
+- `actions.ts`: `resolveFlag`, `unlockForCouple`, `triggerRescan`
+
+**`apps/web/app/admin/_components/admin-sidebar.tsx`:** Editorial review nav entry added (Work group, after queues)
+**`.env.example`:** `OPENAI_API_KEY` documented (Moderations-only restricted key)
+
+**SPEC IMPACT:** `Editorial_Experience_Spec_2026-06-18.md` § Quality Gate implemented. Migration applied to prod. `OPENAI_API_KEY` must be added to Vercel env by owner (key created in session).
+## 2026-06-18 · feat(std): PR4 content film — full-screen experience after the reveal (#1731)
+
+Removed the `NEXT_PUBLIC_STD_FILM` env gate that silently disabled the Save-the-Date film in production. `SaveTheDateFilm` is now a full-screen `fixed inset-0 z-[50]` experience that plays UNDER the reveal overlay (z-[60]). `RevealOverlay` dispatches a `std-reveal-done` custom event from both the veil `onRevealed` and the rigid `onOpened` paths so the film's RAF loop starts the exact moment the reveal clears (2s fallback if no reveal is active). Last slide stays at `Infinity` until the guest taps Continue; dismissing reveals the normal wedding page beneath.
+
+**Files:** `app/[slug]/page.tsx` · `app/[slug]/_components/reveal/reveal-overlay.tsx` · `app/[slug]/_components/save-the-date-film.tsx`
+
+**SPEC IMPACT:** iter 0024 — the content-film layer is now live on every STD-phase wedding page (free tier); `?film=0` disables to the static countdown fallback for debugging.
+
+---
+
+## 2026-06-18 · Kwento Monumental Upgrade — PR 1 (FaceBlock fix) + PR 2 (Flash tier) + PR 3 (Density Map)
+
+Three-PR build from the approved Kwento Monumental Upgrade plan (`Kwento_Monumental_Upgrade_2026-06-18.md`). Turns Kwento from a single-voice photo-message feature into the narrative infrastructure layer of the event.
+
+**PR 1 (#1721) — fix(live-wall): FaceBlock serve-path guard**
+- `lib/live-wall.ts`: `getWallSnapshot()` was filtering on `photo_messages.author_publicly_hidden` (a cached column). Now fetches `guests.faceblock_enabled` at serve-time and suppresses `caption` if true, regardless of whether the cache column synced.
+- `app/dashboard/[eventId]/website/living-hero/_components/living-hero-studio.tsx`: Hoisted `isSaving = phase === 'saving'` before JSX to fix pre-existing TS2367 narrowing errors that blocked CI.
+
+**PR 2 (#1722) — feat(kwento): Phase 1 Flash tier**
+- Migration `20270115000000_kwento_voice_depth.sql`: `voice_depth` column (`flash`/`story`), per-depth DB CHECK constraints, `last_kwento_notify_at` + `kwento_flash_auto_wall` on `events`.
+- Route `app/api/papic/kwento/route.ts`: `voiceDepth` param, Flash auto-wall (5 s `after()` + coordinator kill-switch), Story debounced batch notify (10 min per event).
+- Guest capture UX (`papic-guest-capture.tsx`): two-step Flash (one-liner + 5 s countdown) → Story phase machine.
+- `lib/notifications.ts`: `kwento_story_batch` + `kwento_flash_auto_walled` notification types.
+- Live console: Flash auto-wall toggle (`flash-auto-wall-toggle.tsx`) + `toggleFlashAutoWall` server action.
+
+**PR 3 (#1724) — feat(kwento): Phase 2 Density Map**
+- `lib/kwento-density.ts`: `getKwentoDensity(eventId, limit)` — JS-aggregated Kwento counts per photo, top N with preview caption.
+- Alaala hub (`alaala/page.tsx`): upgraded from static to dynamic; "Most storied moments" horizontal card row + "Mga Boses" pull-quotes (both hidden when no Kwentos).
+- Papic gallery: `PapicGalleryGrid` gains optional `kwentoDensity` prop; gold/amber/grey density dot on thumbnails.
+
+**SPEC IMPACT:** `Kwento_Monumental_Upgrade_2026-06-18.md` Phases 1 + 2 implemented. `Kwento_Automation_Failproof_2026-06-18.md` G1 (FaceBlock) + G2 (auto-wall) guarantees shipped. Phases 3–6 queued for future sessions.
+
+---
+## 2026-06-18 · feat(kwento): Phase 3 Assignment Board — editorial moment-slot assignments + nudge cascade
+
+Kwento Monumental Upgrade Phase 3. Couples (+ Best Man/MoH delegates) can now assign a confirmed guest to each of the 10 locked editorial moments (Bridal March → Money Dance). Assigned guests receive an introductory email and up to 3 nudge reminders.
+
+**Files changed:**
+- `supabase/migrations/20270120760120_kwento_assignments.sql` — `kwento_assignments` table (event/moment/guest unique constraint, RLS via `current_event_ids()`). No `fulfilled_column_id` — deferred to Phase 4 when `kwento_columns` exists.
+- `apps/web/lib/kwento-moments.ts` — 10 locked `KwentoMoment` constants + `KWENTO_MOMENT_BY_KEY` map
+- `apps/web/lib/notifications.ts` — `kwento_assignment_nudge` type added
+- `apps/web/app/dashboard/[eventId]/alaala/assignments/page.tsx` — server page: fetches assignments + confirmed guest list, renders all 10 moment cards
+- `apps/web/app/dashboard/[eventId]/alaala/assignments/_components/assignment-controls.tsx` — `GuestPicker` + `AssignmentRow` client components (assign, nudge, remove)
+- `apps/web/app/dashboard/[eventId]/alaala/assignments/actions.ts` — `createAssignment`, `removeAssignment`, `nudgeAssignee` server actions; `dispatchNudgeEmail` fires via `after()` to send Resend email + in-app notification (if guest has a linked account)
+- `apps/web/app/dashboard/[eventId]/alaala/page.tsx` — "Story Assignments" entry card added above the footer (links to `/alaala/assignments`)
+
+**SPEC IMPACT:** `Kwento_Monumental_Upgrade_2026-06-18.md` Phase 3 (Assignment Board) implemented. Phases 4–6 (Column tier, Editorial assembly, Vendor voice) queued for future sessions.
+
+---
+## 2026-06-18 · fix(papic): restore eventOwnsPapicSeats in sampler keep-check
+
+Regression introduced by the payment-handshake PR (#1718): `eventSamplerIsKept` was
+changed to `eventPapicSeatsActive` (admin-approved orders only). The keep-check must
+use `eventOwnsPapicSeats` (any active order, including submitted-pending-review) so a
+couple who has uploaded a payment screenshot does not lose their sampler photos during
+the ≤24-hr admin-review window.
+
+**File:** `apps/web/lib/papic-sampler.ts`
+
+**SPEC IMPACT:** None (bug fix, no spec change).
+
+---
 
 ## 2026-06-18 · feat(payments): admin-approval handshake — paid features unlock only AFTER the team verifies payment (owner)
 

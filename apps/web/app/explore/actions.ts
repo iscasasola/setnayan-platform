@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { resolvePrimaryHostEvent, recomputeReceptionAnchor } from '@/lib/events';
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
+import { resolveVendorCategory } from '@/lib/vendor-packages';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 
 // Iteration 0041 — email capture for Coming-Soon event_type interest.
@@ -99,14 +100,30 @@ export type SaveVendorResult =
   | { status: 'error'; message: string };
 
 function coerceCategory(services: ReadonlyArray<string>): VendorCategory {
-  // vendor_profiles.services is `text[]` mixing canonical_service taxonomy
-  // strings + raw vendor_category enum values. Pick the first entry that
-  // matches a known enum value; fall back to 'misc' if nothing maps.
+  // vendor_profiles.services is `text[]` that in practice holds leaf /
+  // canonical_service taxonomy strings (e.g. 'photography', 'cake_desserts'),
+  // and occasionally a raw vendor_category enum value.
+  //
+  // Pass 1 — direct enum match. Handles the rare row that already stores a
+  // coarse `vendor_category` enum value.
   for (const s of services) {
     if (VENDOR_CATEGORIES.includes(s as VendorCategory)) {
       return s as VendorCategory;
     }
   }
+  // Pass 2 — leaf → coarse mapping. The common case: 'photography' →
+  // 'photographer', 'cake_desserts' → 'cake_maker'. resolveVendorCategory
+  // returns 'misc' for anything unmapped, so take the first entry that maps
+  // to a real category. Without this pass the leaf strings never matched the
+  // enum check above and every save fell through to 'misc' (the "MISC" bug in
+  // the editorial "Team Behind the Day").
+  for (const s of services) {
+    const resolved = resolveVendorCategory(s);
+    if (resolved !== 'misc') {
+      return resolved;
+    }
+  }
+  // Nothing mapped — generic Misc bucket.
   return 'misc';
 }
 
@@ -167,9 +184,9 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
     return { status: 'already_saved', eventVendorId: existing.vendor_id };
   }
 
-  // 4. Insert. Stamp source='host_manual' so the auto-cascade chip
-  // (planning-groups.tsx AutoCascadedChip) doesn't fire on rows the
-  // host added themselves from /vendors marketplace.
+  // 4. Insert. Stamp source='host_manual' so any auto-cascade "added for
+  // you" badge doesn't fire on rows the host added themselves from the
+  // /vendors marketplace.
   const category = coerceCategory((vendor.services ?? []) as string[]);
   const { data: inserted, error: iError } = await admin
     .from('event_vendors')
@@ -244,6 +261,7 @@ function venueDirectoryTypeToCategory(venueType: string): VendorCategory {
     case 'mosque':
     case 'cultural_site':
     case 'civil_registrar':
+    case 'temple':
       return 'religious_venue';
     case 'hotel_ballroom':
     case 'garden':
@@ -316,9 +334,9 @@ export async function addVenueDirectoryEntryToPlan(
     return { status: 'already_added', eventVendorId: existing.vendor_id };
   }
 
-  // 4. Insert. Stamp source='host_manual' so the auto-cascade chip
-  // (planning-groups.tsx AutoCascadedChip) doesn't fire on rows the
-  // host added themselves from PairedVenuePanel.
+  // 4. Insert. Stamp source='host_manual' so any auto-cascade "added for
+  // you" badge doesn't fire on rows the host added themselves from
+  // PairedVenuePanel.
   const category = venueDirectoryTypeToCategory(venue.venue_type as string);
   const { data: inserted, error: iError } = await admin
     .from('event_vendors')

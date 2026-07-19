@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Martini, Maximize2, Navigation, Plus, RotateCw, Signpost, Trash2, X } from 'lucide-react';
+import { Martini, Maximize2, Navigation, Pencil, Plus, RotateCw, Signpost, Trash2, X } from 'lucide-react';
 import { BOOTH_CATALOG, type BoothType } from '@/lib/seating';
 import {
   deleteCocktailBooth,
@@ -17,6 +17,7 @@ type Booth = {
   booth_id: string;
   booth_type: BoothType;
   label: string;
+  offerings: string | null;
   x: number;
   y: number;
   is_mine: boolean;
@@ -70,6 +71,9 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
   const [signs, setSigns] = useState<Sign[]>(data.signs);
   const [notice, setNotice] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  // The booth whose offerings copy is being edited (inline panel), + its draft.
+  const [editingBooth, setEditingBooth] = useState<string | null>(null);
+  const [offeringsDraft, setOfferingsDraft] = useState('');
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<Drag | null>(null);
   const roomRef = useRef<Room>(room);
@@ -180,7 +184,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
     }
     setBooths((bs) => [
       ...bs,
-      { booth_id: res.boothId!, booth_type: type, label, x: room.x, y: room.y, is_mine: true, vendor_name: null },
+      { booth_id: res.boothId!, booth_type: type, label, offerings: null, x: room.x, y: room.y, is_mine: true, vendor_name: null },
     ]);
   };
 
@@ -191,6 +195,29 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
     const res = await deleteCocktailBooth(eventId, b.booth_id);
     if (!res.ok) {
       setBooths(prev);
+      setNotice(res.error);
+    }
+  };
+
+  // Open / close the inline "what does this booth serve" editor for a booth.
+  const openOfferings = (b: Booth) => {
+    if (!(b.is_mine || canArrange)) return;
+    setEditingBooth(b.booth_id);
+    setOfferingsDraft(b.offerings ?? '');
+  };
+
+  // Persist the offerings copy via the same upsert RPC (label + position are
+  // re-sent unchanged; the RPC trims/caps to 280 server-side). Optimistic, with
+  // rollback on failure — mirrors the drag/relabel paths.
+  const saveOfferings = async (b: Booth) => {
+    const next = offeringsDraft.trim().slice(0, 280);
+    const value = next.length > 0 ? next : null;
+    setEditingBooth(null);
+    if (value === (b.offerings ?? null)) return;
+    setBooths((bs) => bs.map((x) => (x.booth_id === b.booth_id ? { ...x, offerings: value } : x)));
+    const res = await upsertCocktailBooth(eventId, b.booth_id, b.booth_type, b.label, b.x, b.y, value);
+    if (!res.ok) {
+      setBooths((bs) => bs.map((x) => (x.booth_id === b.booth_id ? { ...x, offerings: b.offerings } : x)));
       setNotice(res.error);
     }
   };
@@ -265,7 +292,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
   return (
     <div className="space-y-4">
       {notice ? (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-rose-300 bg-rose-50 px-4 py-2.5 text-sm text-rose-800">
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-danger-300 bg-danger-50 px-4 py-2.5 text-sm text-danger-800">
           <span>{notice}</span>
           <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss">
             <X className="h-4 w-4" />
@@ -284,7 +311,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
             <Plus className="h-4 w-4" /> Add booth
           </button>
           {adding ? (
-            <div className="absolute z-20 mt-1 w-52 rounded-xl border border-ink/15 bg-cream p-1.5 shadow-lg">
+            <div className="absolute z-20 mt-1 w-52 rounded-xl border border-ink/15 bg-white/70 p-1.5 shadow-lg">
               {BOOTH_CATALOG.map((c) => (
                 <button
                   key={c.type}
@@ -320,7 +347,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        className="relative w-full touch-none overflow-hidden rounded-2xl border border-ink/15 bg-cream"
+        className="relative w-full touch-none overflow-hidden rounded-2xl border border-ink/15 bg-white/70"
         style={{ aspectRatio: `${aspect}` }}
       >
         {/* read-only doorway connector — only when the couple has docked this room
@@ -412,7 +439,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
           <div className="h-full w-full rounded-xl border-2 border-dashed border-terracotta/50 bg-terracotta/[0.05]" />
           <span
             onPointerDown={startRoom}
-            className={`pointer-events-auto absolute left-1.5 top-1.5 inline-flex select-none items-center gap-1 rounded-md border border-terracotta/40 bg-cream px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-terracotta shadow-sm ${
+            className={`pointer-events-auto absolute left-1.5 top-1.5 inline-flex select-none items-center gap-1 rounded-md border border-terracotta/40 bg-white/70 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-terracotta shadow-sm ${
               canArrange ? 'cursor-grab' : ''
             }`}
           >
@@ -424,7 +451,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
               type="button"
               onPointerDown={startResize}
               aria-label="Resize cocktail area"
-              className="pointer-events-auto absolute -bottom-2 -right-2 flex h-5 w-5 cursor-nwse-resize items-center justify-center rounded-md border-2 border-terracotta bg-cream text-terracotta shadow-sm"
+              className="pointer-events-auto absolute -bottom-2 -right-2 flex h-5 w-5 cursor-nwse-resize items-center justify-center rounded-md border-2 border-terracotta bg-white/70 text-terracotta shadow-sm"
             >
               <Maximize2 className="h-3 w-3 rotate-90" />
             </button>
@@ -442,7 +469,9 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
             >
               <span
                 onPointerDown={startBooth(b)}
-                title={b.vendor_name ? `${b.label} · ${b.vendor_name}` : b.label}
+                title={
+                  [b.label, b.vendor_name, b.offerings].filter(Boolean).join(' · ') || b.label
+                }
                 className={`flex select-none items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold shadow-sm ${
                   b.is_mine
                     ? 'border-terracotta bg-terracotta text-cream'
@@ -452,15 +481,89 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
                 {b.label}
               </span>
               {editable ? (
-                <button
-                  type="button"
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={() => removeBooth(b)}
-                  aria-label={`Remove ${b.label}`}
-                  className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-rose-600"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={() => openOfferings(b)}
+                    aria-label={`Edit what ${b.label} serves`}
+                    className="absolute -left-2 -top-2 rounded-full border border-ink/15 bg-white/70 p-0.5 text-ink/45 shadow-sm hover:text-terracotta"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={() => removeBooth(b)}
+                    aria-label={`Remove ${b.label}`}
+                    className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-white/70 p-0.5 text-ink/45 shadow-sm hover:text-danger-600"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </>
+              ) : null}
+
+              {/* inline offerings editor — what this booth serves (3D walk card) */}
+              {editingBooth === b.booth_id ? (
+                <>
+                  <button
+                    type="button"
+                    aria-hidden
+                    tabIndex={-1}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      setEditingBooth(null);
+                    }}
+                    className="fixed inset-0 z-40 cursor-default"
+                  />
+                  <div
+                    role="dialog"
+                    aria-label={`What does ${b.label} serve?`}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    className="absolute left-1/2 top-full z-50 mt-2 w-60 -translate-x-1/2 sn-row p-2.5 shadow-lg"
+                  >
+                    <label
+                      htmlFor={`v-booth-offerings-${b.booth_id}`}
+                      className="mb-1 block font-mono text-[9px] uppercase tracking-[0.15em] text-ink/45"
+                    >
+                      What does this booth serve?
+                    </label>
+                    <textarea
+                      id={`v-booth-offerings-${b.booth_id}`}
+                      value={offeringsDraft}
+                      onChange={(e) => setOfferingsDraft(e.target.value.slice(0, 280))}
+                      maxLength={280}
+                      rows={3}
+                      autoFocus
+                      placeholder="e.g. Espresso martinis & mocktails"
+                      className="w-full resize-none rounded-lg border border-ink/15 bg-white/90 px-2 py-1.5 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none"
+                    />
+                    <div className="mt-1 flex items-center justify-between">
+                      <span className="text-[10px] text-ink/45">
+                        Guests see this when they tap your booth in the 3D venue walk.
+                      </span>
+                      <span className="ml-2 shrink-0 text-[10px] tabular-nums text-ink/40">
+                        {offeringsDraft.length}/280
+                      </span>
+                    </div>
+                    <div className="mt-2 flex justify-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setEditingBooth(null)}
+                        className="rounded-lg px-2.5 py-1 text-xs font-medium text-ink/55 hover:bg-ink/[0.04]"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => saveOfferings(b)}
+                        className="rounded-lg bg-terracotta px-2.5 py-1 text-xs font-semibold text-cream hover:opacity-90"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                </>
               ) : null}
             </div>
           );
@@ -477,7 +580,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
               onPointerDown={canArrange ? startSign(s) : undefined}
               onDoubleClick={canArrange ? () => relabelSign(s) : undefined}
               title={canArrange ? `${s.label} · double-click to rename` : s.label}
-              className={`flex select-none items-center gap-1 rounded-md border border-terracotta/40 bg-cream px-2 py-1 text-[10px] font-semibold text-terracotta shadow-sm ${
+              className={`flex select-none items-center gap-1 rounded-md border border-terracotta/40 bg-white/70 px-2 py-1 text-[10px] font-semibold text-terracotta shadow-sm ${
                 canArrange ? 'cursor-grab' : ''
               }`}
             >
@@ -494,7 +597,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={() => rotateSign(s)}
                   aria-label={`Rotate ${s.label}`}
-                  className="absolute -left-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-terracotta"
+                  className="absolute -left-2 -top-2 rounded-full border border-ink/15 bg-white/70 p-0.5 text-ink/45 shadow-sm hover:text-terracotta"
                 >
                   <RotateCw className="h-3 w-3" />
                 </button>
@@ -503,7 +606,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={() => removeSign(s)}
                   aria-label={`Remove ${s.label}`}
-                  className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-cream p-0.5 text-ink/45 shadow-sm hover:text-rose-600"
+                  className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-white/70 p-0.5 text-ink/45 shadow-sm hover:text-danger-600"
                 >
                   <Trash2 className="h-3 w-3" />
                 </button>

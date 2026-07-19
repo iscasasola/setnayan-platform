@@ -3,7 +3,7 @@
 /*
  * Reception-anchored location step (owner 2026-06-04 · supersedes the single-select
  * region picker). Ported from the onboarding prototype (Onboarding_Wedding_Flow):
- *   • idle  → a Top-30 wedding-cities CAROUSEL (real photo + per-city nugget, ranked)
+ *   • idle  → a Top-30 wedding-cities CAROUSEL (real photo, ranked)
  *   • type  → searches the curated cities FIRST, then the full PSGC set (every PH
  *             province/city/municipality — lazy-loaded so it never bloats the bundle)
  *   • "Near me" → device GPS re-sorts the curated cities nearest-first (haversine)
@@ -157,10 +157,7 @@ export function LocationStep({
     <>
       <div className="viewzone">
         <div className="eyebrow">Where</div>
-        <h1 className="q">Where will it be?</h1>
-        <p className="sub">
-          {'Pick up to 2 areas you’re considering — we’ll show venues there, and only the vendors who serve your area.'}
-        </p>
+        <h1 className="q">Where will it be? Pick up to 2 areas.</h1>
         <div className="locpicks" data-count={value.length} aria-live="polite">
           {value.length === 0 ? (
             <span className="locpicks-empty">
@@ -213,7 +210,6 @@ export function LocationStep({
                     <span className="loccard-scrim">
                       <span className="loccard-region">{c.r}</span>
                       <span className="loccard-city">{c.n}</span>
-                      {c.nug && <span className="loccard-nug">{c.nug}</span>}
                     </span>
                   </button>
                 );
@@ -242,7 +238,6 @@ export function LocationStep({
                           {c.n}
                           {d != null && <span className="locphoto-km"> · {d} km</span>}
                         </span>
-                        {c.nug && <span className="loccard-nug">{c.nug}</span>}
                       </span>
                     </button>
                   );
@@ -259,7 +254,6 @@ export function LocationStep({
                         {d != null && <span className="km"> · {d} km</span>}
                       </div>
                       <div className="od">{c.r}</div>
-                      {c.nug && <div className="locnug">{c.nug}</div>}
                     </div>
                     <span className="check" />
                   </div>

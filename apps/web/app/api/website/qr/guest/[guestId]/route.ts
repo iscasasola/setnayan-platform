@@ -4,13 +4,14 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 import { resolveBrandedQrColors } from '@/lib/qr';
+import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { eventSkuActive } from '@/lib/entitlements';
 
 /**
  * GET /api/website/qr/guest/[guestId] — serves a single guest's BRANDED
  * invitation QR as a palette-tinted PNG. Drives the "Download PNG" affordance
  * on the owned Custom QR per guest surface
- * (/dashboard/[eventId]/add-ons/custom-qr-guest).
+ * (/dashboard/[eventId]/studio/custom-qr-guest).
  *
  * Closes the partial CUSTOM_QR_GUEST SKU (₱1,499) — the PNG carries the
  * couple's Mood Board palette color in its modules. Like the master event QR
@@ -101,7 +102,11 @@ export async function GET(
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
   const slug = event.slug ?? event.event_id;
-  const url = `${appUrl}/${slug}?invite=${guest.qr_token}`;
+  // Canonical URL form — nested /u/ under the cutover flag, bare root otherwise
+  // (resolve self-noops OFF; no query pre-cutover). Read with admin: ownership
+  // is event-level and event_members/users may be RLS-invisible to a co-host.
+  const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), event.event_id);
+  const url = `${appUrl}${publicEventPath(slug, ownerSlug)}?invite=${guest.qr_token}`;
 
   // 1024px keeps the printed PNG crisp at postcard / table-card sizes.
   const png = await QRCode.toBuffer(url, {

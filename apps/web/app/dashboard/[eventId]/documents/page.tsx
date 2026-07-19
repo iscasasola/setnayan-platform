@@ -13,6 +13,8 @@ import {
   XCircle,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { resolveProfile, resolveProfileByEvent } from '@/lib/event-type-profile';
+import { term } from '@/lib/event-term-copy';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchEventContracts, statusLabel as contractStatusLabel } from '@/lib/contracts';
 import {
@@ -31,7 +33,19 @@ import {
   type OrderStatus,
 } from '@/lib/orders';
 
-export const metadata = { title: 'Your wedding documents' };
+// Iteration 0053 P4 Unit 3: per-event-type page title. Wedding → byte-identical
+// 'Your wedding documents'; non-wedding → 'Your event documents'. Converted from
+// static `metadata` to `generateMetadata` so it can resolve the event's profile.
+export async function generateMetadata({ params }: Props) {
+  const { eventId } = await params;
+  const profile = await resolveProfileByEvent(eventId);
+  return {
+    title: term(profile, {
+      wedding: 'Your wedding documents',
+      generic: 'Your event documents',
+    }),
+  };
+}
 
 /**
  * /dashboard/[eventId]/documents · consolidated paper-artifact view.
@@ -78,7 +92,7 @@ export default async function EventDocumentsPage({ params }: Props) {
   const [eventRes, paperworkRows, contracts, allOrders] = await Promise.all([
     supabase
       .from('events')
-      .select('event_id, display_name, event_date, ceremony_type')
+      .select('event_id, display_name, event_date, ceremony_type, event_type')
       .eq('event_id', eventId)
       .maybeSingle(),
     fetchEventPaperwork(supabase, eventId).catch(() => []),
@@ -94,7 +108,10 @@ export default async function EventDocumentsPage({ params }: Props) {
     display_name: string;
     event_date: string | null;
     ceremony_type: string | null;
+    event_type: string | null;
   };
+  // Iteration 0053 P4 Unit 3: resolve the profile for per-event-type copy.
+  const profile = await resolveProfile(event.event_type ?? 'wedding');
 
   // Transaction receipts — joined per-order. Only fetch if there are
   // orders on this event (otherwise the IN clause would be empty).
@@ -169,9 +186,13 @@ export default async function EventDocumentsPage({ params }: Props) {
 
   return (
     <section className="space-y-8">
-      <header className="space-y-1.5">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Your wedding documents
+      <header className="sn-reveal space-y-1.5">
+        <p className="sn-eye">Documents</p>
+        <h1 className="sn-h1">
+          {term(profile, {
+            wedding: 'Your wedding documents',
+            generic: 'Your event documents',
+          })}
         </h1>
         <p className="max-w-prose text-base text-ink/65">
           Everything paper, all in one place — government paperwork, vendor
@@ -179,7 +200,7 @@ export default async function EventDocumentsPage({ params }: Props) {
           a row to open the canonical document or edit surface.
         </p>
         {totalDocs > 0 ? (
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <p className="sn-eye">
             {totalDocs} {totalDocs === 1 ? 'document' : 'documents'} on file
           </p>
         ) : null}
@@ -217,7 +238,7 @@ export default async function EventDocumentsPage({ params }: Props) {
 
 function EmptyState({ eventId }: { eventId: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-ink/15 bg-cream p-10 text-center">
+    <div className="sn-row border-dashed p-10 text-center">
       <ScrollText
         aria-hidden
         className="mx-auto h-8 w-8 text-ink/40"
@@ -275,7 +296,7 @@ function PaperworkSection({
           href={`/dashboard/${eventId}/paperwork`}
         />
       ) : (
-        <ul className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-white">
+        <ul className="sn-row divide-y divide-ink/10 overflow-hidden">
           {rows.map((row) => {
             const meta = DOCUMENT_META[row.document_type];
             const label = meta?.label ?? row.document_type;
@@ -383,7 +404,7 @@ function ContractsSection({
           href={`/dashboard/${eventId}/messages`}
         />
       ) : (
-        <ul className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-white">
+        <ul className="sn-row divide-y divide-ink/10 overflow-hidden">
           {rows.map((c) => {
             const vendor = vendorMap.get(c.vendor_profile_id);
             return (
@@ -401,8 +422,8 @@ function ContractsSection({
                         label={contractStatusLabel(c.status)}
                         toneClass={
                           c.status === 'cancelled'
-                            ? 'bg-rose-100 text-rose-800'
-                            : 'bg-emerald-100 text-emerald-800'
+                            ? 'bg-danger-100 text-danger-800'
+                            : 'bg-success-100 text-success-800'
                         }
                       />
                     </div>
@@ -452,10 +473,10 @@ function CreationsSection({
         <SectionEmpty
           message="No Setnayan creations yet. Design a monogram from the YOUR PLAN section on Home."
           ctaLabel="Browse add-ons"
-          href={`/dashboard/${eventId}/add-ons`}
+          href={`/dashboard/${eventId}/studio`}
         />
       ) : (
-        <ul className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-white">
+        <ul className="sn-row divide-y divide-ink/10 overflow-hidden">
           {rows.map((order) => {
             const label =
               (order.service_key && CREATION_SKU_LABEL[order.service_key]) ??
@@ -527,7 +548,7 @@ function OrdersSection({
           href={`/dashboard/${eventId}/orders`}
         />
       ) : (
-        <ul className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-white">
+        <ul className="sn-row divide-y divide-ink/10 overflow-hidden">
           {rows.map((order) => (
             <li key={order.order_id}>
               <Link
@@ -605,7 +626,7 @@ function ReceiptsSection({
           href={`/dashboard/${eventId}/orders`}
         />
       ) : (
-        <ul className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-white">
+        <ul className="sn-row divide-y divide-ink/10 overflow-hidden">
           {receipts.map((r) => {
             const order = ordersById.get(r.order_id);
             const grossNum =
@@ -700,7 +721,7 @@ function SectionEmpty({
   href: string;
 }) {
   return (
-    <div className="rounded-2xl border border-dashed border-ink/15 bg-cream/50 p-6 text-center">
+    <div className="sn-row border-dashed p-6 text-center">
       <p className="text-sm text-ink/65">{message}</p>
       <Link
         href={href}

@@ -2,12 +2,23 @@ import { randomUUID } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { eventOwnsPapicSeats } from '@/lib/papic-seats';
+import { rateLimit } from '@/lib/rate-limit';
 import { R2_BUCKETS, isR2Configured, type R2BucketKey } from '@/lib/r2';
 import {
   encodeR2Ref,
   presignDisplayUrl,
   presignUploadUrl,
 } from '@/lib/uploads';
+import {
+  papicPerCameraTier,
+  papicCameraOrderPaid,
+  papicTierDailyLimit,
+  eventUnliFreeViaUnlock,
+  eventLtdFreeViaUnlock,
+} from '@/lib/papic-cameras';
+import { eventHasPapicUnlock } from '@/lib/entitlements';
 
 /**
  * Presigned-URL endpoint used by `<FileUpload>` to upload files directly to
@@ -40,7 +51,22 @@ type RequestBody = {
   filename?: string;
   contentType?: string;
   sizeBytes?: number;
+  /**
+   * Papic seat capture path. When present, the bucket + object prefix are
+   * derived SERVER-SIDE from the seat this token resolves to (and the caller
+   * must be its claimer) — the client never chooses `bucket`/`pathPrefix` for a
+   * seat upload. Closes the open "any signed-in user presigns into media root
+   * with a free-form prefix" hole that login-free (anonymous) claim widens.
+   */
+  papicSeatToken?: string;
 };
+
+// Papic seat captures are images (photo / clip poster) + short clips only, and
+// a 5s clip is small — so the seat path uses TIGHT per-object ceilings (well
+// below the generic 10 MB image / 200 MB video caps) as the real backstop
+// against a leaked-link storage-abuse / long-clip attempt.
+const PAPIC_SEAT_IMAGE_MAX_BYTES = 12 * 1024 * 1024; // 12 MB
+const PAPIC_SEAT_VIDEO_MAX_BYTES = 40 * 1024 * 1024; // 40 MB — a 5s clip is far under this
 
 const BUCKET_KEYS: ReadonlySet<R2BucketKey> = new Set([
   'media',
@@ -112,7 +138,9 @@ const ALLOWED_MIME_TYPES: ReadonlySet<string> = new Set([
 // audio/video chrome uploads. Bytes. The signed content-length still binds the
 // actual PUT, so a client can't claim a small size then send more.
 const TYPE_MAX_BYTES: ReadonlyArray<readonly [string, number]> = [
-  ['video/', 60 * 1024 * 1024], // 60 MB — a short, compressed hero loop
+  ['video/', 200 * 1024 * 1024], // 200 MB ceiling — a Save-the-Date clip / hero loop. The
+  // STD media picker auto-compresses larger videos client-side to a web-friendly
+  // target before upload; this is the hard safety net (R2 egress is free). 2026-06-19
   ['audio/', 40 * 1024 * 1024], // 40 MB — a full-length background song (covers a ~30-min onboarding track)
 ];
 
@@ -124,6 +152,13 @@ const MAX_FILENAME_LEN = 120;
 // Pathprefix sanity bound. Above this is almost certainly a client bug or
 // attempt to balloon storage costs by chaining unbounded segments.
 const MAX_PATH_PREFIX_LEN = 256;
+
+// MediaRecorder appends `;codecs=…`; strip parameters to get the base MIME.
+// Used by the per-camera quota probe (it must decide photo-vs-clip before the
+// main content-type validation block runs further down).
+function baseContentTypeOf(raw: string | undefined): string {
+  return (typeof raw === 'string' ? raw : '').split(';')[0]?.trim() ?? '';
+}
 
 function sanitizeFilename(raw: string): string {
   // Strip any path components — only the basename matters in the object key.
@@ -191,34 +226,218 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // ---- Validation ---------------------------------------------------------
-
-  const bucketRaw = typeof body.bucket === 'string' ? body.bucket : '';
-  const bucketKey = BUCKET_ALIASES[bucketRaw];
-  if (!bucketKey || !BUCKET_KEYS.has(bucketKey)) {
+  // Best-effort flood backstop (see lib/rate-limit — in-memory, per-instance,
+  // NOT a hard cross-instance guarantee). Keyed on the caller; a generous
+  // ceiling no legitimate capture/upload session approaches. The real
+  // protection for the seat path is the server-derived prefix + tight byte caps
+  // below; this just blunts a naive presign flood from one identity.
+  const rl = rateLimit(`upload:${user.id}`, 120, 60_000);
+  if (!rl.ok) {
     return NextResponse.json(
+      { error: 'Too many uploads — give it a moment and try again.' },
       {
-        error: `Unknown bucket "${bucketRaw}". Use one of: media, thread-files, vendor-contracts, samples.`,
+        status: 429,
+        headers: { 'Retry-After': String(Math.ceil(rl.retryAfterMs / 1000)) },
       },
-      { status: 400 },
     );
+  }
+
+  // ---- Resolve target bucket + object prefix ------------------------------
+  // Two modes:
+  //   • PAPIC SEAT — bucket + prefix derived SERVER-SIDE from the seat this
+  //     token resolves to (caller must be its claimer + the seat live). The
+  //     client never picks the prefix, so a leaked link can only ever write
+  //     into its own seat's space, bounded by reissue.
+  //   • GENERIC — the existing client-chosen bucket + pathPrefix (dashboard
+  //     uploads by event members / vendors).
+  let bucketKey: R2BucketKey;
+  let pathPrefix: string;
+  let seatMode = false;
+
+  const papicSeatToken =
+    typeof body.papicSeatToken === 'string' ? body.papicSeatToken.trim() : '';
+
+  if (papicSeatToken) {
+    // RLS (paparazzi_seats_claimer_read) returns the row only for the claimer —
+    // resolving by token doubles as the auth check; we re-assert it explicitly.
+    const { data: seat } = await supabase
+      .from('paparazzi_seats')
+      .select(
+        'seat_id, event_id, revoked_at, claimer_user_id, tier, sku_code, paid_order_id, valid_from, valid_until',
+      )
+      .eq('claim_qr_token', papicSeatToken)
+      .maybeSingle();
+    if (!seat || seat.claimer_user_id !== user.id || seat.revoked_at) {
+      return NextResponse.json(
+        { error: 'This seat isn’t yours to upload to.' },
+        { status: 403 },
+      );
+    }
+    // Per-camera seats (sku_code PAPIC_CAMERA_*) carry their own paid-gate +
+    // daily quota (below) and are NOT the legacy PAPIC_SEATS pack — so they skip
+    // the pack-ownership re-check. null for legacy pack seats.
+    const cameraTier = papicPerCameraTier(
+      (seat as { sku_code?: string | null }).sku_code ?? null,
+      (seat as { tier?: string | null }).tier ?? null,
+    );
+    // Legacy PAPIC_SEATS pack: entitlement re-check on the ADMIN client (the
+    // claimer can't read orders under RLS). Fail-OPEN on a config/transient error
+    // so a paying couple's crew is never blocked by an entitlement-read hiccup.
+    if (!cameraTier) {
+      let owned = true;
+      try {
+        const admin = createAdminClient();
+        owned = await eventOwnsPapicSeats(admin, seat.event_id as string);
+      } catch {
+        owned = true;
+      }
+      if (!owned) {
+        return NextResponse.json(
+          { error: 'This Papic pack is no longer active.' },
+          { status: 403 },
+        );
+      }
+    }
+
+    // PER-CAMERA presign gate (per-camera model · PR3): for a per-camera seat,
+    // refuse the URL when its order isn't paid yet or it's at the daily quota —
+    // no URL ⇒ no orphan bytes. The record-layer reserve RPC is the backstop.
+    if (cameraTier) {
+      // Capture WINDOW gate (owner 2026-06-26): refuse the URL outside the
+      // event's chosen window (no URL ⇒ no orphan bytes). Mirrors the
+      // record-layer gate in app/papic/actions.ts. Fail-OPEN on null bounds
+      // (legacy seats) so a pre-window camera is never broken.
+      {
+        const nowMs = Date.now();
+        const vf = (seat as { valid_from?: string | null }).valid_from;
+        const vu = (seat as { valid_until?: string | null }).valid_until;
+        const validFrom = vf ? Date.parse(vf) : NaN;
+        const validUntil = vu ? Date.parse(vu) : NaN;
+        if (
+          (Number.isFinite(validFrom) && nowMs < validFrom) ||
+          (Number.isFinite(validUntil) && nowMs > validUntil)
+        ) {
+          return NextResponse.json(
+            { error: 'This camera’s capture window isn’t open.' },
+            { status: 403 },
+          );
+        }
+      }
+      const admin = createAdminClient();
+      // Papic Unlock ("Unlock all of Papic" pass · PR9 #2269 grants the FEATURES;
+      // this is the deferred ALLOWANCE half): every camera shoots UNLIMITED with
+      // NO per-camera payment — skip both the presign paid-gate and the daily
+      // quota probe. Fail toward the normal metered gate on a read error.
+      const unlocked = await eventHasPapicUnlock(
+        admin,
+        seat.event_id as string,
+      ).catch(() => false);
+      if (
+        !unlocked &&
+        (cameraTier === 'roll' || cameraTier === 'unlimited')
+      ) {
+        let paid = false;
+        try {
+          paid = await papicCameraOrderPaid(
+            admin,
+            (seat as { paid_order_id?: string | null }).paid_order_id ?? null,
+          );
+          // Unlock umbrellas (money-gated · TRUE only on an ACTIVE order, so a
+          // non-owner's presign is never freed): PAPIC_UNLOCK (₱15,000) frees Unli;
+          // PAPIC_UNLOCK_LTD (₱9,000, owner 2026-07-11) frees Ltd (Roll). Each
+          // pass covers only its own tier.
+          if (!paid && cameraTier === 'unlimited') {
+            paid = await eventUnliFreeViaUnlock(admin, seat.event_id as string);
+          }
+          if (!paid && cameraTier === 'roll') {
+            paid = await eventLtdFreeViaUnlock(admin, seat.event_id as string);
+          }
+        } catch {
+          paid = false;
+        }
+        if (!paid) {
+          return NextResponse.json(
+            {
+              error: 'This camera activates once your payment is confirmed.',
+              code: 'awaiting_payment',
+            },
+            { status: 402 },
+          );
+        }
+      }
+      const cameraKind = baseContentTypeOf(body.contentType).startsWith('video/')
+        ? 'clip'
+        : 'photo';
+      const limit = unlocked
+        ? null
+        : papicTierDailyLimit(cameraTier, cameraKind);
+      if (limit != null) {
+        try {
+          const { data: remaining, error: remErr } = await admin.rpc(
+            'papic_camera_remaining',
+            {
+              p_seat_id: seat.seat_id as string,
+              p_kind: cameraKind,
+              p_limit: limit,
+            },
+          );
+          if (!remErr && typeof remaining === 'number' && remaining <= 0) {
+            return NextResponse.json(
+              {
+                error:
+                  cameraKind === 'clip'
+                    ? 'You’ve used today’s videos on this camera.'
+                    : 'You’ve used today’s photos on this camera.',
+                code: cameraKind === 'clip' ? 'camera_video_cap' : 'camera_photo_cap',
+              },
+              { status: 409 },
+            );
+          }
+        } catch {
+          // fail-open — the record-layer reserve is the backstop.
+        }
+      }
+    }
+
+    bucketKey = 'media';
+    // Seat captures are permanent — written under the `papic/` prefix.
+    // event-/seat-scoped, server-derived (sanitized — UUIDs only, but defensive).
+    pathPrefix = sanitizePathPrefix(
+      `papic/event-${seat.event_id}/seat-${seat.seat_id}`,
+    );
+    seatMode = true;
+  } else {
+    // ---- Generic path (existing client-chosen bucket + prefix) ----
+    const bucketRaw = typeof body.bucket === 'string' ? body.bucket : '';
+    const resolvedBucket = BUCKET_ALIASES[bucketRaw];
+    if (!resolvedBucket || !BUCKET_KEYS.has(resolvedBucket)) {
+      return NextResponse.json(
+        {
+          error: `Unknown bucket "${bucketRaw}". Use one of: media, thread-files, vendor-contracts, samples.`,
+        },
+        { status: 400 },
+      );
+    }
+    bucketKey = resolvedBucket;
+
+    const pathPrefixRaw =
+      typeof body.pathPrefix === 'string' ? body.pathPrefix : '';
+    if (pathPrefixRaw.length === 0 || pathPrefixRaw.length > MAX_PATH_PREFIX_LEN) {
+      return NextResponse.json(
+        { error: 'pathPrefix is required and must be 1–256 chars.' },
+        { status: 400 },
+      );
+    }
+    const sanitized = sanitizePathPrefix(pathPrefixRaw);
+    if (sanitized.length === 0) {
+      return NextResponse.json(
+        { error: 'pathPrefix must contain at least one non-empty segment.' },
+        { status: 400 },
+      );
+    }
+    pathPrefix = sanitized;
   }
   const bucketName = R2_BUCKETS[bucketKey];
-
-  const pathPrefixRaw = typeof body.pathPrefix === 'string' ? body.pathPrefix : '';
-  if (pathPrefixRaw.length === 0 || pathPrefixRaw.length > MAX_PATH_PREFIX_LEN) {
-    return NextResponse.json(
-      { error: 'pathPrefix is required and must be 1–256 chars.' },
-      { status: 400 },
-    );
-  }
-  const pathPrefix = sanitizePathPrefix(pathPrefixRaw);
-  if (pathPrefix.length === 0) {
-    return NextResponse.json(
-      { error: 'pathPrefix must contain at least one non-empty segment.' },
-      { status: 400 },
-    );
-  }
 
   const filenameRaw = typeof body.filename === 'string' ? body.filename : '';
   if (filenameRaw.length === 0) {
@@ -241,6 +460,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       { status: 400 },
     );
   }
+  // The seat path only ever uploads JPEG photos/posters + short clips — never
+  // PDF/audio. Constrain it so a seat token can't be used to stash other types.
+  if (
+    seatMode &&
+    !baseContentType.startsWith('image/') &&
+    !baseContentType.startsWith('video/')
+  ) {
+    return NextResponse.json(
+      { error: 'Papic captures must be a photo or a clip.' },
+      { status: 400 },
+    );
+  }
 
   const sizeBytes = typeof body.sizeBytes === 'number' ? body.sizeBytes : NaN;
   if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) {
@@ -250,11 +481,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
   // Per-type override (audio/video chrome) takes precedence over the bucket
-  // cap; otherwise the bucket's own cap applies.
-  const typeOverride = TYPE_MAX_BYTES.find(([prefix]) =>
-    baseContentType.startsWith(prefix),
-  )?.[1];
-  const maxBytes = typeOverride ?? BUCKET_MAX_BYTES[bucketKey];
+  // cap; otherwise the bucket's own cap applies. The Papic seat path uses its
+  // OWN tight ceilings (a 5s clip is small) regardless of the generic overrides.
+  let maxBytes: number;
+  if (seatMode) {
+    maxBytes = baseContentType.startsWith('video/')
+      ? PAPIC_SEAT_VIDEO_MAX_BYTES
+      : PAPIC_SEAT_IMAGE_MAX_BYTES;
+  } else {
+    const typeOverride = TYPE_MAX_BYTES.find(([prefix]) =>
+      baseContentType.startsWith(prefix),
+    )?.[1];
+    maxBytes = typeOverride ?? BUCKET_MAX_BYTES[bucketKey];
+  }
   if (sizeBytes > maxBytes) {
     return NextResponse.json(
       {

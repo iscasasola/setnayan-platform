@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+node_modules
 .pnpm-store/
 
 # Build output
@@ -59,3 +60,4 @@ supabase/.temp/
 
 *.tsbuildinfo
 .vercel
+apps/web/supabase/.temp/

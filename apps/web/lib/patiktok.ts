@@ -1,22 +1,22 @@
 /**
- * Hard-coded V1.5+ scaffold catalogue of Patiktok vertical-reel templates.
+ * Hard-coded scaffold catalogue of Patiktok vertical-reel templates.
  *
  * Iteration 0017 ships a TikTok-style mimic STATION (physical X-mark + guest
  * booth) as its full scope — see `0017_patiktok.md` for the complete spec.
- * This file backs the scaffold-level launch only: a couple-facing gallery of
- * pickable vertical-reel templates that previews how the booth experience is
- * staged. Real ffmpeg/Remotion vertical-reel renders, face-lock continuity,
- * masked transitions, Setnayan owned-AI music catalogue, and the operator
- * dashboard are TODO(0017) — see `TODOS` constants at the bottom.
+ * This file backs the template gallery: a couple-facing gallery of pickable
+ * vertical-reel templates that previews how the booth experience is staged.
  *
  * Each template renders as a CSS-painted 9:16 preview (palette + a styled
  * overlay) on the gallery page — same approach as the Save-the-Date V1
  * gallery so that no asset pipeline is needed at scaffold time.
  *
- * Pricing is sourced from the spec's V1 SKU lock (2026-05-16 dual-tier
- * per-day model). Prices are display-only here — purchase wiring lives in
- * the apply-then-pay flow (iteration 0034) and is intentionally NOT wired
- * for this scaffold.
+ * PRICING IS NOT IN THIS FILE. Patiktok is a SINGLE admin-managed SKU keyed
+ * `PATIKTOK_COMPILER`, priced in the authoritative V2 retail catalog
+ * (`platform_retail_catalog_v2`). The studio surface reads the display price via
+ * `getCustomerSkuPrice('PATIKTOK_COMPILER')` and the checkout charge re-resolves
+ * the same row server-side — never hardcoded here. The old 2026-05-16 dual-tier
+ * per-day model (₱999 / ₱1,999 / ₱49 overage) was RETIRED 2026-06-29 and is NOT
+ * restored. (Un-retire 2026-07-01.)
  */
 
 export type PatiktokCategory =
@@ -54,32 +54,14 @@ export const PATIKTOK_CATEGORIES: ReadonlyArray<{
 ];
 
 /**
- * V1 SKU lock 2026-05-16 — dual-tier per-day pricing. Display only.
- * Spec source of truth: `0017_patiktok.md` § Pricing.
+ * Canonical service_key for the single Patiktok SKU. Ownership reads orders
+ * keyed on this code; the buy CTA creates an order under it; the price is the
+ * `platform_retail_catalog_v2` row of the same code. Centralized so every
+ * surface keys the one canonical SKU.
  */
-export const PATIKTOK_TIERS: ReadonlyArray<{
-  key: 'setnayan' | 'personal';
-  label: string;
-  pricePhpPerDay: number;
-  blurb: string;
-}> = [
-  {
-    key: 'setnayan',
-    label: 'Setnayan TikTok',
-    pricePhpPerDay: 999,
-    blurb:
-      'Booth videos auto-post to @SetnayanWeddings — couple gets the post link + downloadable MP4 with Setnayan-owned music.',
-  },
-  {
-    key: 'personal',
-    label: 'Personal TikTok',
-    pricePhpPerDay: 1_999,
-    blurb:
-      'BYO TikTok via OAuth — videos auto-post to the couple’s own TikTok handle. Couple keeps all analytics + ad-revenue upside.',
-  },
-];
+export const PATIKTOK_SERVICE_KEY = 'PATIKTOK_COMPILER';
 
-export const PATIKTOK_OVERAGE_PHP = 49;
+/** Per-booth-per-day soft cap on captured videos (UX guidance, not a charge). */
 export const PATIKTOK_VIDEO_SOFT_CAP = 40;
 
 export const PATIKTOK_TEMPLATES: readonly [
@@ -216,15 +198,3 @@ export function findPatiktokTemplate(slug: string): PatiktokTemplate | null {
 export function categoryLabel(key: PatiktokCategory): string {
   return PATIKTOK_CATEGORIES.find((c) => c.key === key)?.label ?? key;
 }
-
-// TODO(0017): replace this hard-coded catalogue with a database-backed
-// source once the operator dashboard (printable QR generator) lands.
-// TODO(0017): wire ffmpeg/Remotion vertical-reel render pipeline (shared
-// with Save-the-Date + Papic personal reels per CLAUDE.md note).
-// TODO(0017): wire R2 upload of rendered output + signed-URL delivery.
-// TODO(0017): wire Suno Premier AI-owned music catalogue selection
-// (~400 tracks, 6 categories — Bridgerton / Pop / Hip-hop / Jazz /
-// Acoustic per spec).
-// TODO(0017): wire the render-queue worker that picks up jobs from the
-// `patiktok_render_jobs` table (table NOT created in this scaffold — see
-// PR body for the decision rationale).

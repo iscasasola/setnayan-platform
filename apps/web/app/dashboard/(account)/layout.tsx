@@ -1,32 +1,38 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { getDashboardShell } from '@/lib/dashboard-shell';
-import { OuterDashboardHeader } from '@/app/dashboard/_components/outer-dashboard-header';
-import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
-import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
+import {
+  getSwitcherData,
+  type SwitcherData,
+} from '@/app/_components/account-switcher/get-switcher-data';
+import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
+import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
+import { Wordmark } from '@/app/_components/brand-marks';
 
 /**
- * Account-scoped dashboard chrome — route group `(account)` (URL-transparent),
- * covering the non-event dashboard surfaces: the event picker (`/dashboard`),
- * profile, notifications, create-event, api-keys.
+ * Account-scoped chrome — route group `(account)` (URL-transparent), covering
+ * the non-event account SPOKES: profile · people · library (Memories Hub) ·
+ * setnayan-ai · notifications · year · create-event · api-keys · life-flash ·
+ * creator (Storyteller chapters — doorway'd from the launcher Spaces tile +
+ * the account menu per the 2026-07-16 creator readiness verdict B4).
  *
- * SPLIT OUT of `dashboard/layout.tsx` 2026-06-14 (chrome retirement). The old
- * parent layout rendered `OuterDashboardHeader` + a `bg-cream lg:pl-60` gutter
- * UNCONDITIONALLY for every `/dashboard` route — including event routes, where
- * the header was suppressed only by a CLIENT `usePathname()` guard and the
- * gutter cancelled by a `lg:-ml-60` hack in `[eventId]/layout.tsx`. Result:
- * the legacy cream chrome painted first on event navigations, then vanished
- * after hydration — the "old design flashes, then reroutes to the new design"
- * report. By moving the account chrome into this group it renders ONLY on the
- * account routes (structurally, server-side); the parent layout owns no chrome;
- * and `[eventId]/layout.tsx` owns the paper SidebarShell alone. No dual-render,
- * no `-ml-60` cancel, no flash. The header is restyled to the v2.1 `--m-*`
- * paper palette so the old cream design is fully retired.
+ * CHROME-LESS, launcher-consistent (owner 2026-07-13: tapping Profile "goes to a
+ * user-home with a side bar … an old menu … not [designed for] the … user
+ * home"). The launcher at `/dashboard` is the home (owner 2026-07-09 "splash
+ * screen … we do not want side bar and menu bars here"); these surfaces are its
+ * spokes. They USED to render the old universal <SidebarShell> (the retired
+ * user-home left rail via <AccountSidebar> / <DoorwaySidebarHeader> /
+ * <AccountMobileNav>), which resurrected that paradigm every time you opened an
+ * account page. This layout now renders the SAME slim top bar as
+ * `(launcher)/layout.tsx` — Wordmark (→ home) · notifications bell · account
+ * menu — and nothing else. Each spoke page carries its own "Back to home" link
+ * and its own `mx-auto max-w-* px-*` container, so hub-and-spoke navigation is
+ * self-contained with no persistent side rail.
  *
  * Auth/profile/deleted/vendor gating + the welcome tour stay in the parent
- * `dashboard/layout.tsx` (shared by this group AND the event subtree). This
- * layout owns only the chrome-data fetch (events/roles/unread/avatar) that the
- * header switcher needs — the same fetch the event layout runs independently.
+ * `dashboard/layout.tsx` (which already wraps children in `app-surface
+ * min-h-dvh`). This layout owns only the top-bar data (unread count + switcher).
  */
 export default async function AccountDashboardLayout({
   children,
@@ -35,46 +41,48 @@ export default async function AccountDashboardLayout({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect(loginRedirectPath('/dashboard'));
-  // getDashboardShell fetches events + roles + unreadCount in one cached
-  // Promise.all. React cache() deduplicates this call across layouts that
-  // share the same render tree — any page or layout that also calls
-  // getDashboardShell(user.id) in this request gets the already-resolved
-  // result at zero DB cost.
+
   const minimalSwitcherFallback: SwitcherData = {
     userId: user.id,
     displayName: null,
     email: user.email ?? '',
+    isAnonymous: !!user.is_anonymous,
     photoUrl: null,
     events: [],
-    gallery: [],
-    favorites: [],
-    editorials: [],
     context: { hasVendor: false, vendorName: null, isAdmin: false },
   };
   const [{ unreadCount }, switcherData] = await Promise.all([
     getDashboardShell(user.id),
-    // AccountSwitcher panel data. getSwitcherData never returns null after
-    // the 2026-06-17 always-on fix; the .catch here guards against any
-    // unexpected outer throw.
+    // getSwitcherData never returns null after the 2026-06-17 always-on fix; the
+    // .catch guards against any unexpected outer throw so the chrome still paints.
     getSwitcherData(user.id).catch((err: unknown) => {
-      console.error('[AccountSwitcher] data fetch failed:', err);
+      // eslint-disable-next-line no-console
+      console.error('[Account] switcher data fetch failed:', err);
       return minimalSwitcherFallback;
     }),
   ]);
 
   return (
-    <div
-      className="app-surface flex min-h-dvh flex-col lg:pl-60"
-      style={{ background: 'var(--m-paper)' }}
-    >
-      {/* lg:pl-60 offsets the OuterDashboardHeader's 240px desktop sidebar
-          (fixed left). On account routes the header ALWAYS renders, so the
-          gutter is structurally correct — no client guard, no flash. */}
-      <OuterDashboardHeader
-        unreadCount={unreadCount}
-        switcherData={switcherData}
-      />
-      <main className="flex-1">{children}</main>
+    // `sn-ambient` = the canonical Atelier warm wash (Glass PR-1, 2026-07-15):
+    // the account spokes now sit on the SAME canvas as the launcher home they're
+    // one click from, instead of the old plain-white background.
+    <div className="sn-ambient min-h-dvh">
+      <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
+        <Link href="/dashboard" aria-label="Setnayan — home">
+          <Wordmark />
+        </Link>
+        <div className="flex items-center gap-2">
+          <UnreadBellBadge
+            userId={user.id}
+            initialUnread={unreadCount}
+            href="/dashboard/notifications"
+            ariaBaseLabel="Notifications"
+            ariaUnreadSuffix="unread"
+          />
+          <AccountSwitcher data={switcherData} />
+        </div>
+      </header>
+      <main>{children}</main>
     </div>
   );
 }

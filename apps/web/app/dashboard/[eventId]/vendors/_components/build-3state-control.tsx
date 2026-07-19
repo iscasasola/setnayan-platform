@@ -48,6 +48,7 @@ import {
 } from '../build-3state-fallback-actions';
 import { attachMarketplaceVendorToCategory } from '../actions';
 import { setAnchor } from '../build-anchors-actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 /** The Build tab's three anchor values (Date / Budget / Location). */
 export type AnchorData = {
@@ -99,6 +100,7 @@ export function Build3StateControl({
   const [busyRow, setBusyRow] = useState<string | null>(null);
   const [buildMsg, setBuildMsg] = useState<string | null>(null);
   const [unfilled, setUnfilled] = useState<{ groupId: string; label: string }[]>([]);
+  const save = useSaveLoader();
 
   function applyState(
     planGroupId: string,
@@ -107,7 +109,10 @@ export function Build3StateControl({
   ) {
     setBusyRow(planGroupId);
     startTransition(async () => {
-      const res = await setCategoryBuildState({ eventId, planGroupId, state, pinnedVendorId });
+      const res = await save.run(
+        () => setCategoryBuildState({ eventId, planGroupId, state, pinnedVendorId }),
+        { hint: 'Saving' },
+      );
       setBusyRow(null);
       if (res.ok) router.refresh();
       else setBuildMsg(res.error);
@@ -118,7 +123,7 @@ export function Build3StateControl({
     setBuildMsg(null);
     setUnfilled([]);
     startTransition(async () => {
-      const res = await resetBuildStates({ eventId });
+      const res = await save.run(() => resetBuildStates({ eventId }), { hint: 'Saving' });
       if (res.ok) router.refresh();
       else setBuildMsg(res.error);
     });
@@ -128,7 +133,7 @@ export function Build3StateControl({
     setBuildMsg(null);
     setUnfilled([]);
     startTransition(async () => {
-      const res = await runBuild3State({ eventId });
+      const res = await save.run(() => runBuild3State({ eventId }), { hint: 'Saving' });
       if (!res.ok) {
         setBuildMsg(res.error);
         return;
@@ -290,6 +295,7 @@ function FallbackPanel({
   const [added, setAdded] = useState<Set<string>>(new Set());
   const [addingId, setAddingId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const save = useSaveLoader();
 
   function load(nextLimit: number) {
     setErr(null);
@@ -321,7 +327,7 @@ function FallbackPanel({
       // The group id doubles as the category — attachMarketplaceVendorToCategory
       // validates it (rejects a non-leaf) so we can never mis-categorize.
       fd.set('category', group.groupId);
-      const res = await attachMarketplaceVendorToCategory(fd);
+      const res = await save.run(() => attachMarketplaceVendorToCategory(fd), { hint: 'Saving' });
       setAddingId(null);
       if (res.status === 'ok' || res.status === 'already_attached') {
         setAdded((prev) => new Set(prev).add(vendorProfileId));
@@ -504,6 +510,7 @@ function DimensionRow({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const saver = useSaveLoader();
   // Auto-open the editor when Locked with no value yet (§4: Locked must resolve).
   const [editing, setEditing] = useState(false);
   const locked = state === 'locked';
@@ -517,7 +524,7 @@ function DimensionRow({
     fd.set('anchor', anchor);
     fd.set('value', value);
     startTransition(async () => {
-      await setAnchor(fd);
+      await saver.run(() => setAnchor(fd), { hint: 'Saving' });
       setEditing(false);
       router.refresh();
     });

@@ -121,13 +121,13 @@ function StatusBadge({
   } else if (!check) {
     Icon = null;
   } else if (check.status === 'available' || check.status === 'current') {
-    tone = 'text-emerald-700';
+    tone = 'text-success-700';
     Icon = Check;
   } else if (check.status === 'taken' || check.status === 'reserved') {
-    tone = 'text-rose-700';
+    tone = 'text-danger-700';
     Icon = X;
   } else if (check.status === 'invalid_format') {
-    tone = 'text-amber-700';
+    tone = 'text-warn-700';
     Icon = AlertTriangle;
   }
 
@@ -146,20 +146,20 @@ function StatusLine({ check }: { check: CheckResult | null }) {
   if (!check) return null;
   if (check.status === 'available') {
     return (
-      <p className="mt-1 text-xs text-emerald-700">Available — click Save slug to claim it.</p>
+      <p className="mt-1 text-xs text-success-700">Available — click Save slug to claim it.</p>
     );
   }
   if (check.status === 'current') {
     return <p className="mt-1 text-xs text-ink/55">That&rsquo;s your current slug.</p>;
   }
   if (check.status === 'taken') {
-    return <p className="mt-1 text-xs text-rose-700">Taken — try one of these:</p>;
+    return <p className="mt-1 text-xs text-danger-700">Taken — try one of these:</p>;
   }
   if (check.status === 'invalid_format') {
-    return <p className="mt-1 text-xs text-amber-700">{check.reason}</p>;
+    return <p className="mt-1 text-xs text-warn-700">{check.reason}</p>;
   }
   if (check.status === 'reserved') {
-    return <p className="mt-1 text-xs text-rose-700">{check.reason}</p>;
+    return <p className="mt-1 text-xs text-danger-700">{check.reason}</p>;
   }
   return null;
 }

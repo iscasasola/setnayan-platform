@@ -53,6 +53,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import {
   cancelBookingAsHost,
   type CancelBookingAsHostResult,
@@ -107,30 +108,20 @@ export function CancelBookingButton({
     return () => clearTimeout(t);
   }, [toast]);
 
-  // Focus the cancel-modal close button on open — calmest default, the
-  // destructive path requires a deliberate Tab over. Mirrors plan-card-lock.
-  useEffect(() => {
-    if (dialog.kind === 'open' || dialog.kind === 'error') {
-      cancelBtnRef.current?.focus();
-    }
-  }, [dialog]);
-
-  // Escape-key dismissal.
-  useEffect(() => {
-    if (dialog.kind === 'closed') return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && !isPending) {
-        setDialog({ kind: 'closed' });
-      }
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [dialog, isPending]);
-
   const closeDialog = () => {
     if (isPending) return; // Don't allow close during in-flight submit.
     setDialog({ kind: 'closed' });
   };
+
+  // Focus trap + Esc-to-close + scroll lock. Initial focus lands on the
+  // "Keep the booking" button — calmest default, the destructive path
+  // requires a deliberate Tab over. Mirrors plan-card-lock.
+  useModalA11y({
+    open: dialog.kind !== 'closed',
+    onClose: closeDialog,
+    containerRef: dialogRef,
+    initialFocusRef: cancelBtnRef,
+  });
 
   const performCancel = () => {
     setDialog({ kind: 'pending' });
@@ -188,8 +179,8 @@ export function CancelBookingButton({
   const triggerLabel = 'Cancel booking';
   const triggerClassName =
     variant === 'cta'
-      ? 'inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-rose-300/60 bg-cream px-3 py-2 text-xs font-medium text-rose-800 transition-colors hover:border-rose-400 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500'
-      : 'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-ink/55 transition-colors hover:bg-ink/5 hover:text-rose-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta';
+      ? 'inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-danger-300/60 bg-cream px-3 py-2 text-xs font-medium text-danger-800 transition-colors hover:border-danger-400 hover:bg-danger-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger-500'
+      : 'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-ink/55 transition-colors hover:bg-ink/5 hover:text-danger-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta';
 
   return (
     <>
@@ -210,7 +201,7 @@ export function CancelBookingButton({
           aria-modal="true"
           aria-labelledby="cancel-booking-headline"
           aria-describedby="cancel-booking-body"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm sm:items-center"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
           onClick={(e) => {
             if (e.target === dialogRef.current) closeDialog();
           }}
@@ -251,11 +242,11 @@ export function CancelBookingButton({
             {dialog.kind === 'error' ? (
               <div
                 role="alert"
-                className="mt-4 flex items-start gap-2 rounded-md border border-rose-300/60 bg-rose-50/70 px-3 py-2 text-xs text-rose-900"
+                className="mt-4 flex items-start gap-2 rounded-md border border-danger-300/60 bg-danger-50/70 px-3 py-2 text-xs text-danger-900"
               >
                 <AlertTriangle
                   aria-hidden
-                  className="mt-0.5 h-4 w-4 shrink-0 text-rose-700"
+                  className="mt-0.5 h-4 w-4 shrink-0 text-danger-700"
                   strokeWidth={2}
                 />
                 <span>{dialog.message}</span>
@@ -276,7 +267,7 @@ export function CancelBookingButton({
                 type="button"
                 onClick={performCancel}
                 disabled={isPending}
-                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-rose-700 px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-rose-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500 disabled:opacity-60"
+                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-danger-700 px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-danger-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger-500 disabled:opacity-60"
               >
                 {isPending ? (
                   <>
@@ -329,12 +320,12 @@ function SuccessToast({
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-4 left-1/2 z-50 w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 rounded-xl border border-emerald-300/60 bg-cream px-4 py-3 shadow-lg"
+      className="fixed bottom-4 left-1/2 z-50 w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 rounded-xl border border-success-300/60 bg-cream px-4 py-3 shadow-lg"
     >
       <div className="flex items-start gap-3">
         <CheckCircle2
           aria-hidden
-          className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700"
+          className="mt-0.5 h-5 w-5 shrink-0 text-success-700"
           strokeWidth={2}
         />
         <div className="min-w-0 flex-1 space-y-1">
@@ -383,8 +374,8 @@ export function DisputeLinkButton({
 }) {
   const className =
     variant === 'cta'
-      ? 'inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-amber-300/60 bg-cream px-3 py-2 text-xs font-medium text-amber-900 transition-colors hover:border-amber-400 hover:bg-amber-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600'
-      : 'inline-flex items-center gap-1.5 rounded-md border border-amber-300/50 bg-cream px-2 py-1 text-xs font-medium text-amber-900 transition-colors hover:border-amber-400 hover:bg-amber-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600';
+      ? 'inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-warn-300/60 bg-cream px-3 py-2 text-xs font-medium text-warn-900 transition-colors hover:border-warn-400 hover:bg-warn-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warn-600'
+      : 'inline-flex items-center gap-1.5 rounded-md border border-warn-300/50 bg-cream px-2 py-1 text-xs font-medium text-warn-900 transition-colors hover:border-warn-400 hover:bg-warn-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warn-600';
   return (
     <Link href={`/dashboard/${eventId}/disputes`} className={className}>
       <AlertTriangle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />

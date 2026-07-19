@@ -52,28 +52,28 @@ const COPY: Record<
     pillarLabel: 'Free with every account',
     features: [
       {
-        title: 'Guest list — every guest, every detail',
+        title: 'Guest list · every guest, every detail',
         oneLiner:
-          'From save-the-dates to seating, RSVPs, plus-ones, dietary notes — all one row each.',
-        body: 'Every guest is one row in your guest book. Track RSVP, plus-one, dietary preferences, role (principal sponsor, candle, veil, cord, coin, ninang, ninong), table assignment, and personal QR — all linked to the same database your invitations and gallery read from. No more juggling a Google Sheet plus a Notes app plus a WhatsApp thread. When a guest opens their invite QR, your guest list updates in real time.',
+          'From save-the-dates to seating, RSVPs, plus-ones, dietary notes, all one row each.',
+        body: 'Every guest is one row in your guest book. Track RSVP, plus-one, dietary preferences, role (principal sponsor, candle, veil, cord, coin, ninang, ninong), table assignment, and personal QR, all linked to the same database your invitations and gallery read from. No more juggling a Google Sheet plus a Notes app plus a WhatsApp thread. When a guest opens their invite QR, your guest list updates in real time.',
       },
       {
-        title: 'Seating chart — drag, drop, done',
+        title: 'Seating chart · drag, drop, done',
         oneLiner: 'Visual seating that respects who shouldn’t sit next to whom.',
-        body: 'Drag guests onto tables. Setnayan flags awkward pairings (your aunt who shouldn’t sit near your in-laws), keeps plus-ones together, and reserves the bridal-table seats for sponsors. Print the seating chart as a PDF — or hand the chart to your coordinator and let them re-arrange right up until the day.',
+        body: 'Drag guests onto tables. Setnayan flags awkward pairings (your aunt who shouldn’t sit near your in-laws), keeps plus-ones together, and reserves the bridal-table seats for sponsors. Print the seating chart as a PDF, or hand the chart to your coordinator and let them re-arrange right up until the day.',
       },
       {
-        title: 'Budget — the truth, in PHP',
+        title: 'Budget · the truth, in PHP',
         oneLiner: 'Budget by category, paid vs. owed, what’s due next month.',
-        body: 'Set a total budget. Setnayan splits it across categories (venue, catering, photography, attire, flowers, music) with smart Filipino-wedding defaults you can override. Log payments as you make them; the system tracks paid vs. owed and surfaces what’s due in the next 30 days. Every payment ties back to a vendor and an OR — no orphaned line items.',
+        body: 'Set a total budget. Setnayan splits it across categories (venue, catering, photography, attire, flowers, music) with smart Filipino-wedding defaults you can override. Log payments as you make them; the system tracks paid vs. owed and surfaces what’s due in the next 30 days. Every payment ties back to a vendor and an OR, no orphaned line items.',
       },
       {
-        title: 'Mood board — your wedding’s look',
+        title: 'Mood board · your wedding’s look',
         oneLiner: 'Pin photos, lock palettes, share with vendors in one click.',
-        body: 'Pin photos from Pinterest, Instagram, your friend’s wedding album. Setnayan extracts the dominant palette so your florist, your stationer, and your stylist all reference the same hex codes. Per-role palettes for the bride, the groom, the entourage, and the venue. Share the board with a vendor by link — no account required to view.',
+        body: 'Pin photos from Pinterest, Instagram, your friend’s wedding album. Setnayan extracts the dominant palette so your florist, your stationer, and your stylist all reference the same hex codes. Per-role palettes for the bride, the groom, the entourage, and the venue. Share the board with a vendor by link, no account required to view.',
       },
       {
-        title: 'Schedule — the day, minute by minute',
+        title: 'Schedule · the day, minute by minute',
         oneLiner: 'Build your day-of timeline; we sync it to every vendor’s calendar.',
         body: 'Compose your day-of run-of-show: prep, ceremony, photos, reception, after-party. Each block has a time, a location, the responsible vendors, and the guests involved. Subscribe to .ics so it syncs to your phone. When you adjust a block, every vendor on that block gets a notification.',
       },
@@ -87,28 +87,28 @@ const COPY: Record<
     pillarLabel: 'Libre sa bawat account',
     features: [
       {
-        title: 'Guest list — bawat guest, bawat detalye',
+        title: 'Guest list · bawat guest, bawat detalye',
         oneLiner:
-          'Mula save-the-dates hanggang seating, RSVPs, plus-ones, dietary notes — isang row bawat isa.',
-        body: 'Bawat guest ay isang row sa guest book mo. I-track ang RSVP, plus-one, dietary preferences, role (principal sponsor, candle, veil, cord, coin, ninang, ninong), table assignment, at personal QR — lahat naka-link sa parehong database na binabasa ng invitations at gallery mo. Wala nang pag-juggle ng Google Sheet plus Notes app plus WhatsApp thread. Pag binuksan ng guest ang invite QR nila, nag-u-update ang guest list mo real-time.',
+          'Mula save-the-dates hanggang seating, RSVPs, plus-ones, dietary notes, isang row bawat isa.',
+        body: 'Bawat guest ay isang row sa guest book mo. I-track ang RSVP, plus-one, dietary preferences, role (principal sponsor, candle, veil, cord, coin, ninang, ninong), table assignment, at personal QR, lahat naka-link sa parehong database na binabasa ng invitations at gallery mo. Wala nang pag-juggle ng Google Sheet plus Notes app plus WhatsApp thread. Pag binuksan ng guest ang invite QR nila, nag-u-update ang guest list mo real-time.',
       },
       {
-        title: 'Seating chart — drag, drop, tapos',
+        title: 'Seating chart · drag, drop, tapos',
         oneLiner: 'Visual seating na gumagalang kung sino ang hindi dapat magkatabi.',
-        body: 'I-drag ang guests sa tables. Nila-flag ng Setnayan ang awkward na pagkakatabi (ang tita mo na hindi dapat malapit sa in-laws mo), pinagsasama ang plus-ones, at nirereserba ang bridal-table seats para sa sponsors. I-print ang seating chart bilang PDF — o ibigay ang chart sa coordinator mo at hayaan silang mag-ayos hanggang sa mismong araw.',
+        body: 'I-drag ang guests sa tables. Nila-flag ng Setnayan ang awkward na pagkakatabi (ang tita mo na hindi dapat malapit sa in-laws mo), pinagsasama ang plus-ones, at nirereserba ang bridal-table seats para sa sponsors. I-print ang seating chart bilang PDF, o ibigay ang chart sa coordinator mo at hayaan silang mag-ayos hanggang sa mismong araw.',
       },
       {
-        title: 'Budget — ang totoo, sa PHP',
+        title: 'Budget · ang totoo, sa PHP',
         oneLiner: 'Budget per category, bayad vs. utang, ano ang due next month.',
-        body: 'Mag-set ng total budget. Hinahati ito ng Setnayan sa mga category (venue, catering, photography, attire, flowers, music) na may smart Filipino-wedding defaults na pwede mong i-override. I-log ang payments habang nagbabayad ka; tina-track ng system ang bayad vs. utang at ilalabas kung ano ang due sa susunod na 30 araw. Bawat bayad ay nakakabit sa vendor at sa OR — walang orphaned line items.',
+        body: 'Mag-set ng total budget. Hinahati ito ng Setnayan sa mga category (venue, catering, photography, attire, flowers, music) na may smart Filipino-wedding defaults na pwede mong i-override. I-log ang payments habang nagbabayad ka; tina-track ng system ang bayad vs. utang at ilalabas kung ano ang due sa susunod na 30 araw. Bawat bayad ay nakakabit sa vendor at sa OR, walang orphaned line items.',
       },
       {
-        title: 'Mood board — ang hitsura ng kasal mo',
+        title: 'Mood board · ang hitsura ng kasal mo',
         oneLiner: 'Mag-pin ng photos, i-lock ang palettes, i-share sa vendors in one click.',
-        body: 'Mag-pin ng photos mula Pinterest, Instagram, sa wedding album ng kaibigan mo. Kinukuha ng Setnayan ang dominant palette para ang florist, stationer, at stylist mo ay pare-parehong hex codes ang reference. Per-role palettes para sa bride, groom, entourage, at venue. I-share ang board sa vendor via link — walang account na kailangan para tingnan.',
+        body: 'Mag-pin ng photos mula Pinterest, Instagram, sa wedding album ng kaibigan mo. Kinukuha ng Setnayan ang dominant palette para ang florist, stationer, at stylist mo ay pare-parehong hex codes ang reference. Per-role palettes para sa bride, groom, entourage, at venue. I-share ang board sa vendor via link, walang account na kailangan para tingnan.',
       },
       {
-        title: 'Schedule — ang araw, minuto por minuto',
+        title: 'Schedule · ang araw, minuto por minuto',
         oneLiner: 'Buuin ang day-of timeline mo; sini-sync namin ito sa calendar ng bawat vendor.',
         body: 'Buuin ang day-of run-of-show mo: prep, ceremony, photos, reception, after-party. May oras, lokasyon, responsableng vendors, at kasaling guests ang bawat block. I-subscribe sa .ics para mag-sync sa phone mo. Pag in-adjust mo ang isang block, makakakuha ng notification ang bawat vendor sa block na ‘yun.',
       },
@@ -126,9 +126,6 @@ export function PlanningToolkit({ locale }: { locale: MarketingLocale }) {
     >
       <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
         <header className="mb-12 max-w-2xl space-y-3">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            {c.eyebrow}
-          </p>
           <h2
             id="planning-toolkit-heading"
             className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl"

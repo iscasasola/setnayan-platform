@@ -133,11 +133,11 @@ export function QuickAddList({ eventId }: Props) {
           return (
             <li
               key={i}
-              className="flex items-center gap-3 rounded-lg border border-emerald-300/60 bg-emerald-50/40 px-3 py-2 transition-colors"
+              className="flex items-center gap-3 rounded-lg border border-success-300/60 bg-success-50/40 px-3 py-2 transition-colors"
             >
               <CheckCircle2
                 aria-hidden
-                className="h-4 w-4 shrink-0 text-emerald-700"
+                className="h-4 w-4 shrink-0 text-success-700"
                 strokeWidth={2}
               />
               {isEditing ? (
@@ -156,18 +156,18 @@ export function QuickAddList({ eventId }: Props) {
                     }
                   }}
                   onBlur={(e) => commitEdit(i, e.currentTarget.value)}
-                  className="flex-1 rounded-md border border-emerald-300 bg-white px-2 py-1 text-sm font-medium text-ink focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                  className="flex-1 rounded-md border border-success-300 bg-white px-2 py-1 text-sm font-medium text-ink focus:border-success-600 focus:outline-none focus:ring-2 focus:ring-success-200"
                   aria-label={`Edit guest ${i + 1}`}
                 />
               ) : (
                 <button
                   type="button"
                   onClick={() => setEditingIndex(i)}
-                  className="flex-1 cursor-text text-left text-sm font-medium text-emerald-950 hover:text-emerald-700"
+                  className="flex-1 cursor-text text-left text-sm font-medium text-success-950 hover:text-success-700"
                   aria-label={`Edit ${fullName || 'guest ' + (i + 1)}`}
                 >
                   {fullName || (
-                    <span className="italic text-emerald-700/70">(no name)</span>
+                    <span className="italic text-success-700/70">(no name)</span>
                   )}
                 </button>
               )}
@@ -175,7 +175,7 @@ export function QuickAddList({ eventId }: Props) {
                 type="button"
                 onClick={() => setEditingIndex((curr) => (curr === i ? null : i))}
                 aria-label={`Toggle edit for guest ${i + 1}`}
-                className="rounded p-1 text-emerald-800/60 hover:bg-emerald-100 hover:text-emerald-900"
+                className="rounded p-1 text-success-800/60 hover:bg-success-100 hover:text-success-900"
               >
                 <Pencil className="h-3.5 w-3.5" strokeWidth={1.75} />
               </button>
@@ -183,7 +183,7 @@ export function QuickAddList({ eventId }: Props) {
                 type="button"
                 onClick={() => removeAt(i)}
                 aria-label={`Remove guest ${i + 1}`}
-                className="rounded p-1 text-emerald-800/60 hover:bg-rose-100 hover:text-rose-700"
+                className="rounded p-1 text-success-800/60 hover:bg-danger-100 hover:text-danger-700"
               >
                 <X className="h-4 w-4" strokeWidth={1.75} />
               </button>

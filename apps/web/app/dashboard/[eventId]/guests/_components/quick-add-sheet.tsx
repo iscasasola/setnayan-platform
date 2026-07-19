@@ -16,6 +16,7 @@ import {
   type GuestRole,
   type GuestSide,
 } from '@/lib/guests';
+import { resolveRoleSet } from '@/lib/role-sets';
 import {
   quickAddGuest,
   quickCreateGroup,
@@ -23,6 +24,7 @@ import {
   setGuestPrimaryRole,
 } from '../quick-add-actions';
 import { findDuplicates, norm, TAG } from '@/lib/guest-dedupe';
+import { SIDE_CONTROL_BORDER } from '@/lib/side-colors';
 
 /* ------------------------------------------------------------------ */
 /* Cross-component opener — one sheet, two triggers (desktop header    */
@@ -30,14 +32,14 @@ import { findDuplicates, norm, TAG } from '@/lib/guest-dedupe';
 /* ------------------------------------------------------------------ */
 const OPEN_EVENT = 'setnayan:quick-add-open';
 
-export function OpenQuickAddButton() {
+export function OpenQuickAddButton({ label = '+ Add guest' }: { label?: string } = {}) {
   return (
     <button
       type="button"
       className="button-primary"
       onClick={() => window.dispatchEvent(new CustomEvent(OPEN_EVENT))}
     >
-      + Add guest
+      {label}
     </button>
   );
 }
@@ -57,39 +59,15 @@ export type ExistingGuest = {
 };
 
 /* role dropdown order — mirrors new/actions.ts ROLE_VALUES */
-const ROLE_OPTS: GuestRole[] = [
-  'guest',
-  'bride',
-  'groom',
-  'bride_parents',
-  'groom_parents',
-  'bride_immediate_family',
-  'groom_immediate_family',
-  'maid_of_honor',
-  'matron_of_honor',
-  'best_man',
-  'bridesmaid',
-  'groomsman',
-  'principal_sponsor',
-  'candle_sponsor',
-  'veil_sponsor',
-  'cord_sponsor',
-  'coin_sponsor',
-  'ring_bearer',
-  'bible_bearer',
-  'coin_bearer',
-  'flower_girl',
-  'officiant',
-  'reader_lector',
-  'soloist_musician',
-];
+// Iteration 0053 P2: the offered role list is per event type — resolved from
+// the roleSetKey prop via resolveRoleSet (client-safe, pure). Wedding resolves
+// to today's 24-role list, incl. bride/groom (quick-add offers them, unlike the
+// filtered full form).
 
-/* the Side picker carries its team colour on the control border */
-const SIDE_BORDER: Record<GuestSide, string> = {
-  bride: 'border-rose-400',
-  groom: 'border-sky-500',
-  both: 'border-violet-400',
-};
+/* the Side picker carries its team colour on the control border — canonical
+   side-colour map (lib/side-colors.ts · SIDE_CONTROL_BORDER): gold / info-slate
+   / lighter gold */
+const SIDE_BORDER = SIDE_CONTROL_BORDER;
 const SIDE_SHORT: Record<GuestSide, string> = {
   bride: 'Bride',
   groom: 'Groom',
@@ -102,12 +80,17 @@ export function QuickAddSheet({
   eventId,
   existingGuests,
   groups,
+  roleSetKey = 'wedding',
 }: {
   eventId: string;
   existingGuests: ExistingGuest[];
   groups: GroupOpt[];
+  roleSetKey?: string | null;
 }) {
   const router = useRouter();
+  // Per-event-type offered roles (iteration 0053 P2). resolveRoleSet is a pure
+  // client-safe lookup; the parent passes the event's roleSetKey string.
+  const offeredRoles = resolveRoleSet(roleSetKey).offeredRoles;
   const [open, setOpen] = useState(false);
   const [side, setSide] = useState<GuestSide>('bride');
   const [role, setRole] = useState<GuestRole>('guest');
@@ -431,7 +414,7 @@ export function QuickAddSheet({
                     onChange={(e) => setRole(e.target.value as GuestRole)}
                     className="w-full rounded-lg border border-ink/20 bg-cream px-2 py-2 text-sm text-ink focus:border-ink/40 focus:outline-none"
                   >
-                    {ROLE_OPTS.map((r) => (
+                    {offeredRoles.map((r) => (
                       <option key={r} value={r}>
                         {ROLE_LABELS[r]}
                       </option>
@@ -513,7 +496,7 @@ export function QuickAddSheet({
                     </button>
                   </div>
                   {groupError ? (
-                    <p role="alert" className="text-xs text-rose-700">
+                    <p role="alert" className="text-xs text-danger-700">
                       {groupError}
                     </p>
                   ) : null}
@@ -564,8 +547,8 @@ export function QuickAddSheet({
                 </div>
 
                 {dupActive ? (
-                  <div className="space-y-2 rounded-xl border border-amber-300/70 bg-amber-50 p-3">
-                    <p className="flex items-center gap-2 text-sm font-semibold leading-tight text-amber-800">
+                  <div className="space-y-2 rounded-xl border border-warn-300/70 bg-warn-50 p-3">
+                    <p className="flex items-center gap-2 text-sm font-semibold leading-tight text-warn-800">
                       <AlertTriangle aria-hidden className="h-4 w-4 flex-none" strokeWidth={1.9} />
                       {target && !targetHasPicked
                         ? `${target.first_name} is already on your list — with a different role`
@@ -589,10 +572,10 @@ export function QuickAddSheet({
                         <span
                           className={`flex-none rounded-full px-2 py-0.5 text-[10px] font-bold ${
                             kind === 'exact'
-                              ? 'bg-rose-100 text-rose-700'
+                              ? 'bg-danger-100 text-danger-700'
                               : kind === 'nick'
-                                ? 'bg-violet-100 text-violet-700'
-                                : 'bg-amber-200/70 text-amber-800'
+                                ? 'bg-info-100 text-info-800'
+                                : 'bg-warn-200/70 text-warn-800'
                           }`}
                         >
                           {TAG[kind]}
@@ -665,7 +648,7 @@ export function QuickAddSheet({
                 ) : null}
 
                 {error ? (
-                  <p role="alert" className="text-sm text-rose-700">
+                  <p role="alert" className="text-sm text-danger-700">
                     {error}
                   </p>
                 ) : null}

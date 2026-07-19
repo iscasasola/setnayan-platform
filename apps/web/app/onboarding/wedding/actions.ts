@@ -2,6 +2,9 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
+import { allowAnonMint } from '@/lib/anon-mint-throttle';
+import { experienceQuizEnabled } from '@/lib/experience-quiz';
 import {
   syncEventSongPicks,
   fetchSongBankCurated,
@@ -19,8 +22,11 @@ import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import { canonicalServicesForTile, canonicalServicesForFolder } from '@/lib/vendor-counts';
 import { PICK_TO_GROUP } from '@/lib/onboarding-availability';
 import { regionForCity } from '@/lib/regions';
+import { resolveRegion } from '@/lib/region-source';
 import { PERMISSION_TEMPLATES, type RoleSubtype } from '@/lib/event-moderators';
 import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
+import { captchaOptions } from '@/lib/turnstile';
+import { hasInPlanningWeddingForUser } from '@/app/dashboard/(account)/create-event/wedding-guard';
 
 /**
  * commitOnboardingWedding — the single lazy DB commit for the /onboarding/wedding
@@ -77,6 +83,56 @@ const DEFAULT_SUB_TYPE: Record<string, string> = {
 };
 // Secondary (mixed-wedding) pick: any registry faith or civil — never 'mixed'.
 const ALLOWED_SECONDARY = ALLOWED_CEREMONY_VALUES.filter((v) => v !== 'mixed');
+
+/**
+ * deriveMixedColumns — order-independent column derivation for a MIXED / overlay
+ * wedding (≥2 faith picks, e.g. a Tsinoy church-primary + Chinese tea ceremony).
+ *
+ * THE BUG THIS FIXES: the old `faith.find(isAllowedSecondary)` derived the second
+ * rite from CHIP-TAP ORDER — it returned whichever faith was tapped first, so the
+ * second faith (often the Chinese overlay) was SILENTLY DROPPED and the couple did
+ * NOT get a Chinese-aware event. Order must not decide which faith survives.
+ *
+ * CONTRACT (matches dashboard/create-event/actions.ts §140-144 + the schema the
+ * consumers wedding-plan-groups.ts / paperwork.ts / auspicious-date.ts / isChineseWedding
+ * read): a mixed wedding stores ceremony_type='mixed' (literal) + is_mixed_ceremony=true
+ * + secondary_ceremony_type = the CONCRETE second rite. Here we return BOTH:
+ *   - `ceremonyType` — the concrete PRIMARY rite used by find/count branches that
+ *     filter on a real ceremony value (prefer the NON-Chinese pick when one exists,
+ *     so Chinese is kept free to ride as the secondary overlay below).
+ *   - `secondary`   — the concrete SECONDARY rite, validated against ALLOWED_SECONDARY,
+ *     preferring a 'chinese' pick so the common church-primary + Chinese-tea case
+ *     never loses the Chinese overlay, regardless of tap order.
+ *
+ * The COMMIT path writes the literal 'mixed' into ceremony_type itself (per the
+ * CHECK constraint) and only consumes `secondary` here — `ceremonyType` is for the
+ * search/count branches, which filter on a concrete ceremony value, not 'mixed'.
+ */
+function deriveMixedColumns(faith: string[]): {
+  ceremonyType: string;
+  secondary: string | null;
+} {
+  // Concrete picks only — filter to the valid secondary/ceremony vocabulary
+  // (drops 'mixed' itself + any unknown junk), preserving the couple's set.
+  const concrete = (faith ?? []).filter((f) =>
+    (ALLOWED_SECONDARY as readonly string[]).includes(f),
+  );
+  // Prefer keeping a Chinese pick as the SECONDARY overlay (Tsinoy church-primary
+  // + Chinese tea ceremony) so it's never the one that gets dropped.
+  const hasChinese = concrete.includes('chinese');
+  const secondary = hasChinese
+    ? 'chinese'
+    : // no Chinese pick → the secondary is the second concrete rite (the one that
+      // is NOT the primary), order-independently: take the first that differs.
+      (concrete.find((f) => f !== concrete[0]) ?? null);
+  // Primary concrete rite for the find/count branches: the non-Chinese pick when
+  // one exists (so Chinese rides as the overlay, not the filter), else fall back
+  // to the first concrete pick, else 'catholic' (the same fallback the religious
+  // branch uses for an unknown/missing pick).
+  const ceremonyType =
+    concrete.find((f) => f !== 'chinese') ?? concrete[0] ?? 'catholic';
+  return { ceremonyType, secondary };
+}
 // Fallback when the couple skipped the reception "setting" pick. The CHECK
 // constraint requires a value for wedding events; the couple refines it later.
 const DEFAULT_VENUE = 'banquet_hall';
@@ -110,42 +166,22 @@ const RECEPTION_TO_VENUE_TYPE: Record<string, string> = {
   setting_resort: 'resort',
 };
 
-// Onboarding region slug (screen-6 · onboarding-shell REGLABEL keys) → PSGC
-// region code (vendor_profiles.hq_region · lib/regions.ts PH_REGIONS). The
-// shell's own slug set ('c-visayas', 'n-mindanao', 'abroad' …) differs from
-// match-criteria.ts REGION_OPTIONS, so this map is keyed to what the wizard
-// actually stores in state.region. `abroad` → null = no region scope (couple
-// marrying overseas · show the full pool). Unknown slug → null (no scope) so a
-// future region addition degrades to "everywhere" rather than zero results.
-const ONBOARDING_REGION_TO_PSGC: Record<string, string> = {
-  ncr: 'NCR',
-  calabarzon: 'IV-A',
-  'c-visayas': 'VII',
-  'w-visayas': 'VI',
-  'c-luzon': 'III',
-  ilocos: 'I',
-  cagayan: 'II',
-  bicol: 'V',
-  mimaropa: 'IV-B',
-  'e-visayas': 'VIII',
-  zamboanga: 'IX',
-  'n-mindanao': 'X',
-  davao: 'XI',
-  soccsksargen: 'XII',
-  caraga: 'XIII',
-  barmm: 'BARMM',
-  car: 'CAR',
-  // abroad → (absent) → null → no region scope
-};
-
-/** Onboarding region slug → PSGC code, or null when the couple has no
- *  region-scopable pick (unset · `abroad` · unrecognized slug). */
+/** Onboarding region slug → PSGC code (vendor_profiles.hq_region), or null when
+ *  the couple has no region-scopable pick (unset · `abroad` / non-scopable ·
+ *  unrecognized slug). Resolves through the canonical region source
+ *  (lib/region-source), which absorbs all four spellings — the shell's hyphen
+ *  slugs ('c-visayas', 'n-mindanao'), the underscore variants, the PSGC codes,
+ *  and 'cagayan-valley'. `abroad` (is_scopable = false) → null = no region scope
+ *  (couple marrying overseas · show the full pool). Unknown slug → null so a
+ *  future region addition degrades to "everywhere" rather than zero results —
+ *  same degradation as the old inline map. Never throws. */
 function onboardingRegionToPsgc(region: string | null | undefined): string | null {
-  if (!region) return null;
-  return ONBOARDING_REGION_TO_PSGC[region] ?? null;
+  const resolved = resolveRegion(region);
+  if (!resolved || !resolved.is_scopable) return null;
+  return resolved.psgc_code;
 }
 
-// Picker key (53 fine taxonomy services, screen-9) → PLAN_GROUP id (26 planning
+// Picker key (53 fine taxonomy services, screen-9) → PLAN_GROUP id (planning
 // groups). The auto-inquire loop resolves each pick to its group, then fires
 // ONE best-fit inquiry per UNIQUE group (the dashboard unlock-category model).
 // Picks with no clean planning group are intentionally omitted so a pick never
@@ -200,7 +236,7 @@ export type OnboardingCommitPayload = {
    * screen-12 "Add your own vendor" sheet — off-platform vendors the couple typed in
    * (name + contact person + email). Persisted at commit as event_vendors 'considering'
    * freeform rows (category 'misc', source 'host_manual') so they show on the dashboard
-   * Services tab — same shape the dashboard's addCustomVendor writes for a manual vendor.
+   * Services tab — same shape the dashboard's manual-vendor add writes.
    */
   byoVendors: { name: string; person: string; email: string }[];
   /**
@@ -256,6 +292,25 @@ export type OnboardingCommitPayload = {
   storyLanguage: string | null;
   specialMessage: string | null;
   togetherSince: string | null;
+  /**
+   * Experience-persona profile (iteration 0016 · flag-gated). The resolved persona
+   * slug + the for-whom axis + the raw 5-axis answers. Persisted to events.
+   * experience_persona / experience_for_whom / experience_axes — but ONLY when
+   * NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED is on (the commit GUARDS the columns so the
+   * insert never references them before migration 20270207000000 is applied). The
+   * derived picks/refinements/feel/services already ride the existing payload fields
+   * (picks/refinements/moodFeelKey/interestedServices) — this just adds the intent.
+   */
+  experiencePersona: string | null;
+  experienceForWhom: 'couple' | 'guests' | 'both' | null;
+  experienceAxes: Record<string, string>;
+  /**
+   * Cloudflare Turnstile token minted client-side when global Supabase captcha
+   * is enabled — anon-draft commit mints a Supabase anonymous session, which
+   * captcha gates. Optional/undefined until the funnel supplies it; empty → {}
+   * → no-op (see lib/turnstile.ts).
+   */
+  captchaToken?: string;
 };
 
 export type OnboardingCommitResult =
@@ -266,11 +321,50 @@ export async function commitOnboardingWedding(
   payload: OnboardingCommitPayload,
 ): Promise<OnboardingCommitResult> {
   const supabase = await createClient();
-  const {
+  let {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return { ok: false, error: 'not_authenticated' };
+    // Anon-draft onboarding (flag-gated · 2026-06-20): rather than bounce an
+    // account-less visitor to the signup wall, mint a Supabase NATIVE anonymous
+    // session here. The returned user has a real auth.uid(), so the event +
+    // event_members insert below — and every downstream RLS policy — work
+    // unchanged. The visitor lands in their dashboard with the plan saved; a
+    // "secure your plan" banner converts the SAME uid to a permanent account
+    // later (app/signup/actions.ts). signInAnonymously() sets the sb-* session
+    // cookies via the SSR client (we're in a server action, so cookie writes
+    // land). Requires Supabase `enable_anonymous_sign_ins` + the null-email
+    // trigger migration — both owner go-live steps; until then the flag stays
+    // OFF and we fall through to the unchanged not_authenticated contract.
+    if (anonOnboardingEnabled()) {
+      // Per-IP flood guard: anonymous sign-in mints a real account + event from
+      // nothing, so cap it per IP before minting. Fail-open on a missing IP or
+      // infra error (see allowAnonMint) so a real couple is never locked out.
+      if (!(await allowAnonMint(createAdminClient()))) {
+        return { ok: false, error: 'rate_limited' };
+      }
+      const { data: anon, error: anonError } = await supabase.auth.signInAnonymously({
+        // Global Supabase captcha also gates anonymous sign-in. Token comes from
+        // the funnel client (mintTurnstileToken); empty → {} → no-op.
+        options: captchaOptions(payload.captchaToken),
+      });
+      if (anonError || !anon.user) {
+        console.error('[commitOnboardingWedding] anon sign-in failed:', anonError?.message);
+        return { ok: false, error: 'not_authenticated' };
+      }
+      user = anon.user;
+    } else {
+      return { ok: false, error: 'not_authenticated' };
+    }
+  }
+
+  // Wedding cardinality — one wedding IN PLANNING at a time (owner-locked
+  // 2026-07-12). The shipped guard lived only in create-event's server action;
+  // this commit path could walk past it (council 2026-07-17 recon: an existing
+  // bypass). A freshly-minted anonymous user has no prior events by
+  // construction, so the read is skipped for them.
+  if (!user.is_anonymous && (await hasInPlanningWeddingForUser(supabase, user.id))) {
+    return { ok: false, error: 'wedding_exists' };
   }
 
   // -- Map onboarding kind/faith → events.ceremony_type / secondary --
@@ -280,16 +374,17 @@ export async function commitOnboardingWedding(
   if (payload.kind === 'civil') {
     ceremonyType = 'civil';
   } else if (payload.kind === 'mixed') {
+    // Mixed/overlay wedding → literal 'mixed' + is_mixed_ceremony=true + the
+    // concrete second rite, derived order-independently so the Chinese overlay
+    // is never dropped by chip-tap order (see deriveMixedColumns).
     ceremonyType = 'mixed';
     isMixed = true;
-    const sec = payload.faith.find((f) =>
-      (ALLOWED_SECONDARY as readonly string[]).includes(f),
-    );
-    secondary = sec ?? null;
+    secondary = deriveMixedColumns(payload.faith).secondary;
   } else {
-    // religious — faith[0]; only 'catholic' is an active ceremony_type today
-    // (INC/Christian/Muslim/Cultural ship as Coming Soon, not yet selectable
-    // as a committed ceremony_type per iteration 0043).
+    // religious — faith[0] is preserved verbatim when it's any ALLOWED_CEREMONIES
+    // value (the guard below only falls back to 'catholic' for an unknown/missing
+    // pick). Selectability is gated upstream by the picker via each faith's
+    // wedding_type launch status (Coming Soon faiths aren't offered), not here.
     const primary = payload.faith[0];
     ceremonyType =
       primary && (ALLOWED_CEREMONIES as readonly string[]).includes(primary)
@@ -316,6 +411,18 @@ export async function commitOnboardingWedding(
   }
   const slug = await generateUniqueSlug(admin, displayName);
   const now = new Date().toISOString();
+
+  // Anon-draft: an anonymous couple's inquiry fan-out is SKIPPED at commit (the
+  // reply would bounce to their placeholder email + a vendor could burn a token
+  // on a ghost). When they opted into "reach my matches", we stash the intent
+  // here so it auto-dispatches the instant they secure their account — the
+  // dashboard's first authenticated load replays it (lib/pending-inquiries.ts).
+  // The picks themselves live in style_preferences.interested_categories below;
+  // this flag just carries the per-category count + the consent signal.
+  const pendingInquiryDispatch =
+    user.is_anonymous && payload.sendTopInquiries
+      ? { perCategory: Math.max(1, Math.min(5, Math.round(payload.inquiriesPerCategory ?? 3))) }
+      : null;
 
   // Normalize the onboarding date capture into the v2 columns.
   const dateMode = payload.dateMode === 'window' ? 'window' : 'specific';
@@ -387,6 +494,17 @@ export async function commitOnboardingWedding(
       story_language: payload.storyLanguage ?? null,
       special_message: payload.specialMessage ?? null,
       together_since: payload.togetherSince ?? null,
+      // Experience-persona profile (iteration 0016 · flag-gated). GUARDED by the flag
+      // so the insert only references these columns when the experience quiz is live —
+      // keeps the commit safe to ship before migration 20270207000000 is applied (OFF →
+      // the keys are absent, so PostgREST never touches the not-yet-existing columns).
+      ...(experienceQuizEnabled()
+        ? {
+            experience_persona: payload.experiencePersona,
+            experience_for_whom: payload.experienceForWhom,
+            experience_axes: payload.experienceAxes ?? {},
+          }
+        : {}),
       // Display-only style blob for the Home "Personalized for you" card
       // (migration 20260724000000). NOT vendor matching — see the payload doc.
       style_preferences: {
@@ -401,6 +519,9 @@ export async function commitOnboardingWedding(
         // Dream Team chapter — per-leaf refinement detail (additive · DISPLAY +
         // future vendor-match). Empty {} until the refine passes ship (PR-4).
         refinements: payload.refinements ?? {},
+        // Anon-draft deferred inquiry intent — present only for an anon couple
+        // who opted into matches; cleared by lib/pending-inquiries once dispatched.
+        ...(pendingInquiryDispatch ? { pending_inquiry_dispatch: pendingInquiryDispatch } : {}),
       },
     })
     // events.id is BIGSERIAL (internal) — every FK + the dashboard route use
@@ -527,7 +648,7 @@ export async function commitOnboardingWedding(
   // Persist BYO vendors — the off-platform vendors the couple typed into the
   // screen-12 "Add your own vendor" sheet — as event_vendors 'considering'
   // freeform rows (category 'misc', source 'host_manual'), the same shape the
-  // dashboard's addCustomVendor writes. event_vendors already has nullable
+  // dashboard's manual-vendor add writes. event_vendors already has nullable
   // contact_email + notes columns, so name/contact-person/email all land with
   // NO new table or column. Best-effort: the event + membership are already
   // committed, so a BYO insert failure must NEVER reject the action (mirrors
@@ -629,7 +750,14 @@ export async function commitOnboardingWedding(
   // committed user-scoped RLS context (after() would lose the cookie session it reads via
   // auth.getUser()). Best-effort: an inquiry failure must NEVER fail the commit (event +
   // membership already saved; the couple can inquire from the dashboard any time).
-  if (payload.sendTopInquiries) {
+  // Anon-draft: an anonymous couple's picks are HELD, not dispatched. Sending an
+  // inquiry opens a two-way vendor thread the vendor may burn a token to answer,
+  // and the reply would bounce to the placeholder email — so we never fan out for
+  // an anon user. The picks persist in events.style_preferences (interested_categories
+  // above), so once they secure their account they can send from the dashboard.
+  // (unlockCategoryWithInquiry also self-guards, but skipping the loop avoids
+  // firing N no-op calls.) Dormant unless anon-draft is live.
+  if (payload.sendTopInquiries && !user.is_anonymous) {
     const perCategory = Math.max(1, Math.min(5, Math.round(payload.inquiriesPerCategory ?? 3)));
     const groupIds = Array.from(
       new Set(
@@ -645,6 +773,9 @@ export async function commitOnboardingWedding(
             eventId: insertedEvent.event_id,
             groupId,
             count: perCategory,
+            // PR-C source taxonomy: the onboarding "reach my best matches"
+            // fan-out is the Auto Build Recommendation surface.
+            inquirySource: 'auto_build',
           }),
         ),
       );
@@ -714,9 +845,10 @@ export async function searchOnboardingReceptionVenues(input: {
   if (input.kind === 'civil') {
     ceremonyType = 'civil';
   } else if (input.kind === 'mixed') {
+    // Mixed/overlay → literal 'mixed' filter + the concrete second rite, derived
+    // order-independently (Chinese overlay preserved regardless of tap order).
     ceremonyType = 'mixed';
-    secondary =
-      input.faith.find((f) => (ALLOWED_SECONDARY as readonly string[]).includes(f)) ?? null;
+    secondary = deriveMixedColumns(input.faith).secondary;
   } else if (input.kind === 'religious') {
     const primary = input.faith[0];
     ceremonyType =
@@ -857,9 +989,12 @@ export async function getOnboardingVendorCounts(input: {
   if (input.kind === 'civil') {
     ceremonyType = 'civil';
   } else if (input.kind === 'mixed') {
+    // Mixed/overlay → literal 'mixed' filter + the concrete second rite, derived
+    // order-independently (Chinese overlay preserved regardless of tap order). The
+    // ceremonyValues set built below dedups 'mixed' + the secondary, so the
+    // NULL-safe ceremony fit admits both this couple's rites.
     ceremonyType = 'mixed';
-    secondary =
-      input.faith.find((f) => (ALLOWED_SECONDARY as readonly string[]).includes(f)) ?? null;
+    secondary = deriveMixedColumns(input.faith).secondary;
   } else if (input.kind === 'religious') {
     const primary = input.faith[0];
     ceremonyType =
@@ -916,6 +1051,10 @@ export async function getOnboardingVendorCounts(input: {
         'hq_region,location_city,compatible_ceremony_types,compatible_venue_settings,event_types,capacity_max,venue_type',
       )
       .in('public_visibility', ['verified', 'coming_soon'])
+      // PR-B — count only VERIFIED vendors so the congrats stat tile matches
+      // what the couple can actually find on Explore (unverified vendors are
+      // private). Keeps the "real numbers only" guarantee honest.
+      .eq('verification_state', 'verified')
       .not('business_name', 'is', null)
       .neq('business_name', '')
       .limit(5000); // ceiling well above the V1 pool · keeps `total` exact

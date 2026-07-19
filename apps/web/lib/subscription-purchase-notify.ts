@@ -9,14 +9,16 @@ import { emitNotification } from '@/lib/notification-emit';
  * resolve everything they need from the purchase id, so the same call works
  * from a server action OR the payment webhook.
  *
- * NOTIFICATION TYPE REUSE: these reuse the existing 'vendor_token_purchase_
- * pending' / 'vendor_tokens_credited' notification_type enum values rather than
- * minting subscription-specific ones — the single allowed migration for this
- * change is BEGIN/COMMIT-wrapped, and `ALTER TYPE ... ADD VALUE` cannot run in a
- * transaction block. The semantics line up (a vendor money action awaiting
- * admin reconcile / a credited result) and the title + body carry the
- * subscription specifics. Mint dedicated types in a follow-up enum-only
- * migration if the inbox needs to distinguish them.
+ * NOTIFICATION TYPES: the admin "pending" signal uses
+ * 'order_awaiting_reconciliation' and the vendor "your plan is live" signal
+ * uses 'subscription_activated' (both added 2026-06-24 in
+ * 20270221018919_add_order_reconciliation_notification_type.sql). These USED to
+ * borrow the token enum values 'vendor_token_purchase_pending' /
+ * 'vendor_tokens_credited', which made the tray badge read "TOKEN PURCHASE
+ * AWAITING PAYMENT" / "TOKENS CREDITED" on a subscription — wrong (owner: "only
+ * keep the vendor tokens"; a subscription is not a token pack). Real vendor
+ * token-pack purchases keep the token types (lib/token-purchase-notify.ts). The
+ * rejected path keeps 'vendor_status_change' (an account event, not a token).
  */
 
 const peso = (n: number) =>
@@ -62,7 +64,7 @@ export async function notifyAdminsSubscriptionPending(
       admins.map((row) =>
         emitNotification({
           userId: row.user_id as string,
-          type: 'vendor_token_purchase_pending',
+          type: 'order_awaiting_reconciliation',
           title: `Subscription awaiting payment · ${name}`,
           body: `${name} started a ${tier} (${p.billing_cycle}) subscription (${peso(
             Number(p.amount_php),
@@ -103,7 +105,7 @@ export async function notifyVendorSubscriptionActivated(
 
     await emitNotification({
       userId: v.user_id as string,
-      type: 'vendor_tokens_credited',
+      type: 'subscription_activated',
       title: `Your ${tier} plan is active`,
       body: `We confirmed your ${peso(
         Number(p.amount_php),
@@ -112,5 +114,49 @@ export async function notifyVendorSubscriptionActivated(
     });
   } catch (e) {
     console.error('[subscription] vendor activated notify failed:', e);
+  }
+}
+
+/**
+ * Tell the vendor their subscription upgrade couldn't be confirmed (payment not
+ * received / couldn't be matched) and what to do next. Deep-links to the
+ * subscription page so they can retry or re-upload proof. Uses the
+ * 'vendor_status_change' type (a vendor-recipient, email-enabled account event)
+ * so the "your account upgrade didn't go through" copy reaches their inbox.
+ * Fail-soft — a notify failure never affects the reject RPC that already ran.
+ */
+export async function notifyVendorSubscriptionRejected(
+  purchaseId: string,
+  reason: string,
+): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const { data: p } = await admin
+      .from('vendor_subscriptions')
+      .select('vendor_id, tier, billing_cycle, amount_php')
+      .eq('purchase_id', purchaseId)
+      .maybeSingle();
+    if (!p) return;
+
+    const { data: v } = await admin
+      .from('vendor_profiles')
+      .select('user_id')
+      .eq('vendor_profile_id', p.vendor_id)
+      .maybeSingle();
+    if (!v?.user_id) return; // unclaimed vendor — no account to notify yet
+
+    const tier = TIER_LABEL[p.tier as string] ?? (p.tier as string);
+
+    await emitNotification({
+      userId: v.user_id as string,
+      type: 'vendor_status_change',
+      title: `Your ${tier} upgrade couldn't be confirmed`,
+      body: `Your ${tier} (${p.billing_cycle}) subscription (${peso(
+        Number(p.amount_php),
+      )}) was not confirmed. Reason: ${reason}. You can start a new upgrade or re-upload your payment proof from your subscription page.`,
+      relatedUrl: '/vendor-dashboard/subscription',
+    });
+  } catch (e) {
+    console.error('[subscription] vendor rejected notify failed:', e);
   }
 }

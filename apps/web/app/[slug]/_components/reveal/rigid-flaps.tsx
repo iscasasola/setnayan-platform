@@ -24,9 +24,20 @@ type Props = {
   progress: number;
   monogramText?: string;
   cssFallback: ReactNode;
+  /**
+   * Force the cheap CSS-3D flaps and never spin up WebGL. Used by the dashboard
+   * Step-1 preview so the chooser stays GPU-free (no per-tile GL context).
+   */
+  forcePreviewCss?: boolean;
 };
 
-export function RigidFlaps({ variant, progress, monogramText, cssFallback }: Props) {
+export function RigidFlaps({
+  variant,
+  progress,
+  monogramText,
+  cssFallback,
+  forcePreviewCss = false,
+}: Props) {
   const [webglOk, setWebglOk] = useState(true);
   const [forceCss, setForceCss] = useState(false);
 
@@ -39,6 +50,6 @@ export function RigidFlaps({ variant, progress, monogramText, cssFallback }: Pro
     }
   }, []);
 
-  if (forceCss || !webglOk) return <>{cssFallback}</>;
+  if (forcePreviewCss || forceCss || !webglOk) return <>{cssFallback}</>;
   return <RigidWebGL variant={variant} progress={progress} monogramText={monogramText} onUnsupported={() => setWebglOk(false)} />;
 }

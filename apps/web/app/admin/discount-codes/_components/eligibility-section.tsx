@@ -17,6 +17,7 @@
 
 import Link from 'next/link';
 import { addEligibleUser, removeEligibleUser } from '../actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export type EligibleRow = {
   user_id: string;
@@ -97,13 +98,13 @@ export function EligibilitySection({ discountCodeId, eligibleUsers }: Props) {
                     value={discountCodeId}
                   />
                   <input type="hidden" name="user_id" value={u.user_id} />
-                  <button
-                    type="submit"
+                  <SubmitButton
                     className="text-xs underline-offset-2 hover:underline"
+                    pendingLabel="Removing…"
                     style={{ color: 'var(--m-slate)' }}
                   >
                     Remove
-                  </button>
+                  </SubmitButton>
                 </form>
               </li>
             ))}
@@ -150,16 +151,16 @@ export function EligibilitySection({ discountCodeId, eligibleUsers }: Props) {
               }}
             />
           </div>
-          <button
-            type="submit"
+          <SubmitButton
             className="rounded-md px-3 py-1.5 text-sm font-medium"
+            pendingLabel="Adding…"
             style={{
               background: 'var(--m-orange-2)',
               color: 'var(--m-paper)',
             }}
           >
             Add
-          </button>
+          </SubmitButton>
         </form>
         <p
           className="text-xs"

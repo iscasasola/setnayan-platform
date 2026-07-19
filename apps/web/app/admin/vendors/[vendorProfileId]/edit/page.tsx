@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { saveUnclaimedVendorProfile } from '../../actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = {
   title: 'Edit unclaimed vendor · Admin',
   robots: { index: false, follow: false },
@@ -41,6 +42,7 @@ export default async function AdminEditUnclaimedVendorPage({
   params,
   searchParams,
 }: Props) {
+  await requireAdmin();
   const { vendorProfileId } = await params;
   const search = await searchParams;
 
@@ -88,7 +90,7 @@ export default async function AdminEditUnclaimedVendorPage({
       </Link>
 
       <header className="mb-6 space-y-2">
-        <span className="rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-amber-900">
+        <span className="rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-warn-900">
           Unclaimed
         </span>
         <h1 className="text-2xl font-semibold tracking-tight">
@@ -104,7 +106,7 @@ export default async function AdminEditUnclaimedVendorPage({
       {search.saved === '1' ? (
         <p
           role="status"
-          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-2 text-sm text-emerald-900"
+          className="mb-4 rounded-md border border-success-300/60 bg-success-50 px-4 py-2 text-sm text-success-900"
         >
           Saved. Geocoding ran in the background — refresh to see updated coordinates.
         </p>
@@ -116,7 +118,7 @@ export default async function AdminEditUnclaimedVendorPage({
           await saveUnclaimedVendorProfile(formData);
           redirect(`/admin/vendors/${vendorProfileId}/edit?saved=1`);
         }}
-        className="space-y-5 rounded-2xl border border-ink/10 bg-cream p-5"
+        className="space-y-5 sn-tile p-5"
       >
         <input type="hidden" name="vendor_profile_id" value={vendorProfileId} />
 
@@ -239,7 +241,7 @@ function Field({
     <label htmlFor={htmlFor} className="block space-y-1">
       <span className="block text-sm font-medium text-ink">
         {label}
-        {required ? <span className="ml-1 text-rose-600">*</span> : null}
+        {required ? <span className="ml-1 text-danger-600">*</span> : null}
       </span>
       {children}
     </label>

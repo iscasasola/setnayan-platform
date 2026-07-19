@@ -58,7 +58,7 @@ export function RecommendVendorCard({
       </header>
 
       {blocked ? (
-        <p className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+        <p className="inline-flex items-center gap-1.5 rounded-lg bg-warn-50 px-3 py-2 text-xs font-medium text-warn-700">
           <AlertCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           We couldn&rsquo;t save that yet — a recommendation needs the vendor&rsquo;s service marked
           complete for this event.
@@ -67,7 +67,7 @@ export function RecommendVendorCard({
 
       {recommended ? (
         <div className="space-y-3">
-          <p className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+          <p className="inline-flex items-center gap-1.5 rounded-full bg-success-50 px-3 py-1 text-xs font-medium text-success-700">
             <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
             Added to your recommended vendors
           </p>

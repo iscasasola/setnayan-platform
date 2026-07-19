@@ -10,13 +10,14 @@ name: build-desktop
 # Sprint-0 behavior, so CI never breaks). Windows is still unsigned (Phase 2).
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    paths:
-      - 'apps/web/**'
-      - 'src-tauri/**'
-      - '.github/workflows/build-desktop.yml'
+  # DEFERRED 2026-06-20 (owner): website-first. The desktop (macOS/Windows)
+  # builds are now MANUAL-ONLY until the website ships — then the desktop +
+  # native (iOS/Android/iPadOS) app phase begins. The previous push:main +
+  # pull_request(apps/web/**) triggers ran a macOS (10x minutes) + Windows (2x)
+  # Tauri build on EVERY web PR, which dominated GitHub Actions usage. These
+  # are non-required checks, so removing the auto-triggers does not gate merges.
+  # Re-add `push: { branches: [main] }` + the pull_request block when app work
+  # resumes. Run on demand meanwhile: Actions → build-desktop → Run workflow.
   workflow_dispatch:
 
 jobs:

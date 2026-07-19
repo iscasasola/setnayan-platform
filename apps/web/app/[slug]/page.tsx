@@ -1,39 +1,94 @@
 import { cache } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { Camera, CircleSlash, Lock, MapPin, Sparkles } from 'lucide-react';
+import { headers } from 'next/headers';
+import { after } from 'next/server';
+import { revalidatePath } from 'next/cache';
+import { Camera, CircleSlash, Lock, MapPin, Sparkles, X } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
+import { isSetnayanHost, isLocalOrPreviewHost } from '@/lib/custom-domain-resolve';
+import {
+  isUserNestingCutoverEnabled,
+  publicEventPath,
+  publicEventUrl,
+  resolveEventOwnerSlug,
+  resolveRenamedEventPath,
+} from '@/lib/public-event-url';
+// Bare-root dispatch: a slug that isn't a renderable event may be a vendor
+// (setnayan.com/{vendor-slug}). Reuse the vendor route's render + metadata.
+import { renderVendorBySlug, vendorMetadataBySlug } from '@/app/v/[slug]/page';
 import { readGuestSession } from '@/lib/guest-session';
+import {
+  resolveEffectiveVisibility,
+  isScheduledLaunchDue,
+  publishSaveTheDate,
+} from '@/lib/launch-save-the-date';
+import { fanOutSaveTheDateEmails } from '@/lib/save-the-date-emails';
 import { formatEventDate } from '@/lib/events';
 import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
-import { eventPapicGuestActive } from '@/lib/papic-guest';
+import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
+import { PapicGuestCapture } from '@/app/papic/guest/_components/papic-guest-capture';
+import { eventPabatiActive, fetchPabatiQuota } from '@/lib/pabati';
+import { PabatiPrompt } from './_components/pabati-prompt';
+import { eventOwnsPapicSeats } from '@/lib/papic-seats';
+import { asPapicStyle, type PapicStyle } from '@/lib/papic-photo-styles';
+import { resolveGuestCamera } from '@/lib/papic-limited';
 import { eventSkuActive } from '@/lib/entitlements';
+import { eventOwnsCustomQrGuest } from '@/lib/seat-pass';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
+import { DEFAULT_STUDIO_ANIM } from '@/lib/hero-monogram-data';
+import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
+import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 import {
   resolveMonogramMotion,
   type MonogramMotionKey,
 } from '@/lib/monogram-motion';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { submitRsvp, withdrawFaceConsent } from './actions';
+import {
+  submitRsvp,
+  withdrawFaceConsent,
+  removeMyTag,
+  claimAccountAction,
+  saveAttendedVendorAction,
+} from './actions';
 import { SelfieCapture } from './_components/selfie-capture';
 import { DayOfFaceEnroll } from './_components/day-of-face-enroll';
 import { CountdownWidget } from './_components/countdown';
 import { ScheduleWidget } from './_components/schedule-widget';
+import { TeaCeremonyCard } from './_components/tea-ceremony-card';
+import { isChineseWedding } from '@/lib/chinese-wedding';
+import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { fetchPublicScheduleBlocks, type ScheduleBlockRow } from '@/lib/schedule';
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
+import { GuestToHostCta } from '@/app/_components/guest-to-host-cta';
 import { NavLinksRow } from '@/app/_components/nav-links';
+import { PublicPageActions } from '@/app/_components/public-page-actions';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { GuestPreload } from './_components/guest-preload';
+import { GuestHubBar } from './_components/guest-hub-bar';
+import { PublicEventDayBar } from './_components/public-event-day-bar';
+import { StdViewBeacon } from './_components/std-view-beacon';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { displayUrlForStdBackground } from '@/lib/std-bg-image';
 import { BackgroundMusic } from './_components/background-music';
 import { EditorialContent } from './_components/editorial/editorial-content';
 import { SaveTheDateView } from './_components/save-the-date';
+import { type StdLockup } from './_components/save-the-date-film';
 import { RevealOverlayServer } from './_components/reveal/reveal-overlay-server';
+import { resolveRevealEffects } from '@/lib/std-reveal-effects';
+import { resolveStdBackground, realisticBgSrc, type StdBackground } from '@/lib/std-backgrounds';
+import { resolveStdMedia, stdVideoIsLive } from '@/lib/std-media';
+import { resolveStdFinalizedVenues } from '@/lib/std-venues';
+import { eventStdOpeningsActive } from '@/lib/std-openings';
+import { defaultInvitationLaunchIso } from '@/lib/save-the-date-content';
 import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config';
 import { OurStory } from './_components/our-story';
 import { sanitizeRolePalette } from '@/lib/mood-board';
@@ -41,7 +96,10 @@ import {
   buildSitePaletteVars,
   sealColorFromPalette,
   veilColorFromPalette,
+  stdAccentFromPalette,
+  paletteSwatches,
 } from '@/lib/site-palette';
+import { RED_GOLD_PALETTE } from '@/lib/feel-palettes';
 import {
   fallbackSeedFromPublicId,
   sanitizeWaxSealConfig,
@@ -53,10 +111,16 @@ import { LiveWallBlock } from './_components/live-wall-block';
 import { getWallSnapshot } from '@/lib/live-wall';
 import type { WallTile } from '@/lib/live-wall-logic';
 import { getGuestLiveGallery, type GuestLiveGallery } from '@/lib/guest-live-gallery';
+import { fetchEventVendorCredits } from '@/lib/event-vendor-credits';
+import type { VendorCard } from '@/lib/vendor-cards';
 import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
 import { GuestHubCard, pickNextScheduleBlock, type GuestHubData } from './_components/guest-hub-card';
+import { fetchEntrance, type EntrancePos } from '@/lib/indoor-blueprint';
+import { fetchTables, type EventTableRow } from '@/lib/seating';
+import { YourSeatBlock } from './_components/your-seat-block';
 
-/** Panood Watch-Live data for the day-of page (PANOOD_SYSTEM owners only). */
+/** Panood Watch-Live data for the day-of page (shown whenever a watch URL is
+ *  staged — single-cam Panood live is free for every host). */
 type WatchLiveData = { embedUrl: string; watchUrl: string };
 
 /** Live Photo Wall data threaded into the day-of page (LIVE_WALL owners only). */
@@ -97,34 +161,6 @@ function displayNameOf(g: {
 // 2026-05-22).
 export const revalidate = 60;
 
-const RESERVED_TOP_LEVEL = new Set([
-  'admin',
-  'api',
-  'auth',
-  'dashboard',
-  'health',
-  'help',
-  'join',
-  'legal',
-  'login',
-  'logout',
-  'manifest.json',
-  'privacy',
-  'register',
-  'settings',
-  'signup',
-  'support',
-  'sw.js',
-  'terms',
-  'about',
-  'contact',
-  'vendor',
-  'v',
-  'venue',
-  'venues',
-  '_next',
-]);
-
 type Props = {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{
@@ -133,6 +169,8 @@ type Props = {
     phase?: string;
     // PR4 P1 — per-visit preview of the auto-playing STD film while it bakes.
     film?: string;
+    // Invite/Join v2 — guest "save a vendor" result flash (ok/needs_account/error).
+    save?: string;
   }>;
 };
 
@@ -148,32 +186,47 @@ const fetchEventBySlug = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template, std_invitation_launch_date',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample',
     )
     .ilike('slug', slug)
     .maybeSingle();
   return data;
 });
 
+/** Event-type-adaptive noun for guest-facing copy: weddings keep "wedding"
+ *  (byte-identical), every other type reads "event". Now that non-wedding types
+ *  can enable the website surface, formerly-hardcoded "wedding" copy routes
+ *  through this. Null/legacy event_type defaults to "wedding". */
+function eventNounOf(e: { event_type?: string | null }): 'wedding' | 'event' {
+  return e.event_type && e.event_type !== 'wedding' ? 'event' : 'wedding';
+}
+
 export async function generateMetadata({ params }: Pick<Props, 'params'>) {
   const { slug } = await params;
-  if (!slug || RESERVED_TOP_LEVEL.has(slug)) notFound();
+  if (!slug || RESERVED_SLUGS.has(slug)) notFound();
 
   const event = await fetchEventBySlug(slug);
-  if (!event) notFound();
-  if (event.event_type !== 'wedding') notFound();
+  // Bare-root dispatch (PR5): not a renderable event → use the vendor metadata
+  // (vendorMetadataBySlug returns a generic title if it isn't a vendor either).
+  if (!event) return vendorMetadataBySlug(slug);
+  // Iteration 0053: the public couple website is the 'website' profile surface.
+  // Generic (non-wedding) profiles don't enable it → fall through to vendor
+  // metadata (config-driven; was a notFound() before PR5).
+  if (!surfaceEnabled(await resolveProfile(event.event_type), 'website')) return vendorMetadataBySlug(slug);
 
-  const visibility = (event.landing_page_visibility ?? 'public') as
-    | 'public'
-    | 'unlisted'
-    | 'private';
+  // Private by default (owner 2026-06-20): a wedding page is private until the
+  // couple LAUNCHES their Save-the-Date (which flips this to 'public'). NULL /
+  // legacy rows coalesce to 'private' so they fail safe, not open. A SCHEDULED
+  // launch (owner 2026-06-28) reads as 'public' once its time has passed, so the
+  // page is indexable from the scheduled instant — same resolver as the body.
+  const visibility = resolveEffectiveVisibility(event);
 
   // Unlisted = reachable by link but not discoverable; private = lock screen
   // for strangers. Neither should be in a search index, and neither should
   // leak the couple's names into SERP snippets via metadata.
   if (visibility !== 'public') {
     return {
-      title: 'Wedding invitation',
+      title: eventNounOf(event) === 'wedding' ? 'Wedding invitation' : 'Event invitation',
       robots: { index: false, follow: false },
     };
   }
@@ -181,24 +234,30 @@ export async function generateMetadata({ params }: Pick<Props, 'params'>) {
   const siteUrl = (
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
   ).replace(/\/$/, '');
+  // PR6 cutover: canonical + OG URL point at the nested /u/{owner}/{slug} once
+  // the flag is ON (self-noops to the bare slug while OFF). Keeps the crawler's
+  // canonical in lockstep with the redirect the page body issues for bare hits.
+  const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), event.event_id);
+  const canonicalUrl = publicEventUrl(siteUrl, event.slug, ownerSlug);
   const description = `You're invited — ${event.display_name}${
     event.event_date ? `, ${formatEventDate(event.event_date)}` : ''
   }. RSVP on Setnayan.`;
   return {
     title: event.display_name,
     description,
-    alternates: { canonical: `${siteUrl}/${event.slug}` },
+    alternates: { canonical: canonicalUrl },
     openGraph: {
       type: 'website',
-      url: `${siteUrl}/${event.slug}`,
+      url: canonicalUrl,
       title: `${event.display_name} · Setnayan`,
       description,
       siteName: 'Setnayan',
       locale: 'en_PH',
       // Share card: the editorial card (couple's hero photo + scrim) once their
-      // story is published, else the brand card — the route decides per the
-      // `published` gate, so a shared link previews richly in every phase.
-      // See app/api/og/realstory-slug/[slug]/route.ts.
+      // story is published, else the couple's monogram card (their mark + names +
+      // date, mirroring the page hero) — so a shared link always previews as the
+      // couple; only a missing event / render failure falls back to the brand
+      // image. See app/api/og/realstory-slug/[slug]/route.ts.
       images: [
         {
           url: `${siteUrl}/api/og/realstory-slug/${event.slug}`,
@@ -234,6 +293,24 @@ function revealVeilColor(palette: unknown): string {
   return veilColorFromPalette(sanitizeRolePalette(palette));
 }
 
+/** Save-the-Date film accent (button + accent marks): the couple's manual
+ *  override (events.std_film_accent_hex) when set, else their Mood-Board accent
+ *  (deep, button-legible), else brand mulberry. Mirrors revealWaxColor.
+ *
+ *  Chinese-wedding default: when there's no manual override AND the Mood Board is
+ *  empty (yields no swatch), a Chinese (Tsinoy) event falls back to the auspicious
+ *  red/gold deep red instead of brand mulberry — so the PUBLISHED page matches the
+ *  builder's suggested default. This is a pure FALLBACK only: a manual override or
+ *  any real palette swatch always wins, and nothing is written to the DB. */
+function stdAccentColor(event: EventRow): string {
+  if (event.std_film_accent_hex) return event.std_film_accent_hex;
+  const palette = sanitizeRolePalette(event.role_palette);
+  if (isChineseWedding(event) && paletteSwatches(palette).length === 0) {
+    return RED_GOLD_PALETTE[0]!; // #7A1F2B — auspicious deep red
+  }
+  return stdAccentFromPalette(palette);
+}
+
 /**
  * The couple's monogram mark for the wax seal — their own upload outranks the
  * AI/Cipher mark (owner rule 2026-06-15); null → lettered seal fallback.
@@ -250,15 +327,42 @@ function revealMarkSvg(event: EventRow): string | null {
   return uploaded ?? custom;
 }
 
+/**
+ * The couple's ONBOARDING lockup for the Save-the-Date film — their chosen
+ * monogram design (bar/duo/script/infinity/framed/circle). The film shows THIS
+ * when they have no uploaded/lab SVG (owner 2026-06-19 logo precedence: upload /
+ * monogram-lab bypass the onboarding logo). Reuses resolveMonogram → HeroMonogram
+ * so the film's mark matches the hero/chrome exactly.
+ */
+function stdLockupFor(event: EventRow): StdLockup {
+  return {
+    design: {
+      monogram_style: event.monogram_style,
+      monogram_font_key: event.monogram_font_key,
+      monogram_frame_key: event.monogram_frame_key,
+    },
+    monogram: resolveMonogram({
+      display_name: event.display_name,
+      monogram_text: event.monogram_text ?? null,
+      monogram_color: event.monogram_color ?? null,
+      monogram_font_key: event.monogram_font_key,
+      monogram_style: event.monogram_style,
+      monogram_frame_key: event.monogram_frame_key,
+    }),
+  };
+}
+
 /** The couple's minted wax-seal recipe for the reveal (null → default levers). */
 function revealSealConfig(event: EventRow): WaxSealConfig | null {
   return sanitizeWaxSealConfig(event.wax_seal_config);
 }
 
 /** The couple's chosen opening (events.std_reveal_template) validated to a known
- *  id, or null → the admin house default. Validated server-side because the
- *  client RevealOverlay can't import reveal-config (it pulls the admin client). */
-function coerceRevealTemplate(v: unknown): RevealTemplateId | null {
+ *  id, 'none' (No Reveal — the free, no-opening choice), or null → the admin
+ *  house default. Validated server-side because the client RevealOverlay can't
+ *  import reveal-config (it pulls the admin client). */
+function coerceRevealTemplate(v: unknown): RevealTemplateId | 'none' | null {
+  if (v === 'none') return 'none'; // NO_REVEAL — honoured even with the premium unlock
   return typeof v === 'string' &&
     (REVEAL_TEMPLATE_IDS as readonly string[]).includes(v)
     ? (v as RevealTemplateId)
@@ -271,7 +375,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const invite = (search.invite ?? '').trim();
   const inviteError = search.invite_error ?? null;
 
-  if (!slug || RESERVED_TOP_LEVEL.has(slug)) notFound();
+  if (!slug || RESERVED_SLUGS.has(slug)) notFound();
 
   // If an invite token is in the URL, hand off to the redeem route handler
   // which can write the session cookie (Server Components in Next 15 can't).
@@ -285,12 +389,66 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
 
   const event = await fetchEventBySlug(slug);
 
-  if (!event) notFound();
-  if (event.event_type !== 'wedding') notFound();
+  // Bare-root dispatch (PR5): not a renderable event → it might be a renamed
+  // event's prior slug, else a vendor at this slug.
+  if (!event) {
+    // Renamed-event redirect (wires the long-dormant slug_change_log read): a
+    // bare slug mapping to no current event may be a PRIOR slug of one — send it
+    // to that event's CURRENT canonical /u/ URL. Flag-gated (resolveRenamedEventPath
+    // self-noops when OFF), so this — like the rest of the cutover — is fully
+    // inert until the flip; the old-QR-after-rename 404 gets fixed as part of it.
+    const renamedTo = await resolveRenamedEventPath(admin, slug);
+    if (renamedTo) redirect(renamedTo);
+    // Not a renamed event → try a vendor at this slug. renderVendorBySlug
+    // notFound()s itself if there's no vendor either.
+    return renderVendorBySlug({ slug, searchParams });
+  }
+  // Iteration 0053: the whole public couple website is the 'website' profile
+  // surface. Non-wedding (generic) profiles don't enable it → fall through to
+  // the vendor check (config-driven; was a notFound() before PR5). The resolved
+  // profile is reused for the phase engine below.
+  const eventTypeProfile = await resolveProfile(event.event_type);
+  if (!surfaceEnabled(eventTypeProfile, 'website')) return renderVendorBySlug({ slug, searchParams });
+
+  // PR6 — three-tier URL cutover (slug-routing program), flag-gated (default
+  // OFF). The canonical public URL for an event is now /u/{ownerSlug}/{slug}; a
+  // hit on the legacy bare root (printed QRs, old shares) 307-redirects to the
+  // nested URL. 307 (not 308) keeps the cutover REVERSIBLE — flipping the flag
+  // back never leaves a permanently-cached redirect. Suppressed when:
+  //   (a) the request already arrived via the /u/ middleware rewrite (the
+  //       x-sn-u-nesting header) — that IS the nested render; redirecting it
+  //       would loop /u/a/b → /b → /u/a/b forever;
+  //   (b) the Host is a custom BYO domain — there the bare URL is canonical
+  //       (sny.theirdomain.com/{slug}); bouncing to /u/ would be wrong.
+  if (isUserNestingCutoverEnabled()) {
+    const reqHeaders = await headers();
+    const viaNesting = reqHeaders.get('x-sn-u-nesting') === '1';
+    const host = (reqHeaders.get('host') ?? '').toLowerCase();
+    const firstPartyHost =
+      !host || isSetnayanHost(host) || isLocalOrPreviewHost(host);
+    if (!viaNesting && firstPartyHost) {
+      const ownerSlug = await resolveEventOwnerSlug(admin, event.event_id);
+      if (ownerSlug && event.slug) {
+        // Carry the incoming query through the canonicalization redirect — the
+        // bare `/{slug}` URL is where server actions + the redeem route land
+        // their one-shot params (?save=, ?invite_error=, ?phase=, ?film=) and
+        // where inbound UTM/ref attribution arrives; dropping it would silently
+        // kill save-confirmation flashes, invalid-invite messaging, host phase
+        // previews, and analytics. (The `?invite=` redeem hand-off already fired
+        // above, so it's never in this query.)
+        const qs = new URLSearchParams();
+        for (const [k, v] of Object.entries(search)) {
+          if (typeof v === 'string') qs.set(k, v);
+        }
+        const q = qs.toString();
+        redirect(`${publicEventPath(event.slug, ownerSlug)}${q ? `?${q}` : ''}`);
+      }
+    }
+  }
 
   const monogram = resolveMonogram(event);
 
-  // Paid ANIMATED_MONOGRAM upgrade (₱2,499 · "Your initials, drawn live").
+  // Paid ANIMATED_MONOGRAM upgrade (₱999 · "Your initials, drawn live").
   // When the event owns it, the monogram hero circle ANIMATES on load with
   // the couple's chosen Motion Library signature (lib/monogram-motion.ts ·
   // events.monogram_motion_key · NULL → 'draw') instead of rendering static.
@@ -307,6 +465,16 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     ? resolveMonogramMotion(event.monogram_motion_key)
     : false;
 
+  // Paid COUPLE_WEBSITE_PRO upgrade (retired/unbundled · the single website-Pro unlock).
+  // V1 perk: when ACTIVE (admin-approved), the couple's wedding site sheds the
+  // freemium "Powered by Setnayan · setnayan.com" footer watermark. Resolved
+  // once here via the admin client (anonymous public path, no RLS session) and
+  // threaded into every render branch as a plain boolean → the InvitationShell
+  // footer drops the watermark line. Graceful-degrades to `false` (= keep the
+  // watermark, the safe default) on any orders-table shape error — see
+  // lib/couple-website-pro.ts. The free baseline website keeps the watermark.
+  const proWatermarkHidden = await eventCoupleWebsiteProActive(admin, event.event_id);
+
   // Setnayan-AI bespoke monogram (Phase 2 of the monogram overhaul). When the
   // couple applied a bespoke mark (events.monogram_custom_svg — sanitized at
   // generation time, lib/bespoke-monogram-engine.ts), it REPLACES the
@@ -322,6 +490,16 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     (typeof event.monogram_custom_svg === 'string' && event.monogram_custom_svg
       ? event.monogram_custom_svg
       : null);
+
+  // The reveal the couple designed in the Vector Studio "Animate the reveal" panel
+  // (monogram_studio_config.anim) — the SOURCE for how the bespoke mark animates on
+  // the hero + the Save-the-Date film (owner 2026-06-23 unification). Defaulted when
+  // untuned; gated on ANIMATED_MONOGRAM ownership downstream (HeroMonogram).
+  const studioCfg = sanitizeStudioConfig(event.monogram_studio_config);
+  const studioAnim: StudioAnim =
+    studioCfg?.anim
+      ? { kind: studioCfg.anim.kind, dur: studioCfg.anim.dur, smooth: studioCfg.anim.smooth, delay: studioCfg.anim.delay }
+      : DEFAULT_STUDIO_ANIM;
 
   // Resolve the hero photo's display URL up-front so it's available to both
   // PublicLanding (anonymous browsers) and InvitationSite (guest-cookie
@@ -341,10 +519,66 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const heroVideoUrl = await displayUrlForStoredAsset(
     event.landing_page_hero_video_r2_key,
   );
+  // The couple's song plays whenever they've ENABLED it + set a track
+  // (events.site_bg_music_*). The Save-the-Date Music step sets both on upload.
+  // (owner 2026-06-19: an uploaded song must just play — the old extra gate on
+  // the redundant std_reveal_effects.music veil flag, which the veil canvas
+  // ignores anyway, was blocking it even after upload.)
   const bgMusicUrl =
     event.site_bg_music_enabled && event.site_bg_music_r2_key
       ? await displayUrlForStoredAsset(event.site_bg_music_r2_key)
       : null;
+
+  // Step-1 Save-the-Date background (events.std_background). Realistic → the
+  // public scene src; upload → a presigned R2 url; plain/paper → no image.
+  const stdBackground = resolveStdBackground(event.std_background);
+  const stdBackgroundUrl =
+    stdBackground.kind === 'realistic'
+      ? realisticBgSrc(stdBackground.value)
+      : stdBackground.kind === 'upload'
+        ? // Serve a screen-sized WebP variant (cached in R2), not the couple's
+          // full-resolution original — the full-bleed CSS background otherwise
+          // streams multiple MB and loads slowly on phones. Falls back to the
+          // original on any error. See lib/std-bg-image.
+          await displayUrlForStdBackground(stdBackground.value)
+        : null;
+
+  // Step-3 Save-the-Date media (events.std_media). The couple's closing beat is
+  // either their photo gallery (default) or an uploaded video. The video plays
+  // on this PUBLIC page ONLY when NSFW-approved (stdVideoIsLive — the platform
+  // lock); otherwise the gallery beat shows. PR-B (0024 · 2026-06-19).
+  const stdMedia = resolveStdMedia(event.std_media);
+  const stdVideoUrl =
+    stdVideoIsLive(stdMedia) && stdMedia.videoKey
+      ? await displayUrlForStoredAsset(stdMedia.videoKey)
+      : null;
+  // The video's poster frame (client-extracted on upload). Resolved ONLY in
+  // "fit to screen" mode (std_media.fit === 'fit'), where the full-screen video
+  // beat fills the letterbox bars with a BLURRED STILL of it — a 2nd <video> for
+  // that backdrop won't play on iOS (one-video-at-a-time), so a static image is
+  // the iOS-safe fill (owner 2026-06-21 "still black screens on top and bottom").
+  // "fill" (the default) needs no poster: the clip plays object-cover, edge-to-edge.
+  const stdVideoPosterUrl =
+    stdVideoUrl && stdMedia.fit === 'fit' && stdMedia.posterKey
+      ? await displayUrlForStoredAsset(stdMedia.posterKey)
+      : null;
+
+  // Save-the-Date ceremony + reception venues (0024 · 2026-06-19). AUTO-FILLED
+  // from the couple's FINALIZED vendor bookings (event_vendors); the reception
+  // falls back to the couple's manual builder entry (std_film_venue_*) then the
+  // event's free-text venue. Ceremony = the finalized booking, else the couple's
+  // manual ceremony venue (std_film_ceremony_name, owner 2026-06-19). The film
+  // shows whichever venues resolved.
+  const stdFinalizedVenues = await resolveStdFinalizedVenues(admin, event.event_id);
+  const stdVenues = {
+    ceremony:
+      stdFinalizedVenues.ceremony ?? (event.std_film_ceremony_name as string | null) ?? null,
+    reception:
+      stdFinalizedVenues.reception ??
+      (event.std_film_venue_name as string | null) ??
+      event.venue_name,
+    receptionCity: (event.std_film_venue_city as string | null) ?? event.venue_address,
+  };
 
   // Resolve the couple-curated "Our photos" gallery (Increment A.4) to display
   // URLs up-front so both render paths share the result. events.our_photos is a
@@ -361,6 +595,15 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const ourPhotoUrls = (
     await Promise.all(ourPhotoRefs.map((ref) => displayUrlForStoredAsset(ref)))
   ).filter((u): u is string => Boolean(u));
+
+  // The Save-the-Date's OWN media beats — background music, the closing video, and
+  // the photo gallery — unlock with the Cinematic Reveal (STD_PREMIUM_OPENINGS ₱999 ·
+  // owner 2026-07-10 "these 3 will unlock when they purchase the save the date
+  // reveal"). Free STD = the text-only content film (monogram · names · date · venues
+  // · sentiment · calendar); owning the Reveal lights up the couple's own music,
+  // video, and photos. This gate is SCOPED TO THE STD FILM ONLY — the couple's full
+  // website (later lifecycle phases) still shows their photos/music free.
+  const ownsStdReveal = await eventStdOpeningsActive(admin, event.event_id);
 
   // Per-event widget registry from migration 20260607030000_invitation_widgets.sql.
   // Drives which widgets render on this page and in what order. Every event
@@ -406,10 +649,28 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // redeem handler that writes the cookie), so a guest landing with their
   // personal link is automatically allowed even on a private event — they
   // come back through here without `?invite=` and the cookie matches.
-  const visibility = (event.landing_page_visibility ?? 'public') as
-    | 'public'
-    | 'unlisted'
-    | 'private';
+  // Private by default (owner 2026-06-20): a wedding page is private until the
+  // couple LAUNCHES their Save-the-Date (which flips this to 'public'). NULL /
+  // legacy rows coalesce to 'private' so they fail safe, not open.
+  //
+  // SCHEDULED launch (owner 2026-06-28): if the couple set a future go-live and
+  // that moment has passed, the page reads as 'public' right now — visibility is
+  // exact at the scheduled instant. Cron-free (no timer flips the row): we
+  // persist the flip + push Save-the-Date emails AFTER the response, on this
+  // first load past the schedule. Idempotent — once visibility is 'public' the
+  // branch never re-fires, and per-guest guests.std_sent_at guards the emails.
+  if (isScheduledLaunchDue(event)) {
+    after(async () => {
+      try {
+        const published = await publishSaveTheDate(admin, event.event_id);
+        if (published?.slug) revalidatePath(`/${published.slug}`);
+        await fanOutSaveTheDateEmails(event.event_id);
+      } catch {
+        /* best-effort — the page already renders public this request */
+      }
+    });
+  }
+  const visibility = resolveEffectiveVisibility(event);
 
   if (visibility === 'private') {
     // Path A — guest cookie session for this exact event. Legitimate
@@ -452,6 +713,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
           monogram={monogram}
           animatedMonogram={animatedMonogram}
           bespokeSvg={bespokeSvg}
+          proWatermarkHidden={proWatermarkHidden}
         />
       );
     }
@@ -464,7 +726,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // wedding-only (non-weddings notFound() above), so the lifecycle is the
   // wedding website. The WEBSITE_PHASES_ENABLED env flag stays as an override
   // for any future non-wedding event types.
-  const phasesEnabled = isWebsitePhasesEnabled() || event.event_type === 'wedding';
+  const phasesEnabled = isWebsitePhasesEnabled() || surfaceEnabled(eventTypeProfile, 'website');
 
   // Date-driven phase by default. PREVIEW override: `?phase=rsvp|event|
   // editorial` shows any phase regardless of date (the live "event" phase is
@@ -537,10 +799,11 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
 
   // PR4 P1 — flag-gate the auto-playing Save-the-Date "film". The bare film is
   // the free base (the static STD view is the fallback); the cinematic openings
-  // (RevealOverlay) layer ON TOP and become the ₱1,499 premium (P5 gate). Env
+  // (RevealOverlay) layer ON TOP and become the ₱999 premium (P5 gate). Env
   // for a global rollout, ?film=1 for a per-visit preview while it bakes.
-  const stdFilm =
-    process.env.NEXT_PUBLIC_STD_FILM === '1' || search.film === '1';
+  // Film is on by default for the STD phase; ?film=0 disables it for a
+  // plain-countdown fallback (useful for testing the static path).
+  const stdFilm = search.film !== '0';
 
   // (Note: guest-session cookie was already read above for the private-gate
   // check — reuse the same `session` reference rather than re-fetching.)
@@ -584,21 +847,25 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // page view. Wall trouble must never break the wedding page → try/null.
   let liveWall: LiveWallData | null = null;
   // Panood Watch-Live (owner 2026-06-12: "panood … must be on the on-the-day
-  // part") — when the event holds PANOOD_SYSTEM and the couple staged their
-  // watch link (events.panood_watch_url, migration 20261122000000), the live
-  // page leads with the broadcast for the loved ones watching from afar.
-  // youtube-nocookie embed; the URL was normalize-or-rejected at save time.
+  // part") — when the couple staged their watch link (events.panood_watch_url,
+  // migration 20261122000000), the live page leads with the broadcast for the
+  // loved ones watching from afar. youtube-nocookie embed; the URL was
+  // normalize-or-rejected at save time. Owner model 2026-06-26: single-cam
+  // Panood live is FREE for any host, so the embed is NO LONGER gated on
+  // PANOOD_SYSTEM — the presence of the watch URL is the only condition. The
+  // PANOOD_SYSTEM SKU gates the PAID multi-camera control-room + broadcast
+  // overlays upgrade (built at studio/panood/broadcast). (The LIVE_WALL gate
+  // below is unchanged.)
   let watchLive: WatchLiveData | null = null;
   if (dayOfPhase === 'live') {
     try {
-      // Ownership reads off orders.status via eventOwnsSku() (PR4 dead-unlock
-      // repair, 2026-06-15) — bundle-aware, so a Media Pack buyer's day-of page
-      // surfaces both the wall mirror AND the Panood watch-live block. The old
+      // LIVE_WALL ownership reads off orders.status via eventOwnsSku() (PR4
+      // dead-unlock repair, 2026-06-15) — bundle-aware, so a Media Pack buyer's
+      // day-of page surfaces the wall mirror. The old
       // event_software_activations_v2 reads had no payment-path writer (their
       // only writer, verify_and_activate_manual_payment, has zero callers).
-      const [ownsWall, ownsPanood, watchRowRes] = await Promise.all([
+      const [ownsWall, watchRowRes] = await Promise.all([
         eventSkuActive(admin, event.event_id, 'LIVE_WALL'),
-        eventSkuActive(admin, event.event_id, 'PANOOD_SYSTEM'),
         admin
           .from('events')
           .select('panood_watch_url')
@@ -619,7 +886,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         ? null
         : ((watchRowRes.data as { panood_watch_url?: string | null } | null)
             ?.panood_watch_url ?? null);
-      if (ownsPanood && watchUrl) {
+      if (watchUrl) {
         const videoId = parseYouTubeVideoId(watchUrl);
         if (videoId) {
           watchLive = { embedUrl: youTubeEmbedUrl(videoId), watchUrl };
@@ -631,24 +898,59 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     }
   }
 
+
+  // Event-day chrome for the no-guest PublicLanding paths (owner 2026-06-28 —
+  // unify the three event-day views so an anonymous open / host `?phase=event`
+  // preview shares the same bottom bar a real guest sees). The candid camera
+  // surfaces only during the live window when the couple's PAPIC_GUEST camera
+  // is open; the public album points at the Live Photo Wall during the day and
+  // the recap after. One cheap read, and only in the live window.
+  const publicCandidCameraActive =
+    dayOfPhase === 'live'
+      ? await eventPapicGuestActive(admin, event.event_id)
+      : false;
+  // During the live window the Live Photo Wall is already mirrored INLINE on
+  // this page (the #live-photo-wall section below), so "Photos" anchors to it —
+  // NOT to `/[slug]/live-wall`, which is a JSON poll-feed route handler (the
+  // LiveWallBlock's freshness endpoint), never a navigable page. After the day,
+  // it points at the viewable recap album.
+  const publicAlbumHref = liveWall
+    ? `/${event.slug}#live-photo-wall`
+    : dayOfPhase === 'post'
+      ? `/${event.slug}/recap`
+      : null;
+
   if (!session) {
     return (
       <PublicLanding
         event={event}
+        monogram={monogram}
+        animatedMonogram={animatedMonogram}
+        studioAnim={studioAnim}
+        publicCandidCameraActive={publicCandidCameraActive}
+        publicAlbumHref={publicAlbumHref}
         reason={inviteError === 'invalid_token' ? 'invalid_invite' : null}
         dayOfPhase={dayOfPhase}
         phasesEnabled={phasesEnabled}
         lifecyclePhase={lifecyclePhase}
         stdFilm={stdFilm}
+        stdBackground={stdBackground}
+        stdBackgroundUrl={stdBackgroundUrl}
+        stdVideoUrl={stdVideoUrl}
+        stdVideoPosterUrl={stdVideoPosterUrl}
+        stdVenues={stdVenues}
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
+        ownsStdReveal={ownsStdReveal}
         ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
         backdrop={backdrop}
         liveWall={liveWall}
         watchLive={watchLive}
+        bespokeSvg={bespokeSvg}
+        proWatermarkHidden={proWatermarkHidden}
       />
     );
   }
@@ -659,20 +961,33 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     return (
       <PublicLanding
         event={event}
+        monogram={monogram}
+        animatedMonogram={animatedMonogram}
+        studioAnim={studioAnim}
+        publicCandidCameraActive={publicCandidCameraActive}
+        publicAlbumHref={publicAlbumHref}
         reason="wrong_event"
         dayOfPhase={dayOfPhase}
         phasesEnabled={phasesEnabled}
         lifecyclePhase={lifecyclePhase}
         stdFilm={stdFilm}
+        stdBackground={stdBackground}
+        stdBackgroundUrl={stdBackgroundUrl}
+        stdVideoUrl={stdVideoUrl}
+        stdVideoPosterUrl={stdVideoPosterUrl}
+        stdVenues={stdVenues}
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
+        ownsStdReveal={ownsStdReveal}
         ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
         backdrop={backdrop}
         liveWall={liveWall}
         watchLive={watchLive}
+        bespokeSvg={bespokeSvg}
+        proWatermarkHidden={proWatermarkHidden}
       />
     );
   }
@@ -690,20 +1005,33 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     return (
       <PublicLanding
         event={event}
+        monogram={monogram}
+        animatedMonogram={animatedMonogram}
+        studioAnim={studioAnim}
+        publicCandidCameraActive={publicCandidCameraActive}
+        publicAlbumHref={publicAlbumHref}
         reason="invalid_invite"
         dayOfPhase={dayOfPhase}
         phasesEnabled={phasesEnabled}
         lifecyclePhase={lifecyclePhase}
         stdFilm={stdFilm}
+        stdBackground={stdBackground}
+        stdBackgroundUrl={stdBackgroundUrl}
+        stdVideoUrl={stdVideoUrl}
+        stdVideoPosterUrl={stdVideoPosterUrl}
+        stdVenues={stdVenues}
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
+        ownsStdReveal={ownsStdReveal}
         ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
         backdrop={backdrop}
         liveWall={liveWall}
         watchLive={watchLive}
+        bespokeSvg={bespokeSvg}
+        proWatermarkHidden={proWatermarkHidden}
       />
     );
   }
@@ -719,13 +1047,20 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
 
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
+  // Encode the guest's QR + shareable link at the canonical form — nested /u/
+  // under the cutover flag, bare root otherwise (owner resolve self-noops OFF).
+  const ownerSlug = await resolveEventOwnerSlug(admin, event.event_id);
+  // Encode the DB-canonical slug (event.slug), not the raw URL param (matched
+  // case-insensitively), so the QR + link match the canonical everywhere else.
+  const canonicalSlug = event.slug ?? slug;
   const qrSvg = await renderInvitationQrSvg({
     appUrl,
-    slug,
+    slug: canonicalSlug,
     qrToken: guest.qr_token,
     monogram,
+    ownerSlug,
   });
-  const invitationUrl = buildInvitationUrl({ appUrl, slug, qrToken: guest.qr_token });
+  const invitationUrl = buildInvitationUrl({ appUrl, slug: canonicalSlug, qrToken: guest.qr_token, ownerSlug });
   // scheduleBlocks already fetched above (hoisted 2026-05-23 so the
   // anonymous PublicLanding path could also render the Schedule
   // widget). Pass the same array through unchanged.
@@ -735,29 +1070,129 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // Gated, admin read, graceful-degrade so the anonymous public path is untouched.
   const papicGuestActive = await eventPapicGuestActive(admin, event.event_id);
 
-  // Per-guest LIVE gallery (owner 2026-06-12: "the gallery must be on the
-  // on-the-day part") — the photos THIS guest is tagged in, arriving through
-  // the day. Live window only; guest-session-scoped; clean-screened captures
-  // only (see lib/guest-live-gallery.ts).
+  // Papic LIMITED roll camera (owner 2026-06-26: "the custom QR of the guests
+  // will automatically have their papic camera and gallery"). When this guest
+  // has a live, PAID roll camera under the event's Limited snapshot, surface a
+  // floating CTA into the guest-QR camera bridge (/papic/me/[qr_token]) — the
+  // bridge resolves the seat + reuses the existing /papic/seat capture surface.
+  // Only the 'ready' (paid + active) state lights the CTA; the bridge itself
+  // shows the "payment under review" / not-ready states. Admin read, graceful.
+  let guestRollCameraReady = false;
+  if (guest.rsvp_status !== 'declined') {
+    try {
+      const cam = await resolveGuestCamera(admin, event.event_id, guest.guest_id);
+      guestRollCameraReady = cam.status === 'ready';
+    } catch {
+      guestRollCameraReady = false;
+    }
+  }
+
+  // Custom-QR seat pass (CUSTOM_QR_GUEST · seat-finding PR4) — when the couple
+  // owns the branded-QR SKU, the cookie-bearing guest gets a "Your seat pass"
+  // entry into /[slug]/seat (their exact seat + arrival bloom). Gated, admin
+  // read, graceful-degrade; ADDITIVE alongside the find-my-table link (a
+  // separate INDOOR_BLUEPRINT surface, left untouched). The pass route does its
+  // own gating too, so this link only controls whether we advertise it here.
+  const seatPassActive = await eventOwnsCustomQrGuest(admin, event.event_id);
+
+  // Per-guest gallery (owner 2026-06-12: "the gallery must be on the on-the-day
+  // part") — the photos THIS guest is tagged in. Shown through the LIVE window
+  // AND the post-event grace (Invite/Join v2): a no-login guest keeps access
+  // until ~24h after the wedding (dayOfPhase 'post') so they can download, then
+  // it closes for them (account-holders keep theirs forever in the Collection
+  // hub). Guest-session-scoped; clean-screened captures only.
   const guestLiveGallery =
-    dayOfPhase === 'live'
+    dayOfPhase === 'live' || dayOfPhase === 'post'
       ? await getGuestLiveGallery(event.event_id, guest.guest_id)
       : null;
 
   // "Register your face if you haven't yet" — day-of catch for a guest who
-  // skipped the optional RSVP selfie. True only in the live window when this
-  // guest has NO active face enrollment, so the on-the-day page can prompt one
-  // tap that makes their candid photos find them. Cheap targeted read.
+  // skipped the optional RSVP selfie. Shown across the WHOLE pre-event window
+  // (not just the day) so guests enroll early — but only when this event has
+  // candid capture (Papic guest camera or crew seats), the guest hasn't
+  // declined, and they have NO active enrollment. Self-hides the moment they
+  // add a selfie. Two cheap targeted reads, gated to skip work when irrelevant.
   let needsFaceEnroll = false;
-  if (dayOfPhase === 'live') {
-    const { data: liveEnrollment } = await admin
-      .from('guest_face_enrollments')
-      .select('id')
-      .eq('event_id', event.event_id)
-      .eq('guest_id', guest.guest_id)
-      .is('revoked_at', null)
-      .maybeSingle();
-    needsFaceEnroll = !liveEnrollment;
+  if (papicGuestActive || (await eventOwnsPapicSeats(admin, event.event_id))) {
+    if (guest.rsvp_status !== 'declined') {
+      const { data: liveEnrollment } = await admin
+        .from('guest_face_enrollments')
+        .select('id')
+        .eq('event_id', event.event_id)
+        .eq('guest_id', guest.guest_id)
+        .is('revoked_at', null)
+        .maybeSingle();
+      needsFaceEnroll = !liveEnrollment;
+    }
+  }
+
+  // Inline Papic guest camera (PAPIC_GUEST) — mount the SAME capture surface the
+  // standalone /papic/guest route uses, but in-context on this guest's own
+  // landing page so the camera auto-shows when the couple owns the paid pack (no
+  // tap-out required). Gated on the active (admin-approved) entitlement +
+  // guest-session identity. Resolve the same data the route does: the per-guest
+  // 150-credit quota, the one-time UGC-terms flag, and the block short-circuit.
+  // If the guest is blocked, mirror the route and DON'T mount the camera (the
+  // floating CTA / route remains as the QR-scan fallback). Admin reads, all
+  // gated so the anonymous public path never touches this.
+  let papicGuest:
+    | {
+        initialRemaining: number;
+        total: number;
+        termsAccepted: boolean;
+        guestUnlimited: boolean;
+        eventStyle: PapicStyle;
+      }
+    | null = null;
+  if (papicGuestActive) {
+    const [quota, { data: ugcRow }, { data: blockRow }, { data: styleRow }] =
+      await Promise.all([
+        fetchGuestQuota(admin, event.event_id, guest.guest_id),
+        admin
+          .from('guests')
+          .select('ugc_terms_accepted_at')
+          .eq('guest_id', guest.guest_id)
+          .maybeSingle(),
+        admin
+          .from('event_blocked_users')
+          .select('id')
+          .eq('event_id', event.event_id)
+          .eq('blocked_guest_id', guest.guest_id)
+          .maybeSingle(),
+        // Locked event-wide Papic look — defensive read so a pre-migration DB
+        // (no papic_style column) falls back to ORIG instead of breaking.
+        admin
+          .from('events')
+          .select('papic_style')
+          .eq('event_id', event.event_id)
+          .maybeSingle(),
+      ]);
+    if (!blockRow) {
+      papicGuest = {
+        initialRemaining: quota.remaining,
+        total: quota.total,
+        termsAccepted: Boolean(
+          (ugcRow as { ugc_terms_accepted_at?: string | null } | null)
+            ?.ugc_terms_accepted_at,
+        ),
+        guestUnlimited: quota.unlimited,
+        eventStyle: asPapicStyle(
+          (styleRow as { papic_style?: string } | null)?.papic_style,
+        ),
+      };
+    }
+  }
+
+  // Pabati video guestbook (PABATI) — auto-show the in-context guest recorder on
+  // this guest's own landing page when the couple owns the active (admin-
+  // approved, bundle-aware) pack. Gated on eventPabatiActive; the per-EVENT
+  // 300-clip quota drives the "N greetings left" display (the RPC is the real
+  // gate). Admin read, graceful so the anonymous public path is never touched.
+  const pabatiActive = await eventPabatiActive(admin, event.event_id);
+  let pabati: { initialRemaining: number; total: number } | null = null;
+  if (pabatiActive) {
+    const quota = await fetchPabatiQuota(admin, event.event_id);
+    pabati = { initialRemaining: quota.remaining, total: quota.total };
   }
 
   // Guest Hub Card — seat assignment for THIS guest only (one targeted query;
@@ -766,6 +1201,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // stays null and the card shows "Not yet assigned" — safe for every event
   // regardless of whether the seating editor has been used.
   let guestTableLabel: string | null = null;
+  let guestTableId: string | null = null;
   try {
     const { data: assignmentRow } = await admin
       .from('event_seat_assignments')
@@ -774,6 +1210,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
       .eq('guest_id', guest.guest_id)
       .maybeSingle();
     if (assignmentRow?.table_id) {
+      guestTableId = assignmentRow.table_id as string;
       const { data: tableRow } = await admin
         .from('event_tables')
         .select('table_label, link_group_label')
@@ -791,6 +1228,41 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   } catch {
     // Graceful degrade — seating tables may not exist yet on all installs.
     guestTableLabel = null;
+    guestTableId = null;
+  }
+
+  // Day-of arrival — has THIS guest scanned in at the door yet? A row in
+  // guest_checkins (written by the coordinator/kiosk check-in desk) is the
+  // signal. We only bother during the live/post window: before the wedding day
+  // there is nothing to arrive at, and the read would just be noise. When the
+  // guest has checked in, their seat surface (the GuestHubCard seat tile + the
+  // inline YourSeatBlock) blooms into a warm personal greeting instead of the
+  // neutral "here's your table" copy — closing the check-in → day-of-experience
+  // gap (until now check-in only fed the planner's "arrived" counter).
+  //
+  // Graceful-degrade: the table may not exist (42P01) or lack a column (42703)
+  // on installs that pre-date the check-in desk migration — fall back to the
+  // normal pre-arrival seat pass rather than failing the page.
+  let guestArrived = false;
+  if (dayOfPhase === 'live' || dayOfPhase === 'post') {
+    try {
+      const { data: checkinRow, error: checkinErr } = await admin
+        .from('guest_checkins')
+        .select('checked_in_at')
+        .eq('event_id', event.event_id)
+        .eq('guest_id', guest.guest_id)
+        .maybeSingle();
+      if (checkinErr) {
+        if (checkinErr.code !== '42P01' && checkinErr.code !== '42703') {
+          // Unexpected error — degrade quietly (no bloom) but don't crash.
+          guestArrived = false;
+        }
+      } else {
+        guestArrived = Boolean(checkinRow?.checked_in_at);
+      }
+    } catch {
+      guestArrived = false;
+    }
   }
 
   const guestHubData: GuestHubData = {
@@ -806,7 +1278,72 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     slug,
     isLimitedPlusOne:
       guest.plus_one_of_guest_id !== null && guest.plus_one_mode === 'limited',
+    arrived: guestArrived,
   };
+
+  // "Your seat" inline map — surface the entrance→table wayfinding map on the
+  // event website itself, but only when the guest is seated AND the couple owns
+  // the paid Indoor Blueprint SKU. The free tier remains the table label in the
+  // Guest Hub card + the public /find-seat name-search finder.
+  let seatMap:
+    | { tables: EventTableRow[]; entrance: EntrancePos; targetTableId: string }
+    | null = null;
+  if (guestTableId && guestTableLabel) {
+    // Paid-only ACTIVE gate (admin-approved) — the inline wayfinding map shows
+    // only after the Setnayan team verifies the Indoor Blueprint payment, not on
+    // a still-pending order. Mirrors the eventSkuActive handshake every other
+    // paid feature on this page uses (LIVE_WALL / PANOOD_SYSTEM / PAPIC_GUEST).
+    const ownsIndoorBlueprint = await eventSkuActive(
+      admin,
+      event.event_id,
+      'INDOOR_BLUEPRINT',
+    );
+    if (ownsIndoorBlueprint) {
+      try {
+        const [seatTables, seatEntrance] = await Promise.all([
+          fetchTables(admin, event.event_id),
+          fetchEntrance(admin, event.event_id),
+        ]);
+        if (seatTables.length > 0) {
+          seatMap = { tables: seatTables, entrance: seatEntrance, targetTableId: guestTableId };
+        }
+      } catch {
+        seatMap = null;
+      }
+    }
+  }
+
+  // Invite/Join v2: offer an accountless guest a "claim your account by email"
+  // prompt on the lifecycle site (RSVP/Event/Editorial). A signed-in account-
+  // holder doesn't need it, so gate on the absence of a Supabase auth session.
+  const cookieScopedClient = await createClient();
+  const {
+    data: { user: viewerAccount },
+  } = await cookieScopedClient.auth.getUser();
+
+  // Invite/Join v2 — a no-login guest's photo access closes once the post-event
+  // grace ends (dayOfPhase leaves live/post, ~24h after the wedding). Past that,
+  // their gallery is closed and we nudge an account (the files persist on R2, so
+  // syncing restores them). eventIsPast disambiguates a post-event 'inactive'
+  // from the far-pre-event 'inactive'. Account-holders are never closed.
+  const eventIsPast = event.event_date
+    ? new Date(event.event_date).getTime() < Date.now()
+    : false;
+  const accountlessPhotosClosed =
+    !viewerAccount && eventIsPast && dayOfPhase !== 'live' && dayOfPhase !== 'post';
+
+  // Invite/Join v2 — "vendors who made this day": the couple's booked marketplace
+  // vendors, savable to a guest's own account for their future planning. Read
+  // server-side (a guest can't read event_vendors under RLS).
+  const eventVendorCredits = await fetchEventVendorCredits(event.event_id);
+  const saveFlash =
+    search.save === 'ok'
+      ? 'Saved to your account — find it in your Library for your own plans.'
+      : search.save === 'needs_account'
+        ? 'Make a free account (the box above) to save vendors for your future plans.'
+        : search.save === 'error'
+          ? 'Couldn’t save that just now — please try again.'
+          : null;
 
   return (
     <>
@@ -817,33 +1354,60 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         invitationUrl={invitationUrl}
         monogram={monogram}
         animatedMonogram={animatedMonogram}
+        studioAnim={studioAnim}
         bespokeSvg={bespokeSvg}
         scheduleBlocks={scheduleBlocks}
         dayOfPhase={dayOfPhase}
         phasesEnabled={phasesEnabled}
         lifecyclePhase={lifecyclePhase}
         stdFilm={stdFilm}
+        stdBackground={stdBackground}
+        stdBackgroundUrl={stdBackgroundUrl}
+        stdVideoUrl={stdVideoUrl}
+        stdVideoPosterUrl={stdVideoPosterUrl}
+        stdVenues={stdVenues}
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
+        ownsStdReveal={ownsStdReveal}
         ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
         backdrop={backdrop}
         liveWall={liveWall}
         watchLive={watchLive}
         guestLiveGallery={guestLiveGallery}
+        seatPassActive={seatPassActive}
         needsFaceEnroll={needsFaceEnroll}
         guestHubData={guestHubData}
+        seatMap={seatMap}
+        papicGuest={papicGuest}
+        pabati={pabati}
+        proWatermarkHidden={proWatermarkHidden}
+        showClaimAccountCta={!viewerAccount}
+        accountlessPhotosClosed={accountlessPhotosClosed}
+        eventVendorCredits={eventVendorCredits}
+        saveFlash={saveFlash}
       />
-      {papicGuestActive && (
-        <Link
-          href="/papic/guest"
-          className="fixed bottom-5 left-1/2 z-50 inline-flex -translate-x-1/2 items-center gap-2 rounded-full bg-mulberry px-5 py-3 text-sm font-semibold text-cream shadow-lg transition hover:bg-mulberry-600"
-        >
-          <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
-          Be a candid camera
-        </Link>
-      )}
+      {/* Guest event-page hub bar (owner 2026-06-26) — fixed bottom control bar
+          (My QR · Camera · Photos) + top-right account affordance. Replaces the
+          two lone floating Papic CTAs that used to sit here; everything it needs
+          is already computed above (no new DB reads). The #claim-account anchor
+          only exists when the claim section renders (no account + not STD). */}
+      <GuestHubBar
+        qrToken={guest.qr_token}
+        invitationUrl={invitationUrl}
+        qrSvg={qrSvg}
+        cameraReady={guestRollCameraReady}
+        papicGuestActive={papicGuestActive}
+        hasAccount={Boolean(viewerAccount)}
+        galleryCount={guestLiveGallery?.total ?? 0}
+        showClaimAnchor={!viewerAccount && lifecyclePhase !== 'save_the_date'}
+        hubHref={
+          dayOfPhase === 'live' || dayOfPhase === 'post'
+            ? `/${event.slug}/hub`
+            : null
+        }
+      />
     </>
   );
 }
@@ -862,6 +1426,20 @@ type EventRow = {
   venue_latitude: number | null;
   venue_longitude: number | null;
   slug: string;
+  // Event type (events.event_type). Drives event-type-adaptive guest copy —
+  // weddings keep "wedding", other types read "event" — now that non-wedding
+  // types can enable the website surface.
+  event_type?: string | null;
+  // Ceremony faith (events.ceremony_type, iteration 0043). Read on the public
+  // site so faith-specific guest guidance can fill an empty section — e.g. the
+  // INC dress-code empty state surfaces the Church's modest-attire expectation
+  // even when the host hasn't authored a dress code yet.
+  ceremony_type?: string | null;
+  // Secondary/overlay ceremony (events.secondary_ceremony_type, iteration 0043).
+  // Read on the public site so the Chinese (Tsinoy) overlay fires on the common
+  // church-primary + Chinese-secondary case — the guest-facing tea-ceremony card
+  // gates on isChineseWedding(event), which unions primary + secondary.
+  secondary_ceremony_type?: string | null;
   // Couple's mood-board palette (events.role_palette JSONB, iteration 0010).
   // Read here to skin the public site's --color-* tokens via buildSitePaletteVars
   // in InvitationShell. Shape is Partial<Record<PaletteKey, string[]>>; typed
@@ -878,6 +1456,9 @@ type EventRow = {
   monogram_style?: string | null;
   monogram_font_key?: string | null;
   monogram_frame_key?: string | null;
+  // Accent colour for the lockup (events.monogram_color) — used by resolveMonogram
+  // for the badge ring / initials and the STD film's onboarding-lockup fallback.
+  monogram_color?: string | null;
   // Couple's explicit monogram-text override (events.monogram_text, already in
   // the SELECT) — the Save-the-Date film's monogram letters when set, else
   // derived from the display name. See lib/save-the-date-content.ts (P2).
@@ -892,9 +1473,28 @@ type EventRow = {
   // The couple's chosen Save-the-Date opening reveal (events.std_reveal_template,
   // migration 20270113257561) — overrides the admin house default. (PR4 P4)
   std_reveal_template?: string | null;
+  // Couple's reveal effect toggles {butterflies,petals} (events.std_reveal_effects).
+  // NULL → app defaults (butterflies off, petals on).
+  std_reveal_effects?: unknown;
   // When the full invitation goes live (events.std_invitation_launch_date) —
   // drives the STD film's close beat + the second add-to-calendar VEVENT. (PR4 P3)
   std_invitation_launch_date?: string | null;
+  // Visual theme for the film (lib/std-themes · 2026-06-18). NULL = 'moodboard'.
+  std_theme?: string | null;
+  // Step-1 background choice {kind, value} (events.std_background · 2026-06-19).
+  std_background?: unknown;
+  // Step-3 media choice {type, videoKey?, posterKey?, nsfw?} (events.std_media · 2026-06-19).
+  std_media?: unknown;
+  // Manual STD venue override (reception fallback when no finalized booking).
+  std_film_venue_name?: string | null;
+  std_film_venue_city?: string | null;
+  // Manual STD ceremony venue (fallback when no finalized ceremony booking).
+  std_film_ceremony_name?: string | null;
+  // Manual STD film accent hex override (null = follow Mood Board → mulberry).
+  std_film_accent_hex?: string | null;
+  // TRUE only for the Maria & Jose public-tour sample event. Used to suppress the
+  // Save-the-Date view beacon so tour traffic never inflates the sample's stats.
+  is_sample?: boolean | null;
   // JSONB column populated by the host via /dashboard/[eventId]/website/photo-moments.
   // Shape: { intro_copy: string, moments: [{ time_label, title, note, mode }] }.
   // Unknown / empty shapes degrade gracefully in PhotoMomentsWidget — the
@@ -988,7 +1588,7 @@ function WatchLiveBlock({ watchLive }: { watchLive: WatchLiveData }) {
     >
       <div className="flex items-center justify-between gap-3 px-4 py-2.5">
         <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-cream">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-400" />
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-danger-400" />
           Watch live
         </p>
         <a
@@ -1017,16 +1617,37 @@ function InvitationShell({
   children,
   backdrop,
   rolePalette,
+  fullBleed = false,
+  hideWatermark = false,
 }: {
   children: React.ReactNode;
   backdrop?: React.ReactNode;
+  // Paid COUPLE_WEBSITE_PRO perk (retired/unbundled) — when the event owns the ACTIVE
+  // upgrade, drop the freemium "Powered by Setnayan · setnayan.com" footer
+  // watermark. Resolved once at the top-level page (eventCoupleWebsiteProActive)
+  // + threaded through each render branch. Defaults false → free site keeps it.
+  hideWatermark?: boolean;
   // Couple's mood-board palette (events.role_palette). When present + themeable,
   // it overrides the --color-* tokens for THIS subtree only, re-skinning every
   // cream/ink/terracotta/mulberry class on the couple site (all four phases).
   // Null/thin palette → no override → the Clean-Editorial defaults apply.
   rolePalette?: unknown;
+  // Full-screen mode (owner 2026-06-19): the Save-the-Date film IS the whole
+  // experience — drop the Setnayan/Invitation top bar + footer + the centred
+  // max-width column so it plays edge-to-edge with no chrome.
+  fullBleed?: boolean;
 }) {
   const themeVars = buildSitePaletteVars(sanitizeRolePalette(rolePalette));
+  if (fullBleed) {
+    return (
+      <main
+        className="min-h-dvh bg-cream text-ink"
+        style={themeVars ? (themeVars as React.CSSProperties) : undefined}
+      >
+        {children}
+      </main>
+    );
+  }
   return (
     <main
       className={`min-h-dvh text-ink ${backdrop ? 'relative' : 'bg-cream'}`}
@@ -1037,11 +1658,11 @@ function InvitationShell({
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
           <span className="flex items-center gap-2 text-ink">
             <Logo height={28} />
-            <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/60">
+            <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/60">
               Setnayan
             </span>
           </span>
-          <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50">
+          <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
             Invitation
           </span>
         </div>
@@ -1078,9 +1699,11 @@ function InvitationShell({
         >
           See you soon.
         </p>
-        <p className={`mt-3 text-xs ${backdrop ? 'text-cream/55' : 'text-ink/50'}`}>
-          Powered by Setnayan · setnayan.com
-        </p>
+        {hideWatermark ? null : (
+          <p className={`mt-3 text-xs ${backdrop ? 'text-cream/55' : 'text-ink/50'}`}>
+            Powered by Setnayan · setnayan.com
+          </p>
+        )}
       </footer>
     </main>
   );
@@ -1134,22 +1757,48 @@ function HeroBackgroundMedia({
 
 function PublicLanding({
   event,
+  monogram,
+  animatedMonogram,
+  studioAnim,
   reason,
   dayOfPhase,
   phasesEnabled,
   lifecyclePhase,
   stdFilm,
+  stdBackground,
+  stdBackgroundUrl,
+  stdVideoUrl,
+  stdVideoPosterUrl,
+  stdVenues,
   heroPhotoUrl,
   heroVideoUrl,
   bgMusicUrl,
   ourPhotoUrls,
+  ownsStdReveal,
   widgets,
   scheduleBlocks,
   backdrop,
   liveWall,
   watchLive,
+  bespokeSvg,
+  proWatermarkHidden,
+  publicCandidCameraActive,
+  publicAlbumHref,
 }: {
   event: EventRow;
+  // The couple's resolved mark (resolveMonogram) — feeds the anonymous hero's
+  // HeroMonogram so the highest-traffic shared-link open shows the SAME mark as
+  // the signed-in InvitationSite / PrivateLanding hero (owner 2026-06-22
+  // animated-logo rollout — this path showed plain initials with no mark).
+  monogram: MonogramConfig;
+  // The chosen Motion Library signature when the event owns the paid
+  // ANIMATED_MONOGRAM upgrade, or false → static hero circle. Threaded into
+  // the hero monogram + the STD film's monogram beats. Required (all 3 call
+  // sites pass it) so it can feed HeroMonogram, which needs a non-optional
+  // value. Mirrors InvitationSite's / PrivateLanding's prop.
+  animatedMonogram: MonogramMotionKey | false;
+  /** The bespoke-mark reveal designed in the studio panel — fed to the STD film. */
+  studioAnim: StudioAnim;
   reason?: 'invalid_invite' | 'wrong_event' | null;
   dayOfPhase: DayOfPhase;
   // Website lifecycle-phase engine (Increment C · flag-dark). When
@@ -1160,6 +1809,17 @@ function PublicLanding({
   lifecyclePhase: LifecyclePhase;
   /** PR4 P1 — render the auto-playing STD film instead of the static section. */
   stdFilm: boolean;
+  stdBackground?: StdBackground;
+  stdBackgroundUrl?: string | null;
+  /** Presigned URL of the couple's NSFW-approved closing video (stdVideoIsLive),
+   *  or null → the gallery beat shows. Resolved once at the top-level page. */
+  stdVideoUrl?: string | null;
+  /** Poster still of that video — fills the full-screen letterbox bars with a
+   *  blurred image, since iOS won't play a 2nd <video> for that backdrop. */
+  stdVideoPosterUrl?: string | null;
+  /** Auto-filled ceremony + reception venue names (finalized bookings ?? manual
+   *  ?? event) + reception city, for the STD film's venue beats. */
+  stdVenues?: { ceremony: string | null; reception: string | null; receptionCity: string | null };
   // Presigned GET URL for the host's uploaded hero photo, or null when the
   // monogram-only fallback should render. See displayUrlForStoredAsset() in
   // lib/uploads.ts — caller resolves once at the top-level page.
@@ -1168,6 +1828,9 @@ function PublicLanding({
   // null). Video replaces the still hero; music mounts the tap-to-play player.
   heroVideoUrl?: string | null;
   bgMusicUrl?: string | null;
+  /** Whether the couple owns the Cinematic Reveal (STD_PREMIUM_OPENINGS) — gates
+   *  the Save-the-Date film's own media beats (music, video, photos). */
+  ownsStdReveal: boolean;
   // Presigned GET URLs for the couple's "Our photos" gallery (Increment A.4),
   // in display order. Resolved once at the top-level page; empty → the
   // OurPhotosWidget hides itself. Couple-curated, no PII → safe for anonymous.
@@ -1188,8 +1851,23 @@ function PublicLanding({
   backdrop?: React.ReactNode;
   /** Live Photo Wall mirror — non-null only during the live window when the event owns LIVE_WALL. */
   liveWall?: LiveWallData | null;
-  /** Panood Watch-Live — non-null only during the live window when PANOOD_SYSTEM is active + a watch URL is staged. */
+  /** Panood Watch-Live — non-null only during the live window when a watch URL is staged (single-cam Panood live is free for every host). */
   watchLive?: WatchLiveData | null;
+  /** Sanitized bespoke monogram SVG (uploaded ?? Cipher) — feeds the anonymous
+   *  hero's HeroMonogram + the STD film's monogram beats. Required (all call
+   *  sites pass it) so HeroMonogram, which needs a non-optional value, can
+   *  consume it. null → text initials. Mirrors InvitationSite / PrivateLanding. */
+  bespokeSvg: string | null;
+  /** Paid COUPLE_WEBSITE_PRO perk — drop the "Powered by Setnayan" footer
+   *  watermark when the event owns the active upgrade. Resolved once at the
+   *  top-level page (eventCoupleWebsiteProActive). */
+  proWatermarkHidden: boolean;
+  /** Couple's PAPIC_GUEST candid camera is open (live window) — drives the
+   *  public event-day bar's center Camera action. */
+  publicCandidCameraActive: boolean;
+  /** Public album destination (Live Wall / recap), or null — drives the public
+   *  event-day bar's Photos action. */
+  publicAlbumHref: string | null;
 }) {
   // Public-safe hideable widgets in the host's display order. The 6
   // types below all carry event-level data (no per-guest fields) so
@@ -1234,20 +1912,38 @@ function PublicLanding({
   // guest at the venue without a session cookie still sees "happening now".
   const dayOfBadge =
     dayOfPhase === 'live' ? (
-      <p className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-800">
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-600" />
+      <p className="inline-flex items-center gap-2 rounded-full bg-success-100 px-3 py-1 font-mono text-xs uppercase tracking-[0.15em] text-success-800">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success-600" />
         Happening now
       </p>
     ) : dayOfPhase === 'post' ? (
-      <p className="inline-flex rounded-full bg-ink/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70">
+      <p className="inline-flex rounded-full bg-ink/10 px-3 py-1 font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
         Thank you for celebrating
       </p>
     ) : null;
 
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
   return (
-    <InvitationShell backdrop={backdrop} rolePalette={event.role_palette}>
+    <InvitationShell
+      backdrop={backdrop}
+      rolePalette={event.role_palette}
+      fullBleed={showSaveTheDate && stdFilm}
+      hideWatermark={proWatermarkHidden}
+    >
       <GuestPreload eventSlug={event.slug} />
+      {/* Item #8 — discreet floating share/report chrome. Share shows ONLY when
+          the event is effectively public (couple launched their Save-the-Date);
+          the abuse-report entry (target_type='event') is present on any listed
+          page. Never rendered on a private page (this whole component is behind
+          the not-private gate). */}
+      {resolveEffectiveVisibility(event) !== 'private' && (
+        <PublicPageActions
+          canShare={resolveEffectiveVisibility(event) === 'public'}
+          reportTargetId={event.event_id}
+          shareTitle={event.display_name}
+        />
+      )}
+      {showSaveTheDate && !event.is_sample ? <StdViewBeacon slug={event.slug} /> : null}
       <RevealOverlayServer
         enabled={showSaveTheDate}
         monogram={revealMonogram(event.display_name)}
@@ -1257,12 +1953,16 @@ function PublicLanding({
         sealFallbackSeed={fallbackSeedFromPublicId(event.public_id)}
         veilColor={revealVeilColor(event.role_palette)}
         eventTemplate={coerceRevealTemplate(event.std_reveal_template)}
+        eventEffects={resolveRevealEffects(event.std_reveal_effects)}
         eventId={event.event_id}
       />
-      {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
+      {/* Couple's opt-in background-music player — NOT during the Save-the-Date
+          phase: the STD film owns audio there, and this floating speaker control
+          would otherwise bleed through / over the veil reveal. (owner 2026-06-19) */}
+      {bgMusicUrl && !showSaveTheDate ? <BackgroundMusic src={bgMusicUrl} /> : null}
       {/* When a hero photo/video is uploaded, render a full-bleed banner.
           Otherwise fall back to the centered text-only treatment. */}
-      {hasHeroMedia && !showEditorialPlaceholder ? (
+      {hasHeroMedia && !showEditorialPlaceholder && !showSaveTheDate ? (
         <div className="relative -mx-4 mb-8 overflow-hidden rounded-2xl text-center sm:-mx-0">
           <HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />
           <div
@@ -1274,6 +1974,18 @@ function PublicLanding({
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
               You&rsquo;re invited
             </p>
+            {/* The couple's mark — mirrors InvitationSite's hero so the anonymous
+                shared-link open shows the SAME monogram (animated when the paid
+                upgrade is owned), not just plain initials. */}
+            <div className="flex justify-center">
+              <HeroMonogram
+                event={event}
+                monogram={monogram}
+                animatedMonogram={animatedMonogram}
+                bespokeSvg={bespokeSvg}
+                shadow
+              />
+            </div>
             {/* Italic serif treatment for the couple's display name —
                 structural typography enhancement from v2.1 guest-microsite
                 template (CLAUDE.md 2026-05-28 row 11 guest-microsite port,
@@ -1302,13 +2014,32 @@ function PublicLanding({
           publicId={event.public_id}
           loveStory={event.love_story}
           showTextHero={!hasHeroMedia}
+          animatedMonogram={animatedMonogram}
+          studioAnim={studioAnim}
           film={stdFilm}
+          background={stdBackground}
+          backgroundImageUrl={stdBackgroundUrl}
           monogramText={event.monogram_text}
-          musicUrl={bgMusicUrl}
+          monogramSvg={bespokeSvg}
+          lockup={stdLockupFor(event)}
+          musicUrl={ownsStdReveal ? bgMusicUrl : null}
+          videoUrl={ownsStdReveal ? stdVideoUrl : null}
+          videoPosterUrl={ownsStdReveal ? stdVideoPosterUrl : null}
+          ceremonyVenue={stdVenues?.ceremony ?? null}
+          receptionVenue={stdVenues?.reception ?? null}
+          receptionCity={stdVenues?.receptionCity ?? null}
           galleryUrls={
-            ourPhotoUrls.length ? ourPhotoUrls : heroPhotoUrl ? [heroPhotoUrl] : []
+            ownsStdReveal
+              ? ourPhotoUrls.length
+                ? ourPhotoUrls
+                : heroPhotoUrl
+                  ? [heroPhotoUrl]
+                  : []
+              : []
           }
-          launchDateIso={event.std_invitation_launch_date}
+          launchDateIso={event.std_invitation_launch_date ?? defaultInvitationLaunchIso(event.event_date)}
+          themeId={event.std_theme}
+          accentHex={stdAccentColor(event)}
         />
       ) : (
         <>
@@ -1319,6 +2050,17 @@ function PublicLanding({
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
               You&rsquo;re invited
             </p>
+            {/* The couple's mark — mirrors InvitationSite's cream-on-cream hero so
+                the anonymous shared-link open shows the SAME monogram (animated
+                when the paid upgrade is owned), not just plain initials. */}
+            <div className="flex justify-center">
+              <HeroMonogram
+                event={event}
+                monogram={monogram}
+                animatedMonogram={animatedMonogram}
+                bespokeSvg={bespokeSvg}
+              />
+            </div>
             {/* Italic serif treatment — see comment on the heroPhotoUrl
                 branch above. Same structural typography enhancement from
                 v2.1 template; couple palette tokens unchanged. */}
@@ -1338,7 +2080,7 @@ function PublicLanding({
             one — every guest has their own personal link.
           </p>
         ) : reason === 'wrong_event' ? (
-          <p className="mx-auto max-w-prose rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="mx-auto max-w-prose rounded-md border border-warn-300 bg-warn-50 px-4 py-3 text-sm text-warn-900">
             You&rsquo;re signed in to a different event&rsquo;s invitation. Open your own
             QR or invite link to switch.
           </p>
@@ -1349,6 +2091,21 @@ function PublicLanding({
           </p>
         )}
       </div>
+
+      {/* Public event-day bar (owner 2026-06-28) — gives the no-guest /
+          host-preview view the same bottom chrome a real guest sees, so the
+          three event-day views stop looking like different pages. Fixed-position
+          and self-hiding: renders nothing outside the live/post window (both
+          inputs fall to false/null). */}
+      <PublicEventDayBar
+        candidCameraActive={publicCandidCameraActive}
+        photosHref={publicAlbumHref}
+        hubHref={
+          dayOfPhase === 'live' || dayOfPhase === 'post'
+            ? `/${event.slug}/hub`
+            : null
+        }
+      />
 
       {/* Find your seat — the FREE guest finder (seat-finding PR 1). Pure
           navigation on this always-rendered public landing: the /find-seat
@@ -1378,9 +2135,11 @@ function PublicLanding({
 
       {/* Live Photo Wall mirror — anonymous visitors at the venue (master-QR
           scans without a guest cookie) get the live wall too during the
-          celebration window. Same screened feed as the projector. */}
+          celebration window. Same screened feed as the projector. The id is the
+          anchor the event-day bar's "Photos" button scrolls to (publicAlbumHref
+          above) — scroll-margin keeps it clear of the fixed bottom bar. */}
       {dayOfPhase === 'live' && liveWall ? (
-        <section className="mt-10">
+        <section id="live-photo-wall" className="mt-10 scroll-mt-6">
           <LiveWallBlock
             slug={event.slug}
             initialTiles={liveWall.tiles}
@@ -1458,14 +2217,17 @@ function PublicHideableWidget({
       // but we still skip the standalone widget when isLive to match
       // the editor's "always-on pin replaces hideable" contract).
       return !isLive && scheduleBlocks.length > 0 ? (
-        <ScheduleWidget blocks={scheduleBlocks} />
+        <>
+          <ScheduleWidget blocks={scheduleBlocks} eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)} />
+          {isChineseWedding(event) ? <TeaCeremonyCard event={event} /> : null}
+        </>
       ) : null;
 
     case 'venue_map':
       return <VenueWidget event={event} />;
 
     case 'dress_code':
-      return <DressCodeWidget config={event.dress_code_config ?? null} />;
+      return <DressCodeWidget config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} />;
 
     case 'photo_moments':
       return <PhotoMomentsWidget config={event.photo_moments_config} />;
@@ -1487,7 +2249,7 @@ function PublicHideableWidget({
     case 'tier_comparison':
       // limited=false on the anonymous path — anonymous visitors are
       // never a "limited +1" by definition.
-      return <TierComparisonWidget limited={false} />;
+      return <TierComparisonWidget limited={false} eventNoun={eventNounOf(event)} />;
 
     // Always-on + guest-personalized types are intentionally skipped
     // on the anonymous path. event_details needs guest.role + side;
@@ -1518,6 +2280,7 @@ function PrivateLanding({
   monogram,
   animatedMonogram,
   bespokeSvg,
+  proWatermarkHidden,
 }: {
   event: EventRow;
   monogram: MonogramConfig;
@@ -1528,9 +2291,12 @@ function PrivateLanding({
   // The applied Setnayan-AI bespoke mark (sanitized SVG) — wins over the
   // typographic circle when present. See [slug]/page.tsx resolution.
   bespokeSvg: string | null;
+  /** Paid COUPLE_WEBSITE_PRO perk — drop the "Powered by Setnayan" footer
+   *  watermark when the event owns the active upgrade. */
+  proWatermarkHidden: boolean;
 }) {
   return (
-    <InvitationShell rolePalette={event.role_palette}>
+    <InvitationShell rolePalette={event.role_palette} hideWatermark={proWatermarkHidden}>
       <div className="space-y-8 text-center">
         <div className="flex justify-center">
           <HeroMonogram
@@ -1582,23 +2348,39 @@ function InvitationSite({
   invitationUrl,
   monogram,
   animatedMonogram,
+  studioAnim,
   bespokeSvg,
   scheduleBlocks,
   dayOfPhase,
   phasesEnabled,
   lifecyclePhase,
   stdFilm,
+  stdBackground,
+  stdBackgroundUrl,
+  stdVideoUrl,
+  stdVideoPosterUrl,
+  stdVenues,
   heroPhotoUrl,
   heroVideoUrl,
   bgMusicUrl,
   ourPhotoUrls,
+  ownsStdReveal,
   widgets,
   backdrop,
   liveWall,
   watchLive,
   guestLiveGallery,
+  seatPassActive,
   needsFaceEnroll,
   guestHubData,
+  seatMap,
+  papicGuest,
+  pabati,
+  proWatermarkHidden,
+  showClaimAccountCta,
+  accountlessPhotosClosed,
+  eventVendorCredits,
+  saveFlash,
 }: {
   event: EventRow;
   guest: GuestRow;
@@ -1610,6 +2392,8 @@ function InvitationSite({
   // [slug]/page.tsx resolution + lib/animated-monogram.ts +
   // lib/monogram-motion.ts.
   animatedMonogram: MonogramMotionKey | false;
+  /** The bespoke-mark reveal designed in the studio panel — fed to the STD film. */
+  studioAnim: StudioAnim;
   // The applied Setnayan-AI bespoke mark (sanitized SVG) — wins over the
   // typographic circle in both hero branches when present.
   bespokeSvg: string | null;
@@ -1623,6 +2407,17 @@ function InvitationSite({
   lifecyclePhase: LifecyclePhase;
   /** PR4 P1 — render the auto-playing STD film instead of the static section. */
   stdFilm: boolean;
+  stdBackground?: StdBackground;
+  stdBackgroundUrl?: string | null;
+  /** Presigned URL of the couple's NSFW-approved closing video (stdVideoIsLive),
+   *  or null → the gallery beat shows. Resolved once at the top-level page. */
+  stdVideoUrl?: string | null;
+  /** Poster still of that video — fills the full-screen letterbox bars with a
+   *  blurred image, since iOS won't play a 2nd <video> for that backdrop. */
+  stdVideoPosterUrl?: string | null;
+  /** Auto-filled ceremony + reception venue names (finalized bookings ?? manual
+   *  ?? event) + reception city, for the STD film's venue beats. */
+  stdVenues?: { ceremony: string | null; reception: string | null; receptionCity: string | null };
   // Presigned GET URL for the host's uploaded hero photo, or null when the
   // monogram-only fallback should render. Caller resolves once at the
   // top-level page so PublicLanding + InvitationSite share the result.
@@ -1631,6 +2426,9 @@ function InvitationSite({
   // null). Video replaces the still hero; music mounts the tap-to-play player.
   heroVideoUrl?: string | null;
   bgMusicUrl?: string | null;
+  /** Whether the couple owns the Cinematic Reveal (STD_PREMIUM_OPENINGS) — gates
+   *  the Save-the-Date film's own media beats (music, video, photos). */
+  ownsStdReveal: boolean;
   // Presigned GET URLs for the couple's "Our photos" gallery (Increment A.4),
   // in display order. Resolved once at the top-level page; empty → the widget
   // hides itself.
@@ -1644,15 +2442,57 @@ function InvitationSite({
   backdrop?: React.ReactNode;
   /** Live Photo Wall mirror — non-null only during the live window when the event owns LIVE_WALL. */
   liveWall?: LiveWallData | null;
-  /** Panood Watch-Live — non-null only during the live window when PANOOD_SYSTEM is active + a watch URL is staged. */
+  /** Panood Watch-Live — non-null only during the live window when a watch URL is staged (single-cam Panood live is free for every host). */
   watchLive?: WatchLiveData | null;
   /** This guest's tagged photos so far — live window only, clean-screened. */
   guestLiveGallery?: GuestLiveGallery | null;
+  /** Event owns CUSTOM_QR_GUEST → advertise the personalized seat pass link
+   *  (seat-finding PR4). Additive; the find-my-table link is unaffected. */
+  seatPassActive?: boolean;
   /** True in the live window when the guest has no active face enrollment —
    *  drives the day-of "add your face" prompt so their photos auto-find them. */
   needsFaceEnroll?: boolean;
   /** Pre-assembled data bundle for the persistent GuestHubCard. */
   guestHubData: GuestHubData;
+  seatMap: {
+    tables: EventTableRow[];
+    entrance: EntrancePos;
+    targetTableId: string;
+  } | null;
+  /** Inline Papic guest camera (PAPIC_GUEST) — non-null only when the event owns
+   *  the active (admin-approved) pack and this guest isn't blocked. Mounts the
+   *  same capture surface as the standalone /papic/guest route, in-context. */
+  papicGuest: {
+    initialRemaining: number;
+    total: number;
+    termsAccepted: boolean;
+    guestUnlimited: boolean;
+    eventStyle: PapicStyle;
+  } | null;
+  /** Inline Pabati video-greeting recorder (PABATI) — non-null only when the
+   *  event owns the active (admin-approved) pack. Mounts the guest recorder
+   *  in-context on this guest's landing page. */
+  pabati: {
+    initialRemaining: number;
+    total: number;
+  } | null;
+  /** Paid COUPLE_WEBSITE_PRO perk — drop the "Powered by Setnayan" footer
+   *  watermark when the event owns the active upgrade. Resolved once at the
+   *  top-level page (eventCoupleWebsiteProActive). */
+  proWatermarkHidden: boolean;
+  /** Invite/Join v2: show the accountless guest a "claim your account by email"
+   *  prompt (RSVP / Event / Editorial phases — never Save the Date). Computed at
+   *  the page level: true only when there's no signed-in account for this viewer. */
+  showClaimAccountCta: boolean;
+  /** Invite/Join v2: the no-login photo grace has ended (>~24h after the wedding)
+   *  for this accountless viewer — show the "photos closed, make an account to get
+   *  them back" state instead of the gallery. */
+  accountlessPhotosClosed: boolean;
+  /** Invite/Join v2: the couple's booked marketplace vendors ("vendors who made
+   *  this day"), each savable to the guest's own account for future planning. */
+  eventVendorCredits: VendorCard[];
+  /** Invite/Join v2: flash after a guest saves a vendor (ok / needs_account / error). */
+  saveFlash: string | null;
 }) {
   const sideLabel =
     guest.side === 'both'
@@ -1726,8 +2566,26 @@ function InvitationSite({
 
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
   return (
-    <InvitationShell backdrop={backdrop} rolePalette={event.role_palette}>
+    <InvitationShell
+      backdrop={backdrop}
+      rolePalette={event.role_palette}
+      fullBleed={showSaveTheDate && stdFilm}
+      hideWatermark={proWatermarkHidden}
+    >
       <GuestPreload eventSlug={event.slug} />
+      {/* Item #8 — discreet floating share/report chrome. Share shows ONLY when
+          the event is effectively public (couple launched their Save-the-Date);
+          the abuse-report entry (target_type='event') is present on any listed
+          page. Never rendered on a private page (this whole component is behind
+          the not-private gate). */}
+      {resolveEffectiveVisibility(event) !== 'private' && (
+        <PublicPageActions
+          canShare={resolveEffectiveVisibility(event) === 'public'}
+          reportTargetId={event.event_id}
+          shareTitle={event.display_name}
+        />
+      )}
+      {showSaveTheDate && !event.is_sample ? <StdViewBeacon slug={event.slug} /> : null}
       <RevealOverlayServer
         enabled={showSaveTheDate}
         monogram={revealMonogram(event.display_name)}
@@ -1737,15 +2595,66 @@ function InvitationSite({
         sealFallbackSeed={fallbackSeedFromPublicId(event.public_id)}
         veilColor={revealVeilColor(event.role_palette)}
         eventTemplate={coerceRevealTemplate(event.std_reveal_template)}
+        eventEffects={resolveRevealEffects(event.std_reveal_effects)}
         eventId={event.event_id}
       />
-      {bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
+      {/* Couple's opt-in background-music player — NOT during the Save-the-Date
+          phase: the STD film owns audio there, and this floating speaker control
+          would otherwise bleed through / over the veil reveal. (owner 2026-06-19) */}
+      {bgMusicUrl && !showSaveTheDate ? <BackgroundMusic src={bgMusicUrl} /> : null}
       <article className="space-y-12">
         {/* Guest Hub Card — persistent status summary for identified returning
             guests. Shows RSVP status, seat, meal, and next schedule item at
             a glance on every return visit. Hidden from anonymous visitors
             (this branch only runs when a guest session is present). */}
         <GuestHubCard data={guestHubData} />
+
+        {/* Invite/Join v2 — accountless guest's "claim your account" prompt.
+            Per the lifecycle table: RSVP / Event / Editorial only (never Save the
+            Date), and only when there's no signed-in account (showClaimAccountCta).
+            Posts the email to claimAccountAction → emails a passwordless sign-in
+            link that connects this event to a real account. */}
+        {showClaimAccountCta && lifecyclePhase !== 'save_the_date' ? (
+          <section
+            id="claim-account"
+            className="scroll-mt-24 rounded-2xl border border-terracotta/20 bg-terracotta/[0.04] p-5"
+          >
+            <h2 className="text-base font-semibold text-ink">Keep this on your phone</h2>
+            <p className="mt-1 text-sm text-ink/70">
+              Get a sign-in link by email and your own Setnayan account — reopen this event
+              (your RSVP, your table, your photos) on any device, no password needed.
+            </p>
+            <form
+              action={claimAccountAction.bind(null, event.event_id, event.slug ?? '')}
+              className="mt-3 flex flex-col gap-2 sm:flex-row"
+            >
+              <input
+                type="email"
+                name="email"
+                required
+                placeholder="you@email.com"
+                autoComplete="email"
+                aria-label="Your email"
+                className="input-field flex-1"
+              />
+              <SubmitButton className="button-primary whitespace-nowrap" pendingLabel="Sending…">
+                Email me a link
+              </SubmitButton>
+            </form>
+          </section>
+        ) : null}
+
+        {seatMap ? (
+          <YourSeatBlock
+            tableLabel={guestHubData.tableLabel ?? 'your table'}
+            venueName={event.venue_name}
+            tables={seatMap.tables}
+            entrance={seatMap.entrance}
+            targetTableId={seatMap.targetTableId}
+            firstName={guestHubData.firstName}
+            arrived={guestHubData.arrived}
+          />
+        ) : null}
 
         {isLive ? (
           <DayOfBanner kind="live" />
@@ -1760,7 +2669,7 @@ function InvitationSite({
             treatment. Gated on hero widget visibility — always-on by default
             (editor blocks hiding), but the gate exists so V1.1 can let
             exhibitions / private weddings drop the hero entirely if needed. */}
-        {!showEditorialPlaceholder && heroShouldRender && hasHeroMedia ? (
+        {!showEditorialPlaceholder && heroShouldRender && hasHeroMedia && !showSaveTheDate ? (
           <section className="relative -mx-4 overflow-hidden rounded-2xl text-center sm:-mx-0">
             {/* Full-bleed video (Increment B) or photo. */}
             <HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />
@@ -1797,7 +2706,7 @@ function InvitationSite({
               <hr className="mx-auto mt-6 w-24 border-t border-ink/30" />
             </div>
           </section>
-        ) : !showEditorialPlaceholder && heroShouldRender ? (
+        ) : !showEditorialPlaceholder && heroShouldRender && !showSaveTheDate ? (
           <section className="text-center">
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
               You are invited
@@ -1837,13 +2746,32 @@ function InvitationSite({
             publicId={event.public_id}
             loveStory={event.love_story}
             showTextHero={false}
+            animatedMonogram={animatedMonogram}
+            studioAnim={studioAnim}
             film={stdFilm}
+            background={stdBackground}
+            backgroundImageUrl={stdBackgroundUrl}
             monogramText={event.monogram_text}
-            musicUrl={bgMusicUrl}
+            monogramSvg={bespokeSvg}
+            lockup={stdLockupFor(event)}
+            musicUrl={ownsStdReveal ? bgMusicUrl : null}
+            videoUrl={ownsStdReveal ? stdVideoUrl : null}
+            videoPosterUrl={ownsStdReveal ? stdVideoPosterUrl : null}
+            ceremonyVenue={stdVenues?.ceremony ?? null}
+            receptionVenue={stdVenues?.reception ?? null}
+            receptionCity={stdVenues?.receptionCity ?? null}
             galleryUrls={
-              ourPhotoUrls.length ? ourPhotoUrls : heroPhotoUrl ? [heroPhotoUrl] : []
+              ownsStdReveal
+                ? ourPhotoUrls.length
+                  ? ourPhotoUrls
+                  : heroPhotoUrl
+                    ? [heroPhotoUrl]
+                    : []
+                : []
             }
-            launchDateIso={event.std_invitation_launch_date}
+            launchDateIso={event.std_invitation_launch_date ?? defaultInvitationLaunchIso(event.event_date)}
+            themeId={event.std_theme}
+            accentHex={stdAccentColor(event)}
           />
         ) : (
           <>
@@ -1852,7 +2780,7 @@ function InvitationSite({
             personalized welcome. */}
         {greetingShouldRender ? (
           <section className="space-y-4 text-center">
-            <p className="text-2xl italic text-ink">Hi, {guest.first_name}.</p>
+            <p className="font-serif text-3xl italic leading-tight text-ink">Hi, {guest.first_name}.</p>
             <p className="mx-auto max-w-prose text-base text-ink/70">
               We&rsquo;d love to celebrate with you on{' '}
               <span className="font-medium text-ink">{formatEventDate(event.event_date)}</span>
@@ -1881,11 +2809,16 @@ function InvitationSite({
         {isLive && scheduleBlocks.length > 0 ? (
           <section
             aria-label="Day-of schedule"
-            className="rounded-2xl border-2 border-emerald-300 bg-emerald-50/50 p-2"
+            className="rounded-2xl border-2 border-success-300 bg-success-50/50 p-2"
           >
-            <ScheduleWidget blocks={scheduleBlocks} />
+            <ScheduleWidget blocks={scheduleBlocks} eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)} />
           </section>
         ) : null}
+
+        {/* Chinese (Tsinoy) tea-ceremony card — static, guest-safe tradition copy
+            (no roster / no PII). Mirrors the public + identified-guest paths for
+            parity; gates on isChineseWedding (primary OR secondary rite). */}
+        {isChineseWedding(event) ? <TeaCeremonyCard event={event} /> : null}
 
         {/* Live Photo Wall mirror — the venue wall on the guest's own phone
             while the celebration runs (owner 2026-06-12: the wall + live
@@ -1901,46 +2834,228 @@ function InvitationSite({
           />
         ) : null}
 
-        {/* "Add your face" — day-of catch for a guest who skipped the RSVP
-            selfie. One tap enrolls them so their candid photos auto-find them
-            (and feeds the "Photos of you" gallery below). Live window only,
-            self-hides once enrolled. QR-scan tagging is the fallback either way. */}
-        {isLive && needsFaceEnroll ? <DayOfFaceEnroll context="day_of" /> : null}
+        {/* "Add your face" — shown across the whole pre-event window (gated in
+            needsFaceEnroll: Papic event · not declined · not yet enrolled) so
+            guests enroll early, plus a day-of catch for anyone who skipped the
+            RSVP selfie. One tap enrolls them so their candid photos auto-find
+            them. Self-hides once enrolled; QR-scan tagging is the fallback. */}
+        {needsFaceEnroll ? (
+          <DayOfFaceEnroll context={isLive ? 'day_of' : 'pre_event'} />
+        ) : null}
+
+        {/* Inline Papic guest camera — auto-shown in-context when the couple owns
+            the active (admin-approved) PAPIC_GUEST pack, so an identified guest
+            can shoot candids without leaving their landing page. Same surface as
+            the standalone /papic/guest route (still live as the QR-scan fallback +
+            the floating CTA). papicGuest is non-null only behind the active gate +
+            an unblocked guest, resolved on the page. */}
+        {papicGuest ? (
+          <PapicGuestCapture
+            guestName={guest.first_name}
+            eventName={event.display_name}
+            eventId={event.event_id}
+            initialRemaining={papicGuest.initialRemaining}
+            total={papicGuest.total}
+            termsAccepted={papicGuest.termsAccepted}
+            needsFaceEnroll={needsFaceEnroll}
+            guestUnlimited={papicGuest.guestUnlimited}
+            eventStyle={papicGuest.eventStyle}
+          />
+        ) : null}
+
+        {/* Inline Pabati recorder — auto-shown in-context when the couple owns
+            the active (admin-approved) PABATI pack, so this guest can leave a
+            5-second video greeting without leaving their landing page. Same
+            collector as the standalone /pabati/[eventId] share-link entry. The
+            per-EVENT 300-clip quota drives the "N left" display; the RPC is the
+            real gate. pabati is non-null only behind the active gate. */}
+        {pabati ? (
+          <PabatiPrompt
+            guestName={guest.first_name}
+            eventName={event.display_name}
+            initialRemaining={pabati.initialRemaining}
+            total={pabati.total}
+          />
+        ) : null}
 
         {/* Per-guest LIVE gallery — "photos of you, so far". The personalized
             half of the on-the-day gallery pair (the wall mirror above is the
             shared half): this guest's clean-screened tagged photos, arriving
             through the day. Personalization no competitor has. */}
-        {isLive && guestLiveGallery ? (
+        {(isLive || isPost) && guestLiveGallery ? (
           <section
-            aria-label="Photos of you so far"
+            aria-label="Photos of you"
             className="rounded-2xl border border-ink/10 bg-cream p-5 shadow-sm sm:p-6"
           >
             <div className="flex items-center justify-between gap-3">
               <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-                Photos of you — so far
+                {isLive ? (
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success-500" />
+                ) : null}
+                Photos of you{isLive ? ' — so far' : ''}
               </p>
-              <p className="text-xs text-ink/55">
-                {guestLiveGallery.total.toLocaleString()} tagged
+              <p className="text-sm text-ink/70">
+                {guestLiveGallery.total.toLocaleString()}
+                {isLive ? ' so far' : ''}
               </p>
             </div>
-            <div className="mt-4 grid grid-cols-4 gap-1.5 sm:gap-2">
+            {/* Post-event grace (Invite/Join v2): a no-login guest can still save
+                their photos for ~24h after the wedding, then it closes — an
+                account keeps them forever. The claim-account box already sits near
+                the top of the page for accountless viewers. */}
+            {isPost && showClaimAccountCta ? (
+              <p className="mt-3 rounded-lg border border-warn-900/15 bg-warn-100 px-3 py-2 text-sm text-warn-900">
+                These close about a day after the wedding. Save the ones you want now —
+                or make a free account (the box near the top) to keep them forever.
+              </p>
+            ) : null}
+            {/* 3-up (not 4-up) so the photos — and the readable "Not me" control —
+                are big enough for an older guest (Guest Legibility Floor). */}
+            <div className="mt-4 grid grid-cols-3 gap-2">
               {guestLiveGallery.photos.map((p) => (
                 <figure
                   key={p.id}
-                  className="relative aspect-square overflow-hidden rounded-lg bg-ink/5"
+                  className="group relative aspect-square overflow-hidden rounded-lg bg-ink/5"
                 >
-                  {/* Presigned 1h URL — raw <img> (optimizer would cache expiry). */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={p.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                  {/* Presigned URL — raw <img> (optimizer would cache expiry).
+                      Wrapped in a link so a tap opens the full-size image to save
+                      — the no-login download path during the grace window. */}
+                  <a
+                    href={p.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Open full size to save"
+                    className="block h-full w-full"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={p.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                  </a>
+                  {/* "Not me" — drop a wrong auto-face guess of yourself on this
+                      one shot (you stay enrolled for the rest). Auto-tags only;
+                      a photographer's QR tag can't be removed here. A real
+                      ≥44px labelled control, legible over the photo. */}
+                  <form
+                    action={removeMyTag.bind(null, event.event_id, p.sourceTable, p.id)}
+                    className="absolute right-1.5 top-1.5"
+                  >
+                    <SubmitButton
+                      className="inline-flex min-h-[44px] items-center gap-1 rounded-full bg-ink/65 px-3 text-sm font-semibold text-cream shadow-sm backdrop-blur-sm transition hover:bg-ink/80 focus-visible:bg-ink/80"
+                      pendingLabel="Removing…"
+                    >
+                      <X aria-hidden className="h-4 w-4" strokeWidth={2.5} />
+                      Not me
+                    </SubmitButton>
+                  </form>
                 </figure>
               ))}
             </div>
-            <p className="mt-3 text-xs text-ink/55">
-              More arrive as the day unfolds — and everything tagged to you is yours to
-              keep after the celebration.
+            <p className="mt-3 text-sm text-ink/70">
+              {isLive
+                ? 'More arrive as the day unfolds — and every photo of you is yours to keep after the celebration.'
+                : 'Tap any photo to open it full size and save it.'}{' '}
+              Tap <span className="font-medium">Not me</span> on any photo that isn&rsquo;t you.
             </p>
+          </section>
+        ) : null}
+
+        {/* Invite/Join v2 — the no-login photo grace has ended for this accountless
+            guest (>~24h after the wedding). Accurate regardless of how many photos
+            they had: the guest view is winding down; an account keeps everything. */}
+        {accountlessPhotosClosed ? (
+          <section
+            aria-label="Keep this event"
+            className="rounded-2xl border border-ink/10 bg-cream p-5 text-sm text-ink/70 shadow-sm sm:p-6"
+          >
+            <p className="font-medium text-ink">Keep this event for good</p>
+            <p className="mt-1">
+              The guest view winds down about a day after the wedding. Make a free
+              Setnayan account to keep your invite and your photos — on any device. Use the
+              &ldquo;Keep this on your phone&rdquo; box above to get a sign-in link.
+            </p>
+          </section>
+        ) : null}
+
+        {/* Invite/Join v2 — "vendors who made this day": the couple's booked
+            marketplace vendors, savable to a guest's OWN account so they carry to
+            the guest's future planning (the growth loop). RSVP / Event / Editorial
+            only (never Save the Date), and only when there are credited vendors. */}
+        {lifecyclePhase !== 'save_the_date' && eventVendorCredits.length > 0 ? (
+          <section
+            aria-label="Vendors who made this day"
+            className="rounded-2xl border border-ink/10 bg-cream p-5 shadow-sm sm:p-6"
+          >
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+              Vendors who made this day
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight">Loved a vendor? Keep them.</h2>
+            <p className="mt-1 text-sm text-ink/70">
+              Save any vendor here to your Setnayan account — they&rsquo;ll be waiting when you
+              plan your own celebration.
+            </p>
+            {saveFlash ? (
+              <p className="mt-3 rounded-lg border border-ink/10 bg-white px-3 py-2 text-sm text-ink/80">
+                {saveFlash}
+              </p>
+            ) : null}
+            <ul className="mt-4 space-y-2">
+              {eventVendorCredits.map((v) => (
+                <li
+                  key={v.vendorProfileId}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-white p-3"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    {v.logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={v.logoUrl}
+                        alt=""
+                        className="h-10 w-10 shrink-0 rounded-full object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-terracotta/10 text-sm font-semibold text-terracotta">
+                        {v.displayName.trim().charAt(0).toUpperCase() || 'V'}
+                      </span>
+                    )}
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-ink">
+                        {v.businessSlug ? (
+                          <Link href={`/v/${v.businessSlug}`} className="hover:text-terracotta">
+                            {v.displayName}
+                          </Link>
+                        ) : (
+                          v.displayName
+                        )}
+                      </p>
+                      {v.categoryLabel ? (
+                        <p className="truncate text-sm text-ink/60">{v.categoryLabel}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                  {showClaimAccountCta ? (
+                    <span className="shrink-0 text-xs text-ink/45">Account needed</span>
+                  ) : (
+                    <form
+                      action={saveAttendedVendorAction.bind(
+                        null,
+                        event.event_id,
+                        event.slug ?? '',
+                        v.vendorProfileId,
+                      )}
+                      className="shrink-0"
+                    >
+                      <SubmitButton className="button-secondary text-sm" pendingLabel="Saving…">
+                        Save
+                      </SubmitButton>
+                    </form>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {showClaimAccountCta ? (
+              <p className="mt-3 text-sm text-ink/60">
+                Make a free account (the box near the top) to save these for your own plans.
+              </p>
+            ) : null}
           </section>
         ) : null}
 
@@ -1963,7 +3078,7 @@ function InvitationSite({
               className="mx-auto mt-6 inline-block rounded-xl bg-white p-3 shadow-sm"
               dangerouslySetInnerHTML={{ __html: qrSvg }}
             />
-            <p className="mt-4 break-all font-mono text-[10px] uppercase tracking-[0.1em] text-ink/40">
+            <p className="mt-4 break-all font-mono text-xs tracking-[0.05em] text-ink/55">
               {invitationUrl}
             </p>
             {/* Indoor Blueprint entry point — pure navigation (no DB query on
@@ -1978,6 +3093,21 @@ function InvitationSite({
               <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               Find my table
             </Link>
+            {/* Personalized seat pass (CUSTOM_QR_GUEST · seat-finding PR4) —
+                ADDITIVE, separately gated, and only when the couple bought the
+                branded-QR SKU. Routes through /seat/claim so the cookie is set
+                before landing on the pass (their exact seat + arrival bloom).
+                The find-my-table link above (a separate INDOOR_BLUEPRINT
+                surface) is untouched — both can show. */}
+            {seatPassActive && guest.qr_token ? (
+              <Link
+                href={`/${event.slug}/seat/claim?t=${guest.qr_token}`}
+                className="ml-2 mt-5 inline-flex items-center gap-1.5 rounded-md border border-terracotta/40 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta hover:border-terracotta hover:bg-terracotta/10"
+              >
+                <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Your seat pass
+              </Link>
+            ) : null}
           </section>
         ) : null}
 
@@ -1985,7 +3115,12 @@ function InvitationSite({
             load-bearing form: the editor blocks hiding it, but the gate
             below is the runtime enforcement point. */}
         {rsvpShouldRender ? (
-          <RsvpWidget guest={guest} eventId={event.event_id} limited={isLimitedPlusOne} />
+          <RsvpWidget
+            guest={guest}
+            eventId={event.event_id}
+            eventPublicId={event.public_id}
+            limited={isLimitedPlusOne}
+          />
         ) : null}
 
         {guest.photo_source === 'selfie' ? (
@@ -2012,7 +3147,7 @@ function InvitationSite({
         ))}
 
         {isLimitedPlusOne ? (
-          <section className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
+          <section className="rounded-xl border border-warn-200 bg-warn-50 p-5 text-sm text-warn-900">
             You&rsquo;re joining as a +1. Photos taken of you will appear in your inviter&rsquo;s
             gallery — ask them to share. In-app features like Shutter and Photo Challenges
             require a full Setnayan account, which the couple hasn&rsquo;t enabled for +1s on
@@ -2108,21 +3243,31 @@ function HideableWidgetRender({
       // the top of the article (Task #13 day-of-mode safety belt).
       // Don't render the same blocks twice. When NOT live, render the
       // standard widget only when there are public blocks to show.
+      // (The tea-ceremony card is rendered once in the identified-guest
+      // article body — NOT here too, or a Chinese event with visible
+      // schedule blocks would show the card twice.)
       return !isLive && scheduleBlocks.length > 0 ? (
-        <ScheduleWidget blocks={scheduleBlocks} />
+        <ScheduleWidget blocks={scheduleBlocks} eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)} />
       ) : null;
 
     case 'venue_map':
       return <VenueWidget event={event} />;
 
     case 'dress_code':
-      return <DressCodeWidget config={event.dress_code_config ?? null} />;
+      return <DressCodeWidget config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} />;
 
     case 'photo_moments':
       return <PhotoMomentsWidget config={event.photo_moments_config} />;
 
     case 'your_photos':
-      return <YourPhotosWidget limited={isLimitedPlusOne} />;
+      return (
+        <YourPhotosWidget
+          limited={isLimitedPlusOne}
+          eventId={event.event_id}
+          eventPublicId={event.public_id}
+          eventNoun={eventNounOf(event)}
+        />
+      );
 
     case 'special_message':
       return <SpecialMessageWidget text={event.special_message ?? null} />;
@@ -2137,7 +3282,7 @@ function HideableWidgetRender({
       return <OurLoveStoryWidget config={event.love_story} />;
 
     case 'tier_comparison':
-      return <TierComparisonWidget limited={isLimitedPlusOne} />;
+      return <TierComparisonWidget limited={isLimitedPlusOne} eventNoun={eventNounOf(event)} />;
 
     // Always-on widgets (hero, greeting, qr_card, rsvp) are not reachable
     // here — they render in fixed positions in the parent function. The
@@ -2189,7 +3334,7 @@ function OurLoveStoryWidget({ config }: { config: unknown }) {
       </p>
       {howWeMet ? (
         <div className="text-center">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">How we met</p>
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/45">How we met</p>
           <p className="mx-auto mt-1.5 max-w-prose whitespace-pre-line text-sm leading-relaxed text-ink/80">
             {howWeMet}
           </p>
@@ -2197,7 +3342,7 @@ function OurLoveStoryWidget({ config }: { config: unknown }) {
       ) : null}
       {proposal ? (
         <div className="text-center">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/45">
             The proposal{proposalSetting ? ` · ${proposalSetting}` : ''}
           </p>
           <p className="mx-auto mt-1.5 max-w-prose whitespace-pre-line text-sm leading-relaxed text-ink/80">
@@ -2212,7 +3357,7 @@ function OurLoveStoryWidget({ config }: { config: unknown }) {
               <span className="mt-1.5 h-2 w-2 flex-none rounded-full bg-terracotta" aria-hidden />
               <div>
                 {m.year ? (
-                  <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
+                  <p className="font-mono text-xs uppercase tracking-[0.15em] text-terracotta">
                     {m.year}
                   </p>
                 ) : null}
@@ -2312,7 +3457,7 @@ function Detail({
 }) {
   return (
     <div className={className}>
-      <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
+      <dt className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
         {label}
       </dt>
       <dd className="mt-0.5 text-base text-ink">{value}</dd>
@@ -2323,10 +3468,12 @@ function Detail({
 function RsvpWidget({
   guest,
   eventId,
+  eventPublicId,
   limited,
 }: {
   guest: GuestRow;
   eventId: string;
+  eventPublicId: string;
   limited: boolean;
 }) {
   const action = submitRsvp.bind(null, eventId, guest.guest_id);
@@ -2351,16 +3498,25 @@ function RsvpWidget({
           couple seats them later). Show the reassurance whenever they're
           attending — this is the "your place is reserved" confirmation. */}
       {guest.rsvp_status === 'attending' ? (
-        <p className="flex items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-sm font-medium text-emerald-800">
-          <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-600" />
-          Your place is reserved — we can&rsquo;t wait to celebrate with you.
-        </p>
+        <>
+          <p className="flex items-center justify-center gap-2 rounded-lg border border-success-200 bg-success-50 px-3 py-2 text-center text-sm font-medium text-success-800">
+            <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-success-600" />
+            Your place is reserved — we can&rsquo;t wait to celebrate with you.
+          </p>
+          <GuestToHostCta
+            surface="rsvp_confirmation"
+            eventId={eventId}
+            eventPublicId={eventPublicId}
+            headline="Planning your own celebration?"
+            sub="Start free on Setnayan — no card needed."
+          />
+        </>
       ) : null}
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         {(
           [
-            { key: 'attending', label: "I'll be there", tone: 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700' },
+            { key: 'attending', label: "I'll be there", tone: 'bg-success-600 text-white border-success-600 hover:bg-success-700' },
             { key: 'maybe', label: 'Maybe', tone: 'bg-cream text-ink border-ink/20 hover:border-ink/40' },
             { key: 'declined', label: "Can't make it", tone: 'bg-cream text-ink border-ink/20 hover:border-ink/40' },
           ] as const
@@ -2471,9 +3627,9 @@ function FaceDataNotice({
 
 function RsvpPill({ status }: { status: GuestRow['rsvp_status'] }) {
   const tone: Record<GuestRow['rsvp_status'], string> = {
-    attending: 'bg-emerald-100 text-emerald-800',
-    pending: 'bg-amber-100 text-amber-800',
-    declined: 'bg-rose-100 text-rose-800',
+    attending: 'bg-success-100 text-success-800',
+    pending: 'bg-warn-100 text-warn-800',
+    declined: 'bg-danger-100 text-danger-800',
     maybe: 'bg-ink/10 text-ink/70',
   };
   const label =
@@ -2563,9 +3719,9 @@ function VenueWidget({ event }: { event: EventRow }) {
     <section className="space-y-3 rounded-xl border border-ink/10 bg-cream p-6">
       <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">Venue</p>
       <div className="overflow-hidden rounded-lg border border-ink/10">
-        <div className="h-32 bg-gradient-to-br from-terracotta/30 via-amber-100 to-emerald-100" />
+        <div className="h-32 bg-gradient-to-br from-terracotta/30 via-warn-100 to-success-100" />
         <div className="space-y-3 bg-cream p-4">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
+          <p className="font-mono text-xs uppercase tracking-[0.15em] text-terracotta">
             Ceremony &amp; Reception
           </p>
           <h3 className="text-xl font-semibold tracking-tight">
@@ -2598,9 +3754,22 @@ function VenueWidget({ event }: { event: EventRow }) {
  */
 function DressCodeWidget({
   config,
+  ceremonyType,
+  genderSeparation,
 }: {
   config: EventRow['dress_code_config'];
+  ceremonyType?: string | null;
+  genderSeparation?: string | null;
 }) {
+  // The couple's walima seating posture, surfaced to guests so they know what to
+  // expect at the reception. Muslim-only; 'none' (default) shows nothing. Neutral
+  // tone per the spec — we describe, never editorialize.
+  const genderNote =
+    ceremonyType === 'muslim' && genderSeparation === 'sections'
+      ? 'Seating: separate sections for men and women.'
+      : ceremonyType === 'muslim' && genderSeparation === 'separate_spaces'
+        ? 'Seating: separate spaces for men and women.'
+        : null;
   // Defensive read — JSONB column defaults to `{}` so every field may be
   // absent. Skip rows in palette that aren't valid #RRGGBB to avoid CSS
   // injection via the inline style attribute.
@@ -2630,8 +3799,56 @@ function DressCodeWidget({
     palette.length > 0;
 
   // Empty state — section stays visible (so guests know to expect it) but
-  // reads as an intentional "coming soon" note in the host's brand voice.
+  // reads as an intentional note in the host's brand voice.
   if (!hasAnything) {
+    // INC weddings require modest, formal attire of everyone present (no
+    // sleeveless / short), so even when the host hasn't authored a dress code
+    // we surface that expectation — it spares guests the most common INC-
+    // wedding friction. See INC_Wedding_Practices_Reference_2026-06-28.md § 5.4.
+    if (ceremonyType === 'inc') {
+      return (
+        <section className="space-y-3 rounded-xl border border-ink/10 bg-cream p-6">
+          <header>
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+              Dress code
+            </p>
+            <h3 className="mt-1 text-2xl font-semibold tracking-tight">
+              Modest &amp; formal
+            </h3>
+          </header>
+          <p className="text-sm text-ink/70">
+            Our ceremony is held in the INC chapel, so we kindly ask everyone to
+            dress modestly and formally — please avoid sleeveless tops and short
+            dresses or skirts. Thank you for honoring the occasion with us.
+          </p>
+        </section>
+      );
+    }
+    // Muslim weddings carry a strong modesty expectation (lib/wedding-traditions
+    // 'muslim': modest dress), so surface it even when the host hasn't authored a
+    // dress code — it spares guests the most common Nikah/walima friction.
+    if (ceremonyType === 'muslim') {
+      return (
+        <section className="space-y-3 rounded-xl border border-ink/10 bg-cream p-6">
+          <header>
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+              Dress code
+            </p>
+            <h3 className="mt-1 text-2xl font-semibold tracking-tight">
+              Modest dress
+            </h3>
+          </header>
+          <p className="text-sm text-ink/70">
+            We warmly ask everyone to dress modestly — shoulders and knees
+            covered. Ladies, please feel free to bring a scarf for the ceremony.
+            Thank you for honoring the occasion with us.
+          </p>
+          {genderNote ? (
+            <p className="text-sm font-medium text-ink/75">{genderNote}</p>
+          ) : null}
+        </section>
+      );
+    }
     return (
       <section className="space-y-3 rounded-xl border border-ink/10 bg-cream p-6">
         <header>
@@ -2679,8 +3896,8 @@ function DressCodeWidget({
       {dos.length > 0 || donts.length > 0 ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {dos.length > 0 ? (
-            <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-              <p className="font-mono text-[10px] uppercase tracking-[0.15em]">Do</p>
+            <div className="space-y-2 rounded-lg border border-success-200 bg-success-50 p-4 text-sm text-success-900">
+              <p className="font-mono text-xs uppercase tracking-[0.15em]">Do</p>
               <ul className="space-y-1">
                 {dos.map((row, i) => (
                   <li key={i}>· {row}</li>
@@ -2689,8 +3906,8 @@ function DressCodeWidget({
             </div>
           ) : null}
           {donts.length > 0 ? (
-            <div className="space-y-2 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">
-              <p className="font-mono text-[10px] uppercase tracking-[0.15em]">
+            <div className="space-y-2 rounded-lg border border-danger-200 bg-danger-50 p-4 text-sm text-danger-900">
+              <p className="font-mono text-xs uppercase tracking-[0.15em]">
                 Don&rsquo;t
               </p>
               <ul className="space-y-1">
@@ -2701,6 +3918,9 @@ function DressCodeWidget({
             </div>
           ) : null}
         </div>
+      ) : null}
+      {genderNote ? (
+        <p className="text-sm font-medium text-ink/75">{genderNote}</p>
       ) : null}
     </section>
   );
@@ -2787,7 +4007,7 @@ function PhotoMomentsWidget({ config }: { config: unknown }) {
           >
             <PhotoMomentModeBadge mode={m.mode} />
             {m.time_label.trim().length > 0 ? (
-              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
+              <p className="font-mono text-xs uppercase tracking-[0.15em] text-terracotta">
                 {m.time_label}
               </p>
             ) : null}
@@ -2805,7 +4025,7 @@ function PhotoMomentsWidget({ config }: { config: unknown }) {
 function PhotoMomentModeBadge({ mode }: { mode: PhotoMomentMode }) {
   if (mode === 'camera_ok') {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-800">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.15em] text-success-800">
         <Camera aria-hidden className="h-3 w-3" strokeWidth={2} />
         Cameras welcome
       </span>
@@ -2813,21 +4033,31 @@ function PhotoMomentModeBadge({ mode }: { mode: PhotoMomentMode }) {
   }
   if (mode === 'papic_only') {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.15em] text-terracotta-700">
         <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
         Our paparazzo
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70">
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
       <CircleSlash aria-hidden className="h-3 w-3" strokeWidth={2} />
       Phone-down
     </span>
   );
 }
 
-function YourPhotosWidget({ limited }: { limited: boolean }) {
+function YourPhotosWidget({
+  limited,
+  eventId,
+  eventPublicId,
+  eventNoun,
+}: {
+  limited: boolean;
+  eventId: string;
+  eventPublicId: string;
+  eventNoun: string;
+}) {
   return (
     <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-6">
       <header>
@@ -2840,7 +4070,7 @@ function YourPhotosWidget({ limited }: { limited: boolean }) {
       </div>
 
       <div className="rounded-lg border border-ink/10 bg-cream p-5 text-sm">
-        <p className="font-medium text-ink">Make sure a shutterbug snaps you on the wedding day</p>
+        <p className="font-medium text-ink">Make sure a shutterbug snaps you on the {eventNoun} day</p>
         <p className="mt-1 text-ink/60">
           Your first tagged photo automatically becomes your profile picture in the gallery.
         </p>
@@ -2862,6 +4092,14 @@ function YourPhotosWidget({ limited }: { limited: boolean }) {
           </p>
         </div>
       )}
+
+      <GuestToHostCta
+        surface="your_photos"
+        eventId={eventId}
+        eventPublicId={eventPublicId}
+        headline="Want this for your own day?"
+        sub="Capture every moment — start planning free."
+      />
     </section>
   );
 }
@@ -2874,17 +4112,17 @@ function DayOfBanner({ kind }: { kind: 'live' | 'post' }) {
     return (
       <section
         aria-label="Live event mode"
-        className="flex items-center gap-3 rounded-xl border-2 border-emerald-300 bg-emerald-50 p-4 sm:p-5"
+        className="flex items-center gap-3 rounded-xl border-2 border-success-300 bg-success-50 p-4 sm:p-5"
       >
         <span
           aria-hidden
-          className="inline-flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-emerald-600"
+          className="inline-flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-success-600"
         />
         <div className="flex-1">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-800">
+          <p className="font-mono text-xs uppercase tracking-[0.15em] text-success-800">
             Live now
           </p>
-          <p className="text-sm text-emerald-900">
+          <p className="text-sm text-success-900">
             The wedding is happening. Your schedule, QR, and venue info are pinned
             below — they work offline if WiFi cuts out.
           </p>
@@ -2899,7 +4137,7 @@ function DayOfBanner({ kind }: { kind: 'live' | 'post' }) {
       aria-label="Post-event mode"
       className="rounded-xl border border-ink/10 bg-cream p-4 sm:p-5"
     >
-      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+      <p className="font-mono text-xs uppercase tracking-[0.15em] text-ink/55">
         Thank you for celebrating
       </p>
       <p className="mt-1 text-sm text-ink/70">
@@ -2910,7 +4148,7 @@ function DayOfBanner({ kind }: { kind: 'live' | 'post' }) {
   );
 }
 
-function TierComparisonWidget({ limited }: { limited: boolean }) {
+function TierComparisonWidget({ limited, eventNoun }: { limited: boolean; eventNoun: string }) {
   if (limited) {
     return (
       <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-6">
@@ -2920,20 +4158,20 @@ function TierComparisonWidget({ limited }: { limited: boolean }) {
           </p>
           <h3 className="mt-1 text-2xl font-semibold tracking-tight">Two ways to celebrate</h3>
         </header>
-        <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <p className="rounded-md border border-warn-200 bg-warn-50 px-4 py-3 text-sm text-warn-900">
           You&rsquo;re a +1 to your inviter. Your photos will appear in their gallery —
           ask them to show you. Want full access? You can register your own Setnayan account
           anytime — but for this wedding, you&rsquo;re invited as their +1.
         </p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-2 rounded-lg border border-dashed border-ink/15 bg-cream p-5 opacity-55">
-            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
+            <p className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
               Public
             </p>
             <p className="text-sm text-ink/60">View invitation · RSVP · 3-day photo window</p>
           </div>
           <div className="space-y-2 rounded-lg border border-dashed border-terracotta/30 bg-cream p-5 opacity-55">
-            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
+            <p className="font-mono text-xs uppercase tracking-[0.15em] text-terracotta">
               Registered (locked for +1s)
             </p>
             <p className="text-sm text-ink/60">
@@ -2961,13 +4199,13 @@ function TierComparisonWidget({ limited }: { limited: boolean }) {
       </header>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-3 rounded-lg border border-ink/15 bg-cream p-5">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
+          <p className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
             Public · As you are now
           </p>
           <p className="font-medium text-ink">Free · No sign-up needed</p>
           <ul className="space-y-1 text-sm text-ink/70">
             <li>· View this invitation</li>
-            <li>· RSVP for the wedding</li>
+            <li>· RSVP for the {eventNoun}</li>
             <li>· See your tagged photos for <strong>3 days</strong></li>
             <li>· Save your QR to your phone</li>
           </ul>
@@ -2976,14 +4214,14 @@ function TierComparisonWidget({ limited }: { limited: boolean }) {
           </p>
         </div>
         <div className="space-y-3 rounded-lg border border-terracotta/40 bg-gradient-to-br from-terracotta/10 to-cream p-5">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
+          <p className="font-mono text-xs uppercase tracking-[0.15em] text-terracotta">
             With Setnayan account
           </p>
           <p className="font-medium text-ink">Free · One-tap sign-up</p>
           <ul className="space-y-1 text-sm text-ink/75">
             <li>· Everything in Public</li>
             <li>· <strong>Shutter</strong> — capture &amp; tag photos as a guest</li>
-            <li>· <strong>Selfie Camera</strong> — branded wedding selfie cam</li>
+            <li>· <strong>Selfie Camera</strong> — branded {eventNoun} selfie cam</li>
             <li>· <strong>Photo &amp; Video Challenges</strong> — fun mini-quests</li>
             <li>· <strong>Saved Forever</strong> — photos kept permanently</li>
             <li>· Build your own souvenir reel</li>

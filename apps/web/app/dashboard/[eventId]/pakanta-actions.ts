@@ -7,14 +7,15 @@
  * brief.ts). So this intake only collects the MUSIC top-up the love story
  * doesn't have — what they call each other, each side's favourite singer, the
  * music type (+ optional extra wishes). Consumed by the dedicated couple page
- * at /dashboard/[eventId]/add-ons/pakanta (PakantaMusicForm).
+ * at /dashboard/[eventId]/studio/pakanta (PakantaMusicForm).
  *
  * Both CTAs persist the same draft row in `pakanta_intake_drafts` keyed by
  * event_id (admin reads it on the /admin/pakanta queue):
  *
  *   [Save for later] → status='draft' · stays on the page.
- *   [Continue to payment] → status='purchase_pending' · returns the redirect
- *                       URL to /dashboard/[eventId]/orders/new?service=pakanta_basic
+ *   [Continue to payment] → status='purchase_pending' · the form then reveals
+ *                       the in-page InlineCheckoutDrawer (the old /orders/new
+ *                       redirect was retired). redirectTo is always null now.
  *
  * Table: supabase/migrations/20260626000000_iteration_0036_pakanta_intake_
  * drafts.sql (status enum + host/admin RLS). No new migration — the responses
@@ -158,12 +159,13 @@ export async function savePakantaIntake(
     return { ok: false, error: upsertErr.message };
   }
 
-  revalidatePath(`/dashboard/${eventIdRaw}/add-ons/pakanta`);
+  revalidatePath(`/dashboard/${eventIdRaw}/studio/pakanta`);
 
-  const redirectTo =
-    intent === 'purchase'
-      ? `/dashboard/${eventIdRaw}/orders/new?service=pakanta_basic`
-      : null;
+  // Payment is handled in-page by the checkout drawer now (the old
+  // /dashboard/[eventId]/orders/new route was retired and bounced to a
+  // dead-end). The draft is saved either way; the form reveals the drawer
+  // on a purchase. redirectTo is kept (always null) for the action's shape.
+  const redirectTo = null;
 
   return { ok: true, redirectTo };
 }

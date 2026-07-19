@@ -45,8 +45,8 @@ export default async function ClearancePage({ params }: Props) {
   if (cleared) {
     return (
       <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6">
-        <div className="rounded-2xl border border-emerald-300/50 bg-emerald-50 p-8 text-center">
-          <CheckCircle2 aria-hidden className="mx-auto h-8 w-8 text-emerald-600" strokeWidth={1.75} />
+        <div className="rounded-2xl border border-success-300/50 bg-success-50 p-8 text-center">
+          <CheckCircle2 aria-hidden className="mx-auto h-8 w-8 text-success-600" strokeWidth={1.75} />
           <h1 className="mt-3 text-lg font-semibold text-ink">The day is closed out</h1>
           <p className="mx-auto mt-2 max-w-md text-sm text-ink/60">
             Your wedding day is wrapped. The app has moved into After mode — your recap, galleries,
@@ -79,8 +79,9 @@ export default async function ClearancePage({ params }: Props) {
         <ArrowLeft className="h-4 w-4" /> Back to your dashboard
       </Link>
 
-      <header className="mt-3 space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Close out the day</h1>
+      <header className="sn-reveal mt-3 space-y-1">
+        <p className="sn-eye">Close out</p>
+        <h1 className="sn-h1">Close out the day</h1>
         <p className="text-sm text-ink/60">
           When the celebration winds down, wrap up the live services and close out — the app moves
           into After mode (recap, galleries, and vendor reviews).
@@ -94,7 +95,7 @@ export default async function ClearancePage({ params }: Props) {
             <li key={s.label}>
               <Link
                 href={s.href}
-                className="group flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-white p-4 shadow-sm transition-colors hover:border-terracotta/40"
+                className="sn-row group flex items-center justify-between gap-3 p-4 transition-colors hover:border-terracotta/40"
               >
                 <span className="flex items-center gap-3">
                   <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">

@@ -26,6 +26,36 @@ export function isRequestPlatform(v: unknown): v is RequestPlatform {
   return typeof v === 'string' && (REQUEST_PLATFORMS as readonly string[]).includes(v);
 }
 
+/**
+ * Coarser shell bucket for auth-UI decisions: 'desktop' (Tauri), 'mobile'
+ * (Capacitor) or 'web'. OAuth handling differs by shell — desktop gets
+ * system-browser loopback OAuth, mobile is email-only (for now), web gets the
+ * normal redirect.
+ *
+ * 'desktop' requires the `SetnayanApp/desktop` UA marker that only the REBUILT
+ * desktop app carries (added alongside loopback support). A current Tauri app
+ * (plain `SetnayanApp`, or a `tauri` client-type cookie) is treated as 'mobile'
+ * so its non-functional OAuth buttons stay hidden until it updates — never a
+ * dead-end. Safe outside a request scope → 'web'.
+ */
+export type ClientShell = 'web' | 'desktop' | 'mobile';
+
+export async function getClientShell(): Promise<ClientShell> {
+  let ua = '';
+  let clientType = '';
+  try {
+    const h = await headers();
+    ua = h.get('user-agent') ?? '';
+    const c = await cookies();
+    clientType = c.get('setnayan-client-type')?.value ?? '';
+  } catch {
+    return 'web';
+  }
+  if (/SetnayanApp\/desktop/i.test(ua)) return 'desktop';
+  if (/SetnayanApp/i.test(ua) || clientType === 'capacitor' || clientType === 'tauri') return 'mobile';
+  return 'web';
+}
+
 export async function getRequestPlatform(): Promise<RequestPlatform> {
   let ua = '';
   let clientType = '';

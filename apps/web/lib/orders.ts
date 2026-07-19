@@ -36,9 +36,9 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
 export const ORDER_STATUS_TONE: Record<OrderStatus, string> = {
   draft: 'bg-ink/5 text-ink/70',
   submitted: 'bg-sky-100 text-sky-800',
-  awaiting_payment: 'bg-amber-100 text-amber-900',
-  paid: 'bg-emerald-100 text-emerald-800',
-  fulfilled: 'bg-emerald-200 text-emerald-900',
+  awaiting_payment: 'bg-warn-100 text-warn-900',
+  paid: 'bg-success-100 text-success-800',
+  fulfilled: 'bg-success-200 text-success-900',
   lapsed: 'bg-ink/15 text-ink/70',
   cancelled: 'bg-ink/10 text-ink/55',
   refunded: 'bg-violet-100 text-violet-800',
@@ -52,13 +52,13 @@ export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
 };
 
 export const PAYMENT_STATUS_TONE: Record<PaymentStatus, string> = {
-  pending: 'bg-amber-100 text-amber-900',
-  matched: 'bg-emerald-100 text-emerald-800',
-  rejected: 'bg-rose-100 text-rose-800',
+  pending: 'bg-warn-100 text-warn-900',
+  matched: 'bg-success-100 text-success-800',
+  rejected: 'bg-danger-100 text-danger-800',
   // Amber matches the "pending review" register since the payment is back
   // in the queue waiting for the couple's next upload — operationally
   // adjacent to 'pending', visually distinct only via the label text.
-  resubmit_requested: 'bg-amber-100 text-amber-900',
+  resubmit_requested: 'bg-warn-100 text-warn-900',
 };
 
 export type OrderRow = {
@@ -177,4 +177,49 @@ export function computeOrderTotals(order: OrderRow, payments: PaymentRow[]) {
     headlineTotal: gross,
     remaining: Math.max(0, gross - matched),
   };
+}
+
+/**
+ * Vendor-billing SKUs (branch add-ons, tiers, tokens) are quoted as **all-in
+ * "charm" prices** — the ₱999 / ₱2,499 / … a vendor sees IS the gross they pay,
+ * with 12% VAT already baked in (owner-locked 2026-07-05). Customer SKUs, by
+ * contrast, store a pre-VAT base and add 12% at pay time (see the customer
+ * checkout's "incl. 12% VAT" line). So an order's stored `*_total_php` means
+ * "gross" for vendor keys and "pre-VAT base" for everyone else.
+ *
+ * Detected by the `vendor_` service-key prefix — every vendor-billing order
+ * (e.g. `vendor_additional_branch__{id}`) uses it, and no customer SKU does
+ * (those are UPPER_SNAKE like `SETNAYAN_AI`). WHY this matters: without it, the
+ * shortfall guard treated ₱999 as a base, demanded ₱999×1.12=₱1,118.88, and
+ * stranded every vendor order in "matched but never promoted" limbo.
+ */
+export function isVatInclusiveServiceKey(serviceKey: string | null | undefined): boolean {
+  return typeof serviceKey === 'string' && serviceKey.startsWith('vendor_');
+}
+
+/**
+ * The GROSS amount owed on an order, net of any applied voucher. Base =
+ * `confirmed_total_php` once an admin has confirmed it; otherwise the requested
+ * quote minus the voucher discount (`requested_total_php` stores the PRE-voucher
+ * base; the voucher reconciles into `confirmed_total_php` on approval).
+ *
+ * For customer SKUs the stored total is a pre-VAT base, so gross = base + 12%.
+ * For `vatInclusive` orders (vendor charm prices) the stored total ALREADY is
+ * the gross, so it's returned as-is (no VAT built on top) — see
+ * {@link isVatInclusiveServiceKey}. Used by the payment-approval shortfall guard
+ * so a short/partial transfer can't silently promote an order to 'paid'.
+ * Pure + unit-testable.
+ */
+export function orderGrossOwed(opts: {
+  requestedTotalPhp: number;
+  confirmedTotalPhp: number | null;
+  voucherDiscountPhp?: number;
+  vatInclusive?: boolean;
+}): number {
+  const base =
+    opts.confirmedTotalPhp != null
+      ? opts.confirmedTotalPhp
+      : Math.max(0, opts.requestedTotalPhp - (opts.voucherDiscountPhp ?? 0));
+  if (opts.vatInclusive) return Math.round(base * 100) / 100;
+  return computeVatFromBase(base, DEFAULT_VAT_RATE_PCT).gross;
 }

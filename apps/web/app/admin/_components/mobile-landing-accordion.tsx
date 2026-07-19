@@ -92,18 +92,20 @@ function AccordionSection({ section }: { section: AccordionSectionData }) {
         />
       </button>
 
-      {open ? (
-        <ul
-          id={panelId}
-          className="grid grid-cols-1 gap-3 sm:grid-cols-2"
-        >
+      {/* Panel stays MOUNTED when closed (hidden attr, not unmount) so the
+          button's aria-controls always points at an existing id. */}
+      <ul
+        id={panelId}
+        hidden={!open}
+        className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+      >
           {section.items.map((item) => {
             const Icon = item.icon;
             return (
               <li key={item.key}>
                 <Link
                   href={item.href}
-                  className="m-card flex h-full items-start gap-3 p-4 transition-colors hover:bg-[var(--m-paper)]"
+                  className="m-card flex h-full items-start gap-3 p-4 transition-colors hover:bg-[var(--m-paper)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--m-nav-active)]"
                   style={{ color: 'var(--m-ink)' }}
                 >
                   <span
@@ -114,7 +116,7 @@ function AccordionSection({ section }: { section: AccordionSectionData }) {
                       aria-hidden
                       className="h-5 w-5"
                       strokeWidth={1.75}
-                      style={{ color: 'var(--m-orange-2)' }}
+                      style={{ color: 'var(--m-nav-active)' }}
                     />
                   </span>
                   <span className="flex flex-col gap-1">
@@ -135,8 +137,7 @@ function AccordionSection({ section }: { section: AccordionSectionData }) {
               </li>
             );
           })}
-        </ul>
-      ) : null}
+      </ul>
     </section>
   );
 }

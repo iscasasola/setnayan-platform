@@ -1,9 +1,6 @@
 import Link from 'next/link';
 import { ArrowRight, CalendarHeart, CheckCircle2 } from 'lucide-react';
-import { SiteHeader } from '@/app/_components/site-header';
-import { Logo } from '@/app/_components/logo';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { createClient } from '@/lib/supabase/server';
 import { joinCoupleWaitlist } from './actions';
 
 // SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
@@ -45,24 +42,11 @@ export default async function WaitlistPage({ searchParams }: Props) {
   const joined = search.status === 'joined';
   const errorMessage = search.error ? ERROR_COPY[search.error] ?? null : null;
 
-  // Page is already dynamic via searchParams, so the auth fetch costs
-  // nothing extra over the existing render. See SiteHeader's auth-aware
-  // CTA swap (2026-05-20) for the broader rationale.
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const headerUser = user ? { id: user.id, email: user.email ?? null } : null;
 
   return (
     <div className="min-h-screen bg-cream text-ink">
-      <SiteHeader user={headerUser} />
-
       <section className="border-b border-ink/5">
         <div className="mx-auto w-full max-w-3xl px-4 pt-16 pb-20 sm:px-6 sm:pt-24 sm:pb-28 lg:px-8">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            Couple waitlist
-          </p>
           <h1 className="mt-3 text-balance font-display text-5xl font-medium tracking-tight sm:text-6xl lg:text-7xl">
             Setnayan opens to couples on{' '}
             <span className="text-terracotta">December 1, 2026</span>.
@@ -76,7 +60,7 @@ export default async function WaitlistPage({ searchParams }: Props) {
           </p>
 
           {joined ? (
-            <div className="mt-10 rounded-2xl border-2 border-emerald-300/60 bg-emerald-50 p-6 text-emerald-900">
+            <div className="mt-10 rounded-2xl border-2 border-success-300/60 bg-success-50 p-6 text-success-900">
               <div className="flex items-start gap-3">
                 <CheckCircle2
                   aria-hidden
@@ -109,7 +93,7 @@ export default async function WaitlistPage({ searchParams }: Props) {
               {errorMessage ? (
                 <p
                   role="alert"
-                  className="rounded-md border border-rose-300/60 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+                  className="rounded-md border border-danger-300/60 bg-danger-50 px-4 py-3 text-sm text-danger-900"
                 >
                   {errorMessage}
                 </p>
@@ -215,9 +199,6 @@ export default async function WaitlistPage({ searchParams }: Props) {
 
       <section className="border-b border-ink/5 bg-ink/[0.02]">
         <div className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            What&rsquo;s already ready
-          </p>
           <ul className="mt-4 space-y-2 text-sm text-ink/70">
             {/* 2026-06-13 reprice scrub (Pricing.md § 00.D): the wedding
                 website, RSVP, and QR invitations are paid SKUs — listed as
@@ -231,21 +212,11 @@ export default async function WaitlistPage({ searchParams }: Props) {
             <li>· A receipt on every software purchase, archived in your dashboard</li>
           </ul>
           <p className="mt-6 text-xs text-ink/55">
-            Vendor? <Link href="/for-vendors" className="font-semibold text-terracotta underline-offset-4 hover:underline">Skip the waitlist — pre-register today</Link>.
+            Vendor? <Link href="/vendors" className="font-semibold text-terracotta underline-offset-4 hover:underline">Skip the waitlist — pre-register today</Link>.
           </p>
         </div>
       </section>
 
-      <footer className="border-t border-ink/5">
-        <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <Logo />
-            <p className="text-xs text-ink/55">
-              © Setnayan · setnayan.com · Manila, Philippines
-            </p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

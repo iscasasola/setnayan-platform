@@ -84,7 +84,7 @@ export default async function WelcomePage({ params, searchParams }: Props) {
             {primary?.first_name ?? 'They'} didn&rsquo;t have your details yet when they
             sent in their RSVP, so let&rsquo;s get you set up. This takes 10 seconds.
           </p>
-          <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/40">
+          <p className="font-mono text-xs uppercase tracking-[0.15em] text-ink/40">
             {event.display_name} · {formatEventDate(event.event_date)}
           </p>
         </header>

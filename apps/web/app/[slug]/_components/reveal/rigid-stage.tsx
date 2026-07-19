@@ -23,6 +23,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import { WaxSeal } from './wax-seal';
+import { RevealParticles, type RevealParticleKind } from './reveal-particles';
+import type { RevealEffectsLook } from '@/lib/reveal-config';
+import { usePrefersReducedMotion } from '@/lib/use-responsive';
 
 type Props = {
   markSvg: string | null;
@@ -36,7 +39,24 @@ type Props = {
   onOpened: () => void;
   /** Render the template's flaps for a given open progress (0 = shut, 1 = clear). */
   renderFlaps: (progress: number) => ReactNode;
+  /**
+   * Preview/demo mode (dashboard Step-1 chooser). Skips the seal gate, ignores
+   * all gesture input, and auto-plays the open on a timer. Default undefined →
+   * the live guest page is byte-for-byte unchanged.
+   */
+  autoPlay?: boolean;
+  /**
+   * Couple-chosen decorative effect that plays as the opening parts. Default
+   * null → no particles → the live guest page is unchanged. Envelopes use
+   * 'butterflies', church doors use 'petals' (the veil has its own WebGL petals).
+   */
+  effect?: RevealParticleKind | null;
+  /** Admin calibration for the effect particles (Reveal Studio). */
+  effectLook?: RevealEffectsLook;
 };
+
+/** Auto-play open duration (ms) for preview mode — matches the ~scrub feel. */
+const AUTOPLAY_MS = 4200;
 
 const SCRUB_WHEEL = 0.0016; // wheel delta → progress
 const SCRUB_DRAG = 0.0042; // pointer/touch drag px → progress
@@ -54,9 +74,19 @@ export function RigidStage({
   fallbackSeed,
   onOpened,
   renderFlaps,
+  autoPlay = false,
+  effect = null,
+  effectLook,
 }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const sealRef = useRef<HTMLButtonElement>(null);
+
+  // Respect the OS "reduce motion" setting. Read at React level via the hook
+  // (SSR-safe, live-updating) and mirror into a ref so the rAF loops below —
+  // where hooks can't be called — can read the live flag without re-subscribing.
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const reducedMotionRef = useRef(prefersReducedMotion);
+  reducedMotionRef.current = prefersReducedMotion;
 
   const [sealGone, setSealGone] = useState(false);
   const [pickedUp, setPickedUp] = useState(false);
@@ -249,6 +279,39 @@ export function RigidStage({
 
   useEffect(() => () => cancelFling(), []);
 
+  // ── Preview auto-play ───────────────────────────────────────────────────
+  // In preview mode we skip the seal gate and ramp targetRef 0→1 on a timer,
+  // feeding the SAME pipe the gestures use — so the easing rAF below still owns
+  // `progress` + fires onOpened exactly once, and the open looks identical to a
+  // real scrub. (The scroll-scrub effect keeps its rAF running; only its input
+  // listeners are gated off for previews — see below.)
+  useEffect(() => {
+    if (!autoPlay) return;
+    setSealGone(true);
+    // Reduced motion: jump straight to fully-open and fire onOpened once, with
+    // no rAF ramp. The easing effect below also snaps in this mode, so the open
+    // shows in its final state and the completion callback still fires.
+    if (prefersReducedMotion) {
+      targetRef.current = 1;
+      setProgress(1);
+      if (!openedRef.current) {
+        openedRef.current = true;
+        onOpenedRef.current();
+      }
+      return;
+    }
+    let raf = 0;
+    let start = 0;
+    const step = (t: number) => {
+      if (!start) start = t;
+      const p = Math.min(1, (t - start) / AUTOPLAY_MS);
+      targetRef.current = p;
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [autoPlay, prefersReducedMotion]);
+
   // ── 2. scroll-scrub open (after the seal is gone) ───────────────────────
   useEffect(() => {
     if (!sealGone) return;
@@ -286,17 +349,28 @@ export function RigidStage({
       if (e.cancelable) e.preventDefault();
     };
 
-    el.addEventListener('wheel', onWheel, { passive: false });
-    el.addEventListener('pointerdown', onDown);
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    // Previews are read-only: no gesture listeners (so multiple/embedded
+    // previews never hijack the dashboard's scroll). The easing rAF below still
+    // runs for everyone — it's what advances `progress` + fires onOpened.
+    if (!autoPlay) {
+      el.addEventListener('wheel', onWheel, { passive: false });
+      el.addEventListener('pointerdown', onDown);
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      el.addEventListener('touchmove', onTouchMove, { passive: false });
+    }
 
     let raf = 0;
     const tick = () => {
       setProgress((p) => {
         const t = targetRef.current;
-        const np = Math.abs(t - p) < 0.001 ? t : p + (t - p) * 0.14;
+        // Reduced motion: snap straight to the target (no eased ramp); the
+        // open still reaches its final state and onOpened still fires.
+        const np = reducedMotionRef.current
+          ? t
+          : Math.abs(t - p) < 0.001
+            ? t
+            : p + (t - p) * 0.14;
         if (np >= 0.985 && !openedRef.current) {
           openedRef.current = true;
           onOpenedRef.current();
@@ -309,13 +383,15 @@ export function RigidStage({
 
     return () => {
       cancelAnimationFrame(raf);
-      el.removeEventListener('wheel', onWheel);
-      el.removeEventListener('pointerdown', onDown);
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      el.removeEventListener('touchmove', onTouchMove);
+      if (!autoPlay) {
+        el.removeEventListener('wheel', onWheel);
+        el.removeEventListener('pointerdown', onDown);
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        el.removeEventListener('touchmove', onTouchMove);
+      }
     };
-  }, [sealGone]);
+  }, [sealGone, autoPlay]);
 
   return (
     <div ref={stageRef} className="absolute inset-0 overflow-hidden" style={{ touchAction: 'none' }}>
@@ -331,6 +407,9 @@ export function RigidStage({
       >
         {renderFlaps(progress)}
       </div>
+
+      {/* couple-chosen effect (butterflies / petals) — plays as the opening parts */}
+      {effect && progress > 0.02 ? <RevealParticles kind={effect} look={effectLook} /> : null}
 
       {/* the seal — pick it up & motion-drag it off to gate the reveal */}
       {!sealGone ? (
@@ -355,8 +434,10 @@ export function RigidStage({
               fallbackSeed={fallbackSeed}
             />
           </button>
+          {/* Gating instruction — legible for older guests (matches the veil
+              hint pattern, #1872): ≥16px, full cream on a soft scrim pill. */}
           <span
-            className={`pointer-events-none font-mono text-[11px] uppercase tracking-[0.28em] text-cream/85 transition-opacity duration-300 ${
+            className={`pointer-events-none rounded-full bg-black/35 px-4 py-2 font-mono text-base uppercase tracking-[0.16em] text-cream backdrop-blur-[2px] [text-shadow:0_1px_8px_rgba(0,0,0,0.7)] transition-opacity duration-300 ${
               pickedUp ? 'opacity-0' : 'opacity-100'
             }`}
           >
@@ -365,15 +446,17 @@ export function RigidStage({
         </div>
       ) : null}
 
-      {/* once sealed-off → scroll cue, until the open gets going */}
-      {sealGone ? (
+      {/* once sealed-off → open cue, kept visible until the open is meaningfully
+          committed (not 0.12) so an elder who hesitates isn't stranded with the
+          reveal half-open and no instruction. Legible pill, plain phone wording. */}
+      {sealGone && !autoPlay ? (
         <div
-          className={`pointer-events-none absolute inset-x-0 bottom-12 text-center transition-opacity duration-500 ${
-            progress > 0.12 ? 'opacity-0' : 'opacity-100'
+          className={`pointer-events-none absolute inset-x-0 bottom-16 flex justify-center transition-opacity duration-500 ${
+            progress > 0.5 ? 'opacity-0' : 'opacity-100'
           }`}
         >
-          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-cream/90 [text-shadow:0_1px_6px_rgba(0,0,0,0.55)]">
-            Scroll to open ↑
+          <p className="rounded-full bg-black/35 px-6 py-3 font-mono text-base uppercase tracking-[0.16em] text-cream backdrop-blur-[2px] [text-shadow:0_1px_8px_rgba(0,0,0,0.7)]">
+            Swipe up to open ↑
           </p>
         </div>
       ) : null}

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
+import { useCallback, useRef, useState, useTransition, type ReactNode } from 'react';
 import {
   Aperture,
   ArrowUpRight,
@@ -45,6 +45,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import { findSku, formatCentavosPhp } from '@/lib/sku-catalog';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { FileUpload } from '@/app/_components/file-upload';
 import {
   SPATIAL_THEMES,
@@ -59,6 +60,7 @@ import {
   saveRsvpBackdrop,
   clearRsvpBackdrop,
 } from '../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 /**
  * Site Editor — full-screen, Reels-style wedding-website editor.
@@ -101,7 +103,7 @@ import {
  * standalone purchase flow is a V1.1 deferral (no /add-ons checkout page exists
  * for them yet; the old /orders/new hand-off was retired and would dead-end).
  * Every other service (Panood / Papic / Patiktok / Custom QR / Drive) is a
- * NAVIGATION card into its `/add-ons/<key>` page, which owns its own pricing +
+ * NAVIGATION card into its `/studio/<key>` page, which owns its own pricing +
  * buy state — the locked website wiring rule (see journey.tsx docstring · V2.1
  * Amendment #3).
  */
@@ -116,6 +118,24 @@ const TAB_TITLE: Record<Tab, string> = {
   event: 'Event',
   editorial: 'Editorial',
 };
+
+/**
+ * One-line "what this is + when guests see it" caption per phase — so a couple
+ * stepping through the preview understands which part of their site each tab
+ * shows, and when it goes live for guests. Settings = the page as it is now.
+ */
+const PHASE_CAPTION: Record<Tab, string> = {
+  settings: 'Your page as it looks right now to anyone you share it with.',
+  rsvp: 'The invitation guests see in the run-up — names, details, and the RSVP.',
+  event: 'The live day-of page guests open on the wedding day itself.',
+  editorial: 'The story page guests revisit after the day — photos and highlights.',
+};
+
+/** Preview URL for a phase: Settings shows the real live page; the other phases
+ *  load it with the matching `?phase=` host-only override. */
+function previewSrcFor(publicLandingUrl: string, phase: Tab): string {
+  return phase === 'settings' ? publicLandingUrl : `${publicLandingUrl}?phase=${phase}`;
+}
 
 export type SiteEditorProps = {
   eventId: string;
@@ -145,33 +165,49 @@ export type SiteEditorProps = {
     this same "edit on the page" pattern. */
 type EditTarget = 'hero' | 'backdrop';
 
-export function SiteEditor(props: SiteEditorProps) {
-  const { eventId, publicLandingUrl } = props;
-  const router = useRouter();
-  const [tab, setTab] = useState<Tab>('settings');
+/** The three standalone "website part" editors (Save the Date keeps its own
+ *  builder). Each is the same machinery as one tab of the combined editor, but
+ *  on its own full-screen route launched from a Studio card. 'settings' lives
+ *  only inside the combined editor, so it's intentionally NOT a phase here. */
+export type PhaseEditorPhase = 'rsvp' | 'event' | 'editorial';
 
-  // Inline "edit on the page" state (PR #1). `editing` names the open editor
-  // sheet (null = none). `previewNonce` is bumped after every save so the live
-  // preview iframe remounts + reloads with the fresh content. `pending` tracks
-  // the in-flight server action so the Save button can show progress.
+/**
+ * Inline "edit on the page" state (PR #1), shared by the combined editor and
+ * the standalone phase editors so they behave identically. `editing` names the
+ * open editor sheet (null = none); `previewNonce` is bumped after every save so
+ * the live preview iframe remounts with fresh content; `pending` tracks the
+ * in-flight server action so the Save button can show progress. `runAction`
+ * runs an inline server action, refreshes the server component (pulls the new
+ * heroPhotoUrl etc.), reloads the preview, and closes the sheet. The actions
+ * revalidate in place (no redirect) — see ../actions.ts.
+ */
+function useInlineEditState() {
+  const router = useRouter();
+  const save = useSaveLoader();
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const [previewNonce, setPreviewNonce] = useState(0);
   const [pending, startTransition] = useTransition();
-
-  // Run an inline server action, then refresh the server component (pulls the
-  // new heroPhotoUrl etc.), reload the preview, and close the sheet. The action
-  // revalidates in place (no redirect) — see ../actions.ts.
   const runAction = useCallback(
     (action: (fd: FormData) => Promise<void>, fd: FormData) => {
       startTransition(async () => {
-        await action(fd);
+        await save.run(() => action(fd), {
+          steps: ['Saving your site'],
+          hint: 'Saving',
+        });
         setPreviewNonce((n) => n + 1);
         router.refresh();
         setEditing(null);
       });
     },
-    [router],
+    [router, save],
   );
+  return { editing, setEditing, previewNonce, pending, runAction };
+}
+
+export function SiteEditor(props: SiteEditorProps) {
+  const { eventId, publicLandingUrl } = props;
+  const [tab, setTab] = useState<Tab>('settings');
+  const { editing, setEditing, previewNonce, pending, runAction } = useInlineEditState();
 
   // ✕ closes the full-screen editor back to the website hub
   // (/dashboard/[eventId]/website). The hub lives inside the dashboard layout,
@@ -198,7 +234,7 @@ export function SiteEditor(props: SiteEditorProps) {
           <X aria-hidden className="h-5 w-5" strokeWidth={2} />
         </Link>
         <span className="absolute right-3 top-4 z-30 flex items-center gap-1.5 rounded-full bg-ink/40 px-2.5 py-1 font-mono text-[9.5px] uppercase tracking-[0.16em] text-cream backdrop-blur-sm">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-400" />
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-danger-400" />
           {tab === 'settings' ? 'Live preview' : `Previewing · ${TAB_TITLE[tab]} page`}
         </span>
 
@@ -210,22 +246,21 @@ export function SiteEditor(props: SiteEditorProps) {
           // host membership before honoring the param). Settings shows the
           // real live page (whatever phase the calendar says). Keying by tab
           // remounts the iframe on switch so each phase loads fresh.
-          <iframe
-            key={`preview-${previewNonce}-${tab}`}
-            title={
-              tab === 'settings'
-                ? 'Live preview of your wedding website'
-                : `Preview of your ${TAB_TITLE[tab]} page`
-            }
-            src={
-              tab === 'settings'
-                ? publicLandingUrl
-                : `${publicLandingUrl}?phase=${tab}`
-            }
-            className="pointer-events-none h-full w-full border-0 bg-white"
-            sandbox="allow-scripts allow-same-origin"
-            loading="lazy"
-          />
+          <>
+            <iframe
+              key={`preview-${previewNonce}-${tab}`}
+              title={
+                tab === 'settings'
+                  ? 'Live preview of your wedding website'
+                  : `Preview of your ${TAB_TITLE[tab]} page`
+              }
+              src={previewSrcFor(publicLandingUrl, tab)}
+              className="pointer-events-none h-full w-full border-0 bg-white"
+              sandbox="allow-scripts allow-same-origin"
+              loading="lazy"
+            />
+            <OpenPreviewLink href={previewSrcFor(publicLandingUrl, tab)} label={TAB_TITLE[tab]} />
+          </>
         ) : (
           <PreviewNoSlug eventId={eventId} />
         )}
@@ -281,6 +316,7 @@ export function SiteEditor(props: SiteEditorProps) {
               Swipe →
             </span>
           </div>
+          <p className="px-4 pb-1 text-xs text-ink/55">{PHASE_CAPTION[tab]}</p>
           {tab === 'settings' && <Carousel cards={settingsCards(props)} />}
           {tab === 'rsvp' && (
             <Carousel cards={rsvpCards(props, { onEditBackdrop: () => setEditing('backdrop') })} />
@@ -288,7 +324,7 @@ export function SiteEditor(props: SiteEditorProps) {
           {tab === 'event' && (
             <Carousel cards={eventCards(props, { onEditHero: () => setEditing('hero') })} />
           )}
-          {tab === 'editorial' && <Carousel cards={editorialCards()} />}
+          {tab === 'editorial' && <Carousel cards={editorialCards(props)} />}
         </div>
       </div>
 
@@ -296,6 +332,108 @@ export function SiteEditor(props: SiteEditorProps) {
           desktop. Edits happen here over the live preview; nothing navigates
           away. Folding the other sections into this same pattern is the
           follow-up. ── */}
+      {editing === 'hero' ? (
+        <HeroEditSheet
+          eventId={eventId}
+          heroPhotoUrl={props.heroPhotoUrl}
+          pending={pending}
+          onSave={(fd) => runAction(saveHeroPhoto, fd)}
+          onClear={(fd) => runAction(clearHeroPhoto, fd)}
+          onClose={() => setEditing(null)}
+        />
+      ) : null}
+      {editing === 'backdrop' ? (
+        <BackdropEditSheet
+          eventId={eventId}
+          current={props.rsvpBackdrop}
+          pending={pending}
+          onSave={(fd) => runAction(saveRsvpBackdrop, fd)}
+          onClear={(fd) => runAction(clearRsvpBackdrop, fd)}
+          onClose={() => setEditing(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * PhaseEditor — a single "website part" editor on its own full-screen route
+ * (/site-editor/[eventId]/{rsvp,event,editorial}), launched from its Studio
+ * card. Same machinery as ONE tab of the combined SiteEditor — the live
+ * per-phase preview + that phase's cards + the inline edit sheets — minus the
+ * Settings tab and the section nav, because each part stands on its own. The ✕
+ * returns to Studio (where the couple picked this part); the combined editor
+ * (SiteEditor) remains the "Whole website" card and keeps its own ✕ → website
+ * hub. This is a top-level route OUTSIDE EventLayout, so the ✕ is the only way
+ * back (no global bottom nav here) — same reason it stays in SiteEditor.
+ */
+export function PhaseEditor({
+  phase,
+  ...props
+}: SiteEditorProps & { phase: PhaseEditorPhase }) {
+  const { eventId, publicLandingUrl } = props;
+  const { editing, setEditing, previewNonce, pending, runAction } = useInlineEditState();
+
+  const backHref = `/dashboard/${eventId}/studio`;
+  const title = TAB_TITLE[phase];
+
+  const cards =
+    phase === 'rsvp'
+      ? rsvpCards(props, { onEditBackdrop: () => setEditing('backdrop') })
+      : phase === 'event'
+        ? eventCards(props, { onEditHero: () => setEditing('hero') })
+        : editorialCards(props);
+
+  return (
+    <div className="flex h-dvh w-full flex-col overflow-hidden bg-cream text-ink transition-colors lg:flex-row">
+      {/* ── LIVE PREVIEW ── */}
+      <div className="relative shrink-0 basis-[44%] overflow-hidden border-b border-ink/10 lg:basis-0 lg:grow-[1.45] lg:border-b-0 lg:border-r">
+        <Link
+          href={backHref}
+          aria-label="Close editor and return to Studio"
+          className="absolute left-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-ink/40 text-cream backdrop-blur-sm transition hover:bg-ink/60"
+        >
+          <X aria-hidden className="h-5 w-5" strokeWidth={2} />
+        </Link>
+        <span className="absolute right-3 top-4 z-30 flex items-center gap-1.5 rounded-full bg-ink/40 px-2.5 py-1 font-mono text-[9.5px] uppercase tracking-[0.16em] text-cream backdrop-blur-sm">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-danger-400" />
+          Previewing · {title} page
+        </span>
+
+        {publicLandingUrl ? (
+          // Host-gated ?phase override — the couple's own session rides into the
+          // same-origin iframe and the [slug] page verifies host membership
+          // before honoring the param (so a guest can never force a phase).
+          <>
+            <iframe
+              key={`preview-${previewNonce}`}
+              title={`Preview of your ${title} page`}
+              src={`${publicLandingUrl}?phase=${phase}`}
+              className="pointer-events-none h-full w-full border-0 bg-white"
+              sandbox="allow-scripts allow-same-origin"
+              loading="lazy"
+            />
+            <OpenPreviewLink href={`${publicLandingUrl}?phase=${phase}`} label={title} />
+          </>
+        ) : (
+          <PreviewNoSlug eventId={eventId} />
+        )}
+      </div>
+
+      {/* ── PANEL (title + carousel · no section nav — each part stands alone) ── */}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex items-baseline justify-between px-4 pb-1 pt-4">
+          <span className="font-serif text-xl italic">{title}</span>
+          <span className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-ink/40">
+            Swipe →
+          </span>
+        </div>
+        <p className="px-4 pb-1 text-xs text-ink/55">{PHASE_CAPTION[phase]}</p>
+        <Carousel cards={cards} />
+      </div>
+
+      {/* ── INLINE EDIT SHEET — same "edit on the page" pattern as the combined
+          editor. Editorial uses neither sheet; the branches simply never open. ── */}
       {editing === 'hero' ? (
         <HeroEditSheet
           eventId={eventId}
@@ -526,7 +664,7 @@ function ProCard({
         <span className="text-xs text-ink/55">one-time, this event</span>
       </div>
       {owned ? (
-        <p className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-emerald-300/70 bg-emerald-50 py-2 text-sm font-semibold text-emerald-800 [&_svg]:h-4 [&_svg]:w-4 dark:border-emerald-400/40 dark:bg-emerald-500/10 dark:text-emerald-300">
+        <p className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-success-300/70 bg-success-50 py-2 text-sm font-semibold text-success-800 [&_svg]:h-4 [&_svg]:w-4 dark:border-success-400/40 dark:bg-success-500/10 dark:text-success-300">
           <CheckCircle2 aria-hidden /> Active on this event
         </p>
       ) : (
@@ -549,7 +687,7 @@ function settingsCards(p: SiteEditorProps): ReactNode[] {
             <span className="truncate font-mono text-[12px] text-ink/70">{p.slugDisplay}</span>
             {p.publicLandingUrl && <CopyUrl url={p.publicLandingUrl} />}
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+          <div className="flex items-center gap-1.5 text-xs text-success-600 dark:text-success-400">
             <CheckCircle2 aria-hidden className="h-4 w-4" /> Live — this URL is yours.
           </div>
           <CardLink href={`/dashboard/${p.eventId}/invitation`} ghost>
@@ -584,13 +722,13 @@ function settingsCards(p: SiteEditorProps): ReactNode[] {
     </Card>,
     <Card key="drive" icon={<Cloud />} title="Keep your photos" sub="Sync to Google Drive">
       <Desc>Connect Google Drive so every photo from your day lands in your own folder — yours to keep.</Desc>
-      <CardLink href={`/dashboard/${p.eventId}/add-ons/photo-delivery`} ghost>
+      <CardLink href={`/dashboard/${p.eventId}/studio/photo-delivery`} ghost>
         <Cloud aria-hidden /> Set up Drive sync
       </CardLink>
     </Card>,
     <Card key="guest-qr" icon={<QrCode />} title="Custom QR per guest" sub="A personal QR for everyone">
       <Desc>Give each guest a personal QR, dressed in your monogram and colors, that opens their own invitation.</Desc>
-      <CardLink href={`/dashboard/${p.eventId}/add-ons/custom-qr-guest`} ghost>
+      <CardLink href={`/dashboard/${p.eventId}/studio/custom-qr-guest`} ghost>
         <QrCode aria-hidden /> Set up guest QRs
       </CardLink>
     </Card>,
@@ -620,7 +758,7 @@ function rsvpCards(
         invitation floats on top, always readable.
       </Desc>
       {backdropTheme ? (
-        <div className="flex items-center gap-1.5 text-xs text-emerald-600">
+        <div className="flex items-center gap-1.5 text-xs text-success-600">
           <CheckCircle2 aria-hidden className="h-4 w-4" /> {backdropTheme.label} ·{' '}
           {p.rsvpBackdrop?.intensity}
         </div>
@@ -674,7 +812,7 @@ function eventCards(
     <Card key="hero" icon={<ImagePlus />} title="Hero photo" sub="Full-bleed banner">
       <Desc>The first thing guests see — a full-width photo behind your monogram.</Desc>
       {p.heroPhotoUrl ? (
-        <div className="flex items-center gap-1.5 text-xs text-emerald-600">
+        <div className="flex items-center gap-1.5 text-xs text-success-600">
           <CheckCircle2 aria-hidden className="h-4 w-4" /> Photo set — edit it right here.
         </div>
       ) : null}
@@ -718,12 +856,12 @@ function eventCards(
     </Card>,
     <Card key="std" icon={<Wand2 />} title="Save the Date" sub="How your page opens">
       <Desc>A reveal — envelope or bridal veil — that uncovers your invitation, recoloured from your Mood Board. Free.</Desc>
-      <CardLink href={`/dashboard/${p.eventId}/add-ons/save-the-date`} ghost>
+      <CardLink href={`/dashboard/${p.eventId}/studio/save-the-date`} ghost>
         <ArrowUpRight aria-hidden /> Choose your reveal
       </CardLink>
     </Card>,
     /* ── On the day — what goes live while guests celebrate. Each service is a
-       navigation card into its /add-ons/<key> page, which owns its pricing +
+       navigation card into its /studio/<key> page, which owns its pricing +
        buy state (the locked website wiring rule). ── */
     ...(p.publicLandingUrl
       ? [
@@ -737,7 +875,7 @@ function eventCards(
       : []),
     <Card key="panood" icon={<Tv />} title="Live stream — Panood" sub="Broadcast your ceremony">
       <Desc>Broadcast your ceremony to the guests who can&rsquo;t be there in person.</Desc>
-      <CardLink href={`/dashboard/${p.eventId}/add-ons/panood`} ghost>
+      <CardLink href={`/dashboard/${p.eventId}/studio/panood`} ghost>
         <ArrowUpRight aria-hidden /> Set up Panood
       </CardLink>
     </Card>,
@@ -753,13 +891,13 @@ function eventCards(
     />,
     <Card key="papic" icon={<Aperture />} title="Candid capture — Papic" sub="Guest cameras & paparazzo seats">
       <Desc>Turn your guests&rsquo; phones into a shared candid camera, and add dedicated seats for the shooters you pick.</Desc>
-      <CardLink href={`/dashboard/${p.eventId}/add-ons/papic`} ghost>
+      <CardLink href={`/dashboard/${p.eventId}/studio/papic`} ghost>
         <ArrowUpRight aria-hidden /> Set up Papic
       </CardLink>
     </Card>,
     <Card key="patiktok" icon={<Film />} title="Patiktok booth" sub="A vertical-reel booth">
       <Desc>A vertical-reel booth your guests can play with during the celebration.</Desc>
-      <CardLink href={`/dashboard/${p.eventId}/add-ons/patiktok`} ghost>
+      <CardLink href={`/dashboard/${p.eventId}/studio/patiktok`} ghost>
         <ArrowUpRight aria-hidden /> Set up Patiktok
       </CardLink>
     </Card>,
@@ -772,28 +910,63 @@ function eventCards(
   ];
 }
 
-/* ─────────────────────────── EDITORIAL cards (coming soon) ─────────────────────────── */
+/* ─────────────────────────── EDITORIAL cards ─────────────────────────── */
 
-function editorialCards(): ReactNode[] {
-  const items: { icon: ReactNode; title: string; sub: string; desc: string }[] = [
-    { icon: <Newspaper />, title: 'Create editorial', sub: 'Your wedding, as a story', desc: 'A magazine-style page of your day, right on your site.' },
-    { icon: <Star />, title: 'Collect reviews', sub: 'From guests & vendors', desc: 'Invite everyone who celebrated to leave a note.' },
-    { icon: <Images />, title: 'Pick photos', sub: 'Curate the gallery', desc: 'Choose the album your guests get to keep.' },
-    { icon: <Heart />, title: 'Thank-you video', sub: 'A note to everyone', desc: 'A short thank-you to all who shared the day.' },
-  ];
-  return items.map((it) => (
-    <Card key={it.title} icon={it.icon} title={it.title} sub={it.sub} soon>
-      <Desc>{it.desc}</Desc>
+function editorialCards(p: SiteEditorProps): ReactNode[] {
+  // Two of the editorial tools have shipped editors, so they're real links;
+  // the other two stay honest "coming soon" until their surfaces land. (The
+  // tab/page preview already shows the REAL editorial via ?phase=editorial.)
+  return [
+    <Card key="create" icon={<Newspaper />} title="Create editorial" sub="Your wedding, as a story">
+      <Desc>A magazine-style page of your day — your words, your photos, right on your site.</Desc>
+      <CardLink href={`/dashboard/${p.eventId}/website/editorial`} ghost>
+        <Pencil aria-hidden /> Edit editorial
+      </CardLink>
+    </Card>,
+    <Card key="photos" icon={<Images />} title="Pick photos" sub="Curate the gallery">
+      <Desc>Choose the album your guests get to keep — your own engagement or pre-wedding shots.</Desc>
+      <CardLink href={`/dashboard/${p.eventId}/website/our-photos`} ghost>
+        <ImagePlus aria-hidden /> Choose photos
+      </CardLink>
+    </Card>,
+    <Card key="reviews" icon={<Star />} title="Collect reviews" sub="From guests & vendors" soon>
+      <Desc>Invite everyone who celebrated to leave a note.</Desc>
       <span className="self-start rounded-full border border-ink/10 px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-ink/40">
         Coming soon
       </span>
-    </Card>
-  ));
+    </Card>,
+    <Card key="thankyou" icon={<Heart />} title="Thank-you video" sub="A note to everyone" soon>
+      <Desc>A short thank-you to all who shared the day.</Desc>
+      <span className="self-start rounded-full border border-ink/10 px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-ink/40">
+        Coming soon
+      </span>
+    </Card>,
+  ];
 }
 
 /* ─────────────────────────── preview placeholders ─────────────────────────── */
 /* (PreviewSoon retired 2026-06-11 — the Editorial tab now previews the REAL
    editorial page via the host-gated `?phase=editorial` override.) */
+
+/**
+ * OpenPreviewLink — a small "open this preview full-screen in a new tab" affordance
+ * over the (pointer-events-none) preview iframe. The href carries the same
+ * `?phase=` override the iframe uses, so the new tab lands on exactly what the
+ * couple is previewing. Host-gated server-side, same as the iframe.
+ */
+function OpenPreviewLink({ href, label }: { href: string; label: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="absolute bottom-3 right-3 z-30 inline-flex items-center gap-1.5 rounded-full bg-ink/45 px-3 py-1.5 text-[11px] font-medium text-cream backdrop-blur-sm transition hover:bg-ink/65"
+    >
+      Open {label} preview
+      <ArrowUpRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+    </a>
+  );
+}
 
 function PreviewNoSlug({ eventId }: { eventId: string }) {
   return (
@@ -841,14 +1014,11 @@ function HeroEditSheet({
   onClear: (fd: FormData) => void;
   onClose: () => void;
 }) {
-  // Esc closes the sheet (mirrors the backdrop tap).
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  // Mounted only while open, so open is a constant `true` — mount = open, the
+  // hook's cleanup runs the focus-restore on unmount. Esc-to-close, Tab-trap,
+  // focus-in and body-scroll-lock all come from the shared hook.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open: true, onClose, containerRef: dialogRef });
 
   return (
     <div className="fixed inset-0 z-50 flex">
@@ -859,10 +1029,11 @@ function HeroEditSheet({
         className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Edit hero photo"
-        className="relative z-10 mt-auto max-h-[85dvh] w-full overflow-y-auto rounded-t-2xl bg-cream p-5 text-ink shadow-2xl lg:mt-0 lg:ml-auto lg:h-full lg:max-h-none lg:w-[420px] lg:rounded-none lg:rounded-l-2xl"
+        className="relative z-10 mt-auto max-h-[85dvh] w-full overflow-y-auto rounded-t-2xl bg-cream p-5 text-ink shadow-2xl focus:outline-none lg:mt-0 lg:ml-auto lg:h-full lg:max-h-none lg:w-[420px] lg:rounded-none lg:rounded-l-2xl"
       >
         <div className="mb-4 flex items-start justify-between">
           <div>
@@ -896,7 +1067,7 @@ function HeroEditSheet({
               <button
                 type="submit"
                 disabled={pending}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-xs font-semibold text-ink/75 transition hover:border-rose-300 hover:text-rose-700 disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-xs font-semibold text-ink/75 transition hover:border-danger-300 hover:text-danger-700 disabled:opacity-60"
               >
                 <Trash2 aria-hidden className="h-3.5 w-3.5" /> Remove photo
               </button>
@@ -973,13 +1144,11 @@ function BackdropEditSheet({
   );
   const [intensity, setIntensity] = useState<SpatialIntensity>(current?.intensity ?? 'standard');
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  // Mounted only while open, so open is a constant `true` — mount = open, the
+  // hook's cleanup runs the focus-restore on unmount. Esc-to-close, Tab-trap,
+  // focus-in and body-scroll-lock all come from the shared hook.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open: true, onClose, containerRef: dialogRef });
 
   const submit = () => {
     const fd = new FormData();
@@ -1004,10 +1173,11 @@ function BackdropEditSheet({
         className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Choose a living backdrop"
-        className="relative z-10 mt-auto max-h-[85dvh] w-full overflow-y-auto rounded-t-2xl bg-cream p-5 text-ink shadow-2xl lg:mt-0 lg:ml-auto lg:h-full lg:max-h-none lg:w-[420px] lg:rounded-none lg:rounded-l-2xl"
+        className="relative z-10 mt-auto max-h-[85dvh] w-full overflow-y-auto rounded-t-2xl bg-cream p-5 text-ink shadow-2xl focus:outline-none lg:mt-0 lg:ml-auto lg:h-full lg:max-h-none lg:w-[420px] lg:rounded-none lg:rounded-l-2xl"
       >
         <div className="mb-4 flex items-start justify-between">
           <div>
@@ -1088,7 +1258,7 @@ function BackdropEditSheet({
               type="button"
               onClick={turnOff}
               disabled={pending}
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-ink/15 px-3 text-sm font-semibold text-ink/70 transition hover:border-rose-300 hover:text-rose-700 disabled:opacity-60"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-ink/15 px-3 text-sm font-semibold text-ink/70 transition hover:border-danger-300 hover:text-danger-700 disabled:opacity-60"
             >
               <Trash2 aria-hidden className="h-4 w-4" /> Turn off
             </button>
@@ -1139,7 +1309,7 @@ function CopyUrl({ url }: { url: string }) {
       }}
       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-ink/55 transition hover:bg-ink/5 [&_svg]:h-5 [&_svg]:w-5"
     >
-      {copied ? <Check aria-hidden className="text-emerald-600" /> : <Copy aria-hidden />}
+      {copied ? <Check aria-hidden className="text-success-600" /> : <Copy aria-hidden />}
     </button>
   );
 }

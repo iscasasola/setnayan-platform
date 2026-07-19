@@ -2,8 +2,10 @@ import { Mail } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
 import { setHelpMessageStatus } from './actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Help inbox · Admin' };
 
 type HelpMessageRow = {
@@ -19,12 +21,25 @@ type HelpMessageRow = {
   admin_notes: string | null;
   resolved_at: string | null;
   created_at: string;
+  submitter_vendor_tier: VendorTier | null;
+  priority_rank: number | null;
+};
+
+// Chip tone per vendor tier — paid tiers get progressively louder so the
+// front-of-queue rows read at a glance. Non-vendor rows render no chip.
+const TIER_CHIP_TONE: Record<VendorTier, string> = {
+  free: 'bg-ink/5 text-ink/60',
+  verified: 'bg-ink/5 text-ink/60',
+  solo: 'bg-mulberry/10 text-mulberry-700',
+  pro: 'bg-terracotta/15 text-terracotta-700',
+  enterprise: 'bg-success-100 text-success-800',
+  custom: 'bg-[var(--sn-info-soft)] text-[color:var(--sn-info)]',
 };
 
 const STATUS_TONE: Record<HelpMessageRow['status'], string> = {
-  new: 'bg-rose-100 text-rose-800',
-  in_progress: 'bg-amber-100 text-amber-900',
-  closed: 'bg-emerald-100 text-emerald-800',
+  new: 'bg-danger-100 text-danger-800',
+  in_progress: 'bg-warn-100 text-warn-900',
+  closed: 'bg-success-100 text-success-800',
 };
 
 const STATUS_LABEL: Record<HelpMessageRow['status'], string> = {
@@ -36,6 +51,7 @@ const STATUS_LABEL: Record<HelpMessageRow['status'], string> = {
 type Props = { searchParams: Promise<{ status?: string }> };
 
 export default async function AdminHelpPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const filter = (search.status ?? 'open') as 'open' | 'all' | 'new' | 'in_progress' | 'closed';
 
@@ -43,8 +59,11 @@ export default async function AdminHelpPage({ searchParams }: Props) {
   let query = admin
     .from('help_messages')
     .select(
-      'message_id,public_id,user_id,sender_email,sender_name,topic,subject,body,status,admin_notes,resolved_at,created_at',
+      'message_id,public_id,user_id,sender_email,sender_name,topic,subject,body,status,admin_notes,resolved_at,created_at,submitter_vendor_tier,priority_rank',
     )
+    // Priority support: paid vendors (enterprise>pro>solo>verified/free) float
+    // above non-vendor requests; within a priority band, freshest first.
+    .order('priority_rank', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
     .limit(100);
   if (filter === 'open') query = query.in('status', ['new', 'in_progress']);
@@ -82,7 +101,7 @@ export default async function AdminHelpPage({ searchParams }: Props) {
       ) : null}
 
       {items.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center text-sm text-ink/55">
+        <div className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-ink/55">
           <Mail aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
           Nothing in this view.
         </div>
@@ -92,7 +111,7 @@ export default async function AdminHelpPage({ searchParams }: Props) {
             <li
               key={m.message_id}
               id={`message-${m.message_id}`}
-              className="scroll-mt-24 space-y-3 rounded-xl border border-ink/10 bg-cream p-4"
+              className="scroll-mt-24 space-y-3 sn-tile p-4"
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0 space-y-0.5">
@@ -112,13 +131,25 @@ export default async function AdminHelpPage({ searchParams }: Props) {
                     {m.user_id ? ' · signed-in user' : ' · anonymous'}
                   </p>
                 </div>
-                <span
-                  className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
-                    STATUS_TONE[m.status]
-                  }`}
-                >
-                  {STATUS_LABEL[m.status]}
-                </span>
+                <div className="flex flex-wrap items-center justify-end gap-1.5">
+                  {m.submitter_vendor_tier ? (
+                    <span
+                      title="Priority support — vendor tier at submission"
+                      className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+                        TIER_CHIP_TONE[m.submitter_vendor_tier]
+                      }`}
+                    >
+                      {TIER_LABEL[m.submitter_vendor_tier]}
+                    </span>
+                  ) : null}
+                  <span
+                    className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+                      STATUS_TONE[m.status]
+                    }`}
+                  >
+                    {STATUS_LABEL[m.status]}
+                  </span>
+                </div>
               </div>
 
               <p className="whitespace-pre-wrap rounded-md bg-ink/[0.03] p-3 text-sm text-ink/75">
@@ -126,7 +157,7 @@ export default async function AdminHelpPage({ searchParams }: Props) {
               </p>
 
               {m.admin_notes ? (
-                <p className="rounded-md bg-amber-50/60 p-3 text-xs text-amber-900">
+                <p className="rounded-md bg-warn-50/60 p-3 text-xs text-warn-900">
                   <span className="font-mono text-[10px] uppercase tracking-[0.15em]">
                     Admin notes
                   </span>

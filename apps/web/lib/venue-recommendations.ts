@@ -43,6 +43,7 @@ const CEREMONY_VENUE_TYPES = [
   'mosque',
   'cultural_site',
   'civil_registrar',
+  'temple',
 ] as const;
 
 export type PairedVenueCandidate = {
@@ -637,6 +638,8 @@ export function displayVenueType(venueType: string): string {
       return 'Heritage';
     case 'outdoor_tent':
       return 'Outdoor Tent';
+    case 'temple':
+      return 'Temple';
     default:
       return venueType;
   }

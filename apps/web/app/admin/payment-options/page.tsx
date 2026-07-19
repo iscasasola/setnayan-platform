@@ -1,6 +1,4 @@
-import { redirect } from 'next/navigation';
 import Image from 'next/image';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -18,7 +16,9 @@ import {
 } from './actions';
 import { DirectPayPreviewButton } from '@/app/dashboard/[eventId]/_components/vendor-direct-pay';
 import { FormFlash } from '@/app/_components/forms/form-flash';
+import { SubmitButton } from '@/app/_components/submit-button';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Payment options · Admin' };
 
 /**
@@ -40,23 +40,6 @@ export const metadata = { title: 'Payment options · Admin' };
  * The page is gated by the parent admin layout (notFound for non-admins); we
  * also re-assert requireAdmin() at the top defensively.
  */
-
-async function requireAdmin() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { data: me } = await supabase
-    .from('users')
-    .select('is_internal, is_team_member, account_type')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (!(me?.is_internal || me?.is_team_member || me?.account_type === 'admin')) {
-    throw new Error('Forbidden');
-  }
-}
 
 type JoinedRow = VendorPaymentMethodRow & {
   vendor_profiles: { business_name: string | null } | null;
@@ -117,10 +100,10 @@ export default async function AdminPaymentOptionsPage() {
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">
+        <p className="sn-eye">
           Vendor payment options · Moderation
         </p>
-        <h1 className="m-display-tight text-2xl text-[color:var(--m-ink)] sm:text-3xl">
+        <h1 className="sn-h1">
           Payment options
         </h1>
         <p className="max-w-2xl text-sm text-ink/65">
@@ -143,12 +126,12 @@ export default async function AdminPaymentOptionsPage() {
       <section className="mb-10">
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
           Needs review
-          <span className="rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-amber-900">
+          <span className="rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-warn-900">
             {needsReview.length}
           </span>
         </h2>
         {needsReview.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-ink/20 bg-cream p-10 text-center text-sm text-ink/55">
+          <p className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-10 text-center text-sm text-ink/55">
             Nothing waiting for review — every payment method is approved or
             removed.
           </p>
@@ -167,7 +150,7 @@ export default async function AdminPaymentOptionsPage() {
       <section>
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
           Published links &amp; QRs
-          <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-800">
+          <span className="rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
             {published.length}
           </span>
         </h2>
@@ -176,7 +159,7 @@ export default async function AdminPaymentOptionsPage() {
           that look off with Hold or Remove.
         </p>
         {published.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-ink/20 bg-cream p-10 text-center text-sm text-ink/55">
+          <p className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-10 text-center text-sm text-ink/55">
             No approved links or QR codes yet.
           </p>
         ) : (
@@ -205,7 +188,7 @@ function PaymentMethodCard({
   surface: 'needs_review' | 'published';
 }) {
   return (
-    <article className="space-y-4 rounded-xl border border-ink/10 bg-cream p-5">
+    <article className="space-y-4 sn-tile p-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-base font-semibold text-ink">
@@ -243,7 +226,7 @@ function PaymentMethodCard({
       ) : null}
 
       {row.moderation_note ? (
-        <p className="rounded-md border border-amber-300/60 bg-amber-50/60 px-3 py-2 text-xs text-amber-900">
+        <p className="rounded-md border border-warn-300/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">
           <span className="font-medium">Moderation note:</span>{' '}
           {row.moderation_note}
         </p>
@@ -293,7 +276,7 @@ function MethodDetail({ row }: { row: CardRow }) {
             />
           </span>
         ) : (
-          <span className="inline-flex h-28 w-28 shrink-0 items-center justify-center rounded-lg border border-dashed border-ink/20 bg-cream text-center text-[10px] text-ink/45">
+          <span className="inline-flex h-28 w-28 shrink-0 items-center justify-center rounded-lg border border-dashed border-ink/15 bg-white/50 text-center text-[10px] text-ink/45">
             No QR image
           </span>
         )}
@@ -370,9 +353,9 @@ function ActionRow({
             name="payment_method_id"
             value={row.payment_method_id}
           />
-          <button type="submit" className="button-primary h-9 px-3 text-xs">
+          <SubmitButton className="button-primary h-9 px-3 text-xs" pendingLabel="Approving…">
             Approve
-          </button>
+          </SubmitButton>
         </form>
       ) : null}
 
@@ -383,12 +366,12 @@ function ActionRow({
             name="payment_method_id"
             value={row.payment_method_id}
           />
-          <button
-            type="submit"
-            className="inline-flex h-9 items-center rounded-md border border-amber-300 bg-amber-50 px-3 text-xs font-medium text-amber-900 hover:bg-amber-100"
+          <SubmitButton
+            className="inline-flex h-9 items-center rounded-md border border-warn-300 bg-warn-50 px-3 text-xs font-medium text-warn-900 hover:bg-warn-100"
+            pendingLabel="Holding…"
           >
             Hold
-          </button>
+          </SubmitButton>
         </form>
       ) : null}
 
@@ -398,12 +381,12 @@ function ActionRow({
           name="payment_method_id"
           value={row.payment_method_id}
         />
-        <button
-          type="submit"
+        <SubmitButton
           className="inline-flex h-9 items-center rounded-md border border-terracotta/30 bg-terracotta/5 px-3 text-xs font-medium text-terracotta-700 hover:bg-terracotta/15"
+          pendingLabel="Removing…"
         >
           Remove
-        </button>
+        </SubmitButton>
       </form>
     </div>
   );
@@ -435,9 +418,9 @@ function MethodTypeBadge({ type }: { type: PaymentMethodType }) {
 
 function ModerationBadge({ status }: { status: ModerationStatus }) {
   const tone: Record<ModerationStatus, string> = {
-    approved: 'bg-emerald-100 text-emerald-800',
-    pending_review: 'bg-amber-100 text-amber-900',
-    held: 'bg-amber-50 text-amber-900 border border-amber-300',
+    approved: 'bg-success-100 text-success-800',
+    pending_review: 'bg-warn-100 text-warn-900',
+    held: 'bg-warn-50 text-warn-900 border border-warn-300',
     removed: 'bg-terracotta/10 text-terracotta-700',
   };
   const label: Record<ModerationStatus, string> = {
@@ -457,11 +440,11 @@ function ModerationBadge({ status }: { status: ModerationStatus }) {
 
 function AllowlistBadge({ allowlisted }: { allowlisted: boolean }) {
   return allowlisted ? (
-    <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-800">
+    <span className="rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
       on allowlist
     </span>
   ) : (
-    <span className="rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-amber-900">
+    <span className="rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-warn-900">
       off allowlist
     </span>
   );

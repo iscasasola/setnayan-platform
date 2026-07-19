@@ -1,0 +1,17 @@
+-- events_std_film_ceremony_name
+-- Created via `pnpm migration:new`. Prefix auto-allocated to sort AFTER every
+-- existing migration. KEEP THIS MIGRATION IDEMPOTENT (it may be re-applied):
+--   • CREATE TABLE IF NOT EXISTS …   (+ ALTER TABLE … ENABLE ROW LEVEL SECURITY in the SAME migration)
+--   • ALTER TABLE … ADD COLUMN IF NOT EXISTS …
+--   • CREATE INDEX IF NOT EXISTS …
+--   • CREATE OR REPLACE FUNCTION …
+--   • DROP POLICY IF EXISTS … ; CREATE POLICY …   (policies have no IF NOT EXISTS)
+--
+-- Manual ceremony-venue name for the Save-the-Date film (iteration 0024).
+-- Parallels std_film_venue_name (the manual RECEPTION fallback). The film's
+-- ceremony beat auto-fills from a FINALIZED on-platform ceremony booking
+-- (religious_venue / church_fees); when the couple booked off-platform this
+-- lets them type the ceremony venue so the ceremony slide still shows (owner
+-- 2026-06-19 "where is the ceremony venue — add it"). resolveStdFinalizedVenues
+-- .ceremony wins when a booking exists; this is the fallback.
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS std_film_ceremony_name text;

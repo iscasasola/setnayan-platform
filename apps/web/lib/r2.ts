@@ -1,5 +1,6 @@
 import 'server-only';
 import {
+  CopyObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   PutObjectCommand,
@@ -241,6 +242,27 @@ export async function r2Delete(args: {
   const client = requireR2Client();
   await client.send(
     new DeleteObjectCommand({ Bucket: args.bucket, Key: args.key }),
+  );
+}
+
+/**
+ * Server-side COPY of one object to a new key within the SAME bucket (no byte
+ * download — R2 copies internally). Object keys are UUID-pinned (api/upload) so `CopySource` needs no
+ * special encoding. Throws if R2 isn't configured or the source is missing —
+ * callers MUST treat a throw as "did not relocate" and leave the row untouched.
+ */
+export async function r2Copy(args: {
+  bucket: R2BucketName;
+  fromKey: string;
+  toKey: string;
+}): Promise<void> {
+  const client = requireR2Client();
+  await client.send(
+    new CopyObjectCommand({
+      Bucket: args.bucket,
+      CopySource: `${args.bucket}/${args.fromKey}`,
+      Key: args.toKey,
+    }),
   );
 }
 

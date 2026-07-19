@@ -14,14 +14,20 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { getDayOfPhase } from '@/lib/day-of-mode';
 import { eventSkuActive } from '@/lib/entitlements';
-import { resolveWallMode, type WallMode } from '@/lib/live-wall-logic';
+import {
+  asWallTileLayout,
+  clampWallPhotoCount,
+  resolveWallMode,
+  type WallMode,
+} from '@/lib/live-wall-logic';
 import {
   LiveWallControls,
   type WallScreenRow,
   type WallTileRow,
-} from '../add-ons/papic/_components/live-wall-controls';
-import { KwentoQueue } from '../add-ons/papic/moderation/_components/kwento-queue';
+} from '../studio/papic/_components/live-wall-controls';
+import { KwentoQueue } from '../studio/papic/moderation/_components/kwento-queue';
 import { WallModeControl } from './_components/mode-control';
+import { FlashAutoWallToggle } from './_components/flash-auto-wall-toggle';
 
 export const metadata = { title: 'Live Wall · Setnayan' };
 export const dynamic = 'force-dynamic';
@@ -74,7 +80,7 @@ export default async function LiveWallConsolePage({
             fills itself as the night unfolds. The Live Wall is a Papic add-on.
           </p>
           <Link
-            href={`/dashboard/${eventId}/add-ons`}
+            href={`/dashboard/${eventId}/studio`}
             className="mt-5 inline-flex items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600"
           >
             <Sparkles aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -99,7 +105,7 @@ export default async function LiveWallConsolePage({
   ] = await Promise.all([
     admin
       .from('events')
-      .select('event_date, live_mode_override')
+      .select('event_date, live_mode_override, kwento_flash_auto_wall, wall_photo_count, wall_tile_layout')
       .eq('event_id', eventId)
       .maybeSingle(),
     supabase
@@ -134,6 +140,7 @@ export default async function LiveWallConsolePage({
   ]);
 
   const override = (event?.live_mode_override ?? null) as WallMode | null;
+  const flashAutoWall = (event?.kwento_flash_auto_wall ?? true) as boolean;
   const resolved = resolveWallMode(
     override,
     getDayOfPhase((event?.event_date as string) ?? ''),
@@ -209,8 +216,9 @@ export default async function LiveWallConsolePage({
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 px-4 py-6 sm:px-6">
-      <header>
-        <h1 className="flex items-center gap-2 text-xl font-semibold text-ink">
+      <header className="sn-reveal">
+        <p className="sn-eye">Live Wall</p>
+        <h1 className="sn-h1 flex items-center gap-2">
           <MonitorPlay aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={2} />
           Live Wall
         </h1>
@@ -227,7 +235,7 @@ export default async function LiveWallConsolePage({
             {stats.map((s) => (
               <div key={s.label} className="text-center">
                 <dt className="sr-only">{s.label}</dt>
-                <dd className="text-lg font-semibold text-ink">{s.value}</dd>
+                <dd className="font-mono text-lg font-semibold text-ink">{s.value}</dd>
                 <dd className="flex items-center gap-1 text-[11px] text-ink/50">
                   {s.icon}
                   {s.label}
@@ -256,7 +264,13 @@ export default async function LiveWallConsolePage({
           </p>
         ) : null}
 
-        <LiveWallControls eventId={eventId} screens={screens} tiles={tiles} />
+        <LiveWallControls
+          eventId={eventId}
+          screens={screens}
+          tiles={tiles}
+          photoCount={clampWallPhotoCount(event?.wall_photo_count as number | null)}
+          tileLayout={asWallTileLayout(event?.wall_tile_layout as string | null)}
+        />
         <p className="mt-3 text-xs text-ink/50">
           Projector URL:{' '}
           <span className="font-mono text-[12px] text-ink/70">/wall/{eventId}</span> — open
@@ -264,7 +278,21 @@ export default async function LiveWallConsolePage({
         </p>
       </section>
 
-      <KwentoQueue eventId={eventId} />
+      <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-sm font-semibold text-ink">Guest Stories (Kwento)</h2>
+            <p className="mt-0.5 text-xs text-ink/50">
+              Flash stories (⚡, ≤50 chars) can auto-post to the wall after 5 seconds — you can
+              kill any one from the queue. Stories (≤280 chars) always go to review first.
+            </p>
+          </div>
+          <FlashAutoWallToggle eventId={eventId} enabled={flashAutoWall} />
+        </div>
+        <div className="mt-4">
+          <KwentoQueue eventId={eventId} />
+        </div>
+      </section>
     </div>
   );
 }

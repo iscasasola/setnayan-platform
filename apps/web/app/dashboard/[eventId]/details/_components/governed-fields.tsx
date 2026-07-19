@@ -48,8 +48,16 @@ const CEREMONY_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
   { value: 'christian', label: 'Christian' },
   { value: 'muslim', label: 'Muslim' },
   { value: 'cultural', label: 'Cultural' },
+  { value: 'chinese', label: 'Chinese' },
   { value: 'mixed', label: 'Mixed / interfaith' },
 ];
+
+// The Chinese tea ceremony rides as a SECONDARY overlay on a non-Chinese,
+// non-mixed primary rite (the common Tsinoy "church wedding + tea ceremony"
+// case — lib/chinese-wedding.ts). 'mixed' has its own dedicated secondary flow
+// in onboarding, and a 'chinese' primary already covers the rite outright, so
+// the overlay control only renders for the other primaries.
+const CHINESE_SECONDARY_KEY = 'chinese';
 
 const VENUE_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
   { value: 'banquet_hall', label: 'Banquet hall' },
@@ -98,8 +106,41 @@ export function GovernedFields({
   const [savedField, setSavedField] = useState<ConflictField | null>(null);
   const [pending, startTransition] = useTransition();
 
+  // Chinese tea-ceremony overlay (secondary_ceremony_type). Self-contained:
+  // posts through the same setEventCeremonyType action (which now round-trips
+  // secondary_ceremony_type), keeping the current primary unchanged.
+  const hasChineseOverlay = secondaryCeremony === CHINESE_SECONDARY_KEY;
+  const [overlayError, setOverlayError] = useState<string | null>(null);
+  const [overlaySaved, setOverlaySaved] = useState(false);
+
   const locked = confirmedVendorCount > 0;
   const today = new Date().toISOString().slice(0, 10);
+
+  // The overlay only makes sense on a SET primary that is itself neither
+  // 'chinese' (already a Chinese rite) nor 'mixed' (which has its own dedicated
+  // secondary flow at create-time).
+  const overlayEligible =
+    !!ceremony && ceremony !== CHINESE_SECONDARY_KEY && ceremony !== 'mixed';
+
+  function toggleChineseOverlay(next: boolean) {
+    if (!ceremony) return;
+    setOverlayError(null);
+    setOverlaySaved(false);
+    startTransition(async () => {
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      // Keep the current primary; only the overlay changes.
+      fd.set('ceremony_type', ceremony);
+      fd.set('secondary_ceremony_type', next ? CHINESE_SECONDARY_KEY : '');
+      const res = await setEventCeremonyType(fd);
+      if (!res.ok) {
+        setOverlayError(res.message);
+        return;
+      }
+      setOverlaySaved(true);
+      router.refresh();
+    });
+  }
 
   function currentValueFor(field: ConflictField): string {
     if (field === 'ceremony') return ceremony ?? '';
@@ -283,10 +324,47 @@ export function GovernedFields({
         </select>
       </EditableRow>
 
-      {secondaryCeremony ? (
+      {/* Non-Chinese secondary overlays (rare) stay a read-only note. */}
+      {secondaryCeremony && secondaryCeremony !== CHINESE_SECONDARY_KEY ? (
         <p className="pl-1 text-xs text-ink/50">
           Also honoring a {ceremonyDisplay(secondaryCeremony).toLowerCase()}.
         </p>
+      ) : null}
+
+      {/* Chinese tea-ceremony overlay — only where it makes sense (a set,
+          non-Chinese, non-mixed primary). The common Tsinoy church-primary +
+          Chinese tea ceremony case. */}
+      {overlayEligible ? (
+        <div className="rounded-xl border border-ink/10 bg-paper px-3.5 py-2.5">
+          <label className="flex items-start gap-2.5">
+            <input
+              type="checkbox"
+              checked={hasChineseOverlay}
+              disabled={pending}
+              onChange={(e) => toggleChineseOverlay(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-ink/30 text-mulberry focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-60"
+            />
+            <span className="text-sm text-ink/80">
+              We’re also holding a Chinese tea ceremony
+              <span className="mt-0.5 block text-xs text-ink/50">
+                Adds the Chinese tradition layer — date guidance, seating, and a
+                tea-ceremony guide — alongside your{' '}
+                {ceremonyDisplay(ceremony).toLowerCase()}.
+              </span>
+              {overlaySaved ? (
+                <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-success-700">
+                  <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                  Saved
+                </span>
+              ) : null}
+            </span>
+          </label>
+          {overlayError ? (
+            <div className="mt-2">
+              <ErrorNote message={overlayError} />
+            </div>
+          ) : null}
+        </div>
       ) : null}
 
       <EditableRow
@@ -366,7 +444,7 @@ export function GovernedFields({
               <div className="flex items-start gap-2">
                 <AlertTriangle
                   aria-hidden
-                  className="mt-0.5 h-4 w-4 shrink-0 text-amber-600"
+                  className="mt-0.5 h-4 w-4 shrink-0 text-warn-600"
                   strokeWidth={2}
                 />
                 <p className="text-sm text-ink/80">
@@ -388,11 +466,11 @@ export function GovernedFields({
                 {conflicts.map((c) => (
                   <div
                     key={c.vendor_id}
-                    className="flex items-center gap-3 rounded-xl border border-amber-300/60 bg-amber-50/60 p-2.5"
+                    className="flex items-center gap-3 rounded-xl border border-warn-300/60 bg-warn-50/60 p-2.5"
                   >
                     <span
                       aria-hidden
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-semibold text-amber-800"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-warn-100 text-xs font-semibold text-warn-800"
                     >
                       {initials(c.vendor_name)}
                     </span>
@@ -402,7 +480,7 @@ export function GovernedFields({
                         {titleCase(c.category)}
                         {c.raw_status ? ` · ${titleCase(c.raw_status)}` : ''}
                       </p>
-                      <p className="mt-0.5 text-xs text-amber-800">{c.reason}</p>
+                      <p className="mt-0.5 text-xs text-warn-800">{c.reason}</p>
                     </div>
                     <button
                       type="button"
@@ -498,7 +576,7 @@ function EditableRow({
           {label}
           <span className="ml-1.5 text-ink/55">· {value ?? 'Not set'}</span>
           {saved ? (
-            <span className="ml-2 inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
+            <span className="ml-2 inline-flex items-center gap-1 text-xs font-medium text-success-700">
               <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
               Saved
             </span>

@@ -174,12 +174,15 @@ function LiveWallHeader({ count }: { count: number }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success-500" />
         Live from the celebration
       </p>
       {count > 0 ? (
-        <p className="text-xs text-ink/55">
-          {count.toLocaleString()} moment{count === 1 ? '' : 's'} and counting
+        <p className="flex items-baseline gap-1 text-ink/55">
+          <span className="font-serif text-xl italic leading-none tabular-nums text-ink">
+            {count.toLocaleString()}
+          </span>
+          <span className="text-xs">moment{count === 1 ? '' : 's'} and counting</span>
         </p>
       ) : null}
     </div>

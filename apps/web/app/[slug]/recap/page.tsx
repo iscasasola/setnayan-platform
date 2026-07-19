@@ -1,13 +1,23 @@
 import { cache } from 'react';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import { Camera, Quote, Sparkles } from 'lucide-react';
+import { notFound, redirect } from 'next/navigation';
+import { Camera, Film, Quote, Radio, Sparkles } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { canViewSlugEvent } from '@/lib/slug-access';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { buildSitePaletteVars } from '@/lib/site-palette';
 import { isRecapPublished, assembleRecapModel, type RecapModel } from '@/lib/auto-recap';
+import {
+  resolveEventMonogram,
+  HERO_MONOGRAM_COLUMNS,
+  type HeroMonogramData,
+} from '@/lib/hero-monogram-data';
+import { HeroMonogram } from '@/app/_components/hero-monogram';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
+import { SaveStoryCardButton } from './_components/save-story-card-button';
 
 /**
  * GET /[slug]/recap — the public Auto-Recap "living recap" (Living Memories
@@ -31,7 +41,9 @@ const fetchEvent = cache(async (slug: string) => {
   const admin = createAdminClient();
   const { data } = await admin
     .from('events')
-    .select('event_id, slug, display_name, event_type, role_palette')
+    .select(
+      `event_id, slug, event_type, role_palette, landing_page_visibility, ${HERO_MONOGRAM_COLUMNS}`,
+    )
     .ilike('slug', slug)
     .maybeSingle();
   return data;
@@ -40,11 +52,18 @@ const fetchEvent = cache(async (slug: string) => {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const event = await fetchEvent(slug);
-  if (!event || event.event_type !== 'wedding' || !(await isRecapPublished(event.event_id))) {
+  // Iteration 0053: recap is a public /[slug] page → the 'website' surface.
+  // Generic profiles disable it, so non-weddings keep the no-index stub (same as
+  // the old `!== 'wedding'`), now config-driven.
+  const websiteOn = event
+    ? surfaceEnabled(await resolveProfile(event.event_type), 'website')
+    : false;
+  if (!event || !websiteOn || !(await isRecapPublished(event.event_id))) {
     return { title: 'The Recap', robots: { index: false, follow: false } };
   }
   const title = `${event.display_name} — The Recap`;
-  const description = `The day, in their words. ${event.display_name}'s wedding recap on Setnayan.`;
+  const recapNoun = event.event_type && event.event_type !== 'wedding' ? 'event' : 'wedding';
+  const description = `The day, in their words. ${event.display_name}'s ${recapNoun} recap on Setnayan.`;
   return {
     title,
     description,
@@ -65,10 +84,30 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function RecapPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const event = await fetchEvent(slug);
-  if (!event || event.event_type !== 'wedding') notFound();
+  if (!event) notFound();
+  // Iteration 0053: recap is a public /[slug] page → the 'website' surface
+  // (generic profiles disable it → non-weddings still notFound(), now config-driven).
+  if (!surfaceEnabled(await resolveProfile(event.event_type), 'website')) notFound();
+
+  // Visibility gate (owner 2026-06-20): don't leak a private page's couple name
+  // via the recap (incl. the "not ready" stand-in). A published recap lives on
+  // a launched (public) page, so this only blocks strangers on a page the couple
+  // kept/made private; cookie-guests + hosts pass.
+  if (!(await canViewSlugEvent(event.event_id, event.landing_page_visibility))) {
+    redirect(`/${slug}`);
+  }
 
   const themeVars = buildSitePaletteVars(sanitizeRolePalette(event.role_palette));
   const wrapStyle = themeVars ? (themeVars as React.CSSProperties) : undefined;
+
+  // Paid COUPLE_WEBSITE_PRO perk (retired/unbundled) — when ACTIVE (admin-approved), the
+  // recap sheds the freemium "Powered by Setnayan · setnayan.com" footer
+  // watermark, matching the wedding site. Admin client (public/anonymous
+  // viewer); graceful-degrades to false (= keep the watermark) on any error.
+  const hideWatermark = await eventCoupleWebsiteProActive(
+    createAdminClient(),
+    event.event_id,
+  );
 
   if (!(await isRecapPublished(event.event_id))) {
     return (
@@ -88,7 +127,7 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
             Open their page
           </Link>
         </div>
-        <RecapFooter />
+        <RecapFooter hideWatermark={hideWatermark} />
       </main>
     );
   }
@@ -96,14 +135,22 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
   const model = await assembleRecapModel(event.event_id);
   if (!model) notFound();
 
+  // The couple's canonical mark for the recap hero — resolved exactly like the
+  // public wedding-site hero (animates when they own the paid ANIMATED_MONOGRAM).
+  // Admin client: the recap is publicly viewable, so the viewer may be anonymous.
+  const mono = await resolveEventMonogram(createAdminClient(), event.event_id, event);
+
   const shareUrl = `${SITE_URL}/${event.slug}/recap`;
   const shareImage = `${SITE_URL}/api/og/recap/${event.slug}`;
+  // 1080×1920 story-sized file-asset — the IG/TikTok/Stories share path.
+  const storyCardUrl = `${shareImage}?format=story`;
+  const storyFilename = `${event.slug}-recap`;
 
   return (
     <main className="min-h-dvh bg-cream text-ink" style={wrapStyle}>
       <RecapHeader />
       <article className="mx-auto w-full max-w-3xl px-4 pb-16 pt-8 sm:px-6">
-        <RecapHero model={model} />
+        <RecapHero model={model} mono={mono} />
         <RecapStats model={model} />
         <RecapPrologue model={model} />
         {model.dayChapters.map((ch, i) => (
@@ -112,8 +159,16 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
         {model.curatedPhotoUrls.length > 0 ? (
           <CuratedGallery urls={model.curatedPhotoUrls} />
         ) : null}
+        {model.reelUrls.length > 0 ? <Reels urls={model.reelUrls} /> : null}
+        {model.panoodEmbedUrl ? <PanoodReplay embedUrl={model.panoodEmbedUrl} /> : null}
         {model.voices.length > 0 ? <Voices voices={model.voices} /> : null}
-        <RecapClosing model={model} shareUrl={shareUrl} shareImage={shareImage} />
+        <RecapClosing
+          model={model}
+          shareUrl={shareUrl}
+          shareImage={shareImage}
+          storyCardUrl={storyCardUrl}
+          storyFilename={storyFilename}
+        />
       </article>
       <RecapFooter />
     </main>
@@ -128,26 +183,29 @@ function RecapHeader() {
       <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
         <span className="flex items-center gap-2 text-ink">
           <Logo height={28} />
-          <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/60">Setnayan</span>
+          <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/60">Setnayan</span>
         </span>
-        <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50">The Recap</span>
+        <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">The Recap</span>
       </div>
     </header>
   );
 }
 
-function RecapFooter() {
+function RecapFooter({ hideWatermark = false }: { hideWatermark?: boolean }) {
   return (
     <footer className="border-t border-ink/10 px-4 py-8 text-center">
       <p className="font-serif text-lg italic text-terracotta">A living memory.</p>
-      <p className="mt-3 text-xs text-ink/50">Powered by Setnayan · setnayan.com</p>
+      {/* Paid COUPLE_WEBSITE_PRO perk — drop the freemium watermark when active. */}
+      {hideWatermark ? null : (
+        <p className="mt-3 text-xs text-ink/50">Powered by Setnayan · setnayan.com</p>
+      )}
     </footer>
   );
 }
 
 // ── sections ────────────────────────────────────────────────────────────────
 
-function RecapHero({ model }: { model: RecapModel }) {
+function RecapHero({ model, mono }: { model: RecapModel; mono: HeroMonogramData | null }) {
   const meta = [model.eventDateFormatted, model.venueLabel].filter(Boolean).join(' · ');
   if (model.heroUrl) {
     return (
@@ -158,6 +216,21 @@ function RecapHero({ model }: { model: RecapModel }) {
         <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-ink/30 via-ink/45 to-ink/80" />
         <div className="relative space-y-3 px-6 py-16 sm:py-24">
           <p className="font-mono text-xs uppercase tracking-[0.25em] text-cream/85">The Recap</p>
+          {/* `plate` backs the otherwise-bare lockup/framed marks so they read on
+              the DARK photo overlay; the self-disc branches (bespoke/animated/
+              legacy) keep their own cream circle — one backing each, no double-ring. */}
+          {mono ? (
+            <div className="flex justify-center">
+              <HeroMonogram
+                event={mono.design}
+                monogram={mono.monogram}
+                animatedMonogram={mono.animatedMonogram}
+                studioAnim={mono.studioAnim}
+                bespokeSvg={mono.bespokeSvg}
+                plate
+              />
+            </div>
+          ) : null}
           <h1 className="font-display text-5xl font-medium italic tracking-tight text-cream sm:text-6xl">
             {model.coupleNames}
           </h1>
@@ -168,12 +241,27 @@ function RecapHero({ model }: { model: RecapModel }) {
   }
   return (
     <div className="mb-8 space-y-3 text-center">
-      <span
-        className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border-2 border-gold font-display text-2xl text-mulberry"
-        style={{ color: model.monogramColor }}
-      >
-        {model.monogramText}
-      </span>
+      {/* On the cream body the mark renders bare (legible) — replaces the old
+          hand-rolled gold-circle initials with the couple's REAL chosen mark. */}
+      {mono ? (
+        <div className="flex justify-center">
+          <HeroMonogram
+            event={mono.design}
+            monogram={mono.monogram}
+            animatedMonogram={mono.animatedMonogram}
+            studioAnim={mono.studioAnim}
+            bespokeSvg={mono.bespokeSvg}
+            shadow
+          />
+        </div>
+      ) : (
+        <span
+          className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border-2 border-gold font-display text-2xl text-mulberry"
+          style={{ color: model.monogramColor }}
+        >
+          {model.monogramText}
+        </span>
+      )}
       <p className="font-mono text-xs uppercase tracking-[0.25em] text-terracotta">The Recap</p>
       <h1 className="font-display text-5xl font-medium italic tracking-tight sm:text-6xl">
         {model.coupleNames}
@@ -195,7 +283,7 @@ function RecapStats({ model }: { model: RecapModel }) {
       {items.map((it) => (
         <div key={it.label} className="text-center">
           <p className="font-display text-3xl text-mulberry">{it.n}</p>
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">{it.label}</p>
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">{it.label}</p>
         </div>
       ))}
     </div>
@@ -250,7 +338,7 @@ function ChapterBlock({ chapter }: { chapter: RecapModel['dayChapters'][number] 
     <section className="mb-12">
       <div className="mb-4">
         <h2 className="font-display text-2xl text-mulberry">{chapter.title}</h2>
-        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/50">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/50">
           {[chapter.subtitle, chapter.whenLabel].filter(Boolean).join(' · ')}
         </p>
       </div>
@@ -267,11 +355,73 @@ function CuratedGallery({ urls }: { urls: string[] }) {
           <Camera aria-hidden className="h-5 w-5 text-gold" strokeWidth={1.75} />
           Their photos
         </h2>
-        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/50">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/50">
           The moments they chose to share
         </p>
       </div>
       <PhotoGrid urls={urls} />
+    </section>
+  );
+}
+
+function Reels({ urls }: { urls: string[] }) {
+  return (
+    <section className="mb-12">
+      <div className="mb-4">
+        <h2 className="flex items-center gap-2 font-display text-2xl text-mulberry">
+          <Film aria-hidden className="h-5 w-5 text-gold" strokeWidth={1.75} />
+          Reels from the day
+        </h2>
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/50">
+          Short clips, made on the day
+        </p>
+      </div>
+      {/* 9:16 vertical reels — a responsive row of tap-to-watch players. */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {urls.map((url, i) => (
+          <div
+            key={i}
+            className="overflow-hidden rounded-2xl border border-ink/10 bg-ink shadow-sm"
+          >
+            {/* presigned URL → raw <video> (controlled, tap-to-watch). */}
+            {/* eslint-disable-next-line jsx-a11y/media-has-caption -- guest-rendered reel, no caption track */}
+            <video
+              src={url}
+              controls
+              playsInline
+              preload="metadata"
+              className="aspect-[9/16] w-full bg-ink object-contain"
+            />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PanoodReplay({ embedUrl }: { embedUrl: string }) {
+  return (
+    <section className="mb-12">
+      <div className="mb-3">
+        <h2 className="flex items-center gap-2 font-display text-2xl text-mulberry">
+          <Radio aria-hidden className="h-5 w-5 text-gold" strokeWidth={1.75} />
+          Watch the livestream
+        </h2>
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/50">
+          The broadcast, replayed
+        </p>
+      </div>
+      <div className="overflow-hidden rounded-2xl border border-ink/10 bg-ink shadow-sm">
+        {/* youtube-nocookie REPLAY — privacy-enhanced (no cookies until play). */}
+        <iframe
+          src={embedUrl}
+          title="Livestream replay"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+          loading="lazy"
+          className="aspect-video w-full"
+        />
+      </div>
     </section>
   );
 }
@@ -284,7 +434,7 @@ function Voices({ voices }: { voices: RecapModel['voices'] }) {
           <Quote aria-hidden className="h-5 w-5 text-gold" strokeWidth={1.75} />
           Mga Boses
         </h2>
-        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/50">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/50">
           The voices of their guests
         </p>
       </div>
@@ -304,10 +454,14 @@ function RecapClosing({
   model,
   shareUrl,
   shareImage,
+  storyCardUrl,
+  storyFilename,
 }: {
   model: RecapModel;
   shareUrl: string;
   shareImage: string;
+  storyCardUrl: string;
+  storyFilename: string;
 }) {
   return (
     <section className="mt-16 flex flex-col items-center gap-5 border-t border-ink/10 pt-10 text-center">
@@ -315,11 +469,16 @@ function RecapClosing({
       <p className="max-w-prose text-sm text-ink/65">
         Ang mga litratong ito ang nagkuwento — the photos told the story, and the guests narrated it.
       </p>
-      <ShareButtons
-        url={shareUrl}
-        title={`${model.coupleNames} — the day, in their words. A Setnayan recap.`}
-        image={shareImage}
-      />
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <ShareButtons
+          url={shareUrl}
+          title={`${model.coupleNames} — the day, in their words. A Setnayan recap.`}
+          image={shareImage}
+        />
+        {/* File-asset path — IG feed / Stories / TikTok don't take web-URL
+            shares; hand them the Setnayan-rendered 9:16 story card instead. */}
+        <SaveStoryCardButton storyCardUrl={storyCardUrl} filenameBase={storyFilename} />
+      </div>
     </section>
   );
 }

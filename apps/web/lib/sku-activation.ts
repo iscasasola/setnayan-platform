@@ -2,18 +2,33 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { appendLedger } from '@/lib/ledger';
 import { activateConcierge } from '@/app/dashboard/(account)/profile/concierge/actions';
 import { branchIdFromServiceKey } from '@/lib/vendor-branches';
+import {
+  seatServiceKey,
+  vendorProfileIdFromSeatServiceKey,
+} from '@/lib/vendor-seats';
+import { vendorProfileIdFromCustomPlanServiceKey } from '@/lib/vendor-custom-catalog';
 import { BUNDLE_CHILD_SKUS, eventSkuActive } from '@/lib/entitlements';
-import { makeSamplerPermanent } from '@/lib/papic-sampler';
-import { cancelSamplerExpiryWarnings } from '@/lib/papic-sampler-emails';
+import { provisionPapicSeatsAdmin } from '@/lib/papic-seats';
+import {
+  provisionPanoodCamerasAdmin,
+  panoodCameraCapForSku,
+} from '@/lib/panood-camera-seats';
+import {
+  AI_SUB_SKU,
+  cyclesFromAmount,
+  extendUserAiSubscription,
+} from '@/lib/setnayan-ai-subscription';
+import { resolveSetnayanAiPerEventPricingEnabled } from '@/lib/integration-config';
 
 /**
  * apps/web/lib/sku-activation.ts
  *
  * Per-SKU activation dispatcher. After admin approvePayment flips an order to
  * 'paid', SOME SKUs need a side effect to actually unlock the capability
- * (Setnayan AI boolean, concierge state machine, vendor branch flag, and — PR4
- * — Papic seat-pass provisioning). MOST SKUs need nothing: ownership is read
- * straight off orders.status by checkOrderOwnership(), so their entry is a no-op.
+ * (Setnayan AI boolean, concierge state machine, vendor branch flag, Papic seat
+ * provisioning, and — PR4 — Custom-QR seat-pass QR publication). MOST SKUs need
+ * nothing: ownership is read straight off orders.status by checkOrderOwnership(),
+ * so their entry is a no-op.
  *
  * CONTRACT (do not break):
  *   • Every hook is NON-FATAL. activateOrderSku NEVER throws. The order is
@@ -21,8 +36,8 @@ import { cancelSamplerExpiryWarnings } from '@/lib/papic-sampler-emails';
  *     leaves a recoverable state (admin re-runs / flips the row manually) but
  *     MUST NOT roll back the approval.
  *   • Hooks are idempotent (re-running on a re-approved order is safe).
- *   • The dispatcher map is Object.frozen — PR4 adds PAPIC_SEATS by editing
- *     THIS file's map, never approvePayment.
+ *   • The dispatcher map is Object.frozen — new hooks (e.g. PR4's CUSTOM_QR_GUEST
+ *     seat-pass gating SKU) are added by editing THIS file's map, never approvePayment.
  *   • Default (unmatched service_key) = no-op. New couple SKUs activate purely
  *     via orders.status with no entry here.
  */
@@ -36,6 +51,32 @@ export type ActivationContext = {
 };
 
 type ActivationHook = (ctx: ActivationContext) => Promise<void>;
+
+/**
+ * Stamp a 365-day access window on the order (owner 2026-07-10 · the ₱999/yr
+ * Custom Subdomain SKUs). Mirrors the vendor-branch add-on hook: `orders.expires_at`
+ * is the billing window read by the resolver RPC (resolve_event_subdomain) and the
+ * renewal-reminder cron. Billed as a manual prepaid annual block — no auto-charge;
+ * the gateway webhook will later call this same seam on `payment.succeeded`.
+ * Idempotent: a re-approval re-stamps the same now+365d window; a genuine renewal
+ * extends access from the new approval. (Function declaration → hoisted, so the
+ * frozen EXACT_HOOKS map below can reference it.)
+ */
+async function stampAnnualSubscriptionWindow(ctx: ActivationContext): Promise<void> {
+  const now = Date.now();
+  const expiresAt = new Date(now + 365 * 24 * 60 * 60 * 1000).toISOString();
+  await ctx.admin
+    .from('orders')
+    .update({ expires_at: expiresAt, updated_at: new Date(now).toISOString() })
+    .eq('order_id', ctx.orderId);
+  await appendLedger(ctx.admin, {
+    order_id: ctx.orderId,
+    event_type: 'service_activated',
+    actor_user_id: ctx.actorUserId,
+    actor_role: 'admin',
+    metadata: { service_key: ctx.serviceKey, expires_at: expiresAt },
+  });
+}
 
 // Exact-match hooks keyed by literal service_key.
 const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
@@ -66,30 +107,249 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
     }
   },
 
+  // 'EVENT_SUBDOMAIN' → the ₱999/yr Custom Subdomain (owner 2026-07-10 · EVENT-only;
+  // vendors get no *.setnayan.com host). Stamp a 365-day window on the order; the
+  // resolver RPC + renewal cron read `orders.expires_at`. Ownership itself gates the
+  // feature (an active paid order) — no separate flag. The subdomain label is the
+  // event's existing slug; provisioning ships with the middleware branch.
+  EVENT_SUBDOMAIN: async (ctx) => {
+    await stampAnnualSubscriptionWindow(ctx);
+  },
+
   // 'SETNAYAN_AI' → flat per-event boolean, idempotent.
+  //
+  // SETNAYAN_AI is now a ₱499 / 28-day subscription (owner 2026-06-29; was a
+  // ₱3,999 one-time unlock). For V1 the entitlement model is UNCHANGED: one
+  // approved order flips this per-event flag and the planner is on for the
+  // wedding. Pricing.md / migration 20270322883953 only changed the price +
+  // the recurrence UNIT; the activation contract is the same boolean.
+  //
+  // V1.5: a recurring per-28-day charge (until the wedding day, then auto-end)
+  // hooks in HERE. On approval, stamp the per-user window
+  // `user_ai_subscription.active_until` anchored to events.event_date (the
+  // wedding-anchor rule — recorded on that column's comment), gated by
+  // platform_settings.setnayan_ai_per_user_enabled (default OFF, foundation in
+  // PR #2407), then schedule the next-cycle charge via the provider-run
+  // subscription (PayMongo / GCash). Until then the couple pays one term up
+  // front via the manual apply-then-pay rails and this boolean is the gate.
   SETNAYAN_AI: async (ctx) => {
     if (!ctx.eventId) return;
+    const update: Record<string, unknown> = { setnayan_ai_active: true };
+    // Per-EVENT pricing (owner 2026-07-02): mark the ₱499 intro consumed + stamp
+    // the 28-day access window, so this event's NEXT purchase is a ₱799 renewal.
+    // Flag-gated → inert (just the setnayan_ai_active boolean, exactly as today)
+    // while per-event pricing is off.
+    let stampedUntil: string | null = null;
+    if (await resolveSetnayanAiPerEventPricingEnabled()) {
+      update.setnayan_ai_intro_used = true;
+      // Idempotency: extend the window only ONCE per order (a re-approval must not
+      // add another 28 days). A prior 'service_activated' ledger row for this order
+      // means the window was already stamped — keep intro_used true (a no-op) but
+      // skip the extension. Mirrors the SETNAYAN_AI_SUB guard.
+      const { data: prior } = await ctx.admin
+        .from('order_ledger')
+        .select('order_id')
+        .eq('order_id', ctx.orderId)
+        .eq('event_type', 'service_activated')
+        .limit(1)
+        .maybeSingle();
+      if (!prior) {
+        const { data: ev } = await ctx.admin
+          .from('events')
+          .select('setnayan_ai_active_until')
+          .eq('event_id', ctx.eventId)
+          .maybeSingle();
+        // Stacks from the later of now / current expiry (early re-up keeps the
+        // remaining time). One 28-day cycle per SETNAYAN_AI order.
+        stampedUntil = extendUserAiSubscription(
+          (ev as { setnayan_ai_active_until?: string | null } | null)?.setnayan_ai_active_until ?? null,
+          1,
+          new Date(),
+        ).toISOString();
+        update.setnayan_ai_active_until = stampedUntil;
+      }
+    }
     const { error } = await ctx.admin
       .from('events')
-      .update({ setnayan_ai_active: true })
+      .update(update)
       .eq('event_id', ctx.eventId);
     // Surface a write failure so activateOrderSku's outer catch logs it —
     // otherwise the paid AI silently never provisions with no retry signal.
     // Throwing is safe: the order is already 'paid', the dispatcher swallows +
     // logs and never rolls back the approval.
     if (error) throw new Error(`SETNAYAN_AI activation write failed: ${error.message}`);
+    // Record the activation so a re-approval doesn't re-extend the window (mirrors
+    // the SETNAYAN_AI_SUB idempotency guard). Best-effort — the window is already
+    // written; a missed ledger row only risks a re-extend on a rare re-approval,
+    // never a lost grant. Only when per-event pricing stamped a fresh window.
+    if (stampedUntil) {
+      await appendLedger(ctx.admin, {
+        order_id: ctx.orderId,
+        event_type: 'service_activated',
+        actor_user_id: ctx.actorUserId,
+        actor_role: 'admin',
+        metadata: { service_key: ctx.serviceKey, event_id: ctx.eventId, active_until: stampedUntil },
+      });
+    }
+  },
+
+  // 'SETNAYAN_AI_SUB' → per-USER subscription term pass (₱499 / 28-day cycle,
+  // owner 2026-06-29). Extends the BUYER's user_ai_subscription window by
+  // (paid amount ÷ admin unit price) cycles × 28 days, fanning AI out to all
+  // their events. Idempotent two ways: a prior 'service_activated' ledger row
+  // for this order, OR the window already carrying this order as last_order_id —
+  // either short-circuits so a re-approval never double-grants. INERT while the
+  // per-user flag is off (the gate ignores the window), but the grant records
+  // safely regardless. Throws only on the write so the dispatcher logs + retries.
+  [AI_SUB_SKU]: async (ctx) => {
+    // (1) Idempotency — already activated this order?
+    const { data: priorLedger } = await ctx.admin
+      .from('order_ledger')
+      .select('order_id')
+      .eq('order_id', ctx.orderId)
+      .eq('event_type', 'service_activated')
+      .limit(1)
+      .maybeSingle();
+    if (priorLedger) return;
+
+    // (2) Buyer + paid amount off the order.
+    const { data: order } = await ctx.admin
+      .from('orders')
+      .select('user_id, confirmed_total_php, requested_total_php')
+      .eq('order_id', ctx.orderId)
+      .maybeSingle();
+    if (!order?.user_id) return;
+    const amountPhp = Number(order.confirmed_total_php ?? order.requested_total_php ?? 0);
+
+    // (3) Admin-managed unit price (single source = the catalog).
+    const { data: sku } = await ctx.admin
+      .from('platform_retail_catalog_v2')
+      .select('retail_price_php')
+      .eq('service_code', AI_SUB_SKU)
+      .maybeSingle();
+    const cycles = cyclesFromAmount(amountPhp, sku?.retail_price_php ?? null);
+    if (cycles <= 0) return;
+
+    // (4) Current window (one row per user) → extend, with a second idempotency
+    // guard for the upsert-succeeded-but-ledger-failed retry case.
+    const { data: existing } = await ctx.admin
+      .from('user_ai_subscription')
+      .select('active_until, last_order_id')
+      .eq('user_id', order.user_id)
+      .maybeSingle();
+    if (existing?.last_order_id === ctx.orderId) return;
+    const newUntil = extendUserAiSubscription(
+      existing?.active_until ?? null,
+      cycles,
+      new Date(),
+    );
+
+    const { error } = await ctx.admin.from('user_ai_subscription').upsert(
+      {
+        user_id: order.user_id,
+        active_until: newUntil.toISOString(),
+        source: 'paid',
+        last_order_id: ctx.orderId,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' },
+    );
+    if (error) {
+      throw new Error(`SETNAYAN_AI_SUB activation write failed: ${error.message}`);
+    }
+
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'service_activated',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: { service_key: ctx.serviceKey, cycles, active_until: newUntil.toISOString() },
+    });
   },
 
   // 'PAPIC_SEATS' → paid Papic upgrade. Ownership reads off orders.status (no
-  // stored unlock flag), but the upgrade must honor the locked "upgrade =
-  // permanent" sampler rule: clear the 30-day expiry on any already-captured
-  // free-sampler photos so they're kept forever, and cancel the now-wrong
-  // expiry-warning emails. Also fires for bundle buyers via activateBundleChildren
-  // (Papic is a MEDIA_PACK child). Idempotent (no rows to flip → no-op) + non-fatal.
+  // stored unlock flag). On approval the hook PROVISIONS the 5 paparazzi seats
+  // so the feature is READY with no manual "Set up your seats" step (owner-locked:
+  // the approval IS the activation). provisionPapicSeatsAdmin is idempotent
+  // (top-up of missing indexes only) so re-approval / a couple who already
+  // self-served via /crew is safe. Best-effort (never throws). Also fires for
+  // bundle buyers via activateBundleChildren (Papic is a MEDIA_PACK child).
   PAPIC_SEATS: async (ctx) => {
     if (!ctx.eventId) return;
-    await makeSamplerPermanent(ctx.eventId);
-    await cancelSamplerExpiryWarnings(ctx.eventId);
+    const eventId = ctx.eventId;
+    // Materialize the seats — the no-manual-step half of the feature.
+    try {
+      await provisionPapicSeatsAdmin(ctx.admin, eventId);
+    } catch (e) {
+      console.error('[sku-activation] PAPIC_SEATS seat provisioning threw (non-fatal):', e);
+    }
+  },
+
+  // 'PANOOD_SYSTEM' (Desktop) / 'PANOOD_SYSTEM_MOBILE' (Mobile) → paid Live Studio
+  // controller. On approval, PROVISION the tier's camera-operator seats so the
+  // couple's control room is READY with no manual step (mirrors PAPIC_SEATS · the
+  // approval IS the activation). The provisioned count is the HARD camera cap:
+  // Desktop = 8, Mobile = 3 (panoodCameraCapForSku · owner-locked 2026-07-08), and
+  // the panood_claim_camera() RPC only binds operators to EXISTING cameras, so no
+  // more than `cap` can go live. provisionPanoodCamerasAdmin is a top-up
+  // (idempotent) + best-effort (never throws). The FREE single-cam livestream
+  // provisions nothing (couple's own device → YouTube).
+  PANOOD_SYSTEM: async (ctx) => {
+    if (!ctx.eventId) return;
+    try {
+      await provisionPanoodCamerasAdmin(
+        ctx.admin,
+        ctx.eventId,
+        panoodCameraCapForSku('PANOOD_SYSTEM'),
+      );
+    } catch (e) {
+      console.error('[sku-activation] PANOOD_SYSTEM camera provisioning threw (non-fatal):', e);
+    }
+  },
+
+  PANOOD_SYSTEM_MOBILE: async (ctx) => {
+    if (!ctx.eventId) return;
+    try {
+      await provisionPanoodCamerasAdmin(
+        ctx.admin,
+        ctx.eventId,
+        panoodCameraCapForSku('PANOOD_SYSTEM_MOBILE'),
+      );
+    } catch (e) {
+      console.error(
+        '[sku-activation] PANOOD_SYSTEM_MOBILE camera provisioning threw (non-fatal):',
+        e,
+      );
+    }
+  },
+
+  // Seat-pass activation (seat-finding PR4). The seat pass (/[slug]/seat)
+  // resolves + gates on CUSTOM_QR_GUEST — the SKU whose branded per-guest /
+  // per-table QR codes point at the pass — so the hook binds to CUSTOM_QR_GUEST
+  // (distinct from PAPIC_SEATS above, the already-'live' photo-crew SKU). When a
+  // CUSTOM_QR_GUEST order is approved, ensure every table for the event has its
+  // QR sheet marked published so the printed Custom-QR sheet + the table-QR
+  // resolver work immediately. Idempotent + defensive: event_tables.qr_token
+  // already default-exists from row creation (migration 20261101000000), so this
+  // is a published-at STAMP, not a destructive reset — it touches only rows still
+  // NULL. NEVER throws (dispatcher contract).
+  CUSTOM_QR_GUEST: async (ctx) => {
+    if (!ctx.eventId) return;
+    // event_tables.qr_token already has a NOT NULL DEFAULT token; this only
+    // stamps qr_published_at so the table-QR resolver knows the sheet is live.
+    // No row mutation if already set.
+    await ctx.admin
+      .from('event_tables')
+      .update({ qr_published_at: new Date().toISOString() })
+      .eq('event_id', ctx.eventId)
+      .is('qr_published_at', null);
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'service_activated',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: { service_key: ctx.serviceKey, event_id: ctx.eventId },
+    });
   },
 
   // Bundle activation (bundle-buyer dead-flag repair) — fan the bundle's
@@ -102,7 +362,7 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
  * Fan a freshly-approved BUNDLE order (GUIDED_PACK / MEDIA_PACK) through each of
  * its child SKUs' activation hooks. WHY: a bundle purchase lands as a SINGLE
  * orders row keyed by the bundle code — it never decomposes into per-child
- * orders (app/dashboard/[eventId]/add-ons/bundle/page.tsx). activateOrderSku
+ * orders (app/dashboard/[eventId]/studio/bundle/page.tsx). activateOrderSku
  * dispatches on the literal service_key, so a child whose capability depends on
  * a STORED side-effect flag (today only SETNAYAN_AI → events.setnayan_ai_active)
  * would never activate for a bundle buyer. Children whose ownership is read
@@ -123,8 +383,8 @@ async function activateBundleChildren(ctx: ActivationContext): Promise<void> {
       await childHook({ ...ctx, serviceKey: child });
     } catch (e) {
       // Fault-isolate each child: one failing hook must not starve its siblings
-      // (e.g. a SETNAYAN_AI write error must not stop PAPIC_SEATS sampler-
-      // permanence from running). Honors the file's "every hook is non-fatal"
+      // (e.g. a SETNAYAN_AI write error must not stop PAPIC_SEATS seat
+      // provisioning from running). Honors the file's "every hook is non-fatal"
       // contract; the dispatcher's outer catch would otherwise abort the rest.
       console.error(
         `[sku-activation] bundle child ${child} of ${ctx.serviceKey} threw (non-fatal):`,
@@ -160,6 +420,132 @@ const PREFIX_HOOKS: ReadonlyArray<{
         actor_user_id: ctx.actorUserId,
         actor_role: 'admin',
         metadata: { service_key: ctx.serviceKey, branch_id: branchId },
+      });
+    },
+  },
+  {
+    // 'vendor_extra_seat__{vendor_profile_id}' → recompute the vendor's paid
+    // extra-seat count (Enterprise ₱250/28d add-on, owner 2026-07-02). Unlike
+    // the branch flag, seats are a COUNT — so rather than a non-idempotent
+    // increment, RECOMPUTE extra_agent_seats = the number of PAID
+    // vendor_extra_seat orders for this vendor (the current order is already
+    // 'paid' before this runs). Idempotent + self-healing on re-approval and
+    // safe against a mid-hook crash (no double-count). The count folds into the
+    // Enterprise renewal amount in PR-B; here it just makes the seat usable.
+    match: (serviceKey) => vendorProfileIdFromSeatServiceKey(serviceKey) !== null,
+    run: async (ctx) => {
+      const vendorProfileId = vendorProfileIdFromSeatServiceKey(ctx.serviceKey);
+      if (!vendorProfileId) return;
+      const { count } = await ctx.admin
+        .from('orders')
+        .select('order_id', { count: 'exact', head: true })
+        .eq('service_key', seatServiceKey(vendorProfileId))
+        .eq('status', 'paid');
+      const paidSeats = Math.max(count ?? 0, 0);
+      const { error } = await ctx.admin
+        .from('vendor_profiles')
+        .update({ extra_agent_seats: paidSeats })
+        .eq('vendor_profile_id', vendorProfileId);
+      if (error) {
+        throw new Error(`vendor_extra_seat activation write failed: ${error.message}`);
+      }
+      await appendLedger(ctx.admin, {
+        order_id: ctx.orderId,
+        event_type: 'service_activated',
+        actor_user_id: ctx.actorUserId,
+        actor_role: 'admin',
+        metadata: {
+          service_key: ctx.serviceKey,
+          vendor_profile_id: vendorProfileId,
+          extra_agent_seats: paidSeats,
+        },
+      });
+    },
+  },
+  {
+    // 'vendor_custom_plan__{vendor_profile_id}' → PROVISION the negotiated
+    // Custom tier (owner-signed §11). When the admin approves the quote payment,
+    // flip the vendor to tier_state='custom' + promote the org's newest quoted /
+    // pending plan to 'active' so the effective-caps overlay
+    // (lib/vendor-effective-caps.ts) reads the composed ceilings. The one-active-
+    // plan unique index (WHERE status='active') means a stale prior active row
+    // must be demoted first — so this idempotently retires every OTHER active
+    // plan for the org to 'lapsed', then activates this order's plan. Re-approval
+    // is safe (the target is already active → the UPDATEs are no-ops).
+    match: (serviceKey) => vendorProfileIdFromCustomPlanServiceKey(serviceKey) !== null,
+    run: async (ctx) => {
+      const vendorProfileId = vendorProfileIdFromCustomPlanServiceKey(ctx.serviceKey);
+      if (!vendorProfileId) return;
+
+      // The plan this order quoted — the most-recently-updated non-terminal row
+      // for the org (quoted / pending_payment / active). We activate exactly one.
+      const { data: target } = await ctx.admin
+        .from('vendor_custom_plans')
+        .select('custom_plan_id, status')
+        .eq('vendor_profile_id', vendorProfileId)
+        .in('status', ['quoted', 'pending_payment', 'active'])
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const targetId = (target as { custom_plan_id?: string } | null)?.custom_plan_id ?? null;
+      if (!targetId) return; // nothing to provision (defensive)
+
+      // Stamp the Custom tier + lapse anchor FIRST — before touching the plan
+      // rows. tier_expires_at = the 28-day window end (also written to the order
+      // below). ORDERING IS A RACE GUARD: the lapse sweep (sweep_vendor_tier_expiry,
+      // fired post-response on dashboard load) and this hook are NOT in one
+      // transaction. Writing the fresh FUTURE expiry first means a concurrently-
+      // firing sweep sees a not-past-due tier and no-ops, instead of demoting the
+      // plan we are about to promote. The gate (lib/enterprise-vendor-gate.ts) +
+      // the sweep both read tier_expires_at, so a paid Custom tier now auto-lapses
+      // on non-renewal like Pro/Enterprise. (The comp lever activateCustomPlan
+      // intentionally leaves this NULL = never lapses — white-glove deals; do NOT
+      // copy this stamp there.)
+      const expiresAt = new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString();
+      const { error: tierErr } = await ctx.admin
+        .from('vendor_profiles')
+        .update({ tier_state: 'custom', tier_expires_at: expiresAt })
+        .eq('vendor_profile_id', vendorProfileId);
+      if (tierErr) {
+        throw new Error(`vendor_custom_plan tier write failed: ${tierErr.message}`);
+      }
+
+      // Demote any OTHER active plan for the org so the one-active unique index
+      // never conflicts (only touches rows that are NOT our target).
+      await ctx.admin
+        .from('vendor_custom_plans')
+        .update({ status: 'lapsed', updated_at: new Date().toISOString() })
+        .eq('vendor_profile_id', vendorProfileId)
+        .eq('status', 'active')
+        .neq('custom_plan_id', targetId);
+
+      // Promote the target to active LAST — after the future expiry is committed,
+      // so a racing sweep (now disarmed by that future expiry) can never strand
+      // this freshly-activated plan.
+      const { error: planErr } = await ctx.admin
+        .from('vendor_custom_plans')
+        .update({ status: 'active', updated_at: new Date().toISOString() })
+        .eq('custom_plan_id', targetId);
+      if (planErr) {
+        throw new Error(`vendor_custom_plan activation write failed: ${planErr.message}`);
+      }
+
+      await ctx.admin
+        .from('orders')
+        .update({ expires_at: expiresAt, updated_at: new Date().toISOString() })
+        .eq('order_id', ctx.orderId);
+
+      await appendLedger(ctx.admin, {
+        order_id: ctx.orderId,
+        event_type: 'service_activated',
+        actor_user_id: ctx.actorUserId,
+        actor_role: 'admin',
+        metadata: {
+          service_key: ctx.serviceKey,
+          vendor_profile_id: vendorProfileId,
+          custom_plan_id: targetId,
+          tier_state: 'custom',
+        },
       });
     },
   },
@@ -220,8 +606,8 @@ async function deactivateSetnayanAiIfUnowned(ctx: ActivationContext): Promise<vo
  * status flip is committed so the re-derivation sees the new state.
  *
  * Only entitlements with a STORED flag need reversing — today just SETNAYAN_AI.
- * PAPIC_SEATS' activation (sampler-permanence) is the owner-LOCKED "upgrade =
- * permanent" rule and is intentionally NOT reversed. Orders-backed gates need
+ * PAPIC_SEATS' activation (seat provisioning) is orders-backed and needs no
+ * reversal. Orders-backed gates need
  * nothing here. Fires for a direct SETNAYAN_AI reversal OR a bundle reversal
  * (the bundle that granted it).
  */

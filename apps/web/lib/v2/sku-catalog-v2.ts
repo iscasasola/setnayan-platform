@@ -46,7 +46,7 @@ export const V2_SKU_CODES = [
   // unlock" (0024 PR4 P5; owner-set price, admin-editable at /admin/pricing).
   // is_token_able=FALSE (couple-paid). Seeded by migration 20270113942330.
   'STD_PREMIUM_OPENINGS',
-  // 10 crew-delivered token-worthy (is_token_able=TRUE)
+  // 9 crew-delivered token-worthy (is_token_able=TRUE)
   'LIVE_BACKGROUND',
   'LIVE_WALL',
   'PAKANTA',
@@ -56,7 +56,6 @@ export const V2_SKU_CODES = [
   'PAPIC_SEATS',
   'PATIKTOK_COMPILER',
   'PRO_WEBSITE',
-  'SDE',
   // Website lifecycle + planner · seeded by migration 20260915000000 but were
   // MISSING from this allowlist, so formatV2Sku() returned null for them even
   // though the live catalog rows exist (silently price-null'd every surface that
@@ -70,6 +69,11 @@ export const V2_SKU_CODES = [
   // codes stay listed here for historical order rows but go is_active=false in
   // the catalog (hidden from /pricing).
   'COUPLE_WEBSITE_PRO',
+  // Editorial PRO — new à-la-carte SKU (₱3,499 · owner-locked 2026-07-04) to
+  // author the editorial front page (name the moments, tell each story, arrange
+  // the layout). Seeded by migration 20270511151471. COUPLE_WEBSITE_PRO is the
+  // umbrella that also confers this (SKU_OWNERSHIP_ALIASES in lib/entitlements.ts).
+  'EDITORIAL_PRO',
   // 2 bundles (platform_package_catalog, not retail)
   'GUIDED_PACK',
   'MEDIA_PACK',
@@ -108,7 +112,6 @@ const V1_TO_V2_SKU_MAP: ReadonlyMap<string, V2SkuCode | null> = new Map([
   ['paparazzi_3_seats', 'PAPIC_SEATS'],
   ['paparazzi_5_seats', 'PAPIC_SEATS'],
   ['panood_daily_broadcast', 'PANOOD_SYSTEM'],
-  ['patiktok_setnayan_daily', 'PATIKTOK_COMPILER'],
   ['pakanta_basic', 'PAKANTA'],
   ['pakanta_premium', 'PAKANTA'],
   ['pakanta_wedding_suite', 'PAKANTA'],

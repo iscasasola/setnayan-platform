@@ -3,6 +3,13 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { emitNotification } from '@/lib/notification-emit';
+import {
+  fetchBudgetSnapshot,
+  buildBudgetLiveSummary,
+  type BudgetLiveSummary,
+} from '@/lib/budget';
 
 // Hard upper bound on the budget setter (₱100,000,000 = 10_000_000_000
 // centavos). Captures real-world Filipino wedding budgets without
@@ -101,6 +108,56 @@ export async function setEventBudget(formData: FormData): Promise<SetEventBudget
   return { ok: true, budgetCentavos };
 }
 
+export type SetShareBudgetBandResult =
+  | { ok: true; shareBudgetBand: boolean }
+  | { ok: false; error: string };
+
+/**
+ * Couple opt-IN (default OFF) to share their budget as a ROUNDED RANGE with
+ * vendors they talk to — never an exact number, and only for each vendor's own
+ * category. Writes events.share_budget_band under the host's own session; the
+ * events host RLS already permits this update (same path setEventBudget uses to
+ * write estimated_budget_centavos). Read only inside get_vendor_event_brief,
+ * which derives the range and gates it on this flag + an existing allocation.
+ *
+ * Customer Card respine PR-5 (owner-approved 2026-07-03): "get more accurate
+ * quotes, faster".
+ */
+export async function setShareBudgetBand(
+  formData: FormData,
+): Promise<SetShareBudgetBandResult> {
+  const eventIdRaw = formData.get('event_id');
+  const shareRaw = formData.get('share');
+
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    return { ok: false, error: 'Missing event reference. Please refresh and try again.' };
+  }
+  // Checkbox/hidden convention: 'on' | 'true' | '1' → share; anything else → off.
+  const share = shareRaw === 'on' || shareRaw === 'true' || shareRaw === '1';
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase
+    .from('events')
+    .update({ share_budget_band: share })
+    .eq('event_id', eventIdRaw);
+
+  if (error) {
+    return {
+      ok: false,
+      error:
+        'Couldn’t update budget sharing. If this keeps happening, please reach out from /help.',
+    };
+  }
+
+  revalidatePath(`/dashboard/${eventIdRaw}/budget`);
+  return { ok: true, shareBudgetBand: share };
+}
+
 function parseMoney(raw: FormDataEntryValue | null): number | null {
   if (typeof raw !== 'string' || raw.trim().length === 0) return null;
   const n = Number(raw);
@@ -166,6 +223,135 @@ export async function addLineItem(formData: FormData) {
   // workspace pages are routed by event_vendor.vendor_id.
   revalidatePath(`/dashboard/${eventId}/budget`);
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
+}
+
+export type SuggestMilestonesResult =
+  | { ok: true; created: number }
+  | { ok: false; error: string };
+
+/**
+ * One-click "suggest a deposit + balance split" for an off-platform (manual)
+ * vendor that has a lump-sum total but no dated milestones yet. Seeds two
+ * editable, deletable line items — Deposit (50%, due now) + Balance (50%, due
+ * ~2 weeks before the event) — so the couple's live "next payments" list and
+ * the .ics export populate without hand-typing each milestone.
+ *
+ * Deliberately NOT silent auto-creation: it fires only from an explicit button,
+ * only when the vendor is manual-priced (no vendor catalog items — adding manual
+ * rows on top of those would double-count the total), has a total > 0, and has
+ * ZERO existing line items (so it never duplicates or fights host edits). The
+ * 50/50 split is the common PH vendor term; every field stays editable after.
+ */
+export async function addSuggestedMilestones(
+  formData: FormData,
+): Promise<SuggestMilestonesResult> {
+  const eventId = formData.get('event_id');
+  const vendorId = formData.get('vendor_id');
+  if (typeof eventId !== 'string' || typeof vendorId !== 'string') {
+    return { ok: false, error: 'Invalid input.' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // Resolve the vendor's headline total + the event date (for the balance due
+  // date) under the couple's RLS — proves ownership implicitly.
+  const [vendorRes, eventRes, existingRes] = await Promise.all([
+    supabase
+      .from('event_vendors')
+      .select('vendor_id, total_cost_php, marketplace_vendor_id')
+      .eq('event_id', eventId)
+      .eq('vendor_id', vendorId)
+      .maybeSingle(),
+    supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
+    supabase
+      .from('event_vendor_line_items')
+      .select('line_item_id')
+      .eq('event_id', eventId)
+      .eq('vendor_id', vendorId)
+      .limit(1),
+  ]);
+
+  const vendor = vendorRes.data as
+    | { total_cost_php: number | null; marketplace_vendor_id: string | null }
+    | null;
+  if (!vendor) return { ok: false, error: 'Vendor not found.' };
+
+  // Marketplace vendors set their own payment plan / catalog pricing — manual
+  // milestones there would double-count. Suggestion is for off-platform vendors.
+  if (vendor.marketplace_vendor_id !== null) {
+    return {
+      ok: false,
+      error: 'This vendor sets their own payment plan, so a suggested split isn’t needed.',
+    };
+  }
+
+  const total = Number(vendor.total_cost_php ?? 0);
+  if (!Number.isFinite(total) || total <= 0) {
+    return {
+      ok: false,
+      error: 'Add a total cost for this vendor first, then we can suggest a split.',
+    };
+  }
+
+  // Guard against duplicates / fighting host edits — only seed when empty.
+  if ((existingRes.data ?? []).length > 0) {
+    return {
+      ok: false,
+      error: 'This vendor already has line items. Add or edit them individually.',
+    };
+  }
+
+  // 50/50 split; balance absorbs the rounding remainder so the two always sum
+  // to the exact total (no centavo drift).
+  const deposit = Math.round(total * 0.5 * 100) / 100;
+  const balance = Math.round((total - deposit) * 100) / 100;
+
+  // Deposit due today (deposits are paid at contracting); balance due ~14 days
+  // before the event when a date exists and that date is still in the future,
+  // else left undated for the host to set.
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const today = new Date();
+  const depositDue = iso(today);
+  let balanceDue: string | null = null;
+  const eventDateRaw = (eventRes.data as { event_date: string | null } | null)?.event_date;
+  if (eventDateRaw && isIsoDate(eventDateRaw)) {
+    const bal = new Date(`${eventDateRaw}T00:00:00`);
+    bal.setDate(bal.getDate() - 14);
+    if (bal > today) balanceDue = iso(bal);
+  }
+
+  const { error } = await supabase.from('event_vendor_line_items').insert([
+    {
+      event_id: eventId,
+      vendor_id: vendorId,
+      label: 'Deposit (50%)',
+      amount_php: deposit,
+      due_date: depositDue,
+      sort_order: 0,
+    },
+    {
+      event_id: eventId,
+      vendor_id: vendorId,
+      label: 'Balance (50%)',
+      amount_php: balance,
+      due_date: balanceDue,
+      sort_order: 1,
+    },
+  ]);
+  if (error) {
+    return {
+      ok: false,
+      error: 'Couldn’t add the suggested payments. Please try again.',
+    };
+  }
+
+  revalidatePath(`/dashboard/${eventId}/budget`);
+  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
+  return { ok: true, created: 2 };
 }
 
 export async function deleteLineItem(formData: FormData) {
@@ -261,6 +447,18 @@ export async function logPayment(formData: FormData) {
   // 20260820000000_vendor_payment_methods.sql (nullable TEXT).
   const proofR2Key = nullIfBlank(formData.get('proof_r2_key'));
 
+  // Optional installment attribution (Phase 2 PR-C) — when the booking has a
+  // frozen payment plan (event_vendor_payment_plan.instances_json), the host can
+  // tie this payment to a specific installment by its `seq`. NULL = a generic
+  // payment not attributed to any installment. Column added by migration
+  // 20270202160006_event_vendor_payment_confirm.sql (nullable INT).
+  const seqRaw = formData.get('schedule_instance_seq');
+  let scheduleInstanceSeq: number | null = null;
+  if (typeof seqRaw === 'string' && seqRaw.length > 0) {
+    const parsed = Number.parseInt(seqRaw, 10);
+    if (Number.isInteger(parsed) && parsed >= 0) scheduleInstanceSeq = parsed;
+  }
+
   const { error } = await supabase.from('event_vendor_payments').insert({
     event_id: eventId,
     vendor_id: vendorId,
@@ -271,8 +469,51 @@ export async function logPayment(formData: FormData) {
     reference: nullIfBlank(formData.get('reference')),
     notes,
     proof_r2_key: proofR2Key,
+    schedule_instance_seq: scheduleInstanceSeq,
   });
   if (error) throw new Error(error.message);
+
+  // Phase 2 PR-C — notify the VENDOR a payment was logged against their
+  // booking so they can confirm receipt in the thread. Best-effort: a failed
+  // notify must never roll back the recorded payment. Resolve the booking's
+  // marketplace vendor owner via the admin client (the couple can't read
+  // vendor_profiles); off-platform/manual vendors (no marketplace_vendor_id)
+  // have no vendor account to notify, so this quietly no-ops.
+  try {
+    const admin = createAdminClient();
+    const { data: ev } = await admin
+      .from('event_vendors')
+      .select('marketplace_vendor_id, vendor_name')
+      .eq('vendor_id', vendorId)
+      .maybeSingle();
+    if (ev?.marketplace_vendor_id) {
+      const { data: vp } = await admin
+        .from('vendor_profiles')
+        .select('user_id')
+        .eq('vendor_profile_id', ev.marketplace_vendor_id)
+        .maybeSingle();
+      const { data: thread } = await admin
+        .from('chat_threads')
+        .select('thread_id')
+        .eq('event_id', eventId)
+        .eq('vendor_profile_id', ev.marketplace_vendor_id)
+        .maybeSingle();
+      if (vp?.user_id) {
+        const proofLine = proofR2Key ? ' A receipt is attached.' : '';
+        await emitNotification({
+          userId: vp.user_id,
+          type: 'payment_logged',
+          title: 'A couple logged a payment',
+          body: `The couple recorded a ₱${amount.toLocaleString('en-PH')} payment.${proofLine} Confirm it was received.`,
+          relatedUrl: thread?.thread_id
+            ? `/vendor-dashboard/messages/${thread.thread_id}`
+            : '/vendor-dashboard/messages',
+        });
+      }
+    }
+  } catch (e) {
+    console.error('[budget] payment_logged notify failed:', e);
+  }
 
   // Revalidate both /budget AND the workspace page — the embedded
   // VendorItemizationCard on the workspace surface needs the new payment
@@ -313,5 +554,34 @@ export async function deletePayment(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/budget`);
   if (paymentRow?.vendor_id) {
     revalidatePath(`/dashboard/${eventId}/vendors/${paymentRow.vendor_id}/workspace`);
+  }
+}
+
+/**
+ * Re-read the budget snapshot and return the live payment-progress summary
+ * (total to pay / paid / balance / % + next coming payments). Called by the
+ * BudgetLiveSummaryCard whenever a Realtime change lands on the event's
+ * payments or line items, so the card refreshes its numbers without a page
+ * reload.
+ *
+ * Uses the RLS-scoped authed client — the snapshot only ever covers the
+ * caller's own event. Returns null on no-auth / bad input / transient
+ * failure; the card keeps its last-known values rather than flashing an
+ * error (Realtime auto-reconnects and the next event heals the gap).
+ */
+export async function getBudgetLiveSummary(
+  eventId: string,
+): Promise<BudgetLiveSummary | null> {
+  if (typeof eventId !== 'string' || eventId.length === 0) return null;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  try {
+    const snapshot = await fetchBudgetSnapshot(supabase, eventId);
+    return buildBudgetLiveSummary(snapshot);
+  } catch {
+    return null;
   }
 }

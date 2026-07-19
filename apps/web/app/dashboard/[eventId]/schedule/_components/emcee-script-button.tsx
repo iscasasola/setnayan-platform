@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { ScrollText, Copy, Check, Download, X } from 'lucide-react';
 import { generateEmceeScript } from '../actions';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 /**
  * EmceeScriptButton — one-tap "Generate emcee script" affordance for the
@@ -25,6 +26,9 @@ export function EmceeScriptButton({ eventId, coupleName }: Props) {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useModalA11y({ open, onClose: () => setOpen(false), containerRef: dialogRef });
 
   function generate(withPrivate: boolean) {
     setError(null);
@@ -82,10 +86,11 @@ export function EmceeScriptButton({ eventId, coupleName }: Props) {
 
       {open ? (
         <div
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
           aria-label="Emcee script"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-0 sm:items-center sm:p-4"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-0 focus:outline-none sm:items-center sm:p-4"
           onClick={() => setOpen(false)}
         >
           <div
@@ -109,7 +114,7 @@ export function EmceeScriptButton({ eventId, coupleName }: Props) {
 
             <div className="flex-1 overflow-auto px-4 py-3">
               {error ? (
-                <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                <p className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger-700">
                   {error}
                 </p>
               ) : (
@@ -144,7 +149,7 @@ export function EmceeScriptButton({ eventId, coupleName }: Props) {
                   className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm font-medium text-ink transition-colors hover:border-terracotta/40 hover:bg-terracotta/5 disabled:opacity-50"
                 >
                   {copied ? (
-                    <Check aria-hidden className="h-4 w-4 text-emerald-600" strokeWidth={1.75} />
+                    <Check aria-hidden className="h-4 w-4 text-success-600" strokeWidth={1.75} />
                   ) : (
                     <Copy aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                   )}

@@ -17,6 +17,7 @@
  */
 
 import type { FaithKey } from '@/lib/faith-registry';
+import type { ExpAxisId } from './_data/experience-personas';
 
 /** Role on the event — Bride / Groom / Someone helping (parent/planner/entourage). */
 export type OnboardingRole = 'bride' | 'groom' | 'helper';
@@ -170,6 +171,30 @@ export interface OnboardingState {
   ai: boolean | null;
 
   /**
+   * Experience-quiz answers (iteration 0016 · the experience-first reorientation ·
+   * flag-gated by NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED). The 5 axes
+   * (for_whom/feel/energy/roots/effort) resolve to `experiencePersona`, which
+   * DERIVES picks + refinements + prefs.feel + interestedServices on the reveal
+   * screen — replacing the manual 53-tile picker when the flag is on. Rides
+   * events.experience_axes (JSONB). Empty {} when the flag is off (no exp screens).
+   */
+  experienceAxes: Partial<Record<ExpAxisId, string>>;
+  /**
+   * Resolved experience persona slug (keepsake / big_celebration / …); null until
+   * the reveal derives it. Rides events.experience_persona; drives the derived plan.
+   */
+  experiencePersona: string | null;
+
+  /**
+   * Intent dials (0016 · flag-gated). helpLevel = how much we do (build-it-all /
+   * give-options / look-myself); vendorSourcing = where vendors come from
+   * (Setnayan / bring-my-own / both). Captured after the 5 experience axes, before
+   * the reveal. Folded into events.experience_axes (JSONB) at commit.
+   */
+  helpLevel: 'build' | 'options' | 'self' | null;
+  vendorSourcing: 'setnayan' | 'byo' | 'both' | null;
+
+  /**
    * Per-leaf refinement picks (the "what kind of {service}?" passes · Dream Team
    * chapter · additive). leafKey (a PICK_GROUPS category key — 'ceremony',
    * 'catering', 'photo_video', 'live_band', …) → selected option labels (multi).
@@ -217,14 +242,6 @@ export interface OnboardingState {
    */
   inquiriesPerCategory: number;
   interestedServices: string[];
-
-  /**
-   * Onboarding-only bundle choice (Essentials/Complete offer screen · owner 2026-06-08).
-   * null = à-la-carte path. Persisted in the draft so a resumed flow restores the pick.
-   * Read/written ONLY by the bundle screen + the purchase-routing branch — additive,
-   * never touches picks/prefs/interestedServices/buildCommitPayload semantics.
-   */
-  selectedBundle: 'essentials' | 'complete' | null;
 
   // -- Love stage fields (the 6 love_* screens · website "Our Love Story" voice) --
 
@@ -431,6 +448,10 @@ export const EMPTY_ONBOARDING_STATE: OnboardingState = {
     feel: null,
   },
   ai: null,
+  experienceAxes: {},
+  experiencePersona: null,
+  helpLevel: null,
+  vendorSourcing: null,
   refinements: {},
   shortlist: [],
   byoVendors: [],
@@ -438,7 +459,6 @@ export const EMPTY_ONBOARDING_STATE: OnboardingState = {
   sendTopInquiries: false,
   inquiriesPerCategory: 3,
   interestedServices: [],
-  selectedBundle: null,
   loveSkipped: false,
   loveStory: {
     how_we_met: '',

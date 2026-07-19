@@ -1,0 +1,221 @@
+import Link from 'next/link';
+import { notFound, redirect } from 'next/navigation';
+import { Rocket, Clock3, ArrowRight } from 'lucide-react';
+import { createClient } from '@/lib/supabase/server';
+import { formatPhp } from '@/lib/orders';
+import { ADD_ONS, addOnHref } from '@/lib/add-ons-catalog';
+import { addOnDetail } from '@/lib/add-ons-detail';
+import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import {
+  AppStoreLayout,
+  type PlanRow,
+  type PreviewItem,
+} from '@/app/_components/app-store/layout';
+import { InspectorColumn } from '@/app/_components/inspector/inspector-column';
+
+/**
+ * True when `addon` resolves to a renderable AddOnDetailView (the same guard the
+ * component uses below to `notFound()`). The Studio hub uses this to gate which
+ * catalog rows become desktop inspector triggers — a row that would `notFound()`
+ * inside the inspector must keep navigating instead, so the page never 500s.
+ */
+export function isInspectableAddon(addon: string): boolean {
+  const entry = ADD_ONS.find((a) => a.key === addon);
+  const detail = addOnDetail(addon);
+  return Boolean(
+    entry && detail && addon !== 'panood' && entry.status !== 'coming_soon',
+  );
+}
+
+// Shared App Store-style detail renderer for couple-side in-app services.
+//
+// Mounted once, by the catalog-driven route studio/about/[addon]/page.tsx. That
+// route lives under the LITERAL `about` segment (not studio/[addon]/about) on
+// purpose: most features own their own literal folder (studio/papic/,
+// studio/save-the-date/, …), and a literal segment shadows the [addon] dynamic
+// sibling without backtracking — so studio/<key>/about would 404 / fall through
+// to the feature's own builder. Routing every detail page under
+// studio/about/<key> keeps it clear of every feature folder. See
+// appStoreDetailHref() in lib/add-ons-catalog.ts.
+//
+// One renderer, content per feature in lib/add-ons-detail.ts. Pricing renders
+// LIVE from the admin catalog (platform_retail_catalog_v2) by serviceKey — this
+// view is never a price source (owner: "admin pricing controls all prices").
+// The primary CTA hands off to the feature's own functional surface, which
+// already owns the buy / launch flow.
+
+/** Metadata title for an add-on's About page. */
+export function addOnAboutTitle(addon: string): string {
+  const entry = ADD_ONS.find((a) => a.key === addon);
+  return entry ? `${entry.label} · Setnayan` : 'Studio · Setnayan';
+}
+
+export async function AddOnDetailView({
+  eventId,
+  addon,
+  variant = 'page',
+}: {
+  eventId: string;
+  addon: string;
+  /** 'inspector' wraps the same body in the sticky inspector column (no back
+   *  link; ✕ close + "Open full page ↗" own wayfinding). */
+  variant?: 'page' | 'inspector';
+}) {
+  const entry = ADD_ONS.find((a) => a.key === addon);
+  const detail = addOnDetail(addon);
+  // Panood owns a bespoke detail page; coming-soon features and anything
+  // without authored content fall through to the placeholder/redirect route.
+  if (!entry || !detail || addon === 'panood' || entry.status === 'coming_soon') {
+    notFound();
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: event } = await supabase
+    .from('events')
+    .select('event_id')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (!event) notFound();
+
+  // Live admin-catalog price (display only) + this event's order status for
+  // the feature, fetched together. A catalog miss only blanks the price label.
+  const [sku, orderRow] = await Promise.all([
+    entry.serviceKey ? formatV2Sku(entry.serviceKey).catch(() => null) : Promise.resolve(null),
+    entry.serviceKey
+      ? supabase
+          .from('orders')
+          .select('status')
+          .eq('event_id', eventId)
+          .eq('service_key', entry.serviceKey)
+          .not('status', 'in', '("cancelled","refunded","lapsed")')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+          .then((r) => r.data)
+      : Promise.resolve(null),
+  ]);
+
+  const isFree = entry.tier === 'free';
+  // Variable/per-unit services (Papic per-camera) never show a single flat SKU
+  // price here — their own surface owns the live multi-SKU pricing.
+  const priceLabel =
+    sku && !entry.variablePricing ? formatPhp(sku.price_php) : null;
+  const status = orderRow?.status ?? null;
+  const isActive = status === 'paid' || status === 'fulfilled';
+  const isPending = status === 'submitted' || status === 'awaiting_payment';
+
+  const surfaceHref = addOnHref(addon, eventId);
+
+  // App Store "GET / OPEN" CTA — hands off to the feature's own surface, which
+  // owns the buy/launch flow. Label + tone reflect the resolved state.
+  const cta = isPending ? (
+    <Link
+      href={`/dashboard/${eventId}/orders`}
+      className="inline-flex items-center gap-2 rounded-full border border-warn-300/70 bg-warn-50 px-5 py-2 text-sm font-semibold text-warn-900 hover:bg-warn-100"
+    >
+      <Clock3 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+      Pending review
+    </Link>
+  ) : isActive || isFree ? (
+    <Link
+      href={surfaceHref}
+      className="inline-flex items-center gap-2 rounded-full bg-mulberry px-5 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
+    >
+      <Rocket aria-hidden className="h-4 w-4" strokeWidth={2} />
+      Open
+    </Link>
+  ) : (
+    <Link
+      href={surfaceHref}
+      className="inline-flex items-center gap-2 rounded-full bg-mulberry px-5 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
+    >
+      {priceLabel ? `Get · ${priceLabel}` : 'Get'}
+      <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+    </Link>
+  );
+
+  const statusPill = isActive
+    ? { label: 'Active on this event', tone: 'success' as const }
+    : isPending
+      ? { label: 'Pending review', tone: 'accent' as const }
+      : isFree
+        ? { label: 'Free', tone: 'muted' as const }
+        : entry.freeTrial
+          ? { label: entry.freeTrial, tone: 'accent' as const }
+          : undefined;
+
+  const preview: PreviewItem[] = detail.preview.map((p) => ({
+    context: p.context,
+    caption: p.caption,
+    aspect: p.aspect,
+    body: (
+      <span>
+        <span aria-hidden className="block text-3xl">
+          {p.glyph}
+        </span>
+        {p.sub ? (
+          <span className="mt-2 block text-[11px] text-ink/55">{p.sub}</span>
+        ) : null}
+      </span>
+    ),
+  }));
+
+  const plans: PlanRow[] | undefined =
+    !isFree && priceLabel
+      ? [
+          {
+            name: entry.label,
+            scope: detail.tagline,
+            price: priceLabel,
+            unit: '',
+          },
+        ]
+      : undefined;
+
+  const isInspector = variant === 'inspector';
+
+  const body = (
+    <AppStoreLayout
+      back={
+        isInspector
+          ? undefined
+          : { href: `/dashboard/${eventId}/studio`, label: 'Back to Studio' }
+      }
+      hero={{
+        Icon: entry.Icon,
+        eyebrow: detail.eyebrow,
+        title: detail.heroTitle,
+        tagline: detail.tagline,
+        statusPill,
+        cta,
+      }}
+      preview={preview}
+      demo={detail.demo}
+      demoSlug={addon}
+      highlights={{ title: "What you'll have", items: detail.highlights }}
+      description={{
+        paragraphs: detail.paragraphs,
+        plans,
+      }}
+    />
+  );
+
+  if (!isInspector) return body;
+
+  return (
+    <InspectorColumn
+      eyebrow={detail.eyebrow}
+      title={entry.label}
+      fullHref={`/dashboard/${eventId}/studio/about/${addon}`}
+      swapKey={addon}
+      ariaLabel={`${entry.label} details`}
+    >
+      {body}
+    </InspectorColumn>
+  );
+}

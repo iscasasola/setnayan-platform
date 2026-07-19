@@ -10,8 +10,10 @@
 //   - setnayan-fonts-v2    CacheFirst         20 entries,  1-year max-age
 //
 // Preserves the existing exclusions (/auth/, /api/, /health, cross-origin,
-// non-GET) and the shell-cache navigation fallback so the app shell still
-// loads offline on a return visit.
+// non-GET). App-shell navigations (dashboard / login / auth / marketing) are
+// intentionally NOT intercepted — see the `fetch` handler's trailing comment
+// for why (Safari "Service Worker context closed" navigation crash). Only the
+// day-of guest `/[slug]` navigation is served offline.
 //
 // Listens for `{ type: 'CACHE_BUST' }` postMessages to drop every cache —
 // used by the schema-buster pattern when NEXT_PUBLIC_CACHE_BUSTER bumps.
@@ -59,7 +61,11 @@ const KNOWN_CACHES = [
 ];
 
 const SHELL_ASSETS = [
-  '/',
+  // NOTE: '/' is intentionally NOT precached. The homepage is force-dynamic and
+  // never edge-cached, so precaching it on SW install fired a second full-TTFB
+  // fetch of '/' right after first load — pure waste. Offline navigation still
+  // falls back to the static '/offline.html' below. (Perf sweep 2026-07-02,
+  // finding #26.)
   '/manifest.json',
   '/icon-192.svg',
   '/icon-512.svg',
@@ -75,7 +81,10 @@ function isDayOfGuestNavigation(url) {
   const segments = url.pathname.split('/').filter(Boolean);
   if (segments.length === 0) return false;
   const first = segments[0];
-  // Exclude known top-level app sections so only the bare guest slug matches.
+  // Exclude EVERY known top-level app route so only a bare guest slug matches.
+  // (owner 2026-06-19: /monogram — and other public pages — were mistaken for a
+  // guest slug and stale-cached, so the Vector Studio served an old build that
+  // hung on "Loading the typeface…". Keep this in sync with app/<route>/.)
   const RESERVED = new Set([
     'dashboard',
     'vendor-dashboard',
@@ -88,8 +97,22 @@ function isDayOfGuestNavigation(url) {
     'recommendations',
     'pricing',
     'for-vendors',
+    'vendors',
     'auth',
     'api',
+    'about',
+    'download',
+    'explore',
+    'features',
+    'forgot-password',
+    'how-it-works',
+    'monogram',
+    'our-story',
+    'privacy',
+    'realstories',
+    'reset-password',
+    'terms',
+    'waitlist',
   ]);
   if (RESERVED.has(first)) return false;
   if (segments.length === 1) return true; // /[slug]
@@ -320,44 +343,59 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Day-of guest navigation (the personal landing page + find-my-table):
-  // stale-while-revalidate so the schedule / table / floorplan render instantly
-  // and survive a venue with weak signal, while still refreshing in the
-  // background when the network is reachable.
+  // Guest landing-page navigation (the personal `/[slug]` page + find-my-table).
+  // NETWORK-FIRST (owner 2026-06-19): always fetch fresh when online and update
+  // the cache, falling back to the cached copy ONLY when the network fails. The
+  // old stale-while-revalidate served the PREVIOUS build's HTML (→ old JS chunks)
+  // on the first visit after every deploy — so couples/owners saw stale pages and
+  // thought nothing shipped. Network-first keeps the offline/weak-signal fallback
+  // (day-of at a venue) while guaranteeing a fresh page whenever the network is up.
   const isNavigation =
     request.mode === 'navigate' || request.destination === 'document';
   if (isNavigation && isDayOfGuestNavigation(url)) {
     event.respondWith(
-      staleWhileRevalidate(DAYOF_CACHE, request).then(
-        (res) =>
-          res ?? caches.match(request).then((c) => c ?? caches.match('/offline.html')),
-      ),
+      fetch(request)
+        .then((response) => {
+          if (response && response.ok) {
+            const clone = response.clone();
+            caches.open(DAYOF_CACHE).then((cache) => {
+              cache.put(request, clone).then(() => {
+                recordAccess(DAYOF_CACHE, request.url);
+                return enforceLimits(DAYOF_CACHE);
+              });
+            });
+          }
+          return response;
+        })
+        .catch(() =>
+          caches.match(request).then((c) => c ?? caches.match('/offline.html')),
+        ),
     );
     return;
   }
 
-  // Fallback: network with shell-cache offline support for navigations. On a
-  // hard offline miss, serve the static offline.html fallback (added v3) before
-  // falling back to the cached shell root.
-  event.respondWith(
-    fetch(request)
-      .then((response) => {
-        if (response.ok && isNavigation) {
-          const clone = response.clone();
-          caches.open(SHELL_CACHE).then((cache) => cache.put(request, clone));
-        }
-        return response;
-      })
-      .catch(() =>
-        caches.match(request).then(
-          (cached) =>
-            cached ??
-            (isNavigation
-              ? caches.match('/offline.html').then((o) => o ?? caches.match('/'))
-              : caches.match('/')),
-        ),
-      ),
-  );
+  // Every OTHER navigation (dashboard · login · auth · marketing) is left to
+  // the browser: we deliberately do NOT call event.respondWith for it, so the
+  // request goes straight to the network natively.
+  //
+  // WHY (Safari "Service Worker context closed" crash · 2026-07-03): WebKit
+  // aggressively terminates the SW context during a navigation — most often in
+  // the install→skipWaiting()→clients.claim() handover window a returning user
+  // hits on nearly every visit (our sw.js bytes change per deploy, so the
+  // worker updates constantly). If we're mid-`respondWith(fetch(navigation))`
+  // when Safari kills the context, WebKit fails the WHOLE navigation with
+  // "Service Worker context closed (WebKitInternal:0)" instead of retrying on
+  // the network. Login was the reproducer: POST → server-action redirect → GET
+  // /dashboard navigation, intercepted right inside that handover window.
+  //
+  // The generic shell-cache offline fallback we used to serve here bought
+  // almost nothing — the dashboard / login / auth surfaces all need the network
+  // + a live auth session anyway — so it never justified crashing live logins.
+  // The one genuinely-offline navigation, the day-of guest `/[slug]` page, is
+  // still intercepted above; asset caching (images / fonts / JS / CSS) is
+  // unaffected because those aren't navigations. Not intercepting app
+  // navigations also *helps* freshness: they can never serve a stale shell.
+  return;
 });
 
 // ---------------------------------------------------------------------------

@@ -42,7 +42,7 @@ export default async function VendorContractDetailPage({ params }: Props) {
   const isCancelled = contract.status === 'cancelled';
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6">
       <Link
         href="/vendor-dashboard/contracts"
         className="inline-flex items-center gap-1.5 text-xs font-medium text-ink/65 hover:text-ink"
@@ -69,14 +69,14 @@ export default async function VendorContractDetailPage({ params }: Props) {
             : null}
         </p>
         {contract.description ? (
-          <p className="rounded-md border border-ink/10 bg-cream p-3 text-sm text-ink/75">
+          <p className="rounded-md border border-ink/10 bg-white/70 p-3 text-sm text-ink/75">
             {contract.description}
           </p>
         ) : null}
       </header>
 
       {/* PDF download */}
-      <section className="rounded-2xl border border-ink/10 bg-cream p-5">
+      <section className="sn-tile p-5">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
           Contract file
         </p>
@@ -98,7 +98,7 @@ export default async function VendorContractDetailPage({ params }: Props) {
       </section>
 
       {/* Hosting-only disclosure */}
-      <p className="rounded-md border border-ink/10 bg-cream/60 px-3 py-2 text-xs text-ink/65">
+      <p className="rounded-md border border-ink/10 bg-white/60 px-3 py-2 text-xs text-ink/65">
         Setnayan hosts this PDF for the couple to reference — we do not facilitate
         signing. Handle signatures externally (email, in-person, your own e-sig
         tool) and keep the signed copy with your records.
@@ -106,7 +106,7 @@ export default async function VendorContractDetailPage({ params }: Props) {
 
       {/* Publish-to-couple action (only while draft) */}
       {isDraft ? (
-        <section className="rounded-2xl border border-ink/10 bg-cream p-5">
+        <section className="sn-tile p-5">
           <h2 className="text-base font-semibold text-ink">Share with the couple</h2>
           <p className="mt-1 text-sm text-ink/65">
             Right now only you can see this. Make it visible so the couple can
@@ -126,15 +126,15 @@ export default async function VendorContractDetailPage({ params }: Props) {
       ) : null}
 
       {isVisible ? (
-        <p className="rounded-md border border-emerald-300/60 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+        <p className="rounded-md border border-success-300/60 bg-success-50 px-3 py-2 text-xs text-success-900">
           The couple can see this contract in their dashboard.
         </p>
       ) : null}
 
       {/* Cancel — available except when already cancelled */}
       {!isCancelled ? (
-        <details className="rounded-2xl border border-ink/10 bg-cream p-5">
-          <summary className="cursor-pointer text-sm font-medium text-rose-700">
+        <details className="sn-tile p-5">
+          <summary className="cursor-pointer text-sm font-medium text-danger-700">
             Cancel this contract
           </summary>
           <p className="mt-2 text-xs text-ink/55">
@@ -157,7 +157,7 @@ export default async function VendorContractDetailPage({ params }: Props) {
               />
             </div>
             <SubmitButton
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-md bg-rose-100 px-3 py-1.5 text-xs font-medium text-rose-800 hover:bg-rose-200"
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-md bg-danger-100 px-3 py-1.5 text-xs font-medium text-danger-800 hover:bg-danger-200"
               pendingLabel="Cancelling…"
             >
               <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
@@ -168,7 +168,7 @@ export default async function VendorContractDetailPage({ params }: Props) {
       ) : null}
 
       {isCancelled && contract.cancelled_at ? (
-        <p className="rounded-md border border-rose-300/60 bg-rose-50 px-3 py-2 text-xs text-rose-900">
+        <p className="rounded-md border border-danger-300/60 bg-danger-50 px-3 py-2 text-xs text-danger-900">
           Cancelled on{' '}
           {new Date(contract.cancelled_at).toLocaleString('en-PH', {
             dateStyle: 'medium',

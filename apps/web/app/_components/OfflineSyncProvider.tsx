@@ -13,8 +13,8 @@
  * triggers a mass upload synchronization."
  *
  * Mount near the root of every capture-surface tree (Papic seat,
- * Pabati guestbook, Patiktok booth, Panood camera op, SDE callback
- * receiver, Camera Bridge UI, Live Wall projector handshake).
+ * Pabati guestbook, Patiktok booth, Panood camera op, Camera Bridge
+ * UI, Live Wall projector handshake).
  *
  * Companions:
  *   lib/indexedDB.ts          · IndexedDB primitives
@@ -298,10 +298,10 @@ function chipLabel(s: OfflineSyncState): string {
 function modeDotClass(mode: NetworkMode): string {
   const base = 'inline-block size-2 rounded-full';
   switch (mode) {
-    case 'strong':  return `${base} bg-emerald-500`;
-    case 'medium':  return `${base} bg-amber-500`;
-    case 'weak':    return `${base} bg-amber-300`;
-    case 'offline': return `${base} bg-rose-500`;
+    case 'strong':  return `${base} bg-success-500`;
+    case 'medium':  return `${base} bg-warn-500`;
+    case 'weak':    return `${base} bg-warn-300`;
+    case 'offline': return `${base} bg-danger-500`;
     default:        return `${base} bg-cream-400`;
   }
 }

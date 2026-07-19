@@ -1,0 +1,11 @@
+# Changelog fragment — collected into CHANGELOG.md by scripts/changelog-collect.mjs
+
+## 2026-07-11 · feat(proposals): per-line package pricing basis (schema + pure resolver, additive)
+
+Vendor Proposal Maker · PR 2. `vendor_package_items` was flat (one `replacement_value_centavos` per line, no per-line basis), so a bundle couldn't say "catering is per-pax, coverage is per-hour, bridal car is flat." This PR brings the pricing bases that already live on `vendor_services` down onto the package line items — **schema + pure resolver helpers only; no existing call site is rewired** (that's a later PR).
+
+- **Migration** `supabase/migrations/20270713100000_vendor_package_item_pricing_basis.sql` — `ALTER TABLE public.vendor_package_items ADD COLUMN IF NOT EXISTS` for `pricing_basis` (`fixed`/`per_pax`/`per_hour`, DEFAULT `fixed`), `per_pax_price_centavos`, `min_pax`, `hour_base_centavos`, `min_hours`, `extra_hour_centavos`, `crew_meal_mode` (`included`/`charge`/`offset`, DEFAULT `included`), `crew_size`, `crew_per_head_centavos`, `transport_mode` (`included`/`flat`/`distance`, DEFAULT `included`), `transport_flat_centavos`. All additive + defaulted → existing rows behave EXACTLY as before (flat). Money columns follow the package `*_centavos` convention (vendor_services uses `*_php`). Idempotent; does not auto-apply.
+- **Pure resolver** `apps/web/lib/package-line-pricing.ts` — `resolvePackageLine(row, {pax, hours})` (centavos: fixed → flat; per_pax → rate × max(pax, min_pax); per_hour → base + max(0, hours−min_hours) × extra), `crewCreditCentavos` (offset), `crewChargeCentavos` (charge), `transportChargeCentavos` (flat), and `applyCreditToFinalInstallment(instances, creditPhp)` which reduces the LAST installment first and cascades upward, never below zero (leaves the downpayment whole). All pure + total (never throw); modeled after `computePlanInstances`. Does not import or modify `resolvePackageLineItems`, `computeCustomization`, or any call site.
+- **Tests** `apps/web/lib/package-line-pricing.test.ts` — 14 `node:test` cases across the three bases, the crew/transport helpers, and the credit cascade. All pass; new files typecheck clean.
+
+SPEC IMPACT: Vendor_Proposal_Maker_2026-07-10.md (PR 2 — pricing_basis on vendor_package_items)

@@ -23,9 +23,11 @@
  * Reuses updateVendorCosts (../../actions) — no new writer, no schema.
  */
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { X, Receipt, Sparkles } from 'lucide-react';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { updateVendorCosts } from '../../../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 /** A candidate quote the couple can choose to log. */
 export type QuoteCandidate = {
@@ -89,6 +91,18 @@ export function QuoteBridge({
   const [sourceLabel, setSourceLabel] = useState('');
   const [pending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const save = useSaveLoader();
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Focus trap + Esc-to-close + scroll lock. Esc is suspended mid-submit so an
+  // in-flight save can't be interrupted (matched the old inline guard).
+  useModalA11y({
+    open,
+    onClose: () => {
+      if (!pending) setOpen(false);
+    },
+    containerRef: dialogRef,
+  });
 
   const hasChat = showChatChip && chatAmountsPesos.length > 0;
   const hasProposals = proposalCandidates.length > 0;
@@ -138,7 +152,10 @@ export function QuoteBridge({
     if (food.trim()) form.set('food_allowance_php', food.trim());
     startTransition(async () => {
       try {
-        await updateVendorCosts(form);
+        await save.run(() => updateVendorCosts(form), {
+          steps: ['Saving the quote'],
+          hint: 'Saving',
+        });
         setOpen(false);
       } catch (err) {
         setErrorMsg(
@@ -227,13 +244,11 @@ export function QuoteBridge({
       {/* --- The money-safety gate: editable confirm modal --- */}
       {open ? (
         <div
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby="quote-bridge-heading"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/55 p-4 backdrop-blur-sm"
-          onKeyDown={(e) => {
-            if (e.key === 'Escape' && !pending) setOpen(false);
-          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/55 p-4 backdrop-blur-sm focus:outline-none"
         >
           <div className="w-full max-w-md rounded-xl bg-cream p-6 shadow-xl ring-1 ring-ink/10">
             <header className="flex items-start justify-between gap-3">
@@ -303,7 +318,7 @@ export function QuoteBridge({
               </p>
 
               {errorMsg ? (
-                <p className="rounded-md bg-rose-50 px-3 py-2 text-xs text-rose-800 ring-1 ring-inset ring-rose-200">
+                <p className="rounded-md bg-danger-50 px-3 py-2 text-xs text-danger-800 ring-1 ring-inset ring-danger-200">
                   {errorMsg}
                 </p>
               ) : null}

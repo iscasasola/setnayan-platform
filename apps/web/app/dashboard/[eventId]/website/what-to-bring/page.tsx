@@ -4,6 +4,7 @@ import { ArrowLeft, CheckCircle2, Gift } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { updateWhatToBring } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Edit what to bring · Setnayan' };
 
@@ -41,7 +42,7 @@ export default async function WhatToBringEditorPage({
 
   return (
     <section className="space-y-6">
-      <header className="space-y-3">
+      <header className="sn-reveal space-y-3">
         <Link
           href={`/dashboard/${eventId}/website`}
           className="inline-flex items-center gap-1.5 text-xs font-medium text-terracotta hover:text-terracotta-700"
@@ -50,11 +51,11 @@ export default async function WhatToBringEditorPage({
           Back to website
         </Link>
         <div>
-          <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <p className="sn-eye flex items-center gap-2">
             <Gift aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             What to bring
           </p>
-          <h1 className="mt-1 font-serif text-3xl italic tracking-tight sm:text-4xl">
+          <h1 className="sn-h1 mt-1">
             Gifts, registry, or a kind note
           </h1>
           <p className="mt-2 max-w-prose text-sm text-ink/65">
@@ -66,7 +67,7 @@ export default async function WhatToBringEditorPage({
         {saved ? (
           <div
             role="status"
-            className="inline-flex items-center gap-2 rounded-md border border-emerald-300/60 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
+            className="inline-flex items-center gap-2 rounded-md border border-success-300/60 bg-success-50 px-3 py-2 text-sm text-success-800"
           >
             <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Saved — your guests will see this on the wedding website.
@@ -84,7 +85,7 @@ export default async function WhatToBringEditorPage({
 
       <form action={updateAction} className="space-y-4">
         <label className="block">
-          <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+          <span className="sn-eye">
             Your note
           </span>
           <textarea
@@ -97,9 +98,7 @@ export default async function WhatToBringEditorPage({
           />
           <span className="mt-1 block text-xs text-ink/45">Up to 600 characters.</span>
         </label>
-        <button type="submit" className="button-primary">
-          Save note
-        </button>
+        <SubmitButton pendingLabel="Saving…" className="button-primary">Save note</SubmitButton>
       </form>
     </section>
   );

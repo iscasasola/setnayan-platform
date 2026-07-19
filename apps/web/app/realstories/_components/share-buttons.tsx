@@ -93,7 +93,7 @@ export function ShareButtons({
           className={iconBtn}
         >
           {copied ? (
-            <Check aria-hidden className="h-3 w-3 text-emerald-600" strokeWidth={2} />
+            <Check aria-hidden className="h-3 w-3 text-success-600" strokeWidth={2} />
           ) : (
             <Link2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
           )}
@@ -136,7 +136,7 @@ export function ShareButtons({
         className={pill}
       >
         {copied ? (
-          <Check aria-hidden className="h-3.5 w-3.5 text-emerald-600" strokeWidth={2} />
+          <Check aria-hidden className="h-3.5 w-3.5 text-success-600" strokeWidth={2} />
         ) : (
           <Link2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         )}

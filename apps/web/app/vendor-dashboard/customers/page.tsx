@@ -1,0 +1,787 @@
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { CalendarDays, ChevronRight, MessageSquare, PhilippinePeso, Sparkles } from 'lucide-react';
+import { createClient } from '@/lib/supabase/server';
+import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { formatPhp, VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
+import { countUnreadMessages, fetchVendorThreads } from '@/lib/chat';
+import {
+  fetchVendorBlocks,
+  fetchVendorDayStates,
+  fetchVendorPoolBookings,
+  fetchVendorPools,
+} from '@/lib/vendor-schedule';
+import { fetchVendorWaitlist } from '@/lib/vendor-waitlist';
+import { fetchVendorServices } from '@/lib/vendor-services';
+import {
+  fetchVendorTeam,
+  enrichTeamWithUsers,
+  fetchAgentServiceAssignments,
+} from '@/lib/vendor-team';
+import { tierCaps } from '@/lib/vendor-tier-caps';
+import { manilaTodayIso, type PaydayInstallmentRow } from '@/lib/vendor-cashflow';
+import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  buildCustomerCalendarMonth,
+  summarizeMonthlyPayments,
+  computeEventMoneyPositions,
+  type CustomerRow,
+  type CustomerStatus,
+} from '@/lib/vendor-customers';
+import { CustomersCalendar } from './_components/customers-calendar';
+import type { FilterOption } from './_components/customers-filter-bar';
+import { VendorQrSection } from '../_components/qr-section';
+
+export const metadata = { title: 'My Customers · Vendor · Setnayan' };
+
+/**
+ * /vendor-dashboard/customers — "My Customers".
+ *
+ * The pipeline home of the 6-menu vendor shell: the vendor's calendar, book of
+ * business, and the money coming in — all wired to LIVE, vendor-scoped sources
+ * (no hard-coded figures). Sections top→bottom:
+ *   1. Filter row (types / services / agents + Heat map toggle + info).
+ *   2. Month calendar — the 6-state day taxonomy from vendor_calendar_day_states
+ *      + bookings + blocks + the couple waitlist queue.
+ *   3. Three summary cards — Ongoing payments (this month), Messages, Service
+ *      coverage.
+ *   4. Customers list — one row per booked / in-conversation event with a status
+ *      pill + a money note.
+ *
+ * Every number resolves from a real query/RPC. Where a value has no source yet
+ * (e.g. the couple's venue when they haven't set one) the row degrades to a
+ * clearly-empty state rather than inventing a value.
+ */
+
+type Props = { searchParams: Promise<{ m?: string; et?: string; cat?: string }> };
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return 'Date not set';
+  return new Date(`${iso}T00:00:00`).toLocaleDateString('en-PH', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function initialsOf(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return 'SN';
+  if (words.length === 1) return (words[0]!.slice(0, 2) || 'SN').toUpperCase();
+  return (words[0]![0]! + words[1]![0]!).toUpperCase();
+}
+
+const STATUS_PILL: Record<
+  CustomerStatus,
+  { label: string; bg: string; fg: string; border: string }
+> = {
+  booked: {
+    label: 'Booked',
+    bg: 'rgba(79,107,74,0.12)',
+    fg: 'var(--m-sage-deep)',
+    border: 'rgba(79,107,74,0.28)',
+  },
+  locked: {
+    label: 'Locked',
+    bg: 'var(--m-orange-4)',
+    fg: 'var(--m-orange-2)',
+    border: 'var(--m-orange-3)',
+  },
+  whitelist: {
+    // Warm-semantic info-slate — violet/purple is retired app-wide (contract § 7).
+    label: 'Whitelist',
+    bg: 'var(--sn-info-soft)',
+    fg: 'var(--sn-info)',
+    border: 'color-mix(in srgb, var(--sn-info) 30%, transparent)',
+  },
+  waitlist: {
+    label: 'Waitlist',
+    bg: 'var(--sn-warning-soft)',
+    fg: 'var(--sn-warning)',
+    border: 'color-mix(in srgb, var(--sn-warning) 30%, transparent)',
+  },
+  in_conversation: {
+    label: 'In conversation',
+    bg: 'var(--m-paper-2)',
+    fg: 'var(--m-slate)',
+    border: 'var(--m-line)',
+  },
+};
+
+function categoryLabel(key: string): string {
+  return (VENDOR_CATEGORY_LABEL as Record<string, string>)[key] ?? key.replace(/_/g, ' ');
+}
+
+async function CustomersPipeline({ searchParams }: Props) {
+  const search = await searchParams;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) redirect('/vendor-dashboard');
+
+  const vendorProfileId = profile.vendor_profile_id;
+  const todayIso = manilaTodayIso();
+  const thisMonth = todayIso.slice(0, 7);
+  const month = /^\d{4}-\d{2}$/.test(search.m ?? '') ? (search.m as string) : thisMonth;
+
+  // All vendor-scoped reads in parallel. Each helper is the SAME one the
+  // dedicated Calendar / Payday / Messages / Services pages use — one source of
+  // truth per surface, no duplicated queries.
+  const [
+    pools,
+    bookings,
+    blocks,
+    dayStates,
+    waitlist,
+    threads,
+    unreadCount,
+    services,
+    teamRows,
+    paydayRes,
+    tierProbe,
+  ] = await Promise.all([
+    fetchVendorPools(supabase, vendorProfileId),
+    fetchVendorPoolBookings(supabase, vendorProfileId),
+    fetchVendorBlocks(supabase, vendorProfileId),
+    fetchVendorDayStates(supabase, vendorProfileId, `${month}-01`, `${month}-31`),
+    // Waitlist for the visible month (the lib bounds by a from-date; a past
+    // month simply returns nothing pending, which is correct).
+    fetchVendorWaitlist(supabase, vendorProfileId, `${month}-01`),
+    fetchVendorThreads(supabase, vendorProfileId),
+    countUnreadMessages(supabase, user.id),
+    fetchVendorServices(supabase, vendorProfileId),
+    fetchVendorTeam(supabase, vendorProfileId),
+    // Frozen installment plan across all booked events (ownership-gated RPC).
+    supabase.rpc('vendor_payday_installments'),
+    // tier_state is excluded from the profile select → isolated probe (matches
+    // the chat-send / proposal-send convention). Gates the Agent filter.
+    supabase
+      .from('vendor_profiles')
+      .select('tier_state')
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle(),
+  ]);
+
+  // Agent filtering is a subscription feature — enabled only when the tier
+  // grants agent accounts (Pro+, agentAccounts > 0). A vendor who drops below
+  // Pro loses it. Resolve which service categories each agent covers so the
+  // filter can narrow the calendar to that agent's schedule.
+  const tier = (tierProbe.data as { tier_state?: string } | null)?.tier_state ?? null;
+  const agentsEnabled = tierCaps(tier).agentAccounts > 0;
+  const agentCategories: Record<string, string[]> = {};
+  if (agentsEnabled && teamRows.length > 0) {
+    try {
+      const assignments = await fetchAgentServiceAssignments(supabase, vendorProfileId);
+      const categoryByServiceId = new Map(
+        services.map((s) => [s.vendor_service_id, s.category]),
+      );
+      for (const [memberId, serviceIds] of Object.entries(assignments)) {
+        const cats = new Set<string>();
+        for (const sid of serviceIds) {
+          const cat = categoryByServiceId.get(sid);
+          if (cat) cats.add(cat);
+        }
+        agentCategories[memberId] = [...cats];
+      }
+    } catch {
+      // Fail-soft: no assignment map → agent options still render, but selecting
+      // one narrows to nothing rather than blocking the page.
+    }
+  }
+
+  const paydayRows = (
+    paydayRes.error ? [] : ((paydayRes.data ?? []) as unknown as PaydayInstallmentRow[])
+  );
+
+  // ── Section 2: month calendar ────────────────────────────────────────────
+  const calendar = buildCustomerCalendarMonth(
+    pools,
+    bookings,
+    blocks,
+    dayStates,
+    waitlist,
+    month,
+    todayIso,
+  );
+
+  // ── Section 3a: this-month payments roll-up ──────────────────────────────
+  const payments = summarizeMonthlyPayments(paydayRows, month);
+  const collectPct =
+    payments.expectedPhp > 0
+      ? Math.min(100, Math.round((payments.collectedPhp / payments.expectedPhp) * 100))
+      : 0;
+
+  // ── Section 3b: messages ─────────────────────────────────────────────────
+  const conversationCount = threads.length;
+
+  // ── Section 3c: service coverage ─────────────────────────────────────────
+  // Per active service: is it live, and how many dates in the visible month is
+  // its schedule full? "Full N dates" counts fully-booked days on the pool(s)
+  // that carry the service's category.
+  const activeServices = services.filter((s) => s.is_active);
+  const poolsForCategory = (cat: string) =>
+    pools.filter((p) => p.categories.includes(cat));
+  const fullDatesForPool = (poolId: string, cap: number): number => {
+    if (cap <= 0) return 0;
+    const consumed = new Map<string, number>();
+    for (const b of bookings) {
+      if (b.poolId !== poolId) continue;
+      if (b.bookedDate.slice(0, 7) !== month) continue;
+      consumed.set(b.bookedDate, (consumed.get(b.bookedDate) ?? 0) + 1);
+    }
+    for (const blk of blocks) {
+      if (blk.source !== 'external_client' || blk.poolId !== poolId) continue;
+      for (const day of calendar.days) {
+        if (day.date < blk.startDate || day.date > blk.endDate) continue;
+        consumed.set(day.date, (consumed.get(day.date) ?? 0) + 1);
+      }
+    }
+    let full = 0;
+    for (const n of consumed.values()) if (n >= cap) full += 1;
+    return full;
+  };
+  const serviceCoverage = activeServices.slice(0, 3).map((s) => {
+    const catPools = poolsForCategory(s.category);
+    const fullDates = catPools.reduce(
+      (sum, p) => sum + fullDatesForPool(p.poolId, p.capacity),
+      0,
+    );
+    return {
+      key: s.vendor_service_id,
+      label: s.title?.trim() || categoryLabel(s.category),
+      fullDates,
+    };
+  });
+
+  // ── Section 4: customers list ────────────────────────────────────────────
+  const moneyByEvent = computeEventMoneyPositions(paydayRows);
+
+  // Booked events (live pool reservations) grouped by event.
+  const bookedByEvent = new Map<
+    string,
+    { eventName: string; eventDate: string | null; threadId: string | null }
+  >();
+  for (const b of bookings) {
+    if (!bookedByEvent.has(b.eventId)) {
+      bookedByEvent.set(b.eventId, {
+        eventName: b.eventName,
+        eventDate: null,
+        threadId: b.threadId,
+      });
+    }
+  }
+
+  // Enrich booked events with date + venue (place) via the admin client — the
+  // vendor is party to the booking but holds no events RLS (same pattern as
+  // fetchVendorPoolBookings' name lookup). Request-local map (never module
+  // state) so concurrent requests never bleed venues into each other.
+  const venueByEvent = new Map<string, string | null>();
+  // event_type per booked event — feeds the calendar's Type filter (bookings
+  // themselves carry no event_type). Same admin lookup, one extra column.
+  const eventTypeByEvent = new Map<string, string | null>();
+  const bookedEventIds = [...bookedByEvent.keys()];
+  if (bookedEventIds.length > 0) {
+    const admin = createAdminClient();
+    const { data: eventRows } = await admin
+      .from('events')
+      .select('event_id, event_date, venue_name, event_type')
+      .in('event_id', bookedEventIds);
+    for (const e of (eventRows ?? []) as {
+      event_id: string;
+      event_date: string | null;
+      venue_name: string | null;
+      event_type: string | null;
+    }[]) {
+      const g = bookedByEvent.get(e.event_id);
+      if (g) g.eventDate = e.event_date;
+      venueByEvent.set(e.event_id, e.venue_name);
+      eventTypeByEvent.set(e.event_id, e.event_type);
+    }
+  }
+
+  const rows: CustomerRow[] = [];
+  for (const [eventId, g] of bookedByEvent) {
+    rows.push({
+      eventId,
+      eventName: g.eventName,
+      eventDate: g.eventDate,
+      place: venueByEvent.get(eventId) ?? null,
+      status: 'booked',
+      threadId: g.threadId,
+      money: moneyByEvent.get(eventId) ?? null,
+    });
+  }
+
+  // In-conversation events — accepted threads without a live booking.
+  for (const t of threads) {
+    if (t.inquiry_status !== 'accepted') continue;
+    if (bookedByEvent.has(t.event_id)) continue;
+    rows.push({
+      eventId: t.event_id,
+      eventName: t.event?.display_name ?? 'A Setnayan event',
+      eventDate: t.event?.event_date ?? null,
+      place: null,
+      status: 'in_conversation',
+      threadId: t.thread_id,
+      money: moneyByEvent.get(t.event_id) ?? null,
+    });
+  }
+
+  // Sort: soonest event date first, undated last.
+  rows.sort((a, b) => {
+    if (a.eventDate && b.eventDate) return a.eventDate.localeCompare(b.eventDate);
+    if (a.eventDate) return -1;
+    if (b.eventDate) return 1;
+    return a.eventName.localeCompare(b.eventName);
+  });
+
+  // Filter option sets (real data · presentational for now).
+  const serviceOptions: FilterOption[] = [
+    ...new Map(
+      services.map((s) => [
+        s.category,
+        { value: s.category, label: categoryLabel(s.category) } as FilterOption,
+      ]),
+    ).values(),
+  ];
+  const eventTypeOptions: FilterOption[] = (profile.event_types ?? []).map((t) => ({
+    value: t,
+    label: t.charAt(0).toUpperCase() + t.slice(1),
+  }));
+  // Agent labels need users.email/display_name, which is owner-only RLS
+  // (Pattern A) — resolve via the admin client. Fail-soft: if enrichment throws
+  // we fall back to the team labels so the select never blocks the page.
+  let agentOptions: FilterOption[] = [];
+  if (teamRows.length > 0) {
+    try {
+      const teamWithUser = await enrichTeamWithUsers(createAdminClient(), teamRows);
+      agentOptions = teamWithUser.map((m) => ({
+        value: m.vendor_team_member_id,
+        label: m.display_name?.trim() || m.email || m.team_label?.trim() || 'Team member',
+      }));
+    } catch {
+      agentOptions = teamRows.map((m) => ({
+        value: m.vendor_team_member_id,
+        label: m.team_label?.trim() || 'Team member',
+      }));
+    }
+  }
+
+  const dayHrefBase = '/vendor-dashboard/calendar';
+
+  return (
+    // Glass PR-7: the opaque `--m-paper` body wrapper is dropped — the Atelier
+    // wash (`.sn-ambient`, inherited from the shell) shows through the glass tiles.
+    <section className="min-h-full">
+      <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+        {/* Sections 1 + 2 — filter row + month calendar (centrepiece). */}
+        <CustomersCalendar
+          initialDayStates={dayStates}
+          initialWaitlist={waitlist}
+          initialMonth={month}
+          todayIso={todayIso}
+          pools={pools}
+          // Ship only the fields the client-side rebuild reads — raw block
+          // client-contact fields (clientName/clientContact/clientNote) never
+          // cross the wire. Bookings also carry event_type (for the Type
+          // filter), resolved via the admin events lookup above.
+          bookings={bookings.map((b) => ({
+            poolId: b.poolId,
+            bookedDate: b.bookedDate,
+            eventName: b.eventName,
+            eventType: eventTypeByEvent.get(b.eventId) ?? null,
+          }))}
+          blocks={blocks.map((k) => ({
+            poolId: k.poolId,
+            source: k.source,
+            startDate: k.startDate,
+            endDate: k.endDate,
+          }))}
+          dayHrefBase={dayHrefBase}
+          types={eventTypeOptions}
+          services={serviceOptions}
+          agents={agentOptions}
+          agentsEnabled={agentsEnabled}
+          agentCategories={agentCategories}
+        />
+
+        {/* Section 3 — three summary cards (glass `.sn-tile` bento). */}
+        <div className="grid gap-4 md:grid-cols-3">
+          {/* Ongoing payments */}
+          <article className="sn-tile">
+            <p className="sn-eye">
+              <span
+                aria-hidden
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+                style={{ background: 'rgba(79,107,74,0.12)', color: 'var(--m-sage-deep)' }}
+              >
+                <PhilippinePeso className="h-4 w-4" strokeWidth={1.75} />
+              </span>
+              Ongoing payments
+            </p>
+            {payments.isEmpty ? (
+              <p className="mt-3 text-sm" style={{ color: 'var(--m-slate-2)' }}>
+                No installments due this month. Amounts appear here once a couple
+                books you on a service with a payment schedule.
+              </p>
+            ) : (
+              <>
+                <p className="mt-3 font-mono text-2xl font-bold tracking-tight" style={{ color: 'var(--m-ink)' }}>
+                  {formatPhp(payments.collectedPhp)}{' '}
+                  <span className="text-base font-normal" style={{ color: 'var(--m-slate-2)' }}>
+                    / {formatPhp(payments.expectedPhp)}
+                  </span>
+                </p>
+                <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-2)' }}>
+                  collected of expected this month
+                </p>
+                <div
+                  className="mt-3 h-2 w-full overflow-hidden rounded-full"
+                  style={{ background: 'var(--m-paper-2)' }}
+                  role="progressbar"
+                  aria-valuenow={collectPct}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                >
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width: `${collectPct}%`, background: 'var(--m-sage-deep)' }}
+                  />
+                </div>
+                {/* The "N installments have no set amount yet" caveat lives once,
+                    on the Payday timeline this card links down to — not repeated
+                    here. */}
+              </>
+            )}
+            <Link
+              href="#payday"
+              scroll
+              className="mt-3 inline-flex items-center gap-1 text-sm font-medium"
+              style={{ color: 'var(--m-orange-2)' }}
+            >
+              Payday timeline <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+            </Link>
+          </article>
+
+          {/* Messages */}
+          <article className="sn-tile">
+            <p className="sn-eye">
+              <span
+                aria-hidden
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+                style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-700)' }}
+              >
+                <MessageSquare className="h-4 w-4" strokeWidth={1.75} />
+              </span>
+              Messages
+            </p>
+            <p className="mt-3 font-mono text-2xl font-bold tracking-tight" style={{ color: 'var(--m-ink)' }}>
+              {unreadCount}{' '}
+              <span className="text-base font-normal" style={{ color: 'var(--m-slate-2)' }}>
+                new
+              </span>
+            </p>
+            <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-2)' }}>
+              {conversationCount} conversation{conversationCount === 1 ? '' : 's'}
+            </p>
+            <Link
+              href="?open=messages"
+              scroll={false}
+              className="mt-3 inline-flex items-center gap-1 text-sm font-medium"
+              style={{ color: 'var(--m-orange-2)' }}
+            >
+              Open messages{' '}
+              <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+            </Link>
+          </article>
+
+          {/* Service coverage */}
+          <article className="sn-tile">
+            <p className="sn-eye">
+              <span
+                aria-hidden
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+                style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-700)' }}
+              >
+                <Sparkles className="h-4 w-4" strokeWidth={1.75} />
+              </span>
+              Service coverage
+            </p>
+            {serviceCoverage.length === 0 ? (
+              <p className="mt-3 text-sm" style={{ color: 'var(--m-slate-2)' }}>
+                No services yet. Add a service to set your coverage so couples can
+                find and book you.
+              </p>
+            ) : (
+              <ul className="mt-3 space-y-2">
+                {serviceCoverage.map((s) => (
+                  <li key={s.key} className="flex items-start justify-between gap-3 text-sm">
+                    <span className="min-w-0 flex-1 truncate" style={{ color: 'var(--m-ink)' }}>
+                      {s.label}
+                    </span>
+                    <span className="shrink-0 text-right">
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                        style={{
+                          background: 'rgba(79,107,74,0.12)',
+                          color: 'var(--m-sage-deep)',
+                        }}
+                      >
+                        Covered
+                      </span>
+                      {s.fullDates > 0 ? (
+                        <span className="mt-0.5 block text-[11px]" style={{ color: 'var(--m-slate-2)' }}>
+                          full {s.fullDates} date{s.fullDates === 1 ? '' : 's'}
+                        </span>
+                      ) : null}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <Link
+              href="/vendor-dashboard/services"
+              className="mt-3 inline-flex items-center gap-1 text-sm font-medium"
+              style={{ color: 'var(--m-orange-2)' }}
+            >
+              My Services{' '}
+              <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+            </Link>
+          </article>
+        </div>
+
+        {/* QR codes — Shortlist ↔ Locked (relocated from My Shop 2026-07-02). */}
+        <VendorQrSection
+          vendorProfileId={vendorProfileId}
+          slug={profile.business_slug ?? null}
+          profileServices={(profile.services ?? []) as string[]}
+          rawEt={search.et}
+          rawCat={search.cat}
+          month={month}
+        />
+
+        {/* Section 4 — customers list (`.sn-tile` panel of opaque `.sn-row` items;
+            the list can be long, so rows stay flat per the blur budget § 1.6). */}
+        <div>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="sn-sec">Customers</h2>
+            <Link
+              href="?open=clients"
+              scroll={false}
+              className="inline-flex items-center gap-1 text-sm font-semibold"
+              style={{ color: 'var(--sn-gold-700)' }}
+            >
+              <CalendarDays className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+              Book of business
+            </Link>
+          </div>
+          {rows.length === 0 ? (
+            <p
+              className="rounded-2xl border border-dashed p-5 text-sm"
+              style={{ borderColor: 'var(--sn-line)', color: 'var(--m-slate-2)' }}
+            >
+              No customers yet. When a couple books you, or you accept an inquiry,
+              they show up here with their event, date, and where they&rsquo;re at
+              with payments.
+            </p>
+          ) : (
+            <div className="sn-tile p-2 sm:p-2.5">
+              <ul className="space-y-1">
+                {rows.map((r) => {
+                  const pill = STATUS_PILL[r.status];
+                  const note = moneyNote(r);
+                  const inner = (
+                    <>
+                      <span
+                        aria-hidden
+                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
+                        style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-700)' }}
+                      >
+                        {initialsOf(r.eventName)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span className="truncate text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                            {r.eventName}
+                          </span>
+                          <span
+                            className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
+                            style={{ background: pill.bg, color: pill.fg, border: `1px solid ${pill.border}` }}
+                          >
+                            {pill.label}
+                          </span>
+                        </span>
+                        <span className="mt-0.5 block truncate font-mono text-xs" style={{ color: 'var(--m-slate-2)' }}>
+                          {fmtDate(r.eventDate)}
+                          {r.place ? ` · ${r.place}` : ''}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-right font-mono text-xs" style={{ color: note.tone }}>
+                        {note.text}
+                      </span>
+                    </>
+                  );
+                  return (
+                    <li key={`${r.status}:${r.eventId}`}>
+                      {r.threadId ? (
+                        <Link
+                          href={`/vendor-dashboard/messages/${r.threadId}`}
+                          className="sn-row group flex items-center gap-3 px-3.5 py-3 transition-transform hover:translate-x-0.5"
+                        >
+                          {inner}
+                        </Link>
+                      ) : (
+                        <div className="sn-row flex items-center gap-3 px-3.5 py-3">{inner}</div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** The right-aligned money note for a customer row. */
+function moneyNote(r: CustomerRow): { text: string; tone: string } {
+  if (r.status === 'in_conversation') {
+    return { text: 'Quote pending', tone: 'var(--m-slate-2)' };
+  }
+  const m = r.money;
+  if (!m || m.allUnresolved || m.installmentCount === 0) {
+    // Booked but no resolvable installment plan yet.
+    return { text: 'Downpayment in', tone: 'var(--m-slate-2)' };
+  }
+  if (m.fullyPaid) {
+    return { text: 'Fully paid', tone: 'var(--m-sage-deep)' };
+  }
+  if (m.balancePhp > 0) {
+    return { text: `Balance ${formatPhp(m.balancePhp)}`, tone: 'var(--m-ink)' };
+  }
+  return { text: 'Downpayment in', tone: 'var(--m-slate-2)' };
+}
+
+
+/* ── My Customers hub (owner 5-page IA, 2026-07-12) ─────────────────────────
+ * One menu item, every people-facing feature integrated as a tab: the
+ * pipeline (this file's original body), Bookings, Clients, Calendar, Payday,
+ * Messages. The old routes redirect in with their params preserved. */
+import { Suspense } from 'react';
+import { Users as UsersIcon, SlidersHorizontal } from 'lucide-react';
+import {
+  FeatureAccordion,
+  AccordionSkeleton,
+  type AccordionSection,
+} from '../_components/feature-accordion';
+import BookingsSurface from '../bookings/surface';
+import ClientsSurface from '../clients/surface';
+import CalendarSurface from '../calendar/surface';
+import PaydaySurface from '../payday/surface';
+import MessagesSurface from '../messages/surface';
+
+// Folded sections below the pipeline (which already shows the ONE month
+// calendar + summary cards + QR + customers list). No "Calendar" section —
+// the grid lives in the pipeline; its EDIT tools live in "Availability &
+// capacity" (owner dedup 2026-07-12: "calendar already on the page").
+// Owner editorial pick 2026-07-12 — which sections stay ALWAYS-ON vs collapse.
+// Rule: always-on = glanced almost every visit AND light to render; collapse =
+// heavy / configure-once / already summarised elsewhere.
+//   ALWAYS-ON (rendered eagerly below the pipeline): Bookings (new inquiries —
+//   the daily heartbeat) + Payday (cash-flow timeline, 1 query, shown nowhere
+//   else). COLLAPSE: Clients (the pipeline list already covers the roster),
+//   Messages (unread count is on the pipeline's summary card), Availability
+//   (config).
+//
+//   DEDUP 2026-07-16: Messages moved back to COLLAPSE. It had been promoted to
+//   always-on, but BookingsSurface (also always-on) renders the SAME
+//   fetchVendorThreads() set as a work queue — so two full thread lists showed
+//   on one page. Messages now folds here (its unread count already lives on the
+//   pipeline's Messages summary card, which links straight to this section).
+//   ⚠ Reverses the owner 2026-07-12 "promote Messages to always-on" — see PR.
+const CUSTOMER_SECTIONS: AccordionSection[] = [
+  {
+    key: 'messages',
+    label: 'Messages',
+    sub: 'Your conversations — reply, reveal, and log outcomes',
+    icon: <MessageSquare className="h-4 w-4" strokeWidth={1.75} />,
+  },
+  {
+    key: 'clients',
+    label: 'Clients',
+    sub: 'Booked · in conversation · outside clients',
+    icon: <UsersIcon className="h-4 w-4" strokeWidth={1.75} />,
+  },
+  {
+    key: 'availability',
+    label: 'Availability & capacity',
+    sub: 'Set daily limits, block dates, import clients, manage the waitlist',
+    icon: <SlidersHorizontal className="h-4 w-4" strokeWidth={1.75} />,
+  },
+];
+
+async function CustomerSectionBody({
+  open,
+  sp,
+}: {
+  open: string;
+  sp: Record<string, string | string[] | undefined>;
+}) {
+  const pass = Promise.resolve(sp);
+  switch (open) {
+    case 'messages':
+      return <MessagesSurface />;
+    case 'clients':
+      return <ClientsSurface searchParams={pass as never} />;
+    case 'availability':
+      // Management tools only — the month grid stays in the pipeline above.
+      return <CalendarSurface searchParams={pass as never} variant="manage" />;
+    default:
+      return null;
+  }
+}
+
+export default async function VendorCustomersHub({ searchParams }: Props) {
+  const sp = (await searchParams) as Record<string, string | string[] | undefined>;
+  const openRaw =
+    (typeof sp.open === 'string' && sp.open) ||
+    // Legacy alias: old /calendar deep-links redirect with ?tab=calendar →
+    // land on Availability. Everything else maps 1:1.
+    (typeof sp.tab === 'string' && (sp.tab === 'calendar' ? 'availability' : sp.tab)) ||
+    null;
+  const open =
+    openRaw && CUSTOMER_SECTIONS.some((s) => s.key === openRaw) ? openRaw : null;
+
+  return (
+    <>
+      {/* The pipeline is the home: month calendar + summary cards + QR + list. */}
+      <CustomersPipeline searchParams={Promise.resolve(sp) as never} />
+
+      {/* ALWAYS-ON (owner pick 2026-07-12): Bookings = the daily heartbeat
+          (new inquiries), Payday = the cash-flow timeline (1 query, shown
+          nowhere else). Rendered eagerly, not behind an accordion. */}
+      <div id="bookings">
+        <BookingsSurface searchParams={Promise.resolve(sp) as never} />
+      </div>
+      <div id="payday">
+        <PaydaySurface />
+      </div>
+
+      {/* The rest folds in — glance-covered or configure-once. Messages folds
+          here too (its thread set is already the always-on Bookings queue
+          above; opening this section shows the chat/reply view). */}
+      <FeatureAccordion sections={CUSTOMER_SECTIONS} openKey={open}>
+        {open ? (
+          <Suspense fallback={<AccordionSkeleton />}>
+            <CustomerSectionBody open={open} sp={sp} />
+          </Suspense>
+        ) : null}
+      </FeatureAccordion>
+    </>
+  );
+}

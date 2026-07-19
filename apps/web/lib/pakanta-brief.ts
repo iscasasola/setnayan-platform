@@ -71,6 +71,12 @@ export type PakantaBriefInput = {
   storyTone: StoryTone;
   /** pakanta_intake_drafts.responses (optional music-preference top-up). */
   responses?: PakantaResponses;
+  /**
+   * Iteration 0053: the event-type profile's organizer noun (e.g. 'couple' for a
+   * wedding, 'host' for a generic event). Frames the song brief prose. Defaults
+   * to 'couple' so a wedding (organizerNoun: 'couple') is byte-identical.
+   */
+  organizerNoun?: string;
 };
 
 export type PakantaBrief = {
@@ -144,7 +150,10 @@ const TONE_FEEL: Record<'warm' | 'playful' | 'formal', string> = {
 export function composePakantaBrief(input: PakantaBriefInput): PakantaBrief {
   const story = input.loveStory ?? {};
   const r = input.responses ?? {};
-  const names = clean(input.coupleNames) || 'The couple';
+  // Iteration 0053: 'couple' for a wedding (byte-identical), 'host' / etc. for
+  // other event types. Frames the brief prose without changing wedding output.
+  const organizer = clean(input.organizerNoun) || 'couple';
+  const names = clean(input.coupleNames) || `The ${organizer}`;
 
   // --- pet names: Pakanta top-up first, else the love-story in-joke anchor ---
   const anchors =
@@ -239,7 +248,7 @@ export function composePakantaBrief(input: PakantaBriefInput): PakantaBrief {
   if (petNames) lines.push(`They call each other: ${petNames}`);
   if (paragraphs.length > 0) {
     lines.push('');
-    lines.push('THEIR STORY (from the couple’s onboarding interview):');
+    lines.push(`THEIR STORY (from the ${organizer}’s onboarding interview):`);
     for (const p of paragraphs) lines.push(`• ${p}`);
   }
   if (keyMoments.length > 0) {
@@ -252,17 +261,17 @@ export function composePakantaBrief(input: PakantaBriefInput): PakantaBrief {
   if (moodFromTone) lines.push(`• Mood: ${moodFromTone}`);
   if (favoriteSingers.length > 0)
     lines.push(`• Reference artists (style only, do not copy): ${favoriteSingers.join(', ')}`);
-  if (musicType) lines.push(`• Music type the couple asked for: ${musicType}`);
+  if (musicType) lines.push(`• Music type the ${organizer} asked for: ${musicType}`);
   if (!favoriteSingers.length && !musicType && suggestedFeel)
-    lines.push(`• Suggested catalogue feel (couple left music blank): ${suggestedFeel}`);
+    lines.push(`• Suggested catalogue feel (${organizer} left music blank): ${suggestedFeel}`);
   if (extraWishes) {
     lines.push('');
-    lines.push(`COUPLE’S EXTRA WISH: ${extraWishes}`);
+    lines.push(`${organizer.toUpperCase()}’S EXTRA WISH: ${extraWishes}`);
   }
   if (!hasMaterial) {
     lines.push('');
     lines.push(
-      '⚠ No story material yet — the couple has not completed the love-story onboarding or a Pakanta intake.',
+      `⚠ No story material yet — the ${organizer} has not completed the love-story onboarding or a Pakanta intake.`,
     );
   }
 

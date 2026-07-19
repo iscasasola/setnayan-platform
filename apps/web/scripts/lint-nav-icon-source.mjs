@@ -53,6 +53,10 @@ const WEB_ROOT = resolve(__dirname, '..');
 // from the registry. Bracket route segments (e.g. [eventId]) are written
 // LITERALLY — they are real directory names on disk, never shell-globbed.
 const CHOKEPOINTS = [
+  // NOTE: the account doorway no longer has a sidebar — `(account)` surfaces
+  // render the launcher's chrome-less top bar (owner 2026-07-13; PR #3224), so
+  // `account-sidebar.tsx` was retired and dropped from this list. If an account
+  // nav-chrome surface is ever reintroduced, add it back here.
   'app/dashboard/[eventId]/_components/customer-sidebar.tsx',
   'app/dashboard/[eventId]/_components/customer-bottom-nav.tsx',
   'app/vendor-dashboard/_components/vendor-sidebar.tsx',

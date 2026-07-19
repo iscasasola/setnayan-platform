@@ -4,15 +4,19 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { notifyAdminsApplicationSubmitted } from '@/lib/vendor-status-notify';
 import {
-  APPLICATION_FEE_CENTAVOS,
   APPLICATION_TYPES,
   DOC_SLOTS,
+  VENDOR_DOC_SLOTS,
   addBusinessDays,
   countCompleteSlots,
+  countCompleteVendorSlots,
+  resolveApplicationFeeCentavos,
   type ApplicationType,
   type DocUploadMap,
 } from '@/lib/vendor-verification';
+import { DOC_SLOT_KEYS, buildSlotValue } from '@/lib/vendor-verification-slots';
 
 /**
  * Vendor-side server actions for /vendor-dashboard/verify.
@@ -33,7 +37,6 @@ import {
  * See migration `20260516040000_iteration_0006_vendor_verification_flow.sql`.
  */
 
-const DOC_SLOT_KEYS: ReadonlySet<string> = new Set(DOC_SLOTS.map((s) => s.key));
 const APPLICATION_TYPE_SET: ReadonlySet<string> = new Set(APPLICATION_TYPES);
 
 async function ensureVendorAuth() {
@@ -85,12 +88,16 @@ export async function ensureDraftApplication(
     redirect('/vendor-dashboard/verify');
   }
 
+  // Fee is resolved from service_catalog, not hardcoded — an inactive/missing
+  // SKU (verification went free via the 20260702 migration) resolves to ₱0.
+  const feeCentavos = await resolveApplicationFeeCentavos(supabase, requestedType);
+
   const { error } = await supabase
     .from('vendor_verification_applications')
     .insert({
       vendor_profile_id: profile.vendor_profile_id,
       application_type: requestedType,
-      fee_php_centavos: APPLICATION_FEE_CENTAVOS[requestedType],
+      fee_php_centavos: feeCentavos,
       status: 'draft',
       doc_uploads: {},
     });
@@ -177,29 +184,6 @@ export async function updateDocUpload(formData: FormData): Promise<void> {
   redirect('/vendor-dashboard/verify?slot_saved=1');
 }
 
-function buildSlotValue(
-  slotKey: string,
-  fields: {
-    r2Ref: string | null;
-    url: string | null;
-    scheduledAt: string | null;
-  },
-): Record<string, unknown> | null {
-  const now = new Date().toISOString();
-
-  if (slotKey === 'social_media') {
-    if (!fields.url) return null;
-    return { url: fields.url, updated_at: now };
-  }
-  if (slotKey === 'google_meet') {
-    if (!fields.scheduledAt) return null;
-    return { scheduled_at: fields.scheduledAt };
-  }
-  // Default: every other slot persists an R2 ref.
-  if (!fields.r2Ref) return null;
-  return { r2_key: fields.r2Ref, uploaded_at: now };
-}
-
 /**
  * Submit the draft → pending_review. Stamps submitted_at + sla_due_at
  * (5 business days out) and bumps vendor_profiles.verification_state to
@@ -236,17 +220,18 @@ export async function submitApplication(formData: FormData): Promise<void> {
     );
   }
 
-  // V1 launch-soft gate: vendor can submit with a minimum of the 8 upload
-  // slots filled. The 4 external/manual slots (Persona, Google Meet,
-  // SMS/email OTP, AMLC) are admin-flipped post-submit. Once integrations
+  // V1 launch-soft gate: the vendor submits once all of THEIR items (the
+  // VENDOR_DOC_SLOTS uploads) are filled. The 4 external/manual slots (Persona,
+  // Google Meet, SMS/email OTP, AMLC) are admin-flipped post-submit — counting
+  // them here is what produced the deceptive "8 of 12" gate. Once integrations
   // ship, the gate moves to "12-doc complete required".
   const uploads = (app.doc_uploads ?? {}) as DocUploadMap;
-  const completeCount = countCompleteSlots(uploads);
-  const REQUIRED_TO_SUBMIT = 8;
+  const completeCount = countCompleteVendorSlots(uploads);
+  const REQUIRED_TO_SUBMIT = VENDOR_DOC_SLOTS.length;
   if (completeCount < REQUIRED_TO_SUBMIT) {
     redirect(
       `/vendor-dashboard/verify?error=${encodeURIComponent(
-        `Submit at least ${REQUIRED_TO_SUBMIT} of the 12 checklist items to start review (currently ${completeCount}).`,
+        `Finish all ${REQUIRED_TO_SUBMIT} of your items to start review (currently ${completeCount} of ${REQUIRED_TO_SUBMIT}). The other 4 checklist items are ones our team runs for you.`,
       )}`,
     );
   }
@@ -309,6 +294,15 @@ export async function submitApplication(formData: FormData): Promise<void> {
     },
     actor_user_id: userId,
     reason: null,
+  });
+
+  // Cross-account signal (Phase B · 2026-06-19): fan out to the admin queue so
+  // the SLA-started application is surfaced (and emailed). Best-effort — never
+  // blocks the submit that already landed.
+  await notifyAdminsApplicationSubmitted({
+    vendorProfileId: profile.vendor_profile_id,
+    applicationId,
+    applicationType: app.application_type as string | null | undefined,
   });
 
   revalidatePath('/vendor-dashboard/verify');

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { PrintButton } from '@/components/print-button';
 import { addPortionRule, deletePortionRule } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Production Sheet · Vendor' };
 
@@ -139,7 +140,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
     : null;
 
   return (
-    <section className="mx-auto w-full max-w-4xl space-y-6 px-4 py-10 sm:px-6 lg:px-8 print:max-w-none print:py-2">
+    <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8 print:max-w-none print:py-2">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <Link
           href={`/vendor-dashboard/clients/${eventId}`}
@@ -163,8 +164,8 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
         <span
           className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
             metrics.finality.is_provisional
-              ? 'bg-amber-100 text-amber-900'
-              : 'bg-emerald-100 text-emerald-900'
+              ? 'bg-warn-100 text-warn-900'
+              : 'bg-success-100 text-success-900'
           }`}
         >
           {metrics.finality.is_provisional
@@ -182,7 +183,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
             ['ceiling', 'Ceiling', 'if every pending shows'],
           ] as const
         ).map(([key, label, hint]) => (
-          <div key={key} className="rounded-2xl border border-ink/10 bg-cream p-4 text-center">
+          <div key={key} className="sn-row p-4 text-center">
             <p className="text-3xl font-semibold tabular-nums">
               {metrics.headcount_scenarios[key]}
             </p>
@@ -194,7 +195,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
 
       <div className="grid gap-6 sm:grid-cols-2">
         {/* Meal mix */}
-        <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+        <div className="sn-tile p-4 sm:p-6">
           <h2 className="text-lg font-semibold">Meal mix (confirmed)</h2>
           {mealEntries.length === 0 ? (
             <p className="mt-2 text-sm text-ink/55">No confirmed guests yet.</p>
@@ -209,7 +210,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
             </ul>
           )}
           {metrics.dietary_restriction_count > 0 ? (
-            <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            <p className="mt-3 rounded-lg bg-warn-50 px-3 py-2 text-xs text-warn-900">
               {metrics.dietary_restriction_count}{' '}
               {metrics.dietary_restriction_count === 1 ? 'guest has' : 'guests have'} dietary
               restriction notes — ask the couple for specifics.
@@ -218,7 +219,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
         </div>
 
         {/* Per-block pax */}
-        <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+        <div className="sn-tile p-4 sm:p-6">
           <h2 className="text-lg font-semibold">Headcount per part of the day</h2>
           <p className="mt-1 text-xs text-ink/50">
             Not everyone is invited to every part — cocktail pax ≠ dinner pax.
@@ -242,7 +243,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
       </div>
 
       {/* Portion rules × live counts */}
-      <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+      <div className="sn-tile p-4 sm:p-6">
         <h2 className="text-lg font-semibold">Ingredient totals</h2>
         <p className="mt-1 text-xs text-ink/50">
           Your per-head rules × today&rsquo;s counts. Rules are saved to your business and
@@ -250,12 +251,12 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
         </p>
 
         {search.rule === 'invalid' ? (
-          <p role="alert" className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <p role="alert" className="mt-3 rounded-lg bg-warn-50 px-3 py-2 text-xs text-warn-900">
             Each rule needs a name, a unit, and a per-guest quantity above zero.
           </p>
         ) : null}
         {search.rule === 'error' ? (
-          <p role="alert" className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <p role="alert" className="mt-3 rounded-lg bg-warn-50 px-3 py-2 text-xs text-warn-900">
             That didn&rsquo;t save — try again.
           </p>
         ) : null}
@@ -301,13 +302,13 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
                       <form action={deletePortionRule}>
                         <input type="hidden" name="event_id" value={eventId} />
                         <input type="hidden" name="rule_id" value={rule.rule_id} />
-                        <button
-                          type="submit"
+                        <SubmitButton
+                          pendingLabel=""
                           aria-label={`Delete ${rule.label}`}
                           className="text-ink/40 hover:text-red-700"
                         >
                           <Trash2 aria-hidden className="h-4 w-4" />
-                        </button>
+                        </SubmitButton>
                       </form>
                     </td>
                   </tr>
@@ -361,9 +362,9 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
                 <input type="number" name="waste_factor_pct" min="0" max="100" step="any" defaultValue="0" className="w-16 rounded-lg border border-ink/20 bg-white px-2 py-1.5" />
               </label>
             </div>
-            <button type="submit" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
+            <SubmitButton pendingLabel="Saving…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
               Save rule
-            </button>
+            </SubmitButton>
           </form>
         </details>
       </div>

@@ -43,11 +43,11 @@ export default async function CustomerContractDetailPage({ params }: Props) {
         Back to contracts
       </Link>
 
-      <header className="space-y-2">
-        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+      <header className="sn-reveal space-y-2">
+        <span className="sn-eye">
           {statusLabel(contract.status)}
         </span>
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+        <h1 className="sn-h1">
           {contract.title}
         </h1>
         <p className="text-sm text-ink/65">
@@ -59,15 +59,15 @@ export default async function CustomerContractDetailPage({ params }: Props) {
           })}
         </p>
         {contract.description ? (
-          <p className="rounded-md border border-ink/10 bg-cream p-3 text-sm text-ink/75">
+          <p className="sn-row p-3 text-sm text-ink/75">
             {contract.description}
           </p>
         ) : null}
       </header>
 
       {/* PDF download */}
-      <section className="rounded-2xl border border-ink/10 bg-cream p-5">
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+      <section className="sn-tile p-5">
+        <p className="sn-eye">
           Contract file
         </p>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -88,7 +88,7 @@ export default async function CustomerContractDetailPage({ params }: Props) {
       </section>
 
       {/* Hosting-only disclosure */}
-      <p className="rounded-md border border-ink/10 bg-cream/60 px-3 py-2 text-xs text-ink/65">
+      <p className="sn-row px-3 py-2 text-xs text-ink/65">
         This contract was uploaded by <strong>{vendorName}</strong> for your
         reference. Setnayan hosts the PDF so both sides have a copy on hand —
         signing happens between you and the vendor outside the app (email,
@@ -97,7 +97,7 @@ export default async function CustomerContractDetailPage({ params }: Props) {
       </p>
 
       {isCancelled && contract.cancelled_at ? (
-        <p className="rounded-md border border-rose-300/60 bg-rose-50 px-3 py-2 text-xs text-rose-900">
+        <p className="rounded-md border border-danger-300/60 bg-danger-50 px-3 py-2 text-xs text-danger-900">
           This contract was cancelled by the vendor on{' '}
           {new Date(contract.cancelled_at).toLocaleString('en-PH', {
             dateStyle: 'medium',

@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { approveTokenPurchase, rejectTokenPurchase } from './actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = {
   title: 'Token sales · Admin',
   robots: { index: false, follow: false },
@@ -48,6 +49,7 @@ function fmtDate(s: string) {
  * Same path a future Maya / PayMongo webhook will call.
  */
 export default async function AdminTokenPurchasesPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
 
   // Admin gate — bounce non-admins before any read.
@@ -136,17 +138,17 @@ export default async function AdminTokenPurchasesPage({ searchParams }: Props) {
       </header>
 
       {search.done === 'approved' && (
-        <div className="mb-6 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+        <div className="mb-6 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
           ✓ Payment confirmed and tokens credited.
         </div>
       )}
       {search.done === 'rejected' && (
-        <div className="mb-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div className="mb-6 rounded-md border border-warn-200 bg-warn-50 px-4 py-3 text-sm text-warn-900">
           Purchase marked rejected. No tokens were credited.
         </div>
       )}
       {search.error && (
-        <div className="mb-6 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+        <div className="mb-6 rounded-md border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-900">
           {search.error}
         </div>
       )}
@@ -205,7 +207,7 @@ export default async function AdminTokenPurchasesPage({ searchParams }: Props) {
                   <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                     <form action={approveTokenPurchase}>
                       <input type="hidden" name="purchase_id" value={p.purchase_id} />
-                      <SubmitButton pendingLabel="Confirming…">
+                      <SubmitButton className="button-primary h-9 px-4 text-sm" pendingLabel="Confirming…">
                         Confirm payment &amp; credit tokens
                       </SubmitButton>
                     </form>
@@ -220,12 +222,12 @@ export default async function AdminTokenPurchasesPage({ searchParams }: Props) {
                         placeholder="Reason (optional)"
                         className="w-44 rounded-md border border-ink/15 bg-paper px-2 py-1.5 text-xs"
                       />
-                      <button
-                        type="submit"
-                        className="rounded-md border border-rose-300 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50"
+                      <SubmitButton
+                        className="rounded-md border border-danger-300 px-3 py-1.5 text-xs font-medium text-danger-700 hover:bg-danger-50"
+                        pendingLabel="Rejecting…"
                       >
                         Reject
-                      </button>
+                      </SubmitButton>
                     </form>
                   </div>
                 </li>
@@ -268,7 +270,7 @@ export default async function AdminTokenPurchasesPage({ searchParams }: Props) {
                       className={
                         'rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ' +
                         (paid
-                          ? 'bg-emerald-100 text-emerald-800'
+                          ? 'bg-success-100 text-success-800'
                           : 'bg-ink/5 text-ink/55')
                       }
                     >
@@ -286,7 +288,7 @@ export default async function AdminTokenPurchasesPage({ searchParams }: Props) {
       </section>
 
       <p className="mt-8 text-center text-xs text-ink/40">
-        <Link href="/admin/token-bands" className="underline hover:text-ink/60">
+        <Link href="/admin/pricing?tab=token-bands" className="underline hover:text-ink/60">
           Token burn bands
         </Link>{' '}
         ·{' '}

@@ -21,6 +21,7 @@
 import { useState, useTransition } from 'react';
 import { Check, Link2, Loader2, Package as PackageIcon } from 'lucide-react';
 import { updateHostServiceDetails } from '../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 export function HostServiceDetails({
   eventId,
@@ -41,6 +42,7 @@ export function HostServiceDetails({
   const [covers, setCovers] = useState<ReadonlySet<string>>(() => new Set(initialCovers));
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const save = useSaveLoader();
 
   function toggleCover(id: string) {
     setSaved(false);
@@ -61,7 +63,10 @@ export function HostServiceDetails({
         fd.set('vendor_id', vendorId);
         fd.set('inclusions', text);
         for (const c of covers) fd.append('covers', c);
-        await updateHostServiceDetails(fd);
+        await save.run(() => updateHostServiceDetails(fd), {
+          steps: ['Saving service details'],
+          hint: 'Saving',
+        });
         setSaved(true);
       } catch {
         setErr('Could not save — try again.');
@@ -137,7 +142,7 @@ export function HostServiceDetails({
       </p>
 
       {err ? (
-        <p role="alert" className="mt-3 text-[11px] text-rose-900">
+        <p role="alert" className="mt-3 text-[11px] text-danger-900">
           {err}
         </p>
       ) : null}
@@ -155,7 +160,7 @@ export function HostServiceDetails({
           {pending ? 'Saving…' : 'Save details'}
         </button>
         {saved ? (
-          <span className="inline-flex items-center gap-1 text-xs text-emerald-800">
+          <span className="inline-flex items-center gap-1 text-xs text-success-800">
             <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.2} />
             Saved — your card and Compare are up to date.
           </span>

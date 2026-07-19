@@ -55,20 +55,20 @@ export function BudgetSetter({
   return (
     <form
       action={formAction}
-      className="rounded-2xl border border-ink/10 bg-white p-5 shadow-sm sm:p-6"
+      className="sn-tile sm:p-6"
       aria-labelledby="budget-setter-heading"
     >
       <input type="hidden" name="event_id" value={eventId} />
 
       <header className="flex items-baseline gap-2">
-        <Wallet aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        <p className="sn-eye">
+          <Wallet aria-hidden strokeWidth={1.75} />
           Your target
         </p>
       </header>
       <h2
         id="budget-setter-heading"
-        className="mt-1 font-display text-2xl italic text-ink/85 sm:text-3xl"
+        className="mt-1 text-2xl font-bold tracking-tight text-ink sm:text-3xl"
       >
         What&rsquo;s your total wedding budget?
       </h2>
@@ -94,7 +94,7 @@ export function BudgetSetter({
           placeholder="₱ 680,000"
           aria-describedby="budget_php_help"
           disabled={isPending}
-          className="input-field h-12 text-xl tabular-nums disabled:opacity-60"
+          className="input-field h-12 font-mono text-xl tabular-nums disabled:opacity-60"
         />
         <p id="budget_php_help" className="text-xs text-ink/65">
           Helps Setnayan project your final cost as you book vendors. You can change
@@ -106,7 +106,7 @@ export function BudgetSetter({
       {state?.ok === true ? (
         <p
           role="status"
-          className="mt-4 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800"
+          className="mt-4 inline-flex items-center gap-2 rounded-full bg-success-50 px-3 py-1.5 text-xs font-medium text-success-800"
         >
           <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           {state.budgetCentavos === null
@@ -117,7 +117,7 @@ export function BudgetSetter({
       {state?.ok === false ? (
         <p
           role="alert"
-          className="mt-4 inline-flex items-center gap-2 rounded-full bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-800"
+          className="mt-4 inline-flex items-center gap-2 rounded-full bg-danger-50 px-3 py-1.5 text-xs font-medium text-danger-800"
         >
           {state.error}
         </p>

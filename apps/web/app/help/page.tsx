@@ -1,11 +1,11 @@
 import Link from 'next/link';
-import { HelpCircle, MessageSquare, Mail, Heart, Briefcase, Mailbox, Shield } from 'lucide-react';
+import { MessageSquare, Mail, Heart, Briefcase, Mailbox, Shield } from 'lucide-react';
 import { HELP_TOPICS, HELP_ROLES, type HelpRole } from '@/lib/help';
 import { createClient } from '@/lib/supabase/server';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Field } from '@/app/_components/forms/field';
-import { Logo } from '@/app/_components/logo';
 import { submitHelpMessage } from './actions';
+import { HelpSearch } from './_components/help-search';
 
 // SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
 // edge cache so static marketing routes serve Google's crawl rate-limit
@@ -16,6 +16,24 @@ export const metadata = {
   title: 'Help & support',
   description:
     'Step-by-step guides for couples, vendors, guests, and admins using Setnayan. Pick your role tile or send us a message.',
+  alternates: { canonical: '/help' },
+  openGraph: {
+    type: 'website',
+    url: '/help',
+    title: 'Help & support · Setnayan',
+    description:
+      'Step-by-step guides for couples, vendors, guests, and admins using Setnayan. Pick your role tile or send us a message.',
+    siteName: 'Setnayan',
+    locale: 'en_PH',
+    images: [{ url: '/brand/og-card.webp', width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Help & support · Setnayan',
+    description:
+      'Step-by-step guides for couples, vendors, guests, and admins using Setnayan. Pick your role tile or send us a message.',
+    images: ['/brand/og-card.webp'],
+  },
 };
 
 const FAQ_JSONLD = {
@@ -72,30 +90,9 @@ export default async function HelpPage({ searchParams }: Props) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_JSONLD) }}
       />
       <main className="min-h-dvh bg-cream">
-        <header className="border-b border-ink/5">
-          <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-            <Link href="/" className="flex items-center text-ink">
-              <Logo height={32} withWordmark title="Setnayan · Help" />
-            </Link>
-            <nav className="flex items-center gap-2">
-              <Link
-                href={user ? '/dashboard' : '/login'}
-                className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:inline"
-              >
-                {user ? 'Open dashboard' : 'Sign in'}
-              </Link>
-              <Link href="/signup" className="button-primary h-10 px-5 text-sm">
-                Create account
-              </Link>
-            </nav>
-          </div>
-        </header>
 
         <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
           <div className="max-w-2xl space-y-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-              Help &amp; support
-            </p>
             <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
               {activeRoleMeta ? `Help for ${activeRoleMeta.label.toLowerCase()}s` : 'How can we help?'}
             </h1>
@@ -153,7 +150,7 @@ export default async function HelpPage({ searchParams }: Props) {
           {search.submitted ? (
             <p
               role="status"
-              className="mt-6 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+              className="mt-6 rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-900"
             >
               Thanks — we got your message (ref{' '}
               <span className="font-mono">{search.submitted}</span>). We&rsquo;ll get back to
@@ -195,46 +192,13 @@ export default async function HelpPage({ searchParams }: Props) {
             </nav>
 
             <div className="space-y-10">
-              {visibleTopics.length === 0 ? (
-                <p className="rounded-xl border border-ink/10 bg-cream p-6 text-sm text-ink/65">
-                  No articles for this role yet. Send us a message below and we&rsquo;ll get back
-                  to you.
-                </p>
-              ) : null}
-              {visibleTopics.map((topic) => (
-                <section key={topic.key} id={topic.key} className="scroll-mt-6 space-y-4">
-                  <div className="flex items-center gap-2">
-                    <HelpCircle
-                      aria-hidden
-                      className="h-4 w-4 text-terracotta"
-                      strokeWidth={1.75}
-                    />
-                    <h2 className="text-xl font-semibold tracking-tight">{topic.label}</h2>
-                  </div>
-                  <ul className="space-y-3">
-                    {topic.articles.map((a) => (
-                      <li
-                        key={a.slug}
-                        id={a.slug}
-                        className="scroll-mt-6 rounded-xl border border-ink/10 bg-cream p-4"
-                      >
-                        {/* Title links to the article's own indexable page
-                            (/help/[slug]) so crawlers discover the per-article
-                            URLs from the hub; the answer stays inline here. */}
-                        <h3 className="text-base font-semibold text-ink">
-                          <Link
-                            href={`/help/${a.slug}`}
-                            className="underline-offset-4 hover:text-terracotta hover:underline"
-                          >
-                            {a.title}
-                          </Link>
-                        </h3>
-                        <p className="mt-1 text-sm text-ink/70">{a.body}</p>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ))}
+              {/* Client-side instant search over the role-filtered corpus —
+                  closes the metadata-vs-reality "no search" gap. Empty box keeps
+                  the topic-grouped list (anchor ids preserved for the sidebar +
+                  /help#slug deep links); typing filters to a flat result list.
+                  The FAQPage JSON-LD above is server-rendered from the full
+                  corpus and is unaffected. */}
+              <HelpSearch topics={visibleTopics} />
 
               <section id="contact" className="scroll-mt-6 space-y-4">
                 <div className="flex items-center gap-2">
@@ -332,30 +296,6 @@ export default async function HelpPage({ searchParams }: Props) {
           </section>
         </div>
 
-        <footer className="border-t border-ink/5">
-          <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-10 text-sm text-ink/55 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-            <div className="flex items-center gap-2 text-ink">
-              <Logo height={24} />
-              <span className="font-mono text-[11px] uppercase tracking-[0.2em]">
-                Setnayan · setnayan.com
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-              <Link href="/" className="hover:text-ink">
-                Home
-              </Link>
-              <Link href="/how-it-works" className="hover:text-ink">
-                How it works
-              </Link>
-              <Link href="/help" className="hover:text-ink">
-                Help
-              </Link>
-              <Link href={user ? '/dashboard' : '/login'} className="hover:text-ink">
-                {user ? 'Dashboard' : 'Sign in'}
-              </Link>
-            </div>
-          </div>
-        </footer>
       </main>
     </>
   );

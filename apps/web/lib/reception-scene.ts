@@ -195,6 +195,7 @@ export const RECEPTION_PARTS: Part[] = [
           O('crystal', 'Crystal tunnel', 'a sparkling crystal-beaded entrance tunnel'),
           O('butterfly', 'Butterfly tunnel', 'a whimsical butterfly entrance tunnel'),
           O('cherry_blossom', 'Cherry blossom', 'a cherry-blossom entrance tunnel'),
+          O('cold_spark', 'Cold spark walk', 'a walkway of cold-spark fountains firing as the couple enters'),
           O('none', 'No tunnel', 'no entrance tunnel'),
         ],
       },
@@ -253,6 +254,45 @@ export const DEFAULT_DESIGN: Record<PartId, Record<string, string>> = {
 /** Selected option id for a part+attribute, falling back to the default. */
 export function sel(design: ReceptionDesign, part: PartId, attr: string): string {
   return design[part]?.[attr] ?? DEFAULT_DESIGN[part][attr]!;
+}
+
+/** Fast lookup of every VALID option id per part → attribute, built once from
+ *  RECEPTION_PARTS. Used by `sanitizeReceptionDesign` to reject unknown ids. */
+const VALID_OPTIONS: Record<string, Record<string, Set<string>>> = (() => {
+  const out: Record<string, Record<string, Set<string>>> = {};
+  for (const part of RECEPTION_PARTS) {
+    out[part.id] = {};
+    for (const attr of part.attributes) {
+      out[part.id]![attr.id] = new Set(attr.options.map((o) => o.id));
+    }
+  }
+  return out;
+})();
+
+/**
+ * Coerce an arbitrary JSONB blob (e.g. `events.reception_design`) into a clean
+ * `ReceptionDesign` — keeping ONLY known part → attribute → valid-option-id
+ * triples and dropping everything else. `sel()` already falls back per-attribute,
+ * so an empty result is safe (renders DEFAULT_DESIGN). Pure + total: never throws
+ * on a malformed value, always returns a usable object. This is the single
+ * trust boundary every 3D/SVG consumer of the stored design should pass through.
+ */
+export function sanitizeReceptionDesign(raw: unknown): ReceptionDesign {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const src = raw as Record<string, unknown>;
+  const out: ReceptionDesign = {};
+  for (const [partId, attrs] of Object.entries(VALID_OPTIONS)) {
+    const partVal = src[partId];
+    if (!partVal || typeof partVal !== 'object' || Array.isArray(partVal)) continue;
+    const partSrc = partVal as Record<string, unknown>;
+    const kept: Record<string, string> = {};
+    for (const [attrId, allowed] of Object.entries(attrs)) {
+      const v = partSrc[attrId];
+      if (typeof v === 'string' && allowed.has(v)) kept[attrId] = v;
+    }
+    if (Object.keys(kept).length > 0) out[partId as PartId] = kept;
+  }
+  return out;
 }
 
 // ---- palette ----
@@ -675,6 +715,30 @@ function entrance(tunnelT: string, runnerT: string, P: (i: number) => string): s
     }
 
   if (tunnelT === 'none') return s;
+  if (tunnelT === 'cold_spark') {
+    // Cold-spark fountain walk — no arches: dark machine boxes flank the aisle
+    // and fire titanium gold-white spark columns. Sparks are NEVER palette-
+    // tinted (realism rule — tunnel catalog 2026-07-08); only the runner
+    // (drawn above) carries the couple's colours.
+    const SPARK = '#FFF3D9';
+    depths.forEach((d, idx) => {
+      const bw = 24 - idx * 6; // machine box width, receding with depth
+      const boxTop = d.y0 - bw * 0.55;
+      for (const mx of [cx - d.half * 0.7, cx + d.half * 0.7]) {
+        s += `<rect x="${(mx - bw / 2).toFixed(1)}" y="${boxTop.toFixed(1)}" width="${bw}" height="${(bw * 0.55).toFixed(1)}" rx="3" fill="#23252B"/>`;
+        // Upward spark fan: a few bright rays + tip dots out of each box.
+        const h = 92 - idx * 24;
+        for (let i = 0; i < 7; i++) {
+          const a = -0.5 + i / 6; // −0.5..0.5 fan spread
+          const x2 = mx + a * (24 - idx * 6);
+          const y2 = boxTop - h * (0.55 + ((i * 29) % 10) / 22);
+          s += `<line x1="${mx.toFixed(1)}" y1="${boxTop.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${SPARK}" stroke-width="${(1.5 - idx * 0.3).toFixed(1)}" opacity="0.85"/>`;
+          s += `<circle cx="${x2.toFixed(1)}" cy="${y2.toFixed(1)}" r="${(1.9 - idx * 0.4).toFixed(1)}" fill="${SPARK}"/>`;
+        }
+      }
+    });
+    return s;
+  }
   depths.forEach((d, idx) => {
     const left = cx - d.half,
       right = cx + d.half;

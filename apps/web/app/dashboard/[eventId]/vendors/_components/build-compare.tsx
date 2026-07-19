@@ -26,6 +26,7 @@ import {
   type PlanBuildSnapshot,
 } from '../build-actions';
 import { applyBuildToWorking } from '../build-pick-actions';
+import { useSaveLoader } from '@/components/sd-loader';
 import { readPinMode } from './build-pin-mode';
 import { goToBuildTab } from './services-takeover';
 import { sortSavedBuilds, displayBuildTitle } from '@/lib/named-builds';
@@ -79,6 +80,7 @@ export function BuildCompare({
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   // Confirm-first guard for Modify (it overwrites the working build).
   const { confirm, dialog } = useConfirm();
+  const save = useSaveLoader();
 
   // Stable column order (named builds oldest-first).
   const orderedBuilds = useMemo(() => sortSavedBuilds(savedBuilds), [savedBuilds]);
@@ -128,10 +130,10 @@ export function BuildCompare({
   const overUnder = (total: number | null) => {
     if (total == null || budgetPhp == null) return null;
     const diff = total - budgetPhp;
-    if (Math.abs(diff) < 1) return { text: 'on budget', tone: 'text-emerald-700' };
+    if (Math.abs(diff) < 1) return { text: 'on budget', tone: 'text-success-700' };
     return diff > 0
-      ? { text: `${peso(diff)} over`, tone: 'text-rose-700' }
-      : { text: `${peso(-diff)} to spare`, tone: 'text-emerald-700' };
+      ? { text: `${peso(diff)} over`, tone: 'text-danger-700' }
+      : { text: `${peso(-diff)} to spare`, tone: 'text-success-700' };
   };
 
   // Save-As: create a NEW named build, or overwrite the chosen one.
@@ -142,12 +144,16 @@ export function BuildCompare({
       return;
     }
     startTransition(async () => {
-      const res = await savePlanBuildNamed({
-        eventId,
-        rawName: name,
-        overwriteBuildId: overwriteId || null,
-        snapshot: { ...currentPlan, pinMode: readPinMode(eventId) },
-      });
+      const res = await save.run(
+        () =>
+          savePlanBuildNamed({
+            eventId,
+            rawName: name,
+            overwriteBuildId: overwriteId || null,
+            snapshot: { ...currentPlan, pinMode: readPinMode(eventId) },
+          }),
+        { steps: ['Saving your build'], hint: 'Saving' },
+      );
       if (!res.ok) setErr(res.error);
       else {
         setName('');
@@ -160,7 +166,10 @@ export function BuildCompare({
   function onDelete(buildId: string) {
     setErr(null);
     startTransition(async () => {
-      const res = await deleteBudgetBuild({ eventId, buildId });
+      const res = await save.run(() => deleteBudgetBuild({ eventId, buildId }), {
+        steps: ['Deleting your build'],
+        hint: 'Saving',
+      });
       if (!res.ok) setErr(res.error);
       else router.refresh();
     });
@@ -205,7 +214,11 @@ export function BuildCompare({
         return;
       }
       router.refresh();
-      goToBuildTab(destination);
+      // "Build absorbs Lock" 2026-06-20 (PR2): the standalone Lock tab is gone —
+      // the lock action + locked list now live in Build. The per-column "lock"
+      // button keeps its "Lock" confirm-label intent but lands the couple on the
+      // Build tab (where they confirm), not the removed Lock tab.
+      goToBuildTab(destination === 'lock' ? 'build' : destination);
     });
   }
 
@@ -255,7 +268,7 @@ export function BuildCompare({
             {overwriteId ? 'Save' : 'Save As'}
           </button>
         </div>
-        {err ? <p className="text-xs text-rose-700">{err}</p> : null}
+        {err ? <p className="text-xs text-danger-700">{err}</p> : null}
       </div>
 
       {/* Side-by-side comparison */}
@@ -308,7 +321,7 @@ export function BuildCompare({
                               onClick={() => onDelete(c.key)}
                               disabled={pending}
                               aria-label={`Delete ${c.title}`}
-                              className="inline-flex items-center gap-0.5 text-[9px] normal-case tracking-normal text-ink/35 hover:text-rose-600 disabled:opacity-50"
+                              className="inline-flex items-center gap-0.5 text-[9px] normal-case tracking-normal text-ink/35 hover:text-danger-600 disabled:opacity-50"
                             >
                               <Trash2 className="h-3 w-3" strokeWidth={1.75} aria-hidden /> delete
                             </button>
@@ -414,11 +427,11 @@ export function BuildCompare({
                             —
                           </span>
                         ) : a.conflictText ? (
-                          <span className="block text-[10px] leading-snug text-rose-700">
+                          <span className="block text-[10px] leading-snug text-danger-700">
                             {a.conflictText}
                           </span>
                         ) : (
-                          <span className="block text-[10px] leading-snug text-emerald-700">
+                          <span className="block text-[10px] leading-snug text-success-700">
                             {a.totalAvailable} day{a.totalAvailable === 1 ? '' : 's'} free
                             {a.dayLabels.length > 0
                               ? ` · ${a.dayLabels.join(' · ')}${a.moreCount > 0 ? ` +${a.moreCount}` : ''}`

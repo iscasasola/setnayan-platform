@@ -54,12 +54,12 @@ export function DemoModeBannerClient({
     <aside
       role="status"
       aria-live="polite"
-      className="sticky top-0 z-50 border-b border-amber-300 bg-amber-50/95 px-4 py-2 text-[12px] text-amber-900 backdrop-blur"
+      className="sticky top-0 z-50 border-b border-warn-300 bg-warn-50/95 px-4 py-2 text-[12px] text-warn-900 backdrop-blur"
     >
       <div className="mx-auto flex w-full max-w-6xl items-start justify-between gap-3 sm:items-center">
-        <p className="text-amber-900">
+        <p className="text-warn-900">
           <span className="font-semibold uppercase tracking-[0.12em]">Demo mode active</span>{' '}
-          <span className="text-amber-800/85">
+          <span className="text-warn-800/85">
             — synthetic vendors are visible with pricing on display. Real-vendor
             posture is unchanged. Demo data must be cleaned out before {deadlineLabel}.
           </span>
@@ -68,7 +68,7 @@ export function DemoModeBannerClient({
           type="button"
           onClick={onDismiss}
           aria-label="Dismiss demo-mode banner for this session"
-          className="shrink-0 rounded-full p-1 text-amber-800/70 hover:bg-amber-100 hover:text-amber-900"
+          className="shrink-0 rounded-full p-1 text-warn-800/70 hover:bg-warn-100 hover:text-warn-900"
         >
           <X aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         </button>

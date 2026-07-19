@@ -11,6 +11,159 @@
 
 ---
 
+## 🚀 LAUNCH NOW — the short list (added 2026-06-18)
+
+> **Bottom line: the code is launch-complete. What stands between you and publicly
+> accepting vendors + couples is the owner-config below — roughly 1 hour of
+> dashboard setup.** Everything further down this file is detail + history; these
+> four items are the only ones that gate go-live.
+
+### ✅ Must-do to go live (the gate)
+
+1. **4 crypto secrets** in Vercel env — `ENCRYPTION_KEY` · `CRON_SECRET` ·
+   `OAUTH_REFRESH_CRON_SECRET` · `INTERNAL_WORKER_SECRET` (originals leaked via
+   PR #291). OAuth decrypt + cron endpoints 401 until set.
+   → *punch-list #1 below.* **~5 min**
+2. **Business identity + payment accounts** — real business name + TIN (the
+   placeholder `000-000-000-000` is live today), BDO + GCash account details,
+   merchant QR images — all in Platform Settings. **No order or BIR receipt can
+   exist until this is filled.** → *Phase 1, Steps 1.1–1.7.* **~20 min**
+3. **R2 CORS + public media host** — in Cloudflare: apply the bucket CORS policy
+   **and** set `R2_PUBLIC_URL` (r2.dev subdomain or `media.setnayan.com`). Until
+   then every browser upload + every public image fails — **including Patiktok
+   capture/render.** → *"R2 file uploads" + Path A/B below.* **~15 min**
+4. **`dpo@setnayan.com` mailbox** routes to a real inbox — RA 10173 requires the
+   privacy contact be reachable before you collect any PII.
+   → *punch-list #2.* **~5 min**
+
+### ✅ Already handled — not blocking (don't worry about these)
+
+- **Prod migrations** — backlog cleared + ledger caught up (2026-06-18).
+- **Build pipeline** — Vercel OOM fixed; PRs merge cleanly (the build is not wedged).
+- **Vendor verification** — **works** via manual admin review (`/admin/verify` →
+  approve the 12-doc application → vendor flips to `verified` → couples see the
+  badge). The Persona/Veriff webhooks are dormant automation for an *unbuilt*
+  ID-liveness flow — NOT required for verification to function.
+- **Web Push** — live (VAPID keys set 2026-06-11).
+
+### 🟡 Deferred, with a working fallback (do when convenient)
+
+- **Email (Resend)** — `RESEND_API_KEY` unset; manual password reset works
+  (Phase 2A). Not a hard blocker, but **no automated emails send** until keyed
+  (payment instructions, vendor messages, "your Patiktok reel is ready",
+  security alerts). → *Phase 2B.*
+- **Persistent login** JWT bump (*Phase 2C*) · **social login** (*Phase 2D*) ·
+  **AI-paywall** flip (revenue — a pricing/copy decision) · the other media SKUs
+  (Panood / LED / Pakanta — gated on owner infra, not code).
+
+---
+
+## 2026-07-13 · Date-anchor family graph — ✅ ALL GATES CLEARED, LIVE
+
+The whole **family graph** (dependents, their milestones, faith rites, godparents,
+godchild birthday reminders, married household) is **built, merged, and LIVE**.
+Owner confirmed 2026-07-13:
+
+1. ✅ **DONE (long done)** — batched DPO / counsel review (G1) complete +
+   `NEXT_PUBLIC_DEPENDENT_PEOPLE=1` set in Vercel. The graph is on.
+2. ✅ **DONE (long done)** — `PABUYA_PUBLIC_ROUTE_ENABLED=1` set; the guest gift
+   page `[slug]/pabuya` is live (e-gifts = the existing Pabuya; no transaction ever
+   flows through Setnayan, so there was never a BSP gate).
+3. ✅ **CONSENTED** — the married-household consent model (joint-children
+   auto-share · co-parenting access persists after a marriage is archived). Details
+   in the corpus **`Family_Graph_Owner_Actions_2026-07-12.md`** §2b.
+
+> ⚠ **Because the dependent flag was already on**, the 2026-07-13 #3202 merge
+> (godparents · cron-free godchild reminders · married-household RLS widening) is
+> **not staged** — it goes live on the next production deploy, including **real
+> godchild-birthday reminder emails** to godparents who have an address + reminders
+> enabled. That is intended and covered by the completed review.
+>
+> Still the standing rule: **do NOT bulk-enable the other flags.**
+
+## 2026-07-09 · Smart Seat-Plan — what's next 🟢 config + testing, no code
+
+The guest ↔ pax ↔ seating "smart seat plan" (9 PRs) is **built, deployed, and
+live** (schema verified on prod 2026-07-09). Everything is active for couples
+now EXCEPT **account auto-surface** (#7b), which is complete but intentionally
+OFF. Remaining owner steps:
+
+1. **[Testing] Turn on account auto-surface to try it.** Vercel → your Setnayan
+   project → **Settings → Environment Variables** → add
+   `FEATURE_ACCOUNT_AUTOSURFACE` = `1` (scope **Production**) → **Deployments →
+   ⋯ → Redeploy**. Safe while you're in testing mode (only your own accounts).
+   **To test:** sign up a test *guest* account with an email you own → sign in as
+   a couple → add a guest using that email → the event appears in the guest
+   account + a "You were added" notice → Decline or Leave hides it. To turn off:
+   delete the var → redeploy. **~5 min.**
+2. **[Before real guests] PH counsel sign-off — REQUIRED.** Auto-surface auto-adds
+   an event to a *real person's* account without their prior acceptance (RA 10173
+   sensitive). Do NOT leave it on once real couples/guests use the site until
+   counsel approves the notice copy + lawful basis. Turnkey packet:
+   `02_Specifications/Account_Autosurface_Counsel_Brief_2026-07-09.md` (spec
+   corpus). Counsel may redline the notice copy — a one-line code change — so run
+   this review *before* launch, not after.
+3. **[Optional] Full behavioral smoke test.** DB migrations are verified in prod
+   (2026-07-09); the only unrun check is the authenticated add-guest → seat flow
+   end-to-end (needs a test login). Runbook: spec
+   `Smart_Seat_Planning_Guest_Reactive_2026-07-08.md` § Verification runbook.
+
+> **Do NOT bulk-enable the other ~24 feature flags.** A 2026-07-09 audit found the
+> 6 genuinely-complete ones are already default-ON, and the rest are off for real
+> reasons — would 404 without Supabase dashboard config (Apple OAuth · anon
+> onboarding · Papic/Panood-anon), half-built (Life-Flash `NEXT_PUBLIC_LIFE_STORY`,
+> PR-5 pending · Vendor add-ons = "Coming soon" placeholder), DPO/counsel-gated
+> (face profile · bazi birth-data · people-connections), a pricing/product call
+> (`SETNAYAN_AI_PAYWALL_ENABLED`), or would lock YOU out (`VENDOR_TIER_FEATURE_GATE`
+> — you're on the free tier). Enabling those shows broken UI, not working features.
+
+---
+
+## 2026-06-30 · ACTIVATE Papic face recognition (host the face model on R2) 🟢 one-time, no code
+
+**What this turns on:** the *entire* Papic face engine — guests' photos automatically
+find the right people by face, and (later) walk-up guests get back to their camera by
+face. **It is already built and shipped — it's just switched off** because the face model
+isn't hosted yet. The code says so itself: *"DORMANT until a model is hosted
+(`NEXT_PUBLIC_FACE_MODEL_URL`)."* No code change, no migration, no server — just host the
+model and set one env var.
+
+**How it works (so you know what you're hosting):** face matching runs **on the guest's
+phone** (`face-api.js`, dlib ResNet, 128-d). Only a tiny math fingerprint ever leaves the
+device — never the photo. Weights are public-domain/MIT (vetted 2026-06-17). Consent is
+mandatory at enrollment (RA 10173).
+
+### Steps
+
+1. **Get the files** (all from the public `face-api.js` weights — `vladmandic/face-api` or
+   `justadudewhohacks/face-api.js` `/weights`):
+   - `ssd_mobilenetv1_model-weights_manifest.json` + its `-shard1` (detector)
+   - `face_landmark_68_model-weights_manifest.json` + its `-shard1`
+   - `face_recognition_model-weights_manifest.json` + its `-shard1` + `-shard2`
+   - the `face-api.js` UMD build (the single `.js` file)
+2. **Upload them to R2** — into a **public-readable, CORS-enabled** path, e.g. the
+   `setnayan-media` bucket under `face-models/` (the same bucket/host as `R2_PUBLIC_URL`;
+   CORS GET must allow `https://www.setnayan.com` — the existing `r2-cors.sh` covers it).
+3. **Set the env var** in Vercel (Production + Preview):
+   - `NEXT_PUBLIC_FACE_MODEL_URL` = the public base URL of that folder
+     (e.g. `https://media.setnayan.com/face-models`).
+   - Optional `NEXT_PUBLIC_FACE_API_URL` if you host the `face-api.js` script elsewhere
+     (defaults to `${NEXT_PUBLIC_FACE_MODEL_URL}/face-api.js`).
+4. **Redeploy** (any push to `main`, or redeploy current).
+
+### Check it worked
+- A guest who enrolls a selfie now produces a non-null `guest_face_enrollments.face_vector`
+  (before: null).
+- Their candid photos start auto-tagging to them (`photo_tags` with `source='auto_face'`),
+  with no QR scan.
+
+Until this is done everything keeps working **image-only** (QR-scan tagging is the fallback);
+nothing breaks, the face layer is just inert. Reference: `apps/web/lib/face-embed.ts`,
+`lib/face-match.ts`, `app/papic/face-enroll-actions.ts`. Plan:
+`~/Documents/Claude/Projects/Setnayan/0012_papic/Papic_Walkup_Face_Identity_Plan_2026-06-29.md` § 2 (AS-BUILT).
+
+---
+
 ## 2026-06-16 · OPTIONAL — Free Papic sampler: R2 lifecycle auto-cleanup
 
 Free-sampler photos now upload under their own R2 key prefix `papic-sampler/`
@@ -1076,7 +1229,17 @@ findings.
 
 ---
 
-## Face auto-tagging — host the model on R2 (DEFERRED, activates the feature)
+## ✅ DONE (activated 2026-06-19) — Face auto-tagging is LIVE on production
+
+**✅ Activated 2026-06-19.** The 7 model files are hosted on R2 `setnayan-media/face-models/`, `NEXT_PUBLIC_FACE_MODEL_URL` is set in Vercel Production (`https://pub-37d64fe618584c2981a88610a55dd439.r2.dev/face-models`), and production was redeployed. Verified: files serve HTTP 200 with CORS allowing `www.setnayan.com`, and the real-face demo against the live matcher confirmed correct tagging (same-person 0.40–0.47, different-person 0.79–0.90, zero false-positive tags). The steps below are retained for reference / re-hosting only.
+
+- **Off-switch (instantly reversible, no data touched):** `vercel env rm NEXT_PUBLIC_FACE_MODEL_URL production` then redeploy → the whole pipeline goes dormant again.
+- **Re-host in one command:** `pnpm host:face-models -- --activate` (apps/web; needs R2 creds in env).
+- **Two open follow-ups (don't affect safety):** (1) the r2.dev public host is rate-limited — connect a custom domain (e.g. `media.setnayan.com`) to the bucket before a packed live event; (2) there's no "remove tag / not me" control yet, so a rare false positive can't be corrected — a small hardening if wanted.
+
+---
+
+### Reference — how it was hosted (DONE above)
 
 Face auto-tagging (guests' faces matched to their RSVP selfie so the gallery
 auto-tags them) is **built and validated** but ships **dormant** — it does
@@ -1088,6 +1251,22 @@ face-api.js (public-domain weights + MIT, validated on real faces 2026-06-17:
 same-person distance 0.40–0.47 vs different-person 0.79–0.90). **No cloud face
 API, no per-photo fee; faces never leave the guest's phone — only a tiny numeric
 fingerprint reaches our server.**
+
+**Fast path — one command** (does steps 1–3 below for you). From `apps/web`, with
+your R2 creds exported (grab them from the Cloudflare R2 dashboard — they're
+"Sensitive" in Vercel and can't be pulled):
+
+```bash
+R2_ACCOUNT_ID=… R2_ACCESS_KEY_ID=… R2_SECRET_ACCESS_KEY=… \
+R2_BUCKET_MEDIA=setnayan-media R2_PUBLIC_URL=https://<your-r2-public-host> \
+pnpm host:face-models -- --activate
+```
+
+It downloads the model + lib from the CDN, uploads them to the public media
+bucket under `face-models/`, then sets `NEXT_PUBLIC_FACE_MODEL_URL` + redeploys.
+Drop `--activate` to host the files but flip the switch yourself (Vercel
+dashboard → Settings → Environment Variables); add `--upload-only` to just host.
+Then do the real-device check below. The manual equivalent:
 
 To turn it on:
 1. Download the 3 face-api.js model sets (detector + landmarks + recognition):
@@ -1107,6 +1286,82 @@ To turn it on:
    real wedding — then tune the thresholds in `lib/face-match-core.ts` if needed.
 
 Until step 3, every embed call is a clean no-op and enrollment stays image-only.
+
+---
+
+## Enable "log in last" for the Inquire Now flow (anonymous-draft onboarding)
+
+The new **Inquire Now → guided onboarding** flow — tap through *event type → date /
+guest-count / location → services*, then **log in at the very end** — needs
+**anonymous-draft onboarding** turned on. With it on, a visitor finishes onboarding
+under a real-but-anonymous account, and a one-tap login at the end converts that
+same account into a permanent one (their event is never lost — no claim/merge).
+This is the *only* thing gating the exact **"fill everything first, log in last"**
+order. Three steps, all in dashboards the code can't reach:
+
+1. **Supabase → Authentication → Providers → Anonymous** — turn on **"Allow
+   anonymous sign-ins."**
+2. **Null-email-tolerant auth-user trigger** — anonymous users have no email, so
+   the current `handle_new_auth_user` trigger would crash the `NOT NULL` insert
+   into `public.users`. *I'll ship this migration as part of the Inquire-flow
+   build; you just confirm it's applied to prod (`supabase db push`).*
+3. **Vercel → Settings → Environment Variables** — set
+   **`NEXT_PUBLIC_ANON_ONBOARDING_ENABLED=true`** (Production) and redeploy.
+
+Until all three are done the Inquire flow **still works** — it just moves the free
+login one step earlier (event → quick signup → onboarding → services → chat)
+instead of last. Flipping these three snaps it to the exact "log in last" order
+with **no code change** (the flow reads the flag). See `lib/anon-onboarding.ts`.
+
+---
+
+## Turn on captcha for auth (Cloudflare Turnstile) — do this WITH anonymous sign-ins
+
+When you enabled "Allow anonymous sign-ins", Supabase warned (correctly) that the
+anonymous endpoint is now a bot-abuse target — a bot can spam it to bloat the
+database and drive up Monthly-Active-User billing. The fix is Supabase's built-in
+captcha. **The code to support it is already shipped** (Cloudflare Turnstile is
+wired into every auth form — login, signup, change-password, and the anonymous
+sign-in paths). It's currently a **strict no-op**: with no site key set, no widget
+renders and auth works exactly as before. You activate it with the steps below.
+
+**IMPORTANT — Supabase captcha is GLOBAL.** Once enabled it gates login, signup,
+password re-auth AND anonymous sign-in. So the activation ORDER matters: get tokens
+flowing in the app FIRST, then flip enforcement on. Do it out of order and you lock
+everyone (including yourself) out of sign-in for a few minutes.
+
+1. **Cloudflare dashboard → Turnstile → Add widget.** Name it "Setnayan Auth",
+   add your domains (`setnayan.com`, `www.setnayan.com`, and the Vercel preview
+   domain if you want previews protected). Widget mode: **Managed** (invisible for
+   real people, challenge only when a visitor looks suspicious). Save. Cloudflare
+   gives you a **Site key** (public) and a **Secret key** (private).
+2. **Vercel → Settings → Environment Variables (Production).** Add
+   **`NEXT_PUBLIC_TURNSTILE_SITE_KEY`** = the Site key from step 1. **Redeploy.**
+   → Now the app mints tokens on every auth form, but Supabase still ignores them
+   (captcha not enabled yet), so nothing changes for users. This is the safe order.
+3. **Supabase → Authentication → Attack Protection (or Auth → Settings) → CAPTCHA.**
+   Turn it **on**, provider **Turnstile (by Cloudflare)**, paste the **Secret key**
+   from step 1. Save. → Enforcement is now live; the tokens from step 2 satisfy it.
+4. **Test before walking away** (use the test accounts in memory
+   `project_setnayan_test_accounts`): sign in on `/login`, create a throwaway
+   account on `/signup`, and change a password in Settings. All three should work
+   normally (the challenge stays invisible for you). If any fails with a "captcha"
+   error, re-check that step 2's redeploy finished before step 3.
+
+**The anonymous flows — what's covered.** There are three anonymous sign-in paths:
+
+- **Anon-draft onboarding** (`NEXT_PUBLIC_ANON_ONBOARDING_ENABLED`) — this one is
+  **LIVE in prod**, so it matters most. It is **fully wired**: the onboarding
+  "finish" button now mints a Turnstile token client-side and passes it into the
+  commit, so it keeps working under captcha. Test it after activating (start a
+  fresh event in an incognito window without signing in — it should land you in
+  the dashboard as it does today).
+- **Papic seat-claim + Panood camera-claim** (`papicSeatAnonEnabled`,
+  `panoodCameraAnonEnabled`) — their server actions accept a token, but the client
+  widget that mints it for those two claim screens lands with a later build. If
+  those flags are ON in prod and you enable captcha, test a Papic/Panood
+  guest-claim; if it errors, tell me and I'll ship their client mint same-day
+  (small change). If they're OFF, there's nothing to worry about.
 
 ---
 

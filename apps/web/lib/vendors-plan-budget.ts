@@ -213,6 +213,18 @@ export type AccordionPick = PlanCardPick & {
    */
   distance_km?: number | null;
   /**
+   * Budget-fit ratio [0,1] fed into the card's per-candidate compat % (the
+   * `budgetFit` dim). Populated from the marketplace + median-anchored
+   * allocation join at page-fetch time; absent → the scorer uses its neutral.
+   */
+  budget_fit_ratio?: number | null;
+  /**
+   * TRUE when the vendor explicitly serves one of the couple's faiths — feeds
+   * the card's compat % (`faithMatch`). Only the positive case is carried;
+   * absent → neutral (never a penalty). Wedding-only in practice.
+   */
+  faith_match?: boolean | null;
+  /**
    * Accept-gate state (CLAUDE.md 2026-06-02 · #1c). The chat thread for this
    * marketplace vendor: 'pending' = the couple's auto-inquiry is waiting for
    * the vendor to accept; 'accepted' = chat open; 'declined' = vendor not
@@ -235,6 +247,26 @@ export type VendorEnrichment = {
   is_verified?: boolean;
   is_setnayan_service?: boolean;
   distance_km?: number | null;
+  /** Fit-badge · service-radius reach (2026-07-09). TRUE = the vendor's tier
+   *  radius reaches the event venue; FALSE = out of range; undefined/null =
+   *  unknown (no coords / unscoped tier) → the bench hides the reach badge. */
+  within_radius?: boolean | null;
+  /** The vendor's tier service radius in km (Verified 20 · Pro 50) when finite,
+   *  else null — feeds the reach badge's "within N km" label. */
+  service_radius_km?: number | null;
+  /** The picked service's "starts at" anchor (vendor_services.starting_price_php)
+   *  — the budget-fit fallback basis when the vendor hasn't sent a quote yet
+   *  (total_cost_php is null). PHP whole pesos. */
+  starting_price_php?: number | null;
+  /** Budget-fit ratio [0,1] for the card's compat % (compat-score `budgetFit`
+   *  dim) — priceFitScore(starting_price_php, the couple's allocated ₱ for this
+   *  vendor's category). null/absent → neutral (no budget, or unmappable). */
+  budget_fit_ratio?: number | null;
+  /** TRUE when the vendor's compatible_ceremony_types explicitly lists one of
+   *  the couple's faiths (compat-score `faithMatch` → `faithFit` dim). Only the
+   *  positive case is carried; null/absent → neutral (serves-all / non-wedding /
+   *  no match) — never a penalty. */
+  faith_match?: boolean | null;
   /** Accept-gate state for this vendor's chat thread (#1c). */
   inquiry_status?: ChatInquiryStatus | null;
   /** Linked-services-on-card labels for this vendor's picked service.
@@ -525,7 +557,7 @@ export function buildPlanBudgetModel(args: {
   const folderLabelMap = taxonomy?.folderLabel ?? WEDDING_FOLDER_LABEL;
   const folderSlugMap = taxonomy?.folderSlug ?? WEDDING_FOLDER_SLUG;
 
-  // Bucket raw rows into the 26 plan groups (reuses the canonical bucketer
+  // Bucket raw rows into the plan groups (reuses the canonical bucketer
   // so compatibility chips + status all stay consistent with event-home).
   const bucketed = bucketVendorsByGroup(vendorRows, ceremonyType, venueSetting);
 
@@ -558,6 +590,8 @@ export function buildPlanBudgetModel(args: {
       ...(ext?.is_verified ? { is_verified: true } : {}),
       ...(ext?.is_setnayan_service ? { is_setnayan_service: true } : {}),
       ...(ext?.distance_km != null ? { distance_km: ext.distance_km } : {}),
+      ...(ext?.budget_fit_ratio != null ? { budget_fit_ratio: ext.budget_fit_ratio } : {}),
+      ...(ext?.faith_match != null ? { faith_match: ext.faith_match } : {}),
       ...(ext?.inquiry_status != null ? { inquiry_status: ext.inquiry_status } : {}),
       ...(ext?.linked_services?.length
         ? {

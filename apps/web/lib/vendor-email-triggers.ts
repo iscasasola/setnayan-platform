@@ -467,3 +467,139 @@ export async function sendVendorSlowResponseEmail(
     text,
   });
 }
+
+// ---------------------------------------------------------------------------
+// 8. Featured in a Real Wedding Story → credited vendor
+// ---------------------------------------------------------------------------
+
+/**
+ * Tells a credited vendor that one of their weddings has been featured on
+ * Setnayan's Real Stories — the marketing payoff of the Featured-in-Real-Stories
+ * benefit. The couple is notified separately (admin/real-stories action); this
+ * is the vendor-facing half. Best-effort: callers ignore the result so a failed
+ * send never blocks the admin feature action.
+ */
+export async function sendVendorFeaturedInStoryEmail(
+  vendorProfileId: string,
+  storyUrl: string,
+  coupleLabel: string,
+): Promise<SendEmailResult> {
+  const contact = await fetchVendorContact(vendorProfileId);
+  if (!contact) return { ok: false, reason: 'send_failed', error: 'vendor contact not found' };
+
+  const text = [
+    `Hi ${contact.businessName},`,
+    ``,
+    `Good news — ${coupleLabel}'s wedding, which you worked on, has been`,
+    `featured on Setnayan's Real Wedding Stories. Your work is credited in the`,
+    `story, in front of every couple browsing for inspiration.`,
+    ``,
+    `See the story (and your credit):`,
+    storyUrl,
+    ``,
+    `Share it with your own audience — a featured wedding is a great proof point.`,
+    ``,
+    `—`,
+    `Set na 'yan.`,
+    `Setnayan HQ`,
+  ].join('\n');
+
+  return sendEmail({
+    to: contact.email,
+    subject: `Your work is featured in a Setnayan Real Wedding Story`,
+    text,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 9. Booked-Out Waitlist — a slot opened up on a vendor the couple is waiting on
+//    Couple-facing. Fired by the vendor's one-click "notify" action and by the
+//    auto-on-free path when a vendor removes a calendar block (Next 15 after()).
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve a couple's notification email from their auth/user account.
+ * Mirrors the vendor lookup above but on the couple side (users.email keyed by
+ * user_id). Returns null when the user can't be found.
+ */
+async function fetchCoupleContact(userId: string): Promise<{
+  email: string;
+  displayName: string;
+} | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('users')
+    .select('email, display_name')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error || !data?.email) {
+    console.error('[vendor-email] fetchCoupleContact failed:', error?.message ?? 'not found', { userId });
+    return null;
+  }
+
+  return {
+    email: data.email,
+    displayName: data.display_name?.trim() || 'there',
+  };
+}
+
+/**
+ * Tells a couple on a vendor's Booked-Out Waitlist that the date they wanted
+ * has freed up — the payoff of the waitlist benefit. Best-effort: a failed send
+ * never blocks the calling server action (vendor one-click / block removal).
+ *
+ * `vendorLabel` is the vendor's public/display name (the caller passes the
+ * already-resolved label so the couple sees what they saw on the profile).
+ * `requestedDate` is the ISO `YYYY-MM-DD` the couple waitlisted.
+ */
+export async function sendWaitlistSlotOpenedEmail(
+  userId: string,
+  vendorLabel: string,
+  requestedDate: string,
+  vendorSlug: string | null,
+): Promise<SendEmailResult> {
+  const contact = await fetchCoupleContact(userId);
+  if (!contact) return { ok: false, reason: 'send_failed', error: 'couple contact not found' };
+
+  const prettyDate = (() => {
+    try {
+      return new Date(`${requestedDate}T00:00:00+08:00`).toLocaleDateString('en-PH', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+    } catch {
+      return requestedDate;
+    }
+  })();
+
+  const profileUrl = vendorSlug ? `${APP_URL}/v/${vendorSlug}` : `${APP_URL}/explore`;
+
+  const text = [
+    `Hi ${contact.displayName},`,
+    ``,
+    `Good news — a date you were waiting on just opened up.`,
+    ``,
+    `Vendor:  ${vendorLabel}`,
+    `Date:    ${prettyDate}`,
+    ``,
+    `You joined ${vendorLabel}'s waitlist for this date because it was booked at`,
+    `the time. It's available again now — but dates like this don't stay open`,
+    `long, so reach out soon if you'd still like to book.`,
+    ``,
+    `View their profile and send an inquiry:`,
+    profileUrl,
+    ``,
+    `—`,
+    `Set na 'yan.`,
+    `Setnayan HQ`,
+  ].join('\n');
+
+  return sendEmail({
+    to: contact.email,
+    subject: `A date opened up with ${vendorLabel}`,
+    text,
+  });
+}

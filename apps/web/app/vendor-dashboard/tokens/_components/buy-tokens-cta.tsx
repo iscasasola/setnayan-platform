@@ -47,18 +47,26 @@ export type TokenPack = {
   price_php: number;
 };
 
+/** A teammate an admin can credit a pack to. The first entry ('' = yourself). */
+export type TokenRecipient = {
+  user_id: string; // '' means the buyer (self)
+  label: string;
+};
+
 const NUMBER = new Intl.NumberFormat('en-PH');
 
 /**
  * Mobile SRP multiplier: 1.5× the web price.
- * Pack SRP prices (at ₱100/token web price):
- *   4-pack  → ₱400 web  → ₱600 mobile
- *   10-pack → ₱1,000 web → ₱1,500 mobile
- *   25-pack → ₱2,500 web → ₱3,750 mobile
- *   50-pack → ₱5,000 web → ₱7,500 mobile
- *   100-pack→ ₱10,000 web → ₱15,000 mobile
+ * Pack SRP prices (flat ₱200/token web price · 2026-07-15 catalog restructure,
+ * anchored at ₱1,000 = 5 tokens):
+ *   5-pack  → ₱1,000 web  → ₱1,500 mobile
+ *   10-pack → ₱2,000 web  → ₱3,000 mobile
+ *   25-pack → ₱5,000 web  → ₱7,500 mobile
+ *   50-pack → ₱10,000 web → ₱15,000 mobile
+ *   100-pack→ ₱20,000 web → ₱30,000 mobile
  *
- * If the admin changes the base token price, the SRP scales proportionally.
+ * The web token price is DERIVED from the live pack catalog below (price_php ÷
+ * token_count), so this SRP scales automatically whenever the admin reprices.
  */
 const MOBILE_SRP_MULTIPLIER = 1.5;
 
@@ -67,8 +75,17 @@ function mobileSrp(webPrice: number): number {
   return Math.round((webPrice * MOBILE_SRP_MULTIPLIER) / 50) * 50;
 }
 
-export function BuyTokensCta({ packs }: { packs: TokenPack[] }) {
+export function BuyTokensCta({
+  packs,
+  recipients,
+}: {
+  packs: TokenPack[];
+  /** Provided only to admins with teammates → enables "buy for a teammate". */
+  recipients?: TokenRecipient[];
+}) {
   const [native, setNative] = useState(false);
+  const [holder, setHolder] = useState('');
+  const canChooseRecipient = (recipients?.length ?? 0) > 1;
 
   useEffect(() => {
     setNative(isNativeApp());
@@ -80,14 +97,14 @@ export function BuyTokensCta({ packs }: { packs: TokenPack[] }) {
   const webTokenPrice =
     firstPack != null
       ? Math.round(firstPack.price_php / firstPack.token_count)
-      : 100;
+      : 200;
   const mobileTokenPrice = Math.round(webTokenPrice * MOBILE_SRP_MULTIPLIER);
 
   return (
-    <div className="m-card p-6">
+    <div className="sn-tile p-6">
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
-          <p className="m-label-mono">Token packs</p>
+          <p className="sn-eye">Token packs</p>
           <p className="mt-1 text-sm text-ink/65">
             Buy tokens to unlock matched couples. Purchased tokens never expire.
           </p>
@@ -108,9 +125,29 @@ export function BuyTokensCta({ packs }: { packs: TokenPack[] }) {
       {native && (
         <WebNudgeBanner
           savingsCopy={`₱${NUMBER.format(webTokenPrice)}/token (save ₱${NUMBER.format(mobileTokenPrice - webTokenPrice)} each)`}
-          webUrl="https://setnayan.com/vendor-dashboard/tokens"
+          webUrl="https://setnayan.com/vendor-dashboard/subscription"
         />
       )}
+
+      {canChooseRecipient ? (
+        <label className="mb-3 block space-y-1">
+          <span className="block text-[11px] font-medium text-ink/70">Credit these tokens to</span>
+          <select
+            value={holder}
+            onChange={(e) => setHolder(e.target.value)}
+            className="input-field cursor-pointer text-sm"
+          >
+            {recipients!.map((r) => (
+              <option key={r.user_id || 'self'} value={r.user_id}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+          <span className="block text-[11px] text-ink/50">
+            Tokens belong to whoever holds them — they can’t be transferred later.
+          </span>
+        </label>
+      ) : null}
 
       {packs.length === 0 ? (
         <p className="text-sm text-ink/60">
@@ -137,7 +174,10 @@ export function BuyTokensCta({ packs }: { packs: TokenPack[] }) {
                 </div>
                 <form action={startTokenPurchase} className="shrink-0">
                   <input type="hidden" name="pack_sku_code" value={pack.sku_code} />
-                  <SubmitButton pendingLabel="Starting…">Buy</SubmitButton>
+                  {canChooseRecipient ? (
+                    <input type="hidden" name="holder_user_id" value={holder} />
+                  ) : null}
+                  <SubmitButton className="button-primary h-9 px-4 text-sm" pendingLabel="Starting…">Buy</SubmitButton>
                 </form>
               </li>
             );

@@ -3,6 +3,7 @@ import { Wallet, Clock3, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ConfirmForm } from '@/app/_components/confirm-form';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import {
   PAYOUT_STAGE_LABEL,
@@ -12,6 +13,7 @@ import {
 } from '@/lib/payouts';
 import { markPayoutPaidAction, holdPayoutAction } from './actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Vendor payouts · Admin' };
 
 type FilterKey = 'pending' | 'paid' | 'on_hold' | 'all';
@@ -82,6 +84,7 @@ const STAGE_TABS: Array<{ key: StageFilter; label: string }> = [
 ];
 
 export default async function AdminPayoutsPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const filter = parseFilter(search.filter);
   const stage = parseStage(search.stage);
@@ -137,7 +140,7 @@ export default async function AdminPayoutsPage({ searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">
+        <p className="sn-eye">
           Iteration 0006 + 0034 · Vendor Payout model (2026-05-16 lock)
         </p>
         <h1 className="text-2xl font-semibold tracking-tight">Vendor payouts</h1>
@@ -158,21 +161,21 @@ export default async function AdminPayoutsPage({ searchParams }: Props) {
           icon={<Clock3 className="h-4 w-4" />}
           label="Pending (filtered)"
           value={formatCentavosPhp(pendingTotal)}
-          tone="bg-amber-100 text-amber-800"
+          tone="bg-warn-100 text-warn-800"
           help={`${rows.filter((r) => !r.paid_at && !r.on_hold).length} stage(s)`}
         />
         <Stat
           icon={<CheckCircle2 className="h-4 w-4" />}
           label="Paid (filtered)"
           value={formatCentavosPhp(paidTotal)}
-          tone="bg-emerald-100 text-emerald-800"
+          tone="bg-success-100 text-success-800"
           help={`${rows.filter((r) => !!r.paid_at).length} stage(s)`}
         />
         <Stat
           icon={<AlertTriangle className="h-4 w-4" />}
           label="On hold (filtered)"
           value={formatCentavosPhp(onHoldTotal)}
-          tone="bg-rose-100 text-rose-800"
+          tone="bg-danger-100 text-danger-800"
           help={`${rows.filter((r) => r.on_hold).length} stage(s)`}
         />
       </section>
@@ -192,7 +195,7 @@ export default async function AdminPayoutsPage({ searchParams }: Props) {
       ) : null}
 
       {rows.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-ink/15 bg-cream p-10 text-center">
+        <div className="rounded-2xl border border-dashed border-ink/15 bg-white/50 p-10 text-center">
           <Wallet aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
           <p className="text-sm font-medium text-ink">No payouts match this filter.</p>
           <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
@@ -256,7 +259,7 @@ function FilterBar({
           </Link>
         ))}
       </div>
-      <form className="flex flex-wrap items-end gap-2 rounded-2xl border border-ink/10 bg-cream p-3" method="get">
+      <form className="flex flex-wrap items-end gap-2 sn-tile p-3" method="get">
         <input type="hidden" name="filter" value={filter} />
         {stage !== 'all' ? <input type="hidden" name="stage" value={stage} /> : null}
         <label className="block text-xs text-ink/60">
@@ -309,7 +312,7 @@ function PayoutCard({ row }: { row: PayoutRow }) {
   const isHeld = !!row.on_hold;
 
   return (
-    <li className="rounded-2xl border border-ink/10 bg-cream p-4">
+    <li className="sn-tile p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -317,15 +320,15 @@ function PayoutCard({ row }: { row: PayoutRow }) {
               {stageLabel}
             </span>
             {isPaid ? (
-              <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-800">
+              <span className="rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
                 Paid
               </span>
             ) : isHeld ? (
-              <span className="rounded-full bg-rose-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-rose-800">
+              <span className="rounded-full bg-danger-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-danger-800">
                 On hold
               </span>
             ) : (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-amber-800">
+              <span className="rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-warn-800">
                 Scheduled
               </span>
             )}
@@ -372,14 +375,21 @@ function PayoutCard({ row }: { row: PayoutRow }) {
       </dl>
 
       {row.hold_reason ? (
-        <p className="mt-2 rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-xs text-rose-900">
+        <p className="mt-2 rounded-md border border-danger-200 bg-danger-50 px-2 py-1 text-xs text-danger-900">
           <span className="font-medium">On hold:</span> {row.hold_reason}
         </p>
       ) : null}
 
       {!isPaid ? (
         <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-ink/10 pt-3">
-          <form action={markPayoutPaidAction} className="flex flex-wrap items-center gap-2">
+          <ConfirmForm
+            action={markPayoutPaidAction}
+            title="Mark this payout as paid?"
+            confirmLabel="Mark paid"
+            destructive={false}
+            message="This records the vendor's payout as sent (rail + reference) and emails them a payment confirmation. Do this only after the money has actually left your account."
+            className="flex flex-wrap items-center gap-2"
+          >
             <input type="hidden" name="payout_id" value={row.payout_id} />
             <select
               name="payment_method"
@@ -399,9 +409,15 @@ function PayoutCard({ row }: { row: PayoutRow }) {
             <SubmitButton className="button-primary h-8 px-3 text-xs">
               Mark paid
             </SubmitButton>
-          </form>
+          </ConfirmForm>
           {!isHeld ? (
-            <form action={holdPayoutAction} className="flex flex-wrap items-center gap-2">
+            <ConfirmForm
+              action={holdPayoutAction}
+              title="Place this payout on hold?"
+              confirmLabel="Place on hold"
+              message="This freezes the vendor's pending payout. There's no automatic release in V1 — it stays held until you lift it manually."
+              className="flex flex-wrap items-center gap-2"
+            >
               <input type="hidden" name="payout_id" value={row.payout_id} />
               <input
                 name="reason"
@@ -412,7 +428,7 @@ function PayoutCard({ row }: { row: PayoutRow }) {
               <SubmitButton className="button-secondary h-8 px-3 text-xs">
                 Place on hold
               </SubmitButton>
-            </form>
+            </ConfirmForm>
           ) : null}
         </div>
       ) : null}
@@ -446,7 +462,7 @@ function Stat({
   tone: string;
 }) {
   return (
-    <div className="rounded-2xl border border-ink/10 bg-cream p-4">
+    <div className="sn-tile p-4">
       <div className="flex items-center gap-2">
         <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full ${tone}`}>
           {icon}
@@ -466,7 +482,7 @@ function FlashBanner({ flash, error }: { flash?: string; error?: string }) {
   return (
     <div className="mb-4 space-y-2">
       {flash ? (
-        <p className="rounded-md border border-emerald-300/50 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+        <p className="rounded-md border border-success-300/50 bg-success-50 px-4 py-3 text-sm text-success-900">
           {decodeURIComponent(flash)}
         </p>
       ) : null}

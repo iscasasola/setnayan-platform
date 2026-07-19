@@ -1,13 +1,13 @@
 {
   "name": "Setnayan",
   "short_name": "Setnayan",
-  "description": "Set na 'yan. Philippines-first life-events platform.",
+  "description": "Set na 'yan. Plan your Filipino wedding free, then keep every celebration in one place — the Philippines-first wedding & life-events platform.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
-  "theme_color": "#FAF7F2",
-  "background_color": "#FAF7F2",
+  "theme_color": "#FBFBFA",
+  "background_color": "#FBFBFA",
   "categories": ["lifestyle", "social", "productivity"],
   "lang": "en-PH",
   "icons": [

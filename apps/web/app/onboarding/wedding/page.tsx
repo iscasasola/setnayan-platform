@@ -21,10 +21,13 @@
  */
 import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
+import { safeNext } from '@/lib/auth';
+import { getSelfPersonalization } from '@/lib/self-personalization';
 import { fetchActiveCeremonyTypes } from '@/lib/religion-readiness';
 import { fetchV2CustomerCatalog, fetchV2BundleCatalog } from '@/lib/v2-catalog';
 import { fetchOnboardingBgMusicUrl } from '@/lib/platform-settings';
 import { getOnboardingRefinements, getOnboardingTiles } from '@/lib/onboarding-refinements';
+import { getBudgetBands } from '@/lib/budget-bands';
 import { hiddenOnboardingExtraCats } from '@/lib/onboarding-availability';
 import { OnboardingShell } from './_components/onboarding-shell';
 import { buildOnboardingPricing } from './_components/onboarding-pricing';
@@ -70,14 +73,19 @@ export const metadata: Metadata = {
 export default async function OnboardingWeddingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ resume?: string }>;
+  searchParams: Promise<{ resume?: string; next?: string }>;
 }) {
   const sp = await searchParams;
+  // Optional vendor-invite return path (2026-06-30): a 0-event couple sent here
+  // from /vendor-invite/[slug] to create their first event is returned to it
+  // after the commit so they can finish shortlisting the vendor. safeNext()
+  // keeps it to internal paths only.
+  const nextPath = safeNext(sp.next);
   const supabase = await createClient();
   // Fetch the active wedding religions alongside auth so the faith picker can
   // gate on the launch status (admin /admin/wedding-types flips these). Returns
   // null on any read error → the shell falls back to its built-in soon flags.
-  const [userRes, activeFaiths, customerSkus, bundles, bgMusicUrl, refinements, hiddenCats, dynamicTiles] = await Promise.all([
+  const [userRes, activeFaiths, customerSkus, bundles, bgMusicUrl, refinements, hiddenCats, dynamicTiles, budgetBands] = await Promise.all([
     supabase.auth.getUser(),
     fetchActiveCeremonyTypes(supabase),
     fetchV2CustomerCatalog(),
@@ -94,6 +102,9 @@ export default async function OnboardingWeddingPage({
     // Taxonomy-driven PICK step (2026-06-17): tier-2 tiles scoped to weddings from
     // service_categories. [] on error → shell falls back to static PICK_GROUPS_FALLBACK.
     getOnboardingTiles('wedding'),
+    // Admin-tunable budget feel-bands (owner 2026-06-19, screen 9). DB-first,
+    // falls back to BUDGET_BANDS_FALLBACK on any read error/empty.
+    getBudgetBands(),
   ]);
   const user = userRes.data.user;
   // Build the onboarding pricing view-model from the live admin catalog. No
@@ -103,16 +114,33 @@ export default async function OnboardingWeddingPage({
   // authoritative pax charge is still recomputed server-side at order time by
   // resolvePaxPricedOrderCentavos in submitOrderAction (unchanged).
   const pricing = buildOnboardingPricing(customerSkus, bundles);
+
+  // Date-anchor model: pre-select the faith on a Religious wedding from the
+  // user's OWN profile religion (reference-only, opt-in). Only when it maps to
+  // an ACTIVE ceremony faith — never pre-select an inactive/coming-soon faith.
+  // The shell applies this only on the "Religious" kind and never overrides a
+  // resumed draft.
+  let religionDefault: string | null = null;
+  if (user) {
+    // Shared self-profile reader (2026-07-13) — same religion value as the prior
+    // inline `users` select, now via one canonical helper reused across flows.
+    const { religion } = await getSelfPersonalization();
+    if (religion && (activeFaiths ?? []).includes(religion)) religionDefault = religion;
+  }
+
   return (
     <OnboardingShell
       authed={!!user}
       resume={sp.resume === '1'}
       activeFaiths={activeFaiths}
+      religionDefault={religionDefault}
       pricing={pricing}
       bgMusicUrl={bgMusicUrl}
       refinements={refinements}
       hiddenCats={hiddenCats}
       dynamicTiles={dynamicTiles}
+      budgetBands={budgetBands}
+      nextPath={nextPath !== '/' ? nextPath : null}
     />
   );
 }

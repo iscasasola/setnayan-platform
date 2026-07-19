@@ -17,8 +17,50 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import {
+  resolveRegion,
+  regionSlugForCity,
+  regionByPsgc,
+} from '@/lib/region-source';
+import { regionForCity } from '@/lib/regions';
 
 const MAX_BUDGET_PHP = 100_000_000;
+
+/**
+ * Normalize the Build-tab Location anchor to the CANONICAL region slug that the
+ * burn RPC (`unlock_vendor_event`) alias-resolves on — slug / psgc_code /
+ * aliases[]. A raw city string (e.g. "Tagaytay") matches NONE of those, so the
+ * RPC falls to the band-1 floor and silently UNDER-CHARGES the inquiry burn
+ * (CALABARZON is band 3 ₱300 → charged ₱100). Resolve at write time so
+ * `events.region` always carries a band-resolvable value:
+ *   1. exact region spelling (slug · underscore · PSGC · alias) → its slug
+ *   2. city → canonical slug via the DB city-alias cache (regionSlugForCity)
+ *   3. city → PSGC via regionForCity → that region's canonical slug
+ *   4. unrecognized free text → kept verbatim (capped) so the couple's typed
+ *      value isn't lost; this is the only path that can still floor to band-1,
+ *      and it's an explicit, narrow fallback rather than the default.
+ * `events.region` is a single column with no separate display field, so the
+ * resolved slug IS what we persist.
+ */
+function normalizeRegionAnchor(value: string): string {
+  // 1. Exact region spelling in any of the four vocabularies.
+  const direct = resolveRegion(value);
+  if (direct) return direct.slug;
+
+  // 2. City → canonical slug via the wedding_destinations city-alias cache.
+  const citySlug = regionSlugForCity(value);
+  if (citySlug) return citySlug;
+
+  // 3. City → PSGC (regionForCity returns a PSGC code) → canonical slug.
+  const psgc = regionForCity(value);
+  if (psgc) {
+    const row = regionByPsgc(psgc);
+    if (row) return row.slug;
+  }
+
+  // 4. Unrecognized — keep the typed text (capped) rather than dropping it.
+  return value.slice(0, 120);
+}
 
 export type SetAnchorResult = { ok: true } | { ok: false; error: string };
 
@@ -60,8 +102,10 @@ export async function setAnchor(formData: FormData): Promise<SetAnchorResult> {
       patch.estimated_budget_centavos = Math.round(php * 100);
     }
   } else {
-    // location → region (single value; the event carries one region, not two)
-    patch.region = value.length === 0 ? null : value.slice(0, 120);
+    // location → region (single value; the event carries one region, not two).
+    // Normalize to the canonical slug the burn RPC resolves on, so a typed city
+    // doesn't silently floor the inquiry burn to band-1 (under-charge leak).
+    patch.region = value.length === 0 ? null : normalizeRegionAnchor(value);
   }
 
   const supabase = await createClient();

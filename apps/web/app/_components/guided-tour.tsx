@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { X, ArrowLeft, ArrowRight } from 'lucide-react';
 import { TOURS, type TourKey } from '@/lib/tours';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 type Props = {
   tourKey: TourKey;
@@ -22,14 +23,9 @@ export function GuidedTour({ tourKey, completeAction }: Props) {
   const [open, setOpen] = useState(true);
   const [step, setStep] = useState(0);
   const [pending, startTransition] = useTransition();
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   const slides = TOURS[tourKey].slides;
-
-  if (!open) return null;
-
-  const current = slides[step];
-  if (!current) return null;
-  const isLast = step === slides.length - 1;
 
   const dismiss = (): void => {
     setOpen(false);
@@ -38,12 +34,24 @@ export function GuidedTour({ tourKey, completeAction }: Props) {
     });
   };
 
+  // Focus-in/trap/restore + Esc-to-close + scroll-lock. The tour is a centered
+  // modal card — the user only acts on its own Back/Next/Skip buttons — so a
+  // focus trap is the right behavior.
+  useModalA11y({ open, onClose: dismiss, containerRef: dialogRef });
+
+  if (!open) return null;
+
+  const current = slides[step];
+  if (!current) return null;
+  const isLast = step === slides.length - 1;
+
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby="guided-tour-title"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 sm:items-center focus:outline-none"
     >
       <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-ink/10 bg-cream shadow-[0_30px_80px_-40px_rgba(26,26,26,0.5)]">
         <button

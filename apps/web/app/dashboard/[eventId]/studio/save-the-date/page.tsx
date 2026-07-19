@@ -1,0 +1,440 @@
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { ArrowLeft, Check, Eye, Sparkles, Stamp } from 'lucide-react';
+import { createClient } from '@/lib/supabase/server';
+import { sanitizeRolePalette } from '@/lib/mood-board';
+import {
+  sealColorFromPalette,
+  veilColorFromPalette,
+  stdAccentFromPalette,
+  paletteSwatches,
+} from '@/lib/site-palette';
+import { isChineseWedding } from '@/lib/chinese-wedding';
+import { RED_GOLD_PALETTE } from '@/lib/feel-palettes';
+import { manilaToday, summarizeStdViews } from '@/lib/std-views';
+import { fallbackSeedFromPublicId, sanitizeWaxSealConfig } from '@/lib/wax-seal/types';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { resolveStdFilmContent } from '@/lib/save-the-date-content';
+import { resolveMonogram } from '@/lib/monogram';
+import { type StdLockup } from '@/app/[slug]/_components/save-the-date-film';
+import { resolveStdTheme } from '@/lib/std-themes';
+import { resolveRevealEffects } from '@/lib/std-reveal-effects';
+import { resolveStdBackground } from '@/lib/std-backgrounds';
+import { resolveStdMedia } from '@/lib/std-media';
+import { resolveStdFinalizedVenues } from '@/lib/std-venues';
+import { REVEAL_TEMPLATE_IDS, fetchRevealConfig } from '@/lib/reveal-config';
+import {
+  NO_REVEAL,
+  type RevealTemplate,
+  type RevealChoice,
+} from '@/app/[slug]/_components/reveal/reveal-templates';
+import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { formatPhp } from '@/lib/orders';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
+import {
+  eventOwnsStdOpenings,
+  STD_PREMIUM_OPENINGS_SERVICE_KEY,
+} from '@/lib/std-openings';
+import { StdBuilderClient } from './_components/StdBuilderClient';
+import { LaunchStdButton } from './_components/launch-std-button';
+import { FeatureUsCard } from '@/app/dashboard/[eventId]/_components/feature-us-card';
+
+// 2026-06-19 — builder redesign: the 5-step builder (1 Background [+ theme:
+// fonts/colours] · 2 Content · 3 Video/Gallery · 4 Music · 5 Opening/reveal) +
+// a live preview that updates in real time, and ONE Render button that saves
+// everything in a single write. The old per-field form rows (each with their own
+// Save button + redirect) are replaced by this client-driven builder; server
+// still resolves the initial data + presigned media URLs.
+
+export const metadata = { title: 'Save the Date · Setnayan' };
+
+type Props = {
+  params: Promise<{ eventId: string }>;
+};
+
+function coerceTemplate(v: unknown): RevealChoice | null {
+  if (v === NO_REVEAL) return NO_REVEAL; // the couple's explicit "No Reveal"
+  return typeof v === 'string' && (REVEAL_TEMPLATE_IDS as readonly string[]).includes(v)
+    ? (v as RevealTemplate)
+    : null;
+}
+
+export default async function SaveTheDatePage({ params }: Props) {
+  const { eventId } = await params;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: event } = await supabase
+    .from('events')
+    .select(
+      'public_id, slug, display_name, event_date, venue_name, venue_address, ceremony_type, secondary_ceremony_type, love_story, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_film_date, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_story, std_film_accent_hex, std_background, std_media, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url, date_candidates, date_mode, landing_page_visibility, std_launched_at, scheduled_launch_at',
+    )
+    .eq('event_id', eventId)
+    .maybeSingle();
+
+  const markSvg =
+    (typeof event?.monogram_uploaded_svg === 'string' && event.monogram_uploaded_svg.trim()
+      ? event.monogram_uploaded_svg
+      : null) ??
+    (typeof event?.monogram_custom_svg === 'string' && event.monogram_custom_svg.trim()
+      ? event.monogram_custom_svg
+      : null);
+
+  // The couple's onboarding lockup — the film's mark when there's no markSvg
+  // (owner 2026-06-19 logo precedence). Mirrors the live page's stdLockupFor.
+  const lockup: StdLockup = {
+    design: {
+      monogram_style: event?.monogram_style ?? null,
+      monogram_font_key: event?.monogram_font_key ?? null,
+      monogram_frame_key: event?.monogram_frame_key ?? null,
+    },
+    monogram: resolveMonogram({
+      display_name: event?.display_name ?? '',
+      monogram_text: event?.monogram_text ?? null,
+      monogram_color: event?.monogram_color ?? null,
+      monogram_font_key: event?.monogram_font_key ?? null,
+      monogram_style: event?.monogram_style ?? null,
+      monogram_frame_key: event?.monogram_frame_key ?? null,
+    }),
+  };
+
+  const palette = sanitizeRolePalette(event?.role_palette);
+  const waxColor = sealColorFromPalette(palette);
+  const veilColor = veilColorFromPalette(palette);
+  // Chinese (Tsinoy) overlay — primary OR secondary rite (the common church-primary
+  // + Chinese-secondary case). Gates the red/gold accent SUGGESTION below.
+  const isChinese = isChineseWedding({
+    ceremony_type: event?.ceremony_type ?? null,
+    secondary_ceremony_type: event?.secondary_ceremony_type ?? null,
+  });
+  // Film accent: the couple's manual override (std_film_accent_hex) wins; the
+  // builder shows the Mood-Board-derived default beneath it when they haven't
+  // set one ("From your Mood Board"). Mirrors the live page's stdAccentColor.
+  //
+  // Chinese default: when the couple hasn't set a manual accent AND their Mood
+  // Board is empty (no swatch), a Chinese event's default becomes the auspicious
+  // red/gold deep red instead of brand mulberry — a one-tap-ready SUGGESTION that
+  // matches the published page's fallback. PURE default: never written to the DB;
+  // a manual override or any real palette swatch always wins. (event.std_film_accent_hex
+  // = the override; stdAccentHex below mirrors it.)
+  const accentDefault =
+    isChinese && !event?.std_film_accent_hex && paletteSwatches(palette).length === 0
+      ? RED_GOLD_PALETTE[0]! // #7A1F2B — auspicious deep red
+      : stdAccentFromPalette(palette);
+  const sealConfig = sanitizeWaxSealConfig(event?.wax_seal_config);
+  const sealFallbackSeed = fallbackSeedFromPublicId(event?.public_id);
+  const hasMintedSeal = sealConfig !== null;
+  const chosenTemplate = coerceTemplate(event?.std_reveal_template);
+  const themeId = resolveStdTheme(event?.std_theme);
+  const effects = resolveRevealEffects(event?.std_reveal_effects);
+  const stdBackground = resolveStdBackground(event?.std_background, veilColor);
+  const stdBackgroundUploadUrl =
+    stdBackground.kind === 'upload' ? await displayUrlForStoredAsset(stdBackground.value) : null;
+  const stdMedia = resolveStdMedia(event?.std_media);
+  const stdMediaVideoUrl =
+    stdMedia.type === 'video' && stdMedia.videoKey
+      ? await displayUrlForStoredAsset(stdMedia.videoKey)
+      : null;
+  // Poster still of the saved video → the preview film's blurred letterbox fill.
+  const stdMediaPosterUrl =
+    stdMedia.type === 'video' && stdMedia.posterKey
+      ? await displayUrlForStoredAsset(stdMedia.posterKey)
+      : null;
+
+  const [ownsOpenings, openingsSku, settings, revealConfig] = await Promise.all([
+    eventOwnsStdOpenings(supabase, eventId),
+    formatV2Sku(STD_PREMIUM_OPENINGS_SERVICE_KEY).catch(() => null),
+    fetchPlatformSettings(supabase),
+    fetchRevealConfig(),
+  ]);
+  const openingsPricePhp = openingsSku?.price_php ?? null;
+
+  // Presigned media — resolved server-side once; passed as initial content to
+  // the client builder (so presigned URLs never expire mid-session).
+  const bgMusicUrl =
+    event?.site_bg_music_enabled && event.site_bg_music_r2_key
+      ? await displayUrlForStoredAsset(event.site_bg_music_r2_key)
+      : null;
+  const heroPhotoUrl = await displayUrlForStoredAsset(event?.landing_page_hero_image_url);
+  const ourPhotoRefs = Array.isArray(event?.our_photos)
+    ? (event.our_photos as unknown[]).filter(
+        (r): r is string => typeof r === 'string' && r.trim().length > 0,
+      )
+    : [];
+  const ourPhotoUrls = (
+    await Promise.all(ourPhotoRefs.map((ref) => displayUrlForStoredAsset(ref)))
+  ).filter((u): u is string => Boolean(u));
+  const galleryUrls = ourPhotoUrls.length ? ourPhotoUrls : heroPhotoUrl ? [heroPhotoUrl] : [];
+
+  // Content snapshot (std_film_*) overrides live event columns when set —
+  // lets the couple finalize their film content independently of subsequent
+  // edits to the event date/venue/story.
+  const stdDate =
+    typeof event?.std_film_date === 'string' ? event.std_film_date.slice(0, 10) : null;
+  const stdVenueName: string | null = event?.std_film_venue_name ?? null;
+  const stdVenueCity: string | null = event?.std_film_venue_city ?? null;
+  const stdAccentHex: string | null = event?.std_film_accent_hex ?? null;
+
+  // Save-the-Date view counter (iteration 0024) — the couple's own readout.
+  // Reads the daily rollup via the couple session (RLS: member of this event);
+  // counts are unique-per-day and exclude the couple's own visits.
+  const stdViewsToday = manilaToday();
+  const { data: stdViewRows } = await supabase
+    .from('event_std_views')
+    .select('view_date, views')
+    .eq('event_id', eventId);
+  const stdViews = summarizeStdViews(
+    (stdViewRows ?? []) as Array<{ view_date: string; views: number }>,
+    stdViewsToday,
+  );
+  const stdCeremonyName: string | null = event?.std_film_ceremony_name ?? null;
+  const stdStory: string | null = event?.std_film_story ?? null;
+
+  // STD wedding-date options = the couple's ONBOARDING date choices, or the
+  // locked/priority date once they've settled on one (owner 2026-06-19 — the
+  // date can only be one of their chosen dates, never free-typed). When a date
+  // is locked (event_date) that's the single option; otherwise the specific-mode
+  // candidates; window-mode (no specific picks) → none → "set it in Date Selection".
+  const rawCandidates = Array.isArray(event?.date_candidates) ? event.date_candidates : [];
+  const dateCandidates = (rawCandidates as unknown[]).filter(
+    (d): d is string => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d),
+  );
+  const dateOptions: string[] = event?.event_date
+    ? [event.event_date.slice(0, 10)]
+    : event?.date_mode === 'specific'
+      ? Array.from(new Set(dateCandidates))
+      : [];
+
+  // Ceremony + reception venues auto-fill from the couple's FINALIZED bookings
+  // (event_vendors). Each falls back to its manual override then the event venue.
+  // (Same resolution as the live page.)
+  const finalizedVenues = await resolveStdFinalizedVenues(supabase, eventId);
+  const ceremonyVenue = finalizedVenues.ceremony ?? stdCeremonyName;
+  const receptionVenue = finalizedVenues.reception ?? stdVenueName ?? event?.venue_name ?? null;
+  const receptionCity = stdVenueCity ?? event?.venue_address ?? null;
+
+  const content = resolveStdFilmContent({
+    displayName: event?.display_name ?? '',
+    monogramText: event?.monogram_text,
+    monogramSvg: markSvg,
+    dateIso: stdDate ?? event?.event_date ?? null,
+    launchDateIso: event?.std_invitation_launch_date,
+    ceremonyVenue,
+    receptionVenue,
+    receptionCity,
+    loveStory: stdStory ?? event?.love_story,
+    publicId: event?.public_id ?? eventId,
+    musicUrl: bgMusicUrl,
+    galleryUrls,
+  });
+
+  const launchDate =
+    typeof event?.std_invitation_launch_date === 'string'
+      ? event.std_invitation_launch_date.slice(0, 10)
+      : '';
+
+  // Launched = the couple has taken their Save-the-Date live. Only then is it a
+  // finished, shareable creation, so the Feature-Us opt-in appears only after
+  // launch (and the app-side publish gate still holds it until after the
+  // wedding).
+  const stdLaunched =
+    Boolean(event?.std_launched_at) || event?.landing_page_visibility === 'public';
+
+  // ── Social Sharing & Featuring Program (migration 20261203000000) — the live
+  // (un-revoked) consent row for THIS event's singular Save-the-Date, so the
+  // opt-in card flips to its "already allowed" state. artifact_ref='' keys on
+  // the event's singular save_the_date. RLS couple policy scopes the read;
+  // degrade to null on a drifted DB (the table may post-date this deploy).
+  const { data: stdShareConsent } = stdLaunched
+    ? await supabase
+        .from('marketing_share_consents')
+        .select('consent_id, credit_mode')
+        .eq('event_id', eventId)
+        .eq('artifact_type', 'save_the_date')
+        .eq('artifact_ref', '')
+        .is('revoked_at', null)
+        .order('consented_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then((r) => (r.error ? { data: null } : r))
+    : { data: null };
+
+
+  return (
+    <section className="space-y-8">
+      <Link
+        href={`/dashboard/${eventId}/studio`}
+        className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+      >
+        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        Back to add-ons
+      </Link>
+
+      <header className="sn-reveal space-y-3">
+        <p className="sn-eye">Save the Date</p>
+        <h1 className="sn-h1">Save the Date</h1>
+        <p className="max-w-prose text-base text-ink/65">
+          Your Save the Date plays as a short, self-running film — it fills itself from what
+          you&rsquo;ve already added. Set the scene, fine-tune the details, add your video and
+          song, choose how it opens — then hit Render.
+        </p>
+      </header>
+
+      {/* Save-the-Date views — unique per day, the couple's own visits excluded. */}
+      <section className="sn-tile flex flex-wrap items-center gap-x-7 gap-y-2 px-5 py-4">
+        <div className="flex items-center gap-2">
+          <Eye aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+          <span className="sn-eye">
+            Save-the-Date views
+          </span>
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-2xl font-semibold tabular-nums">{stdViews.total.toLocaleString()}</span>
+          <span className="text-xs text-ink/55">total</span>
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-lg font-semibold tabular-nums">{stdViews.last7.toLocaleString()}</span>
+          <span className="text-xs text-ink/55">last 7 days</span>
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-lg font-semibold tabular-nums">{stdViews.today.toLocaleString()}</span>
+          <span className="text-xs text-ink/55">today</span>
+        </div>
+        <p className="w-full text-[11px] text-ink/45">
+          Counted once per visitor per day · your own visits aren&rsquo;t counted.
+        </p>
+      </section>
+
+      {/* Premium openings unlock */}
+      {ownsOpenings ? (
+        <div className="flex items-center gap-3 rounded-2xl border border-success-300 bg-success-50/60 px-5 py-4">
+          <Check aria-hidden className="h-5 w-5 shrink-0 text-success-600" strokeWidth={2.5} />
+          <p className="text-sm text-success-800">
+            <span className="font-medium">Cinematic openings unlocked.</span> Your chosen opening
+            lifts to reveal your page on your live site.
+          </p>
+        </div>
+      ) : openingsPricePhp != null && openingsPricePhp > 0 ? (
+        <section className="space-y-3 rounded-2xl border border-mulberry/20 bg-mulberry/5 p-5 sm:p-6">
+          <div className="flex items-start gap-3">
+            <Sparkles
+              aria-hidden
+              className="mt-0.5 h-5 w-5 shrink-0 text-mulberry"
+              strokeWidth={1.75}
+            />
+            <div className="space-y-1">
+              <h2 className="font-serif text-lg italic">Make your opening play live</h2>
+              <p className="max-w-prose text-sm text-ink/70">
+                Your film is free. Add a{' '}
+                <span className="font-medium text-ink">cinematic opening</span> — a veil or
+                envelope that lifts to reveal your page — and it plays for every guest who opens
+                your link.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-ink/65">
+              One price for your wedding ·{' '}
+              <span className="font-mono text-base text-ink">{formatPhp(openingsPricePhp)}</span>
+            </p>
+            <InlineCheckoutDrawer
+              eventId={eventId}
+              serviceKey={STD_PREMIUM_OPENINGS_SERVICE_KEY}
+              displayName={`Save-the-Date Cinematic Openings${
+                event?.display_name ? ` · ${event.display_name}` : ''
+              }`}
+              originalPriceCentavos={String(Math.round(openingsPricePhp * 100))}
+              settings={settings}
+              triggerLabel="Unlock the openings"
+              triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:w-auto"
+            />
+          </div>
+        </section>
+      ) : (
+        <p className="sn-row px-5 py-4 text-sm text-ink/55">
+          The cinematic openings are being set up — check back shortly.
+        </p>
+      )}
+
+      {/* Three-step live builder */}
+      <StdBuilderClient
+        eventId={eventId}
+        slug={event?.slug ?? null}
+        ownsReveal={ownsOpenings}
+        initialContent={content}
+        initialThemeId={themeId}
+        initialLaunchDate={launchDate}
+        initialRevealTemplate={chosenTemplate}
+        initialEffects={effects}
+        initialBackground={stdBackground}
+        initialUploadUrl={stdBackgroundUploadUrl}
+        initialMedia={stdMedia}
+        initialVideoUrl={stdMediaVideoUrl}
+        initialPosterUrl={stdMediaPosterUrl}
+        galleryCount={ourPhotoUrls.length}
+        initialFilmDate={stdDate}
+        dateOptions={dateOptions}
+        initialFilmVenueName={stdVenueName}
+        initialFilmVenueCity={stdVenueCity}
+        initialFilmCeremonyName={stdCeremonyName}
+        initialFilmStory={stdStory}
+        initialFilmAccentColor={stdAccentHex}
+        initialAccentDefault={accentDefault}
+        isChinese={isChinese}
+        displayName={event?.display_name ?? ''}
+        dateIso={event?.event_date ?? null}
+        markSvg={markSvg}
+        lockup={lockup}
+        waxColor={waxColor}
+        sealConfig={sealConfig}
+        sealFallbackSeed={sealFallbackSeed}
+        veilColor={veilColor}
+        petalsColor={revealConfig.petalsColor}
+        veilLook={revealConfig.veil}
+        effectLook={revealConfig.effects}
+        allowedTemplates={revealConfig.templates}
+      />
+
+      {/* Launch — private until the couple goes live (owner 2026-06-20) */}
+      <LaunchStdButton
+        eventId={eventId}
+        slug={event?.slug ?? null}
+        initialLaunched={stdLaunched}
+        initialScheduledAt={
+          typeof event?.scheduled_launch_at === 'string'
+            ? event.scheduled_launch_at
+            : null
+        }
+      />
+
+      {/* ── Feature-us opt-in (Social Sharing Program) — once the couple has
+          taken their Save-the-Date live it's a finished, shareable creation.
+          Opt-in, default off; the app-side gate still holds it until after the
+          wedding. ── */}
+      {stdLaunched ? (
+        <FeatureUsCard
+          eventId={eventId}
+          artifactType="save_the_date"
+          artifactRef=""
+          alreadyConsented={stdShareConsent ?? null}
+          revalidatePath={`/dashboard/${eventId}/studio/save-the-date`}
+        />
+      ) : null}
+
+      {/* Wax seal */}
+      <div className="pt-2">
+        <Link
+          href={`/dashboard/${eventId}/studio/save-the-date/stamp`}
+          className="inline-flex items-center gap-2 rounded-full bg-mulberry px-5 py-2.5 text-sm font-semibold text-cream shadow-sm transition hover:bg-mulberry-600"
+        >
+          <Stamp aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          {hasMintedSeal ? 'Re-make your wax seal' : 'Make your wax seal'}
+        </Link>
+      </div>
+    </section>
+  );
+}

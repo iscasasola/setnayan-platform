@@ -1,3 +1,28 @@
 {
-  "extends": "next/core-web-vitals"
+  "extends": "next/core-web-vitals",
+  "overrides": [
+    {
+      "files": ["app/tour/**/*.ts", "app/tour/**/*.tsx"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/actions",
+                  "**/actions.ts",
+                  "**/_actions/**",
+                  "**/*-actions",
+                  "@/lib/chat-actions",
+                  "@/lib/guest-live-gallery"
+                ],
+                "message": "The public tour is READ-ONLY (Phase-2 write-suppression guardrail). No server actions — visitor interactions must stay in local React state. The admin client is used for SELECTs only."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }

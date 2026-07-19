@@ -25,11 +25,18 @@ import {
   type CeremonyType,
   type MeaningfulDate,
 } from '@/lib/auspicious-date';
+import { isChineseWedding } from '@/lib/chinese-wedding';
 
 type Props = {
   eventId: string;
   /** Host's ceremony type, drives ceremony-specific positive overlays. */
   ceremonyType: CeremonyType | null;
+  /**
+   * Host's secondary ceremony type — carries the church-primary + Chinese-
+   * overlay (Tsinoy) case. With ceremonyType this drives the Chinese advisory
+   * lines in the preview so it matches the locked AuspiciousCard.
+   */
+  secondaryCeremonyType?: string | null;
   /** Meaningful dates flagged by host — surfaces personal resonance. */
   meaningfulDates: MeaningfulDate[];
   /** YYYY-MM-DD existing event_date when reopening the picker. */
@@ -51,6 +58,7 @@ const TODAY_ISO = (() => {
 export function DatePicker({
   eventId,
   ceremonyType,
+  secondaryCeremonyType = null,
   meaningfulDates,
   initialDate,
   backLabel = 'Back',
@@ -60,6 +68,13 @@ export function DatePicker({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
+  // Chinese tradition (primary OR Tsinoy church-primary overlay) — drives the
+  // advisory lines in the preview so it matches the locked card.
+  const chineseTradition = isChineseWedding({
+    ceremony_type: ceremonyType,
+    secondary_ceremony_type: secondaryCeremonyType,
+  });
+
   // Parse selected for the preview pass; null when blank or invalid.
   let previewReasons: string[] = [];
   let prettyDate = '';
@@ -68,7 +83,12 @@ export function DatePicker({
     const [y, m, d] = selected.split('-').map(Number);
     if (y && m && d) {
       const dateObj = new Date(y, m - 1, d);
-      previewReasons = computeAuspiciousReasons(dateObj, ceremonyType, meaningfulDates);
+      previewReasons = computeAuspiciousReasons(
+        dateObj,
+        ceremonyType,
+        meaningfulDates,
+        chineseTradition,
+      );
       prettyDate = formatAuspiciousDate(selected);
       dow = dayOfWeekLabel(dateObj);
     }
@@ -196,7 +216,7 @@ export function DatePicker({
       {error ? (
         <div
           role="alert"
-          className="rounded-md bg-rose-50 px-4 py-3 text-sm text-rose-800 ring-1 ring-inset ring-rose-200"
+          className="rounded-md bg-danger-50 px-4 py-3 text-sm text-danger-800 ring-1 ring-inset ring-danger-200"
         >
           {error}
         </div>

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isPublicApiEnabled, publicApiDisabledResponse } from "@/lib/public-api-flag";
 import { createAdminClient } from '@/lib/supabase/admin';
 import { apiErrorResponse } from '@/lib/api-auth';
 import { PUBLIC_SURFACE_VISIBILITIES } from '@/lib/vendor-visibility';
@@ -6,7 +7,6 @@ import { PUBLIC_SURFACE_VISIBILITIES } from '@/lib/vendor-visibility';
 type Params = { params: Promise<{ publicId: string }> };
 
 const PUBLIC_CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
   'Access-Control-Max-Age': '86400',
@@ -25,6 +25,8 @@ const PUBLIC_CORS_HEADERS = {
  * are both surfaced — coming_soon vendors expose `is_bookable: false`.
  */
 export async function GET(req: Request, { params }: Params) {
+  // Public API disabled by default (no-public-API-in-V1 lock; owner blesses via PUBLIC_API_ENABLED). See lib/public-api-flag.ts.
+  if (!isPublicApiEnabled()) return publicApiDisabledResponse();
   const { publicId } = await params;
 
   if (!publicId) {
@@ -40,12 +42,18 @@ export async function GET(req: Request, { params }: Params) {
 
   // Decision 6 (2026-05-15): public surface includes coming_soon + verified;
   // hidden + archived stay 404 to avoid leaking suspended/closed profiles.
+  // PR-B — public detail must 404 for UNVERIFIED vendors, mirroring the
+  // /v/[slug] microsite + the public /api/v1/vendors list. No per-user auth on
+  // this public API, so there's no owner self-preview carve-out here (the
+  // vendor previews from their dashboard). The reconcile migration
+  // 20270331400000 marked the founder + every paid vendor 'verified'.
   if (looksLikePublicId) {
     const { data } = await admin
       .from('vendor_profiles')
       .select(SELECT_COLUMNS)
       .eq('public_id', publicId)
       .in('public_visibility', PUBLIC_SURFACE_VISIBILITIES as readonly string[])
+      .eq('verification_state', 'verified')
       .maybeSingle();
     row = (data as VendorDetailRow | null) ?? null;
   }
@@ -56,6 +64,7 @@ export async function GET(req: Request, { params }: Params) {
       .select(SELECT_COLUMNS)
       .ilike('business_slug', publicId)
       .in('public_visibility', PUBLIC_SURFACE_VISIBILITIES as readonly string[])
+      .eq('verification_state', 'verified')
       .maybeSingle();
     row = (data as VendorDetailRow | null) ?? null;
   }

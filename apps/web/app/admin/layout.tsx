@@ -1,54 +1,76 @@
-import { notFound, redirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { runSocialFlush } from '@/lib/social/flush';
+import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
+import { maybeRecomputeSpotlightAwards } from '@/lib/spotlight-awards';
+import { maybeRunFraudClusterSweep } from '@/lib/fraud-cluster-sweep';
+import { runSeoPeriodicJobs } from '@/lib/seo/seo-cron-jobs';
+import { maybeRunRetentionSweep } from '@/lib/retention-sweep';
+import { maybeRunPapicFullResDrop } from '@/lib/papic-fullres-drop';
+import { maybeRunAnonDraftSweep } from '@/lib/anon-draft-sweep';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
-import { EventSwitcher } from '@/app/dashboard/[eventId]/_components/event-switcher';
-import { getCreatableEventTypes } from '@/lib/event-types-db';
-import { fetchUserRoleSummary } from '@/lib/roles';
-import { fetchUserEvents, sortEventsForSwitcher } from '@/lib/events';
+import { requireAdmin } from '@/lib/admin/require-admin';
 import { countUnread } from '@/lib/notifications';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { GuidedTour } from '@/app/_components/guided-tour';
 import { completeTour } from '@/lib/tour-actions';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
-import { Wordmark } from '@/app/_components/brand-marks';
+import { DoorwaySidebarHeader } from '@/app/_components/nav/doorway-sidebar-header';
 import { AdminSidebar } from './_components/admin-sidebar';
 import { AdminBottomNav } from './_components/admin-bottom-nav';
+import { AdminNavFab } from './_components/admin-nav-fab';
+import Link from 'next/link';
+import { TriangleAlert, Clock, ShieldCheck } from 'lucide-react';
 import { getNavSlotMap } from '@/lib/nav-registry';
+import {
+  getAdminQueueDigest,
+  deriveQueueUrgency,
+  type AdminQueueCounts,
+  type AdminQueueDigest,
+} from '@/lib/admin/queue-counts';
+import {
+  AccountSwitcher,
+  SwitcherPlaqueTrigger,
+} from '@/app/_components/account-switcher/account-switcher';
+import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
+import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 
 export const metadata = { title: 'Setnayan HQ' };
 
 /**
  * Admin layout — v2.1 Navigation Phase 3 (admin doorway).
  *
- * WHY: CLAUDE.md 2026-05-23 row 2 admin 28-surface lock + 2026-05-28 11th
- * + 14th rows + v2.1 brief canonical lock (10th 2026-05-28 row). Replaces
- * the prior horizontal pill bar (apps/web/app/admin/_components/admin-nav.tsx
- * 19-110) with the shared SidebarShell + SidebarSection + SidebarItem
- * primitives from PR #603. Mobile chrome moves to AdminBottomNav — a 4-tab
- * spine (Home · Work · Directory · More) with 3 overflow landing pages at
- * /admin/work + /admin/directory + /admin/more (legacy /admin/queues +
- * /admin/money redirect to /admin/work + /admin/more) — ops-shaped nav
- * redesign 2026-06-08.
- *
  * STRUCTURE: SidebarShell owns the desktop layout split (sidebar at lg+,
- * main content area with offset). topBar slot carries the admin utilities
- * cluster (brand logo · role-switch pill · admin badge · display name ·
- * sign-out). Mobile chrome (BottomNav at bottom) is rendered as a sibling
- * of SidebarShell — both auto-hide / show via their own breakpoint
- * primitives (sidebar lg:flex, bottom-nav lg:hidden).
+ * main content area with offset). The sidebarHeader carries the brand
+ * wordmark HOME-LINK + HQ eyebrow + the HQ identity plaque
+ * (SwitcherPlaqueTrigger — the account-menu popup; Plaque-as-Menu council
+ * verdict 2026-07-16, matching the customer + vendor doorway patterns; this
+ * rail previously had no identity plaque, only the retired email pill). The
+ * topBar is right-aligned: unread bell · role badge · display name ·
+ * sign-out · AccountSwitcher (mobile-only pill; desktop uses the plaque).
  *
- * GuidedTour preserved unchanged — fires on first login per the existing
- * tour_seen_keys check.
+ * EventSwitcher was retired from this doorway on 2026-06-18 — the unified
+ * account panel owns identity + cross-console hopping on all three doorways,
+ * consistent with the customer doorway; going HOME is the wordmark's job.
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect(loginRedirectPath('/admin'));
   const supabase = await createClient();
 
-  const [{ data: profile }, roles, events, unreadCount] = await Promise.all([
+  const minimalSwitcherFallback: SwitcherData = {
+    userId: user.id,
+    displayName: null,
+    email: user.email ?? '',
+    isAnonymous: !!user.is_anonymous,
+    photoUrl: null,
+    events: [],
+    context: { hasVendor: false, vendorName: null, isAdmin: true },
+  };
+
+  const [{ data: profile }, unreadCount, switcherData] = await Promise.all([
     supabase
       .from('users')
       .select(
@@ -56,159 +78,211 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       )
       .eq('user_id', user.id)
       .maybeSingle(),
-    fetchUserRoleSummary(supabase, user.id),
-    // Couple events for the top-left EventSwitcher (owner directive
-    // 2026-06-02: switcher visible on all 3 dashboards, same top-left spot
-    // as the customer doorway). Defensive .catch() so a throw in this
-    // non-critical chrome fetch can't crash the admin layout — degrade to
-    // the empty "+" monogram. Mirrors DashboardLayout's 5th-hotfix pattern.
-    fetchUserEvents(supabase, user.id, 'couple').catch((err: unknown) => {
+    countUnread(supabase, user.id),
+    getSwitcherData(user.id).catch((err: unknown) => {
       logQueryError(
-        'AdminLayout (fetchUserEvents threw)',
+        'AdminLayout (getSwitcherData threw)',
         err instanceof Error ? err : new Error(String(err)),
         { user_id: user.id },
         'graceful_degrade',
       );
-      return [] as Awaited<ReturnType<typeof fetchUserEvents>>;
+      return minimalSwitcherFallback;
     }),
-    // Unread count for the top-bar bell. countUnread is React-cached + fails
-    // soft to 0 internally, so no defensive wrapper is needed here.
-    countUnread(supabase, user.id),
   ]);
 
-  const isAdmin =
-    profile?.is_internal ||
-    profile?.is_team_member ||
-    profile?.account_type === 'admin';
+  // Shared admin gate (lib/admin/require-admin.ts · council fix #1): login
+  // redirect when signed out, 404 (never a redirect — the /admin route doesn't
+  // leak its own existence) when signed in but not admin. The same cache()'d
+  // gate is called by admin PAGES directly, because a layout alone is not a
+  // safe auth boundary in front of the service-role client.
+  await requireAdmin();
 
-  // Non-admins shouldn't even see the route exists — render a 404 instead of
-  // bouncing to /dashboard, which could leak the existence of /admin.
-  if (!isAdmin) notFound();
-
-  // Social auto-publish flush — cron-free ([[project_setnayan_cron_free]]):
-  // dispatch piggybacks on admin traffic via after(). Fire-and-forget; the
-  // 10-minute throttle inside runSocialFlush makes this effectively free,
-  // and runSocialFlush never throws.
+  // Social auto-publish flush — cron-free: dispatch piggybacks on admin
+  // traffic via after(). Fire-and-forget; the 10-min throttle inside
+  // runSocialFlush makes this effectively free, and it never throws.
   after(() => runSocialFlush().catch(() => {}));
+  // Morning-digest flush (cron-free, throttled, single-claim, OFF by default).
+  // Also hooked on the public /explore page so it fires when no admin is around.
+  after(() => runAdminDigestFlush().catch(() => {}));
+  // Spotlight Awards monthly recompute — cron-free: fires AT MOST once per
+  // period per instance on the first admin page view of a new month, then
+  // short-circuits. Idempotent (UPSERT) + never throws. The admin "Run now"
+  // button is the manual fallback if no admin visits.
+  after(() => maybeRecomputeSpotlightAwards().catch(() => {}));
+  // Fraud cluster sweep (fake-inquiry protection) — CRON-FREE: refresh the
+  // identity-cluster matview + raise concentration WATCH flags (shadow mode).
+  // Fired from ADMIN traffic so the heavy matview REFRESH never rides an
+  // end-user request; daily DB claim + device-fingerprint gate inside. Never throws.
+  after(() => maybeRunFraudClusterSweep().catch(() => {}));
+  // SEO health audit + Google Search Console pull — CRON-FREE: admin traffic +
+  // a daily DB claim (replaces the retired /api/cron/seo-{health,gsc}). Both
+  // feed /admin/seo; a skipped day only leaves the dashboard a day stale.
+  after(() => runSeoPeriodicJobs().catch(() => {}));
+  // Weekly destructive ops sweeps (data-retention chat purge + Papic full-res
+  // drop) — CRON-FREE: admin traffic + a WEEKLY DB claim (replaces the last two
+  // Vercel crons). Both keep their own safety (legal-hold exclusion / kill-switch
+  // + per-run limit); the routes are retained as manual/curl triggers. Never throws.
+  after(() => maybeRunRetentionSweep().catch(() => {}));
+  after(() => maybeRunPapicFullResDrop().catch(() => {}));
+  // Daily cleanup of abandoned anonymous-draft accounts + their events (RA 10173
+  // data-minimization) — anon-onboarding hardening PR-3. No-op until the feature
+  // flag is on and a draft ages past the TTL. Own legal-hold + is_anonymous
+  // re-confirm inside; never throws.
+  after(() => maybeRunAnonDraftSweep().catch(() => {}));
 
   const displayName = profile?.display_name ?? profile?.email ?? 'Setnayan Team';
 
-  // EventSwitcher data — same shape DashboardLayout feeds OuterDashboardHeader.
-  // Hide archived events; active-first + expired-rightmost; primary (or first
-  // active) is the anchor monogram. Zero events → the wrapper renders the
-  // empty "+" monogram linking to /dashboard/create-event.
-
-  // DB-driven creatable event types for the switcher's add-event sheet
-  // (2026-06-13 cutover) — request-cached, so layouts + pages share one read.
-  const creatableEventTypes = await getCreatableEventTypes();
-  const visibleEvents = events.filter((e) => !e.archived);
-  const activeEvents = sortEventsForSwitcher(visibleEvents);
-  const primaryEvent = visibleEvents.find((e) => e.is_primary) ?? activeEvents[0] ?? null;
-  const switcherEvents = activeEvents.map((e) => ({
-    event_id: e.event_id,
-    display_name: e.display_name,
-    event_date: e.event_date,
-    is_primary: e.is_primary,
-    monogram_text: e.monogram_text,
-    monogram_color: e.monogram_color,
-    // Carry the onboarding free-monogram design (owner-locked 2026-06-03) so the
-    // switcher's anchor + dropdown rows render the couple's REAL customized
-    // monogram, matching the customer doorway (the basic-badge bug otherwise).
-    monogram_frame_key: e.monogram_frame_key,
-    monogram_font_key: e.monogram_font_key,
-    monogram_style: e.monogram_style,
-    monogram_custom_svg: e.monogram_uploaded_svg ?? e.monogram_custom_svg,
-  }));
-
+  // Role badge — warm info-slate for the Internal marker (Glass PR-1,
+  // 2026-07-15: violet retired; admin's identity is the ShieldCheck + "HQ"
+  // label, not a colour fork — gold is the only decorative colour).
+  // Emoji retired: screen readers read it aloud and it renders inconsistently.
   const badge = profile?.is_internal
-    ? { label: '🟣 Internal', tone: 'bg-purple-100 text-purple-800' }
+    ? {
+        label: 'Internal',
+        tone: 'bg-[var(--sn-info-soft)] text-[var(--sn-info)]',
+        dot: 'bg-[var(--sn-info)]',
+      }
     : profile?.is_team_member
-      ? { label: '🟢 Team Pool', tone: 'bg-emerald-100 text-emerald-800' }
-      : { label: 'Setnayan Team', tone: 'bg-ink/10 text-ink/70' };
+      ? {
+          label: 'Team Pool',
+          tone: 'bg-success-100 text-success-800',
+          dot: 'bg-success-600',
+        }
+      : { label: 'Setnayan Team', tone: 'bg-ink/10 text-ink/70', dot: null };
 
-  // Top bar — admin utilities cluster: unified switcher, admin badge,
-  // display name, sign-out form. The RoleSwitchPill (mobile topBar + desktop
-  // sidebar footer) is RETIRED 2026-06-12 per owner directive "single
-  // switcher" — the unified EventSwitcher top-left now owns BOTH event
-  // switching and cross-console hopping (Customer view / Shop console) on
-  // every viewport.
+  // Nav registry + live queue digest (count + oldest-open age per Work queue).
+  // Fails open to {}. cache()'d, so the /admin/work command center shares this
+  // exact fetch in the same request. Counts feed the badge number; urgency
+  // feeds the badge TONE (red only when actually overdue) + the topbar pill.
+  const [navSlots, digest] = await Promise.all([
+    getNavSlotMap(),
+    getAdminQueueDigest().catch(() => ({}) as AdminQueueDigest),
+  ]);
+  const queueCounts: AdminQueueCounts = Object.fromEntries(
+    Object.entries(digest).map(([k, v]) => [k, v.count]),
+  );
+  const urgency = deriveQueueUrgency(digest, Date.now());
+
+  // Top bar — right-aligned utilities cluster. AccountSwitcher pill is
+  // mobile-only (lg:hidden); desktop users open the same panel from the
+  // SwitcherPlaqueTrigger HQ plaque in the sidebar header (Plaque-as-Menu,
+  // council 2026-07-16). The overdue/due-soon escalation pill leads the
+  // cluster so a breach is visible on EVERY admin page, not just when the
+  // eye is on the Work nav group.
   const topBar = (
-    <div className="flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:mx-auto lg:px-8">
-      {/* Top-left unified switcher — same top-left corner it holds on the
-          customer doorway (owner directive 2026-06-02). Customer chrome
-          carries no brand wordmark in this corner either (2026-05-15 chrome
-          lock), so all three doorways read consistently. Zero couple events →
-          the switcher renders the empty "+" monogram anchor but the menu
-          (incl. the "Switch view" rows) still opens via the caret. */}
-      <EventSwitcher
-        currentRole="admin"
-        currentEventId={primaryEvent?.event_id ?? null}
-        currentEventName={primaryEvent?.display_name ?? null}
-        currentEventDate={primaryEvent?.event_date ?? null}
-        currentMonogramText={primaryEvent?.monogram_text ?? null}
-        currentMonogramColor={primaryEvent?.monogram_color ?? null}
-        currentMonogramFrameKey={primaryEvent?.monogram_frame_key}
-        currentMonogramFontKey={primaryEvent?.monogram_font_key}
-        currentMonogramStyle={primaryEvent?.monogram_style}
-        currentMonogramCustomSvg={primaryEvent?.monogram_uploaded_svg ?? primaryEvent?.monogram_custom_svg}
-        events={switcherEvents}
-        hasCustomerAccess={roles.hasCustomerAccess}
-        hasVendorAccess={roles.hasVendorAccess}
-        hasAdminAccess={roles.hasAdminAccess}
-        vendorProfiles={roles.vendorProfiles}
-        eventTypes={creatableEventTypes}
-      />
-      <div className="flex items-center gap-2">
-        <UnreadBellBadge
-          userId={user.id}
-          initialUnread={unreadCount}
-          href="/admin/notifications"
-          ariaBaseLabel="Notifications"
-          ariaUnreadSuffix="unread"
-        />
-        <span
-          className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${badge.tone}`}
+    <div className="flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-end gap-3 sm:gap-2 px-4 py-3 sm:px-6 lg:mx-auto lg:px-8">
+      {/* SLA escalation pills — semantic red/warn classes (council fix #12:
+          same color family per urgency state as the sidebar badges + overview
+          tiles; the stock Untitled-UI hexes are retired). The ::before inset
+          extends the small pill's hit area toward the 44px floor without
+          changing its visual size (fix #15). A third branch surfaces DEGRADED
+          counts (fix #3): a failed digest used to render pixel-identical to a
+          clear day — no pill, no badges — so an outage read as "all clear". */}
+      {urgency.overdue > 0 ? (
+        <Link
+          href="/admin/work"
+          className="relative inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-800 transition-opacity before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] hover:opacity-90"
+          aria-label={`${urgency.overdue} ${urgency.overdue === 1 ? 'queue is' : 'queues are'} past SLA — open the work list`}
         >
-          {badge.label}
-        </span>
-        <span className="hidden text-sm text-ink/70 sm:inline">{displayName}</span>
-        <form action="/auth/sign-out" method="post">
-          <button className="button-secondary h-9 px-3 text-xs" type="submit">
-            Sign out
-          </button>
-        </form>
+          <TriangleAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
+          {urgency.overdue} overdue
+        </Link>
+      ) : urgency.dueSoon > 0 ? (
+        <Link
+          href="/admin/work"
+          className="relative inline-flex items-center gap-1.5 rounded-full bg-warn-100 px-2.5 py-1 text-xs font-semibold text-warn-800 transition-opacity before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] hover:opacity-90"
+          aria-label={`${urgency.dueSoon} ${urgency.dueSoon === 1 ? 'queue is' : 'queues are'} approaching SLA — open the work list`}
+        >
+          <Clock aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
+          {urgency.dueSoon} due soon
+        </Link>
+      ) : urgency.unknownCount > 0 ? (
+        <Link
+          href="/admin/work"
+          className="relative inline-flex items-center gap-1.5 rounded-full bg-ink/10 px-2.5 py-1 text-xs font-semibold text-ink/70 transition-opacity before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] hover:opacity-90"
+          aria-label={`${urgency.unknownCount} queue ${urgency.unknownCount === 1 ? 'count is' : 'counts are'} unavailable — open the work list`}
+        >
+          <TriangleAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
+          Queue counts unavailable
+        </Link>
+      ) : null}
+      <UnreadBellBadge
+        userId={user.id}
+        initialUnread={unreadCount}
+        href="/admin/settings?tab=notifications"
+        ariaBaseLabel="Notifications"
+        ariaUnreadSuffix="unread"
+      />
+      <span
+        className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${badge.tone}`}
+      >
+        {badge.dot ? (
+          <span
+            aria-hidden
+            className={`h-1.5 w-1.5 shrink-0 rounded-full ${badge.dot}`}
+          />
+        ) : null}
+        {badge.label}
+      </span>
+      <span className="hidden text-sm text-ink/70 sm:inline">{displayName}</span>
+      <form action="/auth/sign-out" method="post">
+        <button className="button-secondary h-9 px-3 text-xs" type="submit">
+          Sign out
+        </button>
+      </form>
+      <div className="lg:hidden">
+        <AccountSwitcher data={switcherData} />
       </div>
     </div>
   );
 
-  // Nav registry: admin-managed name+icon overrides, resolved server-side and
-  // handed to the (client) admin nav. Cached via NAV_REGISTRY_TAG, fails open.
-  const navSlots = await getNavSlotMap();
-
   return (
-    // app-surface → Source Sans backend typeface (globals.css). Plain block
-    // wrapper: no transform/filter so the BottomNav's fixed positioning and
-    // SidebarShell's own offset math are unaffected.
     <div className="app-surface">
       <SidebarShell
         sidebarHeader={
-          <header className="px-4 py-3">
-            <Wordmark />
-            <p className="m-label-mono mt-1.5" style={{ color: 'var(--m-slate-2)' }}>Setnayan HQ</p>
-          </header>
+          <DoorwaySidebarHeader
+            label="Setnayan HQ"
+            accentColor="var(--m-sidebar-accent)"
+            identity={
+              <SwitcherPlaqueTrigger
+                data={switcherData}
+                chip={<ShieldCheck aria-hidden className="h-5 w-5" strokeWidth={2} />}
+                title="Setnayan HQ"
+                metaLine={displayName}
+                ariaLabel="Setnayan HQ — account menu"
+              />
+            }
+          />
         }
-        sidebar={<AdminSidebar navSlots={navSlots} />}
+        sidebar={
+          <AdminSidebar
+            navSlots={navSlots}
+            queueCounts={queueCounts}
+            queueStates={urgency.states}
+          />
+        }
         topBar={topBar}
       >
-        {/* Pad the bottom on mobile so BottomNav doesn't cover the last
-            row of content. SidebarShell already handles the desktop
-            sidebar offset via its lg:pl-[var(--shell-main-offset)] math. */}
-        <div className="pb-20 lg:pb-0">{children}</div>
+        {/* Pad the bottom on mobile so the FLOATING BottomNav pill (12px float
+            + ~64px bar + 16px breathing + the device's home-indicator inset)
+            doesn't cover the last row of content — a fixed pb-20 under-reserved
+            on safe-area devices (council fix #4). SidebarShell already handles
+            the desktop sidebar offset via its lg:pl-[var(--shell-main-offset)]
+            math. */}
+        <div className="pb-[calc(env(safe-area-inset-bottom)+92px)] lg:pb-0">{children}</div>
       </SidebarShell>
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
           BottomNav primitive. Sits outside SidebarShell so it doesn't
           inherit the desktop sidebar offset. */}
-      <AdminBottomNav navSlots={navSlots} />
+      <AdminBottomNav
+        navSlots={navSlots}
+        queueCounts={queueCounts}
+        overdue={urgency.overdue}
+        dueSoon={urgency.dueSoon}
+      />
+      {/* NAV-2 broken-out action — Payment requests (a sibling of the pill,
+          never a tab). Hides itself when a docked SubNav is up. */}
+      <AdminNavFab />
       {!(profile?.tour_seen_keys ?? []).includes('admin_welcome_v1') ? (
         <GuidedTour tourKey="admin_welcome_v1" completeAction={completeTour} />
       ) : null}

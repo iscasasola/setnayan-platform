@@ -42,18 +42,18 @@ export function DayOfEditingBanner({ eventDate }: { eventDate: string | Date | n
   return (
     <div
       role="status"
-      className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50/70 px-4 py-3 text-sm"
+      className="flex items-start gap-3 rounded-2xl border border-danger-200 bg-danger-50/70 px-4 py-3 text-sm"
     >
       <span className="relative mt-0.5 flex h-2.5 w-2.5 shrink-0">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400/70" />
-        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-rose-500" />
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-danger-400/70" />
+        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-danger-500" />
       </span>
       <div className="space-y-0.5">
-        <p className="flex items-center gap-1.5 font-semibold text-rose-900">
+        <p className="flex items-center gap-1.5 font-semibold text-danger-900">
           <Radio aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Live — guests are seeing this now
         </p>
-        <p className="text-rose-900/70">
+        <p className="text-danger-900/70">
           Every seat change reaches the digital <span className="font-medium">Find your seat</span>{' '}
           the moment you make it. Printed escort cards, table signs, and boards are frozen snapshots —
           today the live plan is the source of truth.

@@ -6,7 +6,9 @@ import { ConfirmForm } from '@/app/_components/confirm-form';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VenueForm } from '../_components/venue-form';
 import { deleteVenue, updateVenue } from '../actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Edit venue · Admin' };
 
 type Props = { params: Promise<{ id: string }> };
@@ -26,6 +28,7 @@ type VenueRow = {
 };
 
 export default async function EditVenuePage({ params }: Props) {
+  await requireAdmin();
   const { id } = await params;
 
   const admin = createAdminClient();
@@ -53,7 +56,7 @@ export default async function EditVenuePage({ params }: Props) {
       </Link>
 
       <header className="mb-6 space-y-1">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">
+        <p className="sn-eye">
           Edit venue
         </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
@@ -86,11 +89,11 @@ export default async function EditVenuePage({ params }: Props) {
         cancelHref="/admin/venues"
       />
 
-      <section className="mt-10 rounded-2xl border border-rose-200 bg-rose-50/40 p-4">
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-rose-700">
+      <section className="mt-10 rounded-2xl border border-danger-200 bg-danger-50/40 p-4">
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-danger-700">
           Danger zone
         </p>
-        <p className="mt-1 mb-3 max-w-prose text-sm text-rose-900/80">
+        <p className="mt-1 mb-3 max-w-prose text-sm text-danger-900/80">
           Deleting a venue removes it from the marketplace Paired-Venue panel
           immediately. Couples with this venue in their saved shortlist will
           lose the row. Not reversible.
@@ -104,13 +107,13 @@ export default async function EditVenuePage({ params }: Props) {
             name="venue_directory_id"
             value={row.venue_directory_id}
           />
-          <button
-            type="submit"
-            className="inline-flex h-11 items-center gap-1.5 rounded-md border border-rose-500 bg-rose-500/10 px-4 text-sm font-medium text-rose-700 hover:bg-rose-500/20"
+          <SubmitButton
+            className="inline-flex h-11 items-center gap-1.5 rounded-md border border-danger-500 bg-danger-500/10 px-4 text-sm font-medium text-danger-700 hover:bg-danger-500/20"
+            pendingLabel="Deleting…"
           >
             <Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Delete venue
-          </button>
+          </SubmitButton>
         </ConfirmForm>
       </section>
     </div>

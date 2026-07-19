@@ -6,7 +6,7 @@ import { splitInitials } from '@/lib/monogram';
 
 /**
  * AnimatedMonogramHero — the paid ANIMATED_MONOGRAM SKU's render
- * (₱2,499 · v2.1 brief § 5), backed by the Monogram Motion Library.
+ * (₱999 · v2.1 brief § 5), backed by the Monogram Motion Library.
  *
  * It plays ONE of six premium motion signatures on mount
  * (lib/monogram-motion.ts · persisted as events.monogram_motion_key):
@@ -34,9 +34,9 @@ import { splitInitials } from '@/lib/monogram';
  * (WCAG 2.2 § 2.3.3). `motion` defaults to 'draw' so every existing call site
  * renders exactly what it did before the library landed.
  *
- * SKU DISAMBIGUATION — this is the standalone ANIMATED_MONOGRAM (₱2,499 · V2
+ * SKU DISAMBIGUATION — this is the standalone ANIMATED_MONOGRAM (₱999 · V2
  * catalog). It is SEPARATE from the iteration-0004 Monogram Hero widget upgrade
- * (`monogram_hero_upgrade` · ₱1,999) which bundles a custom video/photo
+ * (`monogram_hero_upgrade` · the ₱999 Animated Monogram) which bundles a custom video/photo
  * background + SVG/PNG-upload via Potrace and is gated through the
  * invitation_widgets.tier flip. See lib/animated-monogram.ts.
  *
@@ -81,7 +81,7 @@ function isLockupStyle(s: string | null | undefined): s is LockupStyle {
 // static twins are pixel-geometry siblings.
 const LOCKUP_VIEWBOX: Record<LockupStyle, string> = {
   bar: '6 14 120 70',
-  duo: '18 18 66 62',
+  duo: '-4 18 110 62',
   script: '8 6 168 90',
   infinity: '18 8 164 76',
 };
@@ -572,8 +572,8 @@ function LockupAnimated({
     if (style === 'duo') {
       return (
         <>
-          <text x={42} y={72} fontSize={66} {...g}>{a}</text>
-          <text x={58} y={72} fontSize={66} {...g}>{b}</text>
+          <text x={34} y={72} fontSize={66} {...g}>{a}</text>
+          <text x={68} y={72} fontSize={66} {...g}>{b}</text>
         </>
       );
     }

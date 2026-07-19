@@ -24,8 +24,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CeremonyType } from './paperwork';
 
-// Chinese is coming-soon (no couple can hold ceremony_type='chinese' yet), but
-// we seed its guide now so activating it later is a flag flip, not new content.
+// Chinese is an ACTIVE ceremony_type (migrations 20260804000000 + 20260806000000;
+// now in the CeremonyType union + resolveCeremonyType as of the 2026-06-28 wiring
+// fix). 'chinese' stays in this alias for back-compat; it's already part of
+// CeremonyType, so the union is effectively CeremonyType | 'unknown'.
 export type TraditionGuideKey = CeremonyType | 'chinese' | 'unknown';
 
 export type TraditionDimension =
@@ -103,12 +105,15 @@ export const WEDDING_TRADITIONS_GUIDE: Record<TraditionGuideKey, WeddingTraditio
   inc: {
     label: 'INC (Iglesia ni Cristo)',
     overview:
-      'Held in an Iglesia ni Cristo chapel (Kapilya) and officiated by an INC minister, for members of the Church.',
+      'A reverent worship-rite held in an Iglesia ni Cristo chapel (Kapilya) and officiated by an INC minister, for members of the Church. Guided by kabanalan (sanctity) and kapayakan (simplicity) — confirm every specific with your local congregation (lokal).',
     items: [
-      { dimension: 'officiant', label: 'INC minister', note: 'Only an INC minister officiates — arrange through your local congregation (lokal).' },
-      { dimension: 'ceremonial', label: 'INC chapel (Kapilya)', note: 'Held in the chapel following the Church’s order of service; modest, formal attire is expected.' },
-      { dimension: 'custom', label: 'Members in good standing', note: 'Both parties are INC members; a non-member partner first studies the doctrine and is baptized into the Church. Pre-marital guidance is given by the ministry.' },
-      { dimension: 'food', label: 'Reception', note: 'Receptions are kept alcohol-free, with a wholesome program and music — confirm specifics with your congregation.' },
+      { dimension: 'officiant', label: 'INC minister', note: 'Only an INC minister officiates, and everything is arranged through your local congregation (lokal) — you don’t book an officiant on the open marketplace.' },
+      { dimension: 'ceremonial', label: 'INC chapel (Kapilya)', note: 'Held in the chapel following the Church’s order of service. The ceremony typically runs about 1 to 1.5 hours; conduct and the guest seating inside the chapel are directed by officials of the local congregation.' },
+      { dimension: 'ceremonial', label: 'Modest, formal attire — guests too', note: 'Dignified, modest dress is expected of everyone present, not just the couple. No skin-revealing clothing — no sleeveless tops, no short dresses or skirts. Let your guests know in advance.' },
+      { dimension: 'ceremonial', label: 'Principal sponsors (Ninong/Ninang)', note: 'If you include non-member principal sponsors, they are limited to one pair (one Ninong and one Ninang). Member sponsors are not capped the same way.' },
+      { dimension: 'ceremonial', label: 'Simplicity over spectacle', note: 'In keeping with the Church’s simplicity, an entourage of bridesmaids/groomsmen, a performing choir, and elaborate or costly props are typically not used inside the chapel.' },
+      { dimension: 'custom', label: 'Members in good standing', note: 'Both parties are expected to be INC members. A non-member partner first studies the doctrine and is baptized into the Church — start this with your minister early, as it can set your timeline. Pre-marital guidance is given by the ministry.' },
+      { dimension: 'food', label: 'Reception — prayer first', note: 'It is standard to open the reception with a prayer before the meal. Receptions are traditionally kept alcohol-free and without a dance program, with a wholesome program and appropriate music — some families decide differently; confirm what’s right for you with your family and congregation.' },
       { dimension: 'paperwork', label: 'Marriage license', note: 'The civil marriage license applies (tracked below).' },
     ],
     confirmWith: 'the minister at your local INC congregation',
@@ -142,14 +147,16 @@ export const WEDDING_TRADITIONS_GUIDE: Record<TraditionGuideKey, WeddingTraditio
   chinese: {
     label: 'Chinese',
     overview:
-      'A Chinese (Tsinoy) wedding centers on the tea ceremony honoring elders, and is usually paired with a church or civil rite for the legal marriage.',
+      'A Chinese (Tsinoy) wedding layers Chinese family customs — the tea ceremony, betrothal gifts, and an auspicious date — over a church or civil rite that handles the legal marriage. Most Tsinoy families keep the tea ceremony, ang pao, and the lauriat banquet even when the rest is modern.',
     items: [
-      { dimension: 'ceremonial', label: 'Tea ceremony', note: 'The couple serves tea to parents and elders in order of seniority; elders give blessings and gifts (jewelry or ang pao / red envelopes).' },
-      { dimension: 'custom', label: 'Auspicious date', note: 'A lucky wedding date and time is chosen (Chinese almanac / a family elder or feng-shui consultant) — settle this early, as it anchors everything.' },
-      { dimension: 'custom', label: 'Betrothal gifts (guo da li)', note: 'Gifts are exchanged between the two families before the wedding to formalise the union.' },
-      { dimension: 'ceremonial', label: 'Attire', note: 'The bride often wears a red qipao / cheongsam for the tea ceremony (red = luck and joy), and a gown for the paired church or civil rite.' },
-      { dimension: 'food', label: 'Lauriat banquet', note: 'A multi-course banquet of symbolic dishes (whole fish, long-life noodles, etc.) — book a lauriat-capable restaurant or caterer.' },
-      { dimension: 'officiant', label: 'Paired rite', note: 'The legal/religious ceremony uses its own officiant (priest or registrar); the tea ceremony itself is family-led.' },
+      { dimension: 'ceremonial', label: 'Tea ceremony (敬茶)', note: 'The heart of the day: the couple kneels and serves tea to elders in order of seniority — the groom’s side first, then the bride’s — formally joining each family. Elders drink, give a blessing, and offer ang pao (red envelopes) or gold. Getting the serving order right matters, so prepare the list with both families.' },
+      { dimension: 'custom', label: 'Auspicious date & time', note: 'A lucky date and hour anchors everything, so settle it first. Families favour 8, 6, and 9 and avoid the number 4 (it sounds like “death”), and steer clear of Ghost Month (7th lunar month). A traditional reading — the Four Pillars / BaZi — uses each partner’s birth date and time of birth, so gather both before consulting a Chinese-almanac or feng-shui specialist.' },
+      { dimension: 'custom', label: 'Betrothal gifts (過大禮 / guo da li)', note: 'Before the wedding the groom’s family presents gifts — gold, ang pao, and paired auspicious goods (in even numbers; never four) — and the bride’s family reciprocates to signal acceptance.' },
+      { dimension: 'custom', label: 'Hair-combing (上頭)', note: 'The night before, a “good-fortune” married elder combs the bride’s and the groom’s hair in four strokes, each a spoken blessing (a lasting union, growing old together, many descendants, prosperity). Optional and family-led.' },
+      { dimension: 'custom', label: 'Bridal-bed setup (安床)', note: 'On an auspicious date the marital bed is dressed in red and gold and scattered with dates, peanuts, longans, and lotus seeds for fertility; young children may be invited to roll on it. Optional and family-led.' },
+      { dimension: 'ceremonial', label: 'Attire & symbols', note: 'The bride often wears a red qipao / cheongsam (or the embroidered qun kua) for the tea ceremony — red and gold for luck and joy — and a gown for the paired rite. The double-happiness symbol (囍) runs through invitations, décor, and ang pao.' },
+      { dimension: 'food', label: 'Lauriat banquet', note: 'A multi-course banquet of symbolic dishes (whole fish for abundance, long-life noodles, lotus-seed sweets for fertility) with yam-seng toasts. Book a lauriat-capable restaurant or caterer; by custom, skip table number 4.' },
+      { dimension: 'officiant', label: 'Paired rite', note: 'The legal/religious ceremony uses its own officiant (priest or registrar) and its own paperwork below; the tea ceremony and family customs are led by your elders, not an officiant.' },
     ],
     confirmWith: 'your family elders (and the officiant for your paired ceremony)',
   },

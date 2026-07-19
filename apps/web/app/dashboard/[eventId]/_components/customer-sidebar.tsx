@@ -1,21 +1,34 @@
 'use client';
 
 /**
- * CustomerSidebar — unified 5-tab desktop sidebar (owner 2026-06-17).
+ * CustomerSidebar — unified desktop sidebar (owner 2026-06-17), kept at parity
+ * with the mobile tabs.
  *
- * WHY: mobile shows 5 flat tabs (Home · Guests · Explore · Studio · Budget);
- * the desktop sidebar previously used a different 6-group journey structure
- * (Setnayan · Plan · Book · Design · Day-of · After). This mismatch meant a
- * user switching between breakpoints saw a completely different nav IA.
+ * WHY: the mobile tabs and the desktop sidebar must describe the SAME nav IA;
+ * an earlier desktop-only journey structure meant a user switching breakpoints
+ * saw a completely different nav.
  *
- * The fix: the desktop sidebar now mirrors the same 5 top-level destinations
- * as the mobile tabs. ONE header-less group, five items, each expandable to
- * reveal their sub-pages on the desktop rail:
- *   1. Home    — dashboard root  (Checklist · Schedule · Messages · Contracts)
- *   2. Guests  — guest hub       (5 journey stages · Event QR)
- *   3. Explore — vendor market   (leaf — no sub-pages)
- *   4. Studio  — add-ons hub     (Website · Mood Board · Monogram · Live Wall)
- *   5. Budget  — financials      (Activity · Disputes)
+ * The fix: the desktop sidebar mirrors the same top-level destinations as the
+ * mobile tabs (lib/customer-menu.ts). Two labelled sections — PLAN + GO LIVE —
+ * composed by the builder:
+ *   PLAN
+ *     1. Overview — dashboard root  (plain leaf — old Checklist/Schedule/
+ *        Messages/Contracts children were flattened #3004; those surfaces live
+ *        in the dashboard body + topbar)
+ *     2. Guests   — guest hub       (plain leaf — journey stages live in-page)
+ *     3. Merkado  — vendor market   (Build tabs)
+ *     4. Studio   — add-ons hub     (Event page · Website · Mood Board ·
+ *        Monogram · Live Wall)
+ *   GO LIVE
+ *     5. Launch   — the couple's live personal website (gated on websiteEnabled)
+ *
+ * BUDGET (with its Activity + Disputes children) was REMOVED 2026-07-10 (owner)
+ * to match the mobile SSOT — the budget moved into the Merkado. /budget stays
+ * reachable from the Merkado's Budget tab; /activity from the dashboard body's
+ * "See all recent activity →" link (event-dashboard.tsx, foot of "Around your
+ * event"); /disputes from the vendor booking cancel→dispute flow. The
+ * customer.sidebar.activity/disputes registry slots are intentionally kept so a
+ * re-surfaced link stays admin-editable.
  *
  * The NavGroup[] builder lives in customer-nav-config.ts (server-safe neutral
  * module). This file owns the rendering layer: registry overlay via
@@ -23,7 +36,7 @@
  * SidebarSection + SidebarItem composition.
  *
  * ACTIVE STATE — <SidebarItem> handles the standard rule
- * (`pathname === href || pathname.startsWith(matchPrefix + '/')`). Home is
+ * (`pathname === href || pathname.startsWith(matchPrefix + '/')`). Overview is
  * the one exception: its matchPrefix is the sentinel `__home__` so the
  * startsWith branch never fires and only the exact-match branch lights it
  * (every other event route shares the `/dashboard/${eventId}/` prefix).
@@ -73,7 +86,9 @@ const SIDEBAR_SLOT_KEYS: Record<string, string> = {
   guests: 'customer.sidebar.guests',
   explore: 'customer.sidebar.explore',
   studio: 'customer.sidebar.studio',
-  budget: 'customer.sidebar.budget',
+  launch: 'customer.sidebar.launch',
+  // (No 'budget' — the top-level Budget item was removed 2026-07-10; its
+  // customer.sidebar.budget registry slot was already retired.)
 };
 
 /**
@@ -83,10 +98,8 @@ const SIDEBAR_SLOT_KEYS: Record<string, string> = {
  * with their hardcoded label/icon.
  */
 const CHILD_SLOT_KEYS: Record<string, string> = {
-  // Home children
-  schedule: 'customer.sidebar.schedule',
-  messages: 'customer.sidebar.messages',
-  contracts: 'customer.sidebar.contracts',
+  // (Overview's old schedule/messages/contracts children were flattened #3004;
+  // their CHILD_SLOT_KEYS entries were dead and were removed 2026-07-10.)
   // Guests children — five journey stages
   build: 'customer.sidebar.guests-build',
   invite: 'customer.sidebar.guests-invite',
@@ -95,11 +108,15 @@ const CHILD_SLOT_KEYS: Record<string, string> = {
   dayof: 'customer.sidebar.guests-dayof',
   'event-qr': 'customer.sidebar.event-qr',
   // Studio children
+  'event-page': 'customer.sidebar.event-page',
   website: 'customer.sidebar.website',
   'mood-board': 'customer.sidebar.mood-board',
   monogram: 'customer.sidebar.monogram',
   live: 'customer.sidebar.live',
-  // Budget children
+  // Budget children — retained even though the top-level Budget item was removed
+  // 2026-07-10: the customer.sidebar.activity/disputes registry slots are kept
+  // (routes still valid), so these mappings stay so a re-surfaced Activity /
+  // Disputes link renders its admin-editable label + icon.
   activity: 'customer.sidebar.activity',
   disputes: 'customer.sidebar.disputes',
 };
@@ -141,6 +158,11 @@ export function CustomerSidebar({
   eventId,
   navSlots,
   eventDate,
+  hideKeys,
+  websiteEnabled,
+  monogramEnabled,
+  slug,
+  guestCount,
 }: {
   eventId: string;
   navSlots?: Record<string, NavSlotLite>;
@@ -151,6 +173,27 @@ export function CustomerSidebar({
    * pattern as <GuestsSectionSubnav>.
    */
   eventDate?: string | null;
+  /** Top-level nav keys to drop for this event type (e.g. ['explore','budget']
+   *  for a vendor-free Simple Event). Resolved from the profile in layout.tsx. */
+  hideKeys?: string[];
+  /** Whether this event type enables the 'website' surface — gates the Studio
+   *  Event page / Website / Launch children. Resolved from the profile in layout. */
+  websiteEnabled?: boolean;
+  /** Whether this event type enables the 'monogram' surface — gates the Studio
+   *  "Monogram" child. Resolved from the profile in layout. */
+  monogramEnabled?: boolean;
+  /** The event's public slug — points the top-level "Launch" entry at the
+   *  couple's live personal website (`/[slug]`). Resolved in layout.tsx. */
+  slug?: string | null;
+  /** Live guest head-count → the Guests item badge. Resolved in layout.tsx;
+   *  0/absent → no badge (never fabricated). */
+  guestCount?: number | null;
+  /** @deprecated No longer consumed by the sidebar — the Overview › Messages
+   *  child was flattened #3004, so buildCustomerNavGroups dropped this param.
+   *  Accepted only so the layout.tsx call site (which still computes it for the
+   *  topbar bell) keeps type-checking; safe to remove once layout stops passing
+   *  it. Not destructured on purpose (no dead local). */
+  unreadMessages?: number;
 }) {
   const pathname = usePathname() ?? `/dashboard/${eventId}`;
   const [dayOfOpen, setDayOfOpen] = useState(false);
@@ -158,14 +201,30 @@ export function CustomerSidebar({
     setDayOfOpen(isDayOfOpen(eventDate ?? null, new Date()));
   }, [eventDate]);
   const groups = applyRegistry(
-    buildCustomerNavGroups(eventId, { dayOfOpen }),
+    buildCustomerNavGroups(eventId, {
+      dayOfOpen,
+      hideKeys,
+      websiteEnabled,
+      monogramEnabled,
+      slug,
+      guestCount,
+    }),
     navSlots,
   );
 
   return (
     <>
+      {/* The event identity plaque used to render here as a Link to the
+       *  all-events picker. Council Verdict 2026-07-16 (Plaque-as-Menu): it
+       *  now lives in DoorwaySidebarHeader's identity slot as the
+       *  <SwitcherPlaqueTrigger> account menu — composed in layout.tsx, NOT
+       *  here, so this rail can never ship two adjacent identity controls. */}
       {groups.map((group) => (
-        <SidebarSection key={group.key} group={group} pathname={pathname}>
+        // `eyebrow` — Glass PR-2 shell polish: section labels render as `.sn-eye`
+        // gold eyebrows on the customer doorway only (opt-in; vendor/admin adopt
+        // it in PR-6/PR-8). No-op on the header-less root group, which renders no
+        // section heading — kept as the opt-in wiring for any labelled group.
+        <SidebarSection key={group.key} group={group} pathname={pathname} eyebrow>
           {group.items.map((item) => (
             <SidebarItem key={item.key} item={item} pathname={pathname} />
           ))}

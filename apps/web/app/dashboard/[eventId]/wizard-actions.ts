@@ -28,9 +28,10 @@
 
 // `revalidatePath(path, 'layout')` is used for every wizard action below
 // (not the default 'page' mode) so the dashboard LAYOUT invalidates too.
-// The OuterDashboardHeader chrome reads `primaryEvent.monogram_text` +
-// `monogram_color` from the layout's events fetch; without the 'layout'
-// flag, the chrome monogram stays stale after Card 11 save (owner-reported
+// The event-scoped sidebar chrome (EventSwitcher monogram + AccountSwitcher)
+// reads `monogram_text` + `monogram_color` from the layout's events fetch;
+// without the 'layout' flag, the chrome monogram stays stale after Card 11
+// save (owner-reported
 // 2026-05-24). Same principle protects any future layout-cached field
 // (event name, primary flag, etc.) from silent staleness — the flag is
 // harmless when an action doesn't touch layout data, and load-bearing
@@ -46,6 +47,7 @@ import {
   type MeaningfulDate,
   type MeaningfulDateKind,
 } from '@/lib/auspicious-date';
+import { isChineseWedding } from '@/lib/chinese-wedding';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import {
   parseWizardState,
@@ -73,6 +75,7 @@ const VALID_CEREMONY_TYPES = [
   'christian',
   'muslim',
   'cultural',
+  'chinese',
   'mixed',
 ] as const;
 
@@ -228,7 +231,7 @@ export async function completeSetWeddingDateTask(
   // current wizard_state (needed for the merge below).
   const { data: priorRow, error: priorErr } = await supabase
     .from('events')
-    .select('event_date, ceremony_type, wizard_state')
+    .select('event_date, ceremony_type, secondary_ceremony_type, wizard_state')
     .eq('event_id', eventIdRaw)
     .maybeSingle();
   if (priorErr) throw new Error(priorErr.message);
@@ -271,7 +274,12 @@ export async function completeSetWeddingDateTask(
     note: (r.note as string | null) ?? null,
   }));
 
-  const reasons = computeAuspiciousReasons(composed, ceremonyType, meaningfulDates);
+  const reasons = computeAuspiciousReasons(
+    composed,
+    ceremonyType,
+    meaningfulDates,
+    isChineseWedding(priorRow),
+  );
 
   // Merge wizard_state.set_wedding_date task entry · the resolver will
   // skip this task on the next render and move to Card 02 Reception Venue.
@@ -1009,11 +1017,14 @@ export async function completeCreateWebsiteTask(
 
   const validVisibility = ['public', 'unlisted', 'private'] as const;
   type Visibility = (typeof validVisibility)[number];
+  // Private by default (owner 2026-06-20): completing the website wizard without
+  // an explicit choice lands PRIVATE, matching the DB default — the page goes
+  // public only when the couple launches their Save-the-Date.
   const visibility: Visibility = (validVisibility as readonly string[]).includes(
     visibilityRaw as string,
   )
     ? (visibilityRaw as Visibility)
-    : 'public';
+    : 'private';
 
   const slug = slugRaw.trim().toLowerCase();
   if (!/^[a-z0-9-]{3,32}$/.test(slug)) {

@@ -68,50 +68,38 @@
  * child route's shape diverges materially, add a route-local
  * loading.tsx — this file remains the dashboard-scope default.
  */
+import { Screen, Sk, RowSkeleton } from '@/components/skeletons';
+
 export default function DashboardLoading() {
   return (
-    <section
-      className="mx-auto w-full max-w-3xl space-y-6 px-4 py-10 sm:px-6 lg:px-8"
-      aria-busy="true"
-      aria-live="polite"
-    >
-      {/* Header strip — eyebrow + title + subtitle. Sized to typical
-       *  page-header copy lengths used on /profile + /create-event +
-       *  /notifications + /api-keys + dashboard root. */}
-      <header className="space-y-2">
-        <div className="h-3 w-32 animate-pulse rounded bg-ink/[0.07]" />
-        <div className="h-9 w-64 max-w-full animate-pulse rounded-md bg-ink/[0.07]" />
-        <div className="h-4 w-80 max-w-full animate-pulse rounded bg-ink/[0.05]" />
-      </header>
+    <section className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
+      <Screen label="Loading dashboard">
+        {/* Header — eyebrow + title + subtitle */}
+        <header className="space-y-2">
+          <Sk className="h-3 w-32 rounded" />
+          <Sk className="h-9 w-64 max-w-full rounded-md" />
+          <Sk className="h-4 w-80 max-w-full rounded" />
+        </header>
 
-      {/* Primary panel — wide rounded card reads as a "current focus"
-       *  area: the create-event tile picker, the profile-edit form, the
-       *  next-event card on dashboard root, etc. */}
-      <div className="h-36 animate-pulse rounded-2xl border border-ink/10 bg-ink/[0.03]" />
+        {/* Primary panel — create-event picker / profile form / event card */}
+        <Sk className="h-36 rounded-2xl" />
 
-      {/* Section eyebrow + 2-card row — covers profile sub-sections,
-       *  notifications grouped by date, API-key entries. */}
-      <div className="space-y-3">
-        <div className="h-3 w-40 animate-pulse rounded bg-ink/[0.07]" />
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {Array.from({ length: 2 }).map((_, i) => (
-            <li
-              key={i}
-              className="h-28 animate-pulse rounded-xl border border-ink/10 bg-ink/[0.03]"
-            />
+        {/* Section eyebrow + 2-card row */}
+        <div className="space-y-3">
+          <Sk className="h-3 w-40 rounded" />
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <li><Sk className="h-28 rounded-xl" /></li>
+            <li><Sk className="h-28 rounded-xl" /></li>
+          </ul>
+        </div>
+
+        {/* Three stacked list rows */}
+        <ul className="space-y-2.5">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <li key={i}><RowSkeleton /></li>
           ))}
         </ul>
-      </div>
-
-      {/* Three stacked panels — generic list-or-form continuation. */}
-      <ul className="space-y-3">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <li
-            key={i}
-            className="h-20 animate-pulse rounded-xl border border-ink/10 bg-ink/[0.03]"
-          />
-        ))}
-      </ul>
+      </Screen>
     </section>
   );
 }

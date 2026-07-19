@@ -19,15 +19,26 @@ import {
   icsDataHref,
 } from '@/lib/calendar-links';
 import { resolveStdFilmContent } from '@/lib/save-the-date-content';
+import { resolveStdTheme } from '@/lib/std-themes';
 import { CountdownWidget } from './countdown';
 import { OurStory } from './our-story';
-import { SaveTheDateFilm } from './save-the-date-film';
+import { SaveTheDateFilm, type StdLockup } from './save-the-date-film';
+import { StdBackgroundLayer } from './std-background-layer';
+import { resolveStdLegibility, type StdBackground } from '@/lib/std-backgrounds';
+import type { MonogramMotionKey } from '@/lib/monogram-motion';
+import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 
 type Props = {
   displayName: string;
   dateIso: string | null;
   venueName: string | null;
   venueAddress: string | null;
+  /** Film only — the ceremony + reception venue names (auto-filled upstream from
+   *  the finalized bookings ?? manual ?? event) + reception city. The static
+   *  (non-film) path still uses venueName/venueAddress for its calendar links. */
+  ceremonyVenue?: string | null;
+  receptionVenue?: string | null;
+  receptionCity?: string | null;
   publicId: string;
   // Couple's love story (events.love_story) — shown here as a one-line teaser
   // (the full story lives on the RSVP + Event paths). Absent → nothing renders.
@@ -42,12 +53,38 @@ type Props = {
   film?: boolean;
   /** Couple's explicit monogram text (resolveMonogram().text) — film only (P2). */
   monogramText?: string | null;
+  /** Sanitized SVG of the couple's monogram mark — film renders it in the
+   *  monogram + close beats instead of text initials when present. */
+  monogramSvg?: string | null;
+  /** The couple's onboarding lockup — the film's mark when there's no uploaded /
+   *  monogram-lab SVG (owner 2026-06-19 logo precedence). */
+  lockup?: StdLockup | null;
   /** Presigned soundtrack URL (the couple's site music) — film only (P2). */
   musicUrl?: string | null;
+  /** Presigned URL of the couple's NSFW-approved closing video — film only (PR-B).
+   *  Set only when stdVideoIsLive; plays as the locked video island beat. */
+  videoUrl?: string | null;
+  /** Poster still of that video — the film uses it for the iOS-safe blurred
+   *  letterbox fill behind the contained clip (a 2nd <video> won't play on iOS). */
+  videoPosterUrl?: string | null;
+  /** The paid Animated Monogram motion (resolved + ownership-gated upstream), or false. */
+  animatedMonogram?: MonogramMotionKey | false;
+  /** The bespoke-mark reveal designed in the studio panel (config.anim) — plays on
+   *  the film's monogram beats for studio/uploaded marks (owner 2026-06-23). */
+  studioAnim?: StudioAnim;
   /** Presigned photo URLs for the film's closing gallery beat — film only (P2). */
   galleryUrls?: string[];
   /** When the full invitation goes live (events.std_invitation_launch_date) — film only (P3). */
   launchDateIso?: string | null;
+  /** Visual theme for the film (lib/std-themes · 2026-06-18). Defaults to 'moodboard'. */
+  themeId?: string | null;
+  /** Step-1 background (events.std_background, resolved) — film only (2026-06-19). */
+  background?: StdBackground;
+  /** Resolved background image URL for kind realistic/upload (presigned). */
+  backgroundImageUrl?: string | null;
+  /** Film accent hex (button + accent marks) — resolved upstream as the couple's
+   *  manual override ?? Mood-Board accent ?? mulberry. Film only (2026-06-19). */
+  accentHex?: string | null;
 };
 
 export function SaveTheDateView({
@@ -55,14 +92,27 @@ export function SaveTheDateView({
   dateIso,
   venueName,
   venueAddress,
+  ceremonyVenue,
+  receptionVenue,
+  receptionCity,
   publicId,
   loveStory,
   showTextHero,
   film = false,
   monogramText,
+  monogramSvg,
+  lockup,
   musicUrl,
+  videoUrl,
+  videoPosterUrl,
+  animatedMonogram,
+  studioAnim,
   galleryUrls,
   launchDateIso,
+  themeId,
+  background,
+  backgroundImageUrl,
+  accentHex,
 }: Props) {
   const location = [venueName, venueAddress].filter(Boolean).join(', ') || null;
   const gcalUrl = googleCalendarUrl({ title: displayName, dateIso, location });
@@ -82,18 +132,34 @@ export function SaveTheDateView({
     const content = resolveStdFilmContent({
       displayName,
       monogramText,
+      monogramSvg,
       dateIso,
       launchDateIso,
-      venueName,
-      venueAddress,
+      ceremonyVenue,
+      receptionVenue,
+      receptionCity,
       loveStory,
       publicId,
       musicUrl,
+      videoUrl,
+      videoPosterUrl,
       galleryUrls,
     });
     return (
       <section className="py-2">
-        <SaveTheDateFilm content={content} />
+        {background ? (
+          <StdBackgroundLayer background={background} imageUrl={backgroundImageUrl ?? null} fixed />
+        ) : null}
+        <SaveTheDateFilm
+          content={content}
+          themeId={resolveStdTheme(themeId)}
+          transparent={Boolean(background)}
+          tone={background ? resolveStdLegibility(background).tone : null}
+          lockup={lockup ?? null}
+          accentHex={accentHex ?? null}
+          animatedMonogram={animatedMonogram ?? false}
+          studioAnim={studioAnim}
+        />
       </section>
     );
   }

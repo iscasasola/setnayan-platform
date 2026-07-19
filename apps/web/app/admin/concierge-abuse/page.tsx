@@ -36,6 +36,7 @@ import {
   adminLiftConciergeEnforcement,
 } from './actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: "Setnayan AI enforcement · Admin" };
 
 type FlagRow = {
@@ -73,6 +74,7 @@ type Props = {
 };
 
 export default async function ConciergeAbusePage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const tab: 'queue' | 'enforcement' =
     search.tab === 'enforcement' ? 'enforcement' : 'queue';
@@ -149,7 +151,7 @@ export default async function ConciergeAbusePage({ searchParams }: Props) {
           ladder: strike 1 → warning · strike 2 → trial banned · strike 3+ → full banned. Single-
           admin authority per § 4.3.
         </p>
-        <p className="rounded-md border border-amber-200/60 bg-amber-50/60 px-3 py-2 text-xs text-amber-900">
+        <p className="rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">
           <span className="font-semibold">Read-only — retired as a separate concept.</span>{' '}
           The ₱2,499 Setnayan Concierge SKU was supplanted by the ₱1,499
           TODAYS_FOCUS one-time SKU on 2026-05-28. Existing flagged users +
@@ -191,7 +193,7 @@ export default async function ConciergeAbusePage({ searchParams }: Props) {
       {search.cleared === '1' ? (
         <p
           role="status"
-          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+          className="mb-4 rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-900"
         >
           Flag cleared as false positive. The flagged user&apos;s account is no
           longer under review.
@@ -200,7 +202,7 @@ export default async function ConciergeAbusePage({ searchParams }: Props) {
       {search.confirmed ? (
         <p
           role="status"
-          className="mb-4 rounded-md border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          className="mb-4 rounded-md border border-warn-300/60 bg-warn-50 px-4 py-3 text-sm text-warn-900"
         >
           Abuse confirmed. Account enforcement level is now <strong>{search.confirmed}</strong>.
         </p>
@@ -208,7 +210,7 @@ export default async function ConciergeAbusePage({ searchParams }: Props) {
       {search.lifted ? (
         <p
           role="status"
-          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+          className="mb-4 rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-900"
         >
           Enforcement lifted. New level: <strong>{search.lifted}</strong>.
         </p>
@@ -219,19 +221,19 @@ export default async function ConciergeAbusePage({ searchParams }: Props) {
         <Metric
           label="Pending review"
           value={pendingFlags.length.toString()}
-          tone="bg-rose-50 text-rose-900 border-rose-200/60"
+          tone="bg-danger-50 text-danger-900 border-danger-200/60"
           icon={<AlertTriangle aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
         />
         <Metric
           label="Cleared (last 7d)"
           value={clearedCount.toString()}
-          tone="bg-emerald-50 text-emerald-900 border-emerald-200/60"
+          tone="bg-success-50 text-success-900 border-success-200/60"
           icon={<ShieldCheck aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
         />
         <Metric
           label="Confirmed (last 7d)"
           value={confirmedCount.toString()}
-          tone="bg-amber-50 text-amber-900 border-amber-200/60"
+          tone="bg-warn-50 text-warn-900 border-warn-200/60"
           icon={<ShieldAlert aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
         />
       </div>
@@ -257,7 +259,7 @@ function Metric({
   icon: React.ReactNode;
 }) {
   return (
-    <div className={`flex items-center justify-between rounded-xl border bg-cream px-4 py-3 ${tone}`}>
+    <div className={`flex items-center justify-between rounded-xl border bg-white/70 px-4 py-3 ${tone}`}>
       <div className="flex items-center gap-2">
         {icon}
         <span className="font-mono text-[11px] uppercase tracking-[0.15em]">{label}</span>
@@ -276,7 +278,7 @@ function QueueTab({
 }) {
   if (flags.length === 0) {
     return (
-      <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-8 text-center text-sm text-ink/55">
+      <p className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-ink/55">
         No pending flags. The queue is clear.
       </p>
     );
@@ -289,7 +291,7 @@ function QueueTab({
           .map((id) => usersById.get(id))
           .filter((u): u is UserBrief => !!u);
         return (
-          <li key={f.flag_id} className="rounded-xl border border-ink/10 bg-cream p-4">
+          <li key={f.flag_id} className="sn-tile p-4">
             <header className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 space-y-1">
                 <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
@@ -317,12 +319,12 @@ function QueueTab({
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <form
                 action={adminClearConciergeFlag}
-                className="space-y-2 rounded-md border border-emerald-200/60 bg-emerald-50/50 p-3"
+                className="space-y-2 rounded-md border border-success-200/60 bg-success-50/50 p-3"
               >
                 <input type="hidden" name="flag_id" value={f.flag_id} />
                 <label
                   htmlFor={`clear-${f.flag_id}`}
-                  className="block font-mono text-[11px] uppercase tracking-[0.15em] text-emerald-900"
+                  className="block font-mono text-[11px] uppercase tracking-[0.15em] text-success-900"
                 >
                   Clear as false positive (notes ≥ 10 chars)
                 </label>
@@ -332,11 +334,11 @@ function QueueTab({
                   required
                   minLength={10}
                   rows={2}
-                  className="input-field bg-cream text-sm"
+                  className="input-field bg-white/70 text-sm"
                   placeholder="Different couple, same Tagaytay venue / signal mismatch / etc."
                 />
                 <SubmitButton
-                  className="rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-emerald-800 disabled:opacity-70"
+                  className="rounded-md bg-success-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-success-800 disabled:opacity-70"
                   pendingLabel="Clearing…"
                 >
                   Clear (false positive)
@@ -345,12 +347,12 @@ function QueueTab({
 
               <form
                 action={adminConfirmConciergeAbuse}
-                className="space-y-2 rounded-md border border-rose-200/60 bg-rose-50/50 p-3"
+                className="space-y-2 rounded-md border border-danger-200/60 bg-danger-50/50 p-3"
               >
                 <input type="hidden" name="flag_id" value={f.flag_id} />
                 <label
                   htmlFor={`confirm-${f.flag_id}`}
-                  className="block font-mono text-[11px] uppercase tracking-[0.15em] text-rose-900"
+                  className="block font-mono text-[11px] uppercase tracking-[0.15em] text-danger-900"
                 >
                   Confirm abuse (notes ≥ 20 chars)
                 </label>
@@ -360,11 +362,11 @@ function QueueTab({
                   required
                   minLength={20}
                   rows={2}
-                  className="input-field bg-cream text-sm"
+                  className="input-field bg-white/70 text-sm"
                   placeholder="Same phone number across N accounts with identical wedding profiles — multi-account trial cycling."
                 />
                 <SubmitButton
-                  className="rounded-md bg-rose-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-rose-800 disabled:opacity-70"
+                  className="rounded-md bg-danger-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-danger-800 disabled:opacity-70"
                   pendingLabel="Confirming…"
                 >
                   Confirm abuse (+1 strike)
@@ -381,7 +383,7 @@ function QueueTab({
 function EnforcementTab({ users }: { users: UserBrief[] }) {
   if (users.length === 0) {
     return (
-      <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-8 text-center text-sm text-ink/55">
+      <p className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-ink/55">
         No accounts under enforcement.
       </p>
     );
@@ -389,7 +391,7 @@ function EnforcementTab({ users }: { users: UserBrief[] }) {
   return (
     <ul className="space-y-4">
       {users.map((u) => (
-        <li key={u.user_id} className="rounded-xl border border-ink/10 bg-cream p-4">
+        <li key={u.user_id} className="sn-tile p-4">
           <header className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 space-y-1">
               <h2 className="text-lg font-semibold tracking-tight text-ink">
@@ -412,12 +414,12 @@ function EnforcementTab({ users }: { users: UserBrief[] }) {
           ) : null}
           <form
             action={adminLiftConciergeEnforcement}
-            className="mt-4 space-y-2 rounded-md border border-emerald-200/60 bg-emerald-50/50 p-3"
+            className="mt-4 space-y-2 rounded-md border border-success-200/60 bg-success-50/50 p-3"
           >
             <input type="hidden" name="user_id" value={u.user_id} />
             <label
               htmlFor={`lift-${u.user_id}`}
-              className="block font-mono text-[11px] uppercase tracking-[0.15em] text-emerald-900"
+              className="block font-mono text-[11px] uppercase tracking-[0.15em] text-success-900"
             >
               Lift enforcement — appeal reversal (notes ≥ 10 chars). Decrements strike by 1.
             </label>
@@ -427,11 +429,11 @@ function EnforcementTab({ users }: { users: UserBrief[] }) {
               required
               minLength={10}
               rows={2}
-              className="input-field bg-cream text-sm"
+              className="input-field bg-white/70 text-sm"
               placeholder="User submitted appeal ticket #1234 with valid clarification. Lifting one strike."
             />
             <SubmitButton
-              className="rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-emerald-800 disabled:opacity-70"
+              className="rounded-md bg-success-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-success-800 disabled:opacity-70"
               pendingLabel="Lifting…"
             >
               Lift enforcement (−1 strike)
@@ -447,10 +449,10 @@ function SimilarityBar({ score }: { score: number }) {
   const pct = Math.round(score * 100);
   const tone =
     score >= 0.85
-      ? 'bg-rose-500'
+      ? 'bg-danger-500'
       : score >= 0.7
-        ? 'bg-amber-500'
-        : 'bg-emerald-500';
+        ? 'bg-warn-500'
+        : 'bg-success-500';
   return (
     <div className="flex flex-col items-end gap-1">
       <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
@@ -473,13 +475,13 @@ function SignalsTable({ signals }: { signals: Record<string, unknown> }) {
   const entries = Object.entries(signals ?? {});
   if (entries.length === 0) {
     return (
-      <div className="rounded-md border border-ink/10 bg-cream/50 p-3 text-xs text-ink/55">
+      <div className="rounded-md border border-white/60 bg-white/70 p-3 text-xs text-ink/55">
         No signal details recorded.
       </div>
     );
   }
   return (
-    <div className="rounded-md border border-ink/10 bg-cream/50 p-3">
+    <div className="rounded-md border border-white/60 bg-white/70 p-3">
       <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
         Signals fired
       </p>
@@ -490,7 +492,7 @@ function SignalsTable({ signals }: { signals: Record<string, unknown> }) {
             <span
               className={`rounded-full px-2 py-0.5 font-mono text-[10px] ${
                 v === true
-                  ? 'bg-rose-100 text-rose-800'
+                  ? 'bg-danger-100 text-danger-800'
                   : 'bg-ink/10 text-ink/55'
               }`}
             >
@@ -506,13 +508,13 @@ function SignalsTable({ signals }: { signals: Record<string, unknown> }) {
 function MatchedAccounts({ users }: { users: UserBrief[] }) {
   if (users.length === 0) {
     return (
-      <div className="rounded-md border border-ink/10 bg-cream/50 p-3 text-xs text-ink/55">
+      <div className="rounded-md border border-white/60 bg-white/70 p-3 text-xs text-ink/55">
         No matched accounts resolved.
       </div>
     );
   }
   return (
-    <div className="rounded-md border border-ink/10 bg-cream/50 p-3">
+    <div className="rounded-md border border-white/60 bg-white/70 p-3">
       <p className="mb-2 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
         <UsersIcon aria-hidden className="h-3 w-3" strokeWidth={1.75} />
         Matched accounts ({users.length})

@@ -31,6 +31,18 @@ import { followVendor } from '@/lib/follow-actions';
 import { sendChatMessage } from '@/lib/chat-actions';
 import { recordThreadInterests, type InterestSeed } from '@/lib/thread-interests';
 import { resolveLivePax } from '@/lib/pax';
+import { setEventPreference } from '@/lib/event-preferences';
+import {
+  buildRequirementsBlock,
+  isPersistableCanonicalService,
+} from '@/lib/requirements-capture';
+import { inquiryGateEnabled, evaluateInquiryVelocity } from '@/lib/inquiry-gate';
+import { isInquirySource, type InquirySource } from '@/lib/inquiry-source';
+import {
+  resolveReferringChapter,
+  resolveIsReturning,
+  stampThreadProvenance,
+} from '@/lib/inquiry-attribution';
 
 const INQUIRY_BODY =
   "Hi! We're planning our wedding and would love to hear about your " +
@@ -40,17 +52,72 @@ const INQUIRY_BODY =
 export type StartServiceInquiryResult =
   | { status: 'ok'; threadId: string; eventId: string; isExisting: boolean }
   | { status: 'not_signed_in' }
+  | { status: 'not_secured' }
   | { status: 'no_event' }
   | { status: 'error'; message: string };
 
 export async function startServiceInquiry(input: {
   vendorProfileId: string;
+  /**
+   * Event-scoped callers (the couple's shortlist / build workspace, which is
+   * bound to ONE event) pass the explicit event this inquiry belongs to. It is
+   * VALIDATED against the caller's own couple events — a non-owned / unknown id
+   * resolves to `no_event`, never a cross-event write. Omitted → the couple's
+   * primary event (events[0]), the public-profile composer default.
+   * (owner 2026-07-17 — shortlist inquiry-source wiring.)
+   */
+  eventId?: string | null;
+  /**
+   * Who initiated this call. 'manual' (default) = the couple pressed Inquire in
+   * the composer → subject to the Phase-A velocity gate. 'system' = a legitimate
+   * batch fan-out (the pending-pick dispatcher flushing saved picks) → exempt, so
+   * securing an account and flushing a shortlist never trips the anti-spam cap.
+   */
+  source?: 'manual' | 'system';
   /** vendor_service the couple clicked Inquire on → source='initial'. */
   initialServiceId: string;
   /** Canonical category for the initial service (display/scoping). */
   initialCategoryKey: string | null;
   /** Extra standalone services the couple opted into → source='couple_added'. */
   alsoServiceIds: string[];
+  /**
+   * Bundle nudge (2026-06-20): the couple opted into "ask for ONE bundle price"
+   * for the initial + also-added services. When set (and they added ≥1 extra),
+   * the first inquiry message explicitly asks the vendor for a combined bundle
+   * quote, so the vendor knows to price the services as one deal.
+   */
+  requestBundleQuote?: boolean;
+  /**
+   * Phase 1b PR-3 — per-category requirements capture. The couple's checked
+   * facets keyed by the canonical_service_schemas field key (multi_select →
+   * string[]), plus a freeform note and the carry-forward flag. All optional;
+   * a couple that captures nothing sends a plain inquiry exactly as before.
+   */
+  requirements?: {
+    /** Checked facet picks: field key → selected option values. */
+    payload?: Record<string, string[]>;
+    /** Freeform "anything specific?" note. */
+    specialRequest?: string | null;
+    /** "Auto-send to my next inquiries" → event_vendor_preferences.auto_send. */
+    autoSend?: boolean;
+  };
+  /**
+   * Creator Economy PR-C — CTA-click attribution. The chapter public_id
+   * (S89C-…) carried by the Book CTA (`/v/[slug]?ref_chapter=…`). Validated
+   * server-side (published chapter · public profile · substrate credits THIS
+   * vendor) before anything is stamped; a forged/stale value degrades to an
+   * ordinary website inquiry. Stamped only on a BRAND-NEW thread — the chapter
+   * whose CTA STARTED the thread keeps the credit (owner paper-lock).
+   */
+  referringChapterPublicId?: string | null;
+  /**
+   * Inquiry-source taxonomy (owner 2026-07-17). Caller-declared origin for
+   * NON-chapter sources whose trigger surface is live (e.g. 'editorial' from a
+   * /realstories credit chip). Validated against the enum; 'influencer' is
+   * derived from a VALIDATED referral only, never trusted from this field.
+   * Omitted/null = website default (stored NULL).
+   */
+  inquirySource?: InquirySource | string | null;
 }): Promise<StartServiceInquiryResult> {
   const vendorProfileId = String(input.vendorProfileId ?? '').trim();
   const initialServiceId = String(input.initialServiceId ?? '').trim();
@@ -63,11 +130,24 @@ export async function startServiceInquiry(input: {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { status: 'not_signed_in' };
+  // Anon-draft guard: an anonymous user is technically "signed in" (real uid),
+  // but sending an inquiry opens a two-way vendor thread the vendor may burn a
+  // token to answer — and the reply would email the placeholder address and
+  // bounce. Require securing the account first (convert-in-place keeps the same
+  // uid + event, so nothing is lost). Dormant unless anon-draft is live.
+  if (user.is_anonymous) return { status: 'not_secured' };
 
-  // Primary event — the public-profile composer targets the couple's single
-  // active event. Multi-event hosts pick the event explicitly on the dashboard.
+  // Event resolution. An event-scoped caller (shortlist / build workspace) may
+  // pass an explicit event — HONORED only after validating the couple actually
+  // hosts it (a forged / non-owned id resolves to no_event, never a cross-event
+  // write). No explicit event → the public-profile composer default: the
+  // couple's primary / single active event. Multi-event hosts pick the event
+  // explicitly on the dashboard.
   const events = await fetchUserEvents(supabase, user.id, 'couple');
-  const eventId = events[0]?.event_id ?? null;
+  const requestedEventId = String(input.eventId ?? '').trim();
+  const eventId = requestedEventId
+    ? (events.find((e) => e.event_id === requestedEventId)?.event_id ?? null)
+    : (events[0]?.event_id ?? null);
   if (!eventId) return { status: 'no_event' };
 
   const admin = createAdminClient();
@@ -83,6 +163,36 @@ export async function startServiceInquiry(input: {
   const isExisting =
     existingThread?.thread_id != null &&
     (existingThread as { inquiry_status?: string | null }).inquiry_status !== 'declined';
+
+  // ── Phase A · inquiry velocity gate (fake-inquiry protection) ──────────────
+  // Only a brand-NEW, MANUAL inquiry can be spam. Resuming an existing thread
+  // (isExisting) is never gated — that's a couple continuing a conversation they
+  // already started. System fan-outs pass source:'system' and are exempt. The
+  // whole gate is dormant until NEXT_PUBLIC_INQUIRY_GATE_ENABLED is flipped on.
+  const source = input.source ?? 'manual';
+  if (!isExisting && source === 'manual' && inquiryGateEnabled()) {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    // Rolling-24h count of threads this couple opened across all their events.
+    const { count: dailyCount } = await supabase
+      .from('chat_threads')
+      .select('thread_id', { count: 'exact', head: true })
+      .eq('created_by_user_id', user.id)
+      .gte('created_at', since);
+    // Non-declined threads already open on THIS event.
+    const { count: concurrentOpenCount } = await supabase
+      .from('chat_threads')
+      .select('thread_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .neq('inquiry_status', 'declined');
+    const verdict = evaluateInquiryVelocity({
+      dailyCount: dailyCount ?? 0,
+      concurrentOpenCount: concurrentOpenCount ?? 0,
+    });
+    if (!verdict.ok) {
+      // Friendly, non-accusatory — surfaced via the composer's message channel.
+      return { status: 'error', message: verdict.message };
+    }
+  }
 
   // Validate the submitted service ids belong to THIS vendor + are active —
   // host-supplied form data, so a stale/forged id should be dropped, not
@@ -106,6 +216,38 @@ export async function startServiceInquiry(input: {
   if (!ownedById.has(initialServiceId)) {
     return { status: 'error', message: 'That service is no longer available.' };
   }
+
+  // ── Phase 1b PR-3 · per-category requirements ──────────────────────────────
+  // The leaf the couple inquired on. This is the FK target for
+  // event_vendor_preferences.canonical_service: it equals vendor_services.category
+  // (~1:1 with canonical_service_schemas), preferring the explicit categoryKey the
+  // composer sent, else the validated owned service's category. A handful of legacy
+  // categories have no schema row → the persist below FK-checks + gracefully skips.
+  const requirementCanonicalService =
+    input.initialCategoryKey?.trim() || ownedById.get(initialServiceId) || null;
+
+  // Sanitize the checkbox payload: keep only string keys → arrays of non-empty
+  // strings. Forged/odd shapes degrade to {} rather than poisoning the JSONB.
+  const requirementPayload: Record<string, string[]> = {};
+  const rawPayload = input.requirements?.payload;
+  if (rawPayload && typeof rawPayload === 'object') {
+    for (const [key, values] of Object.entries(rawPayload)) {
+      if (!key || !Array.isArray(values)) continue;
+      const picks = Array.from(
+        new Set(values.map((v) => String(v).trim()).filter((v) => v.length > 0)),
+      );
+      if (picks.length > 0) requirementPayload[key] = picks;
+    }
+  }
+  const requirementSpecialRequest =
+    typeof input.requirements?.specialRequest === 'string'
+      ? input.requirements.specialRequest.trim()
+      : '';
+  const requirementAutoSend = input.requirements?.autoSend === true;
+  const requirementsBlock = buildRequirementsBlock(
+    requirementPayload,
+    requirementSpecialRequest || null,
+  );
 
   // follow → upsert thread → first message (best-effort message). Mirrors the
   // canonical inquiry pattern in unlock-category.ts.
@@ -146,6 +288,43 @@ export async function startServiceInquiry(input: {
       .eq('thread_id', threadId);
   }
 
+  // ── Creator Economy PR-C · provenance stamp (brand-NEW threads only) ───────
+  // CTA-click attribution lock: the chapter whose Book CTA STARTED the thread
+  // gets the credit — a resumed thread keeps its original provenance untouched.
+  // A validated chapter referral wins ('influencer'); otherwise an enum-valid
+  // caller-declared source (e.g. 'editorial') is stored; otherwise NULL =
+  // Website Inquiry. is_returning is a companion flag computed from the same
+  // returning=1-token signal the token bands used. All best-effort.
+  if (!isExisting) {
+    const [resolvedReferral, returning] = await Promise.all([
+      resolveReferringChapter(input.referringChapterPublicId, vendorProfileId),
+      resolveIsReturning(vendorProfileId, eventId),
+    ]);
+    // Self-referral guard (G2, PR-C money-path review): a creator must not tick
+    // their OWN "inquiries driven" count by inquiring through their own chapter's
+    // Book CTA. When the credited chapter belongs to the inquirer, DROP the
+    // referral (treat as a normal Website inquiry) — never error the inquiry.
+    const referral =
+      resolvedReferral && resolvedReferral.creatorUserId === user.id
+        ? null
+        : resolvedReferral;
+    // Caller-declared source is only honored for enum values whose trigger
+    // surface the SERVER doesn't own: 'influencer' is derived from a validated
+    // referral, and 'degree' is unwired (server-set only) — reject both if a
+    // client supplies them.
+    const declaredSource =
+      isInquirySource(input.inquirySource) &&
+      input.inquirySource !== 'influencer' &&
+      input.inquirySource !== 'degree'
+        ? input.inquirySource
+        : null;
+    await stampThreadProvenance(threadId, {
+      referringChapterId: referral?.chapterId ?? null,
+      inquirySource: referral ? 'influencer' : declaredSource,
+      isReturning: returning,
+    });
+  }
+
   // Only post the inquiry note when the thread has no messages yet — a resumed
   // thread (couple re-inquiring about more services) just gets the new
   // interests, not a duplicate inquiry message.
@@ -157,7 +336,17 @@ export async function startServiceInquiry(input: {
     try {
       const msg = new FormData();
       msg.set('thread_id', threadId);
-      msg.set('body', INQUIRY_BODY);
+      // Append the couple's captured requirements so the vendor sees what
+      // they're looking for on first contact (a dedicated vendor "Their
+      // requirements" panel is a later slice — body-append suffices here).
+      // Bundle nudge: when the couple opted into a single bundle price AND
+      // added ≥1 extra service, say so explicitly so the vendor prices the set
+      // as one deal (the thread interests already list which services).
+      const bundleAsk =
+        input.requestBundleQuote && input.alsoServiceIds.length > 0
+          ? '\n\nWe’d love to book a few of your services together — could you send us one bundle price?'
+          : '';
+      msg.set('body', `${INQUIRY_BODY}${requirementsBlock}${bundleAsk}`);
       await sendChatMessage(msg);
     } catch {
       /* best-effort — the thread + interests stand even if the note fails */
@@ -260,6 +449,34 @@ export async function startServiceInquiry(input: {
   } catch {
     /* best-effort — thread + interests already landed; service-id list can
        be reconstructed from thread_service_interests if the column is missing */
+  }
+
+  // Persist the couple's saved requirements template for this category so it
+  // pre-fills next time + (when auto_send) can carry forward. Best-effort:
+  //  · only when there's something to save (facets / note / auto-send), and
+  //  · only when the leaf maps to a real canonical_service_schemas row (the FK
+  //    target) — an unmappable legacy category gracefully SKIPS the save while
+  //    the inquiry above already went through untouched.
+  const hasRequirements =
+    Object.keys(requirementPayload).length > 0 ||
+    requirementSpecialRequest.length > 0 ||
+    requirementAutoSend;
+  if (hasRequirements && requirementCanonicalService) {
+    try {
+      const persistable = await isPersistableCanonicalService(
+        admin,
+        requirementCanonicalService,
+      );
+      if (persistable) {
+        await setEventPreference(admin, eventId, requirementCanonicalService, requirementPayload, {
+          specialRequest: requirementSpecialRequest || null,
+          autoSend: requirementAutoSend,
+        });
+      }
+    } catch {
+      /* best-effort — the inquiry already sent + carries the requirements in
+         its body; failing to save the reusable template never blocks it */
+    }
   }
 
   revalidatePath(`/dashboard/${eventId}/messages/${threadId}`);

@@ -2,50 +2,36 @@
 
 /**
  * MobileGuestCarousel — the Guests-page control surface on phones/tablets
- * (iteration 0001, 2026-06-02 · re-homed to TOP-OF-PAGE TABS 2026-06-15).
+ * (iteration 0001, 2026-06-02 · TOP-OF-PAGE TABS 2026-06-15 · re-homed to the
+ * LIVING ROSTER single surface 2026-07-11, P4).
  *
- * Owner directive 2026-06-15 (nav patch FIX B): the Guests page had TWO
- * stacked bottom bars — the global journey nav AND this carousel's own
- * bottom-docked sheet (a second fixed bar with the 5 pills + a search input +
- * sort/filter). The owner picked: drop the second bottom bar and present the
- * five sub-views (Summary · Search · Add · Customize · Journey) as TOP-OF-PAGE
- * pill tabs using the app's canonical in-page menu pattern `.sn-seg`. So this
- * component is now an IN-FLOW block at the top of the mobile guest area — a
- * `.sn-seg` tab row with the active panel rendered directly below it — NOT a
- * fixed sheet docked above the bottom nav. Net result on the Guests page:
- * exactly ONE bottom bar (the global journey nav); the Guests sub-views are
- * top tabs.
+ * Living Roster P4 (2026-07-11): the five-tab `.sn-seg` swipe carousel
+ * (Summary · Search · Add · Customize · Journey) is retired in favour of the
+ * prototype's single scrolling surface, so mobile matches the merged desktop
+ * reskin (P0–P3). Top-to-bottom:
+ *   • Sticky masthead — "N guests" + Invite (native share / copy link) +
+ *     Needs-you (self-join badge → /guests/claims), the pax-target meter, and
+ *     the passive Build → Invite → Confirm → Seat → Day-of progress ribbon.
+ *   • Tools — the search compose row (filter · sort icons · LiveSearch · Add),
+ *     the 3-MODE segment Roster / Groups / Day-of, the RSVP pills, and a
+ *     grid/list DENSITY toggle, then the bulk-select Customize row.
  *
- * The FIVE panels are unchanged in function (only their host moved):
- *   1. Summary  — [Total][Attending][Pending][Declined] as boxed,
- *                 animated count-up boxes; each box is also an RSVP filter
- *                 link, so mobile keeps RSVP filtering (Total clears it)
- *   2. Search   — LiveSearch + filter/sort icons that open the same filter +
- *                 sort bottom sheets (Side + RSVP toggles, Role + Group +
- *                 Tags dropdowns, sort list)
- *   3. Add      — inline rapid quick-add form (+ Quick-add list + Import CSV)
- *   4. Customize — select guests + bulk-assign Side / Role / Group via the
- *                 Assign sheet (a "switch to list" hint in mind-map mode)
- *   5. Journey  — the guest lifecycle (Build→Invite→Confirm→Seat→Day-of) +
- *                 the List/Mind-map view switch (redesign Phase 1; the mobile
- *                 twin of the desktop ribbon + switcher)
- *
- * Tab switching is state-driven (`active`) + tap-to-switch on the `.sn-seg`
- * pills. Horizontal swipe between panels is retained (the panels still live in
- * a scroll-snap track) so the original swipe gesture keeps working. All
- * `lg:hidden` — desktop keeps the inline Toolbar + sticky FacetsSidebar +
- * SummaryStrip untouched.
- *
- * The filter + sort + assign bottom SHEETS (modal overlays opened from the
- * Search panel / Customize panel) are kept as-is — they're transient dialogs,
- * not a persistent second nav bar, so they don't violate the one-bottom-bar
- * rule.
+ * The 3-mode segment and every pill are URL-DRIVEN and reuse the SAME `buildHref`
+ * param contract the desktop facet bar writes — NO second encoder (PAGE_LAYOUT
+ * risk #3): Roster = `?sort=importance`, Groups = `?sort=group` (the roster's
+ * groupMode), Day-of routes to the dedicated `/guests/checkin` desk, density
+ * writes `?density=list` (an additive display param the shared
+ * GuestListMultiselect reads — the filter params q/rsvp/view/group/team/tag/sort/
+ * gview are still emitted identically). The guest ROWS render in
+ * `GuestListMultiselect` below (one source of truth — this stays a control
+ * surface, it does not fork the row list). All `lg:hidden`; desktop keeps its
+ * inline chrome. The filter + sort + assign bottom SHEETS are kept verbatim.
  */
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { ArrowUpDown, BarChart3, Check, ChevronLeft, ChevronRight, CircleCheck, LayoutGrid, List, Network, PencilLine, QrCode, Route, Search, Send, SlidersHorizontal, UserPlus, X } from 'lucide-react';
+import { ArrowUpDown, Check, ChevronLeft, ChevronRight, CircleCheck, Clock, LayoutGrid, List, PencilLine, QrCode, Send, Share2, SlidersHorizontal, UserPlus, X } from 'lucide-react';
 import {
   ROLE_LABELS,
   SIDE_LABELS,
@@ -57,22 +43,12 @@ import { LiveSearch } from './live-search';
 import { quickAddGuest } from '../quick-add-actions';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { bulkApplyRoleAndGroup, createGuestGroup } from '../groups-actions';
-import { BULK_ROLE_SECTIONS } from './guest-list-multiselect';
+import { bulkRoleSectionsFor, type RoleSection } from './guest-list-multiselect';
 import { guestSelection, useGuestSelection } from './guest-selection-store';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 type Opt = { key: string; label: string };
 type Group = { group_id: string; label: string; member_count?: number };
-
-const PANELS = [
-  { key: 'summary', label: 'Summary', icon: BarChart3 },
-  { key: 'find', label: 'Search', icon: Search },
-  { key: 'add', label: 'Add', icon: UserPlus },
-  { key: 'customize', label: 'Customize', icon: SlidersHorizontal },
-  // Journey — the guest lifecycle (Build → Invite → Confirm → Seat → Day-of)
-  // + the List/Mind-map view switch, mobile home (redesign Phase 1; the desktop
-  // ribbon + switcher live in the page chrome, which is hidden below lg).
-  { key: 'journey', label: 'Journey', icon: Route },
-] as const;
 
 const SIDES: GuestSide[] = ['bride', 'groom', 'both'];
 
@@ -98,6 +74,8 @@ export function MobileGuestCarousel({
   unsent = 0,
   unseated = 0,
   arrived = 0,
+  roleSetKey,
+  joinUrl = null,
 }: {
   eventId: string;
   q: string;
@@ -125,10 +103,18 @@ export function MobileGuestCarousel({
   unsent?: number;
   unseated?: number;
   arrived?: number;
+  // Iteration 0053 P4 Unit 5: event's role-set key → bulk-assign picker sections.
+  roleSetKey?: string | null;
+  // Living Roster P4: the share-invite link for the masthead Invite button
+  // (fetched server-side in page.tsx); null when RLS/read failed → button hides.
+  joinUrl?: string | null;
 }) {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const [active, setActive] = useState(0);
+  // Per-event-type bulk-assign sections (shared with the desktop SelectionBar).
+  const bulkRoleSections = bulkRoleSectionsFor(roleSetKey);
   const [assignOpen, setAssignOpen] = useState(false);
+  // Inline rapid-add toggle (Living Roster P4) — the toolbar's Add affordance
+  // reveals the same quick-entry form the retired Add tab held.
+  const [addOpen, setAddOpen] = useState(false);
   // Filter / sort bottom sheets opened from the search compose-bar icons
   // (owner directive 2026-06-03 — Messenger-style icons left of the search).
   const [filterSheet, setFilterSheet] = useState(false);
@@ -136,6 +122,23 @@ export function MobileGuestCarousel({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
+
+  // Focus management for the two compose-bar bottom sheets (filter + sort).
+  // Each overlay carries its own ref + its own useModalA11y wired to its own
+  // open-state + close handler (focus trap, Esc-to-close, body-scroll-lock,
+  // focus-restore). Hooks run unconditionally — the overlays mount below.
+  const filterSheetRef = useRef<HTMLDivElement>(null);
+  useModalA11y({
+    open: filterSheet,
+    onClose: () => setFilterSheet(false),
+    containerRef: filterSheetRef,
+  });
+  const sortSheetRef = useRef<HTMLDivElement>(null);
+  useModalA11y({
+    open: sortSheet,
+    onClose: () => setSortSheet(false),
+    containerRef: sortSheetRef,
+  });
 
   // Belt-and-suspenders: after a bulk apply redirects back with a flash, make
   // sure the Assign sheet is closed (the apply handler already closes it +
@@ -166,19 +169,6 @@ export function MobileGuestCarousel({
     [pathname, searchParams],
   );
 
-  const goTo = (i: number) => {
-    const track = trackRef.current;
-    if (track) track.scrollTo({ left: i * track.clientWidth, behavior: 'smooth' });
-    setActive(i);
-  };
-
-  const onScroll = () => {
-    const track = trackRef.current;
-    if (!track) return;
-    const i = Math.round(track.scrollLeft / track.clientWidth);
-    if (i !== active) setActive(i);
-  };
-
   const hasActiveFilter =
     Boolean(currentGroupId) ||
     (Boolean(activeView) && activeView !== 'all') ||
@@ -187,254 +177,249 @@ export function MobileGuestCarousel({
   const currentRsvp = searchParams.get('rsvp') ?? '';
   // In Mind-map mode the guest LIST isn't rendered (page swaps in GuestMindMap),
   // so the carousel's bulk-select would act on guests the user can't see. Gate
-  // Customize to a "switch to list" hint while the map is up.
+  // the select/density controls to a "back to roster" hint while the map is up.
   const mapMode = searchParams.get('gview') === 'map';
+  // 3-mode (Living Roster P4). Groups = the group-bucketed roster (`?sort=group`,
+  // GuestListMultiselect's groupMode='group'); Roster = any other sort; Day-of
+  // routes to the dedicated check-in desk. Same params the desktop sort control
+  // writes — no second encoder.
+  const isGroupsMode = currentSort === 'group' && !mapMode;
+  const isRosterMode = !isGroupsMode && !mapMode;
+  // Grid/list density for the roster below — the toggle writes `?density=list`,
+  // which GuestListMultiselect reads (one URL-driven state, both surfaces).
+  const density = searchParams.get('density') === 'list' ? 'list' : 'grid';
 
   return (
     <>
-      {/* TOP-OF-PAGE TAB BAR (FIX B 2026-06-15) — the five Guests sub-views as
-          `.sn-seg` pill tabs, the app's canonical in-page menu pattern. This is
-          an IN-FLOW block at the top of the mobile guest area (mounted above the
-          guest list on the page), NOT a fixed bottom-docked sheet — so the page
-          shows exactly ONE bottom bar (the global journey nav). lg:hidden:
-          desktop keeps the inline Toolbar + sticky FacetsSidebar. */}
-      <div className="lg:hidden">
-        <nav aria-label="Guest panels" role="tablist">
-          <ul className="sn-seg w-full">
-            {PANELS.map((p, i) => {
-              const Icon = p.icon;
-              const isActive = active === i;
-              return (
-                <li key={p.key} className="contents">
-                  <button
-                    type="button"
-                    role="tab"
-                    onClick={() => goTo(i)}
-                    aria-selected={isActive}
-                    aria-current={isActive ? 'page' : undefined}
-                    className={`sn-seg-item flex-col gap-0.5 px-1 ${isActive ? 'is-active' : ''}`}
-                  >
-                    <Icon
-                      aria-hidden
-                      strokeWidth={1.75}
-                      className="h-[20px] w-[20px]"
-                    />
-                    <span
-                      className={`text-[10px] tracking-wide ${isActive ? 'font-semibold' : ''}`}
-                    >
-                      {p.label}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-
-          {/* swipe track — the 5 panels, scroll-snap, in-flow below the tabs.
-              Tap a pill above OR swipe to jump between panels. The active
-              panel's intrinsic height drives this block's height (no fixed
-              sheet, no measured open-height, no grabber). */}
-          <div
-            ref={trackRef}
-            onScroll={onScroll}
-            className="mt-3 flex snap-x snap-mandatory items-start overflow-x-auto overflow-y-hidden scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          >
-          {/* 1 — Summary: animated RSVP counts (also filter links). Four
-              stats sit on ONE row so the panel is as low as the search row. */}
-          <section className="w-full shrink-0 snap-center px-1 py-3">
-            {/* Pax-target meter (Adaptive Pax Pricing Phase 2) — sure-attending
-                vs the couple's minimum pax. Hidden when no target is set. */}
-            {paxProgress ? (
-              <div className="mb-3">
-                <div className="flex items-baseline justify-between gap-2 text-[11px]">
-                  <span className="font-mono uppercase tracking-[0.12em] text-terracotta">
-                    {paxProgress.exceeded ? 'Now planning for' : 'Guest target'}
-                  </span>
-                  <span className="tabular-nums text-ink/70">
-                    {paxProgress.exceeded
-                      ? `${paxProgress.headcount} · ${paxProgress.overBy} over ${paxProgress.target}`
-                      : `${paxProgress.headcount} of ${paxProgress.target} · ${paxProgress.progressPct}%`}
-                  </span>
-                </div>
-                <div className="mt-1 h-2 overflow-hidden rounded-full bg-ink/10">
-                  <div
-                    className={`h-full rounded-full ${paxProgress.exceeded ? 'bg-terracotta-700' : 'bg-terracotta'}`}
-                    style={{ width: `${paxProgress.exceeded ? 100 : paxProgress.progressPct}%` }}
-                  />
-                </div>
-              </div>
-            ) : null}
-            <div className="grid grid-cols-4 gap-2">
-              <StatBox
-                label="Total"
-                value={total}
-                tint="text-ink"
-                href={buildHref({ rsvp: null })}
-                active={!currentRsvp}
-              />
-              <StatBox
-                label="Attending"
-                value={attending}
-                tint="text-emerald-700"
-                href={buildHref({ rsvp: 'attending' })}
-                active={currentRsvp === 'attending'}
-              />
-              <StatBox
-                label="Pending"
-                value={pending}
-                tint="text-amber-700"
-                href={buildHref({ rsvp: 'pending' })}
-                active={currentRsvp === 'pending'}
-              />
-              <StatBox
-                label="Declined"
-                value={declined}
-                tint="text-rose-700"
-                href={buildHref({ rsvp: 'declined' })}
-                active={currentRsvp === 'declined'}
-              />
-            </div>
-          </section>
-
-          {/* 2 — Search: Messenger-style compose bar — the search input with
-              filter + sort as icons on its LEFT (owner directive 2026-06-03 —
-              "filtering and sorting will be similar to the icons on the left of
-              the search bar"). The filters + sort live in bottom sheets opened
-              from the icons. */}
-          <section className="flex w-full shrink-0 snap-center flex-col justify-start px-1 py-3">
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setFilterSheet(true)}
-                aria-label="Filter guests"
-                className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink/55 hover:bg-ink/5 hover:text-ink"
-              >
-                <SlidersHorizontal className="h-[22px] w-[22px]" strokeWidth={1.75} aria-hidden />
-                {hasActiveFilter || teamFilter !== 'all' || currentRsvp ? (
-                  <span
-                    aria-hidden
-                    className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-terracotta ring-2 ring-cream"
-                  />
-                ) : null}
-              </button>
-              <button
-                type="button"
-                onClick={() => setSortSheet(true)}
-                aria-label="Sort guests"
-                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink/55 hover:bg-ink/5 hover:text-ink"
-              >
-                <ArrowUpDown className="h-[22px] w-[22px]" strokeWidth={1.75} aria-hidden />
-              </button>
-              <div className="flex-1">
-                <LiveSearch initialValue={q} placeholder="Search names, roles…" />
-              </div>
-            </div>
-          </section>
-
-          {/* 3 — Add: inline quick-entry form. */}
-          <section className="flex w-full shrink-0 snap-center flex-col justify-start px-1 py-3">
-            <QuickAddInlineForm eventId={eventId} />
-          </section>
-
-          {/* 4 — Customize: select guests + bulk-assign (owner directive
-              2026-06-03). Tap "Select" → checkboxes appear on the cards; the
-              select-all + live count + Assign live here; Assign opens the
-              bottom sheet (Side / Role / Group, with a create-new text box). */}
-          {mapMode ? (
-            <section className="flex w-full shrink-0 snap-center flex-col items-center justify-center gap-2 px-6 py-6 text-center">
-              <p className="text-sm text-ink/60">
-                Bulk-select works in list view. The mind map adds people with its
-                own <span aria-hidden>+</span> buttons.
+      {/* Living Roster · mobile control surface (P4 · 2026-07-11). Replaces the
+          five-tab `.sn-seg` swipe carousel with the prototype's single sticky
+          surface: masthead (title · Invite · Needs-you) + pax meter + a passive
+          progress ribbon, then a 3-mode segment (Roster / Groups / Day-of), the
+          RSVP pills, and a grid/list density toggle. Every control writes the
+          SAME URL params the desktop facet bar does — filtering stays URL-driven
+          + SSR, no second encoder. lg:hidden: desktop keeps its inline chrome.
+          `gl-settle` eases the surface in once on mount (frozen under
+          prefers-reduced-motion by the global freeze block). */}
+      <div className="gl-settle space-y-3 lg:hidden">
+        {/* Sticky masthead — title, Invite + Needs-you, pax meter, ribbon. */}
+        <div className="sticky top-[calc(env(safe-area-inset-top)+0.25rem)] z-30 -mx-1 space-y-2.5 rounded-b-2xl bg-cream/85 px-1 pb-2.5 pt-1 backdrop-blur">
+          <div className="flex items-end justify-between gap-2">
+            <div className="min-w-0">
+              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
+                Guest list
               </p>
+              <h2 className="text-2xl font-semibold leading-tight tracking-tight text-ink">
+                {total} {total === 1 ? 'guest' : 'guests'}
+              </h2>
+            </div>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {joinUrl ? <InviteButton joinUrl={joinUrl} /> : null}
+              <Link
+                href={`/dashboard/${eventId}/guests/claims`}
+                aria-label={`${pendingClaims} ${pendingClaims === 1 ? 'guest needs' : 'guests need'} you`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-danger-200 bg-danger-50 px-2.5 py-1.5 text-xs font-medium text-danger-700"
+              >
+                <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-danger-500 px-1 text-[10px] font-bold text-white">
+                  {pendingClaims}
+                </span>
+                Needs you
+              </Link>
+            </div>
+          </div>
+
+          {/* Pax-target meter (Adaptive Pax Pricing Phase 2) — sure-attending vs
+              the couple's minimum pax. Hidden when no target is set. */}
+          {paxProgress ? (
+            <div>
+              <div className="flex items-baseline justify-between gap-2 text-[11px]">
+                <span className="font-mono uppercase tracking-[0.12em] text-terracotta">
+                  {paxProgress.exceeded ? 'Now planning for' : 'Guest target'}
+                </span>
+                <span className="tabular-nums text-ink/70">
+                  {paxProgress.exceeded
+                    ? `${paxProgress.headcount} · ${paxProgress.overBy} over ${paxProgress.target}`
+                    : `${paxProgress.headcount} of ${paxProgress.target} · ${paxProgress.progressPct}%`}
+                </span>
+              </div>
+              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-ink/10">
+                <div
+                  className={`h-full rounded-full ${paxProgress.exceeded ? 'bg-terracotta-700' : 'bg-terracotta'}`}
+                  style={{ width: `${paxProgress.exceeded ? 100 : paxProgress.progressPct}%` }}
+                />
+              </div>
+            </div>
+          ) : null}
+
+          {/* Passive progress ribbon — reflects counts, links to each stage. */}
+          <div className="flex items-center gap-0.5 overflow-x-auto overscroll-x-contain">
+            {(
+              [
+                { key: 'build', label: 'Build', Icon: PencilLine, href: buildHref({}), active: true },
+                { key: 'invite', label: 'Invite', Icon: Send, href: `/dashboard/${eventId}/guests/invite`, badge: unsent, word: 'to send' },
+                { key: 'confirm', label: 'Confirm', Icon: CircleCheck, href: `/dashboard/${eventId}/guests/claims`, badge: pendingClaims, word: 'to review' },
+                { key: 'seat', label: 'Seat', Icon: LayoutGrid, href: `/dashboard/${eventId}/seating`, badge: unseated, word: 'to seat' },
+                { key: 'dayof', label: 'Day-of', Icon: QrCode, href: `/dashboard/${eventId}/guests/checkin`, badge: arrived, done: true, word: 'arrived' },
+              ] as const
+            ).map((s, i) => (
+              <span key={s.key} className="flex shrink-0 items-center gap-0.5">
+                {i > 0 ? (
+                  <ChevronRight className="h-3.5 w-3.5 text-ink/30" strokeWidth={1.75} aria-hidden />
+                ) : null}
+                <Link
+                  href={s.href}
+                  aria-current={'active' in s && s.active ? 'step' : undefined}
+                  className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] ${
+                    'active' in s && s.active
+                      ? 'bg-terracotta/10 font-medium text-terracotta-700'
+                      : 'text-ink/60'
+                  }`}
+                >
+                  <s.Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+                  {s.label}
+                  {'badge' in s && s.badge ? (
+                    <span
+                      className={`rounded-full px-1.5 text-[10px] font-semibold ${
+                        'done' in s && s.done
+                          ? 'bg-success-100 text-success-800'
+                          : 'bg-terracotta/15 text-terracotta-700'
+                      }`}
+                    >
+                      {s.badge}
+                      {'word' in s && s.word ? (
+                        <span className="ml-1 font-normal opacity-80">{s.word}</span>
+                      ) : null}
+                    </span>
+                  ) : null}
+                </Link>
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Tools — search compose row + Add, then 3-mode / RSVP / density. */}
+        <div className="space-y-2.5">
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setFilterSheet(true)}
+              aria-label="Filter guests"
+              className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink/55 hover:bg-ink/5 hover:text-ink"
+            >
+              <SlidersHorizontal className="h-[22px] w-[22px]" strokeWidth={1.75} aria-hidden />
+              {hasActiveFilter || teamFilter !== 'all' || currentRsvp ? (
+                <span
+                  aria-hidden
+                  className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-terracotta ring-2 ring-cream"
+                />
+              ) : null}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSortSheet(true)}
+              aria-label="Sort guests"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink/55 hover:bg-ink/5 hover:text-ink"
+            >
+              <ArrowUpDown className="h-[22px] w-[22px]" strokeWidth={1.75} aria-hidden />
+            </button>
+            <div className="flex-1">
+              <LiveSearch initialValue={q} placeholder="Search names, roles…" />
+            </div>
+            <button
+              type="button"
+              onClick={() => setAddOpen((o) => !o)}
+              aria-pressed={addOpen}
+              aria-label="Add a guest"
+              className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                addOpen
+                  ? 'bg-terracotta/10 text-terracotta-700'
+                  : 'text-ink/55 hover:bg-ink/5 hover:text-ink'
+              }`}
+            >
+              <UserPlus className="h-[22px] w-[22px]" strokeWidth={1.75} aria-hidden />
+            </button>
+          </div>
+
+          {addOpen ? (
+            <div className="rounded-xl border border-ink/10 bg-cream/60 p-3">
+              <QuickAddInlineForm eventId={eventId} />
+            </div>
+          ) : null}
+
+          {/* 3-mode segment (prototype `.segmode`). Roster / Groups write the
+              same `sort` param the desktop uses; Day-of routes to the check-in
+              desk. */}
+          <div
+            role="tablist"
+            aria-label="Guest view mode"
+            className="flex gap-0.5 rounded-full border border-ink/10 bg-ink/[0.04] p-0.5"
+          >
+            <ModeSeg href={buildHref({ sort: 'importance', gview: null })} active={isRosterMode}>
+              Roster
+            </ModeSeg>
+            <ModeSeg href={buildHref({ sort: 'group', gview: null })} active={isGroupsMode}>
+              Groups
+            </ModeSeg>
+            <ModeSeg
+              href={`/dashboard/${eventId}/guests/checkin`}
+              active={false}
+              badge={arrived}
+            >
+              Day-of
+            </ModeSeg>
+          </div>
+
+          {/* RSVP pills (prototype `mPills`). */}
+          <div className="flex gap-1.5">
+            <MPill href={buildHref({ rsvp: 'attending' })} active={currentRsvp === 'attending'} tone="attending">
+              <Check className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden /> {attending}
+            </MPill>
+            <MPill href={buildHref({ rsvp: 'pending' })} active={currentRsvp === 'pending'} tone="pending">
+              <Clock className="h-3.5 w-3.5" strokeWidth={2} aria-hidden /> {pending}
+            </MPill>
+            <MPill href={buildHref({ rsvp: 'declined' })} active={currentRsvp === 'declined'} tone="declined">
+              <X className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden /> {declined}
+            </MPill>
+            <MPill href={buildHref({ rsvp: null })} active={!currentRsvp} tone="all">
+              All
+            </MPill>
+          </div>
+
+          {/* Density toggle + live count — or the map-mode escape hatch. */}
+          {mapMode ? (
+            <div className="flex items-center justify-between gap-2 text-xs text-ink/55">
+              <span>Mind map is showing.</span>
               <Link
                 href={buildHref({ gview: null })}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-1.5 font-medium text-ink"
               >
-                <List className="h-4 w-4" strokeWidth={1.75} aria-hidden /> Switch to list
+                <List className="h-4 w-4" strokeWidth={1.75} aria-hidden /> Back to roster
               </Link>
-            </section>
+            </div>
           ) : (
-            <CustomizePanel
-              allVisibleIds={allVisibleIds}
-              onAssign={() => setAssignOpen(true)}
-            />
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45">
+                {isGroupsMode ? 'Your groups' : `${allVisibleIds.length} shown`}
+              </span>
+              {/* Density only drives the phone card grid (`sm:hidden`); on tablet
+                  the desktop table renders regardless, so hide the toggle there
+                  rather than dangle a no-op control. */}
+              <div className="flex items-center gap-1 sm:hidden" role="group" aria-label="Card or list density">
+                <DensityBtn href={buildHref({ density: null })} active={density === 'grid'} label="Card view">
+                  <LayoutGrid className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                </DensityBtn>
+                <DensityBtn href={buildHref({ density: 'list' })} active={density === 'list'} label="Compact list view">
+                  <List className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                </DensityBtn>
+              </div>
+            </div>
           )}
 
-          {/* 5 — Journey: the guest lifecycle + the List/Mind-map view switch
-              (redesign Phase 1). Mobile twin of the desktop ribbon + switcher. */}
-          <section className="w-full shrink-0 snap-center space-y-3 px-1 py-3">
-            <div className="flex items-center gap-0.5 overflow-x-auto overscroll-x-contain">
-              {(
-                [
-                  { key: 'build', label: 'Build', Icon: PencilLine, href: buildHref({}), active: true },
-                  { key: 'invite', label: 'Invite', Icon: Send, href: `/dashboard/${eventId}/guests/claims`, badge: unsent, word: 'to send' },
-                  { key: 'confirm', label: 'Confirm', Icon: CircleCheck, href: `/dashboard/${eventId}/guests/claims`, badge: pendingClaims, word: 'to review' },
-                  { key: 'seat', label: 'Seat', Icon: LayoutGrid, href: `/dashboard/${eventId}/seating`, badge: unseated, word: 'to seat' },
-                  { key: 'dayof', label: 'Day-of', Icon: QrCode, href: `/dashboard/${eventId}/guests/checkin`, badge: arrived, done: true, word: 'arrived' },
-                ] as const
-              ).map((s, i) => (
-                <span key={s.key} className="flex shrink-0 items-center gap-0.5">
-                  {i > 0 ? (
-                    <ChevronRight className="h-3.5 w-3.5 text-ink/30" strokeWidth={1.75} aria-hidden />
-                  ) : null}
-                  <Link
-                    href={s.href}
-                    aria-current={'active' in s && s.active ? 'step' : undefined}
-                    className={`inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[13px] ${
-                      'active' in s && s.active
-                        ? 'bg-terracotta/10 font-medium text-terracotta-700'
-                        : 'text-ink/60'
-                    }`}
-                  >
-                    <s.Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
-                    {s.label}
-                    {'badge' in s && s.badge ? (
-                      <span
-                        className={`rounded-full px-1.5 text-[10px] font-semibold ${
-                          'done' in s && s.done
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-terracotta/15 text-terracotta-700'
-                        }`}
-                      >
-                        {s.badge}
-                        {'word' in s && s.word ? (
-                          <span className="ml-1 font-normal opacity-80">{s.word}</span>
-                        ) : null}
-                      </span>
-                    ) : null}
-                  </Link>
-                </span>
-              ))}
-            </div>
-            <div role="tablist" aria-label="Guest list view" className="flex rounded-lg border border-ink/15 bg-cream p-0.5">
-              <Link
-                href={buildHref({ gview: null })}
-                role="tab"
-                aria-selected={searchParams.get('gview') !== 'map'}
-                className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm ${
-                  searchParams.get('gview') !== 'map'
-                    ? 'bg-white font-medium text-ink shadow-sm'
-                    : 'text-ink/55'
-                }`}
-              >
-                <List className="h-4 w-4" strokeWidth={1.75} aria-hidden /> List
-              </Link>
-              <Link
-                href={buildHref({ gview: 'map' })}
-                role="tab"
-                aria-selected={searchParams.get('gview') === 'map'}
-                className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm ${
-                  searchParams.get('gview') === 'map'
-                    ? 'bg-white font-medium text-ink shadow-sm'
-                    : 'text-ink/55'
-                }`}
-              >
-                <Network className="h-4 w-4" strokeWidth={1.75} aria-hidden /> Mind map
-              </Link>
-            </div>
-          </section>
-          </div>
-        </nav>
+          {/* Bulk select + assign (owner directive 2026-06-03) — hidden while the
+              mind map is up (its own +buttons manage adds there). */}
+          {mapMode ? null : (
+            <CustomizePanel allVisibleIds={allVisibleIds} onAssign={() => setAssignOpen(true)} />
+          )}
+        </div>
       </div>
 
       {/* Assign bottom sheet — sibling of the carousel (not a child) so the
@@ -444,6 +429,7 @@ export function MobileGuestCarousel({
         onClose={() => setAssignOpen(false)}
         eventId={eventId}
         groups={groups}
+        bulkRoleSections={bulkRoleSections}
       />
 
       {/* Filter bottom sheet — opened from the compose-bar filter icon. Reuses
@@ -451,7 +437,8 @@ export function MobileGuestCarousel({
           list updates live behind the sheet (owner directive 2026-06-03). */}
       {filterSheet ? (
         <div
-          className="fixed inset-0 z-50 lg:hidden"
+          ref={filterSheetRef}
+          className="fixed inset-0 z-50 focus:outline-none lg:hidden"
           role="dialog"
           aria-modal="true"
           aria-label="Filter guests"
@@ -552,7 +539,8 @@ export function MobileGuestCarousel({
       {/* Sort bottom sheet — opened from the compose-bar sort icon. */}
       {sortSheet ? (
         <div
-          className="fixed inset-0 z-50 lg:hidden"
+          ref={sortSheetRef}
+          className="fixed inset-0 z-50 focus:outline-none lg:hidden"
           role="dialog"
           aria-modal="true"
           aria-label="Sort guests"
@@ -685,56 +673,140 @@ function SelectFilter({
   );
 }
 
-function StatBox({
-  label,
-  value,
-  tint,
+// InviteButton — the masthead's Invite affordance (Living Roster P4). Opens the
+// native share sheet when the device offers it, otherwise copies the join link
+// to the clipboard with a transient "Copied" confirmation. `joinUrl` is the
+// couple's share-invite URL, fetched server-side in page.tsx.
+function InviteButton({ joinUrl }: { joinUrl: string }) {
+  const [copied, setCopied] = useState(false);
+  const share = async () => {
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title: 'You’re invited', url: joinUrl });
+      } catch {
+        // User dismissed the share sheet — nothing to do.
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(joinUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // Clipboard blocked — the desktop ShareDropdown remains the fallback.
+    }
+  };
+  return (
+    <button
+      type="button"
+      onClick={share}
+      aria-label="Share the guest invite link"
+      className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-2.5 py-1.5 text-xs font-medium text-ink/80 hover:border-ink/30"
+    >
+      {copied ? (
+        <Check className="h-3.5 w-3.5 text-success-700" strokeWidth={2.5} aria-hidden />
+      ) : (
+        <Share2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+      )}
+      {copied ? 'Copied' : 'Invite'}
+    </button>
+  );
+}
+
+// ModeSeg — one segment of the 3-mode Roster / Groups / Day-of switch. A Link
+// (URL-driven, no client state) styled as a segmented-control tab; role=tab +
+// aria-selected give it correct a11y semantics inside the tablist.
+function ModeSeg({
   href,
   active,
+  badge,
+  children,
 }: {
-  label: string;
-  value: number;
-  tint: string;
   href: string;
   active: boolean;
+  badge?: number;
+  children: React.ReactNode;
 }) {
   return (
     <Link
       href={href}
-      className={`flex flex-col items-center justify-center rounded-xl border px-1.5 py-1.5 text-center transition-colors ${
-        active ? 'border-terracotta bg-terracotta/5' : 'border-ink/10 hover:border-ink/25'
+      role="tab"
+      aria-selected={active}
+      className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-2 text-[13px] font-medium transition-colors ${
+        active ? 'bg-cream text-ink shadow-sm ring-1 ring-ink/5' : 'text-ink/55 hover:text-ink'
       }`}
     >
-      <span className="font-mono text-[8px] uppercase tracking-[0.04em] text-ink/50 whitespace-nowrap">
-        {label}
-      </span>
-      <span className={`text-[22px] font-semibold leading-tight tabular-nums ${tint}`}>
-        <AnimatedCount value={value} />
-      </span>
+      {children}
+      {badge ? (
+        <span className="rounded-full bg-success-100 px-1.5 text-[10px] font-semibold text-success-800">
+          {badge}
+        </span>
+      ) : null}
     </Link>
   );
 }
 
-function AnimatedCount({ value }: { value: number }) {
-  const [n, setN] = useState(0);
-  useEffect(() => {
-    if (value <= 0) {
-      setN(0);
-      return;
-    }
-    let raf = 0;
-    const dur = 700;
-    const start = performance.now();
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / dur);
-      const eased = 1 - Math.pow(1 - t, 3);
-      setN(Math.round(value * eased));
-      if (t < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [value]);
-  return <>{n.toLocaleString('en-US')}</>;
+// MPill — an RSVP filter pill (prototype `mPills`). A Link that flips the `rsvp`
+// URL param; aria-current marks the live filter for assistive tech.
+function MPill({
+  href,
+  active,
+  tone,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  tone: 'attending' | 'pending' | 'declined' | 'all';
+  children: React.ReactNode;
+}) {
+  const on: Record<typeof tone, string> = {
+    attending: 'border-transparent bg-success-100 text-success-800',
+    pending: 'border-transparent bg-warn-100 text-warn-800',
+    declined: 'border-transparent bg-danger-100 text-danger-800',
+    all: 'border-transparent bg-ink/10 text-ink/80',
+  };
+  return (
+    <Link
+      href={href}
+      aria-current={active ? 'true' : undefined}
+      className={`inline-flex flex-1 items-center justify-center gap-1 rounded-full border px-2 py-1.5 text-[11px] font-semibold tabular-nums transition-colors ${
+        active ? on[tone] : 'border-ink/15 text-ink/55 hover:text-ink'
+      }`}
+    >
+      {children}
+    </Link>
+  );
+}
+
+// DensityBtn — one of the grid / list density toggles for the roster below. A
+// Link that flips the `density` URL param (GuestListMultiselect reads it), with
+// aria-current so the active layout is announced.
+function DensityBtn({
+  href,
+  active,
+  label,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-label={label}
+      aria-current={active ? 'true' : undefined}
+      title={label}
+      className={`inline-flex h-8 w-9 items-center justify-center rounded-lg border transition-colors ${
+        active
+          ? 'border-terracotta bg-terracotta/10 text-terracotta-700'
+          : 'border-ink/12 text-ink/45 hover:text-ink'
+      }`}
+    >
+      {children}
+    </Link>
+  );
 }
 
 /**
@@ -825,7 +897,7 @@ function QuickAddInlineForm({ eventId }: { eventId: string }) {
     // the panel stays compact under the top tab bar.
     <div className="flex flex-col gap-3">
       {addError ? (
-        <p className="text-center text-xs font-medium text-rose-600">{addError}</p>
+        <p className="text-center text-xs font-medium text-danger-600">{addError}</p>
       ) : count > 0 ? (
         <p className="text-center text-xs text-ink/50">
           {count} {count === 1 ? 'guest' : 'guests'} added this session
@@ -956,17 +1028,26 @@ function AssignSheet({
   onClose,
   eventId,
   groups,
+  bulkRoleSections,
 }: {
   open: boolean;
   onClose: () => void;
   eventId: string;
   groups: Group[];
+  bulkRoleSections: RoleSection[];
 }) {
   const { ids: selectedIds } = useGuestSelection();
   const count = selectedIds.length;
   const [step, setStep] = useState<'menu' | 'side' | 'role' | 'group'>('menu');
   const [newGroup, setNewGroup] = useState('');
   const [, startTransition] = useTransition();
+
+  // Focus management for the Assign bottom sheet (focus trap, Esc-to-close,
+  // body-scroll-lock, focus-restore). `open` is passed straight through so the
+  // hook tracks the parent's open-state even though the body early-returns null
+  // while closed (the hook must run unconditionally before any return).
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open, onClose, containerRef: dialogRef });
 
   // Reset to the menu each time the sheet opens.
   useEffect(() => {
@@ -1022,7 +1103,8 @@ function AssignSheet({
 
   return (
     <div
-      className="fixed inset-0 z-50 lg:hidden"
+      ref={dialogRef}
+      className="fixed inset-0 z-50 focus:outline-none lg:hidden"
       role="dialog"
       aria-modal="true"
       aria-label="Assign to selected guests"
@@ -1088,7 +1170,7 @@ function AssignSheet({
 
         {step === 'role' ? (
           <div className="space-y-3">
-            {BULK_ROLE_SECTIONS.map((section) => (
+            {bulkRoleSections.map((section) => (
               <div key={section.label}>
                 <h3 className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
                   {section.label}

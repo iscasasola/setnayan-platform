@@ -138,6 +138,17 @@ export const CEREMONY_TYPE_OPTIONS: CeremonyOption[] = [
   },
 ];
 
+/** The set of keys this group can render — every option's `key`, for callers
+ *  that need to validate/normalise an incoming value against what's offered. */
+export const CEREMONY_TYPE_OPTION_KEYS: ReadonlySet<CeremonyTypeKey> = new Set(
+  CEREMONY_TYPE_OPTIONS.map((o) => o.key),
+);
+
+/** Narrow an arbitrary string to a `CeremonyTypeKey` this group can render. */
+export function isCeremonyTypeKey(value: string): value is CeremonyTypeKey {
+  return CEREMONY_TYPE_OPTION_KEYS.has(value as CeremonyTypeKey);
+}
+
 type Props = {
   /** Currently selected key. `null` renders the group with no value selected. */
   value: CeremonyTypeKey | null;

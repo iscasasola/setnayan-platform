@@ -1,10 +1,17 @@
 /**
- * Budget "Build" — Services 5-tab takeover feature flag.
+ * Budget "Build" — Services takeover feature flag.
  *
  * Design: `Budget_Build_Services_Takeover_2026-06-08.md` (spec corpus). The
  * couple's Services tab (`/dashboard/[eventId]/vendors`) becomes a full-screen
- * FOCUS MODE takeover — Summary · Shortlist · Build · Compare · Lock — mirroring
- * the Guests takeover (global-nav suppression + a floating X → event Home).
+ * FOCUS MODE takeover — Shortlist · Build · Compare — mirroring the
+ * Guests takeover (global-nav suppression + a floating X → event Home). The
+ * standalone "Summary" cover tab was REMOVED 2026-06-25 (owner "start with
+ * shortlist right away"): the workspace now opens directly on the Shortlist
+ * bench, and the Setnayan AI toggle that lived on Summary moved into the
+ * Shortlist header so no control was lost.
+ * lock action + locked-service list moved INTO the Build tab 2026-06-20 ("Build
+ * absorbs Lock" — Vendor_Transaction_Lifecycle_2026-06-20.md Phase 1 PR2), so
+ * the standalone fifth "Lock" tab is gone.
  *
  * LIVE by default — owner activated 2026-06-09 ("build it to the website"). The
  * takeover IS the production Services experience now. To DISABLE without a revert,
@@ -12,14 +19,22 @@
  * `PlanBudgetAccordion` + global bottom nav exactly as before (the kill-switch).
  *
  * Phase rollout (see the spec §): Phase 1 = this shell (tabs + takeover chrome,
- * Shortlist houses today's accordion); Phases 2–5 fill Build (the allocator),
- * Compare, Summary, and Lock.
+ * Shortlist houses today's accordion); Phases 2–5 fill Build (the allocator +
+ * lock), Compare, and Summary.
  */
 
-import { Gauge, Bookmark, Hammer, Scale, Lock, type LucideIcon } from 'lucide-react';
+import { Bookmark, Hammer, Wallet, Scale, type LucideIcon } from 'lucide-react';
 
-/** The five section tabs of the Services takeover, in order. */
-export const BUDGET_BUILD_TABS = ['summary', 'shortlist', 'build', 'compare', 'lock'] as const;
+/**
+ * The four section tabs of the Services takeover, in order.
+ *
+ * The standalone "Lock" tab was REMOVED 2026-06-20 ("Build absorbs Lock" —
+ * Vendor_Transaction_Lifecycle_2026-06-20.md Phase 1 PR2): the lock action +
+ * the locked-service display now live inside the Build tab, so the couple's
+ * whole assemble→lock loop happens in one place. `BuildLocked` renders below
+ * `Build3StateControl` in the Build slot.
+ */
+export const BUDGET_BUILD_TABS = ['shortlist', 'build', 'budget', 'compare'] as const;
 export type BudgetBuildTab = (typeof BUDGET_BUILD_TABS)[number];
 
 /**
@@ -36,11 +51,6 @@ export const TAB_META: Record<
   BudgetBuildTab,
   { label: string; icon: LucideIcon; blurb: string }
 > = {
-  summary: {
-    label: 'Summary',
-    icon: Gauge,
-    blurb: 'Your build at a glance — progress, budget used, and what comes next.',
-  },
   shortlist: {
     label: 'Shortlist',
     icon: Bookmark,
@@ -51,15 +61,15 @@ export const TAB_META: Record<
     icon: Hammer,
     blurb: 'Assemble a plan that fits your budget, date and guest count.',
   },
+  budget: {
+    label: 'Budget',
+    icon: Wallet,
+    blurb: 'Your budget, allotments and every vendor payment — in one place.',
+  },
   compare: {
     label: 'Compare',
     icon: Scale,
     blurb: 'Put your saved builds side by side — and see which dates work.',
-  },
-  lock: {
-    label: 'Lock',
-    icon: Lock,
-    blurb: 'Finalize the vendors for your wedding.',
   },
 };
 

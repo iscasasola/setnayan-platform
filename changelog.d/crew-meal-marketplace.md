@@ -1,0 +1,12 @@
+# Changelog fragment — collected into CHANGELOG.md by scripts/changelog-collect.mjs
+
+## 2026-07-08 · feat(taxonomy): Crew Meals micro-category under Feast (Crew-Meal Provider Marketplace foundation)
+
+Adds a new **"Crew Meals"** shopping tile under the **Feast** parent + its `crew_meal_supply` canonical service — the taxonomy foundation for the **Crew-Meal Provider Marketplace** (owner-locked 2026-07-08): nearby kitchens (carinderias / home caterers) supply the event CREW's packed meals, **decoupled from the guests' main caterer**, discovered by proximity to the reception venue (proximity = savings).
+
+- **`lib/taxonomy.ts`**: new `crew_meals` `WeddingTile` (label "Crew Meals", slug `crew-meals`, parent `feast`, ordered right after Stations) added to the five exhaustive tile maps (`WeddingTile` union, `TILE_PARENT`, `WEDDING_TILE_ORDER`, `WEDDING_TILE_LABEL`, `WEDDING_TILE_SLUG`); new `crew_meal_supply` canonical in `TAXONOMY_MAP` (folder `feast`, tile `crew_meals`, PH-flagged, faith/dietary intentionally NULL per the catering de-faith rule).
+- **Migration `20270520996335_crew_meals_taxonomy_micro_category.sql`**: the regenerated full taxonomy seed (emitted by `scripts/gen-taxonomy-seed.ts`) — 10 parents + 57 tiles + 232 canonical mappings, idempotent `INSERT … ON CONFLICT DO UPDATE`, re-numbering `sort_order` after the new tile so `service_categories` + `canonical_service_taxonomy` stay in lockstep with code.
+
+Because the tile flows through the existing taxonomy-driven surfaces, crew-meal vendors are immediately browsable in `/explore` and the in-plan couple nearby-search (reception-distance + service radius already wired) with no UI change. The connect gate reuses the standard vendor path (owner **Option 1** — regular-vendor treatment: Verified+ requirement + region-band token burn via `unlock_vendor_event`); no token-model changes.
+
+SPEC IMPACT: New product surface — the Crew-Meal Provider Marketplace. Applied to the corpus at `~/Documents/Claude/Projects/Setnayan/`: `DECISION_LOG.md` (2026-07-08 "Crew-Meal Provider Marketplace — 5 decisions" + "shipped-code reconciliation / Option 1" rows) and new dated sibling specs `0006_vendors_management/0006_Crew_Meal_Provider_Marketplace_2026-07-08.md` (supply + match) + `0007_budget_expenses/0007_Crew_Meal_Line_Discovery_2026-07-08.md` (demand + booking). This PR is the taxonomy foundation ONLY; the provider offer fields (fixed ₱/meal + menu/lead/dietary) + couple-side crew-count aggregation + the savings-framed discovery surface follow in subsequent PRs.

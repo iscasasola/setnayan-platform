@@ -1,8 +1,11 @@
 import { ExternalLink } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { isRequestPlatform } from '@/lib/request-platform';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ConfirmForm } from '@/app/_components/confirm-form';
+import { InboxMatcher, type MatcherPayment } from './_components/inbox-matcher';
 import {
   ORDER_STATUS_LABEL,
   ORDER_STATUS_TONE,
@@ -20,10 +23,14 @@ import {
   requestPaymentResubmit,
 } from './actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Payments · Admin' };
 
 type Props = {
-  searchParams: Promise<{ filter?: string; platform?: string }>;
+  // `notice` / `noticeType` surface an inline banner after a server action
+  // redirects back here instead of throwing — e.g. approvePayment's shortfall
+  // guard ("payment matched, order not promoted — ₱X short"). See actions.ts.
+  searchParams: Promise<{ filter?: string; platform?: string; notice?: string; noticeType?: string }>;
 };
 
 type Filter = 'pending' | 'all' | 'orders_needing_quote';
@@ -50,6 +57,7 @@ type PaymentJoined = {
     public_id: string;
     reference_code: string;
     description: string;
+    service_key: string | null;
     requested_total_php: number;
     confirmed_total_php: number | null;
     status: OrderStatus;
@@ -74,11 +82,16 @@ type OrderJoined = {
 };
 
 export default async function AdminPaymentsPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const filter = (search.filter ?? 'pending') as Filter;
   // Optional platform filter (web | ios | android) — orthogonal to the status
   // filter, so it composes with it. null = all platforms.
   const platformFilter = isRequestPlatform(search.platform) ? search.platform : null;
+  // Inline notice from a redirecting server action (see actions.ts shortfall
+  // guard). Trim + cap length so a crafted `?notice=` can't blow out the layout.
+  const notice = typeof search.notice === 'string' ? search.notice.slice(0, 400).trim() : '';
+  const noticeIsWarn = search.noticeType === 'warn';
 
   const admin = createAdminClient();
 
@@ -107,8 +120,8 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
     // embed would keep them with a null order). Every payment has an order, so
     // !inner drops nothing else.
     const orderEmbed = platformFilter
-      ? 'order:orders!inner(public_id, reference_code, description, requested_total_php, confirmed_total_php, status, platform)'
-      : 'order:orders(public_id, reference_code, description, requested_total_php, confirmed_total_php, status, platform)';
+      ? 'order:orders!inner(public_id, reference_code, description, service_key, requested_total_php, confirmed_total_php, status, platform)'
+      : 'order:orders(public_id, reference_code, description, service_key, requested_total_php, confirmed_total_php, status, platform)';
     let paymentsQuery = admin
       .from('payments')
       .select(
@@ -122,16 +135,45 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
     payments = (data ?? []) as unknown as PaymentJoined[];
   }
 
+  // Pre-resolve every payment-proof screenshot to a short-lived presigned GET
+  // URL, keyed by payment_id. Payment proofs live in the PRIVATE thread-files
+  // bucket, so the stored `r2://…` ref is NOT publicly readable — it must be
+  // presigned server-side (24h TTL) before it can render in an <img>/<a>.
+  // Legacy plain-URL values pass through unchanged. Doing this on the server
+  // keeps R2 internals off the client and works for both old and new uploads.
+  const screenshotUrlMap: Record<string, string> = {};
+  await Promise.all(
+    payments.map(async (p) => {
+      if (!p.screenshot_url) return;
+      const url = await displayUrlForStoredAsset(p.screenshot_url);
+      if (url) screenshotUrlMap[p.payment_id] = url;
+    }),
+  );
+
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 xl:max-w-7xl 2xl:max-w-screen-2xl">
       <header className="mb-6 space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Payments &amp; reconciliation</h1>
-        <p className="text-sm text-ink/60">
+        <p className="sn-eye">Money · reconciliation</p>
+        <h1 className="sn-h1">Payments &amp; reconciliation</h1>
+        <p className="max-w-2xl text-sm text-[color:var(--sn-ink-500)]">
           Couples log payments after they transfer. Match each one against the order&rsquo;s
           reference code. Submitted orders without a confirmed total need a quote before couples can
           pay.
         </p>
       </header>
+
+      {notice ? (
+        <div
+          role="alert"
+          className={`mb-6 rounded-card border px-4 py-3 text-sm text-ink ${
+            noticeIsWarn
+              ? 'border-[color:var(--sn-warning)] bg-[var(--sn-warning-soft)]'
+              : 'border-[color:var(--sn-success)] bg-[var(--sn-success-soft)]'
+          }`}
+        >
+          {notice}
+        </div>
+      ) : null}
 
       <nav className="mb-3 flex flex-wrap gap-2">
         <FilterChip activeFilter={filter} platform={platformFilter} target="pending" label="Pending payments" />
@@ -159,7 +201,7 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
       {filter === 'orders_needing_quote' ? (
         <OrdersNeedingQuote orders={unquotedOrders} />
       ) : (
-        <PaymentsList payments={payments} />
+        <PaymentsList payments={payments} screenshotUrlMap={screenshotUrlMap} />
       )}
     </div>
   );
@@ -180,13 +222,7 @@ function FilterChip({
   // Preserve the active platform filter when switching status.
   const href = `/admin/payments?filter=${target}${platform ? `&platform=${platform}` : ''}`;
   return (
-    <a
-      href={href}
-      aria-pressed={isActive}
-      className={`rounded-full px-3 py-1 text-xs font-medium ${
-        isActive ? 'bg-terracotta text-cream sn-bounce' : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
-      }`}
-    >
+    <a href={href} aria-pressed={isActive} className={`sn-chip${isActive ? ' selected' : ''}`}>
       {label}
     </a>
   );
@@ -207,13 +243,7 @@ function PlatformChip({
   // Preserve the active status filter when switching platform; target=null = all.
   const href = `/admin/payments?filter=${filter}${target ? `&platform=${target}` : ''}`;
   return (
-    <a
-      href={href}
-      aria-pressed={isActive}
-      className={`rounded-full px-3 py-1 text-xs font-medium ${
-        isActive ? 'bg-mulberry text-cream sn-bounce' : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
-      }`}
-    >
+    <a href={href} aria-pressed={isActive} className={`sn-chip${isActive ? ' selected' : ''}`}>
       {label}
     </a>
   );
@@ -222,15 +252,16 @@ function PlatformChip({
 function OrdersNeedingQuote({ orders }: { orders: OrderJoined[] }) {
   if (orders.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center text-sm text-ink/55">
+      <div className="rounded-card border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-[color:var(--sn-ink-400)]">
         No orders waiting for a quote.
       </div>
     );
   }
   return (
-    <ul className="space-y-3">
+    <div className="sn-tile">
+      <ul className="space-y-3">
       {orders.map((o) => (
-        <li key={o.order_id} className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+        <li key={o.order_id} className="sn-row space-y-3 p-4">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0 space-y-0.5">
               <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
@@ -297,27 +328,56 @@ function OrdersNeedingQuote({ orders }: { orders: OrderJoined[] }) {
           </form>
         </li>
       ))}
-    </ul>
+      </ul>
+    </div>
   );
 }
 
-function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
+function PaymentsList({
+  payments,
+  screenshotUrlMap,
+}: {
+  payments: PaymentJoined[];
+  /**
+   * Map of payment_id → presigned display URL for the payment-proof screenshot.
+   * Resolved server-side in the page component because proofs live in the
+   * PRIVATE thread-files bucket and the stored `r2://…` ref is not publicly
+   * readable — it must be presigned before it can render.
+   */
+  screenshotUrlMap: Record<string, string>;
+}) {
   if (payments.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center text-sm text-ink/55">
+      <div className="rounded-card border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-[color:var(--sn-ink-400)]">
         Nothing to reconcile.
       </div>
     );
   }
+  // Lightweight rows for the paste-and-match helper. Keep only the fields the
+  // matcher needs (no screenshot URLs / notes) so the client bundle stays small.
+  const matcherRows: MatcherPayment[] = payments.map((p) => ({
+    payment_id: p.payment_id,
+    reference_code: p.order?.reference_code ?? null,
+    amount_php: p.amount_php,
+    label: p.user?.email ?? p.order?.public_id ?? '—',
+    orderPublicId: p.order?.public_id ?? null,
+  }));
   return (
-    <ul className="space-y-3">
+    <>
+      <InboxMatcher payments={matcherRows} />
+      <div className="sn-tile">
+      <ul className="space-y-3">
       {payments.map((p) => {
         const matchesRef =
           !!p.reference_number &&
           !!p.order?.reference_code &&
           p.reference_number.toUpperCase().includes(p.order.reference_code.toUpperCase());
         return (
-          <li key={p.payment_id} className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+          <li
+            key={p.payment_id}
+            id={`payment-${p.payment_id}`}
+            className="sn-row scroll-mt-20 space-y-3 p-4"
+          >
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0 space-y-0.5">
                 <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
@@ -334,6 +394,17 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
                 {PAYMENT_STATUS_LABEL[p.status]}
               </span>
             </div>
+
+            {p.order?.description ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-medium text-ink">{p.order.description}</p>
+                {p.order.service_key ? (
+                  <span className="rounded bg-ink/[0.06] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/55">
+                    {p.order.service_key}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
 
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
               <Stat label="Amount" value={formatPhp(p.amount_php)} />
@@ -361,32 +432,53 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
                 {' · status '}
                 <span className="font-mono">{ORDER_STATUS_LABEL[p.order.status]}</span>
                 {matchesRef ? (
-                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-emerald-800">
+                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-[var(--sn-success-soft)] px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-[color:var(--sn-success)]">
                     Reference matches
                   </span>
                 ) : (
-                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-amber-900">
+                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-[var(--sn-warning-soft)] px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-[color:var(--sn-warning)]">
                     Verify reference manually
                   </span>
                 )}
               </p>
             ) : null}
 
-            {p.screenshot_url ? (
-              <a
-                href={p.screenshot_url}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-terracotta hover:underline"
-              >
-                Screenshot
-                <ExternalLink aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-              </a>
+            {p.screenshot_url && screenshotUrlMap[p.payment_id] ? (
+              <div className="space-y-1">
+                <a
+                  href={screenshotUrlMap[p.payment_id]}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={screenshotUrlMap[p.payment_id]}
+                    alt="Payment screenshot"
+                    className="max-h-64 w-auto rounded-md border border-ink/10 object-contain"
+                  />
+                </a>
+                <a
+                  href={screenshotUrlMap[p.payment_id]}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-terracotta hover:underline"
+                >
+                  Open full size
+                  <ExternalLink aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+                </a>
+              </div>
             ) : null}
 
             {p.status === 'pending' ? (
               <div className="space-y-2 border-t border-ink/10 pt-3">
-                <form action={approvePayment} className="space-y-2">
+                <ConfirmForm
+                  action={approvePayment}
+                  title="Approve this payment?"
+                  confirmLabel="Approve · matched"
+                  destructive={false}
+                  message="This marks the payment matched (and, if checked, the order paid) — it issues the receipt, unlocks the couple's purchase, and releases the vendor payout. Approve only after you've confirmed the transfer in the bank/GCash inbox."
+                  className="space-y-2"
+                >
                   <input type="hidden" name="payment_id" value={p.payment_id} />
                   <input
                     name="admin_notes"
@@ -403,12 +495,12 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
                     Also mark order as paid
                   </label>
                   <SubmitButton
-                    className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-emerald-800 disabled:opacity-70"
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-success-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-success-800 disabled:opacity-70"
                     pendingLabel="Approving…"
                   >
                     Approve · matched
                   </SubmitButton>
-                </form>
+                </ConfirmForm>
                 {/*
                   Day 3 of the voucher + inline-checkout sprint (CLAUDE.md
                   2026-05-29 Day 3 row): "Request resubmit" middle path. Use
@@ -429,13 +521,19 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
                     className="input-field min-h-[60px] py-2 text-sm"
                   />
                   <SubmitButton
-                    className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-amber-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-amber-800 disabled:opacity-70"
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-warn-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-warn-800 disabled:opacity-70"
                     pendingLabel="Requesting resubmit…"
                   >
                     Request resubmit
                   </SubmitButton>
                 </form>
-                <form action={rejectPayment} className="space-y-2">
+                <ConfirmForm
+                  action={rejectPayment}
+                  title="Reject this payment?"
+                  confirmLabel="Reject"
+                  message="This rejects the payment and CANCELS the linked order — the couple loses any access it unlocked and is notified with your reason. For a 'needs more proof' case use Request resubmit instead."
+                  className="space-y-2"
+                >
                   <input type="hidden" name="payment_id" value={p.payment_id} />
                   <input
                     name="admin_notes"
@@ -443,12 +541,12 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
                     className="input-field h-9 py-0 text-sm"
                   />
                   <SubmitButton
-                    className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-rose-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-rose-800 disabled:opacity-70"
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-danger-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-danger-800 disabled:opacity-70"
                     pendingLabel="Rejecting…"
                   >
                     Reject
                   </SubmitButton>
-                </form>
+                </ConfirmForm>
               </div>
             ) : p.order && (p.order.status === 'paid' || p.order.status === 'fulfilled') ? (
               <RefundForm
@@ -468,13 +566,13 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
               line below (which surfaces for matched / rejected payments).
             */}
             {p.status === 'resubmit_requested' && p.admin_resubmit_notice ? (
-              <div className="rounded-md border border-amber-300/60 bg-amber-50 p-3 text-xs text-amber-900">
-                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-amber-900/70">
+              <div className="rounded-md border border-[color:var(--sn-warning)] bg-[var(--sn-warning-soft)] p-3 text-xs text-[color:var(--sn-warning)]">
+                <p className="font-mono text-[10px] uppercase tracking-[0.15em] opacity-80">
                   Resubmit notice sent to couple
                 </p>
                 <p className="mt-1 whitespace-pre-wrap">{p.admin_resubmit_notice}</p>
                 {p.reviewed_at ? (
-                  <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.15em] text-amber-900/70">
+                  <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.15em] opacity-80">
                     Requested {p.reviewed_at.slice(0, 10)}
                   </p>
                 ) : null}
@@ -494,7 +592,9 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
           </li>
         );
       })}
-    </ul>
+      </ul>
+      </div>
+    </>
   );
 }
 
@@ -528,10 +628,16 @@ function RefundForm({
 }) {
   return (
     <details className="border-t border-ink/10 pt-3">
-      <summary className="cursor-pointer text-xs font-medium text-violet-800 hover:text-violet-900">
+      <summary className="cursor-pointer text-xs font-medium text-ink/70 hover:text-ink">
         Record a refund for order {orderPublicId}
       </summary>
-      <form action={refundOrder} className="mt-2 space-y-2">
+      <ConfirmForm
+        action={refundOrder}
+        title="Record this refund?"
+        confirmLabel="Record refund · notify couple"
+        message="This permanently marks the order refunded, revokes any access it granted, writes an audit row, and notifies the couple. Send the reverse transfer first — this can't be undone here."
+        className="mt-2 space-y-2"
+      >
         <input type="hidden" name="order_id" value={orderId} />
         <label className="block space-y-1">
           <span className="block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
@@ -576,12 +682,12 @@ function RefundForm({
           />
         </label>
         <SubmitButton
-          className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-violet-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-violet-800 disabled:opacity-70"
+          className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-ink px-3 py-1.5 text-xs font-medium text-cream hover:bg-ink/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sn-gold-500)] focus-visible:ring-offset-2 disabled:opacity-70"
           pendingLabel="Recording refund…"
         >
           Record refund · notify couple
         </SubmitButton>
-      </form>
+      </ConfirmForm>
     </details>
   );
 }

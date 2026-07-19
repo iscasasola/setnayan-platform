@@ -31,10 +31,8 @@ export type SkuCategory =
   | 'couple_addon'
   | 'panood'
   | 'papic'
-  | 'patiktok'
   | 'vendor_verification'
   | 'vendor_tools'
-  | 'vendor_ads'
   | 'vendor_subscription'
   | 'retired';
 
@@ -65,11 +63,9 @@ export const LAUNCH_PROMO_UNTIL = new Date('2027-01-30T23:59:59+08:00');
 
 /**
  * SKUs that are FREE during the launch promo (2026-05-18 owner lock).
- * 16 zero-marginal-cost SKUs across couple- and vendor-side. Vendor ads
- * (Boosted + Sponsored Boost) are EXCLUDED — they're competitive marketing
- * slots and free-for-all would defeat their purpose. Concierge, AI
+ * 16 zero-marginal-cost SKUs across couple- and vendor-side. Concierge, AI
  * Highlights, Custom Monogram, Contract Intelligence, and Vendor
- * Verification are also EXCLUDED — those have real labor/API cost.
+ * Verification are EXCLUDED — those have real labor/API cost.
  */
 export const LAUNCH_PROMO_SKU_CODES: ReadonlySet<string> = new Set([
   // Couple-side (6 active — panood_camera_sync + panood_annual_streaming_plus
@@ -79,9 +75,6 @@ export const LAUNCH_PROMO_SKU_CODES: ReadonlySet<string> = new Set([
   'pro_widget_schedule',
   'panood_daily_broadcast',
   'panood_annual_streaming',
-  'patiktok_setnayan_tiktok',
-  'patiktok_personal_tiktok',
-  'patiktok_video_overage',
 
   // Vendor-side (7)
   'vendor_pro_weekly',
@@ -109,7 +102,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     refundable: true,
     purchaserRole: 'couple',
     // RETIRED 2026-06-16 (already is_active=FALSE in prod since 2026-05-28).
-    // The /add-ons/save-the-date surface is now the FREE page-opening reveal;
+    // The /studio/save-the-date surface is now the FREE page-opening reveal;
     // the paid video render is dropped. Record kept for historical-order typing.
     isActive: false,
   },
@@ -301,58 +294,6 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     purchaserRole: 'couple',
     isActive: true,
   },
-  {
-    skuCode: 'same_day_edit',
-    displayName: 'Same-Day Edit',
-    category: 'panood',
-    priceCentavos: 999900,
-    unit: 'render',
-    multiPurchase: false,
-    subscription: false,
-    refundable: true,
-    purchaserRole: 'couple',
-    isActive: true,
-  },
-
-  // ---- Patiktok dual-tier ----
-  {
-    skuCode: 'patiktok_setnayan_tiktok',
-    displayName: 'Patiktok — Setnayan TikTok',
-    category: 'patiktok',
-    priceCentavos: 99900,
-    unit: 'day',
-    multiPurchase: true,
-    subscription: false,
-    refundable: true,
-    purchaserRole: 'couple',
-    softCap: 40,
-    isActive: true,
-  },
-  {
-    skuCode: 'patiktok_personal_tiktok',
-    displayName: 'Patiktok — Personal TikTok (BYO)',
-    category: 'patiktok',
-    priceCentavos: 199900,
-    unit: 'day',
-    multiPurchase: true,
-    subscription: false,
-    refundable: true,
-    purchaserRole: 'couple',
-    softCap: 40,
-    isActive: true,
-  },
-  {
-    skuCode: 'patiktok_video_overage',
-    displayName: 'Patiktok +10 videos overage',
-    category: 'patiktok',
-    priceCentavos: 4900,
-    unit: 'each',
-    multiPurchase: true,
-    subscription: false,
-    refundable: true,
-    purchaserRole: 'couple',
-    isActive: true,
-  },
 
   // ---- Vendor verification ----
   {
@@ -460,70 +401,6 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     category: 'vendor_tools',
     priceCentavos: 9900,
     unit: 'week',
-    multiPurchase: false,
-    subscription: true,
-    refundable: true,
-    purchaserRole: 'vendor',
-    isActive: true,
-  },
-
-  // ---- Boosted Ads (vendor self-serve) ----
-  {
-    skuCode: 'boosted_ads_5km',
-    displayName: 'Boosted Ads — Local 5km',
-    category: 'vendor_ads',
-    priceCentavos: 500000,
-    unit: 'week',
-    multiPurchase: true,
-    subscription: false,
-    refundable: true,
-    purchaserRole: 'vendor',
-    isActive: true,
-  },
-  {
-    skuCode: 'boosted_ads_10km',
-    displayName: 'Boosted Ads — City 10km',
-    category: 'vendor_ads',
-    priceCentavos: 800000,
-    unit: 'week',
-    multiPurchase: true,
-    subscription: false,
-    refundable: true,
-    purchaserRole: 'vendor',
-    isActive: true,
-  },
-  {
-    skuCode: 'boosted_ads_20km',
-    displayName: 'Boosted Ads — Metro 20km',
-    category: 'vendor_ads',
-    priceCentavos: 1500000,
-    unit: 'week',
-    multiPurchase: true,
-    subscription: false,
-    refundable: true,
-    purchaserRole: 'vendor',
-    isActive: true,
-  },
-
-  // ---- Sponsored Boost (verified vendors only) ----
-  {
-    skuCode: 'sponsored_boost_quarterly_30km',
-    displayName: 'Sponsored Boost Quarterly 30km',
-    category: 'vendor_ads',
-    priceCentavos: 25000000,
-    unit: 'quarter',
-    multiPurchase: false,
-    subscription: false,
-    refundable: true,
-    purchaserRole: 'vendor',
-    isActive: true,
-  },
-  {
-    skuCode: 'sponsored_boost_annual_30km',
-    displayName: 'Sponsored Boost Annual 30km',
-    category: 'vendor_ads',
-    priceCentavos: 80000000,
-    unit: 'year',
     multiPurchase: false,
     subscription: true,
     refundable: true,
@@ -674,7 +551,16 @@ export const RETIRED_SKU_CODES = [
   'save_the_date_video',             // retired 2026-06-16 → Save-the-Date is now the free page-opening reveal
   'daily_co_video_meeting',          // Daily.co retired 2026-05-16
   'video_meeting_addon',             // Daily.co retired 2026-05-16
-  'patiktok_booth_5hr',              // -> patiktok_setnayan_tiktok + _personal_tiktok
+  // Patiktok — the PRODUCT was un-retired 2026-07-01 as the single live SKU
+  // PATIKTOK_COMPILER (admin-managed). The 6 codes below are only the DEAD
+  // 2026-05-16 dual-tier / per-day / overage codes — kept here so legacy order
+  // rows still resolve. PATIKTOK_COMPILER is intentionally NOT in this list.
+  'patiktok_booth_5hr',
+  'patiktok_setnayan_tiktok',
+  'patiktok_personal_tiktok',
+  'patiktok_setnayan_daily',
+  'patiktok_personal_daily',
+  'patiktok_video_overage',
   'sponsored_boost_weekly',          // -> sponsored_boost_quarterly_30km + _annual_30km
   'pro_widget_bundle',
   'pro_widget_story',

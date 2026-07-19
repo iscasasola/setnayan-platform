@@ -118,7 +118,7 @@ function CategoryLine({ cat }: { cat: MatrixDate['categories'][number] }) {
         {unknown ? (
           <HelpCircle aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
         ) : (
-          <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" strokeWidth={2.25} />
+          <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-success-600" strokeWidth={2.25} />
         )}
         <span>
           <span className="font-medium text-ink/85">{cat.label}</span>
@@ -126,7 +126,7 @@ function CategoryLine({ cat }: { cat: MatrixDate['categories'][number] }) {
           {unknown ? (
             <span className="text-ink/45"> · no conflict on file, confirm</span>
           ) : (
-            <span className="text-emerald-700"> · free</span>
+            <span className="text-success-700"> · free</span>
           )}
         </span>
       </li>
@@ -147,7 +147,7 @@ function CategoryLine({ cat }: { cat: MatrixDate['categories'][number] }) {
         {swapUnknown ? (
           <span className="text-ink/45"> · confirm</span>
         ) : (
-          <span className="text-emerald-700"> · free</span>
+          <span className="text-success-700"> · free</span>
         )}
       </span>
     </li>

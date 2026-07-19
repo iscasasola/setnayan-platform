@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import {
   fetchGuestsByEvent,
   guestDisplayName,
   ROLE_LABELS,
 } from '@/lib/guests';
 import { fetchAssignments, fetchFloorPlan, fetchTables } from '@/lib/seating';
+import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import {
   buildSeatingPdf,
   type SeatingPdfGuest,
@@ -67,6 +69,8 @@ export async function GET(
     .map((v) => (v.startsWith('#') ? v : `#${v}`));
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
+  // Nested /u/ under the cutover flag, bare root otherwise (self-noops OFF).
+  const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), eventId);
 
   // Setnayan mark for the header (optional — skip silently if unreachable).
   let logoPng: Uint8Array | null = null;
@@ -80,6 +84,7 @@ export async function GET(
   const pdf = await buildSeatingPdf({
     mode,
     appUrl,
+    ownerSlug,
     event,
     tables,
     assignments,

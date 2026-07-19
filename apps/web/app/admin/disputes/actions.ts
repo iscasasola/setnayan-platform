@@ -2,10 +2,12 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 
+// Shared admin gate (require-admin.ts) — identical contract to the local
+// requireAdmin this file used to duplicate (login redirect · Forbidden throw).
+import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
 /**
  * /admin/disputes resolution actions (cross-actor audit 2026-06-07).
  *
@@ -40,24 +42,6 @@ function isResolution(v: FormDataEntryValue | null): v is Resolution {
   return typeof v === 'string' && (RESOLUTIONS as readonly string[]).includes(v);
 }
 
-async function requireAdmin(): Promise<{ userId: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { data: me } = await supabase
-    .from('users')
-    .select('is_internal, is_team_member, account_type')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (!(me?.is_internal || me?.is_team_member || me?.account_type === 'admin')) {
-    throw new Error('Forbidden');
-  }
-  return { userId: user.id };
-}
-
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
   const t = raw.trim();
@@ -71,7 +55,7 @@ function nullIfBlank(raw: FormDataEntryValue | null): string | null {
  * the decision lands in their notification tray + inbox.
  */
 export async function resolveDispute(formData: FormData) {
-  await requireAdmin();
+  const { userId: adminUserId } = await requireAdmin();
   const disputeId = formData.get('dispute_id');
   const resolution = formData.get('resolution');
   const notes = nullIfBlank(formData.get('resolution_notes'));
@@ -91,17 +75,72 @@ export async function resolveDispute(formData: FormData) {
   }
 
   const admin = createAdminClient();
+  // Review is the demotion GATE (dispute-mediation, 2027-04-13). A dispute
+  // demotes a vendor's rating ONLY when the neutral team resolves it against
+  // the vendor. So the resolution sets counts_toward_demotion explicitly:
+  //   • resolved_for_couple → TRUE  (the record was reviewed AND went against
+  //                                   the vendor — it now feeds the 3-in-30
+  //                                   demote-to-coming_soon counter)
+  //   • resolved_for_vendor / withdrawn → FALSE (never counts)
+  // Combined with the migration's default FALSE + the tightened
+  // count_vendor_disputes_30d (resolved_for_couple only), an unreviewed 'open'
+  // dispute can never silently demote.
+  const countsTowardDemotion = resolution === 'resolved_for_couple';
+  // State-machine guard (cross-account QA, 2026-06-19): only flip an OPEN
+  // dispute. If the row was already resolved/withdrawn (race with another
+  // admin, double-click after a 503, stale page render), the `status='open'`
+  // filter drops it and the .maybeSingle() returns null — surface to the admin
+  // as "already resolved — refresh" instead of silently re-firing the opener
+  // notification + re-stamping resolved_at. Mirrors approvePayment's
+  // pending→matched guard in app/admin/payments/actions.ts.
   const { data: updated, error } = await admin
     .from('vendor_disputes')
     .update({
       status: resolution,
       resolution_notes: notes,
+      counts_toward_demotion: countsTowardDemotion,
       resolved_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     })
     .eq('dispute_id', disputeId)
+    .eq('status', 'open')
     .select('dispute_id, public_id, opened_by_user_id')
-    .single();
+    .maybeSingle();
   if (error) throw new Error(error.message);
+  if (!updated) {
+    // Either the dispute_id doesn't exist or it's no longer open. Re-read so
+    // the admin gets a useful message rather than a generic crash.
+    const { data: existing } = await admin
+      .from('vendor_disputes')
+      .select('status')
+      .eq('dispute_id', disputeId)
+      .maybeSingle();
+    if (!existing) throw new Error('Dispute not found');
+    throw new Error(
+      `Dispute already resolved (status: ${existing.status}). Refresh the page.`,
+    );
+  }
+
+  // Admin audit trail (cross-account QA, 2026-06-19). vendor_disputes had no
+  // governance audit row before; record who resolved it, the before/after
+  // status, and the rationale. Best-effort — the resolution already committed,
+  // so an audit hiccup must never roll it back. admin_audit_log has no
+  // `metadata` column in V1, so we stay within the canonical insert shape used
+  // by app/admin/verify/actions.ts.
+  try {
+    await admin.from('admin_audit_log').insert({
+      action: 'dispute_resolved',
+      target_table: 'vendor_disputes',
+      target_id: updated.dispute_id as string,
+      before_json: { status: 'open', counts_toward_demotion: false },
+      after_json: { status: resolution, counts_toward_demotion: countsTowardDemotion },
+      reason: notes,
+      actor_user_id: adminUserId,
+    });
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('[admin/disputes] audit insert failed (non-fatal):', e);
+  }
 
   // Notify the opener. vendor_disputes can be opened by either party; the
   // opener is the one waiting on the outcome. Reuse `order_quoted` — the

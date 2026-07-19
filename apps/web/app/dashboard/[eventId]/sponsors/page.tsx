@@ -27,6 +27,7 @@ import {
 } from '@/lib/event-sponsors';
 import { AddSponsorModal } from './_components/add-sponsor-modal';
 import { InvitationTemplateModal } from './_components/invitation-template-modal';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { PairTargetPicker } from './_components/pair-target-picker';
 import {
   addSponsor,
@@ -118,7 +119,7 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
     // Event meta — used for the invitation template + page header.
     admin
       .from('events')
-      .select('display_name, event_date, ceremony_type, venue_name')
+      .select('display_name, event_date, ceremony_type, secondary_ceremony_type, venue_name')
       .eq('event_id', eventId)
       .maybeSingle(),
     // Sponsors — all rows on this event.
@@ -137,6 +138,23 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
     ceremony_type: null,
     venue_name: null,
   };
+
+  // The Sponsors surface is the Catholic-Filipino ninong/ninang + cord/veil/
+  // coin/candle machinery — none of which exists in a Nikah. A pure Muslim
+  // wedding has no sponsors; its Nikah principals (wali/witness/imam/wakil) are
+  // managed in the guest list + the Five-essentials card. So redirect a
+  // muslim-primary wedding here, UNLESS it's a mixed ceremony with a non-muslim
+  // (e.g. Catholic) secondary leg that legitimately uses sponsors.
+  const secondaryCeremony =
+    (event as { secondary_ceremony_type?: string | null })
+      .secondary_ceremony_type ?? null;
+  if (
+    event.ceremony_type === 'muslim' &&
+    (!secondaryCeremony || secondaryCeremony === 'muslim')
+  ) {
+    redirect(`/dashboard/${eventId}/guests`);
+  }
+
   const eventName = event.display_name ?? 'Your event';
   const coupleNames = event.display_name ?? 'we';
   const sponsors = (sponsorRows ?? []) as SponsorRow[];
@@ -207,12 +225,12 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
         Back to {eventName}
       </Link>
 
-      <header className="space-y-2">
-        <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">
           <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Filipino wedding tradition · ninong + ninang
         </p>
-        <h1 className="font-display text-3xl italic tracking-tight sm:text-4xl">
+        <h1 className="sn-h1">
           Your principal sponsors
         </h1>
         <p className="max-w-prose text-base text-ink/65">
@@ -247,10 +265,10 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
       ) : null}
 
       {/* Progress strip + pair-target picker */}
-      <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-4 sm:p-5">
+      <section className="sn-tile space-y-3 p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-0.5">
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+            <p className="sn-eye">
               Sponsor list progress
             </p>
             <p className="text-sm text-ink/65">
@@ -283,10 +301,10 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
       {/* PRINCIPAL SPONSORS */}
       <section
         id="tier-principal"
-        className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5"
+        className="sn-tile space-y-3 p-5"
       >
         <header className="space-y-1">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
+          <p className="sn-eye">
             {SPONSOR_TIER_LABEL.principal}s · {targetPairs} pair
             {targetPairs === 1 ? '' : 's'}
           </p>
@@ -328,10 +346,10 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
           <section
             key={tier}
             id={`tier-${tier}`}
-            className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5"
+            className="sn-tile space-y-3 p-5"
           >
             <header className="space-y-1">
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
+              <p className="sn-eye">
                 {SPONSOR_TIER_LABEL[tier]}s · 2 individuals
               </p>
               <h2 className="font-display text-2xl italic">
@@ -418,7 +436,7 @@ function Banner({
 }) {
   const color =
     kind === 'success'
-      ? 'border-emerald-300/60 bg-emerald-50/70 text-emerald-950'
+      ? 'border-success-300/60 bg-success-50/70 text-success-950'
       : 'border-ink/15 bg-cream text-ink/75';
   return (
     <p
@@ -447,14 +465,14 @@ function PrincipalPairRow({
   coupleNames: string;
 }) {
   return (
-    <div className="rounded-xl border border-ink/10 bg-cream/40 p-3 sm:p-4">
-      <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+    <div className="sn-row p-3 sm:p-4">
+      <p className="sn-eye mb-2">
         Pair {pairIndex}
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         {/* Groom's side */}
         <div className="space-y-2">
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          <p className="sn-eye">
             {SPONSOR_SIDE_LABEL.groom} · ninong
           </p>
           {groomSponsor ? (
@@ -478,7 +496,7 @@ function PrincipalPairRow({
 
         {/* Bride's side */}
         <div className="space-y-2">
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          <p className="sn-eye">
             {SPONSOR_SIDE_LABEL.bride} · ninang
           </p>
           {brideSponsor ? (
@@ -527,7 +545,7 @@ function SponsorCard({
   const honorific = sponsorRoleHonorific(sponsor.sponsor_tier, sponsor.side);
 
   return (
-    <article className="rounded-lg border border-ink/10 bg-cream p-3 shadow-sm">
+    <article className="sn-row p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 space-y-0.5">
           <p className="truncate text-sm font-semibold text-ink">
@@ -536,20 +554,20 @@ function SponsorCard({
           {sponsor.relationship_note ? (
             <p className="truncate text-xs text-ink/65">{sponsor.relationship_note}</p>
           ) : null}
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+          <p className="sn-eye">
             {honorific}
           </p>
         </div>
         <form action={removeSponsor}>
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="sponsor_id" value={sponsor.id} />
-          <button
-            type="submit"
+          <SubmitButton
+            pendingLabel="Removing…"
             aria-label={`Remove ${sponsor.full_name}`}
             className="rounded-md p-1 text-ink/45 hover:bg-terracotta/10 hover:text-terracotta-700"
           >
             <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          </button>
+          </SubmitButton>
         </form>
       </div>
 
@@ -585,25 +603,25 @@ function SponsorCard({
               <input type="hidden" name="event_id" value={eventId} />
               <input type="hidden" name="sponsor_id" value={sponsor.id} />
               <input type="hidden" name="status" value="accepted" />
-              <button
-                type="submit"
-                className="inline-flex items-center gap-1 rounded-md border border-emerald-300/60 bg-emerald-50/60 px-2 py-1 text-[11px] font-medium text-emerald-900 hover:bg-emerald-100"
+              <SubmitButton
+                pendingLabel="Saving…"
+                className="inline-flex items-center gap-1 rounded-md border border-success-300/60 bg-success-50/60 px-2 py-1 text-[11px] font-medium text-success-900 hover:bg-success-100"
               >
                 <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
                 Marked yes
-              </button>
+              </SubmitButton>
             </form>
             <form action={markResponse}>
               <input type="hidden" name="event_id" value={eventId} />
               <input type="hidden" name="sponsor_id" value={sponsor.id} />
               <input type="hidden" name="status" value="declined" />
-              <button
-                type="submit"
+              <SubmitButton
+                pendingLabel="Saving…"
                 className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-cream px-2 py-1 text-[11px] font-medium text-ink/70 hover:border-ink/30"
               >
                 <XCircle aria-hidden className="h-3 w-3" strokeWidth={1.75} />
                 Declined
-              </button>
+              </SubmitButton>
             </form>
           </>
         ) : null}
@@ -630,7 +648,7 @@ function statusChipFor(status: SponsorInvitationStatus): {
     return {
       label: 'Accepted',
       icon: <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2} />,
-      cls: 'bg-emerald-100/80 text-emerald-900',
+      cls: 'bg-success-100/80 text-success-900',
     };
   }
   if (status === 'declined') {
@@ -644,7 +662,7 @@ function statusChipFor(status: SponsorInvitationStatus): {
     return {
       label: 'Awaiting reply',
       icon: <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />,
-      cls: 'bg-amber-100/80 text-amber-900',
+      cls: 'bg-warn-100/80 text-warn-900',
     };
   }
   return {

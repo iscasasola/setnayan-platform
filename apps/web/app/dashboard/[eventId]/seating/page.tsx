@@ -1,7 +1,6 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Video } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { getCurrentUser } from '@/lib/auth';
 import {
   fetchGuestsByEvent,
@@ -11,29 +10,37 @@ import {
   guestInitials,
 } from '@/lib/guests';
 import {
+  effectiveCapacity,
   fetchAssignments,
   fetchBooths,
   fetchFloorPlan,
+  fetchSeatingConstraints,
   fetchSigns,
   fetchTables,
   groupColorFor,
 } from '@/lib/seating';
+import { fetchBookedVendorsForBooths } from '@/lib/vendors';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { isChineseWedding } from '@/lib/chinese-wedding';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { SeatingEditor, type SeatingGuest, type SeatingGroup } from './_components/seating-editor';
-import { DayOfEditingBanner } from './_components/day-of-editing-banner';
+import { setSeatingAutoplace, setSeatingGroupAdjacency } from './actions';
 
 export const metadata = { title: 'Seating chart' };
 
-type Props = { params: Promise<{ eventId: string }> };
+type Props = {
+  params: Promise<{ eventId: string }>;
+  searchParams: Promise<{ view?: string }>;
+};
 
-export default async function SeatingPage({ params }: Props) {
+export default async function SeatingPage({ params, searchParams }: Props) {
   const { eventId } = await params;
+  const { view: viewParam } = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const [tables, assignments, guests, groupsRaw, memberships, floorPlan, booths, signs, eventRow] =
+  const [tables, assignments, guests, groupsRaw, memberships, floorPlan, booths, signs, eventRow, constraints, roleSet, bookedVendors] =
     await Promise.all([
       fetchTables(supabase, eventId),
       fetchAssignments(supabase, eventId),
@@ -43,9 +50,35 @@ export default async function SeatingPage({ params }: Props) {
       fetchFloorPlan(supabase, eventId),
       fetchBooths(supabase, eventId),
       fetchSigns(supabase, eventId),
-      supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
+      supabase
+        .from('events')
+        .select('event_date, ceremony_type, secondary_ceremony_type, gender_separation, seating_autoplace_enabled, seating_group_adjacency')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+      fetchSeatingConstraints(supabase, eventId),
+      // Iteration 0053 P4 Unit 6: per-event-type role set for seating tiers/labels.
+      resolveRoleSetForEvent(eventId),
+      // Booth picker (decision #9): only BOOKED vendors are offered as booths.
+      fetchBookedVendorsForBooths(supabase, eventId),
     ]);
   const eventDate = (eventRow.data?.event_date as string | null) ?? null;
+  // Chinese (Tsinoy) tradition avoids table number 4 (四 ≈ 死). Advisory only:
+  // drives a gentle notice on a manual "Table 4" + the skip-4 auto-draft. Derived
+  // via the shared overlay predicate (primary OR secondary Chinese rite).
+  const chineseTradition = isChineseWedding(eventRow.data ?? null);
+  // Muslim walima seating posture the couple chose in the Nikah card. Advisory
+  // only — Setnayan does NOT auto-reflow seats (the couple confirms the exact
+  // arrangement with their imam); this is a banner so whoever lays out the tables
+  // knows the couple's intent. 'none' (default / most common) shows nothing.
+  const genderSeparation =
+    (eventRow.data as { gender_separation?: string | null } | null)
+      ?.gender_separation ?? null;
+  const genderSeparationNote =
+    genderSeparation === 'sections'
+      ? 'This couple requested separate men’s & women’s sections for the walima — arrange tables accordingly.'
+      : genderSeparation === 'separate_spaces'
+        ? 'This couple requested separate spaces / halls for men and women at the walima — plan the layout accordingly.'
+        : null;
 
   const seatByGuest = new Map(assignments.map((a) => [a.guest_id, a]));
 
@@ -84,6 +117,7 @@ export default async function SeatingPage({ params }: Props) {
       rsvp_status: g.rsvp_status,
       seated_table_id: seat?.table_id ?? null,
       seat_number: seat?.seat_number ?? null,
+      seat_locked: seat?.locked ?? false,
       role: g.role,
       group_category: g.group_category,
       meal_preference: g.meal_preference,
@@ -100,80 +134,70 @@ export default async function SeatingPage({ params }: Props) {
   const seatedCount = reservedGuests.filter((g) => g.seated_table_id !== null).length;
   const toSeatCount = reservedCount - seatedCount;
 
+  // Smart Seat-Plan Phase 5: live auto-seating on/off + a capacity check.
+  // Reconcile can only seat as many guests as there are chairs, so surface when
+  // the couple needs more tables. Counts every NON-declined guest (pending +
+  // maybe get held seats too) against total effective (occupiable) capacity.
+  const autoplaceEnabled =
+    (eventRow.data as { seating_autoplace_enabled?: boolean | null } | null)
+      ?.seating_autoplace_enabled ?? true;
+  // Group-overflow adjacency (gap G8) — ON unless the couple opted out.
+  const adjacencyEnabled =
+    (eventRow.data as { seating_group_adjacency?: boolean | null } | null)
+      ?.seating_group_adjacency ?? true;
+  const nonDeclinedCount = seatingGuests.filter((g) => g.rsvp_status !== 'declined').length;
+  const totalSeats = tables.reduce(
+    (sum, t) => sum + effectiveCapacity(t.capacity, t.removed_seats),
+    0,
+  );
+  const seatShortfall = Math.max(0, nonDeclinedCount - totalSeats);
+
   return (
-    <section className="space-y-5">
-      <header className="space-y-1">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Seating</h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Lay out your reception, then seat each guest in a chair. Group colours flow from your guest
-          list, and <span className="font-medium text-ink/80">Auto Arrange</span> builds the whole
-          floor in one click — tables fan out from the stage by priority, vendor booths anchor to the
-          walls, and guests fill in tier by tier.
-        </p>
-        <Link
-          href={`/dashboard/${eventId}/seating/walkthrough`}
-          className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-ink/12 bg-white px-3 py-1.5 text-sm font-medium text-ink/75 shadow-sm transition-colors hover:border-terracotta/40 hover:text-ink"
-        >
-          <Video className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-          Walkthrough videos
-          <span aria-hidden className="text-ink/40">→</span>
-        </Link>
-      </header>
-
-      {/* Reserved → seated. RSVP confirmation holds a guest's place; this is
-          the couple's view of how many reserved guests still need a chair. */}
-      {reservedCount > 0 ? (
-        <div className="flex items-stretch divide-x divide-ink/10 overflow-hidden rounded-xl border border-ink/10 bg-white/70">
-          <SeatStat label="Reserved" value={reservedCount} hint="confirmed attending" />
-          <SeatStat label="Seated" value={seatedCount} hint="in a chair" />
-          <SeatStat label="To seat" value={toSeatCount} highlight={toSeatCount > 0} />
-        </div>
-      ) : null}
-
-      <DayOfEditingBanner eventDate={eventDate} />
-
-      <SeatingEditor
-        eventId={eventId}
-        tables={tables}
-        guests={seatingGuests}
-        groups={groups}
-        floorPlan={floorPlan}
-        booths={booths}
-        signs={signs}
-        me={{
-          id: user.id,
-          name:
-            (user.user_metadata?.display_name as string | undefined) ||
-            (user.user_metadata?.full_name as string | undefined) ||
-            user.email?.split('@')[0] ||
-            'Someone',
-        }}
-      />
+    <>
+      {/* Heading kept screen-reader-only for a11y/SEO. The whole editor is now a
+          fixed 100dvh frame (scroll-less council verdict 2026-07-15): the
+          reserved→seated stats, the two seating policies, the walkthrough link,
+          and the day-of / walima / capacity banners all moved INTO the editor's
+          command bar + banner slot. This wrapper bleeds the shell content
+          padding so the frame fills the viewport with no document scroll. */}
+      <h1 className="sr-only">Seating chart</h1>
+      <div className="-mx-4 -my-6 sm:-mx-6 lg:-mx-8">
+        <SeatingEditor
+          eventId={eventId}
+          roleSetKey={roleSet.key}
+          chineseTradition={chineseTradition}
+          tables={tables}
+          guests={seatingGuests}
+          groups={groups}
+          floorPlan={floorPlan}
+          booths={booths}
+          signs={signs}
+          bookedVendors={bookedVendors}
+          constraints={constraints}
+          eventDate={eventDate}
+          genderSeparationNote={genderSeparationNote}
+          seatShortfall={seatShortfall}
+          nonDeclinedCount={nonDeclinedCount}
+          totalSeats={totalSeats}
+          autoplaceEnabled={autoplaceEnabled}
+          adjacencyEnabled={adjacencyEnabled}
+          reservedCount={reservedCount}
+          toSeatReserved={toSeatCount}
+          setSeatingAutoplace={setSeatingAutoplace}
+          setSeatingGroupAdjacency={setSeatingGroupAdjacency}
+          initialView={viewParam === 'list' ? 'list' : 'plan'}
+          me={{
+            id: user.id,
+            name:
+              (user.user_metadata?.display_name as string | undefined) ||
+              (user.user_metadata?.full_name as string | undefined) ||
+              user.email?.split('@')[0] ||
+              'Someone',
+          }}
+        />
+      </div>
 
       <MiniTour tourKey="customer_seat_plan_v1" />
-    </section>
-  );
-}
-
-/** One cell of the reserved → seated summary strip. */
-function SeatStat({
-  label,
-  value,
-  hint,
-  highlight,
-}: {
-  label: string;
-  value: number;
-  hint?: string;
-  highlight?: boolean;
-}) {
-  return (
-    <div className="flex-1 px-4 py-3 text-center">
-      <p className={`text-2xl font-semibold ${highlight ? 'text-terracotta' : 'text-ink'}`}>
-        {value}
-      </p>
-      <p className="text-xs font-medium uppercase tracking-wide text-ink/55">{label}</p>
-      {hint ? <p className="mt-0.5 text-[11px] text-ink/45">{hint}</p> : null}
-    </div>
+    </>
   );
 }

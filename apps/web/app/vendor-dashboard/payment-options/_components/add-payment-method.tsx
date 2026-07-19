@@ -72,7 +72,7 @@ export function AddPaymentMethod({ vendorProfileId, isPro }: Props) {
   return (
     <form
       action={addPaymentMethod}
-      className="space-y-5 rounded-2xl border border-ink/10 bg-cream p-5"
+      className="space-y-5 sn-tile p-5"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-0.5">
@@ -112,7 +112,7 @@ export function AddPaymentMethod({ vendorProfileId, isPro }: Props) {
                 className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors ${
                   active
                     ? 'border-terracotta bg-terracotta/10 sn-bounce'
-                    : 'border-ink/15 bg-cream hover:border-ink/30'
+                    : 'border-ink/15 bg-white/70 hover:border-ink/30'
                 }`}
               >
                 <Icon
@@ -249,14 +249,14 @@ export function AddPaymentMethod({ vendorProfileId, isPro }: Props) {
                   <span>{cls.reason}</span>
                 </span>
               ) : cls.allowlisted ? (
-                <span className="flex items-start gap-1.5 text-xs text-emerald-700">
+                <span className="flex items-start gap-1.5 text-xs text-success-700">
                   <CheckCircle2 aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} />
                   <span>
                     {cls.domain} is recognised — this shows to clients right away.
                   </span>
                 </span>
               ) : (
-                <span className="flex items-start gap-1.5 text-xs text-amber-700">
+                <span className="flex items-start gap-1.5 text-xs text-warn-700">
                   <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} />
                   <span>{cls.reason}</span>
                 </span>

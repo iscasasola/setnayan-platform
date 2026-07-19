@@ -2,9 +2,9 @@
 
 // Every `revalidatePath()` below uses `'layout'` mode (not default 'page')
 // so the dashboard layout invalidates too. Event-level writes (date / name /
-// venue / settings) change fields the OuterDashboardHeader chrome reads via
-// `primaryEvent.*`; without 'layout' the chrome event-switcher + monogram
-// stay stale until manual reload. Same canonical fix as wizard-actions.ts
+// venue / settings) change fields the sidebar chrome reads from the layout's
+// events fetch (the event-switcher + monogram); without 'layout' they stay
+// stale until manual reload. Same canonical fix as wizard-actions.ts
 // (PR #514) — see CLAUDE.md 2026-05-24 "Fix: chrome monogram (+ layout-cached
 // fields) stay stale after wizard save".
 import { revalidatePath } from 'next/cache';
@@ -20,18 +20,24 @@ import {
   type EventDatePrecision,
 } from '@/lib/events';
 import {
-  ALLOWED_REGIONS,
   ALLOWED_FEELS,
   MAX_BUDGET_PESOS,
   MAX_NAME_LEN,
   sanitizeName,
 } from '@/lib/match-criteria';
+import { resolveRegion } from '@/lib/region-source';
+import { baziBirthDataEnabled } from '@/lib/bazi-birthdata';
+import { isChineseWedding } from '@/lib/chinese-wedding';
+import {
+  isAllowedCeremonyValue,
+  isAllowedSecondaryCeremonyValue,
+  type CeremonyValue,
+} from '@/lib/faith-registry';
 import {
   computeCompatibilityIssue,
   type EventVendorRowInput,
 } from '@/lib/wedding-plan-groups';
 import { getVendorAvailableDays } from '@/lib/vendor-availability';
-import { ROADMAP_ITEM_KEYS } from '@/lib/wedding-roadmap';
 import {
   type ConflictField,
   type ConflictService,
@@ -210,55 +216,12 @@ export async function setPlanningMode(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}`, 'layout');
 }
 
-/**
- * toggleRoadmapItem — mark a Wedding Roadmap "thing to complete" done (or undo).
- *
- * Owner 2026-06-05 (iteration 0021 · hybrid auto/manual). This is the MANUAL
- * leg of the roadmap: the couple taps an item done and its key is added to
- * `events.roadmap_completed` (removed if tapped again), dropping it off the
- * list. The AUTO leg lives in WeddingRoadmapAsync, which derives the 8
- * confirmable items from structural signals (date / vendor status / counts /
- * paid capture order) — those never reach this action because a satisfied item
- * has no Done button to tap. So this stays the fallback for the manual-only
- * items and any auto item the app can't yet confirm. Mirrors setPlanningMode's
- * auth + `event_id` update.
- */
-export async function toggleRoadmapItem(formData: FormData) {
-  const eventId = formData.get('event_id');
-  const itemKey = formData.get('item_key');
-  if (typeof eventId !== 'string') throw new Error('event_id required');
-  if (
-    typeof itemKey !== 'string' ||
-    !(ROADMAP_ITEM_KEYS as readonly string[]).includes(itemKey)
-  ) {
-    throw new Error('invalid roadmap item');
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { data: row } = await supabase
-    .from('events')
-    .select('roadmap_completed')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  const current = ((row as { roadmap_completed?: string[] | null } | null)
-    ?.roadmap_completed ?? []) as string[];
-  const next = current.includes(itemKey)
-    ? current.filter((k) => k !== itemKey)
-    : [...current, itemKey];
-
-  const { error } = await supabase
-    .from('events')
-    .update({ roadmap_completed: next })
-    .eq('event_id', eventId);
-  if (error) throw new Error(error.message);
-
-  revalidatePath(`/dashboard/${eventId}`, 'layout');
-}
+// toggleRoadmapItem (the manual "thing to complete" check-off) was REMOVED
+// 2026-07-11 along with its only surface, WeddingRoadmapAsync — both orphaned
+// when the 2026-07-10 refactor made `<EventDashboard>` the event Home and
+// retired the Progress tab. `events.roadmap_completed` is no longer written;
+// the Studio recommendation strip still READS it (existing values stay valid)
+// but now runs effectively on auto-signals only. See lib/studio-recommendations.ts.
 
 const MANUAL_KEYS = new Set<StepKey>(
   STEPS.filter((s) => s.source === 'manual').map((s) => s.key),
@@ -319,22 +282,21 @@ export async function toggleJourneyStep(formData: FormData) {
 // a typo or change their mind during early planning. The vendor-confirmed
 // gate still fires server-side as defence-in-depth even if the chip's UI
 // state drifts.
-const ALLOWED_CEREMONY_TYPES = [
-  'catholic',
-  'civil',
-  'inc',
-  'christian',
-  'muslim',
-  'cultural',
-  'chinese',
-  'jewish',
-  'born_again',
-  'mixed',
-] as const;
-type AllowedCeremonyType = (typeof ALLOWED_CEREMONY_TYPES)[number];
-
+// Primary + secondary ceremony validation both derive from the faith-registry
+// (`ALLOWED_CEREMONY_VALUES` = every registry faith + civil + mixed), the single
+// source that mirrors the lowercase `events_ceremony_type_check` DB CHECK (kept
+// in lockstep by migration 20261120000000, the faith worldwide expansion). This
+// REPLACES the old hardcoded 10-value list, which silently rejected the 8
+// worldwide-expansion faiths (aglipayan/lds/sda/jw/hindu/sikh/buddhist/orthodox,
+// shipped in PR #1275) even though the modal offers all 18 and the DB accepts
+// them. Mirrors the onboarding commit's server-side belt (the picker only EMITS
+// launch-active keys; the server accepts anything the owner COULD flip live).
+//
+// ⚠ This is the LOWERCASE ceremony_type keyspace — NOT the Title-Case
+// `faith_vocab` marketplace keyspace. `isAllowedCeremonyValue` is case-sensitive,
+// so Title-Case keys (e.g. 'Catholic') are correctly rejected here.
 type SetCeremonyResult =
-  | { ok: true; ceremony_type: AllowedCeremonyType; updated: boolean }
+  | { ok: true; ceremony_type: CeremonyValue; updated: boolean }
   | { ok: false; code: 'invalid_input' | 'unauthorized' | 'vendor_lock' | 'not_wedding' | 'db_error'; message: string };
 
 export async function setEventCeremonyType(formData: FormData): Promise<SetCeremonyResult> {
@@ -344,11 +306,32 @@ export async function setEventCeremonyType(formData: FormData): Promise<SetCerem
   if (typeof eventId !== 'string' || !eventId) {
     return { ok: false, code: 'invalid_input', message: 'event_id required' };
   }
-  if (typeof ceremonyRaw !== 'string' ||
-      !ALLOWED_CEREMONY_TYPES.includes(ceremonyRaw as AllowedCeremonyType)) {
+  if (!isAllowedCeremonyValue(ceremonyRaw)) {
     return { ok: false, code: 'invalid_input', message: 'Invalid ceremony type' };
   }
-  const ceremony_type = ceremonyRaw as AllowedCeremonyType;
+  const ceremony_type = ceremonyRaw;
+
+  // OPTIONAL secondary (overlay) ceremony — the common Tsinoy "church-primary +
+  // Chinese tea ceremony" case (secondary_ceremony_type='chinese'). The field is
+  // OPTIONAL: callers that don't send it leave the column untouched (the update
+  // below stays byte-identical for them). When present:
+  //   - '' (empty string) CLEARS the overlay → null.
+  //   - any value must pass isAllowedSecondaryCeremonyValue (registry faith or
+  //     civil, never 'mixed'), else reject.
+  // `undefined` = field absent → don't touch the column; `null`/string = write.
+  const secondaryProvided = formData.has('secondary_ceremony_type');
+  const secondaryRaw = formData.get('secondary_ceremony_type');
+  let secondary_ceremony_type: string | null | undefined = undefined;
+  if (secondaryProvided) {
+    const s = typeof secondaryRaw === 'string' ? secondaryRaw.trim() : '';
+    if (s === '') {
+      secondary_ceremony_type = null;
+    } else if (isAllowedSecondaryCeremonyValue(s)) {
+      secondary_ceremony_type = s;
+    } else {
+      return { ok: false, code: 'invalid_input', message: 'Invalid secondary ceremony type' };
+    }
+  }
 
   const supabase = await createClient();
   const {
@@ -393,7 +376,7 @@ export async function setEventCeremonyType(formData: FormData): Promise<SetCerem
   const admin = createAdminClient();
   const { data: eventRow, error: selectError } = await admin
     .from('events')
-    .select('event_id, event_type, ceremony_type, ceremony_type_locked_at')
+    .select('event_id, event_type, ceremony_type, secondary_ceremony_type, ceremony_type_locked_at')
     .eq('event_id', eventId)
     .maybeSingle();
   if (selectError) {
@@ -408,6 +391,7 @@ export async function setEventCeremonyType(formData: FormData): Promise<SetCerem
 
   const wasConfirmedBefore = Boolean(eventRow.ceremony_type_locked_at);
   const previousType = eventRow.ceremony_type ?? null;
+  const previousSecondary = (eventRow.secondary_ceremony_type as string | null) ?? null;
 
   // Vendor-confirmed gate — once any vendor is at-or-past `contracted`,
   // the wedding type locks at its current default. Mirrors the 2026-05-17
@@ -441,9 +425,14 @@ export async function setEventCeremonyType(formData: FormData): Promise<SetCerem
     };
   }
 
-  // No-op short-circuit: same value already saved. Returns ok=true so the
-  // modal closes cleanly, but we don't write or audit-log.
-  if (previousType === ceremony_type && wasConfirmedBefore) {
+  // No-op short-circuit: same value(s) already saved. Returns ok=true so the
+  // modal closes cleanly, but we don't write or audit-log. The secondary leg
+  // only counts as "unchanged" when the caller actually sent it (or didn't
+  // touch it) AND it matches the stored value — so a secondary-only edit still
+  // falls through to the write below.
+  const secondaryUnchanged =
+    secondary_ceremony_type === undefined || secondary_ceremony_type === previousSecondary;
+  if (previousType === ceremony_type && secondaryUnchanged && wasConfirmedBefore) {
     return { ok: true, ceremony_type, updated: false };
   }
 
@@ -452,13 +441,20 @@ export async function setEventCeremonyType(formData: FormData): Promise<SetCerem
   // default from the biconditional CHECK invariant). It is NOT load-bearing
   // for the UI lock — the UI gates on live confirmedVendorCount instead.
   const nowIso = new Date().toISOString();
+  const updatePatch: Record<string, unknown> = {
+    ceremony_type,
+    ceremony_type_locked_at: nowIso,
+    ceremony_type_locked_by: user.id,
+  };
+  // Only touch secondary_ceremony_type when the caller actually sent the field;
+  // omitting it keeps the write byte-identical for existing callers (the modal's
+  // primary-only "Change" flow).
+  if (secondary_ceremony_type !== undefined) {
+    updatePatch.secondary_ceremony_type = secondary_ceremony_type;
+  }
   const { error: updateError } = await admin
     .from('events')
-    .update({
-      ceremony_type,
-      ceremony_type_locked_at: nowIso,
-      ceremony_type_locked_by: user.id,
-    })
+    .update(updatePatch)
     .eq('event_id', eventId);
   if (updateError) {
     await insertFaultLog({
@@ -478,10 +474,18 @@ export async function setEventCeremonyType(formData: FormData): Promise<SetCerem
     target_id: eventId,
     before_json: {
       ceremony_type: previousType,
+      secondary_ceremony_type: previousSecondary,
       ceremony_type_locked_at: eventRow.ceremony_type_locked_at,
       confirmed_vendor_count: confirmed,
     },
-    after_json: { ceremony_type, ceremony_type_locked_at: nowIso },
+    after_json: {
+      ceremony_type,
+      ceremony_type_locked_at: nowIso,
+      // Only record the secondary in the audit when it was part of this write.
+      ...(secondary_ceremony_type !== undefined
+        ? { secondary_ceremony_type }
+        : {}),
+    },
     actor_user_id: user.id,
   });
 
@@ -509,6 +513,10 @@ type UpdateMatchCriteriaResult =
   | { ok: true }
   | { ok: false; code: 'invalid_input' | 'unauthorized' | 'db_error'; message: string };
 
+// PR-G — sentinel returned by the BaZi birth-data parsers to distinguish
+// "field cleared" (null) from "field malformed" (INVALID → reject the write).
+const INVALID = Symbol('invalid');
+
 export async function updateEventMatchCriteria(
   formData: FormData,
 ): Promise<UpdateMatchCriteriaResult> {
@@ -517,13 +525,21 @@ export async function updateEventMatchCriteria(
     return { ok: false, code: 'invalid_input', message: 'event_id required' };
   }
 
-  // Region — '' clears to NULL; otherwise must be a canonical slug.
+  // Region — '' clears to NULL; otherwise resolve through the canonical region
+  // source. ANY of the four spellings (canonical hyphen slug · underscore
+  // variant · PSGC code · 'cagayan-valley') is accepted, then NORMALIZED to the
+  // canonical hyphen slug so new writes converge on one vocabulary. Existing
+  // underscore-stored rows still validate (resolveRegion absorbs them).
   const regionRaw = formData.get('region');
   const regionStr = typeof regionRaw === 'string' ? regionRaw.trim() : '';
-  if (regionStr !== '' && !ALLOWED_REGIONS.has(regionStr)) {
-    return { ok: false, code: 'invalid_input', message: 'Invalid region' };
+  let region: string | null = null;
+  if (regionStr !== '') {
+    const resolvedRegion = resolveRegion(regionStr);
+    if (!resolvedRegion) {
+      return { ok: false, code: 'invalid_input', message: 'Invalid region' };
+    }
+    region = resolvedRegion.slug; // canonical hyphen slug
   }
-  const region = regionStr === '' ? null : regionStr;
 
   // Feel — '' clears to NULL; otherwise must be one of the 8 CHECK values.
   const feelRaw = formData.get('mood_feel_key');
@@ -619,7 +635,15 @@ export async function updateEventMatchCriteria(
   const admin = createAdminClient();
   const { data: before } = await admin
     .from('events')
-    .select('region, mood_feel_key, estimated_budget_centavos, bride_name, groom_name, display_name')
+    .select(
+      'region, mood_feel_key, estimated_budget_centavos, bride_name, groom_name, display_name, ' +
+        // PR-G — read the stored ceremony so the BaZi birth-data write gates on
+        // the SERVER's view of the event (never trusts the client), and capture
+        // the prior birth fields for the audit before/after.
+        'ceremony_type, secondary_ceremony_type, ' +
+        'partner_a_birth_date, partner_a_birth_time, partner_b_birth_date, ' +
+        'partner_b_birth_time, bazi_birthdata_consent_at',
+    )
     .eq('event_id', eventId)
     .maybeSingle();
 
@@ -634,6 +658,79 @@ export async function updateEventMatchCriteria(
   // is present — never blank an existing display_name.
   if (recomputedDisplay !== '') {
     updatePatch.display_name = recomputedDisplay;
+  }
+
+  // PR-G — opt-in, consent-gated, flag-gated BaZi birth-data write. TRIPLE GATE
+  // (all three required to touch any birth column):
+  //   1. baziBirthDataEnabled()              — feature flag (default OFF).
+  //   2. isChineseWedding(stored ceremony)   — server's view, not the client's.
+  //   3. the explicit consent checkbox        — 'bazi_birthdata_consent' === '1'.
+  // When the gate is closed we DO NOT add any birth key to updatePatch, so the
+  // write is byte-identical to before. The app never computes a clash verdict —
+  // these fields exist only to hand to a date specialist (RA 10173 purpose
+  // limitation). Sensitive data; never read on any public/guest surface.
+  const beforeRow = (before ?? null) as Record<string, unknown> | null;
+  if (
+    baziBirthDataEnabled() &&
+    isChineseWedding({
+      ceremony_type: (beforeRow?.ceremony_type as string | null) ?? null,
+      secondary_ceremony_type: (beforeRow?.secondary_ceremony_type as string | null) ?? null,
+    })
+  ) {
+    const consent = formData.get('bazi_birthdata_consent') === '1';
+    if (consent) {
+      // Parse + validate each field; '' clears that field. Reject malformed
+      // values rather than writing garbage. Date = YYYY-MM-DD, time = HH:MM.
+      const parseDate = (key: string): string | null | typeof INVALID => {
+        const raw = formData.get(key);
+        const s = typeof raw === 'string' ? raw.trim() : '';
+        if (s === '') return null;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return INVALID;
+        // Parse in UTC and round-trip: JS Date rolls impossible days over
+        // (2020-02-30 → Mar 1) instead of NaN-ing, so a NaN check alone lets
+        // them through to Postgres as a generic db_error. Comparing the
+        // reconstructed YYYY-MM-DD (UTC, since the input is date-only) back to
+        // the input rejects 2020-02-30 / 2021-04-31 here with a friendly message.
+        const d = new Date(`${s}T00:00:00Z`);
+        if (Number.isNaN(d.getTime())) return INVALID;
+        if (d.toISOString().slice(0, 10) !== s) return INVALID;
+        // Reasonable adult-birth bounds: not in the future, not absurdly old.
+        const year = Number(s.slice(0, 4));
+        if (year < 1900 || d.getTime() > Date.now()) return INVALID;
+        return s;
+      };
+      const parseTime = (key: string): string | null | typeof INVALID => {
+        const raw = formData.get(key);
+        const s = typeof raw === 'string' ? raw.trim() : '';
+        if (s === '') return null;
+        if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(s)) return INVALID;
+        return s;
+      };
+
+      const pAD = parseDate('partner_a_birth_date');
+      const pAT = parseTime('partner_a_birth_time');
+      const pBD = parseDate('partner_b_birth_date');
+      const pBT = parseTime('partner_b_birth_time');
+      if (pAD === INVALID || pAT === INVALID || pBD === INVALID || pBT === INVALID) {
+        return { ok: false, code: 'invalid_input', message: 'Enter a valid birth date and time' };
+      }
+
+      updatePatch.partner_a_birth_date = pAD;
+      updatePatch.partner_a_birth_time = pAT;
+      updatePatch.partner_b_birth_date = pBD;
+      updatePatch.partner_b_birth_time = pBT;
+      // Stamp a FRESH consent receipt on every consented write — never write the
+      // birth fields without one (RA 10173). now() server-side.
+      updatePatch.bazi_birthdata_consent_at = new Date().toISOString();
+    } else {
+      // Consent withdrawn (box unticked) — purge any previously-stored birth
+      // data and clear the consent receipt. Right-to-erasure on opt-out.
+      updatePatch.partner_a_birth_date = null;
+      updatePatch.partner_a_birth_time = null;
+      updatePatch.partner_b_birth_date = null;
+      updatePatch.partner_b_birth_time = null;
+      updatePatch.bazi_birthdata_consent_at = null;
+    }
   }
 
   const { error: updateError } = await admin

@@ -29,6 +29,7 @@ import {
   uploadAsset,
 } from '../actions';
 import type { RandomMoodboardPrompt } from '@/lib/higgsfield-prompts';
+import { useSaveLoader } from '@/components/sd-loader';
 
 export type LibraryAsset = {
   asset_id: string;
@@ -62,6 +63,7 @@ export function LibraryEditor({ initialAssets }: Props) {
   const [assets, setAssets] = useState<LibraryAsset[]>(initialAssets);
   const [selectedId, setSelectedId] = useState<string | null>(initialAssets[0]?.asset_id ?? null);
   const [isPending, startTransition] = useTransition();
+  const save = useSaveLoader();
   // Shared error surface for all action failures. Replaces the 6 prior
   // `alert(...)` callsites flagged by pre-pilot audit cleanup 2026-05-30
   // — clears on next successful action OR explicit dismiss.
@@ -165,7 +167,10 @@ export function LibraryEditor({ initialAssets }: Props) {
     const map = localMaps[selected.asset_id] ?? {};
     startTransition(async () => {
       try {
-        await saveColorRanges(selected.asset_id, map);
+        await save.run(() => saveColorRanges(selected.asset_id, map), {
+          steps: ['Saving the tags'],
+          hint: 'Saving',
+        });
         // Reflect "saved" state into asset.color_ranges so subsequent re-selects load it
         setAssets((prev) =>
           prev.map((a) =>
@@ -182,7 +187,10 @@ export function LibraryEditor({ initialAssets }: Props) {
     if (!selected) return;
     startTransition(async () => {
       try {
-        await approveAsset(selected.asset_id);
+        await save.run(() => approveAsset(selected.asset_id), {
+          steps: ['Approving the asset'],
+          hint: 'Saving',
+        });
         setAssets((prev) =>
           prev.map((a) =>
             a.asset_id === selected.asset_id
@@ -207,7 +215,10 @@ export function LibraryEditor({ initialAssets }: Props) {
     if (!ok) return;
     startTransition(async () => {
       try {
-        await retireAsset(selected.asset_id);
+        await save.run(() => retireAsset(selected.asset_id), {
+          steps: ['Retiring the asset'],
+          hint: 'Saving',
+        });
         setAssets((prev) =>
           prev.map((a) =>
             a.asset_id === selected.asset_id ? { ...a, retired_at: new Date().toISOString() } : a,
@@ -230,7 +241,10 @@ export function LibraryEditor({ initialAssets }: Props) {
     if (!ok) return;
     startTransition(async () => {
       try {
-        await deleteAsset(selected.asset_id);
+        await save.run(() => deleteAsset(selected.asset_id), {
+          steps: ['Deleting the asset'],
+          hint: 'Saving',
+        });
         setAssets((prev) => prev.filter((a) => a.asset_id !== selected.asset_id));
         setSelectedId(null);
       } catch (err) {
@@ -461,7 +475,7 @@ export function LibraryEditor({ initialAssets }: Props) {
                     type="button"
                     onClick={handleApprove}
                     disabled={isPending}
-                    className="rounded-md border border-emerald-600 px-3 py-1.5 text-sm font-medium text-emerald-700 disabled:opacity-50"
+                    className="rounded-md border border-success-600 px-3 py-1.5 text-sm font-medium text-success-700 disabled:opacity-50"
                   >
                     Publish
                   </button>
@@ -480,7 +494,7 @@ export function LibraryEditor({ initialAssets }: Props) {
                   type="button"
                   onClick={handleDelete}
                   disabled={isPending}
-                  className="rounded-md border border-rose-500 px-3 py-1.5 text-sm font-medium text-rose-600 disabled:opacity-50"
+                  className="rounded-md border border-danger-500 px-3 py-1.5 text-sm font-medium text-danger-600 disabled:opacity-50"
                 >
                   Delete
                 </button>

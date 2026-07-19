@@ -1,4 +1,15 @@
 /**
+ * CANONICAL SOURCE NOTE (2026-06-19 · REGIONS canonical-source QA fix):
+ * `public.regions` + `public.wedding_destinations` (migration
+ * 20270128395443_regions_canonical_source) are now the canonical source for the
+ * region taxonomy and the city → region map. The consts below (PH_REGIONS,
+ * TOP_DESTINATIONS, CITY_TO_REGION) are kept as a COMPAT SHIM + build-time
+ * fallback: `regionForCity()` now reads the DB-backed city aliases first (via
+ * lib/region-source.regionSlugForCity) and falls through to CITY_TO_REGION on
+ * any miss. wedding_destinations.city_aliases is seeded EMPTY this cycle, so the
+ * Map fallback is the live path until a follow-up backfill lands — behavior is
+ * identical to before. Do not delete these consts.
+ *
  * Canonical PH region taxonomy · drives the Concierge wizard Card 02
  * (Reception Venue) Region → City cascade filter.
  *
@@ -37,6 +48,8 @@
  *   "IV-A · CALABARZON (Cavite, Laguna, Batangas, Rizal, Quezon)"
  *   "VII · Central Visayas (Cebu, Bohol, Negros Oriental)"
  */
+
+import { regionBySlug, regionSlugForCity } from '@/lib/region-source';
 
 /** Single region row · code + display name. Order: NCR first (biggest
  *  vendor pool · most-common pick), then PSGC numeric order, then BARMM
@@ -157,6 +170,15 @@ export function regionForCity(city: string | null | undefined): string | null {
   if (!city) return null;
   const key = city.trim().toLowerCase();
   if (key.length === 0) return null;
+  // DB-canonical first: wedding_destinations.city_aliases → canonical region
+  // slug → PSGC code (the return contract callers compare against). The
+  // city-alias cache is EMPTY this cycle (backfill pending), so this returns
+  // null and we fall through to the frozen Map below — identical to before.
+  const dbSlug = regionSlugForCity(key);
+  if (dbSlug) {
+    const psgc = regionBySlug(dbSlug)?.psgc_code;
+    if (psgc) return psgc;
+  }
   return CITY_TO_REGION.get(key) ?? null;
 }
 

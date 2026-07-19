@@ -47,10 +47,13 @@ type Props = {
   sidebar: ReactNode;
   /**
    * Pinned header slot rendered at the TOP of the sidebar, outside the
-   * scrollable nav area. Use this for identity / branding elements
-   * (AccountSwitcher, Wordmark + eyebrow) that must stay visible while the
-   * nav items below scroll. Hidden automatically when the sidebar collapses
-   * to the 64px icon rail via `[[data-sidebar-collapsed='1']_&]:hidden`.
+   * scrollable nav area. Use this for identity / branding elements (wordmark
+   * home-link + the SwitcherPlaqueTrigger account menu) that must stay
+   * visible while the nav items below scroll. The slot is NOT hidden on the
+   * 64px collapsed rail (Council Verdict 2026-07-16 — blanket-hiding it
+   * stranded home + every account action behind a persisted collapse):
+   * the header component itself renders compact icon variants via the
+   * `[data-sidebar-collapsed='1']` data-attr (see DoorwaySidebarHeader).
    */
   sidebarHeader?: ReactNode;
   /**
@@ -105,28 +108,32 @@ export function SidebarShell({ sidebar, sidebarHeader, sidebarFooter, topBar, ch
   return (
     <div
       data-sidebar-collapsed={collapsed ? '1' : '0'}
-      className="min-h-screen"
-      style={{ background: 'var(--m-paper)' }}
+      // `sn-ambient` = the Atelier glass backdrop (kit, owner-locked
+      // 2026-07-12): warm wash + three soft radial tints, fixed attachment.
+      className="sn-ambient min-h-screen"
     >
       {/* Desktop sidebar — hidden < lg so mobile chrome (caller-injected) owns nav. */}
       <aside
         aria-label="Primary navigation"
-        className="hidden lg:fixed lg:left-0 lg:top-0 lg:bottom-0 lg:z-30 lg:flex lg:flex-col lg:border-r"
+        // `sn-sidebar` paints the Atelier frosted-glass panel + remaps the
+        // base --m-* tokens the shared AccountSwitcher trigger reads (its panel
+        // portals to <body> and stays light). Every doorway shares the gold
+        // active accent (the admin violet fork was retired in Glass PR-1).
+        className="sn-sidebar hidden lg:fixed lg:left-0 lg:top-0 lg:bottom-0 lg:z-30 lg:flex lg:flex-col lg:border-r"
         style={{
-          background: 'var(--m-paper-2)',
-          borderColor: 'var(--m-line)',
+          borderColor: 'var(--m-sidebar-line)',
           width: collapsed ? '4rem' : 'var(--sidebar-width, 16rem)',
           transition: 'width 180ms cubic-bezier(.2,.7,.2,1)',
         }}
       >
-        {/* Pinned header — identity / branding (AccountSwitcher, Wordmark).
-            Rendered outside the scroll container so it stays put while the
-            nav items below scroll. Hidden on the 64px collapsed rail. */}
+        {/* Pinned header — identity / branding (wordmark home-link + plaque
+            account-menu trigger). Rendered outside the scroll container so it
+            stays put while the nav items below scroll. Stays mounted on the
+            64px collapsed rail — the header's own data-attr variants swap to
+            icon-only (home mark + avatar trigger) so the account actions
+            never vanish with the rail. */}
         {sidebarHeader ? (
-          <div
-            className="shrink-0 border-b [[data-sidebar-collapsed='1']_&]:hidden"
-            style={{ borderColor: 'var(--m-line)' }}
-          >
+          <div className="shrink-0 border-b" style={{ borderColor: 'var(--m-line)' }}>
             {sidebarHeader}
           </div>
         ) : null}
@@ -163,7 +170,7 @@ export function SidebarShell({ sidebar, sidebarHeader, sidebarFooter, topBar, ch
             className="inline-flex w-full items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 hover:bg-[var(--m-paper)]"
             style={{
               color: 'var(--m-slate)',
-              outlineColor: 'var(--m-orange)',
+              outlineColor: 'var(--m-nav-active)',
             }}
           >
             <ToggleIcon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -209,7 +216,9 @@ export function SidebarShell({ sidebar, sidebarHeader, sidebarFooter, topBar, ch
                 topBarHidden ? '-translate-y-full' : 'translate-y-0'
               }`}
               style={{
-                background: 'var(--m-paper)',
+                background: 'rgba(255,255,255,.55)',
+                backdropFilter: 'blur(18px) saturate(1.4)',
+                WebkitBackdropFilter: 'blur(18px) saturate(1.4)',
                 borderBottom: '1px solid var(--m-line)',
               }}
             >
@@ -218,7 +227,11 @@ export function SidebarShell({ sidebar, sidebarHeader, sidebarFooter, topBar, ch
           ) : null}
 
           {/* Main scroll area. Caller controls inner max-width / padding. */}
-          <main className="lg:pl-[var(--shell-main-offset)]">{children}</main>
+          {/* `sn-vt-page` → `view-transition-name: sn-page`: during the mobile
+              bottom-nav carousel slide (NavSlideController) ONLY this content
+              <main> slides; the fixed pill / sidebar / top bar stay in `root`,
+              which the CSS freezes. Inert when no View Transition is running. */}
+          <main className="sn-vt-page lg:pl-[var(--shell-main-offset)]">{children}</main>
         </div>
       </div>
     </div>

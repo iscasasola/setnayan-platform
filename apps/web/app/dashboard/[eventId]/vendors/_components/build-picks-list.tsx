@@ -14,6 +14,7 @@
 import { useState, useTransition } from 'react';
 import { Hammer, Lock as LockIcon, RotateCcw, X } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
+import { useSaveLoader } from '@/components/sd-loader';
 import { removeBuildPick, clearBuildPicks } from '../build-pick-actions';
 import { goToBuildTab } from './services-takeover';
 
@@ -113,7 +114,7 @@ function BuildTotals({
       </div>
       {remaining != null && (
         <p
-          className={`mt-1.5 text-right text-[11px] ${remaining < 0 ? 'text-rose-300' : 'text-emerald-300'}`}
+          className={`mt-1.5 text-right text-[11px] ${remaining < 0 ? 'text-danger-300' : 'text-success-300'}`}
         >
           {remaining >= 0
             ? `${peso(remaining)} under your ${peso(budgetPhp)} budget`
@@ -137,10 +138,14 @@ function Line({ k, v }: { k: string; v: string }) {
 function BuildControls({ eventId, hasUnlocked }: { eventId: string; hasUnlocked: boolean }) {
   const [confirm, setConfirm] = useState(false);
   const [pending, start] = useTransition();
+  const save = useSaveLoader();
   const reset = () => {
     haptic('tick');
     start(async () => {
-      await clearBuildPicks({ eventId });
+      await save.run(() => clearBuildPicks({ eventId }), {
+        steps: ['Clearing your picks'],
+        hint: 'Saving',
+      });
       setConfirm(false);
     });
   };
@@ -151,7 +156,7 @@ function BuildControls({ eventId, hasUnlocked }: { eventId: string; hasUnlocked:
           type="button"
           onClick={reset}
           disabled={pending}
-          className="inline-flex items-center justify-center gap-1.5 rounded-[10px] border border-rose-300 px-3 py-2.5 text-[12.5px] font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+          className="inline-flex items-center justify-center gap-1.5 rounded-md border border-danger-300 px-3 py-2.5 text-[12.5px] font-semibold text-danger-700 hover:bg-danger-50 disabled:opacity-60"
         >
           {pending ? 'Resetting…' : 'Tap to confirm reset'}
         </button>
@@ -159,16 +164,20 @@ function BuildControls({ eventId, hasUnlocked }: { eventId: string; hasUnlocked:
         <button
           type="button"
           onClick={() => setConfirm(true)}
-          className="inline-flex items-center justify-center gap-1.5 rounded-[10px] border border-ink/15 px-3 py-2.5 text-[12.5px] font-medium text-ink/70 hover:bg-ink/5"
+          className="inline-flex items-center justify-center gap-1.5 rounded-md border border-ink/15 px-3 py-2.5 text-[12.5px] font-medium text-ink/70 hover:bg-ink/5"
         >
           <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden /> Reset
         </button>
       )}
       <button
         type="button"
-        onClick={() => goToBuildTab('lock')}
+        // "Build absorbs Lock" 2026-06-20 (PR2): the standalone Lock tab is gone —
+        // the lock surface (Ready-to-lock CTAs + Locked-in list) now renders below
+        // the assembler in the SAME Build tab. This "Lock your build" button keeps
+        // the couple in Build, where the lock section is.
+        onClick={() => goToBuildTab('build')}
         disabled={!hasUnlocked}
-        className="inline-flex items-center justify-center gap-1.5 rounded-[10px] bg-mulberry px-3 py-2.5 text-[12.5px] font-semibold text-cream transition-colors hover:bg-mulberry-700 disabled:opacity-50"
+        className="inline-flex items-center justify-center gap-1.5 rounded-md bg-mulberry px-3 py-2.5 text-[12.5px] font-semibold text-cream transition-colors hover:bg-mulberry-700 disabled:opacity-50"
       >
         <LockIcon className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden /> Lock your build
       </button>
@@ -178,18 +187,22 @@ function BuildControls({ eventId, hasUnlocked }: { eventId: string; hasUnlocked:
 
 function BuildPickRow({ eventId, item }: { eventId: string; item: BuildPickItem }) {
   const [pending, start] = useTransition();
+  const save = useSaveLoader();
   const remove = () => {
     haptic('tick');
     start(async () => {
       // Pass vendorId so a multi-pick category (Look/Booths/Prints) drops only
       // THIS pick, not every vendor in the category.
-      await removeBuildPick({ eventId, planGroupId: item.groupId, vendorId: item.vendorId });
+      await save.run(
+        () => removeBuildPick({ eventId, planGroupId: item.groupId, vendorId: item.vendorId }),
+        { steps: ['Removing your pick'], hint: 'Saving' },
+      );
     });
   };
   return (
     <div
       className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${
-        item.locked ? 'border-emerald-200 bg-emerald-50/60' : 'border-ink/10 bg-cream'
+        item.locked ? 'border-success-200 bg-success-50/60' : 'border-ink/10 bg-cream'
       }`}
     >
       <span className="min-w-0 flex-1">
@@ -200,7 +213,7 @@ function BuildPickRow({ eventId, item }: { eventId: string; item: BuildPickItem 
       </span>
       <span className="shrink-0 text-sm font-medium text-ink/75">{peso(item.pricePhp)}</span>
       {item.locked ? (
-        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-700">
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-success-100 px-2 py-1 text-[10px] font-semibold text-success-700">
           <LockIcon className="h-3 w-3" strokeWidth={2} aria-hidden /> Locked
         </span>
       ) : (

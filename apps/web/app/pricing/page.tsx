@@ -1,85 +1,74 @@
 import Link from 'next/link';
-import { ArrowRight, Check, Sparkles, Brush, Clock3, Globe, Coins } from 'lucide-react';
-import { Logo } from '@/app/_components/logo';
+import { ArrowRight, Check, Sparkles, Brush, Clock3, Coins } from 'lucide-react';
+import { createAdminClient } from '@/lib/supabase/admin';
 import {
   fetchV2CustomerCatalog,
-  fetchV2BundleCatalog,
   fetchV2VendorCatalog,
   formatPeso,
   formatSkuPriceLabel,
-  BUILD_STATUS_LABEL,
+  formatBillingPeriodSuffix,
   type V2CustomerSku,
   type BuildStatus,
 } from '@/lib/v2-catalog';
+// Client motion island — the page stays an async Server Component (data fetch +
+// JSON-LD @graph below are untouched); these thin wrappers only attach the
+// premium reveal/panel refs to server-passed children. See _pricing-motion.tsx.
+import { RevealBand, LineRevealHeading } from './_pricing-motion';
+// Display-only Papic estimator (client). NEVER calls checkout — pure client
+// arithmetic over catalog rates passed as props. See _papic-estimator.tsx.
+import { PapicEstimator, type EstimatorRates } from './_papic-estimator';
 
 /**
  * Force dynamic rendering · skip static prerender.
  *
- * WHY: this page calls fetchV2CustomerCatalog / fetchV2BundleCatalog /
- * fetchV2VendorCatalog from lib/v2-catalog.ts. Those helpers call
- * createAdminClient (lib/supabase/admin.ts) which throws "Missing SUPABASE
- * env vars for admin client" when SUPABASE_SERVICE_ROLE_KEY is unset — the
- * case in GitHub Actions `production build` (.github/workflows/ci.yml runs
- * `next build` with placeholder NEXT_PUBLIC_* env only · no service-role
- * key). Static prerender invokes the page at build time, hits the throw,
- * fails the build · the same failure repeats on every PR merge to main,
- * which the owner observed as an "endless loop" of red CI runs.
+ * WHY: this page calls fetchV2CustomerCatalog / fetchV2VendorCatalog from
+ * lib/v2-catalog.ts. Those helpers call createAdminClient (lib/supabase/admin.ts)
+ * which throws "Missing SUPABASE env vars for admin client" when
+ * SUPABASE_SERVICE_ROLE_KEY is unset — the case in GitHub Actions `production
+ * build`. Static prerender invokes the page at build time, hits the throw, fails
+ * the build. Per-request rendering is also semantically correct: catalog rows
+ * live in setnayan-prod and shift without a redeploy.
  *
- * Per-request rendering is also semantically correct: catalog rows live in
- * setnayan-prod and shift without a redeploy (V2 cutover-day SKU swaps,
- * eleventh-row annual subscriptions, etc.). Baking the catalog into static
- * HTML would stale on every catalog edit until the next deploy.
- *
- * Locked CLAUDE.md 2026-05-28 row "fix endless loop error on vercel".
- * Pairs with the try/catch around createAdminClient in lib/v2-catalog.ts
- * fetchers — if a future page forgets this directive, the fetcher still
- * degrades to empty array instead of 500'ing the prerender.
+ * Locked CLAUDE.md 2026-05-28 row "fix endless loop error on vercel". Pairs with
+ * the try/catch around createAdminClient in lib/v2-catalog.ts fetchers.
  */
 export const dynamic = 'force-dynamic';
 
 /**
  * /pricing — V2 customer-side pricing surface.
  *
- * Sourced live from the 3 V2 catalog tables:
- *   - platform_retail_catalog_v2  (19 customer SKUs · is_token_able flag)
- *   - platform_package_catalog    (2 bundles · Guided Pack + Media Pack)
- *   - vendor_billing_catalog      (2 vendor subs + 5 token packs)
+ * REDESIGNED 2026-07-04 (marketing-only): free-forward layout —
+ *   hero → Free · Explore vs Setnayan AI → add-ons GROUPED (Papic & its add-ons ·
+ *   Go live & interactive · Your website · Personal touches) → a client-side,
+ *   DISPLAY-ONLY Papic estimator → the complete "Free, always" list → the
+ *   apply-then-pay / 0%-commission line.
  *
- * What changed from the V1 page (rewritten 2026-05-28):
- *   - Removed Setnayan Concierge ₱2,499 / 3-day trial hero · Setnayan AI is
- *     now a paid software SKU bought from the customer catalog like any other
- *   - Removed launch promo · the V2 SKUs are paid full price
- *   - Removed flat 5.0% Setnayan Pay worked example · per owner directive,
- *     Setnayan takes ZERO commission on vendor bookings · vendors transact
- *     directly with customers off-platform
- *   - Added free website surfaces for both audiences:
- *       customer site at setnayan.com/{slug}
- *       vendor site  at {slug}.setnayan.com
- *   - Each customer SKU carries a build_status chip (Live · Partial · Coming
- *     soon) so we render what actually works, not what we wish worked
+ * Every price still reads LIVE from the V2 catalog (platform_retail_catalog_v2 ·
+ * vendor_billing_catalog). Build-status chips (Live · In build · Coming soon)
+ * are preserved. When a grouped SKU is inactive/absent it is simply omitted —
+ * never hardcoded. NO checkout / payment / entitlement / migration touched.
  */
 
-// Pricing copy realigned 2026-06-13 to the owner-locked 2026-06-07 4-tier
-// model (Pricing.md § 00): start free on the planning workspace, pay for
-// Setnayan AI + the software you add. No "free website / free RSVP" claims —
-// those SKUs are paid (owner reversals § 00.D).
+// Pricing copy realigned to the owner-locked 4-tier model (Pricing.md § 00):
+// start free on the planning workspace, pay for Setnayan AI + the software you
+// add. No "free website / free RSVP" claims — those SKUs are paid.
 export const metadata = {
-  title: 'Pricing — Setnayan',
+  title: 'Pricing · Setnayan',
   description:
-    'Start planning free. Software you actually use at your event, at transparent PHP prices. No commission on vendor bookings — vendors keep 100%.',
+    'Plan for free. Add Setnayan AI and the software you actually use at your event, at transparent PHP prices. 0% commission on vendor bookings. Vendors keep 100%.',
   alternates: { canonical: '/pricing' },
   openGraph: {
-    title: 'Pricing — Setnayan',
+    title: 'Pricing · Setnayan',
     description:
-      'Start free, add the software you want. Transparent PHP prices. Vendors transact directly — Setnayan takes 0%.',
+      'Plan free, add the magic as you go. Transparent PHP prices. Vendors transact directly. Setnayan takes 0%.',
     url: '/pricing',
     type: 'website',
     siteName: 'Setnayan',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Pricing — Setnayan',
-    description: 'Software at retail · vendors keep 100% · 0% commission on bookings.',
+    title: 'Pricing · Setnayan',
+    description: 'Plan free · add software à la carte · vendors keep 100% · 0% commission.',
   },
 };
 
@@ -109,131 +98,198 @@ function BuildStatusChip({ status }: { status: BuildStatus }) {
   );
 }
 
-// Group customer SKUs by build_status so the page renders Live first, then
-// Partial, then Coming soon. Within each group, alphabetic by title for
-// scanability.
-function groupByStatus(skus: Array<V2CustomerSku>): Record<BuildStatus, Array<V2CustomerSku>> {
-  const groups: Record<BuildStatus, Array<V2CustomerSku>> = {
-    live: [],
-    partial: [],
-    not_built: [],
-  };
-  for (const sku of skus) {
-    groups[sku.build_status].push(sku);
-  }
-  for (const key of Object.keys(groups) as Array<BuildStatus>) {
-    groups[key].sort((a, b) => a.title.localeCompare(b.title));
-  }
-  return groups;
-}
+// ── Add-on grouping — data-driven from the catalog by service_code ──
+// The prototype groups the à-la-carte SKUs into four named sections; each row's
+// price comes from the live catalog. A `withPapic` flag renders the "with Papic"
+// tag. `gate` (optional) hides a row unless the SKU is present AND active — used
+// for WEBSITE_UPGRADE, which only shows if the catalog carries it.
+type GroupItem = { code: string; withPapic?: boolean; gate?: boolean };
+type CatalogGroup = { title: string; items: GroupItem[] };
+
+const ADDON_GROUPS: CatalogGroup[] = [
+  {
+    title: 'Papic & its add-ons',
+    items: [
+      { code: 'PAPIC_CAMERAS' }, // synthetic "from ₱30/camera" row (see below)
+      { code: 'CAMERA_BRIDGE', withPapic: true },
+      { code: 'PABATI', withPapic: true },
+      { code: 'KWENTO', withPapic: true },
+      // Pakanta moved to "Personal touches" on origin/main (owner 2026-07-10
+      // "pakanta is not part of papic"); Stories + Thank You are the genuine
+      // Papic add-ons activated 2026-07-10.
+      { code: 'PAPIC_ADDON_STORIES', withPapic: true }, // Stories — 30s guest story maker
+      { code: 'PAPIC_ADDON_THANK_YOU', withPapic: true }, // Thank You Video
+    ],
+  },
+  {
+    title: 'Go live & interactive',
+    items: [
+      { code: 'PANOOD_SYSTEM_MOBILE' }, // Live Studio — Mobile Controller ₱1,299/day
+      { code: 'PANOOD_SYSTEM' }, // Live Studio — Desktop Controller ₱2,499/day
+      { code: 'LIVE_WALL' },
+      { code: 'PATIKTOK_COMPILER' },
+      { code: 'LIVE_BACKGROUND' },
+      { code: 'SEATING_3D' }, // 3D Plan — walk the reception in 3D (activated 2026-07-10)
+    ],
+  },
+  {
+    title: 'Your website',
+    items: [
+      // COUPLE_WEBSITE_PRO umbrella deactivated/unbundled 2026-07-10 — Editorial +
+      // Reveal now sell standalone (row auto-drops via resolvedGroups when inactive).
+      { code: 'EDITORIAL_PRO' },
+      { code: 'STD_PREMIUM_OPENINGS' }, // Cinematic Reveal
+      { code: 'EVENT_SUBDOMAIN' }, // Custom subdomain yourname.setnayan.com ₱999/year (owner 2026-07-10)
+      { code: 'WEBSITE_UPGRADE', gate: true }, // only if active in the catalog
+    ],
+  },
+  {
+    title: 'Personal touches',
+    // Pakanta = a custom wedding song (iteration 0036), NOT a Papic add-on —
+    // it lives here alongside the monogram (owner 2026-07-10 "pakanta is not
+    // part of papic").
+    items: [{ code: 'ANIMATED_MONOGRAM' }, { code: 'PAKANTA' }],
+  },
+];
 
 export default async function PricingPage() {
-  // Reads in parallel · helpers return [] on error, so the page still
-  // renders a polite empty state rather than 500'ing.
-  // Bundles (Essentials/Complete) stay PURCHASABLE ONLY during onboarding
-  // (owner 2026-06-08 — "never sold outside"): the tier overview below
-  // PRESENTS the locked 4-tier model (Pricing.md § 00 · 2026-06-07) for price
-  // transparency + GEO coherence, but carries no buy path — the only place a
-  // bundle can be bought remains the onboarding flow.
-  const [customerSkus, bundles, vendorSkus] = await Promise.all([
+  // Reads in parallel · helpers return [] on error, so the page still renders a
+  // polite empty state rather than 500'ing. The Essentials/Complete bundle tiers
+  // were removed 2026-06-29 (both deactivated).
+  const [customerSkus, vendorSkus] = await Promise.all([
     fetchV2CustomerCatalog(),
-    fetchV2BundleCatalog(),
     fetchV2VendorCatalog(),
   ]);
 
-  const grouped = groupByStatus(customerSkus);
-
-  // 4-tier model (owner-locked 2026-06-07 · Pricing.md § 00.A). Tier prices
-  // read live: Setnayan AI from platform_retail_catalog_v2 · Essentials
-  // (GUIDED_PACK) + Complete (MEDIA_PACK) from platform_package_catalog.
+  // Setnayan AI is a ONE-TIME, wedding-anchored purchase (owner 2026-07-10): a
+  // single ₱499 charge, access until the event date. The prior ₱499→₱799/28-day
+  // subscription (and its SETNAYAN_AI_RENEW row) is retired — no renewal price.
+  // Reads live from the active catalog; the ₱499 fallback only renders if the
+  // row is unreadable. The period suffix comes from the row's billing_period
+  // (now `one_time` → empty).
   const setnayanAi = customerSkus.find((s) => s.service_code === 'SETNAYAN_AI');
-  const essentialsBundle = bundles.find((b) => b.package_code === 'GUIDED_PACK');
-  const completeBundle = bundles.find((b) => b.package_code === 'MEDIA_PACK');
+  const aiIntroLabel = setnayanAi ? `₱${formatPeso(setnayanAi.retail_price_php)}` : '₱499';
+  const aiPeriod = setnayanAi ? formatBillingPeriodSuffix(setnayanAi.billing_period) : '';
+
+  // Collapse the two per-camera Papic rate SKUs into ONE synthetic "from ₱30/
+  // camera" catalog row for the grouped list + JSON-LD keeps the raw rows.
+  const papicRoll = customerSkus.find((s) => s.service_code === 'PAPIC_CAMERA_ROLL_DAY');
+  const papicUnlimited = customerSkus.find((s) => s.service_code === 'PAPIC_CAMERA_UNLIMITED_DAY');
+  const papicCamerasSynthetic: V2CustomerSku | null =
+    papicRoll || papicUnlimited
+      ? {
+          service_code: 'PAPIC_CAMERAS',
+          title: 'Papic Cameras',
+          retail_price_php: papicRoll?.retail_price_php ?? 30,
+          saas_overhead_cost_php: 0,
+          is_token_able: false,
+          description: `Turn your guests into paparazzi — every candid lands in your shared gallery. Ltd ₱${formatPeso(papicRoll?.retail_price_php ?? 30)} (30 photos + 10 videos) or Unli ₱${formatPeso(papicUnlimited?.retail_price_php ?? 100)} per camera, per day · first 5 free · each tier capped per day (Ltd ₱9,000 · Unli ₱15,000).`,
+          build_status: 'live',
+          billing_period: 'one_time',
+          is_pax_priced: true, // drives the "from ₱X" label
+          pax_floor: null,
+          pax_floor_price_php: null,
+          pax_increment_size: null,
+          pax_increment_price_php: null,
+        }
+      : null;
+
+  // Look up table for the grouped add-on renderer — includes the synthetic row.
+  const skuByCode = new Map<string, V2CustomerSku>(
+    customerSkus.map((s) => [s.service_code, s]),
+  );
+  if (papicCamerasSynthetic) skuByCode.set('PAPIC_CAMERAS', papicCamerasSynthetic);
+
+  // Resolve each add-on group's rows from the catalog, dropping any SKU that is
+  // absent (and gated rows unless present + active). NEVER hardcodes a price.
+  const resolvedGroups = ADDON_GROUPS.map((g) => ({
+    title: g.title,
+    rows: g.items
+      .map((it) => {
+        const sku = skuByCode.get(it.code);
+        if (!sku) return null; // omit — never hardcode a missing SKU
+        return { sku, withPapic: Boolean(it.withPapic) };
+      })
+      .filter((r): r is { sku: V2CustomerSku; withPapic: boolean } => r !== null),
+  })).filter((g) => g.rows.length > 0);
+
+  // Estimator rates — read from the catalog where available (₱30 Ltd / ₱100 Unli
+  // / ₱15,000 cap fallbacks only if a row is missing). Add-on prices for the
+  // ticklist likewise come from the catalog.
+  const rateOf = (code: string, fb: number) =>
+    Number(customerSkus.find((s) => s.service_code === code)?.retail_price_php ?? fb);
+  const estimatorAddonDefs: Array<{ key: string; code: string; label: string; fb: number }> = [
+    { key: 'cb', code: 'CAMERA_BRIDGE', label: 'Camera Bridge · DSLR', fb: 500 }, // owner 2026-07-11 (was 499)
+    // Kwento + Pabati owner-locked FREE 2026-07-08 → deactivating the catalog row
+    // drops them from the estimator (filter below); fb 0 guards a lingering
+    // null-priced row from showing a stale paid figure.
+    { key: 'pabati', code: 'PABATI', label: 'Pabati', fb: 0 },
+    { key: 'kwento', code: 'KWENTO', label: 'Kwento', fb: 0 },
+    // Pakanta (custom wedding song, 0036) is NOT a Papic add-on — deliberately
+    // excluded from the per-camera Papic estimator (owner 2026-07-10).
+  ];
+  const estimatorRates: EstimatorRates = {
+    ltd: rateOf('PAPIC_CAMERA_ROLL_DAY', 30),
+    unli: rateOf('PAPIC_CAMERA_UNLIMITED_DAY', 100),
+    capPerDay: 15000,
+    addons: estimatorAddonDefs
+      // Only offer an add-on the catalog actually carries (else drop it).
+      .filter((a) => customerSkus.some((s) => s.service_code === a.code))
+      .map((a) => ({ key: a.key, label: a.label, price: rateOf(a.code, a.fb) })),
+  };
+
+  // The complete "Free, always" list — planning tools, the 4-in-1 website,
+  // unlimited RSVP, single-camera livestream, Custom QR. Deliberately EXCLUDES
+  // Guest Stories (paid / inactive). Grouped for scanability.
+  const FREE_COLUMNS: Array<{ title: string; items: Array<{ n: string; note?: string }> }> = [
+    {
+      title: 'Plan your day',
+      items: [
+        { n: 'Schedule', note: 'your day-of timeline' },
+        { n: 'Budget tracker' },
+        { n: 'Guest list' },
+        { n: 'Seat plan', note: '2D layout' },
+        { n: 'Mood board' },
+        { n: 'Printable plans' },
+      ],
+    },
+    {
+      title: 'Your free website',
+      items: [
+        { n: 'Save-the-Date page' },
+        { n: 'RSVP page', note: 'unlimited RSVP collection' },
+        { n: 'Event / on-the-day page' },
+        { n: 'Editorial page' },
+      ],
+    },
+    {
+      title: 'Capture & share',
+      items: [
+        { n: 'Browse vendors + match preview' },
+        { n: 'Single-camera livestream', note: 'to YouTube, auto-archived' },
+        { n: 'Custom QR for every guest', note: 'free per-guest QR' },
+        { n: 'Ala Ala memory hub' },
+        { n: '0% commission on vendor bookings' },
+      ],
+    },
+  ];
+
+  // ── JSON-LD @graph (unchanged shape) — reads the RAW catalog rows so the real
+  // ₱30 + ₱100 Papic rates + every vendor sub stay in structured data. ──
+  const SITE_URL = (
+    process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
+  ).replace(/\/$/, '');
+  const ORGANIZATION_REF = { '@id': `${SITE_URL}/#organization` };
+  const buildAvailability = (status: BuildStatus): string =>
+    status === 'not_built' ? 'https://schema.org/PreOrder' : 'https://schema.org/InStock';
 
   const vendorSubs = vendorSkus.filter((s) => s.offering_type === 'subscription_monthly');
   const vendorAnnualSubs = vendorSkus.filter((s) => s.offering_type === 'subscription_annual');
   const tokenPacks = vendorSkus.filter((s) => s.offering_type === 'token_pack');
 
-  // Annual counterpart lookup by SKU naming convention.
-  // Convention: pro_vendor_monthly ↔ pro_vendor_annual ·
-  // enterprise_vendor_monthly ↔ enterprise_vendor_annual. Per migration
-  // 20260712000000_iteration_0006_vendor_subscription_annual_skus.sql.
-  const annualByTier = new Map(
-    vendorAnnualSubs.map((a) => [a.sku_code.replace(/_annual$/, ''), a]),
-  );
-  // Cadence is 28-day prepaid blocks (NOT calendar months) per CLAUDE.md
-  // 2026-05-30 "🔒 V2.1 BRIEF AMENDMENT #2 LOCKED" row § 1(a) cadence
-  // correction · 13 cycles/year (NOT 12). Sticker sum:
-  //   Pro 28-day × 13   = ₱2,499 × 13 = ₱32,487/yr · Annual ₱24,999 = ~23% off
-  //   Enterprise × 13   = ₱5,499 × 13 = ₱71,487/yr · Annual ₱54,999 = ~23% off
-  // Both tiers land symmetric at ~23% off annual vs 28-day cycle aggregate.
-  function annualFor(blockSku: { sku_code: string; price_php: number }) {
-    const tierKey = blockSku.sku_code.replace(/_monthly$/, '');
-    const annual = annualByTier.get(tierKey);
-    if (!annual) return null;
-    const cycleTotal = blockSku.price_php * 13; // 28-day × 13 = full year
-    const savings = Math.max(0, Math.round(cycleTotal - annual.price_php));
-    const savingsPct = cycleTotal > 0
-      ? Math.round((savings / cycleTotal) * 100)
-      : 0;
-    return { annual, savings, savingsPct };
-  }
-
-  // SEO/GEO Bucket 7 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — Product +
-  // Offer + Service JSON-LD reading from the V2 catalogs (lib/v2-catalog.ts ·
-  // fetches above). Each SKU becomes one entity in a single @graph block so
-  // Google + AI engines (ChatGPT, Perplexity, Claude, Gemini) can extract
-  // concrete PHP prices when couples ask "how much does Setnayan cost" or
-  // "is Setnayan free for couples".
-  //
-  // Composition rules:
-  //   - Customer SKUs (19)         → @type Product · brand → Organization
-  //   - Customer Bundles (2)       → @type Product · brand → Organization
-  //   - Vendor Monthly Subs (2)    → @type Service · provider → Organization ·
-  //                                  PriceSpecification with billingDuration P1M
-  //   - Token Packs (5)            → @type Product · brand → Organization
-  //
-  // availability:
-  //   - build_status = 'live'      → InStock
-  //   - build_status = 'partial'   → InStock (active build + already deliverable)
-  //   - build_status = 'not_built' → PreOrder (catalog-only · honest signal)
-  //
-  // Annual subscription SKUs (Pro ₱19,999/yr + Enterprise ₱54,999/yr per
-  // CLAUDE.md eleventh 2026-05-28 row) are now live in vendor_billing_catalog
-  // as of migration 20260712000000 (2026-05-29 follow-up). Both monthly +
-  // annual surface as separate @type Service entities with their own
-  // billingDuration: P1M for monthly + P1Y for annual · unitText carries
-  // the cadence verbally for AI engines that don't parse ISO-8601
-  // durations. The llms.txt v4 (Bucket 1 PR #605) mentions annual SKUs in
-  // the tier structure paragraph so the price anchor is consistent across
-  // structured + unstructured AI extraction surfaces.
-  //
-  // All entities reference https://www.setnayan.com/#organization for
-  // brand grounding · composes with the layout-level Organization JSON-LD
-  // from Bucket 2 PR #607.
-  const SITE_URL = (
-    process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
-  ).replace(/\/$/, '');
-  const ORGANIZATION_REF = { '@id': `${SITE_URL}/#organization` };
-
-  const buildAvailability = (status: BuildStatus): string =>
-    status === 'not_built'
-      ? 'https://schema.org/PreOrder'
-      : 'https://schema.org/InStock';
-
-  // Use `Record<string, unknown>` for the JSON-LD payload (mixed strings,
-  // arrays of nested objects). Same fix pattern as
-  // app/venue/[slug]/page.tsx · the project's ESLint config (next/core-
-  // web-vitals only) doesn't register the @typescript-eslint plugin so
-  // the `eslint-disable-next-line @typescript-eslint/no-explicit-any`
-  // directive that used to wrap a `Record<string, any>` here caused
-  // `next build` to fail with `Definition for rule '@typescript-eslint/
-  // no-explicit-any' was not found` — silently breaking every Vercel
-  // deploy from PR #616 (2026-05-29 SEO/GEO Bucket 7) onward.
   const pricingJsonLd: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@graph': [
-      // Customer software SKUs · @type Product
       ...customerSkus.map((sku) => ({
         '@type': 'Product',
         '@id': `${SITE_URL}/pricing#sku-${sku.service_code}`,
@@ -248,37 +304,19 @@ export default async function PricingPage() {
           priceCurrency: 'PHP',
           availability: buildAvailability(sku.build_status),
           seller: ORGANIZATION_REF,
+          ...(sku.billing_period === 'per_28d'
+            ? {
+                priceSpecification: {
+                  '@type': 'UnitPriceSpecification',
+                  price: String(Math.round(sku.retail_price_php)),
+                  priceCurrency: 'PHP',
+                  billingDuration: 'P28D',
+                  unitText: '28-day cycle',
+                },
+              }
+            : {}),
         },
       })),
-      // Customer tiers (Essentials/Complete) · @type Product. Re-listed
-      // 2026-06-13 for GEO coherence with the visible tier overview below —
-      // AI engines were citing stale tier pricing. The offer URL points at
-      // the onboarding flow because that is the ONLY purchase point
-      // (owner 2026-06-08 "never sold outside" is unchanged).
-      ...bundles.map((b) => ({
-        '@type': 'Product',
-        '@id': `${SITE_URL}/pricing#tier-${b.package_code}`,
-        name: b.title,
-        description: `${b.title} — Setnayan planning tier, offered when you start your wedding plan.`,
-        brand: ORGANIZATION_REF,
-        category: 'Wedding planning software',
-        offers: {
-          '@type': 'Offer',
-          url: `${SITE_URL}/onboarding/wedding`,
-          price: String(Math.round(b.retail_price_php)),
-          priceCurrency: 'PHP',
-          availability: 'https://schema.org/InStock',
-          seller: ORGANIZATION_REF,
-        },
-      })),
-      // Vendor subscriptions · @type Service with PriceSpecification ·
-      // both 28-day prepaid + annual cadence per CLAUDE.md 2026-05-30 row
-      // "🔒 V2.1 BRIEF AMENDMENT #2 LOCKED" § 1(a) cadence correction +
-      // § 7(d) JSON-LD schema.org billingDuration update. Pro/Enterprise
-      // 28-day blocks (13 cycles/year · NOT calendar months).
-      // billingDuration: P28D (28-day prepaid block) OR P1Y (annual) ·
-      // unitText carries the cadence verbally for AI engines that don't
-      // parse ISO-8601 durations.
       ...[...vendorSubs, ...vendorAnnualSubs].map((s) => {
         const isAnnual = s.offering_type === 'subscription_annual';
         const cadence = isAnnual
@@ -288,12 +326,12 @@ export default async function PricingPage() {
           '@type': 'Service',
           '@id': `${SITE_URL}/pricing#vendor-${s.sku_code}`,
           name: s.title,
-          description: `${s.title} — Setnayan vendor subscription ${cadence.shortLabel}. 0% commission on bookings.`,
+          description: `${s.title} · Setnayan vendor subscription ${cadence.shortLabel}. 0% commission on bookings.`,
           provider: ORGANIZATION_REF,
           category: 'Wedding vendor subscription',
           offers: {
             '@type': 'Offer',
-            url: `${SITE_URL}/for-vendors`,
+            url: `${SITE_URL}/vendors`,
             price: String(Math.round(s.price_php)),
             priceCurrency: 'PHP',
             availability: 'https://schema.org/InStock',
@@ -308,7 +346,6 @@ export default async function PricingPage() {
           },
         };
       }),
-      // Token packs · @type Product (commodity goods · vendors stockpile)
       ...tokenPacks.map((t) => ({
         '@type': 'Product',
         '@id': `${SITE_URL}/pricing#tokens-${t.sku_code}`,
@@ -316,12 +353,12 @@ export default async function PricingPage() {
         description:
           t.token_grant_count !== null
             ? `${t.title} · ${t.token_grant_count} Setnayan vendor tokens.`
-            : `${t.title} — Setnayan vendor token pack.`,
+            : `${t.title} · Setnayan vendor token pack.`,
         brand: ORGANIZATION_REF,
         category: 'Wedding vendor tokens',
         offers: {
           '@type': 'Offer',
-          url: `${SITE_URL}/for-vendors`,
+          url: `${SITE_URL}/vendors`,
           price: String(Math.round(t.price_php)),
           priceCurrency: 'PHP',
           availability: 'https://schema.org/InStock',
@@ -341,187 +378,162 @@ export default async function PricingPage() {
       {/* Hero */}
       <section className="border-b border-ink/5">
         <div className="mx-auto w-full max-w-5xl px-4 pt-20 pb-12 sm:px-6 sm:pt-28 sm:pb-16 lg:px-8 lg:pt-32 lg:pb-20">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            Pricing
-          </p>
-          <h1 className="mt-4 text-balance font-display text-5xl font-medium leading-[1.02] tracking-tight sm:text-7xl lg:text-[96px]">
-            Real software prices.{' '}
-            <span className="text-ink/55">Zero commission on vendor bookings.</span>
-          </h1>
+          <p className="m-eyebrow">Set na &apos;yan · Pricing</p>
+          <LineRevealHeading
+            as="h1"
+            trigger="mount"
+            className="mt-5 text-balance font-display text-5xl font-medium leading-[1.02] tracking-tight sm:text-7xl lg:text-[88px]"
+          >
+            Plan for free.{' '}
+            <span className="text-ink/55">Add the magic as you go.</span>
+          </LineRevealHeading>
           <p className="mt-8 max-w-2xl text-xl leading-relaxed text-ink/65">
-            You buy software at retail. Your vendors keep 100% of what you pay
-            them — Setnayan never sits between you and them at checkout.
+            Start planning at no cost. Let Setnayan AI do the matching when
+            you&rsquo;re ready, then add only the services you actually want. No
+            bundles, no lock-in.
           </p>
-        </div>
-      </section>
-
-      {/* Start free — what ₱0 actually includes (couple + vendor sides).
-          Realigned 2026-06-13: the old "Free website. Free QR. Free forever."
-          card promised paid SKUs (Event Website ₱1,999 · Custom QR ₱999 ·
-          RSVP) as free — reversed by the owner-locked 2026-06-07 reprice
-          (Pricing.md § 00.D). */}
-      <section className="border-b border-ink/5 bg-ink/[0.02]">
-        <div className="mx-auto w-full max-w-5xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
-          <div className="mb-10 max-w-2xl space-y-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-              Included with every account
-            </p>
-            <h2 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
-              Start free. Stay free as long as you like.
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <article className="rounded-2xl border-2 border-terracotta/30 bg-cream p-6 sm:p-8">
-              <Globe aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-              <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                For couples
-              </p>
-              <p className="mt-2 font-display text-2xl font-medium tracking-tight">
-                The planning workspace
-              </p>
-              <p className="mt-3 text-sm leading-relaxed text-ink/65">
-                Schedule · budget · guest list · seat plan · mood board — plus
-                the full vendor marketplace and a personalized match preview.
-                Free with every account, no card required.
-              </p>
-            </article>
-            <article className="rounded-2xl border-2 border-terracotta/30 bg-cream p-6 sm:p-8">
-              <Globe aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-              <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                For vendors
-              </p>
-              <p className="mt-2 font-display text-2xl font-medium tracking-tight">
-                your-slug.setnayan.com
-              </p>
-              <p className="mt-3 text-sm leading-relaxed text-ink/65">
-                Your business landing page · portfolio · packages · inquiry
-                form · direct messaging. Verification is free — visible to
-                every couple browsing Setnayan.
-              </p>
-            </article>
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <Link href="#plans" className="m-btn m-btn-primary">
+              See plans
+            </Link>
+            <Link href="#free" className="m-btn m-btn-ghost">
+              What&rsquo;s free ↓
+            </Link>
           </div>
         </div>
       </section>
 
-      {/* The 4-tier ladder — owner-locked 2026-06-07 (Pricing.md § 00.A).
-          Display-only price transparency: Setnayan AI is bought in-app like
-          any SKU; Essentials + Complete are offered ONLY while you set up
-          your plan (onboarding · owner 2026-06-08), so no buy CTA here. */}
-      <section className="border-b border-ink/5">
+      {/* Free · Explore vs Setnayan AI */}
+      <section id="plans" className="border-b border-ink/5 bg-ink/[0.02]">
         <div className="mx-auto w-full max-w-5xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
           <div className="mb-12 max-w-2xl space-y-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-              How couples pay
-            </p>
-            <h2 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
-              One free tier. Three ways to go further.
-            </h2>
+            <p className="m-eyebrow">Two ways to plan</p>
+            <LineRevealHeading className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
+              Free to start. Paid only when it helps.
+            </LineRevealHeading>
             <p className="text-base leading-relaxed text-ink/65">
-              Everything is à la carte below — or pick a tier when you start
-              your plan. Setnayan Essentials and Setnayan Complete are offered
-              while you set up your wedding, at a packaged price below their
-              à-la-carte total.
+              Plan free for as long as you like. Add Setnayan AI when you want
+              the matching done for you — then pick exactly the software you
+              want below.
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <article className="flex flex-col gap-3 rounded-2xl border border-ink/15 bg-cream p-6">
+          <RevealBand className="grid grid-cols-1 gap-4 sm:grid-cols-2" stagger={0.07}>
+            <article
+              data-reveal-item
+              className="flex flex-col gap-3 rounded-2xl border border-ink/15 bg-cream p-6 sm:p-8"
+            >
               <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                Free — Explore
+                Free · Explore
               </p>
-              <p className="font-sans text-3xl font-semibold tracking-tight text-ink">₱0</p>
+              <p className="flex items-baseline gap-2">
+                <span className="font-sans text-4xl font-semibold tracking-tight text-ink">₱0</span>
+                <span className="text-sm text-ink/55">/ forever</span>
+              </p>
               <p className="text-sm leading-relaxed text-ink/65">
-                Browse the marketplace, see your match preview, and plan with
-                the free workspace: schedule, budget, guest list, seat plan,
-                mood board.
+                A whole planning workspace, your wedding website, and the tools
+                to share your day.
               </p>
+              <ul className="mt-2 space-y-2 text-sm">
+                {[
+                  'All five planning tools',
+                  'Your free 4-in-1 wedding website',
+                  'Unlimited RSVP collection',
+                  'Browse vendors + a match preview',
+                  'Single-camera livestream & free Custom QR',
+                ].map((f) => (
+                  <li key={f} className="flex items-start gap-2">
+                    <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
+                    <span className="text-ink">{f}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link href="#free" className="mt-3 inline-flex items-center gap-1.5 self-start text-sm font-medium text-ink/70 hover:text-ink">
+                See everything free ↓
+              </Link>
             </article>
-            <article className="flex flex-col gap-3 rounded-2xl border-2 border-terracotta/40 bg-cream p-6">
+            <article
+              data-reveal-item
+              className="flex flex-col gap-3 rounded-2xl border-2 border-terracotta/40 bg-cream p-6 sm:p-8 shadow-[0_30px_80px_-40px_rgba(197,160,89,0.35)]"
+            >
               <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
                 Setnayan AI
               </p>
-              <p className="font-sans text-3xl font-semibold tracking-tight text-ink">
-                {setnayanAi ? `₱${formatPeso(setnayanAi.retail_price_php)}` : 'See catalog'}
+              <p className="flex items-baseline gap-2">
+                <span className="font-sans text-4xl font-semibold tracking-tight text-ink">
+                  {aiIntroLabel}
+                </span>
+                <span className="text-sm text-ink/55">{aiPeriod}</span>
+              </p>
+              <p className="text-sm font-medium text-ink/70">
+                One-time · access until your wedding.
               </p>
               <p className="text-sm leading-relaxed text-ink/65">
-                The full matchmaking engine — date, availability, budget,
-                venue, guest count, religion, and reviews cross-referenced —
-                plus the guided planning workspace. One purchase per event.
+                The planner that matches, sorts and cross-references every
+                vendor for your exact wedding.
               </p>
+              <ul className="mt-2 space-y-2 text-sm">
+                {[
+                  'Everything in Free',
+                  'Full matching — date, budget, venue, pax, faith & reviews',
+                  'Your sorted, ready-to-book shortlist',
+                  'A planning assistant that keeps you on track',
+                  'Runs until your wedding day, then stops',
+                ].map((f) => (
+                  <li key={f} className="flex items-start gap-2">
+                    <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
+                    <span className="text-ink">{f}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/onboarding/wedding?from=pricing"
+                className="m-btn m-btn-primary mt-3 self-start"
+              >
+                Unlock Setnayan AI
+              </Link>
             </article>
-            <article className="flex flex-col gap-3 rounded-2xl border border-ink/15 bg-cream p-6">
-              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                Setnayan Essentials
-              </p>
-              <p className="font-sans text-3xl font-semibold tracking-tight text-ink">
-                {essentialsBundle ? `₱${formatPeso(essentialsBundle.retail_price_php)}` : '—'}
-              </p>
-              <p className="text-sm leading-relaxed text-ink/65">
-                Setnayan AI + Animated Monogram + Custom QR + Pro RSVP + Papic
-                Guest + Event Website + Editorial Website. Offered when you
-                start your plan.
-              </p>
-            </article>
-            <article className="flex flex-col gap-3 rounded-2xl border border-ink/15 bg-cream p-6">
-              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                Setnayan Complete
-              </p>
-              <p className="font-sans text-3xl font-semibold tracking-tight text-ink">
-                {completeBundle ? `₱${formatPeso(completeBundle.retail_price_php)}` : '—'}
-              </p>
-              <p className="text-sm leading-relaxed text-ink/65">
-                Every paid Setnayan service for your event, in one package.
-                Offered when you start your plan.
-              </p>
-            </article>
-          </div>
+          </RevealBand>
         </div>
       </section>
 
-      {/* Customer software catalog — grouped by build_status */}
-      <section className="border-b border-ink/5">
+      {/* Add-ons — grouped, data-driven from the catalog */}
+      <section id="addons" className="border-b border-ink/5">
         <div className="mx-auto w-full max-w-5xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
           <div className="mb-12 max-w-2xl space-y-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-              Software catalog
-            </p>
-            <h2 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
-              Pick what you actually need.
-            </h2>
+            <p className="m-eyebrow">Add-ons</p>
+            <LineRevealHeading className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
+              Pay only for what you want.
+            </LineRevealHeading>
             <p className="text-base leading-relaxed text-ink/65">
-              Every SKU lives in your dashboard. We mark each one with{' '}
+              A one-time charge for your event. A few scale with your cameras and
+              event days — estimate those below. Each SKU is marked{' '}
               <span className="text-ink">Live</span>,{' '}
               <span className="text-ink">In build</span>, or{' '}
               <span className="text-ink">Coming soon</span> so you know what
-              works today before you buy.
+              works today.
             </p>
           </div>
 
-          {customerSkus.length === 0 ? (
+          {resolvedGroups.length === 0 ? (
             <p className="rounded-2xl border border-ink/10 bg-ink/[0.02] p-6 text-sm text-ink/65">
-              Catalog is loading. Refresh the page — if this card persists,
+              Catalog is loading. Refresh the page. If this card persists,
               we&apos;re briefly between updates and will be back shortly.
             </p>
           ) : (
-            (['live', 'partial', 'not_built'] as Array<BuildStatus>).map((status) => {
-              const items = grouped[status];
-              if (items.length === 0) return null;
-              return (
-                <div key={status} className="mt-10 first:mt-0">
-                  <div className="mb-4 flex items-center gap-3">
-                    <BuildStatusChip status={status} />
-                    <p className="text-xs text-ink/55">
-                      {BUILD_STATUS_LABEL[status]} · {items.length} item
-                      {items.length === 1 ? '' : 's'}
-                    </p>
-                  </div>
+            <div className="space-y-12">
+              {resolvedGroups.map((group) => (
+                <div key={group.title}>
+                  <h2 className="mb-5 font-display text-2xl font-medium tracking-tight text-ink">
+                    {group.title}
+                  </h2>
                   <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {items.map((sku) => (
+                    {group.rows.map(({ sku, withPapic }) => (
                       <li
                         key={sku.service_code}
                         className={`flex flex-col gap-3 rounded-2xl border p-6 ${
-                          status === 'live'
+                          sku.build_status === 'live'
                             ? 'border-terracotta/40 bg-cream'
-                            : status === 'partial'
+                            : sku.build_status === 'partial'
                               ? 'border-ink/15 bg-cream'
                               : 'border-ink/10 bg-ink/[0.02]'
                         }`}
@@ -530,9 +542,24 @@ export default async function PricingPage() {
                           <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta">
                             {sku.title}
                           </p>
+                          <BuildStatusChip status={sku.build_status} />
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`font-sans text-3xl font-semibold tracking-tight ${
+                              sku.build_status === 'not_built' ? 'text-ink/40' : 'text-ink'
+                            }`}
+                          >
+                            {formatSkuPriceLabel(sku)}
+                          </span>
+                          {withPapic ? (
+                            <span className="inline-flex items-center rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.16em] text-terracotta">
+                              with Papic
+                            </span>
+                          ) : null}
                           {sku.is_token_able ? (
                             <span
-                              title="Token Worthy — can be purchased with vendor tokens"
+                              title="Token Worthy: can be purchased with vendor tokens"
                               className="inline-flex items-center gap-1 rounded-full bg-ink/[0.04] px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-ink/55"
                             >
                               <Coins aria-hidden className="h-2.5 w-2.5" strokeWidth={2} />
@@ -540,222 +567,125 @@ export default async function PricingPage() {
                             </span>
                           ) : null}
                         </div>
-                        <p className="flex items-baseline gap-2">
-                          <span
-                            className={`font-sans text-3xl font-semibold tracking-tight ${
-                              status === 'not_built' ? 'text-ink/40' : 'text-ink'
-                            }`}
-                          >
-                            {/* Pax-priced SKUs (PAPIC_GUEST) show "from ₱X" off
-                                the floor — no event context on the public page.
-                                Flat SKUs render "₱X" exactly as before. */}
-                            {formatSkuPriceLabel(sku)}
-                          </span>
-                        </p>
                         {sku.description ? (
-                          <p className="text-sm leading-relaxed text-ink/65">
-                            {sku.description}
-                          </p>
+                          <p className="text-sm leading-relaxed text-ink/65">{sku.description}</p>
                         ) : null}
                       </li>
                     ))}
                   </ul>
                 </div>
-              );
-            })
+              ))}
+            </div>
           )}
 
-          <p className="mt-10 text-sm text-ink/55">
-            Token Worthy SKUs can also be redeemed using vendor tokens — see
-            the vendor pricing below for how tokens work.
-          </p>
+          {/* Papic estimator — display only, no checkout */}
+          <div className="mt-12">
+            <PapicEstimator rates={estimatorRates} />
+          </div>
         </div>
       </section>
 
-      {/* Vendor pricing */}
-      <section className="border-b border-ink/5">
+      {/* Complete "Free, always" list */}
+      <section id="free" className="border-b border-ink/5 bg-ink/[0.02]">
         <div className="mx-auto w-full max-w-5xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
-          <div className="mb-12 max-w-2xl space-y-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-              For vendors
-            </p>
-            <h2 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
-              Subscription + token packs.
-            </h2>
+          <div className="mb-10 max-w-2xl space-y-3">
+            <p className="m-eyebrow">Included · Free · Explore</p>
+            <LineRevealHeading className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
+              Everything you get for free.
+            </LineRevealHeading>
             <p className="text-base leading-relaxed text-ink/65">
-              Vendors subscribe in 28-day prepaid blocks for marketplace
-              presence, and top up tokens to redeem the same software SKUs
-              couples buy at retail. Verified vendors receive{' '}
-              <strong className="text-ink">100 complimentary tokens</strong>{' '}
-              once their verification is approved. Boost individual features
-              for 7 days · 4–100 tokens · Pro+ vendors can add branches at
-              ₱999 / 28 days each.
+              The complete free plan — a full planning workspace, your wedding
+              website, and the tools to capture and share the day. No card, no
+              trial clock.
             </p>
           </div>
-
-          {/* Subscriptions · monthly + annual paired per tier */}
-          {vendorSubs.length > 0 ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {vendorSubs.map((sub) => {
-                const isPro = sub.sku_code.toLowerCase().includes('pro');
-                const seatsLine =
-                  sub.max_sub_seats === null
-                    ? 'Unlimited sub-seats'
-                    : `${sub.max_sub_seats} sub-seats`;
-                const catsLine =
-                  sub.max_categories === null
-                    ? 'All categories'
-                    : `${sub.max_categories} category`;
-                const annualDeal = annualFor(sub);
-                return (
-                  <article
-                    key={sub.sku_code}
-                    className={`flex flex-col gap-4 rounded-2xl border-2 p-6 sm:p-8 ${
-                      isPro
-                        ? 'border-terracotta/40 bg-cream'
-                        : 'border-terracotta bg-cream shadow-[0_30px_80px_-40px_rgba(122,31,43,0.25)]'
-                    }`}
-                  >
-                    <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                      {sub.title}
-                    </p>
-                    <p className="flex items-baseline gap-2">
-                      <span className="font-sans text-5xl font-semibold tracking-tight text-ink">
-                        ₱{formatPeso(sub.price_php)}
+          <RevealBand className="grid grid-cols-1 gap-6 sm:grid-cols-3" stagger={0.07}>
+            {FREE_COLUMNS.map((col) => (
+              <div
+                data-reveal-item
+                key={col.title}
+                className="rounded-2xl border border-ink/12 bg-cream p-6"
+              >
+                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+                  {col.title}
+                </p>
+                <ul className="mt-4 space-y-3">
+                  {col.items.map((it) => (
+                    <li key={it.n} className="flex items-start gap-2">
+                      <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
+                      <span className="text-sm text-ink">
+                        {it.n}
+                        {it.note ? (
+                          <span className="block text-xs text-ink/55">{it.note}</span>
+                        ) : null}
                       </span>
-                      <span className="text-sm text-ink/55">/ 28 days</span>
-                    </p>
-                    {/* Annual deal callout · paired with 28-day per tier ·
-                        added 2026-05-29 per CLAUDE.md eleventh 2026-05-28 row ·
-                        updated 2026-05-30 per CLAUDE.md "🔒 V2.1 BRIEF
-                        AMENDMENT #2 LOCKED" row § 4 (Pro Annual ₱24,999 ·
-                        symmetric ~23% off Pro 28-day × 13 and Enterprise
-                        28-day × 13 sticker totals).
-                        Renders only when annual counterpart exists in
-                        vendor_billing_catalog (lookup by SKU naming
-                        convention via annualFor() helper). Standard SaaS
-                        retention lever · mid-range 23% off. */}
-                    {annualDeal ? (
-                      <p className="rounded-lg border border-terracotta/30 bg-terracotta/[0.06] px-3 py-2 text-xs leading-relaxed">
-                        <span className="text-ink">
-                          Or <span className="font-semibold">₱{formatPeso(annualDeal.annual.price_php)}/yr
-                          </span> billed annually
-                        </span>
-                        <span className="ml-1 text-terracotta">
-                          · save ₱{formatPeso(annualDeal.savings)} ({annualDeal.savingsPct}%)
-                        </span>
-                      </p>
-                    ) : null}
-                    <ul className="space-y-2 text-sm">
-                      <li className="flex items-start gap-2">
-                        <Check
-                          aria-hidden
-                          className="mt-0.5 h-4 w-4 shrink-0 text-terracotta"
-                          strokeWidth={2}
-                        />
-                        <span className="text-ink">{catsLine}</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <Check
-                          aria-hidden
-                          className="mt-0.5 h-4 w-4 shrink-0 text-terracotta"
-                          strokeWidth={2}
-                        />
-                        <span className="text-ink">{seatsLine}</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <Check
-                          aria-hidden
-                          className="mt-0.5 h-4 w-4 shrink-0 text-terracotta"
-                          strokeWidth={2}
-                        />
-                        <span className="text-ink">Your free vendor site at slug.setnayan.com</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <Check
-                          aria-hidden
-                          className="mt-0.5 h-4 w-4 shrink-0 text-terracotta"
-                          strokeWidth={2}
-                        />
-                        <span className="text-ink">100 complimentary tokens once verified</span>
-                      </li>
-                    </ul>
-                  </article>
-                );
-              })}
-            </div>
-          ) : null}
-
-          {/* Token packs */}
-          {tokenPacks.length > 0 ? (
-            <div className="mt-12">
-              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                Token packs
-              </p>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink/65">
-                Top up tokens any time. Tokens redeem against any{' '}
-                <span className="text-ink">Token Worthy</span> customer SKU at
-                the rate set in your dashboard.
-              </p>
-              <ul className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-                {tokenPacks.map((pack) => (
-                  <li
-                    key={pack.sku_code}
-                    className="flex flex-col gap-2 rounded-xl border border-ink/15 bg-cream p-4"
-                  >
-                    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
-                      {pack.token_grant_count} tokens
-                    </p>
-                    <p className="font-sans text-2xl font-semibold tracking-tight text-ink">
-                      ₱{formatPeso(pack.price_php)}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </RevealBand>
         </div>
       </section>
 
-      {/* How money flows */}
-      <section className="border-b border-ink/5 bg-ink/[0.02]">
+      {/* Apply-then-pay line */}
+      <section className="border-b border-ink/5">
         <div className="mx-auto w-full max-w-5xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            How money flows
+          <LineRevealHeading
+            as="p"
+            className="max-w-3xl text-balance text-3xl font-semibold leading-tight tracking-tight sm:text-4xl"
+          >
+            You apply, then pay. The money goes straight to the service.
+          </LineRevealHeading>
+          <p className="mt-6 max-w-2xl text-base leading-relaxed text-ink/65">
+            Prices are in Philippine peso. Apply for a service, then pay by GCash
+            or bank transfer against a unique reference. No commission on vendor
+            bookings, no hidden fees. Setnayan never sits between you and your
+            vendor at checkout.
           </p>
-          <p className="mt-4 max-w-3xl text-balance text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
-            Setnayan only sells you software. Vendor bookings are between you and them.
+          <p className="mt-5 text-xs leading-relaxed text-ink/45">
+            Prices render live from the Setnayan catalog and are admin-managed.
+            The free single-camera livestream and the full planner always stay
+            free. Provisional pending the holistic pricing review.
           </p>
-          <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-3">
-            <div className="rounded-xl border border-ink/10 bg-cream p-5">
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
-                You → Setnayan
-              </p>
-              <p className="mt-3 text-sm leading-relaxed text-ink/70">
-                Software SKUs above (Animated Monogram, Editorial Website,
-                Panood, Patiktok, etc.) — paid at 100% retail. PHP only ·
-                itemized receipts on every transaction.
-              </p>
-            </div>
-            <div className="rounded-xl border border-ink/10 bg-cream p-5">
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
-                You → Vendor (off-platform)
-              </p>
-              <p className="mt-3 text-sm leading-relaxed text-ink/70">
-                Vendor packages settle directly with the vendor — bank
-                transfer, GCash, in-person — whatever you arrange. Setnayan
-                takes 0% commission.
-              </p>
-            </div>
-            <div className="rounded-xl border border-ink/10 bg-cream p-5">
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
-                Vendor → Setnayan
-              </p>
-              <p className="mt-3 text-sm leading-relaxed text-ink/70">
-                Vendors pay a 28-day prepaid subscription (above) for
-                marketplace presence, and top up tokens to redeem software
-                for their own events.
-              </p>
+        </div>
+      </section>
+
+      {/* Storytellers — Free callout. Storytellers publish real events as
+          public Chapters on /u/[slug] at no cost, forever — there is no SKU
+          here (deliberately outside the catalog-driven tables above), so this
+          row is static copy + a pointer to /creators. */}
+      <section className="border-b border-ink/5">
+        <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+          <div className="rounded-2xl border border-terracotta/30 bg-terracotta/[0.04] p-5 sm:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="max-w-2xl">
+                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+                  Storytellers — Free
+                </p>
+                <p className="mt-2 text-base font-semibold text-ink">
+                  Publish your events as bookable Chapters. ₱0, forever.
+                </p>
+                <ul className="mt-3 space-y-2 text-sm">
+                  {[
+                    'Publish free — every Chapter, every event, no fees ever',
+                    'Keep your own monetization — your edit stays embedded from your channel',
+                    'Vendors court you with exclusive rates in exchange for a Chapter that credits them',
+                  ].map((f) => (
+                    <li key={f} className="flex items-start gap-2">
+                      <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
+                      <span className="text-ink/80">{f}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <Link
+                href="/creators"
+                className="m-btn m-btn-ghost inline-flex shrink-0 items-center justify-center gap-2 self-start text-sm"
+              >
+                For storytellers
+                <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              </Link>
             </div>
           </div>
         </div>
@@ -766,11 +696,11 @@ export default async function PricingPage() {
         <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-cream p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
             <p className="text-base font-semibold text-ink">
-              Vendor? See the full marketplace + verification flow.
+              Vendor? See the free business offering + your plans.
             </p>
             <Link
-              href="/for-vendors"
-              className="button-secondary inline-flex shrink-0 items-center justify-center gap-2 text-sm"
+              href="/vendors"
+              className="m-btn m-btn-ghost inline-flex shrink-0 items-center justify-center gap-2 text-sm"
             >
               For vendors
               <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -778,17 +708,6 @@ export default async function PricingPage() {
           </div>
         </div>
       </section>
-
-      <footer className="border-t border-ink/5">
-        <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <Logo />
-            <p className="text-xs text-ink/55">
-              PHP only · itemized receipts on every software purchase · © Setnayan
-            </p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

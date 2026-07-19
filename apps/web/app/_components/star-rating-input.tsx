@@ -45,7 +45,7 @@ export function StarRatingInput({ name, label, defaultValue = 0, required = fals
               <Star
                 aria-hidden
                 className={`h-6 w-6 ${
-                  filled ? 'fill-amber-400 text-amber-400' : 'text-ink/25'
+                  filled ? 'fill-warn-400 text-warn-400' : 'text-ink/25'
                 }`}
                 strokeWidth={1.5}
               />

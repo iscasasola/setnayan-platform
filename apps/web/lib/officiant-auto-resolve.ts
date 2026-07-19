@@ -3,7 +3,7 @@
  *
  * Shared between the DIY-tier WeddingEssentialsHero (free couples on
  * /dashboard/[eventId]/today via essential card #6 of 7) AND the paid-
- * tier OfficiantCard (Setnayan AI ₱1,499 couples on the same route
+ * tier OfficiantCard (paid Setnayan AI couples on the same route
  * via WizardHero's Card 04). Both surfaces detect the same auto-resolve
  * conditions + display the same canonical hint copy when matched ·
  * per CLAUDE.md 2026-05-29 "🎯 VENDOR DISCOVERY ARCHITECTURE LOCK" row
@@ -50,7 +50,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export type OfficiantAutoResolutionFraming =
   | 'catholic_parish'
   | 'civil_registrar'
-  | 'inc_chapel';
+  | 'inc_chapel'
+  | 'muslim_mosque';
 
 /**
  * Auto-resolution payload · returned by `computeOfficiantAutoResolution`
@@ -89,6 +90,8 @@ export function getOfficiantAutoResolvedHint(
       return 'The judge or registrar at this venue officiates the ceremony.';
     case 'inc_chapel':
       return 'Your INC minister officiates from this chapel.';
+    case 'muslim_mosque':
+      return 'Your imam (or qadi) solemnizes the Nikah at this mosque, and registers it under the Code of Muslim Personal Laws (PD 1083).';
   }
 }
 
@@ -168,7 +171,10 @@ export async function computeOfficiantAutoResolution(
 ): Promise<OfficiantAutoResolution | null> {
   const { eventId, ceremonyType } = input;
 
-  if (!ceremonyType || !['catholic', 'civil', 'inc'].includes(ceremonyType)) {
+  if (
+    !ceremonyType ||
+    !['catholic', 'civil', 'inc', 'muslim'].includes(ceremonyType)
+  ) {
     return null;
   }
 
@@ -215,6 +221,7 @@ export async function computeOfficiantAutoResolution(
     let providerName: string | null = null;
     let compatibleTypes: ReadonlyArray<string> = [];
     let isCivilRegistrar = false;
+    let isMosque = false;
 
     if (candidate.source_venue_directory_id) {
       const { data } = await supabase
@@ -231,6 +238,7 @@ export async function computeOfficiantAutoResolution(
         providerName = row.name ?? null;
         compatibleTypes = row.compatible_ceremony_types ?? [];
         isCivilRegistrar = row.venue_type === 'civil_registrar';
+        isMosque = row.venue_type === 'mosque';
       }
     } else if (candidate.marketplace_vendor_id) {
       const { data } = await supabase
@@ -261,6 +269,18 @@ export async function computeOfficiantAutoResolution(
     }
     if (ceremonyType === 'inc' && compatibleTypes.includes('inc')) {
       return { framing: 'inc_chapel', providerName };
+    }
+    // PD 1083 (Code of Muslim Personal Laws): a Muslim marriage is solemnized by
+    // an imam/qadi and registered with the Shari'a Circuit Registrar — NOT the
+    // LGU civil registrar. So a muslim ceremony deliberately gets its OWN
+    // mosque framing here and never falls through to 'civil_registrar' below.
+    // Keep these two branches separate (and muslim ABOVE civil) so the mosque
+    // never resolves as a civil-registrar venue.
+    if (
+      ceremonyType === 'muslim' &&
+      (isMosque || compatibleTypes.includes('muslim'))
+    ) {
+      return { framing: 'muslim_mosque', providerName };
     }
     if (ceremonyType === 'civil' && isCivilRegistrar) {
       return { framing: 'civil_registrar', providerName };

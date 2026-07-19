@@ -1,268 +1,99 @@
 /**
- * /admin/work — mobile triage action feed for the Work group.
+ * /admin/work — the admin command center: every act-now queue in ONE ranked
+ * worklist, most-urgent first, each row one click into the work.
  *
- * WHY: ops-shaped nav redesign (Admin_Console_Nav_Redesign_2026-06-08.md ·
- * owner conditionally signed off). The mobile "Work" tab lands on a
- * PRIORITIZED action feed — every act-now queue with its live open-count,
- * busiest first, one tap into the work. This is the renamed + expanded
- * successor to the old /admin/queues feed: it now also carries Payouts +
- * Token sales (pulled in from the dissolved Money group), so the mobile
- * job — approvals-on-the-go — covers ALL pending work in one place.
+ * WHY: ~95% of admin sessions are "clear a queue." Instead of remembering to
+ * check 14 separate pages, the admin lands on a single list that already knows
+ * what needs them and in what order — overdue first (past its SLA window),
+ * then due-soon, then busiest. Ranking + the per-queue "open" filters come from
+ * the shared lib/admin/queue-counts.ts helpers, so this feed, the nav badges,
+ * and the /admin overview all agree by construction.
  *
- * Counts mirror the exact filters each queue page uses so the number here
- * matches the rows the admin sees on arrival:
- *   verify          vendor_verification_applications status='pending_review' → /admin/verify
- *   payments        status='pending'                          → /admin/payments
- *   payouts         paid_at IS NULL AND on_hold=false         → /admin/payouts
- *   token-purchases status='pending_payment'                  → /admin/token-purchases
- *   payment-options moderation_status in (pending_review,held)→ /admin/payment-options
- *   disputes        status='open'                             → /admin/disputes
- *   force-majeure   status in (open, under_review)            → /admin/force-majeure
- *   reviews         decided_at IS NULL                        → /admin/reviews
- *   abuse           status='pending_review'                   → /admin/concierge-abuse
- *   help            status in (new, in_progress)              → /admin/help
+ * Urgency = the oldest open item's age vs the queue's slaHours (ADMIN_QUEUE_META
+ * — owner-tunable). A queue whose timestamp is unavailable degrades to volume
+ * ranking; a thrown query fails the whole feed open to "all clear" rather than
+ * 500-ing. Renders at every breakpoint (the feed component handles the
+ * responsive layout) — it's the desktop home as well as the mobile Work tab.
  *
- * A missing/renamed table resolves with an { error } (not a throw), so
- * take() degrades that one row to null (chevron) instead of 500-ing the
- * whole feed. Desktop redirects implicit via lg:hidden on the feed.
+ * Per [[feedback_setnayan_no_dev_text_post_launch]] all copy is brand-voice;
+ * no schema names leak into the UI.
  */
 
-import {
-  BadgeCheck,
-  Banknote,
-  Wallet,
-  ShoppingBag,
-  Crown,
-  CreditCard,
-  Shield,
-  AlertOctagon,
-  Star,
-  Flag,
-  CheckCheck,
-  LifeBuoy,
-  UserX,
-  Handshake,
-} from 'lucide-react';
-import { createAdminClient } from '@/lib/supabase/admin';
 import {
   QueuesTriageFeed,
   type TriageItem,
 } from '../queues/_components/queues-triage-feed';
+import {
+  getAdminQueueDigest,
+  computeDueState,
+  ageShort,
+  ADMIN_QUEUE_META,
+  type AdminQueueDigest,
+} from '@/lib/admin/queue-counts';
+import { BASE_ROWS } from '@/lib/admin/work-rows';
+import { requireAdmin } from '@/lib/admin/require-admin';
 
 export const metadata = { title: 'Work · Admin' };
 
-function take(c: number | null | undefined): number | null {
-  return typeof c === 'number' ? c : null;
-}
+// Worklist priority: overdue first, then due-soon, then open work (busiest),
+// then unknown, then clear — canonical order breaks ties within a band.
+const DUE_RANK: Record<string, number> = {
+  overdue: 0,
+  'due-soon': 1,
+  ok: 2,
+  unknown: 3,
+  clear: 4,
+};
 
 export default async function AdminWorkLanding() {
-  const admin = createAdminClient();
-  const head = { count: 'exact', head: true } as const;
-  const nowIso = new Date().toISOString();
+  // Page-level gate (council fix #1 2026-07-09) — the admin layout alone is not
+  // a safe auth boundary in front of the RLS-bypassing service-role client
+  // getAdminQueueDigest() reaches below (layouts don't re-run on soft
+  // navigation / crafted RSC requests), so a crafted RSC request from an
+  // authenticated non-admin could otherwise leak per-queue open counts +
+  // timestamps. MUST be the first statement, before any service-role read —
+  // matches app/admin/page.tsx.
+  await requireAdmin();
 
-  const [
-    verifyRes,
-    paymentsRes,
-    payoutsRes,
-    tokenSalesRes,
-    subscriptionsRes,
-    paymentOptionsRes,
-    disputesRes,
-    forceMajeureRes,
-    reviewsRes,
-    abuseRes,
-    accountDeletionsRes,
-    approvalsRes,
-    helpRes,
-    partnershipsRes,
-  ] = await Promise.all([
-    // Verify — applications awaiting review. /admin/verify defaults to the
-    // 'applications' surface (vendor_verification_applications · pending_review),
-    // NOT the secondary ?surface=visibility (vendor_profiles coming_soon).
-    admin
-      .from('vendor_verification_applications')
-      .select('*', head)
-      .eq('status', 'pending_review'),
-    admin.from('payments').select('*', head).eq('status', 'pending'),
-    admin
-      .from('vendor_payouts')
-      .select('*', head)
-      .is('paid_at', null)
-      .eq('on_hold', false),
-    admin
-      .from('vendor_token_purchases')
-      .select('*', head)
-      .eq('status', 'pending_payment'),
-    admin
-      .from('vendor_subscriptions')
-      .select('*', head)
-      .eq('status', 'pending_payment'),
-    admin
-      .from('vendor_payment_methods')
-      .select('*', head)
-      .in('moderation_status', ['pending_review', 'held']),
-    admin.from('vendor_disputes').select('*', head).eq('status', 'open'),
-    admin
-      .from('force_majeure_flags')
-      .select('*', head)
-      .in('status', ['open', 'under_review']),
-    admin.from('vendor_review_appeals').select('*', head).is('decided_at', null),
-    admin
-      .from('concierge_abuse_flags')
-      .select('*', head)
-      .eq('status', 'pending_review'),
-    admin
-      .from('account_deletion_requests')
-      .select('*', head)
-      .eq('status', 'pending'),
-    admin
-      .from('admin_approval_requests')
-      .select('*', head)
-      .eq('status', 'pending')
-      .gt('expires_at', nowIso),
-    admin
-      .from('help_messages')
-      .select('*', head)
-      .in('status', ['new', 'in_progress']),
-    // Vendor partnerships — unverified + active = awaiting HQ two-admin review.
-    admin
-      .from('vendor_partnerships')
-      .select('*', head)
-      .eq('admin_verified', false)
-      .eq('is_active', true),
-  ]);
+  // One round-trip per queue (count + oldest-open age). Fails open: a thrown
+  // query degrades the whole feed to "all clear" rather than 500-ing.
+  const digest = await getAdminQueueDigest().catch(() => ({}) as AdminQueueDigest);
+  const nowMs = Date.now();
 
-  const rows: TriageItem[] = [
-    {
-      key: 'verify',
-      label: 'Verify',
-      href: '/admin/verify',
-      icon: BadgeCheck,
-      description: 'Vendors awaiting the verification badge.',
-      count: take(verifyRes.count),
-    },
-    {
-      key: 'payments',
-      label: 'Payments',
-      href: '/admin/payments',
-      icon: Banknote,
-      description: 'Order payments awaiting reconciliation.',
-      count: take(paymentsRes.count),
-    },
-    {
-      key: 'payouts',
-      label: 'Payouts',
-      href: '/admin/payouts',
-      icon: Wallet,
-      description: 'Vendor payouts ready to release.',
-      count: take(payoutsRes.count),
-    },
-    {
-      key: 'token-purchases',
-      label: 'Token sales',
-      href: '/admin/token-purchases',
-      icon: ShoppingBag,
-      description: 'Vendor token-pack purchases awaiting confirmation.',
-      count: take(tokenSalesRes.count),
-    },
-    {
-      key: 'subscriptions',
-      label: 'Subscriptions',
-      href: '/admin/subscriptions',
-      icon: Crown,
-      description: 'Vendor Pro / Enterprise upgrades awaiting confirmation.',
-      count: take(subscriptionsRes.count),
-    },
-    {
-      key: 'payment-options',
-      label: 'Payment options',
-      href: '/admin/payment-options',
-      icon: CreditCard,
-      description: 'Vendor payment destinations awaiting a fraud screen.',
-      count: take(paymentOptionsRes.count),
-    },
-    {
-      key: 'disputes',
-      label: 'Disputes',
-      href: '/admin/disputes',
-      icon: Shield,
-      description: 'Open customer and vendor disputes.',
-      count: take(disputesRes.count),
-    },
-    {
-      key: 'force-majeure',
-      label: 'Force majeure',
-      href: '/admin/force-majeure',
-      icon: AlertOctagon,
-      description: 'Event-impacting flags to triage.',
-      count: take(forceMajeureRes.count),
-    },
-    {
-      key: 'reviews',
-      label: 'Reviews',
-      href: '/admin/reviews',
-      icon: Star,
-      description: 'Review appeals awaiting a decision.',
-      count: take(reviewsRes.count),
-    },
-    {
-      key: 'concierge-abuse',
-      label: 'Setnayan AI abuse',
-      href: '/admin/concierge-abuse',
-      icon: Flag,
-      description: 'Trial-cycling flags to review.',
-      count: take(abuseRes.count),
-    },
-    {
-      key: 'account-deletions',
-      label: 'Account deletions',
-      href: '/admin/account-deletions',
-      icon: UserX,
-      description: 'Self-serve account-deletion requests to review.',
-      count: take(accountDeletionsRes.count),
-    },
-    {
-      key: 'approvals',
-      label: 'Two-admin approvals',
-      href: '/admin/approvals',
-      icon: CheckCheck,
-      description: 'A colleague is waiting on your second sign-off.',
-      count: take(approvalsRes.count),
-    },
-    {
-      key: 'help',
-      label: 'Help',
-      href: '/admin/help',
-      icon: LifeBuoy,
-      description: 'Open help-center tickets.',
-      count: take(helpRes.count),
-    },
-    {
-      // Vendor partnerships — unverified partnership claims awaiting two-admin
-      // review before their badge renders on couple search results.
-      key: 'vendor-partnerships',
-      label: 'Partnerships',
-      href: '/admin/vendor-partnerships',
-      icon: Handshake,
-      description: 'Vendor-to-vendor partnership claims awaiting two-admin verification.',
-      count: take(partnershipsRes.count),
-    },
-  ];
+  const rows: TriageItem[] = BASE_ROWS.map((base, index) => {
+    const d = digest[base.key] ?? { count: null, oldestAt: null };
+    const meta = ADMIN_QUEUE_META[base.key];
+    const slaHours = meta?.slaHours ?? 48;
+    const dueState = computeDueState(d, slaHours, nowMs);
+    const age = ageShort(d.oldestAt, nowMs);
 
-  // Prioritize: queues with open work first (busiest first), then clear /
-  // unavailable, preserving the canonical order within each band.
-  const ordered = rows
-    .map((row, index) => ({ row, index }))
+    let ageLabel: string | undefined;
+    if (age && dueState === 'overdue') ageLabel = `Oldest ${age} · past SLA`;
+    else if (age && dueState === 'due-soon') ageLabel = `Oldest ${age} · due soon`;
+    else if (age && dueState === 'ok') ageLabel = `Oldest ${age}`;
+
+    return {
+      ...base,
+      count: d.count,
+      lane: meta?.lane,
+      dueState,
+      ageLabel,
+      _index: index,
+    } as TriageItem & { _index: number };
+  });
+
+  const ordered = (rows as (TriageItem & { _index: number })[])
+    .slice()
     .sort((a, b) => {
-      const ca = a.row.count ?? 0;
-      const cb = b.row.count ?? 0;
-      const aOpen = ca > 0 ? 1 : 0;
-      const bOpen = cb > 0 ? 1 : 0;
-      if (aOpen !== bOpen) return bOpen - aOpen;
+      const ra = DUE_RANK[a.dueState ?? 'unknown'] ?? 3;
+      const rb = DUE_RANK[b.dueState ?? 'unknown'] ?? 3;
+      if (ra !== rb) return ra - rb;
+      const ca = a.count ?? 0;
+      const cb = b.count ?? 0;
       if (cb !== ca) return cb - ca;
-      return a.index - b.index;
+      return a._index - b._index;
     })
-    .map((entry) => entry.row);
+    .map(({ _index, ...row }) => row as TriageItem);
 
   const totalOpen = rows.reduce(
     (sum, row) => sum + Math.max(0, row.count ?? 0),

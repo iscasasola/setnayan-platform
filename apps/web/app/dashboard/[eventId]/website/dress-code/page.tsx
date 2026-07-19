@@ -3,9 +3,11 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, Shirt } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
+import { eventNoun } from '@/lib/event-noun';
 import { updateDressCode, type DressCodeConfig } from './actions';
 import { ListField } from './_components/list-field';
 import { PaletteField } from './_components/palette-field';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Edit dress code · Setnayan' };
 
@@ -40,7 +42,7 @@ export default async function DressCodeEditorPage({
 
   const { data: event } = await supabase
     .from('events')
-    .select('event_id, display_name, slug, dress_code_config')
+    .select('event_id, display_name, slug, event_type, dress_code_config, ceremony_type')
     .eq('event_id', eventId)
     .maybeSingle();
 
@@ -50,14 +52,27 @@ export default async function DressCodeEditorPage({
   // pre-bind args like this so the page-level eventId travels with the form.
   const updateAction = updateDressCode.bind(null, eventId);
 
-  const config = normalizeConfig(event.dress_code_config);
+  const savedConfig = normalizeConfig(event.dress_code_config);
+  const isConfigEmpty =
+    !savedConfig.title &&
+    !savedConfig.description &&
+    savedConfig.dos.length === 0 &&
+    savedConfig.donts.length === 0 &&
+    savedConfig.palette.length === 0;
+  // INC weddings require modest, formal attire OF GUESTS (no sleeveless/short),
+  // so when an INC host opens an empty editor we pre-fill that guidance as a
+  // starting point. Non-destructive: it only seeds the form's default values —
+  // nothing is written until the host reviews and clicks Save, and they can
+  // edit or clear every field first.
+  const showIncPrefill = event.ceremony_type === 'inc' && isConfigEmpty;
+  const config = showIncPrefill ? INC_DRESS_CODE_SUGGESTION : savedConfig;
   const saved = search.saved === '1';
   const error = search.error;
 
   return (
     <section className="space-y-6">
       {/* Header strip */}
-      <header className="space-y-3">
+      <header className="sn-reveal space-y-3">
         <Link
           href={`/dashboard/${eventId}/website`}
           className="inline-flex items-center gap-1.5 text-xs font-medium text-terracotta hover:text-terracotta-700"
@@ -66,15 +81,15 @@ export default async function DressCodeEditorPage({
           Back to website
         </Link>
         <div>
-          <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <p className="sn-eye flex items-center gap-2">
             <Shirt aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Dress code
           </p>
-          <h1 className="mt-1 font-serif text-3xl italic tracking-tight sm:text-4xl">
+          <h1 className="sn-h1 mt-1">
             Tell your guests what to wear
           </h1>
           <p className="mt-2 max-w-prose text-sm text-ink/65">
-            Add a palette so guests can match the mood of your wedding. Share the look
+            Add a palette so guests can match the mood of your {eventNoun(event.event_type)}. Share the look
             you&rsquo;re going for — and the few things you&rsquo;d rather they skip.
           </p>
         </div>
@@ -82,18 +97,28 @@ export default async function DressCodeEditorPage({
         {saved ? (
           <div
             role="status"
-            className="inline-flex items-center gap-2 rounded-md border border-emerald-300/60 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
+            className="inline-flex items-center gap-2 rounded-md border border-success-300/60 bg-success-50 px-3 py-2 text-sm text-success-800"
           >
             <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Saved — your guests will see this on the wedding website.
+            Saved — your guests will see this on the {eventNoun(event.event_type)} website.
           </div>
         ) : null}
         {error ? (
           <div
             role="alert"
-            className="rounded-md border border-rose-300/60 bg-rose-50 px-3 py-2 text-sm text-rose-800"
+            className="rounded-md border border-danger-300/60 bg-danger-50 px-3 py-2 text-sm text-danger-800"
           >
             {error}
+          </div>
+        ) : null}
+        {showIncPrefill ? (
+          <div
+            role="note"
+            className="rounded-md border border-terracotta/30 bg-terracotta-50/60 px-3 py-2 text-sm text-ink/75"
+          >
+            We&rsquo;ve started you off with the modest, formal guidance INC {eventNoun(event.event_type)}s
+            ask of guests (no sleeveless or short attire). Make it your own, then
+            <strong className="font-medium"> Save</strong> to share it with your guests.
           </div>
         ) : null}
       </header>
@@ -106,7 +131,7 @@ export default async function DressCodeEditorPage({
           <div className="space-y-2">
             <label
               htmlFor="dress-code-title"
-              className="block font-mono text-xs uppercase tracking-[0.18em] text-ink/55"
+              className="sn-eye block"
             >
               Headline
             </label>
@@ -126,7 +151,7 @@ export default async function DressCodeEditorPage({
           <div className="space-y-2">
             <label
               htmlFor="dress-code-description"
-              className="block font-mono text-xs uppercase tracking-[0.18em] text-ink/55"
+              className="sn-eye block"
             >
               Guidance
             </label>
@@ -144,19 +169,19 @@ export default async function DressCodeEditorPage({
 
           {/* Palette */}
           <div className="space-y-2">
-            <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/55">
+            <p className="sn-eye">
               Palette
             </p>
             <p className="text-xs text-ink/55">
               Up to six swatches. Guests use these to dress in colors that
-              match your wedding&rsquo;s mood.
+              match your {eventNoun(event.event_type)}&rsquo;s mood.
             </p>
             <PaletteField initial={config.palette} />
           </div>
 
           {/* Do */}
           <div className="space-y-2">
-            <p className="font-mono text-xs uppercase tracking-[0.18em] text-emerald-700">
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-success-700">
               Do
             </p>
             <p className="text-xs text-ink/55">What you&rsquo;d love guests to wear.</p>
@@ -165,7 +190,7 @@ export default async function DressCodeEditorPage({
 
           {/* Don't */}
           <div className="space-y-2">
-            <p className="font-mono text-xs uppercase tracking-[0.18em] text-rose-700">
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-danger-700">
               Don&rsquo;t
             </p>
             <p className="text-xs text-ink/55">
@@ -176,12 +201,7 @@ export default async function DressCodeEditorPage({
 
           {/* Submit */}
           <div className="flex flex-wrap items-center gap-3 border-t border-ink/10 pt-4">
-            <button
-              type="submit"
-              className="inline-flex h-11 min-h-[44pt] items-center justify-center gap-2 rounded-md bg-mulberry px-5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry"
-            >
-              Save changes
-            </button>
+            <SubmitButton pendingLabel="Saving…" className="inline-flex h-11 min-h-[44pt] items-center justify-center gap-2 rounded-md bg-mulberry px-5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry">Save changes</SubmitButton>
             <Link
               href={`/dashboard/${eventId}/website`}
               className="inline-flex h-11 min-h-[44pt] items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 text-sm font-medium text-ink transition-colors hover:border-ink/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
@@ -193,7 +213,7 @@ export default async function DressCodeEditorPage({
 
         {/* Preview */}
         <aside className="lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
-          <p className="mb-2 font-mono text-xs uppercase tracking-[0.18em] text-ink/55">
+          <p className="sn-eye mb-2">
             Live preview
           </p>
           <DressCodePreview config={config} />
@@ -206,10 +226,10 @@ export default async function DressCodeEditorPage({
                 rel="noreferrer"
                 className="font-medium text-terracotta underline-offset-2 hover:underline"
               >
-                your wedding website
+                your {eventNoun(event.event_type)} website
               </Link>
             ) : (
-              'your wedding website'
+              `your ${eventNoun(event.event_type)} website`
             )}
             . Save changes to see them live.
           </p>
@@ -218,6 +238,32 @@ export default async function DressCodeEditorPage({
     </section>
   );
 }
+
+/**
+ * Suggested starter guidance for INC (Iglesia ni Cristo) weddings. INC asks
+ * for modest, formal attire of everyone present — no sleeveless tops, no short
+ * dresses/skirts — so we pre-fill that for INC hosts who haven't set a dress
+ * code yet. It is a default form value only (the host saves it themselves);
+ * see 02_Specifications/INC_Wedding_Practices_Reference_2026-06-28.md § 5.4.
+ */
+const INC_DRESS_CODE_SUGGESTION: DressCodeConfig = {
+  title: 'Modest & formal',
+  description:
+    'Our ceremony is held in the INC chapel, so we kindly ask everyone to dress modestly and formally. Thank you for honoring the occasion with us.',
+  dos: [
+    'Formal, modest attire',
+    'Covered shoulders / sleeves',
+    'Dresses and skirts at or below the knee',
+    'Smart formal for the gentlemen',
+  ],
+  donts: [
+    'Sleeveless tops or bared shoulders',
+    'Short dresses or skirts above the knee',
+    'Plunging, sheer, or backless cuts',
+    'Overly casual wear (shorts, slippers)',
+  ],
+  palette: [],
+};
 
 /**
  * Read a config blob defensively — the column defaults to `{}` so brand-new
@@ -302,7 +348,7 @@ function DressCodePreview({ config }: { config: DressCodeConfig }) {
       {config.dos.length > 0 || config.donts.length > 0 ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {config.dos.length > 0 ? (
-            <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+            <div className="space-y-2 rounded-lg border border-success-200 bg-success-50 p-4 text-sm text-success-900">
               <p className="font-mono text-[10px] uppercase tracking-[0.15em]">Do</p>
               <ul className="space-y-1">
                 {config.dos.map((row, i) => (
@@ -312,7 +358,7 @@ function DressCodePreview({ config }: { config: DressCodeConfig }) {
             </div>
           ) : null}
           {config.donts.length > 0 ? (
-            <div className="space-y-2 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">
+            <div className="space-y-2 rounded-lg border border-danger-200 bg-danger-50 p-4 text-sm text-danger-900">
               <p className="font-mono text-[10px] uppercase tracking-[0.15em]">
                 Don&rsquo;t
               </p>

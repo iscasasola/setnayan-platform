@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import QRCode from 'qrcode';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveMonogram } from '@/lib/monogram';
+import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
 
 /**
  * GET /api/website/qr/[slug] — serves the master event QR as PNG with the
@@ -33,7 +34,7 @@ export async function GET(
   const supabase = createAdminClient();
   const { data: event } = await supabase
     .from('events')
-    .select('display_name, monogram_text, monogram_color, slug')
+    .select('event_id, display_name, monogram_text, monogram_color, slug')
     .eq('slug', slug)
     .maybeSingle();
 
@@ -49,7 +50,12 @@ export async function GET(
 
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
-  const url = `${appUrl}/${slug}`;
+  // Canonical URL form — nested /u/ under the cutover flag, bare root otherwise
+  // (resolve self-noops OFF; no query pre-cutover). NB the public CDN cache
+  // below (s-maxage) means a flipped PNG lags up to a day, but the bare URL it
+  // encodes keeps working (the dispatcher redirects it), so the lag is benign.
+  const ownerSlug = await resolveEventOwnerSlug(supabase, event.event_id);
+  const url = publicEventUrl(appUrl, slug, ownerSlug);
 
   // Render at 1024px so the printed PNG stays crisp at A4 / postcard sizes.
   // PNG path doesn't compose with `compositeMonogram` (which operates on

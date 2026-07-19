@@ -18,13 +18,13 @@ type Tone = 'do' | 'dont';
 
 const TONE_STYLES: Record<Tone, { accent: string; ring: string; placeholder: string }> = {
   do: {
-    accent: 'text-emerald-700',
-    ring: 'focus-visible:outline-emerald-500',
+    accent: 'text-success-700',
+    ring: 'focus-visible:outline-success-500',
     placeholder: 'e.g. Lean into the palette · Long gowns + ternos · A little sparkle',
   },
   dont: {
-    accent: 'text-rose-700',
-    ring: 'focus-visible:outline-rose-500',
+    accent: 'text-danger-700',
+    ring: 'focus-visible:outline-danger-500',
     placeholder: 'e.g. No white or ivory (reserved for the bride) · Skip jeans',
   },
 };

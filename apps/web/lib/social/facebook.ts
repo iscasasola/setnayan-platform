@@ -1,4 +1,5 @@
 import 'server-only';
+import { resolveMetaConfig } from '@/lib/integration-config';
 
 /**
  * apps/web/lib/social/facebook.ts
@@ -87,9 +88,14 @@ export type FacebookPostResult =
   | { ok: true; externalId: string; postUrl: string }
   | { ok: false; error: string };
 
-/** True once the owner has pasted the Meta env vars (Vercel project env). */
-export function isFacebookConfigured(): boolean {
-  return Boolean(process.env.META_PAGE_ID && process.env.META_PAGE_ACCESS_TOKEN);
+/**
+ * True once the Meta credential is set (Integration Console DB or Vercel env).
+ * Async because it resolves DB-first; byte-identical to the env check when the
+ * DB is empty.
+ */
+export async function isFacebookConfigured(): Promise<boolean> {
+  const { pageId, accessToken } = await resolveMetaConfig();
+  return Boolean(pageId && accessToken);
 }
 
 /**
@@ -107,8 +113,7 @@ export async function postToFacebookPage({
   linkUrl?: string | null;
   mediaUrl?: string | null;
 }): Promise<FacebookPostResult> {
-  const pageId = process.env.META_PAGE_ID;
-  const accessToken = process.env.META_PAGE_ACCESS_TOKEN;
+  const { pageId, accessToken } = await resolveMetaConfig();
   if (!pageId || !accessToken) {
     return { ok: false, error: 'Facebook is not configured (META_PAGE_ID / META_PAGE_ACCESS_TOKEN missing).' };
   }

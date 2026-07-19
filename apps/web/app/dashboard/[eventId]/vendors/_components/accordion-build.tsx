@@ -17,10 +17,12 @@
  * card carries the rail's coverflow `transform` (which would trap position:fixed).
  */
 
-import { useEffect, useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { createPortal } from 'react-dom';
 import { Hammer, Check, X, Clock } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
+import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useSaveLoader } from '@/components/sd-loader';
 import { setBuildPick, removeBuildPick } from '../build-pick-actions';
 
 const peso = (php: number | null | undefined) =>
@@ -57,21 +59,19 @@ export function AccordionBuildButton({
 }) {
   const [confirm, setConfirm] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const save = useSaveLoader();
 
-  // Esc closes the replace popup.
-  useEffect(() => {
-    if (!confirm) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setConfirm(false);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [confirm]);
+  // Esc-to-close + focus trap + scroll lock for the replace popup.
+  useModalA11y({ open: confirm, onClose: () => setConfirm(false), containerRef: dialogRef });
 
   const pin = () => {
     haptic('confirm');
     startTransition(async () => {
-      await setBuildPick({ eventId, planGroupId: groupId, vendorId });
+      await save.run(
+        () => setBuildPick({ eventId, planGroupId: groupId, vendorId }),
+        { steps: ['Pinning your pick'], hint: 'Saving' },
+      );
       setConfirm(false);
     });
   };
@@ -88,7 +88,7 @@ export function AccordionBuildButton({
   if (isBuildPick) {
     return (
       <div className="mt-2.5 flex items-center gap-2">
-        <span className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border border-mulberry/30 bg-mulberry/5 px-3 py-2 text-[12.5px] font-semibold text-mulberry">
+        <span className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-mulberry/30 bg-mulberry/5 px-3 py-2 text-[12.5px] font-semibold text-mulberry">
           <Check className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden />
           In your build
         </span>
@@ -96,7 +96,7 @@ export function AccordionBuildButton({
           type="button"
           onClick={unpin}
           disabled={isPending}
-          className="rounded-[10px] border border-ink/15 px-3 py-2 text-[12px] font-medium text-ink/55 hover:text-ink disabled:opacity-50"
+          className="rounded-md border border-ink/15 px-3 py-2 text-[12px] font-medium text-ink/55 hover:text-ink disabled:opacity-50"
         >
           {isPending ? '…' : 'Remove'}
         </button>
@@ -108,7 +108,7 @@ export function AccordionBuildButton({
   // An inquiry the vendor hasn't priced yet shows a disabled note instead.
   if (!priced) {
     return (
-      <div className="mt-2.5 flex items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-ink/20 px-3 py-2.5 text-[11.5px] font-medium text-ink/45">
+      <div className="mt-2.5 flex items-center justify-center gap-1.5 rounded-md border border-dashed border-ink/20 px-3 py-2.5 text-[11.5px] font-medium text-ink/45">
         <Clock className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden />
         Waiting for the vendor&rsquo;s price
       </div>
@@ -128,7 +128,7 @@ export function AccordionBuildButton({
             pin();
           }
         }}
-        className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-[10px] bg-terracotta px-3 py-2.5 text-[12.5px] font-semibold text-cream transition-colors hover:bg-terracotta-600 disabled:opacity-60"
+        className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-terracotta px-3 py-2.5 text-[12.5px] font-semibold text-cream transition-colors hover:bg-terracotta-600 disabled:opacity-60"
       >
         <Hammer className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden />
         {isPending ? 'Adding…' : 'Add to build'}
@@ -137,9 +137,10 @@ export function AccordionBuildButton({
       {confirm && existing
         ? portal(
             <div
+              ref={dialogRef}
               role="dialog"
               aria-modal="true"
-              className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/45 p-0 sm:items-center sm:p-4"
+              className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/45 p-0 focus:outline-none sm:items-center sm:p-4"
               onClick={(e) => {
                 if (e.target === e.currentTarget) setConfirm(false);
               }}
@@ -168,7 +169,7 @@ export function AccordionBuildButton({
                   <button
                     type="button"
                     onClick={() => setConfirm(false)}
-                    className="flex-1 rounded-[10px] border border-ink/15 px-3 py-2.5 text-[13px] font-medium text-ink/70 hover:bg-ink/5"
+                    className="flex-1 rounded-md border border-ink/15 px-3 py-2.5 text-[13px] font-medium text-ink/70 hover:bg-ink/5"
                   >
                     Cancel
                   </button>
@@ -176,7 +177,7 @@ export function AccordionBuildButton({
                     type="button"
                     onClick={pin}
                     disabled={isPending}
-                    className="flex-1 rounded-[10px] border border-ink/15 px-3 py-2.5 text-[13px] font-medium text-ink/70 hover:bg-ink/5 disabled:opacity-60"
+                    className="flex-1 rounded-md border border-ink/15 px-3 py-2.5 text-[13px] font-medium text-ink/70 hover:bg-ink/5 disabled:opacity-60"
                   >
                     Add both
                   </button>
@@ -184,7 +185,7 @@ export function AccordionBuildButton({
                     type="button"
                     onClick={pin}
                     disabled={isPending}
-                    className="flex-1 rounded-[10px] bg-terracotta px-3 py-2.5 text-[13px] font-semibold text-cream hover:bg-terracotta-600 disabled:opacity-60"
+                    className="flex-1 rounded-md bg-terracotta px-3 py-2.5 text-[13px] font-semibold text-cream hover:bg-terracotta-600 disabled:opacity-60"
                   >
                     {isPending ? '…' : 'Replace'}
                   </button>

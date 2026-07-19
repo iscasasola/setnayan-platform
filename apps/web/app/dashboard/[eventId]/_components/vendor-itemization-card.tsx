@@ -61,9 +61,12 @@ import {
 } from '@/lib/budget';
 import { VENDOR_CATEGORY_LABEL, VENDOR_STATUS_LABEL, VENDOR_STATUS_TONE } from '@/lib/vendors';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
+import type { PlanInstance } from '@/lib/vendor-service-payment-schedules';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ConfirmForm } from '@/app/_components/confirm-form';
 import { FileUpload } from '@/app/_components/file-upload';
 import { VendorDirectPay } from '@/app/dashboard/[eventId]/_components/vendor-direct-pay';
+import { SuggestMilestonesButton } from '@/app/dashboard/[eventId]/budget/_components/suggest-milestones-button';
 import {
   addLineItem,
   deleteLineItem,
@@ -89,6 +92,15 @@ export type VendorItemizationCardProps = {
    * VendorDirectPay block renders a quiet "coordinate in chat" hint.
    */
   directPayMethods?: CoupleFacingMethod[];
+  /**
+   * The booking's frozen PAYMENT PLAN installments (Phase 2 PR-B/PR-C),
+   * fetched server-side by the caller from event_vendor_payment_plan. When
+   * present + non-empty, the log-payment form surfaces an optional "which
+   * installment?" dropdown (label · amount · due) that sets
+   * schedule_instance_seq. null/[] = no plan → the dropdown is hidden and the
+   * host logs a generic payment, exactly as before.
+   */
+  installments?: PlanInstance[] | null;
 };
 
 export function VendorItemizationCard({
@@ -96,6 +108,7 @@ export function VendorItemizationCard({
   eventId,
   variant = 'card',
   directPayMethods = [],
+  installments = null,
 }: VendorItemizationCardProps) {
   const {
     vendor,
@@ -128,6 +141,7 @@ export function VendorItemizationCard({
           eventId={eventId}
           vendorId={vendor.vendor_id}
           vendorMarketplaceId={vendor.marketplace_vendor_id}
+          suggestTotalPhp={itemizedTotal}
         />
         <PaymentSection
           payments={payments}
@@ -137,6 +151,7 @@ export function VendorItemizationCard({
           vendorId={vendor.vendor_id}
           vendorName={vendor.vendor_name}
           directPayMethods={directPayMethods}
+          installments={installments}
         />
       </div>
     </>
@@ -209,7 +224,7 @@ function PriceSourceChip({ priceSource }: { priceSource: VendorPriceSource }) {
   // 'pending' — vendor hasn't sent pricing yet.
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-amber-800"
+      className="inline-flex items-center gap-1 rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-warn-800"
       title="The vendor hasn't published pricing yet. Ask them in chat."
     >
       Awaiting pricing
@@ -234,7 +249,7 @@ function Money({
           tone === 'warn'
             ? 'text-terracotta-700'
             : tone === 'good'
-              ? 'text-emerald-700'
+              ? 'text-success-700'
               : tone === 'muted'
                 ? 'text-ink/65'
                 : 'text-ink'
@@ -253,6 +268,7 @@ function LineItemSection({
   eventId,
   vendorId,
   vendorMarketplaceId,
+  suggestTotalPhp,
 }: {
   priceSource: VendorPriceSource;
   vendorControlledItems: VendorControlledLineItem[];
@@ -260,6 +276,7 @@ function LineItemSection({
   eventId: string;
   vendorId: string;
   vendorMarketplaceId: string | null;
+  suggestTotalPhp: number;
 }) {
   const hasVendorControlled = vendorControlledItems.length > 0;
   const hasManual = lineItems.length > 0;
@@ -305,14 +322,14 @@ function LineItemSection({
       ) : null}
 
       {priceSource === 'pending' && !hasVendorControlled ? (
-        <div className="space-y-2 rounded-md border border-dashed border-amber-300/60 bg-amber-50/60 px-3 py-3 text-sm">
+        <div className="space-y-2 rounded-md border border-dashed border-warn-300/60 bg-warn-50/60 px-3 py-3 text-sm">
           <p className="text-ink/75">
             This vendor hasn&rsquo;t shared pricing yet. Their catalog will appear
             here once they publish it.
           </p>
           <Link
             href={`/dashboard/${eventId}/messages?vendor=${vendorMarketplaceId ?? ''}`}
-            className="inline-flex items-center gap-1.5 rounded-md border border-amber-400/50 bg-cream px-2.5 py-1 text-xs font-medium text-amber-900 hover:border-amber-500 hover:text-amber-950"
+            className="inline-flex items-center gap-1.5 rounded-md border border-warn-400/50 bg-cream px-2.5 py-1 text-xs font-medium text-warn-900 hover:border-warn-500 hover:text-warn-950"
           >
             <MessageCircle aria-hidden className="h-3 w-3" strokeWidth={1.75} />
             Ask them for pricing
@@ -346,17 +363,22 @@ function LineItemSection({
                   <span className="font-mono text-sm font-semibold text-ink">
                     {formatPhp(li.amount_php)}
                   </span>
-                  <form action={deleteLineItem}>
+                  <ConfirmForm
+                    action={deleteLineItem}
+                    title="Delete this line item?"
+                    message="It’s removed from this vendor’s budget — you can add it back anytime."
+                    confirmLabel="Delete"
+                  >
                     <input type="hidden" name="event_id" value={eventId} />
                     <input type="hidden" name="line_item_id" value={li.line_item_id} />
                     <SubmitButton
                       aria-label="Delete line item"
                       pendingLabel=""
-                      className="rounded-md p-1 text-ink/40 hover:bg-ink/5 hover:text-rose-700 disabled:opacity-60"
+                      className="rounded-md p-1 text-ink/40 hover:bg-ink/5 hover:text-danger-700 disabled:opacity-60"
                     >
                       <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
                     </SubmitButton>
-                  </form>
+                  </ConfirmForm>
                 </div>
               </li>
             ))}
@@ -367,9 +389,17 @@ function LineItemSection({
       {priceSource === 'manual' ? (
         <>
           {!hasManual ? (
-            <p className="text-xs text-ink/55">
-              No line items yet — add a Deposit, Balance, or Tip below.
-            </p>
+            <div className="space-y-2">
+              <p className="text-xs text-ink/55">
+                No line items yet — add a Deposit, Balance, or Tip below.
+              </p>
+              {/* One-click split — only when there's a total to divide. Seeds an
+                  editable Deposit 50% + Balance 50% so the live "next payments"
+                  list + .ics export populate without typing each milestone. */}
+              {suggestTotalPhp > 0 ? (
+                <SuggestMilestonesButton eventId={eventId} vendorId={vendorId} />
+              ) : null}
+            </div>
           ) : null}
           <form
             action={addLineItem}
@@ -387,7 +417,7 @@ function LineItemSection({
             <input
               name="amount_php"
               type="number"
-              min={0}
+              min={0.01}
               step="0.01"
               required
               placeholder="Amount"
@@ -431,7 +461,7 @@ function LineItemSection({
             <input
               name="amount_php"
               type="number"
-              min={0}
+              min={0.01}
               step="0.01"
               required
               placeholder="Amount"
@@ -465,6 +495,7 @@ function PaymentSection({
   vendorId,
   vendorName,
   directPayMethods,
+  installments,
 }: {
   payments: PaymentRow[];
   lineItems: LineItemRow[];
@@ -473,8 +504,11 @@ function PaymentSection({
   vendorId: string;
   vendorName: string;
   directPayMethods: CoupleFacingMethod[];
+  installments?: PlanInstance[] | null;
 }) {
   const hasVendorControlled = vendorControlledItems.length > 0;
+  const planInstallments = installments ?? [];
+  const hasInstallments = planInstallments.length > 0;
   return (
     <section className="space-y-3 p-5">
       {/* Off-platform direct-pay surface — the vendor's published payment
@@ -485,7 +519,7 @@ function PaymentSection({
       <VendorDirectPay vendorName={vendorName} methods={directPayMethods} />
 
       <header className="flex items-center gap-2">
-        <Receipt aria-hidden className="h-3.5 w-3.5 text-emerald-700" strokeWidth={1.75} />
+        <Receipt aria-hidden className="h-3.5 w-3.5 text-success-700" strokeWidth={1.75} />
         <h3 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           Payments
         </h3>
@@ -503,33 +537,38 @@ function PaymentSection({
             return (
               <li
                 key={p.payment_id}
-                className="flex items-start justify-between gap-2 rounded-md bg-emerald-50/60 px-3 py-2 text-sm"
+                className="flex items-start justify-between gap-2 rounded-md bg-success-50/60 px-3 py-2 text-sm"
               >
                 <div className="min-w-0 space-y-0.5">
-                  <p className="truncate font-medium text-emerald-900">
+                  <p className="truncate font-medium text-success-900">
                     {line ? line.label : fallbackLabel}
                   </p>
-                  <p className="text-xs text-emerald-900/75">
+                  <p className="text-xs text-success-900/75">
                     {p.paid_at}
                     {p.method ? ` · ${p.method}` : ''}
                     {p.reference ? ` · ref ${p.reference}` : ''}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-sm font-semibold text-emerald-900">
+                  <span className="font-mono text-sm font-semibold text-success-900">
                     {formatPhp(p.amount_php)}
                   </span>
-                  <form action={deletePayment}>
+                  <ConfirmForm
+                    action={deletePayment}
+                    title="Remove this logged payment?"
+                    message="The running total updates — log it again if you remove it by mistake."
+                    confirmLabel="Delete"
+                  >
                     <input type="hidden" name="event_id" value={eventId} />
                     <input type="hidden" name="payment_id" value={p.payment_id} />
                     <SubmitButton
                       aria-label="Delete payment"
                       pendingLabel=""
-                      className="rounded-md p-1 text-emerald-900/50 hover:bg-emerald-900/5 hover:text-rose-700 disabled:opacity-60"
+                      className="rounded-md p-1 text-success-900/50 hover:bg-success-900/5 hover:text-danger-700 disabled:opacity-60"
                     >
                       <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
                     </SubmitButton>
-                  </form>
+                  </ConfirmForm>
                 </div>
               </li>
             );
@@ -537,12 +576,40 @@ function PaymentSection({
         </ul>
       )}
 
-      <form
-        action={logPayment}
-        className="grid grid-cols-2 gap-2 border-t border-ink/10 pt-3 sm:grid-cols-4"
-      >
+      {/* Default-then-disclose: the 5-field log stays out of the way until the
+          host actually has a payment to record (it's the page's busiest form). */}
+      <details className="group border-t border-ink/10 pt-3">
+        <summary className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-success-700 hover:text-success-800">
+          <Plus aria-hidden className="h-3 w-3" strokeWidth={2} />
+          Log a payment
+        </summary>
+        <form
+          action={logPayment}
+          className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4"
+        >
         <input type="hidden" name="event_id" value={eventId} />
         <input type="hidden" name="vendor_id" value={vendorId} />
+        {/* Optional installment attribution (Phase 2 PR-C). Only shown when the
+            booking has a frozen payment plan — sets schedule_instance_seq so the
+            vendor sees WHICH installment this payment is for when they confirm.
+            "Not tied to an installment" = leave NULL (a generic payment). */}
+        {hasInstallments ? (
+          <select
+            name="schedule_instance_seq"
+            defaultValue=""
+            aria-label="Which installment?"
+            className="input-field col-span-2 h-9 py-0 text-xs sm:col-span-4"
+          >
+            <option value="">Not tied to an installment</option>
+            {planInstallments.map((inst) => (
+              <option key={inst.seq} value={inst.seq}>
+                {inst.label}
+                {inst.amount_php != null ? ` · ${formatPhp(inst.amount_php)}` : ''}
+                {inst.due_date ? ` · due ${inst.due_date}` : ''}
+              </option>
+            ))}
+          </select>
+        ) : null}
         <select
           name="line_item_id"
           defaultValue=""
@@ -574,7 +641,7 @@ function PaymentSection({
         <input
           name="amount_php"
           type="number"
-          min={0}
+          min={0.01}
           step="0.01"
           required
           placeholder="Amount paid"
@@ -612,13 +679,14 @@ function PaymentSection({
           />
         </div>
         <SubmitButton
-          className="col-span-2 inline-flex items-center justify-center gap-1 rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-emerald-800 disabled:opacity-70 sm:col-span-4"
+          className="col-span-2 inline-flex items-center justify-center gap-1 rounded-md bg-success-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-success-800 disabled:opacity-70 sm:col-span-4"
           pendingLabel="Logging…"
         >
           <Plus className="h-3.5 w-3.5" strokeWidth={2} />
           Log
         </SubmitButton>
-      </form>
+        </form>
+      </details>
     </section>
   );
 }

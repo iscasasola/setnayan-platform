@@ -96,6 +96,14 @@ export type NavItem = {
    * inert for the bottom-nav / accordion builders (they don't read it).
    */
   children?: NavItem[];
+  /**
+   * When set, this child is a TAB switcher (not a route navigation). The
+   * value is the tab key to activate (e.g. 'summary', 'shortlist'). The
+   * sidebar renders a <button> that fires the BB_TAB_EVENT bus + mirrors
+   * the active state via ?tab= instead of via pathname matching.
+   * `href` is still required as a fallback for no-JS / deep-link.
+   */
+  tab?: string;
 };
 
 export type NavGroup = {
@@ -150,6 +158,15 @@ export type BottomNavItem = {
    * Phase 0 baseline behavior).
    */
   activeMatchExact?: boolean;
+  /**
+   * Additional EXACT-ONLY paths that activate this tab on top of the
+   * `activeMatch` prefixes. For a merged hub tab whose landing is the exact
+   * prefix of every sibling route (admin Overview: exact `/admin` PLUS the
+   * enumerated queue-route prefixes) — `activeMatchExact` can't express the
+   * mix because it flips ALL matches to exact. Additive + optional; ignored
+   * when absent. (Admin 6-menu respine 2026-07-03.)
+   */
+  activeMatchAlsoExact?: string[];
   badge?: NavBadge;
 };
 

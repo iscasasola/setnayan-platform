@@ -15,6 +15,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { mergeRevealConfig } from '@/lib/reveal-config';
+import { resolveStdMedia } from '@/lib/std-media';
 
 type Result = { ok: true } | { ok: false; error: string };
 
@@ -49,5 +50,45 @@ export async function saveRevealStudio(input: unknown): Promise<Result> {
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Save failed.' };
+  }
+}
+
+/**
+ * Manually set the NSFW verdict on a couple's Save-the-Date video
+ * (events.std_media.nsfw). The automatic poster-frame screen covers the normal
+ * path; this is the admin override for a video stuck at 'pending' (a poster /
+ * model hiccup left it never-screened, so it silently never goes live) or a
+ * false-positive 'rejected'. Only an 'approved' video plays on the public page.
+ */
+export async function setStdVideoModeration(
+  eventId: string,
+  decision: 'approved' | 'rejected',
+): Promise<Result> {
+  try {
+    await assertAdmin();
+    if (!eventId) return { ok: false, error: 'missing-event' };
+    if (decision !== 'approved' && decision !== 'rejected') {
+      return { ok: false, error: 'bad-decision' };
+    }
+    const db = createAdminClient();
+    const { data: row, error: readErr } = await db
+      .from('events')
+      .select('std_media')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (readErr) return { ok: false, error: readErr.message };
+    if (!row) return { ok: false, error: 'not-found' };
+    const media = resolveStdMedia((row as Record<string, unknown>).std_media);
+    if (media.type !== 'video' || !media.videoKey) return { ok: false, error: 'no-video' };
+    const { error } = await db
+      .from('events')
+      .update({ std_media: { ...media, nsfw: decision } })
+      .eq('event_id', eventId);
+    if (error) return { ok: false, error: error.message };
+    revalidatePath('/[slug]', 'page');
+    revalidatePath('/admin/reveal-studio', 'page');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Failed.' };
   }
 }

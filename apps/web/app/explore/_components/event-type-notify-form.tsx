@@ -35,7 +35,7 @@ export function EventTypeNotifyForm({
     return (
       <p
         role="status"
-        className="mx-auto mt-5 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800"
+        className="mx-auto mt-5 inline-flex items-center gap-2 rounded-full bg-success-50 px-4 py-2 text-sm font-medium text-success-800"
       >
         <span aria-hidden>✓</span>
         We&rsquo;ll email you when {label} vendors are live.

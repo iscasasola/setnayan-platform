@@ -13,7 +13,7 @@
  *   2. If permission === 'default': show a subtle, dismissible banner.
  *   3. On [Enable]: request Notification permission.
  *      - granted → register SW → subscribe → call registerPushToken('web').
- *      - denied  → hide banner permanently (sessionStorage flag).
+ *      - denied  → hide banner permanently (browser permission is sticky).
  *   4. If permission is already 'granted': silently refresh the subscription
  *      token on each mount (browser may rotate the push endpoint).
  *
@@ -22,8 +22,8 @@
  * the in-app notification + email still fire, push is optional.
  *
  * Non-blocking by design: the banner is a fixed bottom strip (above the
- * bottom nav on mobile), never a modal or alert. Dismissing hides it for
- * the session; denying browser permission hides it permanently.
+ * bottom nav on mobile), never a modal or alert. Dismissing hides it for a
+ * cooldown window (30 days); denying browser permission hides it permanently.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -59,8 +59,26 @@ function isPushSupported(): boolean {
   );
 }
 
-const SESSION_DISMISSED_KEY = 'setnayan_push_banner_dismissed';
+// Dismissal is durable, not per-session: once the vendor closes the banner we
+// respect that for a cooldown window (localStorage stores the epoch-ms after
+// which it may re-surface). This avoids re-nagging on every new tab/session
+// while still eventually re-offering push to vendors who never resolved the
+// browser permission. Browser-level Allow/Block still ends the prompt forever.
+const DISMISSED_UNTIL_KEY = 'setnayan_push_banner_dismissed_until';
+const DISMISS_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? '';
+
+/** True when a prior dismissal is still within its cooldown window. */
+function isWithinDismissCooldown(): boolean {
+  try {
+    const raw = localStorage.getItem(DISMISSED_UNTIL_KEY);
+    if (!raw) return false;
+    const until = Number(raw);
+    return Number.isFinite(until) && Date.now() < until;
+  } catch {
+    return false;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -128,8 +146,8 @@ export function PushNotificationRegistrar() {
       return;
     }
 
-    // permission === 'default' — check session dismissal.
-    if (sessionStorage.getItem(SESSION_DISMISSED_KEY)) {
+    // permission === 'default' — respect a still-active dismissal cooldown.
+    if (isWithinDismissCooldown()) {
       setState('dismissed');
       return;
     }
@@ -162,7 +180,15 @@ export function PushNotificationRegistrar() {
   }, [subscribeAndRegister]);
 
   const handleDismiss = useCallback(() => {
-    sessionStorage.setItem(SESSION_DISMISSED_KEY, '1');
+    try {
+      localStorage.setItem(
+        DISMISSED_UNTIL_KEY,
+        String(Date.now() + DISMISS_COOLDOWN_MS),
+      );
+    } catch {
+      // Private-mode / storage-disabled: fall back to hiding for this session
+      // only. Better a re-nag than a crash.
+    }
     setState('dismissed');
   }, []);
 
@@ -178,23 +204,23 @@ export function PushNotificationRegistrar() {
     <div
       role="status"
       aria-live="polite"
-      className="fixed inset-x-0 bottom-20 z-40 mx-auto flex max-w-lg items-center gap-3 rounded-xl border border-champagne/40 bg-obsidian/95 px-4 py-3 shadow-lg backdrop-blur-sm sm:bottom-6 lg:bottom-6"
+      className="fixed inset-x-0 bottom-20 z-40 mx-auto flex max-w-lg items-center gap-3 sn-row px-4 py-3 shadow-lg backdrop-blur-sm sm:bottom-6 lg:bottom-6"
     >
       <Bell
         aria-hidden
-        className="h-5 w-5 shrink-0 text-champagne"
+        className="h-5 w-5 shrink-0 text-terracotta"
         strokeWidth={1.75}
       />
 
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-cream">
+        <p className="text-sm font-medium text-ink">
           Enable push notifications
         </p>
-        <p className="mt-0.5 text-xs text-cream/65">
+        <p className="mt-0.5 text-xs text-ink/60">
           Get instant alerts when a couple sends you an inquiry.
         </p>
         {error ? (
-          <p className="mt-1 text-xs text-red-400">{error}</p>
+          <p className="mt-1 text-xs text-red-600">{error}</p>
         ) : null}
       </div>
 
@@ -203,7 +229,7 @@ export function PushNotificationRegistrar() {
           type="button"
           onClick={handleEnable}
           disabled={state === 'pending'}
-          className="rounded-lg bg-champagne px-3 py-1.5 text-xs font-semibold text-obsidian transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-lg bg-mulberry px-3 py-1.5 text-xs font-semibold text-cream transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {state === 'pending' ? 'Enabling…' : 'Enable'}
         </button>
@@ -212,7 +238,7 @@ export function PushNotificationRegistrar() {
           type="button"
           onClick={handleDismiss}
           aria-label="Dismiss push notification prompt"
-          className="rounded-md p-1 text-cream/50 transition-colors hover:text-cream"
+          className="rounded-md p-1 text-ink/40 transition-colors hover:text-ink"
         >
           <X aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         </button>

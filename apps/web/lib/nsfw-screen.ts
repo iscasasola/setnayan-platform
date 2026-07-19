@@ -220,17 +220,39 @@ export async function screenCapture(opts: {
     const admin = createAdminClient();
     const idColumn = TABLE_ID_COLUMN[opts.table];
 
+    // papic_photos flags clips via photo_type; papic_guest_captures via
+    // media_type (Option A — guest-recorded clips). Both are the screen's signal
+    // to classify the POSTER frame, not the video bytes.
     const selectCols =
       opts.table === 'papic_photos'
         ? `${idColumn}, moderation_state, photo_type`
-        : `${idColumn}, moderation_state`;
-    const { data: row, error: rowError } = await admin
-      .from(opts.table)
-      .select(selectCols)
-      .eq('r2_object_key', opts.r2ObjectKey)
-      .maybeSingle();
-    if (rowError || !row) return; // row gone / pre-migration env — nothing to do
-    const record = row as unknown as Record<string, unknown>;
+        : `${idColumn}, moderation_state, media_type`;
+    let row: Record<string, unknown> | null = null;
+    {
+      const { data, error: rowError } = await admin
+        .from(opts.table)
+        .select(selectCols)
+        .eq('r2_object_key', opts.r2ObjectKey)
+        .maybeSingle();
+      if (rowError) {
+        // A pre-migration guest-captures env (no media_type column) fails the
+        // select — retry without it so the photo path still screens. Clips on
+        // that env stay 'unscreened' (excluded from guest surfaces) until the
+        // migration lands.
+        if (opts.table === 'papic_guest_captures') {
+          const { data: retry } = await admin
+            .from(opts.table)
+            .select(`${idColumn}, moderation_state`)
+            .eq('r2_object_key', opts.r2ObjectKey)
+            .maybeSingle();
+          row = (retry as Record<string, unknown> | null) ?? null;
+        }
+      } else {
+        row = (data as Record<string, unknown> | null) ?? null;
+      }
+    }
+    if (!row) return; // row gone / pre-migration env — nothing to do
+    const record = row;
     if (record.moderation_state !== 'unscreened') return; // already decided
 
     // Clips: swap the classification target to the poster frame. Queried
@@ -238,9 +260,12 @@ export async function screenCapture(opts: {
     // migration degrades to clip-skip without disturbing the photo path.
     let classifyRef = opts.r2ObjectKey;
     let bytes = opts.bytes;
-    if (opts.table === 'papic_photos' && record.photo_type === 'clip') {
+    const isClip =
+      (opts.table === 'papic_photos' && record.photo_type === 'clip') ||
+      (opts.table === 'papic_guest_captures' && record.media_type === 'clip');
+    if (isClip) {
       const { data: posterRow, error: posterError } = await admin
-        .from('papic_photos')
+        .from(opts.table)
         .select('poster_r2_key')
         .eq('r2_object_key', opts.r2ObjectKey)
         .maybeSingle();
@@ -372,6 +397,97 @@ export async function screenEditorialVendorMedia(opts: {
   } catch (err) {
     console.warn(
       `[nsfw-screen] editorial vendor media screening skipped (fail-open) — media_id=${opts.mediaId}: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// screenStdVideo — the Save-the-Date "video island" gate (iteration 0024).
+//
+// The couple may close their STD film on an uploaded video. Per the platform
+// NSFW lock ("on by default and CANNOT be disabled") a video plays on the
+// PUBLIC /[slug] page ONLY when events.std_media.nsfw === 'approved'
+// (stdVideoIsLive). This screens it.
+//
+// nsfwjs is image-only and the lambda has no ffmpeg, so — exactly like a Papic
+// clip — the video is screened by its POSTER FRAME: one JPEG the browser
+// extracted at upload time (std_media.posterKey). No poster ⇒ the screen can't
+// run and the video stays 'pending' (never goes live — fail-CLOSED on the
+// public surface, the gallery shows instead).
+//
+// Verdict mapping: 'clean' → 'approved' (goes live) · 'nsfw_blocked' →
+// 'rejected' (never live). FAIL-OPEN on any error: the row stays 'pending'
+// (the couple can re-render to retry; an admin can approve manually later).
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Screen one Save-the-Date video by its poster frame and persist the verdict
+ * to events.std_media.nsfw. Safe to fire-and-forget from after().
+ *
+ * The verdict is written ONLY when the row is still the same pending video
+ * (same videoKey, nsfw==='pending') — so a late-finishing screen never
+ * approves a video the couple has since replaced or switched away from.
+ */
+export async function screenStdVideo(opts: {
+  eventId: string;
+  /** The video this screen is for — guards against approving a superseded upload. */
+  videoKey: string;
+  /** R2 ref of the client-extracted poster frame to classify. */
+  posterR2Key: string;
+}): Promise<void> {
+  try {
+    if (!opts.posterR2Key) return; // no poster → leave 'pending' (won't go live)
+    const { createAdminClient } = await import('@/lib/supabase/admin');
+    const { resolveStdMedia } = await import('@/lib/std-media');
+    const admin = createAdminClient();
+
+    const { data: row, error: rowError } = await admin
+      .from('events')
+      .select('std_media')
+      .eq('event_id', opts.eventId)
+      .maybeSingle();
+    if (rowError || !row) return; // event gone / pre-migration env
+    const media = resolveStdMedia((row as Record<string, unknown>).std_media);
+    // Only screen the still-pending video this call was fired for.
+    if (
+      media.type !== 'video' ||
+      media.videoKey !== opts.videoKey ||
+      media.nsfw !== 'pending'
+    ) {
+      return;
+    }
+
+    const { readR2Object } = await import('@/lib/drive-upload');
+    const { R2_BUCKETS } = await import('@/lib/r2');
+    const { bucket, key } = parseR2Ref(opts.posterR2Key);
+    const bytes = await readR2Object(key, bucket ?? R2_BUCKETS.media);
+
+    const scores = await classifyImageBytes(bytes);
+    const decision = decideNsfw(scores);
+    const nsfw = decision === 'clean' ? 'approved' : 'rejected';
+
+    // Persist — re-checking it's still the same pending video right before the
+    // write keeps the verdict from racing a couple's concurrent change.
+    const { data: fresh } = await admin
+      .from('events')
+      .select('std_media')
+      .eq('event_id', opts.eventId)
+      .maybeSingle();
+    const freshMedia = resolveStdMedia((fresh as Record<string, unknown> | null)?.std_media);
+    if (
+      freshMedia.type !== 'video' ||
+      freshMedia.videoKey !== opts.videoKey ||
+      freshMedia.nsfw !== 'pending'
+    ) {
+      return;
+    }
+    await admin
+      .from('events')
+      .update({ std_media: { ...freshMedia, nsfw } })
+      .eq('event_id', opts.eventId);
+  } catch (err) {
+    console.warn(
+      `[nsfw-screen] STD video screening skipped (fail-open, stays pending) — event_id=${opts.eventId}: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
 }

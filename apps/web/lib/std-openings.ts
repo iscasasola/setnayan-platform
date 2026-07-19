@@ -21,7 +21,7 @@ import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
  *
  * ✅ ACTIVATED 2026-06-17 (owner-priced ₱799): the catalog row is seeded
  *   (migration 20270113942330 · platform_retail_catalog_v2 · STD_PREMIUM_OPENINGS)
- *   and the buy-CTA is LIVE on /add-ons/save-the-date (the InlineCheckoutDrawer
+ *   and the buy-CTA is LIVE on /studio/save-the-date (the InlineCheckoutDrawer
  *   flow, mirroring Animated Monogram). The admin global toggle stays OFF, so it's
  *   purchase-gated. The free content film stays free throughout.
  *

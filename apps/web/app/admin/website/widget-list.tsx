@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { GripVertical } from 'lucide-react';
 import { widgetLabel, type SiteWidgetRow } from '@/lib/site-widgets';
+import { useSaveLoader } from '@/components/sd-loader';
 
 /**
  * Drag-drop widget list for the admin Website editor (/admin/website).
@@ -33,6 +34,7 @@ export function WidgetList({ widgets, page }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+  const save = useSaveLoader();
 
   // Resync if the parent fetches new data after a server revalidate.
   useMemo(() => {
@@ -94,13 +96,17 @@ export function WidgetList({ widgets, page }: Props) {
       startTransition(async () => {
         setError(null);
         try {
-          const res = await fetch(
-            `/api/v1/admin/site-widgets/${encodeURIComponent(widgetId)}`,
-            {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ is_enabled: nextEnabled }),
-            },
+          const res = await save.run(
+            () =>
+              fetch(
+                `/api/v1/admin/site-widgets/${encodeURIComponent(widgetId)}`,
+                {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ is_enabled: nextEnabled }),
+                },
+              ),
+            { steps: ['Updating the widget'], hint: 'Saving' },
           );
           if (!res.ok) {
             const body = (await res.json().catch(() => null)) as
@@ -126,7 +132,7 @@ export function WidgetList({ widgets, page }: Props) {
         }
       });
     },
-    [router],
+    [router, save],
   );
 
   return (
@@ -263,7 +269,7 @@ function ToggleSwitch({
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
-        checked ? 'bg-emerald-500' : 'bg-ink/15'
+        checked ? 'bg-success-500' : 'bg-ink/15'
       }`}
     >
       <span

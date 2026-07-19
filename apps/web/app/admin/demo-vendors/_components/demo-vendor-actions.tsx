@@ -208,7 +208,7 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
           Cleanup batch
         </button>
         {result.kind === 'done' && (
-          <span className="text-[11px] text-emerald-700">
+          <span className="text-[11px] text-success-700">
             Deleted {result.deleted}
           </span>
         )}
@@ -295,7 +295,7 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
               type="button"
               onClick={runRegenerate}
               disabled={result.kind === 'busy'}
-              className="inline-flex items-center gap-2 rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-md bg-warn-600 px-4 py-2 text-sm font-medium text-white hover:bg-warn-700 disabled:opacity-50"
             >
               {result.kind === 'busy' ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -352,7 +352,7 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
               type="button"
               onClick={() => setConfirming('regen')}
               disabled={totalCount === 0}
-              className="inline-flex items-center gap-2 rounded-md bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-md bg-warn-50 px-4 py-2 text-sm font-medium text-warn-800 hover:bg-warn-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <RotateCcw className="h-4 w-4" />
               Regenerate (cleanup + show seed command)
@@ -364,11 +364,11 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
 
       {/* Create result */}
       {create.kind === 'done' && (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+        <div className="rounded-md border border-success-200 bg-success-50 p-3 text-sm text-success-900">
           <p className="font-medium">
             Created {create.vendors.toLocaleString()} demo vendors covering every
             taxonomy node (some carry linked &ldquo;comes with&rdquo; services).
-            Preview at <code className="rounded bg-emerald-100 px-1">/explore?demo=1</code>.
+            Preview at <code className="rounded bg-success-100 px-1">/explore?demo=1</code>.
           </p>
         </div>
       )}
@@ -383,12 +383,12 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
 
       {/* Result banner */}
       {result.kind === 'done' && (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+        <div className="rounded-md border border-success-200 bg-success-50 p-3 text-sm text-success-900">
           <p className="font-medium">Deleted {result.deleted.toLocaleString()} demo vendors.</p>
           {result.nextStep && (
             <div className="mt-2 space-y-1">
-              <p className="text-emerald-800">{result.nextStep.message}</p>
-              <code className="block rounded bg-emerald-100 px-2 py-1 font-mono text-[12px] text-emerald-900">
+              <p className="text-success-800">{result.nextStep.message}</p>
+              <code className="block rounded bg-success-100 px-2 py-1 font-mono text-[12px] text-success-900">
                 {result.nextStep.command}
               </code>
             </div>

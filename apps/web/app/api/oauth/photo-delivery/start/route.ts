@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
   }
 
   // --- Graceful fallback when env vars missing ---
-  const config = getDriveOAuthConfig();
+  const config = await getDriveOAuthConfig();
   if (!config.ready) {
     return NextResponse.json(
       {

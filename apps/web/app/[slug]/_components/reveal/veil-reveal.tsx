@@ -35,6 +35,7 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { MARK_PATH } from './veil-shared';
 import { DEFAULT_VEIL_LOOK, type VeilLook, type RevealFeatures } from '@/lib/reveal-config';
+import { usePrefersReducedMotion } from '@/lib/use-responsive';
 
 type Props = {
   /** Veil tulle colour (hex), Mood-Board-driven. Ivory fallback handled by caller. */
@@ -47,6 +48,17 @@ type Props = {
   features?: RevealFeatures;
   /** Fired once when the veil has been lifted clear of the invitation. */
   onRevealed: () => void;
+  /**
+   * Preview/demo mode (dashboard Step-1 chooser): auto-lift the veil hands-free
+   * on mount and ignore all gesture input. Default false → live guest page is
+   * unchanged (drag-to-lift). Captured at mount.
+   */
+  autoplay?: boolean;
+  /**
+   * Render at a low backing resolution (DPR capped to 1) for the small
+   * watermarked preview frame — keeps it un-recordable as a final asset + cheap.
+   */
+  lowRes?: boolean;
 };
 
 const TEX = 1024; // texture resolution
@@ -76,8 +88,17 @@ type GrabState = {
   cy0: number;
 };
 
-export default function VeilReveal({ veilColor, petalsColor, look, features, onRevealed }: Props) {
+export default function VeilReveal({ veilColor, petalsColor, look, features, onRevealed, autoplay = false, lowRes = false }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
+  // Pointer hit-zone (owner 2026-06-19 "I still want the veil accessible but
+  // also want to navigate the messages"): the canvas renders full-screen but
+  // input is captured ONLY here — full-screen while the veil COVERS the page
+  // (grab anywhere to lift), then shrinks to the TOP valance band once LIFTED so
+  // swipes lower down fall through to the film beneath (z-50) and scrub the
+  // messages. The veil stays re-grabbable at the top. grabTopBand tracks which
+  // mode is active (driven by `lift` in the loop).
+  const grabRef = useRef<HTMLDivElement>(null);
+  const grabTopBandRef = useRef(false);
   const colorRef = useRef(veilColor);
   colorRef.current = veilColor;
   const petalColorRef = useRef(petalsColor);
@@ -85,6 +106,13 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
   const onRevealedRef = useRef(onRevealed);
   onRevealedRef.current = onRevealed;
   const revealedRef = useRef(false);
+
+  // Honor the OS "reduce motion" setting. Read at the React level (SSR-safe,
+  // live-updating) so the component participates in the shared reader; the
+  // mount-once sim effect can't call a hook, so it reads matchMedia directly.
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const reducedMotionRef = useRef(prefersReducedMotion);
+  reducedMotionRef.current = prefersReducedMotion;
 
   // Merge the admin look over the locked defaults; read via a ref so the running
   // sim picks up live slider changes (per-frame knobs) without a remount.
@@ -103,6 +131,23 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     const mount = mountRef.current;
     if (!mount) return;
 
+    // Reduced motion → no cloth sim, no petals, no RAF loop. We can't call the
+    // hook inside this mount-once effect, so read the media query directly (the
+    // value at mount is what matters; the React-level hook above keeps the
+    // component live-updating). Skip straight to the END state: fire the same
+    // completion callback the lifted-veil path fires, so the card/film beneath
+    // shows immediately with the veil already gone — the result, minus motion.
+    if (
+      typeof window !== 'undefined' &&
+      (reducedMotionRef.current || window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+    ) {
+      if (!revealedRef.current) {
+        revealedRef.current = true;
+        onRevealedRef.current();
+      }
+      return;
+    }
+
     let renderer: THREE.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -111,7 +156,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       onRevealedRef.current();
       return;
     }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, lowRes ? 1 : 2));
     renderer.setClearColor(0x000000, 0);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     const cv = renderer.domElement;
@@ -322,6 +367,10 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     const pRot: THREE.Euler[] = [];
     const pPar: PP[] = [];
     const pCling = new Int32Array(NP);
+    // Whether this petal has already tested for a cling on its CURRENT fall — so
+    // each petal only rolls once when it first crosses the veil (owner 2026-06-19:
+    // "it can cling but only 30% of the petals, and only if the petals hit the veil").
+    const pTested = new Int8Array(NP);
     const pdum = new THREE.Object3D();
     let colDirty = true;
     let petalsSeeded = false;
@@ -331,27 +380,30 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       pRot[pi] = new THREE.Euler();
       pPar[pi] = {} as PP;
       pCling[pi] = -1;
+      pTested[pi] = 0;
     }
     const petalParams = (P: PP, ty: string) => {
+      // Fall speed dialled DOWN ~0.6× (owner 2026-06-19 "petals need to fall
+      // slower") — the petals drift down more gently across all three behaviours.
       P.type = ty;
       P.swayPh = rnd() * 6.28;
       P.swayF = 0.5 + rnd() * 0.9;
       if (ty === 'feather') {
-        P.grav = -1.4;
+        P.grav = -0.85;
         P.drag = 0.972;
         P.sway = 0.5;
         P.sx = 0.5 + rnd() * 0.6;
         P.sy = 0.22;
         P.sz = 0.3;
       } else if (ty === 'rotate') {
-        P.grav = -2.7;
+        P.grav = -1.6;
         P.drag = 0.987;
         P.sway = 0.16;
         P.sx = 0.3;
         P.sy = 2.4 + rnd() * 2.6;
         P.sz = 3 + rnd() * 3.5;
       } else {
-        P.grav = -3.6;
+        P.grav = -2.2;
         P.drag = 0.992;
         P.sway = 0.07;
         P.sx = 0.1;
@@ -371,29 +423,59 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       pVel[i]!.set((rnd() * 2 - 1) * 0.05, -(0.05 + rnd() * 0.08), 0);
       pRot[i]!.set(rnd() * 6.28, rnd() * 6.28, rnd() * 6.28);
       pCling[i] = -1;
+      pTested[i] = 0;
       petals.setColorAt(i, petalColor());
       colDirty = true;
     };
-    const spawnCling = (i: number) => {
+    // Cling a falling petal to the veil where it HIT — snap to the nearest cloth
+    // grid point, keeping its current offset so it sticks where it landed (NOT a
+    // random point). Used by the collision test in updatePetals (owner 2026-06-19).
+    const clingNear = (i: number) => {
       const P = pPar[i]!;
+      const wx = pPos[i]!.x;
+      const wy = pPos[i]!.y;
+      let best = cols;
+      let bd = Infinity;
+      for (let k = cols; k < N; k++) {
+        const a = px[k]! - wx;
+        const b = py[k]! - wy;
+        const d = a * a + b * b;
+        if (d < bd) {
+          bd = d;
+          best = k;
+        }
+      }
       petalParams(P, 'cling');
-      const iy = Math.floor(rows * (0.28 + rnd() * 0.5));
-      const ix = Math.floor(rnd() * cols);
-      pCling[i] = idx(ix, iy);
-      P.ox = (rnd() * 2 - 1) * 0.05;
-      P.oy = (rnd() * 2 - 1) * 0.05;
-      P.size = vh * (0.035 + rnd() * 0.03);
-      pRot[i]!.set(rnd() * 6.28, rnd() * 6.28, (rnd() * 2 - 1) * 0.5);
-      petals.setColorAt(i, petalColor());
-      colDirty = true;
+      pCling[i] = best;
+      P.ox = wx - px[best]!;
+      P.oy = wy - py[best]!;
     };
+    // (owner 2026-06-19) Petals FALL; a petal that HITS the covered veil may cling
+    // where it landed — capped at ~30% of petals, never pre-seeded at random.
     const initPetals = () => {
       for (let i = 0; i < NP; i++) {
-        if (rnd() < 0.32) spawnCling(i);
-        else {
-          spawnFalling(i);
-          pPos[i]!.y = (rnd() * 2 - 1) * vh * 1.4;
-        }
+        spawnFalling(i);
+        // Always start ABOVE the top and stagger upward so the shower rains in
+        // FROM THE TOP — never scattered across mid-screen/bottom (owner 2026-06-18).
+        pPos[i]!.y = vh * (1.05 + rnd() * 1.9);
+      }
+      // Guarantee a visible share of the shower STICKS to the veil (owner 2026-06-21
+      // "we want at least 10% of the petals to stick"). The in-fall collision below
+      // only clings while lift < 0.45, but a manual swipe lifts the veil faster than
+      // petals fall from above-screen to the cloth — so it caught ~none. So cling
+      // ~20% of the active petals onto scattered FRONT cloth points right at seed
+      // time: they're visibly caught on the fabric and ride up + shake/release as
+      // the veil rises, exactly like an in-fall clinger.
+      const aN = Math.round((NP * cfgRef.current.petalsDensity) / 100);
+      const stickN = Math.min(aN, Math.max(1, Math.round(aN * 0.2)));
+      for (let i = 0; i < stickN; i++) {
+        const k = cols + Math.floor(rnd() * (N - cols));
+        petalParams(pPar[i]!, 'cling');
+        pCling[i] = k;
+        pPar[i]!.ox = (rnd() * 2 - 1) * 0.04; // tiny scatter off the exact grid point
+        pPar[i]!.oy = (rnd() * 2 - 1) * 0.04;
+        pTested[i] = 1; // this petal's cling for this fall is already resolved
+        pPos[i]!.set(px[k]! + pPar[i]!.ox, py[k]! + pPar[i]!.oy, pz[k]! + 0.02);
       }
     };
     const parkAll = () => {
@@ -440,6 +522,15 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     };
     const updatePetals = (dt: number, shaking: boolean) => {
       const aN = Math.round((NP * cfgRef.current.petalsDensity) / 100);
+      // Is on-screen text present? The film publishes this; default TRUE so the
+      // crawl still works if the flag is unset. False during a beat change / the
+      // video beat → petals fall through (nothing blocking them).
+      const textShowing =
+        (window as Window & { __stdTextShowing?: boolean }).__stdTextShowing !== false;
+      // Cap clingers at ~30% of the active petals (owner 2026-06-19).
+      let clingCount = 0;
+      for (let i = 0; i < aN; i++) if (pCling[i]! >= 0) clingCount++;
+      const clingCap = Math.round(aN * 0.3);
       for (let i = 0; i < NP; i++) {
         const P = pPar[i]!;
         if (i >= aN) {
@@ -453,7 +544,14 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
           const k = pCling[i]!;
           pPos[i]!.set(px[k]! + P.ox, py[k]! + P.oy, pz[k]! + 0.02);
           const sp = Math.hypot(px[k]! - qx[k]!, py[k]! - qy[k]!, pz[k]! - qz[k]!);
-          if (sp > 0.045 || (shaking && (sp > 0.012 || rnd() < 0.2))) {
+          // Clingers STICK to the veil and ride it up (owner 2026-06-21 "we want at
+          // least 10% of the petals to stick"), then RELEASE at the half-lift so
+          // they fall away naturally BEFORE reaching the pinned crown — that keeps
+          // them off the top line (owner 2026-06-19 "why are the petals aligned on
+          // the top"). Lowering/shaking still shakes them loose. (Dropped the old
+          // fast-cloth `sp` detach, which peeled every clinger off the instant a
+          // quick swipe started moving the cloth.)
+          if (lift > 0.5 || (shaking && (sp > 0.012 || rnd() < 0.2))) {
             pCling[i] = -1;
             petalParams(P, 'feather');
             pVel[i]!.set((rnd() * 2 - 1) * 0.2, -0.05 - rnd() * 0.18, (rnd() * 2 - 1) * 0.15);
@@ -468,9 +566,45 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
           pRot[i]!.x += P.sx * dt;
           pRot[i]!.y += P.sy * dt;
           pRot[i]!.z += P.sz * dt;
+          // Collision: the petal hit the COVERED veil (lift low, on-screen, near
+          // the cloth front). Roll ONCE per fall — ~30% cling, capped at 30% of
+          // petals; the rest pass on and fall (owner 2026-06-19).
+          if (
+            !pTested[i] &&
+            lift < 0.45 &&
+            pPos[i]!.y < vh * 0.9 &&
+            pPos[i]!.y > -vh * 0.9 &&
+            Math.abs(pPos[i]!.x) < vw * 0.95 &&
+            Math.abs(pPos[i]!.z - frontZ) < 0.4
+          ) {
+            pTested[i] = 1;
+            if (clingCount < clingCap && rnd() < 0.3) {
+              clingNear(i);
+              clingCount++;
+            }
+          }
+          // REST + CRAWL on the on-screen TEXT (owner 2026-06-21 "it will fall on
+          // the text and crawl down just like how an object hits something. if the
+          // text disappears … it will fall"). A FALLING petal over the SHOWING text
+          // doesn't bounce — its descent is DAMPED to a slow crawl, as if it landed
+          // on the words and is sliding down them. Below the text, or when no text
+          // is showing (the film clears __stdTextShowing on a beat change / the
+          // video beat), nothing blocks it → it falls normally.
+          if (
+            lift > 0.85 &&
+            textShowing &&
+            pVel[i]!.y < 0 &&
+            pPos[i]!.y < vh * 0.34 &&
+            pPos[i]!.y > -vh * 0.34 &&
+            Math.abs(pPos[i]!.x) < vw * 0.55 &&
+            Math.abs(pPos[i]!.z - frontZ) < 0.5
+          ) {
+            if (pVel[i]!.y < -0.3) pVel[i]!.y = -0.3; // cap the fall to a slow creep
+            pVel[i]!.x *= 0.8; // settle the sideways drift so it stays on the words
+          }
           if (pPos[i]!.y < -vh * 1.45) {
-            if (rnd() < 0.3) spawnCling(i);
-            else spawnFalling(i);
+            // Recycle as another falling petal.
+            spawnFalling(i);
           }
         }
         pdum.position.copy(pPos[i]!);
@@ -777,6 +911,22 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       lift += (liftTarget - lift) * 0.05;
       if (lift < pl - 0.0008) shakeFrames = 18;
       if (shakeFrames > 0) shakeFrames--;
+      // Resize the grab-zone to follow the veil: lifted (lift high) → only the
+      // top valance band captures input so the film below is navigable; covering
+      // (lift low) → full-screen so the guest can grab anywhere to lift again.
+      // Hysteresis (0.6 / 0.35) avoids flicker as lift animates through.
+      const wantTopBand = grabTopBandRef.current ? lift > 0.35 : lift > 0.6;
+      if (wantTopBand !== grabTopBandRef.current && grabRef.current) {
+        grabTopBandRef.current = wantTopBand;
+        const g = grabRef.current;
+        if (wantTopBand) {
+          g.style.bottom = 'auto';
+          g.style.height = '24vh';
+        } else {
+          g.style.bottom = '0';
+          g.style.height = '';
+        }
+      }
       mat.color.set(colorRef.current || '#f3ece1');
       step(1 / 60);
       const zc = camZ - 0.7;
@@ -849,7 +999,9 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
         grabs[e.pointerId]!.cy = hy;
         grabs[e.pointerId]!.lastY = hy;
       }
-      cv.setPointerCapture?.(e.pointerId);
+      // Capture on the grab-zone so a drag keeps tracking even after it shrinks
+      // to the top band mid-gesture (and after the pointer leaves the canvas).
+      grabRef.current?.setPointerCapture?.(e.pointerId);
     };
     const onMove = (e: PointerEvent) => {
       const g = grabs[e.pointerId];
@@ -870,6 +1022,10 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
         const net = Math.hypot(dxC, dyC);
         delete grabs[e.pointerId];
         if (up > 40 && dur < 460 && up > Math.abs(dxC) * 1.0) {
+          // The lift IS the user gesture — ask the film (z-50) to go full screen
+          // NOW, synchronously, while this activation is live (Fullscreen API
+          // needs a gesture; the film auto-plays to full screen as the veil lifts).
+          try { window.dispatchEvent(new Event('std-go-fullscreen')); } catch { /* noop */ }
           setLift(1);
           return;
         }
@@ -890,10 +1046,31 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     const onCancel = (e: PointerEvent) => {
       if (grabs[e.pointerId]) delete grabs[e.pointerId];
     };
-    cv.addEventListener('pointerdown', onDown);
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', release);
-    window.addEventListener('pointercancel', onCancel);
+    // Gestures are ALWAYS live — on the live page (drag / double-tap to lift)
+    // AND in the preview, where the couple ALSO gets the hands-free auto-demo
+    // (startAuto, below). A swipe or double-tap cleanly overrides the demo
+    // (setLift / doRevealAuto clear `auto`/`locked`), so the couple can drag
+    // and double-tap the veil in the preview. (owner 2026-06-18 — "on preview
+    // i cannot control the veil")
+    // pointerdown binds to the grab-zone (not the canvas) so input is scoped to
+    // its region; move/up stay on window so a drag keeps tracking past the zone.
+    // Coordinate math uses cv's rect (full-screen) — clientX/Y are viewport
+    // coords, so it's correct regardless of which element caught the down.
+    const grabEl = grabRef.current;
+    if (grabEl) {
+      grabEl.addEventListener('pointerdown', onDown);
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', release);
+      window.addEventListener('pointercancel', onCancel);
+    }
+    // A press on the FILM beneath (z-50) dispatches 'std-veil-poke' with the screen
+    // point — knock the nearby petals so the controls STIR the petals, not just
+    // hold the film (owner 2026-06-21 "the controls will run the petals and veil").
+    const onPoke = (e: Event) => {
+      const d = (e as CustomEvent<{ x: number; y: number }>).detail;
+      if (petalsSeeded && d) bounceAt(d.x, d.y);
+    };
+    window.addEventListener('std-veil-poke', onPoke as EventListener);
 
     // ── Resize / rotate — cheap re-fit immediately (no stretch), full rebuild debounced.
     let roFrame = 0;
@@ -910,18 +1087,51 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       setRepeat();
     };
     let ro: ResizeObserver | null = null;
+    let lastAspect = 0;
     if (window.ResizeObserver) {
       ro = new ResizeObserver(() => {
         if (roFrame) cancelAnimationFrame(roFrame);
-        roFrame = requestAnimationFrame(cheapResize);
+        roFrame = requestAnimationFrame(cheapResize); // always: cheap re-fit, no reset
+        const cw = cv.clientWidth || W;
+        const ch = cv.clientHeight || H;
+        if (ch < 2) return;
+        const aspect = cw / ch;
+        // Only a genuine ASPECT change (rotate) needs the full cloth rebuild, and
+        // that rebuild re-drapes the cloth → RESETS the lift. A height-only resize
+        // must NOT rebuild: on mobile the address bar collapses the instant the
+        // guest swipes UP to lift, firing a resize MID-lift — the old code then
+        // re-draped and the veil snapped back, never completing the swipe (owner
+        // 2026-06-21 "the screen goes full screen and the veil resets did not
+        // complete the swipe up"). Entering true fullscreen (iPad/desktop) is the
+        // same minor height change. cheapResize above already re-fits those.
+        if (lastAspect === 0) { lastAspect = aspect; return; } // baseline first obs
+        if (Math.abs(aspect - lastAspect) < 0.1) return; // address bar / fullscreen — re-fit only
+        lastAspect = aspect;
+        // Once the veil is LIFTED (or animating up), the running film shows beneath
+        // it — a cloth rebuild would re-drape and momentarily re-COVER the film,
+        // which reads as a RESET. So once lifted, NEVER rebuild on a rotate /
+        // fullscreen transfer: cheapResize already re-fit the renderer, so the
+        // lifted valance just carries on as-is (owner 2026-06-21 "when it transfers
+        // to full screen or changes orientation it should continue as is and not
+        // reset"). Only rebuild the drape while the veil still COVERS the page.
+        if (liftTarget >= 1 || revealedRef.current) return;
         if (roFull) window.clearTimeout(roFull);
-        roFull = window.setTimeout(() => applyView(), 240);
+        roFull = window.setTimeout(() => {
+          // Re-check at fire time: if the guest LIFTED during the 240ms debounce,
+          // skip the rebuild so a stale covered-state resize can't re-drape over
+          // the now-running film.
+          if (liftTarget >= 1 || revealedRef.current) return;
+          applyView();
+        }, 240);
       });
       ro.observe(cv);
     }
 
     parkAll();
     applyView();
+    // Preview mode: lift the veil hands-free on mount (no drag needed in a small
+    // watermarked frame). Holds final state once revealed.
+    if (autoplay) startAuto();
     raf = requestAnimationFrame(loop);
 
     return () => {
@@ -930,10 +1140,11 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       if (roFull) window.clearTimeout(roFull);
       ro?.disconnect();
       restructureRef.current = () => {};
-      cv.removeEventListener('pointerdown', onDown);
+      grabEl?.removeEventListener('pointerdown', onDown);
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', release);
       window.removeEventListener('pointercancel', onCancel);
+      window.removeEventListener('std-veil-poke', onPoke as EventListener);
       geo?.dispose();
       mat.dispose();
       mat.alphaMap?.dispose();
@@ -944,6 +1155,9 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       renderer.dispose();
       if (cv.parentNode) cv.parentNode.removeChild(cv);
     };
+    // Mount-once: the sim owns its own lifecycle; live prop changes flow via the
+    // refs + the structuralKey effect, never a remount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Structural look changes (folds / fullness / reaches / logo size·opacity·on-off)
@@ -957,5 +1171,24 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     restructureRef.current();
   }, [structuralKey]);
 
-  return <div ref={mountRef} className="absolute inset-0" style={{ touchAction: 'none' }} aria-hidden />;
+  return (
+    // The mount (canvas host) is pointer-transparent; only the grab-zone child
+    // captures input. So once the veil lifts and the grab-zone shrinks to the
+    // top band, swipes over the body reach the film beneath.
+    <div
+      ref={mountRef}
+      className="absolute inset-0"
+      style={{ touchAction: 'none', pointerEvents: 'none' }}
+      aria-hidden
+    >
+      {/* Veil hit-zone — full while covering, top valance band once lifted (the
+          loop resizes it via grabRef.style). pointer-events:auto re-enables input
+          for just this region inside the pointer-none mount. */}
+      <div
+        ref={grabRef}
+        className="absolute inset-x-0 top-0 bottom-0"
+        style={{ touchAction: 'none', pointerEvents: 'auto' }}
+      />
+    </div>
+  );
 }

@@ -1,8 +1,10 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, DoorOpen, MapPin } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { readGuestSession } from '@/lib/guest-session';
+import { canViewSlugEvent } from '@/lib/slug-access';
 import { Logo } from '@/app/_components/logo';
 import {
   DEFAULT_ENTRANCE,
@@ -49,11 +51,22 @@ export default async function FindMyTablePage({ params }: Props) {
 
   const { data: event } = await admin
     .from('events')
-    .select('event_id, display_name, slug, venue_name, event_type, event_date')
+    .select('event_id, display_name, slug, venue_name, event_type, event_date, landing_page_visibility')
     .ilike('slug', slug)
     .maybeSingle();
 
-  if (!event || event.event_type !== 'wedding') notFound();
+  if (!event) notFound();
+  // Iteration 0053: public guest pages under /[slug] are the 'website' surface.
+  // Non-wedding (generic) profiles don't enable it → still notFound() (same as
+  // the old `!== 'wedding'`), now config-driven.
+  if (!surfaceEnabled(await resolveProfile(event.event_type), 'website')) notFound();
+
+  // Visibility gate (owner 2026-06-20): a stranger guessing a private (pre-launch)
+  // slug must not even see the couple's name in the sign-in prompt. Bounce them
+  // to /[slug] (the lock screen). Cookie-bearing guests + hosts pass through.
+  if (!(await canViewSlugEvent(event.event_id, event.landing_page_visibility))) {
+    redirect(`/${slug}`);
+  }
 
   // Guest must be signed in for THIS event (the redeem flow sets the cookie).
   const session = await readGuestSession();
@@ -143,7 +156,7 @@ export default async function FindMyTablePage({ params }: Props) {
           {targetTable ? (
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               You&rsquo;re at{' '}
-              <span className="text-emerald-700">{targetTable.table_label}</span>
+              <span className="text-success-700">{targetTable.table_label}</span>
             </h1>
           ) : (
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -230,11 +243,11 @@ function Shell({
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
           <Link href={`/${slug}`} className="flex items-center gap-2 text-ink">
             <Logo height={28} />
-            <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/60">
+            <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/60">
               Setnayan
             </span>
           </Link>
-          <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50">
+          <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
             {displayName}
           </span>
         </div>

@@ -12,6 +12,18 @@ import {
   parseVerificationState,
   type VerificationState,
 } from '@/lib/vendor-verification';
+import { notifyVendorStatusChange } from '@/lib/vendor-status-notify';
+import { vendorExperienceEnabled } from '@/lib/vendor-experience';
+import {
+  DEEP_SEARCH_MODEL,
+  DEEP_SEARCH_LITE_MODEL,
+  DEEP_SEARCH_CHAT_MODEL,
+  runDeepSearchOrLite,
+  buildDeepSearchChatPrompt,
+  buildVendorStudyPrompt,
+  parseDossierText,
+  type DeepSearchInputs,
+} from '@/lib/vendor-deep-search';
 
 /**
  * Server actions backing the admin Verification Queue. Two surfaces share
@@ -78,10 +90,13 @@ async function transitionVendorVisibility(opts: {
   reason?: string | null;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const admin = createAdminClient();
+  const now = new Date().toISOString();
 
   const { data: existing, error: readErr } = await admin
     .from('vendor_profiles')
-    .select('vendor_profile_id, public_visibility, business_name')
+    .select(
+      'vendor_profile_id, public_visibility, business_name, verification_state',
+    )
     .eq('vendor_profile_id', opts.vendorProfileId)
     .maybeSingle();
 
@@ -93,22 +108,74 @@ async function transitionVendorVisibility(opts: {
     return { ok: true }; // idempotent no-op
   }
 
+  // When this visibility flip publishes the vendor to the marketplace
+  // (nextVisibility === 'verified'), also advance the verification_state so
+  // the vendor dashboard's `verification_state` stops disagreeing with the
+  // marketplace `public_visibility`. Mirrors the Applications-path approve
+  // (applyApplicationDecision case 'approved'): verified + last_verified_at +
+  // a one-year next_renewal_due_at + a vendor_tier_history audit row. Other
+  // transitions (hidden / coming_soon / archived) leave verification_state
+  // untouched — they're marketplace-listing moderation, not de-verification.
+  const fromState = parseVerificationState(existing.verification_state);
+  const shouldVerify = opts.nextVisibility === 'verified';
+  const toState: VerificationState = shouldVerify ? 'verified' : fromState;
+  const stateChanges = shouldVerify && toState !== fromState;
+
   const { error: auditErr } = await admin.from('admin_audit_log').insert({
     action: 'vendor_visibility_change',
     target_table: 'vendor_profiles',
     target_id: opts.vendorProfileId,
-    before_json: { public_visibility: before },
-    after_json: { public_visibility: opts.nextVisibility },
+    before_json: {
+      public_visibility: before,
+      verification_state: fromState,
+    },
+    after_json: {
+      public_visibility: opts.nextVisibility,
+      verification_state: toState,
+    },
     reason: opts.reason ?? null,
     actor_user_id: opts.actor.user_id,
   });
   if (auditErr) return { ok: false, error: `audit log failed: ${auditErr.message}` };
 
+  const updatePayload: Record<string, unknown> = {
+    public_visibility: opts.nextVisibility,
+    updated_at: now,
+  };
+  if (shouldVerify) {
+    const renewalDue = new Date(now);
+    renewalDue.setUTCFullYear(renewalDue.getUTCFullYear() + 1);
+    updatePayload.verification_state = toState;
+    updatePayload.last_verified_at = now;
+    updatePayload.next_renewal_due_at = renewalDue.toISOString();
+  }
+
   const { error: updErr } = await admin
     .from('vendor_profiles')
-    .update({ public_visibility: opts.nextVisibility, updated_at: new Date().toISOString() })
+    .update(updatePayload)
     .eq('vendor_profile_id', opts.vendorProfileId);
   if (updErr) return { ok: false, error: updErr.message };
+
+  // vendor_tier_history audit row — only when verification_state actually
+  // moved (matches Step 3 of applyApplicationDecision). No application drove
+  // this transition, so application_id is null.
+  if (stateChanges) {
+    const { error: historyErr } = await admin
+      .from('vendor_tier_history')
+      .insert({
+        vendor_profile_id: opts.vendorProfileId,
+        from_state: fromState,
+        to_state: toState,
+        application_id: null,
+        admin_user_id: opts.actor.user_id,
+        reason: opts.reason ?? null,
+        metadata: {
+          source: 'admin_visibility_transition',
+          public_visibility: opts.nextVisibility,
+        },
+      });
+    if (historyErr) return { ok: false, error: historyErr.message };
+  }
 
   return { ok: true };
 }
@@ -178,6 +245,39 @@ export async function archiveVendor(formData: FormData) {
   revalidatePath('/admin/vendors');
   revalidatePath('/explore');
   redirect('/admin/verify?archived=1');
+}
+
+/**
+ * Confirm a vendor's declared "in business since YYYY" against the DTI
+ * registration document already in their verification checklist. Stamps
+ * experience_verified_at + the confirming admin, which flips the card badge
+ * from "self-reported" to a verified trust check. Flag + schema gated
+ * (NEXT_PUBLIC_VENDOR_EXPERIENCE_ENABLED + migration 20270209420471). The
+ * declared year auto-unverifies on the vendor's next change (saveVendorProfile).
+ */
+export async function verifyVendorExperience(formData: FormData) {
+  const actor = await requireAdmin();
+  if (!vendorExperienceEnabled()) {
+    redirect('/admin/verify?error=Experience+verification+is+not+enabled');
+  }
+  const vendorProfileId = readFormString(formData, 'vendor_profile_id');
+  if (!vendorProfileId) throw new Error('Missing vendor_profile_id.');
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('vendor_profiles')
+    .update({
+      experience_verified_at: new Date().toISOString(),
+      experience_verified_by: actor.user_id,
+    })
+    .eq('vendor_profile_id', vendorProfileId);
+  if (error) {
+    redirect(`/admin/verify?error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath('/admin/verify');
+  revalidatePath('/explore');
+  redirect('/admin/verify?exp_verified=1');
 }
 
 // ---------------------------------------------------------------------------
@@ -372,6 +472,23 @@ async function applyApplicationDecision(
   });
   if (auditErr) return { ok: false, error: auditErr.message };
 
+  // Cross-account signal (Phase B · 2026-06-19): tell the vendor their
+  // verification status changed, carrying the decision_reason. Only the three
+  // status-moving decisions notify; set_in_review is internal bookkeeping the
+  // vendor doesn't need pinged about. Best-effort — never rolls back the
+  // decision that already committed.
+  if (
+    input.decision === 'approved' ||
+    input.decision === 'rejected' ||
+    input.decision === 'demoted'
+  ) {
+    await notifyVendorStatusChange({
+      vendorProfileId: vendor.vendor_profile_id,
+      decision: input.decision,
+      reason: input.reason,
+    });
+  }
+
   return { ok: true };
 }
 
@@ -550,6 +667,14 @@ async function applyApplicationDecisionForDemote(opts: {
     actor_user_id: opts.actor.user_id,
   });
 
+  // Cross-account signal (Phase B · 2026-06-19): tell the vendor they were
+  // demoted + why. Best-effort — never rolls back the demotion.
+  await notifyVendorStatusChange({
+    vendorProfileId: opts.vendorProfileId,
+    decision: 'demoted',
+    reason: opts.reason,
+  });
+
   return { ok: true };
 }
 
@@ -575,4 +700,243 @@ export async function setApplicationInReview(formData: FormData) {
 
   revalidatePath('/admin/verify');
   redirect('/admin/verify?in_review=1&status=in_review');
+}
+
+/**
+ * Marks the vendor's "VALIDATE <shop name>" email or text as RECEIVED on a
+ * verification application (redesigned My Shop verification, owner 2026-07-02).
+ *
+ * Calls the admin-only SECURITY DEFINER RPC mark_vendor_contact_confirmed
+ * (migration 20270503417266) with the ADMIN'S OWN session client — never the
+ * service-role client — so auth.uid() resolves for both the is_admin() guard
+ * and the _confirmed_by attribution. Idempotent server-side (first stamp wins).
+ */
+export async function markVendorContactConfirmed(formData: FormData) {
+  await requireAdmin();
+  const applicationId = readFormString(formData, 'application_id');
+  const channel = readFormString(formData, 'channel');
+  if (!applicationId) throw new Error('Missing application_id.');
+  if (channel !== 'email' && channel !== 'phone') {
+    redirect(
+      `/admin/verify?error=${encodeURIComponent('Unknown contact channel.')}`,
+    );
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('mark_vendor_contact_confirmed', {
+    p_application_id: applicationId,
+    p_channel: channel,
+  });
+  if (error) {
+    redirect(`/admin/verify?error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath('/admin/verify');
+  redirect('/admin/verify?contact_marked=1');
+}
+
+/**
+ * "Run deep search" — live web due-diligence dossier (owner 2026-07-03).
+ *
+ * Takes the vendor's website + social link + shop name + location, runs the
+ * Claude web_search research pass (lib/vendor-deep-search.ts), and stores the
+ * structured result in vendor_web_dossiers (admin-only RLS). Synchronous —
+ * the admin waits on the run (typically 1–3 minutes; the verify page sets
+ * maxDuration accordingly). A failure is stored on the row and surfaced in
+ * the queue instead of throwing.
+ */
+export async function runVendorDeepSearchAction(formData: FormData) {
+  const adminUser = await requireAdmin();
+  const applicationId = readFormString(formData, 'application_id');
+  const vendorProfileId = readFormString(formData, 'vendor_profile_id');
+  if (!vendorProfileId) throw new Error('Missing vendor_profile_id.');
+
+  const admin = createAdminClient();
+
+  const inputs = await resolveDeepSearchInputs(admin, vendorProfileId, applicationId);
+  if (!inputs) {
+    redirect(`/admin/verify?error=${encodeURIComponent('Vendor not found.')}`);
+  }
+  if (!inputs.business_name && !inputs.website && !inputs.social_url) {
+    redirect(
+      `/admin/verify?error=${encodeURIComponent(
+        'Nothing to search — this vendor has no name, website, or social link yet.',
+      )}`,
+    );
+  }
+
+  // Ledger row first, so a crashed run is visible as 'running' → re-runnable.
+  const { data: inserted, error: insErr } = await admin
+    .from('vendor_web_dossiers')
+    .insert({
+      vendor_profile_id: vendorProfileId,
+      application_id: applicationId || null,
+      status: 'running',
+      requested_by: adminUser.user_id,
+      inputs,
+      // Planned model — the AI dossier (Haiku) when the key is configured,
+      // otherwise the free keyless Lite pass. The completion update below
+      // overwrites this with whatever actually ran.
+      model: process.env.ANTHROPIC_API_KEY ? DEEP_SEARCH_MODEL : DEEP_SEARCH_LITE_MODEL,
+    })
+    .select('id')
+    .single();
+  if (insErr || !inserted) {
+    redirect(
+      `/admin/verify?error=${encodeURIComponent(insErr?.message ?? 'Could not start deep search.')}`,
+    );
+  }
+  const dossierId = (inserted as { id: number }).id;
+
+  try {
+    const { dossier, model } = await runDeepSearchOrLite(inputs);
+    await admin
+      .from('vendor_web_dossiers')
+      .update({ status: 'complete', dossier, model, completed_at: new Date().toISOString() })
+      .eq('id', dossierId);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Deep search failed.';
+    await admin
+      .from('vendor_web_dossiers')
+      .update({ status: 'failed', error: message.slice(0, 2000), completed_at: new Date().toISOString() })
+      .eq('id', dossierId);
+    revalidatePath('/admin/verify');
+    redirect(`/admin/verify?error=${encodeURIComponent(message)}`);
+  }
+
+  revalidatePath('/admin/verify');
+  redirect('/admin/verify?deep_search=1');
+}
+
+/**
+ * Resolve the deep-search inputs for a vendor: the profile snapshot + the social
+ * link from the application's doc uploads. Shared by the run action, the
+ * copy-prompt action, and the manual-paste action. Returns null if the vendor
+ * profile is gone.
+ */
+async function resolveDeepSearchInputs(
+  admin: ReturnType<typeof createAdminClient>,
+  vendorProfileId: string,
+  applicationId: string,
+): Promise<DeepSearchInputs | null> {
+  const { data: vendorRow, error: vendorErr } = await admin
+    .from('vendor_profiles')
+    .select('business_name, website, location_city, services')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  if (vendorErr || !vendorRow) return null;
+
+  let socialUrl: string | null = null;
+  if (applicationId) {
+    const { data: appRow } = await admin
+      .from('vendor_verification_applications')
+      .select('doc_uploads')
+      .eq('application_id', applicationId)
+      .maybeSingle();
+    const uploads = (appRow as { doc_uploads?: Record<string, unknown> } | null)?.doc_uploads;
+    const social = uploads?.social_media as { url?: unknown } | undefined;
+    if (social && typeof social.url === 'string') socialUrl = social.url;
+  }
+
+  return {
+    business_name: (vendorRow.business_name as string | null) ?? '',
+    website: (vendorRow.website as string | null) ?? null,
+    social_url: socialUrl,
+    location_city: (vendorRow.location_city as string | null) ?? null,
+    claimed_services: ((vendorRow.services as string[] | null) ?? []).filter(Boolean),
+  };
+}
+
+/**
+ * Build the free "run it in your own AI chat" research prompt for a vendor and
+ * return it to the client to copy. No API cost — the admin pastes it into
+ * Gemini / ChatGPT / Copilot, which does the web research, then pastes the JSON
+ * result back via saveManualDossierAction. Returns { ok, prompt } or { ok:false }.
+ */
+export async function getDeepSearchChatPromptAction(
+  vendorProfileId: string,
+  applicationId: string,
+): Promise<{ ok: true; prompt: string } | { ok: false; error: string }> {
+  await requireAdmin();
+  if (!vendorProfileId) return { ok: false, error: 'Missing vendor.' };
+  const admin = createAdminClient();
+  const inputs = await resolveDeepSearchInputs(admin, vendorProfileId, applicationId || '');
+  if (!inputs) return { ok: false, error: 'Vendor not found.' };
+  if (!inputs.business_name && !inputs.website && !inputs.social_url) {
+    return {
+      ok: false,
+      error: 'Nothing to search — this vendor has no name, website, or social link yet.',
+    };
+  }
+  return { ok: true, prompt: buildDeepSearchChatPrompt(inputs) };
+}
+
+/**
+ * Build the staff "study this vendor for fit + interview prep" prompt and return
+ * it to the client to copy. Same free web-research idea as the dossier prompt,
+ * but the output is a readable fit brief + interview questions (no JSON,
+ * no paste-back). Vendors are public businesses, so this is proportionate.
+ */
+export async function getVendorStudyPromptAction(
+  vendorProfileId: string,
+  applicationId: string,
+): Promise<{ ok: true; prompt: string } | { ok: false; error: string }> {
+  await requireAdmin();
+  if (!vendorProfileId) return { ok: false, error: 'Missing vendor.' };
+  const admin = createAdminClient();
+  const inputs = await resolveDeepSearchInputs(admin, vendorProfileId, applicationId || '');
+  if (!inputs) return { ok: false, error: 'Vendor not found.' };
+  if (!inputs.business_name && !inputs.website && !inputs.social_url) {
+    return {
+      ok: false,
+      error: 'Nothing to study — this vendor has no name, website, or social link yet.',
+    };
+  }
+  return { ok: true, prompt: buildVendorStudyPrompt(inputs) };
+}
+
+/**
+ * Store a dossier the admin got for FREE by pasting the copy-prompt into an AI
+ * chat and pasting the chat's JSON answer back. Parses the fenced json block
+ * (same parser the API path uses) and saves it as a completed dossier tagged
+ * with the manual-chat model. Mirrors the run action's insert.
+ */
+export async function saveManualDossierAction(formData: FormData) {
+  const adminUser = await requireAdmin();
+  const applicationId = readFormString(formData, 'application_id');
+  const vendorProfileId = readFormString(formData, 'vendor_profile_id');
+  const pasted = readFormString(formData, 'pasted_result');
+  if (!vendorProfileId) throw new Error('Missing vendor_profile_id.');
+  if (!pasted || pasted.trim().length === 0) {
+    redirect(`/admin/verify?error=${encodeURIComponent('Paste the AI chat’s result first.')}`);
+  }
+
+  const dossier = parseDossierText(pasted);
+  if (!dossier) {
+    redirect(
+      `/admin/verify?error=${encodeURIComponent(
+        'Could not read a dossier from that paste — make sure you copied the whole reply, including the ```json { … } ``` block at the end.',
+      )}`,
+    );
+  }
+
+  const admin = createAdminClient();
+  const inputs = await resolveDeepSearchInputs(admin, vendorProfileId, applicationId);
+
+  const { error: insErr } = await admin.from('vendor_web_dossiers').insert({
+    vendor_profile_id: vendorProfileId,
+    application_id: applicationId || null,
+    status: 'complete',
+    requested_by: adminUser.user_id,
+    inputs: inputs ?? {},
+    model: DEEP_SEARCH_CHAT_MODEL,
+    dossier,
+    completed_at: new Date().toISOString(),
+  });
+  if (insErr) {
+    redirect(`/admin/verify?error=${encodeURIComponent(insErr.message)}`);
+  }
+
+  revalidatePath('/admin/verify');
+  redirect('/admin/verify?deep_search=1');
 }

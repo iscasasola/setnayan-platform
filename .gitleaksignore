@@ -1,0 +1,14 @@
+# gitleaks false-positive allowlist (fingerprints only — one per line).
+#
+# The generic-api-key rule flags the DB column `pakanta_song_r2_key` in the
+# Pakanta admin delivery queue. It is an R2 object-key reference (a storage
+# path for the delivered song MP3), NOT a credential — no secret is present.
+c2d6f7e76835edd3d5f0c6b58b34034fe7f61418:apps/web/app/admin/pakanta/page.tsx:generic-api-key:149
+#
+# Same rule flags the Instagram media-sync column selection (the _key column
+# identifiers are R2 object-key storage paths, not credentials), plus this
+# allowlist file's own earlier explanatory text (a self-referential match).
+# Both pinned by their introducing commit below — historical commits in the PR
+# range are scanned by gitleaks-action, so an inline allow at HEAD is not enough.
+3adb3d45550f227fbb1fb9969c1f09157f89ad1e:apps/web/app/vendor-dashboard/instagram-actions.ts:generic-api-key:171
+b30742ba764b469dfe954b93fc6acedb3d5e4917:.gitleaksignore:generic-api-key:8

@@ -31,7 +31,7 @@ function redirectWithError(
   reason: string,
 ): NextResponse {
   const target = eventId
-    ? new URL(`/dashboard/${eventId}/add-ons/panood`, origin)
+    ? new URL(`/dashboard/${eventId}/studio/panood`, origin)
     : new URL('/dashboard', origin);
   target.searchParams.set('youtube_error', reason);
   return NextResponse.redirect(target);
@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
 
   // 2. Config sanity-check (should never fail if /start succeeded, but
   //    defend against rotation between start + callback).
-  const config = getYoutubeOAuthConfig();
+  const config = await getYoutubeOAuthConfig();
   if (!config.ready) {
     return redirectWithError(url, eventId, 'not_configured');
   }
@@ -141,7 +141,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const target = new URL(`/dashboard/${eventId}/add-ons/panood`, url);
+  const target = new URL(`/dashboard/${eventId}/studio/panood`, url);
   target.searchParams.set('youtube_connected', '1');
   return NextResponse.redirect(target);
 }

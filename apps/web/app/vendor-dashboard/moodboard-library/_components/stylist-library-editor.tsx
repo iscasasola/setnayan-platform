@@ -174,7 +174,7 @@ export function StylistLibraryEditor({ initialAssets }: { initialAssets: Stylist
     <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
       {/* LEFT: upload + own-asset grid */}
       <div className="space-y-4">
-        <section className="rounded-xl border border-ink/15 bg-cream p-4">
+        <section className="rounded-xl border border-ink/15 bg-white/70 p-4">
           <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
             Upload your design
           </p>
@@ -232,7 +232,7 @@ export function StylistLibraryEditor({ initialAssets }: { initialAssets: Stylist
           </form>
         </section>
 
-        <section className="rounded-xl border border-ink/15 bg-cream p-4">
+        <section className="rounded-xl border border-ink/15 bg-white/70 p-4">
           <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
             My uploads ({assets.length})
           </p>
@@ -255,7 +255,7 @@ export function StylistLibraryEditor({ initialAssets }: { initialAssets: Stylist
                   >
                     <Image
                       src={a.public_url}
-                      alt=""
+                      alt={a.label ? `Moodboard photo: ${a.label}` : 'Moodboard photo thumbnail'}
                       width={48}
                       height={48}
                       loading="lazy"
@@ -305,7 +305,7 @@ export function StylistLibraryEditor({ initialAssets }: { initialAssets: Stylist
                   type="button"
                   onClick={handleDelete}
                   disabled={isPending}
-                  className="rounded-md border border-rose-500 px-3 py-1.5 text-sm font-medium text-rose-600 disabled:opacity-50"
+                  className="rounded-md border border-danger-500 px-3 py-1.5 text-sm font-medium text-danger-600 disabled:opacity-50"
                 >
                   Delete
                 </button>
@@ -319,7 +319,7 @@ export function StylistLibraryEditor({ initialAssets }: { initialAssets: Stylist
               previewPalette={previewPalette}
             />
 
-            <details className="rounded-lg border border-ink/15 bg-cream p-3">
+            <details className="rounded-lg border border-ink/15 bg-white/70 p-3">
               <summary className="cursor-pointer text-sm font-medium text-ink">
                 Preview palette (test how your tags look with different colors)
               </summary>

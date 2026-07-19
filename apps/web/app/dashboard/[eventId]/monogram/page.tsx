@@ -1,110 +1,62 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Check, Sparkles, ArrowRight } from 'lucide-react';
+import { ArrowLeft, Check, Lock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { registerGatesEnabled } from '@/lib/register-gates';
 import { getCurrentUser } from '@/lib/auth';
-import { resolveMonogram, deriveMonogram } from '@/lib/monogram';
-import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
-import {
-  MONOGRAM_MOTIONS,
-  resolveMonogramMotion,
-} from '@/lib/monogram-motion';
-import {
-  MAX_BESPOKE_ROUNDS_PER_EVENT,
-  bespokeSvgToDataUri,
-} from '@/lib/bespoke-monogram-shared';
-import { bespokeStudioEnabled } from '@/lib/bespoke-monogram';
-import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
-import { BespokeMonogramMark } from '@/app/_components/bespoke-monogram-mark';
-import { sanitizeCipherConfig } from '@/lib/cipher-shared';
-import { FeatureUsCard } from '@/app/dashboard/[eventId]/_components/feature-us-card';
-import {
-  MonogramMaker,
-  MONO_FONT_OPTIONS,
-  DEFAULT_FONT_FOR_STYLE,
-} from './monogram-maker';
-import { BespokeStudio, type BespokeCandidateView } from './bespoke-studio';
-import { CipherStudio } from './cipher-studio';
-import { MonogramUploadCard } from './upload-card';
+import { resolveMonogram } from '@/lib/monogram';
+import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
+import { VectorStudio } from './studio';
+import { sanitizeStudioConfig } from '@/lib/monogram-studio-shared';
+import { MonogramDraftRestore } from './draft-restore';
+import { AnimatedMonogramUpgrade } from './animated-monogram-upgrade';
+import { UploadMark } from './upload-mark';
+import { MarkEverywhere } from './mark-everywhere';
+import { eventOwnsAnimatedMonogram, ANIMATED_MONOGRAM_SERVICE_KEY } from '@/lib/animated-monogram';
+import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { formatPhp } from '@/lib/orders';
 
 export const metadata = { title: 'Monogram Maker · Setnayan' };
 
-// Bespoke generation (4 vector marks + downloads) runs ~10–30s — keep the
-// server-action invocation window comfortably above it on Vercel.
 export const maxDuration = 60;
 
 /**
  * /dashboard/[eventId]/monogram — the couple's standalone Monogram Maker.
  *
- * A returnable home (vs. the one-time onboarding step + the inline wizard card)
- * to craft the wedding monogram: initials + one of the 5 curated lockups, with
- * a live draw-on preview. Persists the SAME columns onboarding writes
- * (lib/monogram.ts model) so the design shows everywhere — chrome switcher, QR
- * center, landing hero. The free static/draw monogram is never gated.
+ * The wedding mark is set ONE way: the **Vector Studio** — compose it from
+ * scratch with real font outlines, boolean interlock, and a mirrored pen (owner
+ * 2026-06-21 "make the vector monogram the only screen for the monogram"). It
+ * persists `events.monogram_custom_svg` (+ a re-editable `monogram_studio_config`),
+ * the single canonical mark every surface reads — chrome switcher, QR centre,
+ * landing hero, save-the-date. The free static mark is never gated.
  *
- * The "How it animates" section upsells the paid ANIMATED_MONOGRAM SKU
- * (₱2,499 · gated via orders, not a column). The Motion Library
- * (lib/monogram-motion.ts · 6 signatures) supersedes the 23-style picker
- * tracked in Monogram_Maker_Plan_2026-06-05.md — every motion previews free
- * in the maker; the saved one plays on the landing hero when the SKU is
- * owned.
+ * MERGED surface (owner 2026-06-25 · informed reversal of 2026-06-21): the free
+ * Vector Studio and the paid Animated-Monogram upgrade now live on ONE screen —
+ * design your mark above, activate the draw-on animation in <AnimatedMonogramUpgrade>
+ * below. This also un-breaks the purchase: the Studio "Get" CTA already routes
+ * here, and the buy lives here again (the standalone /studio/animated-monogram
+ * page now redirects in). The prior "upload your own" path stays removed.
  */
-
-const VALID_STYLES = ['bar', 'script', 'duo', 'framed', 'infinity'] as const;
-type MonoStyle = (typeof VALID_STYLES)[number];
 
 type Props = {
   params: Promise<{ eventId: string }>;
   searchParams: Promise<{
-    bespoke?: string;
-    bespoke_error?: string;
-    cipher?: string;
-    cipher_error?: string;
-    upload?: string;
+    studio?: string;
+    studio_error?: string;
+    upload_error?: string;
   }>;
 };
 
-// Customer-safe status lines for the "upload your own monogram" flow.
-const UPLOAD_NOTICES: Record<string, { tone: 'ok' | 'error'; text: string }> = {
-  ok: { tone: 'ok', text: 'Your monogram is uploaded — it’s now your mark everywhere.' },
-  removed: { tone: 'ok', text: 'Removed your upload — back to your Setnayan mark.' },
-  empty: { tone: 'error', text: 'Please choose a file to upload.' },
-  too_big: { tone: 'error', text: 'That file is too large — please use one under 4 MB.' },
-  bad_type: { tone: 'error', text: 'Please upload a PNG, JPG, or SVG image.' },
-  bad_svg: { tone: 'error', text: 'We couldn’t read that SVG — try a PNG/JPG instead.' },
-  bad_image: { tone: 'error', text: 'We couldn’t read that image — please try another file.' },
-};
-
-// Customer-safe status lines for the cipher studio's redirect flags.
-const CIPHER_NOTICES: Record<string, { tone: 'ok' | 'error'; text: string }> = {
-  saved: { tone: 'ok', text: 'Your cipher monogram is now on your wedding website.' },
-  cleared: { tone: 'ok', text: 'Back to your lettered monogram.' },
+// Customer-safe status lines for the vector studio's redirect flags.
+const STUDIO_NOTICES: Record<string, { tone: 'ok' | 'error'; text: string }> = {
+  saved: { tone: 'ok', text: 'Your studio monogram is now your mark everywhere.' },
+  cleared: { tone: 'ok', text: 'Removed your studio mark — back to your Setnayan mark.' },
   invalid: { tone: 'error', text: 'That design could not be read — please try again.' },
-  render: { tone: 'error', text: 'That design could not be rendered — please adjust and retry.' },
+  render: { tone: 'error', text: 'That design could not be saved — please adjust and retry.' },
   save: { tone: 'error', text: 'Something went wrong saving — please try again.' },
   'not-found': { tone: 'error', text: 'This page is for the couple’s account.' },
-};
-
-// Customer-safe status lines for the bespoke studio's redirect flags.
-const BESPOKE_NOTICES: Record<string, { tone: 'ok' | 'error'; text: string }> = {
-  generated: { tone: 'ok', text: 'Setnayan AI sketched 4 new designs — they’re below.' },
-  applied: { tone: 'ok', text: 'Your bespoke monogram is now on your wedding website.' },
-  cleared: { tone: 'ok', text: 'Back to your lettered monogram.' },
-  cap: { tone: 'error', text: 'You’ve used all your design rounds for this event.' },
-  generation: {
-    tone: 'error',
-    text: 'Setnayan AI could not generate designs right now — please try again.',
-  },
-  save: { tone: 'error', text: 'Something went wrong saving — please try again.' },
-  'not-found': { tone: 'error', text: 'That design could not be found.' },
-  reported: {
-    tone: 'ok',
-    text: 'Thank you — your report is with the Setnayan team for review.',
-  },
-  'report-failed': {
-    tone: 'error',
-    text: 'Your report could not be sent — please try again.',
-  },
+  'upload-saved': { tone: 'ok', text: 'Your uploaded mark is now your monogram everywhere.' },
+  'upload-cleared': { tone: 'ok', text: 'Removed the upload — back to your studio mark.' },
 };
 
 export default async function MonogramMakerPage({ params, searchParams }: Props) {
@@ -113,302 +65,153 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
 
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  // Register-to-use gate (flag-gated · owner 2026-06-21): the monogram is a public-identity
+  // surface — an anonymous (unsecured) couple must create a free account to design it. The
+  // signup flow converts the SAME anon session in place, then returns here. OFF → no gate.
+  if (registerGatesEnabled() && user.is_anonymous) {
+    redirect(`/signup?next=${encodeURIComponent(`/dashboard/${eventId}/monogram`)}`);
+  }
   const supabase = await createClient();
 
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_motion_key, monogram_uploaded_svg, monogram_custom_svg, monogram_custom_generation_id, monogram_cipher_config',
+      'event_id, display_name, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config',
     )
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) redirect(`/dashboard/${eventId}`);
 
-  const owns = await eventAnimatedMonogramActive(supabase, eventId).catch(() => false);
+  // Event-type backstop (0053 · 2026-06-28): the monogram maker is a wedding
+  // surface. If this event type's profile doesn't enable 'monogram' (e.g. a
+  // birthday), the nav + Studio hub already hide it — this guards a direct URL.
+  // Wedding enables it → no redirect (byte-identical). Degrades to WEDDING_PROFILE.
+  const profile = await resolveProfileByEvent(eventId);
+  if (!surfaceEnabled(profile, 'monogram')) redirect(`/dashboard/${eventId}`);
+
   const monogram = resolveMonogram(event);
-  const motion = resolveMonogramMotion(event.monogram_motion_key);
-  const motionLabel =
-    MONOGRAM_MOTIONS.find((m) => m.key === motion)?.label ?? 'Drawn';
 
-  const source = event.monogram_text?.trim() || deriveMonogram(event.display_name);
-  const initialInitials =
-    (source.match(/\p{L}/gu) ?? []).slice(0, 2).join('').toUpperCase() || 'AK';
-  const initialStyle: MonoStyle = VALID_STYLES.includes(event.monogram_style as MonoStyle)
-    ? (event.monogram_style as MonoStyle)
-    : 'bar';
-  // Typeface (2026-06-11 expansion): the stored key when valid, else the
-  // lockup's default — mirrors the saveMonogram fallback.
-  const storedFont = typeof event.monogram_font_key === 'string' ? event.monogram_font_key : '';
-  const initialFont = MONO_FONT_OPTIONS.some((f) => f.key === storedFont)
-    ? storedFont
-    : DEFAULT_FONT_FOR_STYLE[initialStyle];
-
-  // ── Bespoke studio state (Setnayan AI · Phase 2 of the monogram overhaul).
-  // Latest round's candidates. The generations table may predate this deploy
-  // on a drifted DB — degrade to an empty studio rather than crash (same
-  // 42P01-tolerant posture as eventOwnsAnimatedMonogram).
-  const { data: generationRows } = await supabase
-    .from('bespoke_monogram_generations')
-    .select('generation_id, svg_text, round')
-    .eq('event_id', eventId)
-    .order('round', { ascending: false })
-    .order('created_at', { ascending: true })
-    .limit(8)
-    .then(
-      (r) => (r.error ? { data: [] as { generation_id: string; svg_text: string; round: number }[] } : r),
-    );
-  const rows = generationRows ?? [];
-  const latestRound = rows[0]?.round ?? 0;
-  const candidates: BespokeCandidateView[] = rows
-    .filter((r) => r.round === latestRound)
-    .map((r) => ({
-      generationId: r.generation_id,
-      dataUri: bespokeSvgToDataUri(r.svg_text),
-    }));
-
-  const bespokeNotice =
-    BESPOKE_NOTICES[sp.bespoke_error ?? ''] ?? BESPOKE_NOTICES[sp.bespoke ?? ''] ?? null;
-
-  // ── Cipher studio state (Phase 3 · the couple-positioned interlocking
-  // monogram). The stored config re-validates through the same sanitizer the
-  // save action uses, so a drifted/hand-edited row can never feed the editor
-  // garbage. hasCipher = the saved custom svg came from THIS editor (a
-  // bespoke-studio mark sets generation_id instead).
-  const cipherConfig = sanitizeCipherConfig(event.monogram_cipher_config);
-  const hasCipher = Boolean(cipherConfig && event.monogram_custom_svg);
-  const cipherNotice =
-    CIPHER_NOTICES[sp.cipher_error ?? ''] ?? CIPHER_NOTICES[sp.cipher ?? ''] ?? null;
-
-  // When a bespoke mark is applied it REPLACES the typographic mark on the
-  // hero (and animates with a container bloom, not the glyph-level Motion
-  // Library signatures), so the "How it animates" section must branch on it
-  // — otherwise the motion copy/preview would advertise an animation the
-  // guest never sees while bespoke is live.
-  // The couple's own UPLOAD outranks the AI/Cipher mark (owner rule 2026-06-15),
-  // which outranks the lettered lockup. `customSvg` is the EFFECTIVE custom mark
-  // every downstream surface reads, so the upload wins on the maker preview +
-  // the Feature-Us flow just like it does in the chrome icon + website hero.
-  const uploadedSvg =
-    typeof event.monogram_uploaded_svg === 'string' && event.monogram_uploaded_svg.trim()
-      ? event.monogram_uploaded_svg
-      : null;
+  // The EFFECTIVE custom mark (the Vector Studio mark) — drives the draft-restore
+  // one-shot (it hides once a mark exists). Every downstream surface (chrome icon,
+  // QR centre, website hero) reads the same `events.monogram_custom_svg`.
   const customSvg =
-    uploadedSvg ??
-    (typeof event.monogram_custom_svg === 'string' && event.monogram_custom_svg
+    typeof event.monogram_custom_svg === 'string' && event.monogram_custom_svg
       ? event.monogram_custom_svg
-      : null);
-  const uploadedDataUri = uploadedSvg ? bespokeSvgToDataUri(uploadedSvg) : null;
-  const uploadNotice = UPLOAD_NOTICES[sp.upload ?? ''] ?? null;
+      : null;
 
-  // ── Social Sharing & Featuring Program (migration 20261203000000) — the
-  // live (un-revoked) consent row for THIS custom mark, so the Feature-Us
-  // card flips to its "already allowed" state. artifact_ref keys on the
-  // bespoke generation id ('custom' for cipher/hand-applied marks) so a
-  // re-designed mark asks fresh. RLS couple policy scopes the read; degrade
-  // to null on a drifted DB (table may post-date this deploy).
-  const shareArtifactRef = customSvg
-    ? (event.monogram_custom_generation_id ?? 'custom')
-    : null;
-  const { data: shareConsent } = shareArtifactRef
-    ? await supabase
-        .from('marketing_share_consents')
-        .select('consent_id, credit_mode')
-        .eq('event_id', eventId)
-        .eq('artifact_type', 'monogram')
-        .eq('artifact_ref', shareArtifactRef)
-        .is('revoked_at', null)
-        .order('consented_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-        .then((r) => (r.error ? { data: null } : r))
-    : { data: null };
+  // ── Vector studio state (the from-scratch composer). hasStudio = a saved
+  // studio mark exists (re-editable config present + a custom svg).
+  const studioConfig = sanitizeStudioConfig(event.monogram_studio_config);
+  const hasStudio = Boolean(studioConfig && event.monogram_custom_svg);
+  // Notices are split by destination so an error lands in the section the
+  // action redirects to (gap audit 2026-07-17): studio flows show inside the
+  // Vector Studio; upload flows (upload success keys + upload_error) show in
+  // the Upload section, where the redirect anchor #upload-mark scrolls them.
+  const isUploadKey = (k?: string) => k === 'upload-saved' || k === 'upload-cleared';
+  const studioNotice =
+    STUDIO_NOTICES[sp.studio_error ?? ''] ??
+    (isUploadKey(sp.studio) ? null : STUDIO_NOTICES[sp.studio ?? '']) ??
+    null;
+  const uploadNotice =
+    STUDIO_NOTICES[sp.upload_error ?? ''] ??
+    (isUploadKey(sp.studio) ? STUDIO_NOTICES[sp.studio ?? ''] : null) ??
+    null;
+
+  // Free/paid honesty line (council verdict 2026-07-17 §5.3): the studio's
+  // "Animate the reveal" panel previews all five kinds free, but the LIVE site
+  // plays the pick only with the paid Animated Monogram — say so where the
+  // choice is made. Price from the admin catalog only (owner rule 2026-06-14).
+  const ownsAnimated = await eventOwnsAnimatedMonogram(supabase, eventId);
+  const animatedPricePhp = ownsAnimated
+    ? null
+    : ((await formatV2Sku(ANIMATED_MONOGRAM_SERVICE_KEY).catch(() => null))?.price_php ?? null);
+
+  // The "Your monogram, everywhere" save sequence (benchmark §5): plays once
+  // right after a successful save — studio or upload — on the EFFECTIVE mark.
+  const effectiveSvg =
+    (typeof event.monogram_uploaded_svg === 'string' && event.monogram_uploaded_svg) || customSvg;
+  const showEverywhere = (sp.studio === 'saved' || sp.studio === 'upload-saved') && Boolean(effectiveSvg);
 
   return (
     <section className="space-y-6">
+      {showEverywhere && effectiveSvg ? <MarkEverywhere svg={effectiveSvg} /> : null}
       <Link
-        href={`/dashboard/${eventId}/add-ons`}
+        href={`/dashboard/${eventId}/studio`}
         className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         Back to add-ons
       </Link>
 
-      <header className="space-y-2">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">
           Monogram maker
         </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+        <h1 className="sn-h1">
           Your wedding monogram
         </h1>
         <p className="max-w-prose text-base text-ink/65">
-          Your initials, your way — pick a lockup and watch it draw itself in. It
-          shows on your wedding website, your QR codes, and across your dashboard.
+          Design your mark from scratch in the Vector Studio. It shows on your
+          wedding website, your QR codes, and across your dashboard.
         </p>
       </header>
 
-      {uploadNotice ? (
-        <p
-          role="status"
-          className={`rounded-xl border px-4 py-3 text-sm ${
-            uploadNotice.tone === 'ok'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-              : 'border-terracotta/30 bg-terracotta/10 text-terracotta-700'
-          }`}
-        >
-          {uploadNotice.text}
+      {/* ── Carry-through: restore a mark designed on the free public studio (pre-signup) ── */}
+      <MonogramDraftRestore eventId={eventId} hasCustomMark={Boolean(customSvg)} />
+
+      {/* ── Vector studio — the ONE way to set the wedding mark (real outlines · booleans · pen · symbols).
+          The Monogram maker page is now studio-only (owner 2026-06-21 "make the vector monogram the only
+          screen for the monogram"); the Feature-Us opt-in + the paid Animated-Monogram upsell that used to
+          sit below it were removed. The Animated Monogram stays discoverable from the Studio add-ons hub. ── */}
+      {/* The "Animate the reveal" panel lives INSIDE the Vector Studio (engine.ts
+          #animbox) — owner 2026-06-23 "improve THIS animate the reveal … not a
+          separate feature". The standalone MonogramAnimatePicker was retired; the
+          studio panel is the single home for choosing the reveal. */}
+      <VectorStudio
+        eventId={eventId}
+        initialConfig={studioConfig}
+        initialNames={monogram.text}
+        hasStudio={hasStudio}
+        notice={studioNotice}
+      />
+
+      {/* ── The free/paid line, said where the choice is made (§5.3): a React
+          sibling below the studio card — React never reaches into the inert
+          editor subtree. Owned → confirmation; unowned → the honest gate +
+          catalog price, anchored to the buy section below. ── */}
+      {ownsAnimated ? (
+        <p className="inline-flex items-center gap-2 rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
+          <Check aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
+          The reveal you pick in the studio plays live on your wedding website.
         </p>
-      ) : null}
+      ) : (
+        <p className="flex items-start gap-2 rounded-xl border border-ink/10 bg-cream px-4 py-3 text-sm text-ink/70">
+          <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
+          <span>
+            Previewing reveals in the studio is always free — guests see your pick live with{' '}
+            <a href="#animated-monogram" className="font-medium text-mulberry underline underline-offset-2 hover:text-mulberry-700">
+              Animated Monogram{animatedPricePhp != null ? ` · ${formatPhp(animatedPricePhp)}` : ''}
+            </a>
+            .
+          </span>
+        </p>
+      )}
 
-      {/* ── Upload your own (overrides everything below · owner rule 2026-06-15) ── */}
-      <MonogramUploadCard eventId={eventId} activeDataUri={uploadedDataUri} />
-
-      {/* ── Cipher studio — design the interlocking mark ── */}
-      <CipherStudio
+      {/* ── Upload your own mark (owner 2026-07-17 — overrides the benchmark
+          council's §9 upload deferral). Writes the long-dormant
+          monogram_uploaded_svg, which outranks every other mark on the hero. ── */}
+      <UploadMark
         eventId={eventId}
-        defaultInitials={initialInitials}
-        initialConfig={cipherConfig}
-        hasCipher={hasCipher}
-        notice={cipherNotice}
+        hasUpload={typeof event.monogram_uploaded_svg === 'string' && Boolean(event.monogram_uploaded_svg)}
+        monogramText={monogram.text}
+        notice={uploadNotice}
+        ownsAnimated={ownsAnimated}
+        animatedPricePhp={animatedPricePhp}
       />
 
-      <MonogramMaker
-        eventId={eventId}
-        initialInitials={initialInitials}
-        initialStyle={initialStyle}
-        initialFont={initialFont}
-        initialMotion={motion}
-      />
-
-      {/* ── Setnayan AI bespoke studio ── */}
-      <BespokeStudio
-        eventId={eventId}
-        defaultInitials={initialInitials}
-        roundsUsed={latestRound}
-        maxRounds={MAX_BESPOKE_ROUNDS_PER_EVENT}
-        candidates={candidates}
-        activeGenerationId={event.monogram_custom_generation_id ?? null}
-        hasCustom={Boolean(event.monogram_custom_svg)}
-        enabled={bespokeStudioEnabled()}
-        notice={bespokeNotice}
-      />
-
-      {/* ── Feature-us opt-in (Social Sharing Program) — custom marks only ── */}
-      {customSvg && shareArtifactRef ? (
-        <FeatureUsCard
-          eventId={eventId}
-          artifactType="monogram"
-          artifactRef={shareArtifactRef}
-          alreadyConsented={shareConsent ?? null}
-          revalidatePath={`/dashboard/${eventId}/monogram`}
-        />
-      ) : null}
-
-      {/* ── How it animates ── */}
-      <section className="rounded-2xl border border-ink/10 bg-cream p-6 sm:p-8">
-        <div className="grid grid-cols-1 items-center gap-6 sm:grid-cols-[auto_minmax(0,1fr)]">
-          <div className="flex justify-center sm:justify-start">
-            {customSvg ? (
-              <BespokeMonogramMark
-                key={`anim-bespoke-${owns}`}
-                svg={customSvg}
-                color={monogram.color}
-                size="lg"
-                entrance={owns}
-              />
-            ) : (
-              <AnimatedMonogramHero
-                key={`anim-${monogram.text}-${monogram.style ?? ''}-${motion}`}
-                text={monogram.text}
-                color={
-                  monogram.style === 'bar' ||
-                  monogram.style === 'duo' ||
-                  monogram.style === 'script' ||
-                  monogram.style === 'infinity'
-                    ? monogram.inkColor ?? monogram.color
-                    : monogram.color
-                }
-                fontFamily={monogram.fontFamily}
-                fontStyle={monogram.fontStyle}
-                lockupStyle={monogram.style}
-                letterSpacing={monogram.letterSpacing}
-                size="lg"
-                motion={motion}
-              />
-            )}
-          </div>
-          <div className="space-y-2 text-center sm:text-left">
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
-              How it animates
-            </p>
-            {customSvg ? (
-              owns ? (
-                <>
-                  <h2 className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight">
-                    <Check aria-hidden className="h-4 w-4 text-emerald-600" strokeWidth={2.5} />
-                    Your bespoke monogram blooms in
-                  </h2>
-                  <p className="max-w-prose text-sm text-ink/65">
-                    Your custom mark gently blooms in on your wedding
-                    website&rsquo;s hero. The six motion signatures (Drawn, Foil,
-                    Bloom, Editorial, Halo, Stardust) animate your lettered
-                    monogram — switch back to lettering above to use one.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <h2 className="text-lg font-semibold tracking-tight">
-                    Make your bespoke mark bloom in
-                  </h2>
-                  <p className="max-w-prose text-sm text-ink/65">
-                    Your custom mark shows on your wedding website&rsquo;s hero.
-                    Upgrade to the Animated Monogram and it blooms in the moment a
-                    guest lands.
-                  </p>
-                  <Link
-                    href={`/dashboard/${eventId}/add-ons/animated-monogram`}
-                    className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-700"
-                  >
-                    <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                    See the Animated Monogram
-                    <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                  </Link>
-                </>
-              )
-            ) : owns ? (
-              <>
-                <h2 className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight">
-                  <Check aria-hidden className="h-4 w-4 text-emerald-600" strokeWidth={2.5} />
-                  Your monogram plays the {motionLabel} motion
-                </h2>
-                <p className="max-w-prose text-sm text-ink/65">
-                  It plays on your wedding website&rsquo;s hero every time a guest
-                  lands. Pick a different motion above any time — six signatures,
-                  all included.
-                </p>
-              </>
-            ) : (
-              <>
-                <h2 className="text-lg font-semibold tracking-tight">
-                  Make it move
-                </h2>
-                <p className="max-w-prose text-sm text-ink/65">
-                  Upgrade to the Animated Monogram and the motion you pick above —
-                  Drawn, Foil, Bloom, Editorial, Halo, or Stardust — plays the
-                  moment a guest lands on your wedding website.
-                </p>
-                <Link
-                  href={`/dashboard/${eventId}/add-ons/animated-monogram`}
-                  className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-700"
-                >
-                  <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                  See the Animated Monogram
-                  <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                </Link>
-              </>
-            )}
-          </div>
-        </div>
-      </section>
+      {/* ── Paid Animated-Monogram upgrade, merged inline (owner 2026-06-25).
+          Owned → live confirmation + preview; unowned → before/after + buy. ── */}
+      <AnimatedMonogramUpgrade eventId={eventId} />
     </section>
   );
 }

@@ -1,17 +1,13 @@
 import Link from 'next/link';
-import { Logo } from '@/app/_components/logo';
-import {
-  Apple,
-  Download,
-  Globe,
-  ShieldAlert,
-  Cpu,
-  ArrowRight,
-  CheckCircle2,
-} from 'lucide-react';
+import { AppWindow, Globe, ShieldCheck, Zap } from 'lucide-react';
 import { DESKTOP_RELEASE } from '@/lib/desktop-release';
-import { SiteHeader } from '@/app/_components/site-header';
 import { getNavSlotMap } from '@/lib/nav-registry';
+import {
+  RevealGroup,
+  LineRevealH1,
+  AppWindowHero,
+  MagneticDownloadButton,
+} from './_download-motion';
 
 // GEO Phase G5 (2026-05-28) — canonical URL + openGraph block added.
 // SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
@@ -22,12 +18,12 @@ export const revalidate = 3600;
 export const metadata = {
   title: 'Download Setnayan for Mac',
   description:
-    'Install Setnayan as a native macOS app for Apple Silicon. Same Setnayan experience, in its own window. iOS and Android shells on the V1.5 roadmap.',
+    'Install Setnayan as a native macOS app for Apple Silicon. It opens straight to your account — your guest list, invitations, planner and seating in their own window. iOS and Android shells on the V1.5 roadmap.',
   alternates: { canonical: '/download' },
   openGraph: {
     title: 'Download Setnayan for Mac',
     description:
-      'Install Setnayan as a native macOS app for Apple Silicon. iOS and Android on the V1.5 roadmap.',
+      'A native macOS app for Apple Silicon that opens straight to your Setnayan account. iOS and Android on the V1.5 roadmap.',
     url: '/download',
   },
 };
@@ -38,246 +34,211 @@ function formatMb(bytes: number) {
 
 export default async function DownloadPage() {
   const mac = DESKTOP_RELEASE.mac.aarch64;
+  const sizeLabel = formatMb(mac.sizeBytes);
 
   // Nav/icon/menu-registry overlay for the "Download for Mac" CTA label
-  // (public.download.mac-api) — applied to both buttons + the step-1 instruction.
+  // (public.download.mac-api) — applied to the CTA + the step-1 instruction.
   // Label-only + fails open: this is a server component, so it can't call the
-  // client-only navIconComponent — the Download/Apple icons stay hardcoded in
-  // code; only the button text is admin-renamable from /admin/menus. href + size
-  // suffix stay in code too. NOTE: this page is ISR (revalidate=3600), so an
-  // admin label edit propagates within the 1hr revalidation window (the registry
-  // data cache busts instantly via NAV_REGISTRY_TAG, but the page's prerendered
-  // HTML refreshes on the next ISR pass), not on the next request.
+  // client-only navIconComponent — the icons stay hardcoded in code; only the
+  // button text is admin-renamable from /admin/menus. href + size suffix stay in
+  // code too. NOTE: this page is ISR (revalidate=3600), so an admin label edit
+  // propagates within the 1hr revalidation window (the registry data cache busts
+  // instantly via NAV_REGISTRY_TAG, but the page's prerendered HTML refreshes on
+  // the next ISR pass), not on the next request.
   const navSlots = await getNavSlotMap();
   const macDownloadLabel = navSlots['public.download.mac-api']?.label ?? 'Download for Mac';
 
   return (
-    <main className="min-h-dvh bg-cream">
-      <SiteHeader />
+    <main className="min-h-dvh bg-cream text-ink">
 
-      <section className="border-b border-ink/5">
-        <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1.1fr,1fr] lg:px-8">
-          <div className="space-y-6">
-            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-              Setnayan · macOS app · v{DESKTOP_RELEASE.version}
-            </p>
-            <h1 className="text-4xl font-semibold tracking-tight text-ink sm:text-5xl">
+      {/* ───────────────────────── Hero ─────────────────────────
+          Airy two-column editorial split. Copy leads with a hairline eyebrow + a
+          serif line-reveal headline; the floating macOS app window (the page's
+          ONE motion moment) opens on the right and the Setnayan dock icon
+          launch-bounces — the product story made literal. */}
+      <section>
+        <div className="mx-auto grid w-full max-w-6xl items-center gap-12 px-5 py-20 sm:px-6 sm:py-24 lg:grid-cols-[1fr,1fr] lg:gap-16 lg:px-8 lg:py-28">
+          <RevealGroup className="space-y-7">
+            <LineRevealH1 className="text-balance text-5xl font-semibold leading-[1.02] tracking-[-0.02em] text-ink sm:text-6xl">
               Setnayan, on your Mac.
-            </h1>
-            <p className="max-w-prose text-lg text-ink/70">
-              The same Setnayan you know &mdash; guest lists, QR invitations, planner,
-              seating &mdash; living in its own window with its own dock icon.
-              Built for Apple Silicon.
+            </LineRevealH1>
+
+            <p data-reveal-item className="max-w-md text-lg leading-relaxed text-ink/65">
+              In its own window, with its own Dock icon — your guest list,
+              invitations, planner and seating, one launch away. It opens straight
+              to your account, no browser tab in sight.
             </p>
 
-            <div className="flex flex-wrap gap-3">
-              {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-              <a
-                href="/api/download/mac"
-                className="button-primary inline-flex items-center gap-2"
-              >
-                <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                {macDownloadLabel} &middot; {formatMb(mac.sizeBytes)}
-              </a>
+            <div data-reveal-item className="flex flex-wrap items-center gap-x-4 gap-y-3 pt-1">
+              <MagneticDownloadButton label={macDownloadLabel} sizeLabel={sizeLabel} />
               <Link
                 href="https://setnayan.com"
-                className="button-secondary inline-flex items-center gap-2"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/70 underline-offset-4 transition-colors hover:text-ink hover:underline"
               >
                 <Globe aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                Use on the web instead
+                Use it on the web instead
               </Link>
             </div>
 
-            <p className="text-xs text-ink/55">
-              Apple Silicon (M1 / M2 / M3 / M4) only. Released{' '}
-              {DESKTOP_RELEASE.publishedAt}.
-            </p>
-          </div>
+            <div data-reveal-item className="space-y-1.5 pt-1">
+              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/45">
+                v{DESKTOP_RELEASE.version} · {sizeLabel} · Apple Silicon (M1 – M4) · Released{' '}
+                {DESKTOP_RELEASE.publishedAt}
+              </p>
+              <p className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta-700">
+                <ShieldCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Signed &amp; notarized by Apple
+              </p>
+            </div>
+          </RevealGroup>
 
-          <DownloadCard filename={mac.filename} sizeBytes={mac.sizeBytes} label={macDownloadLabel} />
+          <AppWindowHero />
         </div>
       </section>
 
-      <section className="border-b border-ink/5">
-        <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
-          <div className="mb-10 max-w-2xl space-y-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-              Install in 30 seconds
-            </p>
-            <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+      {/* ───────────────────── Why open it on your Mac ─────────────────────
+          The substance the page was missing — three quiet value columns, gold
+          icon + one confident line each. Hairline-topped, no boxes. */}
+      <section className="border-t border-ink/8">
+        <div className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-6 sm:py-24 lg:px-8">
+          <div className="mb-14 max-w-xl space-y-3">
+            <h2 className="text-3xl font-semibold tracking-[-0.01em] sm:text-4xl">
+              The same Setnayan, closer to hand.
+            </h2>
+          </div>
+
+          <RevealGroup stagger={0.09}>
+            <div className="grid gap-12 sm:grid-cols-3 sm:gap-10">
+              <Value
+                icon={<AppWindow aria-hidden className="h-5 w-5" strokeWidth={1.5} />}
+                title="Its own window & Dock icon"
+                body="Lives in your Dock like any real Mac app. ⌘-Tab straight to it — no hunting through browser tabs."
+              />
+              <Value
+                icon={<Zap aria-hidden className="h-5 w-5" strokeWidth={1.5} />}
+                title="Opens straight to your plan"
+                body="No landing page, no sign-in wall every time. Launch it and you're already inside your wedding."
+              />
+              <Value
+                icon={<ShieldCheck aria-hidden className="h-5 w-5" strokeWidth={1.5} />}
+                title="Trusted & always signed in"
+                body="Signed with an Apple Developer ID and notarized by Apple. Sign in once — it remembers you after that."
+              />
+            </div>
+          </RevealGroup>
+        </div>
+      </section>
+
+      {/* ─────────────────────── Install steps ───────────────────────
+          Borderless editorial grid: oversized champagne numerals, hairline top
+          rule per column, no boxes. Reads as one calm row. */}
+      <section className="border-t border-ink/8">
+        <div className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-6 sm:py-24 lg:px-8">
+          <div className="mb-14 max-w-xl space-y-3">
+            <h2 className="text-3xl font-semibold tracking-[-0.01em] sm:text-4xl">
               Four steps, done.
             </h2>
           </div>
 
-          <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Step
-              n={1}
-              title="Download"
-              body={
-                <>
-                  Click <span className="font-medium">{macDownloadLabel}</span> above.
-                  Your browser saves it to your Downloads folder.
-                </>
-              }
-            />
-            <Step
-              n={2}
-              title="Open the .dmg"
-              body="Double-click the downloaded file. A window appears with the Setnayan icon and an Applications shortcut."
-            />
-            <Step
-              n={3}
-              title="Drag to Applications"
-              body="Drag the Setnayan icon onto the Applications shortcut. That installs it."
-            />
-            <Step
-              n={4}
-              title="Eject + open"
-              body={
-                <>
-                  Right-click the disk icon on your desktop &rarr; Eject. Then open
-                  Applications &rarr; double-click <span className="font-medium">Setnayan</span>.
-                </>
-              }
-            />
-          </ol>
+          <RevealGroup stagger={0.07}>
+            <ol className="grid gap-x-10 gap-y-12 sm:grid-cols-2 lg:grid-cols-4">
+              <Step
+                n="01"
+                title="Download"
+                body={
+                  <>
+                    Click <span className="text-ink">{macDownloadLabel}</span>. It
+                    lands in your Downloads folder.
+                  </>
+                }
+              />
+              <Step
+                n="02"
+                title="Open the .dmg"
+                body="Double-click the file. A window opens with the Setnayan icon and an Applications shortcut."
+              />
+              <Step
+                n="03"
+                title="Drag to Applications"
+                body="Drop the Setnayan icon onto the Applications shortcut. That installs it."
+              />
+              <Step
+                n="04"
+                title="Open it"
+                body="Eject the disk, open Applications, and launch Setnayan. Sign in once — it remembers you next time."
+              />
+            </ol>
+          </RevealGroup>
         </div>
       </section>
 
-      <section className="border-b border-ink/5">
-        <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
-          <div className="grid gap-8 lg:grid-cols-2">
-            <Card
-              Icon={ShieldAlert}
-              tone="amber"
-              title="First-launch warning is normal"
-            >
-              <p className="text-sm text-ink/70">
-                The first time you open Setnayan, macOS may say{' '}
-                <span className="font-medium">
-                  &ldquo;Setnayan cannot be opened because the developer cannot be
-                  verified&rdquo;
-                </span>
-                . That&rsquo;s because the app is signed by us but not yet notarized
-                by Apple.
-              </p>
-              <p className="mt-2 text-sm text-ink/70">
-                <span className="font-medium">To open anyway:</span> in Finder, find{' '}
-                Setnayan in Applications, <span className="font-medium">right-click</span>{' '}
-                (or Control-click) the icon &rarr; choose{' '}
-                <span className="font-medium">Open</span> &rarr; click{' '}
-                <span className="font-medium">Open</span> in the dialog. You only need
-                to do this the first time.
-              </p>
-            </Card>
+      {/* ─────────────────────── Good to know ───────────────────────
+          Two quiet columns separated by a hairline. No amber alert card —
+          the note carries its own weight in type. */}
+      <section className="border-t border-ink/8">
+        <div className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-6 sm:py-24 lg:px-8">
+          <RevealGroup stagger={0.1}>
+            <div className="grid gap-12 lg:grid-cols-2 lg:gap-20">
+              <Note data-reveal-item label="First launch">
+                <h3 className="text-xl font-semibold tracking-[-0.01em] text-ink">
+                  Just double-click to open.
+                </h3>
+                <p className="mt-3 text-ink/65">
+                  Because Setnayan is notarized by Apple, it opens like any trusted
+                  Mac app — no right-click, no Gatekeeper workarounds.
+                </p>
+                <p className="mt-3 text-ink/65">
+                  The first time, macOS may ask once to confirm you downloaded it
+                  from the internet — click <span className="text-ink/80">Open</span>.
+                  That&rsquo;s it.
+                </p>
+              </Note>
 
-            <Card Icon={Cpu} tone="cream" title="System requirements">
-              <ul className="space-y-2 text-sm text-ink/70">
-                <li className="flex items-start gap-2">
-                  <CheckCircle2
-                    aria-hidden
-                    className="mt-0.5 h-4 w-4 shrink-0 text-terracotta"
-                    strokeWidth={1.75}
-                  />
-                  Apple Silicon Mac (M1, M2, M3, or M4 chip)
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2
-                    aria-hidden
-                    className="mt-0.5 h-4 w-4 shrink-0 text-terracotta"
-                    strokeWidth={1.75}
-                  />
-                  macOS 11 (Big Sur) or newer
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2
-                    aria-hidden
-                    className="mt-0.5 h-4 w-4 shrink-0 text-terracotta"
-                    strokeWidth={1.75}
-                  />
-                  Internet connection (the app loads setnayan.com inside a native
-                  window)
-                </li>
-              </ul>
-              <p className="mt-3 text-xs text-ink/55">
-                Not sure if your Mac is Apple Silicon? Click the Apple menu &rarr;{' '}
-                <span className="font-medium">About This Mac</span>. If the chip
-                starts with M1/M2/M3/M4, you&rsquo;re good. If it says &ldquo;Intel
-                Core,&rdquo; please use the web app at{' '}
-                <Link
-                  href="https://setnayan.com"
-                  className="text-terracotta underline-offset-4 hover:underline"
-                >
-                  setnayan.com
-                </Link>
-                .
-              </p>
-            </Card>
-          </div>
+              <Note data-reveal-item label="What you need">
+                <h3 className="text-xl font-semibold tracking-[-0.01em] text-ink">
+                  System requirements.
+                </h3>
+                <ul className="mt-4 divide-y divide-ink/8">
+                  <Req>Apple Silicon Mac (M1, M2, M3 or M4)</Req>
+                  <Req>macOS 11 Big Sur or newer</Req>
+                  <Req>An internet connection — it opens your account in a native window</Req>
+                </ul>
+                <p className="mt-4 text-sm text-ink/55">
+                  On an Intel Mac? Use{' '}
+                  <Link
+                    href="https://setnayan.com"
+                    className="text-terracotta underline-offset-4 hover:underline"
+                  >
+                    setnayan.com
+                  </Link>{' '}
+                  instead — same experience, no install.
+                </p>
+              </Note>
+            </div>
+          </RevealGroup>
         </div>
       </section>
 
-      <SiteFooter />
     </main>
   );
 }
 
-function DownloadCard({
-  filename,
-  sizeBytes,
-  label,
+function Value({
+  icon,
+  title,
+  body,
 }: {
-  filename: string;
-  sizeBytes: number;
-  label: string;
+  icon: React.ReactNode;
+  title: string;
+  body: string;
 }) {
   return (
-    <div className="mx-auto w-full max-w-md self-center rounded-3xl border border-ink/10 bg-cream p-6 shadow-[0_30px_80px_-40px_rgba(26,26,26,0.25)]">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-terracotta text-cream">
-            <Apple aria-hidden className="h-6 w-6" strokeWidth={1.75} />
-          </span>
-          <div>
-            <p className="text-sm font-semibold text-ink">Setnayan.app</p>
-            <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-              macOS &middot; Apple Silicon
-            </p>
-          </div>
-        </div>
-        <span className="rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
-          v{DESKTOP_RELEASE.version}
-        </span>
-      </div>
-
-      <dl className="mt-6 space-y-2 border-t border-ink/10 pt-4 text-sm">
-        <Row label="File">
-          <code className="font-mono text-xs text-ink/75">{filename}</code>
-        </Row>
-        <Row label="Size">{(sizeBytes / 1024 / 1024).toFixed(1)} MB</Row>
-        <Row label="Released">{DESKTOP_RELEASE.publishedAt}</Row>
-        <Row label="Verified by">SHA-256 + Tauri code signature</Row>
-      </dl>
-
-      {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-      <a
-        href="/api/download/mac"
-        className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry-600"
-      >
-        <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        {label}
-      </a>
-    </div>
-  );
-}
-
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-        {label}
-      </dt>
-      <dd className="text-right text-ink/80">{children}</dd>
+    <div data-reveal-item className="border-t border-ink/12 pt-6">
+      <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-terracotta/10 text-terracotta-700">
+        {icon}
+      </span>
+      <h3 className="mt-5 text-lg font-semibold tracking-[-0.01em] text-ink">{title}</h3>
+      <p className="mt-2 text-[15px] leading-relaxed text-ink/60">{body}</p>
     </div>
   );
 }
@@ -287,80 +248,47 @@ function Step({
   title,
   body,
 }: {
-  n: number;
+  n: string;
   title: string;
   body: React.ReactNode;
 }) {
   return (
-    <li className="rounded-xl border border-ink/10 bg-cream p-5">
-      <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-terracotta/15 font-mono text-xs font-semibold text-terracotta-700">
+    <li data-reveal-item className="border-t border-ink/12 pt-5">
+      <span className="block font-mono text-3xl font-semibold leading-none tracking-tight text-terracotta/35">
         {n}
-      </div>
-      <h3 className="text-base font-semibold tracking-tight text-ink">{title}</h3>
-      <p className="mt-1 text-sm text-ink/70">{body}</p>
+      </span>
+      <h3 className="mt-4 text-base font-semibold tracking-[-0.01em] text-ink">
+        {title}
+      </h3>
+      <p className="mt-1.5 text-sm leading-relaxed text-ink/60">{body}</p>
     </li>
   );
 }
 
-function Card({
-  Icon,
-  tone,
-  title,
+function Note({
+  label,
   children,
+  ...rest
 }: {
-  Icon: typeof ShieldAlert;
-  tone: 'amber' | 'cream';
-  title: string;
+  label: string;
   children: React.ReactNode;
-}) {
-  const toneClass =
-    tone === 'amber'
-      ? 'border-amber-300/60 bg-amber-50/80'
-      : 'border-ink/10 bg-cream';
+} & React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={`rounded-xl border p-6 ${toneClass}`}>
-      <div className="mb-3 flex items-center gap-3">
-        <span
-          className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${
-            tone === 'amber'
-              ? 'bg-amber-200/60 text-amber-900'
-              : 'bg-terracotta/10 text-terracotta'
-          }`}
-        >
-          <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-        </span>
-        <h3 className="text-base font-semibold tracking-tight text-ink">{title}</h3>
-      </div>
+    <div {...rest}>
+      <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.24em] text-terracotta">
+        {label}
+      </p>
       {children}
     </div>
   );
 }
 
-function SiteFooter() {
+function Req({ children }: { children: React.ReactNode }) {
   return (
-    <footer>
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-10 text-sm text-ink/55 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-2 text-ink hover:text-ink/80">
-          <Logo height={24} />
-          <span className="font-mono text-[11px] uppercase tracking-[0.2em]">
-            Setnayan &middot; setnayan.com
-          </span>
-        </Link>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-          <Link href="/" className="inline-flex items-center gap-1 hover:text-ink">
-            Home <ArrowRight aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-          </Link>
-          <Link href="/help" className="hover:text-ink">
-            Help
-          </Link>
-          <Link href="/privacy" className="hover:text-ink">
-            Privacy
-          </Link>
-          <Link href="/terms" className="hover:text-ink">
-            Terms
-          </Link>
-        </div>
-      </div>
-    </footer>
+    <li className="flex items-baseline gap-3 py-3 text-ink/70">
+      <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-terracotta" aria-hidden />
+      <span>{children}</span>
+    </li>
   );
 }
+

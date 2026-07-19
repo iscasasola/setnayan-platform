@@ -1,2 +1,5 @@
-// Loading shell mirroring the Schedule route (timeline block list).
-export { ListPageSkeleton as default } from '@/components/skeletons';
+import { FeedPageSkeleton } from '@/components/skeletons';
+
+export default function ScheduleLoading() {
+  return <FeedPageSkeleton items={5} />;
+}

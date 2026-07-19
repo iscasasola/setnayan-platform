@@ -13,6 +13,19 @@ export type RevealTemplate =
   | 'two-flap-horizontal'
   | 'church-doors'
   | 'veil-sheer';
+// 'gold-monogram' + 'molten-monogram' were RETIRED as openings 2026-06-22 — they
+// are now monogram-editor ANIMATIONS (the 'gold'/'molten' motion keys in
+// lib/monogram-motion.ts, played by HeroMonogram), not reveal openings.
+
+/**
+ * The FREE choice — no opening reveal at all; the content film plays straight
+ * away (the reveal templates are the premium "filter" layered on top). Stored
+ * in `events.std_reveal_template` as the string 'none' so a couple's explicit
+ * "no opening" is distinct from null ("not chosen → house default"), and is
+ * honoured even for couples who own the premium unlock. (owner 2026-06-18)
+ */
+export const NO_REVEAL = 'none' as const;
+export type RevealChoice = RevealTemplate | typeof NO_REVEAL;
 
 /** Veil templates lift/fold themselves clear (drag-driven); rigid ones swing open on tap. */
 export function isVeilTemplate(t: RevealTemplate): boolean {
@@ -47,15 +60,53 @@ export const REVEAL_ALIASES: Record<string, RevealTemplate> = {
   'veil-sheer': 'veil-sheer',
 };
 
-/** Ordered library for the dashboard chooser (label + family for grouping). */
+/**
+ * Ordered library for the dashboard chooser. `blurb` is a one-line plain-English
+ * description of HOW the opening moves — the previews are intentionally small +
+ * un-recordable (owner-locked 2026-06-18), so the blurb is what lets a couple
+ * tell the five openings apart. `motion` is a 2-3 word gesture summary used as a
+ * chip on each picker tile.
+ */
 export const REVEAL_LIBRARY: ReadonlyArray<{
   id: RevealTemplate;
   label: string;
   family: 'rigid' | 'veil';
+  blurb: string;
+  motion: string;
 }> = [
-  { id: 'four-flap', label: 'Four-flap envelope', family: 'rigid' },
-  { id: 'two-flap-vertical', label: 'Two-flap · side open', family: 'rigid' },
-  { id: 'two-flap-horizontal', label: 'Two-flap · top open', family: 'rigid' },
-  { id: 'church-doors', label: 'Church doors', family: 'rigid' },
-  { id: 'veil-sheer', label: 'Sheer bridal veil', family: 'veil' },
+  {
+    id: 'four-flap',
+    label: 'Four-flap envelope',
+    family: 'rigid',
+    blurb: 'A classic envelope — all four flaps unfold outward from the centre to reveal your film.',
+    motion: 'Flaps unfold',
+  },
+  {
+    id: 'two-flap-vertical',
+    label: 'Two-flap · side open',
+    family: 'rigid',
+    blurb: 'Two panels part to the left and right, like opening a card from the side.',
+    motion: 'Opens sideways',
+  },
+  {
+    id: 'two-flap-horizontal',
+    label: 'Two-flap · top open',
+    family: 'rigid',
+    blurb: 'Two panels swing up and down, opening from the middle like a top-fold note.',
+    motion: 'Opens up & down',
+  },
+  {
+    id: 'church-doors',
+    label: 'Church doors',
+    family: 'rigid',
+    blurb: 'Two tall doors swing open from the centre — a grand, ceremonial entrance.',
+    motion: 'Doors swing open',
+  },
+  {
+    id: 'veil-sheer',
+    label: 'Sheer bridal veil',
+    family: 'veil',
+    blurb: 'A soft, sheer veil lifts and floats away, uncovering your film beneath.',
+    motion: 'Veil lifts away',
+  },
 ];

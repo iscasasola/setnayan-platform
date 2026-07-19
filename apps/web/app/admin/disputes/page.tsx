@@ -1,9 +1,26 @@
-import { Gavel, Filter } from 'lucide-react';
+import { Gavel, Filter, ShieldCheck, PackageCheck } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
 import { resolveDispute } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
+import { ConfirmForm } from '@/app/_components/confirm-form';
+import {
+  fetchPolicyAcknowledgementsByVendor,
+  type PolicyAcknowledgement,
+} from '@/lib/vendor-service-payment-schedules.server';
+import {
+  fetchHandoversByVendor,
+  type HandoverEvidenceRow,
+} from '@/lib/booking-handovers.server';
+import {
+  VENDOR_TIERS,
+  asVendorTier,
+  TIER_LABEL,
+  type VendorTier,
+} from '@/lib/vendor-tier-caps';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Disputes · Admin' };
 
 /**
@@ -54,6 +71,8 @@ type DisputeRow = {
   resolved_at: string | null;
   resolution_notes: string | null;
   counts_toward_demotion: boolean;
+  vendor_contest: string | null;
+  vendor_contested_at: string | null;
   created_at: string;
 };
 
@@ -80,10 +99,13 @@ const STATUS_LABEL: Record<DisputeRow['status'], string> = {
   withdrawn: 'Withdrawn',
 };
 
+// Glass PR-8 (§ 3.4) — warm-semantic status tones; the stock red-*/warn-*/
+// violet-* scales are retired. `resolved_for_couple` uses info-slate
+// (--sn-info), the canonical replacement for the retired violet.
 const STATUS_TONE: Record<DisputeRow['status'], string> = {
-  open: 'bg-amber-100 text-amber-900',
-  resolved_for_vendor: 'bg-emerald-100 text-emerald-800',
-  resolved_for_couple: 'bg-violet-100 text-violet-800',
+  open: 'bg-[var(--sn-warning-soft)] text-[color:var(--sn-warning)]',
+  resolved_for_vendor: 'bg-[var(--sn-success-soft)] text-[color:var(--sn-success)]',
+  resolved_for_couple: 'bg-[var(--sn-info-soft)] text-[color:var(--sn-info)]',
   withdrawn: 'bg-ink/10 text-ink/60',
 };
 
@@ -122,6 +144,7 @@ type Props = {
 };
 
 export default async function AdminDisputesPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   // Default landing view = open queue. That's the surface the owner reaches
   // for first (what needs attention); resolved + withdrawn are historical.
@@ -135,7 +158,7 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
   let listQuery = admin
     .from('vendor_disputes')
     .select(
-      'dispute_id,public_id,vendor_profile_id,payout_id,order_id,opened_by_user_id,category,description,status,resolved_at,resolution_notes,counts_toward_demotion,created_at',
+      'dispute_id,public_id,vendor_profile_id,payout_id,order_id,opened_by_user_id,category,description,status,resolved_at,resolution_notes,counts_toward_demotion,vendor_contest,vendor_contested_at,created_at',
     )
     .order('created_at', { ascending: false })
     .limit(200);
@@ -164,7 +187,7 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
     vendorIds.length > 0
       ? admin
           .from('vendor_profiles')
-          .select('vendor_profile_id, business_name')
+          .select('vendor_profile_id, business_name, tier_state')
           .in('vendor_profile_id', vendorIds)
       : Promise.resolve({ data: [] }),
     openerIds.length > 0
@@ -176,11 +199,66 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
   ]);
 
   const vendorMap = new Map<string, string>();
+  // Priority-dispute sort — resolve each disputed vendor's tier_state so premium
+  // vendors' disputes surface first. Reuses the canonical `tier_state` enum +
+  // asVendorTier() normalizer other admin surfaces read (lib/vendor-tier-caps.ts).
+  // This is a READ-ONLY ordering concern; nothing here writes back.
+  const vendorTierMap = new Map<string, VendorTier>();
   for (const v of vendorData ?? []) {
     vendorMap.set(
       v.vendor_profile_id as string,
       ((v.business_name as string | null) ?? '').trim() || 'Unnamed vendor',
     );
+    vendorTierMap.set(
+      v.vendor_profile_id as string,
+      asVendorTier((v as { tier_state?: string | null }).tier_state),
+    );
+  }
+
+  // Tier priority rank — index into VENDOR_TIERS (free=0 … enterprise=highest),
+  // so enterprise > pro > solo > verified > free. A vendor with no resolved
+  // profile (e.g. deleted) defaults to 'free' via asVendorTier(undefined).
+  const tierRank = (vendorProfileId: string): number =>
+    VENDOR_TIERS.indexOf(vendorTierMap.get(vendorProfileId) ?? 'free');
+
+  // Stable re-order: tier rank DESC, then preserve the DB order the query
+  // already applied (created_at DESC). `rows` is server-controlled + capped at
+  // 200, so an in-memory sort is cheap and avoids a migration/RPC.
+  const sortedRows = rows
+    .map((r, i) => ({ r, i }))
+    .sort((a, b) => {
+      const rankDelta = tierRank(b.r.vendor_profile_id) - tierRank(a.r.vendor_profile_id);
+      return rankDelta !== 0 ? rankDelta : a.i - b.i;
+    })
+    .map((x) => x.r);
+
+  // No-Show Downpayment Protection — pull the FROZEN reservation-policy
+  // acknowledgements for every vendor in view, keyed by vendor_profile_id. These
+  // are the immutable evidence rows a forfeit dispute (esp. category=no_show)
+  // is adjudicated against. Admin-only surface (the layout already gates on
+  // is_admin), so the service-role read is in-bounds.
+  let policyAcksByVendor = new Map<string, PolicyAcknowledgement[]>();
+  try {
+    policyAcksByVendor = await fetchPolicyAcknowledgementsByVendor({
+      adminClient: admin,
+      vendorProfileIds: vendorIds,
+    });
+  } catch (e) {
+    logQueryError('AdminDisputesPage (policy acknowledgements)', e);
+  }
+
+  // Delivery Handover (Wave 4) — delivery + couple-acknowledgement state for
+  // every vendor in view, keyed by vendor_profile_id. Surfaced beside a dispute
+  // so support can see whether the vendor delivered and whether the couple
+  // confirmed receipt. Admin-only surface (layout gates is_admin).
+  let handoversByVendor = new Map<string, HandoverEvidenceRow[]>();
+  try {
+    handoversByVendor = await fetchHandoversByVendor({
+      adminClient: admin,
+      vendorProfileIds: vendorIds,
+    });
+  } catch (e) {
+    logQueryError('AdminDisputesPage (handovers)', e);
   }
 
   const openerMap = new Map<string, { name: string; email: string | null }>();
@@ -213,16 +291,17 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
+        <p className="sn-eye">Recourse · conflicts</p>
         <div className="flex items-center gap-2">
-          <Gavel className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-          <h1 className="text-2xl font-semibold tracking-tight">Disputes</h1>
+          <Gavel className="h-6 w-6 text-[color:var(--sn-gold-500)]" strokeWidth={1.75} />
+          <h1 className="sn-h1">Disputes</h1>
         </div>
-        <p className="text-sm text-ink/65">
+        <p className="max-w-2xl text-sm text-[color:var(--sn-ink-500)]">
           Couples and vendors can both open a dispute when a booking goes
           sideways. The queue shows the latest 200 matching the filters below,
-          newest first.
+          ordered by vendor tier (enterprise first) then newest.
         </p>
-        <p className="rounded-md border border-ink/10 bg-cream px-3 py-2 text-xs text-ink/65">
+        <p className="rounded-md border border-white/60 bg-white/70 px-3 py-2 text-xs text-[color:var(--sn-ink-500)]">
           Use <span className="font-semibold">Resolve</span> on any open row to
           record the outcome (couple / vendor / withdrawn) with a note. The
           opener is notified automatically. A standalone detail page with the
@@ -244,7 +323,14 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
       ) : null}
 
       <div className="mt-4">
-        <DisputesTable rows={rows} vendorMap={vendorMap} openerMap={openerMap} />
+        <DisputesTable
+          rows={sortedRows}
+          vendorMap={vendorMap}
+          vendorTierMap={vendorTierMap}
+          openerMap={openerMap}
+          policyAcksByVendor={policyAcksByVendor}
+          handoversByVendor={handoversByVendor}
+        />
       </div>
 
       <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
@@ -271,25 +357,29 @@ function StatsBanner({
   return (
     <section
       aria-label="Dispute counts this quarter"
-      className="mb-4 grid grid-cols-2 gap-3 rounded-xl border border-ink/10 bg-cream p-4 sm:grid-cols-4"
+      className="sn-tile mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4"
     >
-      <StatCell label="Open" value={stats.open} tone="bg-amber-100 text-amber-900" />
+      <StatCell
+        label="Open"
+        value={stats.open}
+        tone="bg-[var(--sn-warning-soft)] text-[color:var(--sn-warning)]"
+      />
       <StatCell
         label="Resolved · vendor"
         value={stats.resolved_for_vendor}
-        tone="bg-emerald-100 text-emerald-800"
+        tone="bg-[var(--sn-success-soft)] text-[color:var(--sn-success)]"
       />
       <StatCell
         label="Resolved · couple"
         value={stats.resolved_for_couple}
-        tone="bg-violet-100 text-violet-800"
+        tone="bg-[var(--sn-info-soft)] text-[color:var(--sn-info)]"
       />
       <StatCell
         label="Withdrawn"
         value={stats.withdrawn}
         tone="bg-ink/10 text-ink/60"
       />
-      <p className="col-span-2 mt-1 text-[11px] text-ink/55 sm:col-span-4">
+      <p className="col-span-2 mt-1 text-[11px] text-[color:var(--sn-ink-400)] sm:col-span-4">
         Counts for {quarterLabel} (current quarter).
       </p>
     </section>
@@ -312,7 +402,9 @@ function StatCell({
       >
         {label}
       </span>
-      <span className="text-2xl font-semibold tracking-tight text-ink">{value}</span>
+      <span className="font-mono text-2xl font-semibold tracking-tight tabular-nums text-[color:var(--sn-ink-900)]">
+        {value}
+      </span>
     </div>
   );
 }
@@ -327,7 +419,7 @@ function FilterStrip({
   return (
     <form
       method="get"
-      className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-3 sm:flex-row sm:items-center sm:gap-3"
+      className="sn-tile flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3"
       aria-label="Dispute filters"
     >
       <div className="flex items-center gap-2 text-ink/60">
@@ -372,16 +464,22 @@ function FilterStrip({
 function DisputesTable({
   rows,
   vendorMap,
+  vendorTierMap,
   openerMap,
+  policyAcksByVendor,
+  handoversByVendor,
 }: {
   rows: DisputeRow[];
   vendorMap: Map<string, string>;
+  vendorTierMap: Map<string, VendorTier>;
   openerMap: Map<string, { name: string; email: string | null }>;
+  policyAcksByVendor: Map<string, PolicyAcknowledgement[]>;
+  handoversByVendor: Map<string, HandoverEvidenceRow[]>;
 }) {
   if (rows.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-ink/15 bg-cream p-8 text-center">
-        <p className="text-sm text-ink/65">
+      <div className="rounded-card border border-dashed border-ink/15 bg-white/50 p-8 text-center">
+        <p className="text-sm text-[color:var(--sn-ink-500)]">
           No disputes yet — vendors and couples can both open one when a
           booking goes sideways.
         </p>
@@ -390,7 +488,7 @@ function DisputesTable({
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-ink/10 bg-cream">
+    <div className="sn-tile overflow-x-auto !p-0">
       <table className="w-full text-left text-sm">
         <thead className="bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
           <tr>
@@ -407,10 +505,16 @@ function DisputesTable({
         <tbody>
           {rows.map((r) => {
             const vendorName = vendorMap.get(r.vendor_profile_id) ?? 'Unnamed vendor';
+            const vendorTier = vendorTierMap.get(r.vendor_profile_id) ?? 'free';
             const opener = r.opened_by_user_id
               ? openerMap.get(r.opened_by_user_id)
               : null;
             const descPreview = truncate(r.description, 80);
+            // No-Show Downpayment Protection — frozen reservation-policy evidence
+            // for this vendor. Surfaced under the description so support can
+            // adjudicate a forfeit against immutable, acknowledged-at-lock terms.
+            const acks = policyAcksByVendor.get(r.vendor_profile_id) ?? [];
+            const handovers = handoversByVendor.get(r.vendor_profile_id) ?? [];
             return (
               <tr
                 key={r.dispute_id}
@@ -426,7 +530,10 @@ function DisputesTable({
                     </p>
                   ) : null}
                 </td>
-                <td className="px-3 py-3 font-medium text-ink">{vendorName}</td>
+                <td className="px-3 py-3 font-medium text-ink">
+                  <span className="block">{vendorName}</span>
+                  <TierChip tier={vendorTier} />
+                </td>
                 <td className="hidden px-3 py-3 md:table-cell">
                   {opener ? (
                     <>
@@ -446,6 +553,43 @@ function DisputesTable({
                 </td>
                 <td className="hidden px-3 py-3 text-ink/80 lg:table-cell">
                   <p title={r.description}>{descPreview}</p>
+                  {r.vendor_contest ? (
+                    <details className="mt-2">
+                      <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[11px] font-medium text-terracotta">
+                        <Gavel aria-hidden className="h-3 w-3" strokeWidth={2} />
+                        Vendor&apos;s response
+                      </summary>
+                      <p className="mt-1.5 whitespace-pre-wrap rounded-lg border border-terracotta/20 bg-terracotta/[0.04] p-2.5 text-[11px] text-ink/80">
+                        {r.vendor_contest}
+                      </p>
+                    </details>
+                  ) : null}
+                  {acks.length > 0 ? (
+                    <details className="mt-2">
+                      <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[11px] font-medium text-terracotta">
+                        <ShieldCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
+                        Reservation policy evidence ({acks.length})
+                      </summary>
+                      <ul className="mt-2 space-y-2">
+                        {acks.map((a) => (
+                          <PolicyEvidence key={a.ackId} ack={a} />
+                        ))}
+                      </ul>
+                    </details>
+                  ) : null}
+                  {handovers.length > 0 ? (
+                    <details className="mt-2">
+                      <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[11px] font-medium text-terracotta">
+                        <PackageCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
+                        Delivery handover ({handovers.length})
+                      </summary>
+                      <ul className="mt-2 space-y-2">
+                        {handovers.map((h) => (
+                          <HandoverEvidence key={h.handoverId} handover={h} />
+                        ))}
+                      </ul>
+                    </details>
+                  ) : null}
                 </td>
                 <td className="px-3 py-3">
                   <span
@@ -463,7 +607,13 @@ function DisputesTable({
                       <summary className="cursor-pointer select-none text-xs font-medium text-terracotta">
                         Resolve
                       </summary>
-                      <form action={resolveDispute} className="mt-2 space-y-2">
+                      <ConfirmForm
+                        action={resolveDispute}
+                        title="Apply this resolution?"
+                        confirmLabel="Apply resolution"
+                        message="This adjudicates the dispute — the decision is final, is recorded in the audit log, and notifies whoever opened it. It binds their next step (e.g. the agreed refund, reschedule, or substitute)."
+                        className="mt-2 space-y-2"
+                      >
                         <input type="hidden" name="dispute_id" value={r.dispute_id} />
                         <select
                           name="resolution"
@@ -486,10 +636,10 @@ function DisputesTable({
                           className="input-field text-xs"
                           aria-label="Resolution notes"
                         />
-                        <button type="submit" className="button-secondary text-xs">
+                        <SubmitButton pendingLabel="Applying…" className="button-secondary text-xs">
                           Apply resolution
-                        </button>
-                      </form>
+                        </SubmitButton>
+                      </ConfirmForm>
                     </details>
                   ) : (
                     <span
@@ -507,6 +657,130 @@ function DisputesTable({
       </table>
     </div>
   );
+}
+
+/**
+ * No-Show Downpayment Protection — one frozen reservation-policy acknowledgement
+ * rendered as immutable forfeit evidence in the admin dispute view. Shows the
+ * EXACT terms the couple acknowledged at lock + when, so support adjudicates a
+ * forfeit against the snapshot, not the (editable) live vendor template.
+ */
+function PolicyEvidence({ ack }: { ack: PolicyAcknowledgement }) {
+  const p = ack.snapshot;
+  const acknowledgedAt = (() => {
+    const d = new Date(ack.acknowledgedAt);
+    return Number.isNaN(d.getTime())
+      ? ack.acknowledgedAt
+      : d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+  })();
+  const amountLabel =
+    p?.downpayment_amount_php != null
+      ? `₱${Math.round(p.downpayment_amount_php).toLocaleString('en-PH')}`
+      : null;
+  return (
+    <li className="rounded-lg border border-terracotta/20 bg-terracotta/[0.04] p-2.5 text-[11px] text-ink/80">
+      <p className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-terracotta-700">
+        Acknowledged {acknowledgedAt}
+      </p>
+      <ul className="mt-1 space-y-0.5">
+        {p?.downpayment_non_refundable ? (
+          <li>
+            • Downpayment{amountLabel ? ` (${amountLabel})` : ''} non-refundable
+          </li>
+        ) : null}
+        {p?.no_show_forfeit ? <li>• No-show forfeits the downpayment</li> : null}
+        {p?.refund_window_days != null ? (
+          <li>• Refundable within {p.refund_window_days} day{p.refund_window_days === 1 ? '' : 's'} of booking</li>
+        ) : null}
+      </ul>
+      {p?.cancellation_terms ? (
+        <p className="mt-1 whitespace-pre-wrap border-t border-terracotta/15 pt-1 text-ink/65">
+          “{p.cancellation_terms}”
+        </p>
+      ) : null}
+    </li>
+  );
+}
+
+/**
+ * Delivery Handover — one vendor handover rendered as delivery/acknowledgement
+ * evidence in the admin dispute view. Shows what was delivered, when, and
+ * whether the couple confirmed receipt — so support sees the "did they deliver,
+ * did the couple confirm?" trail when adjudicating a quality/no-show dispute.
+ */
+function HandoverEvidence({ handover }: { handover: HandoverEvidenceRow }) {
+  const kindLabel =
+    handover.kind === 'gallery_link'
+      ? 'Gallery link'
+      : handover.kind === 'file'
+        ? 'Sample / proof'
+        : handover.kind === 'note'
+          ? 'Note'
+          : 'All delivered';
+  const deliveredAt = fmtPhDate(handover.deliveredAt);
+  const ackedAt = fmtPhDate(handover.coupleAcknowledgedAt);
+  return (
+    <li className="rounded-lg border border-terracotta/20 bg-terracotta/[0.04] p-2.5 text-[11px] text-ink/80">
+      <p className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-terracotta-700">
+        {kindLabel} · delivered {deliveredAt}
+      </p>
+      {handover.label ? <p className="mt-0.5 text-ink/70">{handover.label}</p> : null}
+      <p className="mt-1">
+        {handover.status === 'acknowledged' && ackedAt
+          ? `Couple confirmed receipt ${ackedAt}.`
+          : handover.status === 'disputed'
+            ? 'Marked disputed.'
+            : 'Awaiting couple confirmation.'}
+      </p>
+      {handover.kind === 'gallery_link' && handover.payload ? (
+        <a
+          href={handover.payload}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-0.5 inline-block text-terracotta underline"
+        >
+          open link
+        </a>
+      ) : null}
+    </li>
+  );
+}
+
+/**
+ * Priority-dispute sort — a compact tier badge under the vendor name so an admin
+ * can see at a glance which tier a disputed vendor is on (the queue is ordered
+ * enterprise → free, so premium disputes surface first). Tones step up with tier
+ * priority; label copy reuses the canonical TIER_LABEL map.
+ */
+// Glass PR-8 — tones step up with tier priority; violet (enterprise/custom) is
+// retired to info-slate (--sn-info, the canonical violet replacement), custom
+// being the strongest step (solid slate).
+const TIER_CHIP_TONE: Record<VendorTier, string> = {
+  enterprise: 'bg-[var(--sn-info-soft)] text-[color:var(--sn-info)]',
+  custom: 'bg-[color:var(--sn-info)] text-white',
+  pro: 'bg-[var(--sn-success-soft)] text-[color:var(--sn-success)]',
+  solo: 'bg-[var(--sn-warning-soft)] text-[color:var(--sn-warning)]',
+  verified: 'bg-ink/10 text-ink/70',
+  free: 'bg-ink/5 text-ink/55',
+};
+
+function TierChip({ tier }: { tier: VendorTier }) {
+  return (
+    <span
+      className={`mt-1 inline-flex w-fit items-center rounded-full px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.15em] ${TIER_CHIP_TONE[tier]}`}
+      title={`Vendor tier · ${TIER_LABEL[tier]}`}
+    >
+      {TIER_LABEL[tier]}
+    </span>
+  );
+}
+
+function fmtPhDate(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────

@@ -209,12 +209,12 @@ export function QrUploadForm({
           />
           <div className="flex-1 space-y-1 text-xs text-ink/70">
             {status.kind === 'detected' ? (
-              <p className="font-medium text-emerald-700">
+              <p className="font-medium text-success-700">
                 QR detected — cropped to a 512×512 square with a quiet-zone margin.
               </p>
             ) : null}
             {status.kind === 'fallback-center' ? (
-              <p className="font-medium text-amber-700">
+              <p className="font-medium text-warn-700">
                 Couldn&rsquo;t auto-detect a QR. Using a centered square crop —
                 review the preview before uploading.
               </p>
@@ -235,7 +235,7 @@ export function QrUploadForm({
       ) : null}
 
       {status.kind === 'raw-passthrough' ? (
-        <p className="rounded-md border border-amber-300/60 bg-amber-50 p-3 text-xs text-amber-800">
+        <p className="rounded-md border border-warn-300/60 bg-warn-50 p-3 text-xs text-warn-800">
           {status.reason}
         </p>
       ) : null}

@@ -6,6 +6,9 @@ import { createClient } from '@/lib/supabase/server';
 import { safeNext } from '@/lib/auth';
 import { stampLastLogin } from '@/lib/login-activity';
 import { accountHomePath } from '@/lib/account-security';
+import { linkGuestSessionToUser } from '@/lib/link-guest-account';
+import { captureEvent } from '@/lib/analytics';
+import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
 
 /**
  * "Stay signed in" cookie downgrade.
@@ -70,7 +73,14 @@ export async function signInWithPassword(formData: FormData) {
   }
 
   const supabase = await createClient();
-  const { error, data } = await supabase.auth.signInWithPassword({ email, password });
+  // Turnstile token (present only once captcha is configured + enabled). Empty
+  // → captchaOptions() yields {} → identical to the pre-captcha call.
+  const captchaToken = captchaTokenFromForm(formData);
+  const { error, data } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+    options: captchaOptions(captchaToken),
+  });
 
   if (error) {
     return redirect(
@@ -86,6 +96,23 @@ export async function signInWithPassword(formData: FormData) {
   // Stamp last_login_at — the "now" reference for the login-driven ghosting
   // check (lib/ghosting.ts). Fail-soft inside; never blocks the redirect.
   await stampLastLogin(supabase);
+
+  // Persistent guest accounts (PR-E): a returning user who just attended a new
+  // wedding as a guest (on this browser) gets that event linked so the photos
+  // surface in their Account hub. Best-effort — the helper never throws.
+  // Awaited so the DB write lands before the redirect tears down the request.
+  if (data.user?.id) {
+    const guestLink = await linkGuestSessionToUser(data.user.id);
+    if (guestLink.linked) {
+      void captureEvent({
+        distinctId: data.user.id,
+        event: 'guest_account_linked',
+        properties: { ref: 'guest' },
+      }).catch(() => {
+        // Telemetry failure never blocks. Silent.
+      });
+    }
+  }
 
   // Route directly to the account's home when no explicit destination was given —
   // avoids the double-hop where vendors landed on /dashboard then got bounced

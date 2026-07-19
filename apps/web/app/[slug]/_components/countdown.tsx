@@ -47,7 +47,7 @@ export function CountdownWidget({ targetIso }: Props) {
             <p className="font-serif text-3xl tabular-nums sm:text-5xl">
               {String(b.value).padStart(2, '0')}
             </p>
-            <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
+            <p className="mt-1 font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
               {b.label}
             </p>
           </div>

@@ -12,6 +12,8 @@ import {
   setSlotNoIcon,
   uploadSlotIcon,
 } from '../actions';
+import { SubmitButton } from '@/app/_components/submit-button';
+import { useSaveLoader } from '@/components/sd-loader';
 
 /**
  * /admin/menus editor — the admin-facing source of truth for the name + icon of
@@ -126,6 +128,7 @@ export function MenuRegistryEditor({
 
 function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string[] }) {
   const [pending, startTransition] = useTransition();
+  const save = useSaveLoader();
   const [editing, setEditing] = useState(false);
   const [labelDraft, setLabelDraft] = useState(slot.label);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -140,14 +143,20 @@ function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string
   function saveLabel() {
     const v = labelDraft;
     startTransition(async () => {
-      await setSlotLabel(slot.key, v);
+      await save.run(() => setSlotLabel(slot.key, v), {
+        steps: ['Saving the label'],
+        hint: 'Saving',
+      });
       setEditing(false);
     });
   }
 
   function pickIcon(name: string) {
     startTransition(async () => {
-      await setSlotLucideIcon(slot.key, name);
+      await save.run(() => setSlotLucideIcon(slot.key, name), {
+        steps: ['Saving the icon'],
+        hint: 'Saving',
+      });
       setPickerOpen(false);
       setIconQuery('');
     });
@@ -321,12 +330,12 @@ function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string
               required
               className="block w-full text-xs file:mr-2 file:rounded-md file:border-0 file:bg-terracotta/10 file:px-2 file:py-1 file:text-xs file:font-medium file:text-terracotta-700 hover:file:bg-terracotta/15"
             />
-            <button
-              type="submit"
+            <SubmitButton
               className="inline-flex shrink-0 items-center gap-1 rounded-md border border-ink/15 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-ink/5"
+              pendingLabel="Uploading…"
             >
               <Upload className="h-3.5 w-3.5" /> Upload
-            </button>
+            </SubmitButton>
           </form>
           <p className="mt-1.5 text-[10px] text-ink/40">
             SVG recommended (recolors with the menu). PNG/JPEG/WebP also work, max 512&nbsp;KB. Uploaded

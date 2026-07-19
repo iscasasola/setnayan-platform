@@ -254,7 +254,7 @@ export default async function VendorClaimPage({ params }: Props) {
       <ClaimShell>
         <article className="space-y-6">
           <header className="space-y-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-emerald-700">
+            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-success-700">
               Setnayan · Already a vendor
             </p>
             <h1 className="font-serif text-3xl font-medium leading-tight text-ink sm:text-4xl">
@@ -267,7 +267,7 @@ export default async function VendorClaimPage({ params }: Props) {
             </p>
           </header>
 
-          <div className="rounded-lg bg-emerald-50 p-4 text-sm text-ink/75 ring-1 ring-inset ring-emerald-200">
+          <div className="rounded-lg bg-success-50 p-4 text-sm text-ink/75 ring-1 ring-inset ring-success-200">
             <p className="leading-relaxed">
               On connect, this engagement appears in your Clients pipeline at the Inquiry
               stage. Chat unlocks immediately. <strong>No duplicate profile created.</strong>

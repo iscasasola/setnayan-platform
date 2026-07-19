@@ -23,7 +23,10 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { notifyVendorSubscriptionActivated } from '@/lib/subscription-purchase-notify';
+import {
+  notifyVendorSubscriptionActivated,
+  notifyVendorSubscriptionRejected,
+} from '@/lib/subscription-purchase-notify';
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -78,10 +81,11 @@ export async function rejectSubscription(formData: FormData): Promise<void> {
   }
   const supabase = await requireAdmin();
 
+  const rejectReason =
+    typeof reason === 'string' && reason.trim() ? reason.trim() : 'Payment not received';
   const { error } = await supabase.rpc('reject_vendor_subscription', {
     p_purchase_id: id,
-    p_reason:
-      typeof reason === 'string' && reason.trim() ? reason.trim() : 'Payment not received',
+    p_reason: rejectReason,
   });
   if (error) {
     redirect(
@@ -89,6 +93,9 @@ export async function rejectSubscription(formData: FormData): Promise<void> {
         encodeURIComponent('Could not reject: ' + (error.message ?? 'unknown error')),
     );
   }
+
+  // Tell the vendor their upgrade couldn't be confirmed + why. Fail-soft.
+  await notifyVendorSubscriptionRejected(id, rejectReason);
 
   revalidatePath('/admin/subscriptions');
   redirect('/admin/subscriptions?done=rejected');

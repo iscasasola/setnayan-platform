@@ -3,7 +3,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
 import { forceCompleteVendor, upholdNonDelivery } from './actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Completions · Admin' };
 
 /**
@@ -50,8 +52,8 @@ type AttentionRow = EventVendorRow & {
 };
 
 const STATUS_TONE: Record<string, string> = {
-  disputed: 'bg-rose-100 text-rose-800',
-  awaiting_vendor: 'bg-amber-100 text-amber-900',
+  disputed: 'bg-danger-100 text-danger-800',
+  awaiting_vendor: 'bg-warn-100 text-warn-900',
   vendor_marked: 'bg-sky-100 text-sky-800',
 };
 
@@ -68,6 +70,7 @@ function olderThan(iso: string | null, days: number, now: number): boolean {
 }
 
 export default async function AdminCompletionsPage() {
+  await requireAdmin();
   const admin = createAdminClient();
   const now = Date.now();
 
@@ -160,7 +163,7 @@ export default async function AdminCompletionsPage() {
           long-stuck handshakes. <span className="font-semibold">{disputedCount}</span> open{' '}
           {disputedCount === 1 ? 'dispute' : 'disputes'} · {attention.length} total needing attention.
         </p>
-        <p className="rounded-md border border-ink/10 bg-cream px-3 py-2 text-xs text-ink/65">
+        <p className="rounded-md border border-white/60 bg-white/70 px-3 py-2 text-xs text-ink/65">
           <span className="font-semibold">Force-complete</span> unlocks the couple&apos;s review +
           recommendation (use when the service was delivered and the handshake just stalled).{' '}
           <span className="font-semibold">Uphold non-delivery</span> keeps the review closed (use when
@@ -196,7 +199,7 @@ function CompletionsTable({
 }) {
   if (rows.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-ink/15 bg-cream p-8 text-center">
+      <div className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center">
         <p className="text-sm text-ink/65">
           Nothing needs attention — no open disputes and no stuck completions.
         </p>
@@ -205,7 +208,7 @@ function CompletionsTable({
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-ink/10 bg-cream">
+    <div className="sn-tile overflow-x-auto !p-0">
       <table className="w-full text-left text-sm">
         <thead className="bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
           <tr>
@@ -261,7 +264,7 @@ function CompletionsTable({
                 <td className="px-3 py-3 align-top">
                   <div className="flex flex-col gap-2">
                     <details className="min-w-[13rem]">
-                      <summary className="cursor-pointer select-none text-xs font-medium text-emerald-700">
+                      <summary className="cursor-pointer select-none text-xs font-medium text-success-700">
                         Force-complete
                       </summary>
                       <form action={forceCompleteVendor} className="mt-2 space-y-2">
@@ -274,14 +277,14 @@ function CompletionsTable({
                           className="input-field text-xs"
                           aria-label="Force-complete note"
                         />
-                        <button type="submit" className="button-secondary text-xs">
+                        <SubmitButton pendingLabel="Marking…" className="button-secondary text-xs">
                           Mark as delivered
-                        </button>
+                        </SubmitButton>
                       </form>
                     </details>
                     {r.reason === 'disputed' ? (
                       <details className="min-w-[13rem]">
-                        <summary className="cursor-pointer select-none text-xs font-medium text-rose-700">
+                        <summary className="cursor-pointer select-none text-xs font-medium text-danger-700">
                           Uphold non-delivery
                         </summary>
                         <form action={upholdNonDelivery} className="mt-2 space-y-2">
@@ -295,9 +298,9 @@ function CompletionsTable({
                             className="input-field text-xs"
                             aria-label="Uphold note"
                           />
-                          <button type="submit" className="button-secondary text-xs">
+                          <SubmitButton pendingLabel="Applying…" className="button-secondary text-xs">
                             Keep review closed
-                          </button>
+                          </SubmitButton>
                         </form>
                       </details>
                     ) : null}

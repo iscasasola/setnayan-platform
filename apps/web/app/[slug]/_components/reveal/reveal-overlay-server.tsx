@@ -3,6 +3,7 @@ import { fetchRevealConfig } from '@/lib/reveal-config';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventStdOpeningsActive } from '@/lib/std-openings';
 import { RevealOverlay } from './reveal-overlay';
+import { StdTouchGlow } from './std-touch-glow';
 
 type Props = Omit<ComponentProps<typeof RevealOverlay>, 'config' | 'premiumUnlocked'> & {
   /** Event whose premium-openings ownership gates the reveal (PR4 P5). */
@@ -26,12 +27,25 @@ export async function RevealOverlayServer({ eventId, ...props }: Props) {
     props.enabled && !config.enabled && eventId
       ? await eventStdOpeningsActive(createAdminClient(), eventId)
       : false;
+  const glow = config.touchGlow;
   return (
-    <RevealOverlay
-      {...props}
-      petalsColor={props.petalsColor ?? config.petalsColor}
-      config={config}
-      premiumUnlocked={premiumUnlocked}
-    />
+    <>
+      {/* Press-to-glow runs for the whole Save-the-Date phase (`enabled`) when
+          the admin has it on — independent of whether the premium reveal shows,
+          so it brightens both the reveal and the bare film underneath. */}
+      {props.enabled && glow.enabled ? (
+        <StdTouchGlow
+          color={glow.color}
+          intensity={glow.intensity}
+          size={glow.size}
+        />
+      ) : null}
+      <RevealOverlay
+        {...props}
+        petalsColor={props.petalsColor ?? config.petalsColor}
+        config={config}
+        premiumUnlocked={premiumUnlocked}
+      />
+    </>
   );
 }

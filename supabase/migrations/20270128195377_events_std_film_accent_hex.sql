@@ -1,0 +1,14 @@
+-- events_std_film_accent_hex
+-- Created via `pnpm migration:new`. Prefix auto-allocated to sort AFTER every
+-- existing migration. KEEP THIS MIGRATION IDEMPOTENT (it may be re-applied):
+--   • ALTER TABLE … ADD COLUMN IF NOT EXISTS …
+--
+-- Save-the-Date film accent colour (iteration 0024). The film's "Add to
+-- calendar" button + accent marks used to be a hardcoded mulberry (lib/
+-- std-themes.ts SHARED.accentBg). The accent now DEFAULTS to the couple's
+-- Mood-Board palette (resolved server-side: stdAccentFromPalette → a deep,
+-- button-legible swatch, AA vs white) and this column is the couple's MANUAL
+-- override set in the Save-the-Date builder. NULL = follow the Mood Board (then
+-- brand mulberry as the last-resort fallback). Stored as a `#rrggbb` hex.
+-- Owner 2026-06-19: "moodboard is good and also manual color."
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS std_film_accent_hex text;

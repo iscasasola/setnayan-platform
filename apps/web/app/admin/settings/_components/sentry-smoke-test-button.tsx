@@ -71,20 +71,20 @@ export function SentrySmokeTestButton() {
       </div>
 
       {result && result.ok && (
-        <div className="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+        <div className="rounded border border-success-200 bg-success-50 p-3 text-sm text-success-900">
           <strong>Smoke test fired ✓</strong>
-          <div className="mt-1 text-xs text-emerald-700/80">
+          <div className="mt-1 text-xs text-success-700/80">
             Check Sentry dashboard + alert email within 60s.
           </div>
-          <div className="mt-2 grid gap-1 font-mono text-xs text-emerald-900/80">
+          <div className="mt-2 grid gap-1 font-mono text-xs text-success-900/80">
             <span>
-              trace_id: <code className="rounded bg-emerald-100/60 px-1 py-0.5">{result.traceId}</code>
+              trace_id: <code className="rounded bg-success-100/60 px-1 py-0.5">{result.traceId}</code>
             </span>
             <span>
-              initiated_by: <code className="rounded bg-emerald-100/60 px-1 py-0.5">{result.initiatedBy}</code>
+              initiated_by: <code className="rounded bg-success-100/60 px-1 py-0.5">{result.initiatedBy}</code>
             </span>
           </div>
-          <ol className="mt-3 list-decimal space-y-0.5 pl-5 text-xs text-emerald-900/80">
+          <ol className="mt-3 list-decimal space-y-0.5 pl-5 text-xs text-success-900/80">
             <li>Open the Sentry project dashboard.</li>
             <li>
               Search by <code>{result.traceId}</code> — error should appear within 60s.
@@ -95,7 +95,7 @@ export function SentrySmokeTestButton() {
       )}
 
       {result && !result.ok && (
-        <div className="rounded border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
+        <div className="rounded border border-danger-200 bg-danger-50 p-3 text-sm text-danger-900">
           <strong>Smoke test failed</strong>
           <div className="mt-1 text-xs">HTTP {result.status}: {result.error}</div>
         </div>

@@ -40,6 +40,7 @@ import { setPapicStorageDrive, setPapicStorageR2 } from './actions';
 import { resolveStoredWindow, formatWindowSummary } from '@/lib/papic-window';
 import PapicWindowPicker from './papic-window-picker';
 import StylePicker from './style-picker';
+import QualityPicker from './quality-picker';
 import {
   fetchCameraRates,
   isPapicUncapped,
@@ -184,6 +185,19 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     .maybeSingle();
   const papicStyle =
     (styleRow as { papic_style?: string } | null)?.papic_style ?? 'ORIG';
+
+  // Per-event photo fidelity tier (brief PR-4) — the WRITE seam's current
+  // state. Read defensively like papic_style: the column lands in migration
+  // 20270825539466, so a pre-migration DB errors this select and we keep the
+  // full_res default (today's behavior) — the page never breaks on the column.
+  const { data: qualityRow } = await supabase
+    .from('events')
+    .select('papic_quality_tier')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const papicQualityTier =
+    (qualityRow as { papic_quality_tier?: string } | null)
+      ?.papic_quality_tier ?? 'full_res';
 
   const [grantRaw, ownsPapicSeats] = await Promise.all([
     supabase
@@ -527,6 +541,31 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         <StylePicker eventId={eventId} current={papicStyle} />
       </section>
 
+      {/* Photo quality — the per-event fidelity tier (brief PR-4). Writes the
+          SAME events.papic_quality_tier column the capture ingest reads, so
+          what the couple picks here is exactly what ingest applies. Weddings
+          get the Optimal (~12 MP) recommendation. */}
+      <section className="space-y-4 rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+        <div className="space-y-1.5">
+          <p className="flex items-center gap-2 text-lg font-semibold tracking-tight text-ink">
+            <Camera aria-hidden className="h-5 w-5 text-mulberry" strokeWidth={1.75} />
+            Photo quality
+          </p>
+          <p className="max-w-prose text-sm text-ink/65">
+            Choose how your event&rsquo;s photos are stored. Optimal keeps
+            phone-native sharpness in lighter files; Full resolution keeps
+            every pixel exactly as uploaded.
+          </p>
+        </div>
+        <QualityPicker
+          eventId={eventId}
+          current={papicQualityTier}
+          recommendOptimal={
+            ((event as Record<string, unknown>).event_type as string | null) ===
+            'wedding'
+          }
+        />
+      </section>
 
       {/* Storage. */}
       <StorageChoiceCard

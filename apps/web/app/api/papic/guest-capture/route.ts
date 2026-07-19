@@ -289,6 +289,22 @@ export async function POST(req: Request) {
     // projects), THEN the wall gate. The capture RPC doesn't return the row
     // id, so resolve it by the (unique) r2 ref before ingesting.
     after(async () => {
+      // Per-event fidelity tier (brief PR-4): the ingest READ seam of the
+      // single `events.papic_quality_tier` column the setup surface writes.
+      // Runs FIRST so derivatives / Drive / downloads flow from the tiered
+      // original. STILLS only; full_res / legacy / pre-migration rows are a
+      // strict no-op. Best-effort — the module never throws. (The NSFW screen
+      // below classifies the in-memory bytes, so it is unaffected either way.)
+      if (!isClip) {
+        try {
+          const { applyEventFidelityToOriginal } = await import(
+            '@/lib/papic-ingest-fidelity'
+          );
+          await applyEventFidelityToOriginal(session.event_id, r2Ref);
+        } catch {
+          // best-effort — fidelity never breaks a capture
+        }
+      }
       // screenCapture classifies the image proxy: photo bytes directly, or — for
       // a clip — it swaps to the row's poster_r2_key and reads that from R2 (the
       // video bytes are never classified). So we hand it the photo bytes; for a

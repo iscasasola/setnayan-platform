@@ -30,6 +30,7 @@ import {
   type LimitedTier,
 } from '@/lib/papic-limited';
 import { resolvePapicWindow, formatWindowSummary } from '@/lib/papic-window';
+import { PAPIC_FIDELITY_VALUES } from '@/lib/papic-fidelity';
 
 // Iteration 0012 Papic — storage-target server actions.
 //
@@ -152,6 +153,45 @@ export async function setPapicStyle(formData: FormData) {
 
   revalidatePath(`/dashboard/${eventId}/studio/papic`);
   redirect(`/dashboard/${eventId}/studio/papic?style_set=${style}`);
+}
+
+/**
+ * Set the per-event Papic photo fidelity tier (brief PR-4) — the WRITE seam of
+ * the single `events.papic_quality_tier` column the capture ingest reads
+ * (lib/papic-ingest-fidelity.ts). Couple-only (getCoupleEventId); the value is
+ * validated against the shared PAPIC_FIDELITY_VALUES vocabulary (mirrors the
+ * column CHECK) so a tampered form can't write an off-list value. Applies to
+ * photos captured AFTER the change — existing photos are never re-processed.
+ */
+export async function setPapicQualityTier(formData: FormData) {
+  const result = await getCoupleEventId(formData.get('event_id'));
+  if (!result.ok) {
+    redirect(result.redirectTo);
+  }
+  const { eventId } = result;
+
+  const raw = formData.get('quality_tier');
+  const tier = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+  if (!(PAPIC_FIDELITY_VALUES as readonly string[]).includes(tier)) {
+    redirect(`/dashboard/${eventId}/studio/papic?quality_error=invalid`);
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('events')
+    .update({ papic_quality_tier: tier })
+    .eq('event_id', eventId);
+
+  if (error) {
+    redirect(
+      `/dashboard/${eventId}/studio/papic?quality_error=${encodeURIComponent(
+        error.message.slice(0, 64),
+      )}`,
+    );
+  }
+
+  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  redirect(`/dashboard/${eventId}/studio/papic?quality_set=${tier}`);
 }
 
 /**

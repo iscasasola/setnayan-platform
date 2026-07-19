@@ -27,6 +27,7 @@ import { AppInitSplash } from './_components/app-init-splash';
 import { SiteChrome } from './_components/marketing/site-chrome';
 import { SiteFooterChrome } from './_components/marketing/site-footer-chrome';
 import { getNavSlotMap } from '@/lib/nav-registry';
+import { ZoomGuard } from './_components/zoom-guard';
 import { Providers } from './providers';
 import { themeBootstrapScript } from './_components/theme-provider';
 import {
@@ -399,6 +400,18 @@ const organizationJsonLd = {
 // gets a dark chrome that mismatches the light page.
 // PWA-1 (2026-06-21): was #FFFFFF (pure white) while the manifest was #FAF7F2
 // and the painted surface is #FBFBFA — three near-whites reconciled to one.
+// Native-app feel (owner directive 2026-06-15: "disable zoom on the whole app
+// except the seat-plan touch/drag area") is implemented WITHOUT touching this
+// meta. `maximumScale: 1` / `userScalable: false` here would fail the
+// Lighthouse `meta-viewport` accessibility audit (weight 10 → every page drops
+// below the CI ≥0.9 gate — the exact red check on PR #1472), and iOS ignores
+// it for the deliberate pinch anyway. Instead:
+//   - Android/Chromium pinch  → `touch-action: pan-x pan-y` on html (globals.css)
+//   - iOS pinch               → <ZoomGuard/> prevents WebKit gesturestart
+//   - iOS input focus-zoom    → 16px input floor (globals.css, !important)
+// The seat-plan editor canvas keeps its own gestures via [data-allow-zoom].
+// ⚠ Trades away WCAG 1.4.4 browser pinch-zoom by owner decision; OS-level zoom
+// (iOS/Android Accessibility → Zoom) remains as the user fallback.
 export const viewport: Viewport = {
   themeColor: '#FBFBFA',
   width: 'device-width',
@@ -537,6 +550,9 @@ export default async function RootLayout({
           </div>
         </div>
         <AppInitSplash />
+        {/* Native-app zoom suppression (pinch-zoom off app-wide; seat-plan
+            canvas opts back in via [data-allow-zoom]). See _components/zoom-guard.tsx. */}
+        <ZoomGuard />
         {/* Global top loading bar — the future-proof catch-all that shows a
             loading indicator on EVERY route navigation (incl. routes without
             their own loading.tsx, and any added later). Pure client → no

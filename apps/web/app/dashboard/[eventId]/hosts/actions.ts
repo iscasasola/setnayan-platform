@@ -15,6 +15,7 @@ import {
   type RoleSubtype,
 } from '@/lib/event-moderators';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
+import { stampCoordinatorConsentRevoked } from '@/lib/coordinator-consent-revoke';
 
 // Iteration 0048 — V1 multi-host invite server actions.
 //
@@ -344,6 +345,11 @@ export async function removeHost(formData: FormData) {
       .eq('member_type', 'coordinator');
   }
 
+  // Close the RA 10173 audit loop (corpus Coordinator_Whats_Next § 4): the
+  // consent recorded at invite time is now revoked. Best-effort no-op when no
+  // consent row exists (e.g. the gate flag was off at invite time).
+  await stampCoordinatorConsentRevoked(admin, eventId, moderatorId);
+
   revalidatePath(`/dashboard/${eventId}/hosts`);
   redirect(`/dashboard/${eventId}/hosts?host_removed=1`);
 }
@@ -374,6 +380,11 @@ export async function revokeHostInvite(formData: FormData) {
     })
     .eq('moderator_id', moderatorId)
     .eq('event_id', eventId);
+
+  // Close the RA 10173 audit loop (corpus Coordinator_Whats_Next § 4): a
+  // revoked pending invite ends the consented share before access ever
+  // began. Best-effort no-op when no consent row exists.
+  await stampCoordinatorConsentRevoked(admin, eventId, moderatorId);
 
   revalidatePath(`/dashboard/${eventId}/hosts`);
   redirect(`/dashboard/${eventId}/hosts?invite_revoked=1`);

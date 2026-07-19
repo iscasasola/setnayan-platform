@@ -1,12 +1,16 @@
 import Link from 'next/link';
 import { ClipboardList } from 'lucide-react';
 import { notFound, redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { sweepGuardNotifications } from '@/lib/setnayan-ai-notify';
 import { getLifecyclePhase } from '@/lib/day-of-mode';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { isReferralProgramEnabled } from '@/lib/platform-settings';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { getDashboardShell } from '@/lib/dashboard-shell';
 import { countUnreadMessages } from '@/lib/chat';
+import { countGuestsByEvent } from '@/lib/guests';
 import { getLocale, makeT } from '@/lib/i18n';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
@@ -17,8 +21,13 @@ import { CustomerBottomNav } from './_components/customer-bottom-nav';
 import { CustomerNavFab } from './_components/customer-nav-fab';
 import { CustomerSectionSubnav } from './_components/customer-section-subnav';
 import { getNavSlotMap } from '@/lib/nav-registry';
-import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
+import {
+  AccountSwitcher,
+  SwitcherPlaqueTrigger,
+} from '@/app/_components/account-switcher/account-switcher';
 import { DoorwaySidebarHeader } from '@/app/_components/nav/doorway-sidebar-header';
+import { eventInitials } from '@/lib/event-initials';
+import { EventMonogram } from '@/app/_components/event-monogram';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 
@@ -40,7 +49,7 @@ type Props = {
  * BottomNav.
  *
  * STRUCTURE: SidebarShell owns the desktop layout split (sidebar at lg+,
- * main content area with offset). topBar slot carries the EventSwitcher
+ * main content area with offset). topBar slot carries the AccountSwitcher
  * + utility cluster (Marketplace link · role-switch pill · unread bell ·
  * profile menu). Mobile chrome (CustomerBottomNav at bottom) is rendered
  * as a sibling of SidebarShell — both auto-hide / show via their own
@@ -48,7 +57,7 @@ type Props = {
  *
  * RETIRED from the previous layout shape:
  *   - Per-instance sticky top strip rendered inline. SidebarShell now
- *     owns the sticky top-bar slot; we just inject the EventSwitcher +
+ *     owns the sticky top-bar slot; we just inject the AccountSwitcher +
  *     utilities into it.
  *   - <BottomNav> from ./_components/bottom-nav.tsx (legacy 5-tab pill +
  *     desktop sidebar variant). The new CustomerBottomNav uses the shared
@@ -147,8 +156,6 @@ export default async function EventLayout({ children, params }: Props) {
     isAnonymous: !!user.is_anonymous,
     photoUrl: null,
     events: [],
-    gallery: [],
-    favorites: [],
     context: { hasVendor: false, vendorName: null, isAdmin: false },
   };
   const [
@@ -157,12 +164,13 @@ export default async function EventLayout({ children, params }: Props) {
     unreadMessages,
     locale,
     switcherData,
+    guestCount,
   ] = await Promise.all([
     getDashboardShell(user.id),
     (async () => {
       try {
         const fullSelect =
-          'event_id, public_id, display_name, event_date, archived, event_type, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style, monogram_custom_svg, monogram_uploaded_svg, cleared_at';
+          'event_id, public_id, display_name, event_date, archived, event_type, slug, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style, monogram_custom_svg, monogram_uploaded_svg, cleared_at';
         const fullRes = await supabase
           .from('events')
           .select(fullSelect)
@@ -214,6 +222,10 @@ export default async function EventLayout({ children, params }: Props) {
       console.error('[AccountSwitcher] data fetch failed:', err);
       return minimalSwitcherFallback;
     }),
+    // Guest head-count → the sidebar Guests badge. Lean HEAD count, fully
+    // fail-soft (returns null on any error → the badge is simply omitted, never
+    // fabricated). Same belt-and-braces .catch as every other chrome fetcher.
+    countGuestsByEvent(supabase, eventId).catch(() => null),
   ]);
   // Log silent SELECT errors before falling through to notFound().
   // Swapped from .single() (which sets PGRST116 "0 rows" as an error)
@@ -234,6 +246,15 @@ export default async function EventLayout({ children, params }: Props) {
   const event = eventRes.data;
   if (!event) notFound();
 
+  // Setnayan AI guard sweep (guards-notify, 2026-07-09) — the cron-free lazy
+  // invocation (house pattern: sweepExpiredConcierge / runLoginGhostingCheck).
+  // Runs post-response via after() so it never delays a render; internally
+  // throttled to once per event per 6h via the setnayan_ai_guard_log
+  // '__sweep__' row (the common case exits after one cheap query), gated on
+  // isSetnayanAiActiveForUser, and fully fail-soft. Mounted in the LAYOUT so
+  // any event-scoped page visit keeps the guards live — not just the Overview.
+  after(() => sweepGuardNotifications(eventId));
+
   // Event Lifecycle Menu (2026-06-16): the bottom-nav roster swaps by lifecycle
   // phase (Plan → Day-of → After). Computed SERVER-SIDE so there's no client
   // Date.now() / hydration flash. `getLifecyclePhase` uses isEventDayActive
@@ -253,9 +274,13 @@ export default async function EventLayout({ children, params }: Props) {
   // navHideKeys is [] → byte-identical. resolveProfile is React-cached + degrades
   // to a hard-coded profile on any DB hiccup.
   const profile = await resolveProfile((event.event_type as string | null) ?? 'wedding');
+  // Couple referral program — hidden from every nav surface (sidebar, bottom
+  // nav, sub-nav) unless an admin has turned the program on (master toggle).
+  const referralEnabled = await isReferralProgramEnabled();
   const navHideKeys = [
     ...(profile.marketplaceEnabled ? [] : ['explore']),
     ...(surfaceEnabled(profile, 'budget') ? [] : ['budget']),
+    ...(referralEnabled ? [] : ['refer']),
   ];
   // Gates the Studio "Launch" child (preview + go-live) to event types whose
   // profile enables the public website (weddings today). Threaded to the
@@ -268,8 +293,45 @@ export default async function EventLayout({ children, params }: Props) {
 
   const tr = makeT(locale);
 
+  // Event identity plaque meta line — "{Type} · {short date}" for the rail's
+  // SwitcherPlaqueTrigger (DoorwaySidebarHeader identity slot). Formatted
+  // server-side so the mono date never hydration-splits on timezone. Date
+  // omitted when unset. (The plaque's own countdown lives in the dashboard
+  // body; this is just the plaque label.)
+  const plaqueTypeLabel = ((event.event_type as string | null) ?? 'wedding')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+  const plaqueDate = (event.event_date as string | null) ?? null;
+  const plaqueDateShort = plaqueDate
+    ? new Intl.DateTimeFormat('en-PH', { month: 'short', day: 'numeric' }).format(
+        new Date(`${plaqueDate}T00:00:00`),
+      )
+    : null;
+  const eventPlaqueMeta = plaqueDateShort
+    ? `${plaqueTypeLabel} · ${plaqueDateShort}`
+    : plaqueTypeLabel;
+
+  // Plaque title MUST always resolve (council acceptance criterion,
+  // 2026-07-16): the plaque trigger is the couple desktop's ONLY path to
+  // sign-out / profile / Setnayan AI (this top bar has no sign-out and its
+  // AccountSwitcher pill is lg:hidden). An unnamed draft event falls back to
+  // the type label — never render no trigger.
+  const plaqueName =
+    ((event.display_name as string | null) ?? '').trim() || `Your ${plaqueTypeLabel}`;
+  // The couple's EFFECTIVE mark for the plaque chip — same `uploaded ?? custom`
+  // precedence every other surface resolves (hero, QR centre, save-the-date).
+  // Both columns are already in this layout's select; only the chip ignored them.
+  const plaqueMarkSvg =
+    (typeof event.monogram_uploaded_svg === 'string' && event.monogram_uploaded_svg.trim()
+      ? (event.monogram_uploaded_svg as string)
+      : null) ??
+    (typeof event.monogram_custom_svg === 'string' && event.monogram_custom_svg.trim()
+      ? (event.monogram_custom_svg as string)
+      : null);
+  const homeLabel = 'Home · all your events';
+
   // Top bar lives inside SidebarShell's topBar slot. Carries the event-
-  // scoped utilities cluster — EventSwitcher (left), Marketplace + role-
+  // scoped utilities cluster — AccountSwitcher (left), Marketplace + role-
   // switch + unread bell + profile menu (right). Pre-Phase 1 this sat
   // inside a <div className="sticky top-0 z-20 backdrop-blur"> wrapper
   // owned by the layout; now SidebarShell owns the sticky chrome and we
@@ -281,7 +343,7 @@ export default async function EventLayout({ children, params }: Props) {
       {phase === 'dayof' ? (
         <Link
           href={`/dashboard/${eventId}/more`}
-          className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream/80 px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-cream hover:text-ink lg:hidden"
+          className="inline-flex items-center gap-1.5 rounded-full border border-white/60 bg-white/60 px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-white/80 hover:text-ink lg:hidden"
         >
           <ClipboardList aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Planning
@@ -300,9 +362,10 @@ export default async function EventLayout({ children, params }: Props) {
         ariaUnreadSuffix="unread"
       />
       {/* AccountSwitcher — mobile only, rightmost corner of the top bar.
-          Desktop uses AccountSwitcherStandalone at the top of the sidebar. */}
+          Desktop opens the same panel from the SwitcherPlaqueTrigger event
+          plaque in the sidebar header (Plaque-as-Menu, council 2026-07-16). */}
       <div className="lg:hidden">
-        <AccountSwitcher data={switcherData} />
+        <AccountSwitcher data={switcherData} homeLabel={homeLabel} />
       </div>
     </div>
   );
@@ -322,7 +385,49 @@ export default async function EventLayout({ children, params }: Props) {
   return (
     <>
       <SidebarShell
-        sidebarHeader={<DoorwaySidebarHeader label="Planning" switcherData={switcherData} />}
+        sidebarHeader={
+          <DoorwaySidebarHeader
+            label="Planning"
+            accentColor="var(--m-sidebar-accent)"
+            identity={
+              <SwitcherPlaqueTrigger
+                data={switcherData}
+                chip={
+                  // The plaque chip shows the couple's REAL mark when they have
+                  // one — restoring the owner lock 2026-06-15 ("show the custom
+                  // SVG everywhere … the chrome icon matches the website hero;
+                  // no letters-in-chrome / SVG-on-hero split"), which the
+                  // Plaque-as-Menu redesign (#3282) regressed by hardcoding
+                  // text initials. The council locked the plaque's INTERACTION
+                  // grammar, not its chip content — the vendor doorway already
+                  // passes a <VendorAvatar> here, so a component chip is the
+                  // established pattern. EventMonogram brings its own cream
+                  // tile + object-contain, so the mark reads at 36px instead of
+                  // going dark-on-bronze. Precedence mirrors every other
+                  // surface: uploaded ?? custom. No mark → initials, unchanged.
+                  plaqueMarkSvg ? (
+                    <EventMonogram
+                      event={{
+                        display_name: event.display_name as string | null,
+                        monogram_text: event.monogram_text as string | null,
+                        monogram_color: event.monogram_color as string | null,
+                        monogram_custom_svg: plaqueMarkSvg,
+                      }}
+                      size="md"
+                      shape="square"
+                    />
+                  ) : (
+                    eventInitials(plaqueName, (event.monogram_text as string | null) ?? null)
+                  )
+                }
+                title={plaqueName}
+                metaLine={eventPlaqueMeta}
+                ariaLabel={`${plaqueName} — account menu`}
+                homeLabel={homeLabel}
+              />
+            }
+          />
+        }
         sidebar={
           <CustomerSidebar
             eventId={eventId}
@@ -331,6 +436,9 @@ export default async function EventLayout({ children, params }: Props) {
             hideKeys={navHideKeys}
             websiteEnabled={websiteEnabled}
             monogramEnabled={monogramEnabled}
+            slug={(event.slug as string | null) ?? null}
+            guestCount={guestCount}
+            unreadMessages={unreadMessages}
           />
         }
         topBar={topBar}
@@ -371,7 +479,7 @@ export default async function EventLayout({ children, params }: Props) {
           the server-built panel, and the bottom nav collapses to icons-only while
           it's docked. Self-gates to null outside any menu's section. eventDate
           drives the Guests Day-of time-gate. */}
-      <CustomerSectionSubnav eventId={eventId} eventDate={(event.event_date as string | null) ?? null} navSlots={navSlots} phase={phase} hideKeys={navHideKeys} websiteEnabled={websiteEnabled} />
+      <CustomerSectionSubnav eventId={eventId} eventDate={(event.event_date as string | null) ?? null} navSlots={navSlots} phase={phase} hideKeys={navHideKeys} websiteEnabled={websiteEnabled} slug={(event.slug as string | null) ?? null} />
     </>
   );
 }

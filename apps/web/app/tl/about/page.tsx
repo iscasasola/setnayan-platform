@@ -4,10 +4,8 @@ import {
   MapPin,
   Languages,
   ShieldCheck,
-  Sparkles,
   ArrowRight,
 } from 'lucide-react';
-import { Footer } from '@/app/_components/marketing/_sections';
 
 // /tl/about — Taglish edition of the brand/entity page (localization first
 // slice). The two public locales are ENGLISH (root) and TAGLISH (the real
@@ -167,10 +165,6 @@ export default function AboutPageTaglish() {
             </Link>
           </nav>
 
-          <p className="mb-4 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Tungkol sa Setnayan
-          </p>
           <h1 className="max-w-3xl font-display text-4xl leading-tight text-ink sm:text-5xl">
             Set na &rsquo;yan. Your whole wedding, all set — sa isang Filipino platform.
           </h1>
@@ -292,7 +286,6 @@ export default function AboutPageTaglish() {
         </section>
       </main>
 
-      <Footer />
     </>
   );
 }

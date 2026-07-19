@@ -52,6 +52,11 @@ import { validateAndCalculateVoucher } from '@/lib/vouchers/validate';
 import { appendLedger } from '@/lib/ledger';
 import { resolvePaxPricedOrderCentavos, resolveBundleChargeCentavos } from '@/lib/v2-catalog';
 import { AI_SUB_SKU, parseCycles } from '@/lib/setnayan-ai-subscription';
+import { resolveSetnayanAiPerEventPricingEnabled } from '@/lib/integration-config';
+import {
+  SETNAYAN_AI_SKU,
+  resolveSetnayanAiEventChargeCentavos,
+} from '@/lib/setnayan-ai-event-pricing';
 import { computeVatFromBase, DEFAULT_VAT_RATE_PCT } from '@/lib/receipts';
 import { getRequestPlatform, isRequestPlatform } from '@/lib/request-platform';
 import { notifyAdminsOrderAwaitingReconciliation } from '@/lib/order-admin-notify';
@@ -368,6 +373,24 @@ export async function submitOrderAction(
     }
   }
 
+  // Per-EVENT Setnayan AI (owner 2026-07-02): ₱499 on an event's FIRST cycle,
+  // ₱799 on every cycle after. When the per-event pricing flag is on, the
+  // authoritative charge for a SETNAYAN_AI order is intro-vs-renewal by the
+  // event's STORED state (server re-resolved, so a tampered client can't force
+  // the intro price on a renewal). Inert while the flag is off — the helper is
+  // never called and the flat ₱499 catalog resolve above stands, byte-identical.
+  if (serviceKey === SETNAYAN_AI_SKU && eventIdClean) {
+    if (await resolveSetnayanAiPerEventPricingEnabled()) {
+      const perEventCentavos = await resolveSetnayanAiEventChargeCentavos(
+        createAdminClient(),
+        eventIdClean,
+      );
+      if (perEventCentavos != null) {
+        originalCentavos = BigInt(perEventCentavos);
+      }
+    }
+  }
+
   // Per-user subscription: the catalog row is the ₱499 UNIT (per 28-day cycle);
   // the charge is unit × the validated cycle count. cycles is non-null here
   // because the isAiSub guard above already rejected a missing/invalid count,
@@ -465,7 +488,18 @@ export async function submitOrderAction(
   // If the redemption INSERT fails on a UNIQUE-violation race (parallel
   // tab), the couple gets a clear error and the order rolls back too.
 
-  const referenceCode = generateReferenceCode();
+  // Reference code: prefer the client PRE-MINTED code (the drawer shows it
+  // BEFORE the couple leaves to pay, so they can put it in their BDO/GCash
+  // transfer note → the reconciliation matcher pairs the inbound bank message
+  // to this order by reference). Accept it only when well-formed (SN + 8 hex);
+  // otherwise mint one here as before. The code is a non-sensitive tag — a
+  // (astronomically rare) collision just fails this INSERT on the unique
+  // reference_code, it can never hijack another order.
+  const premintedRaw = formData.get('preminted_reference');
+  const referenceCode =
+    typeof premintedRaw === 'string' && /^SN[0-9A-F]{8}$/.test(premintedRaw.trim())
+      ? premintedRaw.trim()
+      : generateReferenceCode();
   const originalPriceForOrderTotal = Number(originalCentavos) / 100;
   // Owner ruling 2026-06-25: catalog prices are PRE-VAT; the couple pays the
   // VAT-INCLUSIVE gross (+12%). computeOrderTotals + the BIR receipt already gross

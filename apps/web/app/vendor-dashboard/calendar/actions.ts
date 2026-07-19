@@ -8,8 +8,8 @@
  *   - manual block = CLOSES the date(s) for one pool, or org-wide when no
  *     pool is chosen (vacation). Couples only ever see "unavailable".
  *   - external client = the vendor's off-app booking; category-pool-scoped,
- *     consumes 1 capacity unit per date, costs 1 token (tier matrix
- *     importCustomerTokenCost) — both writes atomic in the
+ *     consumes 1 capacity unit per date, FREE (owner 2026-06-30 — the free
+ *     CRM on-ramp; the old 1-token import fee is retired) — written in the
  *     import_external_client RPC.
  *   - merge = pointing a category at another pool ("same team serves
  *     both"); per-category pools stay the default.
@@ -107,7 +107,21 @@ async function requireVendor() {
 function backToCalendar(formData: FormData, notice: string): never {
   const month = str(formData, 'return_month');
   const pool = str(formData, 'return_pool');
-  const back = str(formData, 'return_to') === 'clients' ? 'clients' : 'calendar';
+  const returnTo = str(formData, 'return_to');
+
+  // PHASE 5 drill-down: an action fired from /calendar/[date] returns THERE so
+  // the vendor stays on the day they were editing.
+  if (returnTo === 'day') {
+    const date = str(formData, 'return_date');
+    if (DATE_RE.test(date)) {
+      const params = new URLSearchParams();
+      if (pool) params.set('pool', pool);
+      params.set('notice', notice);
+      redirect(`/vendor-dashboard/calendar/${date}?${params.toString()}`);
+    }
+  }
+
+  const back = returnTo === 'clients' ? 'clients' : 'calendar';
   const params = new URLSearchParams();
   if (month) params.set('m', month);
   if (pool) params.set('pool', pool);
@@ -164,8 +178,9 @@ export async function addManualBlock(formData: FormData): Promise<void> {
 }
 
 /**
- * Import an off-app client: named external_client block + 1-token burn,
- * atomic in the import_external_client RPC. NOT an app client.
+ * Import an off-app client: a named external_client block via the
+ * import_external_client RPC. FREE (owner 2026-06-30 — the free CRM on-ramp;
+ * the old 1-token import fee is retired). NOT an app client.
  */
 export async function importExternalClient(formData: FormData): Promise<void> {
   const { supabase, profile } = await requireVendor();
@@ -190,11 +205,9 @@ export async function importExternalClient(formData: FormData): Promise<void> {
     p_end_date: endDate,
   });
   if (error) {
-    // The RPC RAISES on insufficient token balance and rolls the block back.
-    backToCalendar(
-      formData,
-      error.message.includes('INSUFFICIENT') ? 'no_tokens' : 'save_failed',
-    );
+    // Import is free now — the RPC no longer burns tokens, so there's no
+    // insufficient-balance path left; any error is a genuine save failure.
+    backToCalendar(formData, 'save_failed');
   }
   const status = (data as { status?: string; reason?: string } | null)?.status;
   if (status !== 'ok') {
@@ -277,6 +290,123 @@ export async function notifyWaitlistSlot(formData: FormData): Promise<void> {
 
   revalidateScheduleSurfaces();
   backToCalendar(formData, 'waitlist_notified');
+}
+
+/**
+ * Waitlist settings (owner 2026-07). Toggle the Booked-Out Waitlist on/off and
+ * set how many couples the vendor may PICK per date (1-3). Stored on
+ * vendor_profiles; consumed by the couple-side CTA gate + the pick action.
+ */
+export async function updateWaitlistSettings(formData: FormData): Promise<void> {
+  const { supabase, profile } = await requireVendor();
+  const enabled = str(formData, 'waitlist_enabled') === 'on';
+  const capRaw = Number(str(formData, 'max_waitlist_acceptances'));
+  const cap =
+    Number.isFinite(capRaw) && capRaw >= 1 && capRaw <= 3 ? Math.round(capRaw) : 1;
+  const { error } = await supabase
+    .from('vendor_profiles')
+    .update({ waitlist_enabled: enabled, max_waitlist_acceptances: cap })
+    .eq('vendor_profile_id', profile.vendor_profile_id);
+  if (error) backToCalendar(formData, 'save_failed');
+  revalidateScheduleSurfaces();
+  backToCalendar(formData, 'waitlist_settings_saved');
+}
+
+/**
+ * The vendor's "pick this couple" for the waitlist (the owner's "whitelist"
+ * pick). Stamps accepted_at on one vendor_date_waitlist row, capped at the
+ * vendor's max_waitlist_acceptances per (vendor, date). Once the cap is reached
+ * the date's waitlist is full (the couple-side CTA + join action both stop).
+ */
+export async function pickWaitlistCouple(formData: FormData): Promise<void> {
+  const { supabase, profile } = await requireVendor();
+  const requestedDate = str(formData, 'requested_date');
+  if (!DATE_RE.test(requestedDate)) backToCalendar(formData, 'save_failed');
+  const vp = profile.vendor_profile_id;
+
+  const { data: prow } = await supabase
+    .from('vendor_profiles')
+    .select('max_waitlist_acceptances')
+    .eq('vendor_profile_id', vp)
+    .maybeSingle();
+  const cap =
+    Number((prow as { max_waitlist_acceptances?: number } | null)?.max_waitlist_acceptances) || 1;
+
+  // Cap: how many already picked (accepted) for this date.
+  const { count } = await supabase
+    .from('vendor_date_waitlist')
+    .select('waitlist_id', { count: 'exact', head: true })
+    .eq('vendor_profile_id', vp)
+    .eq('requested_date', requestedDate)
+    .not('accepted_at', 'is', null);
+  if ((count ?? 0) >= cap) backToCalendar(formData, 'waitlist_full');
+
+  // Pick the next couple in line (oldest interest) that isn't picked yet.
+  const { data: next } = await supabase
+    .from('vendor_date_waitlist')
+    .select('waitlist_id')
+    .eq('vendor_profile_id', vp)
+    .eq('requested_date', requestedDate)
+    .is('accepted_at', null)
+    .in('status', ['pending', 'notified'])
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (!next) backToCalendar(formData, 'waitlist_none');
+
+  const { error } = await supabase
+    .from('vendor_date_waitlist')
+    .update({ accepted_at: new Date().toISOString() })
+    .eq('waitlist_id', (next as { waitlist_id: string }).waitlist_id)
+    .eq('vendor_profile_id', vp)
+    .is('accepted_at', null);
+  if (error) backToCalendar(formData, 'save_failed');
+  revalidateScheduleSurfaces();
+  backToCalendar(formData, 'waitlist_picked');
+}
+
+/**
+ * PHASE 5 — set / clear an explicit day state (locked | whitelist) on a date.
+ *
+ * The 6-state taxonomy's two vendor-set states. `locked` = a hard hold (gates
+ * new bookings like a closure); `whitelist` = approve-first (new bookings are
+ * held for the vendor to vet). scope 'org' = business-wide (every schedule);
+ * a pool_id = that one schedule. day_state 'open' clears the state.
+ *
+ * The write goes through set_vendor_calendar_day_state (SECURITY DEFINER — it
+ * validates ownership + pool membership), so a forged pool_id or a foreign
+ * profile is rejected in SQL. The atomic acquire_schedule_pools RPC reads these
+ * states, so the gate is server-enforced, not UI-only.
+ */
+export async function setCalendarDayState(formData: FormData): Promise<void> {
+  const { supabase, profile } = await requireVendor();
+
+  const scope = str(formData, 'scope'); // 'org' | pool_id
+  const date = str(formData, 'state_date');
+  const requested = str(formData, 'day_state'); // 'locked' | 'whitelist' | 'open'
+  const note = str(formData, 'note');
+  if (!DATE_RE.test(date)) backToCalendar(formData, 'bad_dates');
+
+  const poolId = scope && scope !== 'org' ? scope : null;
+  // 'open' → clear (NULL day-state); otherwise pass the value through and let
+  // the RPC validate it.
+  const dayState = requested === 'open' ? null : requested;
+
+  const { data, error } = await supabase.rpc('set_vendor_calendar_day_state', {
+    p_vendor_profile_id: profile.vendor_profile_id,
+    p_pool_id: poolId,
+    p_state_date: date,
+    p_day_state: dayState,
+    p_note: note || null,
+  });
+  if (error) backToCalendar(formData, 'save_failed');
+  const status = (data as { status?: string } | null)?.status;
+  if (status === 'bad_pool') backToCalendar(formData, 'bad_pool');
+  if (status === 'bad_state' || status === 'bad_date') backToCalendar(formData, 'bad_dates');
+  if (status !== 'ok' && status !== 'cleared') backToCalendar(formData, 'save_failed');
+
+  revalidateScheduleSurfaces();
+  backToCalendar(formData, status === 'cleared' ? 'day_state_cleared' : 'day_state_saved');
 }
 
 /** Pool daily capacity — clamped to the tier's slotsPerDay ceiling (the

@@ -68,7 +68,7 @@ function loadFaceApiScript(src: string): Promise<FaceApi | null> {
 
 async function getFaceApi(): Promise<FaceApi | null> {
   if (apiPromise) return apiPromise;
-  apiPromise = (async () => {
+  const attempt = (async () => {
     try {
       const url = process.env.NEXT_PUBLIC_FACE_MODEL_URL;
       if (!url || typeof window === 'undefined') return null;
@@ -84,7 +84,13 @@ async function getFaceApi(): Promise<FaceApi | null> {
       return null;
     }
   })();
-  return apiPromise;
+  apiPromise = attempt;
+  const api = await attempt;
+  // Never cache a FAILED load: a transient script/weight/network error (common
+  // on first paint over cellular) would otherwise wedge the whole session as
+  // "no model" forever. Clear so the next call retries the load from scratch.
+  if (!api && apiPromise === attempt) apiPromise = null;
+  return api;
 }
 
 /**

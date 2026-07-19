@@ -38,6 +38,7 @@ function guest(p: Partial<GuestRow>): GuestRow {
     dietary_restrictions: null,
     photo_consent: false,
     faceblock_enabled: false,
+    face_recognition_excluded: false,
     photo_url: null,
     photo_source: null,
     photo_updated_at: null,

@@ -7,7 +7,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeVatFromBase, DEFAULT_VAT_RATE_PCT } from './receipts';
+import { computeVatFromBase, computeVatFromGross, DEFAULT_VAT_RATE_PCT } from './receipts';
 
 test('default rate is 12%', () => {
   assert.equal(DEFAULT_VAT_RATE_PCT, 12);
@@ -46,4 +46,23 @@ test('invariant: gross === preVat + vat, for many bases', () => {
 test('honours an explicit non-default rate', () => {
   const r = computeVatFromBase(1000, 0);
   assert.deepEqual(r, { preVat: 1000, vat: 0, gross: 1000, rate: 0 });
+});
+
+// computeVatFromGross — VAT-INCLUSIVE back-out for all-in vendor charm prices.
+test('vendor ₱999 all-in decomposes to base+VAT summing to exactly ₱999', () => {
+  // vat = 999 × 12/112 = 107.036 → 107.04; preVat = 999 − 107.04 = 891.96.
+  assert.deepEqual(computeVatFromGross(999), { preVat: 891.96, vat: 107.04, gross: 999, rate: 12 });
+});
+
+test('gross back-out invariant: preVat + vat === gross (2dp), any all-in price', () => {
+  for (const gross of [999, 2499, 7499, 100, 1, 12345.67]) {
+    const { preVat, vat } = computeVatFromGross(gross);
+    assert.equal(Math.round((preVat + vat) * 100) / 100, gross);
+  }
+});
+
+test('gross back-out never charges more than the quoted all-in price', () => {
+  // Unlike building UP from base (which would inflate ₱999 → ₱1,118.88), the
+  // gross stays the all-in figure the vendor actually sees + pays.
+  assert.equal(computeVatFromGross(999).gross, 999);
 });

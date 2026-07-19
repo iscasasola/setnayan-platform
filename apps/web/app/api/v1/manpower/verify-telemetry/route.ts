@@ -13,6 +13,7 @@
  * The is_token_able services + their checkpoint criteria:
  *   PAPIC          · ≥3 of 5 devices upload ≥50 valid files >500KB each
  *   PANOOD         · RTMP/HLS continuous transmission >30 min
+ *   PATIKTOK       · WASM render writes ≥1 valid reel asset
  *   PABATI         · guests record >15 unique approved 5-sec clips
  *   CAMERA_BRIDGE  · >1 GB uncompressed media transit
  *   LIVE_WALL      · WebSocket continuous >1 hr
@@ -28,6 +29,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { isPublicApiEnabled, publicApiDisabledResponse } from "@/lib/public-api-flag";
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -41,6 +43,7 @@ type VerifyBody = {
 type TelemetryPayload = {
   papic?:        { active_devices: number; valid_files_count: number; min_file_bytes: number };
   panood?:       { continuous_rtmp_minutes: number };
+  patiktok?:     { rendered_reel_assets: number };
   pabati?:       { unique_5s_clips: number };
   camera_bridge?:{ media_transit_bytes: number };
   live_wall?:    { socket_uninterrupted_minutes: number };
@@ -50,6 +53,7 @@ type TelemetryPayload = {
 const DEMO_MODE = process.env.SETNAYAN_DEMO_MODE === '1';
 
 const TOKEN_ABLE_CODES = new Set([
+  'PATIKTOK_COMPILER',
   'PABATI',
   'PAPIC_SEATS',
   'PAPIC_GUEST',         // tracked under PAPIC family
@@ -68,6 +72,8 @@ const LADDER = [1, 2, 2, 2, 2, 2, 3] as const; // sums to 14 at slot 7
 const VOUCHER_EXPIRY_DAYS = 45;
 
 export async function POST(req: Request) {
+  // Public API disabled by default (no-public-API-in-V1 lock; owner blesses via PUBLIC_API_ENABLED). See lib/public-api-flag.ts.
+  if (!isPublicApiEnabled()) return publicApiDisabledResponse();
   let body: VerifyBody;
   try {
     body = (await req.json()) as VerifyBody;
@@ -273,6 +279,14 @@ function validateCheckpoint(serviceCode: string, t: TelemetryPayload): Checkpoin
       if (!p) return { passed: false, reason: 'panood telemetry section missing' };
       if (p.continuous_rtmp_minutes <= 30) {
         return { passed: false, reason: `continuous_rtmp_minutes=${p.continuous_rtmp_minutes} (need >30)` };
+      }
+      return { passed: true };
+    }
+    case 'PATIKTOK_COMPILER': {
+      const p = t.patiktok;
+      if (!p) return { passed: false, reason: 'patiktok telemetry section missing' };
+      if (p.rendered_reel_assets < 1) {
+        return { passed: false, reason: `rendered_reel_assets=${p.rendered_reel_assets} (need ≥1)` };
       }
       return { passed: true };
     }

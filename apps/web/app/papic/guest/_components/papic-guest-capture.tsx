@@ -1080,9 +1080,6 @@ export function PapicGuestCapture({
   if (enrolling) {
     return (
       <main className="flex min-h-screen flex-col bg-ink px-4 py-8 text-cream">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-cream/70">
-          Papic · candid camera
-        </p>
         <div className="mx-auto mt-6 w-full max-w-md">
           <DayOfFaceEnroll
             context="guest_camera"
@@ -1104,10 +1101,7 @@ export function PapicGuestCapture({
 
   return (
     <main className="flex min-h-screen flex-col bg-ink text-cream">
-      <header className="flex items-center justify-between px-4 py-3">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-cream/70">
-          Papic · candid camera
-        </p>
+      <header className="flex items-center justify-end px-4 py-3">
         <span className="inline-flex items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-xs font-medium text-cream">
           <ImageIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           {guestUnlimited ? 'Unlimited' : `${remaining} left`}

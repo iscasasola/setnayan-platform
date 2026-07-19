@@ -24,6 +24,7 @@ import { STD_THEMES, type StdThemeId } from '@/lib/std-themes';
 import { formatEventDate } from '@/lib/events';
 import { shortDate, defaultInvitationLaunchIso } from '@/lib/save-the-date-content';
 import { saveAllStdContent, presignStdBackground } from '../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 import { FileUpload } from '@/app/_components/file-upload';
 import type { StdFilmContent } from '@/lib/save-the-date-content';
 import {
@@ -57,6 +58,11 @@ type Props = {
   eventId: string;
   /** The couple's wedding page slug — used for the "View on your page" link. */
   slug: string | null;
+  /** Whether the couple owns the Cinematic Reveal (STD_PREMIUM_OPENINGS). The
+   *  film's own media beats — music, video, photos — unlock with it (owner
+   *  2026-07-10); when false, the media steps show an "unlocks with the Reveal"
+   *  note and won't play on the live Save-the-Date until purchased. */
+  ownsReveal: boolean;
   /** Pre-resolved film content from the server (presigned URLs already embedded). */
   initialContent: StdFilmContent;
   initialThemeId: StdThemeId;
@@ -119,6 +125,7 @@ const STORY_MAX = 120;
 export function StdBuilderClient({
   eventId,
   slug,
+  ownsReveal,
   initialContent,
   initialThemeId,
   initialLaunchDate,
@@ -169,6 +176,7 @@ export function StdBuilderClient({
 
   const [saving, startSave] = useTransition();
   const [result, setResult] = useState<'idle' | 'ok' | 'error'>('idle');
+  const save = useSaveLoader();
   const [device, setDevice] = useState<PreviewDevice>('iphone');
   // Bumping this remounts the preview (opening + film) → replays from the first beat.
   const [restartKey, setRestartKey] = useState(0);
@@ -373,20 +381,24 @@ export function StdBuilderClient({
 
   const handleRender = () => {
     startSave(async () => {
-      const r = await saveAllStdContent(eventId, {
-        theme: themeId,
-        launchDate: launchDate || null,
-        filmDate: filmDate.trim() || null,
-        filmVenueName: venueName.trim() || null,
-        filmVenueCity: venueCity.trim() || null,
-        filmCeremonyName: ceremonyName.trim() || null,
-        filmStory: filmStory.trim() || null,
-        filmAccentColor: accentColor,
-        revealEffects: effects,
-        background,
-        media,
-        siteMusicKey,
-      });
+      const r = await save.run(
+        () =>
+          saveAllStdContent(eventId, {
+            theme: themeId,
+            launchDate: launchDate || null,
+            filmDate: filmDate.trim() || null,
+            filmVenueName: venueName.trim() || null,
+            filmVenueCity: venueCity.trim() || null,
+            filmCeremonyName: ceremonyName.trim() || null,
+            filmStory: filmStory.trim() || null,
+            filmAccentColor: accentColor,
+            revealEffects: effects,
+            background,
+            media,
+            siteMusicKey,
+          }),
+        { steps: ['Saving your Save-the-Date'], hint: 'Saving' },
+      );
       setResult(r.ok ? 'ok' : 'error');
     });
   };
@@ -716,6 +728,18 @@ export function StdBuilderClient({
               Missing items are simply skipped — the film adapts to what it has.
             </p>
           </section>
+
+          {/* Media (video · photos · music) unlock with the Cinematic Reveal —
+              owner 2026-07-10. The couple can configure them now; they go live on
+              the Save-the-Date only once the Reveal (Step 5) is purchased. */}
+          {!ownsReveal ? (
+            <div className="rounded-xl border border-terracotta/30 bg-terracotta/5 px-4 py-3 text-sm text-ink/75">
+              <span className="font-medium text-terracotta">Unlocks with the Cinematic Reveal.</span>{' '}
+              Your video, photos, and background music play on the live
+              Save-the-Date once you add the Reveal in Step 5. Set them up now —
+              they&rsquo;ll go live the moment you purchase.
+            </div>
+          ) : null}
 
           {/* Step 3 · Video / Gallery — the film's closing media */}
           <StdMediaPicker

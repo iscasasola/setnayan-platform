@@ -115,11 +115,9 @@ export default async function PanoodControlRoomPage({ params }: Props) {
         Back to Panood setup
       </Link>
 
-      <header className="space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Control room
-        </p>
-        <h1 className="flex items-center gap-3 text-2xl font-semibold tracking-tight sm:text-3xl">
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">Broadcast</p>
+        <h1 className="sn-h1 flex items-center gap-3">
           <Tv aria-hidden className="h-6 w-6 text-terracotta" strokeWidth={1.75} />
           {event.display_name}
         </h1>
@@ -186,7 +184,7 @@ function UpsellState({ eventId, eventName }: { eventId: string; eventName: strin
         Back to Panood
       </Link>
 
-      <div className="rounded-2xl border border-ink/10 bg-cream p-6 text-center sm:p-8">
+      <div className="sn-tile p-6 text-center sm:p-8">
         <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-terracotta/10">
           <Lock aria-hidden className="h-6 w-6 text-terracotta" strokeWidth={1.75} />
         </span>

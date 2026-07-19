@@ -29,7 +29,9 @@ function str(formData: FormData, key: string): string {
 
 export async function joinVendorWaitlist(formData: FormData): Promise<void> {
   const slug = str(formData, 'slug');
-  const backTo = slug ? `/v/${slug}` : '/explore';
+  // Bare root is the canonical vendor URL (PR5) — redirect + revalidate there,
+  // not the legacy /v/{slug}, so the couple stays on the page they were on.
+  const backTo = slug ? `/${slug}` : '/explore';
 
   const vendorProfileId = str(formData, 'vendor_profile_id');
   const requestedDate = str(formData, 'requested_date');
@@ -42,6 +44,18 @@ export async function joinVendorWaitlist(formData: FormData): Promise<void> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  // Owner 2026-07: a couple can only join when the vendor has the waitlist
+  // switched on. (The 1-3 acceptance cap is enforced vendor-side on pick, since
+  // RLS hides other couples' rows from this couple.) vendor_profiles is public.
+  const { data: vprof } = await supabase
+    .from('vendor_profiles')
+    .select('waitlist_enabled')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  if (!(vprof as { waitlist_enabled?: boolean } | null)?.waitlist_enabled) {
+    redirect(`${backTo}?wl=closed`);
+  }
 
   // Resolve the couple's primary event so the waitlist row is event-anchored
   // (nullable column — a couple without an active event can still waitlist).

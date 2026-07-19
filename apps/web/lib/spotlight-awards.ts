@@ -25,6 +25,7 @@
  * RLS — callers MUST gate on admin/server context before invoking the writers.
  */
 
+import { unstable_cache } from 'next/cache';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -126,7 +127,7 @@ async function fetchVerifiedVendorPool(
   const { data, error } = await admin
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id, business_name, business_slug, logo_url, created_at, verification_state',
+      'vendor_profile_id, business_name, business_slug, logo_url, created_at, verification_state, fraud_suspended_at, fraud_banned_at',
     )
     .eq('verification_state', 'verified');
 
@@ -134,14 +135,24 @@ async function fetchVerifiedVendorPool(
     throw new Error(`[spotlight-awards] verified pool fetch failed: ${error.message}`);
   }
 
-  const rows = (data ?? []) as Array<{
+  const allRows = (data ?? []) as Array<{
     vendor_profile_id: string;
     business_name: string | null;
     business_slug: string | null;
     logo_url: string | null;
     created_at: string | null;
     verification_state: string | null;
+    fraud_suspended_at: string | null;
+    fraud_banned_at: string | null;
   }>;
+
+  // Anti-fraud Phase 4 (§ 5) — never let a fraud-frozen vendor (suspended OR
+  // banned) enter the Spotlight-Award candidate pool. The enforcement writes
+  // also flip public_visibility → 'hidden', but the candidate query keys off
+  // verification_state, so exclude the frozen rows explicitly here too.
+  const rows = allRows.filter(
+    (r) => !r.fraud_suspended_at && !r.fraud_banned_at,
+  );
 
   const display = new Map<
     string,
@@ -182,14 +193,46 @@ async function fetchVerifiedVendorPool(
     }
   }
 
+  // Trusted (receipt-backed, arm's-length) rating aggregates from
+  // vendor_trusted_review_stats — the ONLY stat the couple_trusted badge may
+  // read. Fetched separately so fake / self-dealt reviews (which inflate the
+  // raw vendor_review_stats above) can never earn the trust badge. Vendors
+  // absent here have 0 trusted reviews — defaulted to 0/0 below.
+  const trusted = new Map<string, { avg: number; count: number }>();
+  if (ids.length > 0) {
+    const { data: trustedRows, error: trustedErr } = await admin
+      .from('vendor_trusted_review_stats')
+      .select('vendor_profile_id, trusted_avg_rating, trusted_review_count')
+      .in('vendor_profile_id', ids);
+    if (trustedErr) {
+      // Fail-soft: missing trusted stats just disqualify couple_trusted. Never
+      // blocks the run; the other badges still compute.
+      console.error('[spotlight-awards] trusted review stats fetch failed', trustedErr);
+    } else {
+      for (const s of (trustedRows ?? []) as Array<{
+        vendor_profile_id: string;
+        trusted_avg_rating: number | null;
+        trusted_review_count: number | null;
+      }>) {
+        trusted.set(s.vendor_profile_id, {
+          avg: Number(s.trusted_avg_rating ?? 0),
+          count: Number(s.trusted_review_count ?? 0),
+        });
+      }
+    }
+  }
+
   const badgeInputs: VendorBadgeInput[] = rows.map((r) => {
     const rt = ratings.get(r.vendor_profile_id);
+    const tr = trusted.get(r.vendor_profile_id);
     return {
       vendor_profile_id: r.vendor_profile_id,
       verification_state: r.verification_state,
       created_at: r.created_at,
       avg_rating_overall: rt?.avg ?? 0,
       review_count: rt?.count ?? 0,
+      trusted_avg_rating: tr?.avg ?? 0,
+      trusted_review_count: tr?.count ?? 0,
     };
   });
 
@@ -448,4 +491,83 @@ export async function fetchVendorCurrentAwards(
   return ((data ?? []) as Array<{ award_type: SpotlightAwardType }>).map(
     (r) => r.award_type,
   );
+}
+
+/** One homepage-strip card: a featured vendor + the award types they hold. */
+export type SpotlightHomepageVendor = {
+  vendor_profile_id: string;
+  business_name: string | null;
+  business_slug: string | null;
+  logo_url: string | null;
+  award_types: SpotlightAwardType[];
+};
+
+/**
+ * Loads the PUBLIC homepage Spotlight strip, DOUBLE-GATED and inert by default:
+ *
+ *   1. Owner switch — `platform_settings.spotlight_homepage_enabled` (migration
+ *      20270417213000, DEFAULT FALSE). Featuring vendors publicly needs owner
+ *      sign-off; while OFF this returns [] and the strip renders nothing.
+ *   2. Per-row curation — only `is_homepage_featured` award rows (admin-flipped
+ *      in /admin/spotlight-awards) are read (featuredOnly), for the current
+ *      period.
+ *
+ * Self-contained: the homepage is anonymous, so this reads with the service-role
+ * admin client (mirrors fetchOnboardingBgMusicUrl) rather than depending on anon
+ * RLS. Returns [] on ANY error / gate-off — the strip simply never mounts.
+ * Rows are collapsed to one card per vendor (a vendor holding two featured
+ * awards shows one card with both badges), preserving the fetchSpotlightAwards
+ * sort (top_pick → most_booked → rising).
+ */
+// The homepage renders this on EVERY request (it's on the force-dynamic home
+// page's critical path), but the strip is DOUBLE-GATED and inert by default, so
+// the result is almost always []. Without caching, a normal visitor paid a live
+// cross-region platform_settings round-trip just to read a default-OFF gate.
+// Cache the result with a short 60s revalidate (fresh enough when an admin flips
+// the toggle / features a vendor); SPOTLIGHT_HOMEPAGE_TAG lets admin actions bust
+// it immediately via revalidateTag. (Perf sweep 2026-07-02, finding #9.)
+export const SPOTLIGHT_HOMEPAGE_TAG = 'homepage-spotlight';
+
+const loadHomepageSpotlight = unstable_cache(
+  async (): Promise<SpotlightHomepageVendor[]> => {
+    try {
+      const { fetchPlatformSettings } = await import('./platform-settings');
+      const admin = createAdminClient();
+
+      const settings = await fetchPlatformSettings(admin);
+      if (!settings.spotlight_homepage_enabled) return [];
+
+      const rows = await fetchSpotlightAwards(admin, { featuredOnly: true });
+      if (rows.length === 0) return [];
+
+      // Collapse to one card per vendor, keeping fetchSpotlightAwards' order.
+      const byVendor = new Map<string, SpotlightHomepageVendor>();
+      for (const r of rows) {
+        const existing = byVendor.get(r.vendor_profile_id);
+        if (existing) {
+          if (!existing.award_types.includes(r.award_type)) {
+            existing.award_types.push(r.award_type);
+          }
+          continue;
+        }
+        byVendor.set(r.vendor_profile_id, {
+          vendor_profile_id: r.vendor_profile_id,
+          business_name: r.business_name,
+          business_slug: r.business_slug,
+          logo_url: r.logo_url,
+          award_types: [r.award_type],
+        });
+      }
+      return [...byVendor.values()];
+    } catch (err) {
+      console.error('[spotlight-awards] homepage strip load failed', err);
+      return [];
+    }
+  },
+  ['homepage-spotlight'],
+  { tags: [SPOTLIGHT_HOMEPAGE_TAG], revalidate: 60 },
+);
+
+export async function fetchHomepageSpotlight(): Promise<SpotlightHomepageVendor[]> {
+  return loadHomepageSpotlight();
 }

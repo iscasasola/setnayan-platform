@@ -8,7 +8,7 @@ import { Screen, Sk, RowSkeleton } from '@/components/skeletons';
  */
 export default function VendorLoading() {
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       <Screen label="Loading vendor dashboard">
         {/* Header — eyebrow + business name + verification chip */}
         <header className="space-y-2">
@@ -27,7 +27,7 @@ export default function VendorLoading() {
         <section aria-hidden>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="rounded-2xl border border-ink/10 bg-cream p-4">
+              <div key={i} className="sn-row p-4">
                 <Sk className="h-6 w-8 rounded-md" />
                 <Sk className="mt-2 h-3 w-full rounded" />
               </div>

@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { setTileEventTypeOffered, setFolderEventTypeOffered } from '../../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Scope categories · Event Types · Admin' };
 // Admin-client DB read → keep dynamic (same rationale as the roster page).
 export const dynamic = 'force-dynamic';
@@ -46,6 +47,7 @@ export default async function ScopeCategoriesPage({
   params: Params;
   searchParams: SearchParams;
 }) {
+  await requireAdmin();
   const { eventType } = await params;
   const sp = await searchParams;
   const ok = sp.ok ? decodeURIComponent(sp.ok) : null;
@@ -82,12 +84,11 @@ export default async function ScopeCategoriesPage({
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link href="/admin/event-types" className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50 hover:text-terracotta">
-        ← Event Types
+      <Link href="/admin/taxonomy?view=vocab-event" className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50 hover:text-terracotta">
+        ← Event types
       </Link>
 
       <header className="mb-6 mt-3 space-y-2">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">Setnayan HQ · Scope categories</p>
         <h1 className="flex items-center gap-3 text-3xl font-semibold tracking-tight sm:text-4xl">
           <span aria-hidden className="text-3xl leading-none">{row.emoji}</span>
           {row.label_en}

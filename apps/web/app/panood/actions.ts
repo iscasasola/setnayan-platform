@@ -3,7 +3,9 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { panoodCameraAnonEnabled } from '@/lib/panood-camera-seats';
+import { panoodCameraAnonEnabled, panoodStreamingEnabled } from '@/lib/panood-camera-seats';
+import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
+import { mintTurnIceServers } from '@/lib/turn';
 
 // Panood · camera-operator (claimer) actions — the public camera-join surface.
 //
@@ -83,7 +85,11 @@ export async function claimPanoodCamera(formData: FormData) {
         redirect(`/panood/cam/${token}?state=invalid`);
       }
       const { data: anon, error: anonError } =
-        await supabase.auth.signInAnonymously();
+        await supabase.auth.signInAnonymously({
+          // Global Supabase captcha gates anonymous sign-in too. The claim form
+          // carries a <TurnstileField> once captcha is on; empty → {} → no-op.
+          options: captchaOptions(captchaTokenFromForm(formData)),
+        });
       if (anonError || !anon.user) {
         console.error(
           '[claimPanoodCamera] anon sign-in failed:',
@@ -128,4 +134,44 @@ export async function claimPanoodCamera(formData: FormData) {
     default:
       redirect(`/panood/cam/${token}?state=error`);
   }
+}
+
+export type PanoodIceServersResult = { iceServers: RTCIceServer[] };
+
+/**
+ * ICE servers for the real Live Studio transport (lib/panood-webrtc.ts): public
+ * STUN always, PLUS a short-lived Cloudflare TURN relay when streaming is live.
+ * STUN alone can't traverse symmetric NAT / CGNAT — the usual case for operator
+ * phones on their own mobile data at a venue — so a hard-NAT camera has no relay
+ * to reach the control room. Both the camera operators (publishers) and the
+ * couple's control room (viewer) call this and feed the result into the
+ * RTCPeerConnection.
+ *
+ * Gated to a REAL, streaming-enabled event so this isn't an open TURN-credential
+ * faucet: TURN is minted only when NEXT_PUBLIC_PANOOD_STREAMING_ENABLED is on AND
+ * the event exists. If streaming is off, the event is unknown, TURN is
+ * unconfigured, or Cloudflare errors, it returns STUN-only — the transport still
+ * connects on the majority of networks, so Live Studio degrades to its prior
+ * STUN-only behaviour instead of breaking.
+ */
+export async function getPanoodIceServers(eventId: string): Promise<PanoodIceServersResult> {
+  const stun: RTCIceServer[] = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' },
+  ];
+  const clean = typeof eventId === 'string' ? eventId.trim() : '';
+  let turn: RTCIceServer[] = [];
+  if (panoodStreamingEnabled() && clean) {
+    // Admin existence probe on the thread's own event id (events RLS is
+    // membership-scoped, and a camera operator isn't an event member — the token
+    // is their capability). Read-only, single column; not an authz bypass.
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from('events')
+      .select('event_id')
+      .eq('event_id', clean)
+      .maybeSingle();
+    if (data) turn = await mintTurnIceServers();
+  }
+  return { iceServers: [...stun, ...turn] };
 }

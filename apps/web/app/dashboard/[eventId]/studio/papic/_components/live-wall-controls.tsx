@@ -9,10 +9,12 @@
 
 import { useState, useTransition } from 'react';
 import { EyeOff, Loader2, Plus, RotateCcw, X } from 'lucide-react';
+import { WALL_TILE_LAYOUTS, type WallTileLayout } from '@/lib/live-wall-logic';
 import {
   createWallScreenCode,
   hideWallTile,
   revokeWallScreen,
+  saveWallConfig,
   unhideWallTile,
 } from './live-wall-actions';
 
@@ -35,13 +37,19 @@ export function LiveWallControls({
   eventId,
   screens,
   tiles,
+  photoCount,
+  tileLayout,
 }: {
   eventId: string;
   screens: WallScreenRow[];
   tiles: WallTileRow[];
+  photoCount: number;
+  tileLayout: WallTileLayout;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [count, setCount] = useState(photoCount);
+  const [layout, setLayout] = useState<WallTileLayout>(tileLayout);
 
   const run = (fn: () => Promise<{ ok: boolean; error?: string }>) => {
     setError(null);
@@ -53,6 +61,50 @@ export function LiveWallControls({
 
   return (
     <div className="mt-4 space-y-4">
+      {/* Wall display config (owner 2026-07-08 · D5) — how many photos + which
+          layout. Fully responsive, so no resolution. */}
+      <div className="rounded-lg border border-ink/10 bg-ink/[0.02] p-3">
+        <p className="text-xs font-medium uppercase tracking-wide text-ink/50">Wall display</p>
+        <div className="mt-2 flex flex-wrap items-end gap-3">
+          <label className="text-sm text-ink/70">
+            Photos shown
+            <input
+              type="number"
+              min={6}
+              max={60}
+              value={count}
+              onChange={(e) => setCount(Number(e.target.value))}
+              className="ml-2 w-16 rounded border border-ink/15 bg-surface px-2 py-1 text-sm text-ink"
+            />
+          </label>
+          <div className="flex flex-wrap gap-1.5">
+            {WALL_TILE_LAYOUTS.map((l) => (
+              <button
+                key={l}
+                type="button"
+                onClick={() => setLayout(l)}
+                aria-pressed={layout === l}
+                className={`rounded-md px-2.5 py-1 text-xs font-medium capitalize ${
+                  layout === l
+                    ? 'bg-mulberry text-cream'
+                    : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
+                }`}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => run(() => saveWallConfig(eventId, count, layout))}
+            className="rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-cream hover:bg-ink/90 disabled:opacity-60"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"

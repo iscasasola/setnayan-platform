@@ -5,6 +5,14 @@ import { ArrowLeft, ArrowRight, Check, Lock } from 'lucide-react';
 import { Field } from '@/app/_components/forms/field';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { FileUpload } from '@/app/_components/file-upload';
+import { PricingBasisEditor, IncludedFlags } from './pricing-basis-editor';
+import {
+  InclusionsEditor,
+  DiscountsEditor,
+  PriceBracketsEditor,
+} from './service-list-editors';
+import { ShowcaseMediaFields } from './showcase-media-fields';
+import { ServiceCardLivePreview } from './service-card-live-preview';
 import { commitVendorService } from '../actions';
 
 /**
@@ -31,16 +39,25 @@ export function ServiceWizard({
   categoryValue,
   categoryLabel,
   otherCategories,
+  coverages = [],
   vendorProfileId,
+  claimToken = null,
 }: {
   categoryValue: string;
   categoryLabel: string;
   otherCategories: OtherCategory[];
+  coverages?: { id: number; label: string }[];
   vendorProfileId: string;
+  /**
+   * PR-C — when present, this service-create came from a couple's claim QR.
+   * commitVendorService reads it and (after the create) registers the new
+   * service to that couple's plan (event_vendors.service_id). Null on the
+   * normal "add a service" flow.
+   */
+  claimToken?: string | null;
 }) {
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState('');
-  const [price, setPrice] = useState('');
   const [perk, setPerk] = useState('');
   const [linkCount, setLinkCount] = useState(0);
   const [photoKey, setPhotoKey] = useState('');
@@ -52,8 +69,9 @@ export function ServiceWizard({
       { id: 'what', label: 'What you offer' },
       { id: 'price', label: 'Pricing' },
       { id: 'perk', label: 'Setnayan Exclusive' },
+      { id: 'extras', label: 'Value & media' },
     ];
-    if (otherCategories.length > 0) s.push({ id: 'links', label: "What's included" });
+    if (otherCategories.length > 0) s.push({ id: 'links', label: 'Comes with' });
     s.push({ id: 'review', label: 'Review & publish' });
     return s;
   }, [otherCategories.length]);
@@ -70,6 +88,9 @@ export function ServiceWizard({
   return (
     <form action={commitVendorService} className="space-y-5">
       <input type="hidden" name="category" value={categoryValue} />
+      {claimToken ? (
+        <input type="hidden" name="claim_token" value={claimToken} />
+      ) : null}
 
       {/* Progress */}
       <ol className="flex flex-wrap gap-1.5">
@@ -89,6 +110,12 @@ export function ServiceWizard({
         ))}
       </ol>
 
+      {/* v20: the live card preview — the wizard IS one <form>, every step's
+          fields stay mounted (hidden sections still submit), so the preview
+          honestly mirrors the exact card across all steps as the vendor types
+          (same mount idiom as the inline AddServiceForm). */}
+      <ServiceCardLivePreview leafPathLabel={categoryLabel} />
+
       {/* 1 · What you offer — category + cover photo + title */}
       <section {...show('what')} className="space-y-3">
         <div>
@@ -104,6 +131,9 @@ export function ServiceWizard({
           htmlFor="primary_photo_r2_key"
           help="Couples see this on your service card — it's the first thing they notice. PNG, JPEG, or WebP up to 5 MB. Required to publish."
         >
+          {/* watermark: owner-locked 2026-07-03 — service COVERS carry the
+              SETNAYAN watermark like every other marketplace photo (closes the
+              cover/showcase inconsistency; per the 2026-05-21 directive). */}
           <FileUpload
             bucket="media"
             pathPrefix={`vendors/${vendorProfileId}/services`}
@@ -111,7 +141,9 @@ export function ServiceWizard({
             onChange={(v) => setPhotoKey(typeof v === 'string' ? v : '')}
             maxSizeMB={5}
             acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+            watermark
             variant="square"
+            qrGuard
           />
         </Field>
         <Field label="Listing title (optional)" htmlFor="title">
@@ -129,36 +161,57 @@ export function ServiceWizard({
 
       {/* 2 · Pricing */}
       <section {...show('price')} className="space-y-3">
-        <Field label="Starting price (₱)" htmlFor="starting_price_php">
-          <input
-            id="starting_price_php"
-            name="starting_price_php"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            type="number"
-            min={0}
-            step={1}
-            placeholder="Leave blank for quote-on-request"
-            className="input-field"
-          />
-        </Field>
-        <p className="text-xs text-ink/55">A &ldquo;from&rdquo; price. The real number is quoted in each couple&rsquo;s inquiry.</p>
+        {coverages.length > 0 ? (
+          <Field label="Coverage (optional)" htmlFor="coverage_id">
+            <select id="coverage_id" name="coverage_id" defaultValue="" className="input-field cursor-pointer">
+              <option value="">— not assigned —</option>
+              {coverages.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+        ) : null}
+        {/* Wizard parity (2026-07-03): the same pricing surface the inline
+            My Shop editors ship — three pricing bases + Fixed-only pax
+            brackets. The flat starting-price input this replaces underfed the
+            card; the server recomputes the synced "from ₱X" anchor. */}
+        <PricingBasisEditor
+          idPrefix="wiz"
+          category={categoryValue}
+          defaults={{
+            pricing_basis: 'fixed',
+            starting_price_php: null,
+            base_pax: null,
+            added_pax_price_php: null,
+            per_pax_price_php: null,
+            min_pax: null,
+            hour_base_php: null,
+            min_hours: null,
+            extra_hour_php: null,
+          }}
+          fixedExtra={<PriceBracketsEditor initial={[]} />}
+        />
+        <p className="text-xs text-ink/55">A &ldquo;from&rdquo; anchor. The real number is quoted in each couple&rsquo;s inquiry.</p>
         <Field label="Crew size (optional)" htmlFor="crew_size">
           <input id="crew_size" name="crew_size" type="number" min={0} step={1} className="input-field" />
         </Field>
-        <label className="flex items-center gap-2 text-sm text-ink/75">
-          <input type="checkbox" name="crew_meal_required" className="h-4 w-4 accent-terracotta" />
-          Crew meal required
-        </label>
+        {/* Crew meal + transport included flags (defaults not-included, matching
+            the inline form). Replaces the old "Crew meal required" checkbox —
+            the server keeps crew_meal_required = NOT crew_meal_included so the
+            0007 budget bridge can't misrepresent the vendor. */}
+        <IncludedFlags
+          idPrefix="wiz"
+          category={categoryValue}
+          defaults={{ crew_meal_included: false, transport_included: false, transport_flat_fee_php: null }}
+        />
         <details className="rounded-lg border border-ink/10 p-3">
           <summary className="cursor-pointer text-sm font-medium text-ink/75">Pricing rules (advanced) — optional</summary>
           <div className="mt-3 space-y-3">
             <p className="text-xs text-ink/55">
               Starting points the platform uses — the real numbers are set in each couple&rsquo;s inquiry. Skip these and you can still publish.
             </p>
-            <Field label="Per extra guest (₱)" htmlFor="added_pax_price_php">
-              <input id="added_pax_price_php" name="added_pax_price_php" type="number" min={0} step={1} className="input-field" />
-            </Field>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Field label="Recommended lead (months)" htmlFor="recommended_lead_time_months">
                 <input id="recommended_lead_time_months" name="recommended_lead_time_months" type="number" min={0} step="0.5" className="input-field" />
@@ -196,7 +249,7 @@ export function ServiceWizard({
               key={c}
               type="button"
               onClick={() => setPerk(c)}
-              className="rounded-full border border-ink/15 bg-cream px-2.5 py-1 text-xs text-ink/70 hover:bg-ink/5"
+              className="rounded-full border border-ink/15 bg-white/70 px-2.5 py-1 text-xs text-ink/70 hover:bg-ink/5"
             >
               {c}
             </button>
@@ -204,7 +257,20 @@ export function ServiceWizard({
         </div>
       </section>
 
-      {/* 4 · What's included (links) — only when the vendor offers other categories */}
+      {/* 4 · Value & media — inclusions, discounts, showcase media (wizard
+          parity 2026-07-03: same editors as the inline My Shop form; all
+          optional, replace-all on save). */}
+      <section {...show('extras')} className="space-y-3">
+        <p className="text-sm font-medium text-ink">Make the card sell itself</p>
+        <p className="text-sm text-ink/55">
+          All optional — free items bundled into your price, discounts couples can qualify for, and real photos or a short clip of your work.
+        </p>
+        <InclusionsEditor initial={[]} />
+        <DiscountsEditor initial={[]} />
+        <ShowcaseMediaFields vendorProfileId={vendorProfileId} />
+      </section>
+
+      {/* 5 · Comes with (links) — only when the vendor offers other categories */}
       {otherCategories.length > 0 ? (
         <section {...show('links')} className="space-y-2">
           <p className="text-sm font-medium text-ink">What&rsquo;s included with this service?</p>
@@ -229,11 +295,12 @@ export function ServiceWizard({
       {/* 5 · Review & publish */}
       <section {...show('review')} className="space-y-3">
         <p className="text-sm font-medium text-ink">Review</p>
-        <dl className="space-y-1.5 rounded-lg border border-ink/10 bg-cream p-4 text-sm">
+        <dl className="space-y-1.5 rounded-lg border border-ink/10 bg-white/70 p-4 text-sm">
           <Recap k="Category" v={categoryLabel} />
           <Recap k="Cover photo" v={hasPhoto ? 'Added' : '— none yet (required to publish)'} />
           {title ? <Recap k="Title" v={title} /> : null}
-          <Recap k="Price" v={price ? `₱${price}` : 'Quote on request'} />
+          {/* Pricing recap lives in the live card preview above — it reads the
+              form directly, so it can honestly show whichever basis is active. */}
           <Recap k="Setnayan Exclusive" v={perk || '— not set (required to publish)'} />
           {linkCount > 0 ? <Recap k="Comes with" v={`${linkCount} service${linkCount === 1 ? '' : 's'}`} /> : null}
         </dl>

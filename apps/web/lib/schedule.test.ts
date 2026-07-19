@@ -11,7 +11,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildScheduleSeed, type SeedCeremonyType } from './schedule';
+import {
+  buildScheduleSeed,
+  selectSchedulePreviewBlocks,
+  type SeedCeremonyType,
+  type ScheduleBlockRow,
+} from './schedule';
 
 const TEA = 'Tea ceremony (敬茶)';
 const EVENT_DATE = '2026-12-12';
@@ -106,4 +111,82 @@ test('buildScheduleSeed: non-Chinese seed is unchanged (no tea beat, byte-identi
     'null overlay must be byte-identical to omitting the overlay arg',
   );
   assert.deepEqual(seed3.topLevel, seed2.topLevel, 'top-level rows must match too');
+});
+
+// ── selectSchedulePreviewBlocks — the Overview Schedule section ──────────────
+// Pins the four behaviours the card leans on: empty state, upcoming-first,
+// past-fallback (never empty while data exists), top-level filtering + the
+// "N more" count.
+
+const NOW = new Date('2026-07-10T00:00:00.000Z');
+
+function blk(over: Partial<ScheduleBlockRow>): ScheduleBlockRow {
+  return {
+    block_id: over.block_id ?? `b-${Math.random()}`,
+    public_id: 'S89S-0000000000',
+    event_id: 'e-1',
+    label: 'Block',
+    block_type: 'custom',
+    start_at: '2026-12-12T07:00:00.000Z',
+    end_at: null,
+    location: null,
+    notes: null,
+    is_public: false,
+    sort_order: 0,
+    parent_block_id: null,
+    created_at: '2026-07-01T00:00:00.000Z',
+    run_state: 'upcoming',
+    actual_start_at: null,
+    actual_end_at: null,
+    ...over,
+  };
+}
+
+test('selectSchedulePreviewBlocks: no blocks → empty state', () => {
+  const sel = selectSchedulePreviewBlocks([], NOW);
+  assert.equal(sel.isEmpty, true);
+  assert.equal(sel.display.length, 0);
+  assert.equal(sel.moreCount, 0);
+});
+
+test('selectSchedulePreviewBlocks: prefers upcoming, caps at 4, counts the rest', () => {
+  const blocks = [
+    blk({ block_id: 'past', start_at: '2026-01-01T00:00:00.000Z' }),
+    blk({ block_id: 'u1', start_at: '2026-12-12T07:00:00.000Z' }),
+    blk({ block_id: 'u2', start_at: '2026-12-12T08:00:00.000Z' }),
+    blk({ block_id: 'u3', start_at: '2026-12-12T09:00:00.000Z' }),
+    blk({ block_id: 'u4', start_at: '2026-12-12T10:00:00.000Z' }),
+    blk({ block_id: 'u5', start_at: '2026-12-12T11:00:00.000Z' }),
+  ];
+  const sel = selectSchedulePreviewBlocks(blocks, NOW);
+  assert.equal(sel.isEmpty, false);
+  assert.deepEqual(
+    sel.display.map((b) => b.block_id),
+    ['u1', 'u2', 'u3', 'u4'],
+    'shows only upcoming blocks (past excluded), capped at 4',
+  );
+  // 6 top-level total − 4 shown = 2 more (the past block + u5).
+  assert.equal(sel.moreCount, 2);
+});
+
+test('selectSchedulePreviewBlocks: all past → falls back to earliest, never empty', () => {
+  const blocks = [
+    blk({ block_id: 'p1', start_at: '2025-01-01T00:00:00.000Z' }),
+    blk({ block_id: 'p2', start_at: '2025-02-01T00:00:00.000Z' }),
+  ];
+  const sel = selectSchedulePreviewBlocks(blocks, NOW);
+  assert.equal(sel.isEmpty, false);
+  assert.deepEqual(sel.display.map((b) => b.block_id), ['p1', 'p2']);
+  assert.equal(sel.moreCount, 0);
+});
+
+test('selectSchedulePreviewBlocks: nested child blocks are excluded', () => {
+  const blocks = [
+    blk({ block_id: 'top', start_at: '2026-12-12T07:00:00.000Z' }),
+    blk({ block_id: 'child', parent_block_id: 'top', start_at: '2026-12-12T07:15:00.000Z' }),
+  ];
+  const sel = selectSchedulePreviewBlocks(blocks, NOW);
+  assert.deepEqual(sel.display.map((b) => b.block_id), ['top']);
+  assert.equal(sel.moreCount, 0);
+  assert.equal(sel.isEmpty, false);
 });

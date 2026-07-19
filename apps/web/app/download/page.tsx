@@ -1,8 +1,6 @@
 import Link from 'next/link';
-import { Logo } from '@/app/_components/logo';
-import { AppWindow, ArrowRight, Globe, ShieldCheck, Zap } from 'lucide-react';
+import { AppWindow, Globe, ShieldCheck, Zap } from 'lucide-react';
 import { DESKTOP_RELEASE } from '@/lib/desktop-release';
-import { SiteHeader } from '@/app/_components/site-header';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import {
   RevealGroup,
@@ -52,7 +50,6 @@ export default async function DownloadPage() {
 
   return (
     <main className="min-h-dvh bg-cream text-ink">
-      <SiteHeader />
 
       {/* ───────────────────────── Hero ─────────────────────────
           Airy two-column editorial split. Copy leads with a hairline eyebrow + a
@@ -62,14 +59,6 @@ export default async function DownloadPage() {
       <section>
         <div className="mx-auto grid w-full max-w-6xl items-center gap-12 px-5 py-20 sm:px-6 sm:py-24 lg:grid-cols-[1fr,1fr] lg:gap-16 lg:px-8 lg:py-28">
           <RevealGroup className="space-y-7">
-            <p
-              data-reveal-item
-              className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.28em] text-terracotta"
-            >
-              <span className="h-px w-7 bg-terracotta/60" aria-hidden />
-              macOS · Apple Silicon
-            </p>
-
             <LineRevealH1 className="text-balance text-5xl font-semibold leading-[1.02] tracking-[-0.02em] text-ink sm:text-6xl">
               Setnayan, on your Mac.
             </LineRevealH1>
@@ -113,9 +102,6 @@ export default async function DownloadPage() {
       <section className="border-t border-ink/8">
         <div className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-6 sm:py-24 lg:px-8">
           <div className="mb-14 max-w-xl space-y-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-terracotta">
-              Why the Mac app
-            </p>
             <h2 className="text-3xl font-semibold tracking-[-0.01em] sm:text-4xl">
               The same Setnayan, closer to hand.
             </h2>
@@ -149,9 +135,6 @@ export default async function DownloadPage() {
       <section className="border-t border-ink/8">
         <div className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-6 sm:py-24 lg:px-8">
           <div className="mb-14 max-w-xl space-y-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-terracotta">
-              Install in 30 seconds
-            </p>
             <h2 className="text-3xl font-semibold tracking-[-0.01em] sm:text-4xl">
               Four steps, done.
             </h2>
@@ -236,7 +219,6 @@ export default async function DownloadPage() {
         </div>
       </section>
 
-      <SiteFooter />
     </main>
   );
 }
@@ -310,31 +292,3 @@ function Req({ children }: { children: React.ReactNode }) {
   );
 }
 
-function SiteFooter() {
-  return (
-    <footer className="border-t border-ink/8">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-5 py-10 text-sm text-ink/55 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-2 text-ink hover:text-ink/80">
-          <Logo height={22} />
-          <span className="font-mono text-[11px] uppercase tracking-[0.2em]">
-            Setnayan · setnayan.com
-          </span>
-        </Link>
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs">
-          <Link href="/" className="inline-flex items-center gap-1 hover:text-ink">
-            Home <ArrowRight aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-          </Link>
-          <Link href="/help" className="hover:text-ink">
-            Help
-          </Link>
-          <Link href="/privacy" className="hover:text-ink">
-            Privacy
-          </Link>
-          <Link href="/terms" className="hover:text-ink">
-            Terms
-          </Link>
-        </div>
-      </div>
-    </footer>
-  );
-}

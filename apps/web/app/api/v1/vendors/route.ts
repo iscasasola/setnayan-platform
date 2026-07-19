@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isPublicApiEnabled, publicApiDisabledResponse } from "@/lib/public-api-flag";
 import { createAdminClient } from '@/lib/supabase/admin';
 import { apiErrorResponse } from '@/lib/api-auth';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -8,7 +9,6 @@ const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
 
 const PUBLIC_CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
   'Access-Control-Max-Age': '86400',
@@ -49,6 +49,8 @@ type VendorRow = {
  * default same-origin policy.
  */
 export async function GET(req: Request) {
+  // Public API disabled by default (no-public-API-in-V1 lock; owner blesses via PUBLIC_API_ENABLED). See lib/public-api-flag.ts.
+  if (!isPublicApiEnabled()) return publicApiDisabledResponse();
   const url = new URL(req.url);
   const limit = clampLimit(url.searchParams.get('limit'));
   const cursor = url.searchParams.get('cursor');
@@ -66,6 +68,11 @@ export async function GET(req: Request) {
       'vendor_profile_id, public_id, business_name, business_slug, tagline, logo_url, services, location_city, website, public_visibility, created_at',
     )
     .in('public_visibility', PUBLIC_SURFACE_VISIBILITIES as readonly string[])
+    // PR-B — this public, CORS-open list must never expose UNVERIFIED vendors
+    // (they have no public website / marketplace listing). Mirrors the Explore
+    // + /v/[slug] + sitemap gate. The reconcile migration 20270331400000 marked
+    // the founder + every paid vendor 'verified', so no real vendor is dropped.
+    .eq('verification_state', 'verified')
     .order('created_at', { ascending: false })
     .order('public_id', { ascending: false })
     .limit(limit + 1);

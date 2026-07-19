@@ -108,6 +108,56 @@ export async function setEventBudget(formData: FormData): Promise<SetEventBudget
   return { ok: true, budgetCentavos };
 }
 
+export type SetShareBudgetBandResult =
+  | { ok: true; shareBudgetBand: boolean }
+  | { ok: false; error: string };
+
+/**
+ * Couple opt-IN (default OFF) to share their budget as a ROUNDED RANGE with
+ * vendors they talk to — never an exact number, and only for each vendor's own
+ * category. Writes events.share_budget_band under the host's own session; the
+ * events host RLS already permits this update (same path setEventBudget uses to
+ * write estimated_budget_centavos). Read only inside get_vendor_event_brief,
+ * which derives the range and gates it on this flag + an existing allocation.
+ *
+ * Customer Card respine PR-5 (owner-approved 2026-07-03): "get more accurate
+ * quotes, faster".
+ */
+export async function setShareBudgetBand(
+  formData: FormData,
+): Promise<SetShareBudgetBandResult> {
+  const eventIdRaw = formData.get('event_id');
+  const shareRaw = formData.get('share');
+
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    return { ok: false, error: 'Missing event reference. Please refresh and try again.' };
+  }
+  // Checkbox/hidden convention: 'on' | 'true' | '1' → share; anything else → off.
+  const share = shareRaw === 'on' || shareRaw === 'true' || shareRaw === '1';
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase
+    .from('events')
+    .update({ share_budget_band: share })
+    .eq('event_id', eventIdRaw);
+
+  if (error) {
+    return {
+      ok: false,
+      error:
+        'Couldn’t update budget sharing. If this keeps happening, please reach out from /help.',
+    };
+  }
+
+  revalidatePath(`/dashboard/${eventIdRaw}/budget`);
+  return { ok: true, shareBudgetBand: share };
+}
+
 function parseMoney(raw: FormDataEntryValue | null): number | null {
   if (typeof raw !== 'string' || raw.trim().length === 0) return null;
   const n = Number(raw);

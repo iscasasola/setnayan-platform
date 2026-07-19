@@ -3,11 +3,8 @@ import {
   Cormorant_Garamond,
   Manrope,
   DM_Mono,
-  Source_Sans_3,
-  Saira_Condensed,
-  Geist,
-  Instrument_Serif,
-  JetBrains_Mono,
+  Hanken_Grotesk,
+  Space_Mono,
   Cinzel,
   Playfair_Display,
   Great_Vibes,
@@ -18,9 +15,9 @@ import {
 } from 'next/font/google';
 import Script from 'next/script';
 import './globals.css';
-import { Suspense } from 'react';
 import { ClientTypeDetector } from './_components/client-type-detector';
 import { NativeBridge } from './_components/native-bridge';
+import { CookieConsentBanner } from './_components/cookie-consent-banner';
 import { DemoModeBanner } from './_components/demo-mode-banner';
 import { OfflineDaemonMount } from './_components/offline-daemon-mount';
 import { PilotModeBanner } from './_components/pilot-mode-banner';
@@ -28,6 +25,7 @@ import { NavProgress } from './_components/nav-progress';
 import { NavSlideController } from './_components/nav/nav-slide-controller';
 import { AppInitSplash } from './_components/app-init-splash';
 import { SiteChrome } from './_components/marketing/site-chrome';
+import { SiteFooterChrome } from './_components/marketing/site-footer-chrome';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { Providers } from './providers';
 import { themeBootstrapScript } from './_components/theme-provider';
@@ -39,6 +37,7 @@ import {
   resolveBrandMarkUrl,
   withBrandVersion,
 } from '@/lib/brand-settings';
+import { getLoaderSettings } from '@/lib/loader-settings';
 
 /**
  * App cold-start ("initialization") splash gate — owner 2026-06-07.
@@ -83,46 +82,62 @@ const cormorant = Cormorant_Garamond({
   subsets: ['latin'],
   display: 'swap',
   weight: ['400', '500', '600', '700'],
-  variable: '--font-display',
+  variable: '--font-editorial-display',
 });
 
 const manrope = Manrope({
   subsets: ['latin'],
   display: 'swap',
   weight: ['400', '500', '600', '700'],
-  variable: '--font-sans',
+  variable: '--font-editorial-sans',
 });
 
 const dmMono = DM_Mono({
   subsets: ['latin'],
   display: 'swap',
   weight: ['400', '500'],
-  variable: '--font-mono',
+  variable: '--font-editorial-mono',
 });
 
-// Backend (operational dashboards) typeface. Owner-locked 2026-06-10: the
-// couple / vendor / admin dashboards run on Source Sans for maximum
-// readability — one simple, minimalist family for body AND headings. The
-// editorial Cormorant/Manrope stack stays on the public marketing site +
-// guest-facing pages (landing / save-the-date / event pages). Scoped via the
-// `.app-surface` class in globals.css (opt-in, mirrors `.m-surface`), which
-// remaps --font-sans/--font-display to --font-app inside dashboards so the
-// 200+ shipped components don't churn. DM Mono is kept for IDs/ref codes.
-const sourceSans = Source_Sans_3({
+// Atelier + macOS glass typography — owner-locked 2026-07-12 (design
+// finalization; supersedes the 2026-06-10 Source Sans dashboard lock and the
+// 0015 Cormorant/Manrope chrome roles). Hanken Grotesk is THE UI family for
+// all chrome (marketing site + couple/vendor/admin dashboards); Space Mono
+// carries data/prices/dates. The swap cascades through globals.css variable
+// aliases (--font-app / --font-*-marketing / .app-surface remaps) so the
+// shipped components don't churn. Cormorant/Manrope/DM Mono above stay LOADED
+// but are now guest-content faces only: the /[slug] invitation surfaces are
+// owner-excluded from the reskin and keep inheriting the root vars.
+const hanken = Hanken_Grotesk({
   subsets: ['latin'],
   display: 'swap',
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-app',
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-hanken',
+});
+
+const spaceMono = Space_Mono({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['400', '700'],
+  variable: '--font-space-mono',
 });
 
 // Monogram display faces — the couple's onboarding monogram renders in its
 // EXACT chosen face in the dashboard chrome (event switcher + profile avatar),
 // matching the onboarding medallion. Owner-locked 2026-06-03 ("yes exact font").
+// preload: false on all seven monogram/script faces below — they render ONLY in
+// the Monogram Maker + monogram chrome, never on the marketing homepage or any
+// public page, yet next/font was emitting a <link rel=preload as=font> for each
+// into EVERY page's <head>. `preload:false` keeps them fully functional (loaded
+// on demand when a monogram surface mounts, display:swap covers the swap) while
+// removing ~7 wasted font preloads from the first-paint path site-wide.
+// (Perf sweep 2026-07-02, findings #5/#11/#12/#14.)
 const cinzel = Cinzel({
   subsets: ['latin'],
   display: 'swap',
   weight: ['400', '600'],
   variable: '--font-cinzel',
+  preload: false,
 });
 
 const playfairDisplay = Playfair_Display({
@@ -131,6 +146,7 @@ const playfairDisplay = Playfair_Display({
   weight: ['400', '600'],
   style: ['normal', 'italic'],
   variable: '--font-playfair',
+  preload: false,
 });
 
 const greatVibes = Great_Vibes({
@@ -138,6 +154,7 @@ const greatVibes = Great_Vibes({
   display: 'swap',
   weight: '400',
   variable: '--font-script',
+  preload: false,
 });
 
 // Monogram typeface expansion — owner picks 2026-06-11 (font specimen session):
@@ -149,6 +166,7 @@ const libreCaslon = Libre_Caslon_Display({
   display: 'swap',
   weight: '400',
   variable: '--font-libre-caslon',
+  preload: false,
 });
 
 const tangerine = Tangerine({
@@ -156,6 +174,7 @@ const tangerine = Tangerine({
   display: 'swap',
   weight: ['400', '700'],
   variable: '--font-tangerine',
+  preload: false,
 });
 
 const luxuriousScript = Luxurious_Script({
@@ -163,6 +182,7 @@ const luxuriousScript = Luxurious_Script({
   display: 'swap',
   weight: '400',
   variable: '--font-luxurious',
+  preload: false,
 });
 
 const vidaloka = Vidaloka({
@@ -170,49 +190,16 @@ const vidaloka = Vidaloka({
   display: 'swap',
   weight: '400',
   variable: '--font-vidaloka',
+  preload: false,
 });
 
-// v2.1 marketing typography (Setnayan Vendor Keynote template package · CLAUDE.md
-// 2026-05-28 11th row "v2.1 template package adoption"). Loaded alongside the
-// existing editorial stack — marketing surfaces opt-in via `var(--font-condensed)`
-// / `var(--font-sans-marketing)` / `var(--font-serif-marketing)` / `var(--font-mono-marketing)`
-// inline styles or arbitrary Tailwind classes. Dashboard chrome keeps existing
-// Cormorant / Manrope / DM Mono so the 200+ shipped components don't churn.
-//
-//   - Saira Condensed  → display headlines (WWDC keynote register · Setnayan
-//     v2 brand mark "SET NA 'YAN" wordmark). Weights 400/600/700/800.
-//   - Geist            → marketing body sans (more geometric than Manrope).
-//   - Instrument Serif → editorial accent serif (italic supported).
-//   - JetBrains Mono   → marketing mono (eyebrows, label chips, /sɛt na jan/
-//     phonetic spelling).
-const sairaCondensed = Saira_Condensed({
-  subsets: ['latin'],
-  display: 'swap',
-  weight: ['400', '600', '700', '800'],
-  variable: '--font-condensed',
-});
-
-const geist = Geist({
-  subsets: ['latin'],
-  display: 'swap',
-  weight: ['300', '400', '500', '600', '700'],
-  variable: '--font-sans-marketing',
-});
-
-const instrumentSerif = Instrument_Serif({
-  subsets: ['latin'],
-  display: 'swap',
-  weight: ['400'],
-  style: ['normal', 'italic'],
-  variable: '--font-serif-marketing',
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  display: 'swap',
-  weight: ['400', '500'],
-  variable: '--font-mono-marketing',
-});
+// (RETIRED 2026-07-12 · Atelier finalization) The v2.1 marketing quartet —
+// Saira Condensed / Geist / Instrument Serif / JetBrains Mono — is no longer
+// loaded. Their CSS variables (--font-condensed / --font-sans-marketing /
+// --font-serif-marketing / --font-mono-marketing) are still consumed by a
+// handful of shipped chrome files, so globals.css now aliases those vars to
+// Hanken Grotesk / Space Mono. Removing four families also drops their font
+// preloads from the first-paint path site-wide.
 
 // Static metadata baseline. `icons` is intentionally NOT here — it's resolved
 // per-request in generateMetadata() below so the admin-controlled brand icon
@@ -224,7 +211,7 @@ const baseMetadata: Metadata = {
     template: '%s · Setnayan',
   },
   description:
-    "Set na 'yan. Setnayan is the Philippines-first wedding planning platform — free baseline tools for couples, 0% commission on vendor bookings, verified Filipino wedding suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
+    "Set na 'yan. Setnayan is the Philippines-first wedding platform — plan your whole wedding free, book verified Filipino vendors at 0% commission across Metro Manila, Cebu, Davao, Tagaytay, and nationwide, and keep every photo, video, and memory in one place for life. The wedding is where it starts; every celebration after it lives here too.",
   applicationName: 'Setnayan',
   manifest: '/manifest.json',
   appleWebApp: {
@@ -248,7 +235,7 @@ const baseMetadata: Metadata = {
     url: 'https://www.setnayan.com',
     title: "Setnayan · Filipino wedding planning + verified vendors",
     description:
-      "Set na 'yan. Free baseline planning tools for couples, 0% commission on vendor bookings, verified Filipino wedding suppliers nationwide.",
+      "Set na 'yan. Plan your whole Filipino wedding free, book verified vendors at 0% commission, and keep every photo and memory in one place for life — the wedding is just where it starts.",
     images: [
       {
         url: '/brand/og-card.webp',
@@ -263,7 +250,7 @@ const baseMetadata: Metadata = {
     card: 'summary_large_image',
     title: "Setnayan · Filipino wedding planning + verified vendors",
     description:
-      "Set na 'yan. Free baseline planning tools for couples, 0% commission on vendor bookings, verified Filipino wedding suppliers nationwide.",
+      "Set na 'yan. Plan your whole Filipino wedding free, book verified vendors at 0% commission, and keep every photo and memory in one place for life — the wedding is just where it starts.",
     images: ['/brand/og-card.webp'],
   },
   // Robots-meta default to index,follow (we're shipping public marketing).
@@ -279,6 +266,18 @@ const baseMetadata: Metadata = {
       'max-image-preview': 'large',
       'max-snippet': -1,
     },
+  },
+  // Search-engine ownership via meta tag (owner action: paste the tokens into
+  // the Vercel env vars, no redeploy-of-code needed). Google Search Console →
+  // NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION; Bing Webmaster → NEXT_PUBLIC_BING_
+  // SITE_VERIFICATION. When unset, Next emits nothing (no empty meta tag), so
+  // this is inert until the owner supplies the strings. Unblocks GSC (Google
+  // AI Overviews source) + Bing (Copilot source) property verification.
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+    other: process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION
+      ? { 'msvalidate.01': process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION }
+      : {},
   },
 };
 
@@ -341,10 +340,8 @@ export async function generateMetadata(): Promise<Metadata> {
 // public page emits the basic Organization entity so brand-name queries
 // like "Setnayan" surface a Knowledge Panel as the platform matures.
 //
-// sameAs[] is intentionally empty — owner-side action pending (Facebook Page
-// + LinkedIn Company Page creation per SEO_GEO_SPRINT_2026-05-29.md owner
-// actions list). When those URLs arrive, append to this array via a small
-// follow-up PR. AI engines tolerate empty sameAs[] gracefully.
+// sameAs[] carries the Facebook Page (owner-confirmed live 2026-07-10). A
+// LinkedIn Company Page does not exist yet — append its URL below when created.
 const organizationJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
@@ -360,7 +357,7 @@ const organizationJsonLd = {
   },
   image: 'https://www.setnayan.com/brand/og-card.webp',
   description:
-    "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set\") is the Philippines-first wedding and life-events software platform. Couples plan free — guest list, RSVP, seating, budget, and a personal event website — then add optional paid upgrades that set the day apart: Papic (guests' phones become a coordinated photo-and-video crew, with QR-tagged galleries and personal highlight reels), Panood livestream on the event page, the Setnayan AI planner, a custom Pakanta wedding song, and an Animated Monogram — each priced individually in PHP. 0% commission on vendor bookings; verified Filipino wedding suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
+    "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set\") is the Philippines-first wedding platform, built to grow into a life-events collection — one place to plan each celebration, capture it, and keep it for life. Couples plan their wedding free — guest list, RSVP, seating, budget, and a personal event website — then add optional paid upgrades that set the day apart: Papic (guests' phones become a coordinated photo-and-video crew, with QR-tagged galleries and personal highlight reels), Panood livestream on the event page, the Setnayan AI planner, a custom Pakanta wedding song, and an Animated Monogram — each priced individually in PHP. Everything a couple creates gathers into one living memory (Alaala) they keep, and the wedding becomes its own recurring anniversary — so a one-time wedding grows into the home for every celebration that follows. 0% commission on vendor bookings; verified Filipino wedding suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
   foundingDate: '2026',
   knowsLanguage: ['en', 'tl', 'ceb'],
   areaServed: {
@@ -375,7 +372,7 @@ const organizationJsonLd = {
     {
       '@type': 'ContactPoint',
       contactType: 'data protection officer',
-      email: 'dpo@setnayan.com',
+      email: 'iscasasolaii@gmail.com',
       areaServed: 'PH',
       availableLanguage: ['en', 'tl'],
     },
@@ -387,12 +384,11 @@ const organizationJsonLd = {
       availableLanguage: ['en', 'tl'],
     },
   ],
-  // sameAs[] pending — owner-side Facebook Page + LinkedIn Company Page
-  // creation per SEO_GEO_SPRINT_2026-05-29.md. Add URLs here when they exist:
-  //   sameAs: [
-  //     'https://www.facebook.com/setnayan',
-  //     'https://www.linkedin.com/company/setnayan',
-  //   ],
+  // sameAs[] — verified brand profiles that ground the Setnayan entity in the
+  // knowledge graph (Google/Bing + AI answer engines cross-reference these).
+  // Facebook Page live + owner-confirmed 2026-07-10. No LinkedIn Company Page
+  // yet — append its URL here when it exists.
+  sameAs: ['https://www.facebook.com/setnayan'],
 };
 
 // Light-locked 2026-06-04 (owner: "just always keep it light theme"). One
@@ -420,7 +416,11 @@ function getOrigin(url: string | undefined): string | null {
   }
 }
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   // Preconnect to backend origins the marketing + dashboard surfaces will
   // hit within the first second — saves the cold DNS+TCP+TLS roundtrip on
   // the first auth check, first analytics event, and first signed-URL fetch.
@@ -428,23 +428,29 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const posthogOrigin = getOrigin(process.env.NEXT_PUBLIC_POSTHOG_HOST);
   const r2Origin = getOrigin(process.env.R2_PUBLIC_URL);
 
-  // Admin-controlled brand mark for the in-app <Logo>/<LogoMark> (owner
-  // 2026-06-10). Cached read (deduped with generateMetadata's call) → null when
-  // no admin icon is set, so BrandProvider uses the built-in gold default.
-  const brandMarkUrl = resolveBrandMarkUrl(await getBrandSettings());
-
-  // Nav/icon/menu-registry slot map for the public marketing nav (the LAST
-  // doorway to wire — customer/vendor/admin already consume the registry). The
-  // marketing nav is label-only, so SiteChrome overlays public.site-nav.*
-  // labels onto its in-code links. Cached read (unstable_cache + NAV_REGISTRY_TAG)
-  // shared with the dashboard layouts; fails open to code defaults so the public
-  // nav always renders even if the override table is unreachable.
-  const navSlots = await getNavSlotMap();
+  // Two independent cached reads that gate EVERY page's render — resolve them
+  // concurrently so a cold cache / post-revalidate request doesn't pay two
+  // serial Singapore round-trips in the global layout. (Perf sweep 2026-07-02,
+  // findings #15/#30.)
+  //   • brand mark for the in-app <Logo>/<LogoMark> (owner 2026-06-10; deduped
+  //     with generateMetadata's call, null → built-in gold default).
+  //   • nav/icon/menu-registry slot map for the public marketing nav (label-only;
+  //     SiteChrome overlays public.site-nav.* labels; fails open to code defaults).
+  //   • loader appearance (owner 2026-07-05; variant/veil/cadence/pop, threaded
+  //     to every <SDLoader> via LoaderConfigProvider; DEFAULT on any DB error).
+  const [brandSettings, navSlots, loaderConfig] = await Promise.all([
+    getBrandSettings(),
+    getNavSlotMap(),
+    getLoaderSettings(),
+  ]);
+  const brandMarkUrl = resolveBrandMarkUrl(brandSettings);
 
   return (
     <html
       lang="en-PH"
-      className={`${cormorant.variable} ${manrope.variable} ${dmMono.variable} ${sourceSans.variable} ${sairaCondensed.variable} ${geist.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable} ${cinzel.variable} ${playfairDisplay.variable} ${greatVibes.variable} ${libreCaslon.variable} ${tangerine.variable} ${luxuriousScript.variable} ${vidaloka.variable}`}
+      data-loader-variant={loaderConfig.variant}
+      style={{ '--sd-veil': `${loaderConfig.veilOpacity}%` } as React.CSSProperties}
+      className={`${cormorant.variable} ${manrope.variable} ${dmMono.variable} ${hanken.variable} ${spaceMono.variable} ${cinzel.variable} ${playfairDisplay.variable} ${greatVibes.variable} ${libreCaslon.variable} ${tangerine.variable} ${luxuriousScript.variable} ${vidaloka.variable}`}
     >
       <head>
         {/*
@@ -479,7 +485,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         ) : null}
         {posthogOrigin ? (
           <>
-            <link rel="preconnect" href={posthogOrigin} crossOrigin="anonymous" />
+            {/* PostHog is consent-gated and never loads until the visitor
+                accepts analytics cookies, so a speculative preconnect (DNS+TCP+
+                TLS) just burns one of the browser's limited early connections
+                for a request most first-time visitors never make. Keep only the
+                cheap dns-prefetch; the provider opens the real connection after
+                consent. (Perf sweep 2026-07-02, finding #32.) */}
             <link rel="dns-prefetch" href={posthogOrigin} />
           </>
         ) : null}
@@ -500,11 +511,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           Hidden (display:none) on every other surface — zero marketing impact.
         */}
         <div id="sn-init-splash" aria-hidden="true">
-          <div className="sd-loader" data-theme="light">
+          {/* data-loader-variant mirrors the admin choice so the boot splash
+              matches the in-app loader; the aurora + pulse decorative layers are
+              CSS-toggled by variant (hidden for `gather`). Owner 2026-07-05. */}
+          <div className="sd-loader" data-theme="light" data-loader-variant={loaderConfig.variant}>
             <div className="sd-stage">
               <div className="sd-scene">
                 <div className="sd-core">
                   <div className="sd-glow" />
+                  <div className="sd-aurora" />
+                  <div className="sd-pulse">
+                    <i />
+                    <i />
+                    <i />
+                  </div>
                   <div
                     className="sd-lg"
                     style={{ backgroundImage: "url('/brand/setnayan-mark.svg')" }}
@@ -529,16 +549,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <NavSlideController />
         <PilotModeBanner />
         {/*
-          DemoModeBanner is admin-only (the server component itself
-          short-circuits to null for non-admin sessions, even if a stale
-          cookie is present). Wrapped in Suspense so anonymous + non-admin
-          visitors don't wait on the cookie + auth lookup — the public
-          marketing surface stays as fast as before; only admin sessions
-          actually hit the banner-render path.
+          DemoModeBanner is admin-only and now a CLIENT component: it reads a
+          non-httpOnly presence-hint cookie and, only when present, fetches the
+          authoritative /api/demo-mode/status (which does the httpOnly-cookie +
+          admin check server-side). This keeps cookies() OUT of the root layout's
+          SSR path so the marketing pages can be edge-cached/ISR'd. Normal
+          visitors make no request and see nothing. (Perf sweep 2026-07-02.)
         */}
-        <Suspense fallback={null}>
-          <DemoModeBanner />
-        </Suspense>
+        <DemoModeBanner />
         {/* SiteChrome = the ONE persistent marketing top nav, mounted once
             here so it survives page navigations (the body swaps, the nav
             stays). It self-gates to public marketing routes and renders null
@@ -546,12 +564,24 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             inside <Providers> so it shares the same theme/brand context the
             per-page navs had. Owner 2026-06-15 "one top nav for the whole
             website". */}
-        <Providers brandMarkUrl={brandMarkUrl}>
+        <Providers brandMarkUrl={brandMarkUrl} loaderConfig={loaderConfig}>
           <SiteChrome navSlots={navSlots} />
           {children}
+          {/* SiteFooterChrome = the ONE persistent reskin footer, mounted
+              AFTER {children} so it sits at the end of every marketing page in
+              normal flow, gated by the same route predicate as SiteChrome.
+              Because it survives navigations it also powers the pinned-footer
+              interaction: a footer link keeps the footer riding along as a
+              bottom sheet until a top-nav press slides it away (owner
+              2026-07-03). */}
+          <SiteFooterChrome />
         </Providers>
         <ClientTypeDetector />
         <NativeBridge />
+        {/* Site-wide cookie-consent banner (RA 10173). Self-hides on '/',
+            where HomeReskin renders its own bespoke pill — both share the
+            same consent state via lib/cookie-consent. */}
+        <CookieConsentBanner />
         {/*
           V2 Cutover Phase G — offline daemon mount (IndexedDB + SW for
           7 media services). Default OFF for pilot per CLAUDE.md

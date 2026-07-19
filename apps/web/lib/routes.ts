@@ -20,14 +20,14 @@ export const routes = {
     index: () => `/admin`,
     accountDeletions: () => `/admin/account-deletions`,
     addons: {
-      index: () => `/admin/addons`,
+      index: () => `/admin/pricing?tab=addons`,
       pricingReport: () => `/admin/addons/pricing-report`,
     },
     approvals: () => `/admin/approvals`,
-    brain: () => `/admin/brain`,
+    brain: () => `/admin/ugat?tab=brain`,
     budgetPlanner: () => `/admin/budget-planner`,
     conciergeAbuse: () => `/admin/concierge-abuse`,
-    connectionLogs: () => `/admin/connection-logs`,
+    connectionLogs: () => `/admin/app-performance?tab=connection-logs`,
     demoVendors: {
       index: () => `/admin/demo-vendors`,
       inquiries: {
@@ -42,28 +42,30 @@ export const routes = {
       new: () => `/admin/discount-codes/new`,
     },
     disputes: () => `/admin/disputes`,
-    eventTypes: () => `/admin/event-types`,
+    // eventTypes helper REMOVED 2026-07-03 — /admin/event-types folded into the
+    // Taxonomy Studio's Vocabularies → Event types rail; the standalone page
+    // redirects to /admin/taxonomy?view=vocab-event. Helper was unused.
     events: () => `/admin/events`,
     forceMajeure: {
       index: () => `/admin/force-majeure`,
       detail: (flagId: string) => `/admin/force-majeure/${flagId}`,
     },
-    funnels: () => `/admin/funnels`,
+    funnels: () => `/admin/app-performance?tab=funnels`,
     growth: {
-      index: () => `/admin/growth`,
+      index: () => `/admin/app-performance?tab=growth`,
       export: () => `/admin/growth/export`,
     },
     help: () => `/admin/help`,
     heroVideo: () => `/admin/hero-video`,
     insights: () => `/admin/insights`,
-    intelligence: () => `/admin/intelligence`,
+    intelligence: () => `/admin/app-performance?tab=intelligence`,
     money: () => `/admin/money`,
     moodboardLibrary: () => `/admin/moodboard-library`,
     more: () => `/admin/more`,
-    notifications: () => `/admin/notifications`,
-    offline: () => `/admin/offline`,
-    onboarding: () => `/admin/onboarding`,
-    operationsHiring: () => `/admin/operations-hiring`,
+    notifications: () => `/admin/settings?tab=notifications`,
+    offline: () => `/admin/app-performance?tab=offline`,
+    onboarding: () => `/admin/ugat?tab=onboarding`,
+    operationsHiring: () => `/admin/app-performance?tab=operations`,
     pakanta: () => `/admin/pakanta`,
     paxChanges: () => `/admin/pax-changes`,
     paymentOptions: () => `/admin/payment-options`,
@@ -74,19 +76,21 @@ export const routes = {
     realStories: () => `/admin/real-stories`,
     recaps: () => `/admin/recaps`,
     receipts: () => `/admin/receipts`,
-    refinements: () => `/admin/refinements`,
+    // 'refinements' route helper REMOVED 2026-07-03 — /admin/refinements retired
+    // to a redirect(/admin/taxonomy); no callers. The redirect page uses a string
+    // literal, not this helper.
     reviews: () => `/admin/reviews`,
     settings: {
       index: () => `/admin/settings`,
-      demoMode: () => `/admin/settings/demo-mode`,
+      demoMode: () => `/admin/settings?tab=demo-mode`,
       paymentMethods: () => `/admin/settings/payment-methods`,
     },
     socialQueue: () => `/admin/social-queue`,
     songs: () => `/admin/songs`,
     subscriptions: () => `/admin/subscriptions`,
     taxonomy: () => `/admin/taxonomy`,
-    priceBands: () => `/admin/price-bands`,
-    tokenBands: () => `/admin/token-bands`,
+    priceBands: () => `/admin/pricing?tab=price-bands`,
+    tokenBands: () => `/admin/pricing?tab=token-bands`,
     tokenPurchases: () => `/admin/token-purchases`,
     userReports: () => `/admin/user-reports`,
     users: () => `/admin/users`,
@@ -102,8 +106,10 @@ export const routes = {
     },
     verify: () => `/admin/verify`,
     website: () => `/admin/website`,
-    weddingTraditions: () => `/admin/wedding-traditions`,
-    weddingTypes: () => `/admin/wedding-types`,
+    weddingTraditions: () => `/admin/ugat?tab=wedding-traditions`,
+    // weddingTypes REMOVED 2026-07-03 — /admin/wedding-types retired to a
+    // redirect(/admin/taxonomy?view=vocab-faith); the faith launch gate now lives
+    // in the Taxonomy Studio Vocabularies rail.
     work: () => `/admin/work`,
   },
   api: {
@@ -140,6 +146,11 @@ export const routes = {
     health: {
       index: () => `/api/health`,
       deep: () => `/api/health/deep`,
+    },
+    internal: {
+      patiktok: {
+        processJob: () => `/api/internal/patiktok/process-job`,
+      },
     },
     ledBackground: {
       save: () => `/api/led-background/save`,
@@ -202,6 +213,12 @@ export const routes = {
       autoResolve: () => `/api/telemetry/auto-resolve`,
       clientFault: () => `/api/telemetry/client-fault`,
     },
+    tiktok: {
+      auth: {
+        callback: () => `/api/tiktok/auth/callback`,
+        start: () => `/api/tiktok/auth/start`,
+      },
+    },
     upload: () => `/api/upload`,
     v1: {
       index: () => `/api/v1`,
@@ -262,13 +279,15 @@ export const routes = {
     activity: (eventId: string) => `/dashboard/${eventId}/activity`,
     addOns: {
       index: (eventId: string) => `/dashboard/${eventId}/studio`,
-      animatedMonogram: (eventId: string) => `/dashboard/${eventId}/studio/animated-monogram`,
-      bundle: (eventId: string) => `/dashboard/${eventId}/studio/bundle`,
+      // `animatedMonogram` + `detail` helpers removed 2026-07-11 (dead — zero
+      // callers; the Studio hub routes add-ons via add-ons-catalog.ts's
+      // addOnHref/appStoreDetailHref, not these). See changelog studio-hygiene.
+      // `bundle` helper removed 2026-07-15 (dead — zero callers; the /studio/bundle
+      // route + Essentials/Complete bundles were retired). See changelog dead-route-cleanup.
       customQrGuest: {
         index: (eventId: string) => `/dashboard/${eventId}/studio/custom-qr-guest`,
         print: (eventId: string) => `/dashboard/${eventId}/studio/custom-qr-guest/print`,
       },
-      detail: (eventId: string, addon: string) => `/dashboard/${eventId}/studio/${addon}`,
       indoorBlueprint: (eventId: string) => `/dashboard/${eventId}/studio/indoor-blueprint`,
       led: (eventId: string) => `/dashboard/${eventId}/studio/led`,
       moodBoard: {
@@ -289,6 +308,11 @@ export const routes = {
         moderation: (eventId: string) => `/dashboard/${eventId}/studio/papic/moderation`,
         recap: (eventId: string) => `/dashboard/${eventId}/studio/papic/recap`,
       },
+      patiktok: {
+        index: (eventId: string) => `/dashboard/${eventId}/studio/patiktok`,
+        booth: (eventId: string) => `/dashboard/${eventId}/studio/patiktok/booth`,
+        detail: (eventId: string, templateId: string) => `/dashboard/${eventId}/studio/patiktok/${templateId}`,
+      },
       photoDelivery: (eventId: string) => `/dashboard/${eventId}/studio/photo-delivery`,
       playlist: (eventId: string) => `/dashboard/${eventId}/studio/playlist`,
       saveTheDate: (eventId: string) => `/dashboard/${eventId}/studio/save-the-date`,
@@ -297,6 +321,7 @@ export const routes = {
     },
     apiKeys: () => `/dashboard/api-keys`,
     budget: (eventId: string) => `/dashboard/${eventId}/budget`,
+    checklist: (eventId: string) => `/dashboard/${eventId}/checklist`,
     contracts: {
       index: (eventId: string) => `/dashboard/${eventId}/contracts`,
       detail: (eventId: string, contractId: string) => `/dashboard/${eventId}/contracts/${contractId}`,
@@ -383,7 +408,7 @@ export const routes = {
   },
   faviconIco: () => `/favicon.ico`,
   features: () => `/features`,
-  forVendors: () => `/for-vendors`,
+  forVendors: () => `/vendors`,
   forgotPassword: () => `/forgot-password`,
   guest: {
     findMyTable: (slug: string) => `/${slug}/find-my-table`,
@@ -496,7 +521,6 @@ export const routes = {
     proposals: () => `/vendor-dashboard/proposals`,
     realStories: () => `/vendor-dashboard/real-stories`,
     recaps: () => `/vendor-dashboard/recaps`,
-    redeemCode: () => `/vendor-dashboard/redeem-code`,
     repertoire: () => `/vendor-dashboard/repertoire`,
     reviews: () => `/vendor-dashboard/reviews`,
     services: () => `/vendor-dashboard/services`,

@@ -7,9 +7,11 @@ import {
   AlertTriangle,
   BookmarkCheck,
   Clock,
+  CreditCard,
   Loader2,
   RotateCcw,
   ShieldCheck,
+  Upload,
   X,
 } from 'lucide-react';
 import type { PolicySnapshot } from '@/lib/vendor-service-payment-schedules';
@@ -17,6 +19,8 @@ import { PLAN_GROUPS, type PlanGroupId } from '@/lib/wedding-plan-groups';
 import { WEDDING_FOLDER_SLUG } from '@/lib/taxonomy';
 import { haptic } from '@/lib/haptics';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useSaveLoader } from '@/components/sd-loader';
+import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import {
   finalizeVendor,
   listLockTimeSlots,
@@ -98,11 +102,35 @@ type LockState =
       slotId: string | null;
       confirmDateLock: boolean;
     }
-  | { kind: 'error'; message: string };
+  // Payment-gated lock — HARD server gate (NEXT_PUBLIC_PAYMENT_GATED_LOCK_ENABLED).
+  // finalizeVendor returned 'downpayment_required' BEFORE committing: every other
+  // gate passed, but this marketplace vendor requires the downpayment first.
+  // Carries the vendor's published methods + the accumulated lock context, so the
+  // modal's submit re-calls finalizeVendor with the downpayment AND that context —
+  // which commits the lock. Cancel commits nothing (the gate returned pre-commit).
+  | {
+      kind: 'downpayment';
+      methods: CoupleFacingMethod[];
+      override: boolean;
+      slotId: string | null;
+      confirmDateLock: boolean;
+      acknowledgeReservationTerms: boolean;
+    }
+  | { kind: 'error'; message: string }
+  // Coordinator proposed the lock (spec § 4) — the couple confirms it.
+  | { kind: 'proposed'; vendorName: string };
 
 type ToastState =
   | { kind: 'hidden' }
   | { kind: 'locked'; undoUntil: number; milestone: LockMilestone };
+
+/** What the downpayment modal hands back to performLock to commit the lock. */
+type DownpaymentSubmission = {
+  methodId: string;
+  amountPhp: string;
+  reference: string | null;
+  proof: File | null;
+};
 
 export function AccordionLockButton({
   eventId,
@@ -133,6 +161,7 @@ export function AccordionLockButton({
   const [toast, setToast] = useState<ToastState>({ kind: 'hidden' });
   const [isPending, startTransition] = useTransition();
   const mountedRef = useRef(false);
+  const save = useSaveLoader();
 
   useEffect(() => {
     mountedRef.current = true;
@@ -182,6 +211,7 @@ export function AccordionLockButton({
     slotId: string | null,
     confirmDateLock: boolean,
     acknowledgeReservationTerms = false,
+    downpayment: DownpaymentSubmission | null = null,
   ) => {
     startTransition(async () => {
       const fd = new FormData();
@@ -191,9 +221,22 @@ export function AccordionLockButton({
       if (slotId) fd.set('service_time_slot_id', slotId);
       if (confirmDateLock) fd.set('confirm_date_lock', '1');
       if (acknowledgeReservationTerms) fd.set('acknowledge_reservation_terms', '1');
+      // Payment-gated lock (HARD gate): the downpayment submitted from the modal
+      // rides on THIS finalize call, which validates it pre-commit then commits +
+      // records it. Absent on the first attempt → the server returns
+      // 'downpayment_required' and we open the modal.
+      if (downpayment) {
+        fd.set('deposit_method_id', downpayment.methodId);
+        fd.set('deposit_php', downpayment.amountPhp);
+        if (downpayment.reference) fd.set('reference', downpayment.reference);
+        if (downpayment.proof) fd.set('proof', downpayment.proof);
+      }
       let result: FinalizeVendorResult;
       try {
-        result = await finalizeVendor(fd);
+        result = await save.run(() => finalizeVendor(fd), {
+          steps: ['Locking in your vendor'],
+          hint: 'Saving',
+        });
       } catch (err) {
         setState({
           kind: 'error',
@@ -204,17 +247,18 @@ export function AccordionLockButton({
       }
       switch (result.status) {
         case 'ok':
-        case 'already_locked':
+        case 'already_locked': {
           haptic('confirm');
+          const lockedMilestone: LockMilestone =
+            result.status === 'ok'
+              ? result.milestone
+              : { pickedLabel: vendorName, dateLocked: false, finalizeReady: null };
           setState({ kind: 'idle' });
           // Congrats + undo toast outlives the (now revalidated) card flip.
           setToast({
             kind: 'locked',
             undoUntil: Date.now() + TOAST_AUTO_DISMISS_MS,
-            milestone:
-              result.status === 'ok'
-                ? result.milestone
-                : { pickedLabel: vendorName, dateLocked: false, finalizeReady: null },
+            milestone: lockedMilestone,
           });
           try {
             const mod = await import('posthog-js');
@@ -232,6 +276,7 @@ export function AccordionLockButton({
             // PostHog optional — never block UX.
           }
           return;
+        }
         case 'hard_single_conflict':
           setState({
             kind: 'conflict',
@@ -292,6 +337,20 @@ export function AccordionLockButton({
             confirmDateLock,
           });
           return;
+        case 'downpayment_required':
+          // HARD payment gate — every other gate passed but the lock hasn't
+          // committed. Open the downpayment picker with the vendor's published
+          // methods; its submit re-calls performLock WITH the downpayment + the
+          // preserved context, which commits the lock. Cancel commits nothing.
+          setState({
+            kind: 'downpayment',
+            methods: result.methods,
+            override,
+            slotId,
+            confirmDateLock,
+            acknowledgeReservationTerms,
+          });
+          return;
         case 'not_signed_in':
           setState({ kind: 'error', message: 'Sign in again to lock this vendor.' });
           return;
@@ -304,6 +363,11 @@ export function AccordionLockButton({
         case 'error':
           setState({ kind: 'error', message: result.message });
           return;
+        case 'proposed':
+          // Coordinator can't lock directly (money-adjacent) — a proposal was
+          // recorded for the couple to confirm (spec § 4).
+          setState({ kind: 'proposed', vendorName: result.vendorName });
+          return;
       }
     });
   };
@@ -314,7 +378,10 @@ export function AccordionLockButton({
       const fd = new FormData();
       fd.set('event_id', eventId);
       fd.set('vendor_id', vendorId);
-      await revertVendorToConsidering(fd);
+      await save.run(() => revertVendorToConsidering(fd), {
+        steps: ['Reverting your pick'],
+        hint: 'Saving',
+      });
     });
   };
 
@@ -338,6 +405,15 @@ export function AccordionLockButton({
           className="mt-2 rounded-md border border-danger-300/50 bg-danger-50/60 px-3 py-2 text-[11px] text-danger-900"
         >
           {state.message}
+        </p>
+      ) : null}
+
+      {state.kind === 'proposed' ? (
+        <p
+          role="status"
+          className="mt-2 rounded-md border border-terracotta/30 bg-terracotta/[0.06] px-3 py-2 text-[11px] text-terracotta-700"
+        >
+          Proposed to the couple — {state.vendorName} will lock once they confirm.
         </p>
       ) : null}
 
@@ -397,6 +473,29 @@ export function AccordionLockButton({
           />,
         )}
 
+      {/* Payment-gated lock (HARD gate) — the lock has NOT committed. Collect the
+          downpayment through the vendor's published method + a required
+          screenshot; the modal re-calls finalizeVendor WITH the downpayment + the
+          preserved context, which commits the lock. Cancel commits nothing. */}
+      {state.kind === 'downpayment' &&
+        portal(
+          <DownpaymentModal
+            vendorName={vendorName}
+            methods={state.methods}
+            isPending={isPending}
+            onSubmit={(dp) =>
+              performLock(
+                state.override,
+                state.slotId,
+                state.confirmDateLock,
+                state.acknowledgeReservationTerms,
+                dp,
+              )
+            }
+            onCancel={() => setState({ kind: 'idle' })}
+          />,
+        )}
+
       {toast.kind === 'locked' ? (
         <LockMilestoneToast
           milestone={toast.milestone}
@@ -418,6 +517,7 @@ export function ChangePickButton({
   vendorId: string;
 }) {
   const [isPending, startTransition] = useTransition();
+  const save = useSaveLoader();
   return (
     <div className="lockbar">
       <button
@@ -430,7 +530,10 @@ export function ChangePickButton({
             const fd = new FormData();
             fd.set('event_id', eventId);
             fd.set('vendor_id', vendorId);
-            await revertVendorToConsidering(fd);
+            await save.run(() => revertVendorToConsidering(fd), {
+              steps: ['Reverting your pick'],
+              hint: 'Saving',
+            });
           });
         }}
       >
@@ -444,6 +547,210 @@ export function ChangePickButton({
 function portal(node: React.ReactNode): React.ReactNode {
   if (typeof document === 'undefined') return null;
   return createPortal(node, document.body);
+}
+
+/** One-line human detail for a published method in the downpayment picker. */
+function methodDetail(m: CoupleFacingMethod): string {
+  if (m.method_type === 'bank') {
+    const bits = [m.provider, m.account_name, m.account_number].filter(Boolean);
+    return bits.join(' · ') || 'Bank transfer';
+  }
+  if (m.method_type === 'qr') {
+    return m.decoded_destination || m.provider || 'Scan-to-pay QR';
+  }
+  return m.link_domain || m.link_url || 'Payment link';
+}
+
+/**
+ * DownpaymentModal — payment-gated lock HARD gate.
+ *
+ * Opens on 'downpayment_required' — BEFORE the lock commits. The couple picks the
+ * vendor's PUBLISHED method they paid through + attaches a REQUIRED screenshot;
+ * submit hands the downpayment back to performLock, which re-calls finalizeVendor
+ * to commit the lock AND record the payment atomically. Cancel commits NOTHING
+ * (the gate returned pre-commit — there is no lock to undo). Setnayan never holds
+ * the money (0% commission, off-platform).
+ */
+function DownpaymentModal({
+  vendorName,
+  methods,
+  isPending,
+  onSubmit,
+  onCancel,
+}: {
+  vendorName: string;
+  methods: CoupleFacingMethod[];
+  isPending: boolean;
+  onSubmit: (dp: DownpaymentSubmission) => void;
+  onCancel: () => void;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [selectedMethodId, setSelectedMethodId] = useState<string>(
+    methods[0]?.payment_method_id ?? '',
+  );
+  useModalA11y({ open: true, onClose: onCancel, containerRef: dialogRef });
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    const amountPhp = String(form.get('deposit_php') ?? '');
+    const referenceRaw = String(form.get('reference') ?? '').trim();
+    const proofEntry = form.get('proof');
+    onSubmit({
+      methodId: selectedMethodId,
+      amountPhp,
+      reference: referenceRaw.length > 0 ? referenceRaw : null,
+      proof: proofEntry instanceof File && proofEntry.size > 0 ? proofEntry : null,
+    });
+  }
+
+  return (
+    <div
+      ref={dialogRef}
+      role="alertdialog"
+      aria-modal="true"
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onCancel();
+      }}
+    >
+      <div className="relative w-full max-w-md rounded-2xl border border-mulberry/25 bg-cream p-5 shadow-xl sm:p-6">
+        <button
+          type="button"
+          aria-label="Cancel"
+          onClick={onCancel}
+          disabled={isPending}
+          className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-ink/55 transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry disabled:opacity-60"
+        >
+          <X aria-hidden className="h-4 w-4" strokeWidth={2} />
+        </button>
+
+        <div className="flex items-start gap-2.5 pr-6">
+          <CreditCard aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-mulberry" strokeWidth={2} />
+          <div className="space-y-1.5">
+            <h3 className="text-sm font-semibold text-ink">Pay the downpayment to lock</h3>
+            <p className="text-xs leading-snug text-ink/70">
+              To lock <strong>{vendorName}</strong>, pay the downpayment through one of
+              their methods below, then attach a screenshot so they can confirm. Your
+              date is held the moment you submit. Setnayan never touches the money — you
+              pay {vendorName} directly.
+            </p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="mt-4 space-y-3">
+          <fieldset className="space-y-1.5">
+            <legend className="text-[11px] font-semibold uppercase tracking-wide text-ink/55">
+              How you paid
+            </legend>
+            {methods.map((m) => (
+              <label
+                key={m.payment_method_id}
+                className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 transition-colors ${
+                  selectedMethodId === m.payment_method_id
+                    ? 'border-mulberry bg-mulberry/5'
+                    : 'border-ink/12 bg-white/60 hover:bg-white'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="method_choice"
+                  value={m.payment_method_id}
+                  checked={selectedMethodId === m.payment_method_id}
+                  onChange={() => setSelectedMethodId(m.payment_method_id)}
+                  className="mt-0.5 accent-mulberry"
+                />
+                <span className="min-w-0">
+                  <span className="block text-xs font-medium text-ink">
+                    {m.label || m.provider || m.method_type.toUpperCase()}
+                    {m.is_primary ? (
+                      <span className="ml-1.5 rounded-full bg-mulberry/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-mulberry">
+                        Primary
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="block truncate text-[11px] text-ink/60">{methodDetail(m)}</span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+
+          <div className="space-y-1">
+            <label htmlFor="downpayment_php" className="block text-[11px] font-medium text-ink/70">
+              Amount you paid (₱)
+            </label>
+            <input
+              id="downpayment_php"
+              name="deposit_php"
+              type="number"
+              min="1"
+              step="0.01"
+              required
+              inputMode="decimal"
+              placeholder="e.g. 10000"
+              className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-mulberry focus:outline-none focus:ring-1 focus:ring-mulberry"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label htmlFor="downpayment_proof" className="flex items-center gap-1.5 text-[11px] font-medium text-ink/70">
+              <Upload aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+              Payment screenshot <span className="font-semibold text-mulberry">(required)</span>
+            </label>
+            <input
+              id="downpayment_proof"
+              name="proof"
+              ref={fileRef}
+              type="file"
+              accept="image/*,application/pdf"
+              required
+              className="block w-full text-xs text-ink/70 file:mr-3 file:rounded-md file:border-0 file:bg-mulberry/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-mulberry hover:file:bg-mulberry/20"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label htmlFor="downpayment_ref" className="block text-[11px] font-medium text-ink/70">
+              Reference <span className="text-ink/40">(optional)</span>
+            </label>
+            <input
+              id="downpayment_ref"
+              name="reference"
+              type="text"
+              maxLength={64}
+              placeholder="Txn ref / GCash no."
+              className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-mulberry focus:outline-none focus:ring-1 focus:ring-mulberry"
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <button
+              type="submit"
+              disabled={isPending || !selectedMethodId}
+              className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry disabled:opacity-60"
+            >
+              {isPending ? (
+                <>
+                  <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+                  Locking…
+                </>
+              ) : (
+                'Lock &amp; submit downpayment'
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={isPending}
+              className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry disabled:opacity-60"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 }
 
 function ExceptionModal({

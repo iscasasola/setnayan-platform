@@ -58,6 +58,7 @@ export const VENDOR_CATEGORY_CANONICAL: Record<VendorCategory, CanonicalMapping>
   venue: { kind: 'tile', tile: 'reception' },
   religious_venue: { kind: 'tile', tile: 'ceremony_venue' },
   catering: { kind: 'tile', tile: 'catering' },
+  crew_meals: { kind: 'tile', tile: 'crew_meals' },
   photographer: { kind: 'tile', tile: 'photo_video' },
   videographer: { kind: 'tile', tile: 'photo_video' },
   florist: { kind: 'tile', tile: 'florist' },

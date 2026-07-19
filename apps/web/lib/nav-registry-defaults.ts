@@ -34,10 +34,22 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 0,
   },
   {
+    key: "public.site-nav.setnayan-ai",
+    scope: "public",
+    area: "marketing-site-nav",
+    route: "/setnayan-ai",
+    label: "Setnayan AI",
+    labelKind: "literal",
+    iconKind: "none",
+    lucideName: null,
+    customRef: null,
+    sortOrder: 1,
+  },
+  {
     key: "public.site-nav.for-vendors",
     scope: "public",
     area: "marketing-site-nav",
-    route: "/for-vendors",
+    route: "/vendors",
     label: "For vendors",
     labelKind: "literal",
     iconKind: "none",
@@ -80,6 +92,59 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     lucideName: null,
     customRef: null,
     sortOrder: 4,
+  },
+  // ── Reskin glass nav (2026-07-03) — the marketing chrome now mirrors the
+  // homepage's floating glass nav: Prices / Download / Vendors open overlays
+  // (route = the overlay's "see full" destination), Sign in opens the auth
+  // popup. The six link slots above are seeded-but-inert (retired from the
+  // nav, kept so any admin overrides never orphan).
+  {
+    key: "public.site-nav.prices",
+    scope: "public",
+    area: "marketing-site-nav",
+    route: "/pricing",
+    label: "Prices",
+    labelKind: "literal",
+    iconKind: "none",
+    lucideName: null,
+    customRef: null,
+    sortOrder: 5,
+  },
+  {
+    key: "public.site-nav.download",
+    scope: "public",
+    area: "marketing-site-nav",
+    route: "/download",
+    label: "Download",
+    labelKind: "literal",
+    iconKind: "none",
+    lucideName: null,
+    customRef: null,
+    sortOrder: 6,
+  },
+  {
+    key: "public.site-nav.vendors-overlay",
+    scope: "public",
+    area: "marketing-site-nav",
+    route: "/vendors",
+    label: "Vendors",
+    labelKind: "literal",
+    iconKind: "none",
+    lucideName: null,
+    customRef: null,
+    sortOrder: 7,
+  },
+  {
+    key: "public.site-nav.sign-in",
+    scope: "public",
+    area: "marketing-site-nav",
+    route: "/login",
+    label: "Sign in",
+    labelKind: "literal",
+    iconKind: "none",
+    lucideName: null,
+    customRef: null,
+    sortOrder: 8,
   },
   {
     key: "public.download.page",
@@ -226,11 +291,24 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 5,
   },
   {
+    key: "customer.account.people",
+    scope: "customer",
+    area: "customer-account",
+    route: "/dashboard/people",
+    label: "People",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Users",
+    customRef: null,
+    sortOrder: 6,
+  },
+  {
     key: "customer.sidebar.home",
     scope: "customer",
     area: "customer-sidebar",
     route: "/dashboard/[eventId]",
-    label: "Home",
+    // Renamed Home → Overview (owner-approved product naming; design prototype).
+    label: "Overview",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Home",
@@ -242,7 +320,8 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-bottom-nav",
     route: "/dashboard/[eventId]",
-    label: "Home",
+    // Renamed Home → Overview (owner-approved product naming; design prototype).
+    label: "Overview",
     labelKind: "literal",
     iconKind: "custom",
     lucideName: null,
@@ -266,7 +345,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-bottom-nav",
     route: "/dashboard/[eventId]/vendors",
-    label: "Explore",
+    // Renamed Explore → Merkado (owner-approved product naming; design
+    // prototype). Slot key + route unchanged.
+    label: "Merkado",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Compass",
@@ -286,18 +367,6 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 3,
   },
   {
-    key: "customer.bottom-nav.budget",
-    scope: "customer",
-    area: "customer-bottom-nav",
-    route: "/dashboard/[eventId]/budget",
-    label: "Budget",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Wallet",
-    customRef: null,
-    sortOrder: 5,
-  },
-  {
     key: "customer.sidebar.studio",
     scope: "customer",
     area: "customer-sidebar",
@@ -314,7 +383,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-sidebar",
     route: "/dashboard/[eventId]/vendors",
-    label: "Explore",
+    // Renamed Explore → Merkado (owner-approved product naming; design
+    // prototype). Slot key + route unchanged.
+    label: "Merkado",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Compass",
@@ -395,30 +466,14 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 35,
   },
-  {
-    key: "customer.sidebar.schedule",
-    scope: "customer",
-    area: "customer-sidebar",
-    route: "/dashboard/[eventId]/schedule",
-    label: "Schedule",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "CalendarClock",
-    customRef: null,
-    sortOrder: 5,
-  },
-  {
-    key: "customer.sidebar.budget",
-    scope: "customer",
-    area: "customer-sidebar",
-    route: "/dashboard/[eventId]/budget",
-    label: "Budget",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Wallet",
-    customRef: null,
-    sortOrder: 6,
-  },
+  // customer.sidebar.schedule REMOVED 2026-07-10: Overview's Schedule child was
+  // flattened (#3004) — the slot had zero consumers. /schedule stays reachable
+  // from the dashboard body; the Day-of bottom-nav 'schedule' slot is separate.
+  // Budget nav item REMOVED 2026-07-10 (owner): budget now lives inside the
+  // Merkado (Vendors → Build · Budget · Compare), so the standalone item was
+  // redundant. The full budget surface (/dashboard/[eventId]/budget) stays
+  // reachable from the Merkado's Budget tab ("Open budget & payments") + direct
+  // links; only the top-level nav entry is gone.
   // Day-of phase bottom-nav tabs (lifecycle phase 'dayof' in
   // lib/customer-menu.ts buildCustomerMenuTree). Same `customer.bottom-nav.*`
   // area + lookup the customer-bottom-nav chokepoint uses for the plan tabs, so
@@ -524,30 +579,10 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 17,
   },
-  {
-    key: "customer.sidebar.messages",
-    scope: "customer",
-    area: "customer-sidebar",
-    route: "/dashboard/[eventId]/messages",
-    label: "Messages",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "MessageSquare",
-    customRef: null,
-    sortOrder: 7,
-  },
-  {
-    key: "customer.sidebar.contracts",
-    scope: "customer",
-    area: "customer-sidebar",
-    route: "/dashboard/[eventId]/contracts",
-    label: "Contracts",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "FileText",
-    customRef: null,
-    sortOrder: 8,
-  },
+  // customer.sidebar.messages + customer.sidebar.contracts REMOVED 2026-07-10:
+  // Overview's Messages/Contracts children were flattened (#3004) — the slots
+  // had zero consumers. Messages stays reachable from the Conversations card +
+  // topbar bell; Contracts from the vendor itemization cards.
   {
     // "Event page" — the host's doorway to the live /[slug] page (owner
     // 2026-06-26). Sits at the top of the Studio group; admin-editable here.
@@ -660,30 +695,10 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 15,
   },
-  {
-    key: "customer.home-subnav.overview",
-    scope: "customer",
-    area: "home-section-subnav",
-    route: "/dashboard/[eventId]",
-    label: "Overview",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "LayoutDashboard",
-    customRef: null,
-    sortOrder: 0,
-  },
-  {
-    key: "customer.home-subnav.checklist",
-    scope: "customer",
-    area: "home-section-subnav",
-    route: "/dashboard/[eventId]/checklist",
-    label: "Checklist",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "ClipboardList",
-    customRef: null,
-    sortOrder: 1,
-  },
+  // customer.home-subnav.overview + customer.home-subnav.checklist REMOVED
+  // 2026-07-10: the Overview section sub-nav (home-section-subnav) was never
+  // wired — Overview is a plain leaf (#3004), so these two slots had zero
+  // consumers.
   {
     key: "customer.guest-journey.build",
     scope: "customer",
@@ -1025,6 +1040,18 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 1,
   },
   {
+    key: "customer.budget-subnav.budget",
+    scope: "customer",
+    area: "budget-build-subnav",
+    route: "/dashboard/[eventId]/vendors?tab=budget",
+    label: "Budget",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Wallet",
+    customRef: null,
+    sortOrder: 2,
+  },
+  {
     key: "customer.budget-subnav.compare",
     scope: "customer",
     area: "budget-build-subnav",
@@ -1034,7 +1061,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     iconKind: "lucide",
     lucideName: "Scale",
     customRef: null,
-    sortOrder: 2,
+    sortOrder: 3,
   },
   // (The "customer.budget-subnav.lock" slot was removed 2026-06-20 — "Build
   // absorbs Lock" PR2: the standalone Lock tab is gone; the lock surface now
@@ -1266,11 +1293,39 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 0,
   },
   {
+    // My Shop — the storefront destination (proto-shell 6-menu flat sidebar).
+    key: "vendor.sidebar.shop",
+    scope: "vendor",
+    area: "vendor-sidebar",
+    route: "/vendor-dashboard/shop",
+    label: "My Shop",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "ShoppingBag",
+    customRef: null,
+    sortOrder: 1,
+  },
+  {
+    // My Customers — the booking-pipeline destination (proto-shell 6-menu).
+    key: "vendor.sidebar.customers",
+    scope: "vendor",
+    area: "vendor-sidebar",
+    route: "/vendor-dashboard/customers",
+    label: "My Customers",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Users",
+    customRef: null,
+    sortOrder: 2,
+  },
+  {
+    // Overview tab (key 'home' — the flat item key stays 'profile', mapped to
+    // this 'home' slot in vendor-bottom-nav for localStorage continuity).
     key: "vendor.bottom-nav.home",
     scope: "vendor",
     area: "vendor-bottom-nav",
     route: "/vendor-dashboard",
-    label: "Home",
+    label: "Overview",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Home",
@@ -1354,7 +1409,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "vendor",
     area: "vendor-sidebar",
     route: "/vendor-dashboard/services",
-    label: "Services",
+    label: "My Services",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "ClipboardList",
@@ -1414,36 +1469,12 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "vendor",
     area: "vendor-sidebar",
     route: "/vendor-dashboard/subscription",
-    label: "Subscription",
+    label: "Plan & tokens",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Crown",
     customRef: null,
     sortOrder: 12,
-  },
-  {
-    key: "vendor.sidebar.tokens",
-    scope: "vendor",
-    area: "vendor-sidebar",
-    route: "/vendor-dashboard/tokens",
-    label: "Tokens",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Coins",
-    customRef: null,
-    sortOrder: 13,
-  },
-  {
-    key: "vendor.sidebar.redeem-code",
-    scope: "vendor",
-    area: "vendor-sidebar",
-    route: "/vendor-dashboard/redeem-code",
-    label: "Redeem code",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Tag",
-    customRef: null,
-    sortOrder: 14,
   },
   {
     key: "vendor.sidebar.verify",
@@ -1468,6 +1499,20 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Handshake",
+    customRef: null,
+    sortOrder: 17,
+  },
+  {
+    // "Recommend to your couples" (Phase 3a) — curated add-on map keyed to the
+    // vendor's own leaves. Grow group · owner/admin only.
+    key: "vendor.sidebar.recommendations",
+    scope: "vendor",
+    area: "vendor-sidebar",
+    route: "/vendor-dashboard/recommendations",
+    label: "Recommend",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Lightbulb",
     customRef: null,
     sortOrder: 17,
   },
@@ -1580,50 +1625,123 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 25,
   },
   {
-    key: "vendor.bottom-nav.bookings",
+    key: "vendor.sidebar.on-the-day",
     scope: "vendor",
-    area: "vendor-bottom-nav",
-    route: "/vendor-dashboard/bookings",
-    label: "Bookings",
+    area: "vendor-sidebar",
+    route: "/vendor-dashboard/on-the-day",
+    label: "On the Day",
     labelKind: "literal",
     iconKind: "lucide",
-    lucideName: "Briefcase",
+    lucideName: "CalendarCheck",
+    customRef: null,
+    sortOrder: 26,
+  },
+  {
+    // My Performance — the flat 6-menu destination. Keys match the sidebar item
+    // keys 1:1 so /admin/menus can rename/hide them (previously hardcoded-only,
+    // no slot). Default seeded from the group-tree sub-item label ("Overview")
+    // by mistake; the flat destination reads "My Performance".
+    key: "vendor.sidebar.performance",
+    scope: "vendor",
+    area: "vendor-sidebar",
+    route: "/vendor-dashboard/performance",
+    label: "My Performance",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Gauge",
+    customRef: null,
+    sortOrder: 27,
+  },
+  {
+    key: "vendor.sidebar.demand",
+    scope: "vendor",
+    area: "vendor-sidebar",
+    route: "/vendor-dashboard/demand",
+    label: "Demand Radar",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Radar",
+    customRef: null,
+    sortOrder: 28,
+  },
+  // vendor.sidebar.funnel RETIRED 2026-07-02 — the Quote-to-Booking Funnel was
+  // folded into /vendor-dashboard/performance (owner "just integrate this to My
+  // Performance"). Slot removed so it stops surfacing in the sidebar + /admin/menus.
+  {
+    // My Customers group — Payday (cash-flow / installment surface).
+    key: "vendor.sidebar.payday",
+    scope: "vendor",
+    area: "vendor-sidebar",
+    route: "/vendor-dashboard/payday",
+    label: "Payday",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "CalendarClock",
+    customRef: null,
+    sortOrder: 30,
+  },
+  {
+    // Bottom-nav strip rerostered 2026-07-01 to the 6-tab proto-shell (Overview
+    // · Shop · Customers · Performance · Services · On the Day). The 'home' slot
+    // above carries Overview; these five cover the other tabs. The legacy
+    // bookings/calendar/messages/more bottom-nav slots were replaced — those
+    // surfaces still live in the /more landing + the sidebar routing.
+    key: "vendor.bottom-nav.shop",
+    scope: "vendor",
+    area: "vendor-bottom-nav",
+    route: "/vendor-dashboard/shop",
+    label: "Shop",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "ShoppingBag",
+    customRef: null,
+    sortOrder: 1,
+  },
+  {
+    key: "vendor.bottom-nav.customers",
+    scope: "vendor",
+    area: "vendor-bottom-nav",
+    route: "/vendor-dashboard/customers",
+    label: "Customers",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Users",
     customRef: null,
     sortOrder: 2,
   },
   {
-    key: "vendor.bottom-nav.calendar",
+    key: "vendor.bottom-nav.performance",
     scope: "vendor",
     area: "vendor-bottom-nav",
-    route: "/vendor-dashboard/calendar",
-    label: "Calendar",
+    route: "/vendor-dashboard/performance",
+    label: "Performance",
     labelKind: "literal",
     iconKind: "lucide",
-    lucideName: "CalendarDays",
+    lucideName: "BarChart2",
     customRef: null,
     sortOrder: 3,
   },
   {
-    key: "vendor.bottom-nav.messages",
+    key: "vendor.bottom-nav.services",
     scope: "vendor",
     area: "vendor-bottom-nav",
-    route: "/vendor-dashboard/messages",
-    label: "Messages",
+    route: "/vendor-dashboard/services",
+    label: "Services",
     labelKind: "literal",
     iconKind: "lucide",
-    lucideName: "MessageSquare",
+    lucideName: "Briefcase",
     customRef: null,
     sortOrder: 4,
   },
   {
-    key: "vendor.bottom-nav.more",
+    key: "vendor.bottom-nav.onday",
     scope: "vendor",
     area: "vendor-bottom-nav",
-    route: "/vendor-dashboard/more",
-    label: "More",
+    route: "/vendor-dashboard/on-the-day",
+    label: "On the Day",
     labelKind: "literal",
     iconKind: "lucide",
-    lucideName: "Menu",
+    lucideName: "CalendarCheck",
     customRef: null,
     sortOrder: 5,
   },
@@ -1688,11 +1806,14 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 0,
   },
   {
+    // 6-menu respine 2026-07-03: the mobile Home tab is now "Overview" — the
+    // merged Home+Work task inbox (key stays 'home' so an existing admin
+    // label/icon override survives).
     key: "admin.bottom-nav.home",
     scope: "admin",
     area: "admin-bottom-nav",
     route: "/admin",
-    label: "Home",
+    label: "Overview",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Home",
@@ -1785,6 +1906,21 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     lucideName: "Shapes",
     customRef: null,
     sortOrder: 55,
+  },
+  {
+    // Vendor "recommend to your couples" map — leaf → SKU recommendation table
+    // + two-way curation review queue (Monetization group). Item key matches
+    // the admin-sidebar item suffix 1:1 so the registry overlay applies.
+    key: "admin.sidebar.vendor-recommendations",
+    scope: "admin",
+    area: "admin-sidebar",
+    route: "/admin/vendor-recommendations",
+    label: "Vendor recommendations",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Lightbulb",
+    customRef: null,
+    sortOrder: 56,
   },
   {
     key: "admin.sidebar.subscriptions",
@@ -1905,6 +2041,18 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     lucideName: "MessageSquareWarning",
     customRef: null,
     sortOrder: 13,
+  },
+  {
+    key: "admin.sidebar.fraud",
+    scope: "admin",
+    area: "admin-sidebar",
+    route: "/admin/fraud",
+    label: "Fraud queue",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "ShieldAlert",
+    customRef: null,
+    sortOrder: 14,
   },
   {
     key: "admin.sidebar.approvals",
@@ -2052,6 +2200,20 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     lucideName: "MapPin",
     customRef: null,
     sortOrder: 22,
+  },
+  {
+    // App Performance cockpit — leads the renamed (2026-07-03) sidebar group;
+    // registry slot so /admin/menus can rename/re-icon/hide it like siblings.
+    key: "admin.sidebar.app-performance",
+    scope: "admin",
+    area: "admin-sidebar",
+    route: "/admin/app-performance",
+    label: "App Performance",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Activity",
+    customRef: null,
+    sortOrder: 22.5,
   },
   {
     key: "admin.sidebar.growth",
@@ -2234,6 +2396,19 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 36,
   },
   {
+    // Compliance — RA 10173 / NPC registration facts (settings-tail item).
+    key: "admin.sidebar.compliance",
+    scope: "admin",
+    area: "admin-sidebar",
+    route: "/admin/compliance",
+    label: "Compliance",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "ShieldCheck",
+    customRef: null,
+    sortOrder: 37,
+  },
+  {
     key: "admin.sidebar.onboarding",
     scope: "admin",
     area: "admin-sidebar",
@@ -2257,30 +2432,21 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 38,
   },
-  {
-    key: "admin.sidebar.event-types",
-    scope: "admin",
-    area: "admin-sidebar",
-    route: "/admin/event-types",
-    label: "Event Types",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "PartyPopper",
-    customRef: null,
-    sortOrder: 39,
-  },
-  {
-    key: "admin.sidebar.refinements",
-    scope: "admin",
-    area: "admin-sidebar",
-    route: "/admin/refinements",
-    label: "Refinements",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "SlidersHorizontal",
-    customRef: null,
-    sortOrder: 40,
-  },
+  // admin.sidebar.event-types REMOVED 2026-07-03 — /admin/event-types was folded
+  // into the Taxonomy Studio's Vocabularies → Event types rail
+  // (/admin/taxonomy?view=vocab-event); the event-type roster (couple-launch
+  // `enabled` lever + picker-card presentation + retire/un-retire) now lives
+  // there beside category scoping. The standalone page redirects. Seed default
+  // dropped so it stops seeding into /admin/menus. Any stale nav_slot_override
+  // row for this key is inert — the renderer iterates code defaults and overlays
+  // overrides (lib/nav-registry.ts), so an override with no matching default is
+  // never rendered.
+  // admin.sidebar.refinements REMOVED 2026-07-03 — /admin/refinements was retired
+  // to a redirect(/admin/taxonomy); refinements are now edited in the Taxonomy
+  // Studio inspector's Refinements tab. Seed default dropped so it stops seeding
+  // into /admin/menus. Any stale nav_slot_override row for this key is inert — the
+  // renderer iterates code defaults and overlays overrides (lib/nav-registry.ts),
+  // so an override with no matching default is never rendered.
   {
     key: "admin.sidebar.website",
     scope: "admin",
@@ -2302,6 +2468,18 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Video",
+    customRef: null,
+    sortOrder: 42,
+  },
+  {
+    key: "admin.sidebar.background-videos",
+    scope: "admin",
+    area: "admin-sidebar",
+    route: "/admin/background-videos",
+    label: "Background videos",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Film",
     customRef: null,
     sortOrder: 42,
   },
@@ -2377,18 +2555,13 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 48,
   },
-  {
-    key: "admin.sidebar.wedding-types",
-    scope: "admin",
-    area: "admin-sidebar",
-    route: "/admin/wedding-types",
-    label: "Wedding types",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Church",
-    customRef: null,
-    sortOrder: 49,
-  },
+  // admin.sidebar.wedding-types REMOVED 2026-07-03 — /admin/wedding-types was
+  // retired to a redirect(/admin/taxonomy?view=vocab-faith); the per-faith launch
+  // gate now lives in the Taxonomy Studio's Vocabularies → Faiths rail. Seed
+  // default dropped so it stops seeding into /admin/menus. Any stale
+  // nav_slot_override row for this key is inert — the renderer iterates code
+  // defaults and overlays overrides (lib/nav-registry.ts), so an override with no
+  // matching default is never rendered.
   {
     key: "admin.sidebar.wedding-traditions",
     scope: "admin",
@@ -2438,38 +2611,32 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 53,
   },
   {
-    key: "admin.bottom-nav.work",
-    scope: "admin",
-    area: "admin-bottom-nav",
-    route: "/admin/work",
-    label: "Work",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "ListChecks",
-    customRef: null,
-    sortOrder: 1,
-  },
-  {
+    // 6-menu respine 2026-07-03: Directory tab renders "Accounts" (key stays
+    // 'directory' so an existing override survives). The old Work + Money tab
+    // defaults were REMOVED with their tabs — Work merged into Overview, Money
+    // config moved to System Settings (More) + Marketing.
     key: "admin.bottom-nav.directory",
     scope: "admin",
     area: "admin-bottom-nav",
     route: "/admin/directory",
-    label: "Directory",
+    label: "Accounts",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Users",
     customRef: null,
-    sortOrder: 2,
+    sortOrder: 1,
   },
   {
-    key: "admin.bottom-nav.money",
+    // Performance tab (6-menu respine 2026-07-03) — lands directly on the App
+    // Performance cockpit.
+    key: "admin.bottom-nav.performance",
     scope: "admin",
     area: "admin-bottom-nav",
-    route: "/admin/money",
-    label: "Money",
+    route: "/admin/app-performance",
+    label: "Performance",
     labelKind: "literal",
     iconKind: "lucide",
-    lucideName: "DollarSign",
+    lucideName: "Activity",
     customRef: null,
     sortOrder: 3,
   },
@@ -2483,6 +2650,6 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     iconKind: "lucide",
     lucideName: "Menu",
     customRef: null,
-    sortOrder: 5,
+    sortOrder: 4,
   },
 ];

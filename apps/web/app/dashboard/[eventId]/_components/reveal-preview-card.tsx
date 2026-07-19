@@ -21,6 +21,7 @@ import {
   type RevealChoice,
 } from '@/app/[slug]/_components/reveal/reveal-templates';
 import type { RevealEffects } from '@/lib/std-reveal-effects';
+import { useSaveLoader } from '@/components/sd-loader';
 
 const ENVELOPES: RevealTemplate[] = ['four-flap', 'two-flap-vertical', 'two-flap-horizontal'];
 
@@ -156,10 +157,14 @@ export function RevealPreviewCard({
   const effectOn = effects[effectKey];
   const [chosen, setChosen] = useState<RevealChoice | null>(chosenTemplate);
   const [pending, startTransition] = useTransition();
+  const save = useSaveLoader();
 
   const saveChoice = (t: RevealChoice) =>
     startTransition(async () => {
-      const r = await chooseRevealTemplate(eventId, t);
+      const r = await save.run(() => chooseRevealTemplate(eventId, t), {
+        steps: ['Saving your opening'],
+        hint: 'Saving',
+      });
       if (r.ok) setChosen(t);
     });
 

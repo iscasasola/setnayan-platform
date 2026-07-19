@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { parseCsv } from '@/lib/csv';
 import { normalizeGuestName } from '@/lib/guest-name';
 import { norm } from '@/lib/guest-dedupe';
@@ -173,6 +174,9 @@ export async function importGuestsCsv(eventId: string, formData: FormData) {
       `/dashboard/${eventId}/guests/import?error=${encodeURIComponent('Insert failed: ' + insertErr.message)}`,
     );
   }
+
+  // Smart seat-plan Phase 5: gap-fill the imported guests into provisional seats.
+  await applyReconcileForEvent(supabase, eventId);
 
   revalidatePath(`/dashboard/${eventId}/guests`);
   const skipped = errors.length; // invalid rows only (dupes counted separately)

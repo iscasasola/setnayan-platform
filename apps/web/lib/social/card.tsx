@@ -162,6 +162,15 @@ export type CardContext =
       sourceType: 'evergreen';
       title: string;
       body: string;
+    }
+  | {
+      sourceType: 'event_recap';
+      /** Couple display name, e.g. "Maria & Juan". */
+      coupleName: string;
+      /** Human date, e.g. "February 14, 2026" (or null). */
+      dateLabel: string | null;
+      /** Already-formatted stat line, e.g. "128 photos · 24 voices · 120 guests". */
+      statLine: string;
     };
 
 /** A satori-compatible element node (object form — no JSX/React needed). */
@@ -794,6 +803,59 @@ function posterBody(title: string, body: string, kicker: string): VNode {
   );
 }
 
+function eventRecapBody(ctx: Extract<CardContext, { sourceType: 'event_recap' }>): VNode {
+  const name = ctx.coupleName?.trim() || 'A Setnayan couple';
+  return el(
+    'div',
+    {
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: '32px',
+      maxWidth: '860px',
+    },
+    [
+      eyebrow('The Recap · A Setnayan Living Memory'),
+      el(
+        'div',
+        {
+          fontFamily: 'Cardo',
+          fontSize: '96px',
+          color: INK,
+          textAlign: 'center',
+          lineHeight: 1.06,
+        },
+        clamp(name, 42),
+      ),
+      el(
+        'div',
+        {
+          fontFamily: 'Cardo',
+          fontStyle: 'italic',
+          fontSize: '40px',
+          color: MULBERRY,
+          textAlign: 'center',
+        },
+        'The day, in their own words.',
+      ),
+      el('div', { width: '80px', height: '2px', backgroundColor: GOLD }),
+      el(
+        'div',
+        {
+          fontFamily: 'Poppins',
+          fontWeight: 500,
+          fontSize: '30px',
+          letterSpacing: '3px',
+          textTransform: 'uppercase',
+          color: INK_FAINT,
+          textAlign: 'center',
+        },
+        clamp([ctx.dateLabel, ctx.statLine].filter(Boolean).join('  ·  '), 80),
+      ),
+    ],
+  );
+}
+
 function cardBody(ctx: CardContext): VNode {
   switch (ctx.sourceType) {
     case 'couple_creation':
@@ -806,6 +868,8 @@ function cardBody(ctx: CardContext): VNode {
       return posterBody(ctx.title, ctx.body, 'From Setnayan');
     case 'evergreen':
       return posterBody(ctx.title, ctx.body, 'Setnayan Tips');
+    case 'event_recap':
+      return eventRecapBody(ctx);
   }
 }
 

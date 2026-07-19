@@ -20,74 +20,20 @@
  */
 
 import {
-  BadgeCheck,
-  Banknote,
-  Wallet,
-  ShoppingBag,
-  Crown,
-  CreditCard,
-  Shield,
-  AlertOctagon,
-  Star,
-  Flag,
-  CheckCheck,
-  LifeBuoy,
-  UserX,
-  Handshake,
-  MessageSquareWarning,
-  type LucideIcon,
-} from 'lucide-react';
-import {
   QueuesTriageFeed,
   type TriageItem,
 } from '../queues/_components/queues-triage-feed';
 import {
   getAdminQueueDigest,
   computeDueState,
+  ageShort,
   ADMIN_QUEUE_META,
   type AdminQueueDigest,
 } from '@/lib/admin/queue-counts';
+import { BASE_ROWS } from '@/lib/admin/work-rows';
+import { requireAdmin } from '@/lib/admin/require-admin';
 
 export const metadata = { title: 'Work · Admin' };
-
-// Presentation constants per queue (key MUST match ADMIN_QUEUE_META + the
-// digest keys + the sidebar item keys 1:1). Urgency/count/lane are layered on
-// from the digest below — this array only holds the brand-voice label/copy.
-type BaseRow = {
-  key: string;
-  label: string;
-  href: string;
-  icon: LucideIcon;
-  description: string;
-};
-
-const BASE_ROWS: BaseRow[] = [
-  { key: 'verify', label: 'Verify', href: '/admin/verify', icon: BadgeCheck, description: 'Vendors awaiting the verification badge.' },
-  { key: 'payments', label: 'Payments', href: '/admin/payments', icon: Banknote, description: 'Order payments awaiting reconciliation.' },
-  { key: 'payouts', label: 'Payouts', href: '/admin/payouts', icon: Wallet, description: 'Vendor payouts ready to release.' },
-  { key: 'token-purchases', label: 'Token sales', href: '/admin/token-purchases', icon: ShoppingBag, description: 'Vendor token-pack purchases awaiting confirmation.' },
-  { key: 'subscriptions', label: 'Subscriptions', href: '/admin/subscriptions', icon: Crown, description: 'Vendor Pro / Enterprise upgrades awaiting confirmation.' },
-  { key: 'payment-options', label: 'Payment options', href: '/admin/payment-options', icon: CreditCard, description: 'Vendor payment destinations awaiting a fraud screen.' },
-  { key: 'disputes', label: 'Disputes', href: '/admin/disputes', icon: Shield, description: 'Open customer and vendor disputes.' },
-  { key: 'force-majeure', label: 'Force majeure', href: '/admin/force-majeure', icon: AlertOctagon, description: 'Event-impacting flags to triage.' },
-  { key: 'reviews', label: 'Reviews', href: '/admin/reviews', icon: Star, description: 'Review appeals awaiting a decision.' },
-  { key: 'concierge-abuse', label: 'Setnayan AI abuse', href: '/admin/concierge-abuse', icon: Flag, description: 'Trial-cycling flags to review.' },
-  { key: 'account-deletions', label: 'Account deletions', href: '/admin/account-deletions', icon: UserX, description: 'Self-serve account-deletion requests to review.' },
-  { key: 'approvals', label: 'Two-admin approvals', href: '/admin/approvals', icon: CheckCheck, description: 'A colleague is waiting on your second sign-off.' },
-  { key: 'help', label: 'Help', href: '/admin/help', icon: LifeBuoy, description: 'Open help-center tickets.' },
-  { key: 'vendor-partnerships', label: 'Partnerships', href: '/admin/vendor-partnerships', icon: Handshake, description: 'Vendor-to-vendor partnership claims awaiting two-admin verification.' },
-  { key: 'user-reports', label: 'User reports', href: '/admin/user-reports', icon: MessageSquareWarning, description: 'Reported guest-gallery content awaiting moderation.' },
-];
-
-// Compact age string from the oldest open item: 45m · 6h · 3d.
-function ageShort(iso: string | null, nowMs: number): string | null {
-  if (!iso) return null;
-  const mins = Math.max(0, Math.floor((nowMs - new Date(iso).getTime()) / 60_000));
-  if (mins < 60) return `${mins}m`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 48) return `${hrs}h`;
-  return `${Math.floor(hrs / 24)}d`;
-}
 
 // Worklist priority: overdue first, then due-soon, then open work (busiest),
 // then unknown, then clear — canonical order breaks ties within a band.
@@ -100,6 +46,15 @@ const DUE_RANK: Record<string, number> = {
 };
 
 export default async function AdminWorkLanding() {
+  // Page-level gate (council fix #1 2026-07-09) — the admin layout alone is not
+  // a safe auth boundary in front of the RLS-bypassing service-role client
+  // getAdminQueueDigest() reaches below (layouts don't re-run on soft
+  // navigation / crafted RSC requests), so a crafted RSC request from an
+  // authenticated non-admin could otherwise leak per-queue open counts +
+  // timestamps. MUST be the first statement, before any service-role read —
+  // matches app/admin/page.tsx.
+  await requireAdmin();
+
   // One round-trip per queue (count + oldest-open age). Fails open: a thrown
   // query degrades the whole feed to "all clear" rather than 500-ing.
   const digest = await getAdminQueueDigest().catch(() => ({}) as AdminQueueDigest);

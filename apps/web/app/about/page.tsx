@@ -6,7 +6,6 @@ import {
   ShieldCheck,
   ArrowRight,
 } from 'lucide-react';
-import { Footer } from '@/app/_components/marketing/_sections';
 import { HELP_TOPICS } from '@/lib/help';
 // Client motion island (the page itself stays a force-static Server Component).
 // Renders the hero so the serif line-reveal ref sits on the real <h1>, and
@@ -31,7 +30,7 @@ const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
 ).replace(/\/$/, '');
 
-const PAGE_TITLE = 'About Setnayan — the Philippines-first wedding platform';
+const PAGE_TITLE = 'About Setnayan — the Philippines-first wedding & life-events platform';
 // (Description carries no free-claims — clean under the 2026-06-13 reprice
 // scrub of Pricing.md § 00.D, which retired "free RSVP / free website" copy.)
 const PAGE_DESCRIPTION =
@@ -201,9 +200,11 @@ export default function AboutPage() {
               money.
             </p>
             <p className="text-base leading-relaxed text-ink/75">
-              The first surface is weddings, but the platform is built for the
-              wider Filipino life-events market — birthdays, debuts,
-              christenings, and more unlock as those iterations ship.
+              The first surface is weddings — the deepest, most complete one —
+              but Setnayan is built to grow into a life-events collection: as
+              birthdays, debuts, christenings, and anniversaries unlock, the same
+              tools carry across them, and everything you create is gathered into
+              one living memory you keep for life. Your wedding is where it starts.
             </p>
             <div className="flex flex-wrap gap-3 pt-2">
               <Link href="/how-it-works" className="button-primary h-11 px-5 text-sm">
@@ -291,7 +292,6 @@ export default function AboutPage() {
         </section>
       </main>
 
-      <Footer />
     </>
   );
 }

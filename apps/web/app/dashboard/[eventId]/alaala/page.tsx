@@ -45,7 +45,7 @@ const ARC: ReadonlyArray<Stage> = [
     eyebrow: 'The moment',
     title: 'What the day actually was',
     line: 'Candid capture by the people right beside you — the reactions and laughter the one camera up front will always miss.',
-    chips: [{ key: 'papic' }],
+    chips: [{ key: 'papic' }, { key: 'patiktok' }],
   },
   {
     eyebrow: 'The people',
@@ -177,15 +177,10 @@ export default async function AlaalaPage({ params }: Props) {
   return (
     <section className="space-y-10">
       {/* ── Header — name the pillar + the promise + the guardrail ── */}
-      <header className="space-y-3">
-        <p
-          className="m-eyebrow font-mono text-[11px] uppercase tracking-[0.22em]"
-          style={{ color: 'var(--m-orange-2)' }}
-        >
-          Alaala · the memory you keep
-        </p>
+      <header className="sn-reveal space-y-3">
+        <p className="sn-eye">Alaala</p>
         <h1
-          className="text-3xl font-semibold tracking-tight sm:text-4xl"
+          className="sn-h1"
           style={{ color: 'var(--m-ink)' }}
         >
           Your wedding, kept alive.
@@ -204,7 +199,7 @@ export default async function AlaalaPage({ params }: Props) {
       {densityCards.length > 0 ? (
         <div className="space-y-3">
           <p
-            className="font-mono text-[11px] uppercase tracking-[0.2em]"
+            className="sn-eye"
             style={{ color: 'var(--m-orange-2)' }}
           >
             Most storied moments
@@ -258,20 +253,12 @@ export default async function AlaalaPage({ params }: Props) {
             className="rounded-2xl border p-5 sm:p-6"
             style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
           >
-            <div className="flex items-baseline gap-3">
-              <span
-                className="font-mono text-[11px] tabular-nums"
-                style={{ color: 'var(--m-orange-3)' }}
-              >
-                {String(i + 1).padStart(2, '0')}
-              </span>
-              <span
-                className="m-eyebrow font-mono text-[11px] uppercase tracking-[0.2em]"
-                style={{ color: 'var(--m-orange-2)' }}
-              >
-                {stage.eyebrow}
-              </span>
-            </div>
+            <span
+              className="font-mono text-[11px] tabular-nums"
+              style={{ color: 'var(--m-orange-3)' }}
+            >
+              {String(i + 1).padStart(2, '0')}
+            </span>
 
             <h2 className="mt-2 text-xl font-semibold tracking-tight" style={{ color: 'var(--m-ink)' }}>
               {stage.title}
@@ -325,7 +312,7 @@ export default async function AlaalaPage({ params }: Props) {
         <div className="space-y-3">
           <div className="flex items-baseline justify-between">
             <p
-              className="font-mono text-[11px] uppercase tracking-[0.2em]"
+              className="sn-eye"
               style={{ color: 'var(--m-orange-2)' }}
             >
               Mga Boses · what your guests are saying
@@ -369,7 +356,7 @@ export default async function AlaalaPage({ params }: Props) {
         style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
       >
         <p
-          className="font-mono text-[11px] uppercase tracking-[0.2em]"
+          className="sn-eye"
           style={{ color: 'var(--m-orange-2)' }}
         >
           Story Assignments

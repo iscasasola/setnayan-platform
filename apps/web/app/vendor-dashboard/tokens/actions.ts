@@ -31,8 +31,10 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { notifyAdminsTokenPurchasePending } from '@/lib/token-purchase-notify';
 
+// Token purchases now land on the unified Plan & tokens hub
+// (/vendor-dashboard/subscription); /vendor-dashboard/tokens redirects there.
 const ERR = (msg: string) =>
-  redirect('/vendor-dashboard/tokens?error=' + encodeURIComponent(msg));
+  redirect('/vendor-dashboard/subscription?error=' + encodeURIComponent(msg));
 
 /**
  * Begin a token-pack purchase. Form field:
@@ -48,6 +50,14 @@ export async function startTokenPurchase(formData: FormData): Promise<void> {
   }
   const packSku = (sku as string).trim();
 
+  // Optional recipient — an admin may buy a pack FOR a teammate (personal,
+  // non-transferable once credited). Blank/self → the buyer holds them.
+  const holderRaw = formData.get('holder_user_id');
+  const holder =
+    typeof holderRaw === 'string' && holderRaw.trim().length > 0
+      ? holderRaw.trim()
+      : null;
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -56,12 +66,22 @@ export async function startTokenPurchase(formData: FormData): Promise<void> {
 
   const { data, error } = await supabase.rpc('create_vendor_token_purchase', {
     p_pack_sku_code: packSku,
+    p_holder_user_id: holder,
   });
 
   if (error) {
     const m = error.message?.toUpperCase() ?? '';
+    if (m.includes('NOT_VERIFIED')) {
+      ERR('Verify your shop before buying tokens. Once your verification is approved you can purchase token packs.');
+    }
     if (m.includes('NO_VENDOR_PROFILE')) {
       ERR('Sign in with your vendor account to buy tokens.');
+    }
+    if (m.includes('NOT_VENDOR_ADMIN')) {
+      ERR('Only an admin can buy tokens for a teammate.');
+    }
+    if (m.includes('NOT_A_MEMBER')) {
+      ERR('That person is not on your team.');
     }
     if (m.includes('INVALID_PACK')) {
       ERR('That token pack is no longer available. Refresh and try again.');
@@ -82,8 +102,8 @@ export async function startTokenPurchase(formData: FormData): Promise<void> {
     await notifyAdminsTokenPurchasePending(purchaseId);
   }
 
-  revalidatePath('/vendor-dashboard/tokens');
+  revalidatePath('/vendor-dashboard/subscription');
   redirect(
-    '/vendor-dashboard/tokens?ordered=' + encodeURIComponent(ref ?? ''),
+    '/vendor-dashboard/subscription?ordered=' + encodeURIComponent(ref ?? ''),
   );
 }

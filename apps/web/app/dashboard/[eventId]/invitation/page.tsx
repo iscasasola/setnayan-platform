@@ -11,6 +11,7 @@ import {
   renderInvitationQrSvg,
   resolveBrandedQrColors,
 } from '@/lib/qr';
+import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 import { eventSkuActive } from '@/lib/entitlements';
 import { deriveMonogram, resolveMonogram } from '@/lib/monogram';
@@ -99,10 +100,13 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   // branded (palette-tinted) when the upgrade is active, plain default otherwise.
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
+  // Canonical URL form for the printed/shared QRs — nested /u/ under the cutover
+  // flag, bare root otherwise (resolve self-noops OFF; no query pre-cutover).
+  const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), eventId);
   const qrEntries = await Promise.all(
     guests.map(async (g) => ({
       guestId: g.guest_id,
-      url: buildInvitationUrl({ appUrl, slug: event.slug ?? eventId, qrToken: g.qr_token }),
+      url: buildInvitationUrl({ appUrl, slug: event.slug ?? eventId, qrToken: g.qr_token, ownerSlug }),
       svg: brandedActive
         ? await renderBrandedInvitationQrSvg({
             appUrl,
@@ -110,12 +114,14 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
             qrToken: g.qr_token,
             monogram,
             colors: brandedColors,
+            ownerSlug,
           })
         : await renderInvitationQrSvg({
             appUrl,
             slug: event.slug ?? eventId,
             qrToken: g.qr_token,
             monogram,
+            ownerSlug,
           }),
     })),
   );
@@ -136,7 +142,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
 
   // Public landing URL for the event.
   const publicLandingUrl = event.slug
-    ? `${appUrl}/${event.slug}`
+    ? publicEventUrl(appUrl, event.slug, ownerSlug)
     : null;
 
   const slugAction = updateEventSlug.bind(null, eventId);
@@ -154,24 +160,26 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
           qrToken: previewGuest.qr_token,
           monogram,
           colors: brandedColors,
+          ownerSlug,
         })
       : await renderInvitationQrSvg({
           appUrl,
           slug: event.slug ?? eventId,
           qrToken: previewGuest.qr_token,
           monogram,
+          ownerSlug,
         })
     : null;
   const defaultDerived = deriveMonogram(event.display_name);
 
   return (
     <section className="space-y-6">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <header className="sn-reveal flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <p className="sn-eye">
             Invitation site
           </p>
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h1 className="sn-h1">
             {guests.length} guest{guests.length === 1 ? '' : 's'} · QRs &amp; print sheet
           </h1>
         </div>
@@ -201,10 +209,10 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
       ) : null}
 
       {/* Branding: monogram in QR center + hero */}
-      <section className="rounded-xl border border-ink/10 bg-cream p-5">
+      <section className="sn-tile p-5">
         <header className="flex items-start justify-between gap-4">
           <div>
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+            <p className="sn-eye">
               Branding
             </p>
             <h2 className="mt-1 text-xl font-semibold tracking-tight">Your monogram</h2>
@@ -272,10 +280,10 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
       </section>
 
       {/* Invitation site URL + slug editor */}
-      <section className="rounded-xl border border-ink/10 bg-cream p-5">
+      <section className="sn-tile p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-2">
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+            <p className="sn-eye">
               Your invitation site
             </p>
             <p className="text-sm text-ink/60">
@@ -401,7 +409,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
           return (
             <li
               key={guest.guest_id}
-              className="space-y-3 rounded-lg border border-ink/10 bg-cream p-4"
+              className="sn-row space-y-3 p-4"
             >
               <div className="flex items-start gap-3">
                 <div

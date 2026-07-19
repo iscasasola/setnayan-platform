@@ -1,6 +1,7 @@
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { filterFavoritableVendorIds } from '@/lib/vendor-favorite-gate';
 import { resolveVendorDisplayName, displayServiceLabel } from '@/lib/vendors';
 
 /**
@@ -67,7 +68,10 @@ type ProfileAnonymityRow = {
   tier_state: string | null;
 };
 
-const PAID_TIERS = new Set(['pro', 'enterprise']);
+// Day-1 real-name reveal tiers. Custom runs as Enterprise → nameMode 'true', so
+// it joins pro/enterprise here. (Solo's separate name-reveal decision is out of
+// scope for the Custom-tier build.)
+const PAID_TIERS = new Set(['pro', 'enterprise', 'custom']);
 
 /** Title-case the saved-row `category` enum (e.g. `wedding_cake`) as a last
  *  resort when the hydrated vendor has no services array to derive a label. */
@@ -108,14 +112,22 @@ export async function fetchSavedVendors(): Promise<SavedVendorCard[]> {
   const vendorIds = [...eventsByVendor.keys()];
   if (vendorIds.length === 0) return [];
 
-  // Hydrate display fields via the GRANT-to-authenticated marketplace view,
-  // read through the admin client (same path the marketplace card grid uses).
   const admin = createAdminClient();
 
+  // Subscription gate (owner 2026-07-18): drop vendors whose paid subscription
+  // has lapsed so a free-tier vendor silently disappears from the saved list —
+  // the event_vendors rows are preserved and the card returns on re-subscribe.
+  // No-op while VENDOR_FAVORITES_SUBSCRIPTION_GATE is OFF. See lib/vendor-favorite-gate.
+  const favoritable = await filterFavoritableVendorIds(admin, vendorIds);
+  const gatedIds = vendorIds.filter((id) => favoritable.has(id));
+  if (gatedIds.length === 0) return [];
+
+  // Hydrate display fields via the GRANT-to-authenticated marketplace view,
+  // read through the admin client (same path the marketplace card grid uses).
   const { data: statsData } = await admin
     .from('vendor_market_stats')
     .select('vendor_profile_id,business_name,business_slug,logo_url,services,location_city')
-    .in('vendor_profile_id', vendorIds);
+    .in('vendor_profile_id', gatedIds);
 
   const statsById = new Map<string, MarketStatsRow>();
   for (const s of (statsData ?? []) as MarketStatsRow[]) {
@@ -127,14 +139,14 @@ export async function fetchSavedVendors(): Promise<SavedVendorCard[]> {
   const { data: profileData } = await admin
     .from('vendor_profiles')
     .select('vendor_profile_id,name_revealed_at,screen_name,tier_state')
-    .in('vendor_profile_id', vendorIds);
+    .in('vendor_profile_id', gatedIds);
 
   const profileById = new Map<string, ProfileAnonymityRow>();
   for (const p of (profileData ?? []) as ProfileAnonymityRow[]) {
     profileById.set(p.vendor_profile_id, p);
   }
 
-  const cards: SavedVendorCard[] = vendorIds.map((vid) => {
+  const cards: SavedVendorCard[] = gatedIds.map((vid) => {
     const stats = statsById.get(vid);
     const profile = profileById.get(vid);
     const services = stats?.services ?? null;

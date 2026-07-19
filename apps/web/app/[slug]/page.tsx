@@ -1,6 +1,7 @@
 import { cache } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { Camera, CircleSlash, Lock, MapPin, Sparkles, X } from 'lucide-react';
@@ -8,6 +9,18 @@ import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
+import { isSetnayanHost, isLocalOrPreviewHost } from '@/lib/custom-domain-resolve';
+import {
+  isUserNestingCutoverEnabled,
+  publicEventPath,
+  publicEventUrl,
+  resolveEventOwnerSlug,
+  resolveRenamedEventPath,
+} from '@/lib/public-event-url';
+// Bare-root dispatch: a slug that isn't a renderable event may be a vendor
+// (setnayan.com/{vendor-slug}). Reuse the vendor route's render + metadata.
+import { renderVendorBySlug, vendorMetadataBySlug } from '@/app/v/[slug]/page';
 import { readGuestSession } from '@/lib/guest-session';
 import {
   resolveEffectiveVisibility,
@@ -57,6 +70,7 @@ import { fetchPublicScheduleBlocks, type ScheduleBlockRow } from '@/lib/schedule
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
 import { GuestToHostCta } from '@/app/_components/guest-to-host-cta';
 import { NavLinksRow } from '@/app/_components/nav-links';
+import { PublicPageActions } from '@/app/_components/public-page-actions';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { GuestPreload } from './_components/guest-preload';
 import { GuestHubBar } from './_components/guest-hub-bar';
@@ -73,6 +87,7 @@ import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { resolveStdBackground, realisticBgSrc, type StdBackground } from '@/lib/std-backgrounds';
 import { resolveStdMedia, stdVideoIsLive } from '@/lib/std-media';
 import { resolveStdFinalizedVenues } from '@/lib/std-venues';
+import { eventStdOpeningsActive } from '@/lib/std-openings';
 import { defaultInvitationLaunchIso } from '@/lib/save-the-date-content';
 import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config';
 import { OurStory } from './_components/our-story';
@@ -146,34 +161,6 @@ function displayNameOf(g: {
 // 2026-05-22).
 export const revalidate = 60;
 
-const RESERVED_TOP_LEVEL = new Set([
-  'admin',
-  'api',
-  'auth',
-  'dashboard',
-  'health',
-  'help',
-  'join',
-  'legal',
-  'login',
-  'logout',
-  'manifest.json',
-  'privacy',
-  'register',
-  'settings',
-  'signup',
-  'support',
-  'sw.js',
-  'terms',
-  'about',
-  'contact',
-  'vendor',
-  'v',
-  'venue',
-  'venues',
-  '_next',
-]);
-
 type Props = {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{
@@ -206,16 +193,26 @@ const fetchEventBySlug = cache(async (slug: string) => {
   return data;
 });
 
+/** Event-type-adaptive noun for guest-facing copy: weddings keep "wedding"
+ *  (byte-identical), every other type reads "event". Now that non-wedding types
+ *  can enable the website surface, formerly-hardcoded "wedding" copy routes
+ *  through this. Null/legacy event_type defaults to "wedding". */
+function eventNounOf(e: { event_type?: string | null }): 'wedding' | 'event' {
+  return e.event_type && e.event_type !== 'wedding' ? 'event' : 'wedding';
+}
+
 export async function generateMetadata({ params }: Pick<Props, 'params'>) {
   const { slug } = await params;
-  if (!slug || RESERVED_TOP_LEVEL.has(slug)) notFound();
+  if (!slug || RESERVED_SLUGS.has(slug)) notFound();
 
   const event = await fetchEventBySlug(slug);
-  if (!event) notFound();
+  // Bare-root dispatch (PR5): not a renderable event → use the vendor metadata
+  // (vendorMetadataBySlug returns a generic title if it isn't a vendor either).
+  if (!event) return vendorMetadataBySlug(slug);
   // Iteration 0053: the public couple website is the 'website' profile surface.
-  // Generic (non-wedding) profiles don't enable it, so non-weddings still 404 —
-  // byte-identical to the old `!== 'wedding'` gate, but now config-driven.
-  if (!surfaceEnabled(await resolveProfile(event.event_type), 'website')) notFound();
+  // Generic (non-wedding) profiles don't enable it → fall through to vendor
+  // metadata (config-driven; was a notFound() before PR5).
+  if (!surfaceEnabled(await resolveProfile(event.event_type), 'website')) return vendorMetadataBySlug(slug);
 
   // Private by default (owner 2026-06-20): a wedding page is private until the
   // couple LAUNCHES their Save-the-Date (which flips this to 'public'). NULL /
@@ -229,7 +226,7 @@ export async function generateMetadata({ params }: Pick<Props, 'params'>) {
   // leak the couple's names into SERP snippets via metadata.
   if (visibility !== 'public') {
     return {
-      title: 'Wedding invitation',
+      title: eventNounOf(event) === 'wedding' ? 'Wedding invitation' : 'Event invitation',
       robots: { index: false, follow: false },
     };
   }
@@ -237,16 +234,21 @@ export async function generateMetadata({ params }: Pick<Props, 'params'>) {
   const siteUrl = (
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
   ).replace(/\/$/, '');
+  // PR6 cutover: canonical + OG URL point at the nested /u/{owner}/{slug} once
+  // the flag is ON (self-noops to the bare slug while OFF). Keeps the crawler's
+  // canonical in lockstep with the redirect the page body issues for bare hits.
+  const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), event.event_id);
+  const canonicalUrl = publicEventUrl(siteUrl, event.slug, ownerSlug);
   const description = `You're invited — ${event.display_name}${
     event.event_date ? `, ${formatEventDate(event.event_date)}` : ''
   }. RSVP on Setnayan.`;
   return {
     title: event.display_name,
     description,
-    alternates: { canonical: `${siteUrl}/${event.slug}` },
+    alternates: { canonical: canonicalUrl },
     openGraph: {
       type: 'website',
-      url: `${siteUrl}/${event.slug}`,
+      url: canonicalUrl,
       title: `${event.display_name} · Setnayan`,
       description,
       siteName: 'Setnayan',
@@ -373,7 +375,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const invite = (search.invite ?? '').trim();
   const inviteError = search.invite_error ?? null;
 
-  if (!slug || RESERVED_TOP_LEVEL.has(slug)) notFound();
+  if (!slug || RESERVED_SLUGS.has(slug)) notFound();
 
   // If an invite token is in the URL, hand off to the redeem route handler
   // which can write the session cookie (Server Components in Next 15 can't).
@@ -387,17 +389,66 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
 
   const event = await fetchEventBySlug(slug);
 
-  if (!event) notFound();
+  // Bare-root dispatch (PR5): not a renderable event → it might be a renamed
+  // event's prior slug, else a vendor at this slug.
+  if (!event) {
+    // Renamed-event redirect (wires the long-dormant slug_change_log read): a
+    // bare slug mapping to no current event may be a PRIOR slug of one — send it
+    // to that event's CURRENT canonical /u/ URL. Flag-gated (resolveRenamedEventPath
+    // self-noops when OFF), so this — like the rest of the cutover — is fully
+    // inert until the flip; the old-QR-after-rename 404 gets fixed as part of it.
+    const renamedTo = await resolveRenamedEventPath(admin, slug);
+    if (renamedTo) redirect(renamedTo);
+    // Not a renamed event → try a vendor at this slug. renderVendorBySlug
+    // notFound()s itself if there's no vendor either.
+    return renderVendorBySlug({ slug, searchParams });
+  }
   // Iteration 0053: the whole public couple website is the 'website' profile
-  // surface. Non-wedding (generic) profiles don't enable it → still notFound(),
-  // byte-identical to the old `!== 'wedding'` gate but now config-driven. The
-  // resolved profile is reused for the phase engine below.
+  // surface. Non-wedding (generic) profiles don't enable it → fall through to
+  // the vendor check (config-driven; was a notFound() before PR5). The resolved
+  // profile is reused for the phase engine below.
   const eventTypeProfile = await resolveProfile(event.event_type);
-  if (!surfaceEnabled(eventTypeProfile, 'website')) notFound();
+  if (!surfaceEnabled(eventTypeProfile, 'website')) return renderVendorBySlug({ slug, searchParams });
+
+  // PR6 — three-tier URL cutover (slug-routing program), flag-gated (default
+  // OFF). The canonical public URL for an event is now /u/{ownerSlug}/{slug}; a
+  // hit on the legacy bare root (printed QRs, old shares) 307-redirects to the
+  // nested URL. 307 (not 308) keeps the cutover REVERSIBLE — flipping the flag
+  // back never leaves a permanently-cached redirect. Suppressed when:
+  //   (a) the request already arrived via the /u/ middleware rewrite (the
+  //       x-sn-u-nesting header) — that IS the nested render; redirecting it
+  //       would loop /u/a/b → /b → /u/a/b forever;
+  //   (b) the Host is a custom BYO domain — there the bare URL is canonical
+  //       (sny.theirdomain.com/{slug}); bouncing to /u/ would be wrong.
+  if (isUserNestingCutoverEnabled()) {
+    const reqHeaders = await headers();
+    const viaNesting = reqHeaders.get('x-sn-u-nesting') === '1';
+    const host = (reqHeaders.get('host') ?? '').toLowerCase();
+    const firstPartyHost =
+      !host || isSetnayanHost(host) || isLocalOrPreviewHost(host);
+    if (!viaNesting && firstPartyHost) {
+      const ownerSlug = await resolveEventOwnerSlug(admin, event.event_id);
+      if (ownerSlug && event.slug) {
+        // Carry the incoming query through the canonicalization redirect — the
+        // bare `/{slug}` URL is where server actions + the redeem route land
+        // their one-shot params (?save=, ?invite_error=, ?phase=, ?film=) and
+        // where inbound UTM/ref attribution arrives; dropping it would silently
+        // kill save-confirmation flashes, invalid-invite messaging, host phase
+        // previews, and analytics. (The `?invite=` redeem hand-off already fired
+        // above, so it's never in this query.)
+        const qs = new URLSearchParams();
+        for (const [k, v] of Object.entries(search)) {
+          if (typeof v === 'string') qs.set(k, v);
+        }
+        const q = qs.toString();
+        redirect(`${publicEventPath(event.slug, ownerSlug)}${q ? `?${q}` : ''}`);
+      }
+    }
+  }
 
   const monogram = resolveMonogram(event);
 
-  // Paid ANIMATED_MONOGRAM upgrade (₱2,499 · "Your initials, drawn live").
+  // Paid ANIMATED_MONOGRAM upgrade (₱999 · "Your initials, drawn live").
   // When the event owns it, the monogram hero circle ANIMATES on load with
   // the couple's chosen Motion Library signature (lib/monogram-motion.ts ·
   // events.monogram_motion_key · NULL → 'draw') instead of rendering static.
@@ -414,7 +465,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     ? resolveMonogramMotion(event.monogram_motion_key)
     : false;
 
-  // Paid COUPLE_WEBSITE_PRO upgrade (₱3,999 · the single website-Pro unlock).
+  // Paid COUPLE_WEBSITE_PRO upgrade (retired/unbundled · the single website-Pro unlock).
   // V1 perk: when ACTIVE (admin-approved), the couple's wedding site sheds the
   // freemium "Powered by Setnayan · setnayan.com" footer watermark. Resolved
   // once here via the admin client (anonymous public path, no RLS session) and
@@ -544,6 +595,15 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const ourPhotoUrls = (
     await Promise.all(ourPhotoRefs.map((ref) => displayUrlForStoredAsset(ref)))
   ).filter((u): u is string => Boolean(u));
+
+  // The Save-the-Date's OWN media beats — background music, the closing video, and
+  // the photo gallery — unlock with the Cinematic Reveal (STD_PREMIUM_OPENINGS ₱999 ·
+  // owner 2026-07-10 "these 3 will unlock when they purchase the save the date
+  // reveal"). Free STD = the text-only content film (monogram · names · date · venues
+  // · sentiment · calendar); owning the Reveal lights up the couple's own music,
+  // video, and photos. This gate is SCOPED TO THE STD FILM ONLY — the couple's full
+  // website (later lifecycle phases) still shows their photos/music free.
+  const ownsStdReveal = await eventStdOpeningsActive(admin, event.event_id);
 
   // Per-event widget registry from migration 20260607030000_invitation_widgets.sql.
   // Drives which widgets render on this page and in what order. Every event
@@ -739,7 +799,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
 
   // PR4 P1 — flag-gate the auto-playing Save-the-Date "film". The bare film is
   // the free base (the static STD view is the fallback); the cinematic openings
-  // (RevealOverlay) layer ON TOP and become the ₱1,499 premium (P5 gate). Env
+  // (RevealOverlay) layer ON TOP and become the ₱999 premium (P5 gate). Env
   // for a global rollout, ?film=1 for a per-visit preview while it bakes.
   // Film is on by default for the STD phase; ?film=0 disables it for a
   // plain-countdown fallback (useful for testing the static path).
@@ -882,6 +942,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
+        ownsStdReveal={ownsStdReveal}
         ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
@@ -918,6 +979,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
+        ownsStdReveal={ownsStdReveal}
         ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
@@ -961,6 +1023,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
+        ownsStdReveal={ownsStdReveal}
         ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
         scheduleBlocks={scheduleBlocks}
@@ -984,13 +1047,20 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
 
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
+  // Encode the guest's QR + shareable link at the canonical form — nested /u/
+  // under the cutover flag, bare root otherwise (owner resolve self-noops OFF).
+  const ownerSlug = await resolveEventOwnerSlug(admin, event.event_id);
+  // Encode the DB-canonical slug (event.slug), not the raw URL param (matched
+  // case-insensitively), so the QR + link match the canonical everywhere else.
+  const canonicalSlug = event.slug ?? slug;
   const qrSvg = await renderInvitationQrSvg({
     appUrl,
-    slug,
+    slug: canonicalSlug,
     qrToken: guest.qr_token,
     monogram,
+    ownerSlug,
   });
-  const invitationUrl = buildInvitationUrl({ appUrl, slug, qrToken: guest.qr_token });
+  const invitationUrl = buildInvitationUrl({ appUrl, slug: canonicalSlug, qrToken: guest.qr_token, ownerSlug });
   // scheduleBlocks already fetched above (hoisted 2026-05-23 so the
   // anonymous PublicLanding path could also render the Schedule
   // widget). Pass the same array through unchanged.
@@ -1299,6 +1369,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         heroPhotoUrl={heroPhotoUrl}
         heroVideoUrl={heroVideoUrl}
         bgMusicUrl={bgMusicUrl}
+        ownsStdReveal={ownsStdReveal}
         ourPhotoUrls={ourPhotoUrls}
         widgets={widgets}
         backdrop={backdrop}
@@ -1355,6 +1426,10 @@ type EventRow = {
   venue_latitude: number | null;
   venue_longitude: number | null;
   slug: string;
+  // Event type (events.event_type). Drives event-type-adaptive guest copy —
+  // weddings keep "wedding", other types read "event" — now that non-wedding
+  // types can enable the website surface.
+  event_type?: string | null;
   // Ceremony faith (events.ceremony_type, iteration 0043). Read on the public
   // site so faith-specific guest guidance can fill an empty section — e.g. the
   // INC dress-code empty state surfaces the Church's modest-attire expectation
@@ -1547,7 +1622,7 @@ function InvitationShell({
 }: {
   children: React.ReactNode;
   backdrop?: React.ReactNode;
-  // Paid COUPLE_WEBSITE_PRO perk (₱3,999) — when the event owns the ACTIVE
+  // Paid COUPLE_WEBSITE_PRO perk (retired/unbundled) — when the event owns the ACTIVE
   // upgrade, drop the freemium "Powered by Setnayan · setnayan.com" footer
   // watermark. Resolved once at the top-level page (eventCoupleWebsiteProActive)
   // + threaded through each render branch. Defaults false → free site keeps it.
@@ -1699,6 +1774,7 @@ function PublicLanding({
   heroVideoUrl,
   bgMusicUrl,
   ourPhotoUrls,
+  ownsStdReveal,
   widgets,
   scheduleBlocks,
   backdrop,
@@ -1752,6 +1828,9 @@ function PublicLanding({
   // null). Video replaces the still hero; music mounts the tap-to-play player.
   heroVideoUrl?: string | null;
   bgMusicUrl?: string | null;
+  /** Whether the couple owns the Cinematic Reveal (STD_PREMIUM_OPENINGS) — gates
+   *  the Save-the-Date film's own media beats (music, video, photos). */
+  ownsStdReveal: boolean;
   // Presigned GET URLs for the couple's "Our photos" gallery (Increment A.4),
   // in display order. Resolved once at the top-level page; empty → the
   // OurPhotosWidget hides itself. Couple-curated, no PII → safe for anonymous.
@@ -1852,6 +1931,18 @@ function PublicLanding({
       hideWatermark={proWatermarkHidden}
     >
       <GuestPreload eventSlug={event.slug} />
+      {/* Item #8 — discreet floating share/report chrome. Share shows ONLY when
+          the event is effectively public (couple launched their Save-the-Date);
+          the abuse-report entry (target_type='event') is present on any listed
+          page. Never rendered on a private page (this whole component is behind
+          the not-private gate). */}
+      {resolveEffectiveVisibility(event) !== 'private' && (
+        <PublicPageActions
+          canShare={resolveEffectiveVisibility(event) === 'public'}
+          reportTargetId={event.event_id}
+          shareTitle={event.display_name}
+        />
+      )}
       {showSaveTheDate && !event.is_sample ? <StdViewBeacon slug={event.slug} /> : null}
       <RevealOverlayServer
         enabled={showSaveTheDate}
@@ -1931,14 +2022,20 @@ function PublicLanding({
           monogramText={event.monogram_text}
           monogramSvg={bespokeSvg}
           lockup={stdLockupFor(event)}
-          musicUrl={bgMusicUrl}
-          videoUrl={stdVideoUrl}
-          videoPosterUrl={stdVideoPosterUrl}
+          musicUrl={ownsStdReveal ? bgMusicUrl : null}
+          videoUrl={ownsStdReveal ? stdVideoUrl : null}
+          videoPosterUrl={ownsStdReveal ? stdVideoPosterUrl : null}
           ceremonyVenue={stdVenues?.ceremony ?? null}
           receptionVenue={stdVenues?.reception ?? null}
           receptionCity={stdVenues?.receptionCity ?? null}
           galleryUrls={
-            ourPhotoUrls.length ? ourPhotoUrls : heroPhotoUrl ? [heroPhotoUrl] : []
+            ownsStdReveal
+              ? ourPhotoUrls.length
+                ? ourPhotoUrls
+                : heroPhotoUrl
+                  ? [heroPhotoUrl]
+                  : []
+              : []
           }
           launchDateIso={event.std_invitation_launch_date ?? defaultInvitationLaunchIso(event.event_date)}
           themeId={event.std_theme}
@@ -2152,7 +2249,7 @@ function PublicHideableWidget({
     case 'tier_comparison':
       // limited=false on the anonymous path — anonymous visitors are
       // never a "limited +1" by definition.
-      return <TierComparisonWidget limited={false} />;
+      return <TierComparisonWidget limited={false} eventNoun={eventNounOf(event)} />;
 
     // Always-on + guest-personalized types are intentionally skipped
     // on the anonymous path. event_details needs guest.role + side;
@@ -2267,6 +2364,7 @@ function InvitationSite({
   heroVideoUrl,
   bgMusicUrl,
   ourPhotoUrls,
+  ownsStdReveal,
   widgets,
   backdrop,
   liveWall,
@@ -2328,6 +2426,9 @@ function InvitationSite({
   // null). Video replaces the still hero; music mounts the tap-to-play player.
   heroVideoUrl?: string | null;
   bgMusicUrl?: string | null;
+  /** Whether the couple owns the Cinematic Reveal (STD_PREMIUM_OPENINGS) — gates
+   *  the Save-the-Date film's own media beats (music, video, photos). */
+  ownsStdReveal: boolean;
   // Presigned GET URLs for the couple's "Our photos" gallery (Increment A.4),
   // in display order. Resolved once at the top-level page; empty → the widget
   // hides itself.
@@ -2472,6 +2573,18 @@ function InvitationSite({
       hideWatermark={proWatermarkHidden}
     >
       <GuestPreload eventSlug={event.slug} />
+      {/* Item #8 — discreet floating share/report chrome. Share shows ONLY when
+          the event is effectively public (couple launched their Save-the-Date);
+          the abuse-report entry (target_type='event') is present on any listed
+          page. Never rendered on a private page (this whole component is behind
+          the not-private gate). */}
+      {resolveEffectiveVisibility(event) !== 'private' && (
+        <PublicPageActions
+          canShare={resolveEffectiveVisibility(event) === 'public'}
+          reportTargetId={event.event_id}
+          shareTitle={event.display_name}
+        />
+      )}
       {showSaveTheDate && !event.is_sample ? <StdViewBeacon slug={event.slug} /> : null}
       <RevealOverlayServer
         enabled={showSaveTheDate}
@@ -2641,14 +2754,20 @@ function InvitationSite({
             monogramText={event.monogram_text}
             monogramSvg={bespokeSvg}
             lockup={stdLockupFor(event)}
-            musicUrl={bgMusicUrl}
-            videoUrl={stdVideoUrl}
-            videoPosterUrl={stdVideoPosterUrl}
+            musicUrl={ownsStdReveal ? bgMusicUrl : null}
+            videoUrl={ownsStdReveal ? stdVideoUrl : null}
+            videoPosterUrl={ownsStdReveal ? stdVideoPosterUrl : null}
             ceremonyVenue={stdVenues?.ceremony ?? null}
             receptionVenue={stdVenues?.reception ?? null}
             receptionCity={stdVenues?.receptionCity ?? null}
             galleryUrls={
-              ourPhotoUrls.length ? ourPhotoUrls : heroPhotoUrl ? [heroPhotoUrl] : []
+              ownsStdReveal
+                ? ourPhotoUrls.length
+                  ? ourPhotoUrls
+                  : heroPhotoUrl
+                    ? [heroPhotoUrl]
+                    : []
+                : []
             }
             launchDateIso={event.std_invitation_launch_date ?? defaultInvitationLaunchIso(event.event_date)}
             themeId={event.std_theme}
@@ -2661,7 +2780,7 @@ function InvitationSite({
             personalized welcome. */}
         {greetingShouldRender ? (
           <section className="space-y-4 text-center">
-            <p className="text-2xl italic text-ink">Hi, {guest.first_name}.</p>
+            <p className="font-serif text-3xl italic leading-tight text-ink">Hi, {guest.first_name}.</p>
             <p className="mx-auto max-w-prose text-base text-ink/70">
               We&rsquo;d love to celebrate with you on{' '}
               <span className="font-medium text-ink">{formatEventDate(event.event_date)}</span>
@@ -3146,6 +3265,7 @@ function HideableWidgetRender({
           limited={isLimitedPlusOne}
           eventId={event.event_id}
           eventPublicId={event.public_id}
+          eventNoun={eventNounOf(event)}
         />
       );
 
@@ -3162,7 +3282,7 @@ function HideableWidgetRender({
       return <OurLoveStoryWidget config={event.love_story} />;
 
     case 'tier_comparison':
-      return <TierComparisonWidget limited={isLimitedPlusOne} />;
+      return <TierComparisonWidget limited={isLimitedPlusOne} eventNoun={eventNounOf(event)} />;
 
     // Always-on widgets (hero, greeting, qr_card, rsvp) are not reachable
     // here — they render in fixed positions in the parent function. The
@@ -3931,10 +4051,12 @@ function YourPhotosWidget({
   limited,
   eventId,
   eventPublicId,
+  eventNoun,
 }: {
   limited: boolean;
   eventId: string;
   eventPublicId: string;
+  eventNoun: string;
 }) {
   return (
     <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-6">
@@ -3948,7 +4070,7 @@ function YourPhotosWidget({
       </div>
 
       <div className="rounded-lg border border-ink/10 bg-cream p-5 text-sm">
-        <p className="font-medium text-ink">Make sure a shutterbug snaps you on the wedding day</p>
+        <p className="font-medium text-ink">Make sure a shutterbug snaps you on the {eventNoun} day</p>
         <p className="mt-1 text-ink/60">
           Your first tagged photo automatically becomes your profile picture in the gallery.
         </p>
@@ -4026,7 +4148,7 @@ function DayOfBanner({ kind }: { kind: 'live' | 'post' }) {
   );
 }
 
-function TierComparisonWidget({ limited }: { limited: boolean }) {
+function TierComparisonWidget({ limited, eventNoun }: { limited: boolean; eventNoun: string }) {
   if (limited) {
     return (
       <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-6">
@@ -4083,7 +4205,7 @@ function TierComparisonWidget({ limited }: { limited: boolean }) {
           <p className="font-medium text-ink">Free · No sign-up needed</p>
           <ul className="space-y-1 text-sm text-ink/70">
             <li>· View this invitation</li>
-            <li>· RSVP for the wedding</li>
+            <li>· RSVP for the {eventNoun}</li>
             <li>· See your tagged photos for <strong>3 days</strong></li>
             <li>· Save your QR to your phone</li>
           </ul>
@@ -4099,7 +4221,7 @@ function TierComparisonWidget({ limited }: { limited: boolean }) {
           <ul className="space-y-1 text-sm text-ink/75">
             <li>· Everything in Public</li>
             <li>· <strong>Shutter</strong> — capture &amp; tag photos as a guest</li>
-            <li>· <strong>Selfie Camera</strong> — branded wedding selfie cam</li>
+            <li>· <strong>Selfie Camera</strong> — branded {eventNoun} selfie cam</li>
             <li>· <strong>Photo &amp; Video Challenges</strong> — fun mini-quests</li>
             <li>· <strong>Saved Forever</strong> — photos kept permanently</li>
             <li>· Build your own souvenir reel</li>

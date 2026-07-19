@@ -123,6 +123,44 @@ export function userAiSubscriptionActive(
 }
 
 /**
+ * Per-EVENT window-aware entitlement (owner 2026-07-02). Under per-event
+ * pricing an event owns Setnayan AI only while its 28-day window
+ * (`setnayan_ai_active_until`) is unexpired; a NULL window is a grandfathered
+ * PERMANENT unlock (pre-per-event buyers, whose access never lapses). Lazily
+ * evaluated (no cron): the read IS the expiry check, mirroring
+ * `userAiSubscriptionActive`.
+ *
+ * ⚠ BUG FIX 2026-07-09 (verified 2026-07-08, corpus DECISION_LOG): the window
+ * check used to be gated on `opts.perEventPricingEnabled` — but NO read gate in
+ * the app threads that flag in (they resolve paywall/per-user only), so the
+ * early-return meant a lapsed ₱799 window would NEVER lock even after the owner
+ * flips `setnayan_ai_per_event_pricing_enabled` on. The window is now
+ * AUTHORITATIVE whenever it is present: `setnayan_ai_active_until` is only ever
+ * written by the per-event-pricing buy flow (which itself only runs behind the
+ * flag), so a non-NULL window always means "sold under the windowed model" and
+ * must be honored by every reader, threaded flag or not. Rows without a window
+ * (all pre-per-event buyers — every prod row while the flag has been off)
+ * behave byte-identically to the old `setnayan_ai_active === true` check.
+ *
+ * `opts.perEventPricingEnabled` is retained for signature compatibility but no
+ * longer changes the result — the stored window decides.
+ */
+export function eventOwnsSetnayanAi(
+  event:
+    | { setnayan_ai_active?: boolean | null; setnayan_ai_active_until?: string | Date | null }
+    | null
+    | undefined,
+  opts: { perEventPricingEnabled?: boolean; now?: Date } = {},
+): boolean {
+  if (event?.setnayan_ai_active !== true) return false;
+  const until = event?.setnayan_ai_active_until;
+  if (!until) return true; // no window → permanent unlock (incl. all pre-per-event buyers)
+  const d = until instanceof Date ? until : new Date(until);
+  if (Number.isNaN(d.getTime())) return true; // unparseable → don't lock the couple out
+  return d.getTime() > (opts.now ?? new Date()).getTime();
+}
+
+/**
  * The per-USER-aware governing gate. Mirrors `isSetnayanAiActive` and falls back
  * to it exactly when the per-user flag is off.
  *
@@ -135,12 +173,18 @@ export function userAiSubscriptionActive(
  */
 export function isSetnayanAiActiveForUser(
   event:
-    | { planning_mode?: string | null; setnayan_ai_active?: boolean | null }
+    | {
+        planning_mode?: string | null;
+        setnayan_ai_active?: boolean | null;
+        setnayan_ai_active_until?: string | Date | null;
+      }
     | null
     | undefined,
   opts: {
     paywallEnabled?: boolean;
     perUserEnabled?: boolean;
+    /** Per-EVENT ₱499/₱799 window enforcement (owner 2026-07-02). Default OFF. */
+    perEventPricingEnabled?: boolean;
     subscription?: UserAiSubscription;
     now?: Date;
   } = {},
@@ -148,14 +192,72 @@ export function isSetnayanAiActiveForUser(
   const {
     paywallEnabled = isSetnayanAiPaywallEnabled(),
     perUserEnabled = false,
+    perEventPricingEnabled = false,
     subscription = null,
     now,
   } = opts;
 
-  if (!perUserEnabled) return isSetnayanAiActive(event, paywallEnabled);
-
   const notManuallyOff = event?.planning_mode !== PLANNING_MODE_MANUAL;
-  const entitled =
-    event?.setnayan_ai_active === true || userAiSubscriptionActive(subscription, now);
+  // Per-event ownership is window-aware whenever a window is stored (2026-07-09
+  // fix — see eventOwnsSetnayanAi). For rows without a window this is exactly
+  // `setnayan_ai_active === true`, so both branches below stay byte-identical
+  // to before for every event sold outside the windowed model.
+  const ownsPerEvent = eventOwnsSetnayanAi(event, { perEventPricingEnabled, now });
+
+  if (!perUserEnabled) {
+    if (!paywallEnabled) return notManuallyOff;
+    return notManuallyOff && ownsPerEvent;
+  }
+
+  const entitled = ownsPerEvent || userAiSubscriptionActive(subscription, now);
   return notManuallyOff && entitled;
+}
+
+/**
+ * Per-USER-aware sibling of `shouldOfferSetnayanAiPurchase`. Decides whether to
+ * show the PAID "Unlock Setnayan AI" CTA, accounting for the per-user fan-out.
+ *
+ * - `perUserEnabled` OFF (default): byte-identical to
+ *   `shouldOfferSetnayanAiPurchase(event, paywallEnabled)` — the per-event CTA,
+ *   unchanged.
+ * - `perUserEnabled` ON: offer only when the paywall is enforced AND the event
+ *   hasn't bought the per-event entitlement AND no host has an active
+ *   subscription window. A subscriber must never be re-offered a per-event
+ *   purchase (the never-double-charge guarantee), mirroring how the per-event
+ *   form excludes an event that already owns `setnayan_ai_active`.
+ */
+export function shouldOfferSetnayanAiPurchaseForUser(
+  event:
+    | { setnayan_ai_active?: boolean | null; setnayan_ai_active_until?: string | Date | null }
+    | null
+    | undefined,
+  opts: {
+    paywallEnabled?: boolean;
+    perUserEnabled?: boolean;
+    /** Per-EVENT ₱499/₱799 window enforcement (owner 2026-07-02). Default OFF. */
+    perEventPricingEnabled?: boolean;
+    subscription?: UserAiSubscription;
+    now?: Date;
+  } = {},
+): boolean {
+  const {
+    paywallEnabled = isSetnayanAiPaywallEnabled(),
+    perUserEnabled = false,
+    perEventPricingEnabled = false,
+    subscription = null,
+    now,
+  } = opts;
+
+  // Re-offer once the per-event window lapses (owner 2026-07-02): the event no
+  // longer OWNS AI, so the ₱799 renewal CTA returns. Window-authoritative since
+  // the 2026-07-09 fix (see eventOwnsSetnayanAi) — byte-identical to the old
+  // `setnayan_ai_active !== true` check for every event without a stored window.
+  const ownsPerEvent = eventOwnsSetnayanAi(event, { perEventPricingEnabled, now });
+
+  if (!perUserEnabled) {
+    if (!paywallEnabled) return false;
+    return !ownsPerEvent;
+  }
+
+  return paywallEnabled && !ownsPerEvent && !userAiSubscriptionActive(subscription, now);
 }

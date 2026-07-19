@@ -153,6 +153,168 @@ export async function vendorAcknowledgeDeposit(formData: FormData) {
   redirect(`/vendor-dashboard/clients/${eventId}?deposit_ack=${flag}`);
 }
 
+/**
+ * vendorRejectDeposit — VENDOR "I never received this downpayment".
+ *
+ * Calls the single-winner reject_vendor_deposit RPC (clears the couple-recorded
+ * deposit markers so they must re-submit; never un-locks the booking; can't touch
+ * a confirmed deposit). Then notifies the couple to re-submit. Ownership is
+ * enforced inside the SECURITY DEFINER RPC, so this wrapper just forwards.
+ */
+export async function vendorRejectDeposit(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const eventVendorId = formData.get('vendor_id');
+  const reasonRaw = formData.get('reason');
+  const reason =
+    typeof reasonRaw === 'string' && reasonRaw.trim().length > 0
+      ? reasonRaw.trim().slice(0, 500)
+      : null;
+  if (typeof eventId !== 'string' || typeof eventVendorId !== 'string') {
+    throw new Error('Invalid input');
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data, error } = await supabase.rpc('reject_vendor_deposit', {
+    p_event_vendor_id: eventVendorId,
+    p_reason: reason,
+  });
+
+  // Notify the couple only on a fresh reject (status 'ok'). Best-effort.
+  const env = (data ?? {}) as { status?: string };
+  if (!error && env.status === 'ok') {
+    try {
+      const admin = createAdminClient();
+      const { data: ev } = await admin
+        .from('event_vendors')
+        .select('vendor_name')
+        .eq('vendor_id', eventVendorId)
+        .maybeSingle();
+      const vendorName = (ev as { vendor_name?: string } | null)?.vendor_name ?? 'Your vendor';
+      const { data: members } = await admin
+        .from('event_members')
+        .select('user_id')
+        .eq('event_id', eventId)
+        .eq('member_type', 'couple');
+      for (const m of members ?? []) {
+        if (!m.user_id) continue;
+        await emitNotification({
+          userId: m.user_id,
+          type: 'payment_rejected',
+          title: `${vendorName} couldn't confirm your downpayment`,
+          body: reason
+            ? `Reason: “${reason}” — re-submit your downpayment proof from the vendor workspace.`
+            : 'They couldn’t confirm the payment — re-submit your downpayment proof from the vendor workspace.',
+          relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
+        });
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('[vendorRejectDeposit] couple notify failed:', e);
+    }
+  }
+
+  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+  const flag = error ? 'error' : env.status ?? 'ok';
+  redirect(`/vendor-dashboard/clients/${eventId}?deposit_reject=${flag}`);
+}
+
+// ==========================================================================
+// Customer Card — private, team-shared CRM notes (vendor_client_notes).
+//
+// Design source: 03_Strategy/Customer_Card_Prototype_2026-07-03.html (Activity
+// tab). vendor_client_notes is vendor-org-only RLS (current_vendor_profile_ids)
+// with NO couple/admin policy — off-limits to hosts and to Setnayan HQ. All
+// three actions run under the caller's OWN session (no admin client): the
+// org-scoped RLS policy is the authorization boundary, so a plain insert /
+// update / delete can only ever touch the caller's own org's rows. We resolve
+// vendor_profile_id from the caller so the WITH CHECK passes; RLS rejects any
+// cross-org write.
+// ==========================================================================
+
+/** Create a private note on this (vendor org, event) pair. */
+export async function createClientNote(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const body = formData.get('body');
+  if (typeof eventId !== 'string' || typeof body !== 'string' || body.trim().length === 0) {
+    redirect('/vendor-dashboard/clients');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) redirect('/vendor-dashboard');
+
+  // Optional follow-up reminder — a bare YYYY-MM-DD date or null.
+  const remindRaw = formData.get('remind_at');
+  const remindAt =
+    typeof remindRaw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(remindRaw) ? remindRaw : null;
+
+  // RLS (vendor_client_notes_org_all) enforces the org scope on WITH CHECK.
+  await supabase.from('vendor_client_notes').insert({
+    vendor_profile_id: profile.vendor_profile_id,
+    event_id: eventId,
+    author_user_id: user.id,
+    body: (body as string).trim().slice(0, 2000),
+    remind_at: remindAt,
+  });
+
+  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+  redirect(`/vendor-dashboard/clients/${eventId}?tab=activity`);
+}
+
+/** Toggle a note's done/reopened state. Team-shared: any org member may flip. */
+export async function toggleClientNoteDone(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const noteId = formData.get('note_id');
+  const done = formData.get('done') === '1';
+  if (typeof eventId !== 'string' || typeof noteId !== 'string') {
+    redirect('/vendor-dashboard/clients');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // RLS scopes the UPDATE to the caller's own org's notes — no extra gate here.
+  await supabase
+    .from('vendor_client_notes')
+    .update({ done_at: done ? new Date().toISOString() : null, updated_at: new Date().toISOString() })
+    .eq('note_id', noteId);
+
+  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+  redirect(`/vendor-dashboard/clients/${eventId}?tab=activity`);
+}
+
+/** Delete a private note. Team-shared: any org member may remove any org note. */
+export async function deleteClientNote(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const noteId = formData.get('note_id');
+  if (typeof eventId !== 'string' || typeof noteId !== 'string') {
+    redirect('/vendor-dashboard/clients');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // RLS scopes the DELETE to the caller's own org's notes.
+  await supabase.from('vendor_client_notes').delete().eq('note_id', noteId);
+
+  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+  redirect(`/vendor-dashboard/clients/${eventId}?tab=activity`);
+}
+
 export async function suggestScheduleChange(formData: FormData) {
   const eventId = formData.get('event_id');
   const note = formData.get('note');

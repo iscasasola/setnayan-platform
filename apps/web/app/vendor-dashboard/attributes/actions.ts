@@ -6,6 +6,10 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
   fetchSchemaWithSharedGroups,
+  parseAttributeFieldValue,
+  checkAttributeConditionalRequired,
+  isAttributeFieldFilled,
+  ATTRIBUTE_FIELD_NAME_PREFIX,
   type ResolvedSchema,
 } from '@/lib/vendor-service-attributes';
 import type { AttributeFieldDef } from '@/lib/marketplaces/schemas';
@@ -34,136 +38,10 @@ import type { AttributeFieldDef } from '@/lib/marketplaces/schemas';
  * call it directly (per the helper comment in migration 20260521010000).
  */
 
-const FIELD_NAME_PREFIX = 'field__';
-
-// Sample audio / video URL fields per the 2026-05-20 showcase-pattern lock
-// (CLAUDE.md decision log): only YouTube + Vimeo URLs are accepted. The
-// regex tolerates http/https + optional www + the canonical `youtube.com`,
-// `youtu.be`, `youtube-nocookie.com`, `vimeo.com`, and `player.vimeo.com`
-// embed hosts.
-const YOUTUBE_VIMEO_URL_RE =
-  /^https?:\/\/(www\.)?(youtube\.com|youtu\.be|youtube-nocookie\.com|vimeo\.com|player\.vimeo\.com)\//i;
-
-function isSampleUrlField(fieldKey: string): boolean {
-  return fieldKey.endsWith('_audio_urls') || fieldKey.endsWith('_video_urls');
-}
-
-type ParsedValueOk = { ok: true; value: unknown };
-type ParsedValueErr = { ok: false; reason: string };
-type ParsedValue = ParsedValueOk | ParsedValueErr;
-
-function parseField(
-  fieldKey: string,
-  def: AttributeFieldDef,
-  rawValues: FormDataEntryValue[],
-): ParsedValue {
-  // No values submitted = treated as unset / null. The visibility-gate
-  // check later catches required-and-missing.
-  if (rawValues.length === 0) return { ok: true, value: null };
-  switch (def.type) {
-    case 'boolean': {
-      const hasOn = rawValues.some((v) => typeof v === 'string' && (v === 'on' || v === 'true'));
-      return { ok: true, value: hasOn };
-    }
-    case 'int': {
-      const raw = String(rawValues[0] ?? '').trim();
-      if (raw === '') return { ok: true, value: null };
-      const n = Number(raw);
-      if (!Number.isFinite(n) || !Number.isInteger(n)) {
-        return { ok: false, reason: `${fieldKey}: must be a whole number` };
-      }
-      if (typeof def.min === 'number' && n < def.min) {
-        return { ok: false, reason: `${fieldKey}: minimum is ${def.min}` };
-      }
-      if (typeof def.max === 'number' && n > def.max) {
-        return { ok: false, reason: `${fieldKey}: maximum is ${def.max}` };
-      }
-      return { ok: true, value: n };
-    }
-    case 'text_short':
-    case 'text_long': {
-      const raw = String(rawValues[0] ?? '').trim();
-      return { ok: true, value: raw === '' ? null : raw };
-    }
-    case 'enum': {
-      const raw = String(rawValues[0] ?? '').trim();
-      if (raw === '') return { ok: true, value: null };
-      const allowed = (def.options ?? []) as readonly string[];
-      if (!allowed.includes(raw)) {
-        return { ok: false, reason: `${fieldKey}: invalid option "${raw}"` };
-      }
-      return { ok: true, value: raw };
-    }
-    case 'multi_select': {
-      const allowed = new Set((def.options ?? []) as readonly string[]);
-      const filtered: string[] = [];
-      for (const v of rawValues) {
-        if (typeof v !== 'string') continue;
-        const trimmed = v.trim();
-        if (!allowed.has(trimmed)) continue;
-        if (filtered.includes(trimmed)) continue;
-        filtered.push(trimmed);
-      }
-      return { ok: true, value: filtered.length > 0 ? filtered : null };
-    }
-    case 'multi_select_open': {
-      // Freeform list — comma-separated input from the form, plus any
-      // hidden inputs the client renders for pre-existing values.
-      const out: string[] = [];
-      const seen = new Set<string>();
-      const isUrlField = isSampleUrlField(fieldKey);
-      for (const v of rawValues) {
-        if (typeof v !== 'string') continue;
-        // Each form entry can itself be comma-separated.
-        for (const piece of v.split(',')) {
-          const trimmed = piece.trim().slice(0, 256);
-          if (trimmed.length === 0) continue;
-          if (isUrlField && !YOUTUBE_VIMEO_URL_RE.test(trimmed)) {
-            return {
-              ok: false,
-              reason: `${fieldKey}: "${trimmed.slice(0, 60)}" is not a YouTube or Vimeo URL`,
-            };
-          }
-          const lc = trimmed.toLowerCase();
-          if (seen.has(lc)) continue;
-          seen.add(lc);
-          out.push(trimmed);
-          if (out.length >= 50) break;
-        }
-        if (out.length >= 50) break;
-      }
-      return { ok: true, value: out.length > 0 ? out : null };
-    }
-    default: {
-      // Unknown type — surface as null and let the form re-render with the
-      // raw value preserved so the vendor doesn't lose work.
-      return { ok: true, value: null };
-    }
-  }
-}
-
-function checkConditionalRequired(
-  payload: Record<string, unknown>,
-  def: AttributeFieldDef,
-): boolean {
-  // required_if format: "other_field=value" — true means this field is
-  // required only when the other field equals the value. Per the spec § Schema.
-  if (!def.required_if) return def.required === true;
-  const [otherKey, expectedValue] = def.required_if.split('=');
-  if (!otherKey) return false;
-  const otherActual = payload[otherKey];
-  if (Array.isArray(otherActual)) {
-    return otherActual.includes(expectedValue ?? '');
-  }
-  return String(otherActual ?? '') === (expectedValue ?? '');
-}
-
-function isFieldFilled(value: unknown): boolean {
-  if (value === null || value === undefined) return false;
-  if (typeof value === 'string') return value.length > 0;
-  if (Array.isArray(value)) return value.length > 0;
-  return true;
-}
+// Attribute-field parsing/validation helpers (parseAttributeFieldValue,
+// checkAttributeConditionalRequired, isAttributeFieldFilled, the field-name
+// prefix + URL regex) now live in @/lib/vendor-service-attributes so the fast
+// service-card form's inline refinement chips share the exact same semantics.
 
 export async function saveVendorServiceAttribute(formData: FormData) {
   const canonicalService = String(formData.get('canonical_service') ?? '').trim();
@@ -207,8 +85,8 @@ export async function saveVendorServiceAttribute(formData: FormData) {
     const payload: Record<string, unknown> = {};
     const errors: string[] = [];
     for (const [fieldKey, def] of Object.entries(schema.fields)) {
-      const rawValues = formData.getAll(`${FIELD_NAME_PREFIX}${fieldKey}`);
-      const parsed = parseField(fieldKey, def, rawValues);
+      const rawValues = formData.getAll(`${ATTRIBUTE_FIELD_NAME_PREFIX}${fieldKey}`);
+      const parsed = parseAttributeFieldValue(fieldKey, def, rawValues);
       if (!parsed.ok) {
         errors.push(parsed.reason);
         continue;
@@ -221,8 +99,8 @@ export async function saveVendorServiceAttribute(formData: FormData) {
     // Required + required_if check — fire after the full pass so we can read
     // the parsed payload for required_if conditions.
     for (const [fieldKey, def] of Object.entries(schema.fields)) {
-      if (!checkConditionalRequired(payload, def)) continue;
-      if (!isFieldFilled(payload[fieldKey])) {
+      if (!checkAttributeConditionalRequired(payload, def)) continue;
+      if (!isAttributeFieldFilled(payload[fieldKey])) {
         errors.push(`${fieldKey}: required`);
       }
     }
@@ -237,7 +115,7 @@ export async function saveVendorServiceAttribute(formData: FormData) {
     // ?missing= query param so the page can highlight exactly which
     // minimum_fields the vendor still owes for marketplace listing.
     const minimumFields = schema.required_for_visibility.minimum_fields ?? [];
-    const stillMissing = minimumFields.filter((k) => !isFieldFilled(payload[k]));
+    const stillMissing = minimumFields.filter((k) => !isAttributeFieldFilled(payload[k]));
     const meetsVisibility = stillMissing.length === 0;
 
     // Use the SQL helper for the 0-100 completeness score so the math stays
@@ -260,7 +138,7 @@ export async function saveVendorServiceAttribute(formData: FormData) {
       // strings count as filled).
       const totalFields = Object.keys(schema.fields).length;
       const filledFields = Object.keys(schema.fields).filter((k) =>
-        isFieldFilled(payload[k]),
+        isAttributeFieldFilled(payload[k]),
       ).length;
       completeness =
         totalFields === 0 ? 0 : Math.round((filledFields * 100) / totalFields);

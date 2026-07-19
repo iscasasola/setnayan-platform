@@ -2,6 +2,7 @@ import { PDFDocument, StandardFonts, rgb, degrees, type PDFPage, type RGB } from
 import QRCode from 'qrcode';
 import { lockupForEvent, drawLockupBadge } from '@/lib/lockup-pdf';
 import { deriveMonogram } from '@/lib/monogram';
+import { publicEventPath } from '@/lib/public-event-url';
 import {
   CHAIR_PX,
   TABLE_TYPE_LABEL,
@@ -24,6 +25,9 @@ export type SeatingPdfGuest = { guest_id: string; name: string; role: string };
 export type SeatingPdfInput = {
   mode: SeatingPdfMode;
   appUrl: string;
+  /** Event owner's account slug — encodes the website QR at /u/{ownerSlug}/{slug}
+   *  when the cutover flag is ON; absent / OFF encodes the bare /{slug}. */
+  ownerSlug?: string | null;
   event: {
     display_name: string;
     slug: string | null;
@@ -195,7 +199,7 @@ export async function buildSeatingPdf(input: SeatingPdfInput): Promise<Uint8Arra
   let qr = null;
   if (event.slug) {
     try {
-      const url = `${input.appUrl}/${event.slug}`;
+      const url = `${input.appUrl}${publicEventPath(event.slug, input.ownerSlug)}`;
       const png = await QRCode.toBuffer(url, {
         type: 'png',
         width: 360,
@@ -351,7 +355,11 @@ export async function buildSeatingPdf(input: SeatingPdfInput): Promise<Uint8Arra
   // outline) so rotated/connected tables print as laid out. Box stays unrotated
   // (it only feeds the spacing scale below).
   const geos = tables.map((t) => {
-    const g = tableGeometry(shapeHintFor(t.table_type), t.capacity);
+    // Linked serpentine → even chair spacing, matching the on-screen editor
+    // (seating-editor.tsx passes the same flag) so the printed pack looks like
+    // the plan. Box is even-invariant, so the spacing/scale math below is
+    // unaffected.
+    const g = tableGeometry(shapeHintFor(t.table_type), t.capacity, t.link_group_id != null);
     const rot = t.rotation_deg || 0;
     if (!rot) return g;
     return {

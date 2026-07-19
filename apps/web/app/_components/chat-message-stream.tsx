@@ -23,6 +23,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Download, FileText } from 'lucide-react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -427,7 +428,19 @@ export function ChatMessageStream({
                     : 'bg-ink/[0.06] text-ink'
                 }`}
               >
-                <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                {m.body ? (
+                  <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                ) : null}
+                {m.attachment_url ? (
+                  <AttachmentBlock
+                    url={m.attachment_url}
+                    name={m.attachment_name ?? null}
+                    mime={m.attachment_mime ?? null}
+                    sizeBytes={m.attachment_size_bytes ?? null}
+                    owns={ownsBubble(m, viewerRole)}
+                    hasBody={!!m.body}
+                  />
+                ) : null}
                 <p
                   className={`mt-1 font-mono text-[10px] uppercase tracking-[0.15em] ${
                     ownsBubble(m, viewerRole) ? 'text-cream/70' : 'text-ink/50'
@@ -464,4 +477,85 @@ function ownsBubble(
   viewerRole: 'couple' | 'vendor',
 ): boolean {
   return m.sender_role === viewerRole;
+}
+
+function formatBytes(bytes: number | null): string {
+  if (!bytes || bytes <= 0) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${kb.toFixed(kb < 10 ? 1 : 0)} KB`;
+  const mb = kb / 1024;
+  return `${mb.toFixed(mb < 10 ? 1 : 0)} MB`;
+}
+
+/**
+ * Renders an in-bubble attachment. Image MIMEs get a lazy <img> thumbnail that
+ * links to the full-size file; everything else (PDF / doc) renders a compact
+ * file chip with the name, size, and an open/download link. The bytes live on
+ * public R2 (chat file sharing, PR 2) — signed-URL hardening is a follow-up.
+ */
+function AttachmentBlock({
+  url,
+  name,
+  mime,
+  sizeBytes,
+  owns,
+  hasBody,
+}: {
+  url: string;
+  name: string | null;
+  mime: string | null;
+  sizeBytes: number | null;
+  owns: boolean;
+  hasBody: boolean;
+}) {
+  const isImage = (mime ?? '').startsWith('image/');
+  const label = name?.trim() || (isImage ? 'Image' : 'Attachment');
+  const size = formatBytes(sizeBytes);
+
+  if (isImage) {
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`block overflow-hidden rounded-xl ${hasBody ? 'mt-2' : ''}`}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded R2 asset; next/image needs a configured loader/domain for arbitrary R2 hosts */}
+        <img
+          src={url}
+          alt={label}
+          loading="lazy"
+          className="max-h-64 max-w-full rounded-xl object-cover"
+        />
+      </a>
+    );
+  }
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      download={name ?? undefined}
+      className={`flex items-center gap-2 rounded-lg px-2.5 py-2 ${
+        hasBody ? 'mt-2' : ''
+      } ${
+        owns
+          ? 'bg-cream/20 text-cream hover:bg-cream/30'
+          : 'bg-ink/[0.06] text-ink hover:bg-ink/10'
+      }`}
+    >
+      <FileText className="h-5 w-5 shrink-0 opacity-80" strokeWidth={1.75} />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium">{label}</span>
+        {size ? (
+          <span className={`block text-[11px] ${owns ? 'text-cream/70' : 'text-ink/55'}`}>
+            {size}
+          </span>
+        ) : null}
+      </span>
+      <Download className="h-4 w-4 shrink-0 opacity-70" strokeWidth={1.75} />
+    </a>
+  );
 }

@@ -84,7 +84,7 @@ export default async function VendorReviewsPage() {
       {completedEvents.length > 0 ? <TrackRecord events={completedEvents} /> : null}
 
       {reviews.length === 0 ? (
-        <div className="mt-8 rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center text-sm text-ink/55">
+        <div className="mt-8 rounded-xl border border-dashed border-ink/20 p-8 text-center text-sm text-ink/55">
           You don&rsquo;t have any reviews yet. They&rsquo;ll appear here automatically the
           moment a couple posts one — and we&rsquo;ll send it to your notifications
           and email so you never miss one.
@@ -122,7 +122,7 @@ function StatsOverview({
   const max = Math.max(1, ...totals.map((t) => t.count));
 
   return (
-    <section className="grid gap-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:grid-cols-3">
+    <section className="grid gap-4 sn-tile p-5 sm:grid-cols-3">
       <div className="flex flex-col gap-1">
         <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
           Average rating
@@ -212,15 +212,20 @@ function VendorReviewCard({
   const hasReply = !!review.vendor_reply;
 
   return (
-    <article className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+    <article className="space-y-3 sn-row p-4">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <StarRow value={review.rating_overall} />
           <span className="text-sm font-medium text-ink">{author}</span>
-          {/* Receipt-backed provenance (Wave 5). PLATFORM-DERIVED — couples
-              can't set it. Shows when this review's booking links to your
-              Setnayan profile. */}
-          {review.booked_through_setnayan ? <BookedThroughSetnayanPill /> : null}
+          {/* Receipt-backed provenance (Wave 5 + import polish). PLATFORM-DERIVED
+              — couples can't set it. "Verified booking" when the couple came in
+              via your invite QR (import); "Verified wedding" when they booked you
+              on-platform; nothing for off-platform bookings. */}
+          {review.via_vendor_import ? (
+            <VerifiedBookingPill />
+          ) : review.booked_through_setnayan ? (
+            <VerifiedWeddingPill />
+          ) : null}
         </div>
         <div className="flex items-center gap-3">
           <time className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
@@ -377,18 +382,37 @@ function FlagForm({ reviewId }: { reviewId: string }) {
 }
 
 /**
- * Receipt-backed "Booked through Setnayan" pill — same platform-derived signal
- * that renders on the public /v/[slug] review. A couple can never set it; it's
- * stamped server-side from the booking linkage.
+ * Receipt-backed provenance pills — the same platform-derived signals that
+ * render on the public /v/[slug] review. A couple can never set them; they're
+ * stamped server-side from the booking linkage + source.
+ *
+ * "Verified wedding" — the couple booked you on-platform themselves.
  */
-function BookedThroughSetnayanPill() {
+function VerifiedWeddingPill() {
   return (
     <span
       className="inline-flex items-center gap-1 rounded-full bg-mulberry/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-mulberry"
       title="This couple booked you through Setnayan — verified by the platform."
     >
       <BadgeCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
-      Booked through Setnayan
+      Verified wedding
+    </span>
+  );
+}
+
+/**
+ * "Verified booking" — you brought this couple onto Setnayan via your invite QR.
+ * Still a verified, platform-confirmed relationship — just sourced from your own
+ * client rather than on-platform discovery.
+ */
+function VerifiedBookingPill() {
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full bg-terracotta/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-terracotta-700"
+      title="You invited this couple to Setnayan — a verified booking relationship."
+    >
+      <BadgeCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
+      Verified booking
     </span>
   );
 }
@@ -401,7 +425,7 @@ function BookedThroughSetnayanPill() {
  */
 function TrackRecord({ events }: { events: ReadonlyArray<VendorCompletedEventRow> }) {
   return (
-    <section className="mt-8 rounded-2xl border border-ink/10 bg-cream p-5">
+    <section className="mt-8 sn-tile p-5">
       <div className="mb-3 flex items-center gap-2">
         <CalendarCheck aria-hidden className="h-4 w-4 text-mulberry" strokeWidth={1.75} />
         <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">

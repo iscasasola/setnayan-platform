@@ -577,7 +577,7 @@ const V10 = () => (
         fontSize: 13, color: "var(--slate)", fontFamily: "var(--mono)",
         letterSpacing: "0.08em", textDecoration: "none", textTransform: "uppercase",
       }}>
-        ← Back to /for-vendors
+        ← Back to /vendors
       </a>
     </div>
   </VChapter>
@@ -594,7 +594,7 @@ const VKFooter = () => (
       © SETNAYAN 2026 · QUEZON CITY · VENDOR KEYNOTE · v1
     </div>
     <a href="Setnayan For Vendors.html" style={{ fontSize: 12, color: "var(--slate-2)", textDecoration: "none" }}>
-      ← Back to /for-vendors
+      ← Back to /vendors
     </a>
   </footer>
 );

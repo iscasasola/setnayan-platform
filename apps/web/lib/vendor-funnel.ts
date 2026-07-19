@@ -7,9 +7,10 @@
  *   QUOTES    → vendor_proposals            (status sent/viewed/accepted)
  *   BOOKED    → event_vendors.status        (contracted+)
  *
- * This module owns the SHARED, surface-agnostic helpers used by both the
- * vendor-side funnel panel (/vendor-dashboard/funnel) and the admin per-vendor
- * drill-down (/admin/funnels). It does NOT render anything.
+ * This module owns the SHARED, surface-agnostic helpers used by the vendor-side
+ * funnel + by-source breakdown (folded into /vendor-dashboard/performance and
+ * /vendor-dashboard/demand · 2026-07-02) and the admin per-vendor drill-down
+ * (/admin/funnels). It does NOT render anything.
  *
  * Behavioral-data lock (project_setnayan_behavioral_data_edge):
  *   - The viewer is de-identified: hashViewer() returns sha256(salt || id);
@@ -20,6 +21,7 @@
  */
 
 import { createHash } from 'node:crypto';
+import { inquirySourceLabel } from '@/lib/inquiry-source';
 
 /**
  * Booked statuses on event_vendors that count as the BOOKED funnel stage.
@@ -143,6 +145,83 @@ export async function fetchVendorFunnelTotals(
   };
 }
 
+/**
+ * Per-service BOOKED count — the ONLY funnel stage that can be honestly
+ * segmented by service. `event_vendors.service_id` records the exact
+ * vendor_services row a couple booked, so the booked stage can filter to one
+ * service; views / inquiries / quotes have no service_id on their source tables
+ * and stay shop-level (the My Performance funnel shows a visible note that
+ * "views/inquiries/quotes are shop-wide" when a service is selected).
+ *
+ * Mirrors the booked-stage query in fetchVendorFunnelTotals() EXACTLY
+ * (marketplace_vendor_id + BOOKED_EVENT_VENDOR_STATUSES + created_at window),
+ * plus `.eq('service_id', serviceId)`. Head/count-only (cheap, indexed via
+ * event_vendors_service_id_idx). Same client contract as the funnel.
+ */
+export async function fetchServiceBookedCount(
+  client: {
+    from: (table: string) => {
+      select: (
+        cols: string,
+        opts?: { count?: 'exact'; head?: boolean },
+      ) => any;
+    };
+  },
+  vendorProfileId: string,
+  sinceIso: string,
+  serviceId: string,
+): Promise<number> {
+  const { count } = await client
+    .from('event_vendors')
+    .select('vendor_id', { count: 'exact', head: true })
+    .eq('marketplace_vendor_id', vendorProfileId)
+    .eq('service_id', serviceId)
+    .in('status', BOOKED_EVENT_VENDOR_STATUSES as unknown as string[])
+    .gte('created_at', sinceIso);
+
+  return count ?? 0;
+}
+
+/**
+ * TRUE count of booked rows tied to NO specific service (service_id IS NULL) in
+ * a window — the honest denominator for the "Excludes N bookings not tied to a
+ * specific service" footnote on the per-service My Performance view.
+ *
+ * WHY a dedicated reader (not shopTotal − thisService): for a multi-service
+ * vendor, shopTotal − thisService = (OTHER services' bookings) + (true
+ * NULL-service bookings). Subtracting mislabels other services' bookings as "not
+ * tied to a specific service," which is a false statement. This filters
+ * `service_id IS NULL` directly, so the footnote counts ONLY genuinely
+ * service-less bookings.
+ *
+ * Mirrors fetchServiceBookedCount() EXACTLY (marketplace_vendor_id +
+ * BOOKED_EVENT_VENDOR_STATUSES + created_at window), swapping
+ * `.eq('service_id', serviceId)` for `.is('service_id', null)`. Head/count-only.
+ * Same client contract as the funnel.
+ */
+export async function fetchNullServiceBookedCount(
+  client: {
+    from: (table: string) => {
+      select: (
+        cols: string,
+        opts?: { count?: 'exact'; head?: boolean },
+      ) => any;
+    };
+  },
+  vendorProfileId: string,
+  sinceIso: string,
+): Promise<number> {
+  const { count } = await client
+    .from('event_vendors')
+    .select('vendor_id', { count: 'exact', head: true })
+    .eq('marketplace_vendor_id', vendorProfileId)
+    .is('service_id', null)
+    .in('status', BOOKED_EVENT_VENDOR_STATUSES as unknown as string[])
+    .gte('created_at', sinceIso);
+
+  return count ?? 0;
+}
+
 /** Build the canonical 4-step funnel from the raw totals. */
 export function buildFunnelSteps(totals: {
   views: number;
@@ -156,4 +235,135 @@ export function buildFunnelSteps(totals: {
     { label: 'Quotes sent', count: totals.quotes },
     { label: 'Booked', count: totals.booked },
   ];
+}
+
+// ── "By source" breakdown ────────────────────────────────────────────────────
+// Shared between My Performance (/vendor-dashboard/performance) and Demand Radar
+// (/vendor-dashboard/demand). Both slice the vendor's OWN bookings / views by
+// the `source` axis (where the couple came from) and apply the same min-N floor,
+// so the two surfaces never disagree on a label or a suppression call.
+
+/** Friendly labels for the source axis (event_vendors.source /
+ *  vendor_profile_views.source). Unknown keys fall back to a humanized form. */
+export const SOURCE_LABELS: Record<string, string> = {
+  profile_direct: 'Profile (direct)',
+  host_manual: 'Added by couple',
+  host_marketplace_search: 'Marketplace search',
+  explore_card: 'Explore card',
+  auto_cascade_from_finalize: 'Auto-added (you locked a related vendor)',
+};
+
+/** Humanize a raw source key. Null → "Unattributed". */
+export function humanizeSource(src: string | null): string {
+  if (!src) return 'Unattributed';
+  return (
+    SOURCE_LABELS[src] ??
+    src.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+  );
+}
+
+/** One source row: a labeled count, plus whether it cleared the min-N floor.
+ *  `shown=false` means render the count as "—" (suppressed thin slice). */
+export type SourceSlice = {
+  key: string;
+  label: string;
+  count: number;
+  shown: boolean;
+};
+
+/** Aggregate `{ source }[]` rows into sorted, min-N-gated slices. */
+function buildSourceSlices(rows: { source: string | null }[]): SourceSlice[] {
+  const by = new Map<string, number>();
+  for (const row of rows) {
+    const key = row.source ?? '(unattributed)';
+    by.set(key, (by.get(key) ?? 0) + 1);
+  }
+  return [...by.entries()]
+    .map(([key, count]) => ({
+      key,
+      label: humanizeSource(key === '(unattributed)' ? null : key),
+      count,
+      shown: minNOk(count),
+    }))
+    .sort((a, b) => b.count - a.count);
+}
+
+// Loose client contract — a PostgREST query builder. Accepts either the
+// RLS-scoped server client or the admin client (both expose this surface).
+type SourceQueryClient = {
+  from: (table: string) => {
+    select: (cols: string) => any;
+  };
+};
+
+/**
+ * Booked rows sliced by `event_vendors.source` — where the vendor's booked
+ * couples first found them. RLS/ownership-scoped by marketplace_vendor_id; each
+ * slice is min-N gated. Same BOOKED_EVENT_VENDOR_STATUSES + created_at window as
+ * the funnel's BOOKED stage, so the breakdown reconciles with the funnel total.
+ */
+export async function fetchBookedBySource(
+  client: SourceQueryClient,
+  vendorProfileId: string,
+  sinceIso: string,
+): Promise<SourceSlice[]> {
+  const { data } = await client
+    .from('event_vendors')
+    .select('source')
+    .eq('marketplace_vendor_id', vendorProfileId)
+    .in('status', BOOKED_EVENT_VENDOR_STATUSES as unknown as string[])
+    .gte('created_at', sinceIso);
+  return buildSourceSlices((data ?? []) as { source: string | null }[]);
+}
+
+/**
+ * Profile views sliced by `vendor_profile_views.source` — where the vendor's
+ * top-of-funnel traffic comes from. RLS-gated to current_vendor_profile_ids();
+ * each slice is min-N gated. Same viewed_at window as the funnel's VIEWS stage.
+ */
+export async function fetchViewsBySource(
+  client: SourceQueryClient,
+  vendorProfileId: string,
+  sinceIso: string,
+): Promise<SourceSlice[]> {
+  const { data } = await client
+    .from('vendor_profile_views')
+    .select('source')
+    .eq('vendor_profile_id', vendorProfileId)
+    .gte('viewed_at', sinceIso);
+  return buildSourceSlices((data ?? []) as { source: string | null }[]);
+}
+
+/**
+ * INQUIRIES sliced by `chat_threads.inquiry_source` (Creator Economy PR-C —
+ * the owner's inquiry-source taxonomy, 2026-07-17). NULL = the Website Inquiry
+ * default, so it folds into the 'website' slice rather than "Unattributed".
+ * Labels come from lib/inquiry-source (the owner's 8 labels), not the
+ * event_vendors SOURCE_LABELS. Same created_at window as the funnel's
+ * INQUIRIES stage; min-N gated like its two siblings. Vendor-private.
+ */
+export async function fetchInquiriesBySource(
+  client: SourceQueryClient,
+  vendorProfileId: string,
+  sinceIso: string,
+): Promise<SourceSlice[]> {
+  const { data } = await client
+    .from('chat_threads')
+    .select('inquiry_source')
+    .eq('vendor_profile_id', vendorProfileId)
+    .gte('created_at', sinceIso);
+  const rows = (data ?? []) as { inquiry_source: string | null }[];
+  const by = new Map<string, number>();
+  for (const row of rows) {
+    const key = row.inquiry_source ?? 'website';
+    by.set(key, (by.get(key) ?? 0) + 1);
+  }
+  return [...by.entries()]
+    .map(([key, count]) => ({
+      key,
+      label: inquirySourceLabel(key),
+      count,
+      shown: minNOk(count),
+    }))
+    .sort((a, b) => b.count - a.count);
 }

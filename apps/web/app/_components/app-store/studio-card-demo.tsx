@@ -13,8 +13,8 @@ import {
 import { type RichDemoSlug } from './rich-demo-slugs';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 
-const MULB = 'var(--m-mulberry, #1E2229)';
-const GOLD = '#C5A059';
+const MULB = 'var(--m-mulberry, #1B1A17)';
+const GOLD = '#A9834B';
 const BLUSH = '#F6ECEC';
 const SAGE = '#9CAF88';
 const CHAMP = '#d9c39a';
@@ -207,7 +207,7 @@ const ANIMATED_MONOGRAM_SCENES: RichFrame[] = [
           <span className="font-mono uppercase tracking-[0.15em]" style={{ color: GOLD }}>Vector studio</span>
         </div>
         <div className="mt-2 flex aspect-square items-center justify-center rounded-xl border border-ink/10 bg-white">
-          <span className="text-3xl" style={{ fontFamily: SERIF, color: 'var(--m-mulberry, #1E2229)' }}>M&amp;J</span>
+          <span className="text-3xl" style={{ fontFamily: SERIF, color: 'var(--m-mulberry, #1B1A17)' }}>M&amp;J</span>
         </div>
         <p className="mt-2 font-mono text-[7px] uppercase tracking-[0.12em] text-ink/45">Font</p>
         <div className="mt-1 flex gap-1">
@@ -216,7 +216,7 @@ const ANIMATED_MONOGRAM_SCENES: RichFrame[] = [
           ))}
         </div>
         <div className="mt-2 flex gap-1.5">
-          {['var(--m-mulberry,#1E2229)', GOLD, CHAMP, '#1b1b1d'].map((c, k) => (
+          {['var(--m-mulberry,#1B1A17)', GOLD, CHAMP, '#1b1b1d'].map((c, k) => (
             <span key={k} className="h-4 w-4 rounded-full" style={{ background: c, boxShadow: k === 0 ? `0 0 0 2px ${GOLD}` : undefined }} />
           ))}
         </div>
@@ -232,7 +232,7 @@ const ANIMATED_MONOGRAM_SCENES: RichFrame[] = [
         <span className="font-mono text-[8px] uppercase tracking-[0.22em] text-terracotta">Animated monogram</span>
         <p className="mt-0.5 text-[13px] font-semibold tracking-tight">Your initials, drawn live</p>
         <div className="relative mt-2 flex aspect-[4/3] items-center justify-center overflow-hidden rounded-xl bg-white">
-          <span className="text-3xl" style={{ fontFamily: SERIF, color: 'var(--m-mulberry,#1E2229)' }}>M&amp;J</span>
+          <span className="text-3xl" style={{ fontFamily: SERIF, color: 'var(--m-mulberry,#1B1A17)' }}>M&amp;J</span>
           <span className="absolute inset-y-4 left-1/3 w-6 -skew-x-12" style={{ background: `linear-gradient(90deg, transparent, ${GOLD}66, transparent)` }} />
           <span className="absolute right-2 top-2 rounded-full bg-terracotta px-1.5 py-0.5 text-[7px] font-medium text-cream">Upgrade</span>
         </div>
@@ -254,7 +254,7 @@ const ANIMATED_MONOGRAM_SCENES: RichFrame[] = [
     scene: (
       <div className="absolute inset-0 flex flex-col items-center justify-center px-5 text-ink" style={{ background: `linear-gradient(${BLUSH}, #f7f2ea)` }}>
         <div className="relative flex h-12 w-12 items-center justify-center rounded-full" style={{ boxShadow: `0 0 0 1px ${GOLD}` }}>
-          <span className="text-lg" style={{ fontFamily: SERIF, color: 'var(--m-mulberry,#1E2229)' }}>M&amp;J</span>
+          <span className="text-lg" style={{ fontFamily: SERIF, color: 'var(--m-mulberry,#1B1A17)' }}>M&amp;J</span>
         </div>
         <span className="mt-3 text-xl" style={{ fontFamily: SERIF }}>Maria &amp; Juan</span>
         <span className="mt-2 h-px w-10" style={{ background: GOLD }} />
@@ -271,7 +271,7 @@ const ANIMATED_MONOGRAM_SCENES: RichFrame[] = [
         <div className="flex items-center gap-3 rounded-lg border border-ink/10 bg-white p-2.5">
           <div className="relative flex h-12 w-12 items-center justify-center rounded bg-ink/90 text-cream">
             <QrCode aria-hidden className="h-9 w-9" strokeWidth={1.25} />
-            <span className="absolute flex h-4 w-4 items-center justify-center rounded-full bg-white text-[7px]" style={{ fontFamily: SERIF, color: 'var(--m-mulberry,#1E2229)' }}>MJ</span>
+            <span className="absolute flex h-4 w-4 items-center justify-center rounded-full bg-white text-[7px]" style={{ fontFamily: SERIF, color: 'var(--m-mulberry,#1B1A17)' }}>MJ</span>
           </div>
           <span className="font-mono text-[8px] uppercase tracking-[0.12em] text-ink/55">Your mark at the heart of your QR</span>
         </div>
@@ -293,7 +293,7 @@ function paletteStrip(colors: string[]) {
     </div>
   );
 }
-const PAL = ['var(--m-mulberry,#1E2229)', CHAMP, '#bf6a43', SAGE];
+const PAL = ['var(--m-mulberry,#1B1A17)', CHAMP, '#bf6a43', SAGE];
 const MOOD_BOARD_SCENES: RichFrame[] = [
   {
     caption: 'Pick the colors of your day.',
@@ -329,7 +329,7 @@ const MOOD_BOARD_SCENES: RichFrame[] = [
             { label: 'Bouquet', c: '#bf6a43' },
             { label: 'Ceremony', c: CHAMP },
             { label: 'Bride', c: BLUSH },
-            { label: 'Party', c: 'var(--m-mulberry,#1E2229)' },
+            { label: 'Party', c: 'var(--m-mulberry,#1B1A17)' },
           ].map((x) => (
             <div key={x.label} className="overflow-hidden rounded-lg border border-ink/10">
               <span className="block h-12 w-full" style={{ background: x.c }} />
@@ -352,7 +352,7 @@ const MOOD_BOARD_SCENES: RichFrame[] = [
         <p className="text-[8px] text-ink/60">Tap a part of the room.</p>
         <div className="mt-2 flex-1 overflow-hidden rounded-lg border border-ink/10 p-2">
           <span className="block h-4 w-full rounded-sm" style={{ background: CHAMP }} />
-          <span className="mx-auto mt-1.5 block h-8 w-2/3 rounded-sm" style={{ background: 'var(--m-mulberry,#1E2229)' }} />
+          <span className="mx-auto mt-1.5 block h-8 w-2/3 rounded-sm" style={{ background: 'var(--m-mulberry,#1B1A17)' }} />
           <div className="mt-2 flex justify-center gap-2">
             {[0, 1, 2].map((k) => (
               <span key={k} className="h-7 w-7 rounded-full" style={{ background: '#bf6a43', boxShadow: k === 1 ? '0 0 0 2px #bf6a43, 0 0 0 4px #ffffff' : undefined }} />
@@ -552,6 +552,80 @@ const PHOTO_DELIVERY_SCENES: RichFrame[] = [
         <div className="mt-2 rounded-lg border border-ink/10 bg-white p-2.5 text-[9px] text-ink/65" style={{ borderLeftColor: GOLD, borderLeftWidth: 3 }}>
           Your guests get the photos they’re in — shared automatically.
         </div>
+      </div>
+    ),
+  },
+];
+
+// ── Patiktok — pick → set → render → ready ──
+const PATIKTOK_SCENES: RichFrame[] = [
+  {
+    caption: 'Pick a vertical look you love.',
+    hint: 'Tap a style to choose it.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+        <span className="font-mono text-[7px] uppercase tracking-[0.2em] text-terracotta">Patiktok · reel station</span>
+        <p className="text-[12px] font-semibold">Pick the reel templates</p>
+        <div className="mt-1.5 flex gap-1">
+          <span className="rounded-full bg-terracotta px-2 py-0.5 text-[7px] text-cream">All</span>
+          <span className="rounded-full border border-ink/10 px-2 py-0.5 text-[7px] text-ink/55">Ceremony</span>
+          <span className="rounded-full border border-ink/10 px-2 py-0.5 text-[7px] text-ink/55">Reception</span>
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <div className="flex aspect-[9/16] flex-col justify-between overflow-hidden rounded-lg border border-ink/10 p-2" style={{ background: '#FAF7F2' }}>
+            <span className="h-1 w-full rounded bg-terracotta" />
+            <span className="text-center text-[10px]" style={{ fontFamily: SERIF, color: '#5a3a2a' }}>Ana &amp; Marco</span>
+            <div className="flex gap-0.5">{PAL.map((c, k) => <span key={k} className="h-1 flex-1" style={{ background: c }} />)}</div>
+          </div>
+          <div className="flex aspect-[9/16] items-center justify-center overflow-hidden rounded-lg border border-ink/10" style={{ background: '#0F0F0F' }}>
+            <span className="text-[10px]" style={{ fontFamily: SERIF, color: GOLD }}>A &amp; M</span>
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'Set the length and the song.',
+    hint: 'Slide the length, pick a track.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col bg-cream px-3 pt-3 text-ink">
+        <span className="font-mono text-[7px] uppercase tracking-[0.2em] text-terracotta">Cebu Sunrise</span>
+        <div className="mt-1.5 rounded-lg border border-ink/10 bg-white p-2.5">
+          <p className="text-[10px] font-medium">Render this reel</p>
+          <div className="mt-2 flex items-center justify-between text-[9px]"><span className="text-ink/60">Mimic duration</span><span className="font-mono">15s</span></div>
+          <div className="mt-1 h-1.5 w-full rounded-full bg-ink/10"><div className="relative h-full w-1/2 rounded-full bg-terracotta"><span className="absolute -right-1.5 -top-1 h-3.5 w-3.5 rounded-full bg-terracotta" /></div></div>
+          <div className="mt-3 flex items-center gap-1.5 rounded-md border border-ink/15 px-2 py-1.5 text-[9px]">
+            <Music aria-hidden className="h-3 w-3 text-ink/50" /><span className="text-ink/70">Auto-pick from template</span>
+          </div>
+          <button type="button" className="mt-2 inline-flex w-full items-center justify-center rounded-md bg-mulberry py-1.5 text-[10px] font-medium text-cream">Render reel</button>
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'Watch it come together right here.',
+    hint: 'Tap Render — keep the tab open.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col justify-center bg-cream px-4 text-ink">
+        <div className="rounded-md bg-emerald-600/10 px-2 py-1 text-[8px] font-medium text-emerald-800">Render queued — ready soon</div>
+        <div className="mt-2 rounded-lg p-3" style={{ background: 'rgba(30, 26, 18,.05)', border: '1px solid rgba(30, 26, 18,.3)' }}>
+          <p className="text-[10px] font-medium" style={{ color: MULB }}>Rendering in your browser… 68%</p>
+          <div className="mt-2 h-2 w-full rounded-full bg-ink/10"><div className="h-full rounded-full" style={{ width: '68%', background: MULB }} /></div>
+          <p className="mt-1.5 text-[8px] text-ink/55">No server, no wait queue.</p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    caption: 'Your reel, ready to share.',
+    hint: 'Tap Download, post to your stories.',
+    scene: (
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-cream px-4 text-ink">
+        <div className="flex aspect-[9/16] w-[128px] items-center justify-center rounded-lg bg-black text-cream"><Play aria-hidden className="h-6 w-6" strokeWidth={1.5} /></div>
+        <button type="button" className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-[10px] font-medium text-white">
+          <Download aria-hidden className="h-3 w-3" strokeWidth={2} /> Download reel
+        </button>
+        <span className="mt-1.5 font-mono text-[7px] uppercase tracking-[0.15em] text-ink/45">Saved to your event gallery</span>
       </div>
     ),
   },
@@ -762,7 +836,7 @@ const SETNAYAN_AI_SCENES: RichFrame[] = [
             <span className="rounded bg-emerald-600/15 px-1.5 py-0.5 text-[6px] font-medium text-emerald-700">Verified</span>
             <span className="rounded px-1.5 py-0.5 text-[6px] font-medium text-cream" style={{ background: MULB }}>Setnayan</span>
           </div>
-          <span className="mt-1.5 inline-block rounded px-1.5 py-0.5 text-[7px]" style={{ background: 'rgba(197,160,89,.15)', color: '#7a5a18' }}>3 also eyeing your date</span>
+          <span className="mt-1.5 inline-block rounded px-1.5 py-0.5 text-[7px]" style={{ background: 'rgba(169,131,75,.15)', color: '#7a5a18' }}>3 also eyeing your date</span>
         </div>
       </div>
     ),
@@ -804,7 +878,7 @@ const LANDING_PAGE_SCENES: RichFrame[] = [
         <span className="mt-3 inline-flex items-center gap-1 rounded-full border border-ink/15 px-2.5 py-1 text-[8px] text-ink/70">
           <Globe aria-hidden className="h-2.5 w-2.5 text-emerald-600" strokeWidth={2} /> setnayan.com/maria-juan
         </span>
-        <div className="mt-3 h-16 w-32 rounded-xl" style={{ background: 'linear-gradient(135deg, rgba(30, 34, 41,.12), rgba(191,106,67,.12))' }} />
+        <div className="mt-3 h-16 w-32 rounded-xl" style={{ background: 'linear-gradient(135deg, rgba(30, 26, 18,.12), rgba(191,106,67,.12))' }} />
         <button type="button" className="mt-4 rounded-full bg-mulberry px-5 py-1.5 text-[10px] font-medium text-cream">Customize</button>
       </div>
     ),
@@ -950,7 +1024,7 @@ const PAKANTA_SCENES: RichFrame[] = [
     scene: (
       <div className="absolute inset-0 flex flex-col bg-cream px-4 pt-4 text-ink">
         <div className="flex items-center gap-2">
-          <span className="flex h-10 w-10 items-center justify-center rounded-lg" style={{ background: 'rgba(30, 34, 41,.1)' }}><Music aria-hidden className="h-5 w-5" style={{ color: MULB }} strokeWidth={1.75} /></span>
+          <span className="flex h-10 w-10 items-center justify-center rounded-lg" style={{ background: 'rgba(30, 26, 18,.1)' }}><Music aria-hidden className="h-5 w-5" style={{ color: MULB }} strokeWidth={1.75} /></span>
           <div>
             <p className="text-[14px] font-semibold">Pakanta</p>
             <p className="text-[8px] text-ink/60">An original song for your wedding — yours, forever.</p>
@@ -974,7 +1048,7 @@ const PAKANTA_SCENES: RichFrame[] = [
           <p className="mt-2 text-[8px] text-ink/60">What do you call each other?</p>
           <div className="mt-1 rounded border border-ink/15 px-2 py-1.5 text-[8px] text-ink/40">Bibo & Honey</div>
           <div className="mt-2 grid grid-cols-2 gap-1.5">
-            <div className="rounded border-2 px-2 py-1.5 text-[8px] text-ink/40" style={{ borderColor: 'rgba(30, 34, 41,.4)' }}>Bruno Mars</div>
+            <div className="rounded border-2 px-2 py-1.5 text-[8px] text-ink/40" style={{ borderColor: 'rgba(30, 26, 18,.4)' }}>Bruno Mars</div>
             <div className="rounded border border-ink/15 px-2 py-1.5 text-[8px] text-ink/40">Moira</div>
           </div>
           <button type="button" className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-mulberry py-1.5 text-[9px] font-medium text-cream">
@@ -989,7 +1063,7 @@ const PAKANTA_SCENES: RichFrame[] = [
     hint: 'It arrives ready for your big day.',
     scene: (
       <div className="absolute inset-0 flex flex-col items-center justify-center bg-cream px-4 text-ink">
-        <span className="flex h-14 w-14 items-center justify-center rounded-full" style={{ background: 'rgba(197,160,89,.18)' }}><Music aria-hidden className="h-7 w-7" style={{ color: GOLD }} strokeWidth={1.5} /></span>
+        <span className="flex h-14 w-14 items-center justify-center rounded-full" style={{ background: 'rgba(169,131,75,.18)' }}><Music aria-hidden className="h-7 w-7" style={{ color: GOLD }} strokeWidth={1.5} /></span>
         <p className="mt-2 text-[14px] font-semibold">Your song is ready</p>
         <div className="mt-2 w-full rounded-lg border border-ink/10 bg-white p-2">
           <div className="flex items-center gap-2">
@@ -1111,6 +1185,7 @@ export const RICH_SCENES: Record<RichDemoSlug, RichFrame[]> = {
   'mood-board': MOOD_BOARD_SCENES,
   'custom-qr-guest': CUSTOM_QR_SCENES,
   'photo-delivery': PHOTO_DELIVERY_SCENES,
+  patiktok: PATIKTOK_SCENES,
   led: LED_SCENES,
   'indoor-blueprint': INDOOR_BLUEPRINT_SCENES,
   'setnayan-ai': SETNAYAN_AI_SCENES,
@@ -1146,6 +1221,7 @@ const RICH_MEDIA: Record<string, DemoMedia> = {
   'mood-board': m('mood-board'),
   'custom-qr-guest': m('custom-qr-guest'),
   'photo-delivery': m('photo-delivery'),
+  patiktok: m('patiktok'),
   led: m('led'),
   'indoor-blueprint': m('indoor-blueprint'),
   'setnayan-ai': m('setnayan-ai'),

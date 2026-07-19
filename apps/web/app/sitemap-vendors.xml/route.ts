@@ -36,7 +36,7 @@ export const revalidate = 3600;
 
 export async function GET(): Promise<Response> {
   const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
+    process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com';
 
   let urls = '';
 
@@ -53,12 +53,19 @@ export async function GET(): Promise<Response> {
       .from('vendor_profiles')
       .select('business_slug, updated_at')
       .eq('public_visibility', 'verified')
+      // PR-B — exclude UNVERIFIED vendors from the sitemap. An unverified
+      // vendor has no public website (mirrored in /v/[slug] + Explore), so
+      // it must not be advertised to crawlers. The reconcile migration
+      // 20270331400000 marked the founder + every paid vendor 'verified'.
+      .eq('verification_state', 'verified')
       .or('is_demo.is.null,is_demo.eq.false')
       .order('updated_at', { ascending: false })
       .limit(50_000);
 
-    if (primary.error && /is_demo/i.test(primary.error.message)) {
-      // Schema fallback — is_demo column missing in this environment.
+    if (primary.error && /(is_demo|verification_state)/i.test(primary.error.message)) {
+      // Schema fallback — is_demo or verification_state column missing in
+      // this environment (migrations behind). Fall back to the
+      // public_visibility check alone.
       const fallback = await admin
         .from('vendor_profiles')
         .select('business_slug, updated_at')
@@ -83,7 +90,7 @@ export async function GET(): Promise<Response> {
         )
         .map(
           (row) =>
-            `  <url>\n    <loc>${baseUrl}/v/${encodeURIComponent(row.business_slug)}</loc>\n    <lastmod>${new Date(row.updated_at).toISOString()}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>\n  </url>`,
+            `  <url>\n    <loc>${baseUrl}/${encodeURIComponent(row.business_slug)}</loc>\n    <lastmod>${new Date(row.updated_at).toISOString()}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>\n  </url>`,
         )
         .join('\n');
     }

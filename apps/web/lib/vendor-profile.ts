@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type VendorProfileRow = {
@@ -45,6 +46,15 @@ export type VendorProfileRow = {
    * in the database (see migration 20260514130000_vendor_portfolio.sql).
    */
   portfolio_r2_keys: string[];
+  /**
+   * Public profile "Featured videos" — up to 10 external video URLs the vendor
+   * pastes (added 2026-07-05, migration 20270518165113). Each entry is the FULL
+   * URL string. YouTube / Vimeo render as inline players; Instagram / Facebook /
+   * TikTok render as link-out cards (see `parseVideoLink` in lib/video-embed.ts).
+   * Column has NOT NULL DEFAULT '{}' with a `cardinality <= 10` CHECK; a null
+   * surfaces only pre-migration and is normalised to `[]` below.
+   */
+  gallery_video_links: string[];
   /**
    * Per-vendor toggle on the Completed-events backend card. FALSE (default)
    * = the card shows the same team-excluded count the public sees. TRUE =
@@ -95,7 +105,7 @@ export type VendorProfileRow = {
 // callers see compatible_* as null in that mode, identical to a vendor
 // who hasn't picked any tags yet — "open to all" semantics.
 const FULL_VENDOR_PROFILE_SELECT =
-  'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,business_owner_name,in_business_since_year,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,is_published,portfolio_r2_keys,show_team_bookings_in_backend_count,public_visibility,compatible_ceremony_types,compatible_venue_settings,event_types,created_at,updated_at';
+  'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,business_owner_name,in_business_since_year,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,is_published,portfolio_r2_keys,gallery_video_links,show_team_bookings_in_backend_count,public_visibility,compatible_ceremony_types,compatible_venue_settings,event_types,created_at,updated_at';
 
 // LEGACY select omits hq_address/lat/lng + 0043 compat cols so the page
 // can render against pre-0043 / pre-0521 schemas. Callers see hq_*
@@ -104,95 +114,91 @@ const FULL_VENDOR_PROFILE_SELECT =
 const LEGACY_VENDOR_PROFILE_SELECT =
   'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,location_city,website,contact_email,contact_phone,is_published,portfolio_r2_keys,show_team_bookings_in_backend_count,public_visibility,created_at,updated_at';
 
-export async function fetchOwnVendorProfile(
+/**
+ * FULL select with a LEGACY-select fallback, filtered by a single column.
+ *
+ * Extracted 2026-07-09 (multi-shop groundwork) so BOTH the by-`user_id` owner
+ * path and the by-`vendor_profile_id` (active-shop / team-member) path share
+ * ONE resilient read: the FULL projection first, and on ANY error a LEGACY
+ * reprojection that back-fills the columns the legacy SELECT omits. Previously
+ * only the owner path had this fallback — the member-by-id fetch was FULL-only
+ * and returned null if the FULL projection errored (e.g. a column lagging a
+ * migration). Returns the raw row (legacy-augmented when the fallback fired) or
+ * null; throws only if BOTH projections error.
+ */
+async function selectVendorProfileBy(
   supabase: SupabaseClient,
-  userId: string,
-): Promise<VendorProfileRow | null> {
-  let { data, error } = await supabase
+  column: 'user_id' | 'vendor_profile_id',
+  value: string,
+): Promise<Record<string, unknown> | null> {
+  const { data, error } = await supabase
     .from('vendor_profiles')
     .select(FULL_VENDOR_PROFILE_SELECT)
-    .eq('user_id', userId)
+    .eq(column, value)
     .maybeSingle();
-  if (error) {
-    // Defensive fallback (hardened 2026-05-20 after digest-486685855 crash):
-    // always retry against the legacy SELECT regardless of error shape. The
-    // original fallback only fired on 42703 / "column does not exist" but
-    // other failure modes (RLS edge, expired JWT, transient PostgREST 500)
-    // crashed the page with a generic 5xx. We now log the first-attempt
-    // error via console.error so Sentry's nodejs runtime hook captures it
-    // for diagnosis, then try the LEGACY select as a graceful fallback.
-    // Worst case: legacy also fails → we throw with both error messages.
-    // eslint-disable-next-line no-console
-    console.error('[fetchOwnVendorProfile] FULL select failed; falling back to LEGACY', {
-      user_id: userId,
-      error_code: (error as { code?: string }).code,
-      error_message: error.message,
-    });
-    const fallback = await supabase
-      .from('vendor_profiles')
-      .select(LEGACY_VENDOR_PROFILE_SELECT)
-      .eq('user_id', userId)
-      .maybeSingle();
-    if (fallback.error) {
-      throw new Error(
-        `fetchOwnVendorProfile failed: FULL=[${error.message}] LEGACY=[${fallback.error.message}]`,
-      );
-    }
-    if (!fallback.data) return null;
-    data = {
-      ...(fallback.data as Record<string, unknown>),
-      compatible_ceremony_types: null,
-      compatible_venue_settings: null,
-      event_types: ['wedding'],
-      // 2026-05-21 — geocode columns added after the legacy SELECT was
-      // pinned. Default to nulls so the type stays a clean contract; the
-      // distance chip simply doesn't render until the schema migrates and
-      // the vendor saves their HQ.
-      hq_address: null,
-      hq_latitude: null,
-      hq_longitude: null,
-      // Business Profile fields added 2026-06-28 — null in the legacy/pre-
-      // migration read; the completion gate simply reads them as "missing".
-      business_owner_name: null,
-      in_business_since_year: null,
-    } as typeof data;
+  if (!error) return (data as Record<string, unknown> | null) ?? null;
+  // Defensive fallback (hardened 2026-05-20 after digest-486685855 crash):
+  // always retry against the legacy SELECT regardless of error shape. Other
+  // failure modes (RLS edge, expired JWT, transient PostgREST 500) used to
+  // crash the page with a generic 5xx. Log the first-attempt error via
+  // console.error so Sentry's nodejs runtime hook captures it for diagnosis,
+  // then try the LEGACY select. Worst case: legacy also fails → we throw with
+  // both error messages.
+  // eslint-disable-next-line no-console
+  console.error('[fetchOwnVendorProfile] FULL select failed; falling back to LEGACY', {
+    [column]: value,
+    error_code: (error as { code?: string }).code,
+    error_message: error.message,
+  });
+  const fallback = await supabase
+    .from('vendor_profiles')
+    .select(LEGACY_VENDOR_PROFILE_SELECT)
+    .eq(column, value)
+    .maybeSingle();
+  if (fallback.error) {
+    throw new Error(
+      `fetchOwnVendorProfile failed: FULL=[${error.message}] LEGACY=[${fallback.error.message}]`,
+    );
   }
-  if (!data) {
-    // Member path (Phase 2b) — the user doesn't OWN a vendor_profiles row but
-    // may be a team member (admin / agent / viewer). Resolve their vendor via
-    // vendor_team_members, then fetch that profile by id. The
-    // `vendor_profiles_member_read` RLS policy admits members; agent data
-    // scoping happens on the per-table policies (services / chat), not here.
-    const { data: memberships } = await supabase
-      .from('vendor_team_members')
-      .select('vendor_profile_id')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: true })
-      .limit(1);
-    const memberVendorProfileId = (memberships?.[0] as { vendor_profile_id?: string } | undefined)
-      ?.vendor_profile_id;
-    if (!memberVendorProfileId) return null;
-    const { data: byId } = await supabase
-      .from('vendor_profiles')
-      .select(FULL_VENDOR_PROFILE_SELECT)
-      .eq('vendor_profile_id', memberVendorProfileId)
-      .maybeSingle();
-    if (!byId) return null;
-    data = byId;
-  }
-  // Defensive: column has NOT NULL DEFAULT '{}' so this is null only if the
-  // migration hasn't run yet. Normalise so callers can assume an array.
-  // Same defensive default for `show_team_bookings_in_backend_count` — the
-  // column has NOT NULL DEFAULT FALSE but pre-migration rows may surface
-  // as `null` until the migration runs.
+  if (!fallback.data) return null;
+  return {
+    ...(fallback.data as Record<string, unknown>),
+    compatible_ceremony_types: null,
+    compatible_venue_settings: null,
+    event_types: ['wedding'],
+    // 2026-05-21 — geocode columns added after the legacy SELECT was pinned.
+    // Default to nulls so the type stays a clean contract; the distance chip
+    // simply doesn't render until the schema migrates and the vendor saves
+    // their HQ.
+    hq_address: null,
+    hq_latitude: null,
+    hq_longitude: null,
+    // Business Profile fields added 2026-06-28 — null in the legacy/pre-
+    // migration read; the completion gate simply reads them as "missing".
+    business_owner_name: null,
+    in_business_since_year: null,
+    // Featured-videos column (20270518165113) added after the legacy SELECT
+    // was pinned — default to empty so the section simply doesn't render.
+    gallery_video_links: [],
+  };
+}
+
+/**
+ * Normalise a raw `vendor_profiles` row into the `VendorProfileRow` contract —
+ * back-filling the array / boolean / enum columns that surface as null only on
+ * a pre-migration read, so every caller can rely on the non-null shape.
+ */
+function normalizeVendorProfileRow(data: Record<string, unknown>): VendorProfileRow {
   const row = data as Omit<
     VendorProfileRow,
     | 'portfolio_r2_keys'
+    | 'gallery_video_links'
     | 'show_team_bookings_in_backend_count'
     | 'public_visibility'
     | 'event_types'
   > & {
     portfolio_r2_keys: string[] | null;
+    gallery_video_links: string[] | null;
     show_team_bookings_in_backend_count: boolean | null;
     public_visibility: VendorProfileRow['public_visibility'] | null;
     event_types: string[] | null;
@@ -200,6 +206,8 @@ export async function fetchOwnVendorProfile(
   return {
     ...row,
     portfolio_r2_keys: row.portfolio_r2_keys ?? [],
+    // NOT NULL DEFAULT '{}' in the DB; null only pre-migration → normalise.
+    gallery_video_links: row.gallery_video_links ?? [],
     show_team_bookings_in_backend_count:
       row.show_team_bookings_in_backend_count ?? false,
     public_visibility: row.public_visibility ?? 'coming_soon',
@@ -212,6 +220,100 @@ export async function fetchOwnVendorProfile(
       : ['wedding'],
   };
 }
+
+/**
+ * Fetch the caller's active vendor profile ("shop").
+ *
+ * Resolution order:
+ *   1. `activeVendorProfileId` given → load exactly that shop by id. This is
+ *      the MULTI-SHOP SEAM (2026-07-09 groundwork). Today one user owns one
+ *      shop (`vendor_profiles.user_id` is UNIQUE), so NOTHING passes this
+ *      argument and the single-shop paths (2)/(3) below run exactly as before.
+ *      When one-user-many-shops lands, the shop picker / `/vendor-dashboard/
+ *      [shopId]` route threads the chosen id in here and this ONE function
+ *      localises the change instead of ~185 call sites each re-deriving "the"
+ *      shop from `user_id`. Fetching by id is safe: the `vendor_profiles`
+ *      owner + `vendor_profiles_member_read` RLS policies only admit shops the
+ *      caller owns or is a team member of, so a forged/foreign id returns null
+ *      rather than another user's shop.
+ *   2. else → the shop this user OWNS (`vendor_profiles.user_id = auth.uid()`).
+ *   3. else → the caller's first team membership (`vendor_team_members`).
+ *
+ * Wrapped in React `cache()` (2026-07-01 perf): the vendor dashboard layout and
+ * the page it renders each fetch the profile in the SAME request. Since the
+ * server `createClient()` is request-cached, both call sites share the identical
+ * client reference, so `cache()` keyed on `(supabase, userId, activeVendorProfileId)`
+ * dedupes the two calls into a single set of reads instead of running the whole
+ * chain twice per render. Current callers pass two args → the third is
+ * `undefined` for both, so the cache key still collapses to one entry.
+ */
+/**
+ * Guarded read of the optional precise founding DATE (`in_business_since_date`,
+ * migration 20270805100000). Kept OUT of the shared profile select and read
+ * defensively — like `fetchVendorMicrosite` — so a not-yet-applied migration
+ * (this repo's known apply-lag) degrades to null instead of 42703-crashing the
+ * vendor dashboard. Returns the ISO date string, or null when unset/missing.
+ */
+export async function fetchVendorBusinessStartDate(
+  client: SupabaseClient,
+  vendorProfileId: string,
+): Promise<string | null> {
+  try {
+    const { data, error } = await client
+      .from('vendor_profiles')
+      .select('in_business_since_date')
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle();
+    if (error || !data) return null;
+    return (data as { in_business_since_date: string | null }).in_business_since_date ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export const fetchOwnVendorProfile = cache(async (
+  supabase: SupabaseClient,
+  userId: string,
+  activeVendorProfileId?: string,
+): Promise<VendorProfileRow | null> => {
+  // (1) Explicit active-shop seam — see JSDoc. No caller passes this yet.
+  if (activeVendorProfileId) {
+    const byId = await selectVendorProfileBy(
+      supabase,
+      'vendor_profile_id',
+      activeVendorProfileId,
+    );
+    return byId ? normalizeVendorProfileRow(byId) : null;
+  }
+
+  // (2) Owner path — the shop this user owns.
+  const owned = await selectVendorProfileBy(supabase, 'user_id', userId);
+  if (owned) return normalizeVendorProfileRow(owned);
+
+  // (3) Member path (Phase 2b) — the user doesn't OWN a vendor_profiles row but
+  // may be a team member (admin / agent / viewer). Resolve their vendor via
+  // vendor_team_members (first membership), then load it by id — now through
+  // the shared FULL/LEGACY resolver, so this path gets the same fallback the
+  // owner path always had (it was previously FULL-only and returned null on a
+  // transient projection error). The `vendor_profiles_member_read` RLS policy
+  // admits members; agent data scoping happens on the per-table policies
+  // (services / chat), not here.
+  const { data: memberships } = await supabase
+    .from('vendor_team_members')
+    .select('vendor_profile_id')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true })
+    .limit(1);
+  const memberVendorProfileId = (memberships?.[0] as { vendor_profile_id?: string } | undefined)
+    ?.vendor_profile_id;
+  if (!memberVendorProfileId) return null;
+  const byId = await selectVendorProfileBy(
+    supabase,
+    'vendor_profile_id',
+    memberVendorProfileId,
+  );
+  return byId ? normalizeVendorProfileRow(byId) : null;
+});
 
 /**
  * Per-vendor public + full completed-event counts. Wraps the two
@@ -257,6 +359,39 @@ export async function fetchVendorCompletedEventStats(
   };
 }
 
+export type VendorCustomerSourceCounts = {
+  /** Customers who inquired via Setnayan (Explore + the vendor's Website). */
+  inHouse: number;
+  /** Customers imported / locked by the vendor via QR Code. */
+  imported: number;
+};
+
+/**
+ * In-house vs Import customer counts for the vendor's Home CRM signal (owner
+ * taxonomy locked 2026-06-30). Calls the `vendor_customer_source_counts`
+ * SECURITY DEFINER RPC — event_vendors is couple-RLS, so the vendor's own
+ * session can't read it directly; the RPC returns just the two aggregate counts
+ * for the vendor's own profile (gated to owner/team, else 0/0). Fail-soft: any
+ * RPC error (e.g. pre-migration deploy) collapses to 0/0 so Home still renders.
+ */
+export async function fetchVendorCustomerSourceCounts(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<VendorCustomerSourceCounts> {
+  const { data, error } = await supabase.rpc('vendor_customer_source_counts', {
+    p_vendor_profile_id: vendorProfileId,
+  });
+  if (error || !data) return { inHouse: 0, imported: 0 };
+  // RETURNS TABLE → supabase returns an array of rows; take the first.
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { in_house?: number | string; imported?: number | string }
+    | undefined;
+  return {
+    inHouse: Number(row?.in_house ?? 0) || 0,
+    imported: Number(row?.imported ?? 0) || 0,
+  };
+}
+
 /**
  * Whether the vendor has uploaded their full set of required business
  * documents (the "Updated Business Documents" item of the Business Profile).
@@ -279,49 +414,79 @@ export async function fetchHasBusinessDocuments(
 }
 
 /**
- * The required Business Profile (vendor onboarding · owner 2026-06-28).
+ * The required Business Profile (vendor onboarding · owner 2026-06-28;
+ * relabelled + Logo added 2026-07-02; documents item REMOVED 2026-07-03).
  *
- * A vendor "must have their Business Profile" — these 8 fields — before they
- * can be published / listed / take inquiries. Each item maps to a concrete
- * column (or the verification-docs flow). `complete` gates publication; the
- * checklist drives the dashboard onboarding card + the profile completion UI.
+ * A vendor "must have their Business Profile" — these 8 identity fields —
+ * before they can be published / listed / take inquiries. Each item maps to a
+ * concrete `vendor_profiles` column. `complete` gates publication; the
+ * checklist drives the My Shop Profile tile + the profile completion UI.
  *
- * `hasDocuments` is resolved by the caller via `fetchHasBusinessDocuments`
- * (separate table) so this function stays pure/synchronous.
+ * Verification DOCUMENTS are no longer a checklist item (owner-approved
+ * redesign): they moved to the always-visible "Get verified" section on My
+ * Shop and gate only the verified BADGE, never publication. `surface` is kept
+ * in the type for compatibility but every item is now 'profile'.
  */
 export type BusinessProfileItem = {
   key: string;
   label: string;
   ok: boolean;
-  /** Where to go to fix it: 'profile' (the edit form) or 'documents' (/verify). */
+  /** Where to fix it. Post-2026-07-03 every checklist item is 'profile'. */
   surface: 'profile' | 'documents';
 };
 
+/**
+ * Canonical Business-Profile field labels (owner-relabel 2026-07-02).
+ *
+ * ONE source of truth for the checklist wording, shared by the completion card
+ * (`businessProfileChecklist`) and the save-time publish gate in
+ * `app/vendor-dashboard/actions.ts`. Both surfaces used to hard-code the same
+ * strings and drifted apart on every rename — importing this constant keeps
+ * them locked together. Keyed by the checklist item `key`.
+ */
+export const BUSINESS_PROFILE_LABELS = {
+  logo: 'Logo',
+  business_name: 'Shop name',
+  business_owner_name: 'Business owner',
+  maps_pin: 'Company address',
+  contact_phone: 'Contact number',
+  contact_email: 'Company email',
+  services: 'Services covered',
+  in_business_since_year: 'EST',
+} as const;
+
 export function businessProfileChecklist(
   profile: VendorProfileRow | null,
-  opts: { hasDocuments: boolean },
 ): { items: BusinessProfileItem[]; done: number; total: number; complete: boolean; missing: string[] } {
+  const L = BUSINESS_PROFILE_LABELS;
   const items: BusinessProfileItem[] = [
-    { key: 'business_name', label: 'Business name', surface: 'profile', ok: !!profile?.business_name?.trim() },
-    { key: 'business_owner_name', label: 'Business owner', surface: 'profile', ok: !!profile?.business_owner_name?.trim() },
-    { key: 'contact_phone', label: 'Contact number', surface: 'profile', ok: !!profile?.contact_phone?.trim() },
-    { key: 'contact_email', label: 'Business email', surface: 'profile', ok: !!profile?.contact_email?.trim() },
+    { key: 'logo', label: L.logo, surface: 'profile', ok: !!profile?.logo_url?.trim() },
+    { key: 'business_name', label: L.business_name, surface: 'profile', ok: !!profile?.business_name?.trim() },
+    { key: 'business_owner_name', label: L.business_owner_name, surface: 'profile', ok: !!profile?.business_owner_name?.trim() },
     {
       key: 'maps_pin',
-      label: 'Maps pin',
+      label: L.maps_pin,
       surface: 'profile',
-      // The pin is the geocoded HQ — require the address AND a resolved lat/lng
-      // so a typo that fails geocoding doesn't pass as "located".
-      ok: !!profile?.hq_address?.trim() && profile?.hq_latitude != null && profile?.hq_longitude != null,
+      // Address text is enough — matches the save-time publish gate in
+      // actions.ts (which only checks hq_address), since the lat/lng geocode
+      // runs asynchronously AFTER save and may legitimately be null on a fresh
+      // address. The distance chip still renders once geocoding resolves.
+      ok: !!profile?.hq_address?.trim(),
     },
-    { key: 'services', label: 'Services covered', surface: 'profile', ok: (profile?.services?.length ?? 0) > 0 },
+    { key: 'contact_phone', label: L.contact_phone, surface: 'profile', ok: !!profile?.contact_phone?.trim() },
+    { key: 'contact_email', label: L.contact_email, surface: 'profile', ok: !!profile?.contact_email?.trim() },
     {
       key: 'in_business_since_year',
-      label: 'Year started',
+      label: L.in_business_since_year,
       surface: 'profile',
       ok: !!profile?.in_business_since_year && profile.in_business_since_year > 1900,
     },
-    { key: 'business_documents', label: 'Updated business documents', surface: 'documents', ok: opts.hasDocuments },
+    // LAST (owner 2026-07-03): "Services covered" is not an inline picker — it
+    // jumps to the taxonomy-driven Coverage flow (/vendor-dashboard/services),
+    // which writes the covered leaves back into vendor_profiles.services[]. So
+    // completeness still reads services[] here; the row just lives at the end
+    // and links out. Everything a vendor serves is admin-taxonomy-driven.
+    { key: 'services', label: L.services, surface: 'profile', ok: (profile?.services?.length ?? 0) > 0 },
   ];
   const done = items.filter((i) => i.ok).length;
   return {
@@ -334,19 +499,16 @@ export function businessProfileChecklist(
 }
 
 /**
- * Backward-compatible profile-fields-only gauge (excludes the documents item,
- * which lives in a separate table + flow). Kept sync for callers that only have
- * the profile row (e.g. the vendor-activity soft score). The full publish gate
- * is `businessProfileChecklist` (8 items incl. documents).
+ * Profile-fields-only gauge. Since 2026-07-03 (documents item removed) this is
+ * the SAME set as `businessProfileChecklist` — kept as the stable entry point
+ * for callers that only care about the counts (e.g. the vendor-activity score).
  */
 export function profileCompletion(profile: VendorProfileRow | null): {
   done: number;
   total: number;
   missing: string[];
 } {
-  const items = businessProfileChecklist(profile, { hasDocuments: true }).items.filter(
-    (i) => i.surface === 'profile',
-  );
+  const { items } = businessProfileChecklist(profile);
   const done = items.filter((i) => i.ok).length;
   return { done, total: items.length, missing: items.filter((i) => !i.ok).map((i) => i.label) };
 }

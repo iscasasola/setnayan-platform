@@ -150,9 +150,9 @@ async function notifyCoupleShowcaseFeatured(
  * The vendor-facing half of "you've been featured": email every CREDITED vendor
  * on the event. Credited = a booked marketplace vendor whose
  * linked_vendor_profile_id was stamped on lock (the same join that builds the
- * editorial credit). Free-tier vendors are HIDDEN from the editorial credit, so
- * we skip them — only tiers that actually surface in the story are emailed.
- * Best-effort: never blocks the admin feature action.
+ * editorial credit). Every tier is credited (Simplicity Canon rule 2,
+ * owner-ratified 2026-07-16 — the old free-tier credit hide is retired), so
+ * every tier is emailed. Best-effort: never blocks the admin feature action.
  */
 async function notifyCreditedVendorsShowcaseFeatured(
   admin: ReturnType<typeof createAdminClient>,
@@ -175,17 +175,9 @@ async function notifyCreditedVendorsShowcaseFeatured(
     );
     if (profileIds.length === 0) return;
 
-    // Tier filter — free vendors don't appear in the credit, so don't email them.
-    const { data: profiles } = await admin
-      .from('vendor_profiles')
-      .select('vendor_profile_id, tier_state')
-      .in('vendor_profile_id', profileIds);
-    const eligible = (profiles ?? [])
-      .filter((p) => {
-        const tier = (p.tier_state as string | null) ?? null;
-        return tier !== null && tier !== 'free';
-      })
-      .map((p) => p.vendor_profile_id as string);
+    // Rule 2 (2026-07-16): credit is free for every tier, so every credited
+    // vendor gets the "you've been featured" email — no tier filter anymore.
+    const eligible = profileIds;
     if (eligible.length === 0) return;
 
     const storyUrl = `${APP_URL}/${slug}`;

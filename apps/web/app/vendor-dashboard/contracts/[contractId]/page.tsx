@@ -42,7 +42,7 @@ export default async function VendorContractDetailPage({ params }: Props) {
   const isCancelled = contract.status === 'cancelled';
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6">
       <Link
         href="/vendor-dashboard/contracts"
         className="inline-flex items-center gap-1.5 text-xs font-medium text-ink/65 hover:text-ink"
@@ -69,14 +69,14 @@ export default async function VendorContractDetailPage({ params }: Props) {
             : null}
         </p>
         {contract.description ? (
-          <p className="rounded-md border border-ink/10 bg-cream p-3 text-sm text-ink/75">
+          <p className="rounded-md border border-ink/10 bg-white/70 p-3 text-sm text-ink/75">
             {contract.description}
           </p>
         ) : null}
       </header>
 
       {/* PDF download */}
-      <section className="rounded-2xl border border-ink/10 bg-cream p-5">
+      <section className="sn-tile p-5">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
           Contract file
         </p>
@@ -98,7 +98,7 @@ export default async function VendorContractDetailPage({ params }: Props) {
       </section>
 
       {/* Hosting-only disclosure */}
-      <p className="rounded-md border border-ink/10 bg-cream/60 px-3 py-2 text-xs text-ink/65">
+      <p className="rounded-md border border-ink/10 bg-white/60 px-3 py-2 text-xs text-ink/65">
         Setnayan hosts this PDF for the couple to reference — we do not facilitate
         signing. Handle signatures externally (email, in-person, your own e-sig
         tool) and keep the signed copy with your records.
@@ -106,7 +106,7 @@ export default async function VendorContractDetailPage({ params }: Props) {
 
       {/* Publish-to-couple action (only while draft) */}
       {isDraft ? (
-        <section className="rounded-2xl border border-ink/10 bg-cream p-5">
+        <section className="sn-tile p-5">
           <h2 className="text-base font-semibold text-ink">Share with the couple</h2>
           <p className="mt-1 text-sm text-ink/65">
             Right now only you can see this. Make it visible so the couple can
@@ -133,7 +133,7 @@ export default async function VendorContractDetailPage({ params }: Props) {
 
       {/* Cancel — available except when already cancelled */}
       {!isCancelled ? (
-        <details className="rounded-2xl border border-ink/10 bg-cream p-5">
+        <details className="sn-tile p-5">
           <summary className="cursor-pointer text-sm font-medium text-danger-700">
             Cancel this contract
           </summary>

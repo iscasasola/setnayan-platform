@@ -1,11 +1,17 @@
 import Link from 'next/link';
-import { Circle, CheckCircle2, ArrowRight, CalendarPlus } from 'lucide-react';
+import { Circle, CheckCircle2, ArrowRight, CalendarPlus, Wallet, Sparkles } from 'lucide-react';
 import {
   CHECKLIST_CATEGORY_LABELS,
   checklistItemHref,
   type ChecklistItemView,
   type ChecklistPhaseGroup,
+  type ChecklistChrome,
 } from '@/lib/checklist';
+import type { ChecklistBudgetHealth } from '@/lib/checklist-budget';
+import { formatPeso, budgetHealthCopy, type BudgetTone } from '@/lib/checklist-budget-format';
+import type { LeafSuggestion } from '@/lib/leaf-suggestions';
+import type { VendorCategoryProgress } from '@/lib/vendor-category-progress';
+import type { CategoryDecisionState } from '@/lib/checklist-state';
 import { toggleChecklistItem } from '../../checklist-actions';
 
 /**
@@ -23,9 +29,155 @@ type Props = {
   groups: ReadonlyArray<ChecklistPhaseGroup>;
   totalCount: number;
   doneCount: number;
-  /** Couple's wedding date — null shows the "add a date" hint instead of due dates. */
+  /** Couple's event date — null shows the "add a date" hint instead of due dates. */
   eventDate: string | null;
+  /** Event-type-aware display copy (title/heading/intro/phase wording). */
+  chrome: ChecklistChrome;
+  /** Live budget health-check — null when no budget is set (card hidden). */
+  budgetHealth?: ChecklistBudgetHealth | null;
+  /** Relevance-gated "you might also want" service suggestions (may be empty). */
+  leafSuggestions?: ReadonlyArray<LeafSuggestion>;
+  /** Per-category vendor progress states (may be empty → card hidden). */
+  vendorProgress?: ReadonlyArray<VendorCategoryProgress>;
 };
+
+/** Pill styling per lifecycle state — attention states warm, settled ones calm. */
+const CATEGORY_STATE_STYLES: Record<CategoryDecisionState, string> = {
+  not_started: 'bg-ink/5 text-ink/55',
+  needs_more_options: 'bg-warn-50 text-warn-700',
+  searching: 'bg-warn-50 text-warn-700',
+  one_option: 'bg-terracotta/10 text-terracotta',
+  in_progress: 'bg-terracotta/10 text-terracotta',
+  deferred: 'bg-ink/5 text-ink/55',
+  done: 'bg-success-50 text-success-700',
+  excluded: 'bg-ink/5 text-ink/45',
+};
+
+/**
+ * Vendor progress — the couple's shortlisted/booked vendors resolved to a live
+ * state per category, so the plan reads as decisions in motion, not a flat list.
+ * Rendered only when the couple has engaged at least one vendor.
+ */
+function VendorProgress({
+  eventId,
+  progress,
+}: {
+  eventId: string;
+  progress: ReadonlyArray<VendorCategoryProgress>;
+}) {
+  return (
+    <section className="sn-tile !px-4 !py-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="sn-eye">Vendor progress</p>
+        <Link
+          href={`/dashboard/${eventId}/vendors?tab=shortlist`}
+          className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta transition hover:underline"
+        >
+          Manage
+        </Link>
+      </div>
+      <ul className="mt-2 flex flex-wrap gap-1.5">
+        {progress.map((p) => (
+          <li
+            key={p.category}
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/60 bg-white/55 px-2.5 py-1"
+          >
+            <span className="text-xs font-medium text-ink">{p.label}</span>
+            <span
+              className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${CATEGORY_STATE_STYLES[p.state]}`}
+            >
+              {p.stateLabel}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/**
+ * "You might also want…" — up to 3 service categories the couple hasn't planned
+ * yet that have available vendors, chosen for relevance + variety. Every leaf
+ * category gets a fair, relevance-gated chance to reach the couple. Rendered
+ * only when there's at least one fitting suggestion.
+ */
+function LeafSuggestions({
+  eventId,
+  suggestions,
+}: {
+  eventId: string;
+  suggestions: ReadonlyArray<LeafSuggestion>;
+}) {
+  return (
+    <section className="rounded-xl border border-terracotta/20 bg-terracotta/[0.04] px-4 py-3">
+      <div className="flex items-center gap-1.5">
+        <Sparkles aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} />
+        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">
+          You might also want
+        </p>
+      </div>
+      <ul className="mt-2 space-y-1.5">
+        {suggestions.map((s) => (
+          <li key={s.canonicalService}>
+            <Link
+              href={`/dashboard/${eventId}/vendors?tab=shortlist&open=${encodeURIComponent(s.tileId)}`}
+              className="sn-row flex items-center gap-3 px-3 py-2 transition hover:border-terracotta/40"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-ink">{s.label}</p>
+                <p className="truncate text-xs text-ink/50">
+                  {s.tileLabel} · {s.vendorCount} {s.vendorCount === 1 ? 'vendor' : 'vendors'} available
+                </p>
+              </div>
+              <ArrowRight aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** Tailwind tokens per budget tone (kept static so they survive JIT purging). */
+const BUDGET_TONE_STYLES: Record<BudgetTone, { border: string; bg: string; dot: string; head: string }> = {
+  good: { border: 'border-success-500/25', bg: 'bg-success-50', dot: 'bg-success-500', head: 'text-success-700' },
+  tight: { border: 'border-warn-500/30', bg: 'bg-warn-50', dot: 'bg-warn-500', head: 'text-warn-700' },
+  over: { border: 'border-danger-500/30', bg: 'bg-danger-50', dot: 'bg-danger-500', head: 'text-danger-700' },
+};
+
+/**
+ * Live budget health-check card — the checklist's "is this plan affordable?"
+ * signal. Shows the best/worst-case buffer range and one honest health line.
+ * Rendered only when a budget is set (health != null).
+ */
+function BudgetHealthCard({ eventId, health }: { eventId: string; health: ChecklistBudgetHealth }) {
+  const copy = budgetHealthCopy(health);
+  const s = BUDGET_TONE_STYLES[copy.tone];
+  const lo = formatPeso(health.worstCaseBufferCentavos);
+  const hi = formatPeso(health.bestCaseBufferCentavos);
+  return (
+    <Link
+      href={`/dashboard/${eventId}/budget`}
+      className={`block rounded-xl border ${s.border} ${s.bg} px-4 py-3 transition hover:brightness-[0.98]`}
+    >
+      <div className="flex items-start gap-3">
+        <span aria-hidden className={`mt-1 inline-flex h-2 w-2 shrink-0 rounded-full ${s.dot}`} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <Wallet aria-hidden className="h-3.5 w-3.5 text-ink/45" strokeWidth={1.75} />
+            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">Budget health</p>
+          </div>
+          <p className={`mt-0.5 text-sm font-semibold ${s.head}`}>{copy.headline}</p>
+          <p className="mt-0.5 text-xs text-ink/65">{copy.detail}</p>
+          <p className="mt-1.5 text-[11px] text-ink/50">
+            Budget {formatPeso(health.totalBudgetCentavos)} · buffer {lo} to {hi}
+          </p>
+        </div>
+        <ArrowRight aria-hidden className="mt-1 h-4 w-4 shrink-0 text-ink/35" strokeWidth={1.75} />
+      </div>
+    </Link>
+  );
+}
 
 /** Format a computed due date + soft urgency tint for the meta line. */
 function dueLabel(item: ChecklistItemView): { label: string; tint: string } {
@@ -50,13 +202,13 @@ function PhaseRows({ eventId, items }: { eventId: string; items: ReadonlyArray<C
       {items.map((item) => {
         const done = item.status === 'done';
         const tag = dueLabel(item);
-        const href = checklistItemHref(eventId, item.template_key);
+        const href = checklistItemHref(eventId, item.template_key, item.category);
         const desired = done ? 'pending' : 'done';
         return (
           <li
             key={item.item_id}
-            className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 sm:px-4 sm:py-3 ${
-              done ? 'border-ink/5 bg-cream' : 'border-ink/10 bg-white'
+            className={`sn-row flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 ${
+              done ? 'opacity-70' : ''
             }`}
           >
             {/* One-tap toggle — server action, no client JS. */}
@@ -86,7 +238,7 @@ function PhaseRows({ eventId, items }: { eventId: string; items: ReadonlyArray<C
               <p className="truncate text-xs">
                 <span className="text-ink/45">{CHECKLIST_CATEGORY_LABELS[item.category]}</span>
                 <span aria-hidden className="text-ink/25"> · </span>
-                <span className={done ? 'text-ink/40' : tag.tint}>{tag.label}</span>
+                <span className={`font-mono ${done ? 'text-ink/40' : tag.tint}`}>{tag.label}</span>
               </p>
             </div>
 
@@ -106,20 +258,16 @@ function PhaseRows({ eventId, items }: { eventId: string; items: ReadonlyArray<C
   );
 }
 
-export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDate }: Props) {
+export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDate, chrome, budgetHealth, leafSuggestions, vendorProgress }: Props) {
   const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
   return (
     <div className="space-y-6">
-      <header className="space-y-3">
+      <header className="sn-reveal space-y-3">
         <div className="space-y-1">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Your wedding</p>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Wedding checklist</h1>
-          <p className="text-sm text-ink/65">
-            Your full plan, from 18 months out to the day itself. Every due date is worked out from
-            your wedding date — change the date and the whole countdown shifts with it. Tick things
-            off at your own pace; this is a guide, not a gate.
-          </p>
+          <p className="sn-eye">{chrome.eyebrow}</p>
+          <h1 className="sn-h1">{chrome.heading}</h1>
+          <p className="text-sm text-ink/65">{chrome.intro}</p>
         </div>
 
         {totalCount > 0 ? (
@@ -132,11 +280,8 @@ export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDat
                 {pct}%
               </span>
             </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-ink/10">
-              <div
-                className="h-full rounded-full bg-success-500 transition-all"
-                style={{ width: `${pct}%` }}
-              />
+            <div className="sn-bar h-2 w-full overflow-hidden rounded-full bg-ink/10">
+              <i className="bg-success-500" style={{ width: `${pct}%` }} />
             </div>
           </div>
         ) : null}
@@ -144,16 +289,22 @@ export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDat
         {!eventDate ? (
           <Link
             href={`/dashboard/${eventId}/invitation`}
-            className="inline-flex items-center gap-2 rounded-xl border border-dashed border-ink/20 bg-cream px-4 py-2.5 text-sm text-ink/70 transition hover:border-terracotta/40"
+            className="sn-row inline-flex items-center gap-2 border-dashed px-4 py-2.5 text-sm text-ink/70 transition hover:border-terracotta/40"
           >
             <CalendarPlus aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-            <span>Add your wedding date to see a due date on every task</span>
+            <span>{chrome.dateHint}</span>
           </Link>
+        ) : null}
+
+        {budgetHealth ? <BudgetHealthCard eventId={eventId} health={budgetHealth} /> : null}
+
+        {vendorProgress && vendorProgress.length > 0 ? (
+          <VendorProgress eventId={eventId} progress={vendorProgress} />
         ) : null}
       </header>
 
       {totalCount === 0 ? (
-        <p className="rounded-xl border border-dashed border-ink/15 bg-cream px-4 py-6 text-center text-sm text-ink/60">
+        <p className="sn-row border-dashed px-4 py-6 text-center text-sm text-ink/60">
           Your checklist is being set up — check back in a moment.
         </p>
       ) : (
@@ -165,18 +316,24 @@ export function ChecklistFull({ eventId, groups, totalCount, doneCount, eventDat
                 <div className="space-y-0.5">
                   <div className="flex items-baseline justify-between gap-3 border-b border-ink/10 pb-1">
                     <h2 className="text-sm font-semibold text-ink">
-                      {phase ? phase.label : 'Your own tasks'}
+                      {phase ? (phase.id === 'p9' ? chrome.dayOfLabel : phase.label) : 'Your own tasks'}
                     </h2>
                     <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">
                       {phaseDone}/{items.length}
                     </span>
                   </div>
-                  {phase ? <p className="text-xs text-ink/55">{phase.blurb}</p> : null}
+                  {phase && chrome.showPhaseBlurbs ? (
+                    <p className="text-xs text-ink/55">{phase.blurb}</p>
+                  ) : null}
                 </div>
                 <PhaseRows eventId={eventId} items={items} />
               </section>
             );
           })}
+
+          {leafSuggestions && leafSuggestions.length > 0 ? (
+            <LeafSuggestions eventId={eventId} suggestions={leafSuggestions} />
+          ) : null}
         </div>
       )}
     </div>

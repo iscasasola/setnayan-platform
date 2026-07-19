@@ -38,7 +38,7 @@ type ServiceCatalogRow = {
 };
 
 // Retired 2026-05-28 V2 cutover — the `concierge` category here surfaces
-// retired SKU rows (₱2,499 Concierge supplanted by ₱1,499 TODAYS_FOCUS).
+// retired SKU rows (Concierge retired; Setnayan AI ₱499 one-time).
 // V2 catalog lives in `platform_retail_catalog_v2`; this report still reads
 // the legacy `service_catalog` so historical audit + retired rows stay
 // downloadable.
@@ -46,6 +46,7 @@ const CUSTOMER_CATEGORIES = new Set<string>([
   'couple_addon',
   'panood',
   'papic',
+  'patiktok',
   'concierge',
 ]);
 

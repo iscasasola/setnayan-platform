@@ -20,10 +20,17 @@ import {
   eventOwnsSku,
   eventSkuActive,
   eventHasPapicUnlock,
+  eventActiveSkus,
   BUNDLE_CHILD_SKUS,
   PAPIC_UNLOCK_SKU,
   RELINQUISHED_STATUSES,
   ACTIVE_STATUSES,
+  SKU_OWNERSHIP_ALIASES,
+  buildBundlesGrantingIndex,
+  bundlesGrantingSku,
+  childrenOfBundle,
+  fetchBundleComponents,
+  type BundleComposition,
 } from './entitlements';
 
 type QueryResult = { data: { status: string }[] | null; error: { code?: string; message: string } | null };
@@ -138,9 +145,9 @@ test('canonical query shape is preserved (event_id eq + service_key in + relinqu
 });
 
 test('alias query shape: a non-aliased SKU filters over just its own key', async () => {
-  // SKU_OWNERSHIP_ALIASES is empty post-Patiktok-retirement; ownershipKeysFor
-  // therefore returns [serviceKey] only. (The aliasing machinery is retained for
-  // the next SKU that needs a purchase-key→canonical bridge.)
+  // SOME_SKU has no entry in SKU_OWNERSHIP_ALIASES, so ownershipKeysFor
+  // returns [serviceKey] only. (The map's live entries — the Couple Website PRO
+  // umbrella — are locked by the tests at the bottom of this file.)
   const { supabase, calls } = makeSupabase({ data: [], error: null });
   await checkOrderOwnership(supabase, 'evt_42', 'SOME_SKU');
   const skuIn = calls
@@ -176,6 +183,8 @@ function makeOwnedSupabase(
   owned: Set<string>,
   status = 'paid',
   comp?: { forSku?: Set<string> | 'all'; activeSkus?: string[] },
+  internalHost = false,
+  founderSeatHost = false,
 ) {
   // The ownership query now filters service_key via .in([canonical, ...aliases]).
   // Capture that key list and resolve "owned" when ANY of the queried keys is in
@@ -220,6 +229,12 @@ function makeOwnedSupabase(
       }
       if (fn === 'event_comp_active_skus') {
         return Promise.resolve({ data: comp?.activeSkus ?? [], error: null });
+      }
+      if (fn === 'event_host_is_internal') {
+        return Promise.resolve({ data: internalHost, error: null });
+      }
+      if (fn === 'event_host_holds_founder_seat') {
+        return Promise.resolve({ data: founderSeatHost, error: null });
       }
       return Promise.resolve({ data: null, error: null });
     },
@@ -451,6 +466,35 @@ test('eventSkuActive: nothing owned → not active', async () => {
   assert.equal(await eventSkuActive(supabase, 'evt_1', 'STD_PREMIUM_OPENINGS'), false);
 });
 
+test('eventSkuActive: a §10a internal-hosted event owns any SKU (no order/comp)', async () => {
+  // No orders, no comp grant — but an internal (§10a) account hosts the event,
+  // so every SKU resolves active on the render (migration 20270806100000).
+  const supabase = makeOwnedSupabase(new Set(), 'paid', undefined, true);
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'STD_PREMIUM_OPENINGS'), true);
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'PANOOD_SYSTEM'), true);
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'ANY_FUTURE_SKU'), true);
+});
+
+test('eventSkuActive: a NON-internal-hosted event with nothing owned stays inactive', async () => {
+  // Guard the inverse: the internal-host OR must not leak to external couples.
+  const supabase = makeOwnedSupabase(new Set(), 'paid', undefined, false);
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'STD_PREMIUM_OPENINGS'), false);
+});
+
+test('eventSkuActive: a founder-seat-hosted event owns any SKU (no order/comp)', async () => {
+  // "All features are already paid for" on every owner-granted founder seat
+  // (owner-locked 2026-07-16 · migration 20270818135217) — no orders, no comp,
+  // not internal, yet every SKU resolves active.
+  const supabase = makeOwnedSupabase(new Set(), 'paid', undefined, false, true);
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'STD_PREMIUM_OPENINGS'), true);
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'ANY_FUTURE_SKU'), true);
+});
+
+test('eventSkuActive: the founder-seat OR must not leak to non-founder events', async () => {
+  const supabase = makeOwnedSupabase(new Set(), 'paid', undefined, false, false);
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'STD_PREMIUM_OPENINGS'), false);
+});
+
 // ──────────────────────────────────────────────────────────────────────────
 // PAPIC_UNLOCK — the "Unlock all of Papic" umbrella bundle (PR9 #2269) +
 // eventHasPapicUnlock, the deferred-allowance reader (this PR). A PAID
@@ -498,4 +542,227 @@ test('eventHasPapicUnlock: true only for a paid/fulfilled PAPIC_UNLOCK pass', as
     await eventHasPapicUnlock(makeOwnedSupabase(new Set(), 'paid'), 'evt_1'),
     false,
   );
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// SKU_OWNERSHIP_ALIASES — the Couple Website PRO umbrella (owner 2026-07-04):
+// a COUPLE_WEBSITE_PRO order confers BOTH EDITORIAL_PRO and
+// STD_PREMIUM_OPENINGS. Locks the alias query shape, the per-SKU readers, and
+// the eventActiveSkus multimap fan-out (a single-valued alias→canonical map
+// would let the second grant silently overwrite the first).
+// ──────────────────────────────────────────────────────────────────────────
+
+test('alias query shape: EDITORIAL_PRO filters over itself + COUPLE_WEBSITE_PRO', async () => {
+  const { supabase, calls } = makeSupabase({ data: [], error: null });
+  await checkOrderOwnership(supabase, 'evt_42', 'EDITORIAL_PRO');
+  const skuIn = calls
+    .filter((c) => c.method === 'in')
+    .find((c) => (c.args[0] as string) === 'service_key');
+  assert.deepEqual(skuIn?.args[1], ['EDITORIAL_PRO', 'COUPLE_WEBSITE_PRO']);
+});
+
+test('alias query shape: STD_PREMIUM_OPENINGS filters over itself + COUPLE_WEBSITE_PRO', async () => {
+  const { supabase, calls } = makeSupabase({ data: [], error: null });
+  await checkOrderOwnership(supabase, 'evt_42', 'STD_PREMIUM_OPENINGS');
+  const skuIn = calls
+    .filter((c) => c.method === 'in')
+    .find((c) => (c.args[0] as string) === 'service_key');
+  assert.deepEqual(skuIn?.args[1], ['STD_PREMIUM_OPENINGS', 'COUPLE_WEBSITE_PRO']);
+});
+
+test('umbrella: a COUPLE_WEBSITE_PRO order confers EDITORIAL_PRO ownership', async () => {
+  const supabase = makeOwnedSupabase(new Set(['COUPLE_WEBSITE_PRO']));
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'EDITORIAL_PRO'), true);
+});
+
+test('umbrella: a COUPLE_WEBSITE_PRO order confers STD_PREMIUM_OPENINGS ownership', async () => {
+  const supabase = makeOwnedSupabase(new Set(['COUPLE_WEBSITE_PRO']));
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'STD_PREMIUM_OPENINGS'), true);
+});
+
+test('umbrella: an ACTIVE (paid) COUPLE_WEBSITE_PRO order activates both aliased SKUs', async () => {
+  const supabase = makeOwnedSupabase(new Set(['COUPLE_WEBSITE_PRO']), 'paid');
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'EDITORIAL_PRO'), true);
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'STD_PREMIUM_OPENINGS'), true);
+});
+
+test('umbrella: a SUBMITTED COUPLE_WEBSITE_PRO order does NOT activate the aliased SKUs (handshake)', async () => {
+  const supabase = makeOwnedSupabase(new Set(['COUPLE_WEBSITE_PRO']), 'submitted');
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'EDITORIAL_PRO'), false);
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'STD_PREMIUM_OPENINGS'), false);
+});
+
+test('umbrella: the standalone SKUs still confer only themselves (no reverse grant)', async () => {
+  // Owning EDITORIAL_PRO à la carte must NOT read as owning the umbrella (or STD).
+  const supabase = makeOwnedSupabase(new Set(['EDITORIAL_PRO']));
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'EDITORIAL_PRO'), true);
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'COUPLE_WEBSITE_PRO'), false);
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'STD_PREMIUM_OPENINGS'), false);
+});
+
+/** Minimal stub for the eventActiveSkus batch read (one orders query + comp RPC). */
+function makeBatchSupabase(rows: { service_key: string; status: string }[]) {
+  const builder: Record<string, unknown> = {
+    from() {
+      return builder;
+    },
+    select() {
+      return builder;
+    },
+    eq() {
+      return builder;
+    },
+    in() {
+      return builder;
+    },
+    then(resolve: (value: unknown) => unknown) {
+      return Promise.resolve({ data: rows, error: null }).then(resolve);
+    },
+    rpc() {
+      return Promise.resolve({ data: [], error: null });
+    },
+  };
+  return builder as unknown as SupabaseClient;
+}
+
+test('eventActiveSkus: a paid COUPLE_WEBSITE_PRO order fans out to BOTH aliased canonicals (multimap)', async () => {
+  const supabase = makeBatchSupabase([{ service_key: 'COUPLE_WEBSITE_PRO', status: 'paid' }]);
+  const { active, pending } = await eventActiveSkus(supabase, 'evt_1');
+  assert.equal(active.has('COUPLE_WEBSITE_PRO'), true, 'raw purchase key kept');
+  assert.equal(active.has('EDITORIAL_PRO'), true, 'first aliased canonical granted');
+  assert.equal(active.has('STD_PREMIUM_OPENINGS'), true, 'second aliased canonical granted (the overwrite regression)');
+  assert.equal(pending.size, 0);
+});
+
+test('eventActiveSkus: a pending COUPLE_WEBSITE_PRO order marks both aliased canonicals pending', async () => {
+  const supabase = makeBatchSupabase([{ service_key: 'COUPLE_WEBSITE_PRO', status: 'submitted' }]);
+  const { active, pending } = await eventActiveSkus(supabase, 'evt_1');
+  assert.equal(active.size, 0);
+  assert.equal(pending.has('EDITORIAL_PRO'), true);
+  assert.equal(pending.has('STD_PREMIUM_OPENINGS'), true);
+});
+
+test('SKU_OWNERSHIP_ALIASES: the umbrella entries are exactly the owner-locked pair', () => {
+  assert.deepEqual(Object.keys(SKU_OWNERSHIP_ALIASES).sort(), ['EDITORIAL_PRO', 'STD_PREMIUM_OPENINGS']);
+  assert.deepEqual(SKU_OWNERSHIP_ALIASES.EDITORIAL_PRO, ['COUPLE_WEBSITE_PRO']);
+  assert.deepEqual(SKU_OWNERSHIP_ALIASES.STD_PREMIUM_OPENINGS, ['COUPLE_WEBSITE_PRO']);
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// Bundle composition single-source (Entity Map & Hardcode Audit 2026-07-04 ·
+// Violation #2). Bundle→child composition now lives in ONE place — the
+// public.bundle_components table + the pure resolvers below that read it — with
+// BUNDLE_CHILD_SKUS as the graceful-degrade fallback. These lock the PURE
+// composition-resolution logic (no I/O) and the DB-first reader's fallback.
+// ──────────────────────────────────────────────────────────────────────────
+
+// A tiny, self-contained composition to prove the resolvers are pure functions
+// of their input (not hardwired to the live const).
+const SAMPLE: BundleComposition = Object.freeze({
+  BUNDLE_A: Object.freeze(['X', 'Y', 'SHARED']),
+  BUNDLE_B: Object.freeze(['SHARED', 'Z']),
+});
+
+test('buildBundlesGrantingIndex: inverts composition, sorted + deterministic', () => {
+  const idx = buildBundlesGrantingIndex(SAMPLE);
+  assert.deepEqual(idx.get('X'), ['BUNDLE_A']);
+  assert.deepEqual(idx.get('Z'), ['BUNDLE_B']);
+  // A child in two bundles lists both, sorted (order-independent of iteration).
+  assert.deepEqual(idx.get('SHARED'), ['BUNDLE_A', 'BUNDLE_B']);
+  // A child in no bundle is absent from the index.
+  assert.equal(idx.get('NOPE'), undefined);
+});
+
+test('bundlesGrantingSku: returns the granting bundles, [] for a non-member', () => {
+  assert.deepEqual(bundlesGrantingSku(SAMPLE, 'X'), ['BUNDLE_A']);
+  assert.deepEqual(bundlesGrantingSku(SAMPLE, 'SHARED'), ['BUNDLE_A', 'BUNDLE_B']);
+  // Empty array (never undefined) so callers can safely iterate.
+  assert.deepEqual(bundlesGrantingSku(SAMPLE, 'NOT_IN_ANY_BUNDLE'), []);
+});
+
+test('childrenOfBundle: returns a bundle’s children, [] for an unknown bundle', () => {
+  assert.deepEqual(childrenOfBundle(SAMPLE, 'BUNDLE_A'), ['X', 'Y', 'SHARED']);
+  assert.deepEqual(childrenOfBundle(SAMPLE, 'NO_SUCH_BUNDLE'), []);
+});
+
+test('resolvers on the live const: PAPIC_UNLOCK grants PAPIC_GUEST (the closed drift)', () => {
+  // The exact divergence the single-source table resolves: the app const (and
+  // now the seeded table) put PAPIC_GUEST under PAPIC_UNLOCK; the old DB fn did
+  // not. Lock it so a future edit can’t silently drop it again.
+  assert.ok(
+    bundlesGrantingSku(BUNDLE_CHILD_SKUS, 'PAPIC_GUEST').includes('PAPIC_UNLOCK'),
+    'PAPIC_UNLOCK must grant PAPIC_GUEST',
+  );
+  assert.ok(childrenOfBundle(BUNDLE_CHILD_SKUS, 'PAPIC_UNLOCK').includes('PAPIC_GUEST'));
+  // MEDIA_PACK still grants a crew-delivered media child.
+  assert.deepEqual(bundlesGrantingSku(BUNDLE_CHILD_SKUS, 'PANOOD_SYSTEM'), ['MEDIA_PACK']);
+});
+
+/** Stub whose bundle_components query returns a caller-supplied row set. */
+function makeComponentsSupabase(
+  result:
+    | { data: { bundle_sku_code: string; component_service_code: string }[]; error: null }
+    | { data: null; error: { code?: string; message: string } },
+) {
+  const builder: Record<string, unknown> = {
+    from() {
+      return builder;
+    },
+    select() {
+      return builder;
+    },
+    then(resolve: (value: unknown) => unknown) {
+      return Promise.resolve(result).then(resolve);
+    },
+  };
+  return builder as unknown as SupabaseClient;
+}
+
+test('fetchBundleComponents: reads the table when rows exist (table is authoritative)', async () => {
+  const composition = await fetchBundleComponents(
+    makeComponentsSupabase({
+      data: [
+        { bundle_sku_code: 'BUNDLE_A', component_service_code: 'X' },
+        { bundle_sku_code: 'BUNDLE_A', component_service_code: 'Y' },
+        { bundle_sku_code: 'BUNDLE_B', component_service_code: 'Z' },
+      ],
+      error: null,
+    }),
+  );
+  assert.deepEqual([...(composition.BUNDLE_A ?? [])].sort(), ['X', 'Y']);
+  assert.deepEqual(composition.BUNDLE_B, ['Z']);
+  // A live table that DIFFERS from the const wins — the const is not merged in.
+  assert.equal(composition.GUIDED_PACK, undefined);
+});
+
+test('fetchBundleComponents: 42P01 (table absent, pre-migration) → const fallback', async () => {
+  const composition = await fetchBundleComponents(
+    makeComponentsSupabase({ data: null, error: { code: '42P01', message: 'undefined_table' } }),
+  );
+  // Deploy-order safety: the code ships before the migration, and must still gate
+  // on the const composition until the table exists.
+  assert.equal(composition, BUNDLE_CHILD_SKUS);
+});
+
+test('fetchBundleComponents: empty table → const fallback (never strips entitlements)', async () => {
+  const composition = await fetchBundleComponents(
+    makeComponentsSupabase({ data: [], error: null }),
+  );
+  assert.equal(composition, BUNDLE_CHILD_SKUS);
+});
+
+test('fetchBundleComponents: any read error → const fallback (never throws at a gate)', async () => {
+  const composition = await fetchBundleComponents(
+    makeComponentsSupabase({ data: null, error: { code: '08006', message: 'connection_failure' } }),
+  );
+  assert.equal(composition, BUNDLE_CHILD_SKUS);
+});
+
+test('fetchBundleComponents fallback keeps eventOwnsSku bundle-aware pre-migration', async () => {
+  // The end-to-end deploy-order guarantee: with the table absent (42P01), a
+  // MEDIA_PACK buyer still owns a bundled child, because eventOwnsSku resolves
+  // composition via fetchBundleComponents → const fallback. (makeOwnedSupabase’s
+  // bundle_components query returns [] → fallback, same effect.)
+  const supabase = makeOwnedSupabase(new Set(['MEDIA_PACK']));
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'PANOOD_SYSTEM'), true);
 });

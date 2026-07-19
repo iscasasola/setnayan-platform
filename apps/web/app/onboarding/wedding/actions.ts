@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
+import { allowAnonMint } from '@/lib/anon-mint-throttle';
 import { experienceQuizEnabled } from '@/lib/experience-quiz';
 import {
   syncEventSongPicks,
@@ -24,6 +25,8 @@ import { regionForCity } from '@/lib/regions';
 import { resolveRegion } from '@/lib/region-source';
 import { PERMISSION_TEMPLATES, type RoleSubtype } from '@/lib/event-moderators';
 import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
+import { captchaOptions } from '@/lib/turnstile';
+import { hasInPlanningWeddingForUser } from '@/app/dashboard/(account)/create-event/wedding-guard';
 
 /**
  * commitOnboardingWedding — the single lazy DB commit for the /onboarding/wedding
@@ -178,7 +181,7 @@ function onboardingRegionToPsgc(region: string | null | undefined): string | nul
   return resolved.psgc_code;
 }
 
-// Picker key (53 fine taxonomy services, screen-9) → PLAN_GROUP id (26 planning
+// Picker key (53 fine taxonomy services, screen-9) → PLAN_GROUP id (planning
 // groups). The auto-inquire loop resolves each pick to its group, then fires
 // ONE best-fit inquiry per UNIQUE group (the dashboard unlock-category model).
 // Picks with no clean planning group are intentionally omitted so a pick never
@@ -301,6 +304,13 @@ export type OnboardingCommitPayload = {
   experiencePersona: string | null;
   experienceForWhom: 'couple' | 'guests' | 'both' | null;
   experienceAxes: Record<string, string>;
+  /**
+   * Cloudflare Turnstile token minted client-side when global Supabase captcha
+   * is enabled — anon-draft commit mints a Supabase anonymous session, which
+   * captcha gates. Optional/undefined until the funnel supplies it; empty → {}
+   * → no-op (see lib/turnstile.ts).
+   */
+  captchaToken?: string;
 };
 
 export type OnboardingCommitResult =
@@ -327,7 +337,17 @@ export async function commitOnboardingWedding(
     // trigger migration — both owner go-live steps; until then the flag stays
     // OFF and we fall through to the unchanged not_authenticated contract.
     if (anonOnboardingEnabled()) {
-      const { data: anon, error: anonError } = await supabase.auth.signInAnonymously();
+      // Per-IP flood guard: anonymous sign-in mints a real account + event from
+      // nothing, so cap it per IP before minting. Fail-open on a missing IP or
+      // infra error (see allowAnonMint) so a real couple is never locked out.
+      if (!(await allowAnonMint(createAdminClient()))) {
+        return { ok: false, error: 'rate_limited' };
+      }
+      const { data: anon, error: anonError } = await supabase.auth.signInAnonymously({
+        // Global Supabase captcha also gates anonymous sign-in. Token comes from
+        // the funnel client (mintTurnstileToken); empty → {} → no-op.
+        options: captchaOptions(payload.captchaToken),
+      });
       if (anonError || !anon.user) {
         console.error('[commitOnboardingWedding] anon sign-in failed:', anonError?.message);
         return { ok: false, error: 'not_authenticated' };
@@ -336,6 +356,15 @@ export async function commitOnboardingWedding(
     } else {
       return { ok: false, error: 'not_authenticated' };
     }
+  }
+
+  // Wedding cardinality — one wedding IN PLANNING at a time (owner-locked
+  // 2026-07-12). The shipped guard lived only in create-event's server action;
+  // this commit path could walk past it (council 2026-07-17 recon: an existing
+  // bypass). A freshly-minted anonymous user has no prior events by
+  // construction, so the read is skipped for them.
+  if (!user.is_anonymous && (await hasInPlanningWeddingForUser(supabase, user.id))) {
+    return { ok: false, error: 'wedding_exists' };
   }
 
   // -- Map onboarding kind/faith → events.ceremony_type / secondary --
@@ -744,6 +773,9 @@ export async function commitOnboardingWedding(
             eventId: insertedEvent.event_id,
             groupId,
             count: perCategory,
+            // PR-C source taxonomy: the onboarding "reach my best matches"
+            // fan-out is the Auto Build Recommendation surface.
+            inquirySource: 'auto_build',
           }),
         ),
       );
@@ -1019,6 +1051,10 @@ export async function getOnboardingVendorCounts(input: {
         'hq_region,location_city,compatible_ceremony_types,compatible_venue_settings,event_types,capacity_max,venue_type',
       )
       .in('public_visibility', ['verified', 'coming_soon'])
+      // PR-B — count only VERIFIED vendors so the congrats stat tile matches
+      // what the couple can actually find on Explore (unverified vendors are
+      // private). Keeps the "real numbers only" guarantee honest.
+      .eq('verification_state', 'verified')
       .not('business_name', 'is', null)
       .neq('business_name', '')
       .limit(5000); // ceiling well above the V1 pool · keeps `total` exact

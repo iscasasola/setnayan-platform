@@ -35,12 +35,16 @@
 
 import type { NextRequest } from 'next/server';
 import type { NextResponse } from 'next/server';
+import {
+  DEMO_MODE_COOKIE_NAME,
+  DEMO_MODE_HINT_COOKIE_NAME,
+} from './demo-mode-constants';
 
-/**
- * Canonical cookie name. 24h max-age, httpOnly, secure in production,
- * sameSite=lax. Reads same way the supabase auth cookies do.
- */
-export const DEMO_MODE_COOKIE_NAME = 'setnayan_demo_mode';
+// Cookie names live in the client-safe ./demo-mode-constants module (so the
+// client <DemoModeBanner> can import DEMO_MODE_HINT_COOKIE_NAME without dragging
+// this server-only module's next/headers chain into the client bundle). Re-export
+// here so existing server-side importers of these names are unchanged.
+export { DEMO_MODE_COOKIE_NAME, DEMO_MODE_HINT_COOKIE_NAME };
 
 /**
  * Canonical query-param name. When present with value '1' (or 'on'),
@@ -238,11 +242,30 @@ export function setDemoModeCookie(response: NextResponse, on: boolean): void {
       path: '/',
       maxAge: DEMO_MODE_COOKIE_MAX_AGE_S,
     });
+    // Non-httpOnly presence hint so the client banner knows to ask the server.
+    response.cookies.set({
+      name: DEMO_MODE_HINT_COOKIE_NAME,
+      value: '1',
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: DEMO_MODE_COOKIE_MAX_AGE_S,
+    });
   } else {
     response.cookies.set({
       name: DEMO_MODE_COOKIE_NAME,
       value: '',
       httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 0,
+    });
+    response.cookies.set({
+      name: DEMO_MODE_HINT_COOKIE_NAME,
+      value: '',
+      httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',

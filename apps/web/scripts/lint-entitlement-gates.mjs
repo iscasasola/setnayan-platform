@@ -24,17 +24,21 @@
  *   reader fails CI unless its author justifies it.
  *
  * ── GUARD 2 · bundle-membership single source of truth ──────────────────────
- *   "Which child SKUs each bundle grants" is mirrored in THREE places that MUST
- *   agree exactly (each file's own header says "keep in sync" — this enforces
- *   it):
+ *   "Which child SKUs each bundle grants" now has ONE authoritative source — the
+ *   public.bundle_components TABLE (migration ..._bundle_components_single_source
+ *   _table.sql, seeded from the audited composition; read DB-first by the app and
+ *   by public.bundles_granting_sku()). The two app consts are graceful-degrade
+ *   FALLBACKS that must still match that seed so pre-migration deploys gate
+ *   correctly (Entity Map & Hardcode Audit 2026-07-04 · Violation #2):
  *     • BUNDLE_MEMBERS         — app/onboarding/wedding/_components/onboarding-pricing.ts
- *                                (canonical: the "what's included" buy surface)
- *     • BUNDLE_CHILD_SKUS      — lib/entitlements.ts  (the read-side gate map)
- *     • bundles_granting_sku() — the LATEST supabase/migration that defines it
- *                                via CREATE OR REPLACE (the DB provisioning RPC)
- *   Drift = silent breakage: a child in the buy list but missing from the gate
- *   map → bundle buyer denied; the inverse → over-grant. essentials↔GUIDED_PACK,
- *   complete↔MEDIA_PACK.
+ *                                (the "what's included" buy surface)
+ *     • BUNDLE_CHILD_SKUS      — lib/entitlements.ts  (the read-side gate fallback)
+ *     • bundle_components seed — the migration INSERT into public.bundle_components
+ *                                (the single source both layers ultimately read)
+ *   Drift = silent breakage: a child in the buy list but missing from the seed
+ *   → bundle buyer denied pre-migration; the inverse → over-grant. essentials↔
+ *   GUIDED_PACK, complete↔MEDIA_PACK. (PAPIC_UNLOCK is validated by the
+ *   entitlements unit test, not here — it has no onboarding buy surface.)
  *
  * Pure node, no deps — matches lint-retired-strings / lint-bottom-nav /
  * lint-email-links. Run: `node apps/web/scripts/lint-entitlement-gates.mjs`.
@@ -195,35 +199,42 @@ let sqlMedia = null;
   }
 }
 
-// --- source 3: bundles_granting_sku() VALUES in the migration ---
-// Migrations are immutable history: the function is (re)defined via
-// CREATE OR REPLACE across one or more migrations, and the LATEST definition
-// wins at runtime. Parse the lexicographically-last migration that defines
-// bundles_granting_sku() so a forward "create or replace" migration (e.g. the
-// SDE removal) becomes the authority — never an edit to an older file.
+// --- source 3: the public.bundle_components SEED — the single source of truth ---
+// The bundle→child composition is seeded once into public.bundle_components (the
+// DB fn bundles_granting_sku() then SELECTs from it; the app reads it DB-first
+// with the consts as fallback). Parse the migration that INSERTs the seed and
+// pull its (bundle, child) tuples. There's exactly one such migration; if a
+// later migration re-seeds/edits composition it will also carry an INSERT INTO
+// public.bundle_components, so parse the LATEST file that does.
 {
   const migDir = join(REPO_ROOT, 'supabase', 'migrations');
-  const definerNeedle = 'CREATE OR REPLACE FUNCTION public.bundles_granting_sku';
-  const definerFile = existsSync(migDir)
+  const seedNeedle = 'INSERT INTO public.bundle_components';
+  const seedFile = existsSync(migDir)
     ? readdirSync(migDir)
         .filter((n) => n.endsWith('.sql'))
         .sort()
         .reverse()
-        .find((n) => readFileSync(join(migDir, n), 'utf8').includes(definerNeedle))
+        .find((n) => readFileSync(join(migDir, n), 'utf8').includes(seedNeedle))
     : null;
-  if (!definerFile) {
-    guard2Errors.push('Could not find a migration defining bundles_granting_sku() (CREATE OR REPLACE FUNCTION public.bundles_granting_sku) — update this linter.');
+  if (!seedFile) {
+    guard2Errors.push('Could not find a migration seeding public.bundle_components (INSERT INTO public.bundle_components) — update this linter.');
   } else {
-    const src = readFileSync(join(migDir, definerFile), 'utf8');
+    const src = readFileSync(join(migDir, seedFile), 'utf8');
+    // Slice to just the INSERT ... VALUES ... block so we never accidentally
+    // match a tuple from an unrelated statement (e.g. a re-declared fn).
+    const insertStart = src.indexOf(seedNeedle);
+    const valuesFrom = src.indexOf('VALUES', insertStart);
+    const insertEnd = src.indexOf(';', valuesFrom === -1 ? insertStart : valuesFrom);
+    const block = src.slice(insertStart, insertEnd === -1 ? src.length : insertEnd);
     sqlGuided = new Set();
     sqlMedia = new Set();
     const re = /\(\s*'(GUIDED_PACK|MEDIA_PACK)'\s*,\s*'([A-Z0-9_]+)'\s*\)/g;
     let mm;
-    while ((mm = re.exec(src)) !== null) {
+    while ((mm = re.exec(block)) !== null) {
       (mm[1] === 'GUIDED_PACK' ? sqlGuided : sqlMedia).add(mm[2]);
     }
     if (sqlGuided.size === 0 || sqlMedia.size === 0) {
-      guard2Errors.push('Parsed 0 pairs from bundles_granting_sku() VALUES — did the SQL shape change? Update this linter.');
+      guard2Errors.push('Parsed 0 GUIDED_PACK/MEDIA_PACK pairs from the public.bundle_components seed — did the seed shape change? Update this linter.');
       sqlGuided = sqlMedia = null;
     }
   }
@@ -242,9 +253,9 @@ function compare(label, a, aName, b, bName) {
 }
 
 compare('Essentials', guided, 'BUNDLE_CHILD_SKUS.GUIDED_PACK', essentials, 'BUNDLE_MEMBERS.essentials');
-compare('Essentials', guided, 'BUNDLE_CHILD_SKUS.GUIDED_PACK', sqlGuided, 'bundles_granting_sku(GUIDED_PACK)');
+compare('Essentials', guided, 'BUNDLE_CHILD_SKUS.GUIDED_PACK', sqlGuided, 'bundle_components seed (GUIDED_PACK)');
 compare('Complete', media, 'BUNDLE_CHILD_SKUS.MEDIA_PACK', complete, 'BUNDLE_MEMBERS.complete');
-compare('Complete', media, 'BUNDLE_CHILD_SKUS.MEDIA_PACK', sqlMedia, 'bundles_granting_sku(MEDIA_PACK)');
+compare('Complete', media, 'BUNDLE_CHILD_SKUS.MEDIA_PACK', sqlMedia, 'bundle_components seed (MEDIA_PACK)');
 
 // A bundle code must never appear as a CHILD of any bundle (the activation
 // fan-out in sku-activation.ts relies on this to avoid infinite recursion).
@@ -280,8 +291,10 @@ if (guard2Errors.length) {
   console.error(`${RED}✗ GUARD 2 — bundle-membership mirrors out of sync:${RST}`);
   for (const e of guard2Errors) console.error(`    ${e}`);
   console.error(
-    `\n  Keep all three in sync: BUNDLE_MEMBERS (onboarding-pricing.ts) ↔` +
-      `\n  BUNDLE_CHILD_SKUS (entitlements.ts) ↔ bundles_granting_sku() (migration).\n`,
+    `\n  Keep the fallback consts in sync with the single source: BUNDLE_MEMBERS` +
+      `\n  (onboarding-pricing.ts) ↔ BUNDLE_CHILD_SKUS (entitlements.ts) ↔ the` +
+      `\n  public.bundle_components seed (migration). The table is authoritative at` +
+      `\n  runtime; the consts are the pre-migration graceful-degrade fallback.\n`,
   );
 }
 

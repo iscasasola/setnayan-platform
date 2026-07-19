@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { CloudDownload, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
 import { getQueryClient } from '@/lib/query-client';
 import { eventBundleQueryKeys, type EventBundle } from '@/lib/event-bundle-keys';
+import { useSaveLoader } from '@/components/sd-loader';
 import {
   prepareForEventDay,
   type PrepareForEventDayResult,
@@ -89,6 +90,7 @@ export function EventDayPrepCta({ eventId, eventDate, now = new Date() }: Props)
   const [phase, setPhase] = useState<Phase>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const save = useSaveLoader();
 
   if (!isInPrepWindow(eventDate, now)) return null;
 
@@ -96,7 +98,10 @@ export function EventDayPrepCta({ eventId, eventDate, now = new Date() }: Props)
     setPhase('loading');
     setErrorMsg(null);
     startTransition(async () => {
-      const result: PrepareForEventDayResult = await prepareForEventDay(eventId);
+      const result: PrepareForEventDayResult = await save.run(
+        () => prepareForEventDay(eventId),
+        { steps: ['Getting you ready'], hint: 'Please wait' },
+      );
       if (!result.ok) {
         setPhase('error');
         setErrorMsg(result.error);

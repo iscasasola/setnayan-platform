@@ -49,9 +49,18 @@ export type ReviewRow = {
    * booking links to the reviewed vendor's marketplace profile (via
    * `linked_vendor_profile_id` or `marketplace_vendor_id`). PLATFORM-DERIVED —
    * stamped server-side + re-derived by a DB trigger; couples can never set it.
-   * Drives the "Booked through Setnayan" pill.
+   * Drives the "Booked through Setnayan" / "Verified wedding" pill.
    */
   booked_through_setnayan: boolean;
+  /**
+   * Receipt-backed provenance SUBSET of `booked_through_setnayan`. TRUE only when
+   * the source `event_vendors` booking also carries `source = 'vendor_invite'` —
+   * the vendor brought this couple onto Setnayan via their invite QR. PLATFORM-
+   * DERIVED — stamped server-side + re-derived by a DB trigger; couples can never
+   * set it. Drives the "Verified booking" (import) pill instead of the
+   * "Verified wedding" (on-platform) one.
+   */
+  via_vendor_import: boolean;
 };
 
 export type ReviewWithCouple = ReviewRow & {
@@ -70,7 +79,7 @@ export type ReviewStatsRow = {
 };
 
 const REVIEW_COLUMNS =
-  'review_id,public_id,vendor_profile_id,event_id,couple_user_id,rating_overall,rating_communication,rating_quality,rating_value,rating_on_time,body,vendor_reply,vendor_reply_at,created_at,booked_through_setnayan';
+  'review_id,public_id,vendor_profile_id,event_id,couple_user_id,rating_overall,rating_communication,rating_quality,rating_value,rating_on_time,body,vendor_reply,vendor_reply_at,created_at,booked_through_setnayan,via_vendor_import';
 
 export type FetchReviewsOpts = {
   limit?: number;
@@ -244,6 +253,83 @@ export async function fetchReviewStatsForMany(
   return m;
 }
 
+/**
+ * Trusted (receipt-backed, arm's-length) review aggregate for ONE vendor.
+ * Read from the `vendor_trusted_review_stats` materialized view (migration
+ * `20270516500000_vendor_trusted_review_stats.sql`).
+ *
+ * ANTI-FRAUD (2026-07-05, Phase 1 follow-up · spec
+ * `03_Strategy/Anti_Fraud_Trust_Integrity_2026-07-05.md` § 3): this is the
+ * ONLY source the PUBLIC-facing aggregate rating NUMBER + review COUNT may
+ * read. It counts only reviews that are `booked_through_setnayan = TRUE` and
+ * pass the same self-dealing / arm's-length exclusions as the completed-events
+ * view, so fake / self-dealt reviews can't inflate the public star average.
+ * The raw `vendor_review_stats` (via `fetchReviewStats`) still backs the
+ * per-star HISTOGRAM bars + the review LIST pagination — only the headline
+ * average + count migrate to trusted.
+ */
+export type TrustedReviewStatsRow = {
+  vendor_profile_id: string;
+  trusted_avg_rating: number;
+  trusted_review_count: number;
+};
+
+/**
+ * Pulls the trusted-stats row for a vendor. Returns 0/0 when no row exists yet
+ * (brand-new profile, or the vendor has zero trusted reviews). Fail-soft: a
+ * SELECT error (e.g. the view is missing pre-migration) also collapses to 0/0
+ * so the public page still renders — it just shows no headline stars.
+ */
+export async function fetchTrustedReviewStats(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<TrustedReviewStatsRow> {
+  const zero: TrustedReviewStatsRow = {
+    vendor_profile_id: vendorProfileId,
+    trusted_avg_rating: 0,
+    trusted_review_count: 0,
+  };
+  const { data, error } = await supabase
+    .from('vendor_trusted_review_stats')
+    .select('vendor_profile_id, trusted_avg_rating, trusted_review_count')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  if (error || !data) return zero;
+  return {
+    vendor_profile_id: data.vendor_profile_id as string,
+    trusted_avg_rating: Number(data.trusted_avg_rating ?? 0),
+    trusted_review_count: Number(data.trusted_review_count ?? 0),
+  };
+}
+
+/**
+ * Batch trusted-stats fetch keyed by vendor_profile_id. Used by the marketplace
+ * grid + any multi-vendor public surface that shows the aggregate star metric.
+ * Vendors absent from the returned map have 0 trusted reviews (callers default
+ * to 0/0). Fail-soft: any SELECT error returns an empty map.
+ */
+export async function fetchTrustedReviewStatsForMany(
+  supabase: SupabaseClient,
+  vendorProfileIds: ReadonlyArray<string>,
+): Promise<Map<string, TrustedReviewStatsRow>> {
+  const ids = Array.from(new Set(vendorProfileIds));
+  const m = new Map<string, TrustedReviewStatsRow>();
+  if (ids.length === 0) return m;
+  const { data, error } = await supabase
+    .from('vendor_trusted_review_stats')
+    .select('vendor_profile_id, trusted_avg_rating, trusted_review_count')
+    .in('vendor_profile_id', ids);
+  if (error) return m;
+  for (const row of data ?? []) {
+    m.set(row.vendor_profile_id as string, {
+      vendor_profile_id: row.vendor_profile_id as string,
+      trusted_avg_rating: Number(row.trusted_avg_rating ?? 0),
+      trusted_review_count: Number(row.trusted_review_count ?? 0),
+    });
+  }
+  return m;
+}
+
 export type CreateReviewArgs = {
   vendorProfileId: string;
   eventId: string;
@@ -278,24 +364,46 @@ export async function resolveBookedThroughSetnayan(
 }
 
 /**
+ * Resolve, SERVER-SIDE, whether this review's source booking came in via the
+ * vendor's invite QR (the import path) rather than the couple's own on-platform
+ * discovery — the "Verified booking" vs "Verified wedding" split. Reads the
+ * `review_via_vendor_import` RPC (SECURITY DEFINER over `event_vendors`), a
+ * strict subset of resolveBookedThroughSetnayan. Advisory only: the DB trigger
+ * re-derives the authoritative value on write, so couples never control it.
+ * Best-effort: a resolution error returns false (the conservative outcome — the
+ * review still falls back to the broader "Verified wedding" pill).
+ */
+export async function resolveViaVendorImport(
+  supabase: SupabaseClient,
+  eventId: string,
+  vendorProfileId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc('review_via_vendor_import', {
+    p_event_id: eventId,
+    p_vendor_profile_id: vendorProfileId,
+  });
+  if (error) return false;
+  return data === true;
+}
+
+/**
  * Couple-side INSERT. The DB-level RLS + unique constraint enforce the
  * "must be delivered/complete" + "one per (vendor, event, couple)" rules.
  *
- * Provenance (`booked_through_setnayan`) is resolved SERVER-SIDE here and
- * passed explicitly, but is NOT couple-controllable: the
+ * Provenance (`booked_through_setnayan` + `via_vendor_import`) is resolved
+ * SERVER-SIDE here and passed explicitly, but is NOT couple-controllable: the
  * `stamp_review_provenance` BEFORE trigger overwrites whatever value reaches
  * the row with the platform-derived truth on every write. We pass our resolved
- * value so the intent is visible in the call path; the trigger guarantees it.
+ * values so the intent is visible in the call path; the trigger guarantees it.
  */
 export async function createReview(
   supabase: SupabaseClient,
   args: CreateReviewArgs,
 ): Promise<{ review_id: string }> {
-  const bookedThroughSetnayan = await resolveBookedThroughSetnayan(
-    supabase,
-    args.eventId,
-    args.vendorProfileId,
-  );
+  const [bookedThroughSetnayan, viaVendorImport] = await Promise.all([
+    resolveBookedThroughSetnayan(supabase, args.eventId, args.vendorProfileId),
+    resolveViaVendorImport(supabase, args.eventId, args.vendorProfileId),
+  ]);
   const { data, error } = await supabase
     .from('vendor_reviews')
     .insert({
@@ -309,8 +417,9 @@ export async function createReview(
       rating_on_time: args.ratings.on_time,
       body: args.body && args.body.length > 0 ? args.body : null,
       // Server-resolved provenance. The BEFORE trigger re-derives the canonical
-      // value, so this is advisory — couples cannot set it by tampering.
+      // values, so these are advisory — couples cannot set them by tampering.
       booked_through_setnayan: bookedThroughSetnayan,
+      via_vendor_import: viaVendorImport,
     })
     .select('review_id')
     .single();

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Heart, Sparkles } from 'lucide-react';
+import { Heart, Sparkles, Gift } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 /**
@@ -164,6 +164,19 @@ export function ProfileMenu({
               >
                 <Sparkles aria-hidden className="h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.75} />
                 Personalization
+              </Link>
+              {/* Refer a couple — relocated here 2026-07-10 when the Overview
+                  sidebar item was flattened to a leaf (owner: "the menu does not
+                  need … "). Per-event referral link; keeps the funnel reachable
+                  without a sidebar sub-item. */}
+              <Link
+                role="menuitem"
+                href={`/dashboard/${eventId}/refer`}
+                className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-ink/85 hover:bg-terracotta/10 hover:text-ink"
+                onClick={() => setOpen(false)}
+              >
+                <Gift aria-hidden className="h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.75} />
+                Refer a couple
               </Link>
             </div>
           ) : null}

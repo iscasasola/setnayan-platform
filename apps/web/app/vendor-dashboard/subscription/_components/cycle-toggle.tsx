@@ -22,7 +22,7 @@ export function SubscriptionCycleToggle({
         active={cycle === 'annual'}
         target="annual"
         label="Annual"
-        hint="save ~2 months"
+        hint="save 12 weeks"
       />
     </div>
   );

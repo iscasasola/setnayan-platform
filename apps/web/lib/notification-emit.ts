@@ -95,6 +95,47 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   // invites the vendor to add a moment to the couple's editorial — worth an
   // email (same booking-relationship register as booking_confirmed / review_received).
   'completion_accepted',
+  // Vendor → couple suggestion (Phase 3b delivery polish, 2026-06-30). A 1:1
+  // vendor suggesting a buyable Studio add-on is high-signal + actionable — the
+  // couple should hear about it even when they're not in the app. (Sibling
+  // mood_board_share stays in-app-only; this earns email because it's a
+  // paid-service nudge the couple acts on, not an informational fan-out.)
+  'vendor_feature_suggested',
+  // Setnayan AI guard delivery (2026-07-09,
+  // Setnayan_AI_Realtime_Notifications_2026-07-02 § 4.1): "payment due soon
+  // (GRD-01) → email" is the ONE guard the spec puts on the email channel — a
+  // missed vendor payment is the highest-stakes thing the Guard watches, and
+  // the couple may not be in the app when the window opens. ai_guard_alert
+  // (GRD-02 statutory / GRD-05 over-budget) is deliberately NOT here: per the
+  // spec's restraint rules everything non-payment stays in-app + weekly digest.
+  // Neither AI type joins PUSH_ENABLED_TYPES — the push-worthy guards
+  // (GRD-09/10 booked-out, GRD-03 price change) have no data source yet
+  // (availability/price-change log = the MI spec's net-new table).
+  'ai_payment_due',
+  // Appointment confirmed (2026-07-11, Relationship Workspace + Appointments · PR
+  // 12 follow-ups). When either side confirms a proposed meeting, the OTHER party
+  // gets a "You're confirmed for {meeting} on {date}" email — a transactional
+  // booking signal (same register as booking_confirmed / rsvp_received) worth
+  // reaching them outside the app. Branded HTML + plaintext via the shared
+  // renderer below. A scheduled T-minus reminder is a further follow-up.
+  'appointment_reminder',
+  // Creator audience layer (2026-07-16). A followed account published a new
+  // chapter → their followers hear about it. UNLIKE every other allowlisted
+  // type this one is an ENGAGEMENT signal, not transactional, so its email is
+  // additionally gated on marketing consent (MARKETING_GATED_EMAIL_TYPES below)
+  // — the in-app notification always lands; the email only reaches followers who
+  // opted into marketing (RA 10173).
+  'new_chapter_from_followed',
+]);
+
+// Consent gate for the ENGAGEMENT (non-transactional) subset of the email
+// allowlist. V1's rule is "transactional emails send regardless of marketing
+// preference" — but a "someone you follow posted" email is marketing-adjacent,
+// so it additionally requires users.marketing_opt_in = TRUE. Membership here can
+// only SUPPRESS a send (an opted-out follower still gets the in-app notification),
+// never widen one.
+const MARKETING_GATED_EMAIL_TYPES: ReadonlySet<NotificationType> = new Set([
+  'new_chapter_from_followed',
 ]);
 
 export type EmitNotificationArgs = {
@@ -145,14 +186,26 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
       const admin = createAdminClient();
       const { data: recipient } = await admin
         .from('users')
-        .select('email')
+        .select('email, marketing_opt_in')
         .eq('user_id', userId)
         .maybeSingle();
+      // Engagement (non-transactional) types additionally require marketing
+      // consent. Transactional types are unaffected (they're not in the gated
+      // set). The in-app notification already landed above regardless; this only
+      // suppresses the EMAIL for opted-out followers (Web Push below is
+      // untouched — this type isn't push-enabled anyway).
+      const marketingConsentOk =
+        !MARKETING_GATED_EMAIL_TYPES.has(type) ||
+        recipient?.marketing_opt_in === true;
       // Anon-draft: skip the send when the recipient is still anonymous — their
       // address is the non-routable placeholder (anon+<uuid>@anon.setnayan.local)
       // and Resend would bounce. The in-app notification row already landed
       // above, so they see it the moment they secure their account (same uid).
-      if (recipient?.email && !isPlaceholderEmail(recipient.email)) {
+      if (
+        marketingConsentOk &&
+        recipient?.email &&
+        !isPlaceholderEmail(recipient.email)
+      ) {
         const appUrl =
           process.env.NEXT_PUBLIC_APP_URL ??
           'https://setnayan-platform-web.vercel.app';

@@ -16,6 +16,7 @@ import {
   Copy,
   Download,
   Eye,
+  Film,
   Heart,
   ImagePlus,
   Images,
@@ -59,6 +60,7 @@ import {
   saveRsvpBackdrop,
   clearRsvpBackdrop,
 } from '../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 /**
  * Site Editor — full-screen, Reels-style wedding-website editor.
@@ -100,7 +102,7 @@ import {
  * either an "Active" badge once owned, or an honest "Coming soon" pill — their
  * standalone purchase flow is a V1.1 deferral (no /add-ons checkout page exists
  * for them yet; the old /orders/new hand-off was retired and would dead-end).
- * Every other service (Panood / Papic / Custom QR / Drive) is a
+ * Every other service (Panood / Papic / Patiktok / Custom QR / Drive) is a
  * NAVIGATION card into its `/studio/<key>` page, which owns its own pricing +
  * buy state — the locked website wiring rule (see journey.tsx docstring · V2.1
  * Amendment #3).
@@ -181,19 +183,23 @@ export type PhaseEditorPhase = 'rsvp' | 'event' | 'editorial';
  */
 function useInlineEditState() {
   const router = useRouter();
+  const save = useSaveLoader();
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const [previewNonce, setPreviewNonce] = useState(0);
   const [pending, startTransition] = useTransition();
   const runAction = useCallback(
     (action: (fd: FormData) => Promise<void>, fd: FormData) => {
       startTransition(async () => {
-        await action(fd);
+        await save.run(() => action(fd), {
+          steps: ['Saving your site'],
+          hint: 'Saving',
+        });
         setPreviewNonce((n) => n + 1);
         router.refresh();
         setEditing(null);
       });
     },
-    [router],
+    [router, save],
   );
   return { editing, setEditing, previewNonce, pending, runAction };
 }
@@ -887,6 +893,12 @@ function eventCards(
       <Desc>Turn your guests&rsquo; phones into a shared candid camera, and add dedicated seats for the shooters you pick.</Desc>
       <CardLink href={`/dashboard/${p.eventId}/studio/papic`} ghost>
         <ArrowUpRight aria-hidden /> Set up Papic
+      </CardLink>
+    </Card>,
+    <Card key="patiktok" icon={<Film />} title="Patiktok booth" sub="A vertical-reel booth">
+      <Desc>A vertical-reel booth your guests can play with during the celebration.</Desc>
+      <CardLink href={`/dashboard/${p.eventId}/studio/patiktok`} ghost>
+        <ArrowUpRight aria-hidden /> Set up Patiktok
       </CardLink>
     </Card>,
     <Card key="photowall" icon={<MonitorPlay />} title="Live photo wall" sub="Guest photos on the venue screen" soon>

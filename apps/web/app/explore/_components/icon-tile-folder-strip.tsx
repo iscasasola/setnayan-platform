@@ -22,11 +22,11 @@
  *
  * THEME: Clean Editorial palette via legacy `bg-cream` / `text-ink` /
  * `text-terracotta` / `border-ink/N` classes per the 2026-05-30 unification
- * (globals.css :root + html.dark). In light mode terracotta = Royal
- * Champagne Gold #C5A059. In dark mode terracotta = brighter champagne
- * #E0CCA0. Matches the app shell visual language used across dashboard /
- * admin / vendor-dashboard. Supersedes the 2026-05-22 Facebook palette
- * preservation lock on this component.
+ * (globals.css :root + html.dark). In light mode terracotta = Atelier
+ * gold #A9834B (kit gold-500). In dark mode terracotta = brighter gold
+ * #CBA766 (kit gold-300). Matches the app shell visual language used across
+ * dashboard / admin / vendor-dashboard. Supersedes the 2026-05-22 Facebook
+ * palette preservation lock on this component.
  *
  * SCOPED MODE: when the catalog is scoped to a single folder via `?folder=…`
  * (per PR #310 / Task #47 2026-05-22), other 11 sections are NOT in the DOM.
@@ -54,6 +54,7 @@ import {
   WEDDING_FOLDER_SHORT_LABEL,
   type WeddingFolder,
 } from '@/lib/taxonomy';
+import { getLucideIcon } from '@/lib/nav-icons';
 
 export type FolderTab = {
   folder: WeddingFolder;
@@ -63,6 +64,13 @@ export type FolderTab = {
   slug: string;
   /** Number of categories (or venue facets) under this folder. */
   count: number;
+  /**
+   * Admin-set Lucide icon name (service_categories.icon_name), or null to use
+   * the hardcoded FOLDER_ICON default. DB-first + fallback-safe: an unknown /
+   * NULL name resolves to null and we drop to the per-folder default, so this
+   * never changes the strip until an admin sets a valid icon.
+   */
+  iconName?: string | null;
 };
 
 type Props = {
@@ -222,7 +230,11 @@ export function IconTileFolderStrip({
           />
         </li>
         {visibleTabs.map((tab) => {
-          const Icon = FOLDER_ICON[tab.folder];
+          // DB-first: an admin icon override wins when it's on the Lucide
+          // allowlist; anything unknown / NULL drops to the hardcoded default.
+          const Icon =
+            (getLucideIcon(tab.iconName) as ComponentType<LucideProps> | null) ??
+            FOLDER_ICON[tab.folder];
           const label =
             WEDDING_FOLDER_SHORT_LABEL[tab.folder] ?? tab.label;
           return (

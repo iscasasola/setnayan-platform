@@ -54,6 +54,7 @@ export const V2_SKU_CODES = [
   'PAPIC_ADDON_THANK_YOU',
   'PAPIC_GUEST',
   'PAPIC_SEATS',
+  'PATIKTOK_COMPILER',
   'PRO_WEBSITE',
   // Website lifecycle + planner · seeded by migration 20260915000000 but were
   // MISSING from this allowlist, so formatV2Sku() returned null for them even
@@ -68,6 +69,11 @@ export const V2_SKU_CODES = [
   // codes stay listed here for historical order rows but go is_active=false in
   // the catalog (hidden from /pricing).
   'COUPLE_WEBSITE_PRO',
+  // Editorial PRO — new à-la-carte SKU (₱3,499 · owner-locked 2026-07-04) to
+  // author the editorial front page (name the moments, tell each story, arrange
+  // the layout). Seeded by migration 20270511151471. COUPLE_WEBSITE_PRO is the
+  // umbrella that also confers this (SKU_OWNERSHIP_ALIASES in lib/entitlements.ts).
+  'EDITORIAL_PRO',
   // 2 bundles (platform_package_catalog, not retail)
   'GUIDED_PACK',
   'MEDIA_PACK',

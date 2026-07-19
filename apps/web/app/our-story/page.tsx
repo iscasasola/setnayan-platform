@@ -14,7 +14,6 @@
 
 import Link from 'next/link';
 import { OurStoryManifesto } from '@/app/_components/marketing/OurStory';
-import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 import { fetchAlaalaOrbClips } from '@/lib/alaala-orb';
 
 // ISR (was force-static): the Alaala orb is now fed by consented + couple-
@@ -111,7 +110,8 @@ export default async function OurStoryPage() {
               The wedding experience — for the couple, and for everyone who attends
             </h2>
             <p className="mt-5 text-lg leading-relaxed text-[var(--m-slate)]">
-              Setnayan is a Filipino wedding platform. The couple plans the whole
+              Setnayan is a Filipino wedding platform — and a place that keeps
+              every celebration you hold. The couple plans the whole
               event in one place — and on the day, every guest leaves with their
               own tagged photos and a personal highlight reel of the moments that
               involved them. The day doesn&rsquo;t just happen for the couple
@@ -177,7 +177,6 @@ export default async function OurStoryPage() {
           </div>
         </section>
 
-        <SiteFooter />
       </main>
     </>
   );

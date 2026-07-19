@@ -20,14 +20,16 @@ import {
   mergeTiles,
   reconcileTiles,
   type WallTile,
+  type WallTileLayout,
 } from '@/lib/live-wall-logic';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import type { HeroMonogramData } from '@/lib/hero-monogram-data';
 
 const NUDGE_POLL_MS = 12_000;
 const FULL_SWEEP_MS = 60_000;
-/** Cap the DOM at a sane tile count for an all-night projector session. */
-const MAX_DOM_TILES = 48;
+/** Hard DOM ceiling for an all-night projector session (the couple's chosen
+ *  photoCount, 6–60, is clamped under this). */
+const MAX_DOM_TILES = 60;
 
 type Conn = 'live' | 'reconnecting' | 'offline';
 
@@ -35,6 +37,8 @@ export function WallProjection({
   eventId,
   initial,
   mono,
+  photoCount,
+  tileLayout,
 }: {
   eventId: string;
   initial: WallSnapshot;
@@ -42,6 +46,10 @@ export function WallProjection({
    *  standby screen so the venue screen carries their identity before the
    *  collage takes over. */
   mono: HeroMonogramData | null;
+  /** Max tiles the couple chose to show (6–60 · owner 2026-07-08 · D5). */
+  photoCount: number;
+  /** Which tile layout the couple chose (owner 2026-07-08 · D5). */
+  tileLayout: WallTileLayout;
 }) {
   const [tiles, setTiles] = useState<WallTile[]>(initial.tiles);
   const [count, setCount] = useState(initial.count);
@@ -172,7 +180,7 @@ export function WallProjection({
     );
   }
 
-  const visible = tiles.slice(-MAX_DOM_TILES);
+  const visible = tiles.slice(-Math.min(photoCount, MAX_DOM_TILES));
 
   return (
     <main className="min-h-screen bg-ink text-cream">
@@ -194,25 +202,7 @@ export function WallProjection({
           <p className="text-lg text-cream/40">Waiting for the first shot…</p>
         </div>
       ) : (
-        <div className="gap-2 px-4 pb-10 [column-fill:_balance] columns-2 sm:columns-3 lg:columns-4 xl:columns-5">
-          {visible.map((tile) => (
-            <figure
-              key={tile.feedId}
-              className={`mb-2 break-inside-avoid overflow-hidden rounded-md ${
-                tile.feedId === newestIdRef.current ? 'wall-tile-new' : ''
-              }`}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element -- presigned R2 URLs; next/image would proxy + re-sign */}
-              <img
-                src={tile.url}
-                alt=""
-                loading="lazy"
-                className="w-full"
-                draggable={false}
-              />
-            </figure>
-          ))}
-        </div>
+        <TileGrid tiles={visible} layout={tileLayout} newestId={newestIdRef.current} />
       )}
 
       <footer className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-ink via-ink/85 to-transparent px-6 pb-3 pt-8">
@@ -230,6 +220,123 @@ export function WallProjection({
       </footer>
 
     </main>
+  );
+}
+
+/**
+ * The collage itself, in the couple's chosen layout (owner 2026-07-08 · D5).
+ * 'mosaic' is the original masonry look (default). All four are fully responsive
+ * — no fixed resolution — so the wall fills whatever screen it's cast to. The
+ * newest tile keeps the `wall-tile-new` reveal animation in every layout.
+ */
+function TileGrid({
+  tiles,
+  layout,
+  newestId,
+}: {
+  tiles: WallTile[];
+  layout: WallTileLayout;
+  newestId: string | null;
+}) {
+  const isNew = (id: string) => (id === newestId ? 'wall-tile-new' : '');
+
+  if (layout === 'grid') {
+    return (
+      <div className="grid grid-cols-3 gap-2 px-4 pb-10 sm:grid-cols-4 lg:grid-cols-6">
+        {tiles.map((t) => (
+          <figure
+            key={t.feedId}
+            className={`aspect-square overflow-hidden rounded-md ${isNew(t.feedId)}`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- presigned R2 URLs */}
+            <img
+              src={t.url}
+              alt=""
+              loading="lazy"
+              className="h-full w-full object-cover"
+              draggable={false}
+            />
+          </figure>
+        ))}
+      </div>
+    );
+  }
+
+  if (layout === 'hero') {
+    // Newest tile large; the rest as a dense strip beneath it.
+    const ordered = tiles.slice().reverse(); // newest first
+    const [hero, ...rest] = ordered;
+    return (
+      <div className="px-4 pb-10">
+        {hero ? (
+          <figure className={`mb-2 overflow-hidden rounded-lg ${isNew(hero.feedId)}`}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- presigned R2 URLs */}
+            <img
+              src={hero.url}
+              alt=""
+              className="max-h-[62vh] w-full object-cover"
+              draggable={false}
+            />
+          </figure>
+        ) : null}
+        <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-8">
+          {rest.map((t) => (
+            <figure
+              key={t.feedId}
+              className={`aspect-square overflow-hidden rounded-md ${isNew(t.feedId)}`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- presigned R2 URLs */}
+              <img
+                src={t.url}
+                alt=""
+                loading="lazy"
+                className="h-full w-full object-cover"
+                draggable={false}
+              />
+            </figure>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (layout === 'polaroid') {
+    return (
+      <div className="flex flex-wrap content-start justify-center gap-4 px-6 pb-10 pt-2">
+        {tiles.map((t, i) => (
+          <figure
+            key={t.feedId}
+            className={`rounded-sm bg-cream p-2 pb-6 shadow-xl ${isNew(t.feedId)}`}
+            // Deterministic small tilt per tile (−4°…+4°) for the scattered look.
+            style={{ transform: `rotate(${((i * 41) % 9) - 4}deg)` }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- presigned R2 URLs */}
+            <img
+              src={t.url}
+              alt=""
+              loading="lazy"
+              className="h-40 w-40 object-cover sm:h-44 sm:w-44 lg:h-52 lg:w-52"
+              draggable={false}
+            />
+          </figure>
+        ))}
+      </div>
+    );
+  }
+
+  // mosaic (default) — the original masonry columns.
+  return (
+    <div className="gap-2 px-4 pb-10 [column-fill:_balance] columns-2 sm:columns-3 lg:columns-4 xl:columns-5">
+      {tiles.map((t) => (
+        <figure
+          key={t.feedId}
+          className={`mb-2 break-inside-avoid overflow-hidden rounded-md ${isNew(t.feedId)}`}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- presigned R2 URLs; next/image would proxy + re-sign */}
+          <img src={t.url} alt="" loading="lazy" className="w-full" draggable={false} />
+        </figure>
+      ))}
+    </div>
   );
 }
 

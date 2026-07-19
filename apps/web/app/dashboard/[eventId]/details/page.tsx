@@ -146,15 +146,10 @@ export default async function PersonalizationPage({
 
   return (
     <section className="space-y-5">
-      <header className="space-y-1.5">
-        <p
-          className="font-mono text-[10px] uppercase tracking-[0.22em]"
-          style={{ color: 'var(--m-orange-2)' }}
-        >
-          Your wedding
-        </p>
+      <header className="sn-reveal space-y-1.5">
+        <p className="sn-eye">Personalization</p>
         <h1
-          className="m-display-tight text-2xl uppercase sm:text-3xl"
+          className="sn-h1"
           style={{ letterSpacing: '-0.005em', color: 'var(--m-ink)' }}
         >
           Personalization
@@ -166,7 +161,7 @@ export default async function PersonalizationPage({
       </header>
 
       {/* Band 1 — the basics (governance-free, editable inline) */}
-      <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-5">
+      <div className="sn-tile p-4 sm:p-5">
         <h2 className="m-display-tight text-base uppercase tracking-[0.02em] text-ink">The basics</h2>
         <p className="mb-3 mt-0.5 text-sm text-ink/55">
           Your names, where you’re celebrating, the feel you’re after, and your working budget.
@@ -193,7 +188,7 @@ export default async function PersonalizationPage({
           Editable inline, but a change runs the conflict preview first and
           warns which picked services would clash before it commits (directive
           4). All four lock to support once a vendor is confirmed. */}
-      <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-5">
+      <div className="sn-tile p-4 sm:p-5">
         <div className="mb-3">
           <h2 className="m-display-tight text-base uppercase tracking-[0.02em] text-ink">
             Your wedding
@@ -222,7 +217,7 @@ export default async function PersonalizationPage({
       {/* Band 3 — from your onboarding (documented, read-only). Guest count +
           venue moved up to band 2's governed editors; region + style/feel live
           in band 1. This keeps only what isn't editable elsewhere. */}
-      <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-5">
+      <div className="sn-tile p-4 sm:p-5">
         <h2 className="m-display-tight text-base uppercase tracking-[0.02em] text-ink">
           From your onboarding
         </h2>
@@ -242,7 +237,7 @@ export default async function PersonalizationPage({
       {/* The picks become real shortlisted services with their own tab. */}
       <Link
         href={`${base}/vendors`}
-        className="flex items-center justify-between gap-3 rounded-2xl border border-ink/10 bg-paper px-4 py-3 transition-colors hover:bg-cream"
+        className="sn-row flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-cream"
       >
         <span className="flex items-center gap-2.5">
           <Store aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />

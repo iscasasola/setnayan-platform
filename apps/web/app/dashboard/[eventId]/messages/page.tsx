@@ -9,9 +9,10 @@ import {
   ThreadListCard,
   ThreadListAvatar,
 } from '@/app/_components/chat/thread-list-card';
+import { ThreadArchiveToggle } from '@/app/_components/chat/thread-archive-toggle';
 import { FollowGate } from '@/app/_components/follow-gate';
 import { isFollowingVendor } from '@/lib/follow';
-import { resolveVendorDisplayName } from '@/lib/vendors';
+import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { startThreadByVendorEmail } from './actions';
 
@@ -96,10 +97,94 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
     }
   }
 
+  // Viber-style archive split (Data Retention Schedule 2026-07-11). Archiving
+  // deletes nothing — it just moves a thread out of the active list into the
+  // collapsible "Archived" section; a new message auto-un-archives it.
+  const returnTo = `/dashboard/${eventId}/messages`;
+  // Exclusivity (payment-gated lock): a 'displaced' inquiry — the couple locked
+  // another vendor in this hard-single group — is closed, so fold it into the
+  // Archived section on this side too (never in the active list). Only exists
+  // when the flag is on; inert otherwise.
+  const isDisplaced = (t: (typeof threads)[number]) => t.inquiry_status === 'displaced';
+  const activeThreads = threads.filter((t) => !t.archived && !isDisplaced(t));
+  const archivedThreads = threads.filter((t) => t.archived || isDisplaced(t));
+
+  const renderRow = (t: (typeof threads)[number]) => {
+    // Anonymity-aware thread label per CLAUDE.md 2026-05-30 row.
+    // Free/Verified vendors who haven't yet replied show their
+    // screen_name (Bark format) — paid + revealed + venue vendors
+    // show real business_name. Single resolver call keeps the
+    // Avatar initials + visible label in lock-step.
+    const vendorDisplayName = t.vendor
+      ? resolveVendorDisplayName({
+          business_name: t.vendor.business_name ?? null,
+          name_revealed_at: t.vendor.name_revealed_at ?? null,
+          services: t.vendor.services ?? null,
+          screen_name: t.vendor.screen_name ?? null,
+          // Phase C: Pro/Enterprise reveal real business_name day-1.
+          isPaidTier: isTrueNameTier(t.vendor.tier_state ?? null),
+          primary_canonical_service: t.vendor.services?.[0] ?? null,
+          location_city: t.vendor.location_city ?? null,
+        })
+      : 'Vendor';
+    // Hybrid-anonymity logo gate (Data Flow Map audit gap #6): the
+    // vendor's real logo is as identifying as the business name, so it
+    // must stay masked until the SAME predicate that reveals the name
+    // says reveal. Reuse `isVendorNameRevealed` (the single source of
+    // truth behind `resolveVendorDisplayName`) so the logo and the
+    // label can never drift — pre-reveal we pass null and the avatar
+    // falls back to screen-name initials.
+    const vendorNameRevealed = t.vendor
+      ? isVendorNameRevealed({
+          name_revealed_at: t.vendor.name_revealed_at ?? null,
+          isPaidTier: isTrueNameTier(t.vendor.tier_state ?? null),
+          services: t.vendor.services ?? null,
+        })
+      : false;
+    const vendorLogoUrl = vendorNameRevealed ? t.vendor?.logo_url ?? null : null;
+    return (
+      <li key={t.thread_id} className="flex items-stretch gap-2">
+        <div className="min-w-0 flex-1">
+          <ThreadListCard
+            href={`/dashboard/${eventId}/messages/${t.thread_id}`}
+            title={vendorDisplayName}
+            avatar={<ThreadListAvatar logoUrl={vendorLogoUrl} name={vendorDisplayName} />}
+            badge={
+              t.inquiry_status === 'pending' ? (
+                <span className="mt-0.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
+                  Waiting for reply
+                </span>
+              ) : t.inquiry_status === 'accepted' ? (
+                // Accepted (inquiry-accepted-visibility 2026-06-16) — the
+                // vendor took the inquiry, the thread is open + the name is
+                // revealed. Emerald matches the inquiry_accepted notification
+                // tone so the couple reads "this one's live" at a glance.
+                <span className="mt-0.5 inline-block rounded-full bg-success-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-success-800">
+                  Ready to quote
+                </span>
+              ) : t.inquiry_status === 'declined' ? (
+                <span className="mt-0.5 inline-block rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
+                  Not available
+                </span>
+              ) : t.inquiry_status === 'displaced' ? (
+                <span className="mt-0.5 inline-block rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
+                  You booked another
+                </span>
+              ) : null
+            }
+            timestampLine={<>Last activity {formatChatTimestamp(t.updated_at)}</>}
+          />
+        </div>
+        <ThreadArchiveToggle threadId={t.thread_id} returnTo={returnTo} archived={t.archived} />
+      </li>
+    );
+  };
+
   return (
     <section className="space-y-6">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Messages</h1>
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">Vendor chat</p>
+        <h1 className="sn-h1 mt-1.5">Messages</h1>
         <p className="max-w-prose text-base text-ink/65">
           One thread per vendor you&rsquo;re working with. Vendors find you via the email on
           your invitation site or by starting their own thread.
@@ -118,13 +203,10 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
       {showFollowGate && followGateVendor && search.vendor_profile_id ? (
         <section
           aria-labelledby="follow-gate-heading"
-          className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-5"
+          className="sn-tile space-y-3 p-5"
         >
           <div className="space-y-1">
-            <h2
-              id="follow-gate-heading"
-              className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta-700"
-            >
+            <h2 id="follow-gate-heading" className="sn-eye">
               Follow first, then chat
             </h2>
             <p className="text-sm text-ink/80">
@@ -145,10 +227,8 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
         </section>
       ) : null}
 
-      <section className="rounded-xl border border-ink/10 bg-cream p-5">
-        <h2 className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Start a new thread
-        </h2>
+      <section className="sn-tile p-5">
+        <h2 className="sn-eye mb-3">Start a new thread</h2>
         {search.prefill_vendor_email ? (
           <p className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-terracotta/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
             Pre-filled from vendor profile · just tap Start thread
@@ -183,7 +263,7 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
       </section>
 
       {threads.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">
+        <div className="sn-row border-dashed p-8 text-center">
           <MessageSquare
             aria-hidden
             className="mx-auto mb-2 h-6 w-6 text-ink/30"
@@ -206,61 +286,24 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
           </div>
         </div>
       ) : (
-        <ul className="space-y-2">
-          {threads.map((t) => {
-            // Anonymity-aware thread label per CLAUDE.md 2026-05-30 row.
-            // Free/Verified vendors who haven't yet replied show their
-            // screen_name (Bark format) — paid + revealed + venue vendors
-            // show real business_name. Single resolver call keeps the
-            // Avatar initials + visible label in lock-step.
-            const vendorDisplayName = t.vendor
-              ? resolveVendorDisplayName({
-                  business_name: t.vendor.business_name ?? null,
-                  name_revealed_at: t.vendor.name_revealed_at ?? null,
-                  services: t.vendor.services ?? null,
-                  screen_name: t.vendor.screen_name ?? null,
-                  // Phase C: Pro/Enterprise reveal real business_name day-1.
-                  isPaidTier: isTrueNameTier(t.vendor.tier_state ?? null),
-                  primary_canonical_service: t.vendor.services?.[0] ?? null,
-                  location_city: t.vendor.location_city ?? null,
-                })
-              : 'Vendor';
-            return (
-              <li key={t.thread_id}>
-                <ThreadListCard
-                  href={`/dashboard/${eventId}/messages/${t.thread_id}`}
-                  title={vendorDisplayName}
-                  avatar={
-                    <ThreadListAvatar
-                      logoUrl={t.vendor?.logo_url ?? null}
-                      name={vendorDisplayName}
-                    />
-                  }
-                  badge={
-                    t.inquiry_status === 'pending' ? (
-                      <span className="mt-0.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
-                        Waiting for reply
-                      </span>
-                    ) : t.inquiry_status === 'accepted' ? (
-                      // Accepted (inquiry-accepted-visibility 2026-06-16) — the
-                      // vendor took the inquiry, the thread is open + the name is
-                      // revealed. Emerald matches the inquiry_accepted notification
-                      // tone so the couple reads "this one's live" at a glance.
-                      <span className="mt-0.5 inline-block rounded-full bg-success-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-success-800">
-                        Ready to quote
-                      </span>
-                    ) : t.inquiry_status === 'declined' ? (
-                      <span className="mt-0.5 inline-block rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
-                        Not available
-                      </span>
-                    ) : null
-                  }
-                  timestampLine={<>Last activity {formatChatTimestamp(t.updated_at)}</>}
-                />
-              </li>
-            );
-          })}
-        </ul>
+        <>
+          {activeThreads.length > 0 ? (
+            <ul className="space-y-2">{activeThreads.map(renderRow)}</ul>
+          ) : (
+            <p className="sn-row border-dashed px-4 py-6 text-center text-sm text-ink/60">
+              No active conversations — everything&rsquo;s tucked into Archived below.
+            </p>
+          )}
+
+          {archivedThreads.length > 0 ? (
+            <details className="sn-row mt-4">
+              <summary className="sn-eye cursor-pointer list-none px-4 py-3 hover:text-ink">
+                Archived · <span className="font-mono">{archivedThreads.length}</span>
+              </summary>
+              <ul className="space-y-2 px-2 pb-3">{archivedThreads.map(renderRow)}</ul>
+            </details>
+          ) : null}
+        </>
       )}
     </section>
   );

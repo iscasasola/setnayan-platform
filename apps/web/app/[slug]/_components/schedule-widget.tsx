@@ -11,6 +11,7 @@ import {
 } from '@/lib/schedule';
 import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
+import { ProgressRing } from '@/app/_components/progress-ring';
 
 type Props = {
   blocks: ScheduleBlockRow[];
@@ -83,6 +84,21 @@ export function ScheduleWidget({ blocks, eventTz }: Props) {
     }
   }
 
+  // Program progress ("Energy, not skin" density read) — how far through the
+  // day's run of show we are, from data already on the page: a block counts as
+  // done once its virtual end (explicit or the next block's start) has passed.
+  // Only surfaced once the program has actually begun so it's a live pulse, not
+  // a pre-event 0%. Palette-driven ring (couple accent), never dashboard wine.
+  const completed = now
+    ? ordered.reduce((n, _b, i) => {
+        const end = ends[i];
+        return end !== null && end !== undefined && end <= nowMs ? n + 1 : n;
+      }, 0)
+    : 0;
+  const total = ordered.length;
+  const programBegun = now !== null && (currentIndex >= 0 || completed > 0);
+  const progressPct = total > 0 ? (completed / total) * 100 : 0;
+
   // Run-of-show header — read-only for guests (no advance control). Driven by
   // the shared run-state on the public blocks; realtime keeps it current as the
   // host advances the day. eventId comes off any block (all share the event).
@@ -104,9 +120,30 @@ export function ScheduleWidget({ blocks, eventTz }: Props) {
 
   return (
     <section className="space-y-4">
-      <h2 className="font-mono text-xs uppercase tracking-[0.25em] text-terracotta">
-        Day-of schedule
-      </h2>
+      <div className="flex items-center justify-between gap-4">
+        <div className="space-y-1">
+          <p className="font-mono text-xs uppercase tracking-[0.25em] text-terracotta">
+            Day-of schedule
+          </p>
+          <h2 className="font-serif text-2xl italic leading-tight tracking-tight text-ink">
+            The run of show
+          </h2>
+        </div>
+        {programBegun ? (
+          <ProgressRing
+            pct={progressPct}
+            size={54}
+            stroke={5}
+            color="rgb(var(--color-terracotta))"
+            className="shrink-0"
+          >
+            <span className="font-serif text-sm leading-none text-ink">
+              {completed}
+              <span className="text-ink/40">/{total}</span>
+            </span>
+          </ProgressRing>
+        ) : null}
+      </div>
       {showRunOfShow && eventId ? (
         <RunOfShowHeader eventId={eventId} initial={runOfShowBlocks} compact />
       ) : null}
@@ -130,7 +167,7 @@ export function ScheduleWidget({ blocks, eventTz }: Props) {
                   <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
                     {SCHEDULE_BLOCK_LABEL[b.block_type]}
                   </p>
-                  <p className="text-base font-semibold text-ink">{b.label}</p>
+                  <p className="font-serif text-lg italic leading-snug text-ink">{b.label}</p>
                 </div>
                 {isNow ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-terracotta px-2 py-0.5 font-mono text-xs uppercase tracking-[0.15em] text-cream">

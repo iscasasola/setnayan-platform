@@ -2,16 +2,35 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { ChevronDown, Trash2, X } from 'lucide-react';
-import { ConfirmForm } from '@/app/_components/confirm-form';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { useToast } from '@/app/_components/toast/toast-provider';
 import { guestSelection, useGuestSelection } from './guest-selection-store';
+import { guestOptimistic, useGuestOptimistic } from './guest-optimistic-store';
+import { pushUndo } from './undo-toast';
+import { QuickViewButton } from './guest-drawer';
+import {
+  InspectorTrigger,
+  useInspectorContext,
+} from '@/app/_components/inspector/inspector-column';
+import { SeatChip } from './seat-chip';
+import {
+  AddToGroupControl,
+  RoleChipEditor,
+  RsvpChipEditor,
+  SideChipEditor,
+} from './chip-editors';
+import { keepGuestAction, removeGuestAction } from '../claims/actions';
+import { buildUndo, projectGuests } from '@/lib/guest-optimistic';
 import { resolveRoleSet } from '@/lib/role-sets';
 import {
   bulkApplyRoleAndGroup,
   bulkSoftDeleteGuests,
+  bulkSoftDeleteGuestsForUndo,
   createGuestGroup,
   removeGuestFromGroup,
+  restoreDeletedGuests,
 } from '../groups-actions';
 import {
   guestDisplayName,
@@ -28,7 +47,8 @@ import {
   type GuestSide,
   type RsvpStatus,
 } from '@/lib/guests';
-import { getPrimaryColor, type RolePalette } from '@/lib/mood-board';
+import { getPrimaryColor, paletteKeyForRole, type RolePalette } from '@/lib/mood-board';
+import { SIDE_AVATAR, SIDE_CHIP, SIDE_RING, SIDE_TINT_FILL } from '@/lib/side-colors';
 import {
   importanceGroupOf,
   ROLE_GROUP_CHIP,
@@ -286,17 +306,22 @@ function RowAvatar({
       </span>
     );
   }
-  const sideTint: Record<GuestSide, string> = {
-    bride: 'bg-danger-200/60 text-danger-900',
-    groom: 'bg-sky-200/60 text-sky-900',
-    both: 'bg-warn-200/60 text-warn-900',
-  };
+  // Side-identity gradients (Glass PR-3, per the roster proto): bride → gold
+  // family, groom → info-slate family, both → a gold↔slate blend, each with a
+  // small side dot. White initials read on all three. This is the reference
+  // recipe for the whole side-colour language — SIDE_AVATAR in lib/side-colors.
+  const s = SIDE_AVATAR[guest.side];
   return (
     <span
       aria-hidden
-      className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${sideTint[guest.side]}`}
+      className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-[#FFFDF8]"
+      style={{ background: s.bg }}
     >
       {guestInitials(guest)}
+      <span
+        className="absolute -bottom-px -right-px h-2.5 w-2.5 rounded-full ring-2 ring-[#EFEAE0]"
+        style={{ background: s.dot }}
+      />
     </span>
   );
 }
@@ -313,8 +338,11 @@ function DesktopRow({
   selected,
   onToggle,
   groupIds,
+  groups,
   groupsById,
   currentGroupId,
+  bulkRoleSections,
+  seat,
 }: {
   guest: GuestRow;
   eventId: string;
@@ -323,16 +351,37 @@ function DesktopRow({
   selected: boolean;
   onToggle: () => void;
   groupIds: string[];
+  groups: GuestGroupWithCount[];
   groupsById: Record<string, GuestGroupWithCount>;
   currentGroupId: string | null;
+  bulkRoleSections: RoleSection[];
+  // Reactive seat state (Living Roster P3) — undefined only if a guest slips the
+  // server-built map (defensively degrades to the suggested/dash path).
+  seat?: { placed: string | null; suggested: string | null };
 }) {
+  // Group labels for the quick-view drawer (Contact + groups live there now).
+  const groupLabels = groupIds
+    .map((id) => groupsById[id]?.label)
+    .filter((label): label is string => Boolean(label));
+  // Desktop inspector selection (Inspector P2). When this guest owns the open
+  // `?inspect=` column, the whole row wears the quiet gold selected treatment —
+  // matching how Studio/Overview mark their selected master item. The name
+  // InspectorTrigger below opts OUT of its own default wash (.sn-guest-namelink)
+  // so the row isn't double-marked. Below xl there is no InspectorLayout, so
+  // `ctx` is null and this is inert (mobile unchanged).
+  const inspectorCtx = useInspectorContext();
+  const inspected = Boolean(inspectorCtx && inspectorCtx.selectedId === guest.guest_id);
   return (
     <tr
       className={`border-t border-ink/5 transition-colors ${
-        selected ? 'bg-terracotta/[0.06]' : 'hover:bg-terracotta/[0.04]'
+        selected
+          ? 'bg-terracotta/[0.06]'
+          : inspected
+            ? 'bg-[var(--sn-gold-100)]'
+            : 'hover:bg-terracotta/[0.04]'
       }`}
     >
-      <td className="px-3 py-3">
+      <td className="px-3 py-2.5">
         <label className="flex items-center justify-center">
           <input
             type="checkbox"
@@ -343,44 +392,166 @@ function DesktopRow({
           />
         </label>
       </td>
-      <td className="px-4 py-3">
-        <Link
-          href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
-          className="flex items-center gap-3"
-        >
-          <RowAvatar guest={guest} displayUrl={displayUrl} />
-          <div className="min-w-0">
-            <p className="truncate font-medium text-ink">
-              {guestDisplayName(guest)}
-            </p>
-            {guest.plus_one_allowed ? (
-              <p className="truncate text-xs text-ink/55">
-                + {guest.plus_one_name ?? 'TBA'}
+      <td className="px-4 py-2.5">
+        <div className="flex items-center justify-between gap-2">
+          {/* Name → the master-detail trigger (Inspector P2). Desktop (≥xl)
+              plain click SELECTS this guest into the sticky inspector column and
+              keeps the roster; below xl (and on modified / new-tab clicks) it
+              navigates to the standalone detail route exactly as before. */}
+          <InspectorTrigger
+            inspectId={guest.guest_id}
+            href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
+            className="sn-guest-namelink flex min-w-0 flex-1 items-center gap-3 rounded-md"
+          >
+            <RowAvatar guest={guest} displayUrl={displayUrl} />
+            <div className="min-w-0">
+              <p className="truncate font-medium text-ink">
+                {guestDisplayName(guest)}
               </p>
-            ) : null}
-          </div>
-        </Link>
+              {guest.plus_one_allowed ? (
+                <p className="truncate text-xs text-ink/55">
+                  + {guest.plus_one_name ?? 'TBA'}
+                </p>
+              ) : null}
+            </div>
+          </InspectorTrigger>
+          {/* Quick-view (P1) — desktop selects the inspector, below xl opens the
+              in-context read-only sheet (both show the same GuestDetailBody). */}
+          <QuickViewButton guest={guest} groupLabels={groupLabels} />
+        </div>
       </td>
-      <td className="px-3 py-3">
-        <SidePill side={guest.side} />
+      <td className="px-3 py-2.5">
+        {/* Inline editors (P2): the chip opens an anchored popover that applies
+            through the optimistic overlay + drops an undo toast. */}
+        <SideChipEditor eventId={eventId} guest={guest}>
+          <SidePill side={guest.side} />
+        </SideChipEditor>
       </td>
-      <td className="px-3 py-3">
-        <RoleChips guest={guest} palette={palette} />
+      <td className="px-3 py-2.5">
+        <RoleChipEditor eventId={eventId} guest={guest} roleSections={bulkRoleSections}>
+          <RoleChips guest={guest} palette={palette} />
+        </RoleChipEditor>
       </td>
-      <td className="px-3 py-3">
-        <GroupChipList
+      <td className="px-3 py-2.5">
+        <div className="flex items-center gap-1.5">
+          <GroupChipList
+            eventId={eventId}
+            guestId={guest.guest_id}
+            groupIds={groupIds}
+            groupsById={groupsById}
+            currentGroupId={currentGroupId}
+            compact
+          />
+          <AddToGroupControl
+            eventId={eventId}
+            guest={guest}
+            groups={groups}
+            memberGroupIds={groupIds}
+          />
+        </div>
+      </td>
+      <td className="px-3 py-2.5">
+        <RsvpChipEditor
           eventId={eventId}
-          guestId={guest.guest_id}
-          groupIds={groupIds}
-          groupsById={groupsById}
-          currentGroupId={currentGroupId}
+          guest={guest}
+          seatedTableLabel={seat?.placed ?? null}
+        >
+          <RsvpPill status={guest.rsvp_status} />
+        </RsvpChipEditor>
+      </td>
+      {/* Reactive seat (Living Roster P3): placed 🪑 T# · declined — · else the
+          dashed ~T# suggestion. The +1 badge rides along. */}
+      <td className="px-3 py-2.5">
+        <SeatChip
+          placed={seat?.placed ?? null}
+          suggested={seat?.suggested ?? null}
+          rsvp={guest.rsvp_status}
+          hasPlusOne={guest.plus_one_allowed}
         />
       </td>
-      <td className="px-3 py-3">
-        <RsvpPill status={guest.rsvp_status} />
-      </td>
-      <td className="px-3 py-3 text-xs text-ink/60">
+      <td className="px-3 py-2.5 text-xs text-ink/60">
         {guest.email ?? guest.mobile ?? '—'}
+      </td>
+    </tr>
+  );
+}
+
+// Self-join "needs you" row (Living Roster P2). People who joined via the
+// couple's invite link but whose name didn't match the list arrive as real
+// guest rows tagged `entry_source='self_added_unlisted'`; page.tsx threads their
+// ids in so the roster surfaces them INLINE (blush-tinted) with the three
+// reconcile choices, instead of a couple having to visit /guests/claims. Keep /
+// Remove call the SAME claim actions the deep page uses (so the semantics — and
+// what clears the "needs you" state — stay identical); Link (a merge into an
+// existing guest, which needs a target picker) deep-links to that page.
+function SelfJoinDesktopRow({
+  guest,
+  eventId,
+  displayUrl,
+}: {
+  guest: GuestRow;
+  eventId: string;
+  displayUrl?: string;
+}) {
+  const name = guestDisplayName(guest);
+  return (
+    <tr className="border-t border-danger-200/60 bg-danger-50/50">
+      <td className="px-3 py-3" />
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-3">
+          {displayUrl ? (
+            <span className="inline-flex h-9 w-9 shrink-0 overflow-hidden rounded-full ring-1 ring-danger-200">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={displayUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
+            </span>
+          ) : (
+            <span
+              aria-hidden
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-danger-100 text-xs font-semibold text-danger-900"
+            >
+              {guestInitials(guest)}
+            </span>
+          )}
+          <div className="min-w-0">
+            <p className="truncate font-medium text-ink">{name}</p>
+            <p className="truncate text-xs font-medium text-danger-700">
+              joined via your link · not on your list
+            </p>
+            <p className="truncate text-[11px] text-ink/45">
+              Already has their QR &amp; personal page — Keep to add them, Remove to revoke
+            </p>
+          </div>
+        </div>
+      </td>
+      <td colSpan={6} className="px-3 py-3">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <form action={keepGuestAction.bind(null, eventId)} className="inline-flex">
+            <input type="hidden" name="guest_id" value={guest.guest_id} />
+            <SubmitButton
+              overlay={false}
+              pendingLabel="Keeping…"
+              className="inline-flex h-8 items-center rounded-md bg-terracotta px-3 text-xs font-medium text-cream hover:bg-terracotta-700"
+            >
+              Keep
+            </SubmitButton>
+          </form>
+          <Link
+            href={`/dashboard/${eventId}/guests/claims`}
+            className="inline-flex h-8 items-center rounded-md border border-ink/15 px-3 text-xs font-medium text-ink/70 hover:border-ink/30"
+          >
+            Link to invite
+          </Link>
+          <form action={removeGuestAction.bind(null, eventId)} className="inline-flex">
+            <input type="hidden" name="guest_id" value={guest.guest_id} />
+            <SubmitButton
+              overlay={false}
+              pendingLabel="Removing…"
+              className="inline-flex h-8 items-center rounded-md border border-danger-300/70 px-3 text-xs font-medium text-danger-700 hover:border-danger-400 hover:bg-danger-100"
+            >
+              Remove
+            </SubmitButton>
+          </form>
+        </div>
       </td>
     </tr>
   );
@@ -393,6 +564,15 @@ type Props = {
   groups: GuestGroupWithCount[];
   groupMemberships: Record<string, string[]>; // guest_id → group_id[]
   currentGroupId: string | null;
+  // Self-join reconcile queue (Living Roster P2): guest_ids of unlisted joiners
+  // (entry_source='self_added_unlisted'), fetched into page.tsx. Rendered as the
+  // blush "needs you" row inline in the roster (Keep / Link / Remove).
+  selfJoinIds: string[];
+  // Reactive seat column (Living Roster P3), keyed by guest_id: `placed` = the
+  // guest's live assignment's table label (null when unseated); `suggested` = the
+  // pure per-row seat-suggest hint (null when seated/declined/no tables).
+  // Computed server-side in page.tsx over the same filtered `visible` set.
+  seatByGuest: Record<string, { placed: string | null; suggested: string | null }>;
   // guest.photo_url (the stored r2:// ref or raw Google avatar URL) →
   // resolved display URL, signed server-side in page.tsx. Cards look their
   // photo up here; a miss falls back to side-tinted initials.
@@ -421,20 +601,52 @@ export function GuestListMultiselect({
   groups,
   groupMemberships,
   currentGroupId,
+  selfJoinIds,
+  seatByGuest,
   photoDisplayUrls,
   groupMode,
   roleSetKey,
   recentlyDeleted,
   recentlyApplied,
 }: Props) {
-  // Per-event-type bulk-assign sections (iteration 0053 P4 Unit 5).
+  // Per-event-type bulk-assign sections (iteration 0053 P4 Unit 5). Reused as
+  // the role-editor popover's option groups (P2).
   const bulkRoleSections = bulkRoleSectionsFor(roleSetKey);
+  // Which visible rows are unlisted self-joiners → render the blush needs-you
+  // variant instead of the normal editable row.
+  const selfJoinSet = useMemo(() => new Set(selfJoinIds), [selfJoinIds]);
   // Selection lives in the shared external store so the mobile carousel's
   // Customize panel (a sibling component) shows the live count / select-all
   // and the desktop SelectionBar stay in lockstep (owner directive
   // 2026-06-03). `selectMode` only gates the MOBILE card checkbox; the
   // desktop grid keeps its always-interactive checkbox overlay.
   const { selectMode, ids: selectedIds, set: selectedSet } = useGuestSelection();
+
+  // Mobile density (Living Roster P4) — the carousel's grid/list toggle writes
+  // `?density=list`; the phone roster reads it HERE so the control surface and
+  // the rows stay one URL-driven state (no second encoder — same param the
+  // desktop facet bar's buildHref merges). Default = the photo-card grid.
+  const searchParams = useSearchParams();
+  const mobileDensity = searchParams.get('density') === 'list' ? 'list' : 'grid';
+
+  // Optimistic overlay (Living Roster P1): a soft-delete hides its rows
+  // instantly, before the server round-trip, and an undo restores them. The
+  // overlay lives in its own module store (like `guestSelection`) so the delete
+  // button, the rows, and this reconcile all share it.
+  const optimistic = useGuestOptimistic();
+  // Reconcile-by-id every time a fresh server list arrives: once the soft-delete
+  // has propagated (the guest is gone from `guests`), prune it from the overlay.
+  // Idempotent, so it never flips a row twice.
+  useEffect(() => {
+    guestOptimistic.reconcile(guests);
+  }, [guests]);
+  // Project the SSR list through the overlay — everything below renders from
+  // `rosterGuests`, so optimistically-removed guests vanish immediately.
+  const rosterGuests = useMemo(
+    () => projectGuests(guests, optimistic),
+    [guests, optimistic],
+  );
+
   const [showNewGroupForm, setShowNewGroupForm] = useState(false);
   // Collapsed section keys (redesign Phase 1) — client-only, resets on reload.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -446,7 +658,14 @@ export function GuestListMultiselect({
       return next;
     });
 
-  const allIds = useMemo(() => guests.map((g) => g.guest_id), [guests]);
+  // Exclude self-join (needs-you) rows: they render WITHOUT a checkbox and are
+  // managed only via their inline Keep/Link/Remove, so they must never be swept
+  // into select-all or the SelectionBar bulk actions — and keeping them out lets
+  // allSelected/someSelected be reached by clicking the visible checkboxes.
+  const allIds = useMemo(
+    () => rosterGuests.map((g) => g.guest_id).filter((id) => !selfJoinSet.has(id)),
+    [rosterGuests, selfJoinSet],
+  );
   const allSelected =
     selectedIds.length > 0 && selectedIds.length === allIds.length;
   const someSelected = selectedIds.length > 0 && !allSelected;
@@ -497,7 +716,7 @@ export function GuestListMultiselect({
     if (groupMode === 'group') {
       // Each guest's first custom group (alphabetical) → section key + label.
       groupKey = new Map();
-      for (const g of guests) {
+      for (const g of rosterGuests) {
         let best: { key: string; label: string } | null = null;
         for (const id of groupMemberships[g.guest_id] ?? []) {
           const grp = groupsById[id];
@@ -508,8 +727,8 @@ export function GuestListMultiselect({
         if (best) groupKey.set(g.guest_id, best);
       }
     }
-    return buildSections(guests, groupMode, groupKey);
-  }, [guests, groupMode, groupMemberships, groupsById]);
+    return buildSections(rosterGuests, groupMode, groupKey);
+  }, [rosterGuests, groupMode, groupMemberships, groupsById]);
 
   return (
     <div className="space-y-4">
@@ -541,11 +760,23 @@ export function GuestListMultiselect({
       {/* Desktop · row/table. Photo thumbnail in the Name cell; when grouped
           (the importance sort · default) a tier header row precedes each tier's
           rows, else a flat table. The thead checkbox is select-all. */}
-      <div className="hidden overflow-hidden rounded-xl border border-ink/10 sm:block">
+      {/* Glass roster panel (Glass PR-3 §1.6) — ONE blurred wrapper; the <tr>
+          rows stay opaque (hairline dividers, translucent hover/selected tints)
+          so hundreds of rows never each carry a blur layer. */}
+      <div
+        className="hidden overflow-hidden rounded-tile border sm:block"
+        style={{
+          background: 'var(--sn-glass-bg)',
+          borderColor: 'var(--sn-glass-line)',
+          backdropFilter: 'var(--sn-glass-blur)',
+          WebkitBackdropFilter: 'var(--sn-glass-blur)',
+          boxShadow: 'var(--sn-sh-tile)',
+        }}
+      >
         <table className="w-full table-fixed text-left text-sm">
-          <thead className="bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
+          <thead className="border-b border-ink/[0.07] font-mono text-[11px] uppercase tracking-[0.12em] text-ink/55">
             <tr>
-              <th className="w-10 px-3 py-3">
+              <th className="w-10 px-3 py-2.5">
                 <label className="flex items-center justify-center">
                   <input
                     type="checkbox"
@@ -561,12 +792,13 @@ export function GuestListMultiselect({
                   />
                 </label>
               </th>
-              <th className="px-4 py-3 font-medium">Name</th>
-              <th className="w-[10%] px-3 py-3 font-medium">Side</th>
-              <th className="w-[18%] px-3 py-3 font-medium">Role</th>
-              <th className="w-[16%] px-3 py-3 font-medium">Groups</th>
-              <th className="w-[12%] px-3 py-3 font-medium">RSVP</th>
-              <th className="w-[14%] px-3 py-3 font-medium">Contact</th>
+              <th className="px-4 py-2.5 font-medium">Name</th>
+              <th className="w-[10%] px-3 py-2.5 font-medium">Side</th>
+              <th className="w-[18%] px-3 py-2.5 font-medium">Role</th>
+              <th className="w-[14%] px-3 py-2.5 font-medium">Groups</th>
+              <th className="w-[11%] px-3 py-2.5 font-medium">RSVP</th>
+              <th className="w-[12%] px-3 py-2.5 font-medium">Seat</th>
+              <th className="w-[13%] px-3 py-2.5 font-medium">Contact</th>
             </tr>
           </thead>
           <tbody>
@@ -575,7 +807,7 @@ export function GuestListMultiselect({
                 {sec.label ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className="border-t border-ink/10 bg-ink/[0.02] px-4 pb-1.5 pt-4"
                     >
                       <TierHeader label={sec.label} count={sec.guests.length} collapsed={collapsed.has(sec.key)} onToggle={() => toggleSection(sec.key)} />
@@ -583,27 +815,44 @@ export function GuestListMultiselect({
                   </tr>
                 ) : null}
                 {(!sec.label || !collapsed.has(sec.key)) &&
-                  sec.guests.map((guest) => (
-                  <DesktopRow
-                    key={guest.guest_id}
-                    guest={guest}
-                    eventId={eventId}
-                    palette={palette}
-                    displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
-                    selected={selectedSet.has(guest.guest_id)}
-                    onToggle={() => guestSelection.toggle(guest.guest_id)}
-                    groupIds={groupMemberships[guest.guest_id] ?? []}
-                    groupsById={groupsById}
-                    currentGroupId={currentGroupId}
-                  />
-                ))}
+                  sec.guests.map((guest) =>
+                    selfJoinSet.has(guest.guest_id) ? (
+                      <SelfJoinDesktopRow
+                        key={guest.guest_id}
+                        guest={guest}
+                        eventId={eventId}
+                        displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
+                      />
+                    ) : (
+                      <DesktopRow
+                        key={guest.guest_id}
+                        guest={guest}
+                        eventId={eventId}
+                        palette={palette}
+                        displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
+                        selected={selectedSet.has(guest.guest_id)}
+                        onToggle={() => guestSelection.toggle(guest.guest_id)}
+                        groupIds={groupMemberships[guest.guest_id] ?? []}
+                        groups={groups}
+                        groupsById={groupsById}
+                        currentGroupId={currentGroupId}
+                        bulkRoleSections={bulkRoleSections}
+                        seat={seatByGuest[guest.guest_id]}
+                      />
+                    ),
+                  )}
               </Fragment>
             ))}
           </tbody>
         </table>
       </div>
 
-      {/* Mobile · sectioned grids; checkbox only in select mode; swipe kept. */}
+      {/* Mobile · sectioned grids; checkbox only in select mode; swipe kept.
+          Living Roster P4 (parity with the desktop rows): self-joiners render the
+          blush "needs you" card (full width, Keep / Link / Remove), every card
+          carries the reactive SeatChip + one-tap RSVP cycle, and the carousel's
+          density toggle (`?density=list`) swaps the photo grid for a compact
+          list. */}
       <div className="space-y-5 sm:hidden">
         {sections.map((sec) => (
           <section key={sec.key}>
@@ -611,23 +860,61 @@ export function GuestListMultiselect({
               <TierHeader label={sec.label} count={sec.guests.length} collapsed={collapsed.has(sec.key)} onToggle={() => toggleSection(sec.key)} />
             ) : null}
             {!sec.label || !collapsed.has(sec.key) ? (
-            <ul className={`grid gap-2 ${sec.mobileCols}`}>
-              {sec.guests.map((guest) => (
-                <MobileGridItem
-                  key={guest.guest_id}
-                  guest={guest}
-                  eventId={eventId}
-                  palette={palette}
-                  displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
-                  selectMode={selectMode}
-                  selected={selectedSet.has(guest.guest_id)}
-                  onToggle={() => guestSelection.toggle(guest.guest_id)}
-                  groupIds={groupMemberships[guest.guest_id] ?? []}
-                  groupsById={groupsById}
-                  currentGroupId={currentGroupId}
-                />
-              ))}
-            </ul>
+              mobileDensity === 'list' ? (
+                <ul className="flex list-none flex-col gap-2">
+                  {sec.guests.map((guest) =>
+                    selfJoinSet.has(guest.guest_id) ? (
+                      <li key={guest.guest_id} className="list-none">
+                        <MobileSelfJoinCard
+                          guest={guest}
+                          eventId={eventId}
+                          displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
+                        />
+                      </li>
+                    ) : (
+                      <MobileListRow
+                        key={guest.guest_id}
+                        guest={guest}
+                        eventId={eventId}
+                        displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
+                        selectMode={selectMode}
+                        selected={selectedSet.has(guest.guest_id)}
+                        onToggle={() => guestSelection.toggle(guest.guest_id)}
+                        seat={seatByGuest[guest.guest_id]}
+                      />
+                    ),
+                  )}
+                </ul>
+              ) : (
+                <ul className={`grid gap-2 ${sec.mobileCols}`}>
+                  {sec.guests.map((guest) =>
+                    selfJoinSet.has(guest.guest_id) ? (
+                      <li key={guest.guest_id} className="col-span-full list-none">
+                        <MobileSelfJoinCard
+                          guest={guest}
+                          eventId={eventId}
+                          displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
+                        />
+                      </li>
+                    ) : (
+                      <MobileGridItem
+                        key={guest.guest_id}
+                        guest={guest}
+                        eventId={eventId}
+                        palette={palette}
+                        displayUrl={photoDisplayUrls[guest.photo_url ?? '']}
+                        selectMode={selectMode}
+                        selected={selectedSet.has(guest.guest_id)}
+                        onToggle={() => guestSelection.toggle(guest.guest_id)}
+                        groupIds={groupMemberships[guest.guest_id] ?? []}
+                        groupsById={groupsById}
+                        currentGroupId={currentGroupId}
+                        seat={seatByGuest[guest.guest_id]}
+                      />
+                    ),
+                  )}
+                </ul>
+              )
             ) : null}
           </section>
         ))}
@@ -694,12 +981,13 @@ function SelectionBar({
           bulkRoleSections={bulkRoleSections}
         />
 
-        {/* Delete affordance · owner directive 2026-05-23. Separate
-         *  form (different server action) but inline with the apply
-         *  toolbar via the parent flex container. Confirm dialog is
-         *  intentional — soft-delete is reversible only via direct DB
-         *  write, not by host UI. */}
-        <BulkDeleteForm
+        {/* Delete affordance · owner directive 2026-05-23. Living Roster P1
+         *  (2026-07-11): the blocking confirm dialog is replaced by an
+         *  OPTIMISTIC remove + 6s undo snackbar — the rows vanish instantly and
+         *  a soft-delete is now reversible from the host UI (undo restores the
+         *  guests AND the seats the delete released). Same server gates
+         *  (couple-protected, RSVP-set-blocked) enforced server-side. */}
+        <OptimisticDeleteButton
           eventId={eventId}
           selectedIds={selectedIds}
           count={count}
@@ -717,7 +1005,13 @@ function SelectionBar({
   );
 }
 
-function BulkDeleteForm({
+// Optimistic bulk-delete (Living Roster P1). Hides the selected rows via the
+// optimistic overlay, clears the selection (so the SelectionBar retracts), then
+// calls the return-based `bulkSoftDeleteGuestsForUndo`. On success it drops a 6s
+// undo snackbar whose Undo restores the guests + their released seats; on a
+// server-side gate rejection (couple/RSVP) it rolls the overlay back and toasts
+// the reason. No confirm dialog — undo is the safety net.
+function OptimisticDeleteButton({
   eventId,
   selectedIds,
   count,
@@ -726,39 +1020,68 @@ function BulkDeleteForm({
   selectedIds: string[];
   count: number;
 }) {
-  // Confirm prompt mentions the seat-release + RSVP-gate behavior so
-  // the host knows what's about to happen. The server still enforces
-  // both — this is informational, not authoritative.
-  const confirmMessage = `Remove ${count} guest${count === 1 ? '' : 's'} from this event? Their seat assignments (if any) will open up. Guests who have already RSVP'd will be skipped — reset their RSVP to Pending first if you want to remove them.`;
+  const toast = useToast();
+  const [deleting, setDeleting] = useState(false);
 
-  // In-app `<ConfirmForm>` (upgraded 2026-05-30) replaces the prior
-  // `<form onSubmit={confirm()}>` pattern · no UI block, brand-voice copy.
-  // Parent SelectionBar still wraps this in `flex flex-wrap items-center
-  // gap-3` so the Delete button sits inline with the Apply toolbar (owner
-  // directive 2026-05-23 — "delete button is not aligned").
+  async function handleDelete() {
+    if (deleting) return;
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    const mutation = { kind: 'remove' as const, guestIds: ids };
+
+    setDeleting(true);
+    guestOptimistic.apply(mutation); // hide rows now
+    guestSelection.clear(); // retract the bar (the acted-on guests are gone)
+
+    let result;
+    try {
+      result = await bulkSoftDeleteGuestsForUndo(eventId, ids);
+    } catch {
+      guestOptimistic.clear(mutation); // rollback the hide
+      setDeleting(false);
+      toast.error('Could not remove — check your connection and try again.');
+      return;
+    }
+    setDeleting(false);
+
+    if (!result.ok) {
+      guestOptimistic.clear(mutation); // rollback — server refused (gate)
+      toast.error(result.error);
+      return;
+    }
+
+    // buildUndo carries the released seats through, so restore re-places them.
+    const plan = buildUndo(
+      { kind: 'remove', guestIds: result.removedIds },
+      [],
+      result.releasedSeats,
+    );
+    const n = result.removedIds.length;
+    pushUndo({
+      label: `${n} guest${n === 1 ? '' : 's'} removed`,
+      undo: async () => {
+        if (plan.kind !== 'restore') return;
+        const r = await restoreDeletedGuests(eventId, plan.guestIds, plan.seats);
+        if (r.ok) {
+          guestOptimistic.clear(mutation); // un-hide the restored rows
+        } else {
+          toast.error('Could not undo — refresh and try again.');
+        }
+      },
+    });
+  }
+
   return (
-    <ConfirmForm
-      action={bulkSoftDeleteGuests.bind(null, eventId)}
-      title="Remove selected guests?"
-      message={confirmMessage}
-      confirmLabel={`Delete ${count}`}
-      destructive
+    <button
+      type="button"
+      onClick={handleDelete}
+      disabled={deleting}
+      aria-label={`Remove ${count} selected guest${count === 1 ? '' : 's'}`}
+      className="inline-flex h-8 items-center gap-1.5 rounded-md border border-danger-300/60 bg-danger-50 px-3 text-xs font-medium text-danger-700 hover:border-danger-400 hover:bg-danger-100 disabled:opacity-60"
     >
-      {selectedIds.map((id) => (
-        <input key={id} type="hidden" name="guest_ids[]" value={id} />
-      ))}
-      {/* SubmitButton (shared useFormStatus button) so the host gets a clear
-          "Removing…" + spinner + disabled state while the delete is in flight,
-          instead of a button that looks idle until the redirect lands. */}
-      <SubmitButton
-        pendingLabel="Removing…"
-        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-danger-300/60 bg-danger-50 px-3 text-xs font-medium text-danger-700 hover:border-danger-400 hover:bg-danger-100"
-        aria-label={`Remove ${count} selected guest${count === 1 ? '' : 's'}`}
-      >
-        <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Delete {count}
-      </SubmitButton>
-    </ConfirmForm>
+      <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+      {deleting ? 'Removing…' : `Delete ${count}`}
+    </button>
   );
 }
 
@@ -1017,11 +1340,8 @@ function NewGroupInlineForm({
 // interactive element is ever nested inside the <Link> anchor.
 // -----------------------------------------------------------------------
 
-const SIDE_RING: Record<GuestSide, string> = {
-  bride: 'border-danger-200',
-  groom: 'border-sky-200',
-  both: 'border-warn-200',
-};
+// Card-frame side ring — canonical map (lib/side-colors.ts). bride gold ·
+// groom info-slate · both lighter gold.
 
 function GuestCard({
   guest,
@@ -1034,6 +1354,7 @@ function GuestCard({
   groupIds,
   groupsById,
   currentGroupId,
+  seat,
 }: {
   guest: GuestRow;
   eventId: string;
@@ -1045,6 +1366,9 @@ function GuestCard({
   groupIds: string[];
   groupsById: Record<string, GuestGroupWithCount>;
   currentGroupId: string | null;
+  // Reactive seat (Living Roster P4 · mobile parity) — same placed/suggested
+  // contract the desktop row gets. Undefined when no seat data reached this card.
+  seat?: { placed: string | null; suggested: string | null };
 }) {
   return (
     <div
@@ -1102,9 +1426,25 @@ function GuestCard({
               </p>
             ) : null}
           </div>
-          <div className="flex flex-wrap items-center gap-1">
+          {/* Role stays read-only here; RSVP is a one-tap cycle (P4) and the
+              seat chip mirrors the desktop row. pointer-events-auto so the RSVP
+              button sits above the card's stretched detail link. */}
+          <div className="pointer-events-auto flex flex-wrap items-center gap-1">
             <RoleChips guest={guest} palette={palette} />
-            <RsvpPill status={guest.rsvp_status} />
+            <RsvpChipEditor
+              eventId={eventId}
+              guest={guest}
+              mobileCycle
+              seatedTableLabel={seat?.placed ?? null}
+            >
+              <RsvpPill status={guest.rsvp_status} />
+            </RsvpChipEditor>
+            <SeatChip
+              placed={seat?.placed ?? null}
+              suggested={seat?.suggested ?? null}
+              rsvp={guest.rsvp_status}
+              hasPlusOne={guest.plus_one_allowed}
+            />
           </div>
           {/* GroupChipList can render a remove-from-group <form>; give it back
               pointer events so that button works above the stretched link. */}
@@ -1138,6 +1478,7 @@ function MobileGridItem({
   groupIds,
   groupsById,
   currentGroupId,
+  seat,
 }: {
   guest: GuestRow;
   eventId: string;
@@ -1149,6 +1490,7 @@ function MobileGridItem({
   groupIds: string[];
   groupsById: Record<string, GuestGroupWithCount>;
   currentGroupId: string | null;
+  seat?: { placed: string | null; suggested: string | null };
 }) {
   const card = (
     <GuestCard
@@ -1162,6 +1504,7 @@ function MobileGridItem({
       groupIds={groupIds}
       groupsById={groupsById}
       currentGroupId={currentGroupId}
+      seat={seat}
     />
   );
 
@@ -1186,6 +1529,158 @@ function MobileGridItem({
         card
       )}
     </li>
+  );
+}
+
+// MobileListRow — the compact (density='list') phone row: a small side-tinted
+// avatar (or photo) + name + plus-one sub, with the one-tap RSVP cycle and the
+// reactive seat chip on the right (Living Roster P4 · mobile parity). A stretched
+// Link covers the row for tap-to-detail; the checkbox + the RSVP button re-enable
+// their own pointer events above it, exactly like GuestCard.
+function MobileListRow({
+  guest,
+  eventId,
+  displayUrl,
+  selectMode,
+  selected,
+  onToggle,
+  seat,
+}: {
+  guest: GuestRow;
+  eventId: string;
+  displayUrl?: string;
+  selectMode: boolean;
+  selected: boolean;
+  onToggle: () => void;
+  seat?: { placed: string | null; suggested: string | null };
+}) {
+  return (
+    <li className="list-none">
+      <div
+        className={`group relative flex items-center gap-3 overflow-hidden rounded-xl border bg-cream px-3 py-2.5 ${
+          selected ? 'border-terracotta ring-2 ring-terracotta/40' : SIDE_RING[guest.side]
+        }`}
+      >
+        {/* Stretched detail link (z-0); content sits above it (z-10) and the
+            interactive bits re-enable pointer events (z-20). */}
+        <Link
+          href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
+          aria-label={guestDisplayName(guest)}
+          className="absolute inset-0 z-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
+        />
+        {selectMode ? (
+          <label
+            onClick={(e) => e.stopPropagation()}
+            className="relative z-20 inline-flex shrink-0 cursor-pointer items-center"
+          >
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={onToggle}
+              aria-label={`Select ${guestDisplayName(guest)}`}
+              className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+            />
+          </label>
+        ) : (
+          <span className="pointer-events-none relative z-10">
+            <RowAvatar guest={guest} displayUrl={displayUrl} />
+          </span>
+        )}
+        <div className="pointer-events-none relative z-10 min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-ink">{guestDisplayName(guest)}</p>
+          {guest.plus_one_allowed ? (
+            <p className="truncate text-xs text-ink/55">+ {guest.plus_one_name ?? 'TBA'}</p>
+          ) : null}
+        </div>
+        <div className="pointer-events-auto relative z-10 flex shrink-0 items-center gap-1.5">
+          <RsvpChipEditor
+            eventId={eventId}
+            guest={guest}
+            mobileCycle
+            seatedTableLabel={seat?.placed ?? null}
+          >
+            <RsvpPill status={guest.rsvp_status} />
+          </RsvpChipEditor>
+          <SeatChip
+            placed={seat?.placed ?? null}
+            suggested={seat?.suggested ?? null}
+            rsvp={guest.rsvp_status}
+            hasPlusOne={guest.plus_one_allowed}
+          />
+        </div>
+      </div>
+    </li>
+  );
+}
+
+// MobileSelfJoinCard — the mobile twin of SelfJoinDesktopRow (Living Roster P4).
+// A blush "needs you" card for an unlisted joiner surfaced inline in the roster:
+// Keep / Link / Remove call the SAME claim actions the desktop row + the
+// /guests/claims deep page use, so the semantics (and what clears the "needs you"
+// state) stay identical.
+function MobileSelfJoinCard({
+  guest,
+  eventId,
+  displayUrl,
+}: {
+  guest: GuestRow;
+  eventId: string;
+  displayUrl?: string;
+}) {
+  const name = guestDisplayName(guest);
+  return (
+    <div className="overflow-hidden rounded-xl border border-danger-200/70 bg-danger-50/60">
+      <div className="flex items-center gap-3 p-3">
+        {displayUrl ? (
+          <span className="inline-flex h-10 w-10 shrink-0 overflow-hidden rounded-full ring-1 ring-danger-200">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={displayUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
+          </span>
+        ) : (
+          <span
+            aria-hidden
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-danger-100 text-xs font-semibold text-danger-900"
+          >
+            {guestInitials(guest)}
+          </span>
+        )}
+        <div className="min-w-0">
+          <p className="truncate font-medium text-ink">{name}</p>
+          <p className="truncate text-xs font-medium text-danger-700">joined via your link</p>
+        </div>
+      </div>
+      <p className="px-3 pb-2 text-[11px] text-ink/55">
+        Already has their QR &amp; page — Keep to add them, Remove to revoke.
+      </p>
+      <div className="flex items-center gap-2 px-3 pb-3">
+        <form action={keepGuestAction.bind(null, eventId)} className="flex-1">
+          <input type="hidden" name="guest_id" value={guest.guest_id} />
+          <SubmitButton
+            overlay={false}
+            pendingLabel="Keeping…"
+            className="inline-flex h-9 w-full items-center justify-center rounded-md bg-terracotta px-3 text-xs font-medium text-cream hover:bg-terracotta-700"
+          >
+            Keep
+          </SubmitButton>
+        </form>
+        <Link
+          href={`/dashboard/${eventId}/guests/claims`}
+          className="inline-flex h-9 flex-1 items-center justify-center rounded-md border border-ink/15 px-3 text-xs font-medium text-ink/70 hover:border-ink/30"
+        >
+          Link
+        </Link>
+        <form action={removeGuestAction.bind(null, eventId)} className="flex-1">
+          <input type="hidden" name="guest_id" value={guest.guest_id} />
+          <SubmitButton
+            overlay={false}
+            pendingLabel="Removing…"
+            className="inline-flex h-9 w-full items-center justify-center rounded-md border border-danger-300/70 px-3 text-xs font-medium text-danger-700 hover:border-danger-400 hover:bg-danger-100"
+          >
+            Remove
+          </SubmitButton>
+        </form>
+      </div>
+    </div>
   );
 }
 
@@ -1391,15 +1886,10 @@ function GuestPhoto({
       />
     );
   }
-  const sideTint: Record<GuestSide, string> = {
-    bride: 'bg-danger-100 text-danger-900',
-    groom: 'bg-sky-100 text-sky-900',
-    both: 'bg-warn-100 text-warn-900',
-  };
   return (
     <div
       aria-hidden
-      className={`flex h-full w-full items-center justify-center ${sideTint[guest.side]}`}
+      className={`flex h-full w-full items-center justify-center ${SIDE_TINT_FILL[guest.side]}`}
     >
       <span className="text-3xl font-semibold tracking-tight">
         {guestInitials(guest)}
@@ -1409,18 +1899,14 @@ function GuestPhoto({
 }
 
 // Side pill — bride/groom/both attribution shown as a tinted chip in the
-// card's top-right corner. Same side-tint language (rose for bride · sky for
-// groom · amber for both) as the card ring + the initials fallback, so the
-// cue stays consistent across the card.
+// card's top-right corner. Same side-colour language (canonical SIDE_CHIP in
+// lib/side-colors: gold for bride · info-slate for groom · lighter gold for
+// both) as the card ring + the initials fallback, so the cue stays consistent
+// across the card.
 function SidePill({ side }: { side: GuestRow['side'] }) {
-  const tone: Record<GuestRow['side'], string> = {
-    bride: 'bg-danger-100 text-danger-900 ring-1 ring-danger-200',
-    groom: 'bg-sky-100 text-sky-900 ring-1 ring-sky-200',
-    both: 'bg-warn-100 text-warn-900 ring-1 ring-warn-200',
-  };
   return (
     <span
-      className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${tone[side]}`}
+      className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${SIDE_CHIP[side]}`}
     >
       {SIDE_LABELS[side]}
     </span>
@@ -1428,11 +1914,13 @@ function SidePill({ side }: { side: GuestRow['side'] }) {
 }
 
 function RsvpPill({ status }: { status: RsvpStatus }) {
+  // Warm RSVP semantics (Glass PR-3, per the roster proto): attending → success,
+  // maybe → warning, pending → neutral ink, declined → danger.
   const tone: Record<RsvpStatus, string> = {
     attending: 'bg-success-100 text-success-800',
-    pending: 'bg-warn-100 text-warn-800',
+    maybe: 'bg-warn-100 text-warn-800',
+    pending: 'bg-ink/10 text-ink/70',
     declined: 'bg-danger-100 text-danger-800',
-    maybe: 'bg-ink/10 text-ink/70',
   };
   return (
     <span
@@ -1445,7 +1933,14 @@ function RsvpPill({ status }: { status: RsvpStatus }) {
 
 function RoleChip({ role, palette }: { role: GuestRole; palette: RolePalette }) {
   const group = roleGroupOf(role);
-  const accent = getPrimaryColor(palette, group);
+  // Taxonomy v2: resolve the accent dot the SAME way the 3D scene resolves
+  // attire — the guest's SPECIFIC palette key first (e.g. `bridesmaids`), then
+  // the coarse group's shared fallback (`wedding_party`). `roleGroupOf` alone
+  // returns only the group key, so a couple who filled a split sub-key but left
+  // `wedding_party` empty would otherwise see no dot even though the avatar is
+  // painted that color. Specific-key-first also gives bride/groom chips their
+  // own attire dot (the `couple` group has no aggregate primary).
+  const accent = getPrimaryColor(palette, paletteKeyForRole(role)) ?? getPrimaryColor(palette, group);
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${ROLE_GROUP_CHIP[group]}`}

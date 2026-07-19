@@ -53,5 +53,26 @@ export function eventTypePhotoSrc(t: Pick<EventTypeRow, 'key' | 'heroPhotoUrl'>)
   return t.heroPhotoUrl ?? `/event-types/${t.key}.webp`;
 }
 
-/** Last-resort hero when neither an upload nor a repo asset exists. */
+/** Last-resort hero when neither an upload nor a repo asset exists.
+ *  @deprecated Pickers now render a branded placeholder tile
+ *  (eventTypePlaceholderGradient) instead of standing in a wrong photo. Kept
+ *  exported for back-compat with any external importer. */
 export const EVENT_TYPE_PHOTO_FALLBACK = '/event-types/wedding.webp';
+
+/**
+ * Deterministic, on-brand gradient for an event type that has NO hero photo yet
+ * (a newly-enabled or admin-created type with no repo asset and no upload). The
+ * pickers render this behind the type emoji instead of falling back to
+ * wedding.webp — so the roster never shows the same photo twice, and every
+ * future admin type looks intentional the moment it is created.
+ *
+ * The hue is hashed from the key so each type gets a distinct but always dark,
+ * warm-muted tile that keeps the white serif label legible and sits cohesively
+ * next to the real feel-photos.
+ */
+export function eventTypePlaceholderGradient(key: string): string {
+  let h = 0;
+  for (let i = 0; i < key.length; i += 1) h = (h * 31 + key.charCodeAt(i)) % 360;
+  const h2 = (h + 26) % 360;
+  return `linear-gradient(155deg, hsl(${h} 32% 34%) 0%, hsl(${h2} 30% 23%) 48%, #1B1A17 100%)`;
+}

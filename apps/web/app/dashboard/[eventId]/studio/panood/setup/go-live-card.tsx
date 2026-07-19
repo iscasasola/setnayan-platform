@@ -13,7 +13,9 @@ import {
   Square,
 } from 'lucide-react';
 import { CopyButton } from '@/app/_components/copy-button';
+import { ProgressRing } from '@/app/_components/progress-ring';
 import { goLivePanood, endPanoodBroadcast } from './actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 /**
  * Panood Phase 1 — one-tap "Go live" + the OBS connection card.
@@ -59,11 +61,32 @@ export function GoLiveCard({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [showKey, setShowKey] = useState(false);
+  const save = useSaveLoader();
+
+  // Broadcast-readiness donut ("Energy, not skin" reskin 2026-07-09). A dense,
+  // legible read of the go-live status this card ALREADY derives from its
+  // props — the three prerequisites (owns Panood · YouTube app review cleared ·
+  // channel connected), or a full "Live" ring once a broadcast is active. No
+  // new data: pure re-expression of state already in scope. Presentation only.
+  const prerequisites = [ownsPanood, oauthReady, connected];
+  const readyCount = prerequisites.filter(Boolean).length;
+  const isLive = Boolean(active);
+  const readinessPct = isLive
+    ? 100
+    : Math.round((readyCount / prerequisites.length) * 100);
+  const readinessCaption = isLive
+    ? 'On air'
+    : readyCount === prerequisites.length
+      ? 'Ready'
+      : `${readyCount} of ${prerequisites.length} set`;
 
   function handleGoLive() {
     setError(null);
     startTransition(async () => {
-      const result = await goLivePanood(eventId);
+      const result = await save.run(() => goLivePanood(eventId), {
+        steps: ['Going live'],
+        hint: 'Please wait',
+      });
       if ('error' in result) setError(result.error);
       // On success the action revalidates the path → the page re-renders with
       // the active broadcast + OBS card. No client navigation needed.
@@ -73,7 +96,10 @@ export function GoLiveCard({
   function handleEnd() {
     setError(null);
     startTransition(async () => {
-      const result = await endPanoodBroadcast(eventId);
+      const result = await save.run(() => endPanoodBroadcast(eventId), {
+        steps: ['Ending the broadcast'],
+        hint: 'Please wait',
+      });
       if ('error' in result) setError(result.error);
     });
   }
@@ -83,23 +109,49 @@ export function GoLiveCard({
       aria-labelledby="go-live-heading"
       className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6"
     >
-      <div className="space-y-1">
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-          Step 1b · go live in one tap
-        </p>
-        <h2
-          id="go-live-heading"
-          className="flex items-center gap-2 text-xl font-semibold tracking-tight"
-        >
-          <Radio aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-          {active ? 'Your broadcast is ready' : 'Go live'}
-        </h2>
-        <p className="max-w-prose text-sm text-ink/65">
-          One tap creates the live broadcast on <em>your</em> YouTube channel and
-          puts the watch player on your event page. You then stream into it from
-          OBS on a laptop (server + key below) or straight from the YouTube app —
-          Setnayan never touches your video, it just sets everything up for you.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+            Step 1b · go live in one tap
+          </p>
+          <h2
+            id="go-live-heading"
+            className="m-serif flex items-center gap-2 text-2xl tracking-tight text-ink"
+          >
+            <Radio aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
+            {active ? 'Your broadcast is ready' : 'Go live'}
+          </h2>
+          <p className="max-w-prose text-sm text-ink/65">
+            One tap creates the live broadcast on <em>your</em> YouTube channel and
+            puts the watch player on your event page. You then stream into it from
+            OBS on a laptop (server + key below) or straight from the YouTube app —
+            Setnayan never touches your video, it just sets everything up for you.
+          </p>
+        </div>
+
+        {/* Readiness donut — wine ring, dense status read of the props above. */}
+        <div className="flex shrink-0 flex-col items-center gap-1">
+          <ProgressRing pct={readinessPct} size={72} stroke={7}>
+            {isLive ? (
+              <span className="flex flex-col items-center gap-0.5 leading-none">
+                <span
+                  aria-hidden
+                  className="h-1.5 w-1.5 rounded-full bg-mulberry"
+                />
+                <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.1em] text-mulberry">
+                  Live
+                </span>
+              </span>
+            ) : (
+              <span className="text-sm font-semibold text-ink">
+                {readinessPct}%
+              </span>
+            )}
+          </ProgressRing>
+          <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
+            {readinessCaption}
+          </span>
+        </div>
       </div>
 
       {error ? (

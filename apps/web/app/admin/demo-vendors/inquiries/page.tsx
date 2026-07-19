@@ -10,7 +10,9 @@
 import Link from 'next/link';
 import { MessageSquare, ChevronLeft } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { isInquiryRevealed, inquiryPlaceholderLabel, inquiryCityLabel } from '@/lib/inquiry-mask.server';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Demo inquiries · Admin' };
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +20,7 @@ type ThreadRow = {
   thread_id: string;
   event_id: string;
   inquiry_status: 'pending' | 'accepted' | 'declined';
+  accepted_at: string | null;
   updated_at: string;
   vendor: { business_name: string | null } | null;
 };
@@ -43,6 +46,7 @@ function fmt(iso: string | null): string {
 }
 
 export default async function DemoInquiriesPage() {
+  await requireAdmin();
   const admin = createAdminClient();
 
   // Threads whose vendor is a demo vendor. `!inner` + the embedded filter keep
@@ -50,7 +54,7 @@ export default async function DemoInquiriesPage() {
   const { data: threadsRaw } = await admin
     .from('chat_threads')
     .select(
-      'thread_id, event_id, inquiry_status, updated_at, vendor:vendor_profiles!inner(business_name, is_demo)',
+      'thread_id, event_id, inquiry_status, accepted_at, updated_at, vendor:vendor_profiles!inner(business_name, is_demo)',
     )
     .eq('vendor.is_demo', true)
     .order('inquiry_status', { ascending: true })
@@ -58,22 +62,38 @@ export default async function DemoInquiriesPage() {
     .limit(300);
   const threads = (threadsRaw ?? []) as unknown as ThreadRow[];
 
-  // Event labels — display_name + date only (no couple PII).
+  // Anonymization-until-accept (Glass PR-6b): demo surfaces mask the SAME as
+  // production so demos look real. PRE-accept (unrevealed) rows show the neutral
+  // placeholder (event_type + city-level region only); post-accept rows show the
+  // couple's event display_name + date. The team still "accepts" as the vendor
+  // before the identity reveals — exactly the production flow.
   const eventIds = Array.from(new Set(threads.map((t) => t.event_id)));
   const eventLabel = new Map<string, string>();
   if (eventIds.length > 0) {
     const { data: events } = await admin
       .from('events')
-      .select('event_id, display_name, event_date')
+      .select('event_id, display_name, event_date, event_type, region')
       .in('event_id', eventIds);
-    for (const e of (events ?? []) as Array<{
-      event_id: string;
-      display_name: string | null;
-      event_date: string | null;
-    }>) {
+    const eventById = new Map(
+      ((events ?? []) as Array<{
+        event_id: string;
+        display_name: string | null;
+        event_date: string | null;
+        event_type: string | null;
+        region: string | null;
+      }>).map((e) => [e.event_id, e]),
+    );
+    for (const t of threads) {
+      const e = eventById.get(t.event_id);
+      if (!e) continue;
       eventLabel.set(
-        e.event_id,
-        [e.display_name ?? 'Couple', e.event_date ?? null].filter(Boolean).join(' · '),
+        t.event_id,
+        isInquiryRevealed(t)
+          ? [e.display_name ?? 'Couple', e.event_date ?? null].filter(Boolean).join(' · ')
+          : inquiryPlaceholderLabel({
+              eventType: e.event_type,
+              city: inquiryCityLabel(e.region),
+            }),
       );
     }
   }
@@ -109,7 +129,7 @@ export default async function DemoInquiriesPage() {
           Follow, and Message. The inquiry will appear here.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-ink/10 bg-cream">
+        <div className="sn-tile overflow-x-auto !p-0">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-ink/10 bg-ink/5 text-left text-[11px] uppercase tracking-wider text-ink/55">

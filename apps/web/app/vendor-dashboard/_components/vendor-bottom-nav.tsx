@@ -12,10 +12,12 @@
  * with the 5-tab + /more landing pattern. Customer doorway (PR #625)
  * mirrored it.
  *
- * The desktop sidebar (vendor-sidebar.tsx) exposes 4 groups (remapped
- * 2026-06-04 from the original 6): Home · Work (key 'pipeline') · Grow
- * (key 'marketing') · Business (key 'money'). The bottom strip flattens
- * those into 5 tabs (2026-06-21 <=5 reroster — Website demoted to More):
+ * The desktop sidebar (vendor-sidebar.tsx) exposes the 6-menu IA (reorg
+ * 2026-07-01): Overview · My Shop · My Customers · My Performance · My
+ * Services · On the Day (6th landed Phase 7, 2026-07-01). The bottom strip is
+ * route-based —
+ * unaffected by the sidebar regroup — and flattens into 5 tabs
+ * (2026-06-21 <=5 reroster — Website demoted to More):
  *   1. Home (key 'profile') — /vendor-dashboard (exact-match · Overview)
  *   2. Bookings    — Booking pipeline (per-booking workspace · soft-hold
  *                    + downpaid status · cancel + release CTAs)
@@ -25,9 +27,9 @@
  *   4. Messages    — Chat inbox (per-thread workspace)
  *   5. More        — Everything else (Website · Profile · Clients · Services ·
  *                    Contracts · Proposals · Attributes · Repertoire ·
- *                    Subscription · Tokens · Redeem code · Marketing ·
- *                    Verify · Reviews · Moodboard library · Earnings ·
- *                    Payment options · Manpower · Branches · Team ·
+ *                    Subscription · Tokens · Marketing ·
+ *                    Verify · Reviews · Moodboard library · On the Day ·
+ *                    Earnings · Payment options · Manpower · Branches · Team ·
  *                    Notifications) routed through the
  *                    /vendor-dashboard/more landing.
  *
@@ -61,7 +63,7 @@
  * trips Next.js serialization. Symmetric pattern.
  */
 
-import { Home, Briefcase, CalendarDays, MessageSquare, Menu } from 'lucide-react';
+import { Home, ShoppingBag, Users, BarChart2, CalendarCheck } from 'lucide-react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { BottomNavItem } from '@/app/_components/nav/types';
@@ -71,108 +73,102 @@ import type { NavSlotLite } from '@/lib/nav-registry-types';
 
 const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
   {
-    // 2026-05-29 nav-tune — relabeled Profile → Home. Root route
-    // /vendor-dashboard now renders the Overview (per PR #636) not the
-    // profile editor. Profile editor moved to /vendor-dashboard/profile
-    // and is reachable via the sidebar Home group + /more landing.
-    //
-    // `key: 'profile'` preserved so the per-section localStorage
-    // `setnayan.nav.section.profile.open` state from existing users
-    // doesn't reset on the relabel.
-    //
-    // Exact-match override — every other vendor route also begins with
-    // `/vendor-dashboard/`, so a default startsWith match would keep
-    // this tab active on every page.
+    // Overview — the at-a-glance landing. `key: 'profile'` preserved so any
+    // per-tab localStorage state from existing users doesn't reset on the
+    // 2026-07-01 6-tab reroster. Exact-match override — every other vendor
+    // route also begins with `/vendor-dashboard/`, so a default startsWith
+    // match would keep this tab active on every page.
     key: 'profile',
-    label: 'Home',
+    label: 'Overview',
     href: '/vendor-dashboard',
     icon: Home,
     activeMatch: '/vendor-dashboard',
     activeMatchExact: true,
   },
   {
-    key: 'bookings',
-    label: 'Bookings',
-    href: '/vendor-dashboard/bookings',
-    icon: Briefcase,
-    activeMatch: '/vendor-dashboard/bookings',
-  },
-  {
-    // 2026-06-14 nav-tune — Calendar promoted to bottom nav slot 3 in
-    // place of Earnings. The vendor pitch is the calendar that stops
-    // double-bookings (schedule-pool lock 2026-06-12); it shouldn't be
-    // buried in /more. Earnings moves OUT to the sidebar Business group +
-    // the More umbrella (still one tap away).
-    key: 'calendar',
-    label: 'Calendar',
-    href: '/vendor-dashboard/calendar',
-    icon: CalendarDays,
-    activeMatch: '/vendor-dashboard/calendar',
-  },
-  {
-    key: 'messages',
-    label: 'Messages',
-    href: '/vendor-dashboard/messages',
-    icon: MessageSquare,
-    activeMatch: '/vendor-dashboard/messages',
-  },
-  {
-    key: 'more',
-    label: 'More',
-    href: '/vendor-dashboard/more',
-    icon: Menu,
-    // Catch-all for everything not on one of the first 4 tabs (Home ·
-    // Bookings · Calendar · Messages). Enumerated EXHAUSTIVELY per
-    // [[feedback_setnayan_orphan_prevention]] — every vendor route must be
-    // reachable AND light its active tab. Any route here that is NOT a
-    // dedicated tab MUST appear below, or it goes "unlit" on mobile.
-    //
-    // 2026-06-14 nav-tune — Calendar promoted to a dedicated tab (slot 3,
-    // replacing Earnings); Earnings moved IN here. Audit-flagged gaps
-    // closed: Clients · Proposals · Subscription were never enumerated and
-    // so never lit More — added. Tax docs included for bookmark continuity
-    // (page redirects to /vendor-dashboard but the route can still be hit).
-    // List kept alphabetical-by-group so future routes are easy to slot in.
+    // My Shop — the storefront destination + its whole cluster. The sub-routes
+    // (profile · verify · website · reviews · …) light this tab so a
+    // bookmarked deep-link never goes "unlit" now that there is no More tab.
+    // The /more overflow itself also lights here (reachable via the topbar
+    // overflow link) so no route orphans.
+    key: 'shop',
+    label: 'Shop',
+    href: '/vendor-dashboard/shop',
+    icon: ShoppingBag,
     activeMatch: [
-      '/vendor-dashboard/more',
-      // Home group (Profile now lives at /profile after PR #636; Website
-      // demoted from its dedicated tab in the 2026-06-21 <=5 reroster)
+      '/vendor-dashboard/shop',
       '/vendor-dashboard/profile',
-      '/vendor-dashboard/website',
-      // Work group (excluding bookings + calendar + messages, which each
-      // have their own dedicated tab)
-      '/vendor-dashboard/clients',
-      '/vendor-dashboard/services',
-      '/vendor-dashboard/contracts',
-      '/vendor-dashboard/proposals',
-      '/vendor-dashboard/repertoire',
-      '/vendor-dashboard/attributes',
-      // Grow group (Subscription · Tokens · Redeem code folded in here
-      // 2026-06-14 — kept under More on mobile)
-      '/vendor-dashboard/subscription',
-      '/vendor-dashboard/tokens',
-      '/vendor-dashboard/redeem-code',
       '/vendor-dashboard/verify',
-      '/vendor-dashboard/partnerships',
+      '/vendor-dashboard/website',
       '/vendor-dashboard/reviews',
+      '/vendor-dashboard/theft-watch',
       '/vendor-dashboard/real-stories',
       '/vendor-dashboard/recaps',
-      '/vendor-dashboard/moodboard-library',
-      // Business group (Earnings moved here from the tab bar 2026-06-14)
-      '/vendor-dashboard/earnings',
-      '/vendor-dashboard/payment-options',
-      '/vendor-dashboard/manpower',
-      '/vendor-dashboard/branches',
+      '/vendor-dashboard/recommendations',
+      '/vendor-dashboard/partnerships',
       '/vendor-dashboard/team',
-      // Tax docs RETIRED 2026-05-29 (BIR 2307 retired under V2 publisher
-      // posture · page redirects to /vendor-dashboard) — kept here so a
-      // bookmarked hit still lights More instead of going unlit.
-      '/vendor-dashboard/tax-documents',
-      // Notifications surfaces here too — topbar bell is the primary
-      // entry point but the per-route notifications page lights up More
-      // on the mobile chrome so navigation feels predictable.
+      '/vendor-dashboard/branches',
+      '/vendor-dashboard/subscription',
+      '/vendor-dashboard/tokens',
+      // Overflow + topbar-reached surfaces bucket under Shop so they light a
+      // tab instead of going unlit (there is no dedicated More tab now).
+      '/vendor-dashboard/more',
       '/vendor-dashboard/notifications',
+      // Tax docs RETIRED 2026-05-29 (page redirects to /vendor-dashboard) —
+      // kept for bookmark continuity so a stale hit still lights a tab.
+      '/vendor-dashboard/tax-documents',
+      // My Services was folded into My Shop (2026-07-02) — the retired services
+      // routes light this tab so bookmarks/deep-links never go unlit.
+      '/vendor-dashboard/services',
+      '/vendor-dashboard/attributes',
+      '/vendor-dashboard/repertoire',
+      '/vendor-dashboard/manpower',
+      '/vendor-dashboard/moodboard-library',
     ],
+  },
+  {
+    // My Customers — the booking-pipeline destination + its cluster (messages ·
+    // clients · bookings · calendar · contracts · proposals · earnings · payday
+    // · payment-options).
+    key: 'customers',
+    label: 'Customers',
+    href: '/vendor-dashboard/customers',
+    icon: Users,
+    activeMatch: [
+      '/vendor-dashboard/customers',
+      '/vendor-dashboard/messages',
+      '/vendor-dashboard/clients',
+      '/vendor-dashboard/bookings',
+      '/vendor-dashboard/calendar',
+      '/vendor-dashboard/contracts',
+      '/vendor-dashboard/proposals',
+      '/vendor-dashboard/earnings',
+      '/vendor-dashboard/payday',
+      '/vendor-dashboard/payment-options',
+    ],
+  },
+  {
+    // My Performance — analytics destination + its Demand Radar drill-down. The
+    // old /funnel drill-down was folded into Performance (2026-07-02); the
+    // retired route still redirects there, so it stays in activeMatch to keep
+    // the tab lit during that transient hop.
+    key: 'performance',
+    label: 'Performance',
+    href: '/vendor-dashboard/performance',
+    icon: BarChart2,
+    activeMatch: [
+      '/vendor-dashboard/performance',
+      '/vendor-dashboard/demand',
+      '/vendor-dashboard/funnel',
+    ],
+  },
+  {
+    // On the Day — the free, category-conditional day-of console (Phase 7).
+    key: 'onday',
+    label: 'On the Day',
+    href: '/vendor-dashboard/on-the-day',
+    icon: CalendarCheck,
+    activeMatch: '/vendor-dashboard/on-the-day',
   },
 ];
 
@@ -192,6 +188,10 @@ export function VendorBottomNav({
   // Role-aware tabs — owner/admin get the full strip; agent/viewer get the
   // scoped subset (Phase 1: Home + More). Phase 2 expands agent tabs once
   // per-service data scoping lands.
+  // Role-aware tabs — owner/admin get the full strip; agent/viewer get the
+  // scoped subset. "My Services" was retired 2026-07-02 (folded into
+  // owner/admin-only My Shop); its routes now light the Shop tab (see that tab's
+  // activeMatch).
   const base = canManageVendor(role)
     ? VENDOR_BOTTOM_NAV_ITEMS
     : VENDOR_BOTTOM_NAV_ITEMS.filter((i) => VENDOR_SCOPED_BOTTOM_NAV_KEYS.has(i.key));

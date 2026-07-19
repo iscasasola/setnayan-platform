@@ -9,8 +9,10 @@ import {
   Tag,
   UserPlus,
   Users,
+  UserX,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { SIDE_CHIP_SOFT } from '@/lib/side-colors';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import {
   fetchGuestById,
@@ -106,16 +108,13 @@ const ERROR_COPY: Record<string, string> = {
   invalid_meal: 'Invalid meal preference.',
 };
 
-// Tailwind tint per Side value, used by the auto-derived Tags Section
-// to chip-color the Side badge AND custom-group memberships (which carry
-// a team_side: bride/groom/both flag per the Custom Groups feature).
-// Matches the established side-color convention from the guest list +
-// seating chart UIs so the visual language stays consistent.
-const SIDE_CHIP_TINT: Record<GuestSide, string> = {
-  bride: 'bg-danger-50 text-danger-900 ring-1 ring-danger-200',
-  groom: 'bg-sky-50 text-sky-900 ring-1 ring-sky-200',
-  both: 'bg-violet-50 text-violet-900 ring-1 ring-violet-200',
-};
+// Tint per Side value, used by the auto-derived Tags Section to chip-color the
+// Side badge AND custom-group memberships (which carry a team_side:
+// bride/groom/both flag per the Custom Groups feature). Pulls the canonical
+// side-colour map (lib/side-colors.ts · SIDE_CHIP_SOFT) so the badge reads the
+// same gold/info-slate language as the roster avatars + the seat map — no more
+// rose/blue/purple diverging from the retinted roster.
+const SIDE_CHIP_TINT = SIDE_CHIP_SOFT;
 
 // Tailwind ring-tone per RSVP value, used by the segmented pill so the
 // selected state reads at a glance. Attending = positive · Pending =
@@ -127,7 +126,7 @@ const RSVP_PILL_CLASS: Record<RsvpStatus, string> = {
   pending:
     'has-[:checked]:bg-warn-100 has-[:checked]:text-warn-900 has-[:checked]:border-warn-400',
   maybe:
-    'has-[:checked]:bg-sky-100 has-[:checked]:text-sky-900 has-[:checked]:border-sky-400',
+    'has-[:checked]:bg-warn-100 has-[:checked]:text-warn-900 has-[:checked]:border-warn-400',
   declined:
     'has-[:checked]:bg-danger-100 has-[:checked]:text-danger-900 has-[:checked]:border-danger-400',
 };
@@ -490,6 +489,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
             />
             <PhotoConsent defaultChecked={guest.photo_consent} />
             <FaceBlock defaultChecked={guest.faceblock_enabled} />
+            <FaceRecognitionExclude defaultChecked={guest.face_recognition_excluded} />
           </div>
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-ink">Invited to</label>
@@ -821,6 +821,34 @@ function PhotoConsent({ defaultChecked }: { defaultChecked: boolean }) {
         <span className="text-sm">
           OK to tag in photos
           <span className="ml-1 text-xs text-ink/55">(RA 10173)</span>
+        </span>
+      </label>
+    </div>
+  );
+}
+
+/**
+ * Minor safeguard (DPIA BV-8, 2026-07-05). Face recognition is adult-only opt-in;
+ * a host who knows a guest is a minor marks them excluded here so no face vector
+ * is ever enrolled for them (and any existing one is revoked). Collects no age —
+ * a host attestation, mirroring the "don't run face recognition on minors"
+ * minimization careful platforms rely on. Does NOT remove the guest's photo.
+ */
+function FaceRecognitionExclude({ defaultChecked }: { defaultChecked: boolean }) {
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-sm font-medium text-ink">Face recognition</label>
+      <label className="flex h-11 items-center gap-3 rounded-md border border-ink/20 bg-cream px-3 text-sm text-ink transition-colors has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/5 hover:border-ink/40">
+        <input
+          type="checkbox"
+          name="face_recognition_excluded"
+          defaultChecked={defaultChecked}
+          className="h-5 w-5 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+        />
+        <UserX aria-hidden className="h-4 w-4 text-ink/55" strokeWidth={1.75} />
+        <span className="text-sm">
+          Exclude from face recognition
+          <span className="ml-1 text-xs text-ink/55">(e.g. a minor)</span>
         </span>
       </label>
     </div>

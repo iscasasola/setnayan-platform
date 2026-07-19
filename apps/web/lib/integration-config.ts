@@ -111,6 +111,70 @@ export async function resolveSetnayanAiPaywallEnabled(): Promise<boolean> {
   return process.env.SETNAYAN_AI_PAYWALL_ENABLED === 'true';
 }
 
+// ── Setnayan-AI per-USER subscription flag ──────────────────────────────────
+//
+// DB-first resolver for the per-USER Setnayan-AI subscription gate, so the owner
+// can flip the per-user fan-out ON/OFF from /admin/integrations WITHOUT a Vercel
+// redeploy. Mirrors resolveSetnayanAiPaywallEnabled.
+//
+// platform_settings.setnayan_ai_per_user_enabled is TRI-STATE:
+//   • NULL  → OFF (today's behaviour — the per-event gate is byte-identical).
+//   • TRUE  → per-user gate on (a host's active subscription fans AI out to all
+//             their events).
+//   • FALSE → off.
+//
+// Unlike the paywall flag, there is NO env fallback: this is a pure DB feature
+// flag (no SETNAYAN_AI_PER_USER_ENABLED env var exists), so the default when the
+// column is NULL / unreadable / pre-migration is FALSE. Keeping the gate OFF on
+// any read error is the conservative, byte-identical-to-today choice.
+//
+// UNCACHED on purpose (same reasoning as resolveSetnayanAiPaywallEnabled): a flip
+// the owner just made must take effect on the next request. The leaf predicate in
+// lib/setnayan-ai.ts stays SYNCHRONOUS — callers await this once and thread the
+// resolved boolean in.
+export async function resolveSetnayanAiPerUserEnabled(): Promise<boolean> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from('platform_settings')
+      .select('setnayan_ai_per_user_enabled')
+      .eq('id', 1)
+      .maybeSingle();
+    const dbVal = data?.setnayan_ai_per_user_enabled as boolean | null | undefined;
+    if (typeof dbVal === 'boolean') return dbVal;
+  } catch {
+    // DB unreachable / column absent (pre-migration) → default OFF below.
+  }
+  return false;
+}
+
+// ── Per-EVENT ₱499-intro / ₱799-renewal pricing flag (owner 2026-07-02) ──────
+//
+// DB-first, no env fallback, uncached — same shape as resolveSetnayanAiPerUser
+// Enabled. platform_settings.setnayan_ai_per_event_pricing_enabled is TRI-STATE:
+//   • NULL  → OFF (today's behaviour — the ₱499 flat per-event unlock).
+//   • TRUE  → the ₱499-first-28-days then ₱799-per-28-day-cycle model is live
+//             (the intro/renewal charge + the per-event window are honored).
+//   • FALSE → off.
+// Default OFF on any read error (column absent pre-migration) — the conservative,
+// byte-identical-to-today choice. Flip from /admin/integrations at go-live, once
+// the buy-flow wiring + copy ship AND the Wave-1 guard is live (so ₱799 is earned).
+export async function resolveSetnayanAiPerEventPricingEnabled(): Promise<boolean> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from('platform_settings')
+      .select('setnayan_ai_per_event_pricing_enabled')
+      .eq('id', 1)
+      .maybeSingle();
+    const dbVal = data?.setnayan_ai_per_event_pricing_enabled as boolean | null | undefined;
+    if (typeof dbVal === 'boolean') return dbVal;
+  } catch {
+    // DB unreachable / column absent (pre-migration) → default OFF below.
+  }
+  return false;
+}
+
 // ── Registry-driven "simple secret" integrations (PR2) ──────────────────────
 //
 // Generic DB-first / env-fallback resolver for any integration in
@@ -296,12 +360,47 @@ export async function resolveMetaConfig(): Promise<MetaConfig> {
   };
 }
 
+// ── Instagram app ("Instagram API with Instagram Login") OAuth client ────────
+//
+// SEPARATE from resolveMetaConfig() above (which is the LIVE auto-publish Page
+// access token). This is the INSTAGRAM app's own App ID + App Secret used for
+// the per-VENDOR Instagram OAuth authorization-code exchange — each vendor
+// connects their OWN Business/Creator IG account (via "Instagram API with
+// Instagram Login" — NO Facebook Page required) and syncs their posts into
+// their public portfolio.
+//
+// Env-driven + OPTIONAL. When IG_APP_ID / IG_APP_SECRET are unset the whole
+// IG-connect feature is INERT: getMetaAppOAuthConfig() reports { ready: false },
+// the /connect route returns a friendly 503, and the vendor UI shows a
+// "coming soon" state. These are currently UNSET in prod.
+//
+// The redirect URI is fixed to the request origin + the callback path unless
+// META_IG_OAUTH_REDIRECT_URI overrides it (needed when the request origin isn't
+// the canonical host registered in the Instagram-Login product's Valid OAuth
+// Redirect URIs).
+export type MetaAppOAuthConfig =
+  | { ready: true; appId: string; appSecret: string; redirectUri: string }
+  | { ready: false; missing: ReadonlyArray<string> };
+
+/** Env-only App-ID/Secret read for the per-vendor Instagram OAuth flow. */
+export function resolveMetaAppOAuth(): {
+  appId: string;
+  appSecret: string;
+  redirectUriOverride: string;
+} {
+  return {
+    appId: (process.env.IG_APP_ID || '').trim(),
+    appSecret: process.env.IG_APP_SECRET || '',
+    redirectUriOverride: (process.env.META_IG_OAUTH_REDIRECT_URI || '').trim(),
+  };
+}
+
 // ── TikTok social-publish access token (PR4b) ───────────────────────────────
 //
 // DB-first / env-fallback resolver for the master-account TikTok access token
 // (path B auto-publish). Single secret, no config. UNCACHED. Byte-identical to
-// the env read when the DB column is empty. (This is the only remaining TikTok
-// secret — the per-couple Patiktok OAuth client was retired 2026-06-29.)
+// the env read when the DB column is empty. Distinct from the OAuth client
+// secret (resolveOAuthClientConfig with OAUTH_SPECS.tiktok).
 export async function resolveTikTokAccessToken(): Promise<string | null> {
   try {
     const admin = createAdminClient();

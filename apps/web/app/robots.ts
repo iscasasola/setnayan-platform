@@ -6,7 +6,8 @@ const ALLOWED_PATHS = [
   '/',
   '/v/',
   '/explore',
-  '/for-vendors',
+  '/vendors',
+  '/creators',
   '/help',
   '/realstories',
   '/tl', // Taglish locale subpath (Taglish ≈ tl; localization first slice — /tl/about live)
@@ -37,7 +38,7 @@ const AI_TRAINING_BOTS = [
 
 export default function robots(): MetadataRoute.Robots {
   const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
+    process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com';
   return {
     rules: [
       {

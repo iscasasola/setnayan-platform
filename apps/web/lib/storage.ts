@@ -8,12 +8,12 @@ import {
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   R2_BUCKETS,
-  type R2BucketKey,
   type R2BucketName,
   getR2Client,
   isR2Configured,
   publicUrlFor,
 } from '@/lib/r2';
+import { bucketForPrefix } from '@/lib/bucket-routing';
 
 /**
  * Server-side upload helper used by Server Actions (admin merchant-QR,
@@ -57,23 +57,14 @@ export type UploadResult =
   | { ok: false; error: string };
 
 /**
- * Routes a `pathPrefix` to one of the four R2 buckets.
+ * Routes a `pathPrefix` to one of the R2 buckets.
  *
- * V1 rules (mirror the spec in the PR body):
- *   - merchant-qr/*         → media
- *   - vendor-logo/*         → media
- *   - profile-photo/*       → media
- *   - payment-screenshot/*  → thread-files
- *   - everything else       → media (safe default for public assets)
+ * The mapping itself lives in `@/lib/bucket-routing` (pure, client-safe, no
+ * `server-only`) so it can be unit-tested under `tsx --test` — importing this
+ * file into a node:test would throw on the top-of-file `import 'server-only'`.
+ * Re-exported here so existing `@/lib/storage` callers are unchanged.
  */
-function bucketForPrefix(pathPrefix: string): R2BucketKey {
-  const normalized = pathPrefix.replace(/^\/+/, '');
-  if (normalized.startsWith('merchant-qr/')) return 'media';
-  if (normalized.startsWith('vendor-logo/')) return 'media';
-  if (normalized.startsWith('profile-photo/')) return 'media';
-  if (normalized.startsWith('payment-screenshot/')) return 'threadFiles';
-  return 'media';
-}
+export { bucketForPrefix };
 
 /**
  * Uploads a file to Cloudflare R2 and returns the public URL.
@@ -83,6 +74,12 @@ function bucketForPrefix(pathPrefix: string): R2BucketKey {
  * `${pathPrefix}/${randomUUID()}-${file.name}` so collisions are impossible
  * and the file's original name is preserved for downloads.
  *
+ * By default only images ≤ 6 MB pass (the image-proof precedent). A caller
+ * that needs a different envelope — e.g. chat file sharing, which allows PDFs
+ * and common docs up to 25 MB — passes `allowedMime` and/or `maxBytes` to
+ * override JUST for that call. Omitting them keeps the historical image-only /
+ * 6 MB behavior for every existing caller, unchanged.
+ *
  * When R2 env vars are unset, falls back to Supabase Storage
  * `platform-assets` bucket (legacy V0 behavior). This is the
  * graceful-degradation path used by dev / preview / staging environments
@@ -91,22 +88,28 @@ function bucketForPrefix(pathPrefix: string): R2BucketKey {
 export async function uploadPublicAsset(args: {
   pathPrefix: string;
   file: File;
+  /** Override the default image-only allowlist for this call. */
+  allowedMime?: Iterable<string>;
+  /** Override the default 6 MB cap for this call. */
+  maxBytes?: number;
 }): Promise<UploadResult> {
   const { pathPrefix, file } = args;
+  const allowed = args.allowedMime ? new Set(args.allowedMime) : ALLOWED_MIME;
+  const maxBytes = args.maxBytes ?? MAX_BYTES;
 
   // file.type can be empty if the browser couldn't detect (some older
   // Android browsers do this for HEIC). Fall back to extension sniffing.
   const declaredType = file.type || sniffMimeFromName(file.name);
-  if (!declaredType || !ALLOWED_MIME.has(declaredType)) {
+  if (!declaredType || !allowed.has(declaredType)) {
     return {
       ok: false,
-      error: `Unsupported file type: ${file.type || 'unknown'}. Use PNG, JPEG, WebP, GIF, or HEIC.`,
+      error: `Unsupported file type: ${file.type || 'unknown'}.`,
     };
   }
-  if (file.size > MAX_BYTES) {
+  if (file.size > maxBytes) {
     return {
       ok: false,
-      error: `File is ${(file.size / 1024 / 1024).toFixed(1)} MB — max is 6 MB.`,
+      error: `File is ${(file.size / 1024 / 1024).toFixed(1)} MB — max is ${(maxBytes / 1024 / 1024).toFixed(0)} MB.`,
     };
   }
 
@@ -239,6 +242,21 @@ function sniffMimeFromName(name: string): string | null {
       return 'image/heif';
     case 'avif':
       return 'image/avif';
+    // Non-image types — only ever accepted when a caller widens its allowlist
+    // (e.g. chat file sharing). Image-only callers still reject these against
+    // their own allowlist, so adding them here can't loosen existing paths.
+    case 'pdf':
+      return 'application/pdf';
+    case 'doc':
+      return 'application/msword';
+    case 'docx':
+      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    case 'xls':
+      return 'application/vnd.ms-excel';
+    case 'xlsx':
+      return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    case 'txt':
+      return 'text/plain';
     default:
       return null;
   }

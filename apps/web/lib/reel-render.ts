@@ -1,9 +1,10 @@
 // Shared client-side reel render engine.
 //
-// (Formerly lib/patiktok-render.ts. Patiktok was retired 2026-06-29; this
-// generic 9:16 reel encoder is kept because Guest Stories — the free,
-// photo-driven personal-reel tier — renders through it. No remaining Patiktok
-// caller; renamed to drop the retired product's name.)
+// (Formerly lib/patiktok-render.ts — renamed at the 2026-06-29 Patiktok
+// retirement to a product-neutral name. Patiktok was UN-RETIRED 2026-07-01
+// (PR #2464) and again renders through this engine; Guest Stories — the free,
+// photo-driven personal-reel tier — also renders through it. So this generic
+// 9:16 reel encoder is the shared client renderer for BOTH.)
 //
 // Render host (owner-locked 2026-06-18): CLIENT-SIDE, ₱0 server compute. The
 // couple browser stitches the captured clips/photos into a 9:16 MP4 and uploads
@@ -442,6 +443,48 @@ export function spansToUnits(spans: number[], totalUnits: number): number[] {
 const MOVE_TX_BASE = 360;
 const MOVE_TY_BASE = 640;
 
+/**
+ * Auto-reframe focal, CLAMPED to the band the overscan can actually cover for
+ * THIS move (audit #3 — "off-center focal breaks no-edge-reveal").
+ *
+ * Geometry: `withCamera` scales the cover image by `move.scale` about the focal,
+ * then pans by `move.tx/ty`. The overscan headroom on a side is (distance of the
+ * focal from that edge) × (scale − 1). A pan of `tN = tx/MOVE_TX_BASE` (fraction
+ * of width) is covered only if the focal sits ≥ `tN/(scale−1)` in from each edge.
+ * At the centered focal the headroom exactly equals the max pan (why the audit
+ * measured ~87px reveal at the extreme); an off-center `subjectCenter` near an
+ * edge pulls the image edge inside the frame → dark backdrop strip.
+ *
+ * We sample this move's own envelope (so push/pull — no pan — keep FULL reframe,
+ * and pans tighten exactly as much as their amplitude needs) and clamp the focal
+ * into `[m, 1−m]` per axis. Conservative: ignores the beat-punch zoom (only adds
+ * headroom) — but does NOT account for the Tier-3 near-layer 1.6× pan
+ * amplification (depth is dormant; revisit when parallax ships).
+ *
+ * Tradeoff for Vids AI: stronger reframe on big pans needs more `BASE_OVERSCAN`,
+ * not a looser clamp — that's an aesthetic call. This only prevents the bug.
+ */
+function safeFocal(move: CameraMove | undefined, subjectCenter?: Focus | null): Focus {
+  const focal = resolveFocus(move, subjectCenter);
+  if (!move) return focal;
+  let maxTxN = 0;
+  let maxTyN = 0;
+  let minScale = Infinity;
+  for (let p = 0; p <= 1.0001; p += 0.1) {
+    const t = cameraAt(move, p);
+    maxTxN = Math.max(maxTxN, Math.abs(t.tx) / MOVE_TX_BASE);
+    maxTyN = Math.max(maxTyN, Math.abs(t.ty) / MOVE_TY_BASE);
+    minScale = Math.min(minScale, t.scale);
+  }
+  const z = Math.max(1e-3, minScale - 1);
+  const mx = Math.min(0.5, maxTxN / z);
+  const my = Math.min(0.5, maxTyN / z);
+  return {
+    x: Math.min(1 - mx, Math.max(mx, focal.x)),
+    y: Math.min(1 - my, Math.max(my, focal.y)),
+  };
+}
+
 /** Apply a camera transform about a focal point, then run `paint`. */
 function withCamera(
   ctx: CanvasRenderingContext2D,
@@ -686,7 +729,7 @@ async function renderWithWebCodecs(
         // PHOTO slot — paint the still once per frame across its span (no seek).
         const img = await loadImage(source.url);
         const nearLayer = await maybeBuildNearLayer(img, source);
-        const focal = resolveFocus(source.cameraMove, source.subjectCenter);
+        const focal = safeFocal(source.cameraMove, source.subjectCenter);
         try {
           for (let f = 0; f < n; f++) {
             if (encoderError) throw encoderError;
@@ -960,7 +1003,7 @@ async function renderWithMediaRecorder(opts: RenderOptions): Promise<RenderResul
         // PHOTO slot — hold the still on the canvas for the slot's span.
         const img = await loadImage(source.url);
         const nearLayer = await maybeBuildNearLayer(img, source);
-        const focal = resolveFocus(source.cameraMove, source.subjectCenter);
+        const focal = safeFocal(source.cameraMove, source.subjectCenter);
         try {
           await new Promise<void>((resolve) => {
             const slotStart = performance.now();

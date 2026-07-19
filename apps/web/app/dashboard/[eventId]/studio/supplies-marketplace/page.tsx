@@ -41,12 +41,14 @@ type Props = { params: Promise<{ eventId: string }> };
 // rentals, backdrop+decor, NFC+QR keepsakes, specialty merch).
 
 // Which past orders should trigger which supply recommendations.
-// Mirrors the spec's coordinator narrative ("You bought Panood →
-// recommended supplies: HDMI dongle, monitor rental").
+// Mirrors the spec's coordinator narrative ("You bought Patiktok →
+// recommended supplies: HDMI dongle, monitor rental, background print").
 const RECOMMENDATION_KEYS_BY_ORDER: Record<
   string,
-  ReadonlyArray<'papic' | 'panood' | 'seating' | 'photo-delivery'>
+  ReadonlyArray<'patiktok' | 'papic' | 'panood' | 'seating' | 'photo-delivery'>
 > = {
+  patiktok: ['patiktok'],
+  'patiktok:': ['patiktok'],
   papic: ['papic'],
   'papic:': ['papic'],
   panood: ['panood'],
@@ -94,8 +96,8 @@ export default async function SuppliesMarketplacePage({ params }: Props) {
   if (!user) redirect('/login');
 
   // Pull existing orders to drive the recommended-for rail. Today this
-  // is best-effort scaffold work — some of the iterations the spec
-  // mentions (e.g. Panood) are still coming_soon. When users
+  // is best-effort scaffold work — most of the iterations the spec
+  // mentions (Patiktok, Panood) are still coming_soon. When users
   // start buying those services, this rail will light up automatically.
   const orders = await fetchOrdersForEvent(supabase, eventId);
   const orderServiceKeys = orders
@@ -113,13 +115,11 @@ export default async function SuppliesMarketplacePage({ params }: Props) {
         Back to add-ons
       </Link>
 
-      <header className="space-y-3">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Add-ons · Setnayan Supplies
-        </p>
+      <header className="sn-reveal space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-2">
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            <p className="sn-eye">Supplies</p>
+            <h1 className="sn-h1">
               Setnayan-curated supplies, delivered.
             </h1>
             <p className="max-w-2xl text-base text-ink/65">
@@ -160,7 +160,7 @@ export default async function SuppliesMarketplacePage({ params }: Props) {
 
       <SuppliesMarketplaceBrowser recommended={recommended} />
 
-      <footer className="space-y-1 rounded-2xl border border-dashed border-ink/15 bg-cream/60 p-4 text-xs text-ink/55">
+      <footer className="sn-row space-y-1 p-4 text-xs text-ink/55">
         <p>
           Don&rsquo;t see a vendor you trust? Email{' '}
           <a

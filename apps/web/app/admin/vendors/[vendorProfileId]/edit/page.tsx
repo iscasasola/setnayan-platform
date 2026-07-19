@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { saveUnclaimedVendorProfile } from '../../actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = {
   title: 'Edit unclaimed vendor · Admin',
   robots: { index: false, follow: false },
@@ -41,6 +42,7 @@ export default async function AdminEditUnclaimedVendorPage({
   params,
   searchParams,
 }: Props) {
+  await requireAdmin();
   const { vendorProfileId } = await params;
   const search = await searchParams;
 
@@ -116,7 +118,7 @@ export default async function AdminEditUnclaimedVendorPage({
           await saveUnclaimedVendorProfile(formData);
           redirect(`/admin/vendors/${vendorProfileId}/edit?saved=1`);
         }}
-        className="space-y-5 rounded-2xl border border-ink/10 bg-cream p-5"
+        className="space-y-5 sn-tile p-5"
       >
         <input type="hidden" name="vendor_profile_id" value={vendorProfileId} />
 

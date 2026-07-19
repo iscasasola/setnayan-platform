@@ -8,17 +8,14 @@ import {
   QrCode,
   ArrowRight,
   CheckCircle2,
-  Clock,
-  Apple,
-} from 'lucide-react';
-import { Logo } from '@/app/_components/logo';
+  } from 'lucide-react';
 import { getVendorPrices } from '@/lib/v2-catalog';
 import {
-  HeroReveal,
   RoleGridReveal,
   FlowPanel,
   RevealBlock,
   FinalCtaReveal,
+  HowItWorksHero,
 } from './_how-it-works-motion';
 
 // SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
@@ -230,47 +227,10 @@ export default async function HowItWorksPage() {
       />
       <main className="min-h-dvh bg-cream pb-24 sm:pb-0">
 
-        {/* Hero — useLineReveal on the H1 (mount); eyebrow/lede/CTAs quiet rise. No thread. */}
-        <HeroReveal>
-          {(headingRef) => (
-            <>
-              <div data-reveal-item className="mb-3 flex items-center justify-between gap-4">
-                <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-                  How it works
-                </p>
-                <Link
-                  href="/tl/how-it-works"
-                  hrefLang="tl-PH"
-                  className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55 underline-offset-4 hover:text-ink hover:underline"
-                >
-                  Taglish
-                </Link>
-              </div>
-              <h1
-                ref={headingRef}
-                className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl"
-              >
-                One platform, six kinds of people. Here&rsquo;s the map.
-              </h1>
-              <p data-reveal-item className="mt-4 max-w-2xl text-base text-ink/70 sm:text-lg">
-                Setnayan brings couples, their vendors, and their guests onto one platform —
-                with an admin team behind the scenes. This page is the cheat-sheet for who
-                does what and where they go.
-              </p>
-              <div data-reveal-item className="mt-6 flex flex-wrap items-center gap-3">
-                <Link href="/signup" className="button-primary inline-flex h-11 items-center px-5 text-sm">
-                  Start planning — free
-                </Link>
-                <Link
-                  href="/for-vendors"
-                  className="inline-flex h-11 items-center rounded-md border border-ink/15 px-5 text-sm font-medium text-ink hover:bg-ink/5"
-                >
-                  I&rsquo;m a vendor
-                </Link>
-              </div>
-            </>
-          )}
-        </HeroReveal>
+        {/* Hero — moved into the client motion island (HowItWorksHero) so no
+            render-prop function crosses the server→client boundary (fixed the
+            production 500 on this route, 2026-07-12). */}
+        <HowItWorksHero />
 
         {/* Role cards */}
         <section
@@ -330,9 +290,6 @@ export default async function HowItWorksPage() {
             H2's serif line-reveal via usePanelIntro. The page's ONLY thread. */}
         <FlowPanel>
           <div className="relative z-[1] max-w-2xl space-y-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-              The flow
-            </p>
             <h2
               data-premium-headline
               className="text-2xl font-semibold tracking-tight sm:text-3xl"
@@ -373,10 +330,6 @@ export default async function HowItWorksPage() {
           className="mx-auto mt-16 w-full max-w-6xl px-4 sm:px-6 lg:px-8"
         >
           <div className="rounded-2xl border border-ink/10 bg-white p-6 sm:p-8">
-            <div className="flex items-center gap-2 text-terracotta">
-              <Clock aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              <p className="font-mono text-[11px] uppercase tracking-[0.25em]">Coming next</p>
-            </div>
             <h2 className="mt-3 text-xl font-semibold tracking-tight sm:text-2xl">
               Adding another planner to your event
             </h2>
@@ -404,10 +357,6 @@ export default async function HowItWorksPage() {
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <article data-reveal-item className="rounded-2xl border border-ink/10 bg-white p-6">
-              <div className="flex items-center gap-2 text-terracotta">
-                <Heart aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                <p className="font-mono text-[11px] uppercase tracking-[0.25em]">For couples</p>
-              </div>
               <h3 className="mt-2 text-lg font-semibold tracking-tight">
                 Start planning, free.
               </h3>
@@ -426,10 +375,6 @@ export default async function HowItWorksPage() {
               </Link>
             </article>
             <article data-reveal-item className="rounded-2xl border border-ink/10 bg-white p-6">
-              <div className="flex items-center gap-2 text-terracotta">
-                <Briefcase aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                <p className="font-mono text-[11px] uppercase tracking-[0.25em]">For vendors</p>
-              </div>
               <h3 className="mt-2 text-lg font-semibold tracking-tight">
                 List your wedding business on Setnayan.
               </h3>
@@ -448,48 +393,8 @@ export default async function HowItWorksPage() {
           </div>
         </FinalCtaReveal>
 
-        <Footer />
       </main>
     </>
   );
 }
 
-function Footer() {
-  return (
-    <footer className="border-t border-ink/5">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-10 text-sm text-ink/55 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-        <div className="flex items-center gap-2 text-ink">
-          <Logo height={24} />
-          <span className="font-mono text-[11px] uppercase tracking-[0.2em]">
-            Setnayan · setnayan.com
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-          <span>© 2026 Setnayan</span>
-          <span aria-hidden>·</span>
-          <span>Made in the Philippines</span>
-          <span aria-hidden>·</span>
-          <Link href="/features" className="hover:text-ink">
-            Features
-          </Link>
-          <Link href="/help" className="hover:text-ink">
-            Help
-          </Link>
-          <Link href="/download" className="inline-flex items-center gap-1 hover:text-ink">
-            <Apple aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-            Mac app
-          </Link>
-          <Link href="/privacy" className="hover:text-ink">
-            Privacy
-          </Link>
-          <Link href="/login" className="hover:text-ink">
-            Sign in
-          </Link>
-          <Link href="/signup" className="hover:text-ink">
-            Create account
-          </Link>
-        </div>
-      </div>
-    </footer>
-  );
-}

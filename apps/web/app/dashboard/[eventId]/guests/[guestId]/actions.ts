@@ -20,6 +20,9 @@ import {
   type RsvpStatus,
 } from '@/lib/guests';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import { applyReconcileForEvent } from '@/lib/seating-reconcile';
+import { peopleConnectionsEnabled } from '@/lib/people-connections';
+import { generateEventConnections } from '@/app/dashboard/(account)/people/actions';
 
 // Iteration 0053 P2: the valid role set is per event type (resolveRoleSetForEvent).
 const SIDE_VALUES: GuestSide[] = ['bride', 'groom', 'both'];
@@ -79,6 +82,9 @@ export async function inviteGuestByEmailAction(eventId: string, guestId: string)
   if (!user) redirect('/login');
 
   const backTo = `/dashboard/${eventId}/guests/${guestId}`;
+  // Anon-draft boundary: emailing a guest a passwordless sign-in link reaches a
+  // third party — a native anonymous principal must secure their plan first.
+  if (user.is_anonymous) redirect(`/signup?next=${encodeURIComponent(backTo)}`);
 
   const supabase = await createClient();
   const { data: membership } = await supabase
@@ -143,6 +149,10 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   // wall's read path reacts to this flag instantly (un-baked tiles hide,
   // fail-closed); the re-bake sweep below restores the newest tiles blurred.
   const faceblock_enabled = clean(formData.get('faceblock_enabled')) === 'on';
+  // Minor safeguard (DPIA BV-8, 2026-07-05) — host marks a guest excluded from
+  // face recognition (typically a minor). When ON, the guest is never enrolled
+  // for auto-tagging and any existing enrolment is revoked below. Collects no age.
+  const face_recognition_excluded = clean(formData.get('face_recognition_excluded')) === 'on';
   // Plus-one toggle · owner directive 2026-05-23 PM. Host approves
   // permission only; the +1's name + RSVP confirmation lands on the
   // public RSVP widget (PR B follow-up). Toggling OFF is non-
@@ -184,6 +194,14 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   }
 
   const supabase = await createClient();
+  // Smart seat-plan Phase 5: snapshot the tier-affecting fields before the write
+  // so we only re-place the guest when role / group_category actually changed.
+  const { data: prevGuest } = await supabase
+    .from('guests')
+    .select('role, group_category')
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .maybeSingle();
   const { error } = await supabase
     .from('guests')
     .update({
@@ -203,6 +221,7 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
       rsvp_status: effectiveRsvp,
       photo_consent,
       faceblock_enabled,
+      face_recognition_excluded,
       plus_one_allowed,
       notes,
       invited_to_blocks,
@@ -227,18 +246,23 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
     return redirect(`${backTo}?error=${encodeURIComponent(friendly)}`);
   }
 
-  // RA 10173 governance: turning photo consent OFF also revokes any live
-  // face-recognition enrollment and clears a selfie display photo, so "don't
-  // use this guest's face" actually removes the biometric data Papic would
-  // consume. A Gmail avatar (display-only, non-biometric) is left intact.
-  // Couple JWT is RLS-scoped to its own event. Best-effort — never block save.
-  if (!photo_consent) {
+  // RA 10173 governance: revoke any live face-recognition enrolment (the
+  // biometric data Papic would consume) when EITHER photo consent is withdrawn
+  // OR the host excludes this guest from face recognition (minor safeguard,
+  // DPIA BV-8). Couple JWT is RLS-scoped to its own event. Best-effort.
+  if (!photo_consent || face_recognition_excluded) {
     await supabase
       .from('guest_face_enrollments')
       .update({ revoked_at: new Date().toISOString() })
       .eq('event_id', eventId)
       .eq('guest_id', guestId)
       .is('revoked_at', null);
+  }
+  // Turning photo consent OFF additionally clears a selfie display photo (a
+  // Gmail avatar, display-only + non-biometric, is left intact). A face-
+  // recognition EXCLUSION does NOT delete the guest's photo — it only stops
+  // biometric enrolment.
+  if (!photo_consent) {
     await supabase
       .from('guests')
       .update({
@@ -271,6 +295,26 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
       const { rebakeWallForEvent } = await import('@/lib/face-blur');
       await rebakeWallForEvent(eventId);
     });
+  }
+
+  // Phase 2 (person-graph · flag-off in prod): naming a bride/groom may complete
+  // the SPOUSE connection PROPOSAL (once both principals resolve to a person).
+  // Idempotent + flag-guarded + host-authorized inside the action; runs after
+  // the response so it never delays the save. No-ops until both sides link.
+  if ((role === 'bride' || role === 'groom') && peopleConnectionsEnabled()) {
+    after(async () => {
+      try {
+        await generateEventConnections(eventId);
+      } catch {
+        /* non-blocking — edges regenerate idempotently on the next role/roster edit */
+      }
+    });
+  }
+
+  // Smart seat-plan Phase 5: role + group_category drive the seating tier — re-place
+  // this guest (and their +1) only when one of those actually changed on this save.
+  if (prevGuest && (prevGuest.role !== role || prevGuest.group_category !== group_category)) {
+    await applyReconcileForEvent(supabase, eventId, { reseatGuestIds: [guestId] });
   }
 
   revalidatePath(`/dashboard/${eventId}/guests`);

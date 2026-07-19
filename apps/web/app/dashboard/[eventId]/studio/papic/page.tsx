@@ -201,9 +201,9 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // Live admin-managed rates + per-tier caps.
   const cameraRates = await fetchCameraRates(supabase);
   const papicLtdCapPhp =
-    Number((event as Record<string, unknown>).papic_ltd_cap_php ?? 0) || 6000;
+    Number((event as Record<string, unknown>).papic_ltd_cap_php ?? 0) || 9000;
   const papicUnliCapPhp =
-    Number((event as Record<string, unknown>).papic_unli_cap_php ?? 0) || 10000;
+    Number((event as Record<string, unknown>).papic_unli_cap_php ?? 0) || 15000;
 
   // Capture window → DAYS multiplier (price) + the picker's current state.
   const ev = event as Record<string, unknown>;
@@ -221,18 +221,33 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
 
   // Unlock-all umbrella (admin-managed price; owning it frees Unli).
   const unlockAdmin = createAdminClient();
-  const [{ data: unlockPkg }, ownsPapicUnlock, papicPlatformSettings] =
-    await Promise.all([
-      unlockAdmin
-        .from('platform_package_catalog')
-        .select('retail_price_php, is_active')
-        .eq('package_code', 'PAPIC_UNLOCK')
-        .maybeSingle(),
-      eventSkuActive(unlockAdmin, eventId, 'PAPIC_UNLOCK'),
-      fetchPlatformSettings(supabase),
-    ]);
+  const [
+    { data: unlockPkg },
+    ownsPapicUnlock,
+    papicPlatformSettings,
+    { data: keepFullResRow },
+    ownsKeepFullRes,
+  ] = await Promise.all([
+    unlockAdmin
+      .from('platform_package_catalog')
+      .select('retail_price_php, is_active')
+      .eq('package_code', 'PAPIC_UNLOCK')
+      .maybeSingle(),
+    eventSkuActive(unlockAdmin, eventId, 'PAPIC_UNLOCK'),
+    fetchPlatformSettings(supabase),
+    // Keep Full-Res archive (owner 2026-07-11) — sold on the existing apply-then-pay.
+    unlockAdmin
+      .from('platform_retail_catalog_v2')
+      .select('retail_price_php, is_active')
+      .eq('service_code', 'HIGH_RES_ARCHIVE')
+      .maybeSingle(),
+    eventSkuActive(unlockAdmin, eventId, 'HIGH_RES_ARCHIVE'),
+  ]);
   const papicUnlockPricePhp = unlockPkg?.is_active
     ? Number(unlockPkg.retail_price_php)
+    : null;
+  const keepFullResPricePhp = keepFullResRow?.is_active
+    ? Number(keepFullResRow.retail_price_php)
     : null;
 
   // ── LIMITED (guest-list) state ──────────────────────────────────────────
@@ -307,11 +322,9 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       </Link>
 
       {/* Header — short. */}
-      <header className="space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Papic
-        </p>
-        <h1 className="flex items-center gap-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">Capture</p>
+        <h1 className="sn-h1 flex items-center gap-3">
           <Camera aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
           Wedding photo capture
         </h1>
@@ -369,6 +382,43 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         </section>
       ) : null}
 
+      {/* ── Keep Full-Res (owner 2026-07-11 · sold on apply-then-pay) ─────── */}
+      {ownsKeepFullRes ? (
+        <section className="rounded-2xl border border-success-200/70 bg-success-50/50 p-4 text-xs text-ink/70">
+          ✓ <span className="font-medium text-ink">Keep Full-Res is active</span> — we
+          keep every full-resolution original for this event, undegraded.
+        </section>
+      ) : keepFullResPricePhp ? (
+        <section className="flex flex-wrap items-center justify-between gap-3 sn-tile p-5">
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex items-center gap-2">
+              <HardDrive className="h-4 w-4 text-mulberry" aria-hidden />
+              <h2 className="text-sm font-semibold text-ink">Keep your full-res forever</h2>
+            </div>
+            <p className="text-xs text-ink/60">
+              Your online gallery stays free forever. After 3 months we keep a
+              beautiful compressed copy, and your full-resolution originals live in
+              your own Google Drive. Want us to keep every pristine original too?
+            </p>
+          </div>
+          {papicPlatformSettings ? (
+            <InlineCheckoutDrawer
+              eventId={eventId}
+              serviceKey="HIGH_RES_ARCHIVE"
+              displayName="Keep Full-Res"
+              originalPriceCentavos={String(Math.round(keepFullResPricePhp * 100))}
+              settings={papicPlatformSettings}
+              triggerLabel={`Keep Full-Res · ${formatPhp(keepFullResPricePhp)}/yr`}
+              triggerClassName="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-mulberry/40 px-4 py-2.5 text-sm font-medium text-mulberry hover:bg-mulberry/5"
+            />
+          ) : (
+            <span className="shrink-0 font-mono text-sm text-ink/60">
+              {formatPhp(keepFullResPricePhp)}/yr
+            </span>
+          )}
+        </section>
+      ) : null}
+
       {/* ── Your cameras — the core. ──────────────────────────────────────── */}
       <section className="space-y-4 rounded-2xl border border-terracotta/25 bg-terracotta/[0.04] p-5 sm:p-6">
         <div className="flex items-center gap-2">
@@ -401,7 +451,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         />
 
         {/* Unlimited extras — the only off-list path. */}
-        <div className="rounded-xl border border-ink/10 bg-cream/70 p-4 sm:p-5">
+        <div className="sn-tile p-4 sm:p-5">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="text-sm font-semibold text-ink">
@@ -486,7 +536,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       <RecapCard eventId={eventId} />
 
       {/* Setup & help — folded away. */}
-      <details className="group rounded-2xl border border-ink/10 bg-cream">
+      <details className="group sn-tile">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-5 text-sm font-medium text-ink/80 [&::-webkit-details-marker]:hidden">
           <span className="flex items-center gap-2">
             <CircleHelp aria-hidden className="h-4 w-4 text-ink/55" strokeWidth={1.75} />
@@ -542,7 +592,7 @@ function LimitedCard({
   const tierLabel = currentTier === 'unlimited' ? 'Unlimited' : 'Limited';
 
   return (
-    <div className="rounded-xl border border-terracotta/30 bg-cream/80 p-4 sm:p-5">
+    <div className="sn-tile border border-terracotta/30 p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <p className="flex items-center gap-2 text-sm font-semibold text-ink">
@@ -596,7 +646,7 @@ function LimitedCard({
       ) : null}
 
       {!live && guestCount < PAPIC_MIN_PAID_CAMERAS ? (
-        <div className="mt-4 rounded-lg border border-dashed border-ink/15 bg-cream/60 p-4 text-center">
+        <div className="mt-4 sn-row p-4 text-center">
           <p className="text-sm text-ink/65">
             {guestCount < 1
               ? 'Add your guests first — Limited cameras come from your guest list.'
@@ -857,7 +907,7 @@ function StorageChoiceCard({
   return (
     <article
       id="papic-storage"
-      className="scroll-mt-20 space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6"
+      className="scroll-mt-20 space-y-4 sn-tile p-5 sm:p-6"
     >
       <div className="space-y-1">
         <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
@@ -1046,7 +1096,7 @@ function DriveConnectCTA({ eventId }: { eventId: string }) {
   );
 }
 
-function DriveConnectedPanel({
+async function DriveConnectedPanel({
   eventId,
   grant,
   loginEmail,
@@ -1056,6 +1106,36 @@ function DriveConnectedPanel({
   loginEmail: string | null;
 }) {
   const accountLabel = grant.external_account_display ?? 'Connected Drive';
+
+  // The 2nd Drive (owner 2026-07-11 · up to 2 Drives per event). Queried here so
+  // the connected panel can show its state without threading through 3 parents.
+  const overflowSupabase = await createClient();
+  const overflowGrant = (await overflowSupabase
+    .from('oauth_grants')
+    .select('external_account_display, connection_health')
+    .eq('event_id', eventId)
+    .eq('provider', 'drive_overflow')
+    .is('revoked_at', null)
+    .maybeSingle()
+    .then((r) => r.data ?? null)) as {
+    external_account_display: string | null;
+    connection_health: 'ok' | 'needs_reauth' | null;
+  } | null;
+
+  // "Storage is full" detection: originals that exhausted every retry with a
+  // Drive-quota error (Drive #1 full and no usable overflow, or BOTH full). The
+  // web gallery is always safe on R2 — this only means some full-res didn't reach
+  // Drive. Count is capped at 1 (head:true) — we only need "any".
+  const strandedFull =
+    (
+      await overflowSupabase
+        .from('drive_copy_artifacts')
+        .select('artifact_id', { count: 'exact', head: true })
+        .eq('event_id', eventId)
+        .is('drive_file_id', null)
+        .gte('attempt_count', 5)
+        .ilike('last_error_text', '%storageQuotaExceeded%')
+    ).count ?? 0;
   const grantedDate = new Date(grant.granted_at).toLocaleDateString('en-PH', {
     year: 'numeric',
     month: 'short',
@@ -1073,6 +1153,24 @@ function DriveConnectedPanel({
     <div className="space-y-3">
       {grant.connection_health === 'needs_reauth' ? (
         <DriveReconnectBanner reconnectHref={`/api/oauth/drive/start?event_id=${eventId}`} />
+      ) : null}
+
+      {strandedFull > 0 ? (
+        <div className="rounded-xl border border-amber-300/80 bg-amber-50/70 p-3 text-[12px] text-amber-900">
+          <p className="font-medium">Your Drive is full.</p>
+          <p className="mt-0.5 text-amber-800">
+            Some full-resolution originals couldn&rsquo;t be saved to Drive — your
+            online gallery is safe, but the full-res copies are waiting. Free up
+            space{overflowGrant ? ' on either Drive' : ''}, or{' '}
+            <Link
+              href={`/api/oauth/drive/start?event_id=${eventId}&slot=overflow`}
+              className="font-medium underline underline-offset-2"
+            >
+              {overflowGrant ? 'connect more space' : 'connect a second Drive you own'}
+            </Link>{' '}
+            — they&rsquo;ll finish uploading automatically.
+          </p>
+        </div>
       ) : null}
 
       <div className="space-y-3 rounded-xl border border-success-200/80 bg-success-50/60 p-4">
@@ -1094,6 +1192,51 @@ function DriveConnectedPanel({
                 </Link>
               </p>
             ) : null}
+            {overflowGrant ? (
+              <div className="space-y-1 text-[11px]">
+                <p className="text-ink/60">
+                  2nd Drive connected as{' '}
+                  <span className="font-medium text-ink/75">
+                    {overflowGrant.external_account_display ?? 'your second Drive'}
+                  </span>{' '}
+                  — new photos overflow here once the first fills.
+                </p>
+                {overflowGrant.connection_health === 'needs_reauth' ? (
+                  <p className="text-danger-600">
+                    Your 2nd Drive needs to reconnect —{' '}
+                    <Link
+                      href={`/api/oauth/drive/start?event_id=${eventId}&slot=overflow`}
+                      className="font-medium underline underline-offset-2"
+                    >
+                      reconnect it
+                    </Link>
+                    .
+                  </p>
+                ) : null}
+                <form action="/api/oauth/drive/disconnect" method="post">
+                  <input type="hidden" name="event_id" value={eventId} />
+                  <input type="hidden" name="slot" value="overflow" />
+                  <SubmitButton
+                    pendingLabel="Disconnecting…"
+                    className="text-ink/45 underline underline-offset-2 transition-colors hover:text-ink/70"
+                  >
+                    Disconnect 2nd Drive
+                  </SubmitButton>
+                </form>
+              </div>
+            ) : (
+              <p className="text-[11px] text-ink/60">
+                Running low on space? Full-resolution photos always live in your own
+                Drive — if it fills up, add a second one.{' '}
+                <Link
+                  href={`/api/oauth/drive/start?event_id=${eventId}&slot=overflow`}
+                  className="font-medium text-mulberry underline-offset-2 hover:underline"
+                >
+                  Connect a second Drive you own
+                </Link>
+                . New photos overflow into it automatically once the first is full.
+              </p>
+            )}
           </div>
           <form action="/api/oauth/drive/disconnect" method="post">
             <input type="hidden" name="event_id" value={eventId} />
@@ -1144,7 +1287,7 @@ async function GalleryPreviewCard({
   const kwentoDensity = new Map(densityRows.map((r) => [r.photoId, r.density]));
 
   return (
-    <article className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
+    <article className="space-y-4 sn-tile p-5 sm:p-6">
       <div className="space-y-1">
         <h2 className="text-lg font-semibold tracking-tight">
           {hasPhotos ? 'Your gallery' : 'What your gallery looks like'}
@@ -1158,7 +1301,7 @@ async function GalleryPreviewCard({
       {hasPhotos ? (
         <PapicGalleryGrid photos={photos} eventId={eventId} kwentoDensity={kwentoDensity} />
       ) : (
-        <div className="rounded-xl border border-dashed border-ink/15 bg-cream/60 p-6 text-center">
+        <div className="sn-row p-6 text-center">
           <p className="text-sm text-ink/65">
             Your gallery fills up as your crew shoots — the first photos land here
             in real time.

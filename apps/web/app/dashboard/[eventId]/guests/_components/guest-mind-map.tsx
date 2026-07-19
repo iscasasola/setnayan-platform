@@ -26,8 +26,10 @@ import {
   ROLE_GROUP_LABELS,
   type RoleGroup,
 } from '@/lib/role-groups';
+import { SIDE_ACCENT } from '@/lib/side-colors';
 import { quickAddGuest } from '../quick-add-actions';
 import { mapAddGroup, mapAddPlusOne } from '../map-actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 /**
  * Guest-list MIND MAP (redesign Phase 2 — design locked 2026-06-10).
@@ -86,19 +88,14 @@ const ENTOURAGE_BRANCHES: { key: RoleGroup; defaultRole: GuestRole }[] = [
 
 const SIDE_ORDER: GuestSide[] = ['bride', 'both', 'groom'];
 
-// Side → accent classes (matches the list's side tints: bride rose · groom sky
-// · both amber · structural nodes ink).
+// Side → accent classes. Pulls the canonical side-colour map (lib/side-colors.ts
+// · SIDE_ACCENT) so the nodes read the same gold / info-slate / lighter-gold
+// language as the roster avatars + seat map; structural nodes stay ink.
 function accent(side: GuestSide | null): { text: string; border: string } {
-  switch (side) {
-    case 'bride':
-      return { text: 'text-danger-600', border: 'border-l-danger-400' };
-    case 'groom':
-      return { text: 'text-sky-600', border: 'border-l-sky-400' };
-    case 'both':
-      return { text: 'text-warn-600', border: 'border-l-warn-400' };
-    default:
-      return { text: 'text-ink/50', border: 'border-l-ink/30' };
+  if (side === 'bride' || side === 'groom' || side === 'both') {
+    return SIDE_ACCENT[side];
   }
+  return { text: 'text-ink/50', border: 'border-l-ink/30' };
 }
 
 const KIND_ICON = {
@@ -277,6 +274,7 @@ export function GuestMindMap({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [collapsedMobile, setCollapsedMobile] = useState<Set<string>>(new Set());
+  const save = useSaveLoader();
 
   const nodes = useMemo(
     () => buildTree(lens, guests, groups, groupMemberships),
@@ -307,21 +305,31 @@ export function GuestMindMap({
       try {
         let result: { ok: boolean; error?: string };
         if (spec.type === 'group') {
-          result = await mapAddGroup(eventId, value, spec.teamSide);
+          result = await save.run(() => mapAddGroup(eventId, value, spec.teamSide), {
+            steps: ['Saving your guests'],
+            hint: 'Saving',
+          });
         } else if (spec.type === 'plus') {
-          result = await mapAddPlusOne(eventId, spec.guestId, value);
+          result = await save.run(() => mapAddPlusOne(eventId, spec.guestId, value), {
+            steps: ['Saving your guests'],
+            hint: 'Saving',
+          });
         } else {
           // quickAddGuest needs first + last — split on the LAST space.
           const i = value.lastIndexOf(' ');
           const first = i > 0 ? value.slice(0, i) : value;
           const last = i > 0 ? value.slice(i + 1) : '';
-          result = await quickAddGuest(eventId, {
-            first_name: first,
-            last_name: last,
-            side: spec.side,
-            role: spec.role,
-            group_id: spec.groupId,
-          });
+          result = await save.run(
+            () =>
+              quickAddGuest(eventId, {
+                first_name: first,
+                last_name: last,
+                side: spec.side,
+                role: spec.role,
+                group_id: spec.groupId,
+              }),
+            { steps: ['Saving your guests'], hint: 'Saving' },
+          );
         }
         if (!result.ok) {
           setError(result.error ?? 'Something went wrong.');

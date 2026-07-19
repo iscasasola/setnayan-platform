@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, CheckCheck } from 'lucide-react';
+import { ArrowLeft, Bell, CheckCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnNotifications } from '@/lib/notifications';
 import { markAllNotificationsRead } from '@/lib/notification-actions';
@@ -22,17 +22,18 @@ export default async function CoupleNotificationsPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link
-        href="/dashboard"
-        className="mb-4 inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-      >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+      <Link href="/dashboard" className="sn-chip sn-press mb-4 w-fit">
+        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         Back to events
       </Link>
 
       <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Notifications</h1>
+          <p className="sn-eye">
+            <Bell aria-hidden strokeWidth={1.75} />
+            Your inbox
+          </p>
+          <h1 className="sn-h1">Notifications</h1>
           <p className="max-w-prose text-base text-ink/65">
             New messages, order quotes, and payment confirmations land here.
           </p>

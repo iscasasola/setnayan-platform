@@ -75,6 +75,61 @@ export async function eventHasCompGrant(
 }
 
 /**
+ * Does an internal (§10a) account HOST this event?
+ *
+ * Internal accounts are the Setnayan team/owner accounts; their showcase & demo
+ * events (e.g. "Cale & Ice") are meant to display fully. The admin comp form even
+ * BLOCKS per-SKU comps on internal accounts because they "already carry a
+ * permanent grant" — but nothing conferred that grant on the RENDER, so an
+ * internal host who never placed an order rendered as owning nothing (the
+ * Save-the-Date film stripped its own music/video/gallery on the owner's own
+ * wedding). eventSkuActive() ORs this in so an internal-hosted event owns any SKU.
+ *
+ * Host-scoped server-side in the SECURITY DEFINER fn event_host_is_internal()
+ * (migration 20270806100000), mirroring event_has_comp_for_sku so a service-role
+ * admin-client call never leaks internal status across accounts. Graceful-degrade
+ * to false on ANY RPC error (pre-migration PGRST202), matching the
+ * eventHasCompGrant contract so a missing function never throws at a gate.
+ */
+export async function eventHostIsInternal(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc('event_host_is_internal', {
+    p_event_id: eventId,
+  });
+  if (error) return false;
+  return data === true;
+}
+
+/**
+ * Does a FOUNDER-SEAT holder host this event?
+ *
+ * Founder seats (owner-locked 2026-07-16 · migration 20270818135217) are up to
+ * 10 owner-granted platform-founder accounts — Ice + Cale first — whose events
+ * have "all features already paid for". Deliberately a SEPARATE designation
+ * from is_internal (§10a): internal is the team/ops flag and may later cover
+ * non-founder staff, while the vendor-facing "founder of the app" claim must
+ * only ever be true for owner-granted seats. eventSkuActive() ORs this in,
+ * and the vendor thread badge + inquiry notification read it as the
+ * server-asserted (impersonation-proof) founder signal.
+ *
+ * Same host-scoping + graceful-degrade contract as eventHostIsInternal (the
+ * SECURITY DEFINER fn event_host_holds_founder_seat mirrors
+ * event_host_is_internal's host definition exactly).
+ */
+export async function eventHostHoldsFounderSeat(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc('event_host_holds_founder_seat', {
+    p_event_id: eventId,
+  });
+  if (error) return false;
+  return data === true;
+}
+
+/**
  * Batch companion to eventHasCompGrant — every SKU the event's host comp grants
  * cover. all_services → the full live catalog; specific_skus → just those codes.
  * Empty array on no comp / any error. See migration 20270322000000.
@@ -103,11 +158,32 @@ export async function eventCompActiveSkus(
  * Keyed by CANONICAL service_key → the alternate purchase keys that grant it.
  *
  * (Patiktok — the original live case for this map — was RETIRED 2026-06-29, so
- * its alias entry was removed. The generic machinery is kept for the next SKU
- * that needs a purchase-key→canonical bridge.)
+ * its alias entry was removed.)
+ *
+ * EDITORIAL_PRO ← COUPLE_WEBSITE_PRO (owner-locked 2026-07-04) · the UMBRELLA.
+ * Couple Website PRO (₱4,999) is the one upgrade that unlocks the pro touches
+ * across the whole site lifecycle — Save the Date, RSVP, on-the-day, AND the
+ * Editorial front page. The new à-la-carte EDITORIAL_PRO (₱3,499) is the
+ * standalone way to buy JUST the editorial authoring perk. So an order placed
+ * under COUPLE_WEBSITE_PRO must ALSO confer EDITORIAL_PRO ownership: a couple
+ * who bought the umbrella never needs to buy Editorial PRO separately. This is
+ * the exact purchase-key→canonical bridge the alias map exists for — no new
+ * framework, and it can't be expressed via BUNDLE_CHILD_SKUS because
+ * COUPLE_WEBSITE_PRO is itself a CHILD of GUIDED_PACK/MEDIA_PACK and the
+ * bundle-map linter (GUARD 2) forbids a bundle code nesting as a child.
+ *
+ * STD_PREMIUM_OPENINGS ← COUPLE_WEBSITE_PRO (owner confirmation 2026-07-04:
+ * "Couple Website pro unlocks all pro features for the website, Save the date,
+ * rsvp, event(on the day), editorial") — the Save-the-Date cinematic openings
+ * are one of the four umbrella phases, so the umbrella confers them too. The
+ * openings stay purchasable à la carte at their own catalog price; this only
+ * adds the read-side grant.
  */
 export const SKU_OWNERSHIP_ALIASES: Readonly<Record<string, ReadonlyArray<string>>> =
-  Object.freeze({});
+  Object.freeze({
+    EDITORIAL_PRO: Object.freeze(['COUPLE_WEBSITE_PRO']),
+    STD_PREMIUM_OPENINGS: Object.freeze(['COUPLE_WEBSITE_PRO']),
+  });
 
 /**
  * Every service_key that confers ownership of `serviceKey` — the canonical key
@@ -195,19 +271,37 @@ export async function checkOrderActive(
  * grants a child SKU when the event owns a bundle that contains it. No
  * migration — ownership still IS orders.status, read one extra way.
  *
- * Canonical source of the membership list: BUNDLE_MEMBERS in
- * app/onboarding/wedding/_components/onboarding-pricing.ts (the bundle "what's
- * included" surface the customer actually buys). This map is the entitlement-
- * layer mirror of that fact, kept here so the read-side gate has no app→lib
- * import inversion. KEEP IN SYNC if BUNDLE_MEMBERS changes.
+ * ── SINGLE SOURCE OF TRUTH (Entity Map & Hardcode Audit 2026-07-04 · Violation
+ * #2) ──────────────────────────────────────────────────────────────────────
+ * Bundle composition now lives in ONE place: the public.bundle_components table
+ * (migration 20270511379088), which the DB fn public.bundles_granting_sku() also
+ * reads. The entitlement gates read that table DB-first via
+ * fetchBundleComponents() below, and THIS const is the graceful-degrade
+ * FALLBACK — used only when the table isn't queryable yet (pre-migration deploy
+ * window / a schema-drift error), so the app never mis-gates before the table
+ * lands. When the table IS present it is authoritative; this const does not need
+ * to be edited for a composition change once the table exists (an admin edits
+ * the table). It is kept in sync as a safety net and is asserted equal to the
+ * migration seed by lint:entitlement-gates GUARD 2.
  *
  * Keyed by BUNDLE service_key → the child catalog service_codes it grants.
  */
-export const BUNDLE_CHILD_SKUS: Readonly<{
-  GUIDED_PACK: ReadonlyArray<string>;
-  MEDIA_PACK: ReadonlyArray<string>;
-  PAPIC_UNLOCK: ReadonlyArray<string>;
-}> = Object.freeze({
+
+/**
+ * Bundle composition shape — a plain map of bundle service_key → its child
+ * service_codes. Both the DB-first read (fetchBundleComponents) and the const
+ * fallback (BUNDLE_CHILD_SKUS) produce this shape, so the pure resolvers below
+ * work identically on either source. Data-driven (any bundle key), since the
+ * authoritative source is now the admin-editable public.bundle_components table.
+ */
+export type BundleComposition = Readonly<Record<string, ReadonlyArray<string>>>;
+
+// Concrete literal type preserved (not widened to BundleComposition) so existing
+// consumers that index it by a named key (add-on-state / sku-activation) keep
+// their exact `ReadonlyArray<string>` element type under noUncheckedIndexedAccess.
+// It still structurally satisfies BundleComposition wherever the generic shape
+// is expected (the pure resolvers + fetchBundleComponents fallback).
+export const BUNDLE_CHILD_SKUS = Object.freeze({
   // Essentials — owner's 7 (onboarding-pricing.ts BUNDLE_MEMBERS.essentials).
   GUIDED_PACK: Object.freeze([
     'SETNAYAN_AI',
@@ -252,8 +346,10 @@ export const BUNDLE_CHILD_SKUS: Readonly<{
   // so the guest disposable camera surface unlocks (its cap is then lifted =
   // "unli guests"). PAPIC_SEATS stays OUT — it's the deprecated ₱2,999 crew pack
   // (superseded by the per-camera model, whose cameras the bypass makes
-  // unlimited regardless). Still deferred: the DB-side bundles_granting_sku()
-  // mirror for PAPIC_UNLOCK.
+  // unlimited regardless). The DB-side bundles_granting_sku() mirror for
+  // PAPIC_UNLOCK — once deferred, and the source of a DB↔app disagreement on
+  // PAPIC_GUEST — is now RESOLVED: migration 20270511379088 seeds bundle_components
+  // with this exact 7-child list (PAPIC_GUEST INCLUDED), and the DB fn reads it.
   PAPIC_UNLOCK: Object.freeze([
     'KWENTO',
     'LIVE_WALL',
@@ -263,34 +359,116 @@ export const BUNDLE_CHILD_SKUS: Readonly<{
     'CAMERA_BRIDGE',
     'PAPIC_GUEST',
   ]),
+  // PAPIC_UNLOCK_LTD (owner 2026-07-11) — the Ltd-tier twin at ₱9,000. Grants the
+  // two still-paid Papic add-ons (Kwento/Pabati/Stories are free, Thank-You/Guest
+  // retired). The Ltd capture-free itself is a separate gate (eventLtdFreeViaUnlock
+  // in papic-cameras.ts), not a child SKU. DB source: bundle_components table.
+  PAPIC_UNLOCK_LTD: Object.freeze(['LIVE_WALL', 'CAMERA_BRIDGE']),
 });
 
+// ===========================================================================
+// Pure composition-resolution logic — operates on a BundleComposition map, with
+// NO I/O, so it's exhaustively unit-testable (entitlements.test.ts) and is the
+// single implementation both the DB-read path and the const-fallback path use.
+// ===========================================================================
+
 /**
- * Reverse index: child service_code → the bundle service_keys that grant it.
- * Built once at module load from BUNDLE_CHILD_SKUS.
+ * Build the reverse index of a composition map: child service_code → the bundle
+ * service_keys that grant it. Sorted for determinism. Pure.
  */
-const BUNDLES_GRANTING_SKU: ReadonlyMap<string, ReadonlyArray<string>> = (() => {
+export function buildBundlesGrantingIndex(
+  composition: BundleComposition,
+): ReadonlyMap<string, ReadonlyArray<string>> {
   const m = new Map<string, string[]>();
-  for (const [bundleKey, children] of Object.entries(BUNDLE_CHILD_SKUS)) {
+  for (const [bundleKey, children] of Object.entries(composition)) {
     for (const child of children) {
       const list = m.get(child) ?? [];
       list.push(bundleKey);
       m.set(child, list);
     }
   }
+  // Deterministic order so callers (and tests) see a stable result regardless of
+  // row/key iteration order (the DB reader can return rows in any order).
+  for (const [child, bundles] of m) m.set(child, [...bundles].sort());
   return m;
-})();
+}
 
 /**
- * Reverse index: alias purchase key → its CANONICAL service_key. Built once from
- * SKU_OWNERSHIP_ALIASES so the batch reader (eventActiveSkus) can collapse a
- * per-tier order key to the canonical SKU the Studio grid + add-on catalog read.
- * (Currently empty — Patiktok, its first user, was retired 2026-06-29.)
+ * The bundle service_keys that grant `child`, resolved against a composition
+ * map. Empty array (never undefined) when no bundle includes it. Pure — this is
+ * the app mirror of the DB fn public.bundles_granting_sku(child).
  */
-const CANONICAL_FOR_ALIAS: ReadonlyMap<string, string> = (() => {
-  const m = new Map<string, string>();
+export function bundlesGrantingSku(
+  composition: BundleComposition,
+  child: string,
+): ReadonlyArray<string> {
+  return buildBundlesGrantingIndex(composition).get(child) ?? [];
+}
+
+/** The child service_codes a given bundle grants, or [] if not a known bundle. Pure. */
+export function childrenOfBundle(
+  composition: BundleComposition,
+  bundleKey: string,
+): ReadonlyArray<string> {
+  return composition[bundleKey] ?? [];
+}
+
+/**
+ * DB-FIRST read of bundle composition from public.bundle_components (the single
+ * source of truth · migration 20270511379088), with the BUNDLE_CHILD_SKUS const
+ * as the graceful-degrade FALLBACK. The house DB-first + const-fallback pattern.
+ *
+ * Returns the const fallback (never throws) when:
+ *   • the table doesn't exist yet — 42P01 (deploy-order safety: the code ships
+ *     BEFORE the migration applies, and must gate correctly in that window);
+ *   • any read error / empty result — a transient failure or an unseeded table
+ *     must not silently strip every bundle child of its entitlement.
+ * Otherwise the table is authoritative — a live row set (even one that differs
+ * from the const) wins, so an admin composition edit takes effect without a
+ * code change.
+ *
+ * Uses whatever client the caller already passes — the table's RLS grants a
+ * public SELECT (USING true), so anon / authenticated / admin all read it.
+ */
+export async function fetchBundleComponents(
+  supabase: SupabaseClient,
+): Promise<BundleComposition> {
+  const { data, error } = await supabase
+    .from('bundle_components')
+    .select('bundle_sku_code, component_service_code');
+
+  // Pre-migration / drift / any error → const fallback. Never throw at a gate.
+  if (error || !data || data.length === 0) return BUNDLE_CHILD_SKUS;
+
+  const out: Record<string, string[]> = {};
+  for (const row of data) {
+    const bundle = row.bundle_sku_code as string | null;
+    const child = row.component_service_code as string | null;
+    if (!bundle || !child) continue;
+    (out[bundle] ??= []).push(child);
+  }
+  // A well-formed but somehow-childless result → fallback (defense-in-depth).
+  if (Object.keys(out).length === 0) return BUNDLE_CHILD_SKUS;
+  return out;
+}
+
+/**
+ * Reverse index: alias purchase key → ALL the CANONICAL service_keys it grants.
+ * Built once from SKU_OWNERSHIP_ALIASES so the batch reader (eventActiveSkus)
+ * can collapse an alias order key to the canonical SKU(s) the Studio grid +
+ * add-on catalog read. MULTI-valued because one purchase key can confer several
+ * canonicals — COUPLE_WEBSITE_PRO (the website umbrella) grants BOTH
+ * EDITORIAL_PRO and STD_PREMIUM_OPENINGS; a single-valued map would let the
+ * second Map.set() silently overwrite the first grant.
+ */
+const CANONICALS_FOR_ALIAS: ReadonlyMap<string, ReadonlyArray<string>> = (() => {
+  const m = new Map<string, string[]>();
   for (const [canonical, aliases] of Object.entries(SKU_OWNERSHIP_ALIASES)) {
-    for (const alias of aliases) m.set(alias, canonical);
+    for (const alias of aliases) {
+      const list = m.get(alias) ?? [];
+      list.push(canonical);
+      m.set(alias, list);
+    }
   }
   return m;
 })();
@@ -323,12 +501,11 @@ export async function eventOwnsSku(
   //    passed directly).
   if (await checkOrderOwnership(supabase, eventId, serviceKey)) return true;
 
-  // 2. Any bundle that includes this child SKU, owned by the event.
-  const grantingBundles = BUNDLES_GRANTING_SKU.get(serviceKey);
-  if (grantingBundles && grantingBundles.length > 0) {
-    for (const bundleKey of grantingBundles) {
-      if (await checkOrderOwnership(supabase, eventId, bundleKey)) return true;
-    }
+  // 2. Any bundle that includes this child SKU, owned by the event. Composition
+  //    is read DB-first from bundle_components (const fallback pre-migration).
+  const composition = await fetchBundleComponents(supabase);
+  for (const bundleKey of bundlesGrantingSku(composition, serviceKey)) {
+    if (await checkOrderOwnership(supabase, eventId, bundleKey)) return true;
   }
 
   // 3. Admin comp grant — a host of this event was gifted free access covering
@@ -357,16 +534,28 @@ export async function eventSkuActive(
   serviceKey: string,
 ): Promise<boolean> {
   if (await checkOrderActive(supabase, eventId, serviceKey)) return true;
-  const grantingBundles = BUNDLES_GRANTING_SKU.get(serviceKey);
-  if (grantingBundles && grantingBundles.length > 0) {
-    for (const bundleKey of grantingBundles) {
-      if (await checkOrderActive(supabase, eventId, bundleKey)) return true;
-    }
+  // Composition DB-first from bundle_components (const fallback pre-migration).
+  const composition = await fetchBundleComponents(supabase);
+  for (const bundleKey of bundlesGrantingSku(composition, serviceKey)) {
+    if (await checkOrderActive(supabase, eventId, bundleKey)) return true;
   }
 
   // Admin comp grant — bypass the handshake gate too (a gifted feature is
   // unlocked immediately; there's no payment to verify). Host-scoped server-side.
   if (await eventHasCompGrant(supabase, eventId, serviceKey)) return true;
+
+  // §10a internal-hosted events own EVERY SKU on the render — the Setnayan
+  // team/owner's showcase & demo events display fully without a per-event order
+  // or comp (the intended "internal carries a permanent grant"; the comp form
+  // blocks per-SKU comps on internal accounts for this exact reason). See
+  // migration 20270806100000. Checked LAST so the common external-couple path
+  // pays for one extra RPC only when nothing else already granted the SKU.
+  if (await eventHostIsInternal(supabase, eventId)) return true;
+
+  // Founder-seat-hosted events likewise own EVERY SKU — "all features are
+  // already paid for" on every owner-granted founder seat (owner-locked
+  // 2026-07-16 · migration 20270818135217). Same last-position reasoning.
+  if (await eventHostHoldsFounderSeat(supabase, eventId)) return true;
 
   return false;
 }
@@ -418,6 +607,10 @@ export async function eventActiveSkus(
   const active = new Set<string>();
   const pending = new Set<string>();
 
+  // Composition DB-first from bundle_components (const fallback pre-migration),
+  // fetched once for the whole batch.
+  const composition = await fetchBundleComponents(supabase);
+
   const { data, error } = await supabase
     .from('orders')
     .select('service_key, status')
@@ -425,7 +618,7 @@ export async function eventActiveSkus(
     .in('status', ['paid', 'fulfilled', 'submitted', 'awaiting_payment']);
 
   const childrenOf = (key: string): ReadonlyArray<string> =>
-    (BUNDLE_CHILD_SKUS as Record<string, ReadonlyArray<string>>)[key] ?? [];
+    childrenOfBundle(composition, key);
 
   // Populate from orders when available. A missing/legacy orders table must not
   // crash the hub — but it also must NOT skip the comp union below, so we guard
@@ -435,12 +628,13 @@ export async function eventActiveSkus(
       const rawKey = row.service_key as string | null;
       if (!rawKey) continue;
       const status = (row.status as string | null) ?? '';
-      // Collapse a per-tier alias purchase key to its canonical SKU so a buyer
+      // Collapse an alias purchase key to its canonical SKU(s) so a buyer
       // reads as owning the canonical SKU (the key the Studio grid + add-on
-      // catalog gate on). Keep the raw key too — some surfaces read the per-tier
-      // code directly.
-      const canonical = CANONICAL_FOR_ALIAS.get(rawKey);
-      const keys = canonical ? [rawKey, canonical] : [rawKey];
+      // catalog gate on). Multi-valued: the COUPLE_WEBSITE_PRO umbrella confers
+      // both EDITORIAL_PRO and STD_PREMIUM_OPENINGS. Keep the raw key too —
+      // some surfaces read the purchase code directly.
+      const canonicals = CANONICALS_FOR_ALIAS.get(rawKey);
+      const keys = canonicals ? [rawKey, ...canonicals] : [rawKey];
       if (ACTIVE_STATUSES.has(status)) {
         for (const key of keys) {
           active.add(key);

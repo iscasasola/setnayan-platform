@@ -53,6 +53,8 @@ import {
 } from '../actions';
 import { signInWithGoogle } from '@/app/auth/oauth-actions';
 import { signUp } from '@/app/signup/actions';
+import { TurnstileField } from '@/app/_components/auth/turnstile-field';
+import { mintTurnstileToken } from '@/lib/turnstile-client';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
 import { experienceQuizEnabled } from '@/lib/experience-quiz';
@@ -69,7 +71,7 @@ import { FAITH_REGISTRY, FAITH_LABELS } from '@/lib/faith-registry';
 import { allRegions } from '@/lib/region-source';
 import { cityByKey } from '../_data/wedding-cities';
 import { LocationStep } from './location-step';
-import type { OnboardingPricing, OnboardingBundleVM } from './onboarding-pricing';
+import type { OnboardingPricing } from './onboarding-pricing';
 import { MonoLockup, type MonoDesign } from './mono-lockup';
 import { SongBankStep } from './song-bank-step';
 import { OnboardingMusic } from './onboarding-music';
@@ -131,7 +133,7 @@ import { SDLoader } from '@/components/sd-loader';
    persona DERIVES picks/refinements/feel/services on the reveal. When OFF, the exp_*
    screens are filtered out and the flow is byte-identical to today. Order: the couple
    designs the EXPERIENCE first, then locks the venue (team_intro → reception_setting → find). */
-const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','alaala_promise','region','pax','budget','exp_for_whom','exp_feel','exp_energy','exp_roots','exp_effort','exp_help','exp_source','exp_reveal','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','congrats','plan','bundle','services','summary'] as const;
+const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','alaala_promise','region','pax','budget','exp_for_whom','exp_feel','exp_energy','exp_roots','exp_effort','exp_help','exp_source','exp_reveal','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','congrats','plan','services','summary'] as const;
 type ScreenId = typeof FLOW_IDS[number];
 /* The love collection screens dropped when the couple skips the stage (love_intro,
    the gate, always stays). */
@@ -171,27 +173,25 @@ const LEGACY_PICKER_SCREENS: ReadonlySet<ScreenId> = new Set(['aigate', 'team_ba
 // `congrats` (the dashboard-bloom reveal) → "Go to my dashboard". The persona's derived
 // services are still STORED (style_preferences.interested_services) for the dashboard to
 // surface — they're just not sold here.
-const PAYWALL_SCREENS: ReadonlySet<ScreenId> = new Set(['plan', 'bundle', 'services', 'summary']);
-// Owner 2026-06-22 ("the steps like this, the information only, can we remove them for now" +
-// "trim it" — also drop the love-story arc; a fuller replan is pending): screens filtered OUT of
-// the flow so it runs question→question. REVERSIBLE — empty this set to restore every screen.
-// Two groups:
-//   • pure no-input interstitials: welcome · alaala_promise · team_intro · team_payoff · exp_reveal
-//   • the love-story sub-flow: love_intro (the "tell it / add it later" fork) + its 5 questions +
-//     love_preview. ⚠ love_story seeds the website editorial + the Pakanta song — it's removed from
-//     ONBOARDING for now; collect it elsewhere (dashboard) or restore here when we replan.
+const PAYWALL_SCREENS: ReadonlySet<ScreenId> = new Set(['plan', 'services', 'summary']);
+// Screens filtered OUT of the flow. REVERSIBLE — empty this set to restore every screen.
+//   • Owner 2026-06-22: pure no-input interstitials removed to run question→question —
+//     welcome · alaala_promise · team_intro · team_payoff · exp_reveal.
+//   • Owner 2026-07-12: the LOVE-STORY arc is RESTORED (it was removed 2026-06-22). It feeds the
+//     richer Event Brief (the taste/story signals behind the now-free budget/faith matching) plus
+//     the website editorial + the Pakanta song. It stays OPT-IN — `love_intro` is the "tell it /
+//     add it later" fork and its 5 questions are LOVE_SKIPPABLE — so it never forces a longer flow
+//     ("easier, not more complex").
 // The persona derive that used to run on `exp_reveal` now fires when the 5 quiz answers complete
 // (see the derive effect). JSX sections stay in place (just never become active).
 const REMOVED_SCREENS: ReadonlySet<ScreenId> = new Set([
   'welcome', 'alaala_promise', 'team_intro', 'team_payoff', 'exp_reveal',
-  'love_intro', 'love_spark', 'love_almost', 'love_proposal', 'love_milestones', 'love_tone', 'love_preview',
 ]);
 function buildSequence(kind: OnboardingState['kind'], authed: boolean, loveSkipped: boolean, ai: boolean | null, picks: string[]): ScreenId[] {
   const hasMusician = picks.some((p) => SONG_PICK_CATS.has(p));
   const hasStylist = picks.includes('stylist');
   return FLOW_IDS.filter((id) =>
     !REMOVED_SCREENS.has(id) &&                     // owner 2026-06-22 — info-only steps + love-story arc removed for now
-    id !== 'bundle' &&                              // owner 2026-06-29 "no more essentials and complete" — the Essentials/Complete bundle offer screen is dropped from the flow (model is Free → Setnayan AI → à-la-carte). The screen JSX + selectedBundle branch stay inert (never active).
     !(id === 'faith' && kind === 'civil') &&        // Civil skips the faith screen
     !(EXP_SCREENS.has(id) && !EXPERIENCE_QUIZ_ENABLED) &&         // exp_* experience quiz only when the flag is ON
     !(EXPERIENCE_QUIZ_ENABLED && LEGACY_PICKER_SCREENS.has(id)) && // flag ON drops the manual picker chain (the persona derives it)
@@ -218,9 +218,6 @@ const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
   // states the guardrail); chrome Continue advances, canContinue defaults true.
   alaala_promise:'Continue',
   account:'Create account', find:'Continue', congrats:'Continue', plan:'Continue',
-  // bundle (owner 2026-06-08): chrome CTA = the "skip the offer, build à la carte" advance to
-  // `services`. The two bundle cards carry their OWN "Get {title}" CTAs that route to checkout.
-  bundle:'Continue',
   services:'Review my picks', summary:'Done',
   // Dream Team chapter. aigate carries its OWN two in-screen CTAs (chrome CTA hidden
   // via AIGATE_NOCTA) — its key is required only to satisfy the exhaustive Record.
@@ -247,9 +244,6 @@ const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
 const CAN_SKIP_BY_ID: Partial<Record<ScreenId, boolean>> = {
   love_spark:true, love_almost:true, love_proposal:true, love_milestones:true, love_tone:true,
   team_extras:true, songs:true, mood:true, find:true, services:true,
-  // bundle (owner 2026-06-08): Skip = advance to `services` (the à-la-carte path). The
-  // in-screen "I'll pick à la carte instead" link is the primary escape; this is parity.
-  bundle:true,
 };
 /* The love gate + reveal carry their OWN button rows (a primary CTA + a ghost) — the chrome
    Continue is hidden for these, the same way the account gate + summary are (data-nocta). */
@@ -374,7 +368,7 @@ const REGLABEL: Record<string, string> = Object.fromEntries(
 /* ════════════ PHASE 3 — picker (screen 9) + style sub-stepper (screen 10) ════════════ */
 
 /* ── "What would you love?" picker — 53 services grouped by the 10 taxonomy parents (prototype lines 780-830). Rows = chip rows (solo or pair). `s` = default-selected. ── */
-type PickChip = { cat: string; label: string };
+type PickChip = { cat: string; label: string; photoUrl?: string | null };
 type PickGroup = { label: string; rows: PickChip[][] };
 const PICK_GROUPS_FALLBACK: PickGroup[] = [
   { label: 'Venue', rows: [[{ cat: 'reception', label: 'Reception venue' }, { cat: 'ceremony', label: 'Ceremony venue' }]] },
@@ -743,13 +737,18 @@ function Rail({ children, className, wrapClassName }: { children: ReactNode; cla
   );
 }
 
-/* Picker service card — per-service photo + label + select check (owner 2026-06-05). */
-function PickCard({ cat, label, desc, selected, onClick }: { cat: string; label: string; desc?: string; selected: boolean; onClick: () => void }) {
+/* Picker service card — per-service photo + label + select check (owner 2026-06-05).
+   `photoUrl` (Taxonomy Studio · PR 4) is the DB-first tile photo from
+   service_categories.sample_photo_r2_key; when set it wins over the static
+   /onboarding/picker/<cat>.webp asset, and a missing DB photo falls back to the
+   static asset — never a broken image (a failed bg just shows the neutral tint). */
+function PickCard({ cat, label, desc, selected, photoUrl, onClick }: { cat: string; label: string; desc?: string; selected: boolean; photoUrl?: string | null; onClick: () => void }) {
+  const bg = photoUrl || PICKER_ASSET(cat);
   return (
     // key flips with `selected` so the button remounts on each pick → the .sn-bounce
     // selection-feedback animation replays every time this card becomes selected.
     <button key={selected ? 'on' : 'off'} type="button" className={`svccard${selected ? ' sel sn-bounce' : ''}`} onClick={onClick} aria-pressed={selected} title={desc} aria-label={desc ? `${label} — ${desc}` : label}>
-      <span className="svcph" style={{ backgroundImage: `url(${PICKER_ASSET(cat)})` }} />
+      <span className="svcph" style={{ backgroundImage: `url("${bg}")` }} />
       <span className="svcck" aria-hidden="true">✓</span>
       <span className="svclb">{label}</span>
     </button>
@@ -1416,15 +1415,21 @@ export function OnboardingShell({
   authed,
   resume,
   activeFaiths = null,
+  religionDefault = null,
   pricing,
   bgMusicUrl = null,
   refinements = REFINEMENTS_DATA,
   hiddenCats = [],
   dynamicTiles = [],
   budgetBands = BUDGET_BANDS_FALLBACK,
+  nextPath = null,
 }: {
   authed: boolean;
   resume: boolean;
+  /** Date-anchor model: the user's profile religion (already validated against
+   *  activeFaiths by the page). Pre-selects the faith when they choose a
+   *  Religious wedding; null = no pre-select. Never overrides a resumed draft. */
+  religionDefault?: string | null;
   /** Picker EXTRAS cats to hide (no live marketplace supply) — spec §0 available-only. */
   hiddenCats?: string[];
   /**
@@ -1469,6 +1474,14 @@ export function OnboardingShell({
    * Defaults to the in-code fallback so the shell renders without the prop.
    */
   budgetBands?: BudgetBand[];
+  /**
+   * Optional internal return path (vendor-invite claim loop, 2026-06-30). When a
+   * 0-event couple is sent here from /vendor-invite/[slug] to create their first
+   * event, the plain-finish navigation returns them to it (so they can finish
+   * shortlisting the vendor) instead of landing on Home. Purchase/bundle CTAs
+   * keep precedence. Already safeNext()-validated in page.tsx.
+   */
+  nextPath?: string | null;
 }) {
   const router = useRouter();
   const [state, setState] = useState<OnboardingState>(EMPTY_ONBOARDING_STATE);
@@ -1539,7 +1552,10 @@ export function OnboardingShell({
       let group = result.find((g) => g.label === groupLabel);
       if (!group) { group = { label: groupLabel, rows: [] }; result.push(group); }
       // Append as its own row (single-chip row) so layout stays clean.
-      group.rows.push([{ cat: chip.cat, label: chip.label }]);
+      // Carry the DB-resolved tile photo (Taxonomy Studio · PR 4) so the
+      // PickCard shows the seeded editorial photo instead of a missing static
+      // /onboarding/picker/<db_tile_id>.webp for these DB-only tiles.
+      group.rows.push([{ cat: chip.cat, label: chip.label, photoUrl: chip.photoUrl ?? null }]);
     }
     return result;
   }, [dynamicTiles]);
@@ -2175,7 +2191,14 @@ export function OnboardingShell({
 
   // No faith is pre-selected — the couple picks their tradition on the faith screen
   // (owner 2026-06-05: no prefilled onboarding values).
-  const selectKind = (k: OnboardingKind) => patch({ kind: k, faith: [] });
+  const selectKind = (k: OnboardingKind) =>
+    patch({
+      kind: k,
+      // Date-anchor pre-select: a Religious wedding pre-fills the faith from the
+      // user's profile religion (page-validated as an active faith). Civil/Mixed
+      // reset to empty as before. They can still change it on the faith screen.
+      faith: k === 'religious' && religionDefault ? [religionDefault as OnboardingFaith] : [],
+    });
 
   /* Experience-quiz axis pick (0016) — store the answer; the persona resolves on the reveal.
      setState (not patch) so the nested experienceAxes object merges instead of replacing. */
@@ -2851,7 +2874,7 @@ export function OnboardingShell({
     [effectiveBudgetPesos],
   );
 
-  const handleFinish = useCallback(async (purchase = false, bundleOverride?: 'essentials' | 'complete' | null, addonSlugOverride?: string) => {
+  const handleFinish = useCallback(async (purchase = false, addonSlugOverride?: string) => {
     if (committingRef.current) return;
     setCommitError(null);
 
@@ -2862,43 +2885,33 @@ export function OnboardingShell({
     // More once they land (owner 2026-06-02).
     const goToDashboard = (eventId: string, toServices = false) => {
       const base = `/dashboard/${eventId}`;
-      // Bundle branch (owner 2026-06-08): if the couple chose an Essentials/Complete bundle on
-      // the new `bundle` screen, Purchase Now routes to the bundle checkout (add-ons/bundle?code=
-      // <package_code>), which resolves the package price SERVER-SIDE from the live package
-      // catalog and mounts InlineCheckoutDrawer keyed service_key=package_code. Mutually
-      // exclusive with the à-la-carte path: a bundle pick takes precedence and the
-      // interestedServices paySlug logic below is skipped entirely. Null (no bundle) →
-      // identical à-la-carte behavior as before.
-      // Use the explicit override (the card's own "Get {title}" CTA passes its key, since
-      // setState in the same tick hasn't flushed yet) and fall back to committed state.
-      const sel = bundleOverride !== undefined ? bundleOverride : state.selectedBundle;
-      const bundleVM = toServices && sel ? pricing.bundles[sel] : null;
       // Purchase Now jumps straight to the in-app checkout card (InlineCheckoutDrawer · BDO/GCash QR
       // + reference) for the FIRST picked service that has a built checkout page (owner 2026-06-06)
       // — the couple pays there; the rest stay payable on the Services tab. Falls back to the
       // Services tab when no pick is mappable; continue-free lands on Home.
-      const paySlug = toServices && !bundleVM
+      const paySlug = toServices
         ? state.interestedServices.map((k) => INAPP_TO_ADDON_SLUG[k]).find(Boolean)
         : undefined;
       // AI keep-card override (Your Plan screen): commit then land straight on the
       // Setnayan AI checkout card. Highest precedence — takes the couple to pay for
-      // the planner regardless of bundle/pick state.
+      // the planner regardless of pick state.
       const dest = addonSlugOverride
         ? `${base}/studio/${addonSlugOverride}`
-        : bundleVM
-        ? `${base}/studio/bundle?code=${encodeURIComponent(bundleVM.code)}`
         : paySlug
           ? `${base}/studio/${paySlug}`
           : toServices
             ? `${base}/vendors`
-            : base;
+            // Plain "continue free" finish: if the couple was sent here from a
+            // vendor-invite claim to create their first event, return them to it
+            // (vendor-invite/[slug]) to finish shortlisting; else land on Home.
+            : (nextPath ?? base);
       try {
         router.prefetch(base); // Home
         router.prefetch(`${base}/guests`); // Guests
         router.prefetch(`${base}/vendors`); // Services
         router.prefetch(`${base}/website`); // Website
         router.prefetch(`${base}/more`); // More
-        if (paySlug || bundleVM || addonSlugOverride) router.prefetch(dest); // the checkout card we're landing on
+        if (paySlug || addonSlugOverride) router.prefetch(dest); // the checkout card we're landing on
       } catch {
         /* prefetch is best-effort */
       }
@@ -2958,6 +2971,10 @@ export function OnboardingShell({
       // Purchase Now carries the couple's selected paid services into the commit (persisted to
       // events.style_preferences.interested_services); "continue with the free plan" drops them.
       if (!purchase) payload.interestedServices = [];
+      // Anon-draft commit mints a Supabase anonymous session, which global
+      // Supabase captcha gates. Mint a Turnstile token so the commit succeeds
+      // under captcha. No-op (undefined, instant) when Turnstile is unconfigured.
+      payload.captchaToken = await mintTurnstileToken('onboarding');
       const res = await commitOnboardingWedding(payload);
       committingRef.current = false;
       setCommitting(false);
@@ -2989,6 +3006,14 @@ export function OnboardingShell({
           setCommitError('Please create your account to save your plan.');
           goToId('account');
         }
+      } else if (res.error === 'wedding_exists') {
+        // Wedding cardinality (owner-locked 2026-07-12, wired into this commit
+        // path 2026-07-17): one wedding in planning at a time — same rule the
+        // create-event picker already explains with its guided router.
+        setFinishing(false);
+        setCommitError(
+          'You already have a wedding in planning — you can only plan one at a time. Open it from your dashboard, or archive it first to start a new one.',
+        );
       } else {
         // Surface the error + let them retry — don't strand them on the overlay.
         setFinishing(false);
@@ -3014,7 +3039,7 @@ export function OnboardingShell({
       setFinishing(false);
       setCommitError('Something went wrong saving your plan. Please try again.');
     }
-  }, [committedEventId, state, buildCommitPayload, router, goToId, pricing]);
+  }, [committedEventId, state, buildCommitPayload, router, goToId, nextPath]);
 
   return (
     <div className="onbw">
@@ -3732,6 +3757,7 @@ export function OnboardingShell({
                 max={500}
                 value={state.pax == null ? 10 : Math.min(500, Math.max(10, state.pax))}
                 className="paxslider"
+                data-sn-hint
                 aria-label="Guest count slider"
                 style={{ background: `linear-gradient(to right,var(--gold) 0%,var(--gold) ${state.pax == null ? 0 : paxFill}%,#e7dfce ${state.pax == null ? 0 : paxFill}%,#e7dfce 100%)` }}
                 onChange={(e) => patch({ pax: parseInt(e.target.value, 10) })}
@@ -3805,6 +3831,7 @@ export function OnboardingShell({
                     step={10000}
                     value={budgetSet ? budgetSliderVal : budgetFloorV}
                     className="paxslider"
+                    data-sn-hint
                     aria-label="Working budget slider"
                     style={{
                       background: `linear-gradient(to right,var(--gold) 0%,var(--gold) ${budgetSet ? budgetFill : 0}%,#e7dfce ${budgetSet ? budgetFill : 0}%,#e7dfce 100%)`,
@@ -4055,7 +4082,7 @@ export function OnboardingShell({
                           {open && (
                             <Rail className="pgrid car">
                               {g.leaves.map((c) => (
-                                <PickCard key={c.cat} cat={c.cat} label={c.label} desc={PICK_INFO[c.cat]?.d} selected={state.picks.includes(c.cat)} onClick={() => pickChip(c.cat)} />
+                                <PickCard key={c.cat} cat={c.cat} label={c.label} desc={PICK_INFO[c.cat]?.d} selected={state.picks.includes(c.cat)} photoUrl={c.photoUrl} onClick={() => pickChip(c.cat)} />
                               ))}
                             </Rail>
                           )}
@@ -4188,6 +4215,7 @@ export function OnboardingShell({
                 <input type="hidden" name="next" value={RESUME_NEXT} />
                 <input type="hidden" name="account_type" value="customer" />
                 <input type="hidden" name="public_summary_consent" value="yes" />
+                <TurnstileField action="signup" />
                 <input
                   className="field"
                   name="email"
@@ -4446,7 +4474,7 @@ export function OnboardingShell({
                   <span className="aikeep-anchor">₱30,000+ coordinator</span>
                 </div>
               )}
-              <button type="button" className="aikeep-cta" disabled={committing} onClick={() => { void handleFinish(true, undefined, 'setnayan-ai'); }}>{committing ? 'Setting up…' : `Keep Setnayan AI${pricing.setnayanAi ? ` · ${pricing.setnayanAi.label}` : ''}`}</button>
+              <button type="button" className="aikeep-cta" disabled={committing} onClick={() => { void handleFinish(true, 'setnayan-ai'); }}>{committing ? 'Setting up…' : `Keep Setnayan AI${pricing.setnayanAi ? ` · ${pricing.setnayanAi.label}` : ''}`}</button>
               <div className="aikeep-later"><u onClick={() => go(1)}>Maybe later — I&apos;ll browse on my own (free)</u></div>
             </div>
             {matchAvail === true && (
@@ -4465,78 +4493,11 @@ export function OnboardingShell({
             )}
           </section>
 
-          {/* 14b THE BUNDLE OFFER — Essentials/Complete (onboarding-only · owner 2026-06-08).
-              Lives BEFORE services so "get the bundle" precedes "build your own à la carte".
-              Reads pricing.bundles (live price + struck worth + savings from the admin package
-              catalog). Selecting a card sets state.selectedBundle → Purchase Now routes to the
-              bundle checkout (goToDashboard bundle branch). The chrome "Continue" + the in-screen
-              "I'll pick à la carte instead" link both leave selectedBundle null → the unchanged
-              à-la-carte services/summary path. COVERT: pricing/offer copy only — not a love screen. */}
-          <section className={`screen${activeId === 'bundle' ? ' active' : ''}`} id="screen-bundle">
-            {(() => {
-              const eB = pricing.bundles.essentials;
-              const cB = pricing.bundles.complete;
-              // Catalog read failure → both null: render only the escape so the couple is never stranded.
-              if (!eB && !cB) {
-                return (
-                  <>
-                    <div className="eyebrow">Make it unforgettable</div>
-                    <h1 className="q" style={{ fontSize: 29, lineHeight: 1.06 }}>Two ways to make it unforgettable.</h1>
-                    <div className="plan-skip"><u onClick={() => { patch({ selectedBundle: null }); go(1); }}>I&apos;ll pick à la carte instead</u></div>
-                  </>
-                );
-              }
-              const card = (k: 'essentials' | 'complete', b: OnboardingBundleVM) => {
-                const sel = state.selectedBundle === k;
-                const reco = k === 'complete';
-                return (
-                  <div
-                    key={k}
-                    className={`bdl-card${sel ? ' sel' : ''}${reco ? ' reco' : ''}`}
-                    role="button"
-                    tabIndex={0}
-                    aria-pressed={sel}
-                    onClick={() => patch({ selectedBundle: k })}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); patch({ selectedBundle: k }); } }}
-                  >
-                    {reco && <div className="bc-reco"><span className="bcr-star">★</span> Best value</div>}
-                    <div className="bc-name">{b.title}</div>
-                    <div className="bc-pricerow">
-                      {b.worth > b.price && <span className="bc-was">{pesoB(b.worth)}</span>}
-                      <span className="bc-now">{pesoB(b.price)}</span>
-                    </div>
-                    {b.savings > 0 && <div className="bc-save">Save {pesoB(b.savings)} vs buying each on its own</div>}
-                    {b.items.length > 0 && (
-                      <ul className="bc-items">
-                        {b.items.map((it) => (
-                          <li key={it}><span className="bci-ck">✓</span>{it}</li>
-                        ))}
-                      </ul>
-                    )}
-                    <button
-                      type="button"
-                      className="bc-cta"
-                      disabled={committing}
-                      onClick={(e) => { e.stopPropagation(); patch({ selectedBundle: k }); void handleFinish(true, k); }}
-                    >
-                      {committing ? 'Setting up…' : `Get ${b.title} · ${pesoB(b.price)}`}
-                    </button>
-                  </div>
-                );
-              };
-              return (
-                <>
-                  <div className="eyebrow">Make it unforgettable</div>
-                  <h1 className="q" style={{ fontSize: 29, lineHeight: 1.06 }}>Two ways to make it unforgettable.</h1>
-                  <div className="bdl-cards">
-                    {eB && card('essentials', eB)}
-                    {cB && card('complete', cB)}
-                  </div>
-                  <div className="plan-skip"><u onClick={() => { patch({ selectedBundle: null }); go(1); }}>I&apos;ll pick à la carte instead</u></div>
-                </>
-              );
-            })()}
-          </section>
+          {/* 14b THE BUNDLE OFFER (Essentials/Complete) was RETIRED 2026-06-29 ("no more
+              essentials and complete"; model is Free → Setnayan AI → à-la-carte). The inert
+              screen, its state, and the /studio/bundle checkout route were deleted 2026-07-15
+              (dead-route cleanup). Historical bundle-order activation still lives in
+              entitlements.ts / sku-activation.ts. */}
 
           {/* 15 BOOST & ENHANCE — paid in-app services: focused detail + bottom carousel (owner 2026-06-05) */}
           <section className={`screen${activeId === 'services' ? ' active' : ''}`} id="screen-services">

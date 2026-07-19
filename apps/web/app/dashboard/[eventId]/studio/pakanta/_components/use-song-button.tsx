@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { CheckCircle2, Loader2, Music } from 'lucide-react';
 import { adoptPakantaSongAsSiteMusic } from '../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 /**
  * The one-tap "Use this song on my site" button on the DELIVERED Pakanta state.
@@ -13,11 +14,15 @@ import { adoptPakantaSongAsSiteMusic } from '../actions';
 export function UseSongButton({ eventId }: { eventId: string }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const save = useSaveLoader();
 
   function handleClick() {
     setError(null);
     startTransition(async () => {
-      const res = await adoptPakantaSongAsSiteMusic(eventId);
+      const res = await save.run(() => adoptPakantaSongAsSiteMusic(eventId), {
+        steps: ['Setting your song'],
+        hint: 'Saving',
+      });
       if (!res.ok) setError(res.error);
     });
   }

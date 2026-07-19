@@ -121,7 +121,7 @@ export function PaymentScheduleEditor({
   return (
     <form
       action={setServicePaymentSchedule}
-      className="mt-3 space-y-2 rounded-xl border border-ink/10 bg-cream p-3"
+      className="mt-3 space-y-2 sn-row p-3"
     >
       <input type="hidden" name="vendor_service_id" value={serviceId} />
       <div className="flex items-center gap-1.5">
@@ -206,7 +206,7 @@ export function PaymentScheduleEditor({
                       className={`px-3 py-2 text-xs font-medium ${
                         r.amount_kind === 'percent'
                           ? 'bg-terracotta text-white'
-                          : 'bg-cream text-ink/70 hover:bg-ink/5'
+                          : 'bg-white/70 text-ink/70 hover:bg-ink/5'
                       }`}
                     >
                       % of total
@@ -217,7 +217,7 @@ export function PaymentScheduleEditor({
                       className={`px-3 py-2 text-xs font-medium ${
                         r.amount_kind === 'fixed'
                           ? 'bg-terracotta text-white'
-                          : 'bg-cream text-ink/70 hover:bg-ink/5'
+                          : 'bg-white/70 text-ink/70 hover:bg-ink/5'
                       }`}
                     >
                       Fixed ₱
@@ -389,13 +389,13 @@ export function PaymentScheduleEditor({
           type="button"
           onClick={add}
           disabled={rows.length >= MAX_SCHEDULE_ITEMS}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-ink/20 bg-cream px-3 text-[11px] font-medium text-ink hover:border-ink/40 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-ink/20 bg-white/70 px-3 text-[11px] font-medium text-ink hover:border-ink/40 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Plus className="h-3.5 w-3.5" strokeWidth={1.75} />
           {rows.length === 0 ? 'Add downpayment' : 'Add payment'}
         </button>
         <SubmitButton
-          className="inline-flex h-8 items-center justify-center rounded-md border border-ink/20 bg-cream px-3 text-[11px] font-medium text-ink hover:border-ink/40"
+          className="inline-flex h-8 items-center justify-center rounded-md border border-ink/20 bg-white/70 px-3 text-[11px] font-medium text-ink hover:border-ink/40"
           pendingLabel="Saving…"
         >
           Save schedule

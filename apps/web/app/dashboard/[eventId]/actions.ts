@@ -28,13 +28,16 @@ import {
 import { resolveRegion } from '@/lib/region-source';
 import { baziBirthDataEnabled } from '@/lib/bazi-birthdata';
 import { isChineseWedding } from '@/lib/chinese-wedding';
-import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
+import {
+  isAllowedCeremonyValue,
+  isAllowedSecondaryCeremonyValue,
+  type CeremonyValue,
+} from '@/lib/faith-registry';
 import {
   computeCompatibilityIssue,
   type EventVendorRowInput,
 } from '@/lib/wedding-plan-groups';
 import { getVendorAvailableDays } from '@/lib/vendor-availability';
-import { ROADMAP_ITEM_KEYS } from '@/lib/wedding-roadmap';
 import {
   type ConflictField,
   type ConflictService,
@@ -213,55 +216,12 @@ export async function setPlanningMode(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}`, 'layout');
 }
 
-/**
- * toggleRoadmapItem — mark a Wedding Roadmap "thing to complete" done (or undo).
- *
- * Owner 2026-06-05 (iteration 0021 · hybrid auto/manual). This is the MANUAL
- * leg of the roadmap: the couple taps an item done and its key is added to
- * `events.roadmap_completed` (removed if tapped again), dropping it off the
- * list. The AUTO leg lives in WeddingRoadmapAsync, which derives the 8
- * confirmable items from structural signals (date / vendor status / counts /
- * paid capture order) — those never reach this action because a satisfied item
- * has no Done button to tap. So this stays the fallback for the manual-only
- * items and any auto item the app can't yet confirm. Mirrors setPlanningMode's
- * auth + `event_id` update.
- */
-export async function toggleRoadmapItem(formData: FormData) {
-  const eventId = formData.get('event_id');
-  const itemKey = formData.get('item_key');
-  if (typeof eventId !== 'string') throw new Error('event_id required');
-  if (
-    typeof itemKey !== 'string' ||
-    !(ROADMAP_ITEM_KEYS as readonly string[]).includes(itemKey)
-  ) {
-    throw new Error('invalid roadmap item');
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { data: row } = await supabase
-    .from('events')
-    .select('roadmap_completed')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  const current = ((row as { roadmap_completed?: string[] | null } | null)
-    ?.roadmap_completed ?? []) as string[];
-  const next = current.includes(itemKey)
-    ? current.filter((k) => k !== itemKey)
-    : [...current, itemKey];
-
-  const { error } = await supabase
-    .from('events')
-    .update({ roadmap_completed: next })
-    .eq('event_id', eventId);
-  if (error) throw new Error(error.message);
-
-  revalidatePath(`/dashboard/${eventId}`, 'layout');
-}
+// toggleRoadmapItem (the manual "thing to complete" check-off) was REMOVED
+// 2026-07-11 along with its only surface, WeddingRoadmapAsync — both orphaned
+// when the 2026-07-10 refactor made `<EventDashboard>` the event Home and
+// retired the Progress tab. `events.roadmap_completed` is no longer written;
+// the Studio recommendation strip still READS it (existing values stay valid)
+// but now runs effectively on auto-signals only. See lib/studio-recommendations.ts.
 
 const MANUAL_KEYS = new Set<StepKey>(
   STEPS.filter((s) => s.source === 'manual').map((s) => s.key),
@@ -322,31 +282,21 @@ export async function toggleJourneyStep(formData: FormData) {
 // a typo or change their mind during early planning. The vendor-confirmed
 // gate still fires server-side as defence-in-depth even if the chip's UI
 // state drifts.
-const ALLOWED_CEREMONY_TYPES = [
-  'catholic',
-  'civil',
-  'inc',
-  'christian',
-  'muslim',
-  'cultural',
-  'chinese',
-  'jewish',
-  'born_again',
-  'mixed',
-] as const;
-type AllowedCeremonyType = (typeof ALLOWED_CEREMONY_TYPES)[number];
-
-// Secondary (overlay) ceremony pick — any registry faith or civil, never
-// 'mixed'. Mirrors `ALLOWED_SECONDARY` in create-event/actions.ts +
-// onboarding/wedding/actions.ts (the canonical source of truth), so the
-// post-create overlay editor and the create-time mixed flow validate against
-// one identical list. Imported (not re-hardcoded) so the roster stays DB-driven
-// per the 2026-06-13 faith-registry cutover.
-const ALLOWED_SECONDARY_CEREMONY_TYPES: readonly string[] =
-  ALLOWED_CEREMONY_VALUES.filter((v) => v !== 'mixed');
-
+// Primary + secondary ceremony validation both derive from the faith-registry
+// (`ALLOWED_CEREMONY_VALUES` = every registry faith + civil + mixed), the single
+// source that mirrors the lowercase `events_ceremony_type_check` DB CHECK (kept
+// in lockstep by migration 20261120000000, the faith worldwide expansion). This
+// REPLACES the old hardcoded 10-value list, which silently rejected the 8
+// worldwide-expansion faiths (aglipayan/lds/sda/jw/hindu/sikh/buddhist/orthodox,
+// shipped in PR #1275) even though the modal offers all 18 and the DB accepts
+// them. Mirrors the onboarding commit's server-side belt (the picker only EMITS
+// launch-active keys; the server accepts anything the owner COULD flip live).
+//
+// ⚠ This is the LOWERCASE ceremony_type keyspace — NOT the Title-Case
+// `faith_vocab` marketplace keyspace. `isAllowedCeremonyValue` is case-sensitive,
+// so Title-Case keys (e.g. 'Catholic') are correctly rejected here.
 type SetCeremonyResult =
-  | { ok: true; ceremony_type: AllowedCeremonyType; updated: boolean }
+  | { ok: true; ceremony_type: CeremonyValue; updated: boolean }
   | { ok: false; code: 'invalid_input' | 'unauthorized' | 'vendor_lock' | 'not_wedding' | 'db_error'; message: string };
 
 export async function setEventCeremonyType(formData: FormData): Promise<SetCeremonyResult> {
@@ -356,18 +306,17 @@ export async function setEventCeremonyType(formData: FormData): Promise<SetCerem
   if (typeof eventId !== 'string' || !eventId) {
     return { ok: false, code: 'invalid_input', message: 'event_id required' };
   }
-  if (typeof ceremonyRaw !== 'string' ||
-      !ALLOWED_CEREMONY_TYPES.includes(ceremonyRaw as AllowedCeremonyType)) {
+  if (!isAllowedCeremonyValue(ceremonyRaw)) {
     return { ok: false, code: 'invalid_input', message: 'Invalid ceremony type' };
   }
-  const ceremony_type = ceremonyRaw as AllowedCeremonyType;
+  const ceremony_type = ceremonyRaw;
 
   // OPTIONAL secondary (overlay) ceremony — the common Tsinoy "church-primary +
   // Chinese tea ceremony" case (secondary_ceremony_type='chinese'). The field is
   // OPTIONAL: callers that don't send it leave the column untouched (the update
   // below stays byte-identical for them). When present:
   //   - '' (empty string) CLEARS the overlay → null.
-  //   - any value must be in ALLOWED_SECONDARY_CEREMONY_TYPES (registry faith or
+  //   - any value must pass isAllowedSecondaryCeremonyValue (registry faith or
   //     civil, never 'mixed'), else reject.
   // `undefined` = field absent → don't touch the column; `null`/string = write.
   const secondaryProvided = formData.has('secondary_ceremony_type');
@@ -377,7 +326,7 @@ export async function setEventCeremonyType(formData: FormData): Promise<SetCerem
     const s = typeof secondaryRaw === 'string' ? secondaryRaw.trim() : '';
     if (s === '') {
       secondary_ceremony_type = null;
-    } else if (ALLOWED_SECONDARY_CEREMONY_TYPES.includes(s)) {
+    } else if (isAllowedSecondaryCeremonyValue(s)) {
       secondary_ceremony_type = s;
     } else {
       return { ok: false, code: 'invalid_input', message: 'Invalid secondary ceremony type' };

@@ -40,8 +40,7 @@ export default async function TourIntroPage() {
   return (
     <main className="mx-auto w-full max-w-5xl px-5 pb-20 pt-12 sm:pt-16">
       <header className="mx-auto max-w-2xl text-center">
-        <p className="font-mono text-xs uppercase tracking-[0.22em] text-[#8C6932]">A real wedding, start to finish</p>
-        <h1 className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[#1E2229] sm:text-5xl">
+        <h1 className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[#1B1A17] sm:text-5xl">
           Walk through {bride} &amp; {groom}&rsquo;s wedding
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
@@ -50,7 +49,7 @@ export default async function TourIntroPage() {
         </p>
         <Link
           href="/maria-and-jose"
-          className="mt-7 inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#1E2229] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
+          className="mt-7 inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#1B1A17] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
         >
           Start the tour &rarr;
         </Link>
@@ -61,7 +60,7 @@ export default async function TourIntroPage() {
           const card = (
             <div
               className={`h-full rounded-2xl border p-5 ${
-                s.live ? 'border-[#C5A059]/40 bg-[#FBF8F1]' : 'border-[#1E2229]/10 bg-white/50'
+                s.live ? 'border-[#A9834B]/40 bg-[#FBF8F1]' : 'border-[#1B1A17]/10 bg-white/50'
               }`}
             >
               <div className="flex items-center justify-between">
@@ -70,7 +69,7 @@ export default async function TourIntroPage() {
                   <span className="font-mono text-[11px] uppercase tracking-wider text-[#9A8F86]">soon</span>
                 )}
               </div>
-              <h2 className="mt-2 font-serif text-lg text-[#1E2229]">{s.title}</h2>
+              <h2 className="mt-2 font-serif text-lg text-[#1B1A17]">{s.title}</h2>
               <p className="mt-1.5 text-sm text-[#5F5E5A]">{s.blurb}</p>
             </div>
           );
@@ -88,14 +87,14 @@ export default async function TourIntroPage() {
         })}
       </ol>
 
-      <section className="mx-auto mt-14 max-w-2xl rounded-3xl border border-[#C5A059]/40 bg-[#FBF6EA] px-6 py-10 text-center">
-        <h2 className="font-serif text-2xl text-[#1E2229] sm:text-3xl">Like what you see?</h2>
+      <section className="mx-auto mt-14 max-w-2xl rounded-3xl border border-[#A9834B]/40 bg-[#FBF6EA] px-6 py-10 text-center">
+        <h2 className="font-serif text-2xl text-[#1B1A17] sm:text-3xl">Like what you see?</h2>
         <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
           Start your own wedding on Setnayan — free, in minutes. Set na &rsquo;yan.
         </p>
         <Link
           href="/onboarding/wedding?from=tour"
-          className="mt-5 inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#1E2229] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
+          className="mt-5 inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#1B1A17] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
         >
           Start planning &middot; free
         </Link>

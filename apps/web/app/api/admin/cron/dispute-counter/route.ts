@@ -77,12 +77,18 @@ export async function POST(request: Request) {
     Date.now() - ROLLING_WINDOW_DAYS * 24 * 60 * 60 * 1000,
   ).toISOString();
 
+  // Review is the demotion GATE (dispute-mediation, 2027-04-13). Only disputes
+  // the neutral team RESOLVED against the vendor (status='resolved_for_couple')
+  // AND explicitly marked as counting feed the 3-in-30 demote trigger. An
+  // unreviewed 'open' dispute is deliberately excluded — a vendor is never
+  // demoted on unproven, un-adjudicated accusations. This filter is kept
+  // byte-aligned with public.count_vendor_disputes_30d (same migration).
   const { data: disputeRows, error: disputesErr } = await admin
     .from('vendor_disputes')
     .select('vendor_profile_id')
     .gte('created_at', windowStart)
     .eq('counts_toward_demotion', true)
-    .in('status', ['open', 'resolved_for_couple']);
+    .eq('status', 'resolved_for_couple');
 
   if (disputesErr) {
     return NextResponse.json(

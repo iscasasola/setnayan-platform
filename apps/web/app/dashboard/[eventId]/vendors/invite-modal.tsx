@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from 'react';
 import { Send, X, Sparkles } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useSaveLoader } from '@/components/sd-loader';
 import {
   sendVendorInvite,
   connectExistingVendorProfile,
@@ -34,6 +35,7 @@ export function InviteVendorButton({
   const [email, setEmail] = useState(defaultEmail ?? '');
   const [pending, startTransition] = useTransition();
   const dialogRef = useRef<HTMLDivElement>(null);
+  const save = useSaveLoader();
 
   // Focus trap + Esc-to-close + scroll lock while the modal is open.
   useModalA11y({
@@ -62,7 +64,10 @@ export function InviteVendorButton({
     form.set('event_id', eventId);
     form.set('email', email);
     startTransition(async () => {
-      const result: SendInviteResult = await sendVendorInvite(form);
+      const result: SendInviteResult = await save.run(() => sendVendorInvite(form), {
+        steps: ['Sending the invite'],
+        hint: 'Saving',
+      });
       if (!result.ok) {
         if (routeIfNotSecured(result.code)) return;
         setView({ kind: 'error', message: result.message });
@@ -89,7 +94,10 @@ export function InviteVendorButton({
     form.set('event_id', eventId);
     form.set('vendor_profile_id', vp);
     startTransition(async () => {
-      const result = await connectExistingVendorProfile(form);
+      const result = await save.run(() => connectExistingVendorProfile(form), {
+        steps: ['Connecting the profile'],
+        hint: 'Saving',
+      });
       if (!result.ok) {
         if (routeIfNotSecured(result.code)) return;
         setView({ kind: 'error', message: result.message });
@@ -123,9 +131,6 @@ export function InviteVendorButton({
           <div className="w-full max-w-md rounded-xl bg-cream p-6 shadow-xl ring-1 ring-ink/10">
             <header className="flex items-start justify-between gap-3">
               <div className="space-y-1">
-                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
-                  Setnayan · Couple invite
-                </p>
                 <h2 className="text-lg font-semibold text-ink">
                   {view.kind === 'sent'
                     ? `Invite sent to ${vendorName}`

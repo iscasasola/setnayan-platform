@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { displayServiceLabel } from '@/lib/vendors';
 import { resolveMonogram } from '@/lib/monogram';
 import { SHARE_ARTIFACT_LABEL, type ShareArtifactType } from '@/lib/social-sharing';
+import { loadRecapCardData } from '@/lib/auto-recap';
 import {
   renderSocialCardJpeg,
   renderFallbackCardJpeg,
@@ -109,10 +110,36 @@ async function buildCardContext(
       return { sourceType: 'announcement', title: post.title, body: post.body };
     case 'evergreen':
       return { sourceType: 'evergreen', title: post.title, body: post.body };
+    case 'event_recap':
+      return eventRecapContext(admin, post);
     default:
       // Unknown type — render as a generic poster off title/body.
       return { sourceType: 'announcement', title: post.title, body: post.body };
   }
+}
+
+/** event_recap posts carry a baked R2 card as media_url, so this on-the-fly
+ *  route is only the FALLBACK (R2 unconfigured). source_ref = event_id →
+ *  loadRecapCardData for the couple name + stats + date. */
+async function eventRecapContext(
+  admin: ReturnType<typeof createAdminClient>,
+  post: PostRow,
+): Promise<CardContext> {
+  const card = await loadRecapCardData(post.source_ref).catch(() => null);
+  if (!card) {
+    return { sourceType: 'announcement', title: post.title, body: post.body };
+  }
+  const bits = [`${card.stats.photos} ${card.stats.photos === 1 ? 'photo' : 'photos'}`];
+  if (card.stats.voices > 0) {
+    bits.push(`${card.stats.voices} ${card.stats.voices === 1 ? 'voice' : 'voices'}`);
+  }
+  if (card.stats.guests && card.stats.guests > 0) bits.push(`${card.stats.guests} guests`);
+  return {
+    sourceType: 'event_recap',
+    coupleName: card.coupleNames,
+    dateLabel: card.dateLabel,
+    statLine: bits.join(' · '),
+  };
 }
 
 async function coupleCreationContext(
@@ -187,7 +214,9 @@ async function vendorFeatureContext(
   // Pro+ derivation mirrors flush.ts / the queue page: tier_state guarded by
   // tier_expires_at (the downgrade sweep is login-driven).
   const proActive =
-    (vendor?.tier_state === 'pro' || vendor?.tier_state === 'enterprise') &&
+    (vendor?.tier_state === 'pro' ||
+      vendor?.tier_state === 'enterprise' ||
+      vendor?.tier_state === 'custom') &&
     (!vendor?.tier_expires_at || new Date(vendor.tier_expires_at).getTime() > Date.now());
   const categoryLabel = vendor?.services?.[0]
     ? displayServiceLabel(vendor.services[0])

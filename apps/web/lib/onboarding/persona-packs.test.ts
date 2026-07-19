@@ -35,6 +35,9 @@ const ENABLED_TYPES = [
   'tournament',
   'travel',
   'celebration',
+  'anniversary',
+  'graduation',
+  'reunion',
 ] as const;
 
 /** A representative tile set in the real WEDDING-shaped taxonomy sort order. */
@@ -128,7 +131,7 @@ test('a missing essential is skipped without crashing or leaving a hole', () => 
 });
 
 test('no pack for the key → falls back to deriveGenericPlan exactly', () => {
-  for (const key of ['generic', 'anniversary', '', undefined, null]) {
+  for (const key of ['generic', 'gala_night', '', undefined, null]) {
     assert.deepEqual(
       derivePackPlan(key as string | null | undefined, 'keepsake', TILES, 'balanced'),
       deriveGenericPlan(TILES, 'balanced'),

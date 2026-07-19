@@ -18,14 +18,23 @@ import {
   toggleHomepageFeatured,
   removeAward,
 } from '../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 export function SpotlightRecomputeButton() {
   const [pending, start] = useTransition();
+  const save = useSaveLoader();
   return (
     <button
       type="button"
       disabled={pending}
-      onClick={() => start(() => recomputeSpotlightAwards())}
+      onClick={() =>
+        start(() =>
+          save.run(() => recomputeSpotlightAwards(), {
+            steps: ['Recomputing awards'],
+            hint: 'Saving',
+          }),
+        )
+      }
       className="inline-flex items-center justify-center gap-2 rounded-lg bg-terracotta px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-terracotta/90 disabled:opacity-60"
     >
       {pending ? (
@@ -46,6 +55,7 @@ export function SpotlightAwardRowActions({
   isFeatured: boolean;
 }) {
   const [pending, start] = useTransition();
+  const save = useSaveLoader();
 
   return (
     <div className="flex items-center gap-2">
@@ -57,7 +67,10 @@ export function SpotlightAwardRowActions({
             const fd = new FormData();
             fd.set('award_id', awardId);
             fd.set('next', String(!isFeatured));
-            await toggleHomepageFeatured(fd);
+            await save.run(() => toggleHomepageFeatured(fd), {
+              steps: ['Updating the feature'],
+              hint: 'Saving',
+            });
           })
         }
         className={
@@ -85,7 +98,10 @@ export function SpotlightAwardRowActions({
           start(async () => {
             const fd = new FormData();
             fd.set('award_id', awardId);
-            await removeAward(fd);
+            await save.run(() => removeAward(fd), {
+              steps: ['Removing the award'],
+              hint: 'Saving',
+            });
           });
         }}
         className="inline-flex items-center justify-center rounded-lg border border-ink/15 bg-white p-2 text-ink/55 transition-colors hover:border-terracotta/40 hover:text-terracotta disabled:opacity-60"

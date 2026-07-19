@@ -49,6 +49,7 @@ type RecommendationJoinRow = {
     business_slug: string | null;
     logo_url: string | null;
     public_visibility: VendorPublicVisibility | null;
+    verification_state: string | null;
   } | null;
 };
 
@@ -73,7 +74,7 @@ export async function fetchEventRecommendations(
     .from('vendor_recommendations')
     .select(
       'vendor_profile_id, endorsement, created_at, ' +
-        'vendor_profiles:vendor_profile_id ( business_name, business_slug, logo_url, public_visibility )',
+        'vendor_profiles:vendor_profile_id ( business_name, business_slug, logo_url, public_visibility, verification_state )',
     )
     .eq('event_id', eventId)
     .order('created_at', { ascending: false });
@@ -91,6 +92,14 @@ export async function fetchEventRecommendations(
     // off a fully public wedding page. Do not drop it. (coming_soon + verified
     // surface, matching the /v/[slug] gate; hidden + archived are excluded.)
     if (!isPubliclyVisible(vp.public_visibility)) continue;
+    // Always-on verification gate (#2469): public_visibility and
+    // verification_state are SEPARATE columns — a vendor can be publicly-
+    // visible yet still `unverified`/`pending_review`. Rendering their raw
+    // business_name + logo on an anonymous /[slug] wedding page would leak an
+    // unverified vendor's real identity publicly, so require `verified` here
+    // exactly as every other public surface does (no demo carve-out — this is
+    // not a demo-preview surface).
+    if (vp.verification_state !== 'verified') continue;
     const prev = byVendor.get(row.vendor_profile_id);
     if (!prev) {
       byVendor.set(row.vendor_profile_id, row);

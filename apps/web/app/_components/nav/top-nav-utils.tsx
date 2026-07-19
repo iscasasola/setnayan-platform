@@ -86,7 +86,7 @@ function SearchButton() {
       className="inline-flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-[var(--m-paper-2)] focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
       style={{
         color: 'var(--m-slate)',
-        outlineColor: 'var(--m-orange)',
+        outlineColor: 'var(--m-nav-active)',
       }}
     >
       <Search aria-hidden className="h-4 w-4" strokeWidth={1.75} />

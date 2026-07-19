@@ -5,6 +5,7 @@ import { relativeTime } from '@/lib/activity';
 import { forceCompleteVendor, upholdNonDelivery } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Completions · Admin' };
 
 /**
@@ -69,6 +70,7 @@ function olderThan(iso: string | null, days: number, now: number): boolean {
 }
 
 export default async function AdminCompletionsPage() {
+  await requireAdmin();
   const admin = createAdminClient();
   const now = Date.now();
 
@@ -161,7 +163,7 @@ export default async function AdminCompletionsPage() {
           long-stuck handshakes. <span className="font-semibold">{disputedCount}</span> open{' '}
           {disputedCount === 1 ? 'dispute' : 'disputes'} · {attention.length} total needing attention.
         </p>
-        <p className="rounded-md border border-ink/10 bg-cream px-3 py-2 text-xs text-ink/65">
+        <p className="rounded-md border border-white/60 bg-white/70 px-3 py-2 text-xs text-ink/65">
           <span className="font-semibold">Force-complete</span> unlocks the couple&apos;s review +
           recommendation (use when the service was delivered and the handshake just stalled).{' '}
           <span className="font-semibold">Uphold non-delivery</span> keeps the review closed (use when
@@ -197,7 +199,7 @@ function CompletionsTable({
 }) {
   if (rows.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-ink/15 bg-cream p-8 text-center">
+      <div className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center">
         <p className="text-sm text-ink/65">
           Nothing needs attention — no open disputes and no stuck completions.
         </p>
@@ -206,7 +208,7 @@ function CompletionsTable({
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-ink/10 bg-cream">
+    <div className="sn-tile overflow-x-auto !p-0">
       <table className="w-full text-left text-sm">
         <thead className="bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
           <tr>

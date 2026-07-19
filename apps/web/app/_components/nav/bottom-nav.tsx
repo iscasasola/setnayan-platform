@@ -90,6 +90,10 @@ type AccordionProps = {
 type Props = FlatProps | AccordionProps;
 
 function matchesPath(pathname: string, item: BottomNavItem): boolean {
+  // Exact-only extras first (activeMatchAlsoExact) — lets a merged hub tab
+  // combine an exact landing (`/admin`) with prefix umbrellas without
+  // flipping every match to exact via activeMatchExact.
+  if (item.activeMatchAlsoExact?.some((p) => pathname === p)) return true;
   const matches = Array.isArray(item.activeMatch)
     ? item.activeMatch
     : [item.activeMatch];
@@ -815,7 +819,7 @@ function BottomNavTab({
         className="flex min-h-[56px] min-h-[44pt] select-none flex-col items-center justify-center gap-0.5 px-1 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
         style={{
           color: active ? 'var(--m-ink)' : 'var(--m-slate)',
-          outlineColor: 'var(--m-orange)',
+          outlineColor: 'var(--m-nav-active)',
           WebkitTapHighlightColor: 'transparent',
           touchAction: 'manipulation',
           // Compact: drop the cell's min-height so losing the label row makes
@@ -831,7 +835,7 @@ function BottomNavTab({
             className="h-[22px] w-[22px]"
             strokeWidth={1.75}
             style={{
-              color: active ? 'var(--m-orange)' : 'var(--m-slate)',
+              color: active ? 'var(--m-nav-active)' : 'var(--m-slate)',
               transform: `scale(${pressed ? 'var(--bn-grow)' : '1'})`,
               transition: 'transform 175ms cubic-bezier(0.34, 1.56, 0.64, 1)',
             }}
@@ -844,7 +848,7 @@ function BottomNavTab({
             text is lost, the icon above is untouched. Kept in the DOM (not
             unmounted) so the accessible name survives and the transition runs. */}
         <span
-          className="whitespace-nowrap text-[10px] tracking-wide"
+          className="max-w-full truncate whitespace-nowrap text-[10px] tracking-wide"
           style={{
             fontWeight: active ? 600 : 400,
             maxHeight: compact ? 0 : 16,
@@ -866,7 +870,7 @@ function BottomNavTab({
  * AccordionCell — one absolutely-positioned cell in the accordion bar. A
  * menu without children + every child renders as a <Link> (real navigation);
  * a menu WITH children + the back-hinge render as a <button> (open/close the
- * section). All share the locked icon-grow-on-press + the gold active icon.
+ * section). All share the locked icon-grow-on-press + the wine active icon.
  *
  * The hinge KEEPS the open menu's own glyph (e.g. the Setnayan logo) rather than
  * swapping to a back-chevron, and tapping it collapses the section back to the
@@ -922,10 +926,10 @@ function AccordionCell({
             color:
               role === 'hinge'
                 ? active
-                  ? 'var(--m-orange)'
+                  ? 'var(--m-nav-active)'
                   : 'var(--m-ink)'
                 : active
-                  ? 'var(--m-orange)'
+                  ? 'var(--m-nav-active)'
                   : 'var(--m-slate)',
             transform: `scale(${pressed ? 'var(--bn-grow)' : '1'})`,
             transition: 'transform 175ms cubic-bezier(0.34, 1.56, 0.64, 1)',
@@ -967,7 +971,7 @@ function AccordionCell({
     'flex min-h-[56px] min-h-[44pt] h-full w-full select-none flex-col items-center justify-center gap-0.5 px-1 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2';
   const contentStyle: CSSProperties = {
     color: active ? 'var(--m-ink)' : 'var(--m-slate)',
-    outlineColor: 'var(--m-orange)',
+    outlineColor: 'var(--m-nav-active)',
     WebkitTapHighlightColor: 'transparent',
     touchAction: 'manipulation',
   };
@@ -1048,13 +1052,16 @@ function BadgeDot({
   const { bg, fg } = toneStyle[tone];
   const display = count > 9 ? '9+' : String(count);
 
+  // aria-label on a role-less <span> is naming-prohibited (ignored by most
+  // screen readers) — the visible/sr-only pair below actually announces the
+  // built label ("12 pending, 2 overdue"). Council fix #6 2026-07-09.
   return (
     <span
-      aria-label={label ?? `${count} new`}
       className="absolute -right-1.5 -top-1 inline-flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] font-semibold leading-none"
       style={{ background: bg, color: fg }}
     >
-      {display}
+      <span aria-hidden>{display}</span>
+      <span className="sr-only">{label ?? `${count} new`}</span>
     </span>
   );
 }

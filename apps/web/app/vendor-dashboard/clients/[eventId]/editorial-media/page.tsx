@@ -72,7 +72,7 @@ export default async function VendorEditorialMediaPage({
   }
 
   return (
-    <section className="mx-auto w-full max-w-3xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
+    <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
       <Link
         href={`/vendor-dashboard/clients/${eventId}`}
         className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/60 hover:text-ink"
@@ -97,7 +97,7 @@ export default async function VendorEditorialMediaPage({
       ) : eligibility.isRecommendedPick ? (
         // Recommended pick, but the service isn't confirmed complete yet —
         // Stage-10 gate. Show a clear pending/locked state, not "unavailable".
-        <div className="rounded-2xl border border-ink/10 bg-cream p-6">
+        <div className="sn-tile p-6">
           <h2 className="text-lg font-semibold">
             {eligibility.isDisputed ? 'On hold for this event' : 'Almost there'}
           </h2>
@@ -108,7 +108,7 @@ export default async function VendorEditorialMediaPage({
           </p>
         </div>
       ) : (
-        <div className="rounded-2xl border border-ink/10 bg-cream p-6">
+        <div className="sn-tile p-6">
           <h2 className="text-lg font-semibold">Not available for this event yet</h2>
           <p className="mt-2 text-sm text-ink/65">
             “From your vendors” is open to the couple’s recommended vendor for a category. Once

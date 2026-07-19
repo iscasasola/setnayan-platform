@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { ArrowDown, ArrowUp, Camera, CircleSlash, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { updatePhotoMoments } from '../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 import {
   PHOTO_MOMENT_LIMITS,
   PHOTO_MOMENT_MODES,
@@ -52,6 +53,7 @@ export function PhotoMomentsEditor({
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [isPending, startTransition] = useTransition();
+  const save = useSaveLoader();
 
   const canAddRow = moments.length < PHOTO_MOMENT_LIMITS.MAX_MOMENTS;
 
@@ -114,7 +116,10 @@ export function PhotoMomentsEditor({
     }
 
     startTransition(async () => {
-      const result = await updatePhotoMoments(formData);
+      const result = await save.run(() => updatePhotoMoments(formData), {
+        steps: ['Saving your photo moments'],
+        hint: 'Saving',
+      });
       if (result.ok) {
         setSavedAt(new Date());
         // After a successful save, re-trim moments locally so the host

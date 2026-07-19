@@ -9,6 +9,7 @@ import { FormFlash } from '@/app/_components/forms/form-flash';
 import { QrUploadForm } from '../_components/qr-upload-form';
 import { removeMerchantQr, savePaymentInstruments } from '../actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Payment methods · Admin' };
 
 type PaymentMethodRow = {
@@ -60,6 +61,7 @@ type Props = {
  * CLAUDE.md V1→V2 cutover decision-log rows).
  */
 export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const admin = createAdminClient();
   const settings = await fetchPlatformSettings(admin);
@@ -241,12 +243,12 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
             issue — refresh in a moment or check Sentry for the full detail.
           </p>
         ) : rows.length === 0 ? (
-          <p className="rounded-md border border-dashed border-ink/15 bg-cream p-3 text-sm text-ink/55">
+          <p className="rounded-md border border-dashed border-ink/15 bg-white/50 p-3 text-sm text-ink/55">
             No historical Setnayan Pay rows recorded. (V2 doesn&apos;t write to
             this table; this is expected on fresh environments.)
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-ink/10 bg-cream">
+          <div className="sn-tile overflow-x-auto !p-0">
             <table className="min-w-full divide-y divide-ink/10 text-sm">
               <thead className="bg-ink/5">
                 <tr>
@@ -341,7 +343,7 @@ function QrUploadBlock({
   currentUrl: string | null;
 }) {
   return (
-    <section className="space-y-3 rounded-xl border border-ink/10 bg-cream p-5">
+    <section className="space-y-3 sn-tile p-5">
       <h3 className="text-sm font-semibold text-ink">{label}</h3>
 
       {currentUrl ? (
@@ -350,7 +352,7 @@ function QrUploadBlock({
           <img
             src={currentUrl}
             alt={`${label} preview`}
-            className="h-40 w-40 rounded-md border border-ink/15 bg-cream object-contain"
+            className="h-40 w-40 rounded-md border border-white/60 bg-white/70 object-contain"
           />
           <div className="flex-1 space-y-2 text-sm text-ink/65">
             <p>Currently shown to couples on order detail pages.</p>
@@ -367,7 +369,7 @@ function QrUploadBlock({
           </div>
         </div>
       ) : (
-        <p className="rounded-md border border-dashed border-ink/15 bg-cream p-3 text-xs text-ink/55">
+        <p className="rounded-md border border-dashed border-ink/15 bg-white/50 p-3 text-xs text-ink/55">
           No {label} uploaded yet. Couples will see only account name +
           number on order detail pages.
         </p>

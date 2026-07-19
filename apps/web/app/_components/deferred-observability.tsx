@@ -32,6 +32,53 @@ import { useEffect } from 'react';
 
 const SENTRY_DSN = process.env.NEXT_PUBLIC_SENTRY_DSN;
 
+// RA 10173 / NPC telemetry hygiene: best-effort PII scrubber applied to every
+// event before it leaves the browser. Session Replay is separately masked at
+// the integration level (maskAllText / blockAllMedia), but breadcrumbs,
+// request payloads, extra context and error messages can still carry raw PII
+// (emails, phone numbers). We redact those in-place so no personal data is
+// transmitted to Sentry. This is defense-in-depth, not a guarantee — obfuscated
+// PII may slip through, hence "best-effort".
+const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+// Loose PH/international phone match (7+ digits, optional +, spaces, dashes).
+const PHONE_RE = /(?:\+?\d[\d\s-]{6,}\d)/g;
+// Keys whose VALUES are almost always PII regardless of shape.
+const PII_KEY_RE =
+  /(email|phone|mobile|password|token|secret|authorization|cookie|first_?name|last_?name|full_?name|display_?name|address|birth)/i;
+const REDACTED = '[redacted]';
+
+function scrubString(s: string): string {
+  return s.replace(EMAIL_RE, REDACTED).replace(PHONE_RE, REDACTED);
+}
+
+// Depth-limited, cycle-safe recursive scrub. Redacts values under known PII
+// keys outright, and pattern-scrubs any remaining string values.
+function scrubValue(value: unknown, seen: WeakSet<object>, depth: number): unknown {
+  if (depth > 6) return value;
+  if (typeof value === 'string') return scrubString(value);
+  if (value === null || typeof value !== 'object') return value;
+  if (seen.has(value as object)) return value;
+  seen.add(value as object);
+  if (Array.isArray(value)) {
+    return value.map((v) => scrubValue(v, seen, depth + 1));
+  }
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    out[k] = PII_KEY_RE.test(k) ? REDACTED : scrubValue(v, seen, depth + 1);
+  }
+  return out;
+}
+
+function scrubPii<T>(event: T): T {
+  try {
+    return scrubValue(event, new WeakSet<object>(), 0) as T;
+  } catch {
+    // Never let scrubbing throw inside Sentry's pipeline — if anything goes
+    // wrong, drop the event rather than risk shipping unscrubbed PII.
+    return null as unknown as T;
+  }
+}
+
 type IdleDeadline = { didTimeout: boolean; timeRemaining: () => number };
 type IdleCallbackHandle = number;
 type RequestIdleCallback = (
@@ -85,7 +132,21 @@ export function DeferredObservability() {
             // (Sentry only captures replays when replayIntegration() is in the
             // integration set). Loaded inside the deferred chunk, so it adds
             // nothing to the main bundle / LCP path.
-            integrations: [Sentry.replayIntegration()],
+            //
+            // RA 10173 / NPC: mask ALL text and block ALL media in replays so
+            // no guest/vendor PII (names, emails, uploaded photos) is ever
+            // captured in a session recording. maskAllText redacts every text
+            // node; blockAllMedia strips images/video/canvas.
+            integrations: [
+              Sentry.replayIntegration({
+                maskAllText: true,
+                blockAllMedia: true,
+              }),
+            ],
+            // Best-effort PII scrubber on the whole event payload (breadcrumbs,
+            // request data, extra context, error messages). Complements the
+            // replay masking above.
+            beforeSend: (event) => scrubPii(event),
             // Session replays are expensive — disable steady-state
             // capture and only record when an error actually fires.
             replaysSessionSampleRate: 0,

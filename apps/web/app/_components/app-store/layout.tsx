@@ -80,7 +80,9 @@ export type Highlights = {
 };
 
 export type AppStoreLayoutProps = {
-  back: {
+  // Optional: the inspector-column variant omits the "Back to Studio" link — the
+  // panel chrome (✕ close + "Open full page ↗") owns wayfinding there.
+  back?: {
     href: string;
     label: string;
   };
@@ -141,13 +143,15 @@ export function AppStoreLayout({
   const { Icon } = hero;
   return (
     <section className="space-y-8">
-      <Link
-        href={back.href}
-        className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-      >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        {back.label}
-      </Link>
+      {back ? (
+        <Link
+          href={back.href}
+          className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+        >
+          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+          {back.label}
+        </Link>
+      ) : null}
 
       {/* Hero */}
       <header className="space-y-4">
@@ -159,9 +163,6 @@ export function AppStoreLayout({
             <Icon className="h-8 w-8 sm:h-10 sm:w-10" strokeWidth={1.5} />
           </span>
           <div className="min-w-0 flex-1 space-y-1.5">
-            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-terracotta">
-              {hero.eyebrow}
-            </p>
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               {hero.title}
             </h1>

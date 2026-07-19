@@ -5,6 +5,7 @@ import { DoorOpen, Save } from 'lucide-react';
 import type { EventTableRow } from '@/lib/seating';
 import { clampPct, type EntrancePos } from '@/lib/indoor-blueprint';
 import { WayfindingMap } from '@/app/_components/wayfinding-map';
+import { useSaveLoader } from '@/components/sd-loader';
 
 /**
  * Couple-facing Indoor Blueprint studio. Two jobs:
@@ -41,6 +42,7 @@ export function BlueprintStudio({
   const [dragging, setDragging] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [pending, startTransition] = useTransition();
+  const saveLoader = useSaveLoader();
 
   // Preview target: default to the first seated guest's table, if any.
   const [targetTableId, setTargetTableId] = useState<string | null>(
@@ -68,7 +70,10 @@ export function BlueprintStudio({
     fd.set('entrance_x', String(entrance.x));
     fd.set('entrance_y', String(entrance.y));
     startTransition(async () => {
-      await saveAction(fd);
+      await saveLoader.run(() => saveAction(fd), {
+        steps: ['Saving your blueprint'],
+        hint: 'Saving',
+      });
       setDirty(false);
     });
   };

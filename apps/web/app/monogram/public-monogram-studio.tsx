@@ -1,12 +1,17 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { Download, ImageDown, ArrowRight, Loader2 } from 'lucide-react';
+import { Download, ImageDown, ArrowRight, Loader2, UploadCloud } from 'lucide-react';
 import { mountStudio } from '@/lib/monogram-studio/engine';
 import { STUDIO_HTML, STUDIO_CSS } from '@/lib/monogram-studio/markup';
-import { sanitizeStudioSvg, type StudioConfig } from '@/lib/monogram-studio-shared';
+import { STUDIO_HTML_V2, STUDIO_CSS_V2 } from '@/lib/monogram-studio/markup-v2';
+import { monogramStudioV2Enabled } from '@/lib/monogram-studio/flag';
+import { sanitizeStudioSvg, type StudioConfig, type StudioAnimKind } from '@/lib/monogram-studio-shared';
 import { stashMonogramDraft } from '@/lib/monogram-studio/draft';
+import { StudioRevealPlayer, type StudioAnim } from '@/app/_components/studio-reveal-player';
+import { fileToMarkSvg } from '@/lib/monogram-studio/upload';
 
 /**
  * PublicMonogramStudio — the FREE, no-login Vector Monogram Studio on
@@ -88,6 +93,51 @@ export function PublicMonogramStudio() {
   const [ready, setReady] = useState(false);
   const [pngBusy, setPngBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Universal portal preview (benchmark §3): the same live-site player renders
+  // every reveal over the canvas — the free studio previews the real thing.
+  const [previewKind, setPreviewKind] = useState<StudioAnimKind | null>(null);
+  const [previewSvg, setPreviewSvg] = useState<string | null>(null);
+  const [previewAnim, setPreviewAnim] = useState<StudioAnim | null>(null);
+  const [swEl, setSwEl] = useState<HTMLElement | null>(null);
+  // "Upload your own" (owner 2026-07-17): decode/trace in the browser, preview
+  // reveals on the REAL uploaded mark via the same portal, download the vector.
+  const [uploaded, setUploaded] = useState<{ svg: string; elements: number; traced: boolean } | null>(null);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  async function onUploadFile(file: File | undefined) {
+    if (!file || uploadBusy) return;
+    setUploadBusy(true);
+    setUploadError(null);
+    const res = await fileToMarkSvg(file);
+    setUploadBusy(false);
+    if (!res.ok) {
+      setUploadError(res.error);
+      setUploaded(null);
+      return;
+    }
+    setUploaded(res);
+    // preview immediately — the portal plays the real player on the real mark
+    setPreviewKind('handwriting');
+    setPreviewSvg(res.svg);
+    setPreviewAnim({ kind: 'handwriting', dur: 6, smooth: 0.9, delay: 0.3 });
+    track('public_monogram_uploaded', { traced: res.traced, elements: res.elements });
+  }
+
+  // Keyed on previewKind alone so the reduced-motion gold/molten path (which
+  // opens the overlay with no animInfo) still auto-dismisses (gap audit 2026-07-17).
+  useEffect(() => {
+    if (!previewKind) return;
+    const t = window.setTimeout(
+      () => {
+        setPreviewKind(null);
+        setPreviewSvg(null);
+        setPreviewAnim(null);
+      },
+      previewAnim ? Math.round(previewAnim.dur * 1000) + 4500 : 5000,
+    );
+    return () => window.clearTimeout(t);
+  }, [previewKind, previewAnim]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -111,7 +161,11 @@ export function PublicMonogramStudio() {
     // re-render can clobber the engine's nodes. (The engine also self-guards its
     // async callbacks via a `destroyed` flag for the unmount-mid-fetch case.)
     // (owner 2026-06-19 "it is not loading properly".)
-    root.innerHTML = STUDIO_HTML;
+    // monogram_studio_v2 (council verdict §2): the flag picks which editor DOM
+    // is injected — v1 stays byte-identical when OFF. Same flag as the
+    // dashboard studio; the markup module is shared so both flip together.
+    root.innerHTML = monogramStudioV2Enabled() ? STUDIO_HTML_V2 : STUDIO_HTML;
+    setSwEl(root.querySelector<HTMLElement>('.sw2'));
     // Safety net: if the engine/typeface never finishes (a hung dynamic import or
     // font fetch — e.g. a stale cached build), don't sit on "Loading the
     // typeface…" forever. Surface a clear refresh prompt instead.
@@ -136,7 +190,21 @@ export function PublicMonogramStudio() {
         const PaperOffset = off.PaperOffset ?? off.default?.PaperOffset ?? off.default ?? off;
         const ot: any = otMod as any;
         const opentype = ot.parse ? ot : (ot.default ?? ot);
-        api = mountStudio({ root, paper, opentype, PaperOffset, initialConfig: null }) as StudioApi;
+        api = mountStudio({
+          root,
+          paper,
+          opentype,
+          PaperOffset,
+          initialConfig: null,
+          portalPreview: true,
+          appFrame: true,
+          onPreviewKind: (kind: StudioAnimKind | null, svgStr: string | null, animInfo?: StudioAnim) => {
+            if (!alive) return;
+            setPreviewKind(kind);
+            setPreviewSvg(svgStr);
+            setPreviewAnim(animInfo ?? null);
+          },
+        }) as StudioApi;
         apiRef.current = api;
         setReady(true);
         window.clearTimeout(failTimer);
@@ -219,10 +287,48 @@ export function PublicMonogramStudio() {
 
   return (
     <div className="vsroot">
-      <style dangerouslySetInnerHTML={{ __html: STUDIO_CSS }} />
+      <style dangerouslySetInnerHTML={{ __html: monogramStudioV2Enabled() ? STUDIO_CSS_V2 : STUDIO_CSS }} />
       {/* The editor markup is injected imperatively by the effect (see above), so
           React leaves this container empty and never re-touches the subtree. */}
       <div ref={rootRef} className="vs" />
+
+      {/* Reveal preview portal — the IDENTICAL live-site player over the canvas. */}
+      {swEl && previewKind
+        ? createPortal(
+            <div
+              className="absolute inset-0 z-[5]"
+              style={{
+                background:
+                  previewKind === 'molten' || previewKind === 'flip3d' || previewKind === 'gold'
+                    ? 'radial-gradient(120% 90% at 50% 32%, #2b2638 0%, #14111c 58%, #0a0810 100%)'
+                    : '#FBFBFA',
+              }}
+            >
+              <div className="absolute inset-[8%]">
+                <StudioRevealPlayer
+                  key={`${previewKind}-${previewAnim?.dur ?? 0}-${previewAnim?.delay ?? 0}`}
+                  svg={previewSvg}
+                  monogram="M & J"
+                  anim={previewAnim ?? { kind: previewKind, dur: 6, smooth: 0.9, delay: 0.3 }}
+                  allowWebgl={false}
+                />
+              </div>
+              <button
+                type="button"
+                aria-label="Close the reveal preview"
+                onClick={() => {
+                  setPreviewKind(null);
+                  setPreviewSvg(null);
+                  setPreviewAnim(null);
+                }}
+                className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/10 text-base leading-none text-[#1E2229]/70 backdrop-blur-sm transition-colors hover:bg-black/20"
+              >
+                ✕
+              </button>
+            </div>,
+            swEl,
+          )
+        : null}
 
       {error ? <p className="mt-3 text-center text-sm text-[#9B3B2E]">{error}</p> : null}
 
@@ -254,6 +360,58 @@ export function PublicMonogramStudio() {
       <p className="mt-2 text-center text-xs text-[#5F5E5A]">
         Free to download — crisp vector SVG or a transparent PNG, both scale to any size.
       </p>
+
+      {/* ── Upload your own (owner 2026-07-17): SVG/transparent-PNG in, vector
+          elements out, reveals previewed on the real mark. ── */}
+      <div className="mx-auto mt-6 max-w-[460px] rounded-2xl border border-dashed border-[#C5A059]/60 bg-white/60 px-5 py-4 text-center">
+        <label className="inline-flex cursor-pointer flex-col items-center gap-1">
+          <span className="inline-flex items-center gap-2 text-sm font-semibold text-[#1E2229]">
+            <UploadCloud aria-hidden className="h-4 w-4 text-[#8C6932]" strokeWidth={2} />
+            {uploadBusy ? 'Deciphering…' : 'Or upload your own mark'}
+          </span>
+          <span className="text-xs text-[#5F5E5A]">SVG or transparent PNG — we trace it into animatable pieces, free</span>
+          <input
+            type="file"
+            accept=".svg,.png,.webp,.jpg,.jpeg,image/svg+xml,image/png,image/webp,image/jpeg"
+            className="sr-only"
+            data-testid="public-upload-input"
+            onChange={(e) => void onUploadFile(e.target.files?.[0])}
+          />
+        </label>
+        {uploadError ? <p className="mt-2 text-xs text-[#9B3B2E]">{uploadError}</p> : null}
+        {uploaded ? (
+          <div className="mt-3 space-y-2" data-testid="public-upload-panel">
+            <p className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-[#8C6932]" data-testid="public-upload-elements">
+              {uploaded.traced
+                ? `Deciphered into ${uploaded.elements} ${uploaded.elements === 1 ? 'piece' : 'pieces'}`
+                : `${uploaded.elements} vector ${uploaded.elements === 1 ? 'element' : 'elements'}`}
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {(['handwriting', 'droplet', 'petalfall', 'flip3d'] as StudioAnimKind[]).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => {
+                    setPreviewKind(k);
+                    setPreviewSvg(uploaded.svg);
+                    setPreviewAnim({ kind: k, dur: 6, smooth: 0.9, delay: 0.3 });
+                  }}
+                  className="rounded-full border border-[#1E2229]/15 bg-white px-3 py-1.5 text-xs font-medium text-[#1E2229]/75 hover:bg-[#1E2229]/5"
+                >
+                  {k === 'handwriting' ? 'Handwriting' : k === 'droplet' ? 'Bloom' : k === 'petalfall' ? 'Petal Fall' : 'Medallion Turn'}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => downloadBlob(new Blob([uploaded.svg], { type: 'image/svg+xml' }), 'setnayan-mark-traced.svg')}
+                className="rounded-full bg-[#1E2229] px-3 py-1.5 text-xs font-semibold text-[#FBFBFA] hover:opacity-90"
+              >
+                Download vector
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
 
       <div className="mx-auto mt-7 max-w-[460px] rounded-2xl border border-[#C5A059]/40 bg-[#FBF6EA] px-5 py-5 text-center">
         <p className="font-serif text-lg text-[#1E2229]">Make it your wedding&rsquo;s monogram</p>

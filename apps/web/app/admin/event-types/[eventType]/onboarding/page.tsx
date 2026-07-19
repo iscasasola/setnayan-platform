@@ -7,6 +7,7 @@ import { getOnboardingTiles } from '@/lib/onboarding-refinements';
 import { INAPP_TO_SERVICE_CODE } from '@/app/onboarding/wedding/_components/onboarding-pricing';
 import { OnboardingEditor } from './_components/onboarding-editor';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Onboarding content · Event Types · Admin' };
 export const dynamic = 'force-dynamic';
 
@@ -38,6 +39,7 @@ export default async function EventTypeOnboardingPage({
   params: Params;
   searchParams: SearchParams;
 }) {
+  await requireAdmin();
   const { eventType } = await params;
   const sp = await searchParams;
   const admin = createAdminClient();
@@ -55,8 +57,8 @@ export default async function EventTypeOnboardingPage({
   if (eventType === 'wedding') {
     return (
       <main className="mx-auto max-w-2xl px-5 py-8">
-        <Link href="/admin/event-types" className="text-sm text-ink/55 hover:text-mulberry">
-          ← Event Types
+        <Link href="/admin/taxonomy?view=vocab-event" className="text-sm text-ink/55 hover:text-mulberry">
+          ← Event types
         </Link>
         <h1 className="mt-3 text-2xl font-semibold text-ink">
           {vocab.emoji} Wedding · Onboarding content
@@ -93,8 +95,8 @@ export default async function EventTypeOnboardingPage({
 
   return (
     <main className="mx-auto max-w-3xl px-5 py-8">
-      <Link href="/admin/event-types" className="text-sm text-ink/55 hover:text-mulberry">
-        ← Event Types
+      <Link href="/admin/taxonomy?view=vocab-event" className="text-sm text-ink/55 hover:text-mulberry">
+        ← Event types
       </Link>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold text-ink">

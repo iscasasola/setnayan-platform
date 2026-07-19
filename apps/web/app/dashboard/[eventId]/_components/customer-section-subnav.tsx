@@ -52,6 +52,7 @@ export function CustomerSectionSubnav({
   phase,
   hideKeys,
   websiteEnabled,
+  slug,
 }: {
   eventId: string;
   eventDate: string | null;
@@ -66,6 +67,9 @@ export function CustomerSectionSubnav({
   /** Whether this event type enables the 'website' surface — gates the Studio
    *  "Launch" child. Resolved from the profile in layout.tsx. */
   websiteEnabled?: boolean;
+  /** The event's public slug — points the "Launch" child at the couple's live
+   *  personal website (`/[slug]`). Resolved from the event row in layout.tsx. */
+  slug?: string | null;
 }) {
   const pathname = usePathname() ?? '';
   const router = useRouter();
@@ -78,7 +82,7 @@ export function CustomerSectionSubnav({
     setDayOfOpen(isDayOfOpen(eventDate, new Date()));
   }, [eventDate]);
 
-  const tree = buildCustomerMenuTree(eventId, { dayOfOpen, phase, hideKeys, websiteEnabled });
+  const tree = buildCustomerMenuTree(eventId, { dayOfOpen, phase, hideKeys, websiteEnabled, slug });
   const activeMenu = tree.find((m) => matchesMenuSection(pathname, m)) ?? null;
   // Overlay the nav-registry admin override (label · icon · hidden) onto each
   // child by its slotKey — the registry SSOT now drives the sub-nav children,

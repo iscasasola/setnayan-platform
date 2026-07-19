@@ -1,9 +1,12 @@
 'use server';
 
+import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { composeRecapSocialPost } from '@/lib/social/recap-post';
+import { runSocialFlush } from '@/lib/social/flush';
 
 // Iteration 0012 Papic — Auto-Recap publish controls (couple-side).
 //
@@ -72,6 +75,45 @@ export async function publishRecap(formData: FormData): Promise<void> {
   );
 
   await revalidateRecap(eventId, await slugFor(eventId));
+
+  // Event completed → recap is live. Auto-share it to Setnayan's OWN Facebook
+  // Page + Instagram Business account through the EXISTING social pipeline
+  // (compose a source_type='event_recap' social_posts row · deduped per event ·
+  // then kick the cron-free flush that dispatches it). Off the couple's
+  // critical path via after(); both calls never throw and are inert when Meta
+  // isn't configured (nothing dispatches until the owner arms autopublish).
+  after(async () => {
+    await composeRecapSocialPost(eventId);
+    await runSocialFlush().catch(() => {});
+  });
+}
+
+/**
+ * Social follow-through #2 — the couple's per-event opt-out of Setnayan
+ * featuring their published recap on Setnayan's OWN Facebook / Instagram.
+ * `allowed` = the checkbox state on the recap manager: checked → Setnayan MAY
+ * feature (clear recap_social_optout_at); unchecked → opt OUT (stamp it now).
+ * Default is allowed (NULL). Honored by BOTH the compose and dispatch gates in
+ * lib/social/*; if a post already went live, the existing admin Social Queue
+ * take-down (24h SLA) handles removal — this only governs future dispatch.
+ */
+export async function setRecapSocialFeatureAllowed(
+  eventId: string,
+  allowed: boolean,
+): Promise<{ ok: boolean; error?: string }> {
+  const clean = eventId?.trim();
+  if (!clean) return { ok: false, error: 'missing_event' };
+  await requireCouple(clean);
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('events')
+    .update({ recap_social_optout_at: allowed ? null : new Date().toISOString() })
+    .eq('event_id', clean);
+  if (error) return { ok: false, error: error.message.slice(0, 80) };
+
+  revalidatePath(`/dashboard/${clean}/studio/papic/recap`);
+  return { ok: true };
 }
 
 export async function unpublishRecap(formData: FormData): Promise<void> {

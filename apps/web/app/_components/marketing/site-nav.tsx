@@ -1,147 +1,98 @@
 'use client';
 
 /**
- * Shared marketing top chrome — PromoBar + Nav.
+ * Shared marketing top chrome — the ELN-reskin floating glass nav.
  *
- * WHY (2026-06-14): the public marketing site had forked into five different
- * headers — the homepage rendered this canonical 6-page Nav, while /about,
- * /how-it-works, /pricing and /features fell back to the legacy `SiteHeader`
- * (Marketplace / How it works / Features / Pricing / Help) and /blog shipped
- * a bespoke inline header. Clicking a nav item swapped the whole menu out.
- * Extracting the canonical Nav into one file makes every page render the
- * SAME top nav — single source of truth, per the owner anti-fork chrome
- * doctrine. The shared <Nav> now renders on every public marketing page
- * (vendor surfaces included).
+ * REWRITTEN 2026-07-03 (owner: "pull the old-site pages onto the new website —
+ * different top nav and footer style"): the old 6-link row nav (Explore /
+ * Setnayan AI / For vendors / Our story / Journal / Real Stories + PromoBar)
+ * is replaced by the SAME floating glass nav the reskin homepage ships —
+ * [logo] · Prices · Download · Vendors · [Sign in] — so clicking off the
+ * homepage no longer lands on the old website's chrome. Prices / Download /
+ * Vendors / Sign in open the same overlays as on the homepage (see
+ * HomeOverlays); cross-page NAVIGATION moves to the footer, which pins itself
+ * open when used (see reskin-footer.tsx + footer-pin.ts).
  *
- * LEAN BY DESIGN: imports only Link + Wordmark + MobileMenu. Importing <Nav>
- * into a subpage must NOT drag the whole homepage module (_sections.tsx —
- * framer-motion motion primitives, HeroVideoScrub, catalog fetchers) into
- * that page's bundle, so the nav lives here, away from those imports.
+ * Markup + classes mirror HomeReskin's nav 1:1 (hr-nav / hr-glass-dark /
+ * hr-logo / hr-links / hr-signin) and reuse home-reskin.css via the
+ * `.home-reskin.hr-open` scope — the "unlocked" ink-glass state, correct on
+ * the light marketing pages. The homepage keeps its own nav instance because
+ * it needs the gate state (white-on-cinematic → ink-on-open) and scroll-home
+ * behavior; keep the two in sync when the nav design changes.
  *
- * Client component: the sticky <Nav> auto-hides on scroll-down and reveals on
- * scroll-up (owner 2026-06-14 — so the homepage hero scrub goes full-screen /
- * "pure scrubbing" as you scroll into it). PromoBar stays a trivial static
- * island; MobileMenu is the existing client island.
+ * NAV-REGISTRY CHOKEPOINT (lint-nav-icon-source.mjs, REQUIRED check): labels
+ * still come from the registry — `navSlots` is resolved server-side in the
+ * root layout and threaded down via SiteChrome. The four items carry NEW
+ * `public.site-nav.*` slot keys (prices / download / vendors-overlay /
+ * sign-in, seeded in lib/nav-registry-defaults.ts); the six old link slots
+ * stay seeded-but-inert, per the registry's documented pattern for retired
+ * affordances. Fails open to the literal labels below.
+ *
+ * Every press calls unpinFooter() — the owner-specified counterpart of the
+ * pinned footer: "until top nav is pressed, which will animate the footer to
+ * hide once again."
  */
 
 import Link from 'next/link';
-import { Wordmark } from '@/app/_components/brand-marks';
-import { useHideOnScroll } from '@/app/_components/nav/use-hide-on-scroll';
-import { MobileMenu } from './_nav-mobile';
+import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
+import type { OverlayId } from '@/app/_components/home/HomeOverlays';
+import { unpinFooter } from './footer-pin';
 
-// ─────────────────────────────────────────────────────────────────────
-// 1. Promo bar — pilot stage default per template homepage-top.jsx
-// ─────────────────────────────────────────────────────────────────────
-export function PromoBar() {
-  return (
-    <div className="bg-[var(--m-ink)] text-[var(--m-paper)] text-[13px] px-6 py-2.5 flex justify-center items-center gap-[18px] flex-wrap">
-      <span className="inline-flex items-center gap-2">
-        <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--m-orange)] m-pulse-dot" />
-        <strong className="font-medium">Pilot · December 2026.</strong>
-        <span className="hidden sm:inline">First wedding ships Dec 18 — Claire &amp; Ice&apos;s own.</span>
-      </span>
-      <span className="hidden sm:inline text-[var(--m-slate-3)]">·</span>
-      <Link href="/signup" className="text-[var(--m-orange-3)] underline underline-offset-[3px]">
-        Apply to the pilot →
-      </Link>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// 2. Nav — sticky top with Sign in + Start planning
-//    `sticky` (default true) can be turned off on pages that already have
-//    their own sticky-top bar (e.g. the /vendors marketplace search header)
-//    so two sticky bars don't stack/overlap on scroll.
-// ─────────────────────────────────────────────────────────────────────
 export function Nav({
-  sticky = true,
   navSlots,
-}: { sticky?: boolean; navSlots?: Record<string, NavSlotLite> } = {}) {
-  // Simple site nav (owner 2026-06-13/14): Home (the video scrub, = the logo) ·
-  // Explore (search anything across all services) · For vendors · Our story ·
-  // Journal · Real Stories. "What you get" was REMOVED from the nav 2026-06-14 —
-  // it now lives ON the homepage itself: after the hero, "Tap to learn more ↓"
-  // reveals the "A Place for Each" / what-you-get narrative (see PostHeroReveal +
-  // WhatYouGet). Pricing folds into that narrative; Help + legal stay in the
-  // footer.
-  //
-  // "Journal" → /blog: the Setnayan Journal planning-education magazine.
-  // Promoted from footer-only into the top nav 2026-06-15 (owner) after the
-  // magazine redesign (#1439) — premium content earns the reach; reverses the
-  // 2026-06-14 "guides live in the footer" call.
-  // "Real Stories" → /weddings: the real-wedding showcase (iteration 0046,
-  // seeded with the Maria & Juan sample editorial) IS the destination — a
-  // separate surface from the Journal (real weddings vs planning guides).
-  //
-  // Each link carries its nav/icon/menu-registry slot key (public.site-nav.*).
-  // From /admin/menus an admin can rename a link or hide it WITHOUT a code
-  // change; href + order stay in code (the registry never owns routing). The
-  // marketing nav is label-only — no icons — so we overlay the label only.
-  // `navSlots` is resolved server-side in the root layout and threaded down via
-  // SiteChrome; it fails open to the code label whenever a slot has no override
-  // (or the map didn't resolve at all).
-  const navLinks: Array<{ label: string; href: string; slot: string }> = [
-    { label: 'Explore', href: '/explore', slot: 'public.site-nav.explore' },
-    { label: 'For vendors', href: '/for-vendors', slot: 'public.site-nav.for-vendors' },
-    { label: 'Our story', href: '/our-story', slot: 'public.site-nav.our-story' },
-    { label: 'Journal', href: '/blog', slot: 'public.site-nav.journal' },
-    { label: 'Real Stories', href: '/realstories', slot: 'public.site-nav.real-stories' },
-  ];
+  onOpenOverlay,
+  unfixed = false,
+}: {
+  navSlots?: Record<string, NavSlotLite>;
+  onOpenOverlay: (id: Exclude<OverlayId, null>) => void;
+  /**
+   * /explore's marketplace search bar is itself sticky-top; a fixed glass nav
+   * would stack on it forever. `unfixed` renders the nav absolutely positioned
+   * instead, so it scrolls away with the page — the same intent the old nav's
+   * `sticky={false}` carried.
+   */
+  unfixed?: boolean;
+}) {
+  const label = (slot: string, fallback: string) => {
+    const s = navSlots?.[slot];
+    if (s?.isHidden) return null; // admin hid this item from /admin/menus
+    return s?.label ?? fallback;
+  };
 
-  const links: Array<{ label: string; href: string }> = navLinks
-    .map(({ label, href, slot }) => {
-      const s = navSlots?.[slot];
-      if (s?.isHidden) return null; // admin hid this item from /admin/menus
-      return { label: s?.label ?? label, href };
-    })
-    .filter((l): l is { label: string; href: string } => l !== null);
+  const prices = label('public.site-nav.prices', 'Prices');
+  const download = label('public.site-nav.download', 'Download');
+  const vendors = label('public.site-nav.vendors-overlay', 'Vendors');
+  const signin = label('public.site-nav.sign-in', 'Sign in');
 
-  // Auto-hide on scroll-down, reveal on scroll-up — only when sticky. Lets the
-  // homepage hero scrub fill the screen ("pure scrubbing") the moment you
-  // scroll into it, and gives every other page more room while scrolling down;
-  // the nav slides back the instant you scroll up (to reach for it) or return
-  // to the top. Non-sticky pages (e.g. /vendors) scroll the nav away naturally,
-  // so the effect no-ops there. Shared with every dashboard top bar via the
-  // canonical useHideOnScroll hook (owner 2026-06-15 universal-rule directive).
-  const hidden = useHideOnScroll(sticky);
+  const press = (id: Exclude<OverlayId, null>) => {
+    unpinFooter();
+    onOpenOverlay(id);
+  };
 
   return (
-    <nav
-      className={`relative flex items-center justify-between px-5 sm:px-8 lg:px-14 py-[14px] sm:py-[18px] border-b border-[var(--m-line-soft)] bg-[var(--m-paper)]${
-        sticky
-          ? ` sticky top-0 z-10 transition-transform duration-300 ease-out motion-reduce:transition-none${
-              hidden ? ' -translate-y-full' : ' translate-y-0'
-            }`
-          : ''
-      }`}
-    >
-      {/* Brand mark links home — "Home (the video scrub) = the logo" (owner
-          2026-06-13). On the homepage this is a same-page link back to the
-          hero; on every other page it routes to /. */}
-      <Link href="/" aria-label="Setnayan — home" className="inline-flex items-center">
-        <Wordmark size={22} />
-      </Link>
-      <div className="hidden lg:flex gap-7 text-sm text-[var(--m-slate)]">
-        {links.map((l) => (
-          <Link key={l.label} href={l.href} className="hover:text-[var(--m-ink)] transition-colors whitespace-nowrap">
-            {l.label}
-          </Link>
-        ))}
-      </div>
-      <div className="flex gap-2.5 items-center">
+    <div className={`home-reskin hr-open hr-chrome-nav${unfixed ? ' hr-nav-unfixed' : ''}`}>
+      <nav className="hr-nav">
         <Link
-          href="/login"
-          className="hidden lg:inline whitespace-nowrap text-sm text-[var(--m-slate)] hover:text-[var(--m-ink)]"
+          className="hr-logo hr-glass-dark"
+          aria-label="Home"
+          title="Home"
+          href="/"
+          onClick={() => unpinFooter()}
         >
-          Sign in
+          <SetnayanMark className="h-5 w-5" aria-hidden="true" />
         </Link>
-        <Link href="/onboarding/wedding" className="m-btn m-btn-primary px-[18px] py-2.5 text-[13px]">
-          Start planning
-        </Link>
-        <MobileMenu links={links} />
-      </div>
-    </nav>
+        <div className="hr-links hr-glass-dark">
+          {prices && <button onClick={() => press('prices')}>{prices}</button>}
+          {download && <button onClick={() => press('download')}>{download}</button>}
+          {vendors && <button onClick={() => press('vendors')}>{vendors}</button>}
+        </div>
+        {signin && (
+          <button className="hr-signin hr-glass-dark" onClick={() => press('signin')}>
+            {signin}
+          </button>
+        )}
+      </nav>
+    </div>
   );
 }

@@ -19,6 +19,7 @@ const ProductionsCatalog = () => {
     { name: "Animated Monogram",      tag: "Bespoke · animated",    price: "₱2,499",  body: "A monogram designed for your wedding, animated for screens, stage, and stream." },
     { name: "Pro Website",            tag: "Premium event page",    price: "₱5,499",  body: "Premium Invitation + Event Page + Editorial treatment — custom domain, music, gallery, the upgraded blocks on your personal site." },
     { name: "Panood",                 tag: "Live stream · per day", price: "₱3,499/day", body: "Up to five cameras, one broadcaster on YouTube, embedded on your event page. Calendar-day rate." },
+    { name: "Patiktok",               tag: "TikTok-format booth",   price: "₱2,499",  body: "Up to 250 vertical clips at the booth. Next-morning compilation in your gallery." },
     { name: "Pakanta",                tag: "Custom wedding song",   price: "₱2,499",  body: "A song written for the couple — royalty-free, cleared for livestream + reel." },
     { name: "Papic Guest",            tag: "Disposable camera",     price: "₱2,999",  body: "Each guest gets 24 photos + 10 5-second videos. 3 months high-res on your Drive, auto-transferred." },
     { name: "Papic (5 Seats)",        tag: "Crew paparazzi · 5h",   price: "₱2,999",  body: "Unlimited photos and videos for 5 hours, tagged in real time. 3 months high-res, auto-transferred." },

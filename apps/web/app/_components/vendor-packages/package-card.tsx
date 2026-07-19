@@ -14,9 +14,17 @@ import {
 export function PackageCard({
   pkg,
   ctaSlot,
+  hidePrice = false,
 }: {
   pkg: VendorPackageWithItems;
   ctaSlot?: React.ReactNode;
+  /**
+   * Public "hide my prices" preference (Social_Share_Settings_Council_Verdict
+   * 2026-07-16 #6). When true, the peso figures are suppressed — the package
+   * name + included items stay visible; only the amounts disappear. Defaults
+   * false so the dashboard detail-page caller is unaffected.
+   */
+  hidePrice?: boolean;
 }) {
   const includedItems = pkg.items.filter((i) => i.is_default_included);
 
@@ -31,7 +39,7 @@ export function PackageCard({
             {pkg.package_name}
           </h3>
           <p className="mt-1 font-mono text-lg text-ink">
-            {formatCentavosPhp(pkg.total_price_centavos)}
+            {hidePrice ? 'Price on inquiry' : formatCentavosPhp(pkg.total_price_centavos)}
           </p>
         </div>
       </header>
@@ -68,10 +76,19 @@ export function PackageCard({
 
       {pkg.is_consumable_flexible && pkg.consumable_budget_centavos > 0 ? (
         <p className="mt-4 rounded-lg bg-success-50/60 px-3 py-2 text-xs text-success-900">
-          <span className="font-semibold">
-            {formatCentavosPhp(pkg.consumable_budget_centavos)} consumable
-          </span>{' '}
-          can flex across food, beverage, or extra services.
+          {hidePrice ? (
+            <>
+              <span className="font-semibold">Flexible consumable budget</span> can flex
+              across food, beverage, or extra services.
+            </>
+          ) : (
+            <>
+              <span className="font-semibold">
+                {formatCentavosPhp(pkg.consumable_budget_centavos)} consumable
+              </span>{' '}
+              can flex across food, beverage, or extra services.
+            </>
+          )}
         </p>
       ) : null}
 

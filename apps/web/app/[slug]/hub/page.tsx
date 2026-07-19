@@ -41,6 +41,7 @@ import {
   Radio,
 } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { createClient } from '@/lib/supabase/server';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { readGuestSession } from '@/lib/guest-session';
@@ -58,6 +59,7 @@ import { getWallSnapshot } from '@/lib/live-wall';
 import type { WallTile } from '@/lib/live-wall-logic';
 import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
+import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { resolveMonogram } from '@/lib/monogram';
 import { NavLinksRow } from '@/app/_components/nav-links';
 import { ScheduleWidget } from '../_components/schedule-widget';
@@ -65,15 +67,6 @@ import { DayOfFaceEnroll } from '../_components/day-of-face-enroll';
 import { WhatsHappeningCard } from '@/app/dashboard/[eventId]/_components/day-of-mode/whats-happening-card';
 import { LiveWallBlock, type LiveWallCaption } from '../_components/live-wall-block';
 import { HubShell } from '../_components/hub/hub-shell';
-
-const RESERVED_TOP_LEVEL = new Set([
-  'api',
-  'dashboard',
-  'admin',
-  'vendor-dashboard',
-  'papic',
-  'wall',
-]);
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -94,7 +87,7 @@ export const metadata: Metadata = {
 export default async function EventHubPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const search = await searchParams;
-  if (!slug || RESERVED_TOP_LEVEL.has(slug)) notFound();
+  if (!slug || RESERVED_SLUGS.has(slug)) notFound();
 
   const admin = createAdminClient();
 
@@ -265,13 +258,15 @@ export default async function EventHubPage({ params, searchParams }: Props) {
     const appUrl =
       process.env.NEXT_PUBLIC_APP_URL ??
       'https://setnayan-platform-web.vercel.app';
+    const ownerSlug = await resolveEventOwnerSlug(admin, event.event_id);
     qrSvg = await renderInvitationQrSvg({
       appUrl,
       slug,
       qrToken: guest.qr_token,
       monogram,
+      ownerSlug,
     });
-    invitationUrl = buildInvitationUrl({ appUrl, slug, qrToken: guest.qr_token });
+    invitationUrl = buildInvitationUrl({ appUrl, slug, qrToken: guest.qr_token, ownerSlug });
 
     // Paid LIMITED roll camera — only the 'ready' state lights the launch CTA.
     if (guest.rsvp_status !== 'declined') {
@@ -475,7 +470,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
             )}
             {arrived && tableLabel ? 'You’ve arrived' : 'Your seat'}
           </p>
-          <h3 className="text-2xl font-semibold tracking-tight text-ink">
+          <h3 className="font-serif text-3xl italic leading-tight tracking-tight text-ink">
             {tableLabel ?? 'Not yet assigned'}
           </h3>
           {arrived && tableLabel ? (
@@ -534,7 +529,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
           Getting there
         </p>
-        <h3 className="text-xl font-semibold tracking-tight text-ink">
+        <h3 className="font-serif text-2xl italic leading-tight tracking-tight text-ink">
           {event.venue_name ?? 'Venue'}
         </h3>
         {event.venue_address ? (
@@ -588,7 +583,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
       <article className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-6 text-center">
         <CameraIcon aria-hidden className="mx-auto h-8 w-8 text-terracotta" strokeWidth={1.5} />
         <div>
-          <h3 className="text-lg font-semibold tracking-tight text-ink">
+          <h3 className="font-serif text-xl italic leading-tight tracking-tight text-ink">
             Capture the day
           </h3>
           <p className="mx-auto mt-1 max-w-prose text-sm text-ink/65">
@@ -697,7 +692,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
           <QrCode aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Your QR
         </p>
-        <h3 className="mt-1 text-lg font-semibold tracking-tight text-ink">
+        <h3 className="mt-1 font-serif text-xl italic leading-tight tracking-tight text-ink">
           Let others scan you
         </h3>
         <p className="mx-auto mt-1 max-w-prose text-xs text-ink/60">

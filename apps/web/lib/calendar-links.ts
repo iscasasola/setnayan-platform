@@ -167,3 +167,62 @@ export function buildSaveTheDateIcs(opts: {
 export function icsDataHref(ics: string): string {
   return `data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}`;
 }
+
+/**
+ * A timestamptz → RFC 5545 UTC "basic" stamp: 'YYYYMMDDTHHMMSSZ'. Returns null
+ * when unparseable. (Mirrors the inline icsStamp used by the per-vendor timeline
+ * feed at app/vendor-dashboard/clients/[eventId]/calendar.ics — kept here so the
+ * TIMED-event builders live next to the all-day ones.)
+ */
+function icsStampUtc(iso: string): string | null {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+}
+
+/**
+ * A one-event VCALENDAR for a single TIMED appointment (Relationship Workspace +
+ * Appointments · PR 12 · "On confirm: .ics"). Unlike the all-day Save-the-Date
+ * builders above, an appointment has a precise start + duration, so this emits a
+ * timed VEVENT (DTSTART …Z + DTEND from durationMin, default 60). Returns null
+ * when there's no usable start time. `uid` should be stable per appointment so a
+ * re-download dedupes in the attendee's calendar.
+ */
+export function buildAppointmentIcs(opts: {
+  uid: string;
+  title: string;
+  startIso: string;
+  durationMin?: number | null;
+  location?: string | null;
+  description?: string | null;
+}): string | null {
+  const start = new Date(opts.startIso);
+  if (Number.isNaN(start.getTime())) return null;
+  const dtstart = icsStampUtc(opts.startIso);
+  if (!dtstart) return null;
+  const durMin =
+    opts.durationMin && opts.durationMin > 0 ? Math.round(opts.durationMin) : 60;
+  const end = new Date(start.getTime() + durMin * 60_000);
+  const dtend = icsStampUtc(end.toISOString());
+  const now = icsStampUtc(new Date().toISOString()) ?? dtstart;
+
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Setnayan//Appointments//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    `UID:${opts.uid}`,
+    `DTSTAMP:${now}`,
+    `DTSTART:${dtstart}`,
+    ...(dtend ? [`DTEND:${dtend}`] : []),
+    `SUMMARY:${icsEscape(opts.title)}`,
+    ...(opts.location ? [`LOCATION:${icsEscape(opts.location)}`] : []),
+    ...(opts.description ? [`DESCRIPTION:${icsEscape(opts.description)}`] : []),
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ];
+  // RFC 5545 requires CRLF line endings.
+  return lines.join('\r\n') + '\r\n';
+}

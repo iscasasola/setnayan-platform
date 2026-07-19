@@ -1,8 +1,5 @@
 {
-  "crons": [
-    {
-      "path": "/api/cron/anniversary-digest",
-      "schedule": "0 0 * * *"
-    }
-  ]
+  "regions": ["sin1"],
+  "ignoreCommand": "cd \"$(git rev-parse --show-toplevel)\" && git diff --quiet HEAD^ HEAD -- apps/web packages/shared package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json",
+  "crons": []
 }

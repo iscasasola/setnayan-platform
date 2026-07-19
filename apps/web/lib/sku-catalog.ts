@@ -551,9 +551,10 @@ export const RETIRED_SKU_CODES = [
   'save_the_date_video',             // retired 2026-06-16 → Save-the-Date is now the free page-opening reveal
   'daily_co_video_meeting',          // Daily.co retired 2026-05-16
   'video_meeting_addon',             // Daily.co retired 2026-05-16
-  // Patiktok — entire product RETIRED 2026-06-29 (owner "remove patiktok ...
-  // just remove them entirely"). All 6 SKUs deleted from service_catalog by
-  // migration 20270319000000; kept here so legacy order rows resolve.
+  // Patiktok — the PRODUCT was un-retired 2026-07-01 as the single live SKU
+  // PATIKTOK_COMPILER (admin-managed). The 6 codes below are only the DEAD
+  // 2026-05-16 dual-tier / per-day / overage codes — kept here so legacy order
+  // rows still resolve. PATIKTOK_COMPILER is intentionally NOT in this list.
   'patiktok_booth_5hr',
   'patiktok_setnayan_tiktok',
   'patiktok_personal_tiktok',

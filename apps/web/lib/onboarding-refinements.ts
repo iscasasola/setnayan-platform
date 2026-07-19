@@ -23,7 +23,19 @@ import { REFINEMENTS_DATA, type RefineLeaf, type RefineOption } from '@/app/onbo
 
 /** One tile from the service_categories taxonomy — the unit the onboarding
  *  PICK step ("What would you love?") displays in its picker grid. */
-export type OnboardingPickChip = { cat: string; label: string; folder: string };
+export type OnboardingPickChip = {
+  cat: string;
+  label: string;
+  folder: string;
+  /**
+   * Resolved display URL for the tile's `service_categories.sample_photo_r2_key`
+   * (r2:// refs presigned; `/public` paths + legacy URLs verbatim), or null when
+   * the tile has no photo. The onboarding PickCard prefers this DB-first photo
+   * and falls back to the static `/onboarding/picker/<cat>.webp` asset when it's
+   * null. Wired 2026-07-03 (Taxonomy Studio · PR 4).
+   */
+  photoUrl?: string | null;
+};
 
 type LeafRow = {
   leaf_key: string;
@@ -46,6 +58,8 @@ type TileRow = {
   label_en: string;
   parent_id: string | null;
   applicable_event_types: string[] | null;
+  sample_photo_r2_key: string | null;
+  marketplace_hidden: boolean | null;
 };
 
 /**
@@ -61,17 +75,45 @@ export const getOnboardingTiles = cache(async (eventType: string = 'wedding'): P
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('service_categories')
-      .select('id,label_en,parent_id,applicable_event_types')
+      .select('id,label_en,parent_id,applicable_event_types,sample_photo_r2_key,marketplace_hidden')
       .eq('tier', 2)
       .eq('status', 'active')
       .order('sort_order', { ascending: true });
     if (error || !data || data.length === 0) return [];
-    return (data as TileRow[])
-      .filter((t) => {
-        const types = t.applicable_event_types;
-        return !types || types.length === 0 || types.includes(eventType);
-      })
-      .map((t) => ({ cat: t.id, label: t.label_en, folder: t.parent_id ?? '' }));
+    const scoped = (data as TileRow[]).filter((t) => {
+      // Admin-only tiles (tile-level marketplace_hidden) never surface in the
+      // couple-facing onboarding picker.
+      if (t.marketplace_hidden === true) return false;
+      const types = t.applicable_event_types;
+      return !types || types.length === 0 || types.includes(eventType);
+    });
+    // Resolve tile photos DB-first. r2:// refs presign in parallel; /public
+    // paths + legacy URLs pass through verbatim. A null/failed resolve leaves
+    // photoUrl null so the PickCard falls back to its static /onboarding/picker
+    // asset — never a broken image.
+    const r2refs = new Set<string>();
+    for (const t of scoped) {
+      if (t.sample_photo_r2_key?.startsWith('r2://')) r2refs.add(t.sample_photo_r2_key);
+    }
+    const urlByRef = new Map<string, string | null>();
+    if (r2refs.size > 0) {
+      const { displayUrlForStoredAsset } = await import('./uploads');
+      const pairs = await Promise.all(
+        [...r2refs].map(
+          async (ref) => [ref, await displayUrlForStoredAsset(ref).catch(() => null)] as const,
+        ),
+      );
+      for (const [ref, url] of pairs) urlByRef.set(ref, url);
+    }
+    return scoped.map((t) => {
+      const raw = t.sample_photo_r2_key;
+      const photoUrl = raw
+        ? raw.startsWith('r2://')
+          ? urlByRef.get(raw) ?? null
+          : raw // /public path or legacy URL — verbatim
+        : null;
+      return { cat: t.id, label: t.label_en, folder: t.parent_id ?? '', photoUrl };
+    });
   } catch {
     return [];
   }

@@ -11,6 +11,7 @@ import {
   PAPIC_MIN_PAID_CAMERAS,
   PAPIC_UNLI_CAP_FALLBACK_PHP,
   PAPIC_UNLOCK_BUNDLE_KEY,
+  PAPIC_UNLOCK_LTD_BUNDLE_KEY,
   computeCameraQuote,
   fetchCameraRates,
   mintPapicReferenceCode,
@@ -489,13 +490,19 @@ export async function purchasePapicCameras(formData: FormData) {
   // fall back to 1 day anchored to event_date.
   const win = await fetchEventPapicWindow(admin, eventId);
 
-  // PAPIC_UNLOCK umbrella owners get the Unli tier free + uncapped (owner
-  // 2026-06-26): quote with unliFree so the Unli charge collapses to ₱0. Roll
-  // (Ltd) still bills normally — the umbrella covers Unli only.
+  // Unlock owners get their tier free + uncapped (money-gated on an ACTIVE pass):
+  // PAPIC_UNLOCK → Unli, PAPIC_UNLOCK_LTD (owner 2026-07-11) → Ltd. Each pass
+  // covers only its own tier, so an owner never re-pays for cameras it unlocked.
   const ownsUnlock = await eventSkuActive(admin, eventId, PAPIC_UNLOCK_BUNDLE_KEY);
+  const ownsUnlockLtd = await eventSkuActive(
+    admin,
+    eventId,
+    PAPIC_UNLOCK_LTD_BUNDLE_KEY,
+  );
   const rates = await fetchCameraRates(admin);
   const quote = computeCameraQuote({ roll, unlimited }, win.days, rates, caps, {
     unliFree: ownsUnlock,
+    ltdFree: ownsUnlockLtd,
   });
 
   if (quote.paidCount < PAPIC_MIN_PAID_CAMERAS) {

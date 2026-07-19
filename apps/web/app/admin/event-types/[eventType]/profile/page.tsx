@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { upsertEventTypeProfile } from '../../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Onboarding profile · Event Types · Admin' };
 // Admin-client DB read → keep dynamic (same rationale as the roster page).
 export const dynamic = 'force-dynamic';
@@ -56,6 +57,7 @@ export default async function EventTypeProfilePage({
   params: Params;
   searchParams: SearchParams;
 }) {
+  await requireAdmin();
   const { eventType } = await params;
   const sp = await searchParams;
   const admin = createAdminClient();
@@ -93,8 +95,8 @@ export default async function EventTypeProfilePage({
 
   return (
     <main className="mx-auto max-w-2xl px-5 py-8">
-      <Link href="/admin/event-types" className="text-sm text-ink/55 hover:text-mulberry">
-        ← Event Types
+      <Link href="/admin/taxonomy?view=vocab-event" className="text-sm text-ink/55 hover:text-mulberry">
+        ← Event types
       </Link>
       <h1 className="mt-3 text-2xl font-semibold text-ink">
         {vocab.emoji} {vocab.label_en} · Onboarding profile

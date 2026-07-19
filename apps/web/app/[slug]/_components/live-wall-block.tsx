@@ -178,8 +178,11 @@ function LiveWallHeader({ count }: { count: number }) {
         Live from the celebration
       </p>
       {count > 0 ? (
-        <p className="text-xs text-ink/55">
-          {count.toLocaleString()} moment{count === 1 ? '' : 's'} and counting
+        <p className="flex items-baseline gap-1 text-ink/55">
+          <span className="font-serif text-xl italic leading-none tabular-nums text-ink">
+            {count.toLocaleString()}
+          </span>
+          <span className="text-xs">moment{count === 1 ? '' : 's'} and counting</span>
         </p>
       ) : null}
     </div>

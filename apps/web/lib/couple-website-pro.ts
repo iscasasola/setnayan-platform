@@ -59,3 +59,51 @@ export async function eventCoupleWebsiteProActive(
 ): Promise<boolean> {
   return eventSkuActive(supabase, eventId, COUPLE_WEBSITE_PRO_SERVICE_KEY);
 }
+
+/** Standalone à-la-carte Editorial PRO SKU (owner 2026-07-04 · ₱3,499). Unlocks
+ *  the same "Editor's Desk" authorship perks as the Couple Website PRO umbrella,
+ *  bought on its own. The catalog row lands via a parallel PR; until then an
+ *  absent/inactive SKU simply reads false, so there's no ordering dependency. */
+export const EDITORIAL_PRO_SERVICE_KEY = 'EDITORIAL_PRO';
+
+/**
+ * Editorial PRO gate — the "Editor's Desk" authorship perks (named moments +
+ * per-moment write-ups + the manual chapter/order/guest-wishes editors +
+ * no-watermark).
+ *
+ * DUAL UNLOCK (owner 2026-07-04): a couple has Editorial PRO when EITHER
+ *   • the standalone à-la-carte EDITORIAL_PRO SKU (₱3,499) is active, OR
+ *   • the Couple Website PRO umbrella (₱4,999, includes Editorial PRO) is active.
+ * Both are checked bundle-aware + admin-approved via eventSkuActive; an absent
+ * EDITORIAL_PRO catalog row just returns false (graceful-degrade in
+ * lib/entitlements), so the umbrella path keeps working before the à-la-carte
+ * SKU exists.
+ *
+ * WHY a single helper: gate ALL editor-side authorship features (chapter
+ * curation, section reorder, guest-wishes editor) on THIS, so the dual-unlock
+ * rule lives in ONE place (a future packaging change is a one-line edit here) —
+ * exactly as the render watermark gates on eventCoupleWebsiteProActive.
+ */
+export async function isEditorialProActive(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<boolean> {
+  if (await eventSkuActive(supabase, eventId, EDITORIAL_PRO_SERVICE_KEY)) return true;
+  return eventCoupleWebsiteProActive(supabase, eventId);
+}
+
+/**
+ * BUY-SURFACE reader for Editorial PRO — bundle- + alias-aware, and it COUNTS a
+ * still-in-reconciliation 'submitted' order as owned so a couple mid-review can't
+ * double-buy. eventOwnsSku(EDITORIAL_PRO) already matches an order under the
+ * COUPLE_WEBSITE_PRO umbrella (SKU_OWNERSHIP_ALIASES), so a couple who bought
+ * the umbrella reads as owning Editorial PRO here too. Drives the Editorial PRO
+ * buy surface (owned/included/pending states); the render/authoring gate stays
+ * isEditorialProActive (admin-approved only).
+ */
+export async function eventOwnsEditorialPro(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<boolean> {
+  return eventOwnsSku(supabase, eventId, EDITORIAL_PRO_SERVICE_KEY);
+}

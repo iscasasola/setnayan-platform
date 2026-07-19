@@ -6,7 +6,7 @@
  * (Website_Master_Plan_2026-06-28 §0/§6, Phase 1). Mirrors the /panood + /papic
  * pattern exactly: force-static Server Component, static `metadata`,
  * SoftwareApplication + FAQPage JSON-LD, hero + benefit sections + FAQ + a
- * Mulberry-accent primary CTA, and the shared SiteFooter. The persistent
+ * Mulberry-accent primary CTA, and the layout-mounted SiteFooterChrome. The persistent
  * SiteChrome nav renders because '/alaala' is registered in NAV_ROUTES.
  *
  * DEFINITION (owner, 2026-06-28): Alaala is the COMBINATION of the five Pa-
@@ -22,7 +22,6 @@
  */
 
 import Link from 'next/link';
-import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 import { AlaalaOrb } from '@/app/_components/marketing/AlaalaOrb';
 import { Reveal } from '@/app/_components/marketing/_motion';
 import {
@@ -39,7 +38,7 @@ const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
 
 const PAGE_TITLE = 'Alaala — A New Way to Remember · Setnayan';
 const PAGE_DESCRIPTION =
-  'Alaala brings together everything you create on Setnayan — Papic, Panood, your event website, your 3D plan, and your monogram — into one living memory you can open any time. A new way to remember, for every event you’ll ever hold.';
+  'Alaala brings together everything you create on Setnayan — Papic, Panood, your event website, your 3D plan, and your monogram — into one living memory you can open any time: your life-events collection, gathered as you go. A new way to remember, for every event you’ll ever hold.';
 const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
 
 export const metadata = {
@@ -326,7 +325,6 @@ export default function AlaalaLandingPage() {
           </section>
         </Reveal>
       </main>
-      <SiteFooter />
     </>
   );
 }

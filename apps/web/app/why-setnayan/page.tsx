@@ -18,7 +18,6 @@
  */
 
 import Link from 'next/link';
-import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 import { LineRevealHeading, RevealBand, SettleRow } from './_why-motion';
 
 export const dynamic = 'force-static';
@@ -134,9 +133,6 @@ export default function WhySetnayanPage() {
         {/* Hero — H1 gets the serif line-reveal (mount, above-the-fold); the eyebrow
             + subcopy do a quiet stagger rise. No thread, no gold underline. */}
         <RevealBand as="header" className="mx-auto max-w-2xl text-center">
-          <p data-reveal-item className="font-mono text-xs uppercase tracking-[0.22em] text-[#8C6932]">
-            Why Setnayan
-          </p>
           <LineRevealHeading
             trigger="mount"
             className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[var(--m-ink)] sm:text-5xl"
@@ -266,7 +262,6 @@ export default function WhySetnayanPage() {
           </section>
         </RevealBand>
       </main>
-      <SiteFooter />
     </>
   );
 }

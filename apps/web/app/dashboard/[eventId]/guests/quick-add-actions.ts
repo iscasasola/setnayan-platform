@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { guestEditsLocked } from '@/lib/pax';
+import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import {
   defaultInvitedToForRole,
@@ -15,6 +16,7 @@ import {
 } from '@/lib/guests';
 import { normalizeGuestName } from '@/lib/guest-name';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import { pickReuseGroup } from '@/lib/guest-group-reuse';
 
 // Iteration 0053 P2: the valid role set is per event type — each action below
 // resolves it via resolveRoleSetForEvent(eventId) (wedding → the 24-role set;
@@ -148,6 +150,10 @@ export async function quickAddGuest(
     }
   }
 
+  // Smart seat-plan Phase 5: auto-place the new guest (clusters with its group
+  // when one was picked). Best-effort — never blocks the add.
+  await applyReconcileForEvent(supabase, eventId);
+
   revalidatePath(`/dashboard/${eventId}/guests`);
   return {
     ok: true,
@@ -156,7 +162,12 @@ export async function quickAddGuest(
 }
 
 export type QuickGroupResult =
-  | { ok: true; group: { group_id: string; label: string } }
+  // `created` distinguishes a FRESH insert (true) from the case-insensitive
+  // find-or-create REUSE of a pre-existing group (false). The capture-bar
+  // single-add (inline-actions.ts › addSingleGuest) reads it so that, when the
+  // guest insert then fails, it deletes ONLY the groups it just minted and
+  // never a group the couple already had. See T18 (orphan-groups on-failed-add).
+  | { ok: true; group: { group_id: string; label: string }; created: boolean }
   | { ok: false; error: string };
 
 /**
@@ -184,9 +195,15 @@ export async function quickCreateGroup(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Your session expired — sign in again.' };
 
+  // This fast path always creates on the 'both' team side (the host refines it
+  // later in the Groups sidebar). Held in one const so the insert and the 23505
+  // reuse-lookup below resolve the SAME (event_id, lower(label), team_side)
+  // unique-index key.
+  const teamSide = 'both';
+
   const { data: inserted, error } = await supabase
     .from('guest_groups')
-    .insert({ event_id: eventId, label, team_side: 'both' })
+    .insert({ event_id: eventId, label, team_side: teamSide })
     .select('group_id, label')
     .single();
 
@@ -194,14 +211,26 @@ export async function quickCreateGroup(
     // 23505 from the case-insensitive unique index → reuse the existing
     // group of that name rather than erroring.
     if (error && (error as { code?: string }).code === '23505') {
-      const { data: existing } = await supabase
+      // The conflict is on (event_id, lower(label), team_side), so the row to
+      // reuse shares our exact (label, teamSide) key. Fetch the same-label rows
+      // and pick the team_side match in JS — a label-only `.maybeSingle()` also
+      // caught cross-side namesakes (a bride-side + groom-side "Friends"), and
+      // >1 row made maybeSingle throw, failing a legitimate reuse. The JS exact
+      // compare also sidesteps `ilike` treating %/_ in a label as wildcards.
+      const { data: candidates } = await supabase
         .from('guest_groups')
-        .select('group_id, label')
+        .select('group_id, label, team_side')
         .eq('event_id', eventId)
-        .ilike('label', label)
-        .maybeSingle();
+        .ilike('label', label);
+      const existing = pickReuseGroup(candidates ?? [], label, teamSide);
       if (existing) {
-        return { ok: true, group: { group_id: existing.group_id, label: existing.label } };
+        // Reuse of a pre-existing group → created:false, so the caller never
+        // deletes it during on-failed-add compensation.
+        return {
+          ok: true,
+          group: { group_id: existing.group_id, label: existing.label },
+          created: false,
+        };
       }
       return { ok: false, error: 'A group with that name already exists.' };
     }
@@ -209,7 +238,13 @@ export async function quickCreateGroup(
   }
 
   revalidatePath(`/dashboard/${eventId}/guests`);
-  return { ok: true, group: { group_id: inserted.group_id, label: inserted.label } };
+  // Fresh insert → created:true. Only these ids are eligible for the caller's
+  // on-failed-add cleanup.
+  return {
+    ok: true,
+    group: { group_id: inserted.group_id, label: inserted.label },
+    created: true,
+  };
 }
 
 export type QuickRoleResult =
@@ -346,6 +381,10 @@ export async function setGuestPrimaryRole(
     });
     return { ok: false, error: friendly };
   }
+
+  // Smart seat-plan Phase 5: the primary role drives the seating tier, so
+  // re-place this guest (and their +1) next to their new tier/group.
+  await applyReconcileForEvent(supabase, eventId, { reseatGuestIds: [guestId] });
 
   revalidatePath(`/dashboard/${eventId}/guests`);
   return { ok: true, guest: { guest_id: g.guest_id, role, extra_roles: nextExtras } };

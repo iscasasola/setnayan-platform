@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 
 type QuickEntry = { firstName: string; lastName: string };
 
@@ -64,6 +65,9 @@ export async function bulkAddGuests(eventId: string, formData: FormData) {
       `/dashboard/${eventId}/guests/quick?error=${encodeURIComponent(error.message)}`,
     );
   }
+
+  // Smart seat-plan Phase 5: gap-fill the new guests into provisional seats.
+  await applyReconcileForEvent(supabase, eventId);
 
   revalidatePath(`/dashboard/${eventId}/guests`);
   revalidatePath(`/dashboard/${eventId}/invitation`);

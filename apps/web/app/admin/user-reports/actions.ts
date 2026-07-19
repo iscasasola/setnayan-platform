@@ -2,9 +2,11 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
+// Shared admin gate (require-admin.ts) — identical contract to the local
+// requireAdmin this file used to duplicate (login redirect · Forbidden throw).
+import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
 // /admin/user-reports actions — moderator resolution path for the UGC report
 // queue (Apple guideline 1.2 / Google Play UGC). A report can be:
 //   · hidden     — hide the reported photo (papic_guest_captures.hidden_at) AND
@@ -15,24 +17,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 //   · dismissed  — no action; status dismissed.
 //
 // Mirrors the requireAdmin + revalidatePath shape of app/admin/disputes/actions.ts.
-
-async function requireAdmin(): Promise<{ userId: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { data: me } = await supabase
-    .from('users')
-    .select('is_internal, is_team_member, account_type')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (!(me?.is_internal || me?.is_team_member || me?.account_type === 'admin')) {
-    throw new Error('Forbidden');
-  }
-  return { userId: user.id };
-}
 
 const ACTIONS = ['hide', 'block', 'escalate', 'dismiss'] as const;
 type Action = (typeof ACTIONS)[number];
@@ -83,14 +67,35 @@ export async function resolveReport(formData: FormData) {
     throw new Error('Report not found');
   }
 
-  // Side effects for the content-action lanes. Both target the reported photo
-  // capture; a 'user' target means the target_id IS the guest id.
+  // Side effects for the content-action lanes. A 'photo' hide targets the
+  // reported capture; a 'user' target means the target_id IS the guest id.
+  //
+  // 'chapter' targets (Storytellers council verdict 2026-07-16 · S0 seam,
+  // wired in PR-D): "hide" for a chapter = UNFEATURE — atomically clear
+  // showcase_featured_at + showcase_feature_rank (by public_id =
+  // report.target_id) in this same action, so a hidden chapter can never ride
+  // out the ISR window on /realstories. The chapter itself stays published on
+  // the creator's own /u page (unpublishing a creator's own page is an
+  // escalation call, not a one-click); revalidate the hub so the shelf
+  // reflects the clear immediately.
   if (action === 'hide' && report.target_type === 'photo') {
     await admin
       .from('papic_guest_captures')
       .update({ hidden_at: new Date().toISOString() })
       .eq('capture_id', report.target_id as string)
       .eq('event_id', report.event_id as string);
+  }
+
+  if (action === 'hide' && report.target_type === 'chapter') {
+    await admin
+      .from('creator_chapters')
+      .update({
+        showcase_featured_at: null,
+        showcase_feature_rank: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('public_id', report.target_id as string);
+    revalidatePath('/realstories');
   }
 
   if (action === 'block') {
@@ -128,11 +133,18 @@ export async function resolveReport(formData: FormData) {
     }
   }
 
+  // A chapter "hide" is really an unfeature (the content stays on the
+  // creator's own page) — say so honestly in the resolution note.
+  const actionNote =
+    action === 'hide' && report.target_type === 'chapter'
+      ? 'Removed from the Real Stories Storytellers shelf by Setnayan moderator (stays on the creator’s own page).'
+      : ACTION_NOTE[action];
+
   const { error: updateError } = await admin
     .from('user_reports')
     .update({
       status: ACTION_STATUS[action],
-      action_taken: ACTION_NOTE[action],
+      action_taken: actionNote,
       reviewed_by: userId,
       reviewed_at: new Date().toISOString(),
     })

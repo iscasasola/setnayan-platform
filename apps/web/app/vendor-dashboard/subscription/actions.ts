@@ -33,10 +33,13 @@ const ERR = (msg: string) =>
   redirect('/vendor-dashboard/subscription?error=' + encodeURIComponent(msg));
 
 /**
- * Begin a subscription order. Form field:
+ * Begin a subscription order. Form fields:
  *   • sku_code — a vendor_billing_catalog subscription sku_code
  *     (pro_vendor_monthly / pro_vendor_annual / enterprise_vendor_monthly /
  *      enterprise_vendor_annual).
+ *   • addon_token_pack_sku — OPTIONAL token_pack sku_code folded into the SAME
+ *     order (one payment for plan + tokens). Blank/absent → plan only. The DB
+ *     re-reads the add-on price + token count from the catalog.
  *
  * On success: redirect to /vendor-dashboard/subscription?ordered=<reference_code>
  * so the page shows the payment-instructions panel for the new order.
@@ -48,6 +51,13 @@ export async function startSubscriptionPurchase(formData: FormData): Promise<voi
   }
   const skuCode = (sku as string).trim();
 
+  // Optional token-pack add-on — one payment covers the plan + these tokens.
+  const addonRaw = formData.get('addon_token_pack_sku');
+  const addonSku =
+    typeof addonRaw === 'string' && addonRaw.trim().length > 0
+      ? addonRaw.trim()
+      : null;
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -56,12 +66,22 @@ export async function startSubscriptionPurchase(formData: FormData): Promise<voi
 
   const { data, error } = await supabase.rpc('create_vendor_subscription', {
     p_sku_code: skuCode,
+    p_addon_token_pack_sku: addonSku,
   });
 
   if (error) {
     const m = error.message?.toUpperCase() ?? '';
+    if (m.includes('NOT_VERIFIED')) {
+      ERR('Verify your shop before subscribing. Once your verification is approved you can upgrade your plan.');
+    }
+    if (m.includes('NOT_VENDOR_ADMIN')) {
+      ERR('Only a store admin can purchase a subscription. Ask an admin on your team to upgrade.');
+    }
     if (m.includes('NO_VENDOR_PROFILE')) {
       ERR('Sign in with your vendor account to upgrade.');
+    }
+    if (m.includes('INVALID_PACK')) {
+      ERR('That token add-on is no longer available. Refresh and try again.');
     }
     if (m.includes('INVALID_SKU') || m.includes('UNMAPPED_SKU_TIER')) {
       ERR('That plan is no longer available. Refresh and try again.');

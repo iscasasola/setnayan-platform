@@ -12,6 +12,7 @@ import {
   Users,
 } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
+import { useSaveLoader } from '@/components/sd-loader';
 import {
   createWalkthroughZone,
   deleteWalkthroughZone,
@@ -47,12 +48,16 @@ export function WalkthroughManager({
   const [newLabel, setNewLabel] = useState('');
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const save = useSaveLoader();
 
   function run(fn: () => Promise<void>, onError?: () => void) {
     setError(null);
     startTransition(async () => {
       try {
-        await fn();
+        await save.run(() => fn(), {
+          steps: ['Saving your walkthrough'],
+          hint: 'Saving',
+        });
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Something went wrong.');
         onError?.();

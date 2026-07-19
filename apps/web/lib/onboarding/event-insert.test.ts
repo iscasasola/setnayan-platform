@@ -121,3 +121,23 @@ test('style_preferences carries the derived plan; pending inquiry stash only for
   const authed = buildGenericEventInsert(payload({ sendTopInquiries: true }), OPTS);
   assert.ok(!('pending_inquiry_dispatch' in (authed.style_preferences as object)));
 });
+
+// ── signature_details (per-type specialty payload) ───────────────────────────
+
+test('signature_details: persists the collected per-type answers', () => {
+  const row = buildGenericEventInsert(
+    payload({ signatureDetails: { who: 'milestone', food: 'catered' } }),
+    OPTS,
+  );
+  assert.deepEqual(row.signature_details, { who: 'milestone', food: 'catered' });
+});
+
+test('signature_details: NULL when omitted', () => {
+  const row = buildGenericEventInsert(payload(), OPTS); // helper omits signatureDetails
+  assert.equal(row.signature_details, null);
+});
+
+test('signature_details: NULL when empty object (so the Brief reads "not captured")', () => {
+  const row = buildGenericEventInsert(payload({ signatureDetails: {} }), OPTS);
+  assert.equal(row.signature_details, null);
+});

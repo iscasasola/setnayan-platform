@@ -15,6 +15,7 @@ import {
   type GuestGroupTeamSide,
   type GuestGroupWithCount,
 } from '@/lib/guests';
+import { SIDE_DOT, SIDE_ROW_TINT } from '@/lib/side-colors';
 
 // -----------------------------------------------------------------------
 // GroupsSidebar · custom-groups section beneath the locked role-group
@@ -23,36 +24,19 @@ import {
 // is open?" UI state.
 // -----------------------------------------------------------------------
 
-// Per-side row tint · owner directive 2026-05-23 PM: "pink for bride,
-// blue for groom, amethyst for both". `idle` is the resting state;
-// `active` deepens the same hue when the group is the currently-viewed
-// filter. `icon` colors the Users icon to match. `count` colors the
-// member-count chip on the right.
-const ROW_TINT_BY_SIDE: Record<
-  GuestGroupTeamSide,
-  { idle: string; active: string; icon: string; count: string }
-> = {
-  bride: {
-    idle: 'bg-danger-50 text-danger-900 hover:bg-danger-100',
-    active: 'bg-danger-100 font-medium text-danger-800',
-    icon: 'text-danger-500',
-    count: 'text-danger-500/70',
-  },
-  groom: {
-    idle: 'bg-sky-50 text-sky-900 hover:bg-sky-100',
-    active: 'bg-sky-100 font-medium text-sky-800',
-    icon: 'text-sky-500',
-    count: 'text-sky-500/70',
-  },
-  // Amethyst = purple — distinct from both bride (rose/pink) and groom
-  // (sky/blue) so "Both sides" groups read as their own category.
-  both: {
-    idle: 'bg-purple-50 text-purple-900 hover:bg-purple-100',
-    active: 'bg-purple-100 font-medium text-purple-800',
-    icon: 'text-purple-500',
-    count: 'text-purple-500/70',
-  },
-};
+// Per-side row tint — the canonical side-colour map (lib/side-colors.ts ·
+// SIDE_ROW_TINT), retinted to the Atelier/glass side identity (owner-locked
+// 2026-07-12, superseding the 2026-05-23 "pink/blue/amethyst"): bride → gold,
+// groom → info-slate, both → a lighter gold. `idle` is the resting state;
+// `active` deepens the same family when the group is the currently-viewed
+// filter; `icon` + `count` follow.
+const ROW_TINT_BY_SIDE = SIDE_ROW_TINT;
+
+// Inline-pill side dot (Living Roster P0) — the horizontal `layout="inline"`
+// variant drops the full-row team tint (no room in a pill row) for a compact
+// leading dot instead. Same canonical map (SIDE_DOT): gold / info-slate /
+// lighter gold.
+const SIDE_DOT_BY_TEAM = SIDE_DOT;
 
 type Props = {
   eventId: string;
@@ -65,11 +49,118 @@ type Props = {
   // Sentry digest 3284377371. Plain string map crosses the boundary
   // cleanly.
   hrefByGroupId: Record<string, string>;
+  // Layout (Living Roster P0 · 2026-07-11). 'rail' = the original vertical
+  // sidebar list (kept intact). 'inline' = horizontal filter pills for the
+  // summary-facet bar — SAME server actions + state machine (create / rename /
+  // delete), just laid out as a wrapping pill row instead of stacked rows.
+  layout?: 'rail' | 'inline';
 };
 
-export function GroupsSidebar({ eventId, groups, currentGroupId, hrefByGroupId }: Props) {
+export function GroupsSidebar({
+  eventId,
+  groups,
+  currentGroupId,
+  hrefByGroupId,
+  layout = 'rail',
+}: Props) {
   const [showNew, setShowNew] = useState(false);
   const [openKebabId, setOpenKebabId] = useState<string | null>(null);
+
+  if (layout === 'inline') {
+    // The group being renamed (openKebabId is overloaded as `edit:<id>` for the
+    // active edit form — same convention as the rail below).
+    const editingId = openKebabId?.startsWith('edit:')
+      ? openKebabId.slice('edit:'.length)
+      : null;
+    const editingGroup = editingId
+      ? groups.find((g) => g.group_id === editingId) ?? null
+      : null;
+
+    // Returns a Fragment so the pills + "New group" flow inline after the
+    // "Group" lens label (in the facet bar's flex-wrap row), while the
+    // create / edit forms carry `w-full` to break onto their own line below.
+    return (
+      <>
+        {groups.map((g) => {
+          const isCurrent = currentGroupId === g.group_id;
+          return (
+            <span
+              key={g.group_id}
+              className="group/pill relative inline-flex items-center"
+            >
+              <Link
+                href={
+                  hrefByGroupId[g.group_id] ??
+                  `/dashboard/${eventId}/guests?group=${g.group_id}`
+                }
+                aria-current={isCurrent ? 'true' : undefined}
+                title={`${g.label} · ${TEAM_SIDE_LABELS[g.team_side]}`}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors ${
+                  isCurrent
+                    ? 'border-terracotta bg-terracotta/10 font-semibold text-terracotta-700'
+                    : 'border-ink/15 text-ink/70 hover:border-ink/30'
+                }`}
+              >
+                <span
+                  aria-hidden
+                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${SIDE_DOT_BY_TEAM[g.team_side]}`}
+                />
+                <span className="max-w-[12ch] truncate">{g.label}</span>
+                {g.member_count > 0 ? (
+                  <span
+                    className={`tabular-nums ${isCurrent ? 'text-terracotta-700/70' : 'text-ink/40'}`}
+                  >
+                    {g.member_count}
+                  </span>
+                ) : null}
+              </Link>
+              <KebabMenu
+                groupId={g.group_id}
+                isOpen={openKebabId === g.group_id}
+                onToggle={() =>
+                  setOpenKebabId((v) => (v === g.group_id ? null : g.group_id))
+                }
+                onEdit={() => setOpenKebabId(`edit:${g.group_id}`)}
+                eventId={eventId}
+                groupLabel={g.label}
+                compact
+              />
+            </span>
+          );
+        })}
+
+        <button
+          type="button"
+          onClick={() => setShowNew((v) => !v)}
+          aria-expanded={showNew}
+          className="inline-flex min-h-0 items-center gap-1 rounded-full border border-dashed border-terracotta/50 px-2.5 py-1 text-xs font-medium text-terracotta-700 transition-colors hover:border-terracotta hover:bg-terracotta/5"
+        >
+          {showNew ? (
+            <X aria-hidden className="h-3 w-3" strokeWidth={2} />
+          ) : (
+            <Plus aria-hidden className="h-3 w-3" strokeWidth={2} />
+          )}
+          {showNew ? 'Cancel' : 'New group'}
+        </button>
+
+        {showNew ? (
+          <div className="w-full">
+            <NewGroupForm eventId={eventId} onSubmitted={() => setShowNew(false)} />
+          </div>
+        ) : null}
+
+        {editingGroup ? (
+          <div className="w-full">
+            <EditGroupForm
+              eventId={eventId}
+              group={editingGroup}
+              onClose={() => setOpenKebabId(null)}
+            />
+          </div>
+        ) : null}
+      </>
+    );
+  }
 
   return (
     <section>
@@ -192,6 +283,7 @@ function KebabMenu({
   onEdit,
   eventId,
   groupLabel,
+  compact = false,
 }: {
   groupId: string;
   isOpen: boolean;
@@ -199,6 +291,10 @@ function KebabMenu({
   onEdit: () => void;
   eventId: string;
   groupLabel: string;
+  // Inline (facet-bar) layout: a smaller, sub-44px kebab that reveals on
+  // hover of its pill (`group/pill`) so a wrapping pill row stays tidy. The
+  // rail keeps the original 28px button revealed on row hover (`group`).
+  compact?: boolean;
 }) {
   return (
     <div className="relative">
@@ -206,9 +302,13 @@ function KebabMenu({
         type="button"
         onClick={onToggle}
         aria-label={`Actions for ${groupLabel}`}
-        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink/40 opacity-0 transition-opacity hover:bg-ink/5 hover:text-ink/70 group-hover:opacity-100 focus:opacity-100"
+        className={
+          compact
+            ? 'ml-0.5 inline-flex h-6 w-6 min-h-0 items-center justify-center rounded-md text-ink/40 opacity-0 transition-opacity hover:bg-ink/5 hover:text-ink/70 focus:opacity-100 group-hover/pill:opacity-100'
+            : 'inline-flex h-7 w-7 items-center justify-center rounded-md text-ink/40 opacity-0 transition-opacity hover:bg-ink/5 hover:text-ink/70 group-hover:opacity-100 focus:opacity-100'
+        }
       >
-        <MoreHorizontal aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+        <MoreHorizontal aria-hidden className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} strokeWidth={1.75} />
       </button>
       {isOpen ? (
         <div className="absolute right-0 top-8 z-10 w-36 rounded-md border border-ink/15 bg-cream py-1 shadow-md">

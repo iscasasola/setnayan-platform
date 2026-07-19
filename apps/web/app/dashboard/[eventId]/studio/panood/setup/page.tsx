@@ -212,11 +212,9 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
         Back to Panood
       </Link>
 
-      <header className="space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Panood · live broadcast
-        </p>
-        <h1 className="flex items-center gap-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">Setup</p>
+        <h1 className="sn-h1 flex items-center gap-3">
           <Tv aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
           Broadcast your wedding live
         </h1>
@@ -341,7 +339,7 @@ function YoutubeConnect({
   return (
     <section
       aria-labelledby="youtube-connect-heading"
-      className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6"
+      className="sn-tile space-y-4 p-5 sm:p-6"
     >
       <div className="space-y-1">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
@@ -385,7 +383,7 @@ function YoutubeConnect({
 
 function ComingSoonPlaceholder() {
   return (
-    <div className="rounded-xl border border-dashed border-ink/15 bg-cream/60 p-5">
+    <div className="sn-row p-5">
       <div className="flex items-start gap-3">
         <span
           aria-hidden
@@ -491,11 +489,11 @@ function SetupStatus({ eventId }: { eventId: string }) {
   return (
     <section
       aria-labelledby="setup-status-heading"
-      className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6"
+      className="sn-tile space-y-4 p-5 sm:p-6"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+          <p className="sn-eye">
             Step 2 · what you get
           </p>
           <h2 id="setup-status-heading" className="text-xl font-semibold tracking-tight">
@@ -549,7 +547,7 @@ function SetupStatus({ eventId }: { eventId: string }) {
         />
       </ul>
 
-      <div className="rounded-lg border border-dashed border-ink/15 bg-cream/60 p-3 text-xs text-ink/60">
+      <div className="sn-row p-3 text-xs text-ink/60">
         <p className="font-medium text-ink/75">The multi-camera control room — the paid upgrade</p>
         <p className="mt-1">
           Going live with one camera is free. The Setnayan multi-camera control
@@ -631,11 +629,11 @@ function BroadcastSetup({ eventId }: { eventId: string }) {
   return (
     <section
       aria-labelledby="broadcast-setup-heading"
-      className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6"
+      className="sn-tile space-y-4 p-5 sm:p-6"
     >
       <div className="space-y-1">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+          <p className="sn-eye">
             Step 3 · broadcaster + cameras
           </p>
           <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
@@ -664,7 +662,7 @@ function BroadcastSetup({ eventId }: { eventId: string }) {
           the streaming engine, which finishes wiring with the streaming rollout.
           We don't show a fake setnayan.com/... URL here — instead we point at the
           real control room and keep an honest note on the live camera links. */}
-      <div className="rounded-xl border border-dashed border-ink/15 bg-cream/60 p-4">
+      <div className="sn-row p-4">
         <div className="flex items-start gap-3">
           <span
             aria-hidden
@@ -730,7 +728,7 @@ function StyleAndAddOns({
   return (
     <section
       aria-labelledby="addons-heading"
-      className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6"
+      className="sn-tile space-y-4 p-5 sm:p-6"
     >
       <div className="space-y-1">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
@@ -892,7 +890,7 @@ function YouTubeDelivery({
   return (
     <section
       aria-labelledby="youtube-heading"
-      className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6"
+      className="sn-tile space-y-4 p-5 sm:p-6"
     >
       <div className="space-y-1">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
@@ -937,7 +935,7 @@ function YouTubeDelivery({
       </ul>
 
       <div className="rounded-lg border border-ink/10 bg-cream/60 p-4">
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+        <p className="sn-eye">
           YouTube watch URL
         </p>
         {watchUrlSaved ? (

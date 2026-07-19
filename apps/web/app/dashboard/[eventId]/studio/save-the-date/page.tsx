@@ -274,8 +274,9 @@ export default async function SaveTheDatePage({ params }: Props) {
         Back to add-ons
       </Link>
 
-      <header className="space-y-3">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Save the Date</h1>
+      <header className="sn-reveal space-y-3">
+        <p className="sn-eye">Save the Date</p>
+        <h1 className="sn-h1">Save the Date</h1>
         <p className="max-w-prose text-base text-ink/65">
           Your Save the Date plays as a short, self-running film — it fills itself from what
           you&rsquo;ve already added. Set the scene, fine-tune the details, add your video and
@@ -284,10 +285,10 @@ export default async function SaveTheDatePage({ params }: Props) {
       </header>
 
       {/* Save-the-Date views — unique per day, the couple's own visits excluded. */}
-      <section className="flex flex-wrap items-center gap-x-7 gap-y-2 rounded-2xl border border-ink/10 bg-white/60 px-5 py-4">
+      <section className="sn-tile flex flex-wrap items-center gap-x-7 gap-y-2 px-5 py-4">
         <div className="flex items-center gap-2">
           <Eye aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta">
+          <span className="sn-eye">
             Save-the-Date views
           </span>
         </div>
@@ -354,7 +355,7 @@ export default async function SaveTheDatePage({ params }: Props) {
           </div>
         </section>
       ) : (
-        <p className="rounded-2xl border border-ink/10 bg-white/60 px-5 py-4 text-sm text-ink/55">
+        <p className="sn-row px-5 py-4 text-sm text-ink/55">
           The cinematic openings are being set up — check back shortly.
         </p>
       )}
@@ -363,6 +364,7 @@ export default async function SaveTheDatePage({ params }: Props) {
       <StdBuilderClient
         eventId={eventId}
         slug={event?.slug ?? null}
+        ownsReveal={ownsOpenings}
         initialContent={content}
         initialThemeId={themeId}
         initialLaunchDate={launchDate}

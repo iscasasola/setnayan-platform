@@ -5,6 +5,7 @@ import { Check } from 'lucide-react';
 import { updateEventMatchCriteria } from '../../actions';
 import { REGION_OPTIONS, FEEL_OPTIONS, sanitizeName } from '@/lib/match-criteria';
 import { resolveRegion } from '@/lib/region-source';
+import { useSaveLoader } from '@/components/sd-loader';
 
 /**
  * DetailsForm — edits the governance-free basics on the Personalization page:
@@ -78,6 +79,7 @@ export function DetailsForm({
   const [pending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const save = useSaveLoader();
 
   const selectClass =
     'w-full rounded-xl border border-ink/15 bg-paper px-3 py-2.5 text-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta';
@@ -108,7 +110,10 @@ export function DetailsForm({
       fd.set('partner_b_birth_time', partnerBBirthTime);
     }
     startTransition(async () => {
-      const res = await updateEventMatchCriteria(fd);
+      const res = await save.run(() => updateEventMatchCriteria(fd), {
+        steps: ['Saving your details'],
+        hint: 'Saving',
+      });
       if (res.ok) {
         setSaved(true);
       } else {

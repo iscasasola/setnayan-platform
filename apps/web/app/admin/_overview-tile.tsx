@@ -7,6 +7,7 @@ import {
   Calendar,
   Camera,
   LayoutGrid,
+  ListChecks,
   MessageSquare,
   ShieldCheck,
   Users,
@@ -22,7 +23,8 @@ export type TileIconKey =
   | 'wallet'
   | 'layout-grid'
   | 'message-square'
-  | 'camera';
+  | 'camera'
+  | 'list-checks';
 
 const ICONS: Record<TileIconKey, LucideIcon> = {
   users: Users,
@@ -33,6 +35,7 @@ const ICONS: Record<TileIconKey, LucideIcon> = {
   'layout-grid': LayoutGrid,
   'message-square': MessageSquare,
   camera: Camera,
+  'list-checks': ListChecks,
 };
 
 export function Tile({
@@ -49,71 +52,45 @@ export function Tile({
   disabled?: boolean;
 }) {
   const Icon = ICONS[icon];
-  // v2.1 deep-fix (2026-05-28) — Overview tile card chrome adopts
-  // --m-paper surface + --m-line hairline + --m-shadow-sm + sienna
-  // accent on icon chip + Open CTA. Matches the .m-card pattern
-  // (the same couple-tile chrome from the PR #587 deep-fix).
-  // Disabled state uses dashed --m-line-soft + muted --m-slate body.
-  // Tile geometry + Link wrapper + ArrowRight micro-affordance
-  // unchanged per [[feedback_setnayan_button_preservation]].
+  // Glass PR-8 (2026-07-15 · rollout plan § 3.4) — navigating nav-tile re-skin.
+  // These render in dense grids (up to ~16 on the Overview), so they stay
+  // OPAQUE (`.sn-row` tint, no backdrop-filter) to respect the § 1.6 blur
+  // budget — glass is reserved for the focal + lane bento. Gold icon chip +
+  // `.sn-sec` title + gold "Open" affordance; a `.sn-press`/hover lift makes it
+  // read as a destination. Tile geometry + Link wrapper + ArrowRight
+  // micro-affordance unchanged per [[feedback_setnayan_button_preservation]].
   const Inner = disabled ? (
-    <div
-      className="group flex h-full flex-col gap-3 rounded-xl border p-5"
-      style={{
-        background: 'var(--m-paper-2)',
-        borderColor: 'var(--m-line-soft)',
-        borderStyle: 'dashed',
-        opacity: 0.7,
-        cursor: 'not-allowed',
-      }}
-    >
-      <span
-        className="inline-flex h-10 w-10 items-center justify-center rounded-lg"
-        style={{ background: 'var(--m-blush)', color: 'var(--m-slate)' }}
-      >
+    <div className="flex h-full flex-col gap-3 rounded-card border border-dashed border-ink/15 bg-white/45 p-5 opacity-70">
+      <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-ink/[0.04] text-[color:var(--sn-ink-400)]">
         <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
       </span>
-      <h2
-        className="text-base font-semibold tracking-tight"
-        style={{ color: 'var(--m-ink)' }}
-      >
-        {title}
-      </h2>
-      <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
-        {body}
-      </p>
+      <h2 className="sn-sec">{title}</h2>
+      <p className="text-sm text-[color:var(--sn-ink-400)]">{body}</p>
     </div>
   ) : (
-    <div
-      className="group flex h-full flex-col gap-3 rounded-xl border p-5 transition-colors"
-      style={{
-        background: 'var(--m-paper)',
-        borderColor: 'var(--m-line)',
-        boxShadow: 'var(--m-shadow-sm)',
-      }}
-    >
-      <span
-        className="inline-flex h-10 w-10 items-center justify-center rounded-lg"
-        style={{ background: 'var(--m-blush)', color: 'var(--m-orange-2)' }}
-      >
+    <div className="sn-press sn-lift-3 group flex h-full flex-col gap-3 rounded-card border border-white/60 bg-white/72 p-5 shadow-[var(--sn-sh-tile)]">
+      <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[color:var(--sn-gold-100)] text-[color:var(--sn-gold-700)]">
         <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
       </span>
-      <h2
-        className="text-base font-semibold tracking-tight"
-        style={{ color: 'var(--m-ink)' }}
-      >
-        {title}
-      </h2>
-      <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
-        {body}
-      </p>
-      <span
-        className="mt-auto inline-flex items-center gap-1 text-sm"
-        style={{ color: 'var(--m-orange-2)' }}
-      >
-        Open <ArrowRight aria-hidden className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+      <h2 className="sn-sec">{title}</h2>
+      <p className="text-sm text-[color:var(--sn-ink-500)]">{body}</p>
+      <span className="mt-auto inline-flex items-center gap-1 text-sm font-medium text-[color:var(--sn-gold-700)]">
+        Open{' '}
+        <ArrowRight
+          aria-hidden
+          className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
+        />
       </span>
     </div>
   );
-  return disabled ? Inner : <Link href={href}>{Inner}</Link>;
+  return disabled ? (
+    Inner
+  ) : (
+    <Link
+      href={href}
+      className="block h-full rounded-card focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--sn-gold-500)]"
+    >
+      {Inner}
+    </Link>
+  );
 }

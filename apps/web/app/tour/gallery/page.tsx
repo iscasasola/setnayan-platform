@@ -178,8 +178,7 @@ export default async function TourGalleryPage() {
   return (
     <main className="mx-auto w-full max-w-5xl px-5 pb-20 pt-12 sm:pt-16">
       <header className="mx-auto max-w-2xl text-center">
-        <p className="font-mono text-xs uppercase tracking-[0.22em] text-[#8C6932]">Stop 05 · The gallery</p>
-        <h1 className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[#1E2229] sm:text-5xl">
+        <h1 className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[#1B1A17] sm:text-5xl">
           See it come alive
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
@@ -192,7 +191,7 @@ export default async function TourGalleryPage() {
       <section aria-label="Live photo wall" className="mx-auto mt-12 max-w-3xl">
         <div className="flex items-center gap-2">
           <Camera aria-hidden className="h-4 w-4 text-[#8C6932]" strokeWidth={1.75} />
-          <h2 className="font-serif text-2xl text-[#1E2229]">The wall, live</h2>
+          <h2 className="font-serif text-2xl text-[#1B1A17]">The wall, live</h2>
         </div>
         <p className="mt-2 text-sm text-[#5F5E5A]">
           Watch new moments drift in. On a real wedding day these appear the instant they&rsquo;re taken &mdash; here, tap
@@ -212,7 +211,7 @@ export default async function TourGalleryPage() {
       <section aria-label="Mood board palette" className="mx-auto mt-16 max-w-3xl">
         <div className="flex items-center gap-2">
           <Palette aria-hidden className="h-4 w-4 text-[#8C6932]" strokeWidth={1.75} />
-          <h2 className="font-serif text-2xl text-[#1E2229]">The palette behind it all</h2>
+          <h2 className="font-serif text-2xl text-[#1B1A17]">The palette behind it all</h2>
         </div>
         <p className="mt-2 text-sm text-[#5F5E5A]">
           Every render &mdash; the invitation, the live wall chrome, the editorial &mdash; pulls from one colour story.
@@ -220,7 +219,7 @@ export default async function TourGalleryPage() {
         </p>
 
         {swatchGroups.length === 0 ? (
-          <div className="mt-6 rounded-2xl border border-dashed border-[#1E2229]/15 bg-white/50 p-8 text-center text-sm text-[#5F5E5A]">
+          <div className="mt-6 rounded-2xl border border-dashed border-[#1B1A17]/15 bg-white/50 p-8 text-center text-sm text-[#5F5E5A]">
             This sample wedding hasn&rsquo;t set a palette yet.
           </div>
         ) : (
@@ -233,7 +232,7 @@ export default async function TourGalleryPage() {
           <div className="mt-10">
             <div className="flex items-center gap-2">
               <Sparkles aria-hidden className="h-4 w-4 text-[#8C6932]" strokeWidth={1.75} />
-              <h3 className="font-serif text-xl text-[#1E2229]">Their inspirations</h3>
+              <h3 className="font-serif text-xl text-[#1B1A17]">Their inspirations</h3>
             </div>
             <p className="mt-1.5 text-sm text-[#5F5E5A]">
               The references {bride} & {groom} pinned &mdash; the look they&rsquo;re building toward.
@@ -242,9 +241,9 @@ export default async function TourGalleryPage() {
               {inspirations.map((item) => (
                 <li
                   key={`${item.slotKey}:${item.slotPosition}`}
-                  className="overflow-hidden rounded-2xl border border-[#C5A059]/30 bg-[#FBF8F1]"
+                  className="overflow-hidden rounded-2xl border border-[#A9834B]/30 bg-[#FBF8F1]"
                 >
-                  <div className="relative aspect-[4/3] bg-[#1E2229]/5">
+                  <div className="relative aspect-[4/3] bg-[#1B1A17]/5">
                     {/* Plain <img>: inspiration URLs are external/expiring; the
                         optimizer would cache a stale host. */}
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -274,7 +273,7 @@ export default async function TourGalleryPage() {
       <nav className="mx-auto mt-16 flex max-w-3xl flex-col items-center gap-4 sm:flex-row sm:justify-between">
         <Link
           href="/tour/budget"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-[#1E2229] transition-opacity hover:opacity-80"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-[#1B1A17] transition-opacity hover:opacity-80"
         >
           <ArrowRight aria-hidden className="h-4 w-4 rotate-180" strokeWidth={1.75} />
           The budget
@@ -287,15 +286,15 @@ export default async function TourGalleryPage() {
         </Link>
       </nav>
 
-      <section className="mx-auto mt-12 max-w-2xl rounded-3xl border border-[#C5A059]/40 bg-[#FBF6EA] px-6 py-10 text-center">
-        <h2 className="font-serif text-2xl text-[#1E2229] sm:text-3xl">That&rsquo;s the whole wedding.</h2>
+      <section className="mx-auto mt-12 max-w-2xl rounded-3xl border border-[#A9834B]/40 bg-[#FBF6EA] px-6 py-10 text-center">
+        <h2 className="font-serif text-2xl text-[#1B1A17] sm:text-3xl">That&rsquo;s the whole wedding.</h2>
         <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
           The invitation, the vendors, the seating, the budget, the gallery &mdash; one place, start to finish. Start your
           own on Setnayan, free, in minutes. Set na &rsquo;yan.
         </p>
         <Link
           href="/onboarding/wedding?from=tour"
-          className="mt-5 inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#1E2229] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
+          className="mt-5 inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#1B1A17] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
         >
           Start planning &middot; free
         </Link>

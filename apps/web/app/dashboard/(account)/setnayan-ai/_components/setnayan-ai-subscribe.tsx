@@ -69,7 +69,7 @@ export function SetnayanAiSubscribe({
             >
               <span className="text-sm font-semibold text-ink">{p.label}</span>
               <span className="text-xs text-ink/55">{p.hint}</span>
-              <span className="mt-1 text-xs font-medium text-mulberry">
+              <span className="mt-1 font-mono text-xs font-medium text-mulberry">
                 {formatPeso(unitCentavos * p.cycles)}
               </span>
             </button>
@@ -77,9 +77,9 @@ export function SetnayanAiSubscribe({
         })}
       </div>
 
-      <div className="flex flex-col gap-1 rounded-xl border border-ink/10 bg-cream p-4">
-        <span className="text-xs uppercase tracking-wide text-ink/50">Total today</span>
-        <span className="text-2xl font-semibold text-ink">{formatPeso(totalCentavos)}</span>
+      <div className="sn-row flex flex-col gap-1 p-4">
+        <span className="sn-eye">Total today</span>
+        <span className="font-mono text-2xl font-semibold text-ink">{formatPeso(totalCentavos)}</span>
         <span className="text-xs text-ink/55">
           {cycles} × 28-day {cycles === 1 ? 'cycle' : 'cycles'} · covers all your events ·
           VAT added at checkout

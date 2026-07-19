@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 
 /**
  * Chrome for the public Maria & Jose tour. Reads the sample event per request
@@ -14,7 +13,7 @@ export default function TourLayout({ children }: { children: ReactNode }) {
     <>
       <div
         role="note"
-        className="sticky top-0 z-40 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 bg-[#1E2229] px-4 py-2 text-center text-xs font-medium text-[#FBF6EA]"
+        className="sticky top-0 z-40 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 bg-[#1B1A17] px-4 py-2 text-center text-xs font-medium text-[#FBF6EA]"
       >
         <span aria-hidden>●</span>
         <span>
@@ -25,7 +24,6 @@ export default function TourLayout({ children }: { children: ReactNode }) {
         </Link>
       </div>
       {children}
-      <SiteFooter />
     </>
   );
 }

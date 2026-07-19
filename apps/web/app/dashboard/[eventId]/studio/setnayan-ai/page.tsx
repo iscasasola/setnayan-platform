@@ -7,26 +7,34 @@ import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { getCustomerSkuPriceLabel } from '@/lib/v2-catalog';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { eventOwnsSku } from '@/lib/entitlements';
-import { isSetnayanAiActive } from '@/lib/setnayan-ai';
-import { resolveSetnayanAiPaywallEnabled } from '@/lib/integration-config';
+import { isSetnayanAiActiveForUser } from '@/lib/setnayan-ai';
+import { getEventHostAiSubscription } from '@/lib/setnayan-ai-server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  resolveSetnayanAiPaywallEnabled,
+  resolveSetnayanAiPerUserEnabled,
+} from '@/lib/integration-config';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 
 export const metadata = { title: 'Setnayan AI · Setnayan' };
 
 /**
  * /dashboard/[eventId]/studio/setnayan-ai — the BUY surface for the Setnayan AI
- * planner (the first paywall · catalog SETNAYAN_AI, now a ₱499 / 28-day
- * subscription · owner 2026-06-29, was a ₱3,999 one-time unlock). This is the
- * purchase path the audit flagged: the entitlement chain (checkout → admin
- * approve → events.setnayan_ai_active → lib/setnayan-ai.ts gate) was fully wired,
- * but nothing let a couple actually buy SETNAYAN_AI. This page closes that.
+ * planner (the first paywall · catalog SETNAYAN_AI, a single ₱1,499 ONE-TIME
+ * permanent unlock · owner FINAL 2026-07-12, per-event-pricing flag OFF since
+ * 20270714262264; supersedes the ₱499 entry / ₱4,999 event-pass split, the
+ * earlier ₱499/28-day subscription framing and the ₱3,999 one-time). This is
+ * the purchase path the audit flagged: the
+ * entitlement chain (checkout → admin approve → events.setnayan_ai_active →
+ * lib/setnayan-ai.ts gate) was fully wired, but nothing let a couple actually
+ * buy SETNAYAN_AI. This page closes that.
  *
- * V1.5: this checkout charges ONE 28-day term up front (manual apply-then-pay).
- * Recurring auto-renew (a per-cycle charge until the wedding day, then auto-end)
- * is NOT wired — it hooks in at the order-activation path + a provider-run
- * subscription (PayMongo / GCash) once those land. The wedding-anchor (window
- * ends at events.event_date) is recorded as the user_ai_subscription.active_until
- * stamping rule (see the migration); the stamping hook is the same later PR.
+ * One-time model: a single up-front charge (manual apply-then-pay) unlocks
+ * Setnayan AI for the WHOLE wedding — activation stamps events.setnayan_ai_active
+ * permanently, with no renewal, no 28-day cycle and no lapsing window. The
+ * dormant SETNAYAN_AI_SUB (a ₱499/mo per-user recurring door) stays is_active=
+ * false; recurring auto-renew is deferred until a provider-run subscription
+ * (PayMongo / GCash) lands.
  *
  * Three states, all driven by lib/setnayan-ai.ts (the single governing gate) so
  * this stays in lockstep with every match/ranking surface:
@@ -60,8 +68,8 @@ const WHAT_YOU_GET = [
   },
   {
     icon: Wand2,
-    title: 'On until your wedding day',
-    body: 'A ₱499 / 28-day subscription that stays active until your wedding day, then auto-ends right after. No charge after the event.',
+    title: 'Yours for the whole wedding',
+    body: 'A one-time purchase that unlocks Setnayan AI for your entire wedding — it stays on the whole way through, with no renewals, no 28-day cycle and no charge ever again.',
   },
 ];
 
@@ -84,7 +92,15 @@ export default async function SetnayanAiPage({ params }: Props) {
   // DB-first paywall flag (Integration Activation Console — flips without a
   // redeploy); env-fallback when unset. Resolved once, threaded into the gate.
   const paywallOn = await resolveSetnayanAiPaywallEnabled();
-  const active = isSetnayanAiActive(event, paywallOn);
+  const perUserOn = await resolveSetnayanAiPerUserEnabled();
+  const aiSubscription = perUserOn
+    ? await getEventHostAiSubscription(createAdminClient(), eventId)
+    : null;
+  const active = isSetnayanAiActiveForUser(event, {
+    paywallEnabled: paywallOn,
+    perUserEnabled: perUserOn,
+    subscription: aiSubscription,
+  });
 
   // "Owns" = the entitlement is stamped OR a SETNAYAN_AI order (à-la-carte OR a
   // GUIDED_PACK/MEDIA_PACK bundle that includes it) is in flight (submitted /
@@ -102,9 +118,10 @@ export default async function SetnayanAiPage({ params }: Props) {
   // block degrades gracefully instead of inventing a number.
   //   • pricePhp     → the raw pesos used ONLY for the checkout charge centavos
   //     (the server re-resolves the authoritative charge at order time anyway).
-  //   • priceLabel   → the DISPLAY string WITH its recurrence unit ("₱499 / 28
-  //     days") so the per-28d subscription never reads as a one-time price. Both
-  //     come from the catalog; neither is hardcoded.
+  //   • priceLabel   → the DISPLAY string from the catalog. Setnayan AI is a
+  //     ONE-TIME purchase (unlocks for the whole wedding · owner 2026-07-02, no
+  //     recurrence), so the fallback shows a plain peso amount with no /28-day
+  //     unit. Both come from the catalog; neither is hardcoded.
   const skuRecord = await formatV2Sku(SKU_CODE).catch(() => null);
   const pricePhp = skuRecord?.price_php ?? null;
   const priceLabel = await getCustomerSkuPriceLabel(SKU_CODE).catch(() => null);
@@ -130,11 +147,11 @@ export default async function SetnayanAiPage({ params }: Props) {
           shortlist) lives on /vendors, so the active state leads straight there. */}
       {active ? (
         <>
-          <header className="space-y-2">
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <header className="sn-reveal space-y-2">
+            <p className="sn-eye">
               Setnayan AI
             </p>
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            <h1 className="sn-h1">
               Your vendor shortlist is ranked
             </h1>
             <p className="max-w-prose text-base text-ink/65">
@@ -160,11 +177,11 @@ export default async function SetnayanAiPage({ params }: Props) {
         </>
       ) : owns || !paywallOn ? (
         <>
-          <header className="space-y-2">
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <header className="sn-reveal space-y-2">
+            <p className="sn-eye">
               Setnayan AI
             </p>
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            <h1 className="sn-h1">
               Setnayan AI is ready for your wedding
             </h1>
             <p className="max-w-prose text-base text-ink/65">
@@ -174,7 +191,7 @@ export default async function SetnayanAiPage({ params }: Props) {
             </p>
           </header>
 
-          <div className="flex flex-col gap-4 rounded-xl border border-ink/10 bg-cream p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="sn-tile flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-ink/65">
               Assisted planning is currently off.
             </p>
@@ -189,11 +206,11 @@ export default async function SetnayanAiPage({ params }: Props) {
       ) : (
         <>
           {/* BUY — the only state that sells. Non-owner, paywall on. */}
-          <header className="space-y-2">
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <header className="sn-reveal space-y-2">
+            <p className="sn-eye">
               Setnayan AI
             </p>
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            <h1 className="sn-h1">
               Stop guessing who to hire
             </h1>
             <p className="max-w-prose text-base text-ink/65">
@@ -207,7 +224,7 @@ export default async function SetnayanAiPage({ params }: Props) {
             {WHAT_YOU_GET.map(({ icon: Icon, title, body }) => (
               <li
                 key={title}
-                className="rounded-xl border border-ink/10 bg-cream p-4"
+                className="sn-row p-4"
               >
                 <Icon aria-hidden className="h-5 w-5 text-mulberry" strokeWidth={1.75} />
                 <p className="mt-2 text-sm font-medium text-ink">{title}</p>
@@ -216,13 +233,13 @@ export default async function SetnayanAiPage({ params }: Props) {
             ))}
           </ul>
 
-          <div className="rounded-xl border border-ink/10 bg-white p-5">
+          <div className="sn-tile p-5">
             {pricePhp != null && settings ? (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-ink/65">
-                  Active until your wedding day, then it ends ·{' '}
+                  One-time purchase · yours for the whole wedding ·{' '}
                   <span className="font-mono text-base text-ink">
-                    {priceLabel ?? `₱${Math.round(pricePhp).toLocaleString('en-PH')} / 28 days`}
+                    {priceLabel ?? `₱${Math.round(pricePhp).toLocaleString('en-PH')}`}
                   </span>
                 </p>
                 <div className="sm:w-auto">

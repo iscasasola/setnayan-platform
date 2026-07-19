@@ -12,10 +12,13 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
+import { allowAnonMint } from '@/lib/anon-mint-throttle';
+import { captchaOptions } from '@/lib/turnstile';
 import { experienceQuizEnabled } from '@/lib/experience-quiz';
 import { generateUniqueSlug } from '@/lib/slugs';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { buildGenericEventInsert } from '@/lib/onboarding/event-insert';
+import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
 import type { GenericOnboardingPayload, GenericCommitResult } from '@/lib/onboarding/types';
 
 export async function commitOnboardingEvent(
@@ -36,7 +39,17 @@ export async function commitOnboardingEvent(
     // so the events + event_members insert + all RLS work unchanged. Same contract
     // as the wedding commit; OFF → unchanged not_authenticated.
     if (anonOnboardingEnabled()) {
-      const { data: anon, error: anonError } = await supabase.auth.signInAnonymously();
+      // Per-IP flood guard: anonymous sign-in mints a real account + event from
+      // nothing, so cap it per IP before minting. Fail-open on a missing IP or
+      // infra error (see allowAnonMint) so a real couple is never locked out.
+      if (!(await allowAnonMint(createAdminClient()))) {
+        return { ok: false, error: 'rate_limited' };
+      }
+      const { data: anon, error: anonError } = await supabase.auth.signInAnonymously({
+        // Global Supabase captcha gates anonymous sign-in. Token comes from the
+        // funnel client (mintTurnstileToken); empty → {} → no-op.
+        options: captchaOptions(payload.captchaToken),
+      });
       if (anonError || !anon.user) {
         console.error('[commitOnboardingEvent] anon sign-in failed:', anonError?.message);
         return { ok: false, error: 'not_authenticated' };
@@ -45,6 +58,18 @@ export async function commitOnboardingEvent(
     } else {
       return { ok: false, error: 'not_authenticated' };
     }
+  }
+
+  // Life-event cardinality (2026-07-17): one IN-PLANNING life event per
+  // (account × type × honoree). The generic onboarding collects no honoree yet,
+  // so a life-type commit contends for the per-type singleton slot; lifestyle
+  // types return null immediately. Anonymous drafts have no prior events by
+  // construction but run the guard anyway (it's one indexed read).
+  const blockingLifeEvent = await getBlockingLifeEvent(supabase, user.id, {
+    eventType: payload.eventType,
+  });
+  if (blockingLifeEvent) {
+    return { ok: false, error: 'life_event_exists' };
   }
 
   // Resolve the profile for a sensible display-name fallback + to confirm the type

@@ -6,7 +6,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { grantTokensToVendor, setVendorTier } from '../../actions';
 import { VENDOR_TIERS, TIER_LABEL, asVendorTier } from '@/lib/vendor-tier-caps';
+import { enrichTeamWithUsers, fetchVendorTeam } from '@/lib/vendor-team';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = {
   title: 'Grant tokens · Admin',
   robots: { index: false, follow: false },
@@ -53,6 +55,7 @@ export default async function AdminVendorTokensPage({
   params,
   searchParams,
 }: Props) {
+  await requireAdmin();
   const { vendorProfileId } = await params;
   const search = await searchParams;
 
@@ -114,6 +117,18 @@ export default async function AdminVendorTokensPage({
   const purchased = wallet?.purchased_tokens ?? 0;
   const totalBalance = earned + purchased;
   const isClaimed = vendor.user_id !== null;
+
+  // Team members → the grant-recipient picker. A grant to the founder uses the
+  // store's earned-voucher wallet (expiring); a grant to another member credits
+  // their personal purchased balance (never-expire). Value '' = founder.
+  const teamRows = isClaimed ? await fetchVendorTeam(admin, vendorProfileId) : [];
+  const team = await enrichTeamWithUsers(admin, teamRows);
+  const grantRecipients = team
+    .filter((m) => m.user_id !== vendor.user_id)
+    .map((m) => ({
+      user_id: m.user_id,
+      label: m.display_name?.trim() || m.email || 'Team member',
+    }));
   const hasWalletRow = wallet !== null;
   const grantedCount = search?.granted ? Number(search.granted) : null;
   const tierSet = search?.tier ? asVendorTier(search.tier) : null;
@@ -240,7 +255,7 @@ export default async function AdminVendorTokensPage({
       )}
 
       {/* Wallet snapshot */}
-      <section className="mb-6 rounded-md border border-ink/10 bg-cream p-4">
+      <section className="mb-6 rounded-md border border-white/60 bg-white/70 p-4">
         <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.15em] text-ink/60">
           Wallet snapshot
         </h2>
@@ -282,52 +297,52 @@ export default async function AdminVendorTokensPage({
         <form action={grantTokensToVendor} className="space-y-4">
           <input type="hidden" name="vendor_id" value={vendor.vendor_profile_id} />
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          {grantRecipients.length > 0 ? (
             <div>
-              <label
-                htmlFor="token_count"
-                className="block text-sm font-medium text-ink"
-              >
-                How many tokens?
+              <label htmlFor="holder_user_id" className="block text-sm font-medium text-ink">
+                Credit to
               </label>
               <p className="mt-1 text-xs text-ink/60">
-                Whole number between 1 and 10,000.
+                Founder = the store wallet (expiring earned tokens). A teammate gets the credit on
+                their own personal balance (never expires · non-transferable).
               </p>
-              <input
-                type="number"
-                id="token_count"
-                name="token_count"
-                min="1"
-                max="10000"
-                step="1"
-                defaultValue="100"
-                required
+              <select
+                id="holder_user_id"
+                name="holder_user_id"
+                defaultValue=""
                 className="mt-2 block w-full rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
-              />
+              >
+                <option value="">Founder (store wallet)</option>
+                {grantRecipients.map((r) => (
+                  <option key={r.user_id} value={r.user_id}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
             </div>
+          ) : null}
 
-            <div>
-              <label
-                htmlFor="ttl_days"
-                className="block text-sm font-medium text-ink"
-              >
-                Available for (days)
-              </label>
-              <p className="mt-1 text-xs text-ink/60">
-                Default 45 · matches the founder-bonus convention.
-              </p>
-              <input
-                type="number"
-                id="ttl_days"
-                name="ttl_days"
-                min="1"
-                max="365"
-                step="1"
-                defaultValue="45"
-                required
-                className="mt-2 block w-full rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
-              />
-            </div>
+          <div>
+            <label
+              htmlFor="token_count"
+              className="block text-sm font-medium text-ink"
+            >
+              How many tokens?
+            </label>
+            <p className="mt-1 text-xs text-ink/60">
+              Whole number between 1 and 10,000. Granted tokens never expire.
+            </p>
+            <input
+              type="number"
+              id="token_count"
+              name="token_count"
+              min="1"
+              max="10000"
+              step="1"
+              defaultValue="100"
+              required
+              className="mt-2 block w-full rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+            />
           </div>
 
           <div>

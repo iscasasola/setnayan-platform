@@ -85,12 +85,18 @@ export async function GET(req: NextRequest) {
     .from('oauth_state')
     .select('state_token, event_id, provider, initiated_by, created_at')
     .eq('state_token', state)
-    .in('provider', ['drive', 'drive_photo_delivery'])
+    .in('provider', ['drive', 'drive_photo_delivery', 'drive_overflow'])
     .maybeSingle();
   if (!stateRow) {
     return redirectWithError(url, null, 'state_not_found');
   }
   const eventId = stateRow.event_id as string;
+  // The 2nd Drive (owner 2026-07-11): a 'drive_overflow' state writes a separate
+  // grant + does NOT touch events.photo_delivery_folder_id (that points at Drive
+  // #1's folder). 'drive_photo_delivery' is a return-page marker only — its grant
+  // is still the primary 'drive'.
+  const isOverflow = stateRow.provider === 'drive_overflow';
+  const grantProvider = isOverflow ? 'drive_overflow' : 'drive';
   const returnTo: ReturnTo =
     stateRow.provider === 'drive_photo_delivery' ? 'photo-delivery' : 'papic';
   const createdAt = new Date(stateRow.created_at as string).getTime();
@@ -153,30 +159,39 @@ export async function GET(req: NextRequest) {
   //    grant write isn't attempted, so the next retry starts fresh. We
   //    do NOT persist a partial grant because the capture pipeline
   //    depends on metadata.drive_folder_id being present.
-  let folderTree;
-  try {
-    folderTree = await bootstrapPapicDriveFolders({
-      accessToken: token.access_token,
-      eventDisplayName,
-    });
-  } catch (e) {
-    return redirectWithError(
-      url,
-      eventId,
-      `folder_bootstrap_failed:${(e as Error).message.slice(0, 64)}`,
-      returnTo,
-    );
+  // The PRIMARY Drive bootstraps its Setnayan folder tree here (the capture
+  // pipeline reads metadata.drive_folder_id). The OVERFLOW (2nd) Drive skips
+  // it — the copy runner's ensureArtifactFolder('drive_overflow') creates that
+  // Drive's single folder tree lazily on the first overflow upload, so we don't
+  // create a redundant tree here.
+  let folderTree: Awaited<ReturnType<typeof bootstrapPapicDriveFolders>> | null =
+    null;
+  if (!isOverflow) {
+    try {
+      folderTree = await bootstrapPapicDriveFolders({
+        accessToken: token.access_token,
+        eventDisplayName,
+      });
+    } catch (e) {
+      return redirectWithError(
+        url,
+        eventId,
+        `folder_bootstrap_failed:${(e as Error).message.slice(0, 64)}`,
+        returnTo,
+      );
+    }
   }
 
   // 7. Upsert the grant. Unique (event_id, provider) guarantees one row
   //    per Drive account; passing onConflict so a re-consent replaces in
   //    place and resurrects any prior `revoked_at`.
   const expiresAt = new Date(Date.now() + token.expires_in * 1000).toISOString();
-  const metadata: Record<string, unknown> = {
-    drive_folder_id: folderTree.rootFolderId,
-    drive_folder_name: folderTree.rootFolderName,
-    drive_subfolders: folderTree.subfolders,
-  };
+  const metadata: Record<string, unknown> = {};
+  if (folderTree) {
+    metadata.drive_folder_id = folderTree.rootFolderId;
+    metadata.drive_folder_name = folderTree.rootFolderName;
+    metadata.drive_subfolders = folderTree.subfolders;
+  }
   if (userInfo?.picture) {
     metadata.picture_url = userInfo.picture;
   }
@@ -188,7 +203,7 @@ export async function GET(req: NextRequest) {
     .upsert(
       {
         event_id: eventId,
-        provider: 'drive',
+        provider: grantProvider,
         scopes: token.scope ? token.scope.split(' ') : [],
         refresh_token: token.refresh_token,
         access_token: token.access_token,
@@ -215,17 +230,21 @@ export async function GET(req: NextRequest) {
   // Phase 0: mirror the Photo Delivery panel-facing fields so a single Drive
   // connect lights up BOTH Papic and Photo Delivery. The release worker reads
   // events.photo_delivery_folder_id; point it at the connected folder root.
-  await admin
-    .from('events')
-    .update({
-      photo_delivery_provider: 'google_drive',
-      photo_delivery_folder_id: folderTree.rootFolderId,
-      photo_delivery_folder_name: folderTree.rootFolderName,
-      photo_delivery_account_email: userInfo?.email ?? null,
-      photo_delivery_oauth_expires_at: expiresAt,
-      photo_delivery_status: 'connected',
-    })
-    .eq('event_id', eventId);
+  // OVERFLOW (2nd Drive) is skipped — these fields belong to Drive #1 and must
+  // NOT be clobbered by connecting a second Drive.
+  if (!isOverflow && folderTree) {
+    await admin
+      .from('events')
+      .update({
+        photo_delivery_provider: 'google_drive',
+        photo_delivery_folder_id: folderTree.rootFolderId,
+        photo_delivery_folder_name: folderTree.rootFolderName,
+        photo_delivery_account_email: userInfo?.email ?? null,
+        photo_delivery_oauth_expires_at: expiresAt,
+        photo_delivery_status: 'connected',
+      })
+      .eq('event_id', eventId);
+  }
 
   // Drive just connected — flush any pending drive_copy_artifacts (Papic
   // captures taken BEFORE this connect) into the couple's Drive in the

@@ -4,19 +4,20 @@ import { cookies } from 'next/headers';
 import { after } from 'next/server';
 import { runSocialFlush } from '@/lib/social/flush';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
-import { Star, MapPin, ChevronLeft, ChevronRight, Navigation, Sparkles, Snowflake } from 'lucide-react';
+import { runDailyEmailJobs } from '@/lib/daily-email-jobs';
+import { Star, MapPin, ChevronLeft, ChevronRight, Navigation, Sparkles, Snowflake, HeartHandshake } from 'lucide-react';
 import { haversineKm, formatDistanceKm } from '@/lib/geo';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { displayServiceLabel, formatPhp } from '@/lib/vendors';
 import { tierCaps } from '@/lib/vendor-tier-caps';
-import { isVendorSearchGateEnabled } from '@/lib/vendor-search-gate';
 import {
   DEMO_MODE_COOKIE_NAME,
   isAdminProfile,
 } from '@/lib/demo-mode';
 import { fetchDemoVendorIds } from '@/lib/demo-vendors';
+import { fetchFraudFrozenVendorIds } from '@/lib/fraud-enforcement-runner';
 import {
   PUBLIC_SURFACE_VISIBILITIES,
   isBookable,
@@ -59,6 +60,7 @@ import {
   type TaxonomyPhase,
 } from '@/lib/taxonomy';
 import { getTaxonomy } from '@/lib/taxonomy-db';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { buildCoupleFaithSet, passesEventTypeFilter, passesFaithFilter } from '@/lib/taxonomy-filters';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import {
@@ -73,6 +75,7 @@ import { FollowGate } from '@/app/_components/follow-gate';
 import {
   computeCandidateWindow,
   filterVendorsByAvailabilityIntersection,
+  getBatchVendorAvailableDays,
   getEventCommonAvailability,
 } from '@/lib/vendor-availability';
 import { VendorsAvailabilityBanner } from './_components/vendors-availability-banner';
@@ -407,8 +410,10 @@ type Props = {
     offseason?: string;
     event_type?: string;
     /** Task #12 · CLAUDE.md 2026-05-22 — middleware redirects
-     *  /vendors/compare here with `notice=compare_v1_2`. Surfaces the
-     *  "compare is coming in V1.2" banner under the marketplace header. */
+     *  /vendors/compare here with `notice=compare_v1_2`. The compare tool
+     *  since SHIPPED (/explore/compare), so the banner no longer promises
+     *  a "coming" feature: it points at the live tool + how to reach it
+     *  (save ≥2 vendors). Wayfinding 2026-07-15. */
     notice?: string;
     /** Task #47 · CLAUDE.md 2026-05-22 — when present and resolves to one
      *  of WEDDING_FOLDER_ORDER, scopes the catalog to a single folder
@@ -480,11 +485,43 @@ type Props = {
 // `feedback_setnayan_no_dev_text_post_launch`.
 const VENDORS_NOTICE_COPY: Record<string, { title: string; body: string }> = {
   compare_v1_2: {
-    title: 'Side-by-side comparison is coming soon.',
+    title: 'Compare vendors side by side.',
     body:
-      'For now, save vendors you’re considering to your shortlist from each vendor’s profile — we’ll bring the comparison view alongside it shortly.',
+      'Save two or more vendors to your shortlist, then open the comparison to see location, rating, services and faith fit next to each other.',
   },
 };
+
+/**
+ * Compare-shortlist doorway (route-wayfinding 2026-07-15). /explore/compare is a
+ * live 2-up comparison tool that reads `?ids=<uuid>,<uuid>` (capped at 2, redirects
+ * back to /explore below two). It had no in-app door — the marketplace only carried
+ * a stale "coming in V1.2" banner. This renders the real door once the couple has
+ * saved ≥2 vendors, linking the two earliest saves. Null href → nothing renders.
+ */
+function CompareShortlistBanner({ compareHref }: { compareHref: string | null }) {
+  if (!compareHref) return null;
+  return (
+    <div
+      role="status"
+      className="border-b border-terracotta/15 bg-terracotta/5"
+    >
+      <div className="mx-auto flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 sm:px-6 lg:px-8">
+        <p className="text-sm text-ink/80">
+          <span className="font-medium text-ink">Compare your shortlist.</span>{' '}
+          <span className="text-ink/70">
+            Put two saved vendors side by side — location, rating, services, faith fit.
+          </span>
+        </p>
+        <Link
+          href={compareHref}
+          className="shrink-0 inline-flex items-center gap-1 text-sm font-medium text-terracotta underline-offset-4 hover:underline"
+        >
+          Compare →
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 function NoticeBanner({ noticeKey }: { noticeKey: string | null }) {
   if (!noticeKey) return null;
@@ -613,7 +650,7 @@ type VendorCardRow = {
   avg_response_minutes?: number | null;
   /**
    * PR #6 — partnership badge resolved from vendor_partnerships.
-   * NULL = no admin-verified partnership to a shortlisted couple vendor.
+   * NULL = no mutually-accepted partnership to a shortlisted couple vendor.
    */
   partnership_badge?: {
     relationship_type: 'sponsored_included' | 'sponsored_discounted' | 'accredited' | 'general';
@@ -916,15 +953,17 @@ async function fetchLiveOffPeakVendorIds(
   admin: ReturnType<typeof createAdminClient>,
 ): Promise<string[]> {
   try {
+    // Discounts moved to vendor_service_discounts (migration 20270502342558).
+    // Embed vendor_services to keep the active-service constraint (admin client
+    // bypasses RLS, so we filter is_active explicitly via the inner join).
     const { data, error } = await admin
-      .from('vendor_services')
-      .select('vendor_profile_id')
-      .eq('is_active', true)
+      .from('vendor_service_discounts')
+      .select('vendor_profile_id, vendor_services!inner(is_active)')
       .eq('discount_type', 'off_peak')
-      .not('discount_value', 'is', null)
-      .gt('discount_value', 0)
-      .not('discount_expires_at', 'is', null)
-      .gt('discount_expires_at', new Date().toISOString());
+      .gt('rate', 0)
+      .not('expires_at', 'is', null)
+      .gt('expires_at', new Date().toISOString())
+      .eq('vendor_services.is_active', true);
     if (error) {
       console.warn('[off-season] fetchLiveOffPeakVendorIds failed:', error.message);
       return [];
@@ -937,6 +976,59 @@ async function fetchLiveOffPeakVendorIds(
     return [...ids];
   } catch (e) {
     console.warn('[off-season] fetchLiveOffPeakVendorIds threw:', e);
+    return [];
+  }
+}
+
+/**
+ * Couple-side serves filter (service-card redesign · couple payoff 2026-07-03)
+ * — the vendor_profile_ids to EXCLUDE for a `?faith=<X>` narrow, resolved from
+ * the vendors' own `vendor_coverages.faiths` declarations.
+ *
+ * Matching rule: a vendor MATCHES faith X when ANY of their coverage rows
+ * either has an EMPTY `faiths[]` (empty = all faiths welcomed — the column
+ * contract from migration 20270502342558) OR explicitly contains X (TITLE-CASE
+ * faithCol, strict equality). Vendors with ZERO coverage rows also MATCH:
+ * legacy vendors simply haven't declared who they serve yet, and hiding them
+ * behind every faith narrow would silently blank the marketplace (the
+ * "not enough data ≠ blocked" rule). The filter is therefore an EXCLUSION —
+ * only vendors who DID declare coverage faiths and whose rows all fail to
+ * admit X get filtered out.
+ *
+ * One read of (vendor_profile_id, faiths) with the sets computed in-memory:
+ * this sidesteps PostgREST array-literal quoting for multi-word faith keys
+ * ("Born Again") and keeps the zero-coverage rule exact. The table is tiny at
+ * V1 scale (founder-only marketplace; rows = vendors × declared leaves).
+ * Fail-soft: on error return [] (exclude nobody) so a DB hiccup degrades to
+ * the unfiltered marketplace rather than a 500.
+ */
+async function fetchFaithMismatchVendorIds(
+  admin: ReturnType<typeof createAdminClient>,
+  faithCol: string,
+): Promise<string[]> {
+  try {
+    const { data, error } = await admin
+      .from('vendor_coverages')
+      .select('vendor_profile_id, faiths');
+    if (error) {
+      console.warn('[faith-filter] fetchFaithMismatchVendorIds failed:', error.message);
+      return [];
+    }
+    const declared = new Set<string>();
+    const matched = new Set<string>();
+    for (const row of (data ?? []) as Array<{
+      vendor_profile_id?: string;
+      faiths?: string[] | null;
+    }>) {
+      const id = row.vendor_profile_id;
+      if (!id) continue;
+      declared.add(id);
+      const faiths = row.faiths ?? [];
+      if (faiths.length === 0 || faiths.includes(faithCol)) matched.add(id);
+    }
+    return [...declared].filter((id) => !matched.has(id));
+  } catch (e) {
+    console.warn('[faith-filter] fetchFaithMismatchVendorIds threw:', e);
     return [];
   }
 }
@@ -1185,6 +1277,32 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   const venueFilterActive =
     hostVenueSetting !== null && filters.venueDefault === 'on';
 
+  // Compare-shortlist doorway (route-wayfinding 2026-07-15). Resolve the
+  // couple's saved-vendor shortlist once (both render modes reuse it) and build
+  // a link to the live /explore/compare tool, which reads `?ids=<uuid>,<uuid>`.
+  // Enabled only at ≥2 saved vendors; links the two earliest saves. Null when
+  // anonymous / <2 saved → CompareShortlistBanner renders nothing.
+  let compareHref: string | null = null;
+  if (coupleEventId) {
+    const { data: savedForCompare } = await supabase
+      .from('event_vendors')
+      .select('marketplace_vendor_id')
+      .eq('event_id', coupleEventId)
+      .not('marketplace_vendor_id', 'is', null)
+      .neq('status', 'declined')
+      .order('vendor_id', { ascending: true });
+    const savedIds = Array.from(
+      new Set(
+        (savedForCompare ?? [])
+          .map((r) => r.marketplace_vendor_id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+    if (savedIds.length >= 2) {
+      compareHref = `/explore/compare?ids=${savedIds[0]},${savedIds[1]}`;
+    }
+  }
+
   // SEO/GEO Bucket 6 · ItemList JSON-LD origin computed once per render.
   // Both return branches (catalog mode + non-catalog) inject the same JSON-LD
   // surface so /vendors emits the taxonomy hierarchy regardless of mode.
@@ -1199,6 +1317,10 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // client), so the cookies()-ordering constraint that pins runSocialFlush
   // below doesn't apply. Throttled + single-claim + OFF by default internally.
   after(() => runAdminDigestFlush().catch(() => {}));
+  // Daily email jobs (anniversary · renewal · Papic drop warning) — CRON-FREE,
+  // fired here too (before the catalog-mode early return) so the marketplace's
+  // main public entry drives them daily. Per-job daily DB claim; never throws.
+  after(() => runDailyEmailJobs().catch(() => {}));
 
   if (isCatalogMode) {
     return (
@@ -1217,6 +1339,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           currentEventId={coupleEventId}
           isAuthenticated={user !== null}
           noticeKey={noticeKey}
+          compareHref={compareHref}
           scopedFolder={filters.folder}
           inDemoMode={inDemoMode}
           focusedMode={filters.focusedMode}
@@ -1245,6 +1368,23 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // main yet.
   const demoVendorIds = await fetchDemoVendorIds(admin);
 
+  // Anti-fraud Phase 4 (§ 5) — the FREEZE. Vendors suspended (reversible,
+  // system) OR banned (irreversible, admin) by fraud enforcement must vanish
+  // from the marketplace + lose their badges. The enforcement writes already
+  // flip public_visibility → 'hidden' (which the allowedVisibilities gate
+  // excludes), but we ALSO exclude the frozen set explicitly here as
+  // defense-in-depth — even in demo mode a fraud-frozen vendor never renders.
+  // Fail-soft: [] on error (the visibility gate still stands).
+  const fraudFrozenIds = await fetchFraudFrozenVendorIds(admin);
+
+  // Couple-side serves filter (2026-07-03) — resolve the faith exclusion set
+  // ONCE per request; it constrains both the main grid query and the broadened
+  // empty-state count below. `filters.faithFilter` is the page-local TitleCase
+  // FaithKey, which is exactly the `faithCol` value vendor_coverages stores.
+  const faithMismatchIds = filters.faithFilter
+    ? await fetchFaithMismatchVendorIds(admin, filters.faithFilter)
+    : [];
+
   // Public marketplace requires a non-empty business_name. Coming-soon
   // vendors are intentionally surfaced (Decision 6 / 2026-05-15) — but
   // a row that hasn't even filled in its name renders as "Unnamed
@@ -1260,22 +1400,23 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       // Phase C sort-leak fix: `is_setnayan_service` is now SELECTED (it was
       // only used in .order() before) so the in-memory rating/review re-sort
       // below can preserve the first-party float precedence explicitly.
-      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_latitude,hq_longitude,contact_email,public_visibility,created_at,avg_rating_overall,review_count,is_setnayan_service',
+      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_latitude,hq_longitude,contact_email,public_visibility,created_at,avg_rating_overall,review_count,is_setnayan_service,verification_state',
       { count: 'exact' },
     )
     .in('public_visibility', allowedVisibilities as readonly string[])
     .not('business_name', 'is', null)
     .neq('business_name', '');
 
-  // Phase C searchability gate (vendor-tier-caps · FLAG-DARK). The matrix says
-  // FREE = not marketplace-searchable, but a raw `.neq('tier_state','free')`
-  // would EMPTY the live marketplace today (the lone real founder vendor + all
-  // demo vendors are tier_state='free'). So it's behind VENDOR_TIER_SEARCH_GATE
-  // (default OFF → this branch is skipped → query unchanged → prod identical).
-  // Suppressed in demo mode so admins still see demo (free) vendors. Reads the
-  // `tier_state` column the migration 20260929000000 adds to the view.
-  if (isVendorSearchGateEnabled() && !inDemoMode) {
-    query = query.neq('tier_state', 'free');
+  // PR-B verification gate (ALWAYS ON). An UNVERIFIED vendor is private — it
+  // never appears on Explore / the public marketplace and has no public
+  // website (mirrored in /v/[slug] + sitemap). Only VERIFIED vendors surface.
+  // The reconcile migration 20270331400000 marked the lone real founder vendor
+  // + every paid-tier vendor 'verified', so this gate never empties the live
+  // marketplace. Suppressed in demo mode so admins previewing demo (which may
+  // include unverified rows) still see them. Reads the `verification_state`
+  // column that migration 20270331400000 appended to vendor_market_stats.
+  if (!inDemoMode) {
+    query = query.eq('verification_state', 'verified');
   }
 
   // PR brief 2026-05-22 evening — exclude demo vendor IDs unless an
@@ -1294,6 +1435,20 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       'vendor_profile_id',
       'in',
       `(${demoVendorIds.join(',')})`,
+    );
+  }
+
+  // Anti-fraud Phase 4 freeze exclusion — applies ALWAYS (even in demo mode).
+  // Same widening cast as the demo exclusion above (deep PostgREST types trip
+  // the TS recursion ceiling). Only fires when there is at least one frozen id.
+  if (fraudFrozenIds.length > 0) {
+    type QueryShape = {
+      not: (column: string, op: string, value: string) => typeof query;
+    };
+    query = (query as unknown as QueryShape).not(
+      'vendor_profile_id',
+      'in',
+      `(${fraudFrozenIds.join(',')})`,
     );
   }
 
@@ -1332,6 +1487,22 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     // each vendor serves (default ['wedding'] for legacy / V1.1 vendors).
     // GIN-indexed by migration 20260521090000.
     query = query.contains('event_types', [filters.eventType]);
+  }
+  // Couple-side serves filter (2026-07-03) — `?faith=<x>` now narrows the
+  // VENDOR GRID via the vendors' own vendor_coverages.faiths declarations
+  // (previously the param only narrowed catalog-mode ceremony tiles). Applied
+  // as an exclusion — see fetchFaithMismatchVendorIds for the matching rule
+  // (empty faiths = all welcome; zero coverage rows = never hidden). Same
+  // NOT-IN shape + type-narrowing as the demo exclusion above.
+  if (filters.faithFilter && faithMismatchIds.length > 0) {
+    type FaithQueryShape = {
+      not: (column: string, op: string, value: string) => typeof query;
+    };
+    query = (query as unknown as FaithQueryShape).not(
+      'vendor_profile_id',
+      'in',
+      `(${faithMismatchIds.join(',')})`,
+    );
   }
   if (filters.city.length > 0) {
     query = query.ilike('location_city', `%${filters.city}%`);
@@ -1420,7 +1591,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // Sort chain (PR #6 updated — quality_score added as step 2):
   //   1. is_setnayan_service DESC (owner directive 2026-05-22 PM) —
   //      first-party Setnayan canonicals (Papic, Panood, Pailaw,
-  //      Pakanta, Setnayan AI, Animated Monogram,
+  //      Patiktok, Pakanta, Setnayan AI, Animated Monogram,
   //      Save-the-Date Video, AI Highlights) float ABOVE everything else.
   //      Vendor's services[] is checked at view-compute time via the
   //      10-canonical array in migration 20260607020000.
@@ -1517,6 +1688,11 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       .in('public_visibility', PUBLIC_SURFACE_VISIBILITIES as readonly string[])
       .not('business_name', 'is', null)
       .neq('business_name', '');
+    // PR-B verification gate — mirror the main query so the "Show all"
+    // empty-state count never promises UNVERIFIED inventory to public visitors.
+    if (!inDemoMode) {
+      broadened = broadened.eq('verification_state', 'verified');
+    }
     // Mirror the demo exclusion on the broadened count so the "Show
     // all" empty-state messaging doesn't promise demo inventory to
     // non-admin visitors. Same type-narrowing as the main query above.
@@ -1543,6 +1719,18 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     }
     if (filters.eventType) {
       broadened = broadened.contains('event_types', [filters.eventType]);
+    }
+    // Mirror the faith narrow (like category/city/q/eventType, it's preserved
+    // context — only match + verified drop for the broadened count).
+    if (filters.faithFilter && faithMismatchIds.length > 0) {
+      type BroadenedFaithShape = {
+        not: (column: string, op: string, value: string) => typeof broadened;
+      };
+      broadened = (broadened as unknown as BroadenedFaithShape).not(
+        'vendor_profile_id',
+        'in',
+        `(${faithMismatchIds.join(',')})`,
+      );
     }
     if (filters.city.length > 0) {
       broadened = broadened.ilike('location_city', `%${filters.city}%`);
@@ -1642,6 +1830,47 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           precision: coupleEventDatePrecision,
         };
       }
+
+      // Date-open priority (2026-06-30) — vendors open on the couple's date rank
+      // above vendors already booked then. Within this results page, float
+      // vendors who are FREE in the couple's date window above the booked ones.
+      // (Demote-only: a vendor with no declared calendar is treated as open, so
+      // this never *rewards* calendar upkeep — it only sinks the booked.) This is
+      // independent of
+      // the locked-vendor intersection above: it applies whenever the couple
+      // has a date, even with zero confirmed vendors (lockedCount === 0).
+      //
+      // It only ever DEMOTES, never hides: vendors with no declared calendar
+      // are treated as available (the lib/vendor-availability V1 default — an
+      // undeclared calendar = fully free), so the sole effect is sinking a
+      // vendor whose calendar is EXPLICITLY blocked across the entire window
+      // (size 0). At day precision that's "booked on the couple's exact date";
+      // at month/year precision a vendor is only demoted if blocked every day
+      // in the window (rare) — so the signal is strongest where it matters.
+      //
+      // Partition (not Array.sort) so the SQL render order is preserved
+      // verbatim WITHIN each group. Fails to a no-op: on a calendar read error
+      // getBatchVendorAvailableDays hands back the full window for everyone, so
+      // every vendor reads as free and the order is untouched.
+      if (visible.length > 1) {
+        const availByVendor = await getBatchVendorAvailableDays(
+          admin,
+          visible.map((r) => r.vendor_profile_id),
+          window.start,
+          window.end,
+        );
+        const isOpenOnDate = (vendorProfileId: string): boolean => {
+          const days = availByVendor.get(vendorProfileId);
+          // Missing entry (defensive) or a non-empty free set → available.
+          // Only an explicit empty set means fully booked across the window.
+          return !days || days.size > 0;
+        };
+        const booked = visible.filter((r) => !isOpenOnDate(r.vendor_profile_id));
+        if (booked.length > 0) {
+          const open = visible.filter((r) => isOpenOnDate(r.vendor_profile_id));
+          visible = [...open, ...booked];
+        }
+      }
     }
   }
 
@@ -1651,7 +1880,10 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // The intersection filter narrows `visible` AFTER pagination: pages with
   // many filtered-out candidates may render short — acceptable at pilot
   // scale; V1.x folds the intersection into the SQL query so pagination
-  // and filter compose properly.
+  // and filter compose properly. The date-open priority boost above is the
+  // same shape — a WITHIN-PAGE reorder (free-on-date floats up on the current
+  // page); a true cross-page availability rank needs a denormalized
+  // next-open/booked-on flag on vendor_market_stats (same V1.x SQL follow-up).
   const totalPages = Math.max(1, Math.ceil((totalCount ?? rows.length) / PAGE_SIZE));
 
   // ---------------------------------------------------------------------
@@ -1690,6 +1922,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     relationshipDepthMap,
     activityStatsByVendorId,
     partnershipBadgeByVendorId,
+    trustedReviewStatsByVendorId,
   ] =
     await Promise.all([
       (async (): Promise<
@@ -1776,14 +2009,35 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         const { data, error } = await admin
           .from('vendor_services')
           .select(
-            'vendor_profile_id, starting_price_php, primary_photo_r2_key, is_active, discount_type, discount_value, discount_expires_at',
+            'vendor_profile_id, starting_price_php, primary_photo_r2_key, is_active',
           )
           .in('vendor_profile_id', visibleVendorIds);
         if (error) {
           console.error('[vendors] vendor_services fetch failed', error);
           return new Map();
         }
-        const nowMs = Date.now();
+        // Live off-peak deals moved to vendor_service_discounts (migration
+        // 20270502342558). Resolve the latest-expiring off_peak per vendor; the
+        // inner join keeps the active-service constraint (admin bypasses RLS).
+        const offPeakByVendor = new Map<string, { value: number; expiresAt: string }>();
+        {
+          const { data: dRows } = await admin
+            .from('vendor_service_discounts')
+            .select('vendor_profile_id, rate, expires_at, vendor_services!inner(is_active)')
+            .in('vendor_profile_id', visibleVendorIds)
+            .eq('discount_type', 'off_peak')
+            .gt('rate', 0)
+            .not('expires_at', 'is', null)
+            .gt('expires_at', new Date().toISOString())
+            .eq('vendor_services.is_active', true);
+          for (const row of dRows ?? []) {
+            const d = row as { vendor_profile_id: string; rate: number; expires_at: string };
+            const prev = offPeakByVendor.get(d.vendor_profile_id);
+            if (!prev || new Date(d.expires_at).getTime() > new Date(prev.expiresAt).getTime()) {
+              offPeakByVendor.set(d.vendor_profile_id, { value: d.rate, expiresAt: d.expires_at });
+            }
+          }
+        }
         const out = new Map<
           string,
           {
@@ -1798,9 +2052,6 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             starting_price_php: number | null;
             primary_photo_r2_key: string | null;
             is_active: boolean | null;
-            discount_type: string | null;
-            discount_value: number | null;
-            discount_expires_at: string | null;
           };
           // Skip inactive services — they shouldn't drive the
           // surfaced starting price or the off-season offer.
@@ -1818,21 +2069,9 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             r.primary_photo_r2_key && r.primary_photo_r2_key.length > 0
               ? r.primary_photo_r2_key
               : null;
-          // Live off-peak offer on this service (future expiry only — an
-          // off-peak discount with no end date or a past end date isn't a
-          // "live promo window", matching the couple-facing filter contract).
-          const isLiveOffPeak =
-            r.discount_type === 'off_peak' &&
-            r.discount_value !== null &&
-            r.discount_value > 0 &&
-            r.discount_expires_at !== null &&
-            new Date(r.discount_expires_at).getTime() > nowMs;
-          const newOffPeak = isLiveOffPeak
-            ? {
-                value: r.discount_value as number,
-                expiresAt: r.discount_expires_at as string,
-              }
-            : null;
+          // Live off-peak offer for this vendor, resolved above from
+          // vendor_service_discounts (migration 20270502342558).
+          const newOffPeak = offPeakByVendor.get(r.vendor_profile_id) ?? null;
           if (!existing) {
             out.set(r.vendor_profile_id, {
               startingPrice: newPrice,
@@ -1960,7 +2199,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       //   2. If there are any, fetch vendor_partnerships WHERE
       //      recommending_vendor_id IN (shortlisted IDs) AND
       //      recommended_vendor_id IN (visibleVendorIds) AND
-      //      admin_verified = true AND is_active = true.
+      //      status = 'accepted' AND is_active = true.
       //   3. Also fetch business_name for the recommending vendors.
       //   4. For each visible vendor, find the "best" partnership
       //      (priority: sponsored_included > sponsored_discounted > accredited > general).
@@ -1995,8 +2234,10 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         );
         if (shortlistedIds.length === 0) return new Map();
 
-        // Fetch active admin-verified partnerships where the recommender is
+        // Fetch active, mutually-ACCEPTED partnerships where the recommender is
         // one of the shortlisted vendors and the recommended is on this page.
+        // (Phase 4 mutual-accept: visibility is gated on status='accepted', NOT
+        // on the retired admin_verified flag.)
         const { data: pData, error: pError } = await admin
           .from('vendor_partnerships')
           .select(
@@ -2005,7 +2246,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           .in('recommending_vendor_id', shortlistedIds)
           .in('recommended_vendor_id', visibleVendorIds)
           .eq('is_active', true)
-          .eq('admin_verified', true);
+          .eq('status', 'accepted');
         if (pError) {
           console.warn('[explore] vendor_partnerships read failed', pError.message);
           return new Map();
@@ -2066,6 +2307,37 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         }
         return out;
       })(),
+      // Trusted (receipt-backed, arm's-length) review aggregates from
+      // vendor_trusted_review_stats — the ONLY stat the couple_trusted badge
+      // may read. Kept SEPARATE from vendor_market_stats' raw
+      // avg_rating_overall / review_count (which count every review with no
+      // provenance filter) so fake / self-dealt reviews can never earn the
+      // trust badge. Fail-soft: an empty map means couple_trusted is simply
+      // not awarded (0/0 → below the count floor). Never blocks the grid.
+      (async (): Promise<Map<string, { avg: number; count: number }>> => {
+        if (visibleVendorIds.length === 0) return new Map();
+        const { data, error } = await admin
+          .from('vendor_trusted_review_stats')
+          .select('vendor_profile_id, trusted_avg_rating, trusted_review_count')
+          .in('vendor_profile_id', visibleVendorIds);
+        if (error) {
+          console.warn('[explore] vendor_trusted_review_stats fetch failed', error.message);
+          return new Map();
+        }
+        const out = new Map<string, { avg: number; count: number }>();
+        for (const row of data ?? []) {
+          const r = row as {
+            vendor_profile_id: string;
+            trusted_avg_rating: number | null;
+            trusted_review_count: number | null;
+          };
+          out.set(r.vendor_profile_id, {
+            avg: Number(r.trusted_avg_rating ?? 0),
+            count: Number(r.trusted_review_count ?? 0),
+          });
+        }
+        return out;
+      })(),
     ]);
 
   // Enrich each visible row with the new optional fields. Real-vendor
@@ -2107,7 +2379,14 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     // PR #6 — quality / activity stats from vendor_activity_stats.
     const activity = activityStatsByVendorId.get(v.vendor_profile_id) ?? null;
     v.quality_score = activity?.quality_score ?? null;
-    v.finalized_booking_count = activity?.finalized_booking_count ?? null;
+    // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the Experience-tier chip
+    // reads the VETTED completed-event count (vendor_public_completed_events_stats,
+    // via `bookingCounts`) instead of vendor_activity_stats.finalized_booking_count,
+    // which was a raw booking-status count with NO self-dealing exclusions. This
+    // is the same vetted number that drives the `most_booking` percentile, so a
+    // vendor can't inflate the Experience tier by self-creating "delivered"
+    // events. Vendors with no vetted completed events fall to 0 → "new" tier.
+    v.finalized_booking_count = bookingCounts.get(v.vendor_profile_id) ?? 0;
     v.last_active_at = activity?.last_active_at ?? null;
     v.avg_response_minutes = activity?.avg_response_minutes ?? null;
     // PR #6 — partnership badge (null = no relevant partnership on this page).
@@ -2207,13 +2486,21 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // Badge computation runs against the enriched `visible` set so
   // percentile thresholds reflect what's on this page.
   const badgesByVendorId = computeVendorBadges(
-    visible.map((v) => ({
-      vendor_profile_id: v.vendor_profile_id,
-      verification_state: v.verification_state ?? null,
-      created_at: v.created_at,
-      avg_rating_overall: v.avg_rating_overall ?? 0,
-      review_count: v.review_count ?? 0,
-    })),
+    visible.map((v) => {
+      // couple_trusted reads ONLY the trusted (receipt-backed, arm's-length)
+      // stat — never the raw avg_rating_overall / review_count. Vendors with
+      // no trusted-stats row pass 0/0 so they simply don't earn the badge.
+      const trusted = trustedReviewStatsByVendorId.get(v.vendor_profile_id);
+      return {
+        vendor_profile_id: v.vendor_profile_id,
+        verification_state: v.verification_state ?? null,
+        created_at: v.created_at,
+        avg_rating_overall: v.avg_rating_overall ?? 0,
+        review_count: v.review_count ?? 0,
+        trusted_avg_rating: trusted?.avg ?? 0,
+        trusted_review_count: trusted?.count ?? 0,
+      };
+    }),
     bookingCounts,
   );
 
@@ -2242,6 +2529,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           sticky-top bars would stack/overlap on scroll. */}
 
       <NoticeBanner noticeKey={noticeKey} />
+      <CompareShortlistBanner compareHref={compareHref} />
 
       {/* 2026-05-30 mobile pattern lock — `pb-36` on mobile gives the page
           content 144px of bottom clearance so the last visible items don't
@@ -2458,6 +2746,38 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           )}
         </div>
 
+        {/* Couple-side serves filter (2026-07-03) — active-faith strip. The
+            faith PICKER stays inside the FilterDrawer (owner directive
+            2026-05-30 retired the inline pill row: "they should be embedded
+            inside the filter"), so this strip only renders when a narrow is
+            ACTIVE — it names the faith being matched and offers a one-click
+            clear that keeps every other filter. Vendors surface when any of
+            their coverages welcomes this faith (or all faiths). */}
+        {filters.faithFilter ? (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-terracotta/20 bg-terracotta/5 px-4 py-3">
+            <p className="inline-flex items-center gap-2 text-sm text-ink/80">
+              <HeartHandshake
+                aria-hidden
+                className="h-4 w-4 text-terracotta"
+                strokeWidth={1.75}
+              />
+              <span>
+                Showing vendors who serve{' '}
+                <span className="font-medium text-ink">
+                  {FAITH_KEY_TO_LABEL[filters.faithFilter]}
+                </span>{' '}
+                celebrations.
+              </span>
+            </p>
+            <Link
+              href={buildHref(filters, { faithFilter: null, page: 1 })}
+              className="text-sm font-medium text-terracotta underline-offset-4 hover:underline"
+            >
+              All faiths
+            </Link>
+          </div>
+        ) : null}
+
         {visible.length === 0 ? (
           <EmptyState
             filters={filters}
@@ -2477,11 +2797,17 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                  review libs, so the vendor's own dashboard self-view stays
                  ungated. `?? null` → free → hidden. */
               const vCaps = tierCaps(v.tier_state ?? null);
+              // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the card's PUBLIC
+              // star average + review count read the TRUSTED (receipt-backed,
+              // arm's-length) stat, so fake / self-dealt reviews can't inflate
+              // the number couples see. Same source the couple_trusted / top_pick
+              // badges use. Still gated by tier (Free hides stars → "new").
+              const vTrusted = trustedReviewStatsByVendorId.get(v.vendor_profile_id);
               const gatedRating = vCaps.reviewStarsCounted
-                ? Number(v.avg_rating_overall ?? 0)
+                ? Number(vTrusted?.avg ?? 0)
                 : 0;
               const gatedReviewCount = vCaps.reviewStarsCounted
-                ? (v.review_count ?? 0)
+                ? (vTrusted?.count ?? 0)
                 : 0;
               const gatedReviews = vCaps.reviewCommentsViewable
                 ? (reviewsByVendorId.get(v.vendor_profile_id) ?? [])
@@ -2776,7 +3102,7 @@ function EmptyState({
   // filter away, we point the couple at them rather than asking them to recruit.
   //
   // Routes to the canonical vendor-registration entry (`/signup?as=vendor`,
-  // mirrored from /for-vendors), carrying `next=/vendor-dashboard/profile` so a
+  // mirrored from /vendors), carrying `next=/vendor-dashboard/profile` so a
   // brand-new vendor lands directly on the services picker that already surfaces
   // this leaf as a checkbox. The leaf key rides along as `prefill_service` for
   // future deep-linking + signup-source attribution (harmless today — the
@@ -2885,7 +3211,7 @@ function EmptyState({
               List your business
             </Link>
             <Link
-              href="/for-vendors"
+              href="/vendors"
               className="inline-flex h-10 items-center text-sm font-medium text-terracotta underline-offset-4 hover:underline"
             >
               How vendor listings work →
@@ -3053,6 +3379,7 @@ async function CatalogView({
   currentEventId,
   isAuthenticated,
   noticeKey,
+  compareHref,
   scopedFolder,
   inDemoMode,
   focusedMode,
@@ -3078,6 +3405,9 @@ async function CatalogView({
    *  unknown. Surfaces a polite banner under the header explaining a
    *  redirected-from-deferred-feature landing. */
   noticeKey: string | null;
+  /** Route-wayfinding 2026-07-15 — `/explore/compare?ids=…` link when the couple
+   *  has ≥2 saved vendors, else null. Drives CompareShortlistBanner. */
+  compareHref: string | null;
   /** Task #47 — when non-null, render only the named folder section. Hides
    *  the other 11 folders + the PairedVenuePanel (which surfaces ceremony
    *  venues regardless of viewport position; the dashboard Reception
@@ -3141,7 +3471,7 @@ async function CatalogView({
       .from('canonical_service_schemas')
       .select('canonical_service, display_name_en, display_name_tl')
       .order('display_name_en', { ascending: true }),
-    fetchVendorCountsByService(admin),
+    fetchVendorCountsByService(admin, inDemoMode),
     inDemoMode ? Promise.resolve([] as string[]) : fetchDemoVendorIds(admin),
   ]);
 
@@ -3246,6 +3576,12 @@ async function CatalogView({
   for (const tile of WEDDING_TILE_ORDER) {
     const parent = TILE_PARENT[tile];
     if (parent === 'venue') continue;
+    // Tile-level marketplace_hidden (admin-only tile): never surfaces on
+    // /explore. Distinct from the per-canonical marketplaceHidden religion-style
+    // filters below — this hides the whole tile from couples, the vendor picker
+    // and Taxonomy Studio still see it. NULL/false = visible (default; no tile
+    // is hidden today, so this is a no-op until an admin flags one).
+    if (tax.hiddenCategories[tile]) continue;
     // Multi-event applicability (Phase 1 wiring): a tile scoped to specific
     // event types drops out for non-matching events. NULL = universal
     // (fail-open) — today every tile is NULL, so weddings see no change;
@@ -3338,6 +3674,7 @@ async function CatalogView({
         services: populatedServices,
         perServiceLimit: 3,
         excludeVendorIds: catalogExcludeVendorIds,
+        includeDemoUnverified: inDemoMode,
       })
     : new Map<string, string[]>();
 
@@ -3356,6 +3693,32 @@ async function CatalogView({
         if (names.length >= 3) break;
       }
       if (names.length > 0) card.sampleVendorNames = names;
+    }
+  }
+
+  // Stamp each tile card with its admin/seeded photo (Taxonomy Studio · PR 4).
+  // Source = service_categories.sample_photo_r2_key via the taxonomy snapshot,
+  // keyed by tile id (the card's `canonicalService`). Resolve r2:// refs to
+  // presigned URLs in parallel (one signing round-trip each); /public paths and
+  // legacy URLs pass through verbatim. A null/failed resolve leaves photoUrl
+  // undefined and the card falls back to its text-only render (no photo banner).
+  {
+    const cardsWithPhoto: Array<{ card: CategoryTileData; ref: string }> = [];
+    for (const tiles of buckets.values()) {
+      for (const card of tiles) {
+        const ref = tax.categoryPhotos[card.canonicalService];
+        if (ref) cardsWithPhoto.push({ card, ref });
+      }
+    }
+    if (cardsWithPhoto.length > 0) {
+      const urls = await Promise.all(
+        cardsWithPhoto.map(({ ref }) =>
+          displayUrlForStoredAsset(ref).catch(() => null),
+        ),
+      );
+      cardsWithPhoto.forEach(({ card }, i) => {
+        card.photoUrl = urls[i] ?? null;
+      });
     }
   }
 
@@ -3385,15 +3748,22 @@ async function CatalogView({
   // Tab strip — 10 parent chips. Venue's badge counts its 2 venue tiles
   // (Reception + Ceremony) since those render via the venue pickers, not
   // category buckets.
-  const tabs: FolderTab[] = WEDDING_FOLDER_ORDER.map((folder) => ({
-    folder,
-    label: WEDDING_FOLDER_SHORT_LABEL[folder],
-    slug: WEDDING_FOLDER_SLUG[folder],
-    count:
-      folder === 'venue'
-        ? WEDDING_TILES_BY_PARENT.venue.length
-        : buckets.get(folder)?.length ?? 0,
-  }));
+  const tabs: FolderTab[] = WEDDING_FOLDER_ORDER
+    // Folder-level marketplace_hidden (admin-only folder): drop the whole
+    // parent chip from the couple-facing tab strip. No folder is hidden today.
+    .filter((folder) => !tax.hiddenCategories[folder])
+    .map((folder) => ({
+      folder,
+      label: WEDDING_FOLDER_SHORT_LABEL[folder],
+      slug: WEDDING_FOLDER_SLUG[folder],
+      count:
+        folder === 'venue'
+          ? WEDDING_TILES_BY_PARENT.venue.length
+          : buckets.get(folder)?.length ?? 0,
+      // DB-first folder icon override (fallback-safe: null when unset/unknown →
+      // the strip keeps its hardcoded FOLDER_ICON default).
+      iconName: tax.categoryIcons[folder] ?? null,
+    }));
 
   // 2026-06-13 search-first reframe — the catalog landing's StickyMarketplaceHeader
   // (pinned search pill + FilterDrawer) is replaced by ExploreSearchHero (one
@@ -3430,6 +3800,7 @@ async function CatalogView({
       </header>
 
       <NoticeBanner noticeKey={noticeKey} />
+      <CompareShortlistBanner compareHref={compareHref} />
 
       <section
         id="all"
@@ -3540,6 +3911,9 @@ async function CatalogView({
           // every other parent section so couples landing on one parent
           // (e.g. Venue) don't also see the rest.
           if (scopedFolder !== null && folder !== scopedFolder) return null;
+          // Folder-level marketplace_hidden (admin-only folder) — never render
+          // the section to couples. No folder is hidden today (no-op).
+          if (tax.hiddenCategories[folder]) return null;
 
           // VENUE parent — venues are NOT modeled as bookable vendor_profiles
           // in V1, so this folder shows ceremony GUIDANCE only (how to handle
@@ -3612,6 +3986,7 @@ async function CatalogView({
                 venueAnchor={venueAnchor}
                 currentEventId={currentEventId}
                 focusedMode={focusedMode}
+                includeDemoUnverified={inDemoMode}
               />
               <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {tiles.map((tile) => (

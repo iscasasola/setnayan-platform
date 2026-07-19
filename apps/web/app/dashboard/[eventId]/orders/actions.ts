@@ -10,6 +10,7 @@ import { sendEmail } from '@/lib/email';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { notifyAdminsOrderAwaitingReconciliation } from '@/lib/order-admin-notify';
+import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -120,6 +121,24 @@ export async function createOrder(formData: FormData) {
     .maybeSingle();
   if (!membership) {
     throw new Error('You can only create an order for your own event.');
+  }
+
+  // Consent-scoped coordinator checkout (owner 2026-07-19 #5). The membership
+  // check above admits ANY event member — including coordinators. Behind
+  // NEXT_PUBLIC_COORDINATOR_CONSENT_GATE_ENABLED, a non-couple member may
+  // create an order only when the couple granted the 'checkout' scope at
+  // invite time (coordinator_access_consents.scopes). Flag OFF = exact
+  // current behavior (helper returns true without reading).
+  const checkoutAllowed = await coordinatorMoneyScopeAllowed(
+    createAdminClient(),
+    eventId,
+    user.id,
+    'checkout',
+  );
+  if (!checkoutAllowed) {
+    throw new Error(
+      'The couple has not approved payment handling for your coordinator access — ask them to re-invite you with payment permission.',
+    );
   }
 
   // Mint the reference code locally so we can both store it AND pass it to
@@ -454,6 +473,26 @@ export async function logPayment(formData: FormData) {
     .maybeSingle();
   if (!ownedOrder || ownedOrder.event_id !== eventId) {
     throw new Error('Order not found for this event');
+  }
+
+  // Consent-scoped coordinator payment handling (owner 2026-07-19 #5). The
+  // orders SELECT above is satisfied by ANY event member (migration
+  // 20270129279924 widened the read to all members), so a coordinator could
+  // attach payment proof to the couple's orders. Behind
+  // NEXT_PUBLIC_COORDINATOR_CONSENT_GATE_ENABLED, a non-couple member may log
+  // a payment only when the couple granted the 'checkout' scope at invite
+  // time (coordinator_access_consents.scopes). Flag OFF = exact current
+  // behavior (helper returns true without reading).
+  const checkoutAllowed = await coordinatorMoneyScopeAllowed(
+    createAdminClient(),
+    eventId,
+    user.id,
+    'checkout',
+  );
+  if (!checkoutAllowed) {
+    throw new Error(
+      'The couple has not approved payment handling for your coordinator access — ask them to re-invite you with payment permission.',
+    );
   }
 
   // Optional screenshot — TWO supported shapes:

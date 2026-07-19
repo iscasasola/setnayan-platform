@@ -409,6 +409,22 @@ export async function recordSeatCapture(
   // projects), THEN run the wall gate. ingestToWall never throws; a non-clean
   // or non-LIVE_WALL event is a silent no-op.
   after(async () => {
+    // Per-event fidelity tier (brief PR-4): the ingest READ seam of the single
+    // `events.papic_quality_tier` column the setup surface writes. Runs FIRST
+    // so the screen, derivatives, Drive sync, and downloads all flow from the
+    // tiered original. STILLS only (clips are never transcoded server-side);
+    // full_res / legacy / pre-migration rows are a strict no-op. Best-effort —
+    // the module never throws.
+    if (kind !== 'clip') {
+      try {
+        const { applyEventFidelityToOriginal } = await import(
+          '@/lib/papic-ingest-fidelity'
+        );
+        await applyEventFidelityToOriginal(seat.event_id as string, cleanKey);
+      } catch {
+        // best-effort — fidelity never breaks a capture
+      }
+    }
     // NSFW screen ALWAYS runs (Apple 1.2 / corpus hard constraint), then the
     // FaceBlock bake + wall gate.
     await screenCapture({ table: 'papic_photos', r2ObjectKey: cleanKey }).catch(() => {});

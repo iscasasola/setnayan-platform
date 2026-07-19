@@ -11,6 +11,18 @@ import { fetchGuestsByEvent } from '@/lib/guests';
 import { isChineseWedding, isMuslimWedding } from '@/lib/chinese-wedding';
 import { getLifecyclePhase } from '@/lib/day-of-mode';
 import { fetchScheduleBlocks } from '@/lib/schedule';
+import { fetchBlockRosMeta } from '@/lib/schedule-ros';
+import {
+  deriveVendorCallTimes,
+  isCoordinatorP3Enabled,
+  type BroadcastCardData,
+  type CallTimeVendor,
+} from '@/lib/coordinator-broadcasts';
+import {
+  fetchLatestBroadcasts,
+  resolveBroadcastAuthority,
+} from '@/lib/coordinator-broadcasts-server';
+import { isEmailConfigured } from '@/lib/email';
 import { fetchTables, type EventTableRow } from '@/lib/seating';
 import { eventPabatiActive, fetchPabatiQuota } from '@/lib/pabati';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -153,6 +165,7 @@ export default async function EventHomePage({
   let dayOfPabatiClips: PabatiClipThumb[] = [];
   let dayOfPabatiUsed = 0;
   let dayOfPabatiTotal = 0;
+  let dayOfBroadcast: BroadcastCardData | undefined;
   if (dayOfActive) {
     const [blocksRes, tablesRes, sameDayRes] = await Promise.all([
       fetchScheduleBlocks(supabase, eventId).catch(() => []),
@@ -213,6 +226,45 @@ export default async function EventHomePage({
     } catch {
       dayOfPabatiActive = false;
       dayOfPabatiClips = [];
+    }
+
+    // Coordinator P3 (flag-gated, default OFF): the broadcast card's data —
+    // latest broadcasts (RLS-scoped; [] pre-migration), whether THIS viewer
+    // may compose (couple / schedule-'edit' delegate), and — for composers
+    // only — the derivable vendor call-time count + email availability that
+    // drive the "Email call-times" button. Flag off → `dayOfBroadcast` stays
+    // undefined and the card renders its pre-P3 stub exactly as today.
+    if (isCoordinatorP3Enabled()) {
+      try {
+        const [broadcastItems, authority] = await Promise.all([
+          fetchLatestBroadcasts(supabase, eventId, 3),
+          resolveBroadcastAuthority(supabase, eventId, user.id),
+        ]);
+        let callTimeCount = 0;
+        let emailConfigured = false;
+        if (authority.canSend) {
+          const [rosMeta, vendorsRes, emailCfg] = await Promise.all([
+            fetchBlockRosMeta(supabase, eventId),
+            supabase
+              .from('event_vendors')
+              .select('vendor_id, vendor_name, contact_email')
+              .eq('event_id', eventId)
+              .is('archived_at', null),
+            isEmailConfigured(),
+          ]);
+          const vendors = (vendorsRes.data ?? []) as CallTimeVendor[];
+          callTimeCount = deriveVendorCallTimes(dayOfBlocks, rosMeta, vendors).length;
+          emailConfigured = emailCfg;
+        }
+        dayOfBroadcast = {
+          items: broadcastItems,
+          senderRole: authority.role,
+          callTimeCount,
+          emailConfigured,
+        };
+      } catch {
+        dayOfBroadcast = undefined;
+      }
     }
   }
 
@@ -392,6 +444,7 @@ export default async function EventHomePage({
           pabatiClips={dayOfPabatiClips}
           pabatiUsed={dayOfPabatiUsed}
           pabatiTotal={dayOfPabatiTotal}
+          broadcast={dayOfBroadcast}
         />
       ) : null}
 

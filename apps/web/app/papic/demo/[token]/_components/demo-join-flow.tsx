@@ -205,7 +205,7 @@ export function DemoJoinFlow({
       };
       try {
         const { embedFaces } = await import('@/lib/face-embed');
-        const found = await embedFaces(canvas);
+        const { vectors: found } = await embedFaces(canvas);
         diag.faces = found.length;
         const known: Array<[DemoRole, number[]]> = [];
         if (myVectorRef.current) known.push([role, myVectorRef.current]);

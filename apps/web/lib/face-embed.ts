@@ -148,11 +148,12 @@ export async function embedFaces(
     // Dominant subject = largest box; normalize its center by the input dims.
     const w = (input as HTMLImageElement).naturalWidth || input.width || 1;
     const h = (input as HTMLImageElement).naturalHeight || input.height || 1;
-    let best = dets[0].detection.box;
+    let best: FaceBoxLike | null = null;
     for (const d of dets) {
       const b = d.detection.box;
-      if (b.width * b.height > best.width * best.height) best = b;
+      if (!best || b.width * b.height > best.width * best.height) best = b;
     }
+    if (!best) return { vectors, subjectCenter: null };
     const clamp = (n: number) => Math.min(1, Math.max(0, n));
     const subjectCenter = {
       x: clamp((best.x + best.width / 2) / w),

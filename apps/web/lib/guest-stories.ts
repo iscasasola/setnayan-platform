@@ -168,7 +168,7 @@ async function readTaggedPhotos(
   const top = ordered.slice(0, STORY_MAX_PHOTOS);
   const photos = (
     await Promise.all(
-      top.map(async ({ id, key }) => {
+      top.map(async ({ id, key }): Promise<StoryPhoto | null> => {
         // Same resolver the day-of gallery uses — handles `r2://bucket/key`
         // refs and legacy URLs, presigning the media object for a CORS-safe GET.
         const url = await displayUrlForStoredAsset(key, { ttlSeconds: URL_TTL_SECONDS });

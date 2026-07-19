@@ -5,6 +5,8 @@ import { uploadPublicAsset } from '@/lib/storage';
 import { tierCaps } from '@/lib/vendor-tier-caps';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
 import { leadTokenHoldEnabled, consumeLeadHoldOnCoupleReply } from '@/lib/lead-token-holds';
+import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
+import { runVendorAutoReply } from '@/lib/vendor-autoreply/inbox-hook';
 import { fetchThreadById } from './chat';
 import { notifyOtherParty } from './chat-actions';
 
@@ -321,6 +323,18 @@ export async function sendChatMessageCore(
   // Off the request path, idempotent, dormant unless the flag is on.
   if (senderRole === 'couple' && thread.inquiry_status === 'accepted' && leadTokenHoldEnabled()) {
     after(() => consumeLeadHoldOnCoupleReply(thread.vendor_profile_id, thread.event_id));
+  }
+
+  // Vendor Auto-Reply Assistant (Phase 3b · NEXT_PUBLIC_VENDOR_AUTOREPLY_V1,
+  // default OFF): a couple message may earn an instant AI front-desk reply when
+  // THIS vendor opted in via vendor_bot_config. Runs off the request path via
+  // after() and is fail-closed inside runVendorAutoReply — a bot failure can
+  // never block, delay, or error the human message that just landed above.
+  // LOOP-GUARD: only senderRole==='couple' schedules it; the bot's own posts
+  // land as sender_role='vendor' via the service-role client (not through this
+  // core), so neither the bot nor the vendor can ever re-trigger it.
+  if (senderRole === 'couple' && vendorAutoReplyEnabled()) {
+    after(() => runVendorAutoReply({ threadId: thread.thread_id, senderRole }));
   }
 
   // Notify the OTHER party. The couple side notifies the vendor user;

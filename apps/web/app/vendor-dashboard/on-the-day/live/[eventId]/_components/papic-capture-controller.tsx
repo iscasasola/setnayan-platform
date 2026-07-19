@@ -1,8 +1,14 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
-import { Camera, Loader2, RefreshCw, ShieldCheck, Video } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Camera, CloudOff, Loader2, RefreshCw, ShieldCheck, Video } from 'lucide-react';
 import { usePapicCamera } from '@/lib/use-papic-camera';
+import {
+  countPapicVendorQueued,
+  enqueuePapicVendorCapture,
+  isPapicVendorTerminalError,
+} from '@/lib/offline/service-handlers/papic-vendor-drain';
+import { triggerSyncNow } from '@/lib/offline/sync-daemon';
 import type { VendorPapicTier } from '@/lib/vendor-papic-tier';
 
 // The vendor on-the-day Papic capture controller (owner-locked 2026-07-18).
@@ -10,9 +16,17 @@ import type { VendorPapicTier } from '@/lib/vendor-papic-tier';
 // hold = ≤5s clip, Ltd/Unli only) → the server-side capture route enforces the
 // tier's capture-point budget. Lite is photos-only; Ltd (and an admin-comped
 // Unli) allow clips. Kept deliberately simple vs the couple seat surface (no
-// offline queue, no face tag) — the vendor is working, so the shutter stays
-// responsive by firing uploads without blocking, and the server budget is the
-// hard gate.
+// face tag, no roll) — the vendor is working, so the shutter stays responsive
+// by firing uploads without blocking, and the server budget is the hard gate.
+//
+// DURABLE offline queue (recon vendor-papic#offline): weak-signal venues are
+// the norm, so an upload that fails on INFRASTRUCTURE (network / 5xx) hands the
+// capture to the shared `papic` IndexedDB queue (mode:'vendor' — see
+// papic-vendor-drain.ts) instead of losing it with the tab. The foreground
+// drain below re-POSTs queued items on mount + connectivity regain; a queued
+// item is deleted only after the capture route confirms the land. A TERMINAL
+// server rejection (out_of_points / video_not_allowed / …) is never queued —
+// retrying it can't succeed — so those keep the live rollback + toast.
 
 const HOLD_MS = 260; // press longer than this → start recording
 const CLIP_MAX_MS = 5000; // 5-SECOND HARD CAP — corpus lock
@@ -57,6 +71,7 @@ export function PapicCaptureController({
   const [accepted, setAccepted] = useState(false);
   const [spent, setSpent] = useState(initialSpent);
   const [inFlight, setInFlight] = useState(0);
+  const [queuedCount, setQueuedCount] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
 
@@ -78,6 +93,34 @@ export function PapicCaptureController({
     setToast(msg);
     setTimeout(() => setToast((t) => (t === msg ? null : t)), 1800);
   }, []);
+
+  const refreshQueued = useCallback(async () => {
+    setQueuedCount(await countPapicVendorQueued(eventId));
+  }, [eventId]);
+
+  // Drain any captures persisted to the offline queue (a venue signal drop, or
+  // a prior session that closed before reconnecting). Runs in the FOREGROUND —
+  // independent of the global offline-daemon flag + Background Sync (which iOS
+  // Safari/PWA lacks) — so queued shots upload the moment connectivity returns
+  // while the vendor keeps shooting. `triggerSyncNow()` is best-effort +
+  // idempotent (IDB transactions serialize, so at-most-once delivery per item)
+  // and no-ops when every queue is empty. Mirrors the couple seat surface.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    let cancelled = false;
+    const drain = () => {
+      void (async () => {
+        await triggerSyncNow();
+        if (!cancelled) await refreshQueued();
+      })();
+    };
+    drain();
+    window.addEventListener('online', drain);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('online', drain);
+    };
+  }, [refreshQueued]);
 
   const grabFrame = useCallback(async (): Promise<Blob | null> => {
     const video = cam.videoRef.current;
@@ -108,6 +151,38 @@ export function PapicCaptureController({
       // the server is the hard gate and reconciles on its response.
       const cost = kind === 'clip' ? 3 : 1;
       setSpent((s) => s + cost);
+      // Hand a capture that failed on INFRASTRUCTURE to the durable offline
+      // queue (IndexedDB — survives a tab death). On success OWNERSHIP
+      // TRANSFERS to the queue: keep the optimistic spend (the shot WILL land
+      // when the drain replays it) — mirrors the couple seat surface. Returns
+      // false when persistence isn't available (private mode) or the per-event
+      // backlog cap is hit, so the caller keeps the live rollback + toast.
+      const queueForLater = async (reason: string): Promise<boolean> => {
+        const queuedId = await enqueuePapicVendorCapture({
+          eventId,
+          mediaType: kind,
+          contentType: blob.type || (kind === 'clip' ? 'video/mp4' : 'image/jpeg'),
+          filename: kind === 'clip' ? 'clip.mp4' : 'photo.jpg',
+          blob,
+          posterBlob: kind === 'clip' ? poster ?? null : null,
+          posterFilename: 'poster.jpg',
+          durationMs:
+            kind === 'clip' ? Math.min(durationMs ?? 0, CLIP_MAX_MS) : undefined,
+          deviceModel:
+            typeof navigator !== 'undefined'
+              ? navigator.userAgent.slice(0, 120)
+              : undefined,
+          reason,
+        });
+        if (!queuedId) return false;
+        void refreshQueued();
+        flash(
+          kind === 'clip'
+            ? 'Clip saved — uploads when signal returns.'
+            : 'Photo saved — uploads when signal returns.',
+        );
+        return true;
+      };
       try {
         const fd = new FormData();
         fd.set('event_id', eventId);
@@ -132,8 +207,9 @@ export function PapicCaptureController({
         };
         if (res.ok && json.status === 'ok') {
           flash(kind === 'clip' ? 'Clip saved' : 'Photo saved');
-        } else {
-          // Roll back the optimistic spend; reflect the server truth.
+        } else if (isPapicVendorTerminalError(json.error)) {
+          // TERMINAL server rejection — retrying can never succeed, so it is
+          // never queued. Roll back the optimistic spend; reflect server truth.
           setSpent((s) => Math.max(0, s - cost));
           if (json.error === 'out_of_points') {
             if (typeof json.pointsSpent === 'number' && pointsCap != null) {
@@ -147,15 +223,25 @@ export function PapicCaptureController({
           } else {
             flash('Couldn’t save that one — try again.');
           }
+        } else {
+          // Transient infrastructure failure (5xx / uploads unavailable /
+          // signed-out) — durable-queue it so a tab death can't lose it.
+          if (!(await queueForLater(json.error ?? `http_${res.status}`))) {
+            setSpent((s) => Math.max(0, s - cost));
+            flash('Couldn’t save that one — try again.');
+          }
         }
       } catch {
-        setSpent((s) => Math.max(0, s - cost));
-        flash('Upload failed — check your signal.');
+        // Network failure — the classic weak-signal-venue case.
+        if (!(await queueForLater('network'))) {
+          setSpent((s) => Math.max(0, s - cost));
+          flash('Upload failed — check your signal.');
+        }
       } finally {
         setInFlight((n) => Math.max(0, n - 1));
       }
     },
-    [eventId, flash, pointsCap],
+    [eventId, flash, pointsCap, refreshQueued],
   );
 
   const takePhoto = useCallback(async () => {
@@ -304,9 +390,18 @@ export function PapicCaptureController({
             <span className="h-2 w-2 animate-pulse rounded-full bg-white" /> REC
           </div>
         ) : null}
-        {inFlight > 0 ? (
-          <div className="absolute right-3 top-3 flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-medium text-white">
-            <Loader2 aria-hidden className="h-3 w-3 animate-spin" strokeWidth={2} /> Saving {inFlight}
+        {inFlight > 0 || queuedCount > 0 ? (
+          <div className="absolute right-3 top-3 flex flex-col items-end gap-1">
+            {inFlight > 0 ? (
+              <div className="flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-medium text-white">
+                <Loader2 aria-hidden className="h-3 w-3 animate-spin" strokeWidth={2} /> Saving {inFlight}
+              </div>
+            ) : null}
+            {queuedCount > 0 ? (
+              <div className="flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-medium text-white">
+                <CloudOff aria-hidden className="h-3 w-3" strokeWidth={2} /> {queuedCount} waiting for signal
+              </div>
+            ) : null}
           </div>
         ) : null}
         {toast ? (

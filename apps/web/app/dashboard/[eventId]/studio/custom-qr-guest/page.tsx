@@ -17,7 +17,8 @@ import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { eventSkuActive } from '@/lib/entitlements';
+import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
+import { PaymentUnderReview } from '@/app/dashboard/[eventId]/_components/payment-under-review';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 
 export const metadata = { title: 'Custom QR per guest · Setnayan' };
@@ -71,12 +72,12 @@ export default async function CustomQrGuestPage({ params }: Props) {
     .maybeSingle();
   if (!event) redirect(`/dashboard/${eventId}`);
 
-  // Owned/branded-view gate via the shared bundle-aware eventSkuActive() reader
+  // Branded-view gate via the shared bundle-aware eventSkuActive() reader
   // (lib/entitlements.ts) — the branded cards appear only AFTER admin payment
-  // approval (owner-locked 2026-06-22: "owns" for our manual rails = admin-
-  // APPROVED = eventSkuActive, NOT the pending-inclusive eventOwnsSku). This
-  // matches the branded PNG-download API + the Invitation auto-show surface.
-  // Bundle-aware so a couple who got CUSTOM_QR_GUEST inside Essentials
+  // approval (owner-locked 2026-06-22: the feature unlock for our manual rails
+  // = admin-APPROVED = eventSkuActive, NOT the pending-inclusive eventOwnsSku).
+  // This matches the branded PNG-download API + the Invitation auto-show
+  // surface. Bundle-aware so a couple who got CUSTOM_QR_GUEST inside Essentials
   // (GUIDED_PACK) or Complete (MEDIA_PACK) still unlocks once that bundle is
   // approved. Refund/cancel/lapse releases it. Graceful-degrade on a
   // missing/legacy orders table (42P01 / 42703) — pre-bootstrap databases
@@ -86,9 +87,15 @@ export default async function CustomQrGuestPage({ params }: Props) {
   // membership gate (the event read is RLS-scoped to members), and ownership is
   // an EVENT-level fact — but orders RLS is purchaser-scoped (user_id =
   // auth.uid()), so the user client would deny a co-host member who didn't
-  // personally place the order and wrongly show them the buy CTA. The buy CTA
-  // (InlineCheckoutDrawer in UnownedView) prevents double-buy on its own.
-  const owns = await eventSkuActive(createAdminClient(), eventId, SKU_CODE);
+  // personally place the order and wrongly show them the buy CTA.
+  //
+  // Payment handshake (2026-06-18): `owns` counts a still-pending ('submitted')
+  // order (double-buy prevention — no second buy CTA while payment is under
+  // review), but the branded QR cards only render once the Setnayan team
+  // verifies payment. `active` gates the OwnedView; owned-but-pending shows
+  // "payment under review". Only query when owns is true (cheap).
+  const owns = await eventOwnsSku(createAdminClient(), eventId, SKU_CODE);
+  const active = owns ? await eventSkuActive(createAdminClient(), eventId, SKU_CODE) : false;
 
   const monogram = resolveMonogram(event);
   const palette = sanitizeRolePalette(event.role_palette ?? {});
@@ -157,7 +164,7 @@ export default async function CustomQrGuestPage({ params }: Props) {
         )}
       </header>
 
-      {owns ? (
+      {active ? (
         <OwnedView
           eventId={eventId}
           slug={slug}
@@ -168,6 +175,8 @@ export default async function CustomQrGuestPage({ params }: Props) {
           supabase={supabase}
           displayName={event.display_name}
         />
+      ) : owns ? (
+        <PaymentUnderReview feature="guest QR codes" />
       ) : (
         <UnownedView
           eventId={eventId}

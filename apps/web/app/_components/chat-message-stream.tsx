@@ -446,7 +446,18 @@ export function ChatMessageStream({
                     ownsBubble(m, viewerRole) ? 'text-cream/70' : 'text-ink/50'
                   }`}
                 >
-                  {ownsBubble(m, viewerRole) ? 'You' : counterpartyLabel}
+                  {/* AI-disclosure label (vendor-autoreply §2B): a bot message
+                      is NEVER presented as a human. The couple sees it under
+                      the vendor's name with an explicit AI tag; the vendor
+                      sees the same tag instead of "You" (it wasn't them).
+                      Copy is the §8 candidate string, pending owner sign-off. */}
+                  {m.is_bot
+                    ? viewerRole === 'vendor' && ownsBubble(m, viewerRole)
+                      ? '⚡ AI auto-reply'
+                      : `⚡ AI auto-reply · ${counterpartyLabel}`
+                    : ownsBubble(m, viewerRole)
+                      ? 'You'
+                      : counterpartyLabel}
                   {' · '}
                   {formatChatTimestamp(m.created_at)}
                 </p>

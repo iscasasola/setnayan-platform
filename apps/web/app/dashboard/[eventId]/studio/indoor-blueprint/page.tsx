@@ -24,9 +24,11 @@ import {
   eventOwnsIndoorBlueprint,
   fetchEntrance,
 } from '@/lib/indoor-blueprint';
+import { eventSkuActive } from '@/lib/entitlements';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { PaymentUnderReview } from '@/app/dashboard/[eventId]/_components/payment-under-review';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { WayfindingMap } from '@/app/_components/wayfinding-map';
 import { BlueprintStudio } from './_components/blueprint-studio';
@@ -79,6 +81,11 @@ export default async function IndoorBlueprintPage({ params }: Props) {
   if (!event) redirect(`/dashboard/${eventId}`);
 
   const owns = await eventOwnsIndoorBlueprint(supabase, eventId);
+  // Payment handshake (2026-06-18): `owns` counts a still-pending ('submitted')
+  // order (double-buy prevention), but the wayfinding studio only opens once the
+  // Setnayan team verifies payment. `active` gates the OwnedView; owned-but-
+  // pending shows "payment under review". Only query when owns is true (cheap).
+  const active = owns ? await eventSkuActive(supabase, eventId, SKU_CODE) : false;
 
   const skuRecord = await formatV2Sku(SKU_CODE).catch(() => null);
   const pricePhp = skuRecord?.price_php ?? FALLBACK_PRICE_PHP;
@@ -93,7 +100,7 @@ export default async function IndoorBlueprintPage({ params }: Props) {
         Back to add-ons
       </Link>
 
-      {owns ? (
+      {active ? (
         <>
           <header className="sn-reveal space-y-2">
             <p className="sn-eye">
@@ -104,6 +111,18 @@ export default async function IndoorBlueprintPage({ params }: Props) {
             </h1>
           </header>
           <OwnedView eventId={eventId} slug={event.slug} supabase={supabase} />
+        </>
+      ) : owns ? (
+        <>
+          <header className="sn-reveal space-y-2">
+            <p className="sn-eye">
+              Indoor Blueprint
+            </p>
+            <h1 className="sn-h1">
+              Map your venue
+            </h1>
+          </header>
+          <PaymentUnderReview feature="indoor blueprint" />
         </>
       ) : (
         <>

@@ -316,10 +316,17 @@ async function drainGuestCapture(item: OfflineItem): Promise<SyncResult> {
 /**
  * Browser entry the sync daemon calls for the `papic` queue. Dispatches on the
  * payload's `mode`: seat captures (default) replay presign+recordSeatCapture;
- * guest captures re-POST the multipart endpoint.
+ * guest captures re-POST the multipart endpoint; VENDOR captures (the
+ * on-the-day controller — see papic-vendor-drain.ts) re-POST theirs. The
+ * vendor drain is dynamic-imported so the seat/guest capture bundles don't
+ * carry it.
  */
 export async function drainPapicCapture(item: OfflineItem): Promise<SyncResult> {
   if (item.payload.mode === 'guest') return drainGuestCapture(item);
+  if (item.payload.mode === 'vendor') {
+    const { drainVendorCapture } = await import('./papic-vendor-drain');
+    return drainVendorCapture(item);
+  }
   return drainSeatCapture(item);
 }
 

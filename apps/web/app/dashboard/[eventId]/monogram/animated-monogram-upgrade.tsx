@@ -2,8 +2,9 @@ import { Check, ExternalLink, PencilLine, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveMonogram } from '@/lib/monogram';
-import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
+import { eventOwnsAnimatedMonogram, eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
+import { PaymentUnderReview } from '@/app/dashboard/[eventId]/_components/payment-under-review';
 import {
   MONOGRAM_MOTIONS,
   resolveMonogramMotion,
@@ -95,6 +96,13 @@ export async function AnimatedMonogramUpgrade({ eventId }: { eventId: string }) 
   if (!event) return null;
 
   const owns = await eventOwnsAnimatedMonogram(supabase, eventId);
+  // Payment handshake (2026-06-18): `owns` counts a still-pending ('submitted')
+  // order so the buy CTA stays suppressed (double-buy prevention), but the live
+  // animation only goes on once the Setnayan team verifies payment (the hero
+  // gates on eventAnimatedMonogramActive). `active` gates the OwnedView;
+  // owned-but-pending shows "payment under review". Only query when owns is
+  // true (cheap — skips the read for the common buy case).
+  const active = owns ? await eventAnimatedMonogramActive(supabase, eventId) : false;
   const monogram = resolveMonogram(event);
 
   // The couple's EFFECTIVE custom mark — uploaded outranks studio, the same
@@ -120,7 +128,7 @@ export async function AnimatedMonogramUpgrade({ eventId }: { eventId: string }) 
   // monogram, so the Feature-Us card flips to its "already allowed" state.
   // artifact_ref='' keys on the event's singular monogram. Degrade to null on a
   // drifted DB (the table may post-date this deploy).
-  const { data: shareConsent } = owns
+  const { data: shareConsent } = active
     ? await supabase
         .from('marketing_share_consents')
         .select('consent_id, credit_mode')
@@ -179,7 +187,7 @@ export async function AnimatedMonogramUpgrade({ eventId }: { eventId: string }) 
         </p>
       </header>
 
-      {owns ? (
+      {active ? (
         <OwnedView
           monogram={monogram}
           publicLandingUrl={publicLandingUrl}
@@ -191,6 +199,8 @@ export async function AnimatedMonogramUpgrade({ eventId }: { eventId: string }) 
           studioAnim={studioAnim}
           revealLabel={revealLabel}
         />
+      ) : owns ? (
+        <PaymentUnderReview feature="animated monogram" />
       ) : (
         <UnownedView
           monogram={monogram}

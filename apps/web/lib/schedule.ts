@@ -15,7 +15,16 @@ export type ScheduleBlockType =
   | 'dancing'
   | 'send_off'
   | 'after_party'
-  | 'custom';
+  | 'custom'
+  // Travel itinerary classes (migration 20270825683668 · ai-travel-scheduling):
+  // 'lodging' = a hotel NIGHT-BLOCK (check-in → check-out spanning days),
+  // 'tour' = a tour/activity TIME-BLOCK. Deliberately NOT in
+  // SCHEDULE_BLOCK_TYPES below — only the travel add-form offers them (see
+  // TRAVEL_SCHEDULE_BLOCK_TYPES in lib/schedule-travel.ts) and the server
+  // action rejects them on non-travel events, so every other event type's
+  // schedule surface stays byte-identical.
+  | 'lodging'
+  | 'tour';
 
 export const SCHEDULE_BLOCK_TYPES: ReadonlyArray<ScheduleBlockType> = [
   'pre_ceremony',
@@ -41,6 +50,8 @@ export const SCHEDULE_BLOCK_LABEL: Record<ScheduleBlockType, string> = {
   send_off: 'Send-off',
   after_party: 'After-party',
   custom: 'Custom',
+  lodging: 'Hotel stay',
+  tour: 'Tour / activity',
 };
 
 export type ScheduleBlockRow = {

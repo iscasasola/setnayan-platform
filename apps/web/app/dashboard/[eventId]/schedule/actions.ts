@@ -21,8 +21,32 @@ import {
   buildTemplateInsertRows,
   templatesForEventType,
 } from '@/lib/schedule-templates';
+// Travel multi-day itineraries (ai-travel-scheduling): the two travel-only
+// block types ('lodging' night-blocks + 'tour' time-blocks) are accepted
+// ONLY on travel events, and a tour that overlaps another tour is rejected
+// at save with the GRD-06 clash copy. Non-travel events never reach any of
+// these branches, so their behavior is byte-identical.
+import {
+  findTourOverlap,
+  isTravelEventType,
+  isTravelOnlyBlockType,
+  tourDoubleBookMessage,
+} from '@/lib/schedule-travel';
 
 const VALID_TYPES = new Set<ScheduleBlockType>(SCHEDULE_BLOCK_TYPES);
+
+/** events.event_type for an RLS-visible event; null when unreadable. */
+async function fetchEventType(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+): Promise<string | null> {
+  const { data } = await supabase
+    .from('events')
+    .select('event_type')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  return (data?.event_type as string | null | undefined) ?? null;
+}
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -49,7 +73,11 @@ export async function createScheduleBlock(formData: FormData) {
   if (typeof eventId !== 'string' || typeof label !== 'string') {
     throw new Error('Invalid input');
   }
-  if (typeof blockTypeRaw !== 'string' || !VALID_TYPES.has(blockTypeRaw as ScheduleBlockType)) {
+  if (
+    typeof blockTypeRaw !== 'string' ||
+    (!VALID_TYPES.has(blockTypeRaw as ScheduleBlockType) &&
+      !isTravelOnlyBlockType(blockTypeRaw))
+  ) {
     throw new Error('Invalid block type');
   }
   const trimmedLabel = label.trim().slice(0, 120);
@@ -77,6 +105,29 @@ export async function createScheduleBlock(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  // Travel-only itinerary classes: 'lodging' / 'tour' are valid ONLY on a
+  // travel event (defense against form tampering — the non-travel add-form
+  // never offers them). And no two tours may overlap: a double-book is
+  // rejected at save with the GRD-06 clash copy (ai-travel-scheduling).
+  if (isTravelOnlyBlockType(blockTypeRaw)) {
+    const eventType = await fetchEventType(supabase, eventId);
+    if (!isTravelEventType(eventType)) {
+      throw new Error('Hotel stays and tours are only available on travel events');
+    }
+    if (blockTypeRaw === 'tour') {
+      const existing = await fetchScheduleBlocks(supabase, eventId);
+      const conflict = findTourOverlap({ start_at: startIso, end_at: endIso }, existing);
+      if (conflict) {
+        throw new Error(
+          tourDoubleBookMessage(
+            { label: trimmedLabel, start_at: startIso, end_at: endIso },
+            conflict,
+          ),
+        );
+      }
+    }
+  }
 
   const { error } = await supabase.from('event_schedule_blocks').insert({
     event_id: eventId,
@@ -233,6 +284,41 @@ export async function updateScheduleBlock(formData: FormData) {
   const notesRaw = formData.get('notes');
   if (notesRaw !== null) {
     patch.notes = nullIfBlank(notesRaw);
+  }
+
+  // Travel double-book guard on retime (ai-travel-scheduling): moving a TOUR
+  // block onto another tour's slot is rejected at save, mirroring create.
+  // The extra read runs only when a time actually changes; non-tour blocks
+  // (every block on every non-travel event) skip straight to the update.
+  if (patch.start_at !== undefined || patch.end_at !== undefined) {
+    const { data: current } = await supabase
+      .from('event_schedule_blocks')
+      .select('block_type, label, start_at, end_at')
+      .eq('block_id', blockId)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (current?.block_type === 'tour') {
+      const nextStart = patch.start_at ?? (current.start_at as string);
+      const nextEnd =
+        patch.end_at !== undefined ? patch.end_at : ((current.end_at as string | null) ?? null);
+      const existing = await fetchScheduleBlocks(supabase, eventId);
+      const conflict = findTourOverlap(
+        { start_at: nextStart, end_at: nextEnd, block_id: blockId },
+        existing,
+      );
+      if (conflict) {
+        throw new Error(
+          tourDoubleBookMessage(
+            {
+              label: patch.label ?? ((current.label as string) || 'This tour'),
+              start_at: nextStart,
+              end_at: nextEnd,
+            },
+            conflict,
+          ),
+        );
+      }
+    }
   }
 
   const { error } = await supabase

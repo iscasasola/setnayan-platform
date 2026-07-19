@@ -58,6 +58,16 @@ import {
   parseRosLens,
   type EventVendorOption,
 } from './_components/ros-p2';
+// Travel multi-day itineraries (ai-travel-scheduling): hotel night-blocks +
+// tour time-blocks + the GRD-06 clash guard. Everything travel-only — a
+// non-travel event renders none of it and keeps today's page byte-identical.
+import {
+  TRAVEL_SCHEDULE_BLOCK_TYPES,
+  buildTravelItinerary,
+  detectTravelClashes,
+  isTravelEventType,
+} from '@/lib/schedule-travel';
+import { TravelClashGuard, TravelItineraryView } from './_components/travel-itinerary';
 
 export const metadata = { title: 'Schedule' };
 
@@ -85,7 +95,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   const [eventRes, blocks, suggestionsRes, recapRes] = await Promise.all([
     supabase
       .from('events')
-      .select('event_id, event_date, ceremony_type, event_type, created_at')
+      .select('event_id, event_date, event_end_date, ceremony_type, event_type, created_at')
       .eq('event_id', eventId)
       .maybeSingle(),
     fetchScheduleBlocks(supabase, eventId),
@@ -114,6 +124,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     | {
         event_id: string;
         event_date: string | null;
+        event_end_date: string | null;
         ceremony_type: string | null;
         event_type: string | null;
         created_at: string | null;
@@ -121,6 +132,9 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     | null;
   const eventDate = eventRow?.event_date ?? null;
   const ceremonyType = eventRow?.ceremony_type ?? null;
+  // Travel = the multi-day roaming trip (profile multi_day/roaming, asserted
+  // by migration 20270825683668). Gates every itinerary branch below.
+  const isTravel = isTravelEventType(eventRow?.event_type ?? null);
 
   // Run-of-Show first-open seed (owner 2026-07-12: Run-of-Show is FREE). A
   // NON-WEDDING event that opens its schedule with zero blocks gets a per-type
@@ -279,6 +293,25 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
           {runOfShowBlocks.length > 0 ? (
             <RunOfShowHeader eventId={eventId} initial={runOfShowBlocks} canAdvance />
           ) : null}
+          {/* Travel-only itinerary chrome: the GRD-06 clash guard (overlapping
+              tours + uncovered nights) and the day-by-day trip lens over the
+              same master blocks. Non-travel events skip both entirely. */}
+          {isTravel ? (
+            <>
+              <TravelClashGuard
+                clashes={detectTravelClashes(scheduleBlocks, {
+                  tripStart: eventDate,
+                  tripEnd: eventRow?.event_end_date ?? null,
+                })}
+              />
+              <TravelItineraryView
+                itinerary={buildTravelItinerary(scheduleBlocks, {
+                  tripStart: eventDate,
+                  tripEnd: eventRow?.event_end_date ?? null,
+                })}
+              />
+            </>
+          ) : null}
           <VendorSuggestionsQueue
             eventId={eventId}
             suggestions={openSuggestions}
@@ -319,6 +352,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
               <EventDayView
                 eventId={eventId}
                 blocks={scheduleBlocks}
+                isTravel={isTravel}
                 rosEnabled={rosEnabled}
                 rosMeta={rosMeta}
                 rosVendors={rosVendors}
@@ -447,12 +481,14 @@ function VendorSuggestionsQueue({
 function EventDayView({
   eventId,
   blocks,
+  isTravel = false,
   rosEnabled = false,
   rosMeta = EMPTY_ROS_META,
   rosVendors = [],
 }: {
   eventId: string;
   blocks: ScheduleBlockRow[];
+  isTravel?: boolean;
   rosEnabled?: boolean;
   rosMeta?: RosMetaMap;
   rosVendors?: EventVendorOption[];
@@ -495,7 +531,7 @@ function EventDayView({
         </div>
       ) : null}
 
-      <AddBlockForm eventId={eventId} />
+      <AddBlockForm eventId={eventId} isTravel={isTravel} />
 
       {blocks.length === 0 ? (
         <div className="sn-row border-dashed p-8 text-center">
@@ -506,8 +542,9 @@ function EventDayView({
           />
           <p className="text-sm font-medium text-ink">No blocks yet.</p>
           <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
-            Add your first one above — start with the ceremony, then layer cocktails,
-            reception, dinner, dancing, and send-off.
+            {isTravel
+              ? 'Add your first one above — a hotel stay covers its nights (check-in to check-out), and each tour or activity takes a time slot on the trip.'
+              : 'Add your first one above — start with the ceremony, then layer cocktails, reception, dinner, dancing, and send-off.'}
           </p>
         </div>
       ) : (
@@ -530,7 +567,16 @@ function EventDayView({
   );
 }
 
-function AddBlockForm({ eventId }: { eventId: string }) {
+function AddBlockForm({
+  eventId,
+  isTravel = false,
+}: {
+  eventId: string;
+  isTravel?: boolean;
+}) {
+  // Travel gets the trip-shaped menu (hotel night-blocks + tour time-blocks
+  // first); every other event type keeps today's list exactly.
+  const typeOptions = isTravel ? TRAVEL_SCHEDULE_BLOCK_TYPES : SCHEDULE_BLOCK_TYPES;
   return (
     <details className="sn-row">
       <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium">
@@ -548,22 +594,32 @@ function AddBlockForm({ eventId }: { eventId: string }) {
             name="label"
             required
             maxLength={120}
-            placeholder="e.g. Ceremony at San Agustin"
+            placeholder={
+              isTravel ? 'e.g. Island-hopping tour, El Nido' : 'e.g. Ceremony at San Agustin'
+            }
             className="input-field"
           />
         </label>
         <label className="space-y-1">
           <span className="block text-xs font-medium text-ink">Type</span>
           <select name="block_type" defaultValue="custom" className="input-field">
-            {SCHEDULE_BLOCK_TYPES.map((t) => (
+            {typeOptions.map((t) => (
               <option key={t} value={t}>
                 {SCHEDULE_BLOCK_LABEL[t]}
               </option>
             ))}
           </select>
+          {isTravel ? (
+            <span className="block text-[11px] text-ink/50">
+              A hotel stay spans check-in → check-out; tours can&rsquo;t overlap
+              each other.
+            </span>
+          ) : null}
         </label>
         <label className="space-y-1">
-          <span className="block text-xs font-medium text-ink">Starts</span>
+          <span className="block text-xs font-medium text-ink">
+            {isTravel ? 'Starts / check-in' : 'Starts'}
+          </span>
           <input
             name="start_at"
             type="datetime-local"
@@ -572,7 +628,9 @@ function AddBlockForm({ eventId }: { eventId: string }) {
           />
         </label>
         <label className="space-y-1">
-          <span className="block text-xs font-medium text-ink">Ends (optional)</span>
+          <span className="block text-xs font-medium text-ink">
+            {isTravel ? 'Ends / check-out (optional)' : 'Ends (optional)'}
+          </span>
           <input name="end_at" type="datetime-local" className="input-field" />
         </label>
         <label className="space-y-1 sm:col-span-2">

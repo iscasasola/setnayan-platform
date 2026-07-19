@@ -32,7 +32,20 @@ jobs:
     steps:
       - name: Arm auto-merge (merge commit)
         env:
-          GH_TOKEN: ${{ github.token }}
+          # ⚠ Bot-merge workflow suppression (observed 2026-07-15, PRs #3243/#3245):
+          # when auto-merge is ARMED with github.token, GitHub attributes the
+          # eventual merge to app/github-actions and SUPPRESSES all main-branch
+          # workflow triggers — supabase-migrations, ci, e2e, deploy-prod all
+          # silently skip (Vercel's native git webhook still deploys; only
+          # Actions are suppressed). PR #3242, armed by the owner's own gh CLI
+          # (user PAT), triggered everything normally.
+          # FIX: arm with AUTOMERGE_PAT (a classic PAT or GitHub-App token with
+          # repo scope, created by the owner → repo secrets). Falls back to
+          # github.token so this workflow never hard-fails while the secret is
+          # unset — but until it IS set, merges it arms fire no main workflows
+          # and migrations must be dispatched manually:
+          #   gh workflow run supabase-migrations.yml --ref main
+          GH_TOKEN: ${{ secrets.AUTOMERGE_PAT || github.token }}
         run: |
           gh pr merge "${{ github.event.pull_request.number }}" \
             --repo "${{ github.repository }}" \

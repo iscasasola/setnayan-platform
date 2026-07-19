@@ -27,7 +27,8 @@
  * Spec corpus: V2_Cutover_Plan_2026-05-28.md Phase B (billing surface).
  */
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 /**
  * Append a cache-buster query param to a QR image URL so that newly-uploaded
@@ -90,26 +91,10 @@ export default function ManualCheckoutModal({
   const [copied, setCopied] = useState(false);
   const [screenshotUploading, setScreenshotUploading] = useState(false);
   const [screenshotResult, setScreenshotResult] = useState<'idle' | 'success' | 'error'>('idle');
+  const dialogRef = useRef<HTMLDivElement>(null);
 
-  // ESC + outside-click closes.
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [isOpen, onClose]);
-
-  // Lock body scroll while open.
-  useEffect(() => {
-    if (!isOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [isOpen]);
+  // Focus trap + restore + Esc-to-close + body-scroll-lock via the shared hook.
+  useModalA11y({ open: isOpen, onClose, containerRef: dialogRef });
 
   // Reset channel + screenshot state when the modal re-opens fresh.
   useEffect(() => {
@@ -185,10 +170,11 @@ export default function ManualCheckoutModal({
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby="manual-checkout-title"
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md focus:outline-none"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}

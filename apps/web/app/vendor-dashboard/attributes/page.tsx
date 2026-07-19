@@ -10,6 +10,7 @@ import {
   type ResolvedSchema,
   type VendorAttributePayload,
 } from '@/lib/vendor-service-attributes';
+import { visibleLeafAttributesForPayload } from '@/lib/leaf-attribute-schema';
 import { saveVendorServiceAttribute, removeVendorServiceAttribute } from './actions';
 import { AttributeFieldRenderer } from './_components/attribute-field-renderer';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -72,7 +73,7 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
     const profile = await fetchOwnVendorProfile(supabase, user.id);
     if (!profile) {
       return (
-        <div className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-12 sm:px-6 lg:px-8">
           <h1 className="text-2xl font-semibold tracking-tight">No vendor profile yet</h1>
           <p className="mt-2 text-sm text-ink/65">
             Set up your basic vendor profile first, then return here to fill in
@@ -125,7 +126,7 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
 
   if (!loaderState.ok) {
     return (
-      <div className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="flex items-start gap-3">
           <AlertTriangle aria-hidden className="mt-0.5 h-6 w-6 shrink-0 text-terracotta" strokeWidth={1.75} />
           <div className="space-y-1">
@@ -170,11 +171,8 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
   const addableCatalog = catalog.filter((c) => !existingKeys.has(c.canonical_service));
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Iteration 0044 · Per-service attributes
-        </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
           Service attributes
         </h1>
@@ -207,7 +205,7 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
         </div>
       ) : null}
       {removed ? (
-        <div role="status" className="mb-5 rounded-md border border-ink/15 bg-cream px-4 py-3 text-sm text-ink/70">
+        <div role="status" className="mb-5 rounded-md border border-ink/15 bg-white/70 px-4 py-3 text-sm text-ink/70">
           Removed that service&rsquo;s attribute payload.
         </div>
       ) : null}
@@ -256,7 +254,7 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
 
       <section className="space-y-8">
         {payloads.length === 0 && !addCandidateSchema ? (
-          <div className="rounded-2xl border border-dashed border-ink/20 bg-cream p-8 text-center">
+          <div className="rounded-2xl border border-dashed border-ink/20 p-8 text-center">
             <p className="font-medium text-ink/75">No services attributed yet.</p>
             <p className="mt-1 text-sm text-ink/55">
               Pick a canonical service from the dropdown above to start filling in attributes.
@@ -279,7 +277,7 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
         )}
       </section>
 
-      <footer className="mt-10 rounded-xl border border-ink/10 bg-cream/60 px-5 py-4 text-xs text-ink/55">
+      <footer className="mt-10 rounded-xl border border-ink/10 bg-white/60 px-5 py-4 text-xs text-ink/55">
         Profile ID <span className="font-mono">{profile.vendor_profile_id}</span> ·
         Schema source <span className="font-mono">canonical_service_schemas + shared_attribute_groups</span> per iteration 0044.
       </footer>
@@ -300,11 +298,15 @@ function ServiceForm({
   const completeness = payload?.completeness_score ?? 0;
   const meetsVisibility = payload?.meets_visibility_minimum ?? false;
   const facetSet = new Set(schema.filter_facets);
+  // Hide refinements (or options) an admin RETIRED in the Taxonomy Studio — but
+  // keep any the vendor already answered so their saved value is never dropped
+  // on the next save (0044 never-orphan contract).
+  const visibleFields = visibleLeafAttributesForPayload(schema.fields, initialPayload);
 
   return (
     <article
       id={schema.canonical_service}
-      className="rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6"
+      className="sn-tile p-5 sm:p-6"
     >
       <header className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
         <div className="space-y-1">
@@ -345,7 +347,7 @@ function ServiceForm({
       <form action={saveVendorServiceAttribute} className="space-y-5">
         <input type="hidden" name="canonical_service" value={schema.canonical_service} />
 
-        {Object.entries(schema.fields).map(([fieldKey, def]) => (
+        {Object.entries(visibleFields).map(([fieldKey, def]) => (
           <AttributeFieldRenderer
             key={fieldKey}
             fieldKey={fieldKey}

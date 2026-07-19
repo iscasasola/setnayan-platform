@@ -12,39 +12,39 @@ import {
   Loader2,
   Music,
   QrCode,
-  ShoppingCart,
   Smartphone,
   Sparkles,
   XCircle,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { eventSkuActive } from '@/lib/entitlements';
 import { presignDisplayUrl } from '@/lib/uploads';
 import { isR2Configured, R2_BUCKETS } from '@/lib/r2';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { formatPhp } from '@/lib/orders';
 import {
   PATIKTOK_CATEGORIES,
-  PATIKTOK_OVERAGE_PHP,
+  PATIKTOK_SERVICE_KEY,
   PATIKTOK_TEMPLATES,
-  PATIKTOK_TIERS,
   PATIKTOK_VIDEO_SOFT_CAP,
   findPatiktokTemplate,
   type PatiktokCategory,
   type PatiktokTemplate,
 } from '@/lib/patiktok';
-import { createOrder } from '../../orders/actions';
-// 2026-05-29 Day 2 inline-checkout sprint (CLAUDE.md Day 2 row · V1 SCOPE
-// EXPANSION). The per-tier "Buy 1 day" form now opens the InlineCheckoutDrawer
-// inline instead of routing to /orders/[id]. service_key is the canonical
-// SKU code (patiktok_setnayan_tiktok or patiktok_personal_tiktok) so the
-// voucher coverage check works. The TikTok-OAuth gate stays in place — couples
-// must connect TikTok before the buy CTA shows for the Personal tier.
+import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { formatPhp } from '@/lib/orders';
+// Single-SKU model (Patiktok un-retire 2026-07-01). The buy CTA creates one
+// order keyed on the canonical PATIKTOK_COMPILER service_key; the inline
+// checkout drawer renders voucher + QR + screenshot on the same page. Price is
+// READ from the authoritative V2 retail catalog (platform_retail_catalog_v2 via
+// getCustomerSkuPrice) — never hardcoded — and the checkout action re-resolves
+// the same row server-side for the actual charge.
 // Cross-refs:
 //   • apps/web/app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx
 //   • apps/web/app/dashboard/[eventId]/checkout/actions.ts
-//   • PR #594 + PR #595 voucher schema substrate
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
+import { getTiktokOAuthConfig } from '@/lib/patiktok-tiktok';
 import { disconnectPatiktokTiktok } from './actions';
 import { ReelRenderer } from './_components/reel-renderer';
 
@@ -66,7 +66,14 @@ type TiktokGrant = {
   expires_at: string;
 };
 
-type PatiktokTier = (typeof PATIKTOK_TIERS)[number];
+type PaymentSettings = {
+  bdo_account_name: string | null;
+  bdo_account_number: string | null;
+  bdo_qr_url: string | null;
+  gcash_account_name: string | null;
+  gcash_number: string | null;
+  gcash_qr_url: string | null;
+};
 
 export const metadata = { title: 'Patiktok · Setnayan' };
 
@@ -157,9 +164,35 @@ export default async function PatiktokGallery({
     .maybeSingle();
   const tiktokGrant = (grantRaw ?? null) as TiktokGrant | null;
 
-  // 2026-05-29 Day 2 · BDO + GCash for the InlineCheckoutDrawer rendered
-  // per-tier below. Cheaper to fetch once at page level than per TierCard.
+  // TikTok auto-post (path-A OAuth) ships DORMANT. The optional "connect" CTA
+  // only appears when the TikTok app is actually configured (env present); until
+  // the owner registers the app + clears TikTok's Content-Posting-API audit, the
+  // record → render → download flow works WITHOUT any TikTok connection.
+  const tiktokConfig = await getTiktokOAuthConfig();
+  const tiktokAvailable = tiktokConfig.ready;
+
+  // BDO + GCash for the InlineCheckoutDrawer. Cheaper to fetch once at page level.
   const settings = await fetchPlatformSettings(supabase);
+
+  // Admin-managed price for the single Patiktok SKU, read from the authoritative
+  // V2 retail catalog (platform_retail_catalog_v2 via formatV2Sku) — never
+  // hardcoded. null → the buy card falls back to generic copy. The checkout
+  // action re-resolves the same row server-side for the actual charge.
+  const skuRecord = await formatV2Sku(PATIKTOK_SERVICE_KEY).catch(() => null);
+  const pricePhp = skuRecord?.price_php ?? null;
+
+  // Paid owners land on their working booth, not a buy page. Resolve
+  // admin-APPROVED ownership ONCE via the shared bundle-aware reader
+  // (eventSkuActive on the canonical PATIKTOK_COMPILER service_key). Read with
+  // the ADMIN client: orders RLS is purchaser-scoped, so a co-host member who
+  // didn't personally place the order would otherwise see the buy CTA.
+  // Graceful-degrade on a missing/legacy orders table keeps pre-bootstrap DBs on
+  // the buy view rather than crashing.
+  const patiktokActive = await eventSkuActive(
+    createAdminClient(),
+    eventId,
+    PATIKTOK_SERVICE_KEY,
+  );
 
   return (
     <section className="space-y-6">
@@ -179,11 +212,9 @@ export default async function PatiktokGallery({
         </Link>
       </div>
 
-      <header className="space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Patiktok · TikTok-style mimic station
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">Reels</p>
+        <h1 className="sn-h1">
           Pick the reel templates for your booth
         </h1>
         <p className="max-w-prose text-base text-ink/65">
@@ -193,8 +224,8 @@ export default async function PatiktokGallery({
           <span className="font-mono text-ink">9:16 · 1080×1920 · 1–30s</span>{' '}
           per clip.
         </p>
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          V1.5+ build · purchase live · render queue active
+        <p className="sn-eye">
+          Record · render · download — right in your browser
         </p>
       </header>
 
@@ -231,7 +262,7 @@ export default async function PatiktokGallery({
           className="inline-flex items-center gap-2 rounded-2xl border border-ink/15 bg-cream px-4 py-3 text-sm text-ink/70"
         >
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          TikTok disconnected. Re-connect anytime to resume Personal-tier posting.
+          TikTok disconnected. Re-connect anytime to resume auto-posting.
         </p>
       ) : null}
 
@@ -252,14 +283,40 @@ export default async function PatiktokGallery({
         </p>
       ) : null}
 
-      <PricingTiers
-        eventId={eventId}
-        couplePurchasable
-        tiktokGrant={tiktokGrant}
-        settings={settings}
-      />
-
-      <YourRenders jobs={jobs} eventId={eventId} downloadUrls={downloadUrls} />
+      {patiktokActive ? (
+        <>
+          {/*
+            Owned (admin-approved PATIKTOK_COMPILER): the buy CTA is hidden and
+            the working surface — booth launch + the couple's renders — is
+            promoted to the top. The booth (operator dashboard) is the primary
+            destination; YourRenders sits right under it so finished reels are
+            one tap from the landing. TikTok auto-post is an OPTIONAL extra here,
+            never a gate — only surfaced when the app is configured (dormant).
+          */}
+          <BoothLaunchPanel eventId={eventId} />
+          {tiktokAvailable ? (
+            <TiktokConnectPanel eventId={eventId} grant={tiktokGrant} />
+          ) : null}
+          <YourRenders
+            jobs={jobs}
+            eventId={eventId}
+            downloadUrls={downloadUrls}
+          />
+        </>
+      ) : (
+        <>
+          <BuyCard
+            eventId={eventId}
+            pricePhp={pricePhp}
+            settings={settings}
+          />
+          <YourRenders
+            jobs={jobs}
+            eventId={eventId}
+            downloadUrls={downloadUrls}
+          />
+        </>
+      )}
 
       <HowItWorks />
 
@@ -278,7 +335,7 @@ export default async function PatiktokGallery({
       </ul>
 
       {visibleTemplates.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-6 text-center text-sm text-ink/55">
+        <p className="sn-row p-6 text-center text-sm text-ink/55">
           No templates in this category yet — pick another above.
         </p>
       ) : null}
@@ -297,6 +354,93 @@ export default async function PatiktokGallery({
   );
 }
 
+function BoothLaunchPanel({ eventId }: { eventId: string }) {
+  return (
+    <section className="space-y-4 rounded-2xl border border-mulberry/20 bg-mulberry/5 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <p className="sn-eye inline-flex items-center gap-1.5">
+            <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Patiktok is yours
+          </p>
+          <h2 className="text-lg font-semibold tracking-tight">
+            Your booth is ready to run
+          </h2>
+          <p className="max-w-prose text-sm text-ink/70">
+            Open the operator dashboard to pick your primary + backup templates,
+            track live submissions, and start recording your guests.
+          </p>
+        </div>
+        <Link
+          href={`/dashboard/${eventId}/studio/patiktok/booth`}
+          className="inline-flex items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
+        >
+          <Film aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Open booth dashboard
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * OPTIONAL TikTok auto-post connect. Only rendered when the TikTok app is
+ * configured (env present) — i.e. after the owner registers it + the
+ * Content-Posting-API audit clears. Until then this panel never shows and the
+ * record → render → download flow is fully self-sufficient.
+ */
+function TiktokConnectPanel({
+  eventId,
+  grant,
+}: {
+  eventId: string;
+  grant: TiktokGrant | null;
+}) {
+  return (
+    <section className="sn-tile space-y-3 p-5">
+      <div className="space-y-1">
+        <p className="sn-eye inline-flex items-center gap-1.5">
+          <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          Optional · TikTok auto-post
+        </p>
+        <h2 className="text-base font-semibold tracking-tight">
+          Auto-post finished reels to your own TikTok
+        </h2>
+        <p className="max-w-prose text-sm text-ink/70">
+          Connect your TikTok once and finished Patiktok reels post straight to
+          your handle. Skip it and you still get every reel to download here.
+        </p>
+      </div>
+      {grant ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="inline-flex items-center gap-1.5 rounded-md bg-success-50 px-2.5 py-1 text-[11px] text-success-900">
+            <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+            TikTok connected
+            {grant.tiktok_handle ? `: @${grant.tiktok_handle}` : ''}
+          </p>
+          <form action={disconnectPatiktokTiktok}>
+            <input type="hidden" name="event_id" value={eventId} />
+            <SubmitButton
+              className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-[11px] text-ink/70 hover:border-danger-300 hover:text-danger-700 disabled:opacity-70"
+              pendingLabel="Disconnecting…"
+            >
+              Disconnect TikTok
+            </SubmitButton>
+          </form>
+        </div>
+      ) : (
+        <Link
+          href={`/api/tiktok/auth/start?event_id=${eventId}`}
+          className="inline-flex items-center justify-center gap-2 rounded-md border border-terracotta bg-cream px-4 py-2 text-sm font-medium text-terracotta-700 transition-colors hover:bg-terracotta/10"
+        >
+          <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
+          Connect TikTok
+        </Link>
+      )}
+    </section>
+  );
+}
+
 function YourRenders({
   jobs,
   eventId: _eventId,
@@ -308,7 +452,7 @@ function YourRenders({
 }) {
   if (jobs.length === 0) return null;
   return (
-    <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+    <section className="sn-tile space-y-3 p-5">
       <header className="flex items-baseline justify-between gap-2">
         <h2 className="text-lg font-semibold tracking-tight">Your renders</h2>
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
@@ -407,157 +551,64 @@ function RenderStatusPill({ status }: { status: RenderJobRow['status'] }) {
   );
 }
 
-function PricingTiers({
+/**
+ * Single Patiktok SKU buy card. One order keyed on PATIKTOK_COMPILER; the inline
+ * checkout drawer handles voucher + QR + screenshot. Display price comes from
+ * the admin-managed retail catalog (priceLabel); the checkout action re-resolves
+ * the authoritative charge server-side — no peso is hardcoded here.
+ */
+function BuyCard({
   eventId,
-  couplePurchasable,
-  tiktokGrant,
+  pricePhp,
   settings,
 }: {
   eventId: string;
-  couplePurchasable: boolean;
-  tiktokGrant: TiktokGrant | null;
-  settings: {
-    bdo_account_name: string | null;
-    bdo_account_number: string | null;
-    bdo_qr_url: string | null;
-    gcash_account_name: string | null;
-    gcash_number: string | null;
-    gcash_qr_url: string | null;
-  };
+  /** Admin-managed price in PHP from the V2 retail catalog. null = unreadable. */
+  pricePhp: number | null;
+  settings: PaymentSettings;
 }) {
+  const priceLabel = pricePhp != null ? formatPhp(pricePhp) : null;
+  const triggerLabel = priceLabel ? `Add Patiktok · ${priceLabel}` : 'Add Patiktok';
   return (
-    <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      {PATIKTOK_TIERS.map((tier) => (
-        <TierCard
-          key={tier.key}
-          eventId={eventId}
-          tier={tier}
-          purchasable={couplePurchasable}
-          tiktokGrant={tier.key === 'personal' ? tiktokGrant : null}
-          settings={settings}
-        />
-      ))}
-      <p className="sm:col-span-2 text-xs text-ink/55">
-        Soft cap: {PATIKTOK_VIDEO_SOFT_CAP} captured videos per booth per day.
-        Stack +10-video overage blocks at{' '}
-        <span className="font-mono text-ink">
-          {formatPhp(PATIKTOK_OVERAGE_PHP)} / +10
-        </span>{' '}
-        in-event if your crowd outruns the cap.
-      </p>
-    </section>
-  );
-}
-
-function TierCard({
-  eventId,
-  tier,
-  purchasable,
-  tiktokGrant,
-  settings,
-}: {
-  eventId: string;
-  tier: PatiktokTier;
-  purchasable: boolean;
-  tiktokGrant: TiktokGrant | null;
-  settings: {
-    bdo_account_name: string | null;
-    bdo_account_number: string | null;
-    bdo_qr_url: string | null;
-    gcash_account_name: string | null;
-    gcash_number: string | null;
-    gcash_qr_url: string | null;
-  };
-}) {
-  const isPersonal = tier.key === 'personal';
-  // 2026-05-29 Day 2 · canonical SKU codes (matches apps/web/lib/sku-catalog.ts
-  // which sources from supabase service_catalog) so voucher coverage_service_keys
-  // lookups land. Old `patiktok:personal_daily` / `patiktok:setnayan_daily`
-  // pseudo-keys were never in service_catalog · drift cleanup.
-  const serviceKey = isPersonal
-    ? 'patiktok_personal_tiktok'
-    : 'patiktok_setnayan_tiktok';
-  const description = isPersonal
-    ? `Patiktok booth · Personal tier · ${tier.label}`
-    : `Patiktok booth · Setnayan tier · ${tier.label}`;
-  const needsTiktokConnect = isPersonal && !tiktokGrant;
-  return (
-    <article className="flex h-full flex-col gap-3 rounded-2xl border border-ink/10 bg-cream p-5">
+    <section className="sn-tile space-y-3 p-5">
       <div className="flex items-start justify-between gap-2">
         <div className="space-y-1">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-            Per-day tier
+          <p className="sn-eye">
+            In-app service
           </p>
-          <h2 className="text-lg font-semibold tracking-tight">{tier.label}</h2>
+          <h2 className="text-lg font-semibold tracking-tight">Patiktok booth</h2>
+          <p className="max-w-prose text-sm text-ink/70">
+            Unlimited mimic-station recordings across your event day, polished
+            into post-ready 9:16 reels with Setnayan-owned music. Record, render,
+            and download right in your browser.
+          </p>
         </div>
-        <span className="rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.15em] text-terracotta-700">
-          {formatPhp(tier.pricePhpPerDay)} / day
-        </span>
+        {priceLabel ? (
+          <span className="shrink-0 rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.15em] text-terracotta-700">
+            {priceLabel}
+          </span>
+        ) : null}
       </div>
-      <p className="text-sm text-ink/70">{tier.blurb}</p>
-
-      {isPersonal && tiktokGrant ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="inline-flex items-center gap-1.5 rounded-md bg-success-50 px-2.5 py-1 text-[11px] text-success-900">
-            <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-            TikTok connected
-            {tiktokGrant.tiktok_handle ? `: @${tiktokGrant.tiktok_handle}` : ''}
-          </p>
-          <form action={disconnectPatiktokTiktok}>
-            <input type="hidden" name="event_id" value={eventId} />
-            <SubmitButton
-              className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-[11px] text-ink/70 hover:border-danger-300 hover:text-danger-700 disabled:opacity-70"
-              pendingLabel="Disconnecting…"
-            >
-              Disconnect TikTok
-            </SubmitButton>
-          </form>
-        </div>
-      ) : null}
-
-      {purchasable && needsTiktokConnect ? (
-        <div className="mt-auto space-y-2 pt-1">
-          <Link
-            href={`/api/tiktok/auth/start?event_id=${eventId}`}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-terracotta bg-cream px-4 py-2 text-sm font-medium text-terracotta-700 transition-colors hover:bg-terracotta/10"
-          >
-            <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
-            Connect TikTok to enable buy
-          </Link>
-          <p className="text-[11px] text-ink/55">
-            Personal tier auto-posts to your own TikTok. One-time OAuth — we
-            store the access token scoped to this event only.
-          </p>
-        </div>
-      ) : null}
-
-      {purchasable && !needsTiktokConnect ? (
-        <div className="mt-auto pt-1">
-          {/*
-            2026-05-29 Day 2 inline-checkout · replaces the legacy
-            <form action={createOrder}> that submitted to /orders/[id].
-            The drawer renders voucher + QR + screenshot + submit on
-            the same page · couples stay in the patiktok detail surface
-            through the whole flow.
-          */}
-          <InlineCheckoutDrawer
-            eventId={eventId}
-            serviceKey={serviceKey}
-            displayName={description}
-            originalPriceCentavos={String(
-              Math.round(tier.pricePhpPerDay * 100),
-            )}
-            settings={settings}
-            triggerLabel={`Buy 1 day · ${formatPhp(tier.pricePhpPerDay)}`}
-            triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
-          />
-          <p className="pt-2 text-[11px] text-ink/55">
-            Apply-then-pay · Setnayan confirms inside 24 h after BDO / GCash
-            payment is logged.
-          </p>
-        </div>
-      ) : null}
-    </article>
+      <p className="text-xs text-ink/55">
+        Soft cap: {PATIKTOK_VIDEO_SOFT_CAP} captured videos per booth per day —
+        guidance only, not a charge.
+      </p>
+      <div className="pt-1">
+        <InlineCheckoutDrawer
+          eventId={eventId}
+          serviceKey={PATIKTOK_SERVICE_KEY}
+          displayName="Patiktok booth"
+          originalPriceCentavos={String(Math.round((pricePhp ?? 0) * 100))}
+          settings={settings}
+          triggerLabel={triggerLabel}
+          triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 sm:w-auto"
+        />
+        <p className="pt-2 text-[11px] text-ink/55">
+          Apply-then-pay · Setnayan confirms inside 24 h after BDO / GCash
+          payment is logged.
+        </p>
+      </div>
+    </section>
   );
 }
 
@@ -656,7 +707,7 @@ function TemplateCard({
   coupleName: string;
 }) {
   return (
-    <article className="flex h-full flex-col gap-3 overflow-hidden rounded-xl border border-ink/10 bg-cream">
+    <article className="sn-row flex h-full flex-col gap-3 overflow-hidden">
       <Preview template={template} coupleName={coupleName} />
       <div className="space-y-2 px-4 pb-4">
         <div className="flex items-start justify-between gap-2">

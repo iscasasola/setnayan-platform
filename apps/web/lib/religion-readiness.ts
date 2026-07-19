@@ -57,6 +57,7 @@ const CEREMONIAL_VENUE_TYPES = [
   'mosque',
   'cultural_site',
   'civil_registrar',
+  'temple',
 ] as const;
 
 /**

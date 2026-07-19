@@ -1,0 +1,2 @@
+## 2026-07-04 · feat(editorial): services wave — Kwento "What They Whispered" block, Papic Guest captures join the day, Live Studio "Watch the Film" replay, stats gain living moments + chapters; dead SDE references removed
+SPEC IMPACT: Wedding_Website_Effects_and_Editing_Spec_2026-06-11.md §7.5 — Kwento editorial block + Panood replay + Papic-guest recap land (status column updates); Editorial_Experience_Spec_2026-06-18.md §5/§6 partially advanced.

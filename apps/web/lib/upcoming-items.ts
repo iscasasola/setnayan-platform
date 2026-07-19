@@ -48,6 +48,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { findSku } from './sku-catalog';
 import {
+  resolveAppointmentLabel,
+  APPOINTMENT_KIND_LABEL,
+  type AppointmentKind,
+} from './appointments';
+import {
   PLAN_GROUPS,
   canonicalServiceToPlanGroupId,
   statusOfVendor,
@@ -248,6 +253,90 @@ const MEETING_MODE_LABEL: Record<string, string> = {
   fitting: 'Fitting',
   consultation: 'Consultation',
 };
+
+// ----------------------------------------------------------------------------
+// Source 1b — confirmed vendor appointments (event_appointments)
+//
+// Future CONFIRMED appointments from the two-sided scheduler (a tasting, a
+// fitting, a pre-shoot call the couple locked in with a shortlisted / booked
+// vendor) belong on Home "Upcoming" next to ad-hoc vendor_meetings — rendered
+// under the SAME 'meeting' source/category. Only confirmed rows with a FUTURE
+// scheduled_at; proposed rows (still awaiting a decision) live in the vendor
+// workspace, and cancelled/done are not upcoming. Appointments carry the
+// marketplace vendor_profile_id, so the name + couple-side workspace link
+// resolve via a single batched event_vendors lookup. Graceful-degrades to [].
+// ----------------------------------------------------------------------------
+
+type AppointmentUpcomingRow = {
+  appointment_id: string;
+  vendor_profile_id: string | null;
+  kind: string;
+  type: string;
+  custom_label: string | null;
+  location: string | null;
+  scheduled_at: string;
+};
+
+async function fetchAppointments(
+  supabase: SupabaseClient,
+  eventId: string,
+  now: Date,
+): Promise<UpcomingItem[]> {
+  const { data, error } = await supabase
+    .from('event_appointments')
+    .select('appointment_id, vendor_profile_id, kind, type, custom_label, location, scheduled_at')
+    .eq('event_id', eventId)
+    .eq('status', 'confirmed')
+    .gt('scheduled_at', now.toISOString())
+    .order('scheduled_at', { ascending: true })
+    .limit(20);
+  if (error || !data || data.length === 0) return [];
+  const rows = data as AppointmentUpcomingRow[];
+
+  const profileIds = Array.from(
+    new Set(rows.map((r) => r.vendor_profile_id).filter((v): v is string => !!v)),
+  );
+  const vendorByProfile = new Map<string, { vendorId: string; name: string }>();
+  if (profileIds.length > 0) {
+    const { data: vendors } = await supabase
+      .from('event_vendors')
+      .select('vendor_id, vendor_name, marketplace_vendor_id')
+      .eq('event_id', eventId)
+      .in('marketplace_vendor_id', profileIds);
+    for (const v of (vendors ?? []) as Array<{
+      vendor_id: string;
+      vendor_name: string;
+      marketplace_vendor_id: string | null;
+    }>) {
+      if (v.marketplace_vendor_id) {
+        vendorByProfile.set(v.marketplace_vendor_id, { vendorId: v.vendor_id, name: v.vendor_name });
+      }
+    }
+  }
+
+  const fmt = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' });
+  return rows.map((row) => {
+    const date = new Date(row.scheduled_at);
+    const title = resolveAppointmentLabel(row, {});
+    const kindLabel = APPOINTMENT_KIND_LABEL[row.kind as AppointmentKind] ?? 'Appointment';
+    const vendor = row.vendor_profile_id ? vendorByProfile.get(row.vendor_profile_id) : undefined;
+    const name = vendor?.name ?? 'your vendor';
+    const where = row.location ? ` · ${row.location}` : ` with ${name}`;
+    return {
+      id: `appointment:${row.appointment_id}`,
+      source: 'meeting' as const,
+      category: 'meeting' as const,
+      date,
+      daysFromNow: daysBetween(date, now),
+      title,
+      subtitle: `${fmt.format(date)} · ${kindLabel}${where}`,
+      vendorBusinessName: vendor?.name,
+      href: vendor
+        ? `/dashboard/${eventId}/vendors/${vendor.vendorId}/workspace`
+        : `/dashboard/${eventId}/vendors`,
+    };
+  });
+}
 
 // ----------------------------------------------------------------------------
 // Source 2 — event_schedule_blocks
@@ -513,6 +602,11 @@ export type FetchUpcomingItemsInput = {
   remindersEnabled?: boolean;
   /** Maximum merged items returned. Defaults to 10. */
   limit?: number;
+  // Iteration 0053 P4 Unit 1: whether this event type has the PH-marriage
+  // statutory pack (profile.statutoryPackKey === 'ph_marriage'). Defaults TRUE
+  // (weddings byte-identical); a non-wedding passes false → no PSA/CENOMAR/
+  // marriage-license deadlines in the Home "Needs you" stream.
+  statutory?: boolean;
 };
 
 export type FetchUpcomingItemsResult = {
@@ -641,9 +735,10 @@ export async function fetchUpcomingItems(
   input: FetchUpcomingItemsInput,
 ): Promise<FetchUpcomingItemsResult> {
   const { supabase, eventId, eventDate, ceremonyType, now, remindersEnabled } = input;
+  const statutory = input.statutory ?? true;
   const limit = input.limit ?? 10;
 
-  const [meetings, scheduleBlocks, vendorPayments, skuRenewals, recommendedDeadlines] =
+  const [meetingsRaw, scheduleBlocks, vendorPayments, skuRenewals, recommendedDeadlines, appointments] =
     await Promise.all([
       fetchVendorMeetings(supabase, eventId, now),
       fetchScheduleBlockItems(supabase, eventId, now),
@@ -653,10 +748,18 @@ export async function fetchUpcomingItems(
       remindersEnabled === false
         ? Promise.resolve<UpcomingItem[]>([])
         : fetchRecommendedDeadlineItems(supabase, eventId, eventDate, now),
+      // Source 1b — confirmed appointments, folded into the 'meeting' source.
+      fetchAppointments(supabase, eventId, now),
     ]);
+  // Ad-hoc vendor_meetings + confirmed appointments are both "meeting" items.
+  const meetings = [...meetingsRaw, ...appointments];
 
-  // Source 5 — pure-computed, no fetch.
-  const documentDeadlines = buildDocumentDeadlines(eventId, eventDate, ceremonyType, now);
+  // Source 5 — pure-computed, no fetch. Iteration 0053 P4 Unit 1: PH-marriage
+  // statutory deadlines only for events whose profile has the statutory pack
+  // (weddings; statutory defaults TRUE → byte-identical). Non-weddings → none.
+  const documentDeadlines = statutory
+    ? buildDocumentDeadlines(eventId, eventDate, ceremonyType, now)
+    : [];
 
   const merged = [
     ...meetings,

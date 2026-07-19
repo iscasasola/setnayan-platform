@@ -104,7 +104,6 @@ export type WizardTaskId =
   | 'papic'
   | 'panood'
   | 'patiktok'
-  | 'same_day_edit'
   | 'attire'
   | 'hair_makeup'
   | 'principal_sponsors'
@@ -665,9 +664,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     // save_the_date_video). Rationale: the STD video copy can reference
     // these services (e.g., "we'll be livestreaming · QR your photo
     // contribution") AND it nudges couples to spend on Setnayan
-    // services earlier in the funnel. Same-Day Edit at order 17.8
-    // stays AFTER save_the_date_video — owner only specified the 3
-    // and SDE is a different purchase moment (₱9,999+ flagship).
+    // services earlier in the funnel.
     order: 16.6,
     phase: 'programming',
     kind: 'external_process',
@@ -698,11 +695,11 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
   },
   {
     // Added 2026-05-24 (owner directive · same row as Papic + Panood).
-    // Patiktok = physical TikTok booth at the venue (iteration 0017 ·
-    // CLAUDE.md row 2026-05-16). Dual-tier per-day pricing: Setnayan
-    // master TikTok ₱999/day · couple's own TikTok ₱1,999/day via OAuth.
-    // 40-video soft cap per booth per day + ₱49/+10 overage. T-3mo entry,
-    // T-14d floor.
+    // Patiktok = physical TikTok booth at the venue (iteration 0017).
+    // Un-retired 2026-07-01 as a SINGLE admin-managed SKU (PATIKTOK_COMPILER,
+    // priced in platform_retail_catalog_v2 — no per-day/dual-tier/overage).
+    // Unlimited recordings included; 40-video soft cap is pacing guidance only.
+    // T-3mo entry, T-14d floor.
     id: 'patiktok',
     // 2026-05-24 owner directive (see papic comment above): moved from
     // 17.7 to 16.8 · before save_the_date_video.
@@ -714,25 +711,6 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
       "TikTok booth at the venue — guests step up, pick a trending sound from the printed QR menu, perform the dance, the booth auto-compiles + posts. Pick which TikTok handle owns the content (Setnayan or yours). T-3 months gives time for sound curation + booth slot reservation.",
     pillLabel: 'Programming',
     prerequisites: ['reception_venue'],
-  },
-  {
-    // Added 2026-05-24 (owner directive · "what other services by our
-    // app that needs to be purchased as well"). Same-Day Edit (SDE) is
-    // the flagship cinematic edit — 3-5 minute story-arc reel edited
-    // DURING the reception by the SDE crew + AI vision, then projected
-    // at the reception's end as the reveal moment. Premium tier from
-    // ₱9,999 (positioned to underbid traditional PH SDE videographers
-    // who charge ₱50-150K). Activation is pre-event (T-2mo) so the SDE
-    // crew can plan their coverage alongside Photography + Panood.
-    id: 'same_day_edit',
-    order: 17.8,
-    phase: 'programming',
-    kind: 'external_process',
-    title: 'Activate Same-Day Edit (SDE)',
-    whyItMatters:
-      "Cinematic 3-5 minute reveal of your day, edited DURING the reception and projected before the send-off. Setnayan's SDE crew uses vision AI to surface the best moments + cut them into a story arc — dramatically under the ₱50-150K traditional PH SDE rate. T-2 months gives the crew time to plan coverage alongside your photo + Panood team.",
-    pillLabel: 'Programming',
-    prerequisites: ['reception_venue', 'photography'],
   },
   {
     // 2026-05-24 senior-planner reorder: was order 18 (position 22 ·

@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
 
   // 2. Config sanity-check (should never fail if /start succeeded, but
   //    defend against rotation between start + callback).
-  const config = getYoutubeOAuthConfig();
+  const config = await getYoutubeOAuthConfig();
   if (!config.ready) {
     return redirectWithError(url, eventId, 'not_configured');
   }

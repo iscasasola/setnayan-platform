@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ChevronLeft, HelpCircle } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import {
   ALL_HELP_ARTICLES,
@@ -26,6 +26,43 @@ const SITE_URL = (
 type Props = {
   params: Promise<{ slug: string }>;
 };
+
+// Article bodies are plain text. Newlines separate paragraphs / steps, and bare
+// `https://…` URLs (e.g. the official DTI/BIR/SEC portals in the "how to get
+// verified" guides) render as real, new-tab links instead of dead text. Older
+// single-line articles render byte-identically (one paragraph, no links).
+const HELP_URL_RE = /(https?:\/\/[^\s]+)/g;
+
+function renderHelpBody(body: string) {
+  const lines = body
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+  return lines.map((line, lineIdx) => (
+    <p
+      key={lineIdx}
+      className={`text-base leading-relaxed text-ink/75 sm:text-lg ${
+        lineIdx === 0 ? 'mt-5' : 'mt-3'
+      }`}
+    >
+      {line.split(HELP_URL_RE).map((part, i) =>
+        /^https?:\/\//.test(part) ? (
+          <a
+            key={i}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+            className="break-words text-terracotta underline underline-offset-4 hover:no-underline"
+          >
+            {part}
+          </a>
+        ) : (
+          part
+        ),
+      )}
+    </p>
+  ));
+}
 
 export function generateStaticParams(): Array<{ slug: string }> {
   return ALL_HELP_ARTICLES.map(({ article }) => ({ slug: article.slug }));
@@ -166,16 +203,10 @@ export default async function HelpArticlePage({ params }: Props) {
           </Link>
         </nav>
 
-        <p className="mb-3 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          <HelpCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          {topic.label}
-        </p>
         <h1 className="text-3xl font-semibold leading-tight tracking-tight text-ink sm:text-4xl">
           {article.title}
         </h1>
-        <p className="mt-5 text-base leading-relaxed text-ink/75 sm:text-lg">
-          {article.body}
-        </p>
+        {renderHelpBody(article.body)}
 
         {related.length > 0 ? (
           <section className="mt-12 border-t border-ink/10 pt-8">

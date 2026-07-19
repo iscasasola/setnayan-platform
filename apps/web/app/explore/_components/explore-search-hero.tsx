@@ -29,7 +29,7 @@ import { TaxonomySearch, type TaxonomyOption } from './taxonomy-search';
  *
  * THEME: Clean Editorial `--m-*` marketing tokens (paper / ink / slate /
  * champagne-gold accent) so the hero reads as a premium-calm marketing band,
- * consistent with the homepage + /features + /for-vendors surfaces. The
+ * consistent with the homepage + /features + /vendors surfaces. The
  * `m-surface` wrapper swaps the font family to the marketing sans stack.
  */
 

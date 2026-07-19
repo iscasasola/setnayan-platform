@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, MapPin } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { Logo } from '@/app/_components/logo';
 import { NameSearch } from './_components/name-search';
@@ -44,7 +45,11 @@ export default async function FindSeatPage({ params }: Props) {
     .ilike('slug', slug)
     .maybeSingle();
 
-  if (!event || event.event_type !== 'wedding') notFound();
+  if (!event) notFound();
+  // Iteration 0053: public guest pages under /[slug] are the 'website' surface.
+  // Non-wedding (generic) profiles don't enable it → still notFound() (same as
+  // the old `!== 'wedding'`), now config-driven.
+  if (!surfaceEnabled(await resolveProfile(event.event_type), 'website')) notFound();
 
   // Visibility gate (owner 2026-06-20): don't leak a private (pre-launch) page's
   // couple data through this sub-route. Strangers on a private page bounce to
@@ -130,11 +135,11 @@ function Shell({
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
           <Link href={`/${slug}`} className="flex items-center gap-2 text-ink">
             <Logo height={28} />
-            <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/60">
+            <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/60">
               Setnayan
             </span>
           </Link>
-          <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50">
+          <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
             {displayName}
           </span>
         </div>

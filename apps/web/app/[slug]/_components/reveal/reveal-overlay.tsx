@@ -40,6 +40,11 @@ import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import type { RevealStudioConfig, RevealTemplateId } from '@/lib/reveal-config';
 import { rigidEffectFor, type RevealEffects } from '@/lib/std-reveal-effects';
 
+// NOTE: the gold-monogram + molten-monogram openings were RETIRED here (owner
+// 2026-06-22 "this is monogram animation, not a reveal") — they now live ONLY as
+// monogram-editor animation choices (the 'gold'/'molten' motion keys), played by
+// HeroMonogram on the surfaces that show the mark (incl. the film's monogram
+// beat that this opening uncovers). The five envelope/veil openings remain.
 const VeilReveal = dynamic(() => import('./veil-reveal'), { ssr: false });
 
 export type { RevealTemplate } from './reveal-templates';
@@ -219,8 +224,8 @@ export function RevealOverlay({
   return (
     <div className="fixed inset-0 z-[60] overflow-hidden">
       {template === 'two-flap-vertical' ||
-      template === 'two-flap-horizontal' ||
-      template === 'church-doors' ? (
+        template === 'two-flap-horizontal' ||
+        template === 'church-doors' ? (
         <RigidReveal
           variant={template}
           markSvg={markSvg}

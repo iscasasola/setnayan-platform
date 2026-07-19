@@ -14,6 +14,16 @@ import {
 } from '@/lib/vendor-verification';
 import { notifyVendorStatusChange } from '@/lib/vendor-status-notify';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
+import {
+  DEEP_SEARCH_MODEL,
+  DEEP_SEARCH_LITE_MODEL,
+  DEEP_SEARCH_CHAT_MODEL,
+  runDeepSearchOrLite,
+  buildDeepSearchChatPrompt,
+  buildVendorStudyPrompt,
+  parseDossierText,
+  type DeepSearchInputs,
+} from '@/lib/vendor-deep-search';
 
 /**
  * Server actions backing the admin Verification Queue. Two surfaces share
@@ -690,4 +700,243 @@ export async function setApplicationInReview(formData: FormData) {
 
   revalidatePath('/admin/verify');
   redirect('/admin/verify?in_review=1&status=in_review');
+}
+
+/**
+ * Marks the vendor's "VALIDATE <shop name>" email or text as RECEIVED on a
+ * verification application (redesigned My Shop verification, owner 2026-07-02).
+ *
+ * Calls the admin-only SECURITY DEFINER RPC mark_vendor_contact_confirmed
+ * (migration 20270503417266) with the ADMIN'S OWN session client — never the
+ * service-role client — so auth.uid() resolves for both the is_admin() guard
+ * and the _confirmed_by attribution. Idempotent server-side (first stamp wins).
+ */
+export async function markVendorContactConfirmed(formData: FormData) {
+  await requireAdmin();
+  const applicationId = readFormString(formData, 'application_id');
+  const channel = readFormString(formData, 'channel');
+  if (!applicationId) throw new Error('Missing application_id.');
+  if (channel !== 'email' && channel !== 'phone') {
+    redirect(
+      `/admin/verify?error=${encodeURIComponent('Unknown contact channel.')}`,
+    );
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('mark_vendor_contact_confirmed', {
+    p_application_id: applicationId,
+    p_channel: channel,
+  });
+  if (error) {
+    redirect(`/admin/verify?error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath('/admin/verify');
+  redirect('/admin/verify?contact_marked=1');
+}
+
+/**
+ * "Run deep search" — live web due-diligence dossier (owner 2026-07-03).
+ *
+ * Takes the vendor's website + social link + shop name + location, runs the
+ * Claude web_search research pass (lib/vendor-deep-search.ts), and stores the
+ * structured result in vendor_web_dossiers (admin-only RLS). Synchronous —
+ * the admin waits on the run (typically 1–3 minutes; the verify page sets
+ * maxDuration accordingly). A failure is stored on the row and surfaced in
+ * the queue instead of throwing.
+ */
+export async function runVendorDeepSearchAction(formData: FormData) {
+  const adminUser = await requireAdmin();
+  const applicationId = readFormString(formData, 'application_id');
+  const vendorProfileId = readFormString(formData, 'vendor_profile_id');
+  if (!vendorProfileId) throw new Error('Missing vendor_profile_id.');
+
+  const admin = createAdminClient();
+
+  const inputs = await resolveDeepSearchInputs(admin, vendorProfileId, applicationId);
+  if (!inputs) {
+    redirect(`/admin/verify?error=${encodeURIComponent('Vendor not found.')}`);
+  }
+  if (!inputs.business_name && !inputs.website && !inputs.social_url) {
+    redirect(
+      `/admin/verify?error=${encodeURIComponent(
+        'Nothing to search — this vendor has no name, website, or social link yet.',
+      )}`,
+    );
+  }
+
+  // Ledger row first, so a crashed run is visible as 'running' → re-runnable.
+  const { data: inserted, error: insErr } = await admin
+    .from('vendor_web_dossiers')
+    .insert({
+      vendor_profile_id: vendorProfileId,
+      application_id: applicationId || null,
+      status: 'running',
+      requested_by: adminUser.user_id,
+      inputs,
+      // Planned model — the AI dossier (Haiku) when the key is configured,
+      // otherwise the free keyless Lite pass. The completion update below
+      // overwrites this with whatever actually ran.
+      model: process.env.ANTHROPIC_API_KEY ? DEEP_SEARCH_MODEL : DEEP_SEARCH_LITE_MODEL,
+    })
+    .select('id')
+    .single();
+  if (insErr || !inserted) {
+    redirect(
+      `/admin/verify?error=${encodeURIComponent(insErr?.message ?? 'Could not start deep search.')}`,
+    );
+  }
+  const dossierId = (inserted as { id: number }).id;
+
+  try {
+    const { dossier, model } = await runDeepSearchOrLite(inputs);
+    await admin
+      .from('vendor_web_dossiers')
+      .update({ status: 'complete', dossier, model, completed_at: new Date().toISOString() })
+      .eq('id', dossierId);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Deep search failed.';
+    await admin
+      .from('vendor_web_dossiers')
+      .update({ status: 'failed', error: message.slice(0, 2000), completed_at: new Date().toISOString() })
+      .eq('id', dossierId);
+    revalidatePath('/admin/verify');
+    redirect(`/admin/verify?error=${encodeURIComponent(message)}`);
+  }
+
+  revalidatePath('/admin/verify');
+  redirect('/admin/verify?deep_search=1');
+}
+
+/**
+ * Resolve the deep-search inputs for a vendor: the profile snapshot + the social
+ * link from the application's doc uploads. Shared by the run action, the
+ * copy-prompt action, and the manual-paste action. Returns null if the vendor
+ * profile is gone.
+ */
+async function resolveDeepSearchInputs(
+  admin: ReturnType<typeof createAdminClient>,
+  vendorProfileId: string,
+  applicationId: string,
+): Promise<DeepSearchInputs | null> {
+  const { data: vendorRow, error: vendorErr } = await admin
+    .from('vendor_profiles')
+    .select('business_name, website, location_city, services')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  if (vendorErr || !vendorRow) return null;
+
+  let socialUrl: string | null = null;
+  if (applicationId) {
+    const { data: appRow } = await admin
+      .from('vendor_verification_applications')
+      .select('doc_uploads')
+      .eq('application_id', applicationId)
+      .maybeSingle();
+    const uploads = (appRow as { doc_uploads?: Record<string, unknown> } | null)?.doc_uploads;
+    const social = uploads?.social_media as { url?: unknown } | undefined;
+    if (social && typeof social.url === 'string') socialUrl = social.url;
+  }
+
+  return {
+    business_name: (vendorRow.business_name as string | null) ?? '',
+    website: (vendorRow.website as string | null) ?? null,
+    social_url: socialUrl,
+    location_city: (vendorRow.location_city as string | null) ?? null,
+    claimed_services: ((vendorRow.services as string[] | null) ?? []).filter(Boolean),
+  };
+}
+
+/**
+ * Build the free "run it in your own AI chat" research prompt for a vendor and
+ * return it to the client to copy. No API cost — the admin pastes it into
+ * Gemini / ChatGPT / Copilot, which does the web research, then pastes the JSON
+ * result back via saveManualDossierAction. Returns { ok, prompt } or { ok:false }.
+ */
+export async function getDeepSearchChatPromptAction(
+  vendorProfileId: string,
+  applicationId: string,
+): Promise<{ ok: true; prompt: string } | { ok: false; error: string }> {
+  await requireAdmin();
+  if (!vendorProfileId) return { ok: false, error: 'Missing vendor.' };
+  const admin = createAdminClient();
+  const inputs = await resolveDeepSearchInputs(admin, vendorProfileId, applicationId || '');
+  if (!inputs) return { ok: false, error: 'Vendor not found.' };
+  if (!inputs.business_name && !inputs.website && !inputs.social_url) {
+    return {
+      ok: false,
+      error: 'Nothing to search — this vendor has no name, website, or social link yet.',
+    };
+  }
+  return { ok: true, prompt: buildDeepSearchChatPrompt(inputs) };
+}
+
+/**
+ * Build the staff "study this vendor for fit + interview prep" prompt and return
+ * it to the client to copy. Same free web-research idea as the dossier prompt,
+ * but the output is a readable fit brief + interview questions (no JSON,
+ * no paste-back). Vendors are public businesses, so this is proportionate.
+ */
+export async function getVendorStudyPromptAction(
+  vendorProfileId: string,
+  applicationId: string,
+): Promise<{ ok: true; prompt: string } | { ok: false; error: string }> {
+  await requireAdmin();
+  if (!vendorProfileId) return { ok: false, error: 'Missing vendor.' };
+  const admin = createAdminClient();
+  const inputs = await resolveDeepSearchInputs(admin, vendorProfileId, applicationId || '');
+  if (!inputs) return { ok: false, error: 'Vendor not found.' };
+  if (!inputs.business_name && !inputs.website && !inputs.social_url) {
+    return {
+      ok: false,
+      error: 'Nothing to study — this vendor has no name, website, or social link yet.',
+    };
+  }
+  return { ok: true, prompt: buildVendorStudyPrompt(inputs) };
+}
+
+/**
+ * Store a dossier the admin got for FREE by pasting the copy-prompt into an AI
+ * chat and pasting the chat's JSON answer back. Parses the fenced json block
+ * (same parser the API path uses) and saves it as a completed dossier tagged
+ * with the manual-chat model. Mirrors the run action's insert.
+ */
+export async function saveManualDossierAction(formData: FormData) {
+  const adminUser = await requireAdmin();
+  const applicationId = readFormString(formData, 'application_id');
+  const vendorProfileId = readFormString(formData, 'vendor_profile_id');
+  const pasted = readFormString(formData, 'pasted_result');
+  if (!vendorProfileId) throw new Error('Missing vendor_profile_id.');
+  if (!pasted || pasted.trim().length === 0) {
+    redirect(`/admin/verify?error=${encodeURIComponent('Paste the AI chat’s result first.')}`);
+  }
+
+  const dossier = parseDossierText(pasted);
+  if (!dossier) {
+    redirect(
+      `/admin/verify?error=${encodeURIComponent(
+        'Could not read a dossier from that paste — make sure you copied the whole reply, including the ```json { … } ``` block at the end.',
+      )}`,
+    );
+  }
+
+  const admin = createAdminClient();
+  const inputs = await resolveDeepSearchInputs(admin, vendorProfileId, applicationId);
+
+  const { error: insErr } = await admin.from('vendor_web_dossiers').insert({
+    vendor_profile_id: vendorProfileId,
+    application_id: applicationId || null,
+    status: 'complete',
+    requested_by: adminUser.user_id,
+    inputs: inputs ?? {},
+    model: DEEP_SEARCH_CHAT_MODEL,
+    dossier,
+    completed_at: new Date().toISOString(),
+  });
+  if (insErr) {
+    redirect(`/admin/verify?error=${encodeURIComponent(insErr.message)}`);
+  }
+
+  revalidatePath('/admin/verify');
+  redirect('/admin/verify?deep_search=1');
 }

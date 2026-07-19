@@ -11,6 +11,14 @@ import {
   presignDisplayUrl,
   presignUploadUrl,
 } from '@/lib/uploads';
+import {
+  papicPerCameraTier,
+  papicCameraOrderPaid,
+  papicTierDailyLimit,
+  eventUnliFreeViaUnlock,
+  eventLtdFreeViaUnlock,
+} from '@/lib/papic-cameras';
+import { eventHasPapicUnlock } from '@/lib/entitlements';
 
 /**
  * Presigned-URL endpoint used by `<FileUpload>` to upload files directly to
@@ -145,6 +153,13 @@ const MAX_FILENAME_LEN = 120;
 // attempt to balloon storage costs by chaining unbounded segments.
 const MAX_PATH_PREFIX_LEN = 256;
 
+// MediaRecorder appends `;codecs=…`; strip parameters to get the base MIME.
+// Used by the per-camera quota probe (it must decide photo-vs-clip before the
+// main content-type validation block runs further down).
+function baseContentTypeOf(raw: string | undefined): string {
+  return (typeof raw === 'string' ? raw : '').split(';')[0]?.trim() ?? '';
+}
+
 function sanitizeFilename(raw: string): string {
   // Strip any path components — only the basename matters in the object key.
   const base = raw.split(/[\\/]/).pop() ?? raw;
@@ -247,7 +262,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // resolving by token doubles as the auth check; we re-assert it explicitly.
     const { data: seat } = await supabase
       .from('paparazzi_seats')
-      .select('seat_id, event_id, revoked_at, claimer_user_id, is_free_sampler')
+      .select(
+        'seat_id, event_id, revoked_at, claimer_user_id, tier, sku_code, paid_order_id, valid_from, valid_until',
+      )
       .eq('claim_qr_token', papicSeatToken)
       .maybeSingle();
     if (!seat || seat.claimer_user_id !== user.id || seat.revoked_at) {
@@ -256,10 +273,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         { status: 403 },
       );
     }
-    // Paid seats: entitlement re-check on the ADMIN client (the claimer can't
-    // read orders under RLS). Fail-OPEN on a config/transient error so a paying
-    // couple's crew is never blocked by an entitlement-read hiccup.
-    if (!seat.is_free_sampler) {
+    // Per-camera seats (sku_code PAPIC_CAMERA_*) carry their own paid-gate +
+    // daily quota (below) and are NOT the legacy PAPIC_SEATS pack — so they skip
+    // the pack-ownership re-check. null for legacy pack seats.
+    const cameraTier = papicPerCameraTier(
+      (seat as { sku_code?: string | null }).sku_code ?? null,
+      (seat as { tier?: string | null }).tier ?? null,
+    );
+    // Legacy PAPIC_SEATS pack: entitlement re-check on the ADMIN client (the
+    // claimer can't read orders under RLS). Fail-OPEN on a config/transient error
+    // so a paying couple's crew is never blocked by an entitlement-read hiccup.
+    if (!cameraTier) {
       let owned = true;
       try {
         const admin = createAdminClient();
@@ -274,10 +298,112 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         );
       }
     }
+
+    // PER-CAMERA presign gate (per-camera model · PR3): for a per-camera seat,
+    // refuse the URL when its order isn't paid yet or it's at the daily quota —
+    // no URL ⇒ no orphan bytes. The record-layer reserve RPC is the backstop.
+    if (cameraTier) {
+      // Capture WINDOW gate (owner 2026-06-26): refuse the URL outside the
+      // event's chosen window (no URL ⇒ no orphan bytes). Mirrors the
+      // record-layer gate in app/papic/actions.ts. Fail-OPEN on null bounds
+      // (legacy seats) so a pre-window camera is never broken.
+      {
+        const nowMs = Date.now();
+        const vf = (seat as { valid_from?: string | null }).valid_from;
+        const vu = (seat as { valid_until?: string | null }).valid_until;
+        const validFrom = vf ? Date.parse(vf) : NaN;
+        const validUntil = vu ? Date.parse(vu) : NaN;
+        if (
+          (Number.isFinite(validFrom) && nowMs < validFrom) ||
+          (Number.isFinite(validUntil) && nowMs > validUntil)
+        ) {
+          return NextResponse.json(
+            { error: 'This camera’s capture window isn’t open.' },
+            { status: 403 },
+          );
+        }
+      }
+      const admin = createAdminClient();
+      // Papic Unlock ("Unlock all of Papic" pass · PR9 #2269 grants the FEATURES;
+      // this is the deferred ALLOWANCE half): every camera shoots UNLIMITED with
+      // NO per-camera payment — skip both the presign paid-gate and the daily
+      // quota probe. Fail toward the normal metered gate on a read error.
+      const unlocked = await eventHasPapicUnlock(
+        admin,
+        seat.event_id as string,
+      ).catch(() => false);
+      if (
+        !unlocked &&
+        (cameraTier === 'roll' || cameraTier === 'unlimited')
+      ) {
+        let paid = false;
+        try {
+          paid = await papicCameraOrderPaid(
+            admin,
+            (seat as { paid_order_id?: string | null }).paid_order_id ?? null,
+          );
+          // Unlock umbrellas (money-gated · TRUE only on an ACTIVE order, so a
+          // non-owner's presign is never freed): PAPIC_UNLOCK (₱15,000) frees Unli;
+          // PAPIC_UNLOCK_LTD (₱9,000, owner 2026-07-11) frees Ltd (Roll). Each
+          // pass covers only its own tier.
+          if (!paid && cameraTier === 'unlimited') {
+            paid = await eventUnliFreeViaUnlock(admin, seat.event_id as string);
+          }
+          if (!paid && cameraTier === 'roll') {
+            paid = await eventLtdFreeViaUnlock(admin, seat.event_id as string);
+          }
+        } catch {
+          paid = false;
+        }
+        if (!paid) {
+          return NextResponse.json(
+            {
+              error: 'This camera activates once your payment is confirmed.',
+              code: 'awaiting_payment',
+            },
+            { status: 402 },
+          );
+        }
+      }
+      const cameraKind = baseContentTypeOf(body.contentType).startsWith('video/')
+        ? 'clip'
+        : 'photo';
+      const limit = unlocked
+        ? null
+        : papicTierDailyLimit(cameraTier, cameraKind);
+      if (limit != null) {
+        try {
+          const { data: remaining, error: remErr } = await admin.rpc(
+            'papic_camera_remaining',
+            {
+              p_seat_id: seat.seat_id as string,
+              p_kind: cameraKind,
+              p_limit: limit,
+            },
+          );
+          if (!remErr && typeof remaining === 'number' && remaining <= 0) {
+            return NextResponse.json(
+              {
+                error:
+                  cameraKind === 'clip'
+                    ? 'You’ve used today’s videos on this camera.'
+                    : 'You’ve used today’s photos on this camera.',
+                code: cameraKind === 'clip' ? 'camera_video_cap' : 'camera_photo_cap',
+              },
+              { status: 409 },
+            );
+          }
+        } catch {
+          // fail-open — the record-layer reserve is the backstop.
+        }
+      }
+    }
+
     bucketKey = 'media';
+    // Seat captures are permanent — written under the `papic/` prefix.
     // event-/seat-scoped, server-derived (sanitized — UUIDs only, but defensive).
     pathPrefix = sanitizePathPrefix(
-      `papic${seat.is_free_sampler ? '-sampler' : ''}/event-${seat.event_id}/seat-${seat.seat_id}`,
+      `papic/event-${seat.event_id}/seat-${seat.seat_id}`,
     );
     seatMode = true;
   } else {

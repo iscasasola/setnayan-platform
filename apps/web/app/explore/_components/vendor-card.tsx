@@ -55,7 +55,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { MapPin, Navigation, Sparkles, Star, ExternalLink, Zap, Clock, AlertCircle } from 'lucide-react';
+import { MapPin, Navigation, Sparkles, Star, ExternalLink, Zap, Clock, AlertCircle, Snowflake } from 'lucide-react';
 
 import { displayServiceLabel, formatPhp, resolveVendorDisplayName, VENDOR_PLACEHOLDER_PHOTO } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
@@ -69,7 +69,7 @@ import type { VendorReviewPreview } from '@/lib/vendor-reviews-preview';
 import { FollowGate } from '@/app/_components/follow-gate';
 import { SaveVendorButton } from './save-vendor-button';
 import { ReviewCarousel } from './review-carousel';
-import { VendorBadgeRow } from './vendor-badge-row';
+import { VendorBadgeRow, OffSeasonBadge } from './vendor-badge-row';
 
 /**
  * Row shape consumed by the card. Mirrors `VendorCardRow` in page.tsx
@@ -174,6 +174,13 @@ export type VendorCardData = {
     recommending_vendor_name: string;
     discount_pct: number | null;
   } | null;
+  /**
+   * Off-Season Promos (Wave 5). A LIVE off-peak offer on one of the vendor's
+   * active services — `vendor_services.discount_type='off_peak'` with a future
+   * `discount_expires_at`. Resolved at page level. Null = no live deal. Drives
+   * the "Off-season savings" badge + savings band on this card.
+   */
+  off_peak_offer?: { value: number; expiresAt: string } | null;
 };
 
 type Props = {
@@ -333,10 +340,13 @@ export function VendorCard({
           ) : null}
           {/* Badge row — placed below the name so it's visible at
               first glance even when the card is dense. Hidden when
-              the vendor has no badges (renders as empty <ul>). */}
-          {badges.length > 0 ? (
-            <div className="mt-2">
-              <VendorBadgeRow badges={badges} />
+              the vendor has no badges (renders as empty <ul>). The
+              Off-Season Promos badge (Wave 5) sits inline with the
+              trust badges when the vendor has a live off-peak offer. */}
+          {badges.length > 0 || vendor.off_peak_offer ? (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {badges.length > 0 ? <VendorBadgeRow badges={badges} /> : null}
+              {vendor.off_peak_offer ? <OffSeasonBadge /> : null}
             </div>
           ) : null}
       </div>
@@ -385,6 +395,21 @@ export function VendorCard({
 
       {vendor.tagline ? (
         <p className="line-clamp-2 text-sm text-ink/65">{vendor.tagline}</p>
+      ) : null}
+
+      {/* Off-Season Promos (Wave 5) — savings band. Renders only when the
+          vendor has a live off-peak offer. We don't assert a unit on the raw
+          discount value (it may be a % or a flat PHP amount, vendor-set) —
+          the band stays a calm "off-season deal" cue; the exact terms live in
+          the vendor's own conditions on their profile. */}
+      {vendor.off_peak_offer ? (
+        <div className="flex items-center gap-2 rounded-lg border border-sky-300/50 bg-sky-50 px-2.5 py-1.5 text-xs text-sky-900">
+          <Snowflake className="h-3.5 w-3.5 shrink-0 text-sky-600" strokeWidth={1.75} aria-hidden />
+          <span>
+            <span className="font-medium">Off-season deal</span> — book a quieter
+            month and save.
+          </span>
+        </div>
       ) : null}
 
       {/* Price line — independent surface, doesn't share the badge

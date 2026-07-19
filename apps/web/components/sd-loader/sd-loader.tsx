@@ -6,7 +6,7 @@
  * A native React port of the `Organic loaders` handoff (owner-supplied
  * 2026-06-07). The handoff shipped a dependency-free Web Component; we ported
  * it natively so the gold binds to our locked palette token (`--m-orange` =
- * Royal Champagne Gold #C5A059, NOT the handoff's #c69a4b), reuses the app's
+ * Atelier kit gold-500 #A9834B, NOT the handoff's #c69a4b), reuses the app's
  * `.loading-status-line` entrance fade, and inherits the global
  * `prefers-reduced-motion` freeze in globals.css instead of carrying its own.
  *
@@ -30,6 +30,8 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { useLoaderConfig } from '@/app/_components/loader-config-provider';
+import type { LoaderVariant } from '@/lib/loader-config';
 
 /** Fallback narration when a caller doesn't pass `steps`. */
 const DEFAULT_STEPS = [
@@ -53,11 +55,20 @@ export type SDLoaderProps = {
   theme?: 'light' | 'dark';
   /** Transparent cut-out mark. Defaults to the official Setnayan SVG mark. */
   logoSrc?: string;
-  /** Step cadence in ms. */
+  /** Step cadence in ms. Defaults to the admin-configured cadence. */
   stepIntervalMs?: number;
+  /**
+   * Visual variant. Defaults to the admin-configured variant (via context).
+   * `gather` = particles + twin orbit · `aurora` = champagne sweep ·
+   * `pulse` = concentric sonar rings.
+   */
+  variant?: LoaderVariant;
   /** Extra classes on the root (e.g. to size an inline instance). */
   className?: string;
 };
+
+/** Champagne-gold palette for the tap-to-pop motes (locked family). */
+const POP_GOLDS = ['#a9834b', '#cba766', '#cb9e4b', '#d3ae66'] as const;
 
 function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(false);
@@ -79,10 +90,18 @@ export function SDLoader({
   hint = 'Personalizing',
   theme = 'light',
   logoSrc = '/brand/setnayan-mark.svg',
-  stepIntervalMs = 2200,
+  stepIntervalMs,
+  variant,
   className = '',
 }: SDLoaderProps) {
   const sceneRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const config = useLoaderConfig();
+  // Explicit props win (used by the admin live preview); otherwise fall back to
+  // the admin-configured values from context.
+  const resolvedVariant: LoaderVariant = variant ?? config.variant;
+  const resolvedInterval = stepIntervalMs ?? config.stepIntervalMs;
+  const popEnabled = config.popEnabled;
   const stepList = steps && steps.length ? steps : DEFAULT_STEPS;
   const stepsKey = stepList.join('|');
   const [stepIndex, setStepIndex] = useState(0);
@@ -101,17 +120,19 @@ export function SDLoader({
     if (stepIndex >= stepList.length - 1) return;
     const t = setTimeout(
       () => setStepIndex((i) => Math.min(i + 1, stepList.length - 1)),
-      stepIntervalMs,
+      resolvedInterval,
     );
     return () => clearTimeout(t);
-  }, [stepIndex, stepList.length, stepIntervalMs, done]);
+  }, [stepIndex, stepList.length, resolvedInterval, done]);
 
   // Particle gathering — gold motes spawn on a ring and animate inward into
   // the mark. Skipped entirely under reduced-motion and once complete. The
   // particles are appended after the static React children so they never
   // collide with reconciliation; each self-removes on animation finish.
   useEffect(() => {
-    if (reduced || done) return;
+    // Particles are the `gather` variant's signature — the other two carry the
+    // "still working" signal with their own CSS motion, so don't spawn motes.
+    if (reduced || done || resolvedVariant !== 'gather') return;
     const scene = sceneRef.current;
     if (!scene) return;
 
@@ -153,12 +174,92 @@ export function SDLoader({
       if (Math.random() > 0.5) spawn();
     }, 360);
     return () => clearInterval(timer);
-  }, [reduced, done]);
+  }, [reduced, done, resolvedVariant]);
+
+  // Tap-to-pop — a small champagne-gold mote burst + ripple ring at the pointer
+  // point, plus a quick squish on the mark. Same self-removing-node / WAAPI
+  // technique as the gather spawner. Gated on the admin toggle AND reduced-
+  // motion. Works on every variant (it's a touch delight, not a variant trait).
+  useEffect(() => {
+    if (!popEnabled || reduced) return;
+    const root = rootRef.current;
+    if (!root) return;
+
+    const onPointerDown = (e: PointerEvent) => {
+      const rect = root.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      // Ripple ring.
+      const ring = document.createElement('div');
+      ring.className = 'sd-pop-ring';
+      ring.style.left = `${x}px`;
+      ring.style.top = `${y}px`;
+      root.appendChild(ring);
+      const rAnim = ring.animate(
+        [
+          { width: '0px', height: '0px', opacity: 0.55, transform: 'translate(-50%,-50%)' },
+          { width: '64px', height: '64px', opacity: 0, transform: 'translate(-50%,-50%)' },
+        ],
+        { duration: 500, easing: 'cubic-bezier(.2,.7,.2,1)' },
+      );
+      rAnim.onfinish = () => ring.remove();
+      rAnim.oncancel = () => ring.remove();
+
+      // Gold mote burst.
+      const count = 7 + Math.floor(Math.random() * 5); // 7–11
+      for (let i = 0; i < count; i++) {
+        const mote = document.createElement('div');
+        mote.className = 'sd-pop-mote';
+        const size = 3 + Math.random() * 3;
+        mote.style.width = `${size}px`;
+        mote.style.height = `${size}px`;
+        mote.style.left = `${x}px`;
+        mote.style.top = `${y}px`;
+        mote.style.background = POP_GOLDS[i % POP_GOLDS.length] ?? POP_GOLDS[0];
+        root.appendChild(mote);
+        const a = Math.random() * Math.PI * 2;
+        const dist = 22 + Math.random() * 26;
+        const dx = Math.cos(a) * dist;
+        const dy = Math.sin(a) * dist;
+        const mAnim = mote.animate(
+          [
+            { transform: 'translate(-50%,-50%) scale(1)', opacity: 0.95 },
+            {
+              transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.2)`,
+              opacity: 0,
+            },
+          ],
+          { duration: 420 + Math.random() * 160, easing: 'cubic-bezier(.4,0,.4,1)' },
+        );
+        mAnim.onfinish = () => mote.remove();
+        mAnim.oncancel = () => mote.remove();
+      }
+
+      // Squish the mark.
+      const core = root.querySelector('.sd-core');
+      if (core) {
+        core.animate(
+          [
+            { transform: 'scale(1)' },
+            { transform: 'scale(.9)' },
+            { transform: 'scale(1)' },
+          ],
+          { duration: 260, easing: 'cubic-bezier(.3,.7,.3,1)' },
+        );
+      }
+    };
+
+    root.addEventListener('pointerdown', onPointerDown);
+    return () => root.removeEventListener('pointerdown', onPointerDown);
+  }, [popEnabled, reduced]);
 
   return (
     <div
+      ref={rootRef}
       className={`sd-loader ${className}`.trim()}
       data-theme={theme}
+      data-loader-variant={resolvedVariant}
       data-done={done || undefined}
       role="status"
       aria-live="polite"
@@ -168,6 +269,14 @@ export function SDLoader({
         <div className="sd-scene" ref={sceneRef}>
           <div className="sd-core">
             <div className="sd-glow" aria-hidden="true" />
+            {/* aurora + pulse decorative layers — CSS-toggled by variant; inert
+                (display:none) for `gather`. */}
+            <div className="sd-aurora" aria-hidden="true" />
+            <div className="sd-pulse" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </div>
             <svg className="sd-ring" viewBox="0 0 120 120" aria-hidden="true">
               <circle cx="60" cy="60" r="54" />
             </svg>

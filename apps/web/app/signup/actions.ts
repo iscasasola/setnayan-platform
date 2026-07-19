@@ -10,6 +10,9 @@ import { isEmailBlacklisted } from '@/lib/blacklist';
 import { captureEvent } from '@/lib/analytics';
 import { safeNext } from '@/lib/auth';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
+import { linkGuestSessionToUser } from '@/lib/link-guest-account';
+import { applyReferralAtSignup } from '@/lib/referral-actions';
+import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
 
 function parseAccountType(raw: FormDataEntryValue | null): 'customer' | 'vendor' {
   const value = raw ? String(raw) : '';
@@ -47,7 +50,22 @@ export async function signUp(formData: FormData) {
   // checked, omit the field when unchecked. See login/actions.ts for the
   // canonical HTML form contract note.
   const remember = String(formData.get('remember') ?? '') === 'on';
-  const next = safeNext(formData.get('next'));
+  // Fresh VENDOR signups with no explicit destination land on the onboarding
+  // wizard (shop name · primary service · location · contacts · socials) —
+  // it forwards to My Shop once the shop is named (owner 2026-07-03). An
+  // explicit ?next= (deep-link/QR flows) still wins.
+  const rawNext = safeNext(formData.get('next'));
+  const next = accountType === 'vendor' && rawNext === '/' ? '/open-shop' : rawNext;
+  // Guest → host growth-loop attribution (no PII). Set by the guest-page CTA,
+  // carried through the form as hidden inputs. Only `ref=guest` with a present
+  // `src_event` (a public_id, text) is attributable.
+  const guestHostRef = String(formData.get('ref') ?? '') === 'guest' ? 'guest' : '';
+  const guestHostSrcEvent = String(formData.get('src_event') ?? '').trim();
+  const isGuestHostAttributed = guestHostRef === 'guest' && guestHostSrcEvent !== '';
+  // Couple referral rewards — a new account arriving via a shared ?refc=<code>
+  // link. Carried through the form as a hidden input. Only couples can be
+  // referred (referrals reward event planning); ignored for vendor signups.
+  const referralCode = String(formData.get('refc') ?? '').trim();
   // Public Event Summary consent — couples only. Captured at signup per
   // CLAUDE.md decision-log rows 426 + 428 (2026-05-19) + the 8 RA 10173
   // safe-harbor guardrails. Vendors don't get this field (form hides it
@@ -149,6 +167,30 @@ export async function signUp(formData: FormData) {
         /* welcome email is best-effort */
       });
 
+      // Persistent guest accounts (PR-E): if this browser also carries a signed
+      // guest session (the new couple attended someone else's wedding as a
+      // guest), link it so their tagged photos surface in their Account hub.
+      // Best-effort — the helper never throws. Awaited so the DB write lands
+      // before the redirect aborts the request.
+      const guestLink = await linkGuestSessionToUser(userId);
+      if (guestLink.linked) {
+        void captureEvent({
+          distinctId: userId,
+          event: 'guest_account_linked',
+          properties: { ref: 'guest' },
+        }).catch(() => {
+          /* telemetry never blocks */
+        });
+      }
+
+      // Couple referral rewards — record the OPEN redemption if this couple
+      // arrived via a shared ?refc= link. Best-effort (never throws); ANONYMOUS
+      // convert is always a couple, so no account-type gate needed. Awaited so
+      // the DB write lands before the redirect tears down the request.
+      if (referralCode) {
+        await applyReferralAtSignup(referralCode, userId);
+      }
+
       // Honor the "stay signed in" checkbox before sending them to re-login as
       // their now-permanent self (a fresh login issues a token with
       // is_anonymous=false, the cleanest way to drop the anonymous claim).
@@ -162,6 +204,7 @@ export async function signUp(formData: FormData) {
     }
   }
 
+  const captchaToken = captchaTokenFromForm(formData);
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -170,6 +213,8 @@ export async function signUp(formData: FormData) {
       // The trigger reads raw_user_meta_data->>'account_type' to pick the
       // public.account_type enum value for the new public.users row.
       data: { account_type: accountType },
+      // Empty token → {} → identical to the pre-captcha call.
+      ...captchaOptions(captchaToken),
     },
   });
 
@@ -222,7 +267,10 @@ export async function signUp(formData: FormData) {
       // two operations.
 
       const accountKindLabel = accountType === 'vendor' ? 'vendor' : 'couple';
-      const landingPath = accountType === 'vendor' ? '/vendor-dashboard' : '/dashboard';
+      // Vendors land on the onboarding wizard (shop name · primary service ·
+      // location · contacts · socials); it forwards to My Shop once the shop
+      // is named (owner 2026-07-03).
+      const landingPath = accountType === 'vendor' ? '/open-shop' : '/dashboard';
 
       const consentPromise = publicSummaryConsent
         ? (async () => {
@@ -333,6 +381,45 @@ export async function signUp(formData: FormData) {
       }).catch(() => {
         // Telemetry failure never blocks. Silent.
       });
+      // Guest → host growth-loop north-star metric. Only fired when the signup
+      // was attributed to a guest-page CTA. Best-effort, never blocks (the
+      // existing `void … .catch` pattern above).
+      if (isGuestHostAttributed) {
+        void captureEvent({
+          distinctId: data.user.id,
+          event: 'guest_to_host_signup',
+          properties: {
+            attributed_to_event_public_id: guestHostSrcEvent,
+            ref: guestHostRef,
+          },
+        }).catch(() => {
+          // Telemetry failure never blocks. Silent.
+        });
+      }
+
+      // Persistent guest accounts (PR-E): link a signed guest session (if any)
+      // to this brand-new account so the guest's tagged photos from the event
+      // they attended surface in their Account hub. Best-effort — the helper
+      // never throws. AWAITED (unlike the telemetry above) because it does a DB
+      // write that must land before the redirect tears down the request; only
+      // the no-PII PostHog event is fire-and-forget.
+      const guestLink = await linkGuestSessionToUser(data.user.id);
+      if (guestLink.linked) {
+        void captureEvent({
+          distinctId: data.user.id,
+          event: 'guest_account_linked',
+          properties: { ref: 'guest' },
+        }).catch(() => {
+          // Telemetry failure never blocks. Silent.
+        });
+      }
+
+      // Couple referral rewards — record the OPEN redemption for a couple who
+      // signed up via a shared ?refc= link. Couples only (referrals reward
+      // event planning). Best-effort; awaited so the write lands pre-redirect.
+      if (referralCode && accountType === 'customer') {
+        await applyReferralAtSignup(referralCode, data.user.id);
+      }
     }
     return redirect(
       `/login?ready=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`,

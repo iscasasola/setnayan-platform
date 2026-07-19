@@ -53,6 +53,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import {
   cancelBookingAsHost,
   type CancelBookingAsHostResult,
@@ -107,30 +108,20 @@ export function CancelBookingButton({
     return () => clearTimeout(t);
   }, [toast]);
 
-  // Focus the cancel-modal close button on open — calmest default, the
-  // destructive path requires a deliberate Tab over. Mirrors plan-card-lock.
-  useEffect(() => {
-    if (dialog.kind === 'open' || dialog.kind === 'error') {
-      cancelBtnRef.current?.focus();
-    }
-  }, [dialog]);
-
-  // Escape-key dismissal.
-  useEffect(() => {
-    if (dialog.kind === 'closed') return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && !isPending) {
-        setDialog({ kind: 'closed' });
-      }
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [dialog, isPending]);
-
   const closeDialog = () => {
     if (isPending) return; // Don't allow close during in-flight submit.
     setDialog({ kind: 'closed' });
   };
+
+  // Focus trap + Esc-to-close + scroll lock. Initial focus lands on the
+  // "Keep the booking" button — calmest default, the destructive path
+  // requires a deliberate Tab over. Mirrors plan-card-lock.
+  useModalA11y({
+    open: dialog.kind !== 'closed',
+    onClose: closeDialog,
+    containerRef: dialogRef,
+    initialFocusRef: cancelBtnRef,
+  });
 
   const performCancel = () => {
     setDialog({ kind: 'pending' });
@@ -210,7 +201,7 @@ export function CancelBookingButton({
           aria-modal="true"
           aria-labelledby="cancel-booking-headline"
           aria-describedby="cancel-booking-body"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm sm:items-center"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
           onClick={(e) => {
             if (e.target === dialogRef.current) closeDialog();
           }}

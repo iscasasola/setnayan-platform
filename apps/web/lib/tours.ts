@@ -220,7 +220,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Send,
         title: 'Hand out your photo-crew seats',
-        body: 'Share each seat&rsquo;s link with a friend — their phone becomes a candid camera bound to your wedding. Re-issue a seat anytime. Try the free sampler before you commit.',
+        body: 'Share each seat&rsquo;s link with a friend — their phone becomes a candid camera bound to your wedding. Re-issue a seat anytime. Your first 5 guest cameras are free to try.',
       },
       {
         Icon: Sparkles,

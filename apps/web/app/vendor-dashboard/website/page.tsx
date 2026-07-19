@@ -4,8 +4,8 @@
  * WHY: 2026-06-15 nav-tune (owner-picked). The vendor bottom nav gained a
  * "Website" tab; the owner chose "live page preview" — it shows the vendor
  * their public microsite (/v/[slug]) exactly as couples see it, with an Edit
- * entry back to the profile editor and an Open-live link. This is a viewer,
- * not an editor: every field is changed at /vendor-dashboard/profile.
+ * entry back to My Shop and an Open-live link. This is a viewer, not an editor:
+ * every field is changed at /vendor-dashboard/shop (My Shop → Website Editor).
  *
  * The public page is keyed on `business_slug` (a Pro/Enterprise custom-address
  * feature) and only renders for publicly-visible profiles (coming_soon +
@@ -24,6 +24,8 @@ import { Globe, ExternalLink, SquarePen, AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { isPubliclyVisible } from '@/lib/vendor-visibility';
+import { DomainManager } from './_domain-manager';
+import type { DomainRow } from './actions';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Your website · Setnayan' };
@@ -42,10 +44,22 @@ export default async function VendorWebsitePreview() {
 
   let slug: string | null = null;
   let visible = false;
+  let domains: DomainRow[] = [];
   try {
     const profile = await fetchOwnVendorProfile(supabase, user.id);
     slug = profile?.business_slug ?? null;
     visible = isPubliclyVisible(profile?.public_visibility ?? 'coming_soon');
+    // The vendor's own custom domains (RLS scopes this to their vendor profile).
+    const { data: domainRows } = await supabase
+      .from('custom_domains')
+      .select('domain_id, domain, verified_at')
+      .eq('owner_type', 'vendor')
+      .order('created_at', { ascending: true });
+    domains = (domainRows ?? []).map((d) => ({
+      domain_id: d.domain_id as string,
+      domain: d.domain as string,
+      verified: Boolean(d.verified_at),
+    }));
   } catch {
     // Degrade to the "not visible yet" state rather than crashing the tab.
     slug = null;
@@ -56,9 +70,9 @@ export default async function VendorWebsitePreview() {
   const publicPath = slug ? `/v/${slug}` : null;
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
-        <p className="m-eyebrow" style={{ color: 'var(--m-orange-2)' }}>
+        <p className="sn-eye" style={{ color: 'var(--m-orange-2)' }}>
           Vendor dashboard · Public page
         </p>
         <h1 className="m-display text-3xl font-semibold tracking-tight sm:text-4xl">
@@ -85,7 +99,7 @@ export default async function VendorWebsitePreview() {
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <Link
-                href="/vendor-dashboard/profile"
+                href="/vendor-dashboard/shop"
                 className="button-secondary inline-flex items-center gap-2"
               >
                 <SquarePen aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -169,19 +183,23 @@ export default async function VendorWebsitePreview() {
               ? 'Your page goes live once your profile is published and verification is underway. Until then it stays private to you.'
               : 'Your public page lives at a custom address like ' +
                 `${DISPLAY_HOST}/v/your-name` +
-                '. Add yours in Profile, then this tab shows a live preview of exactly what couples see.'}
+                '. Add yours in My Shop, then this tab shows a live preview of exactly what couples see.'}
           </p>
           <div className="pt-1">
             <Link
-              href="/vendor-dashboard/profile"
+              href="/vendor-dashboard/shop"
               className="button-primary inline-flex items-center gap-2"
             >
               <SquarePen aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              {slug ? 'Edit profile' : 'Set up my page'}
+              {slug ? 'Edit in My Shop' : 'Set up my page'}
             </Link>
           </div>
         </section>
       )}
+
+      {/* Custom domain — available once the vendor has a public address (a
+          custom domain resolves to /v/[slug], so it needs a slug to point at). */}
+      {slug && <DomainManager initial={domains} />}
     </div>
   );
 }

@@ -1,0 +1,16 @@
+# Changelog fragment — collected into CHANGELOG.md by scripts/changelog-collect.mjs
+
+## 2026-07-05 · feat(vendors): public "Featured videos" gallery + Vimeo social + presence guide
+
+Vendors can now add up to 10 external video links to their public profile. YouTube & Vimeo render as inline 16:9 players; Instagram / Facebook / TikTok / other links render as click-through cards that open in a new tab. Manual photo portfolio (`portfolio_r2_keys`) is untouched.
+
+- **Migration `supabase/migrations/20270518165113_vendor_gallery_video_links.sql`**: adds `vendor_profiles.gallery_video_links TEXT[] NOT NULL DEFAULT '{}'` with a `cardinality <= 10` CHECK. Additive column on an existing RLS-enabled table — no RLS change. **Not yet applied to prod** (human applies via MCP after review).
+- **`lib/video-embed.ts` (new)**: pure `parseVideoLink(url)` classifier. YouTube (`watch?v=` · `youtu.be/` · `/shorts/` · `/embed/`) and Vimeo (numeric `vimeo.com/ID`, `player.vimeo.com/video/ID`) → `kind:'iframe'` with a privacy-preserving `embedUrl` (`youtube-nocookie.com/embed/…` · `player.vimeo.com/video/…`). Instagram / Facebook / TikTok → `kind:'link'`. Any other valid http(s) URL → `platform:'other'`, `kind:'link'`. Rejects empties, non-URLs, and non-http(s) schemes (`javascript:`, `data:`, …) → `null`. 21-case `lib/video-embed.test.ts` (node:test via `pnpm test:unit`).
+- **`lib/vendor-profile.ts`**: `VendorProfileRow.gallery_video_links: string[]`; added to `FULL_VENDOR_PROFILE_SELECT`, legacy-fallback default `[]`, and null-normalisation.
+- **Profile editor** (`app/vendor-dashboard/profile/page.tsx` + new `_components/video-links-editor.tsx` client repeater): a "Featured videos" field of up to 10 URL inputs with live per-row iframe/link-out preview. `saveVendorProfile` (`actions.ts`) parses via `parseVideoLinks` (validate + dedupe + cap 10, server-side).
+- **Public render** (`app/v/[slug]/page.tsx`): new "Featured videos" section after the photo portfolio — responsive `aspect-video` iframes (`loading="lazy"`, `allowFullScreen`, `referrerPolicy="strict-origin-when-cross-origin"`) for players; link-out cards (`target="_blank" rel="noopener noreferrer nofollow"`, Lucide platform glyph) otherwise. Auto-hidden when empty. Loaded via `fullSelect` + fallback-regex.
+- **CSP** (`next.config.ts`): added `frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com` alongside the existing `frame-ancestors 'self'` — required for the iframes; scoped to embed origins only (no default-src/script-src reintroduced, keynote decks unaffected).
+- **Vimeo social platform** (`lib/vendor-verification.ts`): added `{ key:'vimeo', label:'Vimeo', kind:'url' }` to `SOCIAL_PLATFORMS` (after YouTube) + a `vimeo.` branch in `detectSocialPlatform()`. Flows into the verification social slot automatically; slot hint updated to list Vimeo.
+- **Help guide** (`lib/help.ts`): new `build-your-online-presence` article in the `getting-verified` vendor topic (Business Instagram · YouTube · Vimeo · paste links back into the profile). The `social_media` DocSlot now carries `guideSlug: 'build-your-online-presence'` so its card shows a "How to get this →" link.
+
+SPEC IMPACT: None — additive vendor-profile feature; 1 additive column, no pricing/SKU/schema-rename change.

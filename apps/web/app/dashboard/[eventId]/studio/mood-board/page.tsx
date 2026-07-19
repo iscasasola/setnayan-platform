@@ -2,9 +2,18 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchGuestsByEvent } from '@/lib/guests';
-import { roleGroupOf, type RoleGroup } from '@/lib/role-groups';
-import { sanitizeRolePalette, type PaletteKey } from '@/lib/mood-board';
-import { seedPaletteFromFeel } from '@/lib/feel-palettes';
+import {
+  sanitizeRolePalette,
+  paletteKeyForRole,
+  ROLE_FAMILY_KEYS,
+  type PaletteKey,
+} from '@/lib/mood-board';
+import {
+  seedPaletteFromColors,
+  seedPaletteFromFeel,
+  RED_GOLD_PALETTE,
+} from '@/lib/feel-palettes';
+import { isChineseWedding } from '@/lib/chinese-wedding';
 import type { ColorRangeSlot } from '@/lib/color-recolor';
 import type { ReceptionDesign } from '@/lib/reception-scene';
 import { saveRolePalette } from './actions';
@@ -20,6 +29,8 @@ import {
   type InspirationItem,
 } from './_components/inspiration-board';
 import { ConceptPdfButton } from './_components/concept-pdf-button';
+import { PrintablePdfButton } from './_components/printable-pdf-button';
+import { ShareWithVendorsButton } from './_components/share-with-vendors-button';
 
 export const metadata = { title: 'Mood Board' };
 
@@ -69,11 +80,18 @@ export default async function MoodBoardPage({ params }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [eventRes, guests, attireRes, venueFlowerRes, inspirationRes] = await Promise.all([
+  const [
+    eventRes,
+    guests,
+    attireRes,
+    venueFlowerRes,
+    inspirationRes,
+    bookedVendorRes,
+  ] = await Promise.all([
     supabase
       .from('events')
       .select(
-        'event_id, display_name, role_palette, mood_board_updated_at, reception_design, mood_feel_key',
+        'event_id, display_name, role_palette, mood_board_updated_at, reception_design, mood_feel_key, ceremony_type, secondary_ceremony_type',
       )
       .eq('event_id', eventId)
       .maybeSingle(),
@@ -107,9 +125,24 @@ export default async function MoodBoardPage({ params }: Props) {
       .select('slot_key, slot_position, image_url')
       .eq('event_id', eventId)
       .is('removed_at', null),
+    // Booked marketplace vendors for the "Share with vendors" affordance. Mirrors
+    // the get_vendor_mood_board RPC's booked-gate EXACTLY (any event_vendors row
+    // with a non-null marketplace_vendor_id; no status filter). Distinct rows here
+    // can repeat a vendor across categories — we de-dupe below for the count.
+    supabase
+      .from('event_vendors')
+      .select('marketplace_vendor_id')
+      .eq('event_id', eventId)
+      .not('marketplace_vendor_id', 'is', null),
   ]);
   const event = eventRes.data;
   if (!event) notFound();
+
+  const bookedVendorCount = new Set(
+    (bookedVendorRes.data ?? [])
+      .map((r) => r.marketplace_vendor_id as string | null)
+      .filter((id): id is string => Boolean(id)),
+  ).size;
 
   const inspirations: InspirationItem[] = (inspirationRes.data ?? []).map((r) => ({
     slot_key: r.slot_key,
@@ -123,11 +156,18 @@ export default async function MoodBoardPage({ params }: Props) {
       ? (event.reception_design as ReceptionDesign)
       : {};
 
-  // ── present role groups drive which attire/role cards show ──────────────
-  const presentRoleGroups = new Set<RoleGroup>();
+  // ── present roles drive which palette sections show (taxonomy v2) ────────
+  // A role's palette section appears ONLY when the guest list actually contains
+  // that role (primary or extra). Each role resolves to its SPECIFIC palette key
+  // (paletteKeyForRole), so a Bridesmaid surfaces the Bridesmaids section, the
+  // Nikah cast (wali/witness/imam/wakil) surfaces Nikah Principals — the existing
+  // Nikah gate, since those roles only appear for muslim weddings — and the
+  // parents/immediate-family roles surface Parents & Immediate Family.
+  const presentPaletteKeys = new Set<PaletteKey>();
   for (const g of guests) {
-    const group = roleGroupOf(g.role);
-    if (group !== 'guest') presentRoleGroups.add(group);
+    for (const r of [g.role, ...(g.extra_roles ?? [])]) {
+      presentPaletteKeys.add(paletteKeyForRole(r));
+    }
   }
   const visibleKeys = new Set<PaletteKey>([
     'ceremony',
@@ -136,26 +176,49 @@ export default async function MoodBoardPage({ params }: Props) {
     'groom',
     'guest',
   ]);
-  if (presentRoleGroups.has('wedding_party')) visibleKeys.add('wedding_party');
-  if (presentRoleGroups.has('principal_sponsors')) visibleKeys.add('principal_sponsors');
-  if (presentRoleGroups.has('secondary_sponsors')) visibleKeys.add('secondary_sponsors');
-  if (presentRoleGroups.has('bearers_flower_girl')) visibleKeys.add('bearers_flower_girl');
-  if (presentRoleGroups.has('officiants')) visibleKeys.add('officiants');
+  for (const k of ROLE_FAMILY_KEYS) {
+    if (presentPaletteKeys.has(k)) visibleKeys.add(k);
+  }
+  // The shared Wedding Party fallback shows whenever ANY entourage member is
+  // present, so a couple can color the whole party with one palette without
+  // opening each split sub-section (paletteKeyForRole never returns the fallback
+  // key itself, so add it explicitly).
+  if (
+    presentPaletteKeys.has('maid_of_honor') ||
+    presentPaletteKeys.has('best_man') ||
+    presentPaletteKeys.has('bridesmaids') ||
+    presentPaletteKeys.has('groomsmen')
+  ) {
+    visibleKeys.add('wedding_party');
+  }
 
-  // Draft, don't blank: when the couple has NO saved palette yet but picked a
-  // wedding "feel" in onboarding, pre-fill the editor with a starter palette
-  // derived from that feel. Display-only — the existing Save action remains the
-  // ONLY path that writes role_palette; seeded values aren't persisted until the
-  // couple explicitly saves.
-  const seededPalette =
-    Object.keys(palette).length === 0
-      ? seedPaletteFromFeel(
+  // Draft, don't blank: when the couple has NO saved palette yet, pre-fill the
+  // editor with a starter palette. For a Chinese (Tsinoy) wedding we suggest the
+  // auspicious red & gold default; otherwise we derive a starter from the wedding
+  // "feel" picked in onboarding. Display-only — the existing Save action remains
+  // the ONLY path that writes role_palette; seeded values aren't persisted until
+  // the couple explicitly saves, so this is a suggestion, never a forced override.
+  const hasSavedPalette = Object.keys(palette).length > 0;
+  const isChineseCeremony = isChineseWedding({
+    ceremony_type: (event as { ceremony_type?: string | null }).ceremony_type ?? null,
+    secondary_ceremony_type:
+      (event as { secondary_ceremony_type?: string | null }).secondary_ceremony_type ?? null,
+  });
+  const seededPalette = hasSavedPalette
+    ? {}
+    : isChineseCeremony
+      ? seedPaletteFromColors(RED_GOLD_PALETTE, Array.from(visibleKeys))
+      : seedPaletteFromFeel(
           (event as { mood_feel_key?: string | null }).mood_feel_key,
           Array.from(visibleKeys),
-        )
-      : {};
+        );
   const isSeeded = Object.keys(seededPalette).length > 0;
   const initialPalette = isSeeded ? seededPalette : palette;
+  // True only when the editor is currently pre-filled with the Chinese red & gold
+  // default (Chinese event + nothing saved yet) — gates the small Chinese-default
+  // note above the editor. Non-Chinese events never set this, so their render is
+  // byte-identical.
+  const showChineseDefaultNote = isChineseCeremony && isSeeded;
 
   // ── one representative figure per attire subtype (first wins) ───────────
   const figureBySubtype: Record<string, { url: string; label: string }> = {};
@@ -248,8 +311,9 @@ export default async function MoodBoardPage({ params }: Props) {
         ‹ Back to add-ons
       </Link>
 
-      <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">Palette</p>
+        <h1 className="sn-h1">
           Mood Board
         </h1>
         <p className="max-w-prose text-base text-ink/65">
@@ -263,10 +327,23 @@ export default async function MoodBoardPage({ params }: Props) {
         ) : null}
       </header>
 
+      {showChineseDefaultNote ? (
+        <p className="rounded-lg border border-[#7A1F2B]/25 bg-[#7A1F2B]/[0.05] px-3 py-2 text-sm text-ink/75">
+          We&rsquo;ve suggested a red &amp; gold palette — the auspicious colours of a
+          Chinese wedding. Tweak it to your taste, then{' '}
+          <span className="font-medium">Save palette</span> to keep it. Nothing is saved
+          until you do.
+        </p>
+      ) : null}
+
+      {/* For the Chinese default we surface our own accurate red & gold note
+          above, so we suppress the editor's generic "from your wedding feel" hint
+          (seeded -> false) to avoid a duplicate, inaccurate message. Non-Chinese
+          events keep seeded={isSeeded} exactly as before — byte-identical. */}
       <PaletteEditor
         eventId={eventId}
         initial={initialPalette}
-        seeded={isSeeded}
+        seeded={isSeeded && !showChineseDefaultNote}
         visibleKeys={Array.from(visibleKeys)}
         saveAction={saveRolePalette}
       />
@@ -317,28 +394,31 @@ export default async function MoodBoardPage({ params }: Props) {
         <InspirationBoard eventId={eventId} initial={inspirations} />
       </section>
 
-      <section className="space-y-4 rounded-2xl border border-ink/10 bg-white p-5">
+      <section className="space-y-4 border-t border-ink/10 pt-6">
         <header className="space-y-1">
-          <h2 className="text-2xl font-semibold text-ink">Your concept book</h2>
+          <h2 className="text-2xl font-semibold text-ink">Share with your vendors</h2>
           <p className="max-w-prose text-sm text-ink/65">
-            Your palette, your reception design, your custom template, and your inspirations —
-            gathered into a printable PDF to keep or share. When you’re ready, “Make it real”
-            adds the photo-real render to it.
+            Send your booked vendors a heads-up that your mood board is ready, so they can
+            match their styling, decor, and booth to your palette and reception design. They
+            see a read-only view — your palette, design, and inspirations, no guest details.
           </p>
         </header>
-        <ConceptPdfButton eventId={eventId} eventName={event.display_name} />
+        <ShareWithVendorsButton eventId={eventId} bookedVendorCount={bookedVendorCount} />
       </section>
 
-      <section className="space-y-3 rounded-2xl border border-dashed border-ink/15 bg-cream p-5">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Coming next
-        </p>
-        <ul className="list-inside list-disc space-y-1 text-sm text-ink/65">
-          <li>More treatment options + photo-real swatches per part</li>
-          <li>Per-role attire styles you can recolor (photo-real samples)</li>
-          <li>Custom role palettes + a curated theme library</li>
-          <li>AI Composite Scene — a bespoke photo-real render of your venue (premium)</li>
-        </ul>
+      <section className="sn-tile space-y-4 p-5">
+        <header className="space-y-1">
+          <h2 className="text-2xl font-semibold text-ink">Keep a copy</h2>
+          <p className="max-w-prose text-sm text-ink/65">
+            Download a one-page printable of your palette and reception design — pin it to a
+            board or hand it to a vendor. Or grab your full concept book: palette, reception
+            design, custom template, and inspirations gathered into one PDF.
+          </p>
+        </header>
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start">
+          <PrintablePdfButton eventId={eventId} eventName={event.display_name} />
+          <ConceptPdfButton eventId={eventId} eventName={event.display_name} />
+        </div>
       </section>
     </div>
   );

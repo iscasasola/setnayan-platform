@@ -17,7 +17,14 @@
  */
 
 import Link from 'next/link';
-import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
+import { Reveal } from '@/app/_components/marketing/_motion';
+import {
+  LineRevealHeading,
+  RevealBand,
+  RevealList,
+  HowItWorksPanel,
+  SettleTiles,
+} from './_papic-motion';
 
 export const dynamic = 'force-static';
 export const revalidate = 3600;
@@ -149,115 +156,148 @@ export default function PapicLandingPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(APP_LD) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_LD) }} />
       <main className="mx-auto w-full max-w-6xl px-5 pb-20 pt-10 sm:pt-14">
-        {/* Hero */}
+        {/* Hero — text-led; the line-reveal headline + quiet rise are the only
+            motion here, so the step-02 sort stays the page's one spectacle. */}
         <header className="mx-auto max-w-2xl text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-[#8C6932]">In your wedding · guest photo gallery</p>
-          <h1 className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[#1E2229] sm:text-5xl">
+          <LineRevealHeading
+            as="h1"
+            trigger="mount"
+            className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[var(--m-ink)] sm:text-5xl"
+          >
             Every guest goes home with their own photos.
-          </h1>
-          <p className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
-            Papic turns your guests into your photo crew. Everyone shoots, every photo finds the people in it, and each
-            guest gets their own gallery — plus a personal video reel. The candids your photographer can’t be everywhere
-            for, delivered to everyone.
-          </p>
-          <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              href="/onboarding/wedding?from=papic"
-              className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[#5C2542] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
-            >
-              Start planning · free
-            </Link>
-            <Link
-              href="/pricing"
-              className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full border border-[#1E2229]/20 px-7 py-3 text-sm font-semibold text-[#1E2229] transition-colors hover:bg-[#1E2229]/[0.04]"
-            >
-              See pricing
-            </Link>
-          </div>
+          </LineRevealHeading>
+          <RevealBand stagger={0.08} y={14}>
+            <p data-reveal-item className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
+              Papic turns your guests into your photo crew. Everyone shoots, every photo finds the people in it, and each
+              guest gets their own gallery — plus a personal video reel. The candids your photographer can’t be everywhere
+              for, delivered to everyone.
+            </p>
+            <div data-reveal-item className="mt-7 flex flex-wrap items-center justify-center gap-3">
+              <Link
+                href="/onboarding/wedding?from=papic"
+                className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[var(--m-mulberry)] px-7 py-3 text-sm font-semibold text-[var(--m-paper)] transition-opacity hover:opacity-90"
+              >
+                Start planning · free
+              </Link>
+              <Link
+                href="/pricing"
+                className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full border border-[var(--m-ink)]/20 px-7 py-3 text-sm font-semibold text-[var(--m-ink)] transition-colors hover:bg-[var(--m-ink)]/[0.04]"
+              >
+                See pricing
+              </Link>
+            </div>
+          </RevealBand>
         </header>
 
-        {/* How it works */}
+        {/* How it works — the SECTION is the one PanelThread panel; step 02 hosts
+            the signature tile-settle (its own useSettle ref, scoped separately
+            from this panel root so the two IO entrances don't double-fire). */}
         <section className="mx-auto mt-16 max-w-3xl" aria-label="How Papic works">
-          <ol className="grid gap-6 sm:grid-cols-3">
-            {STEPS.map((s, i) => (
-              <li key={s.t} className="rounded-2xl border border-[#1E2229]/10 bg-white/60 p-5">
-                <span className="font-mono text-xs text-[#8C6932]">{String(i + 1).padStart(2, '0')}</span>
-                <h2 className="mt-2 font-serif text-lg text-[#1E2229]">{s.t}</h2>
-                <p className="mt-1.5 text-sm text-[#5F5E5A]">{s.d}</p>
-              </li>
-            ))}
-          </ol>
+          <HowItWorksPanel>
+            <ol className="grid gap-6 sm:grid-cols-3">
+              {STEPS.map((s, i) => (
+                <li
+                  key={s.t}
+                  data-premium-item
+                  className="rounded-2xl border border-[var(--m-ink)]/10 bg-white/60 p-5"
+                >
+                  <span className="font-mono text-xs text-[#8C6932]">{String(i + 1).padStart(2, '0')}</span>
+                  <h2 className="mt-2 font-serif text-lg text-[var(--m-ink)]">{s.t}</h2>
+                  <p className="mt-1.5 text-sm text-[#5F5E5A]">{s.d}</p>
+                  {/* Step 02 · "Every photo finds its people" → the tile sort. */}
+                  {i === 1 ? <SettleTiles /> : null}
+                </li>
+              ))}
+            </ol>
+          </HowItWorksPanel>
         </section>
 
-        {/* Not a photo wall — the differentiator */}
+        {/* Not a photo wall — the differentiator. Rows rise in a quiet ~60ms
+            stagger; the strikethroughs are NOT animated. */}
         <section className="mx-auto mt-16 max-w-3xl" aria-label="What makes Papic different">
-          <h2 className="text-center font-serif text-2xl text-[#1E2229] sm:text-3xl">Not a shared photo dump</h2>
+          <LineRevealHeading className="text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">
+            Not a shared photo dump
+          </LineRevealHeading>
           <p className="mx-auto mt-3 max-w-xl text-center text-base text-[#5F5E5A]">
             A photo wall gives everyone one pile to scroll. Papic gives each guest their own night back.
           </p>
-          <ul className="mt-7 overflow-hidden rounded-2xl border border-[#1E2229]/10">
+          <RevealList
+            className="mt-7 overflow-hidden rounded-2xl border border-[var(--m-ink)]/10"
+            stagger={0.06}
+            y={12}
+          >
             {VS.map(([wall, papic], i) => (
               <li
                 key={papic}
+                data-reveal-item
                 className={`grid grid-cols-1 gap-1 px-5 py-4 sm:grid-cols-2 sm:gap-6 ${i % 2 ? 'bg-white/40' : 'bg-white/70'}`}
               >
                 <span className="text-sm text-[#9A8F86] line-through decoration-[#9A8F86]/40">{wall}</span>
-                <span className="text-sm font-medium text-[#1E2229]">{papic}</span>
+                <span className="text-sm font-medium text-[var(--m-ink)]">{papic}</span>
               </li>
             ))}
-          </ul>
+          </RevealList>
         </section>
 
-        {/* Two ways to run it */}
+        {/* Two ways to run it — paired stagger-rise; clearProps:transform keeps
+            any CSS hover-lift alive. */}
         <section className="mx-auto mt-16 max-w-3xl" aria-label="Two ways to use Papic">
-          <h2 className="text-center font-serif text-2xl text-[#1E2229] sm:text-3xl">Two ways to run it</h2>
-          <div className="mt-7 grid gap-6 sm:grid-cols-2">
-            <div className="rounded-2xl border border-[#1E2229]/10 bg-white/60 p-6">
-              <h3 className="font-serif text-lg text-[#1E2229]">Papic 5 Seats</h3>
+          <LineRevealHeading className="text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">
+            Two ways to run it
+          </LineRevealHeading>
+          <RevealBand className="mt-7 grid gap-6 sm:grid-cols-2" stagger={0.08}>
+            <div data-reveal-item className="rounded-2xl border border-[var(--m-ink)]/10 bg-white/60 p-6">
+              <h3 className="font-serif text-lg text-[var(--m-ink)]">Papic 5 Seats</h3>
               <p className="mt-2 text-sm text-[#5F5E5A]">
                 A handful of designated friends or family become your candid crew — so the rest of your guests can put
                 their phones down and just be there. They catch the reactions one camera can’t.
               </p>
             </div>
-            <div className="rounded-2xl border border-[#1E2229]/10 bg-white/60 p-6">
-              <h3 className="font-serif text-lg text-[#1E2229]">Papic Guest</h3>
+            <div data-reveal-item className="rounded-2xl border border-[var(--m-ink)]/10 bg-white/60 p-6">
+              <h3 className="font-serif text-lg text-[var(--m-ink)]">Papic Guest</h3>
               <p className="mt-2 text-sm text-[#5F5E5A]">
                 Every guest gets their own capture — like handing each table a digital disposable camera. The whole room
                 shares its view of the night, and everyone keeps their own.
               </p>
             </div>
-          </div>
+          </RevealBand>
         </section>
 
-        {/* FAQ (backs the FAQPage schema) */}
+        {/* FAQ (backs the FAQPage schema) — incidental zero-dep fade-up. */}
         <section className="mx-auto mt-16 max-w-2xl" aria-label="Papic questions">
-          <h2 className="text-center font-serif text-2xl text-[#1E2229] sm:text-3xl">Questions, answered</h2>
-          <dl className="mt-7 divide-y divide-[#1E2229]/10 border-y border-[#1E2229]/10">
-            {FAQ.map((f) => (
-              <div key={f.q} className="py-5">
-                <dt className="font-serif text-base text-[#1E2229]">{f.q}</dt>
-                <dd className="mt-1.5 text-sm text-[#5F5E5A]">{f.a}</dd>
-              </div>
+          <LineRevealHeading className="text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">
+            Questions, answered
+          </LineRevealHeading>
+          <dl className="mt-7 divide-y divide-[var(--m-ink)]/10 border-y border-[var(--m-ink)]/10">
+            {FAQ.map((f, i) => (
+              <Reveal key={f.q} delay={i * 40}>
+                <div className="py-5">
+                  <dt className="font-serif text-base text-[var(--m-ink)]">{f.q}</dt>
+                  <dd className="mt-1.5 text-sm text-[#5F5E5A]">{f.a}</dd>
+                </div>
+              </Reveal>
             ))}
           </dl>
         </section>
 
-        {/* CTA */}
-        <section className="mx-auto mt-14 max-w-2xl rounded-3xl border border-[#C5A059]/40 bg-[#FBF6EA] px-6 py-10 text-center">
-          <h2 className="font-serif text-2xl text-[#1E2229] sm:text-3xl">Give every guest the photos</h2>
-          <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
-            Papic lives inside your free Setnayan wedding — alongside your guest list, RSVP, seating, and website. Start
-            planning free, and add Papic when you’re ready.
-          </p>
-          <Link
-            href="/onboarding/wedding?from=papic"
-            className="mt-5 inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[#5C2542] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
-          >
-            Start planning · free
-          </Link>
-        </section>
+        {/* CTA — incidental fade; gold capped to a single --m-orange hairline
+            border (no glow, no new gold fill). */}
+        <Reveal>
+          <section className="mx-auto mt-14 max-w-2xl rounded-3xl border border-[var(--m-orange)]/40 bg-[#FBF6EA] px-6 py-10 text-center">
+            <h2 className="font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">Give every guest the photos</h2>
+            <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
+              Papic lives inside your free Setnayan wedding — alongside your guest list, RSVP, seating, and website. Start
+              planning free, and add Papic when you’re ready.
+            </p>
+            <Link
+              href="/onboarding/wedding?from=papic"
+              className="mt-5 inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[var(--m-mulberry)] px-7 py-3 text-sm font-semibold text-[var(--m-paper)] transition-opacity hover:opacity-90"
+            >
+              Start planning · free
+            </Link>
+          </section>
+        </Reveal>
       </main>
-      <SiteFooter />
     </>
   );
 }

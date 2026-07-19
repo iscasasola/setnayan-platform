@@ -40,6 +40,8 @@ export const getDashboardShell = cache(async (userId: string) => {
         hasVendorAccess: false,
         hasAdminAccess: false,
         vendorProfiles: [],
+        ownedShopCount: 0,
+        canOpenShop: false,
       } as Awaited<ReturnType<typeof fetchUserRoleSummary>>;
     }),
     countUnread(supabase, userId).catch((err: unknown) => {

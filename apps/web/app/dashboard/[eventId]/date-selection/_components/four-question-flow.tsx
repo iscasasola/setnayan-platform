@@ -38,6 +38,7 @@ import {
   X,
 } from 'lucide-react';
 import { lockEventDate, setMeaningfulDates, setCeremonyTypeFromFlow } from '../actions';
+import { isChineseWedding } from '@/lib/chinese-wedding';
 import {
   computeAuspiciousReasons,
   suggestMeaningfulDates,
@@ -52,6 +53,13 @@ import {
 type Props = {
   eventId: string;
   initialCeremonyType: CeremonyType | null;
+  /**
+   * Secondary/overlay ceremony — threaded so the guided flow's Chinese
+   * advisory layer fires for the common church-primary + Chinese-secondary
+   * case, mirroring the direct DatePicker path. Optional + safe default →
+   * non-Chinese suggestions stay byte-identical.
+   */
+  secondaryCeremonyType?: string | null;
   initialMeaningfulDates: MeaningfulDate[];
   backHref: string;
 };
@@ -75,6 +83,7 @@ const CEREMONY_OPTIONS: Array<{
   { value: 'christian', label: 'Christian', hint: 'Born-again, evangelical, others' },
   { value: 'muslim', label: 'Muslim', hint: 'Akad nikah with walimah' },
   { value: 'cultural', label: 'Cultural', hint: 'Filipino tribal or other traditions' },
+  { value: 'chinese', label: 'Chinese', hint: 'Tea ceremony and Chinese customs, often with a church or civil rite' },
   { value: 'aglipayan', label: 'Aglipayan (IFI)', hint: 'Aglipayan rite at an IFI parish' },
   { value: 'lds', label: 'LDS (Latter-day Saints)', hint: 'Latter-day Saint chapel ceremony' },
   { value: 'sda', label: 'Seventh-day Adventist', hint: 'Adventist ceremony with a pastor' },
@@ -128,6 +137,7 @@ const SUKOB_OPTIONS = [
 export function FourQuestionFlow({
   eventId,
   initialCeremonyType,
+  secondaryCeremonyType = null,
   initialMeaningfulDates,
   backHref,
 }: Props) {
@@ -433,6 +443,15 @@ export function FourQuestionFlow({
               ? (ceremonyChoice as CeremonyType)
               : initialCeremonyType
           }
+          chineseTradition={isChineseWedding({
+            // Use the live ceremony pick (the host may have changed it in
+            // step 1) OR fall back to the initial type, plus the overlay.
+            ceremony_type:
+              ceremonyChoice && ceremonyChoice !== 'undecided'
+                ? ceremonyChoice
+                : initialCeremonyType,
+            secondary_ceremony_type: secondaryCeremonyType,
+          })}
           meaningfulDates={drafts
             .filter((d) => d.date.trim().length > 0)
             .map((d) => ({ date: d.date, kind: d.kind, note: d.note || null }))}
@@ -597,12 +616,14 @@ function RadioGroup<T extends string>({
 
 function SuggestionsList({
   ceremonyType,
+  chineseTradition,
   meaningfulDates,
   onPick,
   pickedDate,
   pending,
 }: {
   ceremonyType: CeremonyType | null;
+  chineseTradition: boolean;
   meaningfulDates: MeaningfulDate[];
   onPick: (date: string) => void;
   pickedDate: string | null;
@@ -611,6 +632,8 @@ function SuggestionsList({
   const suggestions: DateSuggestion[] = suggestMeaningfulDates(
     meaningfulDates,
     ceremonyType,
+    undefined,
+    chineseTradition,
   );
 
   if (suggestions.length === 0) {

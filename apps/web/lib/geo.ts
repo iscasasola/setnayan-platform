@@ -164,3 +164,73 @@ export async function geocodeNominatim(query: string): Promise<GeocodeResult | n
     return null;
   }
 }
+
+const NOMINATIM_REVERSE_ENDPOINT =
+  'https://nominatim.openstreetmap.org/reverse';
+
+export type ReverseGeocodeResult = {
+  /** Best-guess city/municipality for the pin (city → town → municipality →
+   *  village → county, first that resolves). Empty string if none. */
+  city: string;
+  /** Full human-readable address line for the pin. */
+  displayName: string;
+};
+
+/**
+ * Reverse-geocode a lat/lng pair to a city + address line via Nominatim.
+ * Powers the branch "drop a pin → detect city automatically" flow: the vendor
+ * places a pin, we resolve the municipality server-side (Nominatim's 1 req/sec
+ * UA policy — same polite UA + timeout as {@link geocodeNominatim}).
+ *
+ * Best-effort: returns `null` on any miss (no result, network error, timeout).
+ * Callers keep the raw coords and let the vendor confirm/override the city.
+ */
+export async function reverseGeocodeNominatim(
+  lat: number,
+  lng: number,
+): Promise<ReverseGeocodeResult | null> {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+
+  const url = new URL(NOMINATIM_REVERSE_ENDPOINT);
+  url.searchParams.set('lat', String(lat));
+  url.searchParams.set('lon', String(lng));
+  url.searchParams.set('format', 'json');
+  url.searchParams.set('zoom', '12'); // ~city/municipality granularity
+  url.searchParams.set('addressdetails', '1');
+
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent':
+          'Setnayan/1.0 (https://www.setnayan.com; iscasasolaii@gmail.com)',
+        Accept: 'application/json',
+      },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return null;
+
+    const json: unknown = await res.json();
+    if (!json || typeof json !== 'object') return null;
+    const obj = json as {
+      display_name?: string;
+      address?: Record<string, string>;
+    };
+    const a = obj.address ?? {};
+    const city =
+      a.city ??
+      a.town ??
+      a.municipality ??
+      a.village ??
+      a.county ??
+      a.state ??
+      '';
+    return {
+      city: typeof city === 'string' ? city : '',
+      displayName:
+        typeof obj.display_name === 'string' ? obj.display_name : '',
+    };
+  } catch {
+    return null;
+  }
+}

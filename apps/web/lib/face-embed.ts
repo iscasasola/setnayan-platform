@@ -19,7 +19,8 @@ import { isFaceModelConfigured, VECTOR_MODEL } from '@/lib/face-embed-core';
 // set (OWNER_ACTIONS). The script URL defaults to `${MODEL_URL}/face-api.js`;
 // override with NEXT_PUBLIC_FACE_API_URL. Until then every call here is a no-op.
 
-type FaceDetection = { descriptor: Float32Array };
+type FaceBoxLike = { x: number; y: number; width: number; height: number };
+type FaceDetection = { descriptor: Float32Array; detection: { box: FaceBoxLike } };
 type FaceApi = {
   nets: {
     ssdMobilenetv1: { loadFromUri(url: string): Promise<void> };
@@ -67,7 +68,7 @@ function loadFaceApiScript(src: string): Promise<FaceApi | null> {
 
 async function getFaceApi(): Promise<FaceApi | null> {
   if (apiPromise) return apiPromise;
-  apiPromise = (async () => {
+  const attempt = (async () => {
     try {
       const url = process.env.NEXT_PUBLIC_FACE_MODEL_URL;
       if (!url || typeof window === 'undefined') return null;
@@ -83,7 +84,13 @@ async function getFaceApi(): Promise<FaceApi | null> {
       return null;
     }
   })();
-  return apiPromise;
+  apiPromise = attempt;
+  const api = await attempt;
+  // Never cache a FAILED load: a transient script/weight/network error (common
+  // on first paint over cellular) would otherwise wedge the whole session as
+  // "no model" forever. Clear so the next call retries the load from scratch.
+  if (!api && apiPromise === attempt) apiPromise = null;
+  return api;
 }
 
 /**
@@ -113,19 +120,47 @@ export async function embedSingleFace(
  * no model, or any error). The capturing phone sends these to the server matcher,
  * which compares them to the event's enrolled fingerprints.
  */
+export type FaceEmbedResult = {
+  /** 128-d descriptors, one per detected face (the match-side payload). */
+  vectors: number[][];
+  /** Normalized (0..1) center of the DOMINANT (largest) detected face — the
+   *  subject — for Tier-2 auto-reframe (render reads it as `subjectCenter`).
+   *  null when no face is found or the model isn't hosted. */
+  subjectCenter: { x: number; y: number } | null;
+};
+
 export async function embedFaces(
   input: HTMLCanvasElement | HTMLImageElement,
-): Promise<number[][]> {
+): Promise<FaceEmbedResult> {
+  const empty: FaceEmbedResult = { vectors: [], subjectCenter: null };
   try {
-    if (!isFaceModelConfigured()) return [];
+    if (!isFaceModelConfigured()) return empty;
     const faceapi = await getFaceApi();
-    if (!faceapi) return [];
+    if (!faceapi) return empty;
     const dets = await faceapi
       .detectAllFaces(input)
       .withFaceLandmarks()
       .withFaceDescriptors();
-    return dets.map((d) => Array.from(d.descriptor));
+    if (dets.length === 0) return empty;
+
+    const vectors = dets.map((d) => Array.from(d.descriptor));
+
+    // Dominant subject = largest box; normalize its center by the input dims.
+    const w = (input as HTMLImageElement).naturalWidth || input.width || 1;
+    const h = (input as HTMLImageElement).naturalHeight || input.height || 1;
+    let best: FaceBoxLike | null = null;
+    for (const d of dets) {
+      const b = d.detection.box;
+      if (!best || b.width * b.height > best.width * best.height) best = b;
+    }
+    if (!best) return { vectors, subjectCenter: null };
+    const clamp = (n: number) => Math.min(1, Math.max(0, n));
+    const subjectCenter = {
+      x: clamp((best.x + best.width / 2) / w),
+      y: clamp((best.y + best.height / 2) / h),
+    };
+    return { vectors, subjectCenter };
   } catch {
-    return [];
+    return empty;
   }
 }

@@ -19,8 +19,14 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { formatPhp } from '@/lib/orders';
 import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
-import { CopyLink } from '../_components/copy-link';
+import {
+  getActivePanoodBroadcast,
+  getActivePanoodStreamKey,
+} from '@/lib/panood-broadcast';
+import { eventSkuActive } from '@/lib/entitlements';
+import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { savePanoodWatchUrl, clearPanoodWatchUrl } from './actions';
+import { GoLiveCard } from './go-live-card';
 import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Panood setup · Setnayan' };
@@ -42,52 +48,32 @@ export const metadata = { title: 'Panood setup · Setnayan' };
 // handshake — is still stubbed with mock data and a `// TODO(0011):`
 // marker so the real wiring drops into clear seams in follow-up iterations.
 
-// V1.5+ price floors — see CLAUDE.md decision log row 2026-05-09 (apparatus
-// rule). The 2026-05-16 BYO-YouTube pivot is pricing-only and does NOT
-// change these floor numbers; SKU codes flip in the orders system (separate
-// concern from this UI). Do NOT invent new prices; if the spec moves, this
-// constant moves with it. All values are PHP whole pesos.
-const PANOOD_BASE_PHP = 2500;
-const CAMERA_ADDON_PHP = 1000;
-const HOUR_ADDON_PHP = 1000;
-const STYLE_PACK_PHP = 3000;
+// V1.5+ style pack mode count — descriptive copy only (the pack itself has no
+// admin-catalog SKU yet, so its price is honest-stated as "arrives with the
+// streaming rollout" below rather than hardcoded — owner rule: prices live in
+// the admin catalog via formatV2Sku, never as a constant in code).
 const STYLE_PACK_MODES = 4;
-const AI_EDITED_HIGHLIGHT_PHP = 5000;
-const CUSTOM_MONOGRAM_PHP = 1999;
-const SAME_DAY_EDIT_PHP = 24999;
 
-// Mock event state. TODO(0011): replace with a real Supabase read against
-// `events.panood_state` (or wherever the orchestrator settles) once the
-// schema lands. For the scaffold we surface a typical "base + 1 extra cam +
-// 1 extra hour, no premium packs yet" configuration so the UI shows both
-// the "owned" and "not yet owned" states side by side.
+// Real per-event Panood ownership. 2026-06-25 honesty pass (see CLAUDE.md
+// decision log): the prior mockPanoodSetup() faked baseOwned:true + an extra
+// cam/hour + null packs regardless of what the couple actually bought. This
+// type now reflects ONLY what has a real source:
+//   • baseOwned          ← eventSkuActive(PANOOD_SYSTEM) (orders.status) — owns
+//                          the PAID multicam control-room upgrade
+//   • customMonogramOwned← eventSkuActive(ANIMATED_MONOGRAM)
+//   • youtubeWatchUrl    ← events.panood_watch_url (existing real read)
+// Camera/hour add-ons, the Broadcast Style Pack, and the AI Edited Highlight
+// have NO admin-catalog SKU and NO orders source in V1 (confirmed against the
+// live catalog + orders table), so they are NOT modeled as fake counts/flags
+// here — the UI honest-states them as "arrives with the streaming rollout".
 type PanoodSetup = {
   baseOwned: boolean;
-  extraCameras: number;     // count of `panood_camera_addon` purchases
-  extraHours: number;       // count of `panood_hour_addon` purchases
   customMonogramOwned: boolean;
-  broadcastStyleOwned: boolean;
-  aiEditedHighlightCount: number; // multi-purchase
   // The live watch URL is written here once the broadcaster session goes
   // live; null while the broadcast is staged but not yet running. With the
   // BYO-YouTube pivot, this URL points at the couple's own channel.
   youtubeWatchUrl: string | null;
 };
-
-function mockPanoodSetup(): PanoodSetup {
-  return {
-    baseOwned: true,
-    extraCameras: 1,
-    extraHours: 1,
-    customMonogramOwned: false,
-    broadcastStyleOwned: false,
-    aiEditedHighlightCount: 0,
-    // Mock YouTube watch URL — appears once the setup is "complete". The
-    // real value lands here from the YouTube Data API after broadcast
-    // creation against the couple's connected channel.
-    youtubeWatchUrl: null,
-  };
-}
 
 type YoutubeGrant = {
   grant_id: string;
@@ -126,7 +112,7 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
 
   const { data: event } = await supabase
     .from('events')
-    .select('event_id, public_id, display_name')
+    .select('event_id, display_name')
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) notFound();
@@ -149,15 +135,28 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
   // When YOUTUBE_OAUTH_CLIENT_ID is unset the Connect CTA renders as a
   // disabled "coming soon" placeholder. This lets the page ship safely
   // before the owner finishes Google Cloud verified-app review (1-4wk).
-  const oauthConfig = getYoutubeOAuthConfig();
+  const oauthConfig = await getYoutubeOAuthConfig();
   const oauthReady = oauthConfig.ready;
 
-  const setup = mockPanoodSetup();
+  // REAL per-event ownership, read from orders (bundle-aware, refund-aware,
+  // admin-approval-gated) — replaces the old mockPanoodSetup() that faked a
+  // base + add-on config. eventSkuActive degrades to false on a missing orders
+  // table (42P01/42703), so a pre-bootstrap env safely shows "not owned".
+  const [baseOwned, customMonogramOwned] = await Promise.all([
+    eventSkuActive(supabase, eventId, 'PANOOD_SYSTEM'),
+    eventSkuActive(supabase, eventId, 'ANIMATED_MONOGRAM'),
+  ]);
+
+  const setup: PanoodSetup = {
+    baseOwned,
+    customMonogramOwned,
+    youtubeWatchUrl: null,
+  };
 
   // REAL watch-URL read (the first live persistence on this surface —
   // migration 20261122000000). Tolerant separate select so a pre-migration
-  // environment renders the mock null instead of erroring the page; the
-  // user-session client is RLS-scoped to the host's own events.
+  // environment renders null instead of erroring the page; the user-session
+  // client is RLS-scoped to the host's own events.
   try {
     const { data: watchRow, error: watchErr } = await supabase
       .from('events')
@@ -168,22 +167,40 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
       setup.youtubeWatchUrl = watchRow.panood_watch_url as string;
     }
   } catch {
-    // pre-migration env — keep the mock null
+    // pre-migration env — keep null
   }
 
-  const totalCameras = 3 + setup.extraCameras;
-  const totalHours = 3 + setup.extraHours;
-  const hoursConsumed = 0;
-  const hoursRemaining = totalHours - hoursConsumed;
+  // REAL broadcast state (Phase 1 one-tap go-live). getActivePanoodBroadcast /
+  // getActivePanoodStreamKey use the service-role admin client (the table holds
+  // the secret stream_key, RLS-policy-less). Wrapped so a pre-migration env
+  // (missing panood_broadcasts table) renders "no active broadcast" instead of
+  // crashing the page — same graceful-degrade posture as the watch-URL read.
+  let activeBroadcast: Awaited<ReturnType<typeof getActivePanoodBroadcast>> = null;
+  let activeStreamKey: string | null = null;
+  try {
+    activeBroadcast = await getActivePanoodBroadcast(eventId);
+    if (activeBroadcast) {
+      activeStreamKey = await getActivePanoodStreamKey(eventId);
+    }
+  } catch {
+    // pre-migration env — keep null (no active broadcast)
+  }
 
-  // Stub broadcaster + camera-operator setup URLs. The slug uses the
-  // event's public_id (the canonical, share-safe id) so the URL stays
-  // consistent across the four hand-offs we'd make in the real system.
-  const slug = event.public_id;
-  const broadcasterUrl = `setnayan.com/v/panood/${slug}/broadcaster`;
-  // TODO(0011): camera-operator URLs should embed a per-camera session
-  // token and a per-cam slot id once the orchestrator can mint them.
-  const cameraUrl = (n: number) => `setnayan.com/v/panood/${slug}/cam/${n}`;
+  // REAL pricing from the admin catalog (formatV2Sku). PANOOD_SYSTEM is NOT
+  // priced here: single-cam Panood live is FREE for every host (owner model
+  // 2026-06-26) and PANOOD_SYSTEM is the PAID multicam control-room upgrade
+  // (built at /studio/panood/broadcast). The Animated-Monogram add-on
+  // keeps its real catalog price;
+  // the Broadcast Style Pack / AI Edited Highlight have NO V2 SKU yet, so those
+  // surfaces honest-state "arrives with the streaming rollout" instead of a
+  // price (owner rule: never hardcode a price).
+  const monogramSku = await formatV2Sku('ANIMATED_MONOGRAM').catch(() => null);
+  const monogramPriceLabel = monogramSku ? formatPhp(monogramSku.price_php) : null;
+
+  // Single-camera live broadcast is the free core tool (no per-day SKU charge).
+  // Today couples stream from their own phone or OBS to their own YouTube, so
+  // this surface claims no camera count — the multi-camera control room is the
+  // PAID upgrade (built at /studio/panood/broadcast).
 
   return (
     <section className="space-y-8">
@@ -195,19 +212,18 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
         Back to Panood
       </Link>
 
-      <header className="space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Panood · live broadcast
-        </p>
-        <h1 className="flex items-center gap-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">Setup</p>
+        <h1 className="sn-h1 flex items-center gap-3">
           <Tv aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
           Broadcast your wedding live
         </h1>
         <p className="max-w-prose text-base text-ink/65">
-          Connect your YouTube channel, set up the broadcaster, send a setup link to each
-          camera operator, and we&rsquo;ll relay the composited feed to your own channel
-          so family abroad can watch in real time. Highlight markers, projector cast, and
-          auto-archive are included in the base SKU.
+          Connect your YouTube channel, go live from your phone or OBS, and Setnayan
+          embeds your broadcast on your event page so family abroad can watch in real
+          time. The watch URL and auto-archive stay on your own channel. Want more
+          than one camera? The Setnayan multicam control room — the paid upgrade —
+          lets you switch between several phones with broadcast-style overlays.
         </p>
       </header>
 
@@ -255,23 +271,42 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
         youtubeGrant={youtubeGrant}
       />
 
-      <SetupStatus
+      <GoLiveCard
         eventId={eventId}
+        oauthReady={oauthReady}
+        connected={!!youtubeGrant}
+        // Single-cam go-live is FREE for any host (owner model 2026-06-26 —
+        // "the tool is free; the premium layer is paid"). This page is already
+        // host-gated, so anyone who can see it may go live without owning the
+        // PANOOD_SYSTEM SKU (that SKU is the PAID multicam control-room + over-
+        // lays upgrade, built at /studio/panood/broadcast). Pass true to unlock
+        // the go-live button; the add-on rows below still reflect REAL ownership.
+        ownsPanood={true}
+        active={
+          activeBroadcast
+            ? {
+                broadcastId: activeBroadcast.broadcast_id,
+                ingestionUrl: activeBroadcast.ingestion_url,
+                status: activeBroadcast.status,
+                // broadcast_id IS the public videoId — derive the canonical
+                // watch URL directly so this doesn't depend on the watch-URL
+                // read order below.
+                watchUrl: `https://www.youtube.com/watch?v=${activeBroadcast.broadcast_id}`,
+              }
+            : null
+        }
+        streamKey={activeStreamKey}
+      />
+
+      <SetupStatus eventId={eventId} />
+
+      <BroadcastSetup eventId={eventId} />
+
+      <StyleAndAddOns
         setup={setup}
-        totalCameras={totalCameras}
-        totalHours={totalHours}
-        hoursConsumed={hoursConsumed}
-        hoursRemaining={hoursRemaining}
+        styleModes={STYLE_PACK_MODES}
+        monogramPriceLabel={monogramPriceLabel}
       />
-
-      <BroadcastSetup
-        eventId={eventId}
-        broadcasterUrl={broadcasterUrl}
-        cameraUrl={cameraUrl}
-        totalCameras={totalCameras}
-      />
-
-      <StyleAndAddOns setup={setup} />
 
       <YouTubeDelivery
         eventId={eventId}
@@ -304,7 +339,7 @@ function YoutubeConnect({
   return (
     <section
       aria-labelledby="youtube-connect-heading"
-      className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6"
+      className="sn-tile space-y-4 p-5 sm:p-6"
     >
       <div className="space-y-1">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
@@ -335,7 +370,7 @@ function YoutubeConnect({
       <ul className="grid gap-2 text-xs text-ink/55 sm:grid-cols-2">
         <li className="rounded-md border border-ink/10 bg-cream/70 px-3 py-2">
           <span className="font-mono text-ink/65">Scopes requested:</span> YouTube manage
-          + upload (broadcast lifecycle + same-day-edit archive).
+          + upload (broadcast lifecycle + recording archive).
         </li>
         <li className="rounded-md border border-ink/10 bg-cream/70 px-3 py-2">
           <span className="font-mono text-ink/65">One-time consent:</span> disconnect any
@@ -348,7 +383,7 @@ function YoutubeConnect({
 
 function ComingSoonPlaceholder() {
   return (
-    <div className="rounded-xl border border-dashed border-ink/15 bg-cream/60 p-5">
+    <div className="sn-row p-5">
       <div className="flex items-start gap-3">
         <span
           aria-hidden
@@ -438,10 +473,9 @@ function ConnectedPanel({
         </form>
       </div>
       <p className="text-xs text-ink/65">
-        We&rsquo;ll create the live broadcast on this channel with{' '}
-        <span className="font-mono text-ink/80">monetization=false</span> and{' '}
-        <span className="font-mono text-ink/80">latencyPreference=ultraLow</span> the
-        moment the broadcaster opens for the first time.
+        Your broadcast goes live on this channel — start it from the YouTube app or OBS,
+        then paste the watch link below so it appears on your event page. Automatic
+        broadcast creation (with ads switched off) arrives with the streaming rollout.
       </p>
     </div>
   );
@@ -451,107 +485,84 @@ function ConnectedPanel({
 // Section 2 — Setup status (SKU summary)
 // -----------------------------------------------------------------------------
 
-function SetupStatus({
-  eventId,
-  setup,
-  totalCameras,
-  totalHours,
-  hoursConsumed,
-  hoursRemaining,
-}: {
-  eventId: string;
-  setup: PanoodSetup;
-  totalCameras: number;
-  totalHours: number;
-  hoursConsumed: number;
-  hoursRemaining: number;
-}) {
+function SetupStatus({ eventId }: { eventId: string }) {
   return (
     <section
       aria-labelledby="setup-status-heading"
-      className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6"
+      className="sn-tile space-y-4 p-5 sm:p-6"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-            Step 2 · what you&rsquo;ve unlocked
+          <p className="sn-eye">
+            Step 2 · what you get
           </p>
           <h2 id="setup-status-heading" className="text-xl font-semibold tracking-tight">
-            Your Panood package
+            Your Panood broadcast
           </h2>
         </div>
-        {setup.baseOwned ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-3 py-1 text-xs font-medium text-success-900">
-            <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Live Stream base owned
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-warn-100 px-3 py-1 text-xs font-medium text-warn-900">
-            <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Base SKU not yet purchased
-          </span>
-        )}
+        {/* Single-cam live broadcast is FREE for any host (owner model
+            2026-06-26). The green "Included" badge always shows; the
+            PANOOD_SYSTEM SKU is the PAID multicam control-room upgrade. */}
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-3 py-1 text-xs font-medium text-success-900">
+          <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+          Included free
+        </span>
       </div>
 
       <p className="text-sm text-ink/70">
-        Live Stream base &middot; 1 broadcaster + 3 cameras + 3hr capacity &middot;{' '}
-        <span className="font-mono text-ink">{formatPhp(PANOOD_BASE_PHP)}</span>
+        Single-camera live broadcast &middot; one event-day, embedded on your event
+        page, YouTube delivery + auto-archive on your own channel &middot;{' '}
+        <span className="font-medium text-success-700">free for every couple</span>
       </p>
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Stat
-          label="Cameras"
-          value={`${totalCameras}`}
-          sub={
-            setup.extraCameras > 0
-              ? `3 base + ${setup.extraCameras} add-on${setup.extraCameras === 1 ? '' : 's'}`
-              : '3 base · no add-ons yet'
-          }
-          Icon={Camera}
+          label="Where it plays"
+          value="Your event page"
+          sub="Embedded in your colors"
+          Icon={MonitorPlay}
         />
         <Stat
-          label="Stream-capacity hours"
-          value={`${hoursRemaining}`}
-          sub={`${hoursConsumed} used / ${totalHours} total`}
+          label="Coverage"
+          value="One event-day"
+          sub="Add a day per event-day"
           Icon={Clock3}
         />
         <Stat
-          label="Highlight markers"
+          label="Viewers"
           value="Unlimited"
-          sub="Included in base"
+          sub="Free on YouTube"
           Icon={Star}
         />
       </div>
 
       <ul className="divide-y divide-ink/10 rounded-lg border border-ink/10 bg-cream/60 text-sm">
+        {/* Single-cam live broadcast — FREE for every host (owner model
+            2026-06-26), so it always shows as included rather than as a paid,
+            owned-gated row. */}
         <AddOnRow
-          label="Live Stream base (1 broadcaster · 3 cams · 3hr)"
-          price={formatPhp(PANOOD_BASE_PHP)}
-          owned={setup.baseOwned}
-        />
-        <AddOnRow
-          label={`+1 camera (${setup.extraCameras} purchased · max 2)`}
-          price={`${formatPhp(CAMERA_ADDON_PHP)} each`}
-          owned={setup.extraCameras > 0}
-        />
-        <AddOnRow
-          label={`+1 hour (${setup.extraHours} purchased · unlimited)`}
-          price={`${formatPhp(HOUR_ADDON_PHP)} each`}
-          owned={setup.extraHours > 0}
+          label="Single-camera live broadcast (embedded on your event page)"
+          price="Free"
+          owned={true}
         />
       </ul>
 
-      <p className="text-xs text-ink/55">
-        Need more cameras or hours? Open the{' '}
-        <Link
-          href={`/dashboard/${eventId}/orders/new?service=panood-add-on`}
-          className="text-terracotta hover:underline"
-        >
-          orders page
-        </Link>{' '}
-        &mdash; same apply-then-pay flow as every other Setnayan purchase. Prices are
-        locked V1; we never auto-charge.
-      </p>
+      <div className="sn-row p-3 text-xs text-ink/60">
+        <p className="font-medium text-ink/75">The multi-camera control room — the paid upgrade</p>
+        <p className="mt-1">
+          Going live with one camera is free. The Setnayan multi-camera control
+          room — switch between several phone cameras, mark highlights, cut to
+          standby, with broadcast-style overlays — is the paid upgrade. See what
+          it does on the{' '}
+          <Link
+            href={`/dashboard/${eventId}/studio/panood`}
+            className="text-terracotta hover:underline"
+          >
+            Panood page
+          </Link>
+          .
+        </p>
+      </div>
     </section>
   );
 }
@@ -614,100 +625,87 @@ function AddOnRow({
 // Section 3 — Broadcast setup (broadcaster + camera operator links)
 // -----------------------------------------------------------------------------
 
-function BroadcastSetup({
-  eventId,
-  broadcasterUrl,
-  cameraUrl,
-  totalCameras,
-}: {
-  eventId: string;
-  broadcasterUrl: string;
-  cameraUrl: (n: number) => string;
-  totalCameras: number;
-}) {
+function BroadcastSetup({ eventId }: { eventId: string }) {
   return (
     <section
       aria-labelledby="broadcast-setup-heading"
-      className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6"
+      className="sn-tile space-y-4 p-5 sm:p-6"
     >
       <div className="space-y-1">
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-          Step 3 · broadcaster + cameras
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="sn-eye">
+            Step 3 · broadcaster + cameras
+          </p>
+          <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
+            <Star aria-hidden className="h-3 w-3" strokeWidth={2} />
+            Paid upgrade
+          </span>
+        </div>
         <h2
           id="broadcast-setup-heading"
           className="flex items-center gap-2 text-xl font-semibold tracking-tight"
         >
           <Radio aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-          Get the broadcaster + cameras online
+          The multi-camera control room
         </h2>
         <p className="max-w-prose text-sm text-ink/65">
-          The broadcaster runs the show: switches between cameras, marks highlights, and
-          decides when to cut to standby. Each camera is a phone running the Panood
-          camera-operator web client &mdash; no install, just open the link.
+          Going live with one camera from your own phone or OBS is free. The Setnayan
+          multicam control room is the paid upgrade: one broadcaster who switches between
+          several phone cameras, marks highlights, and cuts to standby — each camera a
+          phone running the Panood operator web client, no install. Open the control room
+          below to set it up.
         </p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <article className="space-y-3 rounded-xl border border-ink/10 bg-cream/70 p-4">
-          <h3 className="flex items-center gap-2 text-base font-semibold text-ink">
-            <Video aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-            Broadcaster URL
-          </h3>
-          <p className="text-sm text-ink/65">
-            Open this on a laptop or tablet on broadcast day. Recommended: a screen with
-            enough room for the camera grid plus the program feed.
-          </p>
-          <CopyLink
-            label="Broadcaster admin"
-            url={broadcasterUrl}
-            hint="Only the broadcaster should hold this link. Single concurrent session."
-          />
-          <Link
-            href={`/dashboard/${eventId}/studio/panood/broadcast`}
-            className="inline-flex items-center gap-2 rounded-md bg-mulberry px-3 py-1.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
+      {/* Honest state: the control room is built (foundation PR1-5), but the
+          live per-camera ingest + camera-operator session links are minted by
+          the streaming engine, which finishes wiring with the streaming rollout.
+          We don't show a fake setnayan.com/... URL here — instead we point at the
+          real control room and keep an honest note on the live camera links. */}
+      <div className="sn-row p-4">
+        <div className="flex items-start gap-3">
+          <span
+            aria-hidden
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-ink/5 text-ink/55"
           >
-            <Tv aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Open broadcaster preview
-          </Link>
-        </article>
-
-        <article className="space-y-3 rounded-xl border border-ink/10 bg-cream/70 p-4">
-          <h3 className="flex items-center gap-2 text-base font-semibold text-ink">
-            <Camera aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-            Camera operators
-          </h3>
-          <p className="text-sm text-ink/65">
-            Send each operator their own setup link. The web client runs on any modern
-            phone browser; no install required.
-          </p>
-          <div className="space-y-3">
-            {Array.from({ length: Math.min(totalCameras, 3) }, (_, i) => i + 1).map((n) => (
-              <CopyLink
-                key={n}
-                label={`Camera ${n} setup link`}
-                url={cameraUrl(n)}
-                hint={
-                  n === 1
-                    ? 'Camera 1 is the default wide / program-camera mic source.'
-                    : undefined
-                }
-              />
-            ))}
-          </div>
-          {totalCameras > 3 ? (
-            <p className="rounded-md bg-warn-50 px-3 py-2 text-xs text-warn-900">
-              You&rsquo;ve added {totalCameras - 3} extra camera
-              {totalCameras - 3 === 1 ? '' : 's'} &mdash; setup links for cameras 4
-              {totalCameras > 4 ? '/5' : ''} appear once the broadcaster session opens.
+            <Clock3 className="h-4 w-4" strokeWidth={1.75} />
+          </span>
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-ink/85">
+              Live camera links finish with the streaming rollout
             </p>
-          ) : null}
-        </article>
+            <p className="max-w-prose text-xs text-ink/60">
+              On broadcast day you&rsquo;ll run the control room from a single broadcaster
+              link, plus a private setup link for each camera operator — no install, just
+              open on any modern phone. The control room is built and you can open it now;
+              the live per-camera ingest finishes wiring with the streaming rollout, and
+              we&rsquo;ll email you the moment it&rsquo;s ready.
+            </p>
+          </div>
+        </div>
       </div>
 
+      <article className="space-y-3 rounded-xl border border-ink/10 bg-cream/70 p-4">
+        <h3 className="flex items-center gap-2 text-base font-semibold text-ink">
+          <Video aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+          Open the control room
+        </h3>
+        <p className="text-sm text-ink/65">
+          Lay out the broadcaster admin and rehearse the camera switching so you and your
+          camera operators are ready ahead of the day.
+        </p>
+        <Link
+          href={`/dashboard/${eventId}/studio/panood/broadcast`}
+          className="inline-flex items-center gap-2 rounded-md bg-mulberry px-3 py-1.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
+        >
+          <Tv aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Open the control room
+        </Link>
+      </article>
+
       <p className="text-xs text-ink/55">
-        Pro tip: each phone needs ~500 kbps sustained upload. Run the Venue Check tool a
-        week ahead to flag low-connectivity venues so you can rent a portable hotspot if
+        Pro tip: each phone needs ~500 kbps sustained upload — once streaming is live,
+        run a venue connectivity check a week ahead so you can rent a portable hotspot if
         needed.
       </p>
     </section>
@@ -718,11 +716,19 @@ function BroadcastSetup({
 // Section 4 — Style + add-ons promo
 // -----------------------------------------------------------------------------
 
-function StyleAndAddOns({ setup }: { setup: PanoodSetup }) {
+function StyleAndAddOns({
+  setup,
+  styleModes,
+  monogramPriceLabel,
+}: {
+  setup: PanoodSetup;
+  styleModes: number;
+  monogramPriceLabel: string | null;
+}) {
   return (
     <section
       aria-labelledby="addons-heading"
-      className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6"
+      className="sn-tile space-y-4 p-5 sm:p-6"
     >
       <div className="space-y-1">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
@@ -736,49 +742,50 @@ function StyleAndAddOns({ setup }: { setup: PanoodSetup }) {
           Make it look like a film
         </h2>
         <p className="max-w-prose text-sm text-ink/65">
-          Optional packs that elevate the broadcast and the post-event recap. Buy any of
-          them through the normal orders flow; refunds follow the standard 24-hour SLA.
+          Optional packs that elevate the broadcast and the post-event recap. Prices are
+          set in the Setnayan catalog; buy through the normal orders flow and refunds
+          follow the standard 24-hour SLA.
         </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {/* Animated Monogram — REAL admin-catalog SKU (ANIMATED_MONOGRAM). Owned
+            state is real (eventSkuActive). */}
+        <PackCard
+          Icon={Star}
+          title="Animated Monogram"
+          price={monogramPriceLabel}
+          owned={setup.customMonogramOwned}
+          blurb="Your bespoke monogram across your event-page chrome today — and on the broadcast watermark, intro/outro and standby screens when the streaming control room arrives."
+          state="purchasable"
+        />
+        {/* Broadcast Style Pack — NO admin-catalog SKU in V1 (no real price source),
+            so we honest-state it as arriving with the streaming rollout rather than
+            inventing a price. */}
         <PackCard
           Icon={Sparkles}
           title="Broadcast Style Pack"
-          price={formatPhp(STYLE_PACK_PHP)}
-          owned={setup.broadcastStyleOwned}
-          blurb={`${STYLE_PACK_MODES} modes (News · Cinematic · Sports · Royalty) + transitions + color presets. Switch modes mid-event from the broadcaster admin.`}
-          state="purchasable"
+          price={null}
+          owned={false}
+          blurb={`${styleModes} broadcast looks (News · Cinematic · Sports · Royalty) with transitions and color presets, switchable mid-event from the broadcaster admin.`}
+          state="rollout"
         />
+        {/* AI Edited Highlight — NO admin-catalog SKU in V1 (retired V1 code, no V2
+            successor), so honest-stated as arriving with the streaming rollout. */}
         <PackCard
           Icon={Video}
           title="AI Edited Highlight"
-          price={`${formatPhp(AI_EDITED_HIGHLIGHT_PHP)} / 3 min`}
-          owned={setup.aiEditedHighlightCount > 0}
-          blurb="A 3-minute storyline cut of the event — beats, music, and pacing chosen by Claude vision. Multi-purchase if you want alternate cuts."
-          state="purchasable"
-        />
-        <PackCard
-          Icon={Star}
-          title="Custom Monogram Pack"
-          price={formatPhp(CUSTOM_MONOGRAM_PHP)}
-          owned={setup.customMonogramOwned}
-          blurb="Replaces Setnayan branding on the broadcast watermark, intro/outro, and landing-page chrome. Includes Custom Standby screens."
-          state="purchasable"
-        />
-        <PackCard
-          Icon={Video}
-          title="Same-Day Edit"
-          price={`${formatPhp(SAME_DAY_EDIT_PHP)} flagship`}
+          price={null}
           owned={false}
-          blurb="The cinematic 3–5 minute film, delivered before the reception ends. Played live on the LED background screen at the climactic moment."
-          state="v1_1"
+          blurb="A storyline cut of the broadcast — beats, music, and pacing chosen by Setnayan AI — pulled from the auto-archive after the event."
+          state="rollout"
         />
       </div>
 
       <p className="text-xs text-ink/55">
         Highlight markers (the &ldquo;★ Mark&rdquo; button on the broadcaster) and cast-to-projector
-        are <span className="font-medium text-ink/75">free</span> with the base SKU.
+        arrive <span className="font-medium text-ink/75">free</span> with the streaming control
+        room &mdash; coming with the rollout.
       </p>
     </section>
   );
@@ -794,12 +801,16 @@ function PackCard({
 }: {
   Icon: typeof Sparkles;
   title: string;
-  price: string;
+  // null when there is no real admin-catalog price source (the pack hasn't
+  // launched) — the card honest-states "arrives with the streaming rollout"
+  // instead of showing a hardcoded number.
+  price: string | null;
   blurb: string;
   owned: boolean;
-  state: 'purchasable' | 'v1_1';
+  // 'rollout' = not built yet (no SKU); 'purchasable' = real catalog SKU.
+  state: 'purchasable' | 'rollout';
 }) {
-  const disabled = state === 'v1_1';
+  const disabled = state === 'rollout';
   const cardClass = disabled
     ? 'flex h-full flex-col gap-3 rounded-xl border border-dashed border-ink/15 bg-cream/50 p-4 opacity-80'
     : 'flex h-full flex-col gap-3 rounded-xl border border-ink/10 bg-cream/80 p-4';
@@ -817,7 +828,7 @@ function PackCard({
           </span>
         ) : disabled ? (
           <span className="rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-            V1.1 · coming soon
+            Coming with rollout
           </span>
         ) : (
           <span className="rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
@@ -827,14 +838,18 @@ function PackCard({
       </div>
       <div className="space-y-1">
         <h3 className="text-base font-semibold text-ink">{title}</h3>
-        <p className="font-mono text-xs text-ink/65">{price}</p>
+        <p className="font-mono text-xs text-ink/65">
+          {disabled
+            ? 'Pricing set at launch'
+            : price ?? 'Price set in the Setnayan catalog'}
+        </p>
       </div>
       <p className="text-sm text-ink/70">{blurb}</p>
       <div className="mt-auto">
         {disabled ? (
           <span className="inline-flex items-center gap-1.5 text-xs text-ink/45">
             <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Not yet available
+            Arrives with the streaming rollout
           </span>
         ) : owned ? (
           <span className="inline-flex items-center gap-1.5 text-xs font-medium text-success-700">
@@ -875,7 +890,7 @@ function YouTubeDelivery({
   return (
     <section
       aria-labelledby="youtube-heading"
-      className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6"
+      className="sn-tile space-y-4 p-5 sm:p-6"
     >
       <div className="space-y-1">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
@@ -889,10 +904,10 @@ function YouTubeDelivery({
           How viewers watch
         </h2>
         <p className="max-w-prose text-sm text-ink/65">
-          Setnayan ingests every camera, composites them server-side with your monogram
-          and broadcast style, then relays the program feed to YouTube Live on your own
-          channel. Viewers watching on your Setnayan landing page and viewers watching on
-          YouTube directly see the same broadcast served from YouTube&rsquo;s CDN.
+          You stream to <em>your</em> own YouTube — from your phone or from OBS on a
+          laptop — and Setnayan embeds that live broadcast on your event page, dressed in
+          your colors. Viewers watching on your Setnayan landing page and viewers watching
+          on YouTube directly see the same broadcast served from YouTube&rsquo;s CDN.
         </p>
       </div>
 
@@ -900,7 +915,7 @@ function YouTubeDelivery({
         <DeliveryFact
           label="End-to-end latency"
           value="~10 seconds"
-          sub="Ultra-low-latency mode + a couple seconds of composite headroom"
+          sub="YouTube&rsquo;s own ultra-low-latency live delivery — what your viewers see, give or take a few seconds"
         />
         <DeliveryFact
           label="Audience cap"
@@ -914,13 +929,13 @@ function YouTubeDelivery({
         />
         <DeliveryFact
           label="Cast to projector"
-          value="Included free"
-          sub="HDMI from the broadcaster device — full polished feed on a laptop, raw camera feed on iPhone"
+          value="Coming with the rollout"
+          sub="HDMI from the broadcaster device — arrives with the streaming control room"
         />
       </ul>
 
       <div className="rounded-lg border border-ink/10 bg-cream/60 p-4">
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+        <p className="sn-eye">
           YouTube watch URL
         </p>
         {watchUrlSaved ? (
@@ -955,11 +970,10 @@ function YouTubeDelivery({
           </>
         ) : connected ? (
           <p className="mt-1 text-sm text-ink/60">
-            Available once the broadcaster opens the session for the first time.
-            We&rsquo;ll auto-create the broadcast on your channel with{' '}
-            <span className="font-mono text-ink/75">monetization=false</span> and
-            <span className="font-mono text-ink/75"> latencyPreference=ultraLow</span>{' '}
-            so the broadcast is structurally incapable of running ads.
+            Start your broadcast on YouTube — from the YouTube app or OBS — then paste its
+            watch link below and it appears on your event page. Set the broadcast to
+            ultra-low latency and switch off ads when you create it so loved ones watch
+            uninterrupted.
           </p>
         ) : (
           <p className="mt-1 text-sm text-ink/60">

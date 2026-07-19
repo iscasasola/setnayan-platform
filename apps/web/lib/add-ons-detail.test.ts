@@ -12,21 +12,16 @@ const VISIBLE_GROUPS = new Set(['setnayan_ai', 'website', 'capture', 'branding']
 
 // Hub features that open their OWN surface directly instead of a
 // /studio/about/<key> detail page — so they need no authored detail content and
-// their detail href intentionally does NOT route under /studio/about:
+// their detail href intentionally does NOT route under /studio/about.
+// DERIVED from the `opensDirect` catalog flag (Tier 2, 2026-06-25) so this set
+// can never drift from the routing: a service is direct-open IFF it declares it.
 //   • panood / supplies-marketplace — bespoke feature surfaces
 //   • seating — opens the seat-plan editor
 //   • rsvp / event / editorial / landing-page — the website parts open the
-//     full-screen site editor (the four-part split, 2026-06-21). Save the Date
-//     is NOT here: it keeps its /studio/about detail page.
-const OPENS_OWN_SURFACE = new Set([
-  'panood',
-  'supplies-marketplace',
-  'seating',
-  'rsvp',
-  'event',
-  'editorial',
-  'landing-page',
-]);
+//     full-screen site editor. Save the Date is NOT here: it keeps its /about page.
+const OPENS_OWN_SURFACE = new Set(
+  ADD_ONS.filter((a) => a.opensDirect).map((a) => a.key),
+);
 
 test('every available hub feature has App Store detail content', () => {
   const missing = ADD_ONS.filter(
@@ -73,4 +68,19 @@ test('no detail key is orphaned from the catalog', () => {
   const keys = new Set(ADD_ONS.map((a) => a.key));
   const orphans = Object.keys(ADD_ON_DETAILS).filter((k) => !keys.has(k));
   assert.deepEqual(orphans, [], `detail keys not in catalog: ${orphans.join(', ')}`);
+});
+
+test('every buyable service declares free-or-paid (serviceKey or tier:"free")', () => {
+  // Tier-1 consistency invariant (In_App_Services_Consistency_Plan_2026-06-25 §4A):
+  // any service that can be listed/opened must declare WHAT IT IS so the Studio
+  // badge (pillFor) is never a bare money-style "Get" for a real SKU, and free
+  // tools never look paid. coming_soon rows are exempt (not buyable yet).
+  const offenders = ADD_ONS.filter(
+    (a) => a.status !== 'coming_soon' && !a.serviceKey && a.tier !== 'free',
+  ).map((a) => a.key);
+  assert.deepEqual(
+    offenders,
+    [],
+    `services missing both serviceKey AND tier:'free' (their Studio badge would be a meaningless "Get"): ${offenders.join(', ')}`,
+  );
 });

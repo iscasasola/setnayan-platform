@@ -35,6 +35,7 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { MARK_PATH } from './veil-shared';
 import { DEFAULT_VEIL_LOOK, type VeilLook, type RevealFeatures } from '@/lib/reveal-config';
+import { usePrefersReducedMotion } from '@/lib/use-responsive';
 
 type Props = {
   /** Veil tulle colour (hex), Mood-Board-driven. Ivory fallback handled by caller. */
@@ -106,6 +107,13 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
   onRevealedRef.current = onRevealed;
   const revealedRef = useRef(false);
 
+  // Honor the OS "reduce motion" setting. Read at the React level (SSR-safe,
+  // live-updating) so the component participates in the shared reader; the
+  // mount-once sim effect can't call a hook, so it reads matchMedia directly.
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const reducedMotionRef = useRef(prefersReducedMotion);
+  reducedMotionRef.current = prefersReducedMotion;
+
   // Merge the admin look over the locked defaults; read via a ref so the running
   // sim picks up live slider changes (per-frame knobs) without a remount.
   const L: VeilLook = { ...DEFAULT_VEIL_LOOK, ...(look ?? {}) };
@@ -122,6 +130,23 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
+
+    // Reduced motion → no cloth sim, no petals, no RAF loop. We can't call the
+    // hook inside this mount-once effect, so read the media query directly (the
+    // value at mount is what matters; the React-level hook above keeps the
+    // component live-updating). Skip straight to the END state: fire the same
+    // completion callback the lifted-veil path fires, so the card/film beneath
+    // shows immediately with the veil already gone — the result, minus motion.
+    if (
+      typeof window !== 'undefined' &&
+      (reducedMotionRef.current || window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+    ) {
+      if (!revealedRef.current) {
+        revealedRef.current = true;
+        onRevealedRef.current();
+      }
+      return;
+    }
 
     let renderer: THREE.WebGLRenderer;
     try {

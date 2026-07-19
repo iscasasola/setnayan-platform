@@ -1,6 +1,12 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { decryptToken } from '@/lib/encryption';
+import {
+  SECRET_INTEGRATIONS,
+  ALL_SECRET_COLUMNS,
+  type SecretIntegrationDef,
+  type OAuthResolveSpec,
+} from '@/lib/integrations/registry';
 
 // Integration Activation Console — PR1 (email slice).
 //
@@ -103,4 +109,385 @@ export async function resolveSetnayanAiPaywallEnabled(): Promise<boolean> {
     // DB unreachable / column absent (pre-migration) → env fallback below.
   }
   return process.env.SETNAYAN_AI_PAYWALL_ENABLED === 'true';
+}
+
+// ── Setnayan-AI per-USER subscription flag ──────────────────────────────────
+//
+// DB-first resolver for the per-USER Setnayan-AI subscription gate, so the owner
+// can flip the per-user fan-out ON/OFF from /admin/integrations WITHOUT a Vercel
+// redeploy. Mirrors resolveSetnayanAiPaywallEnabled.
+//
+// platform_settings.setnayan_ai_per_user_enabled is TRI-STATE:
+//   • NULL  → OFF (today's behaviour — the per-event gate is byte-identical).
+//   • TRUE  → per-user gate on (a host's active subscription fans AI out to all
+//             their events).
+//   • FALSE → off.
+//
+// Unlike the paywall flag, there is NO env fallback: this is a pure DB feature
+// flag (no SETNAYAN_AI_PER_USER_ENABLED env var exists), so the default when the
+// column is NULL / unreadable / pre-migration is FALSE. Keeping the gate OFF on
+// any read error is the conservative, byte-identical-to-today choice.
+//
+// UNCACHED on purpose (same reasoning as resolveSetnayanAiPaywallEnabled): a flip
+// the owner just made must take effect on the next request. The leaf predicate in
+// lib/setnayan-ai.ts stays SYNCHRONOUS — callers await this once and thread the
+// resolved boolean in.
+export async function resolveSetnayanAiPerUserEnabled(): Promise<boolean> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from('platform_settings')
+      .select('setnayan_ai_per_user_enabled')
+      .eq('id', 1)
+      .maybeSingle();
+    const dbVal = data?.setnayan_ai_per_user_enabled as boolean | null | undefined;
+    if (typeof dbVal === 'boolean') return dbVal;
+  } catch {
+    // DB unreachable / column absent (pre-migration) → default OFF below.
+  }
+  return false;
+}
+
+// ── Per-EVENT ₱499-intro / ₱799-renewal pricing flag (owner 2026-07-02) ──────
+//
+// DB-first, no env fallback, uncached — same shape as resolveSetnayanAiPerUser
+// Enabled. platform_settings.setnayan_ai_per_event_pricing_enabled is TRI-STATE:
+//   • NULL  → OFF (today's behaviour — the ₱499 flat per-event unlock).
+//   • TRUE  → the ₱499-first-28-days then ₱799-per-28-day-cycle model is live
+//             (the intro/renewal charge + the per-event window are honored).
+//   • FALSE → off.
+// Default OFF on any read error (column absent pre-migration) — the conservative,
+// byte-identical-to-today choice. Flip from /admin/integrations at go-live, once
+// the buy-flow wiring + copy ship AND the Wave-1 guard is live (so ₱799 is earned).
+export async function resolveSetnayanAiPerEventPricingEnabled(): Promise<boolean> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from('platform_settings')
+      .select('setnayan_ai_per_event_pricing_enabled')
+      .eq('id', 1)
+      .maybeSingle();
+    const dbVal = data?.setnayan_ai_per_event_pricing_enabled as boolean | null | undefined;
+    if (typeof dbVal === 'boolean') return dbVal;
+  } catch {
+    // DB unreachable / column absent (pre-migration) → default OFF below.
+  }
+  return false;
+}
+
+// ── Registry-driven "simple secret" integrations (PR2) ──────────────────────
+//
+// Generic DB-first / env-fallback resolver for any integration in
+// SECRET_INTEGRATIONS (lib/integrations/registry.ts) — one encrypted API key, no
+// extra config. Mirrors resolveResendConfig exactly: decrypt the registry's
+// secretColumn from the deny-by-default platform_integration_secrets singleton,
+// fall back to the registry's env var when unset/unreadable. UNCACHED so a key
+// the owner just saved takes effect on the next request. Byte-identical to the
+// pre-console behavior when the DB column is empty.
+export async function resolveIntegrationSecret(
+  def: SecretIntegrationDef,
+): Promise<string | null> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from('platform_integration_secrets')
+      .select(def.secretColumn)
+      .eq('id', 1)
+      .maybeSingle();
+    const enc = (data as Record<string, unknown> | null)?.[def.secretColumn] as
+      | string
+      | null
+      | undefined;
+    if (enc) {
+      try {
+        return decryptToken(enc);
+      } catch {
+        // Bad ciphertext or unset/rotated ENCRYPTION_KEY → fall back to env.
+      }
+    }
+  } catch {
+    // DB unreachable / column absent (pre-migration) → env fallback below.
+  }
+  return process.env[def.envFallback] || null;
+}
+
+/** OpenAI moderation key (DB-first, env-fallback to OPENAI_API_KEY). */
+export async function resolveOpenAiKey(): Promise<string | null> {
+  const def = SECRET_INTEGRATIONS.find((i) => i.id === 'openai');
+  if (!def) return process.env.OPENAI_API_KEY || null;
+  return resolveIntegrationSecret(def);
+}
+
+/**
+ * Presence map { [secretColumn]: hasStoredKey } for every registry integration.
+ * The encrypted values are read here but reduced to BOOLEANS before returning —
+ * the ciphertext never leaves this function, so the admin console can show
+ * per-integration status without holding any secret in its render tree
+ * (defense-in-depth against a future edit leaking the row to a client prop/log).
+ * UNCACHED; all-false on any error (DB unreachable / table absent).
+ */
+export async function getSecretPresenceMap(): Promise<Record<string, boolean>> {
+  const map: Record<string, boolean> = {};
+  for (const col of ALL_SECRET_COLUMNS) map[col] = false;
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from('platform_integration_secrets')
+      .select('*')
+      .eq('id', 1)
+      .maybeSingle();
+    const row = data as Record<string, unknown> | null;
+    if (row) {
+      for (const col of ALL_SECRET_COLUMNS) map[col] = Boolean(row[col]);
+    }
+  } catch {
+    // leave all-false
+  }
+  return map;
+}
+
+// ── OAuth client config (PR3) ───────────────────────────────────────────────
+//
+// DB-first / env-fallback resolver for an OAuth integration's client config:
+// the encrypted client SECRET from platform_integration_secrets + the non-secret
+// client ID/KEY + REDIRECT URI from platform_settings, each falling back to its
+// env var. Returns resolved strings ('' when neither DB nor env has a value);
+// the provider's get*OAuthConfig() helper applies its own missing-check on top,
+// so the public { ready } shape is byte-identical when the DB is empty.
+//
+// UNCACHED so a value saved from the console takes effect on the next request.
+// Column names are NOT user-controlled (they come from the static OAUTH_SPECS
+// registry), so the dynamic .select()/access is safe. Both selects pass a
+// `string`-typed argument (not a template-literal type) to avoid the PostgREST
+// select-string parser error on the untyped admin client.
+export interface OAuthClientResolved {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+}
+
+export async function resolveOAuthClientConfig(
+  spec: OAuthResolveSpec,
+): Promise<OAuthClientResolved> {
+  let clientSecret = '';
+  let clientId = '';
+  let redirectUri = '';
+  try {
+    const admin = createAdminClient();
+    const secretCol: string = spec.secretColumn;
+    const settingsCols: string = `${spec.clientIdColumn}, ${spec.redirectUriColumn}`;
+    const [secretRes, settingsRes] = await Promise.all([
+      admin
+        .from('platform_integration_secrets')
+        .select(secretCol)
+        .eq('id', 1)
+        .maybeSingle(),
+      admin.from('platform_settings').select(settingsCols).eq('id', 1).maybeSingle(),
+    ]);
+    const enc = (secretRes.data as Record<string, unknown> | null)?.[
+      spec.secretColumn
+    ] as string | null | undefined;
+    if (enc) {
+      try {
+        clientSecret = decryptToken(enc);
+      } catch {
+        // bad ciphertext / rotated key → env fallback below
+      }
+    }
+    const s = settingsRes.data as Record<string, unknown> | null;
+    clientId = ((s?.[spec.clientIdColumn] as string | null) ?? '').trim();
+    redirectUri = ((s?.[spec.redirectUriColumn] as string | null) ?? '').trim();
+  } catch {
+    // DB unreachable / columns absent (pre-migration) → env fallback below.
+  }
+  return {
+    clientId: clientId || process.env[spec.clientIdEnv] || '',
+    clientSecret: clientSecret || process.env[spec.secretEnv] || '',
+    redirectUri: redirectUri || process.env[spec.redirectUriEnv] || '',
+  };
+}
+
+// ── Meta (Facebook + Instagram) publishing config (PR4a) ────────────────────
+//
+// DB-first / env-fallback resolver for the Meta credential. ONE Page access
+// token (encrypted) authorizes BOTH Facebook + Instagram; pageId + igUserId are
+// non-secret config. UNCACHED. ⚠ This feeds the LIVE auto-publish path — when the
+// DB columns are empty it returns the META_* env values, byte-identical to the
+// pre-console behavior, so live posting is unaffected.
+export interface MetaConfig {
+  pageId: string;
+  accessToken: string;
+  igUserId: string;
+}
+
+export async function resolveMetaConfig(): Promise<MetaConfig> {
+  let accessToken = '';
+  let pageId = '';
+  let igUserId = '';
+  try {
+    const admin = createAdminClient();
+    const [secretRes, settingsRes] = await Promise.all([
+      admin
+        .from('platform_integration_secrets')
+        .select('meta_page_access_token_enc')
+        .eq('id', 1)
+        .maybeSingle(),
+      admin
+        .from('platform_settings')
+        .select('meta_page_id, ig_user_id')
+        .eq('id', 1)
+        .maybeSingle(),
+    ]);
+    const enc = (secretRes.data as Record<string, unknown> | null)
+      ?.meta_page_access_token_enc as string | null | undefined;
+    if (enc) {
+      try {
+        accessToken = decryptToken(enc);
+      } catch {
+        // bad ciphertext / rotated key → env fallback below
+      }
+    }
+    const s = settingsRes.data as Record<string, unknown> | null;
+    pageId = ((s?.meta_page_id as string | null) ?? '').trim();
+    igUserId = ((s?.ig_user_id as string | null) ?? '').trim();
+  } catch {
+    // DB unreachable / columns absent (pre-migration) → env fallback below.
+  }
+  return {
+    accessToken: accessToken || process.env.META_PAGE_ACCESS_TOKEN || '',
+    pageId: pageId || process.env.META_PAGE_ID || '',
+    igUserId: igUserId || process.env.IG_USER_ID || '',
+  };
+}
+
+// ── Instagram app ("Instagram API with Instagram Login") OAuth client ────────
+//
+// SEPARATE from resolveMetaConfig() above (which is the LIVE auto-publish Page
+// access token). This is the INSTAGRAM app's own App ID + App Secret used for
+// the per-VENDOR Instagram OAuth authorization-code exchange — each vendor
+// connects their OWN Business/Creator IG account (via "Instagram API with
+// Instagram Login" — NO Facebook Page required) and syncs their posts into
+// their public portfolio.
+//
+// Env-driven + OPTIONAL. When IG_APP_ID / IG_APP_SECRET are unset the whole
+// IG-connect feature is INERT: getMetaAppOAuthConfig() reports { ready: false },
+// the /connect route returns a friendly 503, and the vendor UI shows a
+// "coming soon" state. These are currently UNSET in prod.
+//
+// The redirect URI is fixed to the request origin + the callback path unless
+// META_IG_OAUTH_REDIRECT_URI overrides it (needed when the request origin isn't
+// the canonical host registered in the Instagram-Login product's Valid OAuth
+// Redirect URIs).
+export type MetaAppOAuthConfig =
+  | { ready: true; appId: string; appSecret: string; redirectUri: string }
+  | { ready: false; missing: ReadonlyArray<string> };
+
+/** Env-only App-ID/Secret read for the per-vendor Instagram OAuth flow. */
+export function resolveMetaAppOAuth(): {
+  appId: string;
+  appSecret: string;
+  redirectUriOverride: string;
+} {
+  return {
+    appId: (process.env.IG_APP_ID || '').trim(),
+    appSecret: process.env.IG_APP_SECRET || '',
+    redirectUriOverride: (process.env.META_IG_OAUTH_REDIRECT_URI || '').trim(),
+  };
+}
+
+// ── TikTok social-publish access token (PR4b) ───────────────────────────────
+//
+// DB-first / env-fallback resolver for the master-account TikTok access token
+// (path B auto-publish). Single secret, no config. UNCACHED. Byte-identical to
+// the env read when the DB column is empty. Distinct from the OAuth client
+// secret (resolveOAuthClientConfig with OAUTH_SPECS.tiktok).
+export async function resolveTikTokAccessToken(): Promise<string | null> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from('platform_integration_secrets')
+      .select('tiktok_access_token_enc')
+      .eq('id', 1)
+      .maybeSingle();
+    const enc = (data as Record<string, unknown> | null)?.tiktok_access_token_enc as
+      | string
+      | null
+      | undefined;
+    if (enc) {
+      try {
+        return decryptToken(enc);
+      } catch {
+        // bad ciphertext / rotated key → env fallback below
+      }
+    }
+  } catch {
+    // DB unreachable / column absent → env fallback below.
+  }
+  return process.env.TIKTOK_ACCESS_TOKEN || null;
+}
+
+// ── Maya / PayMaya checkout credentials (PR4c) ──────────────────────────────
+//
+// DB-first / env-fallback resolver for Maya's Basic-auth credential pair + the
+// checkout base URL. BOTH keys are secrets (the "public" key is a server-only
+// merchant credential). UNCACHED; byte-identical to the env reads when the DB
+// columns are empty. The build-time activation gate (NEXT_PUBLIC_MAYA_STATUS)
+// is NOT resolved here — it stays redeploy-gated.
+const MAYA_CHECKOUT_ENDPOINT_DEFAULT =
+  'https://pg-sandbox.paymaya.com/checkout/v1/checkouts';
+
+export interface MayaConfig {
+  publicKey: string;
+  secretKey: string;
+  checkoutEndpoint: string;
+}
+
+export async function resolveMayaConfig(): Promise<MayaConfig> {
+  let publicKey = '';
+  let secretKey = '';
+  let checkoutEndpoint = '';
+  try {
+    const admin = createAdminClient();
+    const [secretRes, settingsRes] = await Promise.all([
+      admin
+        .from('platform_integration_secrets')
+        .select('maya_public_api_key_enc, maya_secret_api_key_enc')
+        .eq('id', 1)
+        .maybeSingle(),
+      admin
+        .from('platform_settings')
+        .select('maya_checkout_endpoint')
+        .eq('id', 1)
+        .maybeSingle(),
+    ]);
+    const sec = secretRes.data as Record<string, unknown> | null;
+    const pubEnc = sec?.maya_public_api_key_enc as string | null | undefined;
+    const secEnc = sec?.maya_secret_api_key_enc as string | null | undefined;
+    if (pubEnc) {
+      try {
+        publicKey = decryptToken(pubEnc);
+      } catch {
+        /* bad ciphertext → env fallback */
+      }
+    }
+    if (secEnc) {
+      try {
+        secretKey = decryptToken(secEnc);
+      } catch {
+        /* bad ciphertext → env fallback */
+      }
+    }
+    const set = settingsRes.data as Record<string, unknown> | null;
+    checkoutEndpoint = ((set?.maya_checkout_endpoint as string | null) ?? '').trim();
+  } catch {
+    // DB unreachable / columns absent → env fallback below.
+  }
+  return {
+    publicKey: publicKey || process.env.MAYA_PUBLIC_API_KEY || '',
+    secretKey: secretKey || process.env.MAYA_SECRET_API_KEY || '',
+    checkoutEndpoint:
+      checkoutEndpoint ||
+      process.env.MAYA_CHECKOUT_ENDPOINT ||
+      MAYA_CHECKOUT_ENDPOINT_DEFAULT,
+  };
 }

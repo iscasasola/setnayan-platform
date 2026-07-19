@@ -168,6 +168,10 @@ export default async function TourVendorsPage() {
         matchEventId: eventId,
         excludeVendorIds: [],
         limit: PER_CATEGORY_LIMIT,
+        // PR-B — the guided tour runs on is_demo sample vendors that may be
+        // unverified. Opt out of the always-on verification gate so the tour
+        // still has inventory to show (demo-scoped carve-out only).
+        includeDemoUnverified: true,
       }),
     ),
   );
@@ -202,10 +206,7 @@ export default async function TourVendorsPage() {
   return (
     <main className="mx-auto w-full max-w-5xl px-5 pb-20 pt-12 sm:pt-16">
       <header className="mx-auto max-w-2xl text-center">
-        <p className="font-mono text-xs uppercase tracking-[0.22em] text-[#8C6932]">
-          Tour · Stop 02
-        </p>
-        <h1 className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[#1E2229] sm:text-5xl">
+        <h1 className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[#1B1A17] sm:text-5xl">
           The AI did the hard part
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
@@ -222,19 +223,16 @@ export default async function TourVendorsPage() {
       {/* Scripted chat — what reaching out to a shortlisted vendor feels like */}
       <section className="mx-auto mt-16 max-w-2xl">
         <div className="text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-[#8C6932]">
-            Then you say hello
-          </p>
-          <h2 className="mt-2 font-serif text-3xl text-[#1E2229]">
+          <h2 className="mt-2 font-serif text-3xl text-[#1B1A17]">
             One tap, and you&rsquo;re talking
           </h2>
           <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
             Message any vendor right inside Setnayan. Here&rsquo;s a sample conversation with{' '}
-            <span className="font-medium text-[#1E2229]">{vendorLabel}</span> — try it. Nothing
+            <span className="font-medium text-[#1B1A17]">{vendorLabel}</span> — try it. Nothing
             you type is saved.
           </p>
         </div>
-        <div className="mt-6 rounded-2xl border border-[#C5A059]/40 bg-[#FBF8F1] p-4 sm:p-6">
+        <div className="mt-6 rounded-2xl border border-[#A9834B]/40 bg-[#FBF8F1] p-4 sm:p-6">
           <TourChatThread counterpartyLabel={vendorLabel} />
         </div>
       </section>
@@ -242,7 +240,7 @@ export default async function TourVendorsPage() {
       <nav className="mx-auto mt-16 flex max-w-2xl items-center justify-between gap-4">
         <Link
           href="/maria-and-jose"
-          className="inline-flex min-h-[44px] items-center text-sm font-medium text-[#5C2542] transition-opacity hover:opacity-80"
+          className="inline-flex min-h-[44px] items-center text-sm font-medium text-[#1B1A17] transition-opacity hover:opacity-80"
         >
           &larr; The invitation
         </Link>
@@ -254,15 +252,15 @@ export default async function TourVendorsPage() {
         </Link>
       </nav>
 
-      <section className="mx-auto mt-12 max-w-2xl rounded-3xl border border-[#C5A059]/40 bg-[#FBF6EA] px-6 py-10 text-center">
-        <h2 className="font-serif text-2xl text-[#1E2229] sm:text-3xl">Find your team next.</h2>
+      <section className="mx-auto mt-12 max-w-2xl rounded-3xl border border-[#A9834B]/40 bg-[#FBF6EA] px-6 py-10 text-center">
+        <h2 className="font-serif text-2xl text-[#1B1A17] sm:text-3xl">Find your team next.</h2>
         <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
           Start your own wedding on Setnayan and let the AI shortlist for you — free, in minutes.
           Set na &rsquo;yan.
         </p>
         <Link
           href="/onboarding/wedding?from=tour"
-          className="mt-5 inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#5C2542] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
+          className="mt-5 inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#1B1A17] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
         >
           Start planning &middot; free
         </Link>

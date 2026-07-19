@@ -7,7 +7,10 @@ import { Logo as BrandLogo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { fetchUserEvents } from '@/lib/events';
-import { fetchReviewStatsForMany, formatStarRating } from '@/lib/reviews';
+import {
+  fetchTrustedReviewStatsForMany,
+  formatStarRating,
+} from '@/lib/reviews';
 import {
   parseVisibility,
   isBookable,
@@ -67,6 +70,11 @@ type CompareRow = {
   // gate: Free (reviewStarsCounted=false) renders 'new' instead of the
   // hidden star average. `?? null` → free → gated when the column is absent.
   tier_state: string | null;
+  // PR-B verification gate. The .or() admits is_demo rows, so this is read
+  // post-fetch to drop unverified demo rows for non-admin (public) viewers.
+  // verification_state ∈ unverified | pending_review | verified | demoted |
+  // rejected — only 'verified' rows survive outside admin demo mode.
+  verification_state: string | null;
 };
 
 /**
@@ -149,10 +157,15 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
   const { data: rowsRaw } = await admin
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_latitude,hq_longitude,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,tier_state',
+      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_latitude,hq_longitude,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,tier_state,verification_state',
     )
     .in('vendor_profile_id', ids)
     .in('public_visibility', ['verified', 'coming_soon'])
+    // PR-B — drop UNVERIFIED vendors from this public compare surface
+    // (anonymous viewers reach it). Demo rows are admitted at the query level
+    // so the admin demo-mode carve-out below still works; the demo-mode gate
+    // resolved after the fetch decides whether demo rows actually render.
+    .or('verification_state.eq.verified,is_demo.eq.true')
     .not('business_name', 'is', null)
     .neq('business_name', '');
 
@@ -162,17 +175,51 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
   // Preserve the order the couple chose (URL order). Skip any IDs the
   // query dropped (deleted vendor, RLS hide, etc.) — the comparison still
   // works with N < requested count.
-  const rows: CompareRow[] = ids
+  let rows: CompareRow[] = ids
     .map((id) => rowsById.get(id))
     .filter((r): r is CompareRow => r !== undefined);
 
+  // PR-B demo-mode resolution. The query above admits `is_demo` rows via the
+  // .or() so the admin demo-mode carve-out works; this is the post-fetch gate
+  // the query comment promises. Resolve demo mode (cookie + admin profile)
+  // BEFORE the rows.length < 2 redirect so the verified-only filter below
+  // applies to the redirect decision too. Cheap fast path: no cookie ⇒ skip
+  // the admin lookup and demo mode stays false.
+  const cookieStore = await cookies();
+  const hasDemoCookie =
+    cookieStore.get(DEMO_MODE_COOKIE_NAME)?.value === '1';
+  let inDemoMode = false;
+  if (hasDemoCookie && user && rows.some((r) => r.is_demo === true)) {
+    const { data: viewerProfile } = await supabase
+      .from('users')
+      .select('account_type, is_internal, is_team_member')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    inDemoMode = isAdminProfile(viewerProfile);
+  }
+
+  // Outside admin demo mode, drop unverified DEMO rows that the .or() admitted
+  // — an anonymous public viewer must never see an unverified vendor render as
+  // a full comparison column. (Verified vendors and verified demo vendors are
+  // unaffected.) Filter BEFORE the redirect check so a comparison that would
+  // be all-unverified-demo correctly bounces to /explore instead of rendering.
+  if (!inDemoMode) {
+    rows = rows.filter((r) => r.verification_state === 'verified');
+  }
+  const demoRows = rows.filter((r) => r.is_demo === true);
+
   if (rows.length < 2) {
-    // The requested vendors aren't all visible (drift / deletes). Send
-    // the couple back rather than rendering a one-column "comparison".
+    // The requested vendors aren't all visible (drift / deletes / unverified).
+    // Send the couple back rather than rendering a one-column "comparison".
     redirect('/explore');
   }
 
-  const reviewStats = await fetchReviewStatsForMany(
+  // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the compare table's PUBLIC
+  // rating + count read the TRUSTED (receipt-backed, arm's-length) stat so
+  // fake / self-dealt reviews can't inflate the compared number. Raw
+  // `fetchReviewStatsForMany` is no longer needed here (only the aggregate
+  // number/count is shown — no histogram).
+  const trustedReviewStats = await fetchTrustedReviewStatsForMany(
     admin,
     rows.map((r) => r.vendor_profile_id),
   );
@@ -200,22 +247,8 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
   // vendor, surface the Pricing + Package Inclusions rows in the table
   // (which would otherwise stay hidden per the 2026-05-16 hide-prices
   // lock). Non-demo rows show "—" in those columns; non-demo viewers
-  // never see them at all. Mirrors the demo-mode resolution pattern
-  // from /vendors/page.tsx — cheap fast path skips the admin lookup if
-  // no cookie is present.
-  const cookieStore = await cookies();
-  const hasDemoCookie =
-    cookieStore.get(DEMO_MODE_COOKIE_NAME)?.value === '1';
-  const demoRows = rows.filter((r) => r.is_demo === true);
-  let inDemoMode = false;
-  if (hasDemoCookie && user && demoRows.length > 0) {
-    const { data: viewerProfile } = await supabase
-      .from('users')
-      .select('account_type, is_internal, is_team_member')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    inDemoMode = isAdminProfile(viewerProfile);
-  }
+  // never see them at all. `inDemoMode` + `demoRows` were resolved above
+  // (before the redirect gate) so the PR-B verified-only filter could run.
 
   // Fetch starting price + package inclusions ONLY for the demo rows in
   // the visible set. Reads vendor_services for the min starting_price_php
@@ -297,9 +330,6 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
 
       <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
         <div className="mb-6 space-y-2">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            Compare · {rows.length} vendors
-          </p>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
             Side-by-side comparison.
           </h1>
@@ -423,16 +453,16 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
 
               <CompareRowEl label="Rating">
                 {rows.map((row) => {
-                  const stats = reviewStats.get(row.vendor_profile_id);
+                  const stats = trustedReviewStats.get(row.vendor_profile_id);
                   // Phase C review-display gate (vendor-tier-caps · surface
                   // layer). Free vendors (reviewStarsCounted=false) render
                   // 'new' / no count rather than their tier-HIDDEN stars.
-                  // Gated HERE, not in fetchReviewStatsForMany, so the vendor's
-                  // own dashboard self-view stays ungated. `?? null` → free.
+                  // Gated HERE, not in the stats fetch, so the vendor's own
+                  // dashboard self-view stays ungated. `?? null` → free.
                   const starsCounted = tierCaps(row.tier_state ?? null)
                     .reviewStarsCounted;
-                  const rating = starsCounted ? (stats?.avg_rating_overall ?? 0) : 0;
-                  const count = starsCounted ? (stats?.total_count ?? 0) : 0;
+                  const rating = starsCounted ? (stats?.trusted_avg_rating ?? 0) : 0;
+                  const count = starsCounted ? (stats?.trusted_review_count ?? 0) : 0;
                   return (
                     <td
                       key={row.vendor_profile_id}

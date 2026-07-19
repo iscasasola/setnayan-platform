@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { ScrollText, Copy, Check, Download, X } from 'lucide-react';
 import { generateEmceeScript } from '../actions';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 /**
  * EmceeScriptButton — one-tap "Generate emcee script" affordance for the
@@ -25,6 +26,9 @@ export function EmceeScriptButton({ eventId, coupleName }: Props) {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useModalA11y({ open, onClose: () => setOpen(false), containerRef: dialogRef });
 
   function generate(withPrivate: boolean) {
     setError(null);
@@ -82,10 +86,11 @@ export function EmceeScriptButton({ eventId, coupleName }: Props) {
 
       {open ? (
         <div
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
           aria-label="Emcee script"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-0 sm:items-center sm:p-4"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-0 focus:outline-none sm:items-center sm:p-4"
           onClick={() => setOpen(false)}
         >
           <div

@@ -26,6 +26,7 @@ import {
   type PlanBuildSnapshot,
 } from '../build-actions';
 import { applyBuildToWorking } from '../build-pick-actions';
+import { useSaveLoader } from '@/components/sd-loader';
 import { readPinMode } from './build-pin-mode';
 import { goToBuildTab } from './services-takeover';
 import { sortSavedBuilds, displayBuildTitle } from '@/lib/named-builds';
@@ -79,6 +80,7 @@ export function BuildCompare({
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   // Confirm-first guard for Modify (it overwrites the working build).
   const { confirm, dialog } = useConfirm();
+  const save = useSaveLoader();
 
   // Stable column order (named builds oldest-first).
   const orderedBuilds = useMemo(() => sortSavedBuilds(savedBuilds), [savedBuilds]);
@@ -142,12 +144,16 @@ export function BuildCompare({
       return;
     }
     startTransition(async () => {
-      const res = await savePlanBuildNamed({
-        eventId,
-        rawName: name,
-        overwriteBuildId: overwriteId || null,
-        snapshot: { ...currentPlan, pinMode: readPinMode(eventId) },
-      });
+      const res = await save.run(
+        () =>
+          savePlanBuildNamed({
+            eventId,
+            rawName: name,
+            overwriteBuildId: overwriteId || null,
+            snapshot: { ...currentPlan, pinMode: readPinMode(eventId) },
+          }),
+        { steps: ['Saving your build'], hint: 'Saving' },
+      );
       if (!res.ok) setErr(res.error);
       else {
         setName('');
@@ -160,7 +166,10 @@ export function BuildCompare({
   function onDelete(buildId: string) {
     setErr(null);
     startTransition(async () => {
-      const res = await deleteBudgetBuild({ eventId, buildId });
+      const res = await save.run(() => deleteBudgetBuild({ eventId, buildId }), {
+        steps: ['Deleting your build'],
+        hint: 'Saving',
+      });
       if (!res.ok) setErr(res.error);
       else router.refresh();
     });

@@ -32,7 +32,7 @@ import { saveHeroVideo, toggleHeroPublish } from './actions';
 type Phase = 'idle' | 'uploading-video' | 'extracting' | 'uploading-frames' | 'saving' | 'done' | 'error';
 
 // Frame density = SMOOTHNESS, not duration (owner 2026-06-16). The hero plays as a
-// time-paced scroll-scrub: HeroVideoScrub's MIN_PLAY_SECONDS sets how many SECONDS a
+// time-paced scroll-scrub: the player's MIN_PLAY_SECONDS sets how many SECONDS a
 // play-through lasts (a fast swipe can't rush it), independent of frame count. Frame
 // COUNT only controls how smooth those seconds look — too few frames over a multi-second
 // play = a stepped slideshow. 24fps over a ~5–6s clip → ~120–144 frames, which reads as
@@ -225,11 +225,11 @@ export function HeroUploader({ initialPublished, initialFrameCount }: { initialP
     <div className="rounded-2xl border border-[var(--m-line,#e2ded4)] bg-white p-6 max-w-2xl">
       <div className="flex items-center justify-between gap-4 mb-4">
         <div>
-          <div className="text-sm font-medium text-[var(--m-ink,#1e2229)]">Homepage hero video</div>
+          <div className="text-sm font-medium text-[var(--m-ink,#1b1a17)]">Homepage hero video</div>
           <div className="text-[13px] text-[var(--m-slate,#4f535b)] mt-0.5">
             {frameCount > 0
               ? `${frameCount} frames stored · ${published ? 'LIVE on the homepage' : 'draft (not live)'}`
-              : 'No video yet — upload one to replace the homepage hero.'}
+              : 'No video yet — upload one to set the sign-in page hero still.'}
           </div>
         </div>
         <span
@@ -244,11 +244,11 @@ export function HeroUploader({ initialPublished, initialFrameCount }: { initialP
       </div>
 
       <label
-        className="block cursor-pointer rounded-xl border-2 border-dashed border-[var(--m-line,#e2ded4)] px-6 py-8 text-center hover:border-[var(--m-orange,#c5a059)] transition-colors"
+        className="block cursor-pointer rounded-xl border-2 border-dashed border-[var(--m-line,#e2ded4)] px-6 py-8 text-center hover:border-[var(--m-orange,#a9834b)] transition-colors"
         style={{ opacity: working ? 0.6 : 1, pointerEvents: working ? 'none' : 'auto' }}
       >
         <input type="file" accept="video/mp4,video/webm,video/quicktime" className="hidden" onChange={onPick} disabled={working} />
-        <div className="text-[var(--m-ink,#1e2229)] font-medium">{working ? 'Working…' : 'Upload a video'}</div>
+        <div className="text-[var(--m-ink,#1b1a17)] font-medium">{working ? 'Working…' : 'Upload a video'}</div>
         <div className="text-[13px] text-[var(--m-slate,#4f535b)] mt-1">
           MP4 / WebM / MOV · up to 60 MB · use a high-res source (1080p+, 1:1 square ideal) and keep it short (~4–6s) — it plays full-screen, so a low-res clip will look pixelated
         </div>
@@ -258,7 +258,7 @@ export function HeroUploader({ initialPublished, initialFrameCount }: { initialP
         <div className="mt-4">
           <div className="text-[13px] text-[var(--m-slate,#4f535b)] mb-1.5">{msg}</div>
           <div className="h-2 rounded-full bg-[var(--m-line,#eee)] overflow-hidden">
-            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: 'var(--m-orange,#c5a059)' }} />
+            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: 'var(--m-orange,#a9834b)' }} />
           </div>
         </div>
       )}

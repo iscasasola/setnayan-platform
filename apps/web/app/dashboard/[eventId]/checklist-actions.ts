@@ -1,11 +1,14 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { redirect } from 'next/navigation';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { buildChecklistSeed } from '@/lib/checklist';
+import { buildChecklistSeed, buildSeedRows, isWeddingEvent, type ChecklistTemplateItem } from '@/lib/checklist';
+import { checklistDefForEventType } from '@/lib/checklist-event-type-defs';
+import { specialtyRecommendations } from '@/lib/onboarding/specialty-recommendations';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import {
   computeSatisfiedChecklistKeys,
@@ -67,13 +70,44 @@ export async function ensureChecklistSeeded(eventId: string): Promise<number> {
   if (existingErr) return 0;
 
   // Ceremony type drives the deterministic tailoring. A read error just means
-  // no filtering (keep every task) — never block the seed on it.
+  // no filtering (keep every task) — never block the seed on it. `event_type`
+  // gates whether the (wedding-shaped) template applies at all.
   const { data: eventRow } = await supabase
     .from('events')
-    .select('ceremony_type')
+    .select('ceremony_type, event_type, signature_details')
     .eq('event_id', eventId)
     .maybeSingle();
   const ceremonyType = (eventRow?.ceremony_type as string | null | undefined) ?? null;
+  const eventType = (eventRow?.event_type as string | null | undefined) ?? null;
+  const signatureDetails =
+    (eventRow?.signature_details as Record<string, unknown> | null | undefined) ?? null;
+
+  // Resolve the template for this event type:
+  //  - wedding / unset  → the canonical wedding CHECKLIST_TEMPLATE (unchanged,
+  //    with ceremony_type tailoring). `checklistDefForEventType` returns null.
+  //  - enabled non-wedding type (birthday, debut, christening, …) → its own
+  //    per-type performable-task template.
+  //  - unknown non-wedding type → seed NOTHING (return 0) rather than a
+  //    confidently-wrong wedding checklist.
+  const perTypeDef = checklistDefForEventType(eventType);
+  if (perTypeDef == null && !isWeddingEvent(eventType)) return 0;
+  // Per-type SUGGESTED tasks derived from the captured signature signals — the
+  // first consumer of the Brief's specialty layer (deterministic, Rule 1). A
+  // suggestion only exists when a real signal backs it (a captured cotillion,
+  // named 18 Candles, a godparent roster…). Non-wedding path only; appended to the
+  // static template so they de-dupe by template_key and keep a sequential
+  // sort_order. Empty → the seed is byte-identical to before.
+  const specialtySuggestions: ChecklistTemplateItem[] = perTypeDef
+    ? specialtyRecommendations(eventType, signatureDetails).map((r) => ({
+        key: r.key,
+        title: r.title,
+        category: r.category,
+        dueOffsetDays: r.dueOffsetDays,
+      }))
+    : [];
+  const seed = perTypeDef
+    ? buildSeedRows(eventId, [...perTypeDef.template, ...specialtySuggestions], null) // per-type + captured-signal suggestions
+    : buildChecklistSeed(eventId, ceremonyType); // wedding path, unchanged
 
   const rows = (existingRows ?? []) as { template_key: string | null; status: string }[];
   const existingKeys = new Set(
@@ -87,7 +121,7 @@ export async function ensureChecklistSeeded(eventId: string): Promise<number> {
       .filter((k) => AUTO_COMPLETABLE_KEYS.has(k)),
   );
 
-  const missing = buildChecklistSeed(eventId, ceremonyType).filter(
+  const missing = seed.filter(
     (row) => row.template_key != null && !existingKeys.has(row.template_key),
   );
 
@@ -119,7 +153,16 @@ export async function ensureChecklistSeeded(eventId: string): Promise<number> {
     flipped = await reconcileChecklistCompletion(eventId, admin, candidateAutoKeys);
   }
 
-  if (inserted > 0 || flipped > 0) revalidatePath(`/dashboard/${eventId}`);
+  // `ensureChecklistSeeded` runs DURING the render of the checklist page and the
+  // home checklist card, and revalidatePath is unsupported during render. The
+  // caller re-reads the rows in the same render (after this returns), so the seed
+  // + auto-complete are already reflected on THIS surface without any revalidate.
+  // We still want to bust the OTHER cached home-dashboard surfaces — so defer the
+  // revalidate to `after()`, which runs after the response is sent, outside the
+  // render pass. (JAVASCRIPT-NEXTJS-B)
+  if (inserted > 0 || flipped > 0) {
+    after(() => revalidatePath(`/dashboard/${eventId}`));
+  }
   return inserted;
 }
 

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
+import { useCallback, useRef, useState, useTransition, type ReactNode } from 'react';
 import {
   Aperture,
   ArrowUpRight,
@@ -45,6 +45,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import { findSku, formatCentavosPhp } from '@/lib/sku-catalog';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { FileUpload } from '@/app/_components/file-upload';
 import {
   SPATIAL_THEMES,
@@ -59,6 +60,7 @@ import {
   saveRsvpBackdrop,
   clearRsvpBackdrop,
 } from '../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 /**
  * Site Editor — full-screen, Reels-style wedding-website editor.
@@ -117,6 +119,24 @@ const TAB_TITLE: Record<Tab, string> = {
   editorial: 'Editorial',
 };
 
+/**
+ * One-line "what this is + when guests see it" caption per phase — so a couple
+ * stepping through the preview understands which part of their site each tab
+ * shows, and when it goes live for guests. Settings = the page as it is now.
+ */
+const PHASE_CAPTION: Record<Tab, string> = {
+  settings: 'Your page as it looks right now to anyone you share it with.',
+  rsvp: 'The invitation guests see in the run-up — names, details, and the RSVP.',
+  event: 'The live day-of page guests open on the wedding day itself.',
+  editorial: 'The story page guests revisit after the day — photos and highlights.',
+};
+
+/** Preview URL for a phase: Settings shows the real live page; the other phases
+ *  load it with the matching `?phase=` host-only override. */
+function previewSrcFor(publicLandingUrl: string, phase: Tab): string {
+  return phase === 'settings' ? publicLandingUrl : `${publicLandingUrl}?phase=${phase}`;
+}
+
 export type SiteEditorProps = {
   eventId: string;
   slug: string | null;
@@ -163,19 +183,23 @@ export type PhaseEditorPhase = 'rsvp' | 'event' | 'editorial';
  */
 function useInlineEditState() {
   const router = useRouter();
+  const save = useSaveLoader();
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const [previewNonce, setPreviewNonce] = useState(0);
   const [pending, startTransition] = useTransition();
   const runAction = useCallback(
     (action: (fd: FormData) => Promise<void>, fd: FormData) => {
       startTransition(async () => {
-        await action(fd);
+        await save.run(() => action(fd), {
+          steps: ['Saving your site'],
+          hint: 'Saving',
+        });
         setPreviewNonce((n) => n + 1);
         router.refresh();
         setEditing(null);
       });
     },
-    [router],
+    [router, save],
   );
   return { editing, setEditing, previewNonce, pending, runAction };
 }
@@ -222,22 +246,21 @@ export function SiteEditor(props: SiteEditorProps) {
           // host membership before honoring the param). Settings shows the
           // real live page (whatever phase the calendar says). Keying by tab
           // remounts the iframe on switch so each phase loads fresh.
-          <iframe
-            key={`preview-${previewNonce}-${tab}`}
-            title={
-              tab === 'settings'
-                ? 'Live preview of your wedding website'
-                : `Preview of your ${TAB_TITLE[tab]} page`
-            }
-            src={
-              tab === 'settings'
-                ? publicLandingUrl
-                : `${publicLandingUrl}?phase=${tab}`
-            }
-            className="pointer-events-none h-full w-full border-0 bg-white"
-            sandbox="allow-scripts allow-same-origin"
-            loading="lazy"
-          />
+          <>
+            <iframe
+              key={`preview-${previewNonce}-${tab}`}
+              title={
+                tab === 'settings'
+                  ? 'Live preview of your wedding website'
+                  : `Preview of your ${TAB_TITLE[tab]} page`
+              }
+              src={previewSrcFor(publicLandingUrl, tab)}
+              className="pointer-events-none h-full w-full border-0 bg-white"
+              sandbox="allow-scripts allow-same-origin"
+              loading="lazy"
+            />
+            <OpenPreviewLink href={previewSrcFor(publicLandingUrl, tab)} label={TAB_TITLE[tab]} />
+          </>
         ) : (
           <PreviewNoSlug eventId={eventId} />
         )}
@@ -293,6 +316,7 @@ export function SiteEditor(props: SiteEditorProps) {
               Swipe →
             </span>
           </div>
+          <p className="px-4 pb-1 text-xs text-ink/55">{PHASE_CAPTION[tab]}</p>
           {tab === 'settings' && <Carousel cards={settingsCards(props)} />}
           {tab === 'rsvp' && (
             <Carousel cards={rsvpCards(props, { onEditBackdrop: () => setEditing('backdrop') })} />
@@ -380,14 +404,17 @@ export function PhaseEditor({
           // Host-gated ?phase override — the couple's own session rides into the
           // same-origin iframe and the [slug] page verifies host membership
           // before honoring the param (so a guest can never force a phase).
-          <iframe
-            key={`preview-${previewNonce}`}
-            title={`Preview of your ${title} page`}
-            src={`${publicLandingUrl}?phase=${phase}`}
-            className="pointer-events-none h-full w-full border-0 bg-white"
-            sandbox="allow-scripts allow-same-origin"
-            loading="lazy"
-          />
+          <>
+            <iframe
+              key={`preview-${previewNonce}`}
+              title={`Preview of your ${title} page`}
+              src={`${publicLandingUrl}?phase=${phase}`}
+              className="pointer-events-none h-full w-full border-0 bg-white"
+              sandbox="allow-scripts allow-same-origin"
+              loading="lazy"
+            />
+            <OpenPreviewLink href={`${publicLandingUrl}?phase=${phase}`} label={title} />
+          </>
         ) : (
           <PreviewNoSlug eventId={eventId} />
         )}
@@ -401,6 +428,7 @@ export function PhaseEditor({
             Swipe →
           </span>
         </div>
+        <p className="px-4 pb-1 text-xs text-ink/55">{PHASE_CAPTION[phase]}</p>
         <Carousel cards={cards} />
       </div>
 
@@ -920,6 +948,26 @@ function editorialCards(p: SiteEditorProps): ReactNode[] {
 /* (PreviewSoon retired 2026-06-11 — the Editorial tab now previews the REAL
    editorial page via the host-gated `?phase=editorial` override.) */
 
+/**
+ * OpenPreviewLink — a small "open this preview full-screen in a new tab" affordance
+ * over the (pointer-events-none) preview iframe. The href carries the same
+ * `?phase=` override the iframe uses, so the new tab lands on exactly what the
+ * couple is previewing. Host-gated server-side, same as the iframe.
+ */
+function OpenPreviewLink({ href, label }: { href: string; label: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="absolute bottom-3 right-3 z-30 inline-flex items-center gap-1.5 rounded-full bg-ink/45 px-3 py-1.5 text-[11px] font-medium text-cream backdrop-blur-sm transition hover:bg-ink/65"
+    >
+      Open {label} preview
+      <ArrowUpRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+    </a>
+  );
+}
+
 function PreviewNoSlug({ eventId }: { eventId: string }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
@@ -966,14 +1014,11 @@ function HeroEditSheet({
   onClear: (fd: FormData) => void;
   onClose: () => void;
 }) {
-  // Esc closes the sheet (mirrors the backdrop tap).
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  // Mounted only while open, so open is a constant `true` — mount = open, the
+  // hook's cleanup runs the focus-restore on unmount. Esc-to-close, Tab-trap,
+  // focus-in and body-scroll-lock all come from the shared hook.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open: true, onClose, containerRef: dialogRef });
 
   return (
     <div className="fixed inset-0 z-50 flex">
@@ -984,10 +1029,11 @@ function HeroEditSheet({
         className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Edit hero photo"
-        className="relative z-10 mt-auto max-h-[85dvh] w-full overflow-y-auto rounded-t-2xl bg-cream p-5 text-ink shadow-2xl lg:mt-0 lg:ml-auto lg:h-full lg:max-h-none lg:w-[420px] lg:rounded-none lg:rounded-l-2xl"
+        className="relative z-10 mt-auto max-h-[85dvh] w-full overflow-y-auto rounded-t-2xl bg-cream p-5 text-ink shadow-2xl focus:outline-none lg:mt-0 lg:ml-auto lg:h-full lg:max-h-none lg:w-[420px] lg:rounded-none lg:rounded-l-2xl"
       >
         <div className="mb-4 flex items-start justify-between">
           <div>
@@ -1098,13 +1144,11 @@ function BackdropEditSheet({
   );
   const [intensity, setIntensity] = useState<SpatialIntensity>(current?.intensity ?? 'standard');
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  // Mounted only while open, so open is a constant `true` — mount = open, the
+  // hook's cleanup runs the focus-restore on unmount. Esc-to-close, Tab-trap,
+  // focus-in and body-scroll-lock all come from the shared hook.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open: true, onClose, containerRef: dialogRef });
 
   const submit = () => {
     const fd = new FormData();
@@ -1129,10 +1173,11 @@ function BackdropEditSheet({
         className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Choose a living backdrop"
-        className="relative z-10 mt-auto max-h-[85dvh] w-full overflow-y-auto rounded-t-2xl bg-cream p-5 text-ink shadow-2xl lg:mt-0 lg:ml-auto lg:h-full lg:max-h-none lg:w-[420px] lg:rounded-none lg:rounded-l-2xl"
+        className="relative z-10 mt-auto max-h-[85dvh] w-full overflow-y-auto rounded-t-2xl bg-cream p-5 text-ink shadow-2xl focus:outline-none lg:mt-0 lg:ml-auto lg:h-full lg:max-h-none lg:w-[420px] lg:rounded-none lg:rounded-l-2xl"
       >
         <div className="mb-4 flex items-start justify-between">
           <div>

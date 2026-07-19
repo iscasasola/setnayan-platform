@@ -5,12 +5,21 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   EDITORIAL_SECTION_KEYS,
+  loadEditorialChaptersForEditor,
   loadEditorialData,
   type EditorialSections,
+  type Review,
 } from '@/app/[slug]/_components/editorial/data';
 import { composeCopy } from '@/app/[slug]/_components/editorial/compose';
+import { isEditorialProActive } from '@/lib/couple-website-pro';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { siteUrl } from '@/lib/social/urls';
+import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { EditorialEditor } from './_components/editorial-editor';
 import type { EditorialEditorInput } from './actions';
+import { eventNoun } from '@/lib/event-noun';
+
+type LandingVisibility = 'public' | 'unlisted' | 'private';
 
 /**
  * Consolidated editorial editor (iteration 0046). One page where the couple
@@ -37,10 +46,32 @@ export default async function EditorialEditorPage({
 
   const { data: event, error } = await supabase
     .from('events')
-    .select('event_id, display_name, slug')
+    .select('event_id, display_name, slug, landing_page_visibility, event_type')
     .eq('event_id', eventId)
     .maybeSingle();
   if (error || !event) notFound();
+
+  // Showcase props — so the couple can publish AND opt into Real Stories from
+  // here (the consent flag is per-user; the visibility gates hub eligibility).
+  const landingVisibility = ((event.landing_page_visibility as string) ??
+    'public') as LandingVisibility;
+  let showcaseOptedIn = false;
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const admin = createAdminClient();
+      const { data: me } = await admin
+        .from('users')
+        .select('public_summary_consent_at')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      showcaseOptedIn = Boolean(me?.public_summary_consent_at);
+    }
+  } catch {
+    showcaseOptedIn = false;
+  }
 
   let draft: Record<string, unknown> = {};
   let status = 'draft';
@@ -72,6 +103,60 @@ export default async function EditorialEditorPage({
     ? (draft.lead_paragraphs as unknown[]).map(str).filter(Boolean)
     : [];
 
+  // FREE couple-uploaded imagery (draft_json.heroUpload + draft_json.galleryUploads).
+  // Read the stored `r2://…` refs and resolve presigned display URLs so the editor's
+  // FileUpload widgets can show existing uploads as thumbnails on mount.
+  const heroUploadRef = str(draft.heroUpload);
+  const galleryUploadRefs = Array.isArray(draft.galleryUploads)
+    ? (draft.galleryUploads as unknown[]).map(str).filter(Boolean).slice(0, 30)
+    : [];
+  const uploadDisplayUrls: Record<string, string> = {};
+  await Promise.all(
+    [heroUploadRef, ...galleryUploadRefs]
+      .filter((r) => r.length > 0)
+      .map(async (ref) => {
+        try {
+          const url = await displayUrlForStoredAsset(ref);
+          if (url) uploadDisplayUrls[ref] = url;
+        } catch {
+          /* best-effort — a missing thumbnail still lists the file + remove btn */
+        }
+      }),
+  );
+
+  // PRO section order (draft_json.sectionOrder → string[] | null). The editor
+  // resolves the full order from this + the canonical default; a bad value is a
+  // harmless [] here (sanitized again server-side).
+  const savedSectionOrder = Array.isArray(draft.sectionOrder)
+    ? (draft.sectionOrder as unknown[]).filter((v): v is string => typeof v === 'string')
+    : null;
+
+  // PRO guest-wishes (draft_json.reviews). Read the saved rows so the editor can
+  // list them for editing; each row is coerced to the Review shape (blank-safe).
+  const savedReviews: Review[] = Array.isArray(draft.reviews)
+    ? (draft.reviews as unknown[]).map((r): Review => {
+        const o = (r && typeof r === 'object' ? r : {}) as Record<string, unknown>;
+        const starsNum = Number(o.stars);
+        return {
+          author: typeof o.author === 'string' ? o.author : '',
+          role: typeof o.role === 'string' && o.role.trim() ? o.role : null,
+          quote: typeof o.quote === 'string' ? o.quote : '',
+          stars: Number.isFinite(starsNum) && starsNum >= 1 ? Math.min(5, Math.round(starsNum)) : null,
+        };
+      })
+    : [];
+
+  // Editorial PRO — the "Editor's Desk" authorship gate (à-la-carte EDITORIAL_PRO
+  // OR the Couple Website PRO umbrella; dual-unlock in lib/couple-website-pro).
+  // Server-side; the editor renders authorship inputs read-only for free couples
+  // and saveEditorial re-checks this, so the client flag is presentation only.
+  let isPro = false;
+  try {
+    isPro = await isEditorialProActive(createAdminClient(), eventId);
+  } catch {
+    isPro = false;
+  }
+
   // Compose the couple's CURRENT editorial copy — their own draft_json overrides
   // ON TOP of the onboarding-derived defaults (names → headline, archetype →
   // eyebrow, years-together + date + venue + tone → sub-headline, guest message →
@@ -86,6 +171,19 @@ export default async function EditorialEditorPage({
     composed = null;
   }
 
+  // "As the Day Unfolded" chapter cards (auto-built, unfiltered, timeline order)
+  // + the couple's current per-chapter overrides. Best-effort: a non-Papic event
+  // returns no cards and the editor hides the panel.
+  let chapterCards: Awaited<ReturnType<typeof loadEditorialChaptersForEditor>> = {
+    cards: [],
+    overrides: [],
+  };
+  try {
+    chapterCards = await loadEditorialChaptersForEditor(eventId);
+  } catch {
+    chapterCards = { cards: [], overrides: [] };
+  }
+
   const initial: EditorialEditorInput = {
     headline: composed?.headline || str(draft.headline),
     deck: composed?.deck || str(draft.deck),
@@ -96,9 +194,27 @@ export default async function EditorialEditorPage({
     // pre-fill it with the composed lede.
     leadParagraphs: leadArr.join('\n\n'),
     pullQuote: composed?.pullQuote || str(draft.pull_quote) || str(draft.pullQuote),
+    // FREE couple uploads — the saved refs (empty when none). The editor mirrors
+    // these into FileUpload widgets and sends the current set back on save.
+    heroUpload: heroUploadRef,
+    galleryUploads: galleryUploadRefs,
     sections,
+    // The editor derives its own working rows from the cards + overrides below;
+    // `chapterOverrides` in `initial` is only the save-shape default.
+    chapterOverrides: [],
+    // The editor computes the working section order + wishes from the props
+    // below; these `initial` values are only the save-shape defaults.
+    sectionOrder: savedSectionOrder,
+    reviews: savedReviews,
     publish: status === 'published',
   };
+
+  // Canonical share URL (posted to Facebook + cached by OG crawlers) — nested
+  // /u/ under the cutover flag, bare root otherwise (resolve self-noops OFF).
+  const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), eventId);
+  const shareUrl = event.slug
+    ? publicEventUrl(siteUrl().replace(/\/$/, ''), event.slug, ownerSlug)
+    : null;
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
@@ -110,16 +226,31 @@ export default async function EditorialEditorPage({
         <span>Back to website</span>
       </Link>
 
-      <header className="mb-8 space-y-2">
-        <h1 className="font-display text-3xl italic text-ink sm:text-4xl">Editorial</h1>
+      <header className="sn-reveal mb-8 space-y-2">
+        <p className="sn-eye">Front page</p>
+        <h1 className="sn-h1">Editorial</h1>
         <p className="max-w-prose text-sm text-ink/65 sm:text-base">
-          Your wedding&rsquo;s front-page story — published after the day. It starts written from your
-          wedding details; edit the words, choose your photos and hero, and pick which features show.
+          Your {eventNoun(event.event_type)}&rsquo;s front-page story — published after the day. It starts written from your
+          {' '}{eventNoun(event.event_type)} details; edit the words, choose your photos and hero, and pick which features show.
           Clear any field and we&rsquo;ll rewrite it for you, so it always reads beautifully.
         </p>
       </header>
 
-      <EditorialEditor eventId={eventId} slug={event.slug ?? null} initial={initial} />
+      <EditorialEditor
+        eventId={eventId}
+        slug={event.slug ?? null}
+        initial={initial}
+        uploadDisplayUrls={uploadDisplayUrls}
+        isPro={isPro}
+        chapterCards={chapterCards.cards}
+        chapterOverrides={chapterCards.overrides}
+        savedSectionOrder={savedSectionOrder}
+        savedReviews={savedReviews}
+        shareUrl={shareUrl}
+        showcaseOptedIn={showcaseOptedIn}
+        landingVisibility={landingVisibility}
+        isWedding={(event.event_type ?? 'wedding') === 'wedding'}
+      />
     </main>
   );
 }

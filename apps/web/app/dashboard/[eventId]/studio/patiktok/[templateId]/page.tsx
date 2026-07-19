@@ -3,7 +3,6 @@ import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, Music, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import {
-  categoryLabel,
   findPatiktokTemplate,
   type PatiktokTemplate,
 } from '@/lib/patiktok';
@@ -39,7 +38,7 @@ export default async function PatiktokTemplateDetail({ params }: Props) {
     .maybeSingle();
 
   const { data: tracksRaw } = await supabase
-    .from('patiktok_music_tracks')
+    .from('reel_music_tracks')
     .select('track_slug, category, display_name, bpm, duration_sec')
     .eq('is_active', true)
     .order('category', { ascending: true })
@@ -56,11 +55,9 @@ export default async function PatiktokTemplateDetail({ params }: Props) {
         Back to templates
       </Link>
 
-      <header className="space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          {categoryLabel(template.category)} · Patiktok template
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">Reels</p>
+        <h1 className="sn-h1">
           {template.name}
         </h1>
         <p className="max-w-prose text-base text-ink/65">{template.vibe}</p>
@@ -78,7 +75,7 @@ export default async function PatiktokTemplateDetail({ params }: Props) {
         </div>
 
         <div className="space-y-5">
-          <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+          <section className="sn-tile space-y-3 p-5">
             <h2 className="text-lg font-semibold tracking-tight">
               Render this reel
             </h2>
@@ -96,7 +93,7 @@ export default async function PatiktokTemplateDetail({ params }: Props) {
             />
           </section>
 
-          <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+          <section className="sn-tile space-y-3 p-5">
             <h2 className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink">
               <Music aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
               Paired music
@@ -114,7 +111,7 @@ export default async function PatiktokTemplateDetail({ params }: Props) {
             </p>
           </section>
 
-          <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+          <section className="sn-tile space-y-3 p-5">
             <h2 className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink">
               <Sparkles aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
               What ships in the Station Pack

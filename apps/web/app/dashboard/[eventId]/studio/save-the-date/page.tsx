@@ -3,7 +3,14 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, Check, Eye, Sparkles, Stamp } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { sanitizeRolePalette } from '@/lib/mood-board';
-import { sealColorFromPalette, veilColorFromPalette, stdAccentFromPalette } from '@/lib/site-palette';
+import {
+  sealColorFromPalette,
+  veilColorFromPalette,
+  stdAccentFromPalette,
+  paletteSwatches,
+} from '@/lib/site-palette';
+import { isChineseWedding } from '@/lib/chinese-wedding';
+import { RED_GOLD_PALETTE } from '@/lib/feel-palettes';
 import { manilaToday, summarizeStdViews } from '@/lib/std-views';
 import { fallbackSeedFromPublicId, sanitizeWaxSealConfig } from '@/lib/wax-seal/types';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -31,6 +38,7 @@ import {
 } from '@/lib/std-openings';
 import { StdBuilderClient } from './_components/StdBuilderClient';
 import { LaunchStdButton } from './_components/launch-std-button';
+import { FeatureUsCard } from '@/app/dashboard/[eventId]/_components/feature-us-card';
 
 // 2026-06-19 — builder redesign: the 5-step builder (1 Background [+ theme:
 // fonts/colours] · 2 Content · 3 Video/Gallery · 4 Music · 5 Opening/reveal) +
@@ -63,7 +71,7 @@ export default async function SaveTheDatePage({ params }: Props) {
   const { data: event } = await supabase
     .from('events')
     .select(
-      'public_id, slug, display_name, event_date, venue_name, venue_address, love_story, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_film_date, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_story, std_film_accent_hex, std_background, std_media, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url, date_candidates, date_mode, landing_page_visibility, std_launched_at',
+      'public_id, slug, display_name, event_date, venue_name, venue_address, ceremony_type, secondary_ceremony_type, love_story, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_film_date, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_story, std_film_accent_hex, std_background, std_media, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url, date_candidates, date_mode, landing_page_visibility, std_launched_at, scheduled_launch_at',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -97,10 +105,26 @@ export default async function SaveTheDatePage({ params }: Props) {
   const palette = sanitizeRolePalette(event?.role_palette);
   const waxColor = sealColorFromPalette(palette);
   const veilColor = veilColorFromPalette(palette);
+  // Chinese (Tsinoy) overlay — primary OR secondary rite (the common church-primary
+  // + Chinese-secondary case). Gates the red/gold accent SUGGESTION below.
+  const isChinese = isChineseWedding({
+    ceremony_type: event?.ceremony_type ?? null,
+    secondary_ceremony_type: event?.secondary_ceremony_type ?? null,
+  });
   // Film accent: the couple's manual override (std_film_accent_hex) wins; the
   // builder shows the Mood-Board-derived default beneath it when they haven't
   // set one ("From your Mood Board"). Mirrors the live page's stdAccentColor.
-  const accentDefault = stdAccentFromPalette(palette);
+  //
+  // Chinese default: when the couple hasn't set a manual accent AND their Mood
+  // Board is empty (no swatch), a Chinese event's default becomes the auspicious
+  // red/gold deep red instead of brand mulberry — a one-tap-ready SUGGESTION that
+  // matches the published page's fallback. PURE default: never written to the DB;
+  // a manual override or any real palette swatch always wins. (event.std_film_accent_hex
+  // = the override; stdAccentHex below mirrors it.)
+  const accentDefault =
+    isChinese && !event?.std_film_accent_hex && paletteSwatches(palette).length === 0
+      ? RED_GOLD_PALETTE[0]! // #7A1F2B — auspicious deep red
+      : stdAccentFromPalette(palette);
   const sealConfig = sanitizeWaxSealConfig(event?.wax_seal_config);
   const sealFallbackSeed = fallbackSeedFromPublicId(event?.public_id);
   const hasMintedSeal = sealConfig !== null;
@@ -213,6 +237,32 @@ export default async function SaveTheDatePage({ params }: Props) {
       ? event.std_invitation_launch_date.slice(0, 10)
       : '';
 
+  // Launched = the couple has taken their Save-the-Date live. Only then is it a
+  // finished, shareable creation, so the Feature-Us opt-in appears only after
+  // launch (and the app-side publish gate still holds it until after the
+  // wedding).
+  const stdLaunched =
+    Boolean(event?.std_launched_at) || event?.landing_page_visibility === 'public';
+
+  // ── Social Sharing & Featuring Program (migration 20261203000000) — the live
+  // (un-revoked) consent row for THIS event's singular Save-the-Date, so the
+  // opt-in card flips to its "already allowed" state. artifact_ref='' keys on
+  // the event's singular save_the_date. RLS couple policy scopes the read;
+  // degrade to null on a drifted DB (the table may post-date this deploy).
+  const { data: stdShareConsent } = stdLaunched
+    ? await supabase
+        .from('marketing_share_consents')
+        .select('consent_id, credit_mode')
+        .eq('event_id', eventId)
+        .eq('artifact_type', 'save_the_date')
+        .eq('artifact_ref', '')
+        .is('revoked_at', null)
+        .order('consented_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then((r) => (r.error ? { data: null } : r))
+    : { data: null };
+
 
   return (
     <section className="space-y-8">
@@ -224,8 +274,9 @@ export default async function SaveTheDatePage({ params }: Props) {
         Back to add-ons
       </Link>
 
-      <header className="space-y-3">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Save the Date</h1>
+      <header className="sn-reveal space-y-3">
+        <p className="sn-eye">Save the Date</p>
+        <h1 className="sn-h1">Save the Date</h1>
         <p className="max-w-prose text-base text-ink/65">
           Your Save the Date plays as a short, self-running film — it fills itself from what
           you&rsquo;ve already added. Set the scene, fine-tune the details, add your video and
@@ -234,10 +285,10 @@ export default async function SaveTheDatePage({ params }: Props) {
       </header>
 
       {/* Save-the-Date views — unique per day, the couple's own visits excluded. */}
-      <section className="flex flex-wrap items-center gap-x-7 gap-y-2 rounded-2xl border border-ink/10 bg-white/60 px-5 py-4">
+      <section className="sn-tile flex flex-wrap items-center gap-x-7 gap-y-2 px-5 py-4">
         <div className="flex items-center gap-2">
           <Eye aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta">
+          <span className="sn-eye">
             Save-the-Date views
           </span>
         </div>
@@ -304,7 +355,7 @@ export default async function SaveTheDatePage({ params }: Props) {
           </div>
         </section>
       ) : (
-        <p className="rounded-2xl border border-ink/10 bg-white/60 px-5 py-4 text-sm text-ink/55">
+        <p className="sn-row px-5 py-4 text-sm text-ink/55">
           The cinematic openings are being set up — check back shortly.
         </p>
       )}
@@ -313,6 +364,7 @@ export default async function SaveTheDatePage({ params }: Props) {
       <StdBuilderClient
         eventId={eventId}
         slug={event?.slug ?? null}
+        ownsReveal={ownsOpenings}
         initialContent={content}
         initialThemeId={themeId}
         initialLaunchDate={launchDate}
@@ -332,6 +384,7 @@ export default async function SaveTheDatePage({ params }: Props) {
         initialFilmStory={stdStory}
         initialFilmAccentColor={stdAccentHex}
         initialAccentDefault={accentDefault}
+        isChinese={isChinese}
         displayName={event?.display_name ?? ''}
         dateIso={event?.event_date ?? null}
         markSvg={markSvg}
@@ -350,10 +403,27 @@ export default async function SaveTheDatePage({ params }: Props) {
       <LaunchStdButton
         eventId={eventId}
         slug={event?.slug ?? null}
-        initialLaunched={
-          Boolean(event?.std_launched_at) || event?.landing_page_visibility === 'public'
+        initialLaunched={stdLaunched}
+        initialScheduledAt={
+          typeof event?.scheduled_launch_at === 'string'
+            ? event.scheduled_launch_at
+            : null
         }
       />
+
+      {/* ── Feature-us opt-in (Social Sharing Program) — once the couple has
+          taken their Save-the-Date live it's a finished, shareable creation.
+          Opt-in, default off; the app-side gate still holds it until after the
+          wedding. ── */}
+      {stdLaunched ? (
+        <FeatureUsCard
+          eventId={eventId}
+          artifactType="save_the_date"
+          artifactRef=""
+          alreadyConsented={stdShareConsent ?? null}
+          revalidatePath={`/dashboard/${eventId}/studio/save-the-date`}
+        />
+      ) : null}
 
       {/* Wax seal */}
       <div className="pt-2">

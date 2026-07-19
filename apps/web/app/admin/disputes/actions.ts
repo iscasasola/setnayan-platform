@@ -2,10 +2,12 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 
+// Shared admin gate (require-admin.ts) — identical contract to the local
+// requireAdmin this file used to duplicate (login redirect · Forbidden throw).
+import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
 /**
  * /admin/disputes resolution actions (cross-actor audit 2026-06-07).
  *
@@ -38,24 +40,6 @@ const RESOLUTION_LABEL: Record<Resolution, string> = {
 
 function isResolution(v: FormDataEntryValue | null): v is Resolution {
   return typeof v === 'string' && (RESOLUTIONS as readonly string[]).includes(v);
-}
-
-async function requireAdmin(): Promise<{ userId: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { data: me } = await supabase
-    .from('users')
-    .select('is_internal, is_team_member, account_type')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (!(me?.is_internal || me?.is_team_member || me?.account_type === 'admin')) {
-    throw new Error('Forbidden');
-  }
-  return { userId: user.id };
 }
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
@@ -91,6 +75,17 @@ export async function resolveDispute(formData: FormData) {
   }
 
   const admin = createAdminClient();
+  // Review is the demotion GATE (dispute-mediation, 2027-04-13). A dispute
+  // demotes a vendor's rating ONLY when the neutral team resolves it against
+  // the vendor. So the resolution sets counts_toward_demotion explicitly:
+  //   • resolved_for_couple → TRUE  (the record was reviewed AND went against
+  //                                   the vendor — it now feeds the 3-in-30
+  //                                   demote-to-coming_soon counter)
+  //   • resolved_for_vendor / withdrawn → FALSE (never counts)
+  // Combined with the migration's default FALSE + the tightened
+  // count_vendor_disputes_30d (resolved_for_couple only), an unreviewed 'open'
+  // dispute can never silently demote.
+  const countsTowardDemotion = resolution === 'resolved_for_couple';
   // State-machine guard (cross-account QA, 2026-06-19): only flip an OPEN
   // dispute. If the row was already resolved/withdrawn (race with another
   // admin, double-click after a 503, stale page render), the `status='open'`
@@ -103,6 +98,7 @@ export async function resolveDispute(formData: FormData) {
     .update({
       status: resolution,
       resolution_notes: notes,
+      counts_toward_demotion: countsTowardDemotion,
       resolved_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
@@ -136,8 +132,8 @@ export async function resolveDispute(formData: FormData) {
       action: 'dispute_resolved',
       target_table: 'vendor_disputes',
       target_id: updated.dispute_id as string,
-      before_json: { status: 'open' },
-      after_json: { status: resolution },
+      before_json: { status: 'open', counts_toward_demotion: false },
+      after_json: { status: resolution, counts_toward_demotion: countsTowardDemotion },
       reason: notes,
       actor_user_id: adminUserId,
     });

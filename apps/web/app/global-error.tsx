@@ -54,7 +54,7 @@ export default function GlobalError({ error, reset }: Props) {
           // Tailwind's pipeline (Next.js root error boundary) so colors must be
           // inline hex literals matching the --m-* tokens in globals.css.
           backgroundColor: '#FBFBFA',
-          color: '#1E2229',
+          color: '#1B1A17',
           fontFamily:
             "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
           display: 'flex',
@@ -70,7 +70,7 @@ export default function GlobalError({ error, reset }: Props) {
               fontSize: '0.75rem',
               textTransform: 'uppercase',
               letterSpacing: '0.2em',
-              color: 'rgba(30, 34, 41, 0.4)',
+              color: 'rgba(30, 26, 18, 0.4)',
               marginBottom: '1.5rem',
             }}
           >
@@ -92,7 +92,7 @@ export default function GlobalError({ error, reset }: Props) {
           <p
             style={{
               fontSize: '1.0625rem',
-              color: 'rgba(30, 34, 41, 0.7)',
+              color: 'rgba(30, 26, 18, 0.7)',
               lineHeight: 1.65,
               maxWidth: '28rem',
               margin: '0 auto 2.5rem',
@@ -120,9 +120,9 @@ export default function GlobalError({ error, reset }: Props) {
                 // 2026-05-22 Facebook blue. global-error.tsx renders OUTSIDE
                 // Tailwind's processing pipeline (Next.js error boundary
                 // root) so colors must be inline hex literals, not utility
-                // classes. The Mulberry value matches the --color-mulberry
-                // token in apps/web/app/globals.css.
-                backgroundColor: '#5C2542',
+                // classes. The Deep Obsidian value matches the
+                // --color-mulberry token in apps/web/app/globals.css.
+                backgroundColor: '#1B1A17',
                 color: '#FFFFFF',
                 fontSize: '0.875rem',
                 fontWeight: 500,
@@ -143,11 +143,11 @@ export default function GlobalError({ error, reset }: Props) {
               href="/"
               style={{
                 padding: '0.75rem 1.5rem',
-                color: '#1E2229',
+                color: '#1B1A17',
                 fontSize: '0.875rem',
                 fontWeight: 500,
                 letterSpacing: '0.025em',
-                border: '1px solid rgba(30, 34, 41, 0.2)',
+                border: '1px solid rgba(30, 26, 18, 0.2)',
                 borderRadius: 'var(--m-r-xs)',
                 textDecoration: 'none',
                 display: 'inline-flex',
@@ -164,7 +164,7 @@ export default function GlobalError({ error, reset }: Props) {
                 fontSize: '0.625rem',
                 textTransform: 'uppercase',
                 letterSpacing: '0.15em',
-                color: 'rgba(30, 34, 41, 0.3)',
+                color: 'rgba(30, 26, 18, 0.3)',
                 marginTop: '2.5rem',
               }}
             >

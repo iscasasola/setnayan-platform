@@ -14,15 +14,14 @@
  * event-home shell within ~100-200ms of navigation (Next.js's automatic
  * Suspense boundary uses this as fallback while `page.tsx` renders).
  * Total time-to-data is unchanged (~500-1000ms) — the wait now feels
- * structured instead of blank. PR #567 from 2026-05-28 already collapsed
- * 4 sequential round trips to 2 (~150-600ms saved per render); this row
- * is the visible-feedback half of the same fix.
+ * structured instead of blank.
  *
- * Shape mirrors the event-home render order from page.tsx lines
- * 1600-1853 (WelcomeHeader → AuspiciousChip → EventMetaLine → StageStrip
- * → BudgetCountdownHeader → FinalizedChipStrip → MarketplaceTeaseStrip
- * → PlanningGroups 12-card grid → YourPlanSection 9-tile grid → NavGrid
- * 8-tile grid → MoneyInFlight → UpcomingSchedules → ActivityFeed).
+ * Shape mirrors the `<EventDashboard>` render order after the 2026-07-10
+ * "Home IS the dashboard" rewrite (hero → briefing strip → at-a-glance
+ * bento → journey rail → decisions board → around-your-event). The
+ * pre-rewrite surfaces this file used to sketch (auspicious chip · budget
+ * countdown panel · finalized vendor chip strip · planning-groups grids)
+ * were retired with that rewrite — page-layer hygiene sweep 2026-07-12.
  *
  * Palette uses `ink/[N]` opacity classes — the Facebook brand pivot per
  * CLAUDE.md 2026-05-22 row — NOT the `--m-*` marketing-site tokens.
@@ -37,72 +36,50 @@ import { Screen, Sk } from '@/components/skeletons';
 export default function EventSectionLoading() {
   return (
     <Screen label="Loading your event">
-      {/* Welcome header — couple's name */}
+      {/* Hero — event name + date line + countdown */}
       <div className="space-y-2">
         <Sk className="h-10 w-64 max-w-full rounded-md" />
         <Sk className="h-4 w-48 rounded" />
       </div>
 
-      {/* Auspicious chip · event meta line */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Sk className="h-7 w-32 rounded-full" />
-        <Sk className="h-5 w-56 rounded" />
-      </div>
+      {/* Briefing strip */}
+      <Sk className="h-14 rounded-2xl" />
 
-      {/* Stage strip — 6-pip lifecycle bar */}
+      {/* At-a-glance bento — 2×2 stat tiles */}
+      <ul className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <li key={i}>
+            <Sk className="h-28 rounded-2xl" />
+          </li>
+        ))}
+      </ul>
+
+      {/* Journey rail — progress pips */}
       <div className="flex items-center gap-2 py-1">
         {Array.from({ length: 6 }).map((_, i) => (
           <Sk key={i} className="h-2 flex-1 rounded-full" />
         ))}
       </div>
 
-      {/* Budget countdown panel */}
-      <Sk className="h-24 rounded-2xl" />
-
-      {/* Finalized vendor chip strip */}
-      <div className="flex gap-2 overflow-hidden">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Sk key={i} className="h-10 w-32 shrink-0 rounded-full" />
+      {/* Decisions board */}
+      <div className="space-y-3">
+        <Sk className="h-3 w-40 rounded" />
+        {Array.from({ length: 2 }).map((_, i) => (
+          <Sk key={i} className="h-24 rounded-2xl" />
         ))}
       </div>
 
-      {/* Marketplace tease */}
-      <Sk className="h-40 rounded-2xl" />
-
-      {/* Planning groups — eyebrow + 12-tile grid */}
+      {/* Around your event — tile row */}
       <div className="space-y-3">
-        <Sk className="h-3 w-56 rounded" />
+        <Sk className="h-3 w-52 rounded" />
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <li key={i}><Sk className="h-28 rounded-xl" /></li>
-          ))}
-        </ul>
-      </div>
-
-      {/* Your plan — eyebrow + 9-tile grid */}
-      <div className="space-y-3">
-        <Sk className="h-3 w-40 rounded" />
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {Array.from({ length: 9 }).map((_, i) => (
-            <li key={i}><Sk className="h-24 rounded-xl" /></li>
-          ))}
-        </ul>
-      </div>
-
-      {/* Nav grid — eyebrow + 8-tile grid */}
-      <div className="space-y-3">
-        <Sk className="h-3 w-32 rounded" />
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <li key={i}><Sk className="h-20 rounded-xl" /></li>
+            <li key={i}>
+              <Sk className="h-24 rounded-xl" />
+            </li>
           ))}
         </ul>
       </div>
-
-      {/* MoneyInFlight · UpcomingSchedules · ActivityFeed */}
-      {Array.from({ length: 3 }).map((_, i) => (
-        <Sk key={i} className="h-32 rounded-2xl" />
-      ))}
     </Screen>
   );
 }

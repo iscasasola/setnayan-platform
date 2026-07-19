@@ -6,9 +6,15 @@
  * demand-research verdict). Setnayan AI is the second proven differentiator
  * incumbents lack, and it had no indexable, citable landing page.
  *
- * ACCURACY GUARDRAIL (locked "Setnayan AI definition"): it is a DETERMINISTIC
- * matchmaking + planning layer, NOT an LLM chatbot. Copy must say "finds your
- * fit / matchmaking / a shortlist", never "chatbot / conversation / generative".
+ * ACCURACY GUARDRAIL (locked "Setnayan AI definition" + GTM content framework,
+ * Setnayan_AI_GTM_Content_2026-07-02): it is a DETERMINISTIC matchmaking +
+ * MONITORING + planning layer, NOT an LLM chatbot. Copy leads with "it watches /
+ * keeps an eye on / flags" (the monitoring-engine positioning) plus "finds your
+ * fit / a shortlist", and frames the difference as "a chatbot waits, this
+ * watches" — never as a "conversation / generative" tool. HONESTY: only SHIPPED
+ * features appear as live — the personalization ("learns your taste") and cohort
+ * ("couples like you") layers are DORMANT (privacy sign-off pending) and may
+ * appear ONLY in a future-tense "coming" line, never in the live feature list.
  *
  * Server component, statically rendered. Persistent SiteChrome nav renders
  * because '/setnayan-ai' is registered in NAV_ROUTES. Copy sells BENEFITS only
@@ -17,17 +23,27 @@
  * tools are free; Setnayan AI is the upgrade that does the finding for you.
  */
 
-import Link from 'next/link';
-import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
+// Client motion island (the page itself stays a force-static Server Component;
+// metadata + both JSON-LD scripts live here in the server file). The island
+// renders the hero so the serif line-reveal ref sits on the real <h1>, and wraps
+// the below-fold sections with the shared premium primitives. Additive-only: no
+// copy / route / IA / CTA / metadata / JSON-LD change.
+import {
+  SetnayanAiHero,
+  HowItWorks,
+  Matchmaking,
+  RevealBlock,
+  CtaPanel,
+} from './_setnayan-ai-motion';
 
 export const dynamic = 'force-static';
 export const revalidate = 3600;
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
-const PAGE_TITLE = 'Setnayan AI — the planner that finds your perfect vendors · Setnayan';
+const PAGE_TITLE = 'Setnayan AI — the planner that watches your wedding for you · Setnayan';
 const PAGE_DESCRIPTION =
-  'A thousand vendor choices, the same questions over and over. Setnayan AI learns what matters to your wedding — your style, budget, date, and guest count — and finds the verified Filipino vendors that actually fit. Then it builds your plan and keeps it on track. Say it once, find your perfect fit.';
+  'Every other wedding AI waits for you to ask. Setnayan AI watches the vendors you’re eyeing and the ones you’ve booked — finding your best-fit Filipino vendors, then flagging a deposit due, a price that moved, or a date about to clash before it costs you. It doesn’t chat. It watches.';
 const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
 
 export const metadata = {
@@ -69,12 +85,13 @@ const APP_LD = {
   operatingSystem: 'Any (web browser)',
   description: PAGE_DESCRIPTION,
   featureList: [
-    'Matches you to verified vendors that fit your style, budget, date and guest count',
-    'Ranks a shortlist instead of a thousand listings',
-    'Tuned to Filipino weddings — faith, event type, and regional pricing',
-    'Builds your checklist and timeline',
-    'Keeps your plan on track with deadline nudges',
-    'The planning tools stay free — the intelligence does the finding',
+    'Watches the vendors you shortlist and book — for price changes, availability and risk',
+    'Finds and ranks verified vendors that fit your style, budget, date and guest count',
+    'Guards your deadlines — deposits, contracts, and PH paperwork (marriage license, Pre-Cana, PSA)',
+    'Flags a price hike, a double-booking, or an unverified vendor before it costs you',
+    'Chases quiet vendors and lines up their quotes for you',
+    'One calm weekly digest — it earns the interruption, never spams',
+    'The planning tools stay free — Setnayan AI is the paid brain on top',
   ],
   areaServed: 'Philippines',
   publisher: { '@id': `${SITE_URL}/#organization` },
@@ -83,23 +100,27 @@ const APP_LD = {
 const FAQ = [
   {
     q: 'Is Setnayan AI a chatbot?',
-    a: 'No. It’s matchmaking, not a chat. Tell it about your wedding once and it finds real, verified vendors that fit — you get a ranked shortlist, not a conversation to manage.',
+    a: 'No — that’s the whole point. A chatbot waits for you to ask. Setnayan AI watches your vendors and your dates in the background and taps you only when something needs you: a deposit due, a price that moved, a date about to clash.',
   },
   {
     q: 'Do I have to use it?',
-    a: 'Never. All the planning tools — guest list, RSVP, seating, budget, your wedding website — are free and work on their own. Setnayan AI is the upgrade that does the finding and planning for you.',
+    a: 'Never. All the planning tools — guest list, RSVP, seating, budget, your wedding website — are free and work on their own. Setnayan AI is the paid upgrade that does the finding and the watching for you.',
   },
   {
-    q: 'How does it pick vendors?',
-    a: 'It weighs what actually matters for a fit: your style and theme, your budget, your date and the vendor’s availability, your location, your guest count, and your event type. It only ever recommends verified Filipino vendors.',
+    q: 'What exactly does it watch?',
+    a: 'The vendors you’re eyeing and the ones you’ve booked — for price changes, availability and reliability — plus your budget and your deadlines (including your marriage license, Pre-Cana and PSA windows). It also finds and ranks your best-fit verified vendors, chases the quiet ones, and lines up their quotes.',
   },
   {
-    q: 'What does it plan for me?',
-    a: 'It builds your checklist and timeline around your date, surfaces what to book and when, and nudges you before deadlines slip — so nothing important is left to the last minute.',
+    q: 'Will it spam me?',
+    a: 'No. It’s built to earn the interruption. Most weeks it’s quiet and gathers what matters into one calm weekly digest; it speaks up only when something genuinely can’t wait. No fake countdowns, no manufactured panic.',
+  },
+  {
+    q: 'Does it learn my taste or compare me to other couples?',
+    a: 'Those personalized and “couples like you” insights are coming, once our privacy sign-off is complete. Today Setnayan AI focuses on what’s live: finding your fit, guarding your money and deadlines, and reassuring you with real evidence.',
   },
   {
     q: 'Is my information private?',
-    a: 'Yes. Your details are used to find your fit, never sold. Setnayan runs on a privacy-first model under the Philippine Data Privacy Act (RA 10173).',
+    a: 'Yes. Your details are used to find your fit and watch your back, never sold. Setnayan runs on a privacy-first model under the Philippine Data Privacy Act (RA 10173).',
   },
 ];
 
@@ -119,20 +140,20 @@ const STEPS = [
     d: 'Your style, your budget, your date, your guest count, where you’re celebrating. No forms to repeat, no questions asked twice.',
   },
   {
-    t: 'It finds your fit',
-    d: 'Instead of a thousand listings to sift, Setnayan AI ranks a shortlist of verified vendors that actually match — by style, budget, availability, and place.',
+    t: 'It finds your fit — then keeps watching',
+    d: 'It ranks a shortlist of verified vendors that actually match — by style, budget, availability, and place — then keeps an eye on them and the market: prices, availability, and your date.',
   },
   {
-    t: 'It keeps you on track',
-    d: 'It builds your checklist and timeline around your date and nudges you before anything important slips. The thinking is done; you decide.',
+    t: 'It taps you before anything slips',
+    d: 'A deposit due, a price that moved, a double-booking, a paperwork deadline — it flags them early, while there’s still time to act calmly. Most weeks, it stays quiet.',
   },
 ];
 
 const VS = [
-  ['A thousand listings to sift', 'A ranked shortlist that fits you'],
-  ['You repeat your details everywhere', 'Say it once'],
-  ['Generic, one-size-fits-all', 'Tuned to Filipino weddings'],
-  ['You track every deadline yourself', 'It nudges you before they slip'],
+  ['A chatbot you have to remember to go ask', 'An assistant that watches and taps you'],
+  ['Finds vendors once, then forgets them', 'Keeps an eye on them — price, availability, dates'],
+  ['You track every deposit and deadline yourself', 'It flags a deposit or clash before it bites'],
+  ['Generic, one-size-fits-all', 'Tuned to Filipino weddings, your fit'],
 ];
 
 export default function SetnayanAiLandingPage() {
@@ -141,93 +162,39 @@ export default function SetnayanAiLandingPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(APP_LD) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_LD) }} />
       <main className="mx-auto w-full max-w-6xl px-5 pb-20 pt-10 sm:pt-14">
-        {/* Hero — echoes the homepage promise, which Setnayan AI is the answer to */}
-        <header className="mx-auto max-w-2xl text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.22em] text-[#8C6932]">Planning intelligence</p>
-          <h1 className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[#1E2229] sm:text-5xl">
-            Say it once. Find your perfect fit.
-          </h1>
-          <p className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
-            A thousand vendor choices, the same questions over and over. Setnayan AI learns what matters to your wedding
-            and finds the verified Filipino vendors that actually fit — then builds your plan and keeps it on track.
-          </p>
-          <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              href="/onboarding/wedding?from=setnayan-ai"
-              className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[#5C2542] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
-            >
-              Start planning · free
-            </Link>
-            <Link
-              href="/pricing"
-              className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full border border-[#1E2229]/20 px-7 py-3 text-sm font-semibold text-[#1E2229] transition-colors hover:bg-[#1E2229]/[0.04]"
-            >
-              See pricing
-            </Link>
-          </div>
-        </header>
+        {/* Hero — the signature self-composing line-reveal lives in the client
+            island so the ref sits on the real <h1>; eyebrow / subcopy / CTAs
+            settle in one quiet beat after. Copy / CTAs verbatim. */}
+        <SetnayanAiHero />
 
-        {/* How it works */}
-        <section className="mx-auto mt-16 max-w-3xl" aria-label="How Setnayan AI works">
-          <ol className="grid gap-6 sm:grid-cols-3">
-            {STEPS.map((s, i) => (
-              <li key={s.t} className="rounded-2xl border border-[#1E2229]/10 bg-white/60 p-5">
-                <span className="font-mono text-xs text-[#8C6932]">{String(i + 1).padStart(2, '0')}</span>
-                <h2 className="mt-2 font-serif text-lg text-[#1E2229]">{s.t}</h2>
-                <p className="mt-1.5 text-sm text-[#5F5E5A]">{s.d}</p>
-              </li>
-            ))}
-          </ol>
-        </section>
+        {/* How it works — the one PanelThread section (champagne stitch + quiet
+            card rise). 01/02/03 numerals + hover-lift preserved. */}
+        <HowItWorks steps={STEPS} />
 
-        {/* Not a generic chatbot — the differentiator */}
-        <section className="mx-auto mt-16 max-w-3xl" aria-label="What makes Setnayan AI different">
-          <h2 className="text-center font-serif text-2xl text-[#1E2229] sm:text-3xl">Matchmaking, not a chatbot</h2>
-          <p className="mx-auto mt-3 max-w-xl text-center text-base text-[#5F5E5A]">
-            It doesn’t hand you a search box and a thousand results. It does the finding.
-          </p>
-          <ul className="mt-7 overflow-hidden rounded-2xl border border-[#1E2229]/10">
-            {VS.map(([before, after], i) => (
-              <li
-                key={after}
-                className={`grid grid-cols-1 gap-1 px-5 py-4 sm:grid-cols-2 sm:gap-6 ${i % 2 ? 'bg-white/40' : 'bg-white/70'}`}
-              >
-                <span className="text-sm text-[#9A8F86] line-through decoration-[#9A8F86]/40">{before}</span>
-                <span className="text-sm font-medium text-[#1E2229]">{after}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
+        {/* Not a generic chatbot — staggered row-rise only (no morph/collapse;
+            the static struck-through → affirmed contrast carries the idea). */}
+        <Matchmaking rows={VS} />
 
-        {/* FAQ (backs the FAQPage schema) */}
+        {/* FAQ (backs the FAQPage schema) — one incidental whole-block fade, no
+            per-row stagger (scannable reference). */}
         <section className="mx-auto mt-16 max-w-2xl" aria-label="Setnayan AI questions">
-          <h2 className="text-center font-serif text-2xl text-[#1E2229] sm:text-3xl">Questions, answered</h2>
-          <dl className="mt-7 divide-y divide-[#1E2229]/10 border-y border-[#1E2229]/10">
-            {FAQ.map((f) => (
-              <div key={f.q} className="py-5">
-                <dt className="font-serif text-base text-[#1E2229]">{f.q}</dt>
-                <dd className="mt-1.5 text-sm text-[#5F5E5A]">{f.a}</dd>
-              </div>
-            ))}
-          </dl>
+          <h2 className="text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">Questions, answered</h2>
+          <RevealBlock>
+            <dl className="mt-7 divide-y divide-[var(--m-ink)]/10 border-y border-[var(--m-ink)]/10">
+              {FAQ.map((f) => (
+                <div key={f.q} className="py-5">
+                  <dt className="font-serif text-base text-[var(--m-ink)]">{f.q}</dt>
+                  <dd className="mt-1.5 text-sm text-[#5F5E5A]">{f.a}</dd>
+                </div>
+              ))}
+            </dl>
+          </RevealBlock>
         </section>
 
-        {/* CTA */}
-        <section className="mx-auto mt-14 max-w-2xl rounded-3xl border border-[#C5A059]/40 bg-[#FBF6EA] px-6 py-10 text-center">
-          <h2 className="font-serif text-2xl text-[#1E2229] sm:text-3xl">Let it find your fit</h2>
-          <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
-            Planning on Setnayan is free to start — guest list, RSVP, seating, budget, and your wedding website. Add
-            Setnayan AI when you want the finding and planning done for you.
-          </p>
-          <Link
-            href="/onboarding/wedding?from=setnayan-ai"
-            className="mt-5 inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[#5C2542] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
-          >
-            Start planning · free
-          </Link>
-        </section>
+        {/* CTA — headline line-reveal + button rise; gold stays a hairline
+            border on cream (no fill / no glow). */}
+        <CtaPanel />
       </main>
-      <SiteFooter />
     </>
   );
 }

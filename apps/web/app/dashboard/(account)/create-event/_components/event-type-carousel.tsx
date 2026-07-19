@@ -5,10 +5,14 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   eventTypePhotoSrc,
-  EVENT_TYPE_PHOTO_FALLBACK,
+  eventTypePlaceholderGradient,
   type EventTypeKey,
   type EventTypeRow,
 } from './event-types';
+
+// Above this many cards, the per-card dot row is swapped for a compact
+// "n / total" counter so the controls never overflow a narrow bottom sheet.
+const DOTS_MAX = 8;
 
 /**
  * Event-type hero carousel — owner ask 2026-06-03: "we want a carousel but
@@ -151,24 +155,41 @@ export function EventTypeCarousel({
           <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
         </button>
 
-        <div role="tablist" aria-label="Event type pages" className="flex items-center gap-2">
-          {types.map((t, i) => {
-            const isActive = i === active;
-            return (
-              <button
-                key={t.key}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                aria-label={`Show ${t.label}`}
-                onClick={() => scrollToIndex(i)}
-                className={`h-2 rounded-full transition-all ${
-                  isActive ? 'w-6 bg-terracotta' : 'w-2 bg-ink/20 hover:bg-ink/40'
-                }`}
-              />
-            );
-          })}
-        </div>
+        {types.length <= DOTS_MAX ? (
+          <div role="tablist" aria-label="Event type pages" className="flex items-center gap-2">
+            {types.map((t, i) => {
+              const isActive = i === active;
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  aria-label={`Show ${t.label}`}
+                  onClick={() => scrollToIndex(i)}
+                  className={`h-2 rounded-full transition-all ${
+                    isActive ? 'w-6 bg-terracotta' : 'w-2 bg-ink/20 hover:bg-ink/40'
+                  }`}
+                />
+              );
+            })}
+          </div>
+        ) : (
+          // Many types: a compact position counter + current label reads better
+          // than 14 cramped dots and can never overflow the sheet.
+          <div
+            aria-live="polite"
+            className="flex min-w-0 items-center gap-2 font-mono text-xs text-ink/60"
+          >
+            <span className="tabular-nums">
+              {active + 1} / {types.length}
+            </span>
+            <span aria-hidden className="text-ink/30">
+              ·
+            </span>
+            <span className="max-w-[9rem] truncate text-ink/80">{types[active]?.label}</span>
+          </div>
+        )}
 
         <button
           type="button"
@@ -202,6 +223,9 @@ const HeroCard = ({
   onSelect: (type: EventTypeRow) => void;
 }) => {
   const enabled = type.enabled;
+  // Try the photo first; flip to the branded placeholder on a 404 (missing repo
+  // asset or broken admin heroPhotoUrl) — never a wrong stand-in photo.
+  const [noPhoto, setNoPhoto] = useState(false);
 
   // Inactive neighbours dim + shrink slightly on ≥sm (where more than one card
   // is visible) to focus the centred card — mirrors the old picker's
@@ -220,22 +244,32 @@ const HeroCard = ({
         enabled ? 'cursor-pointer' : 'cursor-not-allowed'
       }`}
     >
-      <Image
-        src={eventTypePhotoSrc(type)}
-        alt=""
-        fill
-        sizes={sizes}
-        className={`object-cover transition-transform duration-500 ${
-          enabled ? 'group-hover:scale-105' : 'grayscale'
-        }`}
-        onError={(e) => {
-          // Admin-created types may have no hero asset yet — generic fallback.
-          const img = e.currentTarget;
-          if (!img.src.endsWith(EVENT_TYPE_PHOTO_FALLBACK)) {
-            img.src = EVENT_TYPE_PHOTO_FALLBACK;
-          }
-        }}
-      />
+      {noPhoto ? (
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{ background: eventTypePlaceholderGradient(type.key) }}
+        >
+          <span
+            className={`absolute inset-0 flex items-center justify-center text-6xl opacity-90 drop-shadow-[0_4px_18px_rgba(0,0,0,0.35)] transition-transform duration-500 ${
+              enabled ? 'group-hover:scale-105' : 'grayscale'
+            }`}
+          >
+            {type.emoji}
+          </span>
+        </div>
+      ) : (
+        <Image
+          src={eventTypePhotoSrc(type)}
+          alt=""
+          fill
+          sizes={sizes}
+          className={`object-cover transition-transform duration-500 ${
+            enabled ? 'group-hover:scale-105' : 'grayscale'
+          }`}
+          onError={() => setNoPhoto(true)}
+        />
+      )}
 
       {/* Legibility scrim — dark at the bottom, clear at the top. */}
       <div className="absolute inset-0 bg-gradient-to-t from-ink/90 via-ink/40 to-transparent" />

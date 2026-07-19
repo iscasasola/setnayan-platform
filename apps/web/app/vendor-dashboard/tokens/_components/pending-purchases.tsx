@@ -35,10 +35,10 @@ export function PendingPurchases({
   if (purchases.length === 0) return null;
 
   return (
-    <div className="m-card p-6">
+    <div className="sn-tile p-6">
       <div className="mb-4 flex items-center gap-2">
         <Clock aria-hidden className="h-4 w-4 text-orange" strokeWidth={2} />
-        <p className="m-label-mono">Awaiting payment</p>
+        <p className="sn-eye">Awaiting payment</p>
       </div>
 
       <ul className="space-y-4">

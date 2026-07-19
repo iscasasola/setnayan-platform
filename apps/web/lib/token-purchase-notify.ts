@@ -92,7 +92,7 @@ export async function notifyVendorTokensCredited(
       body: `We confirmed your ${peso(
         Number(p.amount_php),
       )} payment. Your purchased tokens never expire — use them to unlock matched couples whenever you're ready.`,
-      relatedUrl: '/vendor-dashboard/tokens',
+      relatedUrl: '/vendor-dashboard/subscription',
     });
   } catch (e) {
     console.error('[token-purchase] vendor credited notify failed:', e);
@@ -132,7 +132,7 @@ export async function notifyVendorTokenPurchaseRejected(
       body: `Your ${p.token_count}-token purchase (${peso(
         Number(p.amount_php),
       )}) was not confirmed. Reason: ${reason}. You can start a new purchase or re-upload your payment proof from your wallet.`,
-      relatedUrl: '/vendor-dashboard/tokens',
+      relatedUrl: '/vendor-dashboard/subscription',
     });
   } catch (e) {
     console.error('[token-purchase] vendor rejected notify failed:', e);

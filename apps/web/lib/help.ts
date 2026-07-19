@@ -48,9 +48,17 @@ export const HELP_ROLES: ReadonlyArray<{
 // FAQPage Question + Answer pairs verbatim when responding to "what is
 // X" / "how much does X cost" / "does X support Filipino weddings"
 // queries. Each answer is under ~300 chars so it surfaces cleanly as a
-// SERP snippet and as a structured chunk in AI chat responses. Pricing
-// + features match v2.1 canonical brief reality (CLAUDE.md tenth
-// 2026-05-28 row) + the live /pricing state.
+// SERP snippet and as a structured chunk in AI chat responses.
+//
+// PRICING DISCIPLINE (2026-07-05): article bodies MUST NOT hardcode any
+// peso figure, tier boundary, or per-cycle rate — prices are admin-managed
+// (platform_retail_catalog_v2 + the vendor billing catalog) and drift, so a
+// number baked into this SEO-indexed evergreen corpus goes stale silently
+// and can be acted on by users at /help/[slug]. Point at setnayan.com/pricing
+// (couple SKUs) or the vendor billing hub (vendor tiers) instead of quoting a
+// figure. Same rule for frozen live dates/counts (launch dates, market-size
+// counts). A unit test (lib/help-no-hardcoded-prices.test.ts) guards this —
+// keep it green.
 export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
   {
     key: 'about-setnayan',
@@ -60,17 +68,17 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-setnayan',
         title: 'What is Setnayan?',
-        body: "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set.\") is the Philippines-first wedding and life-events software platform. Built and operated in the Philippines for Filipino weddings. Couples start free on the planning workspace; verified Filipino wedding vendors list with 0% commission on bookings.",
+        body: "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set.\") is the Philippines-first wedding platform, built to grow into a life-events collection — one place to plan each celebration, capture it, and keep it for life. It leads with weddings; as event types unlock (debut, birthday, christening, anniversary, and more), the same tools carry across them. Couples start free on the planning workspace; verified Filipino wedding vendors list with 0% commission on bookings; and everything a couple creates gathers into one living memory (Alaala) they keep.",
       },
       {
         slug: 'how-much-does-setnayan-cost',
         title: 'How much does Setnayan cost?',
-        body: 'Couples start free (planning workspace: schedule, budget, guest list, seat plan, mood board, plus marketplace browse with a match preview). Paid planning tiers: Setnayan AI ₱3,999, Essentials ₱12,999, Complete ₱27,999 — one-time per event. Individual services retail ₱999–₱7,999. Vendor side: Verified is free during launch; Pro ₱6,000 and Enterprise ₱10,000 per 28-day prepaid block. 0% commission on vendor bookings — Setnayan never takes a cut.',
+        body: 'Couples start free (planning workspace: schedule, budget, guest list, seat plan, mood board, plus marketplace browse with a match preview). The paid planner is Setnayan AI, a one-time purchase that unlocks the full planner with access through your wedding day. Individual services and the Setnayan AI rate are listed on the Pricing page. Vendor side: Verified is free during launch, with Pro and Enterprise subscription tiers billed per 28-day prepaid block. 0% commission on vendor bookings — Setnayan never takes a cut. See setnayan.com/pricing for current rates.',
       },
       {
         slug: 'is-setnayan-free-for-couples',
         title: 'Is Setnayan free for couples?',
-        body: 'Starting is free — schedule, budget, guest list, seat plan, and mood board are free with every account, plus marketplace browse and a preview of your vendor matches. Premium tools like Setnayan AI (₱3,999 one-time), the Event Website (₱1,999), and premium RSVP are optional paid software. You only pay for what you choose to add.',
+        body: 'Starting is free — schedule, budget, guest list, seat plan, and mood board are free with every account, plus marketplace browse and a preview of your vendor matches. Premium tools like Setnayan AI (a one-time purchase with access through your wedding day), the Event Website, and premium RSVP are optional paid software. You only pay for what you choose to add. Current rates are on setnayan.com/pricing.',
       },
       {
         slug: 'does-setnayan-take-commission',
@@ -80,12 +88,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-todays-focus',
         title: "What is Setnayan AI?",
-        body: 'Setnayan\'s assisted-planning tier, ₱3,999 one-time per event. Matches, sorts, and cross-references vendors against your date, budget, venue, guest count, religion, and reviews — and walks you through every decision from venue lock through thank-you cards, with religion-adaptive guidance and hard-floor deadlines specific to Filipino weddings (Pre-Cana, marriage license validity windows, sponsor coordination, etc.).',
+        body: 'Setnayan\'s assisted-planning tier — a one-time purchase that unlocks the full planner with access through your event date (current rate on setnayan.com/pricing). Matches, sorts, and cross-references vendors against your date, budget, venue, guest count, religion, and reviews — and walks you through every decision from venue lock through thank-you cards, with religion-adaptive guidance and hard-floor deadlines specific to Filipino weddings (Pre-Cana, marriage license validity windows, sponsor coordination, etc.).',
       },
       {
         slug: 'does-setnayan-support-filipino-customs',
         title: 'Does Setnayan support Filipino wedding customs?',
-        body: 'Yes. Supports seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings (banquet hall, garden, beach, destination, heritage, outdoor tent, civil registrar). 20 Filipino wedding role tiers in the guest list including principal sponsors, candle/veil/cord/coin sponsors, ninang, ninong, and bearers. Multi-faith vendor compatibility tagging across 192 vendor sub-categories.',
+        body: 'Yes. Supports seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings (banquet hall, garden, beach, destination, heritage, outdoor tent, civil registrar). 20 Filipino wedding role tiers in the guest list including principal sponsors, candle/veil/cord/coin sponsors, ninang, ninong, and bearers. Multi-faith vendor compatibility tagging across a deep tree of vendor sub-categories.',
       },
       {
         slug: 'what-languages-does-setnayan-support',
@@ -95,7 +103,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'where-does-setnayan-operate',
         title: 'Where does Setnayan operate?',
-        body: 'Philippines — Metro Manila (Quezon City, Makati, Pasig, Taguig, Manila), Cebu, Davao, Tagaytay, Iloilo, Baguio, Pampanga, Cavite, Batangas, Laguna, Bulacan, and any city where Filipino wedding vendors serve. Pilot launches 2026-06-01. Public launch 2026-12-01.',
+        body: 'Philippines — Metro Manila (Quezon City, Makati, Pasig, Taguig, Manila), Cebu, Davao, Tagaytay, Iloilo, Baguio, Pampanga, Cavite, Batangas, Laguna, Bulacan, and any city where Filipino wedding vendors serve.',
       },
       {
         slug: 'does-setnayan-have-mobile-app',
@@ -110,17 +118,17 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-pakanta',
         title: 'What is Pakanta?',
-        body: 'A custom Filipino-style song written for the couple. ₱2,499 one-time per event. Setnayan\'s music team writes original lyrics around the couple\'s love story, records the track, and delivers it for the ceremony or reception.',
+        body: 'A custom Filipino-style song written for the couple — a one-time per-event purchase (current price on setnayan.com/pricing). Setnayan\'s music team writes original lyrics around the couple\'s love story, records the track, and delivers it for the ceremony or reception.',
       },
       {
         slug: 'what-is-papic',
         title: 'What is Papic?',
-        body: 'Guest-side photo capture for your wedding. Two purchase modes: Papic Guest (from ₱2,999, scales with guest count — disposable-camera mode for general guests, 24 photos plus 10 5-second videos per guest, tagged to each guest by QR so everyone gets their own) and Papic 5 Seats (₱2,999, five seats for designated paparazzi friends and family with unlimited photos plus unlimited videos for 5 hours).',
+        body: 'Guest-side photo capture for your wedding. Two purchase modes: Papic Guest (scales with guest count — disposable-camera mode for general guests, 24 photos plus 10 5-second videos per guest, tagged to each guest by QR so everyone gets their own) and Papic 5 Seats (five seats for designated paparazzi friends and family with unlimited photos plus unlimited videos for 5 hours). Current prices are on setnayan.com/pricing.',
       },
       {
         slug: 'what-is-panood',
         title: 'What is Panood?',
-        body: 'Live streaming for your wedding, embedded directly on your event website. ₱2,499 per day. Guests and family who couldn\'t attend in person can watch the ceremony and reception live without leaving Setnayan.',
+        body: 'Live streaming for your wedding, embedded directly on your event website — priced per day (current rate on setnayan.com/pricing). Guests and family who couldn\'t attend in person can watch the ceremony and reception live without leaving Setnayan.',
       },
       {
         slug: 'what-is-pakulay',
@@ -130,17 +138,17 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'how-does-setnayan-handle-privacy',
         title: 'How does Setnayan handle my privacy?',
-        body: 'RA 10173 (Data Privacy Act of the Philippines) compliant. Guest list and event details are never publicly shared without your explicit opt-in. Real-wedding editorials publish 30 days post-event only with explicit couple consent. National Privacy Commission registration in progress. DPO contact at dpo@setnayan.com.',
+        body: 'RA 10173 (Data Privacy Act of the Philippines) compliant. Guest list and event details are never publicly shared without your explicit opt-in. Real-wedding editorials publish 30 days post-event only with explicit couple consent. National Privacy Commission registration in progress. DPO contact at iscasasolaii@gmail.com.',
       },
       {
         slug: 'how-to-contact-support',
         title: 'How do I contact Setnayan support?',
-        body: 'Send a message via the contact form below on this page — pick your role (couple, vendor, guest, or admin) and we\'ll route it to the right team. Response within 24 hours during business days. Privacy-related requests reach the DPO directly at dpo@setnayan.com.',
+        body: 'Send a message via the contact form below on this page — pick your role (couple, vendor, guest, or admin) and we\'ll route it to the right team. Response within 24 hours during business days. Privacy-related requests reach the DPO directly at iscasasolaii@gmail.com.',
       },
       {
         slug: 'when-does-setnayan-launch',
         title: 'When does Setnayan launch?',
-        body: 'Pilot 2026-06-01 with a small family + friends cohort exercising the full payment cycle on real weddings. Public launch 2026-12-01 alongside the founder\'s wedding (December 18, 2026) — the first event shipped through the platform end-to-end.',
+        body: 'Setnayan is rolling out in phases — a pilot with a small family + friends cohort exercising the full payment cycle on real weddings, followed by public launch alongside the founder\'s own wedding, the first event shipped through the platform end-to-end. See setnayan.com for the latest launch status.',
       },
     ],
   },
@@ -168,6 +176,72 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'event-id-vs-slug',
         title: 'Event ID vs slug',
         body: 'Every event has a Setnayan ID like S89E-AB12CD3456 (used internally) and a public slug like maria-and-juan (used in your invitation URL). The slug is editable on the Invitation tab. Old slugs auto-redirect for 90 days.',
+      },
+    ],
+  },
+  {
+    key: 'getting-verified',
+    label: 'Getting verified',
+    roles: ['vendor'],
+    articles: [
+      {
+        slug: 'how-to-get-dti-sec-registration',
+        title: 'How to get your DTI or SEC registration',
+        body:
+          'This is proof your business is legally registered. Which one you need depends on how your business is set up.\n\n' +
+          'If you are a SOLE PROPRIETOR (just you, under a business name), register a Business Name with the DTI. It is done fully online and usually approved within minutes.\n' +
+          '1. Go to the DTI Business Name Registration System: https://bnrs.dti.gov.ph\n' +
+          '2. Search that your business name is available, then fill in your details and pick your territorial scope (Barangay, City, Regional, or National — a wider scope costs a bit more).\n' +
+          '3. Pay the fee online. Download the DTI Business Name Certificate (PDF).\n\n' +
+          'If you are a CORPORATION or PARTNERSHIP, register with the SEC instead, through eSPARC: https://esparc.sec.gov.ph\n' +
+          'Once approved, download your SEC Certificate of Registration.\n\n' +
+          'Upload whichever certificate applies to you (PDF, JPG, or PNG, up to 15 MB). You only need one — DTI OR SEC, not both.',
+      },
+      {
+        slug: 'how-to-get-bir-2303',
+        title: 'How to get your BIR Form 2303',
+        body:
+          'BIR Form 2303 is your Certificate of Registration with the Bureau of Internal Revenue. It confirms you are registered to issue receipts and pay taxes. You get it AFTER your DTI or SEC registration.\n\n' +
+          '1. Register your business with the BIR. You can start online through ORUS (Online Registration and Update System): https://orus.bir.gov.ph — or go in person to the Revenue District Office (RDO) that covers your business address.\n' +
+          '2. Bring/submit your DTI or SEC certificate, a valid government ID, and proof of address. The BIR will tell you your tax type (most small vendors are Non-VAT / Percentage Tax).\n' +
+          '3. Once processed, the BIR issues Form 2303. Keep the original — you also need to register your official receipts.\n\n' +
+          'Upload a clear copy of Form 2303 (PDF, JPG, or PNG, up to 15 MB). Make sure the registered name and TIN are readable.',
+      },
+      {
+        slug: 'how-to-get-mayors-permit',
+        title: "How to get your Mayor's Permit",
+        body:
+          "The Mayor's Permit (also called a Business Permit) is issued by the city or municipality where you operate. It must be for the CURRENT year — it is renewed every January.\n\n" +
+          '1. Go to the Business Permits and Licensing Office (BPLO) of your city or municipality. Many LGUs now let you apply or renew online — check your local government website.\n' +
+          '2. Typical requirements: your DTI or SEC certificate, BIR registration, Barangay Business Clearance, and proof of location (lease contract or, if you own it, tax declaration).\n' +
+          '3. Pay the assessed local fees. The LGU issues your Business Permit and the plate/sticker for the year.\n\n' +
+          'Requirements and fees vary by LGU, so your city hall is the best source of the exact list. Upload the current-year permit (PDF, JPG, or PNG, up to 15 MB).',
+      },
+      {
+        slug: 'how-to-prepare-bank-account-proof',
+        title: 'How to prepare your bank account proof',
+        body:
+          'This shows you control a real payout account under your business identity. It is a trust check — Setnayan does not hold your money, and the deposit-verification step only starts once Setnayan Pay is live.\n\n' +
+          'Your proof just needs to clearly show three things:\n' +
+          '1. The account holder name — this should match your DTI/SEC business name (or your own name if you are a sole proprietor).\n' +
+          '2. The provider — the bank name, or GCash / Maya.\n' +
+          '3. The account number (you may mask the middle digits).\n\n' +
+          'What counts as valid proof:\n' +
+          '- GCash or Maya: a screenshot of your in-app Profile / "My Account" page showing your name and number.\n' +
+          '- Bank: a screenshot of your account details in the banking app, a bank certificate, the header of a bank statement, or a photo of your passbook cover.\n\n' +
+          'You do NOT need to show your balance or transaction history — feel free to blur those. Upload a screenshot or PDF (up to 15 MB).',
+      },
+      {
+        slug: 'build-your-online-presence',
+        title: 'Build your online presence: Instagram, YouTube & Vimeo',
+        body:
+          'Couples check who you are before they message you. A few good public links do more than any sales pitch — here is a simple setup that works for most Filipino vendors.\n\n' +
+          '1. Get a Business (or Creator) Instagram. Couples browse Instagram first, so this is the one to start with. If you already have a personal account, you do not need a new one — open the app, go to Settings and privacy > Account type and tools > Switch to professional account, and pick Business or Creator. That unlocks insights and a contact button, and keeps your work and personal life separate.\n' +
+          '2. Post your best work, not all of it. 9 to 12 strong photos or a short reel say more than 100 random shots. Add your city and what you do to your bio.\n' +
+          '3. Start a YouTube channel for the long pieces. Full films, highlight reels, and behind-the-scenes clips live well here with no time limit. Create one free at https://youtube.com and upload a couple of your best videos.\n' +
+          '4. Use Vimeo for a clean, ad-free reel. If you want your portfolio to look premium — no ads, no "up next" clutter — Vimeo is worth it. Make a free account at https://vimeo.com and upload one polished showcase video.\n' +
+          '5. Bring it all back to Setnayan. On your vendor profile, paste your YouTube and Vimeo links into Featured Videos (they play right on your page), and add every public link — Instagram, Facebook, TikTok, YouTube, Vimeo — under your social links. That way a couple sees your whole story in one place, without leaving Setnayan to go hunting.\n\n' +
+          'You do not need all of these on day one. Even one good link helps. Start with Instagram, add the rest as you go.',
       },
     ],
   },
@@ -394,7 +468,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'turn-on-papic',
         title: 'How do I turn on Papic and invite my photo crew?',
-        body: "Open your dashboard → Studio → Papic. Pick how many crew seats you want, then share each seat's link with a friend (one link per friend). They open it on their phone, sign in, and their phone becomes a candid camera bound to your wedding. You can re-issue a seat to someone else anytime. Try it free with the sampler before you commit.",
+        body: "Open your dashboard → Studio → Papic. Your first 5 guest cameras are free to try. Pick how many crew seats you want, then share each seat's link with a friend (one link per friend). They open it on their phone, sign in, and their phone becomes a candid camera bound to your wedding. You can re-issue a seat to someone else anytime.",
       },
       {
         slug: 'how-papic-tagging-works',
@@ -464,7 +538,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-needs-two-admins',
         title: 'What needs two-admin approval',
-        body: 'Per Vendor Agreement § 9.1: major decisions need two admins. That means ad-revenue activation, vendor verification override, refund > ₱100,000, force-majeure bulk resolution, payment-method config change, and any blanket policy update. Routine ops (review moderation, user lookup, manual help reply) stay single-admin.',
+        body: 'Per Vendor Agreement § 9.1: major decisions need two admins. That means ad-revenue activation, vendor verification override, a large refund above the policy threshold, force-majeure bulk resolution, payment-method config change, and any blanket policy update. Routine ops (review moderation, user lookup, manual help reply) stay single-admin. The exact refund threshold is set in the Vendor Agreement.',
       },
       {
         slug: 'approving-an-action',
@@ -474,7 +548,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'routine-vs-major',
         title: 'Routine vs major — the rule of thumb',
-        body: 'Routine = reversible by a single admin within 1 business day. Major = affects >100 users, financial impact ≥₱100,000, or touches public trust (verification, refunds, ad activation). When in doubt, route to two-admin. The cost of double-checking is small; the cost of an unreviewed major action can be very high.',
+        body: 'Routine = reversible by a single admin within 1 business day. Major = affects many users, has significant financial impact above the policy threshold, or touches public trust (verification, refunds, ad activation). When in doubt, route to two-admin. The cost of double-checking is small; the cost of an unreviewed major action can be very high.',
       },
     ],
   },
@@ -515,7 +589,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
 // it in the same edit when an article body materially changes.
 // ───────────────────────────────────────────────────────────────────────────
 
-export const HELP_LASTMOD = '2026-05-28';
+export const HELP_LASTMOD = '2026-07-05';
 
 export type HelpArticleWithTopic = {
   article: HelpArticle;
@@ -552,6 +626,9 @@ export function relatedHelpArticles(
  * word boundary, never mid-word, with an ellipsis when truncated.
  */
 export function helpMetaDescription(body: string, max = 155): string {
+  // Flatten paragraph newlines/indentation to single spaces so multi-line
+  // article bodies still yield a clean one-line meta description.
+  body = body.replace(/\s+/g, ' ').trim();
   if (body.length <= max) return body;
   const slice = body.slice(0, max);
   const lastSpace = slice.lastIndexOf(' ');

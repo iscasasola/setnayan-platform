@@ -9,8 +9,11 @@ import {
   Tag,
   UserPlus,
   Users,
+  UserX,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { SIDE_CHIP_SOFT } from '@/lib/side-colors';
+import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import {
   fetchGuestById,
   fetchSingletonRoleHolders,
@@ -24,13 +27,14 @@ import {
   type GuestGroupCategory,
   type GuestRole,
   type GuestSide,
+  type GuestAttire,
   type InvitedToBlock,
   type MealPreference,
   type RsvpStatus,
 } from '@/lib/guests';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from '../_components/invited-to-chips';
-import { softDeleteGuest, updateGuest } from './actions';
+import { inviteGuestByEmailAction, softDeleteGuest, updateGuest } from './actions';
 
 export const metadata = { title: 'Guest detail' };
 
@@ -64,33 +68,8 @@ export const metadata = { title: 'Guest detail' };
  *   - Any RLS or DB-level rule
  */
 
-const ROLE_OPTIONS: GuestRole[] = [
-  'guest',
-  'bride',
-  'groom',
-  // VIP family — owner directive 2026-05-23 PM (PR #424 lock).
-  'bride_parents',
-  'groom_parents',
-  'bride_immediate_family',
-  'groom_immediate_family',
-  'maid_of_honor',
-  'matron_of_honor',
-  'best_man',
-  'bridesmaid',
-  'groomsman',
-  'principal_sponsor',
-  'candle_sponsor',
-  'veil_sponsor',
-  'cord_sponsor',
-  'coin_sponsor',
-  'ring_bearer',
-  'bible_bearer',
-  'coin_bearer',
-  'flower_girl',
-  'officiant',
-  'reader_lector',
-  'soloist_musician',
-];
+// Iteration 0053 P2: the offered role list is per event type — see
+// roleSet.offeredRoles below (wedding resolves to today's 24-role list).
 const SIDE_OPTIONS: GuestSide[] = ['bride', 'groom', 'both'];
 const GROUP_OPTIONS: GuestGroupCategory[] = [
   'family',
@@ -110,6 +89,15 @@ const MEAL_OPTIONS: MealPreference[] = [
   'kids',
 ];
 const RSVP_OPTIONS: RsvpStatus[] = ['attending', 'pending', 'maybe', 'declined'];
+// 3D seat-plan attire. 'neutral' is the default: the avatar auto-dresses from a
+// gendered wedding-party role, else stays a plain token — so couples only set
+// this for the general crowd they want gowned/suited.
+const ATTIRE_OPTIONS: GuestAttire[] = ['neutral', 'gown', 'suit'];
+const ATTIRE_LABELS: Record<GuestAttire, string> = {
+  neutral: 'Neutral / auto',
+  gown: 'Gown',
+  suit: 'Suit',
+};
 
 const ERROR_COPY: Record<string, string> = {
   missing_name: 'Please enter both first and last name.',
@@ -120,16 +108,13 @@ const ERROR_COPY: Record<string, string> = {
   invalid_meal: 'Invalid meal preference.',
 };
 
-// Tailwind tint per Side value, used by the auto-derived Tags Section
-// to chip-color the Side badge AND custom-group memberships (which carry
-// a team_side: bride/groom/both flag per the Custom Groups feature).
-// Matches the established side-color convention from the guest list +
-// seating chart UIs so the visual language stays consistent.
-const SIDE_CHIP_TINT: Record<GuestSide, string> = {
-  bride: 'bg-danger-50 text-danger-900 ring-1 ring-danger-200',
-  groom: 'bg-sky-50 text-sky-900 ring-1 ring-sky-200',
-  both: 'bg-violet-50 text-violet-900 ring-1 ring-violet-200',
-};
+// Tint per Side value, used by the auto-derived Tags Section to chip-color the
+// Side badge AND custom-group memberships (which carry a team_side:
+// bride/groom/both flag per the Custom Groups feature). Pulls the canonical
+// side-colour map (lib/side-colors.ts · SIDE_CHIP_SOFT) so the badge reads the
+// same gold/info-slate language as the roster avatars + the seat map — no more
+// rose/blue/purple diverging from the retinted roster.
+const SIDE_CHIP_TINT = SIDE_CHIP_SOFT;
 
 // Tailwind ring-tone per RSVP value, used by the segmented pill so the
 // selected state reads at a glance. Attending = positive · Pending =
@@ -141,14 +126,14 @@ const RSVP_PILL_CLASS: Record<RsvpStatus, string> = {
   pending:
     'has-[:checked]:bg-warn-100 has-[:checked]:text-warn-900 has-[:checked]:border-warn-400',
   maybe:
-    'has-[:checked]:bg-sky-100 has-[:checked]:text-sky-900 has-[:checked]:border-sky-400',
+    'has-[:checked]:bg-warn-100 has-[:checked]:text-warn-900 has-[:checked]:border-warn-400',
   declined:
     'has-[:checked]:bg-danger-100 has-[:checked]:text-danger-900 has-[:checked]:border-danger-400',
 };
 
 type Props = {
   params: Promise<{ eventId: string; guestId: string }>;
-  searchParams: Promise<{ error?: string; saved?: string }>;
+  searchParams: Promise<{ error?: string; saved?: string; invite?: string }>;
 };
 
 export default async function GuestDetailPage({ params, searchParams }: Props) {
@@ -173,9 +158,20 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
   // hide bride/groom from the role picker entirely — the couple is set at
   // event creation, never (re)assigned from the guest list.
   const isCouple = guest.role === 'bride' || guest.role === 'groom';
-  const availableRoles = ROLE_OPTIONS.filter(
-    (r) => r !== 'bride' && r !== 'groom' && !(r in singletonHolders),
+  const roleSet = await resolveRoleSetForEvent(eventId);
+  const availableRoles = roleSet.offeredRoles.filter(
+    (r) => !roleSet.coupleRoles.has(r) && !(r in singletonHolders),
   );
+
+  // INC weddings cap non-member principal sponsors at one pair (one Ninong +
+  // one Ninang), so we surface that rule beside the role picker. Advisory only
+  // — not enforced in the DB. See INC_Wedding_Practices_Reference_2026-06-28.md § 3.6.
+  const { data: ceremonyRow } = await supabase
+    .from('events')
+    .select('ceremony_type')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const isIncWedding = ceremonyRow?.ceremony_type === 'inc';
 
   // Pull the +1 guest row (if any) so the edit form can show the
   // current state of this primary's +1 — name (or TBA placeholder),
@@ -211,6 +207,17 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
 
   const updateAction = updateGuest.bind(null, eventId, guestId);
   const deleteAction = softDeleteGuest.bind(null, eventId, guestId);
+  const inviteAction = inviteGuestByEmailAction.bind(null, eventId, guestId);
+
+  // Host-initiated email-invite feedback (Invite/Join v2).
+  const inviteFlash =
+    search.invite === 'sent'
+      ? { ok: true, msg: `Sign-in link sent to ${guest.email}.` }
+      : search.invite === 'failed'
+        ? { ok: false, msg: 'We couldn’t send the link just now — please try again.' }
+        : search.invite === 'no_email'
+          ? { ok: false, msg: 'Add an email below and save it first, then send the invite.' }
+          : null;
 
   // Filter to known valid InvitedToBlock values — schema column is
   // string[] so legacy data could contain stale block names.
@@ -280,6 +287,8 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
     !!guest.email?.trim() ||
     !!guest.mobile?.trim() ||
     !!guest.dietary_restrictions?.trim() ||
+    !!guest.relation?.trim() ||
+    guest.seniority_rank !== null ||
     !!guest.notes?.trim();
 
   return (
@@ -319,6 +328,18 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
           className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-2.5 text-sm text-terracotta-700"
         >
           {errorMessage}
+        </p>
+      ) : null}
+      {inviteFlash ? (
+        <p
+          role={inviteFlash.ok ? 'status' : 'alert'}
+          className={
+            inviteFlash.ok
+              ? 'rounded-md border border-success-300/60 bg-success-50 px-4 py-2.5 text-sm text-success-800'
+              : 'rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-2.5 text-sm text-terracotta-700'
+          }
+        >
+          {inviteFlash.msg}
         </p>
       ) : null}
 
@@ -364,13 +385,27 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
                 <input type="hidden" name="role" value={guest.role} />
               </div>
             ) : (
-              <Select
-                id="role"
-                label="Role in wedding"
-                defaultValue={guest.role}
-                options={availableRoles.map((v) => ({ value: v, label: ROLE_LABELS[v] }))}
-              />
+              <div className="space-y-1.5">
+                <Select
+                  id="role"
+                  label="Role in wedding"
+                  defaultValue={guest.role}
+                  options={availableRoles.map((v) => ({ value: v, label: ROLE_LABELS[v] }))}
+                />
+                {isIncWedding ? (
+                  <p className="text-xs text-ink/55">
+                    INC note: non-member principal sponsors (Ninong/Ninang) are
+                    limited to one pair. Member sponsors aren&rsquo;t capped.
+                  </p>
+                ) : null}
+              </div>
             )}
+            <Select
+              id="attire"
+              label="Attire · 3D seat plan"
+              defaultValue={guest.attire}
+              options={ATTIRE_OPTIONS.map((v) => ({ value: v, label: ATTIRE_LABELS[v] }))}
+            />
           </div>
         </Section>
 
@@ -454,6 +489,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
             />
             <PhotoConsent defaultChecked={guest.photo_consent} />
             <FaceBlock defaultChecked={guest.faceblock_enabled} />
+            <FaceRecognitionExclude defaultChecked={guest.face_recognition_excluded} />
           </div>
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-ink">Invited to</label>
@@ -565,6 +601,27 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
               defaultValue={guest.dietary_restrictions ?? ''}
               placeholder="halal · nut allergy · …"
             />
+            {/* Tea-ceremony serving order (Chinese / Tsinoy weddings). Optional
+                for every guest; only the tea-ceremony helper reads them. Relation
+                is free text; seniority is the within-side serve order (lower
+                serves first). Shown to all events — harmless when unused. */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field
+                id="relation"
+                label="Relationship"
+                defaultValue={guest.relation ?? ''}
+                placeholder="e.g. Grandparents · Eldest Uncle"
+              />
+              <Field
+                id="seniority_rank"
+                label="Tea-ceremony order"
+                type="number"
+                defaultValue={
+                  guest.seniority_rank !== null ? String(guest.seniority_rank) : ''
+                }
+                placeholder="Lower serves first"
+              />
+            </div>
             {/* Custom tags input RETIRED — owner directive 2026-05-23 PM.
                 Tags now auto-derived from side / group / role / table /
                 custom groups in the Tags section below. */}
@@ -633,6 +690,32 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
           </div>
         </div>
       </form>
+
+      {/* Host-initiated email invite (Invite/Join v2) — emails this guest a
+          passwordless sign-in link; on click the event connects to their
+          Setnayan account. Reuses the guest-initiated machinery. Kept OUTSIDE
+          the edit form (HTML forms can't nest) and reads the SAVED email. */}
+      <div className="rounded-xl border border-ink/10 bg-cream/40 p-5">
+        <h2 className="text-sm font-semibold text-ink">Invite by email</h2>
+        {guest.email?.trim() ? (
+          <>
+            <p className="mt-1 text-sm text-ink/65">
+              Email <span className="font-medium text-ink">{guest.email}</span> a sign-in link.
+              They&rsquo;ll get their own Setnayan account with this event already on it — no
+              password, works on any device.
+            </p>
+            <form action={inviteAction} className="mt-3">
+              <SubmitButton className="button-secondary" pendingLabel="Sending…">
+                Send sign-in link
+              </SubmitButton>
+            </form>
+          </>
+        ) : (
+          <p className="mt-1 text-sm text-ink/55">
+            Add an email above and save to enable a one-tap sign-in invite.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -738,6 +821,34 @@ function PhotoConsent({ defaultChecked }: { defaultChecked: boolean }) {
         <span className="text-sm">
           OK to tag in photos
           <span className="ml-1 text-xs text-ink/55">(RA 10173)</span>
+        </span>
+      </label>
+    </div>
+  );
+}
+
+/**
+ * Minor safeguard (DPIA BV-8, 2026-07-05). Face recognition is adult-only opt-in;
+ * a host who knows a guest is a minor marks them excluded here so no face vector
+ * is ever enrolled for them (and any existing one is revoked). Collects no age —
+ * a host attestation, mirroring the "don't run face recognition on minors"
+ * minimization careful platforms rely on. Does NOT remove the guest's photo.
+ */
+function FaceRecognitionExclude({ defaultChecked }: { defaultChecked: boolean }) {
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-sm font-medium text-ink">Face recognition</label>
+      <label className="flex h-11 items-center gap-3 rounded-md border border-ink/20 bg-cream px-3 text-sm text-ink transition-colors has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/5 hover:border-ink/40">
+        <input
+          type="checkbox"
+          name="face_recognition_excluded"
+          defaultChecked={defaultChecked}
+          className="h-5 w-5 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+        />
+        <UserX aria-hidden className="h-4 w-4 text-ink/55" strokeWidth={1.75} />
+        <span className="text-sm">
+          Exclude from face recognition
+          <span className="ml-1 text-xs text-ink/55">(e.g. a minor)</span>
         </span>
       </label>
     </div>

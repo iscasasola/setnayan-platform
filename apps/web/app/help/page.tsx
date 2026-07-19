@@ -4,7 +4,6 @@ import { HELP_TOPICS, HELP_ROLES, type HelpRole } from '@/lib/help';
 import { createClient } from '@/lib/supabase/server';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Field } from '@/app/_components/forms/field';
-import { Logo } from '@/app/_components/logo';
 import { submitHelpMessage } from './actions';
 import { HelpSearch } from './_components/help-search';
 
@@ -27,6 +26,13 @@ export const metadata = {
     siteName: 'Setnayan',
     locale: 'en_PH',
     images: [{ url: '/brand/og-card.webp', width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Help & support · Setnayan',
+    description:
+      'Step-by-step guides for couples, vendors, guests, and admins using Setnayan. Pick your role tile or send us a message.',
+    images: ['/brand/og-card.webp'],
   },
 };
 
@@ -84,30 +90,9 @@ export default async function HelpPage({ searchParams }: Props) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_JSONLD) }}
       />
       <main className="min-h-dvh bg-cream">
-        <header className="border-b border-ink/5">
-          <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-            <Link href="/" className="flex items-center text-ink">
-              <Logo height={32} withWordmark title="Setnayan · Help" />
-            </Link>
-            <nav className="flex items-center gap-2">
-              <Link
-                href={user ? '/dashboard' : '/login'}
-                className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:inline"
-              >
-                {user ? 'Open dashboard' : 'Sign in'}
-              </Link>
-              <Link href="/signup" className="button-primary h-10 px-5 text-sm">
-                Create account
-              </Link>
-            </nav>
-          </div>
-        </header>
 
         <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
           <div className="max-w-2xl space-y-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-              Help &amp; support
-            </p>
             <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
               {activeRoleMeta ? `Help for ${activeRoleMeta.label.toLowerCase()}s` : 'How can we help?'}
             </h1>
@@ -311,30 +296,6 @@ export default async function HelpPage({ searchParams }: Props) {
           </section>
         </div>
 
-        <footer className="border-t border-ink/5">
-          <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-10 text-sm text-ink/55 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-            <div className="flex items-center gap-2 text-ink">
-              <Logo height={24} />
-              <span className="font-mono text-[11px] uppercase tracking-[0.2em]">
-                Setnayan · setnayan.com
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-              <Link href="/" className="hover:text-ink">
-                Home
-              </Link>
-              <Link href="/how-it-works" className="hover:text-ink">
-                How it works
-              </Link>
-              <Link href="/help" className="hover:text-ink">
-                Help
-              </Link>
-              <Link href={user ? '/dashboard' : '/login'} className="hover:text-ink">
-                {user ? 'Dashboard' : 'Sign in'}
-              </Link>
-            </div>
-          </div>
-        </footer>
       </main>
     </>
   );

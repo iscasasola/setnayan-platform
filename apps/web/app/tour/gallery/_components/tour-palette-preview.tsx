@@ -12,8 +12,8 @@
 // server (writing role_palette is a dashboard-only server action, off-limits to
 // the read-only tour), and a reload resets it.
 //
-// Tokens match the tour (serif headings, #1E2229 ink, #5F5E5A body, #8C6932 /
-// #C5A059 gold, #5C2542 mulberry, #FBF8F1 cream).
+// Tokens match the tour (serif headings, #1B1A17 ink, #5F5E5A body, #8C6932 /
+// #A9834B gold, #1B1A17 mulberry, #FBF8F1 cream).
 // ============================================================================
 
 import { useMemo, useState } from 'react';
@@ -112,7 +112,7 @@ export function TourPalettePreview({ groups }: { groups: TourSwatchGroup[] }) {
   );
 
   return (
-    <div className="rounded-2xl border border-[#C5A059]/40 bg-[#FBF8F1] p-5 sm:p-6">
+    <div className="rounded-2xl border border-[#A9834B]/40 bg-[#FBF8F1] p-5 sm:p-6">
       {/* Local-only recolor control. */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <label htmlFor="tour-hue" className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#8C6932]">
@@ -122,7 +122,7 @@ export function TourPalettePreview({ groups }: { groups: TourSwatchGroup[] }) {
           type="button"
           onClick={() => setHueShift(0)}
           disabled={hueShift === 0}
-          className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-[#C5A059]/50 px-3 text-xs font-medium text-[#5C2542] transition-opacity hover:opacity-80 disabled:opacity-40"
+          className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-[#A9834B]/50 px-3 text-xs font-medium text-[#1B1A17] transition-opacity hover:opacity-80 disabled:opacity-40"
         >
           <RotateCcw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Their palette
@@ -136,7 +136,7 @@ export function TourPalettePreview({ groups }: { groups: TourSwatchGroup[] }) {
         step={5}
         value={hueShift}
         onChange={(e) => setHueShift(Number(e.target.value))}
-        className="mt-3 w-full accent-[#5C2542]"
+        className="mt-3 w-full accent-[#1B1A17]"
         aria-label="Shift the palette hue"
       />
       <p className="mt-1.5 text-xs text-[#9A8F86]">
@@ -150,7 +150,7 @@ export function TourPalettePreview({ groups }: { groups: TourSwatchGroup[] }) {
         {recolored.map((g) => (
           <div key={g.key}>
             <div className="flex items-baseline justify-between gap-3">
-              <p className="font-serif text-sm text-[#1E2229]">{g.label}</p>
+              <p className="font-serif text-sm text-[#1B1A17]">{g.label}</p>
               <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8C6932]">
                 {FAMILY_LABEL[g.family]}
               </span>
@@ -159,7 +159,7 @@ export function TourPalettePreview({ groups }: { groups: TourSwatchGroup[] }) {
               {g.colors.map((color, i) => (
                 <div key={`${g.key}-${i}`} className="flex flex-col items-center gap-1">
                   <span
-                    className="block h-11 w-11 rounded-lg border border-[#1E2229]/10 shadow-sm sm:h-12 sm:w-12"
+                    className="block h-11 w-11 rounded-lg border border-[#1B1A17]/10 shadow-sm sm:h-12 sm:w-12"
                     style={{ backgroundColor: color }}
                     title={color}
                     aria-label={`${g.label} colour ${color}`}

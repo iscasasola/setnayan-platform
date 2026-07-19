@@ -51,6 +51,11 @@ const config: Config = {
         '2xl': 'var(--m-r-lg)', // 22
         '3xl': 'var(--m-r-xl)', // 36
         full: 'var(--m-r-full)', // 999
+        // Atelier-Glass kit radii (Glass PR-1, 2026-07-15). Named tokens so the
+        // kit surface recipes use `rounded-tile`/`rounded-card` instead of the
+        // lint:radius-forbidden arbitrary `rounded-[20px]`/`rounded-[18px]`.
+        tile: '20px', // .sn-tile / .sn-tile-dark
+        card: '18px', // .sn-card
       },
       colors: {
         // Themeable surface tokens — values resolve at runtime from CSS vars
@@ -91,31 +96,32 @@ const config: Config = {
           // pills. Kept as raw hex (not CSS-var) because these are
           // non-themed shades — they read fine on alabaster (light) and
           // obsidian (dark) surfaces alike.
-          50: '#fbf7ec',
-          100: '#f4ecd8',
-          200: '#e8d8b0',
-          300: '#dbc488',
-          400: '#cdb160',
+          50: '#f9f5ec',
+          100: '#f3ecdf',
+          200: '#e4d4b4',
+          300: '#cba766',
+          400: '#b99456',
           500: 'rgb(var(--color-terracotta) / <alpha-value>)',
           600: 'rgb(var(--color-terracotta-600) / <alpha-value>)',
           700: 'rgb(var(--color-terracotta-700) / <alpha-value>)',
-          800: '#6c5125',
-          900: '#4d3a1b',
+          800: '#5c4726',
+          900: '#3f3019',
         },
         mulberry: {
           DEFAULT: 'rgb(var(--color-mulberry) / <alpha-value>)',
-          // Rich Mulberry tint ladder for CTA fills / hover states / soft
-          // selection backgrounds. Raw hex for non-themed shades.
-          50: '#fef6f8',
-          100: '#f5e8ee',
-          200: '#ecc8d5',
-          300: '#b8889c',
-          400: '#8e5675',
+          // Rich Mulberry WINE tint ladder ("Energy, not skin" reskin 2026-07-09;
+          // was the obsidian ladder under the 2026-05-29 lock). Raw hex for the
+          // non-themed shades; 500/600/700 track the --color-mulberry vars.
+          50: '#f9f5ec',
+          100: '#f3ecdf',
+          200: '#e4d4b4',
+          300: '#cba766',
+          400: '#b99456',
           500: 'rgb(var(--color-mulberry) / <alpha-value>)',
           600: 'rgb(var(--color-mulberry-600) / <alpha-value>)',
           700: 'rgb(var(--color-mulberry-700) / <alpha-value>)',
-          800: '#2a1020',
-          900: '#1a0814',
+          800: '#5c4726',
+          900: '#3f3019',
         },
         // `burgundy` — DEPRECATED pre-rebrand CTA name. It was never redefined
         // after the Clean Editorial rebrand, so `bg-burgundy` / `text-burgundy`
@@ -169,17 +175,17 @@ const config: Config = {
           950: '#172013',
         },
         warn: {
-          50: '#fbf7ec',
-          100: '#f4ecd8',
-          200: '#e8d8b0',
-          300: '#dbc488',
-          400: '#cdb160',
-          500: '#c5a059', // --m-orange
-          600: '#a88340', // --m-orange-2
-          700: '#856633',
-          800: '#6c5125',
-          900: '#4d3a1b',
-          950: '#2e2210',
+          50: '#f9f5ec',
+          100: '#f3ecdf',
+          200: '#e4d4b4',
+          300: '#cba766',
+          400: '#b99456',
+          500: '#a9834b', // --m-orange (kit gold-500)
+          600: '#8a6b39', // --m-orange-2 (kit gold-700)
+          700: '#7a5e32',
+          800: '#5c4726',
+          900: '#3f3019',
+          950: '#2a200f',
         },
         danger: {
           50: '#fdf4f0',
@@ -193,6 +199,24 @@ const config: Config = {
           800: '#783b28',
           900: '#5f3021',
           950: '#34170f',
+        },
+        // `info` ← INFO-SLATE (Atelier-Glass kit `--sn-info` #4E6C82). The
+        // sanctioned NEUTRAL semantic — for outcomes that are neither success
+        // nor danger (e.g. a dispute resolved for the couple, or a high skill
+        // tier). Added 2026-07-15 to retire the last raw `violet` one-offs on the
+        // vendor surface (kit: gold + info-slate + warm semantics only).
+        info: {
+          50: '#f2f5f7',
+          100: '#e2eaef', // --sn-info-soft
+          200: '#c5d3dd',
+          300: '#9fb4c3',
+          400: '#7292a8',
+          500: '#547690',
+          600: '#4e6c82', // --sn-info
+          700: '#405767',
+          800: '#374a57',
+          900: '#2f3e49',
+          950: '#1e2831',
         },
       },
       fontFamily: {

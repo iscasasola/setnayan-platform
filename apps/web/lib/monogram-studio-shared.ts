@@ -60,7 +60,81 @@ const STROKE_STYLES = ['broad', 'pointed', 'monoline', 'brush'] as const;
 const MIRROR_MODES = ['off', 'v', 'h', '4'] as const;
 const SYM_KINDS = ['dot', 'ring', 'diamond', 'triangle', 'star', 'sparkle', 'heart', 'leaf'] as const;
 const CROSS_ACTIONS = ['cut', 'merge', 'delete'] as const;
-const ANIM_KINDS = ['handwriting', 'trace', 'droplet'] as const;
+// Parametric frame patterns (council verdict 2026-07-17 §4/§6): every frame is
+// a compact RECIPE the engine's frameBuilder turns into filled paper.js
+// geometry at render/export time — recipes, never baked stroke data, so frames
+// stay re-editable and the SVG-sanitizer path is unchanged. 12 kinds; the two
+// corner-* kinds are the "corner set" class, everything else is an enclosure
+// (stack rule: ≤ MAX_FRAMES, at most one of each class — enforced in the
+// engine's shelf; the sanitizer only bounds). sampaguita + laurel are the
+// unconditional Filipino-identity keeps.
+export const FRAME_KINDS = [
+  'ring',
+  'double-ring',
+  'open-ring',
+  'diamond',
+  'cartouche',
+  'arch',
+  'scallop',
+  'laurel',
+  'wreath',
+  'sampaguita',
+  'corner-lines',
+  'corner-flourish',
+  // accent class (owner 2026-07-17 "accent frames also") — small ornaments that
+  // layer WITH an enclosure + corners, not instead of them.
+  'sprigs',
+  'cardinal-marks',
+  'sparkle-duo',
+] as const;
+export type StudioFrameKind = (typeof FRAME_KINDS)[number];
+// Owner override 2026-07-17 ("frames that can intertwine"): up to TWO
+// enclosures (weavable where their bands cross) + one corner set + one accent.
+export const MAX_FRAMES = 4;
+// Starting-point presets (council verdict §3) — provenance ONLY: `preset`
+// records which card seeded the design (analytics/`Duo repaired` etc.);
+// rendering never reads it. One field, not two (absorbed the separate
+// `layout?` proposal).
+export const PRESET_KEYS = [
+  // legacy starting points (pre-Styles saves)
+  'duo',
+  'interlocked',
+  'stacked',
+  'framed-duo',
+  // the 12 named Styles (benchmark §1) + solo/blank
+  'alon',
+  'sampaguita-style',
+  'habi',
+  'balangay',
+  'araw',
+  'kapilya',
+  'perlas',
+  'hardin',
+  'lazo',
+  'tala',
+  'payneta',
+  'kandila',
+  'solo-ring',
+  'blank',
+] as const;
+export type StudioPresetKey = (typeof PRESET_KEYS)[number];
+// The reveal-animation kinds offered in the studio's "Animate the reveal" panel.
+// Exported so the live player (app/_components/studio-reveal-player.tsx) imports
+// the ONE allowlist. handwriting/trace/droplet = paper.js/SVG draw-on; gold =
+// flowing-gold turn (CSS GoldMonogramReveal); molten = WebGL MoltenMonogramReveal.
+// (owner 2026-06-23 — gold/molten are reveal KINDS in this panel, not a separate feature.)
+export const ANIM_KINDS = ['handwriting', 'trace', 'droplet', 'gold', 'molten', 'petalfall', 'flip3d'] as const;
+// petalfall (owner 2026-07-17 "wreath falling in like petals into place"):
+// every piece drifts down and settles with a little spin. flip3d (owner "3d
+// rotating reveals"): the whole mark spins in — the live player uses real CSS
+// rotateY; the studio canvas fakes it with a cosine scaleX (2D engine).
+export type StudioAnimKind = (typeof ANIM_KINDS)[number];
+// Reveal tempo presets (council verdict §5.4): named chips that WRITE
+// dur/smooth/delay — the stored numbers stay canonical (wire format
+// untouched); `preset` only remembers which chip is lit ('custom' after any
+// fine-tune slider touch).
+export const ANIM_TEMPOS = ['quick', 'classic', 'ceremonial', 'custom'] as const;
+export type StudioAnimTempo = (typeof ANIM_TEMPOS)[number];
 
 export type StudioLetterState = {
   tx: number;
@@ -70,6 +144,12 @@ export type StudioLetterState = {
   outline: number;
   clean: boolean;
   strength: number;
+  /** Letter transforms (owner 2026-07-17 "flip, tilt in perspective, rotate"):
+   *  rot = degrees, skew = horizontal shear degrees (the perspective lean —
+   *  paper is affine, so shear is the honest tilt), flipX = mirror. */
+  rot?: number;
+  skew?: number;
+  flipX?: boolean;
 };
 export type StudioStrokePoint = { x: number; y: number; pr: number };
 export type StudioStroke = {
@@ -89,6 +169,31 @@ export type StudioSymbol = {
   mode: (typeof MIRROR_MODES)[number];
   c: string;
 };
+export type StudioFrame = {
+  kind: StudioFrameKind;
+  /** Frame colour — defaults to the mark's outline colour in the shelf UI. */
+  c: string;
+  /** Breathing room between the letter bounds and the frame (auto-fit inset). */
+  inset: number;
+  /** Multiplier on the auto-fit size (1 = exact auto-fit). */
+  scale: number;
+  /** Config-only in v1 — no drag handles yet; kept so handles can land later
+   *  without a data-model delta (council verdict §8.19). */
+  tx: number;
+  ty: number;
+  /** Band/rule thickness. */
+  thick: number;
+  /** Repeat count (leaves · petals · scallop bumps); ignored by plain rules. */
+  count: number;
+  /** Pattern-specific gap (open-ring opening · double-ring spacing · corner size). */
+  gap: number;
+  /** Double variant where the pattern supports it. */
+  dbl: boolean;
+  /** Intertwine (owner 2026-07-17): where two enclosure BANDS cross, weave
+   *  them over/under alternately — the letters' cut-gap trick applied frame
+   *  to frame. Meaningful only while two band enclosures are applied. */
+  weave?: boolean;
+};
 export type StudioConfig = {
   text: string;
   font: StudioFontKey;
@@ -101,7 +206,10 @@ export type StudioConfig = {
   pstate: Record<string, (typeof CROSS_ACTIONS)[number]>;
   strokes: StudioStroke[];
   syms: StudioSymbol[];
-  anim?: { kind: (typeof ANIM_KINDS)[number]; dur: number; smooth: number; delay: number };
+  frames?: StudioFrame[];
+  /** Starting-point provenance — which preset card seeded this design. */
+  preset?: StudioPresetKey;
+  anim?: { kind: (typeof ANIM_KINDS)[number]; dur: number; smooth: number; delay: number; preset?: StudioAnimTempo };
 };
 
 // Bounds — generous but finite; the studio works around a 150-unit glyph size
@@ -152,6 +260,9 @@ export function sanitizeStudioConfig(input: unknown): StudioConfig | null {
       outline: num(e.outline, 0, 60, 3),
       clean: Boolean(e.clean),
       strength: num(e.strength, 0, 1, 0.3),
+      rot: num(e.rot, -180, 180, 0),
+      skew: num(e.skew, -30, 30, 0),
+      flipX: Boolean(e.flipX),
     };
   });
 
@@ -211,6 +322,31 @@ export function sanitizeStudioConfig(input: unknown): StudioConfig | null {
     };
   });
 
+  const framesRaw = Array.isArray(o.frames) ? o.frames.slice(0, MAX_FRAMES) : [];
+  const frames: StudioFrame[] = framesRaw
+    .filter((f) => f && typeof f === 'object')
+    .map((f) => {
+      const e = f as Record<string, unknown>;
+      return {
+        kind: oneOf(e.kind, FRAME_KINDS, 'ring'),
+        c: hex(e.c, outlineColor === 'none' ? '#C5A059' : outlineColor),
+        inset: num(e.inset, -60, 200, 24),
+        scale: num(e.scale, 0.05, 12, 1),
+        tx: num(e.tx, -COORD, COORD, 0),
+        ty: num(e.ty, -COORD, COORD, 0),
+        thick: num(e.thick, 1, 40, 6),
+        count: num(e.count, 3, 96, 12),
+        gap: num(e.gap, 0, 160, 24),
+        dbl: Boolean(e.dbl),
+        ...(e.weave ? { weave: true } : {}),
+      };
+    });
+
+  const preset =
+    typeof o.preset === 'string' && (PRESET_KEYS as readonly string[]).includes(o.preset)
+      ? (o.preset as StudioPresetKey)
+      : undefined;
+
   let anim: StudioConfig['anim'];
   if (o.anim && typeof o.anim === 'object') {
     const a = o.anim as Record<string, unknown>;
@@ -219,10 +355,27 @@ export function sanitizeStudioConfig(input: unknown): StudioConfig | null {
       dur: num(a.dur, 1, 15, 6),
       smooth: num(a.smooth, 0, 1, 0.9),
       delay: num(a.delay, 0, 2, 0.3),
+      ...(typeof a.preset === 'string' && (ANIM_TEMPOS as readonly string[]).includes(a.preset)
+        ? { preset: a.preset as StudioAnimTempo }
+        : {}),
     };
   }
 
-  const cfg: StudioConfig = { text, font, ink, outlineColor, bg, st, order, pstate, strokes, syms, ...(anim ? { anim } : {}) };
+  const cfg: StudioConfig = {
+    text,
+    font,
+    ink,
+    outlineColor,
+    bg,
+    st,
+    order,
+    pstate,
+    strokes,
+    syms,
+    ...(frames.length ? { frames } : {}),
+    ...(preset ? { preset } : {}),
+    ...(anim ? { anim } : {}),
+  };
   if (JSON.stringify(cfg).length > MAX_CONFIG_BYTES) return null;
   return cfg;
 }
@@ -267,6 +420,13 @@ const FORBIDDEN: RegExp[] = [
 export function sanitizeStudioSvg(raw: string): string | null {
   if (!raw || raw.length > MAX_SVG_BYTES) return null;
   let svg = raw.replace(/^\s*<\?xml[^>]*\?>\s*/i, '').trim();
+  // Strip a leading DOCTYPE declaration (Adobe Illustrator's default SVG export
+  // ships one — a couple's designer file was rejected without this). Only the
+  // simple, internal-subset-FREE form is stripped: `[^[>]*` refuses to consume
+  // a `[`, so an internal-subset DOCTYPE (the XXE-entity vector, e.g.
+  // `<!DOCTYPE svg [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>`) stays and
+  // then fails the startsWith('<svg') check below → rejected. Safe + permissive.
+  svg = svg.replace(/^\s*<!DOCTYPE\s+[^[>]*>\s*/i, '').trim();
   if (!svg.toLowerCase().startsWith('<svg')) return null;
   if (!svg.toLowerCase().endsWith('</svg>')) return null;
   for (const re of FORBIDDEN) {

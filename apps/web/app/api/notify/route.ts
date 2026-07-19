@@ -22,9 +22,39 @@ import 'server-only';
 
 import { after, NextResponse, type NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { webhookSecretAuthorized } from '@/lib/webhook-secret-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+// ---------------------------------------------------------------------------
+// Auth — shared-secret header check
+// ---------------------------------------------------------------------------
+
+/**
+ * Constant-time compare of the incoming `x-webhook-secret` header against the
+ * configured `NOTIFY_WEBHOOK_SECRET` — see lib/webhook-secret-auth.ts (pure +
+ * unit-tested).
+ *
+ * Fail policy (FIXED 2026-07-09 — was fail-open):
+ *  - env var UNSET → fail CLOSED (401) + console.error. The old fail-open
+ *    "so a fresh deploy doesn't silently break push" meant one missing env var
+ *    silently accepted unauthenticated internet traffic on an endpoint that
+ *    reads DB rows and fires push sends. A fresh deploy now loses webhook
+ *    pushes LOUDLY until the secret is configured, never its auth.
+ *  - env var SET, header missing/wrong → fail CLOSED (401).
+ */
+function isAuthorized(req: NextRequest): boolean {
+  const secret = process.env.NOTIFY_WEBHOOK_SECRET;
+  if (!secret) {
+    console.error(
+      '[notify] NOTIFY_WEBHOOK_SECRET is not set — REJECTING webhook (fail-closed). ' +
+        'Set NOTIFY_WEBHOOK_SECRET in Vercel and add the x-webhook-secret header to the Supabase webhook config.',
+    );
+    return false;
+  }
+  return webhookSecretAuthorized(req.headers.get('x-webhook-secret'), secret);
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -137,13 +167,7 @@ async function sendPushToToken(
 // ---------------------------------------------------------------------------
 
 export async function POST(req: NextRequest) {
-  const secret = process.env.SUPABASE_WEBHOOK_SECRET;
-  if (!secret) {
-    console.error('[notify] SUPABASE_WEBHOOK_SECRET is not set');
-    return NextResponse.json({ error: 'misconfigured' }, { status: 500 });
-  }
-
-  if (req.headers.get('x-webhook-secret') !== secret) {
+  if (!isAuthorized(req)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 

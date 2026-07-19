@@ -8,6 +8,11 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { reScreenStuckCaptures } from '@/lib/nsfw-screen';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { eventPapicGuestActive } from '@/lib/papic-guest';
+import { eventPapicActive } from '@/lib/papic-seats';
+import { eventKwentoEnabled } from '@/lib/kwento-access';
+import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { KwentoQueue } from './_components/kwento-queue';
 import {
   reportCapture,
@@ -71,6 +76,25 @@ export default async function PapicModerationPage({
   const admin = createAdminClient();
 
   const owns = await eventPapicGuestActive(admin, eventId);
+
+  // Kwento is paid-to-unlock (owner 2026-06-26) — NEW EVENTS ONLY (grandfathered
+  // events stay free; newer events need KWENTO directly or via a bundle). The
+  // words-on-a-photo queue is gated on Kwento being enabled; photo moderation
+  // above stays free. Price + pay rails for the inline buy when not enabled.
+  // Kwento is a Papic ADD-ON, so it also requires Papic active (owner 2026-06-26):
+  // both the use (queue) and the buy gate on (Kwento enabled) AND (Papic active).
+  // papicActive counts bundle owners, so a Complete/Unlock-all buyer is never
+  // blocked.
+  const [ownsKwento, papicActive, kwentoSku, platformSettings] = await Promise.all([
+    eventKwentoEnabled(admin, eventId),
+    eventPapicActive(admin, eventId),
+    formatV2Sku('KWENTO').catch(() => null),
+    fetchPlatformSettings(supabase),
+  ]);
+  const kwentoPricePhp = kwentoSku?.price_php ?? 500;
+  const kwentoPriceLabel = `₱${Number(kwentoPricePhp).toLocaleString('en-PH', {
+    maximumFractionDigits: 0,
+  })}`;
 
   // Captures (newest first), the blocked-guest list, any open reports, and the
   // NSFW-screened (auto-filtered) captures from BOTH capture tables — one
@@ -200,7 +224,7 @@ export default async function PapicModerationPage({
 
   return (
     <section className="space-y-6">
-      <header className="space-y-3">
+      <header className="sn-reveal space-y-3">
         <Link
           href={`/dashboard/${eventId}/studio/papic`}
           className="inline-flex items-center gap-1.5 text-xs font-medium text-terracotta hover:text-terracotta-700"
@@ -208,9 +232,10 @@ export default async function PapicModerationPage({
           <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Back to Papic
         </Link>
+        <p className="sn-eye">Moderation</p>
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-5 w-5 text-mulberry" strokeWidth={1.75} />
-          <h1 className="text-2xl font-semibold tracking-tight">Photo moderation</h1>
+          <h1 className="sn-h1">Photo moderation</h1>
         </div>
         <p className="max-w-2xl text-sm text-ink/65">
           Every guest photo lands here. Hide anything you don&rsquo;t want in
@@ -233,12 +258,12 @@ export default async function PapicModerationPage({
       )}
 
       {!owns ? (
-        <p className="rounded-md border border-ink/10 bg-cream px-4 py-3 text-sm text-ink/65">
+        <p className="sn-row px-4 py-3 text-sm text-ink/65">
           Guest cameras aren&rsquo;t active for this wedding yet. Once you add
           the Premium Guest Camera Pack, guest photos will appear here.
         </p>
       ) : captureRows.length === 0 ? (
-        <p className="rounded-md border border-ink/10 bg-cream px-4 py-3 text-sm text-ink/65">
+        <p className="sn-row px-4 py-3 text-sm text-ink/65">
           No guest photos yet. As guests start shooting, every photo shows up
           here for you to review.
         </p>
@@ -365,7 +390,7 @@ export default async function PapicModerationPage({
       )}
 
       {blockRows.length > 0 && (
-        <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+        <section className="space-y-3 sn-tile p-5">
           <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight text-ink/80">
             <UserX className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
             Blocked guests for this wedding
@@ -454,7 +479,57 @@ export default async function PapicModerationPage({
         </section>
       )}
 
-      <KwentoQueue eventId={eventId} />
+      {ownsKwento && papicActive ? (
+        <KwentoQueue eventId={eventId} />
+      ) : (
+        <section className="space-y-3 sn-tile p-5 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1">
+              <p className="sn-eye">
+                Kwento · words on a photo
+              </p>
+              <h2 className="text-xl font-semibold tracking-tight">
+                Let guests leave a message
+              </h2>
+            </div>
+            <span className="font-mono text-base text-terracotta">{kwentoPriceLabel}</span>
+          </div>
+          <p className="max-w-prose text-sm text-ink/70">
+            Unlock Kwento and your guests can anchor a short message, story, or
+            chismis to any photo or clip — you approve each one before it shows in
+            the gallery and on your editorial page.
+          </p>
+          {!papicActive ? (
+            // Papic-active prerequisite (owner 2026-06-26): Kwento rides on Papic
+            // captures, so Papic must be set up first — covers both the buy and a
+            // bundle owner who owns Kwento but hasn't started Papic.
+            <p className="text-sm text-ink/70">
+              Kwento adds words to your Papic photos.{' '}
+              {ownsKwento
+                ? 'You already own it — set up your Papic crew to start using it.'
+                : 'Set up your Papic crew first, then come back to unlock it.'}{' '}
+              <Link
+                href={`/dashboard/${eventId}/studio/papic`}
+                className="font-medium text-mulberry underline-offset-2 hover:underline"
+              >
+                Set up Papic
+              </Link>
+            </p>
+          ) : platformSettings ? (
+            <InlineCheckoutDrawer
+              eventId={eventId}
+              serviceKey="KWENTO"
+              displayName="Kwento — words on a photo"
+              originalPriceCentavos={String(Math.round(kwentoPricePhp * 100))}
+              settings={platformSettings}
+              triggerLabel={`Unlock Kwento · ${kwentoPriceLabel}`}
+              triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:w-auto"
+            />
+          ) : (
+            <span className="text-sm font-mono text-ink/60">{kwentoPriceLabel}</span>
+          )}
+        </section>
+      )}
 
       <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
         Source · iteration 0012 Papic · UGC moderation (Apple 1.2 / Google Play UGC)

@@ -6,10 +6,25 @@ import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { revokeAllSessions } from '@/lib/force-logout';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { VENDOR_TEAM_ROLES, type VendorTeamRole } from '@/lib/vendor-team';
-import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
+import {
+  VENDOR_TEAM_ROLES,
+  isVendorAdminRole,
+  fetchAdminVendorContext,
+  type VendorTeamRole,
+} from '@/lib/vendor-team';
+import { tierCaps, asVendorTier, canBuyExtraSeats } from '@/lib/vendor-tier-caps';
+import {
+  effectiveSeatCap,
+  fetchExtraAgentSeats,
+  fetchSeatFeePhp,
+  seatServiceKey,
+} from '@/lib/vendor-seats';
 
 const ROLE_SET: ReadonlySet<string> = new Set(VENDOR_TEAM_ROLES);
+
+const TEAM = '/vendor-dashboard/team';
+const err = (msg: string): never =>
+  redirect(`${TEAM}?error=${encodeURIComponent(msg)}`);
 
 function parseRole(raw: FormDataEntryValue | null): VendorTeamRole {
   if (typeof raw !== 'string' || !ROLE_SET.has(raw)) {
@@ -24,33 +39,38 @@ function nullIfBlank(raw: FormDataEntryValue | null, max = 64): string | null {
   return t.length > 0 ? t : null;
 }
 
-async function ensureOwner() {
+/**
+ * Team management is ADMIN-gated (multi-admin org model, 2026-07-01). ANY admin
+ * of the store can manage the team — resolve the store the caller administers.
+ * Non-admin members (agent/viewer) and non-vendors are bounced to the dashboard.
+ */
+async function ensureAdmin() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
-  // Team management is OWNER-only in V1 (vendor_team_members write RLS is
-  // owner-scoped). Resolve the OWNED profile directly — NOT the now
-  // member-aware fetchOwnVendorProfile — so a non-owner member (admin/agent)
-  // can't reach team management.
-  const { data: profile } = await supabase
-    .from('vendor_profiles')
-    .select('vendor_profile_id, tier_state')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (!profile) redirect('/vendor-dashboard');
-  return { supabase, profile, currentUserId: user.id };
+  const ctx = await fetchAdminVendorContext(supabase, user.id);
+  if (!ctx) redirect('/vendor-dashboard');
+  return { supabase, ctx, currentUserId: user.id };
 }
 
 /**
  * V1 invite: only existing users by email. Looks up the user via the admin
  * client (RLS on public.users is per-user), then inserts a vendor_team_members
- * row. If the email doesn't match any account, we error back to the form
- * with a friendly message — couples / vendors / admins can all be added.
+ * row. Any admin may add a member at admin / agent / viewer.
  */
 export async function inviteVendorTeamMember(formData: FormData) {
-  const { supabase, profile } = await ensureOwner();
+  const { supabase, ctx } = await ensureAdmin();
+
+  // When invoked from the My Shop inline Team panel, stay on My Shop instead of
+  // bouncing to the Team page (owner rule 2026-07 — no navigation off My Shop
+  // except Profile). A local `err` shadows the module helper so every early
+  // return here honours the same destination.
+  const back =
+    formData.get('returnTo') === 'shop' ? '/vendor-dashboard/shop' : TEAM;
+  const err = (msg: string): never =>
+    redirect(`${back}?error=${encodeURIComponent(msg)}`);
 
   const emailRaw = formData.get('email');
   const labelRaw = formData.get('team_label');
@@ -58,45 +78,46 @@ export async function inviteVendorTeamMember(formData: FormData) {
   try {
     role = parseRole(formData.get('role'));
   } catch (e) {
-    return redirect(
-      `/vendor-dashboard/team?error=${encodeURIComponent((e as Error).message)}`,
-    );
+    return err((e as Error).message);
   }
   if (typeof emailRaw !== 'string' || emailRaw.trim().length === 0) {
-    return redirect('/vendor-dashboard/team?error=Email+is+required');
+    return err('Email is required');
   }
   const email = emailRaw.trim().toLowerCase();
   const team_label = nullIfBlank(labelRaw);
 
-  // Only Owner can promote another user to Owner. In V1 the Owner is the
-  // user_id on the vendor_profiles row; we don't allow a second Owner.
+  // `owner` is retired — admins promote each other to Admin, not Owner.
   if (role === 'owner') {
-    return redirect(
-      '/vendor-dashboard/team?error=Owner+role+is+reserved+for+the+profile+creator',
-    );
+    return err('Owner role is retired — add this person as an Admin instead.');
   }
 
-  // Tier seat cap (Phase B · Vendor_Tier_Capability_Matrix_2026-06-07): agent
-  // accounts = FREE 0 · VERIFIED 1 · PRO 3 · ENTERPRISE ∞. Count existing
-  // non-owner seats and block when the allowance is reached.
-  const seatCap = tierCaps(asVendorTier(profile.tier_state)).agentAccounts;
+  // Tier seat cap (Vendor_Tier_Capability_Matrix): count every member beyond
+  // the founding admin (vendor_profiles.user_id) against the plan's seat
+  // allowance — additional admins consume a seat just like agents do. Effective
+  // cap = the tier's base agentAccounts + any paid extra seats (Enterprise/Custom
+  // ₱250/28d add-on, owner 2026-07-02; 0 for every other tier).
+  const baseCap = tierCaps(asVendorTier(ctx.tierState ?? 'free')).agentAccounts;
+  const extraSeats = await fetchExtraAgentSeats(supabase, ctx.vendorProfileId);
+  const seatCap = effectiveSeatCap(baseCap, extraSeats);
   if (seatCap !== Infinity) {
     const { count: seatCount } = await supabase
       .from('vendor_team_members')
       .select('user_id', { count: 'exact', head: true })
-      .eq('vendor_profile_id', profile.vendor_profile_id)
-      .neq('role', 'owner');
+      .eq('vendor_profile_id', ctx.vendorProfileId)
+      .neq('user_id', ctx.founderUserId);
     if ((seatCount ?? 0) >= seatCap) {
-      const msg =
+      const moreHint = canBuyExtraSeats(ctx.tierState)
+        ? 'Add a seat (₱250/28d) for more.'
+        : 'Upgrade for more.';
+      return err(
         seatCap === 0
-          ? 'Agent accounts need a paid plan. Get verified or upgrade to add team members.'
-          : `You've reached your plan's limit of ${seatCap} agent account${seatCap === 1 ? '' : 's'}. Upgrade for more seats.`;
-      return redirect(`/vendor-dashboard/team?error=${encodeURIComponent(msg)}`);
+          ? 'Team seats need a paid plan. Get verified or upgrade to add team members.'
+          : `You've reached your plan's limit of ${seatCap} team seat${seatCap === 1 ? '' : 's'}. ${moreHint}`,
+      );
     }
   }
 
-  // Look up the target user by email via the admin client (RLS on
-  // public.users restricts to self).
+  // Look up the target user by email via the admin client.
   const admin = createAdminClient();
   const { data: existing, error: lookupError } = await admin
     .from('users')
@@ -104,172 +125,324 @@ export async function inviteVendorTeamMember(formData: FormData) {
     .eq('email', email)
     .maybeSingle();
   if (lookupError) {
-    return redirect(
-      `/vendor-dashboard/team?error=${encodeURIComponent(lookupError.message)}`,
-    );
+    return err(lookupError.message);
   }
   if (!existing) {
-    return redirect(
-      '/vendor-dashboard/team?error=No+Setnayan+account+with+that+email.+Ask+them+to+sign+up+first.',
-    );
+    return err('No Setnayan account with that email. Ask them to sign up first.');
   }
 
   const { error } = await supabase.from('vendor_team_members').insert({
-    vendor_profile_id: profile.vendor_profile_id,
+    vendor_profile_id: ctx.vendorProfileId,
     user_id: existing.user_id,
     role,
     team_label,
   });
   if (error) {
-    const message =
-      error.code === '23505'
-        ? 'That user is already on your team.'
-        : error.message;
-    return redirect(`/vendor-dashboard/team?error=${encodeURIComponent(message)}`);
+    return err(
+      error.code === '23505' ? 'That user is already on your team.' : error.message,
+    );
   }
 
-  revalidatePath('/vendor-dashboard/team');
-  redirect('/vendor-dashboard/team?invited=1');
+  revalidatePath(back);
+  redirect(`${back}?invited=1`);
 }
 
+/**
+ * Change a NON-admin member's role/label. Promotion to Admin is unilateral.
+ * Changing an *admin's* role is NOT done here — it needs a team vote (see
+ * proposeAdminMotion). Enforced both in the UI and defensively here.
+ */
 export async function updateVendorTeamMember(formData: FormData) {
-  const { supabase, profile, currentUserId } = await ensureOwner();
+  const { supabase, ctx, currentUserId } = await ensureAdmin();
 
   const idRaw = formData.get('vendor_team_member_id');
   if (typeof idRaw !== 'string' || idRaw.length === 0) {
-    return redirect('/vendor-dashboard/team?error=Missing+member+id');
+    return err('Missing member id');
   }
 
   let role: VendorTeamRole;
   try {
     role = parseRole(formData.get('role'));
   } catch (e) {
-    return redirect(
-      `/vendor-dashboard/team?error=${encodeURIComponent((e as Error).message)}`,
-    );
+    return err((e as Error).message);
   }
   const team_label = nullIfBlank(formData.get('team_label'));
 
-  // Fetch the row first so we can enforce "can't modify self" and
-  // "Owner role is immutable" rules at the action layer.
   const { data: target, error: readErr } = await supabase
     .from('vendor_team_members')
     .select('vendor_team_member_id,user_id,role')
     .eq('vendor_team_member_id', idRaw)
-    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .eq('vendor_profile_id', ctx.vendorProfileId)
     .maybeSingle();
-  if (readErr) {
-    return redirect(
-      `/vendor-dashboard/team?error=${encodeURIComponent(readErr.message)}`,
-    );
-  }
-  if (!target) {
-    return redirect('/vendor-dashboard/team?error=Member+not+found');
-  }
+  if (readErr) return err(readErr.message);
+  if (!target) return err('Member not found');
   if (target.user_id === currentUserId) {
-    return redirect('/vendor-dashboard/team?error=You+cannot+change+your+own+role');
+    return err('Use “Step down” to change your own role.');
   }
-  if (target.role === 'owner' || role === 'owner') {
-    return redirect(
-      '/vendor-dashboard/team?error=Owner+role+is+reserved+for+the+profile+creator',
-    );
+  if (role === 'owner') {
+    return err('Owner role is retired — use Admin instead.');
+  }
+  if (isVendorAdminRole(target.role as VendorTeamRole)) {
+    return err('Changing an admin’s role needs a team vote — start one below.');
   }
 
   const { error } = await supabase
     .from('vendor_team_members')
     .update({ role, team_label, updated_at: new Date().toISOString() })
     .eq('vendor_team_member_id', idRaw)
-    .eq('vendor_profile_id', profile.vendor_profile_id);
+    .eq('vendor_profile_id', ctx.vendorProfileId);
+  if (error) return err(error.message);
 
-  if (error) {
-    return redirect(
-      `/vendor-dashboard/team?error=${encodeURIComponent(error.message)}`,
-    );
-  }
-
-  revalidatePath('/vendor-dashboard/team');
-  redirect('/vendor-dashboard/team?saved=1');
+  revalidatePath(TEAM);
+  redirect(`${TEAM}?saved=1`);
 }
 
+/**
+ * Remove a NON-admin member (unilateral). Removing an admin needs a team vote
+ * (proposeAdminMotion with kind='remove').
+ */
 export async function removeVendorTeamMember(formData: FormData) {
-  const { supabase, profile, currentUserId } = await ensureOwner();
+  const { supabase, ctx, currentUserId } = await ensureAdmin();
 
   const idRaw = formData.get('vendor_team_member_id');
   if (typeof idRaw !== 'string' || idRaw.length === 0) {
-    return redirect('/vendor-dashboard/team?error=Missing+member+id');
+    return err('Missing member id');
   }
 
   const { data: target } = await supabase
     .from('vendor_team_members')
     .select('vendor_team_member_id,user_id,role')
     .eq('vendor_team_member_id', idRaw)
-    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .eq('vendor_profile_id', ctx.vendorProfileId)
     .maybeSingle();
-  if (!target) {
-    return redirect('/vendor-dashboard/team?error=Member+not+found');
-  }
-  if (target.role === 'owner') {
-    return redirect('/vendor-dashboard/team?error=Cannot+remove+the+Owner');
-  }
+  if (!target) return err('Member not found');
   if (target.user_id === currentUserId) {
-    return redirect('/vendor-dashboard/team?error=You+cannot+remove+yourself');
+    return err('You cannot remove yourself. Step down first, then have another admin remove you.');
+  }
+  if (isVendorAdminRole(target.role as VendorTeamRole)) {
+    return err('Removing an admin needs a team vote — start one below.');
   }
 
   const { error } = await supabase
     .from('vendor_team_members')
     .delete()
     .eq('vendor_team_member_id', idRaw)
-    .eq('vendor_profile_id', profile.vendor_profile_id);
+    .eq('vendor_profile_id', ctx.vendorProfileId);
+  if (error) return err(error.message);
 
-  if (error) {
-    return redirect(
-      `/vendor-dashboard/team?error=${encodeURIComponent(error.message)}`,
-    );
-  }
-
-  // Offboarding ends the login too: revoke the removed member's auth sessions
-  // on every device (their vendor-data access already died via the per-request
-  // current_vendor_ids check; this clears a possibly-shared shop device).
-  // Best-effort in the background — removal never fails on a revoke hiccup.
-  // Note: if this person is ALSO a couple/customer account, they're signed out
-  // of that too and simply log back in.
   const removedUserId = target.user_id as string;
   after(() => revokeAllSessions(removedUserId).catch(() => {}));
 
-  revalidatePath('/vendor-dashboard/team');
-  redirect('/vendor-dashboard/team?saved=1');
+  revalidatePath(TEAM);
+  redirect(`${TEAM}?saved=1`);
+}
+
+// ── Peer-admin demotion/removal votes (multi-admin org model) ──────────────
+
+const RPC_FRIENDLY: Array<[string, string]> = [
+  ['MOTION_ALREADY_OPEN', 'There’s already an open vote for that admin.'],
+  ['TARGET_NOT_ADMIN', 'That person isn’t an admin.'],
+  ['CANNOT_TARGET_SELF', 'Use “Step down” to leave the admin role yourself.'],
+  ['NOT_VENDOR_ADMIN', 'Only an admin can do that.'],
+  ['TARGET_CANNOT_VOTE', 'You can’t vote on a motion about yourself.'],
+  ['MOTION_CLOSED', 'That vote has already been resolved.'],
+  ['MOTION_NOT_FOUND', 'That vote no longer exists.'],
+  ['VENDOR_LAST_ADMIN', 'A store must keep at least one admin.'],
+];
+function friendlyRpcError(message: string | undefined): string {
+  const up = (message ?? '').toUpperCase();
+  for (const [code, friendly] of RPC_FRIENDLY) {
+    if (up.includes(code)) return friendly;
+  }
+  return 'That action couldn’t be completed. Please try again.';
+}
+
+/** Start a vote to demote (→ agent/viewer) or remove a peer admin. */
+export async function proposeAdminMotion(formData: FormData) {
+  const { supabase, ctx } = await ensureAdmin();
+  const targetUserId = formData.get('target_user_id');
+  const kindRaw = formData.get('kind');
+  const newRoleRaw = formData.get('new_role');
+  if (typeof targetUserId !== 'string' || targetUserId.length === 0) {
+    return err('Missing target member');
+  }
+  const kind = kindRaw === 'remove' ? 'remove' : 'demote';
+  const newRole = newRoleRaw === 'viewer' ? 'viewer' : 'agent';
+
+  const { data, error } = await supabase.rpc('vendor_propose_admin_motion', {
+    p_vendor_profile_id: ctx.vendorProfileId,
+    p_target_user_id: targetUserId,
+    p_kind: kind,
+    p_new_role: newRole,
+  });
+  if (error) return err(friendlyRpcError(error.message));
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (row?.status === 'executed' && row?.kind === 'remove' && row?.target_user_id) {
+    const removed = row.target_user_id as string;
+    after(() => revokeAllSessions(removed).catch(() => {}));
+  }
+
+  revalidatePath(TEAM);
+  redirect(`${TEAM}?${row?.status === 'executed' ? 'saved=1' : 'motion=started'}`);
+}
+
+/** Cast / change a vote on an open admin motion. */
+export async function voteAdminMotion(formData: FormData) {
+  const { supabase } = await ensureAdmin();
+  const motionId = formData.get('motion_id');
+  const approve = formData.get('approve') === 'true';
+  if (typeof motionId !== 'string' || motionId.length === 0) {
+    return err('Missing motion id');
+  }
+  const { data, error } = await supabase.rpc('vendor_vote_admin_motion', {
+    p_motion_id: motionId,
+    p_approve: approve,
+  });
+  if (error) return err(friendlyRpcError(error.message));
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (row?.status === 'executed' && row?.kind === 'remove' && row?.target_user_id) {
+    const removed = row.target_user_id as string;
+    after(() => revokeAllSessions(removed).catch(() => {}));
+  }
+
+  revalidatePath(TEAM);
+  redirect(`${TEAM}?${row?.status === 'open' ? 'voted=1' : 'saved=1'}`);
+}
+
+/** Cancel an open admin motion (any admin of the store). */
+export async function cancelAdminMotion(formData: FormData) {
+  const { supabase } = await ensureAdmin();
+  const motionId = formData.get('motion_id');
+  if (typeof motionId !== 'string' || motionId.length === 0) {
+    return err('Missing motion id');
+  }
+  const { error } = await supabase.rpc('vendor_cancel_admin_motion', {
+    p_motion_id: motionId,
+  });
+  if (error) return err(friendlyRpcError(error.message));
+
+  revalidatePath(TEAM);
+  redirect(`${TEAM}?saved=1`);
+}
+
+// ── Extra team seats (Enterprise/Custom ₱250/28d add-on · owner 2026-07-02) ──
+
+/** 'SN' + 8 uppercase hex — matches the couple checkout + branch reference format. */
+function generateSeatReferenceCode(): string {
+  const arr = new Uint8Array(4);
+  crypto.getRandomValues(arr);
+  return (
+    'SN' +
+    Array.from(arr)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+      .toUpperCase()
+  );
 }
 
 /**
- * Phase 2a — set which services an agent is assigned to. Replaces the member's
- * assignment rows with the submitted selection. Owner/admin only (enforced by
- * RLS on vendor_service_agents via current_vendor_ids('admin')); the action
+ * Buy one extra team seat beyond the tier's base cap. Enterprise/Custom-only
+ * (the base ladder tops out at 10; extra seats are the paid escape valve).
+ * Apply-then-pay: an `orders` row keyed `vendor_extra_seat__{vendor_profile_id}`
+ * + a pending `payments` row so it lands in /admin/payments. On admin approval
+ * the sku-activation hook recomputes vendor_profiles.extra_agent_seats and the
+ * seat becomes usable. The ongoing ₱250 folds into the Enterprise renewal in PR-B.
+ */
+export async function buyExtraSeat(formData: FormData) {
+  const { supabase, ctx, currentUserId } = await ensureAdmin();
+
+  if (!canBuyExtraSeats(ctx.tierState)) {
+    return err('Extra team seats are an Enterprise add-on. Upgrade to Enterprise first.');
+  }
+
+  const channel = formData.get('channel') === 'gcash' ? 'gcash' : 'bdo';
+  const feePhp = await fetchSeatFeePhp(supabase);
+  const referenceCode = generateSeatReferenceCode();
+
+  const { data: orderRow, error: oErr } = await supabase
+    .from('orders')
+    .insert({
+      event_id: null,
+      user_id: currentUserId,
+      vendor_profile_id: ctx.vendorProfileId,
+      service_key: seatServiceKey(ctx.vendorProfileId),
+      description: 'Extra Team Seat (28-day)',
+      requested_total_php: feePhp,
+      status: 'submitted',
+      reference_code: referenceCode,
+    })
+    .select('order_id')
+    .maybeSingle();
+  if (oErr || !orderRow) {
+    return err('Could not start the seat order. Please try again.');
+  }
+  const orderId = (orderRow as { order_id: string }).order_id;
+
+  const { error: pErr } = await supabase.from('payments').insert({
+    order_id: orderId,
+    user_id: currentUserId,
+    amount_php: feePhp,
+    channel,
+    reference_number: null,
+    screenshot_url: null,
+    paid_at: new Date().toISOString().slice(0, 10),
+  });
+  if (pErr) {
+    await supabase.from('orders').delete().eq('order_id', orderId);
+    return err('Could not start the seat order. Please try again.');
+  }
+
+  revalidatePath(TEAM);
+  redirect(`${TEAM}?bought=${encodeURIComponent(referenceCode)}`);
+}
+
+/** Step down from the admin role yourself (→ agent). Blocked if you're the last admin. */
+export async function stepDownSelf() {
+  const { supabase, ctx, currentUserId } = await ensureAdmin();
+  const { error } = await supabase
+    .from('vendor_team_members')
+    .update({ role: 'agent', updated_at: new Date().toISOString() })
+    .eq('vendor_profile_id', ctx.vendorProfileId)
+    .eq('user_id', currentUserId)
+    .eq('role', 'admin');
+  if (error) {
+    return err(
+      (error.message ?? '').toUpperCase().includes('VENDOR_LAST_ADMIN')
+        ? 'You’re the only admin — promote someone to admin before stepping down.'
+        : error.message,
+    );
+  }
+  revalidatePath(TEAM);
+  redirect(`${TEAM}?saved=1`);
+}
+
+/**
+ * Phase 2a — set which services an agent is assigned to. Admin-only (enforced
+ * by RLS on vendor_service_agents via current_vendor_ids('admin')); the action
  * also clamps the selection to the vendor's own services defensively.
  */
 export async function setVendorAgentServices(formData: FormData) {
-  const { supabase, profile } = await ensureOwner();
+  const { supabase, ctx } = await ensureAdmin();
 
   const memberIdRaw = formData.get('vendor_team_member_id');
   if (typeof memberIdRaw !== 'string' || memberIdRaw.length === 0) {
-    return redirect('/vendor-dashboard/team?error=Missing+member+id');
+    return err('Missing member id');
   }
 
-  // The member must belong to THIS vendor.
   const { data: member } = await supabase
     .from('vendor_team_members')
     .select('vendor_team_member_id')
     .eq('vendor_team_member_id', memberIdRaw)
-    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .eq('vendor_profile_id', ctx.vendorProfileId)
     .maybeSingle();
-  if (!member) {
-    return redirect('/vendor-dashboard/team?error=Member+not+found');
-  }
+  if (!member) return err('Member not found');
 
-  // Clamp the submitted ids to the vendor's own services.
   const { data: services } = await supabase
     .from('vendor_services')
     .select('vendor_service_id')
-    .eq('vendor_profile_id', profile.vendor_profile_id);
+    .eq('vendor_profile_id', ctx.vendorProfileId);
   const valid = new Set(
     (services ?? []).map((s) => (s as { vendor_service_id: string }).vendor_service_id),
   );
@@ -277,14 +450,11 @@ export async function setVendorAgentServices(formData: FormData) {
     .getAll('service_ids')
     .filter((v): v is string => typeof v === 'string' && valid.has(v));
 
-  // Replace this member's assignments: clear, then insert the selection.
   const { error: delErr } = await supabase
     .from('vendor_service_agents')
     .delete()
     .eq('vendor_team_member_id', memberIdRaw);
-  if (delErr) {
-    return redirect(`/vendor-dashboard/team?error=${encodeURIComponent(delErr.message)}`);
-  }
+  if (delErr) return err(delErr.message);
   if (selected.length > 0) {
     const { error: insErr } = await supabase.from('vendor_service_agents').insert(
       selected.map((vendor_service_id) => ({
@@ -292,11 +462,9 @@ export async function setVendorAgentServices(formData: FormData) {
         vendor_team_member_id: memberIdRaw,
       })),
     );
-    if (insErr) {
-      return redirect(`/vendor-dashboard/team?error=${encodeURIComponent(insErr.message)}`);
-    }
+    if (insErr) return err(insErr.message);
   }
 
-  revalidatePath('/vendor-dashboard/team');
-  redirect('/vendor-dashboard/team?saved=1');
+  revalidatePath(TEAM);
+  redirect(`${TEAM}?saved=1`);
 }

@@ -8,10 +8,12 @@ export const metadata = { title: 'You\'re in' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
+  searchParams: Promise<{ unlisted?: string }>;
 };
 
-export default async function JoinSuccessPage({ params }: Props) {
+export default async function JoinSuccessPage({ params, searchParams }: Props) {
   const { eventId } = await params;
+  const unlisted = (await searchParams).unlisted === '1';
 
   const supabase = await createClient();
   const {
@@ -56,10 +58,18 @@ export default async function JoinSuccessPage({ params }: Props) {
         <p className="mt-1 text-lg font-medium text-ink">
           {ROLE_LABELS[(membership.role as GuestRole) ?? 'guest']}
         </p>
-        <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.15em] text-ink/40">
+        <p className="mt-3 font-mono text-xs uppercase tracking-[0.15em] text-ink/40">
           Event {event.public_id}
         </p>
       </section>
+
+      {unlisted ? (
+        <section className="rounded-xl border border-warn-900/15 bg-warn-100 p-4 text-sm text-warn-900">
+          You weren&rsquo;t on the couple&rsquo;s original list, so we&rsquo;ve added you and let
+          them know — they&rsquo;ll confirm you shortly. You can fill in your details now and
+          they&rsquo;ll carry over.
+        </section>
+      ) : null}
 
       <section className="space-y-3 text-sm text-ink/70">
         <p>

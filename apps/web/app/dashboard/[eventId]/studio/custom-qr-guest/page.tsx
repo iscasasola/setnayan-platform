@@ -11,12 +11,13 @@ import {
   renderInvitationQrSvg,
   resolveBrandedQrColors,
 } from '@/lib/qr';
+import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { resolveMonogram } from '@/lib/monogram';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { eventOwnsSku } from '@/lib/entitlements';
+import { eventSkuActive } from '@/lib/entitlements';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 
 export const metadata = { title: 'Custom QR per guest · Setnayan' };
@@ -70,22 +71,24 @@ export default async function CustomQrGuestPage({ params }: Props) {
     .maybeSingle();
   if (!event) redirect(`/dashboard/${eventId}`);
 
-  // Owned-state via the shared bundle-aware eventOwnsSku() reader
-  // (lib/entitlements.ts) — so a couple who got CUSTOM_QR_GUEST inside the
-  // Essentials (GUIDED_PACK) or Complete (MEDIA_PACK) bundle (a single
-  // bundle-keyed order, no child CUSTOM_QR_GUEST order) still owns it.
-  // Refund-aware: a still-in-reconciliation order locks the page into its
-  // post-purchase "owned" state so the couple isn't double-charged; cancelled /
-  // refunded / lapsed releases it. Graceful-degrade on a missing/legacy orders
-  // table (42P01 / 42703) — pre-bootstrap databases surface the buy CTA rather
-  // than crashing, matching the PR #380/#390 hotfix pattern.
+  // Owned/branded-view gate via the shared bundle-aware eventSkuActive() reader
+  // (lib/entitlements.ts) — the branded cards appear only AFTER admin payment
+  // approval (owner-locked 2026-06-22: "owns" for our manual rails = admin-
+  // APPROVED = eventSkuActive, NOT the pending-inclusive eventOwnsSku). This
+  // matches the branded PNG-download API + the Invitation auto-show surface.
+  // Bundle-aware so a couple who got CUSTOM_QR_GUEST inside Essentials
+  // (GUIDED_PACK) or Complete (MEDIA_PACK) still unlocks once that bundle is
+  // approved. Refund/cancel/lapse releases it. Graceful-degrade on a
+  // missing/legacy orders table (42P01 / 42703) — pre-bootstrap databases
+  // surface the buy CTA rather than crashing, matching the PR #380/#390 pattern.
   //
   // Read with the ADMIN client (PR4d): the !event redirect above is the
   // membership gate (the event read is RLS-scoped to members), and ownership is
   // an EVENT-level fact — but orders RLS is purchaser-scoped (user_id =
   // auth.uid()), so the user client would deny a co-host member who didn't
-  // personally place the order and wrongly show them the buy CTA.
-  const owns = await eventOwnsSku(createAdminClient(), eventId, SKU_CODE);
+  // personally place the order and wrongly show them the buy CTA. The buy CTA
+  // (InlineCheckoutDrawer in UnownedView) prevents double-buy on its own.
+  const owns = await eventSkuActive(createAdminClient(), eventId, SKU_CODE);
 
   const monogram = resolveMonogram(event);
   const palette = sanitizeRolePalette(event.role_palette ?? {});
@@ -103,6 +106,9 @@ export default async function CustomQrGuestPage({ params }: Props) {
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
   const slug = event.slug ?? eventId;
+  // Canonical URL form for the branded QRs — nested /u/ under the cutover flag,
+  // bare root otherwise (resolve self-noops OFF; no query pre-cutover).
+  const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), eventId);
 
   // Pricing from the live V2 catalog (single source of truth) with a fallback
   // so the page never crashes if the catalog row is missing pre-seed.
@@ -119,24 +125,43 @@ export default async function CustomQrGuestPage({ params }: Props) {
         Back to add-ons
       </Link>
 
-      <header className="space-y-2">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">
           Custom QR per guest
         </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          One scan, and your guest finds everything
-        </h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Every guest already has a personal QR that opens their own invitation.
-          This upgrade dresses each one in your monogram and your colors — a
-          branded card you can print, send, or set on every table.
-        </p>
+        {owns ? (
+          // Owner: neutral tool header — no re-pitch. The selling copy
+          // ("One scan… / This upgrade dresses each one…") is gated to the
+          // not-owned state below; the learn-more page (/studio/about/<key>)
+          // carries the marketing for non-owners (Tier 4 surface-hygiene).
+          <>
+            <h1 className="sn-h1">
+              Your branded guest QRs
+            </h1>
+            <p className="max-w-prose text-base text-ink/65">
+              A branded QR card for every guest — print, download, or set on
+              every table.
+            </p>
+          </>
+        ) : (
+          <>
+            <h1 className="sn-h1">
+              One scan, and your guest finds everything
+            </h1>
+            <p className="max-w-prose text-base text-ink/65">
+              Every guest already has a personal QR that opens their own
+              invitation. This upgrade dresses each one in your monogram and your
+              colors — a branded card you can print, send, or set on every table.
+            </p>
+          </>
+        )}
       </header>
 
       {owns ? (
         <OwnedView
           eventId={eventId}
           slug={slug}
+          ownerSlug={ownerSlug}
           appUrl={appUrl}
           monogram={monogram}
           qrColors={qrColors}
@@ -147,6 +172,7 @@ export default async function CustomQrGuestPage({ params }: Props) {
         <UnownedView
           eventId={eventId}
           slug={slug}
+          ownerSlug={ownerSlug}
           appUrl={appUrl}
           monogram={monogram}
           qrColors={qrColors}
@@ -170,6 +196,7 @@ type SupabaseLike = Awaited<ReturnType<typeof createClient>>;
 async function OwnedView({
   eventId,
   slug,
+  ownerSlug,
   appUrl,
   monogram,
   qrColors,
@@ -178,6 +205,7 @@ async function OwnedView({
 }: {
   eventId: string;
   slug: string;
+  ownerSlug: string | null;
   appUrl: string;
   monogram: ReturnType<typeof resolveMonogram>;
   qrColors: ReturnType<typeof resolveBrandedQrColors>;
@@ -191,13 +219,14 @@ async function OwnedView({
       guestId: g.guest_id,
       name: guestDisplayName(g),
       role: ROLE_LABELS[g.role],
-      url: buildInvitationUrl({ appUrl, slug, qrToken: g.qr_token }),
+      url: buildInvitationUrl({ appUrl, slug, qrToken: g.qr_token, ownerSlug }),
       svg: await renderBrandedInvitationQrSvg({
         appUrl,
         slug,
         qrToken: g.qr_token,
         monogram,
         colors: qrColors,
+        ownerSlug,
       }),
     })),
   );
@@ -219,7 +248,7 @@ async function OwnedView({
       </div>
 
       {cards.length === 0 ? (
-        <p className="rounded-xl border border-ink/10 bg-cream p-6 text-sm text-ink/60">
+        <p className="sn-row p-6 text-sm text-ink/60">
           Add guests to your{' '}
           <Link
             href={`/dashboard/${eventId}/guests`}
@@ -233,7 +262,7 @@ async function OwnedView({
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {cards.map((card) => (
             <li key={card.guestId}>
-              <article className="flex h-full flex-col items-center gap-3 rounded-2xl border border-ink/10 bg-cream p-5 text-center">
+              <article className="sn-row flex h-full flex-col items-center gap-3 p-5 text-center">
                 <div
                   aria-label={`Branded QR for ${card.name}`}
                   className="h-40 w-40 overflow-hidden rounded-xl border border-ink/10 bg-white p-2 [&_svg]:h-full [&_svg]:w-full"
@@ -275,6 +304,7 @@ async function OwnedView({
 async function UnownedView({
   eventId,
   slug,
+  ownerSlug,
   appUrl,
   monogram,
   qrColors,
@@ -285,6 +315,7 @@ async function UnownedView({
 }: {
   eventId: string;
   slug: string;
+  ownerSlug: string | null;
   appUrl: string;
   monogram: ReturnType<typeof resolveMonogram>;
   qrColors: ReturnType<typeof resolveBrandedQrColors>;
@@ -300,13 +331,14 @@ async function UnownedView({
   const previewToken = previewGuest?.qr_token ?? 'preview-sample-token';
 
   const [plainSvg, brandedSvg, settings] = await Promise.all([
-    renderInvitationQrSvg({ appUrl, slug, qrToken: previewToken, monogram }),
+    renderInvitationQrSvg({ appUrl, slug, qrToken: previewToken, monogram, ownerSlug }),
     renderBrandedInvitationQrSvg({
       appUrl,
       slug,
       qrToken: previewToken,
       monogram,
       colors: qrColors,
+      ownerSlug,
     }),
     fetchPlatformSettings(supabase),
   ]);
@@ -314,9 +346,9 @@ async function UnownedView({
   return (
     <>
       {/* Side-by-side preview */}
-      <section className="rounded-2xl border border-ink/10 bg-cream p-5">
+      <section className="sn-tile p-5">
         <header className="space-y-1">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+          <p className="sn-eye">
             Your QR, two ways
           </p>
           <h2 className="text-xl font-semibold tracking-tight">
@@ -374,9 +406,9 @@ async function UnownedView({
       </section>
 
       {/* What you get + buy */}
-      <section className="rounded-2xl border border-ink/10 bg-cream p-5">
+      <section className="sn-tile p-5">
         <header className="space-y-1">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+          <p className="sn-eye">
             What you get
           </p>
           <h2 className="text-xl font-semibold tracking-tight">

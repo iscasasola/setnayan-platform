@@ -158,6 +158,15 @@ export type BottomNavItem = {
    * Phase 0 baseline behavior).
    */
   activeMatchExact?: boolean;
+  /**
+   * Additional EXACT-ONLY paths that activate this tab on top of the
+   * `activeMatch` prefixes. For a merged hub tab whose landing is the exact
+   * prefix of every sibling route (admin Overview: exact `/admin` PLUS the
+   * enumerated queue-route prefixes) — `activeMatchExact` can't express the
+   * mix because it flips ALL matches to exact. Additive + optional; ignored
+   * when absent. (Admin 6-menu respine 2026-07-03.)
+   */
+  activeMatchAlsoExact?: string[];
   badge?: NavBadge;
 };
 

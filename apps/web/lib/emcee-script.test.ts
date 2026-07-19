@@ -29,6 +29,9 @@ function block(p: Partial<ScheduleBlockRow>): ScheduleBlockRow {
     sort_order: p.sort_order ?? 0,
     parent_block_id: p.parent_block_id ?? null,
     created_at: '2026-01-01',
+    run_state: p.run_state ?? 'upcoming',
+    actual_start_at: p.actual_start_at ?? null,
+    actual_end_at: p.actual_end_at ?? null,
     ...p,
   };
 }
@@ -55,6 +58,7 @@ function guest(p: Partial<GuestRow>): GuestRow {
     dietary_restrictions: null,
     photo_consent: false,
     faceblock_enabled: false,
+    face_recognition_excluded: false,
     photo_url: null,
     photo_source: null,
     photo_updated_at: null,
@@ -64,6 +68,9 @@ function guest(p: Partial<GuestRow>): GuestRow {
     qr_token: 'q',
     custom_tags: [],
     seating_priority: null,
+    attire: 'neutral',
+    seniority_rank: null,
+    relation: null,
     created_at: '2026-01-01',
     ...p,
   };

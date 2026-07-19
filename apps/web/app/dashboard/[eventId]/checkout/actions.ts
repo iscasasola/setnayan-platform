@@ -51,6 +51,14 @@ import { uploadPublicAsset } from '@/lib/storage';
 import { validateAndCalculateVoucher } from '@/lib/vouchers/validate';
 import { appendLedger } from '@/lib/ledger';
 import { resolvePaxPricedOrderCentavos, resolveBundleChargeCentavos } from '@/lib/v2-catalog';
+import { AI_SUB_SKU, parseCycles } from '@/lib/setnayan-ai-subscription';
+import { resolveSetnayanAiPerEventPricingEnabled } from '@/lib/integration-config';
+import {
+  SETNAYAN_AI_SKU,
+  resolveSetnayanAiEventChargeCentavos,
+} from '@/lib/setnayan-ai-event-pricing';
+import { computeVatFromBase, DEFAULT_VAT_RATE_PCT } from '@/lib/receipts';
+import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { getRequestPlatform, isRequestPlatform } from '@/lib/request-platform';
 import { notifyAdminsOrderAwaitingReconciliation } from '@/lib/order-admin-notify';
 
@@ -246,13 +254,27 @@ export async function submitOrderAction(
   const voucherDiscountRaw = formData.get('voucher_discount_centavos'); // optional
 
   if (
-    typeof eventId !== 'string' ||
     typeof serviceKey !== 'string' ||
     typeof displayName !== 'string' ||
     typeof originalRaw !== 'string' ||
     typeof channel !== 'string'
   ) {
     return { ok: false, reason: 'Missing required fields. Please refresh and try again.' };
+  }
+
+  // Per-USER Setnayan AI subscription term pass — the ONE eventless SKU. It is
+  // bought per account (covers all the buyer's events), so it has no event_id
+  // and is charged unit × cycles (₱499 × 28-day cycles). Every other SKU stays
+  // strictly event-scoped exactly as before — this branch is inert for them.
+  const isAiSub = serviceKey === AI_SUB_SKU;
+  const eventIdClean =
+    typeof eventId === 'string' && eventId.trim().length > 0 ? eventId.trim() : null;
+  if (!isAiSub && !eventIdClean) {
+    return { ok: false, reason: 'Missing required fields. Please refresh and try again.' };
+  }
+  const cycles = isAiSub ? parseCycles(formData.get('cycles')) : null;
+  if (isAiSub && cycles === null) {
+    return { ok: false, reason: 'Pick how many cycles to subscribe for.' };
   }
 
   // Parse + validate the original price.
@@ -285,6 +307,58 @@ export async function submitOrderAction(
     };
   }
 
+  // #13 (money bug-hunt): the order must be for an event the buyer belongs to.
+  // The orders RLS only checks `user_id = auth.uid()`, so a forged `event_id`
+  // would otherwise bind the order (and its pax-priced amount) to a stranger's
+  // event. SKIPPED for the per-user subscription — it is intentionally eventless
+  // (bound to the buyer, not an event), so there is no membership to verify.
+  if (!isAiSub) {
+    const { data: membership } = await supabase
+      .from('event_members')
+      .select('event_id')
+      .eq('event_id', eventIdClean)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (!membership) {
+      return { ok: false, reason: 'You can only check out for your own event.' };
+    }
+    // Consent-scoped coordinator checkout (owner 2026-07-19 #5). The membership
+    // check above admits ANY event member — including coordinators. Behind
+    // NEXT_PUBLIC_COORDINATOR_CONSENT_GATE_ENABLED, a non-couple member may
+    // check out only when the couple granted the 'checkout' scope at invite
+    // time (coordinator_access_consents.scopes). Flag OFF = exact current
+    // behavior (helper returns true without reading).
+    const checkoutAllowed = await coordinatorMoneyScopeAllowed(
+      createAdminClient(),
+      eventIdClean as string,
+      user.id,
+      'checkout',
+    );
+    if (!checkoutAllowed) {
+      return {
+        ok: false,
+        reason:
+          'The couple has not approved payment handling for your coordinator access — ask them to re-invite you with payment permission.',
+      };
+    }
+  }
+
+  // Retired-bundle guard (owner 2026-06-29 "no more essentials and complete").
+  // The Essentials (GUIDED_PACK) + Complete (MEDIA_PACK) bundles are deactivated
+  // and removed from every UI + the /studio/bundle route now 404s, so nothing
+  // submits these codes. But submitOrderAction does NOT require serviceKey to map
+  // to an active catalog row, and for a deactivated bundle resolveBundleChargeCentavos
+  // returns null (it honors is_active) — which would let the order fall back to the
+  // tamperable CLIENT price. Hard-reject the retired codes here so a forged/stale
+  // POST can never create a bundle order. Defense-in-depth alongside the UI removal.
+  const RETIRED_BUNDLE_CODES = new Set(['GUIDED_PACK', 'MEDIA_PACK']);
+  if (RETIRED_BUNDLE_CODES.has(serviceKey)) {
+    return {
+      ok: false,
+      reason: 'This bundle is no longer available. Pick the software you want from your dashboard instead.',
+    };
+  }
+
   // ---- Catalog is the single source of truth for the charged price ----
   //
   // The base price originates client-side (the add-on page passes
@@ -309,7 +383,7 @@ export async function submitOrderAction(
   // the authoritative bundle price from the admin-set retail_price_php, identical
   // to how flat retail SKUs are made authoritative. Only SKUs in NEITHER catalog
   // (vendor / legacy · both resolves null) keep the client value.
-  const resolved = await resolvePaxPricedOrderCentavos(eventId, serviceKey);
+  const resolved = await resolvePaxPricedOrderCentavos(eventIdClean ?? '', serviceKey);
   if (resolved) {
     originalCentavos = BigInt(resolved.centavos);
   } else {
@@ -317,6 +391,32 @@ export async function submitOrderAction(
     if (bundleCentavos != null) {
       originalCentavos = BigInt(bundleCentavos);
     }
+  }
+
+  // Per-EVENT Setnayan AI (owner 2026-07-02): ₱499 on an event's FIRST cycle,
+  // ₱799 on every cycle after. When the per-event pricing flag is on, the
+  // authoritative charge for a SETNAYAN_AI order is intro-vs-renewal by the
+  // event's STORED state (server re-resolved, so a tampered client can't force
+  // the intro price on a renewal). Inert while the flag is off — the helper is
+  // never called and the flat ₱499 catalog resolve above stands, byte-identical.
+  if (serviceKey === SETNAYAN_AI_SKU && eventIdClean) {
+    if (await resolveSetnayanAiPerEventPricingEnabled()) {
+      const perEventCentavos = await resolveSetnayanAiEventChargeCentavos(
+        createAdminClient(),
+        eventIdClean,
+      );
+      if (perEventCentavos != null) {
+        originalCentavos = BigInt(perEventCentavos);
+      }
+    }
+  }
+
+  // Per-user subscription: the catalog row is the ₱499 UNIT (per 28-day cycle);
+  // the charge is unit × the validated cycle count. cycles is non-null here
+  // because the isAiSub guard above already rejected a missing/invalid count,
+  // and the unit comes from the authoritative catalog resolve (never the client).
+  if (isAiSub && cycles !== null) {
+    originalCentavos = originalCentavos * BigInt(cycles);
   }
 
   // Re-validate the voucher server-side EVEN THOUGH the apply step already
@@ -408,9 +508,31 @@ export async function submitOrderAction(
   // If the redemption INSERT fails on a UNIQUE-violation race (parallel
   // tab), the couple gets a clear error and the order rolls back too.
 
-  const referenceCode = generateReferenceCode();
+  // Reference code: prefer the client PRE-MINTED code (the drawer shows it
+  // BEFORE the couple leaves to pay, so they can put it in their BDO/GCash
+  // transfer note → the reconciliation matcher pairs the inbound bank message
+  // to this order by reference). Accept it only when well-formed (SN + 8 hex);
+  // otherwise mint one here as before. The code is a non-sensitive tag — a
+  // (astronomically rare) collision just fails this INSERT on the unique
+  // reference_code, it can never hijack another order.
+  const premintedRaw = formData.get('preminted_reference');
+  const referenceCode =
+    typeof premintedRaw === 'string' && /^SN[0-9A-F]{8}$/.test(premintedRaw.trim())
+      ? premintedRaw.trim()
+      : generateReferenceCode();
   const originalPriceForOrderTotal = Number(originalCentavos) / 100;
-  const finalAmountForPayment = Number(voucherFinalCentavos) / 100;
+  // Owner ruling 2026-06-25: catalog prices are PRE-VAT; the couple pays the
+  // VAT-INCLUSIVE gross (+12%). computeOrderTotals + the BIR receipt already gross
+  // the stored pre-VAT base, so the amount we INSTRUCT the couple to pay here
+  // (payment.amount_php + the confirmation email + the admin reconciliation notice)
+  // MUST be the gross too — else the order under-collects the 12% and shows a
+  // phantom 'remaining'. The stored requested_total_php stays the PRE-VAT base
+  // (computeOrderTotals grosses it); the voucher-adjusted base is what VAT applies
+  // to, mirroring the gross the order will owe once approval sets confirmed_total_php.
+  const finalAmountForPayment = computeVatFromBase(
+    Number(voucherFinalCentavos) / 100,
+    DEFAULT_VAT_RATE_PCT,
+  ).gross;
 
   // Existing schema uses NUMERIC(12,2) requested_total_php · we land
   // the ORIGINAL price in that field (consistent with the legacy createOrder
@@ -429,7 +551,7 @@ export async function submitOrderAction(
     : await getRequestPlatform();
 
   const insertPayload: Record<string, unknown> = {
-    event_id: eventId,
+    event_id: eventIdClean,
     user_id: user.id,
     service_key: serviceKey,
     description: displayName,
@@ -464,7 +586,7 @@ export async function submitOrderAction(
       element_name: 'Create checkout order (orders INSERT)',
       file_path: 'app/dashboard/[eventId]/checkout/actions.ts',
       error_message: String(orderErr?.message ?? 'orders insert returned no row'),
-      payload_snapshot: { eventId, serviceKey, referenceCode, voucherApplied: Boolean(voucherCodeNormalized) },
+      payload_snapshot: { eventId: eventIdClean, serviceKey, referenceCode, voucherApplied: Boolean(voucherCodeNormalized) },
     });
     return {
       ok: false,
@@ -502,7 +624,7 @@ export async function submitOrderAction(
       element_name: 'Log checkout payment (payments INSERT)',
       file_path: 'app/dashboard/[eventId]/checkout/actions.ts',
       error_message: String(paymentErr?.message ?? 'payments insert returned no row'),
-      payload_snapshot: { orderId, eventId, serviceKey, channel },
+      payload_snapshot: { orderId, eventId: eventIdClean, serviceKey, channel },
     });
     // Rollback the orders row to avoid an orphan.
     await supabase.from('orders').delete().eq('order_id', orderId);
@@ -533,7 +655,7 @@ export async function submitOrderAction(
         element_name: 'Apply checkout voucher (discount_code_redemptions INSERT)',
         file_path: 'app/dashboard/[eventId]/checkout/actions.ts',
         error_message: String(redemptionErr.message),
-        payload_snapshot: { orderId, paymentId, eventId, serviceKey, voucherCodeId, dbErrorCode: (redemptionErr as { code?: string }).code },
+        payload_snapshot: { orderId, paymentId, eventId: eventIdClean, serviceKey, voucherCodeId, dbErrorCode: (redemptionErr as { code?: string }).code },
       });
       // Rollback both prior INSERTs.
       await supabase.from('payments').delete().eq('payment_id', paymentId);
@@ -546,29 +668,17 @@ export async function submitOrderAction(
       return { ok: false, reason };
     }
 
-    // Increment uses_count on the discount_codes row. This is a
-    // best-effort UPDATE via admin client (RLS gates couple writes).
-    // The redemption row already exists · uses_count tracking is for
-    // admin analytics (the max_uses check at apply-time reads it
-    // synchronously · the cap won't be wrong by more than 1 in worst-
-    // case race). Read-then-update isn't atomic without an RPC; the
-    // discount_codes_uses_within_cap CHECK constraint from PR #594
-    // would reject an over-increment, so the worst case is a silent
-    // failure on the very last redemption (the redemption row already
-    // landed · only the counter lags). Acceptable for V1.
+    // Increment uses_count on the discount_codes row (best-effort via the admin
+    // client). #12 (money bug-hunt): use the atomic increment_discount_uses RPC
+    // instead of a read-then-write — the latter lost updates under concurrency,
+    // so the apply-time cap (uses_count < max_uses) under-counted and the cap
+    // could be exceeded. The counter is now accurate. (Full apply-time atomicity
+    // — gating the discount on an atomic conditional increment — is a larger
+    // follow-up; the discount_codes_uses_within_cap CHECK still backstops an
+    // over-increment.)
     try {
       const admin = createAdminClient();
-      const { data: current } = await admin
-        .from('discount_codes')
-        .select('uses_count')
-        .eq('discount_code_id', voucherCodeId)
-        .maybeSingle();
-      if (current && typeof current.uses_count === 'number') {
-        await admin
-          .from('discount_codes')
-          .update({ uses_count: current.uses_count + 1 })
-          .eq('discount_code_id', voucherCodeId);
-      }
+      await admin.rpc('increment_discount_uses', { p_id: voucherCodeId });
     } catch (counterErr) {
       // Counter drift is recoverable via admin reconciliation; never
       // unwind the parent transaction.
@@ -643,7 +753,10 @@ export async function submitOrderAction(
   // order — the row is the truth · this email is the convenience surface.
   try {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
-    const orderUrl = `${appUrl}/dashboard/${eventId}/orders/${orderId}`;
+    // Eventless subscription orders have no event route — link to the dashboard.
+    const orderUrl = eventIdClean
+      ? `${appUrl}/dashboard/${eventIdClean}/orders/${orderId}`
+      : `${appUrl}/dashboard`;
     const settings = await fetchPlatformSettings(supabase);
     const hasBdo = Boolean(settings.bdo_account_number?.trim());
     const hasGcash = Boolean(settings.gcash_number?.trim());
@@ -698,10 +811,15 @@ export async function submitOrderAction(
   }
 
   // Revalidate the dashboard + add-ons grid so the couple sees the new
-  // pending order on their next render.
-  revalidatePath(`/dashboard/${eventId}/orders`);
-  revalidatePath(`/dashboard/${eventId}/orders/${orderId}`);
-  revalidatePath(`/dashboard/${eventId}/studio`);
+  // pending order on their next render. Event-scoped paths only when there is an
+  // event (the per-user subscription is eventless → just refresh the dashboard).
+  if (eventIdClean) {
+    revalidatePath(`/dashboard/${eventIdClean}/orders`);
+    revalidatePath(`/dashboard/${eventIdClean}/orders/${orderId}`);
+    revalidatePath(`/dashboard/${eventIdClean}/studio`);
+  } else {
+    revalidatePath('/dashboard', 'layout');
+  }
 
   return { ok: true, order_id: orderId, reference_code: referenceCode };
 }

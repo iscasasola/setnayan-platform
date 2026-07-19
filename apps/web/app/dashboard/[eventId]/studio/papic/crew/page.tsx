@@ -1,15 +1,13 @@
 import Link from 'next/link';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { after } from 'next/server';
 import {
   ArrowLeft,
   Camera,
   Check,
   CircleAlert,
-  Clock,
+  Printer,
   RefreshCw,
-  Sparkles,
   UserCheck,
   UserPlus,
 } from 'lucide-react';
@@ -17,37 +15,25 @@ import { createClient } from '@/lib/supabase/server';
 import {
   eventPapicSeatsActive,
   fetchPapicSeats,
-  fetchPapicSamplerSeats,
-  papicSeatClaimUrl,
+  papicSeatJoinUrl,
   PAPIC_SEAT_COUNT,
-  PAPIC_SAMPLER_SEAT_COUNT,
-  PAPIC_SAMPLER_PHOTO_CAP,
-  PAPIC_SAMPLER_CLIP_CAP,
-  PAPIC_SAMPLER_RETENTION_DAYS,
 } from '@/lib/papic-seats';
 import { renderUrlQrSvg } from '@/lib/qr';
-import {
-  provisionPapicSeats,
-  provisionPapicSampler,
-  reissuePapicSeat,
-} from '../actions';
-import { sweepExpiredSamplerPhotos } from '@/lib/papic-retention';
+import { provisionPapicSeats, reissuePapicSeat } from '../actions';
 import { CopyButton } from './_components/copy-button';
 import { SubmitButton } from '@/app/_components/submit-button';
 
 // Papic · Your photo crew (couple-side seat management)
 //
-// Two modes share this surface:
-//   • PAID crew — the event owns PAPIC_SEATS (₱2,999): 5 seats, uncapped,
-//     permanent, ingested to the live wall.
-//   • FREE SAMPLER — the event does NOT own the paid pack: 3 free seats, each
-//     capped at 8 photos + 2 clips, kept 30 days (connect Drive or upgrade to
-//     keep forever). Lets the couple feel the claim→shoot→tag→gallery loop
-//     before buying. Provisioned by the papic_provision_sampler() RPC.
+// The claim-link roster — every paparazzi_seats row that carries its own claim
+// link/QR: the PAPIC_SEATS pack (5 seats, uncapped) and the per-camera Unlimited
+// extras (the only off-guest-list shooters, index >= 200, capture gated on
+// payment via the record/presign per-camera checks). Guest-list Limited cameras
+// use each guest's invite QR and are managed on the main Papic page, not here.
 //
-// For each seat (either mode) we show a shareable claim link + QR, its claim
-// status, and a reissue control. A friend opens a claim link → /papic/claim/
-// [token] → /papic/seat/[token] capture.
+// For each seat we show a shareable claim link + QR, its claim status, and a
+// reissue control. A friend opens a claim link → /papic/claim/[token] →
+// /papic/seat/[token] capture.
 //
 // Gated: signed-in couple on the event. Force-dynamic — per-request auth + live
 // seat state.
@@ -79,43 +65,16 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
     redirect(`/dashboard/${eventId}`);
   }
 
-  // Cron-free retention: opportunistically purge this event's expired sampler
-  // photos (R2 bytes + rows) in the background. Best-effort; never blocks render.
-  after(() => sweepExpiredSamplerPhotos(eventId));
-
   const backLink = `/dashboard/${eventId}/studio/papic`;
 
-  const owns = await eventPapicSeatsActive(supabase, eventId);
-  // Paid crew when owned; otherwise the free sampler.
-  const isSampler = !owns;
-  const seats = owns
-    ? await fetchPapicSeats(supabase, eventId)
-    : await fetchPapicSamplerSeats(supabase, eventId);
+  // The roster is every claim-link seat — the PAPIC_SEATS pack plus any paid
+  // per-camera Unlimited extras. ownsPack tells the zero-state apart: an owner
+  // with no seats yet can top them up; a non-owner is pointed back to set Papic up.
+  const ownsPack = await eventPapicSeatsActive(supabase, eventId);
+  const seats = await fetchPapicSeats(supabase, eventId);
 
-  // Live expiry countdown for the sampler banner — the soonest non-expired
-  // sampler photo (couple RLS reads their own papic_photos). 0 = none yet.
-  let samplerExpiringCount = 0;
-  let samplerDaysLeft: number | null = null;
-  if (isSampler) {
-    const { data: expiring } = await supabase
-      .from('papic_photos')
-      .select('expires_at')
-      .eq('event_id', eventId)
-      .not('expires_at', 'is', null)
-      .gt('expires_at', new Date().toISOString())
-      .order('expires_at', { ascending: true });
-    samplerExpiringCount = expiring?.length ?? 0;
-    const soonest = expiring?.[0]?.expires_at as string | undefined;
-    if (soonest) {
-      samplerDaysLeft = Math.max(
-        0,
-        Math.ceil((new Date(soonest).getTime() - Date.now()) / 86_400_000),
-      );
-    }
-  }
-
-  // ---- Free sampler, not started yet → offer it (+ a pointer to the full pack) ----
-  if (isSampler && seats.length === 0) {
+  // ---- Nothing set up yet → point back to the Papic page ----
+  if (seats.length === 0 && !ownsPack) {
     return (
       <section className="space-y-6 pb-12">
         <Link
@@ -125,31 +84,20 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
           <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Back to Papic
         </Link>
-        <div className="rounded-2xl border border-terracotta/30 bg-surface p-7 text-center">
-          <Sparkles aria-hidden className="mx-auto h-7 w-7 text-terracotta" strokeWidth={1.75} />
-          <h1 className="mt-3 text-2xl font-semibold tracking-tight">Try Papic free</h1>
+        <div className="rounded-2xl border border-ink/10 bg-surface p-7 text-center">
+          <UserPlus aria-hidden className="mx-auto h-7 w-7 text-terracotta" strokeWidth={1.75} />
+          <h1 className="mt-3 text-2xl font-semibold tracking-tight">No crew cameras yet</h1>
           <p className="mx-auto mt-2 max-w-prose text-sm text-ink/65">
-            Spin up {PAPIC_SAMPLER_SEAT_COUNT} free seats and hand them to friends.
-            Each shoots up to {PAPIC_SAMPLER_PHOTO_CAP} photos and {PAPIC_SAMPLER_CLIP_CAP}{' '}
-            short clips — every shot lands in your gallery so you feel exactly how
-            Papic works. Free photos are kept for {PAPIC_SAMPLER_RETENTION_DAYS} days;
-            connect Google Drive or upgrade to keep them forever.
+            Crew claim links come from the Papic photo-crew pack or from adding an
+            Unlimited extra camera for someone off your guest list. Set those up on
+            the Papic page.
           </p>
-          <form action={provisionPapicSampler} className="mt-5">
-            <input type="hidden" name="event_id" value={eventId} />
-            <SubmitButton
-              pendingLabel="Starting…"
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600"
-            >
-              <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
-              Start my {PAPIC_SAMPLER_SEAT_COUNT} free seats
-            </SubmitButton>
-          </form>
           <Link
             href={backLink}
-            className="mt-4 inline-block text-xs font-medium text-ink/55 underline-offset-2 hover:text-ink/80 hover:underline"
+            className="mt-5 inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600"
           >
-            Or get the full photo-crew pack ({PAPIC_SEAT_COUNT} seats, unlimited)
+            <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
+            Go to Papic
           </Link>
         </div>
       </section>
@@ -163,14 +111,16 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
 
   const seatViews = await Promise.all(
     seats.map(async (s) => {
-      const claimUrl = papicSeatClaimUrl(appUrl, s.claim_qr_token);
+      // Hybrid join link: native app opens directly when installed, otherwise
+      // forwards to the existing /papic/claim flow. Legacy /papic/claim links
+      // still work, so any QR printed before this stays valid.
+      const claimUrl = papicSeatJoinUrl(appUrl, s.claim_qr_token);
       const qrSvg = await renderUrlQrSvg(claimUrl, 128);
       return { ...s, claimUrl, qrSvg };
     }),
   );
 
   const claimedCount = seats.filter((s) => s.claimer_user_id).length;
-  const seatTotal = isSampler ? PAPIC_SAMPLER_SEAT_COUNT : PAPIC_SEAT_COUNT;
 
   return (
     <section className="space-y-8 pb-12">
@@ -182,77 +132,39 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
         Back to Papic
       </Link>
 
-      <header className="space-y-3">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          {isSampler ? 'Papic · free sampler' : 'Papic · your photo crew'}
-        </p>
-        <h1 className="flex items-center gap-3 text-3xl font-semibold tracking-tight sm:text-4xl">
-          {isSampler ? (
-            <Sparkles aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
-          ) : (
-            <Camera aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
-          )}
-          {isSampler ? 'Your free Papic sampler' : 'Your photo crew'}
+      <header className="sn-reveal space-y-3">
+        <p className="sn-eye">Crew</p>
+        <h1 className="sn-h1 flex items-center gap-3">
+          <Camera aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
+          Your photo crew
         </h1>
         <p className="max-w-prose text-base text-ink/65">
-          {isSampler ? (
-            <>
-              {PAPIC_SAMPLER_SEAT_COUNT} free seats, {PAPIC_SAMPLER_SEAT_COUNT} friends.
-              Share a seat link (or QR) with each one. They claim it from their own
-              phone — no app to install — shoot up to {PAPIC_SAMPLER_PHOTO_CAP} photos
-              and {PAPIC_SAMPLER_CLIP_CAP} clips, tag a guest by scanning their QR,
-              and every shot lands in your gallery.
-            </>
-          ) : (
-            <>
-              Five seats, five friends. Share a seat link (or QR) with each person
-              you want shooting. They claim it from their own phone — no app to
-              install — and every photo they take lands in your gallery in real
-              time.
-            </>
-          )}
+          Share a seat link (or QR) with each person you want shooting. They claim
+          it from their own phone — no app to install — and every photo they take
+          lands in your gallery in real time.
         </p>
         {seats.length > 0 && (
-          <p className="text-sm text-ink/55">
-            {claimedCount} of {seats.length} seats claimed.
-          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-sm text-ink/55">
+              {claimedCount} of {seats.length} seats claimed.
+            </p>
+            <Link
+              href={`${backLink}/crew/print`}
+              target="_blank"
+              rel="noopener"
+              className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:bg-ink/10 hover:text-ink"
+            >
+              <Printer aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+              Print QR cards
+            </Link>
+          </div>
         )}
       </header>
 
-      {isSampler && (
-        <div className="flex items-start gap-2 rounded-lg border border-terracotta/30 bg-terracotta/5 px-4 py-3 text-sm text-ink/80">
-          <Clock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
-          <span>
-            {samplerExpiringCount > 0 && samplerDaysLeft !== null ? (
-              <>
-                <b className="font-medium">
-                  Your {samplerExpiringCount} free{' '}
-                  {samplerExpiringCount === 1 ? 'photo' : 'photos'}{' '}
-                  {samplerDaysLeft === 0
-                    ? 'expire today'
-                    : `expire in ${samplerDaysLeft} ${samplerDaysLeft === 1 ? 'day' : 'days'}`}
-                  .
-                </b>{' '}
-              </>
-            ) : (
-              <>Free sampler photos are kept for {PAPIC_SAMPLER_RETENTION_DAYS} days. </>
-            )}
-            Connect Google Drive (your own copy) or upgrade to full Papic to keep
-            them forever — and unlock all five seats with unlimited shots.{' '}
-            <Link href={backLink} className="font-medium text-terracotta underline-offset-2 hover:underline">
-              See the full pack
-            </Link>
-            .
-          </span>
-        </div>
-      )}
-
-      {(seatSet === 'provisioned' || seatSet === 'sampler') && (
+      {seatSet === 'provisioned' && (
         <div className="flex items-start gap-2 rounded-lg border border-terracotta/30 bg-terracotta/5 px-4 py-3 text-sm text-ink/80">
           <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
-          {seatSet === 'sampler'
-            ? `Your ${PAPIC_SAMPLER_SEAT_COUNT} free seats are ready. Share a link with each friend below.`
-            : 'Your five seats are ready. Share a link with each friend below.'}
+          Your five seats are ready. Share a link with each friend below.
         </div>
       )}
       {seatSet === 'reissued' && (
@@ -271,19 +183,23 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
       {seats.length === 0 ? (
         <div className="rounded-2xl border border-ink/10 bg-surface p-7 text-center">
           <UserPlus aria-hidden className="mx-auto h-7 w-7 text-terracotta" strokeWidth={1.75} />
-          <h2 className="mt-3 text-xl font-semibold tracking-tight">Set up your {seatTotal} seats</h2>
+          <h2 className="mt-3 text-xl font-semibold tracking-tight">Top up your {PAPIC_SEAT_COUNT} seats</h2>
           <p className="mx-auto mt-2 max-w-prose text-sm text-ink/65">
-            Create your {seatTotal} photo-crew seats. Each gets its own claim link you
-            can hand to a friend.
+            Your {PAPIC_SEAT_COUNT} photo-crew seats are set up automatically the moment your
+            order is approved. If any are missing, tap below to fill them in — each
+            gets its own claim link you can hand to a friend.
           </p>
+          {/* Idempotent top-up: provisionPapicSeats only inserts the missing seat
+              indexes (ON CONFLICT DO NOTHING), so this is now a SAFE fallback, not a
+              required first step — seats already exist post-approval. */}
           <form action={provisionPapicSeats} className="mt-5">
             <input type="hidden" name="event_id" value={eventId} />
             <SubmitButton
-              pendingLabel="Setting up…"
+              pendingLabel="Filling in…"
               className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600"
             >
               <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
-              Set up my {seatTotal} seats
+              Fill in my {PAPIC_SEAT_COUNT} seats
             </SubmitButton>
           </form>
         </div>
@@ -295,7 +211,9 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
               <div key={s.seat_id} className="rounded-xl border border-ink/10 bg-surface p-4">
                 <div className="flex items-center justify-between">
                   <p className="font-medium text-ink">
-                    {isSampler ? `Free seat ${s.seat_index - 100}` : `Seat ${s.seat_index}`}
+                    {s.seat_index >= 200
+                      ? `Camera ${s.seat_index - 199}` /* per-camera (index base 200) */
+                      : `Seat ${s.seat_index}`}
                   </p>
                   {claimed ? (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-terracotta/10 px-2.5 py-1 text-xs font-medium text-terracotta">
@@ -308,12 +226,6 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
                     </span>
                   )}
                 </div>
-
-                {isSampler && (
-                  <p className="mt-1 text-xs text-ink/50">
-                    Up to {PAPIC_SAMPLER_PHOTO_CAP} photos + {PAPIC_SAMPLER_CLIP_CAP} clips
-                  </p>
-                )}
 
                 {claimed ? (
                   <p className="mt-2 text-sm text-ink/65">

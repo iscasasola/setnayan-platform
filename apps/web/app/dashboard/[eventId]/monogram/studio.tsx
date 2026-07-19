@@ -1,11 +1,17 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useFormStatus } from 'react-dom';
+import { useFormStatus, createPortal } from 'react-dom';
 import { Check, Undo2, Wand2 } from 'lucide-react';
 import type { StudioConfig } from '@/lib/monogram-studio-shared';
 import { mountStudio } from '@/lib/monogram-studio/engine';
 import { STUDIO_HTML, STUDIO_CSS } from '@/lib/monogram-studio/markup';
+import { STUDIO_HTML_V2, STUDIO_CSS_V2 } from '@/lib/monogram-studio/markup-v2';
+import { monogramStudioV2Enabled } from '@/lib/monogram-studio/flag';
+import { GoldMonogramReveal } from '@/app/_components/gold-monogram-reveal';
+import { MoltenMonogramInline } from '@/app/_components/molten-monogram-inline';
+import { StudioRevealPlayer, type StudioAnim } from '@/app/_components/studio-reveal-player';
+import type { StudioAnimKind } from '@/lib/monogram-studio-shared';
 import { saveStudioAction, clearStudioAction } from './studio-actions';
 
 /**
@@ -63,6 +69,33 @@ export function VectorStudio({
   const cfgRef = useRef<HTMLInputElement>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  // gold/molten reveal preview — the engine can't render React components on its
+  // paper.js canvas, so it calls onPreviewKind and we portal the REAL shipping
+  // component (GoldMonogramReveal / MoltenMonogramInline) over the canvas. This is
+  // WYSIWYG with the live surfaces (same components). null = canvas kinds (no overlay).
+  const [previewKind, setPreviewKind] = useState<StudioAnimKind | null>(null);
+  const [previewSvg, setPreviewSvg] = useState<string | null>(null);
+  const [previewAnim, setPreviewAnim] = useState<StudioAnim | null>(null);
+  const [swEl, setSwEl] = useState<HTMLElement | null>(null);
+
+  // The portal preview auto-dismisses after the reveal has finished + settled,
+  // returning the canvas — the preview is a moment, not a mode. Keyed on
+  // previewKind ALONE: under prefers-reduced-motion the gold/molten path opens
+  // the overlay with no animInfo (previewAnim stays null), so requiring it left
+  // the overlay stuck open with only the ✕ (gap audit 2026-07-17). Falls back
+  // to a fixed dismissal when the duration is unknown.
+  useEffect(() => {
+    if (!previewKind) return;
+    const t = window.setTimeout(
+      () => {
+        setPreviewKind(null);
+        setPreviewSvg(null);
+        setPreviewAnim(null);
+      },
+      previewAnim ? Math.round(previewAnim.dur * 1000) + 4500 : 5000,
+    );
+    return () => window.clearTimeout(t);
+  }, [previewKind, previewAnim]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -87,7 +120,12 @@ export function VectorStudio({
     // imperatively removes the subtree from React's vdom entirely, so no re-render
     // can clobber the engine's nodes. (The engine also self-guards its async
     // callbacks via a `destroyed` flag for the unmount-mid-fetch case.)
-    root.innerHTML = STUDIO_HTML;
+    // monogram_studio_v2 (council verdict §2): the flag picks which editor DOM
+    // is injected — v1 stays byte-identical when OFF. NEXT_PUBLIC_, so the
+    // value is inlined at build time and identical on server + client.
+    root.innerHTML = monogramStudioV2Enabled() ? STUDIO_HTML_V2 : STUDIO_HTML;
+    // The canvas wrapper (.sw2) is the portal host for the gold/molten overlay.
+    setSwEl(root.querySelector<HTMLElement>('.sw2'));
     // Safety net: if the engine/typeface never finishes (a hung dynamic import or
     // font fetch), don't sit on "Loading the typeface…" forever.
     const failTimer = window.setTimeout(() => {
@@ -111,7 +149,24 @@ export function VectorStudio({
         const PaperOffset = off.PaperOffset ?? off.default?.PaperOffset ?? off.default ?? off;
         const ot: any = otMod as any;
         const opentype = ot.parse ? ot : (ot.default ?? ot);
-        api = mountStudio({ root, paper, opentype, PaperOffset, initialConfig, initialNames }) as StudioApi;
+        api = mountStudio({
+          root,
+          paper,
+          opentype,
+          PaperOffset,
+          initialConfig,
+          initialNames,
+          // Universal portal preview (benchmark §3): EVERY reveal kind renders
+          // the identical live-site player over the canvas; null clears it.
+          portalPreview: true,
+          appFrame: true,
+          onPreviewKind: (kind: StudioAnimKind | null, svg: string | null, animInfo?: StudioAnim) => {
+            if (!alive) return;
+            setPreviewKind(kind);
+            setPreviewSvg(svg);
+            setPreviewAnim(animInfo ?? null);
+          },
+        }) as StudioApi;
         apiRef.current = api;
         setReady(true);
         window.clearTimeout(failTimer);
@@ -151,9 +206,9 @@ export function VectorStudio({
   return (
     <section
       id="vector-studio"
-      className="vsroot scroll-mt-24 space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-7"
+      className="vsroot scroll-mt-24 space-y-4"
     >
-      <style dangerouslySetInnerHTML={{ __html: STUDIO_CSS }} />
+      <style dangerouslySetInnerHTML={{ __html: monogramStudioV2Enabled() ? STUDIO_CSS_V2 : STUDIO_CSS }} />
 
       <header className="space-y-1.5">
         <p className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.18em] text-terracotta">
@@ -162,7 +217,7 @@ export function VectorStudio({
         </p>
         <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">Design your mark from scratch</h2>
         <p className="max-w-prose text-sm text-ink/65">
-          Your real initials, freely composed — drag to move, pinch to size, twist to rotate, weave or merge
+          Your real initials, freely composed — drag to move, resize with the gold handle, weave or merge
           where they cross, and frame them with a mirrored pen. Save it and it becomes your monogram everywhere:
           your dashboard, QR codes, wedding website, and save-the-date.
         </p>
@@ -204,9 +259,68 @@ export function VectorStudio({
           React leaves this container empty and never re-touches the subtree. */}
       <div ref={rootRef} className="vs" />
 
+      {/* Gold/Molten reveal preview — portaled over the paper.js canvas (.sw2) on
+          the reveal's own dark stage so the metal reads. The SAME shipping
+          components render here and on the live website (WYSIWYG). Ways out:
+          the ✕ below, switching Arrange/Draw (engine clears via onPreviewKind),
+          or picking a canvas kind (handwriting/trace/droplet). */}
+      {swEl && previewKind
+        ? createPortal(
+            <div
+              className="absolute inset-0 z-[5]"
+              style={{
+                // metal reveals stage on dark; draw-on reveals keep the paper
+                background:
+                  previewKind === 'molten' || previewKind === 'flip3d' || previewKind === 'gold'
+                    ? 'radial-gradient(120% 90% at 50% 32%, #2b2638 0%, #14111c 58%, #0a0810 100%)'
+                    : '#FBFBFA',
+              }}
+            >
+              {previewKind === 'molten' ? (
+                <MoltenMonogramInline markSvg={previewSvg} monogram={initialNames ?? 'M & J'} />
+              ) : previewKind === 'gold' && !previewAnim ? (
+                <GoldMonogramReveal markSvg={previewSvg} monogram={initialNames ?? 'M & J'} inline />
+              ) : (
+                <div className="absolute inset-[8%]">
+                  <StudioRevealPlayer
+                    key={`${previewKind}-${previewAnim?.dur ?? 0}-${previewAnim?.delay ?? 0}`}
+                    svg={previewSvg}
+                    monogram={initialNames ?? 'M & J'}
+                    anim={previewAnim ?? { kind: previewKind, dur: 6, smooth: 0.9, delay: 0.3 }}
+                    allowWebgl={false}
+                  />
+                </div>
+              )}
+              <button
+                type="button"
+                aria-label="Close the reveal preview"
+                onClick={() => {
+                  setPreviewKind(null);
+                  setPreviewSvg(null);
+                  setPreviewAnim(null);
+                }}
+                className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-base leading-none text-white/85 backdrop-blur-sm transition-colors hover:bg-white/20 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>,
+            swEl,
+          )
+        : null}
+
       {exportError ? <p className="text-sm text-terracotta-700">{exportError}</p> : null}
 
-      <form action={saveStudioAction} className="flex flex-wrap items-center gap-3">
+      {/* v2 (§2.3): the save form rides a bottom-sticky bar on phones so "Save
+          as my monogram" is always a thumb away — desktop and v1 stay static.
+          React territory, outside the inert editor subtree. */}
+      <form
+        action={saveStudioAction}
+        className={
+          monogramStudioV2Enabled()
+            ? 'sticky bottom-20 z-20 -mx-4 flex flex-wrap items-center gap-3 border-t border-ink/10 bg-cream/95 px-4 py-3 backdrop-blur-sm sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none'
+            : 'flex flex-wrap items-center gap-3'
+        }
+      >
         <input type="hidden" name="event_id" value={eventId} />
         <input type="hidden" name="svg" ref={svgRef} />
         <input type="hidden" name="config" ref={cfgRef} />

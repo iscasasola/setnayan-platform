@@ -2,9 +2,11 @@ import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { ScanFlag } from '@/lib/editorial-scan';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Editorial review · Admin' };
 
 export default async function EditorialReviewPage() {
+  await requireAdmin();
   const admin = createAdminClient();
 
   const { data: rows } = await admin
@@ -104,7 +106,7 @@ function EditorialRow({ row }: { row: RowData }) {
   const ev = Array.isArray(row.events) ? row.events[0] : row.events;
 
   const statusMap: Record<string, { label: string; class: string }> = {
-    flagged: { label: 'Needs review', class: 'text-red-600' },
+    flagged: { label: 'Needs review', class: 'text-[color:var(--sn-danger)]' },
     scanning: { label: 'Scanning…', class: 'text-yellow-600' },
     pending: { label: 'Awaiting scan', class: 'text-[--m-ink-tertiary]' },
     clean: { label: 'Clean', class: 'text-green-600' },
@@ -141,7 +143,7 @@ function EditorialRow({ row }: { row: RowData }) {
       <div className="flex items-center gap-2 shrink-0">
         {red.length > 0 && (
           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-            redPending.length > 0 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500 line-through'
+            redPending.length > 0 ? 'bg-[var(--sn-danger-soft)] text-[color:var(--sn-danger)]' : 'bg-gray-100 text-gray-500 line-through'
           }`}>
             {red.length} red
           </span>

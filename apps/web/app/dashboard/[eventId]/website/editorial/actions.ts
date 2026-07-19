@@ -16,9 +16,13 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { scanEditorial } from '@/lib/editorial-scan';
 import {
+  EDITORIAL_ORDERABLE_KEYS,
   EDITORIAL_SECTION_KEYS,
+  type ChapterOverride,
   type EditorialSections,
+  type Review,
 } from '@/app/[slug]/_components/editorial/data';
+import { isEditorialProActive } from '@/lib/couple-website-pro';
 
 async function hostUserId(eventId: string): Promise<string | null> {
   const supabase = await createClient();
@@ -53,9 +57,154 @@ export type EditorialEditorInput = {
   byline: string;
   leadParagraphs: string; // raw textarea — split on blank lines
   pullQuote: string;
+  // FREE couple-uploaded imagery (no Papic required). `heroUpload` is a single
+  // `r2://…` ref for the editorial cover (empty string = none). `galleryUploads`
+  // is up to 30 `r2://…` refs feeding ONLY the "From the Day" gallery grid. Both
+  // are compressed client-side at upload time; stored in draft_json.
+  heroUpload: string;
+  galleryUploads: string[];
   sections: EditorialSections;
+  // "As the Day Unfolded" per-chapter curation. The ARRAY ORDER is the couple's
+  // chosen chapter order; only rows that DIFFER from the auto default are sent (an
+  // untouched chapter carries no override row). Each targets a chapter by leadId.
+  chapterOverrides: ChapterOverride[];
+  // PRO — the couple's chosen order of the reorderable content sections (a
+  // string[] of EditorialOrderKey values). `null`/empty → default order.
+  sectionOrder: string[] | null;
+  // PRO — the manual "What They Said" guest-wishes list (draft_json.reviews).
+  reviews: Review[];
   publish: boolean;
 };
+
+/** Cap the persisted per-moment story so a runaway paste can't bloat draft_json.
+ *  The editor soft-caps at ~400 chars with a counter; this is the hard ceiling. */
+const CHAPTER_WRITEUP_MAX = 600;
+/** Cap the moment name. Comfortably past the longest canonical moment. */
+const CHAPTER_TITLE_MAX = 80;
+
+/**
+ * Sanitize + cap the client's chapterOverrides before persisting.
+ *
+ * The client sends an override row per chapter ONLY when the couple has made any
+ * change (rename / write-up / hide / reorder) — and because the loader front-loads
+ * overridden chapters in array order, a reorder REQUIRES the full ordered set (a
+ * bare `{ leadId }` row holds a chapter's position without renaming it). So this
+ * KEEPS bare rows (they carry order), dedupes by leadId, and trims + caps text.
+ * When the couple has made no changes at all the client sends `[]` and the key is
+ * deleted (no override row → pure auto behaviour). Malformed rows are dropped.
+ */
+function sanitizeChapterOverrides(input: ChapterOverride[]): ChapterOverride[] {
+  if (!Array.isArray(input)) return [];
+  const out: ChapterOverride[] = [];
+  const seen = new Set<string>();
+  for (const raw of input) {
+    const leadId = typeof raw?.leadId === 'string' ? raw.leadId.trim() : '';
+    if (!leadId || seen.has(leadId)) continue;
+    const title = typeof raw.title === 'string' ? raw.title.trim().slice(0, CHAPTER_TITLE_MAX) : '';
+    const writeUp =
+      typeof raw.writeUp === 'string' ? raw.writeUp.trim().slice(0, CHAPTER_WRITEUP_MAX) : '';
+    const hidden = raw.hidden === true;
+    seen.add(leadId);
+    out.push({
+      leadId,
+      ...(title ? { title } : {}),
+      ...(writeUp ? { writeUp } : {}),
+      ...(hidden ? { hidden: true } : {}),
+    });
+  }
+  return out;
+}
+
+/** HARD cap on couple-uploaded editorial gallery photos (FREE). Enforced here
+ *  server-side (the editor also soft-caps); refs beyond this are truncated. */
+const GALLERY_UPLOADS_MAX = 30;
+
+/** A stored asset ref we persist is either an `r2://…` tag (new uploads) or a
+ *  legacy http(s) URL. Reject anything else (empty, `javascript:`, a data URI,
+ *  a bare filename) so a hand-crafted request can't stash junk in draft_json. */
+function isStoredAssetRef(v: unknown): v is string {
+  if (typeof v !== 'string') return false;
+  const t = v.trim();
+  if (!t) return false;
+  return t.startsWith('r2://') || t.startsWith('https://') || t.startsWith('http://');
+}
+
+/** Sanitize the couple's editorial gallery uploads: keep only valid stored-asset
+ *  refs, dedupe, and HARD-cap at 30. Anything non-array → []. */
+function sanitizeGalleryUploads(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of input) {
+    if (out.length >= GALLERY_UPLOADS_MAX) break;
+    if (!isStoredAssetRef(raw)) continue;
+    const ref = raw.trim();
+    if (seen.has(ref)) continue;
+    seen.add(ref);
+    out.push(ref);
+  }
+  return out;
+}
+
+/** Cap the manual guest-wishes list. */
+const REVIEWS_MAX = 12;
+/** Cap a single wish quote (mirrors the editor's soft cap; hard ceiling here). */
+const REVIEW_QUOTE_MAX = 280;
+const REVIEW_AUTHOR_MAX = 80;
+const REVIEW_ROLE_MAX = 40;
+
+/**
+ * Sanitize + cap the client's section ORDER before persisting (PRO). Keep only
+ * KNOWN orderable keys (EDITORIAL_ORDERABLE_KEYS), deduped, in the client's order.
+ * The two locked-close keys (fromTheCouple/song) are NOT orderable keys, so they
+ * are dropped defensively even if a client sends them. Anything non-array or an
+ * order identical-after-clean to the canonical default → `null` (delete the key,
+ * revert to default). Never trusts the client.
+ */
+function sanitizeSectionOrder(input: string[] | null): string[] | null {
+  if (!Array.isArray(input)) return null;
+  const known = new Set<string>(EDITORIAL_ORDERABLE_KEYS);
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of input) {
+    if (typeof raw !== 'string') continue;
+    if (!known.has(raw) || seen.has(raw)) continue; // drops unknown + locked-close + dupes
+    seen.add(raw);
+    out.push(raw);
+  }
+  if (out.length === 0) return null;
+  // If the cleaned order (once missing keys append in canonical order) matches the
+  // canonical default exactly, persist nothing — keeps default editorials clean.
+  const full = [...out, ...EDITORIAL_ORDERABLE_KEYS.filter((k) => !seen.has(k))];
+  const isDefault = full.every((k, i) => k === EDITORIAL_ORDERABLE_KEYS[i]);
+  return isDefault ? null : out;
+}
+
+/**
+ * Sanitize + cap the client's manual guest-wishes (PRO). Trim each field, cap
+ * lengths, DROP rows with an empty quote (a wish with no words), coerce stars to
+ * 1–5 or null, and cap the list at REVIEWS_MAX. Anything non-array → []. Author is
+ * kept even if blank-ish? No — a wish needs a quote; author may be blank (the
+ * public render already requires BOTH quote+author, so a blank author simply
+ * won't render, but we persist what the couple typed rather than silently drop).
+ */
+function sanitizeReviews(input: Review[]): Review[] {
+  if (!Array.isArray(input)) return [];
+  const out: Review[] = [];
+  for (const raw of input) {
+    if (out.length >= REVIEWS_MAX) break;
+    const quote = typeof raw?.quote === 'string' ? raw.quote.trim().slice(0, REVIEW_QUOTE_MAX) : '';
+    if (!quote) continue; // a wish with no words is dropped
+    const author =
+      typeof raw.author === 'string' ? raw.author.trim().slice(0, REVIEW_AUTHOR_MAX) : '';
+    const roleRaw = typeof raw.role === 'string' ? raw.role.trim().slice(0, REVIEW_ROLE_MAX) : '';
+    const starsNum = Number(raw.stars);
+    const stars =
+      Number.isFinite(starsNum) && starsNum >= 1 ? Math.min(5, Math.round(starsNum)) : null;
+    out.push({ author, role: roleRaw || null, quote, stars });
+  }
+  return out;
+}
 
 export async function saveEditorial(
   eventId: string,
@@ -98,10 +247,51 @@ export async function saveEditorial(
   if (paras.length) draft.lead_paragraphs = paras;
   else delete draft.lead_paragraphs;
 
+  // FREE couple-uploaded imagery (no Papic required, no PRO gate). Hero cover
+  // (single ref) + editorial gallery (≤30 refs, capped server-side). Empty →
+  // delete the key so a no-Papic editorial reverts cleanly to the auto paths.
+  const heroUpload = isStoredAssetRef(input.heroUpload) ? input.heroUpload.trim() : '';
+  if (heroUpload) draft.heroUpload = heroUpload;
+  else delete draft.heroUpload;
+
+  const galleryUploads = sanitizeGalleryUploads(input.galleryUploads);
+  if (galleryUploads.length) draft.galleryUploads = galleryUploads;
+  else delete draft.galleryUploads;
+
   // Section visibility map (only `false` hides; default-on otherwise).
   const sections: Record<string, boolean> = {};
   for (const key of EDITORIAL_SECTION_KEYS) sections[key] = input.sections[key] !== false;
   draft.sections = sections;
+
+  // ── Editorial PRO authorship (server-side enforcement — never trust client) ──
+  // The "Editor's Desk" — per-chapter curation (chapterOverrides), section order,
+  // and the manual guest-wishes list — is PRO. Word fields + section toggles above
+  // stay FREE (today's editor). When the couple is NOT PRO we STRIP these three
+  // keys from the incoming input BEFORE merge, so a hand-crafted request can't
+  // author them — but we do NOT delete any values already saved on `base` (a
+  // formerly-PRO couple keeps their existing overrides/order/wishes; we just
+  // decline NEW ones). `draft` starts as a spread of `base`, so leaving a key
+  // untouched preserves it.
+  const isPro = await isEditorialProActive(admin, eventId);
+  if (isPro) {
+    // "As the Day Unfolded" per-chapter curation. Persist the ordered, sanitized
+    // set; an empty result deletes the key so the chapters revert to pure auto.
+    const chapterOverrides = sanitizeChapterOverrides(input.chapterOverrides);
+    if (chapterOverrides.length) draft.chapterOverrides = chapterOverrides;
+    else delete draft.chapterOverrides;
+
+    // Section order (PRO reorder). null → delete (revert to default order).
+    const sectionOrder = sanitizeSectionOrder(input.sectionOrder);
+    if (sectionOrder) draft.sectionOrder = sectionOrder;
+    else delete draft.sectionOrder;
+
+    // Manual guest-wishes (PRO). Empty → delete the key.
+    const reviews = sanitizeReviews(input.reviews);
+    if (reviews.length) draft.reviews = reviews;
+    else delete draft.reviews;
+  }
+  // else: not PRO — leave draft.chapterOverrides / draft.sectionOrder /
+  // draft.reviews exactly as they were on `base` (spread into `draft` already).
 
   const nowIso = new Date().toISOString();
   const { error } = await admin.from('event_editorial').upsert(
@@ -142,5 +332,57 @@ export async function saveEditorial(
     after(() => scanEditorial(eid));
   }
 
+  return { ok: true };
+}
+
+/**
+ * Real Stories showcase consent, co-located on the editorial editor so the
+ * couple can publish AND choose to be featured in one place (instead of hunting
+ * for the separate privacy-page toggle). Mirrors `setShowcaseConsent` in
+ * website/privacy/actions.ts — sets/clears the caller's OWN
+ * `users.public_summary_consent_at` via the admin client (the users self-update
+ * path isn't exposed to the auth client), gated on host membership.
+ *
+ * RA 10173: consent stays an EXPLICIT, reversible opt-in — this only flips the
+ * couple's own flag when they ask. It deliberately does NOT touch
+ * `landing_page_visibility`; a private page still won't surface (the
+ * loadPublishedShowcases `!= 'private'` guard), and the editor surfaces that
+ * caveat rather than silently making the page public.
+ *
+ * Wedding-gated on opt-IN (server-side, behind the wedding-only UI toggle):
+ * `public_summary_consent_at` is a per-USER flag and Real Stories only
+ * aggregates weddings (loadPublishedShowcases filters event_type='wedding'), so
+ * a non-wedding event must not be able to flip it (a direct action call would
+ * otherwise set consent that affects the user's OTHER wedding events). Opt-OUT
+ * is always allowed.
+ */
+export async function setStoryShowcase(
+  eventId: string,
+  optIn: boolean,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const userId = await hostUserId(eventId);
+  if (!userId) return { ok: false, error: 'You don’t have access to this wedding.' };
+
+  const admin = createAdminClient();
+
+  if (optIn) {
+    const { data: ev } = await admin
+      .from('events')
+      .select('event_type')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (((ev?.event_type as string | null) ?? 'wedding') !== 'wedding') {
+      return { ok: false, error: 'Real Stories features weddings only.' };
+    }
+  }
+
+  const { error } = await admin
+    .from('users')
+    .update({ public_summary_consent_at: optIn ? new Date().toISOString() : null })
+    .eq('user_id', userId);
+  if (error) return { ok: false, error: 'Could not update. Please try again.' };
+
+  revalidatePath(`/dashboard/${eventId}/website/editorial`);
+  revalidatePath(`/dashboard/${eventId}/website/privacy`);
   return { ok: true };
 }

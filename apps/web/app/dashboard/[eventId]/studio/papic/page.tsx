@@ -1,4 +1,3 @@
-import type { ComponentProps } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { MiniTour } from '@/app/_components/mini-tour';
@@ -6,13 +5,9 @@ import {
   AlertCircle,
   ArrowLeft,
   Camera,
-  Aperture,
-  BatteryWarning,
   Hand,
-  Share2,
   Sparkles,
   Info,
-  ChevronUp,
   ChevronRight,
   HardDrive,
   Smartphone,
@@ -24,29 +19,42 @@ import {
   FolderTree,
   Lock,
   Unlink2,
+  Users,
+  BatteryWarning,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { formatPhp } from '@/lib/orders';
+import { eventSkuActive } from '@/lib/entitlements';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import {
   getDriveOAuthConfig,
   PAPIC_DRIVE_SUBFOLDERS,
 } from '@/lib/papic-drive';
-import {
-  eventOwnsPapicSeats,
-  PAPIC_SEATS_PRICE_PHP,
-  PAPIC_SEATS_SERVICE_KEY,
-  PAPIC_SAMPLER_SEAT_COUNT,
-  PAPIC_SAMPLER_PHOTO_CAP,
-  PAPIC_SAMPLER_CLIP_CAP,
-  PAPIC_SAMPLER_RETENTION_DAYS,
-} from '@/lib/papic-seats';
+import { eventOwnsPapicSeats } from '@/lib/papic-seats';
 import { fetchPapicGallery } from '@/lib/papic-gallery';
 import { PapicGalleryGrid } from './_components/papic-gallery-grid';
 import { getKwentoDensity } from '@/lib/kwento-density';
-import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
-import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { setPapicStorageDrive, setPapicStorageR2 } from './actions';
+import { resolveStoredWindow, formatWindowSummary } from '@/lib/papic-window';
+import PapicWindowPicker from './papic-window-picker';
+import StylePicker from './style-picker';
+import {
+  fetchCameraRates,
+  PAPIC_MIN_PAID_CAMERAS,
+  PAPIC_FREE_CAMERA_COUNT,
+} from '@/lib/papic-cameras';
+import {
+  countLimitedGuests,
+  computeLimitedQuote,
+  fetchActiveLimitedSnapshot,
+  reconcileLimitedSnapshot,
+  syncGuestCameras,
+  type LimitedSnapshotStatus,
+} from '@/lib/papic-limited';
+import ExtraCamerasPicker from './extra-cameras-picker';
+import GuestCameraTierPicker from './guest-camera-tier-picker';
 import { LiveWallCard } from './_components/live-wall-card';
 import { MagazineCard } from './_components/magazine-card';
 import { RecapCard } from './_components/recap-card';
@@ -56,40 +64,28 @@ import {
 } from '@/app/_components/drive-connect-card';
 import { SubmitButton } from '@/app/_components/submit-button';
 
-// Iteration 0012 — Papic (V1 setup surface)
+// Iteration 0012 — Papic studio (couple setup surface).
 //
-// Rewritten 2026-05-16 per the V1 scope expansion that wires real OAuth on
-// the V1.5+ scaffold setup pages (see CLAUDE.md decision log row 2026-05-16
-// "OAuth wiring for V1.5+ scaffold setup pages shipped early"). The
-// original scaffold (preserved below as Sections 2-6) framed Papic as
-// purely a V1.5+ surface — couples could see the shape but couldn't make
-// any decisions. This rewrite adds Section 1: "Where do your photos go?"
-// which surfaces the new storage-choice radio cards (Setnayan R2 vs Google
-// Drive only) and the Drive OAuth wiring. The Setnayan-R2 option always
-// works (the default); the Drive option degrades to a "coming soon"
-// placeholder when GOOGLE_DRIVE_OAUTH_CLIENT_ID is unset (graceful-
-// fallback rule, decoupling V1 ship from the owner-side Google Cloud
-// verified-app review timeline).
+// Redesigned 2026-06-26 (owner: "modern minimalist · not much words, more of
+// what's needed to run the app") around the owner-locked camera model:
+//   • LIMITED cameras come FROM the guest list — every guest who hasn't declined
+//     gets one camera (their personal QR is the credential) + their own gallery.
+//     The count auto-derives; "Ready for Papic" freezes the count + bill once,
+//     and late "yes" RSVPs are covered for free within the cap (syncGuestCameras
+//     runs on render). See lib/papic-limited.ts.
+//   • UNLIMITED cameras are the ONLY way to add a shooter NOT on the guest list
+//     (videographer friend / hired second shooter). One stepper, min 1.
+//   • DSLR Camera Bridge is a native-app (V1.5) pairing — the web card is
+//     informational, folded into "Setup & help" at the bottom.
 //
 // SPEC: ~/Documents/Claude/Projects/Setnayan/0012_papic/0012_papic.md
-//   · ~/Documents/Claude/Projects/Setnayan/0012_papic/0012_papic_compatible_cameras.md
-//   · ~/Documents/Claude/Projects/Setnayan/0012_papic/0012_papic_sdk_notes.md
 //
-// The 2026-05-16 owner directive also deviates from the original
-// "T+30d transfer" model (Setnayan stores for 30 days, bulk-pushes to
-// Drive). The new model is real-time DURING the event for both options;
-// R2 is the primary by default; couples who opt out of R2 get Drive
-// throttling + their own quota constraints. See the COWORK_INBOX.md
-// entry for the spec corpus catch-up.
-//
-// Every integration seam (capture pipeline, native app pairing, QR
-// tagging) is still marked with TODO(0012): — these stubs are deliberately
-// left unwired until the native app + pairing pipeline are built. The
-// capture pipeline itself MUST branch on events.papic_storage_target to
-// decide where to write each photo — see the TODO(0012) marker in the
-// `StorageChoiceCard` doc comment below.
+// Storage choice (Setnayan R2 vs Google Drive) stays wired end-to-end against
+// /api/oauth/drive/* + public.oauth_grants. The capture pipeline / native app /
+// DSLR pairing are still TODO(0012) — see the seam notes at the bottom.
 
 export const metadata = { title: 'Papic · Setnayan' };
+export const dynamic = 'force-dynamic';
 
 type Props = {
   params: Promise<{ eventId: string }>;
@@ -99,82 +95,20 @@ type Props = {
     drive_error?: string;
     storage_set?: string;
     storage_error?: string;
+    papic_purchased?: string;
+    papic_ref?: string;
+    papic_amount?: string;
+    papic_error?: string;
+    papic_unlock_provisioned?: string;
+    limited_synced?: string;
+    limited_error?: string;
+    papic_window_saved?: string;
+    papic_window_error?: string;
   }>;
 };
 
-// Seat-pack price is read live from the admin catalog (PAPIC_SEATS via
-// formatV2Sku → papicSeatsPricePhp), not a hardcoded number. The former
-// PAPIC_3/5_SEATS_PRICE constants are retired (owner 2026-06-18 · "admin
-// pricing controls all the prices").
-// Pro Camera Bridge is INCLUDED with Papic (owner 2026-06-18 · no separate
-// purchase) — its former ₱1,499 SKU constant is retired.
+type StorageTarget = 'setnayan_r2' | 'google_drive_only';
 
-// Mock data only. Real seat + bridge state moves to Supabase once the
-// native pairing pipeline is built (TODO(0012)).
-const MOCK_SEAT_PACK: 'paparazzi_5_seats' | 'paparazzi_3_seats' = 'paparazzi_5_seats';
-
-type MockSeat = {
-  id: string;
-  label: string;
-  claimedBy: string | null;
-  proBridge: { brand: string; model: string } | null;
-};
-
-const MOCK_SEATS: ReadonlyArray<MockSeat> = [
-  { id: 'seat-1', label: 'Seat 1', claimedBy: 'Tita Marites', proBridge: { brand: 'Canon', model: 'EOS R6 Mark II' } },
-  { id: 'seat-2', label: 'Seat 2', claimedBy: 'Kuya Paolo', proBridge: null },
-  { id: 'seat-3', label: 'Seat 3', claimedBy: 'Ate Joy', proBridge: null },
-  { id: 'seat-4', label: 'Seat 4', claimedBy: null, proBridge: null },
-  { id: 'seat-5', label: 'Seat 5', claimedBy: null, proBridge: null },
-];
-
-type Gesture = {
-  id: string;
-  title: string;
-  body: string;
-  Icon: typeof Camera;
-};
-
-const GESTURES: ReadonlyArray<Gesture> = [
-  {
-    id: 'tap',
-    title: 'Tap',
-    body: 'Photo, no flash. Snappy — fires on touch-up.',
-    Icon: Camera,
-  },
-  {
-    id: 'drag-up',
-    title: 'Drag up',
-    body: 'Photo with flash. Single pop synced to the shutter.',
-    Icon: ChevronUp,
-  },
-  {
-    id: 'drag-right',
-    title: 'Drag right',
-    body: '5-second clip on release. Runs the full 5 seconds — cannot be cut short.',
-    Icon: ChevronRight,
-  },
-  {
-    id: 'chord',
-    title: 'Drag right → drag up',
-    body: '5-second clip with flash. Torch stays on for the full clip.',
-    Icon: Sparkles,
-  },
-];
-
-
-const SDK_MATRIX = [
-  { brand: 'Canon', sdk: 'EOS Camera Connect SDK', bodies: '11 V1 bodies (R-series mirrorless)' },
-  { brand: 'Nikon', sdk: 'SnapBridge SDK + MTP-WiFi', bodies: '9 Z-series + 5 D-series' },
-  { brand: 'Sony', sdk: 'Camera Remote SDK', bodies: '16 α / ZV / FX bodies' },
-  { brand: 'Fujifilm', sdk: 'Camera Remote SDK', bodies: '14 X / GFX bodies' },
-];
-
-function seatPackLabel(pack: 'paparazzi_5_seats' | 'paparazzi_3_seats'): string {
-  return pack === 'paparazzi_5_seats' ? 'Papic 5-seat pack' : 'Papic 3-seat pack';
-}
-
-// Shape of the oauth_grants row we read for the connected-Drive panel.
 type DriveGrant = {
   grant_id: string;
   external_account_display: string | null;
@@ -187,7 +121,15 @@ type DriveGrant = {
   } | null;
 };
 
-type StorageTarget = 'setnayan_r2' | 'google_drive_only';
+// Supported DSLR bodies (informational — pairing is native-app V1.5). Canon is
+// the only brand with a true mobile Wi-Fi capture API today; the rest land as
+// their SDKs open up.
+const SDK_MATRIX = [
+  { brand: 'Canon', note: 'EOS R-series (Wi-Fi capture) — supported at launch' },
+  { brand: 'Nikon', note: 'Z / D-series — as the SDK opens' },
+  { brand: 'Sony', note: 'α / ZV / FX — as the SDK opens' },
+  { brand: 'Fujifilm', note: 'X / GFX — as the SDK opens' },
+];
 
 export default async function PapicAddonPage({ params, searchParams }: Props) {
   const { eventId } = await params;
@@ -197,6 +139,15 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     drive_error: driveError,
     storage_set: storageSet,
     storage_error: storageError,
+    papic_purchased: papicPurchased,
+    papic_ref: papicRef,
+    papic_amount: papicAmount,
+    papic_error: papicError,
+    papic_unlock_provisioned: papicUnlockProvisioned,
+    limited_synced: limitedSynced,
+    limited_error: limitedError,
+    papic_window_saved: papicWindowSaved,
+    papic_window_error: papicWindowError,
   } = await searchParams;
 
   const supabase = await createClient();
@@ -205,14 +156,11 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // Read the event row + the current storage target. We need display_name
-  // for the header and papic_storage_target for the radio selection. The
-  // column has a NOT NULL DEFAULT in the migration, so we always get a
-  // value — but defensively narrow to the union type below in case a
-  // future migration relaxes it.
   const { data: event } = await supabase
     .from('events')
-    .select('event_id, display_name, papic_storage_target')
+    .select(
+      'event_id, event_type, event_date, papic_storage_target, papic_ltd_cap_php, papic_unli_cap_php, papic_window_start, papic_window_end',
+    )
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) notFound();
@@ -222,72 +170,149 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       ? 'google_drive_only'
       : 'setnayan_r2';
 
-  // Drive-grant lookup, Papic-seat ownership, the seat SKU price, and platform
-  // settings are four mutually independent reads — one parallel batch instead
-  // of four serial round-trips (owner perf pass 2026-06-03). The price/settings
-  // reads keep their own `.catch` fallbacks, so a failure in one never rejects
-  // the batch or breaks the always-rendered Papic page.
-  const [grantRaw, ownsPapicSeats, papicSeatsSku, platformSettings] =
-    await Promise.all([
-      // Drive OAuth grant — RLS scopes oauth_grants by event_id IN
-      // current_event_ids(), so the anon client is fine (no service role).
-      supabase
-        .from('oauth_grants')
-        .select('grant_id, external_account_display, granted_at, connection_health, metadata')
-        .eq('event_id', eventId)
-        .eq('provider', 'drive')
-        .is('revoked_at', null)
-        .maybeSingle()
-        .then((r) => r.data ?? null),
-      // Photo-crew ownership — graceful-degrades to false on a missing table.
-      eventOwnsPapicSeats(supabase, eventId),
-      // Seat SKU price + platform settings each tolerate failure (.catch).
-      formatV2Sku(PAPIC_SEATS_SERVICE_KEY).catch(() => null),
-      fetchPlatformSettings(supabase).catch(() => null),
-    ]);
+  // Event-wide Papic look (the couple's locked capture template). Read
+  // defensively: the papic_style column lands in migration 20270307004141, so
+  // on a pre-migration DB this select returns an error (not a throw) and we keep
+  // the ORIG default — the page never breaks on the new column.
+  const { data: styleRow } = await supabase
+    .from('events')
+    .select('papic_style')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const papicStyle =
+    (styleRow as { papic_style?: string } | null)?.papic_style ?? 'ORIG';
+
+  const [grantRaw, ownsPapicSeats] = await Promise.all([
+    supabase
+      .from('oauth_grants')
+      .select('grant_id, external_account_display, granted_at, connection_health, metadata')
+      .eq('event_id', eventId)
+      .eq('provider', 'drive')
+      .is('revoked_at', null)
+      .maybeSingle()
+      .then((r) => r.data ?? null),
+    eventOwnsPapicSeats(supabase, eventId),
+  ]);
   const driveGrant = (grantRaw ?? null) as DriveGrant | null;
 
-  // --- Graceful-fallback flag ---
-  // When GOOGLE_DRIVE_OAUTH_CLIENT_ID is unset the Drive radio renders as
-  // disabled with a "coming soon" caption underneath. The Setnayan-R2 option
-  // still works. Decouples shipping the V1 surface from the owner-side Google
-  // Cloud verified-app review (1-4 wk window).
-  const driveConfig = getDriveOAuthConfig();
+  const driveConfig = await getDriveOAuthConfig();
   const driveOAuthReady = driveConfig.ready;
 
-  const papicSeatsPricePhp = papicSeatsSku?.price_php ?? PAPIC_SEATS_PRICE_PHP;
+  // Live admin-managed rates + per-tier caps.
+  const cameraRates = await fetchCameraRates(supabase);
+  const papicLtdCapPhp =
+    Number((event as Record<string, unknown>).papic_ltd_cap_php ?? 0) || 9000;
+  const papicUnliCapPhp =
+    Number((event as Record<string, unknown>).papic_unli_cap_php ?? 0) || 15000;
 
-  const totalSeats = MOCK_SEATS.length;
-  const claimedSeats = MOCK_SEATS.filter((s) => s.claimedBy !== null).length;
-  const unclaimedSeats = totalSeats - claimedSeats;
-  const bridgeSeats = MOCK_SEATS.filter((s) => s.proBridge !== null).length;
+  // Capture window → DAYS multiplier (price) + the picker's current state.
+  const ev = event as Record<string, unknown>;
+  const papicWindow = resolveStoredWindow({
+    windowStart: (ev.papic_window_start as string | null) ?? null,
+    windowEnd: (ev.papic_window_end as string | null) ?? null,
+    eventDate: (ev.event_date as string | null) ?? null,
+  });
+  const papicDays = papicWindow.days;
+  const papicWindowSummary = formatWindowSummary(
+    papicWindow.startIso,
+    papicWindow.endIso,
+  );
+  const windowIsSet = !!(ev.papic_window_start && ev.papic_window_end);
 
-  // Free-sampler retention signal — drives the on-page "keep your free photos"
-  // card and the gallery nudge. Only the free sampler has expiring photos (paid
-  // captures store expires_at IS NULL), so we skip the read once the pack is
-  // owned. Mirrors the /crew banner's countdown so both surfaces agree.
-  let samplerExpiringCount = 0;
-  let samplerDaysLeft: number | null = null;
-  if (!ownsPapicSeats) {
-    const { data: expiring } = await supabase
-      .from('papic_photos')
-      .select('expires_at')
+  // Unlock-all umbrella (admin-managed price; owning it frees Unli).
+  const unlockAdmin = createAdminClient();
+  const [
+    { data: unlockPkg },
+    ownsPapicUnlock,
+    papicPlatformSettings,
+    { data: keepFullResRow },
+    ownsKeepFullRes,
+  ] = await Promise.all([
+    unlockAdmin
+      .from('platform_package_catalog')
+      .select('retail_price_php, is_active')
+      .eq('package_code', 'PAPIC_UNLOCK')
+      .maybeSingle(),
+    eventSkuActive(unlockAdmin, eventId, 'PAPIC_UNLOCK'),
+    fetchPlatformSettings(supabase),
+    // Keep Full-Res archive (owner 2026-07-11) — sold on the existing apply-then-pay.
+    unlockAdmin
+      .from('platform_retail_catalog_v2')
+      .select('retail_price_php, is_active')
+      .eq('service_code', 'HIGH_RES_ARCHIVE')
+      .maybeSingle(),
+    eventSkuActive(unlockAdmin, eventId, 'HIGH_RES_ARCHIVE'),
+  ]);
+  const papicUnlockPricePhp = unlockPkg?.is_active
+    ? Number(unlockPkg.retail_price_php)
+    : null;
+  const keepFullResPricePhp = keepFullResRow?.is_active
+    ? Number(keepFullResRow.retail_price_php)
+    : null;
+
+  // ── LIMITED (guest-list) state ──────────────────────────────────────────
+  // Auto-count = guests who haven't declined. One reversible snapshot freezes
+  // the bill; render-time sync keeps cameras in line with late RSVPs (free,
+  // within the cap).
+  const limitedGuestCount = await countLimitedGuests(supabase, eventId);
+  const limitedSnapshot = await fetchActiveLimitedSnapshot(supabase, eventId);
+  let limitedStatus: LimitedSnapshotStatus | null = limitedSnapshot?.status ?? null;
+  let guestCameraCount = 0;
+  {
+    const { count } = await supabase
+      .from('paparazzi_seats')
+      .select('seat_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
-      .not('expires_at', 'is', null)
-      .gt('expires_at', new Date().toISOString())
-      .order('expires_at', { ascending: true });
-    samplerExpiringCount = expiring?.length ?? 0;
-    const soonest = expiring?.[0]?.expires_at as string | undefined;
-    if (soonest) {
-      samplerDaysLeft = Math.max(
-        0,
-        Math.ceil((new Date(soonest).getTime() - Date.now()) / 86_400_000),
-      );
+      .not('guest_id', 'is', null)
+      .is('revoked_at', null);
+    guestCameraCount = count ?? 0;
+  }
+  if (limitedSnapshot) {
+    // Lazy reconcile pending→active, then self-heal cameras if the list moved.
+    limitedStatus = await reconcileLimitedSnapshot(unlockAdmin, limitedSnapshot);
+    const expected = Math.min(limitedGuestCount, limitedSnapshot.camera_cap);
+    if (guestCameraCount !== expected) {
+      try {
+        const r = await syncGuestCameras(unlockAdmin, eventId, {
+          ...limitedSnapshot,
+          status: limitedStatus,
+        });
+        guestCameraCount = Math.max(0, guestCameraCount + r.added - r.revoked);
+      } catch {
+        // best-effort; the snapshot is already recorded.
+      }
     }
+  }
+  const limitedQuote = computeLimitedQuote(
+    limitedGuestCount,
+    cameraRates.roll,
+    papicLtdCapPhp,
+    papicDays,
+  );
+  // The Unlimited-tier option for the same guest list (owner 2026-06-26) — same
+  // capture-window day multiplier as the Limited quote.
+  const unlimitedQuote = computeLimitedQuote(
+    limitedGuestCount,
+    cameraRates.unlimited,
+    papicUnliCapPhp,
+    papicDays,
+  );
+  const limitedTier = (limitedSnapshot?.tier ?? null) as 'roll' | 'unlimited' | null;
+
+  // Anonymous Unlimited extras (off-list shooters → claim links in /crew).
+  let extraCameraCount = 0;
+  {
+    const { count } = await supabase
+      .from('paparazzi_seats')
+      .select('seat_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .eq('tier', 'unlimited')
+      .is('revoked_at', null);
+    extraCameraCount = count ?? 0;
   }
 
   return (
-    <section className="space-y-8 pb-12">
+    <section className="space-y-7 pb-12">
       <Link
         href={`/dashboard/${eventId}/studio`}
         className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
@@ -296,131 +321,18 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         Back to add-ons
       </Link>
 
-      <header className="space-y-3">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Papic · wedding photo capture
-        </p>
-        <h1 className="flex items-center gap-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+      {/* Header — short. */}
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">Capture</p>
+        <h1 className="sn-h1 flex items-center gap-3">
           <Camera aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
-          Papic — Wedding Photo Capture
+          Wedding photo capture
         </h1>
         <p className="max-w-prose text-base text-ink/65">
-          Papic turns friends and family into your candid-capture crew. Each
-          paparazzo claims a seat from their own phone, shoots through the
-          Papic app, and every photo or 5-second clip lands tagged in your
-          gallery in real time. Below: pick where the photos write to, then
-          manage your crew, camera bridges, and gallery settings.
+          Your guests become the camera crew — every photo and 5-second clip lands
+          in your gallery, tagged, in real time.
         </p>
       </header>
-
-      {/* ----------------------------------------------------------------
-          Papic · your photo crew (PAPIC_SEATS) — the real entry point.
-          Owners → the /crew management surface (provision + claim links +
-          QR + reissue). Non-owners → apply-then-pay checkout via the
-          InlineCheckoutDrawer. The mock crew illustration further down on
-          this page stays as an explainer.
-          ---------------------------------------------------------------- */}
-      <section className="rounded-2xl border border-terracotta/25 bg-terracotta/[0.04] p-5 sm:p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1.5">
-            <p className="flex items-center gap-2 text-lg font-semibold tracking-tight text-ink">
-              <Smartphone aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-              Your photo crew · 5 seats
-            </p>
-            <p className="max-w-prose text-sm text-ink/65">
-              {ownsPapicSeats
-                ? 'Your photo-crew pack is active. Set up your five seats and share a claim link with each friend.'
-                : 'Turn five friends into your candid camera crew — each shoots from their own phone, and every photo lands in your gallery in real time.'}
-            </p>
-          </div>
-          <div className="shrink-0">
-            {ownsPapicSeats ? (
-              <Link
-                href={`/dashboard/${eventId}/studio/papic/crew`}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 sm:w-auto"
-              >
-                Manage my 5 seats
-                <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-              </Link>
-            ) : platformSettings ? (
-              <InlineCheckoutDrawer
-                eventId={eventId}
-                serviceKey={PAPIC_SEATS_SERVICE_KEY}
-                displayName={`Papic · 5 Seats${event.display_name ? ` · ${event.display_name}` : ''}`}
-                originalPriceCentavos={String(Math.round(papicSeatsPricePhp * 100))}
-                settings={platformSettings}
-                triggerLabel={`Get the crew pack · ${formatPhp(papicSeatsPricePhp)}`}
-                triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:w-auto"
-              />
-            ) : (
-              <span className="text-sm font-mono text-ink/60">{formatPhp(papicSeatsPricePhp)}</span>
-            )}
-          </div>
-        </div>
-        {!ownsPapicSeats && (
-          <div className="mt-4 border-t border-terracotta/15 pt-3">
-            <Link
-              href={`/dashboard/${eventId}/studio/papic/crew`}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta underline-offset-2 hover:underline"
-            >
-              Try Papic free first — {PAPIC_SAMPLER_SEAT_COUNT} seats,{' '}
-              {PAPIC_SAMPLER_PHOTO_CAP} photos + {PAPIC_SAMPLER_CLIP_CAP} clips each
-              <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-            </Link>
-          </div>
-        )}
-      </section>
-
-      {/* ----------------------------------------------------------------
-          Free-sampler retention — "keep your free photos" (2026-06-16)
-          ----------------------------------------------------------------
-          Shown only on the free sampler once there are photos that will
-          expire. Two co-equal, free-first CTAs that live exactly where the
-          real actions are: "keep your own copy" anchors DOWN to the storage
-          card (which honors the Drive OAuth coming-soon gate itself — we
-          never deep-link /api/oauth/drive/start, which 503s when env is
-          unset), and "upgrade to full Papic" reuses the same InlineCheckout
-          drawer the crew pack uses. */}
-      {!ownsPapicSeats && samplerExpiringCount > 0 && (
-        <SamplerRetentionCard
-          expiringCount={samplerExpiringCount}
-          daysLeft={samplerDaysLeft}
-          eventId={eventId}
-          pricePhp={papicSeatsPricePhp}
-          eventDisplayName={event.display_name ?? null}
-          settings={platformSettings}
-        />
-      )}
-
-      {/* ----------------------------------------------------------------
-          Photo moderation (Apple 1.2 / Google Play UGC)
-          ----------------------------------------------------------------
-          Entry point to the couple-side moderation surface: review every
-          guest photo, hide anything unwanted, report it to the Setnayan team,
-          or block a guest's camera for this wedding (event-scoped). The
-          underlying report path also reaches the /admin/user-reports queue. */}
-      <section className="flex flex-col gap-4 rounded-2xl border border-ink/10 bg-surface p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1.5">
-          <p className="flex items-center gap-2 text-lg font-semibold tracking-tight text-ink">
-            <Lock aria-hidden className="h-5 w-5 text-mulberry" strokeWidth={1.75} />
-            Keep your gallery safe
-          </p>
-          <p className="max-w-prose text-sm text-ink/65">
-            Review every photo your guests share. Hide anything you don&rsquo;t
-            want, report it to the Setnayan team, or block a guest&rsquo;s
-            camera for this wedding.
-          </p>
-        </div>
-        <div className="shrink-0">
-          <Link
-            href={`/dashboard/${eventId}/studio/papic/moderation`}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-mulberry/30 bg-mulberry/5 px-4 py-2 text-sm font-medium text-mulberry hover:bg-mulberry/10 sm:w-auto"
-          >
-            Open photo moderation
-            <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-          </Link>
-        </div>
-      </section>
 
       <StatusBanners
         driveConnected={!!driveConnected}
@@ -429,33 +341,169 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         storageSet={storageSet}
         storageError={storageError}
         connectedAccount={driveGrant?.external_account_display ?? null}
+        papicPurchased={papicPurchased}
+        papicRef={papicRef}
+        papicAmount={papicAmount}
+        papicUnlockProvisioned={papicUnlockProvisioned}
+        papicError={papicError}
+        limitedSynced={limitedSynced}
+        limitedError={limitedError}
+        papicWindowSaved={papicWindowSaved}
+        papicWindowError={papicWindowError}
       />
 
-      {/* ----------------------------------------------------------------
-          Section 1 — Storage choice (NEW, 2026-05-16)
-          ----------------------------------------------------------------
-          The new V1 surface. Couple picks where Papic writes photos:
-            (a) Setnayan storage (R2) — recommended default
-            (b) Google Drive only — couple's own Drive folder
-          Server-side radio: switching triggers a server action that
-          updates events.papic_storage_target. The Connect-Drive button
-          only appears when the Drive radio is selected. If
-          GOOGLE_DRIVE_OAUTH_CLIENT_ID is unset, the Drive option is
-          disabled with a "coming soon — admin setup pending" caption.
+      {/* Unlock-all — the one-price headline (only when not yet owned). */}
+      {papicUnlockPricePhp && !ownsPapicUnlock ? (
+        <section className="flex flex-col gap-3 rounded-2xl border border-mulberry/30 bg-mulberry/[0.05] p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold tracking-tight">
+              Everything Papic, one price
+            </h2>
+            <p className="max-w-prose text-sm text-ink/70">
+              Unlimited cameras for the whole wedding + every add-on (Kwento,
+              Photo Wall, Thank You, Stories, Pabati, Camera Bridge).
+            </p>
+          </div>
+          {papicPlatformSettings ? (
+            <InlineCheckoutDrawer
+              eventId={eventId}
+              serviceKey="PAPIC_UNLOCK"
+              displayName="Unlock all of Papic"
+              originalPriceCentavos={String(Math.round(papicUnlockPricePhp * 100))}
+              settings={papicPlatformSettings}
+              triggerLabel={`Unlock all · ${formatPhp(papicUnlockPricePhp)}`}
+              triggerClassName="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70"
+            />
+          ) : (
+            <span className="shrink-0 font-mono text-sm text-ink/60">
+              {formatPhp(papicUnlockPricePhp)}
+            </span>
+          )}
+        </section>
+      ) : null}
 
-          TODO(0012): the Papic capture pipeline (V1.5+ — cameras +
-          face detection + transfer) MUST read events.papic_storage_target
-          and branch:
-            · 'setnayan_r2' → upload to R2 setnayan-media bucket
-              (current behavior; existing infra at lib/r2.ts)
-            · 'google_drive_only' → upload to the folder id in
-              oauth_grants.metadata.drive_folder_id via the Drive API.
-              Use refreshDriveAccessToken() before each session and
-              handle rate-limit / quota errors with a retry queue
-              (Drive's per-user quota is 1B queries/day but with a
-              250 req/100s burst limit — wedding bursts will exceed
-              that).
-       */}
+      {/* ── Keep Full-Res (owner 2026-07-11 · sold on apply-then-pay) ─────── */}
+      {ownsKeepFullRes ? (
+        <section className="rounded-2xl border border-success-200/70 bg-success-50/50 p-4 text-xs text-ink/70">
+          ✓ <span className="font-medium text-ink">Keep Full-Res is active</span> — we
+          keep every full-resolution original for this event, undegraded.
+        </section>
+      ) : keepFullResPricePhp ? (
+        <section className="flex flex-wrap items-center justify-between gap-3 sn-tile p-5">
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex items-center gap-2">
+              <HardDrive className="h-4 w-4 text-mulberry" aria-hidden />
+              <h2 className="text-sm font-semibold text-ink">Keep your full-res forever</h2>
+            </div>
+            <p className="text-xs text-ink/60">
+              Your online gallery stays free forever. After 3 months we keep a
+              beautiful compressed copy, and your full-resolution originals live in
+              your own Google Drive. Want us to keep every pristine original too?
+            </p>
+          </div>
+          {papicPlatformSettings ? (
+            <InlineCheckoutDrawer
+              eventId={eventId}
+              serviceKey="HIGH_RES_ARCHIVE"
+              displayName="Keep Full-Res"
+              originalPriceCentavos={String(Math.round(keepFullResPricePhp * 100))}
+              settings={papicPlatformSettings}
+              triggerLabel={`Keep Full-Res · ${formatPhp(keepFullResPricePhp)}/yr`}
+              triggerClassName="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-mulberry/40 px-4 py-2.5 text-sm font-medium text-mulberry hover:bg-mulberry/5"
+            />
+          ) : (
+            <span className="shrink-0 font-mono text-sm text-ink/60">
+              {formatPhp(keepFullResPricePhp)}/yr
+            </span>
+          )}
+        </section>
+      ) : null}
+
+      {/* ── Your cameras — the core. ──────────────────────────────────────── */}
+      <section className="space-y-4 rounded-2xl border border-terracotta/25 bg-terracotta/[0.04] p-5 sm:p-6">
+        <div className="flex items-center gap-2">
+          <Camera aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
+          <h2 className="text-xl font-semibold tracking-tight">Your cameras</h2>
+        </div>
+
+        {/* Capture window — sets the price (days) AND how long cameras shoot. */}
+        <PapicWindowPicker
+          eventId={eventId}
+          eventType={(ev.event_type as string | null) ?? null}
+          eventDate={(ev.event_date as string | null) ?? null}
+          windowStart={(ev.papic_window_start as string | null) ?? null}
+          windowEnd={(ev.papic_window_end as string | null) ?? null}
+          windowIsSet={windowIsSet}
+          days={papicDays}
+          summary={papicWindowSummary}
+        />
+
+        <LimitedCard
+          eventId={eventId}
+          guestCount={limitedGuestCount}
+          guestCameraCount={guestCameraCount}
+          status={limitedStatus}
+          currentTier={limitedTier}
+          limitedQuote={limitedQuote}
+          unlimitedQuote={unlimitedQuote}
+          days={papicDays}
+          windowSummary={papicWindowSummary}
+        />
+
+        {/* Unlimited extras — the only off-list path. */}
+        <div className="sn-tile p-4 sm:p-5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-semibold text-ink">
+                Add a camera that isn&rsquo;t on the guest list
+              </p>
+              <p className="text-xs text-ink/60">
+                A videographer friend, a hired second shooter — Unlimited only.
+                {extraCameraCount > 0 ? ` ${extraCameraCount} active.` : ''}
+              </p>
+            </div>
+            <Link
+              href={`/dashboard/${eventId}/studio/papic/crew`}
+              className="inline-flex items-center gap-1 text-xs font-medium text-terracotta hover:text-terracotta-700"
+            >
+              Crew &amp; claim links
+              <ChevronRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            </Link>
+          </div>
+          <div className="max-w-sm">
+            <ExtraCamerasPicker
+              eventId={eventId}
+              unlimitedRate={cameraRates.unlimited}
+              unliCapPhp={papicUnliCapPhp}
+              unliFree={ownsPapicUnlock}
+              days={papicDays}
+              windowSummary={papicWindowSummary}
+            />
+          </div>
+        </div>
+
+      </section>
+
+      {/* Your Papic look — the event-wide capture template the couple picks
+          once. Baked into every camera's photos (seats, guests) on
+          device at capture. Shooters never see a picker. */}
+      <section className="space-y-4 rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
+        <div className="space-y-1.5">
+          <p className="flex items-center gap-2 text-lg font-semibold tracking-tight text-ink">
+            <Sparkles aria-hidden className="h-5 w-5 text-mulberry" strokeWidth={1.75} />
+            Your Papic look
+          </p>
+          <p className="max-w-prose text-sm text-ink/65">
+            Choose one look for your whole event. Every photo your crew and
+            guests capture gets it automatically, so your gallery feels like one
+            beautiful set.
+          </p>
+        </div>
+        <StylePicker eventId={eventId} current={papicStyle} />
+      </section>
+
+
+      {/* Storage. */}
       <StorageChoiceCard
         eventId={eventId}
         storageTarget={storageTarget}
@@ -464,126 +512,179 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         loginEmail={user.email ?? null}
       />
 
-      <SeatStatusCard
-        eventId={eventId}
-        pack={MOCK_SEAT_PACK}
-        pricePhp={papicSeatsPricePhp}
-        seats={MOCK_SEATS}
-        claimed={claimedSeats}
-        unclaimed={unclaimedSeats}
-        total={totalSeats}
-      />
+      {/* Gallery. */}
+      <GalleryPreviewCard eventId={eventId} />
 
-      <ProCameraBridgeCard
-        seats={MOCK_SEATS}
-        bridgeSeats={bridgeSeats}
-        totalSeats={totalSeats}
-      />
+      {/* Moderation — a slim, real action. */}
+      <section className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-surface p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <p className="flex items-center gap-2 text-sm text-ink/75">
+          <Lock aria-hidden className="h-4 w-4 text-mulberry" strokeWidth={1.75} />
+          Review guest photos — hide, report, or block a camera.
+        </p>
+        <Link
+          href={`/dashboard/${eventId}/studio/papic/moderation`}
+          className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-mulberry hover:text-mulberry-600"
+        >
+          Open moderation
+          <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+        </Link>
+      </section>
 
+      {/* Add-on services (shipped surfaces). */}
       <LiveWallCard eventId={eventId} />
-
       <MagazineCard eventId={eventId} />
-
       <RecapCard eventId={eventId} />
 
-      <GestureReferenceCard />
+      {/* Setup & help — folded away. */}
+      <details className="group sn-tile">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-5 text-sm font-medium text-ink/80 [&::-webkit-details-marker]:hidden">
+          <span className="flex items-center gap-2">
+            <CircleHelp aria-hidden className="h-4 w-4 text-ink/55" strokeWidth={1.75} />
+            Setup &amp; help — DSLR pairing, the shutter, capture defaults
+          </span>
+          <ChevronRight
+            aria-hidden
+            className="h-4 w-4 text-ink/50 transition-transform group-open:rotate-90"
+            strokeWidth={2}
+          />
+        </summary>
+        <div className="space-y-6 border-t border-ink/10 p-5">
+          <DslrBridgeSection />
+          <ShutterSection />
+          <CaptureDefaultsSection />
+        </div>
+      </details>
 
-      <GalleryPreviewCard
-        eventId={eventId}
-        samplerExpiringCount={samplerExpiringCount}
-        samplerDaysLeft={samplerDaysLeft}
-      />
-
-      <SettingsCard />
-
-      {/* First-visit orientation — fires once per user when they land here. */}
       <MiniTour tourKey="customer_papic_v1" />
     </section>
   );
 }
 
 // -----------------------------------------------------------------------------
-// Free-sampler retention card — "keep your free photos forever"
+// LIMITED (guest-list) card
 // -----------------------------------------------------------------------------
-// Rendered only on the free sampler once captures exist that will expire.
-// Two co-equal CTAs (equal weight, no visual primary — owner pick 2026-06-16):
-//   • "Keep your own copy — Google Drive" anchors to #papic-storage. We do NOT
-//     deep-link /api/oauth/drive/start (it 503s when GOOGLE_DRIVE_OAUTH_CLIENT_ID
-//     is unset). The storage card owns the connect button + its coming-soon gate.
-//   • "Upgrade to full Papic" reuses the crew pack's InlineCheckoutDrawer.
-// Drive (free) renders even when platform settings are unavailable; the upgrade
-// CTA only renders when settings are present (the drawer needs the QR refs).
-function SamplerRetentionCard({
+
+function LimitedCard({
   eventId,
-  expiringCount,
-  daysLeft,
-  pricePhp,
-  eventDisplayName,
-  settings,
+  guestCount,
+  guestCameraCount,
+  status,
+  currentTier,
+  limitedQuote,
+  unlimitedQuote,
+  days,
+  windowSummary,
 }: {
   eventId: string;
-  expiringCount: number;
-  daysLeft: number | null;
-  pricePhp: number;
-  eventDisplayName: string | null;
-  settings: ComponentProps<typeof InlineCheckoutDrawer>['settings'] | null;
+  guestCount: number;
+  guestCameraCount: number;
+  status: LimitedSnapshotStatus | null;
+  currentTier: 'roll' | 'unlimited' | null;
+  limitedQuote: ReturnType<typeof computeLimitedQuote>;
+  unlimitedQuote: ReturnType<typeof computeLimitedQuote>;
+  days: number;
+  windowSummary: string;
 }) {
-  const ctaClass =
-    'inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-mulberry/30 bg-mulberry/5 px-4 py-2.5 text-sm font-medium text-mulberry transition-colors hover:bg-mulberry/10 disabled:opacity-70';
-  const noun = expiringCount === 1 ? 'photo' : 'photos';
-  const verb = expiringCount === 1 ? 'expires' : 'expire';
+  const dayLabel = windowSummary || `${days} day${days === 1 ? '' : 's'}`;
+  const active = status === 'active';
+  const pending = status === 'pending_payment';
+  const live = active || pending;
+  const tierLabel = currentTier === 'unlimited' ? 'Unlimited' : 'Limited';
 
   return (
-    <section
-      id="papic-keep"
-      className="scroll-mt-20 rounded-2xl border border-terracotta/30 bg-terracotta/[0.05] p-5 sm:p-6"
-    >
-      <div className="space-y-1.5">
-        <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-          <Clock aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Free sampler
-        </p>
-        <h2 className="text-xl font-semibold tracking-tight text-ink">
-          Keep your free photos forever
-        </h2>
-        <p className="max-w-prose text-sm text-ink/70">
-          <b className="font-medium text-ink">
-            Your {expiringCount === 1 ? '' : `${expiringCount} `}free sampler {noun}{' '}
-            {daysLeft === null
-              ? `${verb} soon`
-              : daysLeft === 0
-                ? `${verb} today`
-                : `${verb} in ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'}`}
-            .
-          </b>{' '}
-          Save your own copy to Google Drive, or upgrade to full Papic to keep
-          every shot forever — and unlock all five seats with unlimited photos.
-        </p>
-      </div>
-
-      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-        <Link href="#papic-storage" className={ctaClass}>
-          <HardDrive aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Keep your own copy — Google Drive
-        </Link>
-        {settings ? (
-          <InlineCheckoutDrawer
-            eventId={eventId}
-            serviceKey={PAPIC_SEATS_SERVICE_KEY}
-            displayName={`Papic · 5 Seats${eventDisplayName ? ` · ${eventDisplayName}` : ''}`}
-            originalPriceCentavos={String(Math.round(pricePhp * 100))}
-            settings={settings}
-            triggerLabel={`Upgrade to full Papic · ${formatPhp(pricePhp)}`}
-            triggerClassName={ctaClass}
-          />
+    <div className="sn-tile border border-terracotta/30 p-4 sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+            <Users aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+            A camera for every guest
+          </p>
+          <p className="max-w-prose text-xs text-ink/60">
+            Everyone who hasn&rsquo;t declined gets their own camera + gallery —
+            their invite QR is the camera. Pick Limited or Unlimited for the whole
+            list.
+          </p>
+        </div>
+        {live ? (
+          <span
+            className={
+              active
+                ? 'inline-flex shrink-0 items-center gap-1 rounded-full bg-success-100 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-success-900'
+                : 'inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-amber-800'
+            }
+          >
+            {active ? (
+              <>
+                <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2} />
+                {tierLabel} · active
+              </>
+            ) : (
+              <>
+                <Clock aria-hidden className="h-3 w-3" strokeWidth={2} />
+                Payment under review
+              </>
+            )}
+          </span>
         ) : null}
       </div>
-    </section>
+
+      <div className="mt-4 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <span className="text-3xl font-semibold tracking-tight tabular-nums text-ink">
+          {guestCount}
+        </span>
+        <span className="text-sm text-ink/60">
+          guest{guestCount === 1 ? '' : 's'} → {guestCount} camera
+          {guestCount === 1 ? '' : 's'}
+        </span>
+      </div>
+
+      {live ? (
+        <p className="mt-2 text-sm text-ink/70">
+          {guestCameraCount} camera{guestCameraCount === 1 ? '' : 's'} ready. New
+          &ldquo;yes&rdquo; RSVPs are added automatically — no extra charge.
+        </p>
+      ) : null}
+
+      {!live && guestCount < PAPIC_MIN_PAID_CAMERAS ? (
+        <div className="mt-4 sn-row p-4 text-center">
+          <p className="text-sm text-ink/65">
+            {guestCount < 1
+              ? 'Add your guests first — Limited cameras come from your guest list.'
+              : `Your first ${PAPIC_FREE_CAMERA_COUNT} cameras are free — you’re covered. Paid cameras start at a ${PAPIC_MIN_PAID_CAMERAS}-guest list.`}
+          </p>
+          <Link
+            href={`/dashboard/${eventId}/guests`}
+            className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:text-terracotta-700"
+          >
+            {guestCount < 1 ? 'Go to guest list' : 'Add more guests'}
+            <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+          </Link>
+        </div>
+      ) : (
+        <GuestCameraTierPicker
+          eventId={eventId}
+          guestCount={guestCount}
+          live={live}
+          currentTier={currentTier}
+          dayLabel={dayLabel}
+          limited={{
+            billPhp: limitedQuote.frozenBillPhp,
+            perDayPhp: limitedQuote.ratePhp,
+            cameraCap: limitedQuote.cameraCap,
+          }}
+          unlimited={{
+            billPhp: unlimitedQuote.frozenBillPhp,
+            perDayPhp: unlimitedQuote.ratePhp,
+            cameraCap: unlimitedQuote.cameraCap,
+          }}
+        />
+      )}
+    </div>
   );
 }
 
 // -----------------------------------------------------------------------------
-// Status banners (Drive connect / disconnect / error + storage switch result)
+// Status banners
 // -----------------------------------------------------------------------------
 
 function StatusBanners({
@@ -593,6 +694,15 @@ function StatusBanners({
   storageSet,
   storageError,
   connectedAccount,
+  papicPurchased,
+  papicRef,
+  papicAmount,
+  papicUnlockProvisioned,
+  papicError,
+  limitedSynced,
+  limitedError,
+  papicWindowSaved,
+  papicWindowError,
 }: {
   driveConnected: boolean;
   driveDisconnected: boolean;
@@ -600,79 +710,173 @@ function StatusBanners({
   storageSet: string | undefined;
   storageError: string | undefined;
   connectedAccount: string | null;
+  papicPurchased: string | undefined;
+  papicRef: string | undefined;
+  papicAmount: string | undefined;
+  papicUnlockProvisioned: string | undefined;
+  papicError: string | undefined;
+  limitedSynced: string | undefined;
+  limitedError: string | undefined;
+  papicWindowSaved: string | undefined;
+  papicWindowError: string | undefined;
 }) {
+  const ok =
+    'inline-flex items-center gap-2 rounded-2xl border border-success-300/70 bg-success-50 px-4 py-3 text-sm text-success-900';
+  const neutral =
+    'inline-flex items-start gap-2 rounded-2xl border border-ink/15 bg-cream px-4 py-3 text-sm text-ink/75';
+  const bad =
+    'inline-flex items-start gap-2 rounded-2xl border border-danger-300/70 bg-danger-50 px-4 py-3 text-sm text-danger-900';
+
+  const hasAny =
+    driveConnected ||
+    driveDisconnected ||
+    driveError ||
+    storageSet ||
+    storageError ||
+    papicPurchased ||
+    papicUnlockProvisioned ||
+    papicError ||
+    limitedSynced !== undefined ||
+    limitedError ||
+    papicWindowSaved !== undefined ||
+    papicWindowError;
+  if (!hasAny) return null;
+
   return (
     <div className="space-y-3">
-      {driveConnected ? (
-        <p
-          role="status"
-          className="inline-flex items-center gap-2 rounded-2xl border border-success-300/70 bg-success-50 px-4 py-3 text-sm text-success-900"
-        >
+      {papicPurchased ? (
+        <div className={neutral}>
+          <Clock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+          <span>
+            Order received{papicAmount ? ` — ${formatPhp(Number(papicAmount))} due` : ''}.
+            Reference <span className="font-mono">{papicRef}</span>. Payment
+            instructions are on the way; your cameras activate once the Setnayan
+            team confirms your transfer.
+          </span>
+        </div>
+      ) : null}
+
+      {papicUnlockProvisioned ? (
+        <p className={ok}>
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Google Drive connected
-          {connectedAccount ? ` — ${connectedAccount}` : ''}. Your Setnayan
-          folder structure is ready in your Drive.
+          {papicUnlockProvisioned} Unlimited camera
+          {papicUnlockProvisioned === '1' ? '' : 's'} added — free with Unlock all.
+        </p>
+      ) : null}
+
+      {limitedSynced !== undefined ? (
+        <p className={ok}>
+          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          {Number(limitedSynced) > 0
+            ? `${limitedSynced} new guest camera${limitedSynced === '1' ? '' : 's'} added from your list.`
+            : 'Your guest cameras are up to date.'}
+        </p>
+      ) : null}
+
+      {papicWindowSaved !== undefined ? (
+        <p className={ok}>
+          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Capture window saved — {papicWindowSaved} day
+          {papicWindowSaved === '1' ? '' : 's'}. Your camera prices reflect it.
+        </p>
+      ) : null}
+
+      {papicWindowError ? (
+        <p className={bad}>
+          <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+          {papicWindowError === 'end_after_event_date'
+            ? 'Capture has to cover your event day — start on or before it.'
+            : papicWindowError === 'start_after_end'
+              ? 'The end date is before the start date.'
+              : papicWindowError === 'missing_event_date'
+                ? 'Set your event date first, then choose a window.'
+                : 'Could not save the window — please try again.'}
+        </p>
+      ) : null}
+
+      {papicError === 'min_extras' ? (
+        <p className={bad}>
+          <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+          Add at least one extra camera.
+        </p>
+      ) : papicError === 'min_cameras' ? (
+        <p className={bad}>
+          <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+          Please pick at least 5 cameras.
+        </p>
+      ) : papicError ? (
+        <p className={bad}>
+          <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+          Something went wrong — please try again.
+        </p>
+      ) : null}
+
+      {limitedError === 'no_guests' ? (
+        <p className={bad}>
+          <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+          Add your guests first — Limited cameras come from the guest list.
+        </p>
+      ) : limitedError === 'below_min' ? (
+        <p className={neutral}>
+          <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+          Your first 5 cameras are free — you&rsquo;re covered. Paid Limited starts
+          at a 5-guest list.
+        </p>
+      ) : limitedError ? (
+        <p className={bad}>
+          <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+          Could not activate Limited — please try again.
+        </p>
+      ) : null}
+
+      {driveConnected ? (
+        <p className={ok}>
+          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Google Drive connected{connectedAccount ? ` — ${connectedAccount}` : ''}.
+          Your Setnayan folder is ready in your Drive.
         </p>
       ) : null}
 
       {driveDisconnected ? (
-        <p
-          role="status"
-          className="inline-flex items-center gap-2 rounded-2xl border border-ink/15 bg-cream px-4 py-3 text-sm text-ink/75"
-        >
-          <Unlink2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Google Drive disconnected. Storage is back on Setnayan R2 — reconnect
-          any time to switch back.
+        <p className={neutral}>
+          <Unlink2 aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+          Google Drive disconnected. Storage is back on Setnayan.
         </p>
       ) : null}
 
       {driveError ? (
-        <p
-          role="alert"
-          className="inline-flex items-start gap-2 rounded-2xl border border-danger-300/70 bg-danger-50 px-4 py-3 text-sm text-danger-900"
-        >
+        <p className={bad}>
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
           <span>
             Google Drive connection failed (
-            <span className="font-mono text-xs">{driveError}</span>
-            ). Try again, or contact support if this persists.
+            <span className="font-mono text-xs">{driveError}</span>). Try again, or
+            contact support.
           </span>
         </p>
       ) : null}
 
       {storageSet === 'r2' ? (
-        <p
-          role="status"
-          className="inline-flex items-center gap-2 rounded-2xl border border-success-300/70 bg-success-50 px-4 py-3 text-sm text-success-900"
-        >
+        <p className={ok}>
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Storage set to Setnayan — we&rsquo;ll keep a secure copy of every photo.
+          Storage set to Setnayan — we keep a secure copy of every photo.
         </p>
       ) : null}
-
       {storageSet === 'drive' ? (
-        <p
-          role="status"
-          className="inline-flex items-center gap-2 rounded-2xl border border-success-300/70 bg-success-50 px-4 py-3 text-sm text-success-900"
-        >
+        <p className={ok}>
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Storage set to your Google Drive only.
         </p>
       ) : null}
 
       {storageError ? (
-        <p
-          role="alert"
-          className="inline-flex items-start gap-2 rounded-2xl border border-danger-300/70 bg-danger-50 px-4 py-3 text-sm text-danger-900"
-        >
+        <p className={bad}>
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
           <span>
-            Could not update storage target (
-            <span className="font-mono text-xs">{storageError}</span>
-            ).{' '}
+            Could not update storage (
+            <span className="font-mono text-xs">{storageError}</span>).{' '}
             {storageError === 'connect_drive_first'
-              ? 'Connect Google Drive before switching to Drive-only storage.'
-              : 'Try again, or contact support if this persists.'}
+              ? 'Connect Google Drive before switching to Drive-only.'
+              : 'Try again, or contact support.'}
           </span>
         </p>
       ) : null}
@@ -681,7 +885,7 @@ function StatusBanners({
 }
 
 // -----------------------------------------------------------------------------
-// Section 1 — Storage choice (radio cards) + Drive connect
+// Storage choice (radio cards) + Drive connect
 // -----------------------------------------------------------------------------
 
 function StorageChoiceCard({
@@ -703,29 +907,20 @@ function StorageChoiceCard({
   return (
     <article
       id="papic-storage"
-      className="scroll-mt-20 space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6"
+      className="scroll-mt-20 space-y-4 sn-tile p-5 sm:p-6"
     >
       <div className="space-y-1">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Section 1 · where your photos go
-        </p>
-        <h2 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
+        <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
           <Cloud aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-          Pick where Papic writes your photos
+          Where your photos go
         </h2>
-        <p className="max-w-prose text-sm text-ink/65">
-          Each photo your crew shoots needs somewhere to land in real time.
-          Setnayan storage is the default — fast and reliable. You can also
-          point Papic at your own Google Drive if you&rsquo;d rather skip
-          the Setnayan copy entirely.
+        <p className="max-w-prose text-sm text-ink/60">
+          Setnayan storage is the default. You can point Papic at your own Google
+          Drive instead.
         </p>
       </div>
 
-      <ul
-        role="radiogroup"
-        aria-label="Papic storage target"
-        className="space-y-3"
-      >
+      <ul role="radiogroup" aria-label="Papic storage target" className="space-y-3">
         <li>
           <StorageOptionR2 eventId={eventId} selected={r2Selected} />
         </li>
@@ -740,10 +935,7 @@ function StorageChoiceCard({
         </li>
       </ul>
 
-      <p className="text-xs text-ink/55">
-        You can switch any time. Photos already uploaded stay where they
-        landed — switching the target only affects new captures.
-      </p>
+      <p className="text-xs text-ink/55">Switch any time — it only affects new photos.</p>
     </article>
   );
 }
@@ -760,30 +952,23 @@ function StorageOptionR2({
       action={setPapicStorageR2}
       className={
         selected
-          ? 'block rounded-xl border-2 border-terracotta bg-terracotta/5 p-4 sm:p-5'
-          : 'block rounded-xl border border-ink/10 bg-cream/60 p-4 sm:p-5 hover:border-ink/20'
+          ? 'block rounded-xl border-2 border-terracotta bg-terracotta/5 p-4'
+          : 'block rounded-xl border border-ink/10 bg-cream/60 p-4 hover:border-ink/20'
       }
     >
       <input type="hidden" name="event_id" value={eventId} />
-      <button
-        type="submit"
-        aria-pressed={selected}
-        className="flex w-full items-start gap-3 text-left"
-      >
+      <button type="submit" aria-pressed={selected} className="flex w-full items-start gap-3 text-left">
         <RadioDot selected={selected} />
-        <div className="flex-1 space-y-1.5">
+        <div className="flex-1 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-base font-semibold text-ink">
-              Setnayan storage
-            </span>
+            <span className="text-sm font-semibold text-ink">Setnayan storage</span>
             <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
               <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
               Recommended
             </span>
           </div>
-          <p className="text-sm text-ink/70">
-            Fast and reliable. We keep a secure copy of every photo. No
-            setup, no storage limits to manage.
+          <p className="text-xs text-ink/65">
+            Fast and reliable. We keep a secure copy of every photo. No setup.
           </p>
         </div>
       </button>
@@ -807,16 +992,13 @@ function StorageOptionDrive({
   const connected = !!driveGrant;
   const disabled = !driveOAuthReady;
   const containerClass = selected
-    ? 'rounded-xl border-2 border-terracotta bg-terracotta/5 p-4 sm:p-5'
+    ? 'rounded-xl border-2 border-terracotta bg-terracotta/5 p-4'
     : disabled
-      ? 'rounded-xl border border-dashed border-ink/15 bg-cream/40 p-4 sm:p-5 opacity-90'
-      : 'rounded-xl border border-ink/10 bg-cream/60 p-4 sm:p-5 hover:border-ink/20';
+      ? 'rounded-xl border border-dashed border-ink/15 bg-cream/40 p-4 opacity-90'
+      : 'rounded-xl border border-ink/10 bg-cream/60 p-4 hover:border-ink/20';
 
   return (
     <div className={containerClass}>
-      {/* Outer form selects the Drive target. Always rendered; the submit
-          button is disabled when no grant exists OR when env vars are
-          missing. */}
       <form action={setPapicStorageDrive}>
         <input type="hidden" name="event_id" value={eventId} />
         <button
@@ -826,9 +1008,9 @@ function StorageOptionDrive({
           className="flex w-full items-start gap-3 text-left disabled:cursor-not-allowed"
         >
           <RadioDot selected={selected} disabled={disabled || !connected} />
-          <div className="flex-1 space-y-2">
+          <div className="flex-1 space-y-1.5">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-base font-semibold text-ink">
+              <span className="text-sm font-semibold text-ink">
                 Use my Google Drive only
               </span>
               {disabled ? (
@@ -843,35 +1025,22 @@ function StorageOptionDrive({
                 </span>
               ) : null}
             </div>
-            <p className="text-sm text-ink/65">
-              <em className="not-italic text-ink/75">Heads up:</em> weddings can
-              produce 30–60 GB of photos. Make sure your Google Drive has the
-              space — you may need to upgrade to a paid Google One plan. If
-              your Drive runs out of space or loses connection during the
-              event, Setnayan won&rsquo;t have a backup copy.
+            <p className="text-xs text-ink/65">
+              Weddings can run 30–60 GB — make sure your Drive has space. If it
+              runs out or disconnects, Setnayan won&rsquo;t have a backup copy.
             </p>
           </div>
         </button>
       </form>
 
-      {/* Below the radio button: either the "coming soon" caption, the
-          Connect Drive CTA, or the connected panel. Kept OUTSIDE the
-          enclosing form so clicking Connect doesn't also submit the
-          storage-target switch. */}
       <div className="mt-3 pl-7">
         {disabled ? (
           <p className="text-xs italic text-ink/55">
-            Coming soon — admin setup pending. Setnayan&rsquo;s Google Drive
-            OAuth verified-app review is still in progress (1–4 week window).
-            Setnayan storage works today; we&rsquo;ll email you the moment
-            Drive is ready.
+            Coming soon — Setnayan&rsquo;s Drive verified-app review is in progress.
+            Setnayan storage works today; we&rsquo;ll email you when Drive is ready.
           </p>
         ) : connected ? (
-          <DriveConnectedPanel
-            eventId={eventId}
-            grant={driveGrant!}
-            loginEmail={loginEmail}
-          />
+          <DriveConnectedPanel eventId={eventId} grant={driveGrant!} loginEmail={loginEmail} />
         ) : (
           <DriveConnectCTA eventId={eventId} />
         )}
@@ -904,9 +1073,7 @@ function RadioDot({
           : 'mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/30 bg-cream'
       }
     >
-      {selected ? (
-        <span className="inline-block h-2 w-2 rounded-full bg-terracotta" />
-      ) : null}
+      {selected ? <span className="inline-block h-2 w-2 rounded-full bg-terracotta" /> : null}
     </span>
   );
 }
@@ -923,15 +1090,13 @@ function DriveConnectCTA({ eventId }: { eventId: string }) {
         Connect Google Drive
       </Link>
       <p className="text-xs text-ink/55">
-        You&rsquo;ll be redirected to Google, then bounced back here — takes
-        about 20 seconds. Connect once and it covers your recap and
-        photographer hand-off too.
+        ~20 seconds. Connect once — it covers your recap and photographer hand-off too.
       </p>
     </div>
   );
 }
 
-function DriveConnectedPanel({
+async function DriveConnectedPanel({
   eventId,
   grant,
   loginEmail,
@@ -941,22 +1106,44 @@ function DriveConnectedPanel({
   loginEmail: string | null;
 }) {
   const accountLabel = grant.external_account_display ?? 'Connected Drive';
+
+  // The 2nd Drive (owner 2026-07-11 · up to 2 Drives per event). Queried here so
+  // the connected panel can show its state without threading through 3 parents.
+  const overflowSupabase = await createClient();
+  const overflowGrant = (await overflowSupabase
+    .from('oauth_grants')
+    .select('external_account_display, connection_health')
+    .eq('event_id', eventId)
+    .eq('provider', 'drive_overflow')
+    .is('revoked_at', null)
+    .maybeSingle()
+    .then((r) => r.data ?? null)) as {
+    external_account_display: string | null;
+    connection_health: 'ok' | 'needs_reauth' | null;
+  } | null;
+
+  // "Storage is full" detection: originals that exhausted every retry with a
+  // Drive-quota error (Drive #1 full and no usable overflow, or BOTH full). The
+  // web gallery is always safe on R2 — this only means some full-res didn't reach
+  // Drive. Count is capped at 1 (head:true) — we only need "any".
+  const strandedFull =
+    (
+      await overflowSupabase
+        .from('drive_copy_artifacts')
+        .select('artifact_id', { count: 'exact', head: true })
+        .eq('event_id', eventId)
+        .is('drive_file_id', null)
+        .gte('attempt_count', 5)
+        .ilike('last_error_text', '%storageQuotaExceeded%')
+    ).count ?? 0;
   const grantedDate = new Date(grant.granted_at).toLocaleDateString('en-PH', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
   });
-  // Fall back to the canonical hard-coded folder list if metadata is empty
-  // for any reason — keeps the UI deterministic even if a future migration
-  // changes the JSONB shape.
   const subfolders =
-    grant.metadata?.drive_subfolders?.map((s) => s.name) ??
-    [...PAPIC_DRIVE_SUBFOLDERS];
+    grant.metadata?.drive_subfolders?.map((s) => s.name) ?? [...PAPIC_DRIVE_SUBFOLDERS];
   const folderName = grant.metadata?.drive_folder_name ?? 'Setnayan';
-  // Surface (never block) a login≠Drive mismatch. Couples often connect a
-  // shared "ourwedding@gmail.com" on purpose — so this is a calm switch
-  // affordance, not a warning. Only when we actually know the Drive email
-  // (it can be null when Google omits userinfo) and it differs from the login.
   const accountMismatch =
     !!grant.external_account_display &&
     !!loginEmail &&
@@ -965,424 +1152,160 @@ function DriveConnectedPanel({
   return (
     <div className="space-y-3">
       {grant.connection_health === 'needs_reauth' ? (
-        <DriveReconnectBanner
-          reconnectHref={`/api/oauth/drive/start?event_id=${eventId}`}
-        />
+        <DriveReconnectBanner reconnectHref={`/api/oauth/drive/start?event_id=${eventId}`} />
+      ) : null}
+
+      {strandedFull > 0 ? (
+        <div className="rounded-xl border border-amber-300/80 bg-amber-50/70 p-3 text-[12px] text-amber-900">
+          <p className="font-medium">Your Drive is full.</p>
+          <p className="mt-0.5 text-amber-800">
+            Some full-resolution originals couldn&rsquo;t be saved to Drive — your
+            online gallery is safe, but the full-res copies are waiting. Free up
+            space{overflowGrant ? ' on either Drive' : ''}, or{' '}
+            <Link
+              href={`/api/oauth/drive/start?event_id=${eventId}&slot=overflow`}
+              className="font-medium underline underline-offset-2"
+            >
+              {overflowGrant ? 'connect more space' : 'connect a second Drive you own'}
+            </Link>{' '}
+            — they&rsquo;ll finish uploading automatically.
+          </p>
+        </div>
       ) : null}
 
       <div className="space-y-3 rounded-xl border border-success-200/80 bg-success-50/60 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1 space-y-0.5">
-          <p className="text-sm font-semibold text-ink">
-            Connected to Google Drive as {accountLabel}
-          </p>
-          <p className="font-mono text-[11px] text-ink/55">
-            Connected {grantedDate}
-          </p>
-          {accountMismatch ? (
-            <p className="text-[11px] text-ink/60">
-              Not your sign-in ({loginEmail}). That&rsquo;s fine — photos save
-              to {grant.external_account_display}.{' '}
-              <Link
-                href={`/api/oauth/drive/start?event_id=${eventId}&switch=1`}
-                className="font-medium text-mulberry underline-offset-2 hover:underline"
-              >
-                Use a different account
-              </Link>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <p className="text-sm font-semibold text-ink">
+              Connected to Google Drive as {accountLabel}
             </p>
-          ) : null}
+            <p className="font-mono text-[11px] text-ink/55">Connected {grantedDate}</p>
+            {accountMismatch ? (
+              <p className="text-[11px] text-ink/60">
+                Not your sign-in ({loginEmail}). That&rsquo;s fine — photos save to{' '}
+                {grant.external_account_display}.{' '}
+                <Link
+                  href={`/api/oauth/drive/start?event_id=${eventId}&switch=1`}
+                  className="font-medium text-mulberry underline-offset-2 hover:underline"
+                >
+                  Use a different account
+                </Link>
+              </p>
+            ) : null}
+            {overflowGrant ? (
+              <div className="space-y-1 text-[11px]">
+                <p className="text-ink/60">
+                  2nd Drive connected as{' '}
+                  <span className="font-medium text-ink/75">
+                    {overflowGrant.external_account_display ?? 'your second Drive'}
+                  </span>{' '}
+                  — new photos overflow here once the first fills.
+                </p>
+                {overflowGrant.connection_health === 'needs_reauth' ? (
+                  <p className="text-danger-600">
+                    Your 2nd Drive needs to reconnect —{' '}
+                    <Link
+                      href={`/api/oauth/drive/start?event_id=${eventId}&slot=overflow`}
+                      className="font-medium underline underline-offset-2"
+                    >
+                      reconnect it
+                    </Link>
+                    .
+                  </p>
+                ) : null}
+                <form action="/api/oauth/drive/disconnect" method="post">
+                  <input type="hidden" name="event_id" value={eventId} />
+                  <input type="hidden" name="slot" value="overflow" />
+                  <SubmitButton
+                    pendingLabel="Disconnecting…"
+                    className="text-ink/45 underline underline-offset-2 transition-colors hover:text-ink/70"
+                  >
+                    Disconnect 2nd Drive
+                  </SubmitButton>
+                </form>
+              </div>
+            ) : (
+              <p className="text-[11px] text-ink/60">
+                Running low on space? Full-resolution photos always live in your own
+                Drive — if it fills up, add a second one.{' '}
+                <Link
+                  href={`/api/oauth/drive/start?event_id=${eventId}&slot=overflow`}
+                  className="font-medium text-mulberry underline-offset-2 hover:underline"
+                >
+                  Connect a second Drive you own
+                </Link>
+                . New photos overflow into it automatically once the first is full.
+              </p>
+            )}
+          </div>
+          <form action="/api/oauth/drive/disconnect" method="post">
+            <input type="hidden" name="event_id" value={eventId} />
+            <SubmitButton
+              pendingLabel="Disconnecting…"
+              className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
+            >
+              <Unlink2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+              Disconnect
+            </SubmitButton>
+          </form>
         </div>
-        <form action="/api/oauth/drive/disconnect" method="post">
-          <input type="hidden" name="event_id" value={eventId} />
-          <SubmitButton
-            pendingLabel="Disconnecting…"
-            className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
-          >
-            <Unlink2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Disconnect
-          </SubmitButton>
-        </form>
-      </div>
 
-      <div className="rounded-lg border border-ink/10 bg-cream/80 p-3">
-        <div className="flex items-center gap-1.5 text-ink/65">
-          <FolderTree aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em]">
-            Folder structure ready in your Drive
-          </span>
+        <div className="rounded-lg border border-ink/10 bg-cream/80 p-3">
+          <div className="flex items-center gap-1.5 text-ink/65">
+            <FolderTree aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em]">
+              Folder structure ready in your Drive
+            </span>
+          </div>
+          <p className="mt-1.5 font-mono text-xs text-ink/85">Setnayan / {folderName} /</p>
+          <ul className="mt-1 space-y-0.5 pl-4 font-mono text-xs text-ink/65">
+            {subfolders.map((name) => (
+              <li key={name}>{name}/</li>
+            ))}
+          </ul>
         </div>
-        <p className="mt-1.5 font-mono text-xs text-ink/85">
-          Setnayan / {folderName} /
-        </p>
-        <ul className="mt-1 space-y-0.5 pl-4 font-mono text-xs text-ink/65">
-          {subfolders.map((name) => (
-            <li key={name}>{name}/</li>
-          ))}
-        </ul>
-      </div>
       </div>
     </div>
   );
 }
 
 // -----------------------------------------------------------------------------
-// Section 2 — Seat status (PRESERVED from scaffold)
+// Gallery preview
 // -----------------------------------------------------------------------------
-
-function SeatStatusCard({
-  eventId,
-  pack,
-  pricePhp,
-  seats,
-  claimed,
-  unclaimed,
-  total,
-}: {
-  eventId: string;
-  pack: 'paparazzi_5_seats' | 'paparazzi_3_seats';
-  pricePhp: number;
-  seats: ReadonlyArray<MockSeat>;
-  claimed: number;
-  unclaimed: number;
-  total: number;
-}) {
-  // TODO(0012): wire the "Send setup QR to crew" CTA to the personal-QR
-  // delivery pipeline (0002). For V1.5+ scaffold this is mock copy-link
-  // only — no real QR is generated.
-  return (
-    <article className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Section 2 · seat status
-          </p>
-          <h2 className="text-xl font-semibold tracking-tight">
-            {seatPackLabel(pack)} ·{' '}
-            <span className="font-mono text-base text-terracotta">
-              {formatPhp(pricePhp)}
-            </span>
-          </h2>
-        </div>
-        <div className="inline-flex items-center gap-2 rounded-full bg-terracotta/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
-          <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          {claimed}/{total} claimed
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Stat label="Total seats" value={total.toString()} />
-        <Stat label="Claimed by crew" value={claimed.toString()} />
-        <Stat label="Still open" value={unclaimed.toString()} accent={unclaimed > 0} />
-      </div>
-
-      <ul className="divide-y divide-ink/5 rounded-xl border border-ink/10 bg-cream/60">
-        {seats.map((seat) => (
-          <li
-            key={seat.id}
-            className="flex items-center justify-between gap-3 p-3 sm:p-4"
-          >
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-                <Smartphone aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-ink">
-                  {seat.label}
-                </p>
-                <p className="truncate text-xs text-ink/60">
-                  {seat.claimedBy ?? 'Unclaimed — waiting for crew member'}
-                </p>
-              </div>
-            </div>
-            {seat.proBridge ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
-                <Aperture aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-                {seat.proBridge.brand}
-              </span>
-            ) : seat.claimedBy ? (
-              <span className="rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                Phone only
-              </span>
-            ) : (
-              <span className="rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-                Pending
-              </span>
-            )}
-          </li>
-        ))}
-      </ul>
-
-      <div className="space-y-3 rounded-xl border border-dashed border-ink/15 bg-cream/60 p-3 sm:p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 space-y-0.5">
-            <p className="text-sm font-medium text-ink">Invite the rest of your crew</p>
-            <p className="text-xs text-ink/60">
-              Each unclaimed seat gets a wedding-scoped setup link — your
-              paparazzo opens it on their phone and the seat token claims to
-              their device.
-            </p>
-          </div>
-          {/* TODO(0012): replace with a server action that generates a
-              wedding-scoped setup QR via 0002's QR system. For now this is
-              a preview placeholder — Papic native iOS/Android shells are
-              V1.5+ per CLAUDE.md 2026-05-16 Papic architecture lock. */}
-          <span
-            className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-ink/5 px-4 py-2 text-sm font-medium text-ink/55"
-            aria-label="Send setup QR to crew — coming with the Papic native app (V1.5+)"
-          >
-            <Share2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Send setup QR to crew
-          </span>
-        </div>
-        <p className="rounded-md bg-ink/5 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-          Coming with the Papic native app (V1.5+). Setup link preview:{' '}
-          <span className="break-all font-mono text-ink/70">{`setnayan.com/papic/setup/${eventId}`}</span>
-        </p>
-      </div>
-    </article>
-  );
-}
-
-function ProCameraBridgeCard({
-  seats,
-  bridgeSeats,
-  totalSeats,
-}: {
-  seats: ReadonlyArray<MockSeat>;
-  bridgeSeats: number;
-  totalSeats: number;
-}) {
-  // TODO(0012): wire DSLR bridge purchase into apply-then-pay (0034)
-  // service_orders flow. Each bridge purchase is per device-pair,
-  // multi-purchase, shared SKU between 0011 Panood and 0012 Papic.
-  // TODO(0012): wire vendor SDK pairing handshakes (Canon EOS Camera
-  // Connect / Nikon SnapBridge / Sony Camera Remote / Fujifilm Camera
-  // Remote) into the native app — web V1 cannot speak these SDKs.
-  return (
-    <article className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Section 3 · DSLR Pro Camera Bridge
-          </p>
-          <h2 className="text-xl font-semibold tracking-tight">
-            Pair a real camera body —{' '}
-            <span className="font-mono text-base text-success-700">
-              included with Papic
-            </span>
-          </h2>
-        </div>
-        <div className="inline-flex items-center gap-2 rounded-full bg-terracotta/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
-          <Aperture aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          {bridgeSeats} of {totalSeats} bridged
-        </div>
-      </div>
-
-      <p className="max-w-prose text-sm text-ink/70">
-        Turn one phone seat into a phone + DSLR pair. The phone keeps doing
-        all of the work — gesture shutter, QR tagging, EXIF stamping,
-        adaptive compression, upload — and the camera body
-        provides the optical glass. Multi-purchase: one bridge per phone-
-        camera pair.
-      </p>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {SDK_MATRIX.map((row) => (
-          <div
-            key={row.brand}
-            className="rounded-xl border border-ink/10 bg-cream/60 p-3"
-          >
-            <p className="text-sm font-semibold text-ink">{row.brand}</p>
-            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-              {row.sdk}
-            </p>
-            <p className="mt-1 text-xs text-ink/65">{row.bodies}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="rounded-xl border border-dashed border-ink/15 bg-cream/60 p-3 sm:p-4">
-        <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Active bridges
-        </p>
-        {bridgeSeats === 0 ? (
-          <p className="text-sm text-ink/65">
-            No seats are bridged yet. Each bridge unlocks per device-pair,
-            so you can mix phone-only and phone + DSLR seats however your
-            crew is rigged.
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {seats
-              .filter((s) => s.proBridge !== null)
-              .map((s) => (
-                <li
-                  key={s.id}
-                  className="flex items-center justify-between gap-3 rounded-lg bg-cream px-3 py-2"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-ink">
-                      {s.label} · {s.claimedBy}
-                    </p>
-                    <p className="truncate text-xs text-ink/60">
-                      Paired with {s.proBridge?.brand} {s.proBridge?.model}
-                    </p>
-                  </div>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-900">
-                    Active
-                  </span>
-                </li>
-              ))}
-          </ul>
-        )}
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-prose text-xs text-ink/55">
-          Bridging is included with your Papic seats — no extra purchase. One
-          bridge per phone-camera pair, on whichever surface the paired phone
-          is running (Papic or Panood live stream).
-        </p>
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-md border border-terracotta px-4 py-2 text-sm font-medium text-terracotta hover:bg-terracotta/5 disabled:opacity-70"
-          disabled
-          aria-label="Pair a Pro Camera Bridge to a seat (coming with native app)"
-        >
-          <Aperture aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Add bridge to a seat
-        </button>
-      </div>
-    </article>
-  );
-}
-
-function GestureReferenceCard() {
-  return (
-    <article className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
-      <div className="space-y-1">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Section 4 · gesture shutter
-        </p>
-        <h2 className="text-xl font-semibold tracking-tight">
-          Teach your crew the four shutter gestures
-        </h2>
-        <p className="max-w-prose text-sm text-ink/65">
-          Papic&rsquo;s shutter handles photo, photo + flash, 5-second clip,
-          and 5-second clip + flash — all from one button. Front camera is
-          disabled by design (rear-only, locked 2026-05-09) so the optical
-          quality stays high.
-        </p>
-      </div>
-
-      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {GESTURES.map((g) => (
-          <li
-            key={g.id}
-            className="flex items-start gap-3 rounded-xl border border-ink/10 bg-cream/60 p-3 sm:p-4"
-          >
-            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-              <g.Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-            </span>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-ink">{g.title}</p>
-              <p className="mt-0.5 text-xs text-ink/65">{g.body}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
-
-      <div className="flex items-start gap-2 rounded-xl border border-dashed border-ink/15 bg-cream/60 p-3 sm:p-4">
-        <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.75} />
-        <p className="text-xs text-ink/65">
-          Every clip is exactly 5 seconds — no shorter. Once your
-          paparazzo drags right, the recording runs the full 5 seconds and
-          uploads in the background. They can walk away, tag a guest,
-          or shoot again — nothing is lost.
-        </p>
-      </div>
-    </article>
-  );
-}
 
 async function GalleryPreviewCard({
   eventId,
-  samplerExpiringCount,
-  samplerDaysLeft,
 }: {
   eventId: string;
-  samplerExpiringCount: number;
-  samplerDaysLeft: number | null;
 }) {
-  // Real gallery — the couple's actual crew + guest captures with presigned
-  // thumbnails. NSFW-blocked / hidden / expired-sampler photos are filtered out
-  // in fetchPapicGallery; untagged photos still show (untagged-still-delivered).
   const supabase = await createClient();
   const [photos, densityRows] = await Promise.all([
     fetchPapicGallery(supabase, eventId),
-    getKwentoDensity(eventId, 60), // enough to cover the gallery limit
+    getKwentoDensity(eventId, 60),
   ]);
   const hasPhotos = photos.length > 0;
   const kwentoDensity = new Map(densityRows.map((r) => [r.photoId, r.density]));
 
   return (
-    <article className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
+    <article className="space-y-4 sn-tile p-5 sm:p-6">
       <div className="space-y-1">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Your gallery
-        </p>
-        <h2 className="text-xl font-semibold tracking-tight">
-          {hasPhotos ? 'Every photo your crew shoots' : 'What your gallery looks like'}
+        <h2 className="text-lg font-semibold tracking-tight">
+          {hasPhotos ? 'Your gallery' : 'What your gallery looks like'}
         </h2>
-        <p className="max-w-prose text-sm text-ink/65">
-          Guests who scan a personal or table QR are tagged on the
-          spot. Anything still untagged stays in your gallery — Papic
-          never drops a photo because of a missing tag.
+        <p className="max-w-prose text-sm text-ink/60">
+          Guests who scan a personal or table QR are tagged on the spot. Untagged
+          photos still land here — Papic never drops a photo.
         </p>
       </div>
-
-      {samplerExpiringCount > 0 && (
-        <div className="flex items-start gap-2 rounded-lg border border-terracotta/30 bg-terracotta/5 px-4 py-3 text-sm text-ink/80">
-          <Clock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
-          <span>
-            <b className="font-medium">
-              {samplerExpiringCount === 1
-                ? 'Your free sampler photo '
-                : `Your ${samplerExpiringCount} free sampler photos `}
-              {samplerDaysLeft === null
-                ? `are kept for ${PAPIC_SAMPLER_RETENTION_DAYS} days`
-                : samplerDaysLeft === 0
-                  ? `${samplerExpiringCount === 1 ? 'expires' : 'expire'} today`
-                  : `${samplerExpiringCount === 1 ? 'expires' : 'expire'} in ${samplerDaysLeft} ${samplerDaysLeft === 1 ? 'day' : 'days'}`}
-              .
-            </b>{' '}
-            Keep them forever —{' '}
-            <Link
-              href="#papic-keep"
-              className="font-medium text-terracotta underline-offset-2 hover:underline"
-            >
-              save your own copy or upgrade
-            </Link>
-            .
-          </span>
-        </div>
-      )}
 
       {hasPhotos ? (
         <PapicGalleryGrid photos={photos} eventId={eventId} kwentoDensity={kwentoDensity} />
       ) : (
-        <div className="rounded-xl border border-dashed border-ink/15 bg-cream/60 p-6 text-center">
+        <div className="sn-row p-6 text-center">
           <p className="text-sm text-ink/65">
-            Your gallery fills up as your crew shoots. Share a seat link and the
-            first photos land here in real time.
+            Your gallery fills up as your crew shoots — the first photos land here
+            in real time.
           </p>
-          <Link
-            href={`/dashboard/${eventId}/studio/papic/crew`}
-            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:text-terracotta-700"
-          >
-            Set up your crew
-            <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-          </Link>
         </div>
       )}
 
@@ -1404,158 +1327,107 @@ function LegendDot({ color, label }: { color: string; label: string }) {
   );
 }
 
-function SettingsCard() {
-  // TODO(0012): wire these toggles to per-event settings in Supabase
-  // once the schema lands. For now they render as disabled previews
-  // showing the V1 defaults from the spec.
-  return (
-    <article className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
-      <div className="space-y-1">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Section 6 · settings
-        </p>
-        <h2 className="text-xl font-semibold tracking-tight">Capture defaults</h2>
-        <p className="max-w-prose text-sm text-ink/65">
-          V1 settings ship locked-down — your paparazzi never have to
-          configure the app. Battery + storage warnings are the only
-          surfaces that flip during a real event.
-        </p>
-      </div>
+// -----------------------------------------------------------------------------
+// Setup & help sections (folded under the disclosure)
+// -----------------------------------------------------------------------------
 
-      <ul className="divide-y divide-ink/5 rounded-xl border border-ink/10 bg-cream/60">
-        <SettingsRow
-          Icon={BatteryWarning}
-          title="Battery warning at 20%"
-          body="When a seat phone drops below 20%, the Papic app surfaces a manual-handoff QR so the next person on standby can claim the seat without losing any queued uploads."
-          status="V1 default"
-        />
-        <SettingsRow
-          Icon={HardDrive}
-          title="Storage — app sandbox only"
-          body="Captures live in the Papic app's private storage with a 24-hour purge after successful upload. Photos never leak into your paparazzo's camera roll."
-          status="V1 default"
-        />
-        <SettingsRow
-          Icon={Camera}
-          title="Save copies to camera roll"
-          body="Opt-in only. Defaults off — if your paparazzo wants their own copy they can flip this on inside the Papic app."
-          status="Off by default"
-        />
-        <SettingsRow
-          Icon={CircleHelp}
-          title="Front camera"
-          body="Front camera is disabled — Papic is rear-only so the photo quality stays high. Locked 2026-05-09."
-          status="Rear only"
-        />
-        <SettingsRow
-          Icon={Hand}
-          title="Manual handoff QR"
-          body="At 20% battery the upload chip flips to a handoff pill. The backup paparazzo scans the QR, the seat token transfers, and queued uploads keep draining from the old device."
-          status="V1 default"
-        />
-      </ul>
-    </article>
-  );
-}
-
-function SettingsRow({
-  Icon,
-  title,
-  body,
-  status,
-}: {
-  Icon: typeof Camera;
-  title: string;
-  body: string;
-  status: string;
-}) {
+function DslrBridgeSection() {
   return (
-    <li className="flex items-start gap-3 p-3 sm:p-4">
-      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-        <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-ink">{title}</p>
-        <p className="mt-0.5 text-xs text-ink/65">{body}</p>
-      </div>
-      <span className="ml-auto shrink-0 self-start rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/60">
-        {status}
-      </span>
-    </li>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  accent = false,
-}: {
-  label: string;
-  value: string;
-  accent?: boolean;
-}) {
-  return (
-    <div
-      className={
-        accent
-          ? 'rounded-xl border border-terracotta/30 bg-terracotta/5 p-3'
-          : 'rounded-xl border border-ink/10 bg-cream/60 p-3'
-      }
-    >
-      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-        {label}
+    <div className="space-y-3">
+      <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
+        <Smartphone aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+        Pair a DSLR — ₱100 / seat / day
+      </h3>
+      <p className="max-w-prose text-sm text-ink/65">
+        Turn one camera into a phone + DSLR pair. The phone still does everything
+        — shutter, QR tagging, upload — and the DSLR provides the glass. Pairing
+        happens in the Papic mobile app over Wi-Fi (arrives with the app, V1.5);
+        there&rsquo;s nothing to set up here.
       </p>
-      <p
-        className={
-          accent
-            ? 'mt-1 text-2xl font-semibold tracking-tight text-terracotta'
-            : 'mt-1 text-2xl font-semibold tracking-tight text-ink'
-        }
-      >
-        {value}
+      <details className="rounded-lg border border-ink/10 bg-cream/60">
+        <summary className="cursor-pointer list-none px-3 py-2 text-xs font-medium text-ink/70 [&::-webkit-details-marker]:hidden">
+          Supported camera bodies
+        </summary>
+        <ul className="space-y-1.5 border-t border-ink/10 px-3 py-2.5">
+          {SDK_MATRIX.map((row) => (
+            <li key={row.brand} className="text-xs text-ink/65">
+              <span className="font-semibold text-ink">{row.brand}</span> — {row.note}
+            </li>
+          ))}
+        </ul>
+      </details>
+    </div>
+  );
+}
+
+function ShutterSection() {
+  return (
+    <div className="space-y-2">
+      <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
+        <Camera aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+        The shutter — it&rsquo;s just a tap
+      </h3>
+      <p className="max-w-prose text-sm text-ink/65">
+        In the phone browser, Papic is one shutter button with a Photo / Clip
+        toggle — tap for a photo, flip to Clip for a 5-second clip. No app to
+        install; front camera is off by design (rear-only, for quality). Every
+        clip runs the full 5 seconds and uploads in the background. Drag-to-shoot
+        and a synced flash arrive with the native app (V1.5).
       </p>
     </div>
   );
 }
 
+function CaptureDefaultsSection() {
+  const rows = [
+    {
+      Icon: BatteryWarning,
+      title: 'Battery handoff at 20%',
+      body: 'A handoff QR lets the next person take over without losing queued uploads.',
+    },
+    {
+      Icon: HardDrive,
+      title: 'App-sandbox storage',
+      body: 'Captures live in the app and purge 24h after upload — never in the camera roll (opt-in to save copies).',
+    },
+    {
+      Icon: Hand,
+      title: 'Locked-down by design',
+      body: 'Rear-only, 5-second clip cap, no settings for your crew to fiddle with.',
+    },
+  ];
+  return (
+    <div className="space-y-3">
+      <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
+        <Info aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+        Capture defaults
+      </h3>
+      <ul className="divide-y divide-ink/5 rounded-lg border border-ink/10 bg-cream/60">
+        {rows.map((r) => (
+          <li key={r.title} className="flex items-start gap-3 p-3">
+            <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
+              <r.Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-ink">{r.title}</p>
+              <p className="mt-0.5 text-xs text-ink/65">{r.body}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 // =============================================================================
-// Integration seams — every TODO below is a real follow-up engineering ticket.
-//
-// 2026-05-16 update: the storage-choice radio (Section 1) is wired
-// end-to-end against /api/oauth/drive/{start,callback,disconnect} +
-// public.oauth_grants. The remaining TODOs are the same native-app /
-// pairing / capture pipeline surfaces as before — they now have a
-// well-defined branch point: events.papic_storage_target +
-// oauth_grants.metadata.drive_folder_id.
-//
-// TODO(0012): native iOS + Android Papic capture app — phone-as-camera
-//             implementation; gesture shutter; QR scan; face detection;
-//             EXIF stamping; adaptive compression; background upload.
-//             Pairing handshakes per SDK_MATRIX above for DSLR bridges.
-// TODO(0012): capture pipeline MUST branch on events.papic_storage_target:
-//             · 'setnayan_r2' → upload to R2 setnayan-media bucket via
-//               the existing R2 helpers in apps/web/lib/r2.ts.
-//             · 'google_drive_only' → upload to the Drive folder id in
-//               oauth_grants.metadata.drive_folder_id via Drive API v3
-//               (use refreshDriveAccessToken() to mint a fresh access
-//               token before each session; handle 403 rateLimitExceeded
-//               + 429 with exponential backoff + retry queue. Drive's
-//               per-user quota is generous in aggregate but the 250 req
-//               /100 s burst limit will be exceeded by a Papic crew of
-//               5 paparazzi all firing at the cocktail hour).
-// TODO(0012): seat QR generation — wire to 0002's QR system. Each
-//             unclaimed seat needs a wedding-scoped setup link.
-// TODO(0012): apply-then-pay wiring for the DSLR Pro Camera Bridge
-//             purchase via 0034 service_orders flow.
-// TODO(0012): integration tests — no test runner exists in apps/web
-//             today. Once vitest (or similar) lands, add cases for:
-//             (a) storage-choice radio default = setnayan_r2;
-//             (b) Drive option disabled when GOOGLE_DRIVE_OAUTH_CLIENT_ID
-//                 unset; visible "coming soon" caption;
-//             (c) /api/oauth/drive/start returns 503 when env unset +
-//                 302 to Google when set;
-//             (d) /api/oauth/drive/callback rejects mismatched /
-//                 expired state;
-//             (e) bootstrap creates 5 sub-folders inside Setnayan/[event];
-//             (f) setPapicStorageDrive rejects when no active grant.
+// Integration seams (unchanged from the V1.5 scaffold):
+// TODO(0012): native iOS + Android capture app — phone-as-camera; gesture
+//   shutter; QR scan; face detection; EXIF; adaptive compression; background
+//   upload. DSLR pairing per the SDK matrix above.
+// TODO(0012): capture pipeline branches on events.papic_storage_target —
+//   'setnayan_r2' → R2 (lib/r2.ts) · 'google_drive_only' → the Drive folder in
+//   oauth_grants.metadata.drive_folder_id.
+// TODO(0012): guest personal-QR → "open my camera" capture entry (resolves the
+//   guest's roll seat). Wire after #2280 lands to avoid touching its capture
+//   route (app/papic/seat/[token]).
 // =============================================================================

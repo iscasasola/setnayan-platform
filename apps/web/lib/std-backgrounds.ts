@@ -145,7 +145,10 @@ export function resolveStdLegibility(bg: StdBackground): { veil: StdVeil; tone: 
 
 export const DEFAULT_PLAIN_COLOR = '#f3ece1';
 
-/** Elegant plain-colour presets (the couple can also use the native picker). */
+/** Elegant plain-colour presets (the couple can also use the native picker).
+ *  The last two — auspicious red + gold — give a Chinese (Tsinoy) couple a
+ *  one-tap option for their red/gold Save-the-Date (they read as elegant plain
+ *  colours for any couple). Hexes mirror RED_GOLD_PALETTE in lib/feel-palettes. */
 export const STD_PLAIN_PRESETS: readonly string[] = [
   '#f3ece1', // alabaster
   '#efe7d6', // champagne
@@ -155,6 +158,8 @@ export const STD_PLAIN_PRESETS: readonly string[] = [
   '#3a2e26', // espresso
   '#26213a', // midnight
   '#5c2542', // mulberry
+  '#7a1f2b', // auspicious red (Chinese red/gold)
+  '#c5a059', // champagne gold (Chinese red/gold)
 ];
 
 type PaperSpec = { baseColor: string; tint: string };

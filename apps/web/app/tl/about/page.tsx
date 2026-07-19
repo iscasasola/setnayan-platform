@@ -4,10 +4,8 @@ import {
   MapPin,
   Languages,
   ShieldCheck,
-  Sparkles,
   ArrowRight,
 } from 'lucide-react';
-import { Footer } from '@/app/_components/marketing/_sections';
 
 // /tl/about — Taglish edition of the brand/entity page (localization first
 // slice). The two public locales are ENGLISH (root) and TAGLISH (the real
@@ -167,10 +165,6 @@ export default function AboutPageTaglish() {
             </Link>
           </nav>
 
-          <p className="mb-4 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Tungkol sa Setnayan
-          </p>
           <h1 className="max-w-3xl font-display text-4xl leading-tight text-ink sm:text-5xl">
             Set na &rsquo;yan. Your whole wedding, all set — sa isang Filipino platform.
           </h1>
@@ -214,10 +208,12 @@ export default function AboutPageTaglish() {
               Hindi wedding coordinator ang Setnayan, at hindi kumukuha ng cut sa
               supplier bills mo. Toolkit &rsquo;to: workspace para sa guest list,
               seating, budget, at schedule; free mood board; marketplace ng
-              verified Pinoy wedding vendors na direkta mong ma-message; at optional
-              in-app services — live streaming (Panood), candid photo capture
-              (Papic), custom wedding song (Pakanta), at bespoke monograms — each
-              clear ang presyo sa piso. Kayo ng vendor ang nag-uusap sa booking;
+              verified Pinoy wedding vendors na direkta mong ma-message; at
+              in-app services — libreng single-camera livestreaming sa sarili
+              mong YouTube (Panood), candid photo capture (Papic), custom
+              wedding song (Pakanta), at bespoke monograms. Libreng gamitin ang
+              bawat service; may malinaw na presyo ang ilang upgrades, gaya ng
+              multicam control room ng Panood. Kayo ng vendor ang nag-uusap sa booking;
               hindi hinahawakan ng Setnayan ang pera.
             </p>
             <p className="text-base leading-relaxed text-ink/75">
@@ -290,7 +286,6 @@ export default function AboutPageTaglish() {
         </section>
       </main>
 
-      <Footer />
     </>
   );
 }

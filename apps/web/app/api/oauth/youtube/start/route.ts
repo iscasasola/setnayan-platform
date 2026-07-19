@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
   }
 
   // --- Graceful fallback: 503 when YOUTUBE_OAUTH_* env vars are missing ---
-  const config = getYoutubeOAuthConfig();
+  const config = await getYoutubeOAuthConfig();
   if (!config.ready) {
     return NextResponse.json(
       {

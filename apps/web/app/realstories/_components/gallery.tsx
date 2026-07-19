@@ -24,6 +24,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Search, X, ArrowRight, Play } from 'lucide-react';
+import { VendorCreditChip } from '@/app/_components/vendor-credit-chip';
 
 export type GalleryItem = {
   href: string;
@@ -48,7 +49,23 @@ export type GalleryItem = {
   witnessAttribution?: string | null;
   services?: string[] | null;    // ['Papic', 'Panood', 'Monogram', 'Setnayan AI']
   editionNumber?: number | null; // Vol. I, No. X
+  // Stories SEARCH (P4+ · volume-gated facets): the credited vendors' canonical
+  // service categories behind this story — the "service/vendor category" facet.
+  // Read-only over the already-public credit pool; unused by the tile itself
+  // (the Team chips render vendor names, this drives the facet index only).
+  serviceCategories?: string[] | null;
+  // Style-Twin Discovery: credited vendors behind the story, rendered as
+  // tappable chips below the card that deep-link to /v/[slug]. (Credit is
+  // FREE for every visible vendor — Simplicity Canon rule 2, 2026-07-16.)
+  vendors?: VendorChip[] | null;
+  // Cross-rail (Storytellers PR-D): this event also has a linked PUBLISHED
+  // creator chapter — "Watch the storyteller's cut" chip below the card
+  // (sibling link, never a nested anchor). Null/absent → no chip, byte-
+  // identical render to the pre-chapter page.
+  storytellerCutHref?: string | null;
 };
+
+export type VendorChip = { name: string; slug: string; logoUrl: string | null };
 
 // ── Boomerang (ping-pong) video player ──────────────────────────────────────
 // Pre-baked boomerang source → native loop gives seamless forward→reverse.
@@ -157,7 +174,7 @@ function BoomerangVideo({ src, poster, alt }: { src: string; poster: string | nu
 
 type TileSize = 'cover' | 'loved' | 'card';
 
-function Tile({ item, size, tag }: { item: GalleryItem; size: TileSize; tag?: string }) {
+export function Tile({ item, size, tag }: { item: GalleryItem; size: TileSize; tag?: string }) {
   const minH =
     size === 'cover'
       ? 'min-h-[320px] sm:min-h-[460px]'
@@ -168,6 +185,7 @@ function Tile({ item, size, tag }: { item: GalleryItem; size: TileSize; tag?: st
   const showVideo = Boolean(item.heroVideoUrl);
 
   return (
+    <div className="flex flex-col">
     <Link
       href={item.href}
       className={`group relative flex flex-col justify-end overflow-hidden rounded-2xl sm:rounded-3xl ${minH}`}
@@ -292,6 +310,36 @@ function Tile({ item, size, tag }: { item: GalleryItem; size: TileSize; tag?: st
         ) : null}
       </div>
     </Link>
+    {/* Style-Twin Discovery — tap straight through to the vendors who made this
+        story. Sibling of the card Link (never a nested anchor); only real
+        stories carry credits, so sample tiles render nothing here. The
+        storyteller's-cut chip (cross-rail, PR-D) rides the same row. */}
+    {(item.vendors && item.vendors.length > 0) || item.storytellerCutHref ? (
+      <div className="mt-2 flex flex-wrap items-center gap-1.5 px-0.5">
+        {item.vendors && item.vendors.length > 0 ? (
+          <>
+            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/40">
+              Team
+            </span>
+            {item.vendors.map((v) => (
+              // srcTag='editorial' — an inquiry sent from the vendor page this
+              // chip opens is labeled "Editorial Inquiry" (PR-C source taxonomy).
+              <VendorCreditChip key={v.slug} vendor={v} srcTag="editorial" />
+            ))}
+          </>
+        ) : null}
+        {item.storytellerCutHref ? (
+          <Link
+            href={item.storytellerCutHref}
+            className="inline-flex items-center gap-1.5 rounded-full border border-ink/12 bg-white/80 px-2.5 py-1 text-[11px] font-medium text-ink/75 transition-colors hover:border-terracotta/40 hover:bg-white hover:text-ink"
+          >
+            <Play aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+            Watch the storyteller&rsquo;s cut
+          </Link>
+        ) : null}
+      </div>
+    ) : null}
+    </div>
   );
 }
 

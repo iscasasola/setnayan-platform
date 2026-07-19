@@ -35,6 +35,7 @@ export type CeremonyType =
   | 'christian'
   | 'muslim'
   | 'cultural'
+  | 'chinese'
   | 'aglipayan'
   | 'lds'
   | 'sda'
@@ -791,6 +792,108 @@ function ceremonyOverlay(date: Date, ceremonyType: CeremonyType | null): string 
 }
 
 // ----------------------------------------------------------------------------
+// Chinese (Tsinoy) advisory overlay — ADVISORY ONLY, never a verdict.
+//
+// Owner-locked 2026-06-28 overlay model: a Chinese wedding is a tradition
+// layer on a primary church/civil rite (see lib/chinese-wedding.ts). This
+// builder fires for BOTH primary-chinese AND secondary/overlay-chinese —
+// callers thread the `chineseTradition` flag from isChineseWedding(event), so
+// church-primary Tsinoy couples (the common case) still get these notes.
+//
+// HARD CONTRACT (do not break):
+//   - The library NEVER computes or displays a clash / compatibility verdict
+//     or a numeric date "score." BaZi / Four Pillars stays a DELEGATE-to-a-
+//     specialist gesture — the copy explains it and the host consults a real
+//     Chinese-almanac or feng-shui reader. We never read it ourselves.
+//   - Favourable framing for the lucky numbers 8 / 6 / 9 when the date carries
+//     them, and GENTLE, non-alarming advisory notes for avoid-4, Ghost Month
+//     (7th lunar month), never "your date is cursed." These are notes a family
+//     "may consider," never a hard filter or blocker.
+//   - Wording stays consistent with the `chinese` guide in
+//     lib/wedding-traditions.ts (favour 8/6/9, avoid 4 "sounds like death,"
+//     Ghost Month, the Four Pillars / BaZi reading).
+//
+// The general number-8 / Chinese-zodiac numerology that already surfaces to
+// ALL couples (numerologyReasons + astrologyReasons) is intentionally NOT
+// duplicated here — this layer is the Chinese-specific advisory texture.
+// ----------------------------------------------------------------------------
+
+/** Digits present in the day-of-month, e.g. 26 → {2, 6}; 8 → {8}. Used to
+ *  detect a lucky-number or avoid-4 affinity in a gentle, surface way. */
+function dayDigits(date: Date): Set<number> {
+  const set = new Set<number>();
+  for (const c of String(date.getDate())) {
+    const n = Number(c);
+    if (!Number.isNaN(n)) set.add(n);
+  }
+  return set;
+}
+
+/**
+ * Approximate Ghost Month detection. The Hungry Ghost month is the 7th lunar
+ * month, which in most years overlaps mid-August through early September in
+ * the Gregorian calendar. We do NOT have a lunar-calendar lookup table in V1,
+ * so this is a deliberately soft, advisory window (Aug 1 – Sep 7) — the note
+ * itself tells the host to confirm the exact dates with their specialist, so
+ * the approximation never hardens into a verdict. V1.1 can swap in a lunar
+ * lookup for precision.
+ */
+function isApproxGhostMonth(date: Date): boolean {
+  const m = date.getMonth() + 1;
+  const d = date.getDate();
+  return (m === 8) || (m === 9 && d <= 7);
+}
+
+/**
+ * Returns Chinese-specific advisory lines for the date — favourable framing
+ * for 8/6/9, a gentle avoid-4 note, a Ghost-Month caution, plus a one-line
+ * BaZi / Four Pillars explainer that points the host to a specialist. Always
+ * POSITIVE-or-GENTLE per the contract above; never a verdict. Order: the
+ * favourable note first (warm), then the gentle advisories, then the BaZi
+ * delegate line last (the call to action).
+ */
+function chineseAdvisoryReasons(date: Date): string[] {
+  const reasons: string[] = [];
+  const digits = dayDigits(date);
+
+  // Favourable: lucky numbers in the day-of-month. 8 (prosperity) leads, then
+  // 6 (smooth / flowing) and 9 (lasting / eternity), matching the guide.
+  const lucky: string[] = [];
+  if (digits.has(8)) lucky.push('8 for prosperity');
+  if (digits.has(6)) lucky.push('6 for a smooth, flowing path');
+  if (digits.has(9)) lucky.push('9 for a love that lasts');
+  if (lucky.length > 0) {
+    reasons.push(
+      `In Chinese tradition the day carries a fortunate number — ${lucky.join(', ')}. Many Tsinoy families read these as a warm sign for the union.`,
+    );
+  }
+
+  // Gentle avoid-4 note — never alarming, framed as something some families
+  // simply consider, mirroring the guide's "sounds like death" explanation.
+  if (digits.has(4)) {
+    reasons.push(
+      'The number 4 sits in this date, which some Chinese families gently set aside because it sounds like the word for “death.” It is a preference, not a barrier — many couples wed on these days and simply note it with their elders.',
+    );
+  }
+
+  // Ghost-Month caution — soft, advisory, points to the specialist for the
+  // exact lunar dates.
+  if (isApproxGhostMonth(date)) {
+    reasons.push(
+      'This falls around the Ghost Month (the 7th lunar month), a stretch some Chinese families prefer to avoid for weddings. The exact dates shift each year by the lunar calendar, so confirm them with a Chinese-almanac or feng-shui specialist.',
+    );
+  }
+
+  // BaZi / Four Pillars — the delegate-to-specialist line. We explain the
+  // tradition and hand it off; the library never computes a reading.
+  reasons.push(
+    'A traditional Four Pillars (BaZi) reading weighs each partner’s birth date and time of birth against the day. It is a reading only a Chinese-almanac or feng-shui specialist gives — gather both birth details and consult one if you would like that blessing on the date.',
+  );
+
+  return reasons;
+}
+
+// ----------------------------------------------------------------------------
 // Special-pattern matches — palindromes, holidays, symbolic dates
 // ----------------------------------------------------------------------------
 
@@ -1013,8 +1116,29 @@ export function computeAuspiciousReasonsDetailed(
   date: Date,
   ceremonyType: CeremonyType | null,
   meaningfulDates: MeaningfulDate[] = [],
+  /**
+   * Optional. When true, append the Chinese-specific advisory layer
+   * (lucky 8/6/9, gentle avoid-4, Ghost-Month caution, BaZi delegate line).
+   * Defaults to false → output is byte-identical for every non-Chinese
+   * caller. Callers set this from isChineseWedding(event) in
+   * lib/chinese-wedding.ts so it fires for BOTH primary-chinese and
+   * secondary/overlay-chinese events. Independent of `ceremonyType`, which
+   * only carries the PRIMARY rite — a church-primary Tsinoy couple has
+   * ceremonyType='catholic' yet chineseTradition=true.
+   */
+  chineseTradition: boolean = false,
 ): AuspiciousReasonGroup[] {
   const groups: AuspiciousReasonGroup[] = [];
+
+  // Doctrinal suppression — Iglesia ni Cristo rejects luck/numerology/astrology
+  // ("superstition"), so the folk-luck layers below are skipped for INC. The
+  // practical layers (personal resonance, ceremony notes, cultural day-of-week
+  // /season, practical reframes) stay — those reflect INC's real date drivers
+  // (congregation/minister availability, community gathering). NOTE: Catholic
+  // intentionally KEEPS numerology with an honest "folk observance" overlay
+  // (see numerologyReasons) — folk Catholicism blends the two — so this gate is
+  // INC-only by design, not a blanket religious suppression.
+  const suppressFolkLuck = ceremonyType === 'inc';
 
   // 1. Personal resonance (only when host flagged dates)
   const personal = meaningfulDateResonance(date, meaningfulDates);
@@ -1026,8 +1150,8 @@ export function computeAuspiciousReasonsDetailed(
     });
   }
 
-  // 2. Numerology (always present)
-  const numerology = numerologyReasons(date, ceremonyType);
+  // 2. Numerology (present for all except INC — see suppressFolkLuck)
+  const numerology = suppressFolkLuck ? [] : numerologyReasons(date, ceremonyType);
   if (numerology.length > 0) {
     groups.push({
       category: 'numerology',
@@ -1036,8 +1160,8 @@ export function computeAuspiciousReasonsDetailed(
     });
   }
 
-  // 3. Astrology (always present · Western zodiac + Chinese year + lunar phase)
-  const astrology = astrologyReasons(date);
+  // 3. Astrology (present for all except INC · Western zodiac + Chinese year + lunar phase)
+  const astrology = suppressFolkLuck ? [] : astrologyReasons(date);
   if (astrology.length > 0) {
     groups.push({
       category: 'astrology',
@@ -1046,10 +1170,21 @@ export function computeAuspiciousReasonsDetailed(
     });
   }
 
-  // 4. Ceremony notes (only when ceremonyType + an applicable overlay)
+  // 4. Ceremony notes (only when ceremonyType + an applicable overlay).
+  //    When the Chinese tradition applies (primary OR secondary/overlay),
+  //    append the Chinese-specific advisory layer here so it surfaces under
+  //    the same "Ceremony notes" heading as the paired-rite note. Guarded by
+  //    the optional flag so non-Chinese output stays byte-identical. The
+  //    `chineseTradition` flag (NOT a ceremonyOverlay branch — that returns
+  //    null for chinese) is the single source for the Chinese advisory, so it
+  //    covers both primary chinese AND the church-primary + Chinese-secondary
+  //    overlay case that ceremonyType alone can't see (no double-emission).
   const ceremony: string[] = [];
   const overlay = ceremonyOverlay(date, ceremonyType);
   if (overlay) ceremony.push(overlay);
+  if (chineseTradition) {
+    ceremony.push(...chineseAdvisoryReasons(date));
+  }
   if (ceremony.length > 0) {
     groups.push({
       category: 'ceremony',
@@ -1123,8 +1258,19 @@ export function computeAuspiciousReasons(
   date: Date,
   ceremonyType: CeremonyType | null,
   meaningfulDates: MeaningfulDate[] = [],
+  /**
+   * Optional Chinese-tradition flag — see computeAuspiciousReasonsDetailed.
+   * Defaults to false → byte-identical output for every non-Chinese caller.
+   * Set from isChineseWedding(event) so it covers primary AND overlay chinese.
+   */
+  chineseTradition: boolean = false,
 ): string[] {
-  const groups = computeAuspiciousReasonsDetailed(date, ceremonyType, meaningfulDates);
+  const groups = computeAuspiciousReasonsDetailed(
+    date,
+    ceremonyType,
+    meaningfulDates,
+    chineseTradition,
+  );
   const flat: string[] = [];
   for (const g of groups) {
     for (const r of g.reasons) flat.push(r);
@@ -1163,6 +1309,13 @@ export function suggestMeaningfulDates(
   meaningfulDates: MeaningfulDate[],
   ceremonyType: CeremonyType | null,
   baseYear: number = new Date().getFullYear() + 1,
+  /**
+   * Optional Chinese-tradition flag — threaded straight into
+   * computeAuspiciousReasons so the guided path surfaces the same advisory
+   * layer the direct DatePicker path does. Defaults to false → byte-identical
+   * suggestions for every non-Chinese caller. Set from isChineseWedding(event).
+   */
+  chineseTradition: boolean = false,
 ): DateSuggestion[] {
   const suggestions: DateSuggestion[] = [];
   const today = new Date();
@@ -1186,7 +1339,7 @@ export function suggestMeaningfulDates(
     if (avoidExact.has(ymd)) return;
     if (suggestions.some((s) => s.date === ymd)) return; // dedupe by date
 
-    const reasons = computeAuspiciousReasons(date, ceremonyType, meaningfulDates);
+    const reasons = computeAuspiciousReasons(date, ceremonyType, meaningfulDates, chineseTradition);
     if (reasons.length === 0) return;
 
     // Build headline from the most personal/specific reason available.

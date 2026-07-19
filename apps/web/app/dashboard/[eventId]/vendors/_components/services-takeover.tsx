@@ -8,23 +8,34 @@
  *   - a `<style>` hides the global top bar on MOBILE only (desktop keeps it for
  *     the EventSwitcher + notifications; the takeover is full-screen on mobile).
  *   - the global 5-tab bottom nav stays VISIBLE at the screen bottom
- *     (nav-everywhere 2026-06-13). This surface's own section nav
- *     (Summary · Shortlist · Build · Compare) is a STICKY HEADER at the
- *     top of the page body — above the panel — so it never double-stacks the
- *     global nav. On desktop the tabs render as a top strip instead. (The
- *     standalone Lock tab was absorbed into Build 2026-06-20 — PR2.)
+ *     (nav-everywhere 2026-06-13). On mobile the docked section sub-nav
+ *     (`customer-section-subnav.tsx`, layout-mounted) is the section switcher.
+ *
+ * INTEGRATED SINGLE-SCROLL (2026-07-09): the three sections no longer swap one
+ * mount at a time. All three slots render STACKED in one vertical scroll surface
+ * — `#svc-shortlist` ("Browse the bench") · `#svc-build` ("Build your team") ·
+ * `#svc-compare` ("Compare saved builds", collapsed by default). The `BB_TAB_EVENT`
+ * bus + `?tab=` contract is UNCHANGED — the mobile dock (`customer-section-subnav.tsx`)
+ * and any `goToBuildTab` callers keep working verbatim; the bus listener now
+ * SCROLLS instead of swapping mounts. Slot component internals (the 3-state Build
+ * engine, Compare, the Shortlist accordion) are UNTOUCHED — they render as
+ * section bodies exactly as before.
+ *
+ * DESKTOP TAB STRIP REMOVED (2026-07-15, owner): with the two-column desktop
+ * layout every section is already on screen (shortlist left, build/budget/compare
+ * in the sticky right rail), so the in-page anchor nav duplicated what the eye
+ * can see. The bus/?tab= scrolling stays for the mobile dock + goToBuildTab.
  *
  * The old floating focus-mode "back X" (top-left) was REMOVED 2026-06-15
  * (nav-surfaces follow-up to #1470): the global journey bottom nav is always
  * present here, so a dedicated "back to home" affordance is vestigial.
  *
- * Phase 1 (this PR): the SHELL only. Shortlist renders today's Services
- * experience (the `PlanBudgetAccordion`, passed as `shortlistSlot`); the other
- * tabs are stubs that Phases 2–5 fill (Build engine + lock, Compare, Summary).
- * Entirely behind `BUDGET_BUILD_ENABLED` — off in production until the owner flips it.
+ * Entirely behind `BUDGET_BUILD_ENABLED` — the flag-OFF path (legacy
+ * `PlanBudgetAccordion`) lives in `page.tsx` and is unchanged.
  */
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { ChevronDown, Sparkles } from 'lucide-react';
 import {
   BUDGET_BUILD_TABS,
   TAB_META,
@@ -43,70 +54,99 @@ import {
 // goToBuildTab from './services-takeover' unchanged.
 export { BB_TAB_EVENT, goToBuildTab };
 
+/** DOM id for a section's scroll anchor. Keyed by the same tab keys the mobile
+ *  dock dispatches over the bus, so `goToBuildTab('build')` resolves to `#svc-build`. */
+const sectionId = (tab: BudgetBuildTab) => `svc-${tab}`;
+
+/** Per-section intro copy — the single-scroll headings the strip scrolls between. */
+const SECTION_HEADING: Record<BudgetBuildTab, string> = {
+  shortlist: 'Browse the bench',
+  build: 'Build your team',
+  budget: 'Your budget',
+  compare: 'Compare saved builds',
+};
+
 export function ServicesTakeover({
   // `eventId` stays in the props contract (the page passes it) but is no longer
   // read in the body since the floating "back X" that used it was removed
   // 2026-06-15. Not destructured → no unused-var lint, caller API unchanged.
-  summarySlot,
+  // `initialTab` likewise stays in the props contract but is no longer read:
+  // it only seeded the removed desktop strip's highlight — the on-mount ?tab=
+  // adoption below still handles deep-link scrolling.
   shortlistSlot,
   buildSlot,
+  budgetSlot,
   compareSlot,
-  initialTab = 'shortlist',
+  premium = false,
 }: {
   eventId: string;
-  summarySlot?: ReactNode;
   shortlistSlot?: ReactNode;
   buildSlot?: ReactNode;
+  budgetSlot?: ReactNode;
   compareSlot?: ReactNode;
   initialTab?: BudgetBuildTab;
+  /** Setnayan AI active for this event → the Merkado wears its premium tier: a
+   *  gold-accented crest strip signalling smart matching / watch guard are on
+   *  (PR-4 · S5). Purely presentational; gated on the AI subscription upstream. */
+  premium?: boolean;
 }) {
-  const [tab, setTab] = useState<BudgetBuildTab>(initialTab);
+  // Compare is the least-used + longest section → collapsed by default,
+  // expandable in place. Selecting/scrolling to Compare auto-expands it.
+  const [compareOpen, setCompareOpen] = useState(false);
+  // Budget is a collapsible lens too (calm rail by default; opens on select).
+  const [budgetOpen, setBudgetOpen] = useState(false);
 
-  // The docked section sub-nav (event layout) writes ?tab= via replaceState and
-  // may do so while THIS page is still loading — before this panel mounts. On
-  // mount, adopt the live ?tab= if it diverged from the server `initialTab`, so
-  // a tab tapped during the load is honored. Deferred to an effect (not a lazy
-  // initializer) so SSR + first client paint both agree on `initialTab` — no
-  // hydration flash; the correction lands one render later. Runs once.
-  useEffect(() => {
-    const t = new URLSearchParams(window.location.search).get('tab');
-    if (t && (BUDGET_BUILD_TABS as readonly string[]).includes(t) && t !== tab) {
-      setTab(t as BudgetBuildTab);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Switch sections AND mirror the choice into ?tab= so refresh + deep links
-  // land on the same section (2026-06-12). replaceState — flipping sections
-  // shouldn't pollute the back stack; the page never re-renders off the URL.
-  const selectTab = useCallback((next: BudgetBuildTab) => {
-    setTab(next);
+  // Scroll a section into view + mirror ?tab= for refresh/deep-links.
+  // Shared by the bus listener and the on-mount ?tab= adopt.
+  const goToSection = useCallback((next: BudgetBuildTab, smooth = true) => {
+    if (next === 'compare') setCompareOpen(true);
+    if (next === 'budget') setBudgetOpen(true);
     try {
       const url = new URL(window.location.href);
       url.searchParams.set('tab', next);
       window.history.replaceState(null, '', url);
     } catch {
-      // URL/history unavailable — the tab still switches, just client-only.
+      // URL/history unavailable — the scroll still happens, client-only.
+    }
+    const el = document.getElementById(sectionId(next));
+    if (el) {
+      el.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
     }
   }, []);
 
-  // Let slots request a tab switch via the `bb:tab` CustomEvent (see goToBuildTab).
+  // The docked section sub-nav (event layout) writes ?tab= via replaceState and
+  // may do so while THIS page is still loading — before this panel mounts. On
+  // mount, adopt the live ?tab= if it points at a non-default section, scrolling
+  // there so a tab tapped during the load is honored. Deferred to an effect (not
+  // a lazy initializer) so SSR + first client paint agree — no hydration flash.
+  // `compare` also expands. Runs once.
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('tab');
+    if (t && (BUDGET_BUILD_TABS as readonly string[]).includes(t)) {
+      const next = t as BudgetBuildTab;
+      if (next === 'compare') setCompareOpen(true);
+      if (next === 'budget') setBudgetOpen(true);
+      // Only jump for a non-shortlist target — shortlist is the top of the page
+      // and scrolling to it on every load would be pointless jank.
+      if (next !== 'shortlist') {
+        // Defer one frame so the sections have laid out before we measure.
+        requestAnimationFrame(() => goToSection(next, false));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Let slots + the mobile dock request a section via the `bb:tab` CustomEvent
+  // (see goToBuildTab). The contract is UNCHANGED for callers — the listener now
+  // SCROLLS to the section instead of swapping the mounted panel.
   useEffect(() => {
     const onTab = (e: Event) => {
       const next = (e as CustomEvent<BudgetBuildTab>).detail;
-      if (next && BUDGET_BUILD_TABS.includes(next)) selectTab(next);
+      if (next && BUDGET_BUILD_TABS.includes(next)) goToSection(next);
     };
     window.addEventListener(BB_TAB_EVENT, onTab);
     return () => window.removeEventListener(BB_TAB_EVENT, onTab);
-  }, [selectTab]);
-
-  const slots: Record<BudgetBuildTab, ReactNode> = {
-    summary: summarySlot,
-    shortlist: shortlistSlot,
-    build: buildSlot,
-    compare: compareSlot,
-  };
-  const active = slots[tab];
+  }, [goToSection]);
 
   return (
     <section
@@ -119,77 +159,143 @@ export function ServicesTakeover({
           strip lives in the content area and won't collide. (Review 2026-06-09.) */}
       <style>{`@media (max-width:1023px){.shell-topbar{display:none}}`}</style>
 
-      {/* (The floating focus-mode "back X" was removed 2026-06-15 — the global
-          bottom nav is always present, so it's vestigial. The safe-area top
-          padding above is kept because the top bar stays hidden on mobile.) */}
-
-      {/* Desktop tab strip — pill segmented control (sn-seg). Mobile uses the
-          sticky-top pill nav below. The show/hide (`hidden lg:block`) MUST live
-          on a plain wrapper, NOT on the `.sn-seg` element itself:
-          `.sn-seg { display: flex }` in globals.css has the same specificity as
-          Tailwind's `.hidden` (`display: none`) but wins on source order, so
-          `sn-seg ... hidden` never hides — it leaked the desktop strip onto
-          mobile, stacking a second (full-label, overflowing) tab bar above the
-          sticky mobile pill. Wrapping keeps the responsive toggle off `.sn-seg`,
-          mirroring the mobile strip below. */}
-      <div className="mb-4 hidden lg:block">
-        <div role="tablist" aria-label="Services sections" className="sn-seg">
-          {BUDGET_BUILD_TABS.map((key) => {
-            const { label, icon: Icon } = TAB_META[key];
-            const on = key === tab;
-            return (
-              <button
-                key={`${key}-${tab}`}
-                type="button"
-                role="tab"
-                id={`bbtab-d-${key}`}
-                aria-selected={on}
-                aria-controls="budget-build-panel"
-                onClick={() => selectTab(key)}
-                className={`sn-seg-item${on ? ' sn-bounce' : ''}`}
-              >
-                <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                {label}
-              </button>
-            );
-          })}
+      {/* Premium tier crest (S5) — shows only when Setnayan AI is active, marking
+          the Merkado as the couple's premium planning surface. Gold-accented,
+          presentational; the AI features it names (smart matching, watch guard)
+          are already live behind the same gate. */}
+      {premium ? (
+        <div className="mb-4 flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-xl border border-warn-300/50 bg-warn-50 px-4 py-2.5">
+          <Sparkles className="h-4 w-4 shrink-0 text-warn-600" strokeWidth={2} aria-hidden />
+          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-warn-800">
+            Setnayan&nbsp;AI
+          </span>
+          <span className="text-xs text-ink/60">
+            Your Merkado is on the premium tier — smart matching, fit scoring, and the watch guard are on.
+          </span>
         </div>
-      </div>
+      ) : null}
 
-      {/* Mobile section nav lives in the EVENT LAYOUT now, not here:
-          <VendorsSectionSubnav> (dashboard/[eventId]/_components) mounts the
-          reusable <SubNav> alongside the bottom nav so it paints + responds the
-          instant Explore opens — before this server-built panel resolves (owner
-          2026-06-16 "the sub nav should always respond first"). It self-gates to
-          this route, seeds from ?tab=, and drives section switches over the
-          shared BB_TAB_EVENT bus, which the `selectTab` listener below consumes.
-          Desktop (lg+) still uses the top strip above. */}
+      {/* No desktop section nav — the two-column layout puts every section on
+          screen at once (removed 2026-07-15, owner). The mobile section nav
+          lives in the EVENT LAYOUT: <CustomerSectionSubnav> drives section
+          switches over the shared BB_TAB_EVENT bus, which the `goToSection`
+          listener above consumes (scrolling, not swapping). */}
 
-      {/* Active tab content. On mobile the docked sub-nav (above) + the global
-          bottom nav both float over this, so reserve bottom space for both:
-          safe-area + 40px clears the docked pill (whose top sits ~safe+125px)
-          on top of the layout's own pb-20. Desktop has no docked pill → pb-0. */}
-      <div
-        id="budget-build-panel"
-        role="tabpanel"
-        tabIndex={0}
-        aria-label={TAB_META[tab].label}
-        className="min-w-0 pb-[calc(env(safe-area-inset-bottom)+40px)] lg:pb-0"
-      >
-        {active ?? <TabStub tab={tab} />}
+      {/* Merkado layout (S1 · 2026-07-09): MOBILE stacks (shortlist → build →
+          compare) exactly as before — the grid collapses to one column and the
+          right wrapper is a normal block, so the docked sub-nav + scroll-spy keep
+          working. DESKTOP (lg+) becomes TWO COLUMNS: the tall shortlist on the
+          left, the build + compare in a STICKY right rail that stays in view while
+          you browse categories. Same single DOM — the slots are never mounted
+          twice (no duplicate client state) — only reflowed by grid + sticky. The
+          BB_TAB_EVENT bus, anchor nav, and scroll-spy are untouched. */}
+      <div className="grid min-w-0 gap-8 pb-[calc(env(safe-area-inset-bottom)+40px)] lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-6 lg:pb-0">
+        <div className="min-w-0">
+          <ServiceSection tab="shortlist" heading={SECTION_HEADING.shortlist}>
+            {shortlistSlot ?? <SectionStub tab="shortlist" />}
+          </ServiceSection>
+        </div>
+
+        <div className="min-w-0 space-y-8 lg:sticky lg:top-4 lg:self-start">
+          <ServiceSection tab="build" heading={SECTION_HEADING.build}>
+            {buildSlot ?? <SectionStub tab="build" />}
+          </ServiceSection>
+
+          {/* Budget — a compact lens of the full budget surface, right where the
+              spend decisions happen. Collapsible (like Compare) to keep the rail calm. */}
+          <ServiceSection
+            tab="budget"
+            heading={SECTION_HEADING.budget}
+            collapsible
+            open={budgetOpen}
+            onToggle={() => setBudgetOpen((v) => !v)}
+          >
+            {budgetSlot ?? <SectionStub tab="budget" />}
+          </ServiceSection>
+
+          {/* Compare — collapsed by default (least-used + longest). Expands in
+              place; selecting/scrolling to it auto-opens (compareOpen). */}
+          <ServiceSection
+            tab="compare"
+            heading={SECTION_HEADING.compare}
+            collapsible
+            open={compareOpen}
+            onToggle={() => setCompareOpen((v) => !v)}
+          >
+            {compareSlot ?? <SectionStub tab="compare" />}
+          </ServiceSection>
+        </div>
       </div>
     </section>
   );
 }
 
-function TabStub({ tab }: { tab: BudgetBuildTab }) {
+/**
+ * One stacked section of the single-scroll surface: an anchored `<section>` with
+ * a serif heading. Compare passes `collapsible` → the body sits behind a
+ * "Show comparison" disclosure (controlled by the parent so the nav can open it).
+ */
+function ServiceSection({
+  tab,
+  heading,
+  children,
+  collapsible = false,
+  open = true,
+  onToggle,
+}: {
+  tab: BudgetBuildTab;
+  heading: string;
+  children: ReactNode;
+  collapsible?: boolean;
+  open?: boolean;
+  onToggle?: () => void;
+}) {
+  const { blurb } = TAB_META[tab];
+  const bodyId = `${sectionId(tab)}-body`;
+  return (
+    // scroll-mt clears the sticky desktop `.shell-topbar` when scrolled into view.
+    <section id={sectionId(tab)} aria-labelledby={`${sectionId(tab)}-h`} className="scroll-mt-24">
+      <header className="mb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2
+            id={`${sectionId(tab)}-h`}
+            className="font-serif text-xl italic leading-tight text-ink sm:text-2xl"
+          >
+            {heading}
+          </h2>
+          <p className="mt-0.5 text-sm text-ink/55">{blurb}</p>
+        </div>
+        {collapsible && (
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={open}
+            aria-controls={bodyId}
+            className="inline-flex shrink-0 items-center gap-1 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:bg-ink/5"
+          >
+            {open ? 'Hide' : 'Show comparison'}
+            <ChevronDown
+              className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
+              strokeWidth={2}
+              aria-hidden
+            />
+          </button>
+        )}
+      </header>
+      {(!collapsible || open) && <div id={bodyId}>{children}</div>}
+    </section>
+  );
+}
+
+/** Fallback body when a slot isn't supplied (e.g. a slot still being built). */
+function SectionStub({ tab }: { tab: BudgetBuildTab }) {
   const { label, icon: Icon, blurb } = TAB_META[tab];
   return (
-    <div className="mx-auto flex max-w-md flex-col items-center gap-3 px-6 py-16 text-center">
+    <div className="mx-auto flex max-w-md flex-col items-center gap-3 px-6 py-12 text-center">
       <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">
         <Icon className="h-6 w-6" strokeWidth={1.5} aria-hidden />
       </span>
-      <h2 className="text-lg font-semibold text-ink">{label}</h2>
+      <h3 className="text-lg font-semibold text-ink">{label}</h3>
       <p className="text-sm text-ink/60">{blurb}</p>
       <p className="mt-1 text-xs text-ink/40">Coming together as we build this out.</p>
     </div>

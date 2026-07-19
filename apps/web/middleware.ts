@@ -8,6 +8,12 @@ import {
   isAdminProfile,
   stripDemoModeQueryParam,
 } from '@/lib/demo-mode';
+import {
+  isSetnayanHost,
+  isLocalOrPreviewHost,
+  resolveCustomDomainPath,
+  resolveEventSubdomainPath,
+} from '@/lib/custom-domain-resolve';
 
 // Matches a v4-style UUID exactly. Slugs are capped at 32 chars
 // (`[a-z0-9-]+`), so a UUID — 36 chars including hyphens — cannot
@@ -62,7 +68,8 @@ const RESERVED_SUBDOMAINS = new Set([
 ]);
 
 // Native-app login-first entry (0052 design addition · owner-locked
-// 2026-06-10). The Capacitor shell omits the marketing brochure: someone
+// 2026-06-10). The native shells — Capacitor (iOS/Android) and the Tauri
+// desktop wrapper (macOS/Windows) — omit the marketing brochure: someone
 // who installed the app has already converted. App-originated requests to
 // any bucket-① marketing route bounce to /login (or /dashboard when a
 // session exists) so the app boots straight into the product. Bucket-③
@@ -72,7 +79,8 @@ const RESERVED_SUBDOMAINS = new Set([
 const APP_EXCLUDED_MARKETING_PATHS = new Set([
   '/',
   '/features',
-  '/for-vendors',
+  '/vendors',
+  '/creators',
   '/pricing',
   '/how-it-works',
   '/waitlist',
@@ -82,9 +90,11 @@ const APP_EXCLUDED_MARKETING_PATHS = new Set([
 // Two detection signals, either suffices:
 //   1. `setnayan-client-type=capacitor` cookie — set by ClientTypeDetector
 //      after the first render inside the shell's WebView.
-//   2. `SetnayanApp` user-agent marker — appended by the shell via
-//      `appendUserAgent` in apps/mobile/capacitor.config.ts. Covers the very
-//      first request of a fresh install, before the cookie exists.
+//   2. `SetnayanApp` user-agent marker — set by the Capacitor shell via
+//      `appendUserAgent` in apps/mobile/capacitor.config.ts and by the Tauri
+//      desktop shell via `app.windows[].userAgent` in src-tauri/tauri.conf.json.
+//      Covers the very first request of a fresh install, before the cookie
+//      exists (desktop relies on this marker; it sets no client-type cookie).
 function isCapacitorClient(request: NextRequest): boolean {
   return (
     request.cookies.get('setnayan-client-type')?.value === 'capacitor' ||
@@ -104,26 +114,109 @@ export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const hostname = (request.headers.get('host') ?? '').toLowerCase();
 
-  // Vendor subdomain rewrite · `slug.setnayan.com/<rest>` → `/v/{slug}/<rest>`.
-  // Fires BEFORE any other middleware logic because the rewrite changes
-  // pathname downstream consumers see.
-  const vendorSlug = detectVendorSubdomain(hostname);
-  if (vendorSlug) {
-    const rewrite = request.nextUrl.clone();
-    rewrite.pathname = pathname === '/'
-      ? `/v/${vendorSlug}`
-      : `/v/${vendorSlug}${pathname}`;
-    return NextResponse.rewrite(rewrite);
+  // Subdomain rewrite · `slug.setnayan.com/<rest>` → the couple's event page.
+  // Fires BEFORE any other middleware logic because the rewrite changes the
+  // pathname downstream consumers see. Subdomains are an EVENT-ONLY feature
+  // (owner 2026-07-10: "no x.setnayan.com for vendors. only for events."). A label
+  // resolves ONLY when a COUPLE owns an active paid EVENT_SUBDOMAIN order (₱999/yr)
+  // → their event page at bare `/{slug}`. Any other label (a vendor's, an unowned
+  // one) is NOT rewritten and falls through to normal routing. One edge RPC per
+  // subdomain request, fail-open (miss/error → no rewrite → normal routing);
+  // the primary www host pays nothing. (Vendors keep BYO custom domains — the
+  // separate resolve_custom_domain path below — but no *.setnayan.com subdomain.)
+  const subLabel = detectVendorSubdomain(hostname);
+  if (subLabel) {
+    const eventPath = await resolveEventSubdomainPath(subLabel); // '/{slug}' | null
+    if (eventPath) {
+      const rewrite = request.nextUrl.clone();
+      rewrite.pathname = pathname === '/' ? eventPath : `${eventPath}${pathname}`;
+      // Mirror the `/u/` nesting loop-break so the (flag-gated) `/u/` cutover
+      // redirect in app/[slug]/page.tsx never bounces a paid vanity host into
+      // `/u/{owner}/{slug}` and strands the couple's URL.
+      const headers = new Headers(request.headers);
+      headers.set('x-sn-u-nesting', '1');
+      return NextResponse.rewrite(rewrite, { request: { headers } });
+    }
+    // Not a paid event subdomain → no rewrite (vendors get no *.setnayan.com host).
   }
 
-  // /vendors → /explore rename (permanent · owner directive 2026-06-14). The
-  // public marketplace moved from /vendors to /explore; redirect the old paths
-  // (with subpaths + query strings) so bookmarks, shared links, and search
-  // equity carry over. 308 = permanent + method-preserving, matching the
+  // Custom BYO domain · e.g. `sny.theirshop.com/<rest>` → internal rewrite to the
+  // owner's `/v/{slug}` (vendor) or `/u/{slug}` (user) page. Only fires for
+  // hosts that are NEITHER a setnayan.com/.ph host NOR a localhost/vercel.app
+  // preview host — so the primary domain + previews + dev pay ZERO cost (two
+  // cheap string checks, no DB call). For an actual custom domain (its DNS
+  // points here), resolution goes through the staleness-free
+  // resolve_custom_domain RPC. Fail-open: an unknown/unverified host or any
+  // error returns null and falls through to normal routing. Inert until a
+  // verified custom_domains row exists.
+  if (hostname && !isSetnayanHost(hostname) && !isLocalOrPreviewHost(hostname)) {
+    const target = await resolveCustomDomainPath(hostname); // '/v/{slug}' | '/u/{slug}' | null
+    if (target) {
+      const rewrite = request.nextUrl.clone();
+      if (pathname === '/') {
+        // Root → the owner's page (vendor shop, or user profile which itself
+        // redirects into their single event / shows a picker).
+        rewrite.pathname = target;
+        return NextResponse.rewrite(rewrite);
+      }
+      if (target.startsWith('/v/')) {
+        // Vendor sub-path → under the vendor route (vendors have no subroutes,
+        // so this simply 404s for unknown paths — expected).
+        rewrite.pathname = `${target}${pathname}`;
+        return NextResponse.rewrite(rewrite);
+      }
+      // User sub-path → the event subtree lives at the bare root (this mirrors
+      // the /u/{user}/{event} → /{event} strip, which a rewrite can't re-trigger).
+      // Leave pathname as-is and fall through to normal routing so
+      // e.g. sny.maria.com/aira-boy/welcome resolves at app/[slug]/welcome.
+    }
+  }
+
+  // User-profile event nesting · `/u/{userSlug}/{eventSlug}[/rest]` → internal
+  // rewrite to `/{eventSlug}[/rest]` so the existing event route SUBTREE (the
+  // landing page + its 12 subroutes: hub, recap, welcome, venue, invite,
+  // find-my-table, find-seat, seat, seat/claim, redeem, live-wall, sign-out)
+  // renders under the pretty nested URL WITHOUT duplicating any of those routes.
+  // This mirrors the vendor-subdomain rewrite pattern directly above.
+  //
+  // Bare `/u/{userSlug}` (no event segment) is NOT rewritten — it falls through
+  // to the real profile page at app/u/[userSlug]/page.tsx.
+  //
+  // Additive: the bare-root event URLs (`/{eventSlug}[/rest]`, still on printed
+  // QR codes) keep resolving in parallel. The QR/link cutover to `/u/` and the
+  // bare-root→`/u/` permanent redirect land in a later PR, behind a flag.
+  if (pathname.startsWith('/u/')) {
+    // ['u', userSlug, eventSlug, ...rest]
+    const segments = pathname.split('/').filter(Boolean);
+    if (segments.length >= 3) {
+      const rewrite = request.nextUrl.clone();
+      rewrite.pathname = `/${segments.slice(2).join('/')}`;
+      // PR6 loop-break: mark that this render arrived via the nested /u/ URL so
+      // the event dispatcher (app/[slug]/page.tsx) does NOT re-redirect it back
+      // to /u/ under the cutover flag — that would loop /u/a/b → /b → /u/a/b.
+      // This is a REQUEST header (forwarded to the render), invisible to the
+      // browser; a spoofed value only opts the request out of the canonical
+      // redirect (renders at bare root — the safe default), so it's harmless.
+      const requestHeaders = new Headers(request.headers);
+      requestHeaders.set('x-sn-u-nesting', '1');
+      return NextResponse.rewrite(rewrite, { request: { headers: requestHeaders } });
+    }
+  }
+
+  // /vendors/* → /explore rename (permanent · owner directive 2026-06-14). The
+  // public marketplace moved from /vendors/* to /explore; redirect the old
+  // marketplace SUBPATHS (with query strings) so bookmarks, shared links, and
+  // search equity carry over. 308 = permanent + method-preserving, matching the
   // legacy /services → /add-ons precedent below. Runs AFTER the vendor-
   // subdomain rewrite so slug.setnayan.com still resolves to /v/{slug}; the
   // /v/[slug] vendor PROFILE route is a different prefix and is untouched.
-  if (pathname === '/vendors' || pathname.startsWith('/vendors/')) {
+  //
+  // ⚠ EXACT `/vendors` is DELIBERATELY EXCLUDED (2026-07-05): the vendor
+  // BENEFITS page moved from /for-vendors → /vendors, so bare `/vendors` must
+  // render that page — only the legacy marketplace subpaths still redirect to
+  // /explore. `/for-vendors` → `/vendors` is a permanent redirect in
+  // next.config.ts redirects().
+  if (pathname.startsWith('/vendors/')) {
     // /vendors/compare is still an un-wired orphan (its `ids` param was never
     // honored — Task #12), so it lands on /explore with the explanatory notice
     // banner instead of a bare /explore/compare. Query intentionally dropped.

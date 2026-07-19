@@ -19,6 +19,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { createPortal } from 'react-dom';
 import { saveVendorToPicks } from '@/app/explore/actions';
 import { haptic } from '@/lib/haptics';
@@ -27,12 +28,14 @@ import {
   searchCategoryVendors,
   type CategoryVendorResult,
 } from '../_actions/category-search';
+import type { FacetDimension, FacetSelection } from '@/lib/vendor-facets';
+import { isSmartSortEnabled } from '@/lib/smart-sort-flag';
 
 const CSS = `
 .csov{position:fixed;inset:0;z-index:120;display:flex;flex-direction:column;
-  --paper:var(--m-paper,#FBFBFA);--ink:var(--m-ink,#1E2229);--ink-soft:var(--m-ink-soft,#5C6660);
-  --gold:var(--m-orange,#C5A059);--gold-deep:var(--m-orange-2,#8C6932);--mulberry:var(--m-mulberry,#5C2542);
-  --line:rgba(30,34,41,.1);
+  --paper:var(--m-paper,#FBFBFA);--ink:var(--m-ink,#1B1A17);--ink-soft:var(--m-ink-soft,#5C6660);
+  --gold:var(--m-orange,#A9834B);--gold-deep:var(--m-orange-2,#8C6932);--mulberry:var(--m-mulberry,#1B1A17);
+  --line:rgba(30,26,18,.1);
   --serif:var(--font-serif,'Cormorant Garamond',serif);--sans:var(--font-sans,'Manrope',system-ui,sans-serif);--mono:var(--font-mono,'DM Mono',ui-monospace,monospace);
   background:var(--paper);color:var(--ink);font-family:var(--sans);
   animation:csov-up .3s cubic-bezier(.2,.7,.2,1)}
@@ -40,7 +43,7 @@ const CSS = `
 .csov *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 .csov .head{flex:0 0 auto;padding:14px 18px 12px;border-bottom:1px solid var(--line);background:var(--paper)}
 .csov .x{width:38px;height:38px;border-radius: var(--m-r-full);border:1px solid var(--line);background:#fff;color:var(--ink);display:flex;align-items:center;justify-content:center;font-size:18px;line-height:1;transition:transform .13s cubic-bezier(.2,.7,.2,1),background .2s}
-.csov .x:active{transform:scale(.92);background:var(--m-orange-4,#F4ECD8)}
+.csov .x:active{transform:scale(.92);background:var(--m-orange-4,#F3ECDF)}
 .csov .eyebrow{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-deep);margin:12px 0 3px}
 .csov .title{font-family:var(--serif);font-style:italic;font-size:27px;line-height:1.04;color:var(--ink)}
 .csov .scope{font-family:var(--mono);font-size:9px;letter-spacing:.04em;color:var(--ink-soft);margin-top:6px}
@@ -54,23 +57,29 @@ const CSS = `
 .csov .r .sub{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:3px;font-family:var(--mono);font-size:8.5px;letter-spacing:.03em;color:var(--ink-soft)}
 .csov .r .stars{color:var(--gold-deep);letter-spacing:0}
 .csov .r .badge{display:inline-flex;flex:0 0 auto;align-self:center;min-height:0;align-items:center;gap:3px;border-radius: var(--m-r-full);padding:2px 6px;line-height:1.4;white-space:nowrap;text-transform:uppercase}
-.csov .r .badge.vrf{color:var(--gold-deep);background:rgba(197,160,89,.16)}
-.csov .r .badge.bst{color:var(--mulberry);background:rgba(92,37,66,.1)}
+.csov .r .badge.vrf{color:var(--gold-deep);background:rgba(169,131,75,.16)}
+.csov .r .badge.bst{color:var(--mulberry);background:rgba(30, 26, 18,.1)}
 /* Paid-placement disclosure + hybrid-anonymity hint — quiet, ink-soft so
    they read as clarifications, not alarms. */
 .csov .r .disclose{display:block;width:100%;margin-top:4px;font-family:var(--mono);font-size:8px;letter-spacing:.04em;color:var(--ink-soft);opacity:.82}
-.csov .r .badge.mt{font-weight:600;color:var(--mulberry);background:rgba(92,37,66,.12)}
-.csov .r .badge.mt.good{color:var(--gold-deep);background:rgba(197,160,89,.18)}
-.csov .r .badge.mt.fair{color:var(--ink-soft);background:rgba(30,34,41,.06)}
+.csov .r .badge.mt{font-weight:600;color:var(--mulberry);background:rgba(30, 26, 18,.12)}
+.csov .r .badge.mt.good{color:var(--gold-deep);background:rgba(169,131,75,.18)}
+.csov .r .badge.mt.fair{color:var(--ink-soft);background:rgba(30,26,18,.06)}
 /* Last-minute (Setnayan AI §4) — opportunity tone, not alarm. */
-.csov .r .badge.lm{font-weight:600;color:var(--gold-deep);background:rgba(197,160,89,.16);border:1px solid rgba(197,160,89,.4)}
+.csov .r .badge.lm{font-weight:600;color:var(--gold-deep);background:rgba(169,131,75,.16);border:1px solid rgba(169,131,75,.4)}
 .csov .r .badge.lm .pct{font-weight:700;margin-left:2px}
 .csov .r .badge.near{color:#2f7d4f;background:rgba(47,125,79,.12)}
-.csov .r .badge.far{color:#9a6a00;background:rgba(197,160,89,.16)}
+.csov .r .badge.far{color:#9a6a00;background:rgba(169,131,75,.16)}
+/* First-Look "Replies fast" (Wave 2) — calm, trustworthy green, subtle. */
+.csov .r .badge.rf{color:#2f7d4f;background:rgba(47,125,79,.12)}
+/* Facet match — the couple's structured picks. Confident green. */
+.csov .r .badge.fx{font-weight:600;color:#2f7d4f;background:rgba(47,125,79,.14)}
+/* Service-date unavailable — muted, factual (down-ranked, never removed). */
+.csov .r .badge.busy{color:#9a3b3b;background:rgba(154,59,59,.1)}
 /* Relationship-depth badges */
 .csov .r .badge.rel-3{font-weight:600;color:var(--paper);background:var(--ink)}
-.csov .r .badge.rel-2{font-weight:600;color:var(--mulberry);background:rgba(92,37,66,.12);border:1px solid rgba(92,37,66,.25)}
-.csov .r .badge.rel-1{font-weight:600;color:var(--gold-deep);background:rgba(197,160,89,.18);border:1px solid rgba(197,160,89,.35)}
+.csov .r .badge.rel-2{font-weight:600;color:var(--mulberry);background:rgba(30, 26, 18,.12);border:1px solid rgba(30, 26, 18,.25)}
+.csov .r .badge.rel-1{font-weight:600;color:var(--gold-deep);background:rgba(169,131,75,.18);border:1px solid rgba(169,131,75,.35)}
 .csov .r .sub .faraway{color:#9a6a00}
 .csov .farther-btn{display:block;width:100%;margin:2px 0 14px;border:1px dashed var(--line);border-radius: var(--m-r-md);background:transparent;color:var(--ink-soft);padding:11px;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;transition:border-color .2s,color .2s}
 .csov .farther-btn:active{border-color:var(--gold);color:var(--gold-deep)}
@@ -89,6 +98,14 @@ const CSS = `
 .csov .lm-cta .sub{font-family:var(--sans);font-size:13px;line-height:1.45;color:var(--ink-soft);max-width:30ch}
 .csov .lm-cta a{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--mulberry);background:var(--mulberry);color:#fff;border-radius: var(--m-r-full);padding:11px 20px;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;text-decoration:none;transition:transform .13s cubic-bezier(.2,.7,.2,1),opacity .2s}
 .csov .lm-cta a:active{transform:scale(.96)}
+/* Smart-sort "raise your budget?" nudge — a quiet inline banner above the list
+   when every shown option starts above the couple's category budget. Calm,
+   advisory tone (never a block); only rendered behind NEXT_PUBLIC_SMART_SORT_ENABLED. */
+.csov .budget-nudge{display:flex;flex-direction:column;gap:7px;border:1px solid var(--line);border-left:3px solid var(--gold);border-radius: var(--m-r-md);background:rgba(169,131,75,.07);padding:12px 14px;margin-bottom:12px}
+.csov .budget-nudge .lead{font-family:var(--serif);font-style:italic;font-size:16px;line-height:1.15;color:var(--ink)}
+.csov .budget-nudge .sub{font-family:var(--sans);font-size:12.5px;line-height:1.4;color:var(--ink-soft)}
+.csov .budget-nudge a{align-self:flex-start;display:inline-flex;align-items:center;border:1px solid var(--gold-deep);background:transparent;color:var(--gold-deep);border-radius: var(--m-r-full);padding:7px 15px;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;text-decoration:none;transition:transform .13s cubic-bezier(.2,.7,.2,1)}
+.csov .budget-nudge a:active{transform:scale(.96)}
 .csov .loading{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);text-align:center;padding:30px 20px}
 .csov .foot{flex:0 0 auto;display:flex;gap:10px;align-items:center;padding:12px 16px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);background:var(--paper)}
 .csov .searchwrap{flex:1 1 auto;display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius: var(--m-r-full);background:#fff;padding:0 14px;min-height:44px}
@@ -98,7 +115,7 @@ const CSS = `
 .csov .filterbtn:active{transform:scale(.95)}
 .csov .filterbtn .dot{width:6px;height:6px;border-radius:50%;background:var(--gold)}
 /* filter bottom-sheet */
-.csov .fscrim{position:absolute;inset:0;z-index:5;background:rgba(30,34,41,.4);animation:csov-fade .2s ease}
+.csov .fscrim{position:absolute;inset:0;z-index:5;background:rgba(30,26,18,.4);animation:csov-fade .2s ease}
 @keyframes csov-fade{from{opacity:0}to{opacity:1}}
 .csov .fsheet{position:absolute;left:0;right:0;bottom:0;z-index:6;background:var(--paper);border-radius:22px 22px 0 0;padding:18px 18px calc(20px + env(safe-area-inset-bottom,0px));box-shadow:0 -16px 40px -20px rgba(0,0,0,.4);animation:csov-up .25s cubic-bezier(.2,.7,.2,1)}
 .csov .fsheet h4{font-family:var(--serif);font-style:italic;font-size:20px;color:var(--ink);margin-bottom:14px}
@@ -110,13 +127,18 @@ const CSS = `
 .csov .chip.on{border-color:var(--mulberry);background:var(--mulberry);color:#fff}
 .csov .ftoggle{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius: var(--m-r-md);padding:12px 14px;background:#fff}
 .csov .ftoggle .tn{font-family:var(--serif);font-style:italic;font-size:16px;color:var(--ink)}
-.csov .sw{width:46px;height:27px;border-radius: var(--m-r-full);background:rgba(30,34,41,.18);position:relative;transition:background .2s;flex:0 0 auto}
+.csov .sw{width:46px;height:27px;border-radius: var(--m-r-full);background:rgba(30,26,18,.18);position:relative;transition:background .2s;flex:0 0 auto}
 .csov .sw.on{background:var(--mulberry)}
 .csov .sw .knob{position:absolute;top:3px;left:3px;width:21px;height:21px;border-radius:50%;background:#fff;transition:transform .2s}
 .csov .sw.on .knob{transform:translateX(19px)}
 .csov .fapply{width:100%;margin-top:6px;border:0;background:var(--mulberry);color:#fff;border-radius: var(--m-r-md);min-height:48px;font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;transition:transform .13s cubic-bezier(.2,.7,.2,1)}
 .csov .fapply:active{transform:scale(.98)}
 `;
+
+// Smart-sort flag, read once (NEXT_PUBLIC_ → inlined at build). Off by default:
+// gates BOTH the server re-rank and this overlay's "raise your budget?" nudge, so
+// with the flag off the overlay renders exactly as today.
+const SMART_SORT_ON = isSmartSortEnabled();
 
 const RADIUS_CHIPS: ReadonlyArray<{ label: string; km: number | null }> = [
   { label: 'Any distance', km: null },
@@ -148,6 +170,9 @@ export function CategorySearchOverlay({
   // the group is fully in its last-minute zone and Setnayan AI is off, so generic
   // search is empty — swap the bare copy for a capability-framed unlock CTA.
   const [lastMinuteLocked, setLastMinuteLocked] = useState(false);
+  // Smart-sort "raise your budget?" pressure from the server (flag-gated; false
+  // when the flag is off since the server omits the field then).
+  const [budgetRaise, setBudgetRaise] = useState(false);
   const [loading, setLoading] = useState(true);
   // "Show vendors farther away" expander — the out-of-range vendors, fetched
   // lazily on demand so the default view stays in-range (the radius reach gate).
@@ -160,13 +185,32 @@ export function CategorySearchOverlay({
   // Vendor IDs whose logo <img> failed to load (e.g. picsum rate-limiting the
   // demo placeholders) → fall back to the initials tile, not a broken-image icon.
   const [failedLogos, setFailedLogos] = useState<Set<string>>(new Set());
+  // Facet refinement (lib/vendor-facets). The catalog + saved-pref seed come
+  // back with every search; `appliedFacets` is the couple's committed selection
+  // (undefined = untouched → the server seeds from saved preferences).
+  const [facetCatalog, setFacetCatalog] = useState<FacetDimension[]>([]);
+  const [facetDefaults, setFacetDefaults] = useState<FacetSelection>({});
+  const [appliedFacets, setAppliedFacets] = useState<FacetSelection | undefined>(
+    undefined,
+  );
+  const [facetHardFilter, setFacetHardFilter] = useState(false);
   // draft filter state (committed on Apply)
   const [draftVerified, setDraftVerified] = useState(false);
   const [draftKm, setDraftKm] = useState<number | null>(null);
+  const [draftFacets, setDraftFacets] = useState<FacetSelection>({});
+  const [draftHardFilter, setDraftHardFilter] = useState(false);
   const reqSeq = useRef(0);
+  const csovRef = useRef<HTMLDivElement>(null);
+  const fsheetRef = useRef<HTMLDivElement>(null);
 
   const run = useCallback(
-    async (q: string, vOnly: boolean, km: number | null) => {
+    async (
+      q: string,
+      vOnly: boolean,
+      km: number | null,
+      facets: FacetSelection | undefined,
+      hardFilter: boolean,
+    ) => {
       const seq = ++reqSeq.current;
       setLoading(true);
       try {
@@ -176,11 +220,16 @@ export function CategorySearchOverlay({
           query: q,
           verifiedOnly: vOnly,
           maxKm: km,
+          facets,
+          facetHardFilter: hardFilter,
         });
         if (seq !== reqSeq.current) return; // a newer request superseded this
         setResults(res.results);
         setHasCoords(res.hasReceptionCoords);
         setLastMinuteLocked(res.isLastMinuteLocked === true);
+        setBudgetRaise(res.budgetPressure === true);
+        setFacetCatalog(res.facets);
+        setFacetDefaults(res.facetDefaults);
         // New search → collapse any expanded "farther away" set.
         setFarther([]);
         setFartherShown(false);
@@ -207,6 +256,8 @@ export function CategorySearchOverlay({
         query: query.trim(),
         verifiedOnly,
         maxKm,
+        facets: appliedFacets,
+        facetHardFilter,
         includeFarther: true,
       });
       setFarther(res.results);
@@ -218,35 +269,34 @@ export function CategorySearchOverlay({
     } finally {
       setFartherLoading(false);
     }
-  }, [eventId, groupId, query, verifiedOnly, maxKm]);
+  }, [eventId, groupId, query, verifiedOnly, maxKm, appliedFacets, facetHardFilter]);
 
-  // initial load
+  // initial load — no explicit facets (undefined → server seeds from saved prefs)
   useEffect(() => {
-    void run('', false, null);
+    void run('', false, null, undefined, false);
   }, [run]);
 
-  // live search — debounce typing, re-query
+  // live search — debounce typing, re-query. Re-runs when the applied facets /
+  // hard-filter change too (setAppliedFacets on Apply).
   useEffect(() => {
-    const t = setTimeout(() => void run(query.trim(), verifiedOnly, maxKm), 240);
+    const t = setTimeout(
+      () => void run(query.trim(), verifiedOnly, maxKm, appliedFacets, facetHardFilter),
+      240,
+    );
     return () => clearTimeout(t);
-  }, [query, verifiedOnly, maxKm, run]);
+  }, [query, verifiedOnly, maxKm, appliedFacets, facetHardFilter, run]);
 
-  // body scroll-lock + Escape close
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (filterOpen) setFilterOpen(false);
-        else onClose();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = prev;
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [onClose, filterOpen]);
+  // Focus-trap + scroll-lock + Escape, via the shared primitive. The filter
+  // sheet nests over the main overlay: useModalA11y's modal stack makes the
+  // filter sheet the topmost trap when open, so Escape peels the filter sheet
+  // first and the overlay second (the old hand-rolled layered Escape), and the
+  // ref-counted scroll-lock stays engaged underneath.
+  useModalA11y({ open: mounted, onClose, containerRef: csovRef });
+  useModalA11y({
+    open: filterOpen,
+    onClose: () => setFilterOpen(false),
+    containerRef: fsheetRef,
+  });
 
   async function add(vendorProfileId: string) {
     if (added.has(vendorProfileId) || pendingId) return;
@@ -269,15 +319,40 @@ export function CategorySearchOverlay({
   function openFilter() {
     setDraftVerified(verifiedOnly);
     setDraftKm(maxKm);
+    // Seed the draft facet chips from the committed selection, or the saved-pref
+    // seed when the couple hasn't touched them yet.
+    setDraftFacets(appliedFacets ?? facetDefaults);
+    setDraftHardFilter(facetHardFilter);
     setFilterOpen(true);
   }
   function applyFilter() {
     setVerifiedOnly(draftVerified);
     setMaxKm(draftKm);
+    setAppliedFacets(draftFacets);
+    setFacetHardFilter(draftHardFilter);
     setFilterOpen(false);
   }
+  function toggleFacet(key: string, value: string) {
+    setDraftFacets((prev) => {
+      const cur = new Set(prev[key] ?? []);
+      if (cur.has(value)) cur.delete(value);
+      else cur.add(value);
+      const next = { ...prev };
+      if (cur.size > 0) next[key] = Array.from(cur);
+      else delete next[key];
+      return next;
+    });
+  }
 
-  const filterCount = (verifiedOnly ? 1 : 0) + (maxKm !== null ? 1 : 0);
+  // Count of committed facet dimensions carrying values (undefined → 0).
+  const activeFacetCount = appliedFacets
+    ? Object.values(appliedFacets).filter((v) => v.length > 0).length
+    : 0;
+  const filterCount =
+    (verifiedOnly ? 1 : 0) +
+    (maxKm !== null ? 1 : 0) +
+    activeFacetCount +
+    (facetHardFilter ? 1 : 0);
   const scope = loading
     ? `Showing only ${label.toLowerCase()} vendors`
     : `Showing only ${label.toLowerCase()} vendors · ${results.length} ${
@@ -367,6 +442,14 @@ export function CategorySearchOverlay({
               <span>{r.city}</span>
             ) : null}
             {r.verified ? <span className="badge vrf">Verified</span> : null}
+            {r.respondsFast ? (
+              <span
+                className="badge rf"
+                title="Replies quickly to inquiries (First-Look vendor)"
+              >
+                Replies fast
+              </span>
+            ) : null}
             {r.boosted ? (
               <span
                 className="badge bst"
@@ -381,6 +464,27 @@ export function CategorySearchOverlay({
                 {r.lastMinuteSurchargePct ? (
                   <span className="pct">+{r.lastMinuteSurchargePct}%</span>
                 ) : null}
+              </span>
+            ) : null}
+            {/* Facet match — surfaced only when the couple has active picks AND
+                this vendor's tagged attributes overlap ≥1 of them. */}
+            {r.facetSelectedCount > 0 &&
+            r.facetMatchCount !== null &&
+            r.facetMatchCount > 0 ? (
+              <span
+                className="badge fx"
+                title="Matches the service details you picked"
+              >
+                ✓ Matches {r.facetMatchCount} of your {r.facetSelectedCount}
+              </span>
+            ) : null}
+            {/* Service-date availability — down-ranked, never removed. */}
+            {!r.serviceDateAvailable ? (
+              <span
+                className="badge busy"
+                title="This vendor has a calendar block on your event date"
+              >
+                Booked your date
               </span>
             ) : null}
           </div>
@@ -412,14 +516,13 @@ export function CategorySearchOverlay({
   if (!mounted) return null;
 
   return createPortal(
-    <div className="csov" role="dialog" aria-modal="true" aria-label={`Add ${label} to your plan`}>
+    <div ref={csovRef} className="csov focus:outline-none" role="dialog" aria-modal="true" aria-label={`Add ${label} to your plan`}>
       <style>{CSS}</style>
 
       <div className="head">
         <button type="button" className="x" onClick={onClose} aria-label="Close">
           ✕
         </button>
-        <div className="eyebrow">Add to your plan</div>
         <div className="title">{label}</div>
         <div className="scope">{scope}</div>
       </div>
@@ -448,6 +551,22 @@ export function CategorySearchOverlay({
           </div>
         ) : (
           <>
+            {/* Smart-sort "raise your budget?" nudge — only when the flag is on
+                AND every shown option starts above the couple's category budget.
+                Advisory, never a filter. */}
+            {SMART_SORT_ON && budgetRaise ? (
+              <div className="budget-nudge">
+                <p className="lead">
+                  These {label.toLowerCase()} vendors start above your budget
+                </p>
+                <p className="sub">
+                  Every match here begins higher than what you set aside for{' '}
+                  {label.toLowerCase()}. Raising this category&rsquo;s budget
+                  opens up options that fit.
+                </p>
+                <a href={`/dashboard/${eventId}/budget`}>Adjust your budget</a>
+              </div>
+            ) : null}
             {results.map(renderRow)}
             {/* Show-farther expander — in-range vendors are the default; this
                 reveals the out-of-range ones (the radius reach gate stays the
@@ -505,7 +624,7 @@ export function CategorySearchOverlay({
       {filterOpen ? (
         <>
           <div className="fscrim" onClick={() => setFilterOpen(false)} />
-          <div className="fsheet" role="dialog" aria-modal="true" aria-label="Filter vendors">
+          <div ref={fsheetRef} className="fsheet focus:outline-none" role="dialog" aria-modal="true" aria-label="Filter vendors">
             <h4>Refine</h4>
             <div className="frow">
               <div className="ftoggle">
@@ -535,6 +654,46 @@ export function CategorySearchOverlay({
                       {c.label}
                     </button>
                   ))}
+                </div>
+              </div>
+            ) : null}
+            {/* Facet refinement — structured service attributes (cuisine, edit
+                aesthetic, service style, …). Rendered only when the category has
+                a facet schema; seeded from the couple's saved preferences. */}
+            {facetCatalog.map((dim) => (
+              <div className="frow" key={dim.key}>
+                <div className="flab">{dim.label}</div>
+                <div className="chips">
+                  {dim.options.map((opt) => {
+                    const on = (draftFacets[dim.key] ?? []).includes(opt.value);
+                    return (
+                      <button
+                        type="button"
+                        key={opt.value}
+                        className={`chip${on ? ' on' : ''}`}
+                        onClick={() => toggleFacet(dim.key, opt.value)}
+                        aria-pressed={on}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+            {facetCatalog.length > 0 ? (
+              <div className="frow">
+                <div className="ftoggle">
+                  <span className="tn">Only exact matches</span>
+                  <button
+                    type="button"
+                    className={`sw${draftHardFilter ? ' on' : ''}`}
+                    onClick={() => setDraftHardFilter((v) => !v)}
+                    aria-pressed={draftHardFilter}
+                    aria-label="Only exact matches"
+                  >
+                    <span className="knob" />
+                  </button>
                 </div>
               </div>
             ) : null}

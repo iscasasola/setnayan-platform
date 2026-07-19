@@ -36,13 +36,9 @@
  */
 
 import {
-  Home, Users, Compass, Sparkles, Palette, Wallet,
-  // Home children:
-  LayoutDashboard, ClipboardList,
+  Home, Users, Compass, Sparkles, Palette,
   // Studio children:
-  Gem, Globe, Camera,
-  // Budget children:
-  Gauge, PieChart, Receipt,
+  Gem, Globe, Camera, Eye,
   // Day-of phase icons:
   QrCode, LayoutGrid, Rocket, CalendarClock,
   // After phase icons:
@@ -50,8 +46,17 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { LifecyclePhase } from '@/lib/day-of-mode';
-import { buildGuestJourney } from './guest-journey';
 import { BUDGET_BUILD_TABS, TAB_META } from './budget-build';
+
+/**
+ * Suite nav doorway (owner 2026-07-19: surface name locked = "Suite"; the nav
+ * slot REPLACES Studio, flag-gated via NEXT_PUBLIC_SUITE — same flag that
+ * un-404s /dashboard/[eventId]/suite). NEXT_PUBLIC_* is inlined into the client
+ * bundle at build time, so this neutral module reads the same value on server +
+ * client (no hydration split). Mirrors: customer-nav-config.ts (desktop rail) +
+ * lib/nav-registry-defaults.ts (registry label default).
+ */
+const SUITE_NAV_ON = process.env.NEXT_PUBLIC_SUITE === 'true';
 
 export type CustomerMenuKey =
   // Plan phase
@@ -113,6 +118,20 @@ export type CustomerMenuCtx = {
   /** When set, overrides the returned tree with the phase-appropriate menus.
    *  Day-of and After menus have no children (the dock hides). */
   phase?: LifecyclePhase;
+  /** Top-level menu keys to drop for this event type, derived from its
+   *  Event-Type Profile (e.g. ['explore','budget'] for a vendor-free Simple
+   *  Event). Empty/undefined → every menu shows (wedding + all existing types
+   *  byte-identical). Only filters the planning tree; the Day-of/After phase
+   *  takeovers carry no explore/budget menu so they're unaffected. */
+  hideKeys?: string[];
+  /** Whether this event type enables the 'website' surface — gates the Studio
+   *  "Launch" route child. Resolved from the profile in
+   *  layout.tsx. Undefined/false → the child is omitted. */
+  websiteEnabled?: boolean;
+  /** The event's public slug. When present, the "Launch" child opens the
+   *  couple's live personal website (`/[slug]`); when absent it falls back to
+   *  the go-live/setup surface. Resolved from the event row in layout.tsx. */
+  slug?: string | null;
 };
 
 /**
@@ -130,7 +149,11 @@ export function buildCustomerMenuTree(
 ): CustomerMenu[] {
   // Phase takeover: Day-of and After replace the planning menu entirely.
   // These menus carry no children (no sectionMatch) so the docked sub-nav
-  // returns null for them — only the bottom nav reads this path.
+  // returns null for them — only the bottom nav reads this path. The bottom nav
+  // overlays the admin nav-registry slot `customer.bottom-nav.<key>` on each tab
+  // below (day-of: now/checkin/seats/services/schedule · after:
+  // home/review/editorial/galleries — all present in NAV_SLOT_DEFAULTS), so
+  // /admin/menus renames/re-icons reach these rosters just like the plan tabs.
   if (ctx.phase === 'dayof') {
     const base = `/dashboard/${eventId}`;
     return [
@@ -144,7 +167,10 @@ export function buildCustomerMenuTree(
   if (ctx.phase === 'after') {
     const base = `/dashboard/${eventId}`;
     return [
-      { key: 'home',      label: 'Home',      icon: Home,      href: base,                              activeMatch: base,                              activeMatchExact: true },
+      // Overview (was mislabelled 'Home' — the Home→Overview rename missed this
+      // after-phase branch; the plan-phase menu + the registry default are
+      // 'Overview'). Key + route + exact-match unchanged.
+      { key: 'home',      label: 'Overview', icon: Home,      href: base,                              activeMatch: base,                              activeMatchExact: true },
       { key: 'review',    label: 'Review',    icon: Star,      href: `${base}/vendors`,                 activeMatch: `${base}/vendors`                                         },
       { key: 'editorial', label: 'Editorial', icon: Newspaper, href: `${base}/website/editorial`,       activeMatch: `${base}/website/editorial`                               },
       { key: 'galleries', label: 'Galleries', icon: Images,    href: `${base}/galleries`,               activeMatch: `${base}/galleries`                                       },
@@ -152,63 +178,44 @@ export function buildCustomerMenuTree(
   }
 
   const base = `/dashboard/${eventId}`;
-  const guestStages = buildGuestJourney(eventId, { dayOfOpen: ctx.dayOfOpen });
 
-  return [
+  const planningMenus: CustomerMenu[] = [
     {
       key: 'home',
-      label: 'Home',
+      // Renamed Home → Overview (owner-approved product naming; matches the
+      // design prototype + the desktop sidebar). Key + route + exact-match
+      // unchanged — the bottom-nav registry slot `customer.bottom-nav.home`
+      // carries the same rename.
+      label: 'Overview',
       icon: Home,
       href: base,
+      // Overview is a plain menu — no docked sub-nav (owner 2026-07-10: the menu
+      // doesn't need checklist/schedule/messages/contracts). /checklist stays in
+      // activeMatch so arriving there (from the dashboard task cards) still lights
+      // Overview; the surface itself is reachable from the dashboard body.
       activeMatch: [base, `${base}/checklist`],
       activeMatchExact: true,
-      sectionMatch: [base, `${base}/checklist`],
-      sectionMatchExact: true,
-      subnavLabel: 'Home',
-      children: [
-        {
-          key: 'overview',
-          label: 'Overview',
-          icon: LayoutDashboard,
-          kind: 'route' as const,
-          href: base,
-          match: base,
-          slotKey: 'customer.home-subnav.overview',
-        },
-        {
-          key: 'checklist',
-          label: 'Checklist',
-          icon: ClipboardList,
-          kind: 'route' as const,
-          href: `${base}/checklist`,
-          match: `${base}/checklist`,
-          slotKey: 'customer.home-subnav.checklist',
-        },
-      ],
     },
     {
       key: 'guests',
       label: 'Guests',
       icon: Users,
       href: `${base}/guests`,
+      // Guests is a plain menu — no docked sub-nav / no sidebar submenu (owner
+      // 2026-07-10: the guest-journey stages Build·Invite·Confirm·Seat·Day-of·
+      // Event-QR are now integrated into the single Guests page; Seat still opens
+      // from within Guests and stays in activeMatch). Mirrors the Overview menu
+      // above (plain, childless). The FULL activeMatch is kept so /seating,
+      // /event-qr, and /hosts still light the Guests item.
       activeMatch: [`${base}/guests`, `${base}/seating`, `${base}/event-qr`, `${base}/hosts`],
-      // The dock shows across the journey proper only (matches isGuestJourneyPath):
-      sectionMatch: [`${base}/guests`, `${base}/seating`],
-      subnavLabel: 'Guest journey',
-      children: guestStages.map((s) => ({
-        key: s.key,
-        label: s.label,
-        icon: s.icon,
-        kind: 'route' as const,
-        href: s.href,
-        match: s.match,
-        muted: s.muted,
-        slotKey: `customer.guest-journey.${s.key}`,
-      })),
     },
     {
       key: 'explore',
-      label: 'Explore',
+      // Renamed Explore → Merkado (owner-approved product naming; matches the
+      // design prototype + the desktop sidebar). Key + route (/vendors) + match
+      // unchanged — the bottom-nav registry slot `customer.bottom-nav.explore`
+      // carries the same rename.
+      label: 'Merkado',
       icon: Compass,
       href: `${base}/vendors`,
       activeMatch: `${base}/vendors`,
@@ -230,14 +237,31 @@ export function buildCustomerMenuTree(
       })),
     },
     {
+      // SUITE SWAP (owner 2026-07-19: name locked = "Suite"; nav doorway
+      // REPLACES Studio, flag-gated via NEXT_PUBLIC_SUITE — the same flag that
+      // un-404s /dashboard/[eventId]/suite). Flag ON → this tab is the Suite
+      // doorway (`${base}/suite`); flag OFF → Studio exactly as today. KEY stays
+      // 'studio' (stable: hideKeys gating + the customer.bottom-nav.studio
+      // registry slot key off it — that slot's code default carries the same
+      // flag-gated rename in lib/nav-registry-defaults.ts). /studio routes stay
+      // reachable either way — activeMatch keeps every studio prefix so a
+      // deep-linked /studio page still lights this tab, and sectionMatch stays
+      // on the /studio hub so its docked anchor sub-nav keeps working there.
       key: 'studio',
-      label: 'Studio',
+      label: SUITE_NAV_ON ? 'Suite' : 'Studio',
       icon: Sparkles,
-      href: `${base}/studio`,
+      href: SUITE_NAV_ON ? `${base}/suite` : `${base}/studio`,
       // Studio ABSORBED Design (owner 2026-06-17 customer-menu redesign → 5 menus,
       // no standalone Design tab; /design redirects here). activeMatch covers the
-      // former Design routes too so the Studio tab lights across them.
-      activeMatch: [`${base}/studio`, `${base}/design`, `/site-editor/${eventId}`, `${base}/monogram`],
+      // former Design routes too so the Studio tab lights across them (+ /suite
+      // when the Suite doorway is on).
+      activeMatch: [
+        ...(SUITE_NAV_ON ? [`${base}/suite`] : []),
+        `${base}/studio`,
+        `${base}/design`,
+        `/site-editor/${eventId}`,
+        `${base}/monogram`,
+      ],
       // The 4 Studio sections are the docked sub-nav — anchor children scrolling to
       // the regrouped /add-ons hub (lib/add-ons-catalog.ts studioGroup + the
       // SECTIONS ids). Exact /add-ons only: the anchors live on the hub; add-on
@@ -247,31 +271,56 @@ export function buildCustomerMenuTree(
       subnavLabel: 'Studio sections',
       children: [
         { key: 'setnayan-ai', label: 'Setnayan AI', icon: Gem, kind: 'anchor' as const, hash: 'studio-ai', slotKey: 'customer.studio-subnav.setnayan-ai' },
-        { key: 'website', label: 'Website', icon: Globe, kind: 'anchor' as const, hash: 'studio-website', slotKey: 'customer.studio-subnav.website' },
+        // 'website' anchor — only when the event type enables the 'website'
+        // surface (its hub section is gated the same way; the anchor would scroll
+        // to nothing otherwise). Wedding enables it → byte-identical.
+        ...(ctx.websiteEnabled
+          ? [{ key: 'website', label: 'Website', icon: Globe, kind: 'anchor' as const, hash: 'studio-website', slotKey: 'customer.studio-subnav.website' }]
+          : []),
         { key: 'capture', label: 'Capture', icon: Camera, kind: 'anchor' as const, hash: 'studio-capture', slotKey: 'customer.studio-subnav.capture' },
         { key: 'branding', label: 'Branding', icon: Palette, kind: 'anchor' as const, hash: 'studio-branding', slotKey: 'customer.studio-subnav.branding' },
+        // "Event page" (owner 2026-06-26 "host should see the same event page we
+        // created") — a ROUTE child (the others are on-page anchors): tapping it
+        // navigates to /event-page, which resolves the slug + redirects to the
+        // live /[slug]. The mixed kind is fine — the dock dispatches per `kind`
+        // (route → router.push; anchor → scroll). On the /studio hub no path
+        // prefixes /event-page, so routeKey stays null and an anchor keeps the
+        // active highlight (this child never false-lights).
+        ...(ctx.websiteEnabled
+          ? [{ key: 'event-page', label: 'Event page', icon: Eye, kind: 'route' as const, href: `${base}/event-page`, match: `${base}/event-page`, slotKey: 'customer.studio-subnav.event-page' }]
+          : []),
+        // "Launch" (owner 2026-06-28; repointed 2026-07-02) — a ROUTE child
+        // that OPENS THE COUPLE'S LIVE PERSONAL WEBSITE (`/[slug]`) directly
+        // (owner: "launch on customer event is their personal website"). A
+        // signed-in host always sees their own page even while it's private, so
+        // this is safe pre-publish; before a slug exists we fall back to the
+        // go-live/setup surface (`/website/launch`). Only when the event type
+        // enables the 'website' surface.
+        ...(ctx.websiteEnabled
+          ? [
+              {
+                key: 'launch',
+                label: 'Launch',
+                icon: Rocket,
+                kind: 'route' as const,
+                href: ctx.slug ? `/${ctx.slug}` : `${base}/website/launch`,
+                match: ctx.slug ? `/${ctx.slug}` : `${base}/website/launch`,
+                slotKey: 'customer.studio-subnav.launch',
+              },
+            ]
+          : []),
       ],
     },
-    {
-      key: 'budget',
-      label: 'Budget',
-      icon: Wallet,
-      href: `${base}/budget`,
-      activeMatch: [`${base}/budget`, `${base}/disputes`],
-      // Single scrolling page — children are on-page sections the dock scrolls to
-      // (scroll-spy lights the one in view). Exact /budget only (the takeover-style
-      // exact match): /disputes is its own post-event surface, not a budget section,
-      // so it's intentionally NOT a child here.
-      sectionMatch: `${base}/budget`,
-      sectionMatchExact: true,
-      subnavLabel: 'Budget',
-      children: [
-        { key: 'overview', label: 'Overview', icon: Gauge, kind: 'anchor' as const, hash: 'budget-overview', slotKey: 'customer.budget-anchors.overview' },
-        { key: 'allocate', label: 'Allocate', icon: PieChart, kind: 'anchor' as const, hash: 'budget-allocate', slotKey: 'customer.budget-anchors.allocate' },
-        { key: 'payments', label: 'Payments', icon: Receipt, kind: 'anchor' as const, hash: 'budget-payments', slotKey: 'customer.budget-anchors.payments' },
-      ],
-    },
+    // Budget top-menu REMOVED 2026-07-10 (owner): the budget now lives inside the
+    // Merkado (Explore → Vendors takeover, Build · Budget · Compare), so a
+    // standalone menu item was redundant. The full budget surface
+    // (`${base}/budget`) stays reachable from the Merkado's Budget tab
+    // ("Open budget & payments") + direct links — only the nav entry is gone.
   ];
+
+  return ctx.hideKeys?.length
+    ? planningMenus.filter((m) => !ctx.hideKeys!.includes(m.key))
+    : planningMenus;
 }
 
 /** True when the pathname sits inside a menu's docked-sub-nav SECTION (narrow

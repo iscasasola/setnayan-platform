@@ -6,6 +6,130 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revokeAllSessions } from '@/lib/force-logout';
 
+/**
+ * RA 10173 right-to-erasure helper (PR-G).
+ *
+ * Account hard-delete removes auth.users → cascades to public.users + the
+ * event_members membership rows. But `events` has NO foreign key to its owner
+ * (the link is via event_members only), so the events ROW — and any sensitive
+ * per-partner birth date/time captured for the BaZi date-check — SURVIVES the
+ * delete. That's a right-to-erasure violation for sensitive data.
+ *
+ * This NULLs the 5 birth/consent columns on every event the deleted user OWNS
+ * (member_type='couple') BEFORE the auth delete cascades the membership rows
+ * away (after which we'd no longer be able to find the owner→event link). The
+ * rest of the event row is intentionally left intact — a wedding can have two
+ * partners + coordinators; we purge the leaving user's sensitive data, not the
+ * shared event. Best-effort: a purge failure is logged but does not block the
+ * deletion (a stuck purge must never trap an account in an undeletable state);
+ * the column-level COMMENTs flag this data for a manual sweep if needed.
+ *
+ * Uses the service-role admin client (passed in) so it isn't subject to the
+ * leaving user's RLS, which may already be partially torn down.
+ */
+async function purgeOwnedEventBirthData(
+  admin: ReturnType<typeof createAdminClient>,
+  targetUserId: string,
+  actorUserId: string,
+): Promise<void> {
+  // RA 10173 right-to-erasure: a purge failure must NOT trap the account in an
+  // undeletable state, but it also must not silently vanish — the irreversible
+  // auth-delete that follows severs the owner→event link, so un-purged birth
+  // data would orphan undiscoverably. On any failure we leave a durable
+  // admin_audit_log row so the erasure miss is recoverable via a manual sweep.
+  const recordErasureFailure = async (stage: string, message: string, eventIds: string[]) => {
+    console.error(`[purgeOwnedEventBirthData] ${stage} failed`, message);
+    await admin
+      .from('admin_audit_log')
+      .insert({
+        action: 'erasure_purge_failed',
+        target_id: targetUserId,
+        actor_user_id: actorUserId,
+        metadata: { stage, message, event_ids: eventIds, kind: 'bazi_birth_data' },
+      })
+      .then(({ error }) => {
+        if (error) console.error('[purgeOwnedEventBirthData] audit-log write failed', error.message);
+      });
+  };
+
+  const { data: owned, error: lookupErr } = await admin
+    .from('event_members')
+    .select('event_id')
+    .eq('user_id', targetUserId)
+    .eq('member_type', 'couple');
+  if (lookupErr) {
+    await recordErasureFailure('owned-event-lookup', lookupErr.message, []);
+    return;
+  }
+  const eventIds = (owned ?? [])
+    .map((r) => (r as { event_id?: string }).event_id)
+    .filter((v): v is string => typeof v === 'string' && v.length > 0);
+  if (eventIds.length === 0) return;
+
+  const { error: purgeErr } = await admin
+    .from('events')
+    .update({
+      partner_a_birth_date: null,
+      partner_a_birth_time: null,
+      partner_b_birth_date: null,
+      partner_b_birth_time: null,
+      bazi_birthdata_consent_at: null,
+    })
+    .in('event_id', eventIds);
+  if (purgeErr) {
+    await recordErasureFailure('birth-data-purge', purgeErr.message, eventIds);
+  }
+}
+
+/**
+ * RA 10173 right-to-erasure — chat residue (Data Retention Schedule 2026-07-11).
+ *
+ * The chat FKs to users are ON DELETE SET NULL (the message sender_user_id,
+ * chat_threads.created_by_user_id), and chat_threads only cascade-delete when
+ * the EVENT or vendor_profile is removed — but events have no owner FK and are
+ * never deleted. So without this, a departing user's message BODIES (their own
+ * words = their personal data, up to 4000 chars each) survive the auth-delete
+ * indefinitely, with sender_user_id merely nulled. That's the live gap flagged
+ * in the retention audit.
+ *
+ * Fix: hard-delete the messages this user AUTHORED, BEFORE the auth-delete
+ * cascades sender_user_id → NULL (after which we could no longer tell which
+ * rows were theirs). This is the surgical, minimal-harm erasure — the vendor's
+ * own messages and any co-partner's messages stay intact (a wedding can have
+ * two partners + coordinators; we erase only the leaving user's content, never
+ * the shared conversation). Runs on the service-role admin client so it isn't
+ * subject to the chat append-only RLS (which denies DELETE to authenticated).
+ *
+ * Best-effort, matching purgeOwnedEventBirthData: a failure is logged to
+ * admin_audit_log (so the erasure miss is recoverable via a manual sweep) but
+ * does NOT block the deletion — a stuck purge must never trap an account in an
+ * undeletable state.
+ */
+async function purgeUserAuthoredChat(
+  admin: ReturnType<typeof createAdminClient>,
+  targetUserId: string,
+  actorUserId: string,
+): Promise<void> {
+  const { error } = await admin
+    .from('chat_messages') // chat-guard-allow: RA 10173 right-to-erasure — deletes ONLY the leaving user's own authored messages on account deletion (service-role; audit-logged). See fn docstring.
+    .delete()
+    .eq('sender_user_id', targetUserId);
+  if (error) {
+    console.error('[purgeUserAuthoredChat] delete failed', error.message);
+    await admin
+      .from('admin_audit_log')
+      .insert({
+        action: 'erasure_purge_failed',
+        target_id: targetUserId,
+        actor_user_id: actorUserId,
+        metadata: { stage: 'chat-authored-messages', message: error.message, kind: 'chat_message_bodies' },
+      })
+      .then(({ error: auditErr }) => {
+        if (auditErr) console.error('[purgeUserAuthoredChat] audit-log write failed', auditErr.message);
+      });
+  }
+}
+
 async function requireAdmin() {
   const supabase = await createClient();
   const {
@@ -147,6 +271,14 @@ export async function deleteUser(formData: FormData) {
     throw new Error('Cannot delete an internal account');
   }
 
+  // RA 10173 (PR-G) — purge sensitive birth data on owned events BEFORE the auth
+  // delete cascades the membership rows away (events have no owner FK, so the
+  // data would otherwise survive the delete). Right-to-erasure.
+  await purgeOwnedEventBirthData(admin, targetUserId, adminUserId);
+  // RA 10173 — erase the departing user's authored chat message bodies before
+  // the auth-delete nulls sender_user_id (retention audit gap · 2026-07-11).
+  await purgeUserAuthoredChat(admin, targetUserId, adminUserId);
+
   const { error } = await admin.auth.admin.deleteUser(targetUserId);
   if (error) throw new Error(error.message);
 
@@ -201,6 +333,13 @@ export async function blacklistUser(formData: FormData) {
   if (bError && !bError.message.toLowerCase().includes('duplicate')) {
     throw new Error(bError.message);
   }
+
+  // RA 10173 (PR-G) — purge sensitive birth data on owned events BEFORE the auth
+  // delete cascades the membership rows away (same no-owner-FK gap as deleteUser).
+  await purgeOwnedEventBirthData(admin, targetUserId, adminUserId);
+  // RA 10173 — erase authored chat message bodies before the auth-delete nulls
+  // sender_user_id (same residue gap as deleteUser · retention audit 2026-07-11).
+  await purgeUserAuthoredChat(admin, targetUserId, adminUserId);
 
   const { error: dError } = await admin.auth.admin.deleteUser(targetUserId);
   if (dError) throw new Error(dError.message);

@@ -14,6 +14,7 @@
 import { useState, useTransition } from 'react';
 import { Hammer, Lock as LockIcon, RotateCcw, X } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
+import { useSaveLoader } from '@/components/sd-loader';
 import { removeBuildPick, clearBuildPicks } from '../build-pick-actions';
 import { goToBuildTab } from './services-takeover';
 
@@ -137,10 +138,14 @@ function Line({ k, v }: { k: string; v: string }) {
 function BuildControls({ eventId, hasUnlocked }: { eventId: string; hasUnlocked: boolean }) {
   const [confirm, setConfirm] = useState(false);
   const [pending, start] = useTransition();
+  const save = useSaveLoader();
   const reset = () => {
     haptic('tick');
     start(async () => {
-      await clearBuildPicks({ eventId });
+      await save.run(() => clearBuildPicks({ eventId }), {
+        steps: ['Clearing your picks'],
+        hint: 'Saving',
+      });
       setConfirm(false);
     });
   };
@@ -182,12 +187,16 @@ function BuildControls({ eventId, hasUnlocked }: { eventId: string; hasUnlocked:
 
 function BuildPickRow({ eventId, item }: { eventId: string; item: BuildPickItem }) {
   const [pending, start] = useTransition();
+  const save = useSaveLoader();
   const remove = () => {
     haptic('tick');
     start(async () => {
       // Pass vendorId so a multi-pick category (Look/Booths/Prints) drops only
       // THIS pick, not every vendor in the category.
-      await removeBuildPick({ eventId, planGroupId: item.groupId, vendorId: item.vendorId });
+      await save.run(
+        () => removeBuildPick({ eventId, planGroupId: item.groupId, vendorId: item.vendorId }),
+        { steps: ['Removing your pick'], hint: 'Saving' },
+      );
     });
   };
   return (

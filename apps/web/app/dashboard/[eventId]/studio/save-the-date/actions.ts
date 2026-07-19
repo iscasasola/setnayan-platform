@@ -12,6 +12,8 @@ import { resolveStdBackground, type StdBackground } from '@/lib/std-backgrounds'
 import { resolveStdMedia, type StdMedia } from '@/lib/std-media';
 import { screenStdVideo } from '@/lib/nsfw-screen';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { fanOutSaveTheDateEmails } from '@/lib/save-the-date-emails';
+import { publishSaveTheDate } from '@/lib/launch-save-the-date';
 
 /**
  * Server actions for the Save-the-Date builder (0024 PR4 · P4).
@@ -30,12 +32,19 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
  * (couple_can_update_event is the DB-level enforcement).
  */
 
-async function requireCouple(eventId: string) {
+async function requireCouple(eventId: string, opts?: { secured?: boolean }) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+  // Anon-draft boundary: launching / scheduling a Save-the-Date makes the event
+  // public and emails guests — never allowed for a native anonymous principal.
+  // They must "secure their plan" first. Design actions (reveal choice, dates)
+  // stay open so drafting still works without an account.
+  if (opts?.secured && user.is_anonymous) {
+    redirect(`/signup?next=/dashboard/${eventId}/studio/save-the-date`);
+  }
   const { data: membership } = await supabase
     .from('event_members')
     .select('event_id')
@@ -293,21 +302,76 @@ export async function launchSaveTheDate(
   eventId: string,
 ): Promise<{ ok: boolean; error?: string }> {
   if (!eventId) return { ok: false, error: 'missing-event' };
-  const supabase = await requireCouple(eventId);
-  const { data: ev, error } = await supabase
-    .from('events')
-    .update({
-      landing_page_visibility: 'public',
-      std_launched_at: new Date().toISOString(),
-    })
-    .eq('event_id', eventId)
-    .select('slug')
-    .single();
-  if (error || !ev) return { ok: false, error: 'db-error' };
+  const supabase = await requireCouple(eventId, { secured: true });
+  // Shared go-public flip (lib/launch-save-the-date.ts) — also clears any
+  // pending scheduled_launch_at, so "Launch now" cleanly overrides a schedule.
+  const published = await publishSaveTheDate(supabase, eventId);
+  if (!published) return { ok: false, error: 'db-error' };
   // Flip the PUBLIC page out of its cached private state — the dashboard-only
   // revalidate() helper below never touches /[slug], so without this the page
   // could keep serving the lock screen after launch.
-  if (ev.slug) revalidatePath(`/${ev.slug as string}`);
+  if (published.slug) revalidatePath(`/${published.slug}`);
+  revalidate(eventId);
+  // Augment the shared-link "pull" model with an opt-out-able PUSH: actively
+  // email each guest who has an email address their save-the-date. Cron-free
+  // (Next 15 after() — runs after the response), best-effort (never blocks the
+  // launch or throws), and idempotent (per-guest guests.std_sent_at guards a
+  // re-launch from re-spamming). Guests WITHOUT an email are simply skipped —
+  // the shared join link stays their fallback.
+  after(() => fanOutSaveTheDateEmails(eventId).catch(() => {}));
+  return { ok: true };
+}
+
+/**
+ * scheduleSaveTheDateLaunch — set a FUTURE go-live for the wedding website
+ * (owner ask 2026-06-28). The page stays private until the moment arrives;
+ * the cron-free read-time gate in app/[slug]/page.tsx flips it public + emails
+ * guests on the first load past `scheduled_launch_at`. No timer, no cron.
+ *
+ * `localDateTime` is the couple's wall-clock pick from a <input type="datetime-
+ * local"> — "YYYY-MM-DDTHH:mm". We interpret it as Asia/Manila (PH has no DST,
+ * fixed +08:00) so the schedule is deterministic regardless of the couple's
+ * device timezone, then store UTC. Returns the stored ISO so the UI can update
+ * without a navigation (called via useTransition).
+ */
+export async function scheduleSaveTheDateLaunch(
+  eventId: string,
+  localDateTime: string,
+): Promise<{ ok: boolean; error?: string; scheduledAtIso?: string }> {
+  if (!eventId) return { ok: false, error: 'missing-event' };
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(localDateTime)) {
+    return { ok: false, error: 'bad-datetime' };
+  }
+  // Interpret the wall-clock pick as Manila time (+08:00), store UTC.
+  const when = new Date(`${localDateTime}:00+08:00`);
+  if (Number.isNaN(when.getTime())) return { ok: false, error: 'bad-datetime' };
+  if (when.getTime() <= Date.now()) return { ok: false, error: 'past' };
+
+  const supabase = await requireCouple(eventId, { secured: true });
+  const iso = when.toISOString();
+  const { error } = await supabase
+    .from('events')
+    .update({ scheduled_launch_at: iso })
+    .eq('event_id', eventId);
+  if (error) return { ok: false, error: 'db-error' };
+  revalidate(eventId);
+  return { ok: true, scheduledAtIso: iso };
+}
+
+/**
+ * cancelScheduledLaunch — clear a pending scheduled launch. The page stays
+ * private; the couple can re-schedule or launch now. Idempotent.
+ */
+export async function cancelScheduledLaunch(
+  eventId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!eventId) return { ok: false, error: 'missing-event' };
+  const supabase = await requireCouple(eventId);
+  const { error } = await supabase
+    .from('events')
+    .update({ scheduled_launch_at: null })
+    .eq('event_id', eventId);
+  if (error) return { ok: false, error: 'db-error' };
   revalidate(eventId);
   return { ok: true };
 }

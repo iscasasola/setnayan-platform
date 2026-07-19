@@ -18,6 +18,29 @@ export interface WallTile {
 export type WallMode = 'coming_soon' | 'pre_event' | 'live' | 'recap' | 'archive';
 
 /**
+ * Papic Live Photo Wall tile layouts (owner 2026-07-08 · D5). 'mosaic' is the
+ * original masonry look and the default — existing walls are unchanged.
+ */
+export type WallTileLayout = 'grid' | 'mosaic' | 'hero' | 'polaroid';
+export const WALL_TILE_LAYOUTS: readonly WallTileLayout[] = ['mosaic', 'grid', 'hero', 'polaroid'];
+export const DEFAULT_WALL_TILE_LAYOUT: WallTileLayout = 'mosaic';
+export const DEFAULT_WALL_PHOTO_COUNT = 40;
+
+/** Narrow an arbitrary DB string to a known layout (falls back to the default). */
+export function asWallTileLayout(value: string | null | undefined): WallTileLayout {
+  return value && (WALL_TILE_LAYOUTS as readonly string[]).includes(value)
+    ? (value as WallTileLayout)
+    : DEFAULT_WALL_TILE_LAYOUT;
+}
+
+/** Clamp the couple's chosen photo count to the DB-enforced 6–60 band. */
+export function clampWallPhotoCount(n: number | null | undefined): number {
+  const v = Math.round(Number(n));
+  if (!Number.isFinite(v)) return DEFAULT_WALL_PHOTO_COUNT;
+  return Math.min(60, Math.max(6, v));
+}
+
+/**
  * Merge incremental tiles into the existing list: dedupe by feedId (existing
  * object identity wins — keeps React keys stable), append in sort order.
  */

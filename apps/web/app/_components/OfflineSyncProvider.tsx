@@ -13,8 +13,8 @@
  * triggers a mass upload synchronization."
  *
  * Mount near the root of every capture-surface tree (Papic seat,
- * Pabati guestbook, Patiktok booth, Panood camera op, SDE callback
- * receiver, Camera Bridge UI, Live Wall projector handshake).
+ * Pabati guestbook, Patiktok booth, Panood camera op, Camera Bridge
+ * UI, Live Wall projector handshake).
  *
  * Companions:
  *   lib/indexedDB.ts          · IndexedDB primitives

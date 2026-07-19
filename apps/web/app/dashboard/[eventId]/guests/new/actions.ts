@@ -4,8 +4,13 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { guestEditsLocked } from '@/lib/pax';
+import { applyReconcileForEvent } from '@/lib/seating-reconcile';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { maybeAutoSurfaceEventForGuest } from '@/lib/account-autosurface';
 import {
   INVITED_TO_BLOCKS,
+  singletonRoleDuplicateMessage,
+  singletonRoleFromIndexError,
   type GuestGroupCategory,
   type GuestRole,
   type GuestSide,
@@ -14,34 +19,9 @@ import {
   type RsvpStatus,
 } from '@/lib/guests';
 import { normalizeGuestName } from '@/lib/guest-name';
+import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 
-const ROLE_VALUES: GuestRole[] = [
-  'guest',
-  'bride',
-  'groom',
-  // VIP family — owner directive 2026-05-23 PM (PR #424 lock).
-  'bride_parents',
-  'groom_parents',
-  'bride_immediate_family',
-  'groom_immediate_family',
-  'maid_of_honor',
-  'matron_of_honor',
-  'best_man',
-  'bridesmaid',
-  'groomsman',
-  'principal_sponsor',
-  'candle_sponsor',
-  'veil_sponsor',
-  'cord_sponsor',
-  'coin_sponsor',
-  'ring_bearer',
-  'bible_bearer',
-  'coin_bearer',
-  'flower_girl',
-  'officiant',
-  'reader_lector',
-  'soloist_musician',
-];
+// Iteration 0053 P2: the valid role set is per event type (resolveRoleSetForEvent).
 const SIDE_VALUES: GuestSide[] = ['bride', 'groom', 'both'];
 const GROUP_VALUES: GuestGroupCategory[] = [
   'family',
@@ -98,6 +78,13 @@ export async function createGuest(eventId: string, formData: FormData) {
   const rsvp_status = (clean(formData.get('rsvp_status')) || 'pending') as RsvpStatus;
   const photo_consent = clean(formData.get('photo_consent')) === 'on';
   const notes = clean(formData.get('notes')) || null;
+  // Tea-ceremony serving order (Chinese / Tsinoy weddings) — both optional. A
+  // free-text relationship label + an integer within-side serve order (lower
+  // serves first). Parse seniority defensively — non-numeric / empty → null.
+  const relation = clean(formData.get('relation')) || null;
+  const seniorityRaw = clean(formData.get('seniority_rank'));
+  const seniorityParsed = seniorityRaw ? Number.parseInt(seniorityRaw, 10) : NaN;
+  const seniority_rank = Number.isFinite(seniorityParsed) ? seniorityParsed : null;
   // Custom tags RETIRED 2026-05-23 PM — owner directive: tags now
   // auto-derived from side/group/role/table at render time, host can't
   // pick free-text. Legacy column stays in schema (no migration) but
@@ -123,7 +110,8 @@ export async function createGuest(eventId: string, formData: FormData) {
   if (!GROUP_VALUES.includes(group_category)) {
     return redirect(`/dashboard/${eventId}/guests/new?error=missing_group`);
   }
-  if (!ROLE_VALUES.includes(role)) {
+  const roleSet = await resolveRoleSetForEvent(eventId);
+  if (!roleSet.offeredRoles.includes(role)) {
     return redirect(`/dashboard/${eventId}/guests/new?error=invalid_role`);
   }
   if (!RSVP_VALUES.includes(rsvp_status)) {
@@ -168,21 +156,23 @@ export async function createGuest(eventId: string, formData: FormData) {
       invited_to_blocks,
       plus_one_allowed,
       plus_one_name,
+      relation,
+      seniority_rank,
     })
     .select('guest_id')
     .single();
 
   if (error || !inserted) {
-    // 23505 from the partial unique indexes (migration 20260531010000)
-    // when trying to set a second bride or groom. Friendlier copy than
-    // the raw constraint name.
-    const friendly =
-      error && (error as { code?: string }).code === '23505' &&
-      /guests_one_(bride|groom)_per_event/.test(error.message)
-        ? role === 'bride'
-          ? 'Already a Bride in this event — change theirs first.'
-          : 'Already a Groom in this event — change theirs first.'
-        : (error?.message ?? 'insert_failed');
+    // 23505 from the partial unique indexes (bride/groom: migration
+    // 20260531010000; Muslim wali/imam/wakil: 20270308998862) when setting a
+    // second singleton. Friendlier copy than the raw constraint name.
+    const dupRole =
+      error && (error as { code?: string }).code === '23505'
+        ? singletonRoleFromIndexError(error.message)
+        : null;
+    const friendly = dupRole
+      ? singletonRoleDuplicateMessage(dupRole)
+      : (error?.message ?? 'insert_failed');
     return redirect(
       `/dashboard/${eventId}/guests/new?error=${encodeURIComponent(friendly)}`,
     );
@@ -212,6 +202,15 @@ export async function createGuest(eventId: string, formData: FormData) {
       );
     }
   }
+
+  // Smart seat-plan Phase 5: auto-place the new guest (+ any +1) into a
+  // provisional seat. Best-effort — never blocks the add.
+  await applyReconcileForEvent(supabase, eventId);
+
+  // Account auto-surface (#7b) — flag-gated OFF; a no-op until counsel clears
+  // FEATURE_ACCOUNT_AUTOSURFACE. Surfaces the event into the guest's own account
+  // when their person resolves to an already-claimed account.
+  await maybeAutoSurfaceEventForGuest(createAdminClient(), eventId, inserted.guest_id);
 
   revalidatePath(`/dashboard/${eventId}/guests`);
   return redirect(`/dashboard/${eventId}/guests?added=1`);

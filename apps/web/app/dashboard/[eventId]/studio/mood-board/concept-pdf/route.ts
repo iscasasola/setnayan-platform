@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server';
 import sharp from 'sharp';
 import QRCode from 'qrcode';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { sanitizeRolePalette } from '@/lib/mood-board';
+import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { renderVenueSvg, type ReceptionDesign } from '@/lib/reception-scene';
 import { buildConceptPdf } from '@/lib/concept-pdf';
 import { safeFetchImageBytes } from '@/lib/safe-image-fetch';
@@ -125,11 +127,13 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     logoPng = null;
   }
 
-  // Website QR (optional).
+  // Website QR (optional). Nested /u/ under the cutover flag, bare root
+  // otherwise (self-noops OFF; no query pre-cutover).
   let qrPng: Uint8Array | null = null;
   if (event.slug) {
+    const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), eventId);
     try {
-      const png = await QRCode.toBuffer(`${appUrl}/${event.slug}`, {
+      const png = await QRCode.toBuffer(publicEventUrl(appUrl, event.slug, ownerSlug), {
         type: 'png',
         width: 320,
         margin: 1,

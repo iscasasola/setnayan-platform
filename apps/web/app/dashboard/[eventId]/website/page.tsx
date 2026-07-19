@@ -11,11 +11,16 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { buildEventLandingUrl } from '@/lib/qr';
+import { resolveEventOwnerSlug } from '@/lib/public-event-url';
+import { eventOwnsSku } from '@/lib/entitlements';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { RevealList } from '@/app/_components/reveal-list';
+import { eventNoun, eventNounCap } from '@/lib/event-noun';
 
-export const metadata = { title: 'Wedding website' };
+export const metadata = { title: 'Event website' };
 
 /**
  * /dashboard/[eventId]/website — the wedding-website HUB.
@@ -63,7 +68,7 @@ export default async function WebsiteHubPage({
       .maybeSingle(),
     supabase
       .from('events')
-      .select('event_id, display_name, slug')
+      .select('event_id, display_name, slug, event_type')
       .eq('event_id', eventId)
       .maybeSingle(),
   ]);
@@ -87,23 +92,34 @@ export default async function WebsiteHubPage({
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
 
+  // Canonical URL form — nested /u/ under the cutover flag, bare root otherwise
+  // (resolve self-noops OFF; no query pre-cutover).
+  const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), eventId);
   const publicLandingUrl = event.slug
-    ? buildEventLandingUrl({ appUrl, slug: event.slug })
+    ? buildEventLandingUrl({ appUrl, slug: event.slug, ownerSlug })
     : null;
   const slugDisplay = publicLandingUrl
     ? publicLandingUrl.replace(/^https?:\/\//, '')
     : null;
 
+  // Custom Subdomain (EVENT_SUBDOMAIN ₱999/yr) — when owned, the couple's site is
+  // ALSO reachable at {slug}.setnayan.com (routed by the paid-gated subdomain
+  // middleware). Shown as a secondary vanity address under the canonical link.
+  const ownsSubdomain = event.slug
+    ? await eventOwnsSku(supabase, eventId, 'EVENT_SUBDOMAIN')
+    : false;
+  const subdomainHost = ownsSubdomain && event.slug ? `${event.slug}.setnayan.com` : null;
+
   return (
     <section className="space-y-8">
       {/* Header strip — eyebrow + title + lede */}
-      <header className="space-y-2">
-        <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye flex items-center gap-2">
           <Globe aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Your wedding website
+          Your {eventNoun(event.event_type)} website
         </p>
-        <h1 className="font-serif text-3xl italic tracking-tight sm:text-4xl">
-          {event.display_name || 'Your wedding page'}
+        <h1 className="sn-h1">
+          {event.display_name || `Your ${eventNounCap(event.event_type)} page`}
         </h1>
         <p className="max-w-prose text-base text-ink/70">
           One page for everything your guests need — your story, the details, and
@@ -112,8 +128,8 @@ export default async function WebsiteHubPage({
       </header>
 
       {/* Hero — public site identity + the primary "Launch editor" action */}
-      <div className="overflow-hidden rounded-2xl border border-ink/10 bg-white/70">
-        <div className="space-y-5 p-6 sm:p-8">
+      <div className="overflow-hidden sn-tile">
+        <div className="space-y-5">
           <div className="space-y-1.5">
             {publicLandingUrl ? (
               <>
@@ -134,10 +150,26 @@ export default async function WebsiteHubPage({
                     strokeWidth={1.75}
                   />
                 </a>
+                {subdomainHost ? (
+                  <p className="flex items-center gap-1.5 pt-1 text-sm text-ink/70">
+                    <Globe aria-hidden className="h-3.5 w-3.5 shrink-0 text-terracotta" strokeWidth={1.75} />
+                    <span>
+                      Your custom subdomain:{' '}
+                      <a
+                        href={`https://${subdomainHost}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-terracotta hover:underline"
+                      >
+                        {subdomainHost}
+                      </a>
+                    </span>
+                  </p>
+                ) : null}
               </>
             ) : (
               <p className="text-sm text-ink/70">
-                Pick your wedding URL in the editor — it&rsquo;s how guests find
+                Pick your {eventNoun(event.event_type)} URL in the editor — it&rsquo;s how guests find
                 your page and what your QR points to.
               </p>
             )}
@@ -167,26 +199,29 @@ export default async function WebsiteHubPage({
       </div>
 
       {/* Quick links — light hand-offs to the surfaces that pair with the page */}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <RevealList as="div" className="grid gap-4 sm:grid-cols-2">
         <QuickLink
+          data-reveal-item
           href={`/dashboard/${eventId}/invitation`}
           icon={<Pencil aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />}
           title="Invitation & URL"
-          blurb="Your monogram, how your names appear, and your public wedding URL."
+          blurb={`Your monogram, how your names appear, and your public ${eventNoun(event.event_type)} URL.`}
         />
         <QuickLink
+          data-reveal-item
           href={`/dashboard/${eventId}/website/privacy`}
           icon={<Lock aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />}
           title="Who can view"
           blurb="Choose who reaches your page — anyone with the link, or only your guests."
         />
         <QuickLink
+          data-reveal-item
           href={`/dashboard/${eventId}/website/editorial`}
           icon={<Newspaper aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />}
           title="Editorial"
           blurb="Your front-page story after the day — words, photos, hero, and which features show."
         />
-      </div>
+      </RevealList>
 
       {/* Your page through time — the 4-path lifecycle. One page, but it shows
           guests the phase that fits the date. These previews force a phase so
@@ -194,7 +229,7 @@ export default async function WebsiteHubPage({
       {publicLandingUrl ? (
         <div className="space-y-3">
           <div className="space-y-1">
-            <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+            <p className="sn-eye flex items-center gap-2">
               <CalendarClock aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               Your page through time
             </p>
@@ -203,32 +238,36 @@ export default async function WebsiteHubPage({
               date. Edit each part on its own, or preview how it looks.
             </p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <RevealList as="div" className="grid gap-3 sm:grid-cols-2">
             <PhasePart
+              data-reveal-item
               editHref={`/dashboard/${eventId}/studio/save-the-date`}
               previewHref={`${publicLandingUrl}?phase=save_the_date`}
               title="Save the Date"
               blurb="Far out — the announcement. Countdown + add-to-calendar."
             />
             <PhasePart
+              data-reveal-item
               editHref={`/site-editor/${eventId}/rsvp`}
               previewHref={`${publicLandingUrl}?phase=rsvp`}
               title="RSVP"
               blurb="The run-up — your invitation and the RSVP form."
             />
             <PhasePart
+              data-reveal-item
               editHref={`/site-editor/${eventId}/event`}
               previewHref={`${publicLandingUrl}?phase=event`}
               title="Event"
-              blurb="The wedding day — the live, day-of page."
+              blurb={`The ${eventNoun(event.event_type)} day — the live, day-of page.`}
             />
             <PhasePart
+              data-reveal-item
               editHref={`/site-editor/${eventId}/editorial`}
               previewHref={`${publicLandingUrl}?phase=editorial`}
               title="Editorial"
               blurb="After — the recap, gallery, and thank-you."
             />
-          </div>
+          </RevealList>
         </div>
       ) : null}
     </section>
@@ -244,16 +283,19 @@ function QuickLink({
   icon,
   title,
   blurb,
+  'data-reveal-item': dataRevealItem,
 }: {
   href: string;
   icon: React.ReactNode;
   title: string;
   blurb: string;
+  'data-reveal-item'?: boolean;
 }) {
   return (
     <Link
+      data-reveal-item={dataRevealItem ? '' : undefined}
       href={href}
-      className="group flex items-start gap-4 rounded-xl border border-ink/10 bg-cream p-5 transition-colors hover:border-terracotta/40 hover:bg-white/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+      className="group sn-row flex items-start gap-4 p-5 transition-colors hover:border-terracotta/40 hover:bg-white/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
     >
       <span className="mt-0.5 shrink-0">{icon}</span>
       <span className="min-w-0 flex-1 space-y-1">
@@ -284,14 +326,19 @@ function PhasePart({
   previewHref,
   title,
   blurb,
+  'data-reveal-item': dataRevealItem,
 }: {
   editHref: string;
   previewHref: string;
   title: string;
   blurb: string;
+  'data-reveal-item'?: boolean;
 }) {
   return (
-    <div className="flex flex-col rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40">
+    <div
+      data-reveal-item={dataRevealItem ? '' : undefined}
+      className="flex flex-col sn-row p-4 transition-colors hover:border-terracotta/40"
+    >
       <span className="min-w-0 flex-1 space-y-1">
         <span className="block text-sm font-semibold text-ink">{title}</span>
         <span className="block text-xs text-ink/65">{blurb}</span>

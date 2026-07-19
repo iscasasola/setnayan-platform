@@ -4,9 +4,10 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchGuestsByEvent, guestDisplayName, ROLE_LABELS } from '@/lib/guests';
 import { renderBrandedInvitationQrSvg, resolveBrandedQrColors } from '@/lib/qr';
+import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { resolveMonogram } from '@/lib/monogram';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
-import { eventOwnsSku } from '@/lib/entitlements';
+import { eventSkuActive } from '@/lib/entitlements';
 
 export const metadata = { title: 'Branded QR print sheet · Setnayan' };
 export const dynamic = 'force-dynamic';
@@ -41,14 +42,16 @@ export default async function BrandedQrPrintSheet({ params }: Props) {
     .maybeSingle();
   if (!event) notFound();
 
-  // Ownership gate via the shared bundle-aware eventOwnsSku() reader
-  // (lib/entitlements.ts) — same refund-aware read as the detail page, and
-  // bundle-aware so a GUIDED_PACK/MEDIA_PACK buyer reaches the print pack.
-  // Graceful-degrade on a missing orders table by treating it as not-owned
+  // Branded-feature gate via the shared bundle-aware eventSkuActive() reader
+  // (lib/entitlements.ts) — admin-APPROVED only (owner-locked 2026-06-22),
+  // matching the detail page + branded PNG-download API so a pending-payment
+  // couple can't reach the branded print pack before approval. Bundle-aware so a
+  // GUIDED_PACK/MEDIA_PACK buyer reaches it once that bundle is approved.
+  // Graceful-degrade on a missing orders table by treating it as not-active
   // (→ redirect to buy). Read with the ADMIN client (PR4d): the !event gate
   // above authorizes the member, ownership is event-level, and orders RLS is
   // purchaser-scoped — so the user client would deny a co-host the print pack.
-  const owns = await eventOwnsSku(createAdminClient(), eventId, 'CUSTOM_QR_GUEST');
+  const owns = await eventSkuActive(createAdminClient(), eventId, 'CUSTOM_QR_GUEST');
   if (!owns) {
     redirect(`/dashboard/${eventId}/studio/custom-qr-guest`);
   }
@@ -66,6 +69,9 @@ export default async function BrandedQrPrintSheet({ params }: Props) {
     event.monogram_color ??
     null;
   const qrColors = resolveBrandedQrColors(brandColor);
+  // Canonical URL form for the printed QRs — nested /u/ under the cutover flag,
+  // bare root otherwise (resolve self-noops OFF; no query pre-cutover).
+  const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), event.event_id);
 
   const qrCards = await Promise.all(
     guests.map(async (g) => ({
@@ -76,6 +82,7 @@ export default async function BrandedQrPrintSheet({ params }: Props) {
         qrToken: g.qr_token,
         monogram,
         colors: qrColors,
+        ownerSlug,
       }),
     })),
   );

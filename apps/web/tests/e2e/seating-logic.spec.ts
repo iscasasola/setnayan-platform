@@ -159,7 +159,7 @@ test.describe('geometry transforms', () => {
 // --- computeAutoSeat -------------------------------------------------------------
 
 test.describe('computeAutoSeat', () => {
-  test('seats only attending, unseated, non-couple guests', () => {
+  test('seats everyone not declined (pending get a held seat), excludes declined + couple', () => {
     const tables = [mkTable({ table_id: 't1', x_pos: 50, y_pos: 10 })];
     const guests = [
       mkGuest({ guest_id: 'attending' }),
@@ -169,7 +169,8 @@ test.describe('computeAutoSeat', () => {
       mkGuest({ guest_id: 'groom', role: 'groom' }),
     ];
     const rows = computeAutoSeat(tables, guests, [], STAGE);
-    expect(rows.map((r) => r.guest_id)).toEqual(['attending']);
+    // Pending now gets a held seat; only declined + the couple are excluded.
+    expect(rows.map((r) => r.guest_id).sort()).toEqual(['attending', 'pending']);
   });
 
   test('is idempotent — already-seated guests are never moved or duplicated', () => {
@@ -510,6 +511,19 @@ test.describe('serpentine chain snap', () => {
     expect(serpentineChainSnap({ x: 0, y: 0 }, [], 36)).toBeNull();
   });
 
+  test('a hand-loose drag needs the generous editor tolerance, not the 36px default', () => {
+    // Root cause of "serpentines don't link on the end like the long tables":
+    // a wedge's chain candidates sit a whole footprint from the drag centre, so
+    // the bare 36px default is unhittable by hand. The editor now passes a
+    // footprint-scaled catch (like rectChainSnap). Prove a realistic ~44px-off
+    // drag MISSES at 36 but CATCHES at the generous tolerance.
+    const candidate = serpentineChainSnap({ x: B.x + 150, y: B.y + 40 }, [B], 200);
+    expect(candidate).not.toBeNull();
+    const looseDrag = { x: candidate!.x + 44, y: candidate!.y }; // 44px off the exact join
+    expect(serpentineChainSnap(looseDrag, [B], 36)).toBeNull(); // old behaviour: no link
+    expect(serpentineChainSnap(looseDrag, [B], 64)).not.toBeNull(); // fixed: snaps
+  });
+
   test('chairs clear each other across every junction type', () => {
     // World chair centres of a wedge = geometry seats, scaled + rotated + offset.
     const chairsWorld = (w: { x: number; y: number; rot: number }) => {
@@ -541,7 +555,7 @@ test.describe('serpentine chain snap', () => {
 
 // --- rect run + round kiss chaining (2026-06-13 follow-up) ---------------------
 
-import { CHAIR_PX, ROUND_KISS_GAP, rectChainSnap, roundKissSnap } from '../../lib/seating';
+import { CHAIR_PX, rectChainSnap } from '../../lib/seating';
 
 test.describe('rect chain snap (banquet / family head runs)', () => {
   // long_banquet_8: per=4 → hubW = 4·40+16 = 176 → halfLen 88.
@@ -591,37 +605,8 @@ test.describe('rect chain snap (banquet / family head runs)', () => {
   });
 });
 
-test.describe('round kiss snap', () => {
-  const rB = tableGeometry('round', 10).box.w / 2;
-  const rA = tableGeometry('round', 8).box.w / 2;
-  const B = { x: 500, y: 500, radius: rB };
-
-  test('snaps onto the line of centres at kiss distance, direction preserved', () => {
-    const drag = { x: B.x + rA + rB + 20, y: B.y - 14 };
-    const snap = roundKissSnap(drag, rA, [B]);
-    expect(snap).not.toBeNull();
-    const dist = Math.hypot(snap!.x - B.x, snap!.y - B.y);
-    expect(Math.abs(dist - (rA + rB + ROUND_KISS_GAP))).toBeLessThan(1e-9);
-    // Direction from the anchor is the drag direction (the couple picks the side).
-    const want = Math.atan2(drag.y - B.y, drag.x - B.x);
-    const got = Math.atan2(snap!.y - B.y, snap!.x - B.x);
-    expect(Math.abs(want - got)).toBeLessThan(1e-9);
-  });
-
-  test('kissed rounds stay clear of the collision threshold (chairs never overlap)', () => {
-    // Editor collision: AABB halves + 10px gap. Kiss distance must exceed it
-    // so the mount resolver never separates a kissed pair — and the chair
-    // rings (inside the boxes) cannot intersect.
-    const snap = roundKissSnap({ x: B.x + rA + rB + 5, y: B.y }, rA, [B]);
-    const dist = Math.hypot(snap!.x - B.x, snap!.y - B.y);
-    expect(dist).toBeGreaterThan(rA + rB + 10);
-  });
-
-  test('dead-centre drop and far drops do not snap', () => {
-    expect(roundKissSnap({ x: B.x, y: B.y }, rA, [B])).toBeNull();
-    expect(roundKissSnap({ x: B.x + rA + rB + 200, y: B.y }, rA, [B])).toBeNull();
-  });
-});
+// (Round-kiss snap removed 2026-07-16 — round tables are standalone furniture:
+// they never connect and always collide. See lib/seating-weld.test.ts.)
 
 // --- free-venue booth placement (no walls — gardens / open fields) ------------
 
@@ -693,10 +678,15 @@ import { BOOTH_CATALOG as PICKABLE_BOOTHS } from '../../lib/seating';
 test.describe('booth catalog', () => {
   test('the picker offers real kinds and never the unassigned placeholder', () => {
     const types = PICKABLE_BOOTHS.map((b) => b.type);
+    // Order mirrors BOOTH_CATALOG. band / live_cooking / live_performance added
+    // 2026-07-04 for the vendor 3D-Plan booths (migration 20270511347133).
     expect(types).toEqual([
       'photo_booth',
       'mobile_bar',
+      'live_cooking',
       'dessert_station',
+      'band',
+      'live_performance',
       'gift_table',
       'souvenir_table',
       'registration_desk',

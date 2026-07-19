@@ -56,8 +56,10 @@ import {
   REVIEW_AXIS_LABEL,
   type ReviewAxis,
   formatStarRating,
+  fetchTrustedReviewStats,
   type ReviewWithCouple,
   type ReviewStatsRow,
+  type TrustedReviewStatsRow,
 } from '@/lib/reviews';
 
 // ----------------------------------------------------------------------------
@@ -88,6 +90,12 @@ function isMissingRelation(error: { code?: string } | null | undefined): boolean
  * Read-only fields only — the workspace page already pulls business_name
  * + logo_url for the header from the same row earlier in the request, so
  * this helper deliberately returns the subset the new Contact card needs.
+ *
+ * `supabase` may be either the couple RLS client (default) OR an admin client.
+ * The workspace page passes an admin client for the couple's OWN picked vendor
+ * (ownership already proven via the event_vendors row), so a claimed-but-
+ * UNPUBLISHED vendor (is_published=false) still hydrates instead of coming back
+ * empty from the public-read RLS. See the caller for the ownership proof.
  */
 export async function fetchMarketplaceContact(
   supabase: SupabaseClient,
@@ -117,6 +125,11 @@ export async function fetchMarketplaceContact(
 /**
  * Fetch active vendor_services rows. Empty array on any failure (table missing,
  * RLS, transient). Drives the Services card.
+ *
+ * `supabase` may be either the couple RLS client (default) OR an admin client.
+ * The workspace page passes an admin client for the couple's OWN picked vendor
+ * (ownership already proven via the event_vendors row) so an unpublished claimed
+ * vendor's services still render — same rationale as fetchMarketplaceContact.
  */
 export async function fetchMarketplaceServices(
   supabase: SupabaseClient,
@@ -145,9 +158,23 @@ export async function fetchMarketplaceServices(
   }
 }
 
+// This couple-facing panel renders NO provenance pill, so the receipt-backed
+// `booked_through_setnayan` / `via_vendor_import` columns are not fetched or
+// carried here — they would be a dead fetch. Narrow the lib row to omit them.
+export type MarketplaceReview = Omit<
+  ReviewWithCouple,
+  'booked_through_setnayan' | 'via_vendor_import'
+>;
+
 export type MarketplaceReviewsData = {
   stats: ReviewStatsRow;
-  reviews: ReviewWithCouple[];
+  /**
+   * ANTI-FRAUD (2026-07-05): trusted (receipt-backed, arm's-length) aggregate.
+   * The couple-facing hero average + count read this; `stats` still backs the
+   * per-star histogram + the review list.
+   */
+  trustedStats: TrustedReviewStatsRow;
+  reviews: MarketplaceReview[];
 };
 
 /**
@@ -171,7 +198,10 @@ export async function fetchMarketplaceReviews(
   };
 
   let stats = fallbackStats;
-  let reviews: ReviewWithCouple[] = [];
+  let reviews: MarketplaceReview[] = [];
+  // ANTI-FRAUD (2026-07-05): trusted aggregate for the hero average + count.
+  // Fail-soft inside fetchTrustedReviewStats → 0/0 when the view is missing.
+  const trustedStats = await fetchTrustedReviewStats(supabase, vendorProfileId);
 
   try {
     const statsRes = await supabase
@@ -263,7 +293,7 @@ export async function fetchMarketplaceReviews(
     console.error('[fetchMarketplaceReviews] reviews threw', e);
   }
 
-  return { stats, reviews };
+  return { stats, trustedStats, reviews };
 }
 
 // ----------------------------------------------------------------------------
@@ -383,6 +413,7 @@ function ServicesCard({
 }
 
 function ServiceRow({ row }: { row: VendorServiceRow }) {
+  const isCrewMeals = row.category === 'crew_meals';
   const label = isCanonicalService(row.category)
     ? VENDOR_CATEGORY_LABEL[row.category as VendorCategory]
     : row.category;
@@ -394,7 +425,7 @@ function ServiceRow({ row }: { row: VendorServiceRow }) {
   if (row.crew_size !== null && row.crew_size > 0) {
     crewParts.push(`${row.crew_size} crew on-site`);
   }
-  if (row.crew_meal_required) {
+  if (row.crew_meal_required && !isCrewMeals) {
     crewParts.push('crew meal required');
   }
   return (
@@ -507,7 +538,7 @@ function ReviewsCard({
   vendorProfileSlug: string | null;
   reviewLinkHref: string | null;
 }) {
-  const { stats, reviews } = data;
+  const { trustedStats, reviews } = data;
   return (
     <section
       id="vendor-reviews"
@@ -534,7 +565,7 @@ function ReviewsCard({
         ) : null}
       </header>
 
-      <ReviewsHero stats={stats} />
+      <ReviewsHero trusted={trustedStats} />
 
       {reviews.length === 0 ? (
         <div className="rounded-md border border-dashed border-ink/15 bg-cream/40 px-3 py-3">
@@ -567,9 +598,11 @@ function ReviewsCard({
   );
 }
 
-function ReviewsHero({ stats }: { stats: ReviewStatsRow }) {
-  const hero = stats.avg_rating_overall;
-  if (stats.total_count === 0) {
+function ReviewsHero({ trusted }: { trusted: TrustedReviewStatsRow }) {
+  // ANTI-FRAUD (2026-07-05): couple-facing hero reads the TRUSTED aggregate.
+  const hero = trusted.trusted_avg_rating;
+  const count = trusted.trusted_review_count;
+  if (count === 0) {
     return (
       <div className="flex items-center gap-3 rounded-md bg-cream/40 px-3 py-2">
         <Star className="h-5 w-5 text-ink/25" strokeWidth={1.5} />
@@ -587,7 +620,7 @@ function ReviewsHero({ stats }: { stats: ReviewStatsRow }) {
         {hero > 0 ? formatStarRating(hero) : '—'}
       </span>
       <span className="text-xs text-ink/60">
-        {stats.total_count} review{stats.total_count === 1 ? '' : 's'}
+        {count} review{count === 1 ? '' : 's'}
       </span>
     </div>
   );
@@ -600,7 +633,7 @@ const AXIS_ORDER: ReadonlyArray<ReviewAxis> = [
   'on_time',
 ];
 
-function ReviewRow({ review, vendorName }: { review: ReviewWithCouple; vendorName: string }) {
+function ReviewRow({ review, vendorName }: { review: MarketplaceReview; vendorName: string }) {
   const author =
     review.couple_display_name && review.couple_display_name.trim().length > 0
       ? review.couple_display_name

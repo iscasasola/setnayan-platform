@@ -7,6 +7,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { eventPapicSeatsActive } from '@/lib/papic-seats';
 import { countEventGuestCaptures } from '@/lib/papic-guest';
 import { resolveAddOnState } from '@/lib/add-on-state';
+import { RevealList } from '@/app/_components/reveal-list';
 
 export const metadata = { title: 'Galleries · Setnayan' };
 
@@ -139,25 +140,26 @@ export default async function GalleriesHubPage({ params }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
-      <header className="space-y-1">
-        <p className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+      <header className="sn-reveal space-y-1">
+        <p className="sn-eye">
           <Images aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> After the wedding
         </p>
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Galleries</h1>
+        <h1 className="sn-h1">Galleries</h1>
         <p className="text-sm text-ink/60">
           Everything you collected, in one place. Deliveries land over the days
           after the wedding — galleries fill in as they arrive.
         </p>
       </header>
 
-      <div className="mt-6 space-y-3">
+      <RevealList as="div" className="mt-6 space-y-3">
         {sources.map((s) => {
           const Icon = s.Icon;
           const ready = s.state === 'ready';
           return (
             <article
               key={s.key}
-              className="flex items-center justify-between gap-4 rounded-2xl border border-ink/10 bg-white p-4 shadow-sm sm:p-5"
+              data-reveal-item
+              className="sn-row flex items-center justify-between gap-4 p-4 sm:p-5"
             >
               <div className="flex min-w-0 items-start gap-3">
                 <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">
@@ -193,7 +195,7 @@ export default async function GalleriesHubPage({ params }: Props) {
             </article>
           );
         })}
-      </div>
+      </RevealList>
     </div>
   );
 }

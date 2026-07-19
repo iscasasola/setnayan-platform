@@ -3,44 +3,25 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { guestEditsLocked } from '@/lib/pax';
+import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import {
   defaultInvitedToForRole,
+  SINGLETON_GUEST_ROLES,
+  singletonRoleConflictMessage,
+  singletonRoleDuplicateMessage,
+  singletonRoleFromIndexError,
   type GuestRole,
   type GuestSide,
 } from '@/lib/guests';
 import { normalizeGuestName } from '@/lib/guest-name';
+import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import { pickReuseGroup } from '@/lib/guest-group-reuse';
 
-// Mirror of the role enum from new/actions.ts — kept local so this fast
-// path never imports the redirecting form action. Singletons (bride /
-// groom) stay in the list; the DB partial-unique index (migration
-// 20260531010000) guards a second one and we surface a friendly error.
-const ROLE_VALUES: GuestRole[] = [
-  'guest',
-  'bride',
-  'groom',
-  'bride_parents',
-  'groom_parents',
-  'bride_immediate_family',
-  'groom_immediate_family',
-  'maid_of_honor',
-  'matron_of_honor',
-  'best_man',
-  'bridesmaid',
-  'groomsman',
-  'principal_sponsor',
-  'candle_sponsor',
-  'veil_sponsor',
-  'cord_sponsor',
-  'coin_sponsor',
-  'ring_bearer',
-  'bible_bearer',
-  'coin_bearer',
-  'flower_girl',
-  'officiant',
-  'reader_lector',
-  'soloist_musician',
-];
+// Iteration 0053 P2: the valid role set is per event type — each action below
+// resolves it via resolveRoleSetForEvent(eventId) (wedding → the 24-role set;
+// singletons bride/groom stay offered, the DB partial-unique index guards a
+// second one and we surface a friendly error).
 const SIDE_VALUES: GuestSide[] = ['bride', 'groom', 'both'];
 
 export type QuickAddInput = {
@@ -96,7 +77,8 @@ export async function quickAddGuest(
   if (!SIDE_VALUES.includes(side)) {
     return { ok: false, error: 'Pick a side first.' };
   }
-  if (!ROLE_VALUES.includes(role)) {
+  const roleSet = await resolveRoleSetForEvent(eventId);
+  if (!roleSet.offeredRoles.includes(role)) {
     return { ok: false, error: 'That role isn’t valid.' };
   }
 
@@ -168,6 +150,10 @@ export async function quickAddGuest(
     }
   }
 
+  // Smart seat-plan Phase 5: auto-place the new guest (clusters with its group
+  // when one was picked). Best-effort — never blocks the add.
+  await applyReconcileForEvent(supabase, eventId);
+
   revalidatePath(`/dashboard/${eventId}/guests`);
   return {
     ok: true,
@@ -176,7 +162,12 @@ export async function quickAddGuest(
 }
 
 export type QuickGroupResult =
-  | { ok: true; group: { group_id: string; label: string } }
+  // `created` distinguishes a FRESH insert (true) from the case-insensitive
+  // find-or-create REUSE of a pre-existing group (false). The capture-bar
+  // single-add (inline-actions.ts › addSingleGuest) reads it so that, when the
+  // guest insert then fails, it deletes ONLY the groups it just minted and
+  // never a group the couple already had. See T18 (orphan-groups on-failed-add).
+  | { ok: true; group: { group_id: string; label: string }; created: boolean }
   | { ok: false; error: string };
 
 /**
@@ -204,9 +195,15 @@ export async function quickCreateGroup(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Your session expired — sign in again.' };
 
+  // This fast path always creates on the 'both' team side (the host refines it
+  // later in the Groups sidebar). Held in one const so the insert and the 23505
+  // reuse-lookup below resolve the SAME (event_id, lower(label), team_side)
+  // unique-index key.
+  const teamSide = 'both';
+
   const { data: inserted, error } = await supabase
     .from('guest_groups')
-    .insert({ event_id: eventId, label, team_side: 'both' })
+    .insert({ event_id: eventId, label, team_side: teamSide })
     .select('group_id, label')
     .single();
 
@@ -214,14 +211,26 @@ export async function quickCreateGroup(
     // 23505 from the case-insensitive unique index → reuse the existing
     // group of that name rather than erroring.
     if (error && (error as { code?: string }).code === '23505') {
-      const { data: existing } = await supabase
+      // The conflict is on (event_id, lower(label), team_side), so the row to
+      // reuse shares our exact (label, teamSide) key. Fetch the same-label rows
+      // and pick the team_side match in JS — a label-only `.maybeSingle()` also
+      // caught cross-side namesakes (a bride-side + groom-side "Friends"), and
+      // >1 row made maybeSingle throw, failing a legitimate reuse. The JS exact
+      // compare also sidesteps `ilike` treating %/_ in a label as wildcards.
+      const { data: candidates } = await supabase
         .from('guest_groups')
-        .select('group_id, label')
+        .select('group_id, label, team_side')
         .eq('event_id', eventId)
-        .ilike('label', label)
-        .maybeSingle();
+        .ilike('label', label);
+      const existing = pickReuseGroup(candidates ?? [], label, teamSide);
       if (existing) {
-        return { ok: true, group: { group_id: existing.group_id, label: existing.label } };
+        // Reuse of a pre-existing group → created:false, so the caller never
+        // deletes it during on-failed-add compensation.
+        return {
+          ok: true,
+          group: { group_id: existing.group_id, label: existing.label },
+          created: false,
+        };
       }
       return { ok: false, error: 'A group with that name already exists.' };
     }
@@ -229,7 +238,13 @@ export async function quickCreateGroup(
   }
 
   revalidatePath(`/dashboard/${eventId}/guests`);
-  return { ok: true, group: { group_id: inserted.group_id, label: inserted.label } };
+  // Fresh insert → created:true. Only these ids are eligible for the caller's
+  // on-failed-add cleanup.
+  return {
+    ok: true,
+    group: { group_id: inserted.group_id, label: inserted.label },
+    created: true,
+  };
 }
 
 export type QuickRoleResult =
@@ -239,7 +254,10 @@ export type QuickRoleResult =
     }
   | { ok: false; error: string };
 
-const SINGLETON_ROLES: GuestRole[] = ['bride', 'groom'];
+// Canonical singleton list (lib/guests) — bride/groom + the Muslim Nikah
+// singletons (wali/imam/wakil). Imported rather than re-declared so this guard
+// can't drift from the DB partial-unique indexes.
+const SINGLETON_ROLES: ReadonlyArray<GuestRole> = SINGLETON_GUEST_ROLES;
 
 /**
  * Multi-role (iteration 0001 — 2026-06-02). When the quick-add finds a
@@ -248,10 +266,11 @@ const SINGLETON_ROLES: GuestRole[] = ['bride', 'groom'];
  * untouched (it keeps driving the seating tier + invite defaults); the
  * new role is appended to `extra_roles`.
  *
- * Bride/Groom are one-per-event singletons — guarded by the partial-
- * unique indexes on the primary `role` column AND the
- * guests_extra_roles_no_singletons CHECK — so they can't be a second
- * role here.
+ * Singleton roles (Bride/Groom + the Muslim Nikah singletons wali/imam/
+ * wakil) are one-per-event — guarded by the partial-unique indexes on the
+ * primary `role` column and, for bride/groom, the
+ * guests_extra_roles_no_singletons CHECK. The SINGLETON_ROLES guard below
+ * blocks any of them from being added as a SECOND role here.
  */
 export async function addRoleToGuest(
   eventId: string,
@@ -259,17 +278,12 @@ export async function addRoleToGuest(
   rawRole: string,
 ): Promise<QuickRoleResult> {
   const role = rawRole as GuestRole;
-  if (!ROLE_VALUES.includes(role)) {
+  const roleSet = await resolveRoleSetForEvent(eventId);
+  if (!roleSet.offeredRoles.includes(role)) {
     return { ok: false, error: 'That role isn’t valid.' };
   }
   if (SINGLETON_ROLES.includes(role)) {
-    return {
-      ok: false,
-      error:
-        role === 'bride'
-          ? 'Bride can only be one person — change their primary role instead.'
-          : 'Groom can only be one person — change their primary role instead.',
-    };
+    return { ok: false, error: singletonRoleConflictMessage(role) };
   }
 
   const supabase = await createClient();
@@ -324,7 +338,8 @@ export async function setGuestPrimaryRole(
   rawRole: string,
 ): Promise<QuickRoleResult> {
   const role = rawRole as GuestRole;
-  if (!ROLE_VALUES.includes(role)) {
+  const roleSet = await resolveRoleSetForEvent(eventId);
+  if (!roleSet.offeredRoles.includes(role)) {
     return { ok: false, error: 'That role isn’t valid.' };
   }
 
@@ -350,13 +365,13 @@ export async function setGuestPrimaryRole(
     .update({ role, extra_roles: nextExtras })
     .eq('guest_id', guestId);
   if (updErr) {
-    const friendly =
-      (updErr as { code?: string }).code === '23505' &&
-      /guests_one_(bride|groom)_per_event/.test(updErr.message)
-        ? role === 'bride'
-          ? 'There’s already a Bride — change theirs first.'
-          : 'There’s already a Groom — change theirs first.'
-        : (updErr.message ?? 'Couldn’t change that role.');
+    const dupRole =
+      (updErr as { code?: string }).code === '23505'
+        ? singletonRoleFromIndexError(updErr.message)
+        : null;
+    const friendly = dupRole
+      ? singletonRoleDuplicateMessage(dupRole)
+      : (updErr.message ?? 'Couldn’t change that role.');
     await insertFaultLog({
       event_type: 'SUPABASE_SAVE_ERROR',
       element_name: 'Set guest primary role (update)',
@@ -366,6 +381,10 @@ export async function setGuestPrimaryRole(
     });
     return { ok: false, error: friendly };
   }
+
+  // Smart seat-plan Phase 5: the primary role drives the seating tier, so
+  // re-place this guest (and their +1) next to their new tier/group.
+  await applyReconcileForEvent(supabase, eventId, { reseatGuestIds: [guestId] });
 
   revalidatePath(`/dashboard/${eventId}/guests`);
   return { ok: true, guest: { guest_id: g.guest_id, role, extra_roles: nextExtras } };

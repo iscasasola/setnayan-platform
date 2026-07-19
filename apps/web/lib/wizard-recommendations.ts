@@ -159,6 +159,11 @@ export type WizardVendorRec = {
    *  (`vendor_service_attributes` is empty in prod today), so zero regression. */
   preference_matched?: boolean;
   preference_matched_dimensions?: number;
+  /** Vendor's declared ceremony/faith compatibility (same value space as the
+   *  couple's ceremony_type). NULL = "serves all faiths". Already fetched in the
+   *  base select for the gate's OR filter; surfaced on the row so the compat
+   *  score can lift a declared faith-specialist (faithFit dim · 2026-07-12). */
+  compatible_ceremony_types?: string[] | null;
 };
 
 type Args = {
@@ -248,6 +253,13 @@ type Args = {
    *  they're returned too (the caller tags them for a "show vendors farther
    *  away" expander). Default/false = the radius cut filters as before. */
   includeOutOfRadius?: boolean;
+  /** PR-B demo carve-out. The engine is ALWAYS-ON gated to
+   *  `verification_state='verified'` for every real couple-facing surface
+   *  (onboarding, dashboard Services/Studio). The guided-tour demo
+   *  (`/tour/vendors`) runs against `is_demo` sample vendors that may be
+   *  unverified, so it passes `includeDemoUnverified: true` to drop the gate.
+   *  Default/omit = gate ON (the safe default — never leak unverified). */
+  includeDemoUnverified?: boolean;
 };
 
 /**
@@ -327,6 +339,19 @@ export async function fetchWizardVendorRecommendations(
     .not('business_name', 'is', null)
     .neq('business_name', '')
     .overlaps('services', args.canonicalServices as readonly string[]);
+
+  // PR-B verification gate (ALWAYS ON for real surfaces). This is the shared
+  // recommendation engine behind onboarding (public congrats/venue list) AND
+  // the couple dashboard Services/Studio vendor-pick — an UNVERIFIED vendor
+  // must never be recommended on any couple-facing surface. The reconcile
+  // migration 20270331400000 marked the founder + every paid vendor 'verified',
+  // so no real/paid vendor is dropped. The ONLY caller that opts out is the
+  // guided-tour demo (`includeDemoUnverified: true`), which runs against
+  // is_demo sample vendors that may be unverified. Reads the verification_state
+  // column that migration 20270331400000 appended to vendor_market_stats.
+  if (!args.includeDemoUnverified) {
+    query = query.eq('verification_state', 'verified');
+  }
 
   // Ceremony-type compat · NULL means "compatible with all" so we use
   // an OR clause that admits both NULL-compat vendors and explicit

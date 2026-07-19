@@ -3,6 +3,8 @@ import {
   signInWithGoogle,
 } from '@/app/auth/oauth-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { GoogleGIcon, AppleIcon } from '@/app/_components/oauth-icons';
+import { OAuthAccountTypeMirror } from '@/app/_components/oauth-account-type-mirror';
 
 /**
  * OAuth provider button row — Google + Apple.
@@ -59,7 +61,29 @@ import { SubmitButton } from '@/app/_components/submit-button';
 type Props = {
   /** Post-auth redirect destination, validated by safeNext() upstream. */
   next: string;
+  /**
+   * /signup only: carry the Couple/Vendor selection into the OAuth forms so a
+   * vendor signing up via Google/Apple isn't misclassified as a customer. Each
+   * form gets a hidden `account_type` input mirrored from the radio by
+   * <OAuthAccountTypeMirror>. Omitted on /login (existing users — no selector),
+   * keeping that surface byte-identical.
+   */
+  withAccountType?: boolean;
+  /**
+   * SSR default for the hidden OAuth `account_type` (only when withAccountType).
+   * Pass the URL-derived intent (e.g. /signup?as=vendor → 'vendor') so a
+   * deep-linked vendor's OAuth submit carries the right value BEFORE the mirror
+   * hydrates — and even with JS off. The mirror then only tracks runtime radio
+   * toggles. Defaults to 'customer'.
+   */
+  defaultAccountType?: 'customer' | 'vendor';
 };
+
+// Button chrome — Clean Editorial alabaster/obsidian, used on the greige /login
+// card and /signup. (The obsidian-rail 'dark' treatment was removed with the
+// obsidian login; the greige card is the single login now.)
+const BTN_LIGHT =
+  'flex w-full items-center justify-center gap-3 rounded-md border border-ink/20 bg-white px-4 py-2.5 text-sm font-medium text-ink/90 transition-colors hover:border-ink/40 hover:bg-ink/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40';
 
 // Env-flag gates. Without these flags, clicking the Continue with
 // Google / Apple buttons hits Supabase's /auth/v1/authorize endpoint
@@ -84,19 +108,34 @@ const APPLE_ENABLED = process.env.NEXT_PUBLIC_OAUTH_APPLE_ENABLED === 'true';
  */
 export const ANY_OAUTH_ENABLED = GOOGLE_ENABLED || APPLE_ENABLED;
 
-export function OAuthButtonRow({ next }: Props) {
+export function OAuthButtonRow({
+  next,
+  withAccountType = false,
+  defaultAccountType = 'customer',
+}: Props) {
   // Both providers off → render nothing. /login + /signup also use
   // ANY_OAUTH_ENABLED to drop the divider line when there's no row.
   if (!GOOGLE_ENABLED && !APPLE_ENABLED) return null;
+  const btn = BTN_LIGHT;
+  const appleFill = '#000000';
+  // /signup: a hidden account_type input per OAuth form, SSR'd to the URL-derived
+  // intent (so a deep-linked vendor is correct pre-hydration / no-JS) and kept in
+  // sync with the Couple/Vendor radio at runtime by <OAuthAccountTypeMirror>.
+  const accountTypeField = withAccountType ? (
+    <input
+      type="hidden"
+      name="account_type"
+      defaultValue={defaultAccountType}
+      data-oauth-account-type
+    />
+  ) : null;
   return (
     <div className="space-y-2.5">
       {GOOGLE_ENABLED ? (
         <form action={signInWithGoogle}>
           <input type="hidden" name="next" value={next} />
-          <SubmitButton
-            className="flex w-full items-center justify-center gap-3 rounded-md border border-ink/20 bg-white px-4 py-2.5 text-sm font-medium text-ink/90 transition-colors hover:border-ink/40 hover:bg-ink/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40"
-            pendingLabel="Redirecting to Google…"
-          >
+          {accountTypeField}
+          <SubmitButton className={btn} pendingLabel="Redirecting to Google…">
             <GoogleGIcon />
             Continue with Google
           </SubmitButton>
@@ -105,80 +144,17 @@ export function OAuthButtonRow({ next }: Props) {
       {APPLE_ENABLED ? (
         <form action={signInWithApple}>
           <input type="hidden" name="next" value={next} />
-          <SubmitButton
-            className="flex w-full items-center justify-center gap-3 rounded-md border border-ink/20 bg-white px-4 py-2.5 text-sm font-medium text-ink/90 transition-colors hover:border-ink/40 hover:bg-ink/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40"
-            pendingLabel="Redirecting to Apple…"
-          >
-            <AppleIcon />
+          {accountTypeField}
+          <SubmitButton className={btn} pendingLabel="Redirecting to Apple…">
+            <AppleIcon fill={appleFill} />
             Continue with Apple
           </SubmitButton>
         </form>
       ) : null}
+      {withAccountType ? <OAuthAccountTypeMirror /> : null}
     </div>
   );
 }
 
-/**
- * Google G brand mark — standardized 4-color quadrant geometry used
- * universally on "Sign in with Google" buttons per Google's brand
- * guidelines (developers.google.com/identity/branding-guidelines).
- * Colors locked to Google's brand palette: red #EA4335, blue #4285F4,
- * yellow #FBBC05, green #34A853. Drawn at 24x24 viewBox so it renders
- * crisp at 18px display size next to the button label.
- */
-function GoogleGIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-[18px] w-[18px]"
-      aria-hidden
-      role="img"
-      focusable={false}
-    >
-      <path
-        fill="#EA4335"
-        d="M12 5c1.6168 0 3.1013.5557 4.2607 1.6427l3.1734-3.1747C17.5066 1.5947 14.9419.5 12 .5 7.7027.5 3.9893 2.9787 2.1933 6.6053l3.6913 2.8693C6.7613 6.6213 9.1453 5 12 5z"
-      />
-      <path
-        fill="#4285F4"
-        d="M23.5 12.273c0-.8453-.075-1.6587-.215-2.4407H12v4.6147h6.4607c-.2787 1.502-1.124 2.7733-2.394 3.624l3.8773 3.0067C22.207 19.057 23.5 15.9197 23.5 12.273z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M5.884 14.474c-.2007-.6-.314-1.2387-.314-1.974s.1133-1.374.314-1.974L2.1927 7.6307C1.4173 9.1707 1 10.4733 1 12.5c0 2.0267.4173 3.3293 1.1927 4.8693l3.6913-2.8953z"
-      />
-      <path
-        fill="#34A853"
-        d="M12 23.5c2.9407 0 5.4067-.9707 7.207-2.6293l-3.8767-3.0067c-1.072.72-2.4513 1.1453-3.3303 1.1453-2.855 0-5.2387-1.6207-6.116-3.8067L2.1933 18.064C3.99 21.6913 7.7033 23.5 12 23.5z"
-      />
-    </svg>
-  );
-}
-
-/**
- * Apple brand mark — the monochrome Apple logo glyph used on "Sign in
- * with Apple" buttons. Drawn solid black (#000) which is Apple's
- * sanctioned mark for light-mode buttons, sitting on the alabaster
- * button surface as the only contrasting element so the brand reads
- * instantly without the chrome taking over. Drawn at 24x24 viewBox so
- * it scales cleanly at 18px display size. NOT a verbatim copy of the
- * trademarked app icon — this is the nominative-use brand mark for the
- * sign-in affordance, per Apple's "Sign in with Apple" button
- * guidelines.
- */
-function AppleIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-[18px] w-[18px]"
-      aria-hidden
-      role="img"
-      focusable={false}
-    >
-      <path
-        fill="#000000"
-        d="M16.365 1.43c0 1.14-.493 2.27-1.177 3.08-.744.9-1.99 1.57-2.987 1.57-.12 0-.23-.02-.3-.03-.01-.06-.04-.22-.04-.39 0-1.15.572-2.27 1.206-2.98.804-.94 2.142-1.64 3.248-1.68.03.13.05.28.05.43zm4.565 15.71c-.03.07-.463 1.58-1.518 3.12-.91 1.33-1.852 2.66-3.347 2.69-1.468.03-1.94-.87-3.61-.87-1.67 0-2.19.84-3.58.9-1.44.05-2.53-1.43-3.45-2.75-1.886-2.71-3.32-7.65-1.39-10.99.96-1.65 2.68-2.7 4.54-2.73 1.42-.03 2.76.96 3.63.96.86 0 2.5-1.19 4.22-1.01.72.03 2.74.29 4.04 2.18-.105.07-2.41 1.41-2.38 4.22.03 3.36 2.95 4.48 2.98 4.49z"
-      />
-    </svg>
-  );
-}
+// GoogleGIcon + AppleIcon moved to ./oauth-icons (shared with the desktop
+// system-browser OAuth buttons). Imported above.

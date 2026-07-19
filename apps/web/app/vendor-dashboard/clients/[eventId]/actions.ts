@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
+import { uploadPublicAsset } from '@/lib/storage';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 
 /**
@@ -89,6 +90,231 @@ export async function vendorMarkServiceComplete(formData: FormData) {
   redirect(`/vendor-dashboard/clients/${eventId}?completed=1`);
 }
 
+/**
+ * Vendor-side deposit acknowledgement (Deposit Reservation Lock-Free · Wave 3).
+ * The couple recorded a deposit off-platform and the date is held; the vendor
+ * confirms "deposit received" here. Single-winner + idempotent serialization
+ * lives in the acknowledge_vendor_deposit SECURITY DEFINER RPC (SELECT … FOR
+ * UPDATE + deposit_acknowledged_at-IS-NULL precondition), which also enforces
+ * ownership (current_vendor_event_vendor_ids / is_admin) — so we forward
+ * directly under the vendor's own RLS client. No money moves: acknowledge is a
+ * signal, Setnayan never holds funds. Notifies the couple best-effort.
+ */
+export async function vendorAcknowledgeDeposit(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const eventVendorId = formData.get('vendor_id');
+  if (typeof eventId !== 'string' || typeof eventVendorId !== 'string') {
+    throw new Error('Invalid input');
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data, error } = await supabase.rpc('acknowledge_vendor_deposit', {
+    p_event_vendor_id: eventVendorId,
+  });
+
+  // Notify the couple only on a fresh acknowledgement (status 'ok'); a re-call
+  // ('already') stays silent. Best-effort — never blocks the ack itself.
+  const env = (data ?? {}) as { status?: string };
+  if (!error && env.status === 'ok') {
+    try {
+      const admin = createAdminClient();
+      const { data: ev } = await admin
+        .from('event_vendors')
+        .select('vendor_name')
+        .eq('vendor_id', eventVendorId)
+        .maybeSingle();
+      const vendorName = (ev as { vendor_name?: string } | null)?.vendor_name ?? 'Your vendor';
+      const { data: members } = await admin
+        .from('event_members')
+        .select('user_id')
+        .eq('event_id', eventId)
+        .eq('member_type', 'couple');
+      for (const m of members ?? []) {
+        if (!m.user_id) continue;
+        await emitNotification({
+          userId: m.user_id,
+          type: 'payment_confirmed',
+          title: `${vendorName} confirmed your deposit`,
+          body: 'Your date is locked in — the vendor confirmed they received your deposit.',
+          relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
+        });
+      }
+    } catch (e) {
+      console.error('[vendorAcknowledgeDeposit] couple notify failed:', e);
+    }
+  }
+
+  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+  const flag = error ? 'error' : env.status ?? 'ok';
+  redirect(`/vendor-dashboard/clients/${eventId}?deposit_ack=${flag}`);
+}
+
+/**
+ * vendorRejectDeposit — VENDOR "I never received this downpayment".
+ *
+ * Calls the single-winner reject_vendor_deposit RPC (clears the couple-recorded
+ * deposit markers so they must re-submit; never un-locks the booking; can't touch
+ * a confirmed deposit). Then notifies the couple to re-submit. Ownership is
+ * enforced inside the SECURITY DEFINER RPC, so this wrapper just forwards.
+ */
+export async function vendorRejectDeposit(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const eventVendorId = formData.get('vendor_id');
+  const reasonRaw = formData.get('reason');
+  const reason =
+    typeof reasonRaw === 'string' && reasonRaw.trim().length > 0
+      ? reasonRaw.trim().slice(0, 500)
+      : null;
+  if (typeof eventId !== 'string' || typeof eventVendorId !== 'string') {
+    throw new Error('Invalid input');
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data, error } = await supabase.rpc('reject_vendor_deposit', {
+    p_event_vendor_id: eventVendorId,
+    p_reason: reason,
+  });
+
+  // Notify the couple only on a fresh reject (status 'ok'). Best-effort.
+  const env = (data ?? {}) as { status?: string };
+  if (!error && env.status === 'ok') {
+    try {
+      const admin = createAdminClient();
+      const { data: ev } = await admin
+        .from('event_vendors')
+        .select('vendor_name')
+        .eq('vendor_id', eventVendorId)
+        .maybeSingle();
+      const vendorName = (ev as { vendor_name?: string } | null)?.vendor_name ?? 'Your vendor';
+      const { data: members } = await admin
+        .from('event_members')
+        .select('user_id')
+        .eq('event_id', eventId)
+        .eq('member_type', 'couple');
+      for (const m of members ?? []) {
+        if (!m.user_id) continue;
+        await emitNotification({
+          userId: m.user_id,
+          type: 'payment_rejected',
+          title: `${vendorName} couldn't confirm your downpayment`,
+          body: reason
+            ? `Reason: “${reason}” — re-submit your downpayment proof from the vendor workspace.`
+            : 'They couldn’t confirm the payment — re-submit your downpayment proof from the vendor workspace.',
+          relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
+        });
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('[vendorRejectDeposit] couple notify failed:', e);
+    }
+  }
+
+  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+  const flag = error ? 'error' : env.status ?? 'ok';
+  redirect(`/vendor-dashboard/clients/${eventId}?deposit_reject=${flag}`);
+}
+
+// ==========================================================================
+// Customer Card — private, team-shared CRM notes (vendor_client_notes).
+//
+// Design source: 03_Strategy/Customer_Card_Prototype_2026-07-03.html (Activity
+// tab). vendor_client_notes is vendor-org-only RLS (current_vendor_profile_ids)
+// with NO couple/admin policy — off-limits to hosts and to Setnayan HQ. All
+// three actions run under the caller's OWN session (no admin client): the
+// org-scoped RLS policy is the authorization boundary, so a plain insert /
+// update / delete can only ever touch the caller's own org's rows. We resolve
+// vendor_profile_id from the caller so the WITH CHECK passes; RLS rejects any
+// cross-org write.
+// ==========================================================================
+
+/** Create a private note on this (vendor org, event) pair. */
+export async function createClientNote(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const body = formData.get('body');
+  if (typeof eventId !== 'string' || typeof body !== 'string' || body.trim().length === 0) {
+    redirect('/vendor-dashboard/clients');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) redirect('/vendor-dashboard');
+
+  // Optional follow-up reminder — a bare YYYY-MM-DD date or null.
+  const remindRaw = formData.get('remind_at');
+  const remindAt =
+    typeof remindRaw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(remindRaw) ? remindRaw : null;
+
+  // RLS (vendor_client_notes_org_all) enforces the org scope on WITH CHECK.
+  await supabase.from('vendor_client_notes').insert({
+    vendor_profile_id: profile.vendor_profile_id,
+    event_id: eventId,
+    author_user_id: user.id,
+    body: (body as string).trim().slice(0, 2000),
+    remind_at: remindAt,
+  });
+
+  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+  redirect(`/vendor-dashboard/clients/${eventId}?tab=activity`);
+}
+
+/** Toggle a note's done/reopened state. Team-shared: any org member may flip. */
+export async function toggleClientNoteDone(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const noteId = formData.get('note_id');
+  const done = formData.get('done') === '1';
+  if (typeof eventId !== 'string' || typeof noteId !== 'string') {
+    redirect('/vendor-dashboard/clients');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // RLS scopes the UPDATE to the caller's own org's notes — no extra gate here.
+  await supabase
+    .from('vendor_client_notes')
+    .update({ done_at: done ? new Date().toISOString() : null, updated_at: new Date().toISOString() })
+    .eq('note_id', noteId);
+
+  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+  redirect(`/vendor-dashboard/clients/${eventId}?tab=activity`);
+}
+
+/** Delete a private note. Team-shared: any org member may remove any org note. */
+export async function deleteClientNote(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const noteId = formData.get('note_id');
+  if (typeof eventId !== 'string' || typeof noteId !== 'string') {
+    redirect('/vendor-dashboard/clients');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // RLS scopes the DELETE to the caller's own org's notes.
+  await supabase.from('vendor_client_notes').delete().eq('note_id', noteId);
+
+  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+  redirect(`/vendor-dashboard/clients/${eventId}?tab=activity`);
+}
+
 export async function suggestScheduleChange(formData: FormData) {
   const eventId = formData.get('event_id');
   const note = formData.get('note');
@@ -155,4 +381,342 @@ export async function suggestScheduleChange(formData: FormData) {
   redirect(
     `/vendor-dashboard/clients/${eventId}?suggest=${error ? 'error' : 'sent'}`,
   );
+}
+
+// ==========================================================================
+// Delivery Handover (Wave 4) — VENDOR side.
+//
+// The vendor posts a deliverable on a booked event: a gallery link (external —
+// big galleries stay Drive/Pixieset, never proxied), a small proof/sample image
+// (uploaded to R2 via uploadPublicAsset — R2 is the record), a note, or a
+// closing sign-off. RLS-gated insert (booked event ∩ own profile ∩
+// status='delivered'). The couple confirms receipt via the single-winner
+// acknowledge_handover RPC on their workspace; on acknowledge the booking can
+// advance to 'delivered' (reusing the existing review-request emit). No money.
+// ==========================================================================
+
+/**
+ * vendorPostHandover — VENDOR posts a delivery handover on a booked event.
+ *
+ * Resolves the booked event_vendors row (vendor_id) for the denormalized
+ * columns, builds the payload per `kind` (gallery_link → URL, file → R2 image
+ * upload, note/signoff → text), inserts the RLS-gated row, and notifies the
+ * couple best-effort. Vendors never write the couple's data directly — a
+ * handover is a row they own; the couple acknowledges it.
+ */
+export async function vendorPostHandover(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const kindRaw = formData.get('kind');
+  const kind =
+    kindRaw === 'gallery_link' || kindRaw === 'file' || kindRaw === 'note' || kindRaw === 'signoff'
+      ? kindRaw
+      : null;
+  if (typeof eventId !== 'string' || !kind) {
+    redirect('/vendor-dashboard/clients');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) redirect('/vendor-dashboard');
+
+  // Resolve THIS org's booking (event_vendors.vendor_id) — RLS already scopes
+  // vendor reads to their own bookings — for the denormalized event_vendor_id.
+  const { data: ev } = await supabase
+    .from('event_vendors')
+    .select('vendor_id')
+    .eq('event_id', eventId)
+    .eq('marketplace_vendor_id', profile.vendor_profile_id)
+    .maybeSingle();
+  const eventVendorId = (ev as { vendor_id?: string } | null)?.vendor_id ?? null;
+  if (!eventVendorId) {
+    redirect(`/vendor-dashboard/clients/${eventId}?handover=error`);
+  }
+
+  const label = nullIfBlank(formData.get('label'), 200);
+
+  // Build the payload per kind. gallery_link / note / signoff are text; file is
+  // an R2 upload (small proof/sample image only — large galleries stay links).
+  let payload: string | null = null;
+  if (kind === 'gallery_link') {
+    const url = nullIfBlank(formData.get('payload'), 4000);
+    if (!url || !/^https?:\/\//i.test(url)) {
+      redirect(`/vendor-dashboard/clients/${eventId}?handover=badurl`);
+    }
+    payload = url;
+  } else if (kind === 'file') {
+    const file = formData.get('file');
+    if (!(file instanceof File) || file.size === 0) {
+      redirect(`/vendor-dashboard/clients/${eventId}?handover=nofile`);
+    }
+    const up = await uploadPublicAsset({
+      pathPrefix: `handovers/${eventId}`,
+      file: file as File,
+    });
+    if (!up.ok) {
+      redirect(`/vendor-dashboard/clients/${eventId}?handover=upload`);
+    }
+    payload = up.publicUrl;
+  } else {
+    // note / signoff — free text (signoff text optional).
+    payload = nullIfBlank(formData.get('payload'), 4000);
+    if (kind === 'note' && !payload) {
+      redirect(`/vendor-dashboard/clients/${eventId}?handover=empty`);
+    }
+  }
+
+  // RLS enforces: booked on the event, own profile, status='delivered'.
+  const { error } = await supabase.from('booking_handovers').insert({
+    event_vendor_id: eventVendorId,
+    event_id: eventId,
+    vendor_profile_id: profile.vendor_profile_id,
+    kind,
+    label,
+    payload,
+    status: 'delivered',
+  });
+
+  // Notify the couple a delivery is waiting for their confirmation (best-effort).
+  // Reuses the schedule_suggestion notification type — the same generic
+  // "vendor posted something, open the workspace" nudge the change-order flow
+  // uses — pointed at the couple's vendor workspace.
+  if (!error) {
+    try {
+      const admin = createAdminClient();
+      const vendorName = profile.business_name?.trim() || 'A vendor';
+      const { data: members } = await admin
+        .from('event_members')
+        .select('user_id')
+        .eq('event_id', eventId)
+        .eq('member_type', 'couple');
+      for (const m of members ?? []) {
+        if (!m.user_id) continue;
+        await emitNotification({
+          userId: m.user_id,
+          type: 'schedule_suggestion',
+          title: `${vendorName} delivered your handover`,
+          body: `${label ? `${label.slice(0, 100)} — ` : ''}open the vendor to confirm receipt.`,
+          relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
+        });
+      }
+    } catch (e) {
+      console.error('[vendorPostHandover] couple notify failed:', e);
+    }
+  }
+
+  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+  redirect(`/vendor-dashboard/clients/${eventId}?handover=${error ? 'error' : 'sent'}`);
+}
+
+// ==========================================================================
+// Change-Order Trail (Wave 3) — VENDOR side.
+//
+// The both-acknowledged add-on/removal log, sitting beside the Suggest flow.
+// A change order is a propose → accept/decline/withdraw STATE MACHINE on a ROW
+// (vendor_change_orders) — NEVER a 2-way write into the couple's data. The
+// vendor raises a vendor-side order (RLS-gated insert), and accepts/declines a
+// COUPLE-raised order via the single-winner accept/decline RPCs (which also
+// enforce ownership and, on accept, settle the delta into the budget ledger).
+//
+// OFF-PLATFORM MONEY / 0% COMMISSION: delta_amount_php is a vendor-entered PHP
+// figure (signed: +add-on / −removal). No money moves through Setnayan.
+// ==========================================================================
+
+function parseAmount(raw: FormDataEntryValue | null): number | null {
+  if (typeof raw !== 'string' || raw.trim().length === 0) return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.round(n * 100) / 100;
+}
+
+/**
+ * vendorRaiseChangeOrder — the vendor proposes a mid-plan add-on or removal.
+ *
+ * Inserts a `proposed` vendor_change_orders row (RLS-gated: booked on the
+ * event + own vendor profile + raised_by='vendor' + proposed_by_user_id=
+ * auth.uid()). The couple accepts/declines on their workspace; only on ACCEPT
+ * does the RPC settle the delta into the budget ledger. Notifies the couple.
+ */
+export async function vendorRaiseChangeOrder(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const title = formData.get('title');
+  if (typeof eventId !== 'string' || typeof title !== 'string' || title.trim().length === 0) {
+    redirect('/vendor-dashboard/clients');
+  }
+  const magnitude = parseAmount(formData.get('amount_php'));
+  if (magnitude === null) {
+    redirect(`/vendor-dashboard/clients/${eventId}?change_order=error`);
+  }
+  const isRemoval = formData.get('change_kind') === 'removal';
+  const delta = isRemoval ? -magnitude : magnitude;
+  const dueRaw = formData.get('proposed_due_date');
+  const dueDate = typeof dueRaw === 'string' && dueRaw.length > 0 ? dueRaw : null;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) redirect('/vendor-dashboard');
+
+  // Resolve THIS org's booking (event_vendors.vendor_id) on this event. RLS on
+  // event_vendors already scopes vendor reads to their own bookings.
+  const { data: ev } = await supabase
+    .from('event_vendors')
+    .select('vendor_id')
+    .eq('event_id', eventId)
+    .eq('marketplace_vendor_id', profile.vendor_profile_id)
+    .maybeSingle();
+  const eventVendorId = (ev as { vendor_id?: string } | null)?.vendor_id ?? null;
+  if (!eventVendorId) {
+    redirect(`/vendor-dashboard/clients/${eventId}?change_order=error`);
+  }
+
+  // RLS enforces: booked on the event, own profile, raised_by='vendor',
+  // proposer=auth.uid(), status='proposed'.
+  const { error } = await supabase.from('vendor_change_orders').insert({
+    event_vendor_id: eventVendorId,
+    event_id: eventId,
+    vendor_profile_id: profile.vendor_profile_id,
+    raised_by: 'vendor',
+    title: (title as string).trim().slice(0, 120),
+    description: nullIfBlank(formData.get('description'), 2000),
+    delta_amount_php: delta,
+    proposed_due_date: dueDate,
+    status: 'proposed',
+    proposed_by_user_id: user.id,
+  });
+
+  // Notify the couple a change order awaits their okay (best-effort).
+  if (!error) {
+    try {
+      const admin = createAdminClient();
+      const vendorName = profile.business_name?.trim() || 'A vendor';
+      const { data: members } = await admin
+        .from('event_members')
+        .select('user_id')
+        .eq('event_id', eventId)
+        .eq('member_type', 'couple');
+      for (const m of members ?? []) {
+        if (!m.user_id) continue;
+        await emitNotification({
+          userId: m.user_id,
+          type: 'schedule_suggestion',
+          title: `${vendorName} proposed a change order`,
+          body: `${(title as string).trim().slice(0, 120)} — open the vendor to accept or decline.`,
+          relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
+        });
+      }
+    } catch (e) {
+      console.error('[vendorRaiseChangeOrder] couple notify failed:', e);
+    }
+  }
+
+  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+  redirect(`/vendor-dashboard/clients/${eventId}?change_order=${error ? 'error' : 'sent'}`);
+}
+
+/**
+ * vendorRespondChangeOrder — the vendor accepts/declines a COUPLE-raised order.
+ *
+ * Forwards to the single-winner accept_change_order / decline_change_order
+ * SECURITY DEFINER RPCs (SELECT … FOR UPDATE + status=proposed precondition;
+ * idempotent). Ownership (the vendor is the counterparty to a couple-raised
+ * order) is enforced inside the RPC. On accept the RPC settles the delta into
+ * event_vendor_line_items atomically. Notifies the couple best-effort.
+ */
+export async function vendorRespondChangeOrder(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const changeOrderId = formData.get('change_order_id');
+  const decision = formData.get('decision');
+  if (
+    typeof eventId !== 'string' ||
+    typeof changeOrderId !== 'string' ||
+    (decision !== 'accept' && decision !== 'decline')
+  ) {
+    redirect('/vendor-dashboard/clients');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data, error } =
+    decision === 'accept'
+      ? await supabase.rpc('accept_change_order', { p_change_order_id: changeOrderId })
+      : await supabase.rpc('decline_change_order', {
+          p_change_order_id: changeOrderId,
+          p_reason: nullIfBlank(formData.get('reason'), 500),
+        });
+  const env = (data ?? {}) as { status?: string };
+
+  // Notify the couple only on a fresh resolution (status 'ok'). Best-effort.
+  if (!error && env.status === 'ok') {
+    try {
+      const admin = createAdminClient();
+      const { data: co } = await admin
+        .from('vendor_change_orders')
+        .select('event_vendor_id, title')
+        .eq('change_order_id', changeOrderId)
+        .maybeSingle();
+      const eventVendorId = (co as { event_vendor_id?: string } | null)?.event_vendor_id ?? null;
+      const coTitle = (co as { title?: string } | null)?.title ?? 'Change order';
+      const { data: members } = await admin
+        .from('event_members')
+        .select('user_id')
+        .eq('event_id', eventId)
+        .eq('member_type', 'couple');
+      for (const m of members ?? []) {
+        if (!m.user_id) continue;
+        await emitNotification({
+          userId: m.user_id,
+          type: 'schedule_suggestion',
+          title: decision === 'accept' ? 'Change order accepted' : 'Change order declined',
+          body: `Your vendor ${decision === 'accept' ? 'accepted' : 'declined'} "${coTitle.slice(0, 80)}".`,
+          relatedUrl: eventVendorId
+            ? `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`
+            : `/dashboard/${eventId}/vendors`,
+        });
+      }
+    } catch (e) {
+      console.error('[vendorRespondChangeOrder] couple notify failed:', e);
+    }
+  }
+
+  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+  const flag = error ? 'error' : env.status ?? 'ok';
+  redirect(`/vendor-dashboard/clients/${eventId}?change_order_resp=${flag}`);
+}
+
+/**
+ * vendorWithdrawChangeOrder — the vendor retracts their own proposed order.
+ * Forwards to the single-winner withdraw_change_order RPC (idempotent).
+ */
+export async function vendorWithdrawChangeOrder(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const changeOrderId = formData.get('change_order_id');
+  if (typeof eventId !== 'string' || typeof changeOrderId !== 'string') {
+    redirect('/vendor-dashboard/clients');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data, error } = await supabase.rpc('withdraw_change_order', {
+    p_change_order_id: changeOrderId,
+  });
+  const env = (data ?? {}) as { status?: string };
+
+  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+  const flag = error ? 'error' : env.status ?? 'ok';
+  redirect(`/vendor-dashboard/clients/${eventId}?change_order_resp=${flag}`);
 }

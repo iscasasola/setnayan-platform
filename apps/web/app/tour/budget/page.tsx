@@ -78,8 +78,7 @@ export default async function TourBudgetPage() {
   return (
     <main className="mx-auto w-full max-w-5xl px-5 pb-20 pt-12 sm:pt-16">
       <header className="mx-auto max-w-2xl text-center">
-        <p className="font-mono text-xs uppercase tracking-[0.22em] text-[#8C6932]">Stop 04 · The budget</p>
-        <h1 className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[#1E2229] sm:text-5xl">
+        <h1 className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[#1B1A17] sm:text-5xl">
           Money, handled
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
@@ -121,14 +120,14 @@ export default async function TourBudgetPage() {
       <section className="mx-auto mt-16 max-w-3xl">
         <div className="flex items-center gap-2">
           <Receipt aria-hidden className="h-4 w-4 text-[#8C6932]" strokeWidth={1.75} />
-          <h2 className="font-serif text-2xl text-[#1E2229]">Vendor by vendor</h2>
+          <h2 className="font-serif text-2xl text-[#1B1A17]">Vendor by vendor</h2>
         </div>
         <p className="mt-2 text-sm text-[#5F5E5A]">
           Each vendor shows the agreed total, what&rsquo;s been paid, and every line item — so nothing slips through.
         </p>
 
         {vendors.length === 0 ? (
-          <div className="mt-6 rounded-2xl border border-dashed border-[#1E2229]/15 bg-white/50 p-8 text-center text-sm text-[#5F5E5A]">
+          <div className="mt-6 rounded-2xl border border-dashed border-[#1B1A17]/15 bg-white/50 p-8 text-center text-sm text-[#5F5E5A]">
             This sample wedding has no booked vendors yet.
           </div>
         ) : (
@@ -144,7 +143,7 @@ export default async function TourBudgetPage() {
       <section className="mx-auto mt-16 max-w-3xl">
         <div className="flex items-center gap-2">
           <Wallet aria-hidden className="h-4 w-4 text-[#8C6932]" strokeWidth={1.75} />
-          <h2 className="font-serif text-2xl text-[#1E2229]">Try the budget planner</h2>
+          <h2 className="font-serif text-2xl text-[#1B1A17]">Try the budget planner</h2>
         </div>
         <p className="mt-2 text-sm text-[#5F5E5A]">
           Tap any service to splurge, save, or set your own number — the split and your cushion recompute instantly.
@@ -164,31 +163,31 @@ export default async function TourBudgetPage() {
       <nav className="mx-auto mt-16 flex max-w-3xl flex-col items-center gap-4 sm:flex-row sm:justify-between">
         <Link
           href="/tour"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-[#5F5E5A] transition-colors hover:text-[#1E2229]"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-[#5F5E5A] transition-colors hover:text-[#1B1A17]"
         >
           <ArrowRight aria-hidden className="h-4 w-4 rotate-180" strokeWidth={1.75} />
           Back to all stops
         </Link>
         <Link
           href="/tour/gallery"
-          className="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-full bg-[#5C2542] px-6 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
+          className="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-full bg-[#1B1A17] px-6 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
         >
           Next: the gallery
           <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         </Link>
       </nav>
 
-      <section className="mx-auto mt-14 max-w-2xl rounded-3xl border border-[#C5A059]/40 bg-[#FBF6EA] px-6 py-10 text-center">
-        <div className="mx-auto inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#5C2542]/10">
-          <CheckCircle2 aria-hidden className="h-5 w-5 text-[#5C2542]" strokeWidth={1.75} />
+      <section className="mx-auto mt-14 max-w-2xl rounded-3xl border border-[#A9834B]/40 bg-[#FBF6EA] px-6 py-10 text-center">
+        <div className="mx-auto inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#1B1A17]/10">
+          <CheckCircle2 aria-hidden className="h-5 w-5 text-[#1B1A17]" strokeWidth={1.75} />
         </div>
-        <h2 className="mt-4 font-serif text-2xl text-[#1E2229] sm:text-3xl">Plan your own budget, free</h2>
+        <h2 className="mt-4 font-serif text-2xl text-[#1B1A17] sm:text-3xl">Plan your own budget, free</h2>
         <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
           Track every peso, every deadline, every vendor — in one place. Set na &rsquo;yan.
         </p>
         <Link
           href="/onboarding/wedding?from=tour"
-          className="mt-5 inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#5C2542] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
+          className="mt-5 inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#1B1A17] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
         >
           Start planning &middot; free
         </Link>
@@ -209,9 +208,9 @@ function SummaryStat({
   tone: 'gold' | 'mulberry' | 'ink';
 }) {
   const valueColor =
-    tone === 'gold' ? 'text-[#8C6932]' : tone === 'mulberry' ? 'text-[#5C2542]' : 'text-[#1E2229]';
+    tone === 'gold' ? 'text-[#8C6932]' : tone === 'mulberry' ? 'text-[#1B1A17]' : 'text-[#1B1A17]';
   return (
-    <div className="rounded-2xl border border-[#C5A059]/30 bg-[#FBF8F1] p-5 text-center">
+    <div className="rounded-2xl border border-[#A9834B]/30 bg-[#FBF8F1] p-5 text-center">
       <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#8C6932]">{label}</p>
       <p className={`mt-2 font-serif text-3xl tracking-tight ${valueColor}`}>{value}</p>
       <p className="mt-1.5 text-xs text-[#5F5E5A]">{hint}</p>

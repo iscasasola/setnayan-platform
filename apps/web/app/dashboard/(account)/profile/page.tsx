@@ -8,6 +8,7 @@ import {
   KeyRound,
   Gem,
   MonitorSmartphone,
+  UserCircle,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -22,6 +23,7 @@ import { FileUpload } from '@/app/_components/file-upload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { makeT } from '@/lib/i18n';
 import { ConfirmForm } from '@/app/_components/confirm-form';
+import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import {
   changePassword,
   signOutOtherDevices,
@@ -29,6 +31,8 @@ import {
 import { HapticsToggle } from './_components/haptics-toggle';
 import { PushToggle } from './_components/push-toggle';
 import { SHARE_ARTIFACT_LABEL, type ShareArtifactType } from '@/lib/social-sharing';
+import { resolvePublicProfile } from '@/lib/public-profile';
+import { ProfileShareButton } from '@/app/_components/profile-share-button';
 import { revokeShareConsent } from '@/app/dashboard/[eventId]/_actions/share-consent';
 import {
   cancelAccountDeletionRequest,
@@ -36,8 +40,23 @@ import {
   updateLocalePreference,
   updatePersonalInfo,
   updatePlannerMode,
+  updatePublicProfileEnabled,
   updateRemindersEnabled,
+  updateUserSlug,
 } from './actions';
+import { accountFaceProfileEnabled } from '@/lib/account-face-profile';
+import {
+  CIVIL_STATUSES,
+  CIVIL_STATUS_LABELS,
+  RELIGIONS,
+  RELIGION_LABELS,
+  SEXES,
+  SEX_LABELS,
+} from '@/lib/profile-personalization';
+import {
+  setAccountFaceProfileConsent,
+  forgetMyFaceEverywhere,
+} from './face-profile-actions';
 
 export const metadata = { title: 'Profile' };
 
@@ -50,6 +69,10 @@ type Props = {
     signed_out_others?: string;
     deletion_requested?: string;
     deletion_cancelled?: string;
+    face_forgotten?: string;
+    slug_saved?: string;
+    slug_error?: string;
+    public_profile_saved?: string;
   }>;
 };
 
@@ -65,6 +88,12 @@ export default async function ProfilePage({ searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // Anon-draft: a not-yet-secured (anonymous) account has no password and no
+  // meaningful multi-device sessions. Hide the Change-password + Sessions
+  // sections for them — the "Not secured yet" email banner below already nudges
+  // them to add an email (which IS where they set their first password).
+  const isAnon = !!user.is_anonymous;
+
   // Use `.maybeSingle()` per the canonical guard pattern established in
   // `apps/web/app/dashboard/[eventId]/layout.tsx` (post-third-hotfix-pass):
   // `.single()` flags PGRST116 "0 rows" as an error which silently drops
@@ -79,7 +108,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   const { data: profile, error: profileErr } = await supabase
     .from('users')
     .select(
-      'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, reminders_enabled, created_at',
+      'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, reminders_enabled, slug, public_profile_enabled, created_at',
     )
     .eq('user_id', user.id)
     .maybeSingle();
@@ -124,6 +153,30 @@ export default async function ProfilePage({ searchParams }: Props) {
 
   const activePlannerMode = (profile?.planner_mode ?? 'guided') as 'guided' | 'diy';
   const remindersOn = (profile?.reminders_enabled ?? true) as boolean;
+
+  // Public account handle (#7a/#7b). `slug` is backfilled for every account;
+  // `public_profile_enabled` gates whether /u/[slug] is reachable by strangers
+  // at all (dormant/off by default). The host is derived from the deploy URL so
+  // the preview matches production (falls back to the canonical apex).
+  const currentSlug = (profile?.slug ?? null) as string | null;
+  const publicProfileOn = (profile?.public_profile_enabled ?? false) as boolean;
+  const publicHost = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
+    .replace(/\/+$/, '')
+    .replace(/^https?:\/\//, '');
+  // Share doorway (#7c): offered ONLY when the profile is public AND has ≥1
+  // public chapter — the SAME gate the /u page + OG card enforce
+  // (resolvePublicProfile is the single source of truth for "a public chapter").
+  // Skip the query entirely when the profile is off or slug-less. Never offer
+  // sharing on a dormant/empty profile.
+  let hasPublicChapter = false;
+  if (publicProfileOn && currentSlug) {
+    const pub = await resolvePublicProfile(currentSlug);
+    hasPublicChapter = (pub?.publicWebsiteEvents.length ?? 0) > 0;
+  }
+  const publicProfileUrl = `https://${publicHost}/u/${currentSlug ?? ''}`;
+  const publicProfileShareTitle = profile?.display_name?.trim()
+    ? `${profile.display_name.trim()} · Setnayan`
+    : 'My Setnayan profile';
   // Iteration 0025 — runtime EN/TL toggle. The DB enum also has 'ceb' but the
   // UI exposes EN/TL only; anything else falls back to EN in the toggle.
   const activeLocale: 'en' | 'tl' = profile?.locale === 'tl' ? 'tl' : 'en';
@@ -171,6 +224,22 @@ export default async function ProfilePage({ searchParams }: Props) {
     );
   }
 
+  // ACCOUNT-LEVEL FACE PROFILE (owner-locked 2026-06-26) — only read the opt-in
+  // state when the feature flag is ON; otherwise the section is never rendered
+  // and we skip the query entirely. RLS scopes this to the caller's own row.
+  const faceProfileFlagOn = accountFaceProfileEnabled();
+  let faceProfileOptedIn = false;
+  if (faceProfileFlagOn) {
+    const { data: faceProfile } = await supabase
+      .from('user_face_profiles')
+      .select('profile_id, revoked_at')
+      .eq('user_id', user.id)
+      .is('revoked_at', null)
+      .maybeSingle()
+      .then((r) => (r.error ? { data: null } : r));
+    faceProfileOptedIn = Boolean(faceProfile);
+  }
+
   // If the user has exactly one active event, "Back" lands on that event's
   // home rather than the event-picker. Two+ events fall through to /dashboard.
   const events = await fetchUserEvents(supabase, user.id, 'couple');
@@ -184,16 +253,15 @@ export default async function ProfilePage({ searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-8 space-y-2">
-        <Link
-          href={backHref}
-          className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-        >
-          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        <Link href={backHref} className="sn-chip sn-press w-fit">
+          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           {backLabel}
         </Link>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Profile &amp; settings
-        </h1>
+        <p className="sn-eye">
+          <UserCircle aria-hidden strokeWidth={1.75} />
+          Your account
+        </p>
+        <h1 className="sn-h1">Profile &amp; settings</h1>
       </header>
 
       {search.error ? (
@@ -229,11 +297,25 @@ export default async function ProfilePage({ searchParams }: Props) {
           Account-deletion request cancelled. Your account stays active.
         </FormFlash>
       ) : null}
+      {search.face_forgotten ? (
+        <FormFlash tone="success">
+          Done — your face profile has been forgotten.
+        </FormFlash>
+      ) : null}
+      {search.slug_saved ? (
+        <FormFlash tone="success">Your public handle has been updated.</FormFlash>
+      ) : null}
+      {search.slug_error ? (
+        <FormFlash tone="error">{decodeURIComponent(search.slug_error)}</FormFlash>
+      ) : null}
+      {search.public_profile_saved ? (
+        <FormFlash tone="success">Public profile setting saved.</FormFlash>
+      ) : null}
 
       {/* Personal info */}
       <section className="mb-10 space-y-4">
         <div className="space-y-1">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="sn-sec">
             Personal info
           </h2>
         </div>
@@ -297,6 +379,77 @@ export default async function ProfilePage({ searchParams }: Props) {
               className="input-field"
             />
           </Field>
+
+          {/* Optional, reference-only personalization (date-anchor model). Both
+              fields are sensitive PI (RA 10173 §3(l)) — opt-in, never required,
+              never shared. Leaving them blank changes nothing. */}
+          <fieldset className="sn-row space-y-3 p-4">
+            <legend className="px-1 text-xs font-medium uppercase tracking-[0.12em] text-ink/50">
+              Personalize your events — optional
+            </legend>
+            <p className="text-xs leading-relaxed text-ink/55">
+              Add these to tailor your events — your wedding ceremony, your milestones.
+              Optional and used only to personalize; never required, never shared.{' '}
+              <span className="font-medium text-ink/70">We store your events, not your documents.</span>
+            </p>
+            <Field
+              label="Civil status"
+              htmlFor="civil_status"
+              help="Helps tailor wedding &amp; anniversary suggestions"
+            >
+              <select
+                id="civil_status"
+                name="civil_status"
+                defaultValue={profile?.civil_status ?? ''}
+                className="input-field"
+              >
+                <option value="">Prefer not to say</option>
+                {CIVIL_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {CIVIL_STATUS_LABELS[s]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field
+              label="Religion"
+              htmlFor="religion"
+              help="Pre-selects your ceremony &amp; faith milestones"
+            >
+              <select
+                id="religion"
+                name="religion"
+                defaultValue={profile?.religion ?? ''}
+                className="input-field"
+              >
+                <option value="">Prefer not to say</option>
+                {RELIGIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {RELIGION_LABELS[r]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field
+              label="Gender"
+              htmlFor="sex"
+              help="Personalizes your own milestones — e.g. your debut (18th / 21st)"
+            >
+              <select
+                id="sex"
+                name="sex"
+                defaultValue={profile?.sex ?? ''}
+                className="input-field"
+              >
+                <option value="">Prefer not to say</option>
+                {SEXES.map((s) => (
+                  <option key={s} value={s}>
+                    {SEX_LABELS[s]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </fieldset>
           <label className="flex cursor-pointer items-start gap-3 rounded-md border border-ink/10 bg-cream p-3 text-sm">
             <input
               type="checkbox"
@@ -315,32 +468,38 @@ export default async function ProfilePage({ searchParams }: Props) {
               </span>
             </span>
           </label>
-          <label className="flex cursor-pointer items-start gap-3 rounded-md border border-ink/10 bg-cream p-3 text-sm">
-            <input
-              type="checkbox"
-              name="marketing_opt_in"
-              defaultChecked={profile?.marketing_opt_in ?? false}
-              className="mt-0.5 h-4 w-4 cursor-pointer accent-terracotta"
-            />
-            <span>
-              <span className="block font-medium text-ink">
-                Receive marketing emails
+          {/* Anon-draft: marketing email would go to the non-routable
+              placeholder address. Hide until they secure a real email. */}
+          {isAnon ? null : (
+            <label className="sn-row flex cursor-pointer items-start gap-3 p-3 text-sm">
+              <input
+                type="checkbox"
+                name="marketing_opt_in"
+                defaultChecked={profile?.marketing_opt_in ?? false}
+                className="mt-0.5 h-4 w-4 cursor-pointer accent-terracotta"
+              />
+              <span>
+                <span className="block font-medium text-ink">
+                  Receive marketing emails
+                </span>
+                <span className="block text-xs text-ink/55">
+                  Product updates · new templates · seasonal promos. RA 10173 opt-in. Default
+                  off.
+                </span>
               </span>
-              <span className="block text-xs text-ink/55">
-                Product updates · new templates · seasonal promos. RA 10173 opt-in. Default
-                off.
-              </span>
-            </span>
-          </label>
+            </label>
+          )}
           <SubmitButton className="button-primary" pendingLabel="Saving…">
             Save personal info
           </SubmitButton>
         </form>
       </section>
 
+      {isAnon ? null : (
+      <>
       <section className="mb-10 space-y-4">
         <div className="space-y-1">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="sn-sec">
             Change password
           </h2>
           <p className="text-sm text-ink/60">
@@ -350,8 +509,9 @@ export default async function ProfilePage({ searchParams }: Props) {
             the reset link on the sign-in page instead.
           </p>
         </div>
-        <form action={changePassword} className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+        <form action={changePassword} className="sn-tile space-y-3">
           <input type="hidden" name="return_to" value="/dashboard/profile" />
+          <TurnstileField action="reauth" />
           <Field label="Current password" htmlFor="current_password">
             <input
               id="current_password"
@@ -396,7 +556,7 @@ export default async function ProfilePage({ searchParams }: Props) {
 
       <section className="mb-10 space-y-4">
         <div className="space-y-1">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="sn-sec">
             Sessions
           </h2>
           <p className="text-sm text-ink/60">
@@ -404,7 +564,7 @@ export default async function ProfilePage({ searchParams }: Props) {
             Sign out everywhere else in one tap — this device stays signed in.
           </p>
         </div>
-        <div className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="sn-tile flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="text-sm font-medium text-ink">Sign out other devices</p>
             <p className="text-xs text-ink/55">
@@ -430,6 +590,8 @@ export default async function ProfilePage({ searchParams }: Props) {
           </ConfirmForm>
         </div>
       </section>
+      </>
+      )}
 
       <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Row
@@ -469,11 +631,11 @@ export default async function ProfilePage({ searchParams }: Props) {
       */}
       <section id="settings" className="mt-10 space-y-4 scroll-mt-24">
         <div className="space-y-1">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="sn-sec">
             Planner mode
           </h2>
           <p className="text-sm text-ink/60">
-            Guided shows the 9-step checklist on your Home tab. DIY hides it so you can plan
+            Guided shows the 9-step checklist on your Overview tab. DIY hides it so you can plan
             in any order without the prompts.
           </p>
         </div>
@@ -521,13 +683,143 @@ export default async function ProfilePage({ searchParams }: Props) {
         </div>
       </section>
 
+      {/* URL & Slug — public handle editor (#7a) + public-profile gate (#7b).
+          The handle is a public identifier derived from the account name, so
+          RA-10173 requires it be user-controllable; the toggle keeps the /u
+          showcase dormant until the owner opts in. Hidden for anon drafts —
+          they have no durable public identity to publish. */}
+      {isAnon ? null : (
+        <section id="url-slug" className="mt-10 space-y-4 scroll-mt-24">
+          <div className="space-y-1">
+            <h2 className="sn-sec">URL &amp; handle</h2>
+            <p className="text-sm text-ink/60">
+              Your public profile lives at{' '}
+              <span className="font-mono text-ink/80">
+                {publicHost}/u/{currentSlug ?? 'your-handle'}
+              </span>
+              . Change the handle any time — the old link keeps redirecting for
+              90 days.
+            </p>
+          </div>
+
+          <form action={updateUserSlug} className="sn-tile space-y-3">
+            <Field
+              label="Handle"
+              htmlFor="slug"
+              help="3–32 characters · lowercase letters, numbers, and hyphens only."
+            >
+              <div className="flex items-center gap-2">
+                <span className="shrink-0 font-mono text-xs text-ink/50">
+                  {publicHost}/u/
+                </span>
+                <input
+                  id="slug"
+                  name="slug"
+                  maxLength={32}
+                  defaultValue={currentSlug ?? ''}
+                  placeholder="your-handle"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  className="input-field font-mono"
+                />
+              </div>
+            </Field>
+            <SubmitButton
+              className="button-secondary inline-flex items-center gap-2"
+              pendingLabel="Saving…"
+            >
+              Save handle
+            </SubmitButton>
+          </form>
+
+          <div className="space-y-1 pt-2">
+            <h3 className="text-sm font-semibold text-ink">Public profile page</h3>
+            <p className="text-sm text-ink/60">
+              A public profile turns{' '}
+              <span className="font-mono text-ink/80">{publicHost}/u/{currentSlug ?? 'your-handle'}</span>{' '}
+              into a shareable showcase of the celebrations you&rsquo;ve made
+              public. It&rsquo;s <span className="font-medium">off by default</span> — while
+              off, the page is hidden from everyone but you, and never appears in
+              search. This is separate from each event&rsquo;s own privacy setting;
+              your profile only ever lists events you&rsquo;ve already made public.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {(
+              [
+                {
+                  key: 'false' as const,
+                  label: 'Off',
+                  tagline: 'Hidden · only you can see it · not in search',
+                },
+                {
+                  key: 'true' as const,
+                  label: 'On',
+                  tagline: 'Anyone with the link can view your public celebrations',
+                },
+              ]
+            ).map((opt) => {
+              const isActive = (opt.key === 'true') === publicProfileOn;
+              return (
+                <form key={opt.key} action={updatePublicProfileEnabled}>
+                  <input type="hidden" name="public_profile_enabled" value={opt.key} />
+                  <button
+                    type="submit"
+                    disabled={isActive}
+                    className={`group flex w-full flex-col items-start gap-1 rounded-xl border p-4 text-left transition-colors ${
+                      isActive
+                        ? 'border-terracotta bg-terracotta/5'
+                        : 'border-ink/10 bg-cream hover:border-terracotta/50'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-ink">{opt.label}</span>
+                      {isActive ? (
+                        <span className="rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
+                          Active
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="text-xs text-ink/55">{opt.tagline}</span>
+                  </button>
+                </form>
+              );
+            })}
+          </div>
+          {publicProfileOn && currentSlug ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href={`/u/${currentSlug}`}
+                className="sn-chip sn-press w-fit"
+                prefetch={false}
+              >
+                Preview your public profile
+              </Link>
+              {/* Share doorway (#7c) — only once there's a public celebration to
+                  show; until then, sharing the link would land on an empty page. */}
+              {hasPublicChapter ? (
+                <ProfileShareButton
+                  url={publicProfileUrl}
+                  title={publicProfileShareTitle}
+                />
+              ) : (
+                <p className="text-xs text-ink/50">
+                  Publish a celebration to share your profile.
+                </p>
+              )}
+            </div>
+          ) : null}
+        </section>
+      )}
+
       <section className="mt-10 space-y-4">
         <div className="space-y-1">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="sn-sec">
             Planning reminders
           </h2>
           <p className="text-sm text-ink/60">
-            Friendly nudges on your Home tab for when to book each vendor and
+            Friendly nudges on your Overview tab for when to book each vendor and
             handle key documents. On by default — turn off to plan on your own
             clock.
           </p>
@@ -538,7 +830,7 @@ export default async function ProfilePage({ searchParams }: Props) {
               {
                 key: 'true' as const,
                 label: 'On',
-                tagline: 'Show recommended deadlines on your Home tab',
+                tagline: 'Show recommended deadlines on your Overview tab',
               },
               {
                 key: 'false' as const,
@@ -578,7 +870,7 @@ export default async function ProfilePage({ searchParams }: Props) {
 
       <section className="mt-10 space-y-4">
         <div className="space-y-1">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="sn-sec">
             Display language
           </h2>
           <p className="text-sm text-ink/60">
@@ -633,7 +925,7 @@ export default async function ProfilePage({ searchParams }: Props) {
 
       <section className="mt-10 space-y-4">
         <div className="space-y-1">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="sn-sec">
             Notifications &amp; feedback
           </h2>
           <p className="text-sm text-ink/60">
@@ -648,7 +940,7 @@ export default async function ProfilePage({ searchParams }: Props) {
 
       <section className="mt-10 space-y-4">
         <div className="space-y-1">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="sn-sec">
             Privacy &amp; data (RA 10173)
           </h2>
           <p className="text-sm text-ink/60">
@@ -657,7 +949,7 @@ export default async function ProfilePage({ searchParams }: Props) {
             effect.
           </p>
         </div>
-        <div className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="sn-tile flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="text-sm font-medium text-ink">Export my data</p>
             <p className="text-xs text-ink/55">
@@ -676,12 +968,134 @@ export default async function ProfilePage({ searchParams }: Props) {
         </div>
 
         {/*
+          LEGACY CONTACT (reserved · person-spine Phase 3, owner-locked
+          2026-07-04). Designate-while-alive — who inherits your memories. Inert
+          placeholder here; the actual flow (memorialization + inheritance) ships
+          in Phase 3 behind PH counsel. Baked in now so the setting has its
+          permanent home. See 03_Strategy/People_Graph_and_Lifelong_Identity_
+          2026-07-04.md.
+        */}
+        <div className="sn-tile flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-ink">Legacy contact</p>
+            <p className="text-xs text-ink/55">
+              Choose who inherits your memories. You decide, while living, who your
+              archive passes to. Coming soon.
+            </p>
+          </div>
+          <span className="inline-flex shrink-0 items-center rounded-full border border-ink/15 bg-white/60 px-3 py-1 text-xs text-ink/50">
+            Not set
+          </span>
+        </div>
+
+        {/*
+          ACCOUNT-LEVEL FACE PROFILE (owner-locked 2026-06-26 reversal of
+          per-event scoping). OPT-IN, OFF by default. Rendered only when the
+          feature flag is ON — DPO sign-off on this consent copy + retention is
+          required before the flag is flipped. Never names the model ("Setnayan
+          AI"). Two controls: the opt-in toggle, and account-level erasure.
+        */}
+        {faceProfileFlagOn ? (
+          <div className="sn-tile space-y-3">
+            <div className="min-w-0 space-y-1">
+              <p className="text-sm font-medium text-ink">
+                Remember my face across my events
+              </p>
+              <p className="text-xs text-ink/55">
+                When on, Setnayan AI can use a face profile saved to your account
+                to recognize you and tag your photos faster — at any Setnayan event
+                you attend, not just one. It is only ever used to find{' '}
+                <strong>you</strong>, never to identify anyone else, and you can
+                turn it off and erase it any time. Off by default. Biometric data
+                is handled under the Data Privacy Act (RA 10173).
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {(
+                [
+                  {
+                    key: 'true' as const,
+                    label: 'On',
+                    tagline: 'Reuse my account face profile across my events',
+                  },
+                  {
+                    key: 'false' as const,
+                    label: 'Off',
+                    tagline: 'Don’t save a face profile to my account',
+                  },
+                ]
+              ).map((opt) => {
+                const isActive = (opt.key === 'true') === faceProfileOptedIn;
+                return (
+                  <form key={opt.key} action={setAccountFaceProfileConsent}>
+                    <input type="hidden" name="enabled" value={opt.key} />
+                    <button
+                      type="submit"
+                      disabled={isActive}
+                      className={`group flex w-full flex-col items-start gap-1 rounded-xl border p-4 text-left transition-colors ${
+                        isActive
+                          ? 'border-terracotta bg-terracotta/5'
+                          : 'border-ink/10 bg-cream hover:border-terracotta/50'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-ink">{opt.label}</span>
+                        {isActive ? (
+                          <span className="rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
+                            Active
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="text-xs text-ink/55">{opt.tagline}</span>
+                    </button>
+                  </form>
+                );
+              })}
+            </div>
+
+            {/* Account-level erasure (guardrail #3) — one action wipes the
+                account profile and, optionally, the per-event enrollments too. */}
+            <details className="space-y-3 rounded-md border border-danger-200/60 bg-danger-50/40 p-3">
+              <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium text-danger-800">
+                <AlertTriangle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                Forget my face everywhere
+              </summary>
+              <form action={forgetMyFaceEverywhere} className="mt-3 space-y-3">
+                <p className="text-sm text-danger-900">
+                  This deletes the face profile saved to your account. Tick the box
+                  below to also remove the face data saved for your individual
+                  events. This can’t be undone.
+                </p>
+                <label className="flex cursor-pointer items-start gap-3 rounded-md border border-danger-200/60 bg-cream p-3 text-sm">
+                  <input
+                    type="checkbox"
+                    name="also_event_enrollments"
+                    value="1"
+                    defaultChecked
+                    className="mt-0.5 h-4 w-4 cursor-pointer accent-terracotta"
+                  />
+                  <span className="text-danger-900">
+                    Also remove the face data saved for my individual events
+                  </span>
+                </label>
+                <SubmitButton
+                  className="inline-flex items-center gap-2 rounded-md bg-danger-700 px-4 py-2 text-sm font-medium text-cream hover:bg-danger-800 disabled:opacity-70"
+                  pendingLabel="Forgetting…"
+                >
+                  Forget my face everywhere
+                </SubmitButton>
+              </form>
+            </details>
+          </div>
+        ) : null}
+
+        {/*
           Social Sharing & Featuring Program — live consents the user can
           revoke. A revoke after a post went live still works (revoked_at
           flips); the admin Social Queue then handles the take-down within
           the 24-hour SLA. See migration 20261203000000.
         */}
-        <div className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+        <div className="sn-tile space-y-3">
           <div className="min-w-0">
             <p className="text-sm font-medium text-ink">
               Featured on Setnayan&rsquo;s pages
@@ -702,7 +1116,7 @@ export default async function ProfilePage({ searchParams }: Props) {
               {shareConsents.map((c) => (
                 <li
                   key={c.consent_id}
-                  className="flex flex-col gap-2 rounded-md border border-ink/10 bg-cream/60 p-3 sm:flex-row sm:items-center sm:justify-between"
+                  className="sn-row flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="min-w-0 space-y-0.5">
                     <p className="text-sm font-medium text-ink">
@@ -779,6 +1193,21 @@ export default async function ProfilePage({ searchParams }: Props) {
               </SubmitButton>
             </form>
           </div>
+        ) : isAnon ? (
+          // Anon-draft: there's no permanent account to delete — the deletion
+          // queue is for real accounts. Explain instead of showing a confirm
+          // box that just redirects to /signup.
+          <p className="sn-row p-4 text-sm text-ink/70">
+            Your plan isn&rsquo;t saved to an account yet, so there&rsquo;s nothing to delete. To
+            discard it, just close the tab; to keep it,{' '}
+            <Link
+              href="/signup?next=%2Fdashboard%2Fprofile"
+              className="font-medium text-mulberry hover:text-mulberry-600"
+            >
+              secure your plan
+            </Link>
+            .
+          </p>
         ) : (
           <details className="space-y-3 rounded-xl border border-danger-200/60 bg-danger-50/50 p-4">
             <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium text-danger-800">
@@ -855,11 +1284,20 @@ export default async function ProfilePage({ searchParams }: Props) {
             Setnayan HQ ↗
           </Link>
         ) : null}
-        <form action="/auth/sign-out" method="post">
-          <SubmitButton pendingLabel="Signing out…" className="button-secondary">
-            {tr('cta.sign_out')}
-          </SubmitButton>
-        </form>
+        {isAnon ? (
+          // Anon-draft: signing out destroys their only key to the plan (no
+          // password to get back in). Offer "Secure your plan" instead of a
+          // one-way "Sign out".
+          <Link href="/signup?next=%2Fdashboard%2Fprofile" className="button-primary">
+            Secure your plan
+          </Link>
+        ) : (
+          <form action="/auth/sign-out" method="post">
+            <SubmitButton pendingLabel="Signing out…" className="button-secondary">
+              {tr('cta.sign_out')}
+            </SubmitButton>
+          </form>
+        )}
       </section>
     </div>
   );
@@ -867,8 +1305,8 @@ export default async function ProfilePage({ searchParams }: Props) {
 
 function Row({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="space-y-1 rounded-md border border-ink/10 bg-cream/60 p-4">
-      <dt className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50">{label}</dt>
+    <div className="sn-row space-y-1 p-4">
+      <dt className="sn-eye">{label}</dt>
       <dd className={`text-base text-ink ${mono ? 'font-mono' : ''}`}>{value}</dd>
     </div>
   );

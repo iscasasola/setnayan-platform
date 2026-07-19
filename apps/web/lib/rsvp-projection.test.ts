@@ -38,6 +38,7 @@ function guest(p: Partial<GuestRow>): GuestRow {
     dietary_restrictions: null,
     photo_consent: false,
     faceblock_enabled: false,
+    face_recognition_excluded: false,
     photo_url: null,
     photo_source: null,
     photo_updated_at: null,
@@ -47,6 +48,9 @@ function guest(p: Partial<GuestRow>): GuestRow {
     qr_token: 'q',
     custom_tags: [],
     seating_priority: null,
+    attire: 'neutral',
+    seniority_rank: null,
+    relation: null,
     created_at: '2026-01-01',
     ...p,
   };

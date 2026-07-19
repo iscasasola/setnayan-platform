@@ -1,4 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  isChineseWedding,
+  isChineseOverlay,
+  type CeremonyOverlayInput,
+} from '@/lib/chinese-wedding';
 
 export type ScheduleBlockType =
   | 'pre_ceremony'
@@ -56,10 +61,17 @@ export type ScheduleBlockRow = {
    *  Depth is one-level only — no grandchildren. */
   parent_block_id: string | null;
   created_at: string;
+  /** Day-of run-of-show (migration 20270321980372). run_state is advanced by
+   *  advance_schedule_block; actual_start_at is when the block actually went
+   *  live (drives the "running ±N min" header). Additive — defaults to
+   *  'upcoming' / null on rows created before the run-of-show feature. */
+  run_state: 'upcoming' | 'live' | 'done';
+  actual_start_at: string | null;
+  actual_end_at: string | null;
 };
 
 const SELECT =
-  'block_id,public_id,event_id,label,block_type,start_at,end_at,location,notes,is_public,sort_order,parent_block_id,created_at';
+  'block_id,public_id,event_id,label,block_type,start_at,end_at,location,notes,is_public,sort_order,parent_block_id,created_at,run_state,actual_start_at,actual_end_at';
 
 export async function fetchScheduleBlocks(
   supabase: SupabaseClient,
@@ -156,6 +168,7 @@ export type SeedCeremonyType =
   | 'sikh'
   | 'buddhist'
   | 'orthodox'
+  | 'chinese'
   | 'mixed';
 
 /** Default sub-blocks under the Ceremony parent · ceremony-type-aware so
@@ -286,6 +299,26 @@ const CEREMONY_PARTS: Record<SeedCeremonyType, string[]> = {
     'Signing of marriage contract',
     'Recessional',
   ],
+  // Chinese (Tsinoy) wedding-day spine when Chinese is the PRIMARY rite (e.g. a
+  // Taoist/Buddhist temple ceremony). The 敬茶 Tea ceremony — the couple kneeling
+  // to serve tea to elders, who return red envelopes / gold — is the defining
+  // beat and sits at the heart of the spine. See the shared overlay predicate in
+  // lib/chinese-wedding.ts and
+  // 02_Specifications/Chinese_Wedding_Traditions_Reference_2026-06-28.md. For the
+  // far-more-common church-primary + Chinese-secondary case, the tea beat is
+  // INJECTED into the primary ceremony's parts via the overlay path in
+  // buildScheduleSeed (see TEA_CEREMONY_PART) rather than replacing the primary
+  // spine.
+  chinese: [
+    "Groom's door games (闯门 chuangmen)",
+    'Bridal fetching + veiling',
+    'Tea ceremony (敬茶)',
+    'Hair-combing rites (上头)',
+    'Ang pao + gold-giving by elders',
+    'Vows + ring exchange',
+    'Signing of marriage contract',
+    'Recessional',
+  ],
   mixed: [
     'Procession',
     'Opening prayer',
@@ -296,12 +329,20 @@ const CEREMONY_PARTS: Record<SeedCeremonyType, string[]> = {
   ],
 };
 
+/** The single 敬茶 Tea-ceremony beat injected into a NON-Chinese primary
+ *  ceremony's parts when Chinese is the *secondary* (overlay) rite — the common
+ *  Tsinoy "church wedding + tea ceremony" case. We ADD this one beat rather than
+ *  swapping in the whole `chinese` spine so the couple keeps their Catholic /
+ *  civil / etc. liturgy AND gets the tea ceremony surfaced. Label matches the
+ *  primary spine's own Tea-ceremony beat so both paths read identically. */
+const TEA_CEREMONY_PART = 'Tea ceremony (敬茶)' as const;
+
 /** Default sub-blocks under the Reception parent · universal Filipino
- *  reception spine. Catholic, civil, INC, Muslim, etc. all run the same
+ *  reception spine. Catholic, civil, Christian, Muslim, etc. run the same
  *  reception program (grand entrance → first dance → dinner → toasts →
  *  cake → money dance → open floor → closing). Per-faith adaptations
- *  (e.g., no alcohol toasts at INC, no money dance at conservative
- *  Muslim) happen via host editing after the seed. */
+ *  (e.g., no money dance at conservative Muslim) happen via host editing
+ *  after the seed — EXCEPT INC, which seeds its own spine below. */
 const RECEPTION_PARTS: ReadonlyArray<string> = [
   'Grand entrance',
   'Opening prayer',
@@ -316,6 +357,25 @@ const RECEPTION_PARTS: ReadonlyArray<string> = [
   'Garter + bouquet toss',
   'Anniversary dance',
   'Open floor / DJ set',
+  'Closing remarks',
+];
+
+/** INC (Iglesia ni Cristo) reception spine · honors the Church's
+ *  kapayakan (simplicity): a prayer-led, wholesome program WITHOUT the
+ *  dance set (first dance / father-daughter / mother-son / money /
+ *  anniversary / open-floor DJ) that the universal spine assumes. INC
+ *  receptions are traditionally alcohol-free and dance-free — this seed
+ *  starts the couple from that posture rather than the party spine. The
+ *  host can still add any block back via the editor; some families decide
+ *  differently. See 02_Specifications/INC_Wedding_Practices_Reference_2026-06-28.md § 4. */
+const INC_RECEPTION_PARTS: ReadonlyArray<string> = [
+  'Grand entrance',
+  'Opening prayer',
+  'Welcome remarks',
+  'Dinner / catering service',
+  'Program + special numbers',
+  'Toasts / well-wishes',
+  'Cake cutting',
   'Closing remarks',
 ];
 
@@ -371,10 +431,22 @@ function anchorIso(eventDate: string | null, hour: number, minute = 0): string {
 }
 
 /** Build the seed payload · returns top-level rows + a builder fn for
- *  child rows once parent block_ids are known. */
+ *  child rows once parent block_ids are known.
+ *
+ *  `overlay` carries the event's two ceremony columns so the seed can be
+ *  OVERLAY-AWARE: the common Tsinoy case is a church/civil *primary* rite plus
+ *  `secondary_ceremony_type='chinese'`, which `ceremonyType` (the primary
+ *  column alone) can't see. When `isChineseWedding(overlay)` is true the tea
+ *  ceremony is guaranteed into the ceremony parts — by running the dedicated
+ *  `chinese` spine if Chinese is the primary rite, or by INJECTING a single
+ *  Tea-ceremony beat into the primary spine when Chinese is the secondary
+ *  overlay (Catholic spine kept intact, tea beat added). Omitting `overlay`
+ *  (or passing null) reproduces the pre-overlay behaviour byte-for-byte, so
+ *  every non-Chinese seed is unchanged. */
 export function buildScheduleSeed(
   ceremonyType: SeedCeremonyType | null,
   eventDate: string | null,
+  overlay?: CeremonyOverlayInput | null,
 ): {
   topLevel: ScheduleSeedTopLevel[];
   buildChildren: (parentIds: {
@@ -433,8 +505,33 @@ export function buildScheduleSeed(
     },
   ];
 
-  const ceremonyParts =
+  // Base spine = the primary ceremony's parts (catholic default). When Chinese
+  // is the PRIMARY rite, `ceremonyType` is already 'chinese' and that spine
+  // carries the tea beat, so no injection is needed.
+  const baseCeremonyParts =
     CEREMONY_PARTS[ceremonyType ?? 'catholic'] ?? CEREMONY_PARTS.catholic;
+
+  // Overlay path: Chinese is the SECONDARY rite on a non-Chinese primary (the
+  // common Tsinoy "church + tea ceremony" case). `isChineseWedding` reads BOTH
+  // columns, so it fires here where `ceremonyType` (primary only) never would.
+  // We keep the primary spine intact and ADD a single Tea-ceremony beat (right
+  // after the vows/ring exchange when present, else appended) — never replacing
+  // the Catholic/civil/etc. liturgy. `isChineseOverlay` excludes the
+  // Chinese-primary case so the tea beat is never double-added to its own spine.
+  let ceremonyParts: ReadonlyArray<string> = baseCeremonyParts;
+  if (isChineseWedding(overlay) && isChineseOverlay(overlay)) {
+    if (!baseCeremonyParts.includes(TEA_CEREMONY_PART)) {
+      const vowsIdx = baseCeremonyParts.findIndex((p) =>
+        p.startsWith('Vows + ring exchange'),
+      );
+      const injectAt = vowsIdx >= 0 ? vowsIdx + 1 : baseCeremonyParts.length;
+      ceremonyParts = [
+        ...baseCeremonyParts.slice(0, injectAt),
+        TEA_CEREMONY_PART,
+        ...baseCeremonyParts.slice(injectAt),
+      ];
+    }
+  }
 
   const buildChildren = (_parentIds: {
     ceremony: string;
@@ -461,9 +558,11 @@ export function buildScheduleSeed(
       },
     );
 
+    const receptionParts =
+      ceremonyType === 'inc' ? INC_RECEPTION_PARTS : RECEPTION_PARTS;
     const receptionDurationMs = 5 * 60 * 60 * 1000; // 5 hours
-    const receptionStepMs = receptionDurationMs / RECEPTION_PARTS.length;
-    const receptionChildren: ScheduleSeedChild[] = RECEPTION_PARTS.map(
+    const receptionStepMs = receptionDurationMs / receptionParts.length;
+    const receptionChildren: ScheduleSeedChild[] = receptionParts.map(
       (label, idx) => {
         const startMs = new Date(receptionStart).getTime() + idx * receptionStepMs;
         const endMs = startMs + receptionStepMs;
@@ -484,6 +583,47 @@ export function buildScheduleSeed(
   };
 
   return { topLevel, buildChildren };
+}
+
+// ── Overview schedule preview selection ──────────────────────────────────────
+// Pure block-selection for the Overview's Schedule section (owner directive
+// 2026-07-09: "add schedule there"). Lives here — not in the component — so the
+// `tsx --test "lib/**/*.test.ts"` runner covers it. See schedule.test.ts.
+
+const SCHEDULE_PREVIEW_LIMIT = 4;
+
+export type SchedulePreviewSelection = {
+  /** Up to SCHEDULE_PREVIEW_LIMIT top-level blocks to render. */
+  display: ScheduleBlockRow[];
+  /** Top-level blocks not shown in `display` (drives the "N more" footer). */
+  moreCount: number;
+  /** True when the event has no top-level schedule blocks at all. */
+  isEmpty: boolean;
+};
+
+/**
+ * Top-level blocks only (nested children would clutter a short preview);
+ * prefer blocks still ahead of `now`, but fall back to the earliest blocks when
+ * the whole program is already past so the card never reads empty while data
+ * exists. Preserves the caller's ordering (fetchScheduleBlocks orders by
+ * start_at then sort_order).
+ */
+export function selectSchedulePreviewBlocks(
+  blocks: ScheduleBlockRow[],
+  now: Date,
+): SchedulePreviewSelection {
+  const topLevel = blocks.filter((b) => b.parent_block_id === null);
+  const nowMs = now.getTime();
+  const upcoming = topLevel.filter(
+    (b) => new Date(b.start_at).getTime() >= nowMs,
+  );
+  const source = upcoming.length > 0 ? upcoming : topLevel;
+  const display = source.slice(0, SCHEDULE_PREVIEW_LIMIT);
+  return {
+    display,
+    moreCount: Math.max(0, topLevel.length - display.length),
+    isEmpty: topLevel.length === 0,
+  };
 }
 
 export function formatBlockTime(iso: string): string {
@@ -514,4 +654,82 @@ export function formatBlockTimeRange(startIso: string, endIso: string | null): s
     minute: '2-digit',
   });
   return sameDay ? `${startStr} – ${endStr}` : `${startStr} → ${end.toLocaleString()}`;
+}
+
+// ── Viewer-local time (mirror of ~/Setnayan-Native/src/lib/timezone.ts) ────────
+// Schedule times are stored as the naive event-local wall-clock at UTC
+// (`…T14:00:00Z` = 2 PM at the venue). To show a viewer their OWN local time we
+// reinterpret that wall-clock through the EVENT's timezone → true instant, then
+// render it in the viewer's (browser) timezone. Client-safe: Intl only, no dep.
+// The event timezone string comes from the venue coords (see
+// lib/event-timezone.server.ts) — derived server-side, passed down as a prop.
+
+/** Fallback when an event has no venue coordinates — most weddings are in PH. */
+export const DEFAULT_EVENT_TZ = 'Asia/Manila';
+
+function partsAsUTC(instantMs: number, tz: string): number {
+  const f = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+  const p: Record<string, string> = {};
+  for (const part of f.formatToParts(new Date(instantMs))) p[part.type] = part.value;
+  let h = parseInt(p.hour!, 10);
+  if (h === 24) h = 0;
+  return Date.UTC(+p.year!, +p.month! - 1, +p.day!, h, +p.minute!, +p.second!);
+}
+
+/** Wall-clock (y, monthIndex, d, h, mi) in IANA `tz` → its true UTC instant (ms),
+ *  or null if Intl/tz math is unavailable. */
+export function wallClockToInstant(
+  y: number,
+  monthIndex: number,
+  d: number,
+  h: number,
+  mi: number,
+  tz: string,
+): number | null {
+  try {
+    const asUTC = Date.UTC(y, monthIndex, d, h, mi);
+    return asUTC + (asUTC - partsAsUTC(asUTC, tz));
+  } catch {
+    return null;
+  }
+}
+
+/** A stored block time rendered in the VIEWER's (browser) local time ("5:00 AM"),
+ *  or null if it can't be converted (callers then fall back to event-local). */
+export function formatViewerTime(iso: string | null, eventTz: string): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const instant = wallClockToInstant(
+    d.getUTCFullYear(),
+    d.getUTCMonth(),
+    d.getUTCDate(),
+    d.getUTCHours(),
+    d.getUTCMinutes(),
+    eventTz,
+  );
+  if (instant == null) return null;
+  return new Date(instant).toLocaleString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+
+/** "5:00 AM" or "5:00 AM – 6:30 AM" in the viewer's local time. */
+export function formatViewerTimeRange(
+  startIso: string,
+  endIso: string | null,
+  eventTz: string,
+): string | null {
+  const start = formatViewerTime(startIso, eventTz);
+  if (!start) return null;
+  if (!endIso) return start;
+  const end = formatViewerTime(endIso, eventTz);
+  return end ? `${start} – ${end}` : start;
 }

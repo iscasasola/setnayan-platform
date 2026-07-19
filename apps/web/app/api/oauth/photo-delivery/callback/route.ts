@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
   }
 
   // 2. Config sanity-check.
-  const config = getPhotoDeliveryOAuthConfig();
+  const config = await getPhotoDeliveryOAuthConfig();
   if (!config.ready) {
     return redirectWithError(url, eventId, 'not_configured');
   }

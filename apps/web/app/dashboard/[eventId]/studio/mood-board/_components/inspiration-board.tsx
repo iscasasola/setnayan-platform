@@ -158,7 +158,7 @@ function SlotTile({
     return (
       <div className="group relative aspect-square flex-1 overflow-hidden rounded-lg border border-ink/15">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={tile.url} alt="inspiration" className="h-full w-full object-cover" />
+        <img src={tile.url} alt="Mood board inspiration image" className="h-full w-full object-cover" />
         <button
           type="button"
           onClick={onRemove}

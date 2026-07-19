@@ -33,6 +33,19 @@ export async function enrollGuestFace(
     const admin = createAdminClient();
     const guestId = session.guest_id;
     const eventId = session.event_id;
+
+    // Minor safeguard (DPIA BV-8, 2026-07-05): never enrol a guest the host has
+    // excluded from face recognition (typically a minor), regardless of consent.
+    const { data: fx } = await admin
+      .from('guests')
+      .select('face_recognition_excluded')
+      .eq('guest_id', guestId)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if ((fx as { face_recognition_excluded: boolean } | null)?.face_recognition_excluded === true) {
+      return { ok: false };
+    }
+
     // Provenance only (free-text consent_source) — defaults to the day-of card.
     const consentSource = clean(formData.get('enroll_context')) || 'day_of';
 
@@ -52,23 +65,86 @@ export async function enrollGuestFace(
       }
     }
 
-    // Optional on-device face descriptor (dlib via face-api.js). Absent until
-    // the embedder + a hosted model are live → enroll image-only.
-    let faceVector: number[] | null = null;
-    const rawVector = clean(formData.get('selfie_vector'));
-    if (rawVector) {
+    // Optional on-device face descriptor(s) (dlib via face-api.js). Absent
+    // until the embedder + a hosted model are live → enroll image-only.
+    const parseVector = (raw: string): number[] | null => {
+      if (!raw) return null;
       try {
-        const v = JSON.parse(rawVector) as unknown;
+        const v = JSON.parse(raw) as unknown;
         if (
           Array.isArray(v) &&
           v.length > 0 &&
           v.every((n) => typeof n === 'number' && Number.isFinite(n))
         ) {
-          faceVector = v as number[];
+          return v as number[];
         }
       } catch {
         // malformed vector — enroll without it
       }
+      return null;
+    };
+    const faceVector = parseVector(clean(formData.get('selfie_vector')));
+
+    // 3-shot enrollment (owner 2026-06-28): the day-of capture can submit up to
+    // three angles (center / slight-left / slight-right) so the matcher has
+    // several reference descriptors per guest — materially better recall than a
+    // single frontal frame. Each angle becomes its OWN non-revoked
+    // guest_face_enrollments row; lib/face-match.ts already compares a photo
+    // against EVERY non-revoked row per guest, so more angles = more chances to
+    // match. Falls back to the single inputs (RSVP path + older clients).
+    type Shot = {
+      ref: string;
+      vector: number[] | null;
+      quality: number | null;
+      meta: Record<string, unknown>;
+    };
+    const parseStrArray = (raw: string): string[] => {
+      if (!raw) return [];
+      try {
+        const v = JSON.parse(raw) as unknown;
+        return Array.isArray(v)
+          ? v.filter((s): s is string => typeof s === 'string' && s.length > 0)
+          : [];
+      } catch {
+        return [];
+      }
+    };
+    const parseJsonArray = (raw: string): unknown[] => {
+      if (!raw) return [];
+      try {
+        const v = JSON.parse(raw) as unknown;
+        return Array.isArray(v) ? v : [];
+      } catch {
+        return [];
+      }
+    };
+    const refsArr = parseStrArray(clean(formData.get('selfie_refs')));
+    let shots: Shot[];
+    if (refsArr.length > 0) {
+      const vecArr = parseJsonArray(clean(formData.get('selfie_vectors')));
+      const qualArr = parseJsonArray(clean(formData.get('selfie_qualities')));
+      // Cap at 3 — UI enforces it too; this is the server-side backstop.
+      shots = refsArr.slice(0, 3).map((ref, i) => {
+        const rawVec = vecArr[i];
+        const vector =
+          Array.isArray(rawVec) &&
+          rawVec.length > 0 &&
+          rawVec.every((n) => typeof n === 'number' && Number.isFinite(n))
+            ? (rawVec as number[])
+            : null;
+        const rawQ = qualArr[i] as
+          | ({ score?: number } & Record<string, unknown>)
+          | undefined;
+        const quality =
+          rawQ && typeof rawQ.score === 'number' ? rawQ.score : null;
+        const meta =
+          rawQ && typeof rawQ === 'object' ? (rawQ as Record<string, unknown>) : {};
+        return { ref, vector, quality, meta };
+      });
+    } else {
+      shots = [
+        { ref: selfieRef, vector: faceVector, quality: qualityScore, meta: qualityMeta },
+      ];
     }
 
     // The selfie becomes the guest's display photo (parity with RSVP enrollment).
@@ -92,18 +168,21 @@ export async function enrollGuestFace(
       .eq('guest_id', guestId)
       .is('revoked_at', null);
 
-    const { error } = await admin.from('guest_face_enrollments').insert({
-      event_id: eventId,
-      guest_id: guestId,
-      asset_url: selfieRef,
-      source: 'guest_portal',
-      quality_score: qualityScore,
-      quality_meta: qualityMeta,
-      face_vector: faceVector,
-      vector_model: faceVector ? VECTOR_MODEL : null,
-      consent_at: new Date().toISOString(),
-      consent_source: consentSource,
-    });
+    const nowIso = new Date().toISOString();
+    const { error } = await admin.from('guest_face_enrollments').insert(
+      shots.map((s) => ({
+        event_id: eventId,
+        guest_id: guestId,
+        asset_url: s.ref,
+        source: 'guest_portal',
+        quality_score: s.quality,
+        quality_meta: s.meta,
+        face_vector: s.vector,
+        vector_model: s.vector ? VECTOR_MODEL : null,
+        consent_at: nowIso,
+        consent_source: consentSource,
+      })),
+    );
 
     return { ok: !error };
   } catch {

@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Download, TrendingUp } from 'lucide-react';
+import { Download, TrendingUp, Gift, ArrowRight, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { isChineseWedding, isMuslimWedding } from '@/lib/chinese-wedding';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
-import { fetchBudgetSnapshot, formatPhp } from '@/lib/budget';
+import { fetchBudgetSnapshot, buildBudgetLiveSummary, formatPhp } from '@/lib/budget';
 import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
@@ -13,6 +14,8 @@ import { fetchPlanForCouple } from '@/lib/vendor-service-payment-schedules.serve
 import type { PlanInstance } from '@/lib/vendor-service-payment-schedules';
 import { BudgetSetter } from './_components/budget-setter';
 import { BudgetAllocationPlanner } from './_components/budget-allocation-planner';
+import { ShareBudgetBandToggle } from './_components/share-budget-band-toggle';
+import { BudgetLiveSummaryCard } from './_components/budget-live-summary';
 import { VendorItemizationCard } from '../_components/vendor-itemization-card';
 
 export const metadata = { title: 'Budget' };
@@ -41,7 +44,9 @@ export default async function BudgetPage({ params }: Props) {
   const [eventRes, snapshot, paidOrdersRes, allocInputs] = await Promise.all([
     supabase
       .from('events')
-      .select('event_id, display_name, estimated_budget_centavos, region')
+      .select(
+        'event_id, display_name, estimated_budget_centavos, estimated_pax, region, event_type, ceremony_type, secondary_ceremony_type, mahr_description, share_budget_band',
+      )
       .eq('event_id', eventId)
       .maybeSingle(),
     fetchBudgetSnapshot(supabase, eventId),
@@ -56,14 +61,84 @@ export default async function BudgetPage({ params }: Props) {
     resolveAllocationInputs(supabase, eventId),
   ]);
 
-  const event = eventRes.data as
+  // Migration-drift fallback (mirrors app/dashboard/[eventId]/page.tsx): the
+  // explicit select above names mahr_description (migration 20270308998862). On
+  // an un-migrated env PostgREST 42703s the WHOLE query (not just that field),
+  // which would null display_name/region/budget too — so on a column-missing
+  // error, re-read with '*' to keep the core event fields. Normal prod ships the
+  // migration with this code, so this only covers a transient ordering window.
+  let eventData = eventRes.data;
+  if (
+    !eventData &&
+    eventRes.error &&
+    /column .* does not exist|undefined_column|42703/i.test(
+      (eventRes.error as { message?: string; code?: string }).message ??
+        (eventRes.error as { code?: string }).code ??
+        '',
+    )
+  ) {
+    const fb = await supabase
+      .from('events')
+      .select('*')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    eventData = fb.data;
+  }
+
+  const event = eventData as
     | {
         event_id: string;
         display_name: string;
         estimated_budget_centavos: number | null;
+        estimated_pax: number | null;
         region: string | null;
+        event_type: string | null;
+        ceremony_type: string | null;
+        secondary_ceremony_type: string | null;
+        mahr_description: string | null;
+        share_budget_band: boolean | null;
       }
     | null;
+
+  // Muslim weddings carry a Mahr — the groom's mandatory gift to the bride. It
+  // is hers alone and is NOT a Setnayan or vendor charge, so it never enters the
+  // budget math (committed totals / overspend); it's surfaced as a distinct,
+  // non-billable reminder card.
+  const isMuslimCeremony = isMuslimWedding({
+    ceremony_type: event?.ceremony_type ?? null,
+    secondary_ceremony_type: event?.secondary_ceremony_type ?? null,
+  });
+  const mahrDescription = (event?.mahr_description as string | null) ?? null;
+
+  // Chinese (Tsinoy) weddings carry tradition-specific spend that doesn't map
+  // cleanly to a vendor line — ang pao (red envelopes) gifted during the tea
+  // ceremony, and the lauriat banquet that is usually the single largest
+  // reception cost. Surfaced as a non-billable advisory (mirrors the Mahr card)
+  // via the shared overlay predicate, so it also catches the common
+  // church-primary + Chinese-secondary case, not just ceremony_type === 'chinese'.
+  const isChineseCeremony = isChineseWedding({
+    ceremony_type: event?.ceremony_type ?? null,
+    secondary_ceremony_type: event?.secondary_ceremony_type ?? null,
+  });
+
+  // Guest count for the lauriat table-count advisory. A lauriat is priced PER
+  // TABLE (~10 pax/table), so the one derived fact worth surfacing is the table
+  // count — not a ₱ figure (prices are admin-managed, never hardcoded). Normalize
+  // estimated_pax to a positive integer; anything missing/zero/invalid → null,
+  // which keeps the card on its "set your guest count" copy.
+  const paxRaw = event?.estimated_pax ?? null;
+  const chineseGuestCount =
+    paxRaw != null && Number.isFinite(Number(paxRaw)) && Number(paxRaw) > 0
+      ? Math.floor(Number(paxRaw))
+      : null;
+
+  // Iteration 0053 P4 Unit 2: the suggested budget SPLIT (wedding cost
+  // categories + benchmarks) is the wedding budget-taxonomy pack. 'wedding' is
+  // the only event type with a budget taxonomy (profile.budgetTaxonomyKey), so
+  // this is the exact equivalent of resolveProfile(event_type).budgetTaxonomyKey
+  // === 'wedding'. Wedding → true (split renders, byte-identical); non-wedding →
+  // false → generic budget (total + per-vendor itemization only, no split).
+  const isWeddingBudget = ((event?.event_type as string | null) ?? 'wedding') === 'wedding';
 
   // Defensive read — the column may not exist yet in production until
   // migration 20260604030000 lands. Treat undefined and null the same
@@ -71,6 +146,12 @@ export default async function BudgetPage({ params }: Props) {
   const initialBudgetCentavos: number | null =
     (event as { estimated_budget_centavos?: number | null } | null)
       ?.estimated_budget_centavos ?? null;
+
+  // Couple opt-in (default OFF) to share their budget as a rounded RANGE with
+  // vendors on the Customer Card (Customer Card respine PR-5). Defensive read —
+  // undefined (pre-migration) treated the same as false.
+  const initialShareBudgetBand: boolean =
+    (event as { share_budget_band?: boolean | null } | null)?.share_budget_band ?? false;
 
   // Current commitments — sum of paid/fulfilled service_orders + the
   // total_cost_php of every vendor at-or-past 'contracted' status (the
@@ -163,19 +244,36 @@ export default async function BudgetPage({ params }: Props) {
       {/* id targets for the Budget docked sub-nav (lib/customer-menu.ts anchor
           children: Overview · Allocate · Payments). scroll-mt keeps the section
           title clear of the top edge on smooth-scroll. */}
-      <header id="budget-overview" className="flex scroll-mt-24 flex-wrap items-end justify-between gap-3">
+      <header id="budget-overview" className="sn-reveal flex scroll-mt-24 flex-wrap items-end justify-between gap-3">
         <div className="space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Budget</h1>
+          <div>
+            <p className="sn-eye">Money</p>
+            <h1 className="sn-h1 mt-1.5">Budget</h1>
+          </div>
           <p className="max-w-prose text-base text-ink/65">
-            Set your total wedding budget. As you contract vendors, their published
-            pricing fills in below — for off-platform vendors, you enter line items
-            yourself. Export upcoming due dates as a `.ics` file your calendar app
-            can swallow.
+            {/* Iteration 0053 P4 Unit 3: wedding copy verbatim; non-wedding swaps
+                the one wedding word. JSX collapses whitespace, so the wedding
+                branch renders byte-identically. */}
+            {isWeddingBudget ? (
+              <>
+                Set your total wedding budget. As you contract vendors, their published
+                pricing fills in below — for off-platform vendors, you enter line items
+                yourself. Export upcoming due dates as a `.ics` file your calendar app
+                can swallow.
+              </>
+            ) : (
+              <>
+                Set your total event budget. As you contract vendors, their published
+                pricing fills in below — for off-platform vendors, you enter line items
+                yourself. Export upcoming due dates as a `.ics` file your calendar app
+                can swallow.
+              </>
+            )}
           </p>
         </div>
         <Link
           href={`/api/budget/${eventId}/ics`}
-          className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-cream px-4 py-2 text-sm font-medium text-ink hover:border-terracotta/50 hover:text-terracotta"
+          className="inline-flex items-center gap-2 rounded-md border border-white/60 bg-white/55 px-4 py-2 text-sm font-medium text-ink backdrop-blur-sm transition hover:border-terracotta/50 hover:text-terracotta"
         >
           <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Export upcoming dates (.ics)
@@ -193,6 +291,12 @@ export default async function BudgetPage({ params }: Props) {
         committedPhp={committedPhpTotal}
       />
 
+      {isMuslimCeremony ? (
+        <MahrInfoCard eventId={eventId} mahrDescription={mahrDescription} />
+      ) : null}
+
+      {isChineseCeremony ? <ChineseTraditionInfoCard pax={chineseGuestCount} /> : null}
+
       <UnlocksHint />
 
       {/* Suggested budget split — the median-anchored allocation planner.
@@ -200,35 +304,47 @@ export default async function BudgetPage({ params }: Props) {
        *  range per leaf) BEFORE the couple contracts anyone, complementing
        *  the per-vendor TRACKING below. The pure engine runs client-side for
        *  instant tilt feedback; inputs were resolved server-side above. */}
-      <div id="budget-allocate" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
-        <div className="space-y-2">
-          <h2 className="font-display text-2xl italic text-ink/85 sm:text-3xl">
-            Suggested budget split
-          </h2>
-          <p className="max-w-prose text-sm text-ink/65">
-            A starting point from typical Filipino wedding costs — nudge anything;
-            it&rsquo;s a guide, not a rule.
-          </p>
-        </div>
+      {/* Iteration 0053 P4 Unit 2: the suggested split is the wedding budget
+       *  taxonomy (wedding cost categories + benchmarks). Only render it for
+       *  marriage-profile events; a non-wedding gets the generic budget (total
+       *  + per-vendor itemization below). allocInputs is still resolved above
+       *  for weddings — the Promise.all is unchanged so the wedding path is
+       *  byte-identical. */}
+      {isWeddingBudget ? (
+        <div id="budget-allocate" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
+          <div className="space-y-2">
+            <h2 className="sn-sec text-2xl sm:text-3xl">Suggested budget split</h2>
+            <p className="max-w-prose text-sm text-ink/65">
+              A starting point from typical Filipino wedding costs — nudge anything;
+              it&rsquo;s a guide, not a rule.
+            </p>
+          </div>
 
-        <BudgetAllocationPlanner
-          eventId={eventId}
-          budgetPhp={allocInputs.budgetPhp}
-          leaves={allocInputs.leaves}
-          config={allocInputs.config}
-          pax={allocInputs.pax}
-          region={event?.region ?? null}
-        />
-      </div>
+          <BudgetAllocationPlanner
+            eventId={eventId}
+            budgetPhp={allocInputs.budgetPhp}
+            leaves={allocInputs.leaves}
+            config={allocInputs.config}
+            pax={allocInputs.pax}
+            region={event?.region ?? null}
+          />
+
+          {/* Opt-in to share this plan as a rounded RANGE with vendors — sits
+           *  right under the split it derives from. Off by default; range-only,
+           *  per-category, never an exact number (Customer Card respine PR-5). */}
+          <ShareBudgetBandToggle
+            eventId={eventId}
+            initialShare={initialShareBudgetBand}
+          />
+        </div>
+      ) : null}
 
       {/* Existing per-vendor itemization + payment log — unchanged
        *  surface from before this PR. Heading added so the visual break
        *  from the setter form above is clear. */}
       <div id="budget-payments" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
         <div className="space-y-2">
-          <h2 className="font-display text-2xl italic text-ink/85 sm:text-3xl">
-            Per-vendor itemization
-          </h2>
+          <h2 className="sn-sec text-2xl sm:text-3xl">Per-vendor itemization</h2>
           <p className="max-w-prose text-sm text-ink/65">
             Vendor-controlled line items come from the vendor&rsquo;s catalog and
             refresh as they update their pricing. For off-platform vendors, add
@@ -237,7 +353,10 @@ export default async function BudgetPage({ params }: Props) {
           </p>
         </div>
 
-        <StatsStrip totals={snapshot.totals} />
+        <BudgetLiveSummaryCard
+          eventId={eventId}
+          initial={buildBudgetLiveSummary(snapshot)}
+        />
 
         {!hasAnyVendors ? (
           <EmptyBudget eventId={eventId} />
@@ -281,16 +400,10 @@ function BudgetSummaryStrip({
   const remainingPhp = targetPhp !== null ? targetPhp - committedPhp : null;
 
   return (
-    <section
-      aria-labelledby="budget-summary-heading"
-      className="rounded-xl border border-ink/10 bg-cream p-5"
-    >
+    <section aria-labelledby="budget-summary-heading" className="sn-tile">
       <header className="flex items-baseline gap-2">
-        <TrendingUp aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} />
-        <h2
-          id="budget-summary-heading"
-          className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
-        >
+        <h2 id="budget-summary-heading" className="sn-eye">
+          <TrendingUp aria-hidden strokeWidth={1.75} />
           Current commitments
         </h2>
       </header>
@@ -343,7 +456,7 @@ function SummaryStat({
     <li className="space-y-1">
       <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">{label}</p>
       <p
-        className={`font-display text-2xl ${
+        className={`font-mono text-2xl font-bold ${
           tone === 'warn'
             ? 'text-terracotta-700'
             : tone === 'good'
@@ -364,6 +477,112 @@ function SummaryStat({
  * [[feedback_setnayan_no_dev_text_post_launch]]: outcome-first copy,
  * no engineering jargon, no exclamation marks.
  */
+// The Mahr — a Muslim wedding's groom-to-bride gift. Deliberately rendered as a
+// distinct, NON-billable card (emerald, "gift" framing) so it never reads as a
+// Setnayan/vendor charge and is never folded into the committed/overspend math.
+// Setnayan neither holds nor processes the mahr; this is the couple's private
+// record, set from the Nikah-essentials card on Home.
+function MahrInfoCard({
+  eventId,
+  mahrDescription,
+}: {
+  eventId: string;
+  mahrDescription: string | null;
+}) {
+  const isSet = !!mahrDescription && mahrDescription.trim().length > 0;
+  return (
+    <section
+      aria-labelledby="mahr-info-heading"
+      className="rounded-xl border border-emerald-200/70 bg-emerald-50/40 p-4 sm:p-5"
+    >
+      <div className="flex items-center gap-2">
+        <Gift aria-hidden className="h-4 w-4 text-emerald-700" strokeWidth={1.75} />
+        <h2
+          id="mahr-info-heading"
+          className="font-mono text-[11px] uppercase tracking-[0.2em] text-emerald-800"
+        >
+          Mahr — a gift to the bride
+        </h2>
+      </div>
+      <p className="mt-2 text-sm text-ink/75">
+        {isSet ? (
+          <>
+            Your mahr: <span className="font-medium text-ink">{mahrDescription}</span>.
+            It belongs to the bride alone — Setnayan never charges or processes
+            it, so it stays out of your budget totals.
+          </>
+        ) : (
+          <>
+            A Muslim marriage includes the mahr — the groom&rsquo;s gift to the
+            bride, hers alone. It isn&rsquo;t a Setnayan or vendor charge, so it
+            lives outside your budget. Record yours from the Nikah card on Home.
+          </>
+        )}
+      </p>
+      <Link
+        href={`/dashboard/${eventId}`}
+        className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-emerald-800 hover:text-emerald-900"
+      >
+        {isSet ? 'Update mahr' : 'Set mahr'}
+        <ArrowRight aria-hidden className="h-3 w-3" strokeWidth={2} />
+      </Link>
+    </section>
+  );
+}
+
+// Chinese (Tsinoy) tradition note — a NON-billable advisory mirroring MahrInfoCard
+// (same card shell + emerald "gift" framing). It records nothing and charges
+// nothing: ang pao and the lauriat are the couple's own arrangements, not a
+// Setnayan or vendor charge, so the card carries no setter and no price. Purely
+// informational guidance to help the couple shape their own budget. Editorial
+// voice, no exclamation marks.
+//
+// The lauriat banquet is priced PER TABLE (~10 pax/table), not per head — that's
+// the one cost-model fact worth surfacing. When the couple's guest count is set,
+// we show the DERIVED TABLE COUNT (a fact, fine to compute), never a ₱ figure:
+// per-table catering rates are admin-managed and not readily in scope here, so we
+// keep the estimate advisory (table count + lauriat note) rather than hardcode a
+// price.
+const LAURIAT_PAX_PER_TABLE = 10;
+function ChineseTraditionInfoCard({ pax }: { pax: number | null }) {
+  const tables = pax !== null ? Math.ceil(pax / LAURIAT_PAX_PER_TABLE) : null;
+  return (
+    <section
+      aria-labelledby="chinese-tradition-heading"
+      className="rounded-xl border border-emerald-200/70 bg-emerald-50/40 p-4 sm:p-5"
+    >
+      <div className="flex items-center gap-2">
+        <Sparkles aria-hidden className="h-4 w-4 text-emerald-700" strokeWidth={1.75} />
+        <h2
+          id="chinese-tradition-heading"
+          className="font-mono text-[11px] uppercase tracking-[0.2em] text-emerald-800"
+        >
+          Chinese traditions — a budget note
+        </h2>
+      </div>
+      <p className="mt-2 text-sm text-ink/75">
+        A Chinese wedding carries a few costs worth planning for. Ang pao — red
+        envelopes — are given to elders during the tea ceremony, kept aside from
+        your vendor spend. The lauriat banquet is typically the main reception
+        cost, and it&rsquo;s priced per table — about {LAURIAT_PAX_PER_TABLE}{' '}
+        guests to a table — so it&rsquo;s worth anchoring your budget around it
+        early. These are your own arrangements, not a Setnayan or vendor charge,
+        so they stay outside your committed totals.
+      </p>
+      {tables !== null && pax !== null ? (
+        <p className="mt-2 text-sm font-medium text-emerald-900">
+          About {tables} lauriat {tables === 1 ? 'table' : 'tables'} for {pax}{' '}
+          guests.
+        </p>
+      ) : (
+        <p className="mt-2 text-sm text-ink/60">
+          Set your guest count to see an estimated table count.
+        </p>
+      )}
+    </section>
+  );
+}
+
 function UnlocksHint() {
   return (
     <section
@@ -384,69 +603,9 @@ function UnlocksHint() {
   );
 }
 
-function StatsStrip({
-  totals,
-}: {
-  totals: {
-    budget: number;
-    paid: number;
-    remaining: number;
-    upcomingDueAmount: number;
-    upcomingDueCount: number;
-  };
-}) {
-  return (
-    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <StatTile label="Total budget" value={formatPhp(totals.budget)} />
-      <StatTile label="Paid so far" value={formatPhp(totals.paid)} />
-      <StatTile
-        label="Still to pay"
-        value={formatPhp(totals.remaining)}
-        tone={totals.remaining > 0 ? 'warn' : 'good'}
-      />
-      <StatTile
-        label="Due in 30 days"
-        value={
-          totals.upcomingDueCount > 0
-            ? `${formatPhp(totals.upcomingDueAmount)} · ${totals.upcomingDueCount}`
-            : '—'
-        }
-        tone={totals.upcomingDueCount > 0 ? 'warn' : 'default'}
-      />
-    </ul>
-  );
-}
-
-function StatTile({
-  label,
-  value,
-  tone = 'default',
-}: {
-  label: string;
-  value: string;
-  tone?: 'default' | 'warn' | 'good';
-}) {
-  return (
-    <li className="rounded-xl border border-ink/10 bg-cream p-4">
-      <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">{label}</p>
-      <p
-        className={`mt-1 text-xl font-semibold tracking-tight ${
-          tone === 'warn'
-            ? 'text-terracotta-700'
-            : tone === 'good'
-              ? 'text-success-700'
-              : 'text-ink'
-        }`}
-      >
-        {value}
-      </p>
-    </li>
-  );
-}
-
 function EmptyBudget({ eventId }: { eventId: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">
+    <div className="sn-row border-dashed p-8 text-center">
       <p className="text-sm text-ink/65">
         No vendors yet. Add a vendor first, then come back here to itemize costs.
       </p>
@@ -468,7 +627,7 @@ function EmptyBudget({ eventId }: { eventId: string }) {
  */
 function NoFinalizedVendors({ eventId }: { eventId: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">
+    <div className="sn-row border-dashed p-8 text-center">
       <p className="text-sm text-ink/65">
         You&rsquo;re still choosing vendors — exactly where you should be at this
         stage. The moment you contract one, its itemized costs and payments show

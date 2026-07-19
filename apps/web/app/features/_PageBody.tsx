@@ -8,7 +8,6 @@ import { OutsourcingPacing } from './_sections/_OutsourcingPacing';
 import { Compliance } from './_sections/_Compliance';
 import { FinalCTA } from './_sections/_FinalCTA';
 import { StickyMobileCTA } from './_sections/_StickyMobileCTA';
-import { SiteFooter } from './_sections/_SiteFooter';
 import {
   inLanguageTag,
   localeUrl,
@@ -34,8 +33,8 @@ function featuresJsonLd(locale: MarketingLocale) {
   const url = localeUrl(locale, FEATURES_PATHS);
   const name =
     locale === 'tl'
-      ? 'Features deep-dive — Setnayan (Taglish)'
-      : 'Features deep-dive — Setnayan';
+      ? 'Features deep-dive · Setnayan (Taglish)'
+      : 'Features deep-dive · Setnayan';
   return {
     '@context': 'https://schema.org',
     '@graph': [
@@ -84,7 +83,6 @@ export function FeaturesPageBody({ locale }: { locale: MarketingLocale }) {
         <OutsourcingPacing locale={locale} />
         <Compliance locale={locale} />
         <FinalCTA locale={locale} />
-        <SiteFooter />
         <StickyMobileCTA locale={locale} />
       </main>
     </>

@@ -10,19 +10,34 @@ import {
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
 import {
-  APPLICATION_TYPE_LABEL,
+  APPLICATION_TYPE_NAME,
   DOC_SLOTS,
+  EMPTY_CONTACT_CONFIRMATION,
+  SOCIAL_PLATFORM_LABEL,
   computeSlaTone,
   countCompleteSlots,
-  formatPhpCentavos,
+  expectedValidateToken,
+  feeLabelForCentavos,
+  fetchContactConfirmations,
   formatSlaCountdown,
+  isSlotComplete,
   parseApplicationStatus,
+  parseClientReferences,
+  parsePortfolioRefs,
+  parseSocialLinks,
   parseVerificationState,
+  resolveApplicationFeeCentavos,
   type ApplicationStatus,
+  type ContactConfirmation,
+  type DocUpload,
   type DocUploadMap,
   type SlaTone,
   type VerificationState,
 } from '@/lib/vendor-verification';
+import {
+  fetchVendorValidateContacts,
+  type VendorValidateContacts,
+} from '@/lib/platform-settings';
 import { VerificationStateBadge } from '@/app/_components/verification/verification-status-card';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
@@ -32,14 +47,28 @@ import {
   approveVendor,
   archiveVendor,
   demoteVendor,
+  markVendorContactConfirmed,
   rejectApplication,
   rejectVendor,
+  runVendorDeepSearchAction,
   setApplicationInReview,
   verifyVendorExperience,
 } from './actions';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
+import {
+  adTransparencyLinks,
+  DEEP_SEARCH_LITE_MODEL,
+  type DossierRow,
+  type VendorDossier,
+} from '@/lib/vendor-deep-search';
+import { DeepSearchChat } from './_components/deep-search-chat';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Verification queue · Admin' };
+
+// Deep search runs a live web research pass inside a server action — give the
+// route enough wall-clock for it (typically 1–3 minutes).
+export const maxDuration = 300;
 
 type Props = {
   searchParams: Promise<{
@@ -52,6 +81,8 @@ type Props = {
     app_rejected?: string;
     demoted?: string;
     in_review?: string;
+    contact_marked?: string;
+    deep_search?: string;
     error?: string;
   }>;
 };
@@ -116,26 +147,23 @@ type ApplicationRow = {
  * Per 0023 § 3.2 + 0006 § Vendor Verification flow + decision log 2026-05-16.
  */
 export default async function AdminVerifyPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const surface = search.surface === 'visibility' ? 'visibility' : 'applications';
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       {/*
-       * v2.1 chrome overlay (2026-05-28) — eyebrow uses .m-eyebrow, heading
-       * uses .m-display-tight (Saira Condensed). Matches admin overview +
-       * couple/vendor dashboard treatment. Logic + queue table preserved.
+       * Atelier-Glass chrome — eyebrow uses .sn-eye, heading uses .sn-h1 (Hanken
+       * Grotesk). Matches admin overview + couple/vendor dashboard treatment.
+       * Logic + queue table preserved.
        */}
       <header className="mb-6 space-y-2">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">
-          Iteration 0006 · § Vendor Verification · 0023 § 3.2
-        </p>
-        <h1 className="m-display-tight text-2xl text-[color:var(--m-ink)] sm:text-3xl">
-          Verification queue
-        </h1>
-        <p className="max-w-2xl text-sm text-ink/65">
-          Vendors submit a 12-document checklist; Setnayan reviews within 3–5
-          business days and flips them to <span className="font-medium">Verified</span>.
+        <p className="sn-eye">Trust &amp; supply · verification</p>
+        <h1 className="sn-h1">Verification queue</h1>
+        <p className="max-w-2xl text-sm text-[color:var(--sn-ink-500)]">
+          Vendors submit a 12-document checklist; Setnayan reviews within 72
+          hours and flips them to <span className="font-medium">Verified</span>.
           The companion <span className="font-medium">Visibility</span> surface
           governs marketplace listing state (coming_soon · verified · hidden ·
           archived) independent of the verification workflow.
@@ -165,10 +193,7 @@ function SurfaceTabs({ current }: { current: 'applications' | 'visibility' }) {
     { key: 'visibility', label: 'Listing visibility' },
   ];
   return (
-    <nav
-      className="mb-4 inline-flex gap-1 rounded-lg border border-ink/15 bg-cream p-1"
-      aria-label="Verification surfaces"
-    >
+    <nav className="mb-4 inline-flex flex-wrap gap-2" aria-label="Verification surfaces">
       {tabs.map((t) => {
         const active = current === t.key;
         return (
@@ -176,11 +201,7 @@ function SurfaceTabs({ current }: { current: 'applications' | 'visibility' }) {
             key={t.key}
             href={`/admin/verify?surface=${t.key}`}
             aria-pressed={active}
-            className={
-              active
-                ? 'inline-flex items-center rounded-md bg-ink px-3 py-1.5 text-xs font-medium text-cream sn-bounce'
-                : 'inline-flex items-center rounded-md px-3 py-1.5 text-xs text-ink/70 hover:bg-ink/5'
-            }
+            className={`sn-chip${active ? ' selected' : ''}`}
           >
             {t.label}
           </Link>
@@ -224,6 +245,20 @@ function FlashBanner({
     return (
       <p className="mb-4 rounded-md border border-ink/15 bg-ink/5 px-4 py-3 text-sm text-ink/75">
         Application marked as in review.
+      </p>
+    );
+  }
+  if (search.contact_marked === '1') {
+    return (
+      <p className="mb-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
+        VALIDATE message marked as received.
+      </p>
+    );
+  }
+  if (search.deep_search === '1') {
+    return (
+      <p className="mb-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
+        Deep search complete — the dossier is on the application card.
       </p>
     );
   }
@@ -283,6 +318,34 @@ async function ApplicationsSurface({
 
   const apps = (appData ?? []) as Omit<ApplicationRow, 'vendor'>[];
   const vendorIds = Array.from(new Set(apps.map((a) => a.vendor_profile_id)));
+
+  // VALIDATE contact confirmations (migration 20270503417266) — both are soft
+  // probes that degrade to "unconfirmed" / defaults on a pre-migration DB.
+  const [contactConfirmations, validateContacts] = await Promise.all([
+    fetchContactConfirmations(
+      admin,
+      apps.map((a) => a.application_id),
+    ),
+    fetchVendorValidateContacts(admin),
+  ]);
+  // Latest deep-search dossier per vendor (soft probe — degrades to empty on a
+  // pre-migration DB). Rows arrive newest-first; first one per vendor wins.
+  const dossierMap: Record<string, DossierRow> = {};
+  if (vendorIds.length > 0) {
+    const { data: dossierRows } = await admin
+      .from('vendor_web_dossiers')
+      .select(
+        'id, vendor_profile_id, application_id, status, inputs, dossier, error, model, created_at, completed_at',
+      )
+      .in('vendor_profile_id', vendorIds)
+      .order('created_at', { ascending: false })
+      .limit(200)
+      .then((r) => (r.error ? { data: null } : r));
+    for (const row of (dossierRows ?? []) as DossierRow[]) {
+      if (!dossierMap[row.vendor_profile_id]) dossierMap[row.vendor_profile_id] = row;
+    }
+  }
+
   // Declared experience (flag + schema gated; soft-probe degrades on 42703 so a
   // pre-migration DB never breaks the queue). Keyed by vendor_profile_id.
   const expMap: Record<string, { year: number | null; verifiedAt: string | null }> = {};
@@ -372,6 +435,14 @@ async function ApplicationsSurface({
     },
   }));
 
+  // Post-demotion re-verification fee, resolved from service_catalog (retired
+  // inactive by the 20260702 migration → ₱0 / "Free"). Never hardcoded so the
+  // demoted-vendor card can't advertise a fee that no longer exists.
+  const postDemotionFeeCentavos = await resolveApplicationFeeCentavos(
+    admin,
+    'post_demotion',
+  );
+
   return (
     <>
       <ApplicationsTabs current={statusParam ?? 'pending_review'} />
@@ -385,7 +456,7 @@ async function ApplicationsSurface({
       {error ? null : null}
 
       {fullRows.length === 0 && demotedFallback.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-ink/20 bg-cream p-10 text-center text-sm text-ink/55">
+        <p className="rounded-card border border-dashed border-ink/15 bg-white/50 p-10 text-center text-sm text-[color:var(--sn-ink-400)]">
           {tabFilter.emptyHint}
         </p>
       ) : (
@@ -393,7 +464,15 @@ async function ApplicationsSurface({
           <ul className="grid gap-3">
             {fullRows.map((r) => (
               <li key={r.application_id}>
-                <ApplicationCard application={r} />
+                <ApplicationCard
+                  application={r}
+                  confirmation={
+                    contactConfirmations[r.application_id] ??
+                    EMPTY_CONTACT_CONFIRMATION
+                  }
+                  validateContacts={validateContacts}
+                  dossierRow={dossierMap[r.vendor_profile_id] ?? null}
+                />
               </li>
             ))}
           </ul>
@@ -406,7 +485,10 @@ async function ApplicationsSurface({
               <ul className="grid gap-3 sm:grid-cols-2">
                 {demotedFallback.map((v) => (
                   <li key={v.vendor_profile_id}>
-                    <DemotedVendorCard vendor={v} />
+                    <DemotedVendorCard
+                      vendor={v}
+                      reverificationFeeCentavos={postDemotionFeeCentavos}
+                    />
                   </li>
                 ))}
               </ul>
@@ -486,11 +568,7 @@ function ApplicationsTabs({ current }: { current: string }) {
             key={t.key}
             href={`/admin/verify?surface=applications&status=${t.key}`}
             aria-pressed={active}
-            className={
-              active
-                ? 'inline-flex items-center rounded-full bg-ink px-3 py-1 text-xs font-medium text-cream'
-                : 'inline-flex items-center rounded-full border border-ink/20 bg-cream px-3 py-1 text-xs text-ink/70 hover:bg-ink/5'
-            }
+            className={`sn-chip${active ? ' selected' : ''}`}
           >
             {t.label}
           </Link>
@@ -500,7 +578,17 @@ function ApplicationsTabs({ current }: { current: string }) {
   );
 }
 
-function ApplicationCard({ application }: { application: ApplicationRow }) {
+function ApplicationCard({
+  application,
+  confirmation,
+  validateContacts,
+  dossierRow,
+}: {
+  application: ApplicationRow;
+  confirmation: ContactConfirmation;
+  validateContacts: VendorValidateContacts;
+  dossierRow: DossierRow | null;
+}) {
   const completeCount = countCompleteSlots(application.doc_uploads);
   const slaTone = computeSlaTone(
     application.submitted_at,
@@ -512,7 +600,7 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
   );
 
   return (
-    <article className="space-y-4 rounded-xl border border-ink/10 bg-cream p-5">
+    <article className="sn-row space-y-4 p-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-base font-semibold text-ink">
@@ -521,9 +609,9 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
           <p className="mt-0.5 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
             <span>{application.public_id}</span>
             <span aria-hidden>·</span>
-            <span>{APPLICATION_TYPE_LABEL[application.application_type]}</span>
+            <span>{APPLICATION_TYPE_NAME[application.application_type]}</span>
             <span aria-hidden>·</span>
-            <span>{formatPhpCentavos(application.fee_php_centavos)}</span>
+            <span>{feeLabelForCentavos(application.fee_php_centavos)}</span>
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -582,20 +670,24 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
         <summary className="cursor-pointer px-3 py-2 text-xs text-ink/65">
           12-doc checklist
         </summary>
-        <ul className="space-y-1 px-3 pb-3 text-xs">
+        <ul className="space-y-2 px-3 pb-3 text-xs">
           {DOC_SLOTS.map((slot) => {
             const v = application.doc_uploads?.[slot.key];
-            const tone = v
+            const complete = isSlotComplete(slot.key, v);
+            const tone = complete
               ? 'text-success-700'
               : slot.kind === 'upload'
                 ? 'text-warn-700'
                 : 'text-ink/60';
             return (
-              <li key={slot.key} className={`flex items-center gap-2 ${tone}`}>
-                <span className="inline-flex h-4 w-5 items-center justify-center rounded-full bg-ink/5 font-mono text-[9px]">
-                  {slot.number}
-                </span>
-                <span className="font-medium">{slot.label}</span>
+              <li key={slot.key} className="space-y-1">
+                <div className={`flex items-center gap-2 ${tone}`}>
+                  <span className="inline-flex h-4 w-5 items-center justify-center rounded-full bg-ink/5 font-mono text-[9px]">
+                    {slot.number}
+                  </span>
+                  <span className="font-medium">{slot.label}</span>
+                </div>
+                <SlotDetail slotKey={slot.key} value={v} />
               </li>
             );
           })}
@@ -636,9 +728,377 @@ function ApplicationCard({ application }: { application: ApplicationRow }) {
         </div>
       ) : null}
 
+      <ContactConfirmationBlock
+        application={application}
+        confirmation={confirmation}
+        validateContacts={validateContacts}
+      />
+
+      <DeepSearchBlock application={application} dossierRow={dossierRow} />
+
       <ActionRow application={application} />
     </article>
   );
+}
+
+/**
+ * Contact confirmation — the vendor sends a literal "VALIDATE <shop name>"
+ * EMAIL and TEXT to the Setnayan-owned validate inbox/number; the reviewing
+ * admin marks each one as received here. Stamps land on the application row
+ * via the admin-only mark_vendor_contact_confirmed RPC (20270503417266).
+ */
+function ContactConfirmationBlock({
+  application,
+  confirmation,
+  validateContacts,
+}: {
+  application: ApplicationRow;
+  confirmation: ContactConfirmation;
+  validateContacts: VendorValidateContacts;
+}) {
+  const token = expectedValidateToken(application.vendor.business_name);
+  return (
+    <div className="space-y-2 rounded-md border border-ink/10 bg-cream/60 px-3 py-2">
+      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+        Contact confirmation
+      </p>
+      <p className="text-xs text-ink/65">
+        The vendor sends{' '}
+        <span className="rounded bg-ink/5 px-1 py-0.5 font-mono text-[11px] text-ink">
+          {token}
+        </span>{' '}
+        by email to{' '}
+        <span className="font-medium text-ink">
+          {validateContacts.vendor_validate_email}
+        </span>{' '}
+        and by text to{' '}
+        <span className="font-medium text-ink">
+          {validateContacts.vendor_validate_phone ?? 'number coming soon'}
+        </span>
+        . Mark each one once it lands.
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <ContactChannelMark
+          applicationId={application.application_id}
+          channel="email"
+          label="Mark email received"
+          confirmedAt={confirmation.contact_email_confirmed_at}
+        />
+        <ContactChannelMark
+          applicationId={application.application_id}
+          channel="phone"
+          label="Mark text received"
+          confirmedAt={confirmation.contact_phone_confirmed_at}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ContactChannelMark({
+  applicationId,
+  channel,
+  label,
+  confirmedAt,
+}: {
+  applicationId: string;
+  channel: 'email' | 'phone';
+  label: string;
+  confirmedAt: string | null;
+}) {
+  if (confirmedAt) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-md border border-success-200 bg-success-50 px-2.5 py-1 text-xs font-medium text-success-800">
+        <BadgeCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+        {channel === 'email' ? 'Email' : 'Text'} received{' '}
+        {new Date(confirmedAt).toLocaleString('en-PH')}
+      </span>
+    );
+  }
+  return (
+    <form action={markVendorContactConfirmed}>
+      <input type="hidden" name="application_id" value={applicationId} />
+      <input type="hidden" name="channel" value={channel} />
+      <SubmitButton
+        pendingLabel="Marking…"
+        className="inline-flex h-9 items-center rounded-md border border-ink/20 px-3 text-xs text-ink/70 hover:bg-ink/5"
+      >
+        {label}
+      </SubmitButton>
+    </form>
+  );
+}
+
+/**
+ * Deep search — live web due-diligence dossier (owner 2026-07-03). Admin
+ * triggers a Claude web_search research pass over the vendor's website +
+ * social link + name + location; the structured result renders here with
+ * source links, plus always-on deterministic deep links into Meta Ad Library
+ * and Google Ads Transparency (the public "search their ads" surfaces).
+ */
+function DeepSearchBlock({
+  application,
+  dossierRow,
+}: {
+  application: ApplicationRow;
+  dossierRow: DossierRow | null;
+}) {
+  const adsLinks = adTransparencyLinks(
+    application.vendor.business_name || 'Setnayan vendor',
+  );
+  const dossier: VendorDossier | null =
+    dossierRow?.status === 'complete' ? dossierRow.dossier : null;
+  // Which mode ran (or will run): AI when the key is configured, else the free
+  // keyless Lite pass. For a completed row, trust the stored model; otherwise
+  // reflect what the next run will do based on the environment.
+  const aiConfigured = Boolean(process.env.ANTHROPIC_API_KEY);
+  const ranLite = dossierRow?.model === DEEP_SEARCH_LITE_MODEL;
+  const modeLabel = dossierRow?.status === 'complete'
+    ? (ranLite ? 'Lite · no AI (free)' : 'AI-generated')
+    : (aiConfigured ? 'AI-generated' : 'Lite · free · no AI');
+
+  return (
+    <div className="space-y-2 rounded-md border border-ink/10 bg-cream/60 px-3 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+          Deep search · {modeLabel}
+        </p>
+        <form action={runVendorDeepSearchAction}>
+          <input
+            type="hidden"
+            name="application_id"
+            value={application.application_id}
+          />
+          <input
+            type="hidden"
+            name="vendor_profile_id"
+            value={application.vendor_profile_id}
+          />
+          <SubmitButton
+            pendingLabel="Researching… (1–3 min)"
+            className="inline-flex h-9 items-center rounded-md border border-ink/20 px-3 text-xs text-ink/70 hover:bg-ink/5"
+          >
+            {dossierRow ? 'Re-run deep search' : 'Run deep search'}
+          </SubmitButton>
+        </form>
+      </div>
+
+      {dossierRow?.status === 'failed' ? (
+        <p className="rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-2 text-xs text-terracotta-700">
+          Last run failed: {dossierRow.error ?? 'unknown error'}
+        </p>
+      ) : null}
+
+      {dossierRow?.status === 'running' ? (
+        <p className="text-xs text-ink/55">
+          A run started {new Date(dossierRow.created_at).toLocaleString('en-PH')}{' '}
+          and hasn&rsquo;t finished — if it&rsquo;s been more than a few minutes,
+          re-run it.
+        </p>
+      ) : null}
+
+      {dossier ? (
+        <div className="space-y-2 text-xs text-ink/75">
+          <p>{dossier.business_summary}</p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <CategoryMatchBadge value={dossier.category_match} />
+            <span className="rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+              confidence · {dossier.confidence}
+            </span>
+            {dossierRow?.completed_at ? (
+              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+                {new Date(dossierRow.completed_at).toLocaleString('en-PH')}
+              </span>
+            ) : null}
+          </div>
+
+          {dossier.consistency_flags.length > 0 ? (
+            <ul className="space-y-1 rounded-md border border-warn-300 bg-warn-50 px-3 py-2 text-warn-900">
+              {dossier.consistency_flags.map((flag) => (
+                <li key={flag}>⚑ {flag}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-success-700">
+              No inconsistencies flagged between the claim and the web.
+            </p>
+          )}
+
+          {dossier.detected_services.length > 0 ? (
+            <p>
+              <span className="font-medium text-ink">Serves:</span>{' '}
+              {dossier.detected_services.join(' · ')}
+            </p>
+          ) : null}
+
+          {dossier.price_signals.length > 0 ? (
+            <div>
+              <p className="font-medium text-ink">Published prices found:</p>
+              <ul className="mt-1 space-y-0.5">
+                {dossier.price_signals.map((p, i) => (
+                  <li key={`${p.label}-${i}`}>
+                    {p.label} — <span className="font-medium text-ink">{p.price}</span>
+                    {p.source_url ? (
+                      <>
+                        {' '}
+                        <a
+                          href={p.source_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-terracotta underline"
+                        >
+                          source
+                        </a>
+                      </>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {dossier.web_presence.length > 0 ? (
+            <div>
+              <p className="font-medium text-ink">Web presence:</p>
+              <ul className="mt-1 space-y-0.5">
+                {dossier.web_presence.map((w, i) => (
+                  <li key={`${w.platform}-${i}`}>
+                    {w.url ? (
+                      <a
+                        href={w.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-terracotta underline"
+                      >
+                        {w.platform}
+                      </a>
+                    ) : (
+                      <span className="font-medium">{w.platform}</span>
+                    )}
+                    {w.note ? <> — {w.note}</> : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {dossier.ads_findings ? (
+            <p>
+              <span className="font-medium text-ink">Ads:</span>{' '}
+              {dossier.ads_findings}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      <p className="text-xs text-ink/55">
+        Check their live ads directly:{' '}
+        {adsLinks.map((l, i) => (
+          <span key={l.href}>
+            {i > 0 ? ' · ' : null}
+            <a
+              href={l.href}
+              target="_blank"
+              rel="noreferrer"
+              className="text-terracotta underline"
+            >
+              {l.label}
+            </a>
+          </span>
+        ))}
+      </p>
+
+      <DeepSearchChat
+        vendorProfileId={application.vendor_profile_id}
+        applicationId={application.application_id}
+      />
+    </div>
+  );
+}
+
+function CategoryMatchBadge({
+  value,
+}: {
+  value: VendorDossier['category_match'];
+}) {
+  const tone: Record<VendorDossier['category_match'], string> = {
+    match: 'bg-success-100 text-success-800',
+    partial: 'bg-warn-100 text-warn-900',
+    mismatch: 'bg-terracotta/10 text-terracotta-700',
+    unknown: 'bg-ink/8 text-ink/55',
+  };
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${tone[value]}`}
+    >
+      category · {value}
+    </span>
+  );
+}
+
+/**
+ * Reviewer-facing detail for the three structured vendor slots (owner
+ * 2026-07-03 field redesign): the client references (name · contact · event ·
+ * date), the social/website links, and the portfolio COUNT. These read from the
+ * doc_uploads JSONB directly — no presigned URL needed (the reviewer opens the
+ * portfolio files from the vendor's own shop). Every other slot renders
+ * nothing extra.
+ */
+function SlotDetail({ slotKey, value }: { slotKey: string; value: DocUpload }) {
+  if (slotKey === 'client_references') {
+    const refs = parseClientReferences(value);
+    if (refs.length === 0) return null;
+    return (
+      <ul className="ml-7 space-y-1">
+        {refs.map((r, i) => (
+          <li
+            key={i}
+            className="rounded-md border border-ink/10 bg-ink/[0.02] px-2 py-1 text-[11px] text-ink/75"
+          >
+            <span className="font-medium text-ink">{r.name || 'Unnamed'}</span>
+            {r.contact_number ? <span> · {r.contact_number}</span> : null}
+            {r.event ? <span> · {r.event}</span> : null}
+            {r.date ? <span> · {r.date}</span> : null}
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  if (slotKey === 'social_media') {
+    const links = parseSocialLinks(value);
+    const entries = Object.entries(links);
+    if (entries.length === 0) return null;
+    return (
+      <ul className="ml-7 space-y-0.5">
+        {entries.map(([key, url]) => (
+          <li key={key} className="text-[11px] text-ink/75">
+            <span className="font-medium text-ink">
+              {SOCIAL_PLATFORM_LABEL[key] ?? key}:
+            </span>{' '}
+            <a
+              href={url.includes('://') ? url : `https://${url}`}
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              className="break-all text-terracotta-700 underline decoration-terracotta/40 underline-offset-2 hover:decoration-terracotta"
+            >
+              {url}
+            </a>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  if (slotKey === 'portfolio_samples') {
+    const count = parsePortfolioRefs(value).length;
+    if (count === 0) return null;
+    return (
+      <p className="ml-7 text-[11px] text-ink/60">
+        {count} photo{count === 1 ? '' : 's'} uploaded — view in the vendor&apos;s shop.
+      </p>
+    );
+  }
+  return null;
 }
 
 function ActionRow({ application }: { application: ApplicationRow }) {
@@ -776,8 +1236,11 @@ function ActionRow({ application }: { application: ApplicationRow }) {
 
 function DemotedVendorCard({
   vendor,
+  reverificationFeeCentavos,
 }: {
   vendor: ApplicationRow['vendor'];
+  /** Resolved from service_catalog (retired → ₱0 renders as "Free"). */
+  reverificationFeeCentavos: number;
 }) {
   return (
     <article className="space-y-2 rounded-xl border border-warn-300/60 bg-warn-50/40 p-4">
@@ -789,9 +1252,11 @@ function DemotedVendorCard({
       </p>
       <p className="text-xs text-ink/65">
         Re-verification fee:{' '}
-        <span className="font-medium">{formatPhpCentavos(250000)}</span>. Vendor
-        has to submit a new <span className="font-medium">post_demotion</span>{' '}
-        application to climb back.
+        <span className="font-medium">
+          {feeLabelForCentavos(reverificationFeeCentavos)}
+        </span>. Vendor has to submit a new{' '}
+        <span className="font-medium">post_demotion</span> application to climb
+        back.
       </p>
     </article>
   );
@@ -838,7 +1303,7 @@ async function VisibilitySurface({
       {error ? null : null}
 
       {vendors.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-ink/20 bg-cream p-10 text-center text-sm text-ink/55">
+        <p className="rounded-card border border-dashed border-ink/15 bg-white/50 p-10 text-center text-sm text-[color:var(--sn-ink-400)]">
           Queue is empty for this filter. Try widening the status.
         </p>
       ) : (
@@ -887,11 +1352,7 @@ function VisibilityTabs({ current }: { current: string }) {
             key={t.key}
             href={`/admin/verify?surface=visibility&status=${t.key}`}
             aria-pressed={active}
-            className={
-              active
-                ? 'inline-flex items-center rounded-full bg-ink px-3 py-1 text-xs font-medium text-cream'
-                : 'inline-flex items-center rounded-full border border-ink/20 bg-cream px-3 py-1 text-xs text-ink/70 hover:bg-ink/5'
-            }
+            className={`sn-chip${active ? ' selected' : ''}`}
           >
             {t.label}
           </Link>
@@ -905,7 +1366,7 @@ function VerifyCard({ vendor }: { vendor: VendorVisibilityRow }) {
   const visibility = parseVisibility(vendor.public_visibility);
   const slug = vendor.business_slug ?? null;
   return (
-    <article className="flex h-full flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-4">
+    <article className="sn-row flex h-full flex-col gap-3 p-4">
       <header className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <Avatar logoUrl={vendor.logo_url} name={vendor.business_name || 'Vendor'} />

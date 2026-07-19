@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Heart } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
@@ -8,7 +8,9 @@ import {
   displayServiceLabel,
   type VendorCategory,
 } from '@/lib/vendors';
+import { resolveClaimContextForService } from '@/lib/vendor-invite-actions';
 import { ServiceWizard } from '../../_components/service-wizard';
+import { fetchVendorCoverages, resolveCoverageLabels } from '@/lib/vendor-coverages';
 
 export const metadata = { title: 'Add a service · Setnayan' };
 
@@ -23,10 +25,13 @@ const CATEGORY_SET = new Set<string>(VENDOR_CATEGORIES);
  */
 export default async function NewServicePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ category: string }>;
+  searchParams: Promise<{ claim?: string }>;
 }) {
   const { category } = await params;
+  const { claim } = await searchParams;
   if (!CATEGORY_SET.has(category)) notFound();
   const cat = category as VendorCategory;
 
@@ -37,6 +42,30 @@ export default async function NewServicePage({
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
+
+  // PR-C — claim context. When the vendor arrived here from a couple's claim
+  // QR (?claim=<token>), resolve the claim so we can (a) show the "set up your
+  // service for {couple}" banner and (b) thread the token through the wizard
+  // so commitVendorService registers the new service to the couple's plan.
+  // Only honor the banner/registration when the claim genuinely resolves to
+  // THIS user + THIS profile and isn't already registered — a stale/foreign
+  // token degrades to a plain "add a service" flow (never crashes).
+  const claimToken =
+    typeof claim === 'string' && claim.length > 0 ? claim : null;
+  const claimContext = claimToken
+    ? await resolveClaimContextForService(claimToken)
+    : null;
+  const showClaimBanner =
+    !!claimContext &&
+    !claimContext.alreadyRegistered &&
+    claimContext.claimedByUserId === user.id &&
+    claimContext.claimedVendorProfileId === profile.vendor_profile_id &&
+    // Category-match guard — the banner + threaded claim_token only apply when
+    // THIS [category] route matches the category the couple invited the vendor
+    // for. A vendor who hand-navigates to /services/new/<other-category>?claim=
+    // <token> gets a plain "add a service" flow (no banner, no registration),
+    // mirroring the same guard the cross-actor write enforces server-side.
+    claimContext.serviceCategory === category;
 
   // The vendor's OTHER offered categories → the "comes with" link options.
   const { data: ownRows } = await supabase
@@ -51,6 +80,18 @@ export default async function NewServicePage({
     ),
   ).map((c) => ({ value: c, label: displayServiceLabel(c as VendorCategory) }));
 
+  // The vendor's coverages → the "assign this card to a coverage" picker.
+  const [vendorCoverages, coverageLabels] = await Promise.all([
+    fetchVendorCoverages(supabase, profile.vendor_profile_id).catch(() => []),
+    resolveCoverageLabels().catch(() => null),
+  ]);
+  const coverageOptions = vendorCoverages.map((c) => ({
+    id: c.id,
+    label: coverageLabels
+      ? coverageLabels.pathLabel(c.canonical_service)
+      : c.canonical_service,
+  }));
+
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
       <Link
@@ -64,11 +105,31 @@ export default async function NewServicePage({
       <p className="mb-6 mt-1 text-sm text-ink/60">
         A few quick answers — three to publish, the rest optional. Everything saves together at the end.
       </p>
+      {showClaimBanner && claimContext ? (
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-terracotta/25 bg-terracotta/5 px-4 py-3">
+          <Heart
+            aria-hidden
+            className="mt-0.5 h-5 w-5 shrink-0 text-terracotta"
+            strokeWidth={1.75}
+          />
+          <p className="text-sm text-ink/80">
+            Set up your service for{' '}
+            <span className="font-semibold text-ink">
+              {claimContext.coupleDisplayName}
+            </span>{' '}
+            — they added you to their{' '}
+            <span className="font-semibold text-ink">{displayServiceLabel(cat)}</span>{' '}
+            plan. Saving links it straight to their wedding.
+          </p>
+        </div>
+      ) : null}
       <ServiceWizard
         categoryValue={cat}
         categoryLabel={displayServiceLabel(cat)}
         otherCategories={otherCategories}
+        coverages={coverageOptions}
         vendorProfileId={profile.vendor_profile_id}
+        claimToken={showClaimBanner ? claimToken : null}
       />
     </div>
   );

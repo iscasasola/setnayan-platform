@@ -9,6 +9,7 @@ import {
   cancelGig,
   type ManpowerGigRow,
 } from '../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 /**
  * V2 Phase F · GigCard
@@ -65,11 +66,15 @@ export function GigCard({
   >(null);
   const [cancelReason, setCancelReason] = useState('');
   const [pending, startTransition] = useTransition();
+  const save = useSaveLoader();
 
   function handleAccept() {
     setBanner(null);
     startTransition(async () => {
-      const result = await acceptManpowerGig(gig.gig_id);
+      const result = await save.run(() => acceptManpowerGig(gig.gig_id), {
+        steps: ['Accepting the gig'],
+        hint: 'Saving',
+      });
       if (result.status === 'ok') {
         setBanner({
           kind: 'success',
@@ -104,7 +109,10 @@ export function GigCard({
   function handleComplete() {
     setBanner(null);
     startTransition(async () => {
-      const result = await completeGig(gig.gig_id);
+      const result = await save.run(() => completeGig(gig.gig_id), {
+        steps: ['Marking complete'],
+        hint: 'Saving',
+      });
       if (result.status === 'ok') {
         setBanner({ kind: 'success', msg: 'Marked as wrapped.' });
       } else {
@@ -123,7 +131,10 @@ export function GigCard({
       return;
     }
     startTransition(async () => {
-      const result = await cancelGig(gig.gig_id, cancelReason.trim());
+      const result = await save.run(() => cancelGig(gig.gig_id, cancelReason.trim()), {
+        steps: ['Cancelling the gig'],
+        hint: 'Saving',
+      });
       if (result.status === 'ok') {
         setBanner({ kind: 'success', msg: 'Cancelled.' });
       } else {
@@ -136,10 +147,7 @@ export function GigCard({
   }
 
   return (
-    <article
-      className="rounded-lg border border-slate-200/60 bg-white p-4"
-      style={{ boxShadow: 'var(--m-shadow-sm)' }}
-    >
+    <article className="sn-row p-4" style={{ boxShadow: 'var(--m-shadow-sm)' }}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-900">{gig.gig_label}</p>
@@ -200,10 +208,10 @@ export function GigCard({
                 You need 2 tokens to accept. Top up to claim this gig.
               </span>
               <Link
-                href="/vendor-dashboard/redeem-code"
+                href="/vendor-dashboard/subscription"
                 className="text-xs font-medium text-warn-800 underline"
               >
-                Redeem code →
+                Buy tokens →
               </Link>
             </div>
           ) : (
@@ -259,12 +267,7 @@ export function GigCard({
           {banner?.kind === 'cancel-form' ? (
             <div className="flex w-full flex-wrap items-end gap-2 rounded-md border border-slate-200/60 bg-slate-50 p-3">
               <label className="flex-1 min-w-[180px]">
-                <span
-                  className="m-label-mono mb-1 block uppercase text-slate-500"
-                  style={{ letterSpacing: '0.2em', fontSize: '11px' }}
-                >
-                  Reason
-                </span>
+                <span className="sn-eye mb-1 block">Reason</span>
                 <input
                   type="text"
                   value={cancelReason}

@@ -15,6 +15,7 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { resolveOpenAiKey } from '@/lib/integration-config';
 
 export type FlagSeverity = 'red' | 'yellow';
 export type FlagType = 'vulgar' | 'grammar';
@@ -77,14 +78,17 @@ interface ModerationResult {
 }
 
 async function runModeration(texts: string[]): Promise<ModerationResult[]> {
-  if (!texts.length || !process.env.OPENAI_API_KEY) return texts.map(() => ({ flagged: false, categories: {} }));
+  // DB-first key (Integration Activation Console), env-fallback to OPENAI_API_KEY.
+  // Fails open exactly as before: no key → nothing flagged.
+  const openAiKey = await resolveOpenAiKey();
+  if (!texts.length || !openAiKey) return texts.map(() => ({ flagged: false, categories: {} }));
 
   try {
     const res = await fetch('https://api.openai.com/v1/moderations', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        Authorization: `Bearer ${openAiKey}`,
       },
       body: JSON.stringify({ input: texts }),
     });

@@ -28,10 +28,7 @@ import {
   QrCode,
   MapPin,
   Palette,
-  Users,
   LayoutGrid,
-  Wallet,
-  CalendarClock,
   MailCheck,
   PartyPopper,
   Newspaper,
@@ -39,6 +36,7 @@ import {
 } from 'lucide-react';
 import type { PosterStyle } from '@/app/dashboard/[eventId]/studio/_components/service-poster';
 import type { PlanGroupId } from '@/lib/wedding-plan-groups';
+import type { ProfileSurface } from '@/lib/event-type-profile';
 
 export type AddOnStatus = 'live' | 'web_v1' | 'coming_soon';
 
@@ -102,10 +100,10 @@ export type AddOnEntry = {
    */
   tier?: 'free';
   /**
-   * For a PAID add-on that offers a no-card free trial (e.g. Papic's 3-seat
-   * free sampler), a short chip label surfaced on the Studio card so couples
-   * can discover the trial from the grid. Never a price source — the feature
-   * page still owns the real price + purchase.
+   * For a PAID add-on that offers a no-card free taste (e.g. Papic's first 5
+   * guest cameras free), a short chip label surfaced on the Studio card so
+   * couples can discover the trial from the grid. Never a price source — the
+   * feature page still owns the real price + purchase.
    */
   freeTrial?: string;
   /**
@@ -114,6 +112,32 @@ export type AddOnEntry = {
    * ownership badge; their detail pages handle state.
    */
   serviceKey?: string;
+  /**
+   * When true, the Studio card opens this service's OWN surface directly and
+   * skips the /studio/about/<key> learn-more interstitial — for free, frequently-
+   * revisited tools (the seat plan, the website parts) and services whose own
+   * surface already IS their App Store detail (Panood). Declared here so the
+   * open/learn-more decision is DATA, not a hardcoded if/else in
+   * appStoreDetailHref(). A non-opensDirect, non-coming_soon service MUST have an
+   * add-ons-detail.ts entry (lint-guarded) so its /about page can't 404.
+   */
+  opensDirect?: boolean;
+  /**
+   * When true, this service prices per-unit / multi-SKU (e.g. Papic's per-camera
+   * Roll/Unlimited rates) so its /about page must NOT render a single flat SKU
+   * price — the feature's own surface fetches the live per-unit rates and owns
+   * the buy. The "Free to try" chip (freeTrial) still carries the entry signal.
+   */
+  variablePricing?: boolean;
+  /**
+   * Event-type SURFACE this add-on belongs to (0053 · 2026-06-28). When set, the
+   * add-on shows in the Studio hub ONLY for event types whose profile enables
+   * that surface — so a birthday (no 'website'/'save_the_date'/'rsvp'/'monogram'
+   * surface) never sees the Save-the-Date, RSVP, website parts, or Animated
+   * Monogram. Unset → a universal in-app service, shown for every type. Wedding
+   * enables ALL surfaces, so nothing is filtered there (byte-identical).
+   */
+  surface?: ProfileSurface;
 };
 
 /**
@@ -140,13 +164,17 @@ export function addOnHref(key: string, eventId: string): string {
   // Pakanta"). Both destinations handle their own free-use / paywall.
   if (key === 'landing-page') return `/dashboard/${eventId}/website`;
   if (key === 'music-creator') return `/dashboard/${eventId}/studio/pakanta`;
-  // Seat plan opens its real editor (the couple-sidebar route). When the 3D
-  // experience is enabled it opens the 3D lab instead; NEXT_PUBLIC_* vars are
-  // inlined server-side, and the Studio hub is a server component.
+  // Seat plan opens the 3D lab by default; `NEXT_PUBLIC_SEATING_3D='false'`
+  // is the kill-switch that falls back to the 2D editor (kept in lockstep with
+  // the lab route's own gate). NEXT_PUBLIC_* vars are inlined server-side, and
+  // the Studio hub is a server component. Both doorways keep their targets — the
+  // 2026-07-15 scroll-less rebuild put the [2D · 3D · List] segment on BOTH the
+  // 2D editor's command bar and the lab chrome, so the siblings cross-link and
+  // neither projection is orphaned (verdict §4).
   if (key === 'seating') {
-    return process.env.NEXT_PUBLIC_SEATING_3D === 'true'
-      ? `/dashboard/${eventId}/seating/lab`
-      : `/dashboard/${eventId}/seating`;
+    return process.env.NEXT_PUBLIC_SEATING_3D === 'false'
+      ? `/dashboard/${eventId}/seating`
+      : `/dashboard/${eventId}/seating/lab`;
   }
   // The three website "parts" (RSVP · Event · Editorial) open the full-screen
   // editor jumped straight to that phase — its own top-level route so it escapes
@@ -177,19 +205,15 @@ export function addOnHref(key: string, eventId: string): string {
  *     destination.
  */
 export function appStoreDetailHref(key: string, eventId: string): string {
-  if (key === 'panood') return `/dashboard/${eventId}/studio/panood`;
-  if (key === 'supplies-marketplace') return `/dashboard/${eventId}/studio/supplies-marketplace`;
-  // Seat plan has no /about detail page — the Studio row opens the editor
-  // directly (flag-aware via addOnHref).
-  if (key === 'seating') return addOnHref('seating', eventId);
-  // Website parts — the Studio card opens its editor directly (no /about
-  // interstitial): the three phase editors, and the combined "Whole website"
-  // card → the full-screen editor on its overview tab. These are free editing
-  // tools the couple revisits often; an info page would just add a tap.
+  // landing-page: the "Whole website" card opens the editor OVERVIEW
+  // (/site-editor root), which differs from addOnHref('landing-page') (the
+  // /website hub) — kept explicit pending the website-parts consolidation.
   if (key === 'landing-page') return `/site-editor/${eventId}`;
-  if (key === 'rsvp' || key === 'event' || key === 'editorial') {
-    return `/site-editor/${eventId}/${key}`;
-  }
+  // Everything else is data-driven by the `opensDirect` catalog flag — no
+  // per-feature hardcoding. opensDirect → open the service's own surface
+  // (addOnHref); otherwise → the shared /studio/about/<key> learn-more page.
+  const entry = ADD_ONS.find((a) => a.key === key);
+  if (entry?.opensDirect) return addOnHref(key, eventId);
   return `/dashboard/${eventId}/studio/about/${key}`;
 }
 
@@ -207,12 +231,16 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     studioGroup: 'setnayan_ai',
     serviceKey: 'SETNAYAN_AI',
     poster: {
+      // Atelier-Glass retirement (Glass PR-4, 2026-07-15): the old purple
+      // gradient + purple chip were a retired-mulberry island (owner screenshot
+      // flag). Re-expressed to the kit — obsidian base with a warm gold cast, so
+      // the AI hero reads as the premium tile idiom, not violet.
       motion: 'pulse',
       baseBackground:
-        'linear-gradient(135deg, #2A1330 0%, #5A2E66 50%, #8B4A93 100%)',
+        'linear-gradient(135deg, #17160F 0%, #3A2E1A 55%, #6B5324 100%)',
       motionBackground:
-        'radial-gradient(circle at 50% 50%, #E8C8FF 0%, transparent 55%)',
-      iconBadgeClass: 'bg-purple-100/15 text-purple-100',
+        'radial-gradient(circle at 50% 50%, #E8D3A0 0%, transparent 55%)',
+      iconBadgeClass: 'bg-cream/20 text-cream',
     },
   },
   {
@@ -237,6 +265,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'save-the-date',
+    surface: 'save_the_date',
     label: 'Save the Date',
     Icon: Sparkles,
     iteration: '0024',
@@ -246,6 +275,9 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
       'The reveal that opens your invitation — in your colors, and it plays itself.',
     cta: 'Choose your reveal',
     studioGroup: 'website',
+    // The content film is FREE; the cinematic openings are a paid in-surface
+    // upgrade (STD_PREMIUM_OPENINGS), so the card itself reads "Free" not "Get".
+    tier: 'free',
     poster: {
       motion: 'scan',
       baseBackground:
@@ -263,6 +295,8 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   // appStoreDetailHref → /site-editor/[eventId]/<phase>).
   {
     key: 'rsvp',
+    surface: 'rsvp',
+    opensDirect: true,
     label: 'RSVP',
     Icon: MailCheck,
     iteration: '0002',
@@ -284,6 +318,8 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'event',
+    surface: 'website',
+    opensDirect: true,
     label: 'Event',
     Icon: PartyPopper,
     iteration: '0031',
@@ -305,6 +341,8 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'editorial',
+    surface: 'website',
+    opensDirect: true,
     label: 'Editorial',
     Icon: Newspaper,
     iteration: '0038',
@@ -325,7 +363,66 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     },
   },
   {
+    // Editorial PRO — the à-la-carte authorship unlock for the Editor's Desk
+    // (named moments · per-moment write-ups · chapter/order/guest-wishes
+    // editors · no watermark). serviceKey EDITORIAL_PRO; the COUPLE_WEBSITE_PRO
+    // umbrella confers it too (SKU_OWNERSHIP_ALIASES). opensDirect → the card
+    // opens this SKU's own /studio/editorial-pro buy surface (which handles
+    // owned / included / pending states), skipping the /about interstitial.
+    key: 'editorial-pro',
+    surface: 'website',
+    opensDirect: true,
+    label: 'Editorial PRO',
+    Icon: Newspaper,
+    iteration: '0038',
+    status: 'live',
+    category: 'digital_services',
+    blurb:
+      'Name every moment, tell each story, arrange your front page, edit the wishes — your wedding editorial, authored by you. Prints clean, no watermark.',
+    cta: 'Unlock Editorial PRO',
+    studioGroup: 'website',
+    serviceKey: 'EDITORIAL_PRO',
+    poster: {
+      motion: 'scan',
+      baseBackground:
+        'radial-gradient(circle at 40% 40%, #2A2A2E 0%, #121214 80%)',
+      motionBackground:
+        'linear-gradient(90deg, transparent 0%, rgba(169, 131, 75, 0.55) 50%, transparent 100%)',
+      iconBadgeClass: 'bg-cream/20 text-cream',
+    },
+  },
+  {
+    // Couple Website PRO — the UMBRELLA unlock. One purchase confers every
+    // premium website touch across the whole lifecycle (Save the Date openings +
+    // RSVP + on-the-day + Editorial PRO) and drops the "Powered by Setnayan"
+    // watermark everywhere. serviceKey COUPLE_WEBSITE_PRO. opensDirect → its own
+    // /studio/website-pro buy surface (owned / pending states handled there).
+    key: 'website-pro',
+    surface: 'website',
+    opensDirect: true,
+    label: 'Website PRO',
+    Icon: Globe2,
+    iteration: '0002',
+    status: 'live',
+    category: 'digital_services',
+    blurb:
+      'Every premium touch across your whole website — Save the Date openings, RSVP, the on-the-day page, and the Editorial — plus the Setnayan watermark removed everywhere.',
+    cta: 'Unlock Website PRO',
+    studioGroup: 'website',
+    serviceKey: 'COUPLE_WEBSITE_PRO',
+    poster: {
+      motion: 'pulse',
+      baseBackground:
+        'radial-gradient(circle at 40% 40%, #1E3A4F 0%, #0F1F2D 80%)',
+      motionBackground:
+        'radial-gradient(circle at 60% 60%, #A9834B 0%, transparent 55%)',
+      iconBadgeClass: 'bg-sky-100/15 text-sky-100',
+    },
+  },
+  {
     key: 'landing-page',
+    surface: 'website',
+    opensDirect: true,
     label: 'Whole website',
     Icon: Globe2,
     iteration: '0002',
@@ -358,12 +455,15 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     studioGroup: 'branding',
     tier: 'free',
     poster: {
+      // Atelier-Glass retirement (Glass PR-4, 2026-07-15): retired the purple
+      // gradient + chip (the other studio violet island) to a warm gold-brown,
+      // keeping the App Store variety on-language (no violet).
       motion: 'pulse',
       baseBackground:
-        'linear-gradient(135deg, #1A0B2E 0%, #3D1F5C 50%, #6B3FA0 100%)',
+        'linear-gradient(135deg, #241A12 0%, #4A331F 50%, #7A5326 100%)',
       motionBackground:
-        'radial-gradient(circle at 50% 50%, #C8A0FF 0%, transparent 50%)',
-      iconBadgeClass: 'bg-purple-100/15 text-purple-100',
+        'radial-gradient(circle at 50% 50%, #F0D8A8 0%, transparent 50%)',
+      iconBadgeClass: 'bg-cream/20 text-cream',
     },
   },
   {
@@ -412,6 +512,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'animated-monogram',
+    surface: 'monogram',
     label: 'Monogram Maker',
     Icon: Type,
     iteration: '0004',
@@ -469,6 +570,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     studioGroup: 'capture',
     freeTrial: 'Free to try',
     serviceKey: 'PAPIC_SEATS',
+    variablePricing: true,
     poster: {
       motion: 'pulse',
       baseBackground:
@@ -480,6 +582,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'panood',
+    opensDirect: true,
     label: 'Panood',
     Icon: Tv,
     iteration: '0011',
@@ -488,6 +591,18 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb: 'Your wedding live — everyone who can’t be there, there.',
     cta: 'Set up',
     studioGroup: 'capture',
+    // Single-cam live broadcast is FREE for every host (owner model 2026-06-26 —
+    // "the tool is free; the premium layer is paid"), so the Studio card shows a
+    // "Free" chip rather than a paid buy. Free to start; the multicam control
+    // room is the paid upgrade.
+    tier: 'free',
+    // serviceKey is KEPT on purpose: PANOOD_SYSTEM is the PAID multi-camera
+    // control room + broadcast-style overlays upgrade (the control room is BUILT
+    // at /studio/panood/broadcast — foundation PR1-5). It drives the owned-state
+    // plumbing, so an event that owns the upgrade flips the card to
+    // Active/Pending (paid-features-auto-show). Price is admin-managed
+    // (formatV2Sku) — never hardcoded. Canonical V2 code (sku-catalog-v2.ts).
+    serviceKey: 'PANOOD_SYSTEM',
     poster: {
       motion: 'scan',
       baseBackground:
@@ -508,6 +623,9 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
       'Your photographer’s full-resolution gallery, delivered to your Drive.',
     cta: 'Set up',
     studioGroup: 'capture',
+    // Free tool (Drive hand-off) — mark it so the card shows "Free", not a
+    // money-style "Get".
+    tier: 'free',
     poster: {
       motion: 'drift',
       baseBackground:
@@ -527,6 +645,9 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb: 'Polished vertical reels from your day — ready to post.',
     cta: 'Browse templates',
     studioGroup: 'capture',
+    // Paid SKU — without this the Studio card never flips to Active/Pending when
+    // owned (paid-features-auto-show). Canonical V2 code (sku-catalog-v2.ts).
+    serviceKey: 'PATIKTOK_COMPILER',
     poster: {
       motion: 'scan',
       baseBackground:
@@ -538,10 +659,14 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'supplies-marketplace',
+    opensDirect: true,
     label: 'Paprint',
     Icon: Printer,
     iteration: '0018',
-    status: 'web_v1',
+    // Coming Soon (owner default 2026-06-25): the surface is a dead-end (cart
+    // with a permanently-disabled checkout over mock products), so it must not
+    // present as live. Flip to 'web_v1'/'live' when real checkout ships.
+    status: 'coming_soon',
     category: 'tool',
     blurb:
       'Wedding-day print pack + favors from vetted PH suppliers — direct to your venue',
@@ -566,6 +691,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb: 'Your name and monogram, twenty feet tall on the stage screen.',
     cta: 'Choose template',
     studioGroup: 'branding',
+    serviceKey: 'LIVE_BACKGROUND',
     poster: {
       motion: 'pulse',
       baseBackground:
@@ -623,6 +749,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // precedent (indoor-blueprint + mood-board live here) without touching the
     // owner-locked 4-section sub-nav. Its href is flag-aware — see addOnHref.
     key: 'seating',
+    opensDirect: true,
     label: 'Seat Plan',
     Icon: LayoutGrid,
     iteration: '0008',
@@ -643,65 +770,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
 ];
 
-/**
- * A free core planning tool surfaced in the Studio hub's "Plan & organize"
- * group. These deep-link to existing couple-sidebar routes (Guests / Seating /
- * Budget / Schedule) rather than to an /studio/[feature] detail page.
- *
- * Kept SEPARATE from ADD_ONS on purpose — these are first-class sidebar
- * surfaces, not in-app *services*, so they must NOT appear in the
- * Services/vendors tab (which iterates ADD_ONS). The Studio hub merges
- * STUDIO_FREE_TOOLS into its "Plan & organize" section at render time.
- */
-export type StudioFreeTool = {
-  key: string;
-  label: string;
-  Icon: LucideIcon;
-  /** One-line benefit, JTBD-framed. */
-  blurb: string;
-  /** Absolute href into the existing couple sidebar route. */
-  href: string;
-  /** Always free — drives the "Free" chip on the Studio card. */
-  tier: 'free';
-};
-
-/**
- * Build the free-tool list for a given event. href is event-scoped, so this is
- * a factory rather than a static const.
- */
-export function studioFreeTools(eventId: string): ReadonlyArray<StudioFreeTool> {
-  return [
-    {
-      key: 'guests',
-      label: 'Guest list',
-      Icon: Users,
-      blurb: 'Build your list, track RSVPs, and assign roles in one place',
-      href: `/dashboard/${eventId}/guests`,
-      tier: 'free',
-    },
-    {
-      key: 'seating',
-      label: 'Seating',
-      Icon: LayoutGrid,
-      blurb: 'Lay out your tables and seat every guest with drag-and-drop',
-      href: `/dashboard/${eventId}/seating`,
-      tier: 'free',
-    },
-    {
-      key: 'budget',
-      label: 'Budget',
-      Icon: Wallet,
-      blurb: 'Track every cost and payment so nothing slips through',
-      href: `/dashboard/${eventId}/budget`,
-      tier: 'free',
-    },
-    {
-      key: 'schedule',
-      label: 'Schedule',
-      Icon: CalendarClock,
-      blurb: 'Map your day-of timeline and keep every vendor in sync',
-      href: `/dashboard/${eventId}/schedule`,
-      tier: 'free',
-    },
-  ];
-}
+// `StudioFreeTool` + `studioFreeTools()` removed 2026-07-11 — dead code, imported
+// nowhere (the Studio hub renders the four free planning tools via the couple
+// sidebar / free-tools strip, not this factory). The free core tools (Guests /
+// Seating / Budget / Schedule) remain first-class sidebar surfaces.

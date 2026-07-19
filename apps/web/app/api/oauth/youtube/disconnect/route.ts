@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
   // We only call Google when env is configured. If not, we still flip
   // revoked_at locally — that's the source of truth for whether we'll
   // ever use this token again.
-  const config = getYoutubeOAuthConfig();
+  const config = await getYoutubeOAuthConfig();
   if (config.ready) {
     await revokeYoutubeToken(grant.refresh_token as string);
   }

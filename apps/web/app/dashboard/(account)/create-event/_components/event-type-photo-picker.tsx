@@ -1,27 +1,28 @@
 'use client';
 
 import Image from 'next/image';
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useState } from 'react';
 import {
   eventTypePhotoSrc,
-  EVENT_TYPE_PHOTO_FALLBACK,
+  eventTypePlaceholderGradient,
   type EventTypeRow,
 } from './event-types';
 
 /**
- * Event-type "feel photo" picker — owner directive 2026-06-04: "we do not want
- * the lines. we want photos without the carousel indicators. just photos of how
- * the event would feel like" + "the [photo] needs to be clickable on the center
- * when the photo is fully visible. it needs to snap also."
+ * Event-type picker — a responsive GRID of full-bleed "feel photos", one per
+ * event type (from /public/event-types/{key}.webp). Owner directive 2026-07-10:
+ * "just show a grid of the different events — maximize screen space for both
+ * mobile and desktop."
  *
- * A horizontal, scroll-snapping deck of full-bleed event-feel photos (one per
- * event type, from /public/event-types/{key}.webp). NO dots, NO arrows, NO bars
- * — neighbours peek dimmed + scaled-down so the centred photo is the implicit
- * focus. The deck snaps card-to-card (snap-mandatory + snap-stop). Tapping the
- * CENTRED (fully-visible) photo begins it; tapping a side photo snaps it to
- * centre instead. Replaces the bar picker (and the earlier hero carousel) on
- * the full-page create-event surface; the in-chrome add-event sheet still uses
- * event-type-carousel.tsx.
+ * Columns scale with width so the whole roster stays visible without endless
+ * scrolling as the type count grows: 2-up on phones, 3-up on tablets, 4-up on
+ * desktop, 5-up on wide desktop. NO dots, NO arrows: the photos ARE the
+ * affordance. The in-chrome add-event sheet uses event-type-carousel.tsx; only
+ * this full-page surface is a grid.
+ *
+ * Types WITHOUT a hero photo (newly enabled / admin-created, no repo asset and
+ * no upload) render a branded gradient + emoji placeholder — never a wrong
+ * stand-in photo — so the grid never shows the same picture twice.
  */
 
 // Fallback taglines for the original 9 types — the DB roster carries its own
@@ -41,157 +42,103 @@ const TAGLINES: Record<string, string> = {
 
 type Props = {
   types: readonly EventTypeRow[];
-  /** Fired only when the CENTERED + enabled photo is tapped. */
+  /** Fired when an enabled tile is tapped. */
   onSelect: (type: EventTypeRow) => void;
-  /** Index centered on mount (default 0 — Wedding). */
-  initialIndex?: number;
   className?: string;
 };
 
-// Card width drives both the card sizing and the deck's centering padding so
-// the first/last photo can sit dead-center with its neighbours peeking.
-const DECK_STYLE = {
-  paddingInline: 'max(0px, calc((100% - var(--cw)) / 2))',
-  '--cw': 'clamp(244px, 74vw, 320px)',
-} as CSSProperties;
-
-export function EventTypePhotoPicker({ types, onSelect, initialIndex = 0, className }: Props) {
-  const deckRef = useRef<HTMLDivElement | null>(null);
-  const cardRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const rafRef = useRef<number | null>(null);
-  const [active, setActive] = useState(initialIndex);
-
-  // The most-centered card is "active" — the only one that begins on tap.
-  const computeActive = useCallback(() => {
-    const deck = deckRef.current;
-    if (!deck) return;
-    const center = deck.scrollLeft + deck.clientWidth / 2;
-    let best = 0;
-    let bestDist = Infinity;
-    cardRefs.current.forEach((el, i) => {
-      if (!el) return;
-      const c = el.offsetLeft + el.offsetWidth / 2;
-      const d = Math.abs(c - center);
-      if (d < bestDist) {
-        bestDist = d;
-        best = i;
-      }
-    });
-    setActive(best);
-  }, []);
-
-  const onScroll = useCallback(() => {
-    if (rafRef.current != null) return;
-    rafRef.current = requestAnimationFrame(() => {
-      rafRef.current = null;
-      computeActive();
-    });
-  }, [computeActive]);
-
-  const centerTo = useCallback((i: number, smooth = true) => {
-    const deck = deckRef.current;
-    const el = cardRefs.current[i];
-    if (!deck || !el) return;
-    deck.scrollTo({
-      left: el.offsetLeft - (deck.clientWidth - el.offsetWidth) / 2,
-      behavior: smooth ? 'smooth' : 'auto',
-    });
-  }, []);
-
-  // Center the initial card (Wedding) on mount — instant, no animation.
-  useEffect(() => {
-    centerTo(initialIndex, false);
-    computeActive();
-    return () => {
-      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
-    };
-  }, [initialIndex, centerTo, computeActive]);
-
-  const onTap = useCallback(
-    (i: number) => {
-      if (i === active) {
-        const t = types[i];
-        if (t?.enabled) onSelect(t);
-      } else {
-        centerTo(i);
-      }
-    },
-    [active, types, onSelect, centerTo],
+export function EventTypePhotoPicker({ types, onSelect, className }: Props) {
+  return (
+    <div
+      role="listbox"
+      aria-label="Event type"
+      className={`grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5 ${className ?? ''}`}
+    >
+      {types.map((t, i) => (
+        <PhotoTile key={t.key} type={t} index={i} onSelect={onSelect} />
+      ))}
+    </div>
   );
+}
+
+function PhotoTile({
+  type: t,
+  index,
+  onSelect,
+}: {
+  type: EventTypeRow;
+  index: number;
+  onSelect: (type: EventTypeRow) => void;
+}) {
+  const enabled = t.enabled;
+  // Start optimistic (try the photo); flip to the branded placeholder the first
+  // time the image 404s — covers both a missing repo asset AND a broken
+  // admin-uploaded heroPhotoUrl, without a wrong stand-in photo.
+  const [noPhoto, setNoPhoto] = useState(false);
+  const tagline = t.description ?? TAGLINES[t.key] ?? '';
 
   return (
-    <div className={className}>
-      <div
-        ref={deckRef}
-        onScroll={onScroll}
-        role="listbox"
-        aria-label="Event type"
-        style={DECK_STYLE}
-        className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      >
-        {types.map((t, i) => {
-          const isActive = i === active;
-          return (
-            <button
-              key={t.key}
-              ref={(el) => {
-                cardRefs.current[i] = el;
-              }}
-              type="button"
-              role="option"
-              aria-selected={isActive}
-              aria-label={t.label}
-              onClick={() => onTap(i)}
-              style={{ width: 'var(--cw)' }}
-              className={`group relative aspect-[4/5] shrink-0 snap-center snap-always overflow-hidden rounded-2xl text-left transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-cream ${
-                isActive
-                  ? 'scale-100 opacity-100 shadow-[0_18px_48px_rgba(30,34,41,0.26)]'
-                  : 'scale-[0.9] opacity-50 shadow-[0_10px_30px_rgba(30,34,41,0.16)]'
-              }`}
-            >
-              <Image
-                src={eventTypePhotoSrc(t)}
-                alt=""
-                fill
-                draggable={false}
-                sizes="(max-width: 640px) 74vw, 320px"
-                priority={i < 2}
-                className="object-cover"
-                onError={(e) => {
-                  // Brand-new admin-created types have no repo asset yet —
-                  // swap in the generic fallback instead of a broken image.
-                  const img = e.currentTarget;
-                  if (!img.src.endsWith(EVENT_TYPE_PHOTO_FALLBACK)) {
-                    img.src = EVENT_TYPE_PHOTO_FALLBACK;
-                  }
-                }}
-              />
-              {/* legibility scrim */}
-              <div className="absolute inset-0 bg-gradient-to-t from-ink/85 via-ink/30 to-transparent" />
-              <div className="absolute inset-x-0 bottom-0 p-5">
-                <p className="font-serif text-3xl font-semibold italic leading-none text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.45)]">
-                  {t.label}
-                </p>
-                <p className="mt-1.5 text-sm text-white/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
-                  {t.description ?? TAGLINES[t.key] ?? ''}
-                </p>
-                {/* "Begin →" appears only on the centered photo — the tap target */}
-                <span
-                  className={`mt-4 inline-flex items-center gap-2 rounded-full border border-white/55 bg-white/15 px-4 py-2.5 font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-white backdrop-blur-sm transition-opacity duration-300 ${
-                    isActive ? 'opacity-100' : 'pointer-events-none opacity-0'
-                  }`}
-                >
-                  Begin &rarr;
-                </span>
-              </div>
-            </button>
-          );
-        })}
+    <button
+      type="button"
+      role="option"
+      aria-selected={false}
+      aria-label={t.label}
+      disabled={!enabled}
+      onClick={() => enabled && onSelect(t)}
+      className={`group relative aspect-[4/5] overflow-hidden rounded-2xl text-left shadow-[0_10px_30px_rgba(30,34,41,0.16)] transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-cream ${
+        enabled
+          ? 'cursor-pointer hover:-translate-y-1 hover:shadow-[0_18px_48px_rgba(30,34,41,0.26)]'
+          : 'cursor-not-allowed opacity-60'
+      }`}
+    >
+      {noPhoto ? (
+        // Branded placeholder — deterministic warm gradient + oversized emoji.
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{ background: eventTypePlaceholderGradient(t.key) }}
+        >
+          <span
+            className={`absolute inset-0 flex items-center justify-center text-6xl opacity-90 drop-shadow-[0_4px_18px_rgba(0,0,0,0.35)] transition-transform duration-500 sm:text-7xl ${
+              enabled ? 'group-hover:scale-105' : 'grayscale'
+            }`}
+          >
+            {t.emoji}
+          </span>
+        </div>
+      ) : (
+        <Image
+          src={eventTypePhotoSrc(t)}
+          alt=""
+          fill
+          draggable={false}
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 20vw"
+          priority={index < 4}
+          className={`object-cover transition-transform duration-500 ${
+            enabled ? 'group-hover:scale-105' : ''
+          }`}
+          onError={() => setNoPhoto(true)}
+        />
+      )}
+      {/* legibility scrim */}
+      <div className="absolute inset-0 bg-gradient-to-t from-ink/85 via-ink/25 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 p-4">
+        <p className="font-sans text-2xl font-semibold italic leading-none text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.45)] sm:text-3xl">
+          {t.label}
+        </p>
+        <p className="mt-1.5 line-clamp-2 text-[13px] text-white/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)] sm:text-sm">
+          {tagline}
+        </p>
+        {enabled ? (
+          <span className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/55 bg-white/15 px-3.5 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-white opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100 group-focus-visible:opacity-100 sm:text-[11px]">
+            Begin &rarr;
+          </span>
+        ) : (
+          <span className="mt-3 inline-flex items-center rounded-full border border-white/40 bg-white/10 px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-white/80 backdrop-blur-sm">
+            Coming soon
+          </span>
+        )}
       </div>
-
-      <p className="mt-5 text-center text-xs text-ink/40">
-        Swipe to explore · tap the centered photo to begin
-      </p>
-    </div>
+    </button>
   );
 }

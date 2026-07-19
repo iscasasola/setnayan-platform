@@ -19,6 +19,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { RotateCcw, Sparkles } from 'lucide-react';
+import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { paintWaxSeal } from '@/lib/wax-seal/paint';
 import {
   WAX_SEAL_V,
@@ -132,6 +133,12 @@ export function WaxStampMaker({
   const markSource: WaxMarkSource = markSvg
     ? /<image[\s/>]/i.test(markSvg) ? 'uploaded' : 'custom'
     : 'letters';
+
+  // Honor OS "reduce motion": read at React level, mirror to a ref so the
+  // rAF / press loops can close over the live value without calling a hook.
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const reducedMotionRef = useRef(prefersReducedMotion);
+  useEffect(() => { reducedMotionRef.current = prefersReducedMotion; }, [prefersReducedMotion]);
 
   useEffect(() => { colorRef.current = resolvedColor; }, [resolvedColor]);
 
@@ -332,7 +339,9 @@ export function WaxStampMaker({
 
   // Start / stop overlay loop
   useEffect(() => {
-    if (phase === 'pouring') {
+    // Reduced motion never runs the drop/ripple rAF — wax is applied instantly
+    // in handleCanvasDown with a single paint.
+    if (phase === 'pouring' && !reducedMotionRef.current) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = requestAnimationFrame(overlayLoopRef.current);
     } else {
@@ -381,7 +390,9 @@ export function WaxStampMaker({
 
   // Start press loop when phase becomes 'pressing'
   useEffect(() => {
-    if (phase === 'pressing') {
+    // Reduced motion finalizes synchronously in handleStampDown and never
+    // enters the 'pressing' phase, so this descent rAF stays dormant.
+    if (phase === 'pressing' && !reducedMotionRef.current) {
       cancelAnimationFrame(pressRafRef.current);
       pressRafRef.current = requestAnimationFrame(pressLoopRef.current);
     } else {
@@ -454,6 +465,23 @@ export function WaxStampMaker({
     isPressActiveRef.current = true;
     pressDepthRef.current    = 0;
 
+    // Reduced motion: skip the held-descent rAF. Jump the stamp to its final
+    // pressed depth, paint the impression in one step, and finalize to the
+    // outcome immediately — same completion path, same final seal.
+    if (reducedMotionRef.current) {
+      const depth = MAX_PRESS_DEPTH;
+      pressDepthRef.current = depth;
+      if (stampRef.current) {
+        stampRef.current.style.transform = `translateY(${STAMP_TRAVEL}px)`;
+      }
+      const amt = waxAmtRef.current;
+      const bu  = amt > 0.82 ? (amt - 0.82) * 4.5 : 0;
+      paintRef.current(amt, true, depth, 0.3, bu);
+      isPressActiveRef.current = false;
+      finalizeRef.current();
+      return;
+    }
+
     setPhase('pressing');
 
     const onRelease = () => {
@@ -480,6 +508,23 @@ export function WaxStampMaker({
     } else {
       pudCXRef.current = pudCXRef.current * 0.70 + tapX * 0.30;
       pudCXRef.current = Math.max(STAMP_DIE_D * 0.5, Math.min(PREVIEW - STAMP_DIE_D * 0.5, pudCXRef.current));
+    }
+
+    // Reduced motion: skip the falling-drop / ripple rAF. Apply the wax amount
+    // instantly with a single paint, reveal the puddle, and stay press-ready —
+    // no animation, identical resulting wax pool.
+    if (reducedMotionRef.current) {
+      drippingRef.current = false;
+      if (waxAmtRef.current < MAX_WAX) {
+        waxAmtRef.current = Math.min(MAX_WAX, waxAmtRef.current + DROP_WAX);
+        setWaxAmt(waxAmtRef.current);
+      }
+      if (!puddleVisibleRef.current) { puddleVisibleRef.current = true; setPuddleVisible(true); }
+      if (phase === 'idle') setPhase('pouring');
+      const bu = waxAmtRef.current > 0.82 ? (waxAmtRef.current - 0.82) * 4.5 : 0;
+      paintRef.current(waxAmtRef.current, false, 0, 0.3, bu);
+      syncOffsetRef.current();
+      return;
     }
 
     if (phase === 'idle') setPhase('pouring');

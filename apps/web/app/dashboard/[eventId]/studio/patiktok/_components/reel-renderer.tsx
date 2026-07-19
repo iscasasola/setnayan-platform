@@ -4,7 +4,7 @@
 //
 // Drives the client-side render of a queued job: claim → render (WebCodecs +
 // mp4-muxer, MediaRecorder fallback) → upload the MP4 to R2 → finalize the job.
-// The heavy lifting lives in lib/patiktok-render.ts; this owns the UX (progress,
+// The heavy lifting lives in lib/reel-render.ts; this owns the UX (progress,
 // preview, download, retry) and the upload/finalize plumbing.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -17,7 +17,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { findPatiktokTemplate } from '@/lib/patiktok';
-import { renderPatiktokReel } from '@/lib/patiktok-render';
+import { renderReel } from '@/lib/reel-render';
 import {
   claimPatiktokRenderJob,
   failPatiktokRenderJob,
@@ -72,7 +72,7 @@ export function ReelRenderer({
       };
 
       setPhase('rendering');
-      const result = await renderPatiktokReel({
+      const result = await renderReel({
         clips: claimed.clips,
         template,
         durationSec: claimed.durationSec,

@@ -108,7 +108,7 @@ export const CHAPTER_VOCAB: { title: string; subtitle: string }[] = [
 ];
 
 /**
- * Deterministic moment bucketing (no per-render AI — the SDE lock):
+ * Deterministic moment bucketing (no per-render AI):
  * sort by captured_at, split where the gap exceeds
  * max(20 minutes, 1.5 × median inter-shot gap). Fewer than `collapseBelow`
  * photos collapses to a single "Ang Araw / The day" chapter.

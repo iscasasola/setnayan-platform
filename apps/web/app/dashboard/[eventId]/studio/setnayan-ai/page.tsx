@@ -4,21 +4,37 @@ import { ArrowLeft, Check, Sparkles, Wand2, ListChecks, CalendarHeart } from 'lu
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
-import { formatPhp } from '@/lib/orders';
+import { getCustomerSkuPriceLabel } from '@/lib/v2-catalog';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { eventOwnsSku } from '@/lib/entitlements';
-import { isSetnayanAiActive } from '@/lib/setnayan-ai';
-import { resolveSetnayanAiPaywallEnabled } from '@/lib/integration-config';
+import { isSetnayanAiActiveForUser } from '@/lib/setnayan-ai';
+import { getEventHostAiSubscription } from '@/lib/setnayan-ai-server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  resolveSetnayanAiPaywallEnabled,
+  resolveSetnayanAiPerUserEnabled,
+} from '@/lib/integration-config';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 
 export const metadata = { title: 'Setnayan AI · Setnayan' };
 
 /**
  * /dashboard/[eventId]/studio/setnayan-ai — the BUY surface for the Setnayan AI
- * planner (the first paywall · catalog SETNAYAN_AI ₱3,999). This is the missing
- * purchase path the audit flagged: the entitlement chain (checkout → admin
- * approve → events.setnayan_ai_active → lib/setnayan-ai.ts gate) was fully wired,
- * but nothing let a couple actually buy SETNAYAN_AI. This page closes that.
+ * planner (the first paywall · catalog SETNAYAN_AI, a single ₱1,499 ONE-TIME
+ * permanent unlock · owner FINAL 2026-07-12, per-event-pricing flag OFF since
+ * 20270714262264; supersedes the ₱499 entry / ₱4,999 event-pass split, the
+ * earlier ₱499/28-day subscription framing and the ₱3,999 one-time). This is
+ * the purchase path the audit flagged: the
+ * entitlement chain (checkout → admin approve → events.setnayan_ai_active →
+ * lib/setnayan-ai.ts gate) was fully wired, but nothing let a couple actually
+ * buy SETNAYAN_AI. This page closes that.
+ *
+ * One-time model: a single up-front charge (manual apply-then-pay) unlocks
+ * Setnayan AI for the WHOLE wedding — activation stamps events.setnayan_ai_active
+ * permanently, with no renewal, no 28-day cycle and no lapsing window. The
+ * dormant SETNAYAN_AI_SUB (a ₱499/mo per-user recurring door) stays is_active=
+ * false; recurring auto-renew is deferred until a provider-run subscription
+ * (PayMongo / GCash) lands.
  *
  * Three states, all driven by lib/setnayan-ai.ts (the single governing gate) so
  * this stays in lockstep with every match/ranking surface:
@@ -52,8 +68,8 @@ const WHAT_YOU_GET = [
   },
   {
     icon: Wand2,
-    title: 'One purchase, the whole wedding',
-    body: 'Pay once for this event and Setnayan AI stays on through your wedding day. No subscription.',
+    title: 'Yours for the whole wedding',
+    body: 'A one-time purchase that unlocks Setnayan AI for your entire wedding — it stays on the whole way through, with no renewals, no 28-day cycle and no charge ever again.',
   },
 ];
 
@@ -76,7 +92,15 @@ export default async function SetnayanAiPage({ params }: Props) {
   // DB-first paywall flag (Integration Activation Console — flips without a
   // redeploy); env-fallback when unset. Resolved once, threaded into the gate.
   const paywallOn = await resolveSetnayanAiPaywallEnabled();
-  const active = isSetnayanAiActive(event, paywallOn);
+  const perUserOn = await resolveSetnayanAiPerUserEnabled();
+  const aiSubscription = perUserOn
+    ? await getEventHostAiSubscription(createAdminClient(), eventId)
+    : null;
+  const active = isSetnayanAiActiveForUser(event, {
+    paywallEnabled: paywallOn,
+    perUserEnabled: perUserOn,
+    subscription: aiSubscription,
+  });
 
   // "Owns" = the entitlement is stamped OR a SETNAYAN_AI order (à-la-carte OR a
   // GUIDED_PACK/MEDIA_PACK bundle that includes it) is in flight (submitted /
@@ -92,8 +116,15 @@ export default async function SetnayanAiPage({ params }: Props) {
   // Pricing from the live V2 catalog (single source of truth). null when the
   // row is unreadable (e.g. no service-role key in CI / pre-seed) → the buy
   // block degrades gracefully instead of inventing a number.
+  //   • pricePhp     → the raw pesos used ONLY for the checkout charge centavos
+  //     (the server re-resolves the authoritative charge at order time anyway).
+  //   • priceLabel   → the DISPLAY string from the catalog. Setnayan AI is a
+  //     ONE-TIME purchase (unlocks for the whole wedding · owner 2026-07-02, no
+  //     recurrence), so the fallback shows a plain peso amount with no /28-day
+  //     unit. Both come from the catalog; neither is hardcoded.
   const skuRecord = await formatV2Sku(SKU_CODE).catch(() => null);
   const pricePhp = skuRecord?.price_php ?? null;
+  const priceLabel = await getCustomerSkuPriceLabel(SKU_CODE).catch(() => null);
 
   // Only the BUY branch needs the BDO/GCash settings · fetch lazily there.
   const showBuy = !active && !owns && paywallOn;
@@ -109,96 +140,128 @@ export default async function SetnayanAiPage({ params }: Props) {
         Back to add-ons
       </Link>
 
-      <header className="space-y-2">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-          Setnayan AI
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Stop guessing who to hire
-        </h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Setnayan AI reads your date, budget, location, guest count and faith,
-          then ranks every available vendor by how well they actually fit —
-          turning a directory into a shortlist made for your wedding.
-        </p>
-      </header>
-
-      <ul className="grid gap-3 sm:grid-cols-3">
-        {WHAT_YOU_GET.map(({ icon: Icon, title, body }) => (
-          <li
-            key={title}
-            className="rounded-xl border border-ink/10 bg-cream p-4"
-          >
-            <Icon aria-hidden className="h-5 w-5 text-mulberry" strokeWidth={1.75} />
-            <p className="mt-2 text-sm font-medium text-ink">{title}</p>
-            <p className="mt-1 text-sm text-ink/65">{body}</p>
-          </li>
-        ))}
-      </ul>
-
+      {/* OPENED-STATE = OUTCOME/ACTION FIRST for anyone who already has access;
+          the marketing pitch (sell hero + "what you get" grid) is gated to the
+          BUY state only — never re-pitch an owner (consistency plan Tier 4 rule,
+          extended to Setnayan AI 2026-06-25). The "tool" itself (the ranked
+          shortlist) lives on /vendors, so the active state leads straight there. */}
       {active ? (
-        <div className="rounded-xl border border-mulberry/20 bg-mulberry/5 p-5">
-          <p className="inline-flex items-center gap-2 text-sm font-medium text-mulberry">
-            <Check aria-hidden className="h-4 w-4" strokeWidth={2.5} />
-            Setnayan AI is on for {event.display_name ?? 'your wedding'}
-          </p>
-          <p className="mt-1 text-sm text-ink/65">
-            Your matches are already ranked. Head to your{' '}
+        <>
+          <header className="sn-reveal space-y-2">
+            <p className="sn-eye">
+              Setnayan AI
+            </p>
+            <h1 className="sn-h1">
+              Your vendor shortlist is ranked
+            </h1>
+            <p className="max-w-prose text-base text-ink/65">
+              Setnayan AI is on for {event.display_name ?? 'your wedding'} — every
+              available vendor is sorted by how well they fit your date, budget,
+              location, guest count and faith, each with a &ldquo;% match&rdquo;.
+            </p>
+          </header>
+
+          <div className="flex flex-col gap-4 rounded-xl border border-mulberry/20 bg-mulberry/5 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="inline-flex items-center gap-2 text-sm font-medium text-mulberry">
+              <Check aria-hidden className="h-4 w-4" strokeWidth={2.5} />
+              Active — your matches are ready
+            </p>
             <Link
               href={`/dashboard/${eventId}/vendors`}
-              className="font-medium text-terracotta underline-offset-4 hover:underline"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 sm:w-auto"
             >
-              vendors
-            </Link>{' '}
-            to see the shortlist.
-          </p>
-        </div>
+              See your ranked vendors
+              <ArrowLeft aria-hidden className="h-3.5 w-3.5 rotate-180" strokeWidth={2} />
+            </Link>
+          </div>
+        </>
       ) : owns || !paywallOn ? (
-        <div className="rounded-xl border border-ink/10 bg-cream p-5">
-          <p className="text-sm font-medium text-ink">
-            Setnayan AI is available for your wedding
-          </p>
-          <p className="mt-1 text-sm text-ink/65">
-            It&rsquo;s currently switched to manual planning. Turn Assisted
-            planning back on from your{' '}
+        <>
+          <header className="sn-reveal space-y-2">
+            <p className="sn-eye">
+              Setnayan AI
+            </p>
+            <h1 className="sn-h1">
+              Setnayan AI is ready for your wedding
+            </h1>
+            <p className="max-w-prose text-base text-ink/65">
+              You have access — it&rsquo;s just switched to manual planning right
+              now. Turn Assisted planning back on and your vendors get ranked for
+              your date, budget and style.
+            </p>
+          </header>
+
+          <div className="sn-tile flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-ink/65">
+              Assisted planning is currently off.
+            </p>
             <Link
               href={`/dashboard/${eventId}`}
-              className="font-medium text-terracotta underline-offset-4 hover:underline"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 sm:w-auto"
             >
-              planning home
-            </Link>{' '}
-            to get your ranked matches.
-          </p>
-        </div>
+              Turn on Assisted planning
+            </Link>
+          </div>
+        </>
       ) : (
-        <div className="rounded-xl border border-ink/10 bg-white p-5">
-          {pricePhp != null && settings ? (
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-ink/65">
-                One purchase, on through your wedding day ·{' '}
-                <span className="font-mono text-base text-ink">
-                  {formatPhp(pricePhp)}
-                </span>
-              </p>
-              <div className="sm:w-auto">
-                <InlineCheckoutDrawer
-                  eventId={eventId}
-                  serviceKey={SKU_CODE}
-                  displayName={`Setnayan AI${event.display_name ? ` · ${event.display_name}` : ''}`}
-                  originalPriceCentavos={String(Math.round(pricePhp * 100))}
-                  settings={settings}
-                  triggerLabel="Unlock Setnayan AI"
-                  triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:w-auto"
-                />
-              </div>
-            </div>
-          ) : (
-            <p className="inline-flex items-center gap-2 text-sm text-ink/65">
-              <Sparkles aria-hidden className="h-4 w-4 text-ink/40" />
-              Pricing loads from your catalog &mdash; please refresh in a moment.
+        <>
+          {/* BUY — the only state that sells. Non-owner, paywall on. */}
+          <header className="sn-reveal space-y-2">
+            <p className="sn-eye">
+              Setnayan AI
             </p>
-          )}
-        </div>
+            <h1 className="sn-h1">
+              Stop guessing who to hire
+            </h1>
+            <p className="max-w-prose text-base text-ink/65">
+              Setnayan AI reads your date, budget, location, guest count and
+              faith, then ranks every available vendor by how well they actually
+              fit — turning a directory into a shortlist made for your wedding.
+            </p>
+          </header>
+
+          <ul className="grid gap-3 sm:grid-cols-3">
+            {WHAT_YOU_GET.map(({ icon: Icon, title, body }) => (
+              <li
+                key={title}
+                className="sn-row p-4"
+              >
+                <Icon aria-hidden className="h-5 w-5 text-mulberry" strokeWidth={1.75} />
+                <p className="mt-2 text-sm font-medium text-ink">{title}</p>
+                <p className="mt-1 text-sm text-ink/65">{body}</p>
+              </li>
+            ))}
+          </ul>
+
+          <div className="sn-tile p-5">
+            {pricePhp != null && settings ? (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-ink/65">
+                  One-time purchase · yours for the whole wedding ·{' '}
+                  <span className="font-mono text-base text-ink">
+                    {priceLabel ?? `₱${Math.round(pricePhp).toLocaleString('en-PH')}`}
+                  </span>
+                </p>
+                <div className="sm:w-auto">
+                  <InlineCheckoutDrawer
+                    eventId={eventId}
+                    serviceKey={SKU_CODE}
+                    displayName={`Setnayan AI${event.display_name ? ` · ${event.display_name}` : ''}`}
+                    originalPriceCentavos={String(Math.round(pricePhp * 100))}
+                    settings={settings}
+                    triggerLabel="Unlock Setnayan AI"
+                    triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:w-auto"
+                  />
+                </div>
+              </div>
+            ) : (
+              <p className="inline-flex items-center gap-2 text-sm text-ink/65">
+                <Sparkles aria-hidden className="h-4 w-4 text-ink/40" />
+                Pricing loads from your catalog &mdash; please refresh in a moment.
+              </p>
+            )}
+          </div>
+        </>
       )}
     </section>
   );

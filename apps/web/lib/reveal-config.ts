@@ -23,6 +23,9 @@ export type RevealTemplateId =
   | 'two-flap-horizontal'
   | 'church-doors'
   | 'veil-sheer';
+// gold-monogram / molten-monogram retired as openings 2026-06-22 (now monogram
+// motion keys — lib/monogram-motion.ts). Keep this union in lockstep with
+// RevealTemplate in reveal-templates.ts.
 
 export const REVEAL_TEMPLATE_IDS: readonly RevealTemplateId[] = [
   'four-flap',

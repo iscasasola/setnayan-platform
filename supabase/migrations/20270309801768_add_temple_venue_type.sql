@@ -1,0 +1,28 @@
+-- ============================================================================
+-- 20270309801768_add_temple_venue_type.sql
+--
+-- Add a `temple` value to the `public.venue_directory_type` ENUM so admins can
+-- create + filter ceremonial TEMPLE venues (Taoist / Buddhist / Chinese rites),
+-- closing the onboarding 🛕 "Temple" promise the platform could not previously
+-- deliver. ceremony_type='chinese' has been active since migration
+-- 20260804000000, and venue_directory.compatible_ceremony_types[] already
+-- accepts 'chinese' (free-text array) — the only missing piece was a venue_type
+-- a temple could BE. With this value, a Chinese / Buddhist / Taoist couple can
+-- be matched to a real temple in the marketplace Ceremony folder and the
+-- /admin readiness count for those rites stops being structurally 0.
+--
+-- ⚠ IRREVERSIBLE: PostgreSQL cannot DROP an enum value. `ADD VALUE` is a
+-- one-way, additive change — there is no down-migration. Surface this to the
+-- owner before applying.
+--
+-- ⚠ TRANSACTION RULE: a freshly-added enum value is NOT usable in the same
+-- transaction that adds it. The ALTER below is therefore left OUTSIDE any
+-- explicit BEGIN/COMMIT block, and this migration intentionally seeds NO temple
+-- row. Real temple venues are created by admins via /admin/venues; a fake
+-- marketplace row is undesirable. Any future seed that inserts a temple row
+-- must live in a SEPARATE, later migration.
+--
+-- Deferred (owner): 'ancestral_hall' is NOT added here.
+-- ============================================================================
+
+ALTER TYPE public.venue_directory_type ADD VALUE IF NOT EXISTS 'temple';

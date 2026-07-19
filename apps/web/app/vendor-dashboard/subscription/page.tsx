@@ -1,5 +1,6 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Crown } from 'lucide-react';
+import { ArrowRight, Crown, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
@@ -16,25 +17,34 @@ import {
   SubscriptionCards,
   type SubscriptionCardData,
 } from './_components/subscription-cards';
+import { TokenWalletSection } from './_components/token-wallet-section';
+import type { TokenPack } from '@/app/vendor-dashboard/tokens/_components/buy-tokens-cta';
 
 /**
- * /vendor-dashboard/subscription — self-serve Pro / Enterprise upgrade
- * (Phase D · Vendor Tier #5). Apply-then-pay: the vendor picks a plan + cycle,
- * starts an order (create_vendor_subscription), pays our BDO / GCash account
- * with the reference code, and an admin confirms at /admin/subscriptions —
- * which activates the tier + grants the bundled tokens.
+ * /vendor-dashboard/subscription — the unified "Plan & tokens" hub. Self-serve
+ * Pro / Enterprise upgrade + the vendor token wallet in ONE place (owner
+ * 2026-07-01 "keep subscription and tokens in one place. so they can make 1
+ * purchase for both").
  *
- * PRICING is DB-DRIVEN: the subscription SKUs (pro/enterprise · monthly/annual)
- * come from vendor_billing_catalog. The cards show the catalog price; the form
- * posts only the sku_code (the RPC re-reads the authoritative price). The cap +
- * bundled-token copy comes from the TIER_CAPS / TIER_SUBSCRIPTION_BUNDLE_TOKENS
- * matrix in code (the capability source of truth).
+ * Apply-then-pay: the vendor picks a plan + cycle (optionally folding a token
+ * pack into the SAME order), starts it (create_vendor_subscription), pays our
+ * BDO / GCash account with the reference code, and an admin confirms at
+ * /admin/subscriptions — which activates the tier, grants the bundled tokens,
+ * and credits any add-on tokens. Standalone token top-ups live in the token
+ * wallet section below (TokenWalletSection). /vendor-dashboard/tokens redirects
+ * here.
+ *
+ * PRICING is DB-DRIVEN: the subscription + token_pack SKUs come from
+ * vendor_billing_catalog. The cards show the catalog price; the form posts only
+ * sku_code (+ optional add-on pack sku); the RPC re-reads authoritative prices.
+ * Cap + bundled-token copy comes from the TIER_CAPS /
+ * TIER_SUBSCRIPTION_BUNDLE_TOKENS matrix in code (the capability source).
  *
  * Current tier + renewal date are read via a soft-probe (tier_state /
  * tier_expires_at are not in FULL_VENDOR_PROFILE_SELECT).
  */
 
-export const metadata = { title: 'Subscription · Vendor' };
+export const metadata = { title: 'Plan & tokens · Vendor' };
 
 const NUMBER = new Intl.NumberFormat('en-PH');
 
@@ -50,28 +60,57 @@ type Props = {
   searchParams: Promise<{ ordered?: string; error?: string; cycle?: string }>;
 };
 
-type PaidTier = Extract<VendorTier, 'pro' | 'enterprise'>;
+// Self-serve subscription tiers. All three paid tiers (Solo · Pro · Enterprise)
+// are buyable — create_vendor_subscription maps solo_/pro_/enterprise_ SKUs to
+// their tier and mints an apply-then-pay order (Solo self-serve wired by
+// migration 20270426213000: the solo_vendor_annual SKU + the RPC's solo branch).
+type PaidTier = Extract<VendorTier, 'solo' | 'pro' | 'enterprise'>;
 
-const PAID_TIERS: PaidTier[] = ['pro', 'enterprise'];
+const PAID_TIERS: PaidTier[] = ['solo', 'pro', 'enterprise'];
 
 const TIER_PITCH: Record<PaidTier, string> = {
-  pro: 'For growing studios — more reach, agents, and unlimited in-app inquiries.',
-  enterprise: 'For multi-branch teams — unlimited everything, nationwide reach.',
+  solo: 'For solo pros — one category, your real business name, unlimited inquiries.',
+  pro: 'For growing studios — more categories, agent seats, and full analytics.',
+  enterprise: 'For multi-branch teams — the widest reach, seats, and listings.',
 };
 
-// The few caps worth surfacing on a marketing-style card (the full matrix lives
-// in vendor-tier-caps.ts). Keep this list short + scannable.
+// The tier-DIFFERENTIATING benefits, in a PARALLEL order across the three cards
+// so a vendor can compare Solo → Pro → Enterprise line-by-line. Derived from the
+// TIER_CAPS matrix (vendor-tier-caps.ts) so the copy can never drift from the
+// enforced caps. Benefits shared by ALL paid plans (real name day one, unlimited
+// in-app inquiries, marketplace search, own event website) live in the "Every
+// plan includes" strip above the cards, not repeated on each card.
 function keyCapLines(tier: PaidTier): string[] {
   const c = TIER_CAPS[tier];
   const fin = (n: number) => (Number.isFinite(n) ? NUMBER.format(n) : 'Unlimited');
-  return [
-    `${fin(c.parentCategories)} listing categor${c.parentCategories === 1 ? 'y' : 'ies'}`,
-    `${fin(c.agentAccounts)} agent seat${c.agentAccounts === 1 ? '' : 's'}`,
-    `${Number.isFinite(c.serviceRadiusKm) ? `${fin(c.serviceRadiusKm)} km` : 'Nationwide'} reach`,
-    `${fin(c.portfolioPhotos)} portfolio photos`,
-    'Unlimited in-app inquiries',
-    'Real business name shown day one',
-  ];
+
+  const categories = Number.isFinite(c.parentCategories)
+    ? `${fin(c.parentCategories)} listing categor${c.parentCategories === 1 ? 'y' : 'ies'}`
+    : 'List under every category';
+
+  const seats =
+    c.agentAccounts === 0
+      ? 'Solo operator — no agent seats'
+      : `${fin(c.agentAccounts)} agent seat${c.agentAccounts === 1 ? '' : 's'}`;
+
+  const reach =
+    !Number.isFinite(c.serviceRadiusKm) || c.serviceRadiusKm >= 100
+      ? 'Nationwide reach'
+      : `${fin(c.serviceRadiusKm)} km service reach`;
+
+  const listings = Number.isFinite(c.servicesPerLeaf)
+    ? `${fin(c.servicesPerLeaf)} service listings / category`
+    : 'Unlimited service listings';
+
+  const photos = `${fin(c.portfolioPhotos)} portfolio photos`;
+
+  const analytics = c.marketIntel
+    ? 'Advanced analytics + Demand Radar'
+    : c.performanceAdvanced
+      ? 'Advanced ROI & funnel analytics'
+      : 'Business-performance basics';
+
+  return [categories, seats, reach, listings, photos, analytics];
 }
 
 function skuFor(tier: PaidTier, cycle: 'monthly' | 'annual'): string {
@@ -120,6 +159,73 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
     }
   }
 
+  // Solo self-serve is gated on its wiring being LIVE. Migration 20270426213000
+  // seeds solo_vendor_annual AND adds the RPC's solo branch together, so the
+  // annual SKU's presence in the catalog is a safe proxy for "Solo checkout
+  // works." Until it's applied, Solo is omitted so we never render a buy button
+  // that would hard-error (UNMAPPED_SKU_TIER). Once applied, Solo appears on the
+  // next request — no redeploy (this is a server component reading live prices).
+  const soloBuyable = priceBySku.has('solo_vendor_annual');
+  const visibleTiers: PaidTier[] = soloBuyable
+    ? PAID_TIERS
+    : PAID_TIERS.filter((t) => t !== 'solo');
+
+  // Token packs available to fold into a plan order as an optional add-on
+  // (one payment for plan + tokens). Cheapest first.
+  const addonPacks: TokenPack[] = vendorCatalog
+    .filter((r) => r.offering_type === 'token_pack' && (r.token_grant_count ?? 0) > 0)
+    .map((r) => ({
+      sku_code: r.sku_code,
+      token_count: r.token_grant_count as number,
+      price_php: r.price_php,
+    }))
+    .sort((a, b) => a.token_count - b.token_count);
+
+  // When an order was just started, look up its amount (+ add-on breakdown) so
+  // the pay panel can tell the vendor exactly how much to send. The reference is
+  // SUB- (plan / combined) or TKN- (standalone token top-up); check both tables
+  // (RLS scopes each read to the caller's own rows).
+  let orderedSummary:
+    | { amount: number; planAmount: number; addonAmount: number; addonTokens: number }
+    | null = null;
+  // A standalone token top-up (TKN-) already gets its full apply-then-pay panel
+  // from <PendingPurchases> inside <TokenWalletSection>; flag it so we DON'T also
+  // render the plan-level "How to pay" tile below (that was two BDO+GCash QR
+  // blocks on one page after a token order).
+  let orderedIsToken = false;
+  if (search.ordered) {
+    const { data: subRow } = await supabase
+      .from('vendor_subscriptions')
+      .select('amount_php, addon_amount_php, addon_token_count')
+      .eq('reference_code', search.ordered)
+      .maybeSingle();
+    if (subRow) {
+      const total = Number(subRow.amount_php ?? 0);
+      const addonAmount = Number(subRow.addon_amount_php ?? 0);
+      orderedSummary = {
+        amount: total,
+        planAmount: total - addonAmount,
+        addonAmount,
+        addonTokens: Number(subRow.addon_token_count ?? 0),
+      };
+    } else {
+      const { data: tknRow } = await supabase
+        .from('vendor_token_purchases')
+        .select('amount_php, token_count')
+        .eq('reference_code', search.ordered)
+        .maybeSingle();
+      if (tknRow) {
+        orderedIsToken = true;
+        orderedSummary = {
+          amount: Number(tknRow.amount_php ?? 0),
+          planAmount: 0,
+          addonAmount: Number(tknRow.amount_php ?? 0),
+          addonTokens: Number(tknRow.token_count ?? 0),
+        };
+      }
+    }
+  }
+
   // Renewal urgency — within ~14 days of expiry.
   const now = Date.now();
   const fourteenDaysMs = 14 * 24 * 60 * 60 * 1000;
@@ -128,19 +234,26 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
     new Date(tierExpiresAt).getTime() - now <= fourteenDaysMs &&
     new Date(tierExpiresAt).getTime() > now;
 
-  const isPaid = currentTier === 'pro' || currentTier === 'enterprise';
+  // Custom is a paid tier too (composed via the Stage-2 configurator / admin
+  // handshake, not self-serve-buyable from PAID_TIERS below) — include it so the
+  // renewal/expiry chip renders for Custom vendors.
+  const isPaid =
+    currentTier === 'solo' ||
+    currentTier === 'pro' ||
+    currentTier === 'enterprise' ||
+    currentTier === 'custom';
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
       <header className="mb-6 sm:mb-8">
-        <p className="m-eyebrow">Vendor subscription</p>
-        <h1 className="m-display-tight mt-1 text-3xl sm:text-4xl">
+        <p className="sn-eye">Plan &amp; tokens</p>
+        <h1 className="sn-h1 mt-1">
           Choose your plan.
         </h1>
         <p className="mt-2 max-w-prose text-sm text-ink/65">
-          Subscriptions sell reach, not paywalled features. Upgrade to be seen by
-          more couples, add agent seats, and answer unlimited in-app inquiries.
-          Each plan bundles free tokens every period.
+          Upgrade to reach more couples and answer unlimited inquiries — no
+          features are locked behind a paywall. Pro and Enterprise also bundle
+          free tokens each cycle.
         </p>
 
         {/* Current tier + renewal */}
@@ -151,13 +264,17 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
           >
             <Crown className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
             Current plan:{' '}
-            {currentTier === 'pro'
-              ? 'Pro'
+            {currentTier === 'custom'
+              ? 'Custom'
               : currentTier === 'enterprise'
                 ? 'Enterprise'
-                : currentTier === 'verified'
-                  ? 'Free · Verified'
-                  : 'Free'}
+                : currentTier === 'pro'
+                  ? 'Pro'
+                  : currentTier === 'solo'
+                    ? 'Solo'
+                    : currentTier === 'verified'
+                      ? 'Free · Verified'
+                      : 'Free'}
             {currentCycle ? ` · ${currentCycle}` : ''}
           </span>
           {isPaid && tierExpiresAt && (
@@ -167,18 +284,16 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
               }
             >
               {expiresSoon ? 'Renews / expires soon — ' : ''}
-              {currentTier === 'pro' || currentTier === 'enterprise'
-                ? `active through ${fmtDate(tierExpiresAt)}`
-                : ''}
+              active through {fmtDate(tierExpiresAt)}
             </span>
           )}
         </div>
 
         {search.ordered && (
           <div className="mt-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
-            ✓ Upgrade started. Pay with the reference{' '}
+            ✓ Order started. Pay with the reference{' '}
             <span className="font-mono font-semibold">{search.ordered}</span> using
-            the instructions below — your plan activates once we confirm the payment.
+            the instructions below — it activates once we confirm the payment.
           </div>
         )}
         {search.error && (
@@ -195,37 +310,93 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
       <div className="mt-5">
         <SubscriptionCards
           cycle={cycle}
-          cards={PAID_TIERS.map((tier) => {
+          packs={addonPacks}
+          cards={visibleTiers.flatMap((tier) => {
             const sku = skuFor(tier, cycle);
             // Catalog price first; fall back to the code matrix only if the DB
             // read failed (e.g. CI with no service-role key).
             const price = priceBySku.get(sku) ?? TIER_PRICE_PHP[tier][cycle];
             const bundle = TIER_SUBSCRIPTION_BUNDLE_TOKENS[tier][cycle];
             const isCurrent = currentTier === tier && currentCycle === cycle;
-            return {
-              tier,
-              sku,
-              pitch: TIER_PITCH[tier],
-              price,
-              cycle,
-              bundleTokens: bundle,
-              capLines: keyCapLines(tier),
-              isCurrent,
-              isPaid,
-            } satisfies SubscriptionCardData;
+            return [
+              {
+                tier,
+                sku,
+                pitch: TIER_PITCH[tier],
+                price,
+                cycle,
+                bundleTokens: bundle,
+                capLines: keyCapLines(tier),
+                isCurrent,
+                isPaid,
+              } satisfies SubscriptionCardData,
+            ];
           })}
         />
       </div>
 
-      {/* Apply-then-pay payment instructions when an order was just started */}
-      {search.ordered && (
-        <div className="mt-6 m-card p-6">
-          <p className="m-label-mono">How to pay</p>
-          <p className="mt-1 text-sm text-ink/65">
-            Pay the amount to our BDO or GCash account and put{' '}
+      {/* Beyond Enterprise — compose a Custom plan (VENDOR_TIERS §11). Routes to
+          the sub-route configurator; framed as the top-of-ladder escape valve. */}
+      <Link
+        href="/vendor-dashboard/subscription/custom"
+        className="sn-card sn-press mt-5 flex flex-wrap items-center gap-4 p-5 sm:flex-nowrap"
+      >
+        <span
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+          style={{ background: 'var(--m-paper)', border: '1px solid var(--m-line)' }}
+        >
+          <Sparkles className="h-5 w-5 text-terracotta" strokeWidth={1.75} aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-base font-semibold text-ink">
+            Beyond Enterprise? Compose a Custom plan.
+          </p>
+          <p className="mt-0.5 text-sm text-ink/60">
+            {currentTier === 'custom'
+              ? 'Review or adjust your Custom plan — dial in branches, reach, seats, listings, photos and tokens.'
+              : 'Everything in Enterprise plus white-glove, then dial in exactly the branches, reach, seats, listings, photos and tokens you need.'}
+          </p>
+        </div>
+        <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-ink">
+          {currentTier === 'custom' ? 'Manage' : 'Build a Custom plan'}
+          <ArrowRight className="h-4 w-4" strokeWidth={2} aria-hidden />
+        </span>
+      </Link>
+
+      {/* Apply-then-pay payment instructions when a PLAN/COMBINED order was just
+          started. Token-only (TKN-) top-ups are intentionally excluded — their
+          instructions render once inside <TokenWalletSection> below, so showing
+          this tile too would double the BDO+GCash QR blocks. */}
+      {search.ordered && !orderedIsToken && (
+        <div className="sn-tile mt-6 p-6">
+          <p className="sn-eye">How to pay</p>
+          {orderedSummary && orderedSummary.amount > 0 && (
+            <div
+              className="mt-3 rounded-lg border p-4"
+              style={{ borderColor: 'var(--m-line)', background: 'rgba(255,255,255,.72)' }}
+            >
+              <p className="font-mono text-2xl font-bold text-ink">
+                ₱{NUMBER.format(orderedSummary.amount)}
+              </p>
+              {orderedSummary.addonTokens > 0 && orderedSummary.planAmount > 0 ? (
+                <p className="mt-0.5 text-xs text-ink/60">
+                  Plan ₱{NUMBER.format(orderedSummary.planAmount)} ＋{' '}
+                  {NUMBER.format(orderedSummary.addonTokens)} tokens ₱
+                  {NUMBER.format(orderedSummary.addonAmount)}
+                </p>
+              ) : orderedSummary.addonTokens > 0 ? (
+                <p className="mt-0.5 text-xs text-ink/60">
+                  {NUMBER.format(orderedSummary.addonTokens)} tokens
+                </p>
+              ) : null}
+            </div>
+          )}
+          <p className="mt-3 text-sm text-ink/65">
+            Pay {orderedSummary && orderedSummary.amount > 0 ? 'that amount' : 'the amount'}{' '}
+            to our BDO or GCash account and put{' '}
             <span className="font-mono font-semibold text-ink">{search.ordered}</span>{' '}
-            in the transfer note so we can match it to your account. Your plan
-            activates once our team confirms the payment (within 24 hours).
+            in the transfer note so we can match it to your account. It activates
+            once our team confirms the payment (within 24 hours).
           </p>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <PayBox
@@ -243,11 +414,14 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
           </div>
           <p className="mt-4 text-[11px] leading-relaxed text-ink/50">
             Setnayan does not hold these funds in escrow — you pay our receiving
-            account directly. The plan is credited after our team confirms the
+            account directly. Your order is credited after our team confirms the
             payment.
           </p>
         </div>
       )}
+
+      {/* Token wallet — buy standalone packs, see balances + history */}
+      <TokenWalletSection />
     </main>
   );
 }

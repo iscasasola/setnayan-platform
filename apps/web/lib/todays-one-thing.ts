@@ -8,9 +8,9 @@
  * hero card answers the question every host actually asks when they
  * open Setnayan: "what should I do TODAY?"
  *
- * The 12-card PlanningGroups grid stays — it collapses behind a
- * "Show all N more tasks" disclosure beneath the hero so a host who
- * IS ready to ladder through multiple categories can still see them.
+ * (The 12-card planning grid that used to collapse beneath the hero was
+ * retired with the lean-home restructure 2026-06-02 — the full category
+ * ladder now lives on the Vendors/Services tab.)
  *
  * Resolver algorithm (priority order — first non-skipped match wins):
  *
@@ -110,6 +110,8 @@ const WHY_IT_MATTERS: Record<PlanGroupId, string> = {
     'Locks the date and starts the paperwork clock. Parish documents take 4-6 weeks to gather; the marriage license has a 120-day countdown.',
   coordinator:
     'Your day-of conductor. Best coordinators book 9-12 months out; the earlier you lock yours, the more they can shape every choice downstream.',
+  crew_meals:
+    'Your photo, video, HMUA, and coordination teams all expect a hot meal on the day — usually 15-25 crew across your vendors. A kitchen near your venue caters them for far less than your main caterer per-head.',
   officiant:
     'The voice of your ceremony. Priests, ministers, and judges book months ahead; locking yours early is what makes the paperwork chain start moving.',
   catering:
@@ -169,6 +171,7 @@ const CTA_LABEL: Record<PlanGroupId, string> = {
   coordinator: 'Browse coordinators',
   officiant: 'Find an officiant',
   catering: 'Browse caterers',
+  crew_meals: 'Browse crew-meal providers',
   photography: 'Browse photo & video',
   attire: 'Browse attire',
   hair_makeup: 'Browse hair & makeup',
@@ -203,6 +206,7 @@ const ACTION_TITLE: Record<PlanGroupId, string> = {
   coordinator: 'Lock your coordinator',
   officiant: 'Lock your officiant',
   catering: 'Lock your caterer',
+  crew_meals: 'Sort out crew meals',
   photography: 'Lock your photo & video team',
   attire: 'Lock your attire',
   hair_makeup: 'Lock your hair & makeup team',
@@ -299,16 +303,16 @@ function compareWithinBucket(a: Candidate, b: Candidate): number {
  * null when there's nothing actionable.
  *
  * Why this is a pure function (no Supabase client argument): the page
- * has already fetched `event_vendors` for the PlanningGroups +
- * FinalizedChipStrip components. Re-fetching here would be wasted IO
- * and would risk the resolver disagreeing with what the grid renders
- * below the hero (e.g. one fetch sees a vendor as locked, the other
- * sees it as considering because of mid-request status churn). Passing
- * the already-fetched array keeps both surfaces in lock-step.
+ * has already fetched `event_vendors` for the FinalizedChipStrip and the
+ * home's other vendor-derived surfaces. Re-fetching here would be wasted
+ * IO and would risk the resolver disagreeing with what those surfaces
+ * render (e.g. one fetch sees a vendor as locked, the other sees it as
+ * considering because of mid-request status churn). Passing the
+ * already-fetched array keeps every surface in lock-step.
  *
  * The signature accepts `ReadonlyArray<EventVendorRowInput>` which is
- * exactly what `PlanningGroups` consumes — same shape, same source,
- * same call site.
+ * exactly what `bucketVendorsByGroup` consumes — same shape, same
+ * source, same call site.
  */
 export function pickTodaysOneThing(
   vendors: ReadonlyArray<EventVendorRowInput>,
@@ -319,10 +323,9 @@ export function pickTodaysOneThing(
   // variant. Returning null signals that semantic.
   if (!weddingDateIso) return null;
 
-  // Bucket vendors into the 12 groups using the canonical algorithm
-  // already used by PlanningGroups. Pass null/null because the hero
-  // doesn't surface compat-mismatch flags — those are pick-level UX
-  // owned by the grid card.
+  // Bucket vendors into the 12 groups using the canonical
+  // bucketVendorsByGroup algorithm (shared with the Vendors tab). Pass
+  // null/null because the hero doesn't surface compat-mismatch flags.
   const bucketed = bucketVendorsByGroup(vendors, null, null);
 
   // Build candidate list — one entry per UNLOCKED group with status
@@ -391,12 +394,12 @@ export function pickTodaysOneThing(
  * home page directly so it doesn't have to re-bucket.
  *
  * Returns the countable-card count when no vendors are locked yet,
- * 0 when every category has a lock. Mirrors the leftToLock math from
- * PlanningGroups so the two surfaces agree.
+ * 0 when every category has a lock. Uses the same leftToLock math the
+ * event-home lock count (PLAN_GROUPS-derived) relies on.
  *
  * 22-card grid expansion (2026-05-22): excludes entry-point cards
  * (countsTowardLockable: false) so the denominator matches the
- * PlanningGroups header. Entry-point cards (live_band, bridal_car,
+ * event-home lock count. Entry-point cards (live_band, bridal_car,
  * guest_shuttle) share their underlying VendorCategory with another
  * card and shouldn't inflate the unlocked count.
  */
@@ -500,9 +503,9 @@ function classify(
 function resolveTask(candidate: Candidate): ResolvedTask {
   const { group, status, days } = candidate;
   const folderSlug = WEDDING_FOLDER_SLUG[group.catalogFolder];
-  // Mirror PlanningGroups' search href construction so the hero CTA
-  // and the planning-card CTA both land on the same scoped catalog
-  // section. See Task #47 (PR #310) for the `?folder=...#...` lock.
+  // Use buildPlanGroupSearchHref (below) so the hero CTA lands on the
+  // same scoped catalog section every plan-search CTA targets. See
+  // Task #47 (PR #310) for the `?folder=...#...` lock.
   // 22-card grid expansion (2026-05-22): groups with a `subcategoryHint`
   // (live_band, host_emcee, mobile_bar, photo_booth, etc.) deep-link to
   // /vendors?folder=...&category=<canonical> for filtered vendor-grid

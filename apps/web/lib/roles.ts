@@ -17,6 +17,7 @@
 import { cache } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { canOpenAnotherShop } from '@/lib/shop-limits';
 
 export type UserRoleSummary = {
   /**
@@ -45,6 +46,18 @@ export type UserRoleSummary = {
    * access.
    */
   vendorProfiles: VendorSwitchTarget[];
+  /**
+   * How many shops the user OWNS (excludes team-only memberships). The
+   * multi-business cap is against ownership, not team seats.
+   */
+  ownedShopCount: number;
+  /**
+   * True when the user may open another OWNED shop — i.e. `ownedShopCount`
+   * is below `MAX_SHOPS_PER_USER` (the owner-locked dial, currently 1). The
+   * future "+ Open a business" affordance gates on this. See
+   * `lib/shop-limits.ts`.
+   */
+  canOpenShop: boolean;
 };
 
 export type VendorSwitchTarget = {
@@ -139,9 +152,11 @@ export const fetchUserRoleSummary = cache(async (
 
   const vendorProfiles: VendorSwitchTarget[] = [];
   const seen = new Set<string>();
+  const ownedIds = new Set<string>();
   for (const row of owned) {
     if (seen.has(row.vendor_profile_id)) continue;
     seen.add(row.vendor_profile_id);
+    ownedIds.add(row.vendor_profile_id);
     vendorProfiles.push({
       vendor_profile_id: row.vendor_profile_id,
       business_name: row.business_name?.trim() || 'My vendor profile',
@@ -161,10 +176,13 @@ export const fetchUserRoleSummary = cache(async (
     });
   }
 
+  const ownedShopCount = ownedIds.size;
   return {
     hasCustomerAccess: profile?.account_type !== 'vendor',
     hasVendorAccess: vendorProfiles.length > 0,
     hasAdminAccess,
     vendorProfiles,
+    ownedShopCount,
+    canOpenShop: canOpenAnotherShop(ownedShopCount),
   };
 });

@@ -8,10 +8,7 @@ import {
   QrCode,
   ArrowRight,
   CheckCircle2,
-  Clock,
-  Apple,
-} from 'lucide-react';
-import { Logo } from '@/app/_components/logo';
+  } from 'lucide-react';
 import { getVendorPrices } from '@/lib/v2-catalog';
 
 // /tl/how-it-works — Taglish edition of /how-it-works (localization). English +
@@ -39,6 +36,19 @@ export const metadata = {
   alternates: {
     canonical: `${SITE_URL}/tl/how-it-works`,
     languages: LANGUAGES,
+  },
+  // OpenGraph — the EN twin (/how-it-works) ships this; the TL page was the one
+  // marketing route missing it, so chat/social unfurlers fell back to the
+  // generic site card. Added 2026-07-10 with tl_PH locale.
+  openGraph: {
+    type: 'website',
+    url: `${SITE_URL}/tl/how-it-works`,
+    title: 'Paano gumagana ang Setnayan — couples, vendors, guests, admins',
+    description:
+      'Ang buong mapa kung sino-sino sa Setnayan at saan gumugugol ng oras ang bawat isa. Isang talata bawat role, plus kung paano nagkokonekta ang flow.',
+    siteName: 'Setnayan',
+    locale: 'tl_PH',
+    images: [{ url: `${SITE_URL}/brand/og-card.webp`, width: 1200, height: 630 }],
   },
 };
 
@@ -200,10 +210,7 @@ export default async function HowItWorksPageTaglish() {
 
         {/* Hero */}
         <section className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
-          <div className="mb-3 flex items-center justify-between gap-4">
-            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-              How it works
-            </p>
+          <div className="mb-3 flex items-center justify-end gap-4">
             <Link
               href="/how-it-works"
               hrefLang="en-PH"
@@ -226,7 +233,7 @@ export default async function HowItWorksPageTaglish() {
               Magsimula — free
             </Link>
             <Link
-              href="/for-vendors"
+              href="/vendors"
               className="inline-flex h-11 items-center rounded-md border border-ink/15 px-5 text-sm font-medium text-ink hover:bg-ink/5"
             >
               Vendor ako
@@ -292,9 +299,6 @@ export default async function HowItWorksPageTaglish() {
           className="mx-auto mt-16 w-full max-w-6xl px-4 sm:px-6 lg:px-8"
         >
           <div className="max-w-2xl space-y-3">
-            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-              Ang flow
-            </p>
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               Paano nagkokonekta ang lahat, in order
             </h2>
@@ -332,10 +336,6 @@ export default async function HowItWorksPageTaglish() {
           className="mx-auto mt-16 w-full max-w-6xl px-4 sm:px-6 lg:px-8"
         >
           <div className="rounded-2xl border border-ink/10 bg-white p-6 sm:p-8">
-            <div className="flex items-center gap-2 text-terracotta">
-              <Clock aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              <p className="font-mono text-[11px] uppercase tracking-[0.25em]">Susunod na</p>
-            </div>
             <h2 className="mt-3 text-xl font-semibold tracking-tight sm:text-2xl">
               Pagdagdag ng isa pang planner sa event mo
             </h2>
@@ -365,10 +365,6 @@ export default async function HowItWorksPageTaglish() {
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <article className="rounded-2xl border border-ink/10 bg-white p-6">
-              <div className="flex items-center gap-2 text-terracotta">
-                <Heart aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                <p className="font-mono text-[11px] uppercase tracking-[0.25em]">Para sa couples</p>
-              </div>
               <h3 className="mt-2 text-lg font-semibold tracking-tight">
                 Magsimulang magplano, free.
               </h3>
@@ -384,71 +380,26 @@ export default async function HowItWorksPageTaglish() {
               </Link>
             </article>
             <article className="rounded-2xl border border-ink/10 bg-white p-6">
-              <div className="flex items-center gap-2 text-terracotta">
-                <Briefcase aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                <p className="font-mono text-[11px] uppercase tracking-[0.25em]">Para sa vendors</p>
-              </div>
               <h3 className="mt-2 text-lg font-semibold tracking-tight">
-                I-list ang wedding business mo — free.
+                I-list ang wedding business mo sa Setnayan.
               </h3>
               <p className="mt-2 text-sm text-ink/70">
-                Free verified profile at in-app chat with couples. Ang Pro sa
-                {p.proMonthly} / 28 days ay nag-a-unlock ng unlimited services,
-                custom slug + bid CTA sa profile mo, advanced proposal builder, at
-                editorial credits sa weddings na kuha mo.
+                Solo sa {p.soloMonthly} / 28 days — isang kategorya, verified profile, at buong
+                in-app suite. Ang Pro sa {p.proMonthly} / 28 days ay nag-e-expand ng reach mo: 3
+                kategorya, 3 agent seats, custom slug, at AI Proposal Builder.
               </p>
               <Link
                 href="/signup?as=vendor"
                 className="button-primary mt-4 inline-flex h-10 items-center px-5 text-sm"
               >
-                I-list ang business mo — free
+                I-list ang business mo
               </Link>
             </article>
           </div>
         </section>
 
-        <Footer />
       </main>
     </>
   );
 }
 
-function Footer() {
-  return (
-    <footer className="border-t border-ink/5">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-10 text-sm text-ink/55 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-        <div className="flex items-center gap-2 text-ink">
-          <Logo height={24} />
-          <span className="font-mono text-[11px] uppercase tracking-[0.2em]">
-            Setnayan · setnayan.com
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-          <span>© 2026 Setnayan</span>
-          <span aria-hidden>·</span>
-          <span>Made in the Philippines</span>
-          <span aria-hidden>·</span>
-          <Link href="/features" className="hover:text-ink">
-            Features
-          </Link>
-          <Link href="/help" className="hover:text-ink">
-            Help
-          </Link>
-          <Link href="/download" className="inline-flex items-center gap-1 hover:text-ink">
-            <Apple aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-            Mac app
-          </Link>
-          <Link href="/privacy" className="hover:text-ink">
-            Privacy
-          </Link>
-          <Link href="/login" className="hover:text-ink">
-            Sign in
-          </Link>
-          <Link href="/signup" className="hover:text-ink">
-            Create account
-          </Link>
-        </div>
-      </div>
-    </footer>
-  );
-}

@@ -7,6 +7,7 @@ import {
   Images,
   Lock,
   Mail,
+  Palette,
   RefreshCcw,
   Sparkles,
   Usb,
@@ -16,6 +17,8 @@ import {
   LED_LOOP_OPTIONS,
   type LedTemplate,
 } from '@/lib/led-background';
+import { ledPaletteFromMoodBoard } from '@/lib/site-palette';
+import type { RolePalette } from '@/lib/mood-board';
 import { trackFailure } from '@/lib/telemetry/track-error';
 
 type QueuedJob = {
@@ -37,6 +40,13 @@ type Props = {
   coupleName: string;
   templates: ReadonlyArray<LedTemplate>;
   initialConfig: LedInitialConfig | null;
+  /**
+   * The couple's Mood Board palette (0010 · events.role_palette). When it
+   * contributes colour, the selected template's gradient recolours FROM it so
+   * the LED wall reads as THEIR wedding — empty {} keeps each template's
+   * hardcoded palette (the existing look).
+   */
+  moodPalette: RolePalette;
 };
 
 export function LedBackgroundMaker({
@@ -44,6 +54,7 @@ export function LedBackgroundMaker({
   coupleName,
   templates,
   initialConfig,
+  moodPalette,
 }: Props) {
   const [selectedSlug, setSelectedSlug] = useState<string>(
     initialConfig?.templateSlug ?? templates[0]?.slug ?? '',
@@ -62,6 +73,21 @@ export function LedBackgroundMaker({
     () => templates.find((t) => t.slug === selectedSlug) ?? templates[0]!,
     [templates, selectedSlug],
   );
+
+  // The effective gradient palette for the SELECTED template: the couple's
+  // Mood Board recolour when it contributes colour, else the template's
+  // hardcoded `[bg, accent1, accent2]` fallback. `recoloured` drives the
+  // "From your Mood Board" cue + the saved payload so the render uses these
+  // colours (not the template default).
+  const selectedPalette = useMemo(
+    () => ledPaletteFromMoodBoard(moodPalette, selected.palette) ?? selected.palette,
+    [moodPalette, selected],
+  );
+  const recoloured = useMemo(
+    () => ledPaletteFromMoodBoard(moodPalette, selected.palette) !== null,
+    [moodPalette, selected],
+  );
+
   const loopOption = useMemo(
     () =>
       LED_LOOP_OPTIONS.find((o) => o.durationSeconds === loopSeconds) ??
@@ -81,6 +107,11 @@ export function LedBackgroundMaker({
           template_slug: selected.slug,
           loop_duration_s: loopSeconds,
           photo_pool_enabled: photoPoolEnabled,
+          // The resolved gradient palette — the Mood-Board recolour when one
+          // applies, else the template default — so the saved/rendered LED uses
+          // the couple's colours. The route re-resolves from role_palette
+          // server-side (defense-in-depth) but honours an explicit palette.
+          palette: selectedPalette,
         }),
       });
       if (!res.ok) {
@@ -151,7 +182,7 @@ export function LedBackgroundMaker({
                       : 'border-ink/10 hover:border-terracotta/50'
                   }`}
                 >
-                  <TemplateThumbnail template={template} />
+                  <TemplateThumbnail template={template} moodPalette={moodPalette} />
                   <div className="space-y-1 px-3 pb-3">
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="text-sm font-semibold text-ink">
@@ -171,12 +202,29 @@ export function LedBackgroundMaker({
       </div>
 
       <aside className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-4 sm:p-5 lg:sticky lg:top-4 lg:self-start">
-        <header className="space-y-1">
+        <header className="space-y-1.5">
           <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-ink/55">
             Customizing
           </p>
           <h2 className="text-lg font-semibold tracking-tight">{selected.name}</h2>
           <p className="text-xs text-ink/60">{selected.motif}</p>
+          {recoloured ? (
+            <div className="flex items-center gap-2 pt-0.5">
+              <span aria-hidden className="flex items-center -space-x-1">
+                {selectedPalette.map((hex, i) => (
+                  <span
+                    key={`${hex}-${i}`}
+                    className="h-3.5 w-3.5 rounded-full border border-cream shadow-sm"
+                    style={{ backgroundColor: hex }}
+                  />
+                ))}
+              </span>
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-terracotta">
+                <Palette aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+                Recoloured from your Mood Board
+              </span>
+            </div>
+          ) : null}
         </header>
 
         <div className="space-y-2">
@@ -317,8 +365,18 @@ export function LedBackgroundMaker({
   );
 }
 
-function TemplateThumbnail({ template }: { template: LedTemplate }) {
-  const [bg, accent1, accent2] = template.palette;
+function TemplateThumbnail({
+  template,
+  moodPalette,
+}: {
+  template: LedTemplate;
+  moodPalette: RolePalette;
+}) {
+  // Recolour the gradient FROM the couple's Mood Board when it contributes
+  // colour, else the template's hardcoded `[bg, accent1, accent2]` — so the
+  // whole gallery previews in their wedding's colours.
+  const [bg, accent1, accent2] =
+    ledPaletteFromMoodBoard(moodPalette, template.palette) ?? template.palette;
   // Placeholder gradient thumbnail — production swaps in the looping
   // `/templates/{slug}/thumb.mp4` once the FFmpeg + Lottie pipeline ships.
   // TODO(0005): replace with real looping thumb.mp4 preview.

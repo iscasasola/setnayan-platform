@@ -90,6 +90,14 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      # Disable Supabase CLI telemetry. The CLI flushes analytics to PostHog on
+      # exit; in CI that egress intermittently times out and the CLI returns a
+      # NON-ZERO exit code AFTER the real work succeeded ("Finished supabase
+      # link." → "Timeout while shutting down PostHog" → exit 1), reddening the
+      # workflow at random. DO_NOT_TRACK (the cross-tool standard the Supabase
+      # CLI honors) skips the telemetry entirely, so exit codes reflect only the
+      # migration work.
+      DO_NOT_TRACK: "1"
     steps:
       # Dormant-until-configured gate. With the push trigger ARMED, this runs on
       # every migration merge to main — but it must NOT spam a red failure while
@@ -109,9 +117,25 @@ jobs:
             echo "::notice title=Auto-apply dormant::Scaffolded but OFF — set SUPABASE_ACCESS_TOKEN + SUPABASE_DB_PASSWORD (secrets) and the SUPABASE_PROJECT_REF variable to enable (header has the steps). No migrations were applied."
           fi
 
-      - name: Checkout
+      # Full history + all origin branches so that, if the apply fails on an
+      # orphan, the migration doctor can name the still-open branch that carries
+      # the orphan's file — turning a cryptic "Remote migration versions not
+      # found" into an actionable diagnosis.
+      - name: Checkout (full history)
         if: steps.gate.outputs.enabled == 'true'
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch all origin branches (for orphan diagnosis)
+        if: steps.gate.outputs.enabled == 'true'
+        run: git fetch --no-tags origin '+refs/heads/*:refs/remotes/origin/*' || true
+
+      - name: Setup Node (for the migration doctor)
+        if: steps.gate.outputs.enabled == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
       - name: Install Supabase CLI
         if: steps.gate.outputs.enabled == 'true'
@@ -131,7 +155,30 @@ jobs:
 
       - name: Apply pending migrations
         if: steps.gate.outputs.enabled == 'true'
-        run: supabase db push --yes
+        # --include-all: apply EVERY local migration missing from the remote
+        # ledger, even one whose timestamp sorts BEFORE the latest applied
+        # version. Without it, `db push` aborts ("Found local migration files to
+        # be inserted before the last migration on remote database") whenever an
+        # older-timestamp migration lands after a newer one was already applied —
+        # which happens with cross-branch timestamp interleaving and after any
+        # out-of-band apply. The repo's `pnpm migration:new` allocator keeps new
+        # prefixes monotonic, so in the normal path --include-all is a no-op; it
+        # only matters for the out-of-order tail, where skipping a real migration
+        # is the worse failure. (2026-06-28: this is what unblocked the auto-apply
+        # after the phantom-ledger reconciliation.)
+        #
+        # On failure — almost always a "Remote migration versions not found in
+        # local migrations directory" orphan jam — run the migration doctor so
+        # the run EXPLAINS which orphan is blocking it and the exact fix, instead
+        # of leaving the next person to re-derive the diagnosis by hand. The
+        # doctor's non-zero exit is swallowed with `|| true`; we then re-`exit 1`
+        # so the workflow still fails (a jammed apply must stay red).
+        run: |
+          if ! supabase db push --include-all --yes; then
+            echo "::error title=Migration apply failed::db push was rejected — running the migration doctor for diagnosis."
+            node scripts/migration-doctor.mjs --linked | tee -a "$GITHUB_STEP_SUMMARY" || true
+            exit 1
+          fi
 
       - name: Show migration history after apply
         if: always() && steps.gate.outputs.enabled == 'true'

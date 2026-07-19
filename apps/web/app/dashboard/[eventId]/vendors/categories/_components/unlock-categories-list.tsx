@@ -11,7 +11,10 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Check, Loader2 } from 'lucide-react';
+import { useSaveLoader } from '@/components/sd-loader';
 import { unlockCategoryWithInquiry } from '../../_actions/unlock-category';
+import { useAnonGate } from '@/app/_components/anon-gate/anon-gate-context';
+import { SaveToContinue, SaveGateHint } from '@/app/_components/anon-gate/save-to-continue';
 
 export type UnlockGroup = { groupId: string; label: string; hint: string };
 export type UnlockFolder = { folder: string; label: string; groups: UnlockGroup[] };
@@ -26,13 +29,23 @@ export function UnlockCategoriesList({
   folders: UnlockFolder[];
 }) {
   const router = useRouter();
+  const { isAnonymous } = useAnonGate();
   const [pending, startTransition] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [done, setDone] = useState<Record<string, DoneState>>({});
   const [errs, setErrs] = useState<Record<string, string>>({});
+  const [gateOpen, setGateOpen] = useState(false);
+  const save = useSaveLoader();
 
   function add(groupId: string) {
     if (pending) return;
+    // Pre-empt the server round-trip for anonymous users: adding a category
+    // opens a vendor thread, which needs a secured account. Show the
+    // "save your plan" prompt up front instead of optimistically failing.
+    if (isAnonymous) {
+      setGateOpen(true);
+      return;
+    }
     setBusyId(groupId);
     setErrs((e) => {
       const next = { ...e };
@@ -40,7 +53,10 @@ export function UnlockCategoriesList({
       return next;
     });
     startTransition(async () => {
-      const res = await unlockCategoryWithInquiry({ eventId, groupId });
+      const res = await save.run(() => unlockCategoryWithInquiry({ eventId, groupId }), {
+        steps: ['Unlocking the category'],
+        hint: 'Saving',
+      });
       setBusyId(null);
       if (res.status === 'ok') {
         setDone((d) => ({
@@ -82,6 +98,11 @@ export function UnlockCategoriesList({
 
   return (
     <div className="space-y-7">
+      {isAnonymous ? (
+        <SaveGateHint>
+          Add anything you like — you’ll save your free account when you reach out to a vendor.
+        </SaveGateHint>
+      ) : null}
       {folders.map((f) => (
         <section key={f.folder}>
           <h2 className="mb-2.5 font-mono text-[11px] uppercase tracking-[0.18em] text-ink/45">
@@ -139,6 +160,7 @@ export function UnlockCategoriesList({
           </ul>
         </section>
       ))}
+      <SaveToContinue open={gateOpen} onClose={() => setGateOpen(false)} action="unlock" />
     </div>
   );
 }

@@ -38,7 +38,7 @@ export const revalidate = 3600;
 
 export async function GET(): Promise<Response> {
   const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
+    process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com';
   const now = new Date().toISOString();
 
   // Order matches the SEO Playbook §4.2 recommendation: static first

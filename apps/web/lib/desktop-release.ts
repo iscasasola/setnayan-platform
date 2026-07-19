@@ -15,13 +15,13 @@
 export const DESKTOP_RELEASE = {
   version: '0.0.1',
   tag: 'v0.0.1',
-  publishedAt: '2026-05-14',
+  publishedAt: '2026-06-26',
   releaseNotesUrl: 'https://setnayan.com/download',
   mac: {
     aarch64: {
       filename: 'Setnayan_0.0.1_aarch64.dmg',
       url: '/downloads/Setnayan_0.0.1_aarch64.dmg',
-      sizeBytes: 1_446_653,
+      sizeBytes: 1_866_003,
     },
   },
 } as const;

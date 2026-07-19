@@ -18,7 +18,17 @@ export type ChatSenderRole = 'couple' | 'vendor' | 'coordinator' | 'system';
  * revealed) or `declined` (couple shown alternatives). Pre-migration threads
  * were backfilled to `accepted`.
  */
-export type ChatInquiryStatus = 'pending' | 'accepted' | 'declined';
+// Mirrors the public.chat_inquiry_status DB enum. 'displaced' (couple locked
+// another vendor in the same hard-single group — REVIVABLE), 'withdrawn' and
+// 'expired' are lifecycle-closed states provisioned in 20261126000000; the app
+// treats them as closed inquiries (folded out of the active inbox lists).
+export type ChatInquiryStatus =
+  | 'pending'
+  | 'accepted'
+  | 'declined'
+  | 'displaced'
+  | 'withdrawn'
+  | 'expired';
 
 export type ChatThreadRow = {
   thread_id: string;
@@ -44,9 +54,31 @@ export type ChatThreadRow = {
    * avg_response_minutes in lib/vendor-activity.ts.
    */
   vendor_first_reply_at: string | null;
+  /**
+   * Creator Economy PR-C (migration 20270819553697) — inquiry provenance,
+   * PRIVATE to the vendor. `referring_chapter_id` = CTA-click attribution (the
+   * chapter whose Book CTA started the thread); `inquiry_source` = the owner's
+   * source taxonomy (NULL = Website Inquiry — see lib/inquiry-source.ts);
+   * `is_returning` = the returning-customer companion flag. All optional so a
+   * pre-migration DB degrades to no chips.
+   */
+  referring_chapter_id?: string | null;
+  inquiry_source?: string | null;
+  is_returning?: boolean | null;
+  /** The inquirer (thread opener) — powers the vendor-side "creator collab
+   *  active" marker (PR-C). Base-table column; optional for older mappers. */
+  created_by_user_id?: string | null;
 };
 
 export type CoupleThreadWithVendor = ChatThreadRow & {
+  /**
+   * Per-user Viber-style archive state for the CURRENT viewer, computed from the
+   * embedded chat_thread_reads.archived_at (migration 20270714177342). True when
+   * the viewer archived the thread AND no newer message has arrived since (a new
+   * message bumps updated_at past archived_at → auto-un-archives). Always false
+   * pre-migration — the archive embed graceful-degrades (see fetchCoupleThreads).
+   */
+  archived: boolean;
   vendor: {
     business_name: string;
     logo_url: string | null;
@@ -80,10 +112,25 @@ export type CoupleThreadWithVendor = ChatThreadRow & {
 };
 
 export type VendorThreadWithEvent = ChatThreadRow & {
+  /** See CoupleThreadWithVendor.archived — same per-viewer archive state, vendor side. */
+  archived: boolean;
+  /**
+   * Anonymization-until-accept (Glass PR-6b · Vendor_Inquiry_Anonymization_Spec
+   * _2026-07-15). PRE-ACCEPT the couple's identity must NOT ship to the vendor
+   * client at all: `display_name` (the event title carries the couple's names)
+   * and `public_id` (a link to the couple's public event page) are STRIPPED to
+   * null for any thread that isn't revealed (see isInquiryRevealed / the mapper
+   * below). `event_date` is retained — the spec permits showing the date. This
+   * is data-layer enforcement, independent of the RLS backstop (a vendor holds
+   * no `events` RLS, so the embed is already null for them — this makes the
+   * masking explicit and intentional rather than an implicit accident that a
+   * future policy change could silently undo). Post-accept the row passes
+   * through unchanged.
+   */
   event: {
-    display_name: string;
+    display_name: string | null;
     event_date: string | null;
-    public_id: string;
+    public_id: string | null;
   } | null;
 };
 
@@ -96,10 +143,21 @@ export type ChatMessageRow = {
   sender_role: ChatSenderRole;
   body: string;
   created_at: string;
+  /** Set when this message announces a vendor proposal (renders as a card). */
+  proposal_id?: string | null;
+  /**
+   * Optional file attachment (chat file sharing, PR 2). All four are NULL on
+   * text-only messages. `attachment_url` is the public R2 URL; the renderer
+   * shows an <img> thumbnail for image MIMEs and a file chip otherwise.
+   */
+  attachment_url?: string | null;
+  attachment_name?: string | null;
+  attachment_mime?: string | null;
+  attachment_size_bytes?: number | null;
 };
 
 const THREAD_SELECT =
-  'thread_id,public_id,event_id,vendor_profile_id,created_at,updated_at,inquiry_status,accepted_at,declined_at,decline_reason,pax_at_inquiry,pax_current,vendor_first_reply_at';
+  'thread_id,public_id,event_id,vendor_profile_id,created_by_user_id,created_at,updated_at,inquiry_status,accepted_at,declined_at,decline_reason,pax_at_inquiry,pax_current,vendor_first_reply_at,referring_chapter_id,inquiry_source,is_returning';
 
 /**
  * Count of message threads with at least one unread message for the current
@@ -150,32 +208,118 @@ export async function countUnreadMessages(
   }
 }
 
+/**
+ * Compute the current viewer's Viber-style archive state for a thread row that
+ * embedded `reads:chat_thread_reads(archived_at)`. RLS scopes the embed to the
+ * caller (chat_thread_reads_self_all → user_id = auth.uid()), so `reads` is a
+ * 0-or-1-element array of THIS user's marker. Archived ⇔ archived_at set AND no
+ * newer message since (updated_at ≤ archived_at); a later message auto-unarchives.
+ */
+function computeArchived(row: {
+  updated_at: string;
+  reads?: { archived_at: string | null }[] | null;
+}): boolean {
+  const reads = row.reads;
+  if (!Array.isArray(reads) || reads.length === 0) return false;
+  const archivedAt = reads[0]?.archived_at;
+  if (!archivedAt) return false;
+  return new Date(archivedAt).getTime() >= new Date(row.updated_at).getTime();
+}
+
+const COUPLE_VENDOR_EMBED =
+  'vendor:vendor_profiles(business_name, logo_url, public_id, screen_name, name_revealed_at, services, location_city, tier_state)';
+
 export async function fetchCoupleThreads(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<CoupleThreadWithVendor[]> {
+  // Try the archive-aware query first (embeds the per-user archived_at marker).
+  // GRACEFUL DEGRADE: migration 20270714177342 (chat_thread_reads.archived_at)
+  // is owner-pushed and may not be live yet — the embed then errors. On ANY
+  // error we retry WITHOUT the archive embed and treat every thread as active,
+  // so the Messages page never crashes ahead of the migration.
+  const withArchive = await supabase
+    .from('chat_threads')
+    .select(`${THREAD_SELECT}, ${COUPLE_VENDOR_EMBED}, reads:chat_thread_reads(archived_at)`)
+    .eq('event_id', eventId)
+    .order('updated_at', { ascending: false });
+  if (!withArchive.error) {
+    return (withArchive.data ?? []).map((row) => {
+      const { reads: _reads, ...rest } = row as Record<string, unknown> & {
+        reads?: { archived_at: string | null }[] | null;
+      };
+      return { ...rest, archived: computeArchived(row as never) } as unknown as CoupleThreadWithVendor;
+    });
+  }
+  logQueryError(
+    'fetchCoupleThreads (archive embed)',
+    withArchive.error,
+    { event_id: eventId, missing_relation: isMissingRelationError(withArchive.error) },
+    'graceful_degrade',
+  );
   const { data, error } = await supabase
     .from('chat_threads')
-    .select(
-      `${THREAD_SELECT}, vendor:vendor_profiles(business_name, logo_url, public_id, screen_name, name_revealed_at, services, location_city, tier_state)`,
-    )
+    .select(`${THREAD_SELECT}, ${COUPLE_VENDOR_EMBED}`)
     .eq('event_id', eventId)
     .order('updated_at', { ascending: false });
   if (error) throw new Error(`fetchCoupleThreads failed: ${error.message}`);
-  return (data ?? []) as unknown as CoupleThreadWithVendor[];
+  return (data ?? []).map((row) => ({ ...(row as object), archived: false })) as unknown as CoupleThreadWithVendor[];
+}
+
+/**
+ * Anonymization-until-accept enforcement (Glass PR-6b). For any vendor thread
+ * that isn't revealed (the vendor hasn't burned the token to accept), strip the
+ * couple's identity fields — event title (`display_name`) + public-page link
+ * (`public_id`) — from the DTO so they never reach the vendor client. Keeps
+ * `event_date` (permitted). Revealed threads pass through unchanged. Mirrors
+ * isInquiryRevealed in lib/inquiry-mask.ts; inlined here to keep chat.ts free of
+ * a server-only import (this module is imported by couple-side code too).
+ */
+function maskVendorThreadEvent(row: VendorThreadWithEvent): VendorThreadWithEvent {
+  const revealed = row.accepted_at != null || row.inquiry_status === 'accepted';
+  if (revealed || !row.event) return row;
+  return {
+    ...row,
+    event: { display_name: null, event_date: row.event.event_date, public_id: null },
+  };
 }
 
 export async function fetchVendorThreads(
   supabase: SupabaseClient,
   vendorProfileId: string,
 ): Promise<VendorThreadWithEvent[]> {
+  // Same archive-aware-with-graceful-degrade shape as fetchCoupleThreads.
+  const withArchive = await supabase
+    .from('chat_threads')
+    .select(`${THREAD_SELECT}, event:events(display_name, event_date, public_id), reads:chat_thread_reads(archived_at)`)
+    .eq('vendor_profile_id', vendorProfileId)
+    .order('updated_at', { ascending: false });
+  if (!withArchive.error) {
+    return (withArchive.data ?? []).map((row) => {
+      const { reads: _reads, ...rest } = row as Record<string, unknown> & {
+        reads?: { archived_at: string | null }[] | null;
+      };
+      return maskVendorThreadEvent({
+        ...rest,
+        archived: computeArchived(row as never),
+      } as unknown as VendorThreadWithEvent);
+    });
+  }
+  logQueryError(
+    'fetchVendorThreads (archive embed)',
+    withArchive.error,
+    { vendor_profile_id: vendorProfileId, missing_relation: isMissingRelationError(withArchive.error) },
+    'graceful_degrade',
+  );
   const { data, error } = await supabase
     .from('chat_threads')
     .select(`${THREAD_SELECT}, event:events(display_name, event_date, public_id)`)
     .eq('vendor_profile_id', vendorProfileId)
     .order('updated_at', { ascending: false });
   if (error) throw new Error(`fetchVendorThreads failed: ${error.message}`);
-  return (data ?? []) as unknown as VendorThreadWithEvent[];
+  return (data ?? []).map((row) =>
+    maskVendorThreadEvent({ ...(row as object), archived: false } as unknown as VendorThreadWithEvent),
+  );
 }
 
 /**
@@ -244,6 +388,32 @@ export async function fetchReturningClientFlags(
   }
 }
 
+/**
+ * Phase D — lead trust flag for the masked lead ("informed accept"). Returns
+ * whether the couple on this event is an "active planner" (already has ≥1
+ * accepted vendor thread = real engagement). Non-PII, positive-only. Mirrors
+ * fetchReturningClientFlags' graceful-degrade contract: any error (incl. the RPC
+ * not being in prod yet) resolves to false so the masked lead still renders.
+ */
+export async function fetchLeadTrustActivePlanner(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  eventId: string,
+): Promise<boolean> {
+  if (!eventId) return false;
+  try {
+    const { data, error } = await supabase.rpc('get_lead_trust_flags' as never, {
+      p_vendor_profile_id: vendorProfileId,
+      p_event_ids: [eventId],
+    } as never);
+    if (error || !Array.isArray(data)) return false;
+    const row = (data as { event_id: string; active_planner: boolean }[])[0];
+    return row?.active_planner === true;
+  } catch {
+    return false;
+  }
+}
+
 export async function fetchThreadById(
   supabase: SupabaseClient,
   threadId: string,
@@ -264,7 +434,7 @@ export async function fetchMessages(
   const { data, error } = await supabase
     .from('chat_messages')
     .select(
-      'message_id,thread_id,event_id,vendor_profile_id,sender_user_id,sender_role,body,created_at',
+      'message_id,thread_id,event_id,vendor_profile_id,sender_user_id,sender_role,body,created_at,proposal_id,attachment_url,attachment_name,attachment_mime,attachment_size_bytes',
     )
     .eq('thread_id', threadId)
     .order('created_at', { ascending: true });

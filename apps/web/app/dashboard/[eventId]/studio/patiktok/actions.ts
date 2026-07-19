@@ -6,7 +6,8 @@ import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { findPatiktokTemplate } from '@/lib/patiktok';
-import { presignDisplayUrl } from '@/lib/uploads';
+import { planAutoTags, type EnrollmentVec } from '@/lib/face-match-core';
+import { presignDisplayUrl, displayUrlForStoredAsset } from '@/lib/uploads';
 import { isR2Configured, R2_BUCKETS } from '@/lib/r2';
 import { sendPatiktokReelReadyEmail } from '@/lib/patiktok-reel-emails';
 
@@ -67,7 +68,7 @@ export async function submitPatiktokRender(formData: FormData) {
   // legitimate choices.
   if (musicTrackSlug) {
     const { data: track } = await supabase
-      .from('patiktok_music_tracks')
+      .from('reel_music_tracks')
       .select('track_slug')
       .eq('track_slug', musicTrackSlug)
       .eq('is_active', true)
@@ -112,6 +113,15 @@ export async function submitPatiktokRender(formData: FormData) {
  *
  * Returns the new clip_id so the component can track the session's captures.
  */
+const TAG_SOURCES = [
+  'guest_select',
+  'qr_scan',
+  'table_qr',
+  'manual_text',
+  'auto_face',
+] as const;
+type PatiktokTagSource = (typeof TAG_SOURCES)[number];
+
 export async function recordPatiktokClip(input: {
   eventId: string;
   templateSlug?: string | null;
@@ -123,6 +133,9 @@ export async function recordPatiktokClip(input: {
   height?: number | null;
   sizeBytes?: number | null;
   performerLabel?: string | null;
+  guestId?: string | null;
+  tableId?: string | null;
+  tagSource?: string | null;
 }): Promise<{ clipId: string }> {
   if (typeof input.eventId !== 'string' || input.eventId.length === 0) {
     throw new Error('eventId required');
@@ -136,6 +149,44 @@ export async function recordPatiktokClip(input: {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  // Resolve the tag. guest_id / table_id are validated against THIS event via
+  // the RLS-scoped client so a clip can never be attributed to a guest/table
+  // from another event (the .eq('event_id') is belt-and-braces over RLS).
+  let guestId: string | null = null;
+  if (typeof input.guestId === 'string' && input.guestId.length > 0) {
+    const { data: g } = await supabase
+      .from('guests')
+      .select('guest_id')
+      .eq('guest_id', input.guestId)
+      .eq('event_id', input.eventId)
+      .maybeSingle();
+    guestId = g ? (g.guest_id as string) : null;
+  }
+  let tableId: string | null = null;
+  if (typeof input.tableId === 'string' && input.tableId.length > 0) {
+    const { data: t } = await supabase
+      .from('event_tables')
+      .select('table_id')
+      .eq('table_id', input.tableId)
+      .eq('event_id', input.eventId)
+      .maybeSingle();
+    tableId = t ? (t.table_id as string) : null;
+  }
+  const performerLabel =
+    typeof input.performerLabel === 'string' && input.performerLabel.trim()
+      ? input.performerLabel.trim()
+      : null;
+  // Only stamp tag_source when a tag actually resolved; drop a stale source
+  // (e.g. a guest_id that failed validation) so the column never lies.
+  let tagSource: PatiktokTagSource | null =
+    typeof input.tagSource === 'string' &&
+    (TAG_SOURCES as readonly string[]).includes(input.tagSource)
+      ? (input.tagSource as PatiktokTagSource)
+      : null;
+  if (!guestId && !tableId) {
+    tagSource = performerLabel ? 'manual_text' : null;
+  }
 
   const { data, error } = await supabase
     .from('patiktok_source_clips')
@@ -153,10 +204,10 @@ export async function recordPatiktokClip(input: {
       width: input.width ?? null,
       height: input.height ?? null,
       size_bytes: input.sizeBytes ?? null,
-      performer_label:
-        typeof input.performerLabel === 'string' && input.performerLabel.trim()
-          ? input.performerLabel.trim()
-          : null,
+      performer_label: performerLabel,
+      guest_id: guestId,
+      table_id: tableId,
+      tag_source: tagSource,
       status: 'uploaded',
     })
     .select('clip_id')
@@ -168,6 +219,91 @@ export async function recordPatiktokClip(input: {
 
   revalidatePath(`/dashboard/${input.eventId}/studio/patiktok/booth`);
   return { clipId: data.clip_id as string };
+}
+
+/**
+ * Iteration 0017 Phase B — face pre-fill for the booth tag.
+ *
+ * Given face descriptors embedded IN THE BROWSER (lib/face-embed `embedFaces`,
+ * on-device dlib — vectors never leave as imagery), match them against THIS
+ * event's consented, non-revoked guest face enrollments and return the single
+ * best candidate. Reuses the Papic matcher (`planAutoTags`, dlib Euclidean —
+ * auto ≤0.50 / suggest 0.50–0.60). Writes NOTHING — the booth decides whether to
+ * auto-fill (kind='auto') or surface a "Looks like…?" confirm (kind='suggest').
+ *
+ * Per-event scoped (the vector store is never reused across weddings) and gated
+ * to event members. Never throws — returns null on any miss so the booth simply
+ * falls back to manual / QR tagging.
+ */
+export async function matchPatiktokFace(input: {
+  eventId: string;
+  faceVectors: number[][];
+}): Promise<{ guestId: string; name: string; kind: 'auto' | 'suggest' } | null> {
+  if (typeof input.eventId !== 'string' || input.eventId.length === 0) return null;
+  if (!Array.isArray(input.faceVectors) || input.faceVectors.length === 0) return null;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  // Event-membership gate (RLS-scoped read of the caller's own membership row)
+  // so enrollment vectors are only ever matched by someone on the event.
+  const { data: member } = await supabase
+    .from('event_members')
+    .select('event_id')
+    .eq('event_id', input.eventId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (!member) return null;
+
+  // Admin read of the enrollment vectors (RLS keeps them out of client reach).
+  const admin = createAdminClient();
+  const { data: enr } = await admin
+    .from('guest_face_enrollments')
+    .select('guest_id, face_vector')
+    .eq('event_id', input.eventId)
+    .is('revoked_at', null)
+    .not('consent_at', 'is', null)
+    .not('face_vector', 'is', null);
+
+  const enrollments: EnrollmentVec[] = [];
+  for (const r of enr ?? []) {
+    const v = r.face_vector as unknown;
+    if (Array.isArray(v) && v.length > 0) {
+      enrollments.push({ guestId: r.guest_id as string, vector: v as number[] });
+    }
+  }
+  if (enrollments.length === 0) return null;
+
+  const plan = planAutoTags({ faceVectors: input.faceVectors, enrollments });
+  const closest = (ms: { guestId: string; distance: number }[]) =>
+    ms.reduce<{ guestId: string; distance: number } | null>(
+      (best, m) => (best === null || m.distance < best.distance ? m : best),
+      null,
+    );
+  const auto = closest(plan.autoTags);
+  const suggest = auto ? null : closest(plan.suggestions);
+  const best = auto
+    ? { guestId: auto.guestId, kind: 'auto' as const }
+    : suggest
+      ? { guestId: suggest.guestId, kind: 'suggest' as const }
+      : null;
+  if (!best) return null;
+
+  const { data: g } = await admin
+    .from('guests')
+    .select('display_name, first_name, last_name')
+    .eq('guest_id', best.guestId)
+    .maybeSingle();
+  if (!g) return null;
+  const name =
+    ((g.display_name as string | null)?.trim() ||
+      `${(g.first_name as string | null) ?? ''} ${(g.last_name as string | null) ?? ''}`.trim()) ||
+    'Guest';
+
+  return { guestId: best.guestId, name, kind: best.kind };
 }
 
 /**
@@ -234,11 +370,55 @@ export async function claimPatiktokRenderJob(jobId: string): Promise<{
     })),
   );
 
-  // Resolve music (may be null — owned catalogue isn't ingested yet).
+  // Resolve the reel's backing track.
+  //
+  // PRIORITY — the couple's delivered Pakanta song (0036). When
+  // `events.pakanta_song_r2_key` is non-null the couple owns a delivered, paid
+  // Pakanta song; that song becomes the backing track for every Setnayan render
+  // at their wedding, reels included. Presign it (R2 ref → working GET URL) and
+  // hand it to the renderer in the same `musicUrl` slot it already consumes.
+  //
+  // FALLBACK — the chosen `reel_music_tracks` catalogue track (if any). Used
+  // only when the couple has no Pakanta song yet.
+  //
+  // Graceful-degrade: the column is applied to prod, but if it's missing
+  // (42703) or the table is gone (42P01) we behave exactly as before
+  // (catalogue-only). RLS lets the event member read their own event row.
   let musicUrl: string | null = null;
-  if (job.music_track_slug) {
+
+  let pakantaSongKey: string | null = null;
+  try {
+    const { data: eventRow, error: eventErr } = await supabase
+      .from('events')
+      .select('pakanta_song_r2_key')
+      .eq('event_id', job.event_id)
+      .maybeSingle();
+    // 42703 = undefined_column, 42P01 = undefined_table — treat as "no song".
+    if (eventErr && eventErr.code !== '42703' && eventErr.code !== '42P01') {
+      throw new Error(eventErr.message);
+    }
+    pakantaSongKey =
+      (eventRow?.pakanta_song_r2_key as string | null | undefined) ?? null;
+  } catch (err) {
+    // Defensive: a PostgREST schema-cache miss can surface the missing column
+    // as a thrown error rather than an error code. Don't fail the render —
+    // fall through to the catalogue path.
+    const code = (err as { code?: string } | null)?.code;
+    if (code && code !== '42703' && code !== '42P01') throw err;
+    pakantaSongKey = null;
+  }
+
+  if (pakantaSongKey) {
+    // displayUrlForStoredAsset handles both `r2://bucket/key` refs and legacy
+    // URLs, and returns null when storage can't presign — in which case we fall
+    // back to the catalogue track below.
+    musicUrl = await displayUrlForStoredAsset(pakantaSongKey);
+  }
+
+  // Catalogue fallback (may also be null — owned catalogue isn't ingested yet).
+  if (!musicUrl && job.music_track_slug) {
     const { data: track } = await supabase
-      .from('patiktok_music_tracks')
+      .from('reel_music_tracks')
       .select('source_url')
       .eq('track_slug', job.music_track_slug)
       .maybeSingle();

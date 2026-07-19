@@ -119,7 +119,7 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
     // Event meta — used for the invitation template + page header.
     admin
       .from('events')
-      .select('display_name, event_date, ceremony_type, venue_name')
+      .select('display_name, event_date, ceremony_type, secondary_ceremony_type, venue_name')
       .eq('event_id', eventId)
       .maybeSingle(),
     // Sponsors — all rows on this event.
@@ -138,6 +138,23 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
     ceremony_type: null,
     venue_name: null,
   };
+
+  // The Sponsors surface is the Catholic-Filipino ninong/ninang + cord/veil/
+  // coin/candle machinery — none of which exists in a Nikah. A pure Muslim
+  // wedding has no sponsors; its Nikah principals (wali/witness/imam/wakil) are
+  // managed in the guest list + the Five-essentials card. So redirect a
+  // muslim-primary wedding here, UNLESS it's a mixed ceremony with a non-muslim
+  // (e.g. Catholic) secondary leg that legitimately uses sponsors.
+  const secondaryCeremony =
+    (event as { secondary_ceremony_type?: string | null })
+      .secondary_ceremony_type ?? null;
+  if (
+    event.ceremony_type === 'muslim' &&
+    (!secondaryCeremony || secondaryCeremony === 'muslim')
+  ) {
+    redirect(`/dashboard/${eventId}/guests`);
+  }
+
   const eventName = event.display_name ?? 'Your event';
   const coupleNames = event.display_name ?? 'we';
   const sponsors = (sponsorRows ?? []) as SponsorRow[];
@@ -208,12 +225,12 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
         Back to {eventName}
       </Link>
 
-      <header className="space-y-2">
-        <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">
           <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Filipino wedding tradition · ninong + ninang
         </p>
-        <h1 className="font-display text-3xl italic tracking-tight sm:text-4xl">
+        <h1 className="sn-h1">
           Your principal sponsors
         </h1>
         <p className="max-w-prose text-base text-ink/65">
@@ -248,10 +265,10 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
       ) : null}
 
       {/* Progress strip + pair-target picker */}
-      <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-4 sm:p-5">
+      <section className="sn-tile space-y-3 p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-0.5">
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+            <p className="sn-eye">
               Sponsor list progress
             </p>
             <p className="text-sm text-ink/65">
@@ -284,10 +301,10 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
       {/* PRINCIPAL SPONSORS */}
       <section
         id="tier-principal"
-        className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5"
+        className="sn-tile space-y-3 p-5"
       >
         <header className="space-y-1">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
+          <p className="sn-eye">
             {SPONSOR_TIER_LABEL.principal}s · {targetPairs} pair
             {targetPairs === 1 ? '' : 's'}
           </p>
@@ -329,10 +346,10 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
           <section
             key={tier}
             id={`tier-${tier}`}
-            className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5"
+            className="sn-tile space-y-3 p-5"
           >
             <header className="space-y-1">
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
+              <p className="sn-eye">
                 {SPONSOR_TIER_LABEL[tier]}s · 2 individuals
               </p>
               <h2 className="font-display text-2xl italic">
@@ -448,14 +465,14 @@ function PrincipalPairRow({
   coupleNames: string;
 }) {
   return (
-    <div className="rounded-xl border border-ink/10 bg-cream/40 p-3 sm:p-4">
-      <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+    <div className="sn-row p-3 sm:p-4">
+      <p className="sn-eye mb-2">
         Pair {pairIndex}
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         {/* Groom's side */}
         <div className="space-y-2">
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          <p className="sn-eye">
             {SPONSOR_SIDE_LABEL.groom} · ninong
           </p>
           {groomSponsor ? (
@@ -479,7 +496,7 @@ function PrincipalPairRow({
 
         {/* Bride's side */}
         <div className="space-y-2">
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          <p className="sn-eye">
             {SPONSOR_SIDE_LABEL.bride} · ninang
           </p>
           {brideSponsor ? (
@@ -528,7 +545,7 @@ function SponsorCard({
   const honorific = sponsorRoleHonorific(sponsor.sponsor_tier, sponsor.side);
 
   return (
-    <article className="rounded-lg border border-ink/10 bg-cream p-3 shadow-sm">
+    <article className="sn-row p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 space-y-0.5">
           <p className="truncate text-sm font-semibold text-ink">
@@ -537,7 +554,7 @@ function SponsorCard({
           {sponsor.relationship_note ? (
             <p className="truncate text-xs text-ink/65">{sponsor.relationship_note}</p>
           ) : null}
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+          <p className="sn-eye">
             {honorific}
           </p>
         </div>

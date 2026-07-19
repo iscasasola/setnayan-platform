@@ -32,6 +32,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { resolveMayaConfig } from '@/lib/integration-config';
 
 const DEMO_MODE = process.env.SETNAYAN_DEMO_MODE === '1';
 const MAYA_APPROVED = process.env.NEXT_PUBLIC_MAYA_STATUS === 'APPROVED';
@@ -50,7 +51,6 @@ const PRICING_BOOK: Record<string, number> = {
   PINOY_MAP_ROUTE:     1499.0,
   INDOOR_BLUEPRINT:    1499.0,
   CALL_TIME_ESCALATOR: 1999.0,
-  PATIKTOK_COMPILER:   2499.0,
   PABATI:              999.0,
   HIGH_RES_ARCHIVE:    2999.0,
   PAPIC_GUEST:         2999.0,
@@ -58,7 +58,6 @@ const PRICING_BOOK: Record<string, number> = {
   PAPIC_MEDIA_PACK:    9999.0,
   PAPIC_SEATS:         2999.0,
   PANOOD_SYSTEM:       3499.0,
-  SDE:                 5499.0,
   CAMERA_BRIDGE:       1999.0,
   LIVE_WALL:           3499.0,
   PAKANTA:             3499.0,
@@ -76,7 +75,6 @@ const TITLE_BOOK: Record<string, string> = {
   PINOY_MAP_ROUTE:     'Traditional Pinoy Map Route Engine',
   INDOOR_BLUEPRINT:    'Indoor Blueprint Venue Layout Engine',
   CALL_TIME_ESCALATOR: 'Call-Time Escalator Coordinator Assistant',
-  PATIKTOK_COMPILER:   'Patiktok WebAssembly Highlight Compiler',
   PABATI:              'Pabati 5-Second Video Guestbook Pass',
   HIGH_RES_ARCHIVE:    'High Res Archive Yearly Subscription',
   PAPIC_GUEST:         'Papic Guest AI Gallery',
@@ -84,7 +82,6 @@ const TITLE_BOOK: Record<string, string> = {
   PAPIC_MEDIA_PACK:    'Papic Guest with Stories + Thank You Video',
   PAPIC_SEATS:         'Papic Professional 5 Seats Pass',
   PANOOD_SYSTEM:       'Panood Multi-Cam Live Broadcast Engine',
-  SDE:                 'Same Day Edit Video Processing Pass',
   CAMERA_BRIDGE:       'DSLR Mirrorless Camera Bridge Sync',
   LIVE_WALL:           'Live Venue Photo Wall Projection Socket',
   PAKANTA:             'Pakanta Custom Wedding Song Service',
@@ -275,18 +272,22 @@ export async function POST(request: Request) {
     // ------------------------------------------------------------------------
     // BRANCH B · AUTOMATED_MAYA_API (pre-wired · live when approval lands)
     // ------------------------------------------------------------------------
-    const mayaPublicKey = process.env.MAYA_PUBLIC_API_KEY;
-    const mayaSecretKey = process.env.MAYA_SECRET_API_KEY;
+    // DB-first (Integration Activation Console), env-fallback. Byte-identical
+    // when the DB columns are empty. NEXT_PUBLIC_MAYA_STATUS (the build-time
+    // activation gate, checked above via MAYA_APPROVED) stays redeploy-gated.
+    const {
+      publicKey: mayaPublicKey,
+      secretKey: mayaSecretKey,
+      checkoutEndpoint: mayaCheckoutEndpoint,
+    } = await resolveMayaConfig();
     if (!mayaPublicKey || !mayaSecretKey) {
       return NextResponse.json(
-        { success: false, message: 'Maya API credentials missing despite NEXT_PUBLIC_MAYA_STATUS=APPROVED. Configure MAYA_PUBLIC_API_KEY + MAYA_SECRET_API_KEY.' },
+        { success: false, message: 'Maya API credentials missing despite NEXT_PUBLIC_MAYA_STATUS=APPROVED. Configure them in /admin/integrations or as MAYA_PUBLIC_API_KEY + MAYA_SECRET_API_KEY.' },
         { status: 503 },
       );
     }
 
     const returnBase = process.env.NEXT_PUBLIC_SETNAYAN_BASE_URL ?? 'https://www.setnayan.com';
-    const mayaCheckoutEndpoint = process.env.MAYA_CHECKOUT_ENDPOINT
-      ?? 'https://pg-sandbox.paymaya.com/checkout/v1/checkouts';
 
     const mayaPayload = {
       totalAmount: { value: finalCalculatedTotal.toFixed(2), currency: 'PHP' },
@@ -370,9 +371,15 @@ async function readBundlePrice(bundleCode: string): Promise<number> {
     .from('platform_package_catalog')
     .select('retail_price_php')
     .eq('package_code', bundleCode)
+    // Honor is_active (owner 2026-06-29 "no more essentials and complete"):
+    // GUIDED_PACK + MEDIA_PACK are deactivated, so this read returns no row and
+    // the function FAILS CLOSED (throws below) — a deactivated bundle can never
+    // be priced or billed through the Maya/QR gateway. Same is_active semantics
+    // as fetchV2BundleCatalog + resolveBundleChargeCentavos.
+    .eq('is_active', true)
     .maybeSingle();
   if (data?.retail_price_php) return Number(data.retail_price_php);
-  throw new Error(`No admin price for bundle ${bundleCode} (platform_package_catalog)`);
+  throw new Error(`No active admin price for bundle ${bundleCode} (platform_package_catalog)`);
 }
 
 function makeReferenceNumber(eventId: string, channel: 'QR' | 'MAYA'): string {

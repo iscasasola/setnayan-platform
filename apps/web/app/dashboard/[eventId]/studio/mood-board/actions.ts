@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { emitNotification } from '@/lib/notification-emit';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { RECEPTION_PARTS } from '@/lib/reception-scene';
 
@@ -206,4 +208,100 @@ export async function saveAttireGuidePaletteColor(
   if (updateErr) throw new Error(updateErr.message);
 
   revalidatePath(`/dashboard/${eventId}/studio/mood-board`);
+}
+
+/**
+ * "Share with vendors" — pings every booked marketplace vendor on the event
+ * that the couple's Mood Board is ready for their eyes (Mood Board · Surface B,
+ * 2026-06-28).
+ *
+ * Free convenience layer, no paywall: a booked vendor ALREADY has read access to
+ * the board via the get_vendor_mood_board SECURITY DEFINER RPC. This action just
+ * drops an in-app notification per booked vendor deep-linking to that read-only
+ * view, so the couple doesn't have to chase them down a chat thread.
+ *
+ * "Booked" mirrors the RPC's gate EXACTLY: any event_vendors row for this event
+ * whose marketplace_vendor_id is non-null (no status filter — same as the RPC's
+ * `EXISTS (… WHERE marketplace_vendor_id = vendor_profile_id)`). V1 default is
+ * all-booked; no category filtering (locked).
+ *
+ * RLS: the host-scope read on event_vendors is enforced by the caller's session
+ * (the host owns this event). Vendor user_id resolution + the notification
+ * insert go through the service-role admin client (vendor_profiles + notifications
+ * are not host-readable), mirroring the booking_confirmed emit in
+ * dashboard/[eventId]/vendors/actions.ts. Returns the count so the page can toast
+ * "Shared with N vendors".
+ */
+export async function shareMoodBoardWithVendors(
+  eventId: string,
+): Promise<{ sharedCount: number }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // Host-scoped read: RLS only returns event_vendors rows for events the caller
+  // is a member of, so this both authorizes the action and gathers the targets.
+  const { data: vendorRows, error: vendorErr } = await supabase
+    .from('event_vendors')
+    .select('marketplace_vendor_id')
+    .eq('event_id', eventId)
+    .not('marketplace_vendor_id', 'is', null);
+  if (vendorErr) throw new Error(vendorErr.message);
+
+  // Distinct profiles — one vendor can hold several event_vendors rows (one per
+  // category), but we ping them once.
+  const profileIds = Array.from(
+    new Set(
+      (vendorRows ?? [])
+        .map((r) => r.marketplace_vendor_id as string | null)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  if (profileIds.length === 0) return { sharedCount: 0 };
+
+  // Resolve each booked vendor profile to its account user_id + grab the event
+  // display name for the notification copy. vendor_profiles + the notification
+  // insert are not host-readable, so this goes through the admin client.
+  const admin = createAdminClient();
+  const [{ data: profiles }, { data: eventRow }] = await Promise.all([
+    admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id, user_id')
+      .in('vendor_profile_id', profileIds),
+    admin
+      .from('events')
+      .select('display_name')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+  ]);
+
+  const eventDisplay =
+    (eventRow as { display_name: string | null } | null)?.display_name ?? 'A couple';
+
+  const userIds = Array.from(
+    new Set(
+      (profiles ?? [])
+        .map((p) => (p as { user_id: string | null }).user_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+
+  // Best-effort fan-out — emitNotification fails soft internally, so one vendor's
+  // hiccup never blocks the rest. sharedCount reflects vendors we attempted to
+  // notify (those with a resolvable account), which drives the couple's toast.
+  await Promise.all(
+    userIds.map((vendorUserId) =>
+      emitNotification({
+        userId: vendorUserId,
+        type: 'mood_board_share',
+        title: `${eventDisplay} shared their mood board`,
+        body: `${eventDisplay} shared their mood board with you — open it to align your styling, decor, or booth to their palette and reception design.`,
+        relatedUrl: `/vendor-dashboard/clients/${eventId}/mood-board`,
+      }),
+    ),
+  );
+
+  return { sharedCount: userIds.length };
 }

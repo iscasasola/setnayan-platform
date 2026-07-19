@@ -46,6 +46,8 @@
  */
 
 import 'server-only';
+import { resolveOAuthClientConfig } from '@/lib/integration-config';
+import { OAUTH_SPECS } from '@/lib/integrations/registry';
 
 const GOOGLE_AUTHORIZE_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -91,10 +93,12 @@ export type PapicDriveConfigStatus =
  * option degrades to a "coming soon" placeholder and the Setnayan-storage
  * option remains the only working choice.
  */
-export function getDriveOAuthConfig(): PapicDriveConfigStatus {
-  const clientId = process.env.GOOGLE_DRIVE_OAUTH_CLIENT_ID ?? '';
-  const clientSecret = process.env.GOOGLE_DRIVE_OAUTH_CLIENT_SECRET ?? '';
-  const redirectUri = process.env.GOOGLE_DRIVE_OAUTH_REDIRECT_URI ?? '';
+export async function getDriveOAuthConfig(): Promise<PapicDriveConfigStatus> {
+  // DB-first (Integration Activation Console), env-fallback. Drive's client
+  // id/secret are SHARED with Photo Delivery; only the redirect URI differs.
+  const { clientId, clientSecret, redirectUri } = await resolveOAuthClientConfig(
+    OAUTH_SPECS.drivePapic,
+  );
   const missing: string[] = [];
   if (!clientId) missing.push('GOOGLE_DRIVE_OAUTH_CLIENT_ID');
   if (!clientSecret) missing.push('GOOGLE_DRIVE_OAUTH_CLIENT_SECRET');

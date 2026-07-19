@@ -14,6 +14,7 @@ import {
 } from '@/lib/force-majeure';
 import { MiniTour } from '@/app/_components/mini-tour';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Force Majeure · Admin' };
 
 type FlagRow = {
@@ -62,6 +63,7 @@ type Props = {
 };
 
 export default async function AdminForceMajeurePage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const filterRaw = search.filter ?? 'open_set';
   const filter: FilterValue =
@@ -179,7 +181,7 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
       ) : null}
 
       {flags.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center text-sm text-ink/55">
+        <div className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-ink/55">
           <AlertTriangle
             aria-hidden
             className="mx-auto mb-2 h-6 w-6 text-ink/30"

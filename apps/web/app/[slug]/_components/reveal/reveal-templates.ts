@@ -13,6 +13,9 @@ export type RevealTemplate =
   | 'two-flap-horizontal'
   | 'church-doors'
   | 'veil-sheer';
+// 'gold-monogram' + 'molten-monogram' were RETIRED as openings 2026-06-22 — they
+// are now monogram-editor ANIMATIONS (the 'gold'/'molten' motion keys in
+// lib/monogram-motion.ts, played by HeroMonogram), not reveal openings.
 
 /**
  * The FREE choice — no opening reveal at all; the content film plays straight

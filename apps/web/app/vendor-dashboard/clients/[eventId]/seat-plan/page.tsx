@@ -143,7 +143,7 @@ export default async function VendorSeatPlanPage({ params }: Props) {
   const showMap = placed.length > 0 || cocktail !== null || objects.length > 0;
 
   return (
-    <section className="mx-auto w-full max-w-6xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
+    <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
       <Link
         href={`/vendor-dashboard/clients/${eventId}`}
         className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/60 hover:text-ink"
@@ -177,7 +177,7 @@ export default async function VendorSeatPlanPage({ params }: Props) {
       {/* Floor map — one blueprint: reception room + the cocktail/waiting area */}
       {showMap ? (
         <div
-          className="relative w-full overflow-hidden rounded-2xl border border-ink/15 bg-cream"
+          className="relative w-full overflow-hidden rounded-2xl border border-ink/15 bg-white/70"
           style={{ aspectRatio: `${aspect}` }}
         >
           {/* Stage */}
@@ -272,7 +272,7 @@ export default async function VendorSeatPlanPage({ params }: Props) {
       ) : null}
 
       {/* Table sheet */}
-      <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+      <div className="sn-tile p-4 sm:p-6">
         <h2 className="text-lg font-semibold">
           {plan.dietary_included ? 'Covers per table' : 'Tables'}
         </h2>

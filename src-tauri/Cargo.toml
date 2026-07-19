@@ -19,6 +19,13 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# Desktop OAuth: open the provider consent flow in the system browser and catch
+# the redirect on a temporary localhost loopback (Google refuses OAuth inside the
+# embedded WebView). tauri-plugin-oauth runs the loopback; tauri-plugin-opener
+# opens the external browser. Both are driven from the bundled web app via
+# window.__TAURI__ (withGlobalTauri) under the scoped capability in capabilities/.
+tauri-plugin-oauth = "2"
+tauri-plugin-opener = "2"
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

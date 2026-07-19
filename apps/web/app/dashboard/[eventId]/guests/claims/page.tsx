@@ -1,29 +1,27 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, ShieldCheck, Clock, UserPlus } from 'lucide-react';
+import { ArrowLeft, UserCheck, UserPlus, Link2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { approveClaimAction, rejectClaimAction } from './actions';
+import { keepGuestAction, removeGuestAction, linkGuestAction } from './actions';
 
-export const metadata = { title: 'Guest requests' };
+export const metadata = { title: 'Unlisted guests' };
 
 type Props = { params: Promise<{ eventId: string }> };
 
-type ClaimRow = {
-  claim_id: string;
-  claimer_name: string;
-  claimer_email: string | null;
-  requested_role: GuestRole;
-  target_guest_id: string | null;
-  match_score: number | null;
-  status: 'pending_review' | 'otp_sent';
-  otp_sent_to: string | null;
+type UnlistedRow = {
+  guest_id: string;
+  first_name: string;
+  last_name: string;
+  display_name: string | null;
+  email: string | null;
+  role: GuestRole;
   created_at: string;
 };
 
-export default async function GuestClaimsPage({ params }: Props) {
+export default async function UnlistedGuestsPage({ params }: Props) {
   const { eventId } = await params;
 
   const user = await getCurrentUser();
@@ -40,28 +38,34 @@ export default async function GuestClaimsPage({ params }: Props) {
     .maybeSingle();
   if (!membership) redirect(`/dashboard/${eventId}`);
 
-  const { data: claimsRaw } = await supabase
-    .from('guest_claims')
-    .select(
-      'claim_id, claimer_name, claimer_email, requested_role, target_guest_id, match_score, status, otp_sent_to, created_at',
-    )
+  // Invite/Join v2 (0000 ADDENDUM 2026-06-25): people who joined via the invite
+  // link but whose name didn't match the list. They're already added — this is
+  // where the couple keeps or removes them.
+  const { data: rowsRaw } = await supabase
+    .from('guests')
+    .select('guest_id, first_name, last_name, display_name, email, role, created_at')
     .eq('event_id', eventId)
-    .in('status', ['pending_review', 'otp_sent'])
+    .eq('entry_source', 'self_added_unlisted')
+    .is('deleted_at', null)
     .order('created_at', { ascending: false });
 
-  const claims = (claimsRaw ?? []) as ClaimRow[];
+  const rows = (rowsRaw ?? []) as UnlistedRow[];
 
-  // Resolve matched seed-row names for display.
-  const targetIds = claims.map((c) => c.target_guest_id).filter((x): x is string => !!x);
-  const nameByGuestId = new Map<string, string>();
-  if (targetIds.length) {
-    const { data: targets } = await supabase
+  // Existing list members the couple can merge an unlisted joiner INTO (the
+  // "this is actually <name> under a different spelling" case). Host-seeded,
+  // non-deleted, name-ordered. Only fetched when there's something to reconcile.
+  type Candidate = { guest_id: string; first_name: string; last_name: string; display_name: string | null };
+  let candidates: Candidate[] = [];
+  if (rows.length > 0) {
+    const { data: candRaw } = await supabase
       .from('guests')
       .select('guest_id, first_name, last_name, display_name')
-      .in('guest_id', targetIds);
-    for (const t of targets ?? []) {
-      nameByGuestId.set(t.guest_id, (t.display_name?.trim() || `${t.first_name} ${t.last_name}`).trim());
-    }
+      .eq('event_id', eventId)
+      .eq('entry_source', 'host_seeded')
+      .is('deleted_at', null)
+      .order('last_name', { ascending: true })
+      .limit(500);
+    candidates = (candRaw ?? []) as Candidate[];
   }
 
   return (
@@ -75,85 +79,87 @@ export default async function GuestClaimsPage({ params }: Props) {
 
       <header className="mt-3 space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <ShieldCheck className="h-6 w-6 text-terracotta" /> Guest requests
+          <UserPlus className="h-6 w-6 text-terracotta" /> Unlisted guests
         </h1>
         <p className="text-sm text-ink/60">
-          People who opened your invite link but weren&rsquo;t an automatic match. Nobody is
-          added until you confirm them — keeping your guest list private.
+          These people joined through your invite link but weren&rsquo;t on your list — a
+          forgotten guest, a plus-one, or a typo. They&rsquo;re already added; keep the ones
+          who belong, remove the ones who don&rsquo;t.
         </p>
       </header>
 
-      {claims.length === 0 ? (
+      {rows.length === 0 ? (
         <div className="mt-10 rounded-xl border border-ink/10 bg-ink/[0.02] p-8 text-center">
-          <p className="text-sm text-ink/60">No pending requests right now.</p>
+          <p className="text-sm text-ink/60">Nobody to review right now.</p>
         </div>
       ) : (
         <ul className="mt-6 space-y-3">
-          {claims.map((c) => {
-            const matchedName = c.target_guest_id ? nameByGuestId.get(c.target_guest_id) : null;
-            const scorePct = c.match_score != null ? Math.round(c.match_score * 100) : null;
+          {rows.map((g) => {
+            const name = (g.display_name?.trim() || `${g.first_name} ${g.last_name}`).trim();
             return (
-              <li key={c.claim_id} className="rounded-xl border border-ink/10 bg-white p-4 shadow-sm">
+              <li key={g.guest_id} className="rounded-xl border border-ink/10 bg-white p-4 shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <p className="font-medium text-ink">{c.claimer_name}</p>
+                    <p className="font-medium text-ink">{name}</p>
                     <p className="text-sm text-ink/60">
-                      {c.claimer_email ?? 'no email on file'} · wants to join as{' '}
-                      {ROLE_LABELS[c.requested_role]}
+                      {g.email ?? 'no email on file'} · joined as {ROLE_LABELS[g.role ?? 'guest']}
                     </p>
                   </div>
-                  {c.status === 'otp_sent' ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-warn-50 px-2.5 py-1 text-xs font-medium text-warn-700">
-                      <Clock className="h-3 w-3" /> verifying by email
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center rounded-full bg-terracotta/10 px-2.5 py-1 text-xs font-medium text-terracotta-700">
-                      needs review
-                    </span>
-                  )}
+                  <span className="inline-flex items-center rounded-full bg-warn-100 px-2.5 py-1 text-xs font-medium text-warn-900">
+                    not on your list
+                  </span>
                 </div>
 
-                <p className="mt-2 text-sm text-ink/70">
-                  {matchedName ? (
-                    <>
-                      Looks like your guest{' '}
-                      <span className="font-medium text-ink">{matchedName}</span>
-                      {scorePct != null ? <span className="text-ink/50"> · {scorePct}% name match</span> : null}
-                    </>
-                  ) : (
-                    <span className="text-ink/50">No match on your current list.</span>
-                  )}
-                </p>
-
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {c.target_guest_id ? (
-                    <form action={approveClaimAction.bind(null, eventId)}>
-                      <input type="hidden" name="claim_id" value={c.claim_id} />
-                      <input type="hidden" name="mode" value="matched" />
-                      <SubmitButton className="button-primary" pendingLabel="Confirming…">
-                        Confirm as {matchedName ?? 'matched guest'}
-                      </SubmitButton>
-                    </form>
-                  ) : null}
-
-                  <form action={approveClaimAction.bind(null, eventId)}>
-                    <input type="hidden" name="claim_id" value={c.claim_id} />
-                    <input type="hidden" name="mode" value="new" />
-                    <SubmitButton className="button-secondary inline-flex items-center gap-1.5" pendingLabel="Adding…">
-                      <UserPlus className="h-4 w-4" /> Add as new guest
+                  <form action={keepGuestAction.bind(null, eventId)}>
+                    <input type="hidden" name="guest_id" value={g.guest_id} />
+                    <SubmitButton className="button-primary inline-flex items-center gap-1.5" pendingLabel="Keeping…">
+                      <UserCheck className="h-4 w-4" /> Keep on my list
                     </SubmitButton>
                   </form>
 
-                  <form action={rejectClaimAction.bind(null, eventId)}>
-                    <input type="hidden" name="claim_id" value={c.claim_id} />
+                  <form action={removeGuestAction.bind(null, eventId)}>
+                    <input type="hidden" name="guest_id" value={g.guest_id} />
                     <button
                       type="submit"
                       className="rounded-md px-3 py-2 text-sm text-ink/50 hover:bg-ink/5 hover:text-ink"
                     >
-                      Decline
+                      Remove
                     </button>
                   </form>
                 </div>
+
+                {/* LINK: this joiner is actually someone already on the list. */}
+                {candidates.length > 0 ? (
+                  <form
+                    action={linkGuestAction.bind(null, eventId)}
+                    className="mt-3 flex flex-wrap items-center gap-2 border-t border-ink/5 pt-3"
+                  >
+                    <input type="hidden" name="guest_id" value={g.guest_id} />
+                    <span className="inline-flex items-center gap-1.5 text-sm text-ink/55">
+                      <Link2 className="h-4 w-4" /> Same as
+                    </span>
+                    <select
+                      name="target_guest_id"
+                      required
+                      defaultValue=""
+                      aria-label="Link to an existing guest"
+                      className="input-field h-9 flex-1 py-1 text-sm sm:flex-none"
+                    >
+                      <option value="" disabled>
+                        Choose a guest on your list…
+                      </option>
+                      {candidates.map((c) => (
+                        <option key={c.guest_id} value={c.guest_id}>
+                          {(c.display_name?.trim() || `${c.first_name} ${c.last_name}`).trim()}
+                        </option>
+                      ))}
+                    </select>
+                    <SubmitButton className="button-secondary text-sm" pendingLabel="Linking…">
+                      Link
+                    </SubmitButton>
+                  </form>
+                ) : null}
               </li>
             );
           })}

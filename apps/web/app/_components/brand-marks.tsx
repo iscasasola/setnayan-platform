@@ -6,10 +6,12 @@
  * WHY: CLAUDE.md 2026-05-28 11th row "v2.1 template package adoption". The
  * template's components/marks.jsx ships 4 brand-mark React components used
  * across every marketing surface (hero, nav, footer, keynote slides). This
- * file ports them faithfully into the production codebase, matching the
- * canonical "SET NA 'YAN" wordmark with the orange apostrophe accent.
+ * file ports them faithfully into the production codebase. The wordmark text is
+ * the canonical full spelling "SETNAYAN" (owner 2026-06-26: the earlier v2.1
+ * "SET NA 'YAN" stylization is retired — it read as the old logo; brand lock is
+ * SETNAYAN spelled in full).
  *
- * SCOPE: marketing surfaces only (/, /for-vendors, /keynote*, /signup,
+ * SCOPE: marketing surfaces only (/, /vendors, /keynote*, /signup,
  * /login, /pricing, /privacy, etc.). The existing `Logo` in `./logo.tsx` is
  * used in app-chrome surfaces (dashboard, admin, vendor-dashboard); both
  * coexist intentionally and now share the same canonical mark asset
@@ -31,7 +33,7 @@
  * The mark image resolves via `useBrandMark()` so the admin-uploaded default
  * brand icon (owner 2026-06-10) flows through here too — falling back to the
  * canonical gold SVG when none is set. Only the IMAGE switches; the
- * "SET NA 'YAN" text wordmark below is unaffected.
+ * "SETNAYAN" text wordmark below is unaffected.
  */
 
 import { useBrandMark } from './brand-provider';
@@ -55,10 +57,9 @@ export function LogoMark({ size = 40, className }: { size?: number; className?: 
 }
 
 /**
- * Standard wordmark — icon + "SET NA 'YAN" wordmark in display font. The
- * apostrophe (`'`) is rendered in burnt sienna (var(--m-orange)) — that's
- * the brand-origin accent that maps back to the phrase "Set na 'yan."
- * (Tagalog: "that's all set"). Default size 22 matches nav-bar use.
+ * Standard wordmark — icon + "SETNAYAN" wordmark (full spelling) in the condensed
+ * display font. Default size 22 matches nav-bar use. (The brand-origin phrase
+ * "Set na 'yan." still lives in copy; it's no longer the logo wordmark.)
  */
 export function Wordmark({
   size = 22,
@@ -80,12 +81,12 @@ export function Wordmark({
           fontFamily: 'var(--font-condensed), "Saira Condensed", sans-serif',
           fontSize: size * 1.04,
           fontWeight: 800,
-          letterSpacing: '0.005em',
+          letterSpacing: '0.04em',
           lineHeight: 1,
           textTransform: 'uppercase',
         }}
       >
-        SET NA <span style={{ color: 'var(--m-orange)' }}>&lsquo;</span>YAN
+        SETNAYAN
       </span>
     </span>
   );
@@ -115,13 +116,13 @@ export function WordmarkLarge({
           fontFamily: 'var(--font-condensed), "Saira Condensed", sans-serif',
           fontSize: size,
           fontWeight: 800,
-          letterSpacing: '0.01em',
+          letterSpacing: '0.04em',
           color,
           lineHeight: 1,
           textTransform: 'uppercase',
         }}
       >
-        SET NA <span style={{ color: 'var(--m-orange)' }}>&lsquo;</span>YAN
+        SETNAYAN
       </div>
     </div>
   );

@@ -89,6 +89,67 @@ const ENDPOINTS: Endpoint[] = [
       '404 if the row is missing or unpublished.',
     ],
   },
+  {
+    method: 'GET',
+    path: '/api/v1/vendor/profile',
+    auth: 'bearer',
+    scope: 'vendor.profile.read',
+    summary:
+      'Your own business profile, services, and packages (Enterprise vendor SDK).',
+    example: `curl https://setnayan-platform-web.vercel.app/api/v1/vendor/profile \\
+  -H "Authorization: Bearer sk_live_…"`,
+    notes: [
+      'Requires a Custom vendor plan with API access enabled.',
+      'Returns your own list/quote prices — never other vendors’ data.',
+    ],
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/vendor/leads',
+    auth: 'bearer',
+    scope: 'vendor.leads.read',
+    summary: 'Your inbound couple inquiries — status, event date, requested services.',
+    example: `curl "https://setnayan-platform-web.vercel.app/api/v1/vendor/leads?limit=25" \\
+  -H "Authorization: Bearer sk_live_…"`,
+    notes: [
+      'Pagination: ?limit= (max 100, default 25), ?cursor= from next_cursor.',
+      'No couple contact details — those live in the accepted chat thread only.',
+    ],
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/vendor/bookings',
+    auth: 'bearer',
+    scope: 'vendor.bookings.read',
+    summary: 'Your confirmed bookings — lifecycle status + event date.',
+    example: `curl "https://setnayan-platform-web.vercel.app/api/v1/vendor/bookings?limit=25" \\
+  -H "Authorization: Bearer sk_live_…"`,
+    notes: [
+      'Never returns the couple’s budget or any amount — Setnayan records no transaction (0% commission, off-platform settlement).',
+    ],
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/vendor/availability',
+    auth: 'bearer',
+    scope: 'vendor.availability.read',
+    summary: 'Your calendar busy/free blocks + day states, for a date window.',
+    example: `curl "https://setnayan-platform-web.vercel.app/api/v1/vendor/availability?from=2026-08-01&to=2026-12-31" \\
+  -H "Authorization: Bearer sk_live_…"`,
+    notes: [
+      'Windowed: pass ?from= & ?to= (ISO dates). Private block labels + client names are stripped.',
+    ],
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/vendor/reviews',
+    auth: 'bearer',
+    scope: 'vendor.reviews.read',
+    summary: 'Reviews on your business — ratings, body, your replies.',
+    example: `curl "https://setnayan-platform-web.vercel.app/api/v1/vendor/reviews?limit=25" \\
+  -H "Authorization: Bearer sk_live_…"`,
+    notes: ['Reviewer identity is excluded. Pagination same as /vendor/leads.'],
+  },
 ];
 
 /**
@@ -106,9 +167,12 @@ export default function ApiV1ReferencePage() {
         </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">v1 reference</h1>
         <p className="max-w-2xl text-base text-ink/65">
-          Read-only endpoints for the Setnayan platform. Phase A (events + guests)
-          is Bearer-authenticated; Phase C (vendor browse) is public. Webhooks and
-          booking write paths land in V1.5.
+          Read-only endpoints for the Setnayan platform. Events + guests are
+          Bearer-authenticated; vendor browse is public. The{' '}
+          <span className="font-medium text-ink">Enterprise vendor SDK</span>{' '}
+          (/api/v1/vendor/*) syncs your leads, bookings, availability, and reviews
+          into your own systems, and requires a Custom plan with API access.
+          Webhooks and write paths land in a later phase.
         </p>
         <p className="text-sm text-ink/55">
           Create a token at{' '}
@@ -174,6 +238,32 @@ export default function ApiV1ReferencePage() {
           <li>
             <code className="font-mono text-xs">vendors.read</code> — reserved for the V1.5
             booking flow. /api/v1/vendors is already public.
+          </li>
+          <li className="pt-1.5 text-ink/55">
+            <span className="font-mono text-[11px] uppercase tracking-[0.15em]">
+              Enterprise vendor SDK
+            </span>{' '}
+            — the scopes below require a Custom vendor plan with API access enabled.
+          </li>
+          <li>
+            <code className="font-mono text-xs">vendor.leads.read</code> — your inbound
+            couple inquiries.
+          </li>
+          <li>
+            <code className="font-mono text-xs">vendor.bookings.read</code> — your confirmed
+            bookings.
+          </li>
+          <li>
+            <code className="font-mono text-xs">vendor.availability.read</code> — your
+            calendar blocks + day states.
+          </li>
+          <li>
+            <code className="font-mono text-xs">vendor.reviews.read</code> — reviews on your
+            business.
+          </li>
+          <li>
+            <code className="font-mono text-xs">vendor.profile.read</code> — your own profile,
+            services, and packages.
           </li>
         </ul>
       </section>

@@ -14,11 +14,15 @@ DECLARE
 BEGIN
   SELECT event_id INTO v_event_id FROM public.events WHERE slug = 'maria-and-jose' LIMIT 1;
   IF v_event_id IS NULL THEN
-    INSERT INTO public.events (event_type, display_name, slug, is_sample, bride_name, groom_name, event_date, is_primary, ceremony_type, venue_setting)
-    VALUES ('wedding', 'Maria & Jose', 'maria-and-jose', TRUE, 'Maria', 'Jose', DATE '2026-12-12', FALSE, 'catholic', 'heritage')
+    -- landing_page_visibility is set explicitly to 'public': under the
+    -- 2026-06-20 private-by-default (mig 20270206705422) the column otherwise
+    -- lands 'private' on a fresh insert, which 404s the /realstories card's
+    -- /[slug] tap-through for anonymous visitors. The sample must stay public.
+    INSERT INTO public.events (event_type, display_name, slug, is_sample, bride_name, groom_name, event_date, is_primary, ceremony_type, venue_setting, landing_page_visibility)
+    VALUES ('wedding', 'Maria & Jose', 'maria-and-jose', TRUE, 'Maria', 'Jose', DATE '2026-12-12', FALSE, 'catholic', 'heritage', 'public')
     RETURNING event_id INTO v_event_id;
   ELSE
-    UPDATE public.events SET is_sample = TRUE WHERE event_id = v_event_id;
+    UPDATE public.events SET is_sample = TRUE, landing_page_visibility = 'public' WHERE event_id = v_event_id;
   END IF;
 
   INSERT INTO public.event_members (event_id, user_id, member_type, role)
@@ -88,8 +92,10 @@ BEGIN
     INSERT INTO public.vendor_services (vendor_profile_id, category, title, starts_at_centavos, starting_price_php, package_inclusions, is_active, is_demo, demo_batch_id)
     VALUES (v_vp, r.leaf, r.pkg, r.price, (r.price/100)::int, '[]'::jsonb, TRUE, TRUE, v_batch);
 
-    INSERT INTO public.event_vendors (event_id, category, vendor_name, marketplace_vendor_id, status)
-    VALUES (v_event, r.coarse, r.biz, v_vp, 'considering');
+    -- linked_vendor_profile_id mirrors marketplace_vendor_id so the editorial
+    -- credit + style-twin batch (both read linked_*) light up without a backfill.
+    INSERT INTO public.event_vendors (event_id, category, vendor_name, marketplace_vendor_id, linked_vendor_profile_id, status)
+    VALUES (v_event, r.coarse, r.biz, v_vp, v_vp, 'considering');
   END LOOP;
 END $$;
 
@@ -107,9 +113,9 @@ BEGIN
   INSERT INTO public.vendor_services (vendor_profile_id, category, title, starts_at_centavos, starting_price_php, package_inclusions, is_active, is_demo, demo_batch_id) VALUES
     (v_vp,'photography','Combo · Photo Coverage',9000000,90000,'[]'::jsonb,TRUE,TRUE,v_batch),
     (v_vp,'videography','Combo · Video Coverage',9500000,95000,'[]'::jsonb,TRUE,TRUE,v_batch);
-  INSERT INTO public.event_vendors (event_id, category, vendor_name, marketplace_vendor_id, status) VALUES
-    (v_event,'photographer','Sulyap Studios',v_vp,'considering'),
-    (v_event,'videographer','Sulyap Studios',v_vp,'considering');
+  INSERT INTO public.event_vendors (event_id, category, vendor_name, marketplace_vendor_id, linked_vendor_profile_id, status) VALUES
+    (v_event,'photographer','Sulyap Studios',v_vp,v_vp,'considering'),
+    (v_event,'videographer','Sulyap Studios',v_vp,v_vp,'considering');
 
   -- BUNDLE: one vendor, an all-in package (inclusions list the bundled items)
   INSERT INTO public.vendor_profiles (business_name, business_slug, tagline, location_city, services, public_visibility, is_demo, demo_batch_id)
@@ -118,8 +124,8 @@ BEGIN
   INSERT INTO public.vendor_services (vendor_profile_id, category, title, starts_at_centavos, starting_price_php, package_inclusions, is_active, is_demo, demo_batch_id)
   VALUES (v_vp,'wedding_coordination','All-in Wedding Bundle',18000000,180000,
     '["Full coordination","Host / emcee","Lights & sound","Photo + video","Bridal car"]'::jsonb,TRUE,TRUE,v_batch);
-  INSERT INTO public.event_vendors (event_id, category, vendor_name, marketplace_vendor_id, status)
-  VALUES (v_event,'planner_coordinator','Buong Kasal Co.',v_vp,'considering');
+  INSERT INTO public.event_vendors (event_id, category, vendor_name, marketplace_vendor_id, linked_vendor_profile_id, status)
+  VALUES (v_event,'planner_coordinator','Buong Kasal Co.',v_vp,v_vp,'considering');
 END $$;
 
 -- ===== BLOCK 4: makeup_artist (HMUA) vendors =====
@@ -164,7 +170,31 @@ BEGIN
     INSERT INTO public.vendor_services (vendor_profile_id, category, title, starts_at_centavos, starting_price_php, package_inclusions, is_active, is_demo, demo_batch_id)
     VALUES (v_vp, 'bridal_hmua', r.pkg, r.price, (r.price/100)::int, '[]'::jsonb, TRUE, TRUE, v_batch);
 
-    INSERT INTO public.event_vendors (event_id, category, vendor_name, marketplace_vendor_id, status)
-    VALUES (v_event, 'makeup_artist'::vendor_category, r.biz, v_vp, 'considering');
+    INSERT INTO public.event_vendors (event_id, category, vendor_name, marketplace_vendor_id, linked_vendor_profile_id, status)
+    VALUES (v_event, 'makeup_artist'::vendor_category, r.biz, v_vp, v_vp, 'considering');
   END LOOP;
 END $$;
+
+-- ===== BLOCK 4: bump the 5 "chosen" demo vendors to Pro =====
+-- ROOT-CAUSE fix (2026-07-01): the vendor INSERTs above carry no tier_state, so
+-- they land on the DEFAULT tier_state='free'. The /realstories style-twin chips
+-- AND the /[slug] editorial "Team Behind the Day" credit ONLY Pro/Enterprise
+-- vendors (by design), so a fresh re-seed otherwise reintroduces the zero-Pro
+-- gap (no style-twin chips, empty credits) — exactly what migration
+-- 20270331300000 was written to patch after the fact. Setting tier_state here
+-- makes the seed ALONE fully provision the Real Story (no follow-up migration
+-- needed). Same 5 picks (one per key category) + same predicate as that
+-- migration; idempotent + demo-only (is_demo=TRUE), so it never touches real
+-- vendor billing or tier counts (admin/stats queries already exclude is_demo).
+UPDATE public.vendor_profiles
+   SET tier_state = 'pro'
+ WHERE demo_batch_id = 'a1a1a1a1-0000-4000-8000-000000000a01'
+   AND is_demo = TRUE
+   AND business_name IN (
+     'Habi Photo Co.',   -- photographer
+     'Alon Films',       -- videographer
+     'Bulaklak & Co.',   -- florist
+     'Hain Catering',    -- catering
+     'Araw Planners'     -- planner_coordinator
+   )
+   AND tier_state IS DISTINCT FROM 'pro';

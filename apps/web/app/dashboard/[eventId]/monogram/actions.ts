@@ -107,6 +107,11 @@ export async function saveMonogram(formData: FormData): Promise<void> {
   revalidatePath(`/dashboard/${eventId}/monogram`);
 }
 
+// saveMonogramMotion + the standalone MonogramAnimatePicker were RETIRED
+// 2026-06-23 — the reveal is chosen in the Vector Studio's "Animate the reveal"
+// panel (the single home), not a separate picker. The reveal-unification wires
+// that panel's choice (monogram_studio_config.anim) to the live surfaces.
+
 /* ── Upload your own monogram (owner rule 2026-06-15) ─────────────────────────
    A couple uploads THEIR OWN mark; it OVERRULES every Setnayan mark (the
    Cipher/Bespoke `monogram_custom_svg` AND the lettered lockup). Stored on

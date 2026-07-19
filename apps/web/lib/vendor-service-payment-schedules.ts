@@ -35,7 +35,83 @@ export type PaymentScheduleItemRow = {
   due_offset_days: number | null;
   created_at: string;
   updated_at: string;
+  // No-Show Downpayment Protection — reservation policy on the downpayment
+  // (seq 0) row only. Null/false on every non-downpayment installment.
+  cancellation_terms: string | null;
+  downpayment_non_refundable: boolean;
+  refund_window_days: number | null;
+  no_show_forfeit: boolean;
 };
+
+// ===========================================================================
+// No-Show Downpayment Protection — reservation policy on the downpayment row.
+//
+// The vendor's no-show / cancellation terms attach to the seq-0 downpayment
+// installment. The couple must ACKNOWLEDGE them before a lock commits (when
+// the downpayment is non-refundable OR carries a no-show forfeit); the policy
+// text is then FROZEN into event_vendor_policy_acknowledgements at lock so a
+// later template edit can't rewrite forfeit-dispute history. No money moves.
+// ===========================================================================
+
+/** The reservation policy fields as carried on the seq-0 downpayment row. */
+export type DownpaymentPolicy = {
+  cancellation_terms: string | null;
+  downpayment_non_refundable: boolean;
+  refund_window_days: number | null;
+  no_show_forfeit: boolean;
+};
+
+/**
+ * The immutable policy snapshot stored in
+ * event_vendor_policy_acknowledgements.policy_snapshot_json at lock. Captures
+ * the downpayment's policy fields + its human label + the resolved amount, so
+ * an admin can adjudicate a forfeit from this row alone.
+ */
+export type PolicySnapshot = DownpaymentPolicy & {
+  /** The downpayment installment's label at lock-time (e.g. "Downpayment"). */
+  downpayment_label: string | null;
+  /** The resolved downpayment amount (PHP) at lock, when computable. */
+  downpayment_amount_php: number | null;
+};
+
+/**
+ * Whether a reservation policy is "protected" — i.e. it carries terms a couple
+ * must explicitly acknowledge before locking (non-refundable downpayment OR a
+ * no-show forfeit). A plain refund-window-only disclosure is NOT a gate.
+ */
+export function isProtectedPolicy(p: DownpaymentPolicy | null | undefined): boolean {
+  if (!p) return false;
+  return Boolean(p.downpayment_non_refundable) || Boolean(p.no_show_forfeit);
+}
+
+/**
+ * Pull the reservation policy off a service's schedule rows. The policy lives
+ * on the seq-0 (downpayment) row only; returns null when there's no downpayment
+ * row or it carries no terms at all. A refund-window-only policy is still
+ * returned so the disclosure can render, but isProtectedPolicy gates the
+ * acknowledgement.
+ */
+export function downpaymentPolicyFromRows(
+  rows: Pick<
+    PaymentScheduleItemRow,
+    'seq' | 'cancellation_terms' | 'downpayment_non_refundable' | 'refund_window_days' | 'no_show_forfeit'
+  >[],
+): DownpaymentPolicy | null {
+  const dp = rows.find((r) => r.seq === 0);
+  if (!dp) return null;
+  const policy: DownpaymentPolicy = {
+    cancellation_terms: dp.cancellation_terms ?? null,
+    downpayment_non_refundable: Boolean(dp.downpayment_non_refundable),
+    refund_window_days: dp.refund_window_days ?? null,
+    no_show_forfeit: Boolean(dp.no_show_forfeit),
+  };
+  const hasAny =
+    policy.cancellation_terms != null ||
+    policy.downpayment_non_refundable ||
+    policy.refund_window_days != null ||
+    policy.no_show_forfeit;
+  return hasAny ? policy : null;
+}
 
 /** Hard ceiling on installments per service — keeps the card/editor tidy. */
 export const MAX_SCHEDULE_ITEMS = 12;
@@ -60,6 +136,12 @@ export type ScheduleItemDraft = {
   due_anchor: DueAnchor | null;
   /** Days relative to the anchor; null when no anchor. */
   due_offset_days: number | null;
+  // No-Show Downpayment Protection — only meaningful on the downpayment (seq 0)
+  // row; the editor renders these fields on that row alone.
+  cancellation_terms: string | null;
+  downpayment_non_refundable: boolean;
+  refund_window_days: number | null;
+  no_show_forfeit: boolean;
 };
 
 /** Display-shaped installment for couple-facing surfaces (PR-B renders it). */
@@ -189,6 +271,56 @@ export function computePlanInstances(opts: {
     });
 }
 
+/**
+ * The fallback 50/50 payment schedule.
+ *
+ * Used when a marketplace vendor locks a booking that carries a total but has
+ * NO vendor_service_payment_schedules rows — the couple would otherwise get an
+ * empty plan / silent "pay the vendor directly". Instead they see an ESTIMATED
+ * downpayment (50%, due on lock) + balance (50%, due 14 days before the event)
+ * they can confirm with the vendor; the plan is flagged is_default_seeded so
+ * the UI can label it as an estimate. A vendor who later sets a real schedule
+ * overrides this on the next lock.
+ *
+ * Pure — returns in-memory template rows in the PaymentScheduleItemRow shape
+ * (never persisted to the vendor's own table); only the fields computePlanInstances
+ * reads are meaningful, the rest are inert placeholders.
+ */
+export function defaultPaymentScheduleRows(): PaymentScheduleItemRow[] {
+  const base = {
+    schedule_item_id: '',
+    vendor_service_id: '',
+    vendor_profile_id: '',
+    amount_centavos: null,
+    created_at: '',
+    updated_at: '',
+    cancellation_terms: null,
+    downpayment_non_refundable: false,
+    refund_window_days: null,
+    no_show_forfeit: false,
+  };
+  return [
+    {
+      ...base,
+      seq: 0,
+      label: 'Downpayment (estimated)',
+      amount_kind: 'percent',
+      percent_bps: 5000,
+      due_anchor: 'on_lock',
+      due_offset_days: 0,
+    },
+    {
+      ...base,
+      seq: 1,
+      label: 'Balance (estimated)',
+      amount_kind: 'percent',
+      percent_bps: 5000,
+      due_anchor: 'before_event',
+      due_offset_days: 14,
+    },
+  ];
+}
+
 // ===========================================================================
 // Per-installment PROGRESS STEPPER (Phase 2 PR-D).
 //
@@ -250,6 +382,61 @@ export function computeStepper(
 }
 
 /**
+ * A glance-level money roll-up for one booking's installment plan — the
+ * vendor-side mirror of the couple's BudgetLiveSummary, but derived purely from
+ * the stepper steps already loaded (no extra query, no couple-RLS access). Used
+ * to crown the per-booking plan card on the vendor thread with "received of
+ * total · %" + the next installment owed.
+ */
+export type PlanRollup = {
+  /** Σ of every installment's resolved amount (PHP). Null amounts count as 0. */
+  total: number;
+  /** Σ of vendor-confirmed installments (state 'paid'). */
+  received: number;
+  /** Σ of logged-but-unconfirmed installments (state 'pending'). */
+  pending: number;
+  /** Whole-number percent received (0–100); 0 when total is 0. */
+  percentReceived: number;
+  /** Earliest not-yet-paid installment (due or pending), or null if all paid. */
+  next: { label: string; amountPhp: number; dueDate: string | null } | null;
+};
+
+/**
+ * Collapse a booking's stepper into its PlanRollup. Pure. `next` is the
+ * earliest non-paid installment by due_date (dated first, then by seq), so the
+ * vendor sees what's owed next at a glance. Amounts that haven't resolved yet
+ * (percent installments before the total exists) count as 0 toward the totals.
+ */
+export function computePlanRollup(steps: StepperInstallment[]): PlanRollup {
+  let total = 0;
+  let received = 0;
+  let pending = 0;
+  for (const s of steps) {
+    const amt = Number(s.amount_php) || 0;
+    total += amt;
+    if (s.state === 'paid') received += amt;
+    else if (s.state === 'pending') pending += amt;
+  }
+  const percentReceived =
+    total > 0 ? Math.min(100, Math.round((received / total) * 100)) : 0;
+
+  const open = steps
+    .filter((s) => s.state !== 'paid')
+    .sort((a, b) => {
+      if (a.due_date && b.due_date) return a.due_date.localeCompare(b.due_date);
+      if (a.due_date) return -1;
+      if (b.due_date) return 1;
+      return a.seq - b.seq;
+    });
+  const n = open[0];
+  const next = n
+    ? { label: n.label, amountPhp: Number(n.amount_php) || 0, dueDate: n.due_date ?? null }
+    : null;
+
+  return { total, received, pending, percentReceived, next };
+}
+
+/**
  * Whether the vendor may mark the whole plan cleared: every installment must be
  * 'paid' (vendor-confirmed). An empty plan (no formal schedule) is vacuously
  * clearable at the vendor's discretion — mirrors the DB guard's gate exactly.
@@ -265,6 +452,12 @@ export type PlanProgress = {
   steps: StepperInstallment[] | null;
   /** Set when the whole plan has been marked cleared by the vendor. */
   clearedAt: string | null;
+  /**
+   * True when the plan is the 50/50 ESTIMATED fallback (the vendor set no
+   * schedule) — the couple-facing UI labels it "estimated, confirm with your
+   * vendor". Optional/undefined on reads that don't select it.
+   */
+  isDefaultSeeded?: boolean;
 };
 
 /** Map a stored row to the human-unit draft shape the editor renders. */
@@ -277,6 +470,10 @@ export function rowToDraft(row: PaymentScheduleItemRow): ScheduleItemDraft {
     amount_php: row.amount_centavos != null ? centavosToPhp(row.amount_centavos) : null,
     due_anchor: row.due_anchor,
     due_offset_days: row.due_offset_days,
+    cancellation_terms: row.cancellation_terms ?? null,
+    downpayment_non_refundable: Boolean(row.downpayment_non_refundable),
+    refund_window_days: row.refund_window_days ?? null,
+    no_show_forfeit: Boolean(row.no_show_forfeit),
   };
 }
 

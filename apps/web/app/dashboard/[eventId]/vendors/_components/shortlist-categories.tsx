@@ -28,15 +28,35 @@ import { useRouter } from 'next/navigation';
 import {
   Search,
   ChevronDown,
+  ArrowRight,
   Star,
   MapPin,
+  MapPinOff,
+  Wallet,
+  CalendarCheck,
+  CalendarX2,
   BadgeCheck,
   Sparkles,
   Pencil,
   SlidersHorizontal,
 } from 'lucide-react';
 import { formatPhp } from '@/lib/vendors';
+import {
+  BENCH_SORTS,
+  sortWithReasons,
+  type BenchSort,
+  type SortReason,
+} from '@/lib/bench-sort';
+import {
+  FREE_VENUE_ASSIST_CHIP,
+  isSuriAssistFreeForCategory,
+} from '@/lib/setnayan-ai-free-assist';
 import { NewManualVendorModal } from '@/app/dashboard/[eventId]/_components/new-manual-vendor-modal';
+import { InspectorTrigger } from '@/app/_components/inspector/inspector-column';
+import {
+  searchMarketplaceForBench,
+  type BenchMarketResult,
+} from '../_actions/bench-marketplace-search';
 import type { ShortlistFolder, ShortlistVendor } from '@/lib/shortlist-taxonomy';
 import {
   RequirementsModal,
@@ -49,10 +69,10 @@ import {
 } from '../requirements-actions';
 
 const SLCAT_CSS = `
-.slcat{--paper:var(--m-paper,#FBFBFA);--ink:var(--m-ink,#1E2229);--ink-soft:#4F535B;
-  --gold:var(--m-orange,#C5A059);--gold-deep:var(--m-orange-2,#8C6932);
-  --mulberry:var(--m-mulberry,#5C2542);--line:var(--m-line,rgba(30,34,41,.12));
-  --line-soft:rgba(30,34,41,.07);--card:#fff;
+.slcat{--paper:var(--m-paper,#FBFBFA);--ink:var(--m-ink,#1B1A17);--ink-soft:#4F535B;
+  --gold:var(--m-orange,#A9834B);--gold-deep:var(--m-orange-2,#8C6932);
+  --mulberry:var(--m-mulberry,#1B1A17);--line:var(--m-line,rgba(30,26,18,.12));
+  --line-soft:rgba(30,26,18,.07);--card:#fff;
   --serif:var(--font-display),"Cormorant Garamond",Georgia,serif;
   --sans:var(--font-sans),"Manrope",-apple-system,system-ui,sans-serif;
   --mono:var(--font-mono),"DM Mono",ui-monospace,Menlo,monospace;
@@ -62,7 +82,7 @@ const SLCAT_CSS = `
 
 /* ── Level 1 · folder card (collapsible) ── */
 .slcat .fold{margin:0 0 8px;background:var(--card);border:0.5px solid var(--line);border-radius: var(--m-r-md);overflow:hidden;transition:box-shadow .3s var(--ease),border-color .3s var(--ease)}
-.slcat .fold.open{box-shadow:0 8px 22px -16px rgba(30,34,41,.4);border-color:rgba(30,34,41,.16)}
+.slcat .fold.open{box-shadow:0 8px 22px -16px rgba(30,26,18,.4);border-color:rgba(30,26,18,.16)}
 .slcat .fold-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;background:transparent;border:0;cursor:pointer;padding:13px 16px;font:inherit;text-align:left;min-height:48px}
 .slcat .fold-nm{font-family:var(--serif);font-style:italic;font-size:18px;font-weight:600;color:var(--ink);line-height:1;letter-spacing:.01em}
 .slcat .fold.open .fold-nm{color:var(--mulberry)}
@@ -73,10 +93,17 @@ const SLCAT_CSS = `
 .slcat .fold.open .fold-chev{transform:rotate(180deg);color:var(--mulberry)}
 
 /* ── Level 2 · category rows inside an open folder (connecting rail) ── */
-.slcat .fold-body{position:relative;padding:0 0 8px;animation:slcat-rise .26s var(--ease) both}
-.slcat .fold-body::before{content:'';position:absolute;left:22px;top:0;bottom:14px;width:2px;background:rgba(92,37,66,.16);border-radius: var(--m-r-xs);pointer-events:none}
-@keyframes slcat-rise{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.slcat .fold-body{animation:none}}
+.slcat .fold-body{position:relative;padding:0 0 8px}
+.slcat .fold-body::before{content:'';position:absolute;left:22px;top:0;bottom:14px;width:2px;background:rgba(30, 26, 18,.16);border-radius: var(--m-r-xs);pointer-events:none}
+/* smooth expand/collapse (2026-07-10): the body is ALWAYS mounted inside a
+   grid-rows wrapper, so toggling the parent's .open class animates height 0fr↔1fr
+   BOTH ways. overflow clips the body while collapsing; a delayed visibility flip
+   pulls collapsed content out of the tab order without cutting the animation. */
+.slcat .fold-collapse,.slcat .cat-collapse{display:grid;grid-template-rows:0fr;transition:grid-template-rows .3s var(--ease)}
+.slcat .fold.open .fold-collapse,.slcat .cat.open .cat-collapse{grid-template-rows:1fr}
+.slcat .fold-collapse>.fold-body,.slcat .cat-collapse>.cat-body{overflow:hidden;min-height:0;opacity:.4;visibility:hidden;transition:opacity .26s var(--ease),visibility 0s .3s}
+.slcat .fold.open .fold-body,.slcat .cat.open .cat-body{opacity:1;visibility:visible;transition:opacity .26s var(--ease),visibility 0s 0s}
+@media (prefers-reduced-motion:reduce){.slcat .fold-collapse,.slcat .cat-collapse,.slcat .fold-collapse>.fold-body,.slcat .cat-collapse>.cat-body{transition:none}}
 .slcat .cat{margin:0 14px 0 34px;border-top:1px solid var(--line-soft)}
 .slcat .fold-body .cat:first-child{border-top:0}
 .slcat .cat-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;background:transparent;border:0;cursor:pointer;padding:10px 4px;font:inherit;text-align:left;min-height:42px}
@@ -85,12 +112,12 @@ const SLCAT_CSS = `
 .slcat .cat-rt{display:flex;align-items:center;gap:9px;flex:0 0 auto}
 .slcat .cat-count{font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;color:#fff;background:var(--mulberry);border-radius: var(--m-r-full);padding:3px 9px;font-weight:600;min-width:21px;text-align:center}
 /* "saved request" icon — view/edit the couple's saved requirements for this leaf */
-.slcat .cat-req{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex:0 0 auto;border:1px solid rgba(92,37,66,.3);background:rgba(92,37,66,.07);color:var(--mulberry);border-radius: var(--m-r-full);cursor:pointer;transition:background .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
-.slcat .cat-req:hover{background:rgba(92,37,66,.13)}
+.slcat .cat-req{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex:0 0 auto;border:1px solid rgba(30, 26, 18,.3);background:rgba(30, 26, 18,.07);color:var(--mulberry);border-radius: var(--m-r-full);cursor:pointer;transition:background .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
+.slcat .cat-req:hover{background:rgba(30, 26, 18,.13)}
 .slcat .cat-req:active{transform:scale(.94)}
 .slcat .cat-chev{color:var(--ink-soft);transition:transform .22s var(--ease);flex:0 0 auto}
 .slcat .cat.open .cat-chev{transform:rotate(180deg);color:var(--mulberry)}
-.slcat .cat-body{padding:2px 0 12px;animation:slcat-rise .22s var(--ease) both}
+.slcat .cat-body{padding:2px 0 12px}
 
 /* ── Level 3 · vendor carousel + find / add-manually ── */
 .slcat .rail{display:flex;gap:11px;overflow-x:auto;scroll-snap-type:x mandatory;padding:4px 16px 4px 0;scrollbar-width:none}
@@ -98,39 +125,114 @@ const SLCAT_CSS = `
 .slcat .vc{position:relative;flex:0 0 min(206px, calc(100vw - 132px));scroll-snap-align:start;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius: var(--m-r-md);overflow:hidden;text-decoration:none;color:inherit;transition:transform .13s cubic-bezier(.2,.7,.2,1),box-shadow .3s var(--ease)}
 .slcat .vc:active{transform:scale(.98)}
 .slcat .vc:hover{box-shadow:0 10px 28px -18px rgba(0,0,0,.4)}
+/* selected (desktop inspector open on this vendor) — quiet gold ring, kept even
+   through the card's own hover shadow (matches the other inspector consumers) */
+.slcat .vc[data-inspector-selected='true'],.slcat .vc[data-inspector-selected='true']:hover{border-color:transparent;box-shadow:0 0 0 2px var(--gold),0 10px 28px -18px rgba(0,0,0,.4)}
 .slcat .vc .img{height:108px;flex:0 0 108px;background:linear-gradient(135deg,#3a3f47,#565b63);display:flex;align-items:center;justify-content:center;position:relative}
 .slcat .vc .img img{width:100%;height:100%;object-fit:cover}
 .slcat .vc .ini{font-family:var(--serif);font-style:italic;font-size:26px;color:rgba(255,255,255,.7)}
 .slcat .vc .pcorner{position:absolute;top:8px;right:8px;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--mulberry);border-radius: var(--m-r-full);padding:4px 8px}
+/* reason-labeled sort — the "why it's here" ribbon (top-left of the card) */
+.slcat .vc .rpill{position:absolute;top:8px;left:8px;display:inline-flex;align-items:center;font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border-radius:var(--m-r-full);padding:4px 8px;line-height:1}
+.slcat .vc .rpill.ok{color:#fff;background:var(--gold-deep)}
+.slcat .vc .rpill.soft{color:var(--ink);background:rgba(255,255,255,.82);backdrop-filter:blur(2px)}
+html.dark .slcat .vc .rpill.soft{color:#FBFBFA;background:rgba(30,26,18,.7)}
+/* sort toggle — pill segmented control (databerry "Brand addition / Upcoming" feel) */
+.slcat .sortbar{display:flex;align-items:center;gap:9px;margin:0 0 13px;flex-wrap:wrap}
+.slcat .sortbar-lbl{font-family:var(--mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft)}
+.slcat .sortseg{display:inline-flex;gap:3px;padding:3px;background:rgba(30,26,18,.05);border:0.5px solid var(--line);border-radius:var(--m-r-full)}
+.slcat .sortseg button{appearance:none;-webkit-appearance:none;border:0;cursor:pointer;font:inherit;font-family:var(--sans);font-size:12px;font-weight:600;color:var(--ink-soft);background:transparent;border-radius:var(--m-r-full);padding:6px 13px;transition:background .18s var(--ease),color .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
+.slcat .sortseg button:active{transform:scale(.96)}
+.slcat .sortseg button.on{color:#fff;background:var(--mulberry)}
+html.dark .slcat .sortseg{background:rgba(251,251,250,.05)}
+html.dark .slcat .sortseg button.on{color:#1B1A17;background:#C99DB0}
+/* bench search — client-side filter over categories + considered vendors */
+.slcat .bench-search{display:flex;align-items:center;gap:9px;margin:0 0 12px;padding:0 13px;height:42px;background:var(--card);border:1px solid var(--line);border-radius:var(--m-r-md);transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
+.slcat .bench-search:focus-within{border-color:rgba(30,26,18,.28);box-shadow:0 0 0 3px rgba(30,26,18,.06)}
+.slcat .bench-search svg{color:var(--ink-faint);flex:0 0 auto}
+.slcat .bench-search input{flex:1;min-width:0;border:0;background:none;outline:none;font:inherit;font-family:var(--sans);font-size:14px;color:var(--ink)}
+.slcat .bench-search input::placeholder{color:var(--ink-faint)}
+.slcat .bench-search .bs-x{flex:0 0 auto;border:0;background:none;color:var(--ink-faint);cursor:pointer;font-size:18px;line-height:1;padding:2px;display:inline-flex}
+.slcat .bench-search .bs-x:hover{color:var(--mulberry)}
+.slcat .bench-empty{padding:26px 16px;text-align:center;color:var(--ink-faint);font-size:13px}
+/* search the WHOLE marketplace — a one-tap jump to /explore?q= (beyond the shortlist) */
+.slcat .bench-mkt{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:11px 14px;background:var(--card);border:1px solid var(--line);border-radius:var(--m-r-md);text-decoration:none;color:var(--ink);font-size:13px;transition:border-color .18s var(--ease),background .18s var(--ease)}
+.slcat .bench-mkt:hover{border-color:rgba(30,26,18,.28);background:rgba(30,26,18,.02)}
+.slcat .bench-mkt>svg{color:var(--mulberry);flex:0 0 auto}
+.slcat .bench-mkt>span{flex:1;min-width:0}
+.slcat .bench-mkt b{font-weight:600;color:var(--mulberry)}
+.slcat .bench-mkt .bench-mkt-arr{color:var(--ink-faint);flex:0 0 auto;transition:transform .18s var(--ease)}
+.slcat .bench-mkt:hover .bench-mkt-arr{transform:translateX(2px);color:var(--mulberry)}
+html.dark .slcat .bench-mkt{background:#2A2E36}
+/* inline whole-marketplace results — top matches below the shortlist filter */
+.slcat .bench-mkt-results{margin:0 0 10px;background:var(--card);border:1px solid var(--line);border-radius:var(--m-r-md);overflow:hidden}
+.slcat .bmr-head{font-family:var(--mono);font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-faint);padding:10px 14px 6px}
+.slcat .bmr-loading{padding:6px 14px 14px;font-size:12.5px;color:var(--ink-soft)}
+.slcat .bmr-row{display:flex;align-items:center;gap:11px;padding:9px 14px;border-top:1px solid var(--line-soft);text-decoration:none;color:inherit;transition:background .15s var(--ease)}
+.slcat .bmr-row:hover{background:rgba(30,26,18,.03)}
+.slcat .bmr-av{width:32px;height:32px;border-radius:var(--m-r-sm);flex:0 0 auto;display:grid;place-items:center;font-family:var(--serif);font-style:italic;font-size:13px;color:#fff;background:linear-gradient(135deg,#3a3f47,#565b63)}
+.slcat .bmr-m{flex:1;min-width:0}
+.slcat .bmr-m b{font-size:13.5px;font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slcat .bmr-m span{font-size:11px;color:var(--ink-soft)}
+.slcat .bmr-arr{color:var(--ink-faint);flex:0 0 auto;transition:transform .15s var(--ease)}
+.slcat .bmr-row:hover .bmr-arr{transform:translateX(2px);color:var(--mulberry)}
+html.dark .slcat .bench-mkt-results{background:#2A2E36}
+html.dark .slcat .bench-search{background:#2A2E36}
 .slcat .vc .meta{padding:11px 13px 13px;flex:1 1 auto;display:flex;flex-direction:column;gap:5px}
 .slcat .vc .vn{font-family:var(--sans);font-weight:700;font-size:13.5px;color:var(--ink);line-height:1.2}
 .slcat .vc .sub{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9px;letter-spacing:.03em;color:var(--ink-soft)}
 .slcat .vc .stars{display:flex;align-items:center;gap:3px;font-family:var(--mono);font-size:9px;color:var(--gold-deep)}
 .slcat .vc .badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:1px}
-.slcat .vc .bdg{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius: var(--m-r-full);background:rgba(30,34,41,.06);color:var(--ink-soft)}
+.slcat .vc .bdg{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius: var(--m-r-full);background:rgba(30,26,18,.06);color:var(--ink-soft)}
 .slcat .vc .bdg.verified{color:#2e7d4f;background:rgba(46,125,79,.1)}
-.slcat .vc .bdg.setnayan{color:var(--mulberry);background:rgba(92,37,66,.1)}
+.slcat .vc .bdg.setnayan{color:var(--mulberry);background:rgba(30, 26, 18,.1)}
+/* ── fit-badges (2026-07-09): live reach + budget checks on the bench ── */
+.slcat .vc .fits{display:flex;flex-wrap:wrap;gap:4px;margin-top:1px}
+.slcat .vc .fit{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:.05em;text-transform:uppercase;padding:3px 6px;border-radius:var(--m-r-full);font-weight:600;line-height:1}
+.slcat .vc .fit.ok{color:#2e7d4f;background:rgba(46,125,79,.1)}
+.slcat .vc .fit.warn{color:#9a6a12;background:rgba(169,131,75,.16)}
+html.dark .slcat .vc .fit.ok{color:#7bc79a;background:rgba(46,125,79,.18)}
+html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .vc .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:17px;color:var(--ink);margin-top:auto;padding-top:4px}
 /* dashed action cards (in the rail, after the vendors) */
 .slcat .act{flex:0 0 116px;scroll-snap-align:start;display:flex}
 .slcat .act>*{flex:1;min-height:182px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;border-radius: var(--m-r-md);text-decoration:none;font:inherit;cursor:pointer;transition:transform .13s cubic-bezier(.2,.7,.2,1),background .2s var(--ease)}
 .slcat .act>*:active{transform:scale(.97)}
-.slcat .act.find>*{background:rgba(92,37,66,.05);border:1.5px dashed rgba(92,37,66,.4);color:var(--mulberry)}
-.slcat .act.manual>*{background:rgba(30,34,41,.03);border:1.5px dashed var(--line);color:var(--ink-soft)}
+.slcat .act.find>*{background:rgba(30, 26, 18,.05);border:1.5px dashed rgba(30, 26, 18,.4);color:var(--mulberry)}
+.slcat .act.manual>*{background:rgba(30,26,18,.03);border:1.5px dashed var(--line);color:var(--ink-soft)}
 .slcat .act .at{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;line-height:1.4;padding:0 8px}
 /* empty category — Find + Add-manually share a row */
 .slcat .find-set{display:flex;flex-wrap:wrap;gap:8px;padding:2px 16px 2px 0}
 .slcat .fr{display:flex;align-items:center;gap:9px;flex:1 1 150px;padding:12px 14px;border-radius: var(--m-r-md);text-decoration:none;color:inherit;font:inherit;cursor:pointer;text-align:left;appearance:none;-webkit-appearance:none;transition:transform .13s cubic-bezier(.2,.7,.2,1)}
 .slcat .fr:active{transform:scale(.99)}
-.slcat .fr.find{border:1.5px dashed rgba(92,37,66,.32);background:rgba(92,37,66,.03)}
-.slcat .fr.manual{border:1.5px dashed var(--line);background:rgba(30,34,41,.025)}
+.slcat .fr.find{border:1.5px dashed rgba(30, 26, 18,.32);background:rgba(30, 26, 18,.03)}
+.slcat .fr.manual{border:1.5px dashed var(--line);background:rgba(30,26,18,.025)}
 .slcat .fr .fr-i{display:inline-flex;flex:0 0 auto}
 .slcat .fr.find .fr-i,.slcat .fr.find .fr-t{color:var(--mulberry)}
 .slcat .fr.manual .fr-i,.slcat .fr.manual .fr-t{color:var(--ink-soft)}
 .slcat .fr .fr-t{font-family:var(--sans);font-size:13px;font-weight:600}
 .slcat a:focus-visible,.slcat button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 
-html.dark .slcat{--paper:#1E2229;--ink:#FBFBFA;--ink-soft:#B6B9BE;--line:rgba(251,251,250,.16);--line-soft:rgba(251,251,250,.1);--card:#2A2E36}
+/* ── "Your plan" strip — the couple's onboarding category picks, surfaced atop
+   the bench so the plan the reveal promised is one tap from acting on it ── */
+.slcat .plan-strip{margin:0 0 14px;padding:13px 15px;background:rgba(30,26,18,.035);border:0.5px solid var(--line);border-radius:var(--m-r-md)}
+.slcat .plan-eyebrow{font-family:var(--mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--gold-deep);margin:0 0 9px;display:flex;align-items:center;gap:6px}
+.slcat .plan-chips{display:flex;flex-wrap:wrap;gap:7px}
+.slcat .plan-chip{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;background:var(--card);border:1px solid var(--line);border-radius:var(--m-r-full);font:inherit;font-family:var(--sans);font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer;transition:border-color .18s var(--ease),transform .12s cubic-bezier(.2,.7,.2,1)}
+.slcat .plan-chip:hover{border-color:rgba(30,26,18,.32)}
+.slcat .plan-chip:active{transform:scale(.97)}
+.slcat .plan-chip .pc-dot{width:6px;height:6px;border-radius:var(--m-r-full);background:var(--gold);flex:0 0 auto}
+.slcat .plan-chip.done .pc-dot{background:#2e7d4f}
+/* "In your plan" marker beside a category name */
+.slcat .cat-plan{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-deep);background:rgba(169,131,75,.13);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
+/* Free first-venue-shortlist marker (owner 2026-07-09 · Pricing.md § 00) —
+   presentational chip on the venue category while its shortlist is empty */
+.slcat .cat-free{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mulberry);background:rgba(30,26,18,.08);border-radius:var(--m-r-full);padding:3px 8px;font-weight:600;white-space:nowrap}
+
+html.dark .slcat .cat-free{color:#C99DB0;background:rgba(201,157,176,.14)}
+html.dark .slcat .plan-strip{background:rgba(251,251,250,.04)}
+html.dark .slcat .plan-chip{background:#2A2E36}
+html.dark .slcat{--paper:#1B1A17;--ink:#FBFBFA;--ink-soft:#B6B9BE;--line:rgba(251,251,250,.16);--line-soft:rgba(251,251,250,.1);--card:#2A2E36}
 html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dark .slcat .act.find>*,html.dark .slcat .fr.find .fr-i,html.dark .slcat .fr.find .fr-t,html.dark .slcat .vc .bdg.setnayan{color:#C99DB0}
 html.dark .slcat .cat-req{border-color:rgba(201,157,176,.4);background:rgba(201,157,176,.12);color:#C99DB0}
 html.dark .slcat .cat-req:hover{background:rgba(201,157,176,.2)}
@@ -143,9 +245,19 @@ function initials(name: string): string {
   return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
 }
 
-function VendorCard({ v }: { v: ShortlistVendor }) {
+function VendorCard({
+  v,
+  reason,
+}: {
+  v: ShortlistVendor;
+  reason?: SortReason | null;
+}) {
   return (
-    <Link href={v.href} className="vc" prefetch={false}>
+    // Desktop inspector trigger (Merkado phase 3): at ≥xl a plain click opens the
+    // vendor's quick-view in the sticky inspector column instead of navigating;
+    // below xl and on modified / new-tab clicks it stays a plain link to `v.href`
+    // (the vendor's existing detail room). `?inspect=v:<vendorId>` selects it.
+    <InspectorTrigger inspectId={`v:${v.vendorId}`} href={v.href} className="vc">
       <span className="img">
         {v.photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -154,6 +266,9 @@ function VendorCard({ v }: { v: ShortlistVendor }) {
           <span className="ini">{initials(v.name)}</span>
         )}
         {v.status === 'locked' ? <span className="pcorner">★ Chosen</span> : null}
+        {reason && v.status !== 'locked' ? (
+          <span className={`rpill ${reason.tone}`}>{reason.label}</span>
+        ) : null}
       </span>
       <span className="meta">
         <span className="vn">{v.name}</span>
@@ -182,11 +297,83 @@ function VendorCard({ v }: { v: ShortlistVendor }) {
             ) : null}
           </span>
         ) : null}
+        <FitBadges v={v} />
         {v.totalCostPhp != null && v.totalCostPhp > 0 ? (
           <span className="price">{formatPhp(v.totalCostPhp)}</span>
         ) : null}
       </span>
-    </Link>
+    </InspectorTrigger>
+  );
+}
+
+/**
+ * Live fit-badges on a bench card (2026-07-09). Reach + budget + date only
+ * render when there's a real signal — reach hides when coords/tier are unknown
+ * (never a false "out of range"), budget hides when there's no budget set or no
+ * price basis, date hides unless the event has a COMMITTED date and the vendor
+ * is marketplace-connected with a calendar (never a false "Booked"). Warn-only
+ * by design (owner 2026-07-09): a red badge informs, it never blocks. Date-
+ * availability landed 2026-07-09 as the fast-follow to reach+budget — the fit is
+ * computed batched upstream (page.tsx, one calendar query for the whole bench).
+ */
+function FitBadges({ v }: { v: ShortlistVendor }) {
+  const reach =
+    v.reachesVenue === true
+      ? { cls: 'ok', icon: <MapPin size={9} strokeWidth={2.25} aria-hidden />, text: 'Reaches you' }
+      : v.reachesVenue === false
+        ? {
+            cls: 'warn',
+            icon: <MapPinOff size={9} strokeWidth={2.25} aria-hidden />,
+            text: v.serviceRadiusKm ? `Beyond ${v.serviceRadiusKm}km` : 'Travel fee likely',
+          }
+        : null;
+  const budget =
+    v.budgetFit === 'fits'
+      ? {
+          cls: 'ok',
+          icon: <Wallet size={9} strokeWidth={2.25} aria-hidden />,
+          text: v.budgetEstimated ? 'Fits budget · est.' : 'Fits budget',
+        }
+      : v.budgetFit === 'over'
+        ? {
+            cls: 'warn',
+            icon: <Wallet size={9} strokeWidth={2.25} aria-hidden />,
+            text: v.budgetEstimated ? 'Over budget · est.' : 'Over budget',
+          }
+        : null;
+  const date =
+    v.dateFit === 'free'
+      ? {
+          cls: 'ok',
+          icon: <CalendarCheck size={9} strokeWidth={2.25} aria-hidden />,
+          text: 'Free on your date',
+        }
+      : v.dateFit === 'booked'
+        ? {
+            cls: 'warn',
+            icon: <CalendarX2 size={9} strokeWidth={2.25} aria-hidden />,
+            text: 'Booked that day',
+          }
+        : null;
+  if (!reach && !budget && !date) return null;
+  return (
+    <span className="fits">
+      {reach ? (
+        <span className={`fit ${reach.cls}`}>
+          {reach.icon} {reach.text}
+        </span>
+      ) : null}
+      {budget ? (
+        <span className={`fit ${budget.cls}`}>
+          {budget.icon} {budget.text}
+        </span>
+      ) : null}
+      {date ? (
+        <span className={`fit ${date.cls}`}>
+          {date.icon} {date.text}
+        </span>
+      ) : null}
+    </span>
   );
 }
 
@@ -234,6 +421,18 @@ export function ShortlistCategories({
   );
   // The category whose "Add manually" modal is open (every category has Find + Add).
   const [manual, setManual] = useState<{ category: string; label: string } | null>(null);
+  // Reason-labeled sort lens for every category rail (2026-07-09). Default 'fit'
+  // — the bench leads with what best matches the couple's date/venue/budget.
+  const [sort, setSort] = useState<BenchSort>('fit');
+  // Bench search (2026-07-10, PR-4 · S3) — a client-side filter over the ~53
+  // categories (and their considered vendors). Empty = the normal single-open
+  // accordion; a query filters to matching tiles and auto-expands them.
+  const [query, setQuery] = useState('');
+  // Inline whole-marketplace results (2026-07-10) — debounced server search that
+  // shows top matching vendors from the WHOLE marketplace below the shortlist
+  // filter, so a couple can discover a vendor they haven't shortlisted.
+  const [mktResults, setMktResults] = useState<BenchMarketResult[]>([]);
+  const [mktLoading, setMktLoading] = useState(false);
 
   // ── Per-category requirements view/edit modal (Phase 1b PR-4) ──────────────
   // The leaf whose saved-request modal is open: its canonical_service (the key
@@ -352,13 +551,187 @@ export function ShortlistCategories({
 
   const reqIsSubmitting = reqSaving || reqPhase === 'submitting';
 
+  // "Your plan" — the couple's onboarding category picks (tiles flagged `planned`
+  // by buildShortlistFolders), flattened across folders in display order. Drives
+  // the strip atop the bench; tapping a chip opens that folder + category so the
+  // plan the reveal promised is one tap from finding a vendor. Empty → no strip.
+  const plannedList = folders.flatMap((f) =>
+    f.tiles
+      .filter((t) => t.planned)
+      .map((t) => ({
+        folder: f.folder,
+        slug: f.slug,
+        tile: t.tile,
+        label: t.label,
+        done: t.vendors.length > 0,
+      })),
+  );
+
+  function openPlan(folder: string, tile: string, slug: string) {
+    setOpenFolder(folder);
+    setOpenTile(tile);
+    // Scroll the folder into view after it expands (next frame).
+    window.setTimeout(() => {
+      document.getElementById(`slfold-${slug}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
+  }
+
+  // Bench search — filter folders to tiles (or their considered vendors) matching
+  // the query; while searching, every matching folder + tile shows expanded.
+  const q = query.trim().toLowerCase();
+  const searching = q.length > 0;
+  const visibleFolders = searching
+    ? folders
+        .map((f) => ({
+          ...f,
+          tiles: f.tiles.filter(
+            (t) =>
+              t.label.toLowerCase().includes(q) ||
+              t.vendors.some((v) => v.name.toLowerCase().includes(q)),
+          ),
+        }))
+        .filter((f) => f.tiles.length > 0)
+    : folders;
+
+  // Debounced whole-marketplace search — fires ~280ms after typing settles; a
+  // cancel flag drops stale responses so results can't arrive out of order.
+  useEffect(() => {
+    if (q.length < 2) {
+      setMktResults([]);
+      setMktLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setMktLoading(true);
+    const handle = window.setTimeout(() => {
+      searchMarketplaceForBench(q)
+        .then((res) => {
+          if (!cancelled) {
+            setMktResults(res);
+            setMktLoading(false);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setMktResults([]);
+            setMktLoading(false);
+          }
+        });
+    }, 280);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(handle);
+    };
+  }, [q]);
+
   return (
     <div className="slcat">
       <style>{SLCAT_CSS}</style>
-      {folders.map((folder) => {
-        const folderOpen = openFolder === folder.folder;
+      {plannedList.length > 0 ? (
+        <div className="plan-strip">
+          <p className="plan-eyebrow">
+            <Sparkles size={11} strokeWidth={2} aria-hidden /> From your plan
+          </p>
+          <div className="plan-chips">
+            {plannedList.map((p) => (
+              <button
+                key={p.tile}
+                type="button"
+                className={`plan-chip${p.done ? ' done' : ''}`}
+                onClick={() => openPlan(p.folder, p.tile, p.slug)}
+              >
+                <span className="pc-dot" aria-hidden />
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      <div className="sortbar">
+        <span className="sortbar-lbl">Sort by</span>
+        <div className="sortseg" role="group" aria-label="Sort vendors">
+          {BENCH_SORTS.map((s) => (
+            <button
+              key={s.key}
+              type="button"
+              className={sort === s.key ? 'on' : undefined}
+              aria-pressed={sort === s.key}
+              onClick={() => setSort(s.key)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="bench-search">
+        <Search size={16} strokeWidth={1.75} aria-hidden />
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search your shortlist or the whole marketplace…"
+          aria-label="Search your shortlist or the marketplace"
+        />
+        {query ? (
+          <button type="button" className="bs-x" aria-label="Clear search" onClick={() => setQuery('')}>
+            ×
+          </button>
+        ) : null}
+      </div>
+      {searching && (mktLoading || mktResults.length > 0) ? (
+        <div className="bench-mkt-results">
+          <div className="bmr-head">From the whole marketplace</div>
+          {mktLoading && mktResults.length === 0 ? (
+            <div className="bmr-loading">Searching the marketplace…</div>
+          ) : (
+            mktResults.map((r) => (
+              <Link
+                key={r.vendorProfileId}
+                href={r.slug ? `/v/${r.slug}` : '#'}
+                prefetch={false}
+                className="bmr-row"
+              >
+                <span className="bmr-av">{initials(r.name)}</span>
+                <span className="bmr-m">
+                  <b>{r.name}</b>
+                  <span>
+                    {[r.city, r.rating != null ? `★ ${r.rating.toFixed(1)}` : null]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </span>
+                </span>
+                <ArrowRight className="bmr-arr" size={15} strokeWidth={2} aria-hidden />
+              </Link>
+            ))
+          )}
+        </div>
+      ) : null}
+      {searching ? (
+        <Link
+          href={`/explore?q=${encodeURIComponent(query.trim())}`}
+          prefetch={false}
+          className="bench-mkt"
+        >
+          <Search size={15} strokeWidth={1.9} aria-hidden />
+          <span>
+            See all results in the marketplace for <b>“{query.trim()}”</b>
+          </span>
+          <ArrowRight className="bench-mkt-arr" size={16} strokeWidth={2} aria-hidden />
+        </Link>
+      ) : null}
+      {searching && visibleFolders.length === 0 ? (
+        <div className="bench-empty">
+          Nothing in your shortlist matches “{query.trim()}” — try the whole marketplace above.
+        </div>
+      ) : null}
+      {visibleFolders.map((folder) => {
+        const folderOpen = searching || openFolder === folder.folder;
         return (
-          <section key={folder.folder} className={`fold${folderOpen ? ' open' : ''}`}>
+          <section
+            key={folder.folder}
+            id={`slfold-${folder.slug}`}
+            className={`fold${folderOpen ? ' open' : ''}`}
+          >
             <button
               type="button"
               className="fold-head"
@@ -378,10 +751,10 @@ export function ShortlistCategories({
                 <ChevronDown className="fold-chev" size={17} strokeWidth={1.75} aria-hidden />
               </span>
             </button>
-            {folderOpen ? (
+            <div className="fold-collapse">
               <div className="fold-body">
                 {folder.tiles.map((t) => {
-                  const tileOpen = openTile === t.tile;
+                  const tileOpen = searching || openTile === t.tile;
                   // Phase 1b PR-4 — the leaf canonical with a saved requirements
                   // row for this tile (if any) drives the "saved request" icon.
                   const savedCanonical = savedRequirementCanonicalByTile[t.tile] ?? null;
@@ -400,6 +773,17 @@ export function ShortlistCategories({
                         >
                           <span className="cat-nm">{t.label}</span>
                           <span className="cat-rt">
+                            {/* Free first-venue-shortlist carve-out (owner
+                                2026-07-09 · Pricing.md § 00): presentational
+                                chip, live only while the venue shortlist is
+                                empty (the offer's "first" gate). */}
+                            {isSuriAssistFreeForCategory(t.category) &&
+                            t.vendors.length === 0 ? (
+                              <span className="cat-free">{FREE_VENUE_ASSIST_CHIP}</span>
+                            ) : null}
+                            {t.planned && t.vendors.length === 0 ? (
+                              <span className="cat-plan">In your plan</span>
+                            ) : null}
                             {t.vendors.length > 0 ? (
                               <span className="cat-count">{t.vendors.length}</span>
                             ) : null}
@@ -422,12 +806,12 @@ export function ShortlistCategories({
                           </button>
                         ) : null}
                       </div>
-                      {tileOpen ? (
+                      <div className="cat-collapse">
                         <div className="cat-body">
                           {t.vendors.length > 0 ? (
                             <div className="rail">
-                              {t.vendors.map((v) => (
-                                <VendorCard key={v.vendorId} v={v} />
+                              {sortWithReasons(t.vendors, sort).map(({ v, reason }) => (
+                                <VendorCard key={v.vendorId} v={v} reason={reason} />
                               ))}
                               <span className="act find">
                                 <Link href={t.exploreHref} prefetch={false}>
@@ -466,12 +850,12 @@ export function ShortlistCategories({
                             </div>
                           )}
                         </div>
-                      ) : null}
+                      </div>
                     </div>
                   );
                 })}
               </div>
-            ) : null}
+            </div>
           </section>
         );
       })}
@@ -494,8 +878,10 @@ export function ShortlistCategories({
           // Lightweight loading shell while fields + saved template resolve.
           <div
             className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
-            role="dialog"
-            aria-modal="true"
+            // Transient busy indicator, not a focus-trapping modal: a live
+            // region announces the load; it hands off to RequirementsModal
+            // (which owns the real dialog a11y) once fields resolve.
+            role="status"
             aria-label={`Loading your saved request for ${reqTarget.label}`}
           >
             <button

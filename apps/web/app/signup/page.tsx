@@ -6,7 +6,7 @@
  * WHY: CLAUDE.md 2026-05-28 11th row "v2.1 BRIEF LOCKED AS CANONICAL". Owner
  * directive: port v2.1 visual treatment across marketing surfaces. Signup is
  * the funnel from marketing → dashboard; visual continuity from the homepage
- * + /for-vendors editorial register through the signup door matters.
+ * + /vendors editorial register through the signup door matters.
  *
  * SCOPE — visual treatment ONLY:
  *   - Two-column desktop layout: brand panel (left · 1fr) + form panel
@@ -46,14 +46,33 @@
  * "BIR-stamped receipts" claim was purged platform-wide (PR #1316), so the
  * bullets + "Free planning forever" line above are superseded — copy now
  * sells the free workspace (guest list · seating · budget · mood board).
+ *
+ * 2026-07-05 frozen-count fix: the "192 verified vendors" bullet was a live
+ * count frozen in copy (fabricated for a founder-only marketplace) — a checkable
+ * public claim that isn't true. It's now a THRESHOLD-GATED live read
+ * (getVerifiedVendorMarketplaceCount, same predicate as the couple-facing
+ * catalog/onboarding counts). The number renders only at/above
+ * VENDOR_COUNT_BRAG_THRESHOLD; below the floor the bullet omits the figure
+ * ("Verified vendor marketplace") so the public-claims lock stays honest.
  */
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-button-row';
+import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
+import { getClientShell } from '@/lib/request-platform';
 import { safeNext } from '@/lib/auth';
+import { accountHomePath } from '@/lib/account-security';
+import { createClient } from '@/lib/supabase/server';
+import { readGuestSession } from '@/lib/guest-session';
+import {
+  getVerifiedVendorMarketplaceCount,
+  VENDOR_COUNT_BRAG_THRESHOLD,
+} from '@/lib/vendor-counts';
 import { signUp } from './actions';
+import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 
 export const metadata: Metadata = {
   title: 'Create account · Setnayan',
@@ -77,6 +96,16 @@ type SearchParams = Promise<{
   /** Pre-fill the email field — used by /vendor/claim/[token]?as=vendor flows
    *  per iteration 0006 § Invite-to-Setnayan, locked 2026-05-19. */
   prefill_email?: string;
+  /** Guest → host growth-loop attribution. Set by the guest-page CTA
+   *  (`/signup?ref=guest&src_event=<public_id>`). Carried through the form as
+   *  hidden inputs so the signUp action can fire the `guest_to_host_signup`
+   *  north-star event on a successful new-account creation. No PII. */
+  ref?: string;
+  src_event?: string;
+  /** Couple referral rewards. A new account arriving via a couple's shared
+   *  referral link (`/signup?refc=<code>`). Carried through the form as a
+   *  hidden input so signUp records an OPEN redemption on account creation. */
+  refc?: string;
 }>;
 
 export default async function SignupPage({ searchParams }: { searchParams: SearchParams }) {
@@ -86,13 +115,80 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
   const confirmationSent = params.sent === '1';
   const next = safeNext(params.next);
   const preselectVendor = params.as === 'vendor';
+
+  // Already-authenticated bypass. /signup has no session check today, so a
+  // logged-in user clicking a "Register your business" CTA (?as=vendor) —
+  // e.g. an admin/couple account testing the vendor side — lands on a full
+  // account-creation form instead of vendor onboarding, and submitting it
+  // with their own email just errors ("user already exists"). Mirrors the
+  // rawNext==='/' shortcut in login/actions.ts: an explicit `next` wins,
+  // otherwise `as=vendor` sends straight to /vendor-dashboard (which already
+  // renders a fresh intake form when the user has no vendor_profiles row)
+  // rather than accountHomePath, which would bounce an admin to /admin.
+  {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      if (next !== '/') {
+        redirect(next);
+      }
+      if (preselectVendor) {
+        redirect('/vendor-dashboard');
+      }
+      const { data: profile } = await supabase
+        .from('users')
+        .select('account_type')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      redirect(accountHomePath(profile?.account_type));
+    }
+  }
+
+  // OAuth visibility by shell (mirrors /login): web + the rebuilt desktop app
+  // (system-browser loopback OAuth) show the buttons; mobile / older-native stay
+  // email-only because Google refuses OAuth in an embedded WebView. Desktop gets
+  // the loopback variant; web gets the server-action row.
+  const shell = await getClientShell();
+  const showOAuth = ANY_OAUTH_ENABLED && shell !== 'mobile';
+  const desktopOAuth = showOAuth && shell === 'desktop';
   const prefilledEmail =
     typeof params.prefill_email === 'string' ? params.prefill_email : '';
+  // Guest → host attribution. Only `ref=guest` is meaningful today; `src_event`
+  // is a public_id (text). Both are echoed into hidden form inputs so the
+  // signUp action can attribute the new account. No PII.
+  const refParam = params.ref === 'guest' ? 'guest' : '';
+  const srcEvent =
+    refParam === 'guest' && typeof params.src_event === 'string'
+      ? params.src_event
+      : '';
+  // Couple referral code (?refc=). Accept the S89R-<10> shape only; anything
+  // else is dropped so a junk param can't paint the referred-signup banner.
+  const referralCode =
+    typeof params.refc === 'string' && /^S89R-[0-9A-Z]{10}$/i.test(params.refc.trim())
+      ? params.refc.trim().toUpperCase()
+      : '';
   const loginHref = `/login${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`;
+  // Persistent guest accounts (PR-E): if this browser carries a signed guest
+  // session, the signUp action will link the guest's tagged event photos to the
+  // new account. Surface a calm, generic reassurance — no event name lookup,
+  // no PII (the signed cookie is the only thing we read).
+  const hasGuestSession = (await readGuestSession()) !== null;
+
+  // Vendor-marketplace bullet · threshold-gated LIVE count (never a frozen
+  // number). Below the brag floor — the marketplace is founder-only at launch,
+  // so a live count today is tiny — we drop the figure and just name the
+  // feature, keeping the public-claims lock honest (every checkable claim TRUE).
+  const verifiedVendorCount = await getVerifiedVendorMarketplaceCount();
+  const vendorBullet =
+    verifiedVendorCount >= VENDOR_COUNT_BRAG_THRESHOLD
+      ? `${verifiedVendorCount.toLocaleString('en-PH')} verified vendors`
+      : 'Verified vendor marketplace';
 
   const benefitBullets = [
     'Guest list + schedule · free',
-    '192 verified vendors',
+    vendorBullet,
     'Mood board · free',
     'Budget + seating tools · free',
   ];
@@ -235,6 +331,27 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             Create account
           </div>
 
+          {hasGuestSession ? (
+            <p
+              role="status"
+              style={{
+                margin: 0,
+                padding: '10px 12px',
+                borderRadius: 'var(--m-r-sm)',
+                border: '1px solid var(--m-line)',
+                background: 'var(--m-paper-2)',
+                color: 'var(--m-ink)',
+                fontSize: 13,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              <span style={{ color: 'var(--m-orange-2)', fontWeight: 600 }}>✓</span>
+              Your event photos will be saved to your new account.
+            </p>
+          ) : null}
+
           {errorMessage ? (
             <p
               role="alert"
@@ -270,10 +387,39 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             </p>
           ) : null}
 
-          {/* OAuth row above email form per industry-standard placement (PR #422) */}
-          <OAuthButtonRow next={next} />
+          {/* Couple referral rewards — a friend's shared link. Reassures the
+              new couple that a perk is waiting once they book their first
+              service. No amount shown (it's admin-managed + may be inert). */}
+          {referralCode ? (
+            <p
+              role="status"
+              style={{
+                margin: 0,
+                padding: '10px 12px',
+                borderRadius: 'var(--m-r-sm)',
+                border: '1px solid var(--m-line)',
+                background: 'var(--m-paper-2)',
+                color: 'var(--m-ink)',
+                fontSize: 13,
+              }}
+            >
+              A couple invited you to Setnayan. Create your account and you&rsquo;ll
+              both get a little something when you book your first service.
+            </p>
+          ) : null}
 
-          {ANY_OAUTH_ENABLED ? (
+          {/* OAuth above the email form (PR #422). Desktop gets the loopback
+              variant, web the server-action row; mobile/older-native = email-only
+              (see showOAuth/desktopOAuth). */}
+          {showOAuth ? (
+            // withAccountType: carry the Couple/Vendor selection into the web
+            // OAuth row so a vendor signing up via Google/Apple isn't
+            // misclassified as a customer. (Desktop-loopback OAuth threading is a
+            // separate follow-up — the Tauri flow doesn't post a form.)
+            desktopOAuth ? <DesktopOAuthButtons next={next} /> : <OAuthButtonRow next={next} withAccountType defaultAccountType={preselectVendor ? 'vendor' : 'customer'} />
+          ) : null}
+
+          {showOAuth ? (
             <div
               style={{
                 display: 'flex',
@@ -308,6 +454,18 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             className="[&:has(input[value='vendor']:checked)_[data-couple-only]]:hidden"
           >
             <input type="hidden" name="next" value={next} />
+            <TurnstileField action="signup" />
+            {/* Guest → host growth-loop attribution (no PII) — carried from the
+                guest-page CTA so signUp can fire `guest_to_host_signup`. */}
+            {refParam ? <input type="hidden" name="ref" value={refParam} /> : null}
+            {srcEvent ? (
+              <input type="hidden" name="src_event" value={srcEvent} />
+            ) : null}
+            {/* Couple referral rewards — carried so signUp records the OPEN
+                redemption tying this new couple to the referrer. */}
+            {referralCode ? (
+              <input type="hidden" name="refc" value={referralCode} />
+            ) : null}
 
             {/* Account-type pill toggle · matches template's segmented control.
                 DOM contract preserved (radio inputs with name='account_type'
@@ -360,9 +518,10 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             {/* Public Event Summary consent · couples only. Hides via
                 [data-couple-only] when Vendor is checked. Field name +
                 value identical to prior implementation (locked in
-                CLAUDE.md 2026-05-19 rows 426 + 428). Default checked
-                per V2 publisher posture (public-by-default with 8 RA
-                10173 safe-harbor guardrails). */}
+                CLAUDE.md 2026-05-19 rows 426 + 428). Starts UNticked
+                (2026-07-05 NPC consent hygiene) — showcase consent must be
+                freely given, not pre-selected. The 8 RA 10173 safe-harbor
+                guardrails still apply once opted in. */}
             <div
               data-couple-only
               style={{
@@ -387,7 +546,6 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                   type="checkbox"
                   name="public_summary_consent"
                   value="yes"
-                  defaultChecked
                   style={{
                     marginTop: 2,
                     width: 14,

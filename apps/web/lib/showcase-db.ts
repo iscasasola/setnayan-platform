@@ -24,10 +24,37 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { tierCaps, isTrueNameTier } from '@/lib/vendor-tier-caps';
+import { resolveVendorDisplayName } from '@/lib/vendors';
+
+/**
+ * A credited vendor surfaced on a Real Story card (Style-Twin Discovery): the
+ * couples who love a story can tap straight through to the marketplace vendors
+ * who made it. Credit is FREE for every tier (Simplicity Canon rule 2,
+ * owner-ratified 2026-07-16: "you never pay to be named in a story" — the old
+ * Pro/Enterprise editorialTagged gate is retired); the only requirement is a
+ * public business_slug, so every chip deep-links to a real /v/[slug]. The
+ * displayed name respects the hybrid-anonymity mechanic
+ * (resolveVendorDisplayName) — an unrevealed Free/Verified vendor is credited
+ * under their screen name, never their hidden true name.
+ */
+export type ShowcaseVendorCredit = {
+  name: string;
+  slug: string;
+  logoUrl: string | null;
+};
 
 export type ShowcaseEntry = {
   href: string; // canonical editorial — the couple's own /[slug] page
+  // Internal event id + bare slug — used by the weddings sitemap to resolve the
+  // owner account slug and emit the canonical /u/{owner}/{slug} URL under the
+  // URL-nesting cutover (self-noops to the bare slug while the flag is OFF).
+  eventId: string;
+  slug: string;
   coupleNames: string;
+  // Style-Twin Discovery: the credited Pro/Enterprise vendors behind this story,
+  // rendered as tappable chips on the card that deep-link to /v/[slug].
+  vendors: ShowcaseVendorCredit[];
   city: string | null;
   dateLabel: string | null; // display, e.g. "February 2026"
   eventDate: string | null; // ISO — sitemap lastmod
@@ -47,6 +74,19 @@ export type ShowcaseEntry = {
   // on the DB path today — a clip-as-hero needs a dedicated pick (the editorial
   // hero excludes clips); wired here so real editorials can opt in later.
   heroVideoUrl: string | null;
+  // TRUE when this entry is the curated SAMPLE event (events.is_sample), not a
+  // real consented couple. The sample is admitted to /realstories WITHOUT the
+  // RA 10173 consent/grace gates — precisely because it represents no real
+  // person — and the card keeps its honest "Sample" badge so nothing claims a
+  // real couple consented. Real editorials are always isSample=false (they pass
+  // G4 grace + G5 consent).
+  isSample: boolean;
+  // Stories SEARCH (P4+ · volume-gated facets): the canonical service categories
+  // of the credited vendors behind this story — powers the "service/vendor
+  // category" facet on the hub. Derived from the SAME already-public credit pool
+  // (event_vendors → vendor_profiles.services) that renders the Team chips; no
+  // new query, no new schema, and only ever the vendors already shown.
+  serviceCategories: string[];
 };
 
 const GRACE_DAYS = 30;
@@ -63,7 +103,7 @@ function monthYear(iso: string | null): string | null {
   return `${MONTHS[m - 1]} ${y}`;
 }
 
-function deriveCity(venueName: string | null, venueAddress: string | null): string | null {
+export function deriveCity(venueName: string | null, venueAddress: string | null): string | null {
   const addr = venueAddress?.trim();
   if (addr) {
     const parts = addr.split(',').map((p) => p.trim()).filter(Boolean);
@@ -94,18 +134,22 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
       .not('public_summary_consent_at', 'is', null)
       .is('deleted_at', null);
     const userIds = (consenters ?? []).map((u) => u.user_id as string);
-    if (userIds.length === 0) return [];
 
-    // 2 · the events those couples belong to.
-    const { data: members } = await admin
-      .from('event_members')
-      .select('event_id')
-      .eq('member_type', 'couple')
-      .in('user_id', userIds);
-    const eventIds = Array.from(
-      new Set((members ?? []).map((m) => m.event_id as string)),
-    );
-    if (eventIds.length === 0) return [];
+    // 2 · the events those couples belong to. (Empty until the first real
+    // consented couple exists — but we no longer short-circuit here: the
+    // SAMPLE branch below surfaces the curated Maria & Jose card even when
+    // zero real couples have consented yet.)
+    let eventIds: string[] = [];
+    if (userIds.length > 0) {
+      const { data: members } = await admin
+        .from('event_members')
+        .select('event_id')
+        .eq('member_type', 'couple')
+        .in('user_id', userIds);
+      eventIds = Array.from(
+        new Set((members ?? []).map((m) => m.event_id as string)),
+      );
+    }
 
     // 3 · their weddings, past the grace window, with a public slug.
     //
@@ -121,56 +165,219 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
     // featured:false), so /realstories keeps surfacing real showcases even
     // before the owner runs `supabase db push`.
     type EventRow = {
+      event_id: string;
       slug: string | null;
       display_name: string | null;
       event_date: string | null;
       venue_name: string | null;
       venue_address: string | null;
       monogram_color: string | null;
+      is_sample?: boolean | null;
       landing_page_hero_image_url?: string | null;
       landing_page_hero_video_r2_key?: string | null;
       showcase_featured_at?: string | null;
       showcase_feature_rank?: number | null;
     };
 
-    const featuredAware = await admin
-      .from('events')
-      .select(
-        'slug, display_name, event_date, venue_name, venue_address, monogram_color, landing_page_hero_image_url, landing_page_hero_video_r2_key, showcase_featured_at, showcase_feature_rank',
-      )
-      .eq('event_type', 'wedding')
-      // Defense-in-depth (owner 2026-06-20 private-by-default): never surface a
-      // page the couple kept private — even if they consented to the showcase,
-      // a private page must not leak its canonical /[slug] into /realstories or
-      // the sitemap.
-      .neq('landing_page_visibility', 'private')
-      .in('event_id', eventIds)
-      .lte('event_date', cutoff)
-      .not('slug', 'is', null)
-      .order('showcase_feature_rank', { ascending: true, nullsFirst: false })
-      .order('showcase_featured_at', { ascending: false, nullsFirst: false })
-      .order('event_date', { ascending: false })
-      .limit(limit);
+    const FEATURED_COLS =
+      'event_id, slug, display_name, event_date, venue_name, venue_address, monogram_color, is_sample, landing_page_hero_image_url, landing_page_hero_video_r2_key, showcase_featured_at, showcase_feature_rank';
+    const LEGACY_COLS =
+      'event_id, slug, display_name, event_date, venue_name, venue_address, monogram_color, is_sample, landing_page_hero_image_url, landing_page_hero_video_r2_key';
 
-    let events = featuredAware.data as EventRow[] | null;
-    if (featuredAware.error) {
-      // Pre-migration fallback — drop the featuring columns + ordering.
-      const legacy = await admin
+    // 3a · CONSENTED real weddings — gated on G4 (grace window) + G5 (consent),
+    // featured-first. Skipped entirely when no real couple has consented yet.
+    let consentedEvents: EventRow[] = [];
+    if (eventIds.length > 0) {
+      const featuredAware = await admin
         .from('events')
-        .select('slug, display_name, event_date, venue_name, venue_address, monogram_color, landing_page_hero_image_url, landing_page_hero_video_r2_key')
+        .select(FEATURED_COLS)
         .eq('event_type', 'wedding')
+        // Defense-in-depth (owner 2026-06-20 private-by-default): never surface a
+        // page the couple kept private — even if they consented to the showcase,
+        // a private page must not leak its canonical /[slug] into /realstories or
+        // the sitemap.
+        .neq('landing_page_visibility', 'private')
         .in('event_id', eventIds)
         .lte('event_date', cutoff)
         .not('slug', 'is', null)
+        .order('showcase_feature_rank', { ascending: true, nullsFirst: false })
+        .order('showcase_featured_at', { ascending: false, nullsFirst: false })
         .order('event_date', { ascending: false })
         .limit(limit);
-      events = legacy.data as EventRow[] | null;
+
+      if (featuredAware.error) {
+        // Pre-migration fallback — drop the featuring columns + ordering.
+        const legacy = await admin
+          .from('events')
+          .select(LEGACY_COLS)
+          .eq('event_type', 'wedding')
+          .in('event_id', eventIds)
+          .lte('event_date', cutoff)
+          .not('slug', 'is', null)
+          .order('event_date', { ascending: false })
+          .limit(limit);
+        consentedEvents = (legacy.data as EventRow[] | null) ?? [];
+      } else {
+        consentedEvents = (featuredAware.data as EventRow[] | null) ?? [];
+      }
+    }
+
+    // 3b · SAMPLE weddings (events.is_sample) — admitted to /realstories WITHOUT
+    // the G4/G5 consent + grace gates, because a sample represents no real
+    // person (the RA 10173 honesty lock only protects real couples). The card
+    // keeps its "Sample" badge (page.tsx wires isSample through), so nothing
+    // claims a real couple consented, and the sample stays future-dated — its
+    // planning/day-of demo is untouched. Same visibility + slug + featured
+    // ordering as the real path. Graceful-degrade identical to 3a.
+    let sampleEvents: EventRow[] = [];
+    {
+      const sampleFeatured = await admin
+        .from('events')
+        .select(FEATURED_COLS)
+        .eq('event_type', 'wedding')
+        .eq('is_sample', true)
+        .neq('landing_page_visibility', 'private')
+        .not('slug', 'is', null)
+        .order('showcase_feature_rank', { ascending: true, nullsFirst: false })
+        .order('showcase_featured_at', { ascending: false, nullsFirst: false })
+        .order('event_date', { ascending: false })
+        .limit(limit);
+
+      if (sampleFeatured.error) {
+        const sampleLegacy = await admin
+          .from('events')
+          .select(LEGACY_COLS)
+          .eq('event_type', 'wedding')
+          .eq('is_sample', true)
+          .neq('landing_page_visibility', 'private')
+          .not('slug', 'is', null)
+          .order('event_date', { ascending: false })
+          .limit(limit);
+        sampleEvents = (sampleLegacy.data as EventRow[] | null) ?? [];
+      } else {
+        sampleEvents = (sampleFeatured.data as EventRow[] | null) ?? [];
+      }
+    }
+
+    // Merge consented + sample, de-dupe by event_id (consented wins — a real
+    // consented event is never re-shown as a "Sample"), real stories first then
+    // samples, capped at `limit`. Within each group the per-query ordering
+    // (featured-first, then newest) is preserved.
+    const seen = new Set<string>();
+    const events: EventRow[] = [];
+    for (const e of [...consentedEvents, ...sampleEvents]) {
+      if (seen.has(e.event_id)) continue;
+      seen.add(e.event_id);
+      events.push(e);
+      if (events.length >= limit) break;
+    }
+
+    // Style-Twin Discovery — batch-fetch the credited vendors behind each story
+    // so cards can deep-link to /v/[slug]. Credit is FREE for every tier
+    // (Simplicity Canon rule 2 · 2026-07-16 — the editorialTagged cap is now
+    // true across the matrix); the only hard requirement is a public
+    // business_slug to link. One round trip across all stories (no N+1),
+    // deduped + capped per card. Best-effort: any failure leaves vendors=[]
+    // and the card still renders (the credits are a discovery affordance, not
+    // load-bearing).
+    const evList = events;
+    const creditsByEvent = new Map<string, ShowcaseVendorCredit[]>();
+    // Stories SEARCH facet index — the credited vendors' canonical service
+    // categories per event, aggregated from the SAME credit query below.
+    const categoriesByEvent = new Map<string, Set<string>>();
+    if (evList.length > 0) {
+      const { data: links } = await admin
+        .from('event_vendors')
+        .select('event_id, linked_vendor_profile_id')
+        .in('event_id', evList.map((e) => e.event_id))
+        .not('linked_vendor_profile_id', 'is', null);
+      const linkRows = (links ?? []) as Array<{
+        event_id: string;
+        linked_vendor_profile_id: string;
+      }>;
+      const profileIds = Array.from(
+        new Set(linkRows.map((r) => r.linked_vendor_profile_id).filter(Boolean)),
+      );
+      if (profileIds.length > 0) {
+        const { data: profs } = await admin
+          .from('vendor_profiles')
+          .select(
+            'vendor_profile_id, business_name, business_slug, logo_url, tier_state, name_revealed_at, screen_name, services, location_city',
+          )
+          .in('vendor_profile_id', profileIds);
+        // Resolve each eligible profile's logo once (not per story).
+        const profMap = new Map<string, ShowcaseVendorCredit>();
+        // Canonical service categories per credited profile (facet source).
+        const servicesByProfile = new Map<string, string[]>();
+        await Promise.all(
+          (
+            (profs ?? []) as Array<{
+              vendor_profile_id: string;
+              business_name: string | null;
+              business_slug: string | null;
+              logo_url: string | null;
+              tier_state: string | null;
+              name_revealed_at: string | null;
+              screen_name: string | null;
+              services: string[] | null;
+              location_city: string | null;
+            }>
+          ).map(async (p) => {
+            // The SSOT cap (now always true — rule 2) kept as the read so any
+            // future owner reversal is one matrix edit; the slug is the only
+            // hard gate (no /v page → nothing to link).
+            if (!tierCaps(p.tier_state).editorialTagged || !p.business_slug) return;
+            if (Array.isArray(p.services) && p.services.length > 0) {
+              servicesByProfile.set(
+                p.vendor_profile_id,
+                p.services.map((s) => s.trim()).filter(Boolean),
+              );
+            }
+            profMap.set(p.vendor_profile_id, {
+              // Hybrid anonymity: an unrevealed Free/Verified vendor is
+              // credited under their screen name — the chip must never reveal
+              // a name their own /v page still hides.
+              name: resolveVendorDisplayName({
+                business_name: p.business_name,
+                name_revealed_at: p.name_revealed_at ?? null,
+                primary_canonical_service: p.services?.[0] ?? null,
+                location_city: p.location_city,
+                services: p.services ?? null,
+                screen_name: p.screen_name ?? null,
+                isPaidTier: isTrueNameTier(p.tier_state ?? null),
+              }),
+              slug: p.business_slug,
+              logoUrl: p.logo_url ? await displayUrlForStoredAsset(p.logo_url) : null,
+            });
+          }),
+        );
+        for (const r of linkRows) {
+          const credit = profMap.get(r.linked_vendor_profile_id);
+          if (!credit) continue;
+          const list = creditsByEvent.get(r.event_id) ?? [];
+          if (list.length < 4 && !list.some((c) => c.slug === credit.slug)) {
+            list.push(credit);
+            creditsByEvent.set(r.event_id, list);
+          }
+          // Facet index: fold this credited vendor's canonical categories in
+          // (all credited vendors count, not just the ≤4 shown chips).
+          const svcs = servicesByProfile.get(r.linked_vendor_profile_id);
+          if (svcs && svcs.length > 0) {
+            const set = categoriesByEvent.get(r.event_id) ?? new Set<string>();
+            for (const s of svcs) set.add(s);
+            categoriesByEvent.set(r.event_id, set);
+          }
+        }
+      }
     }
 
     return await Promise.all(
-      (events ?? []).map(async (e) => ({
+      evList.map(async (e) => ({
         href: `/${e.slug as string}`,
+        eventId: e.event_id,
+        slug: e.slug as string,
         coupleNames: e.display_name?.trim() || 'A Setnayan wedding',
+        vendors: creditsByEvent.get(e.event_id) ?? [],
         city: deriveCity(e.venue_name, e.venue_address),
         dateLabel: monthYear(e.event_date),
         eventDate: e.event_date ?? null,
@@ -186,6 +393,8 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
         heroVideoUrl: e.landing_page_hero_video_r2_key
           ? await displayUrlForStoredAsset(e.landing_page_hero_video_r2_key)
           : null,
+        isSample: e.is_sample === true,
+        serviceCategories: Array.from(categoriesByEvent.get(e.event_id) ?? []),
       })),
     );
   } catch {

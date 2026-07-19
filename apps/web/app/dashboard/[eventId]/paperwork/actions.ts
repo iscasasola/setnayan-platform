@@ -91,9 +91,19 @@ export async function seedPaperworkForEvent(formData: FormData): Promise<void> {
   // host changes their ceremony later.
   const { data: eventRow } = await supabase
     .from('events')
-    .select('event_id, ceremony_type, event_date')
+    .select('event_id, ceremony_type, event_date, event_type')
     .eq('event_id', eventIdRaw)
     .maybeSingle();
+
+  // Iteration 0053 P4 Unit 1: the seed writes PH-marriage statutory rows; only
+  // marriage-profile events (event_type 'wedding') may seed them. Hard-block a
+  // crafted POST on a non-wedding so it can't accumulate marriage paperwork.
+  const eventType =
+    (eventRow as { event_type?: string | null } | null)?.event_type ?? 'wedding';
+  if (eventType !== 'wedding') {
+    revalidateBoth(eventIdRaw);
+    return;
+  }
 
   const ceremony = resolveCeremonyType(
     (eventRow as { ceremony_type?: string | null } | null)?.ceremony_type ?? null,

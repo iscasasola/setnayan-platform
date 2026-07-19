@@ -21,7 +21,9 @@
 // resubscribe we refetch the latest messages so any inserts that happened
 // while we were offline catch up without a page reload.
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Download, FileText } from 'lucide-react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -30,7 +32,16 @@ import {
   type ChatMessageRow,
   type ChatSenderRole,
 } from '@/lib/chat';
+import { formatCentavos, PROPOSAL_STATUS_LABEL } from '@/lib/vendor-proposals';
 import { trackFailure } from '@/lib/telemetry/track-error';
+
+/** Display data for the in-thread proposal card, fetched by proposal_id. */
+type ProposalCardData = {
+  publicId: string;
+  title: string;
+  totalCentavos: number;
+  status: string;
+};
 
 type Props = {
   threadId: string;
@@ -66,6 +77,48 @@ export function ChatMessageStream({
 
   const [messages, setMessages] = useState<ChatMessageRow[]>(initialMessages);
   const [counterpartyTyping, setCounterpartyTyping] = useState(false);
+
+  // Proposal cards: a message with proposal_id renders as a card. We fetch the
+  // proposal's display data (RLS-scoped: couple reads sent proposals on their
+  // events, vendor reads their own) once per id, for both SSR + realtime rows.
+  const [proposalCards, setProposalCards] = useState<Record<string, ProposalCardData>>({});
+  const requestedProposalsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const ids = [
+      ...new Set(messages.map((m) => m.proposal_id).filter((x): x is string => !!x)),
+    ].filter((id) => !requestedProposalsRef.current.has(id));
+    if (ids.length === 0) return;
+    ids.forEach((id) => requestedProposalsRef.current.add(id));
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from('vendor_proposals')
+        .select('proposal_id, public_id, title, total_centavos, status')
+        .in('proposal_id', ids);
+      if (cancelled || !data) return;
+      setProposalCards((prev) => {
+        const next = { ...prev };
+        for (const p of data as {
+          proposal_id: string;
+          public_id: string;
+          title: string;
+          total_centavos: number;
+          status: string;
+        }[]) {
+          next[p.proposal_id] = {
+            publicId: p.public_id,
+            title: p.title,
+            totalCentavos: p.total_centavos,
+            status: p.status,
+          };
+        }
+        return next;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [messages, supabase]);
 
   // Scroll management: only auto-stick to bottom if the user IS near the
   // bottom. Tracking this in a ref (not state) avoids spurious re-renders
@@ -304,20 +357,66 @@ export function ChatMessageStream({
           No messages yet — say hi to break the ice.
         </li>
       ) : (
-        messages.map((m) =>
+        messages.map((m) => {
+          // Proposal cards — a vendor-sent structured proposal lands in the
+          // thread. Render the card (title · price · status + a Review/View
+          // link to the existing /proposals page) instead of a plain bubble;
+          // fall back to the message body until the card data loads.
+          if (m.proposal_id) {
+            const card = proposalCards[m.proposal_id];
+            return (
+              <li key={m.message_id} className="flex justify-center">
+                <div className="w-full max-w-[92%] rounded-xl border border-terracotta/40 bg-terracotta/[0.06] p-3">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
+                    📄 Proposal
+                  </p>
+                  {card ? (
+                    <>
+                      <p className="mt-1 text-sm font-semibold text-ink">{card.title}</p>
+                      <p className="text-sm text-ink/70">
+                        {card.totalCentavos > 0
+                          ? formatCentavos(card.totalCentavos)
+                          : 'Price on request'}
+                        {' · '}
+                        {PROPOSAL_STATUS_LABEL[
+                          card.status as keyof typeof PROPOSAL_STATUS_LABEL
+                        ] ?? card.status}
+                      </p>
+                      <Link
+                        href={`/proposals/${card.publicId}`}
+                        className="mt-2 inline-flex h-9 items-center rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
+                      >
+                        {viewerRole === 'couple' ? 'Review & accept' : 'View proposal'}
+                      </Link>
+                    </>
+                  ) : (
+                    <p className="mt-1 whitespace-pre-wrap break-words text-sm text-ink/80">
+                      {m.body}
+                    </p>
+                  )}
+                  <p className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+                    {formatChatTimestamp(m.created_at)}
+                  </p>
+                </div>
+              </li>
+            );
+          }
           // System messages (e.g. the Build re-quote nudge) are automated
           // Setnayan notes — centered, owned by neither side, labelled
           // "Setnayan". Never "from the couple"/"from the vendor".
-          m.sender_role === 'system' ? (
-            <li key={m.message_id} className="flex justify-center">
-              <div className="max-w-[90%] rounded-xl border border-mulberry/20 bg-mulberry/[0.06] px-3 py-2 text-center text-sm text-ink">
-                <p className="whitespace-pre-wrap break-words">{m.body}</p>
-                <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.15em] text-mulberry/70">
-                  Setnayan · {formatChatTimestamp(m.created_at)}
-                </p>
-              </div>
-            </li>
-          ) : (
+          if (m.sender_role === 'system') {
+            return (
+              <li key={m.message_id} className="flex justify-center">
+                <div className="max-w-[90%] rounded-xl border border-mulberry/20 bg-mulberry/[0.06] px-3 py-2 text-center text-sm text-ink">
+                  <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                  <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.15em] text-mulberry/70">
+                    Setnayan · {formatChatTimestamp(m.created_at)}
+                  </p>
+                </div>
+              </li>
+            );
+          }
+          return (
             <li
               key={m.message_id}
               className={`flex ${ownsBubble(m, viewerRole) ? 'justify-end' : 'justify-start'}`}
@@ -329,7 +428,19 @@ export function ChatMessageStream({
                     : 'bg-ink/[0.06] text-ink'
                 }`}
               >
-                <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                {m.body ? (
+                  <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                ) : null}
+                {m.attachment_url ? (
+                  <AttachmentBlock
+                    url={m.attachment_url}
+                    name={m.attachment_name ?? null}
+                    mime={m.attachment_mime ?? null}
+                    sizeBytes={m.attachment_size_bytes ?? null}
+                    owns={ownsBubble(m, viewerRole)}
+                    hasBody={!!m.body}
+                  />
+                ) : null}
                 <p
                   className={`mt-1 font-mono text-[10px] uppercase tracking-[0.15em] ${
                     ownsBubble(m, viewerRole) ? 'text-cream/70' : 'text-ink/50'
@@ -341,8 +452,8 @@ export function ChatMessageStream({
                 </p>
               </div>
             </li>
-          ),
-        )
+          );
+        })
       )}
       {counterpartyTyping ? (
         <li className="flex justify-start" data-testid="typing-indicator">
@@ -366,4 +477,85 @@ function ownsBubble(
   viewerRole: 'couple' | 'vendor',
 ): boolean {
   return m.sender_role === viewerRole;
+}
+
+function formatBytes(bytes: number | null): string {
+  if (!bytes || bytes <= 0) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${kb.toFixed(kb < 10 ? 1 : 0)} KB`;
+  const mb = kb / 1024;
+  return `${mb.toFixed(mb < 10 ? 1 : 0)} MB`;
+}
+
+/**
+ * Renders an in-bubble attachment. Image MIMEs get a lazy <img> thumbnail that
+ * links to the full-size file; everything else (PDF / doc) renders a compact
+ * file chip with the name, size, and an open/download link. The bytes live on
+ * public R2 (chat file sharing, PR 2) — signed-URL hardening is a follow-up.
+ */
+function AttachmentBlock({
+  url,
+  name,
+  mime,
+  sizeBytes,
+  owns,
+  hasBody,
+}: {
+  url: string;
+  name: string | null;
+  mime: string | null;
+  sizeBytes: number | null;
+  owns: boolean;
+  hasBody: boolean;
+}) {
+  const isImage = (mime ?? '').startsWith('image/');
+  const label = name?.trim() || (isImage ? 'Image' : 'Attachment');
+  const size = formatBytes(sizeBytes);
+
+  if (isImage) {
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`block overflow-hidden rounded-xl ${hasBody ? 'mt-2' : ''}`}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded R2 asset; next/image needs a configured loader/domain for arbitrary R2 hosts */}
+        <img
+          src={url}
+          alt={label}
+          loading="lazy"
+          className="max-h-64 max-w-full rounded-xl object-cover"
+        />
+      </a>
+    );
+  }
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      download={name ?? undefined}
+      className={`flex items-center gap-2 rounded-lg px-2.5 py-2 ${
+        hasBody ? 'mt-2' : ''
+      } ${
+        owns
+          ? 'bg-cream/20 text-cream hover:bg-cream/30'
+          : 'bg-ink/[0.06] text-ink hover:bg-ink/10'
+      }`}
+    >
+      <FileText className="h-5 w-5 shrink-0 opacity-80" strokeWidth={1.75} />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium">{label}</span>
+        {size ? (
+          <span className={`block text-[11px] ${owns ? 'text-cream/70' : 'text-ink/55'}`}>
+            {size}
+          </span>
+        ) : null}
+      </span>
+      <Download className="h-4 w-4 shrink-0 opacity-70" strokeWidth={1.75} />
+    </a>
+  );
 }

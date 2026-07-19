@@ -3,6 +3,7 @@ import { ExternalLink, Receipt as ReceiptIcon } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { formatReceiptNumber, formatPhpFromString } from '@/lib/receipts';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Receipts · Admin' };
 
 type ReceiptListRow = {
@@ -38,6 +39,7 @@ function monthLabel(bucket: string): string {
 }
 
 export default async function AdminReceiptsPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const filterMonth = search.month ?? null;
 
@@ -116,7 +118,7 @@ export default async function AdminReceiptsPage({ searchParams }: Props) {
       </section>
 
       {receipts.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center text-sm text-ink/55">
+        <div className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-ink/55">
           <ReceiptIcon
             aria-hidden
             className="mx-auto mb-2 h-6 w-6 text-ink/30"
@@ -190,7 +192,7 @@ export default async function AdminReceiptsPage({ searchParams }: Props) {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-ink/10 bg-cream p-4">
+    <div className="sn-tile p-4">
       <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">{label}</p>
       <p className="mt-1 text-xl font-semibold tracking-tight text-ink">{value}</p>
     </div>

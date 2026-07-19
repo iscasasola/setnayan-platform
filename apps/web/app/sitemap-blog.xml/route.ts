@@ -17,7 +17,7 @@ export const revalidate = 3600;
 
 export function GET(): Response {
   const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
+    process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com';
 
   const rows: Array<{ loc: string; lastmod: string; changefreq: string; priority: string }> = [
     { loc: `${baseUrl}/blog`, lastmod: BLOG_LASTMOD, changefreq: 'weekly', priority: '0.7' },

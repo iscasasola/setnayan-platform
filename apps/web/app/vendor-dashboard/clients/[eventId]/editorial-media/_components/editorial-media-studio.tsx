@@ -9,7 +9,7 @@
 // pipeline.
 // ============================================================================
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ImagePlus, Film, Trash2, Loader2 } from 'lucide-react';
 import {
@@ -68,7 +68,10 @@ function getVideoDuration(file: File): Promise<number> {
       resolve(Number.isFinite(v.duration) ? v.duration : MAX_CLIP_SECONDS);
       URL.revokeObjectURL(v.src);
     };
-    v.onerror = () => resolve(MAX_CLIP_SECONDS);
+    v.onerror = () => {
+      URL.revokeObjectURL(v.src);
+      resolve(MAX_CLIP_SECONDS);
+    };
     v.src = URL.createObjectURL(file);
   });
 }
@@ -171,9 +174,25 @@ export function EditorialMediaStudio({
   };
 
   const removeStaged = (key: string) =>
-    setStaged((s) => s.filter((x) => x.key !== key));
+    setStaged((s) => {
+      const item = s.find((x) => x.key === key);
+      if (item) URL.revokeObjectURL(item.previewUrl); // free the blob URL we created
+      return s.filter((x) => x.key !== key);
+    });
   const setCaption = (key: string, v: string) =>
     setStaged((s) => s.map((x) => (x.key === key ? { ...x, caption: v } : x)));
+
+  // Revoke any STILL-staged preview blob URLs on unmount (the visitor navigated
+  // away without submitting — onSubmit and removeStaged already revoke on their
+  // own paths). A ref keeps the cleanup current without re-subscribing each render.
+  const stagedRef = useRef(staged);
+  stagedRef.current = staged;
+  useEffect(
+    () => () => {
+      stagedRef.current.forEach((s) => URL.revokeObjectURL(s.previewUrl));
+    },
+    [],
+  );
 
   const onSubmit = async () => {
     if (!staged.length) return;
@@ -208,7 +227,7 @@ export function EditorialMediaStudio({
     <div className="space-y-6">
       {/* Existing submissions */}
       {existing.length > 0 ? (
-        <section className="rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
+        <section className="sn-tile p-5 sm:p-6">
           <h2 className="text-lg font-semibold">Already on their editorial</h2>
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
             {existing.map((m) => (
@@ -219,7 +238,7 @@ export function EditorialMediaStudio({
                     <video src={m.boomerangUrl} poster={m.stillUrl} autoPlay muted loop playsInline className="h-full w-full object-cover" />
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={m.stillUrl} alt={m.caption ?? ''} className="h-full w-full object-cover" />
+                    <img src={m.stillUrl} alt={m.caption || 'Wedding editorial photo'} className="h-full w-full object-cover" />
                   )}
                 </div>
                 <figcaption className="space-y-1 p-2">
@@ -241,7 +260,7 @@ export function EditorialMediaStudio({
       ) : null}
 
       {/* Add new */}
-      <section className="rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
+      <section className="sn-tile p-5 sm:p-6">
         <h2 className="text-lg font-semibold">Add to the editorial</h2>
         <p className="mt-0.5 text-sm text-ink/60">
           {photoRoom} photo{photoRoom === 1 ? '' : 's'} and {clipRoom} clip{clipRoom === 1 ? '' : 's'} left.
@@ -287,7 +306,7 @@ export function EditorialMediaStudio({
                     <video src={s.previewUrl} autoPlay muted loop playsInline className="h-full w-full object-cover" />
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={s.previewUrl} alt="" className="h-full w-full object-cover" />
+                    <img src={s.previewUrl} alt="Preview of photo staged for the editorial" className="h-full w-full object-cover" />
                   )}
                   <button
                     type="button"

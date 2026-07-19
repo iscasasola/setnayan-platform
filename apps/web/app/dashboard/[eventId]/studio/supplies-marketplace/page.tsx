@@ -115,13 +115,11 @@ export default async function SuppliesMarketplacePage({ params }: Props) {
         Back to add-ons
       </Link>
 
-      <header className="space-y-3">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Add-ons · Setnayan Supplies
-        </p>
+      <header className="sn-reveal space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-2">
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            <p className="sn-eye">Supplies</p>
+            <h1 className="sn-h1">
               Setnayan-curated supplies, delivered.
             </h1>
             <p className="max-w-2xl text-base text-ink/65">
@@ -162,7 +160,7 @@ export default async function SuppliesMarketplacePage({ params }: Props) {
 
       <SuppliesMarketplaceBrowser recommended={recommended} />
 
-      <footer className="space-y-1 rounded-2xl border border-dashed border-ink/15 bg-cream/60 p-4 text-xs text-ink/55">
+      <footer className="sn-row space-y-1 p-4 text-xs text-ink/55">
         <p>
           Don&rsquo;t see a vendor you trust? Email{' '}
           <a

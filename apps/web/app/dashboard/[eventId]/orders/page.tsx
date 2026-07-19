@@ -43,9 +43,10 @@ export default async function CoupleOrdersPage({ params, searchParams }: Props) 
 
   return (
     <section className="space-y-6">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <header className="sn-reveal flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Orders</h1>
+          <p className="sn-eye">Purchases</p>
+          <h1 className="sn-h1 mt-1.5">Orders</h1>
           <p className="max-w-prose text-base text-ink/65">
             Apply for any Setnayan service — describe what you need, propose your budget. Our
             team confirms the price, then you pay via bank transfer or GCash and log the
@@ -71,7 +72,7 @@ export default async function CoupleOrdersPage({ params, searchParams }: Props) 
       ) : null}
 
       {orders.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">
+        <div className="sn-row border-dashed p-8 text-center">
           <Receipt aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
           <p className="text-sm text-ink/55">
             No orders yet. Use <span className="font-medium text-ink">New order</span> above
@@ -84,7 +85,7 @@ export default async function CoupleOrdersPage({ params, searchParams }: Props) 
             <li key={o.order_id}>
               <Link
                 href={`/dashboard/${eventId}/orders/${o.order_id}`}
-                className="group flex flex-col gap-2 rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40 hover:bg-terracotta/5 sm:flex-row sm:items-center sm:justify-between"
+                className="sn-row group flex flex-col gap-2 p-4 transition-colors hover:border-terracotta/40 hover:bg-terracotta/5 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0 space-y-1">
                   <p className="line-clamp-1 text-sm font-semibold text-ink">

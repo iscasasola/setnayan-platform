@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { approveSubscription, rejectSubscription } from './actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = {
   title: 'Subscriptions · Admin',
   robots: { index: false, follow: false },
@@ -28,6 +29,8 @@ type SubscriptionRow = {
   paid_at: string | null;
   expires_at: string | null;
   rejection_reason: string | null;
+  addon_token_count: number | null;
+  addon_amount_php: number | string | null;
 };
 
 const NUMBER = new Intl.NumberFormat('en-PH');
@@ -53,6 +56,7 @@ function fmtDate(s: string) {
  * webhook will hit via confirm_vendor_subscription_by_reference.
  */
 export default async function AdminSubscriptionsPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
 
   // Admin gate — bounce non-admins before any read.
@@ -73,7 +77,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
   const admin = createAdminClient();
 
   const COLS =
-    'purchase_id, vendor_id, sku_code, tier, billing_cycle, amount_php, reference_code, status, created_at, paid_at, expires_at, rejection_reason';
+    'purchase_id, vendor_id, sku_code, tier, billing_cycle, amount_php, reference_code, status, created_at, paid_at, expires_at, rejection_reason, addon_token_count, addon_amount_php';
 
   // Pending first (the actionable queue), then the 30 most recent resolved.
   const [pendingRes, recentRes] = await Promise.all([
@@ -142,7 +146,8 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
 
       {search.done === 'approved' && (
         <div className="mb-6 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
-          ✓ Payment confirmed, plan activated, and bundle tokens credited.
+          ✓ Payment confirmed, plan activated, and tokens credited (bundle + any
+          add-on pack).
         </div>
       )}
       {search.done === 'rejected' && (
@@ -190,6 +195,14 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
                         {tier} · {p.billing_cycle ?? '—'} · ₱
                         {NUMBER.format(Number(p.amount_php ?? 0))}
                       </p>
+                      {Number(p.addon_token_count ?? 0) > 0 && (
+                        <p className="mt-0.5 text-[11px] font-medium text-orange">
+                          incl. {NUMBER.format(Number(p.addon_token_count))} tokens
+                          {Number(p.addon_amount_php ?? 0) > 0
+                            ? ` (₱${NUMBER.format(Number(p.addon_amount_php))})`
+                            : ''}
+                        </p>
+                      )}
                       <p className="mt-0.5 text-[11px] text-ink/50">
                         Started {fmtDate(p.created_at)}
                       </p>

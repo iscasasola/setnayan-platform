@@ -9,7 +9,7 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from 'react';
-import { X, Check, Camera, AlertCircle, Upload, Sparkles, Store, ArrowLeft, MapPin, Copy, Share2 } from 'lucide-react';
+import { X, Check, Camera, AlertCircle, Upload, ArrowLeft, MapPin, Copy, Share2 } from 'lucide-react';
 import {
   createManualVendor,
   attachManualVendorToCategory,
@@ -20,6 +20,8 @@ import {
   type MarketplaceVendorSuggestion,
 } from '../vendors/actions';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
+import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useSaveLoader } from '@/components/sd-loader';
 
 // Modal for the "+ Add new manual vendor" path inside ManualVendorDropdown.
 //
@@ -92,6 +94,7 @@ export function NewManualVendorModal({
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const firstFieldRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   // Post-save step (owner 2026-06-11: adding your own vendor must be easy to
   // manage — price + invite land HERE, zero navigation). Set after the manual
@@ -107,6 +110,18 @@ export function NewManualVendorModal({
     dismissRef.current = created ? onCreated : onClose;
   }, [created, onClose, onCreated]);
   const dismiss = () => dismissRef.current();
+
+  // Focus trap + scroll-lock + Esc-to-close via the shared hook. Mounts only
+  // while open, so `open` is the constant true. Esc/close route through
+  // `dismiss` so a post-save Esc still refreshes the page (dismissRef points
+  // at onCreated once the vendor exists). Initial focus lands on the Vendor
+  // Name input.
+  useModalA11y({
+    open: true,
+    onClose: dismiss,
+    containerRef: dialogRef,
+    initialFocusRef: firstFieldRef,
+  });
 
   // Autocomplete state — owner directive 2026-05-22.
   // `nameQuery` is the live value of the Vendor Name input. Debounced
@@ -124,17 +139,6 @@ export function NewManualVendorModal({
   // be discarded (last-write-wins). Stronger than AbortController for
   // server actions, which don't expose a cancel signal.
   const queryGenerationRef = useRef(0);
-
-  // Initial focus on Vendor Name + ESC closes. Tiny accessibility win.
-  // ESC goes through dismissRef so a post-save ESC still refreshes the page.
-  useEffect(() => {
-    firstFieldRef.current?.focus();
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') dismissRef.current();
-    }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
 
   // Debounced marketplace search. Fires 300ms after typing stops to
   // avoid spamming the server on every keystroke. Empty / <2 chars
@@ -322,10 +326,11 @@ export function NewManualVendorModal({
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby="new-manual-vendor-heading"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 backdrop-blur-sm sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 backdrop-blur-sm focus:outline-none sm:items-center sm:p-4"
       onClick={(e) => {
         // Click backdrop to close, but ignore clicks inside the form.
         if (e.target === e.currentTarget) dismiss();
@@ -514,6 +519,18 @@ export function NewManualVendorModal({
                   className="w-full rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60"
                 />
               </Field>
+
+              {/* Owner 2026-07-01: note to couples that a self-added vendor is
+                  NOT Setnayan-verified. Friendly framing — we add them free so
+                  the couple can manage their whole plan in one place. */}
+              <p className="flex items-start gap-1.5 rounded-md border border-ink/10 bg-paper px-2.5 py-2 text-[11px] leading-snug text-ink/65">
+                <AlertCircle aria-hidden className="mt-px h-3.5 w-3.5 shrink-0 text-ink/40" strokeWidth={2} />
+                <span>
+                  Heads up — vendors you add yourself aren&apos;t verified by
+                  Setnayan. We add them free so you can manage your whole plan in
+                  one place 💛 — just vet them yourself before booking.
+                </span>
+              </p>
             </>
           )}
 
@@ -598,8 +615,10 @@ function PostSaveStep({
 
   const [invitePending, startInvite] = useTransition();
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [qrSvg, setQrSvg] = useState<string | null>(null);
   const [inviteErr, setInviteErr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const save = useSaveLoader();
 
   const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 
@@ -616,7 +635,10 @@ function PostSaveStep({
         fd.set('event_id', eventId);
         fd.set('vendor_id', eventVendorId);
         fd.set('total_cost_php', String(Math.round(n)));
-        await updateVendorCosts(fd);
+        await save.run(() => updateVendorCosts(fd), {
+          steps: ['Saving the price'],
+          hint: 'Saving',
+        });
         setPriceSavedPhp(Math.round(n));
       } catch {
         setPriceErr('Could not save — you can add the price from the vendor page.');
@@ -627,9 +649,14 @@ function PostSaveStep({
   function getInvite() {
     setInviteErr(null);
     startInvite(async () => {
-      const res = await createManualVendorInvite({ eventId, vendorId: eventVendorId });
-      if (res.ok) setInviteUrl(res.url);
-      else setInviteErr(res.error);
+      const res = await save.run(
+        () => createManualVendorInvite({ eventId, vendorId: eventVendorId }),
+        { steps: ['Creating the invite'], hint: 'Saving' },
+      );
+      if (res.ok) {
+        setInviteUrl(res.url);
+        setQrSvg(res.qrSvg);
+      } else setInviteErr(res.error);
     });
   }
 
@@ -714,6 +741,20 @@ function PostSaveStep({
         </p>
         {inviteUrl ? (
           <>
+            {qrSvg ? (
+              <div className="mt-2 flex flex-col items-center gap-1.5 rounded-lg border border-ink/10 bg-cream p-3">
+                <span
+                  role="img"
+                  aria-label={`QR code — ${vendorName} scans this to join Setnayan and log in`}
+                  className="h-40 w-40 [&>svg]:h-full [&>svg]:w-full"
+                  dangerouslySetInnerHTML={{ __html: qrSvg }}
+                />
+                <p className="max-w-[14rem] text-center text-[10px] leading-snug text-ink/55">
+                  Show this to {vendorName} — they scan it to join Setnayan &amp;
+                  log in. Or send the link below.
+                </p>
+              </div>
+            ) : null}
             <div className="mt-2 flex items-center gap-2">
               <input
                 readOnly
@@ -845,11 +886,7 @@ function MarketplaceAutocomplete({
       aria-label="Marketplace vendor matches"
       className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-y-auto rounded-lg border border-ink/15 bg-cream shadow-lg"
     >
-      <header className="sticky top-0 flex items-center justify-between border-b border-ink/10 bg-cream px-3 py-2">
-        <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-          <Sparkles aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-          Found on Setnayan
-        </p>
+      <header className="sticky top-0 flex items-center justify-end border-b border-ink/10 bg-cream px-3 py-2">
         <button
           type="button"
           onClick={onDismiss}
@@ -972,11 +1009,7 @@ function LinkedVendorConfirmation({
   return (
     <div className="space-y-3">
       <div className="rounded-lg border border-terracotta/40 bg-terracotta/5 p-3">
-        <header className="mb-2 flex items-center justify-between gap-2">
-          <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
-            <Store aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-            From Setnayan marketplace
-          </p>
+        <header className="mb-2 flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}

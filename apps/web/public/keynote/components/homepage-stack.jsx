@@ -1,7 +1,7 @@
 // "The stack you can finally close" — consolidation pitch.
 // Two variants:
 //   StackCloseCouple   — used on /  (customer homepage)
-//   StackCloseVendor   — used on /for-vendors  + homepage ForVendors section
+//   StackCloseVendor   — used on /vendors  + homepage ForVendors section
 //
 // Both visualize ~25 apps a Filipino couple/vendor pieces together today,
 // collapsing into a single Setnayan account. Stage-aware: pilot variant

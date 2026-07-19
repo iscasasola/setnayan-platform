@@ -1,0 +1,90 @@
+name: migration-drift-monitor
+
+# Watches for the ONE failure class behind ~every migration incident in this
+# repo: a migration reaches the prod ledger BEFORE its PR merges (a local
+# `db push` from a feature worktree, an MCP apply, a raw `db query`). That
+# "orphan" (ledger row, no file on main) jams `supabase db push` for everyone,
+# and later-merged migrations then silently STRAND (shipped in code via Vercel,
+# never applied to the DB) until a user hits a broken feature — sometimes days
+# later. This job makes that visible in minutes instead of days.
+#
+# It runs `scripts/migration-doctor.mjs`, which diffs the prod ledger against
+# origin/main and FAILS (red workflow → GitHub e-mails the owner) when it finds:
+#   • an ORPHAN   — ledger row with no file on main (jams the pipeline), or
+#   • a STRANDED  — merged-but-unapplied migration older than the grace window.
+# Freshly-merged files still within the grace window are treated as normal
+# post-merge apply latency, NOT drift, so a green apply run never trips this.
+#
+# It uses the SAME three pieces of state as supabase-migrations.yml
+# (SUPABASE_ACCESS_TOKEN + SUPABASE_DB_PASSWORD secrets, SUPABASE_PROJECT_REF
+# variable) and, like that workflow, GREEN no-ops until they are set.
+
+on:
+  schedule:
+    # Every 2 hours. Frequent enough to catch an out-of-band apply the same
+    # afternoon; cheap enough to not spam. (cron is UTC.)
+    - cron: '0 */2 * * *'
+  # Re-check right after an apply run finishes, so a jam is caught immediately.
+  workflow_run:
+    workflows: ['supabase-migrations']
+    types: [completed]
+  workflow_dispatch:
+
+concurrency:
+  group: migration-drift-monitor
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: check ledger vs main
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      DO_NOT_TRACK: '1'
+    steps:
+      - name: Gate — is the DB configured?
+        id: gate
+        run: |
+          if [ -n "$SUPABASE_ACCESS_TOKEN" ] && [ -n "$SUPABASE_DB_PASSWORD" ] && [ -n "$SUPABASE_PROJECT_REF" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Drift monitor dormant::Set the SUPABASE_* secrets/variable to enable (see supabase-migrations.yml header)."
+          fi
+
+      # Full history + all origin branches so the doctor can name the branch that
+      # still carries an orphan's file (its owning, not-yet-merged PR).
+      - name: Checkout (full history)
+        if: steps.gate.outputs.enabled == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch all origin branches (for orphan → owning-branch mapping)
+        if: steps.gate.outputs.enabled == 'true'
+        run: git fetch --no-tags origin '+refs/heads/*:refs/remotes/origin/*' || true
+
+      - name: Setup Node
+        if: steps.gate.outputs.enabled == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Supabase CLI
+        if: steps.gate.outputs.enabled == 'true'
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link to Supabase project
+        if: steps.gate.outputs.enabled == 'true'
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+
+      - name: Run migration doctor (fails on real drift)
+        if: steps.gate.outputs.enabled == 'true'
+        run: |
+          set -o pipefail
+          node scripts/migration-doctor.mjs --linked | tee "$GITHUB_STEP_SUMMARY"

@@ -2,10 +2,8 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { CircleAlert } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import {
-  PAPIC_SAMPLER_PHOTO_CAP,
-  PAPIC_SAMPLER_CLIP_CAP,
-} from '@/lib/papic-seats';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { asPapicStyle } from '@/lib/papic-photo-styles';
 import { PapicSeatCapture } from './_components/papic-seat-capture';
 import { CameraBridgePanel } from './_components/camera-bridge-panel';
 
@@ -45,7 +43,7 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
   // null and is bounced to the claim page.
   const { data: seat, error } = await supabase
     .from('paparazzi_seats')
-    .select('seat_id, event_id, seat_index, revoked_at, claimer_user_id, is_free_sampler')
+    .select('seat_id, event_id, seat_index, revoked_at, claimer_user_id')
     .eq('claim_qr_token', token)
     .maybeSingle();
 
@@ -74,37 +72,53 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
     );
   }
 
-  // Per-kind counts so the capture UI can show "N/8 photos" + "M/2 clips" and
-  // enforce the free-sampler caps client-side (the server re-checks in
-  // recordSeatCapture). Paid seats are uncapped (caps passed as null below).
+  // Per-kind counts so the capture UI can show the running tally. Seats are
+  // uncapped (caps passed as null below); any per-camera daily cap is enforced
+  // server-side in recordSeatCapture + the presign route.
   // superseded_at IS NULL scopes the count to the CURRENT claimer — a reissued
   // seat starts clean (prior captures stay in the couple gallery, uncounted).
-  const [{ count: photoCount }, { count: clipCount }] = await Promise.all([
-    supabase
-      .from('papic_photos')
-      .select('photo_id', { count: 'exact', head: true })
-      .eq('paparazzi_seat_id', seat.seat_id)
-      .eq('photo_type', 'photo')
-      .is('superseded_at', null),
-    supabase
-      .from('papic_photos')
-      .select('photo_id', { count: 'exact', head: true })
-      .eq('paparazzi_seat_id', seat.seat_id)
-      .eq('photo_type', 'clip')
-      .is('superseded_at', null),
-  ]);
+  // The locked event-wide look. The claimer isn't an event member, so events
+  // is read on the admin client. Defensive: pre-migration the papic_style column
+  // is absent → error (not throw) → asPapicStyle falls back to ORIG.
+  const admin = createAdminClient();
+  const [{ count: photoCount }, { count: clipCount }, { data: styleRow }] =
+    await Promise.all([
+      supabase
+        .from('papic_photos')
+        .select('photo_id', { count: 'exact', head: true })
+        .eq('paparazzi_seat_id', seat.seat_id)
+        .eq('photo_type', 'photo')
+        .is('superseded_at', null),
+      supabase
+        .from('papic_photos')
+        .select('photo_id', { count: 'exact', head: true })
+        .eq('paparazzi_seat_id', seat.seat_id)
+        .eq('photo_type', 'clip')
+        .is('superseded_at', null),
+      admin
+        .from('events')
+        .select('papic_style')
+        .eq('event_id', seat.event_id as string)
+        .maybeSingle(),
+    ]);
 
-  const isSampler = Boolean(seat.is_free_sampler);
+  const eventStyle = asPapicStyle(
+    (styleRow as { papic_style?: string } | null)?.papic_style,
+  );
+
 
   return (
     <>
       <PapicSeatCapture
         token={token}
         seatIndex={seat.seat_index as number}
+        eventId={(seat.event_id as string) ?? ''}
         initialPhotos={photoCount ?? 0}
         initialClips={clipCount ?? 0}
-        photoCap={isSampler ? PAPIC_SAMPLER_PHOTO_CAP : null}
-        clipCap={isSampler ? PAPIC_SAMPLER_CLIP_CAP : null}
+        photoCap={null}
+        clipCap={null}
+        isAnon={Boolean(user.is_anonymous)}
+        eventStyle={eventStyle}
       />
       {bridgeEnabled ? (
         <CameraBridgePanel

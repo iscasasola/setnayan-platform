@@ -21,7 +21,8 @@
  */
 
 import type { ReactNode } from 'react';
-import { CheckCircle2 } from 'lucide-react';
+import Link from 'next/link';
+import { CheckCircle2, ArrowUpRight } from 'lucide-react';
 import { DOC_SLOTS, type DocSlot, type DocSlotKind } from '@/lib/vendor-verification';
 
 /**
@@ -99,6 +100,18 @@ export function DocSlotCard({
         <SlotBadge kind={slot.kind} complete={complete} />
       </header>
       <p className="text-xs text-ink/65">{slot.hint}</p>
+
+      {slot.guideSlug ? (
+        <Link
+          href={`/help/${slot.guideSlug}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex w-fit items-center gap-1 text-xs font-medium text-terracotta underline-offset-4 hover:underline"
+        >
+          How to get this
+          <ArrowUpRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+        </Link>
+      ) : null}
 
       {children}
     </article>

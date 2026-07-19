@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
+import { allowAnonMint } from '@/lib/anon-mint-throttle';
 import { experienceQuizEnabled } from '@/lib/experience-quiz';
 import {
   syncEventSongPicks,
@@ -24,6 +25,8 @@ import { regionForCity } from '@/lib/regions';
 import { resolveRegion } from '@/lib/region-source';
 import { PERMISSION_TEMPLATES, type RoleSubtype } from '@/lib/event-moderators';
 import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
+import { captchaOptions } from '@/lib/turnstile';
+import { hasInPlanningWeddingForUser } from '@/app/dashboard/(account)/create-event/wedding-guard';
 
 /**
  * commitOnboardingWedding — the single lazy DB commit for the /onboarding/wedding
@@ -80,6 +83,56 @@ const DEFAULT_SUB_TYPE: Record<string, string> = {
 };
 // Secondary (mixed-wedding) pick: any registry faith or civil — never 'mixed'.
 const ALLOWED_SECONDARY = ALLOWED_CEREMONY_VALUES.filter((v) => v !== 'mixed');
+
+/**
+ * deriveMixedColumns — order-independent column derivation for a MIXED / overlay
+ * wedding (≥2 faith picks, e.g. a Tsinoy church-primary + Chinese tea ceremony).
+ *
+ * THE BUG THIS FIXES: the old `faith.find(isAllowedSecondary)` derived the second
+ * rite from CHIP-TAP ORDER — it returned whichever faith was tapped first, so the
+ * second faith (often the Chinese overlay) was SILENTLY DROPPED and the couple did
+ * NOT get a Chinese-aware event. Order must not decide which faith survives.
+ *
+ * CONTRACT (matches dashboard/create-event/actions.ts §140-144 + the schema the
+ * consumers wedding-plan-groups.ts / paperwork.ts / auspicious-date.ts / isChineseWedding
+ * read): a mixed wedding stores ceremony_type='mixed' (literal) + is_mixed_ceremony=true
+ * + secondary_ceremony_type = the CONCRETE second rite. Here we return BOTH:
+ *   - `ceremonyType` — the concrete PRIMARY rite used by find/count branches that
+ *     filter on a real ceremony value (prefer the NON-Chinese pick when one exists,
+ *     so Chinese is kept free to ride as the secondary overlay below).
+ *   - `secondary`   — the concrete SECONDARY rite, validated against ALLOWED_SECONDARY,
+ *     preferring a 'chinese' pick so the common church-primary + Chinese-tea case
+ *     never loses the Chinese overlay, regardless of tap order.
+ *
+ * The COMMIT path writes the literal 'mixed' into ceremony_type itself (per the
+ * CHECK constraint) and only consumes `secondary` here — `ceremonyType` is for the
+ * search/count branches, which filter on a concrete ceremony value, not 'mixed'.
+ */
+function deriveMixedColumns(faith: string[]): {
+  ceremonyType: string;
+  secondary: string | null;
+} {
+  // Concrete picks only — filter to the valid secondary/ceremony vocabulary
+  // (drops 'mixed' itself + any unknown junk), preserving the couple's set.
+  const concrete = (faith ?? []).filter((f) =>
+    (ALLOWED_SECONDARY as readonly string[]).includes(f),
+  );
+  // Prefer keeping a Chinese pick as the SECONDARY overlay (Tsinoy church-primary
+  // + Chinese tea ceremony) so it's never the one that gets dropped.
+  const hasChinese = concrete.includes('chinese');
+  const secondary = hasChinese
+    ? 'chinese'
+    : // no Chinese pick → the secondary is the second concrete rite (the one that
+      // is NOT the primary), order-independently: take the first that differs.
+      (concrete.find((f) => f !== concrete[0]) ?? null);
+  // Primary concrete rite for the find/count branches: the non-Chinese pick when
+  // one exists (so Chinese rides as the overlay, not the filter), else fall back
+  // to the first concrete pick, else 'catholic' (the same fallback the religious
+  // branch uses for an unknown/missing pick).
+  const ceremonyType =
+    concrete.find((f) => f !== 'chinese') ?? concrete[0] ?? 'catholic';
+  return { ceremonyType, secondary };
+}
 // Fallback when the couple skipped the reception "setting" pick. The CHECK
 // constraint requires a value for wedding events; the couple refines it later.
 const DEFAULT_VENUE = 'banquet_hall';
@@ -128,7 +181,7 @@ function onboardingRegionToPsgc(region: string | null | undefined): string | nul
   return resolved.psgc_code;
 }
 
-// Picker key (53 fine taxonomy services, screen-9) → PLAN_GROUP id (26 planning
+// Picker key (53 fine taxonomy services, screen-9) → PLAN_GROUP id (planning
 // groups). The auto-inquire loop resolves each pick to its group, then fires
 // ONE best-fit inquiry per UNIQUE group (the dashboard unlock-category model).
 // Picks with no clean planning group are intentionally omitted so a pick never
@@ -183,7 +236,7 @@ export type OnboardingCommitPayload = {
    * screen-12 "Add your own vendor" sheet — off-platform vendors the couple typed in
    * (name + contact person + email). Persisted at commit as event_vendors 'considering'
    * freeform rows (category 'misc', source 'host_manual') so they show on the dashboard
-   * Services tab — same shape the dashboard's addCustomVendor writes for a manual vendor.
+   * Services tab — same shape the dashboard's manual-vendor add writes.
    */
   byoVendors: { name: string; person: string; email: string }[];
   /**
@@ -251,6 +304,13 @@ export type OnboardingCommitPayload = {
   experiencePersona: string | null;
   experienceForWhom: 'couple' | 'guests' | 'both' | null;
   experienceAxes: Record<string, string>;
+  /**
+   * Cloudflare Turnstile token minted client-side when global Supabase captcha
+   * is enabled — anon-draft commit mints a Supabase anonymous session, which
+   * captcha gates. Optional/undefined until the funnel supplies it; empty → {}
+   * → no-op (see lib/turnstile.ts).
+   */
+  captchaToken?: string;
 };
 
 export type OnboardingCommitResult =
@@ -277,7 +337,17 @@ export async function commitOnboardingWedding(
     // trigger migration — both owner go-live steps; until then the flag stays
     // OFF and we fall through to the unchanged not_authenticated contract.
     if (anonOnboardingEnabled()) {
-      const { data: anon, error: anonError } = await supabase.auth.signInAnonymously();
+      // Per-IP flood guard: anonymous sign-in mints a real account + event from
+      // nothing, so cap it per IP before minting. Fail-open on a missing IP or
+      // infra error (see allowAnonMint) so a real couple is never locked out.
+      if (!(await allowAnonMint(createAdminClient()))) {
+        return { ok: false, error: 'rate_limited' };
+      }
+      const { data: anon, error: anonError } = await supabase.auth.signInAnonymously({
+        // Global Supabase captcha also gates anonymous sign-in. Token comes from
+        // the funnel client (mintTurnstileToken); empty → {} → no-op.
+        options: captchaOptions(payload.captchaToken),
+      });
       if (anonError || !anon.user) {
         console.error('[commitOnboardingWedding] anon sign-in failed:', anonError?.message);
         return { ok: false, error: 'not_authenticated' };
@@ -288,6 +358,15 @@ export async function commitOnboardingWedding(
     }
   }
 
+  // Wedding cardinality — one wedding IN PLANNING at a time (owner-locked
+  // 2026-07-12). The shipped guard lived only in create-event's server action;
+  // this commit path could walk past it (council 2026-07-17 recon: an existing
+  // bypass). A freshly-minted anonymous user has no prior events by
+  // construction, so the read is skipped for them.
+  if (!user.is_anonymous && (await hasInPlanningWeddingForUser(supabase, user.id))) {
+    return { ok: false, error: 'wedding_exists' };
+  }
+
   // -- Map onboarding kind/faith → events.ceremony_type / secondary --
   let ceremonyType: string;
   let isMixed = false;
@@ -295,16 +374,17 @@ export async function commitOnboardingWedding(
   if (payload.kind === 'civil') {
     ceremonyType = 'civil';
   } else if (payload.kind === 'mixed') {
+    // Mixed/overlay wedding → literal 'mixed' + is_mixed_ceremony=true + the
+    // concrete second rite, derived order-independently so the Chinese overlay
+    // is never dropped by chip-tap order (see deriveMixedColumns).
     ceremonyType = 'mixed';
     isMixed = true;
-    const sec = payload.faith.find((f) =>
-      (ALLOWED_SECONDARY as readonly string[]).includes(f),
-    );
-    secondary = sec ?? null;
+    secondary = deriveMixedColumns(payload.faith).secondary;
   } else {
-    // religious — faith[0]; only 'catholic' is an active ceremony_type today
-    // (INC/Christian/Muslim/Cultural ship as Coming Soon, not yet selectable
-    // as a committed ceremony_type per iteration 0043).
+    // religious — faith[0] is preserved verbatim when it's any ALLOWED_CEREMONIES
+    // value (the guard below only falls back to 'catholic' for an unknown/missing
+    // pick). Selectability is gated upstream by the picker via each faith's
+    // wedding_type launch status (Coming Soon faiths aren't offered), not here.
     const primary = payload.faith[0];
     ceremonyType =
       primary && (ALLOWED_CEREMONIES as readonly string[]).includes(primary)
@@ -568,7 +648,7 @@ export async function commitOnboardingWedding(
   // Persist BYO vendors — the off-platform vendors the couple typed into the
   // screen-12 "Add your own vendor" sheet — as event_vendors 'considering'
   // freeform rows (category 'misc', source 'host_manual'), the same shape the
-  // dashboard's addCustomVendor writes. event_vendors already has nullable
+  // dashboard's manual-vendor add writes. event_vendors already has nullable
   // contact_email + notes columns, so name/contact-person/email all land with
   // NO new table or column. Best-effort: the event + membership are already
   // committed, so a BYO insert failure must NEVER reject the action (mirrors
@@ -693,6 +773,9 @@ export async function commitOnboardingWedding(
             eventId: insertedEvent.event_id,
             groupId,
             count: perCategory,
+            // PR-C source taxonomy: the onboarding "reach my best matches"
+            // fan-out is the Auto Build Recommendation surface.
+            inquirySource: 'auto_build',
           }),
         ),
       );
@@ -762,9 +845,10 @@ export async function searchOnboardingReceptionVenues(input: {
   if (input.kind === 'civil') {
     ceremonyType = 'civil';
   } else if (input.kind === 'mixed') {
+    // Mixed/overlay → literal 'mixed' filter + the concrete second rite, derived
+    // order-independently (Chinese overlay preserved regardless of tap order).
     ceremonyType = 'mixed';
-    secondary =
-      input.faith.find((f) => (ALLOWED_SECONDARY as readonly string[]).includes(f)) ?? null;
+    secondary = deriveMixedColumns(input.faith).secondary;
   } else if (input.kind === 'religious') {
     const primary = input.faith[0];
     ceremonyType =
@@ -905,9 +989,12 @@ export async function getOnboardingVendorCounts(input: {
   if (input.kind === 'civil') {
     ceremonyType = 'civil';
   } else if (input.kind === 'mixed') {
+    // Mixed/overlay → literal 'mixed' filter + the concrete second rite, derived
+    // order-independently (Chinese overlay preserved regardless of tap order). The
+    // ceremonyValues set built below dedups 'mixed' + the secondary, so the
+    // NULL-safe ceremony fit admits both this couple's rites.
     ceremonyType = 'mixed';
-    secondary =
-      input.faith.find((f) => (ALLOWED_SECONDARY as readonly string[]).includes(f)) ?? null;
+    secondary = deriveMixedColumns(input.faith).secondary;
   } else if (input.kind === 'religious') {
     const primary = input.faith[0];
     ceremonyType =
@@ -964,6 +1051,10 @@ export async function getOnboardingVendorCounts(input: {
         'hq_region,location_city,compatible_ceremony_types,compatible_venue_settings,event_types,capacity_max,venue_type',
       )
       .in('public_visibility', ['verified', 'coming_soon'])
+      // PR-B — count only VERIFIED vendors so the congrats stat tile matches
+      // what the couple can actually find on Explore (unverified vendors are
+      // private). Keeps the "real numbers only" guarantee honest.
+      .eq('verification_state', 'verified')
       .not('business_name', 'is', null)
       .neq('business_name', '')
       .limit(5000); // ceiling well above the V1 pool · keeps `total` exact

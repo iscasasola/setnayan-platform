@@ -15,6 +15,8 @@
  */
 
 import dynamic from 'next/dynamic';
+import { useEffect } from 'react';
+import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { FourFlapEnvelope } from '@/app/[slug]/_components/reveal/four-flap';
 import { RigidReveal } from '@/app/[slug]/_components/reveal/rigid-reveal';
 import {
@@ -28,6 +30,7 @@ import {
 } from '@/lib/std-reveal-effects';
 import type { RevealEffectsLook, VeilLook } from '@/lib/reveal-config';
 
+// gold/molten retired as reveal openings 2026-06-22 (now monogram-editor motions).
 const VeilReveal = dynamic(() => import('@/app/[slug]/_components/reveal/veil-reveal'), {
   ssr: false,
 });
@@ -73,6 +76,45 @@ export function RevealPreview({
   onDone = noop,
   effects,
 }: Props) {
+  // Accessibility: when the visitor has asked the OS to minimise motion, we do
+  // NOT mount the animated reveal (WebGL veil / CSS-3D flaps auto-playing on a
+  // timer). The live guest overlay (reveal-overlay.tsx) skips the reveal entirely
+  // in this case; the preview can't do that because the parent waits on `onDone`
+  // to uncover the film beneath. So we render the SAME final visible state the
+  // motion would have ended in — a static, lifted/opened still showing the
+  // couple's monogram — and fire the completion callback exactly once. The flow
+  // still completes; only the motion is removed.
+  const reducedMotion = usePrefersReducedMotion();
+  useEffect(() => {
+    if (!reducedMotion) return;
+    // Fire once on mount of the reduced path; `onDone` reference may change
+    // identity but the intent ("the reveal finished") is one-shot per mount.
+    onDone();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reducedMotion]);
+
+  if (reducedMotion) {
+    return (
+      <div
+        className="absolute inset-0 flex items-center justify-center overflow-hidden"
+        style={{ background: effects?.veilColor ?? veilColor ?? waxColor }}
+        aria-hidden
+      >
+        {markSvg ? (
+          <span
+            className="block h-2/5 w-2/5 opacity-90 [&>svg]:h-full [&>svg]:w-full"
+            // eslint-disable-next-line react/no-danger
+            dangerouslySetInnerHTML={{ __html: markSvg }}
+          />
+        ) : (
+          <span className="font-serif text-3xl tracking-[0.2em] text-black/70">
+            {monogram}
+          </span>
+        )}
+      </div>
+    );
+  }
+
   if (isVeilTemplate(template)) {
     return (
       <VeilReveal

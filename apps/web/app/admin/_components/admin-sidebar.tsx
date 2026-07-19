@@ -4,617 +4,141 @@
  * AdminSidebar — admin doorway desktop nav (NavGroup[] source of truth).
  *
  * WHY: CLAUDE.md 2026-05-23 row 2 locks the admin console. Originally 8
- * categories (0023 § 1), remapped 2026-06-04 to 6 topic-groups, and re-cut
- * 2026-06-08 by the ops-shaped nav redesign
- * (Admin_Console_Nav_Redesign_2026-06-08.md · owner conditionally signed
- * off 2026-06-08). The console is now grouped by the VERB an admin performs
- * — act / find / tune — instead of by topic, because admin is a work-queue
- * ops console (≈95% of sessions are "clear a queue").
+ * categories (0023 § 1), remapped 2026-06-04 to 6 topic-groups, re-cut
+ * 2026-06-08 by the ops-shaped VERB redesign (act / find / tune ·
+ * Admin_Console_Nav_Redesign_2026-06-08.md), respun 2026-07-03 into 6 topic
+ * menus (Overview · Accounts · Content · Marketing · Performance · System
+ * Settings), and re-cut AGAIN 2026-07-04 by this owner respine below.
  *
  * This file owns the NavGroup[] array consumed by SidebarShell +
  * SidebarSection + SidebarItem from @/app/_components/nav/*. It is the
- * single source of truth for admin nav structure on desktop. The 4-item
- * mobile BottomNav lives in admin-bottom-nav.tsx alongside this file.
+ * single source of truth for admin nav structure on desktop. The mobile
+ * BottomNav lives in admin-bottom-nav.tsx alongside this file (a SEPARATE
+ * ≤5-tab mobile IA — it does NOT mirror these groups 1:1 and is untouched by
+ * this re-cut).
  *
- * 6 GROUPS — a 3-item spine (Home · Work · Directory) + 3 collapsible
- * tune-groups (Insights · Money & Catalog · Platform). Group KEYS are
- * deliberately preserved across the relabel so localStorage open-state
- * survives: key 'queues' now renders label "Work"; key 'money' renders
- * "Money & Catalog"; key 'funnels' renders "Insights"; key 'content'
- * renders "Platform".
- *   1. Home  (key 'home')      — Overview (/admin)
- *   2. Work  (key 'queues')    — every act-now queue: Verify · Payments ·
- *                   Payouts · Token sales · Payment options · Disputes ·
- *                   Force majeure · Reviews · AI abuse · Help. (Payouts +
- *                   Token sales pulled in from the dissolved Money group.)
- *   3. Directory (key 'directory') — Users · Vendors · Demo vendors ·
- *                   Events · Venues. (Wedding types + traditions moved to
- *                   Platform — governance + content, not look-up.)
- *   4. Insights (key 'funnels') — Growth · Funnels · Operations & Hiring ·
- *                   Telemetry · Connection logs · Offline daemon.
- *   5. Money & Catalog (key 'money') — config, NOT the act-now queues:
- *                   Pricing · Add-ons · Discount codes · Token bands ·
- *                   Budget Planner · Receipts · Payment methods. (Payouts +
- *                   Token sales moved to Work.)
- *   6. Platform (key 'content') — Settings · Taxonomy · Website · Ads ·
- *                   AI brain · Moodboard library · Songs · Wedding types ·
- *                   Wedding traditions · Notifications · Demo mode.
- *                   (Notifications gets a nav home — it was an orphan.)
+ * 6 MENUS — the owner's 2026-07-04 respine (supersedes the 2026-07-03
+ * 6-topic layout). This is the first PR of the HQ studio-consolidation
+ * program; follow-up waves turn these menus into Taxonomy-Studio-style
+ * surfaces. The layout, task-inbox-first → engine-rooms-last:
+ *   1. Overview (key 'queues') — the decision/task inbox (vendor-dashboard
+ *                   home pattern): the /admin pulse · All work · every
+ *                   act-now queue (requests · approvals · transactions ·
+ *                   reports · disputes). UNCHANGED items.
+ *   2. Accounts (key 'directory') — pure record look-up: Users · Vendors ·
+ *                   Demo vendors · Events · Venues. UNCHANGED items.
+ *   3. Studio (key 'media') — everything an admin CURATES or PUBLISHES:
+ *                   the old Content lane (Website · Hero video · Reveal
+ *                   Studio · Real Stories · Recaps · Patiktok · Songs ·
+ *                   Moodboard library) FOLLOWED BY the old Marketing lane
+ *                   (Social queue · Spotlight Awards · Journal Spotlights ·
+ *                   Discount codes · Referrals). The retired 'marketing'
+ *                   group folds in here; its items keep their keys/icons.
+ *   4. Ugat Console (key 'ugat' · NEW) — the data-structure / mapping wing
+ *                   carved OUT of System Settings, anchored by the Taxonomy
+ *                   Studio: Menus & icons · Taxonomy · Onboarding · Wedding
+ *                   traditions · Setnayan AI brain. (Event Types ·
+ *                   Refinements · Wedding types already folded into the
+ *                   Taxonomy Studio 2026-07-03 — no standalone items.)
+ *   5. App Performance (key 'funnels') — growth + stats: the App Performance
+ *                   cockpit · Growth · Intelligence · Funnels · Operations &
+ *                   Hiring · Connection logs · Offline daemon. UNCHANGED
+ *                   items; group label "Performance" → "App Performance".
+ *                   (The first ITEM is also labeled "App Performance" — the
+ *                   label collision is accepted for now.)
+ *   6. Money (key 'settings-group') — the money-config lane (Pricing ·
+ *                   Add-ons · Vendor recommendations · Token bands · Price
+ *                   bands · Budget Planner · Receipts · Payment methods)
+ *                   FIRST, then the small settings tail (Settings ·
+ *                   Notifications · Demo mode · My account).
  *
- * REQUIRED FOLLOW-UP (owner sign-off condition): the Work view's Money-lane
- * filter (Payments + Payouts + Token sales surfaced together) ships with the
- * Work master-detail PR, so finance keeps a one-stop money view after the
- * Money group dissolves. RBAC handler-lane scoping is a later, separate build.
+ * Group KEYS are preserved for setnayan.nav.section.<key>.open localStorage
+ * continuity — 'queues' · 'directory' · 'media' · 'funnels' ·
+ * 'settings-group' all survive; 'ugat' is new (defaults apply); the old
+ * 'marketing' group key RETIRES (its items live in 'media' now).
  *
- * PAYMENT METHODS: canonical home is Money & Catalog (the data IS money —
- * vendor payouts + customer payment instructions both consume it). Not
- * duplicated into Platform/Settings.
+ * REQUIRED FOLLOW-UP (carried from 2026-06-08 sign-off): the Work view's
+ * Money-lane filter (Payments + Payouts + Token sales surfaced together)
+ * ships with the Work master-detail PR, so finance keeps a one-stop money
+ * view. RBAC handler-lane scoping is a later, separate build.
+ *
+ * PAYMENT METHODS: lives with the money config inside Money (the data IS
+ * money — vendor payouts + customer payment instructions both consume it).
+ * Never duplicated.
  *
  * BRAND-LAYER RENAME 2026-05-28 V2 CUTOVER: Concierge abuse keeps its route
  * + DB table names (concierge_abuse_flags) for bookmark + audit continuity,
  * but the sidebar entry reads "Setnayan AI abuse" to match the V2 brand.
+ *
+ * ── FLATTEN 2026-07-15 (owner: "solid menu with no submenus") ─────────────
+ * The six menu rows are now PLAIN DOORWAYS — no chevron, no inline children.
+ * The owner locked every desktop sidebar to a flat list of top-level
+ * destinations; sub-navigation lives INSIDE each hub (the tabbed studios, the
+ * /admin/work worklist, and each group LANDING enumerates its children as
+ * tiles/cards). ADMIN_NAV_GROUPS is UNCHANGED and still the single source of
+ * truth — the six parents are still DERIVED from it (deriveSixMenus), and each
+ * parent still carries its group's items as the active-detection + badge-rollup
+ * input, but <AdminSidebarMenu> renders them as a flat row (the children never
+ * become a sub-list). Child routes still light their parent (the group items
+ * feed active-state, since they live on disjoint path roots the hub matchPrefix
+ * can't cover) and the aggregated queue badge still shows. This extends the
+ * vendor 5-page IA (2026-07-12) + the couple plain-leaf decision (2026-07-10).
+ *
+ * ── 6-MENU RESPINE 2026-07-09 (owner: "integrate different pages, make it
+ * up to 6 menus only") · SUPERSEDED-IN-PART by the 2026-07-15 flatten above ──
+ * The sidebar renders exactly SIX menu rows instead of six always-open sections
+ * (~69 visible links). Each parent links to that menu's INTEGRATED hub surface.
+ * (Historically each parent AUTO-EXPANDED its children while the active route was
+ * inside the section — that expand behavior was REMOVED by the flatten above.):
+ *   Overview        → /admin            (queue tiles + work list live there)
+ *   Accounts        → /admin/accounts   (tabbed Accounts Studio, shipped)
+ *   Studio          → /admin/studio     (tabbed Studio Studio, shipped)
+ *   Ugat Console    → /admin/ugat       (hub landing, NEW this respine)
+ *   App Performance → /admin/app-performance (the cockpit)
+ *   Money           → /admin/money      (hub landing, promoted to desktop)
+ * ADMIN_NAV_GROUPS below is UNCHANGED and stays the single source of truth —
+ * the parents are DERIVED from it (deriveSixMenus), so /admin/more, the hub
+ * landings, and the registry overlay all keep reading the same structure.
+ * Live queue counts aggregate onto the Overview parent (worst-urgency tone)
+ * so collapsing the queue links never hides SLA pressure.
+ *
+ * ── DECLUTTER 2026-07-10 (owner: "this is the admin?") · SUPERSEDED by the
+ * 2026-07-15 flatten above ────────────────────────────────────────────────
+ * The 2026-07-10 pass kept the expandable menus but defaulted the Overview menu
+ * COLLAPSED even when active (a `collapsedWhenActive` flag on <AdminSidebarMenu>)
+ * so the rail didn't explode its ~18 queue children on arrival at /admin. The
+ * 2026-07-15 flatten removed expansion entirely, so that flag + its persisted
+ * toggle are gone — there is no longer any inline sub-list to collapse. (The
+ * mobile admin-bottom-nav is a flat ≤5-tab strip with no expand logic, and
+ * admin-nav-fab is a single action — neither ever replicated the expand
+ * behavior, so neither needed a change.)
  */
 
 import {
   Home,
+  Activity,
   Banknote,
-  Coins,
-  BadgeCheck,
-  CheckCheck,
-  Compass,
-  Shield,
-  AlertOctagon,
-  Handshake,
-  Star,
-  LifeBuoy,
-  Flag,
-  MessageSquareWarning,
-  Landmark,
-  RefreshCw,
-  UsersRound,
   Users,
-  Briefcase,
-  TestTube,
-  CalendarDays,
-  MapPin,
-  Church,
-  BookOpen,
-  DollarSign,
-  PiggyBank,
-  Tag as TagIcon,
-  Sparkles,
-  Receipt,
-  CreditCard,
-  Brain,
-  Palette,
-  Shapes,
-  Tag,
-  Globe,
-  Video,
-  Music,
-  TrendingUp,
-  Bug,
-  WifiOff,
-  BarChart3,
-  CircleUser,
-  LineChart,
-  Settings,
-  Share2,
-  Wallet,
-  ShoppingBag,
-  Bell,
-  SlidersHorizontal,
-  UserX,
-  PartyPopper,
-  Newspaper,
-  Images,
-  Radar,
-  Camera,
-  Film,
+  Clapperboard,
+  Network,
+  type LucideIcon,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
-import { SidebarSection } from '@/app/_components/nav/sidebar-section';
-import { SidebarItem } from '@/app/_components/nav/sidebar-item';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
-import type { NavGroup } from '@/app/_components/nav/types';
+import { AdminSidebarMenu } from './admin-sidebar-menu';
+import type {
+  NavGroup,
+  NavItem,
+  NavBadge,
+  NavBadgeTone,
+} from '@/app/_components/nav/types';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
+import type {
+  AdminQueueCounts,
+  AdminQueueDueState,
+} from '@/lib/admin/queue-counts';
 
-/**
- * Canonical admin NavGroup[] export. Mobile-overflow landing pages at
- * /admin/work + /admin/directory + /admin/more present the same surfaces
- * for the 4-tab BottomNav (Home · Work · Directory · More).
- *
- * Stable group/item `key` values mean label edits (Queues→Work, Money→Money
- * & Catalog, etc.) don't reset the per-section
- * setnayan.nav.section.<key>.open localStorage state.
- */
-export const ADMIN_NAV_GROUPS: NavGroup[] = [
-  // ── SPINE ─────────────────────────────────────────────────────────────
-  {
-    key: 'home',
-    label: 'Home',
-    items: [
-      {
-        key: 'overview',
-        label: 'Overview',
-        href: '/admin',
-        icon: Home,
-      },
-    ],
-  },
-  {
-    // WORK (key 'queues' kept for localStorage continuity) — every act-now
-    // surface in one group. Absorbs Payouts + Token sales from the dissolved
-    // Money group. (Two-admin Approvals + Taxonomy-requests join here once
-    // their dedicated surfaces ship — orphan-prevention until then.)
-    key: 'queues',
-    label: 'Work',
-    items: [
-      {
-        key: 'verify',
-        label: 'Verify',
-        href: '/admin/verify',
-        icon: BadgeCheck,
-        matchPrefix: '/admin/verify',
-      },
-      {
-        // Vendor Partnerships — two-admin verification queue for vendor-to-vendor
-        // commercial relationships (accredited / sponsored / general). Badges are
-        // invisible until a second admin confirms. Vendor-side stub at
-        // /vendor-dashboard/partnerships lets vendors submit claims.
-        key: 'vendor-partnerships',
-        label: 'Partnerships',
-        href: '/admin/vendor-partnerships',
-        icon: Handshake,
-        matchPrefix: '/admin/vendor-partnerships',
-      },
-      {
-        key: 'payments',
-        label: 'Payments',
-        href: '/admin/payments',
-        icon: Banknote,
-        matchPrefix: '/admin/payments',
-      },
-      {
-        // Money queue — vendor payout release (was in Money group).
-        key: 'payouts',
-        label: 'Payouts',
-        href: '/admin/payouts',
-        icon: Wallet,
-      },
-      {
-        // Money queue — vendor token-pack purchase reconcile (was in Money).
-        key: 'token-purchases',
-        label: 'Token sales',
-        href: '/admin/token-purchases',
-        icon: ShoppingBag,
-        matchPrefix: '/admin/token-purchases',
-      },
-      {
-        // Money queue — vendor Pro/Enterprise subscription reconcile (Phase D).
-        key: 'subscriptions',
-        label: 'Subscriptions',
-        href: '/admin/subscriptions',
-        icon: RefreshCw,
-        matchPrefix: '/admin/subscriptions',
-      },
-      {
-        key: 'payment-options',
-        label: 'Payment options',
-        href: '/admin/payment-options',
-        icon: CreditCard,
-        matchPrefix: '/admin/payment-options',
-      },
-      {
-        key: 'disputes',
-        label: 'Disputes',
-        href: '/admin/disputes',
-        icon: Shield,
-        matchPrefix: '/admin/disputes',
-      },
-      {
-        key: 'pax-changes',
-        label: 'Pax changes',
-        href: '/admin/pax-changes',
-        icon: UsersRound,
-        matchPrefix: '/admin/pax-changes',
-      },
-      {
-        key: 'force-majeure',
-        label: 'Force majeure',
-        href: '/admin/force-majeure',
-        icon: AlertOctagon,
-        matchPrefix: '/admin/force-majeure',
-      },
-      {
-        key: 'completions',
-        label: 'Completions',
-        href: '/admin/completions',
-        icon: Handshake,
-        matchPrefix: '/admin/completions',
-      },
-      {
-        key: 'reviews',
-        label: 'Reviews',
-        href: '/admin/reviews',
-        icon: Star,
-      },
-      {
-        key: 'concierge-abuse',
-        label: "Setnayan AI abuse",
-        href: '/admin/concierge-abuse',
-        icon: Flag,
-      },
-      {
-        // Self-serve account-deletion request queue (App Store 5.1.1(v) /
-        // Google Play data-deletion). Couples + vendors file deletion requests
-        // from Profile → Privacy & data; an admin approves (runs the existing
-        // hard-delete / blacklist) or rejects within 24h.
-        key: 'account-deletions',
-        label: 'Account deletions',
-        href: '/admin/account-deletions',
-        icon: UserX,
-        matchPrefix: '/admin/account-deletions',
-      },
-      {
-        // UGC report queue (Apple 1.2 / Google Play UGC). Reports filed against
-        // Papic guest gallery content land here for moderator review.
-        key: 'user-reports',
-        label: 'User reports',
-        href: '/admin/user-reports',
-        icon: MessageSquareWarning,
-        matchPrefix: '/admin/user-reports',
-      },
-      {
-        // Two-admin (four-eyes) approval queue — §9.1. A different admin
-        // approves a major decision before it executes.
-        key: 'approvals',
-        label: 'Approvals',
-        href: '/admin/approvals',
-        icon: CheckCheck,
-      },
-      {
-        // Social Sharing & Featuring Program queue (2026-06-12) — ready-to-
-        // post couple creations + vendor verification features + take-downs.
-        key: 'social-queue',
-        label: 'Social queue',
-        href: '/admin/social-queue',
-        icon: Share2,
-        matchPrefix: '/admin/social-queue',
-      },
-      {
-        // Pakanta songwriting queue — each couple's custom-song brief, auto-
-        // composed from their onboarding love story + Pakanta music prefs
-        // (lib/pakanta-brief.ts). The music team writes the song from it.
-        key: 'pakanta',
-        label: 'Pakanta queue',
-        href: '/admin/pakanta',
-        icon: Music,
-        matchPrefix: '/admin/pakanta',
-      },
-      {
-        key: 'editorial-review',
-        label: 'Editorial review',
-        href: '/admin/editorial-review',
-        icon: Newspaper,
-        matchPrefix: '/admin/editorial-review',
-      },
-      {
-        key: 'help',
-        label: 'Help',
-        href: '/admin/help',
-        icon: LifeBuoy,
-      },
-      {
-        // Free Papic sampler abuse monitor — couples farming the 1-per-event
-        // free seat across multiple events. Surfaces at /admin/papic-sampler
-        // with a ⚠ flag on any account holding 2+ sampler events.
-        key: 'papic-sampler',
-        label: 'Papic sampler',
-        href: '/admin/papic-sampler',
-        icon: Camera,
-      },
-    ],
-  },
-  {
-    // DIRECTORY — pure record-lookup. Wedding types + traditions moved out to
-    // Platform (governance + content, not look-up) per the redesign A.4.
-    key: 'directory',
-    label: 'Directory',
-    items: [
-      {
-        key: 'users',
-        label: 'Users',
-        href: '/admin/users',
-        icon: Users,
-      },
-      {
-        key: 'vendors',
-        label: 'Vendors',
-        href: '/admin/vendors',
-        icon: Briefcase,
-        matchPrefix: '/admin/vendors',
-      },
-      {
-        key: 'demo-vendors',
-        label: 'Demo vendors',
-        href: '/admin/demo-vendors',
-        icon: TestTube,
-        matchPrefix: '/admin/demo-vendors',
-      },
-      {
-        key: 'events',
-        label: 'Events',
-        href: '/admin/events',
-        icon: CalendarDays,
-        matchPrefix: '/admin/events',
-      },
-      {
-        key: 'venues',
-        label: 'Venues',
-        href: '/admin/venues',
-        icon: MapPin,
-        matchPrefix: '/admin/venues',
-      },
-    ],
-  },
-  // ── TUNE GROUPS (collapsible) ─────────────────────────────────────────
-  {
-    key: 'funnels',
-    label: 'Insights',
-    defaultOpen: false,
-    items: [
-      {
-        key: 'growth',
-        label: 'Growth',
-        href: '/admin/growth',
-        icon: LineChart,
-        matchPrefix: '/admin/growth',
-      },
-      {
-        key: 'intelligence',
-        label: 'Intelligence',
-        href: '/admin/intelligence',
-        icon: Radar,
-        matchPrefix: '/admin/intelligence',
-      },
-      {
-        key: 'funnels',
-        label: 'Funnels',
-        href: '/admin/funnels',
-        icon: BarChart3,
-      },
-      {
-        key: 'operations-hiring',
-        label: 'Operations & Hiring',
-        href: '/admin/operations-hiring',
-        icon: TrendingUp,
-      },
-      {
-        key: 'connection-logs',
-        label: 'Connection logs',
-        href: '/admin/connection-logs',
-        icon: Bug,
-      },
-      {
-        key: 'offline',
-        label: 'Offline daemon',
-        href: '/admin/offline',
-        icon: WifiOff,
-      },
-    ],
-  },
-  {
-    // MONEY & CATALOG (key 'money') — config + records, NOT the act-now money
-    // queues (Payments/Payouts/Token sales moved to Work). The Work Money-lane
-    // filter reunites them in one view per the sign-off condition.
-    key: 'money',
-    label: 'Money & Catalog',
-    defaultOpen: false,
-    items: [
-      {
-        key: 'pricing',
-        label: 'Pricing',
-        href: '/admin/pricing',
-        icon: DollarSign,
-      },
-      {
-        key: 'addons',
-        label: 'Add-ons',
-        href: '/admin/addons',
-        icon: Sparkles,
-      },
-      {
-        key: 'discount-codes',
-        label: 'Discount codes',
-        href: '/admin/discount-codes',
-        icon: TagIcon,
-        matchPrefix: '/admin/discount-codes',
-      },
-      {
-        key: 'token-bands',
-        label: 'Token bands',
-        href: '/admin/token-bands',
-        icon: Coins,
-      },
-      {
-        key: 'budget-planner',
-        label: 'Budget Planner',
-        href: '/admin/budget-planner',
-        icon: PiggyBank,
-      },
-      {
-        key: 'receipts',
-        label: 'Receipts',
-        href: '/admin/receipts',
-        icon: Receipt,
-      },
-      {
-        key: 'payment-methods',
-        label: 'Payment methods',
-        href: '/admin/settings/payment-methods',
-        icon: Landmark,
-      },
-    ],
-  },
-  {
-    // PLATFORM (key 'content') — config, content & security. Absorbs Wedding
-    // types + traditions (governance + content) and gives Notifications a nav
-    // home (it was an orphan — no nav entry on origin/main).
-    key: 'content',
-    label: 'Platform',
-    defaultOpen: false,
-    items: [
-      {
-        key: 'settings',
-        label: 'Settings',
-        href: '/admin/settings',
-        icon: Settings,
-        // /admin/settings/payment-methods lives under Money & Catalog —
-        // exclude it so that entry stays lit when viewing payment methods.
-        matchPrefix: '/admin/settings',
-      },
-      {
-        // Nav/icon/menu registry — the single source for the name + icon of
-        // every menu across all account types (foundation 2026-06-16).
-        key: 'menus',
-        label: 'Menus & icons',
-        href: '/admin/menus',
-        icon: Shapes,
-      },
-      {
-        // Onboarding-flow config (background music + future per-flow knobs),
-        // grouped by onboarding type. Scales as new event-type onboardings ship.
-        key: 'onboarding',
-        label: 'Onboarding',
-        href: '/admin/onboarding',
-        icon: Compass,
-      },
-      {
-        key: 'taxonomy',
-        label: 'Taxonomy',
-        href: '/admin/taxonomy',
-        icon: Tag,
-      },
-      {
-        // Event-type roster CRUD (2026-06-13 cutover) — create/launch/retire
-        // event types; pickers + vendor checkboxes + filters follow live.
-        key: 'event-types',
-        label: 'Event Types',
-        href: '/admin/event-types',
-        icon: PartyPopper,
-      },
-      {
-        key: 'refinements',
-        label: 'Refinements',
-        href: '/admin/refinements',
-        icon: SlidersHorizontal,
-      },
-      {
-        key: 'website',
-        label: 'Website',
-        href: '/admin/website',
-        icon: Globe,
-      },
-      {
-        key: 'hero-video',
-        label: 'Hero video',
-        href: '/admin/hero-video',
-        icon: Video,
-      },
-      {
-        key: 'reveal-studio',
-        label: 'Reveal Studio',
-        href: '/admin/reveal-studio',
-        icon: Sparkles,
-      },
-      {
-        // Real Stories featuring (PR D) — pin + order which consented wedding
-        // editorials surface (and which is the hero) on the public /realstories
-        // index. Curation on top of the RA 10173 consent gate.
-        key: 'real-stories',
-        label: 'Real Stories',
-        href: '/admin/real-stories',
-        icon: Newspaper,
-        matchPrefix: '/admin/real-stories',
-      },
-      {
-        // Auto-Recap oversight — every couple-published "living recap" (a
-        // public page of guest photos + words) + the RA 10173 takedown lever.
-        key: 'recaps',
-        label: 'Recaps',
-        href: '/admin/recaps',
-        icon: Images,
-        matchPrefix: '/admin/recaps',
-      },
-      {
-        // Patiktok template library oversight — short-form vertical video
-        // templates for the post-event personal reels. Page existed at
-        // /admin/patiktok but had no nav entry (orphan doorway); slotted into
-        // Platform next to the other content surfaces 2026-06-19.
-        key: 'patiktok',
-        label: 'Patiktok',
-        href: '/admin/patiktok',
-        icon: Film,
-        matchPrefix: '/admin/patiktok',
-      },
-      {
-        key: 'brain',
-        label: "Setnayan AI brain",
-        href: '/admin/brain',
-        icon: Brain,
-      },
-      {
-        key: 'moodboard-library',
-        label: 'Moodboard library',
-        href: '/admin/moodboard-library',
-        icon: Palette,
-      },
-      {
-        key: 'songs',
-        label: 'Songs',
-        href: '/admin/songs',
-        icon: Music,
-        matchPrefix: '/admin/songs',
-      },
-      {
-        key: 'wedding-types',
-        label: 'Wedding types',
-        href: '/admin/wedding-types',
-        icon: Church,
-      },
-      {
-        key: 'wedding-traditions',
-        label: 'Wedding traditions',
-        href: '/admin/wedding-traditions',
-        icon: BookOpen,
-      },
-      {
-        key: 'notifications',
-        label: 'Notifications',
-        href: '/admin/notifications',
-        icon: Bell,
-      },
-      {
-        key: 'demo-mode',
-        label: 'Demo mode',
-        href: '/admin/settings/demo-mode',
-        icon: Settings,
-      },
-      {
-        // Personal account security — admins use the shared /dashboard/profile
-        // surface (the /dashboard layout only redirects vendors). Without this
-        // entry the admin doorway had NO path to change-password / sign-out-
-        // other-devices except detouring through the customer role pill.
-        // Account-security suite 2026-06-11.
-        key: 'my-account',
-        label: 'My account',
-        href: '/dashboard/profile',
-        icon: CircleUser,
-      },
-    ],
-  },
-];
+import { ADMIN_NAV_GROUPS } from './admin-nav-groups';
 
 /**
  * AdminSidebar — renders the 6 admin nav groups using the shared
@@ -645,19 +169,176 @@ function applyAdminRegistry(
   }));
 }
 
-export function AdminSidebar({ navSlots }: { navSlots?: Record<string, NavSlotLite> }) {
+// Badge tone tracks REAL urgency (oldest item vs the queue's SLA), not the
+// queue's identity: red only when something is actually overdue, amber when
+// approaching SLA, neutral for open-but-fine. So a queue screams red because
+// work is late, never just because it's "important".
+function badgeTone(state?: AdminQueueDueState): 'red' | 'amber' | 'neutral' {
+  if (state === 'overdue') return 'red';
+  if (state === 'due-soon') return 'amber';
+  return 'neutral';
+}
+
+/**
+ * Injects live open-work counts onto the matching Work items as a NavBadge,
+ * toned by the queue's urgency (queueStates, keyed by nav-item key). Only a
+ * positive count badges — a null count (queue unavailable) or 0 (clear) shows
+ * nothing, and items absent from the map (Directory + config groups) are
+ * untouched. Runs AFTER the registry overlay so an admin-renamed label keeps
+ * its count.
+ */
+function applyQueueBadges(
+  groups: NavGroup[],
+  queueCounts?: AdminQueueCounts,
+  queueStates?: Record<string, AdminQueueDueState>,
+): NavGroup[] {
+  if (!queueCounts) return groups;
+  return groups.map((group) => ({
+    ...group,
+    items: group.items.map((item) => {
+      const count = queueCounts[item.key];
+      if (typeof count !== 'number' || count <= 0) return item;
+      const state = queueStates?.[item.key];
+      return {
+        ...item,
+        badge: {
+          count,
+          tone: badgeTone(state),
+          label: state === 'overdue' ? `${count} overdue` : `${count} pending`,
+        },
+      };
+    }),
+  }));
+}
+
+/**
+ * Per-menu hub metadata for the 6-menu respine (2026-07-09). `href` is the
+ * INTEGRATED surface the parent row lands on; `matchPrefix` (Overview only)
+ * narrows the parent's own prefix match so `/admin` doesn't startsWith-claim
+ * every `/admin/*` route — queue routes light the parent through its CHILDREN
+ * instead (SidebarItem's in-section rule), and `/admin/work/*` stays claimed
+ * here because the work list has no child row of its own after derivation.
+ */
+const MENU_HUBS: Record<
+  string,
+  { href: string; icon: LucideIcon; matchPrefix?: string; description: string }
+> = {
+  queues: {
+    href: '/admin',
+    icon: Home,
+    matchPrefix: '/admin/work',
+    description: 'The admin pulse — every act-now queue at a glance.',
+  },
+  directory: {
+    href: '/admin/accounts',
+    icon: Users,
+    description: 'Users, vendors, events, and venues — pure record look-up.',
+  },
+  media: {
+    href: '/admin/studio',
+    icon: Clapperboard,
+    description: 'Everything you curate or publish — content and marketing.',
+  },
+  ugat: {
+    href: '/admin/ugat',
+    icon: Network,
+    description: 'The data-structure wing — taxonomy, menus, onboarding, AI brain.',
+  },
+  funnels: {
+    href: '/admin/app-performance',
+    icon: Activity,
+    description: 'Growth, health, and where to focus next.',
+  },
+  'settings-group': {
+    href: '/admin/money',
+    icon: Banknote,
+    description: 'Pricing and money config, plus the settings tail.',
+  },
+};
+
+/**
+ * Derive the 6 expandable parent rows from the canonical groups. A group item
+ * whose href IS the hub itself (Overview's "Overview" row · App Performance's
+ * cockpit row) is dropped from the children — the parent row already links
+ * there, so keeping it would render a duplicate label directly under itself.
+ */
+function deriveSixMenus(groups: NavGroup[]): NavItem[] {
+  return groups.map((group) => {
+    const hub = MENU_HUBS[group.key];
+    const href = hub?.href ?? group.items[0]?.href ?? '/admin';
+    return {
+      key: group.key,
+      label: group.label,
+      href,
+      icon: hub?.icon ?? Home,
+      matchPrefix: hub?.matchPrefix,
+      description: hub?.description,
+      children: group.items.filter((item) => item.href !== href),
+    };
+  });
+}
+
+/**
+ * Roll the children's queue badges up onto the parent menu row: total open
+ * count, toned by the WORST child urgency (red beats amber beats neutral).
+ * This is what keeps SLA pressure visible while the queue links are folded
+ * behind the Overview menu.
+ */
+function aggregateParentBadge(children: NavItem[]): NavBadge | undefined {
+  let count = 0;
+  let tone: NavBadgeTone = 'neutral';
+  let overdue = false;
+  for (const child of children) {
+    if (!child.badge) continue;
+    count += child.badge.count;
+    if (child.badge.tone === 'red') {
+      tone = 'red';
+      overdue = true;
+    } else if (child.badge.tone === 'amber' && tone !== 'red') {
+      tone = 'amber';
+    }
+  }
+  if (count <= 0) return undefined;
+  return {
+    count,
+    tone,
+    label: overdue ? `${count} open, some overdue` : `${count} open`,
+  };
+}
+
+export function AdminSidebar({
+  navSlots,
+  queueCounts,
+  queueStates,
+}: {
+  navSlots?: Record<string, NavSlotLite>;
+  queueCounts?: AdminQueueCounts;
+  queueStates?: Record<string, AdminQueueDueState>;
+}) {
   const pathname = usePathname() ?? '/admin';
-  const groups = applyAdminRegistry(ADMIN_NAV_GROUPS, navSlots);
+  const groups = applyQueueBadges(
+    applyAdminRegistry(ADMIN_NAV_GROUPS, navSlots),
+    queueCounts,
+    queueStates,
+  );
+  const menus = deriveSixMenus(groups).map((menu) => ({
+    ...menu,
+    badge: aggregateParentBadge(menu.children ?? []),
+  }));
 
   return (
-    <>
-      {groups.map((group) => (
-        <SidebarSection key={group.key} group={group} pathname={pathname}>
-          {group.items.map((item) => (
-            <SidebarItem key={item.key} item={item} pathname={pathname} />
-          ))}
-        </SidebarSection>
-      ))}
-    </>
+    <section className="px-2 pb-2" aria-label="Admin menu">
+      <ul className="flex flex-col gap-0.5">
+        {menus.map((item) => (
+          // FLAT (owner 2026-07-15 "solid menu with no submenus"): each of the
+          // six menus renders as a plain doorway to its hub landing — no chevron,
+          // no inline children. The group's child routes still light their parent
+          // (AdminSidebarMenu computes active-state across the group items) and
+          // the rolled-up queue badge still shows; the children themselves are
+          // reachable from the landing pages / tabbed studios / the work list.
+          <AdminSidebarMenu key={item.key} menu={item} pathname={pathname} />
+        ))}
+      </ul>
+    </section>
   );
 }

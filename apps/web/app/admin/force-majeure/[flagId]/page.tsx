@@ -15,6 +15,7 @@ import {
 } from '@/lib/force-majeure';
 import { resolveFlag, takeOwnership } from '../actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Flag · Admin · Force Majeure' };
 
 type FlagRow = {
@@ -46,6 +47,9 @@ type EventVendorLookup = {
   vendor_id: string;
   vendor_name: string;
   category: string;
+  deposit_recorded_at: string | null;
+  deposit_acknowledged_at: string | null;
+  deposit_proof_url: string | null;
 };
 
 type UserLookup = {
@@ -54,11 +58,23 @@ type UserLookup = {
   email: string | null;
 };
 
+type ChangeOrderLookup = {
+  change_order_id: string;
+  raised_by: 'couple' | 'vendor';
+  title: string | null;
+  delta_amount_php: number | string | null;
+  status: 'proposed' | 'accepted' | 'declined' | 'withdrawn';
+  acknowledged_at: string | null;
+  decline_reason: string | null;
+  created_at: string;
+};
+
 type Props = {
   params: Promise<{ flagId: string }>;
 };
 
 export default async function AdminForceMajeureDetailPage({ params }: Props) {
+  await requireAdmin();
   const { flagId } = await params;
   const admin = createAdminClient();
 
@@ -82,7 +98,9 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
     row.event_vendor_id
       ? admin
           .from('event_vendors')
-          .select('vendor_id, vendor_name, category')
+          .select(
+            'vendor_id, vendor_name, category, deposit_recorded_at, deposit_acknowledged_at, deposit_proof_url',
+          )
           .eq('vendor_id', row.event_vendor_id)
           .maybeSingle()
       : Promise.resolve({ data: null as EventVendorLookup | null, error: null }),
@@ -106,6 +124,21 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
   const vendor = vendorRes.data as EventVendorLookup | null;
   const couple = coupleRes.data as UserLookup | null;
   const handler = handlerRes.data as UserLookup | null;
+
+  // Change-Order Trail (Wave 3) — the immutable both-acknowledged add-on/removal
+  // log for this booking, so an admin handling the dispute sees every scope/price
+  // change and who acknowledged it. Read-only here; admins never raise/resolve.
+  const changeOrders = row.event_vendor_id
+    ? (((
+        await admin
+          .from('vendor_change_orders')
+          .select(
+            'change_order_id, raised_by, title, delta_amount_php, status, acknowledged_at, decline_reason, created_at',
+          )
+          .eq('event_vendor_id', row.event_vendor_id)
+          .order('created_at', { ascending: false })
+      ).data ?? []) as ChangeOrderLookup[])
+    : [];
 
   const isResolved = Boolean(row.resolved_at);
   const countdown = isResolved
@@ -142,7 +175,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
         </p>
       </header>
 
-      <dl className="mb-6 grid gap-4 rounded-xl border border-ink/10 bg-cream p-5 sm:grid-cols-2">
+      <dl className="mb-6 grid gap-4 sn-tile p-5 sm:grid-cols-2">
         <Field
           label="Event"
           value={
@@ -210,7 +243,106 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
             )
           }
         />
+        {/* Deposit Reservation Lock-Free — surface the deposit state so an
+            admin handling the dispute sees whether a deposit was recorded (date
+            held) and whether the vendor acknowledged it, plus the proof link.
+            Record/acknowledge only — Setnayan never held the money. */}
+        {vendor ? (
+          <Field
+            label="Deposit"
+            value={
+              vendor.deposit_recorded_at ? (
+                <span className="text-ink/75">
+                  {vendor.deposit_acknowledged_at ? (
+                    <span className="font-medium text-ink">
+                      Acknowledged by vendor ({vendor.deposit_acknowledged_at.slice(0, 10)})
+                    </span>
+                  ) : (
+                    <span className="font-medium text-ink">
+                      Recorded · date held, awaiting vendor confirmation (
+                      {vendor.deposit_recorded_at.slice(0, 10)})
+                    </span>
+                  )}
+                  {vendor.deposit_proof_url ? (
+                    <>
+                      <br />
+                      <a
+                        href={vendor.deposit_proof_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-terracotta hover:underline"
+                      >
+                        View deposit proof
+                      </a>
+                    </>
+                  ) : null}
+                </span>
+              ) : (
+                <span className="text-ink/55">No deposit recorded</span>
+              )
+            }
+          />
+        ) : null}
       </dl>
+
+      {/* Change-Order Trail — the immutable both-acknowledged add-on/removal log
+          for this booking. Admins read it as evidence; they never raise/resolve. */}
+      {row.event_vendor_id ? (
+        <section className="mb-6 space-y-2">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+            Change orders ({changeOrders.length})
+          </h2>
+          {changeOrders.length === 0 ? (
+            <p className="rounded-md bg-ink/[0.03] p-4 text-sm italic text-ink/55">
+              No change orders on this booking.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {changeOrders.map((co) => {
+                const deltaNum =
+                  typeof co.delta_amount_php === 'string'
+                    ? Number(co.delta_amount_php)
+                    : co.delta_amount_php ?? 0;
+                const sign = deltaNum < 0 ? '−' : '+';
+                const abs = Math.abs(deltaNum).toLocaleString('en-PH', {
+                  style: 'currency',
+                  currency: 'PHP',
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 2,
+                });
+                return (
+                  <li
+                    key={co.change_order_id}
+                    className="rounded-md border border-white/60 bg-white/70 px-4 py-3 text-sm"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-medium text-ink">
+                        {co.title ?? 'Change order'}{' '}
+                        <span
+                          className={`font-mono ${deltaNum < 0 ? 'text-success-700' : 'text-ink/70'}`}
+                        >
+                          {sign}
+                          {abs}
+                        </span>
+                      </span>
+                      <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                        {co.status}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-[11px] text-ink/55">
+                      Raised by {co.raised_by} · {co.created_at.slice(0, 10)}
+                      {co.acknowledged_at ? ` · acknowledged ${co.acknowledged_at.slice(0, 10)}` : ''}
+                    </p>
+                    {co.status === 'declined' && co.decline_reason ? (
+                      <p className="mt-0.5 text-[11px] text-ink/55">Reason: {co.decline_reason}</p>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      ) : null}
 
       <section className="mb-6 space-y-2">
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
@@ -265,7 +397,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
         </section>
       ) : null}
 
-      <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-5">
+      <section className="space-y-4 sn-tile p-5">
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           Actions
         </h2>

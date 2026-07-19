@@ -77,29 +77,39 @@ export function AlaalaOrb({ clips = DEFAULT_CLIPS, className = '' }: Props) {
     return () => window.removeEventListener('deviceorientation', h);
   }, [reduced]);
 
-  // Advance to next clip with a crossfade
+  // Advance to next clip with a crossfade.
+  // Reduced-motion: no auto-cycling and no crossfade — the orb rests on its
+  // current clip's still frame (the same final visible state, just not animated).
   const advance = useCallback(() => {
+    if (reduced) return;
     if (clips.length < 2) return;
     setFading(true);
     setTimeout(() => {
       setActive((i) => (i + 1) % clips.length);
       setFading(false);
     }, 700);
-  }, [clips.length]);
+  }, [clips.length, reduced]);
 
-  // Imperatively control playback when active clip changes
+  // Imperatively control playback when active clip changes.
+  // Reduced-motion: show the active clip's first frame paused (poster-like still)
+  // — no autoplay, no looping motion — but still surface the same final visible
+  // state (the orb showing its current clip) rather than freezing on a blank.
   useEffect(() => {
     videoRefs.current.forEach((v, i) => {
       if (!v) return;
       if (i === active) {
         v.currentTime = 0;
-        v.play().catch(() => {}); // silently swallow autoplay-policy errors
+        if (!reduced) {
+          v.play().catch(() => {}); // silently swallow autoplay-policy errors
+        } else {
+          v.pause(); // hold first frame still; gradient/glass layers remain visible
+        }
       } else {
         v.pause();
         v.currentTime = 0;
       }
     });
-  }, [active]);
+  }, [active, reduced]);
 
   const offsetX = reduced ? 0 : tiltX * 14;
   const offsetY = reduced ? 0 : tiltY * 10;
@@ -135,7 +145,7 @@ export function AlaalaOrb({ clips = DEFAULT_CLIPS, className = '' }: Props) {
               src={src}
               muted
               playsInline
-              onEnded={advance}
+              onEnded={reduced ? undefined : advance}
               style={{
                 position: 'absolute',
                 inset: 0,

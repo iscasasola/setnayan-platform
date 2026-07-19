@@ -47,6 +47,7 @@ import {
   type MeaningfulDate,
   type MeaningfulDateKind,
 } from '@/lib/auspicious-date';
+import { isChineseWedding } from '@/lib/chinese-wedding';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import {
   parseWizardState,
@@ -74,6 +75,7 @@ const VALID_CEREMONY_TYPES = [
   'christian',
   'muslim',
   'cultural',
+  'chinese',
   'mixed',
 ] as const;
 
@@ -229,7 +231,7 @@ export async function completeSetWeddingDateTask(
   // current wizard_state (needed for the merge below).
   const { data: priorRow, error: priorErr } = await supabase
     .from('events')
-    .select('event_date, ceremony_type, wizard_state')
+    .select('event_date, ceremony_type, secondary_ceremony_type, wizard_state')
     .eq('event_id', eventIdRaw)
     .maybeSingle();
   if (priorErr) throw new Error(priorErr.message);
@@ -272,7 +274,12 @@ export async function completeSetWeddingDateTask(
     note: (r.note as string | null) ?? null,
   }));
 
-  const reasons = computeAuspiciousReasons(composed, ceremonyType, meaningfulDates);
+  const reasons = computeAuspiciousReasons(
+    composed,
+    ceremonyType,
+    meaningfulDates,
+    isChineseWedding(priorRow),
+  );
 
   // Merge wizard_state.set_wedding_date task entry · the resolver will
   // skip this task on the next render and move to Card 02 Reception Venue.

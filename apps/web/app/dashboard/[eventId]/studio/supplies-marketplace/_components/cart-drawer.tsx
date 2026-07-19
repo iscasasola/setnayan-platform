@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   Filter,
   Minus,
@@ -11,7 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import { formatPhp } from '@/lib/orders';
-import { useEscapeKey } from '@/lib/use-escape-key';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import {
   SUPPLY_CATEGORIES,
   SUPPLY_PRODUCTS,
@@ -341,13 +341,17 @@ function CartDrawer({
   onBump: (slug: string, delta: number) => void;
   onRemove: (slug: string) => void;
 }) {
-  useEscapeKey(onClose); // Escape-to-dismiss
+  // This drawer only mounts while open (parent renders `{drawerOpen ? … }`),
+  // so mount = open. useModalA11y handles Esc-to-dismiss + focus management.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open: true, onClose, containerRef: dialogRef });
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby="cart-drawer-heading"
-      className="fixed inset-0 z-40"
+      className="fixed inset-0 z-40 focus:outline-none"
     >
       <button
         type="button"

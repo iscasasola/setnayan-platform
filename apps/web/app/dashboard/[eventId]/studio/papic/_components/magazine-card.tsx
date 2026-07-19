@@ -14,11 +14,18 @@ export async function MagazineCard({ eventId }: { eventId: string }) {
       .from('papic_photos')
       .select('photo_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
+      // Count PHOTOS only — this card's label says "{photos} photos" and links to
+      // the magazine PDF, which excludes clips. Keep the count honest with what
+      // the magazine renders (see magazine/route.ts). Seat clips → photo_type.
+      .eq('photo_type', 'photo')
       .is('hidden_at', null),
     supabase
       .from('papic_guest_captures')
       .select('capture_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
+      // …and guest clips → media_type. 'photo' is the column default, so legacy
+      // rows (pre media_type migration 20270216612756) still count.
+      .eq('media_type', 'photo')
       .is('hidden_at', null),
     supabase
       .from('photo_messages')

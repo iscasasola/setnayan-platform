@@ -26,7 +26,7 @@
  *
  * Voucher flow:
  *   • "Have a code?" toggle starts collapsed (per locked policy)
- *   • Input is uppercased on blur · max 8 chars
+ *   • Input is uppercased on blur · max 16 chars
  *   • Apply button calls applyVoucherAction via React server-action wiring
  *   • Result renders inline with brand-voice reason on rejection OR
  *     discount + final total + Remove affordance on success
@@ -62,23 +62,33 @@ import {
 } from 'react';
 import Link from 'next/link';
 import {
+  Check,
   CheckCircle2,
+  Clock,
   CreditCard,
   ExternalLink,
   Loader2,
+  Lock,
+  Smartphone,
   Tag,
   Upload,
+  Wallet,
   X,
 } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
+import { CopyButton } from '@/app/_components/copy-button';
+import { useAnonGate } from '@/app/_components/anon-gate/anon-gate-context';
+import { SaveToContinue } from '@/app/_components/anon-gate/save-to-continue';
 import { SDLoader, LOADER_STEPS } from '@/components/sd-loader';
 import { trackFailure } from '@/lib/telemetry/track-error';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import {
   applyVoucherAction,
   submitOrderAction,
   type ApplyVoucherResult,
   type SubmitOrderResult,
 } from '@/app/dashboard/[eventId]/checkout/actions';
+import { computeVatFromBase, DEFAULT_VAT_RATE_PCT } from '@/lib/receipts';
 
 export type InlineCheckoutDrawerProps = {
   serviceKey: string;
@@ -91,6 +101,13 @@ export type InlineCheckoutDrawerProps = {
    */
   originalPriceCentavos: string;
   eventId: string;
+  /**
+   * Per-USER subscription mode (Setnayan AI term pass): when set, the drawer
+   * passes a `cycles` count to the checkout and the order is eventless (the
+   * parent passes eventId=''). Charge = catalog unit × cycles, re-resolved
+   * server-side. Omitted for every normal event-scoped SKU.
+   */
+  cycles?: number;
   /** Pre-fetched platform settings · drawer just renders. */
   settings: {
     bdo_account_name: string | null;
@@ -121,38 +138,75 @@ function formatPesoCentavos(centavosStr: string): string {
   })}`;
 }
 
+/**
+ * The VAT-INCLUSIVE gross the couple actually pays, from a PRE-VAT base in
+ * centavos. Owner ruling 2026-06-25: catalog prices are pre-VAT, +12% at
+ * checkout. Uses the SAME computeVatFromBase as the server (submitOrderAction)
+ * and the BIR receipt, so the number shown here equals the amount charged — no
+ * drift, no underpayment.
+ */
+function formatGrossCentavos(centavosStr: string): string {
+  const { gross } = computeVatFromBase(Number(centavosStr) / 100, DEFAULT_VAT_RATE_PCT);
+  return `₱${gross.toLocaleString('en-PH', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+/**
+ * Pre-mint a Setnayan reference code CLIENT-SIDE (same `SN` + 8-hex shape as the
+ * server's generateReferenceCode) so the drawer can show it BEFORE the couple
+ * leaves to pay — they copy it into their BDO/GCash transfer note, and the
+ * reconciliation matcher pairs the inbound bank/GCash message to this order by
+ * reference. Generated in a mount effect (never during SSR) to avoid a
+ * hydration mismatch; the server re-validates + accepts it at submit.
+ */
+function generateClientReference(): string {
+  const arr = new Uint8Array(4);
+  crypto.getRandomValues(arr);
+  return (
+    'SN' +
+    Array.from(arr)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+      .toUpperCase()
+  );
+}
+
 export function InlineCheckoutDrawer({
   serviceKey,
   displayName,
   originalPriceCentavos,
   eventId,
+  cycles,
   settings,
   triggerLabel,
   triggerClassName,
 }: InlineCheckoutDrawerProps) {
   const [open, setOpen] = useState(false);
+  const { isAnonymous } = useAnonGate();
+  // Anon-draft: gate at the TRIGGER, not at final submit — so an anonymous
+  // buyer is asked to secure their account BEFORE filling payment details and
+  // uploading a screenshot, never after. The submitOrderAction `needsAccount`
+  // path below stays as a server-side backstop.
+  const [gateOpen, setGateOpen] = useState(false);
 
-  // Native (Capacitor) app → hand payment off to the WEBSITE instead of running
-  // the in-app BDO/GCash flow. Two reasons: (1) Apple/Google forbid selling
-  // digital goods in-app via an external rail (BDO/GCash) — that's an App Store
-  // rejection; the purchase must happen out-of-app. (2) The website is the
-  // cheaper path (base catalog price, 0% store cut) — owner 2026-06-16. The
-  // shell tags its WebView UA with 'SetnayanApp'. Detected POST-MOUNT so the
-  // server-rendered markup (web variant) doesn't hydration-mismatch.
+  // Native (Capacitor) app → HIDE the purchase entirely. Apple Guideline 3.1.1
+  // (and Play Billing) forbid selling digital goods in-app via a non-store rail
+  // (BDO/GCash), AND forbid steering links to an external/web purchase — PH
+  // storefronts get no anti-steering carve-out. So in-app we show the feature
+  // with NO buy mechanism and NO pointer to where to buy. Web/PWA/desktop keep
+  // the full in-app BDO/GCash drawer, unchanged. The shell tags its WebView UA
+  // with 'SetnayanApp'; detected POST-MOUNT to avoid a hydration mismatch with
+  // the server-rendered (web) markup. (Supersedes the 2026-06-16 route-to-web
+  // approach — that external link is itself a 3.1.1 violation; full Apple IAP
+  // is the v1.1 plan.)
   const [isNativeApp, setIsNativeApp] = useState(false);
   useEffect(() => {
     if (typeof navigator !== 'undefined' && /SetnayanApp/i.test(navigator.userAgent)) {
       setIsNativeApp(true);
     }
   }, []);
-
-  // Open this checkout page in the EXTERNAL browser ('_system' → Capacitor hands
-  // off to Safari/Chrome), where the buyer completes the purchase out-of-app at
-  // the base price via BDO/GCash. Only ever called on native.
-  const openWebCheckout = () => {
-    if (typeof window === 'undefined') return;
-    window.open(window.location.href, '_system');
-  };
 
   // Voucher state — managed locally because the apply action returns a
   // result we render inline · we don't navigate.
@@ -178,6 +232,20 @@ export function InlineCheckoutDrawer({
   // as success (matches createOrder pattern from PR #591/#593).
   const idempotencyKey = useId();
 
+  // Stable id so the visible "Reference number" label is programmatically
+  // associated with its input (a11y · screen readers announce the field name
+  // on focus). Mirrors the wrapped-label pattern the order-detail page uses.
+  const referenceFieldId = useId();
+
+  // Pre-minted Setnayan reference · shown in the payment step BEFORE the couple
+  // pays, and threaded to submitOrderAction so the created order carries the
+  // same code. Minted in an effect (client-only) to avoid an SSR hydration
+  // mismatch; stays '' until mount, by which point the drawer is still closed.
+  const [referenceCode, setReferenceCode] = useState('');
+  useEffect(() => {
+    setReferenceCode(generateClientReference());
+  }, []);
+
   // Compute final price displayed in the drawer header.
   const finalPriceStr =
     voucherResult?.applied && voucherResult.code
@@ -185,6 +253,9 @@ export function InlineCheckoutDrawer({
       : originalPriceCentavos;
   const finalPesoDisplay = formatPesoCentavos(finalPriceStr);
   const originalPesoDisplay = formatPesoCentavos(originalPriceCentavos);
+  // VAT-inclusive gross = what the couple actually pays (the server charges this).
+  const finalGrossDisplay = formatGrossCentavos(finalPriceStr);
+  const originalGrossDisplay = formatGrossCentavos(originalPriceCentavos);
   const hasVoucher = voucherResult?.applied === true && voucherResult.code !== null;
 
   // On a successful submit, hold the brand loader's "Ready ✓" state briefly,
@@ -195,41 +266,44 @@ export function InlineCheckoutDrawer({
     return () => clearTimeout(t);
   }, [submitResult?.ok, revealSuccess]);
 
-  // Esc + body-lock when open · matches ChoosePlanSheet semantics.
-  useEffect(() => {
-    if (!open) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    window.addEventListener('keydown', handleKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', handleKey);
-      document.body.style.overflow = '';
-    };
-  }, [open]);
+  // Esc-to-close + body-lock + focus management (move focus in, trap Tab,
+  // restore on close) via the shared modal-a11y primitive. Replaces the
+  // hand-rolled Esc/scroll-lock effect — which had no focus handling — so the
+  // drawer is now a proper keyboard/SR-trapped dialog.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open, onClose: () => setOpen(false), containerRef: dialogRef });
 
   // Trigger button styling · default is a terracotta filled pill (matches
   // the app-store/state-cta.tsx "Add" button) but the parent can override.
-  const trigger = (
+  const trigger = isNativeApp ? (
+    // In-app (iOS/Android shell): no purchase mechanism, no price, no steering
+    // link — an inert locked chip so the feature stays visible but is not buyable
+    // here (Guideline 3.1.1 / Play Billing). Full store IAP arrives in v1.1.
+    <span
+      aria-disabled="true"
+      className={
+        triggerClassName
+          ? `${triggerClassName} pointer-events-none cursor-default opacity-60`
+          : 'inline-flex items-center gap-2 rounded-full bg-stone-100 px-5 py-2 text-sm font-semibold text-stone-400'
+      }
+    >
+      <Lock aria-hidden className="h-4 w-4" strokeWidth={2} />
+      {triggerLabel ?? 'Premium feature'}
+    </span>
+  ) : (
     <button
       type="button"
-      onClick={() => (isNativeApp ? openWebCheckout() : setOpen(true))}
+      onClick={() => (isAnonymous ? setGateOpen(true) : setOpen(true))}
       className={
         triggerClassName ??
         'inline-flex items-center gap-2 rounded-full bg-mulberry px-5 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600'
       }
-      aria-haspopup={isNativeApp ? undefined : 'dialog'}
-      title={isNativeApp ? 'Opens setnayan.com to pay with BDO/GCash' : undefined}
+      aria-haspopup="dialog"
     >
-      {isNativeApp ? (
-        <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={2} />
-      ) : (
-        <CreditCard aria-hidden className="h-4 w-4" strokeWidth={2} />
-      )}
+      <CreditCard aria-hidden className="h-4 w-4" strokeWidth={2} />
       {triggerLabel ?? 'Add this service'}
       <span className="font-mono text-xs font-normal opacity-90">
-        · {originalPesoDisplay}
+        · {originalGrossDisplay}
       </span>
     </button>
   );
@@ -240,12 +314,14 @@ export function InlineCheckoutDrawer({
   return (
     <>
       {trigger}
+      <SaveToContinue open={gateOpen} onClose={() => setGateOpen(false)} action="order" />
       {!open ? null : (
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="inline-checkout-title"
-        className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:justify-end"
+        className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:justify-end focus:outline-none"
       >
         {/* Backdrop */}
         <button
@@ -272,14 +348,15 @@ export function InlineCheckoutDrawer({
                 {hasVoucher ? (
                   <>
                     <span className="line-through opacity-60">
-                      {originalPesoDisplay}
+                      {originalGrossDisplay}
                     </span>{' '}
-                    <span className="text-terracotta">{finalPesoDisplay}</span>
+                    <span className="text-terracotta">{finalGrossDisplay}</span>
                   </>
                 ) : (
-                  finalPesoDisplay
+                  finalGrossDisplay
                 )}
               </p>
+              <p className="font-mono text-[10px] text-ink/40">incl. 12% VAT</p>
             </div>
             <button
               type="button"
@@ -367,7 +444,16 @@ export function InlineCheckoutDrawer({
                 <ChannelToggle channel={channel} onChange={setChannel} />
 
                 {/* (3) QR + account block based on channel. */}
-                <PaymentDetailsBlock channel={channel} settings={settings} />
+                <PaymentDetailsBlock
+                  channel={channel}
+                  settings={settings}
+                  referenceCode={referenceCode}
+                />
+
+                {/* (3b) Instant online payment · shown but LOCKED until the
+                    PayMongo merchant verification is approved (owner directive
+                    2026-07-11). Purely presentational — not selectable. */}
+                <PayMongoSoon />
 
                 {/* (4) Submit form. */}
                 <form
@@ -383,12 +469,17 @@ export function InlineCheckoutDrawer({
                     }
                     const fd = new FormData(e.currentTarget);
                     fd.set('event_id', eventId);
+                    if (typeof cycles === 'number') fd.set('cycles', String(cycles));
                     fd.set('service_key', serviceKey);
                     fd.set('display_name', displayName);
                     fd.set('original_centavos', originalPriceCentavos);
                     fd.set('channel', channel);
                     fd.set('screenshot_ref', screenshotRef);
                     fd.set('client_idempotency_key', idempotencyKey);
+                    // The pre-minted reference shown in the payment step — the
+                    // server accepts it (validated) so the order carries the
+                    // same code the couple put in their transfer note.
+                    if (referenceCode) fd.set('preminted_reference', referenceCode);
                     if (hasVoucher && voucherResult?.code) {
                       fd.set('voucher_code', voucherResult.code);
                       fd.set(
@@ -425,12 +516,17 @@ export function InlineCheckoutDrawer({
                   className="space-y-3"
                 >
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-ink/70">
+                    <label
+                      htmlFor={referenceFieldId}
+                      className="mb-1 block text-xs font-medium text-ink/70"
+                    >
                       Reference number from your transfer
                     </label>
                     <input
+                      id={referenceFieldId}
                       type="text"
                       name="reference_number"
+                      autoComplete="off"
                       placeholder="e.g. BD123456789"
                       className="input-field"
                     />
@@ -440,15 +536,20 @@ export function InlineCheckoutDrawer({
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-ink/70">
-                      Payment screenshot · required
-                    </label>
+                    {/* label passed to FileUpload so the field name renders with
+                        the dropzone (whose own input is htmlFor-associated),
+                        instead of an orphan <label> with no `for` target. */}
                     <FileUpload
-                      bucket="media"
+                      // Privacy-critical: payment proofs are PRIVATE. Route to
+                      // the private thread-files bucket (read only via short-lived
+                      // presigned GETs) — never the public `media` bucket, which
+                      // would leak the screenshot at a permanent public URL.
+                      bucket="thread-files"
                       pathPrefix={`payment-screenshots/inline-checkout/${eventId}`}
                       maxSizeMB={5}
                       acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
                       name="screenshot_ref"
+                      label="Payment screenshot · required"
                       variant="wide"
                       onChange={(v) => {
                         setScreenshotRef(typeof v === 'string' ? v : null);
@@ -564,7 +665,7 @@ function VoucherBlock({
             </p>
             <p className="font-mono text-xs text-success-800/80">
               {voucherResult.discount_php} off · final total{' '}
-              {voucherResult.final_php}
+              {formatGrossCentavos(voucherResult.final_centavos)}
             </p>
           </div>
           <button
@@ -621,7 +722,7 @@ function VoucherBlock({
         </p>
       ) : (
         <p className="text-[11px] text-ink/50">
-          Codes are case-insensitive · 8 characters. Won&rsquo;t apply if the
+          Codes are case-insensitive. Won&rsquo;t apply if the
           original price ({originalPesoDisplay}) is already free.
         </p>
       )}
@@ -637,32 +738,141 @@ function ChannelToggle({
   onChange: (c: 'gcash' | 'bdo') => void;
 }) {
   return (
-    <div>
-      <label className="mb-1 block text-xs font-medium text-ink/70">
-        Pay via
-      </label>
-      <div
-        role="radiogroup"
-        aria-label="Payment channel"
-        className="inline-flex w-full rounded-full border border-ink/10 bg-cream p-0.5"
-      >
-        {(['gcash', 'bdo'] as const).map((c) => (
-          <button
-            key={c}
-            type="button"
-            role="radio"
-            aria-checked={channel === c}
-            onClick={() => onChange(c)}
-            className={`flex-1 rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
-              channel === c
-                ? 'bg-terracotta text-cream'
-                : 'text-ink/70 hover:text-ink'
-            }`}
-          >
-            {c === 'gcash' ? 'GCash' : 'BDO bank transfer'}
-          </button>
-        ))}
+    <div className="space-y-2.5">
+      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">
+        Pay manually · available now
+      </p>
+      <div role="radiogroup" aria-label="Payment method" className="space-y-2.5">
+        <MethodCard
+          selected={channel === 'gcash'}
+          onSelect={() => onChange('gcash')}
+          badge="G"
+          badgeClass="bg-[#0A6CF1] text-white"
+          title="GCash"
+          desc="Scan our GCash QR, or send to our number"
+        />
+        <MethodCard
+          selected={channel === 'bdo'}
+          onSelect={() => onChange('bdo')}
+          badge="BDO"
+          badgeClass="bg-[#0A2C6B] text-white"
+          title="Bank Transfer — BDO"
+          desc="Scan our BDO QR, or transfer to the account"
+        />
       </div>
+    </div>
+  );
+}
+
+function MethodCard({
+  selected,
+  onSelect,
+  badge,
+  badgeClass,
+  title,
+  desc,
+}: {
+  selected: boolean;
+  onSelect: () => void;
+  badge: string;
+  badgeClass: string;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      onClick={onSelect}
+      className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-colors ${
+        selected
+          ? 'border-mulberry bg-mulberry/5 ring-1 ring-mulberry'
+          : 'border-ink/10 bg-cream hover:border-mulberry/40'
+      }`}
+    >
+      <span
+        aria-hidden
+        className={`flex h-11 w-11 flex-none items-center justify-center rounded-xl text-[11px] font-extrabold tracking-wide ${badgeClass}`}
+      >
+        {badge}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2 text-sm font-semibold text-ink">
+          {title}
+          <span className="rounded-full border border-success-200 bg-success-50 px-1.5 py-0.5 text-[10px] font-semibold text-success-800">
+            Ready
+          </span>
+        </span>
+        <span className="mt-0.5 block text-xs text-ink/55">{desc}</span>
+      </span>
+      <span
+        aria-hidden
+        className={`flex h-5 w-5 flex-none items-center justify-center rounded-full border transition-colors ${
+          selected ? 'border-mulberry bg-mulberry text-cream' : 'border-ink/25'
+        }`}
+      >
+        {selected ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
+      </span>
+    </button>
+  );
+}
+
+/**
+ * The PayMongo instant-payment rail, shown but LOCKED. Owner directive
+ * 2026-07-11: keep the online options visible (Card / Maya / GrabPay) but
+ * un-clickable until the PayMongo merchant verification (BIR COR → submit →
+ * approval) lands. Presentational only — no state, never selectable.
+ */
+function PayMongoSoon() {
+  const options: { icon: typeof CreditCard; title: string; desc: string }[] = [
+    { icon: CreditCard, title: 'Credit / Debit Card', desc: 'Visa · Mastercard' },
+    { icon: Wallet, title: 'Maya', desc: 'Instant e-wallet' },
+    { icon: Smartphone, title: 'GrabPay', desc: 'Instant e-wallet' },
+  ];
+  return (
+    <div className="rounded-2xl border border-dashed border-ink/15 bg-cream/60 p-3">
+      <div className="mb-2 flex items-center justify-between gap-2 px-1">
+        <p className="text-xs font-semibold text-ink/70">
+          Instant payment{' '}
+          <span className="font-normal text-ink/45">· via PayMongo</span>
+        </p>
+        <span className="inline-flex items-center gap-1 rounded-full bg-warn-50 px-2 py-0.5 text-[10px] font-semibold text-warn-900">
+          <Clock aria-hidden className="h-3 w-3" strokeWidth={2.25} />
+          Coming soon
+        </span>
+      </div>
+      <div className="space-y-2">
+        {options.map((o) => {
+          const Icon = o.icon;
+          return (
+            <div
+              key={o.title}
+              aria-disabled="true"
+              className="flex cursor-not-allowed items-center gap-3 rounded-xl border border-ink/10 bg-ink/[0.02] px-3 py-2 opacity-60"
+            >
+              <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg bg-ink/5 text-ink/40">
+                <Icon aria-hidden className="h-4 w-4" strokeWidth={2} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[13px] font-medium text-ink/50">
+                  {o.title}
+                </span>
+                <span className="block text-[11px] text-ink/40">{o.desc}</span>
+              </span>
+              <Lock aria-hidden className="h-3.5 w-3.5 flex-none text-ink/35" strokeWidth={2} />
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-2 flex gap-1.5 px-1 text-[11px] leading-relaxed text-ink/50">
+        <Clock aria-hidden className="mt-0.5 h-3 w-3 flex-none text-warn-900" strokeWidth={2} />
+        <span>
+          Instant online payment unlocks once our PayMongo verification is
+          approved. Until then, GCash or BDO work perfectly — we confirm within
+          one business day.
+        </span>
+      </p>
     </div>
   );
 }
@@ -670,9 +880,11 @@ function ChannelToggle({
 function PaymentDetailsBlock({
   channel,
   settings,
+  referenceCode,
 }: {
   channel: 'gcash' | 'bdo';
   settings: InlineCheckoutDrawerProps['settings'];
+  referenceCode: string;
 }) {
   // Pre-resolve the matching name + number + qr per channel.
   const name = channel === 'gcash' ? settings.gcash_account_name : settings.bdo_account_name;
@@ -689,39 +901,88 @@ function PaymentDetailsBlock({
     );
   }
 
+  const label = channel === 'gcash' ? 'GCash' : 'BDO';
+
   return (
-    <div className="rounded-lg border border-ink/10 bg-cream px-4 py-3">
-      <p className="text-xs font-medium text-ink/70">
-        Send your payment to {channel === 'gcash' ? 'GCash' : 'BDO'} · then
-        upload your screenshot below.
+    <div className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-4">
+      <p className="text-xs text-ink/60">
+        Send your <span className="font-semibold text-ink">{label}</span> payment,
+        then upload your screenshot below.
       </p>
-      <dl className="mt-2 space-y-1 text-xs">
-        {name ? (
-          <div className="flex justify-between gap-3">
-            <dt className="text-ink/55">Name</dt>
-            <dd className="font-mono text-ink">{name}</dd>
+
+      {referenceCode ? (
+        <div className="rounded-xl border border-terracotta/40 bg-terracotta/[0.06] px-3.5 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-terracotta-700">
+                Reference code
+              </p>
+              <p className="truncate font-mono text-[15px] font-semibold text-ink">
+                {referenceCode}
+              </p>
+            </div>
+            <CopyButton value={referenceCode} />
           </div>
-        ) : null}
-        <div className="flex justify-between gap-3">
-          <dt className="text-ink/55">
-            {channel === 'gcash' ? 'Number' : 'Account number'}
-          </dt>
-          <dd className="font-mono text-ink">{number}</dd>
-        </div>
-      </dl>
-      {qrUrl ? (
-        <div className="mt-3 flex justify-center">
-          {/* Native <img> instead of next/image so we don't have to wrestle
-              with remotePatterns for the platform_settings R2 host · the
-              QR is admin-uploaded as a public asset. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={qrUrl}
-            alt={`${channel === 'gcash' ? 'GCash' : 'BDO'} QR code`}
-            className="h-40 w-40 rounded-lg border border-ink/10 object-contain"
-          />
+          <p className="mt-1.5 text-[11px] leading-relaxed text-ink/55">
+            Put this in your {label} transfer note so we can match your payment
+            instantly.
+          </p>
         </div>
       ) : null}
+
+      {qrUrl ? (
+        <div className="flex flex-col items-center gap-2">
+          <div className="rounded-2xl border border-ink/10 bg-white p-3 shadow-sm">
+            {/* Native <img> instead of next/image so we don't have to wrestle
+                with remotePatterns for the platform_settings R2 host · the
+                QR is admin-uploaded as a public asset. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={qrUrl}
+              alt={`${label} QR code`}
+              className="h-40 w-40 rounded-lg object-contain"
+            />
+          </div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">
+            {channel === 'gcash' ? 'Scan in GCash' : 'Scan in your BDO app'}
+          </p>
+        </div>
+      ) : null}
+
+      <div className="flex items-center gap-3">
+        <span className="h-px flex-1 bg-ink/10" />
+        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/40">
+          or {channel === 'gcash' ? 'send to our number' : 'transfer manually'}
+        </span>
+        <span className="h-px flex-1 bg-ink/10" />
+      </div>
+
+      <div className="divide-y divide-ink/10 overflow-hidden rounded-xl border border-ink/10">
+        {name ? (
+          <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+            <span className="min-w-0">
+              <span className="block text-[11px] text-ink/50">
+                {channel === 'gcash' ? 'GCash name' : 'Account name'}
+              </span>
+              <span className="block truncate font-mono text-[13px] text-ink">
+                {name}
+              </span>
+            </span>
+            <CopyButton value={name} />
+          </div>
+        ) : null}
+        <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+          <span className="min-w-0">
+            <span className="block text-[11px] text-ink/50">
+              {channel === 'gcash' ? 'GCash number' : 'Account number'}
+            </span>
+            <span className="block truncate font-mono text-[13px] text-ink">
+              {number}
+            </span>
+          </span>
+          <CopyButton value={number ?? ''} />
+        </div>
+      </div>
     </div>
   );
 }
@@ -737,32 +998,60 @@ function SubmitSuccess({
   referenceCode: string;
   onDone: () => void;
 }) {
+  const nextSteps: [string, string][] = [
+    [
+      'We confirm your payment',
+      'Usually within a few hours · always within one business day.',
+    ],
+    [
+      'Your access goes live',
+      'It unlocks automatically the moment your payment is confirmed.',
+    ],
+    [
+      'You get an email + receipt',
+      'Confirmation and your Official Receipt land in your inbox.',
+    ],
+  ];
+
   return (
-    <div className="space-y-4 text-center">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-success-100">
-        <CheckCircle2
-          aria-hidden
-          className="h-6 w-6 text-success-700"
-          strokeWidth={2}
-        />
+    <div className="space-y-5 py-2 text-center">
+      <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-success-50 ring-1 ring-success-200">
+        <CheckCircle2 aria-hidden className="h-9 w-9 text-success-700" strokeWidth={2} />
       </div>
-      <div className="space-y-1">
-        <h3 className="text-lg font-semibold tracking-tight">
-          Request submitted
-        </h3>
-        <p className="text-sm text-ink/70">
-          We&rsquo;ll get back to you after verification. Our team reconciles
-          within one business day and you&rsquo;ll get an email when your order
-          moves to approved.
+      <div className="space-y-1.5">
+        <h3 className="text-xl font-semibold tracking-tight">Payment submitted</h3>
+        <p className="mx-auto max-w-[34ch] text-sm leading-relaxed text-ink/65">
+          Thank you — we&rsquo;ve received your details. You can relax; we&rsquo;ll
+          take it from here.
         </p>
       </div>
-      <div className="rounded-lg bg-ink/5 px-4 py-3 text-left">
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-          Reference code
-        </p>
-        <p className="font-mono text-base text-ink">{referenceCode}</p>
+      <span className="inline-flex items-center gap-2 rounded-full bg-warn-50 px-3.5 py-1.5 text-xs font-semibold text-warn-900">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-warn-900/70" />
+        Pending verification
+      </span>
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-ink/[0.02] px-4 py-3 text-left">
+        <div className="min-w-0">
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">
+            Reference code
+          </p>
+          <p className="truncate font-mono text-base text-ink">{referenceCode}</p>
+        </div>
+        <CopyButton value={referenceCode} />
       </div>
-      <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
+      <div className="space-y-2.5 text-left">
+        {nextSteps.map(([title, detail], i) => (
+          <div key={title} className="flex gap-3">
+            <span className="flex h-5 w-5 flex-none items-center justify-center rounded-full bg-mulberry/10 font-mono text-[11px] font-semibold text-mulberry">
+              {i + 1}
+            </span>
+            <span className="text-xs leading-relaxed">
+              <span className="font-semibold text-ink">{title}</span>
+              <span className="mt-0.5 block text-ink/55">{detail}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:justify-center">
         <Link
           href={`/dashboard/${eventId}/orders/${orderId}`}
           className="inline-flex items-center justify-center gap-1.5 rounded-full border border-ink/15 bg-cream px-4 py-2 text-xs font-medium text-ink/85 hover:bg-ink/5"
@@ -775,7 +1064,7 @@ function SubmitSuccess({
           onClick={onDone}
           className="inline-flex items-center justify-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-xs font-semibold text-cream hover:bg-mulberry-600"
         >
-          Close
+          Done
         </button>
       </div>
     </div>

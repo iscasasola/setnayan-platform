@@ -25,6 +25,7 @@ import type { WaxSealConfig } from '@/lib/wax-seal/types';
 import { WaxSeal } from './wax-seal';
 import { RevealParticles, type RevealParticleKind } from './reveal-particles';
 import type { RevealEffectsLook } from '@/lib/reveal-config';
+import { usePrefersReducedMotion } from '@/lib/use-responsive';
 
 type Props = {
   markSvg: string | null;
@@ -79,6 +80,13 @@ export function RigidStage({
 }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const sealRef = useRef<HTMLButtonElement>(null);
+
+  // Respect the OS "reduce motion" setting. Read at React level via the hook
+  // (SSR-safe, live-updating) and mirror into a ref so the rAF loops below —
+  // where hooks can't be called — can read the live flag without re-subscribing.
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const reducedMotionRef = useRef(prefersReducedMotion);
+  reducedMotionRef.current = prefersReducedMotion;
 
   const [sealGone, setSealGone] = useState(false);
   const [pickedUp, setPickedUp] = useState(false);
@@ -280,6 +288,18 @@ export function RigidStage({
   useEffect(() => {
     if (!autoPlay) return;
     setSealGone(true);
+    // Reduced motion: jump straight to fully-open and fire onOpened once, with
+    // no rAF ramp. The easing effect below also snaps in this mode, so the open
+    // shows in its final state and the completion callback still fires.
+    if (prefersReducedMotion) {
+      targetRef.current = 1;
+      setProgress(1);
+      if (!openedRef.current) {
+        openedRef.current = true;
+        onOpenedRef.current();
+      }
+      return;
+    }
     let raf = 0;
     let start = 0;
     const step = (t: number) => {
@@ -290,7 +310,7 @@ export function RigidStage({
     };
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-  }, [autoPlay]);
+  }, [autoPlay, prefersReducedMotion]);
 
   // ── 2. scroll-scrub open (after the seal is gone) ───────────────────────
   useEffect(() => {
@@ -344,7 +364,13 @@ export function RigidStage({
     const tick = () => {
       setProgress((p) => {
         const t = targetRef.current;
-        const np = Math.abs(t - p) < 0.001 ? t : p + (t - p) * 0.14;
+        // Reduced motion: snap straight to the target (no eased ramp); the
+        // open still reaches its final state and onOpened still fires.
+        const np = reducedMotionRef.current
+          ? t
+          : Math.abs(t - p) < 0.001
+            ? t
+            : p + (t - p) * 0.14;
         if (np >= 0.985 && !openedRef.current) {
           openedRef.current = true;
           onOpenedRef.current();

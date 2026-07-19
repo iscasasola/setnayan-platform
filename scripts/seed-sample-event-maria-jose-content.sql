@@ -234,21 +234,34 @@ BEGIN
   DELETE FROM public.guests                 WHERE event_id = v_event;
   DELETE FROM public.event_tables           WHERE event_id = v_event;
 
-  -- TABLES (normalized x_pos/y_pos in 0..1; garden-reception fan layout)
+  -- TABLES (x_pos/y_pos in PERCENT 0..100, per pctToWorld in
+  -- apps/web/lib/seating-3d.ts (xPct/100); mirrors the live sample layout).
   INSERT INTO public.event_tables (event_id, table_label, capacity, table_type, x_pos, y_pos, sort_order, rotation_deg)
-    VALUES (v_event, 'Sweetheart Table', 2, 'sweetheart_2', 0.500, 0.140, 0, 0) RETURNING table_id INTO t_sweet;
+    VALUES (v_event, 'Sweetheart Table', 2, 'sweetheart_2', 50, 15, 0, 0) RETURNING table_id INTO t_sweet;
   INSERT INTO public.event_tables (event_id, table_label, capacity, table_type, x_pos, y_pos, sort_order, rotation_deg)
-    VALUES (v_event, 'Principal Sponsors 1', 10, 'round_10', 0.300, 0.340, 1, 0) RETURNING table_id INTO t_ps1;
+    VALUES (v_event, 'Principal Sponsors 1', 10, 'round_10', 30, 27, 1, 0) RETURNING table_id INTO t_ps1;
   INSERT INTO public.event_tables (event_id, table_label, capacity, table_type, x_pos, y_pos, sort_order, rotation_deg)
-    VALUES (v_event, 'Principal Sponsors 2', 10, 'round_10', 0.700, 0.340, 2, 0) RETURNING table_id INTO t_ps2;
+    VALUES (v_event, 'Principal Sponsors 2', 10, 'round_10', 70, 27, 2, 0) RETURNING table_id INTO t_ps2;
   INSERT INTO public.event_tables (event_id, table_label, capacity, table_type, x_pos, y_pos, sort_order, rotation_deg)
-    VALUES (v_event, 'Family of the Bride', 14, 'family_head_14', 0.250, 0.580, 3, 0) RETURNING table_id INTO t_famB;
+    VALUES (v_event, 'Family of the Bride', 14, 'family_head_14', 22, 40, 3, 0) RETURNING table_id INTO t_famB;
   INSERT INTO public.event_tables (event_id, table_label, capacity, table_type, x_pos, y_pos, sort_order, rotation_deg)
-    VALUES (v_event, 'Family of the Groom', 14, 'family_head_14', 0.750, 0.580, 4, 0) RETURNING table_id INTO t_famG;
+    VALUES (v_event, 'Family of the Groom', 14, 'family_head_14', 78, 40, 4, 0) RETURNING table_id INTO t_famG;
   INSERT INTO public.event_tables (event_id, table_label, capacity, table_type, x_pos, y_pos, sort_order, rotation_deg)
-    VALUES (v_event, 'Friends — Barkada', 10, 'round_10', 0.380, 0.800, 5, 0) RETURNING table_id INTO t_friends;
+    VALUES (v_event, 'Friends — Barkada', 10, 'round_10', 50, 76, 5, 0) RETURNING table_id INTO t_friends;
   INSERT INTO public.event_tables (event_id, table_label, capacity, table_type, x_pos, y_pos, sort_order, rotation_deg)
-    VALUES (v_event, 'Entourage', 10, 'round_10', 0.620, 0.800, 6, 0) RETURNING table_id INTO t_entourage;
+    VALUES (v_event, 'Entourage', 10, 'round_10', 26, 52, 6, 0) RETURNING table_id INTO t_entourage;
+
+  -- Tables 8/9/10 exist only in live prod (never previously seeded). Create them
+  -- here (before the guest/seat inserts) so the later room-magic block can find
+  -- 'Table 9' by label and seat its serpentine cast on a fresh seed. No RETURNING
+  -- needed: no guests are seated here except Table 9's cast (handled downstream
+  -- by label lookup). PERCENT scale; live type/capacity/position.
+  INSERT INTO public.event_tables (event_id, table_label, capacity, table_type, x_pos, y_pos, sort_order, rotation_deg)
+    VALUES (v_event, 'Table 8', 10, 'round_10', 32, 65, 7, 0);
+  INSERT INTO public.event_tables (event_id, table_label, capacity, table_type, x_pos, y_pos, sort_order, rotation_deg)
+    VALUES (v_event, 'Table 9', 5, 'serpentine', 68, 65, 8, 0);
+  INSERT INTO public.event_tables (event_id, table_label, capacity, table_type, x_pos, y_pos, sort_order, rotation_deg)
+    VALUES (v_event, 'Table 10', 10, 'round_10', 74, 52, 9, 0);
 
   -- COUPLE (seated at Sweetheart Table; seats 0-indexed to match live data)
   INSERT INTO public.guests (event_id, first_name, last_name, side, group_category, role, rsvp_status, rsvp_responded_at)
@@ -731,4 +744,318 @@ BEGIN
   END LOOP;
 
   RAISE NOTICE 'Seeded sample Papic gallery for event % (seat %).', v_event, v_seat;
+END $$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Sample-cast wardrobe (2026-07-08 · 3D Plan Fable slice — silhouette pass).
+-- The 3D figures dress from resolveGuestAttire (explicit attire ≻ gendered
+-- role ≻ neutral). The fictional cast's attire is set EXPLICITLY here so the
+-- demo room never falls back to a hash (which once put Antonio Bautista in a
+-- gown — owner-caught). Idempotent; scoped to the pinned sample event.
+-- ─────────────────────────────────────────────────────────────────────────────
+DO $$
+DECLARE
+  v_event uuid;
+BEGIN
+  SELECT event_id INTO v_event FROM public.events
+  WHERE is_sample = TRUE AND slug = 'maria-and-jose' AND event_type = 'wedding'
+  LIMIT 1;
+  IF v_event IS NULL THEN
+    RAISE NOTICE 'sample event missing — skipping cast wardrobe';
+    RETURN;
+  END IF;
+
+  UPDATE public.guests SET attire = 'suit'
+  WHERE event_id = v_event AND deleted_at IS NULL
+    AND first_name IN ('Antonio','Benigno','Carlo','Daniel','Eduardo','Fernando','Gabriel','Jose','Manuel','Marco','Miguel','Paolo','Ramon','Rodrigo');
+
+  UPDATE public.guests SET attire = 'gown'
+  WHERE event_id = v_event AND deleted_at IS NULL
+    AND first_name IN ('Andrea','Angela','Bianca','Corazon','Divina','Estrella','Imelda','Joana','Lourdes','Maria','Patricia','Rosa','Sofia','Teresita');
+END $$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Booth card content (2026-07-08 · 3D Plan booth-kit slice 4 follow-up).
+-- The kind-aware booth vendor card (fetchBoothCardItems) reads, in order:
+-- vendor_service_inclusions rows (label + worth_php) → legacy
+-- package_inclusions JSONB → host_inclusions[]. This block gives the five
+-- demo vendors the booths link to REAL content — a plated Filipino menu
+-- (Hain Catering · cardKind 'menu'), a 10-song set list (Saysay Live Band ·
+-- 'songlist'), a drinks list (Tagay Mobile Bar · 'drinks'), a dessert list
+-- (Matamis Bakeshop · 'menu' via the cake tile) and photobooth inclusions
+-- (Kuha Booth · 'inclusions'). Rows land in vendor_service_inclusions (the
+-- primary read) AND mirror into package_inclusions (the legacy fallback the
+-- couple-lab path hits when RLS hides the inclusions table for unpublished
+-- demo profiles). Idempotent: resolves everything by demo_batch_id +
+-- business_name (re-seed-safe — never by uuid), deletes its own rows, then
+-- re-inserts. Apply as ONE db query call.
+-- ─────────────────────────────────────────────────────────────────────────────
+DO $$
+DECLARE
+  v_batch uuid := 'a1a1a1a1-0000-4000-8000-000000000a01';
+  v_vp uuid; v_svc uuid;
+  r record;
+BEGIN
+  FOR r IN
+    SELECT * FROM (VALUES
+      -- (business, listing category, sort, label, worth_php)
+      -- ── Hain Catering · plated Filipino wedding menu ──────────────────────
+      ('Hain Catering','catering', 0,'Kinilaw na Tanigue · calamansi & coconut cream',350),
+      ('Hain Catering','catering', 1,'Crab & Corn Soup · kasubha threads',280),
+      ('Hain Catering','catering', 2,'Lechon Belly · liver sauce, carved tableside',650),
+      ('Hain Catering','catering', 3,'Chicken Galantina · giblet gravy',480),
+      ('Hain Catering','catering', 4,'Kare-Kare with Bagnet · house bagoong',560),
+      ('Hain Catering','catering', 5,'Grilled Blue Marlin · ensaladang mangga',520),
+      ('Hain Catering','catering', 6,'Garlic Butter Prawns · aligue rice',590),
+      ('Hain Catering','catering', 7,'Pancit Canton · long-life noodles',320),
+      ('Hain Catering','catering', 8,'Bringhe · Kapampangan-style paella',300),
+      ('Hain Catering','catering', 9,'Leche Flan & Halo-Halo Verrine duo',330),
+      -- ── Saysay Live Band · 10-song reception set ──────────────────────────
+      ('Saysay Live Band','live_band', 0,'Ikaw — Yeng Constantino · first dance',NULL),
+      ('Saysay Live Band','live_band', 1,'Can''t Help Falling in Love — Elvis · strings intro',NULL),
+      ('Saysay Live Band','live_band', 2,'Tadhana — Up Dharma Down',NULL),
+      ('Saysay Live Band','live_band', 3,'Sa Ngalan ng Pag-Ibig — December Avenue',NULL),
+      ('Saysay Live Band','live_band', 4,'Ikaw at Ako — Moira & Jason',NULL),
+      ('Saysay Live Band','live_band', 5,'Harana — Parokya ni Edgar',NULL),
+      ('Saysay Live Band','live_band', 6,'Kahit Maputi Na ang Buhok Ko — Rey Valera',NULL),
+      ('Saysay Live Band','live_band', 7,'Buwan — Juan Karlos',NULL),
+      ('Saysay Live Band','live_band', 8,'Perfect — Ed Sheeran · dinner set',NULL),
+      ('Saysay Live Band','live_band', 9,'Salamat — The Dawn · closing number',NULL),
+      -- ── Tagay Mobile Bar · on the bar ──────────────────────────────────────
+      ('Tagay Mobile Bar','mobile_bar', 0,'Tagay Toast · calamansi gin fizz (signature)',280),
+      ('Tagay Mobile Bar','mobile_bar', 1,'Lambanog Mojito',260),
+      ('Tagay Mobile Bar','mobile_bar', 2,'Mango Rum Slush',250),
+      ('Tagay Mobile Bar','mobile_bar', 3,'Espresso Martini',300),
+      ('Tagay Mobile Bar','mobile_bar', 4,'Classic Margarita · dayap salt rim',280),
+      ('Tagay Mobile Bar','mobile_bar', 5,'San Miguel draft station',180),
+      ('Tagay Mobile Bar','mobile_bar', 6,'House red & white wine',220),
+      ('Tagay Mobile Bar','mobile_bar', 7,'Buko-Lychee Cooler · zero-proof',150),
+      ('Tagay Mobile Bar','mobile_bar', 8,'Cucumber-Pandan Spritz · zero-proof',150),
+      -- ── Matamis Bakeshop · dessert bar ─────────────────────────────────────
+      ('Matamis Bakeshop','wedding_cake', 0,'Three-tier ube-vanilla display cake · real cutting tier',NULL),
+      ('Matamis Bakeshop','wedding_cake', 1,'Leche flan tartlets',90),
+      ('Matamis Bakeshop','wedding_cake', 2,'Ube-macapuno cupcakes',85),
+      ('Matamis Bakeshop','wedding_cake', 3,'Silvanas · frozen cashew meringue',95),
+      ('Matamis Bakeshop','wedding_cake', 4,'Mango royale cups',90),
+      ('Matamis Bakeshop','wedding_cake', 5,'Yema brazo bites',80),
+      ('Matamis Bakeshop','wedding_cake', 6,'Cassava cake squares',70),
+      ('Matamis Bakeshop','wedding_cake', 7,'Buko pandan panna cotta',95),
+      -- ── Kuha Booth · what's included ───────────────────────────────────────
+      ('Kuha Booth','photo_booth', 0,'3 hours unlimited 4R prints · double copies',NULL),
+      ('Kuha Booth','photo_booth', 1,'Custom couple monogram print layout',1500),
+      ('Kuha Booth','photo_booth', 2,'Props trunk + neon ''Kuha!'' marquee',800),
+      ('Kuha Booth','photo_booth', 3,'On-site attendant & lighting setup',NULL),
+      ('Kuha Booth','photo_booth', 4,'Digital gallery via QR · same night',800),
+      ('Kuha Booth','photo_booth', 5,'Boomerang GIF station',1000),
+      ('Kuha Booth','photo_booth', 6,'Guestbook album with extra prints',1200)
+    ) AS t(biz, cat, sort, label, worth)
+    ORDER BY biz, sort
+  LOOP
+    SELECT vp.vendor_profile_id, vs.vendor_service_id INTO v_vp, v_svc
+    FROM public.vendor_profiles vp
+    JOIN public.vendor_services vs ON vs.vendor_profile_id = vp.vendor_profile_id
+                                  AND vs.category = r.cat AND vs.is_active
+    WHERE vp.demo_batch_id = v_batch AND vp.business_name = r.biz
+    LIMIT 1;
+    IF v_svc IS NULL THEN
+      RAISE NOTICE 'demo listing % / % missing — skipped', r.biz, r.cat;
+      CONTINUE;
+    END IF;
+    -- first row per listing clears that listing's prior seed (idempotent)
+    IF r.sort = 0 THEN
+      DELETE FROM public.vendor_service_inclusions WHERE vendor_service_id = v_svc;
+    END IF;
+    INSERT INTO public.vendor_service_inclusions
+      (vendor_service_id, vendor_profile_id, label, worth_php, sort_order)
+    VALUES (v_svc, v_vp, r.label, r.worth, r.sort);
+  END LOOP;
+
+  -- Legacy JSONB mirror (parsePackageInclusions understands {label, worth_php})
+  UPDATE public.vendor_services vs
+     SET package_inclusions = agg.items, updated_at = NOW()
+    FROM (
+      SELECT i.vendor_service_id,
+             jsonb_agg(jsonb_strip_nulls(jsonb_build_object('label', i.label, 'worth_php', i.worth_php))
+                       ORDER BY i.sort_order) AS items
+      FROM public.vendor_service_inclusions i
+      JOIN public.vendor_profiles vp ON vp.vendor_profile_id = i.vendor_profile_id
+      WHERE vp.demo_batch_id = v_batch
+        AND vp.business_name IN ('Hain Catering','Saysay Live Band','Tagay Mobile Bar','Matamis Bakeshop','Kuha Booth')
+      GROUP BY i.vendor_service_id
+    ) agg
+   WHERE vs.vendor_service_id = agg.vendor_service_id;
+END $$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Demo floor booths (2026-07-08). Persists the live 3D-demo booth ring: 14
+-- perimeter booths at their flush wall positions (PERCENT scale). Each booth
+-- resolves its event_vendor_id in one of two ways:
+--   • an explicit vendor_name PIN (5th column) → resolve by
+--     (event_id, category, vendor_name). Used where a category holds several
+--     event_vendors and the booth must link the one its offering copy names —
+--     e.g. band_dj holds Saysay Live Band (live_band) + Tugtog Collective +
+--     DJ Indak (dj), and mobile_bar holds Tagay Mobile Bar + Inuman Tea Cart +
+--     Barkada Bar (mocktail_bar). Resolving those by contracted-status alone
+--     mis-linked the 'Live Band' booth to DJ Indak and the 'Mobile Bar' booth
+--     to Barkada Bar, contradicting each booth's own copy and the card-content
+--     businesses (Saysay / Tagay) seeded above.
+--   • NULL pin → resolve by CATEGORY: the chosen vendor is the
+--     contracted/deposit-paid one, tie-broken by vendor_name. Safe where a
+--     category has exactly one stamped (chosen) vendor.
+-- A NULL category = an intentionally unlinked booth (Dessert
+-- Bar / Souvenirs / Wedding Singer) — event_vendor_id stays NULL and the 3D
+-- template falls back to booth_type; the booth is still inserted (not skipped).
+-- booth_type values are all CHECK-valid (band/live_cooking/live_performance
+-- added by 20270511347133_booth_types_band_live_stations.sql). Idempotent: this
+-- now seeds a FIXED set, so DELETE all of the event's booths ONCE up front
+-- (self-heals removed labels like 'Plated Dinner'), then insert all 14.
+-- Apply as ONE db query call.
+-- ─────────────────────────────────────────────────────────────────────────────
+DO $$
+DECLARE
+  v_event uuid;
+  r record; v_ev uuid;
+BEGIN
+  SELECT event_id INTO v_event FROM public.events
+  WHERE is_sample = TRUE AND slug = 'maria-and-jose' LIMIT 1;
+  IF v_event IS NULL THEN RAISE EXCEPTION 'Maria & Jose sample event not found'; END IF;
+
+  -- Fixed set → clear the event's booths once, then re-insert all 14.
+  DELETE FROM public.event_floor_booths WHERE event_id = v_event;
+
+  FOR r IN
+    SELECT * FROM (VALUES
+      -- (booth_type, label, category (NULL=unlinked), vendor_name pin (NULL=resolve by category), x%, y%, sort, offerings)
+      ('band',             'Live Band',      'band_dj',             'Saysay Live Band', 72.0,  6.0, 0,
+       'Saysay Live Band — 5-piece set from first dance to last call. Request a song at the booth.'),
+      ('custom',           'Lights & Sound', 'lights_and_sound',    NULL,               28.0,  6.0, 1,
+       'Ilaw Productions — stage lighting, sound system and AV for the program.'),
+      ('photo_booth',      'Photo Booth',    'photobooth',          NULL,                4.0, 22.0, 2,
+       'Kuha Booth — unlimited 4R prints, props trunk, same-night QR gallery.'),
+      ('dessert_station',  'Dessert Bar',    NULL,                  NULL,               96.0, 20.0, 3,
+       'Sweets table — ube cake, silvanas and leche flan tartlets all night.'),
+      ('custom',           'Glam Bar',       'hair_stylist',        NULL,                4.0, 35.0, 4,
+       'Buhok Bridal Hair — touch-up station for hair and makeup.'),
+      ('custom',           'Cake Table',     'cake_maker',          NULL,               96.0, 33.0, 5,
+       'Matamis Bakeshop — three-tier ube-vanilla display cake, cut at the reception.'),
+      ('mobile_bar',       'Mobile Bar',     'mobile_bar',          'Tagay Mobile Bar',  4.0, 48.0, 6,
+       'Tagay Mobile Bar — signature calamansi gin fizz plus a full cocktail list.'),
+      ('custom',           'Florals',        'florist',             NULL,               96.0, 47.0, 7,
+       'Bulaklak & Co. — garden florals, arch and centerpiece styling.'),
+      ('custom',           'Coordinator',    'planner_coordinator', NULL,                4.0, 61.0, 8,
+       'Araw Planners — on-the-day coordination base and timeline HQ.'),
+      ('custom',           'Photo & Video',  'photographer',        NULL,               96.0, 60.0, 9,
+       'Habi Photo Co. — whole-day photo and video coverage crew.'),
+      ('gift_table',       'Souvenirs',      NULL,                  NULL,                4.0, 74.0, 10,
+       'Giveaways table — take-home tokens and thank-you favors for guests.'),
+      ('live_cooking',     'Buffet',         'catering',            NULL,               96.0, 75.0, 11,
+       'Hain Catering — 10-course Filipino menu, lechon belly carved live.'),
+      ('custom',           'Host & Emcee',   'host_emcee',          NULL,               35.0, 95.0, 12,
+       'Kuya Mike Events — program host and emcee station.'),
+      ('live_performance', 'Wedding Singer', NULL,                  NULL,               65.0, 95.0, 13,
+       'Live acoustic act — serenades during dinner and the couple''s first dance.')
+    ) AS t(btype, blabel, cat, vname, x, y, sort, offer)
+  LOOP
+    -- Resolve the chosen vendor. Explicit vname pin → exact
+    -- (category, vendor_name). Else category (contracted ≻ deposit_paid ≻ rest,
+    -- then vendor_name). NULL category → unlinked booth (v_ev stays NULL).
+    v_ev := NULL;
+    IF r.cat IS NOT NULL THEN
+      IF r.vname IS NOT NULL THEN
+        SELECT ev.vendor_id INTO v_ev FROM public.event_vendors ev
+        WHERE ev.event_id = v_event AND ev.category::text = r.cat
+          AND ev.vendor_name = r.vname
+        LIMIT 1;
+      ELSE
+        SELECT ev.vendor_id INTO v_ev FROM public.event_vendors ev
+        WHERE ev.event_id = v_event AND ev.category::text = r.cat
+        ORDER BY CASE ev.status
+                   WHEN 'contracted'   THEN 0
+                   WHEN 'deposit_paid' THEN 1
+                   ELSE 2
+                 END, ev.vendor_name
+        LIMIT 1;
+      END IF;
+      IF v_ev IS NULL THEN
+        RAISE NOTICE 'no event vendor in category % (pin %) — booth % inserted unlinked', r.cat, r.vname, r.blabel;
+      END IF;
+    END IF;
+    INSERT INTO public.event_floor_booths
+      (event_id, booth_type, label, x_pos, y_pos, sort_order, zone, event_vendor_id, offerings)
+    VALUES (v_event, r.btype, r.blabel, r.x, r.y, r.sort, 'reception', v_ev, r.offer);
+  END LOOP;
+END $$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Room-magic demo enablement (2026-07-08): the sample event demos the
+-- cold-spark entrance tunnel, and the lone serpentine ("Table 9", the only
+-- serpentine table_type in this seed) seats four guests so it reads as real.
+-- NOTE: live prod also renders "Friends — Barkada" as a serpentine, but this
+-- seed intentionally keeps Barkada as round_10 (see the fragment for
+-- persist-demo-layout-seed) — so "Table 9" is the single serpentine here, not
+-- the "second" of two. Idempotent.
+-- ─────────────────────────────────────────────────────────────────────────────
+DO $$
+DECLARE
+  v_event uuid;
+  v_t9 uuid;
+  v_gid uuid;
+  r RECORD;
+  i INT := 0;
+BEGIN
+  SELECT event_id INTO v_event FROM public.events
+  WHERE is_sample = TRUE AND slug = 'maria-and-jose' AND event_type = 'wedding' LIMIT 1;
+  IF v_event IS NULL THEN RAISE NOTICE 'sample event missing — skip room-magic seed'; RETURN; END IF;
+
+  -- Tunnel selection → cold_spark (the shipped ship-first treatment).
+  UPDATE public.events
+  SET reception_design = jsonb_set(COALESCE(reception_design, '{}'::jsonb), '{tunnel,style}', '"cold_spark"')
+  WHERE event_id = v_event;
+
+  SELECT table_id INTO v_t9 FROM public.event_tables
+  WHERE event_id = v_event AND table_label = 'Table 9' LIMIT 1;
+  IF v_t9 IS NULL THEN RAISE NOTICE 'Table 9 missing — skip serpentine cast'; RETURN; END IF;
+
+  FOR r IN SELECT * FROM (VALUES
+    ('Nena','Villar','gown','bride'),
+    ('Tomas','Villar','suit','bride'),
+    ('Cita','Ramos','gown','groom'),
+    ('Efren','Ramos','suit','groom')
+  ) AS c(fn, ln, att, sd) LOOP
+    SELECT guest_id INTO v_gid FROM public.guests
+    WHERE event_id = v_event AND first_name = r.fn AND last_name = r.ln AND deleted_at IS NULL LIMIT 1;
+    IF v_gid IS NULL THEN
+      INSERT INTO public.guests (event_id, first_name, last_name, role, attire, side, group_category, rsvp_status, qr_token)
+      VALUES (v_event, r.fn, r.ln, 'guest', r.att::guest_attire, r.sd::guest_side, 'friends', 'attending', encode(extensions.gen_random_bytes(16), 'hex'))
+      RETURNING guest_id INTO v_gid;
+    END IF;
+    DELETE FROM public.event_seat_assignments WHERE event_id = v_event AND guest_id = v_gid;
+    INSERT INTO public.event_seat_assignments (event_id, table_id, guest_id, seat_number)
+    VALUES (v_event, v_t9, v_gid, i);
+    i := i + 1;
+  END LOOP;
+END $$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Dance floor (2026-07-08). Turn on the reception dance floor for the demo,
+-- centred between the two table clusters (PERCENT scale). event_floor_plan has
+-- event_id as its PK and is NOT auto-created per event (no seed or trigger makes
+-- a row), so UPSERT: INSERT the row if absent, else UPDATE the dance fields.
+-- stage_x/stage_y/entrance_* take their NOT-NULL defaults on first insert.
+-- Idempotent; scoped to the sample event.
+-- ─────────────────────────────────────────────────────────────────────────────
+DO $$
+DECLARE
+  v_event uuid;
+BEGIN
+  SELECT event_id INTO v_event FROM public.events
+  WHERE is_sample = TRUE AND slug = 'maria-and-jose' LIMIT 1;
+  IF v_event IS NULL THEN RAISE NOTICE 'sample event missing — skip dance-floor seed'; RETURN; END IF;
+
+  INSERT INTO public.event_floor_plan (event_id, dance_enabled, dance_x, dance_y, dance_w, dance_h)
+  VALUES (v_event, TRUE, 50, 52, 24, 14)
+  ON CONFLICT (event_id) DO UPDATE
+    SET dance_enabled = TRUE,
+        dance_x = 50, dance_y = 52, dance_w = 24, dance_h = 14,
+        updated_at = NOW();
 END $$;

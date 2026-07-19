@@ -1,9 +1,11 @@
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { registerGatesEnabled } from '@/lib/register-gates';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { computeGuestStats, fetchGuestsByEvent } from '@/lib/guests';
 import { buildEventLandingUrl, renderEventLandingQrSvg } from '@/lib/qr';
+import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { resolveMonogram } from '@/lib/monogram';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { parseRsvpBackdropConfig } from '@/lib/spatial-backdrop';
@@ -103,12 +105,16 @@ export async function loadSiteEditorData(
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
 
+  // Canonical URL form — nested /u/ under the cutover flag, bare root otherwise
+  // (resolve self-noops OFF; no query pre-cutover).
+  const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), eventId);
+
   const publicLandingUrl = event.slug
-    ? buildEventLandingUrl({ appUrl, slug: event.slug })
+    ? buildEventLandingUrl({ appUrl, slug: event.slug, ownerSlug })
     : null;
 
   const masterQrSvg = event.slug
-    ? await renderEventLandingQrSvg({ appUrl, slug: event.slug, monogram })
+    ? await renderEventLandingQrSvg({ appUrl, slug: event.slug, monogram, ownerSlug })
     : null;
 
   const slugDisplay = publicLandingUrl

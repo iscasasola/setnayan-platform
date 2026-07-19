@@ -215,14 +215,16 @@ export async function submitCoupleReview(formData: FormData) {
     .maybeSingle();
   if (!membership) redirect(`/dashboard/${eventId}`);
 
+  let createdReviewId: string | null = null;
   try {
-    await createReview(supabase, {
+    const created = await createReview(supabase, {
       vendorProfileId,
       eventId,
       coupleUserId: user.id,
       ratings,
       body,
     });
+    createdReviewId = created.review_id;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const signal = parseSelfReviewBlock(message);
@@ -296,6 +298,31 @@ export async function submitCoupleReview(formData: FormData) {
   } catch {
     // vendor-activity.ts not yet merged — scores will be recomputed when it ships.
   }
+
+  // Review-fraud screener (No fake reviews) — deterministic velocity/burst +
+  // rating-anomaly + reviewer-device-linkage scoring. Runs in an after() task so
+  // it NEVER blocks or fails the couple's submit; the screener is internally
+  // fail-soft. A high score upserts a review_fraud row into the /admin/
+  // integrity-watch queue for a moderator — it NEVER auto-deletes the review or
+  // dings the vendor.
+  if (createdReviewId) {
+    const reviewIdForScreen = createdReviewId;
+    after(async () => {
+      const { screenReviewForFraud } = await import('@/lib/review-fraud-screener');
+      await screenReviewForFraud(reviewIdForScreen);
+    });
+  }
+
+  // Vendor-level fraud detection (Anti-Fraud Phase 3, § 4) — recompute the five
+  // vendor anomaly signals (ring / velocity / graph_isolation / import_spike /
+  // rating_shape) for THIS vendor now that a new review landed, upserting into
+  // fraud_signals for the Phase-4 admin queue. Distinct from the per-review
+  // screener above (different grain). Runs in an after() task, internally
+  // fail-soft — DETECT + SCORE ONLY, it never suspends/dings the vendor.
+  after(async () => {
+    const { scoreVendorFraud } = await import('@/lib/fraud-detection-runner');
+    await scoreVendorFraud(vendorProfileId);
+  });
 
   revalidatePath(`/dashboard/${eventId}/vendors`);
   redirect(`/dashboard/${eventId}/vendors?reviewed=${eventVendorId}`);

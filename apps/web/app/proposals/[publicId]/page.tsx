@@ -1,9 +1,15 @@
 import Link from 'next/link';
+import { after } from 'next/server';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, Send, Trash2, XCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { markProposalViewedAndSettle } from '@/lib/lead-token-holds';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { fetchProposalPaymentMethods } from '@/lib/vendor-payment-methods.server';
+import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { PrintButton } from '@/components/print-button';
+import { SubmitButton } from '@/app/_components/submit-button';
 import {
   PROPOSAL_STATUS_LABEL,
   PROPOSAL_STATUS_TONE,
@@ -11,6 +17,11 @@ import {
   type ProposalLineItem,
   type ProposalStatus,
 } from '@/lib/vendor-proposals';
+import {
+  isResolvedSchedule,
+  dueLabel,
+  type ResolvedSchedule,
+} from '@/lib/proposal-payment-schedule';
 import {
   deleteDraftProposal,
   respondToProposal,
@@ -48,6 +59,8 @@ type ProposalRow = {
   rendered_terms: string;
   line_items: ProposalLineItem[];
   total_centavos: number;
+  payment_schedule: unknown;
+  payment_method_ids: string[] | null;
   status: ProposalStatus;
   valid_until: string | null;
   sent_at: string | null;
@@ -83,7 +96,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
   const { data } = await supabase
     .from('vendor_proposals')
     .select(
-      'proposal_id, public_id, vendor_profile_id, event_id, title, merge_snapshot, rendered_body, rendered_terms, line_items, total_centavos, status, valid_until, sent_at, resolved_at, created_at',
+      'proposal_id, public_id, vendor_profile_id, event_id, title, merge_snapshot, rendered_body, rendered_terms, line_items, total_centavos, payment_schedule, payment_method_ids, status, valid_until, sent_at, resolved_at, created_at',
     )
     .eq('public_id', publicId)
     .maybeSingle();
@@ -93,6 +106,15 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
   // Which side is looking? Org membership decides.
   const ownProfile = await fetchOwnVendorProfile(supabase, user.id);
   const isVendorSide = ownProfile?.vendor_profile_id === proposal.vendor_profile_id;
+
+  // Settle-on-VIEW: the couple opening a delivered quote settles the vendor's held
+  // token (Vendor_Token_Settlement_and_Lifecycle §2.1). Fire off the request path;
+  // the RPC re-verifies customer-side membership + only transitions sent→viewed,
+  // and the token consume is itself flag-gated inside. No-op for the vendor's own
+  // preview or an already-viewed proposal.
+  if (!isVendorSide && proposal.status === 'sent') {
+    after(() => markProposalViewedAndSettle(proposal.public_id, user.id));
+  }
 
   // Letterhead — vendor business identity (falls back to the frozen snapshot).
   const { data: vendorProfile } = await supabase
@@ -108,6 +130,22 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
   const snapshotAt = fmtDate(proposal.merge_snapshot.resolved_at ?? proposal.created_at);
   const confirmed = proposal.merge_snapshot.confirmed_guests;
   const lineItems = proposal.line_items ?? [];
+
+  // Payment schedule (§ 8) — frozen-on-send snapshot; {} on older proposals.
+  const schedule: ResolvedSchedule | null = isResolvedSchedule(proposal.payment_schedule)
+    ? (proposal.payment_schedule as ResolvedSchedule)
+    : null;
+
+  // Accepted payment methods (§ 9) — the vendor_proposals RLS read above already
+  // gated access (vendor org, or couple/moderator on their event), so resolve
+  // the vendor's picked (or all-approved) methods via the admin client. Empty
+  // method_ids = show all approved. Fail-soft to [].
+  const methodIds = Array.isArray(proposal.payment_method_ids) ? proposal.payment_method_ids : [];
+  const paymentMethods: CoupleFacingMethod[] = await fetchProposalPaymentMethods({
+    adminClient: createAdminClient(),
+    vendorProfileId: proposal.vendor_profile_id,
+    methodIds,
+  });
 
   return (
     <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-10 sm:px-6 print:max-w-none print:space-y-4 print:py-2">
@@ -199,6 +237,99 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
         </section>
       ) : null}
 
+      {/* Payment schedule (§ 8) */}
+      {schedule ? (
+        <section className="rounded-xl border border-ink/10 p-4 print:rounded-none print:border-x-0 print:px-0">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/55">Payment schedule</h2>
+          <ul className="mt-2 divide-y divide-ink/10">
+            {schedule.installments.map((inst) => (
+              <li key={inst.seq} className="flex items-baseline justify-between gap-3 py-2">
+                <div>
+                  <p className="flex items-center gap-2 text-sm font-medium">
+                    {inst.label}
+                    {inst.is_downpayment ? (
+                      <span className="rounded-full bg-terracotta/10 px-2 py-0.5 text-[10px] font-medium text-terracotta-700">
+                        locks the date
+                      </span>
+                    ) : null}
+                  </p>
+                  <p className="text-xs text-ink/50">
+                    {dueLabel(inst.due, inst.offset_days)}
+                    {inst.credit_applied_centavos > 0
+                      ? ` · crew-meal credit −${formatCentavos(inst.credit_applied_centavos)}`
+                      : ''}
+                  </p>
+                </div>
+                <span className="text-sm font-medium tabular-nums text-ink/80">
+                  {formatCentavos(inst.amount_centavos)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 flex items-baseline justify-between border-t border-ink/15 pt-3 text-sm font-semibold">
+            <span>Total across payments</span>
+            <span className="tabular-nums">{formatCentavos(schedule.total_centavos)}</span>
+          </p>
+          {schedule.credit_centavos > 0 ? (
+            <p className="mt-1 text-xs text-success-700">
+              A crew-meal credit of {formatCentavos(schedule.credit_centavos)} is applied to your final
+              payment — your downpayment is unaffected.
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
+      {/* Accepted payment methods (§ 9) — how to pay */}
+      {paymentMethods.length > 0 ? (
+        <section className="rounded-xl border border-ink/10 p-4 print:rounded-none print:border-x-0 print:px-0">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/55">How to pay</h2>
+          <ul className="mt-2 space-y-3">
+            {paymentMethods.map((m) => (
+              <li key={m.payment_method_id} className="rounded-lg border border-ink/10 bg-cream/50 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium">
+                    {m.label}
+                    {m.provider ? <span className="text-ink/50"> · {m.provider}</span> : null}
+                  </p>
+                  {m.is_primary ? (
+                    <span className="rounded-full bg-terracotta/10 px-2 py-0.5 text-[10px] font-medium text-terracotta-700">
+                      preferred
+                    </span>
+                  ) : null}
+                </div>
+                {m.account_name ? (
+                  <p className="mt-1 text-xs text-ink/70">
+                    {m.account_name}
+                    {m.account_number ? ` · ${m.account_number}` : ''}
+                  </p>
+                ) : m.account_number ? (
+                  <p className="mt-1 text-xs text-ink/70">{m.account_number}</p>
+                ) : null}
+                {m.method_type === 'link' && m.link_url ? (
+                  <a
+                    href={m.link_url}
+                    target="_blank"
+                    rel="noopener noreferrer nofollow"
+                    className="mt-1 inline-block break-all text-xs font-medium text-terracotta-700 underline"
+                  >
+                    {m.link_domain ?? m.link_url}
+                  </a>
+                ) : null}
+                {m.method_type === 'qr' && m.qr_display_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={m.qr_display_url}
+                    alt={`${m.label} QR code`}
+                    className="mt-2 h-40 w-40 rounded-lg border border-ink/10 object-contain"
+                  />
+                ) : null}
+                {m.note ? <p className="mt-1 text-xs text-ink/50">{m.note}</p> : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {/* Terms */}
       {proposal.rendered_terms ? (
         <section>
@@ -215,21 +346,21 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
           <form action={sendProposal}>
             <input type="hidden" name="proposal_id" value={proposal.proposal_id} />
             <input type="hidden" name="public_id" value={proposal.public_id} />
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Sending…"
               className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-4 py-2 text-sm font-medium text-cream"
             >
               <Send aria-hidden className="h-4 w-4" /> Send to couple
-            </button>
+            </SubmitButton>
           </form>
           <form action={deleteDraftProposal}>
             <input type="hidden" name="proposal_id" value={proposal.proposal_id} />
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Removing…"
               className="inline-flex items-center gap-1.5 rounded-lg border border-ink/20 px-4 py-2 text-sm font-medium text-ink/70 hover:text-red-700"
             >
               <Trash2 aria-hidden className="h-4 w-4" /> Delete draft
-            </button>
+            </SubmitButton>
           </form>
           <p className="w-full text-xs text-ink/45">
             Sending freezes these numbers — RSVP changes after today won&rsquo;t alter this
@@ -244,23 +375,23 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
             <input type="hidden" name="proposal_id" value={proposal.proposal_id} />
             <input type="hidden" name="public_id" value={proposal.public_id} />
             <input type="hidden" name="response" value="accepted" />
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Accepting…"
               className="inline-flex items-center gap-1.5 rounded-lg bg-success-700 px-4 py-2 text-sm font-medium text-white"
             >
               <CheckCircle2 aria-hidden className="h-4 w-4" /> Accept proposal
-            </button>
+            </SubmitButton>
           </form>
           <form action={respondToProposal}>
             <input type="hidden" name="proposal_id" value={proposal.proposal_id} />
             <input type="hidden" name="public_id" value={proposal.public_id} />
             <input type="hidden" name="response" value="declined" />
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Declining…"
               className="inline-flex items-center gap-1.5 rounded-lg border border-ink/20 px-4 py-2 text-sm font-medium text-ink/70"
             >
               <XCircle aria-hidden className="h-4 w-4" /> Decline
-            </button>
+            </SubmitButton>
           </form>
           <p className="w-full text-xs text-ink/45">
             Accepting tells {businessName} you&rsquo;re going with this — it doesn&rsquo;t

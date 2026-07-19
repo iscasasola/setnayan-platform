@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Newspaper, ArrowRight, ArrowUpRight } from 'lucide-react';
-import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
 import {
   publishedBlogArticles,
   BLOG_NUGGETS,
@@ -39,6 +38,13 @@ export const metadata = {
     siteName: 'Setnayan',
     locale: 'en_PH',
     images: [{ url: `${SITE_URL}/blog/hero.webp`, width: 1820, height: 1024 }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Setnayan Journal — Filipino wedding planning guides',
+    description:
+      'Filipino wedding planning guides — timelines, supplier costs, and customs explained.',
+    images: [`${SITE_URL}/blog/hero.webp`],
   },
 };
 
@@ -385,7 +391,6 @@ export default async function BlogIndexPage({ searchParams }: Props) {
         </div>
       </div>
 
-      <SiteFooter />
     </main>
   );
 }

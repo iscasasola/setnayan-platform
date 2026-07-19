@@ -36,8 +36,8 @@
  * `text-terracotta` / `border-ink/N` classes per the 2026-05-30 unification
  * (globals.css :root + html.dark). Matches the app shell visual language
  * used across dashboard / admin / vendor-dashboard. In light mode terracotta
- * = Royal Champagne Gold #C5A059. In dark mode terracotta = brighter
- * champagne #E0CCA0. Supersedes the 2026-05-22 Facebook palette
+ * = Atelier gold #A9834B (kit gold-500). In dark mode terracotta = brighter
+ * gold #CBA766 (kit gold-300). Supersedes the 2026-05-22 Facebook palette
  * preservation lock on this component.
  *
  * UNIFORMITY: every interactive element on the header is exactly 44px tall
@@ -190,19 +190,15 @@ export function StickyMarketplaceHeader({
         className="fixed bottom-0 left-0 right-0 z-30 border-t border-ink/10 bg-cream/95 px-4 py-3 backdrop-blur sm:sticky sm:bottom-auto sm:top-0 sm:border-b sm:border-t-0 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
-        {/* Eyebrow + applied-count chip. Reads as 'MARKETPLACE · 192
-            categories · 2 filters applied'. Concise replacement for the
-            retired italic-serif headline + paragraph. */}
-        <div className="mb-2 flex items-center justify-between gap-3">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            Marketplace
-          </p>
-          {appliedCount > 0 ? (
+        {/* Applied-count chip. Concise replacement for the retired
+            italic-serif headline + paragraph. */}
+        {appliedCount > 0 ? (
+          <div className="mb-2 flex items-center justify-end gap-3">
             <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
               {appliedCount} filter{appliedCount === 1 ? '' : 's'} applied
             </span>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
         {/* Search pill + Filters button row. The search input owns its own
             rounded-full pill via TaxonomySearch's existing styling; the

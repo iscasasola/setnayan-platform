@@ -28,6 +28,8 @@ import { RigidReveal } from '@/app/[slug]/_components/reveal/rigid-reveal';
 import { StdTouchGlow } from '@/app/[slug]/_components/reveal/std-touch-glow';
 import { saveRevealStudio } from './actions';
 
+// gold/molten retired as reveal openings 2026-06-22 (now monogram-editor motions);
+// the studio calibrates only the five envelope/veil openings.
 const VeilReveal = dynamic(() => import('@/app/[slug]/_components/reveal/veil-reveal'), { ssr: false });
 
 /** Which template the live preview shows (veil drives the veil sliders; the
@@ -110,7 +112,7 @@ const EFFECT_SLIDERS: Array<{ group: string; sliders: EffectSliderDef[] }> = [
   },
 ];
 
-const INK = 'var(--m-ink,#1e2229)';
+const INK = 'var(--m-ink,#1b1a17)';
 const SLATE = 'var(--m-slate,#4f535b)';
 const LINE = 'var(--m-line,#e3e1da)';
 const ACCENT = 'var(--m-mulberry,#7d2b4f)';

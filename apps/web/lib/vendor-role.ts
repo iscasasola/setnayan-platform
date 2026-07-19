@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NavGroup } from '@/app/_components/nav/types';
 import type { VendorTeamRole } from '@/lib/vendor-team';
@@ -35,13 +36,20 @@ export function canManageVendor(role: VendorTeamRole | null | undefined): boolea
  *
  * Source of truth = `vendor_team_members` (a user can sit on multiple vendors;
  * we take the highest-ranked membership). Legacy fallback: a user who owns a
- * `vendor_profiles` row but has no membership row (pre-owner-seed trigger) is
- * treated as 'owner'. Returns null if the user has no vendor relationship.
+ * `vendor_profiles` row but has no membership row (pre-seed trigger) is treated
+ * as 'admin' (the store creator is the founding admin in the multi-admin org
+ * model). Returns null if the user has no vendor relationship.
+ *
+ * Wrapped in React `cache()` (2026-07-01 perf): the vendor layout AND the page
+ * it renders both resolve the role in the SAME request. Because the server
+ * `createClient()` is itself request-cached, both call sites pass the identical
+ * client reference — so `cache()` keyed on `(supabase, userId)` collapses the
+ * two calls into a single set of DB reads instead of running the queries twice.
  */
-export async function resolveVendorRole(
+export const resolveVendorRole = cache(async (
   supabase: SupabaseClient,
   userId: string,
-): Promise<VendorTeamRole | null> {
+): Promise<VendorTeamRole | null> => {
   const { data: memberships } = await supabase
     .from('vendor_team_members')
     .select('role')
@@ -59,28 +67,35 @@ export async function resolveVendorRole(
     .select('vendor_profile_id')
     .eq('user_id', userId)
     .maybeSingle();
-  return owned ? 'owner' : null;
-}
+  return owned ? 'admin' : null;
+});
 
 /**
  * Nav item keys an agent/viewer may see. Owner/admin always see the full nav.
- * Phase 2b opened the agent's operational surfaces (Services / Bookings /
- * Messages) now that per-service + per-customer RLS scoping is live — an agent
- * sees only their assigned services and the customers tied to them.
+ * Phase 2b opened the agent's operational surfaces (Bookings / Messages) now
+ * that per-customer RLS scoping is live. NOTE (2026-07-02): 'services' was
+ * removed here when the Services editor was fully folded into My Shop (which is
+ * owner/admin-only) — staff have no scoped services surface until My Shop, or a
+ * dedicated staff services view, is opened to them.
  */
 export const VENDOR_SCOPED_NAV_ITEM_KEYS: ReadonlySet<string> = new Set([
   'overview',
-  'services',
-  'bookings',
-  'messages',
+  // 5-page IA (2026-07-12): the booking pipeline + message threads both live
+  // inside the My Customers hub now, so staff scope to that one destination
+  // (its tabs carry Bookings + Messages; the hub's surfaces re-check role).
+  'customers',
 ]);
 
-/** Bottom-nav tab keys an agent/viewer may see (Home · Bookings · Messages · More). */
+/**
+ * Bottom-nav tab keys an agent/viewer may see. Reroster 2026-07-01 to the
+ * 6-tab proto-shell strip (Overview · Shop · Customers · Performance · Services
+ * · On the Day). Agents keep Overview (their landing) + Services (they manage
+ * their assigned services); the storefront/money/analytics tabs stay owner/admin
+ * only until per-agent data scoping opens them in a later phase.
+ */
 export const VENDOR_SCOPED_BOTTOM_NAV_KEYS: ReadonlySet<string> = new Set([
-  'profile', // the Home tab (key kept as 'profile' for localStorage continuity)
-  'bookings',
-  'messages',
-  'more',
+  'profile', // the Overview tab (key kept as 'profile' for localStorage continuity)
+  // 'services' retired 2026-07-02 — folded into owner/admin-only My Shop.
 ]);
 
 /** Filter a vendor NavGroup[] down to what `role` may see; drops empty groups. */

@@ -1,13 +1,21 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+// Shared admin gate (council fix #1 2026-07-09) — same Forbidden contract the
+// local requireAdmin had before it was promoted to lib/admin/require-admin.ts.
+import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
+// Couple referral rewards (2026-07-01). QUALIFYING EVENT = the referred
+// couple's FIRST PAID ORDER. Fired best-effort off an after() hook the moment
+// an order flips to 'paid' — never blocks or fails the reconciliation flow.
+// Idempotent + inert-when-reward-unset (see lib/referrals.ts).
+import { qualifyReferralOnFirstPaidOrder } from '@/lib/referrals';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
-import { formatPhp } from '@/lib/orders';
-import { computeVatFromBase } from '@/lib/receipts';
+import { formatPhp, orderGrossOwed, isVatInclusiveServiceKey } from '@/lib/orders';
+import { computeVatFromBase, computeVatFromGross } from '@/lib/receipts';
 import { captureEvent } from '@/lib/analytics';
 import {
   computePayoutBreakdown,
@@ -38,24 +46,6 @@ import { appendLedger } from '@/lib/ledger';
 // so main's inline imports/constants are dropped here (typecheck confirms
 // nothing else references them).
 import { activateOrderSku, deactivateOrderSku } from '@/lib/sku-activation';
-
-async function requireAdmin(): Promise<{ userId: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { data: me } = await supabase
-    .from('users')
-    .select('is_internal, is_team_member, account_type')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (!(me?.is_internal || me?.is_team_member || me?.account_type === 'admin')) {
-    throw new Error('Forbidden');
-  }
-  return { userId: user.id };
-}
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -118,7 +108,7 @@ export async function approvePayment(formData: FormData) {
   // and so the PostHog `order_paid` event below has `service_key` to slice on.
   const { data: order } = await admin
     .from('orders')
-    .select('event_id, public_id, service_key')
+    .select('event_id, public_id, service_key, requested_total_php, confirmed_total_php, voucher_discount_centavos')
     .eq('order_id', payment.order_id)
     .maybeSingle();
 
@@ -138,17 +128,75 @@ export async function approvePayment(formData: FormData) {
     },
   });
 
-  await emitNotification({
-    userId: payment.user_id,
-    type: 'payment_matched',
-    title: `Payment of ${formatPhp(payment.amount_php)} matched`,
-    body: adminNotes ?? 'The Setnayan team confirmed your payment.',
-    relatedUrl: order?.event_id
-      ? `/dashboard/${order.event_id}/orders/${payment.order_id}`
-      : null,
-  });
+  // Best-effort — a notification write must NEVER fail the reconciliation.
+  // The payment is already matched (the critical write above committed); if
+  // notifying the buyer throws, the admin should still see a clean success
+  // rather than a 500 that makes them re-click an already-done approval.
+  try {
+    await emitNotification({
+      userId: payment.user_id,
+      type: 'payment_matched',
+      title: `Payment of ${formatPhp(payment.amount_php)} matched`,
+      body: adminNotes ?? 'The Setnayan team confirmed your payment.',
+      relatedUrl: order?.event_id
+        ? `/dashboard/${order.event_id}/orders/${payment.order_id}`
+        : null,
+    });
+  } catch (e) {
+    console.error('payment_matched notification failed (non-fatal):', e);
+  }
 
   if (promoteOrder) {
+    // SHORTFALL GUARD (2026-06-25): an order must not be marked fully 'paid'
+    // (which issues a receipt + fires vendor payouts) unless the MATCHED payments
+    // cover the gross owed — pre-VAT base + 12% VAT, net of any voucher. The
+    // payment above is matched either way; a short/partial transfer simply must
+    // NOT promote the order. The admin leaves "promote to paid" off to record it
+    // as partial, or re-runs once the balance is matched. Closes the audit's
+    // "short transfer silently passes on the happy path" gap.
+    const { data: orderPayments } = await admin
+      .from('payments')
+      .select('amount_php, status')
+      .eq('order_id', payment.order_id);
+    const matchedTotal = (orderPayments ?? [])
+      .filter((p) => p.status === 'matched')
+      .reduce((acc, p) => acc + Number(p.amount_php), 0);
+    if (order && order.requested_total_php != null) {
+      const owed = orderGrossOwed({
+        requestedTotalPhp: Number(order.requested_total_php),
+        confirmedTotalPhp:
+          order.confirmed_total_php != null ? Number(order.confirmed_total_php) : null,
+        voucherDiscountPhp:
+          order.voucher_discount_centavos != null
+            ? Number(order.voucher_discount_centavos) / 100
+            : 0,
+        // Vendor charm prices (₱999 branch add-on, tiers, tokens) are quoted
+        // ALL-IN — the stored total already includes VAT, so owed = that total,
+        // not total×1.12. Without this the guard demanded base×1.12 and stranded
+        // every vendor order "matched but never promoted" (owner-locked
+        // 2026-07-05; see isVatInclusiveServiceKey + DECISION_LOG).
+        vatInclusive: isVatInclusiveServiceKey(order.service_key),
+      });
+      const SHORTFALL_TOLERANCE_PHP = 1; // absorb centavo rounding across payments
+      if (matchedTotal < owed - SHORTFALL_TOLERANCE_PHP) {
+        // A short/partial transfer is a NORMAL business case — it must not
+        // promote the order, but it must NOT crash the admin with a generic
+        // 500 either. The payment is already matched (recorded); surface the
+        // "why" as an inline notice on the queue instead of an uncaught throw,
+        // so the admin can record it as partial or chase the balance. (Was a
+        // `throw new Error(...)` that rendered the generic error page — see
+        // DECISION_LOG 2026-07-05.) The redirect is a NEXT_REDIRECT control
+        // exit, so — exactly like the prior throw — activation below does NOT
+        // run for a short-paid order.
+        const notice =
+          `Payment matched, but the order was NOT marked paid: ` +
+          `${formatPhp(matchedTotal)} received vs ${formatPhp(owed)} owed (incl. 12% VAT) — ` +
+          `${formatPhp(owed - matchedTotal)} short. Leave “Also mark order as paid” unchecked to ` +
+          `record it as partial, or promote once the balance is paid.`;
+        redirect(`/admin/payments?filter=all&notice=${encodeURIComponent(notice)}&noticeType=warn`);
+      }
+    }
+
     // Capture the update result. If this silently failed we'd notify
     // the buyer "your order is paid" while the DB row still says
     // pending — and downstream payout / receipt logic would diverge.
@@ -171,15 +219,31 @@ export async function approvePayment(formData: FormData) {
       );
     }
 
-    await emitNotification({
-      userId: payment.user_id,
-      type: 'order_paid',
-      title: `Order ${order?.public_id ?? ''} marked paid`,
-      body: "Your order is fully paid. We'll start work right away.",
-      relatedUrl: order?.event_id
-        ? `/dashboard/${order.event_id}/orders/${payment.order_id}`
-        : null,
-    });
+    // Best-effort (same contract as payment_matched above): the order is
+    // already promoted to 'paid'; a notification failure must not surface a
+    // 500 that makes the admin think the fully-successful approval failed.
+    try {
+      await emitNotification({
+        userId: payment.user_id,
+        type: 'order_paid',
+        title: `Order ${order?.public_id ?? ''} marked paid`,
+        body: "Your order is fully paid. We'll start work right away.",
+        relatedUrl: order?.event_id
+          ? `/dashboard/${order.event_id}/orders/${payment.order_id}`
+          : null,
+      });
+    } catch (e) {
+      console.error('order_paid notification failed (non-fatal):', e);
+    }
+
+    // Couple referral rewards — QUALIFYING EVENT is this buyer's FIRST PAID
+    // ORDER. If they signed up via a ?refc= code, the hook marks their open
+    // redemption qualified and (when the admin-managed reward is set) mints the
+    // two single-use reward vouchers. after() runs post-response so it never
+    // delays the admin's reconciliation click; the helper is best-effort and
+    // never throws. Idempotent — the redemption lookup only matches an `open`
+    // row, so re-approvals / partial-then-full flows can't double-mint.
+    after(() => qualifyReferralOnFirstPaidOrder(payment.user_id));
 
     // Funnel event — fires the moment an order's status flips to paid.
     // Distinct id is the buyer's Supabase user_id (payment.user_id), so it
@@ -262,17 +326,21 @@ export async function approvePayment(formData: FormData) {
     });
   }
 
+  // The admin's OWN views revalidate synchronously so the queue reflects the
+  // approval on this response.
   revalidatePath('/admin/payments');
   revalidatePath('/admin/payouts');
   // Force a refresh of the couple's user-facing routes so any
   // activation-reading UI (Setnayan AI banner, add-on pages) picks up the
-  // status change immediately. Full activation-cycle UI fix is queued as
-  // PR B (proper per-SKU activation dispatcher); for now this at least
-  // makes the couple's dashboard re-render fresh data after admin approves.
-  // (Brand-layer note 2026-05-28 V2 cutover — historical reference to the
-  // "Concierge banner" tracks the same surface; banner copy now reads
-  // "Setnayan AI".)
-  revalidatePath('/dashboard', 'layout');
+  // status change. DEFERRED to after() (2026-07-05): this broad
+  // `/dashboard`-layout revalidation re-renders couple pages, and a render-time
+  // fault in one of them (e.g. the checklist page's revalidate-during-render,
+  // Sentry JAVASCRIPT-NEXTJS-B) would otherwise surface as a generic 500 to the
+  // admin EVEN THOUGH the approval fully succeeded — making them re-click an
+  // already-done reconciliation. Running it post-response guarantees a
+  // fully-successful approval never shows the admin an error; the couple's UI
+  // still refreshes a beat later. See DECISION_LOG 2026-07-05.
+  after(() => revalidatePath('/dashboard', 'layout'));
 }
 
 async function schedulePayoutsForOrder(args: {
@@ -403,15 +471,27 @@ async function issueReceiptForOrder(args: {
 
   const { data: order } = await admin
     .from('orders')
-    .select('user_id, confirmed_total_php, requested_total_php')
+    .select('user_id, service_key, confirmed_total_php, requested_total_php, voucher_discount_centavos')
     .eq('order_id', orderId)
     .maybeSingle();
   if (!order) return;
 
-  // The order's *_total_php fields are the **pre-VAT base** (the value Setnayan
-  // quotes). VAT is added on top: customer paid (base + 12%).
-  const base = Number(order.confirmed_total_php ?? order.requested_total_php ?? 0);
-  if (base <= 0) return;
+  // For customer SKUs the order's *_total_php fields are the **pre-VAT base**
+  // (the value Setnayan quotes); VAT is added on top, so the buyer paid
+  // base + 12%. For vendor charm prices the stored total is ALREADY the
+  // all-in gross (VAT baked in) — see isVatInclusiveServiceKey.
+  //
+  // #3 (money bug-hunt 2026-06-26): a BIR Official Receipt must reflect the
+  // amount actually paid. `requested_total_php` is the PRE-voucher base, so a
+  // voucher-discounted order whose `confirmed_total_php` is still NULL was
+  // getting a receipt overstating the pre-VAT/VAT/gross. Mirror `orderGrossOwed`:
+  // net the voucher discount off the requested base when not yet confirmed.
+  const voucherDiscountPhp = Number(order.voucher_discount_centavos ?? 0) / 100;
+  const storedTotal =
+    order.confirmed_total_php != null
+      ? Number(order.confirmed_total_php)
+      : Math.max(0, Number(order.requested_total_php ?? 0) - voucherDiscountPhp);
+  if (storedTotal <= 0) return;
 
   const { data: buyer } = await admin
     .from('users')
@@ -419,7 +499,12 @@ async function issueReceiptForOrder(args: {
     .eq('user_id', order.user_id)
     .maybeSingle();
 
-  const { preVat, vat, gross } = computeVatFromBase(base);
+  // VAT-inclusive vendor orders: back the VAT OUT of the gross so the receipt's
+  // pre_vat + vat sum to the ₱999 actually paid (not ₱999 + ₱119.88). Customer
+  // orders: build VAT UP from the pre-VAT base, unchanged.
+  const { preVat, vat, gross } = isVatInclusiveServiceKey(order.service_key)
+    ? computeVatFromGross(storedTotal)
+    : computeVatFromBase(storedTotal);
 
   // or_serial defaults from public.or_serial_seq (atomic) — don't pass it.
   // The display "Transaction No." is composed at read-time via formatReceiptNumber().

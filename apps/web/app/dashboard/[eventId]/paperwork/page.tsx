@@ -6,6 +6,7 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock,
+  Compass,
   ExternalLink,
   FileText,
   ScrollText,
@@ -38,6 +39,7 @@ import {
   type TraditionGuideKey,
   type TraditionItem,
 } from '@/lib/wedding-traditions';
+import { isChineseWedding, isChineseOverlay } from '@/lib/chinese-wedding';
 import {
   markPaperworkReceived,
   markPaperworkRequested,
@@ -62,14 +64,23 @@ export default async function PaperworkPage({ params }: Props) {
   const [eventRes, rows] = await Promise.all([
     supabase
       .from('events')
-      .select('event_id, display_name, event_date, ceremony_type')
+      .select(
+        'event_id, display_name, event_date, ceremony_type, secondary_ceremony_type, event_type',
+      )
       .eq('event_id', eventId)
       .maybeSingle(),
     fetchEventPaperwork(supabase, eventId),
   ]);
 
   const event = eventRes.data as
-    | { event_id: string; display_name: string; event_date: string | null; ceremony_type: string | null }
+    | {
+        event_id: string;
+        display_name: string;
+        event_date: string | null;
+        ceremony_type: string | null;
+        secondary_ceremony_type: string | null;
+        event_type: string | null;
+      }
     | null;
 
   if (!event) {
@@ -79,11 +90,67 @@ export default async function PaperworkPage({ params }: Props) {
     redirect('/dashboard');
   }
 
+  // Iteration 0053 P4 Unit 1: the entire paperwork checklist below is the
+  // PH-marriage statutory pack ("Your wedding paperwork" — PSA/CENOMAR/license/
+  // Pre-Cana). Only marriage-profile events have it; 'wedding' is the only type
+  // with statutoryPackKey 'ph_marriage', so this direct check is the exact
+  // equivalent. Non-wedding events get a generic "no statutory paperwork" state
+  // and skip the wedding render entirely (wedding path byte-identical).
+  if (((event.event_type as string | null) ?? 'wedding') !== 'wedding') {
+    return (
+      <section className="space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <BackLink eventId={eventId} />
+        </div>
+        <header className="sn-reveal space-y-3">
+          <p className="sn-eye">Paperwork</p>
+          <h1 className="sn-h1">
+            Paperwork
+          </h1>
+          <p className="max-w-prose text-sm text-ink/65 sm:text-base">
+            This event type has no required government paperwork checklist. Track
+            your own documents and contracts under{' '}
+            <Link
+              href={`/dashboard/${eventId}/documents`}
+              className="font-medium text-terracotta-700 hover:text-terracotta-800"
+            >
+              Documents
+            </Link>
+            .
+          </p>
+        </header>
+      </section>
+    );
+  }
+
   const ceremony = resolveCeremonyType(event.ceremony_type);
+
+  // Chinese (Tsinoy) wedding — primary 'chinese' OR (the common case) a
+  // church/civil primary with secondary_ceremony_type='chinese' (overlay).
+  // Gates the tea-ceremony helper link (PR-F) + the BaZi date-specialist
+  // deep-link (PR-G), and — when it's the OVERLAY case — surfaces the rich
+  // Chinese traditions body (敬茶 tea ceremony, betrothal gifts, 上頭 hair-
+  // combing, lauriat, skip-table-4) ALONGSIDE the primary rite's guide, instead
+  // of replacing it. When 'chinese' is the PRIMARY rite, the single guide below
+  // already renders the Chinese body — overlay is the only second-guide case.
+  const isChinese = isChineseWedding({
+    ceremony_type: event.ceremony_type,
+    secondary_ceremony_type: event.secondary_ceremony_type,
+  });
+  const chineseOverlay = isChineseOverlay({
+    ceremony_type: event.ceremony_type,
+    secondary_ceremony_type: event.secondary_ceremony_type,
+  });
+
   // Per-religion traditions: admin-editable rows from wedding_tradition_items
   // when present, else the code defaults in TraditionsGuide. Null on
   // empty/absent/error (pre-migration or before an admin loads starter content).
-  const traditionItems = await fetchTraditionItems(supabase, ceremony);
+  // For overlay couples we also pull the 'chinese' rows in the SAME round-trip
+  // (one Promise.all, no extra serial hop) so we can render a second guide.
+  const [traditionItems, chineseTraditionItems] = await Promise.all([
+    fetchTraditionItems(supabase, ceremony),
+    chineseOverlay ? fetchTraditionItems(supabase, 'chinese') : Promise.resolve(null),
+  ]);
   const expectedDocs = DOCUMENTS_BY_CEREMONY_TYPE[ceremony];
 
   // Resolve r2 display URLs for any existing uploads. The FileUpload
@@ -135,8 +202,9 @@ export default async function PaperworkPage({ params }: Props) {
           See all documents <ArrowRight aria-hidden className="h-3 w-3" strokeWidth={2} />
         </Link>
       </div>
-      <header className="space-y-3">
-        <h1 className="font-display text-3xl italic tracking-tight text-ink sm:text-4xl">
+      <header className="sn-reveal space-y-3">
+        <p className="sn-eye">Paperwork</p>
+        <h1 className="sn-h1">
           Your wedding paperwork
         </h1>
         <p className="max-w-prose text-sm text-ink/65 sm:text-base">
@@ -152,7 +220,39 @@ export default async function PaperworkPage({ params }: Props) {
         )}
       </header>
 
-      <TraditionsGuide ceremony={ceremony} items={traditionItems} />
+      <TraditionsGuide
+        ceremony={ceremony}
+        items={traditionItems}
+        // Chinese helper links (tea-ceremony serving order PR-F + BaZi date-
+        // specialist PR-G) live on the guide whose BODY actually describes the
+        // Chinese rite. When 'chinese' is the PRIMARY ceremony the links belong
+        // here. When it's the OVERLAY (church/civil primary + Chinese secondary)
+        // they move to the SECOND guide below — pinning the tea-ceremony note to
+        // the Catholic/civil body would be incoherent. So: links here only when
+        // Chinese is the primary rite (isChinese && NOT overlay).
+        teaCeremonyHref={
+          isChinese && !chineseOverlay ? `/dashboard/${eventId}/guests/tea-ceremony` : null
+        }
+        baziSpecialistHref={
+          isChinese && !chineseOverlay ? `/explore?category=date_fengshui_consultant` : null
+        }
+      />
+
+      {/* Overlay couples (church/civil primary + secondary 'chinese') get a
+       *  SECOND guide rendering the full Chinese traditions body — 敬茶 tea
+       *  ceremony, betrothal gifts, 上頭 hair-combing, lauriat, skip-table-4 —
+       *  alongside the primary rite's "What to expect", plus the tea-ceremony +
+       *  BaZi helper links (which belong with the Chinese body, not the primary
+       *  one). For a chinese-PRIMARY event this never renders — the single guide
+       *  above already carries the Chinese body + its links. */}
+      {chineseOverlay ? (
+        <TraditionsGuide
+          ceremony={'chinese'}
+          items={chineseTraditionItems}
+          teaCeremonyHref={`/dashboard/${eventId}/guests/tea-ceremony`}
+          baziSpecialistHref={`/explore?category=date_fengshui_consultant`}
+        />
+      ) : null}
 
       {needsSeed ? (
         <SeedPrompt eventId={eventId} ceremonyLabel={ceremonyLabel(ceremony)} />
@@ -212,9 +312,19 @@ export default async function PaperworkPage({ params }: Props) {
 function TraditionsGuide({
   ceremony,
   items,
+  teaCeremonyHref,
+  baziSpecialistHref,
 }: {
   ceremony: TraditionGuideKey;
   items?: TraditionItem[] | null;
+  /** When set (Chinese events), renders a link from the tea-ceremony note to
+   *  the actionable serving-order helper. null for every other ceremony. */
+  teaCeremonyHref?: string | null;
+  /** When set (Chinese events, PR-G), renders an ADVISORY link to the BaZi
+   *  date/feng-shui specialist (the `date_fengshui_consultant` vendor leaf).
+   *  The app never computes a clash verdict — this routes to a real reader.
+   *  null for every other ceremony. */
+  baziSpecialistHref?: string | null;
 }) {
   const guide = WEDDING_TRADITIONS_GUIDE[ceremony];
   if (!guide) return null;
@@ -225,7 +335,7 @@ function TraditionsGuide({
   return (
     <section className="space-y-4 rounded-xl border border-terracotta/20 bg-terracotta/[0.03] p-5">
       <div className="space-y-1">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta-700">
+        <h2 className="sn-eye">
           What to expect
         </h2>
         <p className="text-lg font-semibold tracking-tight text-ink">
@@ -237,7 +347,7 @@ function TraditionsGuide({
         {display.map((item) => (
           <li
             key={`${item.dimension}-${item.label}`}
-            className="rounded-lg border border-ink/10 bg-cream p-3"
+            className="sn-row p-3"
           >
             <span className="inline-block rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
               {DIMENSION_LABEL[item.dimension]}
@@ -247,6 +357,37 @@ function TraditionsGuide({
           </li>
         ))}
       </ul>
+      {teaCeremonyHref || baziSpecialistHref ? (
+        <div className="flex flex-wrap gap-2">
+          {teaCeremonyHref ? (
+            <Link
+              href={teaCeremonyHref}
+              className="inline-flex items-center gap-2 rounded-md border border-terracotta/30 bg-cream px-3 py-2 text-sm font-medium text-terracotta-700 transition-colors hover:border-terracotta/50 hover:text-terracotta-800"
+            >
+              <ScrollText className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+              Plan your tea-ceremony serving order
+              <ArrowRight className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+            </Link>
+          ) : null}
+          {baziSpecialistHref ? (
+            <Link
+              href={baziSpecialistHref}
+              className="inline-flex items-center gap-2 rounded-md border border-terracotta/30 bg-cream px-3 py-2 text-sm font-medium text-terracotta-700 transition-colors hover:border-terracotta/50 hover:text-terracotta-800"
+            >
+              <Compass className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+              Find a date / feng-shui specialist
+              <ArrowRight className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
+      {baziSpecialistHref ? (
+        <p className="text-xs text-ink/55">
+          A traditional Four Pillars (BaZi) reading weighs each partner&apos;s birth
+          date and time of birth against the wedding day. It&apos;s a blessing a
+          specialist gives — we never calculate compatibility for you.
+        </p>
+      ) : null}
       {guide.confirmWith ? (
         <p className="text-xs text-ink/55">
           General guidance to help you plan — traditions vary by family, parish,
@@ -308,7 +449,7 @@ function SeedPrompt({
       className="rounded-xl border border-terracotta/30 bg-terracotta/[0.04] p-5"
     >
       <input type="hidden" name="event_id" value={eventId} />
-      <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta-700">
+      <h2 className="sn-eye">
         Start your checklist
       </h2>
       <p className="mt-2 text-sm text-ink/75">
@@ -328,7 +469,7 @@ function SeedPrompt({
 
 function UnknownCeremonyPrompt({ eventId }: { eventId: string }) {
   return (
-    <div className="rounded-xl border border-ink/15 bg-cream p-5 text-sm text-ink/70">
+    <div className="sn-tile p-5 text-sm text-ink/70">
       <p>
         Pick a ceremony type on your event so we can show the document set that
         applies. Catholic, Civil, INC, and Muslim each carry distinct paperwork.
@@ -376,10 +517,10 @@ function SummaryTile({
   tone?: 'default' | 'warn' | 'good' | 'bad';
 }) {
   return (
-    <li className="rounded-xl border border-ink/10 bg-cream p-4">
-      <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">{label}</p>
+    <li className="sn-row p-4">
+      <p className="sn-eye">{label}</p>
       <p
-        className={`mt-1 text-xl font-semibold tracking-tight ${
+        className={`mt-1 font-mono text-xl font-semibold tracking-tight ${
           tone === 'bad'
             ? 'text-danger-700'
             : tone === 'warn'
@@ -477,7 +618,7 @@ function DocumentCard({
       ) : null}
 
       <div className="border-t border-ink/10 bg-cream/40 px-5 py-4">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        <p className="sn-eye">
           Where to go
         </p>
         <p className="mt-1 text-sm text-ink/75">{meta.whereToGo}</p>
@@ -534,7 +675,7 @@ function Field({
 
   return (
     <div className="space-y-1">
-      <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+      <p className="sn-eye">
         {icon === 'deadline' ? (
           <Clock className="h-3 w-3" strokeWidth={1.75} aria-hidden />
         ) : icon === 'clock' ? (
@@ -725,7 +866,7 @@ function TrackingReferenceForm({
       <input type="hidden" name="paperwork_id" value={paperworkId} />
       <label
         htmlFor={`tracking-${paperworkId}`}
-        className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55"
+        className="sn-eye"
       >
         Tracking reference
       </label>
@@ -811,7 +952,7 @@ function NotesForm({
       <input type="hidden" name="paperwork_id" value={paperworkId} />
       <label
         htmlFor={`notes-${paperworkId}`}
-        className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55"
+        className="sn-eye"
       >
         Notes (private)
       </label>
@@ -855,7 +996,7 @@ function ExtraRowsSection({
 
   return (
     <section className="space-y-3 pt-4">
-      <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+      <h2 className="sn-eye">
         Also tracking
       </h2>
       <p className="text-xs text-ink/65">
@@ -893,6 +1034,8 @@ function ceremonyLabel(ceremony: ReturnType<typeof resolveCeremonyType>): string
       return 'Muslim';
     case 'cultural':
       return 'cultural';
+    case 'chinese':
+      return 'Chinese';
     case 'aglipayan':
       return 'Aglipayan (IFI)';
     case 'lds':

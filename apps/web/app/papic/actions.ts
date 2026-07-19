@@ -7,16 +7,21 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
 import { screenCapture } from '@/lib/nsfw-screen';
 import { ingestToWall } from '@/lib/live-wall';
-import { eventSamplerIsKept } from '@/lib/papic-sampler';
 import { parsePapicTagScan } from '@/lib/papic-tag';
 import { autoTagCapture } from '@/lib/face-match';
 import {
-  PAPIC_SAMPLER_PHOTO_CAP,
-  PAPIC_SAMPLER_CLIP_CAP,
-  PAPIC_SAMPLER_RETENTION_DAYS,
   eventOwnsPapicSeats,
   papicSeatAnonEnabled,
 } from '@/lib/papic-seats';
+import {
+  papicPerCameraTier,
+  papicCameraOrderPaid,
+  papicTierDailyLimit,
+  eventUnliFreeViaUnlock,
+  eventLtdFreeViaUnlock,
+} from '@/lib/papic-cameras';
+import { eventHasPapicUnlock } from '@/lib/entitlements';
+import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
 
 // Server-side 5-second clip cap (corpus constraint · not configurable). The
 // client enforces 5s with a recorder timer; this tolerance (5.5s) absorbs
@@ -99,7 +104,11 @@ export async function claimPapicSeat(formData: FormData) {
         redirect(`/papic/claim/${token}?state=invalid`);
       }
       const { data: anon, error: anonError } =
-        await supabase.auth.signInAnonymously();
+        await supabase.auth.signInAnonymously({
+          // Global Supabase captcha gates anonymous sign-in too. The claim form
+          // carries a <TurnstileField> once captcha is on; empty → {} → no-op.
+          options: captchaOptions(captchaTokenFromForm(formData)),
+        });
       if (anonError || !anon.user) {
         console.error('[claimPapicSeat] anon sign-in failed:', anonError?.message);
         redirect(`/papic/claim/${token}?state=error`);
@@ -190,7 +199,9 @@ export async function recordSeatCapture(
   // the claimer — so resolving the seat by token doubles as the auth check.
   const { data: seat, error: seatError } = await supabase
     .from('paparazzi_seats')
-    .select('seat_id, event_id, revoked_at, claimer_user_id, is_free_sampler')
+    .select(
+      'seat_id, event_id, revoked_at, claimer_user_id, tier, sku_code, paid_order_id, valid_from, valid_until',
+    )
     .eq('claim_qr_token', cleanToken)
     .maybeSingle();
 
@@ -205,17 +216,25 @@ export async function recordSeatCapture(
   }
   if (seat.revoked_at) return { ok: false, error: 'revoked' };
 
-  // Entitlement re-check (paid seats only). A claimed seat must not keep
-  // accepting captures forever if the event's PAPIC_SEATS order was cancelled /
-  // refunded / lapsed. Mirrors the guest disposable-camera path, which gates
-  // every insert on ownership. Free-sampler seats are FREE — never gated.
+  // Per-camera seats (sku_code PAPIC_CAMERA_*) have their OWN paid-gate + daily
+  // quota (below) and are NOT the legacy PAPIC_SEATS pack — so they skip the
+  // pack ownership check. null for legacy pack seats (unchanged).
+  const cameraTier = papicPerCameraTier(
+    seat.sku_code as string | null,
+    seat.tier as string | null,
+  );
+
+  // Entitlement re-check (legacy PAPIC_SEATS pack only). A claimed seat must not
+  // keep accepting captures forever if the event's PAPIC_SEATS order was
+  // cancelled / refunded / lapsed. Mirrors the guest disposable-camera path,
+  // which gates every insert on ownership.
   //
   // Read on the ADMIN client, not the friend's session: a claimer (esp. an
   // anonymous one) is NOT an event member, so the orders RLS read would return
   // nothing under their session and wrongly block every capture. Fail-OPEN on a
   // config/transient error (admin client unavailable) — a refunded event still
   // capturing is far better than the camera breaking for a paying couple.
-  if (!seat.is_free_sampler) {
+  if (!cameraTier) {
     let owned = true;
     try {
       const admin = createAdminClient();
@@ -226,73 +245,156 @@ export async function recordSeatCapture(
     if (!owned) return { ok: false, error: 'not_owned' };
   }
 
-  // Free Papic sampler — per-seat caps (8 photos + 2 clips) + 30-day expiry.
-  // Paid/normal seats are uncapped and permanent (expires_at stays null). The
-  // count-then-check is fine here: one claimer = one phone per seat, so there's
-  // effectively no concurrency on a single seat's shutter. superseded_at IS NULL
-  // scopes the count to the CURRENT claimer — a reissued seat starts clean.
-  let expiresAt: string | null = null;
-  if (seat.is_free_sampler) {
-    const { count: usedOfKind } = await supabase
-      .from('papic_photos')
-      .select('photo_id', { count: 'exact', head: true })
-      .eq('paparazzi_seat_id', seat.seat_id)
-      .eq('photo_type', kind === 'clip' ? 'clip' : 'photo')
-      .is('superseded_at', null);
-    const cap = kind === 'clip' ? PAPIC_SAMPLER_CLIP_CAP : PAPIC_SAMPLER_PHOTO_CAP;
-    if ((usedOfKind ?? 0) >= cap) {
-      return { ok: false, error: kind === 'clip' ? 'sampler_clip_cap' : 'sampler_photo_cap' };
+  // ── Per-CAMERA enforcement (per-camera model · PR3) ─────────────────────
+  // Applies ONLY to per-camera seats (sku_code PAPIC_CAMERA_*) — the legacy
+  // PAPIC_SEATS pack stays uncapped. A paid
+  // camera (roll/unlimited) only shoots once its order is PAID; the daily tier
+  // quota is reserved atomically at the record layer (the authoritative gate;
+  // the presign probe in /api/upload is the orphan-byte leak guard).
+  {
+    if (cameraTier) {
+      // ── Capture WINDOW gate (owner 2026-06-26) ──────────────────────────
+      // The camera only shoots inside the event's chosen window
+      // (paparazzi_seats.valid_from/valid_until, stamped from the event window).
+      // Closing the window ends CAPTURE only — the gallery + delivery stay open
+      // forever. Fail-OPEN on absent/null bounds (legacy seats had none) so a
+      // pre-window camera is never broken. Applies to per-camera seats only.
+      const nowMs = Date.now();
+      const validFrom = seat.valid_from
+        ? Date.parse(seat.valid_from as string)
+        : NaN;
+      const validUntil = seat.valid_until
+        ? Date.parse(seat.valid_until as string)
+        : NaN;
+      if (Number.isFinite(validFrom) && nowMs < validFrom) {
+        return { ok: false, error: 'capture_not_started' };
+      }
+      if (Number.isFinite(validUntil) && nowMs > validUntil) {
+        return { ok: false, error: 'capture_window_closed' };
+      }
+
+      // Papic Unlock (the "Unlock all of Papic" pass · PR9 #2269 grants the
+      // FEATURES; this is the deferred ALLOWANCE half): every camera on the event
+      // shoots UNLIMITED with NO per-camera payment — skip both the paid-gate and
+      // the daily reservation. Fail toward the normal metered gate on a read
+      // error (a paying couple is never worse off than today).
+      let unlocked = false;
+      try {
+        unlocked = await eventHasPapicUnlock(
+          createAdminClient(),
+          seat.event_id as string,
+        );
+      } catch {
+        unlocked = false;
+      }
+      if (!unlocked && (cameraTier === 'roll' || cameraTier === 'unlimited')) {
+        let paid = false;
+        try {
+          const admin = createAdminClient();
+          paid = await papicCameraOrderPaid(
+            admin,
+            seat.paid_order_id as string | null,
+          );
+          // Unlock umbrellas (money-gated · TRUE only on an ACTIVE order, so a
+          // non-owner's camera is never freed): PAPIC_UNLOCK (₱15,000) frees Unli;
+          // PAPIC_UNLOCK_LTD (₱9,000, owner 2026-07-11) frees Ltd (Roll). Each
+          // pass covers only its own tier.
+          if (!paid && cameraTier === 'unlimited') {
+            paid = await eventUnliFreeViaUnlock(admin, seat.event_id as string);
+          }
+          if (!paid && cameraTier === 'roll') {
+            paid = await eventLtdFreeViaUnlock(admin, seat.event_id as string);
+          }
+        } catch {
+          paid = false;
+        }
+        if (!paid) return { ok: false, error: 'awaiting_payment' };
+      }
+      const limit = unlocked
+        ? null
+        : papicTierDailyLimit(cameraTier, kind === 'clip' ? 'clip' : 'photo');
+      if (limit != null) {
+        let reserved = true;
+        try {
+          const admin = createAdminClient();
+          const { data: reserveOk, error: reserveErr } = await admin.rpc(
+            'papic_reserve_camera_capture',
+            {
+              p_seat_id: seat.seat_id,
+              p_event_id: seat.event_id,
+              p_kind: kind === 'clip' ? 'clip' : 'photo',
+              p_limit: limit,
+            },
+          );
+          // Fail-OPEN on a missing RPC / transient error (pre-migration DB) so a
+          // config hiccup never breaks the camera; fail-CLOSED on a definitive
+          // "at cap" answer (reserveOk === false).
+          if (reserveErr) {
+            reserved =
+              reserveErr.code === '42883' || reserveErr.code === 'PGRST202';
+          } else {
+            reserved = reserveOk === true;
+          }
+        } catch {
+          reserved = true;
+        }
+        if (!reserved) {
+          return {
+            ok: false,
+            error: kind === 'clip' ? 'daily_video_quota' : 'daily_photo_quota',
+          };
+        }
+      }
     }
-    // "connect Drive OR upgrade = permanent": if the couple has ALREADY converted
-    // (active Drive grant) these shots are born permanent (expires_at stays null);
-    // otherwise they roll off in 30 days. The sample-THEN-convert ordering is
-    // handled separately by makeSamplerPermanent() at the convert moment.
-    expiresAt = (await eventSamplerIsKept(seat.event_id))
-      ? null
-      : new Date(
-          Date.now() + PAPIC_SAMPLER_RETENTION_DAYS * 86_400_000,
-        ).toISOString();
   }
 
-  const insertWithoutPoster = () =>
-    supabase
-      .from('papic_photos')
-      .insert({
-        event_id: seat.event_id,
-        paparazzi_seat_id: seat.seat_id,
-        r2_object_key: cleanKey,
-        photo_type: kind === 'clip' ? 'clip' : 'photo',
-        expires_at: expiresAt,
-      })
-      .select('photo_id')
-      .single();
+  // Captures are uncapped and permanent (expires_at stays null). The retired
+  // free sampler was the only path that ever set an expiry.
+  const expiresAt: string | null = null;
 
-  let { data: inserted, error: insertError } = cleanPoster
-    ? await supabase
+  let insertedPhotoId: string | null = null;
+
+  {
+    const insertWithoutPoster = () =>
+      supabase
         .from('papic_photos')
         .insert({
           event_id: seat.event_id,
           paparazzi_seat_id: seat.seat_id,
           r2_object_key: cleanKey,
-          photo_type: 'clip',
-          // The poster frame the NSFW screen classifies as the clip's proxy.
-          poster_r2_key: cleanPoster,
+          photo_type: kind === 'clip' ? 'clip' : 'photo',
           expires_at: expiresAt,
         })
         .select('photo_id')
-        .single()
-    : await insertWithoutPoster();
+        .single();
 
-  // Pre-migration env (poster_r2_key column absent → PostgREST PGRST204):
-  // retry without the poster — losing the screen proxy must never lose a clip.
-  if (insertError && cleanPoster && insertError.code === 'PGRST204') {
-    ({ data: inserted, error: insertError } = await insertWithoutPoster());
-  }
+    let { data: inserted, error: insertError } = cleanPoster
+      ? await supabase
+          .from('papic_photos')
+          .insert({
+            event_id: seat.event_id,
+            paparazzi_seat_id: seat.seat_id,
+            r2_object_key: cleanKey,
+            photo_type: 'clip',
+            // The poster frame the NSFW screen classifies as the clip's proxy.
+            poster_r2_key: cleanPoster,
+            expires_at: expiresAt,
+          })
+          .select('photo_id')
+          .single()
+      : await insertWithoutPoster();
 
-  if (insertError) {
-    return { ok: false, error: insertError.message.slice(0, 80) };
+    // Pre-migration env (poster_r2_key column absent → PostgREST PGRST204):
+    // retry without the poster — losing the screen proxy must never lose a clip.
+    if (insertError && cleanPoster && insertError.code === 'PGRST204') {
+      ({ data: inserted, error: insertError } = await insertWithoutPoster());
+    }
+
+    if (insertError) {
+      return { ok: false, error: insertError.message.slice(0, 80) };
+    }
+    insertedPhotoId = (inserted?.photo_id as string) ?? null;
   }
-  const insertedPhotoId = (inserted?.photo_id as string) ?? null;
 
   // Always-on NSFW screen (Apple 1.2 filter · corpus hard constraint) — runs in
   // the BACKGROUND with after() so the camera stays responsive. The bytes are
@@ -302,12 +404,32 @@ export async function recordSeatCapture(
   // projects), THEN run the wall gate. ingestToWall never throws; a non-clean
   // or non-LIVE_WALL event is a silent no-op.
   after(async () => {
-    // NSFW screen ALWAYS runs (Apple 1.2 / corpus hard constraint) — even for the
-    // sampler. The wall gate + FaceBlock bake are SKIPPED for sampler captures:
-    // the free sampler is a private "try it", not the day-of live wall, so it
-    // stays self-contained (nothing to expire out of wall_feed either).
+    // NSFW screen ALWAYS runs (Apple 1.2 / corpus hard constraint), then the
+    // FaceBlock bake + wall gate.
     await screenCapture({ table: 'papic_photos', r2ObjectKey: cleanKey }).catch(() => {});
-    if (insertedPhotoId && !seat.is_free_sampler) {
+    // Cheap display + thumbnail derivatives (best-effort, AFTER the screen) so
+    // the gallery serves compressed tiles instead of full-res originals.
+    // Dynamic import keeps the sharp/R2 cost off the capture hot path. Never
+    // throws (the module wraps everything) — a missing thumb falls back to the
+    // original at read time. Clips have no transcode; derive the thumb from the
+    // poster.
+    if (insertedPhotoId) {
+      try {
+        const { generatePhotoDerivatives, generateClipThumb } = await import(
+          '@/lib/papic-derivatives'
+        );
+        if (kind === 'clip') {
+          if (cleanPoster) {
+            await generateClipThumb(cleanPoster, 'papic_photos', 'photo_id', insertedPhotoId);
+          }
+        } else {
+          await generatePhotoDerivatives(cleanKey, 'papic_photos', 'photo_id', insertedPhotoId);
+        }
+      } catch {
+        // best-effort — derivatives never break a capture
+      }
+    }
+    if (insertedPhotoId) {
       // P2 FaceBlock bake between the screen and the wall gate: a FaceBlock
       // event requires the baked blur derivative before ingest admits the
       // row. Cheap no-op on non-FaceBlock events; FAILS CLOSED on any error.
@@ -317,14 +439,6 @@ export async function recordSeatCapture(
         sourceId: insertedPhotoId,
       });
       await ingestToWall('papic_photos', insertedPhotoId);
-    }
-    if (seat.is_free_sampler && expiresAt) {
-      // Cron-free expiry warnings: schedule (once per event, self-guarded) the
-      // T-7 / T-1 emails with Resend at capture time. Best-effort.
-      const { scheduleSamplerExpiryWarnings } = await import(
-        '@/lib/papic-sampler-emails'
-      );
-      await scheduleSamplerExpiryWarnings(seat.event_id as string, expiresAt);
     }
   });
 

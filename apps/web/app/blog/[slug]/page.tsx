@@ -3,7 +3,9 @@ import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { ChevronLeft, ArrowRight, ArrowUpRight, Download } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
-import { SiteFooter } from '@/app/features/_sections/_SiteFooter';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { fetchApprovedSpotlightsForSlug } from '@/lib/journal-spotlights';
+import { JournalPartnerCredit } from './_components/journal-partner-credit';
 import {
   ALL_BLOG_ARTICLES,
   findBlogArticle,
@@ -184,6 +186,17 @@ export default async function BlogArticlePage({ params }: Props) {
   const categoryLabel = blogCategoryLabel(article.category);
   const related = relatedBlogArticles(slug);
 
+  // Approved Journal Spotlights (Wave 5) crediting vendors in this article.
+  // Cookie-free admin client keeps the route on hourly ISR (not forced dynamic);
+  // the helper filters to admin_approved_at IS NOT NULL so only published credits
+  // surface. Fail-soft — a DB hiccup must never break the article render.
+  let spotlights: Awaited<ReturnType<typeof fetchApprovedSpotlightsForSlug>> = [];
+  try {
+    spotlights = await fetchApprovedSpotlightsForSlug(createAdminClient(), slug);
+  } catch (err) {
+    console.error('[blog/[slug]] spotlight fetch failed', err);
+  }
+
   // First paragraph block gets the editorial drop-cap.
   const firstParagraphIndex = article.blocks.findIndex((b) => b.type === 'p');
 
@@ -304,6 +317,10 @@ export default async function BlogArticlePage({ params }: Props) {
           ))}
         </div>
 
+        {/* Featured-partner / sponsored vendor credits (Journal Spotlights,
+            Wave 5). Renders nothing when there are no approved credits. */}
+        <JournalPartnerCredit spotlights={spotlights} />
+
         {related.length > 0 ? (
           <section className="mt-16 border-t border-ink/10 pt-10">
             <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-terracotta">
@@ -364,7 +381,6 @@ export default async function BlogArticlePage({ params }: Props) {
         </div>
       </article>
 
-      <SiteFooter />
     </main>
   );
 }

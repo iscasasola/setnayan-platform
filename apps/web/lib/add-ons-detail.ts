@@ -250,7 +250,7 @@ export const ADD_ON_DETAILS: Record<string, AddOnDetail> = {
     ],
     preview: [
       { context: 'They shoot', glyph: '◉', caption: 'Friends capture the night, freely.', aspect: '9/16' },
-      { context: 'Tagged', glyph: '⌗', caption: 'The right people are found in a second.', aspect: '9/16' },
+      { context: 'Tagged', glyph: '⌗', caption: 'A quick QR scan tags the right people.', aspect: '9/16' },
       { context: 'By morning', glyph: '▦', caption: 'It’s all waiting in your gallery.' },
     ],
     demo: [
@@ -265,8 +265,8 @@ export const ADD_ON_DETAILS: Record<string, AddOnDetail> = {
         accent: '#1f2622',
       },
       {
-        caption: 'The right people are found automatically.',
-        hint: 'Or scan a guest’s QR to tag — no typing.',
+        caption: 'Scan a guest’s QR and they’re tagged on the spot.',
+        hint: 'No typing — and face-tagging finds more, when it’s on.',
         accent: '#241f2a',
       },
       {

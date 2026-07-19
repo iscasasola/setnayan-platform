@@ -38,9 +38,10 @@ export default async function EventContractsPage({ params }: Props) {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-2">
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">Contracts</p>
         <div className="flex flex-wrap items-start justify-between gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Vendor contracts</h1>
+          <h1 className="sn-h1">Vendor contracts</h1>
           {/* YOUR PLAN consolidation 2026-05-22 — vendor contracts also
            *  appear in the consolidated /documents view alongside
            *  paperwork, creations, and receipts. */}

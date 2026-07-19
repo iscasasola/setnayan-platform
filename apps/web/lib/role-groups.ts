@@ -5,6 +5,10 @@ export type RoleGroup =
   | 'vip_family'
   | 'wedding_party'
   | 'principal_sponsors'
+  // Muslim wedding — the Nikah contract's principals (wali · witnesses · imam ·
+  // wakil). Sits with the high-importance groups; only ever populated for a
+  // muslim wedding (those roles only surface via MUSLIM_ROLE_SET).
+  | 'muslim_principals'
   | 'secondary_sponsors'
   | 'bearers_flower_girl'
   | 'officiants'
@@ -18,6 +22,7 @@ export const ROLE_GROUP_LABELS: Record<RoleGroup, string> = {
   vip_family: 'VIP · Immediate Family',
   wedding_party: 'Wedding Party',
   principal_sponsors: 'Principal Sponsors',
+  muslim_principals: 'Nikah Principals',
   secondary_sponsors: 'Secondary Sponsors',
   bearers_flower_girl: 'Bearers & Flower Girl',
   officiants: 'Officiants & Readers',
@@ -49,6 +54,18 @@ const ROLE_TO_GROUP: Record<GuestRole, RoleGroup | 'guest'> = {
   officiant: 'officiants',
   reader_lector: 'officiants',
   soloist_musician: 'officiants',
+  // Generic (non-wedding) roles — iteration 0053 Phase 2. Neutral grouping;
+  // these only surface for non-wedding events.
+  host: 'other_roles',
+  vip: 'other_roles',
+  family: 'other_roles',
+  helper: 'other_roles',
+  // Muslim wedding Nikah roles — grouped together as the contract's principals.
+  // Only surface for muslim weddings (via MUSLIM_ROLE_SET).
+  wali: 'muslim_principals',
+  witness: 'muslim_principals',
+  imam: 'muslim_principals',
+  wakil: 'muslim_principals',
 };
 
 export function roleGroupOf(role: GuestRole): RoleGroup | 'guest' {
@@ -70,6 +87,16 @@ export const ROLE_IMPORTANCE: readonly GuestRole[] = [
   'groom_parents',
   'bride_immediate_family',
   'groom_immediate_family',
+  // Muslim Nikah principals rank just below the couple's immediate family and
+  // above the entourage (they are the contract's structural participants). They
+  // only ever appear in a muslim wedding's guest list. Inserting them here keeps
+  // every wedding role's RELATIVE order unchanged — ranks are only ever compared,
+  // never depended on as absolute integers — so wedding importance sorting is
+  // unaffected.
+  'wali',
+  'imam',
+  'witness',
+  'wakil',
   'maid_of_honor',
   'matron_of_honor',
   'best_man',
@@ -87,6 +114,14 @@ export const ROLE_IMPORTANCE: readonly GuestRole[] = [
   'officiant',
   'reader_lector',
   'soloist_musician',
+  // Generic (non-wedding) roles — iteration 0053 Phase 2. Inserted BEFORE
+  // 'guest' so host/vip/family/helper rank above a plain guest for non-wedding
+  // events. Every wedding role keeps its index (0–22), so wedding importance
+  // ordering is byte-identical; 'guest' stays last among all roles.
+  'host',
+  'vip',
+  'family',
+  'helper',
   'guest',
 ];
 
@@ -124,6 +159,8 @@ export const ROLE_GROUP_CHIP: Record<RoleGroup | 'guest', string> = {
   vip_family: 'bg-danger-200/70 text-danger-950 ring-1 ring-danger-300',
   wedding_party: 'bg-terracotta/10 text-terracotta-700 ring-1 ring-terracotta/20',
   principal_sponsors: 'bg-violet-100 text-violet-800 ring-1 ring-violet-200',
+  // Nikah principals — emerald to read as a distinct, honored cluster.
+  muslim_principals: 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200',
   secondary_sponsors: 'bg-warn-100 text-warn-900 ring-1 ring-warn-200',
   bearers_flower_girl: 'bg-success-100 text-success-800 ring-1 ring-success-200',
   officiants: 'bg-sky-100 text-sky-800 ring-1 ring-sky-200',

@@ -21,6 +21,8 @@
  */
 import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
+import { safeNext } from '@/lib/auth';
+import { getSelfPersonalization } from '@/lib/self-personalization';
 import { fetchActiveCeremonyTypes } from '@/lib/religion-readiness';
 import { fetchV2CustomerCatalog, fetchV2BundleCatalog } from '@/lib/v2-catalog';
 import { fetchOnboardingBgMusicUrl } from '@/lib/platform-settings';
@@ -71,9 +73,14 @@ export const metadata: Metadata = {
 export default async function OnboardingWeddingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ resume?: string }>;
+  searchParams: Promise<{ resume?: string; next?: string }>;
 }) {
   const sp = await searchParams;
+  // Optional vendor-invite return path (2026-06-30): a 0-event couple sent here
+  // from /vendor-invite/[slug] to create their first event is returned to it
+  // after the commit so they can finish shortlisting the vendor. safeNext()
+  // keeps it to internal paths only.
+  const nextPath = safeNext(sp.next);
   const supabase = await createClient();
   // Fetch the active wedding religions alongside auth so the faith picker can
   // gate on the launch status (admin /admin/wedding-types flips these). Returns
@@ -107,17 +114,33 @@ export default async function OnboardingWeddingPage({
   // authoritative pax charge is still recomputed server-side at order time by
   // resolvePaxPricedOrderCentavos in submitOrderAction (unchanged).
   const pricing = buildOnboardingPricing(customerSkus, bundles);
+
+  // Date-anchor model: pre-select the faith on a Religious wedding from the
+  // user's OWN profile religion (reference-only, opt-in). Only when it maps to
+  // an ACTIVE ceremony faith — never pre-select an inactive/coming-soon faith.
+  // The shell applies this only on the "Religious" kind and never overrides a
+  // resumed draft.
+  let religionDefault: string | null = null;
+  if (user) {
+    // Shared self-profile reader (2026-07-13) — same religion value as the prior
+    // inline `users` select, now via one canonical helper reused across flows.
+    const { religion } = await getSelfPersonalization();
+    if (religion && (activeFaiths ?? []).includes(religion)) religionDefault = religion;
+  }
+
   return (
     <OnboardingShell
       authed={!!user}
       resume={sp.resume === '1'}
       activeFaiths={activeFaiths}
+      religionDefault={religionDefault}
       pricing={pricing}
       bgMusicUrl={bgMusicUrl}
       refinements={refinements}
       hiddenCats={hiddenCats}
       dynamicTiles={dynamicTiles}
       budgetBands={budgetBands}
+      nextPath={nextPath !== '/' ? nextPath : null}
     />
   );
 }

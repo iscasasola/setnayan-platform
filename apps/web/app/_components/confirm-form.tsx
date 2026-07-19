@@ -22,6 +22,22 @@ type Props = {
   /** When true (default), the confirm button uses the destructive tint. */
   destructive?: boolean;
   className?: string;
+  /**
+   * Optional `id` for the internal `<form>`, enabling the EXTERNAL-TRIGGER
+   * pattern: render the ConfirmForm as a SIBLING of another form (children =
+   * just its hidden inputs, `className="hidden"`) and put the visible trigger
+   * wherever it belongs as `<button type="submit" form={formId}>`. HTML's
+   * form-attribute association submits THIS form from anywhere in the page.
+   *
+   * ⚠ NEVER nest a ConfirmForm inside another `<form>` — nested form tags are
+   * invalid HTML: the browser drops the inner start tag and hoists this form's
+   * `$ACTION_ID_` hidden input into the OUTER form, so a no-JS / pre-hydration
+   * submit of the outer form dispatches THIS action instead of its own
+   * (react-server-dom-webpack's decodeAction takes the LAST action id). With a
+   * destructive action that means e.g. "Save" silently deleting the record.
+   * Use this prop + an external trigger button instead.
+   */
+  formId?: string;
   children: ReactNode;
 };
 
@@ -50,6 +66,7 @@ export function ConfirmForm({
   confirmLabel,
   destructive,
   className,
+  formId,
   children,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -86,7 +103,7 @@ export function ConfirmForm({
 
   return (
     <>
-      <form ref={formRef} action={action} onSubmit={handleSubmit} className={className}>
+      <form ref={formRef} id={formId} action={action} onSubmit={handleSubmit} className={className}>
         {children}
       </form>
       <ConfirmDialog

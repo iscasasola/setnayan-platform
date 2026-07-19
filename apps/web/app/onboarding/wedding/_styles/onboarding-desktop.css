@@ -82,11 +82,30 @@
      is absolute-inset object-cover, so it fills the figure automatically). */
   .onbw .onb-twopane.screen.active .rolephoto,
   .onbw .onb-twopane.screen.active .kindphoto,
-  .onbw .onb-twopane.screen.active .faithphoto {
+  .onbw .onb-twopane.screen.active .faithphoto,
+  .onbw .onb-twopane.screen.active .paxphoto,
+  .onbw .onb-twopane.screen.active .budgetphoto {
     flex: 1 1 auto;
     min-height: 240px;
     height: auto;
     margin-top: clamp(14px, 2vh, 26px);
+  }
+  /* …EXCEPT the three simple option screens (role/kind/faith). Letting their hero
+     fill the full column height pinned the eyebrow+question to the very top, while
+     the short answer stack stayed vertically centred in the right column — so the
+     question and its answers read as detached, floating apart (owner 2026-06-28
+     "the texts are not properly aligned"). Cap the hero to a centred portrait so the
+     left column's eyebrow+question+image GROUP centres vertically (.viewzone is
+     justify-content:center) and lines up with the centred answers as one composition.
+     pax/budget keep the full-fill above — their tapzone holds a tall slider/number
+     control, so the hero filling reads balanced there. */
+  .onbw #screen-role.onb-twopane.screen.active .rolephoto,
+  .onbw #screen-kind.onb-twopane.screen.active .kindphoto,
+  .onbw #screen-faith.onb-twopane.screen.active .faithphoto {
+    flex: 0 0 auto;
+    aspect-ratio: 4 / 5;
+    max-height: min(56vh, 540px);
+    height: auto;
   }
   /* RIGHT column: answers stacked as ROWS, filling the column height. The mobile
      thumb-dock (margin-top:auto) is reset; max-width cap removed so each option is
@@ -112,6 +131,28 @@
   .onbw #screen-kind.onb-twopane.screen.active .tapzone .stack {
     flex-direction: column;
   }
+  /* Faith renders its options as a horizontal scrolling pill row (`.chips`, not the
+     `.stack`/`.opt` every other option screen uses). Stacking all of them in ONE
+     full-width column was the bug behind the "empty left pane" report: with ~16
+     faith traditions the column grew ~1900px tall, overflowed the sheet, and the
+     two-pane `align-items:stretch` then dragged the left eyebrow+question+image
+     down to the vertical middle of that giant column — off-screen. Lay the chips out
+     as a TWO-COLUMN grid instead: ~8 rows fits the sheet, the left content stays put,
+     and the screen never overflows. Mobile (<1024) keeps its horizontal scroll row. */
+  .onbw #screen-faith.onb-twopane.screen.active .tapzone .chips {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    overflow: visible;
+  }
+  .onbw #screen-faith.onb-twopane.screen.active .tapzone .chip {
+    width: auto;
+    justify-content: flex-start;
+    text-align: left;
+    min-height: 0;
+    padding: 13px 16px;
+    font-size: 14px;
+  }
 
   /* ── Editorial type — the question becomes a magazine headline on the left. ── */
   .onbw .onb-twopane .q {
@@ -126,6 +167,12 @@
      screen horizontally. ── */
   .onbw .screen.active:not(.onb-twopane) {
     align-items: center;
+    /* …and centre vertically. Short screens (love-story steps, account, aigate,
+       congrats recap) were pinned to the top with the whole bottom half empty.
+       Safe against tall content: `.screen.active` is `flex:1 0 auto` (never shrinks),
+       so a tall screen grows to its content height — no slack to centre, body scrolls,
+       nothing clips — while a short screen gets the body's slack and centres. */
+    justify-content: center;
   }
   /* Cap the readable column for single-column screens. The blocks that own a
      full-width control (calendar / carousels / vendor results / persona markup)
@@ -154,12 +201,6 @@
      region (city carousel) · find (venue results) · pax/budget/mood (photo
      covers) · team_basics/team_extras (pick carousels) · songs · congrats
      (full website recap) · the RefineStep screens (reception/refine_*). */
-  .onbw #screen-region .viewzone,
-  .onbw #screen-region .tapzone,
-  .onbw #screen-pax .viewzone,
-  .onbw #screen-pax .tapzone,
-  .onbw #screen-budget .viewzone,
-  .onbw #screen-budget .tapzone,
   .onbw #screen-mood .viewzone,
   .onbw #screen-mood .tapzone,
   .onbw #screen-team-basics .viewzone,
@@ -174,6 +215,75 @@
     max-width: 720px;
   }
 
+  /* The accreting "your website is building" mirror ribbon (.mirror) sits in the top
+     chrome and eats ~70px of every step's vertical budget from the `name` screen on.
+     On desktop the two-pane layout already conveys progress, so hide it to keep each
+     step's bottom controls above Continue without scrolling (owner 2026-06-22 "trim it
+     on the question steps to win the space back"). Mobile (<1024) keeps the ribbon. */
+  .onbw .mirror {
+    display: none;
+  }
+
+  /* ── WIDE-SCREEN region: fill the sheet width (more destinations visible) AND fit
+     vertically so the search + Near me row sits above Continue without scrolling
+     (owner 2026-06-22: "bottom elements above the continue button… don't need to
+     scroll"). The fixed-height destination cards are what overflows on a short laptop,
+     so their height is clamped to the viewport — they shrink with it, and the carousel
+     + search then fit. Holds no-scroll down to ~800px tall; below that the photo
+     carousel + the event-summary chrome are inherently taller than the window (the
+     "unless the design cannot make it scroll-less" case). Mobile (<1024) keeps the
+     locked card sizing. ── */
+  .onbw #screen-region .viewzone,
+  .onbw #screen-region .tapzone {
+    max-width: 1040px;
+  }
+  .onbw #screen-region .loccard {
+    height: clamp(150px, 26vh, 300px);
+  }
+  /* Region's tapzone stretched (flex:1 1 auto) and its `.locresults-wrap` bottom-docks
+     its carousel (justify-content:flex-end — right for the mobile thumb zone). On the
+     wide desktop canvas that left a dead band between the heading and the cards. Stop
+     the tapzone stretching and top-anchor the wrap so the heading → carousel → search
+     read as one compact group (the screen's justify-content:center then balances it). */
+  .onbw #screen-region.screen.active .tapzone {
+    flex: 0 0 auto;
+  }
+  .onbw #screen-region.screen.active .locresults-wrap {
+    flex: 0 0 auto;
+    justify-content: flex-start;
+  }
+
+  /* Congrats two-pane (owner 2026-06-22 "make it fit + look better"): hero + countdown
+     LEFT, recap + share RIGHT, so the tall finish card splits across the width and fits
+     a laptop. Mobile (<1024) stacks the two columns (.dash-col-* are plain blocks). */
+  .onbw #screen-congrats .dash-site {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: stretch;
+  }
+  /* Congrats wraps its recap in a `.viewzone` that — unlike the other single-column
+     screens — stretches (flex:1 1 auto), which pinned the finish card to the top with
+     the bottom half empty. Let it wrap its content so the screen-level
+     justify-content:center actually centres the card. */
+  .onbw #screen-congrats.screen.active:not(.onb-twopane) .viewzone {
+    flex: 0 0 auto;
+  }
+  .onbw #screen-congrats .dash-col-l {
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+  }
+  .onbw #screen-congrats .dash-col-l .dash-hero {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .onbw #screen-congrats .dash-col-l .dash-sec:last-child,
+  .onbw #screen-congrats .dash-col-r .dash-sec:last-child {
+    border-bottom: 0;
+  }
+
   /* The full-frame photo-cover screens (pax/budget/mood) read best with a taller
      hero on desktop — let the figure grow without breaking its internal layout. */
   .onbw #screen-pax .paxphoto,
@@ -186,6 +296,40 @@
   .onbw .refine-hero {
     min-height: clamp(300px, 36vh, 440px);
     height: auto;
+  }
+
+  /* Reception (the RefineStep venue-setting step) — its tall 4:3 hero + the option
+     carousel stack ~700px, overflowing a laptop. Two-pane it like the rest: hero +
+     headline LEFT (the hero fills the column), the option carousel RIGHT. Scoped to
+     #screen-reception-setting (other RefineStep uses are dropped in the flag-on flow);
+     id specificity beats the `.prefstep` 720px cap + the `.refine-hero` min-height.
+     Mobile (<1024) keeps the locked single-column RefineStep. */
+  .onbw #screen-reception-setting .prefstep.refinestep {
+    max-width: none;
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: clamp(32px, 3vw, 56px);
+    align-items: stretch;
+    height: 100%;
+  }
+  .onbw #screen-reception-setting .prefstep .viewzone {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 0;
+  }
+  .onbw #screen-reception-setting .refine-hero {
+    flex: 1 1 auto;
+    min-height: 220px;
+    height: auto;
+    margin-top: 0;
+  }
+  .onbw #screen-reception-setting .prefstep .tapzone {
+    margin-top: 0;
+    align-self: center;
+    min-width: 0;
+    width: 100%;
   }
   .onbw .welcomescreen.active {
     align-items: stretch;

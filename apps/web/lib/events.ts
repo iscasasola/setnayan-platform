@@ -69,10 +69,13 @@ export type EventRow = {
 
 export type EventWithRole = EventRow & {
   member_type: 'couple' | 'guest' | 'vendor' | 'coordinator';
+  /** #7b: TRUE = this membership was auto-surfaced (not an explicit join). */
+  auto_surfaced?: boolean;
 };
 
 type MembershipQueryRow = {
   member_type: EventWithRole['member_type'];
+  auto_surfaced?: boolean | null;
   events: EventRow | EventRow[] | null;
 };
 
@@ -98,6 +101,7 @@ export const fetchUserEvents = cache(async (
     .from('event_members')
     .select(
       `member_type,
+       auto_surfaced,
        events:event_id (
          event_id,
          public_id,
@@ -123,6 +127,10 @@ export const fetchUserEvents = cache(async (
   if (memberType) {
     query = query.eq('member_type', memberType);
   }
+  // Account auto-surface (#7b): hide events the guest opted OUT of — a "no"
+  // (declined or left) stamps event_members.hidden_at. Normal memberships have
+  // hidden_at NULL, so this only ever filters opted-out auto-surfaced rows.
+  query = query.is('hidden_at', null);
 
   const { data, error } = await query;
   if (error) {
@@ -181,7 +189,11 @@ export const fetchUserEvents = cache(async (
         : row.events
           ? [row.events]
           : [];
-      return eventArray.map((e) => ({ ...e, member_type: row.member_type }));
+      return eventArray.map((e) => ({
+        ...e,
+        member_type: row.member_type,
+        auto_surfaced: row.auto_surfaced ?? false,
+      }));
     })
     .sort((a, b) => {
       if (a.is_primary !== b.is_primary) return a.is_primary ? -1 : 1;

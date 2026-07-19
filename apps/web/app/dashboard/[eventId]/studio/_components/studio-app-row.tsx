@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { ChevronRight, type LucideIcon } from 'lucide-react';
+import { type ReactNode } from 'react';
+import { InspectorTrigger } from '@/app/_components/inspector/inspector-column';
 
 /**
  * StudioAppRow — an iOS App Store-style list row for the Studio hub.
@@ -10,7 +12,17 @@ import { ChevronRight, type LucideIcon } from 'lucide-react';
  * link, no nested interactive elements). The pill is a visual price/status
  * indicator styled like the App Store GET button, not a separate action.
  *
- * Server component — Links only, no client JS.
+ * `trailing` (optional) renders an interactive control — e.g. a coordinator's
+ * "Recommend to couple" button — as a SIBLING of the link, never nested inside
+ * it, so the row stays a single clean tap target while the control is its own.
+ *
+ * `inspectId` (optional) makes the row a desktop inspector trigger: at ≥xl a
+ * plain click opens the feature's detail in the sticky inspector column instead
+ * of navigating (the `href` still serves mobile + modified/new-tab clicks). Null
+ * → a plain navigating row (owned services → their tool, coming-soon, etc.).
+ *
+ * Server component — Links only, no client JS of its own (InspectorTrigger is
+ * the one client leaf).
  */
 
 export type RowPill = {
@@ -26,6 +38,11 @@ type Props = {
   /** The feature's poster gradient — becomes the app-icon tile background. */
   gradient: string;
   pill: RowPill;
+  /** Optional interactive control rendered beside (not inside) the row link. */
+  trailing?: ReactNode;
+  /** When set (and `href` present), the row opens the inspector column on
+   *  desktop rather than navigating. */
+  inspectId?: string | null;
 };
 
 function PillEl({ pill }: { pill: NonNullable<RowPill> }) {
@@ -46,7 +63,16 @@ function PillEl({ pill }: { pill: NonNullable<RowPill> }) {
   );
 }
 
-export function StudioAppRow({ href, label, blurb, Icon, gradient, pill }: Props) {
+export function StudioAppRow({
+  href,
+  label,
+  blurb,
+  Icon,
+  gradient,
+  pill,
+  trailing,
+  inspectId,
+}: Props) {
   const inner = (
     <>
       <span
@@ -73,25 +99,33 @@ export function StudioAppRow({ href, label, blurb, Icon, gradient, pill }: Props
 
   if (!href) {
     return (
-      <li>
+      <li className="flex items-center">
         <div
           aria-disabled="true"
-          className="flex items-center gap-3.5 px-4 py-3 opacity-70 sm:px-5"
+          className="flex flex-1 items-center gap-3.5 px-4 py-3 opacity-70 sm:px-5"
         >
           {inner}
         </div>
+        {trailing ? <div className="flex shrink-0 items-center pr-4">{trailing}</div> : null}
       </li>
     );
   }
 
+  const rowClass =
+    'flex flex-1 items-center gap-3.5 px-4 py-3 transition-colors hover:bg-ink/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta sm:px-5';
+
   return (
-    <li>
-      <Link
-        href={href}
-        className="flex items-center gap-3.5 px-4 py-3 transition-colors hover:bg-ink/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta sm:px-5"
-      >
-        {inner}
-      </Link>
+    <li className="flex items-center">
+      {inspectId ? (
+        <InspectorTrigger inspectId={inspectId} href={href} className={rowClass}>
+          {inner}
+        </InspectorTrigger>
+      ) : (
+        <Link href={href} className={rowClass}>
+          {inner}
+        </Link>
+      )}
+      {trailing ? <div className="flex shrink-0 items-center pr-4">{trailing}</div> : null}
     </li>
   );
 }

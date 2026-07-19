@@ -14,6 +14,7 @@ import {
   type RsvpStatus,
 } from '@/lib/guests';
 import { createClient } from '@/lib/supabase/server';
+import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from '../_components/invited-to-chips';
 import { GuestNameFields, type NamePoolGuest } from '../_components/guest-name-fields';
@@ -35,33 +36,8 @@ const SIDE_OPTIONS: GuestSide[] = ['bride', 'groom', 'both'];
 const GROUP_OPTIONS: GuestGroupCategory[] = ['family', 'friends', 'work', 'school', 'officiant', 'other'];
 const RSVP_OPTIONS: RsvpStatus[] = ['pending', 'attending', 'declined', 'maybe'];
 const MEAL_OPTIONS: MealPreference[] = ['no_preference', 'beef', 'chicken', 'fish', 'vegetarian', 'vegan', 'kids'];
-const ROLE_OPTIONS: GuestRole[] = [
-  'guest',
-  'bride',
-  'groom',
-  // VIP family — owner directive 2026-05-23 PM (PR #424 lock).
-  'bride_parents',
-  'groom_parents',
-  'bride_immediate_family',
-  'groom_immediate_family',
-  'maid_of_honor',
-  'matron_of_honor',
-  'best_man',
-  'bridesmaid',
-  'groomsman',
-  'principal_sponsor',
-  'candle_sponsor',
-  'veil_sponsor',
-  'cord_sponsor',
-  'coin_sponsor',
-  'ring_bearer',
-  'bible_bearer',
-  'coin_bearer',
-  'flower_girl',
-  'officiant',
-  'reader_lector',
-  'soloist_musician',
-];
+// Iteration 0053 P2: the offered role list is per event type — see
+// roleSet.offeredRoles below (wedding resolves to today's 24-role list).
 
 type Props = {
   params: Promise<{ eventId: string }>;
@@ -82,8 +58,9 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
   // Bride & groom are set at event creation and are the foundation of the
   // event (owner directive 2026-06-03) — not assignable from the guest list,
   // so hide them from the role picker entirely.
-  const availableRoles = ROLE_OPTIONS.filter(
-    (r) => r !== 'bride' && r !== 'groom' && !(r in singletonHolders),
+  const roleSet = await resolveRoleSetForEvent(eventId);
+  const availableRoles = roleSet.offeredRoles.filter(
+    (r) => !roleSet.coupleRoles.has(r) && !(r in singletonHolders),
   );
 
   // Existing-guest pool for live duplicate detection on the name fields.
@@ -171,6 +148,24 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
             label="Meal preference"
             defaultValue="no_preference"
             options={MEAL_OPTIONS.map((v) => ({ value: v, label: MEAL_LABELS[v] }))}
+          />
+        </div>
+
+        {/* Tea-ceremony serving order (Chinese / Tsinoy weddings) — optional for
+            every guest; only the tea-ceremony helper reads them. Relation is
+            free text; the order is the within-side serve sequence (lower serves
+            first). Harmless for non-Chinese events. */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field
+            id="relation"
+            label="Relationship"
+            placeholder="e.g. Grandparents · Eldest Uncle"
+          />
+          <Field
+            id="seniority_rank"
+            label="Tea-ceremony order"
+            type="number"
+            placeholder="Lower serves first"
           />
         </div>
 

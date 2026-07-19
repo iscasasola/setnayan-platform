@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Package as PackageIcon, X, Check, AlertCircle } from 'lucide-react';
 import {
@@ -9,6 +9,7 @@ import {
   type VendorPackageItemRow,
   type VendorPackageWithItems,
 } from '@/lib/vendor-packages';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { lockPackage, type LockPackageResult } from '../../dashboard/[eventId]/vendors/packages/actions';
 
 /**
@@ -32,6 +33,7 @@ export function LockPackageModal({
   const [removedIds, setRemovedIds] = useState<string[]>([...defaultRemovedIds]);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   const { remainingConsumableCentavos, totalLockedCentavos, removedTotalCentavos } =
     useMemo(() => computeCustomization(pkg, removedIds), [pkg, removedIds]);
@@ -48,6 +50,8 @@ export function LockPackageModal({
     setOpen(false);
     setError(null);
   }
+
+  useModalA11y({ open, onClose: close, containerRef: dialogRef });
 
   function onLock() {
     setError(null);
@@ -98,7 +102,8 @@ export function LockPackageModal({
           onClick={close}
         >
           <div
-            className="flex max-h-[95vh] w-full flex-col overflow-hidden rounded-t-2xl bg-cream shadow-2xl sm:m-4 sm:h-full sm:max-h-full sm:w-[480px] sm:rounded-2xl"
+            ref={dialogRef}
+            className="flex max-h-[95vh] w-full flex-col overflow-hidden rounded-t-2xl bg-cream shadow-2xl focus:outline-none sm:m-4 sm:h-full sm:max-h-full sm:w-[480px] sm:rounded-2xl"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-labelledby="lock-package-title"

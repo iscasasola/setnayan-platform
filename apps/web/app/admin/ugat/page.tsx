@@ -1,6 +1,6 @@
 import { Suspense, type ReactNode } from 'react';
 import Link from 'next/link';
-import { Shapes, Compass, BookOpen, Brain } from 'lucide-react';
+import { Shapes, Compass, BookOpen, Brain, Network } from 'lucide-react';
 import { ListPageSkeleton, TablePageSkeleton } from '@/components/skeletons';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { MenusSurface } from './_surfaces/menus-surface';
@@ -120,6 +120,17 @@ export default async function UgatStudioPage({ searchParams }: Props) {
             </Link>
           );
         })}
+        {/* Entity map — the live Ugat Console (slice 1). A standalone route, not
+            a ?tab= surface: the console is a full-viewport dark-canvas app with
+            its own topbar + fixed side-card overlays, so it links out of the
+            studio the same way detail sub-routes do. */}
+        <Link
+          href="/admin/ugat/map"
+          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-ink/65 transition-colors hover:bg-ink/5 hover:text-ink"
+        >
+          <Network className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+          Entity map
+        </Link>
       </nav>
 
       <Suspense key={tab} fallback={tabSkeleton(tab)}>

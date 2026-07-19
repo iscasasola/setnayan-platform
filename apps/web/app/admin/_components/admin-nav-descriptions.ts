@@ -105,6 +105,7 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
     'Per-religion wedding-traditions content shown on the couple paperwork guide. Edit items, or reset to the latest starter content.',
   brain:
     'Curated knowledge feeding the Setnayan AI chat. Browse chunks by topic.',
+  ugat: 'The live entity map — every platform entity type, its live count, and the audited connections between them.',
 
   // ── App Performance group (key 'funnels') ─────────────────────────────
   'app-performance':

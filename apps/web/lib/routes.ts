@@ -89,6 +89,9 @@ export const routes = {
     songs: () => `/admin/songs`,
     subscriptions: () => `/admin/subscriptions`,
     taxonomy: () => `/admin/taxonomy`,
+    // Ugat entity map — the live console, standalone under the Ugat Studio
+    // (remounted from /admin/ugat when the studio took the hub path 2026-07-10).
+    ugatMap: () => `/admin/ugat/map`,
     priceBands: () => `/admin/pricing?tab=price-bands`,
     tokenBands: () => `/admin/pricing?tab=token-bands`,
     tokenPurchases: () => `/admin/token-purchases`,

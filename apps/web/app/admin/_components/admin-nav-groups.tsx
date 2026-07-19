@@ -48,6 +48,7 @@ import {
   MapPin,
   MessageSquareWarning,
   Music,
+  Network,
   Newspaper,
   Palette,
   PencilRuler,
@@ -623,6 +624,20 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/ugat?tab=brain',
         icon: Brain,
         matchPrefix: '/admin/brain',
+      },
+      {
+        // Ugat entity map — the live console (slice 1 · PR #2788): the nine
+        // platform entity types as nodes on a dark canvas, the schema-audited
+        // connections as clickable joints, the 2026-07-05 audit's health
+        // findings as an overlay. A STANDALONE full-viewport route (not a
+        // ?tab= surface — it has its own topbar + fixed side-card overlays),
+        // linked from the Ugat Studio's section strip. Item key 'ugat' matches
+        // the admin.sidebar.ugat registry slot 1:1.
+        key: 'ugat',
+        label: 'Entity map',
+        href: '/admin/ugat/map',
+        icon: Network,
+        matchPrefix: '/admin/ugat/map',
       },
     ],
   },

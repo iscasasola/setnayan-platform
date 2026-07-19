@@ -29,7 +29,7 @@
 .card {
   display: block;
   overflow: hidden;
-  border-radius: 20px;
+  border-radius: var(--m-r-lg);
   background: rgba(255, 255, 255, 0.58);
   border: 1px solid var(--sn-glass-line);
   box-shadow: var(--sn-sh-tile);
@@ -90,7 +90,7 @@
   left: 12%;
   right: 14%;
   height: 17%;
-  border-radius: 10px;
+  border-radius: var(--m-r-sm);
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.14);
   display: flex;
@@ -105,7 +105,7 @@
   content: '';
   width: 12%;
   aspect-ratio: 1;
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   background: var(--sn-gold-300);
   opacity: 0.85;
 }
@@ -113,7 +113,7 @@
   content: '';
   flex: 1;
   height: 22%;
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   background: rgba(243, 236, 223, 0.55);
 }
 .aiRow:nth-child(2) { top: 16%; animation-delay: 0.3s; }
@@ -125,7 +125,7 @@
   right: 8%;
   width: 10px;
   height: 10px;
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   background: var(--sn-gold-300);
   box-shadow: 0 0 14px 3px rgba(203, 167, 102, 0.75);
   animation: vig-pulse 3s ease-in-out infinite;
@@ -138,7 +138,7 @@
   inset: 14% 12%;
   display: flex;
   flex-direction: column;
-  border-radius: 10px;
+  border-radius: var(--m-r-sm);
   overflow: hidden;
   background: rgba(250, 247, 242, 0.96);
   box-shadow: 0 14px 30px -16px rgba(23, 22, 15, 0.6);
@@ -152,7 +152,7 @@
 .browserBar i {
   width: 6px;
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   background: rgba(30, 26, 18, 0.25);
 }
 .browserBody {
@@ -196,7 +196,7 @@
 .paper {
   position: absolute;
   inset: 12% 14%;
-  border-radius: 6px;
+  border-radius: var(--m-r-xs);
   background: rgba(250, 247, 242, 0.97);
   padding: 8% 9%;
   display: flex;
@@ -223,7 +223,7 @@
 }
 .edPhoto {
   width: 38%;
-  border-radius: 3px;
+  border-radius: var(--m-r-xs);
   background: linear-gradient(135deg, #C9B08A 0%, #8A6B39 100%);
   opacity: 0;
   animation: vig-fade-hold 10s ease-in-out infinite;
@@ -236,7 +236,7 @@
 }
 .edLines i {
   height: 9%;
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   background: rgba(30, 26, 18, 0.22);
   transform-origin: left center;
   transform: scaleX(0);
@@ -260,7 +260,7 @@
 .eq i {
   width: 5.5%;
   height: 100%;
-  border-radius: 999px 999px 0 0;
+  border-radius: var(--m-r-full) var(--m-r-full) 0 0;
   background: linear-gradient(to top, var(--sn-gold-600), var(--sn-gold-300));
   transform-origin: bottom center;
   animation: vig-eq 1.8s ease-in-out infinite;
@@ -291,7 +291,7 @@
   left: 50%;
   transform: translateX(-50%);
   aspect-ratio: 1;
-  border-radius: 10px;
+  border-radius: var(--m-r-sm);
   background: rgba(250, 247, 242, 0.97);
   padding: 7%;
   box-shadow: 0 14px 30px -16px rgba(23, 22, 15, 0.6);
@@ -305,7 +305,7 @@
   gap: 12%;
 }
 .qrGrid i {
-  border-radius: 2px;
+  border-radius: var(--m-r-xs);
   background: var(--sn-ink-900);
   opacity: 0.16;
   animation: vig-twinkle 4.5s ease-in-out infinite;
@@ -323,7 +323,7 @@
 .qrBadge span {
   background: var(--sn-gold-500);
   color: #faf7f2;
-  border-radius: 8px;
+  border-radius: var(--m-r-sm);
   padding: 4px 7px;
   font-family: var(--font-display, Georgia), serif;
   font-style: italic;
@@ -337,7 +337,7 @@
   width: 34%;
   aspect-ratio: 4 / 5;
   background: #faf7f2;
-  border-radius: 4px;
+  border-radius: var(--m-r-xs);
   padding: 5% 5% 12%;
   box-shadow: 0 12px 26px -14px rgba(23, 22, 15, 0.65);
   opacity: 0;
@@ -348,7 +348,7 @@
   display: block;
   width: 100%;
   height: 100%;
-  border-radius: 2px;
+  border-radius: var(--m-r-xs);
   background: linear-gradient(135deg, #C97B4B 0%, #5A2818 100%);
 }
 .snap:nth-child(1) { left: 12%; top: 16%; rotate: -7deg; }
@@ -365,7 +365,7 @@
   transform: translate(-50%, -50%);
   height: 82%;
   aspect-ratio: 9 / 16;
-  border-radius: 10px;
+  border-radius: var(--m-r-sm);
   overflow: hidden;
   background: linear-gradient(160deg, #2E1F4E 0%, #0F0F1A 100%);
   border: 1px solid rgba(255, 255, 255, 0.22);
@@ -376,7 +376,7 @@
   top: 5%;
   inset-inline: 8%;
   height: 3px;
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   background: rgba(255, 255, 255, 0.22);
   overflow: hidden;
 }
@@ -445,7 +445,7 @@
 .crowd i {
   width: 6px;
   height: 6px;
-  border-radius: 999px 999px 0 0;
+  border-radius: var(--m-r-full) var(--m-r-full) 0 0;
   background: rgba(243, 236, 223, 0.3);
   transform: scaleY(1.6);
 }

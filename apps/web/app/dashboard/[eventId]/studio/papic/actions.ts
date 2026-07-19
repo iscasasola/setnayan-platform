@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { eventSkuActive } from '@/lib/entitlements';
 import {
   PAPIC_CAMERAS_ORDER_KEY,
+  PAPIC_FREE_CAMERA_INDEX_BASE,
   PAPIC_LTD_CAP_FALLBACK_PHP,
   PAPIC_MINI_CAP_FALLBACK_PHP,
   PAPIC_MIN_PAID_CAMERAS,
@@ -932,15 +933,15 @@ export async function setPapicWindow(formData: FormData) {
 
   // Re-stamp any already-provisioned per-camera seats so their capture window
   // matches the (possibly edited) event window. Per-camera seats live at
-  // seat_index >= 200; the legacy pack (1–5) keeps
-  // its own lifecycle and is untouched. Best-effort — a hiccup never blocks
-  // saving the window itself.
+  // seat_index >= 100 — the FREE cameras (100..102 · brief PR-3) and the paid
+  // range (>= 200); the legacy pack (1–5) keeps its own lifecycle and is
+  // untouched. Best-effort — a hiccup never blocks saving the window itself.
   try {
     await admin
       .from('paparazzi_seats')
       .update({ valid_from: win.startIso, valid_until: win.endIso })
       .eq('event_id', eventId)
-      .gte('seat_index', 200)
+      .gte('seat_index', PAPIC_FREE_CAMERA_INDEX_BASE)
       .is('revoked_at', null);
   } catch {
     // swallow — the window is saved; seats re-stamp on the next sync.

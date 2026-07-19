@@ -65,10 +65,14 @@ const HOLD_MS = 260; // tap-vs-hold boundary: a press held this long starts a cl
 const TAG_CAP = 10; // max tags per photo (corpus hard cap · mirrored server-side)
 const ROLL_MAX = 24; // most-recent shots kept in the session roll strip
 
-// Server cap codes — the presign route (camera_*) and recordSeatCapture
-// (daily_*) both signal "this seat is at its per-kind cap". Either rolls the
-// optimistic count back to the cap and marks the shot capped (no retry).
+// Server cap codes — the presign route and recordSeatCapture both signal
+// "this seat is out of capture allowance today". Either rolls the optimistic
+// count back and marks the shot capped (no retry). Papic v3 collapses the old
+// per-kind caps (camera_*/daily_*) into ONE capture-points budget — both seams
+// now return camera_points_exhausted; the legacy codes are kept so a stale
+// client/server pairing during rollout still renders as capped, not failed.
 const CAP_CODES: ReadonlySet<string> = new Set([
+  'camera_points_exhausted',
   'camera_photo_cap',
   'camera_video_cap',
   'daily_photo_quota',

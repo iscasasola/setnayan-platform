@@ -43,6 +43,7 @@ import StylePicker from './style-picker';
 import {
   fetchCameraRates,
   isPapicUncapped,
+  provisionFreeCamerasAdmin,
   PAPIC_MIN_PAID_CAMERAS,
   PAPIC_FREE_CAMERA_COUNT,
   PAPIC_MINI_CAP_FALLBACK_PHP,
@@ -262,6 +263,17 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   const keepFullResPricePhp = keepFullResRow?.is_active
     ? Number(keepFullResRow.retail_price_php)
     : null;
+
+  // FREE cameras — "always 3 seats / event" (owner 2026-07-17 · brief PR-3).
+  // Idempotent render-time top-up (the same lazy pattern syncGuestCameras uses
+  // below): materializes the 3 tier='free' seats at indexes 100..102 so the
+  // capture-points gate has real seats to meter — the advertised free allowance
+  // is ENFORCED at the seams, never display-only. Best-effort (returns 0 on any
+  // hiccup; the next render retries). Their claim links live on /crew.
+  await provisionFreeCamerasAdmin(unlockAdmin, eventId, {
+    validFrom: papicWindow.startIso,
+    validUntil: papicWindow.endIso,
+  });
 
   // ── LIMITED (guest-list) state ──────────────────────────────────────────
   // Auto-count = guests who haven't declined. One reversible snapshot freezes
@@ -815,7 +827,8 @@ function StatusBanners({
       ) : papicError === 'min_cameras' ? (
         <p className={bad}>
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
-          Please pick at least 5 cameras.
+          Please pick at least {PAPIC_MIN_PAID_CAMERAS} camera
+          {PAPIC_MIN_PAID_CAMERAS === 1 ? '' : 's'}.
         </p>
       ) : papicError ? (
         <p className={bad}>
@@ -832,8 +845,8 @@ function StatusBanners({
       ) : limitedError === 'below_min' ? (
         <p className={neutral}>
           <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
-          Your first 5 cameras are free — you&rsquo;re covered. Paid Limited starts
-          at a 5-guest list.
+          Your first {PAPIC_FREE_CAMERA_COUNT} cameras are free — you&rsquo;re
+          covered. Paid Limited starts at a {PAPIC_MIN_PAID_CAMERAS}-guest list.
         </p>
       ) : limitedError ? (
         <p className={bad}>

@@ -1,13 +1,14 @@
 /**
- * Silid doorway guardrail tests — Whats_Next_Suite_AI_Pricing_2026-07-18 §2,
+ * Suite doorway guardrail tests — Whats_Next_Suite_AI_Pricing_2026-07-18 §2,
  * the 7 guardrails the 2026-07-18 doorway audit called for. Written against
- * the SHIPPED surface: /dashboard/[eventId]/silid (flag NEXT_PUBLIC_SILID,
- * name constant SILID_NAME). The Suite-vs-Silid rename is a pending OWNER
- * decision — these tests rename nothing and must follow the surface if it
- * ever moves (the source-scan below fails loudly if the page file moves).
+ * the SHIPPED surface: /dashboard/[eventId]/suite (flag NEXT_PUBLIC_SUITE,
+ * name constant SUITE_NAME). Owner 2026-07-19: the name is LOCKED as "Suite"
+ * (supersedes the shipped "Silid" naming these tests were first written
+ * against) — these tests follow the surface if it ever moves again (the
+ * source-scan below fails loudly if the page file moves).
  *
  * Statically covered here (5 of the 7):
- *   1. routes-helper   — every FREE_TOOLS href in silid/page.tsx comes from a
+ *   1. routes-helper   — every FREE_TOOLS href in suite/page.tsx comes from a
  *                        `routes.*` builder (no hand-typed paths) AND each
  *                        referenced builder resolves to a real app-router page.
  *   2. retired-prefix  — no doorway href starts with a retired route prefix
@@ -16,7 +17,7 @@
  *                        app-router page for every catalog key (both seating
  *                        flag branches), and every non-opensDirect live entry
  *                        has an add-ons-detail.ts entry so /about can't 404.
- *   4. free ≠ surface  — the Silid free layer never contains a paid buy-wall
+ *   4. free ≠ surface  — the Suite free layer never contains a paid buy-wall
  *                        surface (the audit's Custom-QR regression), and a
  *                        free-trial chip is never presented as "Free".
  *   5. free ≠ paid     — every "Free"-labelled catalog entry's doorway lands
@@ -39,7 +40,7 @@ import { routes } from './routes';
 
 const LIB_DIR = path.dirname(fileURLToPath(import.meta.url));
 const APP_DIR = path.resolve(LIB_DIR, '..', 'app');
-const SILID_PAGE = path.join(APP_DIR, 'dashboard', '[eventId]', 'silid', 'page.tsx');
+const SUITE_PAGE = path.join(APP_DIR, 'dashboard', '[eventId]', 'suite', 'page.tsx');
 
 /** Retired route prefixes (2026-07-18 doorway audit) — nothing may link here. */
 const RETIRED_PREFIXES = ['/design', '/vendors/compare'] as const;
@@ -116,21 +117,21 @@ function routeExists(href: string): boolean {
   );
 }
 
-/** Replicates the Silid page's free-layer partition (silid/page.tsx). */
-function silidFreeLayerKeys(): string[] {
+/** Replicates the Suite page's free-layer partition (suite/page.tsx). */
+function suiteFreeLayerKeys(): string[] {
   return ADD_ONS.filter(
     (a) => a.studioGroup !== 'utility' && a.tier === 'free' && a.status !== 'coming_soon',
   ).map((a) => a.key);
 }
 
 const EVT = 'EVENT_ID';
-const silidSource = fs.readFileSync(SILID_PAGE, 'utf8');
+const suiteSource = fs.readFileSync(SUITE_PAGE, 'utf8');
 
 // ── 1 · routes-helper: FREE_TOOLS hrefs come from `routes.*` only ──────────────
 
-test('silid FREE_TOOLS: every href is built from a routes.* helper (no hand-typed paths)', () => {
-  const block = silidSource.match(/const FREE_TOOLS[\s\S]*?\n\];/);
-  assert.ok(block, 'silid/page.tsx must contain the FREE_TOOLS array');
+test('suite FREE_TOOLS: every href is built from a routes.* helper (no hand-typed paths)', () => {
+  const block = suiteSource.match(/const FREE_TOOLS[\s\S]*?\n\];/);
+  assert.ok(block, 'suite/page.tsx must contain the FREE_TOOLS array');
   const hrefs = block![0].match(/href:[^,]*/g) ?? [];
   assert.ok(hrefs.length >= 5, `expected the free planning tools, found ${hrefs.length} hrefs`);
   for (const h of hrefs) {
@@ -142,11 +143,11 @@ test('silid FREE_TOOLS: every href is built from a routes.* helper (no hand-type
   }
 });
 
-test('silid page: every routes.* builder it references resolves to a real page', () => {
+test('suite page: every routes.* builder it references resolves to a real page', () => {
   const refs = new Set(
-    [...silidSource.matchAll(/\broutes\.([A-Za-z0-9_$.]+)\(/g)].map((m) => m[1]!),
+    [...suiteSource.matchAll(/\broutes\.([A-Za-z0-9_$.]+)\(/g)].map((m) => m[1]!),
   );
-  assert.ok(refs.size > 0, 'silid/page.tsx should reference routes.* builders');
+  assert.ok(refs.size > 0, 'suite/page.tsx should reference routes.* builders');
   for (const ref of refs) {
     let node: unknown = routes;
     for (const part of ref.split('.')) {
@@ -177,11 +178,11 @@ test('no add-on href starts with a retired route prefix', () => {
   }
 });
 
-test('silid page source contains no retired route prefix', () => {
+test('suite page source contains no retired route prefix', () => {
   for (const prefix of RETIRED_PREFIXES) {
     assert.ok(
-      !silidSource.includes(`'${prefix}`) && !silidSource.includes('`' + prefix),
-      `silid/page.tsx hand-types a retired prefix: ${prefix}`,
+      !suiteSource.includes(`'${prefix}`) && !suiteSource.includes('`' + prefix),
+      `suite/page.tsx hand-types a retired prefix: ${prefix}`,
     );
   }
 });
@@ -227,14 +228,14 @@ test('every non-opensDirect live entry has an add-ons-detail entry (its /about p
 
 // ── 4 · free layer ≠ paid buy-wall surface ─────────────────────────────────────
 
-test('the paid Custom QR buy-wall never appears in the Silid free layer', () => {
+test('the paid Custom QR buy-wall never appears in the Suite free layer', () => {
   // The audit's concrete regression: /studio/custom-qr-guest is the PAID SKU
   // surface; the FREE per-guest QR lives on the Invitation tab. Custom QR must
   // therefore never carry tier 'free' (which is what feeds the free layer).
   const customQr = ADD_ONS.find((a) => a.key === 'custom-qr-guest');
   assert.ok(customQr, 'custom-qr-guest should exist in the catalog');
   assert.notEqual(customQr!.tier, 'free', 'custom-qr-guest routes to the paid buy wall');
-  assert.ok(!silidFreeLayerKeys().includes('custom-qr-guest'));
+  assert.ok(!suiteFreeLayerKeys().includes('custom-qr-guest'));
 });
 
 test('a free-trial chip is never presented as "Free" (trial ≠ free)', () => {
@@ -249,8 +250,8 @@ test('a free-trial chip is never presented as "Free" (trial ≠ free)', () => {
   }
 });
 
-test('the Silid free layer is exactly the reviewed set (any change is a conscious diff)', () => {
-  assert.deepEqual(silidFreeLayerKeys().sort(), [
+test('the Suite free layer is exactly the reviewed set (any change is a conscious diff)', () => {
+  assert.deepEqual(suiteFreeLayerKeys().sort(), [
     'animated-monogram',
     'editorial',
     'event',

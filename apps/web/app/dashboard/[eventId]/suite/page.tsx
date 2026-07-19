@@ -26,28 +26,31 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-export const metadata = { title: 'Silid' };
+export const metadata = { title: 'Suite' };
 export const dynamic = 'force-dynamic';
 
 /**
- * Silid — the guided in-app services surface (owner 2026-07-18: "build the full
- * Silid surface"). A single flagged home that leads with the AI secretary's
+ * Suite — the guided in-app services surface (owner 2026-07-18: "build the full
+ * surface"; owner 2026-07-19: name locked = "Suite", supersedes the shipped
+ * "Silid" naming). A single flagged home that leads with the AI secretary's
  * recommendations, shows what the couple already owns, then everything they can
  * add, and finally the complete FREE layer — every free tool a real tappable
  * doorway, which closes the wayfinding gap the 2026-07-18 audit found (7 of 13
  * free tools were buried outside the nav).
  *
  * NEW SURFACE, FLAG-DARK IN PROD: shown on every Vercel PREVIEW deploy (so the
- * owner can review it on the PR) but 404 in PRODUCTION until NEXT_PUBLIC_SILID
+ * owner can review it on the PR) but 404 in PRODUCTION until NEXT_PUBLIC_SUITE
  * is switched on — the live Studio (../studio) stays byte-untouched. Reuses the
  * proven Studio data layer wholesale — live admin-catalog prices (never
  * hardcoded), bundle-aware ownership, roadmap-aware recommendations, event-type
- * surface gating — so the open pricing/naming decisions don't block it: prices
- * read live, and the name lives in the single SILID_NAME constant.
+ * surface gating — so the open pricing decisions don't block it: prices read
+ * live, and the name lives in the single SUITE_NAME constant. The same
+ * NEXT_PUBLIC_SUITE flag also swaps the nav doorway (Studio → Suite) in
+ * customer-nav-config.ts / lib/customer-menu.ts / lib/nav-registry-defaults.ts.
  */
 
 /** The surface name — single source of truth so a rename is one edit. */
-const SILID_NAME = 'Silid';
+const SUITE_NAME = 'Suite';
 
 /** Outcome-framed section headers for the "Add to your day" cards (owner:
  *  group by what you get, not by internal category). Maps the locked
@@ -137,14 +140,14 @@ function comingSoonLast(a: AddOnEntry, b: AddOnEntry): number {
   return (a.status === 'coming_soon' ? 1 : 0) - (b.status === 'coming_soon' ? 1 : 0);
 }
 
-export default async function SilidPage({ params }: Props) {
-  // Flag-dark in PRODUCTION: 404 until NEXT_PUBLIC_SILID is switched on, so the
+export default async function SuitePage({ params }: Props) {
+  // Flag-dark in PRODUCTION: 404 until NEXT_PUBLIC_SUITE is switched on, so the
   // live Studio is unaffected. Always visible on Vercel PREVIEW deploys
   // (VERCEL_ENV==='preview') so the owner can review the PR without setting env
   // vars — production is never 'preview', so prod stays dark.
-  const silidOn =
-    process.env.NEXT_PUBLIC_SILID === 'true' || process.env.VERCEL_ENV === 'preview';
-  if (!silidOn) notFound();
+  const suiteOn =
+    process.env.NEXT_PUBLIC_SUITE === 'true' || process.env.VERCEL_ENV === 'preview';
+  if (!suiteOn) notFound();
 
   const { eventId } = await params;
   const supabase = await createClient();
@@ -269,7 +272,7 @@ export default async function SilidPage({ params }: Props) {
     <section className="space-y-8">
       <header className="sn-reveal space-y-2">
         <p className="sn-eye">In-app services</p>
-        <h1 className="sn-h1 mt-1.5">{SILID_NAME}</h1>
+        <h1 className="sn-h1 mt-1.5">{SUITE_NAME}</h1>
         <p className="max-w-prose text-base text-ink/65">
           Everything for your day, in one room — what you have, what’s free, and what you
           can add. Start with what we suggest for where you are.

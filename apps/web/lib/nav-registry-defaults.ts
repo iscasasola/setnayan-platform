@@ -8,6 +8,19 @@
 
 import type { NavSlotDefault } from './nav-registry-types';
 
+/**
+ * Suite nav doorway (owner 2026-07-19: surface name locked = "Suite"; nav slot
+ * REPLACES Studio, flag-gated). When NEXT_PUBLIC_SUITE is on, the studio nav
+ * slots' code DEFAULTS read "Suite" → /dashboard/[eventId]/suite — necessary
+ * because getNavSlotMap() serves a default for EVERY slot, and the bottom-nav /
+ * sidebar renderers prefer the slot label over the in-code tree label, so the
+ * tree-level swap (customer-nav-config.ts · lib/customer-menu.ts) alone would
+ * never reach the UI. Slot KEYS stay `*.studio` (stable — admin overrides key
+ * off them, and an explicit admin rename still wins). Flag off → byte-identical
+ * "Studio" defaults; /studio routes themselves stay reachable either way.
+ */
+const SUITE_NAV_ON = process.env.NEXT_PUBLIC_SUITE === 'true';
+
 export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
   {
     key: "public.marketing.home",
@@ -358,8 +371,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     key: "customer.bottom-nav.studio",
     scope: "customer",
     area: "customer-bottom-nav",
-    route: "/dashboard/[eventId]/studio",
-    label: "Studio",
+    // Flag-gated Suite doorway (see SUITE_NAV_ON above) — key stays stable.
+    route: SUITE_NAV_ON ? "/dashboard/[eventId]/suite" : "/dashboard/[eventId]/studio",
+    label: SUITE_NAV_ON ? "Suite" : "Studio",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Sparkles",
@@ -370,8 +384,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     key: "customer.sidebar.studio",
     scope: "customer",
     area: "customer-sidebar",
-    route: "/dashboard/[eventId]/studio",
-    label: "Studio",
+    // Flag-gated Suite doorway (see SUITE_NAV_ON above) — key stays stable.
+    route: SUITE_NAV_ON ? "/dashboard/[eventId]/suite" : "/dashboard/[eventId]/studio",
+    label: SUITE_NAV_ON ? "Suite" : "Studio",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Sparkles",

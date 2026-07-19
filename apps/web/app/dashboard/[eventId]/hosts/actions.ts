@@ -170,6 +170,16 @@ export async function inviteHost(formData: FormData) {
     // exists. Best-effort: consent was already required above, so this audit
     // copy failing must never undo a successful invite.
     if (isCoordinatorConsentGateEnabled() && isCoordinatorDelegate && inserted) {
+      // Owner 2026-07-19 #5 — consent-SCOPED money authority. The consent
+      // modal's two default-OFF toggles arrive as '1' when granted; anything
+      // else records the scope as NOT granted (fail-closed). scope_version
+      // 'v2' = the disclosure that includes the optional money-authority
+      // section (vendor_lock · checkout); 'v1' rows predate it and carry no
+      // money scopes.
+      const scopes = {
+        vendor_lock: formData.get('consent_scope_vendor_lock') === '1',
+        checkout: formData.get('consent_scope_checkout') === '1',
+      };
       const { error: consentError } = await admin
         .from('coordinator_access_consents')
         .insert({
@@ -178,7 +188,8 @@ export async function inviteHost(formData: FormData) {
           consented_by_user_id: userId,
           coordinator_email: email,
           coordinator_label: displayLabel,
-          scope_version: 'v1',
+          scope_version: 'v2',
+          scopes,
         });
       if (consentError) {
         console.error('[inviteHost] consent record insert failed', consentError);

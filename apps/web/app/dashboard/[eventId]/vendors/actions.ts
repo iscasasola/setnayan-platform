@@ -66,6 +66,8 @@ import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.ser
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { isPaymentGatedLockEnabled } from '@/lib/payment-gated-lock';
 import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock';
+import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
+import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
 
 function isValidCategory(value: unknown): value is VendorCategory {
   return typeof value === 'string' && (VENDOR_CATEGORIES as readonly string[]).includes(value);
@@ -735,6 +737,30 @@ export async function finalizeVendor(
         status: 'proposed',
         vendorId,
         vendorName: targetVendor.vendor_name ?? 'this vendor',
+      };
+    }
+  }
+
+  // Consent-scoped coordinator vendor lock (owner 2026-07-19 #5). A direct
+  // lock from here commits the couple to a vendor and seeds the payment
+  // schedule. Behind NEXT_PUBLIC_COORDINATOR_CONSENT_GATE_ENABLED, a
+  // non-couple caller may lock directly only when the couple granted the
+  // 'vendor_lock' scope at invite time (coordinator_access_consents.scopes).
+  // Runs AFTER the propose-lock branch so that flag (if ever ON) keeps its
+  // propose path untouched; flag OFF = exact current behavior (helper returns
+  // true without reading).
+  {
+    const lockAllowed = await coordinatorMoneyScopeAllowed(
+      createAdminClient(),
+      eventId,
+      user.id,
+      'vendor_lock',
+    );
+    if (!lockAllowed) {
+      return {
+        status: 'error',
+        message:
+          'The couple has not approved vendor locking for your coordinator access — ask them to re-invite you with vendor-lock permission.',
       };
     }
   }
@@ -3502,6 +3528,39 @@ export async function recordDeposit(
   } = await supabase.auth.getUser();
   if (!user) return { status: 'not_signed_in' };
 
+  // Consent-scoped coordinator payment handling (owner 2026-07-19 #5).
+  // Recording a deposit stamps money state + holds the vendor's date. Behind
+  // NEXT_PUBLIC_COORDINATOR_CONSENT_GATE_ENABLED, a non-couple member may
+  // record a deposit only when the couple granted the 'checkout' scope at
+  // invite time (coordinator_access_consents.scopes). Flag OFF = exact
+  // current behavior (helper returns true without reading). We also resolve
+  // whether the caller is a couple member here — the ledger insert below is
+  // RLS'd couple-only (migration 20260513110000), so a consent-authorized
+  // coordinator writes it through the admin client instead.
+  const { data: callerMember } = await supabase
+    .from('event_members')
+    .select('member_type')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  const callerIsCouple =
+    (callerMember as { member_type?: string } | null)?.member_type === 'couple';
+  if (!callerIsCouple) {
+    const depositAllowed = await coordinatorMoneyScopeAllowed(
+      createAdminClient(),
+      eventId,
+      user.id,
+      'checkout',
+    );
+    if (!depositAllowed) {
+      return {
+        status: 'error',
+        message:
+          'The couple has not approved payment handling for your coordinator access — ask them to re-invite you with payment permission.',
+      };
+    }
+  }
+
   // RLS-gated read (couple-on-event only). We need the pool-resolution inputs
   // and the prior recorded marker so a re-record doesn't reset the hold clock.
   const { data: row, error: readErr } = await supabase
@@ -3608,8 +3667,13 @@ export async function recordDeposit(
   }
 
   // Log the money against the couple's ledger (their own record — not a charge
-  // through Setnayan). Best-effort: a failed ledger insert never unwinds the
-  // already-landed date-hold + marker.
+  // through Setnayan). FAIL-CONSISTENT (bug fix 2026-07-19, unconditional): the
+  // old best-effort posture let the deposit marker land while the ledger insert
+  // failed silently — which is exactly what happened for coordinators, whose
+  // insert dies under the couple-only event_vendor_payments RLS (migration
+  // 20260513110000) while their event_vendors stamp succeeds. Now a failed
+  // ledger insert rolls back the marker we just stamped + releases the date
+  // hold and returns the error, so deposit state and ledger never diverge.
   //
   // IDEMPOTENT WITH THE MARKER: only insert the payment row on the FIRST record.
   // The deposit_recorded_at marker above is COALESCE-idempotent (a re-record /
@@ -3617,7 +3681,15 @@ export async function recordDeposit(
   // match — guarding on the PRE-update marker (ev.deposit_recorded_at) means a
   // second call lands NO duplicate payment row (which would overstate "paid").
   if (!ev.deposit_recorded_at) {
-    const { error: payErr } = await supabase.from('event_vendor_payments').insert({
+    // A consent-authorized coordinator (flag ON, 'checkout' scope verified
+    // above) writes the ledger through the admin client — the RLS policy is
+    // couple-only and predates consent-scoped coordinator authority. Couples
+    // (and everyone when the flag is OFF) keep the RLS-scoped write.
+    const ledgerClient =
+      !callerIsCouple && isCoordinatorConsentGateEnabled()
+        ? createAdminClient()
+        : supabase;
+    const { error: payErr } = await ledgerClient.from('event_vendor_payments').insert({
       event_id: eventId,
       vendor_id: vendorId,
       amount_php: amountPhp,
@@ -3628,6 +3700,27 @@ export async function recordDeposit(
     if (payErr) {
       // eslint-disable-next-line no-console
       console.error(`[recordDeposit] ledger insert failed for vendor_id=${vendorId}:`, payErr.message);
+      // Roll back the marker THIS call stamped (we're in the first-record
+      // branch, so the pre-update value was NULL) and free the date hold the
+      // acquire above may have taken — same unwind the updateErr path does.
+      const { error: rollbackErr } = await supabase
+        .from('event_vendors')
+        .update({ deposit_recorded_at: null, updated_at: new Date().toISOString() })
+        .eq('vendor_id', vendorId)
+        .eq('event_id', eventId);
+      if (rollbackErr) {
+        // eslint-disable-next-line no-console
+        console.error(
+          `[recordDeposit] marker rollback failed for vendor_id=${vendorId}:`,
+          rollbackErr.message,
+        );
+      }
+      await releaseSchedulePools(supabase, vendorId, 'status_downgrade');
+      return {
+        status: 'error',
+        message:
+          'Could not record the deposit in your payment ledger — nothing was saved. Please try again.',
+      };
     }
   }
 

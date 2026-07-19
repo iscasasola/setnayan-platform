@@ -58,6 +58,7 @@ import {
   resolveSetnayanAiEventChargeCentavos,
 } from '@/lib/setnayan-ai-event-pricing';
 import { computeVatFromBase, DEFAULT_VAT_RATE_PCT } from '@/lib/receipts';
+import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { getRequestPlatform, isRequestPlatform } from '@/lib/request-platform';
 import { notifyAdminsOrderAwaitingReconciliation } from '@/lib/order-admin-notify';
 
@@ -320,6 +321,25 @@ export async function submitOrderAction(
       .maybeSingle();
     if (!membership) {
       return { ok: false, reason: 'You can only check out for your own event.' };
+    }
+    // Consent-scoped coordinator checkout (owner 2026-07-19 #5). The membership
+    // check above admits ANY event member — including coordinators. Behind
+    // NEXT_PUBLIC_COORDINATOR_CONSENT_GATE_ENABLED, a non-couple member may
+    // check out only when the couple granted the 'checkout' scope at invite
+    // time (coordinator_access_consents.scopes). Flag OFF = exact current
+    // behavior (helper returns true without reading).
+    const checkoutAllowed = await coordinatorMoneyScopeAllowed(
+      createAdminClient(),
+      eventIdClean as string,
+      user.id,
+      'checkout',
+    );
+    if (!checkoutAllowed) {
+      return {
+        ok: false,
+        reason:
+          'The couple has not approved payment handling for your coordinator access — ask them to re-invite you with payment permission.',
+      };
     }
   }
 

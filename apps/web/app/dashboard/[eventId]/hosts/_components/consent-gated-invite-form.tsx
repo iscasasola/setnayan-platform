@@ -36,6 +36,8 @@ export function ConsentGatedInviteForm({
   const formRef = useRef<HTMLFormElement>(null);
   const bypassRef = useRef(false);
   const consentRef = useRef<HTMLInputElement>(null);
+  const scopeVendorLockRef = useRef<HTMLInputElement>(null);
+  const scopeCheckoutRef = useRef<HTMLInputElement>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [label, setLabel] = useState<string | null>(coordinatorLabel);
 
@@ -67,11 +69,21 @@ export function ConsentGatedInviteForm({
       );
     }
     if (consentRef.current) consentRef.current.value = '';
+    if (scopeVendorLockRef.current) scopeVendorLockRef.current.value = '';
+    if (scopeCheckoutRef.current) scopeCheckoutRef.current.value = '';
     setModalOpen(true);
   }
 
-  function confirmConsent() {
+  function confirmConsent(scopes: { vendorLock: boolean; checkout: boolean }) {
     if (consentRef.current) consentRef.current.value = '1';
+    // Owner 2026-07-19 #5 — the couple's optional money-authority grants,
+    // recorded into coordinator_access_consents.scopes by inviteHost.
+    if (scopeVendorLockRef.current) {
+      scopeVendorLockRef.current.value = scopes.vendorLock ? '1' : '';
+    }
+    if (scopeCheckoutRef.current) {
+      scopeCheckoutRef.current.value = scopes.checkout ? '1' : '';
+    }
     bypassRef.current = true;
     setModalOpen(false);
     formRef.current?.requestSubmit();
@@ -86,6 +98,18 @@ export function ConsentGatedInviteForm({
     >
       {children}
       <input ref={consentRef} type="hidden" name="coordinator_consent" defaultValue="" />
+      <input
+        ref={scopeVendorLockRef}
+        type="hidden"
+        name="consent_scope_vendor_lock"
+        defaultValue=""
+      />
+      <input
+        ref={scopeCheckoutRef}
+        type="hidden"
+        name="consent_scope_checkout"
+        defaultValue=""
+      />
       {modalOpen ? (
         <ConsentModal
           coordinatorLabel={label}
@@ -103,10 +127,13 @@ function ConsentModal({
   onDismiss,
 }: {
   coordinatorLabel: string | null;
-  onConfirm: () => void;
+  onConfirm: (scopes: { vendorLock: boolean; checkout: boolean }) => void;
   onDismiss: () => void;
 }) {
   const [agreed, setAgreed] = useState(false);
+  // Owner 2026-07-19 #5 — optional money-authority scopes, BOTH default OFF.
+  const [lockVendors, setLockVendors] = useState(false);
+  const [handlePayments, setHandlePayments] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   useModalA11y({ open: true, onClose: onDismiss, containerRef: dialogRef });
 
@@ -168,9 +195,41 @@ function ConsentModal({
             </li>
           </ul>
           <p className="border-t border-ink/10 pt-2 text-ink/70">
-            <strong>Your budget and payments stay private</strong> — a coordinator
-            can never see or spend your money. You can remove their access anytime.
+            <strong>Your budget and payments stay private by default</strong> — a
+            coordinator can only act on money matters if you allow it below. You
+            can remove their access anytime.
           </p>
+        </div>
+
+        <div className="mt-3 space-y-2 rounded-lg border border-ink/10 bg-white/60 p-3 text-xs text-ink/85">
+          <p className="font-medium text-ink/80">
+            Optional — extra permissions (both off unless you allow them):
+          </p>
+          <label className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              checked={lockVendors}
+              onChange={(e) => setLockVendors(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+            />
+            <span>
+              <strong>Can lock vendors</strong> — {who} may finalize (lock) a
+              vendor on your behalf, which commits your booking and starts its
+              payment schedule.
+            </span>
+          </label>
+          <label className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              checked={handlePayments}
+              onChange={(e) => setHandlePayments(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+            />
+            <span>
+              <strong>Can handle payments</strong> — {who} may submit orders,
+              upload payment proof, and record vendor deposits for this event.
+            </span>
+          </label>
         </div>
 
         <label className="mt-4 flex items-start gap-2 text-xs text-ink/85">
@@ -197,7 +256,7 @@ function ConsentModal({
           </button>
           <button
             type="button"
-            onClick={onConfirm}
+            onClick={() => onConfirm({ vendorLock: lockVendors, checkout: handlePayments })}
             disabled={!agreed}
             className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-terracotta px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-60"
           >

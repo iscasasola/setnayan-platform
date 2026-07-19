@@ -31,6 +31,23 @@ export type VendorCategory =
   | 'security'
   | 'gifts_and_giveaways'
   | 'accommodation'
+  // ── Non-wedding event-type gap leaves (2026-07-20 · Whats_Next_Suite_AI_
+  //    Pricing §gap-leaves). Values also live on the public.vendor_category
+  //    DB enum (gap-leaves migration) — keep both in lockstep. ──
+  | 'referee_official'
+  | 'event_medic'
+  | 'tour_activity'
+  | 'tour_guide'
+  | 'travel_insurance'
+  | 'av_production'
+  | 'speaker_talent'
+  | 'performers'
+  | 'kids_entertainer'
+  | 'choreographer'
+  | 'reveal_element'
+  | 'event_insurance'
+  | 'personal_accident_insurance'
+  | 'restaurant_reservation'
   | 'misc';
 
 export type VendorStatus =
@@ -72,6 +89,20 @@ export const VENDOR_CATEGORIES: ReadonlyArray<VendorCategory> = [
   'security',
   'gifts_and_giveaways',
   'accommodation',
+  'referee_official',
+  'event_medic',
+  'tour_activity',
+  'tour_guide',
+  'travel_insurance',
+  'av_production',
+  'speaker_talent',
+  'performers',
+  'kids_entertainer',
+  'choreographer',
+  'reveal_element',
+  'event_insurance',
+  'personal_accident_insurance',
+  'restaurant_reservation',
   'misc',
 ];
 
@@ -106,6 +137,20 @@ export const VENDOR_CATEGORY_LABEL: Record<VendorCategory, string> = {
   security: 'Security',
   gifts_and_giveaways: 'Gifts & giveaways',
   accommodation: 'Accommodation',
+  referee_official: 'Referees / Officials',
+  event_medic: 'Medic / First-aid',
+  tour_activity: 'Tours & activities',
+  tour_guide: 'Tour guide',
+  travel_insurance: 'Travel insurance',
+  av_production: 'AV / Production',
+  speaker_talent: 'Speakers / Talent',
+  performers: 'Performers (live acts)',
+  kids_entertainer: "Kids' entertainer",
+  choreographer: 'Choreographer',
+  reveal_element: 'Reveal element',
+  event_insurance: 'Event insurance',
+  personal_accident_insurance: 'Personal accident insurance',
+  restaurant_reservation: 'Restaurant (reservation)',
   misc: 'Miscellaneous',
 };
 
@@ -302,7 +347,15 @@ export const SERVICE_GROUPS: ReadonlyArray<{
   {
     key: 'reception',
     label: 'Reception',
-    members: ['venue', 'catering', 'crew_meals', 'cake_maker', 'mobile_bar', 'reception_decor'],
+    members: [
+      'venue',
+      'catering',
+      'crew_meals',
+      'cake_maker',
+      'mobile_bar',
+      'reception_decor',
+      'restaurant_reservation',
+    ],
   },
   {
     key: 'ceremony',
@@ -325,6 +378,11 @@ export const SERVICE_GROUPS: ReadonlyArray<{
       'host_emcee',
       'lights_and_sound',
       'led_screens',
+      'av_production',
+      'speaker_talent',
+      'performers',
+      'kids_entertainer',
+      'choreographer',
     ],
   },
   {
@@ -337,12 +395,19 @@ export const SERVICE_GROUPS: ReadonlyArray<{
       'invitations_stationery',
       'planner_coordinator',
       'accommodation',
+      'referee_official',
+      'event_medic',
+      'tour_activity',
+      'tour_guide',
+      'event_insurance',
+      'personal_accident_insurance',
+      'travel_insurance',
     ],
   },
   {
     key: 'other',
     label: 'Other',
-    members: ['gifts_and_giveaways', 'misc'],
+    members: ['gifts_and_giveaways', 'reveal_element', 'misc'],
   },
 ];
 

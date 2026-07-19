@@ -86,6 +86,9 @@ import { WebsiteEditor } from './_components/website-editor';
 import type { ProfileFieldData } from './_components/editable-row';
 import { updateBusinessStartDate } from '../actions';
 import { ServicesDisclosure } from './_components/services-disclosure';
+import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
+import { DAILY_REPLY_CAP_DEFAULT } from '@/lib/vendor-autoreply/config';
+import { AutoReplyCard } from './_components/autoreply-card';
 
 /**
  * /vendor-dashboard/shop — "My Shop".
@@ -833,6 +836,44 @@ async function ShopHome({
       >
         <VendorServicesManager search={sp} basePath="/vendor-dashboard/shop" />
       </ServicesDisclosure>
+
+      {/* ── AUTO-REPLY ASSISTANT — Phase-4 config card (flag-DARK: renders
+          only behind NEXT_PUBLIC_VENDOR_AUTOREPLY_V1; flag-off = today's page
+          exactly). Sits right under Services because the assistant answers
+          FROM that catalog. Anchor id is the deep-link target the Messages
+          header quick-toggle will use (Whats-Next §Phase-4). */}
+      {vendorAutoReplyEnabled() ? (
+        <AutoReplySection vendorProfileId={data.profileFields.vendorProfileId} />
+      ) : null}
+    </section>
+  );
+}
+
+/** Loads the vendor's Auto-Reply config for the Phase-4 card. Soft probe (the
+ *  My Shop pattern): a pre-migration DB or a vendor with no row yet degrades
+ *  to the schema defaults (off · cap 30) instead of blanking the page. Only
+ *  ever runs behind the flag, so flag-off costs zero queries. */
+async function AutoReplySection({ vendorProfileId }: { vendorProfileId: string }) {
+  let enabled = false;
+  let dailyCap = DAILY_REPLY_CAP_DEFAULT;
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from('vendor_bot_config')
+      .select('enabled,daily_reply_cap')
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle();
+    const row = data as { enabled?: boolean; daily_reply_cap?: number } | null;
+    if (row) {
+      enabled = Boolean(row.enabled);
+      if (typeof row.daily_reply_cap === 'number') dailyCap = row.daily_reply_cap;
+    }
+  } catch {
+    // defaults above
+  }
+  return (
+    <section id="auto-reply" aria-labelledby="auto-reply-heading">
+      <AutoReplyCard initialEnabled={enabled} initialDailyCap={dailyCap} />
     </section>
   );
 }

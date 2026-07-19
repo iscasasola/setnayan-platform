@@ -96,7 +96,7 @@ export async function PriceBandsSurface({
       </header>
 
       {/* Recompute control */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink/10 bg-cream px-4 py-3">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 sn-tile px-4 py-3">
         <div className="text-sm text-ink/70">
           {lastComputed ? (
             <>
@@ -130,7 +130,7 @@ export async function PriceBandsSurface({
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-ink/10 bg-cream px-4 py-10 text-center">
+        <div className="sn-tile px-4 py-10 text-center">
           <p className="text-sm font-medium text-ink/70">No bands to show yet.</p>
           <p className="mx-auto mt-1 max-w-md text-xs text-ink/55">
             Either no recompute has run, or every (category × region × bucket) is
@@ -139,7 +139,7 @@ export async function PriceBandsSurface({
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-ink/10 bg-cream">
+        <div className="sn-tile overflow-x-auto !p-0">
           <table className="w-full text-left text-sm">
             <thead className="bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
               <tr>

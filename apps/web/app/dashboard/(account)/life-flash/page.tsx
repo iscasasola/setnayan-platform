@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { after } from 'next/server';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Sparkles } from 'lucide-react';
 
 import { getCurrentUser } from '@/lib/auth';
 import { reScreenStuckCaptures } from '@/lib/nsfw-screen';
@@ -239,16 +239,17 @@ export default async function LifeFlashPage({
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link
-        href="/dashboard"
-        className="mb-4 inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-      >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+      <Link href="/dashboard" className="sn-chip sn-press mb-4 w-fit">
+        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         Back to events
       </Link>
 
       <header className="mb-6 space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Life-Flash</h1>
+        <p className="sn-eye">
+          <Sparkles aria-hidden strokeWidth={1.75} />
+          Gathered while you live them
+        </p>
+        <h1 className="sn-h1">Life-Flash</h1>
         <p className="max-w-prose text-base text-ink/65">
           The moments that mattered most, and the people who kept showing up — seen through
           every camera that was there. Gathered while you&rsquo;re living them.
@@ -267,11 +268,7 @@ export default async function LifeFlashPage({
               key={o.key}
               href={scopeHref(o.key)}
               aria-current={o.key === activeScopeKey ? 'page' : undefined}
-              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                o.key === activeScopeKey
-                  ? 'border-terracotta bg-terracotta/10 text-ink'
-                  : 'border-ink/15 text-ink/60 hover:border-ink/30 hover:text-ink'
-              }`}
+              className={`sn-chip sn-press ${o.key === activeScopeKey ? 'selected' : ''}`}
             >
               {o.label}
             </Link>
@@ -280,11 +277,11 @@ export default async function LifeFlashPage({
       ) : null}
 
       {loadError ? (
-        <p className="rounded-xl border border-ink/10 bg-white/40 px-4 py-6 text-sm text-ink/60">
+        <p className="sn-tile px-4 py-6 text-sm text-ink/60">
           Your story couldn&rsquo;t load just now. Try again in a moment.
         </p>
       ) : empty ? (
-        <div className="rounded-xl border border-ink/10 bg-white/40 px-4 py-8 text-sm text-ink/60">
+        <div className="sn-tile px-4 py-8 text-sm text-ink/60">
           <p className="font-medium text-ink">Your story starts with a celebration.</p>
           <p className="mt-1">
             Host an event and let Papic gather everyone&rsquo;s photos — they&rsquo;ll settle
@@ -300,7 +297,7 @@ export default async function LifeFlashPage({
       ) : (
         <>
           {scoped.moments.length === 0 ? (
-            <p className="mb-6 rounded-xl border border-ink/10 bg-white/40 px-4 py-6 text-sm text-ink/60">
+            <p className="sn-tile mb-6 px-4 py-6 text-sm text-ink/60">
               Nothing gathered in this stretch yet — pick another scope above.
             </p>
           ) : (
@@ -312,14 +309,14 @@ export default async function LifeFlashPage({
           {emptyEvents.length > 0 ? (
             <section className="mt-10">
               <div className="mb-3 flex items-baseline gap-2">
-                <h2 className="text-base font-semibold text-ink">Chapters still to fill</h2>
-                <span className="text-xs text-ink/40">{emptyEvents.length}</span>
+                <h2 className="sn-sec">Chapters still to fill</h2>
+                <span className="font-mono text-xs text-ink/40">{emptyEvents.length}</span>
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {emptyEvents.map((e, i) => (
                   <article
                     key={e.eventId}
-                    className="overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-sm"
+                    className="sn-card overflow-hidden"
                   >
                     <div className="relative aspect-[4/3] bg-ink/5">
                       {heroUrls[i] ? (

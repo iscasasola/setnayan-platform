@@ -171,13 +171,11 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
         </div>
       ) : null}
 
-      <header className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+      <header className="sn-tile sn-reveal space-y-3 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
-            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-              Order {order.public_id}
-            </p>
-            <h1 className="text-xl font-semibold tracking-tight">
+            <p className="sn-eye">Order <span className="font-mono normal-case">{order.public_id}</span></p>
+            <h1 className="sn-sec text-xl">
               Reference{' '}
               <span className="font-mono text-terracotta-700">{order.reference_code}</span>
             </h1>
@@ -267,10 +265,8 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
         </section>
       ) : null}
 
-      <section className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Payment instructions
-        </h2>
+      <section className="sn-tile space-y-4 p-5">
+        <h2 className="sn-eye">Payment instructions</h2>
 
         {/* The two values a couple must get exactly right — amount + reference. */}
         <div className="grid gap-3 sm:grid-cols-2">
@@ -311,10 +307,8 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
         {hasMerchantPaymentInfo(settings) ? (
           <div className="grid gap-3 border-t border-ink/10 pt-4 sm:grid-cols-2">
             {settings.bdo_account_number || settings.bdo_qr_url ? (
-              <div className="space-y-2 rounded-xl border border-ink/10 bg-cream p-4">
-                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-                  BDO bank transfer
-                </p>
+              <div className="sn-row space-y-2 p-4">
+                <p className="sn-eye">BDO bank transfer</p>
                 {settings.bdo_account_name ? (
                   <p className="text-sm font-medium text-ink">
                     {settings.bdo_account_name}
@@ -342,10 +336,8 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
             ) : null}
 
             {settings.gcash_number || settings.gcash_qr_url ? (
-              <div className="space-y-2 rounded-xl border border-ink/10 bg-cream p-4">
-                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-                  GCash
-                </p>
+              <div className="sn-row space-y-2 p-4">
+                <p className="sn-eye">GCash</p>
                 {settings.gcash_account_name ? (
                   <p className="text-sm font-medium text-ink">
                     {settings.gcash_account_name}
@@ -376,10 +368,8 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
       </section>
 
       {canLogPayment ? (
-        <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Log a payment
-          </h2>
+        <section className="sn-tile space-y-3 p-5">
+          <h2 className="sn-eye">Log a payment</h2>
           <form
             action={logPayment}
             className="grid grid-cols-1 gap-3 sm:grid-cols-2"
@@ -470,12 +460,10 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
         </section>
       ) : null}
 
-      <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Payment log
-        </h2>
+      <section className="sn-tile space-y-3 p-5">
+        <h2 className="sn-eye">Payment log</h2>
         {payments.length === 0 ? (
-          <p className="rounded-md border border-dashed border-ink/15 bg-cream p-4 text-center text-xs text-ink/55">
+          <p className="sn-row border-dashed p-4 text-center text-xs text-ink/55">
             Nothing logged yet.
           </p>
         ) : (

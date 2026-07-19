@@ -18,6 +18,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   fetchOwnVendorProfile,
+  fetchVendorBusinessStartDate,
   businessProfileChecklist,
   type BusinessProfileItem,
 } from '@/lib/vendor-profile';
@@ -83,6 +84,7 @@ import { VerifySection, type VerifySummary } from './_components/verify-section'
 import { readContactStamps } from './inline-docs-actions';
 import { WebsiteEditor } from './_components/website-editor';
 import type { ProfileFieldData } from './_components/editable-row';
+import { updateBusinessStartDate } from '../actions';
 import { ServicesDisclosure } from './_components/services-disclosure';
 
 /**
@@ -163,6 +165,7 @@ type ShopData = {
   verify: VerifySummary;
   checklist: BusinessProfileItem[];
   profileFields: ProfileFieldData;
+  businessStartDate: string | null;
   profileViewsWeek: number;
   rating: number;
   reviewCount: number;
@@ -419,6 +422,9 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   // decoupled from the shared profile select so a not-yet-applied migration
   // never blanks My Shop.
   const microsite = await fetchVendorMicrosite(supabase, vendorId);
+  // Precise founding date (optional) — guarded, so a not-yet-applied migration
+  // never blanks My Shop. Feeds the exact business anniversary/monthsary day.
+  const businessStartDate = await fetchVendorBusinessStartDate(supabase, vendorId);
   const isProWebsite = tierCaps(asVendorTier(tier)).customWebsiteName;
   const canPersonalize = micrositeCan(tier).canPersonalize;
   const isEnterpriseWebsite = micrositeCan(tier).isEnterprise;
@@ -521,6 +527,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     verify,
     checklist: completion.items,
     profileFields,
+    businessStartDate,
     profileViewsWeek: viewsRes,
     rating: Number(reviewStats.avg_rating_overall) || 0,
     reviewCount: Number(reviewStats.total_count) || 0,
@@ -572,7 +579,7 @@ const IG_ERROR_COPY: Record<string, string> = {
   persist_failed: 'Could not save your Instagram connection. Try again.',
 };
 
-export default async function VendorShopPage({
+async function ShopHome({
   searchParams,
 }: {
   searchParams: Promise<
@@ -704,11 +711,52 @@ export default async function VendorShopPage({
         branchLabel={nf.format(data.branchLocations)}
         branchSub={data.branchSub}
         profilePanel={
-          <ProfileChecklistEditor
-            items={data.checklist}
-            data={data.profileFields}
-            isVerified={data.isVerified}
-          />
+          <>
+            <ProfileChecklistEditor
+              items={data.checklist}
+              data={data.profileFields}
+              isVerified={data.isVerified}
+            />
+            {/* Precise founding DATE (optional) — powers the EXACT business
+                anniversary/monthsary day on your Overview. Plain server-action
+                form; blank clears it and we fall back to the year (EST). */}
+            <form
+              action={updateBusinessStartDate}
+              className="mt-3 rounded-xl border p-4"
+              style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
+            >
+              <label
+                htmlFor="in_business_since_date"
+                className="block text-sm font-medium"
+                style={{ color: 'var(--m-ink)' }}
+              >
+                Business start date{' '}
+                <span className="font-normal" style={{ color: 'var(--m-slate)' }}>
+                  (optional)
+                </span>
+              </label>
+              <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
+                The exact day you started — powers your business anniversary. Leave
+                blank to use the year (EST) above.
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <input
+                  id="in_business_since_date"
+                  name="in_business_since_date"
+                  type="date"
+                  defaultValue={data.businessStartDate ?? ''}
+                  className="input-field max-w-[12rem]"
+                />
+                <button
+                  type="submit"
+                  className="rounded-full px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+                  style={{ background: 'var(--m-accent-deep)' }}
+                >
+                  Save
+                </button>
+              </div>
+            </form>
+          </>
         }
         websitePanel={
           <WebsiteEditor
@@ -878,7 +926,8 @@ function HeroCard({
           </div>
         ) : (
           <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-            No public address yet — set one in Profile.
+            No public address yet — a custom address is a Pro feature you set in
+            Website.
           </p>
         )}
       </div>
@@ -897,14 +946,29 @@ function HeroCard({
           <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         </a>
       ) : (
-        <a
-          href="#manage-shop"
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors"
-          style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
-        >
-          Finish profile
-          <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        </a>
+        (() => {
+          // The primary CTA must track the vendor's REAL next step, never
+          // contradict a 100% ring. Only an actually-unfinished profile says
+          // "Finish profile"; a complete-but-unverified shop points at the
+          // verification stage; a complete-and-verified shop (public address is
+          // a separate Pro/Website step) points back into the manage tiles.
+          const cta =
+            data.completionPct < 100
+              ? { href: '#manage-shop', label: 'Finish profile' }
+              : data.isVerified
+                ? { href: '#manage-shop', label: 'Manage shop' }
+                : { href: '#get-verified', label: 'Get verified' };
+          return (
+            <a
+              href={cta.href}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors"
+              style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
+            >
+              {cta.label}
+              <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            </a>
+          );
+        })()
       )}
     </div>
   );
@@ -927,18 +991,19 @@ function CompletenessRing({ pct }: { pct: number }) {
           style={{ width: '3.75rem', height: '3.75rem', background: 'var(--m-orange-4)' }}
         >
           <span
-            className="text-base font-semibold tabular-nums"
+            className="font-mono text-base font-bold"
             style={{ color: 'var(--m-ink)' }}
           >
             {clamped}%
           </span>
         </div>
       </div>
-      <span
-        className="font-mono text-[10px] uppercase tracking-[0.18em]"
-        style={{ color: 'var(--m-orange-2)' }}
-      >
-        Complete
+      <span className="sn-eye">
+        {/* Scoped to "Profile" (not a bare "Complete"): the ring measures only
+            the 8 business-profile fields — NOT the public address, which is a
+            separate Pro/Website step. Keeps the ring honest against the header's
+            "no public address yet" and matches the Profile KPI tile's number. */}
+        Profile
       </span>
     </div>
   );
@@ -967,7 +1032,7 @@ function StatTile({
         </span>
         {label}
       </span>
-      <p className="mt-1 text-2xl font-semibold tabular-nums" style={{ color: 'var(--m-ink)' }}>
+      <p className="mt-1 font-mono text-2xl font-bold" style={{ color: 'var(--m-ink)' }}>
         {value}
       </p>
       <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
@@ -1143,4 +1208,187 @@ function BranchPanel({
       )}
     </div>
   );
+}
+
+
+/* ── My Shop hub (owner 5-page IA, 2026-07-12) ──────────────────────────────
+ * One menu item, the whole business integrated: the shop home (profile ·
+ * services · verify · website — this file's original body, incl. the
+ * services fold-in from 2026-07-02) plus Contracts, Proposals, Earnings,
+ * How clients pay you, Manpower as tabs, and a Tools tab linking the
+ * long-tail surfaces that left the sidebar. Old routes redirect in. */
+import { Suspense } from 'react';
+import { FileSignature, FileText, HandCoins, HardHat, Boxes } from 'lucide-react';
+import {
+  FeatureAccordion,
+  AccordionSkeleton,
+  type AccordionSection,
+} from '../_components/feature-accordion';
+import ContractsSurface from '../contracts/surface';
+import ProposalsSurface from '../proposals/surface';
+import EarningsSurface from '../earnings/surface';
+import PaymentOptionsSurface from '../payment-options/surface';
+import ManpowerSurface from '../manpower/surface';
+
+// The folded feature sections, in strategic order below the shop home. Each
+// expands in place and loads its server body on open (owner one-page IA
+// 2026-07-12). Home (profile · services · verify · website) stays above.
+const SHOP_SECTIONS: AccordionSection[] = [
+  {
+    key: 'contracts',
+    label: 'Contracts',
+    sub: 'Send, sign, and track your booking contracts',
+    icon: <FileSignature className="h-4 w-4" strokeWidth={1.75} />,
+  },
+  {
+    key: 'proposals',
+    label: 'Proposals',
+    sub: 'Build quotes and reusable proposal templates',
+    icon: <FileText className="h-4 w-4" strokeWidth={1.75} />,
+  },
+  {
+    key: 'payments',
+    label: 'How clients pay you',
+    sub: 'Bank, GCash, and link methods couples can use',
+    icon: <HandCoins className="h-4 w-4" strokeWidth={1.75} />,
+  },
+  {
+    key: 'manpower',
+    label: 'Manpower',
+    sub: 'Pick up paid crew gigs from events already booked',
+    icon: <HardHat className="h-4 w-4" strokeWidth={1.75} />,
+  },
+  {
+    key: 'tools',
+    label: 'More tools',
+    sub: 'Reviews · Stories · Recaps · Partnerships · Attributes · Branches …',
+    icon: <Boxes className="h-4 w-4" strokeWidth={1.75} />,
+  },
+];
+
+const SHOP_TOOLS: { href: string; label: string; sub: string }[] = [
+  { href: '/vendor-dashboard/reviews', label: 'Reviews', sub: 'Ratings and written reviews from booked couples.' },
+  { href: '/vendor-dashboard/track-record', label: 'Track record', sub: 'Completed events and the public proof they build.' },
+  { href: '/vendor-dashboard/real-stories', label: 'Real Stories', sub: 'Editorial features starring your work.' },
+  { href: '/vendor-dashboard/recaps', label: 'Recaps', sub: 'Living recaps from events you served.' },
+  { href: '/vendor-dashboard/recommendations', label: 'Recommend', sub: 'Vendors you vouch for, and who vouches for you.' },
+  { href: '/vendor-dashboard/partnerships', label: 'Partnerships', sub: 'Preferred-partner ties with other vendors.' },
+  { href: '/vendor-dashboard/creators', label: 'Creators', sub: 'Offer discounts to creators for a credited feature in their story.' },
+  { href: '/vendor-dashboard/attributes', label: 'Attributes', sub: 'Traits and tags that sharpen your matching.' },
+  { href: '/vendor-dashboard/repertoire', label: 'Repertoire', sub: 'Your set list / portfolio pieces for couples to browse.' },
+  // Branches removed 2026-07-16 — the Branch tile above (ManageTiles, inline
+  // BranchManager) is the canonical branch surface; the standalone /branches
+  // route now redirects here. Team stays: /team hosts the extra-seat purchase
+  // flow the inline Team tile doesn't.
+  { href: '/vendor-dashboard/team', label: 'Team & Setnayan', sub: 'Seats, roles, and your Setnayan relationship.' },
+  { href: '/vendor-dashboard/disputes', label: 'Disputes', sub: 'Open cases and their timelines.' },
+  { href: '/vendor-dashboard/theft-watch', label: 'Theft Watch', sub: 'Portfolio-theft reports and takedowns.' },
+];
+
+// Stylist-only card (owner-locked 2026-07-12: the Moodboard library is a
+// stylist's own collection — reception_decor vendors only).
+const STYLIST_TOOL = { href: '/vendor-dashboard/moodboard-library', label: 'Moodboard library', sub: 'Your own moodboard collection — recolourable sets couples match to their palette.' };
+
+function ShopTools({ isStylist }: { isStylist: boolean }) {
+  const tools = isStylist ? [STYLIST_TOOL, ...SHOP_TOOLS] : SHOP_TOOLS;
+  return (
+    <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 xl:max-w-7xl 2xl:max-w-screen-2xl">
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {tools.map((t) => (
+          <li key={t.href}>
+            {/* Flat `.sn-row` cards — 12+ in this grid, so blur is banned here
+                (blur budget § 1.6: no blur in >10-item collections). */}
+            <Link
+              href={t.href}
+              className="sn-row sn-press block p-4 transition hover:-translate-y-0.5 hover:shadow-md"
+            >
+              <span className="block text-[14px] font-semibold text-ink">{t.label}</span>
+              <span className="mt-1 block text-[12.5px] leading-relaxed text-ink/60">{t.sub}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** The open section's body — async so <Suspense> streams a skeleton while its
+ *  queries run. Only the matching one renders, so folded sections cost nothing
+ *  until expanded. `tools` awaits the cheap stylist check internally so the
+ *  accordion headers paint instantly. */
+async function ShopSectionBody({
+  open,
+  sp,
+}: {
+  open: string;
+  sp: Record<string, string | string[] | undefined>;
+}) {
+  const pass = Promise.resolve(sp);
+  switch (open) {
+    case 'contracts':
+      return <ContractsSurface />;
+    case 'proposals':
+      return <ProposalsSurface searchParams={pass as never} />;
+    case 'payments':
+      return <PaymentOptionsSurface searchParams={pass as never} />;
+    case 'manpower':
+      return <ManpowerSurface />;
+    case 'tools':
+      return <ShopTools isStylist={await shopOwnerIsStylist()} />;
+    default:
+      return null;
+  }
+}
+
+export default async function VendorShopHub({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
+  // `open` is canonical; `tab` is the legacy alias the old redirect stubs emit.
+  const openRaw =
+    (typeof sp.open === 'string' && sp.open) ||
+    (typeof sp.tab === 'string' && sp.tab) ||
+    null;
+  const open =
+    openRaw && SHOP_SECTIONS.some((s) => s.key === openRaw) ? openRaw : null;
+
+  return (
+    <>
+      {/* Home stays on top: identity · stats · Manage tiles · verify · services. */}
+      <ShopHome searchParams={Promise.resolve(sp) as never} />
+
+      {/* Earnings promoted to always-on (owner "build it" 2026-07-12) — money
+          is the #1 glance. Tier-gated: free/below-Solo shops see a cheap gate,
+          paid shops see the ledger. */}
+      <div id="earnings">
+        <EarningsSurface searchParams={Promise.resolve(sp) as never} />
+      </div>
+
+      {/* Everything else folds in below — one open at a time, loaded on expand. */}
+      <FeatureAccordion sections={SHOP_SECTIONS} openKey={open}>
+        {open ? (
+          <Suspense fallback={<AccordionSkeleton />}>
+            <ShopSectionBody open={open} sp={sp} />
+          </Suspense>
+        ) : null}
+      </FeatureAccordion>
+    </>
+  );
+}
+
+
+/** Stylist check for the More-tools tab (owner lock 2026-07-12): reads the
+ * caller's own vendor profile; reception_decor = the stylist/decorator tile. */
+async function shopOwnerIsStylist(): Promise<boolean> {
+  const { createClient: createShopToolsClient } = await import('@/lib/supabase/server');
+  const { fetchOwnVendorProfile: fetchShopToolsProfile } = await import('@/lib/vendor-profile');
+  const supabase = await createShopToolsClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+  const profile = await fetchShopToolsProfile(supabase, user.id);
+  return (profile?.services ?? []).some((s: string) => s === 'reception_decor');
 }

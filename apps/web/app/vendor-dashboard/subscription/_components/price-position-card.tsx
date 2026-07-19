@@ -27,11 +27,11 @@ export function PricePositionCard({ result }: { result: PricePositionResult }) {
   const paxText = key.paxBucket === '__all__' ? '' : ` · ${paxBucketLabel(key.paxBucket)}`;
 
   return (
-    <section className="mt-8 m-card p-6">
+    <section className="sn-tile mt-8 p-6">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="m-label-mono">Price-position meter</p>
-          <h2 className="m-display-tight mt-1 text-xl">Where your price sits</h2>
+          <p className="sn-eye">Price-position meter</p>
+          <h2 className="mt-1 text-xl font-extrabold tracking-[-0.015em]">Where your price sits</h2>
           <p className="mt-1 max-w-prose text-sm text-ink/60">
             How your <span className="font-medium text-ink/80">{catText}</span>{' '}
             starting price compares to other published vendors in{' '}

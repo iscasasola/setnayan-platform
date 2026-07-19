@@ -22,29 +22,30 @@ export const APPROVED_LLMS_PRICES: readonly string[] = [
   // Free / zero
   '₱0',
 
-  // Planning tier — Setnayan AI (one-time, wedding-anchored, owner 2026-07-10)
-  '₱499', // Setnayan AI one-time (also: Live Background · Camera Bridge per day)
+  // À-la-carte add-on that shares this figure (Setnayan AI moved off ₱499 → ₱1,499 on 2026-07-12)
+  '₱499', // Live Background
 
   // À-la-carte customer software services
   '₱30', // Papic Ltd per camera per day (floor of the retail range)
-  '₱100', // Papic Unli per camera per day · flat per-token price
+  '₱100', // Papic Unli per camera per day
   '₱299', // Kwento
   '₱999', // Animated Monogram · Cinematic Reveal · Solo 28-day · additional-branch 28-day
   '₱1,299', // Pabati (per day) · Live Studio Mobile (per day)
-  '₱1,499', // Patiktok
-  '₱2,000', // Stories (per-day cap)
+  '₱1,499', // Setnayan AI one-time (single ₱1,499 SKU, owner FINAL 2026-07-12) · Patiktok
+  '₱2,000', // Stories (per-day cap) · 10-token pack (2026-07-12 reprice)
   '₱2,499', // Pakanta · Thank You Video · Live Studio Desktop (per day) · Pro vendor 28-day
+  '₱2,500', // Live Photo Wall (per day)
   '₱2,999', // 3D Plan · Editorial PRO
   '₱9,000', // Papic Ltd per-day cap (owner 2026-07-11, PR #3112)
   '₱15,000', // Papic Unli per-day cap (owner 2026-07-11, PR #3112)
 
-  // Vendor token banding + packs (flat ₱100/token)
-  '₱300', // top of the 1–3 token unlock band (₱100–₱300)
-  '₱400', // 4-token pack
-  '₱1,000', // 10-token pack
-  '₱2,500', // 25-token pack
-  '₱5,000', // 50-token pack
-  '₱10,000', // 100-token pack
+  // Vendor tokens + packs (flat ₱200/token · flat 1-token burn · 2026-07-15
+  // catalog restructure: ₱1,000 = 5 tokens, ladder 5/10/25/50/100)
+  '₱200', // flat per-token price · flat 1-token inquiry unlock (any region)
+  '₱1,000', // 5-token anchor pack
+  '₱5,000', // 25-token pack
+  '₱10,000', // 50-token pack
+  '₱20,000', // 100-token pack
 
   // Vendor tier subscriptions (28-day / annual)
   '₱9,999', // Solo annual

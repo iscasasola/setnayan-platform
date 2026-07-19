@@ -12,9 +12,13 @@
  * the couple's control room is the VIEWER (one peer connection per live camera
  * slot). Media flows peer-to-peer and NEVER touches Supabase or any Setnayan
  * server — nothing is recorded, nothing is stored (owner-locked light-privacy).
- * ICE is public STUN only, NO TURN in V1 (owner-locked); on symmetric-NAT /
- * CGNAT networks the connection fails cleanly and the UI shows the same-Wi-Fi
- * hint.
+ * ICE: public STUN always, plus an optional short-lived Cloudflare TURN relay
+ * passed in by the caller (from `getPanoodIceServers`, minted server-side). STUN
+ * alone can't traverse symmetric NAT / CGNAT — the norm for operator phones on
+ * their own mobile data at a venue — so a TURN relay is what lets those cameras
+ * reach the control room at all. If no `iceServers` is passed (or TURN isn't
+ * configured) this falls back to STUN-only, and a still-unreachable camera fails
+ * cleanly after the timeout. (Same pattern the homepage demo proved — lib/demo-webrtc.ts.)
  *
  * Gated by NEXT_PUBLIC_PANOOD_STREAMING_ENABLED (panoodStreamingEnabled) — the
  * callers only invoke this once the owner has flipped real streaming on for a
@@ -30,6 +34,7 @@
 
 import { createClient } from '@/lib/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { reportConnectionType } from '@/lib/webrtc-telemetry';
 
 export type PeerConnectionState =
   | 'waiting' // signaling up, no peer yet
@@ -37,7 +42,8 @@ export type PeerConnectionState =
   | 'connected'
   | 'failed';
 
-const ICE_SERVERS: RTCIceServer[] = [
+/** STUN-only fallback when a caller passes no `iceServers` (or TURN is unconfigured). */
+const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun.cloudflare.com:3478' },
 ];
@@ -97,11 +103,14 @@ export function publishPanoodCamera({
   slot,
   stream,
   onState,
+  iceServers = DEFAULT_ICE_SERVERS,
 }: {
   eventId: string;
   slot: string;
   stream: MediaStream;
   onState: (state: PeerConnectionState) => void;
+  /** STUN + (ideally) a minted TURN relay from `getPanoodIceServers`; STUN-only if omitted. */
+  iceServers?: RTCIceServer[];
 }): CameraPublisher {
   const supabase = createClient();
   let pc: RTCPeerConnection | null = null;
@@ -129,8 +138,9 @@ export function publishPanoodCamera({
     stopHello();
     pc?.close();
     unwatch?.();
-    pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    pc = new RTCPeerConnection({ iceServers });
     unwatch = watchConnectionState(pc, onState);
+    reportConnectionType(pc, 'panood'); // relay-vs-direct telemetry (best-effort)
     for (const track of stream.getTracks()) pc.addTrack(track, stream);
     pc.onicecandidate = (e) => {
       if (e.candidate) send('rtc-ice', { slot, side: 'cam', candidate: e.candidate.toJSON() });
@@ -192,10 +202,13 @@ export function watchPanoodCameras({
   eventId,
   onTrack,
   onSlotState,
+  iceServers = DEFAULT_ICE_SERVERS,
 }: {
   eventId: string;
   onTrack: (slot: string, stream: MediaStream) => void;
   onSlotState: (slot: string, state: PeerConnectionState) => void;
+  /** STUN + (ideally) a minted TURN relay from `getPanoodIceServers`; STUN-only if omitted. */
+  iceServers?: RTCIceServer[];
 }): ControlRoomViewer {
   const supabase = createClient();
   const pcs = new Map<string, RTCPeerConnection>();
@@ -215,8 +228,9 @@ export function watchPanoodCameras({
     // A fresh offer for a slot replaces any previous peer (phone retried).
     pcs.get(slot)?.close();
     unwatchers.get(slot)?.();
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    const pc = new RTCPeerConnection({ iceServers });
     pcs.set(slot, pc);
+    reportConnectionType(pc, 'panood'); // relay-vs-direct telemetry (best-effort)
     unwatchers.set(slot, watchConnectionState(pc, (state) => onSlotState(slot, state)));
     pc.onicecandidate = (e) => {
       if (e.candidate) send('rtc-ice', { slot, side: 'viewer', candidate: e.candidate.toJSON() });

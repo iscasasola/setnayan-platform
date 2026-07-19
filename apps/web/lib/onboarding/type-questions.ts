@@ -387,6 +387,143 @@ export const PER_TYPE_QUESTIONS: Record<string, readonly TypeQuestion[]> = {
       ],
     },
   ],
+  anniversary: [
+    {
+      id: 'ceremony',
+      eyebrow: 'The moment',
+      question: 'How will you mark the years?',
+      options: [
+        { key: 'mass', title: 'Thanksgiving Mass + renewal', desc: 'A blessing and a renewal of vows.', adds: ['ceremony_venue', 'host_mc'] },
+        { key: 'renewal', title: 'A renewal of vows', desc: 'Say “I do” again, hosted.', adds: ['host_mc'] },
+        { key: 'reception', title: 'Just a grand reception', desc: 'A celebration with the whole family.', adds: ['catering'] },
+        { key: 'intimate', title: 'Keep it intimate', desc: 'A quiet dinner with loved ones.', adds: [] },
+      ],
+    },
+    {
+      id: 'tribute',
+      eyebrow: 'The tribute',
+      question: 'The “then & now” moment?',
+      options: [
+        { key: 'avp', title: 'A tribute video', desc: 'A retrospective of the years together.', adds: ['photo_video', 'editorial'] },
+        { key: 'performance', title: 'A live performance', desc: 'A song or number for the couple.', adds: ['performers', 'live_band'] },
+        { key: 'messages', title: 'Messages from the family', desc: 'The children and apo pay tribute, hosted.', adds: ['host_mc'] },
+        { key: 'none', title: 'Keep it simple', desc: 'Let the day speak for itself.', adds: [] },
+      ],
+    },
+    {
+      id: 'look',
+      eyebrow: 'The look',
+      question: 'How styled is the celebration?',
+      options: [
+        { key: 'grand', title: 'Grand & formal', desc: 'Florals and a designed setup.', adds: ['stylist_decorator', 'florist'] },
+        { key: 'warm', title: 'Warm & intimate', desc: 'Soft styling, close and cozy.', adds: ['florist', 'coffee_espresso'] },
+        { key: 'recreate', title: 'Recreate our wedding', desc: 'Echo the day it all began.', adds: ['stylist_decorator', 'hmua'] },
+        { key: 'simple', title: 'Effortless', desc: 'Natural and unfussy.', adds: [] },
+      ],
+    },
+    {
+      id: 'food',
+      eyebrow: 'The food',
+      question: 'How do you want to feed everyone?',
+      options: [
+        { key: 'catered', title: 'Full catering', desc: 'A proper sit-down or buffet.', adds: ['catering'] },
+        { key: 'feast', title: 'A family feast', desc: 'Lechon and a big spread.', adds: ['catering', 'food_cart'] },
+        { key: 'dessert', title: 'Dessert & coffee', desc: 'A sweets and coffee corner.', adds: ['dessert', 'coffee_espresso'] },
+        { key: 'toast', title: 'A toast bar', desc: 'Wine and cocktails for the toasts.', adds: ['mobile_bar'] },
+      ],
+    },
+  ],
+  graduation: [
+    {
+      id: 'thanksgiving',
+      eyebrow: 'The milestone',
+      question: 'How will you give thanks?',
+      options: [
+        { key: 'mass', title: 'A thanksgiving Mass', desc: 'Gratitude for the achievement.', adds: ['ceremony_venue'] },
+        { key: 'program', title: 'A program with messages', desc: 'Family shares advice and pride, hosted.', adds: ['host_mc'] },
+        { key: 'feast', title: 'Just a family feast', desc: 'Food and good company.', adds: ['catering'] },
+        { key: 'simple', title: 'Keep it simple', desc: 'A relaxed get-together.', adds: [] },
+      ],
+    },
+    {
+      id: 'food',
+      eyebrow: 'The feast',
+      question: 'How do you want to feed everyone?',
+      options: [
+        { key: 'lechon', title: 'Lechon & full spread', desc: 'The classic celebration feast.', adds: ['catering'] },
+        { key: 'carts', title: 'Food carts & stations', desc: 'Grazing stations and street eats.', adds: ['food_cart', 'stations'] },
+        { key: 'buffet', title: 'Buffet catering', desc: 'A proper catered buffet.', adds: ['catering'] },
+        { key: 'sweets', title: 'Dessert & drinks', desc: 'A dessert table and a drinks corner.', adds: ['dessert', 'mobile_bar'] },
+      ],
+    },
+    {
+      id: 'keepsake',
+      eyebrow: 'The memories',
+      question: 'How do you want to remember it?',
+      options: [
+        { key: 'pv', title: 'Photo & video', desc: 'Proper coverage of the day.', adds: ['photo_video'] },
+        { key: 'booth', title: 'A photo booth', desc: 'Instant prints with the grad.', adds: ['photo_booth'] },
+        { key: 'avp', title: 'A tribute AVP', desc: 'A look back at the journey.', adds: ['photo_video', 'editorial'] },
+        { key: 'none', title: 'Keep it candid', desc: 'Just phones and memories.', adds: [] },
+      ],
+    },
+    {
+      id: 'vibe',
+      eyebrow: 'The look',
+      question: 'What is the vibe?',
+      options: [
+        { key: 'lively', title: 'Celebratory & lively', desc: 'Music and a bit of a party.', adds: ['dj', 'lights_sound'] },
+        { key: 'family', title: 'Warm & family', desc: 'Homey styling and florals.', adds: ['stylist_decorator', 'florist'] },
+        { key: 'chill', title: 'Casual & chill', desc: 'Relaxed, no fuss.', adds: [] },
+      ],
+    },
+  ],
+  reunion: [
+    {
+      id: 'gathering',
+      eyebrow: 'The gathering',
+      question: 'Who is coming together?',
+      options: [
+        { key: 'family', title: 'The whole family / clan', desc: 'Multi-generational, elders to apo.', adds: ['catering'] },
+        { key: 'alumni', title: 'A school batch / alumni', desc: 'A homecoming with the batch.', adds: ['host_mc'] },
+        { key: 'friends', title: 'Friends / barkada', desc: 'The old crew, back together.', adds: [] },
+        { key: 'colleagues', title: 'Colleagues', desc: 'A team or org reconnecting.', adds: [] },
+      ],
+    },
+    {
+      id: 'program',
+      eyebrow: 'The program',
+      question: 'What is on the program?',
+      options: [
+        { key: 'games', title: 'Games & Larong Pinoy', desc: 'Parlor games and a fun host.', adds: ['host_mc', 'arcade_games'] },
+        { key: 'awards', title: 'Awards & recognitions', desc: 'Oldest, farthest, biggest family — hosted.', adds: ['host_mc'] },
+        { key: 'talent', title: 'A talent show', desc: 'Production and performance numbers.', adds: ['performers', 'lights_sound'] },
+        { key: 'food', title: 'Just food & catching up', desc: 'Eat, talk, and karaoke.', adds: ['catering'] },
+      ],
+    },
+    {
+      id: 'food',
+      eyebrow: 'The feast',
+      question: 'How do you want to feed everyone?',
+      options: [
+        { key: 'boodle', title: 'Lechon & boodle fight', desc: 'A hands-on Filipino feast.', adds: ['catering'] },
+        { key: 'carts', title: 'Food carts & stations', desc: 'Grazing stations and street eats.', adds: ['food_cart', 'stations'] },
+        { key: 'buffet', title: 'Full buffet catering', desc: 'A proper catered buffet.', adds: ['catering'] },
+        { key: 'simple', title: 'Keep it simple', desc: 'Potluck or light fare.', adds: [] },
+      ],
+    },
+    {
+      id: 'extras',
+      eyebrow: 'The extras',
+      question: 'Any special touch?',
+      options: [
+        { key: 'shirts', title: 'Matching shirts & souvenirs', desc: 'Color-coded tees for the group photo.', adds: ['souvenir_giveaways'] },
+        { key: 'booth', title: 'A photo booth', desc: 'Instant prints for everyone.', adds: ['photo_booth'] },
+        { key: 'music', title: 'Live music / karaoke', desc: 'A band or a sound system.', adds: ['live_band'] },
+        { key: 'none', title: 'Just the essentials', desc: 'Keep it easy.', adds: [] },
+      ],
+    },
+  ],
 };
 
 /** The per-type questions for a pack key (empty when the type has none). */

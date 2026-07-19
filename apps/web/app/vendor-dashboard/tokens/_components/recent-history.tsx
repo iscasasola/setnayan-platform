@@ -65,8 +65,8 @@ const SHORT_DATETIME = new Intl.DateTimeFormat('en-PH', {
 export function RecentHistory({ entries }: { entries: HistoryEntry[] }) {
   if (entries.length === 0) {
     return (
-      <div className="m-card p-6">
-        <p className="m-label-mono mb-2">Recent activity</p>
+      <div className="sn-tile p-6">
+        <p className="sn-eye mb-2">Recent activity</p>
         <p className="text-sm text-ink/65">
           No grants or redemptions yet. Activity here updates the moment a token
           is earned or spent.
@@ -76,8 +76,8 @@ export function RecentHistory({ entries }: { entries: HistoryEntry[] }) {
   }
 
   return (
-    <div className="m-card p-6">
-      <p className="m-label-mono mb-4">Recent activity</p>
+    <div className="sn-tile p-6">
+      <p className="sn-eye mb-4">Recent activity</p>
       <ul className="divide-y" style={{ borderColor: 'var(--m-line)' }}>
         {entries.map((entry) => {
           const isGrant = entry.kind === 'grant';

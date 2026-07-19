@@ -204,7 +204,7 @@ export function PushNotificationRegistrar() {
     <div
       role="status"
       aria-live="polite"
-      className="fixed inset-x-0 bottom-20 z-40 mx-auto flex max-w-lg items-center gap-3 rounded-xl border border-ink/10 bg-cream px-4 py-3 shadow-lg backdrop-blur-sm sm:bottom-6 lg:bottom-6"
+      className="fixed inset-x-0 bottom-20 z-40 mx-auto flex max-w-lg items-center gap-3 sn-row px-4 py-3 shadow-lg backdrop-blur-sm sm:bottom-6 lg:bottom-6"
     >
       <Bell
         aria-hidden

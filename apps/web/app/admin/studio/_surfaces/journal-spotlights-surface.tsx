@@ -92,10 +92,10 @@ export async function JournalSpotlightsSurface({
   return (
     <div>
       <header className="mb-6 space-y-2">
-        <p className="m-eyebrow" style={{ color: 'var(--m-orange-2)' }}>
+        <p className="sn-eye" style={{ color: 'var(--m-orange-2)' }}>
           Setnayan HQ
         </p>
-        <h1 className="m-display text-3xl font-semibold tracking-tight sm:text-4xl">
+        <h1 className="sn-h1">
           Journal Spotlights
         </h1>
         <p className="max-w-prose text-sm text-ink/65">
@@ -143,7 +143,7 @@ export async function JournalSpotlightsSurface({
       </div>
 
       {/* Attach form */}
-      <section className="mb-8 rounded-2xl border border-ink/10 bg-cream p-5">
+      <section className="mb-8 sn-tile p-5">
         <h2 className="text-base font-semibold text-ink">Credit a vendor in an article</h2>
         <p className="mt-1 text-sm text-ink/60">
           Pick a Journal article and paste the vendor&rsquo;s profile ID. The
@@ -214,7 +214,7 @@ export async function JournalSpotlightsSurface({
 
       {/* Drafts queue */}
       <section className="mb-8">
-        <h2 className="mb-3 m-label-mono" style={{ color: 'var(--m-slate)' }}>
+        <h2 className="mb-3 sn-eye" style={{ color: 'var(--m-slate)' }}>
           Drafts · awaiting approval ({drafts.length})
         </h2>
         {drafts.length === 0 ? (
@@ -235,7 +235,7 @@ export async function JournalSpotlightsSurface({
 
       {/* Published */}
       <section>
-        <h2 className="mb-3 m-label-mono" style={{ color: 'var(--m-slate)' }}>
+        <h2 className="mb-3 sn-eye" style={{ color: 'var(--m-slate)' }}>
           Published ({published.length})
         </h2>
         {published.length === 0 ? (

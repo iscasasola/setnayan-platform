@@ -74,7 +74,7 @@ export async function RecapsSurface({
       ) : null}
 
       {rows.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-ink/20 bg-cream p-10 text-center">
+        <div className="rounded-2xl border border-dashed border-ink/15 bg-white/50 p-10 text-center">
           <Globe aria-hidden className="mx-auto h-6 w-6 text-ink/40" strokeWidth={1.5} />
           <p className="mt-3 text-sm font-medium text-ink">No published recaps yet.</p>
           <p className="mt-1 text-sm text-ink/55">

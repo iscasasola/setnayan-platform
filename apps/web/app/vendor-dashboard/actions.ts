@@ -1202,3 +1202,36 @@ export async function updateVendorWebsiteField(
   }
   return { ok: true };
 }
+
+/**
+ * Save the shop's precise founding DATE (`in_business_since_date`, migration
+ * 20270805100000) — drives the exact business monthsary/anniversary day. A
+ * plain server-action form (no client JS): blank clears it. The write is
+ * guarded so a not-yet-applied migration (apply-lag) fails soft instead of
+ * throwing; the revalidate re-renders the shop + Overview with the saved value.
+ */
+export async function updateBusinessStartDate(formData: FormData): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) return;
+
+  const raw = String(formData.get('in_business_since_date') ?? '').trim();
+  // Accept a full ISO date, or blank to clear. Reject anything else.
+  const value = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
+
+  try {
+    await supabase
+      .from('vendor_profiles')
+      .update({ in_business_since_date: value })
+      .eq('vendor_profile_id', profile.vendor_profile_id);
+  } catch {
+    // graceful-degrade: apply-lag or a transient error — nothing to surface on
+    // a plain-form action; the revalidate will show whether it persisted.
+  }
+  revalidatePath('/vendor-dashboard/shop');
+  revalidatePath('/vendor-dashboard');
+}

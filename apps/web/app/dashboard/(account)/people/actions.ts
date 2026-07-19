@@ -1,7 +1,9 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import {
   layerForRelation,
@@ -176,4 +178,79 @@ export async function generateEventConnections(
   if (error) return { ok: false, error: 'Couldn’t generate connections.' };
   revalidatePath('/dashboard/people');
   return { ok: true, created: (data as number | null) ?? 0 };
+}
+
+/**
+ * The 2°→1° upgrade (owner degree model 2026-07-17): propose a friend
+ * connection to a samahan co-member — your second degree becoming first.
+ *
+ * ⚠ Flag-guarded like every action here (inert until counsel + flag flip).
+ * The target is addressed by community_members.id (bigserial — the roster
+ * rule: never a UUID or email from the client):
+ *   1. The member row is read with the USER client — community_roster_member_read
+ *      RLS returns it only if the caller shares that samahan, which IS the
+ *      second-degree proof.
+ *   2. The target's person resolves server-side (admin: user_id → person, or
+ *      email → resolve_or_claim_person as a fallback); emails never leave the
+ *      server.
+ *   3. The edge inserts under the USER client exactly like proposeConnection —
+ *      relation 'friend', pending, mutual-confirm.
+ */
+export async function proposeSamahanConnection(formData: FormData): Promise<void> {
+  if (!peopleConnectionsEnabled()) redirect('/dashboard/people');
+  const memberRowId = Number(formData.get('member_row_id'));
+  if (!Number.isInteger(memberRowId) || memberRowId <= 0) redirect('/dashboard/people');
+
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  const supabase = await createClient();
+
+  // Second-degree proof: RLS only returns the row if we share that samahan.
+  const { data: member } = await supabase
+    .from('community_members')
+    .select('user_id')
+    .eq('id', memberRowId)
+    .maybeSingle();
+  const targetUserId = (member as { user_id: string } | null)?.user_id;
+  if (!targetUserId || targetUserId === user.id) redirect('/dashboard/people');
+
+  const fromPerson = await myPersonId(supabase, user.id);
+  if (!fromPerson) redirect('/dashboard/people?error=profile_not_ready');
+
+  // Resolve the co-member's person spine row server-side (their person is not
+  // visible under our RLS pre-connection — that's by design).
+  const admin = createAdminClient();
+  const { data: personRow } = await admin
+    .from('people')
+    .select('person_id')
+    .eq('claimed_by_user_id', targetUserId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  let toPerson = (personRow as { person_id: string } | null)?.person_id ?? null;
+  if (!toPerson) {
+    // No person row yet — find-or-create via the Phase-1 resolver. The email
+    // is read and consumed server-side only.
+    const { data: u } = await admin.from('users').select('email').eq('user_id', targetUserId).maybeSingle();
+    const email = ((u as { email: string | null } | null)?.email ?? '').trim().toLowerCase();
+    if (!email) redirect('/dashboard/people?error=connect_failed');
+    const { data: resolved } = await supabase.rpc('resolve_or_claim_person', {
+      p_email: email,
+      p_creator: user.id,
+    });
+    toPerson = (resolved as string | null) ?? null;
+  }
+  if (!toPerson || toPerson === fromPerson) redirect('/dashboard/people?error=connect_failed');
+
+  const { error } = await supabase.from('person_connections').insert({
+    from_person_id: fromPerson,
+    to_person_id: toPerson,
+    relation: 'friend',
+    layer: layerForRelation('friend'),
+    status: 'pending',
+    created_by_user_id: user.id,
+  });
+  if (error && error.code !== '23505') redirect('/dashboard/people?error=connect_failed');
+
+  revalidatePath('/dashboard/people');
+  redirect('/dashboard/people?saved=1');
 }

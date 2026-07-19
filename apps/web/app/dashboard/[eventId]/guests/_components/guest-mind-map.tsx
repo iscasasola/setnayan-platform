@@ -26,6 +26,7 @@ import {
   ROLE_GROUP_LABELS,
   type RoleGroup,
 } from '@/lib/role-groups';
+import { SIDE_ACCENT } from '@/lib/side-colors';
 import { quickAddGuest } from '../quick-add-actions';
 import { mapAddGroup, mapAddPlusOne } from '../map-actions';
 import { useSaveLoader } from '@/components/sd-loader';
@@ -87,19 +88,14 @@ const ENTOURAGE_BRANCHES: { key: RoleGroup; defaultRole: GuestRole }[] = [
 
 const SIDE_ORDER: GuestSide[] = ['bride', 'both', 'groom'];
 
-// Side → accent classes (matches the list's side tints: bride rose · groom sky
-// · both amber · structural nodes ink).
+// Side → accent classes. Pulls the canonical side-colour map (lib/side-colors.ts
+// · SIDE_ACCENT) so the nodes read the same gold / info-slate / lighter-gold
+// language as the roster avatars + seat map; structural nodes stay ink.
 function accent(side: GuestSide | null): { text: string; border: string } {
-  switch (side) {
-    case 'bride':
-      return { text: 'text-danger-600', border: 'border-l-danger-400' };
-    case 'groom':
-      return { text: 'text-sky-600', border: 'border-l-sky-400' };
-    case 'both':
-      return { text: 'text-warn-600', border: 'border-l-warn-400' };
-    default:
-      return { text: 'text-ink/50', border: 'border-l-ink/30' };
+  if (side === 'bride' || side === 'groom' || side === 'both') {
+    return SIDE_ACCENT[side];
   }
+  return { text: 'text-ink/50', border: 'border-l-ink/30' };
 }
 
 const KIND_ICON = {

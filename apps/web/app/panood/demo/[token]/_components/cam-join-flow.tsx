@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, Radio, Video, WifiOff } from 'lucide-react';
-import { claimPanoodDemoCamera } from '@/app/_actions/demo-session-actions';
+import { claimPanoodDemoCamera, getDemoIceServers } from '@/app/_actions/demo-session-actions';
 import { publishDemoCamera, type CameraPublisher, type CamSlot, type PeerConnectionState } from '@/lib/demo-webrtc';
 
 /**
@@ -110,12 +110,20 @@ export function CamJoinFlow({ token, sessionId }: { token: string; sessionId: st
     }
     setSlot(claimedSlot);
 
+    // Fetch ICE servers (STUN + a minted TURN relay when configured) so phones
+    // on mobile data / client-isolated venue Wi-Fi can still connect. Falls
+    // back to the transport's STUN-only default if the action fails.
+    const { iceServers } = await getDemoIceServers(sessionId).catch(() => ({
+      iceServers: undefined as RTCIceServer[] | undefined,
+    }));
+
     publisherRef.current?.close();
     publisherRef.current = publishDemoCamera({
       sessionId,
       slot: claimedSlot,
       stream,
       onState: setPeerState,
+      iceServers,
     });
     setStep('live');
   }, [sessionId, token]);
@@ -237,7 +245,7 @@ export function CamJoinFlow({ token, sessionId }: { token: string; sessionId: st
         {peerState === 'connected'
           ? 'Connected — you’re live in the control room. Point your phone at anything.'
           : peerState === 'failed'
-            ? 'Video couldn’t connect on this network — phone and computer on the same Wi-Fi usually does it.'
+            ? 'Video couldn’t connect on this network. Switching your phone to mobile data (or a different Wi-Fi) usually fixes it.'
             : 'Connecting to the control room…'}
       </p>
       <div className="relative mt-4 overflow-hidden rounded-xl bg-black">

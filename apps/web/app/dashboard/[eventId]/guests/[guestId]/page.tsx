@@ -12,6 +12,7 @@ import {
   UserX,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { SIDE_CHIP_SOFT } from '@/lib/side-colors';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import {
   fetchGuestById,
@@ -107,16 +108,13 @@ const ERROR_COPY: Record<string, string> = {
   invalid_meal: 'Invalid meal preference.',
 };
 
-// Tailwind tint per Side value, used by the auto-derived Tags Section
-// to chip-color the Side badge AND custom-group memberships (which carry
-// a team_side: bride/groom/both flag per the Custom Groups feature).
-// Matches the established side-color convention from the guest list +
-// seating chart UIs so the visual language stays consistent.
-const SIDE_CHIP_TINT: Record<GuestSide, string> = {
-  bride: 'bg-danger-50 text-danger-900 ring-1 ring-danger-200',
-  groom: 'bg-sky-50 text-sky-900 ring-1 ring-sky-200',
-  both: 'bg-violet-50 text-violet-900 ring-1 ring-violet-200',
-};
+// Tint per Side value, used by the auto-derived Tags Section to chip-color the
+// Side badge AND custom-group memberships (which carry a team_side:
+// bride/groom/both flag per the Custom Groups feature). Pulls the canonical
+// side-colour map (lib/side-colors.ts · SIDE_CHIP_SOFT) so the badge reads the
+// same gold/info-slate language as the roster avatars + the seat map — no more
+// rose/blue/purple diverging from the retinted roster.
+const SIDE_CHIP_TINT = SIDE_CHIP_SOFT;
 
 // Tailwind ring-tone per RSVP value, used by the segmented pill so the
 // selected state reads at a glance. Attending = positive · Pending =
@@ -128,7 +126,7 @@ const RSVP_PILL_CLASS: Record<RsvpStatus, string> = {
   pending:
     'has-[:checked]:bg-warn-100 has-[:checked]:text-warn-900 has-[:checked]:border-warn-400',
   maybe:
-    'has-[:checked]:bg-sky-100 has-[:checked]:text-sky-900 has-[:checked]:border-sky-400',
+    'has-[:checked]:bg-warn-100 has-[:checked]:text-warn-900 has-[:checked]:border-warn-400',
   declined:
     'has-[:checked]:bg-danger-100 has-[:checked]:text-danger-900 has-[:checked]:border-danger-400',
 };

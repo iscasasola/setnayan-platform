@@ -24,6 +24,7 @@
     "host:face-models": "node scripts/host-face-models.mjs",
     "capture:demos": "node scripts/capture-demo-videos.mjs",
     "test:unit": "tsx --test \"lib/**/*.test.ts\"",
+    "test:db": "tsx --test \"tests/db/*.db.test.ts\"",
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test"
   },
@@ -77,6 +78,7 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.4",
     "@playwright/test": "^1.60.0",
     "@types/archiver": "^6.0.3",
     "@types/node": "^22.10.0",

@@ -22,6 +22,7 @@
 import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { safeNext } from '@/lib/auth';
+import { getSelfPersonalization } from '@/lib/self-personalization';
 import { fetchActiveCeremonyTypes } from '@/lib/religion-readiness';
 import { fetchV2CustomerCatalog, fetchV2BundleCatalog } from '@/lib/v2-catalog';
 import { fetchOnboardingBgMusicUrl } from '@/lib/platform-settings';
@@ -113,11 +114,26 @@ export default async function OnboardingWeddingPage({
   // authoritative pax charge is still recomputed server-side at order time by
   // resolvePaxPricedOrderCentavos in submitOrderAction (unchanged).
   const pricing = buildOnboardingPricing(customerSkus, bundles);
+
+  // Date-anchor model: pre-select the faith on a Religious wedding from the
+  // user's OWN profile religion (reference-only, opt-in). Only when it maps to
+  // an ACTIVE ceremony faith — never pre-select an inactive/coming-soon faith.
+  // The shell applies this only on the "Religious" kind and never overrides a
+  // resumed draft.
+  let religionDefault: string | null = null;
+  if (user) {
+    // Shared self-profile reader (2026-07-13) — same religion value as the prior
+    // inline `users` select, now via one canonical helper reused across flows.
+    const { religion } = await getSelfPersonalization();
+    if (religion && (activeFaiths ?? []).includes(religion)) religionDefault = religion;
+  }
+
   return (
     <OnboardingShell
       authed={!!user}
       resume={sp.resume === '1'}
       activeFaiths={activeFaiths}
+      religionDefault={religionDefault}
       pricing={pricing}
       bgMusicUrl={bgMusicUrl}
       refinements={refinements}

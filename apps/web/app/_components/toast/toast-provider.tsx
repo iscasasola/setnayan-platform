@@ -46,10 +46,12 @@ export function useToast(): ToastApi {
   return ctx;
 }
 
+// Warm Atelier semantics (Glass PR-1, 2026-07-15): icon + border carry the
+// status colour from the kit `--sn-*` tokens; the panel is a flat `.sn-row`.
 const VARIANT = {
-  success: { Icon: CheckCircle2, tint: 'text-success-700', ring: 'border-success-700/30' },
-  error: { Icon: AlertCircle, tint: 'text-danger-700', ring: 'border-danger-700/30' },
-  info: { Icon: Info, tint: 'text-ink/70', ring: 'border-ink/15' },
+  success: { Icon: CheckCircle2, color: 'var(--sn-success)' },
+  error: { Icon: AlertCircle, color: 'var(--sn-danger)' },
+  info: { Icon: Info, color: 'var(--sn-info)' },
 } as const;
 
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -90,13 +92,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         className="pointer-events-none fixed inset-x-0 bottom-4 z-[100] flex flex-col items-center gap-2 px-4"
       >
         {toasts.map(({ id, variant, message }) => {
-          const { Icon, tint, ring } = VARIANT[variant];
+          const { Icon, color } = VARIANT[variant];
           return (
             <div
               key={id}
-              className={`pointer-events-auto flex w-full max-w-sm items-start gap-2.5 rounded-lg border bg-paper px-3.5 py-2.5 text-sm text-ink shadow-md ${ring}`}
+              className="sn-row pointer-events-auto flex w-full max-w-sm items-start gap-2.5 px-3.5 py-2.5 text-sm text-ink shadow-md"
+              style={{ borderColor: color, animation: 'sn-rise 320ms both var(--sn-ease-out)' }}
             >
-              <Icon aria-hidden className={`mt-0.5 h-4 w-4 shrink-0 ${tint}`} strokeWidth={2} />
+              <Icon aria-hidden className="mt-0.5 h-4 w-4 shrink-0" style={{ color }} strokeWidth={2} />
               <span className="flex-1 leading-snug">{message}</span>
               <button
                 type="button"

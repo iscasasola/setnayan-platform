@@ -97,7 +97,7 @@ export function unionClipFaceVectors(
 /**
  * BROWSER. Sample N frames across a recorded clip, embed faces in each, and union
  * them → the 128-d descriptors of everyone who appears anywhere in the clip.
- * Best-effort: dormant when no face model is hosted (embedFaces returns []), and
+ * Best-effort: dormant when no face model is hosted (embedFaces yields no vectors), and
  * ANY error (decode/seek/embed) returns [] so the caller no-ops. Never throws.
  */
 export async function embedClipFaces(
@@ -134,7 +134,7 @@ export async function embedClipFaces(
       try {
         await seekTo(video, t);
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const vectors = await embedFaces(canvas);
+        const { vectors } = await embedFaces(canvas);
         if (vectors.length > 0) perFrame.push(vectors);
       } catch {
         // Skip this frame; a bad seek shouldn't lose the whole clip's tags.

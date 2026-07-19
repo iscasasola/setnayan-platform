@@ -11,6 +11,21 @@ import {
   type PlanRow,
   type PreviewItem,
 } from '@/app/_components/app-store/layout';
+import { InspectorColumn } from '@/app/_components/inspector/inspector-column';
+
+/**
+ * True when `addon` resolves to a renderable AddOnDetailView (the same guard the
+ * component uses below to `notFound()`). The Studio hub uses this to gate which
+ * catalog rows become desktop inspector triggers — a row that would `notFound()`
+ * inside the inspector must keep navigating instead, so the page never 500s.
+ */
+export function isInspectableAddon(addon: string): boolean {
+  const entry = ADD_ONS.find((a) => a.key === addon);
+  const detail = addOnDetail(addon);
+  return Boolean(
+    entry && detail && addon !== 'panood' && entry.status !== 'coming_soon',
+  );
+}
 
 // Shared App Store-style detail renderer for couple-side in-app services.
 //
@@ -38,9 +53,13 @@ export function addOnAboutTitle(addon: string): string {
 export async function AddOnDetailView({
   eventId,
   addon,
+  variant = 'page',
 }: {
   eventId: string;
   addon: string;
+  /** 'inspector' wraps the same body in the sticky inspector column (no back
+   *  link; ✕ close + "Open full page ↗" own wayfinding). */
+  variant?: 'page' | 'inspector';
 }) {
   const entry = ADD_ONS.find((a) => a.key === addon);
   const detail = addOnDetail(addon);
@@ -158,9 +177,15 @@ export async function AddOnDetailView({
         ]
       : undefined;
 
-  return (
+  const isInspector = variant === 'inspector';
+
+  const body = (
     <AppStoreLayout
-      back={{ href: `/dashboard/${eventId}/studio`, label: 'Back to Studio' }}
+      back={
+        isInspector
+          ? undefined
+          : { href: `/dashboard/${eventId}/studio`, label: 'Back to Studio' }
+      }
       hero={{
         Icon: entry.Icon,
         eyebrow: detail.eyebrow,
@@ -178,5 +203,19 @@ export async function AddOnDetailView({
         plans,
       }}
     />
+  );
+
+  if (!isInspector) return body;
+
+  return (
+    <InspectorColumn
+      eyebrow={detail.eyebrow}
+      title={entry.label}
+      fullHref={`/dashboard/${eventId}/studio/about/${addon}`}
+      swapKey={addon}
+      ariaLabel={`${entry.label} details`}
+    >
+      {body}
+    </InspectorColumn>
   );
 }

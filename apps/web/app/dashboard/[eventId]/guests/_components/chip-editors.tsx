@@ -38,6 +38,7 @@ import {
   type RsvpStatus,
 } from '@/lib/guests';
 import type { GuestFieldOverride } from '@/lib/guest-optimistic';
+import { SIDE_SWATCH } from '@/lib/side-colors';
 import type { RoleSection } from './guest-list-multiselect';
 import {
   addGuestToGroup,
@@ -175,10 +176,13 @@ function ChipTrigger({
 
 // ── Side ─────────────────────────────────────────────────────────────────────
 
+// Swatches pull the canonical side-colour map (lib/side-colors.ts · SIDE_SWATCH)
+// so the picker reads the same gold / info-slate / lighter-gold language as the
+// roster avatars + seat map.
 const SIDE_OPTIONS: { value: GuestSide; swatch: string }[] = [
-  { value: 'bride', swatch: 'bg-danger-400' },
-  { value: 'groom', swatch: 'bg-sky-500' },
-  { value: 'both', swatch: 'bg-warn-400' },
+  { value: 'bride', swatch: SIDE_SWATCH.bride },
+  { value: 'groom', swatch: SIDE_SWATCH.groom },
+  { value: 'both', swatch: SIDE_SWATCH.both },
 ];
 
 export function SideChipEditor({

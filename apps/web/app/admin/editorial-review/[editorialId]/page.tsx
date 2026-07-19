@@ -80,7 +80,7 @@ export default async function EditorialReviewDetailPage({
           </SubmitButton>
         </form>
       ) : (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-lg border border-[color:var(--sn-danger)]/30 bg-[var(--sn-danger-soft)] px-4 py-3 text-sm text-[color:var(--sn-danger)]">
           {redPending.length} red flag{redPending.length > 1 ? 's' : ''} must be resolved before unlocking.
         </div>
       )}
@@ -117,7 +117,7 @@ export default async function EditorialReviewDetailPage({
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; class: string }> = {
-    flagged: { label: 'Needs review', class: 'bg-red-100 text-red-700' },
+    flagged: { label: 'Needs review', class: 'bg-[var(--sn-danger-soft)] text-[color:var(--sn-danger)]' },
     scanning: { label: 'Scanning…', class: 'bg-yellow-100 text-yellow-700' },
     pending: { label: 'Pending scan', class: 'bg-gray-100 text-gray-600' },
     clean: { label: 'Clean', class: 'bg-green-100 text-green-700' },
@@ -140,13 +140,13 @@ function FlagCard({ flag, editorialId }: { flag: ScanFlag; editorialId: string }
       resolved
         ? 'border-[--m-ink-border] opacity-60'
         : flag.severity === 'red'
-          ? 'border-red-300 bg-red-50/40'
+          ? 'border-[color:var(--sn-danger)]/30 bg-[var(--sn-danger-soft)]'
           : 'border-yellow-300 bg-yellow-50/40'
     }`}>
       {/* Flag header */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className={`rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide ${
-          flag.severity === 'red' ? 'bg-red-600 text-white' : 'bg-yellow-500 text-white'
+          flag.severity === 'red' ? 'bg-[var(--sn-danger-soft)] text-white' : 'bg-yellow-500 text-white'
         }`}>
           {flag.severity === 'red' ? '● Vulgar' : '● Grammar'}
         </span>

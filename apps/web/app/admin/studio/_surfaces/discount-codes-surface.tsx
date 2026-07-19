@@ -214,7 +214,7 @@ export async function DiscountCodesSurface({
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h1
-            className="m-display-tight text-3xl"
+            className="sn-h1"
             style={{ color: 'var(--m-ink)' }}
           >
             Discount codes
@@ -554,7 +554,7 @@ function Stat({
 }) {
   return (
     <div
-      className="m-card flex items-start gap-3 px-4 py-3"
+      className="sn-row flex items-start gap-3 px-4 py-3"
     >
       <div
         className="flex h-8 w-8 items-center justify-center rounded-full"

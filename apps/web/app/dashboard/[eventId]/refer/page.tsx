@@ -44,7 +44,7 @@ export default async function ReferACouplePage({ params }: Props) {
   if (!referral) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Refer a couple</h1>
+        <h1 className="sn-h1">Refer a couple</h1>
         <p className="text-sm text-ink/65">
           We couldn&rsquo;t load your referral link just now. Please refresh and try again.
         </p>
@@ -56,8 +56,9 @@ export default async function ReferACouplePage({ params }: Props) {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-2">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight sm:text-3xl">
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">Refer a couple</p>
+        <h1 className="sn-h1 flex items-center gap-2">
           <Gift aria-hidden className="h-6 w-6 text-terracotta" strokeWidth={1.75} />
           Refer a couple
         </h1>
@@ -69,7 +70,7 @@ export default async function ReferACouplePage({ params }: Props) {
       </header>
 
       {/* Share card — the couple's code + link + one-tap copy. */}
-      <section className="rounded-xl border border-ink/10 bg-cream p-5 space-y-4">
+      <section className="sn-tile p-5 space-y-4">
         <div className="space-y-1">
           <p className="text-xs font-medium uppercase tracking-wide text-ink/55">
             Your referral code
@@ -105,7 +106,7 @@ export default async function ReferACouplePage({ params }: Props) {
         </h2>
 
         {redemptions.length === 0 ? (
-          <div className="flex items-start gap-3 rounded-lg border border-dashed border-ink/15 bg-cream/50 p-4 text-sm text-ink/60">
+          <div className="sn-row border-dashed flex items-start gap-3 p-4 text-sm text-ink/60">
             <UserPlus aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
             <p>
               No referrals yet. Share your link above — you&rsquo;ll see couples
@@ -125,7 +126,7 @@ export default async function ReferACouplePage({ params }: Props) {
               return (
                 <li
                   key={r.referred_user_id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-ink/10 bg-cream px-4 py-3"
+                  className="sn-row flex items-center justify-between gap-3 px-4 py-3"
                 >
                   <div className="flex items-center gap-3">
                     <Icon

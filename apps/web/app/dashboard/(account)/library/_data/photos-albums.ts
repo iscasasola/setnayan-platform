@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlsForStoredAssets } from '@/lib/uploads';
 import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
+import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { getSwitcherData, type SwitcherEvent } from '@/app/_components/account-switcher/get-switcher-data';
 
 /**
@@ -44,7 +45,12 @@ export type Album = {
   count: number;
   /** Up to THUMBS_PER_ALBUM presigned thumbnail URLs (newest first). */
   thumbs: { url: string; isClip: boolean }[];
-  /** Public landing slug, when set — used for the Facebook share link. */
+  /**
+   * Landing slug — populated ONLY when the event is effectively PUBLIC (a
+   * stranger with the link can actually load the page). Anchors the Facebook
+   * share link; a private/unlisted event stays null so no dead-link share card
+   * is ever offered. See getPhotosAlbums().
+   */
   slug: string | null;
 };
 
@@ -158,17 +164,32 @@ export async function getPhotosAlbums(userId: string): Promise<PhotosAlbumsData>
 
   // Public-landing slugs (for the Facebook share link) — best-effort under the
   // user's RLS session; degrades to no-slug if the column/policy is unavailable.
+  // PRIVACY/CORRECTNESS: only an EFFECTIVELY-PUBLIC event contributes a slug. A
+  // share link is broadcast to the world, so an unlisted/private (or
+  // scheduled-but-not-yet-due) event would hand out a link that lands the
+  // recipient on a locked/404 page. resolveEffectiveVisibility is the same
+  // gate app/[slug] renders through, so the share card and the page agree.
   const supabase = await createClient();
   const slugByEvent = new Map<string, string>();
   if (events.length > 0) {
     try {
       const { data: slugRows } = await supabase
         .from('events')
-        .select('event_id, slug')
+        .select('event_id, slug, landing_page_visibility, scheduled_launch_at, std_launched_at')
         .in('event_id', events.map((e) => e.event_id));
       for (const row of slugRows ?? []) {
         const slug = (row.slug as string | null) ?? null;
-        if (slug) slugByEvent.set(row.event_id as string, slug);
+        if (!slug) continue;
+        const effective = resolveEffectiveVisibility({
+          landing_page_visibility: row.landing_page_visibility as
+            | 'public'
+            | 'unlisted'
+            | 'private'
+            | null,
+          scheduled_launch_at: row.scheduled_launch_at as string | null,
+          std_launched_at: row.std_launched_at as string | null,
+        });
+        if (effective === 'public') slugByEvent.set(row.event_id as string, slug);
       }
     } catch {
       /* slug unavailable — share card hides */

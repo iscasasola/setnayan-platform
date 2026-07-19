@@ -23,12 +23,20 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 const ALLOWED_VISIBILITY = new Set(['public', 'unlisted', 'private']);
 
-async function requireHostMembership(eventId: string): Promise<string> {
+async function requireHostMembership(
+  eventId: string,
+  opts?: { secured?: boolean },
+): Promise<string> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+  // Anon-draft boundary: making the page public/unlisted is a public-identity
+  // action — a native anonymous principal must secure their plan first.
+  if (opts?.secured && user.is_anonymous) {
+    redirect(`/signup?next=/dashboard/${eventId}`);
+  }
 
   // Source 1 — event_moderators (canonical going forward · iteration 0048).
   const { data: moderator } = await supabase
@@ -79,7 +87,9 @@ export async function updateLandingPageVisibility(formData: FormData) {
   }
   const visibility = visibilityRaw as 'public' | 'unlisted' | 'private';
 
-  await requireHostMembership(eventId);
+  // Anon can set 'private' (harmless), but going public/unlisted requires a
+  // secured account.
+  await requireHostMembership(eventId, { secured: visibility !== 'private' });
 
   const supabase = await createClient();
 

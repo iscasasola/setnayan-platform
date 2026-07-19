@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { after } from 'next/server';
 import { runSocialFlush } from '@/lib/social/flush';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
+import { runDailyEmailJobs } from '@/lib/daily-email-jobs';
 import { Star, MapPin, ChevronLeft, ChevronRight, Navigation, Sparkles, Snowflake, HeartHandshake } from 'lucide-react';
 import { haversineKm, formatDistanceKm } from '@/lib/geo';
 import { Wordmark } from '@/app/_components/brand-marks';
@@ -409,8 +410,10 @@ type Props = {
     offseason?: string;
     event_type?: string;
     /** Task #12 · CLAUDE.md 2026-05-22 — middleware redirects
-     *  /vendors/compare here with `notice=compare_v1_2`. Surfaces the
-     *  "compare is coming in V1.2" banner under the marketplace header. */
+     *  /vendors/compare here with `notice=compare_v1_2`. The compare tool
+     *  since SHIPPED (/explore/compare), so the banner no longer promises
+     *  a "coming" feature: it points at the live tool + how to reach it
+     *  (save ≥2 vendors). Wayfinding 2026-07-15. */
     notice?: string;
     /** Task #47 · CLAUDE.md 2026-05-22 — when present and resolves to one
      *  of WEDDING_FOLDER_ORDER, scopes the catalog to a single folder
@@ -482,11 +485,43 @@ type Props = {
 // `feedback_setnayan_no_dev_text_post_launch`.
 const VENDORS_NOTICE_COPY: Record<string, { title: string; body: string }> = {
   compare_v1_2: {
-    title: 'Side-by-side comparison is coming soon.',
+    title: 'Compare vendors side by side.',
     body:
-      'For now, save vendors you’re considering to your shortlist from each vendor’s profile — we’ll bring the comparison view alongside it shortly.',
+      'Save two or more vendors to your shortlist, then open the comparison to see location, rating, services and faith fit next to each other.',
   },
 };
+
+/**
+ * Compare-shortlist doorway (route-wayfinding 2026-07-15). /explore/compare is a
+ * live 2-up comparison tool that reads `?ids=<uuid>,<uuid>` (capped at 2, redirects
+ * back to /explore below two). It had no in-app door — the marketplace only carried
+ * a stale "coming in V1.2" banner. This renders the real door once the couple has
+ * saved ≥2 vendors, linking the two earliest saves. Null href → nothing renders.
+ */
+function CompareShortlistBanner({ compareHref }: { compareHref: string | null }) {
+  if (!compareHref) return null;
+  return (
+    <div
+      role="status"
+      className="border-b border-terracotta/15 bg-terracotta/5"
+    >
+      <div className="mx-auto flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 sm:px-6 lg:px-8">
+        <p className="text-sm text-ink/80">
+          <span className="font-medium text-ink">Compare your shortlist.</span>{' '}
+          <span className="text-ink/70">
+            Put two saved vendors side by side — location, rating, services, faith fit.
+          </span>
+        </p>
+        <Link
+          href={compareHref}
+          className="shrink-0 inline-flex items-center gap-1 text-sm font-medium text-terracotta underline-offset-4 hover:underline"
+        >
+          Compare →
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 function NoticeBanner({ noticeKey }: { noticeKey: string | null }) {
   if (!noticeKey) return null;
@@ -1242,6 +1277,32 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   const venueFilterActive =
     hostVenueSetting !== null && filters.venueDefault === 'on';
 
+  // Compare-shortlist doorway (route-wayfinding 2026-07-15). Resolve the
+  // couple's saved-vendor shortlist once (both render modes reuse it) and build
+  // a link to the live /explore/compare tool, which reads `?ids=<uuid>,<uuid>`.
+  // Enabled only at ≥2 saved vendors; links the two earliest saves. Null when
+  // anonymous / <2 saved → CompareShortlistBanner renders nothing.
+  let compareHref: string | null = null;
+  if (coupleEventId) {
+    const { data: savedForCompare } = await supabase
+      .from('event_vendors')
+      .select('marketplace_vendor_id')
+      .eq('event_id', coupleEventId)
+      .not('marketplace_vendor_id', 'is', null)
+      .neq('status', 'declined')
+      .order('vendor_id', { ascending: true });
+    const savedIds = Array.from(
+      new Set(
+        (savedForCompare ?? [])
+          .map((r) => r.marketplace_vendor_id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+    if (savedIds.length >= 2) {
+      compareHref = `/explore/compare?ids=${savedIds[0]},${savedIds[1]}`;
+    }
+  }
+
   // SEO/GEO Bucket 6 · ItemList JSON-LD origin computed once per render.
   // Both return branches (catalog mode + non-catalog) inject the same JSON-LD
   // surface so /vendors emits the taxonomy hierarchy regardless of mode.
@@ -1256,6 +1317,10 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // client), so the cookies()-ordering constraint that pins runSocialFlush
   // below doesn't apply. Throttled + single-claim + OFF by default internally.
   after(() => runAdminDigestFlush().catch(() => {}));
+  // Daily email jobs (anniversary · renewal · Papic drop warning) — CRON-FREE,
+  // fired here too (before the catalog-mode early return) so the marketplace's
+  // main public entry drives them daily. Per-job daily DB claim; never throws.
+  after(() => runDailyEmailJobs().catch(() => {}));
 
   if (isCatalogMode) {
     return (
@@ -1274,6 +1339,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           currentEventId={coupleEventId}
           isAuthenticated={user !== null}
           noticeKey={noticeKey}
+          compareHref={compareHref}
           scopedFolder={filters.folder}
           inDemoMode={inDemoMode}
           focusedMode={filters.focusedMode}
@@ -2463,6 +2529,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           sticky-top bars would stack/overlap on scroll. */}
 
       <NoticeBanner noticeKey={noticeKey} />
+      <CompareShortlistBanner compareHref={compareHref} />
 
       {/* 2026-05-30 mobile pattern lock — `pb-36` on mobile gives the page
           content 144px of bottom clearance so the last visible items don't
@@ -3312,6 +3379,7 @@ async function CatalogView({
   currentEventId,
   isAuthenticated,
   noticeKey,
+  compareHref,
   scopedFolder,
   inDemoMode,
   focusedMode,
@@ -3337,6 +3405,9 @@ async function CatalogView({
    *  unknown. Surfaces a polite banner under the header explaining a
    *  redirected-from-deferred-feature landing. */
   noticeKey: string | null;
+  /** Route-wayfinding 2026-07-15 — `/explore/compare?ids=…` link when the couple
+   *  has ≥2 saved vendors, else null. Drives CompareShortlistBanner. */
+  compareHref: string | null;
   /** Task #47 — when non-null, render only the named folder section. Hides
    *  the other 11 folders + the PairedVenuePanel (which surfaces ceremony
    *  venues regardless of viewport position; the dashboard Reception
@@ -3729,6 +3800,7 @@ async function CatalogView({
       </header>
 
       <NoticeBanner noticeKey={noticeKey} />
+      <CompareShortlistBanner compareHref={compareHref} />
 
       <section
         id="all"

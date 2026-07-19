@@ -256,8 +256,8 @@ export function CustomConfigurator({
 
       {/* ── Live quote + submit (sticky on desktop) ──────────────────────── */}
       <aside className="lg:sticky lg:top-6 lg:self-start">
-        <div className="m-card p-5">
-          <p className="m-label-mono">Your Custom plan</p>
+        <div className="sn-tile p-5">
+          <p className="sn-eye">Your Custom plan</p>
           <p className="mt-2 text-3xl font-semibold tabular-nums text-ink">
             {peso(quote.final28)}
             <span className="ml-1 text-sm font-normal text-ink/55">per 28 days</span>

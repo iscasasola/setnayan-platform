@@ -88,16 +88,17 @@ const STATUS_PILL: Record<
     border: 'var(--m-orange-3)',
   },
   whitelist: {
+    // Warm-semantic info-slate — violet/purple is retired app-wide (contract § 7).
     label: 'Whitelist',
-    bg: 'rgba(139,123,184,0.12)',
-    fg: '#6D5C9C',
-    border: 'rgba(139,123,184,0.30)',
+    bg: 'var(--sn-info-soft)',
+    fg: 'var(--sn-info)',
+    border: 'color-mix(in srgb, var(--sn-info) 30%, transparent)',
   },
   waitlist: {
     label: 'Waitlist',
-    bg: 'rgba(184,134,47,0.12)',
-    fg: '#946A17',
-    border: 'rgba(184,134,47,0.28)',
+    bg: 'var(--sn-warning-soft)',
+    fg: 'var(--sn-warning)',
+    border: 'color-mix(in srgb, var(--sn-warning) 30%, transparent)',
   },
   in_conversation: {
     label: 'In conversation',
@@ -111,7 +112,7 @@ function categoryLabel(key: string): string {
   return (VENDOR_CATEGORY_LABEL as Record<string, string>)[key] ?? key.replace(/_/g, ' ');
 }
 
-export default async function VendorCustomersPage({ searchParams }: Props) {
+async function CustomersPipeline({ searchParams }: Props) {
   const search = await searchParams;
   const supabase = await createClient();
   const {
@@ -372,10 +373,9 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
   const dayHrefBase = '/vendor-dashboard/calendar';
 
   return (
-    <section
-      className="min-h-full"
-      style={{ background: 'var(--m-paper)' }}
-    >
+    // Glass PR-7: the opaque `--m-paper` body wrapper is dropped — the Atelier
+    // wash (`.sn-ambient`, inherited from the shell) shows through the glass tiles.
+    <section className="min-h-full">
       <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
         {/* Sections 1 + 2 — filter row + month calendar (centrepiece). */}
         <CustomersCalendar
@@ -408,25 +408,20 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
           agentCategories={agentCategories}
         />
 
-        {/* Section 3 — three summary cards. */}
+        {/* Section 3 — three summary cards (glass `.sn-tile` bento). */}
         <div className="grid gap-4 md:grid-cols-3">
           {/* Ongoing payments */}
-          <article
-            className="rounded-xl border p-4"
-            style={{ borderColor: 'var(--m-line)', background: '#fff' }}
-          >
-            <div className="flex items-center gap-2">
+          <article className="sn-tile">
+            <p className="sn-eye">
               <span
                 aria-hidden
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg"
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
                 style={{ background: 'rgba(79,107,74,0.12)', color: 'var(--m-sage-deep)' }}
               >
                 <PhilippinePeso className="h-4 w-4" strokeWidth={1.75} />
               </span>
-              <h3 className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-                Ongoing payments
-              </h3>
-            </div>
+              Ongoing payments
+            </p>
             {payments.isEmpty ? (
               <p className="mt-3 text-sm" style={{ color: 'var(--m-slate-2)' }}>
                 No installments due this month. Amounts appear here once a couple
@@ -434,7 +429,7 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
               </p>
             ) : (
               <>
-                <p className="mt-3 text-2xl font-semibold tracking-tight" style={{ color: 'var(--m-ink)' }}>
+                <p className="mt-3 font-mono text-2xl font-bold tracking-tight" style={{ color: 'var(--m-ink)' }}>
                   {formatPhp(payments.collectedPhp)}{' '}
                   <span className="text-base font-normal" style={{ color: 'var(--m-slate-2)' }}>
                     / {formatPhp(payments.expectedPhp)}
@@ -456,42 +451,34 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
                     style={{ width: `${collectPct}%`, background: 'var(--m-sage-deep)' }}
                   />
                 </div>
-                {payments.unresolvedCount > 0 ? (
-                  <p className="mt-2 text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
-                    {payments.unresolvedCount} installment
-                    {payments.unresolvedCount === 1 ? '' : 's'} this month has no set
-                    amount yet.
-                  </p>
-                ) : null}
+                {/* The "N installments have no set amount yet" caveat lives once,
+                    on the Payday timeline this card links down to — not repeated
+                    here. */}
               </>
             )}
             <Link
-              href="/vendor-dashboard/payday"
+              href="#payday"
+              scroll
               className="mt-3 inline-flex items-center gap-1 text-sm font-medium"
               style={{ color: 'var(--m-orange-2)' }}
             >
-              Payday <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+              Payday timeline <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
             </Link>
           </article>
 
           {/* Messages */}
-          <article
-            className="rounded-xl border p-4"
-            style={{ borderColor: 'var(--m-line)', background: '#fff' }}
-          >
-            <div className="flex items-center gap-2">
+          <article className="sn-tile">
+            <p className="sn-eye">
               <span
                 aria-hidden
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg"
-                style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+                style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-700)' }}
               >
                 <MessageSquare className="h-4 w-4" strokeWidth={1.75} />
               </span>
-              <h3 className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-                Messages
-              </h3>
-            </div>
-            <p className="mt-3 text-2xl font-semibold tracking-tight" style={{ color: 'var(--m-ink)' }}>
+              Messages
+            </p>
+            <p className="mt-3 font-mono text-2xl font-bold tracking-tight" style={{ color: 'var(--m-ink)' }}>
               {unreadCount}{' '}
               <span className="text-base font-normal" style={{ color: 'var(--m-slate-2)' }}>
                 new
@@ -501,7 +488,8 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
               {conversationCount} conversation{conversationCount === 1 ? '' : 's'}
             </p>
             <Link
-              href="/vendor-dashboard/messages"
+              href="?open=messages"
+              scroll={false}
               className="mt-3 inline-flex items-center gap-1 text-sm font-medium"
               style={{ color: 'var(--m-orange-2)' }}
             >
@@ -511,22 +499,17 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
           </article>
 
           {/* Service coverage */}
-          <article
-            className="rounded-xl border p-4"
-            style={{ borderColor: 'var(--m-line)', background: '#fff' }}
-          >
-            <div className="flex items-center gap-2">
+          <article className="sn-tile">
+            <p className="sn-eye">
               <span
                 aria-hidden
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg"
-                style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+                style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-700)' }}
               >
                 <Sparkles className="h-4 w-4" strokeWidth={1.75} />
               </span>
-              <h3 className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-                Service coverage
-              </h3>
-            </div>
+              Service coverage
+            </p>
             {serviceCoverage.length === 0 ? (
               <p className="mt-3 text-sm" style={{ color: 'var(--m-slate-2)' }}>
                 No services yet. Add a service to set your coverage so couples can
@@ -580,85 +563,84 @@ export default async function VendorCustomersPage({ searchParams }: Props) {
           month={month}
         />
 
-        {/* Section 4 — customers list. */}
-        <div
-          className="rounded-xl border"
-          style={{ borderColor: 'var(--m-line)', background: '#fff' }}
-        >
-          <div
-            className="flex items-center justify-between gap-2 border-b px-4 py-3"
-            style={{ borderColor: 'var(--m-line)' }}
-          >
-            <h2 className="text-base font-semibold" style={{ color: 'var(--m-ink)' }}>
-              Customers
-            </h2>
+        {/* Section 4 — customers list (`.sn-tile` panel of opaque `.sn-row` items;
+            the list can be long, so rows stay flat per the blur budget § 1.6). */}
+        <div>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="sn-sec">Customers</h2>
             <Link
-              href="/vendor-dashboard/clients"
-              className="inline-flex items-center gap-1 text-sm font-medium"
-              style={{ color: 'var(--m-orange-2)' }}
+              href="?open=clients"
+              scroll={false}
+              className="inline-flex items-center gap-1 text-sm font-semibold"
+              style={{ color: 'var(--sn-gold-700)' }}
             >
               <CalendarDays className="h-4 w-4" strokeWidth={1.75} aria-hidden />
               Book of business
             </Link>
           </div>
           {rows.length === 0 ? (
-            <p className="px-4 py-8 text-sm" style={{ color: 'var(--m-slate-2)' }}>
+            <p
+              className="rounded-2xl border border-dashed p-5 text-sm"
+              style={{ borderColor: 'var(--sn-line)', color: 'var(--m-slate-2)' }}
+            >
               No customers yet. When a couple books you, or you accept an inquiry,
               they show up here with their event, date, and where they&rsquo;re at
               with payments.
             </p>
           ) : (
-            <ul className="divide-y" style={{ borderColor: 'var(--m-line)' }}>
-              {rows.map((r) => {
-                const pill = STATUS_PILL[r.status];
-                const note = moneyNote(r);
-                const inner = (
-                  <>
-                    <span
-                      aria-hidden
-                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
-                      style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
-                    >
-                      {initialsOf(r.eventName)}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="flex flex-wrap items-center gap-2">
-                        <span className="truncate text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                          {r.eventName}
-                        </span>
-                        <span
-                          className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
-                          style={{ background: pill.bg, color: pill.fg, border: `1px solid ${pill.border}` }}
-                        >
-                          {pill.label}
-                        </span>
-                      </span>
-                      <span className="mt-0.5 block truncate text-xs" style={{ color: 'var(--m-slate-2)' }}>
-                        {fmtDate(r.eventDate)}
-                        {r.place ? ` · ${r.place}` : ''}
-                      </span>
-                    </span>
-                    <span className="shrink-0 text-right text-xs" style={{ color: note.tone }}>
-                      {note.text}
-                    </span>
-                  </>
-                );
-                return (
-                  <li key={`${r.status}:${r.eventId}`}>
-                    {r.threadId ? (
-                      <Link
-                        href={`/vendor-dashboard/messages/${r.threadId}`}
-                        className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--m-paper-2)]"
+            <div className="sn-tile p-2 sm:p-2.5">
+              <ul className="space-y-1">
+                {rows.map((r) => {
+                  const pill = STATUS_PILL[r.status];
+                  const note = moneyNote(r);
+                  const inner = (
+                    <>
+                      <span
+                        aria-hidden
+                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
+                        style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-700)' }}
                       >
-                        {inner}
-                      </Link>
-                    ) : (
-                      <div className="flex items-center gap-3 px-4 py-3">{inner}</div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+                        {initialsOf(r.eventName)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span className="truncate text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                            {r.eventName}
+                          </span>
+                          <span
+                            className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
+                            style={{ background: pill.bg, color: pill.fg, border: `1px solid ${pill.border}` }}
+                          >
+                            {pill.label}
+                          </span>
+                        </span>
+                        <span className="mt-0.5 block truncate font-mono text-xs" style={{ color: 'var(--m-slate-2)' }}>
+                          {fmtDate(r.eventDate)}
+                          {r.place ? ` · ${r.place}` : ''}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-right font-mono text-xs" style={{ color: note.tone }}>
+                        {note.text}
+                      </span>
+                    </>
+                  );
+                  return (
+                    <li key={`${r.status}:${r.eventId}`}>
+                      {r.threadId ? (
+                        <Link
+                          href={`/vendor-dashboard/messages/${r.threadId}`}
+                          className="sn-row group flex items-center gap-3 px-3.5 py-3 transition-transform hover:translate-x-0.5"
+                        >
+                          {inner}
+                        </Link>
+                      ) : (
+                        <div className="sn-row flex items-center gap-3 px-3.5 py-3">{inner}</div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
           )}
         </div>
       </div>
@@ -683,4 +665,123 @@ function moneyNote(r: CustomerRow): { text: string; tone: string } {
     return { text: `Balance ${formatPhp(m.balancePhp)}`, tone: 'var(--m-ink)' };
   }
   return { text: 'Downpayment in', tone: 'var(--m-slate-2)' };
+}
+
+
+/* ── My Customers hub (owner 5-page IA, 2026-07-12) ─────────────────────────
+ * One menu item, every people-facing feature integrated as a tab: the
+ * pipeline (this file's original body), Bookings, Clients, Calendar, Payday,
+ * Messages. The old routes redirect in with their params preserved. */
+import { Suspense } from 'react';
+import { Users as UsersIcon, SlidersHorizontal } from 'lucide-react';
+import {
+  FeatureAccordion,
+  AccordionSkeleton,
+  type AccordionSection,
+} from '../_components/feature-accordion';
+import BookingsSurface from '../bookings/surface';
+import ClientsSurface from '../clients/surface';
+import CalendarSurface from '../calendar/surface';
+import PaydaySurface from '../payday/surface';
+import MessagesSurface from '../messages/surface';
+
+// Folded sections below the pipeline (which already shows the ONE month
+// calendar + summary cards + QR + customers list). No "Calendar" section —
+// the grid lives in the pipeline; its EDIT tools live in "Availability &
+// capacity" (owner dedup 2026-07-12: "calendar already on the page").
+// Owner editorial pick 2026-07-12 — which sections stay ALWAYS-ON vs collapse.
+// Rule: always-on = glanced almost every visit AND light to render; collapse =
+// heavy / configure-once / already summarised elsewhere.
+//   ALWAYS-ON (rendered eagerly below the pipeline): Bookings (new inquiries —
+//   the daily heartbeat) + Payday (cash-flow timeline, 1 query, shown nowhere
+//   else). COLLAPSE: Clients (the pipeline list already covers the roster),
+//   Messages (unread count is on the pipeline's summary card), Availability
+//   (config).
+//
+//   DEDUP 2026-07-16: Messages moved back to COLLAPSE. It had been promoted to
+//   always-on, but BookingsSurface (also always-on) renders the SAME
+//   fetchVendorThreads() set as a work queue — so two full thread lists showed
+//   on one page. Messages now folds here (its unread count already lives on the
+//   pipeline's Messages summary card, which links straight to this section).
+//   ⚠ Reverses the owner 2026-07-12 "promote Messages to always-on" — see PR.
+const CUSTOMER_SECTIONS: AccordionSection[] = [
+  {
+    key: 'messages',
+    label: 'Messages',
+    sub: 'Your conversations — reply, reveal, and log outcomes',
+    icon: <MessageSquare className="h-4 w-4" strokeWidth={1.75} />,
+  },
+  {
+    key: 'clients',
+    label: 'Clients',
+    sub: 'Booked · in conversation · outside clients',
+    icon: <UsersIcon className="h-4 w-4" strokeWidth={1.75} />,
+  },
+  {
+    key: 'availability',
+    label: 'Availability & capacity',
+    sub: 'Set daily limits, block dates, import clients, manage the waitlist',
+    icon: <SlidersHorizontal className="h-4 w-4" strokeWidth={1.75} />,
+  },
+];
+
+async function CustomerSectionBody({
+  open,
+  sp,
+}: {
+  open: string;
+  sp: Record<string, string | string[] | undefined>;
+}) {
+  const pass = Promise.resolve(sp);
+  switch (open) {
+    case 'messages':
+      return <MessagesSurface />;
+    case 'clients':
+      return <ClientsSurface searchParams={pass as never} />;
+    case 'availability':
+      // Management tools only — the month grid stays in the pipeline above.
+      return <CalendarSurface searchParams={pass as never} variant="manage" />;
+    default:
+      return null;
+  }
+}
+
+export default async function VendorCustomersHub({ searchParams }: Props) {
+  const sp = (await searchParams) as Record<string, string | string[] | undefined>;
+  const openRaw =
+    (typeof sp.open === 'string' && sp.open) ||
+    // Legacy alias: old /calendar deep-links redirect with ?tab=calendar →
+    // land on Availability. Everything else maps 1:1.
+    (typeof sp.tab === 'string' && (sp.tab === 'calendar' ? 'availability' : sp.tab)) ||
+    null;
+  const open =
+    openRaw && CUSTOMER_SECTIONS.some((s) => s.key === openRaw) ? openRaw : null;
+
+  return (
+    <>
+      {/* The pipeline is the home: month calendar + summary cards + QR + list. */}
+      <CustomersPipeline searchParams={Promise.resolve(sp) as never} />
+
+      {/* ALWAYS-ON (owner pick 2026-07-12): Bookings = the daily heartbeat
+          (new inquiries), Payday = the cash-flow timeline (1 query, shown
+          nowhere else). Rendered eagerly, not behind an accordion. */}
+      <div id="bookings">
+        <BookingsSurface searchParams={Promise.resolve(sp) as never} />
+      </div>
+      <div id="payday">
+        <PaydaySurface />
+      </div>
+
+      {/* The rest folds in — glance-covered or configure-once. Messages folds
+          here too (its thread set is already the always-on Bookings queue
+          above; opening this section shows the chat/reply view). */}
+      <FeatureAccordion sections={CUSTOMER_SECTIONS} openKey={open}>
+        {open ? (
+          <Suspense fallback={<AccordionSkeleton />}>
+            <CustomerSectionBody open={open} sp={sp} />
+          </Suspense>
+        ) : null}
+      </FeatureAccordion>
+    </>
+  );
 }

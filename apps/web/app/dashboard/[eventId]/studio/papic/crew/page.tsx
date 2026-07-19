@@ -132,8 +132,9 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
         Back to Papic
       </Link>
 
-      <header className="space-y-3">
-        <h1 className="flex items-center gap-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="sn-reveal space-y-3">
+        <p className="sn-eye">Crew</p>
+        <h1 className="sn-h1 flex items-center gap-3">
           <Camera aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
           Your photo crew
         </h1>

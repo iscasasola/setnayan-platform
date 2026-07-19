@@ -14,6 +14,7 @@ import {
 } from '@/lib/schedule';
 import { fetchGuestsByEvent } from '@/lib/guests';
 import { buildEmceeScript } from '@/lib/emcee-script';
+import { buildRunOfShowSeed } from '@/lib/schedule-run-of-show';
 
 const VALID_TYPES = new Set<ScheduleBlockType>(SCHEDULE_BLOCK_TYPES);
 
@@ -424,6 +425,73 @@ export async function seedDefaultScheduleBlocks(
   revalidatePath(`/dashboard/${eventId}/schedule`);
   revalidatePath(`/dashboard/${eventId}`);
   return topLevelRows.length + childInserts.length;
+}
+
+/**
+ * Idempotent Run-of-Show seed for NON-WEDDING events (owner-locked 2026-07-12:
+ * Run-of-Show is FREE). Fires on the schedule's first open when the event has no
+ * blocks yet: authors the per-type Filipino program (the 18s, the reveal, the
+ * awarding…) from `lib/schedule-run-of-show`, ENRICHED by what the host captured
+ * at onboarding (`events.signature_details`). Weddings keep their own spine and
+ * are intentionally NOT seeded here (buildRunOfShowSeed returns [] for them).
+ *
+ * Single-pass, flat blocks (no parent/child) — a non-wedding program is a linear
+ * agenda the host reshapes. Mirrors seedDefaultScheduleBlocks' guards: verify
+ * access via the RLS-gated SELECT, skip if any block already exists, then write
+ * with the admin client (first-open fixture, not a form submit). Returns the
+ * number of rows inserted (0 = skipped: wedding, already seeded, or empty).
+ */
+export async function seedNonWeddingRunOfShow(eventId: string): Promise<number> {
+  if (!eventId) throw new Error('event_id required');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return 0; // page owns auth; the seed is best-effort
+
+  const { data: existing, error: existingErr } = await supabase
+    .from('event_schedule_blocks')
+    .select('block_id')
+    .eq('event_id', eventId)
+    .limit(1);
+  if (existingErr) throw new Error(existingErr.message);
+  if (existing && existing.length > 0) return 0; // already has a schedule · skip
+
+  const { data: ev } = await supabase
+    .from('events')
+    .select('event_type, event_date, signature_details')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const eventType = (ev?.event_type as string | null | undefined) ?? 'wedding';
+  if (eventType === 'wedding') return 0; // weddings use their own seed
+
+  const blocks = buildRunOfShowSeed(
+    eventType,
+    (ev?.signature_details as Record<string, unknown> | null | undefined) ?? null,
+    (ev?.event_date as string | null | undefined) ?? null,
+  );
+  if (blocks.length === 0) return 0;
+
+  const admin = createAdminClient();
+  const rows = blocks.map((b) => ({
+    event_id: eventId,
+    label: b.label,
+    block_type: b.block_type,
+    start_at: b.start_at,
+    end_at: b.end_at,
+    is_public: b.is_public,
+    sort_order: b.sort_order,
+    parent_block_id: null,
+    notes: b.notes,
+  }));
+
+  const { error } = await admin.from('event_schedule_blocks').insert(rows);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/schedule`);
+  revalidatePath(`/dashboard/${eventId}`);
+  return rows.length;
 }
 
 /**

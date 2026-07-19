@@ -140,7 +140,7 @@ export default async function AdminPayoutsPage({ searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">
+        <p className="sn-eye">
           Iteration 0006 + 0034 · Vendor Payout model (2026-05-16 lock)
         </p>
         <h1 className="text-2xl font-semibold tracking-tight">Vendor payouts</h1>
@@ -195,7 +195,7 @@ export default async function AdminPayoutsPage({ searchParams }: Props) {
       ) : null}
 
       {rows.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-ink/15 bg-cream p-10 text-center">
+        <div className="rounded-2xl border border-dashed border-ink/15 bg-white/50 p-10 text-center">
           <Wallet aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
           <p className="text-sm font-medium text-ink">No payouts match this filter.</p>
           <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
@@ -259,7 +259,7 @@ function FilterBar({
           </Link>
         ))}
       </div>
-      <form className="flex flex-wrap items-end gap-2 rounded-2xl border border-ink/10 bg-cream p-3" method="get">
+      <form className="flex flex-wrap items-end gap-2 sn-tile p-3" method="get">
         <input type="hidden" name="filter" value={filter} />
         {stage !== 'all' ? <input type="hidden" name="stage" value={stage} /> : null}
         <label className="block text-xs text-ink/60">
@@ -312,7 +312,7 @@ function PayoutCard({ row }: { row: PayoutRow }) {
   const isHeld = !!row.on_hold;
 
   return (
-    <li className="rounded-2xl border border-ink/10 bg-cream p-4">
+    <li className="sn-tile p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -462,7 +462,7 @@ function Stat({
   tone: string;
 }) {
   return (
-    <div className="rounded-2xl border border-ink/10 bg-cream p-4">
+    <div className="sn-tile p-4">
       <div className="flex items-center gap-2">
         <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full ${tone}`}>
           {icon}

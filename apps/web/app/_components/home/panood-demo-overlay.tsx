@@ -19,7 +19,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, Volume2, VolumeX } from 'lucide-react';
 import { OverlayShell, type OverlayId } from './HomeOverlays';
-import { startDemoSession, type DemoQrPair } from '@/app/_actions/demo-session-actions';
+import { getDemoIceServers, startDemoSession, type DemoQrPair } from '@/app/_actions/demo-session-actions';
 import { watchDemoCameras, type CamSlot, type PeerConnectionState } from '@/lib/demo-webrtc';
 
 const SLOT_LABEL: Record<CamSlot, string> = { a: 'Camera 1', b: 'Camera 2' };
@@ -164,25 +164,38 @@ export function PanoodDemoOverlay({ current, onClose }: { current: OverlayId; on
   // (remote phones see the feed die; nothing lingers).
   useEffect(() => {
     if (!open || !pair) return;
-    const viewer = watchDemoCameras({
-      sessionId: pair.sessionId,
-      onTrack: (slot, stream) => {
-        setStreams((prev) => {
-          // First camera in takes program automatically (no dead black frame
-          // while the visitor figures out the switcher).
-          if (!prev.a && !prev.b) setProgram(slot);
-          return { ...prev, [slot]: stream };
+    let viewer: ReturnType<typeof watchDemoCameras> | null = null;
+    let cancelled = false;
+    // Fetch ICE servers (STUN + a minted TURN relay when configured) before
+    // opening any peer connection, so the control room and the phones meet on
+    // the SAME relay — the phones a mobile-data / isolated-Wi-Fi guest can't
+    // otherwise reach. Falls back to STUN-only if the action fails.
+    void getDemoIceServers(pair.sessionId)
+      .catch(() => ({ iceServers: undefined as RTCIceServer[] | undefined }))
+      .then(({ iceServers }) => {
+        if (cancelled) return;
+        viewer = watchDemoCameras({
+          sessionId: pair.sessionId,
+          iceServers,
+          onTrack: (slot, stream) => {
+            setStreams((prev) => {
+              // First camera in takes program automatically (no dead black frame
+              // while the visitor figures out the switcher).
+              if (!prev.a && !prev.b) setProgram(slot);
+              return { ...prev, [slot]: stream };
+            });
+          },
+          onSlotState: (slot, state) => {
+            setSlotStates((prev) => (prev[slot] === state ? prev : { ...prev, [slot]: state }));
+            if (state === 'failed') {
+              setStreams((prev) => (prev[slot] ? { ...prev, [slot]: null } : prev));
+            }
+          },
         });
-      },
-      onSlotState: (slot, state) => {
-        setSlotStates((prev) => (prev[slot] === state ? prev : { ...prev, [slot]: state }));
-        if (state === 'failed') {
-          setStreams((prev) => (prev[slot] ? { ...prev, [slot]: null } : prev));
-        }
-      },
-    });
+      });
     return () => {
-      viewer.close();
+      cancelled = true;
+      viewer?.close();
       setStreams({ a: null, b: null });
     };
   }, [open, pair]);

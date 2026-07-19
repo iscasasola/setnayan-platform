@@ -186,8 +186,9 @@ export default async function EventDocumentsPage({ params }: Props) {
 
   return (
     <section className="space-y-8">
-      <header className="space-y-1.5">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="sn-reveal space-y-1.5">
+        <p className="sn-eye">Documents</p>
+        <h1 className="sn-h1">
           {term(profile, {
             wedding: 'Your wedding documents',
             generic: 'Your event documents',
@@ -199,7 +200,7 @@ export default async function EventDocumentsPage({ params }: Props) {
           a row to open the canonical document or edit surface.
         </p>
         {totalDocs > 0 ? (
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <p className="sn-eye">
             {totalDocs} {totalDocs === 1 ? 'document' : 'documents'} on file
           </p>
         ) : null}
@@ -237,7 +238,7 @@ export default async function EventDocumentsPage({ params }: Props) {
 
 function EmptyState({ eventId }: { eventId: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-ink/15 bg-cream p-10 text-center">
+    <div className="sn-row border-dashed p-10 text-center">
       <ScrollText
         aria-hidden
         className="mx-auto h-8 w-8 text-ink/40"
@@ -295,7 +296,7 @@ function PaperworkSection({
           href={`/dashboard/${eventId}/paperwork`}
         />
       ) : (
-        <ul className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-white">
+        <ul className="sn-row divide-y divide-ink/10 overflow-hidden">
           {rows.map((row) => {
             const meta = DOCUMENT_META[row.document_type];
             const label = meta?.label ?? row.document_type;
@@ -403,7 +404,7 @@ function ContractsSection({
           href={`/dashboard/${eventId}/messages`}
         />
       ) : (
-        <ul className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-white">
+        <ul className="sn-row divide-y divide-ink/10 overflow-hidden">
           {rows.map((c) => {
             const vendor = vendorMap.get(c.vendor_profile_id);
             return (
@@ -475,7 +476,7 @@ function CreationsSection({
           href={`/dashboard/${eventId}/studio`}
         />
       ) : (
-        <ul className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-white">
+        <ul className="sn-row divide-y divide-ink/10 overflow-hidden">
           {rows.map((order) => {
             const label =
               (order.service_key && CREATION_SKU_LABEL[order.service_key]) ??
@@ -547,7 +548,7 @@ function OrdersSection({
           href={`/dashboard/${eventId}/orders`}
         />
       ) : (
-        <ul className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-white">
+        <ul className="sn-row divide-y divide-ink/10 overflow-hidden">
           {rows.map((order) => (
             <li key={order.order_id}>
               <Link
@@ -625,7 +626,7 @@ function ReceiptsSection({
           href={`/dashboard/${eventId}/orders`}
         />
       ) : (
-        <ul className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-white">
+        <ul className="sn-row divide-y divide-ink/10 overflow-hidden">
           {receipts.map((r) => {
             const order = ordersById.get(r.order_id);
             const grossNum =
@@ -720,7 +721,7 @@ function SectionEmpty({
   href: string;
 }) {
   return (
-    <div className="rounded-2xl border border-dashed border-ink/15 bg-cream/50 p-6 text-center">
+    <div className="sn-row border-dashed p-6 text-center">
       <p className="text-sm text-ink/65">{message}</p>
       <Link
         href={href}

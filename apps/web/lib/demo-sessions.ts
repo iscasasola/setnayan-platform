@@ -222,6 +222,30 @@ export async function claimDemoCamSlot(sessionId: string): Promise<DemoRole | nu
 }
 
 /**
+ * True iff `sessionId` names a still-live demo session (row exists and is
+ * unexpired). Gates TURN-credential minting (`getDemoIceServers`) to real demo
+ * traffic so the mint action isn't an open relay-credential faucet. Fails
+ * closed on any DB hiccup — a rare false "not live" only drops that connection
+ * back to STUN-only, never breaks the page.
+ */
+export async function demoSessionIsLive(sessionId: string): Promise<boolean> {
+  const clean = sessionId?.trim();
+  if (!clean) return false;
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from('demo_sessions')
+      .select('id')
+      .eq('id', clean)
+      .gt('expires_at', new Date().toISOString())
+      .maybeSingle();
+    return Boolean(data);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Best-effort hard-delete of rows past their grace window. Called via
  * `after()` from the pages that mint/resolve sessions (no polling cron, per
  * project convention) — so cleanup piggybacks on real traffic instead of a

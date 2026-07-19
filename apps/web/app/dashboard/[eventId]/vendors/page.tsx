@@ -27,6 +27,10 @@ import {
 } from '@/lib/vendors';
 import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
+import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
+import { computeBudgetAllocation } from '@/lib/budget-allocation';
+import { vendorBudgetFitRatio } from '@/lib/vendor-budget-fit';
+import { buildEventBrief, type EventBriefSource } from '@/lib/event-brief';
 import Link from 'next/link';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
@@ -59,6 +63,13 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { PlanBudgetAccordion, type VendorReviewStatus } from './_components/plan-budget-accordion';
 import { reviewState } from '@/lib/completion-handshake';
 import { ShortlistCategories } from './_components/shortlist-categories';
+import {
+  PendingLockProposals,
+  type PendingLockProposal,
+} from './_components/pending-lock-proposals';
+import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock';
+import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
+import { VendorQuickViewInspector } from './_components/vendor-quickview-inspector';
 import { WaitingForQuotes, type WaitingInquiry } from './_components/waiting-for-quotes';
 import { buildShortlistFolders } from '@/lib/shortlist-taxonomy';
 import { buildCoupleFaithSet } from '@/lib/taxonomy-filters';
@@ -78,7 +89,6 @@ import {
   type BuildState,
 } from '@/lib/build-3state';
 import { getCategoryBuildStates } from './build-3state-actions';
-import { SummaryAiToggle } from './_components/summary-ai-toggle';
 import { BuildLocked } from './_components/build-locked';
 import { BuildCompare, type CompareDatesInfo } from './_components/build-compare';
 import { type SavedPlanBuild, type PlanBuildSnapshot } from './build-actions';
@@ -102,7 +112,9 @@ type Props = {
   // refresh + deep links land on the same section.
   // open (2026-06-16) = a Shortlist tile key to pre-expand (checklist "Book your
   // caterer" → ?tab=shortlist&open=catering jumps right to that category).
-  searchParams: Promise<{ status?: string; tab?: string; open?: string }>;
+  // inspect (2026-07-15) = the Shortlist bench vendor to open in the desktop
+  // inspector column (`v:<vendorId>`); resolved server-side to a quick-view body.
+  searchParams: Promise<{ status?: string; tab?: string; open?: string; inspect?: string }>;
 };
 
 type EventBudgetRow = {
@@ -181,6 +193,46 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     ? Math.round((new Date(eventDate).getTime() - Date.now()) / 86_400_000)
     : null;
 
+  // Coordinator "propose a lock" (spec § 4) — pending proposals for the couple
+  // to confirm. Only the couple sees the confirm strip (the money-adjacent
+  // decision is theirs), and the whole mechanic is flag-gated. The page admits
+  // coordinators too, so resolve couple-vs-coordinator from event_members.
+  let pendingLockProposals: PendingLockProposal[] = [];
+  if (isCoordinatorProposeLockEnabled()) {
+    const proposalAdmin = createAdminClient();
+    const { data: coupleRow } = await proposalAdmin
+      .from('event_members')
+      .select('user_id')
+      .eq('event_id', eventId)
+      .eq('user_id', user.id)
+      .eq('member_type', 'couple')
+      .maybeSingle();
+    if (coupleRow) {
+      const { data: props } = await proposalAdmin
+        .from('vendor_lock_proposals')
+        .select('id, event_vendor_id')
+        .eq('event_id', eventId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true });
+      const rows = props ?? [];
+      if (rows.length > 0) {
+        const vids = rows.map((r) => r.event_vendor_id);
+        const { data: vs } = await proposalAdmin
+          .from('event_vendors')
+          .select('vendor_id, vendor_name')
+          .in('vendor_id', vids);
+        const nameById = new Map(
+          (vs ?? []).map((v) => [v.vendor_id as string, v.vendor_name ?? 'A vendor']),
+        );
+        pendingLockProposals = rows.map((r) => ({
+          id: r.id as number,
+          eventVendorId: r.event_vendor_id as string,
+          vendorName: nameById.get(r.event_vendor_id as string) ?? 'A vendor',
+        }));
+      }
+    }
+  }
+
   // ── Card enrichment (CLAUDE.md 2026-05-31 "finish the data wiring") ──────
   // The card UI already renders photo / distance / stars / Verified+Setnayan
   // badges + a resolved (hybrid-anonymity) name — it just never received the
@@ -231,7 +283,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       enrichmentAdmin
         .from('vendor_market_stats')
         .select(
-          'vendor_profile_id, business_name, logo_url, location_city, hq_latitude, hq_longitude, avg_rating_overall, review_count, is_setnayan_service, public_visibility, services',
+          'vendor_profile_id, business_name, logo_url, location_city, hq_latitude, hq_longitude, avg_rating_overall, review_count, is_setnayan_service, public_visibility, services, compatible_ceremony_types',
         )
         .in('vendor_profile_id', marketplaceIds),
       enrichmentAdmin
@@ -262,6 +314,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       is_setnayan_service: boolean | null;
       public_visibility: string | null;
       services: string[] | null;
+      compatible_ceremony_types: string[] | null;
     };
     type ProfRow = {
       vendor_profile_id: string;
@@ -295,6 +348,44 @@ export default async function VendorsPage({ params, searchParams }: Props) {
 
     const venueLat = ev?.venue_latitude ?? null;
     const venueLng = ev?.venue_longitude ?? null;
+
+    // Budget-fit for the per-candidate compat % (compat-score `budgetFit` dim,
+    // 0.20). Allocate the couple's budget across categories with the SAME
+    // median-anchored engine the Budget tab + the category-search overlay use,
+    // then score each vendor's "starts at" against its category's share — so the
+    // budget planner's own % finally reflects budget fit (it fed only distance/
+    // reviews/verified before, leaving budgetFit frozen at neutral). One extra
+    // allocation read, skipped entirely when no budget is set (→ every
+    // budget_fit stays neutral anyway), and fail-open: any error → empty map →
+    // neutral, never blocks the vendors page.
+    const budgetByPlanGroup = new Map<string, number>();
+    if (ev?.estimated_budget_centavos != null) {
+      try {
+        const alloc = await resolveAllocationInputs(supabase, eventId);
+        if (alloc.budgetPhp != null) {
+          const allocResult = computeBudgetAllocation({
+            budgetPhp: alloc.budgetPhp,
+            leaves: alloc.leaves,
+            config: alloc.config,
+          });
+          for (const l of allocResult.leaves) budgetByPlanGroup.set(l.canonicalService, l.amountPhp);
+        }
+      } catch {
+        // budget-fit stays neutral — never blocks the vendors page.
+      }
+    }
+
+    // Faith-fit for the compat % (compat-score `faithMatch` → `faithFit` dim,
+    // 0.07). Read the couple's faith list from the Event Brief — the SAME source
+    // + representation the category-search overlay uses: raw lowercase ceremony
+    // ids (`catholic`, `civil`, …), so it intersects `compatible_ceremony_types`
+    // (also lowercase) directly. (A title-case WeddingFaithKey set would never
+    // match — the namespaces differ.) Empty when the event has no ceremony →
+    // faith stays neutral. A vendor matches when it EXPLICITLY lists one of the
+    // couple's faiths; NULL = "serves all" → neutral (never a penalty — the gate
+    // already guaranteed compatibility).
+    const coupleFaiths = buildEventBrief(ev as unknown as EventBriefSource).constraints.ceremony
+      .faiths;
 
     for (const v of vendors) {
       const pid = v.marketplace_vendor_id;
@@ -356,6 +447,13 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           ? null
           : distanceKm <= radiusKm;
 
+      // Positive faith match only (true) — a non-match / serves-all / non-wedding
+      // stays null so the scorer applies its neutral (never a penalty).
+      const faithMatch =
+        coupleFaiths.length > 0 && Array.isArray(s.compatible_ceremony_types)
+          ? s.compatible_ceremony_types.some((t) => coupleFaiths.includes(t))
+          : false;
+
       enrichmentByVendorId.set(v.vendor_id, {
         rating: rating != null && rating > 0 ? rating : null,
         review_count: s.review_count ?? null,
@@ -365,6 +463,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         within_radius: withinRadius,
         service_radius_km: hasFiniteRadius ? radiusKm : null,
         starting_price_php: photoMaps.startingPriceByVendor.get(v.vendor_id) ?? null,
+        budget_fit_ratio: vendorBudgetFitRatio({
+          vendorCategory: v.category ?? null,
+          startingPricePhp: photoMaps.startingPriceByVendor.get(v.vendor_id) ?? null,
+          budgetByPlanGroup,
+        }),
+        faith_match: faithMatch ? true : null,
         inquiry_status: inquiryByProfile.get(pid) ?? null,
         linked_services: photoMaps.linkedByVendorId.get(v.vendor_id),
       });
@@ -524,10 +628,14 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     ev?.venue_setting ?? null,
   );
 
-  // Setnayan AI gate (owner 2026-06-05/06-08) — Manual mode = AI OFF: the strip
-  // collapses to a slim "you're driving" bar, the accordion drops the
-  // per-candidate "% match" pills, AND the "👀 eyeing your date" nudge is
-  // suppressed (generic browse). One governing gate: lib/setnayan-ai.
+  // Setnayan AI gate — an ENTITLEMENT STATE, not a toggle (owner 2026-07-15,
+  // DECISION_LOG): the Merkado's per-surface Manual switch (SummaryAiToggle) is
+  // retired. Ownership alone decides — paywall off → AI on; paywall on → on iff
+  // the event/user owns it (`setnayan_ai_active` / the per-user subscription,
+  // via the same lib/setnayan-ai gate as before), with the Unlock banner below
+  // as the only door in. `planning_mode` is deliberately neutralized on THIS
+  // surface so a couple who once flipped the old toggle to Manual isn't
+  // stranded AI-off here with no control left to flip back.
   // Paywall flag is DB-first/env-fallback (Integration Activation Console);
   // resolved once and threaded into both gates on this surface.
   const paywallEnabled = await resolveSetnayanAiPaywallEnabled();
@@ -540,7 +648,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     perUserEnabled,
     subscription: aiSubscription,
   };
-  const aiActive = isSetnayanAiActiveForUser(ev, aiGateOpts);
+  const aiActive = isSetnayanAiActiveForUser(
+    ev ? { ...ev, planning_mode: null } : ev,
+    aiGateOpts,
+  );
 
   // DB-driven category headers (owner 2026-06-09 — "taxonomy applies to all 5
   // menus"): the 10 folder labels/order/slugs come from `service_categories`
@@ -860,14 +971,47 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     return out;
   })();
 
-  const shortlistContent = (
+  // ── Desktop inspector selection (Merkado phase 3 · ≥xl) ──────────────────
+  // Resolve `?inspect=v:<vendorId>` to a bench vendor ALREADY on this Shortlist,
+  // and render its quick-view as the inspector column body — a new PRESENTATION
+  // of the SAME `ShortlistVendor` the card shows (identity · badges · fit · price
+  // · "Open full profile ↗"), never a new fetch or fabricated field. An unknown /
+  // stale id resolves to nothing → the inspector renders closed (hasSelection=
+  // false), never a blank rail. The bench card's data carries no AI-ranked signal
+  // (the "% match" / eyeing / ranked sort live outside ShortlistVendor, gated
+  // upstream), so this quick-view leaks nothing behind the Setnayan AI paywall.
+  const inspectVendorId =
+    typeof sp.inspect === 'string' && sp.inspect.startsWith('v:')
+      ? sp.inspect.slice(2)
+      : null;
+  const inspectSelection = inspectVendorId
+    ? (() => {
+        for (const folder of shortlistFolders) {
+          for (const tile of folder.tiles) {
+            const vendor = tile.vendors.find((v) => v.vendorId === inspectVendorId);
+            if (vendor) return { vendor, categoryLabel: tile.label };
+          }
+        }
+        return null;
+      })()
+    : null;
+  const shortlistInspectorBody = inspectSelection ? (
+    <VendorQuickViewInspector
+      vendor={inspectSelection.vendor}
+      categoryLabel={inspectSelection.categoryLabel}
+      fullHref={inspectSelection.vendor.href}
+    />
+  ) : null;
+
+  const shortlistMaster = (
     <>
       {aiOfferBanner}
-      {/* Setnayan AI on/off — relocated here from the removed Summary tab
-          (owner 2026-06-25) so the workspace's only AI personalization control
-          still has a home, now atop the bench it actually governs. */}
-      <SummaryAiToggle eventId={eventId} enabled={model.personalizationEnabled} />
+      {/* The Setnayan AI on/off switch that lived here is RETIRED (owner
+          2026-07-15): AI is an entitlement state, not a toggle. Not owned →
+          the plain bench + the Unlock banner above as the only door; owned →
+          the AI-enhanced bench renders unconditionally. */}
       <WaitingForQuotes items={waitingForQuotes} />
+      <PendingLockProposals eventId={eventId} proposals={pendingLockProposals} />
       <ShortlistCategories
         folders={shortlistFolders}
         eventId={eventId}
@@ -875,6 +1019,18 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         savedRequirementCanonicalByTile={savedRequirementCanonicalByTile}
       />
     </>
+  );
+
+  // Attach the inspector to the BENCH surface only (never the Build rail / Lock
+  // flow / Budget accordion — those locked compositions keep their structure).
+  // Below xl the rail is display:none and the cards fall back to plain links.
+  const shortlistContent = (
+    <InspectorLayout
+      paramKey="inspect"
+      hasSelection={Boolean(shortlistInspectorBody)}
+      master={shortlistMaster}
+      inspector={shortlistInspectorBody}
+    />
   );
 
   // Budget "Build" takeover (flag-gated · BUDGET_BUILD_ENABLED, default OFF).

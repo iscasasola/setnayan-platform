@@ -53,7 +53,7 @@ export default async function KwentoAssignmentsPage({ params }: Props) {
 
   return (
     <section className="space-y-8">
-      <header className="space-y-2">
+      <header className="sn-reveal space-y-2">
         <Link
           href={`/dashboard/${eventId}/alaala`}
           className="inline-flex items-center gap-1 text-[12px]"
@@ -61,7 +61,8 @@ export default async function KwentoAssignmentsPage({ params }: Props) {
         >
           ← Alaala
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight" style={{ color: 'var(--m-ink)' }}>
+        <p className="sn-eye">Story Assignments</p>
+        <h1 className="sn-h1" style={{ color: 'var(--m-ink)' }}>
           Story Assignments
         </h1>
         <p className="max-w-prose text-[14px] leading-relaxed" style={{ color: 'var(--m-slate)' }}>
@@ -95,7 +96,7 @@ export default async function KwentoAssignmentsPage({ params }: Props) {
                   {String(i + 1).padStart(2, '0')}
                 </span>
                 <span
-                  className="font-mono text-[11px] uppercase tracking-[0.2em]"
+                  className="sn-eye"
                   style={{ color: 'var(--m-orange-2)' }}
                 >
                   {moment.eyebrow}

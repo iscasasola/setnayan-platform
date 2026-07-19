@@ -104,7 +104,7 @@ export default async function NewDiscountCodePage() {
 
       <div>
         <h1
-          className="m-display-tight text-3xl"
+          className="sn-h1"
           style={{ color: 'var(--m-ink)' }}
         >
           Create discount code

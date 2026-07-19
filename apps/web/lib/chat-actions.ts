@@ -11,7 +11,13 @@ import { resolveCounterpartyUserIds } from './chat-block';
 import { emitNotification } from './notification-emit';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
+import { notifyChapterDroveInquiry } from '@/lib/inquiry-attribution';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
+import { eventHostHoldsFounderSeat } from '@/lib/entitlements';
+import {
+  FOUNDER_INQUIRY_NOTIFICATION_TITLE,
+  FOUNDER_INQUIRY_NOTIFICATION_PREFIX,
+} from '@/lib/founder-seats';
 import {
   leadTokenHoldEnabled,
   acceptInquiryViaHold,
@@ -165,15 +171,37 @@ export async function notifyOtherParty(args: {
         args.eventId,
         args.vendorProfileId,
       );
+      // Founder-seat inquiry (owner-locked 2026-07-16): the vendor must get an
+      // EXPLICIT signal that this is a founder of the app needing service —
+      // and that accepting is token-free. Server-asserted (founder_seats
+      // definer helper via the admin client), so it survives the
+      // anonymization-until-accept pass below: the founder signal is the one
+      // identity fact the owner WANTS revealed pre-accept. Takes precedence
+      // over the returning-client copy when both apply.
+      const founderSeat = await eventHostHoldsFounderSeat(admin, args.eventId);
+      // Anonymization-until-accept (Glass PR-6b · spec 2026-07-15): a first
+      // couple→vendor message is a PRE-accept inquiry, so the notification (and
+      // the email it triggers via emitNotification's allowlist) must NOT carry
+      // the couple's identity — the title drops `eventName` (the event title,
+      // which contains the couple's names). The couple's message TEXT is NOT
+      // scrubbed (edge rule: they may sign their own message — that's their
+      // choice). NOTE: the "returning client" enrichment (which names a PRIOR
+      // event) is an owner-locked feature (2026-06-12) that deliberately tells
+      // the vendor a repeat client is reaching out; it's preserved here and
+      // flagged for owner reconciliation against this anonymization pass.
       await emitNotification({
         userId: vendorRes.data.user_id,
         type: 'vendor_inquiry_received',
-        title: priorLocked
-          ? `New booking inquiry from ${eventName} — a returning client`
-          : `New booking inquiry from ${eventName}`,
-        body: priorLocked
-          ? `This couple previously booked you for ${priorLocked}. ${args.body.slice(0, 200)}`
-          : args.body.slice(0, 200),
+        title: founderSeat
+          ? FOUNDER_INQUIRY_NOTIFICATION_TITLE
+          : priorLocked
+            ? 'New booking inquiry — a returning client'
+            : 'New booking inquiry',
+        body: founderSeat
+          ? `${FOUNDER_INQUIRY_NOTIFICATION_PREFIX}${args.body.slice(0, 200)}`
+          : priorLocked
+            ? `This couple previously booked you for ${priorLocked}. ${args.body.slice(0, 200)}`
+            : args.body.slice(0, 200),
         relatedUrl: `/vendor-dashboard/messages/${args.threadId}`,
       });
       return;
@@ -317,7 +345,7 @@ export async function acceptInquiry(formData: FormData) {
     // Burn-on-answer (owner-locked token economy 2026-06-05). Accepting an
     // inquiry IS the vendor's "answer" (a vendor can't even reply before
     // accepting). It costs ONE idempotent unlock per (vendor, event), banded
-    // by the wedding's region (₱100/200/300 = 1/2/3 tokens), and that single
+    // by the wedding's region (₱200/400/600 = 1/2/3 tokens), and that single
     // unlock covers ALL of this vendor's services for the event. The RPC
     // (unlock_vendor_event) is atomic + idempotent + TIER-GATED. Per the LIVE
     // body (migration 20270307985604, verified retune 2026-06-25): FREE can't
@@ -392,6 +420,17 @@ export async function acceptInquiry(formData: FormData) {
     // responsiveness/conversion stats (response_rate_pct, inquiry_to_booking_pct)
     // off the request path (cron-free; after() runs post-response).
     after(() => triggerVendorActivityRecompute(thread.vendor_profile_id));
+
+    // Creator Economy PR-C (req #3a) — accepting an ATTRIBUTED thread is the
+    // unlock that ticks the creator's "inquiries driven": tell them (in-app
+    // only; the type isn't email-allowlisted). Covers BOTH unlock paths — the
+    // direct burn and the hold (the hold's vendor_event_unlocks row also lands
+    // at accept; its token settles later on genuine reply). Fail-soft, off the
+    // request path. The spend_source='lead_unlock' ledger tag is stamped inside
+    // the RPCs themselves (migration 20270819553697), never here.
+    if (thread.referring_chapter_id) {
+      after(() => notifyChapterDroveInquiry(thread));
+    }
   }
 
   if (typeof returnTo === 'string' && returnTo.startsWith('/')) {

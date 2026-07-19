@@ -76,10 +76,10 @@ export async function SpotlightAwardsSurface({
   return (
     <div>
       <header className="mb-6 space-y-2">
-        <p className="m-eyebrow" style={{ color: 'var(--m-orange-2)' }}>
+        <p className="sn-eye" style={{ color: 'var(--m-orange-2)' }}>
           Setnayan HQ
         </p>
-        <h1 className="m-display text-3xl font-semibold tracking-tight sm:text-4xl">
+        <h1 className="sn-h1">
           Spotlight Awards
         </h1>
         <p className="max-w-prose text-sm text-ink/65">
@@ -111,7 +111,7 @@ export async function SpotlightAwardsSurface({
       </div>
 
       {/* Recompute + stat row */}
-      <section className="mb-6 flex flex-col gap-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:flex-row sm:items-center sm:justify-between">
+      <section className="mb-6 flex flex-col gap-4 sn-tile p-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="grid grid-cols-3 gap-4">
           <Stat label="Total awards" value={rows.length} />
           <Stat label="Auto-picked" value={autoCount} />
@@ -180,7 +180,7 @@ export async function SpotlightAwardsSurface({
       )}
 
       {/* Add-by-hand */}
-      <section className="mt-8 rounded-2xl border border-ink/10 bg-cream p-5">
+      <section className="mt-8 sn-tile p-5">
         <h2 className="text-base font-semibold text-ink">Add an award by hand</h2>
         <p className="mt-1 text-sm text-ink/60">
           Award a vendor directly — useful for the <strong>Rising Star</strong>{' '}

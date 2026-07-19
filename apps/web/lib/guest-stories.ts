@@ -40,7 +40,14 @@ export { STORY_MIN_PHOTOS, STORY_MAX_PHOTOS, DEFAULT_STORY_TEMPLATE };
 
 const URL_TTL_SECONDS = 60 * 60;
 
-export type StoryPhoto = { id: string; url: string };
+export type StoryPhoto = {
+  id: string;
+  url: string;
+  /** Normalized (0..1) dominant-face center for Tier-2 auto-reframe; null →
+   *  the render uses its centered default focal. Guest captures only (seat
+   *  photos don't carry it yet). */
+  subjectCenter?: { x: number; y: number } | null;
+};
 
 export type StoryMusic = {
   trackSlug: string;
@@ -122,7 +129,7 @@ async function readTaggedPhotos(
     captureIds.length
       ? admin
           .from('papic_guest_captures')
-          .select('capture_id, r2_object_key')
+          .select('capture_id, r2_object_key, subject_center_x, subject_center_y')
           .in('capture_id', captureIds)
           .eq('moderation_state', 'clean')
           // Guest CLIPS (media_type='clip') are excluded — Stories are
@@ -132,12 +139,26 @@ async function readTaggedPhotos(
           // photo_type='photo' filter on the papic_photos query above.
           .eq('media_type', 'photo')
           .is('hidden_at', null)
-      : Promise.resolve({ data: [] as { capture_id: string; r2_object_key: string }[] }),
+      : Promise.resolve({
+          data: [] as {
+            capture_id: string;
+            r2_object_key: string;
+            subject_center_x: number | null;
+            subject_center_y: number | null;
+          }[],
+        }),
   ]);
 
   const keyById = new Map<string, string>();
+  // Tier-2 dominant-face center per capture (guest captures only) → subjectCenter.
+  const centerById = new Map<string, { x: number; y: number }>();
   for (const p of photosRes.data ?? []) keyById.set(p.photo_id, p.r2_object_key);
-  for (const c of capturesRes.data ?? []) keyById.set(c.capture_id, c.r2_object_key);
+  for (const c of capturesRes.data ?? []) {
+    keyById.set(c.capture_id, c.r2_object_key);
+    if (typeof c.subject_center_x === 'number' && typeof c.subject_center_y === 'number') {
+      centerById.set(c.capture_id, { x: c.subject_center_x, y: c.subject_center_y });
+    }
+  }
 
   const { ordered, total } = assembleStoryPhotoSet(
     tags.map((t) => ({ source_id: t.source_id as string })),
@@ -147,11 +168,11 @@ async function readTaggedPhotos(
   const top = ordered.slice(0, STORY_MAX_PHOTOS);
   const photos = (
     await Promise.all(
-      top.map(async ({ id, key }) => {
+      top.map(async ({ id, key }): Promise<StoryPhoto | null> => {
         // Same resolver the day-of gallery uses — handles `r2://bucket/key`
         // refs and legacy URLs, presigning the media object for a CORS-safe GET.
         const url = await displayUrlForStoredAsset(key, { ttlSeconds: URL_TTL_SECONDS });
-        return url ? { id, url } : null;
+        return url ? { id, url, subjectCenter: centerById.get(id) ?? null } : null;
       }),
     )
   ).filter((p): p is StoryPhoto => Boolean(p));
@@ -261,6 +282,18 @@ async function pickMusic(): Promise<StoryMusic | null> {
   } catch {
     return null; // music trouble must never block a free Story
   }
+}
+
+/**
+ * Owned-catalogue music picker, exported for reuse by other Setnayan-hosted
+ * renders (e.g. the creator Adventure-Chapter teaser). Delegates to the exact
+ * same `reel_music_tracks` query as a Guest Story — `is_active` + NOT
+ * `is_premium` — so the "owned catalogue only, never major-label" guarantee is
+ * one code path, not two. Deliberately does NOT reach for a couple's Pakanta
+ * song (that's event-personal, not a general owned track).
+ */
+export async function pickOwnedReelMusic(): Promise<StoryMusic | null> {
+  return pickMusic();
 }
 
 /**

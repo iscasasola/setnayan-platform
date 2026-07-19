@@ -222,8 +222,8 @@ export async function TokenWalletSection() {
   return (
     <section className="mt-10">
       <div className="mb-4">
-        <p className="m-eyebrow">Tokens</p>
-        <h2 className="m-display-tight mt-1 text-2xl sm:text-3xl">
+        <p className="sn-eye">Tokens</p>
+        <h2 className="mt-1 text-2xl font-extrabold tracking-[-0.015em] sm:text-3xl">
           Your token wallet.
         </h2>
         <p className="mt-2 max-w-prose text-sm text-ink/65">
@@ -242,8 +242,8 @@ export async function TokenWalletSection() {
           <VoucherList vouchers={vouchers} />
           <BuyTokensCta packs={packs} recipients={recipients} />
           {teamBalances.length > 1 ? (
-            <div className="m-card p-6">
-              <p className="m-label-mono">Team token balances</p>
+            <div className="sn-tile p-6">
+              <p className="sn-eye">Team token balances</p>
               <p className="mt-1 text-sm text-ink/65">
                 Tokens are personal — each member spends their own when answering
                 couples.

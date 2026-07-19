@@ -105,6 +105,7 @@ import { ChatSendForm } from '@/app/_components/chat-send-form';
 // Call launcher is code-split (WebRTC · ssr:false) so the Call tab's bundle
 // stays out of the initial page JS until that tab mounts — see the lazy loader.
 import { ThreadCallLauncherLazy } from '@/app/_components/thread-call-launcher-lazy';
+import { resolveThreadCallsEnabled } from '@/lib/thread-calls-gate';
 import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
@@ -917,7 +918,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       </Link>
       {threadId ? (
         <Link
-          href={`/vendor-dashboard/messages/${threadId}`}
+          href={`/vendor-dashboard/messages/${threadId}#pending-payments`}
           className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
         >
           <Wallet aria-hidden className="h-3.5 w-3.5" /> Log payment
@@ -1020,7 +1021,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   if (!relationshipShellEnabled) {
     return (
       <section className="mx-auto w-full max-w-5xl px-3 py-6 sm:px-6 lg:px-8">
-        <div className="overflow-hidden rounded-2xl border border-ink/10 bg-cream">
+        <div className="overflow-hidden sn-tile">
           {/* ============================ HEADER ============================ */}
           <header className="sticky top-0 z-10 border-b border-ink/10 bg-cream/95 px-4 pt-4 backdrop-blur sm:px-6">
             {backLink}
@@ -1079,6 +1080,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       const blockState = await getThreadBlockState(fullThread, user.id, 'vendor');
       const initialMessages = await fetchMessages(supabase, threadId);
       const declineReason = fullThread.decline_reason?.trim() || null;
+      // Voice/video calling is a paid-vendor capability (gate-dark by default) —
+      // locked here shows the vendor an upgrade nudge instead of the call button.
+      const callsEnabled = await resolveThreadCallsEnabled(profile.vendor_profile_id);
 
       callTabNode =
         fullThread.inquiry_status === 'accepted' ? (
@@ -1086,6 +1090,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             threadId={threadId}
             currentUserId={user.id}
             counterpartyLabel={eventName}
+            callsEnabled={callsEnabled}
+            viewerRole="vendor"
+            upgradeHref="/vendor-dashboard/subscription"
           />
         ) : (
           <p className="text-xs text-ink/55">
@@ -1552,7 +1559,7 @@ function ReturningMarkerAndActions({
         ) : null}
         {threadId ? (
           <Link
-            href={`/vendor-dashboard/messages/${threadId}`}
+            href={`/vendor-dashboard/messages/${threadId}#thread-call`}
             className={`${actionBase} border-ink/15 bg-white text-ink/70 hover:border-terracotta/40`}
           >
             <Phone aria-hidden className="h-3.5 w-3.5" /> Call
@@ -1705,7 +1712,7 @@ function OverviewTab(props: {
             )}
           </dl>
           {brief.event.ceremony_type ? (
-            <span className="mt-3 inline-flex items-center gap-1 rounded-full border border-ink/15 bg-cream px-2.5 py-1 text-xs font-medium text-ink/70">
+            <span className="mt-3 inline-flex items-center gap-1 rounded-full border border-ink/15 bg-white/70 px-2.5 py-1 text-xs font-medium text-ink/70">
               <Church aria-hidden className="h-3.5 w-3.5" />
               {brief.event.ceremony_type.replace(/_/g, ' ')}
             </span>
@@ -1741,7 +1748,7 @@ function OverviewTab(props: {
               </p>
             </>
           ) : (
-            <p className="mt-3 flex items-center gap-2 rounded-lg bg-cream px-3 py-2.5 text-sm text-ink/55">
+            <p className="mt-3 flex items-center gap-2 rounded-lg bg-white/70 px-3 py-2.5 text-sm text-ink/55">
               <Info aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> No guest list yet — this
               fills in once they start their RSVPs.
             </p>
@@ -1868,7 +1875,7 @@ function OverviewTab(props: {
               </p>
             </>
           ) : (
-            <p className="mt-3 flex items-center gap-2 rounded-lg bg-cream px-3 py-2.5 text-sm text-ink/55">
+            <p className="mt-3 flex items-center gap-2 rounded-lg bg-white/70 px-3 py-2.5 text-sm text-ink/55">
               <Info aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> Not shared —
               the couple hasn&rsquo;t opted into budget sharing.
             </p>
@@ -2314,7 +2321,7 @@ function FilesTab(props: {
               key={c.contract_id}
               className="flex items-center gap-3 rounded-xl border border-ink/10 bg-white px-3 py-2.5"
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-ink/10 bg-cream text-ink/60">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-ink/10 bg-white/70 text-ink/60">
                 <FileText aria-hidden className="h-4 w-4" />
               </span>
               <div className="min-w-0 flex-1">
@@ -2342,7 +2349,7 @@ function FilesTab(props: {
               key={h.handover_id}
               className="flex items-center gap-3 rounded-xl border border-ink/10 bg-white px-3 py-2.5"
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-ink/10 bg-cream text-ink/60">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-ink/10 bg-white/70 text-ink/60">
                 {h.kind === 'gallery_link' ? (
                   <Link2 aria-hidden className="h-4 w-4" />
                 ) : (
@@ -2806,7 +2813,7 @@ function ScheduleTab(props: {
             declines, and an accepted change updates their budget. Setnayan never holds the money.
           </p>
 
-          <details className="mb-4 rounded-xl border border-ink/10 bg-cream p-3">
+          <details className="mb-4 sn-row p-3">
             <summary className="cursor-pointer text-sm font-medium text-terracotta">
               Propose a change
             </summary>

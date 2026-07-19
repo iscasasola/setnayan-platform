@@ -21,8 +21,10 @@ import {
   type ModeratorPermissions,
   type RoleSubtype,
 } from '@/lib/event-moderators';
-import { inviteHost, revokeHostInvite, removeHost, setDelegateBudget } from './actions';
+import { revokeHostInvite, removeHost, setDelegateBudget } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ConsentGatedInviteForm } from './_components/consent-gated-invite-form';
+import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
 
 export const metadata = { title: 'Hosts · Setnayan' };
 
@@ -179,6 +181,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
   const justRevoked = search.invite_revoked === '1';
   const grantUpdated = search.grant_updated === '1';
   const hostRemoved = search.host_removed === '1';
+  const consentGateEnabled = isCoordinatorConsentGateEnabled();
 
   // Build the share URL with a localhost-safe fallback. In production this
   // resolves to https://www.setnayan.com via SITE_URL; locally to localhost.
@@ -198,12 +201,12 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
         Back to {eventName}
       </Link>
 
-      <header className="space-y-2">
-        <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">
           <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Hosts on this event
         </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+        <h1 className="sn-h1">
           Who&apos;s planning this wedding with you?
         </h1>
         <p className="max-w-prose text-base text-ink/65">
@@ -257,7 +260,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
       {isCouple && promotable.length > 0 ? (
         <section className="space-y-3 rounded-2xl border border-terracotta/25 bg-terracotta/[0.04] p-5">
           <header className="space-y-1">
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
+            <p className="sn-eye">
               Promote your coordinator
             </p>
             <p className="max-w-prose text-sm text-ink/65">
@@ -277,7 +280,11 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
                   <p className="text-sm font-medium text-ink">{c.vendor_name}</p>
                   <p className="font-mono text-xs text-ink/55">{c.contact_email}</p>
                 </div>
-                <form action={inviteHost}>
+                <ConsentGatedInviteForm
+                  enabled={consentGateEnabled}
+                  forceCoordinator
+                  coordinatorLabel={c.vendor_name}
+                >
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="invitation_email" value={c.contact_email ?? ''} />
                   <input type="hidden" name="role_subtype" value="wedding_planner_external" />
@@ -289,7 +296,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
                   >
                     Invite as delegate
                   </SubmitButton>
-                </form>
+                </ConsentGatedInviteForm>
               </li>
             ))}
           </ul>
@@ -307,9 +314,9 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
 
       {/* Pending invites */}
       {pending.length > 0 ? (
-        <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+        <section className="sn-tile space-y-3 p-5">
           <header className="space-y-1">
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+            <p className="sn-eye">
               Pending invitations · {pending.length}
             </p>
             <p className="text-sm text-ink/65">
@@ -357,9 +364,9 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
       ) : null}
 
       {/* Current hosts */}
-      <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+      <section className="sn-tile space-y-3 p-5">
         <header className="space-y-1">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+          <p className="sn-eye">
             Current hosts · {accepted.length}
           </p>
           <p className="text-sm text-ink/65">
@@ -367,7 +374,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
           </p>
         </header>
         {accepted.length === 0 ? (
-          <p className="rounded-md border border-dashed border-ink/15 bg-cream p-4 text-sm text-ink/55">
+          <p className="sn-row border-dashed p-4 text-sm text-ink/55">
             You&apos;re the only host so far. Use the form below to add your partner, parents,
             or anyone else who should be part of planning.
           </p>
@@ -388,7 +395,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
                     <p className="text-sm font-medium text-ink">
                       {userInfo?.display_name?.trim() || userInfo?.email || '—'}
                     </p>
-                    <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
+                    <p className="sn-eye">
                       {ROLE_SUBTYPE_LABEL[row.role_subtype]}
                       {row.display_label ? ` · ${row.display_label}` : ''}
                     </p>
@@ -480,9 +487,9 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
 
       {/* Delegate activity — "your coordinator did X" (couple-visible). */}
       {isCouple && activity.length > 0 ? (
-        <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+        <section className="sn-tile space-y-3 p-5">
           <header className="space-y-1">
-            <p className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+            <p className="sn-eye">
               <ClipboardList aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               Delegate activity
             </p>
@@ -537,9 +544,9 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
       ) : null}
 
       {/* Invite form */}
-      <section className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
+      <section className="sn-tile space-y-4 p-5 sm:p-6">
         <header className="space-y-1">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+          <p className="sn-eye">
             Invite a new host
           </p>
           <h2 className="text-xl font-semibold tracking-tight">
@@ -551,11 +558,11 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
           </p>
         </header>
 
-        <form action={inviteHost} className="space-y-4">
+        <ConsentGatedInviteForm enabled={consentGateEnabled} className="space-y-4">
           <input type="hidden" name="event_id" value={eventId} />
 
           <label className="flex flex-col gap-1">
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+            <span className="sn-eye">
               Email
             </span>
             <input
@@ -569,7 +576,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
           </label>
 
           <label className="flex flex-col gap-1">
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+            <span className="sn-eye">
               Role
             </span>
             <select name="role_subtype" required defaultValue="" className="input-field">
@@ -585,7 +592,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
           </label>
 
           <label className="flex flex-col gap-1">
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+            <span className="sn-eye">
               Display label (optional)
             </span>
             <input
@@ -603,7 +610,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
           <SubmitButton pendingLabel="Inviting…" className="button-primary h-11 px-5">
             Send invitation
           </SubmitButton>
-        </form>
+        </ConsentGatedInviteForm>
       </section>
     </section>
   );

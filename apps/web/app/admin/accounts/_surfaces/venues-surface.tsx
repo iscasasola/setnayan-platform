@@ -97,7 +97,7 @@ export async function VenuesSurface({
     <div>
       <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-1">
-          <p className="m-eyebrow text-[color:var(--m-orange-2)]">
+          <p className="sn-eye">
             V1 directory · {totalRows} venues
           </p>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
@@ -128,7 +128,7 @@ export async function VenuesSurface({
               className={
                 t.value === typeFilter
                   ? 'rounded-lg border border-terracotta bg-terracotta/5 px-2 py-2 text-left text-xs'
-                  : 'rounded-lg border border-ink/10 bg-cream px-2 py-2 text-left text-xs hover:border-ink/30'
+                  : 'sn-tile px-2 py-2 text-left text-xs hover:border-ink/30'
               }
             >
               <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-ink/55">
@@ -143,7 +143,7 @@ export async function VenuesSurface({
       <form
         method="get"
         action="/admin/accounts"
-        className="mb-6 grid gap-3 rounded-2xl border border-ink/10 bg-cream p-4 sm:grid-cols-3"
+        className="mb-6 grid gap-3 sn-tile p-4 sm:grid-cols-3"
       >
         <input type="hidden" name="tab" value="venues" />
         <label className="flex flex-col gap-1">
@@ -199,11 +199,11 @@ export async function VenuesSurface({
       </form>
 
       {rows.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-ink/20 bg-cream/60 px-4 py-8 text-center text-sm text-ink/55">
+        <p className="rounded-2xl border border-dashed border-ink/15 bg-white/50 px-4 py-8 text-center text-sm text-ink/55">
           No venues match these filters.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-ink/10 bg-cream">
+        <div className="sn-tile overflow-x-auto !p-0">
           <table className="w-full min-w-[720px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-ink/10 bg-ink/[0.02] text-left">

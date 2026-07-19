@@ -176,6 +176,8 @@ const CELEBRATION_TEMPLATE: ChecklistTemplateItem[] = [
  * The per-type registry. Keyed by `events.event_type`. Wedding is absent by
  * design (it uses the canonical `CHECKLIST_TEMPLATE`).
  */
+const CELEBRATION_DEF: EventTypeChecklistDef = { eventType: 'celebration', dateModel: 'input', anchorCategory: 'venue', tier2Core: ['catering', 'photo_video', 'host'], template: CELEBRATION_TEMPLATE };
+
 export const EVENT_TYPE_CHECKLIST_DEFS: Readonly<Record<string, EventTypeChecklistDef>> = {
   debut: { eventType: 'debut', dateModel: 'input', anchorCategory: 'venue', tier2Core: ['catering', 'photo_video', 'hmua', 'lights_sounds'], template: DEBUT_TEMPLATE },
   birthday: { eventType: 'birthday', dateModel: 'input', anchorCategory: 'venue', tier2Core: ['catering', 'cake', 'entertainment', 'photo_video'], template: BIRTHDAY_TEMPLATE },
@@ -184,7 +186,7 @@ export const EVENT_TYPE_CHECKLIST_DEFS: Readonly<Record<string, EventTypeCheckli
   tournament: { eventType: 'tournament', dateModel: 'input', anchorCategory: 'venue', tier2Core: ['officials', 'awards', 'catering', 'medic'], template: TOURNAMENT_TEMPLATE },
   gender_reveal: { eventType: 'gender_reveal', dateModel: 'input', anchorCategory: 'venue', tier2Core: ['reveal_element', 'catering', 'photo_video'], template: GENDER_REVEAL_TEMPLATE },
   travel: { eventType: 'travel', dateModel: 'input', anchorCategory: 'accommodation', tier2Core: ['transport', 'accommodation', 'activities'], template: TRAVEL_TEMPLATE },
-  celebration: { eventType: 'celebration', dateModel: 'input', anchorCategory: 'venue', tier2Core: ['catering', 'photo_video', 'host'], template: CELEBRATION_TEMPLATE },
+  celebration: CELEBRATION_DEF,
 };
 
 /**
@@ -196,8 +198,7 @@ export const EVENT_TYPE_CHECKLIST_DEFS: Readonly<Record<string, EventTypeCheckli
  * instead of a blank checklist. (Enabling all 14 event types outran the per-type
  * defs — this closes that gap.) Only `.template` is consumed by the seeder.
  */
-export const GENERIC_EVENT_CHECKLIST_DEF: EventTypeChecklistDef =
-  EVENT_TYPE_CHECKLIST_DEFS.celebration;
+export const GENERIC_EVENT_CHECKLIST_DEF: EventTypeChecklistDef = CELEBRATION_DEF;
 
 /**
  * The checklist definition for an event type, or `null` for wedding / unset —

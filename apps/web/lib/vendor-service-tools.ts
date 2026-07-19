@@ -126,16 +126,10 @@ export const SPECIALIST_TOOLS: ReadonlyArray<SpecialistTool> = [
       'Build recolourable moodboard sets couples can match to their palette.',
     href: '/vendor-dashboard/moodboard-library',
     icon: Palette,
-    categories: [
-      'photographer',
-      'videographer',
-      'florist',
-      'planner_coordinator',
-      'makeup_artist',
-      'hair_stylist',
-      'gown_designer',
-      'reception_decor',
-    ],
+    // OWNER-LOCKED 2026-07-12: "this can only be done by a stylist — that is
+    // a collection of their own mood boards." Stylist/decorator category ONLY
+    // (reception_decor = the stylist_decorator tile). Do not re-broaden.
+    categories: ['reception_decor'],
   },
   {
     key: 'repertoire',

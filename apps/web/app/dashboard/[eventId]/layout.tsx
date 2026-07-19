@@ -21,8 +21,13 @@ import { CustomerBottomNav } from './_components/customer-bottom-nav';
 import { CustomerNavFab } from './_components/customer-nav-fab';
 import { CustomerSectionSubnav } from './_components/customer-section-subnav';
 import { getNavSlotMap } from '@/lib/nav-registry';
-import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
+import {
+  AccountSwitcher,
+  SwitcherPlaqueTrigger,
+} from '@/app/_components/account-switcher/account-switcher';
 import { DoorwaySidebarHeader } from '@/app/_components/nav/doorway-sidebar-header';
+import { eventInitials } from '@/lib/event-initials';
+import { EventMonogram } from '@/app/_components/event-monogram';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 
@@ -288,6 +293,43 @@ export default async function EventLayout({ children, params }: Props) {
 
   const tr = makeT(locale);
 
+  // Event identity plaque meta line — "{Type} · {short date}" for the rail's
+  // SwitcherPlaqueTrigger (DoorwaySidebarHeader identity slot). Formatted
+  // server-side so the mono date never hydration-splits on timezone. Date
+  // omitted when unset. (The plaque's own countdown lives in the dashboard
+  // body; this is just the plaque label.)
+  const plaqueTypeLabel = ((event.event_type as string | null) ?? 'wedding')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+  const plaqueDate = (event.event_date as string | null) ?? null;
+  const plaqueDateShort = plaqueDate
+    ? new Intl.DateTimeFormat('en-PH', { month: 'short', day: 'numeric' }).format(
+        new Date(`${plaqueDate}T00:00:00`),
+      )
+    : null;
+  const eventPlaqueMeta = plaqueDateShort
+    ? `${plaqueTypeLabel} · ${plaqueDateShort}`
+    : plaqueTypeLabel;
+
+  // Plaque title MUST always resolve (council acceptance criterion,
+  // 2026-07-16): the plaque trigger is the couple desktop's ONLY path to
+  // sign-out / profile / Setnayan AI (this top bar has no sign-out and its
+  // AccountSwitcher pill is lg:hidden). An unnamed draft event falls back to
+  // the type label — never render no trigger.
+  const plaqueName =
+    ((event.display_name as string | null) ?? '').trim() || `Your ${plaqueTypeLabel}`;
+  // The couple's EFFECTIVE mark for the plaque chip — same `uploaded ?? custom`
+  // precedence every other surface resolves (hero, QR centre, save-the-date).
+  // Both columns are already in this layout's select; only the chip ignored them.
+  const plaqueMarkSvg =
+    (typeof event.monogram_uploaded_svg === 'string' && event.monogram_uploaded_svg.trim()
+      ? (event.monogram_uploaded_svg as string)
+      : null) ??
+    (typeof event.monogram_custom_svg === 'string' && event.monogram_custom_svg.trim()
+      ? (event.monogram_custom_svg as string)
+      : null);
+  const homeLabel = 'Home · all your events';
+
   // Top bar lives inside SidebarShell's topBar slot. Carries the event-
   // scoped utilities cluster — AccountSwitcher (left), Marketplace + role-
   // switch + unread bell + profile menu (right). Pre-Phase 1 this sat
@@ -301,7 +343,7 @@ export default async function EventLayout({ children, params }: Props) {
       {phase === 'dayof' ? (
         <Link
           href={`/dashboard/${eventId}/more`}
-          className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-cream/80 px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-cream hover:text-ink lg:hidden"
+          className="inline-flex items-center gap-1.5 rounded-full border border-white/60 bg-white/60 px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-white/80 hover:text-ink lg:hidden"
         >
           <ClipboardList aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Planning
@@ -320,9 +362,10 @@ export default async function EventLayout({ children, params }: Props) {
         ariaUnreadSuffix="unread"
       />
       {/* AccountSwitcher — mobile only, rightmost corner of the top bar.
-          Desktop uses AccountSwitcherStandalone at the top of the sidebar. */}
+          Desktop opens the same panel from the SwitcherPlaqueTrigger event
+          plaque in the sidebar header (Plaque-as-Menu, council 2026-07-16). */}
       <div className="lg:hidden">
-        <AccountSwitcher data={switcherData} />
+        <AccountSwitcher data={switcherData} homeLabel={homeLabel} />
       </div>
     </div>
   );
@@ -346,7 +389,43 @@ export default async function EventLayout({ children, params }: Props) {
           <DoorwaySidebarHeader
             label="Planning"
             accentColor="var(--m-sidebar-accent)"
-            switcherData={switcherData}
+            identity={
+              <SwitcherPlaqueTrigger
+                data={switcherData}
+                chip={
+                  // The plaque chip shows the couple's REAL mark when they have
+                  // one — restoring the owner lock 2026-06-15 ("show the custom
+                  // SVG everywhere … the chrome icon matches the website hero;
+                  // no letters-in-chrome / SVG-on-hero split"), which the
+                  // Plaque-as-Menu redesign (#3282) regressed by hardcoding
+                  // text initials. The council locked the plaque's INTERACTION
+                  // grammar, not its chip content — the vendor doorway already
+                  // passes a <VendorAvatar> here, so a component chip is the
+                  // established pattern. EventMonogram brings its own cream
+                  // tile + object-contain, so the mark reads at 36px instead of
+                  // going dark-on-bronze. Precedence mirrors every other
+                  // surface: uploaded ?? custom. No mark → initials, unchanged.
+                  plaqueMarkSvg ? (
+                    <EventMonogram
+                      event={{
+                        display_name: event.display_name as string | null,
+                        monogram_text: event.monogram_text as string | null,
+                        monogram_color: event.monogram_color as string | null,
+                        monogram_custom_svg: plaqueMarkSvg,
+                      }}
+                      size="md"
+                      shape="square"
+                    />
+                  ) : (
+                    eventInitials(plaqueName, (event.monogram_text as string | null) ?? null)
+                  )
+                }
+                title={plaqueName}
+                metaLine={eventPlaqueMeta}
+                ariaLabel={`${plaqueName} — account menu`}
+                homeLabel={homeLabel}
+              />
+            }
           />
         }
         sidebar={

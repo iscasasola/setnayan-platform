@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 /**
  * Client motion island for /how-it-works — the page itself stays a
  * force-dynamic Server Component (metadata + JSON-LD + hreflang live there).
@@ -62,6 +64,57 @@ export function HeroReveal({
     >
       {children(headingRef as React.RefObject<HTMLHeadingElement>)}
     </section>
+  );
+}
+
+
+/**
+ * HowItWorksHero — the hero moved INTO client land (2026-07-12). The page
+ * (a Server Component) used to pass a render-prop FUNCTION as HeroReveal's
+ * children, which is not serializable across the server→client boundary and
+ * 500'd the whole route in production ("Functions are not valid as a child
+ * of Client Components"). The hero content is static, so it now lives here
+ * beside the hooks it needs; the page renders <HowItWorksHero /> plainly.
+ */
+export function HowItWorksHero() {
+  return (
+    <HeroReveal>
+      {(headingRef) => (
+        <>
+          <div data-reveal-item className="mb-3 flex items-center justify-end gap-4">
+            <Link
+              href="/tl/how-it-works"
+              hrefLang="tl-PH"
+              className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55 underline-offset-4 hover:text-ink hover:underline"
+            >
+              Taglish
+            </Link>
+          </div>
+          <h1
+            ref={headingRef}
+            className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl"
+          >
+            One platform, six kinds of people. Here&rsquo;s the map.
+          </h1>
+          <p data-reveal-item className="mt-4 max-w-2xl text-base text-ink/70 sm:text-lg">
+            Setnayan brings couples, their vendors, and their guests onto one platform —
+            with an admin team behind the scenes. This page is the cheat-sheet for who
+            does what and where they go.
+          </p>
+          <div data-reveal-item className="mt-6 flex flex-wrap items-center gap-3">
+            <Link href="/signup" className="button-primary inline-flex h-11 items-center px-5 text-sm">
+              Start planning — free
+            </Link>
+            <Link
+              href="/vendors"
+              className="inline-flex h-11 items-center rounded-md border border-ink/15 px-5 text-sm font-medium text-ink hover:bg-ink/5"
+            >
+              I&rsquo;m a vendor
+            </Link>
+          </div>
+        </>
+      )}
+    </HeroReveal>
   );
 }
 

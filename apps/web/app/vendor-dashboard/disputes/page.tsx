@@ -63,7 +63,7 @@ const STATUS_LABEL: Record<DisputeRow['status'], string> = {
 const STATUS_TONE: Record<DisputeRow['status'], string> = {
   open: 'bg-warn-100 text-warn-900',
   resolved_for_vendor: 'bg-success-100 text-success-800',
-  resolved_for_couple: 'bg-violet-100 text-violet-800',
+  resolved_for_couple: 'bg-info-100 text-info-800',
   withdrawn: 'bg-ink/10 text-ink/60',
 };
 
@@ -111,16 +111,15 @@ export default async function VendorDisputesPage() {
         </div>
         <p className="max-w-prose text-base text-ink/65">
           Stand up for yourself. If a couple raises a concern about a booking, a{' '}
-          <span className="font-medium text-ink">neutral Setnayan team reviews the record first</span> —
-          it can never affect your rating or your listing until the team has
-          looked at both sides.
+          <span className="font-medium text-ink">neutral Setnayan team reviews the record first</span>{' '}
+          — and you get to add your side before anything is decided.
         </p>
         <div className="flex items-start gap-2 rounded-lg border border-success-200 bg-success-50 px-3 py-2.5 text-sm text-success-800">
           <ShieldCheck aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} />
           <p>
             An open dispute is <span className="font-semibold">under review only</span> — it does
-            not count against you unless the team resolves it in the couple&rsquo;s favor.
-            Add your side below while it&rsquo;s still open.
+            not count against your rating or listing unless the team resolves it in
+            the couple&rsquo;s favor. Add your side below while it&rsquo;s still open.
           </p>
         </div>
       </header>
@@ -135,7 +134,7 @@ export default async function VendorDisputesPage() {
       ) : null}
 
       {rows.length === 0 && !error ? (
-        <div className="rounded-xl border border-dashed border-ink/15 bg-cream p-8 text-center">
+        <div className="rounded-xl border border-dashed border-ink/15 p-8 text-center">
           <CheckCircle2 aria-hidden className="mx-auto h-8 w-8 text-success-600" strokeWidth={1.75} />
           <p className="mt-3 text-sm font-medium text-ink">No disputes — nice work.</p>
           <p className="mt-1 text-sm text-ink/60">
@@ -165,7 +164,7 @@ export default async function VendorDisputesPage() {
 function DisputeCard({ row }: { row: DisputeRow }) {
   const isOpen = row.status === 'open';
   return (
-    <li className="rounded-xl border border-ink/10 bg-cream p-4 sm:p-5">
+    <li className="sn-row p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="font-mono text-[11px] font-medium text-ink/60">{row.public_id}</span>

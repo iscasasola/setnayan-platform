@@ -112,12 +112,12 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
         Back to add-ons
       </Link>
 
-      <header className="space-y-3">
-        <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+      <header className="sn-reveal space-y-3">
+        <p className="sn-eye inline-flex items-center gap-1.5">
           <CloudUpload aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Photo Delivery · Web V1
         </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+        <h1 className="sn-h1">
           Send your finalized photos to Google Drive
         </h1>
         <p className="max-w-prose text-base text-ink/65">
@@ -227,10 +227,10 @@ function SyncModeSection({
   return (
     <section
       aria-label="Photo delivery sync mode"
-      className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6"
+      className="sn-tile space-y-4 p-5 sm:p-6"
     >
       <header className="space-y-1.5">
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+        <p className="sn-eye">
           Sync mode
         </p>
         <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">

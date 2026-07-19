@@ -106,7 +106,7 @@ export async function ReferralsSurface() {
       {/* Master toggle: activate the whole referral program. */}
       <form
         action={setReferralProgramEnabled}
-        className="rounded-xl border border-ink/10 bg-cream p-5"
+        className="sn-tile p-5"
       >
         <label className="flex items-start gap-3">
           <input
@@ -136,7 +136,7 @@ export async function ReferralsSurface() {
       </form>
 
       {/* Admin-managed reward amount. */}
-      <section className="rounded-xl border border-ink/10 bg-cream p-4">
+      <section className="sn-tile p-4">
         <p className="text-xs font-medium uppercase tracking-wide text-ink/55">
           Reward per side
         </p>
@@ -166,7 +166,7 @@ export async function ReferralsSurface() {
           { label: 'Qualified', value: qualifiedCount, Icon: Gift },
           { label: 'Rewarded', value: rewardedCount, Icon: Check },
         ].map(({ label, value, Icon }) => (
-          <div key={label} className="rounded-xl border border-ink/10 bg-cream p-4">
+          <div key={label} className="sn-tile p-4">
             <Icon aria-hidden className="h-4 w-4 text-ink/45" strokeWidth={1.75} />
             <p className="mt-2 text-2xl font-semibold text-ink">{value}</p>
             <p className="text-xs text-ink/55">{label}</p>
@@ -177,7 +177,7 @@ export async function ReferralsSurface() {
       {/* Redemption table. */}
       <section className="overflow-x-auto rounded-xl border border-ink/10">
         <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="bg-cream text-xs uppercase tracking-wide text-ink/55">
+          <thead className="bg-white/70 text-xs uppercase tracking-wide text-ink/55">
             <tr>
               <th className="px-4 py-2 font-medium">Referrer</th>
               <th className="px-4 py-2 font-medium">Referred</th>

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { Plus, Trash2, Eye, EyeOff, MapPin, CalendarClock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { seedNonWeddingRunOfShow } from './actions';
 import {
   SCHEDULE_BLOCK_LABEL,
   SCHEDULE_BLOCK_TYPES,
@@ -101,6 +102,21 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     | null;
   const eventDate = eventRow?.event_date ?? null;
   const ceremonyType = eventRow?.ceremony_type ?? null;
+
+  // Run-of-Show first-open seed (owner 2026-07-12: Run-of-Show is FREE). A
+  // NON-WEDDING event that opens its schedule with zero blocks gets a per-type
+  // Filipino program authored from its captured onboarding signals; weddings keep
+  // their own (separate) spine and are untouched. Only pays the seed cost on the
+  // first open — once any block exists this branch is skipped, so steady-state
+  // schedule loads are unchanged.
+  let scheduleBlocks = blocks;
+  if (
+    scheduleBlocks.length === 0 &&
+    (eventRow?.event_type ?? 'wedding') !== 'wedding'
+  ) {
+    const seeded = await seedNonWeddingRunOfShow(eventId);
+    if (seeded > 0) scheduleBlocks = await fetchScheduleBlocks(supabase, eventId);
+  }
   // Iteration 0053 P4 Unit 1: only marriage-profile events get PH statutory
   // milestones in the agenda. Wedding → 'ph_marriage' → statutory true (byte-
   // identical); non-wedding → null → no PSA/CENOMAR/marriage-license rows.
@@ -152,7 +168,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
 
   // Run-of-show header rows (now/next/±N) off the shared run-state. Top-level
   // blocks only — the header tracks the headline timeline, not sub-parts.
-  const runOfShowBlocks: RunOfShowBlock[] = blocks
+  const runOfShowBlocks: RunOfShowBlock[] = scheduleBlocks
     .filter((b) => b.parent_block_id === null)
     .map((b) => ({
       block_id: b.block_id,
@@ -166,8 +182,11 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
 
   return (
     <section className="space-y-6">
-      <header className="space-y-3">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Schedule</h1>
+      <header className="sn-reveal space-y-3">
+        <div>
+          <p className="sn-eye">Timeline</p>
+          <h1 className="sn-h1 mt-1.5">Schedule</h1>
+        </div>
         <p className="max-w-prose text-base text-ink/65">
           {active === 'journey'
             ? term(profile, {
@@ -220,20 +239,20 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
           <VendorSuggestionsQueue
             eventId={eventId}
             suggestions={openSuggestions}
-            blocks={blocks}
+            blocks={scheduleBlocks}
           />
           {/* Emcee script — compiles this timeline + the wedding-party names
            *  into a clean host script (copy / download). Read-only over the
            *  saved program; pure compiler in lib/emcee-script. */}
-          {blocks.length > 0 ? (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-ink/10 bg-cream px-4 py-3">
+          {scheduleBlocks.length > 0 ? (
+            <div className="sn-row flex flex-wrap items-center justify-between gap-2 px-4 py-3">
               <p className="text-sm text-ink/65">
                 Turn this timeline into a ready-to-read emcee / host script.
               </p>
               <EmceeScriptButton eventId={eventId} />
             </div>
           ) : null}
-          <EventDayView eventId={eventId} blocks={blocks} />
+          <EventDayView eventId={eventId} blocks={scheduleBlocks} />
         </>
       )}
     </section>
@@ -361,16 +380,47 @@ function EventDayView({
   blocks: ScheduleBlockRow[];
 }) {
   const publicCount = blocks.filter((b) => b.is_public).length;
+  // "Next up" (Glass PR-3 §3.1) — the imminent block: the first one that hasn't
+  // started yet, else the first block. Real data; drives both the glass strip
+  // and the gold accent on its row in the timeline below.
+  const now = Date.now();
+  const nextBlock =
+    blocks.find((b) => new Date(b.start_at).getTime() >= now) ?? blocks[0] ?? null;
   return (
     <div className="space-y-6">
       <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
         {blocks.length} block{blocks.length === 1 ? '' : 's'} · {publicCount} public
       </p>
 
+      {/* Next-up glass strip — the imminent block, mono time. */}
+      {nextBlock ? (
+        <div className="sn-tile sn-reveal flex flex-wrap items-center gap-3">
+          <span
+            aria-hidden
+            className="flex h-10 w-10 flex-none items-center justify-center rounded-full"
+            style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-700)' }}
+          >
+            <CalendarClock className="h-5 w-5" strokeWidth={1.75} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="sn-eye">Next up</p>
+            <p className="mt-0.5 truncate text-base font-bold text-ink">
+              {nextBlock.label}
+            </p>
+            <p className="mt-0.5 truncate font-mono text-xs text-ink/60">
+              {nextBlock.end_at
+                ? formatBlockTimeRange(nextBlock.start_at, nextBlock.end_at)
+                : formatBlockTime(nextBlock.start_at)}
+              {nextBlock.location ? ` · ${nextBlock.location}` : ''}
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       <AddBlockForm eventId={eventId} />
 
       {blocks.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">
+        <div className="sn-row border-dashed p-8 text-center">
           <CalendarClock
             aria-hidden
             className="mx-auto mb-2 h-6 w-6 text-ink/30"
@@ -386,7 +436,11 @@ function EventDayView({
         <ul className="space-y-3">
           {blocks.map((b) => (
             <li key={b.block_id}>
-              <BlockCard eventId={eventId} block={b} />
+              <BlockCard
+                eventId={eventId}
+                block={b}
+                imminent={nextBlock?.block_id === b.block_id}
+              />
             </li>
           ))}
         </ul>
@@ -397,7 +451,7 @@ function EventDayView({
 
 function AddBlockForm({ eventId }: { eventId: string }) {
   return (
-    <details className="rounded-xl border border-ink/10 bg-cream">
+    <details className="sn-row">
       <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium">
         <Plus aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2} />
         Add a block
@@ -482,7 +536,15 @@ function AddBlockForm({ eventId }: { eventId: string }) {
   );
 }
 
-function BlockCard({ eventId, block }: { eventId: string; block: ScheduleBlockRow }) {
+function BlockCard({
+  eventId,
+  block,
+  imminent = false,
+}: {
+  eventId: string;
+  block: ScheduleBlockRow;
+  imminent?: boolean;
+}) {
   // Pre-format the time/range string the same way the prior static
   // surface did, then hand off to the BlockTimeEditor client component
   // which owns the view→edit toggle. Keeps the SCHEDULE_BLOCK_LABEL +
@@ -492,7 +554,14 @@ function BlockCard({ eventId, block }: { eventId: string; block: ScheduleBlockRo
     ? formatBlockTimeRange(block.start_at, block.end_at)
     : formatBlockTime(block.start_at);
   return (
-    <article className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+    <article
+      className="sn-row space-y-3 p-4"
+      style={
+        imminent
+          ? { borderLeft: '3px solid var(--sn-gold-500)' }
+          : undefined
+      }
+    >
       <header className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 space-y-1">
           <h2 className="truncate text-base font-semibold text-ink">{block.label}</h2>

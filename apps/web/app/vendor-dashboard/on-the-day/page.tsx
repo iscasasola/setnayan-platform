@@ -23,17 +23,41 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { WEDDING_TILE_LABEL, type WeddingTile } from '@/lib/taxonomy';
 import { resolveDayOfConsoleKind, type DayOfConsoleKind } from '@/lib/vendor-day-of';
+import {
+  resolveDayOfFamily,
+  resolveModules,
+  DAY_OF_FAMILY_META,
+  type DayOfFamily,
+  type ResolvedModule,
+} from '@/lib/vendor-dayof-modules';
+import { fetchDayOfOverride } from '@/lib/vendor-dayof-config';
+import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
+import { deriveVendorPapicTier } from '@/lib/vendor-papic-grants';
+import { tierReadout } from '@/lib/vendor-papic-tier';
+import {
+  fetchVendorTeam,
+  enrichTeamWithUsers,
+  isVendorAdminRole,
+  VENDOR_TEAM_ROLE_LABEL,
+} from '@/lib/vendor-team';
 import { GuestReviewQr } from './_components/guest-review-qr';
 import { ShotList } from './_components/shot-list';
 import { IssuesLog } from './_components/issues-log';
+import { ModuleConfigurator, type ConfiguratorModule } from './_components/module-configurator';
+import { EventPicker } from './_components/event-picker';
+import { AccessGrants, type GrantableMember } from './_components/access-grants';
 
 export const metadata = { title: 'On the Day · Vendor · Setnayan' };
 
 /**
  * Vendor "On the Day" console — reskinned to the finalized 6-menu vendor
  * prototype (editorial `--m-*` palette). A free, CATEGORY-CONDITIONAL day-of
- * hub that surfaces only on an event day (T-1h → T+8h in production; always
- * visible here for design, behind an explanatory amber banner).
+ * hub that surfaces only on an event day (a booking dated today, T-1h → T+8h in
+ * production). The full console is now GATED to that window: when no event is in
+ * window it renders a compact honest state (the "No event today" explainer, the
+ * day-of tool pills, and the event-brief door) instead of a full console full of
+ * degraded zero-cards — so the visibility banner tells the truth. `?preview=1`
+ * is the owner/design escape hatch that forces the full console.
  *
  * Every number is wired LIVE — nothing is hardcoded to the prototype's sample:
  *   • The dark event card = the vendor's own booked event dated TODAY, resolved
@@ -55,13 +79,36 @@ export const metadata = { title: 'On the Day · Vendor · Setnayan' };
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 const MAX_MEDIA_PER_TYPE = 3; // mirrors editorial-vendor-media MAX_PER_TYPE
 
-/** The four day-of console personas shown as pills (order matters for display). */
-const CATEGORY_PILLS: { kind: DayOfConsoleKind; label: string; icon: typeof Camera }[] = [
-  { kind: 'photo', label: 'Photo / Video', icon: Camera },
-  { kind: 'coordinator', label: 'Coordinator', icon: UserCheck },
-  { kind: 'caterer', label: 'Caterer', icon: UtensilsCrossed },
-  { kind: 'band', label: 'Band / DJ', icon: Music },
-];
+/**
+ * Icon per controller family. The old hardcoded 4-persona quad
+ * (`CATEGORY_PILLS`) is gone — the family a vendor operates in is now derived
+ * from the real ~57-tile taxonomy (`resolveDayOfFamily`, lib/vendor-dayof-modules),
+ * so a florist / HMUA / photo-booth / host — every tile the old resolver dumped
+ * into a dead 'general' bucket — lands in a real family with real tools.
+ */
+const FAMILY_ICON: Record<DayOfFamily, typeof Camera> = {
+  coordinate: UserCheck,
+  capture: Camera,
+  serve: UtensilsCrossed,
+  perform: Music,
+  setup: PackageCheck,
+};
+
+/** Icon per module id, for the day-of module readout. */
+const MODULE_ICON: Partial<Record<ResolvedModule['id'], typeof Camera>> = {
+  run_of_show: CalendarClock,
+  pax_headcount: Users,
+  delivery_handover: PackageCheck,
+  review_qr: Star,
+  live_reviews: Star,
+  qr_scanner: UserCheck,
+  shot_list: Camera,
+  setlist: Music,
+  issues_log: Circle,
+  production_sheet: UtensilsCrossed,
+  vendor_papic: Images,
+  guest_delivery: CheckCircle2,
+};
 
 type Brief = {
   event: {
@@ -108,7 +155,17 @@ function primaryServiceLabel(services: readonly string[] | null | undefined): st
   return null;
 }
 
-export default async function VendorOnTheDayPage() {
+export default async function VendorOnTheDayPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  // Owner/design escape hatch: ?preview=1 renders the full console with no event
+  // in window so the layout can be reviewed. The DEFAULT (no flag, no event
+  // today) shows the compact honest state — matching the banner's own claim.
+  const sp = await searchParams;
+  const isPreview = sp.preview === '1';
+  const configureId = typeof sp.event === 'string' ? sp.event : null;
   const supabase = await createClient();
   const {
     data: { user },
@@ -125,6 +182,44 @@ export default async function VendorOnTheDayPage() {
   const bookings = await fetchVendorPoolBookings(supabase, profile.vendor_profile_id);
   const todaysBooking =
     bookings.find((b) => b.bookedDate === today) ?? null;
+
+  // Step 1 of the launcher — the pick-event list. Dedupe to one row per event
+  // (a vendor can hold several pool slots on one event) and classify each as
+  // today / upcoming / past for the picker + the configure/launch affordances.
+  const pickerBookings = [...new Map(bookings.map((b) => [b.eventId, b])).values()]
+    .map((b) => ({
+      eventId: b.eventId,
+      eventName: b.eventName,
+      bookedDate: b.bookedDate,
+      when: (b.bookedDate === today ? 'today' : b.bookedDate > today ? 'upcoming' : 'past') as
+        | 'today'
+        | 'upcoming'
+        | 'past',
+    }))
+    .sort((a, b) => a.bookedDate.localeCompare(b.bookedDate));
+
+  // Step 2 — configure a specific booking ahead of time (?event=<id>). Renders a
+  // focused setup view for any booked event (today's or upcoming), then returns.
+  const configureBooking = configureId
+    ? bookings.find((b) => b.eventId === configureId) ?? null
+    : null;
+  if (configureBooking) {
+    return (
+      <ConfigureEventView
+        supabase={supabase}
+        vendorProfileId={profile.vendor_profile_id}
+        services={profile.services}
+        booking={configureBooking}
+        isToday={configureBooking.bookedDate === today}
+      />
+    );
+  }
+
+  // The event-day gate that makes the banner TRUE: the full console renders only
+  // when there is a booking dated today (the real in-window state, T-1h → T+8h
+  // on the day) OR the owner explicitly asked to preview it. Otherwise a compact
+  // honest state renders instead of a full console full of degraded zero-cards.
+  const showFullConsole = todaysBooking != null || isPreview;
 
   // Live brief for today's event (couple / date / venue / pax). The booked gate
   // + aggregation live inside the SECURITY DEFINER RPC; a null means we couldn't
@@ -207,7 +302,7 @@ export default async function VendorOnTheDayPage() {
         errorCorrectionLevel: 'M',
         margin: 2,
         width: 200,
-        color: { dark: '#1E2229', light: '#FBFBFA' },
+        color: { dark: '#1B1A17', light: '#FBFBFA' },
       })
     : null;
 
@@ -217,33 +312,69 @@ export default async function VendorOnTheDayPage() {
   const invited = brief?.pax.invited ?? 0;
   const attending = brief?.pax.attending ?? 0;
 
+  // Taxonomy-driven controller family + module set. When we have a brief we
+  // narrow to the tiles the vendor is actually booked on for THIS event
+  // (`booked_categories`); otherwise we consider all of the vendor's services.
+  // `override` is null until the per-booking configurator (a later PR) persists
+  // a `vendor_dayof_configs` row — so today every vendor sees code defaults.
+  const eventTiles = brief?.booked_categories ?? null;
+  const family = resolveDayOfFamily(profile.services, eventTiles);
+  const modules = resolveModules(profile.services, eventTiles, null);
+  const enabledModules = modules.filter((m) => m.enabled);
+
   const DELIVERY_PCT = [0, 60, 100][deliveryStage];
   const DELIVERY_LABEL = ['Not started yet', 'In progress', 'Delivered'][deliveryStage];
 
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
-      {/* 1 · Amber info banner — the design-time visibility explainer. */}
-      <div
-        className="flex items-start gap-3 rounded-xl border px-4 py-3.5"
-        style={{
-          borderColor: 'var(--m-orange-3)',
-          background: 'var(--m-orange-4)',
-          color: 'var(--m-orange-2)',
-        }}
-      >
-        <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
-        <p className="text-sm leading-relaxed">
-          Shows automatically on an event day (T-1h → T+8h). Visible here for design — normally
-          hidden until you have an event today.
-        </p>
-      </div>
-
-      {/* 2 · Dark event card — today's booked event, or the no-event state. */}
+      {/* 1 · Honest status banner — the console's behaviour now MATCHES the copy:
+          the full console renders only on an event day (a booking dated today) or
+          in explicit ?preview=1 mode; otherwise the compact state below shows. */}
       {todaysBooking ? (
         <div
-          className="rounded-xl p-5 sm:p-6"
-          style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
+          className="flex items-start gap-3 rounded-xl border px-4 py-3.5"
+          style={{
+            borderColor: 'var(--sn-success)',
+            background: 'var(--sn-success-soft)',
+            color: 'var(--sn-success)',
+          }}
         >
+          <CalendarClock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+          <p className="text-sm leading-relaxed">
+            Your event is today — this console is live now (T-1h → T+8h on the day).
+          </p>
+        </div>
+      ) : isPreview ? (
+        <div
+          className="flex items-start justify-between gap-3 rounded-xl border px-4 py-3.5"
+          style={{
+            borderColor: 'var(--m-orange-3)',
+            background: 'var(--m-orange-4)',
+            color: 'var(--m-orange-2)',
+          }}
+        >
+          <span className="flex items-start gap-3">
+            <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+            <span className="text-sm leading-relaxed">
+              Preview — this is how your day-of console looks. It appears here automatically on an
+              event day (T-1h → T+8h); until then it stays hidden.
+            </span>
+          </span>
+          <Link
+            href="/vendor-dashboard/on-the-day"
+            className="shrink-0 whitespace-nowrap text-sm font-semibold underline"
+          >
+            Exit preview
+          </Link>
+        </div>
+      ) : null}
+
+      {showFullConsole ? (
+        <>
+      {/* 2 · Dark event card — today's booked event (the sanctioned day-of
+          obsidian focal, § 1.3), or the no-event state. */}
+      {todaysBooking ? (
+        <div className="sn-tile-dark sn-bloom p-5 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-4">
               <span
@@ -263,18 +394,18 @@ export default async function VendorOnTheDayPage() {
               </div>
             </div>
             <Link
-              href={`/vendor-dashboard/clients/${todaysBooking.eventId}`}
-              className="inline-flex shrink-0 items-center gap-1 rounded-lg border px-3 py-1.5 text-sm font-medium transition hover:bg-white/10"
-              style={{ borderColor: 'rgba(255,255,255,0.22)', color: 'var(--m-paper)' }}
+              href={`/vendor-dashboard/on-the-day/live/${todaysBooking.eventId}`}
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg px-3.5 py-1.5 text-sm font-semibold transition"
+              style={{ background: 'var(--m-paper)', color: 'var(--m-ink)' }}
             >
-              Change event <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              Launch the app <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             </Link>
           </div>
         </div>
       ) : (
         <div
-          className="rounded-xl border border-dashed p-8 text-center"
-          style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+          className="rounded-2xl border border-dashed p-8 text-center"
+          style={{ borderColor: 'var(--sn-line)' }}
         >
           <CalendarClock
             aria-hidden
@@ -299,41 +430,26 @@ export default async function VendorOnTheDayPage() {
         </div>
       )}
 
-      {/* 3 · Category pills + category-conditional console. */}
+      {/* 3 · Controller family + module readout (taxonomy-driven) + console. */}
       <div>
-        <p className="text-sm font-medium" style={{ color: 'var(--m-slate)' }}>
-          Day-of tools adapt to your service{' '}
-          <ArrowRight aria-hidden className="inline h-3.5 w-3.5" strokeWidth={1.75} />
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {CATEGORY_PILLS.map((pill) => {
-            const active = pill.kind === kind;
-            const Icon = pill.icon;
-            return (
-              <span
-                key={pill.kind}
-                className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium"
-                style={
-                  active
-                    ? { background: 'var(--m-ink)', color: 'var(--m-paper)', borderColor: 'var(--m-ink)' }
-                    : { background: 'var(--m-paper)', color: 'var(--m-slate-2)', borderColor: 'var(--m-line)' }
-                }
-              >
-                <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                {pill.label}
-              </span>
-            );
-          })}
+        <div className="flex items-start justify-between gap-3">
+          <ModuleReadout family={family} modules={enabledModules} />
+          {todaysBooking ? (
+            <Link
+              href={`/vendor-dashboard/on-the-day?event=${todaysBooking.eventId}`}
+              className="mt-0.5 inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-semibold"
+              style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}
+            >
+              Set up
+            </Link>
+          ) : null}
         </div>
 
         {/* Photo / Video console — delivery progress + guests headcount. */}
         {kind === 'photo' ? (
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {/* Delivery to the couple — 3-stage handshake, rendered as % done. */}
-            <div
-              className="rounded-xl border p-5"
-              style={{ borderColor: 'var(--m-line)', background: 'white' }}
-            >
+            <div className="sn-tile">
               <div className="flex items-center gap-2">
                 <CheckCircle2
                   aria-hidden
@@ -346,7 +462,7 @@ export default async function VendorOnTheDayPage() {
                 </p>
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-2xl font-semibold tabular-nums" style={{ color: 'var(--m-ink)' }}>
+                <span className="font-mono text-2xl font-bold" style={{ color: 'var(--m-ink)' }}>
                   {DELIVERY_PCT}%
                 </span>
                 <span className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
@@ -370,10 +486,7 @@ export default async function VendorOnTheDayPage() {
             </div>
 
             {/* Guests — live RSVP headcount. */}
-            <div
-              className="rounded-xl border p-5"
-              style={{ borderColor: 'var(--m-line)', background: 'white' }}
-            >
+            <div className="sn-tile">
               <div className="flex items-center gap-2">
                 <Users
                   aria-hidden
@@ -386,7 +499,7 @@ export default async function VendorOnTheDayPage() {
                 </p>
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-2xl font-semibold tabular-nums" style={{ color: 'var(--m-ink)' }}>
+                <span className="font-mono text-2xl font-bold" style={{ color: 'var(--m-ink)' }}>
                   {attending} / {invited}
                 </span>
                 <span className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
@@ -412,12 +525,7 @@ export default async function VendorOnTheDayPage() {
 
       {/* 5 · Capture for your website + their recap. */}
       <div>
-        <h2
-          className="font-mono text-[11px] uppercase tracking-[0.2em]"
-          style={{ color: 'var(--m-slate-3)' }}
-        >
-          Capture for your website + their recap
-        </h2>
+        <h2 className="sn-sec">Capture for your website + their recap</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <CaptureCard
             icon={Clapperboard}
@@ -464,12 +572,7 @@ export default async function VendorOnTheDayPage() {
 
       {/* 6 · Instant reviews from guests — the review QR. */}
       <div>
-        <h2
-          className="font-mono text-[11px] uppercase tracking-[0.2em]"
-          style={{ color: 'var(--m-slate-3)' }}
-        >
-          Instant reviews from guests
-        </h2>
+        <h2 className="sn-sec">Instant reviews from guests</h2>
         <div className="mt-3">
           {reviewQrSvg && reviewUrl ? (
             <GuestReviewQr
@@ -478,10 +581,7 @@ export default async function VendorOnTheDayPage() {
               businessName={profile.business_name}
             />
           ) : (
-            <div
-              className="flex items-start gap-3 rounded-xl border p-5"
-              style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
-            >
+            <div className="sn-tile flex items-start gap-3">
               <Star
                 aria-hidden
                 className="mt-0.5 h-5 w-5 shrink-0"
@@ -508,7 +608,303 @@ export default async function VendorOnTheDayPage() {
           )}
         </div>
       </div>
+        </>
+      ) : (
+        <CompactDayOf family={family} modules={enabledModules} bookings={pickerBookings} />
+      )}
     </section>
+  );
+}
+
+/**
+ * Taxonomy-driven module readout — the honest replacement for the old
+ * hardcoded 4-persona pill quad. Shows the controller family the vendor is
+ * operating in for this event and the day-of tools that are on for it. Modules
+ * gated behind the DPO/NPC consent ruling are labelled "needs setup" rather
+ * than rendered as silently active.
+ */
+function ModuleReadout({
+  family,
+  modules,
+}: {
+  family: DayOfFamily;
+  modules: ResolvedModule[];
+}) {
+  const FamilyIcon = FAMILY_ICON[family];
+  const meta = DAY_OF_FAMILY_META[family];
+  return (
+    <div>
+      <div className="flex items-center gap-2">
+        <FamilyIcon aria-hidden className="h-4 w-4" style={{ color: 'var(--m-orange-2)' }} strokeWidth={1.75} />
+        <p className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
+          {meta.label}
+        </p>
+      </div>
+      <p className="mt-1 text-sm" style={{ color: 'var(--m-slate-2)' }}>
+        {meta.blurb}
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {modules.map((m) => {
+          const Icon = MODULE_ICON[m.id] ?? Circle;
+          const needsSetup = Boolean(m.counselGated);
+          return (
+            <span
+              key={m.id}
+              className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium"
+              style={
+                needsSetup
+                  ? { background: 'var(--m-paper)', color: 'var(--m-slate-2)', borderColor: 'var(--m-line)' }
+                  : { background: 'var(--m-ink)', color: 'var(--m-paper)', borderColor: 'var(--m-ink)' }
+              }
+              title={m.blurb}
+            >
+              <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              {m.label}
+              {needsSetup ? (
+                <span
+                  className="ml-1 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                  style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-2)' }}
+                >
+                  Needs setup
+                </span>
+              ) : null}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Step 2 — configure a specific booking's day-of app. Resolves the modules
+ * available to the vendor for THIS event's booked tiles (folding in any saved
+ * override) and renders the toggle configurator. Today's booking also gets a
+ * Launch button; upcoming bookings show when they'll be launchable.
+ */
+async function ConfigureEventView({
+  supabase,
+  vendorProfileId,
+  services,
+  booking,
+  isToday,
+}: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  vendorProfileId: string;
+  services: string[];
+  booking: { eventId: string; eventName: string; bookedDate: string };
+  isToday: boolean;
+}) {
+  const { data: briefData } = await supabase.rpc('get_vendor_event_brief', {
+    p_event_id: booking.eventId,
+  });
+  const eventTiles =
+    briefData && Array.isArray((briefData as { booked_categories?: unknown }).booked_categories)
+      ? (briefData as { booked_categories: string[] }).booked_categories
+      : null;
+  const coupleName =
+    (briefData as { event?: { display_name?: string | null } } | null)?.event?.display_name ??
+    booking.eventName;
+
+  const override = await fetchDayOfOverride(supabase, vendorProfileId, booking.eventId);
+  const resolved = resolveModules(services, eventTiles, override);
+  const modules: ConfiguratorModule[] = resolved.map((m) => ({
+    id: m.id,
+    label: m.label,
+    blurb: m.blurb,
+    enabled: m.enabled,
+    counselGated: m.counselGated,
+  }));
+
+  // Papic capture (counsel-gated): when the capability is live, badge the module
+  // card with the vendor's DERIVED tier for this booking — Ltd if they accepted
+  // the inquiry with a token (or a founder couple), else Lite. Off → no read, no
+  // badge; the "Needs setup" chip stands until the DPO/NPC control is approved.
+  const papicIdx = modules.findIndex((m) => m.id === 'vendor_papic');
+  const papicModule = papicIdx >= 0 ? modules[papicIdx] : undefined;
+  if (papicModule && (await isVendorPapicCaptureEnabled())) {
+    // Capability approved by the DPO control → the module is no longer
+    // "Needs setup": unlock its toggle and badge the vendor's DERIVED tier —
+    // Ltd if they accepted the inquiry with a token (or a founder couple),
+    // else Lite. While the control is OFF, it stays counsel-gated/locked.
+    let readout: string | undefined;
+    try {
+      const tier = await deriveVendorPapicTier(
+        createAdminClient(),
+        vendorProfileId,
+        booking.eventId,
+      );
+      readout = tierReadout(tier);
+    } catch {
+      /* readout is decorative — omit on any failure */
+    }
+    modules[papicIdx] = { ...papicModule, counselGated: false, readout };
+  }
+  const family = resolveDayOfFamily(services, eventTiles);
+  const dateLabel = fmtDate(booking.bookedDate);
+
+  // Step 3 — access grants. Only surfaces when the vendor has teammates beyond
+  // the owner (a solo operator never sees it) AND an enabled module is delegable.
+  const anyGrantModule = resolved.some((m) => m.enabled && m.requiresGrant);
+  let grantMembers: GrantableMember[] = [];
+  if (anyGrantModule) {
+    const [teamRows, grantRows] = await Promise.all([
+      fetchVendorTeam(supabase, vendorProfileId).catch(() => []),
+      supabase
+        .from('vendor_event_access_grants')
+        .select('grantee_user_id, revoked_at')
+        .eq('vendor_profile_id', vendorProfileId)
+        .eq('event_id', booking.eventId),
+    ]);
+    const grantedIds = new Set(
+      ((grantRows.data ?? []) as { grantee_user_id: string; revoked_at: string | null }[])
+        .filter((g) => !g.revoked_at)
+        .map((g) => g.grantee_user_id),
+    );
+    const enriched = await enrichTeamWithUsers(supabase, teamRows);
+    grantMembers = enriched.map((m) => ({
+      userId: m.user_id,
+      name: m.display_name || m.email || 'Teammate',
+      roleLabel: VENDOR_TEAM_ROLE_LABEL[m.role],
+      isOwnerAdmin: isVendorAdminRole(m.role),
+      granted: grantedIds.has(m.user_id),
+    }));
+  }
+  // Only worth showing when there's at least one non-owner teammate to grant.
+  const showGrants = grantMembers.some((m) => !m.isOwnerAdmin);
+
+  return (
+    <section className="mx-auto w-full max-w-3xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
+      <div className="flex items-center justify-between gap-3">
+        <Link
+          href="/vendor-dashboard/on-the-day"
+          className="inline-flex items-center gap-1.5 text-sm font-medium"
+          style={{ color: 'var(--m-slate-2)' }}
+        >
+          <ArrowRight aria-hidden className="h-4 w-4 rotate-180" strokeWidth={1.75} /> All events
+        </Link>
+        {isToday ? (
+          <Link
+            href={`/vendor-dashboard/on-the-day/live/${booking.eventId}`}
+            className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white"
+            style={{ background: 'var(--m-ink)' }}
+          >
+            Launch the app <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          </Link>
+        ) : (
+          <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+            Launches on {dateLabel}
+          </span>
+        )}
+      </div>
+
+      <div className="sn-tile-dark sn-bloom p-5 sm:p-6">
+        <p className="text-lg font-semibold" style={{ color: 'var(--m-paper)' }}>
+          {coupleName}
+        </p>
+        <p className="mt-0.5 text-sm" style={{ color: 'rgba(251,251,250,0.62)' }}>
+          {dateLabel}
+          {` · ${DAY_OF_FAMILY_META[family].label}`}
+        </p>
+      </div>
+
+      <ModuleConfigurator eventId={booking.eventId} modules={modules} />
+
+      {showGrants ? <AccessGrants eventId={booking.eventId} members={grantMembers} /> : null}
+    </section>
+  );
+}
+
+/**
+ * Compact honest state — shown when there is NO event today and no ?preview=1.
+ * This is what makes the banner true: instead of a full console of degraded
+ * zero-cards, the vendor sees the "No event today" explainer, the day-of tools
+ * that will adapt to their service, and a door into their event briefs. A
+ * discreet "Preview the console" link is the owner escape hatch.
+ */
+function CompactDayOf({
+  family,
+  modules,
+  bookings,
+}: {
+  family: DayOfFamily;
+  modules: ResolvedModule[];
+  bookings: {
+    eventId: string;
+    eventName: string;
+    bookedDate: string;
+    when: 'today' | 'upcoming' | 'past';
+  }[];
+}) {
+  return (
+    <div className="space-y-6">
+      {/* Step 1 — pick a booked event to set up ahead of time. */}
+      {bookings.length > 0 ? <EventPicker bookings={bookings} activeEventId={null} /> : null}
+
+      {/* Promoted "No event today" explainer. */}
+      <div
+        className="rounded-2xl border border-dashed p-8 text-center"
+        style={{ borderColor: 'var(--sn-line)' }}
+      >
+        <CalendarClock
+          aria-hidden
+          className="mx-auto h-8 w-8"
+          style={{ color: 'var(--m-slate-3)' }}
+          strokeWidth={1.5}
+        />
+        <p className="mt-3 text-base font-medium" style={{ color: 'var(--m-ink)' }}>
+          No event today
+        </p>
+        <p className="mx-auto mt-1 max-w-md text-sm" style={{ color: 'var(--m-slate-2)' }}>
+          Your day-of console opens automatically on an event day (T-1h → T+8h) — the moment a
+          couple’s booked date is today. Until then, there’s nothing live to run here.
+        </p>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          <Link
+            href="/vendor-dashboard/customers"
+            className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white transition"
+            style={{ background: 'var(--m-ink)' }}
+          >
+            See your customers <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          </Link>
+          <Link
+            href="/vendor-dashboard/on-the-day?preview=1"
+            className="inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold transition"
+            style={{ borderColor: 'var(--sn-line)', color: 'var(--m-slate)' }}
+          >
+            Preview the console
+          </Link>
+        </div>
+      </div>
+
+      {/* Day-of tools adapt — taxonomy-driven family + module readout. */}
+      <ModuleReadout family={family} modules={modules} />
+
+      {/* Event-brief door — where day-of prep actually happens before the day. */}
+      <Link
+        href="/vendor-dashboard/customers"
+        className="sn-tile sn-press flex items-center justify-between gap-4"
+      >
+        <span className="flex items-start gap-3">
+          <PackageCheck
+            aria-hidden
+            className="mt-0.5 h-5 w-5 shrink-0"
+            style={{ color: 'var(--m-orange-2)' }}
+            strokeWidth={1.75}
+          />
+          <span>
+            <span className="block text-base font-semibold" style={{ color: 'var(--m-ink)' }}>
+              Your event briefs
+            </span>
+            <span className="mt-0.5 block text-sm" style={{ color: 'var(--m-slate-2)' }}>
+              Headcount, palette, the day-of timeline, and the delivery handover for each booking —
+              ready before the day arrives.
+            </span>
+          </span>
+        </span>
+        <ArrowRight aria-hidden className="h-5 w-5 shrink-0" style={{ color: 'var(--m-slate-3)' }} strokeWidth={1.75} />
+      </Link>
+    </div>
   );
 }
 
@@ -530,8 +926,8 @@ function ShotListSection({
           Shot list · syncs to the couple
         </h2>
         <p
-          className="mt-3 rounded-xl border px-4 py-4 text-sm"
-          style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)', color: 'var(--m-slate-2)' }}
+          className="sn-tile mt-3 text-sm"
+          style={{ color: 'var(--m-slate-2)' }}
         >
           Your must-get shot list appears here on an event day, ready to check off as you shoot.
         </p>
@@ -541,12 +937,7 @@ function ShotListSection({
   // localStorage-backed, offline-tolerant client component.
   return (
     <div>
-      <h2
-        className="font-mono text-[11px] uppercase tracking-[0.2em]"
-        style={{ color: 'var(--m-slate-3)' }}
-      >
-        Shot list · syncs to the couple
-      </h2>
+      <h2 className="sn-sec">Shot list · syncs to the couple</h2>
       <div className="mt-3">
         <ShotList eventId={eventId} eventName={eventName ?? 'this event'} />
       </div>
@@ -571,17 +962,14 @@ function CaptureCard({
   hint: string | null;
 }) {
   const inner = (
-    <div
-      className="flex h-full flex-col rounded-xl border p-5 transition"
-      style={{ borderColor: 'var(--m-line)', background: 'white' }}
-    >
+    <div className="sn-tile flex h-full flex-col">
       <div className="flex items-center gap-2">
         <Icon aria-hidden className="h-5 w-5" style={{ color: 'var(--m-orange-2)' }} strokeWidth={1.75} />
         <p className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
           {title}
         </p>
       </div>
-      <p className="mt-3 text-xl font-semibold tabular-nums" style={{ color: 'var(--m-ink)' }}>
+      <p className="mt-3 font-mono text-xl font-bold" style={{ color: 'var(--m-ink)' }}>
         {value}
       </p>
       <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
@@ -604,7 +992,7 @@ function CaptureCard({
   );
   if (!href) return inner;
   return (
-    <Link href={href} className="block">
+    <Link href={href} className="sn-press block">
       {inner}
     </Link>
   );
@@ -660,8 +1048,7 @@ function NonPhotoConsole({
     <div className="mt-4 space-y-3">
       <Link
         href={target}
-        className="flex items-center justify-between gap-4 rounded-xl border p-5 transition hover:bg-white sm:p-6"
-        style={{ borderColor: 'var(--m-line)', background: 'white' }}
+        className="sn-tile sn-press flex items-center justify-between gap-4 sm:p-6"
       >
         <span className="flex items-start gap-3">
           <Icon aria-hidden className="mt-0.5 h-5 w-5 shrink-0" style={{ color: 'var(--m-orange-2)' }} strokeWidth={1.75} />

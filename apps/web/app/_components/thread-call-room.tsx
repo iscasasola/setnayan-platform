@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { joinCall, type CallHandle, type CallState } from '@/lib/call-webrtc';
+import { getCallIceServers } from '@/app/_actions/thread-call-actions';
 import { endThreadCall } from '@/app/_actions/thread-call-actions';
 
 /**
@@ -59,7 +60,21 @@ export function ThreadCallRoom({
       try {
         const s = await navigator.mediaDevices.getUserMedia({
           audio: true,
-          video: kind === 'video',
+          // 720p @ 30fps ceiling for the CALL (owner 2026-07-14) — clean for
+          // talking-heads, ~half the bytes of 1080p (lighter on mobile battery +
+          // less TURN relay data). `ideal` + `max` firmly caps it while still
+          // returning a stream on cameras that can't hit exactly 720p (downscales
+          // to fit; no OverconstrainedError). Deliberately CALL-ONLY — Live Studio
+          // (panood-camera-publish) and Papic (use-papic-camera) keep their own
+          // capture settings, untouched.
+          video:
+            kind === 'video'
+              ? {
+                  width: { ideal: 1280, max: 1280 },
+                  height: { ideal: 720, max: 720 },
+                  frameRate: { ideal: 30, max: 30 },
+                }
+              : false,
         });
         if (cancelled) {
           s.getTracks().forEach((t) => t.stop());
@@ -67,10 +82,21 @@ export function ThreadCallRoom({
         }
         stream = s;
         if (localVideoRef.current) localVideoRef.current.srcObject = s;
+        // Fetch ICE servers (STUN + a minted TURN relay when configured) before
+        // joining, so a couple/coordinator on mobile data / an isolated venue
+        // Wi-Fi can still connect. Falls back to the transport's STUN-only default.
+        const { iceServers } = await getCallIceServers(threadId).catch(() => ({
+          iceServers: undefined as RTCIceServer[] | undefined,
+        }));
+        if (cancelled) {
+          s.getTracks().forEach((t) => t.stop());
+          return;
+        }
         handle = joinCall({
           room: `call:${threadId}`,
           clientId: crypto.randomUUID(),
           localStream: s,
+          iceServers,
           onRemoteStream: (r) => {
             setHasRemote(Boolean(r));
             if (remoteVideoRef.current) remoteVideoRef.current.srcObject = r;

@@ -22,14 +22,9 @@ export function QrCard({
 
   return (
     <section className="space-y-3">
-      <h2 className="text-sm font-medium" style={{ color: 'var(--m-slate)' }}>
-        Your QR codes
-      </h2>
+      <h2 className="sn-sec">Your QR codes</h2>
 
-      <div
-        className="rounded-xl border bg-white p-5"
-        style={{ borderColor: 'var(--m-line)' }}
-      >
+      <div className="sn-tile p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <span

@@ -414,7 +414,7 @@ export function PapicSeatCapture({
             img.onload = () => resolve();
             img.onerror = () => reject(new Error('decode'));
           });
-          const vectors = await embedFaces(img);
+          const { vectors } = await embedFaces(img);
           if (vectors.length > 0) {
             await autoTagSeatCapture(token, photoId, vectors);
           }

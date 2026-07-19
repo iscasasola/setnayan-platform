@@ -57,6 +57,71 @@ const SATORI_FONTS = [
 const OG_WIDTH = 1200;
 const OG_HEIGHT = 630;
 
+export type RealStoryCardFormat = 'og' | 'square' | 'story';
+
+/**
+ * Per-format geometry (share-asset completion 2026-07-17, mirroring the DIMS
+ * pattern #3294 established in lib/social/recap-card.tsx). `og` reproduces the
+ * original 1200×630 exactly:
+ *   og     1200×630   link unfurl (default — the og:image)
+ *   square 1080×1080  feed post (Instagram / Facebook)
+ *   story  1080×1920  Reels / TikTok / IG-FB Stories (9:16)
+ */
+const DIMS: Record<
+  RealStoryCardFormat,
+  {
+    w: number;
+    h: number;
+    // branded (photoless) card
+    framePad: string;
+    couple: number;
+    descriptor: number;
+    date: number;
+    // photo-overlay card
+    overlayPad: string;
+    overlayEyebrow: number;
+    overlayCouple: number;
+    overlayMeta: number;
+  }
+> = {
+  og: {
+    w: 1200,
+    h: 630,
+    framePad: '44px 60px',
+    couple: 84,
+    descriptor: 25,
+    date: 18,
+    overlayPad: '120px 64px 52px',
+    overlayEyebrow: 17,
+    overlayCouple: 74,
+    overlayMeta: 23,
+  },
+  square: {
+    w: 1080,
+    h: 1080,
+    framePad: '72px 64px',
+    couple: 96,
+    descriptor: 27,
+    date: 20,
+    overlayPad: '300px 64px 72px',
+    overlayEyebrow: 19,
+    overlayCouple: 90,
+    overlayMeta: 26,
+  },
+  story: {
+    w: 1080,
+    h: 1920,
+    framePad: '140px 64px',
+    couple: 104,
+    descriptor: 30,
+    date: 22,
+    overlayPad: '560px 64px 132px',
+    overlayEyebrow: 20,
+    overlayCouple: 104,
+    overlayMeta: 30,
+  },
+};
+
 export type RealStoryCardInput = {
   /** "Maria & Juan" */
   coupleNames: string;
@@ -118,7 +183,27 @@ function wordmark(): VNode {
   );
 }
 
-function cardTree(input: RealStoryCardInput): VNode {
+/** Subtle "made with Setnayan" maker mark for the Setnayan-composed story/square
+ *  PHOTO cards (same watermark policy as recap-card.tsx, sign-off #4). Small,
+ *  low-contrast, footer-anchored — a maker mark on the couple's hero, not a
+ *  banner. Tuned for the dark overlay. `og` keeps the existing chrome. */
+function madeWithMark(): VNode {
+  return el('div', { display: 'flex', alignItems: 'center', gap: '10px' }, [
+    el(
+      'div',
+      { fontFamily: 'Poppins', fontWeight: 400, fontSize: '15px', letterSpacing: '2px', color: 'rgba(255,255,255,0.66)' },
+      'MADE WITH',
+    ),
+    el(
+      'div',
+      { fontFamily: 'Poppins', fontWeight: 500, fontSize: '16px', letterSpacing: '6px', paddingLeft: '6px', color: '#FFFFFF' },
+      'SETNAYAN',
+    ),
+  ]);
+}
+
+function cardTree(input: RealStoryCardInput, format: RealStoryCardFormat): VNode {
+  const d = DIMS[format];
   const eyebrow = input.isSample
     ? 'A SETNAYAN REAL STORY · SAMPLE'
     : 'A SETNAYAN REAL STORY';
@@ -127,8 +212,8 @@ function cardTree(input: RealStoryCardInput): VNode {
   return el(
     'div',
     {
-      width: `${OG_WIDTH}px`,
-      height: `${OG_HEIGHT}px`,
+      width: `${d.w}px`,
+      height: `${d.h}px`,
       display: 'flex',
       padding: '40px',
       backgroundColor: CREAM,
@@ -146,7 +231,7 @@ function cardTree(input: RealStoryCardInput): VNode {
           justifyContent: 'space-between',
           border: `1px solid ${GOLD}`,
           borderRadius: '12px',
-          padding: '44px 60px',
+          padding: d.framePad,
         },
         [
           // Eyebrow.
@@ -184,7 +269,7 @@ function cardTree(input: RealStoryCardInput): VNode {
                 {
                   fontFamily: 'Cardo',
                   fontWeight: 600,
-                  fontSize: '84px',
+                  fontSize: `${d.couple}px`,
                   lineHeight: '1',
                   color: INK,
                   textAlign: 'center',
@@ -196,7 +281,7 @@ function cardTree(input: RealStoryCardInput): VNode {
                 {
                   fontFamily: 'Poppins',
                   fontWeight: 400,
-                  fontSize: '25px',
+                  fontSize: `${d.descriptor}px`,
                   lineHeight: '1.35',
                   color: INK_SOFT,
                   textAlign: 'center',
@@ -209,7 +294,7 @@ function cardTree(input: RealStoryCardInput): VNode {
                 {
                   fontFamily: 'Poppins',
                   fontWeight: 500,
-                  fontSize: '18px',
+                  fontSize: `${d.date}px`,
                   letterSpacing: '3px',
                   color: INK_FAINT,
                 },
@@ -243,15 +328,19 @@ function cardTree(input: RealStoryCardInput): VNode {
 // editorial type) composited over the couple's real hero photo. Used when a
 // published editorial has a `hero_photo_id`; the branded `cardTree` is the
 // fallback for photoless editorials (the sample, early real ones).
-function photoOverlayTree(input: RealStoryCardInput): VNode {
+function photoOverlayTree(input: RealStoryCardInput, format: RealStoryCardFormat): VNode {
+  const d = DIMS[format];
+  // "made with Setnayan" only on the story/square file-assets — `og` keeps the
+  // original link-unfurl chrome unchanged (same rule as recap-card.tsx).
+  const watermark = format !== 'og';
   const eyebrow = input.isSample
     ? 'A SETNAYAN REAL STORY · SAMPLE'
     : 'A SETNAYAN REAL STORY';
   return el(
     'div',
     {
-      width: `${OG_WIDTH}px`,
-      height: `${OG_HEIGHT}px`,
+      width: `${d.w}px`,
+      height: `${d.h}px`,
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'flex-end',
@@ -265,7 +354,7 @@ function photoOverlayTree(input: RealStoryCardInput): VNode {
           flexDirection: 'column',
           gap: '12px',
           width: '100%',
-          padding: '120px 64px 52px',
+          padding: d.overlayPad,
           // Bottom scrim so white type stays legible over any photo; fades to
           // fully transparent at the top so the image reads clean above it.
           backgroundImage:
@@ -277,7 +366,7 @@ function photoOverlayTree(input: RealStoryCardInput): VNode {
             {
               fontFamily: 'Poppins',
               fontWeight: 500,
-              fontSize: '17px',
+              fontSize: `${d.overlayEyebrow}px`,
               letterSpacing: '4px',
               color: '#E8D9B5',
             },
@@ -288,7 +377,7 @@ function photoOverlayTree(input: RealStoryCardInput): VNode {
             {
               fontFamily: 'Cardo',
               fontWeight: 600,
-              fontSize: '74px',
+              fontSize: `${d.overlayCouple}px`,
               lineHeight: '1',
               color: '#FFFFFF',
             },
@@ -299,11 +388,12 @@ function photoOverlayTree(input: RealStoryCardInput): VNode {
             {
               fontFamily: 'Poppins',
               fontWeight: 400,
-              fontSize: '23px',
+              fontSize: `${d.overlayMeta}px`,
               color: 'rgba(255,255,255,0.88)',
             },
             clamp(`${input.descriptor} · ${input.dateLabel}`, 96),
           ),
+          watermark ? el('div', { display: 'flex', marginTop: '10px' }, madeWithMark()) : null,
         ],
       ),
     ],
@@ -311,28 +401,33 @@ function photoOverlayTree(input: RealStoryCardInput): VNode {
 }
 
 /**
- * Render the Real Story OG card → JPEG buffer (1200×630). Never throws on a
- * font/layout edge — the caller (the /api/og route) can fall back to a static
+ * Render the Real Story share card → JPEG buffer at the requested `format`
+ * (default `og`, the original 1200×630 — `square`/`story` are the postable
+ * file-assets, added by the share-asset completion 2026-07-17). Never throws on
+ * a font/layout edge — the caller (the /api/og route) can fall back to a static
  * brand image so the Graph crawler never gets a broken response.
  *
  * With a `heroPhotoUrl`, renders the PHOTO variant (the couple's real photo,
- * smart-cropped to 1.91:1, with the white-type scrim overlaid); a fetch/decode
- * failure degrades to the branded card rather than failing the share.
+ * smart-cropped to the format's ratio, with the white-type scrim overlaid); a
+ * fetch/decode failure degrades to the branded card rather than failing the
+ * share.
  */
 export async function renderRealStoryOgJpeg(
   input: RealStoryCardInput,
+  format: RealStoryCardFormat = 'og',
 ): Promise<Buffer> {
+  const d = DIMS[format];
   if (input.heroPhotoUrl) {
     try {
       const res = await fetch(input.heroPhotoUrl);
       if (res.ok) {
         const photo = Buffer.from(await res.arrayBuffer());
         const base = await sharp(photo)
-          .resize(OG_WIDTH, OG_HEIGHT, { fit: 'cover', position: 'attention' })
+          .resize(d.w, d.h, { fit: 'cover', position: 'attention' })
           .toBuffer();
         const overlaySvg = await satori(
-          photoOverlayTree(input) as unknown as React.ReactNode,
-          { width: OG_WIDTH, height: OG_HEIGHT, fonts: SATORI_FONTS },
+          photoOverlayTree(input, format) as unknown as React.ReactNode,
+          { width: d.w, height: d.h, fonts: SATORI_FONTS },
         );
         const overlayPng = await sharp(Buffer.from(overlaySvg)).png().toBuffer();
         return sharp(base)
@@ -344,9 +439,9 @@ export async function renderRealStoryOgJpeg(
       // Photo unreachable / undecodable → fall through to the branded card.
     }
   }
-  const svg = await satori(cardTree(input) as unknown as React.ReactNode, {
-    width: OG_WIDTH,
-    height: OG_HEIGHT,
+  const svg = await satori(cardTree(input, format) as unknown as React.ReactNode, {
+    width: d.w,
+    height: d.h,
     fonts: SATORI_FONTS,
   });
   return sharp(Buffer.from(svg)).jpeg({ quality: 86 }).toBuffer();

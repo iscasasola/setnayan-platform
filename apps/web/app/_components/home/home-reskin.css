@@ -8,7 +8,7 @@
  * EVERY rule is scoped under `.home-reskin` so it never leaks into the rest of
  * the site (which keeps the `--m-*` Clean-Editorial tokens). The cool-greige
  * tokens below are local to this subtree; the brand gold `--hr-pop2` matches the
- * existing `--m-orange` (#C5A059).
+ * existing `--m-orange` (#A9834B).
  *
  * Fonts reuse the app's already-loaded marketing families:
  *   --hr-sans  → --font-sans-marketing  (Geist)
@@ -25,7 +25,7 @@
   --hr-grey-2: #a8a4a0;
   --hr-line: rgba(42, 43, 46, 0.12);
   --hr-pop1: #9a7bc9; /* the one gradient pop (a la ELN's purple) */
-  --hr-pop2: #c5a059; /* a whisper of Setnayan gold inside the pop */
+  --hr-pop2: #A9834B; /* a whisper of Setnayan gold inside the pop */
   --hr-sans: var(--font-sans-marketing), -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
   --hr-serif: var(--font-serif-marketing), 'Instrument Serif', Georgia, serif;
   --hr-mono: var(--font-mono-marketing), ui-monospace, monospace;
@@ -613,7 +613,7 @@ html.hr-snap {
   font-style: italic;
   font-size: clamp(1.4rem, 2.5vw, 1.8rem);
   line-height: 1;
-  color: #a88340; /* deeper champagne — keeps 3:1+ on the greige bg */
+  color: #8A6B39; /* kit gold-700 — keeps 3:1+ on the greige bg */
 }
 .home-reskin .hr-psep {
   width: 28px;
@@ -818,12 +818,12 @@ html.hr-snap {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: rgba(197, 160, 89, 0.09);
-  border: 1px solid rgba(197, 160, 89, 0.28);
+  background: rgba(169, 131, 75, 0.09);
+  border: 1px solid rgba(169, 131, 75, 0.28);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #a88340;
+  color: #8A6B39;
   font-size: 15px;
   margin-bottom: 11px;
 }
@@ -943,7 +943,7 @@ html.hr-snap {
   font-weight: 600;
 }
 .home-reskin .hr-mcal .hr-free {
-  background: rgba(197, 160, 89, 0.16);
+  background: rgba(169, 131, 75, 0.16);
   color: #97742f;
 }
 .home-reskin .hr-mck {
@@ -989,7 +989,7 @@ html.hr-snap {
   position: absolute;
   inset: 11px;
   border-radius: 50%;
-  background: rgba(197, 160, 89, 0.16);
+  background: rgba(169, 131, 75, 0.16);
 }
 .home-reskin .hr-mtl-row {
   display: flex;
@@ -1362,7 +1362,7 @@ html.hr-snap {
 }
 .home-reskin .hr-m-db2 .hr-me-mod.hr-live {
   border-color: var(--hr-pop2);
-  background: rgba(197, 160, 89, 0.07);
+  background: rgba(169, 131, 75, 0.07);
 }
 .home-reskin .hr-m-db2 .hr-me-foot {
   margin-top: auto;
@@ -1831,7 +1831,7 @@ html.hr-snap {
   --hr-grey-2: #a8a4a0;
   --hr-line: rgba(42, 43, 46, 0.12);
   --hr-pop1: #9a7bc9;
-  --hr-pop2: #c5a059;
+  --hr-pop2: #A9834B;
   --hr-sans: var(--font-sans-marketing), -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
   --hr-serif: var(--font-serif-marketing), 'Instrument Serif', Georgia, serif;
   --hr-mono: var(--font-mono-marketing), ui-monospace, monospace;
@@ -1915,14 +1915,14 @@ html.hr-snap {
   padding-left: 26px;
   font-size: 14px;
   line-height: 1.4;
-  color: #1e2229;
+  color: #1B1A17;
 }
 .home-reskin-ov .hr-glist li::before {
   content: '✓';
   position: absolute;
   left: 0;
   top: -1px;
-  color: #a88340;
+  color: #8A6B39;
   font-weight: 700;
   font-size: 14px;
 }
@@ -1943,8 +1943,8 @@ html.hr-snap {
   margin: 2px 0 4px;
   padding: 12px 14px;
   border-radius: var(--hr-r14);
-  background: rgba(197, 160, 89, 0.1);
-  border: 1px solid rgba(197, 160, 89, 0.28);
+  background: rgba(169, 131, 75, 0.1);
+  border: 1px solid rgba(169, 131, 75, 0.28);
 }
 .home-reskin-ov .hr-gintro-h {
   display: block;
@@ -1952,14 +1952,14 @@ html.hr-snap {
   font-size: 10.5px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #a88340;
+  color: #8A6B39;
 }
 .home-reskin-ov .hr-gintro-b {
   display: block;
   margin-top: 4px;
   font-size: 13px;
   line-height: 1.45;
-  color: #1e2229;
+  color: #1B1A17;
 }
 /* The single line-link out — "Want more? → See all prices". */
 .home-reskin-ov .hr-gline {
@@ -1969,7 +1969,7 @@ html.hr-snap {
   gap: 12px;
   margin-top: 4px;
   padding-top: 16px;
-  border-top: 1px solid rgba(30, 34, 41, 0.12);
+  border-top: 1px solid rgba(30, 26, 18, 0.12);
 }
 .home-reskin-ov .hr-gline-t {
   font-size: 13.5px;
@@ -1982,11 +1982,11 @@ html.hr-snap {
   white-space: nowrap;
   font-size: 13.5px;
   font-weight: 600;
-  color: #1e2229;
+  color: #1B1A17;
   text-decoration: none;
 }
 .home-reskin-ov .hr-gline-arw {
-  color: #a88340;
+  color: #8A6B39;
   transition: transform 0.15s;
 }
 .home-reskin-ov .hr-gline-a:hover .hr-gline-arw {
@@ -2000,20 +2000,20 @@ html.hr-snap {
   font-style: normal;
   font-weight: 600;
   font-size: clamp(1.7rem, 5vw, 2rem);
-  color: #1e2229;
+  color: #1B1A17;
   margin: 6px 0 4px;
 }
 .home-reskin-ov .hr-ov-card-glass .hr-ov-eyebrow {
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  color: #a88340;
+  color: #8A6B39;
 }
 .home-reskin-ov .hr-ov-card-glass .hr-ov-eyebrow::before {
   content: '';
   width: 24px;
   height: 1px;
-  background: #c5a059;
+  background: #A9834B;
 }
 .home-reskin-ov .hr-ov-card-glass .hr-ov-sub {
   color: #4f535b;
@@ -2211,13 +2211,13 @@ html.hr-snap {
   gap: 0 20px;
 }
 .home-reskin-ov .hr-pr-papic {
-  background: rgba(197, 160, 89, 0.06);
+  background: rgba(169, 131, 75, 0.06);
   border-radius: var(--hr-r12);
   padding: 3px 16px;
   margin-bottom: 8px;
 }
 .home-reskin-ov .hr-pr-papic .hr-pr-row {
-  border-bottom-color: rgba(197, 160, 89, 0.18);
+  border-bottom-color: rgba(169, 131, 75, 0.18);
 }
 .home-reskin-ov .hr-pr-free {
   display: flex;
@@ -2523,7 +2523,7 @@ html.hr-snap {
 }
 .home-reskin-ov .hr-si-input:focus {
   border-color: var(--hr-pop2);
-  box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.18);
+  box-shadow: 0 0 0 3px rgba(169, 131, 75, 0.18);
 }
 .home-reskin-ov .hr-si-row {
   display: flex;
@@ -2580,10 +2580,33 @@ html.hr-snap {
   font-size: 12.5px;
   color: var(--hr-grey);
 }
+/* Sign-in status banners — only rendered when the card is THE /login surface
+   (a failed sign-in redirects to /login?error=…, and the signup flow lands here
+   with ?check_email / ?ready). On the marketing-nav overlay these are always
+   absent (it opens on '/'), so the card looks unchanged there. */
+.home-reskin-ov .hr-si-banner {
+  margin: 2px 0;
+  padding: 10px 13px;
+  border-radius: var(--hr-r10);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--hr-ink);
+  background: rgba(169, 131, 75, 0.08);
+  border: 1px solid var(--hr-line);
+}
+.home-reskin-ov .hr-si-banner--error {
+  color: #8a2b2b;
+  background: rgba(190, 60, 60, 0.09);
+  border-color: rgba(190, 60, 60, 0.26);
+}
+.home-reskin-ov .hr-si-banner-em {
+  font-weight: 600;
+  color: var(--hr-ink);
+}
 .home-reskin-ov .hr-vb-stat {
   font-size: 13.5px;
   color: var(--hr-ink);
-  background: rgba(197, 160, 89, 0.06);
+  background: rgba(169, 131, 75, 0.06);
   border: 1px solid var(--hr-line);
   border-radius: var(--hr-r12);
   padding: 12px 15px;

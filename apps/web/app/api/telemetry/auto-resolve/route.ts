@@ -21,6 +21,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { resolveFaultsByFilePath } from '@/lib/telemetry/fault-log';
+import { secureCompare } from '@/lib/secure-compare';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,7 +30,7 @@ function hasValidWorkerSecret(req: NextRequest): boolean {
   const expected = process.env.INTERNAL_WORKER_SECRET;
   if (!expected) return false;
   const supplied = req.headers.get('x-internal-worker-secret');
-  return !!supplied && supplied === expected;
+  return !!supplied && secureCompare(supplied, expected);
 }
 
 async function isAdminSession(): Promise<boolean> {

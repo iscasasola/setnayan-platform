@@ -1,10 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isValidSlug } from '@/lib/slugs';
+import { clientIp } from '@/lib/client-ip';
+import { enforceRateLimit, rateLimited429 } from '@/lib/with-rate-limit';
 
 // Live-availability endpoint for the slug field per spec § Customer slug.
-// 60 requests/min/IP cap is enforced by Vercel's default edge limits + the
-// debounced client component; we don't need a Redis bucket for V1.
+// Anon DB-hitting availability oracle → rate-limited 60/min per IP. (Vercel does
+// NOT provide a per-endpoint limit; the earlier "edge limits" claim was false.)
 
 type Response =
   | { status: 'current' }
@@ -13,7 +15,10 @@ type Response =
   | { status: 'invalid_format'; reason: string }
   | { status: 'reserved'; reason: string };
 
-export async function GET(request: NextRequest): Promise<NextResponse<Response>> {
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  const rl = await enforceRateLimit('slug_check', clientIp(request.headers), { limit: 60, windowSecs: 60 });
+  if (!rl.ok) return rateLimited429(rl.retryAfterSecs);
+
   const url = new URL(request.url);
   const slug = (url.searchParams.get('slug') ?? '').trim().toLowerCase();
   const entityId = url.searchParams.get('entity_id') ?? '';

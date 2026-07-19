@@ -25,6 +25,7 @@ import { isPublicApiEnabled, publicApiDisabledResponse } from "@/lib/public-api-
 import { createHmac } from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { secureCompare } from '@/lib/secure-compare';
 
 type SyncBody = {
   event_id?: string;
@@ -280,7 +281,9 @@ function validateMasterEventQr(payload: string, expectedEventId: string): QrVali
     .update(`${expectedEventId}:${bucket}`)
     .digest('hex')
     .slice(0, 32);
-  if (sig !== expectedSig) {
+  // Timing-safe HMAC compare — a plain !== is a MAC timing-forge oracle (an
+  // attacker could recover a valid signature byte-by-byte). Both are 32-char hex.
+  if (!secureCompare(sig, expectedSig)) {
     return { ok: false, reason: 'QR signature mismatch.' };
   }
   return { ok: true, bucket };

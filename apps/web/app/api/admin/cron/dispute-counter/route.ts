@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendVendorSuspensionEmail } from '@/lib/vendor-email-triggers';
+import { secureCompare } from '@/lib/secure-compare';
 
 /**
  * Dispute counter cron — runs daily, rolls a 30-day window of disputes per
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
   }
   const authz = request.headers.get('authorization') ?? '';
   const provided = authz.startsWith('Bearer ') ? authz.slice('Bearer '.length) : '';
-  if (provided !== expected) {
+  if (!secureCompare(provided, expected)) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
 

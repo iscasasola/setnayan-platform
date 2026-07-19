@@ -4,6 +4,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { enforceRateLimit } from '@/lib/with-rate-limit';
 
 /**
  * Couple waitlist signup. Open to anon visitors during the pre-launch
@@ -53,6 +54,10 @@ export async function joinCoupleWaitlist(formData: FormData) {
   const ipAddress =
     h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? h.get('x-real-ip') ?? null;
   const userAgent = h.get('user-agent')?.slice(0, 500) ?? null;
+
+  // Rate-limit anon flooding (distinct-email junk-list poisoning / storage abuse): 5/min per IP.
+  const rl = await enforceRateLimit('waitlist', ipAddress, { limit: 5, windowSecs: 60 });
+  if (!rl.ok) return redirect('/waitlist?error=rate_limited');
 
   // Use the admin client so we can capture ip + UA on anon submits (RLS
   // anon-insert policy would still allow this but the admin client avoids

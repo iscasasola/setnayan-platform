@@ -79,6 +79,20 @@ import type { NavGroup, NavItem } from '@/app/_components/nav/types';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 
 /**
+ * Suite nav doorway (owner 2026-07-19: surface name locked = "Suite"; the nav
+ * slot REPLACES Studio, flag-gated via NEXT_PUBLIC_SUITE — same flag that
+ * un-404s /dashboard/[eventId]/suite). Flag ON → the Studio rail item renders
+ * as Suite → `${base}/suite`; flag OFF → Studio exactly as today. The /studio
+ * routes stay reachable either way (deep links + buy pages untouched) — only
+ * the doorway swaps. Item KEY stays 'studio' (stable: hideKeys gating + the
+ * customer.sidebar.studio registry slot key off it). NEXT_PUBLIC_* is inlined
+ * into the client bundle at build time, so this neutral module reads the same
+ * value on server + client (no hydration split). Mirror: lib/customer-menu.ts
+ * (mobile SSOT) + lib/nav-registry-defaults.ts (registry label default).
+ */
+const SUITE_NAV_ON = process.env.NEXT_PUBLIC_SUITE === 'true';
+
+/**
  * Builds the canonical customer NavGroup[] for the given eventId — one
  * header-less group ('root', label: '') containing the 5 destinations that
  * match the mobile bottom-nav tabs. Each top-level item auto-expands on the
@@ -191,11 +205,16 @@ export function buildCustomerNavGroups(
           // hub + /studio/* (mood-board, add-on detail); the disjoint surfaces
           // (/monogram, /live, /event-page, /pabuya, /site-editor) are their own
           // destinations reached from the hub body, same as the vendor 5-page IA.
+          // SUITE SWAP (flag-gated, see SUITE_NAV_ON above): when on, this slot
+          // is the Suite doorway → `${base}/suite`; matchPrefix follows the href
+          // (a deep-linked /studio page then lights no rail item — matchPrefix is
+          // a single prefix; the mobile tab still lights via its activeMatch
+          // array in lib/customer-menu.ts).
           key: 'studio',
-          label: 'Studio',
-          href: `${base}/studio`,
+          label: SUITE_NAV_ON ? 'Suite' : 'Studio',
+          href: SUITE_NAV_ON ? `${base}/suite` : `${base}/studio`,
           icon: Sparkles,
-          matchPrefix: `${base}/studio`,
+          matchPrefix: SUITE_NAV_ON ? `${base}/suite` : `${base}/studio`,
         },
         // (Launch moved OUT of the Plan items into its own "Go live" section —
         // see `launchItem` above + the two-group composition below.)

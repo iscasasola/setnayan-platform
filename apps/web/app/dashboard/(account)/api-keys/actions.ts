@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { userHasApiAccessGrant } from '@/lib/enterprise-vendor-gate';
 import {
   generateApiKey,
   hashApiKey,
@@ -31,6 +33,16 @@ export async function createApiKey(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  // The /api/v1 SDK requires an explicit API-access grant on an active Custom
+  // vendor plan (owner 2026-07-11) — only that vendor OWNER may mint API keys.
+  // authenticateApiRequest re-checks this on every call (downgrade defense), but
+  // gating minting keeps an ungranted user from ever holding a dead key.
+  if (!(await userHasApiAccessGrant(createAdminClient(), user.id))) {
+    return redirect(
+      `/dashboard/api-keys?error=${encodeURIComponent('API access requires a Custom vendor plan with API access enabled.')}`,
+    );
+  }
 
   const key = generateApiKey();
   const hash = hashApiKey(key);

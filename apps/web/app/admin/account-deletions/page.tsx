@@ -163,7 +163,7 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
                   </div>
 
                   {u?.is_internal ? (
-                    <p className="rounded-md border border-purple-200 bg-purple-50/60 px-3 py-2 text-xs text-purple-900">
+                    <p className="rounded-md border border-[color:var(--sn-info)]/30 bg-[var(--sn-info-soft)] px-3 py-2 text-xs text-[color:var(--sn-info)]">
                       This is an internal account (§ 10a) — the delete actions block internal
                       accounts. Reject this request or clear the internal flag first via the Users
                       surface.

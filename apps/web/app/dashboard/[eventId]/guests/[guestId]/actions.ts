@@ -82,6 +82,9 @@ export async function inviteGuestByEmailAction(eventId: string, guestId: string)
   if (!user) redirect('/login');
 
   const backTo = `/dashboard/${eventId}/guests/${guestId}`;
+  // Anon-draft boundary: emailing a guest a passwordless sign-in link reaches a
+  // third party — a native anonymous principal must secure their plan first.
+  if (user.is_anonymous) redirect(`/signup?next=${encodeURIComponent(backTo)}`);
 
   const supabase = await createClient();
   const { data: membership } = await supabase

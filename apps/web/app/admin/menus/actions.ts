@@ -52,7 +52,7 @@ function assertKnownSlot(slotKey: string) {
 
 function revalidateRegistry() {
   revalidateTag(NAV_REGISTRY_TAG);
-  revalidatePath('/admin/menus');
+  revalidatePath('/admin/ugat');
 }
 
 type AdminDb = ReturnType<typeof createAdminClient>;

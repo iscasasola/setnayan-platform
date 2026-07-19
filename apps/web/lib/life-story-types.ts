@@ -54,6 +54,14 @@ export type Moment = {
   capturedBy: CapturedBy;
   /** From photo_tags → guests → people. Untagged frames have []. */
   peoplePresent: MomentPerson[];
+  /**
+   * Subset of `peoplePresent` tagged via a HIGH-TRUST source only (a guest
+   * scanned their own QR, or a human hand-picked the tag) — never table-QR
+   * fan-out or a low-confidence auto-face guess. This is the ONLY presence the
+   * memoriam beat is allowed to name, so a deceased person is never captioned
+   * onto a photo they aren't actually in. Untrusted/untagged frames have [].
+   */
+  peoplePresentHighTrust: MomentPerson[];
   /** Distinct capturers within this moment's ±window (multi-perspective richness). */
   coverage: number;
   /** Burst-dedup id (same capturer ≤20s). NULL when unclustered. */

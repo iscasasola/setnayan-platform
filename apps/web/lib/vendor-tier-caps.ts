@@ -4,7 +4,7 @@
  *
  * `tier_state` enum on vendor_profiles = free | verified | solo | pro | enterprise.
  * free + verified are legacy states kept for backward compatibility.
- * The three marketed tiers are Solo (₱999/28d) · Pro (₱2,499/28d) · Enterprise (₱7,499/28d).
+ * The three marketed tiers are Solo (₱999/28d) · Pro (₱2,499/28d) · Enterprise (₱7,999/28d).
  * (Prices shown for reference only — the live figures are read from
  * vendor_billing_catalog; this file only carries capability caps, not prices.)
  *
@@ -64,7 +64,16 @@ export interface TierCaps {
   importCustomerTokenCost: number;
   /** Portfolio photo cap. Infinity = unlimited. */
   portfolioPhotos: number;
-  /** Eligible to be tagged in editorial. */
+  /**
+   * Eligible to be tagged in editorial (the showcase credit chip — logo +
+   * /v/[slug] link). RETIRED AS A TIER DISTINCTION 2026-07-16 (owner-ratified
+   * Simplicity Canon rule 2, Creator_Economy_Discount_Collab_Build_Plan:
+   * "Being credited in a story is always free — editorial or chapter, any
+   * tier. You never pay to be named in a story."). Now TRUE for every tier;
+   * kept as a field so the matrix shape (and any external read) is unchanged.
+   * Pro keeps its other perks. Name display still respects the hybrid-
+   * anonymity mechanic at the read sites (resolveVendorDisplayName).
+   */
   editorialTagged: boolean;
   /** Review star average is counted/shown. */
   reviewStarsCounted: boolean;
@@ -106,10 +115,21 @@ export interface TierCaps {
   performanceAdvanced: boolean;
   /** Solo business back-office (earnings analytics + recap sharing). Solo+ (2026-07-01 beef-up). */
   soloBusinessTools: boolean;
+  /**
+   * In-thread 1:1 voice/video CALLS with couples (the "Call" tab + appointment
+   * video/voice join). PAID-tier capability — any paid plan (Solo+), NOT
+   * Free/Verified (owner 2026-07-13: "a service for the paid"). The media is
+   * free P2P; a TURN relay covers hard-NAT couples, so gating it to paying
+   * vendors also keeps the relay a paid-vendor cost. Enforced flag-dark via
+   * isVendorFeatureGateEnabled() — see lib/vendor-feature-gate.ts — so the
+   * transport un-gates unchanged until the owner flips the gate on.
+   */
+  calls: boolean;
 }
 
 export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   free: {
+    calls: false,
     serviceRadiusKm: 0,
     servicesPerLeaf: 2,
     chat: 'none',
@@ -129,7 +149,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     performanceTrends: false,
     performanceAdvanced: false,
     soloBusinessTools: false,
-    editorialTagged: false,
+    editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
     reviewStarsCounted: false,
     reviewCommentsViewable: false,
     website: 'basic',
@@ -143,6 +163,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // still keeps its 10/week cap, enforced in unlock_vendor_event). Solo stays
   // strictly better (servicesPerLeaf 3 vs 2, inAppCustomersPerWeek ∞ vs 10).
   verified: {
+    calls: false,
     serviceRadiusKm: 20,
     servicesPerLeaf: 2,
     chat: 'chat',
@@ -162,7 +183,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inAppGated: true,
     importCustomerTokenCost: 0,
     portfolioPhotos: 50,
-    editorialTagged: false,
+    editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
     reviewStarsCounted: true,
     reviewCommentsViewable: false,
     website: 'custom',
@@ -174,6 +195,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // Token-burn model same as Pro/Enterprise (inAppGated = true). One agent seat
   // (owner 2026-07-02 — Solo now sits one seat above Free · Verified's 0).
   solo: {
+    calls: true,
     serviceRadiusKm: 20,
     servicesPerLeaf: 3,
     marketIntel: false,
@@ -193,7 +215,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inAppGated: true,
     importCustomerTokenCost: 0,
     portfolioPhotos: 50,
-    editorialTagged: false,
+    editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
     reviewStarsCounted: true,
     reviewCommentsViewable: false,
     website: 'custom',
@@ -201,11 +223,13 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inquireLink: true,
   },
   pro: {
+    calls: true,
     serviceRadiusKm: 50,
-    // Market intel is ENTERPRISE-ONLY (owner 2026-07-01 My Performance tiering).
-    // Pro gets the full OWN-business analytics via performanceAdvanced, not the
-    // cross-business Demand Radar / Price-Position surface.
-    marketIntel: false,
+    // Market intel (cross-business Demand Radar + Price-Position) is PRO-AND-UP
+    // (owner 2026-07-11 — supersedes the 2026-07-01 "Enterprise-only" call, which
+    // the marketing copy had already been advertising as a Pro benefit). Pro also
+    // keeps the full OWN-business analytics via performanceAdvanced.
+    marketIntel: true,
     theftWatch: true,
     performanceTrends: true,
     performanceAdvanced: true,
@@ -231,11 +255,13 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     inquireLink: true,
   },
   // Enterprise is now a BOUNDED "larger range", not truly unlimited (owner
-  // 2026-07-01, alongside the ₱4,999→₱7,499 reprice). The four scale axes are
+  // 2026-07-01, alongside the ₱4,999→₱7,999 reprice — 28-day fee finalized at
+  // ₱7,999 on 2026-07-10). The four scale axes are
   // finite; a negotiated "Custom" tier (follow-up) is the home for franchises /
   // multi-location / truly-unlimited. Left unbounded: parentCategories ("all
   // categories" — taxonomy-bounded already) + servicesPerLeaf + inApp volume.
   enterprise: {
+    calls: true,
     serviceRadiusKm: 100, // nationwide-marketed (top of the Local→20→50→100 ladder)
     marketIntel: true,
     theftWatch: true,
@@ -271,6 +297,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // caps.ts) — the static base here is the Enterprise clone, never edited per
   // vendor. Keep this in lockstep with `enterprise` above on any Enterprise edit.
   custom: {
+    calls: true,
     serviceRadiusKm: 100,
     marketIntel: true,
     theftWatch: true,
@@ -305,18 +332,18 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
  * hardcode a price in UI copy.
  *
  * LADDER B (owner-confirmed 2026-07-01 · the pre-reset ₱2,000/6,000/10,000
- * "Ladder A" is dead): Solo ₱999 · Pro ₱2,499 · Enterprise ₱7,499 /28d, with
+ * "Ladder A" is dead): Solo ₱999 · Pro ₱2,499 · Enterprise ₱7,999 /28d, with
  * annual = 10× the 28-day fee (a subscription year is 13 cycles, billed for 10
- * — first 3 free). Enterprise repriced ₱4,999→₱7,499 the same day it became a
- * BOUNDED tier (see TIER_CAPS below); a negotiated "Custom" tier for the
- * truly-unlimited case lands in a follow-up.
+ * — first 3 free). Enterprise became a BOUNDED tier on 2026-07-01 (₱4,999→₱7,499)
+ * and its 28-day fee was finalized at ₱7,999 on 2026-07-10 (annual ₱79,999); a
+ * negotiated "Custom" tier for the truly-unlimited case sits above it.
  */
 export const TIER_PRICE_PHP: Record<VendorTier, { monthly: number; annual: number }> = {
   free: { monthly: 0, annual: 0 },
   verified: { monthly: 0, annual: 0 },
   solo: { monthly: 999, annual: 9999 },
   pro: { monthly: 2499, annual: 24999 },
-  enterprise: { monthly: 7499, annual: 74999 },
+  enterprise: { monthly: 7999, annual: 79999 },
   // Custom is priced PER PLAN (composed 28-day total on vendor_custom_plans,
   // computed by lib/vendor-custom-pricing.ts). These are the base-only fallback
   // figures (base ₱8,999/28d · annual = 10× base) for display when no plan is
@@ -359,7 +386,7 @@ export const TIER_SUBSCRIPTION_BUNDLE_TOKENS: Record<
 export const TOKEN_BUY_PRICE_PHP = 100;
 
 /**
- * May purchase additional lifetime tokens (₱100/token)?
+ * May purchase additional lifetime tokens (₱200/token)?
  *
  * VERIFICATION-GATED (owner 2026-07-01: "they can only purchase tokens and
  * subscribe when they are verified"). Only a VERIFIED store may buy — i.e. any
@@ -466,7 +493,7 @@ export function canPlotTimeSlots(tier: string | null | undefined): boolean {
  * out until paid vendors exist in prod.
  */
 export function canSeeMarketIntel(tier: string | null | undefined): boolean {
-  return tierCaps(tier).marketIntel; // Demand Radar + Price-Position (ENTERPRISE-only)
+  return tierCaps(tier).marketIntel; // Demand Radar + Price-Position (Pro-and-up · 2026-07-11)
 }
 export function canSeeTheftWatch(tier: string | null | undefined): boolean {
   return tierCaps(tier).theftWatch; // reverse-image theft watch (Pro+)
@@ -479,4 +506,7 @@ export function canSeePerformanceAdvanced(tier: string | null | undefined): bool
 }
 export function canUseSoloBusinessTools(tier: string | null | undefined): boolean {
   return tierCaps(tier).soloBusinessTools; // earnings dashboard + recap sharing (Solo+)
+}
+export function canUseCalls(tier: string | null | undefined): boolean {
+  return tierCaps(tier).calls; // in-thread voice/video calls with couples — any paid plan (Solo+)
 }

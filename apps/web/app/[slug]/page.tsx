@@ -70,6 +70,7 @@ import { fetchPublicScheduleBlocks, type ScheduleBlockRow } from '@/lib/schedule
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
 import { GuestToHostCta } from '@/app/_components/guest-to-host-cta';
 import { NavLinksRow } from '@/app/_components/nav-links';
+import { PublicPageActions } from '@/app/_components/public-page-actions';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { GuestPreload } from './_components/guest-preload';
 import { GuestHubBar } from './_components/guest-hub-bar';
@@ -192,6 +193,14 @@ const fetchEventBySlug = cache(async (slug: string) => {
   return data;
 });
 
+/** Event-type-adaptive noun for guest-facing copy: weddings keep "wedding"
+ *  (byte-identical), every other type reads "event". Now that non-wedding types
+ *  can enable the website surface, formerly-hardcoded "wedding" copy routes
+ *  through this. Null/legacy event_type defaults to "wedding". */
+function eventNounOf(e: { event_type?: string | null }): 'wedding' | 'event' {
+  return e.event_type && e.event_type !== 'wedding' ? 'event' : 'wedding';
+}
+
 export async function generateMetadata({ params }: Pick<Props, 'params'>) {
   const { slug } = await params;
   if (!slug || RESERVED_SLUGS.has(slug)) notFound();
@@ -217,7 +226,7 @@ export async function generateMetadata({ params }: Pick<Props, 'params'>) {
   // leak the couple's names into SERP snippets via metadata.
   if (visibility !== 'public') {
     return {
-      title: 'Wedding invitation',
+      title: eventNounOf(event) === 'wedding' ? 'Wedding invitation' : 'Event invitation',
       robots: { index: false, follow: false },
     };
   }
@@ -439,7 +448,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
 
   const monogram = resolveMonogram(event);
 
-  // Paid ANIMATED_MONOGRAM upgrade (₱2,499 · "Your initials, drawn live").
+  // Paid ANIMATED_MONOGRAM upgrade (₱999 · "Your initials, drawn live").
   // When the event owns it, the monogram hero circle ANIMATES on load with
   // the couple's chosen Motion Library signature (lib/monogram-motion.ts ·
   // events.monogram_motion_key · NULL → 'draw') instead of rendering static.
@@ -456,7 +465,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     ? resolveMonogramMotion(event.monogram_motion_key)
     : false;
 
-  // Paid COUPLE_WEBSITE_PRO upgrade (₱3,999 · the single website-Pro unlock).
+  // Paid COUPLE_WEBSITE_PRO upgrade (retired/unbundled · the single website-Pro unlock).
   // V1 perk: when ACTIVE (admin-approved), the couple's wedding site sheds the
   // freemium "Powered by Setnayan · setnayan.com" footer watermark. Resolved
   // once here via the admin client (anonymous public path, no RLS session) and
@@ -790,7 +799,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
 
   // PR4 P1 — flag-gate the auto-playing Save-the-Date "film". The bare film is
   // the free base (the static STD view is the fallback); the cinematic openings
-  // (RevealOverlay) layer ON TOP and become the ₱1,499 premium (P5 gate). Env
+  // (RevealOverlay) layer ON TOP and become the ₱999 premium (P5 gate). Env
   // for a global rollout, ?film=1 for a per-visit preview while it bakes.
   // Film is on by default for the STD phase; ?film=0 disables it for a
   // plain-countdown fallback (useful for testing the static path).
@@ -1417,6 +1426,10 @@ type EventRow = {
   venue_latitude: number | null;
   venue_longitude: number | null;
   slug: string;
+  // Event type (events.event_type). Drives event-type-adaptive guest copy —
+  // weddings keep "wedding", other types read "event" — now that non-wedding
+  // types can enable the website surface.
+  event_type?: string | null;
   // Ceremony faith (events.ceremony_type, iteration 0043). Read on the public
   // site so faith-specific guest guidance can fill an empty section — e.g. the
   // INC dress-code empty state surfaces the Church's modest-attire expectation
@@ -1609,7 +1622,7 @@ function InvitationShell({
 }: {
   children: React.ReactNode;
   backdrop?: React.ReactNode;
-  // Paid COUPLE_WEBSITE_PRO perk (₱3,999) — when the event owns the ACTIVE
+  // Paid COUPLE_WEBSITE_PRO perk (retired/unbundled) — when the event owns the ACTIVE
   // upgrade, drop the freemium "Powered by Setnayan · setnayan.com" footer
   // watermark. Resolved once at the top-level page (eventCoupleWebsiteProActive)
   // + threaded through each render branch. Defaults false → free site keeps it.
@@ -1918,6 +1931,18 @@ function PublicLanding({
       hideWatermark={proWatermarkHidden}
     >
       <GuestPreload eventSlug={event.slug} />
+      {/* Item #8 — discreet floating share/report chrome. Share shows ONLY when
+          the event is effectively public (couple launched their Save-the-Date);
+          the abuse-report entry (target_type='event') is present on any listed
+          page. Never rendered on a private page (this whole component is behind
+          the not-private gate). */}
+      {resolveEffectiveVisibility(event) !== 'private' && (
+        <PublicPageActions
+          canShare={resolveEffectiveVisibility(event) === 'public'}
+          reportTargetId={event.event_id}
+          shareTitle={event.display_name}
+        />
+      )}
       {showSaveTheDate && !event.is_sample ? <StdViewBeacon slug={event.slug} /> : null}
       <RevealOverlayServer
         enabled={showSaveTheDate}
@@ -2224,7 +2249,7 @@ function PublicHideableWidget({
     case 'tier_comparison':
       // limited=false on the anonymous path — anonymous visitors are
       // never a "limited +1" by definition.
-      return <TierComparisonWidget limited={false} />;
+      return <TierComparisonWidget limited={false} eventNoun={eventNounOf(event)} />;
 
     // Always-on + guest-personalized types are intentionally skipped
     // on the anonymous path. event_details needs guest.role + side;
@@ -2548,6 +2573,18 @@ function InvitationSite({
       hideWatermark={proWatermarkHidden}
     >
       <GuestPreload eventSlug={event.slug} />
+      {/* Item #8 — discreet floating share/report chrome. Share shows ONLY when
+          the event is effectively public (couple launched their Save-the-Date);
+          the abuse-report entry (target_type='event') is present on any listed
+          page. Never rendered on a private page (this whole component is behind
+          the not-private gate). */}
+      {resolveEffectiveVisibility(event) !== 'private' && (
+        <PublicPageActions
+          canShare={resolveEffectiveVisibility(event) === 'public'}
+          reportTargetId={event.event_id}
+          shareTitle={event.display_name}
+        />
+      )}
       {showSaveTheDate && !event.is_sample ? <StdViewBeacon slug={event.slug} /> : null}
       <RevealOverlayServer
         enabled={showSaveTheDate}
@@ -3228,6 +3265,7 @@ function HideableWidgetRender({
           limited={isLimitedPlusOne}
           eventId={event.event_id}
           eventPublicId={event.public_id}
+          eventNoun={eventNounOf(event)}
         />
       );
 
@@ -3244,7 +3282,7 @@ function HideableWidgetRender({
       return <OurLoveStoryWidget config={event.love_story} />;
 
     case 'tier_comparison':
-      return <TierComparisonWidget limited={isLimitedPlusOne} />;
+      return <TierComparisonWidget limited={isLimitedPlusOne} eventNoun={eventNounOf(event)} />;
 
     // Always-on widgets (hero, greeting, qr_card, rsvp) are not reachable
     // here — they render in fixed positions in the parent function. The
@@ -4013,10 +4051,12 @@ function YourPhotosWidget({
   limited,
   eventId,
   eventPublicId,
+  eventNoun,
 }: {
   limited: boolean;
   eventId: string;
   eventPublicId: string;
+  eventNoun: string;
 }) {
   return (
     <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-6">
@@ -4030,7 +4070,7 @@ function YourPhotosWidget({
       </div>
 
       <div className="rounded-lg border border-ink/10 bg-cream p-5 text-sm">
-        <p className="font-medium text-ink">Make sure a shutterbug snaps you on the wedding day</p>
+        <p className="font-medium text-ink">Make sure a shutterbug snaps you on the {eventNoun} day</p>
         <p className="mt-1 text-ink/60">
           Your first tagged photo automatically becomes your profile picture in the gallery.
         </p>
@@ -4108,7 +4148,7 @@ function DayOfBanner({ kind }: { kind: 'live' | 'post' }) {
   );
 }
 
-function TierComparisonWidget({ limited }: { limited: boolean }) {
+function TierComparisonWidget({ limited, eventNoun }: { limited: boolean; eventNoun: string }) {
   if (limited) {
     return (
       <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-6">
@@ -4165,7 +4205,7 @@ function TierComparisonWidget({ limited }: { limited: boolean }) {
           <p className="font-medium text-ink">Free · No sign-up needed</p>
           <ul className="space-y-1 text-sm text-ink/70">
             <li>· View this invitation</li>
-            <li>· RSVP for the wedding</li>
+            <li>· RSVP for the {eventNoun}</li>
             <li>· See your tagged photos for <strong>3 days</strong></li>
             <li>· Save your QR to your phone</li>
           </ul>
@@ -4181,7 +4221,7 @@ function TierComparisonWidget({ limited }: { limited: boolean }) {
           <ul className="space-y-1 text-sm text-ink/75">
             <li>· Everything in Public</li>
             <li>· <strong>Shutter</strong> — capture &amp; tag photos as a guest</li>
-            <li>· <strong>Selfie Camera</strong> — branded wedding selfie cam</li>
+            <li>· <strong>Selfie Camera</strong> — branded {eventNoun} selfie cam</li>
             <li>· <strong>Photo &amp; Video Challenges</strong> — fun mini-quests</li>
             <li>· <strong>Saved Forever</strong> — photos kept permanently</li>
             <li>· Build your own souvenir reel</li>

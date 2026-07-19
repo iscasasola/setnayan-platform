@@ -112,7 +112,7 @@ const EFFECT_SLIDERS: Array<{ group: string; sliders: EffectSliderDef[] }> = [
   },
 ];
 
-const INK = 'var(--m-ink,#1e2229)';
+const INK = 'var(--m-ink,#1b1a17)';
 const SLATE = 'var(--m-slate,#4f535b)';
 const LINE = 'var(--m-line,#e3e1da)';
 const ACCENT = 'var(--m-mulberry,#7d2b4f)';

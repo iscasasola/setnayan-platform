@@ -7,14 +7,17 @@
  * This is the ONE admin-local source for it. Admin-scoped on purpose — it is
  * NOT a repo-wide shared component the couple/vendor doorways import.
  *
- * Chrome = the canonical `.m-card` (the .m-card unification pass), a `.m-mono`
- * uppercase eyebrow, and the Saira display face for the tabular number. `null`
+ * Chrome (Glass PR-8, 2026-07-15 · rollout plan § 3.4): an opaque `.sn-row`
+ * card (these render in an 8-up grid, so they stay OFF the blur budget — flat
+ * tint, no backdrop-filter), a `.sn-eye` gold eyebrow, and the **Space Mono**
+ * data face for the numeral (the Saira-Condensed KPI numerals are retired
+ * app-wide — every numeral/count is Space Mono via `font-mono`). A finite
+ * numeric value counts up on mount via the shared CountUp island; a `null`
  * value renders an em-dash so a degraded count never shows a misleading 0.
- *
- * Server-renderable (no client JS).
  */
 
 import type { ReactNode } from 'react';
+import { CountUp } from '@/app/_components/count-up';
 
 export function KpiStatCard({
   label,
@@ -30,18 +33,19 @@ export function KpiStatCard({
   className?: string;
 }) {
   return (
-    <div className={`m-card p-4${className ? ` ${className}` : ''}`}>
-      <p className="m-mono text-[10px] uppercase tracking-[0.15em] text-[color:var(--m-slate-3)]">
-        {label}
-      </p>
-      <p
-        className="mt-1 text-2xl font-semibold tracking-tight text-[color:var(--m-ink)]"
-        style={{ fontFamily: 'var(--m-display)', fontVariantNumeric: 'tabular-nums' }}
-      >
-        {value === null ? '—' : value}
+    <div className={`sn-row p-4${className ? ` ${className}` : ''}`}>
+      <p className="sn-eye">{label}</p>
+      <p className="mt-1 font-mono text-2xl font-semibold tracking-tight tabular-nums text-[color:var(--sn-ink-900)]">
+        {value === null ? (
+          '—'
+        ) : typeof value === 'number' ? (
+          <CountUp value={value} />
+        ) : (
+          value
+        )}
       </p>
       {hint != null ? (
-        <p className="mt-0.5 text-xs text-[color:var(--m-slate)]">{hint}</p>
+        <p className="mt-0.5 text-xs text-[color:var(--sn-ink-400)]">{hint}</p>
       ) : null}
     </div>
   );

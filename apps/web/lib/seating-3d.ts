@@ -15,6 +15,46 @@
 
 import type { MonogramConfig } from '@/lib/monogram';
 import type { RolePalette } from '@/lib/mood-board';
+// Shared projection API (contract v2 · Sync verdict 2026-07-16 · § 3). The
+// geometry authority is lib/seating.ts; this module holds thin 3D adapters and
+// RE-EXPORTS so plan3d/stage/dance/booth consumers keep compiling untouched.
+// GUN A: the serpentine BODY family is derived here from `metricGeometry` — the
+// old independent SERP_RI=0.95/RO=1.55 metric family is deleted, so 2D, 3D, the
+// mesh, the snap and the server validator speak ONE family (2026-05-09 2D lock,
+// scaled to metres).
+import {
+  DEFAULT_ROOM_M,
+  roomBoxM as roomBoxMShared,
+  pctToWorldM,
+  worldToPctM,
+  rotationWorldY,
+  metricGeometry,
+  metricScale,
+  legalJoinPoseM,
+  validateChainJointM,
+  resolveHomePcts,
+  fitRoomToCell,
+  canvasPxToPctM,
+  contentBoundsM,
+  type PoseM,
+} from './seating';
+// RE-EXPORTS (verdict § 3): the shared projection API, surfaced from the 3D
+// module so its existing consumers/tests import the ONE implementation.
+export {
+  DEFAULT_ROOM_M,
+  pctToWorldM,
+  worldToPctM,
+  rotationWorldY,
+  metricGeometry,
+  metricScale,
+  legalJoinPoseM,
+  validateChainJointM,
+  resolveHomePcts,
+  fitRoomToCell,
+  canvasPxToPctM,
+  contentBoundsM,
+};
+export type { PoseM };
 
 export type ShapeHint = 'round' | 'long_banquet' | 'family_head' | 'sweetheart' | 'serpentine';
 
@@ -51,7 +91,7 @@ export type Lab3DFloor = {
   venueWidthM: number | null;
   venueLengthM: number | null;
   stage: { xPct: number; yPct: number; wPct: number; hPct: number };
-  entrance: { enabled: boolean; xPct: number; yPct: number };
+  entrance: { enabled: boolean; xPct: number; yPct: number; kind: 'door' | 'tunnel'; depthM: number };
   dance: { enabled: boolean; xPct: number; yPct: number; wPct: number; hPct: number };
   published: boolean;
 };
@@ -177,7 +217,7 @@ function wrapAngle(a: number): number {
 // ?? 20 · venue_length_m ?? 30 in seating-editor.tsx). When they drift, the stage
 // (and everything) scales differently between 2D and 3D — most visibly the stage
 // depth (owner 2026-06-26 bug: "stage didn't follow the 2D size").
-export const DEFAULT_ROOM = { w: 20, d: 30 } as const;
+export const DEFAULT_ROOM = DEFAULT_ROOM_M;
 
 /** A rectangular zone in world metres (stage / dance floor). */
 export type PlaceZone = { cx: number; cz: number; hw: number; hd: number };
@@ -330,10 +370,10 @@ export function effectiveCapacity(capacity: number, removedSeats: number[]): num
 
 /** The room's world size in metres (venue dims when set, else the default board). */
 export function roomSize(floor: Lab3DFloor): { w: number; d: number } {
-  if (floor.venueWidthM && floor.venueLengthM && floor.venueWidthM > 0 && floor.venueLengthM > 0) {
-    return { w: floor.venueWidthM, d: floor.venueLengthM };
-  }
-  return { w: DEFAULT_ROOM.w, d: DEFAULT_ROOM.d };
+  // Thin adapter over the shared `roomBoxM` (contract § 2) — the camelCase lab
+  // floor keys mapped to the canonical column names, `isDefault` dropped.
+  const r = roomBoxMShared({ venue_width_m: floor.venueWidthM, venue_length_m: floor.venueLengthM });
+  return { w: r.w, d: r.d };
 }
 
 /**
@@ -365,23 +405,27 @@ export function contentBounds(
   return { minX, maxX, minZ, maxZ, cx: (minX + maxX) / 2, cz: (minZ + maxZ) / 2, span: Math.max(maxX - minX, maxZ - minZ) };
 }
 
-/** percent (0–100, origin top-left) → centred world metres (origin room centre). */
+/** percent (0–100, origin top-left) → centred world metres (origin room centre).
+ *  Thin wrapper over the shared `pctToWorldM` (contract § 6 · the ONE linear map). */
 export function pctToWorld(xPct: number, yPct: number, room: { w: number; d: number }): Vec2 {
-  return {
-    x: (xPct / 100 - 0.5) * room.w,
-    z: (yPct / 100 - 0.5) * room.d,
-  };
+  return pctToWorldM(xPct, yPct, room);
 }
 
 // ── Serpentine geometry (curved quarter-donut wedge) ───────────────────────
 // The 2D catalog's serpentine is ONE 104° curved band (2026-05-09 lock) — NOT a
-// rectangle and NOT a round. These helpers reproduce that band in metres so the
-// 3D lab draws the real shape: chairs ride the convex OUTER arc (facing in) and
-// the concave INNER arc (facing out), and the band pivots on its visual centre.
-const SERP_RI = 0.95; // inner (concave) radius, m
-const SERP_RO = 1.55; // outer (convex) radius, m
-const SERP_SWEEP = (104 * Math.PI) / 180; // angular span (canonical)
-const SERP_CHAIR_GAP = 0.5; // chair offset just beyond / inside the band edge, m
+// rectangle and NOT a round. GUN A (Sync verdict 2026-07-16 · § 1/§ 3): the band
+// radii + chair gap are DERIVED from the shared `metricGeometry('serpentine')`
+// (the 2D px family scaled to metres) — the old independent SERP_RI=0.95/RO=1.55
+// family is DELETED. So the mesh (`SERPENTINE_TOP_GEO`), `serpentineBand`,
+// `serpentineChairs`, `tableDims('serpentine')`, `serpentineChainSnapWorld`,
+// `serpentineTipsWorld` and the footprint discs all speak ONE family, and a
+// 3D-snapped chain passes the server's own `validateChainJointM` by construction.
+// (Visible: 3D serpentines shrink band bbox 2.443 → 1.864 m — owner sign-off #1.)
+const _SERP_BAND = metricGeometry('serpentine', 5).bandM!;
+const SERP_RI = _SERP_BAND.ri; // inner (concave) radius, m ≈ 0.789
+const SERP_RO = _SERP_BAND.ro; // outer (convex) radius, m ≈ 1.183
+const SERP_SWEEP = (_SERP_BAND.sweepDeg * Math.PI) / 180; // angular span (canonical, 104°)
+const SERP_CHAIR_GAP = _SERP_BAND.chairGap; // chair offset beyond / inside the band edge, m ≈ 0.237
 
 // φ = 0 points to −z (the band bulges toward −z); +φ sweeps to +x. The centre of
 // curvature sits at the local origin BEFORE the band is recentred on its bbox.
@@ -1252,6 +1296,24 @@ export function boothApproach(
 }
 
 /**
+ * The inward bearing of a perimeter booth as a raw (un-normalised) vector: the
+ * direction (world x/z) from the booth toward the room centre. This is the
+ * SINGLE source both the 3D facing yaw (`boothFacingY`) and the 2D editor's
+ * facing arrow (`boothFacingDeg2D`) derive from, so they can never disagree
+ * about which wall a booth turns its back to. A dead-centre booth (no bearing
+ * to the origin) defaults to +z — "front of house" — matching
+ * `boothApproach`'s centre fallback. Pure.
+ */
+export function boothInward(
+  booth: { xPct: number; yPct: number },
+  room: { w: number; d: number },
+): Vec2 {
+  const c = pctToWorld(booth.xPct, booth.yPct, room);
+  if (Math.hypot(c.x, c.z) < 1e-3) return { x: 0, z: 1 }; // dead-centre → +z front-of-house
+  return { x: -c.x, z: -c.z };
+}
+
+/**
  * The yaw (radians, three.js `group.rotation.y`) that turns a booth's FRONT
  * (default +z) to point at the room centre — the SAME bearing `boothApproach`
  * walks in from, so a booth faces the room and is approached from the room
@@ -1266,9 +1328,24 @@ export function boothFacingY(
   booth: { xPct: number; yPct: number },
   room: { w: number; d: number },
 ): number {
-  const c = pctToWorld(booth.xPct, booth.yPct, room);
-  if (Math.hypot(c.x, c.z) < 1e-3) return 0; // dead-centre → +z front-of-house
-  return Math.atan2(-c.x, -c.z);
+  const v = boothInward(booth, room);
+  return Math.atan2(v.x, v.z); // byte-identical to atan2(−c.x, −c.z); 0 at dead-centre
+}
+
+/**
+ * The CSS rotation (degrees) that turns an UP-pointing arrow/icon to face the
+ * room centre in the 2D seat-plan editor — derived from the SAME inward bearing
+ * (`boothInward`) as the 3D facing yaw, so the 2D arrow and the 3D booth agree
+ * on which wall a booth backs onto. The editor maps world x→screen-x (right) and
+ * world z→screen-y (down); an up-pointing icon rotated clockwise by
+ * atan2(dx, −dy) then points along the screen vector (dx, dy). Pure.
+ */
+export function boothFacingDeg2D(
+  booth: { xPct: number; yPct: number },
+  room: { w: number; d: number },
+): number {
+  const v = boothInward(booth, room);
+  return (Math.atan2(v.x, -v.z) * 180) / Math.PI;
 }
 // A sign is a slim post — a small clearance disc so walkers don't stand on it.
 const SIGN_AVOID_R = 0.35;

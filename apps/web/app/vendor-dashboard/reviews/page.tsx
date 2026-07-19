@@ -84,7 +84,7 @@ export default async function VendorReviewsPage() {
       {completedEvents.length > 0 ? <TrackRecord events={completedEvents} /> : null}
 
       {reviews.length === 0 ? (
-        <div className="mt-8 rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center text-sm text-ink/55">
+        <div className="mt-8 rounded-xl border border-dashed border-ink/20 p-8 text-center text-sm text-ink/55">
           You don&rsquo;t have any reviews yet. They&rsquo;ll appear here automatically the
           moment a couple posts one — and we&rsquo;ll send it to your notifications
           and email so you never miss one.
@@ -122,7 +122,7 @@ function StatsOverview({
   const max = Math.max(1, ...totals.map((t) => t.count));
 
   return (
-    <section className="grid gap-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:grid-cols-3">
+    <section className="grid gap-4 sn-tile p-5 sm:grid-cols-3">
       <div className="flex flex-col gap-1">
         <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
           Average rating
@@ -212,7 +212,7 @@ function VendorReviewCard({
   const hasReply = !!review.vendor_reply;
 
   return (
-    <article className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+    <article className="space-y-3 sn-row p-4">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <StarRow value={review.rating_overall} />
@@ -425,7 +425,7 @@ function VerifiedBookingPill() {
  */
 function TrackRecord({ events }: { events: ReadonlyArray<VendorCompletedEventRow> }) {
   return (
-    <section className="mt-8 rounded-2xl border border-ink/10 bg-cream p-5">
+    <section className="mt-8 sn-tile p-5">
       <div className="mb-3 flex items-center gap-2">
         <CalendarCheck aria-hidden className="h-4 w-4 text-mulberry" strokeWidth={1.75} />
         <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">

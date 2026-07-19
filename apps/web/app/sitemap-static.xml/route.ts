@@ -70,6 +70,11 @@ const STATIC_ROUTES: ReadonlyArray<{
   // but in no sitemap); added 2026-07-10.
   { path: '/open-shop', lastmod: '2026-07-10', changefreq: 'monthly', priority: '0.7' },
 
+  // /creators — public storyteller marketing page ("Everywhere else, they
+  // watch. Here, they book."). Shipped 2026-07-16 with the Creator Economy
+  // Adventure-Chapter slice; the /vendors sibling for the storyteller side.
+  { path: '/creators', lastmod: '2026-07-16', changefreq: 'monthly', priority: '0.8' },
+
   // /tl/about — Taglish edition of /about (localization first slice,
   // 2026-06-13). hreflang reciprocal with /about lives in the page metadata.
   { path: '/tl/about', lastmod: '2026-06-13', changefreq: 'monthly', priority: '0.7' },

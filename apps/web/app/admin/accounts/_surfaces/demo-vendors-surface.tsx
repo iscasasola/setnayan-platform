@@ -234,7 +234,7 @@ export async function DemoVendorsSurface() {
       </section>
 
       {/* ───────────────────── Preview link ───────────────────── */}
-      <section className="mb-8 rounded-xl border border-ink/10 bg-cream p-4">
+      <section className="mb-8 sn-tile p-4">
         <h2 className="mb-2 text-lg font-semibold">View as a couple</h2>
         <p className="text-sm text-ink/65">
           Demo vendors are hidden from the public marketplace by default.
@@ -284,7 +284,7 @@ export async function DemoVendorsSurface() {
       {/* ───────────────────── Global actions ───────────────────── */}
       <section className="mb-8">
         <h2 className="mb-3 text-lg font-semibold">Actions</h2>
-        <div className="rounded-xl border border-ink/10 bg-cream p-4">
+        <div className="sn-tile p-4">
           <DemoVendorActions totalCount={totalDemoVendors} demoMode={demoMode} />
           <div className="mt-4 rounded-md bg-ink/5 p-3 font-mono text-[12px] text-ink/75">
             <p className="mb-1 text-ink/55">Seed a fresh batch from terminal:</p>
@@ -309,7 +309,7 @@ export async function DemoVendorsSurface() {
             No demo batches. Run the seed script to create one.
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-ink/10 bg-cream">
+          <div className="sn-tile overflow-x-auto !p-0">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-ink/10 bg-ink/5 text-left text-[11px] uppercase tracking-wider text-ink/55">
@@ -358,7 +358,7 @@ export async function DemoVendorsSurface() {
             return (
               <div
                 key={folder}
-                className="rounded-lg border border-ink/10 bg-cream px-4 py-3"
+                className="sn-tile px-4 py-3"
               >
                 <p className="text-sm text-ink/75">{WEDDING_FOLDER_LABEL[folder]}</p>
                 <p className="mt-1 text-2xl font-semibold tabular-nums">
@@ -377,7 +377,7 @@ export async function DemoVendorsSurface() {
           {citySorted.map(([city, count]) => (
             <div
               key={city}
-              className="flex items-center justify-between rounded-lg border border-ink/10 bg-cream px-4 py-2"
+              className="flex items-center justify-between sn-tile px-4 py-2"
             >
               <span className="flex items-center gap-1.5 text-sm text-ink/75">
                 <MapPin className="h-3.5 w-3.5 text-ink/50" />
@@ -423,7 +423,7 @@ function Stat({
 }) {
   const toneClass = tone === 'warn' ? 'text-warn-700' : 'text-ink';
   return (
-    <div className="rounded-lg border border-ink/10 bg-cream px-4 py-3">
+    <div className="sn-tile px-4 py-3">
       <p className="text-xs uppercase tracking-wider text-ink/55">{label}</p>
       <p className={`mt-1 text-2xl font-semibold tabular-nums ${toneClass}`}>{value}</p>
     </div>

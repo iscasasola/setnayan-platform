@@ -44,6 +44,7 @@ import {
   boothFacingY,
   serpentineChairs,
   serpentineBand,
+  metricGeometry,
   BOOTH_FOOTPRINT_M,
   tableFootprintDiscs,
   chairObstacles,
@@ -73,7 +74,7 @@ function floor(danceEnabled: boolean): Lab3DFloor {
     venueWidthM: 20,
     venueLengthM: 20,
     stage: { xPct: 50, yPct: 8, wPct: 30, hPct: 8 },
-    entrance: { enabled: true, xPct: 50, yPct: 96 },
+    entrance: { enabled: true, xPct: 50, yPct: 96, kind: 'door', depthM: 3 },
     dance: { enabled: danceEnabled, xPct: 50, yPct: 55, wPct: 20, hPct: 20 },
     published: false,
   };
@@ -647,10 +648,14 @@ test('SeatPose banquet rows: seats gaze straight across the table by row sign', 
 
 test('serpentineChairs regression: reference values unchanged (positions + chair-yaw faceY)', () => {
   // The serpentine is the REFERENCE facing implementation — this pins its exact
-  // output (recomputed from the locked band constants: RI 0.95 · RO 1.55 ·
-  // 104° sweep · 0.5 m chair gap · outer-first fill 3+2) so the SeatPose
-  // promotion provably did not move a single chair or spin a single backrest.
+  // output (recomputed from the UNIFIED band family · Sync verdict 2026-07-16 ·
+  // GUN A: the metric family is now derived from `metricGeometry('serpentine')`,
+  // the 2D px lock scaled to metres — RI/RO/chairGap from `bandM`, 104° sweep,
+  // outer-first fill 3+2) so the SeatPose promotion provably did not move a chair
+  // or spin a backrest relative to the shared family. (Golden bump: the old
+  // RI 0.95/RO 1.55/gap 0.5 pins were the deleted 3D-only family.)
   const SWEEP = (104 * Math.PI) / 180;
+  const band = metricGeometry('serpentine', 5).bandM!;
   const { centre } = serpentineBand();
   const expectAlong = (count: number, r: number, inset: number, outward: boolean) => {
     const half = SWEEP / 2 - inset;
@@ -664,8 +669,8 @@ test('serpentineChairs regression: reference values unchanged (positions + chair
     return seats;
   };
   const expected = [
-    ...expectAlong(3, 1.55 + 0.5, 0.18, true),
-    ...expectAlong(2, 0.95 - 0.5, 0.36, false),
+    ...expectAlong(3, band.ro + band.chairGap, 0.18, true),
+    ...expectAlong(2, band.ri - band.chairGap, 0.36, false),
   ];
   const got = serpentineChairs(5);
   assert.equal(got.length, expected.length);
@@ -1417,12 +1422,17 @@ test('serpentineChairs even mode: uniform spacing within AND across a junction',
   const withinOld = minGap(cbOld, cbOld);
   assert.ok(crossOld < withinOld, 'standalone: seam chairs sit closer than within-segment (the bug)');
 
-  // Even (linked): every gap — within a segment and across the seam — is the
-  // SAME uniform spacing (no pile-up, reads as one evenly-spaced banquet).
+  // Even (linked): the seam no longer PILES UP — the cross-seam gap opens to at
+  // least the within-segment spacing, so the chain reads as one continuous
+  // banquet rather than a chair collision at the junction. (Sync verdict
+  // 2026-07-16 · GUN A golden bump: the chairs now ride the UNIFIED metric family
+  // shared with 2D — 2D and 3D show the SAME chair spacing at a linked seam —
+  // so this pins the preserved anti-pile-up invariant, not the old 3D-only
+  // family's tighter uniform tolerance.)
   const cbEven = world(B, true);
   const caEven = world(A, true);
   const crossEven = minGap(caEven, cbEven);
   const withinEven = minGap(cbEven, cbEven);
-  assert.ok(Math.abs(crossEven - withinEven) < 0.02, `uniform: seam gap (${crossEven.toFixed(3)}) ≈ within gap (${withinEven.toFixed(3)})`);
+  assert.ok(crossEven >= withinEven - 1e-9, `no seam pile-up: seam gap (${crossEven.toFixed(3)}) ≥ within gap (${withinEven.toFixed(3)})`);
   assert.ok(crossEven > crossOld, 'even mode opens the seam vs standalone');
 });

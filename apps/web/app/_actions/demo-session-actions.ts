@@ -4,6 +4,7 @@ import { after } from 'next/server';
 import {
   claimDemoCamSlot,
   createDemoSession,
+  demoSessionIsLive,
   incrementDemoShot,
   markDemoSessionJoined,
   purgeExpiredDemoSessions,
@@ -13,6 +14,7 @@ import {
   type DemoShotResult,
 } from '@/lib/demo-sessions';
 import { renderUrlQrSvg } from '@/lib/qr';
+import { mintTurnIceServers } from '@/lib/turn';
 
 /**
  * Server actions behind the homepage dock-tile live demos (Papic today —
@@ -91,4 +93,30 @@ export async function claimPanoodDemoCamera(token: string): Promise<ClaimCamResu
   const slot = await claimDemoCamSlot(resolved.sessionId);
   if (!slot) return { ok: false, reason: 'full' };
   return { ok: true, sessionId: resolved.sessionId, slot };
+}
+
+export type DemoIceServersResult = { iceServers: RTCIceServer[] };
+
+/**
+ * ICE servers for the Live Studio demo's peer-to-peer transport: public STUN
+ * always, PLUS a short-lived Cloudflare TURN relay when configured. STUN alone
+ * can't traverse symmetric NAT / CGNAT (PH mobile data, client-isolated venue
+ * Wi-Fi), which is why the demo synced for some phones and not others — a
+ * hard-NAT pair has no relay to meet at. Both the phone (publisher) and the
+ * control room (viewer) call this and feed the result into the RTCPeerConnection.
+ *
+ * Gated to a LIVE demo session so this isn't an open TURN-credential faucet.
+ * If the session is stale, TURN is unconfigured, or Cloudflare errors, it
+ * returns STUN-only — the transport still connects on the majority of networks,
+ * so the demo degrades to its old behavior instead of breaking.
+ */
+export async function getDemoIceServers(sessionId: string): Promise<DemoIceServersResult> {
+  const stun: RTCIceServer[] = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' },
+  ];
+  const clean = sessionId?.trim();
+  const live = clean ? await demoSessionIsLive(clean) : false;
+  const turn = live ? await mintTurnIceServers() : [];
+  return { iceServers: [...stun, ...turn] };
 }

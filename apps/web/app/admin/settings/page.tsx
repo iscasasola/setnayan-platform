@@ -1,492 +1,144 @@
+import { Suspense, type ReactNode } from 'react';
 import Link from 'next/link';
+import { Settings, ShieldCheck, Bell, FlaskConical } from 'lucide-react';
 import {
-  Activity,
-  ArrowRight,
-  Building,
-  CreditCard,
-  Image as ImageIcon,
-  Mail,
-  Music,
-  Trash2,
-} from 'lucide-react';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { SubmitButton } from '@/app/_components/submit-button';
-import { Field } from '@/app/_components/forms/field';
-import { FormFlash } from '@/app/_components/forms/form-flash';
-import {
-  fetchPlatformSettings,
-  fetchVendorValidateContacts,
-} from '@/lib/platform-settings';
-import { getLoaderSettings } from '@/lib/loader-settings';
-import { removeBrandIcon, saveAdminDigest, saveBusinessIdentity } from './actions';
-import { TinInput } from './_components/tin-input';
-import { BrandIconUploadForm } from './_components/brand-icon-form';
-import { LoaderAppearanceCard } from './_components/loader-appearance-card';
-import { SentrySmokeTestButton } from './_components/sentry-smoke-test-button';
-
+  FormPageSkeleton,
+  GridPageSkeleton,
+  ListPageSkeleton,
+} from '@/components/skeletons';
 import { requireAdmin } from '@/lib/admin/require-admin';
-export const metadata = { title: 'Settings · Admin' };
-
-type Props = {
-  searchParams: Promise<{
-    saved?: string;
-    error?: string;
-    brand_icon?: string;
-    brand_icon_removed?: string;
-    loader_saved?: string;
-  }>;
-};
+import { SettingsSurface } from './_surfaces/settings-surface';
+import { ComplianceSurface } from './_surfaces/compliance-surface';
+import { NotificationsSurface } from './_surfaces/notifications-surface';
+import { DemoModeSurface } from './_surfaces/demo-mode-surface';
 
 /**
- * Platform settings · business identity + system health (V2).
+ * Settings Studio — the tabbed /admin/settings shell that consolidates the
+ * Money menu's settings tail into ONE surface (owner: "yes" · Money split ·
+ * 2026-07-10). Four tabs: Settings (the shell/default tab) · Compliance ·
+ * Notifications · Demo mode. Same pattern as the Catalog / Insights studios.
  *
- * 2026-05-29 restructure: BDO/GCash account fields + Merchant QR codes used
- * to live here too. They moved to `/admin/settings/payment-methods` per
- * owner directive ("shouldn't this be at payment methods?") because they're
- * payment configuration, not business identity. Couples reference those
- * rails when transferring for an order; business identity is what's printed
- * on every transaction receipt. Two distinct concerns, two surfaces.
- *
- * What stays here: business name, TIN, address, email, default VAT rate
- * (all values printed on transaction receipts) + the Sentry prod smoke test
- * button under System health (owner-only one-shot diagnostic).
- *
- * What moved: BDO + GCash account info + QR uploads + remove actions.
- * The "Manage payment methods →" link card below carries hosts to the
- * canonical home for those fields.
+ * MUTATION-SURFACE EDGES:
+ *  - /admin/settings IS the shell path AND the settings tab's legacy route, so
+ *    settings is the DEFAULT tab and every settings action redirect (…?saved /
+ *    error / brand_icon / …, no ?tab) lands here — but ONLY if the shell
+ *    FORWARDS those flash params into SettingsSurface.
+ *  - demo-mode was NESTED at /admin/settings/demo-mode; it's now a tab. Its
+ *    toggle POSTs to /api/admin/demo-mode/toggle, whose 303 redirect was
+ *    repointed to /admin/settings?tab=demo-mode&toggled=… (shell forwards it).
+ *  - /admin/settings/payment-methods stays STANDALONE (a separate Money item),
+ *    NOT a tab — the settings surface's "Manage payment methods →" card links to it.
+ *  - force-dynamic: compliance + demo-mode (cookies()) need it; it also keeps
+ *    compliance's revalidatePath('/admin/settings') fresh.
  */
-export default async function AdminSettingsPage({ searchParams }: Props) {
-  await requireAdmin();
-  const search = await searchParams;
-  const admin = createAdminClient();
-  const settings = await fetchPlatformSettings(admin);
-  // Soft probe (degrades to defaults pre-migration 20270503417266).
-  const validateContacts = await fetchVendorValidateContacts(admin);
-  // Loader appearance (owner 2026-07-05; degrades to DEFAULT pre-migration
-  // 20270520000000).
-  const loaderConfig = await getLoaderSettings();
+export const dynamic = 'force-dynamic';
 
-  return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-6 space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Platform settings</h1>
-        <p className="text-sm text-ink/60">
-          Business identity printed on every transaction receipt. Everything
-          here is read-everywhere across the app; only internal/team-pool
-          admins can edit. The actual BIR Official Receipt for a paid order
-          is issued separately, offline &mdash; these are not BIR ORs.
-        </p>
-      </header>
+const TABS = ['settings', 'compliance', 'notifications', 'demo-mode'] as const;
+type Tab = (typeof TABS)[number];
 
-      {search.error ? (
-        <FormFlash tone="error">{decodeURIComponent(search.error)}</FormFlash>
-      ) : null}
-      {search.saved ? (
-        <FormFlash tone="success">
-          Settings saved. Live changes propagate to all surfaces immediately.
-        </FormFlash>
-      ) : null}
-      {search.brand_icon ? (
-        <FormFlash tone="success">
-          Brand icon updated. It now shows on the browser tab, the app icon, and
-          the in-app logo everywhere. Browsers may keep the old tab icon cached
-          for a bit &mdash; see the note below to clear it once.
-        </FormFlash>
-      ) : null}
-      {search.brand_icon_removed ? (
-        <p
-          role="status"
-          className="mb-4 rounded-md border border-ink/15 bg-ink/5 px-4 py-3 text-sm text-ink/80"
-        >
-          Brand icon reset to the default gold Setnayan mark.
-        </p>
-      ) : null}
-      {search.loader_saved ? (
-        <FormFlash tone="success">
-          Loading animation updated. It applies on the next navigation.
-        </FormFlash>
-      ) : null}
-
-      <form action={saveBusinessIdentity} className="space-y-8">
-        <section className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Building className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-              Business identity
-            </h2>
-          </div>
-          <Field label="Business name" htmlFor="business_name">
-            <input
-              id="business_name"
-              name="business_name"
-              required
-              defaultValue={settings.business_name}
-              className="input-field"
-            />
-          </Field>
-          <Field
-            label="Tax Identification Number (TIN)"
-            htmlFor="business_tin"
-            help="Format: 000-000-000-000. Shown on every transaction receipt. Dashes are inserted automatically as you type."
-          >
-            <TinInput defaultValue={settings.business_tin ?? ''} />
-          </Field>
-          <Field label="Business address" htmlFor="business_address">
-            <textarea
-              id="business_address"
-              name="business_address"
-              rows={3}
-              defaultValue={settings.business_address ?? ''}
-              placeholder="Suite 123, ABC Building, Quezon City"
-              className="input-field min-h-[80px] py-2"
-            />
-          </Field>
-          <Field label="Business email" htmlFor="business_email">
-            <input
-              id="business_email"
-              name="business_email"
-              type="email"
-              defaultValue={settings.business_email ?? ''}
-              placeholder="hello@setnayan.com"
-              className="input-field"
-            />
-          </Field>
-          <Field
-            label="Default VAT rate (%)"
-            htmlFor="default_vat_rate_pct"
-            help="PH standard is 12%. Receipts already issued won't be re-rated."
-          >
-            <input
-              id="default_vat_rate_pct"
-              name="default_vat_rate_pct"
-              type="number"
-              min={0}
-              max={100}
-              step="0.01"
-              required
-              defaultValue={settings.default_vat_rate_pct}
-              className="input-field"
-            />
-          </Field>
-          <Field
-            label="Repost-watch match sensitivity (Hamming distance)"
-            htmlFor="repost_watch_hamming_threshold"
-            help="Reverse-image theft watch (lib/vendor-image-repost-watch.ts). Two vendor images flag as a repost when their perceptual hashes differ by ≤ this many bits (0–64). Lower = stricter (near-identical only); higher = looser (more, fuzzier matches). Default 10. Detect-and-flag for /admin/repost-watch review only — never auto-blocks."
-          >
-            <input
-              id="repost_watch_hamming_threshold"
-              name="repost_watch_hamming_threshold"
-              type="number"
-              min={0}
-              max={64}
-              step={1}
-              required
-              defaultValue={settings.repost_watch_hamming_threshold}
-              className="input-field"
-            />
-          </Field>
-          <Field
-            label="Vendor VALIDATE email"
-            htmlFor="vendor_validate_email"
-            help='Setnayan-owned inbox vendors email their "VALIDATE <shop name>" message to during verification. Admins mark each received message on the verification queue.'
-          >
-            <input
-              id="vendor_validate_email"
-              name="vendor_validate_email"
-              type="email"
-              required
-              defaultValue={validateContacts.vendor_validate_email}
-              className="input-field"
-            />
-          </Field>
-          <Field
-            label="Vendor VALIDATE mobile number"
-            htmlFor="vendor_validate_phone"
-            help='Setnayan-owned number vendors text their "VALIDATE <shop name>" message to. Leave blank to show "number coming soon" to vendors until one exists.'
-          >
-            <input
-              id="vendor_validate_phone"
-              name="vendor_validate_phone"
-              type="tel"
-              defaultValue={validateContacts.vendor_validate_phone ?? ''}
-              placeholder="09XX XXX XXXX"
-              className="input-field"
-            />
-          </Field>
-        </section>
-
-        <div className="flex items-center justify-between gap-3 border-t border-ink/10 pt-4">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-            Last updated{' '}
-            {new Date(settings.updated_at).toLocaleString()}
-          </p>
-          <SubmitButton
-            className="button-primary inline-flex items-center gap-2"
-            pendingLabel="Saving…"
-          >
-            Save business identity
-          </SubmitButton>
-        </div>
-      </form>
-
-      <BrandIconCard
-        hasIcon={Boolean(settings.brand_icon_master_url)}
-        previewUrl={
-          settings.brand_icon_png_512_url ??
-          settings.brand_icon_svg_url ??
-          settings.brand_icon_master_url
-        }
-        faviconUrl={settings.brand_favicon_ico_url}
-        version={settings.brand_icon_version}
-      />
-
-      <LoaderAppearanceCard
-        initialVariant={loaderConfig.variant}
-        initialVeilOpacity={loaderConfig.veilOpacity}
-        initialStepIntervalMs={loaderConfig.stepIntervalMs}
-        initialPopEnabled={loaderConfig.popEnabled}
-      />
-
-      {/* Onboarding settings moved to their own type-organized surface
-          (/admin/onboarding) 2026-06-09 — background music + future onboarding
-          knobs live there, grouped by onboarding type. */}
-      <div className="mt-10 border-t border-ink/10 pt-8">
-        <Link
-          href="/admin/onboarding"
-          className="group block rounded-xl border border-ink/10 bg-cream p-5 hover:border-terracotta/30 hover:bg-terracotta/5"
-        >
-          <div className="flex items-start gap-3">
-            <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-terracotta/10 text-terracotta">
-              <Music className="h-5 w-5" strokeWidth={1.75} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-sm font-semibold text-ink">Onboarding</h3>
-                <ArrowRight
-                  aria-hidden
-                  className="h-4 w-4 text-ink/40 transition group-hover:translate-x-0.5 group-hover:text-terracotta"
-                  strokeWidth={1.75}
-                />
-              </div>
-              <p className="mt-1 text-sm text-ink/60">
-                Settings for the new-account onboarding flows — background music
-                and future per-flow knobs, grouped by onboarding type. (Moved
-                here from this page.)
-              </p>
-            </div>
-          </div>
-        </Link>
-      </div>
-
-      <div className="mt-10 border-t border-ink/10 pt-8">
-        <Link
-          href="/admin/settings/payment-methods"
-          className="group block rounded-xl border border-ink/10 bg-cream p-5 hover:border-terracotta/30 hover:bg-terracotta/5"
-        >
-          <div className="flex items-start gap-3">
-            <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-terracotta/10 text-terracotta">
-              <CreditCard className="h-5 w-5" strokeWidth={1.75} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-sm font-semibold text-ink">Payment methods</h3>
-                <ArrowRight
-                  aria-hidden
-                  className="h-4 w-4 text-ink/40 transition group-hover:translate-x-0.5 group-hover:text-terracotta"
-                  strokeWidth={1.75}
-                />
-              </div>
-              <p className="mt-1 text-sm text-ink/60">
-                BDO and GCash account details + QR codes the app shows to
-                couples on order detail pages.
-              </p>
-            </div>
-          </div>
-        </Link>
-      </div>
-
-      <form
-        action={saveAdminDigest}
-        className="mt-10 space-y-4 border-t border-ink/10 pt-8"
-      >
-        <header className="space-y-1">
-          <div className="flex items-center gap-2">
-            <Mail className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-              Ops notifications
-            </h2>
-          </div>
-          <p className="text-sm text-ink/60">
-            A once-a-morning email digest of what&rsquo;s waiting in the work
-            queues &mdash; sent around 8:00&nbsp;AM (Manila) to internal admins,
-            and only when something is actually waiting. The in-app badges and
-            the top-bar pill are the real-time channel; this is the
-            &ldquo;while you&rsquo;re away&rdquo; one.
-          </p>
-        </header>
-
-        <section className="rounded-xl border border-ink/10 bg-cream p-5">
-          <label className="flex items-start gap-3">
-            <input
-              type="checkbox"
-              name="admin_digest_enabled"
-              defaultChecked={settings.admin_digest_enabled}
-              className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
-            />
-            <span className="flex flex-col gap-0.5">
-              <span className="text-sm font-semibold text-ink">
-                Send the morning queue digest
-              </span>
-              <span className="text-xs text-ink/60">
-                Currently{' '}
-                <span className="font-semibold text-ink/80">
-                  {settings.admin_digest_enabled ? 'on' : 'off'}
-                </span>
-                . Email delivery also requires Resend to be configured; until
-                then this saves the preference but sends nothing.
-              </span>
-            </span>
-          </label>
-          <div className="mt-4">
-            <SubmitButton
-              className="button-primary inline-flex items-center gap-2"
-              pendingLabel="Saving…"
-            >
-              Save
-            </SubmitButton>
-          </div>
-        </section>
-      </form>
-
-      <div className="mt-10 space-y-4 border-t border-ink/10 pt-8">
-        <header className="space-y-1">
-          <div className="flex items-center gap-2">
-            <Activity className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-              System health
-            </h2>
-          </div>
-          <p className="text-sm text-ink/60">
-            Verify production observability is wired and routing alerts correctly.
-            One-shot owner actions — no background sweeps. Punch-list item #19e
-            (Sentry prod smoke test).
-          </p>
-        </header>
-
-        <section className="rounded-xl border border-ink/10 bg-cream p-5">
-          <h3 className="text-sm font-semibold text-ink">Sentry prod smoke test</h3>
-          <p className="mt-1 text-xs text-ink/60">
-            Triggers a controlled error tagged{' '}
-            <code className="rounded bg-ink/5 px-1 py-0.5 font-mono">source=manual-smoke-test</code>
-            {' '}so it&rsquo;s easy to find in the Sentry dashboard. POST-only — the
-            endpoint cannot be triggered by URL paste or preview-deploy crawlers.
-          </p>
-          <div className="mt-4">
-            <SentrySmokeTestButton />
-          </div>
-        </section>
-      </div>
-    </div>
-  );
+function first(v: string | string[] | undefined): string | undefined {
+  return Array.isArray(v) ? v[0] : v;
 }
 
-/**
- * Default brand icon card (owner 2026-06-10). One square upload → the whole
- * icon set (browser-tab favicon, iOS app icon, in-app logo). Resetting returns
- * to the built-in gold Setnayan mark.
- */
-function BrandIconCard({
-  hasIcon,
-  previewUrl,
-  faviconUrl,
-  version,
-}: {
-  hasIcon: boolean;
-  previewUrl: string | null;
-  faviconUrl: string | null;
-  version: number;
-}) {
-  const bust = (url: string | null) =>
-    url ? `${url}${url.includes('?') ? '&' : '?'}v=${version}` : null;
-  const logoSrc = bust(previewUrl);
-  const tabSrc = bust(faviconUrl ?? previewUrl);
+function coerceTab(v: string | undefined): Tab {
+  return (TABS as readonly string[]).includes(v ?? '') ? (v as Tab) : 'settings';
+}
+
+const TAB_STRIP: { key: Tab; label: string; icon: typeof Settings }[] = [
+  { key: 'settings', label: 'Settings', icon: Settings },
+  { key: 'compliance', label: 'Compliance', icon: ShieldCheck },
+  { key: 'notifications', label: 'Notifications', icon: Bell },
+  { key: 'demo-mode', label: 'Demo mode', icon: FlaskConical },
+];
+
+const TAB_TITLE: Record<Tab, string> = {
+  settings: 'Settings',
+  compliance: 'Compliance',
+  notifications: 'Notifications',
+  'demo-mode': 'Demo mode',
+};
+
+function tabSkeleton(tab: Tab): ReactNode {
+  switch (tab) {
+    case 'compliance':
+      return <GridPageSkeleton />;
+    case 'notifications':
+      return <ListPageSkeleton />;
+    default:
+      return <FormPageSkeleton />;
+  }
+}
+
+type Props = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export async function generateMetadata({ searchParams }: Props) {
+  const tab = coerceTab(first((await searchParams).tab));
+  return { title: `${TAB_TITLE[tab]} · Admin` };
+}
+
+function activeSurface(
+  tab: Tab,
+  search: Record<string, string | string[] | undefined>,
+): ReactNode {
+  switch (tab) {
+    case 'compliance':
+      return <ComplianceSurface />;
+    case 'notifications':
+      return <NotificationsSurface />;
+    case 'demo-mode':
+      return <DemoModeSurface searchParams={Promise.resolve({ toggled: first(search.toggled) })} />;
+    default:
+      return (
+        <SettingsSurface
+          searchParams={Promise.resolve({
+            saved: first(search.saved),
+            error: first(search.error),
+            brand_icon: first(search.brand_icon),
+            brand_icon_removed: first(search.brand_icon_removed),
+            loader_saved: first(search.loader_saved),
+          })}
+        />
+      );
+  }
+}
+
+export default async function SettingsStudioPage({ searchParams }: Props) {
+  await requireAdmin();
+  const search = await searchParams;
+  const tab = coerceTab(first(search.tab));
 
   return (
-    <div className="mt-10 space-y-4 border-t border-ink/10 pt-8">
-      <header className="space-y-1">
-        <div className="flex items-center gap-2">
-          <ImageIcon className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Default brand icon
-          </h2>
-        </div>
-        <p className="text-sm text-ink/60">
-          Upload one square image and we&rsquo;ll generate the whole set &mdash;
-          the browser-tab favicon, the iOS/Android home-screen icon, and the
-          in-app logo. It propagates everywhere immediately. PNG, JPEG, WebP, or
-          SVG; a square logo on a transparent background works best. Leave it
-          unset to use the default gold Setnayan mark.
-        </p>
-      </header>
+    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
+      <nav
+        aria-label="Settings sections"
+        className="mb-6 flex flex-wrap gap-1.5 border-b border-ink/10 pb-3"
+      >
+        {TAB_STRIP.map((t) => {
+          const active = t.key === tab;
+          const Icon = t.icon;
+          return (
+            <Link
+              key={t.key}
+              href={`/admin/settings?tab=${t.key}`}
+              aria-current={active ? 'page' : undefined}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                active
+                  ? 'bg-terracotta/10 text-terracotta-700'
+                  : 'text-ink/65 hover:bg-ink/5 hover:text-ink'
+              }`}
+            >
+              <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+              {t.label}
+            </Link>
+          );
+        })}
+      </nav>
 
-      <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-5">
-        {hasIcon && logoSrc ? (
-          <div className="flex flex-wrap items-center gap-5">
-            <div className="flex flex-col items-center gap-1.5">
-              <div className="flex h-9 items-center rounded-md border border-ink/10 bg-white px-2 shadow-sm">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={tabSrc ?? logoSrc} alt="" width={16} height={16} className="block" />
-              </div>
-              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-                Tab · 16px
-              </span>
-            </div>
-            <div className="flex flex-col items-center gap-1.5">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={logoSrc}
-                alt="Current brand icon"
-                width={48}
-                height={48}
-                className="block rounded-md"
-              />
-              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-                Logo · 48px
-              </span>
-            </div>
-            <div className="flex-1 space-y-2 text-sm text-ink/65">
-              <p>This custom icon is live across the browser tab, app icon, and in-app logo.</p>
-              <form action={removeBrandIcon}>
-                <SubmitButton
-                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-danger-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  pendingLabel="Resetting…"
-                >
-                  <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  Reset to default
-                </SubmitButton>
-              </form>
-            </div>
-          </div>
-        ) : (
-          <p className="rounded-md border border-dashed border-ink/15 bg-cream p-3 text-xs text-ink/55">
-            Using the default gold Setnayan mark. Upload a square image below to
-            replace it everywhere.
-          </p>
-        )}
-
-        <div className="border-t border-ink/10 pt-4">
-          <BrandIconUploadForm replace={hasIcon} />
-        </div>
-
-        <p className="rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">
-          <span className="font-semibold">Don&rsquo;t see the new tab icon?</span>{' '}
-          Browsers cache favicons aggressively. We add a version stamp so most
-          browsers refresh on their own; on Safari you may need to clear it once
-          (Safari &rarr; Settings &rarr; Privacy &rarr; Manage Website Data &rarr;
-          remove <code className="rounded bg-ink/5 px-1 py-0.5 font-mono">setnayan.com</code>),
-          then reopen the tab.
-        </p>
-      </section>
+      <Suspense key={tab} fallback={tabSkeleton(tab)}>
+        {activeSurface(tab, search)}
+      </Suspense>
     </div>
   );
 }

@@ -1,16 +1,24 @@
-import { cache } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
-import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
-import {
-  resolveProfile as resolveEventTypeProfile,
-  surfaceEnabled,
-} from '@/lib/event-type-profile';
+import { createClient } from '@/lib/supabase/server';
+import { resolvePublicProfile } from '@/lib/public-profile';
 import { EventMonogram } from '@/app/_components/event-monogram';
 import { formatEventDate } from '@/lib/events';
+import { ReportPageButton } from '@/app/_components/report-page-button';
+import { ProfileShareButton } from '@/app/_components/profile-share-button';
+import { CreatorBadge } from '@/app/_components/creator-badge';
+import { CreatorTierChip } from '@/app/_components/creator-tier-chip';
+import { CHAPTER_KIND_LABEL } from '@/lib/creator-chapters';
+import { fetchPublishedChapters, type PublicChapter } from '@/lib/creator-public';
+import {
+  fetchCreatorInfluence,
+  type CreatorInfluenceVendor,
+} from '@/lib/creator-offers';
+import { formatAudienceCount } from '@/lib/creator-audience';
+import { fetchCreatorInquiriesDriven } from '@/lib/inquiry-attribution';
+import { ViewBeacon } from '@/app/u/_components/view-beacon';
+import { FollowButton } from '@/app/u/_components/follow-button';
 
 // Public account profile · setnayan.com/u/[user-slug].
 //
@@ -28,6 +36,13 @@ import { formatEventDate } from '@/lib/events';
 //   • 0 ongoing events → show the account's published stories (past public
 //     celebrations); empty-state when there are none.
 //
+// Creator overlay (CP-3; user-native since 2026-07-16): creator is now a
+// USER-NATIVE capability — a profile that has published >=1 Adventure Chapter is
+// a creator, no is_creator flag. When the account has published chapters, the
+// profile ALSO renders a timeline of them (reverse-chronological cards →
+// /u/[slug]/c/[id]) plus the gold creator badge, and never auto-redirects into a
+// single event — the chapters are the point of the page.
+//
 // Only surfaces events the /[slug] target would actually render — mirrors BOTH
 // gates that page enforces: (a) effectively-public visibility (so 'unlisted' /
 // 'private' / pre-STD-launch events never appear), and (b) the event-type
@@ -39,111 +54,138 @@ export const revalidate = 60;
 
 type Props = { params: Promise<{ userSlug: string }> };
 
-type ProfileEvent = {
-  event_id: string;
-  slug: string | null;
-  display_name: string | null;
-  event_date: string | null;
-  venue_name: string | null;
-  event_type: string | null;
-  archived: boolean | null;
-  landing_page_visibility: 'public' | 'unlisted' | 'private' | null;
-  scheduled_launch_at: string | null;
-  landing_page_hero_image_url: string | null;
-  monogram_text: string | null;
-  monogram_color: string | null;
-  monogram_style: string | null;
-  monogram_font_key: string | null;
-  monogram_frame_key: string | null;
-  monogram_custom_svg: string | null;
-};
+const SITE_URL = (
+  process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
+).replace(/\/$/, '');
 
-const EVENT_FIELDS =
-  'event_id, slug, display_name, event_date, venue_name, event_type, archived, landing_page_visibility, scheduled_launch_at, landing_page_hero_image_url, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg';
+// The "who is a public profile / what counts as a public chapter" resolver lives
+// in lib/public-profile.ts (resolvePublicProfile, cache()-wrapped) so the page
+// body, generateMetadata, the OG route, and the settings share-doorway gate all
+// agree on the SAME definition — a name/hero never leaks anywhere one of them
+// would have hidden it.
 
-// Wrapped in cache() so generateMetadata + the page body share one set of
-// queries per request (mirrors fetchEventBySlug on the [slug] page).
-const resolveProfile = cache(async function resolveProfile(userSlugRaw: string) {
-  const userSlug = userSlugRaw.toLowerCase();
-  // A path segment that's a reserved word is never a user profile.
-  if (!userSlug || RESERVED_SLUGS.has(userSlug)) return null;
-
-  const admin = createAdminClient();
-  const { data: user } = await admin
-    .from('users')
-    .select('user_id, display_name, slug')
-    .ilike('slug', userSlug)
-    .maybeSingle();
-  if (!user) return null;
-
-  // Events this account owns (couple member), that have a public slug.
-  const { data: memberships } = await admin
-    .from('event_members')
-    .select('event_id')
-    .eq('user_id', user.user_id)
-    .eq('member_type', 'couple');
-  const eventIds = (memberships ?? []).map((m) => m.event_id as string);
-  if (eventIds.length === 0) return { user, events: [] as ProfileEvent[] };
-
-  const { data: events } = await admin
-    .from('events')
-    .select(EVENT_FIELDS)
-    .in('event_id', eventIds);
-
-  return { user, events: (events ?? []) as ProfileEvent[] };
-});
+// Owner-preview probe. Only ever called on the DORMANT path (profile disabled),
+// so the common enabled+public render never reads cookies and stays cacheable
+// under `revalidate`. The signed-in holder may preview their own hidden shell;
+// everyone else 404s.
+async function isSignedInHolder(ownerUserId: string): Promise<boolean> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    return !!user && user.id === ownerUserId;
+  } catch {
+    return false;
+  }
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { userSlug } = await params;
-  const resolved = await resolveProfile(userSlug);
-  const name = resolved?.user.display_name?.trim() || 'Setnayan';
+  const resolved = await resolvePublicProfile(userSlug);
+
+  // Neutral, name-free metadata unless the profile is BOTH opted-in AND has at
+  // least one public chapter. This keeps the account holder's real name out of
+  // the <title> for any enumerable slug (the name/existence oracle) and honors
+  // the noindex-unless-published rule.
+  const enabled = resolved?.user.public_profile_enabled === true;
+  const hasPublic = (resolved?.publicWebsiteEvents.length ?? 0) > 0;
+  if (!resolved || !enabled || !hasPublic) {
+    return {
+      title: 'Setnayan',
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const name = resolved.user.display_name?.trim() || 'Setnayan';
+  const canonicalSlug = resolved.user.slug ?? userSlug;
+  // Personalized share card (name + most-recent public hero) — item #7c. The OG
+  // route re-checks the SAME enabled + ≥1-public-chapter gate before rendering a
+  // name-bearing card, and falls back to the brand card otherwise, so this URL is
+  // only ever emitted for a genuine public showcase.
+  const ogImage = `${SITE_URL}/api/og/u/${canonicalSlug}`;
   return {
     title: `${name} · Setnayan`,
     // Aggregation surface — the individual event pages carry the real SEO. Keep
-    // this out of the index to avoid thin-content duplication.
+    // this out of the index to avoid thin-content duplication, but allow follow
+    // so the (public) chapter links are crawled.
     robots: { index: false, follow: true },
+    openGraph: {
+      type: 'profile',
+      title: `${name} · Setnayan`,
+      siteName: 'Setnayan',
+      locale: 'en_PH',
+      images: [{ url: ogImage, width: 1200, height: 630, alt: `${name} · Setnayan` }],
+    },
+    twitter: { card: 'summary_large_image' as const },
   };
 }
 
 export default async function AccountProfilePage({ params }: Props) {
   const { userSlug } = await params;
-  const resolved = await resolveProfile(userSlug);
+  const resolved = await resolvePublicProfile(userSlug);
   if (!resolved) notFound();
 
-  const { user, events } = resolved;
+  const { user, publicWebsiteEvents } = resolved;
   const canonicalSlug = (user.slug as string | null) ?? userSlug;
 
-  const withSlug = events.filter((e): e is ProfileEvent & { slug: string } => !!e.slug);
+  // #7b — per-account public/hidden gate. DORMANT by default: while the account
+  // hasn't opted in, the /u shell 404s for strangers so it's neither a public
+  // page nor a name/existence oracle. Only the signed-in holder may preview
+  // their own hidden shell (this is the ONLY branch that reads auth, so the
+  // opted-in public render stays cacheable under `revalidate`).
+  const enabled = user.public_profile_enabled === true;
+  const isOwnerPreview = enabled ? false : await isSignedInHolder(user.user_id);
+  if (!enabled && !isOwnerPreview) notFound();
 
-  // Mirror the /[slug] target's second gate: only event types whose profile
-  // enables the public 'website' surface actually render there. Resolve once
-  // per distinct event_type (resolveEventTypeProfile is React-cached) so a
-  // public generic/simple event is never listed into a 404.
-  const websiteByType = new Map<string, boolean>();
-  for (const et of new Set(withSlug.map((e) => e.event_type ?? ''))) {
-    const profile = await resolveEventTypeProfile(et);
-    websiteByType.set(et, surfaceEnabled(profile, 'website'));
-  }
-  const hasWebsite = (e: ProfileEvent) => websiteByType.get(e.event_type ?? '') ?? false;
+  // Creator "Adventure Chapter" (CP-3; user-native): a profile with published
+  // chapters IS a timeline of them, not just an event picker. Creator is now
+  // user-native — having >=1 published chapter is what makes the account a
+  // creator (no is_creator flag). We're already past the enabled/owner-preview
+  // gate, so load the timeline here; when it's non-empty we NEVER auto-redirect
+  // into a single event — the chapters are the point of the page.
+  const chapters: PublicChapter[] = await fetchPublishedChapters(user.user_id);
+  const hasChapters = chapters.length > 0;
 
-  const isPublicWebsite = (e: ProfileEvent) =>
-    resolveEffectiveVisibility(e) === 'public' && hasWebsite(e);
+  // Creator "influence" — accepted vendor partnerships (aggregate, public). Only
+  // relevant for a creator profile; never exposes the offer terms or the graph,
+  // just the fact of a partnership + the vendor's public identity.
+  const influenceVendors: CreatorInfluenceVendor[] = hasChapters
+    ? await fetchCreatorInfluence(user.user_id)
+    : [];
 
-  const ongoing = withSlug.filter((e) => !e.archived && isPublicWebsite(e));
+  // "Inquiries driven" (Creator Economy PR-C) — the ONE public influence metric
+  // (owner paper-lock: raw integer, the word is "inquiries" never "bookings",
+  // renders NOTHING at 0). Aggregate-only: the count of distinct events whose
+  // chapter-attributed inquiry a vendor unlocked, self-owned-vendor unlocks
+  // excluded. No tiers, no bands.
+  const inquiriesDriven = hasChapters
+    ? await fetchCreatorInquiriesDriven(user.user_id)
+    : 0;
 
-  // 1 ongoing → jump straight in.
-  if (ongoing.length === 1) {
+  const ongoing = publicWebsiteEvents.filter((e) => !e.archived);
+
+  // 1 ongoing → jump straight in (skip for the owner previewing their own
+  // hidden shell so they actually see the profile page they're checking, and
+  // for creators whose profile is the chapter timeline).
+  if (ongoing.length === 1 && !isOwnerPreview && !hasChapters) {
     redirect(`/u/${canonicalSlug}/${ongoing[0]!.slug}`);
   }
 
-  const displayName = user.display_name?.trim() || 'Their celebrations';
-
-  // 0 ongoing → the couple's published stories (past public celebrations).
-  const editorials = ongoing.length === 0 ? withSlug.filter(isPublicWebsite) : [];
-
-  const listed = ongoing.length >= 2 ? ongoing : editorials;
+  // ongoing≥2 → the celebrations gallery; ongoing 0 → published stories (past
+  // public celebrations, incl. archived); the single-ongoing case only reaches
+  // here for the owner preview, where we still list it rather than redirect.
+  const listed = ongoing.length >= 2 ? ongoing : publicWebsiteEvents;
   const mode: 'gallery' | 'stories' | 'empty' =
     ongoing.length >= 2 ? 'gallery' : listed.length > 0 ? 'stories' : 'empty';
+
+  // Name-oracle fix: only surface the holder's real display_name when there is
+  // public published content (gallery/stories/chapters) — never on the true
+  // empty state, where printing it would confirm "this slug exists and belongs
+  // to <name>". A creator with a published chapter timeline counts as content.
+  const hasPublicContent = mode !== 'empty' || hasChapters;
+  const displayName = user.display_name?.trim() || 'Celebrations';
+  const heading = hasPublicContent ? displayName : 'A Setnayan profile';
 
   const subtitle =
     mode === 'gallery'
@@ -156,9 +198,66 @@ export default async function AccountProfilePage({ params }: Props) {
     <main className="uprof">
       <style>{UPROF_CSS}</style>
 
+      {/* Audience view beacon — counts a genuinely-public profile view out of
+          band (keeps this page ISR-cacheable). No-op on the owner-preview of a
+          hidden profile (the RPC self-gates to public_profile_enabled). */}
+      {enabled && hasPublicContent ? (
+        <ViewBeacon kind="profile" id={user.user_id} />
+      ) : null}
+
       <div className="uprof-inner">
+        {isOwnerPreview ? (
+          <div className="uprof-preview" role="status">
+            Preview · your public profile is <strong>hidden</strong>. Turn it on in
+            Profile &amp; settings → URL &amp; handle to share it.
+          </div>
+        ) : null}
         <header className="uprof-head">
-          <h1 className="m-serif uprof-name">{displayName}</h1>
+          <h1 className="m-serif uprof-name">{heading}</h1>
+          {hasChapters ? (
+            <div className="uprof-badge-row">
+              <CreatorBadge size="md" />
+            </div>
+          ) : null}
+          {hasPublicContent ? (
+            <div className="uprof-audience">
+              <span className="uprof-stat">
+                <strong>{formatAudienceCount(user.followers_count)}</strong>{' '}
+                {user.followers_count === 1 ? 'follower' : 'followers'}
+              </span>
+              <span aria-hidden className="uprof-stat-dot">
+                &middot;
+              </span>
+              <span className="uprof-stat">
+                <strong>{formatAudienceCount(user.profile_view_count)}</strong>{' '}
+                {user.profile_view_count === 1 ? 'view' : 'views'}
+              </span>
+              {/* PR-C — renders NOTHING at 0 (no fake influence). */}
+              {inquiriesDriven > 0 ? (
+                <>
+                  <span aria-hidden className="uprof-stat-dot">
+                    &middot;
+                  </span>
+                  <span className="uprof-stat">
+                    <strong>{formatAudienceCount(inquiriesDriven)}</strong>{' '}
+                    {inquiriesDriven === 1 ? 'inquiry driven' : 'inquiries driven'}
+                    {/* P3 tier band — a rendering of the SAME number, not a
+                        second metric; hides at 0 alongside the line itself. */}
+                    <CreatorTierChip
+                      inquiriesDriven={inquiriesDriven}
+                      className="uprof-tier-chip"
+                    />
+                  </span>
+                </>
+              ) : null}
+              {/* Follow — the client island renders only for a signed-in
+                  visitor viewing someone else's profile (never self/signed-out). */}
+              <FollowButton
+                followedUserId={user.user_id}
+                className="uprof-follow"
+              />
+            </div>
+          ) : null}
           <span aria-hidden className="uprof-rule" />
           {subtitle ? <p className="uprof-sub">{subtitle}</p> : null}
         </header>
@@ -203,14 +302,43 @@ export default async function AccountProfilePage({ params }: Props) {
               );
             })}
           </ul>
-        ) : (
+        ) : hasChapters ? null : (
           <div className="uprof-empty">
-            <p className="uprof-empty-title">No public celebrations yet</p>
+            <p className="uprof-empty-title">Nothing public to show yet</p>
             <p className="uprof-empty-sub">
-              When {displayName.split(' ')[0]} launches an invitation, it will appear here.
+              When a celebration is published, it will appear here.
             </p>
           </div>
         )}
+
+        {hasChapters ? (
+          <ChapterTimeline chapters={chapters} slug={canonicalSlug} />
+        ) : null}
+
+        {influenceVendors.length > 0 ? (
+          <CreatorInfluence vendors={influenceVendors} />
+        ) : null}
+
+        {/* Share doorway + report path (#7c). Gated on the profile being a real
+            public showcase — opted-in AND has ≥1 public chapter (hasPublicContent).
+            Never rendered on the disabled owner-preview or the empty state, so we
+            never offer sharing on, or attach a report target to, a non-public
+            profile. */}
+        {enabled && hasPublicContent ? (
+          <div className="uprof-actions">
+            <ProfileShareButton
+              url={`${SITE_URL}/u/${canonicalSlug}`}
+              title={`${displayName} · Setnayan`}
+              className="uprof-action-btn"
+            />
+            <ReportPageButton
+              targetType="user_profile"
+              targetId={user.user_id}
+              label="Report this page"
+              className="inline-flex"
+            />
+          </div>
+        ) : null}
 
         <footer className="uprof-foot">
           <a href="https://www.setnayan.com" className="uprof-foot-link">
@@ -222,11 +350,158 @@ export default async function AccountProfilePage({ params }: Props) {
   );
 }
 
+function formatChapterDate(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('en-PH', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+// CP-3 — the published-chapter TIMELINE (reverse-chronological, a spine of
+// dated cards; deliberately NOT a feed). Each card links to the chapter detail
+// view at /u/[slug]/c/[public_id]. The embed itself is NOT mounted here — the
+// timeline is lightweight cards; the sandboxed ChapterEmbedFrame lives on the
+// detail page.
+function ChapterTimeline({
+  chapters,
+  slug,
+}: {
+  chapters: PublicChapter[];
+  slug: string;
+}) {
+  return (
+    <section className="uprof-tl" aria-label="Chapters">
+      <h2 className="m-serif uprof-tl-head">Chapters</h2>
+      <ol className="uprof-tl-list">
+        {chapters.map((c) => {
+          const date = formatChapterDate(c.published_at);
+          return (
+            <li key={c.chapter_id} className="uprof-tl-item">
+              <span aria-hidden className="uprof-tl-dot" />
+              <Link href={`/u/${slug}/c/${c.public_id}`} className="uprof-tl-card">
+                <span className="uprof-tl-kicker">
+                  <span className="uprof-tl-kind">{CHAPTER_KIND_LABEL[c.kind]}</span>
+                  {date ? <span className="uprof-tl-date">{date}</span> : null}
+                  <span className="uprof-tl-views">
+                    {formatAudienceCount(c.view_count)}{' '}
+                    {c.view_count === 1 ? 'view' : 'views'}
+                  </span>
+                </span>
+                <span className="m-serif uprof-tl-title">{c.title}</span>
+                <span className="uprof-tl-cue">
+                  Watch the chapter
+                  <span aria-hidden className="uprof-tl-chev">
+                    &rsaquo;
+                  </span>
+                </span>
+              </Link>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}
+
+// Creator "influence" — partnered vendors (accepted discount collabs), an
+// aggregate social-proof strip. Public + terms-free: it shows WHO the creator
+// has partnered with (name/logo → the vendor's 0%-commission public page), never
+// the discount terms or the offer graph. Bookings-driven ROI is P2/P3.
+function CreatorInfluence({ vendors }: { vendors: CreatorInfluenceVendor[] }) {
+  return (
+    <section className="uprof-inf" aria-label="Partnered vendors">
+      <h2 className="m-serif uprof-inf-head">Partnered with</h2>
+      <ul className="uprof-inf-list">
+        {vendors.map((v) => (
+          <li key={v.slug}>
+            <Link href={`/v/${v.slug}`} className="uprof-inf-card">
+              {v.logoUrl ? (
+                <span className="uprof-inf-logo">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={v.logoUrl} alt="" loading="lazy" decoding="async" />
+                </span>
+              ) : (
+                <span className="uprof-inf-logo uprof-inf-logo--blank" aria-hidden>
+                  {v.name.charAt(0)}
+                </span>
+              )}
+              <span className="uprof-inf-name">{v.name}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 const UPROF_CSS = `
+  .uprof-inf { margin-top: clamp(2.5rem, 6vw, 3.75rem); }
+  .uprof-inf-head {
+    font-size: clamp(1.2rem, 3.5vw, 1.6rem);
+    text-align: center;
+    margin: 0 0 clamp(1.25rem, 3vw, 1.75rem);
+    color: var(--m-ink, #1B1A17);
+  }
+  .uprof-inf-list {
+    list-style: none;
+    margin: 0 auto;
+    padding: 0;
+    max-width: 620px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.7rem;
+  }
+  .uprof-inf-card {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.95rem 0.5rem 0.6rem;
+    background: #fff;
+    border: 1px solid var(--m-line, #E2DED4);
+    border-radius: var(--m-r-full, 999px);
+    box-shadow: var(--m-shadow-sm, 0 1px 2px rgba(30,26,18,.05));
+    text-decoration: none;
+    color: inherit;
+    transition: transform .15s cubic-bezier(.2,.7,.2,1), border-color .15s;
+  }
+  .uprof-inf-card:hover {
+    transform: translateY(-1px);
+    border-color: var(--m-orange, #A9834B);
+  }
+  .uprof-inf-logo {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    border-radius: var(--m-r-full, 999px);
+    overflow: hidden;
+    background: var(--m-ivory, #EDEAE0);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .uprof-inf-logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .uprof-inf-logo--blank {
+    font-family: var(--font-mono-marketing), ui-monospace, monospace;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--m-orange-2, #8A6B39);
+    text-transform: uppercase;
+  }
+  .uprof-inf-name {
+    font-size: 0.86rem;
+    font-weight: 500;
+    color: var(--m-ink, #1B1A17);
+  }
+
   .uprof {
     min-height: 100dvh;
     background: var(--m-paper, #FBFBFA);
-    color: var(--m-ink, #1E2229);
+    color: var(--m-ink, #1B1A17);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -234,19 +509,80 @@ const UPROF_CSS = `
   }
   .uprof-inner { width: 100%; max-width: 760px; }
 
+  .uprof-preview {
+    margin: 0 0 1.5rem;
+    padding: 0.7rem 1rem;
+    border: 1px solid var(--m-line, #E2DED4);
+    border-radius: var(--m-r-md, 14px);
+    background: var(--m-ivory, #EDEAE0);
+    color: var(--m-slate, #4F535B);
+    font-size: 0.85rem;
+    text-align: center;
+  }
+
   .uprof-head { text-align: center; margin-bottom: clamp(2.25rem, 5vw, 3.25rem); }
   .uprof-name {
     font-size: clamp(2.4rem, 7vw, 4rem);
     line-height: 1.04;
     margin: 0;
-    color: var(--m-ink, #1E2229);
+    color: var(--m-ink, #1B1A17);
   }
+  .uprof-badge-row {
+    display: flex;
+    justify-content: center;
+    margin-top: 1rem;
+  }
+  .uprof-audience {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem 0.7rem;
+    margin-top: 1rem;
+  }
+  .uprof-stat {
+    font-size: 0.9rem;
+    color: var(--m-slate, #4F535B);
+  }
+  .uprof-stat strong {
+    color: var(--m-ink, #1B1A17);
+    font-weight: 600;
+  }
+  .uprof-stat-dot {
+    color: var(--m-slate-2, #6A6E76);
+    opacity: 0.6;
+  }
+  .uprof-tier-chip {
+    margin-left: 0.4rem;
+  }
+  .uprof-follow {
+    margin-left: 0.3rem;
+    display: inline-flex;
+    align-items: center;
+    padding: 0.34rem 0.95rem;
+    border: 1px solid var(--m-orange, #A9834B);
+    border-radius: var(--m-r-full, 999px);
+    background: var(--m-orange, #A9834B);
+    color: #fff;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform .15s cubic-bezier(.2,.7,.2,1), opacity .15s, background .15s, color .15s;
+  }
+  .uprof-follow:hover { transform: translateY(-1px); }
+  .uprof-follow:disabled { opacity: 0.6; cursor: default; transform: none; }
+  .uprof-follow[data-following='1'] {
+    background: #fff;
+    color: var(--m-ink, #1B1A17);
+    border-color: var(--m-line, #E2DED4);
+  }
+
   .uprof-rule {
     display: block;
     width: 44px;
     height: 1px;
     margin: 1.25rem auto 0;
-    background: var(--m-orange, #C5A059);
+    background: var(--m-orange, #A9834B);
   }
   .uprof-sub {
     margin: 1rem 0 0;
@@ -275,15 +611,15 @@ const UPROF_CSS = `
     background: #fff;
     border: 1px solid var(--m-line, #E2DED4);
     border-radius: var(--m-r-lg, 22px);
-    box-shadow: var(--m-shadow-sm, 0 1px 2px rgba(30,34,41,.05));
+    box-shadow: var(--m-shadow-sm, 0 1px 2px rgba(30,26,18,.05));
     text-decoration: none;
     color: inherit;
     transition: transform .18s cubic-bezier(.2,.7,.2,1), border-color .18s, box-shadow .18s;
   }
   .uprof-card:hover {
     transform: translateY(-2px);
-    border-color: var(--m-orange, #C5A059);
-    box-shadow: 0 10px 30px -12px rgba(30,34,41,.18);
+    border-color: var(--m-orange, #A9834B);
+    box-shadow: 0 10px 30px -12px rgba(30,26,18,.18);
   }
 
   .uprof-cover {
@@ -301,7 +637,7 @@ const UPROF_CSS = `
   .uprof-title {
     font-size: 1.3rem;
     line-height: 1.15;
-    color: var(--m-ink, #1E2229);
+    color: var(--m-ink, #1B1A17);
     overflow: hidden;
     text-overflow: ellipsis;
   }
@@ -322,7 +658,7 @@ const UPROF_CSS = `
   }
   .uprof-card:hover .uprof-chev {
     transform: translateX(3px);
-    color: var(--m-orange, #C5A059);
+    color: var(--m-orange, #A9834B);
     opacity: 1;
   }
 
@@ -333,8 +669,136 @@ const UPROF_CSS = `
     padding: 2.75rem 1.5rem;
     background: #fff;
   }
-  .uprof-empty-title { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--m-ink, #1E2229); }
+  .uprof-empty-title { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--m-ink, #1B1A17); }
   .uprof-empty-sub { margin: 0.5rem 0 0; font-size: 0.9rem; color: var(--m-slate-2, #6A6E76); }
+
+  /* CP-3 chapter timeline — a spine of dated cards (not a feed). */
+  .uprof-tl { margin-top: clamp(2.5rem, 6vw, 3.75rem); }
+  .uprof-tl-head {
+    font-size: clamp(1.4rem, 4vw, 1.9rem);
+    text-align: center;
+    margin: 0 0 clamp(1.5rem, 4vw, 2.25rem);
+    color: var(--m-ink, #1B1A17);
+  }
+  .uprof-tl-list {
+    list-style: none;
+    margin: 0 auto;
+    padding: 0;
+    max-width: 620px;
+    position: relative;
+  }
+  .uprof-tl-list::before {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 6px;
+    bottom: 6px;
+    width: 1px;
+    background: linear-gradient(var(--m-line, #E2DED4), transparent);
+  }
+  .uprof-tl-item {
+    position: relative;
+    padding-left: 1.9rem;
+  }
+  .uprof-tl-item + .uprof-tl-item { margin-top: 0.9rem; }
+  .uprof-tl-dot {
+    position: absolute;
+    left: 0;
+    top: 1.35rem;
+    width: 11px;
+    height: 11px;
+    border-radius: var(--m-r-full, 999px);
+    background: var(--m-paper, #FBFBFA);
+    border: 2px solid var(--m-orange, #A9834B);
+  }
+  .uprof-tl-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 1.1rem 1.25rem;
+    background: #fff;
+    border: 1px solid var(--m-line, #E2DED4);
+    border-radius: var(--m-r-lg, 22px);
+    box-shadow: var(--m-shadow-sm, 0 1px 2px rgba(30,26,18,.05));
+    text-decoration: none;
+    color: inherit;
+    transition: transform .18s cubic-bezier(.2,.7,.2,1), border-color .18s, box-shadow .18s;
+  }
+  .uprof-tl-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--m-orange, #A9834B);
+    box-shadow: 0 10px 30px -12px rgba(30,26,18,.18);
+  }
+  .uprof-tl-kicker {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+  }
+  .uprof-tl-kind {
+    font-family: var(--font-mono-marketing), 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--m-orange-2, #8A6B39);
+  }
+  .uprof-tl-date {
+    font-size: 0.78rem;
+    color: var(--m-slate-2, #6A6E76);
+  }
+  .uprof-tl-views {
+    font-size: 0.72rem;
+    color: var(--m-slate-2, #6A6E76);
+    opacity: 0.85;
+  }
+  .uprof-tl-title {
+    font-size: clamp(1.15rem, 3vw, 1.4rem);
+    line-height: 1.2;
+    color: var(--m-ink, #1B1A17);
+  }
+  .uprof-tl-cue {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.82rem;
+    color: var(--m-slate, #4F535B);
+  }
+  .uprof-tl-chev {
+    font-size: 1.15rem;
+    line-height: 1;
+    color: var(--m-orange, #A9834B);
+    transition: transform .18s cubic-bezier(.2,.7,.2,1);
+  }
+  .uprof-tl-card:hover .uprof-tl-chev { transform: translateX(3px); }
+
+  .uprof-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem 1.4rem;
+    margin-top: clamp(2rem, 5vw, 3rem);
+  }
+  .uprof-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--m-line, #E2DED4);
+    border-radius: var(--m-r-full, 999px);
+    background: #fff;
+    color: var(--m-ink, #1B1A17);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: var(--m-shadow-sm, 0 1px 2px rgba(30,26,18,.05));
+    transition: border-color .15s, transform .15s cubic-bezier(.2,.7,.2,1);
+  }
+  .uprof-action-btn:hover {
+    border-color: var(--m-orange, #A9834B);
+    transform: translateY(-1px);
+  }
 
   .uprof-foot { margin-top: clamp(2.5rem, 7vw, 4rem); text-align: center; }
   .uprof-foot-link {
@@ -345,5 +809,5 @@ const UPROF_CSS = `
     border-bottom: 1px solid transparent;
     transition: color .15s, border-color .15s;
   }
-  .uprof-foot-link:hover { color: var(--m-ink, #1E2229); border-color: var(--m-orange, #C5A059); }
+  .uprof-foot-link:hover { color: var(--m-ink, #1B1A17); border-color: var(--m-orange, #A9834B); }
 `;

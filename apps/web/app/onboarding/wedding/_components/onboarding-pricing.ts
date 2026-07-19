@@ -47,7 +47,7 @@ import {
  *
  * VERIFIED against live platform_retail_catalog_v2 (is_active=true, 2026-06-08).
  * NOTE the map is keyed by service_code (NOT title): PRO_WEBSITE's live title is
- * "Editorial Website" (₱7,999) and LIVE_WALL's is "Live Venue Photo Wall" — the
+ * "Editorial PRO" (₱2,999) and LIVE_WALL's is "Live Venue Photo Wall" — the
  * code match is exact regardless of display title. PAPIC_GUEST is the only
  * is_pax_priced=true row. `high_res` from BUNDLE_ITEMS is NOT an onboarding inapp
  * key (free baseline) and is intentionally absent.

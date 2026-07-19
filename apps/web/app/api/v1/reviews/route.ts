@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isPublicApiEnabled, publicApiDisabledResponse } from "@/lib/public-api-flag";
 import { createClient } from '@/lib/supabase/server';
 import { apiErrorResponse } from '@/lib/api-auth';
 import {
@@ -29,6 +30,8 @@ import {
  * call it without a key. Bearer-key access can be layered on later.
  */
 export async function POST(req: Request) {
+  // Public API disabled by default (no-public-API-in-V1 lock; owner blesses via PUBLIC_API_ENABLED). See lib/public-api-flag.ts.
+  if (!isPublicApiEnabled()) return publicApiDisabledResponse();
   const supabase = await createClient();
   const {
     data: { user },

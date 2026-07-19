@@ -67,7 +67,7 @@ export function InquiryOutcomeCapture({
   return (
     <form
       action={recordInquiryOutcome}
-      className="rounded-xl border border-ink/10 bg-cream p-4"
+      className="sn-row p-4"
     >
       <input type="hidden" name="thread_id" value={threadId} />
       <input type="hidden" name="outcome" value={outcome} />
@@ -101,7 +101,7 @@ export function InquiryOutcomeCapture({
                 'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition ' +
                 (active
                   ? meta.activeClass
-                  : 'border-ink/15 bg-cream text-ink/70 hover:border-ink/35')
+                  : 'border-ink/15 bg-white/70 text-ink/70 hover:border-ink/35')
               }
             >
               <Icon className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />

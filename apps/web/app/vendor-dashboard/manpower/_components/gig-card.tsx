@@ -147,10 +147,7 @@ export function GigCard({
   }
 
   return (
-    <article
-      className="rounded-lg border border-slate-200/60 bg-white p-4"
-      style={{ boxShadow: 'var(--m-shadow-sm)' }}
-    >
+    <article className="sn-row p-4" style={{ boxShadow: 'var(--m-shadow-sm)' }}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-900">{gig.gig_label}</p>
@@ -270,12 +267,7 @@ export function GigCard({
           {banner?.kind === 'cancel-form' ? (
             <div className="flex w-full flex-wrap items-end gap-2 rounded-md border border-slate-200/60 bg-slate-50 p-3">
               <label className="flex-1 min-w-[180px]">
-                <span
-                  className="m-label-mono mb-1 block uppercase text-slate-500"
-                  style={{ letterSpacing: '0.2em', fontSize: '11px' }}
-                >
-                  Reason
-                </span>
+                <span className="sn-eye mb-1 block">Reason</span>
                 <input
                   type="text"
                   value={cancelReason}

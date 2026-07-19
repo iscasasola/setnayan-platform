@@ -5,6 +5,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { loadRecapCardData } from '@/lib/auto-recap';
 import { renderRecapOgJpeg } from '@/lib/social/recap-card';
 import { isR2Configured, r2Upload, R2_BUCKETS } from '@/lib/r2';
+import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 
 /**
  * apps/web/lib/social/recap-post.ts — compose a Setnayan-owned social post when
@@ -51,6 +52,45 @@ async function isRecapAutopostEnabled(
     return val !== false;
   } catch {
     return true;
+  }
+}
+
+/**
+ * Social follow-through #2 (2026-07-16) — the recap re-post GATE, shared by
+ * COMPOSE (this file) and DISPATCH (lib/social/flush.ts). A published recap may
+ * be featured on Setnayan's OWN Facebook / Instagram ONLY when BOTH hold:
+ *   • the couple has NOT opted out — events.recap_social_optout_at IS NULL
+ *     (owner ruling "everything public initially" → NULL = allowed = default), AND
+ *   • the event site is effectively PUBLIC — resolveEffectiveVisibility(event)
+ *     === 'public'. A private / unlisted couple is NEVER composed into the
+ *     public queue (unanimous council red line #2).
+ *
+ * Fail-CLOSED: any read error / missing row → NOT allowed, so a transient DB
+ * hiccup can never leak a private recap. Best-effort; never throws.
+ */
+export async function isRecapSocialShareAllowed(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+): Promise<boolean> {
+  try {
+    const { data, error } = await admin
+      .from('events')
+      .select(
+        'recap_social_optout_at, landing_page_visibility, scheduled_launch_at, std_launched_at',
+      )
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (error || !data) return false;
+    const ev = data as {
+      recap_social_optout_at?: string | null;
+      landing_page_visibility?: 'public' | 'unlisted' | 'private' | null;
+      scheduled_launch_at?: string | null;
+      std_launched_at?: string | null;
+    };
+    if (ev.recap_social_optout_at) return false; // couple opted out
+    return resolveEffectiveVisibility(ev) === 'public'; // private/unlisted → never
+  } catch {
+    return false;
   }
 }
 
@@ -120,6 +160,12 @@ export async function composeRecapSocialPost(eventId: string): Promise<void> {
     // Per-feature gate — an admin can turn recap auto-posting off without
     // touching the master switch. (Dispatch still respects the master switch.)
     if (!(await isRecapAutopostEnabled(admin))) return;
+
+    // Social follow-through #2 — the couple's per-event opt-out + the
+    // private-site red line. Refuse to compose a recap post when the couple
+    // opted out OR the event site isn't effectively public. Dispatch carries
+    // the SAME gate (catches an opt-out / visibility flip after compose).
+    if (!(await isRecapSocialShareAllowed(admin, eventId))) return;
 
     // Skip if a live (non-pulled) recap post already exists for this event —
     // avoids re-rendering the card on every re-publish. The partial-unique

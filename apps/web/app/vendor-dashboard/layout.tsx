@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
-import { Menu } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { runLoginGhostingCheck } from '@/lib/ghosting';
+import { maybeSweepGhostedLeadHolds } from '@/lib/lead-token-holds';
+import { maybeSweepExpiredCreatorOffers } from '@/lib/creator-offers';
 import { countUnread } from '@/lib/notifications';
 import { countUnreadMessages } from '@/lib/chat';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -14,14 +15,17 @@ import { DoorwaySidebarHeader } from '@/app/_components/nav/doorway-sidebar-head
 import { VendorSidebar, VendorSidebarFooter } from './_components/vendor-sidebar';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { deriveVendorInitials as deriveInitials } from '@/app/_components/vendor-avatar';
+import { VendorAvatar, deriveVendorInitials as deriveInitials } from '@/app/_components/vendor-avatar';
 import { isMusicVendor } from '@/lib/songs';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
 import { VendorNavFab } from './_components/vendor-nav-fab';
 import { resolveVendorRole } from '@/lib/vendor-role';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { PushNotificationRegistrar } from './_components/push-notification-registrar';
-import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
+import {
+  AccountSwitcher,
+  SwitcherPlaqueTrigger,
+} from '@/app/_components/account-switcher/account-switcher';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import { ServerTimer } from '@/lib/server-timing';
@@ -31,14 +35,15 @@ import { ServerTimer } from '@/lib/server-timing';
  *
  * STRUCTURE: SidebarShell owns the desktop layout split (sidebar at lg+,
  * main content area with offset). The sidebarHeader carries the brand
- * wordmark + Vendor eyebrow + AccountSwitcherStandalone (matching the
- * customer and admin doorway patterns — owner directive 2026-06-18). The
- * topBar is right-aligned: unread bell · display name · sign-out ·
- * AccountSwitcher (mobile-only pill; desktop uses the sidebar standalone).
+ * wordmark HOME-LINK + Vendor eyebrow + the business identity plaque
+ * (SwitcherPlaqueTrigger — the account-menu popup; Plaque-as-Menu council
+ * verdict 2026-07-16, matching the customer and admin doorway patterns).
+ * The topBar is right-aligned: unread bell · display name · sign-out ·
+ * AccountSwitcher (mobile-only pill; desktop uses the sidebar plaque).
  *
  * EventSwitcher was retired from this doorway on 2026-06-18 — the unified
- * AccountSwitcher owns identity + event switching + cross-console hopping
- * on all three doorways, consistent with the customer doorway.
+ * account panel owns identity + cross-console hopping on all three doorways,
+ * consistent with the customer doorway; going HOME is the wordmark's job.
  */
 export default async function VendorDashboardLayout({
   children,
@@ -225,6 +230,27 @@ export default async function VendorDashboardLayout({
     });
   }
 
+  // Login-driven vendor TIER lapse (no cron) — same post-response, downgrade-only,
+  // idempotent pattern as the token sweep above. sweep_vendor_tier_expiry reverts
+  // a tier past its tier_expires_at (pro/enterprise → verified-or-free; custom →
+  // verified-or-free + demotes the active custom plan). Only fired for a sweepable
+  // PAID tier — for free/verified it is a guaranteed no-op, so skip the background
+  // RPC (the same pointless-write avoidance the token sweep uses). The api_access
+  // gate already denies expired access inline; this reconciles tier_state + the
+  // caps overlay so a lapsed vendor stops reading Custom/Pro ceilings.
+  if (
+    tierWallet.vendorId &&
+    vendorTier != null &&
+    (['pro', 'enterprise', 'custom'] as readonly string[]).includes(vendorTier)
+  ) {
+    const vendorId = tierWallet.vendorId;
+    after(async () => {
+      await supabase
+        .rpc('sweep_vendor_tier_expiry', { p_vendor_id: vendorId })
+        .then(() => undefined, () => undefined);
+    });
+  }
+
   if (profile?.deleted_at) {
     await supabase.auth.signOut();
     redirect('/login?error=Account+deleted');
@@ -234,6 +260,15 @@ export default async function VendorDashboardLayout({
   // (gated inside the helper). Vendor side: nudge if inquiries they received
   // sit unanswered past the threshold.
   after(() => runLoginGhostingCheck(user.id, 'vendor'));
+  // Ghosted lead-hold sweep (fake-inquiry protection) — CRON-FREE: rides vendor
+  // traffic via after() + a durable daily DB claim (replaces the retired Vercel
+  // cron). The RPC is global + idempotent, so any vendor's visit sweeps every
+  // vendor's ghosts; a no-op when the hold feature is off. Never throws.
+  after(() => maybeSweepGhostedLeadHolds().catch(() => {}));
+  // Expired creator-offer sweep (Creator Economy P1) — CRON-FREE, same pattern:
+  // an unanswered discount offer past its window RELEASES the vendor's held reach
+  // token (refund). Global + idempotent; any vendor's visit sweeps the fleet.
+  after(() => maybeSweepExpiredCreatorOffers().catch(() => {}));
 
   // Vendor-access gate — canonical rule: a user has access if they own a
   // vendor_profiles row OR sit on any vendor_team_members row. getSwitcherData
@@ -247,22 +282,14 @@ export default async function VendorDashboardLayout({
   const displayName = profile?.display_name ?? profile?.email ?? 'Vendor';
 
   // Top bar — right-aligned utilities cluster. AccountSwitcher pill is
-  // mobile-only (lg:hidden); desktop users open the switcher from the
-  // AccountSwitcherStandalone row in the sidebar header.
+  // mobile-only (lg:hidden); desktop users open the same panel from the
+  // SwitcherPlaqueTrigger business plaque in the sidebar header
+  // (Plaque-as-Menu, council 2026-07-16).
   const topBar = (
     <div className="flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-end gap-2 px-4 py-3 sm:px-6 lg:mx-auto lg:px-8">
-      {/* Mobile-only "More" overflow — the 6-tab bottom bar covers the primary
-          menus; every deeper surface (profile · verify · earnings · …) stays
-          one tap away via the /more landing. Hidden on desktop, where the
-          sidebar already lists every destination. */}
-      <Link
-        href="/vendor-dashboard/more"
-        aria-label="More vendor surfaces"
-        className="button-secondary inline-flex h-9 items-center gap-1.5 px-3 text-xs lg:hidden"
-      >
-        <Menu aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        More
-      </Link>
+      {/* The mobile "More" overflow link was removed 2026-07-16 with the /more
+          landing it opened — under the 5-page IA the bottom nav already covers
+          every hub, and every deeper surface lives as a tab inside its hub. */}
       <UnreadBellBadge
         userId={user.id}
         initialUnread={unreadCount}
@@ -287,16 +314,32 @@ export default async function VendorDashboardLayout({
   return (
     <div className="app-surface">
       <SidebarShell
-        sidebarHeader={<DoorwaySidebarHeader label="Vendor" switcherData={switcherData} />}
+        sidebarHeader={
+          <DoorwaySidebarHeader
+            label="Vendor"
+            accentColor="var(--m-sidebar-accent)"
+            identity={
+              <SwitcherPlaqueTrigger
+                data={switcherData}
+                chip={
+                  <VendorAvatar
+                    logoUrl={vendorLogoUrl}
+                    initials={vendorInitials}
+                    className="flex h-full w-full items-center justify-center rounded-lg text-[11px] font-semibold tracking-wide"
+                  />
+                }
+                title={vendorSidebarName}
+                metaLine={vendorIsVerified ? 'Verified vendor' : 'Unverified'}
+                ariaLabel={`${vendorSidebarName} — account menu`}
+              />
+            }
+          />
+        }
         sidebar={
           <VendorSidebar
             role={vendorRole}
             showRepertoire={showRepertoire}
             navSlots={navSlots}
-            displayName={vendorSidebarName}
-            initials={vendorInitials}
-            logoUrl={vendorLogoUrl}
-            isVerified={vendorIsVerified}
             bookingsBadge={bookingsPending}
             threadsBadge={threadsUnread}
           />

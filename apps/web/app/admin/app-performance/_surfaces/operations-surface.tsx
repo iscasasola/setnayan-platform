@@ -52,7 +52,7 @@ export async function OperationsHiringSurface() {
   // reference_setnayan_cron_strategy.
   const dashboardUrl =
     (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com') +
-    '/admin/operations-hiring';
+    '/admin/app-performance?tab=operations';
   const sweep = await runHiringAlertSweep(dashboardUrl).catch((err) => {
     console.error('[operations-hiring] alert sweep failed', err);
     return { alertsFired: 0, emailsSent: 0, emailsFailed: 0, errors: [String(err)] };
@@ -103,7 +103,7 @@ export async function OperationsHiringSurface() {
 
       {/* NOW + NEXT MILESTONE */}
       <section className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-lg border border-ink/10 bg-cream p-5">
+        <div className="sn-tile p-5">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-ink/50">Now</h2>
           {signals ? (
             <dl className="mt-3 space-y-2 text-sm">
@@ -134,7 +134,7 @@ export async function OperationsHiringSurface() {
           )}
         </div>
 
-        <div className="rounded-lg border border-ink/10 bg-cream p-5">
+        <div className="sn-tile p-5">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-ink/50">Next milestone</h2>
           {milestones.length > 0 ? (
             <div className="mt-3 space-y-3 text-sm">
@@ -159,7 +159,7 @@ export async function OperationsHiringSurface() {
       </section>
 
       {/* Bottleneck signals */}
-      <section className="rounded-lg border border-ink/10 bg-cream p-5">
+      <section className="sn-tile p-5">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-ink/50">Bottleneck signals (live)</h2>
         {signals ? (
           <ul className="mt-3 space-y-2 text-sm">
@@ -214,7 +214,7 @@ export async function OperationsHiringSurface() {
       </section>
 
       {/* Hiring roadmap */}
-      <section className="rounded-lg border border-ink/10 bg-cream p-5">
+      <section className="sn-tile p-5">
         <div className="flex items-baseline justify-between">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-ink/50">
             Hiring roadmap (Jan 30, 2027 capacity milestone)

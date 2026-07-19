@@ -101,8 +101,13 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
   // deletes nothing — it just moves a thread out of the active list into the
   // collapsible "Archived" section; a new message auto-un-archives it.
   const returnTo = `/dashboard/${eventId}/messages`;
-  const activeThreads = threads.filter((t) => !t.archived);
-  const archivedThreads = threads.filter((t) => t.archived);
+  // Exclusivity (payment-gated lock): a 'displaced' inquiry — the couple locked
+  // another vendor in this hard-single group — is closed, so fold it into the
+  // Archived section on this side too (never in the active list). Only exists
+  // when the flag is on; inert otherwise.
+  const isDisplaced = (t: (typeof threads)[number]) => t.inquiry_status === 'displaced';
+  const activeThreads = threads.filter((t) => !t.archived && !isDisplaced(t));
+  const archivedThreads = threads.filter((t) => t.archived || isDisplaced(t));
 
   const renderRow = (t: (typeof threads)[number]) => {
     // Anonymity-aware thread label per CLAUDE.md 2026-05-30 row.
@@ -161,6 +166,10 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
                 <span className="mt-0.5 inline-block rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
                   Not available
                 </span>
+              ) : t.inquiry_status === 'displaced' ? (
+                <span className="mt-0.5 inline-block rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
+                  You booked another
+                </span>
               ) : null
             }
             timestampLine={<>Last activity {formatChatTimestamp(t.updated_at)}</>}
@@ -173,8 +182,9 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
 
   return (
     <section className="space-y-6">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Messages</h1>
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">Vendor chat</p>
+        <h1 className="sn-h1 mt-1.5">Messages</h1>
         <p className="max-w-prose text-base text-ink/65">
           One thread per vendor you&rsquo;re working with. Vendors find you via the email on
           your invitation site or by starting their own thread.
@@ -193,13 +203,10 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
       {showFollowGate && followGateVendor && search.vendor_profile_id ? (
         <section
           aria-labelledby="follow-gate-heading"
-          className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-5"
+          className="sn-tile space-y-3 p-5"
         >
           <div className="space-y-1">
-            <h2
-              id="follow-gate-heading"
-              className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta-700"
-            >
+            <h2 id="follow-gate-heading" className="sn-eye">
               Follow first, then chat
             </h2>
             <p className="text-sm text-ink/80">
@@ -220,10 +227,8 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
         </section>
       ) : null}
 
-      <section className="rounded-xl border border-ink/10 bg-cream p-5">
-        <h2 className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Start a new thread
-        </h2>
+      <section className="sn-tile p-5">
+        <h2 className="sn-eye mb-3">Start a new thread</h2>
         {search.prefill_vendor_email ? (
           <p className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-terracotta/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
             Pre-filled from vendor profile · just tap Start thread
@@ -258,7 +263,7 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
       </section>
 
       {threads.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">
+        <div className="sn-row border-dashed p-8 text-center">
           <MessageSquare
             aria-hidden
             className="mx-auto mb-2 h-6 w-6 text-ink/30"
@@ -285,15 +290,15 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
           {activeThreads.length > 0 ? (
             <ul className="space-y-2">{activeThreads.map(renderRow)}</ul>
           ) : (
-            <p className="rounded-xl border border-dashed border-ink/20 bg-cream px-4 py-6 text-center text-sm text-ink/60">
+            <p className="sn-row border-dashed px-4 py-6 text-center text-sm text-ink/60">
               No active conversations — everything&rsquo;s tucked into Archived below.
             </p>
           )}
 
           {archivedThreads.length > 0 ? (
-            <details className="mt-4 rounded-xl border border-ink/10 bg-cream/60">
-              <summary className="cursor-pointer list-none px-4 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55 hover:text-ink">
-                Archived · {archivedThreads.length}
+            <details className="sn-row mt-4">
+              <summary className="sn-eye cursor-pointer list-none px-4 py-3 hover:text-ink">
+                Archived · <span className="font-mono">{archivedThreads.length}</span>
               </summary>
               <ul className="space-y-2 px-2 pb-3">{archivedThreads.map(renderRow)}</ul>
             </details>

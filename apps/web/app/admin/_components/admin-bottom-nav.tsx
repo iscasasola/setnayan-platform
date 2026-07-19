@@ -97,7 +97,9 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/user-reports',
       '/admin/repost-watch',
       '/admin/corrections',
+      '/admin/data-privacy',
       '/admin/integrity-watch',
+      '/admin/fraud',
       '/admin/approvals',
       '/admin/pakanta',
       '/admin/editorial-review',
@@ -111,6 +113,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     icon: Users,
     activeMatch: [
       '/admin/directory',
+      '/admin/accounts',
       '/admin/users',
       '/admin/vendors',
       '/admin/demo-vendors',
@@ -129,6 +132,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     icon: Tag,
     activeMatch: [
       '/admin/taxonomy',
+      '/admin/ugat',
       '/admin/menus',
       '/admin/onboarding',
       '/admin/wedding-traditions',
@@ -139,7 +143,7 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     // PERFORMANCE — lands directly on the App Performance cockpit (a real
     // page, not an overflow grid). Re-promoted to a dedicated tab by the
     // 2026-07-03 respine, still within the ≤5 ruleset (Work + Money tabs
-    // dissolved). /admin/insights stays reachable as its drill-down landing.
+    // dissolved). /admin/insights now redirects into the studio's Intelligence tab.
     key: 'performance',
     label: 'Performance',
     href: '/admin/app-performance',
@@ -164,11 +168,12 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     // As a lit-state umbrella it claims the two desktop menus WITHOUT their own
     // tab — Studio (old Content + Marketing lanes) + Money — so none goes
     // "unlit" on mobile per [[feedback_setnayan_orphan_prevention]]. The Ugat
-    // Console routes moved to the dedicated 'ugat' tab above. /admin/marketing
-    // + /admin/money stay matched here as legacy bookmark landings.
+    // Console routes moved to the dedicated 'ugat' tab above. /admin/money
+    // stays matched here as a legacy bookmark landing.
     activeMatch: [
       '/admin/more',
-      // Studio group — Content lane
+      // Studio group — the consolidation hub landing + Content lane
+      '/admin/studio',
       '/admin/website',
       '/admin/hero-video',
       '/admin/reveal-studio',
@@ -178,8 +183,9 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/songs',
       '/admin/moodboard-library',
       // Studio group — Marketing lane (folded into Studio 2026-07-04; the old
-      // standalone Marketing tab retired, its surfaces live here now)
-      '/admin/marketing',
+      // standalone Marketing tab retired, its surfaces live here now.
+      // /admin/marketing itself is a redirect into /admin/studio — matched
+      // above — so it needs no entry of its own.)
       '/admin/social-queue',
       '/admin/spotlight-awards',
       '/admin/journal-spotlights',

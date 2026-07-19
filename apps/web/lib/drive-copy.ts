@@ -7,6 +7,13 @@ import {
   readR2Object,
   uploadFileToDrive,
 } from '@/lib/drive-upload';
+import {
+  type DriveProvider,
+  isDriveQuotaExceededError,
+} from '@/lib/drive-copy-core';
+
+// Re-export the 2-Drive primitives so existing importers of drive-copy keep working.
+export { type DriveProvider, isDriveQuotaExceededError };
 
 // ============================================================================
 // Universal Google-Drive copy layer.
@@ -58,6 +65,9 @@ export const ARTIFACT_SUBFOLDER_NAME: Record<DriveCopyArtifactType, string> = {
 const MAX_ATTEMPTS = 5;
 const TOKEN_REFRESH_THRESHOLD_MS = 5 * 60 * 1000; // refresh within 5 min of expiry
 const DEFAULT_BATCH_SIZE = 6;
+
+// The 2-Drive primitives (DriveProvider + isDriveQuotaExceededError) are imported
+// at the top from the pure core module and re-exported below for existing callers.
 
 export type DriveCopyFile = {
   r2ObjectKey: string;
@@ -191,66 +201,123 @@ export async function runDriveCopyBatch(input: {
     return { uploaded: 0, failed: 0, remaining: 0 };
   }
 
-  const accessToken = input.accessToken ?? (await getEventDriveAccessToken(input.eventId));
-  if (!accessToken) {
+  const primaryToken =
+    input.accessToken ?? (await getEventDriveAccessToken(input.eventId, 'drive'));
+  if (!primaryToken) {
     // No token — leave the rows pending without burning a retry attempt.
     return { uploaded: 0, failed: 0, remaining: await countPending(input.eventId) };
   }
 
-  // Resolve each needed artifact subfolder once.
-  const folderCache = new Map<DriveCopyArtifactType, string>();
+  // 2-Drive overflow (owner 2026-07-11): start on Drive #1; if it returns a
+  // `storageQuotaExceeded` (Drive #1 is full), fail over to the couple's 2nd
+  // Drive (provider='drive_overflow') for THIS file and the rest of the batch.
+  // Folder ids are per-Drive, so each provider gets its own folder cache. The
+  // overflow token is resolved lazily — only if Drive #1 actually fills.
+  const tokens: Record<DriveProvider, string | null> = {
+    drive: primaryToken,
+    drive_overflow: null,
+  };
+  const folderCaches: Record<DriveProvider, Map<DriveCopyArtifactType, string>> = {
+    drive: new Map(),
+    drive_overflow: new Map(),
+  };
+  let activeProvider: DriveProvider = 'drive';
   let uploaded = 0;
   let failed = 0;
 
-  for (const art of pending) {
+  // Ensure-folder (cached per Drive) → read R2 → upload to that Drive. Throws
+  // on any failure so the caller can decide whether to fail over.
+  const uploadOne = async (
+    art: (typeof pending)[number],
+    provider: DriveProvider,
+    token: string,
+  ): Promise<{ driveFileId: string; folderId: string }> => {
     const artifactType = art.artifact_type as DriveCopyArtifactType;
-    try {
-      let folderId = folderCache.get(artifactType);
-      if (!folderId) {
-        const ensured = await ensureArtifactFolder({
-          eventId: input.eventId,
-          artifactType,
-          accessToken,
-        });
-        if (!ensured) throw new Error('drive_folder_unavailable');
-        folderId = ensured;
-        folderCache.set(artifactType, folderId);
-      }
-
-      const bytes = await readR2Object(art.r2_object_key as string);
-      const driveFileId = await uploadFileToDrive({
-        accessToken,
-        folderId,
-        fileName: art.file_name as string,
-        body: bytes,
-        mimeType: (art.mime_type as string | null) ?? undefined,
+    const cache = folderCaches[provider];
+    let folderId = cache.get(artifactType);
+    if (!folderId) {
+      const ensured = await ensureArtifactFolder({
+        eventId: input.eventId,
+        artifactType,
+        accessToken: token,
+        driveProvider: provider,
       });
-
-      await admin
-        .from('drive_copy_artifacts')
-        .update({
-          drive_file_id: driveFileId,
-          drive_folder_id: folderId,
-          uploaded_at: new Date().toISOString(),
-        })
-        .eq('artifact_id', art.artifact_id);
-      uploaded++;
-    } catch (e) {
-      failed++;
-      const { data: row } = await admin
-        .from('drive_copy_artifacts')
-        .select('attempt_count')
-        .eq('artifact_id', art.artifact_id)
-        .maybeSingle();
-      await admin
-        .from('drive_copy_artifacts')
-        .update({
-          attempt_count: ((row?.attempt_count as number | null) ?? 0) + 1,
-          last_error_text: (e as Error).message.slice(0, 500),
-          last_error_at: new Date().toISOString(),
-        })
-        .eq('artifact_id', art.artifact_id);
+      if (!ensured) throw new Error('drive_folder_unavailable');
+      folderId = ensured;
+      cache.set(artifactType, folderId);
     }
+    const bytes = await readR2Object(art.r2_object_key as string);
+    const driveFileId = await uploadFileToDrive({
+      accessToken: token,
+      folderId,
+      fileName: art.file_name as string,
+      body: bytes,
+      mimeType: (art.mime_type as string | null) ?? undefined,
+    });
+    return { driveFileId, folderId };
+  };
+
+  const markUploaded = async (
+    artifactId: string,
+    driveFileId: string,
+    folderId: string,
+  ) => {
+    await admin
+      .from('drive_copy_artifacts')
+      .update({
+        drive_file_id: driveFileId,
+        drive_folder_id: folderId, // folder id identifies which Drive it landed in
+        uploaded_at: new Date().toISOString(),
+      })
+      .eq('artifact_id', artifactId);
+  };
+
+  for (const art of pending) {
+    let err: unknown = null;
+    try {
+      const r = await uploadOne(art, activeProvider, tokens[activeProvider] as string);
+      await markUploaded(art.artifact_id as string, r.driveFileId, r.folderId);
+      uploaded++;
+      continue;
+    } catch (e) {
+      err = e;
+      // Drive #1 full → fail over to the 2nd Drive for this + every later file.
+      if (isDriveQuotaExceededError(e) && activeProvider === 'drive') {
+        if (tokens.drive_overflow === null) {
+          tokens.drive_overflow = await getEventDriveAccessToken(
+            input.eventId,
+            'drive_overflow',
+          );
+        }
+        if (tokens.drive_overflow) {
+          activeProvider = 'drive_overflow';
+          try {
+            const r = await uploadOne(art, 'drive_overflow', tokens.drive_overflow);
+            await markUploaded(art.artifact_id as string, r.driveFileId, r.folderId);
+            uploaded++;
+            continue;
+          } catch (e2) {
+            err = e2; // overflow also failed → record it below
+          }
+        }
+      }
+    }
+
+    // Failure path (primary failed and no usable overflow, or overflow failed).
+    failed++;
+    const { data: row } = await admin
+      .from('drive_copy_artifacts')
+      .select('attempt_count')
+      .eq('artifact_id', art.artifact_id)
+      .maybeSingle();
+    await admin
+      .from('drive_copy_artifacts')
+      .update({
+        attempt_count: ((row?.attempt_count as number | null) ?? 0) + 1,
+        last_error_text: (err as Error).message.slice(0, 500),
+        last_error_at: new Date().toISOString(),
+      })
+      .eq('artifact_id', art.artifact_id);
   }
 
   return { uploaded, failed, remaining: await countPending(input.eventId) };
@@ -266,8 +333,11 @@ export async function ensureArtifactFolder(input: {
   eventId: string;
   artifactType: DriveCopyArtifactType;
   accessToken: string;
+  /** Which Drive to build folders in (owner 2026-07-11 · 2-Drive overflow). */
+  driveProvider?: DriveProvider;
 }): Promise<string | null> {
   const admin = createAdminClient();
+  const driveProvider: DriveProvider = input.driveProvider ?? 'drive';
 
   const { data: ev } = await admin
     .from('events')
@@ -280,7 +350,14 @@ export async function ensureArtifactFolder(input: {
   // "Release to Drive" worker and this auto-sync feeder write to the SAME
   // Drive folder (dedup is per drive_copy_artifacts.r2_object_key). The other
   // artifact types each get their own subfolder under the event root.
-  if (input.artifactType === 'papic' && ev.photo_delivery_folder_id) {
+  // ⚠ Only on the PRIMARY Drive — photo_delivery_folder_id is a folder id in
+  // Drive #1, which does not exist in the overflow Drive; the overflow Drive
+  // builds its own fresh folder tree.
+  if (
+    driveProvider === 'drive' &&
+    input.artifactType === 'papic' &&
+    ev.photo_delivery_folder_id
+  ) {
     return ev.photo_delivery_folder_id as string;
   }
 
@@ -292,6 +369,7 @@ export async function ensureArtifactFolder(input: {
   const rootId = await ensureFolderRow({
     eventId: input.eventId,
     kind: 'root',
+    driveProvider,
     create: () =>
       createDriveFolder({ accessToken: input.accessToken, name: rootName, parentId: null }),
   });
@@ -300,6 +378,7 @@ export async function ensureArtifactFolder(input: {
   return await ensureFolderRow({
     eventId: input.eventId,
     kind: input.artifactType,
+    driveProvider,
     create: () =>
       createDriveFolder({
         accessToken: input.accessToken,
@@ -315,13 +394,16 @@ export async function ensureArtifactFolder(input: {
  * the refreshed token. Returns null when there is no active grant or the
  * refresh fails (caller leaves work enqueued).
  */
-export async function getEventDriveAccessToken(eventId: string): Promise<string | null> {
+export async function getEventDriveAccessToken(
+  eventId: string,
+  provider: DriveProvider = 'drive',
+): Promise<string | null> {
   const admin = createAdminClient();
   const { data: grant } = await admin
     .from('oauth_grants')
     .select('grant_id, refresh_token, access_token, access_token_expires_at, revoked_at')
     .eq('event_id', eventId)
-    .eq('provider', 'drive')
+    .eq('provider', provider)
     .maybeSingle();
   if (!grant || grant.revoked_at) return null;
 
@@ -375,6 +457,7 @@ export async function getEventDriveAccessToken(eventId: string): Promise<string 
 async function ensureFolderRow(input: {
   eventId: string;
   kind: 'root' | DriveCopyArtifactType;
+  driveProvider: DriveProvider;
   create: () => Promise<string>;
 }): Promise<string | null> {
   const admin = createAdminClient();
@@ -384,6 +467,7 @@ async function ensureFolderRow(input: {
     .select('drive_folder_id')
     .eq('event_id', input.eventId)
     .eq('kind', input.kind)
+    .eq('drive_provider', input.driveProvider)
     .maybeSingle();
   if (existing?.drive_folder_id) return existing.drive_folder_id as string;
 
@@ -394,8 +478,13 @@ async function ensureFolderRow(input: {
   await admin
     .from('drive_copy_folders')
     .upsert(
-      { event_id: input.eventId, kind: input.kind, drive_folder_id: created },
-      { onConflict: 'event_id,kind', ignoreDuplicates: true },
+      {
+        event_id: input.eventId,
+        kind: input.kind,
+        drive_provider: input.driveProvider,
+        drive_folder_id: created,
+      },
+      { onConflict: 'event_id,kind,drive_provider', ignoreDuplicates: true },
     );
 
   const { data: canonical } = await admin
@@ -403,6 +492,7 @@ async function ensureFolderRow(input: {
     .select('drive_folder_id')
     .eq('event_id', input.eventId)
     .eq('kind', input.kind)
+    .eq('drive_provider', input.driveProvider)
     .maybeSingle();
   return (canonical?.drive_folder_id as string | undefined) ?? created;
 }

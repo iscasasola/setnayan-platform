@@ -58,6 +58,29 @@
 
 ---
 
+## 2026-07-13 · Date-anchor family graph — ✅ ALL GATES CLEARED, LIVE
+
+The whole **family graph** (dependents, their milestones, faith rites, godparents,
+godchild birthday reminders, married household) is **built, merged, and LIVE**.
+Owner confirmed 2026-07-13:
+
+1. ✅ **DONE (long done)** — batched DPO / counsel review (G1) complete +
+   `NEXT_PUBLIC_DEPENDENT_PEOPLE=1` set in Vercel. The graph is on.
+2. ✅ **DONE (long done)** — `PABUYA_PUBLIC_ROUTE_ENABLED=1` set; the guest gift
+   page `[slug]/pabuya` is live (e-gifts = the existing Pabuya; no transaction ever
+   flows through Setnayan, so there was never a BSP gate).
+3. ✅ **CONSENTED** — the married-household consent model (joint-children
+   auto-share · co-parenting access persists after a marriage is archived). Details
+   in the corpus **`Family_Graph_Owner_Actions_2026-07-12.md`** §2b.
+
+> ⚠ **Because the dependent flag was already on**, the 2026-07-13 #3202 merge
+> (godparents · cron-free godchild reminders · married-household RLS widening) is
+> **not staged** — it goes live on the next production deploy, including **real
+> godchild-birthday reminder emails** to godparents who have an address + reminders
+> enabled. That is intended and covered by the completed review.
+>
+> Still the standing rule: **do NOT bulk-enable the other flags.**
+
 ## 2026-07-09 · Smart Seat-Plan — what's next 🟢 config + testing, no code
 
 The guest ↔ pax ↔ seating "smart seat plan" (9 PRs) is **built, deployed, and

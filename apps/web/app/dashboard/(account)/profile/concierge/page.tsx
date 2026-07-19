@@ -1,24 +1,29 @@
 /**
- * Settings → Setnayan AI tab.
+ * Settings → Setnayan AI tab. This is a LIVE settings surface, not dead code:
+ * it renders per-event Setnayan AI status + a pricing CTA, and it backs the
+ * admin concierge-abuse queue's notification relatedUrls + the profile entry
+ * link. (Verified in the 2026-07-15 dead-route cleanup — kept, not deleted.)
  *
- * V2 cutover (CLAUDE.md 2026-05-28 row 3 + PR #560 marketing rewrite):
- * the V1 Concierge ₱2,499 SKU + 3-day card-less free trial + wedding-
- * anchored 12-mo floor / 24-mo cap expiry framework all retired. V2
- * replaces them with a single TODAYS_FOCUS line item in
- * platform_retail_catalog_v2 — one purchase per event, full wedding
- * access, no trial mechanic. This page is now a thin V2-aligned settings
- * tab: status read, copy reframed to "Setnayan AI", purchase CTA
- * redirects to /pricing.
+ * V1 → V2 cutover (CLAUDE.md 2026-05-28 row 3 + PR #560 marketing rewrite):
+ * the V1 "Setnayan Concierge" ₱2,499 SKU + 3-day card-less free trial +
+ * wedding-anchored 12-mo floor / 24-mo cap expiry framework are all RETIRED.
+ * The successor is the ₱499 one-time Setnayan AI planner (owner-locked
+ * 2026-07-02) — one purchase per event, no trial mechanic; the purchase CTA
+ * points to /pricing.
  *
- * Route URL kept at `/dashboard/profile/concierge` so existing bookmarks,
- * navigation chrome, and the cross-iteration `CONCIERGE_ENABLED` kill-
- * switch wiring keep resolving without rename churn. Engineering rename
- * to /dashboard/profile/todays-focus is V2.x scope per the lock.
+ * `CONCIERGE_ENABLED` (lib/concierge.ts) is PERMANENTLY false — there is no
+ * Concierge purchase flow to re-light. With it off, this page always renders
+ * the flag-off "Setnayan AI · see pricing" panel below. The `true` branch (V1
+ * trial/expiry StatusPanel reading the legacy concierge_* columns) is a dormant
+ * tombstone that retires wholesale in the V2 schema migration.
  *
- * Existing V1 schema columns (events.concierge_status, etc.) are still
- * the canonical state store during the cutover — they get renamed +
- * dropped during the Phase A schema migration. Until then this page
- * reads the existing columns and surfaces them under V2 brand voice.
+ * Route URL kept at `/dashboard/profile/concierge` so bookmarks, the routes.ts
+ * helper, sku-activation.ts's activateConcierge import, and the admin
+ * concierge-abuse relatedUrls keep resolving without rename churn. Engineering
+ * rename to /dashboard/profile/todays-focus is V2.x scope per the lock.
+ *
+ * Existing V1 schema columns (events.concierge_status, etc.) remain the
+ * canonical state store until the Phase A schema migration renames + drops them.
  */
 
 import Link from 'next/link';
@@ -52,20 +57,17 @@ export default async function TodaysFocusSettingsPage({ searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // V2 cutover (CLAUDE.md 2026-05-28 row 3): when the V1 kill-switch is
-  // off, surface a polite "manage from pricing" panel. Once the V2
-  // schema migration lands, this branch retires entirely.
+  // CONCIERGE_ENABLED is permanently false (Concierge retired — see lib/concierge.ts),
+  // so this is the live path: a Setnayan AI settings panel with a pricing CTA. The
+  // V1 status panel below (the `true` branch) stays dormant until the V2 schema migration.
   if (!CONCIERGE_ENABLED) {
     return (
       <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
-        <Link
-          href="/dashboard/profile"
-          className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-        >
-          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        <Link href="/dashboard/profile" className="sn-chip sn-press w-fit">
+          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Back to profile
         </Link>
-        <section className="mt-6 rounded-2xl border border-ink/10 bg-cream p-8 text-center">
+        <section className="sn-tile mt-6 p-8 text-center">
           <Gem aria-hidden className="mx-auto h-8 w-8 text-terracotta" strokeWidth={1.5} />
           <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
             Setnayan AI
@@ -81,10 +83,7 @@ export default async function TodaysFocusSettingsPage({ searchParams }: Props) {
             <Link href="/pricing" className="button-primary">
               See pricing
             </Link>
-            <Link
-              href="/dashboard/profile"
-              className="rounded-md bg-ink/5 px-3 py-2 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-            >
+            <Link href="/dashboard/profile" className="sn-chip sn-press">
               Back to profile
             </Link>
           </div>
@@ -144,17 +143,16 @@ export default async function TodaysFocusSettingsPage({ searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-8 space-y-2">
-        <Link
-          href="/dashboard/profile"
-          className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-        >
-          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        <Link href="/dashboard/profile" className="sn-chip sn-press w-fit">
+          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Back to profile
         </Link>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Setnayan AI
-        </h1>
-        <p className="text-base text-ink/60">
+        <p className="sn-eye">
+          <Gem aria-hidden strokeWidth={1.75} />
+          Your assistant
+        </p>
+        <h1 className="sn-h1">Setnayan AI</h1>
+        <p className="text-base text-ink/65">
           Your in-app planner that surfaces the next step every time you open the dashboard.
         </p>
       </header>
@@ -178,7 +176,7 @@ export default async function TodaysFocusSettingsPage({ searchParams }: Props) {
           activatedAt={todaysFocusRow?.concierge_activated_at ?? null}
         />
       ) : (
-        <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-6 text-center text-sm text-ink/60">
+        <p className="sn-tile border-dashed p-6 text-center text-sm text-ink/60">
           Create your first event from the dashboard to manage Setnayan AI.
         </p>
       )}
@@ -195,7 +193,7 @@ function EventPicker({
 }) {
   return (
     <section className="mb-6 space-y-2">
-      <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Event</p>
+      <p className="sn-sec">Event</p>
       <div className="flex flex-wrap gap-2">
         {events.map((e) => {
           const isActive = e.event_id === selectedId;
@@ -203,11 +201,7 @@ function EventPicker({
             <Link
               key={e.event_id}
               href={`/dashboard/profile/concierge?event=${encodeURIComponent(e.event_id)}`}
-              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                isActive
-                  ? 'bg-terracotta text-cream'
-                  : 'bg-ink/5 text-ink/70 hover:bg-ink/10 hover:text-ink'
-              }`}
+              className={`sn-chip sn-press ${isActive ? 'selected' : ''}`}
             >
               {e.display_name}
             </Link>
@@ -232,10 +226,10 @@ function StatusPanel({
   if (status === 'active' || status === 'trial') {
     const days = daysRemaining(expiresAt);
     return (
-      <section className="rounded-2xl border border-success-300/60 bg-success-50 p-6">
+      <section className="rounded-tile border border-success-300/60 bg-success-50 p-6">
         <header className="mb-3 flex items-center gap-2">
           <CheckCircle2 aria-hidden className="h-4 w-4 text-success-700" strokeWidth={1.75} />
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-success-900/75">
+          <p className="sn-eye text-success-900/75">
             Setnayan AI · active
           </p>
         </header>
@@ -260,12 +254,10 @@ function StatusPanel({
 
   if (status === 'expired') {
     return (
-      <section className="rounded-2xl border border-ink/15 bg-cream p-6">
+      <section className="sn-tile p-6">
         <header className="mb-3 flex items-center gap-2">
           <Clock aria-hidden className="h-4 w-4 text-ink/60" strokeWidth={1.75} />
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Setnayan AI ended
-          </p>
+          <p className="sn-eye">Setnayan AI ended</p>
         </header>
         <h2 className="text-2xl font-semibold tracking-tight">{eventName}</h2>
         <p className="mt-1 text-sm text-ink/65">
@@ -283,12 +275,10 @@ function StatusPanel({
 
   // DIY — Setnayan AI not yet activated on this event.
   return (
-    <section className="rounded-2xl border border-ink/10 bg-cream p-6">
+    <section className="sn-tile p-6">
       <header className="mb-3 flex items-center gap-2">
         <Gem aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-          Currently · DIY
-        </p>
+        <p className="sn-eye">Currently · DIY</p>
       </header>
       <h2 className="text-2xl font-semibold tracking-tight">{eventName}</h2>
       <p className="mt-1 text-sm text-ink/65">
@@ -308,9 +298,9 @@ function StatusPanel({
 
 function FactRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="space-y-0.5 rounded-md border border-ink/10 bg-cream/50 p-3">
-      <dt className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">{label}</dt>
-      <dd className="text-base text-ink">{value}</dd>
+    <div className="sn-row space-y-0.5 p-3">
+      <dt className="sn-eye">{label}</dt>
+      <dd className="font-mono text-base text-ink">{value}</dd>
     </div>
   );
 }

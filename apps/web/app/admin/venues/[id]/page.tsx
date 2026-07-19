@@ -56,7 +56,7 @@ export default async function EditVenuePage({ params }: Props) {
       </Link>
 
       <header className="mb-6 space-y-1">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">
+        <p className="sn-eye">
           Edit venue
         </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">

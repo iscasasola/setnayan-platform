@@ -51,7 +51,7 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
   return (
     <section className="space-y-2">
       <h2 className="text-base font-semibold tracking-tight text-ink">{title}</h2>
-      <div className="overflow-x-auto rounded-2xl border border-ink/10 bg-cream">
+      <div className="sn-tile overflow-x-auto !p-0">
         <table className="w-full border-collapse px-4">
           <tbody className="[&_th]:pl-4 [&_td]:pr-4">{children}</tbody>
         </table>
@@ -113,7 +113,7 @@ export default async function ComplianceDataSheetPage() {
   return (
     <section className="mx-auto max-w-4xl space-y-6">
       <Link
-        href="/admin/compliance"
+        href="/admin/settings?tab=compliance"
         className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--m-orange-2)]"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Back to Compliance
@@ -167,7 +167,7 @@ export default async function ComplianceDataSheetPage() {
         <h2 className="text-base font-semibold tracking-tight text-ink">
           B.8 — Sub-processors / cross-border transfers
         </h2>
-        <div className="overflow-x-auto rounded-2xl border border-ink/10 bg-cream">
+        <div className="sn-tile overflow-x-auto !p-0">
           <table className="w-full min-w-[640px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-ink/15 text-left text-[11px] uppercase tracking-[0.12em] text-ink/55">

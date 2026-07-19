@@ -77,7 +77,7 @@ export async function upsertTraditionItem(formData: FormData) {
     const { error } = await admin.from('wedding_tradition_items').insert(patch);
     if (error) throw new Error(error.message);
   }
-  revalidatePath('/admin/wedding-traditions');
+  revalidatePath('/admin/ugat');
 }
 
 export async function deleteTraditionItem(formData: FormData) {
@@ -90,7 +90,7 @@ export async function deleteTraditionItem(formData: FormData) {
     .delete()
     .eq('item_id', itemId);
   if (error) throw new Error(error.message);
-  revalidatePath('/admin/wedding-traditions');
+  revalidatePath('/admin/ugat');
 }
 
 /**
@@ -124,7 +124,7 @@ export async function seedTraditionsFromDefaults() {
     const { error } = await admin.from('wedding_tradition_items').insert(rows);
     if (error) throw new Error(error.message);
   }
-  revalidatePath('/admin/wedding-traditions');
+  revalidatePath('/admin/ugat');
 }
 
 /**
@@ -166,5 +166,5 @@ export async function resetTraditionsToDefaults() {
     const { error: insErr } = await admin.from('wedding_tradition_items').insert(rows);
     if (insErr) throw new Error(insErr.message);
   }
-  revalidatePath('/admin/wedding-traditions');
+  revalidatePath('/admin/ugat');
 }

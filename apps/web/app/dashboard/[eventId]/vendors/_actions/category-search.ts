@@ -40,6 +40,7 @@ import {
   passesFaithFilter,
 } from '@/lib/taxonomy-filters';
 import { computeCompatScore } from '@/lib/compat-score';
+import { buildEventBrief, type EventBriefSource } from '@/lib/event-brief';
 import { fetchFirstLookConfig, isFirstLookEligible } from '@/lib/firstlook';
 import { isSetnayanAiActiveForUser } from '@/lib/setnayan-ai';
 import { getEventHostAiSubscription } from '@/lib/setnayan-ai-server';
@@ -60,6 +61,28 @@ import {
   canonicalServicesForTile,
   canonicalServicesForFolder,
 } from '@/lib/vendor-counts';
+import { getEventPreferences } from '@/lib/event-preferences';
+import {
+  fetchCategoryFacets,
+  matchVendorFacets,
+  sanitizeFacetSelection,
+  hasFacetSelection,
+  type FacetDimension,
+  type FacetSelection,
+  type VendorFacetMatch,
+} from '@/lib/vendor-facets';
+import { resolveFacetSchemaKeys } from '@/lib/vendor-facet-schema-map';
+import { isSmartSortEnabled } from '@/lib/smart-sort-flag';
+import {
+  cheapestStartsAt,
+  priceFitScore,
+  budgetPressure,
+  PRICE_FIT_NEUTRAL,
+  type ServicePricingRow,
+} from '@/lib/smart-sort';
+import { resolveLivePax } from '@/lib/pax';
+import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
+import { computeBudgetAllocation } from '@/lib/budget-allocation';
 
 export type CategoryVendorResult = {
   vendorProfileId: string;
@@ -120,6 +143,22 @@ export type CategoryVendorResult = {
   /** The vendor's tier service radius in km (20 verified · 50 pro). null =
    *  unscoped (Free 0) or nationwide (Enterprise ∞) — no finite range to show. */
   serviceRadiusKm: number | null;
+  /** Facet refinement (lib/vendor-facets · vendor_service_attributes ⋈ the
+   *  couple's facet picks/seed). How many of the selected facet dimensions this
+   *  vendor's attributes overlap. null = the vendor carries NO facet data for
+   *  this category, so it can't be judged (never down-ranked/filtered for it —
+   *  graceful degrade). 0 = tagged but matches none of the picks. */
+  facetMatchCount: number | null;
+  /** How many facet dimensions the couple has values selected on (0 = none →
+   *  the facet layer is inert and the UI shows no match cue). Same for every
+   *  row of a given search. */
+  facetSelectedCount: number;
+  /** Service-date availability (lib/vendor-availability · vendor_calendar_blocks
+   *  vs events.event_date). FALSE = the vendor has a calendar block covering the
+   *  event date → badge + down-rank (NOT removed). Always TRUE when the event has
+   *  no locked date, the vendor has no blocks, or the calendar read returns
+   *  nothing (fail-open — never wrongly flag a vendor unavailable). */
+  serviceDateAvailable: boolean;
 };
 
 export type CategorySearchResult = {
@@ -135,12 +174,27 @@ export type CategorySearchResult = {
    *  framed unlock CTA. Optional + defaults false → only ever set when an admin
    *  has seeded `last_minute_start` (none in prod), so this stays dormant. */
   isLastMinuteLocked?: boolean;
+  /** The selectable facet catalog for this category's refinement chips
+   *  (lib/vendor-facets). Empty when no schema/attributes exist for the scoped
+   *  services → the overlay renders no facet section (graceful degrade). */
+  facets: FacetDimension[];
+  /** The couple's saved-preference seed (dimension → values) the overlay uses as
+   *  the DEFAULT facet selection. Empty when no prefs are saved. */
+  facetDefaults: FacetSelection;
+  /** Smart-sort "raise your budget?" pressure (lib/smart-sort · budgetPressure).
+   *  TRUE only when NEXT_PUBLIC_SMART_SORT_ENABLED is on AND the couple has a
+   *  per-category budget AND every priced option shown starts above it — so the
+   *  soft re-rank alone can't help and the overlay nudges the couple to lift the
+   *  budget. Omitted entirely when the flag is off (off-path shape is unchanged). */
+  budgetPressure?: boolean;
 };
 
 const EMPTY: CategorySearchResult = {
   results: [],
   total: 0,
   hasReceptionCoords: false,
+  facets: [],
+  facetDefaults: {},
 };
 
 /** Forward group → canonical services. Tightest-first: a leaf's single
@@ -183,10 +237,26 @@ export async function searchCategoryVendors(input: {
    *  out-of-range vendors (the in-range set is already on screen from the
    *  default fetch), each tagged withinRadius=false + sorted nearest-first. */
   includeFarther?: boolean;
+  /** Facet refinement picks (dimension key → chosen values). undefined = initial
+   *  load → seed from the couple's saved event_vendor_preferences. A provided
+   *  object (even {}) is an EXPLICIT selection that overrides the seed. Matching
+   *  vendors float up within the tier ladder (soft rank) + optionally hard-filter
+   *  (facetHardFilter). Inert until vendors carry facet tags. */
+  facets?: Record<string, string[]>;
+  /** When TRUE, hard-drop vendors that carry facet tags but match ZERO selected
+   *  facets. Vendors with no facet data are NEVER dropped (graceful degrade). */
+  facetHardFilter?: boolean;
 }): Promise<CategorySearchResult> {
   const eventId = String(input.eventId ?? '').trim();
   const groupId = String(input.groupId ?? '').trim();
   if (!eventId || !groupId) return EMPTY;
+
+  // Smart-sort SOFT re-rank gate (NEXT_PUBLIC_SMART_SORT_ENABLED · lib/smart-sort-flag).
+  // OFF by default: every smart-sort read + comparator below is guarded by this
+  // flag, so the owner-locked tier ladder + result shape stay byte-identical to
+  // today until the flag flips on. Nothing here ever hard-filters — it only
+  // reorders WITHIN the existing tail tier and surfaces a budget-pressure nudge.
+  const smartSort = isSmartSortEnabled();
 
   const groupCanonicals = canonicalsForGroup(groupId);
   if (groupCanonicals.length === 0) return EMPTY;
@@ -234,10 +304,57 @@ export async function searchCategoryVendors(input: {
   });
   if (canonicals.length === 0) return EMPTY;
 
-  // Setnayan AI OFF (Manual mode) → GENERIC search: drop the per-candidate
-  // "% match" pill AND the reception-proximity sort, so the order falls back to
-  // boosted → reviews → rating. The one governing gate lives in lib/setnayan-ai
-  // so every surface agrees (owner 2026-06-08: "govern now, monetize next").
+  // ── Facet refinement catalog + seed (lib/vendor-facets) ───────────────────
+  // Structured-attribute refinement: the couple can filter/rank by category
+  // facets (cuisine, edit aesthetic, service style, …). Both reads use the
+  // RLS-scoped session client and graceful-degrade to empty:
+  //   • the facet catalog (canonical_service_schemas + shared_attribute_groups,
+  //     RLS read-all) drives the overlay's chips;
+  //   • the couple's saved event_vendor_preferences (RLS host-scoped) seed the
+  //     DEFAULT selection when the caller passes no explicit picks.
+  // Effective selection = explicit input.facets when provided (even {} = a real
+  // "cleared" override), else the saved-pref seed. Inert until vendors carry
+  // facet tags (vendor_service_attributes is empty in prod) → zero regression.
+  //
+  // The three facet reads key on the ATTRIBUTE-SCHEMA canonical, which is the
+  // taxonomy canonical for every real category (identity) — resolveFacetSchemaKeys
+  // is a no-op there. It only rewrites the couple of plan-group `subcategoryHint`
+  // slugs that aren't `canonical_service_schemas` rows (stylist → stylist_decorator,
+  // choreographer → entourage_choreographer) so a search scoped to one of those
+  // stops querying a dead key. The vendor RESULT scoping below keeps using the raw
+  // `canonicals`, so which vendors show up never changes (lib/vendor-facet-schema-map).
+  const facetCanonicals = resolveFacetSchemaKeys(canonicals);
+  const facetCatalog = await fetchCategoryFacets(supabase, facetCanonicals);
+  let facetDefaults: FacetSelection = {};
+  if (facetCatalog.length > 0) {
+    const prefMap = await getEventPreferences(supabase, eventId);
+    const seedRaw: Record<string, unknown> = {};
+    for (const svc of facetCanonicals) {
+      const pref = prefMap[svc];
+      if (!pref) continue;
+      for (const [k, v] of Object.entries(pref.attribute_payload)) {
+        // Union pref values per dimension across the scoped services.
+        const prior = Array.isArray(seedRaw[k]) ? (seedRaw[k] as unknown[]) : [];
+        seedRaw[k] = [...prior, ...(Array.isArray(v) ? v : [v])];
+      }
+    }
+    facetDefaults = sanitizeFacetSelection(facetCatalog, seedRaw);
+  }
+  const facetSelection: FacetSelection =
+    input.facets !== undefined
+      ? sanitizeFacetSelection(facetCatalog, input.facets)
+      : facetDefaults;
+  const facetSelected = hasFacetSelection(facetSelection);
+  const facetSelectedCount = Object.values(facetSelection).filter(
+    (v) => v.length > 0,
+  ).length;
+
+  // Setnayan AI matching (the "% match" pill + reception-proximity sort) is FREE
+  // for every couple as of 2026-07-12 — basic matching is table stakes (a free PH
+  // rival gives it away), so it no longer hides behind the AI paywall. `aiActive`
+  // now governs only the paid concierge perks (e.g. last-minute vendor visibility
+  // below), NOT the match score. (Supersedes owner 2026-06-08 "govern now,
+  // monetize next" for matching specifically.)
   const aiPaywallEnabled = await resolveSetnayanAiPaywallEnabled();
   const aiPerUserEnabled = await resolveSetnayanAiPerUserEnabled();
   const aiSubscription = aiPerUserEnabled
@@ -251,7 +368,11 @@ export async function searchCategoryVendors(input: {
       subscription: aiSubscription,
     },
   );
-  const assistOff = !aiActive;
+  // The Event Brief is the deterministic read-model the scorer reads (Rule 1,
+  // 2026-07-12). Built from the event row; admit-unknown, so a thin row is fine.
+  // We read the couple's faith list from it to feed the compat faithFit dim.
+  const brief = buildEventBrief(ev as unknown as EventBriefSource);
+  const coupleFaiths = brief.constraints.ceremony.faiths;
 
   const lat = (ev.venue_latitude as number | null) ?? null;
   const lng = (ev.venue_longitude as number | null) ?? null;
@@ -334,7 +455,13 @@ export async function searchCategoryVendors(input: {
     // search is empty, but last-minute vendors could still take the date with AI
     // on. Flag it so the overlay shows a capability-framed unlock CTA instead of
     // the bare "no vendors" copy. Only reachable once an admin seeds a START.
-    return { ...EMPTY, hasReceptionCoords: hasCoords, isLastMinuteLocked: true };
+    return {
+      ...EMPTY,
+      hasReceptionCoords: hasCoords,
+      isLastMinuteLocked: true,
+      facets: facetCatalog,
+      facetDefaults,
+    };
   }
 
   // Vendors already in this event's picks (RLS-bounded to the user's events)
@@ -446,12 +573,47 @@ export async function searchCategoryVendors(input: {
     searchQuery: input.query,
     limit: input.includeFarther === true ? 100 : 60,
   });
-  if (recs.length === 0) return { ...EMPTY, hasReceptionCoords: hasCoords };
+  if (recs.length === 0)
+    return { ...EMPTY, hasReceptionCoords: hasCoords, facets: facetCatalog, facetDefaults };
 
   // Resolve hybrid-anonymity display names: a Free / Verified vendor's real
   // name is hidden until first reply, so we need screen_name + name_revealed_at
   // (+ services for the venue-exemption) — the rec view doesn't carry them.
   const ids = recs.map((r) => r.vendor_profile_id);
+
+  // ── Facet match + service-date availability (RLS-scoped, graceful-degrade) ──
+  // Both use the SESSION client (never admin): the couple's own session gates
+  // what they may read (vendor_service_attributes public-visible rows; calendar
+  // blocks per the vendor calendar RLS). Both fail-open — a missing table, an
+  // RLS-denied read, or no data yields an empty map, so the search is unchanged.
+  const facetByVendor: Map<string, VendorFacetMatch> = facetSelected
+    ? await matchVendorFacets(supabase, ids, facetCanonicals, facetSelection)
+    : new Map<string, VendorFacetMatch>();
+
+  // Service-date availability: flag vendors whose vendor_calendar_blocks cover
+  // the event's locked date. Couples can't read vendor_calendar_blocks directly
+  // (no couple RLS SELECT — deliberate: labels + full calendars are private), so
+  // we ask the SCOPED `vendors_blocked_on_date` RPC (SECURITY DEFINER · migration
+  // 20270721314905) which returns ONLY the busy subset of the candidate ids for
+  // the couple's ONE event date — no labels, no other dates leak. No locked
+  // date / no blocks / RPC error → nobody is flagged (fail-open, never wrongly
+  // mark a vendor busy). Owner-picked privacy model (2026-07-11).
+  const unavailableIds = new Set<string>();
+  const eventDateStr = (ev.event_date as string | null) ?? null;
+  if (eventDateStr && /^\d{4}-\d{2}-\d{2}$/.test(eventDateStr) && ids.length > 0) {
+    try {
+      const { data: blockedRows } = await supabase.rpc('vendors_blocked_on_date', {
+        p_vendor_ids: ids,
+        p_event_date: eventDateStr,
+      });
+      for (const r of (blockedRows ?? []) as { vendor_profile_id: string | null }[]) {
+        if (r.vendor_profile_id) unavailableIds.add(r.vendor_profile_id);
+      }
+    } catch {
+      // Fail-open: leave unavailableIds empty so the search is unchanged.
+    }
+  }
+
   const { data: profRows } = await admin
     .from('vendor_profiles')
     .select('vendor_profile_id, screen_name, name_revealed_at, services, tier_state')
@@ -595,6 +757,79 @@ export async function searchCategoryVendors(input: {
     }
   }
 
+  // ── Smart-sort SOFT price-fit signal (flag-gated · lib/smart-sort) ─────────
+  // PROGRESSIVE constraint math: the vendor's "starts at" adapts to the couple's
+  // LIVE pax (per-head × headcount for pax-priced services), then a SOFT [0,1]
+  // price-fit score ranks toward the couple's REMAINING per-category budget. All
+  // three reads are done ONLY when the flag is on, so the off-path issues the
+  // exact same queries as today. Each read fails open (→ null → neutral fit → no
+  // reorder) so a smart-sort read can never break the search.
+  //   • livePax          — lib/pax resolveLivePax (frozen final_pax / live count).
+  //   • categoryBudgetPhp — the couple's recommended ₱ for THIS category, from the
+  //                         Budget Planner allocation (leaf keyed by groupId).
+  //   • startsAtByVendor  — each vendor's cheapest pax-adjusted floor across its
+  //                         in-scope, standalone (non-linked) active services.
+  let livePax: number | null = null;
+  let categoryBudgetPhp: number | null = null;
+  const startsAtByVendor = new Map<string, number | null>();
+  // Budget-fit is now part of the FREE compat score (2026-07-12), so the price +
+  // budget reads run for EVERY search, not only when smart-sort is on. Each read
+  // fails open (→ null → neutral fit) so it can never break the search; the
+  // smart-sort SOFT re-rank + "raise your budget" pressure below stay flag-gated.
+  {
+    try {
+      livePax = await resolveLivePax(supabase, eventId);
+    } catch {
+      livePax = null;
+    }
+    try {
+      const alloc = await resolveAllocationInputs(supabase, eventId);
+      if (alloc.budgetPhp != null) {
+        const result = computeBudgetAllocation({
+          budgetPhp: alloc.budgetPhp,
+          leaves: alloc.leaves,
+          config: alloc.config,
+        });
+        // The Budget Planner leaf ids share the plan-group namespace with the
+        // search's groupId (reception_venue, catering, photography, …); no match
+        // (a group the planner doesn't benchmark) → null → neutral fit.
+        const leaf = result.leaves.find((l) => l.canonicalService === groupId);
+        categoryBudgetPhp = leaf ? leaf.amountPhp : null;
+      }
+    } catch {
+      categoryBudgetPhp = null;
+    }
+    if (ids.length > 0) {
+      try {
+        const { data: priceRows } = await admin
+          .from('vendor_services')
+          .select(
+            'vendor_profile_id, pricing_basis, starting_price_php, per_pax_price_php, base_pax, added_pax_block, added_pax_price_php, min_pax, hour_base_php, extra_hour_php, min_hours',
+          )
+          .in('vendor_profile_id', ids)
+          .in('category', canonicals)
+          .eq('is_active', true)
+          // Linked-only rows are auto-covered components with no standalone
+          // market price — excluding them keeps the "starts at" a real floor
+          // (mirrors lib/budget-allocation-data's median source).
+          .eq('is_linked_only', false);
+        const svcByVendor = new Map<string, ServicePricingRow[]>();
+        for (const row of (priceRows ?? []) as Array<
+          ServicePricingRow & { vendor_profile_id: string }
+        >) {
+          const list = svcByVendor.get(row.vendor_profile_id) ?? [];
+          list.push(row);
+          svcByVendor.set(row.vendor_profile_id, list);
+        }
+        for (const [vid, svcs] of svcByVendor) {
+          startsAtByVendor.set(vid, cheapestStartsAt(svcs, livePax).startsAtPhp);
+        }
+      } catch {
+        // Fail-open: no pricing → neutral price-fit → no reorder.
+      }
+    }
+  }
+
   // Shape every rec, then partition into the locked tier ladder.
   type Shaped = CategoryVendorResult & {
     _adRank: number;
@@ -603,6 +838,16 @@ export async function searchCategoryVendors(input: {
     _depth: 0 | 1 | 2 | 3;
     /** Survives the last-minute filter (expired → never · last_minute → AI only). */
     _searchable: boolean;
+    /** Matched facet-dimension count for the soft rank (0 when untagged / no
+     *  selection); the nullable public field is `facetMatchCount`. */
+    _facetMatch: number;
+    /** Smart-sort SOFT price-fit in [0,1] (lib/smart-sort · priceFitScore). Always
+     *  PRICE_FIT_NEUTRAL when the flag is off or budget/price is unknown, so the
+     *  tail comparator that reads it is a no-op then (byte-identical order). */
+    _priceFit: number;
+    /** Pax-adjusted cheapest "starts at" PHP (null = no usable price). Feeds the
+     *  budget-pressure nudge; internal (never surfaced on the public result). */
+    _startsAt: number | null;
   };
   const shaped: Shaped[] = recs.map((r) => {
     const prof = profById.get(r.vendor_profile_id);
@@ -646,24 +891,67 @@ export async function searchCategoryVendors(input: {
       activityByVendor.get(r.vendor_profile_id),
       firstLook.slaHours,
     );
-    const compat = assistOff
-      ? null
-      : computeCompatScore({
-          distanceKm: dKm,
-          avgRating: r.avg_rating_overall ?? null,
-          reviewCount: r.review_count ?? null,
-          verified: r.public_visibility === 'verified',
-          boosted: adRank > 0,
-          respondsFast,
-          boostWeight: firstLook.boostWeight,
-        });
-    const compatScore: number | null = compat ? compat.score : null;
-    const compatTier: 'strong' | 'good' | 'fair' | null = compat ? compat.tier : null;
+    // Budget fit: the vendor's pax-adjusted floor vs the couple's per-category
+    // budget. Null when either is unknown → neutral (admit-unknown).
+    const vendorStartsAt = startsAtByVendor.get(r.vendor_profile_id) ?? null;
+    const budgetFitRatio =
+      vendorStartsAt != null && categoryBudgetPhp != null
+        ? priceFitScore(vendorStartsAt, categoryBudgetPhp)
+        : null;
+    // Faith fit: does the vendor explicitly declare one of the couple's faiths?
+    // compatible_ceremony_types NULL → "serves all" → undefined (neutral, never a
+    // penalty — the gate already guaranteed compatibility).
+    const vendorFaiths = r.compatible_ceremony_types ?? null;
+    const faithMatch =
+      coupleFaiths.length > 0 && Array.isArray(vendorFaiths)
+        ? vendorFaiths.some((t) => coupleFaiths.includes(t))
+        : undefined;
+    // Refinement fit: concrete music song-overlap first, else the general
+    // preference-facet match — both already computed by the recommender (used
+    // only for badges until now), now feeding the displayed %.
+    const songOverlapRatio =
+      r.song_pick_total && r.song_pick_total > 0
+        ? (r.song_overlap_count ?? 0) / r.song_pick_total
+        : null;
+    const preferenceMatchRatio =
+      r.preference_matched === true
+        ? Math.min(1, 0.7 + 0.1 * Math.max(0, (r.preference_matched_dimensions ?? 1) - 1))
+        : null;
+    // Setnayan AI matching is FREE for every couple (2026-07-12) — always compute
+    // the % match; the paid layer is the concierge, not the score.
+    const compat = computeCompatScore({
+      distanceKm: dKm,
+      avgRating: r.avg_rating_overall ?? null,
+      reviewCount: r.review_count ?? null,
+      verified: r.public_visibility === 'verified',
+      boosted: adRank > 0,
+      songOverlapRatio,
+      preferenceMatchRatio,
+      budgetFitRatio,
+      faithMatch,
+      respondsFast,
+      boostWeight: firstLook.boostWeight,
+    });
+    const compatScore: number | null = compat.score;
+    const compatTier: 'strong' | 'good' | 'fair' | null = compat.tier;
     const lm = lmByVendor.get(r.vendor_profile_id) ?? {
       zone: 'normal' as LastMinuteZone,
       surchargePct: null,
     };
     const searchable = isLastMinuteSearchable(lm.zone, aiActive);
+    // Facet match: null when the vendor carries no facet data (unjudgeable →
+    // never down-ranked/filtered on facets); a number (possibly 0) when tagged.
+    const fm = facetByVendor.get(r.vendor_profile_id);
+    const facetMatchCount = fm ? fm.matchedCount : null;
+    const serviceDateAvailable = !unavailableIds.has(r.vendor_profile_id);
+    // Smart-sort SOFT price-fit (flag-gated): neutral when off / no price / no
+    // budget, so the tail comparator never reorders in those cases.
+    const startsAt = smartSort
+      ? (startsAtByVendor.get(r.vendor_profile_id) ?? null)
+      : null;
+    const priceFit = smartSort
+      ? priceFitScore(startsAt, categoryBudgetPhp)
+      : PRICE_FIT_NEUTRAL;
     return {
       vendorProfileId: r.vendor_profile_id,
       name,
@@ -684,11 +972,17 @@ export async function searchCategoryVendors(input: {
       relationshipDepth: depthMap.get(r.vendor_profile_id) ?? 0,
       withinRadius,
       serviceRadiusKm,
+      facetMatchCount,
+      facetSelectedCount,
+      serviceDateAvailable,
       _adRank: adRank,
       _reviews: r.review_count ?? 0,
       _rating: r.avg_rating_overall ?? 0,
       _depth: depthMap.get(r.vendor_profile_id) ?? 0,
       _searchable: searchable,
+      _facetMatch: fm?.matchedCount ?? 0,
+      _priceFit: priceFit,
+      _startsAt: startsAt,
     };
   });
 
@@ -705,6 +999,7 @@ export async function searchCategoryVendors(input: {
     .sort(
       (a, b) =>
         b._depth - a._depth ||
+        (facetSelected ? b._facetMatch - a._facetMatch : 0) ||
         b._adRank - a._adRank ||
         b._reviews - a._reviews ||
         b._rating - a._rating,
@@ -718,21 +1013,46 @@ export async function searchCategoryVendors(input: {
   // Tier 2 boosted: ad_rank desc (within the no-relationship pool).
   const boosted = noRelationshipShaped
     .filter((s) => s.boosted)
-    .sort((a, b) => b._adRank - a._adRank);
+    .sort(
+      (a, b) =>
+        b._adRank - a._adRank ||
+        (facetSelected ? b._facetMatch - a._facetMatch : 0),
+    );
   const rest0 = noRelationshipShaped.filter((s) => !s.boosted);
-  // Tier 3 top-10 by review_count then rating.
+  // Tier 3 top-10 by review_count then rating. When the couple has an active
+  // facet selection, matched vendors float to the front of this tier first (the
+  // soft rank), so an explicit refinement surfaces matches into the top tier.
   const byReview = [...rest0].sort(
-    (a, b) => b._reviews - a._reviews || b._rating - a._rating,
+    (a, b) =>
+      (facetSelected ? b._facetMatch - a._facetMatch : 0) ||
+      b._reviews - a._reviews ||
+      b._rating - a._rating,
   );
   const top10 = byReview.slice(0, 10);
   const top10Ids = new Set(top10.map((s) => s.vendorProfileId));
   // Tier 4 the rest, nearest-first when we have coords, else keep review order.
   const tail = rest0.filter((s) => !top10Ids.has(s.vendorProfileId));
   tail.sort((a, b) => {
-    // Reception-proximity sort is a Setnayan AI feature — gate on `aiActive`.
-    // AI off → keep review/rating order (generic), the same fallback used when
-    // the event has no reception coords.
-    if (hasCoords && aiActive) {
+    // Facet soft rank leads (only when the couple has an active selection), so a
+    // matching vendor floats above the distance/review order within the tail.
+    if (facetSelected && b._facetMatch !== a._facetMatch) {
+      return b._facetMatch - a._facetMatch;
+    }
+    // Smart-sort SOFT price-fit re-rank (flag-gated · lib/smart-sort). Scoped to
+    // the TAIL tier ONLY — the relationship / boosted / top-reviews tiers stay
+    // exactly as the owner-locked ladder puts them, so this never reorders across
+    // a tier boundary. Because priceFitScore returns a flat 1.0 for EVERY vendor
+    // within budget, all affordable vendors tie here and fall through to the
+    // existing distance→review order unchanged; only OVER-budget vendors sink
+    // (proportionally to how far over). Off-path (`!smartSort`) this term is a
+    // no-op (all _priceFit === PRICE_FIT_NEUTRAL) → byte-identical tail order.
+    if (smartSort && b._priceFit !== a._priceFit) {
+      return b._priceFit - a._priceFit;
+    }
+    // Reception-proximity sort is now FREE for every couple (2026-07-12) — it's
+    // part of match-based sort, no longer gated on `aiActive`. Falls back to
+    // review/rating order only when the event has no reception coords.
+    if (hasCoords) {
       const da = a.distanceKm ?? Number.POSITIVE_INFINITY;
       const db = b.distanceKm ?? Number.POSITIVE_INFINITY;
       if (da !== db) return da - db;
@@ -764,6 +1084,37 @@ export async function searchCategoryVendors(input: {
       (s) => s.distanceKm !== null && s.distanceKm <= (input.maxKm as number),
     );
   }
+  // Optional HARD facet filter: drop vendors that carry facet tags but match
+  // ZERO selected facets. A vendor with no facet data (facetMatchCount === null)
+  // is unjudgeable → always kept (graceful degrade). Only active when the couple
+  // asked for it AND has a live selection.
+  if (input.facetHardFilter && facetSelected) {
+    ordered = ordered.filter(
+      (s) => s.facetMatchCount === null || s.facetMatchCount > 0,
+    );
+  }
+  // Service-date availability DOWN-RANK (never remove): stable-partition busy
+  // vendors to the bottom, preserving each group's tier order. No-op when the
+  // event has no locked date / nobody is flagged (fail-open).
+  if (unavailableIds.size > 0) {
+    ordered = [
+      ...ordered.filter((s) => s.serviceDateAvailable),
+      ...ordered.filter((s) => !s.serviceDateAvailable),
+    ];
+  }
+
+  // Smart-sort "raise your budget?" pressure (flag-gated): TRUE when the couple
+  // has a per-category budget but EVERY priced option shown starts above it — so
+  // the soft re-rank alone can't surface anything affordable and the overlay
+  // nudges the couple to lift the category budget. Computed over the final shown
+  // set; one affordable vendor clears it (lib/smart-sort · budgetPressure).
+  const budgetRaisePressure =
+    smartSort && categoryBudgetPhp != null
+      ? budgetPressure(
+          ordered.map((s) => s._startsAt),
+          categoryBudgetPhp,
+        )
+      : false;
 
   const results: CategoryVendorResult[] = ordered.map((s) => ({
     vendorProfileId: s.vendorProfileId,
@@ -785,7 +1136,18 @@ export async function searchCategoryVendors(input: {
     relationshipDepth: s.relationshipDepth,
     withinRadius: s.withinRadius,
     serviceRadiusKm: s.serviceRadiusKm,
+    facetMatchCount: s.facetMatchCount,
+    facetSelectedCount: s.facetSelectedCount,
+    serviceDateAvailable: s.serviceDateAvailable,
   }));
 
-  return { results, total: results.length, hasReceptionCoords: hasCoords };
+  return {
+    results,
+    total: results.length,
+    hasReceptionCoords: hasCoords,
+    facets: facetCatalog,
+    facetDefaults,
+    // Only present when the flag is on → off-path result shape is unchanged.
+    ...(smartSort ? { budgetPressure: budgetRaisePressure } : {}),
+  };
 }

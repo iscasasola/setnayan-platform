@@ -293,7 +293,11 @@ export function Flash({ beats, scopeKind }: { beats: FlashBeatView[]; scopeKind:
                   <BeatLayer
                     beat={beat}
                     index={i}
-                    nearCurrent={Math.abs(i - currentBeat) <= 1}
+                    /* Only the current + next beat mount a live <video> (≤2
+                       concurrent decodes — the module's own contract). The
+                       previous beat no longer keeps decoding; the |i-cur|<=1
+                       window was 3 concurrent. */
+                    nearCurrent={i === currentBeat || i === currentBeat + 1}
                     onClose={close}
                   />
                 </div>

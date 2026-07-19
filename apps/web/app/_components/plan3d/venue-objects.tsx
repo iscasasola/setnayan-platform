@@ -46,6 +46,7 @@ import { BoothTemplate } from '@/app/_components/plan3d/kit/booth-template';
 import { boothTemplateFor } from '@/app/_components/plan3d/kit/booth-templates';
 import { CHASSIS_SPECS } from '@/app/_components/plan3d/kit/booth-chassis';
 import type { FigureQuality } from '@/app/_components/plan3d/kit/figure';
+import { SETNAYAN_BOOTH_PROMO_LABEL } from '@/lib/seating';
 
 type Room = { w: number; d: number };
 
@@ -432,6 +433,97 @@ export function BoothSign({ url, w, palette }: { url: string; w: number; palette
   );
 }
 
+// --- Setnayan promotion default (owner directive 2026-07-16) -----------------
+// A booth with NO finalized vendor is an OPEN presence slot, and the 3D room
+// fills it with tasteful, kit-gold Setnayan promotional signage (the 3D Booth
+// Ads inventory seam). Rendered from a canvas texture — no fetched asset, no
+// troika font — the same browser-only pattern as ghost-booth's placard, so this
+// module keeps its "no runtime asset fetch" contract.
+
+// Royal Champagne Gold — the kit gold shared with the mood-board / concept PDFs
+// (rgb 0.773, 0.627, 0.349). The promo signage's accent + wordmark colour.
+const KIT_GOLD = '#c5a059';
+const PROMO_BOARD = '#241f1a'; // deep espresso board so the gold wordmark reads.
+
+function promoRoundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+// Lazy, cached singleton — the promo placard is identical for every slot.
+let promoSignTex: THREE.CanvasTexture | null = null;
+function setnayanPromoTexture(): THREE.CanvasTexture {
+  if (promoSignTex) return promoSignTex;
+  const W = 512;
+  const H = 160;
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d')!;
+  // Thin gold hairline frame (tasteful, not a loud ad).
+  ctx.strokeStyle = KIT_GOLD;
+  ctx.lineWidth = 3;
+  promoRoundRect(ctx, 6, 6, W - 12, H - 12, 12);
+  ctx.stroke();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  // The full brand wordmark (CLAUDE.md: never abbreviate).
+  ctx.fillStyle = KIT_GOLD;
+  ctx.font = '700 62px "Space Mono", ui-monospace, monospace';
+  ctx.letterSpacing = '10px';
+  ctx.fillText(SETNAYAN_BOOTH_PROMO_LABEL, W / 2, 66);
+  // Quiet subline so the empty slot reads as invitational inventory.
+  ctx.fillStyle = 'rgba(197,160,89,0.62)';
+  ctx.font = '400 22px system-ui, -apple-system, sans-serif';
+  ctx.letterSpacing = '4px';
+  ctx.fillText('YOUR VENDOR HERE', W / 2, 118);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  tex.needsUpdate = true;
+  promoSignTex = tex;
+  return tex;
+}
+
+/** The Setnayan-promotion backdrop for an OPEN booth slot (no finalized vendor):
+ *  a kit-gold-framed board carrying the SETNAYAN wordmark. Mirrors BoothSign's
+ *  geometry so a slot reads consistently whether a vendor claims it or not — the
+ *  data-driven default the owner directive requires. Purely presentational. */
+export function SetnayanBoothSign({ w }: { w: number }) {
+  const tex = useMemo(() => setnayanPromoTexture(), []);
+  return (
+    <group position={[0, 0, -0.62]}>
+      {/* Backdrop board */}
+      <mesh position={[0, 1.75, 0]} castShadow>
+        <boxGeometry args={[w + 0.3, 0.9, 0.06]} />
+        <meshStandardMaterial color={PROMO_BOARD} roughness={0.55} />
+      </mesh>
+      {/* Kit-gold top rail */}
+      <mesh position={[0, 2.24, 0]}>
+        <boxGeometry args={[w + 0.4, 0.08, 0.1]} />
+        <meshStandardMaterial color={KIT_GOLD} roughness={0.35} metalness={0.35} />
+      </mesh>
+      {/* Wordmark placard — just proud of the board, facing the room. */}
+      <mesh position={[0, 1.75, 0.04]}>
+        <planeGeometry args={[Math.min(w + 0.1, 1.5), 0.47]} />
+        <meshBasicMaterial map={tex} transparent toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
 /** A vendor booth. Booth-template kit (2026-07-08): when the booked vendor's
  *  category (or the booth type) resolves a catalog template — all 57
  *  taxonomy leaves now do — the full chassis + props + staff-mascot build
@@ -439,7 +531,9 @@ export function BoothSign({ url, w, palette }: { url: string; w: number; palette
  *  (unlinked custom pins, no-booth vendor categories) keep the generic
  *  silhouette below as the safe fallback.
  *  Pro / enterprise vendors additionally get the branded logo backdrop,
- *  hung at the template chassis' sign anchor when one is in play. */
+ *  hung at the template chassis' sign anchor when one is in play.
+ *  An OPEN slot (no finalized vendor) instead carries the kit-gold Setnayan
+ *  promotion sign — the data-driven 3D Booth Ads default. */
 export function BoothMesh({
   booth,
   room,
@@ -460,6 +554,11 @@ export function BoothMesh({
   const facingY = useMemo(() => boothFacingY({ xPct: booth.xPct, yPct: booth.yPct }, room), [booth.xPct, booth.yPct, room]);
   const { w, d } = BOOTH_FOOTPRINT_M;
   const branded = boothCanBrand(booth.vendor?.tier) && !!booth.vendor?.logoUrl;
+  // Data-driven presence (owner directive 2026-07-16): a finalized vendor brands
+  // the slot; an OPEN slot (no finalized vendor) defaults to Setnayan promotion.
+  // A booked-but-unbrandable vendor (solo/verified) keeps the generic booth — it
+  // is still a real vendor's slot, so it is NOT overwritten with the promo.
+  const openSlot = !booth.vendor;
   const template = boothTemplateFor(booth);
   if (template) {
     const anchor = CHASSIS_SPECS[template.chassis].signAnchor;
@@ -471,6 +570,10 @@ export function BoothMesh({
           <group position={[pos.x + sr.x, anchor[1], pos.z + sr.z]} rotation={[0, facingY, 0]}>
             <BoothSign url={booth.vendor!.logoUrl!} w={w} palette={palette} />
           </group>
+        ) : openSlot ? (
+          <group position={[pos.x + sr.x, anchor[1], pos.z + sr.z]} rotation={[0, facingY, 0]}>
+            <SetnayanBoothSign w={w} />
+          </group>
         ) : null}
       </group>
     );
@@ -478,7 +581,11 @@ export function BoothMesh({
   return (
     <group position={[pos.x, 0, pos.z]} rotation={[0, facingY, 0]}>
       {boothSilhouette(booth.kind, w, d, palette)}
-      {branded ? <BoothSign url={booth.vendor!.logoUrl!} w={w} palette={palette} /> : null}
+      {branded ? (
+        <BoothSign url={booth.vendor!.logoUrl!} w={w} palette={palette} />
+      ) : openSlot ? (
+        <SetnayanBoothSign w={w} />
+      ) : null}
     </group>
   );
 }

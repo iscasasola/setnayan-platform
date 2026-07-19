@@ -42,7 +42,7 @@ export type Beat =
   | { kind: 'face_open'; person: MomentPerson; dwellMs: number }
   | { kind: 'moment'; moment: ScoredMoment; dwellMs: number }
   | { kind: 'perspective'; moment: ScoredMoment; dwellMs: number }
-  | { kind: 'memoriam_hold'; moment: ScoredMoment; person: MomentPerson; dwellMs: number }
+  | { kind: 'memoriam_hold'; moment: ScoredMoment; people: MomentPerson[]; dwellMs: number }
   /** moment is the newest frame, or null on an empty graph; dwell is open-ended (holds on the CTA). */
   | { kind: 'present_forward'; moment: ScoredMoment | null; dwellMs: null };
 
@@ -63,20 +63,49 @@ export function compileBeats(graph: MomentGraph, opts: CompileBeatsOptions = {})
     )[0] ?? null;
   if (topPerson) beats.push({ kind: 'face_open', person: topPerson, dwellMs: DWELL_MS.face });
 
-  // Reserve the two signature specials before filling the middle.
-  const memoriamMoment =
-    sorted.find((m) => m.peoplePresent.some((p) => p.inMemoriam)) ?? null;
+  // ✦ Memoriam — honor EVERY remembered person (owner 2026-07-11), but ONLY off
+  // high-trust presence (peoplePresentHighTrust: individual-QR / hand-picked) so
+  // no one is memorialized onto a photo they aren't actually in. Each remembered
+  // person is anchored to their most-significant high-trust moment; people who
+  // share a frame are honored together in one hold.
+  const bestMomentByPerson = new Map<string, { moment: ScoredMoment; person: MomentPerson }>();
+  for (const m of sorted) {
+    for (const p of m.peoplePresentHighTrust) {
+      if (p.inMemoriam && !bestMomentByPerson.has(p.personId)) {
+        bestMomentByPerson.set(p.personId, { moment: m, person: p });
+      }
+    }
+  }
+  const memoriamGroups: { moment: ScoredMoment; people: MomentPerson[] }[] = [];
+  const groupIndexByMomentId = new Map<string, number>();
+  for (const { moment, person } of bestMomentByPerson.values()) {
+    const gi = groupIndexByMomentId.get(moment.id);
+    if (gi === undefined) {
+      groupIndexByMomentId.set(moment.id, memoriamGroups.length);
+      memoriamGroups.push({ moment, people: [person] });
+    } else {
+      memoriamGroups[gi]!.people.push(person);
+    }
+  }
+  const memoriamIds = new Set(memoriamGroups.map((g) => g.moment.id));
 
   const viewerPersonId = graph.viewer.personId;
   const perspectiveMoment =
     sorted.find(
       (m) =>
-        m.id !== memoriamMoment?.id &&
+        !memoriamIds.has(m.id) &&
         m.capturedBy.kind !== 'self' &&
         m.capturedBy.personId !== null &&
         m.capturedBy.personId !== viewerPersonId &&
         m.capturedBy.displayName !== null,
     ) ?? null;
+
+  // Fit memoriam holds into the beat budget after face_open + perspective +
+  // present_forward; realistic events have 0–2 remembered people so this rarely
+  // trims, but if it must, the most-significant frames win.
+  const perspectiveCount = perspectiveMoment ? 1 : 0;
+  const memoriamCap = Math.max(0, maxBeats - (1 /*face*/ + perspectiveCount + 1 /*present*/));
+  const memoriam = memoriamGroups.slice(0, memoriamCap);
 
   // Ending anchor — the newest frame (reuse of an earlier beat's moment is
   // acceptable here; the ending must never be dropped for dedup reasons).
@@ -86,12 +115,14 @@ export function compileBeats(graph: MomentGraph, opts: CompileBeatsOptions = {})
     )[0] ?? null;
 
   const reservedIds = new Set(
-    [memoriamMoment?.id, perspectiveMoment?.id].filter((id): id is string => Boolean(id)),
+    [...memoriam.map((g) => g.moment.id), perspectiveMoment?.id].filter(
+      (id): id is string => Boolean(id),
+    ),
   );
 
   // 2. Middle: top-significance moments, one per burst cluster.
   const fixedCount =
-    beats.length + (perspectiveMoment ? 1 : 0) + (memoriamMoment ? 1 : 0) + 1; // +1 present_forward
+    beats.length + (perspectiveMoment ? 1 : 0) + memoriam.length + 1; // +1 present_forward
   const middleSlots = Math.max(0, maxBeats - fixedCount);
   const seenClusters = new Set<string>();
   const middle: ScoredMoment[] = [];
@@ -131,13 +162,14 @@ export function compileBeats(graph: MomentGraph, opts: CompileBeatsOptions = {})
     beats.push({ kind: 'perspective', moment: perspectiveMoment, dwellMs: DWELL_MS.perspective });
   }
 
-  // 4. The ✦ hold — quietest and longest. Only ever from an opt-in flag.
-  if (memoriamMoment) {
-    const person = memoriamMoment.peoplePresent.find((p) => p.inMemoriam)!;
+  // 4. The ✦ hold(s) — quietest and longest. Only ever from an opt-in flag.
+  // One hold per frame; every remembered person is named (grouped when they
+  // share a frame), so no marked relative is silently left out.
+  for (const group of memoriam) {
     beats.push({
       kind: 'memoriam_hold',
-      moment: memoriamMoment,
-      person,
+      moment: group.moment,
+      people: group.people,
       dwellMs: DWELL_MS.memoriam,
     });
   }

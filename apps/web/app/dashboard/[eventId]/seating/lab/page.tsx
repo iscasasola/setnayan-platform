@@ -38,6 +38,8 @@ import {
 import { fetchBoothCardItems } from '@/lib/vendor-services';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
+import type { VendorCategory } from '@/lib/vendors';
+import { PLAN3D_BOOTH_ADS_ENABLED, placedGhostBooths, type GhostBooth3D } from '@/lib/ghost-booths';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
   sanitizeRolePalette,
@@ -194,7 +196,13 @@ export default async function SeatingLabPage({ params }: Props) {
     venueWidthM: floorPlan.venue_width_m ?? null,
     venueLengthM: floorPlan.venue_length_m ?? null,
     stage: { xPct: floorPlan.stage_x, yPct: floorPlan.stage_y, wPct: floorPlan.stage_w, hPct: floorPlan.stage_h },
-    entrance: { enabled: floorPlan.entrance_enabled, xPct: floorPlan.entrance_x, yPct: floorPlan.entrance_y },
+    entrance: {
+      enabled: floorPlan.entrance_enabled,
+      xPct: floorPlan.entrance_x,
+      yPct: floorPlan.entrance_y,
+      kind: floorPlan.entrance_kind,
+      depthM: floorPlan.entrance_depth_m,
+    },
     dance: {
       enabled: floorPlan.dance_enabled,
       xPct: floorPlan.dance_x,
@@ -303,10 +311,46 @@ export default async function SeatingLabPage({ params }: Props) {
   // (no bloom); other read errors propagate, matching the codebase pattern.
   const ownsAnimatedMonogram = await eventAnimatedMonogramActive(supabase, eventId);
 
+  // 3D Booth Ads · Part A (slice 9, flag-gated): dashed "ghost booths" for the
+  // vendor categories this couple hasn't booked, placed on free perimeter wall
+  // (never overlapping real booths/tables). DERIVED — never persisted; couple
+  // lab ONLY (the guest walk never receives these). The read is skipped entirely
+  // when the flag is off, so single-player is byte-identical + no new-column
+  // dependency until the flag flips.
+  let ghostBooths: GhostBooth3D[] = [];
+  let ghostBoothsEnabled = true;
+  if (PLAN3D_BOOTH_ADS_ENABLED) {
+    const [{ data: vendorRows }, { data: gbPrefs }] = await Promise.all([
+      supabase.from('event_vendors').select('category').eq('event_id', eventId),
+      supabase
+        .from('event_floor_plan')
+        .select('ghost_booths_enabled, ghost_booths_dismissed')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    ]);
+    ghostBoothsEnabled = (gbPrefs?.ghost_booths_enabled as boolean | null) ?? true;
+    ghostBooths = placedGhostBooths({
+      bookedCategories: ((vendorRows ?? []) as { category: VendorCategory | null }[])
+        .map((r) => r.category)
+        .filter((c): c is VendorCategory => !!c),
+      dismissed: ((gbPrefs?.ghost_booths_dismissed as VendorCategory[] | null) ?? []),
+      enabled: ghostBoothsEnabled,
+      occupied: [
+        ...booths.map((b) => ({ xPct: b.xPct, yPct: b.yPct })),
+        ...tables.map((t) => ({ xPct: t.xPct, yPct: t.yPct })),
+      ],
+    });
+  }
+
   return (
-    <section className="space-y-3">
+    <section className="relative space-y-3">
+      {/* The mirrored LIST | 2D | 3D segment now lives INSIDE the lab chrome,
+          stacked above the Build/Play toggle (owner 2026-07-17 · chrome overlap
+          fix) — no longer an overlay that crowds the Build panel. */}
       <SeatingLabLoader
         eventId={eventId}
+        ghostBooths={ghostBooths}
+        ghostBoothsEnabled={ghostBoothsEnabled}
         tables={tables}
         floor={floor}
         guests={guests}

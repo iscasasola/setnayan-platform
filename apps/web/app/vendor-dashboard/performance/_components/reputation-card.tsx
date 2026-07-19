@@ -57,10 +57,9 @@ export function ReputationCard({ data }: { data: ReputationAnalytics }) {
 
   return (
     <section className="space-y-4">
-      <h2 className="text-lg font-semibold" style={{ color: 'var(--m-ink)' }}>
-        Reputation
-      </h2>
-
+      {/* No card-level <h2>: this card is the sole child of the page's
+          "Reputation · all-time" SectionEyebrow, so a heading here just
+          repeated the eyebrow two lines down. */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Tile
           icon={<Star className="h-4 w-4" strokeWidth={1.75} aria-hidden />}

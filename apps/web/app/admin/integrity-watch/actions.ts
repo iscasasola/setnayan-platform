@@ -78,8 +78,15 @@ export async function resolveIntegrityFlag(formData: FormData) {
   if (!flag) throw new Error('Flag not found.');
 
   const kind = (flag as { kind: string }).kind;
-  if (action === 'confirm_fraud' && kind !== 'review_fraud') {
-    throw new Error('Confirm fraud only applies to review-fraud flags.');
+  // confirm_fraud is a VERDICT only (records status; never mutates the subject —
+  // only hide_listing does). Safe for inquiry_concentration too, whose subject is
+  // the *victim* vendor that must never be penalized.
+  if (
+    action === 'confirm_fraud' &&
+    kind !== 'review_fraud' &&
+    kind !== 'inquiry_concentration'
+  ) {
+    throw new Error('Confirm only applies to review-fraud or inquiry-concentration flags.');
   }
   if (action === 'hide_listing' && kind !== 'ghost_listing') {
     throw new Error('Hide listing only applies to ghost-listing flags.');

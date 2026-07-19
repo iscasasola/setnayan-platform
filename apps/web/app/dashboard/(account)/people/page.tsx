@@ -1,11 +1,27 @@
-import { Clock, Users, HeartHandshake, UserPlus } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowLeft, Clock, Users, HeartHandshake, UserPlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
+import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { ConnectionsPanel, type ConnectionItem } from './_components/connections-panel';
+import { DependentsSection } from './_components/dependents-section';
+import { SamahanPeopleSection } from './_components/samahan-people-section';
 
 export const metadata = {
   title: 'People',
+};
+
+const FENCE_ERROR: Record<string, string> = {
+  fence: 'You can only add a child (under 18) or an elder (over 50). For anyone else, invite them to Setnayan instead.',
+  name: 'Please add a name.',
+  birthdate: 'Please add a valid birthday.',
+  email: 'Please enter a valid email address.',
+  no_active_link: 'Create the hand-over link first, then email it.',
+  email_not_configured:
+    'Email isn’t set up yet — an admin needs to add the Resend key in Admin → Integrations. The copy-link button still works.',
+  email_send_failed: 'The email didn’t send — try again, or copy the link instead.',
+  not_of_age: 'They can claim their profile once they turn 18.',
 };
 
 /**
@@ -19,23 +35,60 @@ export const metadata = {
  * shipped propose/confirm/decline actions. The preview + functional modes share
  * this one route so nothing repaints on the flip.
  */
-export default async function PeoplePage() {
-  if (!peopleConnectionsEnabled()) {
+export default async function PeoplePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; saved?: string; removed?: string }>;
+}) {
+  const showConnections = peopleConnectionsEnabled();
+  const showDependents = dependentPeopleEnabled();
+
+  // Both flags off (production today) → the honest coming-soon preview.
+  if (!showConnections && !showDependents) {
     return <PeoplePreview />;
   }
 
-  const user = await getCurrentUser();
+  const sp = await searchParams;
+  const errorMsg = sp.error ? (FENCE_ERROR[sp.error] ?? sp.error) : null;
+
+  const user = showConnections ? await getCurrentUser() : null;
   const { incoming, outgoing, confirmed } = user
     ? await fetchMyConnections(user.id)
     : { incoming: [], outgoing: [], confirmed: [] };
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
-      <header className="mb-6 space-y-1">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">People</h1>
-        <p className="text-base text-ink/60">Your family, godparents, and friends.</p>
+      <Link href="/dashboard" className="sn-chip sn-press mb-4 w-fit">
+        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+        Back to home
+      </Link>
+      <header className="mb-6 space-y-2">
+        <p className="sn-eye">
+          <Users aria-hidden strokeWidth={1.75} />
+          The people you gather
+        </p>
+        <h1 className="sn-h1">People</h1>
+        <p className="text-base text-ink/65">
+          Your first degree — the people you&rsquo;re connected to, your alaga, and your samahan
+          groups. The people inside your samahans are your second degree.
+        </p>
       </header>
-      <ConnectionsPanel incoming={incoming} outgoing={outgoing} confirmed={confirmed} />
+      {errorMsg ? (
+        <p
+          role="alert"
+          className="mb-6 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
+        >
+          {errorMsg}
+        </p>
+      ) : null}
+      {showConnections ? (
+        <ConnectionsPanel incoming={incoming} outgoing={outgoing} confirmed={confirmed} />
+      ) : null}
+      {showDependents ? <DependentsSection /> : null}
+      {/* Samahan (owner degree model 2026-07-17): groups are FIRST degree
+          beside connections + alaga; their members are SECOND degree. Not
+          flag-gated — samahan is live product. */}
+      <SamahanPeopleSection />
     </div>
   );
 }
@@ -126,14 +179,22 @@ async function fetchMyConnections(userId: string): Promise<{
 function PeoplePreview() {
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
-      <header className="mb-6 space-y-1">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">People</h1>
-        <p className="text-base text-ink/60">
+      <Link href="/dashboard" className="sn-chip sn-press mb-4 w-fit">
+        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+        Back to home
+      </Link>
+      <header className="mb-6 space-y-2">
+        <p className="sn-eye">
+          <Users aria-hidden strokeWidth={1.75} />
+          The people you gather
+        </p>
+        <h1 className="sn-h1">People</h1>
+        <p className="text-base text-ink/65">
           Family, godparents, and friends — the people your celebrations connect.
         </p>
       </header>
 
-      <div className="mb-8 flex items-start gap-3 rounded-xl border border-ink/10 bg-cream p-4">
+      <div className="sn-tile mb-8 flex items-start gap-3">
         <Clock aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-ink/50" strokeWidth={1.75} />
         <div className="space-y-1">
           <p className="text-sm font-medium text-ink">Connections are coming soon.</p>
@@ -171,7 +232,7 @@ function PeoplePreview() {
           (g) => (
             <span
               key={g}
-              className="rounded-full border border-ink/10 bg-cream px-3 py-1 text-xs text-ink/60"
+              className="sn-row px-3 py-1 text-xs text-ink/60"
             >
               {g}
             </span>
@@ -193,7 +254,7 @@ function PreviewRow({
   body: string;
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-ink/10 bg-white/40 p-4">
+    <div className="sn-row flex items-start gap-3 p-4">
       <span className="mt-0.5 shrink-0">{icon}</span>
       <div className="space-y-1">
         <p className="text-sm font-semibold text-ink">{title}</p>

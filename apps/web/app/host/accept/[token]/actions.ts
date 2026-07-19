@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchPendingHostInvite } from '@/lib/event-moderators';
+import { stampCoordinatorConsentRevoked } from '@/lib/coordinator-consent-revoke';
 
 // Iteration 0048 — V1 multi-host accept-invite server action.
 //
@@ -136,6 +137,11 @@ export async function declineHostInvite(formData: FormData) {
       invitation_token: null,
     })
     .eq('moderator_id', invite.moderator_id);
+
+  // Close the RA 10173 audit loop (corpus Coordinator_Whats_Next § 4): a
+  // declined invite means the consented share never becomes access — stamp
+  // the consent revoked. Best-effort no-op when no consent row exists.
+  await stampCoordinatorConsentRevoked(admin, invite.event_id, invite.moderator_id);
 
   redirect(`/host/accept/${token}?declined=1`);
 }

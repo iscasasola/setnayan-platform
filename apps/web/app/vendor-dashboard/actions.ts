@@ -967,151 +967,6 @@ export async function requestProfileCorrection(
   return { ok: true };
 }
 
-/**
- * Flips the "Include team bookings" toggle on the Completed-events backend
- * card (iteration 0022 § 2.4a). The public count is NEVER affected by this
- * toggle — only the vendor's own backend display switches between the
- * team-excluded view (default, matches public) and the full unfiltered
- * view.
- *
- * The toggle change is written to `admin_audit_log` so the vendor's audit
- * trail keeps a record of every flip — action `vendor_backend_count_toggle`.
- */
-export async function toggleVendorBackendCount(formData: FormData) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const requested = formData.get('show_team_bookings');
-  const target = requested === 'on' || requested === 'true';
-
-  // Read the existing row + value so we can audit the delta and only
-  // write when the value actually changes.
-  const { data: profile, error: readError } = await supabase
-    .from('vendor_profiles')
-    .select('vendor_profile_id, show_team_bookings_in_backend_count')
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  if (readError || !profile) {
-    return redirect(
-      `/vendor-dashboard?error=${encodeURIComponent(
-        readError?.message ?? 'Vendor profile not found',
-      )}`,
-    );
-  }
-
-  const previous = profile.show_team_bookings_in_backend_count ?? false;
-  if (previous === target) {
-    // Idempotent no-op — still revalidate so the URL params flip without
-    // a stale audit row.
-    revalidatePath('/vendor-dashboard');
-    return redirect('/vendor-dashboard?saved=1');
-  }
-
-  const { error: updateError } = await supabase
-    .from('vendor_profiles')
-    .update({
-      show_team_bookings_in_backend_count: target,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('vendor_profile_id', profile.vendor_profile_id);
-
-  if (updateError) {
-    return redirect(
-      `/vendor-dashboard?error=${encodeURIComponent(updateError.message)}`,
-    );
-  }
-
-  // Best-effort audit write. We don't fail the user-visible toggle if the
-  // audit table doesn't exist yet (e.g. older test environment); the toggle
-  // change still lands on the vendor_profiles row.
-  const auditPayload = {
-    action: 'vendor_backend_count_toggle' as const,
-    target_id: profile.vendor_profile_id,
-    actor_user_id: user.id,
-    metadata: {
-      old_value: previous,
-      new_value: target,
-      by_user_id: user.id,
-    },
-  };
-  await supabase.from('admin_audit_log').insert(auditPayload);
-
-  revalidatePath('/vendor-dashboard');
-  redirect('/vendor-dashboard?saved=1');
-}
-
-/**
- * Shortlist Radar (Wave 2) — vendor-facing demand read.
- *
- * Resolves the caller's OWN vendor_profile_id, then calls the two RLS-scoped
- * SECURITY DEFINER RPCs:
- *   • count_saves_for_vendor   → live "N couples saved you" tally (distinct
- *     savers across vendor_follows + guest_saved_vendors, count only — never
- *     a user_id, so guest_saved_vendors stays owner-only at the RLS layer).
- *   • rival_signals_for_vendor → de-identified (month, region, count) demand
- *     rollup in the vendor's hq_region; the RPC itself honors the admin
- *     radar_enabled toggle + min-N floor, so nothing below the floor and no
- *     couple identity ever reaches this process.
- *
- * Best-effort: any failure (no profile, RPC error, pre-migration deploy)
- * collapses to zeros/empty so the dashboard home never breaks.
- */
-export type ShortlistRadarSignal = {
-  month_bucket: string;
-  region_code: string;
-  signal_count: number;
-};
-
-export type ShortlistRadar = {
-  savedCount: number;
-  signals: ShortlistRadarSignal[];
-};
-
-export async function getShortlistRadar(): Promise<ShortlistRadar> {
-  const empty: ShortlistRadar = { savedCount: 0, signals: [] };
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return empty;
-
-    const profile = await fetchOwnVendorProfile(supabase, user.id);
-    if (!profile) return empty;
-    const vendorProfileId = profile.vendor_profile_id;
-
-    const [savesRes, signalsRes] = await Promise.all([
-      supabase.rpc('count_saves_for_vendor', {
-        p_vendor_profile_id: vendorProfileId,
-      }),
-      supabase.rpc('rival_signals_for_vendor', {
-        p_vendor_profile_id: vendorProfileId,
-      }),
-    ]);
-
-    const savedCount =
-      typeof savesRes.data === 'number' ? savesRes.data : 0;
-
-    const signals: ShortlistRadarSignal[] = Array.isArray(signalsRes.data)
-      ? (signalsRes.data as ShortlistRadarSignal[]).map((row) => ({
-          month_bucket: String(row.month_bucket),
-          region_code: String(row.region_code),
-          signal_count: Number(row.signal_count) || 0,
-        }))
-      : [];
-
-    return { savedCount, signals };
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[getShortlistRadar] failed', err);
-    return empty;
-  }
-}
-
 /* ─── My Shop → Website editor ──────────────────────────────────────────── */
 
 /**
@@ -1346,4 +1201,37 @@ export async function updateVendorWebsiteField(
     revalidatePath(`/${s}`);
   }
   return { ok: true };
+}
+
+/**
+ * Save the shop's precise founding DATE (`in_business_since_date`, migration
+ * 20270805100000) — drives the exact business monthsary/anniversary day. A
+ * plain server-action form (no client JS): blank clears it. The write is
+ * guarded so a not-yet-applied migration (apply-lag) fails soft instead of
+ * throwing; the revalidate re-renders the shop + Overview with the saved value.
+ */
+export async function updateBusinessStartDate(formData: FormData): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) return;
+
+  const raw = String(formData.get('in_business_since_date') ?? '').trim();
+  // Accept a full ISO date, or blank to clear. Reject anything else.
+  const value = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
+
+  try {
+    await supabase
+      .from('vendor_profiles')
+      .update({ in_business_since_date: value })
+      .eq('vendor_profile_id', profile.vendor_profile_id);
+  } catch {
+    // graceful-degrade: apply-lag or a transient error — nothing to surface on
+    // a plain-form action; the revalidate will show whether it persisted.
+  }
+  revalidatePath('/vendor-dashboard/shop');
+  revalidatePath('/vendor-dashboard');
 }

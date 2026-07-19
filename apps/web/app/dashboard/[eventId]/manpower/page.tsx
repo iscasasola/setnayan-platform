@@ -137,15 +137,15 @@ export default async function HostManpowerPage({
           Back to event home
         </Link>
 
-        <header className="mt-6">
+        <header className="sn-reveal mt-6">
           <p
-            className="m-label-mono uppercase text-slate-500"
+            className="sn-eye"
             style={{ letterSpacing: '0.2em', fontSize: '11px' }}
           >
             Phase F · ₱15K offline cash
           </p>
           <h1
-            className="m-display-tight mt-2"
+            className="sn-h1 mt-2"
             style={{ fontSize: 'clamp(2rem, 5vw, 2.75rem)' }}
           >
             Manpower
@@ -189,11 +189,11 @@ export default async function HostManpowerPage({
         {/* BIR posture callout — surfaced honestly so the host knows what
             Setnayan does and does not do. Brand voice, no legalese. */}
         <aside
-          className="mt-6 rounded-lg border border-slate-200/60 bg-white p-4"
+          className="mt-6 sn-tile p-4"
           style={{ boxShadow: 'var(--m-shadow-sm)' }}
         >
           <p
-            className="m-eyebrow uppercase text-slate-500"
+            className="sn-eye"
             style={{ letterSpacing: '0.2em', fontSize: '11px' }}
           >
             Setnayan note
@@ -270,7 +270,7 @@ function GigGroup({
           {gigs.map((gig) => (
             <li
               key={gig.gig_id}
-              className="rounded-lg border border-slate-200/60 bg-white p-4"
+              className="sn-row p-4"
               style={{ boxShadow: 'var(--m-shadow-sm)' }}
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
@@ -319,7 +319,7 @@ function GigGroup({
                   <input type="hidden" name="event_id" value={gig.event_id} />
                   <label className="flex-1 min-w-[180px]">
                     <span
-                      className="m-label-mono mb-1 block uppercase text-slate-500"
+                      className="sn-eye mb-1"
                       style={{ letterSpacing: '0.2em', fontSize: '11px' }}
                     >
                       Reason

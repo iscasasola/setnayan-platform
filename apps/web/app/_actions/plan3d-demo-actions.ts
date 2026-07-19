@@ -19,8 +19,22 @@
 import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getSampleEvent, getSampleEventId } from '@/app/tour/_lib/sample-event';
-import { fetchTables, fetchAssignments, fetchFloorPlan, fetchSceneObjects, fetchBooths, fetchSigns, defaultTablePosition } from '@/lib/seating';
+import { fetchTables, fetchAssignments, fetchFloorPlan, fetchSceneObjects, fetchBooths, fetchSigns, defaultTablePosition, boothTypeForVendorCategory } from '@/lib/seating';
 import { fetchBoothCardItems } from '@/lib/vendor-services';
+import {
+  selectDemoRotation,
+  rotationWindow,
+  PLAN3D_DEMO_ADS_ENABLED,
+  type RotatableVendor,
+} from '@/lib/demo-booth-rotation';
+import { resolveVendorCategory } from '@/lib/vendor-packages';
+import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
+import {
+  PUBLIC_SURFACE_VISIBILITIES,
+  isBookable,
+  isPubliclyVisible,
+  type VendorPublicVisibility,
+} from '@/lib/vendor-visibility';
 import { guestDisplayName, resolveGuestAttire, type GuestRole, type GuestAttire } from '@/lib/guests';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
@@ -102,6 +116,103 @@ function toPlan3DSide(side: string | null): 'bride' | 'groom' | 'both' {
  * view (single-guest walk), so it always returns the full scene and the
  * caller narrows to one guest when it needs to.
  */
+/**
+ * 3D Booth Ads · Part B (slice 9, flag-gated): swap the demo's booths to REAL
+ * marketplace vendors on ROTATION — "your booth, inside every demo". Keeps each
+ * booth's POSITION; replaces its vendor/kind/label with a rotated eligible
+ * vendor (Pro/Enterprise + ad-boost weighted, everyone cycles — see
+ * lib/demo-booth-rotation). Fully defensive: the flag off, an empty pool, or ANY
+ * query error returns the booths unchanged (the normal sample demo).
+ */
+async function applyDemoBoothRotation(
+  admin: ReturnType<typeof createAdminClient>,
+  booths: Lab3DBooth[],
+  nowMs: number,
+): Promise<Lab3DBooth[]> {
+  if (!PLAN3D_DEMO_ADS_ENABLED || booths.length === 0) return booths;
+  try {
+    // Eligible pool: publicly-visible + verification-gated marketplace vendors,
+    // carrying the ad_rank boost (public business info only — no PII).
+    const { data: rows } = await admin
+      .from('vendor_market_stats')
+      .select('vendor_profile_id, business_name, business_slug, logo_url, services, public_visibility, ad_rank')
+      .in('public_visibility', PUBLIC_SURFACE_VISIBILITIES)
+      .eq('verification_state', 'verified')
+      .not('business_name', 'is', null)
+      .neq('business_name', '')
+      .limit(80);
+    if (!rows || rows.length === 0) return booths;
+
+    // tier_state lives on vendor_profiles (not the view) — join it for ranking.
+    const idList = rows.map((r) => r.vendor_profile_id as string);
+    const { data: tierRows } = await admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id, tier_state')
+      .in('vendor_profile_id', idList);
+    const tierById = new Map((tierRows ?? []).map((t) => [t.vendor_profile_id as string, (t.tier_state as string | null) ?? null]));
+
+    const pool: RotatableVendor[] = [];
+    for (const r of rows) {
+      const services = (r.services as string[] | null) ?? [];
+      // Coerce services[] → a bookable VendorCategory; skip 'misc' (no booth).
+      let category: VendorCategory = 'misc';
+      for (const s of services) {
+        const c = resolveVendorCategory(s);
+        if (c !== 'misc') {
+          category = c;
+          break;
+        }
+      }
+      if (category === 'misc') continue;
+      const vis = (r.public_visibility as VendorPublicVisibility | null) ?? null;
+      pool.push({
+        vendorProfileId: r.vendor_profile_id as string,
+        name: r.business_name as string,
+        slug: isPubliclyVisible(vis) ? ((r.business_slug as string | null) ?? null) : null,
+        logoRef: (r.logo_url as string | null) ?? null,
+        category,
+        tier: tierById.get(r.vendor_profile_id as string) ?? null,
+        adRank: (r.ad_rank as number | null) ?? 0,
+        bookable: isBookable(vis),
+      });
+    }
+    if (pool.length === 0) return booths;
+
+    const selected = selectDemoRotation(pool, booths.length, rotationWindow(nowMs));
+    if (selected.length === 0) return booths;
+
+    // Resolve logos for just the on-air vendors.
+    const logoRefs = [...new Set(selected.map((v) => v.logoRef).filter((r): r is string => !!r))];
+    const logoEntries = await Promise.all(logoRefs.map(async (ref) => [ref, await displayUrlForStoredAsset(ref)] as const));
+    const logoUrls: Record<string, string> = Object.fromEntries(logoEntries.filter((e): e is [string, string] => e[1] !== null));
+
+    // Keep each booth's slot; swap in the rotated vendor (booth kind follows the
+    // vendor's category so the look matches). Extra booths beyond the pick set
+    // keep their original content.
+    return booths.map((b, i) => {
+      const v = selected[i];
+      if (!v) return b;
+      return {
+        ...b,
+        kind: boothTypeForVendorCategory(v.category),
+        label: VENDOR_CATEGORY_LABEL[v.category],
+        offerings: null,
+        cardItems: null,
+        vendor: {
+          name: v.name,
+          category: v.category,
+          logoUrl: v.logoRef ? (logoUrls[v.logoRef] ?? null) : null,
+          tier: v.tier,
+          slug: v.slug,
+          bookable: v.bookable,
+        },
+      };
+    });
+  } catch {
+    return booths; // any failure → the normal sample demo, never a broken homepage
+  }
+}
+
 export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
   const ev = await getSampleEvent();
   const eventId = ev.event_id;
@@ -192,7 +303,13 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
     venueWidthM: floorPlan.venue_width_m ?? null,
     venueLengthM: floorPlan.venue_length_m ?? null,
     stage: { xPct: floorPlan.stage_x, yPct: floorPlan.stage_y, wPct: floorPlan.stage_w, hPct: floorPlan.stage_h },
-    entrance: { enabled: floorPlan.entrance_enabled, xPct: floorPlan.entrance_x, yPct: floorPlan.entrance_y },
+    entrance: {
+      enabled: floorPlan.entrance_enabled,
+      xPct: floorPlan.entrance_x,
+      yPct: floorPlan.entrance_y,
+      kind: floorPlan.entrance_kind,
+      depthM: floorPlan.entrance_depth_m,
+    },
     dance: {
       enabled: floorPlan.dance_enabled,
       xPct: floorPlan.dance_x,
@@ -231,7 +348,7 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
   const boothLogoUrls: Record<string, string> = Object.fromEntries(
     boothLogoUrlEntries.filter((e): e is [string, string] => e[1] !== null),
   );
-  const booths: Lab3DBooth[] = boothsRaw.map((b) => ({
+  const baseBooths: Lab3DBooth[] = boothsRaw.map((b) => ({
     id: b.booth_id,
     kind: b.booth_type,
     label: b.label,
@@ -250,6 +367,10 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
         }
       : null,
   }));
+  // 3D Booth Ads Part B (flag-gated): rotate real marketplace vendors into the
+  // demo's booths. No-op (returns baseBooths) when the flag is off / pool empty /
+  // on any error, so the public homepage demo is byte-identical by default.
+  const booths = await applyDemoBoothRotation(admin, baseBooths, Date.now());
   const signs: Lab3DSign[] = signsRaw.map((s) => ({
     id: s.sign_id,
     label: s.label,

@@ -7,6 +7,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { loadVendorRecaps } from '@/lib/recap-vendor';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
+import { SaveStoryCardButton } from '@/app/[slug]/recap/_components/save-story-card-button';
 import { canUseSoloBusinessTools } from '@/lib/vendor-tier-caps';
 import { isVendorFeatureGateEnabled, resolveVendorTier } from '@/lib/vendor-feature-gate';
 import { VendorTierGate } from '../_components/tier-gate';
@@ -64,7 +65,7 @@ export default async function VendorRecapsPage() {
       </header>
 
       {recaps.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-ink/20 bg-cream p-8 text-center sm:p-10">
+        <div className="rounded-2xl border border-dashed border-ink/20 p-8 text-center sm:p-10">
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
             Coming soon
           </p>
@@ -85,7 +86,7 @@ export default async function VendorRecapsPage() {
             return (
               <li
                 key={r.eventId}
-                className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-cream p-5"
+                className="sn-row flex flex-col gap-3 p-5"
               >
                 <div>
                   <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
@@ -105,11 +106,22 @@ export default async function VendorRecapsPage() {
                     View the recap
                     <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                   </Link>
-                  <ShareButtons
-                    url={recapUrl}
-                    title={`${r.coupleNames} — a wedding we helped create, on Setnayan`}
-                    image={ogImage}
-                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <ShareButtons
+                      url={recapUrl}
+                      title={`${r.coupleNames} — a wedding we helped create, on Setnayan`}
+                      image={ogImage}
+                    />
+                    {/* File-asset path (share-asset completion 2026-07-17): IG
+                        feed / Stories / TikTok don't take web-URL shares — hand
+                        the vendor the couple's Setnayan-rendered 9:16 story card
+                        (published-gated by loadVendorRecaps + the OG route
+                        itself; carries the "made with Setnayan" mark). */}
+                    <SaveStoryCardButton
+                      storyCardUrl={`${ogImage}?format=story`}
+                      filenameBase={`${r.slug}-recap`}
+                    />
+                  </div>
                 </div>
               </li>
             );

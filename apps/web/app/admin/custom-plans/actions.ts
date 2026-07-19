@@ -82,6 +82,7 @@ function parseComposition(formData: FormData): CustomComposition {
     photos: Math.max(0, Math.floor(num(formData.get('photos'), 300))),
     tokensPerCycle: Math.max(0, Math.floor(num(formData.get('tokensPerCycle'), 0))),
     domain: bool(formData.get('domain')),
+    api_access: bool(formData.get('api_access')),
   };
 }
 
@@ -249,7 +250,7 @@ export async function sendCustomQuote(
     return err('Could not open the quote payment. Please try again.');
   }
 
-  revalidatePath('/admin/custom-plans');
+  revalidatePath('/admin/pricing');
   revalidatePath('/admin/payments');
   return {
     status: 'quoted',
@@ -306,7 +307,7 @@ export async function activateCustomPlan(
     .eq('vendor_profile_id', vendorProfileId);
   if (tierErr) return err('Could not set the vendor tier.');
 
-  revalidatePath('/admin/custom-plans');
+  revalidatePath('/admin/pricing');
   return {
     status: 'activated',
     message: 'Custom tier is now active for this vendor. The composed ceilings are live.',

@@ -58,6 +58,7 @@ import {
   resolveSetnayanAiEventChargeCentavos,
 } from '@/lib/setnayan-ai-event-pricing';
 import { computeVatFromBase, DEFAULT_VAT_RATE_PCT } from '@/lib/receipts';
+import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { getRequestPlatform, isRequestPlatform } from '@/lib/request-platform';
 import { notifyAdminsOrderAwaitingReconciliation } from '@/lib/order-admin-notify';
 
@@ -321,6 +322,25 @@ export async function submitOrderAction(
     if (!membership) {
       return { ok: false, reason: 'You can only check out for your own event.' };
     }
+    // Consent-scoped coordinator checkout (owner 2026-07-19 #5). The membership
+    // check above admits ANY event member — including coordinators. Behind
+    // NEXT_PUBLIC_COORDINATOR_CONSENT_GATE_ENABLED, a non-couple member may
+    // check out only when the couple granted the 'checkout' scope at invite
+    // time (coordinator_access_consents.scopes). Flag OFF = exact current
+    // behavior (helper returns true without reading).
+    const checkoutAllowed = await coordinatorMoneyScopeAllowed(
+      createAdminClient(),
+      eventIdClean as string,
+      user.id,
+      'checkout',
+    );
+    if (!checkoutAllowed) {
+      return {
+        ok: false,
+        reason:
+          'The couple has not approved payment handling for your coordinator access — ask them to re-invite you with payment permission.',
+      };
+    }
   }
 
   // Retired-bundle guard (owner 2026-06-29 "no more essentials and complete").
@@ -488,7 +508,18 @@ export async function submitOrderAction(
   // If the redemption INSERT fails on a UNIQUE-violation race (parallel
   // tab), the couple gets a clear error and the order rolls back too.
 
-  const referenceCode = generateReferenceCode();
+  // Reference code: prefer the client PRE-MINTED code (the drawer shows it
+  // BEFORE the couple leaves to pay, so they can put it in their BDO/GCash
+  // transfer note → the reconciliation matcher pairs the inbound bank message
+  // to this order by reference). Accept it only when well-formed (SN + 8 hex);
+  // otherwise mint one here as before. The code is a non-sensitive tag — a
+  // (astronomically rare) collision just fails this INSERT on the unique
+  // reference_code, it can never hijack another order.
+  const premintedRaw = formData.get('preminted_reference');
+  const referenceCode =
+    typeof premintedRaw === 'string' && /^SN[0-9A-F]{8}$/.test(premintedRaw.trim())
+      ? premintedRaw.trim()
+      : generateReferenceCode();
   const originalPriceForOrderTotal = Number(originalCentavos) / 100;
   // Owner ruling 2026-06-25: catalog prices are PRE-VAT; the couple pays the
   // VAT-INCLUSIVE gross (+12%). computeOrderTotals + the BIR receipt already gross

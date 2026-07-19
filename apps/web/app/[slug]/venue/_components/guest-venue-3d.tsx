@@ -29,6 +29,7 @@ import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { usePlan3dRoom, PLAN3D_SHARED_ROOM_ENABLED, type LocalPlayer } from '@/app/_components/plan3d/use-plan3d-room';
 import { RemotePlayers, LocalMoveBroadcaster } from '@/app/_components/plan3d/plan3d-remote-players';
+import { colorFromId } from '@/lib/plan3d-room';
 import {
   roomSize,
   pctToWorld,
@@ -92,7 +93,7 @@ import {
   ceilingDecorOccupied,
 } from '@/app/_components/plan3d/venue-decor';
 import { sanitizeReceptionDesign, sel } from '@/lib/reception-scene';
-import { coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
+import { coldSparkFrame, coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
 import { SERPENTINE_TOP_GEO } from '@/app/_components/plan3d/kit/serpentine-top';
 
 // A dance target is pulled this far inside the dance-floor edge so the avatar
@@ -105,10 +106,13 @@ export type VenueScene = {
     venueWidthM: number | null;
     venueLengthM: number | null;
     stage: { xPct: number; yPct: number; wPct: number; hPct: number };
-    entrance: { enabled: boolean; xPct: number; yPct: number };
+    // kind/depthM are OPTIONAL: the public_venue_scene payload doesn't carry
+    // the entrance kind yet, so the guest walk defaults to a 'door' (see the
+    // construction below). Present here so a future payload can thread them.
+    entrance: { enabled: boolean; xPct: number; yPct: number; kind?: 'door' | 'tunnel'; depthM?: number };
     dance: { enabled: boolean; xPct: number; yPct: number; wPct: number; hPct: number };
   };
-  tables: { id: string; type: string; capacity: number; xPct: number; yPct: number; rotationDeg: number; removedSeats: number[] }[];
+  tables: { id: string; type: string; capacity: number; xPct: number; yPct: number; rotationDeg: number; removedSeats: number[]; linkGroupId?: string | null }[];
   objects: { kind: string; xPct: number; yPct: number; rotationDeg: number }[];
   /** Vendor booths (v2 payload; absent on an old cached payload → treated as []).
    *  v4 adds `offerings` + a PUBLIC booth-vendor block for the booth card (both
@@ -123,7 +127,7 @@ export type VenueScene = {
     xPct: number;
     yPct: number;
     offerings?: string | null;
-    vendor?: { name: string; category: string; logoUrl: string | null; slug?: string | null } | null;
+    vendor?: { name: string; category: string; logoUrl: string | null; slug?: string | null; bookable?: boolean } | null;
   }[];
   /** Wayfinding signs (v2 payload). */
   signs?: { id: string; label: string; xPct: number; yPct: number; rotationDeg: number }[];
@@ -185,7 +189,10 @@ function GuestTable({
   const dims = useMemo(() => tableDims(table.shape, table.capacity), [table.shape, table.capacity]);
   // Shared placements (seat + facing) — feeds the 2-draw-call InstancedChairs
   // (Wave 2a; same silhouette as the couple lab, replacing the plain cube).
-  const chairs = useMemo(() => chairPlacements(table.shape, table.capacity), [table.shape, table.capacity]);
+  const chairs = useMemo(
+    () => chairPlacements(table.shape, table.capacity, table.linkGroupId != null),
+    [table.shape, table.capacity, table.linkGroupId],
+  );
   const home = useMemo(() => pctToWorld(table.xPct, table.yPct, room), [table.xPct, table.yPct, room]);
   return (
     <group position={[home.x, 0, home.z]} rotation={[0, (-table.rotationDeg * Math.PI) / 180, 0]}>
@@ -455,15 +462,6 @@ function makeSelfId(): string {
   return `g-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
 }
 
-/** Distinct floor-ring colour per player so online people are tell-apart-able —
- *  a small fixed set of pleasant hues, indexed by a hash of the id. */
-const ROOM_PLAYER_COLORS = ['#e0a63c', '#4f9d8f', '#c56a86', '#5b7fb4', '#c98b4b', '#7d6bb0', '#4aa06a', '#c05b52'] as const;
-function colorFromId(id: string): string {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return ROOM_PLAYER_COLORS[h % ROOM_PLAYER_COLORS.length]!;
-}
-
 export default function GuestVenue3D({
   scene,
   eventId,
@@ -495,7 +493,13 @@ export default function GuestVenue3D({
       venueWidthM: scene.floor.venueWidthM,
       venueLengthM: scene.floor.venueLengthM,
       stage: scene.floor.stage,
-      entrance: scene.floor.entrance,
+      entrance: {
+        ...scene.floor.entrance,
+        // v7 public_venue_scene carries entrance kind/depth; keep a fallback for
+        // older / cached payloads so the walk still renders a plain door.
+        kind: scene.floor.entrance.kind ?? 'door',
+        depthM: scene.floor.entrance.depthM ?? 3,
+      },
       dance: scene.floor.dance,
       published: true,
     }),
@@ -525,7 +529,7 @@ export default function GuestVenue3D({
         xPct: t.xPct,
         yPct: t.yPct,
         rotationDeg: t.rotationDeg,
-        linkGroupId: null,
+        linkGroupId: t.linkGroupId ?? null,
       })),
     [scene],
   );
@@ -637,7 +641,7 @@ export default function GuestVenue3D({
     for (const t of tables) {
       const occupied = occByTable.get(t.id);
       if (!occupied || occupied.size === 0) continue;
-      const chairs = chairPlacements(t.shape, t.capacity);
+      const chairs = chairPlacements(t.shape, t.capacity, t.linkGroupId != null);
       const home = pctToWorld(t.xPct, t.yPct, room);
       const tableFaceY = (-t.rotationDeg * Math.PI) / 180;
       const yourSeat = scene.you?.table === t.id ? scene.you.seatNumber : null;
@@ -835,6 +839,54 @@ export default function GuestVenue3D({
           <boxGeometry args={[stageW, 0.3, stageD]} />
           <meshStandardMaterial color={palette.accent} roughness={0.5} metalness={0.1} />
         </mesh>
+
+        {/* Entrance structure — mirrors the couple's 3D lab (seating-lab-3d) so
+            the guest walks through the same entrance they designed. A 'door'
+            renders a shallow frame slab; a 'tunnel' (UI: Walk-through) renders two
+            side walls + a lintel running INWARD from the wall by the couple's
+            depth (clamped by coldSparkFrame so it never crosses the far wall),
+            open inward. Gated on entrance.enabled — a disabled entrance draws
+            nothing (unlike the lab, which always sits at an enabled entrance). */}
+        {floor.entrance.enabled &&
+          (floor.entrance.kind === 'tunnel'
+            ? (() => {
+                const frame = coldSparkFrame(entrance, room);
+                const len = Math.max(1, Math.min(floor.entrance.depthM ?? 3, frame.len));
+                const yaw = Math.atan2(frame.dir.x, frame.dir.z);
+                const HALF_W = 0.7; // interior clear half-width (door mouth is 1.4)
+                const WALL_T = 0.12;
+                const H = 2.2;
+                return (
+                  <group position={[entrance.x, 0, entrance.z]} rotation={[0, yaw, 0]}>
+                    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
+                      <ringGeometry args={[0.55, 0.78, 32]} />
+                      <meshBasicMaterial color={palette.accent} transparent opacity={0.85} side={THREE.DoubleSide} />
+                    </mesh>
+                    {[-1, 1].map((side) => (
+                      <mesh key={side} position={[HALF_W * side, H / 2, len / 2]} castShadow>
+                        <boxGeometry args={[WALL_T, H, len]} />
+                        <meshStandardMaterial color={palette.accent} roughness={0.6} transparent opacity={0.35} />
+                      </mesh>
+                    ))}
+                    <mesh position={[0, H, len / 2]}>
+                      <boxGeometry args={[HALF_W * 2 + WALL_T, WALL_T, len]} />
+                      <meshStandardMaterial color={palette.accent} roughness={0.6} transparent opacity={0.35} />
+                    </mesh>
+                  </group>
+                );
+              })()
+            : (
+                <group position={[entrance.x, 0, entrance.z]}>
+                  <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
+                    <ringGeometry args={[0.55, 0.78, 32]} />
+                    <meshBasicMaterial color={palette.accent} transparent opacity={0.85} side={THREE.DoubleSide} />
+                  </mesh>
+                  <mesh position={[0, 1.1, 0]}>
+                    <boxGeometry args={[1.4, 2.2, 0.12]} />
+                    <meshStandardMaterial color={palette.accent} roughness={0.6} transparent opacity={0.35} />
+                  </mesh>
+                </group>
+              ))}
 
         {/* Dance floor — the mood-board mural (Fable §3.7). This walk had NO
             dance mesh: `floor.dance` fed floorObstacles only, so guests dodged

@@ -147,7 +147,7 @@ export async function saveComplianceFacts(
     return { ok: false, error: error.message };
   }
 
-  revalidatePath('/admin/compliance');
+  revalidatePath('/admin/settings');
   revalidatePath('/admin/compliance/data-sheet');
   return { ok: true };
 }

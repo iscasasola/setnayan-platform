@@ -52,6 +52,16 @@ const FOCUSABLE_SELECTOR = [
 // topmost modal acts on Tab/Escape; the rest stand down until it closes.
 const modalStack: string[] = [];
 
+/**
+ * True while ANY useModalA11y-managed dialog is open. For global shortcuts
+ * (e.g. the launcher's ⌘K palette) that must stand down while a modal —
+ * the AccountSwitcher sheet, a confirm, the palette itself — is on screen,
+ * instead of opening a second layer underneath it.
+ */
+export function anyModalOpen(): boolean {
+  return modalStack.length > 0;
+}
+
 // Reference-counted body-scroll lock so nested modals don't unlock the page
 // when an inner one closes while an outer one is still open.
 let scrollLockCount = 0;

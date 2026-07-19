@@ -48,6 +48,16 @@ import {
 import type { LifecyclePhase } from '@/lib/day-of-mode';
 import { BUDGET_BUILD_TABS, TAB_META } from './budget-build';
 
+/**
+ * Suite nav doorway (owner 2026-07-19: surface name locked = "Suite"; the nav
+ * slot REPLACES Studio, flag-gated via NEXT_PUBLIC_SUITE — same flag that
+ * un-404s /dashboard/[eventId]/suite). NEXT_PUBLIC_* is inlined into the client
+ * bundle at build time, so this neutral module reads the same value on server +
+ * client (no hydration split). Mirrors: customer-nav-config.ts (desktop rail) +
+ * lib/nav-registry-defaults.ts (registry label default).
+ */
+const SUITE_NAV_ON = process.env.NEXT_PUBLIC_SUITE === 'true';
+
 export type CustomerMenuKey =
   // Plan phase
   | 'home' | 'guests' | 'explore' | 'studio' | 'design' | 'budget'
@@ -157,7 +167,10 @@ export function buildCustomerMenuTree(
   if (ctx.phase === 'after') {
     const base = `/dashboard/${eventId}`;
     return [
-      { key: 'home',      label: 'Home',      icon: Home,      href: base,                              activeMatch: base,                              activeMatchExact: true },
+      // Overview (was mislabelled 'Home' — the Home→Overview rename missed this
+      // after-phase branch; the plan-phase menu + the registry default are
+      // 'Overview'). Key + route + exact-match unchanged.
+      { key: 'home',      label: 'Overview', icon: Home,      href: base,                              activeMatch: base,                              activeMatchExact: true },
       { key: 'review',    label: 'Review',    icon: Star,      href: `${base}/vendors`,                 activeMatch: `${base}/vendors`                                         },
       { key: 'editorial', label: 'Editorial', icon: Newspaper, href: `${base}/website/editorial`,       activeMatch: `${base}/website/editorial`                               },
       { key: 'galleries', label: 'Galleries', icon: Images,    href: `${base}/galleries`,               activeMatch: `${base}/galleries`                                       },
@@ -224,14 +237,31 @@ export function buildCustomerMenuTree(
       })),
     },
     {
+      // SUITE SWAP (owner 2026-07-19: name locked = "Suite"; nav doorway
+      // REPLACES Studio, flag-gated via NEXT_PUBLIC_SUITE — the same flag that
+      // un-404s /dashboard/[eventId]/suite). Flag ON → this tab is the Suite
+      // doorway (`${base}/suite`); flag OFF → Studio exactly as today. KEY stays
+      // 'studio' (stable: hideKeys gating + the customer.bottom-nav.studio
+      // registry slot key off it — that slot's code default carries the same
+      // flag-gated rename in lib/nav-registry-defaults.ts). /studio routes stay
+      // reachable either way — activeMatch keeps every studio prefix so a
+      // deep-linked /studio page still lights this tab, and sectionMatch stays
+      // on the /studio hub so its docked anchor sub-nav keeps working there.
       key: 'studio',
-      label: 'Studio',
+      label: SUITE_NAV_ON ? 'Suite' : 'Studio',
       icon: Sparkles,
-      href: `${base}/studio`,
+      href: SUITE_NAV_ON ? `${base}/suite` : `${base}/studio`,
       // Studio ABSORBED Design (owner 2026-06-17 customer-menu redesign → 5 menus,
       // no standalone Design tab; /design redirects here). activeMatch covers the
-      // former Design routes too so the Studio tab lights across them.
-      activeMatch: [`${base}/studio`, `${base}/design`, `/site-editor/${eventId}`, `${base}/monogram`],
+      // former Design routes too so the Studio tab lights across them (+ /suite
+      // when the Suite doorway is on).
+      activeMatch: [
+        ...(SUITE_NAV_ON ? [`${base}/suite`] : []),
+        `${base}/studio`,
+        `${base}/design`,
+        `/site-editor/${eventId}`,
+        `${base}/monogram`,
+      ],
       // The 4 Studio sections are the docked sub-nav — anchor children scrolling to
       // the regrouped /add-ons hub (lib/add-ons-catalog.ts studioGroup + the
       // SECTIONS ids). Exact /add-ons only: the anchors live on the hub; add-on

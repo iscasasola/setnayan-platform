@@ -255,7 +255,7 @@ export default async function AdminVendorTokensPage({
       )}
 
       {/* Wallet snapshot */}
-      <section className="mb-6 rounded-md border border-ink/10 bg-cream p-4">
+      <section className="mb-6 rounded-md border border-white/60 bg-white/70 p-4">
         <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.15em] text-ink/60">
           Wallet snapshot
         </h2>

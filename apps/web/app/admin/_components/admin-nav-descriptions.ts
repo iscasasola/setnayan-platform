@@ -59,6 +59,8 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   // ── Accounts group (key 'directory') ──────────────────────────────────
   users:
     'All accounts across customer, vendor, and admin roles. Issue comp grants, reset passwords, suspend.',
+  'founder-seats':
+    'Up to 10 owner-granted founder accounts — all features comped, token-free vendor inquiries, founder badge.',
   vendors:
     'Vendor profiles directory. Edit business details, override visibility, and review tier state.',
   'demo-vendors':
@@ -71,7 +73,10 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   // ── Studio group (key 'media') — Content lane then Marketing lane ──────
   website:
     'Marketing site widget visibility and content toggles. Manage the public homepage and footer.',
-  'hero-video': 'The public homepage hero video — upload, swap, and preview.',
+  'background-videos':
+    'Upload and manage the homepage hero + pillar loop videos — the live pipeline behind the public landing page.',
+  'hero-video':
+    'The /login left-panel hero still — upload a video; its first frame becomes the sign-in page image. (The public homepage hero runs on Background videos, not this.)',
   'reveal-studio': 'The Save-the-Date cinematic reveal openings — design and manage.',
   'real-stories':
     'Feature and order which consented wedding editorials surface on the public /realstories page, and pick the hero.',
@@ -106,6 +111,8 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
     'Your platform at a glance — growth, health, and where to focus next.',
   growth: 'The growth dashboard — sign-ups, activation, and retention.',
   intelligence: 'Market intelligence — demand signals and category trends.',
+  demand:
+    'Demand Radar — all-markets demand: month heat, top regions, hot looks, and event types. The admin view of the vendor Market Intel feature (Pro-and-up).',
   seo: 'SEO & GEO — nightly llms.txt-vs-catalog drift audit, route/token coverage, and Search Console trend.',
   funnels: 'Conversion funnels — where couples and vendors drop off.',
   'operations-hiring': 'Operations and hiring metrics — throughput and capacity.',
@@ -120,7 +127,8 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   addons: 'Attachable add-on SKUs and their availability.',
   'vendor-recommendations':
     'The vendor-leaf → recommendable-SKU map and its two-way curation review queue.',
-  'token-bands': 'Vendor token pricing bands by location tier.',
+  'token-bands':
+    'Per-inquiry token burn — flat 1 everywhere since the 2026-07-11 lock. Edit only to change the platform-wide burn.',
   'price-bands': 'Price bands used across the catalog.',
   'budget-planner': 'The couple budget-planner reference table and defaults.',
   receipts: 'Issued receipts and BIR-facing records.',

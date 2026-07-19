@@ -1,33 +1,130 @@
+import { Suspense, type ReactNode } from 'react';
+import Link from 'next/link';
+import { Shapes, Compass, BookOpen, Brain } from 'lucide-react';
+import { ListPageSkeleton, TablePageSkeleton } from '@/components/skeletons';
+import { requireAdmin } from '@/lib/admin/require-admin';
+import { MenusSurface } from './_surfaces/menus-surface';
+import { OnboardingSurface } from './_surfaces/onboarding-surface';
+import { WeddingTraditionsSurface } from './_surfaces/wedding-traditions-surface';
+import { BrainSurface } from './_surfaces/brain-surface';
+
 /**
- * /admin/ugat — the Ugat Console hub landing (6-menu respine 2026-07-09).
+ * Ugat Studio — the tabbed /admin/ugat shell that consolidates the Ugat
+ * Console's data-structure config pages into ONE surface (Money-split-style
+ * fold · 2026-07-10). Four tabs: Menus & icons (shell/default) · Onboarding ·
+ * Traditions · AI brain. Replaces the former card-hub landing.
  *
- * WHY: the owner's "integrate different pages, make it up to 6 menus only"
- * directive collapses the desktop sidebar to six menu rows, each landing on
- * one integrated surface. Ugat Console (the data-structure / mapping wing
- * carved out of System Settings on 2026-07-04) had no landing of its own —
- * its five pages were reachable only as always-visible sidebar links. This
- * hub is that landing: one card per Ugat surface, desktop AND mobile.
+ * TAXONOMY is DELIBERATELY NOT a tab — /admin/taxonomy is already its own
+ * ?view= studio, and folding it would collide ?view with the studio ?tab (the
+ * add-ons collision lesson); it stays a standalone Ugat sidebar link.
  *
- * Items derive from the canonical ADMIN_NAV_GROUPS 'ugat' group + the shared
- * descriptions map — no hand-maintained duplicate list, so the hub can never
- * drift from the sidebar per [[feedback_setnayan_orphan_prevention]].
+ * Unlike the Catalog/Settings shells, /admin/ugat does NOT equal any tab's
+ * legacy route (menus lives at /admin/menus), so there's no shell-path
+ * matchPrefix collision — each folded sidebar row keeps a normal matchPrefix
+ * on its own legacy path.
+ *
+ * force-dynamic: the surfaces do createAdminClient reads + the folded actions
+ * revalidatePath('/admin/ugat'), so the shell must never be statically served.
  */
+export const dynamic = 'force-dynamic';
 
-import { ADMIN_NAV_GROUPS } from '../_components/admin-sidebar';
-import { MobileLandingGrid } from '../_components/mobile-landing-grid';
-import { adaptAdminGroupItems } from '../_components/admin-nav-descriptions';
+const TABS = ['menus', 'onboarding', 'wedding-traditions', 'brain'] as const;
+type Tab = (typeof TABS)[number];
 
-export const metadata = { title: 'Ugat Console · Setnayan HQ' };
+function first(v: string | string[] | undefined): string | undefined {
+  return Array.isArray(v) ? v[0] : v;
+}
 
-export default function AdminUgatHub() {
-  const items = adaptAdminGroupItems(ADMIN_NAV_GROUPS, 'ugat');
+function coerceTab(v: string | undefined): Tab {
+  return (TABS as readonly string[]).includes(v ?? '') ? (v as Tab) : 'menus';
+}
+
+const TAB_STRIP: { key: Tab; label: string; icon: typeof Shapes }[] = [
+  { key: 'menus', label: 'Menus & icons', icon: Shapes },
+  { key: 'onboarding', label: 'Onboarding', icon: Compass },
+  { key: 'wedding-traditions', label: 'Traditions', icon: BookOpen },
+  { key: 'brain', label: 'AI brain', icon: Brain },
+];
+
+const TAB_TITLE: Record<Tab, string> = {
+  menus: 'Menus & icons',
+  onboarding: 'Onboarding',
+  'wedding-traditions': 'Wedding traditions',
+  brain: 'Setnayan AI brain',
+};
+
+function tabSkeleton(tab: Tab): ReactNode {
+  return tab === 'brain' ? <TablePageSkeleton /> : <ListPageSkeleton />;
+}
+
+type Props = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export async function generateMetadata({ searchParams }: Props) {
+  const tab = coerceTab(first((await searchParams).tab));
+  return { title: `${TAB_TITLE[tab]} · Admin` };
+}
+
+function activeSurface(
+  tab: Tab,
+  search: Record<string, string | string[] | undefined>,
+): ReactNode {
+  switch (tab) {
+    case 'onboarding':
+      // Flash pair — forward or the Saved./error banners stop rendering.
+      return (
+        <OnboardingSurface
+          searchParams={Promise.resolve({
+            saved: first(search.saved),
+            error: first(search.error),
+          })}
+        />
+      );
+    case 'wedding-traditions':
+      return <WeddingTraditionsSurface />;
+    case 'brain':
+      return <BrainSurface />;
+    default:
+      return <MenusSurface />;
+  }
+}
+
+export default async function UgatStudioPage({ searchParams }: Props) {
+  await requireAdmin();
+  const search = await searchParams;
+  const tab = coerceTab(first(search.tab));
 
   return (
-    <MobileLandingGrid
-      desktopVisible
-      title="Ugat Console"
-      subtitle="The platform's roots — taxonomy, menus and icons, onboarding flows, wedding traditions, and the Setnayan AI brain."
-      items={items}
-    />
+    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
+      <nav
+        aria-label="Ugat Console sections"
+        className="mb-6 flex flex-wrap gap-1.5 border-b border-ink/10 pb-3"
+      >
+        {TAB_STRIP.map((t) => {
+          const active = t.key === tab;
+          const Icon = t.icon;
+          return (
+            <Link
+              key={t.key}
+              href={`/admin/ugat?tab=${t.key}`}
+              aria-current={active ? 'page' : undefined}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                active
+                  ? 'bg-terracotta/10 text-terracotta-700'
+                  : 'text-ink/65 hover:bg-ink/5 hover:text-ink'
+              }`}
+            >
+              <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+              {t.label}
+            </Link>
+          );
+        })}
+      </nav>
+
+      <Suspense key={tab} fallback={tabSkeleton(tab)}>
+        {activeSurface(tab, search)}
+      </Suspense>
+    </div>
   );
 }

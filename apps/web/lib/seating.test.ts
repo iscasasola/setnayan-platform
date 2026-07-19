@@ -26,7 +26,18 @@ import {
   type KeepApartRule,
   type RecommendGuest,
   type SeatAssignmentRow,
+  nextTableName,
+  boxesOverlap,
+  boxOverlapsRect,
+  serpentinesJoined,
+  serpentineChainSnap,
+  serpentineEndsWorld,
+  rectRunsJoined,
+  rectEndsWorld,
+  boothPresenceLabel,
+  SETNAYAN_BOOTH_PROMO_LABEL,
 } from './seating';
+import { BOOKED_VENDOR_STATUSES } from './vendors';
 
 // Checked index access — the repo typechecks with noUncheckedIndexedAccess, so a
 // bare units[i] is T | undefined. Asserts presence and returns the element.
@@ -645,4 +656,176 @@ test('even flag is a no-op for non-serpentine shapes', () => {
       `${shape} must ignore the even flag`,
     );
   }
+});
+
+// ---------------------------------------------------------------------------
+// nextTableName — auto-incrementing default (fix for "six tables all Table 5")
+// ---------------------------------------------------------------------------
+
+test('nextTableName: empty floor → Table 1', () => {
+  assert.equal(nextTableName([]), 'Table 1');
+});
+
+test('nextTableName: increments past the used numbers', () => {
+  assert.equal(nextTableName(['Table 1', 'Table 2', 'Table 3']), 'Table 4');
+});
+
+test('nextTableName: fills the lowest gap (deleting Table 2 reuses it)', () => {
+  assert.equal(nextTableName(['Table 1', 'Table 3']), 'Table 2');
+});
+
+test('nextTableName: ignores custom names, only counts "Table N"', () => {
+  assert.equal(nextTableName(['Sponsors 1', 'Ninong & Ninang', 'Table 1']), 'Table 2');
+  // custom names alone → still starts at 1
+  assert.equal(nextTableName(['Head Table', 'VIPs']), 'Table 1');
+});
+
+test('nextTableName: tolerant of whitespace / case / nullish', () => {
+  assert.equal(nextTableName(['  table 1 ', null, undefined, 'TABLE 2']), 'Table 3');
+});
+
+// ---------------------------------------------------------------------------
+// Footprint collision — box overlap incl. chair rings, and box vs zone rect.
+// ---------------------------------------------------------------------------
+
+test('boxesOverlap: overlapping boxes collide, separated ones do not', () => {
+  const a = { w: 100, h: 100 };
+  const b = { w: 100, h: 100 };
+  assert.equal(boxesOverlap(0, 0, a, 50, 0, b), true); // centres 50 apart, half-widths sum 100
+  assert.equal(boxesOverlap(0, 0, a, 100, 0, b), false); // exactly touching edges → not < 
+  assert.equal(boxesOverlap(0, 0, a, 200, 0, b), false);
+});
+
+test('boxesOverlap: the breathing gap widens the collision band', () => {
+  const a = { w: 100, h: 100 };
+  const b = { w: 100, h: 100 };
+  assert.equal(boxesOverlap(0, 0, a, 105, 0, b, 0), false); // 105 > 100 → clear
+  assert.equal(boxesOverlap(0, 0, a, 105, 0, b, 10), true); // +10 aisle → collides
+});
+
+test("boxesOverlap uses the chair-inclusive footprint: two round tables whose CHAIRS interpenetrate collide", () => {
+  // A round's box spans the seat ring + pad, so hub-to-hub distance well inside
+  // the box sum is a real "chairs touch" collision — the owner-reported stack.
+  const geo = tableGeometry('round', 10).box; // includes the chair ring
+  // Place two identical rounds hub-to-hub at 60% of a box-width apart: tabletops
+  // clear, but the chair rings (and thus the boxes) overlap.
+  const d = geo.w * 0.6;
+  assert.equal(boxesOverlap(0, 0, geo, d, 0, geo), true);
+  // Move them a full box-width apart → chairs clear, no collision.
+  assert.equal(boxesOverlap(0, 0, geo, geo.w + 1, 0, geo), false);
+});
+
+test('boxOverlapsRect: a table over a dance-floor zone is a collision', () => {
+  const table = { w: 80, h: 80 };
+  const zone = { x: 200, y: 200, w: 120, h: 120 };
+  assert.equal(boxOverlapsRect(200, 200, table, zone), true); // dead centre
+  assert.equal(boxOverlapsRect(180, 180, table, zone), true); // edge overlap
+  assert.equal(boxOverlapsRect(400, 400, table, zone), false); // clear
+});
+
+// ---------------------------------------------------------------------------
+// Sanctioned chain contact — the ONE overlap that isn't a collision.
+// ---------------------------------------------------------------------------
+
+test('serpentinesJoined: a snapped tip-join reads as joined; a shoved-together overlap does not', () => {
+  const anchor = { x: 500, y: 500, rot: 0, scale: 1 };
+  // Snap a wedge onto the anchor: its tips coincide with the anchor's exactly.
+  const snap = serpentineChainSnap({ x: 500 + 170, y: 500 }, [anchor], 200);
+  assert.ok(snap, 'a near-tip drop must snap');
+  const joined = { ...snap!, scale: 1 };
+  assert.equal(serpentinesJoined(joined, anchor), true);
+  // Sanity: the snapped tips really are coincident (the join math itself).
+  let minTip = Infinity;
+  for (const p of serpentineEndsWorld(joined))
+    for (const q of serpentineEndsWorld(anchor))
+      minTip = Math.min(minTip, Math.hypot(p.x - q.x, p.y - q.y));
+  assert.ok(minTip < 1e-6, `snapped tips must coincide, got ${minTip}`);
+  // Two wedges shoved body-over-body (bodies intersect mid-curve, tips far from
+  // the anchor's tips) must NOT count as joined — that's the overlap the
+  // collision pass now catches. 60 px down pushes both tips ~60 px off the
+  // anchor's, well outside the 18 px join tolerance.
+  const stacked = { x: 500, y: 560, rot: 0, scale: 1 };
+  let minStack = Infinity;
+  for (const p of serpentineEndsWorld(stacked))
+    for (const q of serpentineEndsWorld(anchor))
+      minStack = Math.min(minStack, Math.hypot(p.x - q.x, p.y - q.y));
+  assert.ok(minStack > 18, `stacked tips must be beyond the join tol, got ${minStack}`);
+  assert.equal(serpentinesJoined(stacked, anchor), false);
+});
+
+test('serpentinesJoined: both circle-continue and S-bend snapped joins are recognised', () => {
+  const anchor = { x: 400, y: 400, rot: 0, scale: 1 };
+  const rots = new Set<number>();
+  for (let deg = 0; deg < 360; deg += 10) {
+    const probe = {
+      x: anchor.x + 190 * Math.cos((deg * Math.PI) / 180),
+      y: anchor.y + 190 * Math.sin((deg * Math.PI) / 180),
+    };
+    const snap = serpentineChainSnap(probe, [anchor], 160);
+    if (!snap) continue;
+    assert.equal(serpentinesJoined({ ...snap, scale: 1 }, anchor), true);
+    rots.add(Math.round(((snap.rot % 360) + 360) % 360));
+  }
+  assert.ok(rots.has(180), 'S-bend join offered');
+  assert.ok([...rots].some((r) => r !== 180), 'circle-continue join offered');
+});
+
+test('rectRunsJoined: flush end-to-end join is joined; a crossing overlap is not', () => {
+  const halfLen = 88;
+  const a = { x: 0, y: 0, rot: 0, halfLen };
+  // b sits exactly one run to the right: its left end meets a's right end.
+  const b = { x: 2 * halfLen, y: 0, rot: 0, halfLen };
+  assert.equal(rectRunsJoined(a, b), true);
+  // Verify the flush seam: a's +end coincides with b's -end.
+  const ea = rectEndsWorld(a);
+  const eb = rectEndsWorld(b);
+  let minEnd = Infinity;
+  for (const p of ea) for (const q of eb) minEnd = Math.min(minEnd, Math.hypot(p.x - q.x, p.y - q.y));
+  assert.ok(minEnd < 1e-6, `flush ends must coincide, got ${minEnd}`);
+  // Two runs crossing at their centres (bodies overlap, ends far apart) → not joined.
+  const crossing = { x: 0, y: 0, rot: 90, halfLen };
+  assert.equal(rectRunsJoined(a, crossing), false);
+});
+
+// ---------------------------------------------------------------------------
+// Vendor presence / Setnayan promotion default (owner directive 2026-07-16).
+// A booth slot shows a FINALIZED vendor's name when linked, and defaults to the
+// Setnayan promotion label otherwise — the data-driven rule shared by the 2D
+// blueprint marker and the 3D booth sign so the two projections never diverge.
+// ---------------------------------------------------------------------------
+
+test('boothPresenceLabel — a finalized-vendor booth shows the vendor name', () => {
+  assert.equal(
+    boothPresenceLabel({ event_vendor_id: 'S89V-abc', label: 'Bloom & Co' }),
+    'Bloom & Co',
+  );
+});
+
+test('boothPresenceLabel — an OPEN slot (no vendor) defaults to Setnayan promotion', () => {
+  assert.equal(
+    boothPresenceLabel({ event_vendor_id: null, label: 'Front Desk' }),
+    SETNAYAN_BOOTH_PROMO_LABEL,
+  );
+  // The default never leaks a stale station label — it is always the brand.
+  assert.equal(SETNAYAN_BOOTH_PROMO_LABEL, 'SETNAYAN');
+});
+
+test('boothPresenceLabel — an empty vendor id string is treated as unassigned', () => {
+  // Defensive: only a truthy id links a booth; '' must fall to the promo default
+  // (mirrors the editor/save-path, which nulls empty ids before persisting).
+  assert.equal(
+    boothPresenceLabel({ event_vendor_id: '' as unknown as string, label: 'X' }),
+    SETNAYAN_BOOTH_PROMO_LABEL,
+  );
+});
+
+test('finalized gate — only committed statuses count as placeable vendors', () => {
+  // The booth picker + the save-path guard offer/accept ONLY these statuses.
+  // 'considering' / 'shortlisted' are still candidates and must never place.
+  assert.deepEqual(
+    [...BOOKED_VENDOR_STATUSES].sort(),
+    ['complete', 'contracted', 'delivered', 'deposit_paid'],
+  );
+  assert.ok(!(BOOKED_VENDOR_STATUSES as readonly string[]).includes('considering'));
+  assert.ok(!(BOOKED_VENDOR_STATUSES as readonly string[]).includes('shortlisted'));
 });

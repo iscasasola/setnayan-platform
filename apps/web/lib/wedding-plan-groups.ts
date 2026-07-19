@@ -1006,7 +1006,7 @@ export type EventVendorRowInput = {
 
 /**
  * Ceremony-type readable label for the inline compat-mismatch chip
- * copy. Matches the wording in ceremony-type-chip.tsx so the host sees
+ * copy. Matches the ceremony-type wording used across the dashboard so the host sees
  * consistent terminology across the dashboard.
  */
 const CEREMONY_TYPE_READABLE_LABEL: Record<string, string> = {

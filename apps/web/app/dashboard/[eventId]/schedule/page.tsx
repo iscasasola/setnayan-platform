@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { Plus, Trash2, Eye, EyeOff, MapPin, CalendarClock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { seedNonWeddingRunOfShow } from './actions';
 import {
   SCHEDULE_BLOCK_LABEL,
   SCHEDULE_BLOCK_TYPES,
@@ -10,6 +11,7 @@ import {
   type ScheduleBlockRow,
 } from '@/lib/schedule';
 import { fetchPreparationAgenda } from '@/lib/preparation';
+import { buildJourneyTimeline } from '@/lib/journey';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { term } from '@/lib/event-term-copy';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -31,12 +33,16 @@ import { BlockTimeEditor } from './_components/block-time-editor';
 import { ScheduleModeToggle } from './_components/schedule-mode-toggle';
 import { EmceeScriptButton } from './_components/emcee-script-button';
 import { PreparationAgendaView } from './_components/preparation-agenda';
+// Journey mode — the full event-lifecycle arc (creation → the day →
+// editorial), a phase-grouped read-only view over the same agenda data plus
+// three lifecycle bookends. See lib/journey.ts.
+import { JourneyView } from './_components/journey-view';
 import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
 
 export const metadata = { title: 'Schedule' };
 
-type ScheduleView = 'preparation' | 'event-day';
+type ScheduleView = 'journey' | 'preparation' | 'event-day';
 
 type Props = {
   params: Promise<{ eventId: string }>;
@@ -57,10 +63,10 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // the day-of blocks, and the aggregated Preparation agenda in parallel.
   // Defensive maybeSingle — a missing event row falls through to nulls,
   // which the agenda treats as "no wedding date yet".
-  const [eventRes, blocks, suggestionsRes] = await Promise.all([
+  const [eventRes, blocks, suggestionsRes, recapRes] = await Promise.all([
     supabase
       .from('events')
-      .select('event_id, event_date, ceremony_type, event_type')
+      .select('event_id, event_date, ceremony_type, event_type, created_at')
       .eq('event_id', eventId)
       .maybeSingle(),
     fetchScheduleBlocks(supabase, eventId),
@@ -75,6 +81,14 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       .eq('event_id', eventId)
       .eq('status', 'open')
       .order('created_at', { ascending: true }),
+    // Recap publish row — the Journey mode's editorial bookend. RLS lets the
+    // couple/coordinator read their own row; a missing table (pre-migration)
+    // or absent row both fall through to null (no editorial anchor yet).
+    supabase
+      .from('event_recaps')
+      .select('status, published_at')
+      .eq('event_id', eventId)
+      .maybeSingle(),
   ]);
   const openSuggestions = (suggestionsRes.data ?? []) as VendorSuggestion[];
   const eventRow = eventRes.data as
@@ -83,31 +97,70 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
         event_date: string | null;
         ceremony_type: string | null;
         event_type: string | null;
+        created_at: string | null;
       }
     | null;
   const eventDate = eventRow?.event_date ?? null;
   const ceremonyType = eventRow?.ceremony_type ?? null;
+
+  // Run-of-Show first-open seed (owner 2026-07-12: Run-of-Show is FREE). A
+  // NON-WEDDING event that opens its schedule with zero blocks gets a per-type
+  // Filipino program authored from its captured onboarding signals; weddings keep
+  // their own (separate) spine and are untouched. Only pays the seed cost on the
+  // first open — once any block exists this branch is skipped, so steady-state
+  // schedule loads are unchanged.
+  let scheduleBlocks = blocks;
+  if (
+    scheduleBlocks.length === 0 &&
+    (eventRow?.event_type ?? 'wedding') !== 'wedding'
+  ) {
+    const seeded = await seedNonWeddingRunOfShow(eventId);
+    if (seeded > 0) scheduleBlocks = await fetchScheduleBlocks(supabase, eventId);
+  }
   // Iteration 0053 P4 Unit 1: only marriage-profile events get PH statutory
   // milestones in the agenda. Wedding → 'ph_marriage' → statutory true (byte-
   // identical); non-wedding → null → no PSA/CENOMAR/marriage-license rows.
   const profile = await resolveProfile(eventRow?.event_type ?? 'wedding');
   const statutory = profile.statutoryPackKey === 'ph_marriage';
 
+  const now = new Date();
   const agenda = await fetchPreparationAgenda({
     supabase,
     eventId,
     eventDate,
     ceremonyType,
-    now: new Date(),
+    now,
     statutory,
+  });
+
+  // Journey mode — the full event-lifecycle arc. Reuses the agenda for the
+  // middle and adds three lifecycle bookends: creation (events.created_at),
+  // the day (events.event_date), and the editorial (event_recaps.published_at).
+  // The editorial anchor only counts when the recap is actually PUBLISHED —
+  // a draft/unpublished row leaves the arc's end as a forward placeholder.
+  const recapRow = recapRes.data as { status: string; published_at: string | null } | null;
+  const recapPublishedAt =
+    recapRow?.status === 'published' ? (recapRow.published_at ?? null) : null;
+  const journey = buildJourneyTimeline({
+    eventId,
+    agenda,
+    createdAt: eventRow?.created_at ?? null,
+    eventDate,
+    recapPublishedAt,
+    now,
+    copy: {
+      dayLabel: term(profile, { wedding: 'your wedding day', generic: 'your event day' }),
+      eventNoun: term(profile, { wedding: 'wedding', generic: 'event' }),
+    },
   });
 
   // Resolve the active view. Explicit `?view=` wins (bookmarkable). With no
   // param, default to Preparation when there's something to prepare; else
   // open straight on the day-of timeline so empty-prep couples aren't met
-  // with a blank agenda.
+  // with a blank agenda. (Journey is opt-in via its segment — it never
+  // becomes the silent default, to keep the existing landing behavior.)
   const active: ScheduleView =
-    viewParam === 'preparation' || viewParam === 'event-day'
+    viewParam === 'journey' || viewParam === 'preparation' || viewParam === 'event-day'
       ? viewParam
       : agenda.items.length > 0
         ? 'preparation'
@@ -115,7 +168,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
 
   // Run-of-show header rows (now/next/±N) off the shared run-state. Top-level
   // blocks only — the header tracks the headline timeline, not sub-parts.
-  const runOfShowBlocks: RunOfShowBlock[] = blocks
+  const runOfShowBlocks: RunOfShowBlock[] = scheduleBlocks
     .filter((b) => b.parent_block_id === null)
     .map((b) => ({
       block_id: b.block_id,
@@ -129,27 +182,47 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
 
   return (
     <section className="space-y-6">
-      <header className="space-y-3">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Schedule</h1>
+      <header className="sn-reveal space-y-3">
+        <div>
+          <p className="sn-eye">Timeline</p>
+          <h1 className="sn-h1 mt-1.5">Schedule</h1>
+        </div>
         <p className="max-w-prose text-base text-ink/65">
-          {active === 'preparation'
+          {active === 'journey'
             ? term(profile, {
                 wedding:
-                  'Your run-up to the wedding — every dated step, gathered from your payments, paperwork, and vendor meetings, sorted by month. Read-only here; tap any item to manage it on its own page.',
+                  'The whole arc of your wedding — from the day you started planning, through every dated step, to the big day and the editorial you publish afterward. Your story, on one continuous timeline.',
                 generic:
-                  'Your run-up to the event — every dated step, gathered from your payments, paperwork, and vendor meetings, sorted by month. Read-only here; tap any item to manage it on its own page.',
+                  'The whole arc of your event — from the day you started planning, through every dated step, to the day itself and the editorial you publish afterward. Your story, on one continuous timeline.',
               })
-            : term(profile, {
-                wedding:
-                  'Build your wedding-day timeline. Public blocks show up on every guest’s invitation site with a live “happening now” highlight as the day unfolds. Drafts stay private until you flip them visible.',
-                generic:
-                  'Build your event-day timeline. Public blocks show up on every guest’s invitation site with a live “happening now” highlight as the day unfolds. Drafts stay private until you flip them visible.',
-              })}
+            : active === 'preparation'
+              ? term(profile, {
+                  wedding:
+                    'Your run-up to the wedding — every dated step, gathered from your payments, paperwork, and vendor meetings, sorted by month. Read-only here; tap any item to manage it on its own page.',
+                  generic:
+                    'Your run-up to the event — every dated step, gathered from your payments, paperwork, and vendor meetings, sorted by month. Read-only here; tap any item to manage it on its own page.',
+                })
+              : term(profile, {
+                  wedding:
+                    'Build your wedding-day timeline. Public blocks show up on every guest’s invitation site with a live “happening now” highlight as the day unfolds. Drafts stay private until you flip them visible.',
+                  generic:
+                    'Build your event-day timeline. Public blocks show up on every guest’s invitation site with a live “happening now” highlight as the day unfolds. Drafts stay private until you flip them visible.',
+                })}
         </p>
-        <ScheduleModeToggle active={active} prepCount={agenda.items.length} />
+        <ScheduleModeToggle
+          active={active}
+          prepCount={agenda.items.length}
+          journeyCount={journey.totalEntries}
+        />
       </header>
 
-      {active === 'preparation' ? (
+      {active === 'journey' ? (
+        <JourneyView
+          timeline={journey}
+          hasEventDate={eventDate !== null}
+          eventId={eventId}
+        />
+      ) : active === 'preparation' ? (
         <PreparationAgendaView
           eventId={eventId}
           agenda={agenda}
@@ -166,20 +239,20 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
           <VendorSuggestionsQueue
             eventId={eventId}
             suggestions={openSuggestions}
-            blocks={blocks}
+            blocks={scheduleBlocks}
           />
           {/* Emcee script — compiles this timeline + the wedding-party names
            *  into a clean host script (copy / download). Read-only over the
            *  saved program; pure compiler in lib/emcee-script. */}
-          {blocks.length > 0 ? (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-ink/10 bg-cream px-4 py-3">
+          {scheduleBlocks.length > 0 ? (
+            <div className="sn-row flex flex-wrap items-center justify-between gap-2 px-4 py-3">
               <p className="text-sm text-ink/65">
                 Turn this timeline into a ready-to-read emcee / host script.
               </p>
               <EmceeScriptButton eventId={eventId} />
             </div>
           ) : null}
-          <EventDayView eventId={eventId} blocks={blocks} />
+          <EventDayView eventId={eventId} blocks={scheduleBlocks} />
         </>
       )}
     </section>
@@ -307,16 +380,47 @@ function EventDayView({
   blocks: ScheduleBlockRow[];
 }) {
   const publicCount = blocks.filter((b) => b.is_public).length;
+  // "Next up" (Glass PR-3 §3.1) — the imminent block: the first one that hasn't
+  // started yet, else the first block. Real data; drives both the glass strip
+  // and the gold accent on its row in the timeline below.
+  const now = Date.now();
+  const nextBlock =
+    blocks.find((b) => new Date(b.start_at).getTime() >= now) ?? blocks[0] ?? null;
   return (
     <div className="space-y-6">
       <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
         {blocks.length} block{blocks.length === 1 ? '' : 's'} · {publicCount} public
       </p>
 
+      {/* Next-up glass strip — the imminent block, mono time. */}
+      {nextBlock ? (
+        <div className="sn-tile sn-reveal flex flex-wrap items-center gap-3">
+          <span
+            aria-hidden
+            className="flex h-10 w-10 flex-none items-center justify-center rounded-full"
+            style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-700)' }}
+          >
+            <CalendarClock className="h-5 w-5" strokeWidth={1.75} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="sn-eye">Next up</p>
+            <p className="mt-0.5 truncate text-base font-bold text-ink">
+              {nextBlock.label}
+            </p>
+            <p className="mt-0.5 truncate font-mono text-xs text-ink/60">
+              {nextBlock.end_at
+                ? formatBlockTimeRange(nextBlock.start_at, nextBlock.end_at)
+                : formatBlockTime(nextBlock.start_at)}
+              {nextBlock.location ? ` · ${nextBlock.location}` : ''}
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       <AddBlockForm eventId={eventId} />
 
       {blocks.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">
+        <div className="sn-row border-dashed p-8 text-center">
           <CalendarClock
             aria-hidden
             className="mx-auto mb-2 h-6 w-6 text-ink/30"
@@ -332,7 +436,11 @@ function EventDayView({
         <ul className="space-y-3">
           {blocks.map((b) => (
             <li key={b.block_id}>
-              <BlockCard eventId={eventId} block={b} />
+              <BlockCard
+                eventId={eventId}
+                block={b}
+                imminent={nextBlock?.block_id === b.block_id}
+              />
             </li>
           ))}
         </ul>
@@ -343,7 +451,7 @@ function EventDayView({
 
 function AddBlockForm({ eventId }: { eventId: string }) {
   return (
-    <details className="rounded-xl border border-ink/10 bg-cream">
+    <details className="sn-row">
       <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium">
         <Plus aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2} />
         Add a block
@@ -428,7 +536,15 @@ function AddBlockForm({ eventId }: { eventId: string }) {
   );
 }
 
-function BlockCard({ eventId, block }: { eventId: string; block: ScheduleBlockRow }) {
+function BlockCard({
+  eventId,
+  block,
+  imminent = false,
+}: {
+  eventId: string;
+  block: ScheduleBlockRow;
+  imminent?: boolean;
+}) {
   // Pre-format the time/range string the same way the prior static
   // surface did, then hand off to the BlockTimeEditor client component
   // which owns the view→edit toggle. Keeps the SCHEDULE_BLOCK_LABEL +
@@ -438,7 +554,14 @@ function BlockCard({ eventId, block }: { eventId: string; block: ScheduleBlockRo
     ? formatBlockTimeRange(block.start_at, block.end_at)
     : formatBlockTime(block.start_at);
   return (
-    <article className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+    <article
+      className="sn-row space-y-3 p-4"
+      style={
+        imminent
+          ? { borderLeft: '3px solid var(--sn-gold-500)' }
+          : undefined
+      }
+    >
       <header className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 space-y-1">
           <h2 className="truncate text-base font-semibold text-ink">{block.label}</h2>

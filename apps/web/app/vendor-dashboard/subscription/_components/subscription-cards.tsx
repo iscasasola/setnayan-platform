@@ -14,9 +14,9 @@
  *   re-reads the add-on price + count (never trusts the client). Standalone
  *   top-ups still live in the Token packs card below.
  *
- * MOBILE CHANNEL PRICING (SRP)
- *   Pro:        ₱9,000/28d  · ₱90,000/yr   (1.5× web)
- *   Enterprise: ₱15,000/28d · ₱150,000/yr  (1.5× web)
+ * MOBILE CHANNEL PRICING (SRP · 1.5× the web price, illustrative)
+ *   Pro:        ~₱3,750/28d  (1.5× ₱2,499 web)
+ *   Enterprise: ~₱12,000/28d (1.5× ₱7,999 web)
  *
  * The "Buy on web for less" banner guides vendors to the web checkout where
  * canonical DB prices apply. The server action (startSubscriptionPurchase)
@@ -96,7 +96,7 @@ export function SubscriptionCards({
       {native && (
         <WebNudgeBanner
           savingsCopy="up to 33% off"
-          webPricesCopy="Solo ₱999/28d · Pro ₱2,499/28d · Enterprise ₱7,499/28d on web"
+          webPricesCopy="Solo ₱999/28d · Pro ₱2,499/28d · Enterprise ₱7,999/28d on web"
           webUrl="https://setnayan.com/vendor-dashboard/subscription"
         />
       )}
@@ -179,7 +179,7 @@ export function SubscriptionCards({
           return (
             <section
               key={card.sku}
-              className="m-card flex flex-col p-6"
+              className="sn-tile flex flex-col p-6"
               style={
                 card.tier === 'pro'
                   ? { borderColor: 'var(--m-orange)' }
@@ -187,7 +187,7 @@ export function SubscriptionCards({
               }
             >
               <div className="mb-1 flex items-center justify-between gap-2">
-                <p className="m-label-mono">{TIER_NAME[card.tier]}</p>
+                <p className="sn-eye">{TIER_NAME[card.tier]}</p>
                 {card.isCurrent ? (
                   <span className="rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
                     Current

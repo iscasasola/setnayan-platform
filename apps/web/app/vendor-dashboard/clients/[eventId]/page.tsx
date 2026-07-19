@@ -10,6 +10,7 @@ import {
   FilePlus2,
   FileText,
   FolderOpen,
+  History,
   Info,
   LayoutGrid,
   Link2,
@@ -19,6 +20,7 @@ import {
   MessageSquarePlus,
   PackageCheck,
   Palette,
+  Phone,
   Sparkles,
   UserRound,
   Users,
@@ -31,7 +33,13 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { getEditorialEligibility } from '@/lib/editorial-vendor-media';
 import { blockRelevance, deriveCallTime } from '@/lib/vendor-timeline';
-import { fetchVendorThreads } from '@/lib/chat';
+import {
+  fetchVendorThreads,
+  fetchReturningClientFlags,
+  fetchThreadById,
+  fetchMessages,
+  type ReturningClientFlag,
+} from '@/lib/chat';
 import {
   fetchPlanProgressForVendor,
   fetchPendingVendorPayments,
@@ -58,11 +66,53 @@ import {
   suggestScheduleChange,
   vendorMarkServiceComplete,
   vendorAcknowledgeDeposit,
+  vendorRejectDeposit,
   vendorPostHandover,
   vendorRaiseChangeOrder,
   vendorRespondChangeOrder,
   vendorWithdrawChangeOrder,
 } from './actions';
+import { AppointmentsSection } from '@/app/_components/appointments-section';
+import {
+  appointmentCategoriesFor,
+  resolveAppointmentLabel,
+  type AppointmentKind,
+  type AppointmentTypePreset,
+  type AppointmentView,
+} from '@/lib/appointments';
+// Relationship Workspace shell (flag-gated · 2026-07-11). When
+// NEXT_PUBLIC_RELATIONSHIP_WORKSPACE_ENABLED is set, the SAME tab components are
+// re-grouped into the unified chat-first shell (Chat · Quote · Payments · Files ·
+// Schedule · Call · Details) — a true two-sided mirror of the couple's Vendor
+// Workspace. Otherwise the current tabbed page renders byte-for-byte unchanged.
+import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
+import {
+  RelationshipTabShell,
+  type RelationshipTab,
+} from '@/app/_components/relationship-tab-shell';
+// Chat-tab embed — mirror the VENDOR thread page (Chat tab = the live thread with
+// the vendor accept/decline gate preserved). RLS-scoped session client ONLY for
+// these reads — never admin/service-role for chat content.
+import { getThreadBlockState } from '@/lib/chat-block';
+import {
+  sendChatMessage,
+  acceptInquiry,
+  declineInquiry,
+  markThreadRead,
+} from '@/lib/chat-actions';
+import { ChatMessageStream } from '@/app/_components/chat-message-stream';
+import { ChatSendForm } from '@/app/_components/chat-send-form';
+// Call launcher is code-split (WebRTC · ssr:false) so the Call tab's bundle
+// stays out of the initial page JS until that tab mounts — see the lazy loader.
+import { ThreadCallLauncherLazy } from '@/app/_components/thread-call-launcher-lazy';
+import { resolveThreadCallsEnabled } from '@/lib/thread-calls-gate';
+import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
+import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
+import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
+// Payments tab — reuse the vendor thread's LIVE payment-confirm surface
+// (couple-logged payments awaiting confirmation + plan progress / "mark cleared").
+// Reused as-is; no payment logic is reimplemented here.
+import { VendorPaymentLive } from '../../messages/[threadId]/_components/vendor-payment-live';
 
 export const metadata = { title: 'Customer Card · Vendor' };
 
@@ -331,6 +381,7 @@ type Props = {
     suggest?: string;
     lens?: string;
     deposit_ack?: string;
+    deposit_reject?: string;
     change_order?: string;
     change_order_resp?: string;
     handover?: string;
@@ -388,6 +439,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     { data: cocktailEdit },
     { data: liveBlocks },
     { data: mySuggestions },
+    returningFlags,
   ] = await clientTimer.track('customer-card', () =>
     Promise.all([
       admin
@@ -427,6 +479,12 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .order('created_at', { ascending: false })
         .limit(10),
+      // Returning-client signal (Relationship Workspace · Details tab, PR 5).
+      // SAME source as the vendor inbox pending badge — the SECURITY DEFINER
+      // RPC that can see the couple's OTHER-event bookings (vendor RLS can't).
+      // Graceful-degrades to an empty Map pre-migration, so the marker simply
+      // doesn't render until 20261201000000 lands.
+      fetchReturningClientFlags(supabase, profile.vendor_profile_id, [eventId]),
     ]),
   );
 
@@ -466,6 +524,13 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   const thread = threads.find((t) => t.event_id === eventId) ?? null;
   const threadId = thread?.thread_id ?? null;
 
+  // Returning-client marker (Details/Overview tab). A row exists ONLY when this
+  // couple previously CONFIRMED-booked THIS vendor on a DIFFERENT event — i.e.
+  // they're a returning client (N≥1). The RPC returns the most-recent such prior
+  // event's name/date (DISTINCT ON per event) — no exact count and no prior
+  // event_id, so we surface that one named past event, not a linked list.
+  const returningFlag: ReturningClientFlag | null = returningFlags.get(eventId) ?? null;
+
   // Reviewed pipeline step — vendor_reviews is publicly readable (USING TRUE),
   // so a cheap existence check on (vendor, event) is safe. Only worth a read once
   // the booking could plausibly have a review (booked + delivered).
@@ -488,6 +553,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   let planSteps: ReturnType<typeof computePlanRollup> | null = null;
   let planStepRows: Awaited<ReturnType<typeof fetchPlanProgressForVendor>>[number] | null = null;
   let pendingPayments: Awaited<ReturnType<typeof fetchPendingVendorPayments>> = [];
+  // Full per-booking plan list — retained (beyond the single matched row) so the
+  // flag-ON Payments tab can feed the live VendorPaymentLive surface exactly as
+  // the thread page does. Unused on the flag-OFF path, so its render is unchanged.
+  let planRowsAll: Awaited<ReturnType<typeof fetchPlanProgressForVendor>> = [];
   if (isBooked) {
     const [plans, pending] = await Promise.all([
       fetchPlanProgressForVendor({
@@ -501,6 +570,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         vendorProfileId: profile.vendor_profile_id,
       }),
     ]);
+    planRowsAll = plans;
     // One booking per event_vendors row for this org+event; take the one whose
     // eventVendorId matches the completion row (there is normally exactly one).
     planStepRows =
@@ -692,196 +762,641 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     });
   }
 
+  // Appointments (Relationship Workspace + Appointments, PR 12). Booked-only —
+  // the vendor-insert RLS requires a booked (vendor, event) relationship, so the
+  // scheduler is meaningless at the inquiry stage. One cheap reference read of
+  // the category → meeting-type catalog + this org's appointment rows on the
+  // event, both under the vendor's own RLS.
+  let appointmentPresets: AppointmentTypePreset[] = [];
+  let appointmentViews: AppointmentView[] = [];
+  if (isBooked) {
+    const apptCats = appointmentCategoriesFor(brief.booked_categories);
+    const [{ data: catalogRows }, { data: apptRows }] = await Promise.all([
+      supabase
+        .from('appointment_type_catalog')
+        .select('category, type, label, default_mode, default_duration_min, sort_order')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true }),
+      supabase
+        .from('event_appointments')
+        .select(
+          'appointment_id, kind, type, custom_label, location, scheduled_at, duration_min, status, initiated_by, note, thread_id',
+        )
+        .eq('event_id', eventId)
+        .eq('vendor_profile_id', profile.vendor_profile_id)
+        .order('created_at', { ascending: false }),
+    ]);
+    const catalog = (catalogRows ?? []) as Array<{
+      category: string;
+      type: string;
+      label: string;
+      default_mode: AppointmentKind;
+      default_duration_min: number;
+    }>;
+    const typeLabels: Record<string, string> = {};
+    for (const r of catalog) typeLabels[r.type] = r.label;
+    appointmentPresets = catalog
+      .filter((r) => apptCats.includes(r.category))
+      .map((r) => ({
+        type: r.type,
+        label: r.label,
+        default_mode: r.default_mode,
+        default_duration_min: r.default_duration_min,
+      }));
+    appointmentViews = ((apptRows ?? []) as Array<Omit<AppointmentView, 'label'>>).map((a) => ({
+      ...a,
+      label: resolveAppointmentLabel(a, typeLabels),
+    }));
+  }
+
   clientTimer.flush();
 
+  const relationshipShellEnabled = isRelationshipWorkspaceEnabled();
   const bodyPad = 'px-4 py-6 sm:px-6';
 
-  return (
-    <section className="mx-auto w-full max-w-5xl px-3 py-6 sm:px-6 lg:px-8">
-      <div className="overflow-hidden rounded-2xl border border-ink/10 bg-cream">
-        {/* ============================ HEADER ============================ */}
-        <header className="sticky top-0 z-10 border-b border-ink/10 bg-cream/95 px-4 pt-4 backdrop-blur sm:px-6">
-          <Link
-            href="/vendor-dashboard/clients"
-            className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-ink/55 hover:text-ink"
-          >
-            <ArrowLeft aria-hidden className="h-4 w-4" /> Clients
-          </Link>
+  // ------------------------------------------------------------------------
+  // Header pieces + tab-body nodes — extracted so BOTH the flag-OFF tabbed page
+  // and the flag-ON RelationshipTabShell render the SAME JSX. Nothing INSIDE any
+  // tab component changed; the flag-OFF branch reproduces the original markup
+  // byte-for-byte (same wrappers, same order, same CardTabs `?tab=` URL behavior).
+  // ------------------------------------------------------------------------
+  const backLink = (
+    <Link
+      href="/vendor-dashboard/clients"
+      className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-ink/55 hover:text-ink"
+    >
+      <ArrowLeft aria-hidden className="h-4 w-4" /> Clients
+    </Link>
+  );
 
-          <div className="flex items-start gap-4">
-            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-ink/10 bg-white text-lg font-semibold text-ink/70">
-              {initials(brief.event.display_name)}
+  const identityBlock = (
+    <div className="flex items-start gap-4">
+      <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-ink/10 bg-white text-lg font-semibold text-ink/70">
+        {initials(brief.event.display_name)}
+      </span>
+      <div className="min-w-0 flex-1">
+        <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">
+          {eventName}
+        </h1>
+        {metaBits.length > 0 ? (
+          <p className="mt-0.5 truncate text-sm text-ink/55">{metaBits.join(' · ')}</p>
+        ) : null}
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span
+            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${stagePill.cls}`}
+          >
+            {stagePill.label}
+          </span>
+          <span
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+              isImported
+                ? 'bg-ink/5 text-ink/60'
+                : 'bg-terracotta/10 text-terracotta'
+            }`}
+          >
+            {isImported ? (
+              <>
+                <UserRound aria-hidden className="h-3 w-3" /> Imported
+              </>
+            ) : (
+              <>
+                <Sparkles aria-hidden className="h-3 w-3" /> In-house
+              </>
+            )}
+          </span>
+          {brief.booked_categories.map((c) => (
+            <span
+              key={c}
+              className="inline-flex items-center rounded-full bg-white px-2.5 py-0.5 text-[11px] font-medium text-ink/70"
+            >
+              {isBooked ? 'Booked · ' : ''}
+              {CATEGORY_LABELS[c] ?? c}
             </span>
-            <div className="min-w-0 flex-1">
-              <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">
-                {eventName}
-              </h1>
-              {metaBits.length > 0 ? (
-                <p className="mt-0.5 truncate text-sm text-ink/55">{metaBits.join(' · ')}</p>
-              ) : null}
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <span
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${stagePill.cls}`}
-                >
-                  {stagePill.label}
-                </span>
-                <span
-                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                    isImported
-                      ? 'bg-ink/5 text-ink/60'
-                      : 'bg-terracotta/10 text-terracotta'
-                  }`}
-                >
-                  {isImported ? (
-                    <>
-                      <UserRound aria-hidden className="h-3 w-3" /> Imported
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles aria-hidden className="h-3 w-3" /> In-house
-                    </>
-                  )}
-                </span>
-                {brief.booked_categories.map((c) => (
-                  <span
-                    key={c}
-                    className="inline-flex items-center rounded-full bg-white px-2.5 py-0.5 text-[11px] font-medium text-ink/70"
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const actionRow = (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {threadId ? (
+        <Link
+          href={`/vendor-dashboard/messages/${threadId}`}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-cream"
+        >
+          <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Open chat
+        </Link>
+      ) : null}
+      <Link
+        href="/vendor-dashboard/proposals"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
+      >
+        <FileText aria-hidden className="h-3.5 w-3.5" /> New quote
+      </Link>
+      <Link
+        href={
+          hasContract
+            ? '/vendor-dashboard/contracts'
+            : `/vendor-dashboard/contracts/new?event=${eventId}`
+        }
+        className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
+      >
+        <FilePlus2 aria-hidden className="h-3.5 w-3.5" /> {hasContract ? 'Contract' : 'Contract'}
+      </Link>
+      <Link
+        href={`/vendor-dashboard/clients/${eventId}?tab=files`}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
+      >
+        <FolderOpen aria-hidden className="h-3.5 w-3.5" /> Files
+      </Link>
+      <Link
+        href={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
+      >
+        <CalendarDays aria-hidden className="h-3.5 w-3.5" /> Schedule
+      </Link>
+      {threadId ? (
+        <Link
+          href={`/vendor-dashboard/messages/${threadId}#pending-payments`}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
+        >
+          <Wallet aria-hidden className="h-3.5 w-3.5" /> Log payment
+        </Link>
+      ) : null}
+    </div>
+  );
+
+  const pipelineBlock = (
+    <div className="mt-3">
+      <PipelineStrip reached={reached} current={current} capAt={capAt} />
+    </div>
+  );
+
+  const overviewNode = (
+    <OverviewTab
+      eventId={eventId}
+      brief={brief}
+      threadId={threadId}
+      returningFlag={returningFlag}
+      isBooked={isBooked}
+      isInquiry={isInquiry}
+      paletteEntries={paletteEntries}
+      mealEntries={mealEntries}
+      monogramSvg={monogramSvg}
+      isImported={isImported}
+      editorialEligibility={editorialEligibility}
+      canEditCocktail={canEditCocktail}
+      completion={completion}
+      eventVendorId={eventVendorId}
+      depositRecorded={depositRecorded}
+      depositAcked={depositAcked}
+      isCompleteConfirmed={isCompleteConfirmed}
+      isDisputed={isDisputed}
+      isVendorMarked={isVendorMarked}
+      hideCompletion={relationshipShellEnabled}
+      search={search}
+    />
+  );
+
+  const quoteNode = (
+    <QuoteTab
+      proposals={proposals}
+      isBooked={isBooked}
+      planRollup={planSteps}
+      planStepRows={planStepRows}
+      pendingPayments={pendingPayments}
+      threadId={threadId}
+    />
+  );
+
+  const filesNode = (
+    <FilesTab contracts={contracts} threadId={threadId} handovers={handovers} isBooked={isBooked} />
+  );
+
+  const scheduleNode = (
+    <>
+      <ScheduleTab
+        eventId={eventId}
+        isInquiry={isInquiry}
+        brief={brief}
+        allBlocks={allBlocks}
+        blocks={blocks}
+        relevance={relevance}
+        mineOnly={mineOnly}
+        mineCount={mineCount}
+        runOfShowBlocks={runOfShowBlocks}
+        callTime={callTime}
+        callTimeAlreadyRequested={callTimeAlreadyRequested}
+        suggestions={suggestions}
+        blockLabel={blockLabel}
+        handovers={handovers}
+        eventVendorId={eventVendorId}
+        changeOrders={changeOrders}
+        search={search}
+      />
+      {isBooked ? (
+        <div className="mt-4">
+          <AppointmentsSection
+            role="vendor"
+            eventId={eventId}
+            vendorProfileId={profile.vendor_profile_id}
+            returnPath={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
+            threadId={threadId}
+            currentUserId={user.id}
+            counterpartyName={eventName}
+            presets={appointmentPresets}
+            appointments={appointmentViews}
+          />
+        </div>
+      ) : null}
+    </>
+  );
+
+  const activityNode = (
+    <ActivityFeed eventId={eventId} events={activityEvents} notes={notes} />
+  );
+
+  // ---- Flag OFF: the current tabbed Customer Card, byte-identical ----
+  if (!relationshipShellEnabled) {
+    return (
+      <section className="mx-auto w-full max-w-5xl px-3 py-6 sm:px-6 lg:px-8">
+        <div className="overflow-hidden sn-tile">
+          {/* ============================ HEADER ============================ */}
+          <header className="sticky top-0 z-10 border-b border-ink/10 bg-cream/95 px-4 pt-4 backdrop-blur sm:px-6">
+            {backLink}
+            {identityBlock}
+            {actionRow}
+            {pipelineBlock}
+
+            {/* Tab rail */}
+            <div className="mt-2">
+              <CardTabs eventId={eventId} active={tab} />
+            </div>
+          </header>
+
+          {/* ============================ BODY ============================ */}
+          <div className={bodyPad}>
+            {tab === 'overview' ? overviewNode : null}
+            {tab === 'quote' ? quoteNode : null}
+            {tab === 'files' ? filesNode : null}
+            {tab === 'schedule' ? scheduleNode : null}
+            {tab === 'activity' ? activityNode : null}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // ------------------------------------------------------------------------
+  // Flag ON — the unified RelationshipTabShell (a true two-sided mirror of the
+  // couple's Vendor Workspace). Everything below runs ONLY on this branch, so
+  // the flag-OFF path adds zero queries and stays untouched.
+  //
+  // Chat tab: mirror the VENDOR thread page — privacy notice + interest chips +
+  // ChatMessageStream(viewerRole="vendor") + the vendor accept/decline GATE (a
+  // vendor must accept an inquiry before the composer opens). Falls back to a
+  // Messages link when there's no thread for this event.
+  // ------------------------------------------------------------------------
+  let chatTabNode: React.ReactNode = null;
+  let callTabNode: React.ReactNode = null;
+  // Captured for the desktop context rail's next-action line — a pending inquiry
+  // means the vendor's next move is to accept/decline (in the Chat tab).
+  let inquiryStatus: string | null = null;
+  if (threadId) {
+    const fullThread = await fetchThreadById(supabase, threadId);
+    if (fullThread) {
+      inquiryStatus = fullThread.inquiry_status ?? null;
+      // Mark read only when Chat is the LANDING tab (no ?tab or ?tab=chat), so a
+      // server round-trip that lands on another tab (e.g. the header's ?tab=files
+      // quick-action, or a deep-link) doesn't clear the unread badge without the
+      // vendor actually viewing the chat. Read the RAW searchParam (the shell
+      // reads it client-side too — the server's normalizeTab only knows the old
+      // CardTabs set). RLS session client only; never admin for chat reads.
+      const rawTab = typeof search.tab === 'string' ? search.tab : undefined;
+      if (!rawTab || rawTab === 'chat') {
+        await markThreadRead(threadId).catch(() => undefined);
+      }
+      const blockState = await getThreadBlockState(fullThread, user.id, 'vendor');
+      const initialMessages = await fetchMessages(supabase, threadId);
+      const declineReason = fullThread.decline_reason?.trim() || null;
+      // Voice/video calling is a paid-vendor capability (gate-dark by default) —
+      // locked here shows the vendor an upgrade nudge instead of the call button.
+      const callsEnabled = await resolveThreadCallsEnabled(profile.vendor_profile_id);
+
+      callTabNode =
+        fullThread.inquiry_status === 'accepted' ? (
+          <ThreadCallLauncherLazy
+            threadId={threadId}
+            currentUserId={user.id}
+            counterpartyLabel={eventName}
+            callsEnabled={callsEnabled}
+            viewerRole="vendor"
+            upgradeHref="/vendor-dashboard/subscription"
+          />
+        ) : (
+          <p className="text-xs text-ink/55">
+            Voice and video calls open once you accept {eventName}&rsquo;s inquiry.
+          </p>
+        );
+
+      chatTabNode = (
+        <section className="flex min-h-[24rem] max-h-[calc(100dvh-14rem)] flex-col gap-4">
+          <div className="flex items-center justify-end">
+            <ChatThreadMenu
+              threadId={threadId}
+              returnTo={`/vendor-dashboard/clients/${eventId}?tab=chat`}
+              blockedByMe={blockState.blockedByMe}
+            />
+          </div>
+          <ChatPrivacyNotice />
+          <ThreadInterestChips supabase={supabase} threadId={threadId} />
+          <ChatMessageStream
+            threadId={threadId}
+            initialMessages={initialMessages}
+            currentUserId={user.id}
+            viewerRole="vendor"
+            counterpartyLabel={eventName}
+          />
+          {/* Vendor accept-gate — replicate the thread page's exact branches: a
+              vendor cannot reply until they ACCEPT the inquiry. Do not loosen. */}
+          {blockState.blockedByMe || blockState.blockedByThem ? (
+            <div className="rounded-xl border border-ink/10 bg-ink/[0.03] p-4 text-sm text-ink/70">
+              {blockState.blockedByMe
+                ? 'You blocked this person. Unblock from the ⋯ menu to message again.'
+                : 'You can no longer message in this conversation.'}
+            </div>
+          ) : fullThread.inquiry_status === 'accepted' ? (
+            <ChatSendForm threadId={threadId} sendAction={sendChatMessage} />
+          ) : fullThread.inquiry_status === 'pending' ? (
+            <div className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
+              <p className="text-sm text-ink">
+                <span className="font-semibold">New inquiry.</span> Accept to open the
+                chat and reply, or decline if you&rsquo;re not available for this date.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <form action={acceptInquiry}>
+                  <input type="hidden" name="thread_id" value={threadId} />
+                  <input
+                    type="hidden"
+                    name="return_to"
+                    value={`/vendor-dashboard/clients/${eventId}?tab=chat`}
+                  />
+                  <SubmitButton
+                    pendingLabel="Accepting…"
+                    className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
                   >
-                    {isBooked ? 'Booked · ' : ''}
-                    {CATEGORY_LABELS[c] ?? c}
-                  </span>
-                ))}
+                    Accept inquiry
+                  </SubmitButton>
+                </form>
+                <form action={declineInquiry}>
+                  <input type="hidden" name="thread_id" value={threadId} />
+                  <input
+                    type="hidden"
+                    name="return_to"
+                    value={`/vendor-dashboard/clients/${eventId}?tab=chat`}
+                  />
+                  <SubmitButton
+                    pendingLabel="Declining…"
+                    className="inline-flex h-11 items-center rounded-md border border-ink/20 px-5 text-sm font-semibold text-ink hover:bg-ink/5"
+                  >
+                    Decline
+                  </SubmitButton>
+                </form>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="rounded-xl border border-ink/10 bg-ink/[0.03] p-4 text-sm text-ink/70">
+              <p>
+                You declined this inquiry. The couple has been notified and pointed to
+                other vendors.
+                {declineReason ? (
+                  <>
+                    {' '}
+                    <span className="font-semibold text-ink">Your reason:</span> &ldquo;
+                    {declineReason}&rdquo;
+                  </>
+                ) : null}
+              </p>
+            </div>
+          )}
+        </section>
+      );
+    }
+  }
+  if (!chatTabNode) {
+    // No thread for this event → a small empty state (not a blank panel).
+    chatTabNode = (
+      <div className="space-y-3 rounded-2xl border border-ink/10 bg-white p-5 sm:p-6">
+        <p className="text-sm text-ink/70">
+          No conversation with {eventName} yet. When they message you (or you invite
+          them), the thread opens here.
+        </p>
+        <Link
+          href="/vendor-dashboard/messages"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
+        >
+          <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Go to Messages
+        </Link>
+      </div>
+    );
+  }
 
-          {/* Action row */}
-          <div className="mt-3 flex flex-wrap gap-2">
-            {threadId ? (
-              <Link
-                href={`/vendor-dashboard/messages/${threadId}`}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-cream"
-              >
-                <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Open chat
-              </Link>
-            ) : null}
-            <Link
-              href="/vendor-dashboard/proposals"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
-            >
-              <FileText aria-hidden className="h-3.5 w-3.5" /> New quote
-            </Link>
-            <Link
-              href={
-                hasContract
-                  ? '/vendor-dashboard/contracts'
-                  : `/vendor-dashboard/contracts/new?event=${eventId}`
-              }
-              className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
-            >
-              <FilePlus2 aria-hidden className="h-3.5 w-3.5" /> {hasContract ? 'Contract' : 'Contract'}
-            </Link>
-            <Link
-              href={`/vendor-dashboard/clients/${eventId}?tab=files`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
-            >
-              <FolderOpen aria-hidden className="h-3.5 w-3.5" /> Files
-            </Link>
-            <Link
-              href={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
-            >
-              <CalendarDays aria-hidden className="h-3.5 w-3.5" /> Schedule
-            </Link>
-            {threadId ? (
-              <Link
-                href={`/vendor-dashboard/messages/${threadId}`}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
-              >
-                <Wallet aria-hidden className="h-3.5 w-3.5" /> Log payment
-              </Link>
-            ) : null}
-          </div>
+  // Payments tab — the vendor's LIVE payment-confirm surface (couple-logged
+  // payments awaiting confirmation + per-booking plan progress / "mark cleared").
+  // Reuses VendorPaymentLive exactly as the thread page does — no payment logic is
+  // reimplemented. A genuine empty state stands in when there's nothing to confirm
+  // or the booking isn't live.
+  const paymentsTabNode =
+    isBooked && threadId ? (
+      pendingPayments.length === 0 && planRowsAll.length === 0 ? (
+        <div className="space-y-2">
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+            Payments
+          </p>
+          <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
+            <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> No payments to
+            confirm yet. When {eventName} logs a payment, confirm it here.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+            Payments
+          </p>
+          <VendorPaymentLive
+            threadId={threadId}
+            eventId={eventId}
+            initialPending={pendingPayments}
+            initialPlans={planRowsAll}
+          />
+        </div>
+      )
+    ) : (
+      <div className="space-y-2">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+          Payments
+        </p>
+        <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
+          <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> A payment
+          schedule and couple-logged payments appear here once they book you
+          {threadId ? '' : ' and you start a conversation'}.
+        </p>
+      </div>
+    );
 
-          {/* Pipeline strip */}
-          <div className="mt-3">
-            <PipelineStrip reached={reached} current={current} capAt={capAt} />
-          </div>
-
-          {/* Tab rail */}
-          <div className="mt-2">
-            <CardTabs eventId={eventId} active={tab} />
-          </div>
-        </header>
-
-        {/* ============================ BODY ============================ */}
-        <div className={bodyPad}>
-          {tab === 'overview' ? (
-            <OverviewTab
+  const tabIconClass = 'h-3.5 w-3.5';
+  const tabs: RelationshipTab[] = [
+    {
+      id: 'chat',
+      label: 'Chat',
+      icon: <MessageSquare aria-hidden className={tabIconClass} />,
+      node: chatTabNode,
+    },
+    {
+      id: 'quote',
+      label: 'Quote',
+      icon: <FileText aria-hidden className={tabIconClass} />,
+      node: quoteNode,
+    },
+    {
+      id: 'payments',
+      label: 'Payments',
+      icon: <Wallet aria-hidden className={tabIconClass} />,
+      node: paymentsTabNode,
+    },
+    {
+      id: 'files',
+      label: 'Files',
+      icon: <FolderOpen aria-hidden className={tabIconClass} />,
+      node: filesNode,
+    },
+    {
+      id: 'schedule',
+      label: 'Schedule',
+      icon: <CalendarDays aria-hidden className={tabIconClass} />,
+      node: scheduleNode,
+    },
+    {
+      id: 'call',
+      label: 'Call',
+      icon: <Phone aria-hidden className={tabIconClass} />,
+      // callTabNode is only set once a thread resolves. No thread → hide the tab
+      // (there's no marketplace/thread relationship to call through).
+      node: callTabNode ?? (
+        <p className="text-xs text-ink/55">
+          Voice and video calls open once you start a conversation with {eventName}.
+        </p>
+      ),
+      hidden: !threadId,
+    },
+    {
+      id: 'details',
+      label: 'Details',
+      icon: <Info aria-hidden className={tabIconClass} />,
+      // The this-event profile hub — the completion handshake (surfaced here as
+      // a first-class node, mirroring the couple's Details tab), then the full
+      // brief (with the returning-client marker + action bar, both already inside
+      // OverviewTab) plus the activity log & private CRM notes.
+      node: (
+        <div className="space-y-6">
+          {isBooked ? (
+            <VendorCompletionCard
               eventId={eventId}
-              brief={brief}
-              isBooked={isBooked}
-              isInquiry={isInquiry}
-              paletteEntries={paletteEntries}
-              mealEntries={mealEntries}
-              monogramSvg={monogramSvg}
-              isImported={isImported}
-              editorialEligibility={editorialEligibility}
-              canEditCocktail={canEditCocktail}
-              completion={completion}
-              eventVendorId={eventVendorId}
-              depositRecorded={depositRecorded}
-              depositAcked={depositAcked}
               isCompleteConfirmed={isCompleteConfirmed}
               isDisputed={isDisputed}
               isVendorMarked={isVendorMarked}
-              search={search}
             />
           ) : null}
-
-          {tab === 'quote' ? (
-            <QuoteTab
-              proposals={proposals}
-              isBooked={isBooked}
-              planRollup={planSteps}
-              planStepRows={planStepRows}
-              pendingPayments={pendingPayments}
-              threadId={threadId}
-            />
-          ) : null}
-
-          {tab === 'files' ? (
-            <FilesTab contracts={contracts} threadId={threadId} handovers={handovers} isBooked={isBooked} />
-          ) : null}
-
-          {tab === 'schedule' ? (
-            <ScheduleTab
-              eventId={eventId}
-              isInquiry={isInquiry}
-              brief={brief}
-              allBlocks={allBlocks}
-              blocks={blocks}
-              relevance={relevance}
-              mineOnly={mineOnly}
-              mineCount={mineCount}
-              runOfShowBlocks={runOfShowBlocks}
-              callTime={callTime}
-              callTimeAlreadyRequested={callTimeAlreadyRequested}
-              suggestions={suggestions}
-              blockLabel={blockLabel}
-              handovers={handovers}
-              eventVendorId={eventVendorId}
-              changeOrders={changeOrders}
-              search={search}
-            />
-          ) : null}
-
-          {tab === 'activity' ? (
-            <ActivityFeed eventId={eventId} events={activityEvents} notes={notes} />
-          ) : null}
+          {overviewNode}
+          {activityNode}
         </div>
+      ),
+    },
+  ];
+
+  // ------------------------------------------------------------------------
+  // Desktop context rail (3-pane · lg+ only). A compact, always-visible summary
+  // of the client's stage + the VENDOR's next action (respond to inquiry / send
+  // quote / confirm payment / deliver), plus quick links to the Chat / Payments
+  // tabs. Reuses the pipeline + payment signals already computed above (no new
+  // queries). The shell hides this under lg, and the mobile header already
+  // carries the pipeline strip, so this is purely additive on desktop.
+  // ------------------------------------------------------------------------
+  let vRailTitle: string;
+  let vRailBody: string;
+  if (inquiryStatus === 'pending') {
+    vRailTitle = 'Respond to the inquiry';
+    vRailBody = `${eventName} reached out. Accept to open the chat, or decline if you’re not available.`;
+  } else if (pendingPayments.length > 0) {
+    const n = pendingPayments.length;
+    vRailTitle = `Confirm ${n} payment${n === 1 ? '' : 's'}`;
+    vRailBody = `${eventName} logged ${n === 1 ? 'a payment' : 'payments'} — confirm receipt to keep the plan on track.`;
+  } else if (isDelivered) {
+    vRailTitle = hasReview ? 'All wrapped up' : 'Awaiting confirmation';
+    vRailBody = hasReview
+      ? `${eventName} confirmed delivery and left a review.`
+      : `You marked this delivered. ${eventName} confirms receipt (auto-confirms after 7 days).`;
+  } else if (isBooked) {
+    vRailTitle = 'You’re booked';
+    vRailBody = `Coordinate the run-of-show and post deliverables as the day nears.`;
+  } else if (isQuoted) {
+    vRailTitle = 'Quote sent';
+    vRailBody = `Your quote is with ${eventName}. Follow up in chat while you wait.`;
+  } else {
+    vRailTitle = 'Send a quote';
+    vRailBody = `${eventName} is waiting. Reply in chat, then send a quote.`;
+  }
+
+  const vQuickLinkClass =
+    'inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 transition-colors hover:border-terracotta/40 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta';
+
+  const contextRail = (
+    <div className="space-y-3">
+      <div className="rounded-2xl border border-ink/10 bg-white p-4">
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/50">
+          Your next move
+        </p>
+        <div className="mt-2">
+          <span
+            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${stagePill.cls}`}
+          >
+            {stagePill.label}
+          </span>
+        </div>
+        <h3 className="mt-2 text-sm font-semibold text-ink">{vRailTitle}</h3>
+        <p className="mt-1 text-xs leading-relaxed text-ink/60">{vRailBody}</p>
+        {pendingPayments.length > 0 ? (
+          <p className="mt-2.5 font-mono text-[10px] uppercase tracking-[0.12em] text-warn-900">
+            {pendingPayments.length} awaiting confirmation
+          </p>
+        ) : null}
       </div>
-    </section>
+      <div className="grid grid-cols-2 gap-2">
+        <a href={`/vendor-dashboard/clients/${eventId}?tab=chat`} className={vQuickLinkClass}>
+          <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Chat
+        </a>
+        <a href={`/vendor-dashboard/clients/${eventId}?tab=payments`} className={vQuickLinkClass}>
+          <Wallet aria-hidden className="h-3.5 w-3.5" /> Payments
+        </a>
+      </div>
+    </div>
+  );
+
+  return (
+    <RelationshipTabShell
+      tabs={tabs}
+      initialTabId="chat"
+      contextRail={contextRail}
+      header={
+        <div>
+          {backLink}
+          {identityBlock}
+          {actionRow}
+          {pipelineBlock}
+        </div>
+      }
+    />
   );
 }
 
@@ -915,11 +1430,176 @@ function Card({
 }
 
 // ===========================================================================
+// Completion handshake card (booked) — the vendor's "Mark service complete"
+// affordance + the four post-mark states. Extracted verbatim from OverviewTab
+// so BOTH the inline flag-OFF render and the flag-ON relationship-shell
+// Details-tab node share one source of truth (reuses vendorMarkServiceComplete —
+// no handshake logic reimplemented).
+// ===========================================================================
+function VendorCompletionCard({
+  eventId,
+  isCompleteConfirmed,
+  isDisputed,
+  isVendorMarked,
+}: {
+  eventId: string;
+  isCompleteConfirmed: boolean;
+  isDisputed: boolean;
+  isVendorMarked: boolean;
+}) {
+  return (
+    <Card>
+      {isCompleteConfirmed ? (
+        <div className="flex items-center gap-3 text-sm">
+          <CheckCircle2 aria-hidden className="h-5 w-5 shrink-0 text-success-600" strokeWidth={1.75} />
+          <span className="text-ink/75">
+            <span className="font-medium text-ink">Service complete.</span> The couple confirmed
+            they received everything.
+          </span>
+        </div>
+      ) : isDisputed ? (
+        <div className="flex items-center gap-3 text-sm">
+          <Clock3 aria-hidden className="h-5 w-5 shrink-0 text-warn-600" strokeWidth={1.75} />
+          <span className="text-ink/75">
+            <span className="font-medium text-ink">The couple reported a problem</span> with the
+            delivery. Reach out via your thread to sort it out.
+          </span>
+        </div>
+      ) : isVendorMarked ? (
+        <div className="flex items-center gap-3 text-sm">
+          <Clock3 aria-hidden className="h-5 w-5 shrink-0 text-ink/40" strokeWidth={1.75} />
+          <span className="text-ink/75">
+            <span className="font-medium text-ink">Marked complete.</span> Waiting on the couple to
+            confirm they received everything (auto-confirms after 7 days).
+          </span>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-sm text-ink/70">
+            <span className="font-medium text-ink">Wrapped up this wedding?</span> Mark your
+            service complete — the couple confirms they got everything, then their review opens.
+          </div>
+          <form action={vendorMarkServiceComplete}>
+            <input type="hidden" name="event_id" value={eventId} />
+            <SubmitButton className="button-primary shrink-0" pendingLabel="Marking…">
+              Mark service complete
+            </SubmitButton>
+          </form>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ===========================================================================
+// Returning-client marker + quick-action bar (Details/Overview tab, PR 5).
+//
+// Marker: rendered ONLY when `returningFlag` is present — i.e. this couple has a
+// prior CONFIRMED booking with this vendor on a DIFFERENT event (the same signal
+// that makes an inquiry-accept cost a flat 1 token). The reuse RPC returns the
+// most-recent prior event's name/date (DISTINCT ON) — not an exact count and not
+// its event_id — so we name that one past event rather than link a list.
+//
+// Action bar: shortcut links only (no new call/quote logic). Chat + Call both
+// open the thread (the P2P call surface lands there per the Workspace spec);
+// Quote deep-links the thread's #send-proposal composer; Files jumps to this
+// card's Files tab; Details is the current view (inert).
+// ===========================================================================
+function ReturningMarkerAndActions({
+  eventId,
+  threadId,
+  returningFlag,
+}: {
+  eventId: string;
+  threadId: string | null;
+  returningFlag: ReturningClientFlag | null;
+}) {
+  const actionBase =
+    'inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors';
+
+  return (
+    <div className="rounded-2xl border border-ink/10 bg-white p-4 sm:p-5">
+      {returningFlag ? (
+        <div className="mb-3 flex items-start gap-3 rounded-xl border border-mulberry/20 bg-mulberry/[0.05] px-3 py-2.5">
+          <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-mulberry/10 text-mulberry">
+            <History aria-hidden className="h-4 w-4" strokeWidth={2} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-mulberry">
+              Returning client · you&rsquo;ve worked together before
+            </p>
+            <p className="mt-0.5 text-xs text-ink/65">
+              {returningFlag.prior_event_display_name ? (
+                <>
+                  Previously booked you for{' '}
+                  <span className="font-medium text-ink/80">
+                    {returningFlag.prior_event_display_name}
+                  </span>
+                  {returningFlag.prior_event_date
+                    ? ` · ${fmtShortDate(returningFlag.prior_event_date)}`
+                    : ''}
+                  .
+                </>
+              ) : (
+                'This couple has booked you on a previous event.'
+              )}
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap gap-2">
+        {threadId ? (
+          <Link
+            href={`/vendor-dashboard/messages/${threadId}`}
+            className={`${actionBase} border-ink/15 bg-white text-ink/70 hover:border-terracotta/40`}
+          >
+            <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Chat
+          </Link>
+        ) : null}
+        {threadId ? (
+          <Link
+            href={`/vendor-dashboard/messages/${threadId}#thread-call`}
+            className={`${actionBase} border-ink/15 bg-white text-ink/70 hover:border-terracotta/40`}
+          >
+            <Phone aria-hidden className="h-3.5 w-3.5" /> Call
+          </Link>
+        ) : null}
+        <Link
+          href={
+            threadId
+              ? `/vendor-dashboard/messages/${threadId}#send-proposal`
+              : '/vendor-dashboard/proposals'
+          }
+          className={`${actionBase} border-mulberry bg-mulberry text-cream hover:bg-mulberry-600`}
+        >
+          <FileText aria-hidden className="h-3.5 w-3.5" /> Quote
+        </Link>
+        <Link
+          href={`/vendor-dashboard/clients/${eventId}?tab=files`}
+          className={`${actionBase} border-ink/15 bg-white text-ink/70 hover:border-terracotta/40`}
+        >
+          <FolderOpen aria-hidden className="h-3.5 w-3.5" /> Files
+        </Link>
+        <span
+          aria-current="page"
+          className={`${actionBase} cursor-default border-ink/15 bg-ink/5 text-ink/55`}
+        >
+          <Info aria-hidden className="h-3.5 w-3.5" /> Details
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ===========================================================================
 // OVERVIEW TAB
 // ===========================================================================
 function OverviewTab(props: {
   eventId: string;
   brief: Brief;
+  threadId: string | null;
+  returningFlag: ReturningClientFlag | null;
   isBooked: boolean;
   isInquiry: boolean;
   paletteEntries: { key: string; label: string; colors: string[] }[];
@@ -937,11 +1617,17 @@ function OverviewTab(props: {
   isCompleteConfirmed: boolean;
   isDisputed: boolean;
   isVendorMarked: boolean;
-  search: { deposit_ack?: string };
+  /** Flag ON: the relationship shell renders the completion card as its own
+   *  Details-tab node, so suppress the inline copy here to avoid doubling up.
+   *  Flag OFF: false → the card renders inline exactly as before. */
+  hideCompletion: boolean;
+  search: { deposit_ack?: string; deposit_reject?: string };
 }) {
   const {
     eventId,
     brief,
+    threadId,
+    returningFlag,
     isBooked,
     isInquiry,
     paletteEntries,
@@ -957,11 +1643,20 @@ function OverviewTab(props: {
     isCompleteConfirmed,
     isDisputed,
     isVendorMarked,
+    hideCompletion,
     search,
   } = props;
 
   return (
     <div className="space-y-4">
+      {/* Returning-client marker + quick-action bar (Relationship Workspace ·
+          Details tab, PR 5). Additive — sits at the top of the Overview. */}
+      <ReturningMarkerAndActions
+        eventId={eventId}
+        threadId={threadId}
+        returningFlag={returningFlag}
+      />
+
       {/* Imported hint (invite the couple to Setnayan). */}
       {isImported ? (
         <div className="flex items-center justify-between gap-4 rounded-2xl border border-terracotta/30 bg-terracotta/[0.05] p-4 sm:p-5">
@@ -1017,7 +1712,7 @@ function OverviewTab(props: {
             )}
           </dl>
           {brief.event.ceremony_type ? (
-            <span className="mt-3 inline-flex items-center gap-1 rounded-full border border-ink/15 bg-cream px-2.5 py-1 text-xs font-medium text-ink/70">
+            <span className="mt-3 inline-flex items-center gap-1 rounded-full border border-ink/15 bg-white/70 px-2.5 py-1 text-xs font-medium text-ink/70">
               <Church aria-hidden className="h-3.5 w-3.5" />
               {brief.event.ceremony_type.replace(/_/g, ' ')}
             </span>
@@ -1053,7 +1748,7 @@ function OverviewTab(props: {
               </p>
             </>
           ) : (
-            <p className="mt-3 flex items-center gap-2 rounded-lg bg-cream px-3 py-2.5 text-sm text-ink/55">
+            <p className="mt-3 flex items-center gap-2 rounded-lg bg-white/70 px-3 py-2.5 text-sm text-ink/55">
               <Info aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> No guest list yet — this
               fills in once they start their RSVPs.
             </p>
@@ -1180,7 +1875,7 @@ function OverviewTab(props: {
               </p>
             </>
           ) : (
-            <p className="mt-3 flex items-center gap-2 rounded-lg bg-cream px-3 py-2.5 text-sm text-ink/55">
+            <p className="mt-3 flex items-center gap-2 rounded-lg bg-white/70 px-3 py-2.5 text-sm text-ink/55">
               <Info aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> Not shared —
               the couple hasn&rsquo;t opted into budget sharing.
             </p>
@@ -1263,6 +1958,21 @@ function OverviewTab(props: {
       ) : null}
 
       {/* Deposit acknowledge (booked). */}
+      {/* Reject outcome — shown outside the deposit card because a successful
+          reject clears the recorded markers (depositRecorded flips false). */}
+      {search.deposit_reject === 'ok' ? (
+        <Card>
+          <p className="text-sm text-ink/75">
+            <span className="font-medium text-ink">Marked as not received.</span> The couple was
+            asked to re-submit their downpayment proof — you&rsquo;ll be prompted again when they do.
+          </p>
+        </Card>
+      ) : search.deposit_reject === 'error' ? (
+        <Card>
+          <p role="alert" className="text-xs text-warn-900">That didn&rsquo;t go through — try again.</p>
+        </Card>
+      ) : null}
+
       {depositRecorded && eventVendorId ? (
         <Card>
           {search.deposit_ack === 'error' ? (
@@ -1310,60 +2020,55 @@ function OverviewTab(props: {
                   </>
                 ) : null}
               </div>
-              <form action={vendorAcknowledgeDeposit}>
-                <input type="hidden" name="event_id" value={eventId} />
-                <input type="hidden" name="vendor_id" value={eventVendorId} />
-                <SubmitButton className="button-primary shrink-0" pendingLabel="Confirming…">
-                  Confirm deposit received
-                </SubmitButton>
-              </form>
+              <div className="flex flex-col items-stretch gap-2 sm:items-end">
+                <form action={vendorAcknowledgeDeposit}>
+                  <input type="hidden" name="event_id" value={eventId} />
+                  <input type="hidden" name="vendor_id" value={eventVendorId} />
+                  <SubmitButton className="button-primary w-full shrink-0 sm:w-auto" pendingLabel="Confirming…">
+                    Confirm deposit received
+                  </SubmitButton>
+                </form>
+                {/* Reject path — the vendor never received this payment. Clears
+                    the couple's recorded deposit so they must re-submit (does NOT
+                    un-lock the booking). Optional reason reaches the couple. */}
+                <details className="text-right">
+                  <summary className="cursor-pointer list-none text-[11px] font-medium text-ink/50 underline-offset-2 hover:text-ink/75 hover:underline">
+                    Didn&rsquo;t receive it?
+                  </summary>
+                  <form action={vendorRejectDeposit} className="mt-2 flex flex-col gap-2 text-left">
+                    <input type="hidden" name="event_id" value={eventId} />
+                    <input type="hidden" name="vendor_id" value={eventVendorId} />
+                    <input
+                      type="text"
+                      name="reason"
+                      maxLength={200}
+                      placeholder="Reason (optional) — e.g. no payment received"
+                      className="w-full rounded-md border border-ink/15 bg-white px-2.5 py-1.5 text-xs text-ink focus:border-danger-400 focus:outline-none focus:ring-1 focus:ring-danger-400 sm:w-64"
+                    />
+                    <SubmitButton
+                      className="inline-flex min-h-[36px] items-center justify-center rounded-md border border-danger-300 bg-danger-50 px-3 py-1.5 text-xs font-medium text-danger-700 transition-colors hover:bg-danger-100"
+                      pendingLabel="Sending…"
+                    >
+                      Didn&rsquo;t receive this payment
+                    </SubmitButton>
+                  </form>
+                </details>
+              </div>
             </div>
           )}
         </Card>
       ) : null}
 
-      {/* Editorial media / completion handshake (booked). */}
-      {isBooked ? (
-        <Card>
-          {isCompleteConfirmed ? (
-            <div className="flex items-center gap-3 text-sm">
-              <CheckCircle2 aria-hidden className="h-5 w-5 shrink-0 text-success-600" strokeWidth={1.75} />
-              <span className="text-ink/75">
-                <span className="font-medium text-ink">Service complete.</span> The couple confirmed
-                they received everything.
-              </span>
-            </div>
-          ) : isDisputed ? (
-            <div className="flex items-center gap-3 text-sm">
-              <Clock3 aria-hidden className="h-5 w-5 shrink-0 text-warn-600" strokeWidth={1.75} />
-              <span className="text-ink/75">
-                <span className="font-medium text-ink">The couple reported a problem</span> with the
-                delivery. Reach out via your thread to sort it out.
-              </span>
-            </div>
-          ) : isVendorMarked ? (
-            <div className="flex items-center gap-3 text-sm">
-              <Clock3 aria-hidden className="h-5 w-5 shrink-0 text-ink/40" strokeWidth={1.75} />
-              <span className="text-ink/75">
-                <span className="font-medium text-ink">Marked complete.</span> Waiting on the couple to
-                confirm they received everything (auto-confirms after 7 days).
-              </span>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-sm text-ink/70">
-                <span className="font-medium text-ink">Wrapped up this wedding?</span> Mark your
-                service complete — the couple confirms they got everything, then their review opens.
-              </div>
-              <form action={vendorMarkServiceComplete}>
-                <input type="hidden" name="event_id" value={eventId} />
-                <SubmitButton className="button-primary shrink-0" pendingLabel="Marking…">
-                  Mark service complete
-                </SubmitButton>
-              </form>
-            </div>
-          )}
-        </Card>
+      {/* Completion handshake (booked). Rendered inline on flag OFF; on flag ON
+          the relationship shell surfaces it as its own Details-tab node instead
+          (hideCompletion), so it isn't shown twice. */}
+      {isBooked && !hideCompletion ? (
+        <VendorCompletionCard
+          eventId={eventId}
+          isCompleteConfirmed={isCompleteConfirmed}
+          isDisputed={isDisputed}
+          isVendorMarked={isVendorMarked}
+        />
       ) : null}
 
       {/* Cocktail area (booked, eligible). */}
@@ -1616,7 +2321,7 @@ function FilesTab(props: {
               key={c.contract_id}
               className="flex items-center gap-3 rounded-xl border border-ink/10 bg-white px-3 py-2.5"
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-ink/10 bg-cream text-ink/60">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-ink/10 bg-white/70 text-ink/60">
                 <FileText aria-hidden className="h-4 w-4" />
               </span>
               <div className="min-w-0 flex-1">
@@ -1644,7 +2349,7 @@ function FilesTab(props: {
               key={h.handover_id}
               className="flex items-center gap-3 rounded-xl border border-ink/10 bg-white px-3 py-2.5"
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-ink/10 bg-cream text-ink/60">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-ink/10 bg-white/70 text-ink/60">
                 {h.kind === 'gallery_link' ? (
                   <Link2 aria-hidden className="h-4 w-4" />
                 ) : (
@@ -2108,7 +2813,7 @@ function ScheduleTab(props: {
             declines, and an accepted change updates their budget. Setnayan never holds the money.
           </p>
 
-          <details className="mb-4 rounded-xl border border-ink/10 bg-cream p-3">
+          <details className="mb-4 sn-row p-3">
             <summary className="cursor-pointer text-sm font-medium text-terracotta">
               Propose a change
             </summary>

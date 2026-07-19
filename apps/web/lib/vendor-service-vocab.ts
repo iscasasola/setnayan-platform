@@ -4,7 +4,7 @@ import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { labelForVendorCategory } from '@/lib/vendor-category-taxonomy';
 
 /**
- * The display vocabulary the vendor Services picker (`<ServicesPicker>`) needs:
+ * The display vocabulary the vendor Services editing surfaces need:
  * live admin-taxonomy labels for the 30 coarse `VENDOR_CATEGORIES` plus the
  * tradition / specialty canonical leaves offered as extra checkboxes.
  *

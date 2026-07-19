@@ -153,6 +153,75 @@ export async function vendorAcknowledgeDeposit(formData: FormData) {
   redirect(`/vendor-dashboard/clients/${eventId}?deposit_ack=${flag}`);
 }
 
+/**
+ * vendorRejectDeposit — VENDOR "I never received this downpayment".
+ *
+ * Calls the single-winner reject_vendor_deposit RPC (clears the couple-recorded
+ * deposit markers so they must re-submit; never un-locks the booking; can't touch
+ * a confirmed deposit). Then notifies the couple to re-submit. Ownership is
+ * enforced inside the SECURITY DEFINER RPC, so this wrapper just forwards.
+ */
+export async function vendorRejectDeposit(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const eventVendorId = formData.get('vendor_id');
+  const reasonRaw = formData.get('reason');
+  const reason =
+    typeof reasonRaw === 'string' && reasonRaw.trim().length > 0
+      ? reasonRaw.trim().slice(0, 500)
+      : null;
+  if (typeof eventId !== 'string' || typeof eventVendorId !== 'string') {
+    throw new Error('Invalid input');
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data, error } = await supabase.rpc('reject_vendor_deposit', {
+    p_event_vendor_id: eventVendorId,
+    p_reason: reason,
+  });
+
+  // Notify the couple only on a fresh reject (status 'ok'). Best-effort.
+  const env = (data ?? {}) as { status?: string };
+  if (!error && env.status === 'ok') {
+    try {
+      const admin = createAdminClient();
+      const { data: ev } = await admin
+        .from('event_vendors')
+        .select('vendor_name')
+        .eq('vendor_id', eventVendorId)
+        .maybeSingle();
+      const vendorName = (ev as { vendor_name?: string } | null)?.vendor_name ?? 'Your vendor';
+      const { data: members } = await admin
+        .from('event_members')
+        .select('user_id')
+        .eq('event_id', eventId)
+        .eq('member_type', 'couple');
+      for (const m of members ?? []) {
+        if (!m.user_id) continue;
+        await emitNotification({
+          userId: m.user_id,
+          type: 'payment_rejected',
+          title: `${vendorName} couldn't confirm your downpayment`,
+          body: reason
+            ? `Reason: “${reason}” — re-submit your downpayment proof from the vendor workspace.`
+            : 'They couldn’t confirm the payment — re-submit your downpayment proof from the vendor workspace.',
+          relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
+        });
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('[vendorRejectDeposit] couple notify failed:', e);
+    }
+  }
+
+  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+  const flag = error ? 'error' : env.status ?? 'ok';
+  redirect(`/vendor-dashboard/clients/${eventId}?deposit_reject=${flag}`);
+}
+
 // ==========================================================================
 // Customer Card — private, team-shared CRM notes (vendor_client_notes).
 //

@@ -179,7 +179,7 @@ export function VendorPaymentLive({
         return (
           <div
             key={p.eventVendorId}
-            className="rounded-xl border border-ink/10 bg-cream p-4"
+            className="sn-row p-4"
           >
             <p className="text-sm font-semibold text-ink">
               Payment plan — {p.vendorLabel}

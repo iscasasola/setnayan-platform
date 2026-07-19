@@ -19,9 +19,11 @@
  * Auth: RLS on events does the heavy lifting. Non-host gets maybeSingle
  * = null → redirect to /dashboard.
  *
- * Per [[feedback_setnayan_orphan_prevention]] the page is reachable from
- * the event-home TILES grid via the new Event QR tile (see same-PR diff
- * to apps/web/app/dashboard/[eventId]/page.tsx).
+ * Per [[feedback_setnayan_orphan_prevention]] the page is reachable via a
+ * secondary "Event QR for your crew" link on the guest Invite stage
+ * (apps/web/app/dashboard/[eventId]/guests/invite/page.tsx). It previously
+ * hung off an event-home TILES grid tile, which the Home/Overview redesigns
+ * dropped — the Invite-page link (2026-07-15) is now its findable home.
  */
 
 import { redirect } from 'next/navigation';
@@ -64,7 +66,7 @@ export default async function EventQrPage({ params }: Props) {
     errorCorrectionLevel: 'M',
     margin: 2,
     width: 320,
-    color: { dark: '#1E2229', light: '#FBFBFA' },
+    color: { dark: '#1B1A17', light: '#FBFBFA' },
   });
 
   const tokenPrefix = (event.master_qr_token as string).slice(0, 8);
@@ -74,12 +76,12 @@ export default async function EventQrPage({ params }: Props) {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-2">
-        <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-ink/50">
+      <header className="sn-reveal space-y-2">
+        <div className="sn-eye">
           <QrCode aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           <span>Event QR</span>
         </div>
-        <h1 className="m-display-tight text-3xl text-ink sm:text-4xl">
+        <h1 className="sn-h1">
           For your photography + livestream crew
         </h1>
         <p className="max-w-2xl text-sm leading-relaxed text-ink/70">

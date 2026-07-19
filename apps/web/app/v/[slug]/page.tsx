@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { boothCanBrand } from '@/lib/seating-3d';
 import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { after } from 'next/server';
@@ -57,6 +58,12 @@ import {
   type ServiceGroup,
 } from './_components/services-gallery';
 import { fetchUserEvents } from '@/lib/events';
+import {
+  buildVendorVenueEvents,
+  fetchViewerVenue,
+  type VendorVenueEvent,
+} from '@/lib/vendor-venue-events';
+import { VenueMatchedEvents } from './_components/venue-matched-events';
 import { resolveLivePax } from '@/lib/pax';
 import { PackageCard } from '@/app/_components/vendor-packages/package-card';
 import { LockPackageModal } from '@/app/_components/vendor-packages/lock-modal';
@@ -107,6 +114,11 @@ import {
   type VendorFeaturedStory,
 } from '@/lib/realstories-vendor';
 import {
+  loadFeaturedChaptersCreditingVendor,
+  type StorytellerTileItem,
+} from '@/lib/storytellers';
+import { StorytellerTile } from '@/app/_components/storyteller-tile';
+import {
   fetchVendorMicrosite,
   isSectionVisible,
   micrositeAccentVars,
@@ -141,6 +153,9 @@ type Props = {
     utm_campaign?: string;
     utm?: string;
     src?: string;
+    // Creator Economy PR-C — a chapter Book CTA referral (chapter public_id).
+    // Server-validated in startServiceInquiry before any attribution stamp.
+    ref_chapter?: string;
   }>;
 };
 
@@ -450,6 +465,8 @@ const DETAIL_SKIP_KEYS = new Set<string>([
   'typical_range_max_centavos',
   'price_model',
   'show_prices_publicly',
+  // Opt-in-to-hide privacy toggle (Option A) — a control, never a Detail fact.
+  'hide_prices_publicly',
 ]);
 
 function humanizeAttrLabel(key: string): string {
@@ -521,6 +538,35 @@ async function fetchVendorAttributeDetails(
     return groups;
   } catch {
     return [];
+  }
+}
+
+/**
+ * Public "hide my prices" preference (Social_Share_Settings_Council_Verdict
+ * 2026-07-16 #6, Option A). Reads the opt-in-to-hide `hide_prices_publicly`
+ * key from the vendor's pricing_signal attribute payload(s). A vendor is a
+ * single business, so hiding is treated business-wide: TRUE if the vendor
+ * checked it on ANY of their service pricing sections. Default (absent /
+ * false) === show, which is today's public behavior for every existing
+ * vendor — so nothing is blacked out. Fails OPEN (returns false → show) on
+ * any read error so a transient failure can never mass-hide prices.
+ */
+async function fetchVendorHidesPricesPublicly(
+  admin: ReturnType<typeof createAdminClient>,
+  vendorProfileId: string,
+): Promise<boolean> {
+  try {
+    const rows = await fetchVendorServiceAttributes(admin, vendorProfileId);
+    return rows.some((row) => {
+      const payload = (row.attribute_payload ?? {}) as Record<string, unknown>;
+      return payload.hide_prices_publicly === true;
+    });
+  } catch (err) {
+    console.warn(
+      '[v/[slug]] hide_prices_publicly read failed — defaulting to show',
+      err instanceof Error ? err.message : String(err),
+    );
+    return false;
   }
 }
 
@@ -663,6 +709,16 @@ export async function renderVendorBySlug({
 
   const visibility = parseVisibility(vendor.public_visibility);
   const bookable = isBookable(visibility);
+  // 3D Booth Ads · Part C: Pro/Enterprise vendors get a shareable "walk into my
+  // booth" 3D showcase at /v/[slug]/booth (same gate that brands a booth). Behind
+  // NEXT_PUBLIC_PLAN3D_BOOTH_SHOWCASE (inlined; kept in lock-step with the route).
+  // Include verification_state so the link never appears for a vendor the booth
+  // route will notFound() (the profile page skips its verified-gate for owner-
+  // preview / demo mode, so a mid-re-verification Pro vendor could see a dead link).
+  const canShowBooth =
+    process.env.NEXT_PUBLIC_PLAN3D_BOOTH_SHOWCASE === 'true' &&
+    boothCanBrand(vendor.tier_state ?? null) &&
+    vendor.verification_state === 'verified';
   const isComingSoon = visibility === 'coming_soon';
 
   const pageRaw = Number(search.reviewsPage ?? '1');
@@ -670,7 +726,7 @@ export async function renderVendorBySlug({
   const limit = reviewsPage * REVIEWS_PAGE_SIZE;
 
   const admin = createAdminClient();
-  const [reviewStats, trustedReviewStats, reviews, allServices, vendorPackages, recommendingCouples, finalizedBookingCount, completedEvents] = await Promise.all([
+  const [reviewStats, trustedReviewStats, reviews, allServices, vendorPackages, recommendingCouples, finalizedBookingCount, completedEvents, hidePricesPublicly] = await Promise.all([
     fetchReviewStats(admin, vendor.vendor_profile_id),
     // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the PUBLIC headline average
     // + review count read the TRUSTED (receipt-backed, arm's-length) stat, so
@@ -713,6 +769,9 @@ export async function renderVendorBySlug({
     // exclusions as the public completed-events count. Best-effort: a missing
     // view (stale deploy) returns [] and the Track Record section is omitted.
     fetchVendorCompletedEvents(admin, vendor.vendor_profile_id, { limit: 60 }),
+    // Public "hide my prices" preference (Option A · council #6). Gates every
+    // peso figure on this page when the vendor opted in; default false = show.
+    fetchVendorHidesPricesPublicly(admin, vendor.vendor_profile_id),
   ]);
 
   // "Trusted by" — vendors who endorsed this one via the vendor↔vendor
@@ -839,7 +898,7 @@ export async function renderVendorBySlug({
         ? VENDOR_CATEGORY_LABEL[s.category as VendorCategory]
         : s.category)) as string;
   const servicePriceLabel = (s: VendorServiceRow): string =>
-    s.starting_price_php !== null && s.starting_price_php > 0
+    !hidePricesPublicly && s.starting_price_php !== null && s.starting_price_php > 0
       ? `from ${formatPhp(s.starting_price_php)}`
       : 'Inquire';
   const composerInitial = activeServices[0] ?? null;
@@ -905,12 +964,19 @@ export async function renderVendorBySlug({
         ]
       : reviews;
 
-  // Editorials ("Real Stories") — the vendor's own booked weddings the couple
-  // has PUBLISHED + consented to showcase. Featured-first (Pro pick), capped to
-  // a tidy row. Best-effort + auto-hidden when empty: today this is [] for
-  // everyone until real consented stories exist (~Dec 2026), so the whole
-  // section simply doesn't render until there's something to show.
-  const showEditorials = premiumLayout && isSectionVisible(pageSections, 'editorials');
+  // "Featured in these stories" — BOTH voices crediting this vendor (PR-D ·
+  // Storytellers council verdict 2026-07-16 + Simplicity Canon rule 2: being
+  // credited in a story is ALWAYS FREE, any tier — the former Pro-gate
+  // (`premiumLayout`) on this section is RETIRED; Pro keeps its other perks):
+  //   • EDITORIALS — the vendor's own booked weddings the couple has
+  //     PUBLISHED + consented to showcase. Featured-first ordering stays a
+  //     personalization pick where available.
+  //   • CHAPTERS — the owner-FEATURED, published creator chapters whose
+  //     shoppable substrate credits this vendor (joins over the featured set,
+  //     so it has nothing to show before the owner's first Feature click).
+  // Best-effort + auto-hidden when BOTH are empty: the section renders
+  // nothing until there's something to show.
+  const showEditorials = isSectionVisible(pageSections, 'editorials');
   let featuredEditorials: VendorFeaturedStory[] = [];
   if (showEditorials) {
     try {
@@ -927,6 +993,13 @@ export async function renderVendorBySlug({
     } catch {
       featuredEditorials = [];
     }
+  }
+  let featuredChapterCredits: StorytellerTileItem[] = [];
+  if (showEditorials) {
+    featuredChapterCredits = await loadFeaturedChaptersCreditingVendor({
+      businessSlug: vendor.business_slug,
+      publicId: vendor.public_id,
+    });
   }
 
   /* V2.1 brief amendment #2 (2026-05-30) · hybrid-anonymity. Resolves
@@ -1018,6 +1091,18 @@ export async function renderVendorBySlug({
       }
     }
   }
+
+  // Past-events gallery (owner 2026-07-18) — SAFE LAYER: the vendor's completed
+  // events, venue-aware. When the viewer is a couple, read their venue and sort
+  // the vendor's past events so the ones at the SAME venue come first (else most
+  // recent). Facts only (venue · month · type); no couple names/photos, private
+  // events excluded — the couple-identified photo layer is a consent-gated
+  // follow-up. Reuses the anti-fraud-clean `completedEvents` already fetched.
+  const viewerVenue = coupleEventId ? await fetchViewerVenue(admin, coupleEventId) : null;
+  const venueEvents = await buildVendorVenueEvents(admin, completedEvents, viewerVenue, {
+    limit: 12,
+  });
+  const venueMatchCount = venueEvents.filter((e) => e.atViewerVenue).length;
 
   // Inquiry composer (owner-locked 2026-06-12 "multi-service inquiry mapping") —
   // shown only for a signed-in couple with an active event viewing a bookable
@@ -1262,9 +1347,15 @@ export async function renderVendorBySlug({
   // makesOffer — one Offer per vendor_package with a price. Pesos as the
   // major currency unit per schema.org (NOT centavos). Skips packages
   // missing a price so AI engines don't see ₱0 phantom offers.
-  const offerPackages = vendorPackages.filter(
-    (pkg) => typeof pkg.total_price_centavos === 'number' && pkg.total_price_centavos > 0,
-  );
+  // Council #6: when the vendor opted to hide prices, the structured data must
+  // not leak a peso figure the visible page hides — so makesOffer + priceRange
+  // are omitted entirely (the OfferCatalog of service NAMES below stays, as it
+  // carries no prices).
+  const offerPackages = hidePricesPublicly
+    ? []
+    : vendorPackages.filter(
+        (pkg) => typeof pkg.total_price_centavos === 'number' && pkg.total_price_centavos > 0,
+      );
   if (offerPackages.length > 0) {
     vendorJsonLd.makesOffer = offerPackages.map((pkg) => ({
       '@type': 'Offer',
@@ -1678,6 +1769,14 @@ export async function renderVendorBySlug({
                   Inquire Now
                 </a>
                 <ShareButton title={displayLabel} className="button-secondary inline-flex items-center gap-2" />
+                {canShowBooth ? (
+                  <Link
+                    href={`/v/${vendor.business_slug ?? slug}/booth`}
+                    className="button-secondary inline-flex items-center gap-2"
+                  >
+                    Walk into my booth
+                  </Link>
+                ) : null}
               </div>
             ) : null}
             {/* Visual map (2026-06-28). The picture-of-the-map above the
@@ -1843,14 +1942,18 @@ export async function renderVendorBySlug({
             videos" gallery above (owner: single video system). Vendors' existing
             films were migrated into gallery_video_links. */}
 
-        {/* Editorials ("Real Stories") — the vendor's published, couple-consented
-            weddings, told in full. Featured-first (Pro pick); the lead story is a
-            wide spotlight. Auto-hidden until a real story exists. */}
-        {showEditorials && featuredEditorials.length > 0 ? (
+        {/* "Featured in these stories" — both voices crediting this vendor
+            (PR-D · Simplicity Canon rule 2: credit is FREE for every visible
+            vendor, any tier — the old Pro-gate is retired). Editorials keep
+            their editorial grammar; chapters render in the Storyteller tile
+            grammar. Auto-hidden until either voice has something to show. */}
+        {showEditorials &&
+        (featuredEditorials.length > 0 || featuredChapterCredits.length > 0) ? (
           <section className="space-y-4 border-b border-ink/10 py-8">
             <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-              Featured in Real Stories
+              Featured in these stories
             </h2>
+            {featuredEditorials.length > 0 ? (
             <div className="grid gap-3 sm:grid-cols-3">
               {featuredEditorials.map((story, idx) => (
                 <a
@@ -1882,6 +1985,16 @@ export async function renderVendorBySlug({
                 </a>
               ))}
             </div>
+            ) : null}
+            {/* Storyteller chapters crediting this vendor — their own tile
+                grammar (byline + badge + view count), never the editorial's. */}
+            {featuredChapterCredits.length > 0 ? (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {featuredChapterCredits.map((chapter) => (
+                  <StorytellerTile key={chapter.publicId} item={chapter} />
+                ))}
+              </div>
+            ) : null}
           </section>
         ) : null}
 
@@ -1996,6 +2109,7 @@ export async function renderVendorBySlug({
             discountsByService={discountsByService}
             servesByService={servesByService}
             showcaseByService={showcaseByService}
+            hidePrices={hidePricesPublicly}
           />
         ) : null}
 
@@ -2009,6 +2123,7 @@ export async function renderVendorBySlug({
             packages={vendorPackages}
             coupleEventId={coupleEventId}
             isComingSoon={isComingSoon}
+            hidePrices={hidePricesPublicly}
           />
         ) : null}
 
@@ -2033,6 +2148,8 @@ export async function renderVendorBySlug({
           showComments={viewerTierCaps.reviewCommentsViewable}
           recommendingCouples={recommendingCouples}
           completedEvents={completedEvents}
+          venueEvents={venueEvents}
+          hasVenueMatch={venueMatchCount > 0}
         />
 
         {showTrustedBy ? (
@@ -2127,6 +2244,26 @@ export async function renderVendorBySlug({
               // bouncing on the server `not_secured` guard. Secured users and
               // signed-out visitors are unaffected.
               viewerIsAnonymous={user?.is_anonymous ?? false}
+              // Creator Economy PR-C/PR-D — provenance carried from the arrival
+              // URL: ?ref_chapter=… (a chapter's Book CTA; server-validated
+              // before stamping 'influencer' attribution) and ?src=… (a
+              // caller-declared, enum-validated origin: 'editorial' from a
+              // /realstories credit chip → 'Editorial Inquiry', 'favorites' from
+              // a saved-vendors "Contact" link → 'Favorites'). Absent both, the
+              // inquiry stays the NULL/'website' default. startServiceInquiry
+              // re-validates the source server-side, so an unknown ?src is inert.
+              referringChapterPublicId={
+                typeof search.ref_chapter === 'string' && search.ref_chapter
+                  ? search.ref_chapter
+                  : null
+              }
+              inquirySource={
+                search.src === 'editorial'
+                  ? 'editorial'
+                  : search.src === 'favorites'
+                    ? 'favorites'
+                    : null
+              }
             />
           ) : null}
 
@@ -2385,6 +2522,7 @@ function ServicesPricingSection({
   discountsByService,
   servesByService,
   showcaseByService,
+  hidePrices,
 }: {
   services: ReadonlyArray<VendorServiceRow>;
   businessName: string;
@@ -2394,6 +2532,8 @@ function ServicesPricingSection({
   servesByService: Map<string, string>;
   /** Resolved showcase display URLs per service id (photos ≤5 + optional clip). */
   showcaseByService: Map<string, ServiceShowcaseMedia>;
+  /** Council #6: vendor opted to hide public prices → strip every peso amount. */
+  hidePrices: boolean;
 }) {
   const byGroup = new Map<ServiceGroupKey, VendorServiceRow[]>();
   for (const s of services) {
@@ -2422,6 +2562,7 @@ function ServicesPricingSection({
           discountsByService.get(row.vendor_service_id),
           servesByService.get(row.vendor_service_id),
           showcaseByService.get(row.vendor_service_id),
+          hidePrices,
         ),
       ),
     });
@@ -2457,12 +2598,15 @@ function toServiceCard(
   discounts: VendorServiceDiscount[] | undefined,
   serves: string | undefined,
   showcase: ServiceShowcaseMedia | undefined,
+  /** Council #6: when true the vendor opted to hide public prices — every peso
+   *  amount below is suppressed (labels/inclusions still show; only figures go). */
+  hidePrices: boolean,
 ): ServiceCard {
   const label = isCanonicalService(row.category)
     ? VENDOR_CATEGORY_LABEL[row.category as VendorCategory]
     : row.category;
   const priceLabel =
-    row.starting_price_php !== null && row.starting_price_php > 0
+    !hidePrices && row.starting_price_php !== null && row.starting_price_php > 0
       ? `from ${formatPhp(row.starting_price_php)}`
       : 'Inquire';
 
@@ -2474,7 +2618,10 @@ function toServiceCard(
   const isCrewMeals = row.category === 'crew_meals';
   const perPaxUnit = isCrewMeals ? 'meal' : 'guest';
   let priceDetail: string | null = null;
-  if (
+  if (hidePrices) {
+    // Vendor hid prices — no per-pax/per-hour rate breakdown.
+    priceDetail = null;
+  } else if (
     row.pricing_basis === 'per_pax' &&
     row.per_pax_price_php !== null &&
     row.per_pax_price_php > 0
@@ -2499,13 +2646,15 @@ function toServiceCard(
   }
 
   // Best applicable discount → a single badge (pickBestDiscount ranks by peso
-  // savings on the anchor, dropping expired offers).
-  const best = pickBestDiscount(discounts, row.starting_price_php);
+  // savings on the anchor, dropping expired offers). Suppressed when the vendor
+  // hid prices — a "Save ₱X" / "N% off" badge reveals the underlying figure.
+  const best = hidePrices ? null : pickBestDiscount(discounts, row.starting_price_php);
 
   // FREE inclusions — "<label> · ₱X free" (worth omitted when the vendor left
-  // it blank). Trim to a few; the overflow surfaces as "+N more".
+  // it blank, OR when the vendor hid prices — keep the inclusion label, drop the
+  // peso worth). Trim to a few; the overflow surfaces as "+N more".
   const allInclusions = (inclusions ?? []).map((inc) =>
-    inc.worth_php !== null && inc.worth_php > 0
+    !hidePrices && inc.worth_php !== null && inc.worth_php > 0
       ? `${inc.label} · ${formatPhp(inc.worth_php)} free`
       : inc.label,
   );
@@ -2527,7 +2676,7 @@ function toServiceCard(
   if (!row.crew_meal_included && !isCrewMeals) notIncluded.push('Crew meal not included');
   if (!row.transport_included) {
     notIncluded.push(
-      row.transport_flat_fee_php !== null && row.transport_flat_fee_php > 0
+      !hidePrices && row.transport_flat_fee_php !== null && row.transport_flat_fee_php > 0
         ? `Transport: ${formatPhp(row.transport_flat_fee_php)}`
         : 'Transport not included',
     );
@@ -2632,6 +2781,8 @@ function ReviewsSection({
   showComments,
   recommendingCouples,
   completedEvents,
+  venueEvents,
+  hasVenueMatch,
 }: {
   slug: string;
   businessName: string;
@@ -2649,6 +2800,10 @@ function ReviewsSection({
   recommendingCouples: number;
   /** Receipt-backed dated track record (Wave 5) — [] hides the section. */
   completedEvents: ReadonlyArray<VendorCompletedEventRow>;
+  /** Venue-aware past-events gallery (safe layer, owner 2026-07-18). */
+  venueEvents: VendorVenueEvent[];
+  /** True when ≥1 venueEvents is at the viewing couple's venue. */
+  hasVenueMatch: boolean;
 }) {
   return (
     <section className="space-y-6 border-b border-ink/10 py-8">
@@ -2673,7 +2828,9 @@ function ReviewsSection({
           vendor delivered THROUGH Setnayan — same owner/team/internal/self-comp
           exclusions as the public completed-events count, so it can't be
           padded. Renders for every viewer tier; omitted only when empty. */}
-      {completedEvents.length > 0 ? (
+      {venueEvents.length > 0 ? (
+        <VenueMatchedEvents events={venueEvents} hasMatch={hasVenueMatch} />
+      ) : completedEvents.length > 0 ? (
         <TrackRecord events={completedEvents} />
       ) : null}
 
@@ -3065,10 +3222,13 @@ function VendorPackagesSection({
   packages,
   coupleEventId,
   isComingSoon,
+  hidePrices,
 }: {
   packages: ReadonlyArray<VendorPackageWithItems>;
   coupleEventId: string | null;
   isComingSoon: boolean;
+  /** Council #6: vendor opted to hide public prices → PackageCard shows no peso. */
+  hidePrices: boolean;
 }) {
   return (
     <section className="space-y-4 border-b border-ink/10 py-8">
@@ -3103,7 +3263,7 @@ function VendorPackagesSection({
               </Link>
             );
           }
-          return <PackageCard key={pkg.package_id} pkg={pkg} ctaSlot={cta} />;
+          return <PackageCard key={pkg.package_id} pkg={pkg} ctaSlot={cta} hidePrice={hidePrices} />;
         })}
       </div>
     </section>

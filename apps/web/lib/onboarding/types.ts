@@ -54,6 +54,14 @@ export type GenericOnboardingPayload = {
    * Inquire-funnel build supplies it; empty → {} → no-op (see lib/turnstile.ts).
    */
   captchaToken?: string;
+  /**
+   * Per-type signature answers the generic flow's `tq_*` screens collect
+   * (questionId → optionKey today; richer per-type fields when the per-type UI
+   * lands) → events.signature_details (JSONB). Omitted / empty → NULL column
+   * (see buildGenericEventInsert). Record<string, unknown> — the column is
+   * generic JSONB and future per-type UI sends richer shapes; do not re-narrow.
+   */
+  signatureDetails?: Record<string, unknown>;
 };
 
 export type GenericCommitResult =

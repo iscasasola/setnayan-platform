@@ -28,6 +28,7 @@
 // Vendors-tab cards): #conversation · #documents · #payments.
 // ============================================================================
 
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import {
@@ -37,9 +38,11 @@ import {
   CheckCircle2,
   Circle,
   FileText,
+  Info,
   LinkIcon,
   MessageCircle,
   Package as PackageIcon,
+  Phone,
   PiggyBank,
   Receipt,
   Sparkles,
@@ -51,6 +54,14 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { PLAN_GROUPS, planGroupForCategory } from '@/lib/wedding-plan-groups';
 import { formatCentavosPhp } from '@/lib/vendor-packages';
+import { AppointmentsSection } from '@/app/_components/appointments-section';
+import {
+  appointmentCategoriesFor,
+  resolveAppointmentLabel,
+  type AppointmentKind,
+  type AppointmentTypePreset,
+  type AppointmentView,
+} from '@/lib/appointments';
 import { updateVendorCosts } from '../../actions';
 import { createAutoShareInviteAction } from './actions';
 import { HostServiceDetails } from './_components/host-service-details';
@@ -117,11 +128,43 @@ import {
   bookingContractStateLabel,
   type ContractStatus,
 } from '@/lib/contracts';
+// Relationship Workspace shell (flag-gated · 2026-07-11). When
+// NEXT_PUBLIC_RELATIONSHIP_WORKSPACE_ENABLED is set, the same section JSX is
+// re-grouped into the unified chat-first tabbed shell; otherwise the current
+// long-scroll page renders byte-for-byte unchanged.
+import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
+import {
+  RelationshipTabShell,
+  type RelationshipTab,
+} from '@/app/_components/relationship-tab-shell';
+// Chat-tab embed — mirror the couple thread page (Chat tab = the live thread).
+import { fetchMessages, fetchThreadById } from '@/lib/chat';
+import { markThreadRead, sendChatMessage } from '@/lib/chat-actions';
+import { getThreadBlockState } from '@/lib/chat-block';
+import { withdrawInquiry } from '@/app/dashboard/[eventId]/messages/actions';
+import { ChatMessageStream } from '@/app/_components/chat-message-stream';
+import { ChatSendForm } from '@/app/_components/chat-send-form';
+// Call launcher is code-split (WebRTC · ssr:false) so the Call tab's bundle
+// stays out of the initial page JS until that tab mounts — see the lazy loader.
+import { ThreadCallLauncherLazy } from '@/app/_components/thread-call-launcher-lazy';
+import { resolveThreadCallsEnabled } from '@/lib/thread-calls-gate';
+import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
+import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
+import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
+// Completion handshake (Event Lifecycle Menu §6.1) — surface the couple's
+// "confirm received" + review prompt inside the shell (flag-ON only). Reuses the
+// same actions + review-state logic the standalone /review page uses.
+import { reviewState, type ReviewState } from '@/lib/completion-handshake';
+import { coupleConfirmReceived, coupleReportNonDelivery } from '../review/actions';
 
 export const metadata = { title: 'Service workspace · Setnayan' };
 
 type Props = {
   params: Promise<{ eventId: string; vendorId: string }>;
+  // searchParams added for mark-read parity with the vendor side: the shell
+  // reflects the active tab in `?tab=`, and a deep-link / quick-action landing
+  // on a non-chat tab must NOT clear the unread badge. Read RAW below.
+  searchParams: Promise<{ tab?: string }>;
 };
 
 // ----------------------------------------------------------------------------
@@ -227,13 +270,16 @@ function safeHttpUrl(url: string | null | undefined): string | null {
 // Page component
 // ----------------------------------------------------------------------------
 
-export default async function VendorWorkspacePage({ params }: Props) {
+export default async function VendorWorkspacePage({ params, searchParams }: Props) {
   const { eventId, vendorId } = await params;
+  const search = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  const relationshipShellEnabled = isRelationshipWorkspaceEnabled();
 
   // Primary fetch — event_vendors row, gated by RLS to host-on-event only.
   // `notFound()` covers both "row doesn't exist" and "row exists but RLS denied"
@@ -845,11 +891,61 @@ export default async function VendorWorkspacePage({ params }: Props) {
     }
   }
 
-  return (
-    <div className="space-y-6">
-      {/* ============================================================== */}
-      {/* Back nav                                                         */}
-      {/* ============================================================== */}
+  // Appointments (Relationship Workspace + Appointments, PR 12) — the two-sided
+  // scheduler for THIS booked vendor. Only a connected (marketplace) vendor has
+  // an "other side" to confirm, so the section is skipped for manual/off-platform
+  // vendors (coordinated externally). One cheap reference read of the category →
+  // meeting-type catalog + this (event, vendor) row set, both under couple RLS.
+  let appointmentPresets: AppointmentTypePreset[] = [];
+  let appointmentViews: AppointmentView[] = [];
+  if (ev.marketplace_vendor_id) {
+    const apptCats = appointmentCategoriesFor([ev.category]);
+    const [{ data: catalogRows }, { data: apptRows }] = await Promise.all([
+      supabase
+        .from('appointment_type_catalog')
+        .select('category, type, label, default_mode, default_duration_min, sort_order')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true }),
+      supabase
+        .from('event_appointments')
+        .select(
+          'appointment_id, kind, type, custom_label, location, scheduled_at, duration_min, status, initiated_by, note, thread_id',
+        )
+        .eq('event_id', eventId)
+        .eq('vendor_profile_id', ev.marketplace_vendor_id)
+        .order('created_at', { ascending: false }),
+    ]);
+    const catalog = (catalogRows ?? []) as Array<{
+      category: string;
+      type: string;
+      label: string;
+      default_mode: AppointmentKind;
+      default_duration_min: number;
+    }>;
+    const typeLabels: Record<string, string> = {};
+    for (const r of catalog) typeLabels[r.type] = r.label;
+    appointmentPresets = catalog
+      .filter((r) => apptCats.includes(r.category))
+      .map((r) => ({
+        type: r.type,
+        label: r.label,
+        default_mode: r.default_mode,
+        default_duration_min: r.default_duration_min,
+      }));
+    appointmentViews = ((apptRows ?? []) as Array<Omit<AppointmentView, 'label'>>).map((a) => ({
+      ...a,
+      label: resolveAppointmentLabel(a, typeLabels),
+    }));
+  }
+
+  // ------------------------------------------------------------------------
+  // Section variables — each holds the EXACT JSX previously rendered inline in
+  // the long-scroll return. Flag OFF renders them in the original order inside
+  // the original wrappers (byte-identical); flag ON re-groups them into the
+  // RelationshipTabShell tabs. Nothing INSIDE any section changed.
+  // ------------------------------------------------------------------------
+
+  const backNav = (
       <Link
         href={`/dashboard/${eventId}`}
         className="inline-flex items-center gap-1.5 text-xs font-medium text-ink/65 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
@@ -857,10 +953,9 @@ export default async function VendorWorkspacePage({ params }: Props) {
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         Back to event home
       </Link>
+  );
 
-      {/* ============================================================== */}
-      {/* Section 1 — Service hero (vendor demoted to attribution)        */}
-      {/* ============================================================== */}
+  const heroSection = (
       <section
         aria-labelledby="vendor-workspace-header"
         className="rounded-2xl border border-success-300/40 bg-success-50/40 p-5 sm:p-6"
@@ -979,11 +1074,10 @@ export default async function VendorWorkspacePage({ params }: Props) {
           })()}
         </div>
       </section>
+  );
 
-      {/* ============================================================== */}
-      {/* Section 2 — What's included (the service's inclusions)          */}
-      {/* ============================================================== */}
-      {packageItems.length > 0 ? (
+  const includedSection =
+      packageItems.length > 0 ? (
         <section
           aria-labelledby="included-heading"
           className="rounded-2xl border border-ink/10 bg-white/60 p-5 sm:p-6"
@@ -1023,11 +1117,9 @@ export default async function VendorWorkspacePage({ params }: Props) {
           initialCovers={ev.covers_plan_groups ?? []}
           options={coverOptions}
         />
-      ) : null}
+      ) : null;
 
-      {/* ============================================================== */}
-      {/* Section 3 — Order & payment status (stepper + payments)         */}
-      {/* ============================================================== */}
+  const statusSection = (
       <section aria-labelledby="status-heading" className="space-y-3">
         <h2
           id="status-heading"
@@ -1197,14 +1289,9 @@ export default async function VendorWorkspacePage({ params }: Props) {
           )}
         </div>
       </section>
+  );
 
-      {/* ============================================================== */}
-      {/* Coordination — Conversation / Documents / Schedules (2-col)     */}
-      {/* ============================================================== */}
-      <div className="grid gap-5 lg:grid-cols-2">
-        {/* ----------------------------------------------------------- */}
-        {/* Conversation                                                 */}
-        {/* ----------------------------------------------------------- */}
+  const conversationSection = (
         <section
           id="conversation"
           aria-labelledby="conversation-heading"
@@ -1260,10 +1347,9 @@ export default async function VendorWorkspacePage({ params }: Props) {
             </p>
           )}
         </section>
+  );
 
-        {/* ----------------------------------------------------------- */}
-        {/* Documents                                                    */}
-        {/* ----------------------------------------------------------- */}
+  const documentsSection = (
         <section
           id="documents"
           aria-labelledby="documents-heading"
@@ -1376,20 +1462,17 @@ export default async function VendorWorkspacePage({ params }: Props) {
             </ul>
           )}
         </section>
+  );
 
-        {/* ----------------------------------------------------------- */}
-        {/* Proposals (data-link program ③ — renders only when this      */}
-        {/* vendor has sent one; self-contained, RLS-scoped)             */}
-        {/* ----------------------------------------------------------- */}
+  const proposalsCard = (
         <VendorProposalsCard
           eventId={eventId}
           marketplaceVendorId={ev.marketplace_vendor_id}
           displayName={displayName}
         />
+  );
 
-        {/* ----------------------------------------------------------- */}
-        {/* Schedules                                                    */}
-        {/* ----------------------------------------------------------- */}
+  const schedulesSection = (
         <section
           id="schedules"
           aria-labelledby="schedules-heading"
@@ -1436,12 +1519,25 @@ export default async function VendorWorkspacePage({ params }: Props) {
             </ul>
           )}
         </section>
-      </div>
+  );
 
-      {/* ============================================================== */}
-      {/* Marketplace info (marketplace-linked vendors only)              */}
-      {/* ============================================================== */}
-      {ev.marketplace_vendor_id ? (
+  const appointmentsSection =
+      ev.marketplace_vendor_id ? (
+        <AppointmentsSection
+          role="couple"
+          eventId={eventId}
+          vendorProfileId={ev.marketplace_vendor_id}
+          returnPath={`/dashboard/${eventId}/vendors/${ev.vendor_id}/workspace`}
+          threadId={chatThread?.thread_id ?? null}
+          currentUserId={user.id}
+          counterpartyName={displayName}
+          presets={appointmentPresets}
+          appointments={appointmentViews}
+        />
+      ) : null;
+
+  const marketplaceInfoSection =
+      ev.marketplace_vendor_id ? (
         <>
           {/* Person-spine Phase 2 (flag-off · counsel-gated): trusted-circle
               signal for THIS marketplace vendor. Renders null in production
@@ -1465,16 +1561,10 @@ export default async function VendorWorkspacePage({ params }: Props) {
             }
           />
         </>
-      ) : null}
+      ) : null;
 
-      {/* ============================================================== */}
-      {/* Payment mode                                                     */}
-      {/* First-party Setnayan services aren't hand-tracked — payment runs */}
-      {/* through the order flow (apply → pay → upload screenshot →        */}
-      {/* verified within 24 hrs). External vendors keep the 3-line Costing */}
-      {/* total (service + transport + crew-meal).                         */}
-      {/* ============================================================== */}
-      {isSetnayanService ? (
+  const paymentModeSection =
+      isSetnayanService ? (
         <section
           aria-labelledby="managed-heading"
           className="rounded-2xl border border-mulberry/20 bg-mulberry/5 p-5 sm:p-6"
@@ -1692,12 +1782,10 @@ export default async function VendorWorkspacePage({ params }: Props) {
           <SubmitButton pendingLabel="Saving…" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save costs</SubmitButton>
         </form>
         </section>
-      )}
+      );
 
-      {/* ============================================================== */}
-      {/* Your notes (single render, any pick that has them)              */}
-      {/* ============================================================== */}
-      {ev.notes ? (
+  const notesSection =
+      ev.notes ? (
         <section
           aria-labelledby="notes-heading"
           className="rounded-2xl border border-ink/10 bg-cream/40 p-5"
@@ -1710,12 +1798,10 @@ export default async function VendorWorkspacePage({ params }: Props) {
           </h2>
           <p className="whitespace-pre-line text-sm text-ink/80">{ev.notes}</p>
         </section>
-      ) : null}
+      ) : null;
 
-      {/* ============================================================== */}
-      {/* Bring this vendor onto Setnayan (claim-link, demoted)           */}
-      {/* ============================================================== */}
-      {needsInvite && autoShareInvite && autoShareInvite.status === 'pending' ? (
+  const claimSection =
+      needsInvite && autoShareInvite && autoShareInvite.status === 'pending' ? (
         <section
           aria-labelledby="claim-invite-heading"
           className="rounded-2xl border border-warn-300/60 bg-warn-50/60 p-5 sm:p-6"
@@ -1841,7 +1927,473 @@ export default async function VendorWorkspacePage({ params }: Props) {
             </SubmitButton>
           </form>
         </section>
-      ) : null}
+      ) : null;
+
+  // ------------------------------------------------------------------------
+  // Flag OFF — the current long-scroll page, byte-identical to before: the
+  // same section variables, in the same order, inside the same wrappers (incl.
+  // the 2-col coordination grid).
+  // ------------------------------------------------------------------------
+  if (!relationshipShellEnabled) {
+    return (
+      <div className="space-y-6">
+        {backNav}
+        {heroSection}
+        {includedSection}
+        {statusSection}
+        <div className="grid gap-5 lg:grid-cols-2">
+          {conversationSection}
+          {documentsSection}
+          {proposalsCard}
+          {schedulesSection}
+        </div>
+        {appointmentsSection}
+        {marketplaceInfoSection}
+        {paymentModeSection}
+        {notesSection}
+        {claimSection}
+      </div>
+    );
+  }
+
+  // ------------------------------------------------------------------------
+  // Flag ON — the unified RelationshipTabShell. Everything below runs ONLY on
+  // this branch, so the flag-OFF path adds zero queries and stays untouched.
+  //
+  // Chat tab: mirror the couple thread page (privacy notice + interest chips +
+  // ChatMessageStream + gated composer). Falls back to the existing
+  // conversation link block when there's no thread / the vendor is off-platform.
+  // ------------------------------------------------------------------------
+
+  // Completion handshake (Event Lifecycle Menu §6.1) — resolve the couple-facing
+  // state so the Details tab can surface "confirm received" + the review prompt
+  // in the shell (previously reachable only on the standalone /review page).
+  // Only for connected vendors — an off-platform/manual vendor has no account to
+  // mark complete and no profile to review. Flag-ON-only reads, so the flag-OFF
+  // path adds zero queries. RLS session client (couple's own booking + event).
+  let coupleHandshake: ReviewState | null = null;
+  if (ev.marketplace_vendor_id) {
+    const [{ data: complRow }, { data: evtRow }] = await Promise.all([
+      supabase
+        .from('event_vendors')
+        .select(
+          'completion_status, service_marked_complete_at, customer_confirmed_received_at',
+        )
+        .eq('vendor_id', ev.vendor_id)
+        .eq('event_id', eventId)
+        .maybeSingle(),
+      supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
+    ]);
+    const compl = complRow as {
+      completion_status: string | null;
+      service_marked_complete_at: string | null;
+      customer_confirmed_received_at: string | null;
+    } | null;
+    if (compl) {
+      coupleHandshake = reviewState(
+        {
+          status: ev.status,
+          completion_status: compl.completion_status,
+          service_marked_complete_at: compl.service_marked_complete_at,
+          customer_confirmed_received_at: compl.customer_confirmed_received_at,
+        },
+        (evtRow as { event_date?: string | null } | null)?.event_date ?? null,
+      );
+    }
+  }
+
+  // Completion card for the Details tab. `awaiting_confirm` is the actionable
+  // gap (vendor marked complete, couple hasn't confirmed); `reviewable` nudges
+  // the review — but only when the marketplace-info section isn't ALSO showing a
+  // review link (it only does so at legacy status 'delivered'/'complete'), so we
+  // never double up. `awaiting_vendor` renders nothing (nothing to do yet).
+  const reviewHref = `/dashboard/${eventId}/vendors/${ev.vendor_id}/review`;
+  const coupleCompletionSection =
+    coupleHandshake === 'awaiting_confirm' ? (
+      <section
+        aria-labelledby="completion-heading"
+        className="rounded-2xl border border-success-300/50 bg-success-50/50 p-5 sm:p-6"
+      >
+        <h2
+          id="completion-heading"
+          className="flex items-center gap-2 text-sm font-semibold text-ink"
+        >
+          <CheckCircle2 aria-hidden className="h-4 w-4 text-success-600" strokeWidth={1.75} />
+          Did you get everything from {displayName}?
+        </h2>
+        <p className="mt-1.5 text-xs text-ink/70">
+          {displayName} marked their service complete. Confirm you received everything to
+          unlock your review and galleries — or let us know if something is missing.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <form action={coupleConfirmReceived}>
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="vendor_id" value={ev.vendor_id} />
+            <SubmitButton
+              pendingLabel="Confirming…"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+            >
+              Yes, I got everything
+            </SubmitButton>
+          </form>
+          <form action={coupleReportNonDelivery}>
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="vendor_id" value={ev.vendor_id} />
+            <SubmitButton
+              pendingLabel="Reporting…"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-4 py-2 text-sm font-medium text-ink/70 transition-colors hover:border-ink/30 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+            >
+              Something&rsquo;s missing
+            </SubmitButton>
+          </form>
+        </div>
+        <p className="mt-3 text-[11px] text-ink/55">
+          If you don&rsquo;t respond, this auto-confirms after 7 days so your review can still
+          go up.
+        </p>
+      </section>
+    ) : coupleHandshake === 'disputed' ? (
+      <section
+        aria-labelledby="completion-heading"
+        className="rounded-2xl border border-warn-300/60 bg-warn-50/60 p-5 sm:p-6"
+      >
+        <h2
+          id="completion-heading"
+          className="flex items-center gap-2 text-sm font-semibold text-ink"
+        >
+          <Info aria-hidden className="h-4 w-4 text-warn-700" strokeWidth={1.75} />
+          You reported a problem
+        </h2>
+        <p className="mt-1.5 text-xs text-ink/70">
+          We&rsquo;ve noted that something was missing from {displayName}. Your review is on hold
+          while this is sorted out — once it&rsquo;s resolved, you can leave a review.
+        </p>
+      </section>
+    ) : coupleHandshake === 'reviewable' &&
+      ev.status !== 'delivered' &&
+      ev.status !== 'complete' ? (
+      <section
+        aria-labelledby="completion-heading"
+        className="rounded-2xl border border-success-300/50 bg-success-50/50 p-5 sm:p-6"
+      >
+        <h2
+          id="completion-heading"
+          className="flex items-center gap-2 text-sm font-semibold text-ink"
+        >
+          <Sparkles aria-hidden className="h-4 w-4 text-success-600" strokeWidth={1.75} />
+          How was {displayName}?
+        </h2>
+        <p className="mt-1.5 text-xs text-ink/70">
+          Your service is complete. Leave a public review to help other couples decide.
+        </p>
+        <Link
+          href={reviewHref}
+          className="mt-4 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+        >
+          Leave a review
+        </Link>
+      </section>
+    ) : null;
+
+  let chatTabNode: ReactNode = null;
+  let callTabNode: ReactNode = null;
+  if (ev.marketplace_vendor_id && chatThread) {
+    const thread = await fetchThreadById(supabase, chatThread.thread_id);
+    if (thread) {
+      // Mirror the couple thread page: mark read on open, resolve block state,
+      // server-render the first message batch. `displayName` (the resolved
+      // business_name for this booked vendor) is the counterparty label.
+      //
+      // Mark-read parity with the vendor side (2026-07-11): only clear the
+      // unread badge when Chat is the LANDING tab (no ?tab or ?tab=chat). A
+      // server round-trip that lands on another tab (e.g. the rail's ?tab=payments
+      // quick link, or a deep-link) must NOT mark the thread read without the
+      // couple actually viewing the chat. The chat NODE is still built either way
+      // — only the WRITE is gated. Read the RAW searchParam (the shell reads it
+      // client-side too). RLS session client only; never admin for chat reads.
+      const rawTab = typeof search.tab === 'string' ? search.tab : undefined;
+      if (!rawTab || rawTab === 'chat') {
+        await markThreadRead(chatThread.thread_id);
+      }
+      const blockState = await getThreadBlockState(thread, user.id, 'couple');
+      const initialMessages = await fetchMessages(supabase, chatThread.thread_id);
+      const coupleMsgCount = initialMessages.filter(
+        (m) => m.sender_role === 'couple',
+      ).length;
+      const canFollowUpWhilePending = coupleMsgCount <= 1;
+      const declineReason = thread.decline_reason?.trim() || null;
+      // Voice/video calling is a paid-vendor capability (gate-dark by default) —
+      // the couple sees the call UI only when this vendor's tier unlocks it.
+      const callsEnabled = await resolveThreadCallsEnabled(thread.vendor_profile_id);
+
+      callTabNode =
+        thread.inquiry_status === 'accepted' ? (
+          <ThreadCallLauncherLazy
+            threadId={thread.thread_id}
+            currentUserId={user.id}
+            counterpartyLabel={displayName}
+            callsEnabled={callsEnabled}
+            viewerRole="couple"
+          />
+        ) : (
+          <p className="text-xs text-ink/55">
+            Voice and video calls open once {displayName} accepts your inquiry.
+          </p>
+        );
+
+      chatTabNode = (
+        <section className="flex min-h-[24rem] max-h-[calc(100dvh-14rem)] flex-col gap-4">
+          {/* Menu carries the real block/unblock/report/archive affordances the
+              blocked-state copy refers to — mirror the messages thread page so
+              the Chat tab isn't an unblock dead-end. returnTo keeps the couple on
+              this workspace Chat tab after acting. */}
+          <div className="flex items-center justify-end">
+            <ChatThreadMenu
+              threadId={thread.thread_id}
+              returnTo={`/dashboard/${eventId}/vendors/${vendorId}/workspace?tab=chat`}
+              blockedByMe={blockState.blockedByMe}
+            />
+          </div>
+          <ChatPrivacyNotice />
+          <ThreadInterestChips supabase={supabase} threadId={thread.thread_id} />
+          <ChatMessageStream
+            threadId={thread.thread_id}
+            initialMessages={initialMessages}
+            currentUserId={user.id}
+            viewerRole="couple"
+            counterpartyLabel={displayName}
+          />
+          {blockState.blockedByMe || blockState.blockedByThem ? (
+            <div className="rounded-xl border border-ink/10 bg-ink/[0.03] p-4 text-sm text-ink/70">
+              {blockState.blockedByMe
+                ? 'You blocked this person. Unblock from the conversation menu to message again.'
+                : 'You can no longer message in this conversation.'}
+            </div>
+          ) : thread.inquiry_status === 'accepted' ||
+            (thread.inquiry_status === 'pending' && canFollowUpWhilePending) ? (
+            <div className="space-y-2">
+              {thread.inquiry_status === 'pending' && coupleMsgCount > 0 ? (
+                <p className="text-xs text-ink/55">
+                  You can send one follow-up while you wait for {displayName} to
+                  accept.
+                </p>
+              ) : null}
+              <ChatSendForm threadId={thread.thread_id} sendAction={sendChatMessage} />
+            </div>
+          ) : thread.inquiry_status === 'pending' ? (
+            <div className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
+              <p className="text-sm text-ink">
+                <span className="font-semibold">Follow-up sent.</span> Waiting for{' '}
+                {displayName} to accept before your chat opens.
+              </p>
+              <form action={withdrawInquiry}>
+                <input type="hidden" name="event_id" value={eventId} />
+                <input type="hidden" name="thread_id" value={thread.thread_id} />
+                <SubmitButton
+                  pendingLabel="Withdrawing…"
+                  className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55 underline-offset-2 hover:text-terracotta hover:underline"
+                >
+                  Withdraw inquiry
+                </SubmitButton>
+              </form>
+            </div>
+          ) : (
+            <div className="space-y-3 rounded-xl border border-ink/10 bg-ink/[0.03] p-4">
+              <p className="text-sm text-ink">
+                {declineReason ? (
+                  <>
+                    {displayName} declined this inquiry.{' '}
+                    <span className="font-semibold">Why:</span> &ldquo;{declineReason}
+                    &rdquo;
+                  </>
+                ) : (
+                  <>{displayName} isn&rsquo;t available for your date.</>
+                )}
+              </p>
+              <Link
+                href={`/dashboard/${eventId}/vendors`}
+                className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
+              >
+                See similar vendors
+              </Link>
+            </div>
+          )}
+        </section>
+      );
+    }
+  }
+  if (!chatTabNode) {
+    // No thread yet / off-platform vendor → reuse the existing conversation
+    // link block (it already carries the "open full chat" / "go to Messages"
+    // affordances and the off-platform explanation).
+    chatTabNode = conversationSection;
+  }
+
+  const tabIconClass = 'h-3.5 w-3.5';
+  const tabs: RelationshipTab[] = [
+    {
+      id: 'chat',
+      label: 'Chat',
+      icon: <MessageCircle aria-hidden className={tabIconClass} strokeWidth={1.75} />,
+      node: chatTabNode,
+    },
+    {
+      id: 'quote',
+      label: 'Quote',
+      icon: <Receipt aria-hidden className={tabIconClass} strokeWidth={1.75} />,
+      node: proposalsCard,
+    },
+    {
+      id: 'payments',
+      label: 'Payments',
+      icon: <PiggyBank aria-hidden className={tabIconClass} strokeWidth={1.75} />,
+      node: (
+        <div className="space-y-6">
+          {statusSection}
+          {paymentModeSection}
+        </div>
+      ),
+    },
+    {
+      id: 'files',
+      label: 'Files',
+      icon: <FileText aria-hidden className={tabIconClass} strokeWidth={1.75} />,
+      node: documentsSection,
+    },
+    {
+      id: 'schedule',
+      label: 'Schedule',
+      icon: <CalendarPlus aria-hidden className={tabIconClass} strokeWidth={1.75} />,
+      node: (
+        <div className="space-y-6">
+          {schedulesSection}
+          {appointmentsSection}
+        </div>
+      ),
+    },
+    {
+      id: 'call',
+      label: 'Call',
+      icon: <Phone aria-hidden className={tabIconClass} strokeWidth={1.75} />,
+      // callTabNode is only set once a thread resolves. A marketplace vendor
+      // with no conversation started yet → give a helpful empty state rather
+      // than a blank panel (mirrors the Chat tab's no-thread fallback).
+      node: callTabNode ?? (
+        <p className="text-xs text-ink/55">
+          Voice and video calls open once you start a conversation with {displayName}.
+        </p>
+      ),
+      hidden: !ev.marketplace_vendor_id,
+    },
+    {
+      id: 'details',
+      label: 'Details',
+      icon: <Info aria-hidden className={tabIconClass} strokeWidth={1.75} />,
+      node: (
+        <div className="space-y-6">
+          {coupleCompletionSection}
+          {includedSection}
+          {marketplaceInfoSection}
+          {notesSection}
+          {claimSection}
+        </div>
+      ),
+    },
+  ];
+
+  // ------------------------------------------------------------------------
+  // Desktop context rail (3-pane · lg+ only). A compact, always-visible summary
+  // of the relationship's NEXT ACTION + quick links to the Chat / Payments tabs.
+  // Reuses the hero/status data already computed above (no new queries). The
+  // shell hides this under lg, and the mobile header already carries the hero +
+  // status, so this is purely additive on desktop.
+  // ------------------------------------------------------------------------
+  let railTitle: string;
+  let railBody: string;
+  if (isSetnayanService) {
+    const paidUp =
+      activeSetnayanOrder?.status === 'paid' ||
+      activeSetnayanOrder?.status === 'fulfilled';
+    if (paidUp) {
+      railTitle = 'Payment received';
+      railBody = 'Your payment is confirmed — this service is active.';
+    } else if (activeSetnayanOrder) {
+      railTitle = 'Payment in review';
+      railBody = 'We’re verifying your payment. You’ll get an email once it’s activated.';
+    } else {
+      railTitle = 'Pay for this service';
+      railBody =
+        'You pay Setnayan directly. Send your payment, upload the screenshot, and our team activates it within a business day.';
+    }
+  } else if (stage === 'delivered') {
+    railTitle = 'Delivered';
+    railBody = `${displayName} marked this delivered. Settle any balance and leave a review.`;
+  } else if (stage === 'downpayment_paid') {
+    railTitle = 'Keep payments on track';
+    railBody = `Your downpayment is in. Log each payment to ${displayName} as money moves.`;
+  } else {
+    railTitle = 'Record your payment';
+    railBody = `Your booking with ${displayName} is locked. Log your downpayment to hold the date.`;
+  }
+
+  const quickLinkClass =
+    'inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-xs font-medium text-ink/70 transition-colors hover:border-terracotta/40 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta';
+
+  const contextRail = (
+    <div className="space-y-3">
+      <div className="rounded-2xl border border-ink/10 bg-cream/70 p-4">
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          Next step
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-success-800">
+            <BookmarkCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
+            Locked
+          </span>
+          {stage ? (
+            <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
+              {STAGE_LABEL[stage]}
+            </span>
+          ) : null}
+        </div>
+        <h3 className="mt-2 text-sm font-semibold text-ink">{railTitle}</h3>
+        <p className="mt-1 text-xs leading-relaxed text-ink/65">{railBody}</p>
+        {paidSoFarFormatted ? (
+          <p className="mt-2.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
+            Paid so far <span className="text-ink/80">· {paidSoFarFormatted}</span>
+          </p>
+        ) : null}
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <a
+          href={`/dashboard/${eventId}/vendors/${vendorId}/workspace?tab=chat`}
+          className={quickLinkClass}
+        >
+          <MessageCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          Chat
+        </a>
+        <a
+          href={`/dashboard/${eventId}/vendors/${vendorId}/workspace?tab=payments`}
+          className={quickLinkClass}
+        >
+          <PiggyBank aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          Payments
+        </a>
+      </div>
     </div>
+  );
+
+  return (
+    <RelationshipTabShell
+      tabs={tabs}
+      initialTabId="chat"
+      contextRail={contextRail}
+      header={
+        <div className="space-y-4">
+          {backNav}
+          {heroSection}
+        </div>
+      }
+    />
   );
 }

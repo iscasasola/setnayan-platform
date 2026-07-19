@@ -101,10 +101,11 @@ export const PAPIC_DEFAULT_COST_CAP_PHP = 6999; // deprecated single cap (pre pe
 /**
  * Per-tier price caps — each tier's subtotal locks here. Live values come from
  * events.papic_ltd_cap_php / papic_unli_cap_php; these are last-resort fallbacks.
- * Owner-set 2026-07-11: Ltd ₱5,999 · Unli ₱11,999 (was 6000 / 10000).
+ * Owner-set 2026-07-11 (PR #3112): Ltd ₱9,000 · Unli ₱15,000 (raised from the
+ * ₱5,999/₱11,999 set earlier the same day; 6000/10000 before that).
  */
-export const PAPIC_LTD_CAP_FALLBACK_PHP = 5999; // Ltd (Roll) ≈ 200 cameras × ₱30
-export const PAPIC_UNLI_CAP_FALLBACK_PHP = 11999; // Unli ≈ 120 cameras × ₱100
+export const PAPIC_LTD_CAP_FALLBACK_PHP = 9000; // Ltd (Roll) ≈ 300 cameras × ₱30 (owner 2026-07-11)
+export const PAPIC_UNLI_CAP_FALLBACK_PHP = 15000; // Unli = 150 cameras × ₱100 (owner 2026-07-11)
 
 export type CameraTier = 'free' | 'roll' | 'unlimited';
 

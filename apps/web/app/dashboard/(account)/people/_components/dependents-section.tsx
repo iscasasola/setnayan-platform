@@ -1,0 +1,473 @@
+import Link from 'next/link';
+import { headers } from 'next/headers';
+import { createClient } from '@/lib/supabase/server';
+import { manilaToday } from '@/lib/std-views';
+import {
+  DEPENDENT_RELATIONSHIPS,
+  DEPENDENT_RELATIONSHIP_LABELS,
+  DEPENDENT_KINDS,
+  DEPENDENT_KIND_LABELS,
+  DEPENDENT_SEXES,
+  RELIGIONS,
+  fenceBand,
+  dependentNextMilestone,
+  isClaimEligible,
+  type DependentSex,
+  type DependentKind,
+} from '@/lib/dependent-people';
+import { RELIGION_LABELS } from '@/lib/profile-personalization';
+import { SubmitButton } from '@/app/_components/submit-button';
+import { ConfirmForm } from '@/app/_components/confirm-form';
+import { CopyButton } from '@/app/dashboard/[eventId]/studio/papic/crew/_components/copy-button';
+import {
+  addDependent,
+  deleteDependent,
+  addGodparent,
+  deleteGodparent,
+  setDependentSharing,
+  createHandoverLink,
+  revokeHandoverLink,
+  emailHandoverLink,
+} from '../dependent-actions';
+
+/**
+ * "Alaga" — the dependent capture (Phase 3 family graph · flag-gated).
+ * Product name owner-locked 2026-07-16: Alaga in all user-facing copy;
+ * "dependents" stays the technical/legal term (schema, RLS, counsel docs).
+ * Rendered only when dependentPeopleEnabled(). An alaga is a person, a pet, or
+ * anything else you care for — an account created inside your account, owned
+ * by you. Only a PERSON carries a birthdate/religion + the age fence (child
+ * <18 / elder >50) and can later claim the profile as their own account at 18;
+ * pets/other are just a name (+ optional birthday). Milestones + godparents
+ * apply to the person case only.
+ */
+
+type DependentRow = {
+  dependent_id: string;
+  dependent_kind: DependentKind | null;
+  name: string;
+  birth_date: string | null;
+  sex: DependentSex | null;
+  religion: string | null;
+  relationship: string | null;
+  owner_user_id: string;
+  shared_with_spouse: boolean;
+  handed_over_at: string | null;
+  claimed_user_id: string | null;
+  handed_over_by_user_id: string | null;
+  claim_token: string | null;
+  claim_token_purpose: string | null;
+  claim_token_expires_at: string | null;
+};
+
+type GodparentRow = {
+  godparent_id: string;
+  dependent_id: string;
+  godparent_name: string;
+  role: string | null;
+};
+
+const FMT = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Manila',
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+});
+function fmt(iso: string): string {
+  return FMT.format(new Date(`${iso}T12:00:00+08:00`));
+}
+
+export async function DependentsSection() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const myUserId = user?.id ?? '';
+
+  // RLS now returns MY dependents + any my spouse marked shared (PR-G household).
+  const { data } = await supabase
+    .from('dependents')
+    .select('dependent_id, dependent_kind, name, birth_date, sex, religion, relationship, owner_user_id, shared_with_spouse, handed_over_at, claimed_user_id, handed_over_by_user_id, claim_token, claim_token_purpose, claim_token_expires_at')
+    .order('created_at', { ascending: true });
+  const dependents = (data ?? []) as DependentRow[];
+  const today = manilaToday();
+
+  // Absolute base for hand-over links (same pattern as the Papic crew page).
+  const h = await headers();
+  const host = h.get('host') ?? 'www.setnayan.com';
+  const proto = h.get('x-forwarded-proto') ?? 'https';
+  const appUrl = `${proto}://${host}`;
+
+  // Do I have a spouse on Setnayan? Only then is the "share with spouse" toggle
+  // meaningful. current_spouse_user_ids() returns the co-host(s) of my wedding.
+  const { data: spouseIds } = await supabase.rpc('current_spouse_user_ids');
+  const hasSpouse = Array.isArray(spouseIds) && spouseIds.length > 0;
+
+  // Godparents (ninong/ninang) per dependent — RLS scopes to the owner's rows.
+  const { data: gpData } = await supabase
+    .from('godparents')
+    .select('godparent_id, dependent_id, godparent_name, role')
+    .order('created_at', { ascending: true });
+  const godparentsByDependent = new Map<string, GodparentRow[]>();
+  for (const g of (gpData ?? []) as GodparentRow[]) {
+    const list = godparentsByDependent.get(g.dependent_id) ?? [];
+    list.push(g);
+    godparentsByDependent.set(g.dependent_id, list);
+  }
+
+  return (
+    <section className="mt-10">
+      <header className="mb-3">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/50">
+          Alaga
+        </h2>
+        <p className="mt-1 text-sm text-ink/55">
+          The ones you care for — a person, a pet, or anything else. Their profile lives inside
+          your account and belongs to you; a child&rsquo;s becomes their own at 18. We store the
+          names, dates, and events that matter — not documents. Milestones and rites apply to a
+          person you plan for (a child or an elder).
+        </p>
+      </header>
+
+      {dependents.length > 0 ? (
+        <ul className="mb-6 space-y-2.5">
+          {dependents.map((d) => {
+            // Fence band, milestones + godparents are the PERSON case only — a
+            // pet's birthday is never a "debut". Legacy rows (null kind) = person.
+            const isPersonRow = (d.dependent_kind ?? 'person') === 'person';
+            const band = isPersonRow && d.birth_date ? fenceBand(d.birth_date, today) : null;
+            const next = isPersonRow && d.birth_date ? dependentNextMilestone(d.birth_date, d.sex, today) : null;
+            const mine = d.owner_user_id === myUserId;
+            // Hand-over states (owner-locked 2026-07-16): a claim is a TRUE
+            // ownership transfer — the claimant becomes owner (full control,
+            // incl. erasure); the former guardian keeps read-only history via
+            // handed_over_by. Link mint: person needs age ≥18 proof; pet/other
+            // always.
+            const handedOver = !!d.handed_over_at;
+            const claimedByMe = d.claimed_user_id === myUserId;
+            const fromMe = d.handed_over_by_user_id === myUserId;
+            const canMintLink =
+              mine && !handedOver && (!isPersonRow || isClaimEligible(d.birth_date, today));
+            const linkActive =
+              !!d.claim_token &&
+              !!d.claim_token_expires_at &&
+              new Date(d.claim_token_expires_at) > new Date();
+            const gps = godparentsByDependent.get(d.dependent_id) ?? [];
+            return (
+              <li
+                key={d.dependent_id}
+                className="rounded-xl border border-ink/10 bg-ink/[0.015] px-4 py-3"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-ink">{d.name}</p>
+                    <p className="truncate text-xs text-ink/55">
+                      {claimedByMe
+                        ? 'You'
+                        : d.dependent_kind && d.dependent_kind !== 'person'
+                          ? DEPENDENT_KIND_LABELS[d.dependent_kind]
+                          : d.relationship
+                            ? DEPENDENT_RELATIONSHIP_LABELS[d.relationship as keyof typeof DEPENDENT_RELATIONSHIP_LABELS]
+                            : 'My alaga'}
+                      {band === 'child' ? ' · under 18' : band === 'elder' ? ' · over 50' : ''}
+                      {next ? ` · next: turns ${next.age} on ${fmt(next.dateISO)}` : ''}
+                    </p>
+                    {/* Debut happens FROM the alaga (owner 2026-07-17): when the
+                        next milestone is their debut (18 F / 21 M), open the door. */}
+                    {isPersonRow && !handedOver && next && next.age === (d.sex === 'male' ? 21 : 18) ? (
+                      <Link
+                        href="/onboarding/debut"
+                        className="mt-1 inline-block text-xs font-medium text-gold-deep underline-offset-2 hover:underline"
+                      >
+                        Plan {d.name}&rsquo;s debut →
+                      </Link>
+                    ) : null}
+                  </div>
+                  {handedOver ? (
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="rounded-full border border-gold/30 bg-gold/[0.08] px-2.5 py-1 text-[0.7rem] font-medium text-gold-deep">
+                        {claimedByMe
+                          ? 'Your own profile'
+                          : `Their own account since ${fmt(d.handed_over_at!.slice(0, 10))}`}
+                      </span>
+                      {claimedByMe ? (
+                        // The claimant owns the record now — RA 10173 erasure
+                        // is theirs to exercise (the former guardian cannot).
+                        <ConfirmForm
+                          action={deleteDependent}
+                          title="Erase this record?"
+                          message={`Permanently erase your profile record${fromMe ? '' : ' (your former guardian will lose their copy too)'}? This cannot be undone.`}
+                          confirmLabel="Erase"
+                        >
+                          <input type="hidden" name="dependent_id" value={d.dependent_id} />
+                          <button
+                            type="submit"
+                            className="rounded-md px-2 py-1 text-xs font-medium text-ink/45 transition-colors hover:text-terracotta"
+                          >
+                            Erase
+                          </button>
+                        </ConfirmForm>
+                      ) : null}
+                    </div>
+                  ) : mine ? (
+                    <ConfirmForm
+                      action={deleteDependent}
+                      title="Remove this record?"
+                      message={`Remove ${d.name}? This permanently deletes their record.`}
+                      confirmLabel="Remove"
+                      className="shrink-0"
+                    >
+                      <input type="hidden" name="dependent_id" value={d.dependent_id} />
+                      <button
+                        type="submit"
+                        className="rounded-md px-2 py-1 text-xs font-medium text-ink/45 transition-colors hover:text-terracotta"
+                      >
+                        Remove
+                      </button>
+                    </ConfirmForm>
+                  ) : (
+                    <span className="shrink-0 rounded-full border border-gold/30 bg-gold/[0.08] px-2.5 py-1 text-[0.7rem] font-medium text-gold-deep">
+                      Shared by your spouse
+                    </span>
+                  )}
+                </div>
+
+                {/* Hand-over / transfer-care link (owner-locked 2026-07-16):
+                    a PERSON of age claims their own account; a pet/other
+                    rehomes to a new guardian. One active link, 7-day expiry. */}
+                {canMintLink ? (
+                  <div className="mt-2">
+                    {linkActive ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <CopyButton
+                          value={`${appUrl}/claim/${d.claim_token}`}
+                          label={isPersonRow ? 'Copy hand-over link' : 'Copy transfer link'}
+                        />
+                        <span className="text-[0.7rem] text-ink/45">
+                          expires {fmt(d.claim_token_expires_at!.slice(0, 10))}
+                        </span>
+                        <form action={revokeHandoverLink}>
+                          <input type="hidden" name="dependent_id" value={d.dependent_id} />
+                          <SubmitButton
+                            className="text-xs font-medium text-ink/55 underline-offset-2 transition-colors hover:text-terracotta hover:underline"
+                            pendingLabel="Revoking…"
+                          >
+                            Revoke
+                          </SubmitButton>
+                        </form>
+                        <form action={emailHandoverLink} className="flex w-full items-center gap-2 sm:w-auto">
+                          <input type="hidden" name="dependent_id" value={d.dependent_id} />
+                          <input
+                            type="email"
+                            name="recipient"
+                            required
+                            placeholder={isPersonRow ? `${d.name}'s email` : "New keeper's email"}
+                            aria-label={`Email the ${isPersonRow ? 'hand-over' : 'transfer'} link for ${d.name}`}
+                            className="input-field h-8 flex-1 py-1 text-xs sm:max-w-[13rem]"
+                          />
+                          <SubmitButton
+                            className="button-secondary h-8 px-3 py-1 text-xs"
+                            pendingLabel="Sending…"
+                          >
+                            Email it
+                          </SubmitButton>
+                        </form>
+                      </div>
+                    ) : (
+                      <form action={createHandoverLink}>
+                        <input type="hidden" name="dependent_id" value={d.dependent_id} />
+                        <SubmitButton
+                          className="text-xs font-medium text-ink/55 underline-offset-2 transition-colors hover:text-ink hover:underline"
+                          pendingLabel="Creating…"
+                        >
+                          {isPersonRow
+                            ? `${d.name} is of age — create their hand-over link`
+                            : 'Transfer care to someone else'}
+                        </SubmitButton>
+                      </form>
+                    )}
+                  </div>
+                ) : null}
+
+                {/* Share-with-spouse toggle — my own rows, only if I have a spouse */}
+                {mine && !handedOver && hasSpouse ? (
+                  <form action={setDependentSharing} className="mt-2">
+                    <input type="hidden" name="dependent_id" value={d.dependent_id} />
+                    <input type="hidden" name="share" value={d.shared_with_spouse ? '0' : '1'} />
+                    <SubmitButton
+                      className="text-xs font-medium text-ink/55 underline-offset-2 transition-colors hover:text-ink hover:underline"
+                      pendingLabel="Saving…"
+                    >
+                      {d.shared_with_spouse
+                        ? '✓ Shared with your spouse — tap to make private'
+                        : 'Share with your spouse'}
+                    </SubmitButton>
+                  </form>
+                ) : null}
+
+                {/* Godparents (ninong / ninang) — editable while a child is
+                    under guardianship; read-only to the claimed adult (their
+                    own baptismal record, via godparents_subject_read RLS). */}
+                {band === 'child' || (claimedByMe && gps.length > 0) ? (
+                  <div className="mt-3 border-t border-ink/10 pt-3">
+                    <p className="text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-ink/40">
+                      Ninong &amp; ninang
+                    </p>
+                    {gps.length > 0 ? (
+                      <ul className="mt-2 flex flex-wrap gap-2">
+                        {gps.map((g) => (
+                          <li
+                            key={g.godparent_id}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-white/60 py-1 pl-3 pr-1.5 text-xs text-ink/70"
+                          >
+                            <span>
+                              {g.godparent_name}
+                              {g.role ? <span className="text-ink/40"> · {g.role}</span> : null}
+                            </span>
+                            {mine && band === 'child' ? (
+                              <ConfirmForm
+                                action={deleteGodparent}
+                                title="Remove godparent?"
+                                message={`Remove ${g.godparent_name}?`}
+                                confirmLabel="Remove"
+                              >
+                                <input type="hidden" name="godparent_id" value={g.godparent_id} />
+                                <button
+                                  type="submit"
+                                  aria-label={`Remove ${g.godparent_name}`}
+                                  className="rounded-full px-1.5 text-ink/40 transition-colors hover:text-terracotta"
+                                >
+                                  ×
+                                </button>
+                              </ConfirmForm>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {mine && band === 'child' ? (
+                      <form action={addGodparent} className="mt-2 flex flex-wrap items-end gap-2">
+                        <input type="hidden" name="dependent_id" value={d.dependent_id} />
+                        <input
+                          name="godparent_name"
+                          className="input-field h-9 flex-1 py-1 text-sm sm:max-w-[12rem]"
+                          placeholder="Add a ninong or ninang"
+                          aria-label={`Godparent name for ${d.name}`}
+                          required
+                        />
+                        <select
+                          name="role"
+                          defaultValue=""
+                          aria-label="Role"
+                          className="input-field h-9 w-auto py-1 text-sm"
+                        >
+                          <option value="">Role</option>
+                          <option value="ninong">Ninong</option>
+                          <option value="ninang">Ninang</option>
+                        </select>
+                        <input
+                          name="godparent_email"
+                          type="email"
+                          className="input-field h-9 flex-1 py-1 text-sm sm:max-w-[13rem]"
+                          placeholder="Email (optional — for reminders)"
+                          aria-label={`Godparent email for ${d.name}`}
+                        />
+                        <SubmitButton className="button-secondary h-9 px-3 py-1 text-sm" pendingLabel="Adding…">
+                          Add
+                        </SubmitButton>
+                      </form>
+                    ) : gps.length === 0 ? (
+                      <p className="mt-1 text-xs text-ink/40">No godparents added.</p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+
+      {/* Add form */}
+      <form
+        action={addDependent}
+        className="space-y-4 rounded-xl border border-ink/10 bg-cream p-4"
+      >
+        <p className="text-sm font-medium text-ink">Add an alaga</p>
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-ink" htmlFor="dep_kind">
+            What is this?
+          </label>
+          <select id="dep_kind" name="dependent_kind" defaultValue="person" className="input-field sm:max-w-[14rem]">
+            {DEPENDENT_KINDS.map((k) => (
+              <option key={k} value={k}>
+                {DEPENDENT_KIND_LABELS[k]}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-ink/50">
+            A pet or “something else” is just a name and, if you like, a birthday — no other details.
+          </p>
+        </div>
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-ink" htmlFor="dep_name">
+            Name <span className="text-terracotta">*</span>
+          </label>
+          <input id="dep_name" name="name" className="input-field" placeholder="e.g. Amara, or Bantay" required />
+        </div>
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-ink" htmlFor="dep_birth">
+            Birthday <span className="text-ink/40">(optional)</span>
+          </label>
+          <input id="dep_birth" name="birth_date" type="date" className="input-field sm:max-w-[14rem]" />
+          <p className="text-xs text-ink/50">
+            For a person, a stored birthday is only for a child (under 18) or an elder (over 50) —
+            adults keep their own, so invite them instead. A pet can have any birthday, or none.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-ink" htmlFor="dep_rel">
+              Relationship
+            </label>
+            <select id="dep_rel" name="relationship" defaultValue="child" className="input-field">
+              {DEPENDENT_RELATIONSHIPS.map((r) => (
+                <option key={r} value={r}>
+                  {DEPENDENT_RELATIONSHIP_LABELS[r]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-ink" htmlFor="dep_sex">
+              For the debut year (optional)
+            </label>
+            <select id="dep_sex" name="sex" defaultValue="" className="input-field">
+              <option value="">Prefer not to say</option>
+              {DEPENDENT_SEXES.map((s) => (
+                <option key={s} value={s}>
+                  {s === 'female' ? '18th (daughter)' : '21st (son)'}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-ink" htmlFor="dep_religion">
+            Religion (optional — unlocks their rites)
+          </label>
+          <select id="dep_religion" name="religion" defaultValue="" className="input-field">
+            <option value="">Prefer not to say</option>
+            {RELIGIONS.map((r) => (
+              <option key={r} value={r}>
+                {RELIGION_LABELS[r]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <SubmitButton className="button-primary" pendingLabel="Adding…">
+          Add
+        </SubmitButton>
+      </form>
+    </section>
+  );
+}

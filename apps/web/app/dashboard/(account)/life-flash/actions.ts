@@ -28,6 +28,19 @@ export async function markPersonInMemoriam(
   if (!user) return { ok: false, error: 'You need to be signed in.' };
 
   const supabase = await createClient();
+
+  // Alive-framing (Build Plan §0/§5): the account holder can NEVER mark their
+  // OWN person node. The self-claim trigger sets created_by_user_id = self on
+  // that node, so the created_by ownership gate alone would accept it — the UI
+  // hides the toggle, but the action must refuse it too (defense in depth).
+  const { data: selfRows } = await supabase
+    .from('people')
+    .select('person_id')
+    .eq('claimed_by_user_id', user.id);
+  if ((selfRows ?? []).some((r) => (r as { person_id: string }).person_id === personId)) {
+    return { ok: false, error: 'You can’t mark yourself.' };
+  }
+
   const { data, error } = await supabase
     .from('people')
     .update({ in_memoriam: remembered })

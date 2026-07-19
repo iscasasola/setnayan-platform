@@ -63,7 +63,7 @@ export async function SongsSurface({
       ) : null}
 
       {/* Merge two songs */}
-      <form action={mergeSongsAction} className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-4">
+      <form action={mergeSongsAction} className="space-y-3 sn-tile p-4">
         <h2 className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           <GitMerge aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Merge duplicates
         </h2>
@@ -95,7 +95,7 @@ export async function SongsSurface({
       </form>
 
       {/* List */}
-      <ul className="divide-y divide-ink/5 rounded-2xl border border-ink/10 bg-cream">
+      <ul className="divide-y divide-ink/5 sn-tile">
         {songs.length === 0 ? (
           <li className="px-4 py-6 text-sm text-ink/50">No songs match.</li>
         ) : (

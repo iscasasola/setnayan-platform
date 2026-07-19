@@ -4,30 +4,52 @@
  *
  * The desktop sidebar is organised into two labelled sections matching the
  * couple energy prototype:
- *   PLAN    → Overview · Guests · Merkado · Studio · Budget
+ *   PLAN    → Overview · Guests · Merkado · Studio
  *   GO LIVE → Launch (the couple's live personal website)
- * Each top-level item auto-expands on the desktop sidebar to reveal its
- * sub-pages. The mobile bottom nav (lib/customer-menu.ts) carries the same
- * top-level destinations + labels (Overview · Guests · Merkado · Studio).
+ * EVERY top-level item is a PLAIN LEAF (owner 2026-07-15: "solid menu with no
+ * submenus" — extends the vendor 5-page IA + the 2026-07-10 Overview/Guests
+ * plain-leaf decision to the whole couple rail). No item expands children in the
+ * rail; sub-navigation lives INSIDE each page (the Merkado tab strip, the Studio
+ * hub body). The PLAN / GO LIVE strings are flat SECTION HEADINGS, not
+ * expandable parents. The mobile bottom nav (lib/customer-menu.ts) carries the
+ * same top-level destinations + labels (Overview · Guests · Merkado · Studio).
  *
- * PLAN items (same destinations as before — only regrouped + relabelled):
- *   1. Overview → /dashboard/[id]         (checklist · schedule · messages · contracts · refer)
- *      — renamed from "Home"; route + exact-match sentinel unchanged.
- *   2. Guests   → /dashboard/[id]/guests  (five journey stages + event-qr) · guest-count badge
- *   3. Merkado  → /dashboard/[id]/vendors (marketplace + Build tabs)
- *      — renamed from "Explore"; key + route unchanged.
- *   4. Studio   → /dashboard/[id]/studio  (website · mood-board · monogram · live wall)
- *   5. Budget   → /dashboard/[id]/budget  (activity · disputes)
+ * PLAN items (all plain leaves):
+ *   1. Overview → /dashboard/[id]         (its old checklist/schedule/messages/
+ *      contracts children were flattened #3004; those surfaces live in the
+ *      dashboard body + topbar). Renamed from "Home"; route + exact-match
+ *      sentinel unchanged.
+ *   2. Guests   → /dashboard/[id]/guests  (the guest-journey stages are
+ *      integrated into the single Guests page) · guest-count badge.
+ *   3. Merkado  → /dashboard/[id]/vendors (the Build/Budget/Compare tabs live in
+ *      the page's own tab strip) — renamed from "Explore"; key + route unchanged.
+ *   4. Studio   → /dashboard/[id]/studio  (Event page · Website · Mood Board ·
+ *      Monogram · Live Wall · E-Gifts all live in the Studio hub body — the App
+ *      Store catalog rows + the hub's "Set up & manage" doorway block, NOT the
+ *      rail — owner 2026-07-15 "no submenus")
  * GO LIVE items:
- *   6. Launch   → /[slug] (or /website/launch pre-slug) — gated on websiteEnabled.
+ *   5. Launch   → /[slug] (or /website/launch pre-slug) — gated on websiteEnabled.
+ *
+ * BUDGET removed 2026-07-10 (owner) — the standalone top-level Budget menu (and
+ * its Activity + Disputes children) is GONE, matching the mobile SSOT
+ * (lib/customer-menu.ts), which dropped it when the budget moved into the
+ * Merkado (Vendors → Build · Budget · Compare). Reachability after removal:
+ *   • /budget    → Merkado's Budget tab ("Open budget & payments" lens link).
+ *   • /disputes  → the vendor booking cancel flow (cancel-booking-button → the
+ *                  0023 § 3.6 dispute filing page at /disputes).
+ *   • /activity  → the "See all recent activity →" link at the foot of the
+ *                  dashboard body's "Around your event" section
+ *                  (event-dashboard.tsx); the customer.sidebar.activity/disputes
+ *                  registry slots are kept so a re-surfaced link stays
+ *                  admin-editable.
  *
  * A non-empty `group.label` makes SidebarSection render a collapsible heading.
  * The 'plan'/'golive' group keys are stable (localStorage section-state).
  *
- * GUEST JOURNEY — the Guests item carries `children` = the five guest-journey
- * stages from lib/guest-journey (Build · Invite · Confirm · Seat · Day-of),
- * same SSOT as the mobile <SubNav> pill. `opts.dayOfOpen` un-mutes the
- * time-gated Day-of stage once the live window opens; defaults to false.
+ * GUEST JOURNEY — the Guests item is a plain leaf (the five guest-journey stages
+ * from lib/guest-journey — Build · Invite · Confirm · Seat · Day-of — now live
+ * inside the single Guests page, not as sidebar children). `opts.dayOfOpen` is
+ * retained as the day-of gating hook; defaults to false.
  *
  * HOME sentinel matchPrefix — `__home__` prevents the strict-prefix branch
  * from firing (every other /dashboard/[id]/... route shares the base prefix),
@@ -47,20 +69,28 @@ import {
   Users,
   Compass,
   Sparkles,
-  Globe,
-  Palette,
-  Type,
-  MonitorPlay,
-  Wallet,
-  Activity,
-  Shield,
-  Eye,
   Rocket,
+  CalendarDays,
+  Armchair,
+  Wallet,
 } from 'lucide-react';
-import { BUDGET_BUILD_TABS, TAB_META } from '@/lib/budget-build';
 import type { LucideIcon } from 'lucide-react';
 import type { NavGroup, NavItem } from '@/app/_components/nav/types';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
+
+/**
+ * Suite nav doorway (owner 2026-07-19: surface name locked = "Suite"; the nav
+ * slot REPLACES Studio, flag-gated via NEXT_PUBLIC_SUITE — same flag that
+ * un-404s /dashboard/[eventId]/suite). Flag ON → the Studio rail item renders
+ * as Suite → `${base}/suite`; flag OFF → Studio exactly as today. The /studio
+ * routes stay reachable either way (deep links + buy pages untouched) — only
+ * the doorway swaps. Item KEY stays 'studio' (stable: hideKeys gating + the
+ * customer.sidebar.studio registry slot key off it). NEXT_PUBLIC_* is inlined
+ * into the client bundle at build time, so this neutral module reads the same
+ * value on server + client (no hydration split). Mirror: lib/customer-menu.ts
+ * (mobile SSOT) + lib/nav-registry-defaults.ts (registry label default).
+ */
+const SUITE_NAV_ON = process.env.NEXT_PUBLIC_SUITE === 'true';
 
 /**
  * Builds the canonical customer NavGroup[] for the given eventId — one
@@ -82,10 +112,6 @@ export function buildCustomerNavGroups(
     /** Live guest count → the Guests item's badge (neutral tone). Resolved
      *  server-side in layout.tsx; omit/0 → no badge (never fabricated). */
     guestCount?: number | null;
-    /** Unread thread count → the Home › Messages child badge (orange/attention
-     *  tone). Already loaded by the layout for the topbar bell; 0/absent → no
-     *  badge. */
-    unreadMessages?: number;
   },
 ): NavGroup[] {
   const base = `/dashboard/${eventId}`;
@@ -150,10 +176,14 @@ export function buildCustomerNavGroups(
             : {}),
         },
         {
-          // 3 · Explore — vendor marketplace. Sub-items are the 5 Build tabs
-          // (Summary · Shortlist · Build · Compare · Lock); clicking them fires
-          // the BB_TAB_EVENT bus (no server round-trip) via SidebarItem's tab
-          // child handler, mirroring what the mobile <SubNav> pill does.
+          // 3 · Merkado — vendor marketplace. PLAIN LEAF (owner 2026-07-15:
+          // "solid menu with no submenus"). The 5 Build tabs (Summary ·
+          // Shortlist · Build · Compare · Lock) that used to expand here as
+          // sidebar children now live ONLY as the page's own tab strip inside
+          // /vendors (the docked <SubNav> pill / BB_TAB_EVENT bus is unchanged),
+          // so tapping this row lands on /vendors and the in-page strip covers
+          // the tabs. The single matchPrefix (${base}/vendors) keeps the item lit
+          // on every ?tab= state (query-less prefix match).
           key: 'explore',
           // Renamed Explore → Merkado (owner-approved product naming; matches
           // the design prototype). Key + route (/vendors) + match unchanged.
@@ -161,121 +191,94 @@ export function buildCustomerNavGroups(
           href: `${base}/vendors`,
           icon: Compass,
           matchPrefix: `${base}/vendors`,
-          children: BUDGET_BUILD_TABS.map((t) => ({
-            key: `explore-${t}`,
-            label: TAB_META[t].label,
-            href: `${base}/vendors?tab=${t}`,
-            icon: TAB_META[t].icon,
-            matchPrefix: `${base}/vendors`,
-            tab: t,
-          })),
         },
         {
-          // 4 · Studio — add-ons hub. Expands to design surfaces that all
-          // light the Studio tab on mobile (site-editor + /monogram).
+          // 4 · Studio — add-ons hub. PLAIN LEAF (owner 2026-07-15: "solid menu
+          // with no submenus"). The design surfaces that used to expand here as
+          // sidebar children (Event page · Website · Mood Board · Monogram · Live
+          // Wall · E-Gifts) now live ONLY inside the Studio hub body: Mood Board
+          // / Monogram / Website are App Store rows in "Browse everything"
+          // (lib/add-ons-catalog.ts), and Event page / Live Wall / E-Gifts get an
+          // explicit "Set up & manage" doorway block on the hub page
+          // (studio/page.tsx) — added there because they aren't catalog SKUs, so
+          // nothing orphans. matchPrefix (${base}/studio) keeps this lit on the
+          // hub + /studio/* (mood-board, add-on detail); the disjoint surfaces
+          // (/monogram, /live, /event-page, /pabuya, /site-editor) are their own
+          // destinations reached from the hub body, same as the vendor 5-page IA.
+          // SUITE SWAP (flag-gated, see SUITE_NAV_ON above): when on, this slot
+          // is the Suite doorway → `${base}/suite`; matchPrefix follows the href
+          // (a deep-linked /studio page then lights no rail item — matchPrefix is
+          // a single prefix; the mobile tab still lights via its activeMatch
+          // array in lib/customer-menu.ts).
           key: 'studio',
-          label: 'Studio',
-          href: `${base}/studio`,
+          label: SUITE_NAV_ON ? 'Suite' : 'Studio',
+          href: SUITE_NAV_ON ? `${base}/suite` : `${base}/studio`,
           icon: Sparkles,
-          matchPrefix: `${base}/studio`,
-          children: [
-            // Website surface — Event page (the host's doorway to the live guest
-            // page), the site editor, and Launch (preview + go-live). Shown ONLY
-            // for event types whose profile enables 'website' (weddings today;
-            // resolved in layout.tsx → websiteEnabled). A birthday with no website
-            // surface never sees these. Wedding enables it → byte-identical.
-            ...(opts?.websiteEnabled
-              ? [
-                  {
-                    key: 'event-page',
-                    label: 'Event page',
-                    href: `${base}/event-page`,
-                    icon: Eye,
-                    matchPrefix: `${base}/event-page`,
-                  },
-                  {
-                    key: 'website',
-                    label: 'Website',
-                    href: `/site-editor/${eventId}`,
-                    icon: Globe,
-                    matchPrefix: `/site-editor/${eventId}`,
-                  },
-                ]
-              : []),
-            {
-              key: 'mood-board',
-              label: 'Mood Board',
-              href: `${base}/studio/mood-board`,
-              icon: Palette,
-              matchPrefix: `${base}/studio/mood-board`,
-            },
-            // Monogram surface — gated per event type (weddings today). A
-            // non-wedding event whose profile omits 'monogram' never sees it.
-            ...(opts?.monogramEnabled
-              ? [
-                  {
-                    key: 'monogram',
-                    label: 'Monogram',
-                    href: `${base}/monogram`,
-                    icon: Type,
-                    matchPrefix: `${base}/monogram`,
-                  },
-                ]
-              : []),
-            {
-              key: 'live',
-              label: 'Live Wall',
-              href: `${base}/live`,
-              icon: MonitorPlay,
-              matchPrefix: `${base}/live`,
-            },
-          ],
+          matchPrefix: SUITE_NAV_ON ? `${base}/suite` : `${base}/studio`,
         },
         // (Launch moved OUT of the Plan items into its own "Go live" section —
         // see `launchItem` above + the two-group composition below.)
-        {
-          // 5 · Budget — financial planning. Activity + Disputes are secondary
-          // financial views surfaced only on the desktop sidebar.
-          key: 'budget',
-          label: 'Budget',
-          href: `${base}/budget`,
-          icon: Wallet,
-          matchPrefix: `${base}/budget`,
-          children: [
-            {
-              key: 'activity',
-              label: 'Activity',
-              href: `${base}/activity`,
-              icon: Activity,
-              matchPrefix: `${base}/activity`,
-            },
-            {
-              key: 'disputes',
-              label: 'Disputes',
-              href: `${base}/disputes`,
-              icon: Shield,
-              matchPrefix: `${base}/disputes`,
-            },
-          ],
-        },
+        // Budget top-level item REMOVED 2026-07-10 (owner) to match the mobile
+        // SSOT (lib/customer-menu.ts): the budget now lives inside the Merkado
+        // (Vendors → Build · Budget · Compare). /budget stays reachable from the
+        // Merkado's Budget tab; /activity + /disputes from the dashboard body +
+        // the vendor booking cancel→dispute flow. See the header docstring.
   ];
 
   // Two labelled sidebar sections (design: setnayan-overview-energy.html):
-  //   PLAN    → Overview · Guests · Merkado · Studio · Budget
+  //   PLAN    → Overview · Guests · Merkado · Studio
   //   GO LIVE → Launch (the couple's live personal website)
   // Replaces the single header-less 'root' group. The Go-live section only
   // exists when Launch does (websiteEnabled) — an empty section would render a
   // heading with no rows.
+  // "ALSO IN THIS EVENT" — the off-nav destinations the proto keeps as quiet
+  // flat links (design: event_dashboard_v2_2026-07-15.html · the rail's "also
+  // in this event" block). These are NOT top-level tabs (Schedule lives off the
+  // rail by design; Seat plan + Budget live inside Guests / Merkado), but they
+  // are real routes couples reach often, so the rail surfaces them as plain
+  // links — flat, never a submenu (the whole-rail plain-leaf rule holds). Each
+  // matchPrefix lights the row on its own route. Budget carries key 'budget' so
+  // the Simple-Event `budget` hideKey drops it (same gate as the mobile SSOT).
+  const alsoItems: NavItem[] = [
+    {
+      key: 'schedule',
+      label: 'Schedule',
+      href: `${base}/schedule`,
+      icon: CalendarDays,
+      matchPrefix: `${base}/schedule`,
+    },
+    {
+      key: 'seat',
+      label: 'Seat plan',
+      href: `${base}/seating`,
+      icon: Armchair,
+      matchPrefix: `${base}/seating`,
+    },
+    {
+      key: 'budget',
+      label: 'Budget',
+      href: `${base}/budget`,
+      icon: Wallet,
+      matchPrefix: `${base}/budget`,
+    },
+  ];
+
+  // Two labelled sidebar sections (design: setnayan-overview-energy.html):
+  //   PLAN    → Overview · Guests · Merkado · Studio
+  //   GO LIVE → Launch (the couple's live personal website)
+  //   ALSO IN THIS EVENT → Schedule · Seat plan · Budget (flat off-nav links)
   const groups: NavGroup[] = [
     { key: 'plan', label: 'Plan', defaultOpen: true, items: planItems },
     ...(launchItem
       ? [{ key: 'golive', label: 'Go live', defaultOpen: true, items: [launchItem] } as NavGroup]
       : []),
+    { key: 'also', label: 'Also in this event', defaultOpen: true, items: alsoItems },
   ];
 
-  // Per-event-type gating (e.g. a vendor-free Simple Event drops 'explore' +
-  // 'budget'). Empty/undefined hideKeys → unchanged for wedding + all existing
-  // types. Mirrors the same filter on the mobile tree (lib/customer-menu.ts).
+  // Per-event-type gating (e.g. a vendor-free Simple Event drops 'explore').
+  // Empty/undefined hideKeys → unchanged for wedding + all existing types.
+  // ('budget' is no longer a top-level item, so a 'budget' hideKey is a harmless
+  // no-op — kept accepted for parity with the mobile tree, lib/customer-menu.ts.)
   if (!opts?.hideKeys?.length) return groups;
   const hide = new Set(opts.hideKeys);
   return groups.map((g) => ({ ...g, items: g.items.filter((i) => !hide.has(i.key)) }));

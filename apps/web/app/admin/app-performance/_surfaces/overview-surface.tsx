@@ -78,17 +78,17 @@ function pctDelta(current: number, previous: number): number | null {
 }
 
 const STREAM_COLORS: Record<string, string> = {
-  ai: 'var(--m-orange)',
-  vendor: 'var(--m-mulberry-3)',
-  other: 'var(--m-slate-3)',
+  ai: 'var(--sn-gold-500)',
+  vendor: 'var(--sn-ink-300)',
+  other: 'var(--sn-ink-400)',
 };
 
 const INDEX_COLORS = [
-  'var(--m-orange-2)',
-  'var(--m-mulberry)',
-  'var(--m-sage-deep)',
-  'var(--m-slate)',
-  'var(--m-blush-deep)',
+  'var(--sn-gold-700)',
+  'var(--sn-ink-900)',
+  'var(--sn-success)',
+  'var(--sn-ink-700)',
+  'var(--sn-danger)',
 ];
 
 export async function CockpitSurface({ searchParams }: Props) {
@@ -130,7 +130,7 @@ export async function CockpitSurface({ searchParams }: Props) {
       if (!s) return null;
       const idx = toIndex(s.points, s.baseline);
       if (!idx) return null;
-      return { label: s.label, color: INDEX_COLORS[i] ?? 'var(--m-slate)', index: idx };
+      return { label: s.label, color: INDEX_COLORS[i] ?? 'var(--sn-ink-700)', index: idx };
     })
     .filter((s): s is NonNullable<typeof s> => s !== null);
   if (perf.monetization.prevTotalPhp >= 500) {
@@ -148,7 +148,7 @@ export async function CockpitSurface({ searchParams }: Props) {
     }
     indexSeries.push({
       label: 'Revenue (cumulative)',
-      color: INDEX_COLORS[4] ?? 'var(--m-blush-deep)',
+      color: INDEX_COLORS[4] ?? 'var(--sn-danger)',
       index: revIdx,
     });
   }
@@ -203,16 +203,13 @@ export async function CockpitSurface({ searchParams }: Props) {
   const errors = [...growth.errors, ...perf.errors];
 
   return (
-    <div
-      id="apx-root"
-      className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8"
-    >
+    <div id="apx-root">
       <style>{APX_CSS}</style>
       <CockpitFx />
 
       <header className="mb-6 space-y-2">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="m-display-tight text-3xl text-[color:var(--m-ink)] sm:text-4xl">
+          <h1 className="sn-h1">
             App Performance
           </h1>
           {demoActive ? (
@@ -299,7 +296,7 @@ export async function CockpitSurface({ searchParams }: Props) {
       <Suspense
         fallback={
           <section aria-label="Action Center loading" className="mb-12">
-            <div className="m-card h-28 animate-pulse p-5" />
+            <div className="sn-row h-28 animate-pulse p-5" />
           </section>
         }
       >
@@ -311,7 +308,7 @@ export async function CockpitSurface({ searchParams }: Props) {
       <Suspense
         fallback={
           <section aria-label="Expenses loading" className="mb-12">
-            <div className="m-card h-28 animate-pulse p-5" />
+            <div className="sn-row h-28 animate-pulse p-5" />
           </section>
         }
       >
@@ -338,7 +335,7 @@ export async function CockpitSurface({ searchParams }: Props) {
               <p
                 className="mb-2 text-2xl font-semibold tabular-nums"
                 data-countup=""
-                style={{ color: 'var(--m-ink)' }}
+                style={{ color: 'var(--sn-ink-900)' }}
               >
                 {nf.format(c.series?.newInRange ?? 0)}
               </p>
@@ -363,7 +360,7 @@ export async function CockpitSurface({ searchParams }: Props) {
               <p
                 className="text-2xl font-semibold tabular-nums"
                 data-countup=""
-                style={{ color: 'var(--m-ink)' }}
+                style={{ color: 'var(--sn-ink-900)' }}
               >
                 {php.format(perf.monetization.totalPhp)}
               </p>
@@ -375,7 +372,7 @@ export async function CockpitSurface({ searchParams }: Props) {
             <StackedBars
               series={perf.monetization.streams.map((s) => ({
                 label: s.label,
-                color: STREAM_COLORS[s.key] ?? 'var(--m-slate-3)',
+                color: STREAM_COLORS[s.key] ?? 'var(--sn-ink-400)',
                 values: s.php,
               }))}
               ariaLabel={`Realized revenue per bucket by stream. Totals — ${perf.monetization.streams
@@ -385,14 +382,14 @@ export async function CockpitSurface({ searchParams }: Props) {
             />
             <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
               {perf.monetization.streams.map((s) => (
-                <li key={s.key} className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--m-slate)' }}>
+                <li key={s.key} className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--sn-ink-700)' }}>
                   <span
                     aria-hidden
                     className="inline-block h-2 w-2 rounded-full"
-                    style={{ background: STREAM_COLORS[s.key] ?? 'var(--m-slate-3)' }}
+                    style={{ background: STREAM_COLORS[s.key] ?? 'var(--sn-ink-400)' }}
                   />
                   {s.label}
-                  <span className="tabular-nums" style={{ color: 'var(--m-ink)' }}>
+                  <span className="tabular-nums" style={{ color: 'var(--sn-ink-900)' }}>
                     {php.format(s.totalPhp)}
                   </span>
                 </li>
@@ -410,7 +407,7 @@ export async function CockpitSurface({ searchParams }: Props) {
               <p
                 className="text-2xl font-semibold tabular-nums"
                 data-countup=""
-                style={{ color: 'var(--m-ink)' }}
+                style={{ color: 'var(--sn-ink-900)' }}
               >
                 {nf.format(perf.completedServices.total)}
               </p>
@@ -421,13 +418,13 @@ export async function CockpitSurface({ searchParams }: Props) {
             </div>
             <BucketBars
               values={perf.completedServices.count}
-              color="var(--m-sage-deep)"
+              color="var(--sn-success)"
               ariaLabel={`Completed services per bucket: ${perf.completedServices.count.join(', ')}. All-time ${perf.completedServices.allTime}.`}
             />
-            <p className="mt-2 text-xs" style={{ color: 'var(--m-slate)' }}>
+            <p className="mt-2 text-xs" style={{ color: 'var(--sn-ink-700)' }}>
               {nf.format(perf.completedServices.allTime)} all-time
               {perf.completedServices.disputed > 0 ? (
-                <span style={{ color: 'var(--m-blush-deep)' }}>
+                <span style={{ color: 'var(--sn-danger)' }}>
                   {' '}· {nf.format(perf.completedServices.disputed)} disputed (not counted)
                 </span>
               ) : null}
@@ -443,7 +440,7 @@ export async function CockpitSurface({ searchParams }: Props) {
             source="event_vendors.selection_match_rank = 1 ÷ ranked bookings"
           >
             {perf.firstPick.rate === null ? (
-              <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
+              <p className="text-sm" style={{ color: 'var(--sn-ink-500)' }}>
                 Not enough ranked bookings yet ({nf.format(perf.firstPick.den)} of{' '}
                 {MIN_N} needed this window). The rate appears once the
                 recommendation flow has volume — never extrapolated from a tiny
@@ -453,11 +450,11 @@ export async function CockpitSurface({ searchParams }: Props) {
               <>
                 <p
                   className="text-2xl font-semibold tabular-nums"
-                  style={{ color: 'var(--m-ink)' }}
+                  style={{ color: 'var(--sn-ink-900)' }}
                 >
                   {Math.round(perf.firstPick.rate * 100)}%
                 </p>
-                <p className="mt-1 text-xs" style={{ color: 'var(--m-slate)' }}>
+                <p className="mt-1 text-xs" style={{ color: 'var(--sn-ink-700)' }}>
                   {nf.format(perf.firstPick.picks)} of {nf.format(perf.firstPick.den)}{' '}
                   ranked bookings chose the engine&apos;s #1 match
                   {perf.firstPick.prevRate !== null
@@ -474,7 +471,7 @@ export async function CockpitSurface({ searchParams }: Props) {
               <p
                 className="text-2xl font-semibold tabular-nums"
                 data-countup=""
-                style={{ color: 'var(--m-ink)' }}
+                style={{ color: 'var(--sn-ink-900)' }}
               >
                 {nf.format(perf.reviews.total)}
               </p>
@@ -484,7 +481,7 @@ export async function CockpitSurface({ searchParams }: Props) {
               values={perf.reviews.count}
               ariaLabel={`Reviews per bucket: ${perf.reviews.count.join(', ')}.`}
             />
-            <p className="mt-2 text-xs" style={{ color: 'var(--m-slate)' }}>
+            <p className="mt-2 text-xs" style={{ color: 'var(--sn-ink-700)' }}>
               {perf.reviews.avgRating !== null
                 ? `${perf.reviews.avgRating.toFixed(2)} avg rating this window · `
                 : ''}
@@ -499,7 +496,7 @@ export async function CockpitSurface({ searchParams }: Props) {
             source="events.event_type · current snapshot"
           >
             {growth.breakdowns.eventsByType.length === 0 ? (
-              <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
+              <p className="text-sm" style={{ color: 'var(--sn-ink-500)' }}>
                 No events yet.
               </p>
             ) : (
@@ -509,8 +506,8 @@ export async function CockpitSurface({ searchParams }: Props) {
                     key={r.key}
                     className="flex items-baseline justify-between gap-2 text-sm"
                   >
-                    <span style={{ color: 'var(--m-ink)' }}>{r.label}</span>
-                    <span className="tabular-nums" style={{ color: 'var(--m-slate)' }}>
+                    <span style={{ color: 'var(--sn-ink-900)' }}>{r.label}</span>
+                    <span className="tabular-nums" style={{ color: 'var(--sn-ink-700)' }}>
                       {nf.format(r.count)}
                     </span>
                   </li>
@@ -528,7 +525,7 @@ export async function CockpitSurface({ searchParams }: Props) {
             source="all series rebased to 100 at window open — steepest = fastest grower"
           >
             {indexSeries.length === 0 ? (
-              <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
+              <p className="text-sm" style={{ color: 'var(--sn-ink-500)' }}>
                 Not enough pre-window base to rebase yet — the index appears once
                 entities have a standing population at the window open.
               </p>
@@ -547,7 +544,7 @@ export async function CockpitSurface({ searchParams }: Props) {
                     <li
                       key={s.label}
                       className="flex items-center gap-1.5 text-xs"
-                      style={{ color: 'var(--m-slate)' }}
+                      style={{ color: 'var(--sn-ink-700)' }}
                     >
                       <span
                         aria-hidden
@@ -555,7 +552,7 @@ export async function CockpitSurface({ searchParams }: Props) {
                         style={{ background: s.color }}
                       />
                       {s.label}
-                      <span className="tabular-nums" style={{ color: 'var(--m-ink)' }}>
+                      <span className="tabular-nums" style={{ color: 'var(--sn-ink-900)' }}>
                         {Math.round(s.index[s.index.length - 1] ?? 100)}
                       </span>
                     </li>
@@ -589,7 +586,7 @@ export async function CockpitSurface({ searchParams }: Props) {
                 );
               })}
             </ul>
-            <p className="mt-2 text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
+            <p className="mt-2 text-[11px]" style={{ color: 'var(--sn-ink-400)' }}>
               Entity rows show net-new counts; their prior-window % lands with the
               Action Center PR. Rates beat raw counts on small bases.
             </p>
@@ -624,12 +621,12 @@ export async function CockpitSurface({ searchParams }: Props) {
                 data-countup=""
                 style={{
                   color:
-                    perf.reports.openNow > 0 ? 'var(--m-blush-deep)' : 'var(--m-ink)',
+                    perf.reports.openNow > 0 ? 'var(--sn-danger)' : 'var(--sn-ink-900)',
                 }}
               >
                 {nf.format(perf.reports.openNow)}
               </p>
-              <span className="text-xs" style={{ color: 'var(--m-slate)' }}>
+              <span className="text-xs" style={{ color: 'var(--sn-ink-700)' }}>
                 open right now
               </span>
               <DeltaPct
@@ -640,9 +637,9 @@ export async function CockpitSurface({ searchParams }: Props) {
             </div>
             <StackedBars
               series={[
-                { label: 'Open', color: 'var(--m-blush-deep)', values: perf.reports.open },
-                { label: 'Actioned', color: 'var(--m-sage-deep)', values: perf.reports.actioned },
-                { label: 'Dismissed', color: 'var(--m-slate-4)', values: perf.reports.dismissed },
+                { label: 'Open', color: 'var(--sn-danger)', values: perf.reports.open },
+                { label: 'Actioned', color: 'var(--sn-success)', values: perf.reports.actioned },
+                { label: 'Dismissed', color: 'var(--sn-ink-300)', values: perf.reports.dismissed },
               ]}
               ariaLabel={`Reports per bucket by status. Window total ${perf.reports.total}; open now ${perf.reports.openNow}.`}
             />
@@ -668,7 +665,7 @@ export async function CockpitSurface({ searchParams }: Props) {
 
       <footer
         className="border-t pt-4 text-xs"
-        style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate-2)' }}
+        style={{ borderColor: 'var(--sn-line)', color: 'var(--sn-ink-500)' }}
       >
         Live charts compute from the platform&apos;s own tables at{' '}
         {perf.generatedAtIso.slice(0, 16).replace('T', ' ')} UTC
@@ -684,7 +681,7 @@ export async function CockpitSurface({ searchParams }: Props) {
 function ZoneHeading({ id, title, blurb }: { id: string; title: string; blurb: string }) {
   return (
     <header className="mb-4 flex items-center gap-2">
-      <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--m-orange)]/10 text-[var(--m-orange-2)]">
+      <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--sn-gold-500)]/10 text-[var(--sn-gold-700)]">
         <Activity aria-hidden className="h-4 w-4" strokeWidth={1.75} />
       </span>
       <div>
@@ -711,21 +708,21 @@ function ContextTile({
   return (
     <div
       data-reveal=""
-      className={`m-card p-4 ${muted ? 'opacity-75' : ''}`}
+      className={`sn-row p-4 ${muted ? 'opacity-75' : ''}`}
       style={muted ? { borderStyle: 'dashed' } : undefined}
     >
-      <p className="m-label-mono" style={{ color: 'var(--m-slate-2)' }}>
+      <p className="sn-eye" style={{ color: 'var(--sn-ink-500)' }}>
         {label}
       </p>
       <p
         className="mt-1 text-2xl font-semibold tabular-nums"
         data-countup={muted ? undefined : ''}
-        style={{ color: 'var(--m-ink)' }}
+        style={{ color: 'var(--sn-ink-900)' }}
       >
         {value}
       </p>
       {sub ? (
-        <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
+        <p className="mt-0.5 text-xs" style={{ color: 'var(--sn-ink-700)' }}>
           {sub}
         </p>
       ) : null}
@@ -735,7 +732,7 @@ function ContextTile({
 
 function WiringNote({ text }: { text: string }) {
   return (
-    <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
+    <p className="text-sm" style={{ color: 'var(--sn-ink-500)' }}>
       {text}
     </p>
   );

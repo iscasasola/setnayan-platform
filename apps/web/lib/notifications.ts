@@ -42,6 +42,11 @@ export type NotificationType =
   // pointed at alternatives on the Services tab.
   | 'inquiry_accepted'
   | 'inquiry_declined'
+  // Exclusivity on lock (payment-gated lock): the couple locked another vendor
+  // in a hard-single group, so this vendor's open inquiry is released (thread →
+  // chat_inquiry_status 'displaced'). Vendor-recipient. Migration
+  // 20270521628193_notification_type_inquiry_displaced.sql.
+  | 'inquiry_displaced'
   | 'force_majeure_filed'
   // Added 2026-06-07 alongside migration
   // 20260907000000_notification_types_cross_actor_signals.sql — cross-actor
@@ -207,7 +212,38 @@ export type NotificationType =
   //                    budget). In-app only — spec § 4.1 keeps non-payment
   //                    guards out of the interrupt channels.
   | 'ai_payment_due'
-  | 'ai_guard_alert';
+  | 'ai_guard_alert'
+  // Added 2026-07-11 (Relationship Workspace + Appointments · PR 12 follow-ups)
+  // alongside migration 20270719834517_appointment_reminder_notification_type.sql.
+  // Fired (OTHER-party-recipient) from
+  // app/_components/appointments-actions.ts → respondAppointment() on the CONFIRM
+  // branch: "You're confirmed for {meeting} on {date}". ON the email allowlist —
+  // a confirmed meeting is a transactional booking signal the counterparty should
+  // get even when they're not in the app (same register as booking_confirmed /
+  // rsvp_received). MVP = confirm-time reminder; a scheduled T-minus reminder is a
+  // further follow-up (Resend scheduledAt / cron).
+  | 'appointment_reminder'
+  // Added 2026-07-16 (Creator "Adventure Chapter" · AUDIENCE layer) alongside
+  // migration 20270815640306_creator_notification_type_new_chapter_from_followed.sql.
+  // Fired (FOLLOWER-recipient) from the publishChapter server action → the
+  // lib/creator-notify fan-out when a followed account PUBLISHES a new chapter.
+  // In-app for every follower; email ONLY for followers who've opted into
+  // marketing (MARKETING_GATED_EMAIL_TYPES in notification-emit) — this is an
+  // engagement signal, not a transactional one, so it respects RA 10173 consent.
+  | 'new_chapter_from_followed'
+  // Creator Economy discount-collab (2026-07-16, migration
+  // 20270817214733_vendor_creator_offers_collab_p1.sql). A vendor sent a
+  // creator a discount offer (→ creator, in-app only); the creator responded
+  // accept/decline (→ vendor). Both are transactional collab signals emitted
+  // from the offer server actions.
+  | 'creator_offer_received'
+  | 'creator_offer_responded'
+  // Creator Economy PR-C (migration 20270819553697). The creator's payoff loop:
+  // a vendor UNLOCKED (spent a lead token on) an inquiry that came through the
+  // creator's chapter Book CTA. In-app only — not on the email allowlist, so no
+  // email fires regardless of consent; the tray row is the whole delivery.
+  // Recipient = the chapter's creator; body names the chapter, never the couple.
+  | 'chapter_drove_inquiry';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -224,7 +260,12 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   vendor_inquiry_received: 'New booking inquiry',
   inquiry_accepted: 'Inquiry accepted',
   inquiry_declined: 'Inquiry declined',
+  inquiry_displaced: 'Inquiry released',
   force_majeure_filed: 'Force-majeure flag filed',
+  new_chapter_from_followed: 'New chapter',
+  creator_offer_received: 'Discount offer',
+  creator_offer_responded: 'Offer answered',
+  chapter_drove_inquiry: 'Your chapter drove an inquiry',
   booking_confirmed: 'Booking confirmed',
   review_received: 'New review',
   booking_cancelled: 'Booking cancelled',
@@ -272,6 +313,8 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   // GRD template body carries the specifics.
   ai_payment_due: 'Payment due soon',
   ai_guard_alert: 'Setnayan AI flagged something',
+  // A meeting the other party confirmed (2026-07-11).
+  appointment_reminder: 'Appointment confirmed',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -293,6 +336,7 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   vendor_inquiry_received: 'bg-fuchsia-100 text-fuchsia-800',
   inquiry_accepted: 'bg-success-100 text-success-800',
   inquiry_declined: 'bg-ink/10 text-ink/70',
+  inquiry_displaced: 'bg-ink/10 text-ink/70',
   force_majeure_filed: 'bg-danger-100 text-danger-800',
   // Booking confirmed is the couple's strongest positive commitment — match
   // the celebratory emerald used by order_paid/inquiry_accepted.
@@ -382,6 +426,19 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // gone wrong yet (that register belongs to rose/danger).
   ai_payment_due: 'bg-warn-100 text-warn-900',
   ai_guard_alert: 'bg-warn-100 text-warn-900',
+  // A confirmed meeting = a positive close-of-scheduling → emerald (matches
+  // booking_confirmed / the confirmation register).
+  appointment_reminder: 'bg-success-100 text-success-800',
+  // A new chapter from someone you follow = a positive, informational arrival
+  // (the audience-layer engagement signal) → sky, matching chat_message / the
+  // informational register.
+  new_chapter_from_followed: 'bg-sky-100 text-sky-900',
+  // Creator-collab signals — the same warm register as bookings/partnerships.
+  creator_offer_received: 'bg-amber-100 text-amber-900',
+  creator_offer_responded: 'bg-amber-100 text-amber-900',
+  // The creator's payoff signal ("inquiries driven" ticked up) — same warm
+  // collab register as the offer pair.
+  chapter_drove_inquiry: 'bg-amber-100 text-amber-900',
 };
 
 export type NotificationRow = {

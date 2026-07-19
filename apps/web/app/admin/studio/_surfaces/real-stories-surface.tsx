@@ -56,7 +56,7 @@ export async function RealStoriesSurface({
   return (
     <div>
       <header className="mb-8 space-y-2">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">
+        <p className="sn-eye">
           Setnayan HQ · Platform
         </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">

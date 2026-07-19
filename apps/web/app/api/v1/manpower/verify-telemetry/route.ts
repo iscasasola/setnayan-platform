@@ -29,6 +29,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { isPublicApiEnabled, publicApiDisabledResponse } from "@/lib/public-api-flag";
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -71,6 +72,8 @@ const LADDER = [1, 2, 2, 2, 2, 2, 3] as const; // sums to 14 at slot 7
 const VOUCHER_EXPIRY_DAYS = 45;
 
 export async function POST(req: Request) {
+  // Public API disabled by default (no-public-API-in-V1 lock; owner blesses via PUBLIC_API_ENABLED). See lib/public-api-flag.ts.
+  if (!isPublicApiEnabled()) return publicApiDisabledResponse();
   let body: VerifyBody;
   try {
     body = (await req.json()) as VerifyBody;

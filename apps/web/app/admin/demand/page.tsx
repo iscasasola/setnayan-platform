@@ -89,7 +89,7 @@ export default async function AdminDemandPage({
         </p>
       ) : null}
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ink/10 bg-cream p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 sn-tile p-4">
         <div className="flex items-start gap-3 text-sm text-ink/75">
           <ShieldCheck aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
           <div className="space-y-0.5">

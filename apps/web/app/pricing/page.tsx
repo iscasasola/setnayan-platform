@@ -183,7 +183,7 @@ export default async function PricingPage() {
           retail_price_php: papicRoll?.retail_price_php ?? 30,
           saas_overhead_cost_php: 0,
           is_token_able: false,
-          description: `Turn your guests into paparazzi — every candid lands in your shared gallery. Ltd ₱${formatPeso(papicRoll?.retail_price_php ?? 30)} (30 photos + 10 videos) or Unli ₱${formatPeso(papicUnlimited?.retail_price_php ?? 100)} per camera, per day · first 5 free · each tier capped per day (Ltd ₱5,999 · Unli ₱11,999).`,
+          description: `Turn your guests into paparazzi — every candid lands in your shared gallery. Ltd ₱${formatPeso(papicRoll?.retail_price_php ?? 30)} (30 photos + 10 videos) or Unli ₱${formatPeso(papicUnlimited?.retail_price_php ?? 100)} per camera, per day · first 5 free · each tier capped per day (Ltd ₱9,000 · Unli ₱15,000).`,
           build_status: 'live',
           billing_period: 'one_time',
           is_pax_priced: true, // drives the "from ₱X" label
@@ -648,6 +648,46 @@ export default async function PricingPage() {
             The free single-camera livestream and the full planner always stay
             free. Provisional pending the holistic pricing review.
           </p>
+        </div>
+      </section>
+
+      {/* Storytellers — Free callout. Storytellers publish real events as
+          public Chapters on /u/[slug] at no cost, forever — there is no SKU
+          here (deliberately outside the catalog-driven tables above), so this
+          row is static copy + a pointer to /creators. */}
+      <section className="border-b border-ink/5">
+        <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+          <div className="rounded-2xl border border-terracotta/30 bg-terracotta/[0.04] p-5 sm:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="max-w-2xl">
+                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+                  Storytellers — Free
+                </p>
+                <p className="mt-2 text-base font-semibold text-ink">
+                  Publish your events as bookable Chapters. ₱0, forever.
+                </p>
+                <ul className="mt-3 space-y-2 text-sm">
+                  {[
+                    'Publish free — every Chapter, every event, no fees ever',
+                    'Keep your own monetization — your edit stays embedded from your channel',
+                    'Vendors court you with exclusive rates in exchange for a Chapter that credits them',
+                  ].map((f) => (
+                    <li key={f} className="flex items-start gap-2">
+                      <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
+                      <span className="text-ink/80">{f}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <Link
+                href="/creators"
+                className="m-btn m-btn-ghost inline-flex shrink-0 items-center justify-center gap-2 self-start text-sm"
+              >
+                For storytellers
+                <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
 

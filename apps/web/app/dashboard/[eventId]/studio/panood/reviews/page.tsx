@@ -75,8 +75,9 @@ export default async function PanoodReviewsPage({ params }: Props) {
         Back to Panood
       </Link>
 
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">Reviews</p>
+        <h1 className="sn-h1">
           What couples say about Panood
         </h1>
         <p className="max-w-prose text-sm text-ink/65 sm:text-base">
@@ -85,10 +86,10 @@ export default async function PanoodReviewsPage({ params }: Props) {
         </p>
       </header>
 
-      <section className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
+      <section className="sn-tile space-y-4 p-5 sm:p-6">
         <div className="flex flex-wrap items-end gap-6">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+            <p className="sn-eye">
               Average rating
             </p>
             <p className="mt-1 flex items-baseline gap-2 text-4xl font-semibold tracking-tight text-ink">
@@ -125,7 +126,7 @@ export default async function PanoodReviewsPage({ params }: Props) {
       </section>
 
       {reviewCount === 0 ? (
-        <div className="rounded-2xl border border-dashed border-ink/15 bg-cream/60 p-6 text-center">
+        <div className="sn-row p-6 text-center">
           <p className="text-sm text-ink/70">
             Be one of the first couples to broadcast with Panood — the review form opens
             after your event.
@@ -136,7 +137,7 @@ export default async function PanoodReviewsPage({ params }: Props) {
           {rows.map((r) => (
             <li
               key={r.public_id}
-              className="space-y-2 rounded-2xl border border-ink/10 bg-cream p-5"
+              className="sn-row space-y-2 p-5"
             >
               <div className="flex items-center justify-between gap-3">
                 <span className="flex items-center gap-0.5 text-warn-500">

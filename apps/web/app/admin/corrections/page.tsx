@@ -90,11 +90,11 @@ export default async function AdminCorrectionsPage({
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
-        <p className="m-eyebrow flex items-center gap-2 text-[color:var(--m-orange-2)]">
+        <p className="sn-eye flex items-center gap-2">
           <PencilRuler aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Verified-profile lock
         </p>
-        <h1 className="m-display-tight text-2xl text-[color:var(--m-ink)] sm:text-3xl">
+        <h1 className="sn-h1">
           Profile corrections
         </h1>
         <p className="max-w-2xl text-sm text-ink/65">
@@ -136,7 +136,7 @@ export default async function AdminCorrectionsPage({
               className={
                 active
                   ? 'inline-flex items-center rounded-full bg-ink px-3 py-1 text-xs font-medium text-cream'
-                  : 'inline-flex items-center rounded-full border border-ink/20 bg-cream px-3 py-1 text-xs text-ink/70 hover:bg-ink/5'
+                  : 'inline-flex items-center rounded-full border border-ink/20 bg-white/70 px-3 py-1 text-xs text-ink/70 hover:bg-ink/5'
               }
             >
               {t.label}
@@ -146,7 +146,7 @@ export default async function AdminCorrectionsPage({
       </nav>
 
       {rows.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-ink/20 bg-cream p-10 text-center text-sm text-ink/55">
+        <p className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-10 text-center text-sm text-ink/55">
           No correction requests for this filter. Verified vendors file them
           from their My Shop profile when a locked detail needs to change.
         </p>
@@ -175,7 +175,7 @@ function RequestCard({
 }) {
   const fieldLabel = LOCKED_FIELD_LABEL[request.field_key] ?? request.field_key;
   return (
-    <article className="space-y-3 rounded-xl border border-ink/10 bg-cream p-5">
+    <article className="space-y-3 sn-tile p-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-base font-semibold text-ink">{vendorName}</p>
@@ -205,7 +205,7 @@ function RequestCard({
       </div>
 
       {request.note ? (
-        <p className="rounded-md border border-ink/10 bg-cream/60 px-3 py-2 text-xs text-ink/70">
+        <p className="rounded-md border border-white/60 bg-white/70 px-3 py-2 text-xs text-ink/70">
           <span className="font-medium">Vendor note:</span> {request.note}
         </p>
       ) : null}

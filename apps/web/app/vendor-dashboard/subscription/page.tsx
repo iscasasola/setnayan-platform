@@ -188,6 +188,11 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
   let orderedSummary:
     | { amount: number; planAmount: number; addonAmount: number; addonTokens: number }
     | null = null;
+  // A standalone token top-up (TKN-) already gets its full apply-then-pay panel
+  // from <PendingPurchases> inside <TokenWalletSection>; flag it so we DON'T also
+  // render the plan-level "How to pay" tile below (that was two BDO+GCash QR
+  // blocks on one page after a token order).
+  let orderedIsToken = false;
   if (search.ordered) {
     const { data: subRow } = await supabase
       .from('vendor_subscriptions')
@@ -210,6 +215,7 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         .eq('reference_code', search.ordered)
         .maybeSingle();
       if (tknRow) {
+        orderedIsToken = true;
         orderedSummary = {
           amount: Number(tknRow.amount_php ?? 0),
           planAmount: 0,
@@ -240,8 +246,8 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
   return (
     <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
       <header className="mb-6 sm:mb-8">
-        <p className="m-eyebrow">Plan &amp; tokens</p>
-        <h1 className="m-display-tight mt-1 text-3xl sm:text-4xl">
+        <p className="sn-eye">Plan &amp; tokens</p>
+        <h1 className="sn-h1 mt-1">
           Choose your plan.
         </h1>
         <p className="mt-2 max-w-prose text-sm text-ink/65">
@@ -333,7 +339,7 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
           the sub-route configurator; framed as the top-of-ladder escape valve. */}
       <Link
         href="/vendor-dashboard/subscription/custom"
-        className="m-card m-card-lift mt-5 flex flex-wrap items-center gap-4 p-5 transition-colors sm:flex-nowrap"
+        className="sn-card sn-press mt-5 flex flex-wrap items-center gap-4 p-5 sm:flex-nowrap"
       >
         <span
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
@@ -357,16 +363,19 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         </span>
       </Link>
 
-      {/* Apply-then-pay payment instructions when an order was just started */}
-      {search.ordered && (
-        <div className="mt-6 m-card p-6">
-          <p className="m-label-mono">How to pay</p>
+      {/* Apply-then-pay payment instructions when a PLAN/COMBINED order was just
+          started. Token-only (TKN-) top-ups are intentionally excluded — their
+          instructions render once inside <TokenWalletSection> below, so showing
+          this tile too would double the BDO+GCash QR blocks. */}
+      {search.ordered && !orderedIsToken && (
+        <div className="sn-tile mt-6 p-6">
+          <p className="sn-eye">How to pay</p>
           {orderedSummary && orderedSummary.amount > 0 && (
             <div
               className="mt-3 rounded-lg border p-4"
-              style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+              style={{ borderColor: 'var(--m-line)', background: 'rgba(255,255,255,.72)' }}
             >
-              <p className="text-2xl font-semibold text-ink">
+              <p className="font-mono text-2xl font-bold text-ink">
                 ₱{NUMBER.format(orderedSummary.amount)}
               </p>
               {orderedSummary.addonTokens > 0 && orderedSummary.planAmount > 0 ? (

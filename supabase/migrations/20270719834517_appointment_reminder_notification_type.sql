@@ -1,0 +1,28 @@
+-- appointment_reminder notification type
+-- ============================================================================
+-- 20270719834517_appointment_reminder_notification_type.sql
+-- Relationship Workspace + Appointments · PR 12 follow-ups (2026-07-11). Adds
+-- the 'appointment_reminder' value to public.notification_type so the confirm
+-- branch of respondAppointment (apps/web/app/_components/appointments-actions.ts)
+-- can drop a "You're confirmed for {meeting} on {date}" notification to the OTHER
+-- party (the one who proposed) the moment their meeting is confirmed.
+--
+-- Recipient: the counterparty of whoever confirmed (couple ⇆ vendor). ON the
+-- email allowlist in lib/notification-emit.ts (EMAIL_ENABLED_TYPES) — a confirmed
+-- meeting is a transactional booking signal, same register as booking_confirmed /
+-- rsvp_received, worth reaching the recipient outside the app. NOT on the push
+-- allowlist. Renders through the shared branded email template — no per-type
+-- renderer, exactly like rsvp_received / payment_confirmed.
+--
+-- MVP is the confirm-time reminder; a scheduled T-minus reminder (Resend
+-- scheduledAt / cron) is a further follow-up. No schema change beyond the enum
+-- value; the event_appointments table is untouched.
+--
+-- ALTER TYPE … ADD VALUE IF NOT EXISTS is idempotent and re-run safe. ADD VALUE
+-- cannot run inside an explicit transaction block, so this migration is
+-- intentionally bare (no BEGIN/COMMIT). Matches the pattern in
+-- 20270327434080_vendor_feature_suggested_notification_type.sql and
+-- 20270308120000_mood_board_share_notification_type.sql.
+-- ============================================================================
+
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'appointment_reminder';

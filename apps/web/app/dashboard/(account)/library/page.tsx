@@ -42,33 +42,28 @@ export default async function LibraryPage({
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link
-        href="/dashboard"
-        className="mb-4 inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-      >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+      <Link href="/dashboard" className="sn-chip sn-press mb-4 w-fit">
+        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         Back to events
       </Link>
 
       <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Memories Hub</h1>
+          <p className="sn-eye">
+            <Images aria-hidden strokeWidth={1.75} />
+            Kept for life
+          </p>
+          <h1 className="sn-h1">Memories Hub</h1>
           <p className="max-w-prose text-base text-ink/65">
             Every photo, video, and memory — kept for life, across every event you host or
             attend. Your saved vendors and the editorials you&rsquo;re part of live here too.
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2 text-sm">
-          <Link
-            href="/dashboard/profile"
-            className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
-          >
+        <div className="flex shrink-0 items-center gap-2">
+          <Link href="/dashboard/profile" className="sn-chip sn-press">
             <UserCircle aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Profile
           </Link>
-          <Link
-            href="/dashboard/profile#settings"
-            className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
-          >
+          <Link href="/dashboard/profile#settings" className="sn-chip sn-press">
             <Settings aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Settings
           </Link>
         </div>
@@ -79,23 +74,26 @@ export default async function LibraryPage({
       {lifeStoryEnabled() ? (
         <Link
           href="/dashboard/life-flash"
-          className="group mb-8 flex items-center justify-between gap-4 rounded-2xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/50 hover:bg-terracotta/5"
+          className="sn-card sn-press group mb-8 flex items-center justify-between gap-4 p-4"
         >
           <div>
-            <p className="text-sm font-medium text-ink">Life-Flash</p>
+            <p className="text-sm font-semibold text-ink">Life-Flash</p>
             <p className="text-xs text-ink/55">
               The moments that mattered most, through every camera that was there — gathered
               while you&rsquo;re living them
             </p>
           </div>
-          <span aria-hidden className="text-ink/40 group-hover:text-terracotta">
+          <span
+            aria-hidden
+            className="text-ink/40 transition-transform group-hover:translate-x-0.5 group-hover:text-terracotta"
+          >
             ▶
           </span>
         </Link>
       ) : null}
 
-      {/* Tab bar — plain links so the page stays a server component */}
-      <nav className="mb-8 flex gap-1 overflow-x-auto border-b border-ink/10">
+      {/* Tab strip — kit chips; plain links so the page stays a server component */}
+      <nav className="mb-8 flex gap-2 overflow-x-auto pb-1">
         {TABS.map(({ key, label, Icon }) => {
           const isActive = key === active;
           return (
@@ -103,11 +101,7 @@ export default async function LibraryPage({
               key={key}
               href={`/dashboard/library?tab=${key}`}
               aria-current={isActive ? 'page' : undefined}
-              className={`-mb-px inline-flex shrink-0 items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                isActive
-                  ? 'border-terracotta text-ink'
-                  : 'border-transparent text-ink/55 hover:text-ink/80'
-              }`}
+              className={`sn-chip sn-press shrink-0 ${isActive ? 'selected' : ''}`}
             >
               <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               {label}
@@ -116,9 +110,12 @@ export default async function LibraryPage({
         })}
       </nav>
 
-      {active === 'photos' ? <PhotosTab userId={user.id} /> : null}
-      {active === 'vendors' ? <VendorsTab userId={user.id} /> : null}
-      {active === 'editorials' ? <EditorialsTab userId={user.id} /> : null}
+      {/* key remount on tab change → the lens body cross-fades in (§ 2d) */}
+      <div key={active} className="sn-lens-swap">
+        {active === 'photos' ? <PhotosTab userId={user.id} /> : null}
+        {active === 'vendors' ? <VendorsTab userId={user.id} /> : null}
+        {active === 'editorials' ? <EditorialsTab userId={user.id} /> : null}
+      </div>
     </div>
   );
 }

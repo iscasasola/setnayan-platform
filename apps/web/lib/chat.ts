@@ -154,6 +154,14 @@ export type ChatMessageRow = {
   attachment_name?: string | null;
   attachment_mime?: string | null;
   attachment_size_bytes?: number | null;
+  /**
+   * TRUE for Auto-Reply Assistant messages (vendor-autoreply Phase 3b,
+   * migration 20270822679405). Posted server-side via service_role with
+   * sender_role='vendor' + sender_user_id=null; the thread UI renders a
+   * visible AI label (§2B — never disguised as a human vendor). Optional so
+   * pre-migration rows / the no-is_bot fallback select degrade to "not a bot".
+   */
+  is_bot?: boolean;
 };
 
 const THREAD_SELECT =
@@ -427,15 +435,34 @@ export async function fetchThreadById(
   return (data ?? null) as ChatThreadRow | null;
 }
 
+const MESSAGE_SELECT =
+  'message_id,thread_id,event_id,vendor_profile_id,sender_user_id,sender_role,body,created_at,proposal_id,attachment_url,attachment_name,attachment_mime,attachment_size_bytes';
+
 export async function fetchMessages(
   supabase: SupabaseClient,
   threadId: string,
 ): Promise<ChatMessageRow[]> {
+  // Bot-label-aware select first (is_bot · migration 20270822679405, vendor
+  // autoreply Phase 1). GRACEFUL DEGRADE (mirrors fetchCoupleThreads): the
+  // migration is owner-pushed and may not be live yet — an unknown column
+  // errors the whole select, so on ANY error retry WITHOUT is_bot and treat
+  // every message as human. The thread page must never crash ahead of the
+  // migration.
+  const withBot = await supabase
+    .from('chat_messages')
+    .select(`${MESSAGE_SELECT},is_bot`)
+    .eq('thread_id', threadId)
+    .order('created_at', { ascending: true });
+  if (!withBot.error) return (withBot.data ?? []) as ChatMessageRow[];
+  logQueryError(
+    'fetchMessages (is_bot select)',
+    withBot.error,
+    { thread_id: threadId, missing_relation: isMissingRelationError(withBot.error) },
+    'graceful_degrade',
+  );
   const { data, error } = await supabase
     .from('chat_messages')
-    .select(
-      'message_id,thread_id,event_id,vendor_profile_id,sender_user_id,sender_role,body,created_at,proposal_id,attachment_url,attachment_name,attachment_mime,attachment_size_bytes',
-    )
+    .select(MESSAGE_SELECT)
     .eq('thread_id', threadId)
     .order('created_at', { ascending: true });
   if (error) throw new Error(`fetchMessages failed: ${error.message}`);

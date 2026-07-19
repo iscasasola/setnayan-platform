@@ -677,6 +677,122 @@ export const BOOTH_TEMPLATES: Record<WeddingTile, BoothTemplateSpec> = {
     signText: 'Escort',
     cardKind: 'inclusions',
   },
+  // ── NON-WEDDING EVENT-TYPE GAP LEAVES (2026-07-20 · §gap-leaves) ──────────
+  // Simple DESK/RISER/STATION/BACKDROP compositions from existing chassis +
+  // props only — no new geometry; surface heights per the header cheat-sheet.
+  tour_activity: {
+    chassis: 'DESK',
+    // Itinerary maquette + brochure board — a tour operator's booking desk.
+    props: [
+      { kind: 'maquette', position: [-0.35, 0.79, 0], scale: 0.9 },
+      { kind: 'clipboard_board', position: [0.45, 0.79, 0.08], rotY: -0.15 },
+    ],
+    staff: { outfit: 'vest', idle: 'present', count: 1 },
+    signText: 'Tours & Activities',
+    cardKind: 'inclusions',
+  },
+  tour_guide: {
+    chassis: 'DESK',
+    props: [{ kind: 'clipboard_board', position: [0, 0.79, 0.05], rotY: 0.1 }],
+    staff: { outfit: 'vest', idle: 'wave', count: 1 },
+    signText: 'Tour Guide',
+    cardKind: 'inclusions',
+  },
+  restaurant_reservation: {
+    chassis: 'DESK',
+    // Reservation book (calendar grid) + place settings — a maître d' stand.
+    props: [
+      { kind: 'calendar_board', position: [-0.35, 0.79, 0.05] },
+      { kind: 'plate_stack', position: [0.45, 0.79, 0.1], scale: 0.75 },
+    ],
+    staff: { outfit: 'vest', idle: 'cardFlip', count: 1 },
+    signText: 'Restaurant',
+    cardKind: 'menu',
+  },
+  referee_official: {
+    chassis: 'DESK',
+    // Officials' table — scoresheet board; the cardFlip idle reads as
+    // flipping the score.
+    props: [{ kind: 'clipboard_board', position: [0, 0.79, 0.05] }],
+    staff: { outfit: 'uniform', idle: 'cardFlip', count: 1 },
+    signText: 'Referees & Officials',
+    cardKind: 'inclusions',
+  },
+  event_medic: {
+    chassis: 'STATION',
+    // First-aid post — supply crates below, towel rolls on the counter.
+    props: [
+      { kind: 'crate_stack', position: [-1.2, 0, 0.15], scale: 0.9 },
+      { kind: 'towel_stack', position: [0.3, 0.94, 0.05] },
+    ],
+    staff: { outfit: 'uniform', idle: 'wave', count: 1 },
+    signText: 'Medic / First-aid',
+    cardKind: 'inclusions',
+  },
+  event_insurance: {
+    chassis: 'DESK',
+    props: [{ kind: 'clipboard_board', position: [-0.2, 0.79, 0.05], rotY: 0.12 }],
+    staff: { outfit: 'uniform', idle: 'cardFlip', count: 1 },
+    signText: 'Event Insurance',
+    cardKind: 'inclusions',
+  },
+  personal_accident_insurance: {
+    chassis: 'DESK',
+    props: [{ kind: 'clipboard_board', position: [0.2, 0.79, 0.05], rotY: -0.12 }],
+    staff: { outfit: 'uniform', idle: 'cardFlip', count: 1 },
+    signText: 'Personal Accident',
+    cardKind: 'inclusions',
+  },
+  travel_insurance: {
+    chassis: 'DESK',
+    props: [
+      { kind: 'clipboard_board', position: [-0.3, 0.79, 0.05], rotY: 0.1 },
+      { kind: 'calendar_board', position: [0.45, 0.79, 0], scale: 0.85 },
+    ],
+    staff: { outfit: 'uniform', idle: 'cardFlip', count: 1 },
+    signText: 'Travel Insurance',
+    cardKind: 'inclusions',
+  },
+  av_production: {
+    chassis: 'STATION',
+    // Production control — mixing console + camera on sticks + light tree
+    // behind the tech (heights mirror lights_sound's cleared placements).
+    props: [
+      { kind: 'console_speakers', position: [0, 0.94, 0], scale: 0.85 },
+      { kind: 'tripod_camera', position: [-1.2, 0, 0.25] },
+      { kind: 'light_tree', position: [0, 0, -1.05] },
+    ],
+    staff: { outfit: 'uniform', idle: 'typing', count: 1 },
+    signText: 'AV / Production',
+    cardKind: 'inclusions',
+  },
+  speaker_talent: {
+    chassis: 'RISER',
+    // Keynote setup — podium + mic (the host_mc anchors, cleared spots).
+    props: [
+      { kind: 'podium', position: [-0.45, 0.18, 0.25], scale: 0.9 },
+      { kind: 'mic_stand', position: [0.4, 0.18, 0.35] },
+    ],
+    staff: { outfit: 'suit', idle: 'present', count: 1 },
+    signText: 'Speakers & Talent',
+    cardKind: 'inclusions',
+  },
+  kids_entertainer: {
+    chassis: 'RISER',
+    // Party act — the performers hoop-and-ribbon stage-left; waving greeter.
+    props: [{ kind: 'hoop_ribbon', position: [-0.7, 0.18, 0.35], scale: 0.9 }],
+    staff: { outfit: 'uniform', idle: 'wave', count: 1 },
+    signText: "Kids' Entertainer",
+    cardKind: 'inclusions',
+  },
+  reveal_element: {
+    chassis: 'BACKDROP',
+    // Draped reveal wall — the moment rig stays hidden until the cue.
+    props: [{ kind: 'drape_wall', position: [0, 0, -0.35] }],
+    staff: { outfit: 'uniform', idle: 'present', count: 1 },
+    signText: 'Reveal Element',
+    cardKind: 'inclusions',
+  },
 };
 
 /** All 57 template keys (exported for the admin/debug surfaces — the

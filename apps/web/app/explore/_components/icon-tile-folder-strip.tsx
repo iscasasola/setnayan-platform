@@ -46,6 +46,11 @@ import {
   Tent,
   Mail,
   Car,
+  Compass,
+  Utensils,
+  ShieldCheck,
+  Umbrella,
+  Sparkles,
   LayoutGrid,
   type LucideProps,
 } from 'lucide-react';
@@ -110,6 +115,17 @@ const FOLDER_ICON: Record<WeddingFolder, ComponentType<LucideProps>> = {
   booths: Tent,
   prints: Mail,
   transport: Car,
+  // Non-wedding event-type families (gap leaves, 2026-07-20):
+  //   - Experience → Compass (tours & activities · tour guides)
+  //   - Dining → Utensils (restaurant reservations — not catering)
+  //   - Logistics & Safety → ShieldCheck (referees · medics)
+  //   - Insurance → Umbrella (event · accident · travel cover)
+  //   - Specialty → Sparkles (reveal elements)
+  experience: Compass,
+  dining: Utensils,
+  logistics_safety: ShieldCheck,
+  insurance: Umbrella,
+  specialty: Sparkles,
 };
 
 export function IconTileFolderStrip({

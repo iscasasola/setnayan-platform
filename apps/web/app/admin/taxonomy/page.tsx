@@ -98,6 +98,13 @@ const FOLDER_DEFAULT_ICON: Record<string, string> = {
   booths: 'Tent',
   prints: 'Mail',
   transport: 'Car',
+  // Non-wedding event-type families (gap leaves, 2026-07-20) — mirrors the
+  // /explore strip's FOLDER_ICON additions.
+  experience: 'Compass',
+  dining: 'Utensils',
+  logistics_safety: 'ShieldCheck',
+  insurance: 'Umbrella',
+  specialty: 'Sparkles',
 };
 
 async function toDisplay(raw: string | null): Promise<string | null> {

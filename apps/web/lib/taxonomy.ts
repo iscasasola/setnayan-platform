@@ -48,7 +48,14 @@ export type WeddingFolder =
   | 'look'
   | 'booths'
   | 'prints'
-  | 'transport';
+  | 'transport'
+  // ── Non-wedding event-type families (gap leaves, 2026-07-20 ·
+  //    Whats_Next_Suite_AI_Pricing §gap-leaves) ──
+  | 'experience'
+  | 'dining'
+  | 'logistics_safety'
+  | 'insurance'
+  | 'specialty';
 
 /** Canonical render order for the catalog (parent tabs). */
 export const WEDDING_FOLDER_ORDER: ReadonlyArray<WeddingFolder> = [
@@ -62,6 +69,11 @@ export const WEDDING_FOLDER_ORDER: ReadonlyArray<WeddingFolder> = [
   'booths',
   'prints',
   'transport',
+  'experience',
+  'dining',
+  'logistics_safety',
+  'insurance',
+  'specialty',
 ];
 
 /** Long human-readable label rendered as the parent section heading. */
@@ -76,6 +88,11 @@ export const WEDDING_FOLDER_LABEL: Record<WeddingFolder, string> = {
   booths: 'Booths',
   prints: 'Prints',
   transport: 'Transport',
+  experience: 'Experience',
+  dining: 'Dining',
+  logistics_safety: 'Logistics & Safety',
+  insurance: 'Insurance & Protection',
+  specialty: 'Specialty',
 };
 
 /** Short label rendered in the icon-tile strip + autocomplete dropdown. */
@@ -90,6 +107,11 @@ export const WEDDING_FOLDER_SHORT_LABEL: Record<WeddingFolder, string> = {
   booths: 'Booths',
   prints: 'Prints',
   transport: 'Transport',
+  experience: 'Experience',
+  dining: 'Dining',
+  logistics_safety: 'Logistics',
+  insurance: 'Insurance',
+  specialty: 'Specialty',
 };
 
 /** URL slug for catalog scroll-anchoring + `?folder=` scoping. */
@@ -104,6 +126,11 @@ export const WEDDING_FOLDER_SLUG: Record<WeddingFolder, string> = {
   booths: 'booths',
   prints: 'prints',
   transport: 'transport',
+  experience: 'experience',
+  dining: 'dining',
+  logistics_safety: 'logistics-safety',
+  insurance: 'insurance',
+  specialty: 'specialty',
 };
 
 // ─── ~53 tiles ──────────────────────────────────────────────────────────────
@@ -143,6 +170,9 @@ export type WeddingTile =
   | 'choreographer'
   | 'performers'
   | 'host_mc'
+  | 'av_production'
+  | 'speaker_talent'
+  | 'kids_entertainer'
   // DOCUMENTARY
   | 'photo_video'
   | 'editorial'
@@ -180,7 +210,21 @@ export type WeddingTile =
   // TRANSPORT
   | 'bridal_car'
   | 'guest_shuttle'
-  | 'escort';
+  | 'escort'
+  // EXPERIENCE (travel)
+  | 'tour_activity'
+  | 'tour_guide'
+  // DINING (reservation geometry — NOT catering)
+  | 'restaurant_reservation'
+  // LOGISTICS & SAFETY (tournament + large events)
+  | 'referee_official'
+  | 'event_medic'
+  // INSURANCE & PROTECTION
+  | 'event_insurance'
+  | 'personal_accident_insurance'
+  | 'travel_insurance'
+  // SPECIALTY
+  | 'reveal_element';
 
 /** Tile → its parent. */
 export const TILE_PARENT: Record<WeddingTile, WeddingFolder> = {
@@ -208,6 +252,9 @@ export const TILE_PARENT: Record<WeddingTile, WeddingFolder> = {
   choreographer: 'program',
   performers: 'program',
   host_mc: 'program',
+  av_production: 'program',
+  speaker_talent: 'program',
+  kids_entertainer: 'program',
   photo_video: 'documentary',
   editorial: 'documentary',
   livestream: 'documentary',
@@ -241,6 +288,15 @@ export const TILE_PARENT: Record<WeddingTile, WeddingFolder> = {
   bridal_car: 'transport',
   guest_shuttle: 'transport',
   escort: 'transport',
+  tour_activity: 'experience',
+  tour_guide: 'experience',
+  restaurant_reservation: 'dining',
+  referee_official: 'logistics_safety',
+  event_medic: 'logistics_safety',
+  event_insurance: 'insurance',
+  personal_accident_insurance: 'insurance',
+  travel_insurance: 'insurance',
+  reveal_element: 'specialty',
 };
 
 /** Tile render order (grouped by parent, in parent order). */
@@ -274,6 +330,9 @@ export const WEDDING_TILE_ORDER: ReadonlyArray<WeddingTile> = [
   'choreographer',
   'performers',
   'host_mc',
+  'av_production',
+  'speaker_talent',
+  'kids_entertainer',
   // DOCUMENTARY
   'photo_video',
   'editorial',
@@ -312,6 +371,20 @@ export const WEDDING_TILE_ORDER: ReadonlyArray<WeddingTile> = [
   'bridal_car',
   'guest_shuttle',
   'escort',
+  // EXPERIENCE
+  'tour_activity',
+  'tour_guide',
+  // DINING
+  'restaurant_reservation',
+  // LOGISTICS & SAFETY
+  'referee_official',
+  'event_medic',
+  // INSURANCE & PROTECTION
+  'event_insurance',
+  'personal_accident_insurance',
+  'travel_insurance',
+  // SPECIALTY
+  'reveal_element',
 ];
 
 /** Tile heading + card label. */
@@ -340,6 +413,9 @@ export const WEDDING_TILE_LABEL: Record<WeddingTile, string> = {
   choreographer: 'Choreographer',
   performers: 'Performers',
   host_mc: 'Host / MC',
+  av_production: 'AV / Production',
+  speaker_talent: 'Speakers / Talent',
+  kids_entertainer: "Kids' Entertainer",
   photo_video: 'Photo & Video',
   editorial: 'Editorial',
   livestream: 'Livestream',
@@ -373,6 +449,15 @@ export const WEDDING_TILE_LABEL: Record<WeddingTile, string> = {
   bridal_car: 'Bridal Car',
   guest_shuttle: 'Guest Shuttle',
   escort: 'Escort',
+  tour_activity: 'Tours & Activities',
+  tour_guide: 'Tour Guide',
+  restaurant_reservation: 'Restaurant (Reservation)',
+  referee_official: 'Referees / Officials',
+  event_medic: 'Medic / First-aid',
+  event_insurance: 'Event Insurance',
+  personal_accident_insurance: 'Personal Accident',
+  travel_insurance: 'Travel Insurance',
+  reveal_element: 'Reveal Element',
 };
 
 /** URL slug for tile-scoped vendor-grid (`?tile=`). */
@@ -401,6 +486,9 @@ export const WEDDING_TILE_SLUG: Record<WeddingTile, string> = {
   choreographer: 'choreographer',
   performers: 'performers',
   host_mc: 'host-mc',
+  av_production: 'av-production',
+  speaker_talent: 'speaker-talent',
+  kids_entertainer: 'kids-entertainer',
   photo_video: 'photo-video',
   editorial: 'editorial',
   livestream: 'livestream',
@@ -434,6 +522,15 @@ export const WEDDING_TILE_SLUG: Record<WeddingTile, string> = {
   bridal_car: 'bridal-car',
   guest_shuttle: 'guest-shuttle',
   escort: 'escort',
+  tour_activity: 'tour-activity',
+  tour_guide: 'tour-guide',
+  restaurant_reservation: 'restaurant-reservation',
+  referee_official: 'referee-official',
+  event_medic: 'event-medic',
+  event_insurance: 'event-insurance',
+  personal_accident_insurance: 'personal-accident-insurance',
+  travel_insurance: 'travel-insurance',
+  reveal_element: 'reveal-element',
 };
 
 /** Tiles grouped under each parent (derived from WEDDING_TILE_ORDER). */
@@ -450,6 +547,11 @@ export const WEDDING_TILES_BY_PARENT: Record<WeddingFolder, WeddingTile[]> =
       booths: [],
       prints: [],
       transport: [],
+      experience: [],
+      dining: [],
+      logistics_safety: [],
+      insurance: [],
+      specialty: [],
     };
     for (const tile of WEDDING_TILE_ORDER) {
       map[TILE_PARENT[tile]].push(tile);
@@ -898,4 +1000,26 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   bridal_boat_yacht:                 { folder: 'transport', tile: 'bridal_car', phase: 'V1.5+' },
   transportation_guest_shuttle:      { folder: 'transport', tile: 'guest_shuttle', phase: 'V1.1 base' },
   motorcycle_escort:                 { folder: 'transport', tile: 'escort', phase: 'V1.5+' },
+
+  // ════════════════════════════════════════════════════════════════════
+  // NON-WEDDING EVENT-TYPE GAP LEAVES (2026-07-20 · Whats_Next_Suite_AI_
+  // Pricing §gap-leaves + Setnayan_AI_Gap_Leaves_Travel_Dinner_Date_
+  // 2026-07-17 Part A). One canonical per new tile — the tile IS the leaf
+  // (mirrors mobile_bar / food_truck / orchestra). `performers` +
+  // `choreographer` from the 14-leaf list already exist as tiles above
+  // (reconciled, not duplicated); event-type scoping for the NEW leaves is
+  // seeded DB-side (applicable_event_types) by the gap-leaves migration.
+  // ════════════════════════════════════════════════════════════════════
+  tour_activity:                     { folder: 'experience', tile: 'tour_activity', phase: 'V1.2' },
+  tour_guide:                        { folder: 'experience', tile: 'tour_guide', phase: 'V1.2' },
+  restaurant_reservation:            { folder: 'dining', tile: 'restaurant_reservation', phase: 'V1.2' },
+  referee_official:                  { folder: 'logistics_safety', tile: 'referee_official', phase: 'V1.2' },
+  event_medic:                       { folder: 'logistics_safety', tile: 'event_medic', phase: 'V1.2' },
+  event_insurance:                   { folder: 'insurance', tile: 'event_insurance', phase: 'V1.2' },
+  personal_accident_insurance:       { folder: 'insurance', tile: 'personal_accident_insurance', phase: 'V1.2' },
+  travel_insurance:                  { folder: 'insurance', tile: 'travel_insurance', phase: 'V1.2' },
+  av_production:                     { folder: 'program', tile: 'av_production', phase: 'V1.2' },
+  speaker_talent:                    { folder: 'program', tile: 'speaker_talent', phase: 'V1.2' },
+  kids_entertainer:                  { folder: 'program', tile: 'kids_entertainer', phase: 'V1.2' },
+  reveal_element:                    { folder: 'specialty', tile: 'reveal_element', phase: 'V1.2' },
 };

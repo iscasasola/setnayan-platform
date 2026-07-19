@@ -68,6 +68,15 @@ const FOLDER_FAMILY: Record<WeddingFolder, DayOfFamily> = {
   booths: 'serve',
   prints: 'serve',
   transport: 'setup',
+  // Non-wedding event-type families (gap leaves, 2026-07-20): tours/dining
+  // hand an experience to guests (serve); referees/medics run the floor
+  // (coordinate); insurance is planning-side paperwork (coordinate); reveal
+  // rigs are dressed into the room (setup).
+  experience: 'serve',
+  dining: 'serve',
+  logistics_safety: 'coordinate',
+  insurance: 'coordinate',
+  specialty: 'setup',
 };
 
 /** Human copy per family (brand voice, no jargon). */

@@ -82,6 +82,23 @@ export const VENDOR_CATEGORY_CANONICAL: Record<VendorCategory, CanonicalMapping>
   reception_decor: { kind: 'tile', tile: 'stylist_decorator' },
   gifts_and_giveaways: { kind: 'tile', tile: 'souvenir_giveaways' },
   accommodation: { kind: 'tile', tile: 'reception' },
+  // Non-wedding event-type gap leaves (2026-07-20) — each couple-side key
+  // anchors 1:1 to its same-named tier-2 tile (12 new tiles + the 2 tiles
+  // that already existed: performers, choreographer).
+  referee_official: { kind: 'tile', tile: 'referee_official' },
+  event_medic: { kind: 'tile', tile: 'event_medic' },
+  tour_activity: { kind: 'tile', tile: 'tour_activity' },
+  tour_guide: { kind: 'tile', tile: 'tour_guide' },
+  travel_insurance: { kind: 'tile', tile: 'travel_insurance' },
+  av_production: { kind: 'tile', tile: 'av_production' },
+  speaker_talent: { kind: 'tile', tile: 'speaker_talent' },
+  performers: { kind: 'tile', tile: 'performers' },
+  kids_entertainer: { kind: 'tile', tile: 'kids_entertainer' },
+  choreographer: { kind: 'tile', tile: 'choreographer' },
+  reveal_element: { kind: 'tile', tile: 'reveal_element' },
+  event_insurance: { kind: 'tile', tile: 'event_insurance' },
+  personal_accident_insurance: { kind: 'tile', tile: 'personal_accident_insurance' },
+  restaurant_reservation: { kind: 'tile', tile: 'restaurant_reservation' },
   // ── B · coarse alias (many-to-one — genuinely spans tiles) ──────────────────
   band_dj: { kind: 'tiles', tiles: ['live_band', 'dj'] },
   transportation: { kind: 'tiles', tiles: ['bridal_car', 'guest_shuttle'] },

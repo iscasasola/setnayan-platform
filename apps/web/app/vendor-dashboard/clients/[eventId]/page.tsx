@@ -33,6 +33,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { getEditorialEligibility } from '@/lib/editorial-vendor-media';
 import { blockRelevance, deriveCallTime } from '@/lib/vendor-timeline';
+import { fetchBlockRosMeta, isBlockTaggedToVendor } from '@/lib/schedule-ros';
 import {
   fetchVendorThreads,
   fetchReturningClientFlags,
@@ -650,6 +651,21 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   const relevance = new Map(
     allBlocks.map((b) => [b.block_id, blockRelevance(b, brief.booked_categories)]),
   );
+  // Coordinator P2 — explicit responsible-party tags override the category
+  // heuristic: a row the couple tagged to THIS vendor is always 'primary'
+  // ("Your slot" + included in "My slots only"). Best-effort fetch — before
+  // migration 20270825042743 (or with zero tags) the map is empty and the
+  // lens behaves exactly as today. Full-timeline read stays per locked D2.
+  if (eventVendorId && allBlocks.length > 0) {
+    const rosMeta = await fetchBlockRosMeta(supabase, eventId);
+    if (rosMeta.size > 0) {
+      for (const b of allBlocks) {
+        if (isBlockTaggedToVendor(rosMeta, b.block_id, eventVendorId)) {
+          relevance.set(b.block_id, 'primary');
+        }
+      }
+    }
+  }
   const mineOnly = search.lens === 'mine';
   const mineCount = allBlocks.filter((b) => relevance.get(b.block_id) !== 'context').length;
   const blocks = mineOnly

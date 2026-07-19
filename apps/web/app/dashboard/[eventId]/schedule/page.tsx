@@ -39,6 +39,25 @@ import { PreparationAgendaView } from './_components/preparation-agenda';
 import { JourneyView } from './_components/journey-view';
 import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
+// Coordinator P2 — filtered run-of-show (flag-gated: every ros-p2 surface
+// renders only when NEXT_PUBLIC_SCHEDULE_ROS_P2_ENABLED === 'true', so
+// flag-off/absent keeps this page byte-identical to today).
+import {
+  EMPTY_ROS_META,
+  fetchBlockRosMeta,
+  isScheduleRosP2Enabled,
+  type RosMetaMap,
+} from '@/lib/schedule-ros';
+import { templatesForEventType } from '@/lib/schedule-templates';
+import {
+  BulkRetimePanel,
+  ResponsiblePartyEditor,
+  RosLensBar,
+  RosLensPreview,
+  TemplatePicker,
+  parseRosLens,
+  type EventVendorOption,
+} from './_components/ros-p2';
 
 export const metadata = { title: 'Schedule' };
 
@@ -46,12 +65,12 @@ type ScheduleView = 'journey' | 'preparation' | 'event-day';
 
 type Props = {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ view?: string }>;
+  searchParams: Promise<{ view?: string; ros?: string }>;
 };
 
 export default async function CoupleSchedulePage({ params, searchParams }: Props) {
   const { eventId } = await params;
-  const { view: viewParam } = await searchParams;
+  const { view: viewParam, ros: rosParam } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -154,6 +173,30 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     },
   });
 
+  // Coordinator P2 (flag-gated) — the responsible-party meta + the event's
+  // vendor registry that feed the filtered run-of-show chrome. Both fetches
+  // are SKIPPED entirely while the flag is dark; fetchBlockRosMeta is
+  // additionally best-effort (pre-migration → empty map, page unaffected).
+  const rosEnabled = isScheduleRosP2Enabled();
+  let rosMeta: RosMetaMap = EMPTY_ROS_META;
+  let rosVendors: EventVendorOption[] = [];
+  if (rosEnabled) {
+    const [metaRes, vendorsRes] = await Promise.all([
+      fetchBlockRosMeta(supabase, eventId),
+      supabase
+        .from('event_vendors')
+        .select('vendor_id, vendor_name')
+        .eq('event_id', eventId)
+        .order('vendor_name', { ascending: true }),
+    ]);
+    rosMeta = metaRes;
+    rosVendors = (vendorsRes.data ?? []) as EventVendorOption[];
+  }
+  const rosLens = parseRosLens(rosParam, rosVendors);
+  const rosTemplates = rosEnabled
+    ? templatesForEventType(eventRow?.event_type ?? 'wedding')
+    : [];
+
   // Resolve the active view. Explicit `?view=` wins (bookmarkable). With no
   // param, default to Preparation when there's something to prepare; else
   // open straight on the day-of timeline so empty-prep couples aren't met
@@ -252,7 +295,36 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
               <EmceeScriptButton eventId={eventId} />
             </div>
           ) : null}
-          <EventDayView eventId={eventId} blocks={scheduleBlocks} />
+          {/* Coordinator P2 chrome — filtered views, templates, bulk retime.
+              All of it flag-gated; flag-off renders none of these branches. */}
+          {rosEnabled && scheduleBlocks.length === 0 && rosTemplates.length > 0 ? (
+            <TemplatePicker eventId={eventId} templates={rosTemplates} />
+          ) : null}
+          {rosEnabled && scheduleBlocks.length > 0 ? (
+            <RosLensBar
+              eventId={eventId}
+              lens={rosLens}
+              blocks={scheduleBlocks}
+              vendors={rosVendors}
+              meta={rosMeta}
+            />
+          ) : null}
+          {rosEnabled && rosLens.kind !== 'all' ? (
+            <RosLensPreview lens={rosLens} blocks={scheduleBlocks} meta={rosMeta} />
+          ) : (
+            <>
+              {rosEnabled && scheduleBlocks.length > 0 ? (
+                <BulkRetimePanel eventId={eventId} blocks={scheduleBlocks} />
+              ) : null}
+              <EventDayView
+                eventId={eventId}
+                blocks={scheduleBlocks}
+                rosEnabled={rosEnabled}
+                rosMeta={rosMeta}
+                rosVendors={rosVendors}
+              />
+            </>
+          )}
         </>
       )}
     </section>
@@ -375,9 +447,15 @@ function VendorSuggestionsQueue({
 function EventDayView({
   eventId,
   blocks,
+  rosEnabled = false,
+  rosMeta = EMPTY_ROS_META,
+  rosVendors = [],
 }: {
   eventId: string;
   blocks: ScheduleBlockRow[];
+  rosEnabled?: boolean;
+  rosMeta?: RosMetaMap;
+  rosVendors?: EventVendorOption[];
 }) {
   const publicCount = blocks.filter((b) => b.is_public).length;
   // "Next up" (Glass PR-3 §3.1) — the imminent block: the first one that hasn't
@@ -440,6 +518,9 @@ function EventDayView({
                 eventId={eventId}
                 block={b}
                 imminent={nextBlock?.block_id === b.block_id}
+                rosEnabled={rosEnabled}
+                rosMeta={rosMeta}
+                rosVendors={rosVendors}
               />
             </li>
           ))}
@@ -540,10 +621,16 @@ function BlockCard({
   eventId,
   block,
   imminent = false,
+  rosEnabled = false,
+  rosMeta = EMPTY_ROS_META,
+  rosVendors = [],
 }: {
   eventId: string;
   block: ScheduleBlockRow;
   imminent?: boolean;
+  rosEnabled?: boolean;
+  rosMeta?: RosMetaMap;
+  rosVendors?: EventVendorOption[];
 }) {
   // Pre-format the time/range string the same way the prior static
   // surface did, then hand off to the BlockTimeEditor client component
@@ -596,6 +683,17 @@ function BlockCard({
         <p className="rounded-md bg-ink/[0.03] p-3 text-xs text-ink/75 whitespace-pre-wrap">
           {block.notes}
         </p>
+      ) : null}
+
+      {/* Coordinator P2 — per-row responsible party (vendor / crew / family)
+          + vendor tagging that drives the per-vendor filtered slice. */}
+      {rosEnabled ? (
+        <ResponsiblePartyEditor
+          eventId={eventId}
+          block={block}
+          meta={rosMeta}
+          vendors={rosVendors}
+        />
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2 border-t border-ink/10 pt-3">

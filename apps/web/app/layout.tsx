@@ -401,19 +401,22 @@ const organizationJsonLd = {
 // PWA-1 (2026-06-21): was #FFFFFF (pure white) while the manifest was #FAF7F2
 // and the painted surface is #FBFBFA — three near-whites reconciled to one.
 // Native-app feel (owner directive 2026-06-15: "disable zoom on the whole app
-// except the seat-plan touch/drag area"). `maximumScale: 1` + `userScalable:
-// false` disables Android Chrome pinch-zoom AND the iOS input focus-zoom (the
-// auto-zoom when you tap a sub-16px field). iOS Safari IGNORES these for the
-// deliberate pinch gesture though — that half is handled by <ZoomGuard/>, which
-// also re-permits the seat-plan canvas via [data-allow-zoom].
+// except the seat-plan touch/drag area") is implemented WITHOUT touching this
+// meta. `maximumScale: 1` / `userScalable: false` here would fail the
+// Lighthouse `meta-viewport` accessibility audit (weight 10 → every page drops
+// below the CI ≥0.9 gate — the exact red check on PR #1472), and iOS ignores
+// it for the deliberate pinch anyway. Instead:
+//   - Android/Chromium pinch  → `touch-action: pan-x pan-y` on html (globals.css)
+//   - iOS pinch               → <ZoomGuard/> prevents WebKit gesturestart
+//   - iOS input focus-zoom    → 16px input floor (globals.css, !important)
+// The seat-plan editor canvas keeps its own gestures via [data-allow-zoom].
 // ⚠ Trades away WCAG 1.4.4 browser pinch-zoom by owner decision; OS-level zoom
 // (iOS/Android Accessibility → Zoom) remains as the user fallback.
 export const viewport: Viewport = {
   themeColor: '#FBFBFA',
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  maximumScale: 5,
   viewportFit: 'cover',
 };
 

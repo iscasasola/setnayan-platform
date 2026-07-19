@@ -9,16 +9,20 @@ import { useEffect } from 'react';
  * seat-plan canvas wears that attribute because it runs its own pointer-event
  * pan/pinch (`touch-none` + custom handlers) and must receive raw gestures.
  *
- * WHY a JS guard on top of the viewport meta (app/layout.tsx):
- *   - Android Chrome honours `user-scalable=no` / `maximum-scale=1`, so the
- *     viewport meta alone disables pinch-zoom there.
- *   - iOS Safari DELIBERATELY IGNORES those for the user's pinch gesture
- *     (accessibility), so the viewport meta cannot disable pinch on iOS. The
- *     reliable lever is preventing WebKit's non-standard `gesturestart` /
- *     `gesturechange` events — and, unlike clobbering `touchmove`, that does
- *     NOT affect scrolling (gesture* events fire only for pinch/rotate).
- * Double-tap-to-zoom + the 300ms tap delay are already handled by
- * `touch-action: manipulation` on the root (globals.css), so we don't touch
+ * WHY a JS guard on top of the root `touch-action: pan-x pan-y` (globals.css):
+ *   - Android/Chromium honours `touch-action`, so the CSS alone disables
+ *     pinch-zoom there. (We deliberately do NOT use `user-scalable=no` /
+ *     `maximum-scale=1` in the viewport meta — that fails the Lighthouse
+ *     `meta-viewport` accessibility audit and tanks the CI a11y gate, while
+ *     touch-action achieves the same block un-audited.)
+ *   - iOS Safari DELIBERATELY IGNORES both the viewport meta and root
+ *     touch-action for the user's pinch gesture (accessibility), so CSS cannot
+ *     disable pinch on iOS. The reliable lever is preventing WebKit's
+ *     non-standard `gesturestart` / `gesturechange` events — and, unlike
+ *     clobbering `touchmove`, that does NOT affect scrolling (gesture* events
+ *     fire only for pinch/rotate).
+ * Double-tap-to-zoom + the 300ms tap delay are also handled by the same root
+ * `touch-action: pan-x pan-y` (globals.css), so we don't touch
  * touchmove/scroll here.
  *
  * Scope: touch pinch-zoom only. Desktop keyboard (⌘/Ctrl +/-/0) and trackpad

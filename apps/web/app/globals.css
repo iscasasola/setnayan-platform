@@ -1229,20 +1229,28 @@ html.subnav-docked [data-shell-main] {
  *      only `!important` lifts those to the 16px floor. Verified no input sets
  *      an inline font-size ABOVE 16, so this only ever raises, never shrinks.
  *
- *   2. Double-tap-to-zoom + the legacy 300ms tap delay. `touch-action:
- *      manipulation` on the root removes both for the whole tree (touch-action
- *      intersects down through ancestors) while keeping panning.
+ *   2. Double-tap-to-zoom + the legacy 300ms tap delay + PINCH-zoom.
+ *      `touch-action: pan-x pan-y` on the root removes all three for the whole
+ *      tree (touch-action intersects down through ancestors) while keeping
+ *      panning/scrolling. This — not the viewport meta — is the Android/Chromium
+ *      pinch-disable lever: `user-scalable=no` / `maximum-scale=1` in the meta
+ *      would do it too, but that trips the Lighthouse `meta-viewport` a11y audit
+ *      (drops every page below the CI ≥0.9 gate), so the meta stays at
+ *      `maximumScale: 5` and the pinch-disable lives here instead.
  *
  *   3. Pull-to-refresh / rubber-band overscroll on the document scroller —
  *      `overscroll-behavior: none` stops the page bouncing like a web page.
  *
- * Pinch-zoom is now DISABLED app-wide for a native-app feel (owner directive
- * 2026-06-15): viewport `maximumScale: 1` + `userScalable: false` covers
- * Android + the iOS input focus-zoom, and <ZoomGuard/> (app/_components/
- * zoom-guard.tsx) prevents WebKit `gesturestart` on iOS, which ignores the
- * viewport meta. The seat-plan canvas re-permits gestures via [data-allow-zoom]
- * (it owns its own pointer-event pan/pinch). ⚠ This trades away WCAG 1.4.4
- * browser pinch-zoom by owner decision; OS-level Accessibility → Zoom remains.
+ * Pinch-zoom is DISABLED app-wide for a native-app feel (owner directive
+ * 2026-06-15): `touch-action: pan-x pan-y` (below) covers Android/Chromium,
+ * <ZoomGuard/> (app/_components/zoom-guard.tsx) prevents WebKit `gesturestart`
+ * on iOS (which ignores both the viewport meta AND root touch-action for the
+ * deliberate pinch), and the 16px input floor above covers the iOS input
+ * focus-zoom. The seat-plan editor canvas keeps its gestures: ZoomGuard skips
+ * its [data-allow-zoom] subtree, and its own pointer-event pan/pinch runs on a
+ * `touch-none` element, so the root touch-action never mattered to it.
+ * ⚠ This trades away WCAG 1.4.4 browser pinch-zoom by owner decision;
+ * OS-level Accessibility → Zoom remains the user fallback.
  * ------------------------------------------------------------------------- */
 @media (pointer: coarse) {
   input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
@@ -1253,8 +1261,12 @@ html.subnav-docked [data-shell-main] {
 }
 
 html {
-  /* Ancestor of all content → disables double-tap zoom site-wide, keeps pinch + scroll. */
-  touch-action: manipulation;
+  /* Ancestor of all content → disables double-tap zoom AND pinch-zoom
+     site-wide (native-app feel, owner 2026-06-15), keeps panning/scrolling.
+     Deliberately NOT the viewport meta (`user-scalable=no`) — that fails the
+     Lighthouse `meta-viewport` a11y audit; touch-action doesn't. iOS pinch is
+     handled by <ZoomGuard/> (WebKit ignores this for the deliberate pinch). */
+  touch-action: pan-x pan-y;
   /* Root scroller → no pull-to-refresh / rubber-band bounce. */
   overscroll-behavior: none;
 }

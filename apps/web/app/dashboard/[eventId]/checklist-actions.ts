@@ -7,7 +7,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { buildChecklistSeed, buildSeedRows, isWeddingEvent, type ChecklistTemplateItem } from '@/lib/checklist';
-import { checklistDefForEventType } from '@/lib/checklist-event-type-defs';
+import { checklistDefForEventType, GENERIC_EVENT_CHECKLIST_DEF } from '@/lib/checklist-event-type-defs';
 import { specialtyRecommendations } from '@/lib/onboarding/specialty-recommendations';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import {
@@ -85,18 +85,24 @@ export async function ensureChecklistSeeded(eventId: string): Promise<number> {
   // Resolve the template for this event type:
   //  - wedding / unset  → the canonical wedding CHECKLIST_TEMPLATE (unchanged,
   //    with ceremony_type tailoring). `checklistDefForEventType` returns null.
-  //  - enabled non-wedding type (birthday, debut, christening, …) → its own
-  //    per-type performable-task template.
-  //  - unknown non-wedding type → seed NOTHING (return 0) rather than a
-  //    confidently-wrong wedding checklist.
-  const perTypeDef = checklistDefForEventType(eventType);
-  if (perTypeDef == null && !isWeddingEvent(eventType)) return 0;
+  //  - enabled non-wedding type with its own def (birthday, debut, christening, …)
+  //    → its per-type performable-task template.
+  //  - any OTHER non-wedding type with no dedicated def (anniversary, graduation,
+  //    reunion, gala_night, simple_event, future admin types) → the GENERIC
+  //    celebration checklist. Previously these `return 0`'d → a BLANK checklist,
+  //    which shipped live to couples when all 14 event types were enabled. A real
+  //    generic planning surface is always better than an empty one.
+  const perTypeDef =
+    checklistDefForEventType(eventType) ??
+    (isWeddingEvent(eventType) ? null : GENERIC_EVENT_CHECKLIST_DEF);
   // Per-type SUGGESTED tasks derived from the captured signature signals — the
   // first consumer of the Brief's specialty layer (deterministic, Rule 1). A
   // suggestion only exists when a real signal backs it (a captured cotillion,
   // named 18 Candles, a godparent roster…). Non-wedding path only; appended to the
   // static template so they de-dupe by template_key and keep a sequential
-  // sort_order. Empty → the seed is byte-identical to before.
+  // sort_order. Empty → the seed is byte-identical to before. (Typeless fallback
+  // events pass through too — `specialtyRecommendations` returns [] for types
+  // with no rule, so the generic seed stays purely generic.)
   const specialtySuggestions: ChecklistTemplateItem[] = perTypeDef
     ? specialtyRecommendations(eventType, signatureDetails).map((r) => ({
         key: r.key,
@@ -107,7 +113,7 @@ export async function ensureChecklistSeeded(eventId: string): Promise<number> {
     : [];
   const seed = perTypeDef
     ? buildSeedRows(eventId, [...perTypeDef.template, ...specialtySuggestions], null) // per-type + captured-signal suggestions
-    : buildChecklistSeed(eventId, ceremonyType); // wedding path, unchanged
+    : buildChecklistSeed(eventId, ceremonyType); // wedding / unset path, unchanged
 
   const rows = (existingRows ?? []) as { template_key: string | null; status: string }[];
   const existingKeys = new Set(

@@ -113,7 +113,7 @@
   gap: 4px;
   background: var(--ug-alabaster);
   border: 1px solid var(--ug-line);
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   padding: 3px;
 }
 .ug-restoggle {
@@ -123,7 +123,7 @@
 .ug-restoggle button {
   border: none;
   background: none;
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   padding: 7px 15px;
   font-size: 12.5px;
   font-weight: 600;
@@ -151,7 +151,7 @@
 .ug-healthbtn {
   border: 1px solid var(--ug-line);
   background: var(--ug-paper);
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   padding: 7px 14px;
   font-size: 12px;
   font-weight: 600;
@@ -181,7 +181,7 @@
   font-weight: 700;
   background: var(--ug-report-bg);
   color: var(--ug-report);
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   padding: 1px 7px;
 }
 .ug-healthbtn.on .ug-hb-ct {
@@ -216,7 +216,7 @@
   width: 100%;
   border: 1px solid rgba(255, 255, 255, 0.16);
   background: rgba(255, 255, 255, 0.07);
-  border-radius: 10px;
+  border-radius: var(--m-r-sm);
   padding: 9px 14px;
   font-size: 13px;
   color: #fff;
@@ -240,7 +240,7 @@
 }
 .ug-navhint kbd {
   border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 5px;
+  border-radius: var(--m-r-xs);
   padding: 1px 6px;
   font-size: 10px;
 }
@@ -251,7 +251,7 @@
   right: 0;
   background: var(--ug-paper);
   border: 1px solid var(--ug-line);
-  border-radius: 12px;
+  border-radius: var(--m-r-md);
   box-shadow: var(--ug-shadow-pop);
   z-index: 60;
   overflow: hidden;
@@ -294,7 +294,7 @@
 .ug-nd-ic {
   width: 24px;
   height: 24px;
-  border-radius: 7px;
+  border-radius: var(--m-r-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -331,7 +331,7 @@
   letter-spacing: 0.05em;
   color: var(--ug-muted);
   background: var(--ug-line2);
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   padding: 2px 7px;
   flex: 0 0 auto;
   margin-top: 2px;
@@ -359,7 +359,7 @@
   cursor: pointer;
   color: #5a4315;
   padding: 4px;
-  border-radius: 7px;
+  border-radius: var(--m-r-sm);
   display: flex;
 }
 
@@ -385,7 +385,7 @@
 .ug-schip {
   border: 1px solid var(--ug-line);
   background: var(--ug-paper);
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   padding: 6px 13px;
   font-size: 12px;
   color: var(--ug-ink2);
@@ -436,7 +436,7 @@
 .ug-sw {
   width: 9px;
   height: 9px;
-  border-radius: 3px;
+  border-radius: var(--m-r-xs);
   flex: 0 0 auto;
 }
 
@@ -613,7 +613,7 @@
   color: var(--ug-muted);
   background: rgba(255, 255, 255, 0.82);
   border: 1px solid var(--ug-line);
-  border-radius: 9px;
+  border-radius: var(--m-r-sm);
   padding: 6px 11px;
   display: flex;
   align-items: center;
@@ -635,7 +635,7 @@
   color: #7a3226;
   background: rgba(250, 233, 230, 0.94);
   border: 1px solid #e3c3bd;
-  border-radius: 9px;
+  border-radius: var(--m-r-sm);
   padding: 6px 12px;
   display: flex;
   align-items: center;
@@ -658,7 +658,7 @@
 .ug-mapctl button {
   width: 34px;
   height: 34px;
-  border-radius: 10px;
+  border-radius: var(--m-r-sm);
   border: 1px solid var(--ug-line);
   background: var(--ug-paper);
   color: var(--ug-ink2);
@@ -706,7 +706,7 @@
   align-items: center;
   gap: 11px;
   padding: 9px 10px;
-  border-radius: 10px;
+  border-radius: var(--m-r-sm);
   cursor: pointer;
   color: var(--ug-ink2);
 }
@@ -765,7 +765,7 @@
   color: #7a5d2a;
   background: var(--ug-wait-bg);
   border: 1px solid #e7cfa6;
-  border-radius: 9px;
+  border-radius: var(--m-r-sm);
   padding: 8px 11px;
   display: flex;
   align-items: center;
@@ -787,7 +787,7 @@
   border-spacing: 0;
   background: #fff;
   border: 1px solid var(--ug-line);
-  border-radius: 14px;
+  border-radius: var(--m-r-md);
   overflow: hidden;
   font-size: 12.5px;
 }
@@ -828,7 +828,7 @@
 .ug-et-ic {
   width: 26px;
   height: 26px;
-  border-radius: 8px;
+  border-radius: var(--m-r-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -858,7 +858,7 @@
 .ug-pager button {
   border: 1px solid var(--ug-line);
   background: #fff;
-  border-radius: 9px;
+  border-radius: var(--m-r-sm);
   padding: 8px 14px;
   font-size: 12.5px;
   font-weight: 600;
@@ -876,7 +876,7 @@
   color: var(--ug-muted);
   font-size: 12.5px;
   border: 1px dashed var(--ug-line);
-  border-radius: 12px;
+  border-radius: var(--m-r-md);
   padding: 22px;
   text-align: center;
   background: var(--ug-alabaster);
@@ -890,7 +890,7 @@
 .ug-badge {
   font-size: 9.5px;
   font-weight: 700;
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   padding: 2px 9px;
   white-space: nowrap;
   display: inline-flex;
@@ -964,7 +964,7 @@
 .ug-av {
   width: 46px;
   height: 46px;
-  border-radius: 13px;
+  border-radius: var(--m-r-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1000,7 +1000,7 @@
   cursor: pointer;
   color: var(--ug-muted);
   padding: 7px;
-  border-radius: 9px;
+  border-radius: var(--m-r-sm);
   display: flex;
   align-self: flex-start;
 }
@@ -1061,12 +1061,12 @@
   font-weight: 700;
   color: var(--ug-muted);
   background: var(--ug-line2);
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   padding: 1px 7px;
 }
 .ug-kv {
   border: 1px solid var(--ug-line);
-  border-radius: 12px;
+  border-radius: var(--m-r-md);
   overflow: hidden;
   background: #fff;
 }
@@ -1101,7 +1101,7 @@
 }
 .ug-conn {
   border: 1px solid var(--ug-line);
-  border-radius: 10px;
+  border-radius: var(--m-r-sm);
   padding: 7px 10px 7px 7px;
   background: #fff;
   cursor: pointer;
@@ -1118,7 +1118,7 @@
 .ug-cav {
   width: 26px;
   height: 26px;
-  border-radius: 7px;
+  border-radius: var(--m-r-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1145,7 +1145,7 @@
   width: 100%;
   text-align: left;
   border: 1px solid var(--ug-line);
-  border-radius: 10px;
+  border-radius: var(--m-r-sm);
   background: #fff;
   padding: 10px 12px;
   display: flex;
@@ -1188,7 +1188,7 @@
   gap: 8px;
 }
 .ug-actbtn {
-  border-radius: 9px;
+  border-radius: var(--m-r-sm);
   padding: 9px 13px;
   font-size: 12.5px;
   font-weight: 600;
@@ -1243,7 +1243,7 @@
   letter-spacing: 0.05em;
   color: var(--ug-gold);
   background: var(--ug-gold-soft);
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   padding: 2px 8px;
 }
 .ug-jb-title {
@@ -1252,7 +1252,7 @@
 }
 .ug-edgekv {
   border: 1px solid var(--ug-line);
-  border-radius: 12px;
+  border-radius: var(--m-r-md);
   overflow: hidden;
   background: #fff;
 }
@@ -1289,7 +1289,7 @@
 .ug-ekv .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   background: var(--ug-line2);
-  border-radius: 5px;
+  border-radius: var(--m-r-xs);
   padding: 0 5px;
   font-size: 11.5px;
 }
@@ -1358,7 +1358,7 @@
   gap: 6px;
   font-size: 11px;
   font-weight: 700;
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   padding: 6px 13px;
 }
 .ug-fix-chip .ug-ico {

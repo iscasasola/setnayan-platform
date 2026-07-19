@@ -26,6 +26,13 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { ensureAutoShareInvite } from '@/lib/vendor-invites';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
+import {
+  WORKING_NOTE_BODY_MAX,
+  isCoordinatorVendorNotesEnabled,
+  isWorkingNoteVisibility,
+  workingNoteAuthorRole,
+  type WorkingNoteViewer,
+} from '@/lib/vendor-working-notes';
 
 /**
  * Idempotently create (or re-read) the auto-share claim link for a locked
@@ -129,5 +136,131 @@ export async function updateHostServiceDetails(formData: FormData): Promise<void
   // 'layout' on /vendors so the Shortlist card chips + Compare inclusions
   // pick up the new covers/inclusions on the next paint.
   revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
+  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
+}
+
+// ============================================================================
+// Working-folder notes (Coordinator P4 · 2026-07-20 · flag-gated).
+//
+// Per-vendor note stream with the private-vs-shared split: a coordinator
+// writes at either visibility; the couple writes 'shared' only and never sees
+// 'coordinator_private' rows. RLS on event_vendor_working_notes (migration
+// 20270825279091) is the real wall — the session-client insert/delete below
+// cannot exceed it. The role probe here only decides which author_role to
+// stamp (the RLS WITH CHECK verifies the claim).
+//
+// Behind NEXT_PUBLIC_COORDINATOR_VENDOR_NOTES_ENABLED (default OFF): flag off
+// ⇒ the actions no-op, matching the panel not rendering at all.
+// ============================================================================
+
+async function resolveWorkingNoteViewer(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  userId: string,
+): Promise<WorkingNoteViewer> {
+  const [{ data: member }, { data: moderator }] = await Promise.all([
+    supabase
+      .from('event_members')
+      .select('member_type')
+      .eq('event_id', eventId)
+      .eq('user_id', userId)
+      .eq('member_type', 'couple')
+      .maybeSingle(),
+    supabase
+      .from('event_moderators')
+      .select('moderator_id')
+      .eq('event_id', eventId)
+      .eq('user_id', userId)
+      .not('accepted_at', 'is', null)
+      .is('removed_at', null)
+      .maybeSingle(),
+  ]);
+  return { isCouple: Boolean(member), isCoordinator: Boolean(moderator) };
+}
+
+/** Append one working-folder note. Form-only; silent no-op on bad input. */
+export async function addWorkingNoteAction(formData: FormData): Promise<void> {
+  if (!isCoordinatorVendorNotesEnabled()) return;
+
+  const eventId = formData.get('event_id');
+  const vendorId = formData.get('vendor_id');
+  const rawBody = formData.get('body');
+  const rawVisibility = formData.get('visibility');
+  if (
+    typeof eventId !== 'string' ||
+    eventId.length === 0 ||
+    typeof vendorId !== 'string' ||
+    vendorId.length === 0 ||
+    typeof rawBody !== 'string'
+  ) {
+    return;
+  }
+  const body = rawBody.trim().slice(0, WORKING_NOTE_BODY_MAX);
+  if (body.length === 0) return;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const viewer = await resolveWorkingNoteViewer(supabase, eventId, user.id);
+  const authorRole = workingNoteAuthorRole(viewer);
+  if (!authorRole) return;
+
+  // Couple submissions are forced to 'shared' (their form has no toggle; the
+  // DB CHECK + RLS WITH CHECK back this up). Coordinators pick either value;
+  // anything unrecognized falls back to the safe default: private.
+  const visibility =
+    authorRole === 'couple'
+      ? 'shared'
+      : isWorkingNoteVisibility(rawVisibility)
+        ? rawVisibility
+        : 'coordinator_private';
+
+  const { error } = await supabase.from('event_vendor_working_notes').insert({
+    event_id: eventId,
+    event_vendor_id: vendorId,
+    author_user_id: user.id,
+    author_role: authorRole,
+    visibility,
+    body,
+  });
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
+}
+
+/** Remove the caller's OWN note (author safety valve — RLS enforces author). */
+export async function deleteWorkingNoteAction(formData: FormData): Promise<void> {
+  if (!isCoordinatorVendorNotesEnabled()) return;
+
+  const eventId = formData.get('event_id');
+  const vendorId = formData.get('vendor_id');
+  const noteId = formData.get('note_id');
+  if (
+    typeof eventId !== 'string' ||
+    eventId.length === 0 ||
+    typeof vendorId !== 'string' ||
+    vendorId.length === 0 ||
+    typeof noteId !== 'string' ||
+    noteId.length === 0
+  ) {
+    return;
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase
+    .from('event_vendor_working_notes')
+    .delete()
+    .eq('note_id', noteId)
+    .eq('author_user_id', user.id);
+  if (error) throw new Error(error.message);
+
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
 }

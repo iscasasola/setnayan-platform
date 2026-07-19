@@ -100,6 +100,11 @@ import {
 import { buildClaimUrl, fetchActiveAutoShareInvite } from '@/lib/vendor-invites';
 import { ClaimLinkShare } from './_components/claim-link-share';
 import { VendorProposalsCard } from './_components/vendor-proposals-card';
+// Working folder — private-vs-shared per-vendor notes (Coordinator P4).
+// Flag-gated (NEXT_PUBLIC_COORDINATOR_VENDOR_NOTES_ENABLED, default OFF): the
+// component itself returns null with ZERO queries while the flag is off, so
+// today's page is byte-for-byte unchanged.
+import { WorkingFolderNotes } from './_components/working-folder-notes';
 import { QuoteBridge, type QuoteCandidate } from './_components/quote-bridge';
 import {
   detectAmountsFromVendorMessages,
@@ -1784,6 +1789,16 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         </section>
       );
 
+  // Working folder — coordinator-private vs couple-shared notes on this
+  // vendor (Coordinator P4). Self-gating server component: flag off ⇒ null.
+  const workingFolderSection = (
+    <WorkingFolderNotes
+      eventId={eventId}
+      vendorId={ev.vendor_id}
+      displayName={displayName}
+    />
+  );
+
   const notesSection =
       ev.notes ? (
         <section
@@ -1951,6 +1966,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         {marketplaceInfoSection}
         {paymentModeSection}
         {notesSection}
+        {workingFolderSection}
         {claimSection}
       </div>
     );
@@ -2295,6 +2311,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           {includedSection}
           {marketplaceInfoSection}
           {notesSection}
+          {workingFolderSection}
           {claimSection}
         </div>
       ),

@@ -9,7 +9,9 @@ import { recommendStudioAddOns } from '@/lib/studio-recommendations';
 import { fetchRoadmapState } from '@/lib/wedding-roadmap-signals';
 import { formatPhp } from '@/lib/orders';
 import { eventActiveSkus } from '@/lib/entitlements';
+import { deriveMonogram } from '@/lib/monogram';
 import { StudioAppRow, type RowPill } from '../studio/_components/studio-app-row';
+import { SuiteVignetteCard, type VignettePersona } from './_components/suite-vignette-card';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
@@ -140,6 +142,22 @@ function comingSoonLast(a: AddOnEntry, b: AddOnEntry): number {
   return (a.status === 'coming_soon' ? 1 : 0) - (b.status === 'coming_soon' ? 1 : 0);
 }
 
+/**
+ * Format a DATE-column string ("YYYY-MM-DD") as "March 14, 2027". Parses the
+ * parts directly (candidate-dates.ts precedent) so the UTC server never shifts
+ * the couple's date by a timezone. Null in → null out.
+ */
+function formatEventDate(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return null;
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString('en-PH', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
 export default async function SuitePage({ params }: Props) {
   // Flag-dark in PRODUCTION: 404 until NEXT_PUBLIC_SUITE is switched on, so the
   // live Studio is unaffected. Always visible on Vercel PREVIEW deploys
@@ -163,15 +181,35 @@ export default async function SuitePage({ params }: Props) {
   const serviceKeys = Array.from(
     new Set(ADD_ONS.map((a) => a.serviceKey).filter((k): k is string => Boolean(k))),
   );
-  const [{ active: ownedActive, pending: ownedPending }, { data: priceRows }, roadmapState] =
-    await Promise.all([
-      eventActiveSkus(createAdminClient(), eventId),
-      supabase
-        .from('platform_retail_catalog_v2')
-        .select('service_code, retail_price_php')
-        .in('service_code', serviceKeys),
-      fetchRoadmapState(supabase, eventId, new Date()).catch(() => null),
-    ]);
+  const [
+    { active: ownedActive, pending: ownedPending },
+    { data: priceRows },
+    roadmapState,
+    { data: eventRow },
+  ] = await Promise.all([
+    eventActiveSkus(createAdminClient(), eventId),
+    supabase
+      .from('platform_retail_catalog_v2')
+      .select('service_code, retail_price_php')
+      .in('service_code', serviceKeys),
+    fetchRoadmapState(supabase, eventId, new Date()).catch(() => null),
+    // PR-2 persona — the cheaply-derivable personalization the vignette cards
+    // wear (names on the website hero, initials on the LED wall / QR badge,
+    // date under the names). One extra select in the same round-trip batch.
+    supabase
+      .from('events')
+      .select('display_name, event_date, monogram_text')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+  ]);
+
+  const persona: VignettePersona = {
+    names: eventRow?.display_name?.trim() || 'Your day',
+    initials: (
+      eventRow?.monogram_text?.trim() || deriveMonogram(eventRow?.display_name)
+    ).slice(0, 12),
+    dateLabel: formatEventDate(eventRow?.event_date),
+  };
 
   const priceMap = new Map<string, string>();
   for (const r of priceRows ?? []) {
@@ -315,7 +353,10 @@ export default async function SuitePage({ params }: Props) {
         </section>
       ) : null}
 
-      {/* Add to your day — sellable features, grouped by outcome. */}
+      {/* Add to your day — sellable features as animated vignette cards
+          (Suite PR-2): each card is a small CSS-only stage showing what the
+          feature DOES, personalized with the couple's names / initials / date
+          where the scene calls for them. Same hrefs + live pills as the rows. */}
       {addByOutcome.length > 0 ? (
         <section aria-label="Add to your day" className="space-y-5">
           <div className="border-t border-ink/10 pt-6">
@@ -327,8 +368,21 @@ export default async function SuitePage({ params }: Props) {
           {addByOutcome.map(({ group, label, items }) => (
             <div key={group} className="space-y-3">
               <h3 className="sn-sec text-base">{label}</h3>
-              <RevealList as="ul" className="sn-tile divide-y divide-ink/10 overflow-hidden p-0">
-                {items.map(rowFor)}
+              <RevealList as="ul" className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {items.map((a) => (
+                  <SuiteVignetteCard
+                    key={a.key}
+                    vignette={a.key}
+                    href={cardHref(a)}
+                    label={a.label}
+                    blurb={a.blurb}
+                    cta={a.cta}
+                    Icon={a.Icon}
+                    gradient={a.poster.baseBackground}
+                    pill={pillFor(a)}
+                    persona={persona}
+                  />
+                ))}
               </RevealList>
             </div>
           ))}

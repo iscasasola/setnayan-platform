@@ -15,6 +15,12 @@ import {
 import { fetchGuestsByEvent } from '@/lib/guests';
 import { buildEmceeScript } from '@/lib/emcee-script';
 import { buildRunOfShowSeed } from '@/lib/schedule-run-of-show';
+import { computeRetimePatches } from '@/lib/schedule-ros';
+import {
+  getScheduleTemplate,
+  buildTemplateInsertRows,
+  templatesForEventType,
+} from '@/lib/schedule-templates';
 
 const VALID_TYPES = new Set<ScheduleBlockType>(SCHEDULE_BLOCK_TYPES);
 
@@ -661,4 +667,178 @@ export async function resolveScheduleSuggestion(formData: FormData) {
 
   revalidatePath(`/dashboard/${eventId}/schedule`);
   redirect(`/dashboard/${eventId}/schedule?view=event-day`);
+}
+
+// ─────────────────  Coordinator P2 · filtered run-of-show  ─────────────────
+//
+// Three actions (Coordinator_Whats_Next_2026-07-18 §P2), all through the
+// AUTHENTICATED client so the existing RLS decides who may write: the couple
+// (couple_write) and a coordinator holding the moderator schedule-'edit'
+// grant (event_schedule_blocks_moderator_write, 20261129003000). No new
+// permission surface. UI entry points are flag-gated
+// (NEXT_PUBLIC_SCHEDULE_ROS_P2_ENABLED); the actions themselves are inert
+// until that flag flips because nothing renders a form at them.
+
+/**
+ * Set the responsible party on one run-of-show row: the free-text label
+ * (vendor / crew / family) and/or the tagged event-vendor ids that drive the
+ * per-vendor filtered view. Tagged ids are validated against THIS event's
+ * vendor registry so a row can never reference another event's vendor.
+ */
+export async function setBlockResponsibleParty(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const blockId = formData.get('block_id');
+  if (typeof eventId !== 'string' || typeof blockId !== 'string') {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const responsibleParty = nullIfBlank(formData.get('responsible_party'));
+  if (responsibleParty && responsibleParty.length > 120) {
+    throw new Error('Responsible party must be 120 characters or fewer');
+  }
+
+  // Multi-select posts one entry per selected vendor. Intersect with the
+  // event's own vendor registry (RLS-scoped read) — anything else is dropped.
+  const requestedVendorIds = formData
+    .getAll('responsible_vendor_ids')
+    .filter((v): v is string => typeof v === 'string' && v.length > 0);
+  let vendorIds: string[] = [];
+  if (requestedVendorIds.length > 0) {
+    const { data: eventVendors, error: vendorsErr } = await supabase
+      .from('event_vendors')
+      .select('vendor_id')
+      .eq('event_id', eventId);
+    if (vendorsErr) throw new Error(vendorsErr.message);
+    const valid = new Set((eventVendors ?? []).map((v) => v.vendor_id as string));
+    vendorIds = [...new Set(requestedVendorIds)].filter((id) => valid.has(id));
+  }
+
+  const { error } = await supabase
+    .from('event_schedule_blocks')
+    .update({
+      responsible_party: responsibleParty,
+      responsible_vendor_ids: vendorIds,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('block_id', blockId)
+    .eq('event_id', eventId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/schedule`);
+  revalidatePath(`/dashboard/${eventId}`);
+}
+
+/**
+ * Bulk retime — shift a contiguous span of the run-of-show by ±N minutes in
+ * ONE action: the anchor block and everything after it (optionally stopping
+ * at `to_block_id`), children travelling with their parents. The classic
+ * "ceremony ran 30 minutes late → cascade the rest of the day".
+ *
+ * Span + patch math is the pure `computeRetimePatches` (unit-tested);
+ * durations are preserved by construction so the end_at > start_at CHECK can
+ * never break. Row-by-row UPDATEs mirror reorderScheduleBlocks — bounded
+ * (~50 rows max) and each write re-checked by RLS.
+ */
+export async function bulkRetimeScheduleBlocks(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const fromBlockId = formData.get('from_block_id');
+  const toBlockIdRaw = formData.get('to_block_id');
+  const deltaRaw = formData.get('delta_minutes');
+  if (
+    typeof eventId !== 'string' ||
+    typeof fromBlockId !== 'string' ||
+    fromBlockId.length === 0 ||
+    typeof deltaRaw !== 'string'
+  ) {
+    throw new Error('Invalid input');
+  }
+  const deltaMinutes = Number(deltaRaw);
+  if (!Number.isFinite(deltaMinutes)) throw new Error('Invalid shift amount');
+  const toBlockId =
+    typeof toBlockIdRaw === 'string' && toBlockIdRaw.length > 0 ? toBlockIdRaw : null;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // RLS-scoped read — rows only come back if the caller can see this event.
+  const blocks = await fetchScheduleBlocks(supabase, eventId);
+  const patches = computeRetimePatches(blocks, fromBlockId, deltaMinutes, toBlockId);
+  if (patches.length === 0) return;
+
+  const now = new Date().toISOString();
+  for (const patch of patches) {
+    const { error } = await supabase
+      .from('event_schedule_blocks')
+      .update({ start_at: patch.start_at, end_at: patch.end_at, updated_at: now })
+      .eq('block_id', patch.block_id)
+      .eq('event_id', eventId);
+    if (error) throw new Error(`Retime failed at ${patch.block_id}: ${error.message}`);
+  }
+
+  revalidatePath(`/dashboard/${eventId}/schedule`);
+  revalidatePath(`/dashboard/${eventId}`);
+}
+
+/**
+ * Load a run-of-show template into an EMPTY schedule. Strictly
+ * additive-into-empty: any existing block (even one) makes this a no-op —
+ * a template can NEVER overwrite or merge over rows the couple authored.
+ * Insert goes through the authenticated client, so the couple and a
+ * schedule-'edit' coordinator can load one; nobody else can.
+ */
+export async function loadScheduleTemplate(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const templateId = formData.get('template_id');
+  if (typeof eventId !== 'string' || typeof templateId !== 'string') {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const template = getScheduleTemplate(templateId);
+  if (!template) throw new Error('Unknown template');
+
+  const { data: ev, error: evErr } = await supabase
+    .from('events')
+    .select('event_type, event_date')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (evErr) throw new Error(evErr.message);
+  const eventType = (ev?.event_type as string | null | undefined) ?? 'wedding';
+  if (!templatesForEventType(eventType).some((t) => t.id === template.id)) {
+    throw new Error('Template not available for this event type');
+  }
+
+  // The never-overwrite guard: refuse when ANY row exists.
+  const { data: existing, error: existingErr } = await supabase
+    .from('event_schedule_blocks')
+    .select('block_id')
+    .eq('event_id', eventId)
+    .limit(1);
+  if (existingErr) throw new Error(existingErr.message);
+  if (existing && existing.length > 0) return;
+
+  const rows = buildTemplateInsertRows(
+    template,
+    (ev?.event_date as string | null | undefined) ?? null,
+  ).map((row) => ({ ...row, event_id: eventId }));
+
+  const { error } = await supabase.from('event_schedule_blocks').insert(rows);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/schedule`);
+  revalidatePath(`/dashboard/${eventId}`);
 }

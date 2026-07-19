@@ -97,6 +97,7 @@ function isDayOfGuestNavigation(url) {
     'recommendations',
     'pricing',
     'for-vendors',
+    'vendors',
     'auth',
     'api',
     'about',

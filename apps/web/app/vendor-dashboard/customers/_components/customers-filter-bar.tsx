@@ -104,7 +104,7 @@ export function CustomersFilterBar({
               }
             : {
                 borderColor: 'var(--m-line)',
-                background: '#fff',
+                background: 'rgba(255,255,255,.72)',
                 color: 'var(--m-slate)',
               }
         }
@@ -121,7 +121,7 @@ export function CustomersFilterBar({
           aria-controls={infoId}
           aria-label="How to read this calendar"
           className="inline-flex h-9 w-9 items-center justify-center rounded-lg border"
-          style={{ borderColor: 'var(--m-line)', background: '#fff', color: 'var(--m-slate)' }}
+          style={{ borderColor: 'var(--m-line)', background: 'rgba(255,255,255,.72)', color: 'var(--m-slate)' }}
         >
           <Info className="h-4 w-4" strokeWidth={1.75} aria-hidden />
         </button>

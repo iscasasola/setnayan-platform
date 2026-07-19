@@ -37,7 +37,7 @@ import { SETNAYAN_PAY_FEE_PCT } from '@/lib/vendor-earnings';
  * skip count is surfaced back in the redirect. Valid rows still save.
  *
  * Auto-update guarantee: one revalidatePath sweep after the batch kicks the
- * three surfaces that read V2 catalog rows (/pricing · /for-vendors ·
+ * three surfaces that read V2 catalog rows (/pricing · /vendors ·
  * /admin/pricing), plus the fee-only surfaces when the fee changed.
  *
  * Audit trail: every changed row writes an admin_audit_log row (per § 9.1)
@@ -463,7 +463,7 @@ export async function saveAllPricing(formData: FormData) {
   // 9 ─ One revalidate sweep. The core three always; the fee additionally
   // touches the payments + vendor-dashboard surfaces.
   revalidatePath('/pricing');
-  revalidatePath('/for-vendors');
+  revalidatePath('/vendors');
   revalidatePath('/admin/pricing');
   if (feeChanged) {
     revalidatePath('/admin/payments');
@@ -474,7 +474,7 @@ export async function saveAllPricing(formData: FormData) {
   const params = new URLSearchParams({ saved: String(changed) });
   if (skipped.length > 0) params.set('skipped', String(skipped.length));
   if (firstError) params.set('error', '1');
-  redirect(`/admin/pricing?${params.toString()}`);
+  redirect(`/admin/pricing?tab=pricing&${params.toString()}`);
 }
 
 // ─── createBundle ─────────────────────────────────────────────────────
@@ -498,10 +498,10 @@ export async function createBundle(formData: FormData) {
   const priceRaw = (formData.get('bundle_price') ?? '').toString().trim();
   const desc = (formData.get('bundle_desc') ?? '').toString().trim();
 
-  if (!name) redirect('/admin/pricing?createError=name');
+  if (!name) redirect('/admin/pricing?tab=pricing&createError=name');
   const price = Number(priceRaw);
   if (!Number.isFinite(price) || price < 0) {
-    redirect('/admin/pricing?createError=price');
+    redirect('/admin/pricing?tab=pricing&createError=price');
   }
   const priceR = round2(price);
 
@@ -534,7 +534,7 @@ export async function createBundle(formData: FormData) {
   });
   if (error) {
     console.error('[createBundle] insert failed', error.message);
-    redirect('/admin/pricing?createError=db');
+    redirect('/admin/pricing?tab=pricing&createError=db');
   }
 
   const { error: auditErr } = await admin.from('admin_audit_log').insert({
@@ -554,7 +554,7 @@ export async function createBundle(formData: FormData) {
   }
 
   revalidatePath('/pricing');
-  revalidatePath('/for-vendors');
+  revalidatePath('/vendors');
   revalidatePath('/admin/pricing');
-  redirect(`/admin/pricing?created=${encodeURIComponent(code)}`);
+  redirect(`/admin/pricing?tab=pricing&created=${encodeURIComponent(code)}`);
 }

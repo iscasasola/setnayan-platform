@@ -2,6 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * ── Atelier + macOS glass typography aliases (owner-locked 2026-07-12) ──
+ * Hanken Grotesk (--font-hanken) + Space Mono (--font-space-mono) are loaded
+ * in app/layout.tsx and are the ONLY chrome families going forward. The
+ * variables below keep every shipped consumer working without churn:
+ *   - --font-app          was Source Sans 3 (retired) — dashboards inherit
+ *     it through `.app-surface`, which now resolves to Hanken.
+ *   - --font-*-marketing / --font-condensed  were the retired v2.1 quartet
+ *     (Saira Condensed / Geist / Instrument Serif / JetBrains Mono).
+ * Root --font-sans / --font-display / --font-mono deliberately KEEP their
+ * Cormorant / Manrope / DM Mono faces: the /[slug] guest invitation surfaces
+ * are owner-excluded from the reskin and inherit those root vars. Chrome
+ * scopes (.app-surface below · marketing pages as they restyle in Phase 3)
+ * opt in to the Atelier faces instead.
+ */
+:root {
+  /* Chrome typography = Atelier everywhere (2026-07-12 consistency pass).
+   * The editorial Cormorant/Manrope/DM Mono faces now load under
+   * --font-editorial-* (app/layout.tsx) and reach pages ONLY through the
+   * .sn-editorial scope below — applied at the /[slug] guest-tree root, the
+   * one surface family owner-excluded from the reskin. Everything else
+   * (marketing + dashboards + tools) reads the Atelier faces. */
+  --font-display: var(--font-hanken);
+  --font-sans: var(--font-hanken);
+  --font-mono: var(--font-space-mono);
+  --font-app: var(--font-hanken);
+  --font-condensed: var(--font-hanken);
+  --font-sans-marketing: var(--font-hanken);
+  --font-serif-marketing: var(--font-hanken);
+  --font-mono-marketing: var(--font-space-mono);
+}
+
 @layer base {
   /*
    * A11Y-1 (Responsive_and_Mobile_UI_Ruleset_2026-06-21) — one global keyboard
@@ -49,14 +81,14 @@
    * SCOPE: app chrome (dashboard / admin / vendor / marketplace internal +
    * public marketing surfaces consumed via legacy --color-* tokens). The
    * `--m-*` Clean Editorial token family (used by Today page + /pricing +
-   * /for-vendors) is unchanged. Wedding landing page chrome at
+   * /vendors) is unchanged. Wedding landing page chrome at
    * `app/[slug]/page.tsx` remains driven by the couple's mood-board palette
    * per iteration 0010 + 0002 — out of scope for this swap.
    *
    * MODES:
    *   Light  → Warm Alabaster surface (#FBFBFA) + Deep Obsidian text
    *            (#1E2229) + Royal Champagne Gold accent (#C5A059) + Rich
-   *            Mulberry CTAs (#5C2542). The ONLY mode (see LIGHT-LOCKED below).
+   *            Atelier gold CTAs (#A9834B). The ONLY mode (see LIGHT-LOCKED below).
    *   Dark   → DISABLED 2026-06-04. The `html.dark` overrides below are kept
    *            dormant (now unreachable) so re-enabling is a small revert.
    *
@@ -83,14 +115,14 @@
    */
   :root {
     /* Light mode — Clean Editorial (DEFAULT) */
-    --color-cream: 251 251 250;        /* page bg → Warm Alabaster #FBFBFA */
-    --color-ink: 30 34 41;             /* primary text → Deep Obsidian #1E2229 */
-    --color-terracotta: 197 160 89;    /* accent → Royal Champagne Gold #C5A059 */
+    --color-cream: 255 255 255;        /* page bg → white (owner 2026-07-13; was Atelier paper #FBFAF7) */
+    --color-ink: 27 26 23;             /* primary text → Atelier warm ink #1B1A17 */
+    --color-terracotta: 169 131 75;    /* accent → Atelier gold #A9834B (kit gold-500) */
     --color-terracotta-600: 168 131 64; /* accent hover → #A88340 */
     --color-terracotta-700: 140 105 50; /* accent deepest → #8C6932 */
-    --color-mulberry: 30 34 41;        /* CTA → Deep Obsidian #1E2229 (was Mulberry; token name kept) */
-    --color-mulberry-600: 52 58 68;    /* CTA hover (lifted charcoal) → #343A44 */
-    --color-mulberry-700: 21 23 27;    /* CTA deepest → #15171B */
+    --color-mulberry: 169 131 75;        /* CTA → Atelier gold #A9834B (design finalization 2026-07-12: gold supersedes the 2026-07-09 wine; token NAME kept to avoid component churn) */
+    --color-mulberry-600: 149 113 61;   /* CTA hover → gold-600 #95713D */
+    --color-mulberry-700: 138 107 57;    /* CTA deepest → gold-700 #8A6B39 */
     --accent: #c5a059;
     --accent-deep: #a88340;
     --accent-soft: #f4ecd8;            /* Light champagne wash */
@@ -101,14 +133,14 @@
 
   html.dark {
     /* Dark mode — Clean Editorial coherent variant */
-    --color-cream: 30 34 41;           /* page bg → Deep Obsidian #1E2229 */
-    --color-ink: 251 251 250;          /* primary text → Warm Alabaster #FBFBFA */
-    --color-terracotta: 224 204 160;   /* accent → brighter champagne #E0CCA0 */
+    --color-cream: 23 22 15;           /* page bg → Atelier ink-black #17160F */
+    --color-ink: 251 250 247;          /* primary text → Atelier paper #FBFAF7 */
+    --color-terracotta: 203 167 102;   /* accent → kit gold-300 #CBA766 (reads on dark) */
     --color-terracotta-600: 197 160 89; /* hover → #C5A059 */
     --color-terracotta-700: 168 131 64; /* deepest → #A88340 */
-    --color-mulberry: 74 81 92;        /* CTA → charcoal #4A515C (reads on the dark bg) */
-    --color-mulberry-600: 92 99 110;   /* CTA hover lighter → #5C636E */
-    --color-mulberry-700: 30 34 41;    /* CTA deepest → Deep Obsidian #1E2229 */
+    --color-mulberry: 203 167 102;       /* CTA → gold-300 #CBA766 (reads on the dark bg) */
+    --color-mulberry-600: 216 185 121;  /* CTA hover lighter → #D8B979 */
+    --color-mulberry-700: 169 131 75;    /* CTA deepest → gold-500 #A9834B */
     --accent: #e0cca0;
     --accent-deep: #c5a059;
     --accent-soft: #22262c;            /* Dark obsidian tint for accent backgrounds */
@@ -161,9 +193,15 @@
    * left intact. prefers-reduced-motion (block below) snaps it instantly,
    * which is still felt as feedback.
    */
+  /* `.sn-press` — same press feedback as an OPT-IN for <Link>-based cards
+   * (home-launcher pixel pass 2026-07-15: event cards, ghost card, space rows,
+   * moment rows, the Play pill), which the button-shaped selectors below can't
+   * match. Base-layer on purpose so Tailwind transition utilities on the same
+   * element keep winning exactly as they do for buttons. */
   button,
   [role='button'],
   a.button,
+  .sn-press,
   input[type='submit'],
   input[type='button'],
   summary {
@@ -186,6 +224,11 @@
   summary:active {
     scale: 0.96;
     filter: brightness(0.97);
+  }
+  /* Proto universal :active is scale(.97) on cards — slightly gentler than
+   * the button press above. */
+  .sn-press:active {
+    scale: 0.97;
   }
   button:disabled,
   [aria-disabled='true'] {
@@ -366,6 +409,96 @@
   .subnav-lift {
     animation: none;
   }
+}
+
+/*
+ * Journey view (event-lifecycle arc, /schedule ?view=journey) — entrance
+ * choreography. Pure CSS so the Journey mode stays a server component. Every
+ * animation here is frozen to instant by the global prefers-reduced-motion
+ * block above, so reduced-motion users still get the fully-rendered page (no
+ * JS gate). Stagger is driven by an inline `--journey-delay` custom property
+ * the component sets per element, so the arc → phase headers → rows cascade in
+ * top-to-bottom.
+ *
+ *   .journey-rise      — fade + lift for the arc, phase headers, and each row
+ *   .journey-rail-fill — the progress bar grows left→right once on mount
+ *   .journey-today     — the "you are here" marker pops in, then breathes
+ *   .journey-node-pop  — milestone nodes scale-in (uses the `scale` PROPERTY so
+ *                        it composes with the node's left/top positioning)
+ */
+@keyframes journey-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.journey-rise {
+  animation: journey-rise 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--journey-delay, 0ms);
+}
+
+@keyframes journey-rail-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.journey-rail-fill {
+  transform-origin: left center;
+  animation: journey-rail-grow 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 160ms;
+}
+
+@keyframes journey-today-in {
+  from {
+    opacity: 0;
+    scale: 0.3;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+@keyframes journey-beacon {
+  0%,
+  100% {
+    scale: 1;
+    box-shadow: 0 0 0 0 rgb(var(--color-mulberry) / 0.4);
+  }
+  50% {
+    scale: 1.14;
+    box-shadow: 0 0 0 5px rgb(var(--color-mulberry) / 0);
+  }
+}
+.journey-today {
+  animation:
+    journey-today-in 400ms cubic-bezier(0.2, 0.7, 0.2, 1) both 900ms,
+    journey-beacon 2.6s ease-in-out infinite 1500ms;
+}
+
+@keyframes journey-node-pop {
+  0% {
+    opacity: 0;
+    scale: 0.2;
+  }
+  70% {
+    opacity: 1;
+    scale: 1.18;
+  }
+  100% {
+    opacity: 1;
+    scale: 1;
+  }
+}
+.journey-node-pop {
+  animation: journey-node-pop 440ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: var(--journey-delay, 0ms);
 }
 
 /*
@@ -639,24 +772,43 @@ html.subnav-docked [data-shell-main] {
  */
 :root {
   /* Surfaces — Warm Alabaster (Clean Editorial · was warm paper #FBF8F2) */
-  --m-paper:      #FBFBFA;
+  --m-paper:      #FBFAF7;
   --m-paper-2:    #F4F2EC;
   --m-ivory:      #EDEAE0;
-  --m-line:       #E2DED4;
-  --m-line-soft:  #ECE8DC;
+  --m-line:       #E1DCD1;
+  --m-line-soft:  #EDE8DE;
 
   /* Ink — Deep Obsidian (Clean Editorial · was slate #2D3038) */
-  --m-ink:        #1E2229;
-  --m-slate:      #4F535B;
-  --m-slate-2:    #6A6E76;
-  --m-slate-3:    #898D94;
-  --m-slate-4:    #B6B9BE;
+  --m-ink:        #1B1A17;
+  --m-slate:      #3A382F;
+  --m-slate-2:    #6E6A62;
+  --m-slate-3:    #8A857B;
+  --m-slate-4:    #B5AF9E;
 
   /* Accent — Royal Champagne Gold (Clean Editorial · was burnt sienna #C96B3A) */
-  --m-orange:     #C5A059;
-  --m-orange-2:   #A88340;
-  --m-orange-3:   #E0CCA0;
-  --m-orange-4:   #F4ECD8;
+  --m-orange:     #A9834B;
+  --m-orange-2:   #8A6B39;
+  --m-orange-3:   #CBA766;
+  --m-orange-4:   #F3ECDF;
+
+  /* Chrome nav active-state — Atelier GOLD (owner-locked 2026-07-12 design
+   * finalization: gold supersedes wine; kit gold-700 for text/active contrast).
+   * The 2026-07-09 wine treatment is retired — chrome and content now share
+   * the one gold decorative family, so the old rail/content seam is gone. */
+  --m-nav-active:      #8A6B39;   /* = --color-mulberry (light) — active bar · icon · focus ring */
+  --m-nav-active-soft: color-mix(in srgb, var(--m-nav-active) 10%, #ffffff);  /* active-row wash — matches the lightness of the old --m-orange-4 gold wash */
+
+  /* Admin doorway accent — RETIRED (Glass PR-1, 2026-07-15). Violet is gone:
+   * admin's identity is the ShieldCheck + "HQ" label, not a colour fork (kit
+   * rule: gold is the only decorative colour). The Internal role badge now uses
+   * the warm info-slate semantic; the sidebar-header dot uses --m-sidebar-accent
+   * (gold). */
+
+  /* Vendor doorway accent — PHOTOGRAPHY BLUE: RETIRED (gold-only finalization,
+   * 2026-07-12). The vendor Overview's rings/eyebrows/KPI accents are gold; the
+   * `--v-blue` token had zero remaining consumers, so its definition is gone.
+   * The vendor identity is carried by the ShieldCheck + shop label, not a colour
+   * fork (kit rule: gold is the only decorative colour). */
 
   /* CTA — Deep Obsidian (primary interactive buttons; token name `mulberry` kept) */
   --m-mulberry:    #1E2229;
@@ -685,9 +837,9 @@ html.subnav-docked [data-shell-main] {
   --m-r-full: 999px;
 
   /* Shadows (Obsidian-tinted · paper-friendly · was rgba(45,48,56,…) for v2.1 ink) */
-  --m-shadow-sm: 0 1px 2px rgba(30,34,41,.05), 0 1px 1px rgba(30,34,41,.04);
-  --m-shadow-md: 0 8px 24px -10px rgba(30,34,41,.18), 0 2px 6px -2px rgba(30,34,41,.08);
-  --m-shadow-lg: 0 40px 80px -30px rgba(30,34,41,.28), 0 10px 30px -8px rgba(30,34,41,.10);
+  --m-shadow-sm: 0 1px 2px rgba(30,26,18,.05), 0 1px 1px rgba(30,26,18,.04);
+  --m-shadow-md: 0 8px 24px -10px rgba(30,26,18,.18), 0 2px 6px -2px rgba(30,26,18,.08);
+  --m-shadow-lg: 0 40px 80px -30px rgba(30,26,18,.28), 0 10px 30px -8px rgba(30,26,18,.10);
 
   /*
    * Desktop sidebar rail width (DESK-1 · Responsive_and_Mobile_UI_Ruleset).
@@ -696,24 +848,89 @@ html.subnav-docked [data-shell-main] {
    * value explicit + themeable (same 16rem, so zero visual change).
    */
   --sidebar-width: 16rem;
+
+  /*
+   * ── Sidebar chrome — Atelier frosted glass (2026-07-12; was the dark
+   *    obsidian island of the 2026-07-09 "Energy" reskin) ─────────────────
+   * "Energy, not skin" reskin (2026-07-09 prototypes · setnayan-{overview,
+   * vendor,admin}-energy.html): the DESKTOP sidebar is a permanently-dark
+   * obsidian island — dark in BOTH app themes (the app is light-locked today,
+   * but these live at :root so the panel stays dark regardless of any future
+   * theme flip; the content area still follows the app theme). Values reuse the
+   * prototype's obsidian panel scale; every doorway shares the Atelier gold
+   * active accent (the wine/violet/blue doorway forks were retired — Glass PR-1,
+   * 2026-07-15).
+   *
+   * Consumed EXPLICITLY by the shared nav primitives (sidebar-item ·
+   * sidebar-section · admin-sidebar-menu) + the sidebar-owned chrome
+   * (doorway-sidebar-header · vendor identity card + footer · sidebar-shell).
+   * The `.sn-sidebar` scope below ALSO remaps the base --m-* tokens that the
+   * shared AccountSwitcher TRIGGER consumes (it renders here but its panel is
+   * portaled to <body>, outside this scope, so the panel stays light).
+   */
+  --m-sidebar-bg:        rgba(255,255,255,.45);  /* Atelier frosted panel (kit glass, 2026-07-12) */
+  --m-sidebar-bg-2:      rgba(255,255,255,.62);  /* elevated tiles — switcher · identity · footer chips */
+  --m-sidebar-fg:        #1B1A17;  /* warm ink — active label · wordmark · primary text */
+  --m-sidebar-fg-soft:   #3A382F;  /* inactive nav labels · icons */
+  --m-sidebar-fg-muted:  #6E6A62;  /* section labels · chevrons · sub-text */
+  --m-sidebar-line:      rgba(30,26,18,.08);  /* hairline dividers on glass */
+  --m-sidebar-hover:     rgba(255,255,255,.6);  /* hover-row wash */
+
+  /* ACTIVE accent — Atelier gold for EVERY doorway (kit rule 2: gold is the
+   * only decorative color; the wine/violet doorway accents retired with the
+   * 2026-07-12 finalization, and the `.sn-sidebar--violet` hook + `--a-violet`
+   * token were removed entirely in Glass PR-1, 2026-07-15). */
+  --m-sidebar-accent:      #8A6B39;  /* gold-700 — active bar/ring on the light panel */
+  --m-sidebar-accent-fg:   #A9834B;  /* active icon · wordmark accent */
+  --m-sidebar-accent-soft: color-mix(in srgb, var(--m-sidebar-accent) 16%, transparent);
+}
+
+/*
+ * `.sn-sidebar` — applied to the desktop sidebar <aside> (sidebar-shell.tsx).
+ * Paints the obsidian panel and remaps the base --m-* tokens that the ONE
+ * shared descendant we don't restyle by hand — the AccountSwitcher trigger row
+ * — reads from, so the whole panel goes dark from a single place. The portaled
+ * switcher PANEL renders in <body> (outside this subtree) and inherits :root, so
+ * it stays light. (The former `--violet` admin-accent fork was retired in
+ * Glass PR-1, 2026-07-15 — every doorway now shares the gold accent.)
+ */
+.sn-sidebar {
+  background: var(--m-sidebar-bg);
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  box-shadow: 0 20px 50px -30px rgba(30,26,18,.4);
+  color: var(--m-sidebar-fg);
+  --m-paper:   var(--m-sidebar-hover);
+  --m-paper-2: var(--m-sidebar-bg-2);
+  --m-line:    var(--m-sidebar-line);
+  --m-ink:     var(--m-sidebar-fg);
+  --m-slate:   var(--m-sidebar-fg-soft);
+  --m-slate-2: var(--m-sidebar-fg-muted);
+  --m-slate-3: var(--m-sidebar-fg-muted);
+  --m-nav-active:      var(--m-sidebar-accent);
+  --m-nav-active-soft: var(--m-sidebar-accent-soft);
+  /* (The dark-panel contrast lift for the AccountSwitcher gold initials is
+   * gone with the obsidian panel — base gold-700 reads ≥4.5:1 on glass.) */
 }
 
 /*
  * Backend dashboard surface — opt-in. Applied to the root element of the
- * couple / vendor / admin dashboard layouts so the whole operational backend
- * renders in Source Sans, one simple minimalist family for body AND headings
- * (owner-locked 2026-06-10 — "easy to read" backend). Overriding the --font-*
- * vars here makes every `font-sans`/`font-display`/`font-serif` utility inside
- * a dashboard resolve to Source Sans without touching the 200+ components; the
- * direct font-family covers inherited text. --font-mono is left as DM Mono so
- * IDs / reference codes keep their monospace alignment. The editorial
- * Cormorant/Manrope stack stays on the public marketing site + guest-facing
+ * couple / vendor / admin dashboard layouts. Since the Atelier finalization
+ * (owner-locked 2026-07-12, superseding the 2026-06-10 Source Sans lock)
+ * --font-app resolves to Hanken Grotesk, so the whole operational backend
+ * renders in the one Atelier UI family. Overriding the --font-* vars here
+ * makes every `font-sans`/`font-display`/`font-serif` utility inside a
+ * dashboard resolve to Hanken without touching the 200+ components; the
+ * direct font-family covers inherited text. --font-mono flips to Space Mono
+ * (the Atelier data face) so IDs / reference codes / prices / dates read in
+ * the kit's mono. The editorial Cormorant/Manrope stack stays on guest-facing
  * pages, which live outside these layouts. Mirrors `.m-surface` below.
  */
 @layer components {
   .app-surface {
     --font-sans: var(--font-app);
     --font-display: var(--font-app);
+    --font-mono: var(--font-space-mono);
     font-family: var(--font-app), system-ui, sans-serif;
   }
 }
@@ -1055,6 +1272,9 @@ html {
     --sd-ink: #2a2417;
     --sd-dim: #9a8e74;
 
+    /* position:relative so the tap-to-pop children (.sd-pop-mote / .sd-pop-ring,
+       absolutely positioned at the pointer point) anchor to the loader root. */
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1269,7 +1489,116 @@ html {
     color: var(--sd-gold);
   }
 
-  /* App-wide blocking overlay host (LoaderOverlayProvider). */
+  /* ---- Variant layers (owner 2026-07-05) --------------------------------- *
+   * The SAME mark, three treatments. Visibility is driven by the
+   * `[data-loader-variant]` attribute on .sd-loader (mirrored on <html> for the
+   * boot splash). Default / no attribute = `gather` (particles + orbit). */
+
+  /* Aurora — a soft, slowly-rotating blurred champagne sweep behind the mark. */
+  .sd-aurora {
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    display: none;
+    filter: blur(20px);
+    opacity: 0.75;
+    background:
+      conic-gradient(
+        from 0deg,
+        transparent 0%,
+        color-mix(in srgb, var(--sd-gold) 55%, transparent) 18%,
+        color-mix(in srgb, var(--sd-gold-lt) 45%, transparent) 34%,
+        transparent 52%,
+        color-mix(in srgb, var(--sd-gold) 40%, transparent) 72%,
+        transparent 90%
+      );
+    -webkit-mask: radial-gradient(circle, #000 42%, transparent 72%);
+    mask: radial-gradient(circle, #000 42%, transparent 72%);
+    animation: sd-aurora-spin 7s linear infinite;
+  }
+
+  /* Pulse — concentric gold rings expanding outward and fading on a stagger. */
+  .sd-pulse {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  .sd-pulse i {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 92px;
+    height: 92px;
+    margin-left: -46px;
+    margin-top: -46px;
+    border-radius: 50%;
+    border: 2px solid var(--sd-gold);
+    opacity: 0;
+    animation: sd-sonar 2.4s ease-out infinite;
+  }
+  .sd-pulse i:nth-child(2) {
+    animation-delay: 0.8s;
+  }
+  .sd-pulse i:nth-child(3) {
+    animation-delay: 1.6s;
+  }
+
+  /* gather (default): particles + orbit; aurora & pulse hidden. */
+  .sd-loader[data-loader-variant='gather'] .sd-aurora,
+  .sd-loader[data-loader-variant='gather'] .sd-pulse {
+    display: none;
+  }
+  .sd-loader[data-loader-variant='gather'] .sd-orbit {
+    display: block;
+  }
+
+  /* aurora: sweep visible; orbit + pulse hidden. */
+  .sd-loader[data-loader-variant='aurora'] .sd-aurora {
+    display: block;
+  }
+  .sd-loader[data-loader-variant='aurora'] .sd-orbit,
+  .sd-loader[data-loader-variant='aurora'] .sd-pulse {
+    display: none;
+  }
+
+  /* pulse: sonar rings visible; orbit + aurora hidden. */
+  .sd-loader[data-loader-variant='pulse'] .sd-pulse {
+    display: block;
+  }
+  .sd-loader[data-loader-variant='pulse'] .sd-orbit,
+  .sd-loader[data-loader-variant='pulse'] .sd-aurora {
+    display: none;
+  }
+
+  /* The done-beat fades whatever variant motion is showing so the ring + check
+     read cleanly on completion (mirrors the orbit fade). */
+  .sd-loader[data-done] .sd-aurora,
+  .sd-loader[data-done] .sd-pulse {
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  /* ---- Tap-to-pop motes + ripple (WAAPI-driven from sd-loader.tsx) ------- */
+  .sd-pop-mote {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 6;
+  }
+  .sd-pop-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid var(--sd-gold);
+    pointer-events: none;
+    z-index: 6;
+  }
+
+  /* App-wide blocking overlay host (LoaderOverlayProvider). The veil solidity is
+     admin-configurable (owner 2026-07-05) — --sd-veil is set on <html> from
+     platform_settings.loader_veil_opacity, defaulting to 94% here. */
   .sd-overlay {
     position: fixed;
     inset: 0;
@@ -1277,7 +1606,7 @@ html {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: color-mix(in srgb, var(--m-paper, #fbfbfa) 94%, transparent);
+    background: color-mix(in srgb, var(--m-paper, #fbfbfa) var(--sd-veil, 94%), transparent);
     -webkit-backdrop-filter: blur(4px);
     backdrop-filter: blur(4px);
     animation: sd-overlay-in 0.25s ease both;
@@ -1366,6 +1695,27 @@ html {
     opacity: 1;
   }
 }
+/* Loader variant motion (owner 2026-07-05). The universal prefers-reduced-motion
+   block near the top of this file freezes both to a static frame automatically
+   (it matches `*`), so no per-selector a11y guard is needed here. */
+@keyframes sd-aurora-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes sd-sonar {
+  0% {
+    transform: scale(0.55);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.55);
+    opacity: 0;
+  }
+}
 
 /* ---------------------------------------------------------------------------
  * #sn-init-splash — app cold-start ("initialization") splash.
@@ -1415,6 +1765,38 @@ html[data-sn-boot] #sn-init-splash.sn-boot-done {
     visibility: hidden;
     pointer-events: none;
   }
+}
+
+/* Admin loader-appearance preview stage (/admin/settings · owner 2026-07-05).
+   A small framed viewport that shows the DRAFT <SDLoader> the admin is
+   configuring. The veil backdrop uses --sd-veil (set inline from the slider) so
+   the veil solidity previews just like the real .sd-overlay wash. */
+.loader-preview-stage {
+  position: relative;
+  width: 100%;
+  min-height: 220px;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(42 36 23 / 0.1);
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, #f3efe6 0%, #fbfbfa 60%),
+    #fbfbfa;
+}
+.loader-preview-veil {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--m-paper, #fbfbfa) var(--sd-veil, 90%), transparent);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+.loader-preview-stage .loader-preview-loader {
+  position: relative;
+  background: transparent;
+  min-height: 220px;
+}
+/* Scale the 300px scene down to fit the compact preview frame. */
+.loader-preview-stage .sd-scene {
+  transform: scale(0.66);
 }
 
 /* Alaala Orb (/our-story Act 1 hero · AlaalaOrb.tsx) ─────────────────────────
@@ -1706,498 +2088,6 @@ html[data-sn-fab] nav[aria-label='Primary navigation'] {
   .sn-thread { display: none; }
 }
 
-/* ──────────────────────────────────────────────────────────────────────────
-   Full-bleed sign-in (/login) — mockup "1c · Full-bleed · sign-in rail"
-   (owner 2026-07-01). A photographic hero panel + a frosted obsidian sign-in
-   rail. Shared by the standalone page (app/login/page.tsx · `.sn-login--enter`)
-   and the intercepted overlay (app/@modal/(.)login · `.sn-login--overlay`).
-
-   The dark surface is the OBSIDIAN end of the Clean Editorial palette
-   (var(--m-ink) #1E2229) — not a separate theme. Local custom props keep the
-   light-on-dark tokens in one place.
-   ────────────────────────────────────────────────────────────────────────── */
-.sn-login {
-  --snl-bg: #14171c;
-  --snl-rail: #181b21;
-  --snl-text: #f6f4ef;
-  --snl-muted: rgba(255, 255, 255, 0.62);
-  --snl-faint: rgba(255, 255, 255, 0.42);
-  --snl-line: rgba(255, 255, 255, 0.14);
-  --snl-field: rgba(255, 255, 255, 0.06);
-  --snl-field-line: rgba(255, 255, 255, 0.16);
-  --snl-gold: var(--m-orange-3);
-  --snl-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
-
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(380px, 0.82fr);
-  min-height: 100dvh;
-  background: var(--snl-bg);
-  color: var(--snl-text);
-  font-family: var(--font-sans-marketing, Geist), system-ui, sans-serif;
-  overflow: hidden;
-}
-.sn-login-page {
-  min-height: 100dvh;
-  background: var(--snl-bg, #14171c);
-}
-
-/* ── Hero panel ─────────────────────────────────────────────────────────── */
-.sn-login-hero {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: clamp(24px, 3.2vw, 44px);
-  background-color: #1a1e24;
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  min-height: 100dvh;
-  isolation: isolate;
-}
-.sn-login-hero-scrim {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background:
-    linear-gradient(180deg, rgba(16, 18, 22, 0.32) 0%, rgba(16, 18, 22, 0.1) 36%, rgba(16, 18, 22, 0.82) 100%),
-    linear-gradient(90deg, rgba(16, 18, 22, 0) 60%, rgba(16, 18, 22, 0.45) 100%);
-}
-.sn-login-nav {
-  display: inline-flex;
-  align-items: center;
-  gap: 18px;
-  align-self: flex-start;
-  padding: 9px 9px 9px 14px;
-  border-radius: var(--m-r-full);
-  background: rgba(18, 21, 26, 0.42);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
-}
-.sn-login-nav-logo {
-  display: inline-flex;
-  align-items: center;
-  text-decoration: none;
-  opacity: 0.95;
-}
-.sn-login-nav-links {
-  display: inline-flex;
-  align-items: center;
-  gap: 16px;
-  font-size: 14px;
-}
-.sn-login-nav-link {
-  color: rgba(255, 255, 255, 0.78);
-  text-decoration: none;
-  transition: color 0.15s ease;
-  white-space: nowrap;
-}
-.sn-login-nav-link:hover {
-  color: #fff;
-}
-.sn-login-nav-link--active {
-  color: #fff;
-  font-weight: 500;
-  padding: 5px 12px;
-  border-radius: var(--m-r-full);
-  background: rgba(255, 255, 255, 0.12);
-}
-.sn-login-nav-divider {
-  width: 1px;
-  height: 18px;
-  background: rgba(255, 255, 255, 0.2);
-}
-.sn-login-hero-copy {
-  position: relative;
-  max-width: 30ch;
-}
-.sn-login-eyebrow {
-  display: block;
-  font-family: var(--font-mono-marketing, var(--font-mono)), ui-monospace, monospace;
-  font-size: 12px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--snl-faint);
-  margin-bottom: 16px;
-}
-.sn-login-headline {
-  margin: 0;
-  font-size: clamp(36px, 5vw, 64px);
-  line-height: 1.02;
-  letter-spacing: -0.02em;
-  font-weight: 600;
-  color: #fff;
-}
-.sn-login-sub {
-  margin: 18px 0 0;
-  font-size: 15px;
-  line-height: 1.55;
-  color: var(--snl-muted);
-  max-width: 34ch;
-}
-
-/* ── Sign-in rail ───────────────────────────────────────────────────────── */
-.sn-login-rail {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: clamp(28px, 3vw, 52px);
-  background: color-mix(in srgb, var(--snl-rail) 90%, transparent);
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
-  -webkit-backdrop-filter: blur(22px) saturate(118%);
-  backdrop-filter: blur(22px) saturate(118%);
-  overflow-y: auto;
-}
-.sn-login-rail-inner {
-  width: 100%;
-  max-width: 380px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.sn-login-rail-head {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.sn-login-rail-title {
-  margin: 0;
-  font-size: 30px;
-  line-height: 1.1;
-  font-weight: 600;
-  color: #fff;
-}
-.sn-login-rail-welcome {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--snl-muted);
-}
-.sn-login-banner {
-  margin: 0;
-  padding: 11px 13px;
-  border-radius: var(--m-r-sm);
-  border: 1px solid var(--snl-line);
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 13px;
-  line-height: 1.45;
-}
-.sn-login-banner--error {
-  border-color: rgba(206, 86, 74, 0.5);
-  background: rgba(206, 86, 74, 0.14);
-  color: #f0c1ba;
-}
-.sn-login-banner-em {
-  font-weight: 600;
-  color: #fff;
-}
-.sn-login-divider {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 2px 0;
-}
-.sn-login-divider-line {
-  flex: 1;
-  height: 1px;
-  background: var(--snl-line);
-}
-.sn-login-divider-label {
-  font-family: var(--font-mono-marketing, var(--font-mono)), ui-monospace, monospace;
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--snl-faint);
-}
-.sn-login-form {
-  display: grid;
-  gap: 14px;
-}
-.sn-login-field {
-  display: grid;
-  gap: 6px;
-}
-.sn-login-field-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-}
-.sn-login-label {
-  font-size: 13px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.8);
-}
-.sn-login-forgot {
-  font-size: 13px;
-  color: var(--snl-gold);
-  text-decoration: none;
-}
-.sn-login-forgot:hover {
-  text-decoration: underline;
-}
-.sn-login-input-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-.sn-login-input {
-  width: 100%;
-  padding: 12px 14px;
-  background: var(--snl-field);
-  border: 1px solid var(--snl-field-line);
-  border-radius: var(--m-r-sm);
-  font-size: 14px;
-  font-family: inherit;
-  color: var(--snl-text);
-  outline: none;
-  box-sizing: border-box;
-  transition: border-color 0.15s ease, background 0.15s ease;
-}
-.sn-login-input::placeholder {
-  color: rgba(255, 255, 255, 0.38);
-}
-.sn-login-input:focus {
-  border-color: rgba(255, 255, 255, 0.45);
-  background: rgba(255, 255, 255, 0.09);
-}
-.sn-login-input-wrap .sn-login-input {
-  padding-right: 60px;
-}
-.sn-login-reveal {
-  position: absolute;
-  right: 8px;
-  padding: 6px 10px;
-  background: transparent;
-  border: 0;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.66);
-  cursor: pointer;
-  border-radius: var(--m-r-sm);
-}
-.sn-login-reveal:hover {
-  color: #fff;
-}
-.sn-login-remember {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--snl-muted);
-  cursor: pointer;
-  user-select: none;
-}
-.sn-login-remember input {
-  width: 15px;
-  height: 15px;
-  accent-color: var(--snl-gold);
-  cursor: pointer;
-}
-.sn-login-submit {
-  margin-top: 2px;
-  width: 100%;
-  padding: 13px 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #ffffff;
-  color: var(--m-ink);
-  border: 0;
-  border-radius: var(--m-r-full);
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s ease, transform 0.08s ease;
-}
-.sn-login-submit:hover {
-  background: #ece9e1;
-}
-.sn-login-submit:active {
-  transform: translateY(1px);
-}
-.sn-login-tail {
-  font-size: 13px;
-  text-align: center;
-  color: var(--snl-muted);
-}
-.sn-login-tail-link {
-  color: var(--snl-gold);
-  text-decoration: none;
-  font-weight: 500;
-}
-.sn-login-tail-link:hover {
-  text-decoration: underline;
-}
-
-/* ── Overlay (intercepted route) ────────────────────────────────────────── */
-.sn-login-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 90;
-  background: rgba(10, 12, 15, 0.55);
-  -webkit-backdrop-filter: blur(2px);
-  backdrop-filter: blur(2px);
-  opacity: 0;
-  transition: opacity 0.32s ease;
-}
-.sn-login-overlay[data-open='true'] {
-  opacity: 1;
-}
-.sn-login--overlay {
-  min-height: 100dvh;
-  height: 100dvh;
-}
-.sn-login-close {
-  position: absolute;
-  top: 18px;
-  right: 18px;
-  z-index: 3;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  border-radius: var(--m-r-full);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.85);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-.sn-login-close:hover {
-  background: rgba(255, 255, 255, 0.16);
-  color: #fff;
-}
-
-/* ── Entrance choreography ──────────────────────────────────────────────── */
-/* Desktop: hero settles from the left, rail slides in from the right. */
-@keyframes snLoginHeroIn {
-  from { opacity: 0; transform: translateX(-2.5%) scale(1.015); }
-  to   { opacity: 1; transform: none; }
-}
-@keyframes snLoginRailIn {
-  from { transform: translateX(100%); }
-  to   { transform: translateX(0); }
-}
-/* Standalone page — animate once on load. */
-.sn-login--enter .sn-login-hero {
-  animation: snLoginHeroIn 0.6s var(--snl-ease) both;
-}
-.sn-login--enter .sn-login-rail {
-  animation: snLoginRailIn 0.55s var(--snl-ease) both;
-}
-/* Overlay — transition gated by [data-open] so the entrance runs after mount. */
-.sn-login--overlay .sn-login-hero {
-  opacity: 0;
-  transform: translateX(-2.5%) scale(1.015);
-  transition: opacity 0.5s var(--snl-ease), transform 0.5s var(--snl-ease);
-}
-.sn-login--overlay .sn-login-rail {
-  transform: translateX(100%);
-  transition: transform 0.5s var(--snl-ease);
-}
-.sn-login-overlay[data-open='true'] .sn-login-hero {
-  opacity: 1;
-  transform: none;
-}
-.sn-login-overlay[data-open='true'] .sn-login-rail {
-  transform: translateX(0);
-}
-
-/* ── Mobile: headline over photo + bottom-sheet rail ────────────────────── */
-@media (max-width: 768px) {
-  .sn-login {
-    display: block;
-    grid-template-columns: none;
-  }
-  .sn-login-hero {
-    position: absolute;
-    inset: 0;
-    justify-content: flex-start;
-    gap: 22px;
-    padding: 22px;
-    min-height: 0;
-  }
-  .sn-login-nav {
-    align-self: center;
-    padding: 8px 16px;
-  }
-  .sn-login-nav-links {
-    display: none;
-  }
-  .sn-login-hero-copy {
-    margin-top: 6vh;
-    max-width: none;
-  }
-  .sn-login-headline {
-    font-size: clamp(30px, 9vw, 40px);
-  }
-  .sn-login-sub {
-    display: none;
-  }
-  .sn-login-rail {
-    position: relative;
-    margin-top: 34dvh;
-    border-left: 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 24px 24px 0 0;
-    min-height: 66dvh;
-    justify-content: flex-start;
-    padding: 26px 22px calc(26px + env(safe-area-inset-bottom, 0px));
-    box-shadow: 0 -24px 60px -20px rgba(0, 0, 0, 0.55);
-  }
-  .sn-login-rail-inner {
-    max-width: 440px;
-  }
-  /* Mobile entrance — rail rises from the bottom instead of the side. */
-  @keyframes snLoginSheetIn {
-    from { transform: translateY(100%); }
-    to   { transform: translateY(0); }
-  }
-  .sn-login--enter .sn-login-rail {
-    animation: snLoginSheetIn 0.5s var(--snl-ease) both;
-  }
-  .sn-login--enter .sn-login-hero {
-    animation: snLoginHeroIn 0.6s var(--snl-ease) both;
-  }
-  .sn-login--overlay .sn-login-rail {
-    transform: translateY(100%);
-    transition: transform 0.46s var(--snl-ease);
-  }
-  .sn-login-overlay[data-open='true'] .sn-login-rail {
-    transform: translateY(0);
-  }
-  /* Hero behind the sheet doesn't slide on mobile — just fades. */
-  .sn-login--overlay .sn-login-hero {
-    transform: none;
-  }
-  .sn-login-overlay[data-open='true'] .sn-login-hero {
-    transform: none;
-  }
-}
-
-/* ── Reduced motion — drop all transforms, keep a soft fade. ────────────── */
-@media (prefers-reduced-motion: reduce) {
-  .sn-login--enter .sn-login-hero,
-  .sn-login--enter .sn-login-rail,
-  .sn-login--overlay .sn-login-hero,
-  .sn-login--overlay .sn-login-rail {
-    animation: none !important;
-    transform: none !important;
-    transition: opacity 0.2s ease !important;
-    opacity: 1;
-  }
-  .sn-login-overlay {
-    transition: opacity 0.2s ease;
-  }
-}
 
 /* ── My Performance re-animation ─────────────────────────────────────────────
    Sections animate the FIRST time they scroll into view (owner 2026-07-02:
@@ -2302,3 +2192,747 @@ input[type='range'].sn-range::-moz-range-thumb {
  * only `animation`, so a slider's own thumb size/colour rules still win. */
 input[type='range'].sn-shake::-webkit-slider-thumb { animation: sn-slider-shake 2.9s ease-in-out infinite; }
 input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s ease-in-out infinite; }
+
+/*
+ * ─────────────────────────────────────────────────────────────────────
+ * Guests · Living Roster (`.gl-*`) — the editorial "roster is the hero"
+ * reskin of the couple Guests page (P0 · 2026-07-11). Namespaced `.gl-`
+ * for "Guests / Living-roster", a sibling convention to `.sn-*`.
+ *
+ * Only ONE piece of motion needs a hand-authored keyframe: the on-mount
+ * "settle" (fade + rise) that lets the summary-facet bar and the roster
+ * ease in when the page FIRST loads. It is a ONE-SHOT (`both`, no
+ * iteration) applied to elements that persist across in-page filter
+ * navigations — the App-Router client transition reconciles the DOM
+ * rather than remounting, so the animation plays once on entry and does
+ * NOT replay when a facet pill re-filters the list. The global
+ * `prefers-reduced-motion: reduce` block near the top of this file
+ * freezes it to a still frame for motion-sensitive visitors (no per-rule
+ * opt-out needed — that block wins with `!important`).
+ * ─────────────────────────────────────────────────────────────────────
+ */
+@keyframes gl-settle {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.gl-settle {
+  animation: gl-settle 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+/* A hair of stagger so the roster settles just after the facet bar,
+ * reading as one connected motion rather than two independent pops. */
+.gl-settle-delayed {
+  animation: gl-settle 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: 0.05s;
+}
+
+/*
+ * Living Roster · in-page overlays (P1 · 2026-07-11). The entry motion for the
+ * overlay primitives (`overlay-primitives.tsx` / `undo-toast.tsx`): a menu pop,
+ * a drawer slide-in (bottom-sheet on mobile → right-rail on desktop), and the
+ * undo snackbar. Same `.gl-*` namespace + one-shot intent as the settle above.
+ * The universal `prefers-reduced-motion: reduce` block near the top of this file
+ * (`*{ animation-duration:0.001ms !important }`) freezes every one of these to a
+ * still frame — no per-rule opt-out needed, its `!important` wins.
+ */
+@keyframes gl-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes gl-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes gl-slidein {
+  from {
+    opacity: 0.4;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes gl-sheetup {
+  from {
+    opacity: 0.5;
+    transform: translateY(34px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* Transparent/dim dismiss layer — a gentle fade so it doesn't hard-cut in. */
+.gl-scrim {
+  animation: gl-fade 0.16s ease;
+}
+/* Anchored popover menu (P1 kit; P2's inline chip editors consume it). */
+.gl-pop {
+  animation: gl-pop 0.14s ease;
+}
+/* Undo snackbar. */
+.gl-toast {
+  animation: gl-pop 0.18s ease;
+}
+/* Quick-view / invite drawer — bottom sheet by default, right rail at ≥sm
+ * (640px, Tailwind's `sm`), mirroring the primitive's responsive positioning. */
+.gl-drawer {
+  animation: gl-sheetup 0.3s ease;
+}
+@media (min-width: 640px) {
+  .gl-drawer {
+    animation: gl-slidein 0.28s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+}
+
+/*
+ * Capture-bar "Adding…" shimmer (P2 · 2026-07-11). A gentle opacity pulse on the
+ * in-flight single-add indicator while the server round-trip lands the new guest
+ * (prototype `.adding`, :163). The universal `prefers-reduced-motion: reduce`
+ * block above freezes it to a steady 0.7 opacity — no per-rule opt-out needed.
+ */
+@keyframes gl-adding {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+.gl-adding {
+  animation: gl-adding 0.9s ease-in-out infinite;
+}
+
+/* ============================================================
+   SETNAYAN DESIGN TOKENS · Atelier + macOS glass
+   Owner-locked 2026-07-12 (Design_Reskin_Atelier_Glass_2026-07-12).
+   Ported from the kit's setnayan-tokens.css + setnayan-animations.css.
+   ONE adaptation vs the kit: --sn-font / --sn-mono resolve through the
+   next/font variables (--font-hanken / --font-space-mono) because
+   next/font self-hosts under hashed family names — the literal
+   "Hanken Grotesk" family string would not resolve.
+   Rules of the skin:
+     1. Frame ONLY what is interactive (buttons, inputs, tappable tiles,
+        chips). Plain text, headings, stats, captions sit directly on the
+        backdrop unframed.
+     2. One gold primary action per view. Gold is jewelry, not paint.
+     3. Icons: Lucide line set, 1.75px stroke. Never emoji, never filled.
+     4. Shadows warm (rgba(30,26,18,·)), never grey/blue.
+     5. Skin only — structure, copy, routes, hero videos, demos untouched.
+   ============================================================ */
+:root {
+  /* paper & ink */
+  --sn-paper:      #FBFAF7;
+  --sn-surface:    #FFFFFF;
+  --sn-hairline:   #EDE8DE;
+  --sn-line:       #E1DCD1;
+  --sn-ink-300:    #A09A8E;
+  --sn-ink-500:    #6E6A62;
+  --sn-ink-700:    #3A382F;
+  --sn-ink-900:    #1B1A17;
+  --sn-ink-black:  #17160F;
+
+  /* gold accent — the only decorative color */
+  --sn-gold-100:   #F3ECDF;
+  --sn-gold-300:   #CBA766;
+  --sn-gold-500:   #A9834B;
+  --sn-gold-600:   #95713D;
+  --sn-gold-700:   #8A6B39;
+
+  /* home-launcher fidelity additions (2026-07-15 pixel pass) —
+     proto values with no pre-existing kit slot, named per owner rule
+     "no hardcoded dependent values" */
+  --sn-ink-400:    #8A857B;  /* proto soft-label grey (sits between ink-300/ink-500) */
+  --sn-terra:      #C08A4A;  /* true terracotta (proto primary-star accent; predates the gold re-point) */
+
+  /* semantic (warm-tuned, never neon) */
+  --sn-success:    #5E7C52;  --sn-success-soft: #E9EEE3;
+  --sn-warning:    #B77E2E;  --sn-warning-soft: #F6EAD2;
+  --sn-danger:     #A6483B;  --sn-danger-soft:  #F3E1DC;
+  --sn-info:       #4E6C82;  --sn-info-soft:    #E2EAEF;
+
+  /* type — via next/font variables (see header note) */
+  --sn-font: var(--font-hanken), system-ui, sans-serif;
+  --sn-mono: var(--font-space-mono), ui-monospace, monospace;
+
+  /* radius */
+  --sn-r-sm: 6px;  --sn-r-md: 10px;  --sn-r-lg: 14px;
+  --sn-r-xl: 18px; --sn-r-pill: 999px;
+
+  /* elevation (warm, never grey) */
+  --sn-sh-sm: 0 1px 2px rgba(30,26,18,.06);
+  --sn-sh-md: 0 20px 34px -22px rgba(30,26,18,.40);
+  --sn-sh-lg: 0 40px 80px -50px rgba(30,26,18,.55);
+  /* home glass tiles (2026-07-15 pixel pass): resting + hover-lift shadows */
+  --sn-sh-tile: 0 18px 40px -26px rgba(30,26,18,.4);
+  --sn-sh-hi:   0 28px 54px -30px rgba(30,26,18,.5);
+
+  /* glass (macOS vibrancy) — canon values (Glass PR-1, 2026-07-15): the
+     fidelity-spec tuning the frosted home tiles ship at, promoted here so
+     .sn-glass / .sn-card / .sn-tile all share one source of truth. */
+  --sn-glass-bg:   rgba(255,255,255,.5);
+  --sn-glass-line: rgba(255,255,255,.72);
+  --sn-glass-blur: blur(22px) saturate(1.5);
+  --sn-glass-dark-bg:   rgba(23,22,15,.82);
+  --sn-glass-dark-line: rgba(255,255,255,.18);
+
+  /* motion */
+  --sn-ease:     cubic-bezier(.2,.7,.2,1);
+  --sn-ease-out: cubic-bezier(.16,1,.3,1);
+  --sn-dur-micro:   120ms;
+  --sn-dur-control: 200ms;
+  --sn-dur-elem:    320ms;
+  --sn-dur-enter:   640ms;
+}
+
+
+/* ── Guest-tree editorial scope (owner exclusion, 2026-07-12) ──
+ * Applied by app/[slug]/layout.tsx around the whole invitation/event tree so
+ * couples' guest-facing pages keep the wedding-editorial register (Cormorant
+ * display · Manrope body · DM Mono labels) exactly as before the Atelier
+ * chrome flip. Do NOT apply to chrome surfaces. */
+.sn-editorial {
+  --font-display: var(--font-editorial-display);
+  --font-sans: var(--font-editorial-sans);
+  --font-mono: var(--font-editorial-mono);
+}
+
+/* ---------- ambient backdrop (dashboard shell page background) ----------
+ * The canonical Atelier warm wash — ONE canvas under every glass shell (event /
+ * vendor / admin via SidebarShell, launcher, and the account spokes). Glass
+ * `rgba(255,255,255,.5)` panels are invisible on white; the tinted backdrop is
+ * a precondition of the language, so this reverses the 2026-07-13 white-flatten
+ * (owner-directed 2026-07-15 via the glass-rollout go-ahead — see the rollout
+ * plan § 6 R1 + DECISION_LOG). Verbatim fidelity-spec canon: warm paper base +
+ * gold / green / slate radial glows, fixed attachment (no drift animation). */
+.sn-ambient {
+  background:
+    radial-gradient(45% 55% at 18% 6%,  rgba(203,167,102,.32), transparent 60%),
+    radial-gradient(55% 65% at 90% 22%, rgba(94,124,82,.10),  transparent 62%),
+    radial-gradient(45% 60% at 86% 92%, rgba(78,108,130,.20), transparent 60%),
+    linear-gradient(135deg, #EFEAE0, #E3DDCF 55%, #DDD6C6);
+  background-attachment: fixed;
+}
+
+/* ---------- glass surfaces ---------- */
+.sn-glass {
+  background: var(--sn-glass-bg);
+  border: 1px solid var(--sn-glass-line);
+  backdrop-filter: var(--sn-glass-blur);
+  -webkit-backdrop-filter: var(--sn-glass-blur);
+  box-shadow: 0 8px 32px rgba(30,26,18,.07);
+}
+.sn-glass-dark {
+  background: var(--sn-glass-dark-bg);
+  border: 1px solid var(--sn-glass-dark-line);
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  color: var(--sn-gold-100);
+}
+
+/* ---------- home-launcher fidelity surfaces (2026-07-15 pixel pass) ----------
+ * Each recipe defined ONCE here (owner: "do not hard code values that should be
+ * dependent") and referenced by class from the launcher components. In
+ * @layer components so Tailwind hover/state utilities on the same element
+ * (e.g. hover:border-mulberry/30) still win the cascade. */
+@layer components {
+  /* (The launcher-only `.sn-wash-home` splash was promoted to the canonical
+   * app-wide `.sn-ambient` in Glass PR-1, 2026-07-15 — one wash source of
+   * truth; the launcher layout now consumes `.sn-ambient` directly.) */
+
+  /* Frosted glass tile (proto .glass/.tile/.ev/.cmd): white .5 + 22px blur +
+   * 1.5 saturation + white .72 hairline + the warm tile shadow. */
+  .sn-tile-glass {
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(22px) saturate(1.5);
+    -webkit-backdrop-filter: blur(22px) saturate(1.5);
+    box-shadow: var(--sn-sh-tile);
+  }
+
+  /* Obsidian tile (proto .tile.dark.alaala): gold-glow radial over the dark
+   * glass base, gold-100 base text. */
+  .sn-tile-obsidian {
+    background:
+      radial-gradient(70% 60% at 85% -10%, rgba(203, 167, 102, 0.16), transparent 60%),
+      var(--sn-glass-dark-bg);
+    border: 1px solid var(--sn-glass-dark-line);
+    backdrop-filter: blur(22px) saturate(1.4);
+    -webkit-backdrop-filter: blur(22px) saturate(1.4);
+    color: var(--sn-gold-100);
+  }
+
+  /* Event-card editorial texture band (proto .ev .top). */
+  .sn-texture-band {
+    background-image: repeating-linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.5) 0 12px,
+      rgba(240, 232, 215, 0.62) 12px 24px
+    );
+  }
+}
+
+/* ---------- Atelier-Glass SHELL KIT (Glass PR-1, 2026-07-15) ----------
+ * The shared surface + type primitives every dashboard view consumes (rollout
+ * plan § 1.2). Defined once here; page bodies reference by class. In
+ * @layer components so page-level Tailwind state utilities still win the
+ * cascade. Blur budget (§ 1.6): .sn-tile / .sn-card / .sn-tile-dark are the
+ * ONLY page-level blurred surfaces — repeated rows use the flat .sn-row. */
+@layer components {
+  /* Non-navigating glass panel — Watch/Spaces/stat panels/form sections. */
+  .sn-tile {
+    background: var(--sn-glass-bg);
+    border: 1px solid var(--sn-glass-line);
+    backdrop-filter: var(--sn-glass-blur);
+    -webkit-backdrop-filter: var(--sn-glass-blur);
+    border-radius: 20px;
+    padding: 18px;
+    box-shadow: var(--sn-sh-tile);
+    transition:
+      transform var(--sn-dur-elem) var(--sn-ease),
+      box-shadow var(--sn-dur-elem) var(--sn-ease);
+  }
+  .sn-tile:hover { transform: translateY(-3px); box-shadow: var(--sn-sh-hi); }
+
+  /* The obsidian focal — max ONE per view (§ 1.3). Canonical named class the
+   * recomposition PRs consume; the launcher's .sn-tile-obsidian is the same
+   * recipe under its proto name. */
+  .sn-tile-dark {
+    background:
+      radial-gradient(70% 60% at 85% -10%, rgba(203, 167, 102, 0.16), transparent 60%),
+      var(--sn-glass-dark-bg);
+    border: 1px solid var(--sn-glass-dark-line);
+    backdrop-filter: blur(22px) saturate(1.4);
+    -webkit-backdrop-filter: blur(22px) saturate(1.4);
+    border-radius: 20px;
+    padding: 18px;
+    color: var(--sn-gold-100);
+    box-shadow: 0 26px 50px -28px rgba(23, 22, 15, 0.7);
+  }
+
+  /* Repeated list / table rows — the blur-budget fallback (§ 1.6): opaque
+   * tint, NO blur, so hundreds of rows stay cheap. */
+  .sn-row {
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-radius: 14px;
+  }
+
+  /* Tile eyebrow — replaces every font-mono/ALL-CAPS hand-roll. Gold-700 on
+   * glass, gold-300 on the obsidian focal; 14px icon. */
+  .sn-eye {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--sn-font);
+    font-size: 10.5px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--sn-gold-700);
+  }
+  .sn-eye svg { width: 14px; height: 14px; }
+  .sn-tile-dark .sn-eye,
+  .sn-eye-on-dark { color: var(--sn-gold-300); }
+
+  /* Page hero — Hanken w800; m-serif is retired from dashboards. Optional soft
+   * tail via a child `.sn-h1-tail`. */
+  .sn-h1 {
+    font-family: var(--sn-font);
+    font-weight: 800;
+    font-size: 36px;
+    letter-spacing: -0.03em;
+    line-height: 1.02;
+    color: var(--sn-ink-900);
+  }
+  .sn-h1-tail { color: var(--sn-ink-400); font-weight: 700; }
+
+  /* Section head — replaces mono ALL-CAPS labels with sentence-case ink;
+   * optional 12px sub via a sibling `.sn-sec-sub`. */
+  .sn-sec {
+    font-family: var(--sn-font);
+    font-weight: 800;
+    font-size: 16px;
+    letter-spacing: -0.015em;
+    color: var(--sn-ink-900);
+  }
+  .sn-sec-sub {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--sn-ink-400);
+  }
+
+  /* Shared modal chrome all useModalA11y consumers migrate to. */
+  .sn-modal-panel {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(30px) saturate(1.5);
+    -webkit-backdrop-filter: blur(30px) saturate(1.5);
+    border-radius: 18px;
+    box-shadow: 0 60px 100px -60px rgba(30, 26, 18, 0.6);
+  }
+
+  /* ---- Live-primitive re-point, SCOPED to dashboards (§ 6 R5) ----
+   * .button-primary (~100 files) / .button-secondary / .input-field are shared
+   * with guest (app/[slug], .sn-editorial) + marketing surfaces, which MUST
+   * render byte-identical. Scoping the recipe under `.app-surface` (dashboard
+   * root only) re-points every dashboard CTA/input to the kit's gold recipe
+   * while leaving excluded scopes on their existing base rule. */
+  .app-surface .button-primary {
+    background: var(--sn-gold-500);
+    color: #fffdf8;
+  }
+  .app-surface .button-primary:hover {
+    background: var(--sn-gold-600);
+    transform: translateY(-2px);
+    box-shadow: 0 14px 26px -12px var(--sn-gold-500);
+  }
+  .app-surface .button-secondary {
+    background: transparent;
+    color: var(--sn-ink-900);
+    border-color: var(--sn-ink-900);
+    border-width: 1.5px;
+  }
+  .app-surface .button-secondary:hover {
+    background: var(--sn-ink-900);
+    color: var(--sn-paper);
+    border-color: var(--sn-ink-900);
+    transform: translateY(-2px);
+  }
+  .app-surface .input-field:hover { border-color: var(--sn-gold-500); }
+  .app-surface .input-field:focus {
+    border-color: var(--sn-gold-500);
+    box-shadow: 0 0 0 3px var(--sn-gold-100);
+  }
+}
+
+/* Hover lifts (proto .cmd:hover -2px · .tile.glass:hover -3px · .ev:hover -4px)
+ * — shared .32s ease + shadow deepen to --sn-sh-hi. The transition list also
+ * covers border/opacity hovers the launcher cards layer on top. */
+.sn-lift-2,
+.sn-lift-3,
+.sn-lift-4 {
+  transition:
+    transform 0.32s var(--sn-ease),
+    box-shadow 0.32s var(--sn-ease),
+    border-color 0.2s,
+    background-color 0.2s,
+    color 0.2s,
+    opacity 0.2s,
+    scale 0.13s var(--sn-ease);
+}
+.sn-lift-2:hover { transform: translateY(-2px); box-shadow: var(--sn-sh-hi); }
+.sn-lift-3:hover { transform: translateY(-3px); box-shadow: var(--sn-sh-hi); }
+.sn-lift-4:hover { transform: translateY(-4px); box-shadow: var(--sn-sh-hi); }
+/* (Press feedback for Link cards is the `.sn-press` opt-in on the base-layer
+ * universal press rule near the top of this file.) */
+
+/* ---------- Inspector column (Finder-style master ▸ detail, ≥xl) ----------
+ * Shared primitive: app/_components/inspector/inspector-column.tsx. Below xl the
+ * rail is hidden and the triggers navigate normally (mobile unchanged). At ≥xl
+ * the shell is a flex row; selecting a row animates the rail open (flex-basis)
+ * and the master reflows to the remaining width — one --sn-ease 320ms transition.
+ * Blur budget (§ 1.6): the panel is the ONLY blurred surface the inspector adds
+ * (one `.sn-tile`); its body sections stay opaque. */
+.sn-inspector-rail { display: none; }
+@media (min-width: 1280px) {
+  .sn-inspector-shell { display: flex; align-items: flex-start; }
+  .sn-inspector-master { flex: 1 1 0%; min-width: 0; }
+  .sn-inspector-rail {
+    display: block;
+    flex: 0 0 0px;
+    align-self: stretch;
+    margin-left: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition:
+      flex-basis var(--sn-dur-elem) var(--sn-ease),
+      margin-left var(--sn-dur-elem) var(--sn-ease),
+      opacity var(--sn-dur-elem) var(--sn-ease);
+  }
+  .sn-inspector-shell[data-open='true'] .sn-inspector-rail {
+    flex-basis: clamp(340px, 30vw, 420px);
+    margin-left: 24px;
+    opacity: 1;
+  }
+}
+/* The panel itself: sticky, own scroll, viewport-minus-chrome height. Its width
+ * is fixed to the open rail width so the body does NOT reflow while the rail
+ * animates — it wipes in cleanly under the rail's overflow clip. */
+.sn-inspector-panel {
+  position: sticky;
+  top: 1.25rem;
+  width: clamp(340px, 30vw, 420px);
+  max-height: calc(100vh - 2.5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 20px;
+  padding: 20px;
+}
+.sn-inspector-head { display: flex; align-items: flex-start; gap: 12px; }
+.sn-inspector-title {
+  font-family: var(--sn-font);
+  font-weight: 800;
+  font-size: 21px;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--sn-ink-900);
+}
+.sn-inspector-close {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  color: var(--sn-ink-500);
+  background: rgba(30, 26, 18, 0.05);
+  transition: background var(--sn-dur-control), color var(--sn-dur-control);
+}
+.sn-inspector-close:hover { background: rgba(30, 26, 18, 0.1); color: var(--sn-ink-900); }
+.sn-inspector-close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--sn-gold-100);
+}
+.sn-inspector-fulllink {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--sn-font);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--sn-gold-700);
+}
+.sn-inspector-fulllink:hover { text-decoration: underline; }
+.sn-inspector-body { margin-top: 14px; border-top: 1px solid var(--sn-hairline); padding-top: 16px; }
+
+/* Keyed body remount animation (`.sn-lens-swap`) — a gentle rise+fade as the
+ * selection swaps, keyed by the selection id in InspectorColumn. */
+@keyframes sn-lens-swap {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.sn-lens-swap { animation: sn-lens-swap var(--sn-dur-elem) var(--sn-ease-out) both; }
+
+/* Selected-row affordance — the master row that owns the open inspector. */
+[data-inspector-selected='true'] {
+  background: var(--sn-gold-100);
+  box-shadow: inset 0 0 0 1.5px var(--sn-gold-500);
+}
+/* …except the Guests roster, where the trigger is only the name cell of a wider
+ * <tr>: the WHOLE row wears the gold selected tint (set in guest-list-multiselect
+ * DesktopRow) instead, so the name link opts out of the default per-element wash
+ * to avoid double-marking. */
+.sn-guest-namelink[data-inspector-selected='true'] {
+  background: transparent;
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sn-inspector-rail { transition: none !important; }
+  .sn-lens-swap { animation: none !important; }
+}
+
+/* ---------- buttons ---------- */
+.sn-btn {
+  font-family: var(--sn-font); font-weight: 700; font-size: 14.5px;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 13px 22px; border-radius: var(--sn-r-md); border: none; cursor: pointer;
+  transition: transform var(--sn-dur-control) var(--sn-ease),
+              box-shadow var(--sn-dur-control), background var(--sn-dur-control);
+}
+.sn-btn-primary { background: var(--sn-gold-500); color: #FFFDF8; }
+.sn-btn-primary:hover { background: var(--sn-gold-600); transform: translateY(-2px); box-shadow: 0 14px 26px -12px var(--sn-gold-500); }
+.sn-btn-secondary { background: transparent; color: var(--sn-ink-900); border: 1.5px solid var(--sn-ink-900); }
+.sn-btn-secondary:hover { background: var(--sn-ink-900); color: var(--sn-paper); transform: translateY(-2px); }
+.sn-btn-ghost { background: transparent; color: var(--sn-ink-700); }
+.sn-btn-ghost:hover { background: var(--sn-gold-100); color: var(--sn-gold-700); }
+.sn-btn:disabled { background: var(--sn-hairline); color: var(--sn-ink-300); cursor: not-allowed; transform: none; box-shadow: none; }
+/* on ink / over video */
+.sn-btn-on-ink { background: var(--sn-gold-300); color: var(--sn-ink-black); }
+.sn-btn-on-ink:hover { background: #D8B979; transform: translateY(-2px); }
+
+/* ---------- inputs ---------- */
+.sn-input {
+  font-family: var(--sn-font); font-size: 14px; color: var(--sn-ink-900);
+  background: var(--sn-paper); border: 1.5px solid var(--sn-line);
+  border-radius: var(--sn-r-md); padding: 12px 14px; outline: none;
+  transition: border-color var(--sn-dur-control), box-shadow var(--sn-dur-control);
+}
+.sn-input:hover  { border-color: var(--sn-gold-500); }
+.sn-input:focus  { border-color: var(--sn-gold-500); box-shadow: 0 0 0 3px var(--sn-gold-100); }
+.sn-input-error  { background: #FBF3F1; border-color: var(--sn-danger); color: #8F3D31; }
+
+/* ---------- cards ---------- */
+.sn-card {
+  background: var(--sn-glass-bg); border: 1px solid var(--sn-glass-line);
+  backdrop-filter: var(--sn-glass-blur); -webkit-backdrop-filter: var(--sn-glass-blur);
+  border-radius: var(--sn-r-xl); box-shadow: var(--sn-sh-sm);
+  transition: transform var(--sn-dur-elem) var(--sn-ease), box-shadow var(--sn-dur-elem);
+}
+.sn-card:hover { transform: translateY(-4px); box-shadow: var(--sn-sh-hi); }
+
+/* ---------- chips & badges ---------- */
+.sn-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 14px; border-radius: var(--sn-r-pill);
+  font: 600 13px var(--sn-font); cursor: pointer;
+  background: var(--sn-surface); border: 1px solid var(--sn-line); color: var(--sn-ink-700);
+  transition: border-color var(--sn-dur-control), color var(--sn-dur-control);
+}
+.sn-chip:hover { border-color: var(--sn-gold-500); color: var(--sn-gold-700); }
+.sn-chip.selected { background: var(--sn-gold-100); border-color: transparent; color: var(--sn-gold-700); font-weight: 700; }
+.sn-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--sn-r-pill); font: 700 12px var(--sn-font); }
+.sn-badge-verified { background: var(--sn-gold-100); color: var(--sn-gold-700); }
+.sn-badge-going    { background: var(--sn-success-soft); color: var(--sn-success); }
+.sn-badge-flag     { background: var(--sn-danger-soft); color: var(--sn-danger); }
+
+/* ============================================================
+   SETNAYAN MOTION LIBRARY (kit setnayan-animations.css)
+   Prefer transform+opacity only.
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .sn-reveal, .sn-skeleton, .sn-bar > i, .sn-scrim, .sn-modal { animation: none !important; }
+  .sn-acc, .sn-btn, .sn-card, .sn-chip, .sn-input { transition: none !important; }
+}
+
+/* ---------- entrances ---------- */
+@keyframes sn-rise     { from { opacity:0; transform:translateY(22px); } to { opacity:1; transform:none; } }
+@keyframes sn-fade     { from { opacity:0; } to { opacity:1; } }
+@keyframes sn-scale-in { from { opacity:0; transform:scale(.94); } to { opacity:1; transform:none; } }
+@keyframes sn-blur-in  { from { opacity:0; filter:blur(10px); } to { opacity:1; filter:blur(0); } }
+.sn-reveal { animation: sn-rise var(--sn-dur-enter) both var(--sn-ease-out); }
+.sn-reveal:nth-child(2) { animation-delay:.08s } .sn-reveal:nth-child(3) { animation-delay:.16s }
+.sn-reveal:nth-child(4) { animation-delay:.24s } .sn-reveal:nth-child(5) { animation-delay:.32s }
+/* scroll-gate: start paused; flip to running with IntersectionObserver */
+[data-reveal] .sn-reveal { animation-play-state: paused; }
+
+/* ---------- loaders ---------- */
+@keyframes sn-spin  { to { transform:rotate(360deg); } }
+@keyframes sn-dots  { 0%,80%,100% { transform:none; opacity:.45; } 40% { transform:translateY(-7px); opacity:1; } }
+@keyframes sn-sheen { from { background-position:-200% 0; } to { background-position:200% 0; } }
+@keyframes sn-indet { from { left:-35%; } to { left:105%; } }
+.sn-skeleton { background:linear-gradient(90deg,#EDE8DE 25%,#F5F0E6 50%,#EDE8DE 75%); background-size:200% 100%; animation:sn-sheen 1.4s linear infinite; }
+
+/* ---------- data viz ---------- */
+@keyframes sn-grow    { from { width:0; } }                 /* horizontal bars */
+@keyframes sn-grow-y  { from { transform:scaleY(0); } }     /* bar charts: transform-origin:bottom */
+@keyframes sn-donut   { from { stroke-dashoffset:251.2; } } /* r=40 circle; dasharray = pct * 2.512 */
+@keyframes sn-shimmer { from { transform:translateX(-120%); } to { transform:translateX(340%); } }
+.sn-bar > i { display:block; height:100%; border-radius:inherit; animation: sn-grow var(--sn-dur-enter) var(--sn-ease-out) both; }
+
+/* ---------- live signatures (pulse ONLY on genuinely live states) ---------- */
+@keyframes sn-pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:.4; transform:scale(.7); } }
+@keyframes sn-ring  { 0% { box-shadow:0 0 0 0 rgba(169,131,75,.45); } 100% { box-shadow:0 0 0 14px rgba(169,131,75,0); } }
+@keyframes sn-marquee { from { transform:translateX(0); } to { transform:translateX(-50%); } } /* duplicate run once */
+
+/* ---------- expand / collapse (no height measuring) ---------- */
+.sn-acc { display:grid; grid-template-rows:0fr; transition:grid-template-rows var(--sn-dur-elem) var(--sn-ease); }
+.sn-acc.open { grid-template-rows:1fr; }
+.sn-acc > * { overflow:hidden; min-height:0; }
+
+/* ---------- overlays ---------- */
+.sn-scrim { background:rgba(27,26,23,.14); backdrop-filter:blur(7px); -webkit-backdrop-filter:blur(7px); animation:sn-fade .3s both; }
+.sn-modal { animation:sn-scale-in .4s both var(--sn-ease-out); }
+/* route change: main { animation:sn-fade .32s both; } */
+
+/* ---------- home-launcher fidelity motion (2026-07-15 pixel pass) ----------
+ * All `both`-filled or single-run, so the global reduced-motion freeze above
+ * (0.001ms + iteration-count 1) snaps every one to its safe end state. */
+
+/* Obsidian Alaala tile entrance — materializes LAST, after the glass cascade. */
+@keyframes sn-bloom {
+  0%   { opacity:0; transform:translateY(22px) scale(.96); filter:blur(12px); }
+  62%  { filter:blur(0); }
+  100% { opacity:1; transform:none; filter:blur(0); }
+}
+.sn-bloom { animation: sn-bloom 1s 1.05s both var(--sn-ease-out); }
+
+/* Command-palette panel pop-in (proto popIn). */
+@keyframes sn-pop-in {
+  from { opacity:0; transform:scale(.94) translateY(8px); }
+  to   { opacity:1; transform:none; }
+}
+.sn-pop-in { animation: sn-pop-in .38s both var(--sn-ease-out); }
+
+/* Alaala lens-body cross-fade on lens switch (proto lensIn; re-triggered by a
+ * React key remount per switch). */
+@keyframes sn-lens-in { from { opacity:0; transform:translateY(9px); filter:blur(4px); } }
+.sn-lens-swap > * { animation: sn-lens-in .42s both var(--sn-ease-out); }
+.sn-lens-swap > :nth-child(2) { animation-delay:.06s; }
+.sn-lens-swap > :nth-child(3) { animation-delay:.12s; }
+
+/* Lens chip pop on select (proto chipPop — gentler than .sn-pick-bounce). */
+@keyframes sn-chip-pop { 0% { transform:scale(1); } 45% { transform:scale(1.09); } 100% { transform:scale(1); } }
+.sn-chip-pop { animation: sn-chip-pop .34s var(--sn-ease-out); }
+
+/* Progress-ring entrance sweep — generalizes sn-donut: the circle sets its own
+ * circumference via --sn-ring-circ (keyframes may read custom properties). */
+@keyframes sn-ring-sweep { from { stroke-dashoffset: var(--sn-ring-circ); } }
+
+/* Route-transition rise — one per shell via a template.tsx wrapping {children}
+ * in `.sn-page-enter` (App Router remounts templates on pathname change, so
+ * every in-shell nav gets a soft rise; search-param changes don't remount).
+ * The template.tsx files land per-surface in PR-2/5/6/8; the CSS lands here. */
+@keyframes sn-rise-soft { from { opacity: 0; transform: translateY(8px); } }
+.sn-page-enter { animation: sn-rise-soft 400ms both var(--sn-ease-out); }
+
+/* R8 — mobile bottom-nav View-Transition interplay (rollout plan § 2a + § 6):
+ * during the directional VT slide the incoming pane is a LIVE capture, so the
+ * template rise would play inside it — the slide's first frames would carry a
+ * near-transparent pane (the rise starts at opacity 0), visibly fighting the
+ * 320ms slide. While a view transition is active, the slide IS the entrance:
+ * suppress the rise. Browsers without :active-view-transition also lack
+ * startViewTransition, so the plain rise is all they ever run. */
+html:active-view-transition .sn-page-enter { animation: none; }
+
+/* Live-state dot — the ONE sanctioned infinite pulse on genuinely-live signals
+ * (unread bell, day-of live dot, active livestream, the Watch "quiet" dot). */
+.sn-live-dot { animation: sn-pulse 1.9s infinite; }
+
+/* Reduced motion: snap the route rise to its end state and stop the live pulse
+ * (belt-and-braces beyond the global freeze blocks). */
+@media (prefers-reduced-motion: reduce) {
+  .sn-page-enter, .sn-live-dot { animation: none !important; }
+}
+
+/* Life-Flash veil lift + capiz shimmer sweep — the Alaala tile's signature
+ * flourish (proto .veil/.capiz). Decorative spans, pointer-events none. */
+.sn-veil {
+  position:absolute; inset:0; z-index:3; pointer-events:none;
+  background: linear-gradient(180deg, rgba(23,22,15,0), rgba(203,167,102,.12) 55%, rgba(23,22,15,.6));
+  animation: sn-veil-lift 1.5s 1.9s both var(--sn-ease);
+}
+@keyframes sn-veil-lift { to { transform:translateY(-103%); opacity:0; } }
+.sn-capiz {
+  position:absolute; top:-10%; bottom:-10%; left:-42%; width:34%; z-index:3; pointer-events:none;
+  transform: skewX(-14deg); filter: blur(2px);
+  background: linear-gradient(105deg, rgba(255,255,255,0), rgba(255,255,255,.13) 50%, rgba(255,255,255,0));
+  animation: sn-capiz-sweep 2s 2.4s ease-in-out both;
+}
+@keyframes sn-capiz-sweep { to { transform:translateX(560%) skewX(-14deg); } }
+/* Belt-and-braces beyond the global freeze: the veil's from-state COVERS the
+ * tile, so under reduced motion both decorations are removed outright (matches
+ * the prototype's own RM rule). */
+@media (prefers-reduced-motion: reduce) {
+  .sn-veil, .sn-capiz { display:none !important; }
+}

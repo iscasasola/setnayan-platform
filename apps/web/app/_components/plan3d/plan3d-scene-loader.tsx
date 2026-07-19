@@ -56,10 +56,16 @@ export function Plan3DSceneLoader(props: {
   walkTarget?: Plan3DWalkRequest;
   onWalkComplete?: () => void;
   roam?: Plan3DRoamRequest;
+  /** Bump to a new number to send the roaming guest back to their seat (the
+   *  outer UI's "Back to my seat" button). */
+  returnToSeatSignal?: number;
   interactive?: boolean;
   /** Lighting/shadow budget — the desktop overlay runs 'high' (default), the
    *  phone guest walk passes 'low' (1024 shadow map + 128 env map). */
   quality?: 'high' | 'low';
+  /** Cinematic Tier A grade + string lights (Fable §3.5) — the phone guest
+   *  walk passes it; the neutral desktop overlay stays ungraded. */
+  cinematic?: boolean;
 }) {
   return <Plan3DSceneInner {...props} />;
 }

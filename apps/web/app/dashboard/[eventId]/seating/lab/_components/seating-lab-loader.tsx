@@ -23,6 +23,7 @@ import type {
 import type { KeepApartRule, PriorityOrder } from '@/lib/seating';
 import type { RolePalette } from '@/lib/mood-board';
 import type { ReceptionDesign } from '@/lib/reception-scene';
+import type { GhostBooth3D } from '@/lib/ghost-booths';
 
 const SeatingLab3D = dynamic(() => import('./seating-lab-3d'), {
   ssr: false,
@@ -42,7 +43,6 @@ type Props = {
   tables: Lab3DTable[];
   floor: Lab3DFloor;
   guests: Lab3DGuest[];
-  paletteHexes: string[];
   rolePalette: RolePalette;
   /** Couple's saved reception treatments (Wave 2b) — drives the 3D decor. */
   receptionDesign: ReceptionDesign;
@@ -62,6 +62,10 @@ type Props = {
   sceneObjects: Lab3DSceneObject[];
   booths: Lab3DBooth[];
   signs: Lab3DSign[];
+  /** 3D Booth Ads Part A (flag-gated) — dashed ghost booths for unbooked vendor
+   *  categories + the couple's master toggle. Empty/true when the flag is off. */
+  ghostBooths: GhostBooth3D[];
+  ghostBoothsEnabled: boolean;
 };
 
 export function SeatingLabLoader(props: Props) {

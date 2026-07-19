@@ -1,7 +1,6 @@
 'use server';
 
-import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { requireAdminAction } from '@/lib/admin/require-admin';
 import {
   loadUgatTable,
   ugatSearch,
@@ -14,31 +13,16 @@ import {
 } from '@/lib/ugat/data';
 
 /**
- * /admin/ugat server actions — the interactive data reads for the Ugat Console.
+ * /admin/ugat/map server actions — the interactive data reads for the Ugat
+ * Console entity map.
  *
- * The admin layout already 404s non-admins (defense at the door); these actions
+ * The page gate (requireAdmin) sits in front of the render; these actions
  * re-check on the server as defense-in-depth, since a server action is a public
- * POST endpoint regardless of which page mounted it. Every action calls
- * requireAdmin() first. No writes happen here (slice 1 is read-only — action
- * rails are slice 3), so there is no audit-log entry to make.
+ * POST endpoint regardless of which page mounted it. Every action calls the
+ * shared requireAdminAction() gate (council fix #1) first. No writes happen
+ * here (slice 1 is read-only — action rails are slice 3), so there is no
+ * audit-log entry to make.
  */
-
-async function requireAdmin(): Promise<{ userId: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-  const { data: me } = await supabase
-    .from('users')
-    .select('is_internal, is_team_member, account_type')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (!(me?.is_internal || me?.is_team_member || me?.account_type === 'admin')) {
-    throw new Error('Forbidden');
-  }
-  return { userId: user.id };
-}
 
 const VALID_TABLES: readonly UgatTableKey[] = [
   'users',
@@ -56,7 +40,7 @@ export async function fetchUgatTable(
   key: UgatTableKey,
   page: number,
 ): Promise<UgatTablePage> {
-  await requireAdmin();
+  await requireAdminAction();
   if (!VALID_TABLES.includes(key)) {
     throw new Error('Unknown table');
   }
@@ -66,7 +50,7 @@ export async function fetchUgatTable(
 
 /** Live ⌘K omnibox search across records + taxonomy. Read-only. */
 export async function fetchUgatSearch(query: string): Promise<UgatSearchGroup[]> {
-  await requireAdmin();
+  await requireAdminAction();
   if (typeof query !== 'string') return [];
   return ugatSearch(query.slice(0, 120));
 }
@@ -75,6 +59,6 @@ export async function fetchUgatSearch(query: string): Promise<UgatSearchGroup[]>
 export async function fetchUgatSavedSearch(
   key: UgatSavedSearchKey,
 ): Promise<UgatSavedSearch> {
-  await requireAdmin();
+  await requireAdminAction();
   return runSavedSearch(key);
 }

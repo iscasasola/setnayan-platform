@@ -11,7 +11,18 @@ import { resolveCounterpartyUserIds } from './chat-block';
 import { emitNotification } from './notification-emit';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
+import { notifyChapterDroveInquiry } from '@/lib/inquiry-attribution';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
+import { eventHostHoldsFounderSeat } from '@/lib/entitlements';
+import {
+  FOUNDER_INQUIRY_NOTIFICATION_TITLE,
+  FOUNDER_INQUIRY_NOTIFICATION_PREFIX,
+} from '@/lib/founder-seats';
+import {
+  leadTokenHoldEnabled,
+  acceptInquiryViaHold,
+  runVendorLeadReportBackstop,
+} from '@/lib/lead-token-holds';
 
 /**
  * Mark a thread as read for the current user — stamps (or refreshes)
@@ -75,9 +86,14 @@ export async function sendChatMessage(formData: FormData) {
   if (typeof threadId !== 'string' || typeof body !== 'string') {
     throw new Error('Invalid input');
   }
+  // OPTIONAL file attachment. Absent on the text-only path → the core behaves
+  // exactly as before. A zero-byte / non-File entry is treated as "no file".
+  const rawAttachment = formData.get('attachment');
+  const attachment =
+    rawAttachment instanceof File && rawAttachment.size > 0 ? rawAttachment : null;
 
   const supabase = await createClient();
-  const result = await sendChatMessageCore(supabase, { threadId, body });
+  const result = await sendChatMessageCore(supabase, { threadId, body, attachment });
   if (!result.ok) {
     // Empty body is a no-op redirect on web (the textarea simply stays put).
     if (result.code === 'empty') {
@@ -85,6 +101,18 @@ export async function sendChatMessage(formData: FormData) {
       return;
     }
     if (result.code === 'unauthenticated') redirect('/login');
+    // Attachment problems fail GRACEFULLY (never hit the error boundary): on the
+    // no-JS form path we redirect back with an error flag; on the JS path
+    // return_to is stripped, so this returns and the composer keeps the user's
+    // text + file for a retry.
+    if (result.code === 'attachment_invalid' || result.code === 'attachment_failed') {
+      if (typeof returnTo === 'string' && returnTo.startsWith('/')) {
+        redirect(
+          `${returnTo}${returnTo.includes('?') ? '&' : '?'}error=1&msg=${encodeURIComponent(result.message)}`,
+        );
+      }
+      return;
+    }
     throw new Error(result.message);
   }
 
@@ -143,15 +171,37 @@ export async function notifyOtherParty(args: {
         args.eventId,
         args.vendorProfileId,
       );
+      // Founder-seat inquiry (owner-locked 2026-07-16): the vendor must get an
+      // EXPLICIT signal that this is a founder of the app needing service —
+      // and that accepting is token-free. Server-asserted (founder_seats
+      // definer helper via the admin client), so it survives the
+      // anonymization-until-accept pass below: the founder signal is the one
+      // identity fact the owner WANTS revealed pre-accept. Takes precedence
+      // over the returning-client copy when both apply.
+      const founderSeat = await eventHostHoldsFounderSeat(admin, args.eventId);
+      // Anonymization-until-accept (Glass PR-6b · spec 2026-07-15): a first
+      // couple→vendor message is a PRE-accept inquiry, so the notification (and
+      // the email it triggers via emitNotification's allowlist) must NOT carry
+      // the couple's identity — the title drops `eventName` (the event title,
+      // which contains the couple's names). The couple's message TEXT is NOT
+      // scrubbed (edge rule: they may sign their own message — that's their
+      // choice). NOTE: the "returning client" enrichment (which names a PRIOR
+      // event) is an owner-locked feature (2026-06-12) that deliberately tells
+      // the vendor a repeat client is reaching out; it's preserved here and
+      // flagged for owner reconciliation against this anonymization pass.
       await emitNotification({
         userId: vendorRes.data.user_id,
         type: 'vendor_inquiry_received',
-        title: priorLocked
-          ? `New booking inquiry from ${eventName} — a returning client`
-          : `New booking inquiry from ${eventName}`,
-        body: priorLocked
-          ? `This couple previously booked you for ${priorLocked}. ${args.body.slice(0, 200)}`
-          : args.body.slice(0, 200),
+        title: founderSeat
+          ? FOUNDER_INQUIRY_NOTIFICATION_TITLE
+          : priorLocked
+            ? 'New booking inquiry — a returning client'
+            : 'New booking inquiry',
+        body: founderSeat
+          ? `${FOUNDER_INQUIRY_NOTIFICATION_PREFIX}${args.body.slice(0, 200)}`
+          : priorLocked
+            ? `This couple previously booked you for ${priorLocked}. ${args.body.slice(0, 200)}`
+            : args.body.slice(0, 200),
         relatedUrl: `/vendor-dashboard/messages/${args.threadId}`,
       });
       return;
@@ -295,7 +345,7 @@ export async function acceptInquiry(formData: FormData) {
     // Burn-on-answer (owner-locked token economy 2026-06-05). Accepting an
     // inquiry IS the vendor's "answer" (a vendor can't even reply before
     // accepting). It costs ONE idempotent unlock per (vendor, event), banded
-    // by the wedding's region (₱100/200/300 = 1/2/3 tokens), and that single
+    // by the wedding's region (₱200/400/600 = 1/2/3 tokens), and that single
     // unlock covers ALL of this vendor's services for the event. The RPC
     // (unlock_vendor_event) is atomic + idempotent + TIER-GATED. Per the LIVE
     // body (migration 20270307985604, verified retune 2026-06-25): FREE can't
@@ -311,10 +361,22 @@ export async function acceptInquiry(formData: FormData) {
     // RAISE rolls the whole tx back (no phantom unlock) — we surface a friendly,
     // tier-appropriate message and do NOT accept. The RPC also ownership-checks
     // the caller (defense-in-depth atop the loadVendorThreadForActor gate above).
-    const { error: burnErr } = await supabase.rpc('unlock_vendor_event', {
-      p_vendor_profile_id: thread.vendor_profile_id,
-      p_event_id: thread.event_id,
-    });
+    // Phase B (fake-inquiry protection): when the hold flag is ON, route to the
+    // PARALLEL unlock_vendor_event_hold — same gates + same error codes, but it
+    // HOLDS the token instead of burning it (consumed only when the couple
+    // genuinely replies; released if they ghost). Flag OFF → the live burn RPC,
+    // byte-identical to before. Both raise the same TIER/LIMIT/BALANCE errors, so
+    // the handling below is unchanged.
+    const { error: burnErr } = leadTokenHoldEnabled()
+      ? await acceptInquiryViaHold(supabase, {
+          vendorProfileId: thread.vendor_profile_id,
+          eventId: thread.event_id,
+          threadId: thread.thread_id,
+        })
+      : await supabase.rpc('unlock_vendor_event', {
+          p_vendor_profile_id: thread.vendor_profile_id,
+          p_event_id: thread.event_id,
+        });
     if (burnErr) {
       if (/TIER_FREE_NO_INAPP/.test(burnErr.message)) {
         fail('Get your account verified to start receiving and answering couples in the app.');
@@ -358,6 +420,17 @@ export async function acceptInquiry(formData: FormData) {
     // responsiveness/conversion stats (response_rate_pct, inquiry_to_booking_pct)
     // off the request path (cron-free; after() runs post-response).
     after(() => triggerVendorActivityRecompute(thread.vendor_profile_id));
+
+    // Creator Economy PR-C (req #3a) — accepting an ATTRIBUTED thread is the
+    // unlock that ticks the creator's "inquiries driven": tell them (in-app
+    // only; the type isn't email-allowlisted). Covers BOTH unlock paths — the
+    // direct burn and the hold (the hold's vendor_event_unlocks row also lands
+    // at accept; its token settles later on genuine reply). Fail-soft, off the
+    // request path. The spend_source='lead_unlock' ledger tag is stamped inside
+    // the RPCs themselves (migration 20270819553697), never here.
+    if (thread.referring_chapter_id) {
+      after(() => notifyChapterDroveInquiry(thread));
+    }
   }
 
   if (typeof returnTo === 'string' && returnTo.startsWith('/')) {
@@ -616,6 +689,23 @@ export async function reportUser(formData: FormData) {
   });
   if (error) throw new Error(error.message);
 
+  // Phase C (fake-inquiry protection): when a VENDOR reports a couple, wire the
+  // report into the token economy — refund this vendor's held token if the lead
+  // never replied, and refund the whole blast radius if ≥N distinct vendors have
+  // reported this couple. The report row above (+ admin review) is unchanged;
+  // this only returns money. Off the request path, dormant unless the hold
+  // feature is live.
+  if (role === 'vendor' && leadTokenHoldEnabled()) {
+    after(() =>
+      runVendorLeadReportBackstop({
+        vendorProfileId: thread.vendor_profile_id,
+        eventId: thread.event_id,
+        reportedUserId: targetUserId,
+        reason,
+      }),
+    );
+  }
+
   const dest = safeReturn(formData.get('return_to'), 'reported=1');
   if (dest) {
     revalidatePath(dest);
@@ -685,4 +775,65 @@ export async function unblockUser(formData: FormData) {
     revalidatePath(dest);
     redirect(dest);
   }
+}
+
+/**
+ * Archive / un-archive a thread for the CURRENT user (Viber-style · Data
+ * Retention Schedule 2026-07-11). Archiving is pure per-user UI state — it
+ * DELETES NOTHING. It stamps chat_thread_reads.archived_at (migration
+ * 20270714177342) for (thread_id, auth.uid()); the inbox then filters the row
+ * out of the active list until a newer message bumps updated_at past
+ * archived_at (auto-un-archive). Un-archive simply nulls the marker.
+ *
+ * Membership is checked via fetchThreadById (RLS-scoped → null if not a member)
+ * so a stray thread_id can't stamp a marker on a thread you're not in. The
+ * upsert omits last_read_at, so the read-state is preserved on conflict-update.
+ *
+ * GRACEFUL DEGRADE: the archived_at column is owner-pushed and may not be live
+ * yet — on ANY write error we log + still redirect back (archiving must never
+ * 500 the inbox before the migration lands; the thread just stays active).
+ */
+async function setThreadArchived(formData: FormData, archived: boolean): Promise<void> {
+  const threadId = formData.get('thread_id');
+  if (typeof threadId !== 'string' || threadId.length === 0) throw new Error('Invalid input');
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const thread = await fetchThreadById(supabase, threadId);
+  if (!thread) throw new Error('Thread not found');
+  const role = await resolveThreadRole(supabase, thread, user.id);
+  if (!role) throw new Error('Not a member of this thread');
+
+  const { error } = await supabase.from('chat_thread_reads').upsert(
+    {
+      thread_id: threadId,
+      user_id: user.id,
+      archived_at: archived ? new Date().toISOString() : null,
+    },
+    { onConflict: 'thread_id,user_id' },
+  );
+  if (error) {
+    logQueryError(
+      archived ? 'archiveThread' : 'unarchiveThread',
+      error,
+      { thread_id: threadId, missing_relation: isMissingRelationError(error) },
+      'graceful_degrade',
+    );
+  }
+
+  const dest = safeReturn(formData.get('return_to'), archived ? 'archived=1' : 'unarchived=1');
+  if (dest) {
+    revalidatePath(dest);
+    redirect(dest);
+  }
+}
+
+export async function archiveThread(formData: FormData) {
+  await setThreadArchived(formData, true);
+}
+
+export async function unarchiveThread(formData: FormData) {
+  await setThreadArchived(formData, false);
 }

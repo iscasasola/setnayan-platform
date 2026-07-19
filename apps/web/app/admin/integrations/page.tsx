@@ -25,6 +25,7 @@ import {
 } from '@/lib/integrations/registry';
 import { getSecretPresenceMap } from '@/lib/integration-config';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 // Integration Activation Console.
 //
 // Lets an admin turn integrations on WITHOUT a Vercel redeploy: secrets stored
@@ -40,6 +41,7 @@ export default async function AdminIntegrationsPage({
 }: {
   searchParams: Promise<{ saved?: string; cleared?: string; error?: string }>;
 }) {
+  await requireAdmin();
   const { saved, cleared, error } = await searchParams;
 
   // Defense-in-depth admin gate (team-member-aware).
@@ -139,7 +141,7 @@ export default async function AdminIntegrationsPage({
       {cleared ? (
         <p
           role="status"
-          className="inline-flex items-center gap-2 rounded-2xl border border-ink/15 bg-cream px-4 py-3 text-sm text-ink/70"
+          className="inline-flex items-center gap-2 rounded-2xl border border-ink/15 bg-white/70 px-4 py-3 text-sm text-ink/70"
         >
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Key cleared —
           email now falls back to the Vercel env (if set).
@@ -157,7 +159,7 @@ export default async function AdminIntegrationsPage({
       ) : null}
 
       {/* Resend card */}
-      <section className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5">
+      <section className="space-y-4 sn-tile p-5">
         <div className="flex items-center justify-between gap-2">
           <h2 className="inline-flex items-center gap-1.5 text-lg font-semibold tracking-tight">
             <Mail aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
@@ -230,7 +232,7 @@ export default async function AdminIntegrationsPage({
             <form action={clearResendKey}>
               <SubmitButton
                 pendingLabel="Clearing…"
-                className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 py-2 text-sm font-medium text-ink/60 transition-colors hover:border-rose-300 hover:text-rose-700"
+                className="inline-flex items-center justify-center gap-2 rounded-md border border-white/60 bg-white/70 px-4 py-2 text-sm font-medium text-ink/60 transition-colors hover:border-rose-300 hover:text-rose-700"
               >
                 Clear saved key
               </SubmitButton>
@@ -240,7 +242,7 @@ export default async function AdminIntegrationsPage({
       </section>
 
       {/* Setnayan AI paywall card */}
-      <section className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5">
+      <section className="space-y-4 sn-tile p-5">
         <div className="flex items-center justify-between gap-2">
           <h2 className="inline-flex items-center gap-1.5 text-lg font-semibold tracking-tight">
             <Sparkles aria-hidden className="h-5 w-5 text-mulberry" strokeWidth={1.75} />

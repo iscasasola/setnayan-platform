@@ -256,9 +256,50 @@ export const FAITH_LABELS: Readonly<Record<string, string>> = Object.fromEntries
  * the two non-faith ceremony forms. Both commit actions validate against this
  * (the picker already only EMITS launch-status-active keys; this is the
  * server-side belt to that suspender).
+ *
+ * Keyspace lock: this list MUST mirror the lowercase `events_ceremony_type_check`
+ * DB CHECK — the two are kept in lockstep by migration 20261120000000
+ * (faith worldwide expansion). It is the LOWERCASE ceremony_type keyspace, NOT
+ * the Title-Case `faith_vocab` / `faithCol` marketplace keyspace — never
+ * cross-case between the two.
  */
 export const ALLOWED_CEREMONY_VALUES: readonly string[] = [
   ...FAITH_REGISTRY.map((e) => e.key),
   'civil',
   'mixed',
 ];
+
+/**
+ * A ceremony_type value accepted by the DB CHECK: every registry faith key plus
+ * the two non-faith forms ('civil', 'mixed').
+ */
+export type CeremonyValue = FaithKey | 'civil' | 'mixed';
+
+/** Secondary (overlay) ceremony values — any primary value except 'mixed'. */
+export const ALLOWED_SECONDARY_CEREMONY_VALUES: readonly string[] =
+  ALLOWED_CEREMONY_VALUES.filter((v) => v !== 'mixed');
+
+/**
+ * Pure, case-sensitive validator for the PRIMARY ceremony_type field.
+ *
+ * Accepts the full lowercase keyspace the DB CHECK allows (all 18 values), so a
+ * host can pick any faith the owner *could* flip live — matching the onboarding
+ * commit's server-side belt (onboarding/wedding/actions.ts). Launch-gating of
+ * `coming_soon` faiths is a UI concern (the picker doesn't offer them / disables
+ * them), not enforced here.
+ *
+ * Case-sensitive by design: Title-Case `faith_vocab` keys (e.g. 'Catholic') are
+ * a DIFFERENT keyspace and are correctly REJECTED here.
+ */
+export function isAllowedCeremonyValue(value: unknown): value is CeremonyValue {
+  return typeof value === 'string' && ALLOWED_CEREMONY_VALUES.includes(value);
+}
+
+/**
+ * Pure, case-sensitive validator for the SECONDARY (overlay) ceremony_type
+ * field — any primary value except 'mixed' (a mixed wedding stores 'mixed' in
+ * the primary column and the concrete second rite in the secondary column).
+ */
+export function isAllowedSecondaryCeremonyValue(value: unknown): value is CeremonyValue {
+  return typeof value === 'string' && ALLOWED_SECONDARY_CEREMONY_VALUES.includes(value);
+}

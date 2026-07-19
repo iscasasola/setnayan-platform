@@ -8,6 +8,19 @@
 
 import type { NavSlotDefault } from './nav-registry-types';
 
+/**
+ * Suite nav doorway (owner 2026-07-19: surface name locked = "Suite"; nav slot
+ * REPLACES Studio, flag-gated). When NEXT_PUBLIC_SUITE is on, the studio nav
+ * slots' code DEFAULTS read "Suite" → /dashboard/[eventId]/suite — necessary
+ * because getNavSlotMap() serves a default for EVERY slot, and the bottom-nav /
+ * sidebar renderers prefer the slot label over the in-code tree label, so the
+ * tree-level swap (customer-nav-config.ts · lib/customer-menu.ts) alone would
+ * never reach the UI. Slot KEYS stay `*.studio` (stable — admin overrides key
+ * off them, and an explicit admin rename still wins). Flag off → byte-identical
+ * "Studio" defaults; /studio routes themselves stay reachable either way.
+ */
+const SUITE_NAV_ON = process.env.NEXT_PUBLIC_SUITE === 'true';
+
 export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
   {
     key: "public.marketing.home",
@@ -49,7 +62,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     key: "public.site-nav.for-vendors",
     scope: "public",
     area: "marketing-site-nav",
-    route: "/for-vendors",
+    route: "/vendors",
     label: "For vendors",
     labelKind: "literal",
     iconKind: "none",
@@ -126,7 +139,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     key: "public.site-nav.vendors-overlay",
     scope: "public",
     area: "marketing-site-nav",
-    route: "/for-vendors",
+    route: "/vendors",
     label: "Vendors",
     labelKind: "literal",
     iconKind: "none",
@@ -291,11 +304,24 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 5,
   },
   {
+    key: "customer.account.people",
+    scope: "customer",
+    area: "customer-account",
+    route: "/dashboard/people",
+    label: "People",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Users",
+    customRef: null,
+    sortOrder: 6,
+  },
+  {
     key: "customer.sidebar.home",
     scope: "customer",
     area: "customer-sidebar",
     route: "/dashboard/[eventId]",
-    label: "Home",
+    // Renamed Home → Overview (owner-approved product naming; design prototype).
+    label: "Overview",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Home",
@@ -307,7 +333,8 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-bottom-nav",
     route: "/dashboard/[eventId]",
-    label: "Home",
+    // Renamed Home → Overview (owner-approved product naming; design prototype).
+    label: "Overview",
     labelKind: "literal",
     iconKind: "custom",
     lucideName: null,
@@ -331,7 +358,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-bottom-nav",
     route: "/dashboard/[eventId]/vendors",
-    label: "Explore",
+    // Renamed Explore → Merkado (owner-approved product naming; design
+    // prototype). Slot key + route unchanged.
+    label: "Merkado",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Compass",
@@ -342,8 +371,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     key: "customer.bottom-nav.studio",
     scope: "customer",
     area: "customer-bottom-nav",
-    route: "/dashboard/[eventId]/studio",
-    label: "Studio",
+    // Flag-gated Suite doorway (see SUITE_NAV_ON above) — key stays stable.
+    route: SUITE_NAV_ON ? "/dashboard/[eventId]/suite" : "/dashboard/[eventId]/studio",
+    label: SUITE_NAV_ON ? "Suite" : "Studio",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Sparkles",
@@ -351,23 +381,12 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 3,
   },
   {
-    key: "customer.bottom-nav.budget",
-    scope: "customer",
-    area: "customer-bottom-nav",
-    route: "/dashboard/[eventId]/budget",
-    label: "Budget",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Wallet",
-    customRef: null,
-    sortOrder: 5,
-  },
-  {
     key: "customer.sidebar.studio",
     scope: "customer",
     area: "customer-sidebar",
-    route: "/dashboard/[eventId]/studio",
-    label: "Studio",
+    // Flag-gated Suite doorway (see SUITE_NAV_ON above) — key stays stable.
+    route: SUITE_NAV_ON ? "/dashboard/[eventId]/suite" : "/dashboard/[eventId]/studio",
+    label: SUITE_NAV_ON ? "Suite" : "Studio",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Sparkles",
@@ -379,7 +398,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-sidebar",
     route: "/dashboard/[eventId]/vendors",
-    label: "Explore",
+    // Renamed Explore → Merkado (owner-approved product naming; design
+    // prototype). Slot key + route unchanged.
+    label: "Merkado",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Compass",
@@ -460,30 +481,14 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 35,
   },
-  {
-    key: "customer.sidebar.schedule",
-    scope: "customer",
-    area: "customer-sidebar",
-    route: "/dashboard/[eventId]/schedule",
-    label: "Schedule",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "CalendarClock",
-    customRef: null,
-    sortOrder: 5,
-  },
-  {
-    key: "customer.sidebar.budget",
-    scope: "customer",
-    area: "customer-sidebar",
-    route: "/dashboard/[eventId]/budget",
-    label: "Budget",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Wallet",
-    customRef: null,
-    sortOrder: 6,
-  },
+  // customer.sidebar.schedule REMOVED 2026-07-10: Overview's Schedule child was
+  // flattened (#3004) — the slot had zero consumers. /schedule stays reachable
+  // from the dashboard body; the Day-of bottom-nav 'schedule' slot is separate.
+  // Budget nav item REMOVED 2026-07-10 (owner): budget now lives inside the
+  // Merkado (Vendors → Build · Budget · Compare), so the standalone item was
+  // redundant. The full budget surface (/dashboard/[eventId]/budget) stays
+  // reachable from the Merkado's Budget tab ("Open budget & payments") + direct
+  // links; only the top-level nav entry is gone.
   // Day-of phase bottom-nav tabs (lifecycle phase 'dayof' in
   // lib/customer-menu.ts buildCustomerMenuTree). Same `customer.bottom-nav.*`
   // area + lookup the customer-bottom-nav chokepoint uses for the plan tabs, so
@@ -589,30 +594,10 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 17,
   },
-  {
-    key: "customer.sidebar.messages",
-    scope: "customer",
-    area: "customer-sidebar",
-    route: "/dashboard/[eventId]/messages",
-    label: "Messages",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "MessageSquare",
-    customRef: null,
-    sortOrder: 7,
-  },
-  {
-    key: "customer.sidebar.contracts",
-    scope: "customer",
-    area: "customer-sidebar",
-    route: "/dashboard/[eventId]/contracts",
-    label: "Contracts",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "FileText",
-    customRef: null,
-    sortOrder: 8,
-  },
+  // customer.sidebar.messages + customer.sidebar.contracts REMOVED 2026-07-10:
+  // Overview's Messages/Contracts children were flattened (#3004) — the slots
+  // had zero consumers. Messages stays reachable from the Conversations card +
+  // topbar bell; Contracts from the vendor itemization cards.
   {
     // "Event page" — the host's doorway to the live /[slug] page (owner
     // 2026-06-26). Sits at the top of the Studio group; admin-editable here.
@@ -725,30 +710,10 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 15,
   },
-  {
-    key: "customer.home-subnav.overview",
-    scope: "customer",
-    area: "home-section-subnav",
-    route: "/dashboard/[eventId]",
-    label: "Overview",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "LayoutDashboard",
-    customRef: null,
-    sortOrder: 0,
-  },
-  {
-    key: "customer.home-subnav.checklist",
-    scope: "customer",
-    area: "home-section-subnav",
-    route: "/dashboard/[eventId]/checklist",
-    label: "Checklist",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "ClipboardList",
-    customRef: null,
-    sortOrder: 1,
-  },
+  // customer.home-subnav.overview + customer.home-subnav.checklist REMOVED
+  // 2026-07-10: the Overview section sub-nav (home-section-subnav) was never
+  // wired — Overview is a plain leaf (#3004), so these two slots had zero
+  // consumers.
   {
     key: "customer.guest-journey.build",
     scope: "customer",
@@ -1090,6 +1055,18 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 1,
   },
   {
+    key: "customer.budget-subnav.budget",
+    scope: "customer",
+    area: "budget-build-subnav",
+    route: "/dashboard/[eventId]/vendors?tab=budget",
+    label: "Budget",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Wallet",
+    customRef: null,
+    sortOrder: 2,
+  },
+  {
     key: "customer.budget-subnav.compare",
     scope: "customer",
     area: "budget-build-subnav",
@@ -1099,7 +1076,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     iconKind: "lucide",
     lucideName: "Scale",
     customRef: null,
-    sortOrder: 2,
+    sortOrder: 3,
   },
   // (The "customer.budget-subnav.lock" slot was removed 2026-06-20 — "Build
   // absorbs Lock" PR2: the standalone Lock tab is gone; the lock surface now
@@ -2081,6 +2058,18 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 13,
   },
   {
+    key: "admin.sidebar.fraud",
+    scope: "admin",
+    area: "admin-sidebar",
+    route: "/admin/fraud",
+    label: "Fraud queue",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "ShieldAlert",
+    customRef: null,
+    sortOrder: 14,
+  },
+  {
     key: "admin.sidebar.approvals",
     scope: "admin",
     area: "admin-sidebar",
@@ -2422,6 +2411,19 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 36,
   },
   {
+    // Compliance — RA 10173 / NPC registration facts (settings-tail item).
+    key: "admin.sidebar.compliance",
+    scope: "admin",
+    area: "admin-sidebar",
+    route: "/admin/compliance",
+    label: "Compliance",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "ShieldCheck",
+    customRef: null,
+    sortOrder: 37,
+  },
+  {
     key: "admin.sidebar.onboarding",
     scope: "admin",
     area: "admin-sidebar",
@@ -2445,16 +2447,17 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 38,
   },
-  // Ugat Console — the live entity map (slice 1 · 2026-07-04). System Settings
-  // engine-room tool that maps the nine platform entity types + their audited
-  // connections. Slot suffix "ugat" matches the admin-sidebar item key 1:1 so
-  // applyAdminRegistry overlays label + icon.
+  // Ugat entity map — the live console (slice 1 · 2026-07-04, remounted at
+  // /admin/ugat/map when the Ugat Studio took the hub path 2026-07-10). Maps
+  // the nine platform entity types + their audited connections. Slot suffix
+  // "ugat" matches the admin-sidebar item key 1:1 so applyAdminRegistry
+  // overlays label + icon.
   {
     key: "admin.sidebar.ugat",
     scope: "admin",
     area: "admin-sidebar",
-    route: "/admin/ugat",
-    label: "Ugat",
+    route: "/admin/ugat/map",
+    label: "Entity map",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Network",
@@ -2654,20 +2657,6 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     lucideName: "Users",
     customRef: null,
     sortOrder: 1,
-  },
-  {
-    // Marketing tab (6-menu respine 2026-07-03) — social queue + featuring +
-    // growth incentives; lands on the /admin/marketing card grid.
-    key: "admin.bottom-nav.marketing",
-    scope: "admin",
-    area: "admin-bottom-nav",
-    route: "/admin/marketing",
-    label: "Marketing",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Megaphone",
-    customRef: null,
-    sortOrder: 2,
   },
   {
     // Performance tab (6-menu respine 2026-07-03) — lands directly on the App

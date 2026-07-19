@@ -20,9 +20,17 @@ import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
-import { fetchEventVendors, resolveVendorDisplayName } from '@/lib/vendors';
-import { isTrueNameTier } from '@/lib/vendor-tier-caps';
+import {
+  fetchEventVendors,
+  resolveVendorDisplayName,
+  isVendorNameRevealed,
+} from '@/lib/vendors';
+import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
+import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
+import { computeBudgetAllocation } from '@/lib/budget-allocation';
+import { vendorBudgetFitRatio } from '@/lib/vendor-budget-fit';
+import { buildEventBrief, type EventBriefSource } from '@/lib/event-brief';
 import Link from 'next/link';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
@@ -55,10 +63,20 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { PlanBudgetAccordion, type VendorReviewStatus } from './_components/plan-budget-accordion';
 import { reviewState } from '@/lib/completion-handshake';
 import { ShortlistCategories } from './_components/shortlist-categories';
+import {
+  PendingLockProposals,
+  type PendingLockProposal,
+} from './_components/pending-lock-proposals';
+import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock';
+import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
+import { VendorQuickViewInspector } from './_components/vendor-quickview-inspector';
 import { WaitingForQuotes, type WaitingInquiry } from './_components/waiting-for-quotes';
 import { buildShortlistFolders } from '@/lib/shortlist-taxonomy';
 import { buildCoupleFaithSet } from '@/lib/taxonomy-filters';
 import { ServicesTakeover } from './_components/services-takeover';
+import { MerkadoBudgetLens } from './_components/merkado-budget-lens';
+import { MerkadoGuardBanner } from './_components/merkado-guard-banner';
+import { computeBuildGuard, type GuardPick } from '@/lib/merkado-guard';
 import {
   Build3StateControl,
   type AnchorData,
@@ -71,12 +89,14 @@ import {
   type BuildState,
 } from '@/lib/build-3state';
 import { getCategoryBuildStates } from './build-3state-actions';
-import { SummaryAiToggle } from './_components/summary-ai-toggle';
 import { BuildLocked } from './_components/build-locked';
 import { BuildCompare, type CompareDatesInfo } from './_components/build-compare';
 import { type SavedPlanBuild, type PlanBuildSnapshot } from './build-actions';
 import {
   getAvailableDaysForVendorSet,
+  getBatchVendorAvailableDays,
+  computeCandidateWindow,
+  formatDayKey,
   rangeFromPrecision,
 } from '@/lib/vendor-availability';
 import { formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
@@ -92,7 +112,9 @@ type Props = {
   // refresh + deep links land on the same section.
   // open (2026-06-16) = a Shortlist tile key to pre-expand (checklist "Book your
   // caterer" → ?tab=shortlist&open=catering jumps right to that category).
-  searchParams: Promise<{ status?: string; tab?: string; open?: string }>;
+  // inspect (2026-07-15) = the Shortlist bench vendor to open in the desktop
+  // inspector column (`v:<vendorId>`); resolved server-side to a quick-view body.
+  searchParams: Promise<{ status?: string; tab?: string; open?: string; inspect?: string }>;
 };
 
 type EventBudgetRow = {
@@ -171,6 +193,46 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     ? Math.round((new Date(eventDate).getTime() - Date.now()) / 86_400_000)
     : null;
 
+  // Coordinator "propose a lock" (spec § 4) — pending proposals for the couple
+  // to confirm. Only the couple sees the confirm strip (the money-adjacent
+  // decision is theirs), and the whole mechanic is flag-gated. The page admits
+  // coordinators too, so resolve couple-vs-coordinator from event_members.
+  let pendingLockProposals: PendingLockProposal[] = [];
+  if (isCoordinatorProposeLockEnabled()) {
+    const proposalAdmin = createAdminClient();
+    const { data: coupleRow } = await proposalAdmin
+      .from('event_members')
+      .select('user_id')
+      .eq('event_id', eventId)
+      .eq('user_id', user.id)
+      .eq('member_type', 'couple')
+      .maybeSingle();
+    if (coupleRow) {
+      const { data: props } = await proposalAdmin
+        .from('vendor_lock_proposals')
+        .select('id, event_vendor_id')
+        .eq('event_id', eventId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true });
+      const rows = props ?? [];
+      if (rows.length > 0) {
+        const vids = rows.map((r) => r.event_vendor_id);
+        const { data: vs } = await proposalAdmin
+          .from('event_vendors')
+          .select('vendor_id, vendor_name')
+          .in('vendor_id', vids);
+        const nameById = new Map(
+          (vs ?? []).map((v) => [v.vendor_id as string, v.vendor_name ?? 'A vendor']),
+        );
+        pendingLockProposals = rows.map((r) => ({
+          id: r.id as number,
+          eventVendorId: r.event_vendor_id as string,
+          vendorName: nameById.get(r.event_vendor_id as string) ?? 'A vendor',
+        }));
+      }
+    }
+  }
+
   // ── Card enrichment (CLAUDE.md 2026-05-31 "finish the data wiring") ──────
   // The card UI already renders photo / distance / stars / Verified+Setnayan
   // badges + a resolved (hybrid-anonymity) name — it just never received the
@@ -221,7 +283,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       enrichmentAdmin
         .from('vendor_market_stats')
         .select(
-          'vendor_profile_id, business_name, logo_url, location_city, hq_latitude, hq_longitude, avg_rating_overall, review_count, is_setnayan_service, public_visibility, services',
+          'vendor_profile_id, business_name, logo_url, location_city, hq_latitude, hq_longitude, avg_rating_overall, review_count, is_setnayan_service, public_visibility, services, compatible_ceremony_types',
         )
         .in('vendor_profile_id', marketplaceIds),
       enrichmentAdmin
@@ -252,6 +314,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       is_setnayan_service: boolean | null;
       public_visibility: string | null;
       services: string[] | null;
+      compatible_ceremony_types: string[] | null;
     };
     type ProfRow = {
       vendor_profile_id: string;
@@ -286,6 +349,44 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     const venueLat = ev?.venue_latitude ?? null;
     const venueLng = ev?.venue_longitude ?? null;
 
+    // Budget-fit for the per-candidate compat % (compat-score `budgetFit` dim,
+    // 0.20). Allocate the couple's budget across categories with the SAME
+    // median-anchored engine the Budget tab + the category-search overlay use,
+    // then score each vendor's "starts at" against its category's share — so the
+    // budget planner's own % finally reflects budget fit (it fed only distance/
+    // reviews/verified before, leaving budgetFit frozen at neutral). One extra
+    // allocation read, skipped entirely when no budget is set (→ every
+    // budget_fit stays neutral anyway), and fail-open: any error → empty map →
+    // neutral, never blocks the vendors page.
+    const budgetByPlanGroup = new Map<string, number>();
+    if (ev?.estimated_budget_centavos != null) {
+      try {
+        const alloc = await resolveAllocationInputs(supabase, eventId);
+        if (alloc.budgetPhp != null) {
+          const allocResult = computeBudgetAllocation({
+            budgetPhp: alloc.budgetPhp,
+            leaves: alloc.leaves,
+            config: alloc.config,
+          });
+          for (const l of allocResult.leaves) budgetByPlanGroup.set(l.canonicalService, l.amountPhp);
+        }
+      } catch {
+        // budget-fit stays neutral — never blocks the vendors page.
+      }
+    }
+
+    // Faith-fit for the compat % (compat-score `faithMatch` → `faithFit` dim,
+    // 0.07). Read the couple's faith list from the Event Brief — the SAME source
+    // + representation the category-search overlay uses: raw lowercase ceremony
+    // ids (`catholic`, `civil`, …), so it intersects `compatible_ceremony_types`
+    // (also lowercase) directly. (A title-case WeddingFaithKey set would never
+    // match — the namespaces differ.) Empty when the event has no ceremony →
+    // faith stays neutral. A vendor matches when it EXPLICITLY lists one of the
+    // couple's faiths; NULL = "serves all" → neutral (never a penalty — the gate
+    // already guaranteed compatibility).
+    const coupleFaiths = buildEventBrief(ev as unknown as EventBriefSource).constraints.ceremony
+      .faiths;
+
     for (const v of vendors) {
       const pid = v.marketplace_vendor_id;
       if (!pid) continue;
@@ -306,9 +407,21 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         services: s.services,
         screen_name: a?.screen_name ?? null,
       });
+      // Hybrid-anonymity logo gate (Data Flow Map audit gap #6): the vendor's
+      // real logo is as identifying as their business name, so it must stay
+      // masked until the SAME predicate that reveals the name says reveal.
+      // Reuse `isVendorNameRevealed` (the source of truth behind
+      // `resolveVendorDisplayName`) so the shortlist card's logo can never drift
+      // from its label — pre-reveal we drop the logo and the card falls back to
+      // screen-name initials, matching the Messages thread-list fix.
+      const nameRevealed = isVendorNameRevealed({
+        name_revealed_at: a?.name_revealed_at ?? null,
+        isPaidTier: isTrueNameTier(a?.tier_state ?? null),
+        services: s.services,
+      });
       marketplaceCardByVendorId.set(v.vendor_id, {
         name: resolvedName,
-        logo: s.logo_url,
+        logo: nameRevealed ? s.logo_url : null,
         city: s.location_city,
       });
 
@@ -322,12 +435,40 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           ? haversineKm(venueLat, venueLng, s.hq_latitude, s.hq_longitude)
           : null;
 
+      // Fit-badge · service-radius reach (2026-07-09). Same tier-cap + fail-open
+      // rule the category-search overlay uses (vendor-tier-caps · serviceRadiusKm):
+      // Verified 20km · Pro 50km reach iff distance ≤ radius; Free (0 = unscoped)
+      // + Enterprise (∞) + unknown distance are admitted (within). Null distance /
+      // no finite radius → within=null (badge hidden, never a false "out of range").
+      const radiusKm = tierCaps(asVendorTier(a?.tier_state ?? null)).serviceRadiusKm;
+      const hasFiniteRadius = Number.isFinite(radiusKm) && radiusKm > 0;
+      const withinRadius =
+        distanceKm == null || !hasFiniteRadius
+          ? null
+          : distanceKm <= radiusKm;
+
+      // Positive faith match only (true) — a non-match / serves-all / non-wedding
+      // stays null so the scorer applies its neutral (never a penalty).
+      const faithMatch =
+        coupleFaiths.length > 0 && Array.isArray(s.compatible_ceremony_types)
+          ? s.compatible_ceremony_types.some((t) => coupleFaiths.includes(t))
+          : false;
+
       enrichmentByVendorId.set(v.vendor_id, {
         rating: rating != null && rating > 0 ? rating : null,
         review_count: s.review_count ?? null,
         is_verified: s.public_visibility === 'verified',
         is_setnayan_service: s.is_setnayan_service === true,
         distance_km: distanceKm,
+        within_radius: withinRadius,
+        service_radius_km: hasFiniteRadius ? radiusKm : null,
+        starting_price_php: photoMaps.startingPriceByVendor.get(v.vendor_id) ?? null,
+        budget_fit_ratio: vendorBudgetFitRatio({
+          vendorCategory: v.category ?? null,
+          startingPricePhp: photoMaps.startingPriceByVendor.get(v.vendor_id) ?? null,
+          budgetByPlanGroup,
+        }),
+        faith_match: faithMatch ? true : null,
         inquiry_status: inquiryByProfile.get(pid) ?? null,
         linked_services: photoMaps.linkedByVendorId.get(v.vendor_id),
       });
@@ -487,10 +628,14 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     ev?.venue_setting ?? null,
   );
 
-  // Setnayan AI gate (owner 2026-06-05/06-08) — Manual mode = AI OFF: the strip
-  // collapses to a slim "you're driving" bar, the accordion drops the
-  // per-candidate "% match" pills, AND the "👀 eyeing your date" nudge is
-  // suppressed (generic browse). One governing gate: lib/setnayan-ai.
+  // Setnayan AI gate — an ENTITLEMENT STATE, not a toggle (owner 2026-07-15,
+  // DECISION_LOG): the Merkado's per-surface Manual switch (SummaryAiToggle) is
+  // retired. Ownership alone decides — paywall off → AI on; paywall on → on iff
+  // the event/user owns it (`setnayan_ai_active` / the per-user subscription,
+  // via the same lib/setnayan-ai gate as before), with the Unlock banner below
+  // as the only door in. `planning_mode` is deliberately neutralized on THIS
+  // surface so a couple who once flipped the old toggle to Manual isn't
+  // stranded AI-off here with no control left to flip back.
   // Paywall flag is DB-first/env-fallback (Integration Activation Console);
   // resolved once and threaded into both gates on this surface.
   const paywallEnabled = await resolveSetnayanAiPaywallEnabled();
@@ -503,7 +648,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     perUserEnabled,
     subscription: aiSubscription,
   };
-  const aiActive = isSetnayanAiActiveForUser(ev, aiGateOpts);
+  const aiActive = isSetnayanAiActiveForUser(
+    ev ? { ...ev, planning_mode: null } : ev,
+    aiGateOpts,
+  );
 
   // DB-driven category headers (owner 2026-06-09 — "taxonomy applies to all 5
   // menus"): the 10 folder labels/order/slugs come from `service_categories`
@@ -728,9 +876,58 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     return picks.length > 0 ? new Set(picks) : undefined;
   })();
 
+  // ── Bench date-availability fit (2026-07-09) ────────────────────────────────
+  // The fast-follow the shipped reach + budget fit-badges left open. A third live
+  // badge — "Free on your date" / "Booked that day" — on the Shortlist bench.
+  // GATED: only runs behind BUDGET_BUILD_ENABLED (the sole path that renders the
+  // bench) AND when the event has a COMMITTED (day-precision) date. Reuses the
+  // batched per-vendor calendar primitive `getBatchVendorAvailableDays` — the
+  // same vendor-availability path that backs the Compare tab — so it costs ONE
+  // extra query for the whole bench (no N+1). ADMIN client because 'considering'
+  // bench vendors are pre-booking and the 0022 § 2.3 calendar RLS only opens
+  // after a booking (same client choice compareAvailability makes below).
+  // Fail-open: the helper returns a full window on a read error, so a calendar
+  // flake reads 'free', never a false 'booked' (mirrors reach's no-false-out-of-
+  // range rule); any thrown error → empty map → no date badges at all.
+  const dateFitByVendorId = new Map<string, 'free' | 'booked'>();
+  if (isBudgetBuildEnabled() && eventDate && matchPrecision === 'day') {
+    try {
+      const committed = computeCandidateWindow(eventDate, 'day');
+      if (committed) {
+        const committedKey = formatDayKey(committed.start);
+        // vendor_id → marketplace vendor_profile_id, for connected picks only.
+        // Off-platform / manual vendors have no calendar → never a date badge.
+        const profileByVendorId = new Map<string, string>();
+        for (const v of vendors) {
+          if (v.marketplace_vendor_id) {
+            profileByVendorId.set(v.vendor_id, v.marketplace_vendor_id);
+          }
+        }
+        const profileIds = [...new Set(profileByVendorId.values())];
+        if (profileIds.length > 0) {
+          const availByProfile = await getBatchVendorAvailableDays(
+            createAdminClient(),
+            profileIds,
+            committed.start,
+            committed.end,
+          );
+          for (const [vendorId, profileId] of profileByVendorId) {
+            const days = availByProfile.get(profileId);
+            if (!days) continue; // no signal for this profile → no badge
+            dateFitByVendorId.set(vendorId, days.has(committedKey) ? 'free' : 'booked');
+          }
+        }
+      }
+    } catch {
+      // Fail-soft — no date badges rather than a broken bench.
+      dateFitByVendorId.clear();
+    }
+  }
+
   const shortlistFolders = buildShortlistFolders({
     vendorRows,
     enrichmentByVendorId,
+    dateFitByVendorId,
     eventType: ev?.event_type ?? null,
     faithSet: buildCoupleFaithSet({
       eventType: ev?.event_type ?? null,
@@ -740,6 +937,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     taxonomy,
     eventId,
     plannedTiles,
+    totalBudgetPhp:
+      ev?.estimated_budget_centavos != null
+        ? Math.round(ev.estimated_budget_centavos / 100)
+        : null,
   });
 
   // Phase 1b PR-4 · per-category "saved request" icons. Load the couple's saved
@@ -770,14 +971,47 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     return out;
   })();
 
-  const shortlistContent = (
+  // ── Desktop inspector selection (Merkado phase 3 · ≥xl) ──────────────────
+  // Resolve `?inspect=v:<vendorId>` to a bench vendor ALREADY on this Shortlist,
+  // and render its quick-view as the inspector column body — a new PRESENTATION
+  // of the SAME `ShortlistVendor` the card shows (identity · badges · fit · price
+  // · "Open full profile ↗"), never a new fetch or fabricated field. An unknown /
+  // stale id resolves to nothing → the inspector renders closed (hasSelection=
+  // false), never a blank rail. The bench card's data carries no AI-ranked signal
+  // (the "% match" / eyeing / ranked sort live outside ShortlistVendor, gated
+  // upstream), so this quick-view leaks nothing behind the Setnayan AI paywall.
+  const inspectVendorId =
+    typeof sp.inspect === 'string' && sp.inspect.startsWith('v:')
+      ? sp.inspect.slice(2)
+      : null;
+  const inspectSelection = inspectVendorId
+    ? (() => {
+        for (const folder of shortlistFolders) {
+          for (const tile of folder.tiles) {
+            const vendor = tile.vendors.find((v) => v.vendorId === inspectVendorId);
+            if (vendor) return { vendor, categoryLabel: tile.label };
+          }
+        }
+        return null;
+      })()
+    : null;
+  const shortlistInspectorBody = inspectSelection ? (
+    <VendorQuickViewInspector
+      vendor={inspectSelection.vendor}
+      categoryLabel={inspectSelection.categoryLabel}
+      fullHref={inspectSelection.vendor.href}
+    />
+  ) : null;
+
+  const shortlistMaster = (
     <>
       {aiOfferBanner}
-      {/* Setnayan AI on/off — relocated here from the removed Summary tab
-          (owner 2026-06-25) so the workspace's only AI personalization control
-          still has a home, now atop the bench it actually governs. */}
-      <SummaryAiToggle eventId={eventId} enabled={model.personalizationEnabled} />
+      {/* The Setnayan AI on/off switch that lived here is RETIRED (owner
+          2026-07-15): AI is an entitlement state, not a toggle. Not owned →
+          the plain bench + the Unlock banner above as the only door; owned →
+          the AI-enhanced bench renders unconditionally. */}
       <WaitingForQuotes items={waitingForQuotes} />
+      <PendingLockProposals eventId={eventId} proposals={pendingLockProposals} />
       <ShortlistCategories
         folders={shortlistFolders}
         eventId={eventId}
@@ -785,6 +1019,18 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         savedRequirementCanonicalByTile={savedRequirementCanonicalByTile}
       />
     </>
+  );
+
+  // Attach the inspector to the BENCH surface only (never the Build rail / Lock
+  // flow / Budget accordion — those locked compositions keep their structure).
+  // Below xl the rail is display:none and the cards fall back to plain links.
+  const shortlistContent = (
+    <InspectorLayout
+      paramKey="inspect"
+      hasSelection={Boolean(shortlistInspectorBody)}
+      master={shortlistMaster}
+      inspector={shortlistInspectorBody}
+    />
   );
 
   // Budget "Build" takeover (flag-gated · BUDGET_BUILD_ENABLED, default OFF).
@@ -984,8 +1230,56 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // (`BuildLocked` — "Ready to lock" finalize CTAs + the read-only "Locked in"
     // list) now stack in the SAME Build tab, so the couple assembles and locks in
     // one place. `BuildLocked` self-handles its empty state.
+    // ── S4 watch guard (2026-07-10) — Setnayan AI watches the picked TEAM for
+    // feasibility conflicts (budget · shared date · reach) + demand contention,
+    // reusing data already resolved for the fit-badges. Warn-only; AI-active only.
+    const pickedVendorIds = [...new Set([...buildPicksByGroup.values()].flat())];
+    const showGuard = aiActive && pickedVendorIds.length > 0;
+    let buildGuard = { ok: true, issues: [] } as ReturnType<typeof computeBuildGuard>;
+    let guardDemand: { name: string; count: number }[] = [];
+    if (showGuard) {
+      const infoById = new Map<string, { name: string; price: number | null }>();
+      for (const r of vendorRows) {
+        infoById.set(r.vendor_id, {
+          name: r.vendor_name,
+          price:
+            typeof r.total_cost_php === 'number'
+              ? r.total_cost_php
+              : r.total_cost_php != null
+                ? Number(r.total_cost_php)
+                : null,
+        });
+      }
+      const guardPicks: GuardPick[] = pickedVendorIds
+        .filter((vid) => infoById.has(vid))
+        .map((vid) => {
+          const info = infoById.get(vid)!;
+          const df = dateFitByVendorId.get(vid);
+          return {
+            vendorId: vid,
+            label: info.name,
+            pricePhp: info.price,
+            withinReach: enrichmentByVendorId.get(vid)?.within_radius ?? null,
+            // Committed-date availability → a single synthetic candidate key.
+            freeCandidateDayKeys: df === 'free' ? ['d'] : df === 'booked' ? [] : null,
+          };
+        });
+      buildGuard = computeBuildGuard({
+        picks: guardPicks,
+        candidateDayKeys: ['d'],
+        totalBudgetPhp:
+          ev?.estimated_budget_centavos != null
+            ? Math.round(ev.estimated_budget_centavos / 100)
+            : null,
+      });
+      guardDemand = pickedVendorIds
+        .map((vid) => ({ name: infoById.get(vid)?.name ?? '', count: eyeingByVendorId.get(vid) ?? 0 }))
+        .filter((d) => d.count > 0 && d.name);
+    }
+
     const buildSlot = (
       <div className="space-y-6">
+        {showGuard ? <MerkadoGuardBanner guard={buildGuard} demand={guardDemand} /> : null}
         <Build3StateControl
           eventId={eventId}
           anchors={buildAnchors}
@@ -1011,8 +1305,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       <ServicesTakeover
         eventId={eventId}
         initialTab={initialTab}
+        premium={aiActive}
         shortlistSlot={shortlistContent}
         buildSlot={buildSlot}
+        budgetSlot={<MerkadoBudgetLens eventId={eventId} />}
         compareSlot={
           <BuildCompare
             eventId={eventId}
@@ -1110,10 +1406,14 @@ async function fetchVendorPhotoMaps(
   manualPhotoByVendor: Map<string, string>;
   /** vendor_id → linked-services-on-card labels for its picked service. */
   linkedByVendorId: Map<string, { label: string; groupId: string | null }[]>;
+  /** vendor_id → the picked service's "starts at" price (starting_price_php),
+   *  the budget-fit fallback basis when a vendor hasn't quoted yet. */
+  startingPriceByVendor: Map<string, number>;
 }> {
   const servicePhotoByVendor = new Map<string, string>();
   const manualPhotoByVendor = new Map<string, string>();
   const linkedByVendorId = new Map<string, { label: string; groupId: string | null }[]>();
+  const startingPriceByVendor = new Map<string, number>();
 
   // 1. vendor_id → service_id / manual_vendor_id. Falls back to a service_id-
   //    only select when manual_vendor_id isn't migrated yet.
@@ -1137,7 +1437,7 @@ async function fetchVendorPhotoMaps(
     idRows = (reduced.data ?? []) as IdRow[];
   } else {
     // Any other error → no photos; the plan still renders.
-    return { servicePhotoByVendor, manualPhotoByVendor, linkedByVendorId };
+    return { servicePhotoByVendor, manualPhotoByVendor, linkedByVendorId, startingPriceByVendor };
   }
 
   const serviceIdByVendor = new Map<string, string>();
@@ -1149,11 +1449,15 @@ async function fetchVendorPhotoMaps(
   const serviceIds = Array.from(new Set(serviceIdByVendor.values()));
   const manualIds = Array.from(new Set(manualIdByVendor.values()));
   if (serviceIds.length === 0 && manualIds.length === 0) {
-    return { servicePhotoByVendor, manualPhotoByVendor, linkedByVendorId };
+    return { servicePhotoByVendor, manualPhotoByVendor, linkedByVendorId, startingPriceByVendor };
   }
 
   // 2. Batch-fetch the r2 keys (one round trip per table, only when needed).
-  type SvcRow = { vendor_service_id: string; primary_photo_r2_key: string | null };
+  type SvcRow = {
+    vendor_service_id: string;
+    primary_photo_r2_key: string | null;
+    starting_price_php: number | null;
+  };
   type ManRow = { manual_vendor_id: string; photo_r2_key: string | null };
   type LinkRow = { vendor_service_id: string; linked_label: string | null; linked_canonical_service: string; display_order: number };
   const admin = createAdminClient();
@@ -1161,7 +1465,7 @@ async function fetchVendorPhotoMaps(
     serviceIds.length > 0
       ? admin
           .from('vendor_services')
-          .select('vendor_service_id, primary_photo_r2_key')
+          .select('vendor_service_id, primary_photo_r2_key, starting_price_php')
           .in('vendor_service_id', serviceIds)
       : Promise.resolve({ data: [] as SvcRow[] }),
     manualIds.length > 0
@@ -1199,12 +1503,18 @@ async function fetchVendorPhotoMaps(
   // 3. r2 key → public URL, keyed first by the source id, then resolved to
   //    vendor_id (what the row map consumes). NULL keys skip (no photo yet).
   const svcUrlByServiceId = new Map<string, string>();
+  // service_id → "starts at" price (budget-fit fallback basis). Resolved to
+  // vendor_id in the same pass that maps service photos below.
+  const startingPriceByServiceId = new Map<string, number>();
   for (const row of (svcRes.data ?? []) as SvcRow[]) {
     if (row.primary_photo_r2_key) {
       svcUrlByServiceId.set(
         row.vendor_service_id,
         r2PublicUrl(R2_BUCKETS.media, row.primary_photo_r2_key),
       );
+    }
+    if (typeof row.starting_price_php === 'number' && row.starting_price_php > 0) {
+      startingPriceByServiceId.set(row.vendor_service_id, row.starting_price_php);
     }
   }
   const manualUrlByManualId = new Map<string, string>();
@@ -1219,13 +1529,15 @@ async function fetchVendorPhotoMaps(
   for (const [vendorId, serviceId] of serviceIdByVendor) {
     const url = svcUrlByServiceId.get(serviceId);
     if (url) servicePhotoByVendor.set(vendorId, url);
+    const price = startingPriceByServiceId.get(serviceId);
+    if (price != null) startingPriceByVendor.set(vendorId, price);
   }
   for (const [vendorId, manualId] of manualIdByVendor) {
     const url = manualUrlByManualId.get(manualId);
     if (url) manualPhotoByVendor.set(vendorId, url);
   }
 
-  return { servicePhotoByVendor, manualPhotoByVendor, linkedByVendorId };
+  return { servicePhotoByVendor, manualPhotoByVendor, linkedByVendorId, startingPriceByVendor };
 }
 
 /**

@@ -19,7 +19,7 @@ export const STUDIO_CSS = `
 .vsroot .vs .wm{font-family:'DM Mono',ui-monospace,monospace;font-size:12px;letter-spacing:.3em;font-weight:500;color:#1E2229;}
 .vsroot .vs .tag{margin-left:auto;font-family:'DM Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.18em;color:var(--gold-deep);text-transform:uppercase;}
 .vsroot .vs .sw2{position:relative;height:clamp(320px,64vw,440px);}
-.vsroot .vs canvas{display:block;width:100%;height:100%;touch-action:none;background:#FBFBFA;}
+.vsroot .vs canvas{display:block;width:100%;height:100%;touch-action:pan-y;background:#FBFBFA;}
 .vsroot .vs .load{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',ui-monospace,monospace;font-size:12px;color:var(--ink-soft);background:rgba(251,251,250,.9);}
 .vsroot .vs .load.off{display:none;}
 .vsroot .vs .zoom{position:absolute;top:10px;right:12px;font-family:'DM Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-soft);background:rgba(251,251,250,.7);padding:2px 7px;border-radius:6px;pointer-events:none;}
@@ -49,10 +49,15 @@ export const STUDIO_CSS = `
 .vsroot .vs .tg.on{background:#5C2542!important;color:#FBFBFA!important;border-color:#5C2542!important;}
 .vsroot .vs .tg.lg{font-family:'Cardo',serif;font-style:italic;font-size:17px;padding:4px 16px;}
 .vsroot .vs .tg.symg{font-size:17px;padding:6px 12px;color:#5C2542!important;}
-.vsroot .vs .sw{-webkit-appearance:none;appearance:none;width:30px;height:30px;border-radius:50%;border:1px solid #D9D2C4;cursor:pointer;padding:0;}
+/* ONE swatch language (owner 2026-07-17 "i do not want oblong color
+   palettes" — applied to v1 too, since prod shows v1 until the flag flips):
+   every colour control is the same 36px circle with the gold ring. width/
+   height/min/max pinned because the app's global 44px touch-target
+   min-height stretches unpinned swatches into vertical ovals. */
+.vsroot .vs .sw{-webkit-appearance:none;appearance:none;width:36px;height:36px;min-width:36px;max-width:36px;min-height:36px;max-height:36px;border-radius:50%;border:1px solid #D9D2C4;cursor:pointer;padding:0;}
 .vsroot .vs .sw.sel{box-shadow:0 0 0 2px #FBFBFA,0 0 0 3.5px var(--gold);}
-.vsroot .vs .bg{-webkit-appearance:none;appearance:none;width:34px;height:26px;border-radius:7px;border:1px solid #D9D2C4;cursor:pointer;padding:0;}
-.vsroot .vs .bg.sel{box-shadow:0 0 0 2px #FBFBFA,0 0 0 3.5px var(--mulberry);}
+.vsroot .vs .bg{-webkit-appearance:none;appearance:none;width:36px;height:36px;min-width:36px;max-width:36px;min-height:36px;max-height:36px;border-radius:50%;border:1px solid #D9D2C4;cursor:pointer;padding:0;}
+.vsroot .vs .bg.sel{box-shadow:0 0 0 2px #FBFBFA,0 0 0 3.5px var(--gold);}
 .vsroot .vs .foot{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding-top:12px;flex-wrap:wrap;}
 .vsroot .vs .ro{font-family:'DM Mono',ui-monospace,monospace;font-size:11.5px;color:var(--ink-soft);}
 .vsroot .vs .btns{display:flex;gap:8px;flex-wrap:wrap;}
@@ -71,7 +76,7 @@ export const STUDIO_CSS = `
 .vsroot .vs .crow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 .vsroot .vs .ckey{font-family:'DM Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);width:58px;flex:none;}
 .vsroot .vs .swrow{gap:7px;}
-.vsroot .vs .cust{display:inline-flex;width:30px;height:30px;border-radius:50%;border:1px dashed var(--gold);overflow:hidden;cursor:pointer;padding:0;flex:none;}
+.vsroot .vs .cust{display:inline-flex;width:36px;height:36px;min-height:36px;max-height:36px;border-radius:50%;border:1px dashed var(--gold);overflow:hidden;cursor:pointer;padding:0;flex:none;}
 .vsroot .vs .cust input[type=color]{width:150%;height:150%;border:none;padding:0;margin:-25%;cursor:pointer;background:none;}
 .vsroot .vs .cust input[type=color]::-webkit-color-swatch-wrapper{padding:0;}
 .vsroot .vs .cust input[type=color]::-webkit-color-swatch{border:none;}
@@ -106,26 +111,26 @@ export const STUDIO_HTML = `
   </div>
   <div class="panel">
     <div class="row" id="modes"><button type="button" class="tg on" data-m="arrange">Arrange</button><button type="button" class="tg" data-m="draw">Draw frame</button></div>
-    <div class="edithint" id="edithint"><b>Tap to fix the mark.</b><br>Tap a letter to restyle it · tap where two letters cross to weave or merge them · drag to move · pinch / scroll to size · gold dot to rotate · double-tap a letter to reset.</div>
+    <div class="edithint" id="edithint"><b>Tap to fix the mark.</b><br>Tap a letter to restyle it · tap where two letters cross to weave or merge them · drag to move · gold dot to resize · pinch or Ctrl+scroll to zoom · double-click a letter to reset it.</div>
     <div class="box" id="selbox" style="display:none">
       <p class="lab">Editing letter <b id="selname">J</b></p>
-      <div><div class="lab2"><span>Outline · outside</span><span id="o_out">3</span></div><input type="range" id="s_outline" min="0" max="16" step="1" value="3"></div>
-      <div><div class="lab2"><span>Cut gap · when on top (0 = none)</span><span id="o_gap">6</span></div><input type="range" id="s_gap" min="0" max="14" step="1" value="6"></div>
-      <div><div class="lab2"><span>Finish · auto-clean</span><span></span></div><div class="gaprow"><button type="button" class="tg" id="s_clean">Auto-clean ✗</button><input type="range" id="s_strength" min="0" max="100" step="1" value="30"></div></div>
+      <div><div class="lab2"><span>Outline · outside</span><span id="o_out">3</span></div><input type="range" id="s_outline" min="0" max="16" step="1" value="3" aria-label="Outline thickness"></div>
+      <div><div class="lab2"><span>Cut gap · when on top (0 = none)</span><span id="o_gap">6</span></div><input type="range" id="s_gap" min="0" max="14" step="1" value="6" aria-label="Cut gap when this letter is on top"></div>
+      <div><div class="lab2"><span>Finish · auto-clean</span><span></span></div><div class="gaprow"><button type="button" class="tg" id="s_clean">Auto-clean ✗</button><input type="range" id="s_strength" min="0" max="100" step="1" value="30" aria-label="Auto-clean strength"></div></div>
       <div class="row"><button type="button" class="tg" id="s_front">Bring to front</button><button type="button" class="tg" id="s_back">Send to back</button></div>
     </div>
     <div class="box" id="cross" style="display:none">
       <p class="lab" id="crosslab">This crossing</p>
       <div class="row"><button type="button" class="tg" data-act="merge">Combine</button><button type="button" class="tg" data-act="cut">Cut</button><button type="button" class="tg" data-act="delete">Delete</button></div>
       <div class="row" id="crosstop" style="display:none"></div>
-      <div id="crossgap" style="display:none"><div class="lab2"><span>Gap · top letter <b id="cg_name"></b> (0 = none)</span><span id="cg_v"></span></div><input type="range" id="cg" min="0" max="14" step="1"></div>
+      <div id="crossgap" style="display:none"><div class="lab2"><span>Gap · top letter <b id="cg_name"></b> (0 = none)</span><span id="cg_v"></span></div><input type="range" id="cg" min="0" max="14" step="1" aria-label="Gap under the top letter"></div>
     </div>
     <div class="box" id="penbox" style="display:none">
       <p class="lab">Fountain pen · mirrored frame</p>
       <div class="row" id="nibstyle"><span class="lab2" style="margin-right:2px">Tip</span><button type="button" class="tg on" data-ns="broad">Broad</button><button type="button" class="tg" data-ns="pointed">Pointed</button><button type="button" class="tg" data-ns="monoline">Round</button><button type="button" class="tg" data-ns="brush">Brush</button></div>
       <div class="row" id="mirror"><span class="lab2" style="margin-right:2px">Mirror</span><button type="button" class="tg" data-mir="off">Off</button><button type="button" class="tg on" data-mir="v">↔ Vert</button><button type="button" class="tg" data-mir="h">↕ Horiz</button><button type="button" class="tg" data-mir="4">✦ 4-way</button></div>
-      <div id="nibrow"><div class="lab2"><span>Nib angle (broad)</span><span id="nib_v">40°</span></div><input type="range" id="nib" min="0" max="90" step="1" value="40"></div>
-      <div><div class="lab2"><span>Nib width</span><span id="pw_v">14</span></div><input type="range" id="pw" min="3" max="34" step="1" value="14"></div>
+      <div id="nibrow"><div class="lab2"><span>Nib angle (broad)</span><span id="nib_v">40°</span></div><input type="range" id="nib" min="0" max="90" step="1" value="40" aria-label="Nib angle"></div>
+      <div><div class="lab2"><span>Nib width</span><span id="pw_v">14</span></div><input type="range" id="pw" min="3" max="34" step="1" value="14" aria-label="Nib width"></div>
       <div><div class="lab2"><span>Stamp a symbol · uses Mirror (on = frame, off = standalone)</span></div><div class="row" id="palette">
         <button type="button" class="tg symg" data-sym="dot">●</button><button type="button" class="tg symg" data-sym="ring">◯</button><button type="button" class="tg symg" data-sym="diamond">◆</button><button type="button" class="tg symg" data-sym="star">★</button><button type="button" class="tg symg" data-sym="sparkle">✦</button><button type="button" class="tg symg" data-sym="triangle">▲</button><button type="button" class="tg symg" data-sym="heart">♥</button><button type="button" class="tg symg" data-sym="leaf">❀</button>
       </div></div>
@@ -137,7 +142,7 @@ export const STUDIO_HTML = `
       <div class="row"><button type="button" class="tg" id="symdel">Delete</button><button type="button" class="tg" id="symdone">Done</button><span class="ro">Drag to move · gold dot to size/rotate</span></div>
     </div>
     <p class="sub">Setup</p>
-    <div><p class="lab">Names</p><input class="names" id="names" type="text" value="Maria &amp; Juan" autocomplete="off"></div>
+    <div><p class="lab">Names</p><input class="names" id="names" type="text" value="Maria &amp; Juan" autocomplete="off" aria-label="Names — the initials come from here"></div>
     <div><p class="lab">Font · 8</p><div class="row" id="fonts">
       <button type="button" class="chip sel" data-f="cardo">Cardo</button>
       <button type="button" class="chip" data-f="gilda">Gilda</button>
@@ -185,7 +190,7 @@ export const STUDIO_HTML = `
           <button type="button" class="bg" data-c="#F6ECEC" style="background:#F6ECEC" aria-label="Blush"></button>
           <button type="button" class="bg" data-c="#E7ECE3" style="background:#E7ECE3" aria-label="Sage"></button>
           <button type="button" class="bg" data-c="#1E2229" style="background:#1E2229" aria-label="Dark"></button>
-          <button type="button" class="bg clr" data-c="transparent" style="background:conic-gradient(#dcdcdc 90deg,#fff 0 180deg,#dcdcdc 0 270deg,#fff 0) 0 0/12px 12px" aria-label="Clear (transparent)"></button>
+          <button type="button" class="bg clr" data-c="transparent" style="background:conic-gradient(#dcdcdc 90deg,#fff 0 180deg,#dcdcdc 0 270deg,#fff 0) 0 0/8px 8px" aria-label="Clear (transparent)"></button>
         </div>
         <label class="cust" title="Custom backdrop colour"><input type="color" id="bg_custom" value="#FBFBFA" aria-label="Custom backdrop colour"></label>
       </div>
@@ -195,13 +200,13 @@ export const STUDIO_HTML = `
       <div class="animhdr" id="animhdr"><p class="lab" style="margin:0">Animate the reveal<span class="chev">▸</span></p></div>
       <div class="animbody">
         <div class="row"><button type="button" class="tg on" data-an="handwriting">Handwriting</button><button type="button" class="tg" data-an="trace">Trace</button><button type="button" class="tg" data-an="droplet">Droplet</button><button type="button" class="tg" data-an="gold">Gold Turn</button><button type="button" class="tg" data-an="molten">Molten Gold</button><button type="button" class="mini play" id="play">Play</button></div>
-        <div><div class="lab2"><span>Speed · drawing pace</span><span id="dur_v">6.0s</span></div><div class="gaprow"><span class="ro">Fast</span><input type="range" id="dur" min="10" max="150" step="5" value="60"><span class="ro">Slow</span></div></div>
-        <div><div class="lab2"><span>Delay · between letter starts</span><span id="dl_v">0.3s</span></div><div class="gaprow"><span class="ro">0s</span><input type="range" id="dl" min="0" max="20" step="1" value="3"><span class="ro">2s</span></div></div>
-        <div><div class="lab2"><span>Smoothness</span><span id="sm_v">90%</span></div><div class="gaprow"><span class="ro">Linear</span><input type="range" id="smooth" min="0" max="100" step="1" value="90"><span class="ro">Silky</span></div></div>
+        <div><div class="lab2"><span>Speed · drawing pace</span><span id="dur_v">6.0s</span></div><div class="gaprow"><span class="ro">Fast</span><input type="range" id="dur" min="10" max="150" step="5" value="60" aria-label="Animation speed"><span class="ro">Slow</span></div></div>
+        <div><div class="lab2"><span>Delay · between letter starts</span><span id="dl_v">0.3s</span></div><div class="gaprow"><span class="ro">0s</span><input type="range" id="dl" min="0" max="20" step="1" value="3" aria-label="Delay between letter starts"><span class="ro">2s</span></div></div>
+        <div><div class="lab2"><span>Smoothness</span><span id="sm_v">90%</span></div><div class="gaprow"><span class="ro">Linear</span><input type="range" id="smooth" min="0" max="100" step="1" value="90" aria-label="Animation smoothness"><span class="ro">Silky</span></div></div>
       </div>
     </div>
     <p class="cap">Everything is real vector — crisp at any size, transparent-ready, animatable. Tap to fix the mark; <b>Animate the reveal</b> picks how your monogram appears on your wedding website.</p>
-    <div class="foot"><span class="ro" id="ro">Loading…</span>
+    <div class="foot"><span class="ro" id="ro" aria-live="polite">Loading…</span>
       <div class="btns">
         <button type="button" class="mini" id="undo" disabled>Undo</button>
         <button type="button" class="mini" id="redo" disabled>Redo</button>

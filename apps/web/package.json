@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --port 3000",
-    "build": "node scripts/stamp-sw.mjs && NODE_OPTIONS=--max-old-space-size=4096 next build",
+    "build": "node scripts/stamp-sw.mjs && NODE_OPTIONS=--max-old-space-size=7168 next build",
     "start": "next start --port 3000",
     "lint": "next lint",
     "lint:retired": "node scripts/lint-retired-strings.mjs",
@@ -24,6 +24,7 @@
     "host:face-models": "node scripts/host-face-models.mjs",
     "capture:demos": "node scripts/capture-demo-videos.mjs",
     "test:unit": "tsx --test \"lib/**/*.test.ts\"",
+    "test:db": "tsx --test \"tests/db/*.db.test.ts\"",
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test"
   },
@@ -37,6 +38,7 @@
     "@mediapipe/tasks-vision": "^0.10.35",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
+    "@react-three/postprocessing": "3.0.4",
     "@sentry/nextjs": "^8.0.0",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.45.4",
@@ -63,6 +65,7 @@
     "pdf-lib": "^1.17.1",
     "perfect-freehand": "^1.2.3",
     "posthog-js": "^1.165.0",
+    "postprocessing": "6.39.2",
     "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -75,6 +78,7 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.4",
     "@playwright/test": "^1.60.0",
     "@types/archiver": "^6.0.3",
     "@types/node": "^22.10.0",

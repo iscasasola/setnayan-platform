@@ -13,6 +13,7 @@ import {
   branchAutoRadiusKm,
   fetchBranchFeePhp,
 } from '@/lib/vendor-branches';
+import { isTierAtLeast } from '@/lib/vendor-tier-caps';
 import { reverseGeocodeNominatim } from '@/lib/geo';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { BranchActionState } from './branch-types';
@@ -77,7 +78,9 @@ async function requireBranchManager(): Promise<
   } catch {
     tier = null;
   }
-  if (tier !== 'enterprise') {
+  // Enterprise-or-higher (Custom runs as Enterprise) — rank-derived so the
+  // Custom tier inherits the branch feature without a hard equality edit.
+  if (!isTierAtLeast(tier, 'enterprise')) {
     return { error: err('Branches are an Enterprise plan feature.') };
   }
 

@@ -123,7 +123,7 @@ export function GuestNameFields({
                   kind === 'exact'
                     ? 'bg-danger-100 text-danger-700'
                     : kind === 'nick'
-                      ? 'bg-violet-100 text-violet-700'
+                      ? 'bg-info-100 text-info-800'
                       : 'bg-warn-200/70 text-warn-800'
                 }`}
               >

@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
+import { allowAnonMint } from '@/lib/anon-mint-throttle';
 import { experienceQuizEnabled } from '@/lib/experience-quiz';
 import {
   syncEventSongPicks,
@@ -25,6 +26,7 @@ import { resolveRegion } from '@/lib/region-source';
 import { PERMISSION_TEMPLATES, type RoleSubtype } from '@/lib/event-moderators';
 import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
 import { captchaOptions } from '@/lib/turnstile';
+import { hasInPlanningWeddingForUser } from '@/app/dashboard/(account)/create-event/wedding-guard';
 
 /**
  * commitOnboardingWedding — the single lazy DB commit for the /onboarding/wedding
@@ -179,7 +181,7 @@ function onboardingRegionToPsgc(region: string | null | undefined): string | nul
   return resolved.psgc_code;
 }
 
-// Picker key (53 fine taxonomy services, screen-9) → PLAN_GROUP id (26 planning
+// Picker key (53 fine taxonomy services, screen-9) → PLAN_GROUP id (planning
 // groups). The auto-inquire loop resolves each pick to its group, then fires
 // ONE best-fit inquiry per UNIQUE group (the dashboard unlock-category model).
 // Picks with no clean planning group are intentionally omitted so a pick never
@@ -335,6 +337,12 @@ export async function commitOnboardingWedding(
     // trigger migration — both owner go-live steps; until then the flag stays
     // OFF and we fall through to the unchanged not_authenticated contract.
     if (anonOnboardingEnabled()) {
+      // Per-IP flood guard: anonymous sign-in mints a real account + event from
+      // nothing, so cap it per IP before minting. Fail-open on a missing IP or
+      // infra error (see allowAnonMint) so a real couple is never locked out.
+      if (!(await allowAnonMint(createAdminClient()))) {
+        return { ok: false, error: 'rate_limited' };
+      }
       const { data: anon, error: anonError } = await supabase.auth.signInAnonymously({
         // Global Supabase captcha also gates anonymous sign-in. Token comes from
         // the funnel client (mintTurnstileToken); empty → {} → no-op.
@@ -348,6 +356,15 @@ export async function commitOnboardingWedding(
     } else {
       return { ok: false, error: 'not_authenticated' };
     }
+  }
+
+  // Wedding cardinality — one wedding IN PLANNING at a time (owner-locked
+  // 2026-07-12). The shipped guard lived only in create-event's server action;
+  // this commit path could walk past it (council 2026-07-17 recon: an existing
+  // bypass). A freshly-minted anonymous user has no prior events by
+  // construction, so the read is skipped for them.
+  if (!user.is_anonymous && (await hasInPlanningWeddingForUser(supabase, user.id))) {
+    return { ok: false, error: 'wedding_exists' };
   }
 
   // -- Map onboarding kind/faith → events.ceremony_type / secondary --
@@ -756,6 +773,9 @@ export async function commitOnboardingWedding(
             eventId: insertedEvent.event_id,
             groupId,
             count: perCategory,
+            // PR-C source taxonomy: the onboarding "reach my best matches"
+            // fan-out is the Auto Build Recommendation surface.
+            inquirySource: 'auto_build',
           }),
         ),
       );

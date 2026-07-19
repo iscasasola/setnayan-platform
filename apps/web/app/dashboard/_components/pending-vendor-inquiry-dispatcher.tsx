@@ -43,6 +43,9 @@ export function PendingVendorInquiryDispatcher({ enabled }: { enabled: boolean }
           initialServiceId: pending.serviceId,
           initialCategoryKey: pending.categoryKey ?? null,
           alsoServiceIds: [],
+          // System batch-flush of a previously-saved pick — exempt from the
+          // Phase-A manual velocity gate (a legit shortlist flush, not spam).
+          source: 'system',
           requirements: {
             payload: {},
             specialRequest: pending.message || null,

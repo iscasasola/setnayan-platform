@@ -360,6 +360,41 @@ export async function resolveMetaConfig(): Promise<MetaConfig> {
   };
 }
 
+// ── Instagram app ("Instagram API with Instagram Login") OAuth client ────────
+//
+// SEPARATE from resolveMetaConfig() above (which is the LIVE auto-publish Page
+// access token). This is the INSTAGRAM app's own App ID + App Secret used for
+// the per-VENDOR Instagram OAuth authorization-code exchange — each vendor
+// connects their OWN Business/Creator IG account (via "Instagram API with
+// Instagram Login" — NO Facebook Page required) and syncs their posts into
+// their public portfolio.
+//
+// Env-driven + OPTIONAL. When IG_APP_ID / IG_APP_SECRET are unset the whole
+// IG-connect feature is INERT: getMetaAppOAuthConfig() reports { ready: false },
+// the /connect route returns a friendly 503, and the vendor UI shows a
+// "coming soon" state. These are currently UNSET in prod.
+//
+// The redirect URI is fixed to the request origin + the callback path unless
+// META_IG_OAUTH_REDIRECT_URI overrides it (needed when the request origin isn't
+// the canonical host registered in the Instagram-Login product's Valid OAuth
+// Redirect URIs).
+export type MetaAppOAuthConfig =
+  | { ready: true; appId: string; appSecret: string; redirectUri: string }
+  | { ready: false; missing: ReadonlyArray<string> };
+
+/** Env-only App-ID/Secret read for the per-vendor Instagram OAuth flow. */
+export function resolveMetaAppOAuth(): {
+  appId: string;
+  appSecret: string;
+  redirectUriOverride: string;
+} {
+  return {
+    appId: (process.env.IG_APP_ID || '').trim(),
+    appSecret: process.env.IG_APP_SECRET || '',
+    redirectUriOverride: (process.env.META_IG_OAUTH_REDIRECT_URI || '').trim(),
+  };
+}
+
 // ── TikTok social-publish access token (PR4b) ───────────────────────────────
 //
 // DB-first / env-fallback resolver for the master-account TikTok access token

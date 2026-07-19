@@ -177,7 +177,7 @@ export default async function VendorSeatPlanPage({ params }: Props) {
       {/* Floor map — one blueprint: reception room + the cocktail/waiting area */}
       {showMap ? (
         <div
-          className="relative w-full overflow-hidden rounded-2xl border border-ink/15 bg-cream"
+          className="relative w-full overflow-hidden rounded-2xl border border-ink/15 bg-white/70"
           style={{ aspectRatio: `${aspect}` }}
         >
           {/* Stage */}
@@ -272,7 +272,7 @@ export default async function VendorSeatPlanPage({ params }: Props) {
       ) : null}
 
       {/* Table sheet */}
-      <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+      <div className="sn-tile p-4 sm:p-6">
         <h2 className="text-lg font-semibold">
           {plan.dietary_included ? 'Covers per table' : 'Tables'}
         </h2>

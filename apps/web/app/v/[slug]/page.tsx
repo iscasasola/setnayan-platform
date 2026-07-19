@@ -1,9 +1,10 @@
 import Link from 'next/link';
+import { boothCanBrand } from '@/lib/seating-3d';
 import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { after } from 'next/server';
 import { notFound } from 'next/navigation';
-import { Mail, Phone, Globe, MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send } from 'lucide-react';
+import { Mail, Phone, Globe, MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, Video } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -25,7 +26,7 @@ import {
   parseVisibility,
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
-import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
+import { isTrueNameTier, tierCaps } from '@/lib/vendor-tier-caps';
 import { experienceTier, vendorExperienceEnabled, yearsInBusiness } from '@/lib/vendor-experience';
 import {
   fetchVendorServices,
@@ -57,6 +58,12 @@ import {
   type ServiceGroup,
 } from './_components/services-gallery';
 import { fetchUserEvents } from '@/lib/events';
+import {
+  buildVendorVenueEvents,
+  fetchViewerVenue,
+  type VendorVenueEvent,
+} from '@/lib/vendor-venue-events';
+import { VenueMatchedEvents } from './_components/venue-matched-events';
 import { resolveLivePax } from '@/lib/pax';
 import { PackageCard } from '@/app/_components/vendor-packages/package-card';
 import { LockPackageModal } from '@/app/_components/vendor-packages/lock-modal';
@@ -66,7 +73,8 @@ import type {
   VendorPackageWithItems,
 } from '@/lib/vendor-packages';
 import { ShareButton } from './_components/share-button';
-import { FilmsRack } from './_components/films-rack';
+import { parseVideoLink, type VideoPlatform } from '@/lib/video-embed';
+import { fetchVendorIgMediaForPublic } from '@/lib/vendor-instagram-status';
 import {
   InquiryComposer,
   type InquiryComposerService,
@@ -87,6 +95,7 @@ import { VendorLocationMap } from '@/app/_components/vendor-location-map';
 import {
   fetchReviewsForVendorWithCouple,
   fetchReviewStats,
+  fetchTrustedReviewStats,
   fetchVendorCompletedEvents,
   formatStarRating,
   formatTrackRecordMonth,
@@ -95,6 +104,7 @@ import {
   type ReviewAxis,
   type ReviewWithCouple,
   type ReviewStatsRow,
+  type TrustedReviewStatsRow,
   type VendorCompletedEventRow,
 } from '@/lib/reviews';
 import { countVendorRecommendingCouples } from '@/lib/vendor-recommendations';
@@ -104,14 +114,16 @@ import {
   type VendorFeaturedStory,
 } from '@/lib/realstories-vendor';
 import {
+  loadFeaturedChaptersCreditingVendor,
+  type StorytellerTileItem,
+} from '@/lib/storytellers';
+import { StorytellerTile } from '@/app/_components/storyteller-tile';
+import {
   fetchVendorMicrosite,
-  fetchVimeoThumb,
   isSectionVisible,
   micrositeAccentVars,
   micrositeCan,
   orderFeaturedFirst,
-  videoEmbedUrl,
-  videoThumb,
 } from '@/lib/vendor-microsite';
 import {
   DEMO_MODE_COOKIE_NAME,
@@ -141,6 +153,9 @@ type Props = {
     utm_campaign?: string;
     utm?: string;
     src?: string;
+    // Creator Economy PR-C — a chapter Book CTA referral (chapter public_id).
+    // Server-validated in startServiceInquiry before any attribution stamp.
+    ref_chapter?: string;
   }>;
 };
 
@@ -152,6 +167,9 @@ type PublicVendorRow = {
   tagline: string | null;
   logo_url: string | null;
   portfolio_r2_keys: string[] | null;
+  // Featured videos — external URLs the vendor pasted (migration 20270518165113).
+  // Optional + `?? []` at read time so a pre-migration DB degrades to no section.
+  gallery_video_links?: string[] | null;
   services: string[];
   location_city: string | null;
   hq_address: string | null;
@@ -303,7 +321,7 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
   // screen_name silently null (resolver falls back to computed
   // placeholder).
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,verification_state,user_id';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,verification_state,user_id';
   const legacySelect =
     'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings';
 
@@ -314,7 +332,7 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
     .maybeSingle();
   if (
     error &&
-    /(is_demo|name_revealed_at|screen_name|tier_state|verification_state|user_id)/i.test(
+    /(gallery_video_links|is_demo|name_revealed_at|screen_name|tier_state|verification_state|user_id)/i.test(
       error.message,
     )
   ) {
@@ -447,6 +465,8 @@ const DETAIL_SKIP_KEYS = new Set<string>([
   'typical_range_max_centavos',
   'price_model',
   'show_prices_publicly',
+  // Opt-in-to-hide privacy toggle (Option A) — a control, never a Detail fact.
+  'hide_prices_publicly',
 ]);
 
 function humanizeAttrLabel(key: string): string {
@@ -521,6 +541,35 @@ async function fetchVendorAttributeDetails(
   }
 }
 
+/**
+ * Public "hide my prices" preference (Social_Share_Settings_Council_Verdict
+ * 2026-07-16 #6, Option A). Reads the opt-in-to-hide `hide_prices_publicly`
+ * key from the vendor's pricing_signal attribute payload(s). A vendor is a
+ * single business, so hiding is treated business-wide: TRUE if the vendor
+ * checked it on ANY of their service pricing sections. Default (absent /
+ * false) === show, which is today's public behavior for every existing
+ * vendor — so nothing is blacked out. Fails OPEN (returns false → show) on
+ * any read error so a transient failure can never mass-hide prices.
+ */
+async function fetchVendorHidesPricesPublicly(
+  admin: ReturnType<typeof createAdminClient>,
+  vendorProfileId: string,
+): Promise<boolean> {
+  try {
+    const rows = await fetchVendorServiceAttributes(admin, vendorProfileId);
+    return rows.some((row) => {
+      const payload = (row.attribute_payload ?? {}) as Record<string, unknown>;
+      return payload.hide_prices_publicly === true;
+    });
+  } catch (err) {
+    console.warn(
+      '[v/[slug]] hide_prices_publicly read failed — defaulting to show',
+      err instanceof Error ? err.message : String(err),
+    );
+    return false;
+  }
+}
+
 async function resolvePortfolioUrls(keys: string[] | null): Promise<string[]> {
   if (!keys || keys.length === 0) return [];
   try {
@@ -531,6 +580,16 @@ async function resolvePortfolioUrls(keys: string[] | null): Promise<string[]> {
   } catch {
     return [];
   }
+}
+
+/** Platform glyph for a Featured-videos link-out card. This lucide build ships
+ *  no brand marks, so play-style platforms use Play and everything else the
+ *  neutral Video glyph — the platform NAME carries the identity in the label. */
+function PlatformIcon({ platform }: { platform: VideoPlatform }) {
+  const cls = 'h-4 w-4';
+  if (platform === 'youtube' || platform === 'vimeo')
+    return <Play aria-hidden className={cls} strokeWidth={2} />;
+  return <Video aria-hidden className={cls} strokeWidth={2} />;
 }
 
 /** Display URLs for one service card's showcase media. */
@@ -650,6 +709,16 @@ export async function renderVendorBySlug({
 
   const visibility = parseVisibility(vendor.public_visibility);
   const bookable = isBookable(visibility);
+  // 3D Booth Ads · Part C: Pro/Enterprise vendors get a shareable "walk into my
+  // booth" 3D showcase at /v/[slug]/booth (same gate that brands a booth). Behind
+  // NEXT_PUBLIC_PLAN3D_BOOTH_SHOWCASE (inlined; kept in lock-step with the route).
+  // Include verification_state so the link never appears for a vendor the booth
+  // route will notFound() (the profile page skips its verified-gate for owner-
+  // preview / demo mode, so a mid-re-verification Pro vendor could see a dead link).
+  const canShowBooth =
+    process.env.NEXT_PUBLIC_PLAN3D_BOOTH_SHOWCASE === 'true' &&
+    boothCanBrand(vendor.tier_state ?? null) &&
+    vendor.verification_state === 'verified';
   const isComingSoon = visibility === 'coming_soon';
 
   const pageRaw = Number(search.reviewsPage ?? '1');
@@ -657,8 +726,14 @@ export async function renderVendorBySlug({
   const limit = reviewsPage * REVIEWS_PAGE_SIZE;
 
   const admin = createAdminClient();
-  const [reviewStats, reviews, allServices, vendorPackages, recommendingCouples, finalizedBookingCount, completedEvents] = await Promise.all([
+  const [reviewStats, trustedReviewStats, reviews, allServices, vendorPackages, recommendingCouples, finalizedBookingCount, completedEvents, hidePricesPublicly] = await Promise.all([
     fetchReviewStats(admin, vendor.vendor_profile_id),
+    // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the PUBLIC headline average
+    // + review count read the TRUSTED (receipt-backed, arm's-length) stat, so
+    // fake / self-dealt reviews can't inflate the number couples see. The raw
+    // `reviewStats` above still backs the per-star histogram bars + the review
+    // LIST pagination (`hasMore`), which stay as-is.
+    fetchTrustedReviewStats(admin, vendor.vendor_profile_id),
     fetchReviewsForVendorWithCouple(admin, vendor.vendor_profile_id, { limit, offset: 0 }),
     fetchVendorServices(admin, vendor.vendor_profile_id),
     // Vendor packages (owner directive 2026-05-22) — bundled multi-category
@@ -670,26 +745,33 @@ export async function renderVendorBySlug({
     // "Recommended by N couples" trust signal (Event Lifecycle Menu §6.3).
     // Distinct events with a completion-gated recommendation; 0 → not rendered.
     countVendorRecommendingCouples(admin, vendor.vendor_profile_id),
-    // Experience tier badge (Vendor_Quality_Rating_System §5) — finalized
-    // bookings that flowed through Setnayan. Best-effort single read: missing
-    // row / unapplied table → null → "New to Setnayan". Never blocks the page.
+    // Experience tier badge (Vendor_Quality_Rating_System §5) — VETTED
+    // completed events through Setnayan. ANTI-FRAUD (2026-07-05, Phase 1
+    // follow-up): reads `vendor_public_completed_events_stats.public_completed_count`
+    // (self-dealing EXCLUDED) instead of the raw
+    // `vendor_activity_stats.finalized_booking_count`, so a vendor can't inflate
+    // the Experience tier by self-creating "delivered" events. Best-effort:
+    // missing view / unapplied migration → 0 → "New to Setnayan". Never blocks.
     (async (): Promise<number | null> => {
       const { data, error } = await admin
-        .from('vendor_activity_stats')
-        .select('finalized_booking_count')
+        .from('vendor_public_completed_events_stats')
+        .select('public_completed_count')
         .eq('vendor_profile_id', vendor.vendor_profile_id)
         .maybeSingle();
       if (error) {
-        console.warn('[v/[slug]] vendor_activity_stats fetch failed', error.message);
+        console.warn('[v/[slug]] vendor_public_completed_events_stats fetch failed', error.message);
         return null;
       }
-      return (data as { finalized_booking_count: number | null } | null)?.finalized_booking_count ?? null;
+      return (data as { public_completed_count: number | null } | null)?.public_completed_count ?? null;
     })(),
     // Receipt-backed dated track record (Wave 5) — one row per delivered/
     // complete LINKED booking, with the same owner/team/internal/self-comp
     // exclusions as the public completed-events count. Best-effort: a missing
     // view (stale deploy) returns [] and the Track Record section is omitted.
     fetchVendorCompletedEvents(admin, vendor.vendor_profile_id, { limit: 60 }),
+    // Public "hide my prices" preference (Option A · council #6). Gates every
+    // peso figure on this page when the vendor opted in; default false = show.
+    fetchVendorHidesPricesPublicly(admin, vendor.vendor_profile_id),
   ]);
 
   // "Trusted by" — vendors who endorsed this one via the vendor↔vendor
@@ -816,7 +898,7 @@ export async function renderVendorBySlug({
         ? VENDOR_CATEGORY_LABEL[s.category as VendorCategory]
         : s.category)) as string;
   const servicePriceLabel = (s: VendorServiceRow): string =>
-    s.starting_price_php !== null && s.starting_price_php > 0
+    !hidePricesPublicly && s.starting_price_php !== null && s.starting_price_php > 0
       ? `from ${formatPhp(s.starting_price_php)}`
       : 'Inquire';
   const composerInitial = activeServices[0] ?? null;
@@ -827,13 +909,17 @@ export async function renderVendorBySlug({
   }));
 
   // Per-category attribute details + portfolio gallery (iteration 0044).
-  const [attributeDetails, portfolioUrls, microsite] = await Promise.all([
+  const [attributeDetails, portfolioUrls, microsite, igMedia] = await Promise.all([
     fetchVendorAttributeDetails(admin, vendor.vendor_profile_id),
     resolvePortfolioUrls(vendor.portfolio_r2_keys),
     // Microsite curation (My Shop → Website editor). Defensive read — an
     // un-curated vendor / not-yet-applied migration degrades to the
     // auto-composed baseline.
     fetchVendorMicrosite(admin, vendor.vendor_profile_id),
+    // Synced Instagram posts the vendor chose to show. Best-effort: degrades to
+    // [] on any error (pre-migration DB / no connection), so the portfolio never
+    // breaks. Feature is inert until Meta is configured — until then this is [].
+    fetchVendorIgMediaForPublic(vendor.vendor_profile_id),
   ]);
   // ── Tier-gated website features · downgrade REVERTS (owner 2026-07-03) ──────
   // Every premium customization is gated on the vendor's CURRENT tier, mirroring
@@ -878,12 +964,19 @@ export async function renderVendorBySlug({
         ]
       : reviews;
 
-  // Editorials ("Real Stories") — the vendor's own booked weddings the couple
-  // has PUBLISHED + consented to showcase. Featured-first (Pro pick), capped to
-  // a tidy row. Best-effort + auto-hidden when empty: today this is [] for
-  // everyone until real consented stories exist (~Dec 2026), so the whole
-  // section simply doesn't render until there's something to show.
-  const showEditorials = premiumLayout && isSectionVisible(pageSections, 'editorials');
+  // "Featured in these stories" — BOTH voices crediting this vendor (PR-D ·
+  // Storytellers council verdict 2026-07-16 + Simplicity Canon rule 2: being
+  // credited in a story is ALWAYS FREE, any tier — the former Pro-gate
+  // (`premiumLayout`) on this section is RETIRED; Pro keeps its other perks):
+  //   • EDITORIALS — the vendor's own booked weddings the couple has
+  //     PUBLISHED + consented to showcase. Featured-first ordering stays a
+  //     personalization pick where available.
+  //   • CHAPTERS — the owner-FEATURED, published creator chapters whose
+  //     shoppable substrate credits this vendor (joins over the featured set,
+  //     so it has nothing to show before the owner's first Feature click).
+  // Best-effort + auto-hidden when BOTH are empty: the section renders
+  // nothing until there's something to show.
+  const showEditorials = isSectionVisible(pageSections, 'editorials');
   let featuredEditorials: VendorFeaturedStory[] = [];
   if (showEditorials) {
     try {
@@ -901,6 +994,13 @@ export async function renderVendorBySlug({
       featuredEditorials = [];
     }
   }
+  let featuredChapterCredits: StorytellerTileItem[] = [];
+  if (showEditorials) {
+    featuredChapterCredits = await loadFeaturedChaptersCreditingVendor({
+      businessSlug: vendor.business_slug,
+      publicId: vendor.public_id,
+    });
+  }
 
   /* V2.1 brief amendment #2 (2026-05-30) · hybrid-anonymity. Resolves
      once at the page level so the hero, "Get in touch" copy,
@@ -916,30 +1016,21 @@ export async function renderVendorBySlug({
   // Enterprise "Flagship" cinematic layer (tier ladder 2026-07-03) — a full,
   // name-overlaid hero. Only when the vendor is Enterprise AND has chosen a hero
   // photo (else it falls back to the standard banner + identity block).
-  const isEnterprise = asVendorTier(vendor.tier_state ?? null) === 'enterprise';
+  // Flagship cinematic layer: Enterprise-or-higher (Custom runs as Enterprise).
+  // Reuses micrositeCan's website-ladder rank (isEnterprise = rank ≥ 3) so the
+  // Custom tier inherits the flagship hero + films rack without a hard equality.
+  const isEnterprise = micrositeCan(vendor.tier_state ?? null).isEnterprise;
   const cinematicHero = isEnterprise && Boolean(heroPhotoUrl);
-  // Films rack — resolve each ref to a click-to-play facade card (poster +
-  // embed URL). The rack renders thumbnail facades, NOT live iframes, and only
-  // injects the real player on click — so a vendor with up to 30 films costs one
-  // <img> each, not 30 embeds. YouTube posters are deterministic; Vimeo posters
-  // come from a 7-day-cached oEmbed lookup fetched CONCURRENTLY (Promise.all) so
-  // 30 Vimeo links add no serial latency, degrading to a poster-less facade on
-  // any failure. Only built when the rack will actually render.
-  const filmCards =
-    isEnterprise && microsite.videos.length > 0
-      ? await Promise.all(
-          microsite.videos.map(async (ref) => ({
-            key: `${ref.provider}:${ref.id}`,
-            provider: ref.provider,
-            embedUrl: videoEmbedUrl(ref),
-            poster:
-              videoThumb(ref) ??
-              (ref.provider === 'vimeo'
-                ? await fetchVimeoThumb(ref.id, ref.hash)
-                : null),
-          })),
-        )
-      : [];
+  // Featured videos — ONE unified, all-tier video set (owner 2026-07-05: single
+  // video system). The retired Enterprise-only "Films" rack (microsite_video_ids)
+  // was folded into gallery_video_links (data migration
+  // 20270519000000_merge_microsite_videos_into_gallery), so every video now
+  // renders here. Each pasted link is classified: YouTube / Vimeo → inline 16:9
+  // iframes; Instagram / Facebook / TikTok / other → link-out cards. Unparseable
+  // entries are dropped.
+  const featuredVideos = (vendor.gallery_video_links ?? [])
+    .map((url) => parseVideoLink(url))
+    .filter((v): v is NonNullable<ReturnType<typeof parseVideoLink>> => v !== null);
   const heroKicker = [
     vendor.services[0] ? displayServiceLabel(vendor.services[0]) : null,
     vendor.location_city,
@@ -1000,6 +1091,18 @@ export async function renderVendorBySlug({
       }
     }
   }
+
+  // Past-events gallery (owner 2026-07-18) — SAFE LAYER: the vendor's completed
+  // events, venue-aware. When the viewer is a couple, read their venue and sort
+  // the vendor's past events so the ones at the SAME venue come first (else most
+  // recent). Facts only (venue · month · type); no couple names/photos, private
+  // events excluded — the couple-identified photo layer is a consent-gated
+  // follow-up. Reuses the anti-fraud-clean `completedEvents` already fetched.
+  const viewerVenue = coupleEventId ? await fetchViewerVenue(admin, coupleEventId) : null;
+  const venueEvents = await buildVendorVenueEvents(admin, completedEvents, viewerVenue, {
+    limit: 12,
+  });
+  const venueMatchCount = venueEvents.filter((e) => e.atViewerVenue).length;
 
   // Inquiry composer (owner-locked 2026-06-12 "multi-service inquiry mapping") —
   // shown only for a signed-in couple with an active event viewing a bookable
@@ -1224,15 +1327,18 @@ export async function renderVendorBySlug({
   // Phase C review-display gate (vendor-tier-caps): Free vendors
   // (reviewStarsCounted=false) hide the star rating, so the schema.org
   // aggregateRating is omitted too — no crawler-leak of tier-hidden stars.
+  // ANTI-FRAUD (2026-07-05): the public aggregateRating is emitted from the
+  // TRUSTED stat (receipt-backed, arm's-length) so a crawler never sees a
+  // fake-inflated star average.
   if (
     viewerTierCaps.reviewStarsCounted &&
-    reviewStats.total_count > 0 &&
-    reviewStats.avg_rating_overall > 0
+    trustedReviewStats.trusted_review_count > 0 &&
+    trustedReviewStats.trusted_avg_rating > 0
   ) {
     vendorJsonLd.aggregateRating = {
       '@type': 'AggregateRating',
-      ratingValue: Number(reviewStats.avg_rating_overall.toFixed(2)),
-      reviewCount: reviewStats.total_count,
+      ratingValue: Number(trustedReviewStats.trusted_avg_rating.toFixed(2)),
+      reviewCount: trustedReviewStats.trusted_review_count,
       bestRating: '5',
       worstRating: '1',
     };
@@ -1241,9 +1347,15 @@ export async function renderVendorBySlug({
   // makesOffer — one Offer per vendor_package with a price. Pesos as the
   // major currency unit per schema.org (NOT centavos). Skips packages
   // missing a price so AI engines don't see ₱0 phantom offers.
-  const offerPackages = vendorPackages.filter(
-    (pkg) => typeof pkg.total_price_centavos === 'number' && pkg.total_price_centavos > 0,
-  );
+  // Council #6: when the vendor opted to hide prices, the structured data must
+  // not leak a peso figure the visible page hides — so makesOffer + priceRange
+  // are omitted entirely (the OfferCatalog of service NAMES below stays, as it
+  // carries no prices).
+  const offerPackages = hidePricesPublicly
+    ? []
+    : vendorPackages.filter(
+        (pkg) => typeof pkg.total_price_centavos === 'number' && pkg.total_price_centavos > 0,
+      );
   if (offerPackages.length > 0) {
     vendorJsonLd.makesOffer = offerPackages.map((pkg) => ({
       '@type': 'Offer',
@@ -1378,7 +1490,7 @@ export async function renderVendorBySlug({
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           {/* v2.1 visual treatment per CLAUDE-CODE-BRIEF-v2.1 § 8 design
               system. Wordmark from @/app/_components/brand-marks is the
-              canonical brand mark across /, /for-vendors, /login, /signup,
+              canonical brand mark across /, /vendors, /login, /signup,
               /vendors, and all dashboard chromes after V2 cutover Phase B
               (PRs #560-#564 + #572-#580). Matches the marketplace overlay
               pattern from PR #580. */}
@@ -1498,7 +1610,7 @@ export async function renderVendorBySlug({
             {/* v2.1 visual treatment per CLAUDE-CODE-BRIEF-v2.1 § 8 design
                 system + /tmp/setnayan-keynote-template/components/vendor-
                 microsite.jsx hero typography. Italic-serif headline matches
-                the homepage + /for-vendors + /vendors marketplace headline
+                the homepage + /vendors + /vendors marketplace headline
                 rhythm (PR #580 lineage). Cream + ink + terracotta tokens
                 unchanged. Business name stays the visual anchor — v2.1
                 publisher posture means real vendor names are always visible
@@ -1551,20 +1663,22 @@ export async function renderVendorBySlug({
                 in the Reviews section far below). Respects the Free-tier star gate
                 (viewerTierCaps.reviewStarsCounted) and hides when there are no
                 reviews yet — an honest empty state, never a fake 0.0. */}
+            {/* ANTI-FRAUD (2026-07-05): headline stars + count read the TRUSTED
+                (receipt-backed, arm's-length) stat, not the raw review totals. */}
             {viewerTierCaps.reviewStarsCounted &&
-            reviewStats.total_count > 0 &&
-            reviewStats.avg_rating_overall > 0 ? (
+            trustedReviewStats.trusted_review_count > 0 &&
+            trustedReviewStats.trusted_avg_rating > 0 ? (
               <p
                 className="inline-flex w-fit items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-2.5 py-0.5 text-[11px] text-ink/70"
-                title={`${formatStarRating(reviewStats.avg_rating_overall)} average from ${reviewStats.total_count} review${reviewStats.total_count === 1 ? '' : 's'} by couples who booked via Setnayan.`}
+                title={`${formatStarRating(trustedReviewStats.trusted_avg_rating)} average from ${trustedReviewStats.trusted_review_count} review${trustedReviewStats.trusted_review_count === 1 ? '' : 's'} by couples who booked via Setnayan.`}
               >
                 <Star aria-hidden className="h-3.5 w-3.5 fill-warn-400 text-warn-500" strokeWidth={1.75} />
                 <span className="font-medium text-ink">
-                  {formatStarRating(reviewStats.avg_rating_overall)}
+                  {formatStarRating(trustedReviewStats.trusted_avg_rating)}
                 </span>
                 <span aria-hidden>·</span>
                 <span>
-                  {reviewStats.total_count} review{reviewStats.total_count === 1 ? '' : 's'}
+                  {trustedReviewStats.trusted_review_count} review{trustedReviewStats.trusted_review_count === 1 ? '' : 's'}
                 </span>
               </p>
             ) : null}
@@ -1655,6 +1769,14 @@ export async function renderVendorBySlug({
                   Inquire Now
                 </a>
                 <ShareButton title={displayLabel} className="button-secondary inline-flex items-center gap-2" />
+                {canShowBooth ? (
+                  <Link
+                    href={`/v/${vendor.business_slug ?? slug}/booth`}
+                    className="button-secondary inline-flex items-center gap-2"
+                  >
+                    Walk into my booth
+                  </Link>
+                ) : null}
               </div>
             ) : null}
             {/* Visual map (2026-06-28). The picture-of-the-map above the
@@ -1692,7 +1814,16 @@ export async function renderVendorBySlug({
           </section>
         ) : null}
 
-        {showPortfolio && portfolioUrls.length > 0 ? (
+        {/* Portfolio — ONE unified gallery of the vendor's photos + their own
+            pasted video links (all tiers). Photos lead, then videos: YouTube &
+            Vimeo mount as responsive inline 16:9 players; Instagram / Facebook /
+            TikTok / other links render as click-through cards. Unparseable video
+            entries are dropped upstream. Governed by the vendor's Portfolio
+            visibility toggle; auto-hidden when there's nothing to show. */}
+        {showPortfolio &&
+        (portfolioUrls.length > 0 ||
+          featuredVideos.length > 0 ||
+          igMedia.length > 0) ? (
           <section className="space-y-3 border-b border-ink/10 py-8">
             <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
               Portfolio
@@ -1712,26 +1843,117 @@ export async function renderVendorBySlug({
                   />
                 </div>
               ))}
+              {featuredVideos.map((v, idx) =>
+                v.kind === 'iframe' && v.embedUrl ? (
+                  // Inline player spans two grid columns so its 16:9 frame reads
+                  // as the signature "watch this" moment amid the photo tiles.
+                  <div
+                    key={`${v.originalUrl}-${idx}`}
+                    className="relative col-span-2 aspect-video overflow-hidden rounded-xl bg-ink/5"
+                  >
+                    <iframe
+                      src={v.embedUrl}
+                      title={`${displayLabel} — ${v.label} video ${idx + 1}`}
+                      loading="lazy"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      referrerPolicy="strict-origin-when-cross-origin"
+                      className="absolute inset-0 h-full w-full border-0"
+                    />
+                  </div>
+                ) : (
+                  // Link-out platforms (IG / FB / TikTok / other) get a play-badge
+                  // card sized like a photo tile so the grid stays even.
+                  <a
+                    key={`${v.originalUrl}-${idx}`}
+                    href={v.originalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer nofollow"
+                    className="group relative flex aspect-[4/3] flex-col justify-between overflow-hidden rounded-xl border border-ink/10 bg-cream/50 p-4 transition-colors hover:border-terracotta/40"
+                  >
+                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-ink/5 text-ink/70 transition-colors group-hover:bg-terracotta/10 group-hover:text-terracotta">
+                      <PlatformIcon platform={v.platform} />
+                    </span>
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-medium text-ink">
+                        Watch on {v.label}
+                      </span>
+                      <ArrowRight
+                        aria-hidden
+                        className="h-4 w-4 shrink-0 text-ink/40 transition-colors group-hover:text-terracotta"
+                        strokeWidth={2}
+                      />
+                    </span>
+                  </a>
+                ),
+              )}
+              {/* Synced Instagram posts (show_on_profile) — images re-hosted in
+                  R2 render as photo tiles; videos link out to the IG permalink
+                  with a play badge, sized like a photo tile so the grid stays
+                  even. Entries without a resolvable URL are dropped. */}
+              {igMedia.map((m, idx) =>
+                m.mediaType === 'VIDEO' ? (
+                  <a
+                    key={`ig-${m.id}`}
+                    href={m.permalink ?? '#'}
+                    target="_blank"
+                    rel="noopener noreferrer nofollow"
+                    className="group relative aspect-[4/3] overflow-hidden rounded-xl bg-ink/5"
+                  >
+                    {m.displayUrl ? (
+                      <Image
+                        src={m.displayUrl}
+                        alt={`${displayLabel} Instagram video ${idx + 1}`}
+                        fill
+                        sizes="(max-width: 640px) 50vw, 33vw"
+                        className="object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center bg-cream/50 text-ink/40">
+                        <Play aria-hidden className="h-6 w-6" strokeWidth={2} />
+                      </span>
+                    )}
+                    <span className="absolute inset-0 flex items-center justify-center">
+                      <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white transition-colors group-hover:bg-black/70">
+                        <Play aria-hidden className="h-5 w-5" strokeWidth={2} />
+                      </span>
+                    </span>
+                  </a>
+                ) : m.displayUrl ? (
+                  <div
+                    key={`ig-${m.id}`}
+                    className="relative aspect-[4/3] overflow-hidden rounded-xl bg-ink/5"
+                  >
+                    <Image
+                      src={m.displayUrl}
+                      alt={`${displayLabel} Instagram post ${idx + 1}`}
+                      fill
+                      sizes="(max-width: 640px) 50vw, 33vw"
+                      className="object-cover"
+                    />
+                  </div>
+                ) : null,
+              )}
             </div>
           </section>
         ) : null}
 
-        {/* Films — the Enterprise "Flagship" video portfolio. Click-to-play
-            thumbnail facades (YouTube-nocookie + Vimeo dnt=1 injected on click),
-            first ~6 shown with a "Show all" expander. Enterprise-only + reverts
-            on downgrade (data kept); auto-hidden when empty. */}
-        {filmCards.length > 0 ? (
-          <FilmsRack films={filmCards} title={displayLabel} />
-        ) : null}
+        {/* Films rack RETIRED 2026-07-05 — unified into the all-tier "Featured
+            videos" gallery above (owner: single video system). Vendors' existing
+            films were migrated into gallery_video_links. */}
 
-        {/* Editorials ("Real Stories") — the vendor's published, couple-consented
-            weddings, told in full. Featured-first (Pro pick); the lead story is a
-            wide spotlight. Auto-hidden until a real story exists. */}
-        {showEditorials && featuredEditorials.length > 0 ? (
+        {/* "Featured in these stories" — both voices crediting this vendor
+            (PR-D · Simplicity Canon rule 2: credit is FREE for every visible
+            vendor, any tier — the old Pro-gate is retired). Editorials keep
+            their editorial grammar; chapters render in the Storyteller tile
+            grammar. Auto-hidden until either voice has something to show. */}
+        {showEditorials &&
+        (featuredEditorials.length > 0 || featuredChapterCredits.length > 0) ? (
           <section className="space-y-4 border-b border-ink/10 py-8">
             <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-              Featured in Real Stories
+              Featured in these stories
             </h2>
+            {featuredEditorials.length > 0 ? (
             <div className="grid gap-3 sm:grid-cols-3">
               {featuredEditorials.map((story, idx) => (
                 <a
@@ -1763,6 +1985,16 @@ export async function renderVendorBySlug({
                 </a>
               ))}
             </div>
+            ) : null}
+            {/* Storyteller chapters crediting this vendor — their own tile
+                grammar (byline + badge + view count), never the editorial's. */}
+            {featuredChapterCredits.length > 0 ? (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {featuredChapterCredits.map((chapter) => (
+                  <StorytellerTile key={chapter.publicId} item={chapter} />
+                ))}
+              </div>
+            ) : null}
           </section>
         ) : null}
 
@@ -1877,6 +2109,7 @@ export async function renderVendorBySlug({
             discountsByService={discountsByService}
             servesByService={servesByService}
             showcaseByService={showcaseByService}
+            hidePrices={hidePricesPublicly}
           />
         ) : null}
 
@@ -1890,6 +2123,7 @@ export async function renderVendorBySlug({
             packages={vendorPackages}
             coupleEventId={coupleEventId}
             isComingSoon={isComingSoon}
+            hidePrices={hidePricesPublicly}
           />
         ) : null}
 
@@ -1901,6 +2135,7 @@ export async function renderVendorBySlug({
           slug={slug}
           businessName={displayLabel}
           reviewStats={reviewStats}
+          trustedReviewStats={trustedReviewStats}
           reviews={orderedReviews}
           hasMore={hasMore}
           nextPage={reviewsPage + 1}
@@ -1913,6 +2148,8 @@ export async function renderVendorBySlug({
           showComments={viewerTierCaps.reviewCommentsViewable}
           recommendingCouples={recommendingCouples}
           completedEvents={completedEvents}
+          venueEvents={venueEvents}
+          hasVenueMatch={venueMatchCount > 0}
         />
 
         {showTrustedBy ? (
@@ -2007,6 +2244,26 @@ export async function renderVendorBySlug({
               // bouncing on the server `not_secured` guard. Secured users and
               // signed-out visitors are unaffected.
               viewerIsAnonymous={user?.is_anonymous ?? false}
+              // Creator Economy PR-C/PR-D — provenance carried from the arrival
+              // URL: ?ref_chapter=… (a chapter's Book CTA; server-validated
+              // before stamping 'influencer' attribution) and ?src=… (a
+              // caller-declared, enum-validated origin: 'editorial' from a
+              // /realstories credit chip → 'Editorial Inquiry', 'favorites' from
+              // a saved-vendors "Contact" link → 'Favorites'). Absent both, the
+              // inquiry stays the NULL/'website' default. startServiceInquiry
+              // re-validates the source server-side, so an unknown ?src is inert.
+              referringChapterPublicId={
+                typeof search.ref_chapter === 'string' && search.ref_chapter
+                  ? search.ref_chapter
+                  : null
+              }
+              inquirySource={
+                search.src === 'editorial'
+                  ? 'editorial'
+                  : search.src === 'favorites'
+                    ? 'favorites'
+                    : null
+              }
             />
           ) : null}
 
@@ -2095,16 +2352,17 @@ export async function renderVendorBySlug({
           {premiumLayout && bookable ? (
             <aside className="hidden lg:block">
               <div className="sticky top-6 space-y-4 rounded-2xl border border-ink/10 bg-cream/50 p-5">
+                {/* ANTI-FRAUD (2026-07-05): sticky rail rating reads TRUSTED stat. */}
                 {viewerTierCaps.reviewStarsCounted &&
-                reviewStats.total_count > 0 &&
-                reviewStats.avg_rating_overall > 0 ? (
+                trustedReviewStats.trusted_review_count > 0 &&
+                trustedReviewStats.trusted_avg_rating > 0 ? (
                   <div className="flex items-baseline gap-2">
                     <span className="text-2xl font-semibold text-ink">
-                      {formatStarRating(reviewStats.avg_rating_overall)}
+                      {formatStarRating(trustedReviewStats.trusted_avg_rating)}
                     </span>
                     <Star aria-hidden className="h-4 w-4 fill-warn-400 text-warn-500" strokeWidth={1.75} />
                     <span className="text-sm text-ink/60">
-                      {reviewStats.total_count} review{reviewStats.total_count === 1 ? '' : 's'}
+                      {trustedReviewStats.trusted_review_count} review{trustedReviewStats.trusted_review_count === 1 ? '' : 's'}
                     </span>
                   </div>
                 ) : null}
@@ -2264,6 +2522,7 @@ function ServicesPricingSection({
   discountsByService,
   servesByService,
   showcaseByService,
+  hidePrices,
 }: {
   services: ReadonlyArray<VendorServiceRow>;
   businessName: string;
@@ -2273,6 +2532,8 @@ function ServicesPricingSection({
   servesByService: Map<string, string>;
   /** Resolved showcase display URLs per service id (photos ≤5 + optional clip). */
   showcaseByService: Map<string, ServiceShowcaseMedia>;
+  /** Council #6: vendor opted to hide public prices → strip every peso amount. */
+  hidePrices: boolean;
 }) {
   const byGroup = new Map<ServiceGroupKey, VendorServiceRow[]>();
   for (const s of services) {
@@ -2301,6 +2562,7 @@ function ServicesPricingSection({
           discountsByService.get(row.vendor_service_id),
           servesByService.get(row.vendor_service_id),
           showcaseByService.get(row.vendor_service_id),
+          hidePrices,
         ),
       ),
     });
@@ -2336,12 +2598,15 @@ function toServiceCard(
   discounts: VendorServiceDiscount[] | undefined,
   serves: string | undefined,
   showcase: ServiceShowcaseMedia | undefined,
+  /** Council #6: when true the vendor opted to hide public prices — every peso
+   *  amount below is suppressed (labels/inclusions still show; only figures go). */
+  hidePrices: boolean,
 ): ServiceCard {
   const label = isCanonicalService(row.category)
     ? VENDOR_CATEGORY_LABEL[row.category as VendorCategory]
     : row.category;
   const priceLabel =
-    row.starting_price_php !== null && row.starting_price_php > 0
+    !hidePrices && row.starting_price_php !== null && row.starting_price_php > 0
       ? `from ${formatPhp(row.starting_price_php)}`
       : 'Inquire';
 
@@ -2350,15 +2615,20 @@ function toServiceCard(
   // block (+ the extra-hour rate when set). Fixed = nothing extra to explain
   // (the pax brackets stay a vendor-side quoting tool in V1). The anchor line
   // above is untouched.
+  const isCrewMeals = row.category === 'crew_meals';
+  const perPaxUnit = isCrewMeals ? 'meal' : 'guest';
   let priceDetail: string | null = null;
-  if (
+  if (hidePrices) {
+    // Vendor hid prices — no per-pax/per-hour rate breakdown.
+    priceDetail = null;
+  } else if (
     row.pricing_basis === 'per_pax' &&
     row.per_pax_price_php !== null &&
     row.per_pax_price_php > 0
   ) {
     const minPart =
-      row.min_pax !== null && row.min_pax > 0 ? ` · min ${row.min_pax} guests` : '';
-    priceDetail = `${formatPhp(row.per_pax_price_php)} / guest${minPart}`;
+      row.min_pax !== null && row.min_pax > 0 ? ` · min ${row.min_pax} ${perPaxUnit}s` : '';
+    priceDetail = `${formatPhp(row.per_pax_price_php)} / ${perPaxUnit}${minPart}`;
   } else if (
     row.pricing_basis === 'per_hour' &&
     row.hour_base_php !== null &&
@@ -2376,13 +2646,15 @@ function toServiceCard(
   }
 
   // Best applicable discount → a single badge (pickBestDiscount ranks by peso
-  // savings on the anchor, dropping expired offers).
-  const best = pickBestDiscount(discounts, row.starting_price_php);
+  // savings on the anchor, dropping expired offers). Suppressed when the vendor
+  // hid prices — a "Save ₱X" / "N% off" badge reveals the underlying figure.
+  const best = hidePrices ? null : pickBestDiscount(discounts, row.starting_price_php);
 
   // FREE inclusions — "<label> · ₱X free" (worth omitted when the vendor left
-  // it blank). Trim to a few; the overflow surfaces as "+N more".
+  // it blank, OR when the vendor hid prices — keep the inclusion label, drop the
+  // peso worth). Trim to a few; the overflow surfaces as "+N more".
   const allInclusions = (inclusions ?? []).map((inc) =>
-    inc.worth_php !== null && inc.worth_php > 0
+    !hidePrices && inc.worth_php !== null && inc.worth_php > 0
       ? `${inc.label} · ${formatPhp(inc.worth_php)} free`
       : inc.label,
   );
@@ -2394,17 +2666,17 @@ function toServiceCard(
   if (row.crew_size !== null && row.crew_size > 0) {
     crewParts.push(`${row.crew_size} crew on-site`);
   }
-  if (row.crew_meal_required) {
+  if (row.crew_meal_required && !isCrewMeals) {
     crewParts.push('crew meal required');
   }
 
   // "Not included" expectation flags — feed the couple's budget + set
   // expectations before the quote (0007 budget line items).
   const notIncluded: string[] = [];
-  if (!row.crew_meal_included) notIncluded.push('Crew meal not included');
+  if (!row.crew_meal_included && !isCrewMeals) notIncluded.push('Crew meal not included');
   if (!row.transport_included) {
     notIncluded.push(
-      row.transport_flat_fee_php !== null && row.transport_flat_fee_php > 0
+      !hidePrices && row.transport_flat_fee_php !== null && row.transport_flat_fee_php > 0
         ? `Transport: ${formatPhp(row.transport_flat_fee_php)}`
         : 'Transport not included',
     );
@@ -2501,6 +2773,7 @@ function ReviewsSection({
   slug,
   businessName,
   reviewStats,
+  trustedReviewStats,
   reviews,
   hasMore,
   nextPage,
@@ -2508,10 +2781,14 @@ function ReviewsSection({
   showComments,
   recommendingCouples,
   completedEvents,
+  venueEvents,
+  hasVenueMatch,
 }: {
   slug: string;
   businessName: string;
   reviewStats: ReviewStatsRow;
+  /** ANTI-FRAUD (2026-07-05): trusted headline average + count. */
+  trustedReviewStats: TrustedReviewStatsRow;
   reviews: ReadonlyArray<ReviewWithCouple>;
   hasMore: boolean;
   nextPage: number;
@@ -2523,6 +2800,10 @@ function ReviewsSection({
   recommendingCouples: number;
   /** Receipt-backed dated track record (Wave 5) — [] hides the section. */
   completedEvents: ReadonlyArray<VendorCompletedEventRow>;
+  /** Venue-aware past-events gallery (safe layer, owner 2026-07-18). */
+  venueEvents: VendorVenueEvent[];
+  /** True when ≥1 venueEvents is at the viewing couple's venue. */
+  hasVenueMatch: boolean;
 }) {
   return (
     <section className="space-y-6 border-b border-ink/10 py-8">
@@ -2547,7 +2828,9 @@ function ReviewsSection({
           vendor delivered THROUGH Setnayan — same owner/team/internal/self-comp
           exclusions as the public completed-events count, so it can't be
           padded. Renders for every viewer tier; omitted only when empty. */}
-      {completedEvents.length > 0 ? (
+      {venueEvents.length > 0 ? (
+        <VenueMatchedEvents events={venueEvents} hasMatch={hasVenueMatch} />
+      ) : completedEvents.length > 0 ? (
         <TrackRecord events={completedEvents} />
       ) : null}
 
@@ -2555,7 +2838,9 @@ function ReviewsSection({
           entirely — no average, no histogram. The per-card "new" treatment
           on the marketplace already signals these vendors have no shown
           rating; the microsite simply omits the metrics block. */}
-      {showStars ? <ReviewHeroMetrics stats={reviewStats} /> : null}
+      {showStars ? (
+        <ReviewHeroMetrics stats={reviewStats} trusted={trustedReviewStats} />
+      ) : null}
 
       {/* Phase C: review bodies/comments are gated separately (showComments).
           When OFF (Free + Verified), the per-review detail (body, axis stats,
@@ -2612,8 +2897,20 @@ function ReviewsSection({
   );
 }
 
-function ReviewHeroMetrics({ stats }: { stats: ReviewStatsRow }) {
-  const hero = stats.avg_rating_overall;
+function ReviewHeroMetrics({
+  stats,
+  trusted,
+}: {
+  stats: ReviewStatsRow;
+  /** ANTI-FRAUD (2026-07-05): headline average + count read the TRUSTED stat. */
+  trusted: TrustedReviewStatsRow;
+}) {
+  // Headline number + count are the TRUSTED (receipt-backed, arm's-length)
+  // aggregate so fake / self-dealt reviews can't inflate the public rating.
+  const hero = trusted.trusted_avg_rating;
+  const trustedCount = trusted.trusted_review_count;
+  // The per-star histogram bars stay on the raw counts (proportional shape of
+  // whatever reviews exist); only the aggregate number/stars/count migrate.
   const totals: Array<{ star: 5 | 4 | 3 | 2 | 1; count: number }> = [
     { star: 5, count: stats.count_5_star },
     { star: 4, count: stats.count_4_star },
@@ -2636,7 +2933,7 @@ function ReviewHeroMetrics({ stats }: { stats: ReviewStatsRow }) {
           </span>
         </div>
         <p className="text-xs text-ink/60">
-          {stats.total_count} review{stats.total_count === 1 ? '' : 's'}
+          {trustedCount} review{trustedCount === 1 ? '' : 's'}
         </p>
       </div>
       <ul className="space-y-1.5 text-xs">
@@ -2925,10 +3222,13 @@ function VendorPackagesSection({
   packages,
   coupleEventId,
   isComingSoon,
+  hidePrices,
 }: {
   packages: ReadonlyArray<VendorPackageWithItems>;
   coupleEventId: string | null;
   isComingSoon: boolean;
+  /** Council #6: vendor opted to hide public prices → PackageCard shows no peso. */
+  hidePrices: boolean;
 }) {
   return (
     <section className="space-y-4 border-b border-ink/10 py-8">
@@ -2963,7 +3263,7 @@ function VendorPackagesSection({
               </Link>
             );
           }
-          return <PackageCard key={pkg.package_id} pkg={pkg} ctaSlot={cta} />;
+          return <PackageCard key={pkg.package_id} pkg={pkg} ctaSlot={cta} hidePrice={hidePrices} />;
         })}
       </div>
     </section>

@@ -6,7 +6,7 @@
  * WHY: CLAUDE.md 2026-05-28 11th row "v2.1 BRIEF LOCKED AS CANONICAL". Owner
  * directive: port v2.1 visual treatment across marketing surfaces. Signup is
  * the funnel from marketing → dashboard; visual continuity from the homepage
- * + /for-vendors editorial register through the signup door matters.
+ * + /vendors editorial register through the signup door matters.
  *
  * SCOPE — visual treatment ONLY:
  *   - Two-column desktop layout: brand panel (left · 1fr) + form panel
@@ -412,7 +412,11 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
               variant, web the server-action row; mobile/older-native = email-only
               (see showOAuth/desktopOAuth). */}
           {showOAuth ? (
-            desktopOAuth ? <DesktopOAuthButtons next={next} /> : <OAuthButtonRow next={next} />
+            // withAccountType: carry the Couple/Vendor selection into the web
+            // OAuth row so a vendor signing up via Google/Apple isn't
+            // misclassified as a customer. (Desktop-loopback OAuth threading is a
+            // separate follow-up — the Tauri flow doesn't post a form.)
+            desktopOAuth ? <DesktopOAuthButtons next={next} /> : <OAuthButtonRow next={next} withAccountType defaultAccountType={preselectVendor ? 'vendor' : 'customer'} />
           ) : null}
 
           {showOAuth ? (
@@ -514,9 +518,10 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             {/* Public Event Summary consent · couples only. Hides via
                 [data-couple-only] when Vendor is checked. Field name +
                 value identical to prior implementation (locked in
-                CLAUDE.md 2026-05-19 rows 426 + 428). Default checked
-                per V2 publisher posture (public-by-default with 8 RA
-                10173 safe-harbor guardrails). */}
+                CLAUDE.md 2026-05-19 rows 426 + 428). Starts UNticked
+                (2026-07-05 NPC consent hygiene) — showcase consent must be
+                freely given, not pre-selected. The 8 RA 10173 safe-harbor
+                guardrails still apply once opted in. */}
             <div
               data-couple-only
               style={{
@@ -541,7 +546,6 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                   type="checkbox"
                   name="public_summary_consent"
                   value="yes"
-                  defaultChecked
                   style={{
                     marginTop: 2,
                     width: 14,

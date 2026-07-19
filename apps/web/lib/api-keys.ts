@@ -54,6 +54,15 @@ export const API_SCOPES = [
   'events.read',
   'guests.read',
   'vendors.read',
+  // Enterprise-vendor SDK — the vendor's OWN data (owner 2026-07-11). Each maps
+  // to a /api/v1/vendor/* read endpoint scoped to the key's blessed shop. All
+  // read-only in this phase; a later phase adds vendor.availability.write +
+  // webhooks. Distinct from `vendors.read` (the public marketplace-browse scope).
+  'vendor.leads.read',
+  'vendor.bookings.read',
+  'vendor.availability.read',
+  'vendor.reviews.read',
+  'vendor.profile.read',
 ] as const;
 
 export type ApiScope = (typeof API_SCOPES)[number];
@@ -86,6 +95,31 @@ export const SCOPE_COPY: Record<
     label: 'Vendors (vendors.read)',
     description:
       'Reserved for the V1.5 booking flow. /api/v1/vendors is already public.',
+  },
+  'vendor.leads.read': {
+    label: 'Vendor leads (vendor.leads.read)',
+    description:
+      'Read your inbound couple inquiries via /api/v1/vendor/leads — status, event date, and requested services. No couple contact details.',
+  },
+  'vendor.bookings.read': {
+    label: 'Vendor bookings (vendor.bookings.read)',
+    description:
+      'Read your confirmed bookings via /api/v1/vendor/bookings — status and event date. Never the couple’s budget or your margins.',
+  },
+  'vendor.availability.read': {
+    label: 'Vendor availability (vendor.availability.read)',
+    description:
+      'Read your calendar busy/free blocks + day states via /api/v1/vendor/availability. Private labels and client names are stripped.',
+  },
+  'vendor.reviews.read': {
+    label: 'Vendor reviews (vendor.reviews.read)',
+    description:
+      'Read the reviews on your business via /api/v1/vendor/reviews — ratings, body, and your replies.',
+  },
+  'vendor.profile.read': {
+    label: 'Vendor profile (vendor.profile.read)',
+    description:
+      'Read your own business profile, services, and packages via /api/v1/vendor/profile.',
   },
 };
 

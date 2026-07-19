@@ -27,6 +27,8 @@ import {
   type StudioTileOption,
 } from './_components/taxonomy-studio';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
+import { KpiStatCard } from '../_components/kpi-stat-card';
 export const metadata = { title: 'Taxonomy Studio · Admin' };
 // Top-level DB reads (admin client + getTaxonomy) — keep this route dynamic so a
 // future root app/loading.tsx can't pull it into build-time static generation.
@@ -117,6 +119,7 @@ export default async function AdminTaxonomyPage({
     Record<'ok' | 'error' | 'q' | 'view' | 'open' | 'opentab', string | string[] | undefined>
   >;
 }) {
+  await requireAdmin();
   const sp = await searchParams;
   const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   const q = (first(sp.q) ?? '').trim().slice(0, 80);
@@ -530,7 +533,7 @@ export default async function AdminTaxonomyPage({
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">Iteration 0044 · V1.1 vendor taxonomy</p>
+        <p className="sn-eye">Iteration 0044 · V1.1 vendor taxonomy</p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Taxonomy Studio</h1>
         <p className="text-base text-ink/65">
           The single live taxonomy, edited visually. Ten folders, {tiles.length} tiles, {totalRows} services.
@@ -555,10 +558,10 @@ export default async function AdminTaxonomyPage({
 
       {/* Stats */}
       <section className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Folders" value={folders.length} />
-        <Stat label="Tiles" value={tiles.length} />
-        <Stat label="Filed services" value={totalMapped} />
-        <Stat label="Unfiled" value={unfiledCount} />
+        <KpiStatCard label="Folders" value={folders.length} />
+        <KpiStatCard label="Tiles" value={tiles.length} />
+        <KpiStatCard label="Filed services" value={totalMapped} />
+        <KpiStatCard label="Unfiled" value={unfiledCount} />
       </section>
 
       {/* The three-pane studio (client) */}
@@ -595,7 +598,7 @@ export default async function AdminTaxonomyPage({
         ) : null}
 
         {/* Recommended deadlines */}
-        <details className="rounded-xl border border-ink/10 bg-cream/60 p-4">
+        <details className="sn-tile p-4">
           <summary className="cursor-pointer text-sm font-semibold text-ink">
             Recommended deadlines{' '}
             <span className="font-normal text-ink/55">({recommendedDeadlines.length} set)</span>
@@ -605,7 +608,7 @@ export default async function AdminTaxonomyPage({
             code default. <strong>Months</strong> for services, <strong>days</strong> for documents.
           </p>
           {deadlines.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-ink/20 bg-cream/60 px-4 py-3 text-sm text-ink/60">
+            <p className="rounded-lg border border-dashed border-ink/15 bg-white/50 px-4 py-3 text-sm text-ink/60">
               No deadline rows — the <code className="font-mono text-xs">planning_deadlines</code> migration
               isn&apos;t applied yet. Reminders run on code defaults until then.
             </p>
@@ -622,16 +625,16 @@ export default async function AdminTaxonomyPage({
                   ✓ Every reminder category has a deadline set.
                 </p>
               )}
-              <ul className="divide-y divide-ink/10 rounded-xl border border-ink/10 bg-cream">
+              <ul className="divide-y divide-ink/10 overflow-hidden rounded-card border border-white/60 bg-white/60">
                 {recommendedDeadlines.map((d) => (
                   <li key={d.deadline_id} className="flex flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="truncate text-sm font-medium text-ink">{d.label ?? d.ref_key}</span>
-                        <Badge tone={d.kind === 'document' ? 'bg-blue-50 text-blue-700' : 'bg-ink/5 text-ink/55'}>
+                        <Badge tone={d.kind === 'document' ? 'bg-[var(--sn-info-soft)] text-[color:var(--sn-info)]' : 'bg-ink/5 text-ink/55'}>
                           {d.kind}
                         </Badge>
-                        {d.scope === 'leaf' ? <Badge tone="bg-violet-50 text-violet-700">override</Badge> : null}
+                        {d.scope === 'leaf' ? <Badge tone="bg-[var(--sn-info-soft)] text-[color:var(--sn-info)]">override</Badge> : null}
                         {!d.is_active ? <Badge tone="bg-danger-50 text-danger-700">off</Badge> : null}
                       </div>
                       <div className="mt-0.5 truncate font-mono text-[11px] text-ink/45">{d.ref_key}</div>
@@ -671,7 +674,7 @@ export default async function AdminTaxonomyPage({
         </details>
 
         {/* Last-minute window start */}
-        <details className="rounded-xl border border-ink/10 bg-cream/60 p-4">
+        <details className="sn-tile p-4">
           <summary className="cursor-pointer text-sm font-semibold text-ink">
             Last-minute window start{' '}
             <span className="font-normal text-ink/55">(Setnayan AI · {lmStartByGroup.size} set)</span>
@@ -680,7 +683,7 @@ export default async function AdminTaxonomyPage({
             The month before the wedding when a category enters its <strong>last-minute</strong> window. Leave
             blank to keep a category <strong>off</strong>.
           </p>
-          <ul className="divide-y divide-ink/10 rounded-xl border border-ink/10 bg-cream">
+          <ul className="divide-y divide-ink/10 overflow-hidden rounded-card border border-white/60 bg-white/60">
             {lastMinuteGroups.map((g) => {
               const current = lmStartByGroup.get(g.id);
               return (
@@ -736,15 +739,6 @@ export default async function AdminTaxonomyPage({
           </ul>
         </details>
       </div>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-xl border border-ink/10 bg-cream p-4">
-      <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tracking-tight text-ink">{value}</p>
     </div>
   );
 }

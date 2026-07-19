@@ -20,7 +20,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isAdminProfile } from '@/lib/demo-mode';
-import { fetchThreadById } from '@/lib/chat';
+import { fetchThreadById, type ChatInquiryStatus } from '@/lib/chat';
 import { emitNotification } from '@/lib/notification-emit';
 import type { NotificationType } from '@/lib/notifications';
 
@@ -44,7 +44,7 @@ type DemoThread = {
   thread_id: string;
   event_id: string;
   vendor_profile_id: string;
-  inquiry_status: 'pending' | 'accepted' | 'declined';
+  inquiry_status: ChatInquiryStatus;
   vendor_business_name: string;
 };
 

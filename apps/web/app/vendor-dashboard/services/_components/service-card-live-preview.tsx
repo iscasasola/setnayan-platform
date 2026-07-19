@@ -49,6 +49,8 @@ const DISCOUNT_LABEL: Record<string, string> = {
 function readSnapshot(fd: FormData): Snapshot {
   const name = String(fd.get('title') ?? '').trim() || 'Untitled service';
   const basis = String(fd.get('pricing_basis') ?? 'fixed');
+  const isCrewMeals = String(fd.get('category') ?? '') === 'crew_meals';
+  const perPaxUnit = isCrewMeals ? 'meal' : 'guest';
 
   // ── "from ₱X" anchor per basis (v20 priceText) ─────────────────────────
   let anchor: number | null = null;
@@ -59,8 +61,8 @@ function readSnapshot(fd: FormData): Snapshot {
     if (rate != null) {
       anchor = minPax ? rate * minPax : rate;
       priceText = minPax
-        ? `from ${php(rate * minPax)} · ${php(rate)}/guest`
-        : `from ${php(rate)} / guest`;
+        ? `from ${php(rate * minPax)} · ${php(rate)}/${perPaxUnit}`
+        : `from ${php(rate)} / ${perPaxUnit}`;
     }
   } else if (basis === 'per_hour') {
     const base = num(fd.get('hour_base_php'));
@@ -125,7 +127,7 @@ function readSnapshot(fd: FormData): Snapshot {
 
   // ── Not-included flags ──────────────────────────────────────────────────
   const notIncluded: string[] = [];
-  if (fd.get('crew_meal_included') !== 'on') notIncluded.push('crew meal');
+  if (!isCrewMeals && fd.get('crew_meal_included') !== 'on') notIncluded.push('crew meal');
   if (fd.get('transport_included') !== 'on') {
     const fee = num(fd.get('transport_flat_fee_php'));
     notIncluded.push(fee != null ? `transport (+${php(fee)})` : 'transport (by distance)');

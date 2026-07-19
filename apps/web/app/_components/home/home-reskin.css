@@ -8,7 +8,7 @@
  * EVERY rule is scoped under `.home-reskin` so it never leaks into the rest of
  * the site (which keeps the `--m-*` Clean-Editorial tokens). The cool-greige
  * tokens below are local to this subtree; the brand gold `--hr-pop2` matches the
- * existing `--m-orange` (#C5A059).
+ * existing `--m-orange` (#A9834B).
  *
  * Fonts reuse the app's already-loaded marketing families:
  *   --hr-sans  → --font-sans-marketing  (Geist)
@@ -25,7 +25,7 @@
   --hr-grey-2: #a8a4a0;
   --hr-line: rgba(42, 43, 46, 0.12);
   --hr-pop1: #9a7bc9; /* the one gradient pop (a la ELN's purple) */
-  --hr-pop2: #c5a059; /* a whisper of Setnayan gold inside the pop */
+  --hr-pop2: #A9834B; /* a whisper of Setnayan gold inside the pop */
   --hr-sans: var(--font-sans-marketing), -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
   --hr-serif: var(--font-serif-marketing), 'Instrument Serif', Georgia, serif;
   --hr-mono: var(--font-mono-marketing), ui-monospace, monospace;
@@ -613,7 +613,7 @@ html.hr-snap {
   font-style: italic;
   font-size: clamp(1.4rem, 2.5vw, 1.8rem);
   line-height: 1;
-  color: #a88340; /* deeper champagne — keeps 3:1+ on the greige bg */
+  color: #8A6B39; /* kit gold-700 — keeps 3:1+ on the greige bg */
 }
 .home-reskin .hr-psep {
   width: 28px;
@@ -818,12 +818,12 @@ html.hr-snap {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: rgba(197, 160, 89, 0.09);
-  border: 1px solid rgba(197, 160, 89, 0.28);
+  background: rgba(169, 131, 75, 0.09);
+  border: 1px solid rgba(169, 131, 75, 0.28);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #a88340;
+  color: #8A6B39;
   font-size: 15px;
   margin-bottom: 11px;
 }
@@ -943,7 +943,7 @@ html.hr-snap {
   font-weight: 600;
 }
 .home-reskin .hr-mcal .hr-free {
-  background: rgba(197, 160, 89, 0.16);
+  background: rgba(169, 131, 75, 0.16);
   color: #97742f;
 }
 .home-reskin .hr-mck {
@@ -989,7 +989,7 @@ html.hr-snap {
   position: absolute;
   inset: 11px;
   border-radius: 50%;
-  background: rgba(197, 160, 89, 0.16);
+  background: rgba(169, 131, 75, 0.16);
 }
 .home-reskin .hr-mtl-row {
   display: flex;
@@ -1362,7 +1362,7 @@ html.hr-snap {
 }
 .home-reskin .hr-m-db2 .hr-me-mod.hr-live {
   border-color: var(--hr-pop2);
-  background: rgba(197, 160, 89, 0.07);
+  background: rgba(169, 131, 75, 0.07);
 }
 .home-reskin .hr-m-db2 .hr-me-foot {
   margin-top: auto;
@@ -1831,7 +1831,7 @@ html.hr-snap {
   --hr-grey-2: #a8a4a0;
   --hr-line: rgba(42, 43, 46, 0.12);
   --hr-pop1: #9a7bc9;
-  --hr-pop2: #c5a059;
+  --hr-pop2: #A9834B;
   --hr-sans: var(--font-sans-marketing), -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
   --hr-serif: var(--font-serif-marketing), 'Instrument Serif', Georgia, serif;
   --hr-mono: var(--font-mono-marketing), ui-monospace, monospace;
@@ -1882,6 +1882,142 @@ html.hr-snap {
     transform: none;
     opacity: 1;
   }
+}
+/* ── Slim nav popup (Prices / Vendors) ──
+   The slim free-only popups keep the narrower max-width of the old frosted card
+   but render on a SOLID near-white surface so the copy is fully readable. The
+   translucent blur(16px) glass (owner 2026-07-04) let the page photos behind the
+   popup bleed through and washed out the text; opaque fixes that (owner
+   2026-07-10). The dimmed .home-reskin-ov backdrop still isolates it from the
+   page. A narrower max-width fits the short free list. */
+.home-reskin-ov .hr-ov-card.hr-ov-card-glass {
+  max-width: 440px;
+  padding: 30px 28px 24px;
+  background: var(--hr-bg);
+  border: 1px solid var(--hr-line);
+  box-shadow:
+    0 40px 90px -24px rgba(18, 13, 9, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+/* The close button falls through to the base solid-white .hr-ov-x — no
+   translucent-glass override needed now the card is opaque. */
+/* Free-highlights checklist inside the glass popup. */
+.home-reskin-ov .hr-glist {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.home-reskin-ov .hr-glist li {
+  position: relative;
+  padding-left: 26px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #1B1A17;
+}
+.home-reskin-ov .hr-glist li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  top: -1px;
+  color: #8A6B39;
+  font-weight: 700;
+  font-size: 14px;
+}
+.home-reskin-ov .hr-glist li b {
+  font-weight: 600;
+}
+.home-reskin-ov .hr-glist li span {
+  display: block;
+  margin-top: 1px;
+  font-size: 12.5px;
+  color: #4f535b;
+}
+/* Quick paid-tier intro row inside the glass popup — a one-line summary
+   (Setnayan AI price · how the vendor tiers stack), sitting between the free
+   checklist and the single line-link out. Deliberately compact so the popup
+   stays a summary, not the wall. */
+.home-reskin-ov .hr-gintro {
+  margin: 2px 0 4px;
+  padding: 12px 14px;
+  border-radius: var(--hr-r14);
+  background: rgba(169, 131, 75, 0.1);
+  border: 1px solid rgba(169, 131, 75, 0.28);
+}
+.home-reskin-ov .hr-gintro-h {
+  display: block;
+  font-family: var(--font-mono-marketing), ui-monospace, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8A6B39;
+}
+.home-reskin-ov .hr-gintro-b {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #1B1A17;
+}
+/* The single line-link out — "Want more? → See all prices". */
+.home-reskin-ov .hr-gline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(30, 26, 18, 0.12);
+}
+.home-reskin-ov .hr-gline-t {
+  font-size: 13.5px;
+  color: #4f535b;
+}
+.home-reskin-ov .hr-gline-a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1B1A17;
+  text-decoration: none;
+}
+.home-reskin-ov .hr-gline-arw {
+  color: #8A6B39;
+  transition: transform 0.15s;
+}
+.home-reskin-ov .hr-gline-a:hover .hr-gline-arw {
+  transform: translateX(3px);
+}
+/* The glass popup uses the CLEAN-EDITORIAL serif + palette for its title/eyebrow
+   (prototype used Cormorant + gold), not the greige italic Instrument Serif the
+   opaque overlays use. Scope these overrides to the glass card only. */
+.home-reskin-ov .hr-ov-card-glass .hr-ov-title {
+  font-family: var(--font-serif-marketing), 'Cormorant Garamond', Georgia, serif;
+  font-style: normal;
+  font-weight: 600;
+  font-size: clamp(1.7rem, 5vw, 2rem);
+  color: #1B1A17;
+  margin: 6px 0 4px;
+}
+.home-reskin-ov .hr-ov-card-glass .hr-ov-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: #8A6B39;
+}
+.home-reskin-ov .hr-ov-card-glass .hr-ov-eyebrow::before {
+  content: '';
+  width: 24px;
+  height: 1px;
+  background: #A9834B;
+}
+.home-reskin-ov .hr-ov-card-glass .hr-ov-sub {
+  color: #4f535b;
+  margin-bottom: 18px;
 }
 .home-reskin-ov .hr-ov-x {
   position: absolute;
@@ -2075,13 +2211,13 @@ html.hr-snap {
   gap: 0 20px;
 }
 .home-reskin-ov .hr-pr-papic {
-  background: rgba(197, 160, 89, 0.06);
+  background: rgba(169, 131, 75, 0.06);
   border-radius: var(--hr-r12);
   padding: 3px 16px;
   margin-bottom: 8px;
 }
 .home-reskin-ov .hr-pr-papic .hr-pr-row {
-  border-bottom-color: rgba(197, 160, 89, 0.18);
+  border-bottom-color: rgba(169, 131, 75, 0.18);
 }
 .home-reskin-ov .hr-pr-free {
   display: flex;
@@ -2144,11 +2280,17 @@ html.hr-snap {
   color: var(--hr-ink);
   font-weight: 600;
 }
+.home-reskin-ov .hr-pr-cta-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px 20px;
+  margin-top: 18px;
+}
 .home-reskin-ov .hr-pr-seefull {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-top: 18px;
   background: var(--hr-ink);
   color: #fff;
   font-size: 14px;
@@ -2156,6 +2298,22 @@ html.hr-snap {
   padding: 13px 24px;
   border-radius: var(--hr-r);
   font-family: var(--hr-sans);
+}
+.home-reskin-ov .hr-pr-custom-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--hr-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--hr-ink);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(42, 43, 46, 0.25);
+  padding-bottom: 1px;
+  transition: border-color 0.2s ease;
+}
+.home-reskin-ov .hr-pr-custom-link:hover {
+  border-bottom-color: var(--hr-ink);
 }
 .home-reskin-ov .hr-dl-grid {
   display: grid;
@@ -2365,7 +2523,7 @@ html.hr-snap {
 }
 .home-reskin-ov .hr-si-input:focus {
   border-color: var(--hr-pop2);
-  box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.18);
+  box-shadow: 0 0 0 3px rgba(169, 131, 75, 0.18);
 }
 .home-reskin-ov .hr-si-row {
   display: flex;
@@ -2422,10 +2580,33 @@ html.hr-snap {
   font-size: 12.5px;
   color: var(--hr-grey);
 }
+/* Sign-in status banners — only rendered when the card is THE /login surface
+   (a failed sign-in redirects to /login?error=…, and the signup flow lands here
+   with ?check_email / ?ready). On the marketing-nav overlay these are always
+   absent (it opens on '/'), so the card looks unchanged there. */
+.home-reskin-ov .hr-si-banner {
+  margin: 2px 0;
+  padding: 10px 13px;
+  border-radius: var(--hr-r10);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--hr-ink);
+  background: rgba(169, 131, 75, 0.08);
+  border: 1px solid var(--hr-line);
+}
+.home-reskin-ov .hr-si-banner--error {
+  color: #8a2b2b;
+  background: rgba(190, 60, 60, 0.09);
+  border-color: rgba(190, 60, 60, 0.26);
+}
+.home-reskin-ov .hr-si-banner-em {
+  font-weight: 600;
+  color: var(--hr-ink);
+}
 .home-reskin-ov .hr-vb-stat {
   font-size: 13.5px;
   color: var(--hr-ink);
-  background: rgba(197, 160, 89, 0.06);
+  background: rgba(169, 131, 75, 0.06);
   border: 1px solid var(--hr-line);
   border-radius: var(--hr-r12);
   padding: 12px 15px;

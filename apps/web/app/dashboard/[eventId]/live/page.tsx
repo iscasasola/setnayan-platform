@@ -14,7 +14,12 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { getDayOfPhase } from '@/lib/day-of-mode';
 import { eventSkuActive } from '@/lib/entitlements';
-import { resolveWallMode, type WallMode } from '@/lib/live-wall-logic';
+import {
+  asWallTileLayout,
+  clampWallPhotoCount,
+  resolveWallMode,
+  type WallMode,
+} from '@/lib/live-wall-logic';
 import {
   LiveWallControls,
   type WallScreenRow,
@@ -100,7 +105,7 @@ export default async function LiveWallConsolePage({
   ] = await Promise.all([
     admin
       .from('events')
-      .select('event_date, live_mode_override, kwento_flash_auto_wall')
+      .select('event_date, live_mode_override, kwento_flash_auto_wall, wall_photo_count, wall_tile_layout')
       .eq('event_id', eventId)
       .maybeSingle(),
     supabase
@@ -211,8 +216,9 @@ export default async function LiveWallConsolePage({
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 px-4 py-6 sm:px-6">
-      <header>
-        <h1 className="flex items-center gap-2 text-xl font-semibold text-ink">
+      <header className="sn-reveal">
+        <p className="sn-eye">Live Wall</p>
+        <h1 className="sn-h1 flex items-center gap-2">
           <MonitorPlay aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={2} />
           Live Wall
         </h1>
@@ -229,7 +235,7 @@ export default async function LiveWallConsolePage({
             {stats.map((s) => (
               <div key={s.label} className="text-center">
                 <dt className="sr-only">{s.label}</dt>
-                <dd className="text-lg font-semibold text-ink">{s.value}</dd>
+                <dd className="font-mono text-lg font-semibold text-ink">{s.value}</dd>
                 <dd className="flex items-center gap-1 text-[11px] text-ink/50">
                   {s.icon}
                   {s.label}
@@ -258,7 +264,13 @@ export default async function LiveWallConsolePage({
           </p>
         ) : null}
 
-        <LiveWallControls eventId={eventId} screens={screens} tiles={tiles} />
+        <LiveWallControls
+          eventId={eventId}
+          screens={screens}
+          tiles={tiles}
+          photoCount={clampWallPhotoCount(event?.wall_photo_count as number | null)}
+          tileLayout={asWallTileLayout(event?.wall_tile_layout as string | null)}
+        />
         <p className="mt-3 text-xs text-ink/50">
           Projector URL:{' '}
           <span className="font-mono text-[12px] text-ink/70">/wall/{eventId}</span> — open

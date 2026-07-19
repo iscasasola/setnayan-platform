@@ -11,14 +11,18 @@ import {
   daysUntilEvent,
   dueDateForItem,
   buildChecklistSeed,
+  buildSeedRows,
   phaseForOffset,
   groupChecklistByPhase,
   isChurchCeremony,
+  isWeddingEvent,
   checklistItemHref,
+  checklistChrome,
   CHECKLIST_TEMPLATE,
   CHECKLIST_PHASES,
   type ChecklistItemRow,
 } from './checklist';
+import { checklistDefForEventType } from './checklist-event-type-defs';
 
 function item(p: Partial<ChecklistItemRow>): ChecklistItemRow {
   return {
@@ -225,4 +229,88 @@ test('checklistItemHref: booking tasks deep-link to their vendor category', () =
   // Tasks with no destination return null (no jump arrow).
   assert.equal(checklistItemHref('e1', 'write_vows'), null);
   assert.equal(checklistItemHref('e1', null), null);
+});
+
+test('isWeddingEvent: null/unset and wedding get the wedding template; explicit non-wedding types do not', () => {
+  // Backward-compat: historic events with no event_type are weddings.
+  assert.equal(isWeddingEvent(null), true);
+  assert.equal(isWeddingEvent(undefined), true);
+  assert.equal(isWeddingEvent('wedding'), true);
+  // Explicit non-wedding types must NOT receive the wedding checklist.
+  for (const t of ['birthday', 'debut', 'christening', 'corporate', 'tournament', 'gender_reveal', 'travel', 'celebration']) {
+    assert.equal(isWeddingEvent(t), false, `${t} should not be a wedding`);
+  }
+});
+
+test('buildSeedRows: buildChecklistSeed is byte-identical to buildSeedRows(CHECKLIST_TEMPLATE)', () => {
+  // The wedding path MUST NOT change — the refactor extracted the mapper only.
+  for (const ceremony of [null, 'catholic', 'civil', 'inc', 'muslim']) {
+    assert.deepEqual(
+      buildChecklistSeed('e', ceremony),
+      buildSeedRows('e', CHECKLIST_TEMPLATE, ceremony),
+      `wedding seed differs for ceremony=${ceremony}`,
+    );
+  }
+});
+
+test('buildSeedRows: seeds a per-event-type template with stable sort_order', () => {
+  const bday = checklistDefForEventType('birthday')!;
+  const rows = buildSeedRows('e', bday.template, null);
+  // one row per template item (per-type templates carry no appliesTo predicates)
+  assert.equal(rows.length, bday.template.length);
+  assert.equal(rows[0]!.event_id, 'e');
+  assert.ok(rows.every((r) => r.status === 'pending'));
+  // sort_order follows (idx+1)*10 and is strictly ascending
+  assert.equal(rows[0]!.sort_order, 10);
+  for (let i = 1; i < rows.length; i++) {
+    assert.ok(rows[i]!.sort_order > rows[i - 1]!.sort_order);
+  }
+  // the birthday keys — NOT wedding keys — are what get seeded
+  const keys = new Set(rows.map((r) => r.template_key));
+  assert.ok(keys.has('bday_cake'), 'birthday task present');
+  assert.ok(!keys.has('marriage_license'), 'no wedding paperwork leaks into a birthday');
+  assert.ok(!keys.has('pre_cana'), 'no pre-Cana in a birthday');
+});
+
+test('checklistChrome: wedding/null/unknown return the exact wedding copy (no regression)', () => {
+  const wed = checklistChrome('wedding');
+  assert.equal(wed.heading, 'Wedding checklist');
+  assert.equal(wed.eyebrow, 'Your wedding');
+  assert.equal(wed.pageTitle, 'Wedding checklist · Setnayan');
+  assert.equal(wed.dayOfLabel, 'Wedding day & after');
+  assert.equal(wed.showPhaseBlurbs, true);
+  assert.ok(wed.intro.includes('18 months'));
+  // null + unknown fall back to the wedding chrome (byte-identical)
+  assert.deepEqual(checklistChrome(null), wed);
+  assert.deepEqual(checklistChrome('quinceanera'), wed);
+});
+
+test('checklistChrome: non-wedding types get event-aware copy + suppressed blurbs', () => {
+  const bday = checklistChrome('birthday');
+  assert.equal(bday.heading, 'Birthday checklist');
+  assert.equal(bday.eyebrow, 'Your birthday');
+  assert.equal(bday.pageTitle, 'Birthday checklist · Setnayan');
+  assert.equal(bday.dayOfLabel, 'Birthday day & after');
+  assert.equal(bday.showPhaseBlurbs, false);
+  assert.ok(!bday.intro.includes('18 months'), 'no wedding-specific runway copy');
+  assert.equal(checklistChrome('debut').heading, 'Debut checklist');
+  assert.equal(checklistChrome('gender_reveal').eyebrow, 'Your gender reveal');
+  assert.equal(checklistChrome('travel').eyebrow, 'Your trip');
+});
+
+test('checklistItemHref: per-type keys get a category fallback link; wedding hrefs unchanged', () => {
+  // per-type keys were previously null → now clickable via category fallback
+  assert.equal(checklistItemHref('e', 'bday_venue', 'vendors'), '/dashboard/e/vendors?tab=shortlist');
+  assert.equal(checklistItemHref('e', 'debut_catering', 'vendors'), '/dashboard/e/vendors?tab=shortlist');
+  assert.equal(checklistItemHref('e', 'bday_guest_list', 'guests'), '/dashboard/e/guests');
+  assert.equal(checklistItemHref('e', 'bday_budget', 'foundations'), '/dashboard/e/budget');
+  assert.equal(checklistItemHref('e', 'christ_parish', 'paperwork'), '/dashboard/e/paperwork');
+  // a per-type foundations task with no budget/date → still null
+  assert.equal(checklistItemHref('e', 'debut_theme', 'foundations'), null);
+  // WEDDING keys unchanged whether or not category is passed (no regression)
+  assert.equal(checklistItemHref('e', 'book_caterer'), '/dashboard/e/vendors?tab=shortlist&open=catering');
+  assert.equal(checklistItemHref('e', 'book_caterer', 'vendors'), '/dashboard/e/vendors?tab=shortlist&open=catering');
+  assert.equal(checklistItemHref('e', 'write_vows', 'foundations'), null);
+  // a NON-per-type unknown key never triggers the fallback even with a category
+  assert.equal(checklistItemHref('e', 'some_unknown_key', 'vendors'), null);
 });

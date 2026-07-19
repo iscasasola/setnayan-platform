@@ -8,8 +8,8 @@ import type { VendorPesoScorecard } from '@/lib/vendor-peso';
  * booked couple."
  *
  * BEHAVIORAL HONESTY: token burn-on-answer IS live — `unlock_vendor_event`
- * consumes 1–3 region-banded (minimum-wage) tokens when a paid-tier vendor
- * accepts an inquiry (FREE blocked · VERIFIED ≤10/wk AND burns · SOLO/PRO/
+ * consumes a flat 1 token (₱200 · 2026-07-12 lock, previously 1–3 region-banded)
+ * when a paid-tier vendor accepts an inquiry (FREE blocked · VERIFIED ≤10/wk AND burns · SOLO/PRO/
  * ENTERPRISE unlimited AND burns). Token spend reads ₱0 for a vendor who simply
  * hasn't answered a burning inquiry this cycle. The card says THAT plainly
  * when `burnInert` (= ₱0 token spend this cycle); it never implies the vendor is
@@ -43,11 +43,11 @@ export function PesoPerLeadCard({ scorecard }: { scorecard: VendorPesoScorecard 
   } = scorecard;
 
   return (
-    <section className="mt-8 m-card p-6">
+    <section className="sn-tile mt-8 p-6">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="m-label-mono">Peso-per-lead scorecard</p>
-          <h2 className="m-display-tight mt-1 text-xl">Your unit economics</h2>
+          <p className="sn-eye">Peso-per-lead scorecard</p>
+          <h2 className="mt-1 text-xl font-extrabold tracking-[-0.015em]">Your unit economics</h2>
           <p className="mt-1 max-w-prose text-sm text-ink/60">
             What this {periodDays}-day cycle cost you — token answers plus
             subscription — measured against the couples you actually booked.
@@ -111,9 +111,8 @@ export function PesoPerLeadCard({ scorecard }: { scorecard: VendorPesoScorecard 
         <p className="mt-4 rounded-md border border-ink/10 bg-ink/[0.02] px-3 py-2.5 text-[12px] leading-relaxed text-ink/60">
           <span className="font-medium text-ink/75">Your peso-per-lead reads</span>{' '}
           <span className="font-mono">₱0</span> because you haven&apos;t answered an
-          inquiry that burned tokens this cycle. Each answered lead burns{' '}
-          {peso(tokenPricePhp)}–{peso(tokenPricePhp * 3)} (by the wedding&apos;s
-          region) — this scorecard tracks it the moment you do.
+          inquiry that burned tokens this cycle. Each answered lead burns a flat{' '}
+          {peso(tokenPricePhp)} — this scorecard tracks it the moment you do.
         </p>
       )}
     </section>

@@ -16,8 +16,8 @@ export const metadata = { title: 'Track record · Vendor' };
  *
  * A standalone reputation surface that breaks a vendor's flat completed-events
  * count out by events.event_type: Weddings 12 · ★4.8 / Debuts 3 · ★4.6 / … .
- * Reachable from the My Shop group (the /more landing + mobile nav) via the
- * `track-record` sidebar entry. Owner/admin only — agents/viewers don't see the
+ * Reachable from the /shop "More tools" card (SHOP_TOOLS) via the `track-record`
+ * entry. Owner/admin only — agents/viewers don't see the
  * aggregate reputation view (mirrors the reviews/analytics surfaces).
  */
 export default async function VendorTrackRecordPage() {
@@ -45,11 +45,11 @@ export default async function VendorTrackRecordPage() {
           delivered, your record across every kind of event shows up here.
         </p>
         <Link
-          href="/vendor-dashboard/profile"
+          href="/vendor-dashboard/shop"
           className="mt-6 inline-flex items-center rounded-full px-4 py-2 text-sm font-medium"
           style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
         >
-          Go to profile
+          Go to my shop
         </Link>
       </div>
     );
@@ -63,7 +63,7 @@ export default async function VendorTrackRecordPage() {
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       <header className="mb-6 space-y-1.5">
-        <p className="m-eyebrow" style={{ color: 'var(--m-orange-2)' }}>
+        <p className="sn-eye" style={{ color: 'var(--m-orange-2)' }}>
           One profile, every life event
         </p>
         <h1
@@ -85,7 +85,7 @@ export default async function VendorTrackRecordPage() {
           rows={rows}
         />
       ) : (
-        <div className="rounded-2xl border border-dashed border-ink/15 bg-cream p-8 text-center">
+        <div className="rounded-2xl border border-dashed border-ink/15 p-8 text-center">
           <CalendarHeart
             className="mx-auto mb-2 h-6 w-6 text-ink/30"
             strokeWidth={1.5}

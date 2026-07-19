@@ -99,6 +99,17 @@ const remoteImagePatterns = [
 // `frame-ancestors 'self'` (not 'none') + `X-Frame-Options: SAMEORIGIN` block
 // external clickjacking while still allowing the dashboard's same-origin
 // landing-page live-preview iframe to render.
+//
+// `frame-src` is scoped narrowly to the video players we embed: same-origin
+// (the landing-page preview iframe) plus YouTube-nocookie / YouTube / Vimeo,
+// which the vendor "Featured videos" gallery + the Enterprise Films rack mount
+// as inline players — and Instagram / TikTok, whose /embed players back the
+// Creator "Adventure Chapter" embed (lib/creator-chapters.ts allowlist:
+// youtube|instagram|tiktok; every chapter iframe is additionally sandboxed).
+// This directive only governs what WE embed — it does NOT re-introduce the
+// strict default-src/script-src the comment above deferred, so the
+// Babel-standalone keynote decks are unaffected. New embed origins later
+// extend this one list.
 const securityHeaders = [
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -108,7 +119,11 @@ const securityHeaders = [
     key: 'Permissions-Policy',
     value: 'camera=(self), microphone=(self), geolocation=(self), browsing-topics=()',
   },
-  { key: 'Content-Security-Policy', value: "frame-ancestors 'self'" },
+  {
+    key: 'Content-Security-Policy',
+    value:
+      "frame-ancestors 'self'; frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com https://www.instagram.com https://www.tiktok.com",
+  },
 ];
 
 const nextConfig: NextConfig = {
@@ -155,6 +170,10 @@ const nextConfig: NextConfig = {
       './models/face-detection/**/*',
       './assets/cipher-fonts/*.ttf',
       './lib/social/fonts/*.ttf',
+      // NPC submission PDFs streamed admin-only by
+      // /admin/data-privacy/documents/[doc] (read via a dynamic filename, so
+      // nft can't statically trace them — force-include the set).
+      './assets/npc-docs/*.pdf',
     ],
   },
   // `sharp` (native) is loaded server-side to decode uploaded vendor QR images
@@ -316,6 +335,23 @@ const nextConfig: NextConfig = {
     return [
       { source: '/weddings', destination: '/realstories', permanent: true },
       { source: '/weddings/:slug', destination: '/realstories/:slug', permanent: true },
+      // 2026-07-05 — vendor BENEFITS page renamed `/for-vendors` → `/vendors`
+      // (owner routing change). Permanent (308) so already-indexed URLs,
+      // bookmarks, email links, and QR codes carry their ranking to the new
+      // path. EXACT source only — the static hero art still lives under
+      // `public/for-vendors/*.avif`, so a `:path*` catch-all would break those
+      // asset URLs. Marketplace subpaths (`/vendors/*` → /explore) are handled
+      // separately in middleware.ts.
+      { source: '/for-vendors', destination: '/vendors', permanent: true },
+      // 2026-07-16 — Storytellers hub (PR-D · council verdict): /storytellers
+      // is a SPEAKABLE WORD, not a page — it redirects into the "From Our
+      // Storytellers" shelf on the single stories hub, so creators/marketing
+      // (and the /pricing "Creators — Free" callout) have a link target with
+      // zero second page to maintain. Never indexable on its own. TEMPORARY
+      // (307) on purpose: the verdict's Phase S4 leaves room for a future
+      // standalone page once chapter volume outgrows the shelf — a permanent
+      // redirect would be cached against that promotion.
+      { source: '/storytellers', destination: '/realstories#storytellers', permanent: false },
     ];
   },
   async rewrites() {

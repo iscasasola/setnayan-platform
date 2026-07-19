@@ -54,14 +54,14 @@ export function GuestReviewQr({
       <style>
         @page { margin: 24mm; }
         html,body { height: 100%; margin: 0; }
-        body { font-family: -apple-system, system-ui, sans-serif; color: #1E2229;
+        body { font-family: -apple-system, system-ui, sans-serif; color: #1B1A17;
                display: flex; align-items: center; justify-content: center; }
         .sheet { text-align: center; max-width: 480px; }
         .qr { width: 340px; height: 340px; margin: 0 auto 28px; }
         .qr svg { width: 100%; height: 100%; }
         h1 { font-size: 26px; margin: 0 0 8px; letter-spacing: -0.01em; }
         p { font-size: 15px; line-height: 1.5; color: #4F535B; margin: 0 0 6px; }
-        .biz { font-weight: 600; color: #1E2229; }
+        .biz { font-weight: 600; color: #1B1A17; }
         .url { font-family: ui-monospace, monospace; font-size: 12px; color: #898D94; margin-top: 18px; word-break: break-all; }
       </style></head><body>
       <div class="sheet">

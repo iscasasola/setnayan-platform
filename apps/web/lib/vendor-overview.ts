@@ -6,9 +6,19 @@ import { fetchVendorThreads } from '@/lib/chat';
 import { fetchReviewsForVendorWithCouple } from '@/lib/reviews';
 import { fetchVendorContracts } from '@/lib/contracts';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
-import { regionBurnTokens } from '@/lib/v2/region-token-burn';
 import { resolveRegion } from '@/lib/region-source';
+import {
+  buildInquiryCard,
+  type InquiryWhatsNewCard,
+} from '@/lib/vendor-overview-inquiry-card';
 import { displayServiceLabel } from '@/lib/vendors';
+import { fetchVendorServices } from '@/lib/vendor-services';
+import { computeMonthlySubtotals, fetchVendorEarnings } from '@/lib/vendor-earnings';
+import {
+  buildPaydayTimeline,
+  manilaTodayIso,
+  type PaydayInstallmentRow,
+} from '@/lib/vendor-cashflow';
 
 /**
  * vendor-overview.ts — the server-side data assembly for the vendor dashboard
@@ -42,19 +52,9 @@ import { displayServiceLabel } from '@/lib/vendors';
 
 /** A single card in the "What's new" decision feed. */
 export type WhatsNewCard =
-  | {
-      kind: 'inquiry';
-      id: string;
-      threadId: string;
-      title: string; // "New inquiry — New customer"
-      eventName: string;
-      eventDate: string | null;
-      place: string | null;
-      category: string | null;
-      /** Region-banded token cost to Accept (◎N). */
-      tokenCost: number;
-      createdAt: string;
-    }
+  // Pre-accept inquiry — masked by construction (no couple identity, no
+  // `eventName`); see `vendor-overview-inquiry-card.ts`.
+  | InquiryWhatsNewCard
   | {
       kind: 'lock';
       id: string;
@@ -194,18 +194,24 @@ export async function fetchVendorOverviewData(
 
   for (const t of pendingThreads) {
     const meta = eventMeta.get(t.event_id);
-    whatsNew.push({
-      kind: 'inquiry',
-      id: `inq-${t.thread_id}`,
-      threadId: t.thread_id,
-      title: 'New inquiry — New customer',
-      eventName: t.event?.display_name ?? meta?.displayName ?? 'A couple',
-      eventDate: t.event?.event_date ?? meta?.eventDate ?? null,
-      place: placeLabel(meta?.venue ?? null, meta?.region ?? null),
-      category: vendorCategory,
-      tokenCost: regionBurnTokens(meta?.region ?? null),
-      createdAt: t.created_at,
-    });
+    // Anonymization-until-accept (Glass PR-6b): a pending inquiry is PRE-accept,
+    // so the couple's identity must NOT surface here. `buildInquiryCard` accepts
+    // only non-identifying inputs (event type · region · date · category) — the
+    // admin-read `meta.displayName`/`venue` PII fields are deliberately NOT
+    // passed, so there is no path through which they can reach the card. The card
+    // carries a neutral `descriptor` ("A couple planning a {type} in {city}") and
+    // city/area-level `place` only. Full reveal happens after Accept (this card
+    // disappears once the thread leaves `pending`).
+    whatsNew.push(
+      buildInquiryCard({
+        threadId: t.thread_id,
+        createdAt: t.created_at,
+        eventDate: t.event?.event_date ?? meta?.eventDate ?? null,
+        eventType: meta?.eventType ?? null,
+        region: meta?.region ?? null,
+        category: vendorCategory,
+      }),
+    );
   }
 
   for (const lr of lockRequests) {
@@ -309,6 +315,75 @@ export async function fetchVendorOverviewData(
   return { whatsNew, ongoing, upcoming };
 }
 
+// ---------------------------------------------------------------------------
+// EARNINGS SUMMARY — the real booked-revenue figures the Overview reskin
+// skipped (PR #2980 noted "no real source on this surface"; there is one, it
+// just wasn't loaded here). Two independent, real sources — both fail-soft:
+//
+//   · earnedThisYearPhp / bookingCount — the SAME year-to-date figure the
+//     /vendor-dashboard/earnings page shows: matched payments on orders whose
+//     service_key is in this vendor's own service categories (admin client,
+//     scoped by the vendor's OWN vendor_services rows — never a raw user_id).
+//   · confirmedPhp / expectedPhp — the vendor's payday cash-flow: the
+//     ownership-gated `vendor_payday_installments()` RPC (auth.uid()-scoped
+//     internally), summed via buildPaydayTimeline. confirmed = installments the
+//     vendor has confirmed receiving; expected = total booked installment value.
+//
+// Never invents a number: any sub-fetch that throws degrades to empty → ₱0.
+// ---------------------------------------------------------------------------
+
+export type VendorEarningsSummary = {
+  /** Year-to-date paid revenue on the vendor's service categories (pesos). */
+  earnedThisYearPhp: number;
+  /** Count of matched paid bookings behind the earnings figure. */
+  bookingCount: number;
+  /** Confirmed (received) installment value across booked events (pesos). */
+  confirmedPhp: number;
+  /** Total booked installment value across booked events (pesos). */
+  expectedPhp: number;
+};
+
+/**
+ * Load the vendor's real earnings summary for the Overview bento. Cheap enough
+ * to sit on the Overview's parallel batch: two round trips run concurrently and
+ * each degrades to empty on failure, so a bad read shows an honest ₱0 rather
+ * than crashing the page. `supabase` is the vendor's own session (RLS-scoped);
+ * the earnings read uses the admin client filtered by the vendor's OWN
+ * categories, mirroring the earnings page exactly.
+ */
+export async function fetchVendorEarningsSummary(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<VendorEarningsSummary> {
+  const admin = createAdminClient();
+
+  const [earnings, paydayTotals] = await Promise.all([
+    // Earnings: vendor's categories → matched payments (same path as the
+    // Earnings page). Fail-soft to [] so a bad read shows ₱0, not a crash.
+    (async () => {
+      const services = await fetchVendorServices(supabase, vendorProfileId);
+      const categories = Array.from(new Set(services.map((s) => s.category)));
+      if (categories.length === 0) return [];
+      return fetchVendorEarnings(admin, categories);
+    })().catch(() => []),
+    // Payday cash-flow: ownership-gated RPC (auth.uid()-scoped). Fail-soft.
+    (async () => {
+      const { data, error } = await supabase.rpc('vendor_payday_installments');
+      const rows = (error ? [] : ((data ?? []) as unknown as PaydayInstallmentRow[]));
+      return buildPaydayTimeline(rows, manilaTodayIso()).totals;
+    })().catch(() => null),
+  ]);
+
+  const { ytdTotal } = computeMonthlySubtotals(earnings);
+
+  return {
+    earnedThisYearPhp: ytdTotal,
+    bookingCount: earnings.length,
+    confirmedPhp: paydayTotals?.confirmedPhp ?? 0,
+    expectedPhp: paydayTotals?.expectedPhp ?? 0,
+  };
+}
+
 /** The sort key for a feed card — its creation/recorded timestamp. */
 function cardTimestamp(card: WhatsNewCard): Date {
   switch (card.kind) {
@@ -338,6 +413,7 @@ type EventMeta = {
   eventDate: string | null;
   region: string | null;
   venue: string | null;
+  eventType: string | null;
 };
 
 async function fetchEventMeta(
@@ -348,7 +424,7 @@ async function fetchEventMeta(
   if (eventIds.length === 0) return out;
   const { data } = await admin
     .from('events')
-    .select('event_id, display_name, event_date, region, venue')
+    .select('event_id, display_name, event_date, region, venue, event_type')
     .in('event_id', eventIds);
   for (const row of (data ?? []) as Array<{
     event_id: string;
@@ -356,12 +432,14 @@ async function fetchEventMeta(
     event_date: string | null;
     region: string | null;
     venue: string | null;
+    event_type: string | null;
   }>) {
     out.set(row.event_id, {
       displayName: row.display_name ?? 'A couple',
       eventDate: row.event_date,
       region: row.region,
       venue: row.venue,
+      eventType: row.event_type,
     });
   }
   return out;

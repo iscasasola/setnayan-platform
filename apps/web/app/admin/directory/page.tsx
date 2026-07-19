@@ -1,78 +1,29 @@
 /**
- * /admin/directory — mobile overflow landing for the Accounts group
- * (6-menu respine 2026-07-03; route kept for bookmark continuity, the group
- * key stays 'directory').
+ * /admin/directory — mobile overflow landing for the Accounts group.
  *
- * WHY: CLAUDE.md 2026-05-23 row 2 admin doorway mobile lock — the account
- * record surfaces compress into a card grid behind the Accounts bottom-nav
- * tab. Per [[feedback_setnayan_orphan_prevention]] every NavItem here maps
- * 1:1 to a sidebar entry in apps/web/app/admin/_components/admin-sidebar.tsx
- * Accounts group. (Spotlight Awards + Journal Spotlights moved to
- * /admin/marketing with their group.)
+ * OWNER DIRECTIVE 2026-07-04: mobile menus mirror the desktop sidebar. This
+ * Accounts landing DERIVES its cards from the 'directory' group of the
+ * canonical ADMIN_NAV_GROUPS (admin-sidebar.tsx) — no hand-mirrored item list.
+ * Every NavItem here maps 1:1 to the desktop Accounts group by construction.
+ *
+ * SCOPE: server component, hidden at lg+ via lg:hidden — desktop reaches these
+ * through the sidebar's Accounts group directly.
  */
 
-import {
-  Users,
-  Briefcase,
-  TestTube,
-  CalendarDays,
-  MapPin,
-} from 'lucide-react';
-import { MobileLandingGrid, type LandingItem } from '../_components/mobile-landing-grid';
+import { ADMIN_NAV_GROUPS } from '../_components/admin-nav-groups';
+import { MobileLandingGrid } from '../_components/mobile-landing-grid';
+import { adaptAdminGroupItems } from '../_components/admin-nav-descriptions';
 
 export const metadata = { title: 'Accounts · Admin' };
 
-const DIRECTORY_ITEMS: LandingItem[] = [
-  {
-    key: 'users',
-    label: 'Users',
-    href: '/admin/users',
-    icon: Users,
-    description:
-      'All accounts across customer, vendor, and admin roles. Issue comp grants, reset passwords, suspend.',
-  },
-  {
-    key: 'vendors',
-    label: 'Vendors',
-    href: '/admin/vendors',
-    icon: Briefcase,
-    description:
-      'Vendor profiles directory. Edit business details, override visibility, and review tier state.',
-  },
-  {
-    key: 'demo-vendors',
-    label: 'Demo vendors',
-    href: '/admin/demo-vendors',
-    icon: TestTube,
-    description:
-      'Demo / placeholder vendor records used for pilot showcase. Manage seeded entries here.',
-  },
-  {
-    key: 'events',
-    label: 'Events',
-    href: '/admin/events',
-    icon: CalendarDays,
-    description:
-      'All weddings on the platform with host roster, date, and venue. Drill into individual event state.',
-  },
-  {
-    key: 'venues',
-    label: 'Venues',
-    href: '/admin/venues',
-    icon: MapPin,
-    description:
-      'Venue directory. Add a new venue, edit existing, or open a venue page for review.',
-  },
-  // Wedding types + Wedding traditions moved to More → Platform (governance +
-  // content, not record-lookup) per the ops-shaped nav redesign A.4.
-];
-
 export default function AdminDirectoryLanding() {
+  const items = adaptAdminGroupItems(ADMIN_NAV_GROUPS, 'directory');
+
   return (
     <MobileLandingGrid
       title="Accounts"
       subtitle="People and places on the platform. Search users, vendors, events, and venues."
-      items={DIRECTORY_ITEMS}
+      items={items}
     />
   );
 }

@@ -12,6 +12,7 @@ import {
   type ShareCreditMode,
 } from '@/lib/social-sharing';
 import { nextAvailableSlot } from '@/lib/social/governor';
+import { isRecapSocialShareAllowed } from '@/lib/social/recap-post';
 import { isFacebookConfigured, postToFacebookPage } from '@/lib/social/facebook';
 import { isInstagramConfigured, postToInstagramFeed } from '@/lib/social/instagram';
 import { isTikTokConfigured, postPhotoToTikTok } from '@/lib/social/tiktok';
@@ -72,7 +73,13 @@ type AdminClient = ReturnType<typeof createAdminClient>;
 
 type PostRow = {
   post_id: string;
-  source_type: 'couple_creation' | 'vendor_feature' | 'milestone' | 'announcement' | 'evergreen';
+  source_type:
+    | 'couple_creation'
+    | 'vendor_feature'
+    | 'milestone'
+    | 'announcement'
+    | 'evergreen'
+    | 'event_recap';
   source_ref: string;
   title: string | null;
   body: string;
@@ -279,7 +286,9 @@ async function sweepVendorFeatures(admin: AdminClient, now: Date): Promise<void>
     // Same Pro+ derivation as the queue page: tier_state guarded by
     // tier_expires_at because the downgrade sweep is login-driven.
     const proActive =
-      (vendor.tier_state === 'pro' || vendor.tier_state === 'enterprise') &&
+      (vendor.tier_state === 'pro' ||
+        vendor.tier_state === 'enterprise' ||
+        vendor.tier_state === 'custom') &&
       (!vendor.tier_expires_at || new Date(vendor.tier_expires_at).getTime() > now.getTime());
     const categoryLabel = vendor.services?.[0]
       ? displayServiceLabel(vendor.services[0])
@@ -699,6 +708,23 @@ async function dispatchDuePosts(
 
   for (const post of due) {
     try {
+      // Social follow-through #2 — recap re-post GATE (dispatch half). A recap
+      // post must NEVER go out when the couple opted out (recap_social_optout_at)
+      // OR the event site isn't effectively public. Compose has the same gate;
+      // this catches an opt-out / visibility flip that happened AFTER compose.
+      // Pull it (scheduled → pulled) so it also stops re-appearing as due.
+      if (
+        post.source_type === 'event_recap' &&
+        !(await isRecapSocialShareAllowed(admin, post.source_ref))
+      ) {
+        await admin
+          .from('social_posts')
+          .update({ status: 'pulled', updated_at: new Date().toISOString() })
+          .eq('post_id', post.post_id)
+          .eq('status', 'scheduled');
+        continue;
+      }
+
       // Claim — only the flush that flips scheduled → publishing owns the row.
       const { data: claimed, error: claimErr } = await admin
         .from('social_posts')

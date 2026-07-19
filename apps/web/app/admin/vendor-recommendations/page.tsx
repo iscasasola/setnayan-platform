@@ -11,6 +11,7 @@ import {
   type SkuOption,
 } from './_editor';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Vendor recommendations · Admin' };
 
 /**
@@ -98,6 +99,7 @@ function Banner({ search }: { search: Awaited<Props['searchParams']> }) {
 }
 
 export default async function AdminVendorRecommendationsPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const admin = createAdminClient();
 
@@ -242,7 +244,7 @@ export default async function AdminVendorRecommendationsPage({ searchParams }: P
           Recommendation map ({recs.length})
         </h2>
         {groupedLeaves.length === 0 ? (
-          <p className="rounded-2xl border border-ink/10 bg-cream px-4 py-6 text-center text-sm text-ink/60">
+          <p className="sn-tile px-4 py-6 text-center text-sm text-ink/60">
             No recommendations yet — add one below.
           </p>
         ) : (
@@ -289,7 +291,7 @@ export default async function AdminVendorRecommendationsPage({ searchParams }: P
           add); declining just resolves the flag.
         </p>
         {feedbackRows.length === 0 ? (
-          <p className="rounded-2xl border border-ink/10 bg-cream px-4 py-6 text-center text-sm text-ink/60">
+          <p className="sn-tile px-4 py-6 text-center text-sm text-ink/60">
             No pending flags.
           </p>
         ) : (
@@ -306,7 +308,7 @@ export default async function AdminVendorRecommendationsPage({ searchParams }: P
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-ink/5 bg-cream p-3">
+    <div className="rounded-md border border-white/60 bg-white/70 p-3">
       <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">{label}</p>
       <p className="mt-1 text-lg font-semibold tracking-tight text-ink">{value}</p>
     </div>

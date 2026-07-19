@@ -22,6 +22,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Music, Plus, X } from 'lucide-react';
 import { addPlaylistPick } from '../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 import type { PlaylistSlotType, PlaylistPickRow } from '@/lib/playlist';
 import { PlaylistPickRow as PlaylistPickRowComponent } from './playlist-pick-row';
 
@@ -49,6 +50,7 @@ export function PlaylistSlotSection({
   const [notes, setNotes] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const save = useSaveLoader();
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -66,7 +68,10 @@ export function PlaylistSlotSection({
 
     startTransition(async () => {
       try {
-        await addPlaylistPick(formData);
+        await save.run(() => addPlaylistPick(formData), {
+          steps: ['Adding to your playlist'],
+          hint: 'Saving',
+        });
         // Reset form + close drawer · revalidatePath in the action will
         // re-render the parent with the new pick.
         setSongLabel('');

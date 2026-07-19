@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
+import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 
 /**
  * Invite/Join v2 reconcile actions (0000 ADDENDUM 2026-06-25).
@@ -72,6 +73,10 @@ export async function keepGuestAction(eventId: string, formData: FormData) {
     .update({ entry_source: 'host_seeded', custom_tags: tags, updated_at: new Date().toISOString() })
     .eq('guest_id', guestId)
     .eq('event_id', eventId);
+
+  // Smart seat-plan Phase 5: a kept joiner is now a real list member — gap-fill
+  // them into a provisional seat if they don't have one.
+  await applyReconcileForEvent(admin, eventId);
 
   revalidatePath(`/dashboard/${eventId}/guests/claims`);
   revalidatePath(`/dashboard/${eventId}/guests`);

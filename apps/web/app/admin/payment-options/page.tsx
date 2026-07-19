@@ -1,6 +1,4 @@
-import { redirect } from 'next/navigation';
 import Image from 'next/image';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -20,6 +18,7 @@ import { DirectPayPreviewButton } from '@/app/dashboard/[eventId]/_components/ve
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Payment options · Admin' };
 
 /**
@@ -41,23 +40,6 @@ export const metadata = { title: 'Payment options · Admin' };
  * The page is gated by the parent admin layout (notFound for non-admins); we
  * also re-assert requireAdmin() at the top defensively.
  */
-
-async function requireAdmin() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { data: me } = await supabase
-    .from('users')
-    .select('is_internal, is_team_member, account_type')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (!(me?.is_internal || me?.is_team_member || me?.account_type === 'admin')) {
-    throw new Error('Forbidden');
-  }
-}
 
 type JoinedRow = VendorPaymentMethodRow & {
   vendor_profiles: { business_name: string | null } | null;
@@ -118,10 +100,10 @@ export default async function AdminPaymentOptionsPage() {
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">
+        <p className="sn-eye">
           Vendor payment options · Moderation
         </p>
-        <h1 className="m-display-tight text-2xl text-[color:var(--m-ink)] sm:text-3xl">
+        <h1 className="sn-h1">
           Payment options
         </h1>
         <p className="max-w-2xl text-sm text-ink/65">
@@ -149,7 +131,7 @@ export default async function AdminPaymentOptionsPage() {
           </span>
         </h2>
         {needsReview.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-ink/20 bg-cream p-10 text-center text-sm text-ink/55">
+          <p className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-10 text-center text-sm text-ink/55">
             Nothing waiting for review — every payment method is approved or
             removed.
           </p>
@@ -177,7 +159,7 @@ export default async function AdminPaymentOptionsPage() {
           that look off with Hold or Remove.
         </p>
         {published.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-ink/20 bg-cream p-10 text-center text-sm text-ink/55">
+          <p className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-10 text-center text-sm text-ink/55">
             No approved links or QR codes yet.
           </p>
         ) : (
@@ -206,7 +188,7 @@ function PaymentMethodCard({
   surface: 'needs_review' | 'published';
 }) {
   return (
-    <article className="space-y-4 rounded-xl border border-ink/10 bg-cream p-5">
+    <article className="space-y-4 sn-tile p-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-base font-semibold text-ink">
@@ -294,7 +276,7 @@ function MethodDetail({ row }: { row: CardRow }) {
             />
           </span>
         ) : (
-          <span className="inline-flex h-28 w-28 shrink-0 items-center justify-center rounded-lg border border-dashed border-ink/20 bg-cream text-center text-[10px] text-ink/45">
+          <span className="inline-flex h-28 w-28 shrink-0 items-center justify-center rounded-lg border border-dashed border-ink/15 bg-white/50 text-center text-[10px] text-ink/45">
             No QR image
           </span>
         )}

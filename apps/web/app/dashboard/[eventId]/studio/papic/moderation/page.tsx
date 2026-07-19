@@ -224,7 +224,7 @@ export default async function PapicModerationPage({
 
   return (
     <section className="space-y-6">
-      <header className="space-y-3">
+      <header className="sn-reveal space-y-3">
         <Link
           href={`/dashboard/${eventId}/studio/papic`}
           className="inline-flex items-center gap-1.5 text-xs font-medium text-terracotta hover:text-terracotta-700"
@@ -232,9 +232,10 @@ export default async function PapicModerationPage({
           <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Back to Papic
         </Link>
+        <p className="sn-eye">Moderation</p>
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-5 w-5 text-mulberry" strokeWidth={1.75} />
-          <h1 className="text-2xl font-semibold tracking-tight">Photo moderation</h1>
+          <h1 className="sn-h1">Photo moderation</h1>
         </div>
         <p className="max-w-2xl text-sm text-ink/65">
           Every guest photo lands here. Hide anything you don&rsquo;t want in
@@ -257,12 +258,12 @@ export default async function PapicModerationPage({
       )}
 
       {!owns ? (
-        <p className="rounded-md border border-ink/10 bg-cream px-4 py-3 text-sm text-ink/65">
+        <p className="sn-row px-4 py-3 text-sm text-ink/65">
           Guest cameras aren&rsquo;t active for this wedding yet. Once you add
           the Premium Guest Camera Pack, guest photos will appear here.
         </p>
       ) : captureRows.length === 0 ? (
-        <p className="rounded-md border border-ink/10 bg-cream px-4 py-3 text-sm text-ink/65">
+        <p className="sn-row px-4 py-3 text-sm text-ink/65">
           No guest photos yet. As guests start shooting, every photo shows up
           here for you to review.
         </p>
@@ -389,7 +390,7 @@ export default async function PapicModerationPage({
       )}
 
       {blockRows.length > 0 && (
-        <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+        <section className="space-y-3 sn-tile p-5">
           <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight text-ink/80">
             <UserX className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
             Blocked guests for this wedding
@@ -481,10 +482,10 @@ export default async function PapicModerationPage({
       {ownsKwento && papicActive ? (
         <KwentoQueue eventId={eventId} />
       ) : (
-        <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
+        <section className="space-y-3 sn-tile p-5 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
-              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+              <p className="sn-eye">
                 Kwento · words on a photo
               </p>
               <h2 className="text-xl font-semibold tracking-tight">

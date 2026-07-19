@@ -3,6 +3,7 @@ import { FormFlash } from '@/app/_components/forms/form-flash';
 import { rejectPartnership, createPartnershipHq } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Vendor Partnerships · Admin' };
 
 type SearchParams = {
@@ -74,6 +75,7 @@ type Props = {
 };
 
 export default async function AdminVendorPartnershipsPage({ searchParams }: Props) {
+  await requireAdmin();
   const sp = await searchParams;
 
   const admin = createAdminClient();
@@ -160,10 +162,10 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-8 space-y-2">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">
+        <p className="sn-eye">
           Setnayan HQ · Vendor quality
         </p>
-        <h1 className="m-display-tight text-3xl text-[color:var(--m-ink)] sm:text-4xl">
+        <h1 className="sn-h1">
           Vendor Partnerships
         </h1>
         <p className="text-base text-ink/65">
@@ -192,7 +194,7 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
       {/* ── OPEN PROPOSALS (HQ oversight) ────────────────────────────────── */}
       <section className="mb-10">
         <div className="mb-3 flex items-baseline justify-between gap-2">
-          <h2 className="m-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="sn-eye">
             Open proposals ({proposed.length})
           </h2>
           <p className="text-xs text-ink/45">
@@ -203,7 +205,7 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
         </div>
 
         {proposed.length === 0 ? (
-          <div className="m-card p-8 text-center text-sm text-ink/55">
+          <div className="sn-row p-8 text-center text-sm text-ink/55">
             No open partnership proposals. Set na &apos;yan.
           </div>
         ) : (
@@ -212,7 +214,7 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
               const partnershipIdStr = String(row.id);
 
               return (
-                <li key={row.id} className="m-card p-4 sm:p-5">
+                <li key={row.id} className="sn-row p-4 sm:p-5">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     {/* Details */}
                     <div className="min-w-0 flex-1 space-y-1">
@@ -289,7 +291,7 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
 
       {/* ── ADD PARTNERSHIP (HQ manual entry) ───────────────────────────── */}
       <section className="mb-10 rounded-2xl border border-terracotta/20 bg-gradient-to-br from-cream to-terracotta-50/30 p-5 sm:p-6">
-        <h2 className="mb-1 m-mono text-[11px] uppercase tracking-[0.2em] text-terracotta-700">
+        <h2 className="mb-1 sn-eye">
           Add partnership (HQ entry)
         </h2>
         <p className="mb-4 text-xs text-ink/55">
@@ -409,10 +411,10 @@ export default async function AdminVendorPartnershipsPage({ searchParams }: Prop
       {/* ── LIVE PARTNERSHIPS (accepted) ────────────────────────────────── */}
       {live.length > 0 ? (
         <section>
-          <h2 className="mb-3 m-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="mb-3 sn-eye">
             Live partnerships ({live.length} shown)
           </h2>
-          <div className="m-card overflow-hidden p-0">
+          <div className="sn-tile overflow-hidden !p-0">
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="border-b border-ink/10 text-left text-[11px] uppercase tracking-wide text-ink/45">

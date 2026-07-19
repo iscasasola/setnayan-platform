@@ -139,12 +139,13 @@ export default async function PakantaPage({ params }: Props) {
         <ArrowLeft aria-hidden className="h-4 w-4" /> Back to services
       </Link>
 
-      <header className="flex items-start gap-3">
+      <header className="sn-reveal flex items-start gap-3">
         <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-mulberry/10 text-mulberry">
           <Music aria-hidden className="h-6 w-6" strokeWidth={1.75} />
         </span>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-ink">Pakanta</h1>
+          <p className="sn-eye">Music</p>
+          <h1 className="sn-h1">Pakanta</h1>
           {owned ? (
             <p className="mt-1 text-sm text-ink/65">
               Your original wedding song. Add or refine the music notes below — we write the
@@ -161,7 +162,7 @@ export default async function PakantaPage({ params }: Props) {
       </header>
 
       {/* The story we already have — pulled from onboarding, read-only. */}
-      <div className="rounded-xl border border-ink/10 bg-cream p-5">
+      <div className="sn-tile p-5">
         <p className="mb-2 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink/45">
           <Heart aria-hidden className="h-3.5 w-3.5 text-mulberry" /> Your song will be written from
           this

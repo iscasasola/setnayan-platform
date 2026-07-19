@@ -12,6 +12,7 @@ import {
   isSetnayanHost,
   isLocalOrPreviewHost,
   resolveCustomDomainPath,
+  resolveEventSubdomainPath,
 } from '@/lib/custom-domain-resolve';
 
 // Matches a v4-style UUID exactly. Slugs are capped at 32 chars
@@ -78,7 +79,8 @@ const RESERVED_SUBDOMAINS = new Set([
 const APP_EXCLUDED_MARKETING_PATHS = new Set([
   '/',
   '/features',
-  '/for-vendors',
+  '/vendors',
+  '/creators',
   '/pricing',
   '/how-it-works',
   '/waitlist',
@@ -112,16 +114,30 @@ export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const hostname = (request.headers.get('host') ?? '').toLowerCase();
 
-  // Vendor subdomain rewrite · `slug.setnayan.com/<rest>` → `/v/{slug}/<rest>`.
-  // Fires BEFORE any other middleware logic because the rewrite changes
-  // pathname downstream consumers see.
-  const vendorSlug = detectVendorSubdomain(hostname);
-  if (vendorSlug) {
-    const rewrite = request.nextUrl.clone();
-    rewrite.pathname = pathname === '/'
-      ? `/v/${vendorSlug}`
-      : `/v/${vendorSlug}${pathname}`;
-    return NextResponse.rewrite(rewrite);
+  // Subdomain rewrite · `slug.setnayan.com/<rest>` → the couple's event page.
+  // Fires BEFORE any other middleware logic because the rewrite changes the
+  // pathname downstream consumers see. Subdomains are an EVENT-ONLY feature
+  // (owner 2026-07-10: "no x.setnayan.com for vendors. only for events."). A label
+  // resolves ONLY when a COUPLE owns an active paid EVENT_SUBDOMAIN order (₱999/yr)
+  // → their event page at bare `/{slug}`. Any other label (a vendor's, an unowned
+  // one) is NOT rewritten and falls through to normal routing. One edge RPC per
+  // subdomain request, fail-open (miss/error → no rewrite → normal routing);
+  // the primary www host pays nothing. (Vendors keep BYO custom domains — the
+  // separate resolve_custom_domain path below — but no *.setnayan.com subdomain.)
+  const subLabel = detectVendorSubdomain(hostname);
+  if (subLabel) {
+    const eventPath = await resolveEventSubdomainPath(subLabel); // '/{slug}' | null
+    if (eventPath) {
+      const rewrite = request.nextUrl.clone();
+      rewrite.pathname = pathname === '/' ? eventPath : `${eventPath}${pathname}`;
+      // Mirror the `/u/` nesting loop-break so the (flag-gated) `/u/` cutover
+      // redirect in app/[slug]/page.tsx never bounces a paid vanity host into
+      // `/u/{owner}/{slug}` and strands the couple's URL.
+      const headers = new Headers(request.headers);
+      headers.set('x-sn-u-nesting', '1');
+      return NextResponse.rewrite(rewrite, { request: { headers } });
+    }
+    // Not a paid event subdomain → no rewrite (vendors get no *.setnayan.com host).
   }
 
   // Custom BYO domain · e.g. `sny.theirshop.com/<rest>` → internal rewrite to the
@@ -187,14 +203,20 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // /vendors → /explore rename (permanent · owner directive 2026-06-14). The
-  // public marketplace moved from /vendors to /explore; redirect the old paths
-  // (with subpaths + query strings) so bookmarks, shared links, and search
-  // equity carry over. 308 = permanent + method-preserving, matching the
+  // /vendors/* → /explore rename (permanent · owner directive 2026-06-14). The
+  // public marketplace moved from /vendors/* to /explore; redirect the old
+  // marketplace SUBPATHS (with query strings) so bookmarks, shared links, and
+  // search equity carry over. 308 = permanent + method-preserving, matching the
   // legacy /services → /add-ons precedent below. Runs AFTER the vendor-
   // subdomain rewrite so slug.setnayan.com still resolves to /v/{slug}; the
   // /v/[slug] vendor PROFILE route is a different prefix and is untouched.
-  if (pathname === '/vendors' || pathname.startsWith('/vendors/')) {
+  //
+  // ⚠ EXACT `/vendors` is DELIBERATELY EXCLUDED (2026-07-05): the vendor
+  // BENEFITS page moved from /for-vendors → /vendors, so bare `/vendors` must
+  // render that page — only the legacy marketplace subpaths still redirect to
+  // /explore. `/for-vendors` → `/vendors` is a permanent redirect in
+  // next.config.ts redirects().
+  if (pathname.startsWith('/vendors/')) {
     // /vendors/compare is still an un-wired orphan (its `ids` param was never
     // honored — Task #12), so it lands on /explore with the explanatory notice
     // banner instead of a bare /explore/compare. Query intentionally dropped.

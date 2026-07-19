@@ -22,7 +22,10 @@ import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persist
 import { getQueryClient } from '@/lib/query-client';
 import { LoaderOverlayProvider } from '@/components/sd-loader';
 import { BrandProvider } from './_components/brand-provider';
+import { LoaderConfigProvider } from './_components/loader-config-provider';
+import { DEFAULT_LOADER_CONFIG, type LoaderConfig } from '@/lib/loader-config';
 import { DeferredObservability } from './_components/deferred-observability';
+import { DeviceCapture } from './_components/device-capture';
 import { GlobalHaptics } from './_components/global-haptics';
 import { GlobalSliderHint } from './_components/global-slider-hint';
 import { PostHogProvider } from './_components/posthog-provider';
@@ -113,6 +116,7 @@ export function Providers({
   children,
   initialThemeMode = 'auto',
   brandMarkUrl = null,
+  loaderConfig = DEFAULT_LOADER_CONFIG,
 }: {
   children: React.ReactNode;
   /**
@@ -128,6 +132,12 @@ export function Providers({
    * zero call-site churn. Owner 2026-06-10.
    */
   brandMarkUrl?: string | null;
+  /**
+   * SSR-resolved admin loader appearance (variant / veil / cadence / pop), or
+   * the shipped default. Threaded to every <SDLoader> via LoaderConfigProvider
+   * with zero call-site churn. Owner 2026-07-05.
+   */
+  loaderConfig?: LoaderConfig;
 }) {
   const [queryClient] = useState(() => getQueryClient());
   const [persister] = useState(() =>
@@ -162,16 +172,24 @@ export function Providers({
             screen-covering "thinking" moments (sign-in, heavy submits) with a
             "Ready ✓" completion. Route-level loading still uses skeletons.
           */}
-          <LoaderOverlayProvider>
-            <BrandProvider markUrl={brandMarkUrl}>
-              <ToastProvider>
-                {children}
-                <Suspense fallback={null}>
-                  <ToastFromParams />
-                </Suspense>
-              </ToastProvider>
-            </BrandProvider>
-          </LoaderOverlayProvider>
+          {/*
+            LoaderConfigProvider sits ABOVE LoaderOverlayProvider so the
+            overlay's <SDLoader> (and every other consumer) reads the admin's
+            chosen variant / cadence / pop through useLoaderConfig(). Owner
+            2026-07-05.
+          */}
+          <LoaderConfigProvider config={loaderConfig}>
+            <LoaderOverlayProvider>
+              <BrandProvider markUrl={brandMarkUrl}>
+                <ToastProvider>
+                  {children}
+                  <Suspense fallback={null}>
+                    <ToastFromParams />
+                  </Suspense>
+                </ToastProvider>
+              </BrandProvider>
+            </LoaderOverlayProvider>
+          </LoaderConfigProvider>
         </PostHogProvider>
         {/*
           Sentry browser SDK is lazy-loaded post-hydration via a deferred
@@ -181,6 +199,13 @@ export function Providers({
           untouched and continues to capture server errors eagerly.
         */}
         <DeferredObservability />
+        {/*
+          Device-fingerprint capture (fake-inquiry protection · Phase E). Deferred,
+          once-per-session, flag-gated OFF by default — records a coarse first-party
+          device id into user_devices to power fraud identity-clustering. No-ops
+          entirely until NEXT_PUBLIC_DEVICE_FINGERPRINT_ENABLED is on.
+        */}
+        <DeviceCapture />
         {/*
           App-wide tap haptics — one passive pointerdown listener fires a
           light `tick` on any interactive control. Owner directive 2026-06-03.

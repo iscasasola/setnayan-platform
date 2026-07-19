@@ -17,6 +17,7 @@
 import { useRef, useState, useTransition } from 'react';
 import { CalendarCheck, CheckCircle2, Clock, FileText, Loader2 } from 'lucide-react';
 import { recordDeposit } from '../../../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 type Props = {
   eventId: string;
@@ -52,6 +53,7 @@ export function DepositReservation({
   const [pending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const save = useSaveLoader();
 
   const recorded = Boolean(depositRecordedAt);
   const acked = Boolean(depositAcknowledgedAt);
@@ -63,7 +65,10 @@ export function DepositReservation({
     form.set('event_id', eventId);
     form.set('vendor_id', vendorId);
     startTransition(async () => {
-      const result = await recordDeposit(form);
+      const result = await save.run(() => recordDeposit(form), {
+        steps: ['Recording the deposit'],
+        hint: 'Saving',
+      });
       if (result.status === 'ok') {
         setOpen(false);
       } else if (result.status === 'not_signed_in') {

@@ -1,5 +1,6 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Crown } from 'lucide-react';
+import { ArrowRight, Crown, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
@@ -187,6 +188,11 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
   let orderedSummary:
     | { amount: number; planAmount: number; addonAmount: number; addonTokens: number }
     | null = null;
+  // A standalone token top-up (TKN-) already gets its full apply-then-pay panel
+  // from <PendingPurchases> inside <TokenWalletSection>; flag it so we DON'T also
+  // render the plan-level "How to pay" tile below (that was two BDO+GCash QR
+  // blocks on one page after a token order).
+  let orderedIsToken = false;
   if (search.ordered) {
     const { data: subRow } = await supabase
       .from('vendor_subscriptions')
@@ -209,6 +215,7 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         .eq('reference_code', search.ordered)
         .maybeSingle();
       if (tknRow) {
+        orderedIsToken = true;
         orderedSummary = {
           amount: Number(tknRow.amount_php ?? 0),
           planAmount: 0,
@@ -227,13 +234,20 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
     new Date(tierExpiresAt).getTime() - now <= fourteenDaysMs &&
     new Date(tierExpiresAt).getTime() > now;
 
-  const isPaid = currentTier === 'solo' || currentTier === 'pro' || currentTier === 'enterprise';
+  // Custom is a paid tier too (composed via the Stage-2 configurator / admin
+  // handshake, not self-serve-buyable from PAID_TIERS below) — include it so the
+  // renewal/expiry chip renders for Custom vendors.
+  const isPaid =
+    currentTier === 'solo' ||
+    currentTier === 'pro' ||
+    currentTier === 'enterprise' ||
+    currentTier === 'custom';
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
       <header className="mb-6 sm:mb-8">
-        <p className="m-eyebrow">Plan &amp; tokens</p>
-        <h1 className="m-display-tight mt-1 text-3xl sm:text-4xl">
+        <p className="sn-eye">Plan &amp; tokens</p>
+        <h1 className="sn-h1 mt-1">
           Choose your plan.
         </h1>
         <p className="mt-2 max-w-prose text-sm text-ink/65">
@@ -250,15 +264,17 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
           >
             <Crown className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
             Current plan:{' '}
-            {currentTier === 'enterprise'
-              ? 'Enterprise'
-              : currentTier === 'pro'
-                ? 'Pro'
-                : currentTier === 'solo'
-                  ? 'Solo'
-                  : currentTier === 'verified'
-                    ? 'Free · Verified'
-                    : 'Free'}
+            {currentTier === 'custom'
+              ? 'Custom'
+              : currentTier === 'enterprise'
+                ? 'Enterprise'
+                : currentTier === 'pro'
+                  ? 'Pro'
+                  : currentTier === 'solo'
+                    ? 'Solo'
+                    : currentTier === 'verified'
+                      ? 'Free · Verified'
+                      : 'Free'}
             {currentCycle ? ` · ${currentCycle}` : ''}
           </span>
           {isPaid && tierExpiresAt && (
@@ -319,16 +335,47 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         />
       </div>
 
-      {/* Apply-then-pay payment instructions when an order was just started */}
-      {search.ordered && (
-        <div className="mt-6 m-card p-6">
-          <p className="m-label-mono">How to pay</p>
+      {/* Beyond Enterprise — compose a Custom plan (VENDOR_TIERS §11). Routes to
+          the sub-route configurator; framed as the top-of-ladder escape valve. */}
+      <Link
+        href="/vendor-dashboard/subscription/custom"
+        className="sn-card sn-press mt-5 flex flex-wrap items-center gap-4 p-5 sm:flex-nowrap"
+      >
+        <span
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+          style={{ background: 'var(--m-paper)', border: '1px solid var(--m-line)' }}
+        >
+          <Sparkles className="h-5 w-5 text-terracotta" strokeWidth={1.75} aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-base font-semibold text-ink">
+            Beyond Enterprise? Compose a Custom plan.
+          </p>
+          <p className="mt-0.5 text-sm text-ink/60">
+            {currentTier === 'custom'
+              ? 'Review or adjust your Custom plan — dial in branches, reach, seats, listings, photos and tokens.'
+              : 'Everything in Enterprise plus white-glove, then dial in exactly the branches, reach, seats, listings, photos and tokens you need.'}
+          </p>
+        </div>
+        <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-ink">
+          {currentTier === 'custom' ? 'Manage' : 'Build a Custom plan'}
+          <ArrowRight className="h-4 w-4" strokeWidth={2} aria-hidden />
+        </span>
+      </Link>
+
+      {/* Apply-then-pay payment instructions when a PLAN/COMBINED order was just
+          started. Token-only (TKN-) top-ups are intentionally excluded — their
+          instructions render once inside <TokenWalletSection> below, so showing
+          this tile too would double the BDO+GCash QR blocks. */}
+      {search.ordered && !orderedIsToken && (
+        <div className="sn-tile mt-6 p-6">
+          <p className="sn-eye">How to pay</p>
           {orderedSummary && orderedSummary.amount > 0 && (
             <div
               className="mt-3 rounded-lg border p-4"
-              style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+              style={{ borderColor: 'var(--m-line)', background: 'rgba(255,255,255,.72)' }}
             >
-              <p className="text-2xl font-semibold text-ink">
+              <p className="font-mono text-2xl font-bold text-ink">
                 ₱{NUMBER.format(orderedSummary.amount)}
               </p>
               {orderedSummary.addonTokens > 0 && orderedSummary.planAmount > 0 ? (

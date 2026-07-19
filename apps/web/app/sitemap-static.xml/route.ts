@@ -42,6 +42,10 @@ const STATIC_ROUTES: ReadonlyArray<{
   // verification + new tile lands. Daily.
   { path: '/explore', lastmod: '2026-05-29', changefreq: 'daily', priority: '0.9' },
 
+  // /explore/compare — side-by-side vendor comparison. Was orphaned (indexable
+  // but in no sitemap); added 2026-07-10.
+  { path: '/explore/compare', lastmod: '2026-07-10', changefreq: 'weekly', priority: '0.6' },
+
   // /pricing — locked at v2.1 brief (CLAUDE.md tenth + eleventh 2026-05-28
   // rows). Annual SKUs being added in Bucket 7. Weekly until pilot.
   { path: '/pricing', lastmod: '2026-05-29', changefreq: 'weekly', priority: '0.9' },
@@ -58,9 +62,18 @@ const STATIC_ROUTES: ReadonlyArray<{
   // hreflang reciprocal lives in both pages' metadata.
   { path: '/tl/features', lastmod: '2026-06-13', changefreq: 'monthly', priority: '0.75' },
 
-  // /for-vendors — v2.1 publisher posture cutover (CLAUDE.md fifth
+  // /vendors — v2.1 publisher posture cutover (CLAUDE.md fifth
   // 2026-05-28 row PR #574).
-  { path: '/for-vendors', lastmod: '2026-05-28', changefreq: 'monthly', priority: '0.8' },
+  { path: '/vendors', lastmod: '2026-05-28', changefreq: 'monthly', priority: '0.8' },
+
+  // /open-shop — vendor onboarding ("open your shop"). Was orphaned (indexable
+  // but in no sitemap); added 2026-07-10.
+  { path: '/open-shop', lastmod: '2026-07-10', changefreq: 'monthly', priority: '0.7' },
+
+  // /creators — public storyteller marketing page ("Everywhere else, they
+  // watch. Here, they book."). Shipped 2026-07-16 with the Creator Economy
+  // Adventure-Chapter slice; the /vendors sibling for the storyteller side.
+  { path: '/creators', lastmod: '2026-07-16', changefreq: 'monthly', priority: '0.8' },
 
   // /tl/about — Taglish edition of /about (localization first slice,
   // 2026-06-13). hreflang reciprocal with /about lives in the page metadata.
@@ -150,7 +163,7 @@ const STATIC_ROUTES: ReadonlyArray<{
 
 export async function GET(): Promise<Response> {
   const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
+    process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com';
 
   const urls = STATIC_ROUTES.map(
     (r) =>

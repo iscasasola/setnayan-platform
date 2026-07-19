@@ -52,7 +52,6 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'acceptable-use',
   'alaala',
   'blog',
-  'camera-move-preview',
   'cookies',
   'download',
   'explore',
@@ -61,6 +60,7 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'how-it-works',
   'monogram',
   'our-story',
+  'vendors',
   'pa3d',
   'palogo',
   'panood',
@@ -71,6 +71,9 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'realstories',
   'refunds',
   'setnayan-ai',
+  // /storytellers is a redirect into /realstories#storytellers (Storytellers
+  // PR-D 2026-07-16) — reserve the word so no event slug can shadow it.
+  'storytellers',
   'tour',
   'waitlist',
   'wall',

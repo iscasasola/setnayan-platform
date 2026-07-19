@@ -1,12 +1,12 @@
 /**
  * Shared server-side view model for the /login surface.
  *
- * WHY: the sign-in UI now renders in TWO places that must stay byte-for-byte in
- * sync — the standalone full-page `/login` (hard load / refresh / SEO) and the
- * intercepted overlay (`app/@modal/(.)login`, the frosted rail that slides in
- * over the homepage on soft navigation). Both need the identical params
- * contract, OAuth-visibility gating, and hero image. Computing it once here
- * keeps the two entry points from drifting.
+ * WHY: the sign-in UI renders in more than one place that must stay in sync —
+ * the `/login` route (hard load / refresh / SEO / redirect) and the marketing
+ * top-nav overlay (HomeOverlays). Both render the shared greige SignInCard and
+ * need the identical params contract + OAuth-visibility gating. Computing it
+ * once here keeps them from drifting. (The /login route reads all of it; the
+ * marketing overlay uses the OAuth-visibility bits + next='/'.)
  *
  * PRESERVED from the prior /login/page.tsx (per [[feedback_setnayan_button_preservation]]):
  *   - searchParams contract: error / check_email / ready / next.
@@ -17,13 +17,19 @@
 import { getClientShell } from '@/lib/request-platform';
 import { safeNext } from '@/lib/auth';
 import { ANY_OAUTH_ENABLED } from '@/app/_components/oauth-button-row';
-import { fetchPublishedHeroVideo } from '@/lib/hero-video';
 
 export type LoginSearchParams = {
   error?: string;
   check_email?: string;
   ready?: string;
   next?: string;
+  /**
+   * Account-type hint carried through to the signup link (only 'vendor' is
+   * honored). Lets a login-first vendor CTA (e.g. /open-shop when logged out)
+   * land on Sign in yet keep the "New? Create your vendor account" path
+   * preselecting the vendor radio via /signup?as=vendor.
+   */
+  as?: string;
 };
 
 export type LoginView = {
@@ -35,8 +41,6 @@ export type LoginView = {
   signupHref: string;
   showOAuth: boolean;
   desktopOAuth: boolean;
-  /** First frame of the published homepage hero video, or null → CSS gradient. */
-  heroImageUrl: string | null;
 };
 
 export async function getLoginView(params: LoginSearchParams): Promise<LoginView> {
@@ -47,7 +51,13 @@ export async function getLoginView(params: LoginSearchParams): Promise<LoginView
   const readyEmail = params.ready ? decodeURIComponent(params.ready) : null;
   const prefilledEmail = readyEmail ?? '';
   const next = safeNext(params.next);
-  const signupHref = `/signup${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`;
+  // Carry both the return destination and the (whitelisted) account-type hint
+  // onto the signup link so a login-first vendor CTA doesn't lose vendor intent.
+  const signupParams = new URLSearchParams();
+  if (next !== '/') signupParams.set('next', next);
+  if (params.as === 'vendor') signupParams.set('as', 'vendor');
+  const signupQuery = signupParams.toString();
+  const signupHref = `/signup${signupQuery ? `?${signupQuery}` : ''}`;
 
   // OAuth visibility by shell — see prior /login/page.tsx note. Desktop renders
   // the loopback variant; web renders the server-action row; mobile stays
@@ -55,18 +65,6 @@ export async function getLoginView(params: LoginSearchParams): Promise<LoginView
   const shell = await getClientShell();
   const showOAuth = ANY_OAUTH_ENABLED && shell !== 'mobile';
   const desktopOAuth = showOAuth && shell === 'desktop';
-
-  // Reuse the owner-uploaded homepage hero as the left-panel photo so /login
-  // shares the marketing site's hero imagery. Fails open to a gradient (the
-  // scene renders fine with heroImageUrl = null) so a missing/unpublished hero
-  // never breaks the sign-in surface.
-  let heroImageUrl: string | null = null;
-  try {
-    const hero = await fetchPublishedHeroVideo();
-    heroImageUrl = hero?.frameUrls?.[0] ?? null;
-  } catch {
-    heroImageUrl = null;
-  }
 
   return {
     errorMessage,
@@ -77,6 +75,5 @@ export async function getLoginView(params: LoginSearchParams): Promise<LoginView
     signupHref,
     showOAuth,
     desktopOAuth,
-    heroImageUrl,
   };
 }

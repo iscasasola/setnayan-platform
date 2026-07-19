@@ -105,7 +105,7 @@ export async function VendorQrSection({
         Publish your business profile first — your QR is built from your public
         page.{' '}
         <Link
-          href="/vendor-dashboard/profile"
+          href="/vendor-dashboard/shop"
           className="font-medium text-terracotta hover:underline"
         >
           Set up my page

@@ -10,6 +10,8 @@ import { deletePublicAsset, uploadPublicAsset } from '@/lib/storage';
 import { R2_BUCKETS, r2Upload } from '@/lib/r2';
 import { packIco } from '@/lib/ico';
 import { BRAND_SETTINGS_TAG } from '@/lib/brand-settings';
+import { LOADER_SETTINGS_TAG } from '@/lib/loader-settings';
+import { clampInt, coerceVariant } from '@/lib/loader-config';
 
 /**
  * Admin settings server actions — V2 publisher posture, split flows.
@@ -107,7 +109,7 @@ export async function saveBusinessIdentity(formData: FormData) {
     .update(payload)
     .eq('id', 1);
   if (error) {
-    return redirect(`/admin/settings?error=${encodeURIComponent(error.message)}`);
+    return redirect(`/admin/settings?tab=settings&error=${encodeURIComponent(error.message)}`);
   }
 
   // Vendor VALIDATE destinations (migration 20270503417266) — saved in a
@@ -136,7 +138,7 @@ export async function saveBusinessIdentity(formData: FormData) {
 
   revalidatePath('/admin/settings');
   revalidatePath('/receipts', 'layout');
-  redirect('/admin/settings?saved=1');
+  redirect('/admin/settings?tab=settings&saved=1');
 }
 
 /**
@@ -153,10 +155,52 @@ export async function saveAdminDigest(formData: FormData) {
     .update({ admin_digest_enabled: enabled, updated_at: new Date().toISOString() })
     .eq('id', 1);
   if (error) {
-    return redirect(`/admin/settings?error=${encodeURIComponent(error.message)}`);
+    return redirect(`/admin/settings?tab=settings&error=${encodeURIComponent(error.message)}`);
   }
   revalidatePath('/admin/settings');
-  redirect('/admin/settings?saved=1');
+  redirect('/admin/settings?tab=settings&saved=1');
+}
+
+/**
+ * Loading-animation appearance (owner 2026-07-05). Writes the four loader_*
+ * columns on platform_settings; parse + clamp everything to the migration's
+ * CHECK ranges so a malformed submit can never violate a constraint. Busts the
+ * cached read (LOADER_SETTINGS_TAG — feeds the root layout) so the change shows
+ * on the very next navigation.
+ */
+export async function saveLoaderAppearance(formData: FormData) {
+  await requireAdmin();
+
+  const variant = coerceVariant(formData.get('loader_variant'));
+  const veilOpacity = clampInt(formData.get('loader_veil_opacity'), 70, 100, 90);
+  const stepIntervalMs = clampInt(
+    formData.get('loader_step_interval_ms'),
+    800,
+    3000,
+    1500,
+  );
+  // Unchecked checkbox doesn't submit → absence = off.
+  const popEnabled = formData.get('loader_pop_enabled') === 'on';
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('platform_settings')
+    .update({
+      loader_variant: variant,
+      loader_veil_opacity: veilOpacity,
+      loader_step_interval_ms: stepIntervalMs,
+      loader_pop_enabled: popEnabled,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', 1);
+  if (error) {
+    return redirect(`/admin/settings?tab=settings&error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidateTag(LOADER_SETTINGS_TAG);
+  revalidatePath('/', 'layout');
+  revalidatePath('/admin/settings');
+  redirect('/admin/settings?tab=settings&loader_saved=1');
 }
 
 export async function savePaymentInstruments(formData: FormData) {
@@ -317,7 +361,7 @@ const BRAND_ICON_COLUMNS =
   'brand_icon_master_url,brand_favicon_ico_url,brand_apple_touch_url,brand_icon_png_512_url,brand_icon_svg_url,brand_icon_version';
 
 function settingsError(message: string): never {
-  return redirect(`/admin/settings?error=${encodeURIComponent(message)}`);
+  return redirect(`/admin/settings?tab=settings&error=${encodeURIComponent(message)}`);
 }
 
 export async function uploadBrandIcon(formData: FormData) {
@@ -471,7 +515,7 @@ export async function uploadBrandIcon(formData: FormData) {
   revalidateTag(BRAND_SETTINGS_TAG);
   revalidatePath('/', 'layout');
   revalidatePath('/favicon.ico');
-  redirect('/admin/settings?brand_icon=1');
+  redirect('/admin/settings?tab=settings&brand_icon=1');
 }
 
 export async function removeBrandIcon() {
@@ -521,5 +565,5 @@ export async function removeBrandIcon() {
   revalidateTag(BRAND_SETTINGS_TAG);
   revalidatePath('/', 'layout');
   revalidatePath('/favicon.ico');
-  redirect('/admin/settings?brand_icon_removed=1');
+  redirect('/admin/settings?tab=settings&brand_icon_removed=1');
 }

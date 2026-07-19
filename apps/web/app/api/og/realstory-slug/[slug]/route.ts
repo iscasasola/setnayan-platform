@@ -6,15 +6,28 @@ import { loadEditorialData } from '@/app/[slug]/_components/editorial/data';
 import {
   renderRealStoryOgJpeg,
   renderCoupleMonogramOgJpeg,
+  type RealStoryCardFormat,
 } from '@/lib/social/realstory-card';
 
 /**
- * GET /api/og/realstory-slug/[slug] — the Open Graph share card for a REAL
- * couple's editorial at /[slug] (vs /api/og/realstory/[slug], which serves the
- * curated samples). Used as the `og:image` on the couple's own page so a
- * Facebook/Pinterest share of their wedding shows the editorial card — their
- * hero photo when published, with the white-type scrim — deep-linking to the
- * editorial.
+ * GET /api/og/realstory-slug/[slug]?format=og|square|story — the Open Graph
+ * share card for a REAL couple's editorial at /[slug] (vs
+ * /api/og/realstory/[slug], which serves the curated samples). Used as the
+ * `og:image` on the couple's own page so a Facebook/Pinterest share of their
+ * wedding shows the editorial card — their hero photo when published, with the
+ * white-type scrim — deep-linking to the editorial.
+ *
+ *   og     1200×630   link unfurl (default — the og:image)
+ *   square 1080×1080  feed post (Instagram / Facebook)
+ *   story  1080×1920  Reels / TikTok / IG-FB Stories (9:16)
+ *
+ * square/story (share-asset completion 2026-07-17, mirroring #3294's recap
+ * route): the postable FILE-ASSETS behind the editorial's "Save story card"
+ * button + the vendor dashboard's featured-story card. They render ONLY on the
+ * published branch (the same publish gate as the og card) and carry the subtle
+ * "made with Setnayan" mark; the unpublished MONOGRAM fallback stays the
+ * 1200×630 unfurl card regardless of format — there is no story-asset for an
+ * unpublished editorial.
  *
  * Card per phase: a PUBLISHED editorial → the editorial card (hero photo +
  * scrim); otherwise → the couple's own MONOGRAM card (their mark + names + date
@@ -40,15 +53,21 @@ const CARD_HEADERS = {
   'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
 } as const;
 
+const FORMATS = new Set<RealStoryCardFormat>(['og', 'square', 'story']);
+
 function jpegResponse(buffer: Buffer): Response {
   return new Response(new Uint8Array(buffer), { headers: CARD_HEADERS });
 }
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
+  const raw = req.nextUrl.searchParams.get('format') ?? 'og';
+  const format: RealStoryCardFormat = FORMATS.has(raw as RealStoryCardFormat)
+    ? (raw as RealStoryCardFormat)
+    : 'og';
   try {
     const admin = createAdminClient();
     const { data: ev } = await admin
@@ -71,14 +90,17 @@ export async function GET(
       const descriptor = data.venueCity
         ? `A wedding in ${data.venueCity}`
         : 'A Setnayan Real Story';
-      const jpeg = await renderRealStoryOgJpeg({
-        coupleNames: data.displayName,
-        descriptor,
-        dateLabel: data.eventDateFormatted ?? '',
-        palette: data.monogramColor ? [data.monogramColor] : [],
-        isSample: false,
-        heroPhotoUrl: data.heroPhotoUrl,
-      });
+      const jpeg = await renderRealStoryOgJpeg(
+        {
+          coupleNames: data.displayName,
+          descriptor,
+          dateLabel: data.eventDateFormatted ?? '',
+          palette: data.monogramColor ? [data.monogramColor] : [],
+          isSample: false,
+          heroPhotoUrl: data.heroPhotoUrl,
+        },
+        format,
+      );
       return jpegResponse(jpeg);
     }
 

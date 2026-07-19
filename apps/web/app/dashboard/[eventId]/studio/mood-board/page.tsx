@@ -2,8 +2,12 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchGuestsByEvent } from '@/lib/guests';
-import { roleGroupOf, type RoleGroup } from '@/lib/role-groups';
-import { sanitizeRolePalette, type PaletteKey } from '@/lib/mood-board';
+import {
+  sanitizeRolePalette,
+  paletteKeyForRole,
+  ROLE_FAMILY_KEYS,
+  type PaletteKey,
+} from '@/lib/mood-board';
 import {
   seedPaletteFromColors,
   seedPaletteFromFeel,
@@ -152,11 +156,18 @@ export default async function MoodBoardPage({ params }: Props) {
       ? (event.reception_design as ReceptionDesign)
       : {};
 
-  // ── present role groups drive which attire/role cards show ──────────────
-  const presentRoleGroups = new Set<RoleGroup>();
+  // ── present roles drive which palette sections show (taxonomy v2) ────────
+  // A role's palette section appears ONLY when the guest list actually contains
+  // that role (primary or extra). Each role resolves to its SPECIFIC palette key
+  // (paletteKeyForRole), so a Bridesmaid surfaces the Bridesmaids section, the
+  // Nikah cast (wali/witness/imam/wakil) surfaces Nikah Principals — the existing
+  // Nikah gate, since those roles only appear for muslim weddings — and the
+  // parents/immediate-family roles surface Parents & Immediate Family.
+  const presentPaletteKeys = new Set<PaletteKey>();
   for (const g of guests) {
-    const group = roleGroupOf(g.role);
-    if (group !== 'guest') presentRoleGroups.add(group);
+    for (const r of [g.role, ...(g.extra_roles ?? [])]) {
+      presentPaletteKeys.add(paletteKeyForRole(r));
+    }
   }
   const visibleKeys = new Set<PaletteKey>([
     'ceremony',
@@ -165,11 +176,21 @@ export default async function MoodBoardPage({ params }: Props) {
     'groom',
     'guest',
   ]);
-  if (presentRoleGroups.has('wedding_party')) visibleKeys.add('wedding_party');
-  if (presentRoleGroups.has('principal_sponsors')) visibleKeys.add('principal_sponsors');
-  if (presentRoleGroups.has('secondary_sponsors')) visibleKeys.add('secondary_sponsors');
-  if (presentRoleGroups.has('bearers_flower_girl')) visibleKeys.add('bearers_flower_girl');
-  if (presentRoleGroups.has('officiants')) visibleKeys.add('officiants');
+  for (const k of ROLE_FAMILY_KEYS) {
+    if (presentPaletteKeys.has(k)) visibleKeys.add(k);
+  }
+  // The shared Wedding Party fallback shows whenever ANY entourage member is
+  // present, so a couple can color the whole party with one palette without
+  // opening each split sub-section (paletteKeyForRole never returns the fallback
+  // key itself, so add it explicitly).
+  if (
+    presentPaletteKeys.has('maid_of_honor') ||
+    presentPaletteKeys.has('best_man') ||
+    presentPaletteKeys.has('bridesmaids') ||
+    presentPaletteKeys.has('groomsmen')
+  ) {
+    visibleKeys.add('wedding_party');
+  }
 
   // Draft, don't blank: when the couple has NO saved palette yet, pre-fill the
   // editor with a starter palette. For a Chinese (Tsinoy) wedding we suggest the
@@ -290,8 +311,9 @@ export default async function MoodBoardPage({ params }: Props) {
         ‹ Back to add-ons
       </Link>
 
-      <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">Palette</p>
+        <h1 className="sn-h1">
           Mood Board
         </h1>
         <p className="max-w-prose text-base text-ink/65">
@@ -384,7 +406,7 @@ export default async function MoodBoardPage({ params }: Props) {
         <ShareWithVendorsButton eventId={eventId} bookedVendorCount={bookedVendorCount} />
       </section>
 
-      <section className="space-y-4 rounded-2xl border border-ink/10 bg-white p-5">
+      <section className="sn-tile space-y-4 p-5">
         <header className="space-y-1">
           <h2 className="text-2xl font-semibold text-ink">Keep a copy</h2>
           <p className="max-w-prose text-sm text-ink/65">

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, Camera, CircleAlert, Clock, Images } from 'lucide-react';
+import { ArrowRight, Camera, CircleAlert, Clock, Download, Images, Sparkles } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveGuestCamera } from '@/lib/papic-limited';
 import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
@@ -67,7 +67,12 @@ async function GuestGallery({
         {gallery.photos.map((p) => (
           <a
             key={p.id}
-            href={p.url}
+            // Thumbnail is the light derivative (`p.url`); the LINK opens the
+            // FULL-RES original with EXIF/GPS stripped on the fly (owner 2026-07-16),
+            // never the raw geo-bearing original (RA 10173).
+            href={`/papic/me/${token}/photo?id=${encodeURIComponent(p.id)}&src=${
+              p.sourceTable === 'papic_photos' ? 'seat' : 'guest'
+            }`}
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Open full size to save"
@@ -79,6 +84,27 @@ async function GuestGallery({
           </a>
         ))}
       </div>
+      {/* Download all — the full set of tagged captures as a ZIP (not just the
+          preview grid above), streamed from the token-scoped download route. */}
+      <a
+        href={`/papic/me/${token}/download`}
+        className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md bg-ink/5 px-4 py-2 text-sm font-medium text-ink/80 transition hover:bg-ink/10"
+      >
+        <Download aria-hidden className="h-4 w-4" strokeWidth={2} />
+        Download my photos
+      </a>
+      {/* Kwento Decorator — go through the token→session bridge (route handler)
+          so a guest who only has the raw token link still gets a session before
+          the session-scoped /papic/decorate. Plain <a> = full nav that sets the
+          cookie; it's a route handler (not a page), so no-html-link-for-pages
+          doesn't apply. */}
+      <a
+        href={`/papic/me/${token}/session`}
+        className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md bg-ink/5 px-4 py-2 text-sm font-medium text-ink/80 transition hover:bg-ink/10"
+      >
+        <Sparkles aria-hidden className="h-4 w-4" strokeWidth={2} />
+        Decorate a photo
+      </a>
       {/* FREE Guest Stories — one-tap 30s reel from these tagged photos. */}
       <GuestStoryMaker token={token} />
     </section>

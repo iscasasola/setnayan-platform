@@ -13,6 +13,7 @@ import {
 } from '@/lib/pakanta-brief';
 import { PakantaDeliver } from './pakanta-deliver';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Pakanta queue · Admin' };
 
 /**
@@ -78,6 +79,7 @@ const BUNDLES_GRANTING_PAKANTA = (
 const ORDER_KEYS_FOR_PAKANTA = ['PAKANTA', ...BUNDLES_GRANTING_PAKANTA];
 
 export default async function AdminPakantaPage() {
+  await requireAdmin();
   const admin = createAdminClient();
   let queryError: string | null = null;
 
@@ -250,7 +252,7 @@ export default async function AdminPakantaPage() {
       ) : null}
 
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-ink/10 bg-cream p-8 text-center">
+        <div className="sn-tile p-8 text-center">
           <Sparkles aria-hidden className="mx-auto mb-3 h-8 w-8 text-ink/30" strokeWidth={1.5} />
           <p className="text-sm font-medium text-ink">No Pakanta orders yet.</p>
           <p className="mx-auto mt-1 max-w-md text-sm text-ink/60">

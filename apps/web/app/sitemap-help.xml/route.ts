@@ -23,7 +23,7 @@ export const revalidate = 3600;
 
 export function GET(): Response {
   const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
+    process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com';
 
   const rows: Array<{ loc: string; changefreq: string; priority: string }> = [
     { loc: `${baseUrl}/help`, changefreq: 'monthly', priority: '0.75' },

@@ -7,6 +7,7 @@ import { resolveReport } from './actions';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'User reports · Admin' };
 export const dynamic = 'force-dynamic';
 
@@ -25,8 +26,18 @@ type ReportRow = {
   public_id: string;
   reporter_user_id: string | null;
   reporter_guest_id: string | null;
-  event_id: string;
-  target_type: 'photo' | 'comment' | 'user' | 'ai_output';
+  // NULL for a public-profile or chapter report (target_type='user_profile' /
+  // 'chapter') — those reports are not tied to any event, so only admins see
+  // them (couple RLS keys on event).
+  event_id: string | null;
+  target_type:
+    | 'photo'
+    | 'comment'
+    | 'user'
+    | 'ai_output'
+    | 'event'
+    | 'user_profile'
+    | 'chapter';
   target_id: string;
   reason: string;
   details: string | null;
@@ -67,12 +78,20 @@ const TARGET_PHRASE: Record<ReportRow['target_type'], string> = {
   comment: 'a comment',
   user: 'a user',
   ai_output: 'an AI-generated result',
+  // Public-page targets (social-share follow-through #8 / profile #7c /
+  // Storytellers S0 safety floor).
+  event: 'this event page',
+  user_profile: 'a public profile',
+  chapter: 'a creator chapter',
 };
 const TARGET_SHORT: Record<ReportRow['target_type'], string> = {
   photo: 'photo',
   comment: 'comment',
   user: 'user',
   ai_output: 'AI output',
+  event: 'event page',
+  user_profile: 'profile',
+  chapter: 'chapter',
 };
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
@@ -93,6 +112,7 @@ export default async function AdminUserReportsPage({
 }: {
   searchParams: Promise<{ status?: string }>;
 }) {
+  await requireAdmin();
   const search = await searchParams;
   const status = normalizeStatus(search.status ?? 'open');
 
@@ -112,15 +132,23 @@ export default async function AdminUserReportsPage({
 
   // Resolve context: event names, reporter names, and a thumbnail for each
   // photo target. One parallel batch keyed on the visible page.
-  const eventIds = Array.from(new Set(rows.map((r) => r.event_id)));
+  const eventIds = Array.from(
+    new Set(rows.map((r) => r.event_id).filter((v): v is string => Boolean(v))),
+  );
   const reporterIds = Array.from(
     new Set(rows.map((r) => r.reporter_user_id).filter((v): v is string => Boolean(v))),
   );
   const photoTargetIds = Array.from(
     new Set(rows.filter((r) => r.target_type === 'photo').map((r) => r.target_id)),
   );
+  // Chapter reports (Storytellers S0) carry the chapter's public_id (S89C-…);
+  // resolve title + owner so the queue can label the row and deep-link to the
+  // live page /u/[slug]/c/[public_id].
+  const chapterTargetIds = Array.from(
+    new Set(rows.filter((r) => r.target_type === 'chapter').map((r) => r.target_id)),
+  );
 
-  const [{ data: eventData }, { data: reporterData }, { data: captureData }] =
+  const [{ data: eventData }, { data: reporterData }, { data: captureData }, { data: chapterData }] =
     await Promise.all([
       eventIds.length
         ? admin.from('events').select('event_id, display_name').in('event_id', eventIds)
@@ -134,6 +162,12 @@ export default async function AdminUserReportsPage({
             .select('capture_id, r2_object_key, hidden_at')
             .in('capture_id', photoTargetIds)
         : Promise.resolve({ data: [] as { capture_id: string; r2_object_key: string | null; hidden_at: string | null }[] }),
+      chapterTargetIds.length
+        ? admin
+            .from('creator_chapters')
+            .select('public_id, title, status, user_id')
+            .in('public_id', chapterTargetIds)
+        : Promise.resolve({ data: [] as { public_id: string; title: string | null; status: string | null; user_id: string | null }[] }),
     ]);
 
   const eventName = new Map<string, string>();
@@ -156,6 +190,34 @@ export default async function AdminUserReportsPage({
       hidden: Boolean(c.hidden_at),
     });
 
+  // Chapter meta: title + a deep link to the live page (needs the owner's
+  // profile slug). One extra batched users read keyed on the chapters found.
+  const chapterRows = (chapterData ?? []) as {
+    public_id: string;
+    title: string | null;
+    status: string | null;
+    user_id: string | null;
+  }[];
+  const chapterOwnerIds = Array.from(
+    new Set(chapterRows.map((c) => c.user_id).filter((v): v is string => Boolean(v))),
+  );
+  const { data: chapterOwnerData } = chapterOwnerIds.length
+    ? await admin.from('users').select('user_id, slug').in('user_id', chapterOwnerIds)
+    : { data: [] as { user_id: string; slug: string | null }[] };
+  const chapterOwnerSlug = new Map<string, string | null>();
+  for (const u of chapterOwnerData ?? [])
+    chapterOwnerSlug.set(u.user_id, (u.slug as string | null) ?? null);
+
+  const chapterMeta = new Map<string, { title: string; href: string | null; published: boolean }>();
+  for (const c of chapterRows) {
+    const slug = c.user_id ? chapterOwnerSlug.get(c.user_id) ?? null : null;
+    chapterMeta.set(c.public_id, {
+      title: (c.title ?? '').trim() || 'Untitled chapter',
+      href: slug ? `/u/${slug}/c/${c.public_id}` : null,
+      published: c.status === 'published',
+    });
+  }
+
   const thumbEntries = await Promise.all(
     (captureData ?? []).map(async (c) => {
       const ref = c.r2_object_key as string | null;
@@ -175,10 +237,11 @@ export default async function AdminUserReportsPage({
           <h1 className="text-2xl font-semibold tracking-tight">User reports</h1>
         </div>
         <p className="text-sm text-ink/65">
-          Reports filed against guest gallery content (Papic) and Setnayan AI
-          output (Play GenAI policy). Hide the photo, block the uploader for
-          that event, escalate for owner/legal review, or dismiss. The latest
-          200 matching the filter, newest first.
+          Reports filed against guest gallery content (Papic), Setnayan AI
+          output (Play GenAI policy), and public pages (an invitation page,
+          a profile, or a creator chapter). Hide the photo, block the uploader
+          for that event, escalate for owner/legal review, or dismiss. The
+          latest 200 matching the filter, newest first.
         </p>
       </header>
 
@@ -207,7 +270,7 @@ export default async function AdminUserReportsPage({
       )}
 
       {rows.length === 0 ? (
-        <p className="rounded-md border border-ink/10 bg-cream px-4 py-3 text-sm text-ink/65">
+        <p className="rounded-md border border-white/60 bg-white/70 px-4 py-3 text-sm text-ink/65">
           No reports in this view.
         </p>
       ) : (
@@ -258,18 +321,61 @@ export default async function AdminUserReportsPage({
                     <span className="font-mono text-[10px] text-ink/45">{r.public_id}</span>
                   </div>
                   <p className="text-sm text-ink/80">
-                    {reporter} reported {TARGET_PHRASE[r.target_type] ?? `a ${r.target_type}`} in{' '}
-                    <span className="font-medium">{eventName.get(r.event_id) ?? 'an event'}</span>
+                    {reporter} reported {TARGET_PHRASE[r.target_type] ?? `a ${r.target_type}`}
+                    {r.event_id ? (
+                      <>
+                        {' in '}
+                        <span className="font-medium">
+                          {eventName.get(r.event_id) ?? 'an event'}
+                        </span>
+                      </>
+                    ) : null}
                     {' · '}
                     <span className="text-ink/50">{relativeTime(r.created_at)}</span>
                   </p>
+                  {(r.target_type === 'event' || r.target_type === 'user_profile') && (
+                    <p className="font-mono text-[10px] text-ink/45">
+                      {r.target_type === 'event' ? 'event' : 'user'} {r.target_id}
+                    </p>
+                  )}
+                  {r.target_type === 'chapter' && (() => {
+                    const chap = chapterMeta.get(r.target_id);
+                    return (
+                      <p className="text-xs text-ink/65">
+                        {chap ? (
+                          <>
+                            <span className="font-medium">“{chap.title}”</span>
+                            {chap.href && chap.published ? (
+                              <>
+                                {' · '}
+                                <a
+                                  href={chap.href}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="underline underline-offset-2 hover:text-terracotta-700"
+                                >
+                                  Open chapter page
+                                </a>
+                              </>
+                            ) : (
+                              <span className="text-ink/50"> · no longer published</span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-ink/50">Chapter no longer exists</span>
+                        )}
+                        {' '}
+                        <span className="font-mono text-[10px] text-ink/45">{r.target_id}</span>
+                      </p>
+                    );
+                  })()}
                   {r.target_type === 'ai_output' && (
                     <p className="font-mono text-[10px] text-ink/45">
                       generation {r.target_id}
                     </p>
                   )}
                   {r.details && (
-                    <p className="rounded-md border border-ink/10 bg-cream px-3 py-2 text-sm text-ink/70">
+                    <p className="rounded-md border border-white/60 bg-white/70 px-3 py-2 text-sm text-ink/70">
                       “{r.details}”
                     </p>
                   )}
@@ -287,10 +393,27 @@ export default async function AdminUserReportsPage({
                           <input type="hidden" name="report_id" value={r.report_id} />
                           <input type="hidden" name="action" value="hide" />
                           <SubmitButton
-                            className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]"
+                            className="inline-flex items-center gap-1.5 rounded-md border border-white/60 bg-white/70 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]"
                             pendingLabel="Hiding…"
                           >
                             <EyeOff aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Hide content
+                          </SubmitButton>
+                        </form>
+                      )}
+                      {/* Chapter "hide" = unfeature (Storytellers PR-D · the
+                          S0 seam wired): the resolution atomically clears
+                          showcase_featured_at so the chapter drops off the
+                          /realstories shelf instantly; it stays published on
+                          the creator's own page. */}
+                      {r.target_type === 'chapter' && (
+                        <form action={resolveReport}>
+                          <input type="hidden" name="report_id" value={r.report_id} />
+                          <input type="hidden" name="action" value="hide" />
+                          <SubmitButton
+                            className="inline-flex items-center gap-1.5 rounded-md border border-white/60 bg-white/70 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]"
+                            pendingLabel="Removing…"
+                          >
+                            <EyeOff aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Remove from Real Stories
                           </SubmitButton>
                         </form>
                       )}

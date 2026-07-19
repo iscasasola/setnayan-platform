@@ -123,14 +123,27 @@ export function userAiSubscriptionActive(
 }
 
 /**
- * Per-EVENT window-aware entitlement (owner 2026-07-02 · inert until
- * setnayan_ai_per_event_pricing_enabled). Under per-event pricing an event owns
- * Setnayan AI only while its 28-day window (`setnayan_ai_active_until`) is
- * unexpired; a NULL window is a grandfathered PERMANENT unlock (pre-per-event
- * buyers, whose access never lapses). When `perEventPricingEnabled` is OFF this
- * is a drop-in for `setnayan_ai_active === true` — byte-identical, so it changes
- * nothing until the flag flips. Lazily evaluated (no cron): the read IS the
- * expiry check, mirroring `userAiSubscriptionActive`.
+ * Per-EVENT window-aware entitlement (owner 2026-07-02). Under per-event
+ * pricing an event owns Setnayan AI only while its 28-day window
+ * (`setnayan_ai_active_until`) is unexpired; a NULL window is a grandfathered
+ * PERMANENT unlock (pre-per-event buyers, whose access never lapses). Lazily
+ * evaluated (no cron): the read IS the expiry check, mirroring
+ * `userAiSubscriptionActive`.
+ *
+ * ⚠ BUG FIX 2026-07-09 (verified 2026-07-08, corpus DECISION_LOG): the window
+ * check used to be gated on `opts.perEventPricingEnabled` — but NO read gate in
+ * the app threads that flag in (they resolve paywall/per-user only), so the
+ * early-return meant a lapsed ₱799 window would NEVER lock even after the owner
+ * flips `setnayan_ai_per_event_pricing_enabled` on. The window is now
+ * AUTHORITATIVE whenever it is present: `setnayan_ai_active_until` is only ever
+ * written by the per-event-pricing buy flow (which itself only runs behind the
+ * flag), so a non-NULL window always means "sold under the windowed model" and
+ * must be honored by every reader, threaded flag or not. Rows without a window
+ * (all pre-per-event buyers — every prod row while the flag has been off)
+ * behave byte-identically to the old `setnayan_ai_active === true` check.
+ *
+ * `opts.perEventPricingEnabled` is retained for signature compatibility but no
+ * longer changes the result — the stored window decides.
  */
 export function eventOwnsSetnayanAi(
   event:
@@ -140,9 +153,8 @@ export function eventOwnsSetnayanAi(
   opts: { perEventPricingEnabled?: boolean; now?: Date } = {},
 ): boolean {
   if (event?.setnayan_ai_active !== true) return false;
-  if (!opts.perEventPricingEnabled) return true; // off → raw boolean, unchanged
   const until = event?.setnayan_ai_active_until;
-  if (!until) return true; // grandfathered permanent unlock (no window)
+  if (!until) return true; // no window → permanent unlock (incl. all pre-per-event buyers)
   const d = until instanceof Date ? until : new Date(until);
   if (Number.isNaN(d.getTime())) return true; // unparseable → don't lock the couple out
   return d.getTime() > (opts.now ?? new Date()).getTime();
@@ -186,9 +198,10 @@ export function isSetnayanAiActiveForUser(
   } = opts;
 
   const notManuallyOff = event?.planning_mode !== PLANNING_MODE_MANUAL;
-  // Per-event ownership is window-aware when perEventPricingEnabled is on; when
-  // off it's exactly `setnayan_ai_active === true`, so both branches below stay
-  // byte-identical to before.
+  // Per-event ownership is window-aware whenever a window is stored (2026-07-09
+  // fix — see eventOwnsSetnayanAi). For rows without a window this is exactly
+  // `setnayan_ai_active === true`, so both branches below stay byte-identical
+  // to before for every event sold outside the windowed model.
   const ownsPerEvent = eventOwnsSetnayanAi(event, { perEventPricingEnabled, now });
 
   if (!perUserEnabled) {
@@ -236,8 +249,9 @@ export function shouldOfferSetnayanAiPurchaseForUser(
   } = opts;
 
   // Re-offer once the per-event window lapses (owner 2026-07-02): the event no
-  // longer OWNS AI, so the ₱799 renewal CTA returns. Byte-identical to the old
-  // `setnayan_ai_active !== true` check while per-event pricing is off.
+  // longer OWNS AI, so the ₱799 renewal CTA returns. Window-authoritative since
+  // the 2026-07-09 fix (see eventOwnsSetnayanAi) — byte-identical to the old
+  // `setnayan_ai_active !== true` check for every event without a stored window.
   const ownsPerEvent = eventOwnsSetnayanAi(event, { perEventPricingEnabled, now });
 
   if (!perUserEnabled) {

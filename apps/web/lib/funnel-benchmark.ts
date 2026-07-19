@@ -22,7 +22,7 @@
  * band returns hasBand=false so the card renders a truthful "not enough peer
  * data yet" state — it never fabricates a ranking.
  *
- * Surface gate: the CARD is Enterprise (canSeeMarketIntel) — enforced by the caller
+ * Surface gate: the CARD is Pro-and-up (canSeeMarketIntel) — enforced by the caller
  * (vendor-stats-panel.tsx); this module carries no gating, just the read + the
  * percentile math.
  */

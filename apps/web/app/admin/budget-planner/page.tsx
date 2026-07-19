@@ -8,6 +8,7 @@ import {
 import { updateLeafBenchmark, updateAllocationConfig, updateBudgetBand } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Budget Planner' };
 
 /**
@@ -59,6 +60,7 @@ const CONFIG_FALLBACK = {
 };
 
 export default async function AdminBudgetPlannerPage() {
+  await requireAdmin();
   const supabase = await createClient();
 
   // Benchmarks + config read via the authed admin client (both tables carry an
@@ -136,7 +138,7 @@ export default async function AdminBudgetPlannerPage() {
           ) : (
             <>
               {/* Column header strip — desktop only. */}
-              <div className="hidden border-b border-ink/10 bg-cream px-4 py-2 sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)_auto_auto] sm:items-center sm:gap-3">
+              <div className="hidden border-b border-ink/10 bg-white/70 px-4 py-2 sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)_auto_auto] sm:items-center sm:gap-3">
                 <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
                   Band · label
                 </span>
@@ -179,7 +181,7 @@ export default async function AdminBudgetPlannerPage() {
           ) : (
             <>
               {/* Column header strip — desktop only. */}
-              <div className="hidden border-b border-ink/10 bg-cream px-4 py-2 sm:grid sm:grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,1fr))_auto_auto] sm:items-center sm:gap-3">
+              <div className="hidden border-b border-ink/10 bg-white/70 px-4 py-2 sm:grid sm:grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,1fr))_auto_auto] sm:items-center sm:gap-3">
                 <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
                   Service
                 </span>
@@ -346,7 +348,7 @@ export default async function AdminBudgetPlannerPage() {
           ) : (
             <table className="w-full min-w-[560px] text-sm">
               <thead>
-                <tr className="border-b border-ink/10 bg-cream text-left">
+                <tr className="border-b border-ink/10 bg-white/70 text-left">
                   <th className="px-4 py-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
                     Service
                   </th>

@@ -12,10 +12,12 @@ import {
 } from '@/app/[slug]/_components/editorial/data';
 import { composeCopy } from '@/app/[slug]/_components/editorial/compose';
 import { isEditorialProActive } from '@/lib/couple-website-pro';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { siteUrl } from '@/lib/social/urls';
 import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { EditorialEditor } from './_components/editorial-editor';
 import type { EditorialEditorInput } from './actions';
+import { eventNoun } from '@/lib/event-noun';
 
 type LandingVisibility = 'public' | 'unlisted' | 'private';
 
@@ -101,6 +103,27 @@ export default async function EditorialEditorPage({
     ? (draft.lead_paragraphs as unknown[]).map(str).filter(Boolean)
     : [];
 
+  // FREE couple-uploaded imagery (draft_json.heroUpload + draft_json.galleryUploads).
+  // Read the stored `r2://…` refs and resolve presigned display URLs so the editor's
+  // FileUpload widgets can show existing uploads as thumbnails on mount.
+  const heroUploadRef = str(draft.heroUpload);
+  const galleryUploadRefs = Array.isArray(draft.galleryUploads)
+    ? (draft.galleryUploads as unknown[]).map(str).filter(Boolean).slice(0, 30)
+    : [];
+  const uploadDisplayUrls: Record<string, string> = {};
+  await Promise.all(
+    [heroUploadRef, ...galleryUploadRefs]
+      .filter((r) => r.length > 0)
+      .map(async (ref) => {
+        try {
+          const url = await displayUrlForStoredAsset(ref);
+          if (url) uploadDisplayUrls[ref] = url;
+        } catch {
+          /* best-effort — a missing thumbnail still lists the file + remove btn */
+        }
+      }),
+  );
+
   // PRO section order (draft_json.sectionOrder → string[] | null). The editor
   // resolves the full order from this + the canonical default; a bad value is a
   // harmless [] here (sanitized again server-side).
@@ -171,6 +194,10 @@ export default async function EditorialEditorPage({
     // pre-fill it with the composed lede.
     leadParagraphs: leadArr.join('\n\n'),
     pullQuote: composed?.pullQuote || str(draft.pull_quote) || str(draft.pullQuote),
+    // FREE couple uploads — the saved refs (empty when none). The editor mirrors
+    // these into FileUpload widgets and sends the current set back on save.
+    heroUpload: heroUploadRef,
+    galleryUploads: galleryUploadRefs,
     sections,
     // The editor derives its own working rows from the cards + overrides below;
     // `chapterOverrides` in `initial` is only the save-shape default.
@@ -199,11 +226,12 @@ export default async function EditorialEditorPage({
         <span>Back to website</span>
       </Link>
 
-      <header className="mb-8 space-y-2">
-        <h1 className="font-display text-3xl italic text-ink sm:text-4xl">Editorial</h1>
+      <header className="sn-reveal mb-8 space-y-2">
+        <p className="sn-eye">Front page</p>
+        <h1 className="sn-h1">Editorial</h1>
         <p className="max-w-prose text-sm text-ink/65 sm:text-base">
-          Your wedding&rsquo;s front-page story — published after the day. It starts written from your
-          wedding details; edit the words, choose your photos and hero, and pick which features show.
+          Your {eventNoun(event.event_type)}&rsquo;s front-page story — published after the day. It starts written from your
+          {' '}{eventNoun(event.event_type)} details; edit the words, choose your photos and hero, and pick which features show.
           Clear any field and we&rsquo;ll rewrite it for you, so it always reads beautifully.
         </p>
       </header>
@@ -212,6 +240,7 @@ export default async function EditorialEditorPage({
         eventId={eventId}
         slug={event.slug ?? null}
         initial={initial}
+        uploadDisplayUrls={uploadDisplayUrls}
         isPro={isPro}
         chapterCards={chapterCards.cards}
         chapterOverrides={chapterCards.overrides}

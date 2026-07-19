@@ -92,6 +92,81 @@ export async function fetchPublishedMethodsForCouple(opts: {
 }
 
 /**
+ * A vendor's payment methods to show on a PROPOSAL (Vendor Proposal Maker § 9).
+ *
+ * Unlike fetchPublishedMethodsForCouple, this does NOT re-prove event_vendor
+ * ownership — the caller (the /proposals/[publicId] page) has ALREADY cleared
+ * the vendor_proposals RLS read (vendor org, or couple/moderator on their
+ * event), which is the authorization gate. Given that, we admin-read the
+ * vendor's approved + shown methods; `methodIds` narrows to the vendor's picked
+ * subset ([] = show all approved, matching the editor's "untick all" default).
+ * Links stay tier-gated (active pro-tier vendors only). Pure fail-soft: any
+ * error returns [].
+ */
+export async function fetchProposalPaymentMethods(opts: {
+  adminClient: SupabaseClient;
+  vendorProfileId: string;
+  methodIds: string[];
+}): Promise<CoupleFacingMethod[]> {
+  const { adminClient, vendorProfileId, methodIds } = opts;
+  try {
+    const { data: vp } = await adminClient
+      .from('vendor_profiles')
+      .select('user_id')
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle();
+    const vendorUserId = (vp as { user_id: string } | null)?.user_id ?? null;
+    if (!vendorUserId) return [];
+
+    const proActive = await isVendorProActive(adminClient, vendorUserId);
+
+    let q = adminClient
+      .from('vendor_payment_methods')
+      .select('*')
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('is_shown', true)
+      .eq('moderation_status', 'approved');
+    if (Array.isArray(methodIds) && methodIds.length > 0) {
+      q = q.in('payment_method_id', methodIds);
+    }
+    const { data: rows } = await q
+      .order('is_primary', { ascending: false })
+      .order('created_at', { ascending: true });
+
+    const picked = new Set(methodIds ?? []);
+    const list = ((rows ?? []) as VendorPaymentMethodRow[])
+      .filter((m) => m.method_type !== 'link' || proActive)
+      // Preserve the vendor's chosen order when a subset was picked.
+      .sort((a, b) => {
+        if (picked.size === 0) return 0;
+        return (methodIds.indexOf(a.payment_method_id)) - (methodIds.indexOf(b.payment_method_id));
+      });
+
+    const out: CoupleFacingMethod[] = [];
+    for (const m of list) {
+      out.push({
+        payment_method_id: m.payment_method_id,
+        method_type: m.method_type,
+        label: m.label,
+        provider: m.provider,
+        account_name: m.account_name,
+        account_number: m.account_number,
+        decoded_destination: m.decoded_destination,
+        link_url: m.link_url,
+        link_domain: m.link_domain,
+        note: m.note,
+        is_primary: m.is_primary,
+        qr_display_url:
+          m.method_type === 'qr' ? await displayUrlForStoredAsset(m.qr_r2_key) : null,
+      });
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Decode what an uploaded QR image ACTUALLY encodes — server-side, so the
  * stored `decoded_destination` is Setnayan-verified (anti-swap), not the
  * vendor's typed claim. Fetches the image from R2, rasterises to RGBA via

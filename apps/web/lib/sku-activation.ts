@@ -2,8 +2,17 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { appendLedger } from '@/lib/ledger';
 import { activateConcierge } from '@/app/dashboard/(account)/profile/concierge/actions';
 import { branchIdFromServiceKey } from '@/lib/vendor-branches';
+import {
+  seatServiceKey,
+  vendorProfileIdFromSeatServiceKey,
+} from '@/lib/vendor-seats';
+import { vendorProfileIdFromCustomPlanServiceKey } from '@/lib/vendor-custom-catalog';
 import { BUNDLE_CHILD_SKUS, eventSkuActive } from '@/lib/entitlements';
 import { provisionPapicSeatsAdmin } from '@/lib/papic-seats';
+import {
+  provisionPanoodCamerasAdmin,
+  panoodCameraCapForSku,
+} from '@/lib/panood-camera-seats';
 import {
   AI_SUB_SKU,
   cyclesFromAmount,
@@ -43,6 +52,32 @@ export type ActivationContext = {
 
 type ActivationHook = (ctx: ActivationContext) => Promise<void>;
 
+/**
+ * Stamp a 365-day access window on the order (owner 2026-07-10 · the ₱999/yr
+ * Custom Subdomain SKUs). Mirrors the vendor-branch add-on hook: `orders.expires_at`
+ * is the billing window read by the resolver RPC (resolve_event_subdomain) and the
+ * renewal-reminder cron. Billed as a manual prepaid annual block — no auto-charge;
+ * the gateway webhook will later call this same seam on `payment.succeeded`.
+ * Idempotent: a re-approval re-stamps the same now+365d window; a genuine renewal
+ * extends access from the new approval. (Function declaration → hoisted, so the
+ * frozen EXACT_HOOKS map below can reference it.)
+ */
+async function stampAnnualSubscriptionWindow(ctx: ActivationContext): Promise<void> {
+  const now = Date.now();
+  const expiresAt = new Date(now + 365 * 24 * 60 * 60 * 1000).toISOString();
+  await ctx.admin
+    .from('orders')
+    .update({ expires_at: expiresAt, updated_at: new Date(now).toISOString() })
+    .eq('order_id', ctx.orderId);
+  await appendLedger(ctx.admin, {
+    order_id: ctx.orderId,
+    event_type: 'service_activated',
+    actor_user_id: ctx.actorUserId,
+    actor_role: 'admin',
+    metadata: { service_key: ctx.serviceKey, expires_at: expiresAt },
+  });
+}
+
 // Exact-match hooks keyed by literal service_key.
 const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // 'concierge_complete' (TODAYS_FOCUS) → wedding-anchored concierge state machine.
@@ -70,6 +105,15 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
         event_id: ctx.eventId,
       });
     }
+  },
+
+  // 'EVENT_SUBDOMAIN' → the ₱999/yr Custom Subdomain (owner 2026-07-10 · EVENT-only;
+  // vendors get no *.setnayan.com host). Stamp a 365-day window on the order; the
+  // resolver RPC + renewal cron read `orders.expires_at`. Ownership itself gates the
+  // feature (an active paid order) — no separate flag. The subdomain label is the
+  // event's existing slug; provisioning ships with the middleware branch.
+  EVENT_SUBDOMAIN: async (ctx) => {
+    await stampAnnualSubscriptionWindow(ctx);
   },
 
   // 'SETNAYAN_AI' → flat per-event boolean, idempotent.
@@ -241,6 +285,44 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
     }
   },
 
+  // 'PANOOD_SYSTEM' (Desktop) / 'PANOOD_SYSTEM_MOBILE' (Mobile) → paid Live Studio
+  // controller. On approval, PROVISION the tier's camera-operator seats so the
+  // couple's control room is READY with no manual step (mirrors PAPIC_SEATS · the
+  // approval IS the activation). The provisioned count is the HARD camera cap:
+  // Desktop = 8, Mobile = 3 (panoodCameraCapForSku · owner-locked 2026-07-08), and
+  // the panood_claim_camera() RPC only binds operators to EXISTING cameras, so no
+  // more than `cap` can go live. provisionPanoodCamerasAdmin is a top-up
+  // (idempotent) + best-effort (never throws). The FREE single-cam livestream
+  // provisions nothing (couple's own device → YouTube).
+  PANOOD_SYSTEM: async (ctx) => {
+    if (!ctx.eventId) return;
+    try {
+      await provisionPanoodCamerasAdmin(
+        ctx.admin,
+        ctx.eventId,
+        panoodCameraCapForSku('PANOOD_SYSTEM'),
+      );
+    } catch (e) {
+      console.error('[sku-activation] PANOOD_SYSTEM camera provisioning threw (non-fatal):', e);
+    }
+  },
+
+  PANOOD_SYSTEM_MOBILE: async (ctx) => {
+    if (!ctx.eventId) return;
+    try {
+      await provisionPanoodCamerasAdmin(
+        ctx.admin,
+        ctx.eventId,
+        panoodCameraCapForSku('PANOOD_SYSTEM_MOBILE'),
+      );
+    } catch (e) {
+      console.error(
+        '[sku-activation] PANOOD_SYSTEM_MOBILE camera provisioning threw (non-fatal):',
+        e,
+      );
+    }
+  },
+
   // Seat-pass activation (seat-finding PR4). The seat pass (/[slug]/seat)
   // resolves + gates on CUSTOM_QR_GUEST — the SKU whose branded per-guest /
   // per-table QR codes point at the pass — so the hook binds to CUSTOM_QR_GUEST
@@ -338,6 +420,132 @@ const PREFIX_HOOKS: ReadonlyArray<{
         actor_user_id: ctx.actorUserId,
         actor_role: 'admin',
         metadata: { service_key: ctx.serviceKey, branch_id: branchId },
+      });
+    },
+  },
+  {
+    // 'vendor_extra_seat__{vendor_profile_id}' → recompute the vendor's paid
+    // extra-seat count (Enterprise ₱250/28d add-on, owner 2026-07-02). Unlike
+    // the branch flag, seats are a COUNT — so rather than a non-idempotent
+    // increment, RECOMPUTE extra_agent_seats = the number of PAID
+    // vendor_extra_seat orders for this vendor (the current order is already
+    // 'paid' before this runs). Idempotent + self-healing on re-approval and
+    // safe against a mid-hook crash (no double-count). The count folds into the
+    // Enterprise renewal amount in PR-B; here it just makes the seat usable.
+    match: (serviceKey) => vendorProfileIdFromSeatServiceKey(serviceKey) !== null,
+    run: async (ctx) => {
+      const vendorProfileId = vendorProfileIdFromSeatServiceKey(ctx.serviceKey);
+      if (!vendorProfileId) return;
+      const { count } = await ctx.admin
+        .from('orders')
+        .select('order_id', { count: 'exact', head: true })
+        .eq('service_key', seatServiceKey(vendorProfileId))
+        .eq('status', 'paid');
+      const paidSeats = Math.max(count ?? 0, 0);
+      const { error } = await ctx.admin
+        .from('vendor_profiles')
+        .update({ extra_agent_seats: paidSeats })
+        .eq('vendor_profile_id', vendorProfileId);
+      if (error) {
+        throw new Error(`vendor_extra_seat activation write failed: ${error.message}`);
+      }
+      await appendLedger(ctx.admin, {
+        order_id: ctx.orderId,
+        event_type: 'service_activated',
+        actor_user_id: ctx.actorUserId,
+        actor_role: 'admin',
+        metadata: {
+          service_key: ctx.serviceKey,
+          vendor_profile_id: vendorProfileId,
+          extra_agent_seats: paidSeats,
+        },
+      });
+    },
+  },
+  {
+    // 'vendor_custom_plan__{vendor_profile_id}' → PROVISION the negotiated
+    // Custom tier (owner-signed §11). When the admin approves the quote payment,
+    // flip the vendor to tier_state='custom' + promote the org's newest quoted /
+    // pending plan to 'active' so the effective-caps overlay
+    // (lib/vendor-effective-caps.ts) reads the composed ceilings. The one-active-
+    // plan unique index (WHERE status='active') means a stale prior active row
+    // must be demoted first — so this idempotently retires every OTHER active
+    // plan for the org to 'lapsed', then activates this order's plan. Re-approval
+    // is safe (the target is already active → the UPDATEs are no-ops).
+    match: (serviceKey) => vendorProfileIdFromCustomPlanServiceKey(serviceKey) !== null,
+    run: async (ctx) => {
+      const vendorProfileId = vendorProfileIdFromCustomPlanServiceKey(ctx.serviceKey);
+      if (!vendorProfileId) return;
+
+      // The plan this order quoted — the most-recently-updated non-terminal row
+      // for the org (quoted / pending_payment / active). We activate exactly one.
+      const { data: target } = await ctx.admin
+        .from('vendor_custom_plans')
+        .select('custom_plan_id, status')
+        .eq('vendor_profile_id', vendorProfileId)
+        .in('status', ['quoted', 'pending_payment', 'active'])
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const targetId = (target as { custom_plan_id?: string } | null)?.custom_plan_id ?? null;
+      if (!targetId) return; // nothing to provision (defensive)
+
+      // Stamp the Custom tier + lapse anchor FIRST — before touching the plan
+      // rows. tier_expires_at = the 28-day window end (also written to the order
+      // below). ORDERING IS A RACE GUARD: the lapse sweep (sweep_vendor_tier_expiry,
+      // fired post-response on dashboard load) and this hook are NOT in one
+      // transaction. Writing the fresh FUTURE expiry first means a concurrently-
+      // firing sweep sees a not-past-due tier and no-ops, instead of demoting the
+      // plan we are about to promote. The gate (lib/enterprise-vendor-gate.ts) +
+      // the sweep both read tier_expires_at, so a paid Custom tier now auto-lapses
+      // on non-renewal like Pro/Enterprise. (The comp lever activateCustomPlan
+      // intentionally leaves this NULL = never lapses — white-glove deals; do NOT
+      // copy this stamp there.)
+      const expiresAt = new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString();
+      const { error: tierErr } = await ctx.admin
+        .from('vendor_profiles')
+        .update({ tier_state: 'custom', tier_expires_at: expiresAt })
+        .eq('vendor_profile_id', vendorProfileId);
+      if (tierErr) {
+        throw new Error(`vendor_custom_plan tier write failed: ${tierErr.message}`);
+      }
+
+      // Demote any OTHER active plan for the org so the one-active unique index
+      // never conflicts (only touches rows that are NOT our target).
+      await ctx.admin
+        .from('vendor_custom_plans')
+        .update({ status: 'lapsed', updated_at: new Date().toISOString() })
+        .eq('vendor_profile_id', vendorProfileId)
+        .eq('status', 'active')
+        .neq('custom_plan_id', targetId);
+
+      // Promote the target to active LAST — after the future expiry is committed,
+      // so a racing sweep (now disarmed by that future expiry) can never strand
+      // this freshly-activated plan.
+      const { error: planErr } = await ctx.admin
+        .from('vendor_custom_plans')
+        .update({ status: 'active', updated_at: new Date().toISOString() })
+        .eq('custom_plan_id', targetId);
+      if (planErr) {
+        throw new Error(`vendor_custom_plan activation write failed: ${planErr.message}`);
+      }
+
+      await ctx.admin
+        .from('orders')
+        .update({ expires_at: expiresAt, updated_at: new Date().toISOString() })
+        .eq('order_id', ctx.orderId);
+
+      await appendLedger(ctx.admin, {
+        order_id: ctx.orderId,
+        event_type: 'service_activated',
+        actor_user_id: ctx.actorUserId,
+        actor_role: 'admin',
+        metadata: {
+          service_key: ctx.serviceKey,
+          vendor_profile_id: vendorProfileId,
+          custom_plan_id: targetId,
+          tier_state: 'custom',
+        },
       });
     },
   },

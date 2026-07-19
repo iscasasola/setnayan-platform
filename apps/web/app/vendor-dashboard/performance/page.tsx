@@ -1,5 +1,6 @@
+import { after } from 'next/server';
 import { redirect } from 'next/navigation';
-import { Gauge, TrendingUp, Radar } from 'lucide-react';
+import { Gauge, TrendingUp, Radar, Info } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
@@ -20,9 +21,14 @@ import {
   fetchNullServiceBookedCount,
   fetchBookedBySource,
   fetchViewsBySource,
+  fetchInquiriesBySource,
   FUNNEL_MIN_N,
 } from '@/lib/vendor-funnel';
-import { getVendorDemandRadar, EMPTY_RADAR } from '@/lib/demand-radar';
+import {
+  getVendorDemandRadar,
+  maybeRefreshDemandRadar,
+  EMPTY_RADAR,
+} from '@/lib/demand-radar';
 import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import { fetchVendorInquiryAnalytics } from '@/lib/vendor-inquiry-analytics';
@@ -46,7 +52,8 @@ import { GrowthRecsCard } from './_components/growth-recs-card';
 import { RoiAttributionCard } from './_components/roi-attribution-card';
 import type { MomentumWindow, MomentumMode } from './_components/momentum-card';
 import { FunnelPreviewCard } from './_components/funnel-preview-card';
-import { DemandPreviewCard } from './_components/demand-preview-card';
+import { DemandRadarCard } from '../demand/_components/demand-radar-card';
+import { regionLabel } from '@/lib/region-source';
 import {
   ServiceScopeSelector,
   scopeLabelFor,
@@ -104,26 +111,22 @@ function safeRead<T>(p: PromiseLike<T>, fallback: T, label: string): Promise<T> 
  *  windowed-vs-not-windowed boundary legible at a glance (owner 2026-07-02
  *  arrangement pass). */
 function SectionEyebrow({ label }: { label: string }) {
-  return (
-    <p
-      className="mb-3 font-mono text-[11px] uppercase tracking-[0.15em]"
-      style={{ color: 'var(--m-slate-3)' }}
-    >
-      {label}
-    </p>
-  );
+  // Glass PR-7: section labels render as `.sn-sec` (sentence-case ink) rather
+  // than the retired mono ALL-CAPS hand-roll (contract § 5).
+  return <p className="sn-sec mb-3">{label}</p>;
 }
 
 /**
  * /vendor-dashboard/performance — the "My Performance" cockpit.
  *
- * TIERED (owner 2026-07-01, "apply this to our live website"):
+ * TIERED (owner 2026-07-01, "apply this to our live website"; Market Intel moved
+ * to Pro-and-up 2026-07-11):
  *   • Solo   — own-shop glance: Health composite · Grow recs · basic Momentum
  *              (count, Monthly/Annual). variant='basic'.
  *   • Pro    — full own-business analytics: + revenue & Daily Momentum · ROI
- *              (Setnayan vs your book) · booking Funnel.
- *   • Enter. — + cross-business MARKET INTEL (Demand Radar · Price-Position),
- *              de-identified + min-N, nationwide totals only.
+ *              (Setnayan vs your book) · booking Funnel · cross-business MARKET
+ *              INTEL (Demand Radar · Price-Position), de-identified + min-N.
+ *   • Enter. — same Market Intel surface, at nationwide scale.
  *   • Free/Verified — no My Performance (full-page upsell).
  *
  * The gates read the caps in lib/vendor-tier-caps.ts (performanceTrends /
@@ -140,12 +143,16 @@ function SectionEyebrow({ label }: { label: string }) {
  * ownership-gated to current_vendor_profile_ids(); the market-intel readers are
  * de-identified + min-N floored. No card ever exposes another business's rows.
  */
-export default async function VendorPerformancePage({
+export default async function PerformanceHome({
   searchParams,
 }: {
-  searchParams: Promise<{ momentum?: string; service?: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const search = await searchParams;
+  const sp = await searchParams;
+  const search = {
+    momentum: typeof sp.momentum === 'string' ? sp.momentum : undefined,
+    service: typeof sp.service === 'string' ? sp.service : undefined,
+  };
   const supabase = await createClient();
   const {
     data: { user },
@@ -176,7 +183,7 @@ export default async function VendorPerformancePage({
   }
 
   const canAdvanced = !gateOn || canSeePerformanceAdvanced(tier); // Pro+
-  const canMarket = !gateOn || canSeeMarketIntel(tier); // Enterprise
+  const canMarket = !gateOn || canSeeMarketIntel(tier); // Pro-and-up (2026-07-11)
 
   // Momentum window from the URL. Daily is Pro+ only — normalize a stray ?day.
   const raw = search.momentum;
@@ -208,6 +215,10 @@ export default async function VendorPerformancePage({
     viewsBySourceMonth,
     bookedBySourceDay,
     viewsBySourceDay,
+    inquiriesBySourceYear,
+    inquiriesBySourceMonth,
+    inquiriesBySourceDay,
+    marketRegionRow,
   ] = await Promise.all([
     safeRead(
       supabase
@@ -277,7 +288,45 @@ export default async function VendorPerformancePage({
     canAdvanced
       ? safeRead(fetchViewsBySource(supabase, profile.vendor_profile_id, isoDaysAgo(30)), [], 'views_by_source_day')
       : Promise.resolve([]),
+    // Inquiries by source (Creator Economy PR-C — the owner's inquiry-source
+    // taxonomy on chat_threads). Same three windows; NULL folds into 'website'.
+    canAdvanced
+      ? safeRead(fetchInquiriesBySource(supabase, profile.vendor_profile_id, isoDaysAgo(365)), [], 'inquiries_by_source_year')
+      : Promise.resolve([]),
+    canAdvanced
+      ? safeRead(fetchInquiriesBySource(supabase, profile.vendor_profile_id, isoDaysAgo(28)), [], 'inquiries_by_source_month')
+      : Promise.resolve([]),
+    canAdvanced
+      ? safeRead(fetchInquiriesBySource(supabase, profile.vendor_profile_id, isoDaysAgo(30)), [], 'inquiries_by_source_day')
+      : Promise.resolve([]),
+    // HQ region → market label for the Demand Radar (the market-intel section
+    // folded into §4 from the retired /demand fold, owner 2026-07-12).
+    canMarket
+      ? safeRead(
+          supabase
+            .from('vendor_profiles')
+            .select('hq_region')
+            .eq('vendor_profile_id', profile.vendor_profile_id)
+            .maybeSingle()
+            .then((r) => r.data),
+          null,
+          'market_region',
+        )
+      : Promise.resolve(null),
   ]);
+
+  const hqRegion =
+    (marketRegionRow as { hq_region?: string | null } | null)?.hq_region ?? null;
+  const marketLabel = hqRegion ? regionLabel(hqRegion) ?? hqRegion : null;
+
+  // Cron-free, throttled opportunistic rebuild after the response flushes —
+  // preserved from the retired /demand fold so the radar keeps refreshing on
+  // vendor traffic, not only admin visits.
+  if (canMarket) {
+    after(async () => {
+      await maybeRefreshDemandRadar();
+    });
+  }
 
   const health = buildVendorHealthComposite(
     (statsRow as VendorHealthInputs | null) ?? null,
@@ -455,6 +504,12 @@ export default async function VendorPerformancePage({
       mode === 'year' ? bookedBySourceYear : mode === 'month' ? bookedBySourceMonth : bookedBySourceDay;
     const views =
       mode === 'year' ? viewsBySourceYear : mode === 'month' ? viewsBySourceMonth : viewsBySourceDay;
+    const inquiriesSlices =
+      mode === 'year'
+        ? inquiriesBySourceYear
+        : mode === 'month'
+          ? inquiriesBySourceMonth
+          : inquiriesBySourceDay;
     const nullExcluded =
       mode === 'year' ? nullExcludedYear : mode === 'month' ? nullExcludedMonth : nullExcludedDay;
     const serviceBooked =
@@ -474,7 +529,7 @@ export default async function VendorPerformancePage({
             <div className="text-sm">
               <p style={{ color: 'var(--m-ink)' }}>
                 <span className="font-semibold">Bookings for {scopeLabel}:</span>{' '}
-                <span className="tabular-nums">{serviceBooked ?? 0}</span> — {label}.
+                <span className="font-mono">{serviceBooked ?? 0}</span> — {label}.
               </p>
               <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
                 Views, inquiries, and quotes below are shop-wide — they aren&rsquo;t
@@ -512,6 +567,17 @@ export default async function VendorPerformancePage({
             blurb={`Where your top-of-funnel traffic comes from (${label}). Thin sources (under ${FUNNEL_MIN_N}) are hidden.`}
             slices={views}
             emptyText="No profile views in this window yet."
+          />
+        </Reanimate>
+        {/* Inquiry-source taxonomy (Creator Economy PR-C · owner 2026-07-17):
+            what TYPE of customer sent each inquiry — Website · First Pick ·
+            Auto Build · Influencer · Editorial · … Vendor-private. */}
+        <Reanimate>
+          <SourceBreakdown
+            title="What type of customer inquires"
+            blurb={`How each inquiry reached you (${label}) — website, recommendations, storyteller chapters, editorial features. Thin sources (under ${FUNNEL_MIN_N}) are hidden.`}
+            slices={inquiriesSlices}
+            emptyText="No inquiries in this window yet."
           />
         </Reanimate>
       </div>
@@ -552,9 +618,6 @@ export default async function VendorPerformancePage({
           monthlySeries={bookingSeries}
           dailySeries={bookingDailySeries}
           scopeLabel={scopeLabel}
-          nullExcludedYear={nullExcludedYear}
-          nullExcludedMonth={nullExcludedMonth}
-          nullExcludedDay={nullExcludedDay}
           serviceSelector={
             showSelector ? (
               <ServiceScopeSelector
@@ -619,13 +682,36 @@ export default async function VendorPerformancePage({
           )}
           {canMarket ? (
             <Reanimate>
-              <DemandPreviewCard radar={demandRadar} />
+              <section className="space-y-4">
+                <div>
+                  <h2 className="text-lg font-semibold" style={{ color: 'var(--m-ink)' }}>
+                    Demand radar
+                    <span
+                      className="ml-2 font-mono text-[11px] uppercase tracking-[0.15em]"
+                      style={{ color: 'var(--m-slate-3)' }}
+                    >
+                      who&apos;s looking for you
+                    </span>
+                  </h2>
+                  <div className="mt-3 flex items-start gap-2 rounded-xl border border-ink/10 bg-white/60 p-3 text-xs text-ink/65">
+                    <Info aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-terracotta" strokeWidth={1.75} />
+                    <p>
+                      Every number here is a <span className="font-medium">count</span> —
+                      inquiries, unlocks, and bookings rolled up by month and look
+                      for your region. Small groups stay hidden until no single
+                      couple can be picked out, so the radar can look quiet early
+                      and fills in as your market grows.
+                    </p>
+                  </div>
+                </div>
+                <DemandRadarCard radar={demandRadar} marketLabel={marketLabel} scope="vendor" />
+              </section>
             </Reanimate>
           ) : (
             <VendorTierTeaser
               feature="Demand Radar & Price-Position"
-              requiredTier="enterprise"
-              blurb="Where demand is building in your market, and how your prices sit against the field — de-identified, nationwide totals only. Market intelligence is an Enterprise feature."
+              requiredTier="pro"
+              blurb="Where demand is building in your market, and how your prices sit against the field — de-identified, nationwide totals only. Market intelligence is a Pro feature."
               icon={<Radar aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
             />
           )}

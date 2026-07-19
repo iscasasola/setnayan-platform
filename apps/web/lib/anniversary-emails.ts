@@ -3,7 +3,8 @@ import { renderBrandedEmail } from '@/lib/email-template';
 
 // Anniversary "on this day" re-engagement email (PR-G).
 //
-// A daily cron (app/api/cron/anniversary-digest) resolves the couples whose
+// A daily CRON-FREE job (runAnniversaryDigest in lib/daily-email-jobs.ts, fired
+// from public-page after() traffic) resolves the couples whose
 // wedding anniversary is TODAY (via the couples_with_anniversary_today RPC) and
 // sends each this warm "N years ago today — relive your day" recap. This module
 // only SHAPES the email; the cron does the DB read, the idempotency lock, and
@@ -77,6 +78,44 @@ export function buildAnniversaryEmail(
     heading: `${yp} ago today 💛`,
     paragraphs: [greeting, p1, p2, p3],
     ctaLabel: 'Relive your day',
+    ctaHref,
+    footnote: `You're receiving this because you celebrated your wedding with Setnayan. To stop anniversary reminders, reply with "unsubscribe" or email ${ANNIVERSARY_SUPPORT_EMAIL}.`,
+  });
+
+  return { subject, text, html };
+}
+
+/**
+ * Build the FIRST-ANNIVERSARY HEADS-UP email (date-anchor planning-timing
+ * reminder). Sent ~6 weeks BEFORE a couple's 1st wedding anniversary (the
+ * proactive nudge the lifecycle research valued most — the moment to plan
+ * something and the natural Membership touch). Pure; the cron-free job pairs it
+ * in sendEmail(). `weeksAway` is the friendly countdown (default 6).
+ */
+export function buildAnniversaryHeadsupEmail(
+  parts: { coupleName: string; eventName: string; ctaHref: string; weeksAway?: number },
+): AnniversaryEmail {
+  const { coupleName, eventName, ctaHref } = parts;
+  const weeks = Math.max(1, Math.trunc(parts.weeksAway ?? 6));
+  const who = (coupleName ?? '').trim() || (eventName ?? '').trim() || 'you';
+  const away = weeks === 1 ? 'about a week' : `about ${weeks} weeks`;
+
+  const subject = `Your 1st anniversary is coming up 💛`;
+  const greeting = `Hi ${who},`;
+  const p1 = `Your first wedding anniversary is ${away} away. A whole year already — worth celebrating.`;
+  const p2 = `There's still plenty of time to plan something lovely: a dinner, a getaway, a little surprise. Open Setnayan to see it on your year and start when you're ready — no pressure, we'll keep track of the date for you.`;
+  const p3 = `Here's to your first of many. 💛`;
+
+  const text = [
+    greeting, '', p1, '', p2, '', `Plan your anniversary:`, ctaHref, '', p3, '',
+    `— Set na 'yan.`, '',
+    `You're receiving this because you celebrated your wedding with Setnayan. To stop anniversary reminders, reply with "unsubscribe" or email ${ANNIVERSARY_SUPPORT_EMAIL}.`,
+  ].join('\n');
+
+  const html = renderBrandedEmail({
+    heading: `Your 1st anniversary is coming up 💛`,
+    paragraphs: [greeting, p1, p2, p3],
+    ctaLabel: 'Plan your anniversary',
     ctaHref,
     footnote: `You're receiving this because you celebrated your wedding with Setnayan. To stop anniversary reminders, reply with "unsubscribe" or email ${ANNIVERSARY_SUPPORT_EMAIL}.`,
   });

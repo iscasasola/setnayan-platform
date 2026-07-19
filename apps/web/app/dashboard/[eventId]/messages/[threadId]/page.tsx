@@ -11,6 +11,8 @@ import { canonicalServiceToPlanGroupId } from '@/lib/wedding-plan-groups';
 import { resolveLivePax } from '@/lib/pax';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
+import { ThreadCallLauncher } from '@/app/_components/thread-call-launcher';
+import { resolveThreadCallsEnabled } from '@/lib/thread-calls-gate';
 import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
@@ -33,6 +35,10 @@ export default async function CoupleThreadPage({ params }: Props) {
 
   // UGC block state (Apple 1.2) — drives the thread menu label + composer gating.
   const blockState = await getThreadBlockState(thread, user.id, 'couple');
+
+  // Is voice/video calling unlocked for this vendor's tier? (paid capability,
+  // gate-dark by default). The couple sees the call UI only when it's on.
+  const callsEnabled = await resolveThreadCallsEnabled(thread.vendor_profile_id);
 
   // Mark this thread read for the couple viewer so the Messages-icon unread
   // badge clears (migration 20260728000000_chat_thread_reads.sql). No-op +
@@ -110,11 +116,11 @@ export default async function CoupleThreadPage({ params }: Props) {
 
   return (
     <section className="flex h-[calc(100dvh-12rem)] flex-col gap-4">
-      <header className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-cream p-4">
+      <header className="sn-tile flex items-center justify-between gap-3 p-4">
         <div className="min-w-0 space-y-0.5">
           <Link
             href={`/dashboard/${eventId}/messages`}
-            className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta"
+            className="sn-eye hover:text-terracotta"
           >
             ‹ Messages
           </Link>
@@ -161,6 +167,16 @@ export default async function CoupleThreadPage({ params }: Props) {
       ) : thread.inquiry_status === 'accepted' ||
       (thread.inquiry_status === 'pending' && canFollowUpWhilePending) ? (
         <div className="space-y-2">
+          {/* Free 1:1 voice/video call — accepted threads only (PR 10). */}
+          {thread.inquiry_status === 'accepted' ? (
+            <ThreadCallLauncher
+              threadId={threadId}
+              currentUserId={user.id}
+              counterpartyLabel={vendorLabel}
+              callsEnabled={callsEnabled}
+              viewerRole="couple"
+            />
+          ) : null}
           {thread.inquiry_status === 'pending' && coupleMsgCount > 0 ? (
             <p className="text-xs text-ink/55">
               You can send one follow-up while you wait for {vendorLabel} to

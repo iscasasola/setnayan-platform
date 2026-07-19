@@ -313,6 +313,17 @@ export async function submitCoupleReview(formData: FormData) {
     });
   }
 
+  // Vendor-level fraud detection (Anti-Fraud Phase 3, § 4) — recompute the five
+  // vendor anomaly signals (ring / velocity / graph_isolation / import_spike /
+  // rating_shape) for THIS vendor now that a new review landed, upserting into
+  // fraud_signals for the Phase-4 admin queue. Distinct from the per-review
+  // screener above (different grain). Runs in an after() task, internally
+  // fail-soft — DETECT + SCORE ONLY, it never suspends/dings the vendor.
+  after(async () => {
+    const { scoreVendorFraud } = await import('@/lib/fraud-detection-runner');
+    await scoreVendorFraud(vendorProfileId);
+  });
+
   revalidatePath(`/dashboard/${eventId}/vendors`);
   redirect(`/dashboard/${eventId}/vendors?reviewed=${eventVendorId}`);
 }

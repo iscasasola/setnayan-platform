@@ -18,6 +18,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   fetchOwnVendorProfile,
+  fetchVendorBusinessStartDate,
   businessProfileChecklist,
   type BusinessProfileItem,
 } from '@/lib/vendor-profile';
@@ -38,7 +39,7 @@ import {
   type VendorBranchView,
 } from '@/lib/vendor-branches';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
+import { tierCaps, asVendorTier, isTierAtLeast } from '@/lib/vendor-tier-caps';
 import { ReachMap } from './_components/reach-map';
 import { BranchManager, type PayInfo } from '../_components/branch-manager';
 import {
@@ -54,6 +55,13 @@ import { loadVendorRecaps } from '@/lib/recap-vendor';
 import { isPubliclyVisible } from '@/lib/vendor-visibility';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
+import { isInstagramConnectConfigured } from '@/lib/vendor-instagram';
+import {
+  fetchVendorIgConnection,
+  fetchVendorIgMediaForOwner,
+  type VendorIgConnectionStatus,
+  type VendorIgMediaRow,
+} from '@/lib/vendor-instagram-status';
 import { CopyButton } from '@/app/_components/copy-button';
 import { VendorAvatar, deriveVendorInitials as deriveInitials } from '@/app/_components/vendor-avatar';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -66,10 +74,7 @@ import {
 
 import {
   fetchVendorMicrosite,
-  fetchVimeoThumb,
   micrositeCan,
-  serializeVideoRef,
-  videoThumb,
   type VendorMicrosite,
 } from '@/lib/vendor-microsite';
 
@@ -79,6 +84,7 @@ import { VerifySection, type VerifySummary } from './_components/verify-section'
 import { readContactStamps } from './inline-docs-actions';
 import { WebsiteEditor } from './_components/website-editor';
 import type { ProfileFieldData } from './_components/editable-row';
+import { updateBusinessStartDate } from '../actions';
 import { ServicesDisclosure } from './_components/services-disclosure';
 
 /**
@@ -141,12 +147,25 @@ type ShopData = {
   yearsLabel: string | null;
   microsite: VendorMicrosite;
   portfolioPhotos: { key: string; url: string }[];
+  /** Tier portfolio-photo cap for the <FileUpload maxFiles> (∞ → 999 sentinel). */
+  portfolioMax: number;
+  /** Presigned thumbnails for every stored portfolio ref (first-paint). */
+  portfolioDisplayMap: Record<string, string>;
+  /** The vendor's current portfolio r2 refs (fed to <FileUpload currentValue>). */
+  portfolioRefs: string[];
+  /** Featured-video external URLs (all tiers · gallery_video_links). */
+  galleryVideoLinks: string[];
+  /** Instagram connect card inputs (inert when Meta App env is unset). */
+  igConfigured: boolean;
+  igConnection: VendorIgConnectionStatus | null;
+  igMedia: VendorIgMediaRow[];
   reviewOptions: { id: string; label: string }[];
   editorialOptions: { id: string; label: string }[];
   completionPct: number;
   verify: VerifySummary;
   checklist: BusinessProfileItem[];
   profileFields: ProfileFieldData;
+  businessStartDate: string | null;
   profileViewsWeek: number;
   rating: number;
   reviewCount: number;
@@ -325,16 +344,17 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
         : teamSeatsLeft > 0
           ? `Add up to ${teamSeatsLeft}`
           : 'Seats full';
-  // Branch headroom: only Enterprise may add locations (each is a paid add-on,
-  // no hard cap), everyone else upgrades to unlock.
-  const branchSub = tier === 'enterprise' ? 'Add locations' : 'Upgrade to add';
+  // Branch headroom: only Enterprise-or-higher may add locations (each is a paid
+  // add-on, no hard cap), everyone else upgrades to unlock. Rank-derived so
+  // Custom (runs as Enterprise) inherits without a hard equality.
+  const branchSub = isTierAtLeast(tier, 'enterprise') ? 'Add locations' : 'Upgrade to add';
 
-  // Branch add/manage data — only Enterprise renders the inline manager, so the
-  // fee + payout accounts are only fetched for that tier (skips two reads for
-  // everyone else).
+  // Branch add/manage data — only Enterprise-or-higher renders the inline
+  // manager, so the fee + payout accounts are only fetched for that tier (skips
+  // two reads for everyone else).
   let branchFeePhp = BRANCH_FEE_PHP;
   let branchPay: PayInfo = { bdoName: null, bdoNumber: null, gcashName: null, gcashNumber: null };
-  if (tier === 'enterprise') {
+  if (isTierAtLeast(tier, 'enterprise')) {
     const [fee, settings] = await Promise.all([
       fetchBranchFeePhp(supabase).catch(() => BRANCH_FEE_PHP),
       fetchPlatformSettings(supabase).catch(() => null),
@@ -402,6 +422,9 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   // decoupled from the shared profile select so a not-yet-applied migration
   // never blanks My Shop.
   const microsite = await fetchVendorMicrosite(supabase, vendorId);
+  // Precise founding date (optional) — guarded, so a not-yet-applied migration
+  // never blanks My Shop. Feeds the exact business anniversary/monthsary day.
+  const businessStartDate = await fetchVendorBusinessStartDate(supabase, vendorId);
   const isProWebsite = tierCaps(asVendorTier(tier)).customWebsiteName;
   const canPersonalize = micrositeCan(tier).canPersonalize;
   const isEnterpriseWebsite = micrositeCan(tier).isEnterprise;
@@ -409,11 +432,13 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     ? `${Math.max(0, new Date().getFullYear() - profile.in_business_since_year)} yrs in business`
     : null;
 
-  // Portfolio thumbnails for the Pro hero-photo picker. Best-effort — a presign
-  // hiccup just drops that option, never crashes the page.
+  // Portfolio thumbnails — reused by BOTH the Pro hero-photo picker and the
+  // Gallery-&-media <FileUpload> first-paint. Best-effort — a presign hiccup
+  // just drops that thumbnail, never crashes the page.
+  const portfolioRefs = (profile.portfolio_r2_keys ?? []) as string[];
   const portfolioPhotos = (
     await Promise.all(
-      ((profile.portfolio_r2_keys ?? []) as string[]).map(async (key) => {
+      portfolioRefs.map(async (key) => {
         try {
           const url = await displayUrlForStoredAsset(key);
           return url ? { key, url } : null;
@@ -423,6 +448,34 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
       }),
     )
   ).filter((p): p is { key: string; url: string } => p !== null);
+  // Map form for <FileUpload initialDisplayUrls> so the thumbnails render on
+  // first paint (mirrors the retired /profile page's portfolioDisplayMap).
+  const portfolioDisplayMap: Record<string, string> = {};
+  for (const p of portfolioPhotos) portfolioDisplayMap[p.key] = p.url;
+
+  // Tier portfolio-photo cap (FREE 30 · VERIFIED 50 · PRO 100 · ENTERPRISE ∞).
+  // The <FileUpload> needs a finite maxFiles, so ∞ → a high sentinel — mirrors
+  // the retired /profile page exactly.
+  const portfolioCap = tierCaps(asVendorTier(tier)).portfolioPhotos;
+  const portfolioMax = Number.isFinite(portfolioCap) ? portfolioCap : 999;
+
+  // Featured-video links (all tiers · gallery_video_links) — the relocated
+  // <VideoLinksEditor> seed.
+  const galleryVideoLinks = (profile.gallery_video_links ?? []) as string[];
+
+  // Instagram connect + sync (inert when the Meta App env is unset). Both loaders
+  // are best-effort + degrade to null/[] on any error (pre-migration DB, etc.) so
+  // the IG card never blanks My Shop. Mirrors the retired /profile page.
+  const igConfigured = isInstagramConnectConfigured();
+  let igConnection: VendorIgConnectionStatus | null = null;
+  let igMedia: VendorIgMediaRow[] = [];
+  try {
+    igConnection = await fetchVendorIgConnection(vendorId);
+    igMedia = igConnection ? await fetchVendorIgMediaForOwner(vendorId) : [];
+  } catch {
+    igConnection = null;
+    igMedia = [];
+  }
 
   // Review options for the Pro pinned-review picker. Best-effort — a fetch
   // hiccup just yields an empty picker ("no reviews yet"), never a crash.
@@ -461,12 +514,20 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     yearsLabel,
     microsite,
     portfolioPhotos,
+    portfolioMax,
+    portfolioDisplayMap,
+    portfolioRefs,
+    galleryVideoLinks,
+    igConfigured,
+    igConnection,
+    igMedia,
     reviewOptions,
     editorialOptions,
     completionPct,
     verify,
     checklist: completion.items,
     profileFields,
+    businessStartDate,
     profileViewsWeek: viewsRes,
     rating: Number(reviewStats.avg_rating_overall) || 0,
     reviewCount: Number(reviewStats.total_count) || 0,
@@ -501,10 +562,29 @@ function tierLabel(tier: string | null): string {
   return TIER_LABEL[tier] ?? titleCase(tier);
 }
 
-export default async function VendorShopPage({
+// Map the Instagram OAuth-callback error codes to friendly one-line copy for the
+// IG card. Mirrors the retired /profile page's IG_ERROR_COPY (2026-07-05).
+const IG_ERROR_COPY: Record<string, string> = {
+  denied: 'Instagram connection was cancelled.',
+  user_denied: 'Instagram connection was cancelled.',
+  missing_code_or_state: 'Instagram connection could not be completed. Try again.',
+  state_not_found: 'That connection link expired. Try connecting again.',
+  state_expired: 'That connection link expired. Try connecting again.',
+  not_configured: 'Instagram connect is not available yet.',
+  exchange_failed: 'Instagram could not confirm the connection. Try again.',
+  profile_fetch_failed:
+    'We couldn’t read your Instagram profile. Make sure it’s a Business or Creator account, then try again.',
+  encryption_unavailable:
+    'Instagram connect is temporarily unavailable. Please try again later.',
+  persist_failed: 'Could not save your Instagram connection. Try again.',
+};
+
+async function ShopHome({
   searchParams,
 }: {
-  searchParams: Promise<ServicesManagerSearch>;
+  searchParams: Promise<
+    ServicesManagerSearch & { ig_connected?: string; ig_error?: string }
+  >;
 }) {
   let data: ShopData | 'no-vendor' | null;
   try {
@@ -539,10 +619,10 @@ export default async function VendorShopPage({
             storefront, reach, and reputation all live here.
           </p>
           <Link
-            href="/vendor-dashboard/profile"
+            href="/open-shop"
             className="button-primary mt-4 inline-flex items-center gap-2"
           >
-            Go to my profile
+            Set up my shop
             <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           </Link>
         </div>
@@ -555,23 +635,18 @@ export default async function VendorShopPage({
   const publicPath = data.slug ? `/${data.slug}` : null;
   const sp = await searchParams;
 
-  // Films editor cards — resolve each stored ref to a poster. YouTube posters
-  // are deterministic; Vimeo needs a cached oEmbed lookup (fetched server-side
-  // here, degrading to null → the editor's poster-less fallback tile). Only the
-  // Enterprise editor renders the grid, so skip the work otherwise.
-  const videoCards = data.isEnterpriseWebsite
-    ? await Promise.all(
-        data.microsite.videos.map(async (ref) => ({
-          stored: serializeVideoRef(ref),
-          provider: ref.provider,
-          thumb:
-            videoThumb(ref) ??
-            (ref.provider === 'vimeo'
-              ? await fetchVimeoThumb(ref.id, ref.hash)
-              : null),
-        })),
-      )
-    : [];
+  // Instagram card flash from the OAuth-callback redirect params (the callback
+  // now lands on /vendor-dashboard/shop with these flags · 2026-07-05).
+  const igFlash: { kind: 'ok' | 'error'; message: string } | null = sp.ig_connected
+    ? { kind: 'ok', message: 'Instagram connected. Press “Sync now” to pull your posts.' }
+    : sp.ig_error
+      ? {
+          kind: 'error',
+          message:
+            IG_ERROR_COPY[sp.ig_error] ??
+            'Instagram connection could not be completed. Try again.',
+        }
+      : null;
 
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-8 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
@@ -636,11 +711,52 @@ export default async function VendorShopPage({
         branchLabel={nf.format(data.branchLocations)}
         branchSub={data.branchSub}
         profilePanel={
-          <ProfileChecklistEditor
-            items={data.checklist}
-            data={data.profileFields}
-            isVerified={data.isVerified}
-          />
+          <>
+            <ProfileChecklistEditor
+              items={data.checklist}
+              data={data.profileFields}
+              isVerified={data.isVerified}
+            />
+            {/* Precise founding DATE (optional) — powers the EXACT business
+                anniversary/monthsary day on your Overview. Plain server-action
+                form; blank clears it and we fall back to the year (EST). */}
+            <form
+              action={updateBusinessStartDate}
+              className="mt-3 rounded-xl border p-4"
+              style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
+            >
+              <label
+                htmlFor="in_business_since_date"
+                className="block text-sm font-medium"
+                style={{ color: 'var(--m-ink)' }}
+              >
+                Business start date{' '}
+                <span className="font-normal" style={{ color: 'var(--m-slate)' }}>
+                  (optional)
+                </span>
+              </label>
+              <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
+                The exact day you started — powers your business anniversary. Leave
+                blank to use the year (EST) above.
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <input
+                  id="in_business_since_date"
+                  name="in_business_since_date"
+                  type="date"
+                  defaultValue={data.businessStartDate ?? ''}
+                  className="input-field max-w-[12rem]"
+                />
+                <button
+                  type="submit"
+                  className="rounded-full px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+                  style={{ background: 'var(--m-accent-deep)' }}
+                >
+                  Save
+                </button>
+              </div>
+            </form>
+          </>
         }
         websitePanel={
           <WebsiteEditor
@@ -649,7 +765,6 @@ export default async function VendorShopPage({
             websiteLive={data.websiteLive}
             isPro={data.isProWebsite}
             canPersonalize={data.canPersonalize}
-            isEnterprise={data.isEnterpriseWebsite}
             about={data.microsite.about}
             sections={data.microsite.sections}
             featuredServiceIds={data.microsite.featuredServiceIds}
@@ -665,7 +780,15 @@ export default async function VendorShopPage({
             pinnedReviewId={data.microsite.pinnedReviewId}
             editorials={data.editorialOptions}
             featuredEditorialIds={data.microsite.featuredEditorialIds}
-            videos={videoCards}
+            vendorProfileId={data.profileFields.vendorProfileId}
+            portfolioRefs={data.portfolioRefs}
+            portfolioDisplayMap={data.portfolioDisplayMap}
+            portfolioMax={data.portfolioMax}
+            galleryVideoLinks={data.galleryVideoLinks}
+            igConfigured={data.igConfigured}
+            igConnection={data.igConnection}
+            igMedia={data.igMedia}
+            igFlash={igFlash}
           />
         }
         teamPanel={<TeamPanel members={data.team} />}
@@ -803,7 +926,8 @@ function HeroCard({
           </div>
         ) : (
           <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-            No public address yet — set one in Profile.
+            No public address yet — a custom address is a Pro feature you set in
+            Website.
           </p>
         )}
       </div>
@@ -822,14 +946,29 @@ function HeroCard({
           <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         </a>
       ) : (
-        <Link
-          href="/vendor-dashboard/profile"
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors"
-          style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
-        >
-          Finish profile
-          <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        </Link>
+        (() => {
+          // The primary CTA must track the vendor's REAL next step, never
+          // contradict a 100% ring. Only an actually-unfinished profile says
+          // "Finish profile"; a complete-but-unverified shop points at the
+          // verification stage; a complete-and-verified shop (public address is
+          // a separate Pro/Website step) points back into the manage tiles.
+          const cta =
+            data.completionPct < 100
+              ? { href: '#manage-shop', label: 'Finish profile' }
+              : data.isVerified
+                ? { href: '#manage-shop', label: 'Manage shop' }
+                : { href: '#get-verified', label: 'Get verified' };
+          return (
+            <a
+              href={cta.href}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors"
+              style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
+            >
+              {cta.label}
+              <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            </a>
+          );
+        })()
       )}
     </div>
   );
@@ -852,18 +991,19 @@ function CompletenessRing({ pct }: { pct: number }) {
           style={{ width: '3.75rem', height: '3.75rem', background: 'var(--m-orange-4)' }}
         >
           <span
-            className="text-base font-semibold tabular-nums"
+            className="font-mono text-base font-bold"
             style={{ color: 'var(--m-ink)' }}
           >
             {clamped}%
           </span>
         </div>
       </div>
-      <span
-        className="font-mono text-[10px] uppercase tracking-[0.18em]"
-        style={{ color: 'var(--m-orange-2)' }}
-      >
-        Complete
+      <span className="sn-eye">
+        {/* Scoped to "Profile" (not a bare "Complete"): the ring measures only
+            the 8 business-profile fields — NOT the public address, which is a
+            separate Pro/Website step. Keeps the ring honest against the header's
+            "no public address yet" and matches the Profile KPI tile's number. */}
+        Profile
       </span>
     </div>
   );
@@ -892,7 +1032,7 @@ function StatTile({
         </span>
         {label}
       </span>
-      <p className="mt-1 text-2xl font-semibold tabular-nums" style={{ color: 'var(--m-ink)' }}>
+      <p className="mt-1 font-mono text-2xl font-bold" style={{ color: 'var(--m-ink)' }}>
         {value}
       </p>
       <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
@@ -993,7 +1133,7 @@ function BranchPanel({
   branchAutoRadius: number;
   branchPay: PayInfo;
 }) {
-  const isEnterprise = tier === 'enterprise';
+  const isEnterprise = isTierAtLeast(tier, 'enterprise');
   const hasCoords = hqLat !== null && hqLng !== null;
   const hasRing = Number.isFinite(reachKm) && reachKm > 0;
   const from = city ?? 'your headquarters';
@@ -1068,4 +1208,187 @@ function BranchPanel({
       )}
     </div>
   );
+}
+
+
+/* ── My Shop hub (owner 5-page IA, 2026-07-12) ──────────────────────────────
+ * One menu item, the whole business integrated: the shop home (profile ·
+ * services · verify · website — this file's original body, incl. the
+ * services fold-in from 2026-07-02) plus Contracts, Proposals, Earnings,
+ * How clients pay you, Manpower as tabs, and a Tools tab linking the
+ * long-tail surfaces that left the sidebar. Old routes redirect in. */
+import { Suspense } from 'react';
+import { FileSignature, FileText, HandCoins, HardHat, Boxes } from 'lucide-react';
+import {
+  FeatureAccordion,
+  AccordionSkeleton,
+  type AccordionSection,
+} from '../_components/feature-accordion';
+import ContractsSurface from '../contracts/surface';
+import ProposalsSurface from '../proposals/surface';
+import EarningsSurface from '../earnings/surface';
+import PaymentOptionsSurface from '../payment-options/surface';
+import ManpowerSurface from '../manpower/surface';
+
+// The folded feature sections, in strategic order below the shop home. Each
+// expands in place and loads its server body on open (owner one-page IA
+// 2026-07-12). Home (profile · services · verify · website) stays above.
+const SHOP_SECTIONS: AccordionSection[] = [
+  {
+    key: 'contracts',
+    label: 'Contracts',
+    sub: 'Send, sign, and track your booking contracts',
+    icon: <FileSignature className="h-4 w-4" strokeWidth={1.75} />,
+  },
+  {
+    key: 'proposals',
+    label: 'Proposals',
+    sub: 'Build quotes and reusable proposal templates',
+    icon: <FileText className="h-4 w-4" strokeWidth={1.75} />,
+  },
+  {
+    key: 'payments',
+    label: 'How clients pay you',
+    sub: 'Bank, GCash, and link methods couples can use',
+    icon: <HandCoins className="h-4 w-4" strokeWidth={1.75} />,
+  },
+  {
+    key: 'manpower',
+    label: 'Manpower',
+    sub: 'Pick up paid crew gigs from events already booked',
+    icon: <HardHat className="h-4 w-4" strokeWidth={1.75} />,
+  },
+  {
+    key: 'tools',
+    label: 'More tools',
+    sub: 'Reviews · Stories · Recaps · Partnerships · Attributes · Branches …',
+    icon: <Boxes className="h-4 w-4" strokeWidth={1.75} />,
+  },
+];
+
+const SHOP_TOOLS: { href: string; label: string; sub: string }[] = [
+  { href: '/vendor-dashboard/reviews', label: 'Reviews', sub: 'Ratings and written reviews from booked couples.' },
+  { href: '/vendor-dashboard/track-record', label: 'Track record', sub: 'Completed events and the public proof they build.' },
+  { href: '/vendor-dashboard/real-stories', label: 'Real Stories', sub: 'Editorial features starring your work.' },
+  { href: '/vendor-dashboard/recaps', label: 'Recaps', sub: 'Living recaps from events you served.' },
+  { href: '/vendor-dashboard/recommendations', label: 'Recommend', sub: 'Vendors you vouch for, and who vouches for you.' },
+  { href: '/vendor-dashboard/partnerships', label: 'Partnerships', sub: 'Preferred-partner ties with other vendors.' },
+  { href: '/vendor-dashboard/creators', label: 'Creators', sub: 'Offer discounts to creators for a credited feature in their story.' },
+  { href: '/vendor-dashboard/attributes', label: 'Attributes', sub: 'Traits and tags that sharpen your matching.' },
+  { href: '/vendor-dashboard/repertoire', label: 'Repertoire', sub: 'Your set list / portfolio pieces for couples to browse.' },
+  // Branches removed 2026-07-16 — the Branch tile above (ManageTiles, inline
+  // BranchManager) is the canonical branch surface; the standalone /branches
+  // route now redirects here. Team stays: /team hosts the extra-seat purchase
+  // flow the inline Team tile doesn't.
+  { href: '/vendor-dashboard/team', label: 'Team & Setnayan', sub: 'Seats, roles, and your Setnayan relationship.' },
+  { href: '/vendor-dashboard/disputes', label: 'Disputes', sub: 'Open cases and their timelines.' },
+  { href: '/vendor-dashboard/theft-watch', label: 'Theft Watch', sub: 'Portfolio-theft reports and takedowns.' },
+];
+
+// Stylist-only card (owner-locked 2026-07-12: the Moodboard library is a
+// stylist's own collection — reception_decor vendors only).
+const STYLIST_TOOL = { href: '/vendor-dashboard/moodboard-library', label: 'Moodboard library', sub: 'Your own moodboard collection — recolourable sets couples match to their palette.' };
+
+function ShopTools({ isStylist }: { isStylist: boolean }) {
+  const tools = isStylist ? [STYLIST_TOOL, ...SHOP_TOOLS] : SHOP_TOOLS;
+  return (
+    <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 xl:max-w-7xl 2xl:max-w-screen-2xl">
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {tools.map((t) => (
+          <li key={t.href}>
+            {/* Flat `.sn-row` cards — 12+ in this grid, so blur is banned here
+                (blur budget § 1.6: no blur in >10-item collections). */}
+            <Link
+              href={t.href}
+              className="sn-row sn-press block p-4 transition hover:-translate-y-0.5 hover:shadow-md"
+            >
+              <span className="block text-[14px] font-semibold text-ink">{t.label}</span>
+              <span className="mt-1 block text-[12.5px] leading-relaxed text-ink/60">{t.sub}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** The open section's body — async so <Suspense> streams a skeleton while its
+ *  queries run. Only the matching one renders, so folded sections cost nothing
+ *  until expanded. `tools` awaits the cheap stylist check internally so the
+ *  accordion headers paint instantly. */
+async function ShopSectionBody({
+  open,
+  sp,
+}: {
+  open: string;
+  sp: Record<string, string | string[] | undefined>;
+}) {
+  const pass = Promise.resolve(sp);
+  switch (open) {
+    case 'contracts':
+      return <ContractsSurface />;
+    case 'proposals':
+      return <ProposalsSurface searchParams={pass as never} />;
+    case 'payments':
+      return <PaymentOptionsSurface searchParams={pass as never} />;
+    case 'manpower':
+      return <ManpowerSurface />;
+    case 'tools':
+      return <ShopTools isStylist={await shopOwnerIsStylist()} />;
+    default:
+      return null;
+  }
+}
+
+export default async function VendorShopHub({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
+  // `open` is canonical; `tab` is the legacy alias the old redirect stubs emit.
+  const openRaw =
+    (typeof sp.open === 'string' && sp.open) ||
+    (typeof sp.tab === 'string' && sp.tab) ||
+    null;
+  const open =
+    openRaw && SHOP_SECTIONS.some((s) => s.key === openRaw) ? openRaw : null;
+
+  return (
+    <>
+      {/* Home stays on top: identity · stats · Manage tiles · verify · services. */}
+      <ShopHome searchParams={Promise.resolve(sp) as never} />
+
+      {/* Earnings promoted to always-on (owner "build it" 2026-07-12) — money
+          is the #1 glance. Tier-gated: free/below-Solo shops see a cheap gate,
+          paid shops see the ledger. */}
+      <div id="earnings">
+        <EarningsSurface searchParams={Promise.resolve(sp) as never} />
+      </div>
+
+      {/* Everything else folds in below — one open at a time, loaded on expand. */}
+      <FeatureAccordion sections={SHOP_SECTIONS} openKey={open}>
+        {open ? (
+          <Suspense fallback={<AccordionSkeleton />}>
+            <ShopSectionBody open={open} sp={sp} />
+          </Suspense>
+        ) : null}
+      </FeatureAccordion>
+    </>
+  );
+}
+
+
+/** Stylist check for the More-tools tab (owner lock 2026-07-12): reads the
+ * caller's own vendor profile; reception_decor = the stylist/decorator tile. */
+async function shopOwnerIsStylist(): Promise<boolean> {
+  const { createClient: createShopToolsClient } = await import('@/lib/supabase/server');
+  const { fetchOwnVendorProfile: fetchShopToolsProfile } = await import('@/lib/vendor-profile');
+  const supabase = await createShopToolsClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+  const profile = await fetchShopToolsProfile(supabase, user.id);
+  return (profile?.services ?? []).some((s: string) => s === 'reception_decor');
 }

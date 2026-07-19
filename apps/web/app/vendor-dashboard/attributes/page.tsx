@@ -205,7 +205,7 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
         </div>
       ) : null}
       {removed ? (
-        <div role="status" className="mb-5 rounded-md border border-ink/15 bg-cream px-4 py-3 text-sm text-ink/70">
+        <div role="status" className="mb-5 rounded-md border border-ink/15 bg-white/70 px-4 py-3 text-sm text-ink/70">
           Removed that service&rsquo;s attribute payload.
         </div>
       ) : null}
@@ -254,7 +254,7 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
 
       <section className="space-y-8">
         {payloads.length === 0 && !addCandidateSchema ? (
-          <div className="rounded-2xl border border-dashed border-ink/20 bg-cream p-8 text-center">
+          <div className="rounded-2xl border border-dashed border-ink/20 p-8 text-center">
             <p className="font-medium text-ink/75">No services attributed yet.</p>
             <p className="mt-1 text-sm text-ink/55">
               Pick a canonical service from the dropdown above to start filling in attributes.
@@ -277,7 +277,7 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
         )}
       </section>
 
-      <footer className="mt-10 rounded-xl border border-ink/10 bg-cream/60 px-5 py-4 text-xs text-ink/55">
+      <footer className="mt-10 rounded-xl border border-ink/10 bg-white/60 px-5 py-4 text-xs text-ink/55">
         Profile ID <span className="font-mono">{profile.vendor_profile_id}</span> ·
         Schema source <span className="font-mono">canonical_service_schemas + shared_attribute_groups</span> per iteration 0044.
       </footer>
@@ -306,7 +306,7 @@ function ServiceForm({
   return (
     <article
       id={schema.canonical_service}
-      className="rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6"
+      className="sn-tile p-5 sm:p-6"
     >
       <header className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
         <div className="space-y-1">

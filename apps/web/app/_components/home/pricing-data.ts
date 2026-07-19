@@ -21,7 +21,6 @@ import {
   formatPeso,
   type V2CustomerSku,
 } from '@/lib/v2-catalog';
-import { createAdminClient } from '@/lib/supabase/admin';
 
 export type PriceModel = 'flat' | 'perDay' | 'perGuestDay';
 
@@ -52,9 +51,9 @@ export type PriceGroup = {
 };
 
 export type PricingData = {
-  /** Setnayan AI REGULAR price string (owner 2026-07-02: "₱799" / 28 days). */
+  /** Setnayan AI price string — one-time, wedding-anchored (owner 2026-07-10: "₱499"). */
   aiPrice: string;
-  /** Setnayan AI INTRO price string — the first 28 days (e.g. "₱499"). */
+  /** Legacy alias of aiPrice (one-time has no separate intro; kept for consumers). */
   aiIntroPrice: string;
   /** Raw catalog numbers for client-side math — the pop-up savings comparator
    *  computes intro + regular × cycles off THESE (never re-hardcoded client-side). */
@@ -87,15 +86,22 @@ function priceOf(
 }
 
 /**
- * Setnayan AI is a per-28-day subscription (owner 2026-06-29 · SETNAYAN_AI).
- * The catalog row doesn't expose billing_period in V2CustomerSku here (that
- * field lands with the #2418 schema bump), so the recurrence suffix is derived
- * from the known model: SETNAYAN_AI is the one subscription SKU → "/28 days".
- * Every other SKU is one-time → no suffix. The PRICE itself is always from the
- * catalog; only the unit label is model-known.
+ * A row spread that renders green "Free" when the catalog rate resolves to 0
+ * (an owner-locked-free SKU or a deactivated row), else the resolved price
+ * string. Keeps display ↔ checkout consistent — "Free" only ever shows when the
+ * catalog is actually free, never a hardcoded claim over a live paid row.
+ */
+function freeOrPrice(p: { v: string; rate: number }): { v: string; free?: boolean } {
+  return p.rate === 0 ? { v: 'Free', free: true } : { v: p.v };
+}
+
+/**
+ * Setnayan AI is a ONE-TIME, wedding-anchored purchase (owner 2026-07-10 · a
+ * single ₱499 charge, access until the event date). The prior ₱499→₱799/28-day
+ * subscription is retired, so there is no recurrence suffix.
  */
 function aiPeriodSuffix(): string {
-  return '/28 days';
+  return '';
 }
 
 export async function getHomePricingData(): Promise<PricingData> {
@@ -106,55 +112,47 @@ export async function getHomePricingData(): Promise<PricingData> {
     getVendorPrices(),
   ]);
 
-  // Setnayan AI two-tier pricing (owner 2026-07-02): ₱799 / 28 days, with the
-  // first 28 days at ₱499. The active SETNAYAN_AI row is the ₱499 INTRO (the price
-  // charged today); the ₱799 REGULAR lives in the dormant SETNAYAN_AI_RENEW row
-  // (is_active=false → not in the active catalog above), read directly here so it
-  // stays admin-managed. Fallbacks (₱799 / ₱499) render only if a row is
-  // unreadable (CI / missing env) — never a fresh hardcode.
+  // Setnayan AI is a ONE-TIME, wedding-anchored purchase (owner 2026-07-10): a
+  // single ₱499 charge from the SETNAYAN_AI catalog row, access until the event
+  // date. The ₱499→₱799/28-day subscription (and its SETNAYAN_AI_RENEW row) is
+  // retired, so there is no intro/renewal split — aiRegular === aiIntro, which
+  // collapses any legacy two-tier consumer to the single price. The ₱499 fallback
+  // renders only if the row is unreadable (CI / missing env), never a fresh hardcode.
   const ai = catalog.find((s) => s.service_code === 'SETNAYAN_AI');
-  const aiIntroRaw = Number(ai?.retail_price_php);
-  const aiIntroPhp = Number.isFinite(aiIntroRaw) && aiIntroRaw > 0 ? aiIntroRaw : 499;
+  const aiRaw = Number(ai?.retail_price_php);
+  const aiIntroPhp = Number.isFinite(aiRaw) && aiRaw > 0 ? aiRaw : 499;
+  const aiRegularPhp = aiIntroPhp;
   const aiIntroPrice = peso(aiIntroPhp);
-  let aiRegularPhp = 799;
-  try {
-    const { data: renew } = await createAdminClient()
-      .from('platform_retail_catalog_v2')
-      .select('retail_price_php')
-      .eq('service_code', 'SETNAYAN_AI_RENEW')
-      .maybeSingle();
-    const p = Number((renew as { retail_price_php?: number | null } | null)?.retail_price_php);
-    if (Number.isFinite(p) && p > 0) aiRegularPhp = p;
-  } catch {
-    // admin client unavailable → keep the ₱799 fallback.
-  }
-  const aiPrice = peso(aiRegularPhp);
+  const aiPrice = aiIntroPrice;
 
   // ── Papic group (per-camera / per-day, all from catalog) ──
   const papicRoll = priceOf(catalog, 'PAPIC_CAMERA_ROLL_DAY', 30);
   const papicUnli = priceOf(catalog, 'PAPIC_CAMERA_UNLIMITED_DAY', 100);
-  const cameraBridge = priceOf(catalog, 'CAMERA_BRIDGE', 1299);
-  const stories = priceOf(catalog, 'PAPIC_ADDON_STORIES', 20);
-  const kwento = priceOf(catalog, 'KWENTO', 299);
-  const thankYou = priceOf(catalog, 'PAPIC_ADDON_THANK_YOU', 2499);
-  const pabati = priceOf(catalog, 'PABATI', 1299);
-  const liveWall = priceOf(catalog, 'LIVE_WALL', 2499);
+  const cameraBridge = priceOf(catalog, 'CAMERA_BRIDGE', 500); // owner 2026-07-08 (was 1299; rounded 499→500 2026-07-11)
+  // Owner-locked FREE: Stories (2026-06-30) · Kwento + Pabati (2026-07-08).
+  // Fallback 0 so an absent/zeroed catalog row renders "Free" via freeOrPrice(),
+  // never a stale paid figure.
+  const stories = priceOf(catalog, 'PAPIC_ADDON_STORIES', 0);
+  const kwento = priceOf(catalog, 'KWENTO', 0);
+  const pabati = priceOf(catalog, 'PABATI', 0);
+  const liveWall = priceOf(catalog, 'LIVE_WALL', 2500);
 
   // ── Couple Website group ──
-  const reveal = priceOf(catalog, 'STD_PREMIUM_OPENINGS', 1499);
-  const stdVideo = priceOf(catalog, 'STD_VIDEO_UPLOAD', 100);
+  const reveal = priceOf(catalog, 'STD_PREMIUM_OPENINGS', 999);
   const galleryUpload = priceOf(catalog, 'WEBSITE_GALLERY_UPLOAD', 100);
   const mapLink = priceOf(catalog, 'WEBSITE_MAP_LINKING', 100);
   const themes = priceOf(catalog, 'WEBSITE_THEMES', 1000);
-  const editorialPro = priceOf(catalog, 'EDITORIAL_PRO', 3499);
-  const websitePro = priceOf(catalog, 'COUPLE_WEBSITE_PRO', 4999);
+  const editorialPro = priceOf(catalog, 'EDITORIAL_PRO', 2999);
+  const subdomain = priceOf(catalog, 'EVENT_SUBDOMAIN', 999); // yourname.setnayan.com (owner 2026-07-10)
+  // COUPLE_WEBSITE_PRO umbrella retired/unbundled 2026-07-10 — Editorial + Reveal
+  // now sell standalone; no umbrella row is shown.
 
   // ── Everything else ──
-  const seating3d = priceOf(catalog, 'SEATING_3D', 2499);
-  const monogram = priceOf(catalog, 'ANIMATED_MONOGRAM', 1999);
+  const seating3d = priceOf(catalog, 'SEATING_3D', 2999);
+  const monogram = priceOf(catalog, 'ANIMATED_MONOGRAM', 999);
   const liveBg = priceOf(catalog, 'LIVE_BACKGROUND', 499);
   const pakanta = priceOf(catalog, 'PAKANTA', 2499);
-  const liveStudio = priceOf(catalog, 'PANOOD_SYSTEM', 3499);
+  const liveStudio = priceOf(catalog, 'PANOOD_SYSTEM', 2499); // Desktop Controller ₱2,499/day (Mobile ₱1,299/day is a separate SKU)
 
   const groups: PriceGroup[] = [
     {
@@ -162,13 +160,13 @@ export async function getHomePricingData(): Promise<PricingData> {
       tinted: true,
       rows: [
         { n: 'Gallery view · camera filters', v: 'Free', free: true },
-        { n: 'First 5 cameras · 5 photos + 1 video each', v: 'Free', free: true },
+        { n: 'First 5 cameras · 10 photos + 3 videos each', v: 'Free', free: true },
         {
           n: 'Papic Ltd · 30 photos + 10×5s',
           v: `${peso(papicRoll.rate)}/guest·day`,
           model: 'perGuestDay',
           rate: papicRoll.rate,
-          cap: 15000,
+          cap: 9000,
         },
         {
           n: 'Papic Unli · unlimited',
@@ -183,17 +181,9 @@ export async function getHomePricingData(): Promise<PricingData> {
           model: 'perDay',
           rate: cameraBridge.rate,
         },
-        {
-          n: 'Stories · add-on',
-          v: `${peso(stories.rate)}/guest·day`,
-          model: 'perGuestDay',
-          rate: stories.rate,
-          cap: 2000,
-          floor: 200,
-        },
-        { n: 'Kwento · whole event', v: kwento.v },
-        { n: 'Thank You · add-on', v: thankYou.v },
-        { n: 'Pabati · add-on', v: `${peso(pabati.rate)}/day`, model: 'perDay', rate: pabati.rate },
+        { n: 'Stories · add-on', ...freeOrPrice(stories) },
+        { n: 'Kwento · whole event', ...freeOrPrice(kwento) },
+        { n: 'Pabati · add-on', ...freeOrPrice(pabati) },
         {
           n: 'Live Photo Wall',
           v: `${peso(liveWall.rate)}/day`,
@@ -208,13 +198,12 @@ export async function getHomePricingData(): Promise<PricingData> {
       tinted: true,
       rows: [
         { n: 'The whole 4-in-1 site + unlimited RSVP', v: 'Free', free: true },
-        { n: 'Reveal · cinematic STD openings', v: reveal.v },
-        { n: 'STD video upload', v: stdVideo.v },
+        { n: 'Reveal · cinematic openings + your music, video & photos', v: reveal.v },
         { n: 'Photo gallery upload', v: galleryUpload.v },
         { n: 'Waze / Google Map link', v: mapLink.v },
         { n: 'Themes · RSVP + Event + Editorial', v: themes.v },
         { n: 'Editorial PRO · author your front page', v: editorialPro.v },
-        { n: 'Unlock All · Couple Website PRO', note: '· STD · RSVP · on the day · Editorial', v: websitePro.v },
+        { n: 'Custom subdomain · yourname.setnayan.com', note: '· coming soon', v: `${subdomain.v}/year` },
       ],
     },
     {

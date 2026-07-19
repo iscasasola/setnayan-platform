@@ -2,7 +2,6 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { geocodeNominatim } from '@/lib/geo';
 import {
@@ -11,6 +10,9 @@ import {
   type VendorCorrectionRequestRow,
 } from '@/lib/vendor-corrections';
 
+// Shared admin gate (require-admin.ts) — identical contract to the local
+// requireAdmin this file used to duplicate (login redirect · Forbidden throw).
+import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
 // /admin/corrections actions — resolution path for the request-a-correction
 // queue (verified vendors' locked identity fields, owner 2026-07-02).
 //
@@ -21,24 +23,6 @@ import {
 //
 // Mirrors the requireAdmin + revalidatePath shape of
 // app/admin/repost-watch/actions.ts.
-
-async function requireAdmin(): Promise<{ userId: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { data: me } = await supabase
-    .from('users')
-    .select('is_internal, is_team_member, account_type')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (!(me?.is_internal || me?.is_team_member || me?.account_type === 'admin')) {
-    throw new Error('Forbidden');
-  }
-  return { userId: user.id };
-}
 
 function fail(message: string): never {
   redirect(`/admin/corrections?error=${encodeURIComponent(message)}`);

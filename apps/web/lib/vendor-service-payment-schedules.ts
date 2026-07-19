@@ -271,6 +271,56 @@ export function computePlanInstances(opts: {
     });
 }
 
+/**
+ * The fallback 50/50 payment schedule.
+ *
+ * Used when a marketplace vendor locks a booking that carries a total but has
+ * NO vendor_service_payment_schedules rows — the couple would otherwise get an
+ * empty plan / silent "pay the vendor directly". Instead they see an ESTIMATED
+ * downpayment (50%, due on lock) + balance (50%, due 14 days before the event)
+ * they can confirm with the vendor; the plan is flagged is_default_seeded so
+ * the UI can label it as an estimate. A vendor who later sets a real schedule
+ * overrides this on the next lock.
+ *
+ * Pure — returns in-memory template rows in the PaymentScheduleItemRow shape
+ * (never persisted to the vendor's own table); only the fields computePlanInstances
+ * reads are meaningful, the rest are inert placeholders.
+ */
+export function defaultPaymentScheduleRows(): PaymentScheduleItemRow[] {
+  const base = {
+    schedule_item_id: '',
+    vendor_service_id: '',
+    vendor_profile_id: '',
+    amount_centavos: null,
+    created_at: '',
+    updated_at: '',
+    cancellation_terms: null,
+    downpayment_non_refundable: false,
+    refund_window_days: null,
+    no_show_forfeit: false,
+  };
+  return [
+    {
+      ...base,
+      seq: 0,
+      label: 'Downpayment (estimated)',
+      amount_kind: 'percent',
+      percent_bps: 5000,
+      due_anchor: 'on_lock',
+      due_offset_days: 0,
+    },
+    {
+      ...base,
+      seq: 1,
+      label: 'Balance (estimated)',
+      amount_kind: 'percent',
+      percent_bps: 5000,
+      due_anchor: 'before_event',
+      due_offset_days: 14,
+    },
+  ];
+}
+
 // ===========================================================================
 // Per-installment PROGRESS STEPPER (Phase 2 PR-D).
 //
@@ -402,6 +452,12 @@ export type PlanProgress = {
   steps: StepperInstallment[] | null;
   /** Set when the whole plan has been marked cleared by the vendor. */
   clearedAt: string | null;
+  /**
+   * True when the plan is the 50/50 ESTIMATED fallback (the vendor set no
+   * schedule) — the couple-facing UI labels it "estimated, confirm with your
+   * vendor". Optional/undefined on reads that don't select it.
+   */
+  isDefaultSeeded?: boolean;
 };
 
 /** Map a stored row to the human-unit draft shape the editor renders. */

@@ -6,6 +6,7 @@ import {
   isWallSessionLive,
   readWallDisplayCookie,
 } from '@/lib/live-wall';
+import { asWallTileLayout, clampWallPhotoCount } from '@/lib/live-wall-logic';
 import { WallClaim } from './_components/wall-claim';
 import { WallProjection } from './_components/wall-projection';
 
@@ -65,5 +66,20 @@ export default async function WallPage({ params }: Props) {
     .eq('event_id', eventId)
     .maybeSingle();
   const mono = await resolveEventMonogram(admin, eventId, monoRow);
-  return <WallProjection eventId={eventId} initial={snapshot} mono={mono} />;
+  // The couple's wall display config (owner 2026-07-08 · D5) — how many tiles
+  // and which layout. Fully responsive, so no resolution. Defaults are safe.
+  const { data: cfgRow } = await admin
+    .from('events')
+    .select('wall_photo_count, wall_tile_layout')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  return (
+    <WallProjection
+      eventId={eventId}
+      initial={snapshot}
+      mono={mono}
+      photoCount={clampWallPhotoCount(cfgRow?.wall_photo_count as number | null)}
+      tileLayout={asWallTileLayout(cfgRow?.wall_tile_layout as string | null)}
+    />
+  );
 }

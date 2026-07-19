@@ -110,6 +110,8 @@ const WHY_IT_MATTERS: Record<PlanGroupId, string> = {
     'Locks the date and starts the paperwork clock. Parish documents take 4-6 weeks to gather; the marriage license has a 120-day countdown.',
   coordinator:
     'Your day-of conductor. Best coordinators book 9-12 months out; the earlier you lock yours, the more they can shape every choice downstream.',
+  crew_meals:
+    'Your photo, video, HMUA, and coordination teams all expect a hot meal on the day — usually 15-25 crew across your vendors. A kitchen near your venue caters them for far less than your main caterer per-head.',
   officiant:
     'The voice of your ceremony. Priests, ministers, and judges book months ahead; locking yours early is what makes the paperwork chain start moving.',
   catering:
@@ -169,6 +171,7 @@ const CTA_LABEL: Record<PlanGroupId, string> = {
   coordinator: 'Browse coordinators',
   officiant: 'Find an officiant',
   catering: 'Browse caterers',
+  crew_meals: 'Browse crew-meal providers',
   photography: 'Browse photo & video',
   attire: 'Browse attire',
   hair_makeup: 'Browse hair & makeup',
@@ -203,6 +206,7 @@ const ACTION_TITLE: Record<PlanGroupId, string> = {
   coordinator: 'Lock your coordinator',
   officiant: 'Lock your officiant',
   catering: 'Lock your caterer',
+  crew_meals: 'Sort out crew meals',
   photography: 'Lock your photo & video team',
   attire: 'Lock your attire',
   hair_makeup: 'Lock your hair & makeup team',

@@ -33,6 +33,7 @@ import {
   type LifecycleStep,
 } from './_components/account-card-nav';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Account · Admin' };
 
 /**
@@ -98,6 +99,7 @@ type Props = {
 };
 
 export default async function AdminAccountCardPage({ params, searchParams }: Props) {
+  await requireAdmin();
   const { userId } = await params;
   const { tab: rawTab } = await searchParams;
   const tab = normalizeAccountTab(rawTab);
@@ -309,7 +311,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
       </div>
 
       {/* Sticky header + strip + tab rail */}
-      <div className="sticky top-0 z-10 -mx-4 border-b border-ink/10 bg-cream/95 px-4 pb-3 pt-1 backdrop-blur sm:mx-0 sm:rounded-t-2xl sm:px-6">
+      <div className="sticky top-0 z-10 -mx-4 border-b border-ink/10 bg-white/70 px-4 pb-3 pt-1 backdrop-blur sm:mx-0 sm:rounded-t-2xl sm:px-6">
         <header className="flex flex-wrap items-start gap-4 py-4">
           <div
             aria-hidden
@@ -331,7 +333,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
                 ? (vendorProfiles ?? []).map((v) => (
                     <span
                       key={v.vendor_profile_id as string}
-                      className="inline-flex items-center gap-1 rounded-md bg-violet-100 px-2 py-1 text-xs font-medium text-violet-800"
+                      className="inline-flex items-center gap-1 rounded-md bg-[var(--sn-info-soft)] px-2 py-1 text-xs font-medium text-[color:var(--sn-info)]"
                     >
                       <Store className="h-3 w-3" strokeWidth={2} aria-hidden />
                       Vendor member · {(v.business_name as string) ?? 'Vendor'}
@@ -339,7 +341,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
                   ))
                 : null}
               {user.is_internal ? (
-                <span className="rounded-md bg-purple-100 px-2 py-1 text-xs font-medium text-purple-800">
+                <span className="rounded-md bg-[var(--sn-info-soft)] px-2 py-1 text-xs font-medium text-[color:var(--sn-info)]">
                   🟣 Internal
                 </span>
               ) : null}

@@ -1,40 +1,141 @@
-import { getUgatCounts } from '@/lib/ugat/data';
-import { runSavedSearch } from '@/lib/ugat/data';
-import { UGAT_SAVED_SEARCHES } from '@/lib/ugat/data';
-import { UgatConsole } from './_components/ugat-console';
-
-export const metadata = { title: 'Ugat · Admin' };
+import { Suspense, type ReactNode } from 'react';
+import Link from 'next/link';
+import { Shapes, Compass, BookOpen, Brain, Network } from 'lucide-react';
+import { ListPageSkeleton, TablePageSkeleton } from '@/components/skeletons';
+import { requireAdmin } from '@/lib/admin/require-admin';
+import { MenusSurface } from './_surfaces/menus-surface';
+import { OnboardingSurface } from './_surfaces/onboarding-surface';
+import { WeddingTraditionsSurface } from './_surfaces/wedding-traditions-surface';
+import { BrainSurface } from './_surfaces/brain-surface';
 
 /**
- * /admin/ugat — the Ugat Console (slice 1).
+ * Ugat Studio — the tabbed /admin/ugat shell that consolidates the Ugat
+ * Console's data-structure config pages into ONE surface (Money-split-style
+ * fold · 2026-07-10). Four tabs: Menus & icons (shell/default) · Onboarding ·
+ * Traditions · AI brain. Replaces the former card-hub landing.
  *
- * "Ugat" (Tagalog: root) is the live entity map — a port of the verified corpus
- * prototype (03_Strategy/Jarvis_Console_Prototype_2026-07-04.html). It shows the
- * nine platform entity types as nodes on a dark canvas, the schema-audited
- * connections between them as clickable edges/joints, and the 2026-07-05 audit's
- * health findings as an overlay. The console NAVIGATES the admin — it does not
- * replace it (the taxonomy node links to /admin/taxonomy, vendors to their admin
- * page, orders to the payments queue).
+ * TAXONOMY is DELIBERATELY NOT a tab — /admin/taxonomy is already its own
+ * ?view= studio, and folding it would collide ?view with the studio ?tab (the
+ * add-ons collision lesson); it stays a standalone Ugat sidebar link.
  *
- * WHAT IS LIVE (this slice): the nine type-node COUNTS (real DB reads, admin
- * service-role client, cached ~60s), the eight entity TABLES (paginated live
- * rows), and the ⌘K OMNIBOX (server search across vendors/events/users/orders/
- * taxonomy). WHAT IS STATIC (labelled as such in the UI): the joint/edge cards
- * (schema documentation, correct until the schema changes) and the health
- * findings (frozen 2026-07-05 audit registry — live telemetry is slice 2). Only
- * the PLATFORM (type-level) scope ships here; per-event/per-vendor row scopes
- * are slice 2.
+ * Unlike the Catalog/Settings shells, /admin/ugat does NOT equal any tab's
+ * legacy route (menus lives at /admin/menus), so there's no shell-path
+ * matchPrefix collision — each folded sidebar row keeps a normal matchPrefix
+ * on its own legacy path.
  *
- * Access is gated by the admin layout (non-admins get a 404); the server actions
- * behind the tables + omnibox re-check admin as defense-in-depth.
+ * force-dynamic: the surfaces do createAdminClient reads + the folded actions
+ * revalidatePath('/admin/ugat'), so the shell must never be statically served.
  */
-export default async function AdminUgatPage() {
-  // One cached round trip for the nine counts; run the three saved searches so
-  // the omnibox Questions group opens with live numbers.
-  const [counts, savedSearches] = await Promise.all([
-    getUgatCounts(),
-    Promise.all(UGAT_SAVED_SEARCHES.map((s) => runSavedSearch(s.key))),
-  ]);
+export const dynamic = 'force-dynamic';
 
-  return <UgatConsole counts={counts} savedSearches={savedSearches} />;
+const TABS = ['menus', 'onboarding', 'wedding-traditions', 'brain'] as const;
+type Tab = (typeof TABS)[number];
+
+function first(v: string | string[] | undefined): string | undefined {
+  return Array.isArray(v) ? v[0] : v;
+}
+
+function coerceTab(v: string | undefined): Tab {
+  return (TABS as readonly string[]).includes(v ?? '') ? (v as Tab) : 'menus';
+}
+
+const TAB_STRIP: { key: Tab; label: string; icon: typeof Shapes }[] = [
+  { key: 'menus', label: 'Menus & icons', icon: Shapes },
+  { key: 'onboarding', label: 'Onboarding', icon: Compass },
+  { key: 'wedding-traditions', label: 'Traditions', icon: BookOpen },
+  { key: 'brain', label: 'AI brain', icon: Brain },
+];
+
+const TAB_TITLE: Record<Tab, string> = {
+  menus: 'Menus & icons',
+  onboarding: 'Onboarding',
+  'wedding-traditions': 'Wedding traditions',
+  brain: 'Setnayan AI brain',
+};
+
+function tabSkeleton(tab: Tab): ReactNode {
+  return tab === 'brain' ? <TablePageSkeleton /> : <ListPageSkeleton />;
+}
+
+type Props = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export async function generateMetadata({ searchParams }: Props) {
+  const tab = coerceTab(first((await searchParams).tab));
+  return { title: `${TAB_TITLE[tab]} · Admin` };
+}
+
+function activeSurface(
+  tab: Tab,
+  search: Record<string, string | string[] | undefined>,
+): ReactNode {
+  switch (tab) {
+    case 'onboarding':
+      // Flash pair — forward or the Saved./error banners stop rendering.
+      return (
+        <OnboardingSurface
+          searchParams={Promise.resolve({
+            saved: first(search.saved),
+            error: first(search.error),
+          })}
+        />
+      );
+    case 'wedding-traditions':
+      return <WeddingTraditionsSurface />;
+    case 'brain':
+      return <BrainSurface />;
+    default:
+      return <MenusSurface />;
+  }
+}
+
+export default async function UgatStudioPage({ searchParams }: Props) {
+  await requireAdmin();
+  const search = await searchParams;
+  const tab = coerceTab(first(search.tab));
+
+  return (
+    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
+      <nav
+        aria-label="Ugat Console sections"
+        className="mb-6 flex flex-wrap gap-1.5 border-b border-ink/10 pb-3"
+      >
+        {TAB_STRIP.map((t) => {
+          const active = t.key === tab;
+          const Icon = t.icon;
+          return (
+            <Link
+              key={t.key}
+              href={`/admin/ugat?tab=${t.key}`}
+              aria-current={active ? 'page' : undefined}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                active
+                  ? 'bg-terracotta/10 text-terracotta-700'
+                  : 'text-ink/65 hover:bg-ink/5 hover:text-ink'
+              }`}
+            >
+              <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+              {t.label}
+            </Link>
+          );
+        })}
+        {/* Entity map — the live Ugat Console (slice 1). A standalone route, not
+            a ?tab= surface: the console is a full-viewport dark-canvas app with
+            its own topbar + fixed side-card overlays, so it links out of the
+            studio the same way detail sub-routes do. */}
+        <Link
+          href="/admin/ugat/map"
+          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-ink/65 transition-colors hover:bg-ink/5 hover:text-ink"
+        >
+          <Network className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+          Entity map
+        </Link>
+      </nav>
+
+      <Suspense key={tab} fallback={tabSkeleton(tab)}>
+        {activeSurface(tab, search)}
+      </Suspense>
+    </div>
+  );
 }

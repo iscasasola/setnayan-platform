@@ -29,6 +29,7 @@ import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { CalendarRange, Users } from 'lucide-react';
 import { updateEventDate } from '@/app/dashboard/[eventId]/actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 type Props = {
   eventId: string;
@@ -133,6 +134,7 @@ export function VendorsAvailabilityBanner({
 function LockDayButton({ eventId, day }: { eventId: string; day: string }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const save = useSaveLoader();
 
   function handleLock() {
     setError(null);
@@ -142,7 +144,10 @@ function LockDayButton({ eventId, day }: { eventId: string; day: string }) {
     fd.set('precision', 'day');
     startTransition(async () => {
       try {
-        await updateEventDate(fd);
+        await save.run(() => updateEventDate(fd), {
+          steps: ['Locking the date'],
+          hint: 'Saving',
+        });
         // Server action revalidates the event paths; the marketplace
         // surface will reload with day-precision applied. No client-side
         // navigation needed.

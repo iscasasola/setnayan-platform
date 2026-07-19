@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { RotateCcw, Sparkles } from 'lucide-react';
 import { saveAttireGuidePaletteColor } from '../actions';
 import { trackFailure } from '@/lib/telemetry/track-error';
+import { useSaveLoader } from '@/components/sd-loader';
 
 /**
  * Wedding Attire Guide preview — owner directive 2026-05-23 PM.
@@ -444,6 +445,7 @@ export function WeddingAttireGuide({
   const [localAttire, setLocalAttire] =
     useState<Record<string, string>>(attirePalette);
   const [pending, startTransition] = useTransition();
+  const save = useSaveLoader();
 
   const back = ROLES.filter((r) => r.row === 'back');
   const front = ROLES.filter((r) => r.row === 'front');
@@ -466,7 +468,10 @@ export function WeddingAttireGuide({
     setLocalAttire((curr) => ({ ...curr, [roleKey]: upper }));
     startTransition(async () => {
       try {
-        await saveAttireGuidePaletteColor(eventId, roleKey, upper);
+        await save.run(
+          () => saveAttireGuidePaletteColor(eventId, roleKey, upper),
+          { steps: ['Saving the colour'], hint: 'Saving' },
+        );
       } catch (err) {
         // Roll back the optimistic update if persistence failed. The
         // host sees their color revert; the V1.1 toast pass will
@@ -510,7 +515,10 @@ export function WeddingAttireGuide({
         // treats explicit defaults the same as missing keys.
         const defaultHex = ROLES.find((r) => r.key === roleKey)?.defaultHex;
         if (defaultHex) {
-          await saveAttireGuidePaletteColor(eventId, roleKey, defaultHex);
+          await save.run(
+            () => saveAttireGuidePaletteColor(eventId, roleKey, defaultHex),
+            { steps: ['Saving the colour'], hint: 'Saving' },
+          );
         }
       } catch (err) {
         void trackFailure({

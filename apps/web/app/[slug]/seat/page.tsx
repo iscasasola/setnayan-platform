@@ -14,6 +14,7 @@ import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
 import { resolveMonogram } from '@/lib/monogram';
 import type { EventTableRow } from '@/lib/seating';
 import { WayfindingMap } from '@/app/_components/wayfinding-map';
+import { LiveRefresher } from '@/app/_components/live-refresher';
 import { ArrivalBloom } from './_components/arrival-bloom';
 
 export const metadata = { title: 'Your seat pass · Setnayan' };
@@ -90,7 +91,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
   const { data: event } = await admin
     .from('events')
     .select(
-      'event_id, display_name, slug, venue_name, event_type, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key',
+      'event_id, display_name, slug, event_date, venue_name, event_type, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -102,7 +103,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
   const owns = await eventOwnsCustomQrGuest(admin, event.event_id);
   if (!owns) {
     return (
-      <SeatPassShell displayName={event.display_name} slug={slug}>
+      <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
         <PromptCard
           title="No seat pass for this wedding yet"
           body="The couple hasn’t added the Custom QR seat pass for this wedding. You’ll find your table on the printed seating signs at the venue."
@@ -147,7 +148,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
 
     if (!published) {
       return (
-        <SeatPassShell displayName={event.display_name} slug={slug}>
+        <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
           <PromptCard
             title="Seating isn’t posted yet"
             body="The couple hasn’t published the seating for this wedding. Check back closer to the day — this table’s guests will appear here once it’s posted."
@@ -172,7 +173,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
   const session = await readGuestSession();
   if (!session || session.event_id !== event.event_id) {
     return (
-      <SeatPassShell displayName={event.display_name} slug={slug}>
+      <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
         <PromptCard
           title="Open this from your invitation"
           body="Your seat pass is part of your personal invitation. Open your invitation link (or scan your personal QR), then tap your seat pass."
@@ -191,7 +192,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
 
   if (!guestRow) {
     return (
-      <SeatPassShell displayName={event.display_name} slug={slug}>
+      <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
         <PromptCard
           title="Open this from your invitation"
           body="Your seat pass is part of your personal invitation. Open your invitation link (or scan your personal QR), then tap your seat pass."
@@ -238,6 +239,7 @@ type EventRow = {
   event_id: string;
   display_name: string;
   slug: string;
+  event_date: string | null;
   venue_name: string | null;
   monogram_text: string | null;
   monogram_color: string | null;
@@ -270,7 +272,7 @@ async function PersonalPass({
   const published = await eventSeatingPublished(admin, event.event_id);
   if (!published) {
     return (
-      <SeatPassShell displayName={event.display_name} slug={slug}>
+      <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
         <PromptCard
           title={`Welcome, ${firstName}`}
           body="Your seat is being arranged. Once the couple posts the seating, your exact table and a map to it will appear right here."
@@ -307,7 +309,7 @@ async function PersonalPass({
 
   if (tables.length === 0) {
     return (
-      <SeatPassShell displayName={event.display_name} slug={slug}>
+      <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
         <PromptCard
           title="The floor plan is on its way"
           body="The couple is still arranging the venue layout. Check back closer to the day — your seat pass will appear here."
@@ -317,7 +319,7 @@ async function PersonalPass({
   }
 
   return (
-    <SeatPassShell displayName={event.display_name} slug={slug}>
+    <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
       <div className="space-y-6">
         <ArrivalBloom
           firstName={firstName}
@@ -435,7 +437,7 @@ async function PublicTableView({
   const mono = resolveMonogram(event);
 
   return (
-    <SeatPassShell displayName={event.display_name} slug={slug}>
+    <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
       <div className="space-y-6">
         <div className="flex flex-col items-center gap-3 text-center">
           <EventMonogramBadge
@@ -544,14 +546,19 @@ function EventMonogramBadge({
 function SeatPassShell({
   displayName,
   slug,
+  eventDate,
   children,
 }: {
   displayName: string;
   slug: string;
+  eventDate: string | null;
   children: React.ReactNode;
 }) {
   return (
     <main className="min-h-dvh bg-cream text-ink">
+      {/* Day-of: when a coordinator reseats a guest during the reception, poll for
+          the new table so the Seat Pass matches find-my-table (renders null). */}
+      <LiveRefresher eventDate={eventDate} />
       <header className="border-b border-ink/10 bg-cream/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
           <Link href={`/${slug}`} className="flex items-center gap-2 text-ink">

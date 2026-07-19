@@ -7,6 +7,7 @@ import { getOnboardingTiles } from '@/lib/onboarding-refinements';
 import { INAPP_TO_SERVICE_CODE } from '@/app/onboarding/wedding/_components/onboarding-pricing';
 import { OnboardingEditor } from './_components/onboarding-editor';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Onboarding content · Event Types · Admin' };
 export const dynamic = 'force-dynamic';
 
@@ -38,6 +39,7 @@ export default async function EventTypeOnboardingPage({
   params: Params;
   searchParams: SearchParams;
 }) {
+  await requireAdmin();
   const { eventType } = await params;
   const sp = await searchParams;
   const admin = createAdminClient();

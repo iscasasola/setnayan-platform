@@ -6,6 +6,7 @@ import { claimPanoodCamera } from '@/app/panood/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   panoodCameraAnonEnabled,
+  panoodStreamingEnabled,
   fetchClaimedCameraForUser,
 } from '@/lib/panood-camera-seats';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
@@ -73,6 +74,8 @@ export default async function PanoodCameraJoinPage({ params, searchParams }: Pro
         <PanoodCameraPublish
           cameraIndex={claimed.camera_index}
           label={claimed.label}
+          eventId={claimed.event_id}
+          streamingEnabled={panoodStreamingEnabled()}
         />
       );
     }

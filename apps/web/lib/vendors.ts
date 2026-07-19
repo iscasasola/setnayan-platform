@@ -4,6 +4,7 @@ export type VendorCategory =
   | 'venue'
   | 'religious_venue'
   | 'catering'
+  | 'crew_meals'
   | 'photographer'
   | 'videographer'
   | 'florist'
@@ -44,6 +45,7 @@ export const VENDOR_CATEGORIES: ReadonlyArray<VendorCategory> = [
   'venue',
   'religious_venue',
   'catering',
+  'crew_meals',
   'photographer',
   'videographer',
   'florist',
@@ -77,6 +79,7 @@ export const VENDOR_CATEGORY_LABEL: Record<VendorCategory, string> = {
   venue: 'Venue',
   religious_venue: 'Religious Ceremony Venue',
   catering: 'Catering',
+  crew_meals: 'Crew Meals',
   photographer: 'Photographer',
   videographer: 'Videographer',
   florist: 'Florist',
@@ -114,6 +117,57 @@ export const VENDOR_STATUSES: ReadonlyArray<VendorStatus> = [
   'delivered',
   'complete',
 ];
+
+/**
+ * The vendor statuses that count as BOOKED — a real commitment exists, so the
+ * couple can place the vendor's booth on the seating floor. Mirrors the cocktail
+ * booth-vendor RPC filter (migration 20261218000000) + the committed-status
+ * convention used elsewhere: 'considering' / 'shortlisted' are still just
+ * candidates and get no booth. Used by the seating booth picker (only booked
+ * vendors are offered) and by saveBooths' cross-event validation (a booth may
+ * only link a booked vendor of the SAME event).
+ */
+export const BOOKED_VENDOR_STATUSES = [
+  'contracted',
+  'deposit_paid',
+  'delivered',
+  'complete',
+] as const satisfies ReadonlyArray<VendorStatus>;
+
+/**
+ * A booked vendor as offered in the seating booth picker — the minimal shape the
+ * editor needs to render a bookable-vendor row (name + category → 2D icon +
+ * label) and link the booth (vendor_id → event_floor_booths.event_vendor_id).
+ */
+export type BoothVendorOption = {
+  vendor_id: string;
+  vendor_name: string;
+  category: VendorCategory;
+};
+
+/**
+ * Booked vendors of an event, as the seating booth picker's "Your booked
+ * vendors" section. RLS already scopes event_vendors to the couple, so this is
+ * a plain event-scoped read filtered to the booked statuses. Ordered by name so
+ * the picker list is stable.
+ */
+export async function fetchBookedVendorsForBooths(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<BoothVendorOption[]> {
+  const { data, error } = await supabase
+    .from('event_vendors')
+    .select('vendor_id,vendor_name,category,status')
+    .eq('event_id', eventId)
+    .in('status', BOOKED_VENDOR_STATUSES as unknown as string[])
+    .order('vendor_name', { ascending: true });
+  if (error) throw new Error(`fetchBookedVendorsForBooths failed: ${error.message}`);
+  return (data ?? []).map((v) => ({
+    vendor_id: v.vendor_id as string,
+    vendor_name: v.vendor_name as string,
+    category: v.category as VendorCategory,
+  }));
+}
 
 export const VENDOR_STATUS_LABEL: Record<VendorStatus, string> = {
   considering: 'Considering',
@@ -248,7 +302,7 @@ export const SERVICE_GROUPS: ReadonlyArray<{
   {
     key: 'reception',
     label: 'Reception',
-    members: ['venue', 'catering', 'cake_maker', 'mobile_bar', 'reception_decor'],
+    members: ['venue', 'catering', 'crew_meals', 'cake_maker', 'mobile_bar', 'reception_decor'],
   },
   {
     key: 'ceremony',

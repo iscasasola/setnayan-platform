@@ -12,6 +12,7 @@ import {
   AddOnStateCta,
   statusPillForState,
 } from '@/app/_components/app-store/state-cta';
+import { ProgressRing } from '@/app/_components/progress-ring';
 import { fetchAddOnStats } from '@/lib/add-on-stats';
 import { resolveAddOnState } from '@/lib/add-on-state';
 // 2026-05-29 Day 2 inline-checkout sprint (CLAUDE.md Day 2 row · V1 SCOPE
@@ -97,6 +98,15 @@ export default async function PanoodAppStorePage({ params }: Props) {
   const multicamCentavos = panoodSku?.price_centavos ?? 0;
   const multicamPriceLabel = panoodSku ? formatPhp(panoodSku.price_php) : '—';
   const multicamFromLabel = `${multicamPriceLabel} / day`;
+
+  // Adoption share — the same figure the "% of events" stat tile already
+  // derives, re-expressed as a wine ProgressRing in the preview rail for a
+  // denser read ("Energy, not skin" reskin 2026-07-09). Null (no data yet)
+  // falls back to the original glyph tile. No new query — reuses `stats`.
+  const adoptionPct =
+    stats.totalEvents === 0
+      ? null
+      : Math.round((stats.eventsWithFeature / stats.totalEvents) * 100);
 
   // The PAID multicam upgrade plan row + sheet plan. The FREE single-cam tier
   // is presented as its own ₱0 plan row alongside it (no purchase flow — the
@@ -230,18 +240,31 @@ export default async function PanoodAppStorePage({ params }: Props) {
       justLaunchedChip={stats.hasLaunchSignal ? null : 'Just launched · early access'}
       preview={[
         {
-          context: 'Free · single cam',
-          caption: 'Go live on your own YouTube from a phone or laptop.',
-          body: (
-            <span>
-              <span aria-hidden className="block text-3xl">
-                ▶
+          context: adoptionPct === null ? 'Free · single cam' : 'Loved by couples',
+          caption:
+            adoptionPct === null
+              ? 'Go live on your own YouTube from a phone or laptop.'
+              : 'The share of Setnayan events that go live on Panood.',
+          body:
+            adoptionPct === null ? (
+              <span>
+                <span aria-hidden className="block text-3xl">
+                  ▶
+                </span>
+                <span className="mt-2 block text-[11px] text-ink/55">
+                  Free for every couple
+                </span>
               </span>
-              <span className="mt-2 block text-[11px] text-ink/55">
-                Free for every couple
-              </span>
-            </span>
-          ),
+            ) : (
+              <div className="flex flex-col items-center gap-1.5">
+                <ProgressRing pct={adoptionPct} size={72} stroke={7}>
+                  <span className="text-base font-semibold text-ink">
+                    {adoptionPct}%
+                  </span>
+                </ProgressRing>
+                <span className="text-[11px] text-ink/55">go live on Panood</span>
+              </div>
+            ),
         },
         {
           context: 'On your page',

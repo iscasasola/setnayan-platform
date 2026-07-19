@@ -116,7 +116,7 @@ export function EditableRow({
   // TRUE for a collapse caused by Cancel/Esc — skip the auto-save + revert.
   const cancelled = useRef(false);
   // Bumping this remounts the FieldControl, discarding a composite widget's
-  // (FileUpload / ServicesPicker) internal state back to the saved props — how
+  // (e.g. FileUpload) internal state back to the saved props — how
   // Cancel reverts an edit that native uncontrolled inputs can't revert alone.
   const [revertNonce, setRevertNonce] = useState(0);
 

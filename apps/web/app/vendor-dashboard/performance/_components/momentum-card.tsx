@@ -64,7 +64,6 @@ export function MomentumCard({
   monthlySeries = [],
   dailySeries = [],
   scopeLabel = null,
-  nullServiceExcluded = null,
 }: {
   /** Active window — controlled by the parent's shared filter row. */
   mode: MomentumMode;
@@ -79,10 +78,6 @@ export function MomentumCard({
   /** Selected service's display label, or null when All services. Drives the
    *  scoped empty-state copy ("No bookings for {label} yet"). */
   scopeLabel?: string | null;
-  /** Count of booked rows NOT tied to any service (service_id IS NULL) in the
-   *  active window, for the reconciliation footnote. null = All services (no
-   *  footnote). */
-  nullServiceExcluded?: number | null;
 }) {
   const isFull = variant === 'full';
 
@@ -157,15 +152,8 @@ export function MomentumCard({
           </div>
         )}
       </div>
-
-      {/* NULL-service reconciliation — bookings not tied to any specific
-          service are excluded from a per-service view; say so honestly. */}
-      {scopeLabel && nullServiceExcluded && nullServiceExcluded > 0 ? (
-        <p className="text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
-          Excludes {nullServiceExcluded} booking
-          {nullServiceExcluded === 1 ? '' : 's'} not tied to a specific service.
-        </p>
-      ) : null}
+      {/* The "Excludes N bookings not tied to a specific service" note lives
+          once per windowed zone, on RoiAttributionCard — not repeated here. */}
     </section>
   );
 }

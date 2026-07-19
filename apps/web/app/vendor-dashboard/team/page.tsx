@@ -1,7 +1,13 @@
 import { redirect } from 'next/navigation';
-import { Gavel, LogOut, Mail, Trash2, Users } from 'lucide-react';
+import { Gavel, LogOut, Mail, Trash2, UserPlus, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { tierCaps, asVendorTier, canBuyExtraSeats } from '@/lib/vendor-tier-caps';
+import {
+  effectiveSeatCap,
+  fetchExtraAgentSeats,
+  fetchSeatFeePhp,
+} from '@/lib/vendor-seats';
 import {
   enrichTeamWithUsers,
   fetchAdminVendorContext,
@@ -21,6 +27,7 @@ import {
 } from '@/lib/vendor-team';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
+  buyExtraSeat,
   cancelAdminMotion,
   inviteVendorTeamMember,
   proposeAdminMotion,
@@ -40,6 +47,7 @@ type Props = {
     error?: string;
     motion?: string;
     voted?: string;
+    bought?: string;
   }>;
 };
 
@@ -85,6 +93,23 @@ export default async function VendorTeamPage({ searchParams }: Props) {
   ]);
 
   const adminCount = enriched.filter((m) => isVendorAdminRole(m.role)).length;
+
+  // Team-seat math (owner 2026-07-02 ladder). Seats = members beyond the
+  // always-free founding admin. Effective cap = the tier's base agentAccounts +
+  // any paid extra seats (Enterprise/Custom ₱250/28d add-on). Only Enterprise +
+  // Custom can buy extra seats, so the "Add a seat" card is gated on that.
+  const canBuySeats = canBuyExtraSeats(ctx.tierState);
+  const baseSeatCap = tierCaps(asVendorTier(ctx.tierState ?? 'free')).agentAccounts;
+  const [extraSeats, seatFeePhp] = await Promise.all([
+    fetchExtraAgentSeats(supabase, vendorProfileId),
+    canBuySeats ? fetchSeatFeePhp(supabase) : Promise.resolve(0),
+  ]);
+  const effectiveCap = effectiveSeatCap(baseSeatCap, extraSeats);
+  const usedSeats = enriched.filter((m) => m.user_id !== ctx.founderUserId).length;
+  const seatsLeft = Number.isFinite(effectiveCap)
+    ? Math.max(effectiveCap - usedSeats, 0)
+    : Infinity;
+
   const { motions, votes } = motionData;
   const votesByMotion = new Map<string, VendorAdminMotionVote[]>();
   for (const v of votes) {
@@ -135,6 +160,13 @@ export default async function VendorTeamPage({ searchParams }: Props) {
           Team updated.
         </p>
       ) : null}
+      {search.bought ? (
+        <p role="status" className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800">
+          Seat order started. Pay externally with reference{' '}
+          <strong className="font-mono">{decodeURIComponent(search.bought)}</strong> — your extra
+          seat unlocks once our team confirms the payment.
+        </p>
+      ) : null}
 
       {/* ── Open admin votes ──────────────────────────────────────────── */}
       {motions.length > 0 ? (
@@ -151,7 +183,7 @@ export default async function VendorTeamPage({ searchParams }: Props) {
               const myVote = mv.find((v) => v.voter_user_id === user.id);
               const iAmTarget = m.target_user_id === user.id;
               return (
-                <li key={m.motion_id} className="rounded-xl border border-sky-200 bg-cream p-4">
+                <li key={m.motion_id} className="rounded-xl border border-sky-200 bg-white/70 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-ink">
@@ -174,7 +206,7 @@ export default async function VendorTeamPage({ searchParams }: Props) {
                           <input type="hidden" name="motion_id" value={m.motion_id} />
                           <input type="hidden" name="approve" value="true" />
                           <SubmitButton
-                            className={`inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium ${myVote?.approve ? 'bg-success-600 text-white' : 'border border-success-300 bg-cream text-success-900 hover:border-success-500'}`}
+                            className={`inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium ${myVote?.approve ? 'bg-success-600 text-white' : 'border border-success-300 bg-white/70 text-success-900 hover:border-success-500'}`}
                             pendingLabel="…"
                           >
                             Approve{myVote?.approve ? ' ✓' : ''}
@@ -184,7 +216,7 @@ export default async function VendorTeamPage({ searchParams }: Props) {
                           <input type="hidden" name="motion_id" value={m.motion_id} />
                           <input type="hidden" name="approve" value="false" />
                           <SubmitButton
-                            className={`inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium ${myVote && !myVote.approve ? 'bg-terracotta text-white' : 'border border-ink/20 bg-cream text-ink hover:border-ink/40'}`}
+                            className={`inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium ${myVote && !myVote.approve ? 'bg-terracotta text-white' : 'border border-ink/20 bg-white/70 text-ink hover:border-ink/40'}`}
                             pendingLabel="…"
                           >
                             Reject{myVote && !myVote.approve ? ' ✓' : ''}
@@ -210,7 +242,7 @@ export default async function VendorTeamPage({ searchParams }: Props) {
       ) : null}
 
       {/* ── Invite ────────────────────────────────────────────────────── */}
-      <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+      <section className="space-y-3 sn-tile p-5">
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           Invite a team member
         </h2>
@@ -242,7 +274,55 @@ export default async function VendorTeamPage({ searchParams }: Props) {
             </SubmitButton>
           </div>
         </form>
+        <p className="text-xs text-ink/55">
+          {Number.isFinite(effectiveCap) ? (
+            <>
+              {/* Just the used/cap glance here — the base + extra breakdown lives
+                  once, in the Extra seats card below (deduped 2026-07-16). */}
+              <strong>{usedSeats}</strong> of <strong>{effectiveCap}</strong> team seat
+              {effectiveCap === 1 ? '' : 's'} used — the founding admin is always
+              free and doesn’t count.
+            </>
+          ) : (
+            <>The founding admin is always free and doesn’t count toward seats.</>
+          )}
+        </p>
       </section>
+
+      {/* ── Extra seats (Enterprise/Custom ₱250/28d add-on · owner 2026-07-02) ── */}
+      {canBuySeats ? (
+        <section className="space-y-3 rounded-2xl border border-terracotta/20 bg-terracotta/[0.04] p-5">
+          <h2 className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+            <UserPlus className="h-4 w-4 text-terracotta" strokeWidth={1.75} aria-hidden /> Extra
+            seats
+          </h2>
+          <p className="text-sm text-ink/70">
+            Your plan includes <strong>{baseSeatCap}</strong> team seats. Need more? Add extra seats
+            at <strong>₱{seatFeePhp.toLocaleString('en-PH')}/28&nbsp;days</strong> each — they fold
+            into your renewal. You currently have{' '}
+            <strong>{extraSeats}</strong> extra seat{extraSeats === 1 ? '' : 's'} (
+            {Number.isFinite(seatsLeft) ? `${seatsLeft} seat${seatsLeft === 1 ? '' : 's'} free` : 'seats free'}
+            ).
+          </p>
+          <form action={buyExtraSeat} className="flex flex-wrap items-end gap-3">
+            <label htmlFor="seat-channel" className="block space-y-1">
+              <span className="block text-xs font-medium text-ink/70">Pay via</span>
+              <select id="seat-channel" name="channel" defaultValue="bdo" className="input-field cursor-pointer">
+                <option value="bdo">BDO</option>
+                <option value="gcash">GCash</option>
+              </select>
+            </label>
+            <SubmitButton className="button-primary" pendingLabel="Starting…">
+              <UserPlus className="mr-1.5 h-4 w-4" strokeWidth={1.75} aria-hidden />
+              Add a seat (₱{seatFeePhp.toLocaleString('en-PH')})
+            </SubmitButton>
+          </form>
+          <p className="text-xs text-ink/50">
+            Apply-then-pay: you’ll get a reference code to pay externally, and the seat unlocks once
+            our team confirms your payment.
+          </p>
+        </section>
+      ) : null}
 
       {/* ── Members ───────────────────────────────────────────────────── */}
       <section className="space-y-3">
@@ -251,7 +331,7 @@ export default async function VendorTeamPage({ searchParams }: Props) {
         </h2>
 
         {enriched.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-ink/15 bg-cream p-8 text-center">
+          <div className="rounded-2xl border border-dashed border-ink/15 p-8 text-center">
             <Users aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
             <p className="text-sm font-medium text-ink">No team members yet.</p>
           </div>
@@ -262,7 +342,7 @@ export default async function VendorTeamPage({ searchParams }: Props) {
               const isAdmin = isVendorAdminRole(m.role);
               const hasOpenMotion = motions.some((mo) => mo.target_user_id === m.user_id);
               return (
-                <li key={m.vendor_team_member_id} className="rounded-2xl border border-ink/10 bg-cream p-4">
+                <li key={m.vendor_team_member_id} className="sn-row p-4">
                   <div className="mb-3 flex items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
                       <p className="truncate text-base font-semibold text-ink">
@@ -324,7 +404,7 @@ export default async function VendorTeamPage({ searchParams }: Props) {
                         <input name="team_label" maxLength={64} defaultValue={m.team_label ?? ''} placeholder="e.g. Videographer" className="input-field" />
                       </label>
                       <div className="flex items-end">
-                        <SubmitButton className="inline-flex h-9 items-center justify-center rounded-md border border-ink/20 bg-cream px-4 text-xs font-medium text-ink hover:border-ink/40" pendingLabel="Saving…">
+                        <SubmitButton className="inline-flex h-9 items-center justify-center rounded-md border border-ink/20 bg-white/70 px-4 text-xs font-medium text-ink hover:border-ink/40" pendingLabel="Saving…">
                           Save
                         </SubmitButton>
                       </div>
@@ -350,7 +430,7 @@ export default async function VendorTeamPage({ searchParams }: Props) {
                               <option value="agent">Demote to Agent</option>
                               <option value="viewer">Demote to Viewer</option>
                             </select>
-                            <SubmitButton className="inline-flex h-8 items-center justify-center rounded-md border border-sky-300 bg-cream px-3 text-xs font-medium text-sky-900 hover:border-sky-500" pendingLabel="…">
+                            <SubmitButton className="inline-flex h-8 items-center justify-center rounded-md border border-sky-300 bg-white/70 px-3 text-xs font-medium text-sky-900 hover:border-sky-500" pendingLabel="…">
                               Start vote
                             </SubmitButton>
                           </form>
@@ -417,14 +497,14 @@ function AgentServiceAssignment({
         <>
           <div className="flex flex-wrap gap-2">
             {services.map((s) => (
-              <label key={s.vendor_service_id} className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-2.5 py-1 text-xs text-ink/80 hover:border-ink/30">
+              <label key={s.vendor_service_id} className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-white/70 px-2.5 py-1 text-xs text-ink/80 hover:border-ink/30">
                 <input type="checkbox" name="service_ids" value={s.vendor_service_id} defaultChecked={assignedSet.has(s.vendor_service_id)} className="h-3.5 w-3.5 accent-success-600" />
                 {categoryLabel(s.category)}
                 {s.is_active ? null : <span className="text-ink/40">(inactive)</span>}
               </label>
             ))}
           </div>
-          <SubmitButton className="inline-flex h-8 items-center justify-center rounded-md border border-success-300 bg-cream px-3 text-xs font-medium text-success-900 hover:border-success-500" pendingLabel="Saving…">
+          <SubmitButton className="inline-flex h-8 items-center justify-center rounded-md border border-success-300 bg-white/70 px-3 text-xs font-medium text-success-900 hover:border-success-500" pendingLabel="Saving…">
             Save assignments
           </SubmitButton>
         </>

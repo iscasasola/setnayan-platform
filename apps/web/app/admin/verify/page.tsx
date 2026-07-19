@@ -10,19 +10,26 @@ import {
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
 import {
-  APPLICATION_TYPE_LABEL,
+  APPLICATION_TYPE_NAME,
   DOC_SLOTS,
   EMPTY_CONTACT_CONFIRMATION,
+  SOCIAL_PLATFORM_LABEL,
   computeSlaTone,
   countCompleteSlots,
   expectedValidateToken,
+  feeLabelForCentavos,
   fetchContactConfirmations,
-  formatPhpCentavos,
   formatSlaCountdown,
+  isSlotComplete,
   parseApplicationStatus,
+  parseClientReferences,
+  parsePortfolioRefs,
+  parseSocialLinks,
   parseVerificationState,
+  resolveApplicationFeeCentavos,
   type ApplicationStatus,
   type ContactConfirmation,
+  type DocUpload,
   type DocUploadMap,
   type SlaTone,
   type VerificationState,
@@ -56,6 +63,7 @@ import {
 } from '@/lib/vendor-deep-search';
 import { DeepSearchChat } from './_components/deep-search-chat';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Verification queue · Admin' };
 
 // Deep search runs a live web research pass inside a server action — give the
@@ -139,26 +147,23 @@ type ApplicationRow = {
  * Per 0023 § 3.2 + 0006 § Vendor Verification flow + decision log 2026-05-16.
  */
 export default async function AdminVerifyPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const surface = search.surface === 'visibility' ? 'visibility' : 'applications';
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       {/*
-       * v2.1 chrome overlay (2026-05-28) — eyebrow uses .m-eyebrow, heading
-       * uses .m-display-tight (Saira Condensed). Matches admin overview +
-       * couple/vendor dashboard treatment. Logic + queue table preserved.
+       * Atelier-Glass chrome — eyebrow uses .sn-eye, heading uses .sn-h1 (Hanken
+       * Grotesk). Matches admin overview + couple/vendor dashboard treatment.
+       * Logic + queue table preserved.
        */}
       <header className="mb-6 space-y-2">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">
-          Iteration 0006 · § Vendor Verification · 0023 § 3.2
-        </p>
-        <h1 className="m-display-tight text-2xl text-[color:var(--m-ink)] sm:text-3xl">
-          Verification queue
-        </h1>
-        <p className="max-w-2xl text-sm text-ink/65">
-          Vendors submit a 12-document checklist; Setnayan reviews within 3–5
-          business days and flips them to <span className="font-medium">Verified</span>.
+        <p className="sn-eye">Trust &amp; supply · verification</p>
+        <h1 className="sn-h1">Verification queue</h1>
+        <p className="max-w-2xl text-sm text-[color:var(--sn-ink-500)]">
+          Vendors submit a 12-document checklist; Setnayan reviews within 72
+          hours and flips them to <span className="font-medium">Verified</span>.
           The companion <span className="font-medium">Visibility</span> surface
           governs marketplace listing state (coming_soon · verified · hidden ·
           archived) independent of the verification workflow.
@@ -188,10 +193,7 @@ function SurfaceTabs({ current }: { current: 'applications' | 'visibility' }) {
     { key: 'visibility', label: 'Listing visibility' },
   ];
   return (
-    <nav
-      className="mb-4 inline-flex gap-1 rounded-lg border border-ink/15 bg-cream p-1"
-      aria-label="Verification surfaces"
-    >
+    <nav className="mb-4 inline-flex flex-wrap gap-2" aria-label="Verification surfaces">
       {tabs.map((t) => {
         const active = current === t.key;
         return (
@@ -199,11 +201,7 @@ function SurfaceTabs({ current }: { current: 'applications' | 'visibility' }) {
             key={t.key}
             href={`/admin/verify?surface=${t.key}`}
             aria-pressed={active}
-            className={
-              active
-                ? 'inline-flex items-center rounded-md bg-ink px-3 py-1.5 text-xs font-medium text-cream sn-bounce'
-                : 'inline-flex items-center rounded-md px-3 py-1.5 text-xs text-ink/70 hover:bg-ink/5'
-            }
+            className={`sn-chip${active ? ' selected' : ''}`}
           >
             {t.label}
           </Link>
@@ -437,6 +435,14 @@ async function ApplicationsSurface({
     },
   }));
 
+  // Post-demotion re-verification fee, resolved from service_catalog (retired
+  // inactive by the 20260702 migration → ₱0 / "Free"). Never hardcoded so the
+  // demoted-vendor card can't advertise a fee that no longer exists.
+  const postDemotionFeeCentavos = await resolveApplicationFeeCentavos(
+    admin,
+    'post_demotion',
+  );
+
   return (
     <>
       <ApplicationsTabs current={statusParam ?? 'pending_review'} />
@@ -450,7 +456,7 @@ async function ApplicationsSurface({
       {error ? null : null}
 
       {fullRows.length === 0 && demotedFallback.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-ink/20 bg-cream p-10 text-center text-sm text-ink/55">
+        <p className="rounded-card border border-dashed border-ink/15 bg-white/50 p-10 text-center text-sm text-[color:var(--sn-ink-400)]">
           {tabFilter.emptyHint}
         </p>
       ) : (
@@ -479,7 +485,10 @@ async function ApplicationsSurface({
               <ul className="grid gap-3 sm:grid-cols-2">
                 {demotedFallback.map((v) => (
                   <li key={v.vendor_profile_id}>
-                    <DemotedVendorCard vendor={v} />
+                    <DemotedVendorCard
+                      vendor={v}
+                      reverificationFeeCentavos={postDemotionFeeCentavos}
+                    />
                   </li>
                 ))}
               </ul>
@@ -559,11 +568,7 @@ function ApplicationsTabs({ current }: { current: string }) {
             key={t.key}
             href={`/admin/verify?surface=applications&status=${t.key}`}
             aria-pressed={active}
-            className={
-              active
-                ? 'inline-flex items-center rounded-full bg-ink px-3 py-1 text-xs font-medium text-cream'
-                : 'inline-flex items-center rounded-full border border-ink/20 bg-cream px-3 py-1 text-xs text-ink/70 hover:bg-ink/5'
-            }
+            className={`sn-chip${active ? ' selected' : ''}`}
           >
             {t.label}
           </Link>
@@ -595,7 +600,7 @@ function ApplicationCard({
   );
 
   return (
-    <article className="space-y-4 rounded-xl border border-ink/10 bg-cream p-5">
+    <article className="sn-row space-y-4 p-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-base font-semibold text-ink">
@@ -604,9 +609,9 @@ function ApplicationCard({
           <p className="mt-0.5 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
             <span>{application.public_id}</span>
             <span aria-hidden>·</span>
-            <span>{APPLICATION_TYPE_LABEL[application.application_type]}</span>
+            <span>{APPLICATION_TYPE_NAME[application.application_type]}</span>
             <span aria-hidden>·</span>
-            <span>{formatPhpCentavos(application.fee_php_centavos)}</span>
+            <span>{feeLabelForCentavos(application.fee_php_centavos)}</span>
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -665,20 +670,24 @@ function ApplicationCard({
         <summary className="cursor-pointer px-3 py-2 text-xs text-ink/65">
           12-doc checklist
         </summary>
-        <ul className="space-y-1 px-3 pb-3 text-xs">
+        <ul className="space-y-2 px-3 pb-3 text-xs">
           {DOC_SLOTS.map((slot) => {
             const v = application.doc_uploads?.[slot.key];
-            const tone = v
+            const complete = isSlotComplete(slot.key, v);
+            const tone = complete
               ? 'text-success-700'
               : slot.kind === 'upload'
                 ? 'text-warn-700'
                 : 'text-ink/60';
             return (
-              <li key={slot.key} className={`flex items-center gap-2 ${tone}`}>
-                <span className="inline-flex h-4 w-5 items-center justify-center rounded-full bg-ink/5 font-mono text-[9px]">
-                  {slot.number}
-                </span>
-                <span className="font-medium">{slot.label}</span>
+              <li key={slot.key} className="space-y-1">
+                <div className={`flex items-center gap-2 ${tone}`}>
+                  <span className="inline-flex h-4 w-5 items-center justify-center rounded-full bg-ink/5 font-mono text-[9px]">
+                    {slot.number}
+                  </span>
+                  <span className="font-medium">{slot.label}</span>
+                </div>
+                <SlotDetail slotKey={slot.key} value={v} />
               </li>
             );
           })}
@@ -1028,6 +1037,70 @@ function CategoryMatchBadge({
   );
 }
 
+/**
+ * Reviewer-facing detail for the three structured vendor slots (owner
+ * 2026-07-03 field redesign): the client references (name · contact · event ·
+ * date), the social/website links, and the portfolio COUNT. These read from the
+ * doc_uploads JSONB directly — no presigned URL needed (the reviewer opens the
+ * portfolio files from the vendor's own shop). Every other slot renders
+ * nothing extra.
+ */
+function SlotDetail({ slotKey, value }: { slotKey: string; value: DocUpload }) {
+  if (slotKey === 'client_references') {
+    const refs = parseClientReferences(value);
+    if (refs.length === 0) return null;
+    return (
+      <ul className="ml-7 space-y-1">
+        {refs.map((r, i) => (
+          <li
+            key={i}
+            className="rounded-md border border-ink/10 bg-ink/[0.02] px-2 py-1 text-[11px] text-ink/75"
+          >
+            <span className="font-medium text-ink">{r.name || 'Unnamed'}</span>
+            {r.contact_number ? <span> · {r.contact_number}</span> : null}
+            {r.event ? <span> · {r.event}</span> : null}
+            {r.date ? <span> · {r.date}</span> : null}
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  if (slotKey === 'social_media') {
+    const links = parseSocialLinks(value);
+    const entries = Object.entries(links);
+    if (entries.length === 0) return null;
+    return (
+      <ul className="ml-7 space-y-0.5">
+        {entries.map(([key, url]) => (
+          <li key={key} className="text-[11px] text-ink/75">
+            <span className="font-medium text-ink">
+              {SOCIAL_PLATFORM_LABEL[key] ?? key}:
+            </span>{' '}
+            <a
+              href={url.includes('://') ? url : `https://${url}`}
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              className="break-all text-terracotta-700 underline decoration-terracotta/40 underline-offset-2 hover:decoration-terracotta"
+            >
+              {url}
+            </a>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  if (slotKey === 'portfolio_samples') {
+    const count = parsePortfolioRefs(value).length;
+    if (count === 0) return null;
+    return (
+      <p className="ml-7 text-[11px] text-ink/60">
+        {count} photo{count === 1 ? '' : 's'} uploaded — view in the vendor&apos;s shop.
+      </p>
+    );
+  }
+  return null;
+}
+
 function ActionRow({ application }: { application: ApplicationRow }) {
   const isPendingOrReview =
     application.status === 'pending_review' ||
@@ -1163,8 +1236,11 @@ function ActionRow({ application }: { application: ApplicationRow }) {
 
 function DemotedVendorCard({
   vendor,
+  reverificationFeeCentavos,
 }: {
   vendor: ApplicationRow['vendor'];
+  /** Resolved from service_catalog (retired → ₱0 renders as "Free"). */
+  reverificationFeeCentavos: number;
 }) {
   return (
     <article className="space-y-2 rounded-xl border border-warn-300/60 bg-warn-50/40 p-4">
@@ -1176,9 +1252,11 @@ function DemotedVendorCard({
       </p>
       <p className="text-xs text-ink/65">
         Re-verification fee:{' '}
-        <span className="font-medium">{formatPhpCentavos(250000)}</span>. Vendor
-        has to submit a new <span className="font-medium">post_demotion</span>{' '}
-        application to climb back.
+        <span className="font-medium">
+          {feeLabelForCentavos(reverificationFeeCentavos)}
+        </span>. Vendor has to submit a new{' '}
+        <span className="font-medium">post_demotion</span> application to climb
+        back.
       </p>
     </article>
   );
@@ -1225,7 +1303,7 @@ async function VisibilitySurface({
       {error ? null : null}
 
       {vendors.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-ink/20 bg-cream p-10 text-center text-sm text-ink/55">
+        <p className="rounded-card border border-dashed border-ink/15 bg-white/50 p-10 text-center text-sm text-[color:var(--sn-ink-400)]">
           Queue is empty for this filter. Try widening the status.
         </p>
       ) : (
@@ -1274,11 +1352,7 @@ function VisibilityTabs({ current }: { current: string }) {
             key={t.key}
             href={`/admin/verify?surface=visibility&status=${t.key}`}
             aria-pressed={active}
-            className={
-              active
-                ? 'inline-flex items-center rounded-full bg-ink px-3 py-1 text-xs font-medium text-cream'
-                : 'inline-flex items-center rounded-full border border-ink/20 bg-cream px-3 py-1 text-xs text-ink/70 hover:bg-ink/5'
-            }
+            className={`sn-chip${active ? ' selected' : ''}`}
           >
             {t.label}
           </Link>
@@ -1292,7 +1366,7 @@ function VerifyCard({ vendor }: { vendor: VendorVisibilityRow }) {
   const visibility = parseVisibility(vendor.public_visibility);
   const slug = vendor.business_slug ?? null;
   return (
-    <article className="flex h-full flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-4">
+    <article className="sn-row flex h-full flex-col gap-3 p-4">
       <header className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <Avatar logoUrl={vendor.logo_url} name={vendor.business_name || 'Vendor'} />

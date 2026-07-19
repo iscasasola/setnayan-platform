@@ -187,9 +187,20 @@ export function usePapicCamera({ enabled }: { enabled: boolean }): PapicCamera {
     setSwitching(true);
 
     async function acquire(withAudio: boolean) {
+      // Request a HIGH-RES stream (owner 2026-07-14): Papic stills are grabbed by
+      // canvas-drawing this video (papic-guest-capture / papic-seat-capture at
+      // `video.videoWidth × videoHeight`), so an unconstrained stream shipped
+      // ~VGA photos — far below the camera's capability, bad for a candid-PHOTO
+      // product. `ideal` 1440p targets QHD (≈3.7 MP stills, ~4–10× the old
+      // default) and degrades gracefully on weaker cameras — no `exact`/`max`, so
+      // never an OverconstrainedError, and 5s clips off the same stream stay
+      // manageable. Applies to BOTH capture surfaces via this shared hook.
+      // (True full-sensor stills would need ImageCapture.takePhoto(), which iOS
+      //  Safari doesn't support — deferred; this lifts every platform uniformly.)
+      const HI_RES = { width: { ideal: 2560 }, height: { ideal: 1440 } } as const;
       const video: MediaTrackConstraints = targetDeviceId
-        ? { deviceId: { exact: targetDeviceId } }
-        : { facingMode: { ideal: facing } };
+        ? { deviceId: { exact: targetDeviceId }, ...HI_RES }
+        : { facingMode: { ideal: facing }, ...HI_RES };
       return navigator.mediaDevices.getUserMedia({ video, audio: withAudio });
     }
 

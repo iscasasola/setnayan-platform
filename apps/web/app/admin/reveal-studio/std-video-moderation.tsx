@@ -17,6 +17,7 @@
 import { useState, useTransition } from 'react';
 import { Check, X, Film } from 'lucide-react';
 import { setStdVideoModeration } from './actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 export type PendingStdVideo = {
   eventId: string;
@@ -30,6 +31,7 @@ export type PendingStdVideo = {
 export function StdVideoModeration({ initial }: { initial: PendingStdVideo[] }) {
   const [rows, setRows] = useState(initial);
   const [pending, startTransition] = useTransition();
+  const save = useSaveLoader();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,7 +41,10 @@ export function StdVideoModeration({ initial }: { initial: PendingStdVideo[] }) 
     setError(null);
     setBusyId(eventId);
     startTransition(async () => {
-      const r = await setStdVideoModeration(eventId, decision);
+      const r = await save.run(() => setStdVideoModeration(eventId, decision), {
+        steps: ['Recording your decision'],
+        hint: 'Saving',
+      });
       if (r.ok) {
         setRows((prev) => prev.filter((row) => row.eventId !== eventId));
       } else {
@@ -56,7 +61,7 @@ export function StdVideoModeration({ initial }: { initial: PendingStdVideo[] }) 
           <Film aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Content · needs review
         </div>
-        <h2 className="text-lg font-semibold text-[var(--m-ink,#1e2229)]">
+        <h2 className="text-lg font-semibold text-[var(--m-ink,#1b1a17)]">
           Save-the-Date videos ({rows.length})
         </h2>
         <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-[var(--m-slate,#4f535b)]">
@@ -79,7 +84,7 @@ export function StdVideoModeration({ initial }: { initial: PendingStdVideo[] }) 
             className="flex flex-col gap-3 rounded-xl border border-[var(--m-line,#e7e3da)] bg-[var(--m-wash,#faf8f4)] p-3"
           >
             <div className="flex items-center justify-between gap-2">
-              <p className="truncate text-sm font-medium text-[var(--m-ink,#1e2229)]">{row.name}</p>
+              <p className="truncate text-sm font-medium text-[var(--m-ink,#1b1a17)]">{row.name}</p>
               <span
                 className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
                   row.status === 'rejected'

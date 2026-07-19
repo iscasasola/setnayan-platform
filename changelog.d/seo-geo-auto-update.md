@@ -1,0 +1,14 @@
+## 2026-07-10 · feat(seo): daily SEO/GEO auto-audit — /admin/seo surface + nightly crons
+
+Owner Q ("an admin page that auto-updates our SEO and GEO daily"). Answer, per the safe split in `SEO_GEO_UPDATE_2026-07-10.md §8`: deterministic monitoring runs daily and automatically; brand copy is never machine-rewritten unattended. This lands the monitoring spine + admin surface — the root-cause fix the earlier audit flagged (§3: "diff llms.txt against the live DB, not just against itself").
+
+- **Migration `20270710700100_seo_geo_monitoring.sql`** — three admin-only tables (RLS on at CREATE via `public.is_admin()`): `seo_health_snapshots` (one row per nightly audit), `seo_metrics` (daily Search Console pull, `UNIQUE(source, metric_date)` upsert), `seo_suggestions` (the follow-up weekly AI meta review queue — table lands now, cron/UI later).
+- **`lib/seo/health-checks.ts`** (pure, unit-tested) — the daily audit: a figure-SET diff of the served `llms.txt` against the live `service_catalog` (catches a repriced SKU whose new figure never reached the copy = `missing`, and a copy figure no active SKU backs = `orphan`); a route-validity check against `KNOWN_PUBLIC_ROUTES` (the `/venues` 404-class the audit caught); verification-token + `Organization.sameAs` owner-nags. No prose parsing — robust to wording.
+- **`/api/cron/seo-health`** (nightly 02:00 PHT) — fetches the LIVE served `/llms.txt` + catalog, runs the checks, writes a snapshot. Timing-safe `CRON_SECRET`, fail-closed (mirrors `anniversary-digest`).
+- **`/api/cron/seo-gsc`** (nightly 06:00 PHT) + **`lib/seo/search-console.ts`** — real refresh-token → Search Analytics pull (last 14 days + top queries), upserts `seo_metrics`. **No-ops cleanly** when `GSC_*` env is unset (owner action #1 in the audit §7), so the schedule is safe to wire before creds land.
+- **`/admin/seo`** — health scorecard (ok/warn/fail + per-check detail), llms.txt price-drift list (missing vs orphan), owner-action nags, and the Search Console 14-day trend + top queries. `requireAdmin()` page-gate in front of the service-role client (council fix #1). Registered in `ADMIN_NAV_GROUPS` under App Performance (reuses the imported `Globe` icon) + a nav description.
+- **`vercel.json`** — both crons registered.
+
+Deferred (own PR, both need owner input): the GSC pull is dormant until the owner pastes `GSC_*` creds; the weekly AI meta/FAQ drafter into `seo_suggestions` + admin approve/reject needs owner sign-off + a flag (AI never publishes unattended). The static `public/llms.txt` is intentionally NOT converted to a generated route this PR — it's dense curated brand prose, and the drift audit makes stale figures visible without risking an unattended machine rewrite of locked brand/price strings.
+
+SPEC IMPACT: SEO_GEO_UPDATE_2026-07-10.md §8 (auto-update admin surface + daily crons — plan authored + this PR implements the monitoring core).

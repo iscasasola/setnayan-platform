@@ -36,6 +36,7 @@ import {
   adminLiftConciergeEnforcement,
 } from './actions';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: "Setnayan AI enforcement · Admin" };
 
 type FlagRow = {
@@ -73,6 +74,7 @@ type Props = {
 };
 
 export default async function ConciergeAbusePage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   const tab: 'queue' | 'enforcement' =
     search.tab === 'enforcement' ? 'enforcement' : 'queue';
@@ -257,7 +259,7 @@ function Metric({
   icon: React.ReactNode;
 }) {
   return (
-    <div className={`flex items-center justify-between rounded-xl border bg-cream px-4 py-3 ${tone}`}>
+    <div className={`flex items-center justify-between rounded-xl border bg-white/70 px-4 py-3 ${tone}`}>
       <div className="flex items-center gap-2">
         {icon}
         <span className="font-mono text-[11px] uppercase tracking-[0.15em]">{label}</span>
@@ -276,7 +278,7 @@ function QueueTab({
 }) {
   if (flags.length === 0) {
     return (
-      <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-8 text-center text-sm text-ink/55">
+      <p className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-ink/55">
         No pending flags. The queue is clear.
       </p>
     );
@@ -289,7 +291,7 @@ function QueueTab({
           .map((id) => usersById.get(id))
           .filter((u): u is UserBrief => !!u);
         return (
-          <li key={f.flag_id} className="rounded-xl border border-ink/10 bg-cream p-4">
+          <li key={f.flag_id} className="sn-tile p-4">
             <header className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 space-y-1">
                 <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
@@ -332,7 +334,7 @@ function QueueTab({
                   required
                   minLength={10}
                   rows={2}
-                  className="input-field bg-cream text-sm"
+                  className="input-field bg-white/70 text-sm"
                   placeholder="Different couple, same Tagaytay venue / signal mismatch / etc."
                 />
                 <SubmitButton
@@ -360,7 +362,7 @@ function QueueTab({
                   required
                   minLength={20}
                   rows={2}
-                  className="input-field bg-cream text-sm"
+                  className="input-field bg-white/70 text-sm"
                   placeholder="Same phone number across N accounts with identical wedding profiles — multi-account trial cycling."
                 />
                 <SubmitButton
@@ -381,7 +383,7 @@ function QueueTab({
 function EnforcementTab({ users }: { users: UserBrief[] }) {
   if (users.length === 0) {
     return (
-      <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-8 text-center text-sm text-ink/55">
+      <p className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-ink/55">
         No accounts under enforcement.
       </p>
     );
@@ -389,7 +391,7 @@ function EnforcementTab({ users }: { users: UserBrief[] }) {
   return (
     <ul className="space-y-4">
       {users.map((u) => (
-        <li key={u.user_id} className="rounded-xl border border-ink/10 bg-cream p-4">
+        <li key={u.user_id} className="sn-tile p-4">
           <header className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 space-y-1">
               <h2 className="text-lg font-semibold tracking-tight text-ink">
@@ -427,7 +429,7 @@ function EnforcementTab({ users }: { users: UserBrief[] }) {
               required
               minLength={10}
               rows={2}
-              className="input-field bg-cream text-sm"
+              className="input-field bg-white/70 text-sm"
               placeholder="User submitted appeal ticket #1234 with valid clarification. Lifting one strike."
             />
             <SubmitButton
@@ -473,13 +475,13 @@ function SignalsTable({ signals }: { signals: Record<string, unknown> }) {
   const entries = Object.entries(signals ?? {});
   if (entries.length === 0) {
     return (
-      <div className="rounded-md border border-ink/10 bg-cream/50 p-3 text-xs text-ink/55">
+      <div className="rounded-md border border-white/60 bg-white/70 p-3 text-xs text-ink/55">
         No signal details recorded.
       </div>
     );
   }
   return (
-    <div className="rounded-md border border-ink/10 bg-cream/50 p-3">
+    <div className="rounded-md border border-white/60 bg-white/70 p-3">
       <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
         Signals fired
       </p>
@@ -506,13 +508,13 @@ function SignalsTable({ signals }: { signals: Record<string, unknown> }) {
 function MatchedAccounts({ users }: { users: UserBrief[] }) {
   if (users.length === 0) {
     return (
-      <div className="rounded-md border border-ink/10 bg-cream/50 p-3 text-xs text-ink/55">
+      <div className="rounded-md border border-white/60 bg-white/70 p-3 text-xs text-ink/55">
         No matched accounts resolved.
       </div>
     );
   }
   return (
-    <div className="rounded-md border border-ink/10 bg-cream/50 p-3">
+    <div className="rounded-md border border-white/60 bg-white/70 p-3">
       <p className="mb-2 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
         <UsersIcon aria-hidden className="h-3 w-3" strokeWidth={1.75} />
         Matched accounts ({users.length})

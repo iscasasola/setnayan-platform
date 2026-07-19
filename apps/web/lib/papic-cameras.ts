@@ -12,6 +12,14 @@ import { eventSkuActive } from '@/lib/entitlements';
 export const PAPIC_UNLOCK_BUNDLE_KEY = 'PAPIC_UNLOCK';
 
 /**
+ * The Ltd-tier twin (owner 2026-07-11 · platform_package_catalog
+ * 'PAPIC_UNLOCK_LTD', ₱9,000). Owning it makes the LIMITED (Ltd/Roll) camera tier
+ * free + uncapped for the whole event, plus Photo Wall + Camera Bridge. The Unli
+ * tier is NOT freed by this pass — that's the separate ₱15,000 PAPIC_UNLOCK.
+ */
+export const PAPIC_UNLOCK_LTD_BUNDLE_KEY = 'PAPIC_UNLOCK_LTD';
+
+/**
  * Does owning the Unlock-all umbrella make Unli cameras free for this event?
  *
  * The admin-approved, bundle-aware FEATURE GATE: TRUE only when the event owns an
@@ -27,6 +35,22 @@ export async function eventUnliFreeViaUnlock(
 ): Promise<boolean> {
   try {
     return await eventSkuActive(admin, eventId, PAPIC_UNLOCK_BUNDLE_KEY);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Ltd-tier mirror of {@link eventUnliFreeViaUnlock}: does owning the ₱9,000
+ * PAPIC_UNLOCK_LTD pass make Ltd (Roll) cameras free for this event? Same
+ * fail-CLOSED money-logic contract — TRUE only on an ACTIVE PAPIC_UNLOCK_LTD order.
+ */
+export async function eventLtdFreeViaUnlock(
+  admin: SupabaseClient,
+  eventId: string,
+): Promise<boolean> {
+  try {
+    return await eventSkuActive(admin, eventId, PAPIC_UNLOCK_LTD_BUNDLE_KEY);
   } catch {
     return false;
   }
@@ -74,9 +98,14 @@ export const PAPIC_CAMERA_INDEX_BASE = 200;
 export const PAPIC_CAMERA_ROLL_FALLBACK_PHP = 30;
 export const PAPIC_CAMERA_UNLIMITED_FALLBACK_PHP = 100;
 export const PAPIC_DEFAULT_COST_CAP_PHP = 6999; // deprecated single cap (pre per-tier)
-/** Per-tier price caps (owner 2026-06-26) — each tier's subtotal locks here. */
-export const PAPIC_LTD_CAP_FALLBACK_PHP = 6000; // Ltd (Roll) ≈ 200 cameras × ₱30
-export const PAPIC_UNLI_CAP_FALLBACK_PHP = 10000; // Unli ≈ 100 cameras × ₱100
+/**
+ * Per-tier price caps — each tier's subtotal locks here. Live values come from
+ * events.papic_ltd_cap_php / papic_unli_cap_php; these are last-resort fallbacks.
+ * Owner-set 2026-07-11 (PR #3112): Ltd ₱9,000 · Unli ₱15,000 (raised from the
+ * ₱5,999/₱11,999 set earlier the same day; 6000/10000 before that).
+ */
+export const PAPIC_LTD_CAP_FALLBACK_PHP = 9000; // Ltd (Roll) ≈ 300 cameras × ₱30 (owner 2026-07-11)
+export const PAPIC_UNLI_CAP_FALLBACK_PHP = 15000; // Unli = 150 cameras × ₱100 (owner 2026-07-11)
 
 export type CameraTier = 'free' | 'roll' | 'unlimited';
 
@@ -85,7 +114,7 @@ export const PAPIC_TIER_QUOTA: Record<
   CameraTier,
   { photos: number | null; videos: number | null }
 > = {
-  free: { photos: 5, videos: 1 },
+  free: { photos: 10, videos: 3 }, // owner 2026-07-11 (was 5 + 1) — fatter free taste
   roll: { photos: 30, videos: 10 },
   unlimited: { photos: null, videos: null },
 };
@@ -177,9 +206,10 @@ export function computeCameraQuote(
   days: number,
   rates: CameraRates,
   caps: CameraCaps,
-  opts: { unliFree?: boolean } = {},
+  opts: { unliFree?: boolean; ltdFree?: boolean } = {},
 ): CameraQuote {
   const unliFree = opts.unliFree === true;
+  const ltdFree = opts.ltdFree === true;
   const rollCount = intCount(selection.roll);
   const unlimitedCount = intCount(selection.unlimited);
   const d = Math.max(1, Math.floor(Number(days)) || 1);
@@ -196,10 +226,10 @@ export function computeCameraQuote(
   const unlimitedSubtotalPhp = unlimitedCount * unlimitedRate * d;
   const rawTotalPhp = rollSubtotalPhp + unlimitedSubtotalPhp;
 
-  // Per-tier cap (owner 2026-06-26): each tier locks independently — Ltd at
-  // ₱6,000, Unli at ₱10,000 — so 300 guests on Ltd still pay ₱6,000. PAPIC_UNLOCK
-  // owners pay ₱0 for Unli (free + uncapped), so its charge is forced to 0.
-  const rollChargePhp = Math.min(rollSubtotalPhp, ltdCap);
+  // Per-tier cap (owner 2026-06-26): each tier locks independently — so 300
+  // guests on Ltd still pay the Ltd cap. Unlock owners pay ₱0 for the tier their
+  // pass covers (free + uncapped): PAPIC_UNLOCK → Unli, PAPIC_UNLOCK_LTD → Ltd.
+  const rollChargePhp = ltdFree ? 0 : Math.min(rollSubtotalPhp, ltdCap);
   const unlimitedChargePhp = unliFree ? 0 : Math.min(unlimitedSubtotalPhp, unliCap);
   const totalPhp = rollChargePhp + unlimitedChargePhp;
   const paidCount = rollCount + unlimitedCount;
@@ -224,8 +254,10 @@ export function computeCameraQuote(
     ltdCapPhp: ltdCap,
     unliCapPhp: unliCap,
     totalPhp,
-    // Unli never "caps" when it's free (PAPIC_UNLOCK) — it's ₱0, not clamped.
-    capped: rollSubtotalPhp > ltdCap || (!unliFree && unlimitedSubtotalPhp > unliCap),
+    // A tier never "caps" when its unlock frees it — it's ₱0, not clamped.
+    capped:
+      (!ltdFree && rollSubtotalPhp > ltdCap) ||
+      (!unliFree && unlimitedSubtotalPhp > unliCap),
     description,
   };
 }

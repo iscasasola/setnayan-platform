@@ -44,6 +44,10 @@ import { followVendor } from '@/lib/follow-actions';
 import { sendChatMessage } from '@/lib/chat-actions';
 import { recordThreadInterests, type InterestSeed } from '@/lib/thread-interests';
 import { resolveLivePax } from '@/lib/pax';
+import {
+  resolveIsReturning,
+  stampThreadProvenance,
+} from '@/lib/inquiry-attribution';
 
 export type UnlockCategoryResult =
   | { status: 'ok'; inquired: boolean; vendorName: string | null }
@@ -75,10 +79,22 @@ export async function unlockCategoryWithInquiry(input: {
   /** How many best-fit vendors to inquire for this group (1–5 · default 1). Onboarding's Your Plan
    *  fan-out passes the couple's per-category count; the dashboard unlock-more page omits it (→ 1). */
   count?: number;
+  /**
+   * Inquiry-source taxonomy (Creator Economy PR-C · owner 2026-07-17). Both of
+   * this action's trigger surfaces are RECOMMENDATION surfaces — the vendor is
+   * the best-fit pick, not the couple's own find:
+   *   'first_pick' (default) — the dashboard "Unlock more categories" page's
+   *     best-fit inquiry ("First Pick Recommendation").
+   *   'auto_build' — the onboarding "reach my best matches" fan-out + its
+   *     held-picks flush ("Auto Build Recommendation").
+   */
+  inquirySource?: 'first_pick' | 'auto_build';
 }): Promise<UnlockCategoryResult> {
   const eventId = String(input.eventId ?? '').trim();
   const groupId = String(input.groupId ?? '').trim();
   const want = Math.max(1, Math.min(5, Math.round(input.count ?? 1)));
+  const inquirySource =
+    input.inquirySource === 'auto_build' ? 'auto_build' : 'first_pick';
   if (!eventId || !groupId) return { status: 'invalid_group' };
 
   const canonicals = canonicalsForGroup(groupId);
@@ -179,6 +195,15 @@ export async function unlockCategoryWithInquiry(input: {
     // 2. Auto-inquiry (best-effort). follow → thread → first couple message.
     try {
       await followVendor(vendorProfileId);
+      // Provenance stamps only a BRAND-NEW thread (CTA-click lock: the origin
+      // that started the thread keeps the credit) — detect before the upsert,
+      // which resolves an existing (event, vendor) pair to an UPDATE.
+      const { data: priorThread } = await supabase
+        .from('chat_threads')
+        .select('thread_id')
+        .eq('event_id', eventId)
+        .eq('vendor_profile_id', vendorProfileId)
+        .maybeSingle();
       const { data: thread } = await supabase
         .from('chat_threads')
         .upsert(
@@ -201,6 +226,17 @@ export async function unlockCategoryWithInquiry(input: {
             .from('chat_threads')
             .update({ pax_at_inquiry: livePax })
             .eq('thread_id', thread.thread_id);
+        }
+        // Inquiry-source taxonomy (PR-C): this is a recommendation-driven
+        // inquiry — 'first_pick' (dashboard unlock) or 'auto_build' (onboarding
+        // fan-out / held-picks flush) — plus the returning-customer companion
+        // flag. New threads only; best-effort.
+        if (!priorThread?.thread_id) {
+          const returning = await resolveIsReturning(vendorProfileId, eventId);
+          await stampThreadProvenance(thread.thread_id, {
+            inquirySource,
+            isReturning: returning,
+          });
         }
         const msg = new FormData();
         msg.set('thread_id', thread.thread_id);

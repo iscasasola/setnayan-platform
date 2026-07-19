@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, Radio, Video, WifiOff } from 'lucide-react';
-import { claimPanoodDemoCamera } from '@/app/_actions/demo-session-actions';
+import { claimPanoodDemoCamera, getDemoIceServers } from '@/app/_actions/demo-session-actions';
 import { publishDemoCamera, type CameraPublisher, type CamSlot, type PeerConnectionState } from '@/lib/demo-webrtc';
 
 /**
@@ -16,11 +16,48 @@ import { publishDemoCamera, type CameraPublisher, type CamSlot, type PeerConnect
  * that bails at the permission prompt doesn't burn a slot. The claimed slot
  * is stashed in sessionStorage so a reload of this tab resumes as the same
  * camera instead of eating the second slot.
+ *
+ * Audio: we capture the mic too (with echo/noise/gain processing) so the
+ * control room can actually monitor sound — a livestream with no audio isn't
+ * a livestream. But audio is best-effort: a phone with no mic, or a visitor
+ * who allows the camera and blocks the mic, falls back to a silent camera so
+ * the video demo NEVER breaks over audio. The control room keeps its program
+ * monitor muted until a click (see panood-demo-overlay.tsx), so a laptop +
+ * phone in the same room don't howl with feedback the moment they connect.
  */
 
 type Step = 'intro' | 'starting' | 'live' | 'full' | 'expired' | 'camera-error' | 'net-error';
 
 const SLOT_LABEL: Record<CamSlot, string> = { a: 'Camera 1', b: 'Camera 2' };
+
+/**
+ * Rear camera (a phone pointed at the scene; browsers fall back to whatever
+ * camera exists, e.g. a laptop webcam) + processed mic. If the mic is missing
+ * or blocked but the camera is fine, retry video-only rather than failing the
+ * whole demo — audio is a bonus, video is the point.
+ */
+async function captureCameraStream(): Promise<MediaStream> {
+  const video: MediaTrackConstraints = {
+    facingMode: 'environment',
+    width: { ideal: 1280 },
+    height: { ideal: 720 },
+  };
+  try {
+    return await navigator.mediaDevices.getUserMedia({
+      video,
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    });
+  } catch (err) {
+    // A blocked/absent mic (or over-constrained audio) shouldn't sink the
+    // camera demo. A blocked *camera* will also reject this retry — that
+    // rethrows and the caller shows the camera-error step, same as before.
+    const name = (err as { name?: string } | null)?.name;
+    if (name === 'NotFoundError' || name === 'NotAllowedError' || name === 'OverconstrainedError') {
+      return await navigator.mediaDevices.getUserMedia({ video });
+    }
+    throw err;
+  }
+}
 
 export function CamJoinFlow({ token, sessionId }: { token: string; sessionId: string }) {
   const [step, setStep] = useState<Step>('intro');
@@ -42,12 +79,7 @@ export function CamJoinFlow({ token, sessionId }: { token: string; sessionId: st
 
     let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        // Rear camera where there is one (a phone pointed at the scene) —
-        // browsers fall back to whatever camera exists (e.g. a laptop webcam).
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false, // video-only demo: no mic prompt, no feedback loop
-      });
+      stream = await captureCameraStream();
     } catch {
       setStep('camera-error');
       return;
@@ -78,12 +110,20 @@ export function CamJoinFlow({ token, sessionId }: { token: string; sessionId: st
     }
     setSlot(claimedSlot);
 
+    // Fetch ICE servers (STUN + a minted TURN relay when configured) so phones
+    // on mobile data / client-isolated venue Wi-Fi can still connect. Falls
+    // back to the transport's STUN-only default if the action fails.
+    const { iceServers } = await getDemoIceServers(sessionId).catch(() => ({
+      iceServers: undefined as RTCIceServer[] | undefined,
+    }));
+
     publisherRef.current?.close();
     publisherRef.current = publishDemoCamera({
       sessionId,
       slot: claimedSlot,
       stream,
       onState: setPeerState,
+      iceServers,
     });
     setStep('live');
   }, [sessionId, token]);
@@ -103,9 +143,10 @@ export function CamJoinFlow({ token, sessionId }: { token: string; sessionId: st
         <h1 className="mt-3 text-xl font-semibold tracking-tight">Become a live camera</h1>
         <p className="mt-2 text-sm text-[var(--m-grey,#8c8884)]">
           This is a live demo of the Setnayan Live Studio control room — no
-          sign-up, no real event. Your phone streams straight to the control
-          room on your computer. <strong>Live camera — nothing recorded:</strong>{' '}
-          no video is saved anywhere, ever.
+          sign-up, no real event. Your phone&rsquo;s camera and sound stream
+          straight to the control room on your computer.{' '}
+          <strong>Live only — nothing recorded:</strong> no video or audio is
+          saved anywhere, ever.
         </p>
         <button
           type="button"
@@ -118,7 +159,7 @@ export function CamJoinFlow({ token, sessionId }: { token: string; sessionId: st
           ) : (
             <Video aria-hidden className="h-4 w-4" strokeWidth={2} />
           )}
-          {step === 'starting' ? 'Starting camera…' : 'Allow camera & go live'}
+          {step === 'starting' ? 'Starting camera…' : 'Allow camera + mic & go live'}
         </button>
       </>
     );
@@ -204,7 +245,7 @@ export function CamJoinFlow({ token, sessionId }: { token: string; sessionId: st
         {peerState === 'connected'
           ? 'Connected — you’re live in the control room. Point your phone at anything.'
           : peerState === 'failed'
-            ? 'Video couldn’t connect on this network — phone and computer on the same Wi-Fi usually does it.'
+            ? 'Video couldn’t connect on this network. Switching your phone to mobile data (or a different Wi-Fi) usually fixes it.'
             : 'Connecting to the control room…'}
       </p>
       <div className="relative mt-4 overflow-hidden rounded-xl bg-black">

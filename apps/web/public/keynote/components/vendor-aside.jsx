@@ -1,4 +1,4 @@
-// VendorAside — small couple-page callout pointing vendors to /for-vendors.
+// VendorAside — small couple-page callout pointing vendors to /vendors.
 // Light footprint on the customer homepage. Just a strip.
 
 const VendorAside = () => (
@@ -22,7 +22,7 @@ const VendorAside = () => (
             Pro tier ₱4,999/wk (free until Jan 2027 · founder rate ₱3,999/wk for life).
           </div>
         </div>
-        <a href="for-vendors" className="btn btn-primary" style={{ padding: "12px 20px", fontSize: 13 }}>
+        <a href="vendors" className="btn btn-primary" style={{ padding: "12px 20px", fontSize: 13 }}>
           See vendor view →
         </a>
       </div>

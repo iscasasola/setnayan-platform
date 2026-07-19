@@ -6,16 +6,19 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
-  APPLICATION_TYPE_LABEL,
+  APPLICATION_TYPES,
   VENDOR_DOC_SLOTS,
   ADMIN_DOC_SLOTS,
+  applicationTypeLabel,
   countCompleteVendorSlots,
+  feeLabelForCentavos,
   fetchLatestApplication,
-  formatPhpCentavos,
   formatSlaCountdown,
   isSlotComplete,
+  parsePortfolioRefs,
   parseVerificationState,
   recommendedApplicationType,
+  resolveApplicationFeeCentavos,
   type ApplicationType,
   type DocUploadMap,
   type DocSlot,
@@ -77,6 +80,19 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
     profile.vendor_profile_id,
   );
 
+  // Resolve each application type's fee from service_catalog (inactive/missing
+  // SKU → ₱0). Every fee label on this page is built from these — no hardcoded
+  // peso amounts — so a repricing (verification went free 20260702) surfaces
+  // automatically. Catalog is public-read; one round-trip each, in parallel.
+  const feeByType = Object.fromEntries(
+    await Promise.all(
+      APPLICATION_TYPES.map(
+        async (t) =>
+          [t, await resolveApplicationFeeCentavos(supabase, t)] as const,
+      ),
+    ),
+  ) as Record<ApplicationType, number>;
+
   // Resolve presigned display URLs for every R2 ref the vendor has uploaded
   // so the FileUpload widgets render their thumbnails on mount. Each upload
   // bucket needs a separate signing round-trip; do them in parallel.
@@ -86,13 +102,10 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
     Object.values(docMap).flatMap((entry) => {
       if (!entry) return [];
       if (Array.isArray(entry)) {
-        return entry
-          .filter((e) => typeof e?.r2_key === 'string')
-          .map(async (e) => {
-            const ref = e.r2_key as string;
-            const url = await displayUrlForStoredAsset(ref);
-            if (url) seedUrlEntries.push([ref, url]);
-          });
+        return parsePortfolioRefs(entry).map(async (ref) => {
+          const url = await displayUrlForStoredAsset(ref);
+          if (url) seedUrlEntries.push([ref, url]);
+        });
       }
       if (typeof entry === 'object' && 'r2_key' in entry && entry.r2_key) {
         return [
@@ -131,24 +144,22 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
         Verified vendors unlock Pro Vendor and Enterprise subscriptions
         and the verified badge on every listing.
         Initial verification is{' '}
-        <span className="font-medium">free</span>; annual renewal is{' '}
-        <span className="font-medium">{formatPhpCentavos(150000)}</span>;
-        post-demotion re-verification is{' '}
-        <span className="font-medium">{formatPhpCentavos(250000)}</span>.
+        <span className="font-medium">
+          {feeLabelForCentavos(feeByType.initial).toLowerCase()}
+        </span>; annual renewal is{' '}
+        <span className="font-medium">
+          {feeLabelForCentavos(feeByType.annual_renewal).toLowerCase()}
+        </span>; post-demotion re-verification is{' '}
+        <span className="font-medium">
+          {feeLabelForCentavos(feeByType.post_demotion).toLowerCase()}
+        </span>.
       </p>
 
-      <article className="flex items-start gap-3 rounded-2xl border border-success-300 bg-success-50 p-4 text-sm text-success-900">
-        <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
-        <div className="space-y-1">
-          <p className="font-medium">Verification is free during launch</p>
-          <p>
-            Every vendor the Setnayan team verifies gets the verified
-            marketplace badge, eligibility for{' '}
-            <span className="font-semibold">Pro Vendor and Enterprise</span>, and
-            full visibility in couple searches — no listing fee, no badge fee.
-          </p>
-        </div>
-      </article>
+      {/* The old "Verification is free during launch" banner was removed
+          2026-07-16 — it restated the badge + Pro/Enterprise benefits and the
+          fee, all of which the intro paragraph above already states from the
+          DB-driven fee source (and the banner's hardcoded "free" would go stale
+          the moment a fee is set). */}
 
       {search.error ? (
         <p
@@ -190,14 +201,17 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
             <p className="text-xs opacity-75">
               Latest application:{' '}
               <span className="font-mono">{application.public_id}</span> ·{' '}
-              {APPLICATION_TYPE_LABEL[application.application_type]}
+              {applicationTypeLabel(
+                application.application_type,
+                application.fee_php_centavos,
+              )}
             </p>
           ) : null
         }
       />
 
       {!application || application.status === 'withdrawn' ? (
-        <StartApplicationCard recommended={recommended} />
+        <StartApplicationCard recommended={recommended} feeByType={feeByType} />
       ) : null}
 
       {hasDraft && application ? (
@@ -205,6 +219,7 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
           completeCount={completeCount}
           totalSlots={totalSlots}
           applicationType={application.application_type}
+          feeCentavos={application.fee_php_centavos}
         />
       ) : null}
 
@@ -238,7 +253,7 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
           <RejectedCard application={application} />
           {/* A rejected vendor must be able to try again — ensureDraftApplication
               creates a fresh draft (no draft exists post-rejection). */}
-          <StartApplicationCard recommended={recommended} />
+          <StartApplicationCard recommended={recommended} feeByType={feeByType} />
         </>
       ) : null}
     </section>
@@ -247,24 +262,26 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
 
 function StartApplicationCard({
   recommended,
+  feeByType,
 }: {
   recommended: ApplicationType | null;
+  feeByType: Record<ApplicationType, number>;
 }) {
   if (!recommended) return null;
+  const recommendedLabel = applicationTypeLabel(
+    recommended,
+    feeByType[recommended],
+  );
   return (
-    <article className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5">
+    <article className="space-y-4 sn-tile p-5">
       <div className="space-y-1">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           Start a new application
         </p>
-        <h2 className="text-xl font-semibold">
-          {APPLICATION_TYPE_LABEL[recommended]}
-        </h2>
+        <h2 className="text-xl font-semibold">{recommendedLabel}</h2>
         <p className="text-sm text-ink/65">
           We recommend the{' '}
-          <span className="font-medium">
-            {APPLICATION_TYPE_LABEL[recommended].toLowerCase()}
-          </span>{' '}
+          <span className="font-medium">{recommendedLabel.toLowerCase()}</span>{' '}
           application based on your current state. Picking a different type is
           fine — pricing follows the type you choose.
         </p>
@@ -273,19 +290,19 @@ function StartApplicationCard({
         <fieldset className="grid gap-2 sm:grid-cols-3">
           <TypeOption
             value="initial"
-            label="Initial — FREE"
+            label={applicationTypeLabel('initial', feeByType.initial)}
             help="First-time verification."
             defaultChecked={recommended === 'initial'}
           />
           <TypeOption
             value="annual_renewal"
-            label="Annual renewal — ₱1,500"
+            label={applicationTypeLabel('annual_renewal', feeByType.annual_renewal)}
             help="Renew before next_renewal_due_at."
             defaultChecked={recommended === 'annual_renewal'}
           />
           <TypeOption
             value="post_demotion"
-            label="Post-demotion — ₱2,500"
+            label={applicationTypeLabel('post_demotion', feeByType.post_demotion)}
             help="Re-apply after demotion."
             defaultChecked={recommended === 'post_demotion'}
           />
@@ -315,7 +332,7 @@ function TypeOption({
 }) {
   return (
     <label
-      className="flex cursor-pointer flex-col gap-1 rounded-xl border border-ink/15 bg-cream p-3 text-sm transition-colors has-[input:checked]:border-terracotta has-[input:checked]:bg-terracotta/5"
+      className="flex cursor-pointer flex-col gap-1 rounded-xl border border-ink/15 bg-white/70 p-3 text-sm transition-colors has-[input:checked]:border-terracotta has-[input:checked]:bg-terracotta/5"
       htmlFor={`type-${value}`}
     >
       <span className="flex items-center gap-2">
@@ -460,7 +477,7 @@ function SlotInputForm({
           inputMode="url"
           placeholder="https://instagram.com/your-brand"
           defaultValue={currentUrl}
-          className="block w-full rounded-md border border-ink/20 bg-cream px-3 py-2 text-sm text-ink"
+          className="block w-full rounded-md border border-ink/20 bg-white/70 px-3 py-2 text-sm text-ink"
         />
         <SubmitButton
           className="button-secondary h-9 px-3 text-xs"
@@ -512,9 +529,7 @@ function SlotInputForm({
   const seedValue = !current
     ? null
     : Array.isArray(current)
-      ? current
-          .filter((e) => typeof e?.r2_key === 'string')
-          .map((e) => e.r2_key as string)
+      ? parsePortfolioRefs(current)
       : 'r2_key' in current && typeof current.r2_key === 'string'
         ? current.r2_key
         : null;
@@ -557,7 +572,7 @@ function SubmitCard({
   const REQUIRED_TO_SUBMIT = totalSlots;
   const eligible = completeCount >= REQUIRED_TO_SUBMIT;
   return (
-    <article className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+    <article className="space-y-3 sn-tile p-5">
       <div>
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           Submit for review
@@ -567,10 +582,9 @@ function SubmitCard({
         </h2>
         <p className="mt-1 text-sm text-ink/65">
           Submit once all <span className="font-medium">{totalSlots}</span> of
-          your items are uploaded. The four admin-run slots — ID liveness, the
-          video call, SMS/email confirmation, and AMLC screening — complete on
-          our side after you submit. Setnayan SLA is{' '}
-          <span className="font-medium">3–5 business days</span>.
+          your items are uploaded. The admin-run checks complete on our side
+          afterward (listed under &ldquo;We handle this&rdquo; above). Setnayan
+          SLA is <span className="font-medium">3–5 business days</span>.
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-3">
@@ -677,7 +691,7 @@ function RejectedCard({
         Setnayan couldn&rsquo;t approve this application
       </h2>
       {application.decision_reason ? (
-        <p className="rounded-md border border-terracotta/30 bg-cream/60 px-3 py-2 text-sm">
+        <p className="rounded-md border border-terracotta/30 bg-white/60 px-3 py-2 text-sm">
           <span className="font-medium">Reason:</span>{' '}
           {application.decision_reason}
         </p>

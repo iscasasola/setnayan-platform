@@ -39,15 +39,30 @@ import type {
   Review,
 } from '@/app/[slug]/_components/editorial/data';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
+import { FileUpload } from '@/app/_components/file-upload';
 import { useToast } from '@/app/_components/toast/toast-provider';
+
+// FREE couple-uploaded editorial imagery (no Papic required).
+const GALLERY_UPLOADS_MAX = 30;
+// Accept the common phone/camera image formats the /api/upload route allows; they
+// are compressed client-side (compressImage) before the R2 PUT.
+const EDITORIAL_IMAGE_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+  'image/avif',
+];
 
 type LandingVisibility = 'public' | 'unlisted' | 'private';
 
-// Upgrade destination for the PRO authorship perks. No dedicated Couple-Website /
-// Editorial PRO buy route exists yet, so we point at the website dashboard hub
-// (the surface that owns the website + its upgrade). One place → easy to retarget
-// when a real checkout route lands.
-const editorialProUpgradeHref = (eventId: string) => `/dashboard/${eventId}/website`;
+// Upgrade destination for the PRO authorship perks → the Editorial PRO buy
+// surface (studio/editorial-pro), which fetches the live catalog price + mounts
+// the apply-then-pay drawer and is umbrella-aware (shows "Included in your
+// Website PRO" for umbrella owners). One place → easy to retarget.
+const editorialProUpgradeHref = (eventId: string) =>
+  `/dashboard/${eventId}/studio/editorial-pro`;
 
 // Display labels for the reorderable content sections (Editorial PRO section
 // order). Keys mirror EDITORIAL_ORDERABLE_KEYS exactly. The two locked-close rows
@@ -159,7 +174,7 @@ const inputCls =
 // A small gold "PRO" chip — marks an authorship perk gated on Editorial PRO.
 function ProChip() {
   return (
-    <span className="inline-flex flex-none items-center gap-1 rounded-full border border-[#C5A059]/50 bg-[#C5A059]/10 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.14em] text-[#8A6A2F]">
+    <span className="inline-flex flex-none items-center gap-1 rounded-full border border-[#A9834B]/50 bg-[#A9834B]/10 px-2 py-0.5 font-mono text-xs uppercase tracking-[0.14em] text-[#8A6A2F]">
       <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
       Pro
     </span>
@@ -187,6 +202,7 @@ export function EditorialEditor({
   eventId,
   slug,
   initial,
+  uploadDisplayUrls = {},
   isPro = false,
   chapterCards = [],
   chapterOverrides = [],
@@ -200,6 +216,9 @@ export function EditorialEditor({
   eventId: string;
   slug: string | null;
   initial: EditorialEditorInput;
+  /** Presigned display URLs (r2://ref → URL) for the couple's already-uploaded
+   *  hero + gallery images, so the FileUpload widgets show them on mount. */
+  uploadDisplayUrls?: Record<string, string>;
   /** Editorial PRO active (à-la-carte EDITORIAL_PRO OR Couple Website PRO). Gates
    *  the authorship perks — chapter curation, section order, guest wishes. When
    *  false, those render read-only with an upgrade prompt; the server re-checks. */
@@ -561,6 +580,55 @@ export function EditorialEditor({
               value={form.byline}
               onChange={(e) => set('byline', e.target.value)}
               placeholder="By the Setnayan Desk"
+            />
+          </Field>
+        </div>
+      </section>
+
+      {/* Your photos — FREE couple-uploaded imagery. Gives a no-Papic editorial a
+          real cover + photo gallery. Both compress in the browser before upload,
+          so only a light, web-optimized version is stored. No PRO gate. */}
+      <section className={card}>
+        <h2 className="font-display text-lg italic text-ink">Your photos</h2>
+        <p className="mt-0.5 text-sm text-ink/60">
+          Add a cover and a few favorites — no Papic needed. We optimize each image
+          for fast loading as you upload. Your cover leads the story; your gallery
+          shows under &ldquo;From the Day.&rdquo;
+        </p>
+        <div className="mt-4 space-y-5">
+          <Field label="Cover photo" help="One image — the full-width photo at the top of your story.">
+            <FileUpload
+              bucket="media"
+              pathPrefix={`editorial/${eventId}/hero`}
+              name="editorial_hero_upload"
+              acceptedTypes={EDITORIAL_IMAGE_TYPES}
+              maxSizeMB={10}
+              compressImage
+              variant="wide"
+              currentValue={form.heroUpload || null}
+              initialDisplayUrls={uploadDisplayUrls}
+              onChange={(v) => set('heroUpload', typeof v === 'string' ? v : '')}
+            />
+          </Field>
+          <Field
+            label="Gallery photos"
+            help={`Up to ${GALLERY_UPLOADS_MAX} images for the "From the Day" gallery.`}
+          >
+            <FileUpload
+              bucket="media"
+              pathPrefix={`editorial/${eventId}/gallery`}
+              name="editorial_gallery_uploads"
+              multiple
+              maxFiles={GALLERY_UPLOADS_MAX}
+              acceptedTypes={EDITORIAL_IMAGE_TYPES}
+              maxSizeMB={10}
+              compressImage
+              variant="wide"
+              currentValue={form.galleryUploads}
+              initialDisplayUrls={uploadDisplayUrls}
+              onChange={(v) =>
+                set('galleryUploads', Array.isArray(v) ? v : v ? [v] : [])
+              }
             />
           </Field>
         </div>

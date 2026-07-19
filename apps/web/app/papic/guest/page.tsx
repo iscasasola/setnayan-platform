@@ -6,8 +6,9 @@ import { eventKwentoEnabled } from '@/lib/kwento-access';
 import { asPapicStyle } from '@/lib/papic-photo-styles';
 import { PapicGuestCapture } from './_components/papic-guest-capture';
 
-// Papic · guest camera (PAPIC_GUEST · ₱2,999 — "Every guest's phone, a candid
-// camera"). The public guest-camera surface: a guest who has redeemed their
+// Papic · guest camera (PAPIC_GUEST — "Every guest's phone, a candid
+// camera"). Papic is priced per-camera (₱30 Ltd / ₱100 Unli per camera/day),
+// not a flat pack. The public guest-camera surface: a guest who has redeemed their
 // invite carries a setnayan_guest_session cookie (guest_id + event_id); this
 // page reads it, confirms the event owns the Premium Guest Camera Pack, and
 // hands the guest a browser camera with their per-guest 150-credit quota.

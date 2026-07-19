@@ -21,6 +21,7 @@
  */
 
 import { createHash } from 'node:crypto';
+import { inquirySourceLabel } from '@/lib/inquiry-source';
 
 /**
  * Booked statuses on event_vendors that count as the BOOKED funnel stage.
@@ -331,4 +332,38 @@ export async function fetchViewsBySource(
     .eq('vendor_profile_id', vendorProfileId)
     .gte('viewed_at', sinceIso);
   return buildSourceSlices((data ?? []) as { source: string | null }[]);
+}
+
+/**
+ * INQUIRIES sliced by `chat_threads.inquiry_source` (Creator Economy PR-C —
+ * the owner's inquiry-source taxonomy, 2026-07-17). NULL = the Website Inquiry
+ * default, so it folds into the 'website' slice rather than "Unattributed".
+ * Labels come from lib/inquiry-source (the owner's 8 labels), not the
+ * event_vendors SOURCE_LABELS. Same created_at window as the funnel's
+ * INQUIRIES stage; min-N gated like its two siblings. Vendor-private.
+ */
+export async function fetchInquiriesBySource(
+  client: SourceQueryClient,
+  vendorProfileId: string,
+  sinceIso: string,
+): Promise<SourceSlice[]> {
+  const { data } = await client
+    .from('chat_threads')
+    .select('inquiry_source')
+    .eq('vendor_profile_id', vendorProfileId)
+    .gte('created_at', sinceIso);
+  const rows = (data ?? []) as { inquiry_source: string | null }[];
+  const by = new Map<string, number>();
+  for (const row of rows) {
+    const key = row.inquiry_source ?? 'website';
+    by.set(key, (by.get(key) ?? 0) + 1);
+  }
+  return [...by.entries()]
+    .map(([key, count]) => ({
+      key,
+      label: inquirySourceLabel(key),
+      count,
+      shown: minNOk(count),
+    }))
+    .sort((a, b) => b.count - a.count);
 }

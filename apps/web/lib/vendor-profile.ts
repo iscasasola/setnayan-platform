@@ -47,6 +47,15 @@ export type VendorProfileRow = {
    */
   portfolio_r2_keys: string[];
   /**
+   * Public profile "Featured videos" — up to 10 external video URLs the vendor
+   * pastes (added 2026-07-05, migration 20270518165113). Each entry is the FULL
+   * URL string. YouTube / Vimeo render as inline players; Instagram / Facebook /
+   * TikTok render as link-out cards (see `parseVideoLink` in lib/video-embed.ts).
+   * Column has NOT NULL DEFAULT '{}' with a `cardinality <= 10` CHECK; a null
+   * surfaces only pre-migration and is normalised to `[]` below.
+   */
+  gallery_video_links: string[];
+  /**
    * Per-vendor toggle on the Completed-events backend card. FALSE (default)
    * = the card shows the same team-excluded count the public sees. TRUE =
    * the card shows the full unfiltered count with the team/internal delta
@@ -96,7 +105,7 @@ export type VendorProfileRow = {
 // callers see compatible_* as null in that mode, identical to a vendor
 // who hasn't picked any tags yet — "open to all" semantics.
 const FULL_VENDOR_PROFILE_SELECT =
-  'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,business_owner_name,in_business_since_year,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,is_published,portfolio_r2_keys,show_team_bookings_in_backend_count,public_visibility,compatible_ceremony_types,compatible_venue_settings,event_types,created_at,updated_at';
+  'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,business_owner_name,in_business_since_year,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,is_published,portfolio_r2_keys,gallery_video_links,show_team_bookings_in_backend_count,public_visibility,compatible_ceremony_types,compatible_venue_settings,event_types,created_at,updated_at';
 
 // LEGACY select omits hq_address/lat/lng + 0043 compat cols so the page
 // can render against pre-0043 / pre-0521 schemas. Callers see hq_*
@@ -106,104 +115,90 @@ const LEGACY_VENDOR_PROFILE_SELECT =
   'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,location_city,website,contact_email,contact_phone,is_published,portfolio_r2_keys,show_team_bookings_in_backend_count,public_visibility,created_at,updated_at';
 
 /**
- * Fetch the caller's own vendor profile (or the one they're a team member of).
+ * FULL select with a LEGACY-select fallback, filtered by a single column.
  *
- * Wrapped in React `cache()` (2026-07-01 perf): the vendor dashboard layout and
- * the page it renders each fetch the profile in the SAME request. Since the
- * server `createClient()` is request-cached, both call sites share the identical
- * client reference, so `cache()` keyed on `(supabase, userId)` dedupes the two
- * calls into a single set of reads (this fn can fire up to 3 queries) instead of
- * running the whole chain twice per render.
+ * Extracted 2026-07-09 (multi-shop groundwork) so BOTH the by-`user_id` owner
+ * path and the by-`vendor_profile_id` (active-shop / team-member) path share
+ * ONE resilient read: the FULL projection first, and on ANY error a LEGACY
+ * reprojection that back-fills the columns the legacy SELECT omits. Previously
+ * only the owner path had this fallback — the member-by-id fetch was FULL-only
+ * and returned null if the FULL projection errored (e.g. a column lagging a
+ * migration). Returns the raw row (legacy-augmented when the fallback fired) or
+ * null; throws only if BOTH projections error.
  */
-export const fetchOwnVendorProfile = cache(async (
+async function selectVendorProfileBy(
   supabase: SupabaseClient,
-  userId: string,
-): Promise<VendorProfileRow | null> => {
-  let { data, error } = await supabase
+  column: 'user_id' | 'vendor_profile_id',
+  value: string,
+): Promise<Record<string, unknown> | null> {
+  const { data, error } = await supabase
     .from('vendor_profiles')
     .select(FULL_VENDOR_PROFILE_SELECT)
-    .eq('user_id', userId)
+    .eq(column, value)
     .maybeSingle();
-  if (error) {
-    // Defensive fallback (hardened 2026-05-20 after digest-486685855 crash):
-    // always retry against the legacy SELECT regardless of error shape. The
-    // original fallback only fired on 42703 / "column does not exist" but
-    // other failure modes (RLS edge, expired JWT, transient PostgREST 500)
-    // crashed the page with a generic 5xx. We now log the first-attempt
-    // error via console.error so Sentry's nodejs runtime hook captures it
-    // for diagnosis, then try the LEGACY select as a graceful fallback.
-    // Worst case: legacy also fails → we throw with both error messages.
-    // eslint-disable-next-line no-console
-    console.error('[fetchOwnVendorProfile] FULL select failed; falling back to LEGACY', {
-      user_id: userId,
-      error_code: (error as { code?: string }).code,
-      error_message: error.message,
-    });
-    const fallback = await supabase
-      .from('vendor_profiles')
-      .select(LEGACY_VENDOR_PROFILE_SELECT)
-      .eq('user_id', userId)
-      .maybeSingle();
-    if (fallback.error) {
-      throw new Error(
-        `fetchOwnVendorProfile failed: FULL=[${error.message}] LEGACY=[${fallback.error.message}]`,
-      );
-    }
-    if (!fallback.data) return null;
-    data = {
-      ...(fallback.data as Record<string, unknown>),
-      compatible_ceremony_types: null,
-      compatible_venue_settings: null,
-      event_types: ['wedding'],
-      // 2026-05-21 — geocode columns added after the legacy SELECT was
-      // pinned. Default to nulls so the type stays a clean contract; the
-      // distance chip simply doesn't render until the schema migrates and
-      // the vendor saves their HQ.
-      hq_address: null,
-      hq_latitude: null,
-      hq_longitude: null,
-      // Business Profile fields added 2026-06-28 — null in the legacy/pre-
-      // migration read; the completion gate simply reads them as "missing".
-      business_owner_name: null,
-      in_business_since_year: null,
-    } as typeof data;
+  if (!error) return (data as Record<string, unknown> | null) ?? null;
+  // Defensive fallback (hardened 2026-05-20 after digest-486685855 crash):
+  // always retry against the legacy SELECT regardless of error shape. Other
+  // failure modes (RLS edge, expired JWT, transient PostgREST 500) used to
+  // crash the page with a generic 5xx. Log the first-attempt error via
+  // console.error so Sentry's nodejs runtime hook captures it for diagnosis,
+  // then try the LEGACY select. Worst case: legacy also fails → we throw with
+  // both error messages.
+  // eslint-disable-next-line no-console
+  console.error('[fetchOwnVendorProfile] FULL select failed; falling back to LEGACY', {
+    [column]: value,
+    error_code: (error as { code?: string }).code,
+    error_message: error.message,
+  });
+  const fallback = await supabase
+    .from('vendor_profiles')
+    .select(LEGACY_VENDOR_PROFILE_SELECT)
+    .eq(column, value)
+    .maybeSingle();
+  if (fallback.error) {
+    throw new Error(
+      `fetchOwnVendorProfile failed: FULL=[${error.message}] LEGACY=[${fallback.error.message}]`,
+    );
   }
-  if (!data) {
-    // Member path (Phase 2b) — the user doesn't OWN a vendor_profiles row but
-    // may be a team member (admin / agent / viewer). Resolve their vendor via
-    // vendor_team_members, then fetch that profile by id. The
-    // `vendor_profiles_member_read` RLS policy admits members; agent data
-    // scoping happens on the per-table policies (services / chat), not here.
-    const { data: memberships } = await supabase
-      .from('vendor_team_members')
-      .select('vendor_profile_id')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: true })
-      .limit(1);
-    const memberVendorProfileId = (memberships?.[0] as { vendor_profile_id?: string } | undefined)
-      ?.vendor_profile_id;
-    if (!memberVendorProfileId) return null;
-    const { data: byId } = await supabase
-      .from('vendor_profiles')
-      .select(FULL_VENDOR_PROFILE_SELECT)
-      .eq('vendor_profile_id', memberVendorProfileId)
-      .maybeSingle();
-    if (!byId) return null;
-    data = byId;
-  }
-  // Defensive: column has NOT NULL DEFAULT '{}' so this is null only if the
-  // migration hasn't run yet. Normalise so callers can assume an array.
-  // Same defensive default for `show_team_bookings_in_backend_count` — the
-  // column has NOT NULL DEFAULT FALSE but pre-migration rows may surface
-  // as `null` until the migration runs.
+  if (!fallback.data) return null;
+  return {
+    ...(fallback.data as Record<string, unknown>),
+    compatible_ceremony_types: null,
+    compatible_venue_settings: null,
+    event_types: ['wedding'],
+    // 2026-05-21 — geocode columns added after the legacy SELECT was pinned.
+    // Default to nulls so the type stays a clean contract; the distance chip
+    // simply doesn't render until the schema migrates and the vendor saves
+    // their HQ.
+    hq_address: null,
+    hq_latitude: null,
+    hq_longitude: null,
+    // Business Profile fields added 2026-06-28 — null in the legacy/pre-
+    // migration read; the completion gate simply reads them as "missing".
+    business_owner_name: null,
+    in_business_since_year: null,
+    // Featured-videos column (20270518165113) added after the legacy SELECT
+    // was pinned — default to empty so the section simply doesn't render.
+    gallery_video_links: [],
+  };
+}
+
+/**
+ * Normalise a raw `vendor_profiles` row into the `VendorProfileRow` contract —
+ * back-filling the array / boolean / enum columns that surface as null only on
+ * a pre-migration read, so every caller can rely on the non-null shape.
+ */
+function normalizeVendorProfileRow(data: Record<string, unknown>): VendorProfileRow {
   const row = data as Omit<
     VendorProfileRow,
     | 'portfolio_r2_keys'
+    | 'gallery_video_links'
     | 'show_team_bookings_in_backend_count'
     | 'public_visibility'
     | 'event_types'
   > & {
     portfolio_r2_keys: string[] | null;
+    gallery_video_links: string[] | null;
     show_team_bookings_in_backend_count: boolean | null;
     public_visibility: VendorProfileRow['public_visibility'] | null;
     event_types: string[] | null;
@@ -211,6 +206,8 @@ export const fetchOwnVendorProfile = cache(async (
   return {
     ...row,
     portfolio_r2_keys: row.portfolio_r2_keys ?? [],
+    // NOT NULL DEFAULT '{}' in the DB; null only pre-migration → normalise.
+    gallery_video_links: row.gallery_video_links ?? [],
     show_team_bookings_in_backend_count:
       row.show_team_bookings_in_backend_count ?? false,
     public_visibility: row.public_visibility ?? 'coming_soon',
@@ -222,6 +219,100 @@ export const fetchOwnVendorProfile = cache(async (
       ? row.event_types
       : ['wedding'],
   };
+}
+
+/**
+ * Fetch the caller's active vendor profile ("shop").
+ *
+ * Resolution order:
+ *   1. `activeVendorProfileId` given → load exactly that shop by id. This is
+ *      the MULTI-SHOP SEAM (2026-07-09 groundwork). Today one user owns one
+ *      shop (`vendor_profiles.user_id` is UNIQUE), so NOTHING passes this
+ *      argument and the single-shop paths (2)/(3) below run exactly as before.
+ *      When one-user-many-shops lands, the shop picker / `/vendor-dashboard/
+ *      [shopId]` route threads the chosen id in here and this ONE function
+ *      localises the change instead of ~185 call sites each re-deriving "the"
+ *      shop from `user_id`. Fetching by id is safe: the `vendor_profiles`
+ *      owner + `vendor_profiles_member_read` RLS policies only admit shops the
+ *      caller owns or is a team member of, so a forged/foreign id returns null
+ *      rather than another user's shop.
+ *   2. else → the shop this user OWNS (`vendor_profiles.user_id = auth.uid()`).
+ *   3. else → the caller's first team membership (`vendor_team_members`).
+ *
+ * Wrapped in React `cache()` (2026-07-01 perf): the vendor dashboard layout and
+ * the page it renders each fetch the profile in the SAME request. Since the
+ * server `createClient()` is request-cached, both call sites share the identical
+ * client reference, so `cache()` keyed on `(supabase, userId, activeVendorProfileId)`
+ * dedupes the two calls into a single set of reads instead of running the whole
+ * chain twice per render. Current callers pass two args → the third is
+ * `undefined` for both, so the cache key still collapses to one entry.
+ */
+/**
+ * Guarded read of the optional precise founding DATE (`in_business_since_date`,
+ * migration 20270805100000). Kept OUT of the shared profile select and read
+ * defensively — like `fetchVendorMicrosite` — so a not-yet-applied migration
+ * (this repo's known apply-lag) degrades to null instead of 42703-crashing the
+ * vendor dashboard. Returns the ISO date string, or null when unset/missing.
+ */
+export async function fetchVendorBusinessStartDate(
+  client: SupabaseClient,
+  vendorProfileId: string,
+): Promise<string | null> {
+  try {
+    const { data, error } = await client
+      .from('vendor_profiles')
+      .select('in_business_since_date')
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle();
+    if (error || !data) return null;
+    return (data as { in_business_since_date: string | null }).in_business_since_date ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export const fetchOwnVendorProfile = cache(async (
+  supabase: SupabaseClient,
+  userId: string,
+  activeVendorProfileId?: string,
+): Promise<VendorProfileRow | null> => {
+  // (1) Explicit active-shop seam — see JSDoc. No caller passes this yet.
+  if (activeVendorProfileId) {
+    const byId = await selectVendorProfileBy(
+      supabase,
+      'vendor_profile_id',
+      activeVendorProfileId,
+    );
+    return byId ? normalizeVendorProfileRow(byId) : null;
+  }
+
+  // (2) Owner path — the shop this user owns.
+  const owned = await selectVendorProfileBy(supabase, 'user_id', userId);
+  if (owned) return normalizeVendorProfileRow(owned);
+
+  // (3) Member path (Phase 2b) — the user doesn't OWN a vendor_profiles row but
+  // may be a team member (admin / agent / viewer). Resolve their vendor via
+  // vendor_team_members (first membership), then load it by id — now through
+  // the shared FULL/LEGACY resolver, so this path gets the same fallback the
+  // owner path always had (it was previously FULL-only and returned null on a
+  // transient projection error). The `vendor_profiles_member_read` RLS policy
+  // admits members; agent data scoping happens on the per-table policies
+  // (services / chat), not here.
+  const { data: memberships } = await supabase
+    .from('vendor_team_members')
+    .select('vendor_profile_id')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true })
+    .limit(1);
+  const memberVendorProfileId = (memberships?.[0] as { vendor_profile_id?: string } | undefined)
+    ?.vendor_profile_id;
+  if (!memberVendorProfileId) return null;
+  const byId = await selectVendorProfileBy(
+    supabase,
+    'vendor_profile_id',
+    memberVendorProfileId,
+  );
+  return byId ? normalizeVendorProfileRow(byId) : null;
 });
 
 /**

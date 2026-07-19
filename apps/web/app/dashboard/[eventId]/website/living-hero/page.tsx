@@ -52,8 +52,9 @@ export default async function LivingHeroPage({
         <span>Back to hero photo</span>
       </Link>
 
-      <header className="mb-8 space-y-2">
-        <h1 className="font-display text-3xl italic text-ink sm:text-4xl">
+      <header className="sn-reveal mb-8 space-y-2">
+        <p className="sn-eye">Hero video</p>
+        <h1 className="sn-h1">
           Living hero
         </h1>
         <p className="max-w-prose text-sm text-ink/65 sm:text-base">

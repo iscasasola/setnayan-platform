@@ -89,7 +89,7 @@ function EditorialCard({ item }: { item: LibraryEditorial }) {
   const primaryHref =
     item.relation === 'owned' ? editorHref : publicHref ?? editorHref;
 
-  const monogram = (item.monogramColor ?? '#C5A059').trim();
+  const monogram = (item.monogramColor ?? '#A9834B').trim();
   const initials = deriveInitials(item.displayName);
 
   return (
@@ -112,7 +112,7 @@ function EditorialCard({ item }: { item: LibraryEditorial }) {
               aria-hidden
             >
               <span
-                className="font-serif text-3xl tracking-wide"
+                className="font-sans text-3xl tracking-wide"
                 style={{ color: monogram }}
               >
                 {initials}

@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { Check, Plus, AlertCircle, Loader2 } from 'lucide-react';
 import { offerServiceInterest, type OfferServiceResult } from '../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 export type VendorOfferOption = {
   vendorServiceId: string;
@@ -24,6 +25,7 @@ export function VendorOfferService({
 }) {
   const [pending, startTransition] = useTransition();
   const [selected, setSelected] = useState('');
+  const save = useSaveLoader();
   const [state, setState] = useState<
     { kind: 'idle' } | { kind: 'done' } | { kind: 'error'; message: string }
   >({ kind: 'idle' });
@@ -39,7 +41,10 @@ export function VendorOfferService({
         fd.set('thread_id', threadId);
         fd.set('vendor_service_id', selected);
         startTransition(async () => {
-          const result: OfferServiceResult = await offerServiceInterest(fd);
+          const result: OfferServiceResult = await save.run(
+            () => offerServiceInterest(fd),
+            { steps: ['Sending your offer'], hint: 'Saving' },
+          );
           if (result.status === 'ok') {
             setState({ kind: 'done' });
             setSelected('');
@@ -66,7 +71,7 @@ export function VendorOfferService({
           if (state.kind !== 'idle') setState({ kind: 'idle' });
         }}
         disabled={pending}
-        className="min-w-[10rem] rounded-md border border-ink/15 bg-cream px-2.5 py-1.5 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+        className="min-w-[10rem] rounded-md border border-ink/15 bg-white/70 px-2.5 py-1.5 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
       >
         <option value="">Pick a service…</option>
         {options.map((o) => (

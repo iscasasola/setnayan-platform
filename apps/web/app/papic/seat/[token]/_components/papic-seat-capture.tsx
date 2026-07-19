@@ -414,7 +414,7 @@ export function PapicSeatCapture({
             img.onload = () => resolve();
             img.onerror = () => reject(new Error('decode'));
           });
-          const vectors = await embedFaces(img);
+          const { vectors } = await embedFaces(img);
           if (vectors.length > 0) {
             await autoTagSeatCapture(token, photoId, vectors);
           }
@@ -423,6 +423,27 @@ export function PapicSeatCapture({
         }
       } catch {
         // best-effort — a face-tag miss never affects the saved photo
+      }
+    },
+    [token],
+  );
+
+  // CLIP auto-tag (owner 2026-07-11 "we want multi tagging"): a clip is a moving
+  // scene, so instead of embedding only the poster frame we sample a few frames
+  // across the video and union the faces — everyone who appears ANYWHERE in the
+  // clip is tagged, not just whoever is in the first frame. Same best-effort,
+  // fire-and-forget contract as autoTagFromBlob (returns [] and no-ops when no
+  // model is hosted or on any decode/seek error → never touches the saved clip).
+  const autoTagFromClip = useCallback(
+    async (photoId: string, videoBlob: Blob) => {
+      try {
+        const { embedClipFaces } = await import('@/lib/face-embed-clip');
+        const vectors = await embedClipFaces(videoBlob);
+        if (vectors.length > 0) {
+          await autoTagSeatCapture(token, photoId, vectors);
+        }
+      } catch {
+        // best-effort — a face-tag miss never affects the saved clip
       }
     },
     [token],
@@ -496,10 +517,17 @@ export function PapicSeatCapture({
         // Arm the inline "tag who's in it" affordance on the freshest saved shot.
         armTagging(result.photoId);
         if (result.photoId) {
-          // Embed from the CLEAN frame (never the styled delivery blob).
-          const faceSource =
-            shot.faceBlob ?? (shot.kind === 'clip' ? shot.poster : shot.blob);
-          if (faceSource) void autoTagFromBlob(result.photoId, faceSource);
+          // Clips → multi-FRAME tag across the whole video (everyone who appears
+          // anywhere, not just the poster). Photos → single-frame embed from the
+          // CLEAN blob (never the styled delivery blob). A clip with no video blob
+          // (unexpected) falls back to the poster via the single-frame path.
+          if (shot.kind === 'clip' && shot.blob) {
+            void autoTagFromClip(result.photoId, shot.blob);
+          } else {
+            const faceSource =
+              shot.faceBlob ?? (shot.kind === 'clip' ? shot.poster : shot.blob);
+            if (faceSource) void autoTagFromBlob(result.photoId, faceSource);
+          }
         }
         setSaveError(null);
       } catch (err) {
@@ -565,6 +593,7 @@ export function PapicSeatCapture({
       patchShot,
       armTagging,
       autoTagFromBlob,
+      autoTagFromClip,
       rollbackCount,
     ],
   );

@@ -10,17 +10,23 @@ import {
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { notifyAdminsApplicationSubmitted } from '@/lib/vendor-status-notify';
 import {
-  APPLICATION_FEE_CENTAVOS,
+  CLIENT_REFERENCES_MAX,
   DOC_SLOTS,
+  PORTFOLIO_MAX,
+  SOCIAL_PLATFORM_KEYS,
   VENDOR_DOC_SLOTS,
   addBusinessDays,
   countCompleteSlots,
   countCompleteVendorSlots,
+  emptyClientReference,
   fetchLatestApplication,
+  parsePortfolioRefs,
   parseVerificationState,
   recommendedApplicationType,
+  resolveApplicationFeeCentavos,
   verificationSubmitMissing,
   type ApplicationStatus,
+  type ClientReference,
   type DocUploadMap,
 } from '@/lib/vendor-verification';
 import { DOC_SLOT_KEYS, buildSlotValue } from '@/lib/vendor-verification-slots';
@@ -85,13 +91,12 @@ async function buildSeedDisplayUrls(docMap: DocUploadMap): Promise<Record<string
     Object.values(docMap).flatMap((entry) => {
       if (!entry) return [];
       if (Array.isArray(entry)) {
-        return entry
-          .filter((e) => typeof e?.r2_key === 'string')
-          .map(async (e) => {
-            const ref = e.r2_key as string;
-            const url = await displayUrlForStoredAsset(ref);
-            if (url) entries.push([ref, url]);
-          });
+        // Only file arrays carry r2_key refs (parsePortfolioRefs skips the
+        // structured client_references rows, which have no thumbnail).
+        return parsePortfolioRefs(entry).map(async (ref) => {
+          const url = await displayUrlForStoredAsset(ref);
+          if (url) entries.push([ref, url]);
+        });
       }
       if (typeof entry === 'object' && 'r2_key' in entry && entry.r2_key) {
         const ref = entry.r2_key as string;
@@ -220,12 +225,14 @@ async function resolveEditableDraft(
       verState,
       (vp as { last_verified_at?: string | null } | null)?.last_verified_at ?? null,
     ) ?? 'initial';
+  // Fee comes from service_catalog (inactive/missing SKU → ₱0), never hardcoded.
+  const feeCentavos = await resolveApplicationFeeCentavos(supabase, recType);
   const { data: inserted, error } = await supabase
     .from('vendor_verification_applications')
     .insert({
       vendor_profile_id: vendorProfileId,
       application_type: recType,
-      fee_php_centavos: APPLICATION_FEE_CENTAVOS[recType],
+      fee_php_centavos: feeCentavos,
       status: 'draft',
       doc_uploads: {},
     })
@@ -235,6 +242,72 @@ async function resolveEditableDraft(
     return { ok: false, error: error?.message ?? 'Could not start your application.' };
   }
   return { ok: true, applicationId: (inserted as { application_id: string }).application_id };
+}
+
+// ---------------------------------------------------------------------------
+// Structured-field parsers (owner 2026-07-03 field redesign)
+//
+// The inline editor posts the structured slots as JSON blobs. Each parser is
+// defensive (safe-parse → shape-coerce → clamp to the slot cap) so a malformed
+// or oversized client payload degrades to a benign value instead of throwing
+// inside the server action.
+// ---------------------------------------------------------------------------
+
+function coerceString(v: unknown, max = 300): string {
+  return typeof v === 'string' ? v.trim().slice(0, max) : '';
+}
+
+function parseReferencesField(raw: FormDataEntryValue | null): ClientReference[] {
+  if (typeof raw !== 'string' || !raw.trim()) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+  return parsed.slice(0, CLIENT_REFERENCES_MAX).map((row) => {
+    const r = (row && typeof row === 'object' ? row : {}) as Record<string, unknown>;
+    const ref = emptyClientReference();
+    ref.name = coerceString(r.name);
+    ref.contact_number = coerceString(r.contact_number, 60);
+    ref.event = coerceString(r.event);
+    ref.date = coerceString(r.date, 10);
+    return ref;
+  });
+}
+
+function parseSocialField(raw: FormDataEntryValue | null): Record<string, string> {
+  if (typeof raw !== 'string' || !raw.trim()) return {};
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return {};
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+  const out: Record<string, string> = {};
+  for (const [key, val] of Object.entries(parsed as Record<string, unknown>)) {
+    if (!SOCIAL_PLATFORM_KEYS.has(key)) continue;
+    const v = coerceString(val, 500);
+    if (v) out[key] = v;
+  }
+  return out;
+}
+
+function parsePortfolioField(raw: FormDataEntryValue | null): string[] {
+  if (typeof raw !== 'string' || !raw.trim()) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+  return parsed
+    .map((v) => coerceString(v, 1000))
+    .filter((v) => v.length > 0)
+    .slice(0, PORTFOLIO_MAX);
 }
 
 /**
@@ -271,13 +344,28 @@ export async function updateDocUploadInline(
 
   const r2Ref = String(formData.get('r2_ref') ?? '').trim();
   const url = String(formData.get('url') ?? '').trim();
+  // Structured payloads (owner 2026-07-03 field redesign). Each rides in a
+  // JSON form field; parse defensively + clamp to the slot cap so a malformed
+  // (or oversized) client payload can never corrupt the JSONB or blow past the
+  // 5/10 limits. On any parse error we fall back to the empty set — the slot
+  // simply stays incomplete rather than throwing.
+  const references = parseReferencesField(formData.get('references_json'));
+  const social = parseSocialField(formData.get('social_json'));
+  const portfolioRefs = parsePortfolioField(formData.get('portfolio_json'));
+
   const currentUploads = (app.doc_uploads ?? {}) as DocUploadMap;
   const nextUploads: DocUploadMap = {
     ...currentUploads,
+    // buildSlotValue now stores the FULL array for portfolio/client_references
+    // (the inline flow previously persisted only val[0] — silently dropping
+    // every ref past the first). Single-object slots are unchanged.
     [slotKey]: buildSlotValue(slotKey, {
       r2Ref: r2Ref || null,
       url: url || null,
       scheduledAt: null,
+      references,
+      social,
+      portfolioRefs,
     }),
   };
   const completeCount = countCompleteSlots(nextUploads);

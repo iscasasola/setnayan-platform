@@ -27,6 +27,7 @@ import { useRef, useState, useTransition } from 'react';
 import { X, Receipt, Sparkles } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { updateVendorCosts } from '../../../actions';
+import { useSaveLoader } from '@/components/sd-loader';
 
 /** A candidate quote the couple can choose to log. */
 export type QuoteCandidate = {
@@ -90,6 +91,7 @@ export function QuoteBridge({
   const [sourceLabel, setSourceLabel] = useState('');
   const [pending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const save = useSaveLoader();
   const dialogRef = useRef<HTMLDivElement>(null);
 
   // Focus trap + Esc-to-close + scroll lock. Esc is suspended mid-submit so an
@@ -150,7 +152,10 @@ export function QuoteBridge({
     if (food.trim()) form.set('food_allowance_php', food.trim());
     startTransition(async () => {
       try {
-        await updateVendorCosts(form);
+        await save.run(() => updateVendorCosts(form), {
+          steps: ['Saving the quote'],
+          hint: 'Saving',
+        });
         setOpen(false);
       } catch (err) {
         setErrorMsg(

@@ -156,16 +156,19 @@ export type ImpactMetrics = {
   chapters: number | null; // "As the Day Unfolded" chapter count; null = omit
 };
 
-// "What They Whispered" — a Kwento guest wish (photo_messages). `body` is the
+// "What They Whispered" — a Kwento guest wish. Owner (2026-07-04): "kwento are
+// messages with videos or photos" — every wish is a guest MESSAGE attached to its
+// anchor media, so the editorial shows that media beside the words. `body` is the
 // approved, screen-cleared message text; `author` is the guest's display name
-// (null when the guest opted their name off / has no name). `photoUrl` is the
-// presigned display image of the Papic capture the wish anchors to, carried only
-// when that anchor is already presigned in the loader (else text-only).
+// (null when the guest opted their name off / has no name). `media` is the wish's
+// anchor: a photo (still), or a clip (playable MP4 + optional poster). It is null
+// only when the wish has no anchor OR the anchor row is blocked/hidden/ungated
+// (fail-closed) — the words are still approved, so the card renders text-only.
 export type KwentoQuote = {
   body: string;
   author: string | null;
   role: string | null;
-  photoUrl: string | null;
+  media: { type: 'photo' | 'clip'; url: string; posterUrl?: string | null } | null;
 };
 
 export type ArchetypeKey = 'hand-picked' | 'jewel-box' | 'big-hearted' | 'sweeping';
@@ -189,7 +192,7 @@ export type VendorCredit = {
   // tier_state ('free'|'verified'|'solo'|'pro'|'enterprise') or null when the
   // event vendor isn't linked to a marketplace profile. Free vendors are
   // excluded upstream (hidden from the Editorial entirely, per §3).
-  tier: 'free' | 'verified' | 'solo' | 'pro' | 'enterprise' | null;
+  tier: 'free' | 'verified' | 'solo' | 'pro' | 'enterprise' | 'custom' | null;
   logoUrl: string | null;
   slug: string | null;
 };
@@ -333,6 +336,12 @@ export type EditorialData = {
     pullQuote?: string | null;
     byline?: string | null;
   };
+  // FREE prose fallback for the article body. When the couple wrote no lead
+  // paragraphs (`draft.leadParagraphs` empty), the renderer falls back to these
+  // — the event's `love_story` prose fields woven into paragraphs — so a
+  // no-Papic editorial never has an empty middle. Empty when there's no
+  // love_story prose to render.
+  loveStoryParagraphs: string[];
   published: boolean;
   heroPhotoUrl: string | null;
   // The couple's LIVING HERO — a pre-baked forward+reverse boomerang MP4
@@ -391,9 +400,11 @@ export type EditorialData = {
   // "What They Whispered" — approved, screen-cleared Kwento guest wishes
   // (photo_messages). Fail-closed like every other public block: only
   // status='approved' + moderation_state='clean' + not author-hidden. Each
-  // carries the author's display name (when set) and, when the wish anchors to a
-  // Papic capture already presigned in the loader, that anchor photo's URL. []
-  // when the couple has no Kwento or the table is absent (section then hidden).
+  // carries the author's display name (when set) and its anchor `media` (a photo
+  // still or a living 5s clip), resolved from the anchor row under the SAME
+  // fail-closed gate that table uses (blocked/hidden/ungated anchor → text-only,
+  // the words still approved). [] when the couple has no Kwento or the table is
+  // absent (section then hidden).
   kwentoQuotes: KwentoQuote[];
   // Live Studio replay — "Watch the Film". The youtube-nocookie EMBED URL for
   // the couple's Panood broadcast replay, gated on: a valid events.panood_watch_url
@@ -745,7 +756,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
             const id = asString(p.vendor_profile_id);
             if (!id) continue;
             const tierRaw = asString(p.tier_state);
-            const tier = (['free', 'verified', 'solo', 'pro', 'enterprise'] as const).find(
+            const tier = (['free', 'verified', 'solo', 'pro', 'enterprise', 'custom'] as const).find(
               (t) => t === tierRaw,
             ) ?? null;
             profiles.set(id, {
@@ -766,13 +777,15 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
         if (!name) continue;
         const prof = profiles.get(asString(r.linked_vendor_profile_id) ?? '');
         const tier = prof?.tier ?? null;
-        // §3 + tier matrix (Phase C #4): Free vendors are hidden from the
-        // Editorial entirely. Editorial *tagging* — the showcase treatment
-        // (logo + tier badge + profile link) — is the editorialTagged cap
-        // (Pro/Enterprise). Verified/Solo stay credited (the couple used them)
-        // but as a plain text credit: suppress logo + slug so they get no
-        // card/link/badge. Reads the SSOT cap instead of hardcoding tiers.
-        if (tier === 'free') continue;
+        // Simplicity Canon rule 2 (owner-ratified 2026-07-16): "Being credited
+        // in a story is always free — editorial or chapter, any tier. You
+        // never pay to be named in a story." This RETIRES the former Phase C
+        // #4 treatment (Free hidden entirely; Verified/Solo plain-text-only) —
+        // every credited vendor now gets the full tagged treatment. Still
+        // reads the SSOT editorialTagged cap (now true across the matrix) so
+        // any future owner reversal is one matrix edit, not a code hunt. The
+        // name shown is the COUPLE's own vendor_name entry (their page, their
+        // speech), unchanged from before.
         const tagged = tierCaps(tier).editorialTagged;
         vendors.push({
           name,
@@ -1070,8 +1083,24 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   // 6. Hero photo (OPTIONAL). Resolve event_editorial.hero_photo_id → R2 key →
   // presigned URL. Skips silently on any error.
   let heroPhotoUrl: string | null = null;
+
+  // 6-pre. Couple-uploaded hero cover (FREE · draft_json.heroUpload). An EXPLICIT
+  // couple pick WINS over the Papic auto-pick + the website-hero fallback (the
+  // couple chose this cover deliberately), and — crucially — renders even with
+  // zero Papic, giving a no-Papic editorial a real cover. Resolved first; when it
+  // resolves, the Papic/website hero paths below are skipped (they only fill a
+  // still-null heroPhotoUrl). Best-effort: a bad/absent ref just falls through.
+  const heroUploadRef = asString(draftJson.heroUpload);
+  if (heroUploadRef) {
+    try {
+      heroPhotoUrl = await displayUrlForStoredAsset(heroUploadRef);
+    } catch {
+      heroPhotoUrl = null;
+    }
+  }
+
   const heroPhotoId = asString(editorial?.hero_photo_id);
-  if (heroPhotoId) {
+  if (!heroPhotoUrl && heroPhotoId) {
     try {
       // PUBLIC surface → a moderation-withheld capture never renders as the
       // hero, even if the couple picked it before the screen finished. The
@@ -1166,14 +1195,29 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   const manualGalleryPhotos = (
     await Promise.all(galleryRefs.map((ref) => displayUrlForStoredAsset(ref)))
   ).filter((u): u is string => Boolean(u));
-  // UNION the couple's manual uploads (lead, kept first) with a recent slice of
-  // the day's clean Papic captures. A couple who shot the day with Papic gets a
-  // real gallery even with zero manual uploads; one who uploaded manually keeps
-  // those first and gains the day's candids after. De-dup by URL. When
-  // papicGalleryUrls is empty this collapses to manualGalleryPhotos — exactly
-  // today's behaviour.
+  // Couple-uploaded editorial gallery photos (FREE · draft_json.galleryUploads).
+  // These feed ONLY this gallery grid — never the essayPhotos / dayChapters
+  // photo-essay spread (which stays Papic-only and drops to null without Papic).
+  // Kept FIRST (the couple curated them), HARD-capped at 30 (the writer also caps
+  // server-side; this is the read-side backstop). Best-effort resolution.
+  const GALLERY_UPLOADS_MAX = 30;
+  const galleryUploadRefs = Array.isArray(draftJson.galleryUploads)
+    ? (draftJson.galleryUploads as unknown[])
+        .filter((r): r is string => typeof r === 'string' && r.trim().length > 0)
+        .slice(0, GALLERY_UPLOADS_MAX)
+    : [];
+  const coupleGalleryPhotos = (
+    await Promise.all(galleryUploadRefs.map((ref) => displayUrlForStoredAsset(ref)))
+  ).filter((u): u is string => Boolean(u));
+
+  // UNION the couple's editorial uploads (lead, kept first), then their manual
+  // website uploads, then a recent slice of the day's clean Papic captures. A
+  // couple who shot the day with Papic gets a real gallery even with zero manual
+  // uploads; one who uploaded manually keeps those first and gains the day's
+  // candids after. De-dup by URL. When both couple sources are empty and Papic
+  // is empty this collapses to [] — exactly today's behaviour.
   const galleryPhotos = Array.from(
-    new Set([...manualGalleryPhotos, ...papicGalleryUrls]),
+    new Set([...coupleGalleryPhotos, ...manualGalleryPhotos, ...papicGalleryUrls]),
   );
 
   // 6c. Live Photo Wall (events.photo_wall_photos → display URLs), surfaced
@@ -1693,12 +1737,24 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   // Approved, screen-cleared guest wishes (photo_messages). PUBLIC surface → FAILS
   // CLOSED exactly like every other editorial block: status='approved' +
   // moderation_state='clean' + author not publicly hidden. Ordered by submission
-  // time, capped. When a wish anchors to a Papic capture already presigned in this
-  // loader (gallery/timeline slice), we carry that anchor photo's URL so the quote
-  // can sit beside its image; otherwise it renders text-only. The author's display
-  // name comes from the linked guest row (photo_messages has no name column). A
-  // missing table/column (pre-Kwento event, 42P01/42703) degrades to [] → section
-  // hidden.
+  // time, capped. Owner (2026-07-04): "kwento are messages with videos or photos"
+  // — every wish anchors to a Papic capture (a photo OR a 5s clip), and the
+  // editorial SHOWS that media beside the words. We resolve each anchor from its
+  // source table under the SAME fail-closed gate that table uses on the public
+  // surface, then presign only the resolved anchors:
+  //   • source_table='papic_photos' → look up by source_id, moderation-withheld
+  //     verdicts excluded (nsfw/consent/faceblock) + not hidden. photo_type tells
+  //     photo vs clip; a clip carries a playable MP4 (r2_object_key) + poster.
+  //   • source_table='papic_guest_captures' → look up by source_id under the
+  //     disposable-camera public gate (consent_to_public AND
+  //     couple_approved_for_showcase AND hidden_at IS NULL), consistent with the
+  //     chapter timeline. media_type tells photo vs clip; display_r2_key is the
+  //     playable/still, poster_r2_key the freeze-frame.
+  // A blocked/hidden/ungated anchor (or a missing anchor row) → media=null → the
+  // card renders text-only; the WORDS are still approved. Batched: ONE lookup per
+  // table with `.in(...)`. The author's display name comes from the linked guest
+  // row (photo_messages has no name column). A missing table/column (pre-Kwento
+  // event, 42P01/42703) degrades to [] → section hidden.
   const kwentoQuotes: KwentoQuote[] = [];
   try {
     const { data: rows, error } = await admin
@@ -1736,24 +1792,133 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
           // no guest names → quotes render unattributed
         }
       }
+
+      // Collect anchor ids per source table (deduped) so each table is read once.
+      const photoAnchorIds = new Set<string>();
+      const captureAnchorIds = new Set<string>();
+      for (const r of msgRows) {
+        const table = asString(r.source_table);
+        const id = asString(r.source_id);
+        if (!id) continue;
+        if (table === 'papic_photos') photoAnchorIds.add(id);
+        else if (table === 'papic_guest_captures') captureAnchorIds.add(id);
+      }
+
+      // A resolved anchor's raw media (r2 keys + type), keyed by anchor id. Only
+      // rows that PASS the public gate for their table land here.
+      type AnchorMedia = { type: 'photo' | 'clip'; key: string; posterKey: string | null };
+      const photoAnchors = new Map<string, AnchorMedia>();
+      const captureAnchors = new Map<string, AnchorMedia>();
+
+      // papic_photos anchors — SAME fail-closed moderation filter as everywhere
+      // else on this surface (withheld verdicts + hidden excluded).
+      if (photoAnchorIds.size > 0) {
+        try {
+          const { data: pRows } = await admin
+            .from('papic_photos')
+            .select('photo_id, r2_object_key, poster_r2_key, photo_type')
+            .eq('event_id', eventId)
+            .in('photo_id', Array.from(photoAnchorIds))
+            .is('hidden_at', null)
+            .not(
+              'moderation_state',
+              'in',
+              '("nsfw_blocked","consent_withheld","faceblock_withheld")',
+            );
+          for (const p of (pRows ?? []) as Array<Record<string, unknown>>) {
+            const id = asString(p.photo_id);
+            const key = asString(p.r2_object_key);
+            if (!id || !key) continue;
+            const type = asString(p.photo_type) === 'clip' ? 'clip' : 'photo';
+            photoAnchors.set(id, { type, key, posterKey: asString(p.poster_r2_key) });
+          }
+        } catch {
+          // table/column absent → these anchors resolve to text-only
+        }
+      }
+
+      // papic_guest_captures anchors — the disposable-camera SKU. Public gate is
+      // the consent + couple-approval double gate (no NSFW column on this table),
+      // consistent with the "As the Day Unfolded" timeline read above.
+      if (captureAnchorIds.size > 0) {
+        try {
+          const { data: cRows } = await admin
+            .from('papic_guest_captures')
+            .select('capture_id, r2_object_key, display_r2_key, poster_r2_key, media_type')
+            .eq('event_id', eventId)
+            .in('capture_id', Array.from(captureAnchorIds))
+            .eq('consent_to_public', true)
+            .eq('couple_approved_for_showcase', true)
+            .is('hidden_at', null);
+          for (const c of (cRows ?? []) as Array<Record<string, unknown>>) {
+            const id = asString(c.capture_id);
+            const type = asString(c.media_type) === 'clip' ? 'clip' : 'photo';
+            // A CLIP must render the playable original (r2_object_key); the
+            // display_r2_key derivative is a still (lightbox image), never a video.
+            // A PHOTO prefers the display derivative, falling back to the original
+            // when derivatives haven't been generated (mirrors lib/papic-gallery).
+            const key =
+              type === 'clip'
+                ? asString(c.r2_object_key)
+                : asString(c.display_r2_key) ?? asString(c.r2_object_key);
+            if (!id || !key) continue;
+            captureAnchors.set(id, { type, key, posterKey: asString(c.poster_r2_key) });
+          }
+        } catch {
+          // table/column absent → these anchors resolve to text-only
+        }
+      }
+
+      // Presign every resolved anchor (main key + poster) ONCE, keyed by r2 key so
+      // a repeated key isn't signed twice. Reuse the gallery's presigned set as a
+      // cache when the key was already signed there.
+      const keysToSign = new Set<string>();
+      for (const a of [...photoAnchors.values(), ...captureAnchors.values()]) {
+        keysToSign.add(a.key);
+        if (a.posterKey) keysToSign.add(a.posterKey);
+      }
+      // Seed the presign cache from the gallery (photoId→url isn't keyed by r2
+      // key, so we re-sign; but skip work when the anchor id already sits in the
+      // gallery-presigned map — that URL is directly reusable for photo anchors).
+      const urlByKey = new Map<string, string>();
+      if (keysToSign.size > 0) {
+        const keys = Array.from(keysToSign);
+        const signed = await Promise.all(keys.map((k) => displayUrlForStoredAsset(k)));
+        keys.forEach((k, i) => {
+          const u = signed[i];
+          if (u) urlByKey.set(k, u);
+        });
+      }
+
+      const resolveAnchor = (
+        table: string | null,
+        id: string | null,
+      ): KwentoQuote['media'] => {
+        if (!id) return null;
+        let a: AnchorMedia | undefined;
+        if (table === 'papic_photos') a = photoAnchors.get(id);
+        else if (table === 'papic_guest_captures') a = captureAnchors.get(id);
+        if (!a) return null;
+        // Reuse the gallery-presigned URL for a papic_photos PHOTO anchor when the
+        // id is already in that map (avoids depending on it, but caches it).
+        const url =
+          (table === 'papic_photos' && a.type === 'photo'
+            ? papicUrlByPhotoId.get(id)
+            : undefined) ?? urlByKey.get(a.key);
+        if (!url) return null;
+        const posterUrl = a.posterKey ? urlByKey.get(a.posterKey) ?? null : null;
+        return { type: a.type, url, posterUrl };
+      };
+
       for (const r of msgRows) {
         const body = asString(r.body_text);
         if (!body) continue;
         const guestId = asString(r.guest_id);
-        // Anchor photo — only if it's a papic_photos capture already presigned in
-        // this loader (gallery/timeline slice). Guest-capture anchors + un-sliced
-        // photos stay text-only (we don't presign extra just for a Kwento anchor).
-        const anchorTable = asString(r.source_table);
-        const anchorId = asString(r.source_id);
-        const photoUrl =
-          anchorTable === 'papic_photos' && anchorId
-            ? papicUrlByPhotoId.get(anchorId) ?? null
-            : null;
         kwentoQuotes.push({
           body,
           author: guestId ? nameByGuest.get(guestId) ?? null : null,
           role: null,
-          photoUrl,
+          media: resolveAnchor(asString(r.source_table), asString(r.source_id)),
         });
       }
     }
@@ -1831,6 +1996,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
       pullQuote: asString(draftJson.pull_quote) ?? asString(draftJson.pullQuote),
       byline: asString(draftJson.byline),
     },
+    loveStoryParagraphs: loveStoryFallbackParagraphs(loveStory),
     published,
     heroPhotoUrl,
     heroVideoUrl,
@@ -2092,6 +2258,39 @@ function normalizeTone(v: unknown): StoryTone {
   return s === 'warm' || s === 'playful' || s === 'formal' ? s : null;
 }
 
+/**
+ * FREE prose fallback: weave the event's `love_story` into article paragraphs
+ * for a couple who wrote no lead paragraphs of their own. Gathers the free-text
+ * prose fields in narrative order (how they met → the proposal → the spark →
+ * what they overcame), splitting each on blank lines / newlines into paragraphs
+ * per the requirement. Returns [] when there's no prose to render → the article
+ * simply omits, never errors. Never fabricates: only real typed fields appear.
+ */
+function loveStoryFallbackParagraphs(story: LoveStory | null | undefined): string[] {
+  if (!story || typeof story !== 'object') return [];
+  const out: string[] = [];
+  // Free-text narrative fields the couple types during onboarding, in the order
+  // they read as a story. Structured/short fields (years, settings, anchors) are
+  // deliberately excluded — this is a prose fallback, not a data dump.
+  const proseFields: Array<string | null | undefined> = [
+    story.how_we_met,
+    story.proposal,
+    story.spark,
+    story.spark_why,
+    story.obstacle,
+    story.obstacle_kept,
+  ];
+  for (const field of proseFields) {
+    const text = asString(field);
+    if (!text) continue;
+    for (const para of text.split(/\n{2,}|\r?\n/)) {
+      const p = para.trim();
+      if (p) out.push(p);
+    }
+  }
+  return out;
+}
+
 function extractParagraphs(draftJson: Record<string, unknown>): string[] | null {
   const candidate = draftJson.lead_paragraphs ?? draftJson.leadParagraphs ?? draftJson.article;
   if (Array.isArray(candidate)) {
@@ -2209,6 +2408,7 @@ function mariaAndJuan(): EditorialData {
         'They danced their first dance to the kundiman that has followed them since a despedida in Quezon City, and closed the night the way they began — side by side, in no hurry for the day to end.',
       ],
     },
+    loveStoryParagraphs: [],
     published: true,
     heroPhotoUrl: '/realstories/maria-juan-tagaytay.jpg',
     heroVideoUrl: '/realstories/maria-juan-tagaytay.mp4',
@@ -2317,9 +2517,9 @@ function mariaAndJuan(): EditorialData {
       { vendorName: 'Goldenhour Photo + Film', category: 'Photography & Video', type: 'photo', stillUrl: '/realstories/maria-juan-v2.jpg', boomerangUrl: null, caption: 'Caught laughing in the garden' },
     ],
     kwentoQuotes: [
-      { body: 'Nakita ko kung paano ka tumingin sa kanya sa altar. Iyon ang tingin na hinihintay ng bawat magulang. Ingatan niyo iyon.', author: 'Tita Bing', role: null, photoUrl: '/realstories/maria-juan-g1.jpg' },
-      { body: 'From the despedida na pinagtalunan niyo ang pinakamasarap na lugaw, to this garden — sobrang saya kong nandito. Set na ’yan!', author: 'Kuya Marco', role: null, photoUrl: null },
-      { body: 'I have known Maria since college and I have never seen her this calm and this sure. Juan, you did that. Salamat.', author: 'Andrea', role: null, photoUrl: '/realstories/maria-juan-g2.jpg' },
+      { body: 'Nakita ko kung paano ka tumingin sa kanya sa altar. Iyon ang tingin na hinihintay ng bawat magulang. Ingatan niyo iyon.', author: 'Tita Bing', role: null, media: { type: 'photo', url: '/realstories/maria-juan-g1.jpg' } },
+      { body: 'From the despedida na pinagtalunan niyo ang pinakamasarap na lugaw, to this garden — sobrang saya kong nandito. Set na ’yan!', author: 'Kuya Marco', role: null, media: null },
+      { body: 'I have known Maria since college and I have never seen her this calm and this sure. Juan, you did that. Salamat.', author: 'Andrea', role: null, media: { type: 'photo', url: '/realstories/maria-juan-g2.jpg' } },
     ],
     watchFilmEmbedUrl: null,
   };
@@ -2369,6 +2569,7 @@ function jackAndJill(): EditorialData {
         'By the time the bonfire was lit, half the party was back in the water. The other half was already plotting next year’s boat ride out.',
       ],
     },
+    loveStoryParagraphs: [],
     published: true,
     heroPhotoUrl: '/realstories/jack-jill-cebu.jpg',
     heroVideoUrl: '/realstories/jack-jill-cebu.mp4',
@@ -2467,6 +2668,7 @@ function johnAndJane(): EditorialData {
         'There were three toasts, one slow dance, and a final round of coffee taken at the rail — the couple and their guests looking out over a city that, for one night, seemed arranged entirely for them.',
       ],
     },
+    loveStoryParagraphs: [],
     published: true,
     heroPhotoUrl: '/realstories/john-jane-manila.jpg',
     heroVideoUrl: '/realstories/john-jane-manila.mp4',
@@ -2565,6 +2767,7 @@ function peterAndMary(): EditorialData {
         'Late in the evening both sets of parents were coaxed onto the dance floor to their old favorite, and for a few minutes the whole garden simply watched. A full table was always the point; on this day, it overflowed.',
       ],
     },
+    loveStoryParagraphs: [],
     published: true,
     heroPhotoUrl: '/realstories/peter-mary-tagaytay.jpg',
     heroVideoUrl: '/realstories/peter-mary-tagaytay.mp4',
@@ -2664,6 +2867,7 @@ function jackAndRose(): EditorialData {
         'As the afternoon dimmed the fog rolled back in and seemed to close the clearing off from the rest of the world, leaving just the hundred of them, the pines, and a secret the mountain had agreed to keep.',
       ],
     },
+    loveStoryParagraphs: [],
     published: true,
     heroPhotoUrl: '/realstories/jack-rose-baguio.jpg',
     heroVideoUrl: '/realstories/jack-rose-baguio.mp4',
@@ -2779,6 +2983,7 @@ function sofiaReyes(): EditorialData {
         'Then the eighteen candles: the women who raised her, each leaving a wish, until half the ballroom had given up pretending not to cry. A cotillion of eight couples brought the house down, the formal program ended at eleven, and nobody left. The last picture of the night is Sofia, barefoot and crown askew, dancing with her lola to a song older than both of them put together.',
       ],
     },
+    loveStoryParagraphs: [],
     published: true,
     heroPhotoUrl: '/realstories/sofia-reyes-makati.jpg',
     heroVideoUrl: null, // no baked boomerang for this sample → still hero
@@ -2889,9 +3094,9 @@ function sofiaReyes(): EditorialData {
       { vendorName: 'Rose & Gold Studios', category: 'Photography & Video', type: 'clip', stillUrl: '/realstories/sofia-reyes-makati.jpg', boomerangUrl: '/realstories/clips/sofia-staircase.mp4', caption: 'Down the staircase, on the first chord' },
     ],
     kwentoQuotes: [
-      { body: 'I held her when she was one hour old. Tonight she came down that staircase and I forgot how to breathe. My apo, all grown up.', author: 'Lola Remedios', role: null, photoUrl: '/realstories/sofia-reyes-c1.jpg' },
-      { body: 'Three months of Sunday rehearsals for one cotillion and it was worth every single one. We did it, Sofia! Best night ever.', author: 'Bea', role: null, photoUrl: null },
-      { body: 'Maligayang kaarawan, anak. Eighteen roses tonight, but you have had a whole family holding you up since day one. We love you.', author: 'Mama & Papa', role: null, photoUrl: '/realstories/sofia-reyes-c3.jpg' },
+      { body: 'I held her when she was one hour old. Tonight she came down that staircase and I forgot how to breathe. My apo, all grown up.', author: 'Lola Remedios', role: null, media: { type: 'clip', url: '/realstories/clips/sofia-staircase.mp4', posterUrl: '/realstories/sofia-reyes-c1.jpg' } },
+      { body: 'Three months of Sunday rehearsals for one cotillion and it was worth every single one. We did it, Sofia! Best night ever.', author: 'Bea', role: null, media: null },
+      { body: 'Maligayang kaarawan, anak. Eighteen roses tonight, but you have had a whole family holding you up since day one. We love you.', author: 'Mama & Papa', role: null, media: { type: 'photo', url: '/realstories/sofia-reyes-c3.jpg' } },
     ],
     watchFilmEmbedUrl: null,
   };

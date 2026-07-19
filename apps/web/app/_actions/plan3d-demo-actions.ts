@@ -19,8 +19,23 @@
 import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getSampleEvent, getSampleEventId } from '@/app/tour/_lib/sample-event';
-import { fetchTables, fetchAssignments, fetchFloorPlan, fetchSceneObjects, fetchBooths, fetchSigns, defaultTablePosition } from '@/lib/seating';
-import { guestDisplayName } from '@/lib/guests';
+import { fetchTables, fetchAssignments, fetchFloorPlan, fetchSceneObjects, fetchBooths, fetchSigns, defaultTablePosition, boothTypeForVendorCategory } from '@/lib/seating';
+import { fetchBoothCardItems } from '@/lib/vendor-services';
+import {
+  selectDemoRotation,
+  rotationWindow,
+  PLAN3D_DEMO_ADS_ENABLED,
+  type RotatableVendor,
+} from '@/lib/demo-booth-rotation';
+import { resolveVendorCategory } from '@/lib/vendor-packages';
+import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
+import {
+  PUBLIC_SURFACE_VISIBILITIES,
+  isBookable,
+  isPubliclyVisible,
+  type VendorPublicVisibility,
+} from '@/lib/vendor-visibility';
+import { guestDisplayName, resolveGuestAttire, type GuestRole, type GuestAttire } from '@/lib/guests';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
   shapeHintFor,
@@ -50,6 +65,16 @@ export type Plan3DGuest = {
    *  source — never face-enrollment biometrics). Null → initials/token fallback.
    *  The sample event's guests are fictional, so photos here are privacy-clean. */
   photoUrl?: string | null;
+  /** Resolved wardrobe class via the SAME chain the couple lab uses
+   *  (resolveGuestAttire: explicit couple-set attire ≻ gendered role ≻
+   *  neutral) — added 2026-07-08 after the hash-only derivation dressed
+   *  male-named sample guests in gowns. Non-PII: it's clothing, and the cast
+   *  is fictional. 'neutral' guests render the unmarked humanoid shell. */
+  attire: 'gown' | 'suit' | 'neutral';
+  /** The guest's role — drives the taxonomy-v2 attire-palette chain (a
+   *  specific role palette key wins over the shared wedding_party fallback).
+   *  Non-PII on the fictional sample cast, same posture as `attire`. */
+  role: GuestRole;
 };
 
 export type Plan3DScene = {
@@ -91,6 +116,103 @@ function toPlan3DSide(side: string | null): 'bride' | 'groom' | 'both' {
  * view (single-guest walk), so it always returns the full scene and the
  * caller narrows to one guest when it needs to.
  */
+/**
+ * 3D Booth Ads · Part B (slice 9, flag-gated): swap the demo's booths to REAL
+ * marketplace vendors on ROTATION — "your booth, inside every demo". Keeps each
+ * booth's POSITION; replaces its vendor/kind/label with a rotated eligible
+ * vendor (Pro/Enterprise + ad-boost weighted, everyone cycles — see
+ * lib/demo-booth-rotation). Fully defensive: the flag off, an empty pool, or ANY
+ * query error returns the booths unchanged (the normal sample demo).
+ */
+async function applyDemoBoothRotation(
+  admin: ReturnType<typeof createAdminClient>,
+  booths: Lab3DBooth[],
+  nowMs: number,
+): Promise<Lab3DBooth[]> {
+  if (!PLAN3D_DEMO_ADS_ENABLED || booths.length === 0) return booths;
+  try {
+    // Eligible pool: publicly-visible + verification-gated marketplace vendors,
+    // carrying the ad_rank boost (public business info only — no PII).
+    const { data: rows } = await admin
+      .from('vendor_market_stats')
+      .select('vendor_profile_id, business_name, business_slug, logo_url, services, public_visibility, ad_rank')
+      .in('public_visibility', PUBLIC_SURFACE_VISIBILITIES)
+      .eq('verification_state', 'verified')
+      .not('business_name', 'is', null)
+      .neq('business_name', '')
+      .limit(80);
+    if (!rows || rows.length === 0) return booths;
+
+    // tier_state lives on vendor_profiles (not the view) — join it for ranking.
+    const idList = rows.map((r) => r.vendor_profile_id as string);
+    const { data: tierRows } = await admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id, tier_state')
+      .in('vendor_profile_id', idList);
+    const tierById = new Map((tierRows ?? []).map((t) => [t.vendor_profile_id as string, (t.tier_state as string | null) ?? null]));
+
+    const pool: RotatableVendor[] = [];
+    for (const r of rows) {
+      const services = (r.services as string[] | null) ?? [];
+      // Coerce services[] → a bookable VendorCategory; skip 'misc' (no booth).
+      let category: VendorCategory = 'misc';
+      for (const s of services) {
+        const c = resolveVendorCategory(s);
+        if (c !== 'misc') {
+          category = c;
+          break;
+        }
+      }
+      if (category === 'misc') continue;
+      const vis = (r.public_visibility as VendorPublicVisibility | null) ?? null;
+      pool.push({
+        vendorProfileId: r.vendor_profile_id as string,
+        name: r.business_name as string,
+        slug: isPubliclyVisible(vis) ? ((r.business_slug as string | null) ?? null) : null,
+        logoRef: (r.logo_url as string | null) ?? null,
+        category,
+        tier: tierById.get(r.vendor_profile_id as string) ?? null,
+        adRank: (r.ad_rank as number | null) ?? 0,
+        bookable: isBookable(vis),
+      });
+    }
+    if (pool.length === 0) return booths;
+
+    const selected = selectDemoRotation(pool, booths.length, rotationWindow(nowMs));
+    if (selected.length === 0) return booths;
+
+    // Resolve logos for just the on-air vendors.
+    const logoRefs = [...new Set(selected.map((v) => v.logoRef).filter((r): r is string => !!r))];
+    const logoEntries = await Promise.all(logoRefs.map(async (ref) => [ref, await displayUrlForStoredAsset(ref)] as const));
+    const logoUrls: Record<string, string> = Object.fromEntries(logoEntries.filter((e): e is [string, string] => e[1] !== null));
+
+    // Keep each booth's slot; swap in the rotated vendor (booth kind follows the
+    // vendor's category so the look matches). Extra booths beyond the pick set
+    // keep their original content.
+    return booths.map((b, i) => {
+      const v = selected[i];
+      if (!v) return b;
+      return {
+        ...b,
+        kind: boothTypeForVendorCategory(v.category),
+        label: VENDOR_CATEGORY_LABEL[v.category],
+        offerings: null,
+        cardItems: null,
+        vendor: {
+          name: v.name,
+          category: v.category,
+          logoUrl: v.logoRef ? (logoUrls[v.logoRef] ?? null) : null,
+          tier: v.tier,
+          slug: v.slug,
+          bookable: v.bookable,
+        },
+      };
+    });
+  } catch {
+    return booths; // any failure → the normal sample demo, never a broken homepage
+  }
+}
+
 export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
   const ev = await getSampleEvent();
   const eventId = ev.event_id;
@@ -105,7 +227,7 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
     fetchSigns(admin, eventId),
     admin
       .from('guests')
-      .select('guest_id,first_name,last_name,display_name,side,photo_url')
+      .select('guest_id,first_name,last_name,display_name,side,photo_url,role,attire')
       .eq('event_id', eventId)
       .is('deleted_at', null),
   ]);
@@ -141,6 +263,8 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
     display_name: string | null;
     side: string | null;
     photo_url: string | null;
+    role: GuestRole;
+    attire: GuestAttire;
   };
   const guestRows = (guestResult.data ?? []) as GuestNameRow[];
 
@@ -169,6 +293,8 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
         seatNumber: seat.seat_number,
         side: toPlan3DSide(g.side),
         photoUrl: g.photo_url ? photoDisplayUrls[g.photo_url] ?? null : null,
+        attire: resolveGuestAttire(g.role, g.attire),
+        role: g.role,
       };
     })
     .filter((g): g is Plan3DGuest => g !== null);
@@ -177,7 +303,13 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
     venueWidthM: floorPlan.venue_width_m ?? null,
     venueLengthM: floorPlan.venue_length_m ?? null,
     stage: { xPct: floorPlan.stage_x, yPct: floorPlan.stage_y, wPct: floorPlan.stage_w, hPct: floorPlan.stage_h },
-    entrance: { enabled: floorPlan.entrance_enabled, xPct: floorPlan.entrance_x, yPct: floorPlan.entrance_y },
+    entrance: {
+      enabled: floorPlan.entrance_enabled,
+      xPct: floorPlan.entrance_x,
+      yPct: floorPlan.entrance_y,
+      kind: floorPlan.entrance_kind,
+      depthM: floorPlan.entrance_depth_m,
+    },
     dance: {
       enabled: floorPlan.dance_enabled,
       xPct: floorPlan.dance_x,
@@ -203,28 +335,42 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
     }));
   // Resolve booked-vendor logos (raw stored refs) to display URLs, same as the
   // guest avatars above — booth vendor identity is PUBLIC business info, so no
-  // token gate, but an r2:// ref still needs server-side resolution.
+  // token gate, but an r2:// ref still needs server-side resolution. Card items
+  // (the kind-aware Menu / Set list / inclusions lines, booth-kit slice 4) ride
+  // along: the booths already came through the getSampleEventId trust boundary,
+  // and the fetch is read-only, display-safe fields only (label + worth_php —
+  // the tour contract).
   const boothLogoRefs = [...new Set(boothsRaw.map((b) => b.vendor?.logo_url).filter((r): r is string => !!r))];
+  const [boothLogoUrlEntries, boothCardItems] = await Promise.all([
+    Promise.all(boothLogoRefs.map(async (ref) => [ref, await displayUrlForStoredAsset(ref)] as const)),
+    fetchBoothCardItems(admin, boothsRaw),
+  ]);
   const boothLogoUrls: Record<string, string> = Object.fromEntries(
-    (
-      await Promise.all(boothLogoRefs.map(async (ref) => [ref, await displayUrlForStoredAsset(ref)] as const))
-    ).filter((e): e is [string, string] => e[1] !== null),
+    boothLogoUrlEntries.filter((e): e is [string, string] => e[1] !== null),
   );
-  const booths: Lab3DBooth[] = boothsRaw.map((b) => ({
+  const baseBooths: Lab3DBooth[] = boothsRaw.map((b) => ({
     id: b.booth_id,
     kind: b.booth_type,
     label: b.label,
     xPct: b.x_pos,
     yPct: b.y_pos,
     offerings: b.offerings,
+    cardItems: boothCardItems.get(b.booth_id) ?? null,
     vendor: b.vendor
       ? {
           name: b.vendor.vendor_name,
           category: b.vendor.category,
           logoUrl: b.vendor.logo_url ? boothLogoUrls[b.vendor.logo_url] ?? null : null,
+          tier: b.vendor.tier,
+          slug: b.vendor.slug,
+          bookable: b.vendor.bookable,
         }
       : null,
   }));
+  // 3D Booth Ads Part B (flag-gated): rotate real marketplace vendors into the
+  // demo's booths. No-op (returns baseBooths) when the flag is off / pool empty /
+  // on any error, so the public homepage demo is byte-identical by default.
+  const booths = await applyDemoBoothRotation(admin, baseBooths, Date.now());
   const signs: Lab3DSign[] = signsRaw.map((s) => ({
     id: s.sign_id,
     label: s.label,

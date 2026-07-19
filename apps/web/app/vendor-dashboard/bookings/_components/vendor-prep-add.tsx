@@ -24,6 +24,7 @@ import {
   vendorDeletePreparationItem,
 } from '../actions';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useSaveLoader } from '@/components/sd-loader';
 import {
   PrepKindPicker,
   type PrepKind,
@@ -80,6 +81,7 @@ export function VendorPrepForBooking({
   const [isPending, startTransition] = useTransition();
   const overlayRef = useRef<HTMLDivElement>(null);
   const labelRef = useRef<HTMLInputElement | null>(null);
+  const save = useSaveLoader();
 
   function close() {
     if (isPending) return;
@@ -104,7 +106,10 @@ export function VendorPrepForBooking({
     fd.set('kind', kind);
     startTransition(async () => {
       try {
-        await vendorAddPreparationItem(fd);
+        await save.run(() => vendorAddPreparationItem(fd), {
+          steps: ['Adding the item'],
+          hint: 'Saving',
+        });
         setOpen(false);
         setErrorMessage(null);
         setKind('task');
@@ -123,7 +128,7 @@ export function VendorPrepForBooking({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-md border border-mulberry/30 bg-cream px-2.5 py-1 text-xs font-medium text-mulberry transition-colors hover:border-mulberry/50 hover:bg-mulberry/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry"
+          className="inline-flex items-center gap-1.5 rounded-md border border-mulberry/30 bg-white/70 px-2.5 py-1 text-xs font-medium text-mulberry transition-colors hover:border-mulberry/50 hover:bg-mulberry/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry"
         >
           <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Add to prep schedule
@@ -176,7 +181,7 @@ export function VendorPrepForBooking({
             if (e.target === overlayRef.current) close();
           }}
         >
-          <div className="relative w-full max-w-md rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl sm:p-6">
+          <div className="relative w-full max-w-md sn-tile p-5 shadow-xl sm:p-6">
             <button
               type="button"
               aria-label="Close"
@@ -286,7 +291,7 @@ export function VendorPrepForBooking({
                   type="button"
                   onClick={close}
                   disabled={isPending}
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-ink/15 bg-cream px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-50"
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-ink/15 bg-white/70 px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-50"
                 >
                   Cancel
                 </button>

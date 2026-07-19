@@ -22,6 +22,7 @@ import {
   isLockedIdentityFieldKey,
 } from '@/lib/vendor-corrections';
 import { geocodeNominatim } from '@/lib/geo';
+import { parseVideoLink } from '@/lib/video-embed';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
   MICROSITE_ABOUT_MAX,
@@ -186,6 +187,27 @@ function parsePortfolioRefs(raw: FormDataEntryValue[], max = 10): string[] {
     if (out.includes(trimmed)) continue;
     out.push(trimmed);
     if (out.length >= max) break; // tier cap (Infinity = unlimited → never breaks)
+  }
+  return out;
+}
+
+/**
+ * Parses the repeated `gallery_video_links` inputs from the Featured-videos
+ * editor into a clean array of external video URLs. Each value is validated
+ * through `parseVideoLink` (drops non-URLs, non-http(s) schemes like
+ * `javascript:`, and unrecognised junk) and stored as the normalised full URL.
+ * Deduped and capped at 10 to match the DB `cardinality <= 10` CHECK, so a
+ * hostile client can't balloon the column past the constraint.
+ */
+function parseVideoLinks(raw: FormDataEntryValue[], max = 10): string[] {
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== 'string') continue;
+    const parsed = parseVideoLink(item);
+    if (!parsed) continue;
+    if (out.includes(parsed.originalUrl)) continue;
+    out.push(parsed.originalUrl);
+    if (out.length >= max) break;
   }
   return out;
 }
@@ -366,6 +388,12 @@ export async function saveVendorProfile(formData: FormData) {
     portfolio_r2_keys: parsePortfolioRefs(
       formData.getAll('portfolio_r2_keys'),
       portfolioMax,
+    ),
+    // Featured videos — external URLs (YouTube/Vimeo inline · IG/FB/TikTok
+    // link-out). Validated + capped at 10 to match the DB CHECK. Additive
+    // 2026-07-05; not a locked-identity field, so it stays editable post-verify.
+    gallery_video_links: parseVideoLinks(
+      formData.getAll('gallery_video_links'),
     ),
     compatible_ceremony_types: parseCompatibilityArray(
       formData.getAll('compatible_ceremony_types'),
@@ -624,7 +652,20 @@ const INLINE_PROFILE_FIELDS = new Set([
   'contact_email',
   'services',
   'in_business_since_year',
+  // Gallery & media (relocated from the retired /profile page to My Shop →
+  // Website · 2026-07-05). NOT locked-identity fields, so they stay editable
+  // post-verification — the verified-lock guard below allowlists them.
+  'portfolio',
+  'gallery_videos',
 ]);
+
+/**
+ * The Gallery & media fields (portfolio photos + featured video links) that
+ * stay editable even after a shop is VERIFIED (identity-locked). These are not
+ * among the 8 locked identity fields, so a verified vendor can still curate
+ * their gallery — the verified-lock guard skips them.
+ */
+const GALLERY_MEDIA_FIELDS = new Set(['portfolio', 'gallery_videos']);
 
 export async function updateVendorProfileField(
   _prevState: FieldSaveResult | null,
@@ -642,10 +683,16 @@ export async function updateVendorProfileField(
     return { ok: false, error: 'That field can’t be edited here.' };
   }
 
-  // Verified-lock (owner 2026-07-02): every inline field IS one of the 8
-  // locked identity fields, so a verified shop can't patch any of them —
-  // corrections go through requestProfileCorrection → /admin/corrections.
-  if (await fetchVerifiedLock(supabase, user.id)) {
+  // Verified-lock (owner 2026-07-02): the 8 IDENTITY inline fields can't be
+  // patched by a verified shop — corrections go through
+  // requestProfileCorrection → /admin/corrections. The Gallery & media fields
+  // (portfolio / featured videos) are NOT locked identity, so they stay
+  // editable post-verification (matches the retired /profile full-form, whose
+  // verified-lock strip never touched portfolio_r2_keys / gallery_video_links).
+  if (
+    !GALLERY_MEDIA_FIELDS.has(field) &&
+    (await fetchVerifiedLock(supabase, user.id))
+  ) {
     return { ok: false, error: VERIFIED_LOCK_ERROR };
   }
 
@@ -735,6 +782,59 @@ export async function updateVendorProfileField(
       runYearExperienceReset = true;
       break;
     }
+    case 'portfolio': {
+      // Portfolio photos (relocated to My Shop → Website · 2026-07-05). Mirrors
+      // saveVendorProfile's parse + tier cap + QR-guard + repost-hash EXACTLY so
+      // behavior is identical to the retired /profile full-form.
+      const { data: tierRow } = await supabase
+        .from('vendor_profiles')
+        .select('tier_state, portfolio_r2_keys, vendor_profile_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      const tr = tierRow as
+        | {
+            tier_state?: string | null;
+            portfolio_r2_keys?: string[] | null;
+            vendor_profile_id?: string;
+          }
+        | null;
+      const portfolioMax = tierCaps(asVendorTier(tr?.tier_state)).portfolioPhotos;
+      const refs = parsePortfolioRefs(
+        formData.getAll('portfolio_r2_keys'),
+        portfolioMax,
+      );
+      // QR-in-media guard (owner 2026-07-03): only scan refs NOT already stored
+      // (an unchanged re-save costs nothing). Fails OPEN on scanner trouble.
+      const stored = new Set((tr?.portfolio_r2_keys ?? []).filter(Boolean));
+      const toScan = refs.filter((r) => !stored.has(r));
+      if (toScan.length > 0 && (await vendorQrGuardRejects(toScan))) {
+        return { ok: false, error: VENDOR_QR_MEDIA_ERROR };
+      }
+      patch = { portfolio_r2_keys: refs };
+      // Repost-watch: hash the gallery post-write (cron-free, self-swallowing).
+      if (refs.length > 0 && tr?.vendor_profile_id) {
+        const vendorProfileId = tr.vendor_profile_id;
+        after(() =>
+          hashAndScanVendorImages({
+            vendorProfileId,
+            refs,
+            surface: 'portfolio',
+          }),
+        );
+      }
+      break;
+    }
+    case 'gallery_videos': {
+      // Featured videos (relocated · 2026-07-05). External URLs validated +
+      // deduped + capped at 10 to match the DB cardinality CHECK — identical to
+      // saveVendorProfile's gallery_video_links parse.
+      patch = {
+        gallery_video_links: parseVideoLinks(
+          formData.getAll('gallery_video_links'),
+        ),
+      };
+      break;
+    }
     default:
       return { ok: false, error: 'That field can’t be edited here.' };
   }
@@ -776,6 +876,21 @@ export async function updateVendorProfileField(
 
   revalidatePath('/vendor-dashboard/shop');
   revalidatePath('/vendor-dashboard/profile');
+  // Gallery & media edits (portfolio / featured videos) also change the PUBLIC
+  // microsite, so revalidate /v/[slug] + its bare-root alias — mirrors what the
+  // full-form saveVendorProfile relied on via its /vendor-dashboard revalidate.
+  if (GALLERY_MEDIA_FIELDS.has(field)) {
+    const { data: slugRow } = await supabase
+      .from('vendor_profiles')
+      .select('business_slug')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const slug = (slugRow as { business_slug?: string | null } | null)?.business_slug;
+    if (slug) {
+      revalidatePath(`/v/${slug}`);
+      revalidatePath(`/${slug}`);
+    }
+  }
   return { ok: true };
 }
 
@@ -850,151 +965,6 @@ export async function requestProfileCorrection(
   revalidatePath('/vendor-dashboard/shop');
   revalidatePath('/vendor-dashboard/profile');
   return { ok: true };
-}
-
-/**
- * Flips the "Include team bookings" toggle on the Completed-events backend
- * card (iteration 0022 § 2.4a). The public count is NEVER affected by this
- * toggle — only the vendor's own backend display switches between the
- * team-excluded view (default, matches public) and the full unfiltered
- * view.
- *
- * The toggle change is written to `admin_audit_log` so the vendor's audit
- * trail keeps a record of every flip — action `vendor_backend_count_toggle`.
- */
-export async function toggleVendorBackendCount(formData: FormData) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const requested = formData.get('show_team_bookings');
-  const target = requested === 'on' || requested === 'true';
-
-  // Read the existing row + value so we can audit the delta and only
-  // write when the value actually changes.
-  const { data: profile, error: readError } = await supabase
-    .from('vendor_profiles')
-    .select('vendor_profile_id, show_team_bookings_in_backend_count')
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  if (readError || !profile) {
-    return redirect(
-      `/vendor-dashboard?error=${encodeURIComponent(
-        readError?.message ?? 'Vendor profile not found',
-      )}`,
-    );
-  }
-
-  const previous = profile.show_team_bookings_in_backend_count ?? false;
-  if (previous === target) {
-    // Idempotent no-op — still revalidate so the URL params flip without
-    // a stale audit row.
-    revalidatePath('/vendor-dashboard');
-    return redirect('/vendor-dashboard?saved=1');
-  }
-
-  const { error: updateError } = await supabase
-    .from('vendor_profiles')
-    .update({
-      show_team_bookings_in_backend_count: target,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('vendor_profile_id', profile.vendor_profile_id);
-
-  if (updateError) {
-    return redirect(
-      `/vendor-dashboard?error=${encodeURIComponent(updateError.message)}`,
-    );
-  }
-
-  // Best-effort audit write. We don't fail the user-visible toggle if the
-  // audit table doesn't exist yet (e.g. older test environment); the toggle
-  // change still lands on the vendor_profiles row.
-  const auditPayload = {
-    action: 'vendor_backend_count_toggle' as const,
-    target_id: profile.vendor_profile_id,
-    actor_user_id: user.id,
-    metadata: {
-      old_value: previous,
-      new_value: target,
-      by_user_id: user.id,
-    },
-  };
-  await supabase.from('admin_audit_log').insert(auditPayload);
-
-  revalidatePath('/vendor-dashboard');
-  redirect('/vendor-dashboard?saved=1');
-}
-
-/**
- * Shortlist Radar (Wave 2) — vendor-facing demand read.
- *
- * Resolves the caller's OWN vendor_profile_id, then calls the two RLS-scoped
- * SECURITY DEFINER RPCs:
- *   • count_saves_for_vendor   → live "N couples saved you" tally (distinct
- *     savers across vendor_follows + guest_saved_vendors, count only — never
- *     a user_id, so guest_saved_vendors stays owner-only at the RLS layer).
- *   • rival_signals_for_vendor → de-identified (month, region, count) demand
- *     rollup in the vendor's hq_region; the RPC itself honors the admin
- *     radar_enabled toggle + min-N floor, so nothing below the floor and no
- *     couple identity ever reaches this process.
- *
- * Best-effort: any failure (no profile, RPC error, pre-migration deploy)
- * collapses to zeros/empty so the dashboard home never breaks.
- */
-export type ShortlistRadarSignal = {
-  month_bucket: string;
-  region_code: string;
-  signal_count: number;
-};
-
-export type ShortlistRadar = {
-  savedCount: number;
-  signals: ShortlistRadarSignal[];
-};
-
-export async function getShortlistRadar(): Promise<ShortlistRadar> {
-  const empty: ShortlistRadar = { savedCount: 0, signals: [] };
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return empty;
-
-    const profile = await fetchOwnVendorProfile(supabase, user.id);
-    if (!profile) return empty;
-    const vendorProfileId = profile.vendor_profile_id;
-
-    const [savesRes, signalsRes] = await Promise.all([
-      supabase.rpc('count_saves_for_vendor', {
-        p_vendor_profile_id: vendorProfileId,
-      }),
-      supabase.rpc('rival_signals_for_vendor', {
-        p_vendor_profile_id: vendorProfileId,
-      }),
-    ]);
-
-    const savedCount =
-      typeof savesRes.data === 'number' ? savesRes.data : 0;
-
-    const signals: ShortlistRadarSignal[] = Array.isArray(signalsRes.data)
-      ? (signalsRes.data as ShortlistRadarSignal[]).map((row) => ({
-          month_bucket: String(row.month_bucket),
-          region_code: String(row.region_code),
-          signal_count: Number(row.signal_count) || 0,
-        }))
-      : [];
-
-    return { savedCount, signals };
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[getShortlistRadar] failed', err);
-    return empty;
-  }
 }
 
 /* ─── My Shop → Website editor ──────────────────────────────────────────── */
@@ -1231,4 +1201,37 @@ export async function updateVendorWebsiteField(
     revalidatePath(`/${s}`);
   }
   return { ok: true };
+}
+
+/**
+ * Save the shop's precise founding DATE (`in_business_since_date`, migration
+ * 20270805100000) — drives the exact business monthsary/anniversary day. A
+ * plain server-action form (no client JS): blank clears it. The write is
+ * guarded so a not-yet-applied migration (apply-lag) fails soft instead of
+ * throwing; the revalidate re-renders the shop + Overview with the saved value.
+ */
+export async function updateBusinessStartDate(formData: FormData): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) return;
+
+  const raw = String(formData.get('in_business_since_date') ?? '').trim();
+  // Accept a full ISO date, or blank to clear. Reject anything else.
+  const value = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
+
+  try {
+    await supabase
+      .from('vendor_profiles')
+      .update({ in_business_since_date: value })
+      .eq('vendor_profile_id', profile.vendor_profile_id);
+  } catch {
+    // graceful-degrade: apply-lag or a transient error — nothing to surface on
+    // a plain-form action; the revalidate will show whether it persisted.
+  }
+  revalidatePath('/vendor-dashboard/shop');
+  revalidatePath('/vendor-dashboard');
 }

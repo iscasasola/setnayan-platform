@@ -92,8 +92,6 @@ import {
   Home,
   ShoppingBag,
   BarChart2,
-  ChevronRight,
-  Check,
   Zap,
   Briefcase,
   CalendarCheck,
@@ -113,6 +111,8 @@ import {
   Sparkles,
   Star,
   Tag,
+  TrendingUp,
+  ListChecks,
   User,
   Users,
   Wallet,
@@ -127,11 +127,11 @@ import {
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
-import { VendorAvatar } from '@/app/_components/vendor-avatar';
-import type { LucideIcon } from 'lucide-react';
-import type { NavGroup, NavItem } from '@/app/_components/nav/types';
+import { SidebarSection } from '@/app/_components/nav/sidebar-section';
+import { SidebarItem } from '@/app/_components/nav/sidebar-item';
+import type { NavGroup, NavBadge } from '@/app/_components/nav/types';
 import type { VendorTeamRole } from '@/lib/vendor-team';
-import { filterVendorNavGroups } from '@/lib/vendor-role';
+import { filterVendorNavGroups, canManageVendor } from '@/lib/vendor-role';
 import { TIER_LABEL, asVendorTier, type VendorTier } from '@/lib/vendor-tier-caps';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 
@@ -160,343 +160,231 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
   // moves them to sidebar chrome chips. (Redeem code was hard-deleted
   // 2026-07-01 under the "no free tokens" money-integrity pass.)
   {
-    // Overview — the single at-a-glance landing. Sentinel matchPrefix so the
-    // strict-prefix branch never fires; every other vendor route begins with
-    // `/vendor-dashboard/`, so a default startsWith match would keep Overview
-    // perpetually active.
+    // ── THE 5-PAGE IA (owner-locked 2026-07-12: "overview, my shop, my
+    // customers, my performance, BEO are all 1-page each with the different
+    // features integrated on that page"). The desktop sidebar is now exactly
+    // the mobile bottom nav's five destinations — every former child surface
+    // lives as a tab (or a More-tools card) INSIDE its hub, and the old
+    // routes redirect in with params preserved. Do NOT re-add children here;
+    // extend the hub's tab strip instead (customers/shop/performance page.tsx).
     key: 'home',
-    label: 'Overview',
+    label: 'Menu',
     items: [
       {
+        // Sentinel matchPrefix so the strict-prefix branch never fires —
+        // every other vendor route begins with `/vendor-dashboard/`, so a
+        // default startsWith match would keep Overview perpetually active.
         key: 'overview',
         label: 'Overview',
         href: '/vendor-dashboard',
         icon: Home,
         matchPrefix: '__overview-exact__',
       },
-    ],
-  },
-  {
-    // My Shop — the vendor's storefront: identity, reputation, network + the
-    // account/plan surfaces that run it.
-    key: 'shop',
-    label: 'My Shop',
-    items: [
-      // Shop overview — the storefront landing (proto-shell 6-menu destination).
-      // First item so the /more "My Shop" section leads with it.
       { key: 'shop', label: 'My Shop', href: '/vendor-dashboard/shop', icon: ShoppingBag, matchPrefix: '/vendor-dashboard/shop' },
-      { key: 'profile', label: 'Profile', href: '/vendor-dashboard/profile', icon: User, matchPrefix: '/vendor-dashboard/profile' },
-      { key: 'verify', label: 'Verify', href: '/vendor-dashboard/verify', icon: ShieldCheck, matchPrefix: '/vendor-dashboard/verify' },
-      { key: 'website', label: 'Website', href: '/vendor-dashboard/website', icon: Globe, matchPrefix: '/vendor-dashboard/website' },
-      { key: 'reviews', label: 'Reviews', href: '/vendor-dashboard/reviews', icon: Star, matchPrefix: '/vendor-dashboard/reviews' },
-      // Track record across life events — the per-event-type reputation breakdown
-      // (Weddings 12 · ★4.8 / Debuts 3 · ★4.6). A reputation surface → lives under
-      // My Shop. Reachable via /more + mobile landing (both derive from this
-      // array); the 6 flat desktop destinations stay unchanged.
-      { key: 'track-record', label: 'Track record', href: '/vendor-dashboard/track-record', icon: BarChart2, matchPrefix: '/vendor-dashboard/track-record' },
-      // Disputes — "stand up for yourself" mediation. A neutral team reviews any
-      // dispute filed against your shop before it can touch your rating; you
-      // contest + track outcomes here. Reputation surface → lives under My Shop.
-      { key: 'disputes', label: 'Disputes', href: '/vendor-dashboard/disputes', icon: Scale, matchPrefix: '/vendor-dashboard/disputes' },
-      { key: 'theft-watch', label: 'Theft Watch', href: '/vendor-dashboard/theft-watch', icon: ShieldAlert, matchPrefix: '/vendor-dashboard/theft-watch' },
-      { key: 'real-stories', label: 'Real Stories', href: '/vendor-dashboard/real-stories', icon: Sparkles, matchPrefix: '/vendor-dashboard/real-stories' },
-      { key: 'recaps', label: 'Recaps', href: '/vendor-dashboard/recaps', icon: Images, matchPrefix: '/vendor-dashboard/recaps' },
-      { key: 'recommendations', label: 'Recommend', href: '/vendor-dashboard/recommendations', icon: Lightbulb, matchPrefix: '/vendor-dashboard/recommendations' },
-      { key: 'partnerships', label: 'Partnerships', href: '/vendor-dashboard/partnerships', icon: Handshake, matchPrefix: '/vendor-dashboard/partnerships' },
-      { key: 'team', label: 'Team & Setnayan', href: '/vendor-dashboard/team', icon: Users, matchPrefix: '/vendor-dashboard/team' },
-      // Branches — Enterprise sub-location accounts. Owner/admin only + the
-      // page/actions re-check tier + role server-side.
-      { key: 'branches', label: 'Branches', href: '/vendor-dashboard/branches', icon: Building2, matchPrefix: '/vendor-dashboard/branches' },
-      { key: 'subscription', label: 'Plan & tokens', href: '/vendor-dashboard/subscription', icon: Crown, matchPrefix: '/vendor-dashboard/subscription' },
-    ],
-  },
-  {
-    // My Customers — the people you work with + the money that flows from
-    // them (booking pipeline · comms · contracts · earnings).
-    key: 'customers',
-    label: 'My Customers',
-    items: [
-      // Customers overview — the pipeline landing (proto-shell 6-menu destination).
-      // First item so the /more "My Customers" section leads with it.
       { key: 'customers', label: 'My Customers', href: '/vendor-dashboard/customers', icon: Users, matchPrefix: '/vendor-dashboard/customers' },
-      { key: 'messages', label: 'Messages', href: '/vendor-dashboard/messages', icon: MessageSquare, matchPrefix: '/vendor-dashboard/messages' },
-      { key: 'clients', label: 'Clients', href: '/vendor-dashboard/clients', icon: Users, matchPrefix: '/vendor-dashboard/clients' },
-      { key: 'bookings', label: 'Bookings', href: '/vendor-dashboard/bookings', icon: Briefcase, matchPrefix: '/vendor-dashboard/bookings' },
-      // Schedule-pool surface (owner lock 2026-06-12) — one schedule per
-      // service category; the calendar that stops double-bookings.
-      { key: 'calendar', label: 'Calendar', href: '/vendor-dashboard/calendar', icon: CalendarDays, matchPrefix: '/vendor-dashboard/calendar' },
-      { key: 'contracts', label: 'Contracts', href: '/vendor-dashboard/contracts', icon: FileSignature, matchPrefix: '/vendor-dashboard/contracts' },
-      // Data-link program ③ — auto-filled proposals for booked clients.
-      { key: 'proposals', label: 'Proposals', href: '/vendor-dashboard/proposals', icon: FileText, matchPrefix: '/vendor-dashboard/proposals' },
-      { key: 'earnings', label: 'Earnings', href: '/vendor-dashboard/earnings', icon: Wallet, matchPrefix: '/vendor-dashboard/earnings' },
-      // Payday Calendar & Cash-Flow (Wave 4) — installment due-dates across
-      // booked events. Owner/admin only — surfaces money figures.
-      { key: 'payday', label: 'Payday', href: '/vendor-dashboard/payday', icon: CalendarClock, matchPrefix: '/vendor-dashboard/payday' },
-      { key: 'payment-options', label: 'How clients pay you', href: '/vendor-dashboard/payment-options', icon: Wallet, matchPrefix: '/vendor-dashboard/payment-options' },
-    ],
-  },
-  {
-    // My Performance — analytics + market intel. Owner/admin only (every key
-    // absent from VENDOR_SCOPED_NAV_ITEM_KEYS). The Performance cockpit composes
-    // the ROI/health overview + booking funnel + by-source breakdown (the old
-    // standalone /funnel page was folded in · 2026-07-02); Demand Radar is its
-    // remaining drill-down.
-    key: 'performance',
-    label: 'My Performance',
-    items: [
-      { key: 'performance', label: 'Overview', href: '/vendor-dashboard/performance', icon: Gauge, matchPrefix: '/vendor-dashboard/performance' },
-      { key: 'demand', label: 'Demand Radar', href: '/vendor-dashboard/demand', icon: Radar, matchPrefix: '/vendor-dashboard/demand' },
-    ],
-  },
-  {
-    // Service tools — the specialist tools that configure a vendor's offerings
-    // (Repertoire is music-only · gated in code + on the page). The Services
-    // editor itself was folded into My Shop (2026-07-02) — no 'services' item
-    // here; the group keeps its 'offerings' key so section open-state persists.
-    key: 'offerings',
-    label: 'Service tools',
-    items: [
-      { key: 'attributes', label: 'Attributes', href: '/vendor-dashboard/attributes', icon: Tag, matchPrefix: '/vendor-dashboard/attributes' },
-      { key: 'repertoire', label: 'Repertoire', href: '/vendor-dashboard/repertoire', icon: Music, matchPrefix: '/vendor-dashboard/repertoire' },
-      { key: 'manpower', label: 'Manpower', href: '/vendor-dashboard/manpower', icon: HardHat, matchPrefix: '/vendor-dashboard/manpower' },
-      { key: 'moodboard-library', label: 'Moodboard library', href: '/vendor-dashboard/moodboard-library', icon: Palette, matchPrefix: '/vendor-dashboard/moodboard-library' },
-    ],
-  },
-  {
-    // On the Day — the free, category-conditional day-of console (Phase 7,
-    // 2026-07-01). Resolves the vendor's category from their services and shows
-    // the matching day-of tool: shot list (photo/video) · command center
-    // (coordinator) · headcount (caterer) · setlist (band/DJ), plus the live
-    // run-of-show for the event in focus. Ordered LAST per the 6-menu IA.
-    key: 'onday',
-    label: 'On the Day',
-    items: [
-      { key: 'on-the-day', label: 'On the Day', href: '/vendor-dashboard/on-the-day', icon: CalendarCheck, matchPrefix: '/vendor-dashboard/on-the-day' },
+      { key: 'performance', label: 'My Performance', href: '/vendor-dashboard/performance', icon: Gauge, matchPrefix: '/vendor-dashboard/performance' },
+      { key: 'on-the-day', label: 'On the Day (BEO)', href: '/vendor-dashboard/on-the-day', icon: CalendarCheck, matchPrefix: '/vendor-dashboard/on-the-day' },
     ],
   },
 ];
 
 /**
- * THE 6 FLAT SIDEBAR DESTINATIONS (proto-shell 2026-07-01).
+ * THE DESKTOP SIDEBAR TREE — "Energy, not skin" reskin (2026-07-09).
  *
- * The finalized prototype renders the vendor sidebar as SIX flat destination
- * items — NOT the collapsible group tree. Each is a single menu that lands on
- * its own overview page; the sub-surfaces underneath each menu (the full
- * `VENDOR_NAV_GROUPS` items) still exist as routes and stay reachable via the
- * /more landing + deep-links — they're just no longer enumerated in the desktop
- * sidebar chrome. Keys/hrefs/matchPrefixes match the group model 1:1 where a
- * destination already existed:
- *   1. Overview        → /vendor-dashboard            (exact-match)
- *   2. My Shop         → /vendor-dashboard/shop
- *   3. My Customers    → /vendor-dashboard/customers
- *   4. My Performance  → /vendor-dashboard/performance
- *   5. My Services     → /vendor-dashboard/services
- *   6. On the Day      → /vendor-dashboard/on-the-day (amber "attention" dot)
+ * The desktop sidebar renders TWO labelled sections (Business · Grow) matching
+ * the `setnayan-vendor-energy.html` prototype. A handful of relabelled PRIMARY
+ * rows (Home · Bookings · Services · Threads · My Shop · Growth & Setnayan) each
+ * carry the rest of the surfaces as auto-expanding sub-items (SidebarItem's
+ * in-section nesting), so NOTHING orphans — every route in the flat canonical
+ * `VENDOR_NAV_GROUPS` above also appears here, just grouped + nested.
  *
- * REGISTRY: each destination keys off a `vendor.sidebar.<key>` slot for the
- * admin label/icon override (same overlay the group tree used), so /admin/menus
- * still governs these. `overview` + `services` + `on-the-day` reuse their
- * existing slots; `shop` + `customers` + `performance` get new slots in
- * nav-registry-defaults.ts.
+ * This tree is SEPARATE from `VENDOR_NAV_GROUPS` on purpose: that flat 6-group
+ * export still drives the mobile /more landing + `vendor-mobile-landing`, which
+ * enumerate every item as a top-level row (mobile reachability). Nesting is a
+ * DESKTOP presentation only; the two stay in sync by covering the same route
+ * set. Active-state = wine (SidebarItem's shared `--m-nav-active`); the vendor's
+ * photography-blue secondary accent lives in the identity card + the Overview
+ * body, never replacing the shared wine chrome.
+ *
+ * REGISTRY: each PRIMARY row keys off a `vendor.sidebar.<key>` slot for the
+ * admin label/icon override (nested children keep their code defaults, as the
+ * flat destinations did). Keys reuse the canonical item keys 1:1 so deep-links,
+ * the role filter (by key), and localStorage section state all stay valid.
  */
-const VENDOR_SIDEBAR_DESTINATIONS: NavItem[] = [
-  { key: 'overview', label: 'Overview', href: '/vendor-dashboard', icon: Home, matchPrefix: '__overview-exact__' },
-  { key: 'shop', label: 'My Shop', href: '/vendor-dashboard/shop', icon: ShoppingBag, matchPrefix: '/vendor-dashboard/shop' },
-  { key: 'customers', label: 'My Customers', href: '/vendor-dashboard/customers', icon: Users, matchPrefix: '/vendor-dashboard/customers' },
-  { key: 'performance', label: 'My Performance', href: '/vendor-dashboard/performance', icon: BarChart2, matchPrefix: '/vendor-dashboard/performance' },
-  { key: 'on-the-day', label: 'On the Day', href: '/vendor-dashboard/on-the-day', icon: CalendarCheck, matchPrefix: '/vendor-dashboard/on-the-day', badge: { count: 1, tone: 'amber' } },
+const VENDOR_SIDEBAR_TREE: NavGroup[] = [
+  {
+    // ── THE 5-PAGE IA (owner-locked 2026-07-12: "overview, my shop, my
+    // customers, my performance, BEO are all 1-page each with the different
+    // features integrated on that page"). Desktop now mirrors the mobile
+    // bottom nav exactly — five destinations, no nested children. Every
+    // former sub-surface lives as a tab (or More-tools card) INSIDE its hub:
+    //   My Customers → pipeline · Bookings · Clients · Calendar · Payday · Messages
+    //   My Shop      → home (profile·services·verify·website) · Contracts ·
+    //                  Proposals · Earnings · How clients pay you · Manpower · tools
+    //   My Performance → overview · Demand Radar
+    // Old routes redirect in with params preserved. Do NOT re-add children
+    // here; extend the hub tab strips instead (customers/shop/performance).
+    key: 'shell-business',
+    label: 'Menu',
+    items: [
+      {
+        // Sentinel matchPrefix so the strict-prefix branch never fires —
+        // a startsWith '/vendor-dashboard' match would keep this always lit.
+        key: 'overview',
+        label: 'Overview',
+        href: '/vendor-dashboard',
+        icon: Home,
+        matchPrefix: '__overview-exact__',
+      },
+      { key: 'shop', label: 'My Shop', href: '/vendor-dashboard/shop', icon: ShoppingBag, matchPrefix: '/vendor-dashboard/shop' },
+      { key: 'customers', label: 'My Customers', href: '/vendor-dashboard/customers', icon: Users, matchPrefix: '/vendor-dashboard/customers' },
+      { key: 'performance', label: 'My Performance', href: '/vendor-dashboard/performance', icon: Gauge, matchPrefix: '/vendor-dashboard/performance' },
+      { key: 'on-the-day', label: 'On the Day (BEO)', href: '/vendor-dashboard/on-the-day', icon: CalendarCheck, matchPrefix: '/vendor-dashboard/on-the-day' },
+    ],
+  },
 ];
 
 /**
- * Active-detection for a flat destination — exact href OR strict prefix-match
- * (trailing slash so /vendor-dashboard/services doesn't light /vendor-dashboard).
- * Overview carries a sentinel matchPrefix so its strict-prefix branch never
- * fires (every other route shares the /vendor-dashboard prefix).
- */
-function destinationActive(item: NavItem, pathname: string): boolean {
-  const prefix = item.matchPrefix ?? item.href;
-  return pathname === item.href || pathname.startsWith(prefix + '/');
-}
-
-/**
- * Overlays the admin nav-registry label + icon onto a flat destination via its
+ * Overlays the admin nav-registry label + icon onto each PRIMARY row via its
  * `vendor.sidebar.<key>` slot (the item key matches the slot suffix 1:1).
- * Fallback = the item's hardcoded default; a hidden slot drops the item; no-op
- * when navSlots is absent (fails open). href/matchPrefix/badge stay in code.
+ * Fallback = the item's hardcoded default; a hidden slot drops the primary; a
+ * no-op when navSlots is absent (fails open). Nested children + href/matchPrefix
+ * stay in code, mirroring the flat-destination overlay this replaced.
  */
-function applyVendorRegistry(
-  items: NavItem[],
+function applyVendorRegistryGroups(
+  groups: NavGroup[],
   navSlots?: Record<string, NavSlotLite>,
-): NavItem[] {
-  if (!navSlots) return items;
-  return items.flatMap((item) => {
-    const slot = navSlots[`vendor.sidebar.${item.key}`];
-    if (!slot) return [item];
-    if (slot.isHidden) return [];
-    return [{ ...item, label: slot.label, icon: navIconComponent(slot.icon) }];
-  });
+): NavGroup[] {
+  if (!navSlots) return groups;
+  return groups.map((group) => ({
+    ...group,
+    items: group.items.flatMap((item) => {
+      const slot = navSlots[`vendor.sidebar.${item.key}`];
+      if (!slot) return [item];
+      if (slot.isHidden) return [];
+      return [{ ...item, label: slot.label, icon: navIconComponent(slot.icon) }];
+    }),
+  }));
 }
 
 /**
- * The vendor identity card — a dark rounded-square avatar (initials) + the
- * business display name + a green "Verified" / muted "Unverified" line. Reads
- * as the prototype's obsidian avatar tile. Hidden on the collapsed 64px rail
- * (no room) via the same data-attr selector the shell uses elsewhere.
+ * Injects a live count badge onto a PRIMARY row when the badge map carries a
+ * positive number for its key. Real counts only — a 0/undefined entry leaves the
+ * row unbadged (the caller omits rather than fakes). Runs AFTER the registry
+ * overlay so an admin-renamed label keeps its count.
  */
-function VendorIdentityCard({
-  displayName,
-  initials,
-  logoUrl,
-  isVerified,
-}: {
-  displayName: string;
-  initials: string;
-  logoUrl: string | null;
-  isVerified: boolean;
-}) {
-  return (
-    <div
-      className="mx-2 mb-2 flex items-center gap-3 rounded-xl border p-2.5 [[data-sidebar-collapsed='1']_&]:hidden"
-      style={{ background: 'var(--m-paper)', borderColor: 'var(--m-line)' }}
-    >
-      <VendorAvatar
-        logoUrl={logoUrl}
-        initials={initials}
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[13px] font-semibold tracking-wide"
-      />
-      <div className="min-w-0">
-        <p className="truncate text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-          {displayName}
-        </p>
-        {isVerified ? (
-          <p
-            className="mt-0.5 flex items-center gap-1 text-xs font-medium"
-            style={{ color: 'var(--m-sage-deep)' }}
-          >
-            <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
-            Verified
-          </p>
-        ) : (
-          <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-            Unverified
-          </p>
-        )}
-      </div>
-    </div>
-  );
+function applyPrimaryBadges(
+  groups: NavGroup[],
+  badges: Record<string, NavBadge | undefined>,
+): NavGroup[] {
+  return groups.map((group) => ({
+    ...group,
+    items: group.items.map((item) => {
+      const badge = badges[item.key];
+      return badge && badge.count > 0 ? { ...item, badge } : item;
+    }),
+  }));
 }
 
 /**
- * A single flat destination row — the prototype's obsidian-active treatment:
- * ACTIVE = solid --m-ink (obsidian) rounded fill + white icon/label; INACTIVE =
- * obsidian text on transparent, subtle paper hover. Label + amber dot hide on
- * the collapsed 64px rail. This is a purpose-built row (NOT <SidebarItem>, whose
- * active state is a champagne-gold tint + accent bar) so it reads as the
- * prototype's dark selected pill.
+ * Strips nested children from every primary row — used for agent/viewer roles so
+ * the scoped sidebar shows only their flat primaries (Home · Bookings · Threads)
+ * without exposing owner-only sub-surfaces underneath them.
  */
-function VendorDestinationRow({
-  item,
-  active,
-}: {
-  item: NavItem;
-  active: boolean;
-}) {
-  const Icon = item.icon as LucideIcon;
-  const hasDot = item.badge && item.badge.count > 0;
-  return (
-    <li>
-      <Link
-        href={item.href}
-        aria-current={active ? 'page' : undefined}
-        title={item.label}
-        className={`relative flex min-h-[44px] items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
-          active ? '' : 'hover:bg-[var(--m-paper)]'
-        }`}
-        style={{
-          color: active ? 'var(--m-paper)' : 'var(--m-ink)',
-          background: active ? 'var(--m-ink)' : 'transparent',
-          outlineColor: 'var(--m-orange)',
-        }}
-      >
-        <Icon
-          aria-hidden
-          className="h-[19px] w-[19px] shrink-0"
-          strokeWidth={1.75}
-          style={{ color: active ? 'var(--m-paper)' : 'var(--m-slate)' }}
-        />
-        <span className="truncate [[data-sidebar-collapsed='1']_&]:hidden">{item.label}</span>
-        {hasDot ? (
-          <span
-            aria-label={item.badge?.label ?? 'Needs attention'}
-            className="ml-auto h-2 w-2 shrink-0 rounded-full [[data-sidebar-collapsed='1']_&]:hidden"
-            style={{ background: 'var(--m-orange)' }}
-          />
-        ) : null}
-      </Link>
-    </li>
-  );
+function flattenChildren(groups: NavGroup[]): NavGroup[] {
+  return groups.map((group) => ({
+    ...group,
+    items: group.items.map(({ children: _children, ...item }) => item),
+  }));
 }
 
 /**
- * VendorSidebar — the prototype vendor shell body: the identity card + the SIX
- * flat destination rows. The brand wordmark + "Vendor" eyebrow + account
- * switcher live in DoorwaySidebarHeader (pinned above this by SidebarShell); the
- * subscription chip + token row live in VendorSidebarFooter (pinned below via
- * SidebarShell's sidebarFooter slot).
+ * VendorSidebar — the "Energy, not skin" vendor shell body: the two labelled
+ * sections (Business · Grow) rendered through the shared <SidebarSection> +
+ * <SidebarItem> primitives (wine active-state · nested auto-expanding
+ * sub-items · live badges — all inherited from the shared chrome). The brand
+ * wordmark home-link + "Vendor" eyebrow + the business identity plaque (the
+ * account-menu SwitcherPlaqueTrigger — Plaque-as-Menu council verdict
+ * 2026-07-16, which retired the old in-body VendorIdentityCard div) live in
+ * DoorwaySidebarHeader (pinned above by SidebarShell); the subscription chip +
+ * token row live in VendorSidebarFooter (pinned below via SidebarShell).
  */
 export function VendorSidebar({
   role,
-  showRepertoire: _showRepertoire = true,
+  showRepertoire = true,
   navSlots,
-  displayName,
-  initials,
-  logoUrl = null,
-  isVerified,
+  bookingsBadge = 0,
+  threadsBadge = 0,
 }: {
   role: VendorTeamRole | null;
-  /** Retained for API compatibility; the flat destinations don't surface
-   *  the music-only Repertoire sub-surface, so this is a no-op here. */
+  /** Music-only gate (owner directive 2026-06-13): when false, the nested
+   *  'repertoire' tool is filtered out of the Services primary so non-music
+   *  vendors don't dead-end on the "for music acts" explainer. Mirrors the
+   *  top-level filter in vendor-dashboard/more/page.tsx. */
   showRepertoire?: boolean;
   navSlots?: Record<string, NavSlotLite>;
-  displayName: string;
-  initials: string;
-  /** Presigned display URL of the uploaded logo — replaces the initials tile. */
-  logoUrl?: string | null;
-  isVerified: boolean;
+  /** Pending-inquiry count → Bookings badge. Real layout data; 0 omits it. */
+  bookingsBadge?: number;
+  /** Unread-thread count → Threads badge. Real layout data; 0 omits it. */
+  threadsBadge?: number;
 }) {
   const pathname = usePathname() ?? '/vendor-dashboard';
-  // Role-aware: owner/admin see all five destinations; agent/viewer see only the
-  // scoped subset per VENDOR_SCOPED_NAV_ITEM_KEYS (of the flat destinations, just
-  // Overview — 'services' was retired 2026-07-02 when the Services editor folded
-  // into owner/admin-only My Shop). We reuse the NavGroup-based filter by
-  // wrapping the flat list in a single group, then unwrapping — one source of
-  // truth in lib/vendor-role.ts. The filter drops the group if every item is
-  // scoped out; default to [] then.
-  const visibleItems =
-    filterVendorNavGroups(
-      [{ key: 'shell', label: '', items: VENDOR_SIDEBAR_DESTINATIONS }],
-      role,
-    )[0]?.items ?? [];
-  const destinations = applyVendorRegistry(visibleItems, navSlots);
+
+  // Role-aware: owner/admin see both sections in full; agent/viewer see only the
+  // scoped primaries (Home · Bookings · Threads per VENDOR_SCOPED_NAV_ITEM_KEYS)
+  // with their owner-only sub-surfaces stripped. filterVendorNavGroups gates by
+  // top-level item key + drops empty groups (the whole Grow section falls away
+  // for staff); flattenChildren then removes nested rows so staff never see a
+  // sub-surface they can't open.
+  const isManager = canManageVendor(role);
+  const scoped = filterVendorNavGroups(VENDOR_SIDEBAR_TREE, role);
+  const roleGated = isManager ? scoped : flattenChildren(scoped);
+
+  // Repertoire is a music-only tool (owner directive 2026-06-13): drop the
+  // nested 'repertoire' child from the Services primary for non-music vendors so
+  // they don't dead-end on the "for music acts" explainer. Mirrors the top-level
+  // filter in vendor-dashboard/more/page.tsx. (Staff already had their children
+  // stripped by flattenChildren above, so this is a no-op for them.)
+  const repertoireGated = showRepertoire
+    ? roleGated
+    : roleGated.map((group) => ({
+        ...group,
+        items: group.items.map((item) =>
+          item.children
+            ? { ...item, children: item.children.filter((c) => c.key !== 'repertoire') }
+            : item,
+        ),
+      }));
+
+  // Registry label/icon overrides → live badges (real counts only) onto the
+  // primaries. Badge tone 'orange' = the shared brand-accent pill.
+  const groups = applyPrimaryBadges(
+    applyVendorRegistryGroups(repertoireGated, navSlots),
+    {
+      // Both live counts land on My Customers — the hub that now contains
+      // the booking pipeline AND the message threads (5-page IA 2026-07-12).
+      customers: bookingsBadge + threadsBadge > 0
+        ? {
+            count: bookingsBadge + threadsBadge,
+            tone: 'orange',
+            label: `${bookingsBadge} new inquiries · ${threadsBadge} unread threads`,
+          }
+        : undefined,
+    },
+  );
 
   return (
     <div className="pt-1">
-      <VendorIdentityCard
-        displayName={displayName}
-        initials={initials}
-        logoUrl={logoUrl}
-        isVerified={isVerified}
-      />
-      <nav aria-label="Vendor menu" className="px-2">
-        <ul className="flex flex-col gap-1">
-          {destinations.map((item) => (
-            <VendorDestinationRow
-              key={item.key}
-              item={item}
-              active={destinationActive(item, pathname)}
-            />
-          ))}
-        </ul>
+      <nav aria-label="Vendor menu">
+        {groups.map((group) => (
+          // `eyebrow` — Glass PR-6: section labels render as `.sn-eye` gold
+          // eyebrows, matching the couple rail's shipped treatment (PR-2).
+          <SidebarSection key={group.key} group={group} pathname={pathname} eyebrow>
+            {group.items.map((item) => (
+              <SidebarItem key={item.key} item={item} pathname={pathname} />
+            ))}
+          </SidebarSection>
+        ))}
       </nav>
     </div>
   );
@@ -524,43 +412,40 @@ export function VendorSidebarFooter({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Plan chip — whole row links to the Plan & tokens hub */}
+      {/* ONE Plan & tokens row (deduped 2026-07-16 — was two adjacent rows both
+          linking to /subscription): tier pill + label on the left, the live
+          token balance right-aligned. */}
       <Link
         href="/vendor-dashboard/subscription"
-        className="flex items-center gap-2 rounded-xl border p-2.5 transition-colors hover:bg-[var(--m-paper)]"
-        style={{ background: 'var(--m-paper)', borderColor: 'var(--m-line)' }}
+        className="flex items-center gap-2 rounded-xl border p-2.5 transition-colors hover:bg-[var(--m-sidebar-hover)]"
+        style={{ background: 'var(--m-sidebar-bg-2)', borderColor: 'var(--m-sidebar-line)' }}
       >
         <span
           className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
           style={{
-            background: 'var(--m-orange-4)',
-            border: '1px solid var(--m-orange-3)',
+            // This chip lives INSIDE `.sn-sidebar` (the obsidian panel), where
+            // globals.css remaps `--m-orange-2 → --m-orange-3` (light champagne,
+            // for the AccountSwitcher initials). The old light-cream fill
+            // (`--m-orange-4`) + that now-light text read ~1.34:1 (invisible).
+            // Recolour FOR the dark panel: a translucent gold fill lets the
+            // light `--m-orange-2` text/icon land ~6.4:1 on the obsidian tile.
+            background: 'color-mix(in srgb, var(--m-orange) 22%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--m-orange) 45%, transparent)',
             color: 'var(--m-orange-2)',
           }}
         >
           <Zap aria-hidden className="h-3 w-3" strokeWidth={2} />
           {tierLabel}
         </span>
-        <span className="text-xs" style={{ color: 'var(--m-slate)' }}>
+        <span className="text-xs" style={{ color: 'var(--m-sidebar-fg-soft)' }}>
           Plan &amp; tokens
         </span>
-        <ChevronRight
-          aria-hidden
-          className="ml-auto h-3.5 w-3.5 shrink-0"
-          strokeWidth={2}
-          style={{ color: 'var(--m-ink)' }}
-        />
-      </Link>
-
-      {/* Token balance row — also lands on the unified Plan & tokens hub */}
-      <Link
-        href="/vendor-dashboard/subscription"
-        className="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors hover:bg-[var(--m-paper)]"
-        style={{ background: 'var(--m-paper)', borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}
-      >
-        <Coins aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange)' }} />
-        <span>Your tokens</span>
-        <span className="ml-auto font-semibold" style={{ color: 'var(--m-ink)' }}>
+        <span
+          className="ml-auto inline-flex items-center gap-1 text-xs font-semibold"
+          style={{ color: 'var(--m-sidebar-fg)' }}
+          title={`${numberFormat.format(tokenBalance)} tokens`}
+        >
+          <Coins aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange)' }} />
           {numberFormat.format(tokenBalance)}
         </span>
       </Link>

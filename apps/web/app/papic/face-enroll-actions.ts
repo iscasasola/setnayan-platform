@@ -33,6 +33,19 @@ export async function enrollGuestFace(
     const admin = createAdminClient();
     const guestId = session.guest_id;
     const eventId = session.event_id;
+
+    // Minor safeguard (DPIA BV-8, 2026-07-05): never enrol a guest the host has
+    // excluded from face recognition (typically a minor), regardless of consent.
+    const { data: fx } = await admin
+      .from('guests')
+      .select('face_recognition_excluded')
+      .eq('guest_id', guestId)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if ((fx as { face_recognition_excluded: boolean } | null)?.face_recognition_excluded === true) {
+      return { ok: false };
+    }
+
     // Provenance only (free-text consent_source) — defaults to the day-of card.
     const consentSource = clean(formData.get('enroll_context')) || 'day_of';
 

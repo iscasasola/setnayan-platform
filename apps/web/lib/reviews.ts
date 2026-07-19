@@ -253,6 +253,83 @@ export async function fetchReviewStatsForMany(
   return m;
 }
 
+/**
+ * Trusted (receipt-backed, arm's-length) review aggregate for ONE vendor.
+ * Read from the `vendor_trusted_review_stats` materialized view (migration
+ * `20270516500000_vendor_trusted_review_stats.sql`).
+ *
+ * ANTI-FRAUD (2026-07-05, Phase 1 follow-up · spec
+ * `03_Strategy/Anti_Fraud_Trust_Integrity_2026-07-05.md` § 3): this is the
+ * ONLY source the PUBLIC-facing aggregate rating NUMBER + review COUNT may
+ * read. It counts only reviews that are `booked_through_setnayan = TRUE` and
+ * pass the same self-dealing / arm's-length exclusions as the completed-events
+ * view, so fake / self-dealt reviews can't inflate the public star average.
+ * The raw `vendor_review_stats` (via `fetchReviewStats`) still backs the
+ * per-star HISTOGRAM bars + the review LIST pagination — only the headline
+ * average + count migrate to trusted.
+ */
+export type TrustedReviewStatsRow = {
+  vendor_profile_id: string;
+  trusted_avg_rating: number;
+  trusted_review_count: number;
+};
+
+/**
+ * Pulls the trusted-stats row for a vendor. Returns 0/0 when no row exists yet
+ * (brand-new profile, or the vendor has zero trusted reviews). Fail-soft: a
+ * SELECT error (e.g. the view is missing pre-migration) also collapses to 0/0
+ * so the public page still renders — it just shows no headline stars.
+ */
+export async function fetchTrustedReviewStats(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<TrustedReviewStatsRow> {
+  const zero: TrustedReviewStatsRow = {
+    vendor_profile_id: vendorProfileId,
+    trusted_avg_rating: 0,
+    trusted_review_count: 0,
+  };
+  const { data, error } = await supabase
+    .from('vendor_trusted_review_stats')
+    .select('vendor_profile_id, trusted_avg_rating, trusted_review_count')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  if (error || !data) return zero;
+  return {
+    vendor_profile_id: data.vendor_profile_id as string,
+    trusted_avg_rating: Number(data.trusted_avg_rating ?? 0),
+    trusted_review_count: Number(data.trusted_review_count ?? 0),
+  };
+}
+
+/**
+ * Batch trusted-stats fetch keyed by vendor_profile_id. Used by the marketplace
+ * grid + any multi-vendor public surface that shows the aggregate star metric.
+ * Vendors absent from the returned map have 0 trusted reviews (callers default
+ * to 0/0). Fail-soft: any SELECT error returns an empty map.
+ */
+export async function fetchTrustedReviewStatsForMany(
+  supabase: SupabaseClient,
+  vendorProfileIds: ReadonlyArray<string>,
+): Promise<Map<string, TrustedReviewStatsRow>> {
+  const ids = Array.from(new Set(vendorProfileIds));
+  const m = new Map<string, TrustedReviewStatsRow>();
+  if (ids.length === 0) return m;
+  const { data, error } = await supabase
+    .from('vendor_trusted_review_stats')
+    .select('vendor_profile_id, trusted_avg_rating, trusted_review_count')
+    .in('vendor_profile_id', ids);
+  if (error) return m;
+  for (const row of data ?? []) {
+    m.set(row.vendor_profile_id as string, {
+      vendor_profile_id: row.vendor_profile_id as string,
+      trusted_avg_rating: Number(row.trusted_avg_rating ?? 0),
+      trusted_review_count: Number(row.trusted_review_count ?? 0),
+    });
+  }
+  return m;
+}
+
 export type CreateReviewArgs = {
   vendorProfileId: string;
   eventId: string;

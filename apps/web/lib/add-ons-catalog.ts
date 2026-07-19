@@ -28,10 +28,7 @@ import {
   QrCode,
   MapPin,
   Palette,
-  Users,
   LayoutGrid,
-  Wallet,
-  CalendarClock,
   MailCheck,
   PartyPopper,
   Newspaper,
@@ -170,7 +167,10 @@ export function addOnHref(key: string, eventId: string): string {
   // Seat plan opens the 3D lab by default; `NEXT_PUBLIC_SEATING_3D='false'`
   // is the kill-switch that falls back to the 2D editor (kept in lockstep with
   // the lab route's own gate). NEXT_PUBLIC_* vars are inlined server-side, and
-  // the Studio hub is a server component.
+  // the Studio hub is a server component. Both doorways keep their targets — the
+  // 2026-07-15 scroll-less rebuild put the [2D · 3D · List] segment on BOTH the
+  // 2D editor's command bar and the lab chrome, so the siblings cross-link and
+  // neither projection is orphaned (verdict §4).
   if (key === 'seating') {
     return process.env.NEXT_PUBLIC_SEATING_3D === 'false'
       ? `/dashboard/${eventId}/seating`
@@ -231,12 +231,16 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     studioGroup: 'setnayan_ai',
     serviceKey: 'SETNAYAN_AI',
     poster: {
+      // Atelier-Glass retirement (Glass PR-4, 2026-07-15): the old purple
+      // gradient + purple chip were a retired-mulberry island (owner screenshot
+      // flag). Re-expressed to the kit — obsidian base with a warm gold cast, so
+      // the AI hero reads as the premium tile idiom, not violet.
       motion: 'pulse',
       baseBackground:
-        'linear-gradient(135deg, #2A1330 0%, #5A2E66 50%, #8B4A93 100%)',
+        'linear-gradient(135deg, #17160F 0%, #3A2E1A 55%, #6B5324 100%)',
       motionBackground:
-        'radial-gradient(circle at 50% 50%, #E8C8FF 0%, transparent 55%)',
-      iconBadgeClass: 'bg-purple-100/15 text-purple-100',
+        'radial-gradient(circle at 50% 50%, #E8D3A0 0%, transparent 55%)',
+      iconBadgeClass: 'bg-cream/20 text-cream',
     },
   },
   {
@@ -359,6 +363,63 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     },
   },
   {
+    // Editorial PRO — the à-la-carte authorship unlock for the Editor's Desk
+    // (named moments · per-moment write-ups · chapter/order/guest-wishes
+    // editors · no watermark). serviceKey EDITORIAL_PRO; the COUPLE_WEBSITE_PRO
+    // umbrella confers it too (SKU_OWNERSHIP_ALIASES). opensDirect → the card
+    // opens this SKU's own /studio/editorial-pro buy surface (which handles
+    // owned / included / pending states), skipping the /about interstitial.
+    key: 'editorial-pro',
+    surface: 'website',
+    opensDirect: true,
+    label: 'Editorial PRO',
+    Icon: Newspaper,
+    iteration: '0038',
+    status: 'live',
+    category: 'digital_services',
+    blurb:
+      'Name every moment, tell each story, arrange your front page, edit the wishes — your wedding editorial, authored by you. Prints clean, no watermark.',
+    cta: 'Unlock Editorial PRO',
+    studioGroup: 'website',
+    serviceKey: 'EDITORIAL_PRO',
+    poster: {
+      motion: 'scan',
+      baseBackground:
+        'radial-gradient(circle at 40% 40%, #2A2A2E 0%, #121214 80%)',
+      motionBackground:
+        'linear-gradient(90deg, transparent 0%, rgba(169, 131, 75, 0.55) 50%, transparent 100%)',
+      iconBadgeClass: 'bg-cream/20 text-cream',
+    },
+  },
+  {
+    // Couple Website PRO — the UMBRELLA unlock. One purchase confers every
+    // premium website touch across the whole lifecycle (Save the Date openings +
+    // RSVP + on-the-day + Editorial PRO) and drops the "Powered by Setnayan"
+    // watermark everywhere. serviceKey COUPLE_WEBSITE_PRO. opensDirect → its own
+    // /studio/website-pro buy surface (owned / pending states handled there).
+    key: 'website-pro',
+    surface: 'website',
+    opensDirect: true,
+    label: 'Website PRO',
+    Icon: Globe2,
+    iteration: '0002',
+    status: 'live',
+    category: 'digital_services',
+    blurb:
+      'Every premium touch across your whole website — Save the Date openings, RSVP, the on-the-day page, and the Editorial — plus the Setnayan watermark removed everywhere.',
+    cta: 'Unlock Website PRO',
+    studioGroup: 'website',
+    serviceKey: 'COUPLE_WEBSITE_PRO',
+    poster: {
+      motion: 'pulse',
+      baseBackground:
+        'radial-gradient(circle at 40% 40%, #1E3A4F 0%, #0F1F2D 80%)',
+      motionBackground:
+        'radial-gradient(circle at 60% 60%, #A9834B 0%, transparent 55%)',
+      iconBadgeClass: 'bg-sky-100/15 text-sky-100',
+    },
+  },
+  {
     key: 'landing-page',
     surface: 'website',
     opensDirect: true,
@@ -394,12 +455,15 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     studioGroup: 'branding',
     tier: 'free',
     poster: {
+      // Atelier-Glass retirement (Glass PR-4, 2026-07-15): retired the purple
+      // gradient + chip (the other studio violet island) to a warm gold-brown,
+      // keeping the App Store variety on-language (no violet).
       motion: 'pulse',
       baseBackground:
-        'linear-gradient(135deg, #1A0B2E 0%, #3D1F5C 50%, #6B3FA0 100%)',
+        'linear-gradient(135deg, #241A12 0%, #4A331F 50%, #7A5326 100%)',
       motionBackground:
-        'radial-gradient(circle at 50% 50%, #C8A0FF 0%, transparent 50%)',
-      iconBadgeClass: 'bg-purple-100/15 text-purple-100',
+        'radial-gradient(circle at 50% 50%, #F0D8A8 0%, transparent 50%)',
+      iconBadgeClass: 'bg-cream/20 text-cream',
     },
   },
   {
@@ -706,65 +770,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
 ];
 
-/**
- * A free core planning tool surfaced in the Studio hub's "Plan & organize"
- * group. These deep-link to existing couple-sidebar routes (Guests / Seating /
- * Budget / Schedule) rather than to an /studio/[feature] detail page.
- *
- * Kept SEPARATE from ADD_ONS on purpose — these are first-class sidebar
- * surfaces, not in-app *services*, so they must NOT appear in the
- * Services/vendors tab (which iterates ADD_ONS). The Studio hub merges
- * STUDIO_FREE_TOOLS into its "Plan & organize" section at render time.
- */
-export type StudioFreeTool = {
-  key: string;
-  label: string;
-  Icon: LucideIcon;
-  /** One-line benefit, JTBD-framed. */
-  blurb: string;
-  /** Absolute href into the existing couple sidebar route. */
-  href: string;
-  /** Always free — drives the "Free" chip on the Studio card. */
-  tier: 'free';
-};
-
-/**
- * Build the free-tool list for a given event. href is event-scoped, so this is
- * a factory rather than a static const.
- */
-export function studioFreeTools(eventId: string): ReadonlyArray<StudioFreeTool> {
-  return [
-    {
-      key: 'guests',
-      label: 'Guest list',
-      Icon: Users,
-      blurb: 'Build your list, track RSVPs, and assign roles in one place',
-      href: `/dashboard/${eventId}/guests`,
-      tier: 'free',
-    },
-    {
-      key: 'seating',
-      label: 'Seating',
-      Icon: LayoutGrid,
-      blurb: 'Lay out your tables and seat every guest with drag-and-drop',
-      href: `/dashboard/${eventId}/seating`,
-      tier: 'free',
-    },
-    {
-      key: 'budget',
-      label: 'Budget',
-      Icon: Wallet,
-      blurb: 'Track every cost and payment so nothing slips through',
-      href: `/dashboard/${eventId}/budget`,
-      tier: 'free',
-    },
-    {
-      key: 'schedule',
-      label: 'Schedule',
-      Icon: CalendarClock,
-      blurb: 'Map your day-of timeline and keep every vendor in sync',
-      href: `/dashboard/${eventId}/schedule`,
-      tier: 'free',
-    },
-  ];
-}
+// `StudioFreeTool` + `studioFreeTools()` removed 2026-07-11 — dead code, imported
+// nowhere (the Studio hub renders the four free planning tools via the couple
+// sidebar / free-tools strip, not this factory). The free core tools (Guests /
+// Seating / Budget / Schedule) remain first-class sidebar surfaces.

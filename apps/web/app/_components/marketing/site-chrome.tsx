@@ -57,7 +57,10 @@ const NAV_ROUTES = new Set<string>([
   '/about',
   '/how-it-works',
   '/pricing',
-  '/for-vendors',
+  '/vendors',
+  // /creators — the public storyteller marketing page (2026-07-16); joins the
+  // marketing shell alongside its /vendors sibling.
+  '/creators',
   '/our-story',
   '/blog',
   '/realstories',

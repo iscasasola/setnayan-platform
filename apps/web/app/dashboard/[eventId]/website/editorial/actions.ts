@@ -57,6 +57,12 @@ export type EditorialEditorInput = {
   byline: string;
   leadParagraphs: string; // raw textarea — split on blank lines
   pullQuote: string;
+  // FREE couple-uploaded imagery (no Papic required). `heroUpload` is a single
+  // `r2://…` ref for the editorial cover (empty string = none). `galleryUploads`
+  // is up to 30 `r2://…` refs feeding ONLY the "From the Day" gallery grid. Both
+  // are compressed client-side at upload time; stored in draft_json.
+  heroUpload: string;
+  galleryUploads: string[];
   sections: EditorialSections;
   // "As the Day Unfolded" per-chapter curation. The ARRAY ORDER is the couple's
   // chosen chapter order; only rows that DIFFER from the auto default are sent (an
@@ -105,6 +111,37 @@ function sanitizeChapterOverrides(input: ChapterOverride[]): ChapterOverride[] {
       ...(writeUp ? { writeUp } : {}),
       ...(hidden ? { hidden: true } : {}),
     });
+  }
+  return out;
+}
+
+/** HARD cap on couple-uploaded editorial gallery photos (FREE). Enforced here
+ *  server-side (the editor also soft-caps); refs beyond this are truncated. */
+const GALLERY_UPLOADS_MAX = 30;
+
+/** A stored asset ref we persist is either an `r2://…` tag (new uploads) or a
+ *  legacy http(s) URL. Reject anything else (empty, `javascript:`, a data URI,
+ *  a bare filename) so a hand-crafted request can't stash junk in draft_json. */
+function isStoredAssetRef(v: unknown): v is string {
+  if (typeof v !== 'string') return false;
+  const t = v.trim();
+  if (!t) return false;
+  return t.startsWith('r2://') || t.startsWith('https://') || t.startsWith('http://');
+}
+
+/** Sanitize the couple's editorial gallery uploads: keep only valid stored-asset
+ *  refs, dedupe, and HARD-cap at 30. Anything non-array → []. */
+function sanitizeGalleryUploads(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of input) {
+    if (out.length >= GALLERY_UPLOADS_MAX) break;
+    if (!isStoredAssetRef(raw)) continue;
+    const ref = raw.trim();
+    if (seen.has(ref)) continue;
+    seen.add(ref);
+    out.push(ref);
   }
   return out;
 }
@@ -209,6 +246,17 @@ export async function saveEditorial(
     .filter(Boolean);
   if (paras.length) draft.lead_paragraphs = paras;
   else delete draft.lead_paragraphs;
+
+  // FREE couple-uploaded imagery (no Papic required, no PRO gate). Hero cover
+  // (single ref) + editorial gallery (≤30 refs, capped server-side). Empty →
+  // delete the key so a no-Papic editorial reverts cleanly to the auto paths.
+  const heroUpload = isStoredAssetRef(input.heroUpload) ? input.heroUpload.trim() : '';
+  if (heroUpload) draft.heroUpload = heroUpload;
+  else delete draft.heroUpload;
+
+  const galleryUploads = sanitizeGalleryUploads(input.galleryUploads);
+  if (galleryUploads.length) draft.galleryUploads = galleryUploads;
+  else delete draft.galleryUploads;
 
   // Section visibility map (only `false` hides; default-on otherwise).
   const sections: Record<string, boolean> = {};

@@ -31,7 +31,7 @@ import {
   formatLeanMonths,
   suggestPromoExpiry,
 } from '@/lib/vendor-lean-months';
-import { tierCaps, canPlotTimeSlots } from '@/lib/vendor-tier-caps';
+import { tierCaps, canPlotTimeSlots, isTierAtLeast } from '@/lib/vendor-tier-caps';
 import {
   fetchVendorTimeSlotsByService,
   formatSlotTime,
@@ -308,7 +308,9 @@ export async function VendorServicesManager({
   // #3 time-bound slots: ENTERPRISE-only plotting (keyed on the enterprise tier).
   const canPlotSlots = canPlotTimeSlots(tier);
   const branches =
-    tier === 'enterprise'
+    // Enterprise-or-higher (Custom runs as Enterprise) — rank-derived so Custom
+    // gets the branch picker without a hard equality edit.
+    isTierAtLeast(tier, 'enterprise')
       ? (await fetchVendorBranches(supabase, profile.vendor_profile_id)).filter(
           (b) => b.status !== 'cancelled',
         )
@@ -667,7 +669,7 @@ export async function VendorServicesManager({
                 : 'quote on request';
               const paxLabel =
                 svc.added_pax_price_php && svc.added_pax_price_php > 0
-                  ? `+${formatPhp(svc.added_pax_price_php)}/guest`
+                  ? `+${formatPhp(svc.added_pax_price_php)}/${svc.category === 'crew_meals' ? 'meal' : 'guest'}`
                   : 'flat';
               const branchLabel =
                 svc.branch_id && branchLabelById.has(svc.branch_id)
@@ -844,6 +846,7 @@ export async function VendorServicesManager({
                         ) : null}
                         <PricingBasisEditor
                           idPrefix={svc.vendor_service_id}
+                          category={svc.category}
                           defaults={{
                             pricing_basis: svc.pricing_basis,
                             starting_price_php: svc.starting_price_php,
@@ -897,6 +900,7 @@ export async function VendorServicesManager({
                         ) : null}
                         <IncludedFlags
                           idPrefix={svc.vendor_service_id}
+                          category={svc.category}
                           defaults={{
                             crew_meal_included: svc.crew_meal_included,
                             transport_included: svc.transport_included,
@@ -1282,6 +1286,7 @@ function AddServiceForm({
       </Field>
       <PricingBasisEditor
         idPrefix={`new-${addCategory}`}
+        category={addCategory}
         defaults={{
           pricing_basis: 'fixed',
           starting_price_php: null,
@@ -1326,6 +1331,7 @@ function AddServiceForm({
       ) : null}
       <IncludedFlags
         idPrefix={`new-${addCategory}`}
+        category={addCategory}
         defaults={{ crew_meal_included: false, transport_included: false, transport_flat_fee_php: null }}
       />
       <LastMinuteFields idPrefix={`new-${addCategory}`} />

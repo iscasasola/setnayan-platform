@@ -20,6 +20,7 @@ import {
   type VendorTier,
 } from '@/lib/vendor-tier-caps';
 
+import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Disputes · Admin' };
 
 /**
@@ -98,10 +99,13 @@ const STATUS_LABEL: Record<DisputeRow['status'], string> = {
   withdrawn: 'Withdrawn',
 };
 
+// Glass PR-8 (§ 3.4) — warm-semantic status tones; the stock red-*/warn-*/
+// violet-* scales are retired. `resolved_for_couple` uses info-slate
+// (--sn-info), the canonical replacement for the retired violet.
 const STATUS_TONE: Record<DisputeRow['status'], string> = {
-  open: 'bg-warn-100 text-warn-900',
-  resolved_for_vendor: 'bg-success-100 text-success-800',
-  resolved_for_couple: 'bg-violet-100 text-violet-800',
+  open: 'bg-[var(--sn-warning-soft)] text-[color:var(--sn-warning)]',
+  resolved_for_vendor: 'bg-[var(--sn-success-soft)] text-[color:var(--sn-success)]',
+  resolved_for_couple: 'bg-[var(--sn-info-soft)] text-[color:var(--sn-info)]',
   withdrawn: 'bg-ink/10 text-ink/60',
 };
 
@@ -140,6 +144,7 @@ type Props = {
 };
 
 export default async function AdminDisputesPage({ searchParams }: Props) {
+  await requireAdmin();
   const search = await searchParams;
   // Default landing view = open queue. That's the surface the owner reaches
   // for first (what needs attention); resolved + withdrawn are historical.
@@ -286,16 +291,17 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
+        <p className="sn-eye">Recourse · conflicts</p>
         <div className="flex items-center gap-2">
-          <Gavel className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-          <h1 className="text-2xl font-semibold tracking-tight">Disputes</h1>
+          <Gavel className="h-6 w-6 text-[color:var(--sn-gold-500)]" strokeWidth={1.75} />
+          <h1 className="sn-h1">Disputes</h1>
         </div>
-        <p className="text-sm text-ink/65">
+        <p className="max-w-2xl text-sm text-[color:var(--sn-ink-500)]">
           Couples and vendors can both open a dispute when a booking goes
           sideways. The queue shows the latest 200 matching the filters below,
           ordered by vendor tier (enterprise first) then newest.
         </p>
-        <p className="rounded-md border border-ink/10 bg-cream px-3 py-2 text-xs text-ink/65">
+        <p className="rounded-md border border-white/60 bg-white/70 px-3 py-2 text-xs text-[color:var(--sn-ink-500)]">
           Use <span className="font-semibold">Resolve</span> on any open row to
           record the outcome (couple / vendor / withdrawn) with a note. The
           opener is notified automatically. A standalone detail page with the
@@ -351,25 +357,29 @@ function StatsBanner({
   return (
     <section
       aria-label="Dispute counts this quarter"
-      className="mb-4 grid grid-cols-2 gap-3 rounded-xl border border-ink/10 bg-cream p-4 sm:grid-cols-4"
+      className="sn-tile mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4"
     >
-      <StatCell label="Open" value={stats.open} tone="bg-warn-100 text-warn-900" />
+      <StatCell
+        label="Open"
+        value={stats.open}
+        tone="bg-[var(--sn-warning-soft)] text-[color:var(--sn-warning)]"
+      />
       <StatCell
         label="Resolved · vendor"
         value={stats.resolved_for_vendor}
-        tone="bg-success-100 text-success-800"
+        tone="bg-[var(--sn-success-soft)] text-[color:var(--sn-success)]"
       />
       <StatCell
         label="Resolved · couple"
         value={stats.resolved_for_couple}
-        tone="bg-violet-100 text-violet-800"
+        tone="bg-[var(--sn-info-soft)] text-[color:var(--sn-info)]"
       />
       <StatCell
         label="Withdrawn"
         value={stats.withdrawn}
         tone="bg-ink/10 text-ink/60"
       />
-      <p className="col-span-2 mt-1 text-[11px] text-ink/55 sm:col-span-4">
+      <p className="col-span-2 mt-1 text-[11px] text-[color:var(--sn-ink-400)] sm:col-span-4">
         Counts for {quarterLabel} (current quarter).
       </p>
     </section>
@@ -392,7 +402,9 @@ function StatCell({
       >
         {label}
       </span>
-      <span className="text-2xl font-semibold tracking-tight text-ink">{value}</span>
+      <span className="font-mono text-2xl font-semibold tracking-tight tabular-nums text-[color:var(--sn-ink-900)]">
+        {value}
+      </span>
     </div>
   );
 }
@@ -407,7 +419,7 @@ function FilterStrip({
   return (
     <form
       method="get"
-      className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-3 sm:flex-row sm:items-center sm:gap-3"
+      className="sn-tile flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3"
       aria-label="Dispute filters"
     >
       <div className="flex items-center gap-2 text-ink/60">
@@ -466,8 +478,8 @@ function DisputesTable({
 }) {
   if (rows.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-ink/15 bg-cream p-8 text-center">
-        <p className="text-sm text-ink/65">
+      <div className="rounded-card border border-dashed border-ink/15 bg-white/50 p-8 text-center">
+        <p className="text-sm text-[color:var(--sn-ink-500)]">
           No disputes yet — vendors and couples can both open one when a
           booking goes sideways.
         </p>
@@ -476,7 +488,7 @@ function DisputesTable({
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-ink/10 bg-cream">
+    <div className="sn-tile overflow-x-auto !p-0">
       <table className="w-full text-left text-sm">
         <thead className="bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
           <tr>
@@ -740,10 +752,14 @@ function HandoverEvidence({ handover }: { handover: HandoverEvidenceRow }) {
  * enterprise → free, so premium disputes surface first). Tones step up with tier
  * priority; label copy reuses the canonical TIER_LABEL map.
  */
+// Glass PR-8 — tones step up with tier priority; violet (enterprise/custom) is
+// retired to info-slate (--sn-info, the canonical violet replacement), custom
+// being the strongest step (solid slate).
 const TIER_CHIP_TONE: Record<VendorTier, string> = {
-  enterprise: 'bg-violet-100 text-violet-800',
-  pro: 'bg-success-100 text-success-800',
-  solo: 'bg-warn-100 text-warn-900',
+  enterprise: 'bg-[var(--sn-info-soft)] text-[color:var(--sn-info)]',
+  custom: 'bg-[color:var(--sn-info)] text-white',
+  pro: 'bg-[var(--sn-success-soft)] text-[color:var(--sn-success)]',
+  solo: 'bg-[var(--sn-warning-soft)] text-[color:var(--sn-warning)]',
   verified: 'bg-ink/10 text-ink/70',
   free: 'bg-ink/5 text-ink/55',
 };

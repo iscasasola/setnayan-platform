@@ -88,7 +88,9 @@ export function ReskinFooter() {
           <Link href="/blog">Journal</Link>
           <Link href="/weddings">Real stories</Link>
           <Link href="/help">Help center</Link>
-          <Link href="/for-vendors">For vendors</Link>
+          <Link href="/vendors">For vendors</Link>
+          <Link href="/creators">For storytellers</Link>
+          <Link href="/waitlist">Join the waitlist</Link>
         </nav>
 
         <nav className="hr-foot-col" aria-label="Legal" onClick={onFooterLinkClick}>
@@ -108,7 +110,7 @@ export function ReskinFooter() {
         <span>&copy; 2026 Setnayan &middot; Made in the Philippines</span>
         <span>
           Data Protection Officer ·{' '}
-          <a href="mailto:dpo@setnayan.com">dpo@setnayan.com</a>
+          <a href="mailto:iscasasolaii@gmail.com">iscasasolaii@gmail.com</a>
         </span>
       </div>
     </footer>

@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Guest-facing 3D venue explorer (Sims-style; owner 2026-06-26). READ-ONLY — a
+ * Guest-facing 3D venue explorer (owner 2026-06-26). READ-ONLY — a
  * separate, self-contained scene (no editor coupling) fed by the privacy-scoped
  * `public_venue_scene` RPC: room geometry + ANONYMISED occupancy, plus the
  * guest's own seat/tablemates when they opened their personal link. The guest's
@@ -10,23 +10,41 @@
  * primitives (steerPath / floorObstacles / sceneObjectObstacles) the couple's
  * lab + crowd use. All math is unit-tested in lib; the visual FEEL is the part
  * to confirm on a preview.
+ *
+ * Kit consolidation (Fable slice 7): this walk renders through the SHARED
+ * figure kit (`plan3d/kit` <Figure>/<SeatedFigure>) — the same one-piece blob
+ * figure the couple lab and homepage demo use — instead of its old
+ * self-contained cylinder+sphere tokens + capsule avatar. Seated occupants are
+ * NEUTRAL untinted mannequins (anonymised strangers; privacy lock 2026-06-26 —
+ * no per-guest attire/hair, no names beyond the RPC contract); the viewer's own
+ * figure is accent-tinted (self semantics). Cinematic Tier A (palette-warm grade
+ * + string lights) runs at quality 'low' to match the phone demo walk — Tier A
+ * only (no Tier B postprocessing, no dust motes on the public surface). The RPC
+ * payload is UNCHANGED — this is pure consolidation onto the shared kit.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
+import { usePlan3dRoom, PLAN3D_SHARED_ROOM_ENABLED, type LocalPlayer } from '@/app/_components/plan3d/use-plan3d-room';
+import { RemotePlayers, LocalMoveBroadcaster } from '@/app/_components/plan3d/plan3d-remote-players';
+import { colorFromId } from '@/lib/plan3d-room';
 import {
   roomSize,
   pctToWorld,
+  boothFacingY,
+  rotateLocalRad,
   tableDims,
   shapeHintFor,
   seatWorld,
   steerPath,
   seatApproachPath,
   floorObstacles,
+  danceFloorRect,
+  pointInZone,
+  clampPointToZone,
   sceneObjectObstacles,
-  boothObstacles,
   signObstacles,
   cocktailObstacles,
   boothApproach,
@@ -46,9 +64,25 @@ import {
 import type { RolePalette } from '@/lib/mood-board';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { VenueFixtures } from '@/app/_components/plan3d/venue-objects';
+import { DanceFloorMural } from '@/app/_components/plan3d/dance-floor-mural';
+import { boothHitVolume, templateBoothObstacles } from '@/app/_components/plan3d/kit/booth-templates';
+import {
+  Figure,
+  SeatedFigure,
+  StringLights,
+  EmoteBubbles,
+  EMOTE_TABLE_Y,
+  EMOTE_DANCE_Y,
+  InstancedSeatedCrowd,
+  seatedFigureMatrix,
+  RUN_CLOCK_RAD_S,
+  type EmoteEmitter,
+  type FigureSpec,
+  type SeatedInstance,
+} from '@/app/_components/plan3d/kit';
 import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
-import { GuestPhotoAvatar, preloadGuestPhotos } from '@/app/_components/plan3d/guest-avatar';
-import { SceneLighting, RECOMMENDED_TONEMAP, floorRoughnessMap } from '@/app/_components/plan3d/scene-lighting';
+import { preloadGuestPhotos } from '@/app/_components/plan3d/guest-avatar';
+import { SceneLighting, RECOMMENDED_TONEMAP, floorRoughnessMap, floorAlbedoMap, floorBumpMap } from '@/app/_components/plan3d/scene-lighting';
 import { InstancedChairs, chairPlacements } from '@/app/_components/plan3d/instanced-chairs';
 import {
   VenueShell,
@@ -56,8 +90,15 @@ import {
   archetypeFor,
   archetypeFloorColor,
   archetypeBackground,
+  ceilingDecorOccupied,
 } from '@/app/_components/plan3d/venue-decor';
-import { sanitizeReceptionDesign } from '@/lib/reception-scene';
+import { sanitizeReceptionDesign, sel } from '@/lib/reception-scene';
+import { coldSparkFrame, coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
+import { SERPENTINE_TOP_GEO } from '@/app/_components/plan3d/kit/serpentine-top';
+
+// A dance target is pulled this far inside the dance-floor edge so the avatar
+// lands squarely on the floor (body radius here is 0.2, matching the walk).
+const DANCE_EDGE_INSET_M = 0.35;
 
 export type VenueScene = {
   published: boolean;
@@ -65,15 +106,20 @@ export type VenueScene = {
     venueWidthM: number | null;
     venueLengthM: number | null;
     stage: { xPct: number; yPct: number; wPct: number; hPct: number };
-    entrance: { enabled: boolean; xPct: number; yPct: number };
+    // kind/depthM are OPTIONAL: the public_venue_scene payload doesn't carry
+    // the entrance kind yet, so the guest walk defaults to a 'door' (see the
+    // construction below). Present here so a future payload can thread them.
+    entrance: { enabled: boolean; xPct: number; yPct: number; kind?: 'door' | 'tunnel'; depthM?: number };
     dance: { enabled: boolean; xPct: number; yPct: number; wPct: number; hPct: number };
   };
-  tables: { id: string; type: string; capacity: number; xPct: number; yPct: number; rotationDeg: number; removedSeats: number[] }[];
+  tables: { id: string; type: string; capacity: number; xPct: number; yPct: number; rotationDeg: number; removedSeats: number[]; linkGroupId?: string | null }[];
   objects: { kind: string; xPct: number; yPct: number; rotationDeg: number }[];
   /** Vendor booths (v2 payload; absent on an old cached payload → treated as []).
    *  v4 adds `offerings` + a PUBLIC booth-vendor block for the booth card (both
    *  optional so an older cached payload still parses). `logoUrl` is the SERVER-
-   *  RESOLVED display URL (the page rewrites the raw stored ref). */
+   *  RESOLVED display URL (the page rewrites the raw stored ref). `slug` is the
+   *  vendor's PUBLIC marketplace profile (/v/[slug]) — the page joins it in
+   *  (visibility-gated) for the booth card's "Book this vendor" CTA. */
   booths?: {
     id: string;
     kind: string;
@@ -81,7 +127,7 @@ export type VenueScene = {
     xPct: number;
     yPct: number;
     offerings?: string | null;
-    vendor?: { name: string; category: string; logoUrl: string | null } | null;
+    vendor?: { name: string; category: string; logoUrl: string | null; slug?: string | null; bookable?: boolean } | null;
   }[];
   /** Wayfinding signs (v2 payload). */
   signs?: { id: string; label: string; xPct: number; yPct: number; rotationDeg: number }[];
@@ -114,14 +160,15 @@ export type VenueScene = {
   venueSetting?: string;
 };
 
-const TOKEN_GEO = new THREE.CylinderGeometry(0.14, 0.16, 0.5, 10);
-
-/** One table: a top + chairs, occupied seats get a token, the guest's own seat glows.
- *  When the host enabled photos AND this viewer is a token holder, a seat with a
- *  resolved photo wears the shared `GuestPhotoAvatar` (billboard disc) instead of
- *  the anonymous token; everything else stays a plain token. `photoBySeat` maps a
- *  seat number → resolved display URL; `nameBySeat` supplies the initials-fallback
- *  name where we know it (own tablemates) — both keyed by chair index (= seat #). */
+/** One table: a top + chairs, occupied seats get the shared kit figure, the
+ *  guest's own seat glows. Anonymous occupants are NEUTRAL untinted mannequins
+ *  (the anonymised-stranger default, privacy lock 2026-06-26); the viewer's own
+ *  seat is accent-tinted (self semantics). When the host enabled photos AND this
+ *  viewer is a token holder, a seat with a resolved photo wears the shared
+ *  `GuestPhotoAvatar` disc as the figure's head (routed through the ONE figure
+ *  kit — same billboard the pre-kit token used). `photoBySeat` maps a seat number
+ *  → resolved display URL; `nameBySeat` supplies the initials-fallback name where
+ *  we know it (own tablemates) — both keyed by chair index (= seat #). */
 function GuestTable({
   table,
   room,
@@ -142,11 +189,20 @@ function GuestTable({
   const dims = useMemo(() => tableDims(table.shape, table.capacity), [table.shape, table.capacity]);
   // Shared placements (seat + facing) — feeds the 2-draw-call InstancedChairs
   // (Wave 2a; same silhouette as the couple lab, replacing the plain cube).
-  const chairs = useMemo(() => chairPlacements(table.shape, table.capacity), [table.shape, table.capacity]);
+  const chairs = useMemo(
+    () => chairPlacements(table.shape, table.capacity, table.linkGroupId != null),
+    [table.shape, table.capacity, table.linkGroupId],
+  );
   const home = useMemo(() => pctToWorld(table.xPct, table.yPct, room), [table.xPct, table.yPct, room]);
   return (
     <group position={[home.x, 0, home.z]} rotation={[0, (-table.rotationDeg * Math.PI) / 180, 0]}>
-      {dims.round ? (
+      {/* Serpentine renders its real curved ribbon (shared SERPENTINE_TOP_GEO,
+          floor-to-top) instead of a bounding rectangle. */}
+      {table.shape === 'serpentine' ? (
+        <mesh geometry={SERPENTINE_TOP_GEO} castShadow receiveShadow>
+          <meshStandardMaterial color={palette.table} roughness={0.85} />
+        </mesh>
+      ) : dims.round ? (
         <mesh position={[0, 0.74, 0]} castShadow receiveShadow>
           <cylinderGeometry args={[dims.w / 2, dims.w / 2, 0.08, 28]} />
           <meshStandardMaterial color={palette.table} roughness={0.85} />
@@ -157,10 +213,13 @@ function GuestTable({
           <meshStandardMaterial color={palette.table} roughness={0.85} />
         </mesh>
       )}
-      <mesh position={[0, 0.37, 0]}>
-        <cylinderGeometry args={[0.12, 0.16, 0.72, 10]} />
-        <meshStandardMaterial color={palette.wall} roughness={0.6} />
-      </mesh>
+      {/* leg-post — skipped for the serpentine, whose ribbon is floor-to-top */}
+      {table.shape !== 'serpentine' ? (
+        <mesh position={[0, 0.37, 0]}>
+          <cylinderGeometry args={[0.12, 0.16, 0.72, 10]} />
+          <meshStandardMaterial color={palette.wall} roughness={0.6} />
+        </mesh>
+      ) : null}
       <InstancedChairs
         chairs={chairs}
         removedSeats={table.removedSeats}
@@ -173,28 +232,38 @@ function GuestTable({
         const taken = occupied?.has(i);
         const mine = yourSeat === i;
         if (!taken && !mine) return null;
-        // Host enabled photos + this seat has a resolved face → wear the shared
-        // photo avatar. Ring colour follows the token convention (own seat =
-        // accent, others = table). No photo → the plain token, unchanged.
+        // Host-opt-in selfie (token holder + venue_photo_visibility): a resolved
+        // photo becomes the figure's head (the SAME GuestPhotoAvatar disc as
+        // before, now via the ONE figure kit). No photo → a neutral untinted
+        // mannequin for anonymous strangers; the viewer's own seat is
+        // accent-tinted (self semantics). A floor status ring shows only under a
+        // photo seat (mirrors the old disc ringColor); the own seat's gold ring
+        // is drawn separately below. NO per-guest attire/hair variety here —
+        // strangers stay neutral (privacy lock; Q5 unanswered).
         const photoUrl = taken ? photoBySeat?.get(i) ?? null : null;
+        // Neutral, ringless strangers render through the room-level
+        // <InstancedSeatedCrowd> (one batch for the whole walk). Only the
+        // viewer's own seat (accent + gold ring) and per-guest photo seats
+        // (billboard head) stay individual here.
+        if (!mine && !photoUrl) return null;
         const ringColor = mine ? palette.accent : palette.table;
+        const spec: FigureSpec = {
+          id: `${table.id}:${i}`,
+          outfit: 'neutral',
+          outfitColor: mine ? palette.accent : null,
+          photoUrl,
+          statusColor: photoUrl ? ringColor : '',
+        };
         return (
           <group key={i} position={[c.x, 0, c.z]} rotation={[0, ang, 0]}>
-            {taken && photoUrl ? (
-              // Billboard photo disc — must NOT cast a shadow (it would shadow
-              // as a floating circle); lifted above the new chair backrest.
-              <GuestPhotoAvatar
-                photoUrl={photoUrl}
-                name={nameBySeat?.get(i) ?? ''}
-                ringColor={ringColor}
-                radius={0.16}
-                height={1.05}
-              />
-            ) : taken ? (
-              <mesh geometry={TOKEN_GEO} position={[0, 0.75, -0.04]} castShadow>
-                <meshStandardMaterial color={mine ? palette.accent : palette.table} roughness={0.5} emissive={mine ? palette.accent : '#000'} emissiveIntensity={mine ? 0.5 : 0} />
-              </mesh>
-            ) : null}
+            {/* chairPlacements' faceY points local +Z OUTWARD (away from the
+                table); the rig faces local +Z, so the π flip + the −0.04 nudge
+                seat the figure facing the table — the couple lab's exact
+                SeatedAvatar convention (FIGURE_NUDGE_M parity). Quality 'low'
+                bakes the seated pose (phone crowd budget). */}
+            <group position={[0, 0, -0.04]} rotation={[0, Math.PI, 0]}>
+              <SeatedFigure spec={spec} quality="low" name={nameBySeat?.get(i) ?? ''} />
+            </group>
             {mine ? (
               <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
                 <ringGeometry args={[0.32, 0.42, 28]} />
@@ -214,11 +283,14 @@ function GuestAvatar({
   target,
   seat,
   isSeatTarget,
+  dance = false,
   room,
   seatObstacles,
   roamObstacles,
   onArrive,
   palette,
+  posRef,
+  waveUntil = 0,
 }: {
   entrance: Vec2;
   target: Vec2;
@@ -226,21 +298,59 @@ function GuestAvatar({
   seat: { table: Lab3DTable; seatNumber: number } | null;
   /** True when `target` is the guest's seat (walk-to-seat), false for a roam tap. */
   isSeatTarget: boolean;
+  /** True when `target` is ON the dance floor — on arrival the figure dances
+   *  (looping) instead of standing. `roamObstacles` is then the dance-skipped
+   *  set (the parent swaps it) so the walk can steer onto the floor. */
+  dance?: boolean;
   room: { w: number; d: number };
   /** Full obstacle set (destination table INCLUDED) for the seat walk. */
   seatObstacles: { c: Vec2; r: number }[];
-  /** Obstacle set with the guest's own table skipped, for free-roam taps. */
+  /** Obstacle set with the guest's own table skipped, for free-roam taps (and,
+   *  for a dance target, the dance-floor disc skipped too — parent-swapped). */
   roamObstacles: { c: Vec2; r: number }[];
   /** Fired once when a walk-to-seat reaches the chair — hides the beacon. */
   onArrive?: () => void;
   palette: Lab3DPalette;
+  /** Shared-room (slice 8): the scene writes this each frame so a broadcaster can
+   *  read the viewer's live floor position without touching this walk loop. */
+  posRef?: React.MutableRefObject<Vec2 | null>;
+  /** Local-clock ms until the viewer's OWN figure should wave (optimistic "say
+   *  hi"). 0 = not waving. */
+  waveUntil?: number;
 }) {
   const ref = useRef<THREE.Group>(null);
   const path = useRef<Vec2[]>([]);
   const idx = useRef(0);
-  const t = useRef(0);
   const pos = useRef<Vec2>({ x: entrance.x, z: entrance.z });
   const arrivedRef = useRef(false);
+  // Gait phase clock for the kit figure — advances at the RUN cadence (this
+  // avatar translates at 2.2 m/s, a jog; the run cycle's quicker steps are
+  // what keep the feet from sliding — ChameleonMovement port 2026-07-09)
+  // while translating and FREEZES on arrival, so the limbs stop swinging
+  // exactly when the figure stops. The rig carries its own pelvis bob, so the
+  // GROUP no longer hops.
+  const phaseRef = useRef(0);
+  // Run → stand blend on arrival (the kit eases presets over ~⅓ s); a frozen
+  // mid-stride reads as a glitch otherwise. Reset when a new destination starts.
+  const [atRest, setAtRest] = useState(false);
+  const restedRef = useRef(false);
+  // Shared-room "say hi": the viewer's own figure pauses to wave while waveUntil
+  // is in the future (optimistic — the wave is broadcast to peers separately).
+  const [waving, setWaving] = useState(false);
+  const wavingRef = useRef(false);
+
+  // The viewer's own figure — accent-tinted mannequin (self semantics; the
+  // pre-kit avatar was the accent capsule), never a photo. Neutral stays
+  // reserved for the anonymous seated crowd. statusColor is EMPTY (the kit's
+  // "no ring" sentinel): the pre-kit capsule avatar had no floor status ring,
+  // and the moving avatar drawing one would slide an accent disc across the
+  // floor tracking the viewer. "You" is marked by the accent pointLight glow
+  // (kept below) + the separate gold seat ring GuestTable draws — not a ring
+  // on the walking figure.
+  const selfSpec = useMemo<FigureSpec>(
+    () => ({ id: 'guest-self', outfit: 'neutral', outfitColor: palette.accent, statusColor: '' }),
+    [palette.accent],
+  );
 
   useEffect(() => {
     const start = pos.current;
@@ -253,12 +363,13 @@ function GuestAvatar({
         : steerPath(start, target, roamObstacles, 0.2);
     idx.current = 0;
     arrivedRef.current = false; // a new destination → not there yet
-  }, [target, isSeatTarget, seat, room, seatObstacles, roamObstacles]);
+    restedRef.current = false;
+    setAtRest(false);
+  }, [target, isSeatTarget, seat, room, seatObstacles, roamObstacles, dance]);
 
   useFrame((_, delta) => {
     const g = ref.current;
     if (!g) return;
-    t.current += delta;
     const p = path.current;
     if (idx.current < p.length - 1) {
       const next = p[idx.current + 1]!;
@@ -275,28 +386,49 @@ function GuestAvatar({
         g.position.z += (dz / dist) * step;
         g.rotation.y = Math.atan2(dx, dz);
       }
-      g.position.y = Math.abs(Math.sin(t.current * 9)) * 0.06;
+      // Advance the gait while translating; the rig's own pelvis bob keeps the
+      // group grounded (no whole-body hop).
+      phaseRef.current += delta * RUN_CLOCK_RAD_S;
     } else {
-      g.position.y += (0 - g.position.y) * Math.min(1, delta * 6);
-      // Reached the end of the path — if it was a seat walk, retire the beacon.
+      // Reached the path end — freeze the gait, ease run → stand, and (seat
+      // walks only) retire the destination beacon.
+      if (!restedRef.current) {
+        restedRef.current = true;
+        setAtRest(true);
+      }
       if (isSeatTarget && !arrivedRef.current) {
         arrivedRef.current = true;
         onArrive?.();
       }
     }
     pos.current = { x: g.position.x, z: g.position.z };
+    // Share the live position for the shared-room broadcaster (no-op when absent).
+    if (posRef) posRef.current = pos.current;
+    // Track the optimistic self-wave as React state (changes rarely, not per frame).
+    const w = waveUntil > Date.now();
+    if (w !== wavingRef.current) {
+      wavingRef.current = w;
+      setWaving(w);
+    }
   });
 
   return (
     <group ref={ref} position={[entrance.x, 0, entrance.z]}>
-      <mesh position={[0, 0.55, 0]} castShadow>
-        <capsuleGeometry args={[0.18, 0.5, 6, 12]} />
-        <meshStandardMaterial color={palette.accent} roughness={0.4} emissive={palette.accent} emissiveIntensity={0.3} />
-      </mesh>
-      <mesh position={[0, 1.0, 0]} castShadow>
-        <sphereGeometry args={[0.16, 16, 16]} />
-        <meshStandardMaterial color={palette.table} roughness={0.5} />
-      </mesh>
+      {/* The shared articulated kit figure — the ONE human implementation, now
+          on the public walk too. `phase` takes the gait CLOCK ref (read inside
+          the figure's own useFrame, no per-frame React re-render); the pose
+          eases run → stand on arrival ('run', not 'walk' — this avatar jogs at
+          2.2 m/s and the scurry cycle matches; ChameleonMovement port
+          2026-07-09). Always quality 'high': this is the single viewer figure
+          that owns the camera, not the 'low'-tier crowd. */}
+      <Figure
+        spec={selfSpec}
+        pose={waving ? 'stand' : atRest ? (dance ? 'dance' : 'stand') : 'run'}
+        idleClip={waving ? 'wave' : undefined}
+        phase={phaseRef}
+        quality="high"
+      />
+      {/* Keep the soft accent glow that has always marked "you". */}
       <pointLight position={[0, 1.2, 0]} intensity={0.5} distance={3.5} color={palette.accent} />
     </group>
   );
@@ -323,13 +455,51 @@ function SeatDestinationMarker({ position, color }: { position: Vec2; color: str
   );
 }
 
-export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
+/** A stable per-session player id (no PII). crypto.randomUUID in browsers; a
+ *  cheap fallback otherwise. */
+function makeSelfId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return `g-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+}
+
+export default function GuestVenue3D({
+  scene,
+  eventId,
+  selfName,
+}: {
+  scene: VenueScene;
+  /** Event UUID → the shared-room channel scope (slice 8). Absent → single-player. */
+  eventId?: string | null;
+  /** The viewer's display name for the presence roster (falls back to "Guest"). */
+  selfName?: string | null;
+}) {
+  // Shared room (slice 8): a stable per-session identity + the realtime hook. The
+  // hook is inert unless NEXT_PUBLIC_PLAN3D_SHARED_ROOM is on AND there's an
+  // eventId, so the single-player walk is byte-identical by default.
+  const selfIdRef = useRef<string>('');
+  if (!selfIdRef.current) selfIdRef.current = makeSelfId();
+  const me = useMemo<LocalPlayer | null>(
+    () =>
+      PLAN3D_SHARED_ROOM_ENABLED && eventId
+        ? { id: selfIdRef.current, name: selfName?.trim() || 'Guest', color: colorFromId(selfIdRef.current) }
+        : null,
+    [eventId, selfName],
+  );
+  const sharedRoom = usePlan3dRoom(eventId ?? null, me);
+  const walkerPosRef = useRef<Vec2 | null>(null);
+
   const floor: Lab3DFloor = useMemo(
     () => ({
       venueWidthM: scene.floor.venueWidthM,
       venueLengthM: scene.floor.venueLengthM,
       stage: scene.floor.stage,
-      entrance: scene.floor.entrance,
+      entrance: {
+        ...scene.floor.entrance,
+        // v7 public_venue_scene carries entrance kind/depth; keep a fallback for
+        // older / cached payloads so the walk still renders a plain door.
+        kind: scene.floor.entrance.kind ?? 'door',
+        depthM: scene.floor.entrance.depthM ?? 3,
+      },
       dance: scene.floor.dance,
       published: true,
     }),
@@ -359,7 +529,7 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
         xPct: t.xPct,
         yPct: t.yPct,
         rotationDeg: t.rotationDeg,
-        linkGroupId: null,
+        linkGroupId: t.linkGroupId ?? null,
       })),
     [scene],
   );
@@ -401,14 +571,24 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
   const cocktail = useMemo<Lab3DCocktail>(() => scene.cocktail ?? null, [scene.cocktail]);
   // Fixture avoidance discs — merged into BOTH walk sets so the auto-walk and
   // every roam tap round the buffet / booth / cocktail room just like a table.
+  const entrance = useMemo<Vec2>(
+    () => (floor.entrance.enabled ? pctToWorld(floor.entrance.xPct, floor.entrance.yPct, room) : pctToWorld(50, 96, room)),
+    [floor, room],
+  );
+  const coldSpark = sel(receptionDesign, 'tunnel', 'style') === 'cold_spark';
   const fixtureObstacles = useMemo(
     () => [
       ...sceneObjectObstacles(sceneObjects, room),
-      ...boothObstacles(booths, room),
+      // Template-aware (booth kit 2026-07-08): a templated booth registers
+      // its chassis' authored footprint discs; the rest keep the classic disc.
+      ...templateBoothObstacles(booths, room),
       ...signObstacles(signs, room),
       ...cocktailObstacles(cocktail, room),
+      // Cold-spark entrance tunnel (tunnel catalog 2026-07-08): its 8 machine
+      // boxes register like booth chassis discs (r 0.3; centre channel clear).
+      ...(coldSpark ? coldSparkObstacles(entrance, room) : []),
     ],
-    [sceneObjects, booths, signs, cocktail, room],
+    [sceneObjects, booths, signs, cocktail, room, coldSpark, entrance],
   );
 
   const occByTable = useMemo(() => new Map(scene.occupancy.map((o) => [o.table, new Set(o.seats)])), [scene]);
@@ -449,10 +629,42 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
     preloadGuestPhotos((scene.photos ?? []).map((p) => p.photoUrl));
   }, [scene.photos]);
 
-  const entrance = useMemo<Vec2>(
-    () => (floor.entrance.enabled ? pctToWorld(floor.entrance.xPct, floor.entrance.yPct, room) : pctToWorld(50, 96, room)),
-    [floor, room],
-  );
+  // The anonymous seated crowd — every occupied seat that ISN'T the viewer's own
+  // (accent + gold ring) and ISN'T a photo seat (billboard head) — collapsed to
+  // ONE <InstancedSeatedCrowd> for the whole room (~22 draws + zero per-figure
+  // useFrame, vs. 14×N meshes + N no-op subscribers). Strangers are neutral +
+  // ringless (statusColor was always '' here), so no ring batch is drawn. Each
+  // world matrix reproduces the exact table→seat→nudge nesting the individual
+  // <SeatedFigure> used (proven in figure-sit-bake.test.ts).
+  const crowdSeats = useMemo<SeatedInstance[]>(() => {
+    const out: SeatedInstance[] = [];
+    for (const t of tables) {
+      const occupied = occByTable.get(t.id);
+      if (!occupied || occupied.size === 0) continue;
+      const chairs = chairPlacements(t.shape, t.capacity, t.linkGroupId != null);
+      const home = pctToWorld(t.xPct, t.yPct, room);
+      const tableFaceY = (-t.rotationDeg * Math.PI) / 180;
+      const yourSeat = scene.you?.table === t.id ? scene.you.seatNumber : null;
+      const photoBySeat = photoByTable.get(t.id);
+      for (let i = 0; i < chairs.length; i++) {
+        if (!occupied.has(i) || yourSeat === i || photoBySeat?.get(i)) continue;
+        const c = chairs[i]!;
+        out.push({
+          matrix: seatedFigureMatrix({
+            homeX: home.x,
+            homeZ: home.z,
+            tableFaceY,
+            seatX: c.x,
+            seatZ: c.z,
+            seatFaceY: c.faceY,
+          }),
+          color: null, // neutral stranger — white mannequin
+        });
+      }
+    }
+    return out;
+  }, [tables, occByTable, photoByTable, room, scene.you]);
+
   // Two obstacle sets, both including the stage + dance floor (via floorObstacles;
   // venue-object discs slot in once the object render lands):
   //  · seatObstacles = EVERY table, so the walk-to-seat routes around the guest's
@@ -467,6 +679,37 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
     () => [...floorObstacles(floor, tables, room, [scene.you?.table]), ...fixtureObstacles],
     [floor, tables, room, scene.you, fixtureObstacles],
   );
+  // Tap-to-dance: the dance floor as a world rect (the mural's rect) for the
+  // tap hit-test, and a roam obstacle set with the dance-floor disc DROPPED so a
+  // dance-destined tap can steer onto the floor (ordinary roam keeps it, so the
+  // avatar still rounds the floor otherwise). Own table stays skipped as in the
+  // plain roam set.
+  const danceRect = useMemo(() => danceFloorRect(floor, room), [floor, room]);
+  const danceObstacles = useMemo(
+    () => [...floorObstacles(floor, tables, room, [scene.you?.table], { skipDanceFloor: true }), ...fixtureObstacles],
+    [floor, tables, room, scene.you, fixtureObstacles],
+  );
+  // Emote bubbles (Fable §3.6) — AMBIENT ONLY on this anonymized surface:
+  // music notes over the dance floor + chat dots over tables that have people
+  // (table-level occupancy is already public via the tinted chairs, so a chat
+  // bubble leaks nothing new). NEVER per-guest status here — the RA 10173
+  // posture: the public walk shows a room, not anyone's RSVP.
+  const emoteEmitters = useMemo<EmoteEmitter[]>(() => {
+    const out: EmoteEmitter[] = [];
+    if (floor.dance.enabled) {
+      const d = pctToWorld(floor.dance.xPct, floor.dance.yPct, room);
+      const danceW = Math.max(1.5, (floor.dance.wPct / 100) * room.w);
+      out.push({ id: 'ambient-music-a', x: d.x - danceW * 0.22, y: EMOTE_DANCE_Y, z: d.z, glyphs: ['music'] });
+      out.push({ id: 'ambient-music-b', x: d.x + danceW * 0.22, y: EMOTE_DANCE_Y, z: d.z, glyphs: ['music'] });
+    }
+    for (const t of tables) {
+      if (!occByTable.get(t.id)?.size) continue; // empty table, no chatter
+      const c = pctToWorld(t.xPct, t.yPct, room);
+      out.push({ id: `ambient-chat-${t.id}`, x: c.x, y: EMOTE_TABLE_Y, z: c.z, glyphs: ['chat'] });
+    }
+    return out;
+  }, [floor, room, tables, occByTable]);
+
   const youTable = useMemo<Lab3DTable | null>(
     () => (scene.you ? tables.find((x) => x.id === scene.you!.table) ?? null : null),
     [scene.you, tables],
@@ -487,9 +730,14 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
   // Whether the avatar has reached its seat — hides the destination beacon once
   // it's standing there. Reset whenever the seat walk (re)starts.
   const [seatReached, setSeatReached] = useState(false);
+  // Whether the current target is ON the dance floor — the avatar dances on
+  // arrival. Every non-dance destination (seat, booth, elsewhere) clears it, so
+  // walking away stops the dance. State-scoped to the current target.
+  const [danceTarget, setDanceTarget] = useState(false);
   useEffect(() => {
     setTarget(seatTarget);
     setSeatReached(false);
+    setDanceTarget(false);
   }, [seatTarget]);
   const isSeatTarget = target === seatTarget;
 
@@ -501,6 +749,7 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
   // same way a floor tap does.
   const walkToBooth = (booth: Lab3DBooth) => {
     setOpenBooth(null);
+    setDanceTarget(false); // walking to a booth ends any dancing
     setTarget(boothApproach(booth, room).point);
   };
 
@@ -525,8 +774,20 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
         <color attach="background" args={[bgColor]} />
         <fog attach="fog" args={[bgColor, room.d * 1.4, room.d * 3.2]} />
         {/* Shared rig (Wave 2a) at 'low' — guests explore on phones, so the
-            1024 shadow map + 128 env map budget. */}
-        <SceneLighting palette={palette} quality="low" room={room} />
+            1024 shadow map + 128 env map budget. Cinematic Tier A (Fable §3.5):
+            the palette-warm golden-hour grade, exactly what the phone demo walk
+            (plan3d-guest-view.tsx) already runs. Tier A only — NO Tier B
+            postprocessing, NO dust motes on the public walk ('low' = Tier A). */}
+        <SceneLighting palette={palette} quality="low" room={room} grade="play" />
+
+        {/* Tier A string lights — warm emissive strands, one static InstancedMesh
+            ('low' halves the strand count inside the component), so they ride the
+            phone walk at no per-frame cost. Skipped when the couple's OWN ceiling
+            decor occupies the hang band (fairy lights / chandeliers / lanterns /
+            hanging florals) — the same ceilingDecorOccupied gate the demo uses. */}
+        {!ceilingDecorOccupied(receptionDesign, archetype) ? (
+          <StringLights room={room} palette={palette} quality="low" />
+        ) : null}
 
         {/* Wave 2b: archetype room shell (garden / chapel / barn / …), reduced
             decor set at 'low' quality for phones. */}
@@ -542,35 +803,148 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
           receiveShadow
           onClick={(e: ThreeEvent<MouseEvent>) => {
             if (e.delta > TAP_MAX_PX) return; // that was a look-drag, not a tap
-            const x = Math.max(-room.w / 2, Math.min(room.w / 2, e.point.x));
-            const z = Math.max(-room.d / 2, Math.min(room.d / 2, e.point.z));
+            const hit: Vec2 = { x: e.point.x, z: e.point.z };
+            // Tap ON the dance floor → walk onto it (dance-skipped obstacles let
+            // the walk steer on) and dance on arrival; clamp inside the edge so
+            // the figure lands squarely on the floor. Any other tap clears the
+            // dance flag, so walking elsewhere stops the dance.
+            if (danceRect && pointInZone(hit, danceRect)) {
+              setDanceTarget(true);
+              setTarget(clampPointToZone(hit, danceRect, DANCE_EDGE_INSET_M));
+              return;
+            }
+            setDanceTarget(false);
+            const x = Math.max(-room.w / 2, Math.min(room.w / 2, hit.x));
+            const z = Math.max(-room.d / 2, Math.min(room.d / 2, hit.z));
             setTarget({ x, z });
           }}
         >
           <planeGeometry args={[room.w, room.d]} />
-          <meshStandardMaterial color={archFloorColor} roughness={0.95} roughnessMap={floorRoughnessMap()} />
+          <meshStandardMaterial
+            color={archFloorColor}
+            roughness={0.95}
+            roughnessMap={floorRoughnessMap()}
+            map={floorAlbedoMap()}
+            bumpMap={floorBumpMap()}
+            bumpScale={0.02}
+          />
         </mesh>
 
-        {/* Stage */}
+        {/* Stage — unified stage material (Fable slice 7): the couple lab
+            (seating-lab-3d) and the homepage demo (plan3d-scene) both render the
+            stage in `palette.accent` at roughness 0.5 / metalness 0.1; this walk
+            used to diverge on `palette.table`. Canonical = the lab/demo accent
+            slab, so the same stage reads across all three surfaces. */}
         <mesh position={[stage.x, 0.15, stage.z]} castShadow receiveShadow>
           <boxGeometry args={[stageW, 0.3, stageD]} />
-          <meshStandardMaterial color={palette.table} roughness={0.6} />
+          <meshStandardMaterial color={palette.accent} roughness={0.5} metalness={0.1} />
         </mesh>
 
-        {tables.map((t) => (
-          <GuestTable
-            key={t.id}
-            table={t}
-            room={room}
-            palette={palette}
-            occupied={occByTable.get(t.id)}
-            yourSeat={scene.you?.table === t.id ? scene.you.seatNumber : null}
-            photoBySeat={photoByTable.get(t.id)}
-            nameBySeat={nameByTable.get(t.id)}
-          />
-        ))}
+        {/* Entrance structure — mirrors the couple's 3D lab (seating-lab-3d) so
+            the guest walks through the same entrance they designed. A 'door'
+            renders a shallow frame slab; a 'tunnel' (UI: Walk-through) renders two
+            side walls + a lintel running INWARD from the wall by the couple's
+            depth (clamped by coldSparkFrame so it never crosses the far wall),
+            open inward. Gated on entrance.enabled — a disabled entrance draws
+            nothing (unlike the lab, which always sits at an enabled entrance). */}
+        {floor.entrance.enabled &&
+          (floor.entrance.kind === 'tunnel'
+            ? (() => {
+                const frame = coldSparkFrame(entrance, room);
+                const len = Math.max(1, Math.min(floor.entrance.depthM ?? 3, frame.len));
+                const yaw = Math.atan2(frame.dir.x, frame.dir.z);
+                const HALF_W = 0.7; // interior clear half-width (door mouth is 1.4)
+                const WALL_T = 0.12;
+                const H = 2.2;
+                return (
+                  <group position={[entrance.x, 0, entrance.z]} rotation={[0, yaw, 0]}>
+                    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
+                      <ringGeometry args={[0.55, 0.78, 32]} />
+                      <meshBasicMaterial color={palette.accent} transparent opacity={0.85} side={THREE.DoubleSide} />
+                    </mesh>
+                    {[-1, 1].map((side) => (
+                      <mesh key={side} position={[HALF_W * side, H / 2, len / 2]} castShadow>
+                        <boxGeometry args={[WALL_T, H, len]} />
+                        <meshStandardMaterial color={palette.accent} roughness={0.6} transparent opacity={0.35} />
+                      </mesh>
+                    ))}
+                    <mesh position={[0, H, len / 2]}>
+                      <boxGeometry args={[HALF_W * 2 + WALL_T, WALL_T, len]} />
+                      <meshStandardMaterial color={palette.accent} roughness={0.6} transparent opacity={0.35} />
+                    </mesh>
+                  </group>
+                );
+              })()
+            : (
+                <group position={[entrance.x, 0, entrance.z]}>
+                  <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
+                    <ringGeometry args={[0.55, 0.78, 32]} />
+                    <meshBasicMaterial color={palette.accent} transparent opacity={0.85} side={THREE.DoubleSide} />
+                  </mesh>
+                  <mesh position={[0, 1.1, 0]}>
+                    <boxGeometry args={[1.4, 2.2, 0.12]} />
+                    <meshStandardMaterial color={palette.accent} roughness={0.6} transparent opacity={0.35} />
+                  </mesh>
+                </group>
+              ))}
 
-        {/* Placed venue fixtures — objects · booths · signs · cocktail room. */}
+        {/* Dance floor — the mood-board mural (Fable §3.7). This walk had NO
+            dance mesh: `floor.dance` fed floorObstacles only, so guests dodged
+            an invisible rectangle. Palette-only here (the anonymised public
+            payload carries no monogram source); raycast is off inside the
+            component so tap-to-roam passes through to the floor beneath. */}
+        <DanceFloorMural floor={floor} room={room} rolePalette={scene.rolePalette ?? null} />
+
+        {tables.map((t) => {
+          const table = (
+            <GuestTable
+              table={t}
+              room={room}
+              palette={palette}
+              occupied={occByTable.get(t.id)}
+              yourSeat={scene.you?.table === t.id ? scene.you.seatNumber : null}
+              photoBySeat={photoByTable.get(t.id)}
+              nameBySeat={nameByTable.get(t.id)}
+            />
+          );
+          // The viewer's OWN table is a big tap target to walk back to their
+          // seat (owner: "return by clicking their table") — same intent as the
+          // pulsing seat halo below, but the whole table is easier to hit.
+          const isOwnTable = Boolean(seatTarget && scene.you?.table === t.id);
+          return isOwnTable ? (
+            <group
+              key={t.id}
+              onClick={(e: ThreeEvent<MouseEvent>) => {
+                if (e.delta > TAP_MAX_PX) return;
+                e.stopPropagation();
+                setDanceTarget(false); // sitting down ends any dancing
+                setTarget(seatTarget);
+                setSeatReached(false);
+              }}
+              onPointerOver={(e) => {
+                e.stopPropagation();
+                document.body.style.cursor = 'pointer';
+              }}
+              onPointerOut={() => {
+                document.body.style.cursor = '';
+              }}
+            >
+              {table}
+            </group>
+          ) : (
+            <group key={t.id}>{table}</group>
+          );
+        })}
+
+        {/* The anonymous seated crowd, one instanced batch for the whole room
+            (in the same world space as the tables above). Photo seats + the
+            viewer's own seat stay individual inside each GuestTable. */}
+        <InstancedSeatedCrowd seats={crowdSeats} quality="low" />
+
+        {/* Placed venue fixtures — objects · booths · signs · cocktail room.
+            quality 'low' (this surface is the phone walk) bakes every booth
+            template's staff mascots to their held clip pose — a 10-booth
+            catalog-complete room otherwise animates ~16+ figures per frame. */}
         <VenueFixtures
           room={room}
           palette={palette}
@@ -578,7 +952,12 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
           booths={booths}
           signs={signs}
           cocktail={cocktail}
+          quality="low"
         />
+
+        {/* Ambient emote bubbles (Fable §3.6): music near the dance floor,
+            chatter at occupied tables — pooled sprites, ≤6, never per-guest. */}
+        {emoteEmitters.length > 0 ? <EmoteBubbles emitters={emoteEmitters} /> : null}
 
         {/* Wave 2b: the couple's reception treatments (reduced set on phones). */}
         <VenueDecor
@@ -596,10 +975,19 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
             the shared fixture renderer stays a pure visual. */}
         {booths.map((b) => {
           const p = pctToWorld(b.xPct, b.yPct, room);
+          // Sized to the resolved chassis (truck cab / riser deck / backdrop
+          // panel extend past the old fixed 2.3×1.3×1.3 box); generic booths
+          // keep the historical box.
+          const hit = boothHitVolume(b);
+          // Rotate the tap box by the booth's computed facing so the non-square
+          // / front-shifted volume tracks the rotated chassis (no dead taps).
+          const facingY = boothFacingY(b, room);
+          const hc = rotateLocalRad({ x: hit.center[0], z: hit.center[2] }, facingY);
           return (
             <mesh
               key={`hit-${b.id}`}
-              position={[p.x, 0.6, p.z]}
+              position={[p.x + hc.x, hit.center[1], p.z + hc.z]}
+              rotation={[0, facingY, 0]}
               onClick={(e: ThreeEvent<MouseEvent>) => {
                 if (e.delta > TAP_MAX_PX) return;
                 e.stopPropagation();
@@ -613,7 +1001,7 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
                 document.body.style.cursor = '';
               }}
             >
-              <boxGeometry args={[2.3, 1.3, 1.3]} />
+              <boxGeometry args={[hit.size[0], hit.size[1], hit.size[2]]} />
               <meshBasicMaterial transparent opacity={0} depthWrite={false} />
             </mesh>
           );
@@ -627,6 +1015,7 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
             position={seatTarget}
             color={palette.accent}
             onTap={() => {
+              setDanceTarget(false); // sitting down ends any dancing
               setTarget(seatTarget);
               setSeatReached(false);
             }}
@@ -645,12 +1034,27 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
             target={target}
             seat={youSeat}
             isSeatTarget={isSeatTarget}
+            dance={danceTarget}
             room={room}
             seatObstacles={seatObstacles}
-            roamObstacles={roamObstacles}
+            // A dance target steers with the dance-floor disc dropped so the
+            // walk can reach the floor; every other roam tap keeps it (rounds it).
+            roamObstacles={danceTarget ? danceObstacles : roamObstacles}
             onArrive={() => setSeatReached(true)}
             palette={palette}
+            posRef={walkerPosRef}
+            waveUntil={sharedRoom.selfGreetUntil}
           />
+        ) : null}
+
+        {/* Shared room (slice 8): broadcast my walk + render other online guests'
+            characters. Both no-op / render nothing when the flag is off or I'm
+            alone, so the single-player walk is unchanged. */}
+        {sharedRoom.enabled ? (
+          <>
+            <LocalMoveBroadcaster posRef={walkerPosRef} sendMove={sharedRoom.sendMove} />
+            <RemotePlayers remotes={sharedRoom.remotes} selfPos={walkerPosRef.current ?? undefined} quality="low" />
+          </>
         ) : null}
 
         <OrbitControls
@@ -663,6 +1067,23 @@ export default function GuestVenue3D({ scene }: { scene: VenueScene }) {
           target={[0, 0.5, 0]}
         />
       </Canvas>
+
+      {/* Shared-room presence + "say hi" (slice 8) — only while others are online.
+          Greeting waves at the whole room; the wave plays on the sender's figure. */}
+      {sharedRoom.enabled && sharedRoom.onlineCount > 1 ? (
+        <div className="absolute right-4 top-4 flex flex-col items-end gap-2">
+          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-white backdrop-blur-md">
+            {sharedRoom.onlineCount} here now
+          </span>
+          <button
+            type="button"
+            onClick={() => sharedRoom.greet(null)}
+            className="pointer-events-auto rounded-full border border-white/20 bg-white/15 px-4 py-2 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/25 active:scale-95"
+          >
+            👋 Say hi
+          </button>
+        </div>
+      ) : null}
 
       {/* HUD */}
       <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4">

@@ -17,6 +17,7 @@ import {
 } from '@/lib/hero-monogram-data';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
+import { SaveStoryCardButton } from './_components/save-story-card-button';
 
 /**
  * GET /[slug]/recap — the public Auto-Recap "living recap" (Living Memories
@@ -61,7 +62,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     return { title: 'The Recap', robots: { index: false, follow: false } };
   }
   const title = `${event.display_name} — The Recap`;
-  const description = `The day, in their words. ${event.display_name}'s wedding recap on Setnayan.`;
+  const recapNoun = event.event_type && event.event_type !== 'wedding' ? 'event' : 'wedding';
+  const description = `The day, in their words. ${event.display_name}'s ${recapNoun} recap on Setnayan.`;
   return {
     title,
     description,
@@ -98,7 +100,7 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
   const themeVars = buildSitePaletteVars(sanitizeRolePalette(event.role_palette));
   const wrapStyle = themeVars ? (themeVars as React.CSSProperties) : undefined;
 
-  // Paid COUPLE_WEBSITE_PRO perk (₱3,999) — when ACTIVE (admin-approved), the
+  // Paid COUPLE_WEBSITE_PRO perk (retired/unbundled) — when ACTIVE (admin-approved), the
   // recap sheds the freemium "Powered by Setnayan · setnayan.com" footer
   // watermark, matching the wedding site. Admin client (public/anonymous
   // viewer); graceful-degrades to false (= keep the watermark) on any error.
@@ -140,6 +142,9 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
 
   const shareUrl = `${SITE_URL}/${event.slug}/recap`;
   const shareImage = `${SITE_URL}/api/og/recap/${event.slug}`;
+  // 1080×1920 story-sized file-asset — the IG/TikTok/Stories share path.
+  const storyCardUrl = `${shareImage}?format=story`;
+  const storyFilename = `${event.slug}-recap`;
 
   return (
     <main className="min-h-dvh bg-cream text-ink" style={wrapStyle}>
@@ -157,7 +162,13 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
         {model.reelUrls.length > 0 ? <Reels urls={model.reelUrls} /> : null}
         {model.panoodEmbedUrl ? <PanoodReplay embedUrl={model.panoodEmbedUrl} /> : null}
         {model.voices.length > 0 ? <Voices voices={model.voices} /> : null}
-        <RecapClosing model={model} shareUrl={shareUrl} shareImage={shareImage} />
+        <RecapClosing
+          model={model}
+          shareUrl={shareUrl}
+          shareImage={shareImage}
+          storyCardUrl={storyCardUrl}
+          storyFilename={storyFilename}
+        />
       </article>
       <RecapFooter />
     </main>
@@ -443,10 +454,14 @@ function RecapClosing({
   model,
   shareUrl,
   shareImage,
+  storyCardUrl,
+  storyFilename,
 }: {
   model: RecapModel;
   shareUrl: string;
   shareImage: string;
+  storyCardUrl: string;
+  storyFilename: string;
 }) {
   return (
     <section className="mt-16 flex flex-col items-center gap-5 border-t border-ink/10 pt-10 text-center">
@@ -454,11 +469,16 @@ function RecapClosing({
       <p className="max-w-prose text-sm text-ink/65">
         Ang mga litratong ito ang nagkuwento — the photos told the story, and the guests narrated it.
       </p>
-      <ShareButtons
-        url={shareUrl}
-        title={`${model.coupleNames} — the day, in their words. A Setnayan recap.`}
-        image={shareImage}
-      />
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <ShareButtons
+          url={shareUrl}
+          title={`${model.coupleNames} — the day, in their words. A Setnayan recap.`}
+          image={shareImage}
+        />
+        {/* File-asset path — IG feed / Stories / TikTok don't take web-URL
+            shares; hand them the Setnayan-rendered 9:16 story card instead. */}
+        <SaveStoryCardButton storyCardUrl={storyCardUrl} filenameBase={storyFilename} />
+      </div>
     </section>
   );
 }

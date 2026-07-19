@@ -5,17 +5,23 @@
  * (owner brief, DECISION_LOG 2026-07-03; see memory
  * `project_setnayan_panood_controller_build`).
  *
- * Topology: each phone is a PUBLISHER (getUserMedia → RTCPeerConnection,
- * video only), the desktop control room is the VIEWER (one peer connection
- * per camera slot). Signaling rides an ephemeral Supabase Realtime broadcast
+ * Topology: each phone is a PUBLISHER (getUserMedia camera + mic →
+ * RTCPeerConnection), the desktop control room is the VIEWER (one peer
+ * connection per camera slot; it monitors the on-air camera's audio). This
+ * transport is track-agnostic — it forwards whatever tracks the publisher
+ * adds. Signaling rides an ephemeral Supabase Realtime broadcast
  * channel keyed by the demo session (`demo-rtc:{sessionId}`) — no new infra,
  * same convention family as `demo:{sessionId}` presence and
  * `wall:{eventId}` tiles. Media itself flows peer-to-peer and NEVER touches
  * Supabase or any Setnayan server: nothing is recorded, nothing is stored.
  *
- * ICE is public STUN only — NO TURN in V1 (owner-locked). On networks where
- * STUN can't punch through (symmetric NAT, some corporate/CGNAT setups) the
- * connection fails cleanly and the UI shows the same-Wi-Fi hint instead.
+ * ICE: public STUN always, plus an optional short-lived Cloudflare TURN relay
+ * passed in by the caller (from `getDemoIceServers`, minted server-side). STUN
+ * alone can't traverse symmetric NAT / CGNAT (PH mobile data, client-isolated
+ * venue Wi-Fi) — the reason the demo synced for some phones and not others —
+ * so a TURN relay is what lets a hard-NAT pair connect at all. If no
+ * `iceServers` is passed (or TURN isn't configured) this falls back to
+ * STUN-only, and a still-unreachable pair fails cleanly after the timeout.
  *
  * Protocol (phone offers, viewer answers — the side with media initiates):
  *   cam-hello   {slot}                phone announces itself, retries until acked
@@ -27,6 +33,7 @@
 
 import { createClient } from '@/lib/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { reportConnectionType } from '@/lib/webrtc-telemetry';
 
 export type CamSlot = 'a' | 'b';
 
@@ -36,7 +43,8 @@ export type PeerConnectionState =
   | 'connected'
   | 'failed';
 
-const ICE_SERVERS: RTCIceServer[] = [
+/** STUN-only fallback when a caller passes no `iceServers` (or TURN is unconfigured). */
+const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun.cloudflare.com:3478' },
 ];
@@ -91,11 +99,14 @@ export function publishDemoCamera({
   slot,
   stream,
   onState,
+  iceServers = DEFAULT_ICE_SERVERS,
 }: {
   sessionId: string;
   slot: CamSlot;
   stream: MediaStream;
   onState: (state: PeerConnectionState) => void;
+  /** STUN + (ideally) a minted TURN relay from `getDemoIceServers`; STUN-only if omitted. */
+  iceServers?: RTCIceServer[];
 }): CameraPublisher {
   const supabase = createClient();
   let pc: RTCPeerConnection | null = null;
@@ -123,8 +134,9 @@ export function publishDemoCamera({
     stopHello();
     pc?.close();
     unwatch?.();
-    pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    pc = new RTCPeerConnection({ iceServers });
     unwatch = watchConnectionState(pc, onState);
+    reportConnectionType(pc, 'demo'); // relay-vs-direct telemetry (best-effort)
     for (const track of stream.getTracks()) pc.addTrack(track, stream);
     pc.onicecandidate = (e) => {
       if (e.candidate) send('rtc-ice', { slot, side: 'cam', candidate: e.candidate.toJSON() });
@@ -184,10 +196,13 @@ export function watchDemoCameras({
   sessionId,
   onTrack,
   onSlotState,
+  iceServers = DEFAULT_ICE_SERVERS,
 }: {
   sessionId: string;
   onTrack: (slot: CamSlot, stream: MediaStream) => void;
   onSlotState: (slot: CamSlot, state: PeerConnectionState) => void;
+  /** STUN + (ideally) a minted TURN relay from `getDemoIceServers`; STUN-only if omitted. */
+  iceServers?: RTCIceServer[];
 }): ControlRoomViewer {
   const supabase = createClient();
   const pcs: Partial<Record<CamSlot, RTCPeerConnection>> = {};
@@ -207,8 +222,9 @@ export function watchDemoCameras({
     // A fresh offer for a slot replaces any previous peer (phone retried).
     pcs[slot]?.close();
     unwatchers[slot]?.();
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    const pc = new RTCPeerConnection({ iceServers });
     pcs[slot] = pc;
+    reportConnectionType(pc, 'demo'); // relay-vs-direct telemetry (best-effort)
     unwatchers[slot] = watchConnectionState(pc, (state) => onSlotState(slot, state));
     pc.onicecandidate = (e) => {
       if (e.candidate) send('rtc-ice', { slot, side: 'viewer', candidate: e.candidate.toJSON() });

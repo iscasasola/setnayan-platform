@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { after } from 'next/server';
 import { runSocialFlush } from '@/lib/social/flush';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
+import { runDailyEmailJobs } from '@/lib/daily-email-jobs';
 import { Star, MapPin, ChevronLeft, ChevronRight, Navigation, Sparkles, Snowflake, HeartHandshake } from 'lucide-react';
 import { haversineKm, formatDistanceKm } from '@/lib/geo';
 import { Wordmark } from '@/app/_components/brand-marks';
@@ -16,6 +17,7 @@ import {
   isAdminProfile,
 } from '@/lib/demo-mode';
 import { fetchDemoVendorIds } from '@/lib/demo-vendors';
+import { fetchFraudFrozenVendorIds } from '@/lib/fraud-enforcement-runner';
 import {
   PUBLIC_SURFACE_VISIBILITIES,
   isBookable,
@@ -408,8 +410,10 @@ type Props = {
     offseason?: string;
     event_type?: string;
     /** Task #12 · CLAUDE.md 2026-05-22 — middleware redirects
-     *  /vendors/compare here with `notice=compare_v1_2`. Surfaces the
-     *  "compare is coming in V1.2" banner under the marketplace header. */
+     *  /vendors/compare here with `notice=compare_v1_2`. The compare tool
+     *  since SHIPPED (/explore/compare), so the banner no longer promises
+     *  a "coming" feature: it points at the live tool + how to reach it
+     *  (save ≥2 vendors). Wayfinding 2026-07-15. */
     notice?: string;
     /** Task #47 · CLAUDE.md 2026-05-22 — when present and resolves to one
      *  of WEDDING_FOLDER_ORDER, scopes the catalog to a single folder
@@ -481,11 +485,43 @@ type Props = {
 // `feedback_setnayan_no_dev_text_post_launch`.
 const VENDORS_NOTICE_COPY: Record<string, { title: string; body: string }> = {
   compare_v1_2: {
-    title: 'Side-by-side comparison is coming soon.',
+    title: 'Compare vendors side by side.',
     body:
-      'For now, save vendors you’re considering to your shortlist from each vendor’s profile — we’ll bring the comparison view alongside it shortly.',
+      'Save two or more vendors to your shortlist, then open the comparison to see location, rating, services and faith fit next to each other.',
   },
 };
+
+/**
+ * Compare-shortlist doorway (route-wayfinding 2026-07-15). /explore/compare is a
+ * live 2-up comparison tool that reads `?ids=<uuid>,<uuid>` (capped at 2, redirects
+ * back to /explore below two). It had no in-app door — the marketplace only carried
+ * a stale "coming in V1.2" banner. This renders the real door once the couple has
+ * saved ≥2 vendors, linking the two earliest saves. Null href → nothing renders.
+ */
+function CompareShortlistBanner({ compareHref }: { compareHref: string | null }) {
+  if (!compareHref) return null;
+  return (
+    <div
+      role="status"
+      className="border-b border-terracotta/15 bg-terracotta/5"
+    >
+      <div className="mx-auto flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 sm:px-6 lg:px-8">
+        <p className="text-sm text-ink/80">
+          <span className="font-medium text-ink">Compare your shortlist.</span>{' '}
+          <span className="text-ink/70">
+            Put two saved vendors side by side — location, rating, services, faith fit.
+          </span>
+        </p>
+        <Link
+          href={compareHref}
+          className="shrink-0 inline-flex items-center gap-1 text-sm font-medium text-terracotta underline-offset-4 hover:underline"
+        >
+          Compare →
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 function NoticeBanner({ noticeKey }: { noticeKey: string | null }) {
   if (!noticeKey) return null;
@@ -1241,6 +1277,32 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   const venueFilterActive =
     hostVenueSetting !== null && filters.venueDefault === 'on';
 
+  // Compare-shortlist doorway (route-wayfinding 2026-07-15). Resolve the
+  // couple's saved-vendor shortlist once (both render modes reuse it) and build
+  // a link to the live /explore/compare tool, which reads `?ids=<uuid>,<uuid>`.
+  // Enabled only at ≥2 saved vendors; links the two earliest saves. Null when
+  // anonymous / <2 saved → CompareShortlistBanner renders nothing.
+  let compareHref: string | null = null;
+  if (coupleEventId) {
+    const { data: savedForCompare } = await supabase
+      .from('event_vendors')
+      .select('marketplace_vendor_id')
+      .eq('event_id', coupleEventId)
+      .not('marketplace_vendor_id', 'is', null)
+      .neq('status', 'declined')
+      .order('vendor_id', { ascending: true });
+    const savedIds = Array.from(
+      new Set(
+        (savedForCompare ?? [])
+          .map((r) => r.marketplace_vendor_id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+    if (savedIds.length >= 2) {
+      compareHref = `/explore/compare?ids=${savedIds[0]},${savedIds[1]}`;
+    }
+  }
+
   // SEO/GEO Bucket 6 · ItemList JSON-LD origin computed once per render.
   // Both return branches (catalog mode + non-catalog) inject the same JSON-LD
   // surface so /vendors emits the taxonomy hierarchy regardless of mode.
@@ -1255,6 +1317,10 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // client), so the cookies()-ordering constraint that pins runSocialFlush
   // below doesn't apply. Throttled + single-claim + OFF by default internally.
   after(() => runAdminDigestFlush().catch(() => {}));
+  // Daily email jobs (anniversary · renewal · Papic drop warning) — CRON-FREE,
+  // fired here too (before the catalog-mode early return) so the marketplace's
+  // main public entry drives them daily. Per-job daily DB claim; never throws.
+  after(() => runDailyEmailJobs().catch(() => {}));
 
   if (isCatalogMode) {
     return (
@@ -1273,6 +1339,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           currentEventId={coupleEventId}
           isAuthenticated={user !== null}
           noticeKey={noticeKey}
+          compareHref={compareHref}
           scopedFolder={filters.folder}
           inDemoMode={inDemoMode}
           focusedMode={filters.focusedMode}
@@ -1300,6 +1367,15 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // a defensive query that tolerates Agent 1's column not being on
   // main yet.
   const demoVendorIds = await fetchDemoVendorIds(admin);
+
+  // Anti-fraud Phase 4 (§ 5) — the FREEZE. Vendors suspended (reversible,
+  // system) OR banned (irreversible, admin) by fraud enforcement must vanish
+  // from the marketplace + lose their badges. The enforcement writes already
+  // flip public_visibility → 'hidden' (which the allowedVisibilities gate
+  // excludes), but we ALSO exclude the frozen set explicitly here as
+  // defense-in-depth — even in demo mode a fraud-frozen vendor never renders.
+  // Fail-soft: [] on error (the visibility gate still stands).
+  const fraudFrozenIds = await fetchFraudFrozenVendorIds(admin);
 
   // Couple-side serves filter (2026-07-03) — resolve the faith exclusion set
   // ONCE per request; it constrains both the main grid query and the broadened
@@ -1359,6 +1435,20 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       'vendor_profile_id',
       'in',
       `(${demoVendorIds.join(',')})`,
+    );
+  }
+
+  // Anti-fraud Phase 4 freeze exclusion — applies ALWAYS (even in demo mode).
+  // Same widening cast as the demo exclusion above (deep PostgREST types trip
+  // the TS recursion ceiling). Only fires when there is at least one frozen id.
+  if (fraudFrozenIds.length > 0) {
+    type QueryShape = {
+      not: (column: string, op: string, value: string) => typeof query;
+    };
+    query = (query as unknown as QueryShape).not(
+      'vendor_profile_id',
+      'in',
+      `(${fraudFrozenIds.join(',')})`,
     );
   }
 
@@ -1832,6 +1922,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     relationshipDepthMap,
     activityStatsByVendorId,
     partnershipBadgeByVendorId,
+    trustedReviewStatsByVendorId,
   ] =
     await Promise.all([
       (async (): Promise<
@@ -2216,6 +2307,37 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         }
         return out;
       })(),
+      // Trusted (receipt-backed, arm's-length) review aggregates from
+      // vendor_trusted_review_stats — the ONLY stat the couple_trusted badge
+      // may read. Kept SEPARATE from vendor_market_stats' raw
+      // avg_rating_overall / review_count (which count every review with no
+      // provenance filter) so fake / self-dealt reviews can never earn the
+      // trust badge. Fail-soft: an empty map means couple_trusted is simply
+      // not awarded (0/0 → below the count floor). Never blocks the grid.
+      (async (): Promise<Map<string, { avg: number; count: number }>> => {
+        if (visibleVendorIds.length === 0) return new Map();
+        const { data, error } = await admin
+          .from('vendor_trusted_review_stats')
+          .select('vendor_profile_id, trusted_avg_rating, trusted_review_count')
+          .in('vendor_profile_id', visibleVendorIds);
+        if (error) {
+          console.warn('[explore] vendor_trusted_review_stats fetch failed', error.message);
+          return new Map();
+        }
+        const out = new Map<string, { avg: number; count: number }>();
+        for (const row of data ?? []) {
+          const r = row as {
+            vendor_profile_id: string;
+            trusted_avg_rating: number | null;
+            trusted_review_count: number | null;
+          };
+          out.set(r.vendor_profile_id, {
+            avg: Number(r.trusted_avg_rating ?? 0),
+            count: Number(r.trusted_review_count ?? 0),
+          });
+        }
+        return out;
+      })(),
     ]);
 
   // Enrich each visible row with the new optional fields. Real-vendor
@@ -2257,7 +2379,14 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     // PR #6 — quality / activity stats from vendor_activity_stats.
     const activity = activityStatsByVendorId.get(v.vendor_profile_id) ?? null;
     v.quality_score = activity?.quality_score ?? null;
-    v.finalized_booking_count = activity?.finalized_booking_count ?? null;
+    // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the Experience-tier chip
+    // reads the VETTED completed-event count (vendor_public_completed_events_stats,
+    // via `bookingCounts`) instead of vendor_activity_stats.finalized_booking_count,
+    // which was a raw booking-status count with NO self-dealing exclusions. This
+    // is the same vetted number that drives the `most_booking` percentile, so a
+    // vendor can't inflate the Experience tier by self-creating "delivered"
+    // events. Vendors with no vetted completed events fall to 0 → "new" tier.
+    v.finalized_booking_count = bookingCounts.get(v.vendor_profile_id) ?? 0;
     v.last_active_at = activity?.last_active_at ?? null;
     v.avg_response_minutes = activity?.avg_response_minutes ?? null;
     // PR #6 — partnership badge (null = no relevant partnership on this page).
@@ -2357,13 +2486,21 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // Badge computation runs against the enriched `visible` set so
   // percentile thresholds reflect what's on this page.
   const badgesByVendorId = computeVendorBadges(
-    visible.map((v) => ({
-      vendor_profile_id: v.vendor_profile_id,
-      verification_state: v.verification_state ?? null,
-      created_at: v.created_at,
-      avg_rating_overall: v.avg_rating_overall ?? 0,
-      review_count: v.review_count ?? 0,
-    })),
+    visible.map((v) => {
+      // couple_trusted reads ONLY the trusted (receipt-backed, arm's-length)
+      // stat — never the raw avg_rating_overall / review_count. Vendors with
+      // no trusted-stats row pass 0/0 so they simply don't earn the badge.
+      const trusted = trustedReviewStatsByVendorId.get(v.vendor_profile_id);
+      return {
+        vendor_profile_id: v.vendor_profile_id,
+        verification_state: v.verification_state ?? null,
+        created_at: v.created_at,
+        avg_rating_overall: v.avg_rating_overall ?? 0,
+        review_count: v.review_count ?? 0,
+        trusted_avg_rating: trusted?.avg ?? 0,
+        trusted_review_count: trusted?.count ?? 0,
+      };
+    }),
     bookingCounts,
   );
 
@@ -2392,6 +2529,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           sticky-top bars would stack/overlap on scroll. */}
 
       <NoticeBanner noticeKey={noticeKey} />
+      <CompareShortlistBanner compareHref={compareHref} />
 
       {/* 2026-05-30 mobile pattern lock — `pb-36` on mobile gives the page
           content 144px of bottom clearance so the last visible items don't
@@ -2659,11 +2797,17 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                  review libs, so the vendor's own dashboard self-view stays
                  ungated. `?? null` → free → hidden. */
               const vCaps = tierCaps(v.tier_state ?? null);
+              // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the card's PUBLIC
+              // star average + review count read the TRUSTED (receipt-backed,
+              // arm's-length) stat, so fake / self-dealt reviews can't inflate
+              // the number couples see. Same source the couple_trusted / top_pick
+              // badges use. Still gated by tier (Free hides stars → "new").
+              const vTrusted = trustedReviewStatsByVendorId.get(v.vendor_profile_id);
               const gatedRating = vCaps.reviewStarsCounted
-                ? Number(v.avg_rating_overall ?? 0)
+                ? Number(vTrusted?.avg ?? 0)
                 : 0;
               const gatedReviewCount = vCaps.reviewStarsCounted
-                ? (v.review_count ?? 0)
+                ? (vTrusted?.count ?? 0)
                 : 0;
               const gatedReviews = vCaps.reviewCommentsViewable
                 ? (reviewsByVendorId.get(v.vendor_profile_id) ?? [])
@@ -2958,7 +3102,7 @@ function EmptyState({
   // filter away, we point the couple at them rather than asking them to recruit.
   //
   // Routes to the canonical vendor-registration entry (`/signup?as=vendor`,
-  // mirrored from /for-vendors), carrying `next=/vendor-dashboard/profile` so a
+  // mirrored from /vendors), carrying `next=/vendor-dashboard/profile` so a
   // brand-new vendor lands directly on the services picker that already surfaces
   // this leaf as a checkbox. The leaf key rides along as `prefill_service` for
   // future deep-linking + signup-source attribution (harmless today — the
@@ -3067,7 +3211,7 @@ function EmptyState({
               List your business
             </Link>
             <Link
-              href="/for-vendors"
+              href="/vendors"
               className="inline-flex h-10 items-center text-sm font-medium text-terracotta underline-offset-4 hover:underline"
             >
               How vendor listings work →
@@ -3235,6 +3379,7 @@ async function CatalogView({
   currentEventId,
   isAuthenticated,
   noticeKey,
+  compareHref,
   scopedFolder,
   inDemoMode,
   focusedMode,
@@ -3260,6 +3405,9 @@ async function CatalogView({
    *  unknown. Surfaces a polite banner under the header explaining a
    *  redirected-from-deferred-feature landing. */
   noticeKey: string | null;
+  /** Route-wayfinding 2026-07-15 — `/explore/compare?ids=…` link when the couple
+   *  has ≥2 saved vendors, else null. Drives CompareShortlistBanner. */
+  compareHref: string | null;
   /** Task #47 — when non-null, render only the named folder section. Hides
    *  the other 11 folders + the PairedVenuePanel (which surfaces ceremony
    *  venues regardless of viewport position; the dashboard Reception
@@ -3652,6 +3800,7 @@ async function CatalogView({
       </header>
 
       <NoticeBanner noticeKey={noticeKey} />
+      <CompareShortlistBanner compareHref={compareHref} />
 
       <section
         id="all"

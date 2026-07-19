@@ -35,7 +35,7 @@ export default async function EventActivityPage({
 
   return (
     <section className="space-y-6">
-      <header className="space-y-2">
+      <header className="sn-reveal space-y-2">
         <Link
           href={`/dashboard/${eventId}`}
           className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55 hover:text-terracotta"
@@ -43,7 +43,8 @@ export default async function EventActivityPage({
           <ArrowLeft aria-hidden className="h-3 w-3" />
           {tr('cta.back')}
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+        <p className="sn-eye">Activity</p>
+        <h1 className="sn-h1">
           {tr('section.recent_activity')}
         </h1>
         <p className="text-sm text-ink/55">
@@ -52,14 +53,14 @@ export default async function EventActivityPage({
       </header>
 
       {activity.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-6 text-center text-sm text-ink/55">
+        <p className="sn-row border-dashed p-6 text-center text-sm text-ink/55">
           Nothing yet. Add a guest, book a vendor, or place an order — it&rsquo;ll show up here.
         </p>
       ) : (
         <ol className="space-y-6">
           {grouped.map(({ day, items }) => (
             <li key={day} className="space-y-2">
-              <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/45">
+              <h2 className="sn-eye">
                 {day}
               </h2>
               <ul className="space-y-1">

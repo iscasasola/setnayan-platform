@@ -49,7 +49,7 @@ export function ManageTiles({
   const toggle = (t: ToolKey) => setOpen((cur) => (cur === t ? null : t));
 
   return (
-    <section className="space-y-3">
+    <section id="manage-shop" className="space-y-3">
       {/* Heading kept for the a11y outline but visually removed (owner
           2026-07-02: "remove the Manage your shop text"). */}
       <h2 className="sr-only">Manage your shop</h2>
@@ -124,10 +124,10 @@ function ToolTile({
       type="button"
       aria-expanded={isOpen}
       onClick={onToggle}
-      className="group flex flex-col items-center rounded-xl border bg-white p-4 text-center transition-colors hover:border-[color:var(--m-orange-3)]"
-      style={{ borderColor: isOpen ? 'var(--m-orange-3)' : 'var(--m-line)' }}
+      className="sn-tile group flex flex-col items-center p-4 text-center transition-colors hover:border-[color:var(--m-orange-3)]"
+      style={isOpen ? { borderColor: 'var(--m-orange-3)' } : undefined}
     >
-      <p className="text-xl font-semibold tabular-nums" style={{ color: 'var(--m-ink)' }}>
+      <p className="font-mono text-xl font-bold" style={{ color: 'var(--m-ink)' }}>
         {value}
       </p>
       <p className="mt-0.5 text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
@@ -157,9 +157,11 @@ function ToolTile({
 
 function PanelShell({ children }: { children: React.ReactNode }) {
   return (
+    // Expanded panel — flat translucent tint (the tiles above are the glass
+    // layer; nesting another blur under them would break § 1.6).
     <div
       className="mt-3 rounded-xl border p-5"
-      style={{ borderColor: 'var(--m-orange-3)', background: 'var(--m-paper)' }}
+      style={{ borderColor: 'var(--m-orange-3)', background: 'rgba(255,255,255,.72)' }}
     >
       {children}
     </div>

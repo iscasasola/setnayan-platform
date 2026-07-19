@@ -16,7 +16,9 @@ import {
 import {
   papicPerCameraTier,
   papicCameraOrderPaid,
-  papicTierDailyLimit,
+  papicCaptureCost,
+  resolvePointsGate,
+  type PointsGateVerdict,
   eventUnliFreeViaUnlock,
   eventLtdFreeViaUnlock,
 } from '@/lib/papic-cameras';
@@ -247,10 +249,12 @@ export async function recordSeatCapture(
 
   // ── Per-CAMERA enforcement (per-camera model · PR3) ─────────────────────
   // Applies ONLY to per-camera seats (sku_code PAPIC_CAMERA_*) — the legacy
-  // PAPIC_SEATS pack stays uncapped. A paid
-  // camera (roll/unlimited) only shoots once its order is PAID; the daily tier
-  // quota is reserved atomically at the record layer (the authoritative gate;
-  // the presign probe in /api/upload is the orphan-byte leak guard).
+  // PAPIC_SEATS pack stays uncapped (feature-loss firewall). A paid camera
+  // (roll/unlimited) only shoots once its order is PAID; the daily capture-
+  // POINTS budget is reserved atomically at the record layer (the
+  // authoritative gate; the presign probe in /api/upload is the orphan-byte
+  // leak guard). Free cameras (tier 'free' · provisionFreeCamerasAdmin) meter
+  // through the same points gate at the free budget.
   {
     if (cameraTier) {
       // ── Capture WINDOW gate (owner 2026-06-26) ──────────────────────────
@@ -310,39 +314,40 @@ export async function recordSeatCapture(
         }
         if (!paid) return { ok: false, error: 'awaiting_payment' };
       }
-      const limit = unlocked
-        ? null
-        : papicTierDailyLimit(cameraTier, kind === 'clip' ? 'clip' : 'photo');
-      if (limit != null) {
-        let reserved = true;
+      // Capture-POINTS reserve (Papic v3 · brief PR-3) — the AUTHORITATIVE,
+      // race-safe gate: 1 photo = 1 pt · 1 clip = 3 pts, atomically booked by
+      // papic_reserve_camera_points against the tier's daily budget from
+      // papic_tier_config (free/mini/roll 20 · ltd 70 · unlimited ∞ passthrough
+      // — admin-editable, never hardcoded here). Fail-CLOSED on any RPC failure
+      // EXCEPT function-not-found (resolvePointsGate — the seam-cutover
+      // carve-out): metering is money logic now, so an outage must block, not
+      // silently un-meter. The presign probe (api/upload) is only the
+      // orphan-byte leak guard; this reserve is the gate of record.
+      if (!unlocked) {
+        const cost = papicCaptureCost(kind === 'clip' ? 'clip' : 'photo');
+        let gate: PointsGateVerdict;
         try {
           const admin = createAdminClient();
           const { data: reserveOk, error: reserveErr } = await admin.rpc(
-            'papic_reserve_camera_capture',
+            'papic_reserve_camera_points',
             {
               p_seat_id: seat.seat_id,
               p_event_id: seat.event_id,
-              p_kind: kind === 'clip' ? 'clip' : 'photo',
-              p_limit: limit,
+              p_cost: cost,
             },
           );
-          // Fail-OPEN on a missing RPC / transient error (pre-migration DB) so a
-          // config hiccup never breaks the camera; fail-CLOSED on a definitive
-          // "at cap" answer (reserveOk === false).
-          if (reserveErr) {
-            reserved =
-              reserveErr.code === '42883' || reserveErr.code === 'PGRST202';
-          } else {
-            reserved = reserveOk === true;
-          }
+          gate = resolvePointsGate(
+            reserveErr ? (reserveErr.code ?? 'unknown') : null,
+            reserveOk === true ? true : reserveOk === false ? false : null,
+          );
         } catch {
-          reserved = true;
+          gate = 'blocked'; // thrown ≠ identifiable fn-not-found → fail-CLOSED
         }
-        if (!reserved) {
-          return {
-            ok: false,
-            error: kind === 'clip' ? 'daily_video_quota' : 'daily_photo_quota',
-          };
+        if (gate === 'exhausted') {
+          return { ok: false, error: 'camera_points_exhausted' };
+        }
+        if (gate === 'blocked') {
+          return { ok: false, error: 'points_check_failed' };
         }
       }
     }

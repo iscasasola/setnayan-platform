@@ -88,24 +88,35 @@ export const PAPIC_CAMERA_UNLIMITED_SKU = 'PAPIC_CAMERA_UNLIMITED_DAY';
 export const PAPIC_CAMERAS_ORDER_KEY = 'PAPIC_CAMERAS';
 
 /** First N cameras are free (the funnel taste); paid orders require >= MIN. */
-export const PAPIC_FREE_CAMERA_COUNT = 5;
-export const PAPIC_MIN_PAID_CAMERAS = 5;
+export const PAPIC_FREE_CAMERA_COUNT = 3; // owner 2026-07-17 (was 5)
+export const PAPIC_MIN_PAID_CAMERAS = 1; // owner 2026-07-17 (was 5) — 1-camera minimum
 
 /** Paid per-camera seats start here so they never collide with the pack (1–5). */
 export const PAPIC_CAMERA_INDEX_BASE = 200;
+
+/**
+ * The 3 FREE per-camera seats live at fixed indexes 100..102 — their own range,
+ * clear of the legacy PAPIC_SEATS pack (1–5) and the paid per-camera range
+ * (>= 200). Fixed indexes make provisioning a dense idempotent top-up (same
+ * pattern as the pack's 1..5) instead of a max+1 scan.
+ */
+export const PAPIC_FREE_CAMERA_INDEX_BASE = 100;
 
 /** Last-resort fallbacks if the catalog row is missing. Live prices come from the catalog. */
 export const PAPIC_CAMERA_ROLL_FALLBACK_PHP = 30;
 export const PAPIC_CAMERA_UNLIMITED_FALLBACK_PHP = 100;
 export const PAPIC_DEFAULT_COST_CAP_PHP = 6999; // deprecated single cap (pre per-tier)
 /**
- * Per-tier price caps — each tier's subtotal locks here. Live values come from
- * events.papic_ltd_cap_php / papic_unli_cap_php; these are last-resort fallbacks.
- * Owner-set 2026-07-11 (PR #3112): Ltd ₱9,000 · Unli ₱15,000 (raised from the
- * ₱5,999/₱11,999 set earlier the same day; 6000/10000 before that).
+ * Per-tier WEDDING price caps — each tier's subtotal locks here (weddings only;
+ * every other event type is uncapped, via the quote's `uncapped` flag). Live
+ * values come from events.papic_mini_cap_php / papic_ltd_cap_php / papic_unli_cap_php;
+ * these are last-resort fallbacks. Under the 2026-07-17 roll->Mini remap the
+ * 'roll'/Mini tier caps at the MINI cap (₱6,000); PAPIC_LTD_CAP_FALLBACK is
+ * reserved for the distinct Ltd tier added in a later PR (currently dormant).
  */
-export const PAPIC_LTD_CAP_FALLBACK_PHP = 9000; // Ltd (Roll) ≈ 300 cameras × ₱30 (owner 2026-07-11)
-export const PAPIC_UNLI_CAP_FALLBACK_PHP = 15000; // Unli = 150 cameras × ₱100 (owner 2026-07-11)
+export const PAPIC_MINI_CAP_FALLBACK_PHP = 6000; // Mini (and legacy roll->Mini) — owner 2026-07-17
+export const PAPIC_LTD_CAP_FALLBACK_PHP = 10000; // Ltd (₱50 tier) — owner 2026-07-17 (dormant until the Ltd selection ships)
+export const PAPIC_UNLI_CAP_FALLBACK_PHP = 15000; // Unli = 150 cameras × ₱100
 
 export type CameraTier = 'free' | 'roll' | 'unlimited';
 
@@ -167,7 +178,16 @@ export async function fetchCameraRates(
 
 export type CameraSelection = { roll: number; unlimited: number };
 
-export type CameraCaps = { ltd: number; unli: number };
+export type CameraCaps = { mini: number; ltd: number; unli: number };
+
+/**
+ * Papic caps apply to WEDDINGS ONLY (owner 2026-07-17); every other event type
+ * is uncapped (per-camera pricing runs to the raw subtotal). Callers pass the
+ * result as `computeCameraQuote(..., { uncapped })`.
+ */
+export function isPapicUncapped(eventType: string | null | undefined): boolean {
+  return eventType !== 'wedding';
+}
 
 export type CameraQuote = {
   rollCount: number;
@@ -206,10 +226,14 @@ export function computeCameraQuote(
   days: number,
   rates: CameraRates,
   caps: CameraCaps,
-  opts: { unliFree?: boolean; ltdFree?: boolean } = {},
+  opts: { unliFree?: boolean; ltdFree?: boolean; uncapped?: boolean } = {},
 ): CameraQuote {
   const unliFree = opts.unliFree === true;
   const ltdFree = opts.ltdFree === true;
+  // Non-wedding events are uncapped (owner 2026-07-17): the subtotal never
+  // clamps and `capped` stays false. Caps still populate the *CapPhp fields for
+  // reference. Defaults to false (wedding path).
+  const uncapped = opts.uncapped === true;
   const rollCount = intCount(selection.roll);
   const unlimitedCount = intCount(selection.unlimited);
   const d = Math.max(1, Math.floor(Number(days)) || 1);
@@ -217,8 +241,11 @@ export function computeCameraQuote(
   const unlimitedRate =
     Number(rates.unlimited) || PAPIC_CAMERA_UNLIMITED_FALLBACK_PHP;
 
-  const ltdCap =
-    Number(caps.ltd) > 0 ? Number(caps.ltd) : PAPIC_LTD_CAP_FALLBACK_PHP;
+  // roll == Mini (owner 2026-07-17 roll->Mini remap) → caps at the MINI cap.
+  // The distinct Ltd tier (caps.ltd) is dormant until it ships as its own
+  // selection; unlimited == Unli caps at the Unli cap.
+  const miniCap =
+    Number(caps.mini) > 0 ? Number(caps.mini) : PAPIC_MINI_CAP_FALLBACK_PHP;
   const unliCap =
     Number(caps.unli) > 0 ? Number(caps.unli) : PAPIC_UNLI_CAP_FALLBACK_PHP;
 
@@ -229,8 +256,16 @@ export function computeCameraQuote(
   // Per-tier cap (owner 2026-06-26): each tier locks independently — so 300
   // guests on Ltd still pay the Ltd cap. Unlock owners pay ₱0 for the tier their
   // pass covers (free + uncapped): PAPIC_UNLOCK → Unli, PAPIC_UNLOCK_LTD → Ltd.
-  const rollChargePhp = ltdFree ? 0 : Math.min(rollSubtotalPhp, ltdCap);
-  const unlimitedChargePhp = unliFree ? 0 : Math.min(unlimitedSubtotalPhp, unliCap);
+  const rollChargePhp = ltdFree
+    ? 0
+    : uncapped
+      ? rollSubtotalPhp
+      : Math.min(rollSubtotalPhp, miniCap);
+  const unlimitedChargePhp = unliFree
+    ? 0
+    : uncapped
+      ? unlimitedSubtotalPhp
+      : Math.min(unlimitedSubtotalPhp, unliCap);
   const totalPhp = rollChargePhp + unlimitedChargePhp;
   const paidCount = rollCount + unlimitedCount;
 
@@ -251,13 +286,15 @@ export function computeCameraQuote(
     rollChargePhp,
     unlimitedChargePhp,
     rawTotalPhp,
-    ltdCapPhp: ltdCap,
+    ltdCapPhp: miniCap, // the cap applied to the roll/Mini tier (roll->Mini remap)
     unliCapPhp: unliCap,
     totalPhp,
-    // A tier never "caps" when its unlock frees it — it's ₱0, not clamped.
+    // A tier never "caps" when its unlock frees it (₱0, not clamped) or when the
+    // event is uncapped (non-wedding — charge is the raw subtotal).
     capped:
-      (!ltdFree && rollSubtotalPhp > ltdCap) ||
-      (!unliFree && unlimitedSubtotalPhp > unliCap),
+      !uncapped &&
+      ((!ltdFree && rollSubtotalPhp > miniCap) ||
+        (!unliFree && unlimitedSubtotalPhp > unliCap)),
     description,
   };
 }
@@ -357,7 +394,7 @@ export function mintPapicReferenceCode(): string {
 
 // ── Per-camera enforcement (PR3) ────────────────────────────────────────────
 
-/** The free funnel per-camera SKU (forward-compat; free-tier provisioning is a later PR). */
+/** The free funnel per-camera SKU — provisioned by provisionFreeCamerasAdmin below. */
 export const PAPIC_CAMERA_FREE_SKU = 'PAPIC_CAMERA_FREE';
 
 const PER_CAMERA_SKUS: ReadonlySet<string> = new Set([
@@ -382,13 +419,140 @@ export function papicPerCameraTier(
   return null;
 }
 
-/** The per-camera per-day limit for a capture kind (null = unlimited). */
+/**
+ * The per-camera per-day limit for a capture kind (null = unlimited).
+ *
+ * @deprecated Papic v3 (owner 2026-07-17) replaced the per-kind photo/video
+ * quotas with a single capture-POINTS budget (1 photo = 1 pt · 1 clip = 3 pts)
+ * resolved from the admin-editable papic_tier_config table. Both enforcement
+ * seams (api/upload presign + papic/actions record) now call the points RPCs
+ * (migration 20270821110100). Kept one release alongside the deprecated
+ * papic_camera_remaining / papic_reserve_camera_capture DB fns, then dropped.
+ */
 export function papicTierDailyLimit(
   tier: CameraTier,
   kind: 'photo' | 'clip',
 ): number | null {
   const q = PAPIC_TIER_QUOTA[tier];
   return kind === 'clip' ? q.videos : q.photos;
+}
+
+// ── Capture POINTS (Papic v3 · owner 2026-07-17 · brief PR-3) ───────────────
+//
+// One per-camera-per-day budget, spent in POINTS: 1 photo = 1 point · 1
+// five-second clip = 3 points. Budgets live in the admin-editable
+// papic_tier_config table (free/mini/roll 20 · ltd 70 · unlimited NULL=∞) —
+// NEVER hardcoded here. The DB RPCs (migration 20270821110100) resolve the
+// budget internally:
+//   • papic_camera_points_remaining(seat) — read-only probe for the PRESIGN
+//     seam (api/upload): refuse the upload URL at 0 so no orphan R2 bytes.
+//   • papic_reserve_camera_points(seat, event, cost) — the AUTHORITATIVE,
+//     atomic record-layer gate (papic/actions.recordSeatCapture).
+
+/** Points one capture costs. The 3× clip weight mirrors the tier ladder's math. */
+export const PAPIC_POINTS_PER_PHOTO = 1;
+export const PAPIC_POINTS_PER_CLIP = 3;
+
+/** Points a capture of `kind` spends against the camera's daily budget. */
+export function papicCaptureCost(kind: 'photo' | 'clip'): number {
+  return kind === 'clip' ? PAPIC_POINTS_PER_CLIP : PAPIC_POINTS_PER_PHOTO;
+}
+
+/**
+ * Postgres "function does not exist" (42883) / PostgREST schema-cache miss
+ * (PGRST202) — the ONE carve-out where the points gate fails OPEN: during the
+ * seam cutover a deploy can briefly run app code ahead of the migration, and
+ * that must not brick every camera. Everything else fails CLOSED.
+ */
+export function isMissingRpcErrorCode(code: string | null | undefined): boolean {
+  return code === '42883' || code === 'PGRST202';
+}
+
+export type PointsGateVerdict = 'allow' | 'exhausted' | 'blocked';
+
+/**
+ * The shared fail-posture policy for BOTH points-enforcement seams (presign +
+ * record). Pure + unit-tested — the brief's invariant lives here, once:
+ *
+ *   fail-CLOSED on every RPC error EXCEPT function-not-found (the seam-cutover
+ *   carve-out), and a definitive "no budget left" is 'exhausted' (the seams
+ *   surface it as 409 camera_points_exhausted).
+ *
+ * @param errorCode  the RPC error's code, or null when the call succeeded.
+ * @param allowed    the caller's verdict from the RPC result — true (points
+ *                   fit), false (budget definitively exhausted), or null when
+ *                   the result shape was indeterminate (fail-CLOSED → blocked).
+ */
+export function resolvePointsGate(
+  errorCode: string | null | undefined,
+  allowed: boolean | null,
+): PointsGateVerdict {
+  if (errorCode != null) {
+    return isMissingRpcErrorCode(errorCode) ? 'allow' : 'blocked';
+  }
+  if (allowed === true) return 'allow';
+  if (allowed === false) return 'exhausted';
+  return 'blocked';
+}
+
+/**
+ * Materialize the event's FREE cameras — the "always 3 seats / event" Free tier
+ * (owner 2026-07-17: Free = 3 seats × 20 points/day; face-sort + personal reels
+ * ON). Before this, "3 free cameras" was display copy with nothing to bind to:
+ * no tier='free' per-camera seats were ever provisioned, so free capture ran
+ * through the uncapped legacy path — the fake door brief PR-3 closes. These are
+ * real paparazzi_seats rows (sku_code PAPIC_CAMERA_FREE · tier 'free'), so the
+ * points RPCs meter them exactly like paid cameras, at the free budget.
+ *
+ * Idempotent dense top-up at fixed indexes 100..102 (mirrors the pack's 1..5
+ * pattern): re-running only fills missing indexes and never disturbs a claimed
+ * seat; the (event_id, seat_index) UNIQUE constraint is the hard backstop.
+ * Called render-time from the couple's Papic studio page (admin client, after
+ * the couple check) — same lazy-provision pattern as syncGuestCameras.
+ *
+ * Best-effort + non-fatal: returns the number of NEW seats inserted, 0 on any
+ * error (a provisioning hiccup must never break the setup page; the next render
+ * retries).
+ */
+export async function provisionFreeCamerasAdmin(
+  admin: SupabaseClient,
+  eventId: string,
+  window?: { validFrom: string | null; validUntil: string | null },
+): Promise<number> {
+  if (!eventId) return 0;
+  try {
+    const lastIndex = PAPIC_FREE_CAMERA_INDEX_BASE + PAPIC_FREE_CAMERA_COUNT - 1;
+    const { data: existing, error: readErr } = await admin
+      .from('paparazzi_seats')
+      .select('seat_index')
+      .eq('event_id', eventId)
+      .gte('seat_index', PAPIC_FREE_CAMERA_INDEX_BASE)
+      .lte('seat_index', lastIndex);
+    if (readErr) return 0; // missing/legacy table → pre-bootstrap DB; retry next render
+    const have = new Set((existing ?? []).map((r) => r.seat_index as number));
+    const missing = [];
+    for (let i = PAPIC_FREE_CAMERA_INDEX_BASE; i <= lastIndex; i += 1) {
+      if (!have.has(i)) {
+        missing.push({
+          event_id: eventId,
+          seat_index: i,
+          sku_code: PAPIC_CAMERA_FREE_SKU,
+          tier: 'free' as CameraTier,
+          claim_qr_token: generateSeatClaimToken(),
+          valid_from: window?.validFrom ?? null,
+          valid_until: window?.validUntil ?? null,
+        });
+      }
+    }
+    if (missing.length === 0) return 0;
+    const { error: insertErr } = await admin
+      .from('paparazzi_seats')
+      .upsert(missing, { onConflict: 'event_id,seat_index', ignoreDuplicates: true });
+    if (insertErr) return 0;
+    return missing.length;
+  } catch {
+    return 0;
+  }
 }
 
 /**

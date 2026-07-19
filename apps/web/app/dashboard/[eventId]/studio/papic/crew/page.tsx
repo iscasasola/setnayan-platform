@@ -212,8 +212,10 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
                 <div className="flex items-center justify-between">
                   <p className="font-medium text-ink">
                     {s.seat_index >= 200
-                      ? `Camera ${s.seat_index - 199}` /* per-camera (index base 200) */
-                      : `Seat ${s.seat_index}`}
+                      ? `Camera ${s.seat_index - 199}` /* paid per-camera (index base 200) */
+                      : s.seat_index >= 100
+                        ? `Free camera ${s.seat_index - 99}` /* free tier (100..102 · brief PR-3) */
+                        : `Seat ${s.seat_index}`}
                   </p>
                   {claimed ? (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-terracotta/10 px-2.5 py-1 text-xs font-medium text-terracotta">

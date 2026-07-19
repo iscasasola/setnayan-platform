@@ -7,12 +7,15 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { eventSkuActive } from '@/lib/entitlements';
 import {
   PAPIC_CAMERAS_ORDER_KEY,
+  PAPIC_FREE_CAMERA_INDEX_BASE,
   PAPIC_LTD_CAP_FALLBACK_PHP,
+  PAPIC_MINI_CAP_FALLBACK_PHP,
   PAPIC_MIN_PAID_CAMERAS,
   PAPIC_UNLI_CAP_FALLBACK_PHP,
   PAPIC_UNLOCK_BUNDLE_KEY,
   PAPIC_UNLOCK_LTD_BUNDLE_KEY,
   computeCameraQuote,
+  isPapicUncapped,
   fetchCameraRates,
   mintPapicReferenceCode,
   provisionPaidCamerasAdmin,
@@ -477,13 +480,15 @@ export async function purchasePapicCameras(formData: FormData) {
   // "1 day for ~all weddings" per the per-camera spec).
   const { data: ev } = await admin
     .from('events')
-    .select('papic_ltd_cap_php, papic_unli_cap_php, event_date')
+    .select('papic_mini_cap_php, papic_ltd_cap_php, papic_unli_cap_php, event_date, event_type')
     .eq('event_id', eventId)
     .maybeSingle();
   const caps = {
+    mini: Number(ev?.papic_mini_cap_php ?? 0) || PAPIC_MINI_CAP_FALLBACK_PHP,
     ltd: Number(ev?.papic_ltd_cap_php ?? 0) || PAPIC_LTD_CAP_FALLBACK_PHP,
     unli: Number(ev?.papic_unli_cap_php ?? 0) || PAPIC_UNLI_CAP_FALLBACK_PHP,
   };
+  const uncapped = isPapicUncapped(ev?.event_type as string | null);
 
   // The event's capture window sets BOTH the day multiplier (price) and the
   // seat validity bounds (how long the cameras shoot). Legacy single-day events
@@ -503,6 +508,7 @@ export async function purchasePapicCameras(formData: FormData) {
   const quote = computeCameraQuote({ roll, unlimited }, win.days, rates, caps, {
     unliFree: ownsUnlock,
     ltdFree: ownsUnlockLtd,
+    uncapped,
   });
 
   if (quote.paidCount < PAPIC_MIN_PAID_CAMERAS) {
@@ -640,7 +646,7 @@ export async function activatePapicLimited(formData: FormData) {
   // Rate + cap for the chosen tier (both admin-managed).
   const { data: ev } = await admin
     .from('events')
-    .select('papic_ltd_cap_php, papic_unli_cap_php')
+    .select('papic_mini_cap_php, papic_ltd_cap_php, papic_unli_cap_php, event_type')
     .eq('event_id', eventId)
     .maybeSingle();
   const rates = await fetchCameraRates(admin);
@@ -648,10 +654,13 @@ export async function activatePapicLimited(formData: FormData) {
   // seat validity bounds). Legacy single-day events fall back to 1 day.
   const win = await fetchEventPapicWindow(admin, eventId);
   const ratePhp = tier === 'unlimited' ? rates.unlimited : rates.roll;
-  const capPhp =
-    tier === 'unlimited'
+  // roll/limited == Mini (owner 2026-07-17 roll->Mini) → Mini cap; non-weddings
+  // uncapped (charge runs to the raw subtotal).
+  const capPhp = isPapicUncapped(ev?.event_type as string | null)
+    ? Number.MAX_SAFE_INTEGER
+    : tier === 'unlimited'
       ? Number(ev?.papic_unli_cap_php ?? 0) || PAPIC_UNLI_CAP_FALLBACK_PHP
-      : Number(ev?.papic_ltd_cap_php ?? 0) || PAPIC_LTD_CAP_FALLBACK_PHP;
+      : Number(ev?.papic_mini_cap_php ?? 0) || PAPIC_MINI_CAP_FALLBACK_PHP;
   const quote = computeLimitedQuote(guestCount, ratePhp, capPhp, win.days);
 
   // Tier CHANGE (upgrade to Unlimited / switch back to Limited): supersede the
@@ -781,13 +790,15 @@ export async function purchasePapicExtras(formData: FormData) {
   const admin = createAdminClient();
   const { data: ev } = await admin
     .from('events')
-    .select('papic_ltd_cap_php, papic_unli_cap_php, event_date')
+    .select('papic_mini_cap_php, papic_ltd_cap_php, papic_unli_cap_php, event_date, event_type')
     .eq('event_id', eventId)
     .maybeSingle();
   const caps = {
+    mini: Number(ev?.papic_mini_cap_php ?? 0) || PAPIC_MINI_CAP_FALLBACK_PHP,
     ltd: Number(ev?.papic_ltd_cap_php ?? 0) || PAPIC_LTD_CAP_FALLBACK_PHP,
     unli: Number(ev?.papic_unli_cap_php ?? 0) || PAPIC_UNLI_CAP_FALLBACK_PHP,
   };
+  const uncapped = isPapicUncapped(ev?.event_type as string | null);
 
   // Capture window → day multiplier + seat validity bounds (shared with the
   // guest-list cameras so the whole event opens/closes together).
@@ -798,6 +809,7 @@ export async function purchasePapicExtras(formData: FormData) {
   const rates = await fetchCameraRates(admin);
   const quote = computeCameraQuote({ roll: 0, unlimited }, win.days, rates, caps, {
     unliFree: ownsUnlock,
+    uncapped,
   });
 
   const isFree = quote.totalPhp === 0;
@@ -921,15 +933,15 @@ export async function setPapicWindow(formData: FormData) {
 
   // Re-stamp any already-provisioned per-camera seats so their capture window
   // matches the (possibly edited) event window. Per-camera seats live at
-  // seat_index >= 200; the legacy pack (1–5) keeps
-  // its own lifecycle and is untouched. Best-effort — a hiccup never blocks
-  // saving the window itself.
+  // seat_index >= 100 — the FREE cameras (100..102 · brief PR-3) and the paid
+  // range (>= 200); the legacy pack (1–5) keeps its own lifecycle and is
+  // untouched. Best-effort — a hiccup never blocks saving the window itself.
   try {
     await admin
       .from('paparazzi_seats')
       .update({ valid_from: win.startIso, valid_until: win.endIso })
       .eq('event_id', eventId)
-      .gte('seat_index', 200)
+      .gte('seat_index', PAPIC_FREE_CAMERA_INDEX_BASE)
       .is('revoked_at', null);
   } catch {
     // swallow — the window is saved; seats re-stamp on the next sync.

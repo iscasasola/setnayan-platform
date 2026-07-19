@@ -14,7 +14,9 @@ import {
 import {
   papicPerCameraTier,
   papicCameraOrderPaid,
-  papicTierDailyLimit,
+  papicCaptureCost,
+  resolvePointsGate,
+  type PointsGateVerdict,
   eventUnliFreeViaUnlock,
   eventLtdFreeViaUnlock,
 } from '@/lib/papic-cameras';
@@ -300,8 +302,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // PER-CAMERA presign gate (per-camera model · PR3): for a per-camera seat,
-    // refuse the URL when its order isn't paid yet or it's at the daily quota —
-    // no URL ⇒ no orphan bytes. The record-layer reserve RPC is the backstop.
+    // refuse the URL when its order isn't paid yet or its daily capture-points
+    // budget is spent — no URL ⇒ no orphan bytes. The record-layer points
+    // reserve RPC is the authoritative backstop.
     if (cameraTier) {
       // Capture WINDOW gate (owner 2026-06-26): refuse the URL outside the
       // event's chosen window (no URL ⇒ no orphan bytes). Mirrors the
@@ -365,36 +368,52 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           );
         }
       }
-      const cameraKind = baseContentTypeOf(body.contentType).startsWith('video/')
-        ? 'clip'
-        : 'photo';
-      const limit = unlocked
-        ? null
-        : papicTierDailyLimit(cameraTier, cameraKind);
-      if (limit != null) {
+      // Capture-POINTS presign gate (Papic v3 · brief PR-3): 1 photo = 1 pt ·
+      // 1 clip = 3 pts, budget resolved by the RPC from papic_tier_config
+      // (free/mini/roll 20 · ltd 70 · unlimited ∞ — admin-editable, never
+      // hardcoded here). At 0 remaining we refuse the URL — no URL ⇒ no orphan
+      // R2 bytes; the record-layer reserve (papic/actions) is the authoritative
+      // backstop. Fail-CLOSED on any RPC failure EXCEPT function-not-found
+      // (resolvePointsGate — the seam-cutover carve-out), so a metering outage
+      // can never silently un-meter a camera.
+      if (!unlocked) {
+        const cameraKind = baseContentTypeOf(body.contentType).startsWith(
+          'video/',
+        )
+          ? 'clip'
+          : 'photo';
+        const cost = papicCaptureCost(cameraKind);
+        let gate: PointsGateVerdict;
         try {
           const { data: remaining, error: remErr } = await admin.rpc(
-            'papic_camera_remaining',
-            {
-              p_seat_id: seat.seat_id as string,
-              p_kind: cameraKind,
-              p_limit: limit,
-            },
+            'papic_camera_points_remaining',
+            { p_seat_id: seat.seat_id as string },
           );
-          if (!remErr && typeof remaining === 'number' && remaining <= 0) {
-            return NextResponse.json(
-              {
-                error:
-                  cameraKind === 'clip'
-                    ? 'You’ve used today’s videos on this camera.'
-                    : 'You’ve used today’s photos on this camera.',
-                code: cameraKind === 'clip' ? 'camera_video_cap' : 'camera_photo_cap',
-              },
-              { status: 409 },
-            );
-          }
+          gate = resolvePointsGate(
+            remErr ? (remErr.code ?? 'unknown') : null,
+            typeof remaining === 'number' ? remaining >= cost : null,
+          );
         } catch {
-          // fail-open — the record-layer reserve is the backstop.
+          gate = 'blocked'; // thrown ≠ identifiable fn-not-found → fail-CLOSED
+        }
+        if (gate === 'exhausted') {
+          return NextResponse.json(
+            {
+              error: 'This camera has used today’s shots — it refills tomorrow.',
+              code: 'camera_points_exhausted',
+            },
+            { status: 409 },
+          );
+        }
+        if (gate === 'blocked') {
+          return NextResponse.json(
+            {
+              error:
+                'We couldn’t check this camera’s remaining shots — try again in a moment.',
+              code: 'camera_points_unavailable',
+            },
+            { status: 503 },
+          );
         }
       }
     }

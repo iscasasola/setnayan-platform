@@ -42,8 +42,11 @@ import PapicWindowPicker from './papic-window-picker';
 import StylePicker from './style-picker';
 import {
   fetchCameraRates,
+  isPapicUncapped,
+  provisionFreeCamerasAdmin,
   PAPIC_MIN_PAID_CAMERAS,
   PAPIC_FREE_CAMERA_COUNT,
+  PAPIC_MINI_CAP_FALLBACK_PHP,
 } from '@/lib/papic-cameras';
 import {
   countLimitedGuests,
@@ -159,7 +162,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, event_type, event_date, papic_storage_target, papic_ltd_cap_php, papic_unli_cap_php, papic_window_start, papic_window_end',
+      'event_id, event_type, event_date, papic_storage_target, papic_mini_cap_php, papic_ltd_cap_php, papic_unli_cap_php, papic_window_start, papic_window_end',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -200,10 +203,21 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
 
   // Live admin-managed rates + per-tier caps.
   const cameraRates = await fetchCameraRates(supabase);
-  const papicLtdCapPhp =
-    Number((event as Record<string, unknown>).papic_ltd_cap_php ?? 0) || 9000;
-  const papicUnliCapPhp =
-    Number((event as Record<string, unknown>).papic_unli_cap_php ?? 0) || 15000;
+  // Per-tier cost caps apply to WEDDINGS ONLY (owner 2026-07-17); every other
+  // event type is uncapped. Mirror the charge path (studio/papic/actions.ts →
+  // isPapicUncapped), which passes MAX_SAFE_INTEGER, so the picker quote never
+  // diverges from the bill. The guest-list Limited tier IS the roll/Mini tier,
+  // so it reads the MINI cap — not the (dormant) Ltd cap.
+  const uncappedEvent = isPapicUncapped(
+    (event as Record<string, unknown>).event_type as string | null,
+  );
+  const papicMiniCapPhp = uncappedEvent
+    ? Number.MAX_SAFE_INTEGER
+    : Number((event as Record<string, unknown>).papic_mini_cap_php ?? 0) ||
+      PAPIC_MINI_CAP_FALLBACK_PHP;
+  const papicUnliCapPhp = uncappedEvent
+    ? Number.MAX_SAFE_INTEGER
+    : Number((event as Record<string, unknown>).papic_unli_cap_php ?? 0) || 15000;
 
   // Capture window → DAYS multiplier (price) + the picker's current state.
   const ev = event as Record<string, unknown>;
@@ -250,6 +264,17 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     ? Number(keepFullResRow.retail_price_php)
     : null;
 
+  // FREE cameras — "always 3 seats / event" (owner 2026-07-17 · brief PR-3).
+  // Idempotent render-time top-up (the same lazy pattern syncGuestCameras uses
+  // below): materializes the 3 tier='free' seats at indexes 100..102 so the
+  // capture-points gate has real seats to meter — the advertised free allowance
+  // is ENFORCED at the seams, never display-only. Best-effort (returns 0 on any
+  // hiccup; the next render retries). Their claim links live on /crew.
+  await provisionFreeCamerasAdmin(unlockAdmin, eventId, {
+    validFrom: papicWindow.startIso,
+    validUntil: papicWindow.endIso,
+  });
+
   // ── LIMITED (guest-list) state ──────────────────────────────────────────
   // Auto-count = guests who haven't declined. One reversible snapshot freezes
   // the bill; render-time sync keeps cameras in line with late RSVPs (free,
@@ -286,7 +311,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   const limitedQuote = computeLimitedQuote(
     limitedGuestCount,
     cameraRates.roll,
-    papicLtdCapPhp,
+    papicMiniCapPhp,
     papicDays,
   );
   // The Unlimited-tier option for the same guest list (owner 2026-06-26) — same
@@ -802,7 +827,8 @@ function StatusBanners({
       ) : papicError === 'min_cameras' ? (
         <p className={bad}>
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
-          Please pick at least 5 cameras.
+          Please pick at least {PAPIC_MIN_PAID_CAMERAS} camera
+          {PAPIC_MIN_PAID_CAMERAS === 1 ? '' : 's'}.
         </p>
       ) : papicError ? (
         <p className={bad}>
@@ -819,8 +845,8 @@ function StatusBanners({
       ) : limitedError === 'below_min' ? (
         <p className={neutral}>
           <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
-          Your first 5 cameras are free — you&rsquo;re covered. Paid Limited starts
-          at a 5-guest list.
+          Your first {PAPIC_FREE_CAMERA_COUNT} cameras are free — you&rsquo;re
+          covered. Paid Limited starts at a {PAPIC_MIN_PAID_CAMERAS}-guest list.
         </p>
       ) : limitedError ? (
         <p className={bad}>

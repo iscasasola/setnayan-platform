@@ -14,7 +14,9 @@ import {
   Users,
   Globe,
   Square,
+  Bookmark,
 } from 'lucide-react';
+import { CopyButton } from '@/app/_components/copy-button';
 import { DayOfFaceEnroll } from '@/app/[slug]/_components/day-of-face-enroll';
 import { makeQrDetector } from '@/lib/qr-scan';
 import { usePapicCamera } from '@/lib/use-papic-camera';
@@ -103,6 +105,10 @@ type Props = {
   /** The event-wide look (set once by the couple at Papic setup). LOCKED — the
    *  guest can't change it; it's baked into every photo they capture. */
   eventStyle: PapicStyle;
+  /** Walk-up guests only: a /papic/resume/<qr_token> link to save so they can
+   *  return to THIS camera from any device (cookie-resume covers same-browser).
+   *  null for roster guests (they have their personal invite + /papic/me). */
+  cameraSaveUrl?: string | null;
 };
 
 export function PapicGuestCapture({
@@ -116,6 +122,7 @@ export function PapicGuestCapture({
   canKwento = false,
   guestUnlimited = false,
   eventStyle,
+  cameraSaveUrl = null,
 }: Props) {
   // The event-wide look is LOCKED (couple-set at setup) — baked into every photo.
   const styleRef = useRef<PapicStyle>(eventStyle);
@@ -1098,6 +1105,16 @@ export function PapicGuestCapture({
           {guestUnlimited ? 'Unlimited' : `${remaining} left`}
         </span>
       </header>
+
+      {/* Walk-up only: save a link back to THIS camera (cross-device / cleared
+          cookie). Same slim-strip pattern as the face-enroll prompt. */}
+      {cameraSaveUrl ? (
+        <div className="mx-3 mb-1 flex items-center gap-2 rounded-xl bg-cream/10 px-3 py-2 text-xs text-cream/90">
+          <Bookmark aria-hidden className="h-4 w-4 shrink-0 text-cream" strokeWidth={1.75} />
+          <span className="flex-1">Save your camera so you can come back to it.</span>
+          <CopyButton value={cameraSaveUrl} label="Save link" />
+        </div>
+      ) : null}
 
       {/* In-camera "add your face" fallback — catches the guest who jumped
           straight to shooting without enrolling on their landing page. Opens the

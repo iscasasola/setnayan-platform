@@ -33,6 +33,8 @@ import {
   PAPIC_DRIVE_SUBFOLDERS,
 } from '@/lib/papic-drive';
 import { eventOwnsPapicSeats } from '@/lib/papic-seats';
+import { eventPapicGuestActive } from '@/lib/papic-guest';
+import { WalkupQrCard } from './_components/walkup-qr-card';
 import { fetchPapicGallery } from '@/lib/papic-gallery';
 import { PapicGalleryGrid } from './_components/papic-gallery-grid';
 import { getKwentoDensity } from '@/lib/kwento-density';
@@ -159,7 +161,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, event_type, event_date, papic_storage_target, papic_ltd_cap_php, papic_unli_cap_php, papic_window_start, papic_window_end',
+      'event_id, event_type, event_date, papic_storage_target, papic_ltd_cap_php, papic_unli_cap_php, papic_window_start, papic_window_end, papic_walkup_token',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -310,6 +312,14 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       .is('revoked_at', null);
     extraCameraCount = count ?? 0;
   }
+
+  // Walk-up entry — show the QR only when guest cameras are active (matches the
+  // join route's eventPapicGuestActive gate). ownsPapicUnlock short-circuits the
+  // extra PAPIC_GUEST query when the umbrella bundle is already owned.
+  const walkupToken = (event?.papic_walkup_token as string | null) ?? null;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com';
+  const guestCamerasActive =
+    ownsPapicUnlock || (await eventPapicGuestActive(unlockAdmin, eventId));
 
   return (
     <section className="space-y-7 pb-12">
@@ -481,6 +491,10 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
             />
           </div>
         </div>
+
+        {guestCamerasActive && walkupToken ? (
+          <WalkupQrCard token={walkupToken} appUrl={appUrl} />
+        ) : null}
 
       </section>
 

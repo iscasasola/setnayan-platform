@@ -72,7 +72,7 @@ export default async function PapicGuestPage() {
       admin.from('events').select('display_name').eq('event_id', session.event_id).maybeSingle(),
       admin
         .from('guests')
-        .select('first_name, display_name, ugc_terms_accepted_at')
+        .select('first_name, display_name, ugc_terms_accepted_at, self_registered')
         .eq('guest_id', session.guest_id)
         .maybeSingle(),
       fetchGuestQuota(admin, session.event_id, session.guest_id),
@@ -136,6 +136,14 @@ export default async function PapicGuestPage() {
     );
   }
 
+  // Walk-up "save my camera" link — only for self-registered (walk-up) guests,
+  // whose only durable credential is their own qr_token (no personal invite).
+  // Roster guests already have /papic/me + their invite, so they get nothing here.
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com';
+  const cameraSaveUrl = (g as { self_registered?: boolean } | null)?.self_registered
+    ? `${appUrl}/papic/resume/${session.qr_token}`
+    : null;
+
   return (
     <PapicGuestCapture
       guestName={guestName}
@@ -148,6 +156,7 @@ export default async function PapicGuestPage() {
       canKwento={canKwento}
       guestUnlimited={quota.unlimited}
       eventStyle={eventStyle}
+      cameraSaveUrl={cameraSaveUrl}
     />
   );
 }

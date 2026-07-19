@@ -10,6 +10,10 @@ import { guestSelection, useGuestSelection } from './guest-selection-store';
 import { guestOptimistic, useGuestOptimistic } from './guest-optimistic-store';
 import { pushUndo } from './undo-toast';
 import { QuickViewButton } from './guest-drawer';
+import {
+  InspectorTrigger,
+  useInspectorContext,
+} from '@/app/_components/inspector/inspector-column';
 import { SeatChip } from './seat-chip';
 import {
   AddToGroupControl,
@@ -44,6 +48,7 @@ import {
   type RsvpStatus,
 } from '@/lib/guests';
 import { getPrimaryColor, paletteKeyForRole, type RolePalette } from '@/lib/mood-board';
+import { SIDE_AVATAR, SIDE_CHIP, SIDE_RING, SIDE_TINT_FILL } from '@/lib/side-colors';
 import {
   importanceGroupOf,
   ROLE_GROUP_CHIP,
@@ -301,17 +306,22 @@ function RowAvatar({
       </span>
     );
   }
-  const sideTint: Record<GuestSide, string> = {
-    bride: 'bg-danger-200/60 text-danger-900',
-    groom: 'bg-sky-200/60 text-sky-900',
-    both: 'bg-warn-200/60 text-warn-900',
-  };
+  // Side-identity gradients (Glass PR-3, per the roster proto): bride → gold
+  // family, groom → info-slate family, both → a gold↔slate blend, each with a
+  // small side dot. White initials read on all three. This is the reference
+  // recipe for the whole side-colour language — SIDE_AVATAR in lib/side-colors.
+  const s = SIDE_AVATAR[guest.side];
   return (
     <span
       aria-hidden
-      className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${sideTint[guest.side]}`}
+      className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-[#FFFDF8]"
+      style={{ background: s.bg }}
     >
       {guestInitials(guest)}
+      <span
+        className="absolute -bottom-px -right-px h-2.5 w-2.5 rounded-full ring-2 ring-[#EFEAE0]"
+        style={{ background: s.dot }}
+      />
     </span>
   );
 }
@@ -353,10 +363,22 @@ function DesktopRow({
   const groupLabels = groupIds
     .map((id) => groupsById[id]?.label)
     .filter((label): label is string => Boolean(label));
+  // Desktop inspector selection (Inspector P2). When this guest owns the open
+  // `?inspect=` column, the whole row wears the quiet gold selected treatment —
+  // matching how Studio/Overview mark their selected master item. The name
+  // InspectorTrigger below opts OUT of its own default wash (.sn-guest-namelink)
+  // so the row isn't double-marked. Below xl there is no InspectorLayout, so
+  // `ctx` is null and this is inert (mobile unchanged).
+  const inspectorCtx = useInspectorContext();
+  const inspected = Boolean(inspectorCtx && inspectorCtx.selectedId === guest.guest_id);
   return (
     <tr
       className={`border-t border-ink/5 transition-colors ${
-        selected ? 'bg-terracotta/[0.06]' : 'hover:bg-terracotta/[0.04]'
+        selected
+          ? 'bg-terracotta/[0.06]'
+          : inspected
+            ? 'bg-[var(--sn-gold-100)]'
+            : 'hover:bg-terracotta/[0.04]'
       }`}
     >
       <td className="px-3 py-2.5">
@@ -372,9 +394,14 @@ function DesktopRow({
       </td>
       <td className="px-4 py-2.5">
         <div className="flex items-center justify-between gap-2">
-          <Link
+          {/* Name → the master-detail trigger (Inspector P2). Desktop (≥xl)
+              plain click SELECTS this guest into the sticky inspector column and
+              keeps the roster; below xl (and on modified / new-tab clicks) it
+              navigates to the standalone detail route exactly as before. */}
+          <InspectorTrigger
+            inspectId={guest.guest_id}
             href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
-            className="flex min-w-0 flex-1 items-center gap-3"
+            className="sn-guest-namelink flex min-w-0 flex-1 items-center gap-3 rounded-md"
           >
             <RowAvatar guest={guest} displayUrl={displayUrl} />
             <div className="min-w-0">
@@ -387,9 +414,9 @@ function DesktopRow({
                 </p>
               ) : null}
             </div>
-          </Link>
-          {/* Quick-view drawer (P1) — the row name Link still opens the full
-              detail route; this opens the in-context read-only sheet. */}
+          </InspectorTrigger>
+          {/* Quick-view (P1) — desktop selects the inspector, below xl opens the
+              in-context read-only sheet (both show the same GuestDetailBody). */}
           <QuickViewButton guest={guest} groupLabels={groupLabels} />
         </div>
       </td>
@@ -733,9 +760,21 @@ export function GuestListMultiselect({
       {/* Desktop · row/table. Photo thumbnail in the Name cell; when grouped
           (the importance sort · default) a tier header row precedes each tier's
           rows, else a flat table. The thead checkbox is select-all. */}
-      <div className="hidden overflow-hidden rounded-xl border border-ink/10 sm:block">
+      {/* Glass roster panel (Glass PR-3 §1.6) — ONE blurred wrapper; the <tr>
+          rows stay opaque (hairline dividers, translucent hover/selected tints)
+          so hundreds of rows never each carry a blur layer. */}
+      <div
+        className="hidden overflow-hidden rounded-tile border sm:block"
+        style={{
+          background: 'var(--sn-glass-bg)',
+          borderColor: 'var(--sn-glass-line)',
+          backdropFilter: 'var(--sn-glass-blur)',
+          WebkitBackdropFilter: 'var(--sn-glass-blur)',
+          boxShadow: 'var(--sn-sh-tile)',
+        }}
+      >
         <table className="w-full table-fixed text-left text-sm">
-          <thead className="bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
+          <thead className="border-b border-ink/[0.07] font-mono text-[11px] uppercase tracking-[0.12em] text-ink/55">
             <tr>
               <th className="w-10 px-3 py-2.5">
                 <label className="flex items-center justify-center">
@@ -1301,11 +1340,8 @@ function NewGroupInlineForm({
 // interactive element is ever nested inside the <Link> anchor.
 // -----------------------------------------------------------------------
 
-const SIDE_RING: Record<GuestSide, string> = {
-  bride: 'border-danger-200',
-  groom: 'border-sky-200',
-  both: 'border-warn-200',
-};
+// Card-frame side ring — canonical map (lib/side-colors.ts). bride gold ·
+// groom info-slate · both lighter gold.
 
 function GuestCard({
   guest,
@@ -1850,15 +1886,10 @@ function GuestPhoto({
       />
     );
   }
-  const sideTint: Record<GuestSide, string> = {
-    bride: 'bg-danger-100 text-danger-900',
-    groom: 'bg-sky-100 text-sky-900',
-    both: 'bg-warn-100 text-warn-900',
-  };
   return (
     <div
       aria-hidden
-      className={`flex h-full w-full items-center justify-center ${sideTint[guest.side]}`}
+      className={`flex h-full w-full items-center justify-center ${SIDE_TINT_FILL[guest.side]}`}
     >
       <span className="text-3xl font-semibold tracking-tight">
         {guestInitials(guest)}
@@ -1868,18 +1899,14 @@ function GuestPhoto({
 }
 
 // Side pill — bride/groom/both attribution shown as a tinted chip in the
-// card's top-right corner. Same side-tint language (rose for bride · sky for
-// groom · amber for both) as the card ring + the initials fallback, so the
-// cue stays consistent across the card.
+// card's top-right corner. Same side-colour language (canonical SIDE_CHIP in
+// lib/side-colors: gold for bride · info-slate for groom · lighter gold for
+// both) as the card ring + the initials fallback, so the cue stays consistent
+// across the card.
 function SidePill({ side }: { side: GuestRow['side'] }) {
-  const tone: Record<GuestRow['side'], string> = {
-    bride: 'bg-danger-100 text-danger-900 ring-1 ring-danger-200',
-    groom: 'bg-sky-100 text-sky-900 ring-1 ring-sky-200',
-    both: 'bg-warn-100 text-warn-900 ring-1 ring-warn-200',
-  };
   return (
     <span
-      className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${tone[side]}`}
+      className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${SIDE_CHIP[side]}`}
     >
       {SIDE_LABELS[side]}
     </span>
@@ -1887,11 +1914,13 @@ function SidePill({ side }: { side: GuestRow['side'] }) {
 }
 
 function RsvpPill({ status }: { status: RsvpStatus }) {
+  // Warm RSVP semantics (Glass PR-3, per the roster proto): attending → success,
+  // maybe → warning, pending → neutral ink, declined → danger.
   const tone: Record<RsvpStatus, string> = {
     attending: 'bg-success-100 text-success-800',
-    pending: 'bg-warn-100 text-warn-800',
+    maybe: 'bg-warn-100 text-warn-800',
+    pending: 'bg-ink/10 text-ink/70',
     declined: 'bg-danger-100 text-danger-800',
-    maybe: 'bg-ink/10 text-ink/70',
   };
   return (
     <span

@@ -141,7 +141,7 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
       ) : null}
 
       {/* New proposal */}
-      <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+      <div className="sn-tile p-4 sm:p-6">
         <h2 className="flex items-center gap-2 text-lg font-semibold">
           <FilePlus2 aria-hidden className="h-5 w-5 text-terracotta" /> New proposal
         </h2>
@@ -207,7 +207,7 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
       </div>
 
       {/* Proposals list */}
-      <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+      <div className="sn-tile p-4 sm:p-6">
         <h2 className="text-lg font-semibold">Your proposals</h2>
         {proposals.length === 0 ? (
           <p className="mt-2 text-sm text-ink/55">Nothing generated yet.</p>
@@ -246,7 +246,7 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
       </div>
 
       {/* Templates */}
-      <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+      <div className="sn-tile p-4 sm:p-6">
         <h2 className="text-lg font-semibold">Templates</h2>
         <p className="mt-1 text-xs text-ink/50">
           Write once with merge tokens; reuse on every client.

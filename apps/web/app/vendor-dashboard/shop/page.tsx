@@ -18,6 +18,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   fetchOwnVendorProfile,
+  fetchVendorBusinessStartDate,
   businessProfileChecklist,
   type BusinessProfileItem,
 } from '@/lib/vendor-profile';
@@ -83,6 +84,7 @@ import { VerifySection, type VerifySummary } from './_components/verify-section'
 import { readContactStamps } from './inline-docs-actions';
 import { WebsiteEditor } from './_components/website-editor';
 import type { ProfileFieldData } from './_components/editable-row';
+import { updateBusinessStartDate } from '../actions';
 import { ServicesDisclosure } from './_components/services-disclosure';
 
 /**
@@ -163,6 +165,7 @@ type ShopData = {
   verify: VerifySummary;
   checklist: BusinessProfileItem[];
   profileFields: ProfileFieldData;
+  businessStartDate: string | null;
   profileViewsWeek: number;
   rating: number;
   reviewCount: number;
@@ -419,6 +422,9 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   // decoupled from the shared profile select so a not-yet-applied migration
   // never blanks My Shop.
   const microsite = await fetchVendorMicrosite(supabase, vendorId);
+  // Precise founding date (optional) — guarded, so a not-yet-applied migration
+  // never blanks My Shop. Feeds the exact business anniversary/monthsary day.
+  const businessStartDate = await fetchVendorBusinessStartDate(supabase, vendorId);
   const isProWebsite = tierCaps(asVendorTier(tier)).customWebsiteName;
   const canPersonalize = micrositeCan(tier).canPersonalize;
   const isEnterpriseWebsite = micrositeCan(tier).isEnterprise;
@@ -521,6 +527,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     verify,
     checklist: completion.items,
     profileFields,
+    businessStartDate,
     profileViewsWeek: viewsRes,
     rating: Number(reviewStats.avg_rating_overall) || 0,
     reviewCount: Number(reviewStats.total_count) || 0,
@@ -704,11 +711,52 @@ async function ShopHome({
         branchLabel={nf.format(data.branchLocations)}
         branchSub={data.branchSub}
         profilePanel={
-          <ProfileChecklistEditor
-            items={data.checklist}
-            data={data.profileFields}
-            isVerified={data.isVerified}
-          />
+          <>
+            <ProfileChecklistEditor
+              items={data.checklist}
+              data={data.profileFields}
+              isVerified={data.isVerified}
+            />
+            {/* Precise founding DATE (optional) — powers the EXACT business
+                anniversary/monthsary day on your Overview. Plain server-action
+                form; blank clears it and we fall back to the year (EST). */}
+            <form
+              action={updateBusinessStartDate}
+              className="mt-3 rounded-xl border p-4"
+              style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
+            >
+              <label
+                htmlFor="in_business_since_date"
+                className="block text-sm font-medium"
+                style={{ color: 'var(--m-ink)' }}
+              >
+                Business start date{' '}
+                <span className="font-normal" style={{ color: 'var(--m-slate)' }}>
+                  (optional)
+                </span>
+              </label>
+              <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
+                The exact day you started — powers your business anniversary. Leave
+                blank to use the year (EST) above.
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <input
+                  id="in_business_since_date"
+                  name="in_business_since_date"
+                  type="date"
+                  defaultValue={data.businessStartDate ?? ''}
+                  className="input-field max-w-[12rem]"
+                />
+                <button
+                  type="submit"
+                  className="rounded-full px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+                  style={{ background: 'var(--m-accent-deep)' }}
+                >
+                  Save
+                </button>
+              </div>
+            </form>
+          </>
         }
         websitePanel={
           <WebsiteEditor
@@ -878,7 +926,8 @@ function HeroCard({
           </div>
         ) : (
           <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-            No public address yet — set one in Profile.
+            No public address yet — a custom address is a Pro feature you set in
+            Website.
           </p>
         )}
       </div>
@@ -897,14 +946,29 @@ function HeroCard({
           <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         </a>
       ) : (
-        <a
-          href="#manage-shop"
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors"
-          style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
-        >
-          Finish profile
-          <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        </a>
+        (() => {
+          // The primary CTA must track the vendor's REAL next step, never
+          // contradict a 100% ring. Only an actually-unfinished profile says
+          // "Finish profile"; a complete-but-unverified shop points at the
+          // verification stage; a complete-and-verified shop (public address is
+          // a separate Pro/Website step) points back into the manage tiles.
+          const cta =
+            data.completionPct < 100
+              ? { href: '#manage-shop', label: 'Finish profile' }
+              : data.isVerified
+                ? { href: '#manage-shop', label: 'Manage shop' }
+                : { href: '#get-verified', label: 'Get verified' };
+          return (
+            <a
+              href={cta.href}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors"
+              style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
+            >
+              {cta.label}
+              <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            </a>
+          );
+        })()
       )}
     </div>
   );
@@ -927,18 +991,19 @@ function CompletenessRing({ pct }: { pct: number }) {
           style={{ width: '3.75rem', height: '3.75rem', background: 'var(--m-orange-4)' }}
         >
           <span
-            className="text-base font-semibold tabular-nums"
+            className="font-mono text-base font-bold"
             style={{ color: 'var(--m-ink)' }}
           >
             {clamped}%
           </span>
         </div>
       </div>
-      <span
-        className="font-mono text-[10px] uppercase tracking-[0.18em]"
-        style={{ color: 'var(--m-orange-2)' }}
-      >
-        Complete
+      <span className="sn-eye">
+        {/* Scoped to "Profile" (not a bare "Complete"): the ring measures only
+            the 8 business-profile fields — NOT the public address, which is a
+            separate Pro/Website step. Keeps the ring honest against the header's
+            "no public address yet" and matches the Profile KPI tile's number. */}
+        Profile
       </span>
     </div>
   );
@@ -967,7 +1032,7 @@ function StatTile({
         </span>
         {label}
       </span>
-      <p className="mt-1 text-2xl font-semibold tabular-nums" style={{ color: 'var(--m-ink)' }}>
+      <p className="mt-1 font-mono text-2xl font-bold" style={{ color: 'var(--m-ink)' }}>
         {value}
       </p>
       <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
@@ -1208,9 +1273,13 @@ const SHOP_TOOLS: { href: string; label: string; sub: string }[] = [
   { href: '/vendor-dashboard/recaps', label: 'Recaps', sub: 'Living recaps from events you served.' },
   { href: '/vendor-dashboard/recommendations', label: 'Recommend', sub: 'Vendors you vouch for, and who vouches for you.' },
   { href: '/vendor-dashboard/partnerships', label: 'Partnerships', sub: 'Preferred-partner ties with other vendors.' },
+  { href: '/vendor-dashboard/creators', label: 'Creators', sub: 'Offer discounts to creators for a credited feature in their story.' },
   { href: '/vendor-dashboard/attributes', label: 'Attributes', sub: 'Traits and tags that sharpen your matching.' },
   { href: '/vendor-dashboard/repertoire', label: 'Repertoire', sub: 'Your set list / portfolio pieces for couples to browse.' },
-  { href: '/vendor-dashboard/branches', label: 'Branches', sub: 'Locations your business operates from.' },
+  // Branches removed 2026-07-16 — the Branch tile above (ManageTiles, inline
+  // BranchManager) is the canonical branch surface; the standalone /branches
+  // route now redirects here. Team stays: /team hosts the extra-seat purchase
+  // flow the inline Team tile doesn't.
   { href: '/vendor-dashboard/team', label: 'Team & Setnayan', sub: 'Seats, roles, and your Setnayan relationship.' },
   { href: '/vendor-dashboard/disputes', label: 'Disputes', sub: 'Open cases and their timelines.' },
   { href: '/vendor-dashboard/theft-watch', label: 'Theft Watch', sub: 'Portfolio-theft reports and takedowns.' },
@@ -1227,9 +1296,11 @@ function ShopTools({ isStylist }: { isStylist: boolean }) {
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {tools.map((t) => (
           <li key={t.href}>
+            {/* Flat `.sn-row` cards — 12+ in this grid, so blur is banned here
+                (blur budget § 1.6: no blur in >10-item collections). */}
             <Link
               href={t.href}
-              className="block rounded-2xl border border-ink/10 bg-white/70 p-4 backdrop-blur-sm transition hover:-translate-y-0.5 hover:border-terracotta/40 hover:shadow-md"
+              className="sn-row sn-press block p-4 transition hover:-translate-y-0.5 hover:shadow-md"
             >
               <span className="block text-[14px] font-semibold text-ink">{t.label}</span>
               <span className="mt-1 block text-[12.5px] leading-relaxed text-ink/60">{t.sub}</span>

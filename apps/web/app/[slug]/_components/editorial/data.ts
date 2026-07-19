@@ -777,13 +777,15 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
         if (!name) continue;
         const prof = profiles.get(asString(r.linked_vendor_profile_id) ?? '');
         const tier = prof?.tier ?? null;
-        // §3 + tier matrix (Phase C #4): Free vendors are hidden from the
-        // Editorial entirely. Editorial *tagging* — the showcase treatment
-        // (logo + tier badge + profile link) — is the editorialTagged cap
-        // (Pro/Enterprise). Verified/Solo stay credited (the couple used them)
-        // but as a plain text credit: suppress logo + slug so they get no
-        // card/link/badge. Reads the SSOT cap instead of hardcoding tiers.
-        if (tier === 'free') continue;
+        // Simplicity Canon rule 2 (owner-ratified 2026-07-16): "Being credited
+        // in a story is always free — editorial or chapter, any tier. You
+        // never pay to be named in a story." This RETIRES the former Phase C
+        // #4 treatment (Free hidden entirely; Verified/Solo plain-text-only) —
+        // every credited vendor now gets the full tagged treatment. Still
+        // reads the SSOT editorialTagged cap (now true across the matrix) so
+        // any future owner reversal is one matrix edit, not a code hunt. The
+        // name shown is the COUPLE's own vendor_name entry (their page, their
+        // speech), unchanged from before.
         const tagged = tierCaps(tier).editorialTagged;
         vendors.push({
           name,

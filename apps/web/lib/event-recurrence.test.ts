@@ -93,6 +93,24 @@ test('a sparse (name-only) source clones cleanly with null details', () => {
   assert.equal(p.recurs, true);
 });
 
+test('the honoree cardinality key carries into the clone (council 2026-07-17)', () => {
+  // Same honoree next year — both halves of the (type × honoree) key travel so
+  // gated life types (birthday) keep contending for the right slot instead of
+  // landing as a post-epoch unlabeled singleton.
+  const p = buildNextYearClonePayload({
+    event_type: 'birthday',
+    display_name: "Lola's Birthday",
+    honoree_label: 'Lola',
+    honoree_dependent_id: 'dep-123',
+  });
+  assert.equal(p.honoree_label, 'Lola');
+  assert.equal(p.honoree_dependent_id, 'dep-123');
+  // Unlabeled sources clone unlabeled (legacy/lifestyle rows).
+  const sparse = buildNextYearClonePayload({ event_type: 'reunion', display_name: 'R' });
+  assert.equal(sparse.honoree_label, null);
+  assert.equal(sparse.honoree_dependent_id, null);
+});
+
 test('every capable type is non-wedding (clone never violates the wedding CHECK)', () => {
   assert.ok(!(RECURRENCE_CAPABLE_TYPES as readonly string[]).includes('wedding'));
 });

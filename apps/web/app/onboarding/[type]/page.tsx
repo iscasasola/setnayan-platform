@@ -19,6 +19,9 @@ import { getOnboardingSpec } from '@/lib/onboarding/onboarding-db';
 import { getOnboardingTiles } from '@/lib/onboarding-refinements';
 import { experienceQuizEnabled } from '@/lib/experience-quiz';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
+import { onboardingV2BriefEnabled } from '@/lib/onboarding-v2-brief-flag';
+import { getSelfPersonalization } from '@/lib/self-personalization';
+import { deriveOnboardingPrefill, EMPTY_PREFILL } from '@/lib/onboarding/prefill';
 import { GenericOnboarding } from './_components/generic-onboarding';
 
 export const dynamic = 'force-dynamic';
@@ -72,6 +75,15 @@ export default async function GenericOnboardingPage({
   ]);
   const user = userData.user;
 
+  // Profile prefill (onboarding_v2_brief · owner 2026-07-13): read the four
+  // self-consented facts (religion/civil status/birthdate/gender) and derive the
+  // per-type answers they already settle, so onboarding pre-fills those and only
+  // asks what's missing. Flag OFF (default) → EMPTY_PREFILL → the flow is
+  // byte-identical. SELF facts only; RLS scopes the read to this user.
+  const prefill = onboardingV2BriefEnabled()
+    ? deriveOnboardingPrefill(type, await getSelfPersonalization())
+    : EMPTY_PREFILL;
+
   return (
     <GenericOnboarding
       eventType={type}
@@ -91,6 +103,7 @@ export default async function GenericOnboardingPage({
       anonEnabled={anonOnboardingEnabled()}
       resume={sp.resume === '1'}
       nextPath={nextPath !== '/' ? nextPath : null}
+      prefill={prefill}
     />
   );
 }

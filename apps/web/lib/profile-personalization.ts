@@ -49,12 +49,29 @@ export const RELIGION_LABELS: Record<Religion, string> = {
   other: 'Other / prefer to describe later',
 };
 
+/**
+ * Self gender (owner 2026-07-13 "and gender"). Values mirror `dependents.sex`
+ * so the anchor model derives the user's OWN debut the same way (18th female /
+ * 21st male). Optional, reference-only; the UI label is "Gender".
+ */
+export const SEXES = ['female', 'male'] as const;
+export type Sex = (typeof SEXES)[number];
+
+export const SEX_LABELS: Record<Sex, string> = {
+  female: 'Female',
+  male: 'Male',
+};
+
 export function isCivilStatus(v: unknown): v is CivilStatus {
   return typeof v === 'string' && (CIVIL_STATUSES as readonly string[]).includes(v);
 }
 
 export function isReligion(v: unknown): v is Religion {
   return typeof v === 'string' && (RELIGIONS as readonly string[]).includes(v);
+}
+
+export function isSex(v: unknown): v is Sex {
+  return typeof v === 'string' && (SEXES as readonly string[]).includes(v);
 }
 
 /**
@@ -66,6 +83,9 @@ export function normalizeCivilStatus(raw: unknown): CivilStatus | null {
 }
 export function normalizeReligion(raw: unknown): Religion | null {
   return isReligion(raw) ? raw : null;
+}
+export function normalizeSex(raw: unknown): Sex | null {
+  return isSex(raw) ? raw : null;
 }
 
 /**

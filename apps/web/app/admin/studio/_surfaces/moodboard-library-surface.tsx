@@ -93,7 +93,7 @@ export async function MoodboardLibrarySurface() {
       </Link>
 
       <header className="mb-6 space-y-2">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">
+        <p className="sn-eye">
           Setnayan · Admin · Iteration 0010
         </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">

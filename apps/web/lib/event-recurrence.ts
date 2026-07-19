@@ -39,6 +39,10 @@ export function canPlanNextYear(eventType: string | null | undefined): boolean {
 export type SourceEventForClone = {
   event_type?: string | null;
   display_name?: string | null;
+  // Life-event cardinality key (council 2026-07-17): the honoree stays the same
+  // person year over year, so both halves of the key carry into the clone.
+  honoree_label?: string | null;
+  honoree_dependent_id?: string | null;
   signature_details?: Record<string, unknown> | null;
   anchor_kind?: string | null;
   anchor_date?: string | null;
@@ -68,6 +72,12 @@ export function buildNextYearClonePayload(
     // Identity + captured details carry forward — the honoree, theme, rosters all
     // live in signature_details (attribute-only People-layer, owner 2026-07-12).
     signature_details: source.signature_details ?? null,
+    // Life-event cardinality key (council 2026-07-17): same honoree next year —
+    // carrying both halves keeps the (account × type × honoree) slot bookkeeping
+    // honest for gated life types (birthday, among the recurrence set) and
+    // stops the clone from landing as a post-epoch unlabeled singleton.
+    honoree_label: source.honoree_label ?? null,
+    honoree_dependent_id: source.honoree_dependent_id ?? null,
     // The recurring anchor date stays the same calendar date year over year; the
     // "next occurrence" is derived from it (per the event-anchor model).
     anchor_kind: source.anchor_kind ?? null,

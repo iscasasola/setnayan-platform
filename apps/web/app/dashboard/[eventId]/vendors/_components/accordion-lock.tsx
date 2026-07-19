@@ -116,7 +116,9 @@ type LockState =
       confirmDateLock: boolean;
       acknowledgeReservationTerms: boolean;
     }
-  | { kind: 'error'; message: string };
+  | { kind: 'error'; message: string }
+  // Coordinator proposed the lock (spec § 4) — the couple confirms it.
+  | { kind: 'proposed'; vendorName: string };
 
 type ToastState =
   | { kind: 'hidden' }
@@ -361,6 +363,11 @@ export function AccordionLockButton({
         case 'error':
           setState({ kind: 'error', message: result.message });
           return;
+        case 'proposed':
+          // Coordinator can't lock directly (money-adjacent) — a proposal was
+          // recorded for the couple to confirm (spec § 4).
+          setState({ kind: 'proposed', vendorName: result.vendorName });
+          return;
       }
     });
   };
@@ -398,6 +405,15 @@ export function AccordionLockButton({
           className="mt-2 rounded-md border border-danger-300/50 bg-danger-50/60 px-3 py-2 text-[11px] text-danger-900"
         >
           {state.message}
+        </p>
+      ) : null}
+
+      {state.kind === 'proposed' ? (
+        <p
+          role="status"
+          className="mt-2 rounded-md border border-terracotta/30 bg-terracotta/[0.06] px-3 py-2 text-[11px] text-terracotta-700"
+        >
+          Proposed to the couple — {state.vendorName} will lock once they confirm.
         </p>
       ) : null}
 

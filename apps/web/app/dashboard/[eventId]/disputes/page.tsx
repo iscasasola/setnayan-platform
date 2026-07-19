@@ -100,12 +100,13 @@ export default async function CoupleDisputesPage({ params, searchParams }: Props
 
   return (
     <section className="space-y-6">
-      <header className="space-y-2">
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">Disputes</p>
         <div className="flex items-center gap-2">
           <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
             <AlertTriangle aria-hidden className="h-5 w-5" strokeWidth={1.75} />
           </span>
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h1 className="sn-h1">
             Disputes
           </h1>
         </div>
@@ -139,12 +140,12 @@ export default async function CoupleDisputesPage({ params, searchParams }: Props
       <section aria-labelledby="existing-flags" className="space-y-3">
         <h2
           id="existing-flags"
-          className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
+          className="sn-eye"
         >
           Existing flags ({flags.length})
         </h2>
         {flags.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center text-sm text-ink/55">
+          <div className="sn-row border-dashed p-8 text-center text-sm text-ink/55">
             No disputes on record. Open one above when something goes
             sideways.
           </div>
@@ -173,7 +174,7 @@ function NewFlagForm({
   vendors: EventVendorRow[];
 }) {
   return (
-    <details className="rounded-xl border border-ink/10 bg-cream">
+    <details className="sn-row">
       <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium">
         <Plus aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2} />
         Open a new dispute
@@ -185,14 +186,14 @@ function NewFlagForm({
         <input type="hidden" name="event_id" value={eventId} />
 
         <fieldset className="space-y-2">
-          <legend className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
+          <legend className="sn-eye">
             Flag type
           </legend>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {FLAG_TYPES.map((t, idx) => (
               <label
                 key={t}
-                className="flex cursor-pointer items-start gap-2 rounded-md border border-ink/10 bg-cream p-3 text-sm hover:border-terracotta/40"
+                className="sn-row flex cursor-pointer items-start gap-2 p-3 text-sm hover:border-terracotta/40"
               >
                 <input
                   type="radio"
@@ -209,7 +210,7 @@ function NewFlagForm({
         </fieldset>
 
         <label htmlFor="description" className="block space-y-1">
-          <span className="block font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
+          <span className="sn-eye">
             What happened? (min 30 characters)
           </span>
           <textarea
@@ -225,7 +226,7 @@ function NewFlagForm({
         </label>
 
         <label htmlFor="event_vendor_id" className="block space-y-1">
-          <span className="block font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
+          <span className="sn-eye">
             Affects which vendor? (optional)
           </span>
           <select
@@ -249,7 +250,7 @@ function NewFlagForm({
         </label>
 
         <div className="block space-y-1">
-          <span className="block font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
+          <span className="sn-eye">
             Evidence (optional — photos, screenshots, weather alerts, PDFs)
           </span>
           <FileUpload
@@ -303,7 +304,7 @@ function FlagCard({
     : formatAutoResolveCountdown(flag.auto_resolve_at);
 
   return (
-    <li className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+    <li className="sn-row space-y-3 p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 space-y-0.5">
           <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">

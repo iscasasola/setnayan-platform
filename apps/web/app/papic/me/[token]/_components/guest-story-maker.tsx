@@ -83,6 +83,9 @@ export function GuestStoryMaker({ token }: { token: string }) {
           // §16.9 — each still gets a deterministic camera move so the reel
           // reads as filmed, not slideshowed. ₱0 per render.
           cameraMove: defaultCameraMove(i),
+          // Tier-2 auto-reframe: frame the move on the detected face when known
+          // (null → reel-render uses its centered default focal).
+          subjectCenter: p.subjectCenter ?? null,
         })),
         template,
         durationSec: plan.template.durationSec,

@@ -11,7 +11,7 @@
  * ------------------------------------------------------
  * The RPCs return token COUNTS (tokens_burned_total). The peso value of a token
  * is the admin-managed, owner-locked flat price `TOKEN_PRICE_PHP` exported from
- * lib/v2/region-token-burn.ts (₱100 today). We read it from there so the price
+ * lib/v2/region-token-burn.ts (₱200 today). We read it from there so the price
  * has ONE source of truth across the app — this module never inlines a literal.
  * Subscription spend already arrives as real PHP from vendor_subscriptions.
  *

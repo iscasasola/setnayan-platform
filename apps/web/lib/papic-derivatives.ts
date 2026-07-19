@@ -98,6 +98,29 @@ export async function toAvif(
     .toBuffer();
 }
 
+/**
+ * Strip ALL metadata (EXIF incl. GPS lat/lng, XMP, IPTC) from a still photo's
+ * bytes for an OUTBOUND share/download, keeping full resolution. This is the
+ * privacy guarantee behind CLAUDE.md's "geo is stripped on outbound shares;
+ * original on R2 retains it" (RA 10173): the R2 original is untouched, but no
+ * recipient ever receives the venue's/home's exact coordinates baked into a file.
+ *
+ * sharp drops all metadata by DEFAULT — we deliberately never call
+ * `withMetadata()`/`keepMetadata()`. `.rotate()` (no arg) bakes EXIF orientation
+ * into the pixels FIRST, so the stripped file still displays upright even though
+ * the orientation tag is gone. Re-encodes to JPEG at high quality; dimensions are
+ * preserved (no resize) so the download is full-res, just geo-free.
+ *
+ * Used ONLY on outbound paths as the fallback when a pre-built, already-stripped
+ * `display_r2_key` derivative is absent — so an original is NEVER handed out raw.
+ */
+export async function stripPhotoMetadata(input: Uint8Array): Promise<Buffer> {
+  return await sharp(input)
+    .rotate() // bake EXIF orientation before metadata is dropped
+    .jpeg({ quality: 90 })
+    .toBuffer();
+}
+
 /** Build a sibling derivative key next to the original's object key. */
 function derivativeKey(originalKey: string, suffix: string): string {
   return `derivatives/${originalKey}.${suffix}.avif`;

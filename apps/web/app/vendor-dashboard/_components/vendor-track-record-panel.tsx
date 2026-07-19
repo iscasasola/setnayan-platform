@@ -99,7 +99,7 @@ function TrackRecordRow({ row }: { row: VendorTrackRecordRow }) {
   const label = pluralizeLabel(row.event_type_label, row.completed_count);
   const hasRating = row.avg_rating !== null && row.review_count > 0;
   return (
-    <li className="flex items-center gap-3 rounded-2xl border border-ink/10 bg-cream px-4 py-3">
+    <li className="sn-row flex items-center gap-3 px-4 py-3">
       <span
         aria-hidden
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"

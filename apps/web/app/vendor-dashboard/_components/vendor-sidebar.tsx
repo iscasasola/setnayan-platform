@@ -92,8 +92,6 @@ import {
   Home,
   ShoppingBag,
   BarChart2,
-  ChevronRight,
-  Check,
   Zap,
   Briefcase,
   CalendarCheck,
@@ -131,7 +129,6 @@ import { usePathname } from 'next/navigation';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import { SidebarSection } from '@/app/_components/nav/sidebar-section';
 import { SidebarItem } from '@/app/_components/nav/sidebar-item';
-import { VendorAvatar } from '@/app/_components/vendor-avatar';
 import type { NavGroup, NavBadge } from '@/app/_components/nav/types';
 import type { VendorTeamRole } from '@/lib/vendor-team';
 import { filterVendorNavGroups, canManageVendor } from '@/lib/vendor-role';
@@ -302,71 +299,13 @@ function flattenChildren(groups: NavGroup[]): NavGroup[] {
 }
 
 /**
- * The vendor identity card — a dark rounded-square avatar (initials) + the
- * business display name + a green "Verified" / muted "Unverified" line. Reads
- * as the prototype's obsidian avatar tile. Hidden on the collapsed 64px rail
- * (no room) via the same data-attr selector the shell uses elsewhere.
- */
-function VendorIdentityCard({
-  displayName,
-  initials,
-  logoUrl,
-  isVerified,
-}: {
-  displayName: string;
-  initials: string;
-  logoUrl: string | null;
-  isVerified: boolean;
-}) {
-  return (
-    <div
-      className="mx-2 mb-2 flex items-center gap-3 overflow-hidden rounded-xl border p-2.5 [[data-sidebar-collapsed='1']_&]:hidden"
-      style={{
-        background: 'var(--m-sidebar-bg-2)',
-        borderColor: 'var(--m-sidebar-line)',
-        // Photography-blue secondary accent (vendor doorway) — a thin left rail
-        // so the identity tile reads as the prototype's blue business switcher.
-        boxShadow: 'inset 3px 0 0 var(--v-blue)',
-      }}
-    >
-      <span
-        className="shrink-0"
-        style={{ borderRadius: 'var(--m-r-sm)', boxShadow: '0 0 0 1.5px var(--v-blue)' }}
-      >
-        <VendorAvatar
-          logoUrl={logoUrl}
-          initials={initials}
-          className="flex h-10 w-10 items-center justify-center rounded-lg text-[13px] font-semibold tracking-wide"
-        />
-      </span>
-      <div className="min-w-0">
-        <p className="truncate text-sm font-semibold" style={{ color: 'var(--m-sidebar-fg)' }}>
-          {displayName}
-        </p>
-        {isVerified ? (
-          <p
-            className="mt-0.5 flex items-center gap-1 text-xs font-medium"
-            style={{ color: 'var(--m-sage)' }}
-          >
-            <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
-            Verified
-          </p>
-        ) : (
-          <p className="mt-0.5 text-xs" style={{ color: 'var(--m-sidebar-fg-muted)' }}>
-            Unverified
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/**
- * VendorSidebar — the "Energy, not skin" vendor shell body: the identity card +
- * the two labelled sections (Business · Grow) rendered through the shared
- * <SidebarSection> + <SidebarItem> primitives (wine active-state · nested
- * auto-expanding sub-items · live badges — all inherited from the shared
- * chrome). The brand wordmark + "Vendor" eyebrow + account switcher live in
+ * VendorSidebar — the "Energy, not skin" vendor shell body: the two labelled
+ * sections (Business · Grow) rendered through the shared <SidebarSection> +
+ * <SidebarItem> primitives (wine active-state · nested auto-expanding
+ * sub-items · live badges — all inherited from the shared chrome). The brand
+ * wordmark home-link + "Vendor" eyebrow + the business identity plaque (the
+ * account-menu SwitcherPlaqueTrigger — Plaque-as-Menu council verdict
+ * 2026-07-16, which retired the old in-body VendorIdentityCard div) live in
  * DoorwaySidebarHeader (pinned above by SidebarShell); the subscription chip +
  * token row live in VendorSidebarFooter (pinned below via SidebarShell).
  */
@@ -374,10 +313,6 @@ export function VendorSidebar({
   role,
   showRepertoire = true,
   navSlots,
-  displayName,
-  initials,
-  logoUrl = null,
-  isVerified,
   bookingsBadge = 0,
   threadsBadge = 0,
 }: {
@@ -388,11 +323,6 @@ export function VendorSidebar({
    *  top-level filter in vendor-dashboard/more/page.tsx. */
   showRepertoire?: boolean;
   navSlots?: Record<string, NavSlotLite>;
-  displayName: string;
-  initials: string;
-  /** Presigned display URL of the uploaded logo — replaces the initials tile. */
-  logoUrl?: string | null;
-  isVerified: boolean;
   /** Pending-inquiry count → Bookings badge. Real layout data; 0 omits it. */
   bookingsBadge?: number;
   /** Unread-thread count → Threads badge. Real layout data; 0 omits it. */
@@ -445,15 +375,11 @@ export function VendorSidebar({
 
   return (
     <div className="pt-1">
-      <VendorIdentityCard
-        displayName={displayName}
-        initials={initials}
-        logoUrl={logoUrl}
-        isVerified={isVerified}
-      />
       <nav aria-label="Vendor menu">
         {groups.map((group) => (
-          <SidebarSection key={group.key} group={group} pathname={pathname}>
+          // `eyebrow` — Glass PR-6: section labels render as `.sn-eye` gold
+          // eyebrows, matching the couple rail's shipped treatment (PR-2).
+          <SidebarSection key={group.key} group={group} pathname={pathname} eyebrow>
             {group.items.map((item) => (
               <SidebarItem key={item.key} item={item} pathname={pathname} />
             ))}
@@ -486,7 +412,9 @@ export function VendorSidebarFooter({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Plan chip — whole row links to the Plan & tokens hub */}
+      {/* ONE Plan & tokens row (deduped 2026-07-16 — was two adjacent rows both
+          linking to /subscription): tier pill + label on the left, the live
+          token balance right-aligned. */}
       <Link
         href="/vendor-dashboard/subscription"
         className="flex items-center gap-2 rounded-xl border p-2.5 transition-colors hover:bg-[var(--m-sidebar-hover)]"
@@ -512,23 +440,12 @@ export function VendorSidebarFooter({
         <span className="text-xs" style={{ color: 'var(--m-sidebar-fg-soft)' }}>
           Plan &amp; tokens
         </span>
-        <ChevronRight
-          aria-hidden
-          className="ml-auto h-3.5 w-3.5 shrink-0"
-          strokeWidth={2}
+        <span
+          className="ml-auto inline-flex items-center gap-1 text-xs font-semibold"
           style={{ color: 'var(--m-sidebar-fg)' }}
-        />
-      </Link>
-
-      {/* Token balance row — also lands on the unified Plan & tokens hub */}
-      <Link
-        href="/vendor-dashboard/subscription"
-        className="flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors hover:bg-[var(--m-sidebar-hover)]"
-        style={{ background: 'var(--m-sidebar-bg-2)', borderColor: 'var(--m-sidebar-line)', color: 'var(--m-sidebar-fg-soft)' }}
-      >
-        <Coins aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange)' }} />
-        <span>Your tokens</span>
-        <span className="ml-auto font-semibold" style={{ color: 'var(--m-sidebar-fg)' }}>
+          title={`${numberFormat.format(tokenBalance)} tokens`}
+        >
+          <Coins aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange)' }} />
           {numberFormat.format(tokenBalance)}
         </span>
       </Link>

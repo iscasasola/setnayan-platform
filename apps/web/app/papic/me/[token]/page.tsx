@@ -67,7 +67,12 @@ async function GuestGallery({
         {gallery.photos.map((p) => (
           <a
             key={p.id}
-            href={p.url}
+            // Thumbnail is the light derivative (`p.url`); the LINK opens the
+            // FULL-RES original with EXIF/GPS stripped on the fly (owner 2026-07-16),
+            // never the raw geo-bearing original (RA 10173).
+            href={`/papic/me/${token}/photo?id=${encodeURIComponent(p.id)}&src=${
+              p.sourceTable === 'papic_photos' ? 'seat' : 'guest'
+            }`}
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Open full size to save"

@@ -28,6 +28,7 @@ import {
 import { LivingMoments, KwentoClip } from './living-moments';
 import { composeCopy, type ComposedCopy } from './compose';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
+import { SaveStoryCardButton } from '@/app/[slug]/recap/_components/save-story-card-button';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import {
@@ -88,6 +89,21 @@ export async function EditorialContent({
           image: `${SHARE_SITE_URL}/api/og/realstory-slug/${data.slug}`,
         }
       : null);
+
+  // File-asset share path (share-asset completion 2026-07-17): the 9:16 story
+  // card behind the "Save story card" button. IG feed / Stories / TikTok don't
+  // take web-URL shares — this hands the couple a postable file through the
+  // native share sheet. REAL published editorials only: the curated samples
+  // (share prop passed, slug null) have no ?format=story asset, and the OG
+  // route only renders the editorial card once the couple has PUBLISHED (the
+  // same gate that put this page in front of the reader).
+  const storyCard =
+    !share && data.published && data.slug
+      ? {
+          url: `${SHARE_SITE_URL}/api/og/realstory-slug/${data.slug}?format=story`,
+          filenameBase: `${data.slug}-story`,
+        }
+      : null;
 
   // A block shows unless the couple turned it off in the editorial editor.
   const isOn = (k: keyof NonNullable<typeof data.sections>) => data.sections?.[k] !== false;
@@ -172,12 +188,21 @@ export async function EditorialContent({
           center={editionCenter(data)}
           right={
             effectiveShare ? (
-              <ShareButtons
-                compact
-                url={effectiveShare.url}
-                title={effectiveShare.title}
-                image={effectiveShare.image}
-              />
+              <span className="inline-flex items-center gap-2">
+                <ShareButtons
+                  compact
+                  url={effectiveShare.url}
+                  title={effectiveShare.title}
+                  image={effectiveShare.image}
+                />
+                {storyCard ? (
+                  <SaveStoryCardButton
+                    compact
+                    storyCardUrl={storyCard.url}
+                    filenameBase={storyCard.filenameBase}
+                  />
+                ) : null}
+              </span>
             ) : (
               'Priceless'
             )

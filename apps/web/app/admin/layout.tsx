@@ -8,6 +8,7 @@ import { maybeRunFraudClusterSweep } from '@/lib/fraud-cluster-sweep';
 import { runSeoPeriodicJobs } from '@/lib/seo/seo-cron-jobs';
 import { maybeRunRetentionSweep } from '@/lib/retention-sweep';
 import { maybeRunPapicFullResDrop } from '@/lib/papic-fullres-drop';
+import { maybeRunAnonDraftSweep } from '@/lib/anon-draft-sweep';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { countUnread } from '@/lib/notifications';
@@ -21,7 +22,7 @@ import { AdminSidebar } from './_components/admin-sidebar';
 import { AdminBottomNav } from './_components/admin-bottom-nav';
 import { AdminNavFab } from './_components/admin-nav-fab';
 import Link from 'next/link';
-import { TriangleAlert, Clock } from 'lucide-react';
+import { TriangleAlert, Clock, ShieldCheck } from 'lucide-react';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import {
   getAdminQueueDigest,
@@ -29,7 +30,10 @@ import {
   type AdminQueueCounts,
   type AdminQueueDigest,
 } from '@/lib/admin/queue-counts';
-import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
+import {
+  AccountSwitcher,
+  SwitcherPlaqueTrigger,
+} from '@/app/_components/account-switcher/account-switcher';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 
@@ -40,15 +44,16 @@ export const metadata = { title: 'Setnayan HQ' };
  *
  * STRUCTURE: SidebarShell owns the desktop layout split (sidebar at lg+,
  * main content area with offset). The sidebarHeader carries the brand
- * wordmark + HQ label + AccountSwitcherStandalone (matching the customer
- * doorway pattern — owner directive 2026-06-18). The topBar is right-aligned:
- * unread bell · role badge · display name · sign-out · AccountSwitcher
- * (mobile-only pill; desktop uses the sidebar AccountSwitcherStandalone).
+ * wordmark HOME-LINK + HQ eyebrow + the HQ identity plaque
+ * (SwitcherPlaqueTrigger — the account-menu popup; Plaque-as-Menu council
+ * verdict 2026-07-16, matching the customer + vendor doorway patterns; this
+ * rail previously had no identity plaque, only the retired email pill). The
+ * topBar is right-aligned: unread bell · role badge · display name ·
+ * sign-out · AccountSwitcher (mobile-only pill; desktop uses the plaque).
  *
  * EventSwitcher was retired from this doorway on 2026-06-18 — the unified
- * AccountSwitcher owns identity + event switching + cross-console hopping on
- * all three doorways, consistent with the customer doorway that already shipped
- * this pattern.
+ * account panel owns identity + cross-console hopping on all three doorways,
+ * consistent with the customer doorway; going HOME is the wordmark's job.
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
@@ -119,17 +124,23 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // + per-run limit); the routes are retained as manual/curl triggers. Never throws.
   after(() => maybeRunRetentionSweep().catch(() => {}));
   after(() => maybeRunPapicFullResDrop().catch(() => {}));
+  // Daily cleanup of abandoned anonymous-draft accounts + their events (RA 10173
+  // data-minimization) — anon-onboarding hardening PR-3. No-op until the feature
+  // flag is on and a draft ages past the TTL. Own legal-hold + is_anonymous
+  // re-confirm inside; never throws.
+  after(() => maybeRunAnonDraftSweep().catch(() => {}));
 
   const displayName = profile?.display_name ?? profile?.email ?? 'Setnayan Team';
 
-  // Role badge — the violet dot is the admin doorway's accent (couple = wine,
-  // vendor = wine+blue, admin = wine+violet — "Energy, not skin" 2026-07-09).
+  // Role badge — warm info-slate for the Internal marker (Glass PR-1,
+  // 2026-07-15: violet retired; admin's identity is the ShieldCheck + "HQ"
+  // label, not a colour fork — gold is the only decorative colour).
   // Emoji retired: screen readers read it aloud and it renders inconsistently.
   const badge = profile?.is_internal
     ? {
         label: 'Internal',
-        tone: 'bg-purple-100 text-purple-800',
-        dot: 'bg-[var(--a-violet)]',
+        tone: 'bg-[var(--sn-info-soft)] text-[var(--sn-info)]',
+        dot: 'bg-[var(--sn-info)]',
       }
     : profile?.is_team_member
       ? {
@@ -153,10 +164,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const urgency = deriveQueueUrgency(digest, Date.now());
 
   // Top bar — right-aligned utilities cluster. AccountSwitcher pill is
-  // mobile-only (lg:hidden); desktop users open the switcher from the
-  // AccountSwitcherStandalone row in the sidebar header. The overdue/due-soon
-  // escalation pill leads the cluster so a breach is visible on EVERY admin
-  // page, not just when the eye is on the Work nav group.
+  // mobile-only (lg:hidden); desktop users open the same panel from the
+  // SwitcherPlaqueTrigger HQ plaque in the sidebar header (Plaque-as-Menu,
+  // council 2026-07-16). The overdue/due-soon escalation pill leads the
+  // cluster so a breach is visible on EVERY admin page, not just when the
+  // eye is on the Work nav group.
   const topBar = (
     <div className="flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-end gap-3 sm:gap-2 px-4 py-3 sm:px-6 lg:mx-auto lg:px-8">
       {/* SLA escalation pills — semantic red/warn classes (council fix #12:
@@ -227,12 +239,19 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="app-surface">
       <SidebarShell
-        accent="violet"
         sidebarHeader={
           <DoorwaySidebarHeader
             label="Setnayan HQ"
             accentColor="var(--m-sidebar-accent)"
-            switcherData={switcherData}
+            identity={
+              <SwitcherPlaqueTrigger
+                data={switcherData}
+                chip={<ShieldCheck aria-hidden className="h-5 w-5" strokeWidth={2} />}
+                title="Setnayan HQ"
+                metaLine={displayName}
+                ariaLabel="Setnayan HQ — account menu"
+              />
+            }
           />
         }
         sidebar={

@@ -64,21 +64,31 @@ export function WhatsHappeningCard({ blocks }: Props) {
   const state = useMemo(() => deriveState(blocks, Date.now()), [blocks]);
 
   return (
-    <article className="space-y-3 rounded-2xl border border-terracotta/30 bg-cream p-5">
+    // The day-of obsidian focal (Glass PR-2, § 1.3): on the event day the
+    // DayOfModeGrid's "Happening now" card is the single `.sn-tile-dark` — the
+    // "Big Day" focal on the dashboard below steps down to glass so the one-
+    // obsidian-per-view rule holds.
+    <article className="sn-tile-dark space-y-3">
       <header className="flex items-center justify-between">
-        <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta">
-          <Activity aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        <p className="sn-eye">
+          <Activity aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Happening now
         </p>
-        <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-terracotta" />
+        <span
+          className="sn-live-dot inline-flex h-2 w-2 rounded-full"
+          style={{ background: 'var(--sn-gold-300)' }}
+        />
       </header>
 
       {state.kind === 'active' ? (
         <>
-          <h3 className="text-xl font-semibold tracking-tight text-ink">
+          <h3
+            className="text-xl font-extrabold tracking-tight"
+            style={{ color: '#F3ECDF' }}
+          >
             {state.block.label}
           </h3>
-          <div className="space-y-1 text-sm text-ink/65">
+          <div className="space-y-1 text-sm" style={{ color: 'rgba(243,236,223,.7)' }}>
             <p className="inline-flex items-center gap-1.5">
               <Clock aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               Started at {formatClock(state.block.start_at)}
@@ -91,7 +101,7 @@ export function WhatsHappeningCard({ blocks }: Props) {
               </p>
             ) : null}
             {state.nextBlockStart !== null ? (
-              <p className="pt-1 text-xs text-terracotta-700">
+              <p className="pt-1 text-xs" style={{ color: 'var(--sn-gold-300)' }}>
                 Next block {formatRelativeMs(state.nextBlockStart - Date.now())}
               </p>
             ) : null}
@@ -99,29 +109,38 @@ export function WhatsHappeningCard({ blocks }: Props) {
         </>
       ) : state.kind === 'between' ? (
         <>
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          <p
+            className="font-mono text-[10px] uppercase tracking-[0.18em]"
+            style={{ color: 'rgba(243,236,223,.55)' }}
+          >
             Up next
           </p>
-          <h3 className="text-xl font-semibold tracking-tight text-ink">
+          <h3
+            className="text-xl font-extrabold tracking-tight"
+            style={{ color: '#F3ECDF' }}
+          >
             {state.nextBlock.label}
           </h3>
-          <p className="text-sm text-ink/65">
+          <p className="text-sm" style={{ color: 'rgba(243,236,223,.7)' }}>
             Starts{' '}
-            <span className="font-medium text-ink">
+            <span className="font-medium" style={{ color: '#F3ECDF' }}>
               {formatRelativeMs(new Date(state.nextBlock.start_at).getTime() - Date.now())}
             </span>
             {' · '}
             {formatClock(state.nextBlock.start_at)}
           </p>
           {state.nextBlock.location ? (
-            <p className="inline-flex items-center gap-1.5 text-sm text-ink/65">
+            <p
+              className="inline-flex items-center gap-1.5 text-sm"
+              style={{ color: 'rgba(243,236,223,.7)' }}
+            >
               <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               {state.nextBlock.location}
             </p>
           ) : null}
         </>
       ) : (
-        <p className="text-sm text-ink/55">
+        <p className="text-sm" style={{ color: 'rgba(243,236,223,.6)' }}>
           No active schedule block. Add one in Schedule to see live updates here.
         </p>
       )}

@@ -387,7 +387,7 @@ export function BoothCapture({
         const canvas = grabFrame();
         if (!canvas) return;
         const { embedFaces } = await import('@/lib/face-embed');
-        const vectors = await embedFaces(canvas);
+        const { vectors } = await embedFaces(canvas);
         if (cancelled || vectors.length === 0) return;
         const result = await matchPatiktokFace({ eventId, faceVectors: vectors });
         if (cancelled || !result) return;

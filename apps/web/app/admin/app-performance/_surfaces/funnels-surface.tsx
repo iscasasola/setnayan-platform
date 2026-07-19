@@ -259,7 +259,7 @@ export async function FunnelsSurface({ searchParams }: Props) {
       </div>
 
       {/* ── Per-vendor Quote-to-Booking drill-down (Wave 6) ─────────────── */}
-      <section className="mt-8 rounded-xl border border-ink/10 bg-cream p-5">
+      <section className="mt-8 sn-tile p-5">
         <header className="mb-3 flex items-center gap-2">
           <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
             <Filter aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -308,7 +308,7 @@ export async function FunnelsSurface({ searchParams }: Props) {
         )}
       </section>
 
-      <section className="mt-8 rounded-xl border border-dashed border-ink/15 bg-cream p-5">
+      <section className="mt-8 rounded-xl border border-dashed border-ink/15 bg-white/50 p-5">
         <h2 className="mb-1 text-sm font-semibold text-ink">
           PostHog-side funnels
         </h2>
@@ -375,7 +375,7 @@ async function orderPipelineSteps(
 function FunnelTable({ funnel }: { funnel: Funnel }) {
   const maxCount = Math.max(1, ...funnel.steps.map((s) => s.count));
   return (
-    <section className="rounded-xl border border-ink/10 bg-cream p-5">
+    <section className="sn-tile p-5">
       <header className="mb-3 space-y-0.5">
         <h2 className="text-base font-semibold text-ink">{funnel.title}</h2>
         <p className="text-xs text-ink/55">{funnel.blurb}</p>

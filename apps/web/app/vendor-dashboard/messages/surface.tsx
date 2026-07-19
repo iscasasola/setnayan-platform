@@ -2,12 +2,22 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { MessageSquare } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import {
   fetchReturningClientFlags,
   fetchVendorThreads,
   formatChatTimestamp,
 } from '@/lib/chat';
+import {
+  fetchInquiryMaskMeta,
+  inquiryPlaceholderLabel,
+  isInquiryRevealed,
+} from '@/lib/inquiry-mask.server';
 import { ThreadListCard } from '@/app/_components/chat/thread-list-card';
+import {
+  inquirySourceLabel,
+  RETURNING_CUSTOMER_LABEL,
+} from '@/lib/inquiry-source';
 import { ThreadArchiveToggle } from '@/app/_components/chat/thread-archive-toggle';
 import { RevealList } from '@/app/_components/reveal-list';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -46,6 +56,15 @@ export default async function VendorMessagesPage() {
     profile.vendor_profile_id,
   );
 
+  // Anonymization-until-accept (Glass PR-6b): PRE-accept threads have had the
+  // couple's identity stripped from the DTO by fetchVendorThreads. Batch-read
+  // ONLY event_type + city-level region (never name/venue) so each unrevealed
+  // row can show the neutral placeholder instead of a bare "Event".
+  const inquiryMaskMeta = await fetchInquiryMaskMeta(
+    createAdminClient(),
+    threads.filter((t) => !isInquiryRevealed(t)).map((t) => t.event_id),
+  );
+
   // Viber-style archive split (Data Retention Schedule 2026-07-11) — archiving
   // deletes nothing; it moves a thread into the collapsible Archived section
   // until a new message auto-un-archives it.
@@ -66,7 +85,11 @@ export default async function VendorMessagesPage() {
         <div className="min-w-0 flex-1">
           <ThreadListCard
             href={`/vendor-dashboard/messages/${t.thread_id}`}
-            title={t.event?.display_name ?? 'Event'}
+            title={
+              isInquiryRevealed(t)
+                ? (t.event?.display_name ?? 'Event')
+                : inquiryPlaceholderLabel(inquiryMaskMeta.get(t.event_id) ?? {})
+            }
             badge={
               t.inquiry_status === 'pending' ? (
                 <span className="mt-0.5 inline-block rounded-full bg-mulberry/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-mulberry">
@@ -83,25 +106,43 @@ export default async function VendorMessagesPage() {
               ) : null
             }
             extra={
-              returning ? (
-                <>
-                  <span
-                    className="ml-1 mt-0.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta"
-                    title={
-                      returning.resync_flat
-                        ? 'A client you previously locked — accepting costs just 1 token'
-                        : 'A client you previously locked'
-                    }
-                  >
-                    Returning client
+              <>
+                {/* Inquiry-source chip (PR-C · owner taxonomy) — shown for any
+                    NON-default origin (a "Website Inquiry" chip on every row
+                    would be noise; the thread header always shows the resolved
+                    label). is_returning is the companion chip — it rides along
+                    even when the pending-only returningFlags block below is
+                    absent (accepted threads). */}
+                {t.inquiry_source ? (
+                  <span className="ml-1 mt-0.5 inline-block rounded-full bg-ink/[0.07] px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/60">
+                    {inquirySourceLabel(t.inquiry_source)}
                   </span>
-                  <p className="mt-0.5 truncate text-xs text-ink/65">
-                    Booked you for{' '}
-                    {returning.prior_event_display_name ?? 'a previous event'}
-                    {returning.resync_flat ? ' · accepting costs just 1 token' : ''}
-                  </p>
-                </>
-              ) : null
+                ) : null}
+                {t.is_returning && !returning ? (
+                  <span className="ml-1 mt-0.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta">
+                    {RETURNING_CUSTOMER_LABEL}
+                  </span>
+                ) : null}
+                {returning ? (
+                  <>
+                    <span
+                      className="ml-1 mt-0.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta"
+                      title={
+                        returning.resync_flat
+                          ? 'A client you previously locked — accepting costs just 1 token'
+                          : 'A client you previously locked'
+                      }
+                    >
+                      Returning client
+                    </span>
+                    <p className="mt-0.5 truncate text-xs text-ink/65">
+                      Booked you for{' '}
+                      {returning.prior_event_display_name ?? 'a previous event'}
+                      {returning.resync_flat ? ' · accepting costs just 1 token' : ''}
+                    </p>
+                  </>
+                ) : null}
+              </>
             }
             timestampLine={
               <>
@@ -129,7 +170,7 @@ export default async function VendorMessagesPage() {
       <InquiryOutcomesRollup rollup={outcomeRollup} />
 
       {threads.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">
+        <div className="rounded-xl border border-dashed border-ink/20 p-8 text-center">
           <MessageSquare
             aria-hidden
             className="mx-auto mb-2 h-6 w-6 text-ink/30"
@@ -153,13 +194,13 @@ export default async function VendorMessagesPage() {
               {activeThreads.map(renderRow)}
             </RevealList>
           ) : (
-            <p className="rounded-xl border border-dashed border-ink/20 bg-cream px-4 py-6 text-center text-sm text-ink/60">
+            <p className="rounded-xl border border-dashed border-ink/20 px-4 py-6 text-center text-sm text-ink/60">
               No active conversations — everything&rsquo;s tucked into Archived below.
             </p>
           )}
 
           {archivedThreads.length > 0 ? (
-            <details className="mt-4 rounded-xl border border-ink/10 bg-cream/60">
+            <details className="sn-row mt-4">
               <summary className="cursor-pointer list-none px-4 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55 hover:text-ink">
                 Archived · {archivedThreads.length}
               </summary>

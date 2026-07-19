@@ -12,6 +12,7 @@ import { SeatingLockError } from './seating-lock-error';
 import {
   BOOTH_CATALOG,
   TABLE_TYPE_CATALOG,
+  chainableShapes,
   computeAutoLayout,
   computeAutoSeat,
   effectiveCapacity,
@@ -20,13 +21,16 @@ import {
   fetchSeatingConstraints,
   fetchGroupAdjacency,
   fetchTables,
+  metricPoseM,
   parsePriorityOrder,
   recommendTableSet,
   removedSeatSet,
   roleTier,
+  roomBoxM,
   shapeHintFor,
   solveSeatPlan,
   tableGeometry,
+  validateChainJointM,
   type AutoSeatGuest,
   type BoothType,
   type PriorityOrder,
@@ -116,6 +120,21 @@ export async function createTable(formData: FormData) {
     Math.min(typeSeats, typeof capacityRaw === 'string' ? Number(capacityRaw) || typeSeats : typeSeats),
   );
 
+  // Optional spawn position (world %, 0–100). Both projections compute an
+  // oracle-valid home for the new table (2D via nearestFree, 3D via the shared
+  // oracle) and pass it here so CREATE persists a non-overlapping spot — the
+  // other view then reads the exact same coordinates (owner 2026-07-16 · full
+  // authoring parity). Omitted (or out of range) → null position + the client
+  // grid fallback resolves it on render, as before.
+  const spawn = (key: 'x_pos' | 'y_pos'): number | null => {
+    const raw = formData.get(key);
+    if (typeof raw !== 'string' || raw.length === 0) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= -1000 && n <= 1000 ? n : null;
+  };
+  const xPos = spawn('x_pos');
+  const yPos = spawn('y_pos');
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -129,6 +148,7 @@ export async function createTable(formData: FormData) {
     table_label: trimmed,
     table_type: type,
     capacity,
+    ...(xPos != null && yPos != null ? { x_pos: xPos, y_pos: yPos } : {}),
   });
   if (error) throw new Error(error.message);
 
@@ -156,12 +176,39 @@ export async function deleteTable(formData: FormData) {
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
+  // Remember the deleted table's link group so we can tidy a stray remnant: a
+  // linked unit reduced to ONE table is no longer a unit (a lone member still
+  // carrying the group's combined name + shared-QR flag). Cleaned identically for
+  // BOTH projections since 2D and 3D delete through this one action (owner
+  // 2026-07-16 · authoring parity — DELETE cleans link groups consistently).
+  const { data: doomed } = await supabase
+    .from('event_tables')
+    .select('link_group_id')
+    .eq('table_id', tableId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+
   const { error } = await supabase
     .from('event_tables')
     .delete()
     .eq('table_id', tableId)
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
+
+  if (doomed?.link_group_id) {
+    const { data: remaining } = await supabase
+      .from('event_tables')
+      .select('table_id')
+      .eq('event_id', eventId)
+      .eq('link_group_id', doomed.link_group_id);
+    if (remaining && remaining.length <= 1) {
+      await supabase
+        .from('event_tables')
+        .update({ link_group_id: null, link_group_label: null, updated_at: new Date().toISOString() })
+        .eq('event_id', eventId)
+        .eq('link_group_id', doomed.link_group_id);
+    }
+  }
 
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
@@ -1094,6 +1141,64 @@ export async function updateTableRotation(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
+// Atomic connective-weld persist (Sync verdict 2026-07-16 · § 5 · GUN C). A
+// connective snap changes BOTH a table's position AND rotation; persisting them
+// as two separate writes (an instant rotation + a deferred position) left the DB
+// holding a wedge "rotated-as-if-joined but standing at its pre-drag spot" if the
+// editor was abandoned before Save — the owner's screenshot. `commitWeld` writes
+// every welded table's (x_pos, y_pos, rotation_deg) in ONE round trip, so the DB
+// never holds a half-applied gesture. It does NOT write `link_group_id` (honors
+// the owner-locked "positioning, NOT linking" ruling). Additive — the plain
+// `updateTablePosition`/`updateTableRotation` paths (#3307/#3317) are untouched.
+// Rule: any gesture that changes both pos and rot persists both atomically or
+// neither. Payload: JSON `poses` = [{ tableId, xPct, yPct, rotationDeg }, ...].
+export async function commitWeld(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const posesRaw = formData.get('poses');
+  if (typeof eventId !== 'string' || typeof posesRaw !== 'string') {
+    throw new Error('Invalid input');
+  }
+  let poses: Array<{ tableId: string; xPct: number; yPct: number; rotationDeg: number }>;
+  try {
+    poses = JSON.parse(posesRaw);
+  } catch {
+    throw new Error('Invalid poses payload');
+  }
+  if (!Array.isArray(poses) || poses.length === 0) throw new Error('Empty weld batch');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
+  const now = new Date().toISOString();
+  for (const p of poses) {
+    if (typeof p?.tableId !== 'string') throw new Error('Invalid weld pose');
+    const x = Number(p.xPct);
+    const y = Number(p.yPct);
+    const deg = Number(p.rotationDeg);
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(deg)) {
+      throw new Error('Weld pose must be numeric');
+    }
+    // Same clamps as updateTablePosition/updateTableRotation (contract §§ 1,3).
+    const clampedX = Math.max(-300, Math.min(900, x));
+    const clampedY = Math.max(-300, Math.min(900, y));
+    const rotation = ((Math.round(deg) % 360) + 360) % 360;
+    const { error } = await supabase
+      .from('event_tables')
+      .update({ x_pos: clampedX, y_pos: clampedY, rotation_deg: rotation, updated_at: now })
+      .eq('table_id', p.tableId)
+      .eq('event_id', eventId);
+    if (error) throw new Error(error.message);
+  }
+
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
+  revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
 // Change a table's STYLE/type (owner-directed 2026-06-13: "they picked long
 // table, then decided to make them round tables — give them the right to do
 // so"). Capacity resets to the new type's seat count and the geometry changes,
@@ -1306,14 +1411,13 @@ export async function updateTableLabel(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
-// Link two tables into ONE grouped unit: members share link_group_id +
-// link_group_label, render under the shared name, and the print pack emits ONE
-// QR sign for the unit. Linking into an existing unit merges the groups.
-// Owner-authorized 2026-06-21 ("group as one, like Keynote") to upgrade the
-// prior 2026-06-10 identity-only lock: the EDITOR now also moves and rotates a
-// linked unit as one rigid body (positions/angles still persist per-table via
-// updateTablePosition / updateTableRotation — no schema change). Seating math
-// (who sits where, capacity) stays per-table.
+// Link two tables into ONE grouped unit (shared link_group_id + label). NOTE
+// (owner 2026-07-16): the interactive editor NO LONGER calls this — tables are
+// CONNECTED by drag-snap positioning, not by linking; linking is deferred to a
+// future PR. This server action is retained (unused by the current UI) so
+// existing grouped data and the `unlinkTable` break-apart path keep working, and
+// it now enforces the connectable-set gate (round / sweetheart reject) should
+// any future caller use it. It is NOT reachable from a drag.
 export async function linkTables(formData: FormData) {
   const eventId = formData.get('event_id');
   const tableA = formData.get('table_id_a');
@@ -1335,10 +1439,49 @@ export async function linkTables(formData: FormData) {
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
-  const tables = await fetchTables(supabase, eventId);
+  const [tables, floorPlan] = await Promise.all([
+    fetchTables(supabase, eventId),
+    fetchFloorPlan(supabase, eventId),
+  ]);
   const a = tables.find((t) => t.table_id === tableA);
   const b = tables.find((t) => t.table_id === tableB);
   if (!a || !b) throw new Error('Table not found');
+
+  // Council verdict 2026-07-16 (§ 1 root cause 5 · § 2): the weld model — a link
+  // may only be created between same-family tables sitting at a legal joint pose.
+  // Closes the old no-validation hole (a round could be "linked" to a serpentine,
+  // and arbitrary-pose links were accepted). Same-family is a hard gate; the
+  // geometric joint is verified in metric space when the room is sized (a free
+  // board has no metric truth — the editor's client-side oracle is the gate there,
+  // and re-linking members of an existing unit is always allowed).
+  const shapeA = shapeHintFor(a.table_type);
+  const shapeB = shapeHintFor(b.table_type);
+  const alreadyGrouped =
+    a.link_group_id != null && a.link_group_id === b.link_group_id;
+  // Linkable set (owner 2026-07-16 "long and serpentine should also be able to
+  // link"): any two chain-class shapes weld end-to-end — banquet↔banquet,
+  // serpentine↔serpentine, AND banquet↔serpentine — plus round↔round (kiss).
+  // NOT a blanket allow: round↔chain and sweetheart still reject.
+  if (!alreadyGrouped && !chainableShapes(shapeA, shapeB)) {
+    throw new Error('Those two table shapes don’t join end-to-end.');
+  }
+  const positioned =
+    a.x_pos != null && a.y_pos != null && b.x_pos != null && b.y_pos != null;
+  if (!alreadyGrouped && shapeA !== 'sweetheart' && positioned) {
+    // Sync verdict 2026-07-16 · § 3: the joint is verified in METRIC space via
+    // the shared `validateChainJointM` on `pctToWorldM` poses (contract v2). This
+    // REPLACES the NOMINAL_W bridge + the `venueW && venueL` guard — the free
+    // board reads the default 20×30 box (`roomBoxM`), so a free-board link now
+    // validates too (both projections snap to the SAME legal joint, so the ~0.44 m
+    // 3D-authored rejection is dead). Existing `link_group_id` rows are never
+    // retro-invalidated — this gate runs only for a NEW link attempt.
+    const room = roomBoxM(floorPlan);
+    const poseA = metricPoseM(a, Number(a.x_pos), Number(a.y_pos), room);
+    const poseB = metricPoseM(b, Number(b.x_pos), Number(b.y_pos), room);
+    if (!validateChainJointM(poseA, poseB)) {
+      throw new Error('Those tables aren’t joined end-to-end — snap them together first.');
+    }
+  }
 
   const groupId = a.link_group_id ?? b.link_group_id ?? crypto.randomUUID();
   // A linked unit gets its OWN combined name (not silently the first table's),
@@ -1785,6 +1928,19 @@ export async function autoArrange(
   } catch {
     throw new Error('Invalid input');
   }
+  // Council verdict § 5: the honest overflow. Tables the solver couldn't place
+  // arrive here in `unplaced` and persist with x_pos = null (nothing fake) so
+  // they surface in the editor's "Unplaced" tray instead of being stacked.
+  const unplacedRaw = formData.get('unplaced');
+  let unplacedIds: string[] = [];
+  if (typeof unplacedRaw === 'string' && unplacedRaw.length > 0) {
+    try {
+      const parsed = JSON.parse(unplacedRaw);
+      if (Array.isArray(parsed)) unplacedIds = parsed.filter((x): x is string => typeof x === 'string');
+    } catch {
+      unplacedIds = [];
+    }
+  }
   const booths = parseBoothsPayload(formData.get('booths') ?? '[]');
 
   const supabase = await createClient();
@@ -1822,6 +1978,16 @@ export async function autoArrange(
       .from('event_tables')
       .update({ x_pos: p.x, y_pos: p.y })
       .eq('table_id', id)
+      .eq('event_id', eventId);
+    if (error) throw new Error(error.message);
+  }
+  // Null the coordinates of tables the solver overflowed → the Unplaced tray.
+  const unplacedClean = unplacedIds.filter((id) => tableIds.has(id) && !cleanPos[id]);
+  if (unplacedClean.length > 0) {
+    const { error } = await supabase
+      .from('event_tables')
+      .update({ x_pos: null, y_pos: null })
+      .in('table_id', unplacedClean)
       .eq('event_id', eventId);
     if (error) throw new Error(error.message);
   }

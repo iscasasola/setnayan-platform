@@ -29,7 +29,7 @@ import { WonLostAdminCard } from '../_components/won-lost-admin-card';
  * All three sections are local Postgres aggregations (RPCs from migration
  * 20261202000000) cached for 10 minutes via unstable_cache — zero external
  * AI/API spend, bounded DB load. Mirrors /admin/growth's server-rendered,
- * no-client-JS pattern: GET-form filter, demo-mode cookie, m-card tiles.
+ * no-client-JS pattern: GET-form filter, demo-mode cookie, sn-row tiles.
  */
 
 type Props = {
@@ -87,11 +87,11 @@ export async function IntelligenceSurface({ searchParams }: Props) {
   return (
     <div>
       <header className="mb-6 space-y-2">
-        <p className="m-eyebrow text-[color:var(--m-orange-2)]">
+        <p className="sn-eye">
           Setnayan · Internal ops
         </p>
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="m-display-tight text-3xl text-[color:var(--m-ink)] sm:text-4xl">
+          <h1 className="sn-h1">
             Intelligence
           </h1>
           {stats.demo ? (
@@ -207,7 +207,7 @@ function SectionHeading({
 }) {
   return (
     <header className="mb-3 flex items-center gap-2">
-      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--m-orange)]/10 text-[var(--m-orange-2)]">
+      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--sn-gold-500)]/10 text-[var(--sn-gold-700)]">
         <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
       </span>
       <div>
@@ -225,8 +225,8 @@ const TD_CLASS = 'px-3 py-2.5 align-top text-sm whitespace-nowrap';
 function ChurnTable({ rows, staleDays }: { rows: ChurnRiskRow[]; staleDays: number }) {
   if (rows.length === 0) {
     return (
-      <div className="m-card p-5">
-        <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
+      <div className="sn-row p-5">
+        <p className="text-sm" style={{ color: 'var(--sn-ink-700)' }}>
           No at-risk events — every couple with an upcoming event has been
           active inside the last {staleDays} days.
         </p>
@@ -234,12 +234,12 @@ function ChurnTable({ rows, staleDays }: { rows: ChurnRiskRow[]; staleDays: numb
     );
   }
   return (
-    <div className="m-card overflow-x-auto p-0">
+    <div className="sn-tile overflow-x-auto !p-0">
       <table className="w-full min-w-[56rem] border-collapse">
         <thead>
           <tr
             className="border-b"
-            style={{ borderColor: 'var(--m-paper-3)', color: 'var(--m-slate-2)' }}
+            style={{ borderColor: 'var(--sn-line)', color: 'var(--sn-ink-500)' }}
           >
             <th className={TH_CLASS}>Event</th>
             <th className={TH_CLASS}>Couple</th>
@@ -256,37 +256,37 @@ function ChurnTable({ rows, staleDays }: { rows: ChurnRiskRow[]; staleDays: numb
             <tr
               key={r.eventId}
               className="border-b last:border-b-0"
-              style={{ borderColor: 'var(--m-paper-3)' }}
+              style={{ borderColor: 'var(--sn-line)' }}
             >
               <td className={TD_CLASS}>
-                <span className="font-medium" style={{ color: 'var(--m-ink)' }}>
+                <span className="font-medium" style={{ color: 'var(--sn-ink-900)' }}>
                   {r.eventName}
                 </span>
-                <span className="block text-xs" style={{ color: 'var(--m-slate)' }}>
+                <span className="block text-xs" style={{ color: 'var(--sn-ink-700)' }}>
                   {eventTypeLabel(r.eventType)} · {r.publicId}
                 </span>
               </td>
               <td className={TD_CLASS}>
-                <span style={{ color: 'var(--m-ink)' }}>
+                <span style={{ color: 'var(--sn-ink-900)' }}>
                   {r.ownerDisplayName ?? '—'}
                 </span>
-                <span className="block text-xs" style={{ color: 'var(--m-slate)' }}>
+                <span className="block text-xs" style={{ color: 'var(--sn-ink-700)' }}>
                   {r.ownerEmail ?? 'no linked account'}
                 </span>
               </td>
-              <td className={TD_CLASS} style={{ color: 'var(--m-ink)' }}>
+              <td className={TD_CLASS} style={{ color: 'var(--sn-ink-900)' }}>
                 {r.eventDate}
               </td>
-              <td className={`${TD_CLASS} tabular-nums`} style={{ color: 'var(--m-ink)' }}>
+              <td className={`${TD_CLASS} tabular-nums`} style={{ color: 'var(--sn-ink-900)' }}>
                 {nf.format(r.daysToEvent)}d
               </td>
-              <td className={TD_CLASS} style={{ color: 'var(--m-slate)' }}>
+              <td className={TD_CLASS} style={{ color: 'var(--sn-ink-700)' }}>
                 {fmtDate(r.lastSignInAt)}
               </td>
-              <td className={TD_CLASS} style={{ color: 'var(--m-slate)' }}>
+              <td className={TD_CLASS} style={{ color: 'var(--sn-ink-700)' }}>
                 {fmtDate(r.lastGuestChangeAt)}
               </td>
-              <td className={TD_CLASS} style={{ color: 'var(--m-slate)' }}>
+              <td className={TD_CLASS} style={{ color: 'var(--sn-ink-700)' }}>
                 {fmtDate(r.lastBudgetChangeAt)}
               </td>
               <td className={TD_CLASS}>
@@ -308,8 +308,8 @@ function ChurnTable({ rows, staleDays }: { rows: ChurnRiskRow[]; staleDays: numb
 function MarketPulse({ market }: { market: MarketAnalytics | null }) {
   if (!market) {
     return (
-      <div className="m-card p-5">
-        <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
+      <div className="sn-row p-5">
+        <p className="text-sm" style={{ color: 'var(--sn-ink-700)' }}>
           Market aggregates couldn&apos;t load.
         </p>
       </div>
@@ -376,12 +376,12 @@ function BarListCard({
   const max = Math.max(1, ...rows.map((r) => r.count));
   const total = rows.reduce((sum, r) => sum + r.count, 0);
   return (
-    <div className="m-card p-5">
-      <p className="m-label-mono mb-3" style={{ color: 'var(--m-slate-2)' }}>
+    <div className="sn-row p-5">
+      <p className="sn-eye mb-3" style={{ color: 'var(--sn-ink-500)' }}>
         {title}
       </p>
       {rows.length === 0 ? (
-        <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
+        <p className="text-sm" style={{ color: 'var(--sn-ink-700)' }}>
           {empty}
         </p>
       ) : (
@@ -391,8 +391,8 @@ function BarListCard({
             return (
               <li key={r.key} className="space-y-1">
                 <div className="flex items-baseline justify-between gap-2 text-sm">
-                  <span style={{ color: 'var(--m-ink)' }}>{r.label}</span>
-                  <span className="tabular-nums" style={{ color: 'var(--m-slate)' }}>
+                  <span style={{ color: 'var(--sn-ink-900)' }}>{r.label}</span>
+                  <span className="tabular-nums" style={{ color: 'var(--sn-ink-700)' }}>
                     {nf.format(r.count)} · {pct}%
                   </span>
                 </div>
@@ -401,7 +401,7 @@ function BarListCard({
                   className="block h-2 rounded-full"
                   style={{
                     width: `${Math.max(4, Math.round((r.count / max) * 100))}%`,
-                    background: 'var(--m-orange)',
+                    background: 'var(--sn-gold-500)',
                     opacity: 0.55,
                   }}
                 />
@@ -411,7 +411,7 @@ function BarListCard({
         </ul>
       )}
       {footnote ? (
-        <p className="mt-3 text-xs" style={{ color: 'var(--m-slate)' }}>
+        <p className="mt-3 text-xs" style={{ color: 'var(--sn-ink-700)' }}>
           {footnote}
         </p>
       ) : null}
@@ -429,18 +429,18 @@ function StatTile({
   sub?: string;
 }) {
   return (
-    <div className="m-card p-4">
-      <p className="m-label-mono" style={{ color: 'var(--m-slate-2)' }}>
+    <div className="sn-row p-4">
+      <p className="sn-eye" style={{ color: 'var(--sn-ink-500)' }}>
         {label}
       </p>
       <p
         className="mt-1 text-2xl font-semibold tabular-nums"
-        style={{ color: 'var(--m-ink)' }}
+        style={{ color: 'var(--sn-ink-900)' }}
       >
         {value}
       </p>
       {sub ? (
-        <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
+        <p className="mt-0.5 text-xs" style={{ color: 'var(--sn-ink-700)' }}>
           {sub}
         </p>
       ) : null}
@@ -451,26 +451,26 @@ function StatTile({
 const TIER_STYLES: Record<LeadTier, { background: string; color: string }> = {
   high_value: { background: '#ECFDF5', color: '#065F46' },
   engaged: { background: '#FFFBEB', color: '#92400E' },
-  early: { background: 'var(--m-paper-2)', color: 'var(--m-slate)' },
+  early: { background: 'rgba(27, 26, 23, 0.05)', color: 'var(--sn-ink-700)' },
 };
 
 function LeadTable({ rows }: { rows: LeadScoreRow[] }) {
   if (rows.length === 0) {
     return (
-      <div className="m-card p-5">
-        <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
+      <div className="sn-row p-5">
+        <p className="text-sm" style={{ color: 'var(--sn-ink-700)' }}>
           No active events to score yet.
         </p>
       </div>
     );
   }
   return (
-    <div className="m-card overflow-x-auto p-0">
+    <div className="sn-tile overflow-x-auto !p-0">
       <table className="w-full min-w-[56rem] border-collapse">
         <thead>
           <tr
             className="border-b"
-            style={{ borderColor: 'var(--m-paper-3)', color: 'var(--m-slate-2)' }}
+            style={{ borderColor: 'var(--sn-line)', color: 'var(--sn-ink-500)' }}
           >
             <th className={TH_CLASS}>Score</th>
             <th className={TH_CLASS}>Tier</th>
@@ -497,11 +497,11 @@ function LeadTable({ rows }: { rows: LeadScoreRow[] }) {
               <tr
                 key={r.eventId}
                 className="border-b last:border-b-0"
-                style={{ borderColor: 'var(--m-paper-3)' }}
+                style={{ borderColor: 'var(--sn-line)' }}
               >
                 <td
                   className={`${TD_CLASS} text-base font-semibold tabular-nums`}
-                  style={{ color: 'var(--m-ink)' }}
+                  style={{ color: 'var(--sn-ink-900)' }}
                 >
                   {r.score}
                 </td>
@@ -514,28 +514,28 @@ function LeadTable({ rows }: { rows: LeadScoreRow[] }) {
                   </span>
                 </td>
                 <td className={TD_CLASS}>
-                  <span className="font-medium" style={{ color: 'var(--m-ink)' }}>
+                  <span className="font-medium" style={{ color: 'var(--sn-ink-900)' }}>
                     {r.eventName}
                   </span>
-                  <span className="block text-xs" style={{ color: 'var(--m-slate)' }}>
+                  <span className="block text-xs" style={{ color: 'var(--sn-ink-700)' }}>
                     {eventTypeLabel(r.eventType)} · {r.eventDate ?? 'date TBD'}
                   </span>
                 </td>
                 <td className={TD_CLASS}>
-                  <span style={{ color: 'var(--m-ink)' }}>
+                  <span style={{ color: 'var(--sn-ink-900)' }}>
                     {r.ownerDisplayName ?? '—'}
                   </span>
-                  <span className="block text-xs" style={{ color: 'var(--m-slate)' }}>
+                  <span className="block text-xs" style={{ color: 'var(--sn-ink-700)' }}>
                     {r.ownerEmail ?? 'no linked account'}
                   </span>
                 </td>
-                <td className={`${TD_CLASS} tabular-nums`} style={{ color: 'var(--m-ink)' }}>
+                <td className={`${TD_CLASS} tabular-nums`} style={{ color: 'var(--sn-ink-900)' }}>
                   {r.profileCompletionPct}%
                 </td>
                 <td className={`${TD_CLASS} !whitespace-normal`}>
                   <span className="flex max-w-[26rem] flex-wrap gap-1">
                     {signals.length === 0 ? (
-                      <span className="text-xs" style={{ color: 'var(--m-slate)' }}>
+                      <span className="text-xs" style={{ color: 'var(--sn-ink-700)' }}>
                         No engagement yet
                       </span>
                     ) : (
@@ -544,8 +544,8 @@ function LeadTable({ rows }: { rows: LeadScoreRow[] }) {
                           key={s}
                           className="rounded-full px-2 py-0.5 text-[11px]"
                           style={{
-                            background: 'var(--m-paper-2)',
-                            color: 'var(--m-slate-2)',
+                            background: 'rgba(27, 26, 23, 0.05)',
+                            color: 'var(--sn-ink-500)',
                           }}
                         >
                           {s}

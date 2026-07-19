@@ -47,11 +47,30 @@ export async function decodeToMonoPcm(bytes) {
     );
   }
   const audioBuffer = await decode(bytes);
-  const { numberOfChannels, sampleRate, length } = audioBuffer;
+
+  // Normalise across audio-decode shapes: older builds returned a Web-Audio
+  // AudioBuffer (getChannelData()/numberOfChannels/length); audio-decode >=3
+  // returns a plain `{ channelData: Float32Array[], sampleRate }`. Support both.
+  const sampleRate = audioBuffer.sampleRate;
+  let channels;
+  if (typeof audioBuffer.getChannelData === 'function') {
+    const n = audioBuffer.numberOfChannels ?? 1;
+    channels = Array.from({ length: n }, (_, ch) => audioBuffer.getChannelData(ch));
+  } else if (Array.isArray(audioBuffer.channelData)) {
+    channels = audioBuffer.channelData;
+  } else {
+    throw new Error('audio-decode returned an unrecognised buffer shape.');
+  }
+  if (!channels.length || !channels[0]?.length) {
+    throw new Error('decoded audio has no samples.');
+  }
+
   // Downmix to mono.
+  const numberOfChannels = channels.length;
+  const length = channels[0].length;
   const mono = new Float32Array(length);
   for (let ch = 0; ch < numberOfChannels; ch++) {
-    const data = audioBuffer.getChannelData(ch);
+    const data = channels[ch];
     for (let i = 0; i < length; i++) mono[i] += data[i] / numberOfChannels;
   }
   return { mono, sampleRate };

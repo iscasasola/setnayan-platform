@@ -1,13 +1,23 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
-import { buildAnniversaryEmail, anniversaryUnsubscribeHeaders } from '@/lib/anniversary-emails';
+import {
+  buildAnniversaryEmail,
+  buildAnniversaryHeadsupEmail,
+  anniversaryUnsubscribeHeaders,
+} from '@/lib/anniversary-emails';
 import {
   buildRenewalReminderEmail,
   renewalUnsubscribeHeaders,
 } from '@/lib/subscription-renewal-emails';
+import {
+  buildGodchildReminderEmail,
+  godchildReminderUnsubscribeHeaders,
+} from '@/lib/godchild-reminder-emails';
+import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { eventSkuActive } from '@/lib/entitlements';
 import { claimPeriodicJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
+import { addDaysToIso } from '@/lib/anniversary-dates';
 
 /**
  * CRON-FREE daily email jobs — the anniversary digest, subscription-renewal
@@ -96,6 +106,165 @@ export async function runAnniversaryDigest(): Promise<{ scanned: number; sent: n
       }
     } catch (e) {
       console.error('[anniversary-digest] candidate failed:', c.event_id, e);
+    }
+  }
+  return { scanned: candidates.length, sent };
+}
+
+// ── First-anniversary HEADS-UP (planning-timing, ~6 weeks before) ────────────
+// Reuses couples_with_anniversary_today with a FUTURE target date: the couples
+// whose anniversary falls on (today + 6 weeks) with years_ago === 1 are exactly
+// those whose FIRST anniversary is 6 weeks out. Own-data only (the couple's
+// wedding date) — zero PII beyond what the day-of digest already reads.
+const HEADSUP_WEEKS = 6;
+const HEADSUP_DAYS = HEADSUP_WEEKS * 7;
+
+export async function runAnniversaryHeadsup(): Promise<{ scanned: number; sent: number }> {
+  const pTarget = addDaysToIso(manilaTodayIso(), HEADSUP_DAYS);
+  const anniversaryYear = Number(pTarget.slice(0, 4));
+  const admin = createAdminClient();
+
+  const { data, error } = await admin.rpc('couples_with_anniversary_today', { p_today: pTarget });
+  if (error) {
+    console.error('[anniversary-headsup] rpc failed:', error.message);
+    return { scanned: 0, sent: 0 };
+  }
+  // years_ago === 1 at the target date === the FIRST anniversary is HEADSUP_DAYS out.
+  const candidates = ((data ?? []) as AnniversaryCandidate[])
+    .filter((c) => c.years_ago === 1)
+    .slice(0, ANNIVERSARY_MAX_BATCH);
+
+  let sent = 0;
+  for (const c of candidates) {
+    try {
+      const { error: lockErr } = await admin
+        .from('anniversary_headsup_log')
+        .insert({ event_id: c.event_id, anniversary_year: anniversaryYear });
+      if (lockErr) continue; // 23505 → already sent this year's heads-up
+
+      const to = (c.couple_email ?? '').trim();
+      if (!to) continue;
+
+      const { subject, text, html } = buildAnniversaryHeadsupEmail({
+        coupleName: (c.couple_name ?? '').trim() || (c.display_name ?? '').trim(),
+        eventName: (c.display_name ?? '').trim(),
+        ctaHref: `${APP_URL}/dashboard/year`,
+        weeksAway: HEADSUP_WEEKS,
+      });
+
+      const result = await sendEmail({ to, subject, text, html, headers: anniversaryUnsubscribeHeaders() });
+      if (result.ok) {
+        sent += 1;
+        await admin
+          .from('anniversary_headsup_log')
+          .update({ resend_id: result.id })
+          .eq('event_id', c.event_id)
+          .eq('anniversary_year', anniversaryYear);
+      } else {
+        await admin
+          .from('anniversary_headsup_log')
+          .delete()
+          .eq('event_id', c.event_id)
+          .eq('anniversary_year', anniversaryYear);
+      }
+    } catch (e) {
+      console.error('[anniversary-headsup] candidate failed:', c.event_id, e);
+    }
+  }
+  return { scanned: candidates.length, sent };
+}
+
+// ── Godchild birthday reminders (family graph, counsel-gated, flag-off) ──────
+// A ninong/ninang with reminders on gets a heads-up ~2 weeks before their
+// godchild's birthday. Reads a THIRD PARTY email + a MINOR's birthday — so the
+// whole job is gated behind dependentPeopleEnabled() (the godparents/dependents
+// tables are empty in prod until the DPO clears counsel + flips the flag). The
+// RPC does the next-birthday math (Feb-29 safe); this pairs the email + locks.
+const GODCHILD_WITHIN_DAYS = 14;
+const GODCHILD_MAX_BATCH = 200;
+
+const GODCHILD_BD_FMT = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Manila',
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric',
+});
+
+type GodchildReminderCandidate = {
+  godparent_id: string;
+  godparent_name: string;
+  godparent_email: string;
+  role: string | null;
+  godchild_name: string;
+  next_birthday: string; // YYYY-MM-DD
+  turning_age: number;
+};
+
+/** Whole days from `fromIso` to `toIso` (both YYYY-MM-DD, UTC-anchored — TZ-safe). */
+function daysBetweenIso(fromIso: string, toIso: string): number {
+  const from = Date.parse(`${fromIso}T00:00:00Z`);
+  const to = Date.parse(`${toIso}T00:00:00Z`);
+  if (Number.isNaN(from) || Number.isNaN(to)) return 0;
+  return Math.round((to - from) / 86400000);
+}
+
+export async function runGodchildBirthdayReminders(): Promise<{ scanned: number; sent: number }> {
+  // Flag-off in prod: the underlying tables are empty, but short-circuit anyway
+  // so we never even issue the RPC until the deliberate DPO flag flip.
+  if (!dependentPeopleEnabled()) return { scanned: 0, sent: 0 };
+
+  const today = manilaTodayIso();
+  const admin = createAdminClient();
+
+  const { data, error } = await admin.rpc('godchildren_with_birthday_soon', {
+    p_today: today,
+    p_within: GODCHILD_WITHIN_DAYS,
+  });
+  if (error) {
+    console.error('[godchild-birthday] rpc failed:', error.message);
+    return { scanned: 0, sent: 0 };
+  }
+  const candidates = ((data ?? []) as GodchildReminderCandidate[]).slice(0, GODCHILD_MAX_BATCH);
+
+  let sent = 0;
+  for (const c of candidates) {
+    try {
+      const reminderYear = Number(c.next_birthday.slice(0, 4));
+      const { error: lockErr } = await admin
+        .from('godchild_reminder_log')
+        .insert({ godparent_id: c.godparent_id, reminder_year: reminderYear });
+      if (lockErr) continue; // 23505 → already reminded for this birthday
+
+      const to = (c.godparent_email ?? '').trim();
+      if (!to) continue;
+
+      const { subject, text, html } = buildGodchildReminderEmail({
+        godparentName: (c.godparent_name ?? '').trim(),
+        role: c.role,
+        godchildName: (c.godchild_name ?? '').trim(),
+        turningAge: c.turning_age,
+        birthdayLabel: GODCHILD_BD_FMT.format(new Date(`${c.next_birthday}T12:00:00+08:00`)),
+        daysAway: daysBetweenIso(today, c.next_birthday),
+        ctaHref: APP_URL,
+      });
+
+      const result = await sendEmail({ to, subject, text, html, headers: godchildReminderUnsubscribeHeaders() });
+      if (result.ok) {
+        sent += 1;
+        await admin
+          .from('godchild_reminder_log')
+          .update({ resend_id: result.id })
+          .eq('godparent_id', c.godparent_id)
+          .eq('reminder_year', reminderYear);
+      } else {
+        await admin
+          .from('godchild_reminder_log')
+          .delete()
+          .eq('godparent_id', c.godparent_id)
+          .eq('reminder_year', reminderYear);
+      }
+    } catch (e) {
+      console.error('[godchild-birthday] candidate failed:', c.godparent_id, e);
     }
   }
   return { scanned: candidates.length, sent };
@@ -266,6 +435,17 @@ export async function runPapicDropWarning(): Promise<{ candidates: number; sent:
 export async function runDailyEmailJobs(): Promise<void> {
   try {
     if (await claimPeriodicJob('anniversary-digest', DAILY_GAP_MS)) await runAnniversaryDigest();
+  } catch {
+    /* best-effort */
+  }
+  try {
+    if (await claimPeriodicJob('anniversary-headsup', DAILY_GAP_MS)) await runAnniversaryHeadsup();
+  } catch {
+    /* best-effort */
+  }
+  try {
+    if (await claimPeriodicJob('godchild-birthday-reminder', DAILY_GAP_MS))
+      await runGodchildBirthdayReminders();
   } catch {
     /* best-effort */
   }

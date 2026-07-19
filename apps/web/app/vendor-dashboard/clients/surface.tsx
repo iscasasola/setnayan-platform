@@ -16,6 +16,10 @@ import {
   THREAD_STAGE_LABEL,
   THREAD_STAGE_TONE,
 } from '@/lib/vendor-thread-stage';
+import {
+  inquirySourceLabel,
+  RETURNING_CUSTOMER_LABEL,
+} from '@/lib/inquiry-source';
 
 export const metadata = { title: 'Clients · Vendor' };
 
@@ -160,7 +164,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
       ) : null}
 
       {/* Booked */}
-      <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+      <div className="sn-tile p-4 sm:p-6">
         <h2 className="text-lg font-semibold">Booked via Setnayan</h2>
         {bookedByEvent.size === 0 ? (
           <p className="mt-2 text-sm text-ink/55">
@@ -215,7 +219,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
       </div>
 
       {/* Inquiring */}
-      <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+      <div className="sn-tile p-4 sm:p-6">
         <h2 className="text-lg font-semibold">In conversation</h2>
         <p className="mt-1 text-sm text-ink/65">
           Accepted inquiries that haven&rsquo;t booked yet. The full inbox lives in{' '}
@@ -236,12 +240,25 @@ export default async function VendorClientsPage({ searchParams }: Props) {
               return (
                 <li key={t.thread_id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm font-medium">{t.event?.display_name ?? 'A Setnayan event'}</p>
                       <StageChip
                         tone={isQuoted ? THREAD_STAGE_TONE.quoted : THREAD_STAGE_TONE.inquiry}
                         label={isQuoted ? THREAD_STAGE_LABEL.quoted : 'In conversation'}
                       />
+                      {/* Inquiry-source chip (PR-C · owner taxonomy) — vendor-
+                          private; non-default origins only, plus the returning
+                          companion chip. */}
+                      {t.inquiry_source ? (
+                        <span className="inline-block rounded-full bg-ink/[0.07] px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/60">
+                          {inquirySourceLabel(t.inquiry_source)}
+                        </span>
+                      ) : null}
+                      {t.is_returning ? (
+                        <span className="inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta">
+                          {RETURNING_CUSTOMER_LABEL}
+                        </span>
+                      ) : null}
                     </div>
                     <p className="text-xs text-ink/55">
                       {t.event?.event_date ? fmtDate(t.event.event_date) : 'Date not set yet'}
@@ -269,7 +286,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
       </div>
 
       {/* Outside clients */}
-      <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+      <div className="sn-tile p-4 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold">Outside clients</h2>
           <Link

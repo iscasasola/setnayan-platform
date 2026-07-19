@@ -70,7 +70,7 @@ export async function WeddingTraditionsSurface() {
           {totalRows > 0 ? (
             <form action={resetTraditionsToDefaults}>
               <SubmitButton
-                className="inline-flex items-center rounded-md border border-ink/20 bg-cream px-4 py-2 text-sm font-medium text-ink hover:border-danger-300 hover:text-danger-700 disabled:opacity-70"
+                className="inline-flex items-center rounded-md border border-ink/20 bg-white/70 px-4 py-2 text-sm font-medium text-ink hover:border-danger-300 hover:text-danger-700 disabled:opacity-70"
                 pendingLabel="Resetting…"
               >
                 Reset all to latest starter content
@@ -106,7 +106,7 @@ function ReligionSection({
 }) {
   const label = WEDDING_TRADITIONS_GUIDE[religion]?.label ?? religion;
   return (
-    <section className="space-y-3 rounded-xl border border-ink/10 bg-cream p-5">
+    <section className="space-y-3 sn-tile p-5">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-lg font-semibold tracking-tight text-ink">{label}</h2>
         <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
@@ -144,7 +144,7 @@ function ItemForm({
   item: TraditionItemRow | null;
 }) {
   return (
-    <div className="rounded-lg border border-ink/10 bg-cream/60 p-3">
+    <div className="sn-tile p-3">
       <form action={upsertTraditionItem} className="grid gap-2 sm:grid-cols-12 sm:items-end">
         {item ? <input type="hidden" name="item_id" value={item.item_id} /> : null}
         <input type="hidden" name="ceremony_type" value={religion} />
@@ -154,7 +154,7 @@ function ItemForm({
           <select
             name="dimension"
             defaultValue={item?.dimension ?? 'ceremonial'}
-            className="mt-0.5 block w-full rounded-md border border-ink/15 bg-cream px-2 py-1.5 text-sm text-ink"
+            className="mt-0.5 block w-full rounded-md border border-white/60 bg-white/70 px-2 py-1.5 text-sm text-ink"
           >
             {DIMENSIONS.map((d) => (
               <option key={d} value={d}>
@@ -172,7 +172,7 @@ function ItemForm({
             required
             maxLength={120}
             placeholder="e.g. Catholic priest"
-            className="mt-0.5 block w-full rounded-md border border-ink/15 bg-cream px-2 py-1.5 text-sm text-ink"
+            className="mt-0.5 block w-full rounded-md border border-white/60 bg-white/70 px-2 py-1.5 text-sm text-ink"
           />
         </label>
 
@@ -183,7 +183,7 @@ function ItemForm({
             defaultValue={item?.note ?? ''}
             maxLength={400}
             placeholder="Short helper sentence"
-            className="mt-0.5 block w-full rounded-md border border-ink/15 bg-cream px-2 py-1.5 text-sm text-ink"
+            className="mt-0.5 block w-full rounded-md border border-white/60 bg-white/70 px-2 py-1.5 text-sm text-ink"
           />
         </label>
 
@@ -193,7 +193,7 @@ function ItemForm({
             name="sort_order"
             type="number"
             defaultValue={item?.sort_order ?? 0}
-            className="mt-0.5 block w-full rounded-md border border-ink/15 bg-cream px-2 py-1.5 text-sm text-ink"
+            className="mt-0.5 block w-full rounded-md border border-white/60 bg-white/70 px-2 py-1.5 text-sm text-ink"
           />
         </label>
 
@@ -221,7 +221,7 @@ function ItemForm({
         <form action={deleteTraditionItem} className="mt-1">
           <input type="hidden" name="item_id" value={item.item_id} />
           <SubmitButton
-            className="inline-flex items-center rounded-md border border-ink/15 bg-cream px-3 py-1 text-xs font-medium text-ink/60 hover:border-danger-300 hover:text-danger-700 disabled:opacity-70"
+            className="inline-flex items-center rounded-md border border-white/60 bg-white/70 px-3 py-1 text-xs font-medium text-ink/60 hover:border-danger-300 hover:text-danger-700 disabled:opacity-70"
             pendingLabel="Removing…"
           >
             Remove

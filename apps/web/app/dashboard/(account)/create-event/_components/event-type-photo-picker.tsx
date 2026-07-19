@@ -123,7 +123,7 @@ function PhotoTile({
       {/* legibility scrim */}
       <div className="absolute inset-0 bg-gradient-to-t from-ink/85 via-ink/25 to-transparent" />
       <div className="absolute inset-x-0 bottom-0 p-4">
-        <p className="font-serif text-2xl font-semibold italic leading-none text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.45)] sm:text-3xl">
+        <p className="font-sans text-2xl font-semibold italic leading-none text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.45)] sm:text-3xl">
           {t.label}
         </p>
         <p className="mt-1.5 line-clamp-2 text-[13px] text-white/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)] sm:text-sm">

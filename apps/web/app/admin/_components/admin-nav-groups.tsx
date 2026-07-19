@@ -28,6 +28,7 @@ import {
   CheckCheck,
   CircleUser,
   Coins,
+  Crown,
   Compass,
   CreditCard,
   DollarSign,
@@ -51,6 +52,7 @@ import {
   Palette,
   PencilRuler,
   PiggyBank,
+  Plug,
   Radar,
   Receipt,
   RefreshCw,
@@ -244,6 +246,27 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/corrections',
       },
       {
+        // Data Privacy control board (RA 10173). One approval switch per
+        // privacy-sensitive capability (vendor guest capture, biometrics, geo,
+        // cross-event linkage, minors, faith). Approving records who/when — the
+        // audit trail for the NPC filing; feature gates read status='active'.
+        key: 'data-privacy',
+        label: 'Data Privacy',
+        href: '/admin/data-privacy',
+        icon: ShieldCheck,
+        matchPrefix: '/admin/data-privacy',
+      },
+      {
+        // NPC pre-filing readiness worklist (RA 10173). The completeness audit's
+        // Tier 0-3 checklist as tracked work; external counsel review is the
+        // standing gate. Sibling of the Data Privacy board.
+        key: 'npc-readiness',
+        label: 'NPC Filing',
+        href: '/admin/npc-readiness',
+        icon: ListChecks,
+        matchPrefix: '/admin/npc-readiness',
+      },
+      {
         // Review-fraud + ghost-listing screener queue (No fake reviews, no ghost
         // listings). Deterministic scoring of submitted reviews (velocity/burst,
         // rating anomaly, shared-device reviewer clusters) + placeholder /
@@ -316,6 +339,17 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/accounts?tab=users',
         icon: Users,
         matchPrefix: '/admin/users',
+      },
+      {
+        // Founder seats — up to 10 owner-granted platform-founder accounts
+        // (owner-locked 2026-07-16): all in-app features comped + token-free
+        // vendor inquiries + the server-asserted founder badge. Standalone
+        // surface (grant/revoke writes go through the service-role actions).
+        key: 'founder-seats',
+        label: 'Founder seats',
+        href: '/admin/founder-seats',
+        icon: Crown,
+        matchPrefix: '/admin/founder-seats',
       },
       {
         // Repointed to the Accounts Studio Vendors tab (slice 3). matchPrefix
@@ -819,6 +853,20 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/settings?tab=demo-mode',
         icon: Settings,
         matchPrefix: '/admin/settings/demo-mode',
+      },
+      {
+        // Integration Activation Console — the one place the solo operator flips
+        // every external-service switch (Resend email · OpenAI · Maya/GCash pay)
+        // and the AI-paywall flag. Sits in the settings tail beside Compliance /
+        // Notifications / Demo-mode: it's platform-config the owner sets once. A
+        // STANDALONE page (mirrors Papic storage above), not a Settings-studio
+        // tab, so the matchPrefix is the plain pathname. Wayfinding 2026-07-15 —
+        // previously reachable only from a tile on the /admin dashboard.
+        key: 'integrations',
+        label: 'Integrations',
+        href: '/admin/integrations',
+        icon: Plug,
+        matchPrefix: '/admin/integrations',
       },
       {
         // Personal account security — admins use the shared /dashboard/profile

@@ -10,6 +10,9 @@ import {
   fetchThreadById,
 } from '@/lib/chat';
 import { leadTrustBadgeEnabled } from '@/lib/inquiry-gate';
+import { eventHostHoldsFounderSeat } from '@/lib/entitlements';
+import { FOUNDER_BADGE_LABEL, FOUNDER_INQUIRY_NOTE } from '@/lib/founder-seats';
+import { isInquiryRevealed, inquiryPlaceholderLabel } from '@/lib/inquiry-mask';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchOwnPaymentMethods } from '@/lib/vendor-payment-methods';
 import { sendChatMessage, acceptInquiry, declineInquiry, markThreadRead } from '@/lib/chat-actions';
@@ -17,6 +20,7 @@ import { getThreadBlockState } from '@/lib/chat-block';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { ThreadCallLauncher } from '@/app/_components/thread-call-launcher';
+import { resolveThreadCallsEnabled } from '@/lib/thread-calls-gate';
 import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
@@ -51,6 +55,15 @@ import {
   InquiryOutcomeCapture,
   type OutcomeReasonOption,
 } from './_components/inquiry-outcome-capture';
+import {
+  inquirySourceLabel,
+  RETURNING_CUSTOMER_LABEL,
+} from '@/lib/inquiry-source';
+import {
+  fetchThreadAttribution,
+  fetchInquirerCollabActive,
+  type ThreadAttribution,
+} from '@/lib/inquiry-attribution';
 
 export const metadata = { title: 'Thread · Vendor' };
 
@@ -98,6 +111,10 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
 
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.vendor_profile_id !== profile.vendor_profile_id) notFound();
+
+  // Voice/video calling is a paid-vendor capability (gate-dark by default).
+  // When it's locked for this vendor's tier the launcher shows an upgrade nudge.
+  const callsEnabled = await resolveThreadCallsEnabled(thread.vendor_profile_id);
 
   // ── Concurrent fetch (2026-07-01 perf) ──────────────────────────────────
   // Every read below the ownership gate is independent — only paxProposals needs
@@ -221,6 +238,19 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   ]));
 
   const coupleLabel = event?.display_name ?? 'Couple';
+  // Anonymization-until-accept (Glass PR-6b): pre-accept, the thread header + the
+  // customer rail show the neutral placeholder ("A couple planning a {type} in
+  // {city}") built from the non-identifying `get_pending_inquiry_basics` facts —
+  // never the couple's event title. Post-accept (token burned) the real label
+  // shows. The message-stream `counterpartyLabel` stays the generic `coupleLabel`
+  // (which the vendor's RLS already resolves to "Couple" while pending) so chat
+  // bubbles read naturally rather than repeating the long placeholder.
+  const inquiryRevealed = isInquiryRevealed(thread);
+  const maskedInquiryLabel = inquiryPlaceholderLabel({
+    eventType: inquiryBasics?.event_type ?? null,
+    city: regionLabel(inquiryBasics?.region ?? null),
+  });
+  const headerLabel = inquiryRevealed ? coupleLabel : maskedInquiryLabel;
 
   const alreadyOnThread = new Set(
     existingInterests
@@ -256,6 +286,23 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
 
   const returning = returningMap ? returningMap.get(thread.event_id) : undefined;
 
+  // ── Creator Economy PR-C · inquiry provenance (PRIVATE to the vendor) ──────
+  // The source chip (owner's taxonomy; NULL = "Website Inquiry"), the returning
+  // companion chip, the "Referred by [Storyteller] · via [chapter]" block with
+  // the promised audience rate, and the "creator collab active" marker (the
+  // INQUIRER holds an accepted collab with THIS vendor → agreed creator rate
+  // applies). All fail-soft/pre-migration-safe.
+  const sourceChipLabel = inquirySourceLabel(thread.inquiry_source ?? null);
+  const [attribution, inquirerCollabActive] = await Promise.all([
+    thread.referring_chapter_id
+      ? fetchThreadAttribution(thread)
+      : Promise.resolve<ThreadAttribution | null>(null),
+    fetchInquirerCollabActive(
+      profile.vendor_profile_id,
+      thread.created_by_user_id ?? null,
+    ),
+  ]);
+
   // Phase D — lead trust badge (fake-inquiry protection · "informed accept").
   // Flag-gated + pending-only + fail-soft. "Active planner" is a purely positive
   // cue (real engagement) — a new couple simply has no badge, never a warning.
@@ -263,6 +310,14 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     leadTrustBadgeEnabled() && thread.inquiry_status === 'pending'
       ? await fetchLeadTrustActivePlanner(supabase, profile.vendor_profile_id, thread.event_id)
       : false;
+
+  // Founder-seat inquiry — the explicit, server-asserted founder signal
+  // (owner-locked 2026-07-16). Read from the founder_seats definer helper only
+  // (never profile text — impersonation guard), shown pre- AND post-accept: the
+  // vendor must know they're serving the people who built the app, and that
+  // accepting was/is token-free. Unlike the trust badge this is NOT flag-gated —
+  // pre-migration the RPC gracefully degrades to false.
+  const founderInquiry = await eventHostHoldsFounderSeat(supabase, thread.event_id);
 
   const headerPax = livePax ?? thread.pax_current;
   // paxProposals depends on livePax, so it's the one query that follows the batch.
@@ -322,7 +377,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         vendorProfileId: profile.vendor_profile_id,
       });
   const railProps = {
-    displayName: railMasked ? 'New Customer' : coupleLabel,
+    displayName: railMasked ? maskedInquiryLabel : coupleLabel,
     initials: railInitials,
     masked: railMasked,
     stage: { label: THREAD_STAGE_LABEL[railStage], tone: THREAD_STAGE_TONE[railStage] },
@@ -338,7 +393,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   return (
     <div className="mx-auto flex h-[calc(100dvh-12rem)] w-full max-w-3xl gap-4 px-4 py-6 sm:px-6 lg:max-w-6xl lg:px-8">
       <section className="flex min-w-0 flex-1 flex-col gap-4">
-      <header className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-cream p-4">
+      <header className="flex items-center justify-between gap-3 sn-row p-4">
         <div className="min-w-0 space-y-0.5">
           <Link
             href="/vendor-dashboard/messages"
@@ -346,7 +401,27 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           >
             ‹ Messages
           </Link>
-          <p className="truncate text-base font-semibold text-ink">{coupleLabel}</p>
+          <p className="truncate text-base font-semibold text-ink">
+            {headerLabel}
+            {founderInquiry ? (
+              <span className="ml-2 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta">
+                {FOUNDER_BADGE_LABEL}
+              </span>
+            ) : null}
+          </p>
+          {/* Inquiry-source chip (PR-C · owner taxonomy) — PRIVATE to the
+              vendor; NULL resolves to "Website Inquiry". The returning flag is
+              a COMPANION chip: it combines with any origin, never replaces it. */}
+          <p className="flex flex-wrap items-center gap-1.5">
+            <span className="inline-block rounded-full bg-ink/[0.07] px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/60">
+              {sourceChipLabel}
+            </span>
+            {thread.is_returning ? (
+              <span className="inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta">
+                {RETURNING_CUSTOMER_LABEL}
+              </span>
+            ) : null}
+          </p>
           {event?.event_date ? (
             <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
               {event.event_date}
@@ -374,6 +449,62 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           />
         </div>
       </header>
+
+      {/* Creator Economy PR-C — the influencer-referral context (vendor-private).
+          Names the storyteller + chapter behind this inquiry and restates the
+          audience rate the vendor promised, so the promo is honored at quote
+          time. The collab-active marker below covers the OTHER money moment:
+          the inquirer themself holds an accepted collab → creator rate. */}
+      {attribution ? (
+        <div className="rounded-xl border border-amber-300/50 bg-amber-50/60 p-4 text-sm text-ink">
+          <p>
+            <span className="mr-1.5 inline-block rounded-full bg-amber-200/70 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-amber-900">
+              Influencer Recommendation
+            </span>
+            Referred by{' '}
+            {attribution.creatorSlug ? (
+              <Link
+                href={`/u/${attribution.creatorSlug}`}
+                className="font-semibold hover:underline"
+              >
+                {attribution.creatorName}
+              </Link>
+            ) : (
+              <span className="font-semibold">{attribution.creatorName}</span>
+            )}{' '}
+            · via{' '}
+            {attribution.creatorSlug ? (
+              <Link
+                href={`/u/${attribution.creatorSlug}/c/${attribution.chapterPublicId}`}
+                className="italic hover:underline"
+              >
+                {attribution.chapterTitle}
+              </Link>
+            ) : (
+              <span className="italic">{attribution.chapterTitle}</span>
+            )}
+          </p>
+          {attribution.audienceRateTerms ? (
+            <p className="mt-1 text-ink/75">
+              You promised their viewers:{' '}
+              <span className="font-medium text-ink">
+                {attribution.audienceRateTerms}
+              </span>{' '}
+              — honor it when you quote. The discount settles off-platform;
+              Setnayan never touches the money.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+      {inquirerCollabActive ? (
+        <div className="rounded-xl border border-amber-300/50 bg-amber-50/60 p-4 text-sm text-ink">
+          <span className="mr-1.5 inline-block rounded-full bg-amber-200/70 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-amber-900">
+            Creator collab active
+          </span>
+          This inquirer holds an accepted collab with you — your agreed creator
+          rate applies.
+        </div>
+      ) : null}
 
       {/* Pending surcharge confirms (Adaptive Pax Pricing Phase 5) — the count
           moved a booked service's cost; nothing changes until the vendor taps
@@ -413,7 +544,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                 <input type="hidden" name="thread_id" value={threadId} />
                 <SubmitButton
                   pendingLabel="Holding…"
-                  className="inline-flex h-9 items-center rounded-lg border border-ink/15 bg-cream px-4 text-sm text-ink/70 hover:border-ink/40"
+                  className="inline-flex h-9 items-center rounded-lg border border-ink/15 bg-white/70 px-4 text-sm text-ink/70 hover:border-ink/40"
                 >
                   Hold price
                 </SubmitButton>
@@ -486,24 +617,42 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
               coupleName={coupleLabel}
               packages={proposalPackages}
               paymentMethods={proposalPaymentMethods}
+              // PR-C — quoting an attributed thread surfaces the promised
+              // audience rate and labels the discount line "Viewer promo" so
+              // the customer quote (/proposals/[publicId]) reflects it.
+              viewerPromo={
+                attribution?.audienceRateTerms
+                  ? {
+                      terms: attribution.audienceRateTerms,
+                      creatorName: attribution.creatorName,
+                    }
+                  : null
+              }
             />
           </div>
           {/* Won & Lost Reasons (Wave 6) — log the outcome of this booked/active
               inquiry. Self-reported; "Won" is off-platform, not a payment. */}
           {outcomeCapture}
-          {/* Free 1:1 voice/video call — accepted threads only (PR 10). */}
-          <ThreadCallLauncher
-            threadId={threadId}
-            currentUserId={user.id}
-            counterpartyLabel={coupleLabel}
-          />
+          {/* Free 1:1 voice/video call — accepted threads only (PR 10). Anchor
+              target for the customer card's "Call" quick action. */}
+          <div id="thread-call" className="scroll-mt-24">
+            <ThreadCallLauncher
+              threadId={threadId}
+              currentUserId={user.id}
+              counterpartyLabel={coupleLabel}
+              callsEnabled={callsEnabled}
+              viewerRole="vendor"
+              upgradeHref="/vendor-dashboard/subscription"
+            />
+          </div>
           <ChatSendForm threadId={threadId} sendAction={sendChatMessage} />
         </div>
       ) : thread.inquiry_status === 'pending' ? (
         <div className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
           <p className="text-sm text-ink">
-            <span className="font-semibold">New inquiry.</span> Accept to open the
-            chat and reply, or decline if you&rsquo;re not available for this date.
+            <span className="font-semibold">New inquiry.</span> Accept to see who
+            they are and reply — 1 token (₱200). You only spend when you accept.
+            Or decline if you&rsquo;re not available for this date.
           </p>
           {/* Inquiry basics (PR 1 · owner-approved 2026-07-11) — decision-useful,
               non-identifying facts surfaced on the MASKED lead. The couple's name
@@ -560,6 +709,18 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                 Active planner
               </span>
               An engaged couple who&rsquo;s already deep in planning.
+            </p>
+          ) : null}
+          {/* Founder-seat signal — server-asserted (founder_seats definer helper),
+              never profile-editable. The one badge that must be unmistakable:
+              this is the founders needing service, not a test or fake inquiry —
+              and accepting costs the vendor nothing. */}
+          {founderInquiry ? (
+            <p className="text-sm text-ink">
+              <span className="mr-1.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta">
+                {FOUNDER_BADGE_LABEL}
+              </span>
+              {FOUNDER_INQUIRY_NOTE}
             </p>
           ) : null}
           <div className="flex flex-wrap gap-2">

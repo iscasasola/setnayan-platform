@@ -184,7 +184,7 @@ export default async function VendorCalendarDayPage({ params, searchParams }: Pr
 
       {/* Per-schedule state on this date */}
       {pools.length === 0 ? (
-        <div className="rounded-2xl border border-ink/10 bg-cream p-6 text-center text-ink/70">
+        <div className="sn-tile p-6 text-center text-ink/70">
           No schedules yet — post a service (or create a calendar) first.
         </div>
       ) : (
@@ -194,7 +194,7 @@ export default async function VendorCalendarDayPage({ params, searchParams }: Pr
             return (
               <div
                 key={d.pool.poolId}
-                className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-5"
+                className="sn-row p-4 sm:p-5"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h2 className="text-base font-semibold">{d.pool.label}</h2>
@@ -245,7 +245,7 @@ export default async function VendorCalendarDayPage({ params, searchParams }: Pr
           })}
 
           {/* Business-wide (org) day state — applies to every schedule at once */}
-          <div className="rounded-2xl border border-dashed border-ink/20 bg-cream p-4 sm:p-5">
+          <div className="rounded-2xl border border-dashed border-ink/20 p-4 sm:p-5">
             <h2 className="text-base font-semibold">Every schedule (business-wide)</h2>
             <p className="mt-1 text-xs text-ink/55">
               Hold or approve-first this date across your whole business at once.
@@ -285,7 +285,7 @@ export default async function VendorCalendarDayPage({ params, searchParams }: Pr
 
       {/* Booked events on this day (deep-link to chat) */}
       {bookingsOn.length > 0 ? (
-        <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+        <div className="sn-tile p-4 sm:p-6">
           <h2 className="text-base font-semibold">Booked this day</h2>
           <ul className="mt-3 divide-y divide-ink/10">
             {bookingsOn.map((b) => (
@@ -312,7 +312,7 @@ export default async function VendorCalendarDayPage({ params, searchParams }: Pr
 
       {/* Waitlist waiters for this date */}
       {waitingHere ? (
-        <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-6">
+        <div className="sn-tile p-4 sm:p-6">
           <h2 className="flex items-center gap-2 text-base font-semibold">
             <BellRing aria-hidden className="h-4 w-4 text-terracotta" /> Waitlist
           </h2>

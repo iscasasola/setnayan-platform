@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
+import { eventNoun } from '@/lib/event-noun';
 import {
   type InvitationWidgetRow,
   type WidgetType,
@@ -77,7 +78,7 @@ export default async function WidgetsEditorPage({
 
   const { data: event } = await supabase
     .from('events')
-    .select('event_id, display_name, slug')
+    .select('event_id, display_name, slug, event_type')
     .eq('event_id', eventId)
     .maybeSingle();
 
@@ -147,7 +148,7 @@ export default async function WidgetsEditorPage({
   const errorParam = search.error;
   const errorMessage =
     errorParam === 'always_on'
-      ? "That widget can't be hidden — your wedding's load-bearing surfaces stay visible."
+      ? `That widget can't be hidden — your ${eventNoun(event.event_type)}'s load-bearing surfaces stay visible.`
       : errorParam
         ? "We couldn't save that change. Try again, or contact support if this keeps happening."
         : null;
@@ -155,28 +156,28 @@ export default async function WidgetsEditorPage({
   return (
     <section className="space-y-8">
       {/* Header strip — back link + title */}
-      <header className="space-y-3">
+      <header className="sn-reveal space-y-3">
         <Link
           href={`/dashboard/${eventId}/website`}
           className="inline-flex items-center gap-1.5 text-sm text-terracotta hover:text-terracotta-700"
         >
           <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Back to your wedding website
+          Back to your {eventNoun(event.event_type)} website
         </Link>
         <div className="space-y-2">
-          <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <p className="sn-eye flex items-center gap-2">
             <LayoutGrid aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Customize widgets
           </p>
-          <h1 className="font-serif text-3xl italic tracking-tight sm:text-4xl">
-            Shape your wedding page
+          <h1 className="sn-h1">
+            Shape your {eventNoun(event.event_type)} page
           </h1>
           <p className="max-w-prose text-base text-ink/70">
             Choose which sections appear on{' '}
             {event.slug ? (
               <span className="font-mono text-sm">setnayan.com/{event.slug}</span>
             ) : (
-              'your wedding website'
+              `your ${eventNoun(event.event_type)} website`
             )}
             , and the order they show up in. Hero, Greeting, QR card, and RSVP
             stay pinned in their canonical spots — every guest needs them.
@@ -214,7 +215,7 @@ export default async function WidgetsEditorPage({
                 {event.slug ? (
                   <span className="font-mono text-xs">setnayan.com/{event.slug}</span>
                 ) : (
-                  'wedding link'
+                  `${eventNoun(event.event_type)} link`
                 )}{' '}
                 shows a polite &ldquo;scan your QR&rdquo; gate to anyone without an
                 invitation — your widgets only appear when a guest opens their
@@ -264,7 +265,7 @@ export default async function WidgetsEditorPage({
           className="flex items-start gap-3 rounded-lg border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900"
         >
           <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} />
-          <p>Saved. Your wedding page reflects this change now.</p>
+          <p>Saved. Your {eventNoun(event.event_type)} page reflects this change now.</p>
         </div>
       ) : null}
       {errorMessage ? (
@@ -279,11 +280,11 @@ export default async function WidgetsEditorPage({
       {/* Always-on section */}
       <section className="space-y-3">
         <header>
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+          <p className="sn-eye">
             Always visible
           </p>
           <p className="mt-1 text-sm text-ink/65">
-            These four sections stay in place — they carry your wedding&rsquo;s
+            These four sections stay in place — they carry your {eventNoun(event.event_type)}&rsquo;s
             most important information.
           </p>
         </header>
@@ -293,6 +294,7 @@ export default async function WidgetsEditorPage({
               key={row.widget_id}
               row={row}
               eventId={eventId}
+              noun={eventNoun(event.event_type)}
               isFirstHideable={false}
               isLastHideable={false}
             />
@@ -303,17 +305,17 @@ export default async function WidgetsEditorPage({
       {/* Hideable section */}
       <section className="space-y-3">
         <header>
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+          <p className="sn-eye">
             Optional sections
           </p>
           <p className="mt-1 text-sm text-ink/65">
-            Show, hide, and reorder these in any way that fits your wedding.
+            Show, hide, and reorder these in any way that fits your {eventNoun(event.event_type)}.
             Use the Up and Down arrows to set the order; the Visible toggle to
             keep or drop each one.
           </p>
         </header>
         {hideableRows.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-ink/15 bg-cream/60 p-6 text-sm italic text-ink/55">
+          <p className="sn-row border-dashed p-6 text-sm italic text-ink/55">
             Your optional sections will appear here.
           </p>
         ) : (
@@ -323,6 +325,7 @@ export default async function WidgetsEditorPage({
                 key={row.widget_id}
                 row={row}
                 eventId={eventId}
+                noun={eventNoun(event.event_type)}
                 isFirstHideable={index === 0}
                 isLastHideable={index === hideableRows.length - 1}
               />
@@ -332,7 +335,7 @@ export default async function WidgetsEditorPage({
       </section>
 
       {/* Footer note */}
-      <footer className="rounded-xl border border-ink/10 bg-cream/60 p-5 text-sm text-ink/65">
+      <footer className="sn-tile p-5 text-sm text-ink/65">
         Changes apply right away. Guests who already opened your page may see the
         previous layout for up to a minute while their browser refreshes.
       </footer>
@@ -352,11 +355,13 @@ export default async function WidgetsEditorPage({
 function WidgetRow({
   row,
   eventId,
+  noun,
   isFirstHideable,
   isLastHideable,
 }: {
   row: InvitationWidgetRow;
   eventId: string;
+  noun: 'wedding' | 'event';
   isFirstHideable: boolean;
   isLastHideable: boolean;
 }) {
@@ -372,10 +377,8 @@ function WidgetRow({
 
   return (
     <li
-      className={`flex flex-col gap-3 rounded-xl border bg-cream p-4 transition-colors sm:flex-row sm:items-center sm:gap-4 ${
-        row.is_visible
-          ? 'border-ink/10'
-          : 'border-ink/10 bg-cream/60 opacity-70'
+      className={`flex flex-col gap-3 sn-row p-4 transition-colors sm:flex-row sm:items-center sm:gap-4 ${
+        row.is_visible ? '' : 'opacity-70'
       }`}
     >
       {/* Drag handle — visual cue · functional via Up/Down buttons in V1 */}
@@ -393,7 +396,7 @@ function WidgetRow({
           {row.is_always_on ? (
             <span
               className="inline-flex items-center gap-1 rounded-full bg-ink/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.12em] text-ink/65"
-              title="Always visible — carries your wedding's load-bearing content."
+              title={`Always visible — carries your ${noun}'s load-bearing content.`}
             >
               <Lock aria-hidden className="h-3 w-3" strokeWidth={2} />
               Always on

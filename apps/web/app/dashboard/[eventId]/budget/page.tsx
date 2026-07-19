@@ -244,9 +244,12 @@ export default async function BudgetPage({ params }: Props) {
       {/* id targets for the Budget docked sub-nav (lib/customer-menu.ts anchor
           children: Overview · Allocate · Payments). scroll-mt keeps the section
           title clear of the top edge on smooth-scroll. */}
-      <header id="budget-overview" className="flex scroll-mt-24 flex-wrap items-end justify-between gap-3">
+      <header id="budget-overview" className="sn-reveal flex scroll-mt-24 flex-wrap items-end justify-between gap-3">
         <div className="space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Budget</h1>
+          <div>
+            <p className="sn-eye">Money</p>
+            <h1 className="sn-h1 mt-1.5">Budget</h1>
+          </div>
           <p className="max-w-prose text-base text-ink/65">
             {/* Iteration 0053 P4 Unit 3: wedding copy verbatim; non-wedding swaps
                 the one wedding word. JSX collapses whitespace, so the wedding
@@ -270,7 +273,7 @@ export default async function BudgetPage({ params }: Props) {
         </div>
         <Link
           href={`/api/budget/${eventId}/ics`}
-          className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-cream px-4 py-2 text-sm font-medium text-ink hover:border-terracotta/50 hover:text-terracotta"
+          className="inline-flex items-center gap-2 rounded-md border border-white/60 bg-white/55 px-4 py-2 text-sm font-medium text-ink backdrop-blur-sm transition hover:border-terracotta/50 hover:text-terracotta"
         >
           <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Export upcoming dates (.ics)
@@ -310,9 +313,7 @@ export default async function BudgetPage({ params }: Props) {
       {isWeddingBudget ? (
         <div id="budget-allocate" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
           <div className="space-y-2">
-            <h2 className="font-display text-2xl italic text-ink/85 sm:text-3xl">
-              Suggested budget split
-            </h2>
+            <h2 className="sn-sec text-2xl sm:text-3xl">Suggested budget split</h2>
             <p className="max-w-prose text-sm text-ink/65">
               A starting point from typical Filipino wedding costs — nudge anything;
               it&rsquo;s a guide, not a rule.
@@ -343,9 +344,7 @@ export default async function BudgetPage({ params }: Props) {
        *  from the setter form above is clear. */}
       <div id="budget-payments" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
         <div className="space-y-2">
-          <h2 className="font-display text-2xl italic text-ink/85 sm:text-3xl">
-            Per-vendor itemization
-          </h2>
+          <h2 className="sn-sec text-2xl sm:text-3xl">Per-vendor itemization</h2>
           <p className="max-w-prose text-sm text-ink/65">
             Vendor-controlled line items come from the vendor&rsquo;s catalog and
             refresh as they update their pricing. For off-platform vendors, add
@@ -401,16 +400,10 @@ function BudgetSummaryStrip({
   const remainingPhp = targetPhp !== null ? targetPhp - committedPhp : null;
 
   return (
-    <section
-      aria-labelledby="budget-summary-heading"
-      className="rounded-xl border border-ink/10 bg-cream p-5"
-    >
+    <section aria-labelledby="budget-summary-heading" className="sn-tile">
       <header className="flex items-baseline gap-2">
-        <TrendingUp aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} />
-        <h2
-          id="budget-summary-heading"
-          className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
-        >
+        <h2 id="budget-summary-heading" className="sn-eye">
+          <TrendingUp aria-hidden strokeWidth={1.75} />
           Current commitments
         </h2>
       </header>
@@ -463,7 +456,7 @@ function SummaryStat({
     <li className="space-y-1">
       <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">{label}</p>
       <p
-        className={`font-display text-2xl ${
+        className={`font-mono text-2xl font-bold ${
           tone === 'warn'
             ? 'text-terracotta-700'
             : tone === 'good'
@@ -612,7 +605,7 @@ function UnlocksHint() {
 
 function EmptyBudget({ eventId }: { eventId: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">
+    <div className="sn-row border-dashed p-8 text-center">
       <p className="text-sm text-ink/65">
         No vendors yet. Add a vendor first, then come back here to itemize costs.
       </p>
@@ -634,7 +627,7 @@ function EmptyBudget({ eventId }: { eventId: string }) {
  */
 function NoFinalizedVendors({ eventId }: { eventId: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">
+    <div className="sn-row border-dashed p-8 text-center">
       <p className="text-sm text-ink/65">
         You&rsquo;re still choosing vendors — exactly where you should be at this
         stage. The moment you contract one, its itemized costs and payments show

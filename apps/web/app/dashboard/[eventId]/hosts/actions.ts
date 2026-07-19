@@ -14,6 +14,8 @@ import {
   type ModeratorPermissions,
   type RoleSubtype,
 } from '@/lib/event-moderators';
+import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
+import { stampCoordinatorConsentRevoked } from '@/lib/coordinator-consent-revoke';
 
 // Iteration 0048 — V1 multi-host invite server actions.
 //
@@ -127,7 +129,23 @@ export async function inviteHost(formData: FormData) {
       ? { ...PERMISSION_TEMPLATES[role], areas: { ...COORDINATOR_AREAS } }
       : PERMISSION_TEMPLATES[role];
 
-    const { error } = await admin.from('event_moderators').insert({
+    // RA 10173 consent gate (corpus spec § 3a) — a coordinator invite shares
+    // guest PII, so require the couple's data-privacy consent when the flag is
+    // ON. Flag OFF = unchanged behavior. Server-side defense-in-depth behind
+    // the client consent modal, and it covers BOTH invite entry points.
+    if (
+      isCoordinatorConsentGateEnabled() &&
+      isCoordinatorDelegate &&
+      formData.get('coordinator_consent') !== '1'
+    ) {
+      redirect(
+        `/dashboard/${eventId}/hosts?invite_error=${encodeURIComponent(
+          'Data-privacy consent is required to invite a coordinator.',
+        )}`,
+      );
+    }
+
+    const { data: inserted, error } = await admin.from('event_moderators').insert({
       event_id: eventId,
       user_id: null,
       role_subtype: role,
@@ -140,12 +158,42 @@ export async function inviteHost(formData: FormData) {
       invitation_expires_at: expiresAt.toISOString(),
       invitation_token: token,
       accepted_at: null,
-    });
+    }).select('moderator_id').single();
 
     if (error) {
       redirect(
         `/dashboard/${eventId}/hosts?invite_error=${encodeURIComponent(error.message.slice(0, 80))}`,
       );
+    }
+
+    // Record the RA 10173 consent (corpus spec § 3a) now that the invite row
+    // exists. Best-effort: consent was already required above, so this audit
+    // copy failing must never undo a successful invite.
+    if (isCoordinatorConsentGateEnabled() && isCoordinatorDelegate && inserted) {
+      // Owner 2026-07-19 #5 — consent-SCOPED money authority. The consent
+      // modal's two default-OFF toggles arrive as '1' when granted; anything
+      // else records the scope as NOT granted (fail-closed). scope_version
+      // 'v2' = the disclosure that includes the optional money-authority
+      // section (vendor_lock · checkout); 'v1' rows predate it and carry no
+      // money scopes.
+      const scopes = {
+        vendor_lock: formData.get('consent_scope_vendor_lock') === '1',
+        checkout: formData.get('consent_scope_checkout') === '1',
+      };
+      const { error: consentError } = await admin
+        .from('coordinator_access_consents')
+        .insert({
+          event_id: eventId,
+          moderator_id: inserted.moderator_id,
+          consented_by_user_id: userId,
+          coordinator_email: email,
+          coordinator_label: displayLabel,
+          scope_version: 'v2',
+          scopes,
+        });
+      if (consentError) {
+        console.error('[inviteHost] consent record insert failed', consentError);
+      }
     }
 
     revalidatePath(`/dashboard/${eventId}/hosts`);
@@ -308,6 +356,11 @@ export async function removeHost(formData: FormData) {
       .eq('member_type', 'coordinator');
   }
 
+  // Close the RA 10173 audit loop (corpus Coordinator_Whats_Next § 4): the
+  // consent recorded at invite time is now revoked. Best-effort no-op when no
+  // consent row exists (e.g. the gate flag was off at invite time).
+  await stampCoordinatorConsentRevoked(admin, eventId, moderatorId);
+
   revalidatePath(`/dashboard/${eventId}/hosts`);
   redirect(`/dashboard/${eventId}/hosts?host_removed=1`);
 }
@@ -338,6 +391,11 @@ export async function revokeHostInvite(formData: FormData) {
     })
     .eq('moderator_id', moderatorId)
     .eq('event_id', eventId);
+
+  // Close the RA 10173 audit loop (corpus Coordinator_Whats_Next § 4): a
+  // revoked pending invite ends the consented share before access ever
+  // began. Best-effort no-op when no consent row exists.
+  await stampCoordinatorConsentRevoked(admin, eventId, moderatorId);
 
   revalidatePath(`/dashboard/${eventId}/hosts`);
   redirect(`/dashboard/${eventId}/hosts?invite_revoked=1`);

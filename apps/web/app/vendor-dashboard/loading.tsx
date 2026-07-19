@@ -27,7 +27,7 @@ export default function VendorLoading() {
         <section aria-hidden>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="rounded-2xl border border-ink/10 bg-cream p-4">
+              <div key={i} className="sn-row p-4">
                 <Sk className="h-6 w-8 rounded-md" />
                 <Sk className="mt-2 h-3 w-full rounded" />
               </div>

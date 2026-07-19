@@ -64,7 +64,7 @@ export default async function EventHomePage({
   searchParams,
 }: {
   params: Promise<{ eventId: string }>;
-  searchParams?: Promise<{ suri?: string }>;
+  searchParams?: Promise<{ suri?: string; inspect?: string }>;
 }) {
   const { eventId } = await params;
   const search = searchParams ? await searchParams : {};
@@ -402,7 +402,9 @@ export default async function EventHomePage({
       <EventDashboard
         eventId={eventId}
         suriPreviewParam={search.suri}
+        inspectId={search.inspect}
         slotAfterBento={hasOverlays ? overlays : undefined}
+        dayOfActive={dayOfActive}
       />
     </>
   );

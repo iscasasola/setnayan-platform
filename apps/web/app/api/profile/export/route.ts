@@ -18,6 +18,10 @@ import { displayUrlsForStoredAssets } from '@/lib/uploads';
  * payment records (iteration 0034) and their own face-enrollment CONSENT
  * metadata (iteration 0012) — raw face_vector embeddings are excluded.
  *
+ * Includes (2026-07-19 completeness) the subject's consent RECEIPTS:
+ * coordinator-access data-sharing consents and marketing-share (social
+ * sharing program) per-artifact consents, each with grant + revocation stamps.
+ *
  * Not in scope for V1:
  *   • Audit log of past API access (no user-scoped access-log table — the
  *     0033 gateway ships api_keys only, consistent with "no public endpoints").
@@ -40,6 +44,11 @@ export async function GET() {
     ordersRes,
     paymentsRes,
     faceEnrollmentsRes,
+    dependentsRes,
+    godparentsRes,
+    communityMembershipsRes,
+    coordinatorConsentsRes,
+    marketingShareConsentsRes,
   ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
@@ -107,6 +116,68 @@ export async function GET() {
         'enrollment_id, event_id, source, consent_at, consent_source, ' +
           'revoked_at, quality_score, vector_model, created_at, updated_at',
       )
+      .order('created_at', { ascending: true }),
+    // RA 10173 (2026-07-17) — Alaga (dependents) records: what the subject
+    // stores as a guardian, what they claimed as their own profile, and what
+    // they handed over (read-only history). Spouse-SHARED rows the OTHER
+    // guardian owns are deliberately excluded — that's the other guardian's
+    // stored data, not the subject's. Active claim_token values are excluded
+    // (a live token is redeemable — exporting it would leak a bearer secret);
+    // the consent stamps ARE included (durable RA 10173 proof).
+    supabase
+      .from('dependents')
+      .select(
+        'public_id, dependent_kind, name, birth_date, sex, religion, relationship, ' +
+          'shared_with_spouse, birth_date_consent_at, religion_consent_at, ' +
+          'handed_over_at, owner_user_id, claimed_user_id, handed_over_by_user_id, created_at, updated_at',
+      )
+      .or(
+        `owner_user_id.eq.${user.id},claimed_user_id.eq.${user.id},handed_over_by_user_id.eq.${user.id}`,
+      )
+      .order('created_at', { ascending: true }),
+    // Godparent (ninong/ninang) edges — the subject's own rows as guardian
+    // plus, via godparents_subject_read, the edges on a profile they claimed.
+    supabase
+      .from('godparents')
+      .select('godparent_id, dependent_id, godparent_name, godparent_email, role, created_at')
+      .order('created_at', { ascending: true }),
+    // RA 10173 (2026-07-17) — samahan memberships: the group's user-chosen
+    // name, the subject's role, and when they joined. No kind/category exists
+    // by design (owner 2026-07-17 — the platform never classifies groups).
+    supabase
+      .from('community_members')
+      .select('role, joined_at, communities(public_id, name)')
+      .eq('user_id', user.id)
+      .order('joined_at', { ascending: true }),
+    // RA 10173 (2026-07-19) — coordinator-access consent receipts the subject
+    // GAVE as the couple/host (Coordinator_Role_Feature_Spec_2026-07-18.md § 3a):
+    // their explicit decision to share event planning data (guest list · seating
+    // · schedule · vendor chats) with a coordinator, plus any later revocation.
+    // RLS is event-scoped (hosts + admin), so we filter explicitly to
+    // consented_by_user_id — the export ships only consents the SUBJECT gave,
+    // not other hosts' consent rows on shared events. Internal bigserial id and
+    // moderator FK stay out; coordinator email/label are the denormalised
+    // self-describing audit fields.
+    supabase
+      .from('coordinator_access_consents')
+      .select(
+        'event_id, coordinator_email, coordinator_label, scope_version, granted_at, revoked_at',
+      )
+      .eq('consented_by_user_id', user.id)
+      .order('granted_at', { ascending: true }),
+    // RA 10173 (2026-07-19) — marketing-share consent receipts (social sharing
+    // program): the subject's per-artifact grants for Setnayan to feature their
+    // creation on its Facebook page, incl. credit mode, revocation, and (if
+    // posted) the post evidence + take-down stamp. RLS scopes to the couple's
+    // own events; we filter explicitly to customer_id for defense in depth so
+    // only consents the SUBJECT granted are exported.
+    supabase
+      .from('marketing_share_consents')
+      .select(
+        'consent_id, event_id, artifact_type, artifact_ref, credit_mode, ' +
+          'consented_at, revoked_at, posted_at, post_url, taken_down_at, created_at, updated_at',
+      )
+      .eq('customer_id', user.id)
       .order('created_at', { ascending: true }),
   ]);
 
@@ -193,9 +264,21 @@ export async function GET() {
     // Biometric CONSENT metadata only — raw face_vector embeddings are
     // intentionally excluded from the export.
     face_enrollments: faceEnrollmentsRes.data ?? [],
+    // RA 10173 (2026-07-17) — Alaga records (guardian-stored, claimed-as-own,
+    // and handed-over history) + godparent edges. Consent stamps included.
+    alaga_dependents: dependentsRes.data ?? [],
+    alaga_godparents: godparentsRes.data ?? [],
+    // Samahan memberships — group name (user-chosen), role, joined_at.
+    samahan_memberships: communityMembershipsRes.data ?? [],
+    // RA 10173 (2026-07-19) — consent receipts the subject gave: coordinator
+    // data-sharing consents (grant + revocation stamps) and marketing-share
+    // consents (per-artifact FB-feature grants incl. post/take-down evidence).
+    coordinator_access_consents: coordinatorConsentsRes.data ?? [],
+    marketing_share_consents: marketingShareConsentsRes.data ?? [],
     not_included: [
       'audit_log (API access — no user-scoped access-log table in V1)',
       'face_vector embeddings (biometric raw data — metadata only is exported)',
+      'active alaga claim_token values (live bearer secrets — never exported)',
     ],
   };
 

@@ -20,24 +20,6 @@
  */
 
 import {
-  BadgeCheck,
-  Banknote,
-  Wallet,
-  ShoppingBag,
-  Crown,
-  CreditCard,
-  Shield,
-  AlertOctagon,
-  Star,
-  Flag,
-  CheckCheck,
-  LifeBuoy,
-  UserX,
-  Handshake,
-  MessageSquareWarning,
-  type LucideIcon,
-} from 'lucide-react';
-import {
   QueuesTriageFeed,
   type TriageItem,
 } from '../queues/_components/queues-triage-feed';
@@ -48,38 +30,10 @@ import {
   ADMIN_QUEUE_META,
   type AdminQueueDigest,
 } from '@/lib/admin/queue-counts';
+import { BASE_ROWS } from '@/lib/admin/work-rows';
 import { requireAdmin } from '@/lib/admin/require-admin';
 
 export const metadata = { title: 'Work · Admin' };
-
-// Presentation constants per queue (key MUST match ADMIN_QUEUE_META + the
-// digest keys + the sidebar item keys 1:1). Urgency/count/lane are layered on
-// from the digest below — this array only holds the brand-voice label/copy.
-type BaseRow = {
-  key: string;
-  label: string;
-  href: string;
-  icon: LucideIcon;
-  description: string;
-};
-
-const BASE_ROWS: BaseRow[] = [
-  { key: 'verify', label: 'Verify', href: '/admin/verify', icon: BadgeCheck, description: 'Vendors awaiting the verification badge.' },
-  { key: 'payments', label: 'Payments', href: '/admin/payments', icon: Banknote, description: 'Order payments awaiting reconciliation.' },
-  { key: 'payouts', label: 'Payouts', href: '/admin/payouts', icon: Wallet, description: 'Vendor payouts ready to release.' },
-  { key: 'token-purchases', label: 'Token sales', href: '/admin/token-purchases', icon: ShoppingBag, description: 'Vendor token-pack purchases awaiting confirmation.' },
-  { key: 'subscriptions', label: 'Subscriptions', href: '/admin/subscriptions', icon: Crown, description: 'Vendor Pro / Enterprise upgrades awaiting confirmation.' },
-  { key: 'payment-options', label: 'Payment options', href: '/admin/payment-options', icon: CreditCard, description: 'Vendor payment destinations awaiting a fraud screen.' },
-  { key: 'disputes', label: 'Disputes', href: '/admin/disputes', icon: Shield, description: 'Open customer and vendor disputes.' },
-  { key: 'force-majeure', label: 'Force majeure', href: '/admin/force-majeure', icon: AlertOctagon, description: 'Event-impacting flags to triage.' },
-  { key: 'reviews', label: 'Reviews', href: '/admin/reviews', icon: Star, description: 'Review appeals awaiting a decision.' },
-  { key: 'concierge-abuse', label: 'Setnayan AI abuse', href: '/admin/concierge-abuse', icon: Flag, description: 'Trial-cycling flags to review.' },
-  { key: 'account-deletions', label: 'Account deletions', href: '/admin/account-deletions', icon: UserX, description: 'Self-serve account-deletion requests to review.' },
-  { key: 'approvals', label: 'Two-admin approvals', href: '/admin/approvals', icon: CheckCheck, description: 'A colleague is waiting on your second sign-off.' },
-  { key: 'help', label: 'Help', href: '/admin/help', icon: LifeBuoy, description: 'Open help-center tickets.' },
-  { key: 'vendor-partnerships', label: 'Partnerships', href: '/admin/vendor-partnerships', icon: Handshake, description: 'Vendor-to-vendor partnership claims awaiting two-admin verification.' },
-  { key: 'user-reports', label: 'User reports', href: '/admin/user-reports', icon: MessageSquareWarning, description: 'Reported guest-gallery content awaiting moderation.' },
-];
 
 // Worklist priority: overdue first, then due-soon, then open work (busiest),
 // then unknown, then clear — canonical order breaks ties within a band.

@@ -1,8 +1,10 @@
 import Link from 'next/link';
+import { after } from 'next/server';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, Send, Trash2, XCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { markProposalViewedAndSettle } from '@/lib/lead-token-holds';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchProposalPaymentMethods } from '@/lib/vendor-payment-methods.server';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
@@ -104,6 +106,15 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
   // Which side is looking? Org membership decides.
   const ownProfile = await fetchOwnVendorProfile(supabase, user.id);
   const isVendorSide = ownProfile?.vendor_profile_id === proposal.vendor_profile_id;
+
+  // Settle-on-VIEW: the couple opening a delivered quote settles the vendor's held
+  // token (Vendor_Token_Settlement_and_Lifecycle §2.1). Fire off the request path;
+  // the RPC re-verifies customer-side membership + only transitions sent→viewed,
+  // and the token consume is itself flag-gated inside. No-op for the vendor's own
+  // preview or an already-viewed proposal.
+  if (!isVendorSide && proposal.status === 'sent') {
+    after(() => markProposalViewedAndSettle(proposal.public_id, user.id));
+  }
 
   // Letterhead — vendor business identity (falls back to the frozen snapshot).
   const { data: vendorProfile } = await supabase

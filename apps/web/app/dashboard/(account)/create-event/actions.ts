@@ -7,16 +7,19 @@ import { generateUniqueSlug } from '@/lib/slugs';
 import { captureEvent } from '@/lib/analytics';
 import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
+import { resolveProfile } from '@/lib/event-type-profile';
 import { safeNext } from '@/lib/auth';
 import { getBudgetBands } from '@/lib/budget-bands';
 import { resolveCreateCapture } from '@/lib/create-event-capture';
-import { anchorForType, isAnchorOrigin, parseISO } from '@/lib/event-anchor';
+import { anchorForType, isAnchorOrigin, parseISO, canToggleRecur } from '@/lib/event-anchor';
 import {
   buildNextYearClonePayload,
   canPlanNextYear,
   type SourceEventForClone,
 } from '@/lib/event-recurrence';
+import { isGatedLifeType } from '@/lib/life-event-gate';
 import { hasInPlanningWeddingForUser } from './wedding-guard';
+import { getBlockingLifeEvent } from './life-event-guard';
 import { resolvePick } from '@/app/onboarding/wedding/_data/wedding-cities';
 
 /* Retired 2026-05-28 V2 cutover */
@@ -125,6 +128,13 @@ export async function createWeddingEvent(formData: FormData) {
   const anniversaryDate = isAnniversary && parseISO(rawAnnivDate) ? rawAnnivDate : null;
   const anniversaryOrigin = isAnniversary && isAnchorOrigin(rawAnnivOrigin) ? rawAnnivOrigin : null;
 
+  // Date-anchor model (PR-E): the "yearly?" toggle. Anniversary recurs by nature;
+  // recur-eligible types (travel/corporate/gala/celebration/reunion/tournament)
+  // set recurs from the checkbox. Everything else is one-time.
+  const recurs =
+    isAnniversary ||
+    (canToggleRecur(event_type) && String(formData.get('recurs') ?? '') === 'on');
+
   // Iteration 0043 + Task #44 (2026-05-22) — picker fields. Read raw values
   // from the form only when the event_type is wedding; non-wedding
   // event_types (debut, future gender_reveal etc.) never render the picker
@@ -210,6 +220,30 @@ export async function createWeddingEvent(formData: FormData) {
     return redirect('/dashboard/create-event?error=wedding_exists');
   }
 
+  // Life-event cardinality — the wedding guard generalized (council verdict
+  // 2026-07-17 § 2, owner "build it now"). ONE life event IN PLANNING per
+  // (account × type × honoree). "Para kanino?" is the OPTIONAL honoree first
+  // name; unlabeled events contend for the per-type singleton slot, and typing
+  // a different celebrant's name opens a new slot. Lifestyle types (travel,
+  // corporate, anniversary, …) pass through untouched — zero rules, unlimited.
+  const honoree_label_raw = String(formData.get('honoree_label') ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .slice(0, 80);
+  const honoree_label =
+    isGatedLifeType(event_type) && honoree_label_raw ? honoree_label_raw : null;
+  if (!isWedding && isGatedLifeType(event_type)) {
+    const blocking = await getBlockingLifeEvent(supabase, user.id, {
+      eventType: event_type,
+      honoreeLabel: honoree_label,
+    });
+    if (blocking) {
+      return redirect(
+        `/dashboard/create-event?error=life_event_exists&existing=${encodeURIComponent(blocking.eventId)}&event_type=${encodeURIComponent(event_type)}`,
+      );
+    }
+  }
+
   // Owner 2026-07-12: the iteration-0000 §2.5 "single-field, name-only" lock is
   // RELAXED for the non-wedding inline path — the couple can optionally seed a
   // date + guest count + budget at creation, which lights up the checklist's
@@ -236,6 +270,45 @@ export async function createWeddingEvent(formData: FormData) {
   // be stale or the role can resolve to anon at the edge — RLS would then
   // reject the insert even though the action already authenticated the user.
   const admin = createAdminClient();
+
+  // Samahan context (plan §7 · PR-3) — a community-owned event. UI-bypass-
+  // proof re-verification (the hidden field can be forged):
+  //   (a) the event type's class must be community_eligible — a Samahan can
+  //       NEVER own a personal milestone (wedding is 'personal', so wedding +
+  //       samahan can't combine by construction); the DB CHECK
+  //       events_community_class_consistency is the final backstop.
+  //   (b) the caller must be an ORGANIZER of that community, checked via the
+  //       admin client (same stale-JWT posture as the writes below), and the
+  //       community must be live (not archived).
+  const community_id_raw = String(formData.get('community_id') ?? '').trim();
+  let community_id: string | null = null;
+  if (community_id_raw) {
+    const profile = await resolveProfile(event_type);
+    if (profile.eventClass !== 'community_eligible') {
+      return redirect('/dashboard/create-event?error=samahan_invalid_type');
+    }
+    const [{ data: membership }, { data: communityRow }] = await Promise.all([
+      admin
+        .from('community_members')
+        .select('role')
+        .eq('community_id', community_id_raw)
+        .eq('user_id', user.id)
+        .maybeSingle(),
+      admin
+        .from('communities')
+        .select('archived')
+        .eq('community_id', community_id_raw)
+        .maybeSingle(),
+    ]);
+    const isLive = (communityRow as { archived?: boolean } | null)?.archived === false;
+    const isOrganizer =
+      (membership as { role?: string } | null)?.role === 'organizer';
+    if (!isLive || !isOrganizer) {
+      return redirect('/dashboard/create-event?error=samahan_not_organizer');
+    }
+    community_id = community_id_raw;
+  }
+
   const slug = await generateUniqueSlug(admin, display_name);
 
   // Insert the event. The on_event_created trigger mints the join token row.
@@ -244,17 +317,25 @@ export async function createWeddingEvent(formData: FormData) {
     .insert({
       event_type,
       display_name,
+      // Samahan (PR-3): the owning community for community-class events.
+      // NULL = personal event (default, unchanged). Validated above; the
+      // events_community_class_consistency CHECK is the DB backstop.
+      community_id,
       // Date-anchor model (2026-07-12): stamp the per-type default anchor_kind
       // from the authored map (lib/event-anchor.ts). anchor_date/anchor_origin/
       // recurs are captured later by the per-type creation flow (PR-A onward);
       // wedding lands 'none' (it PRODUCES a union date — its own date is an
       // output of venue discovery, never asked here).
       anchor_kind: anchorForType(event_type).kind,
+      // Life-event gate (2026-07-17): the optional honoree first name — the
+      // cardinality key for life types (NULL for lifestyle types and unlabeled
+      // creations). Ordinary PI; never rendered on public/vendor/guest surfaces.
+      honoree_label,
       // Anniversary capture (PR-A): the commemorated date + typed origin, and
       // recurs=true (anniversaries return every year). NULL for every other type.
       anchor_date: anniversaryDate,
       anchor_origin: anniversaryOrigin,
-      recurs: isAnniversary,
+      recurs,
       // Optional non-wedding capture (all null for weddings + name-only creation).
       // event_date stays NULL — the LOCKED single date is chosen later (date-as-
       // output; the date-selection lock ceremony). What's captured here is the
@@ -404,7 +485,7 @@ export async function planNextYearEvent(formData: FormData) {
   const { data: source } = await supabase
     .from('events')
     .select(
-      'event_type, display_name, signature_details, anchor_kind, anchor_date, anchor_origin, estimated_pax, budget_band, estimated_budget_centavos, region, venue_latitude, venue_longitude, style_preferences',
+      'event_type, display_name, honoree_label, honoree_dependent_id, signature_details, anchor_kind, anchor_date, anchor_origin, estimated_pax, budget_band, estimated_budget_centavos, region, venue_latitude, venue_longitude, style_preferences',
     )
     .eq('event_id', sourceId)
     .maybeSingle();
@@ -413,6 +494,24 @@ export async function planNextYearEvent(formData: FormData) {
   if (!canPlanNextYear(source.event_type as string | null)) {
     // Not a recurring-capable event — nothing to clone; back to the event.
     return redirect(`/dashboard/${sourceId}`);
+  }
+
+  // Life-event cardinality (council 2026-07-17, PR #3373): the clone is an
+  // events insert like any other, so gated life types (birthday, among the
+  // recurrence-capable set) contend for the same ONE-in-planning-per
+  // (account × type × honoree) slot. Once this year's party date passes the
+  // slot frees and "Plan next year" goes through; while it's still in
+  // planning the existing-event surface explains the block. Lifestyle types
+  // (anniversary, reunion, corporate) return null here — zero rules.
+  const blocking = await getBlockingLifeEvent(supabase, user.id, {
+    eventType: source.event_type as string,
+    honoreeLabel: (source.honoree_label as string | null) ?? null,
+    honoreeDependentId: (source.honoree_dependent_id as string | null) ?? null,
+  });
+  if (blocking) {
+    return redirect(
+      `/dashboard/create-event?error=life_event_exists&existing=${encodeURIComponent(blocking.eventId)}&event_type=${encodeURIComponent(source.event_type as string)}`,
+    );
   }
 
   const admin = createAdminClient();

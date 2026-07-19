@@ -70,13 +70,26 @@
  * + DB table names (concierge_abuse_flags) for bookmark + audit continuity,
  * but the sidebar entry reads "Setnayan AI abuse" to match the V2 brand.
  *
+ * ── FLATTEN 2026-07-15 (owner: "solid menu with no submenus") ─────────────
+ * The six menu rows are now PLAIN DOORWAYS — no chevron, no inline children.
+ * The owner locked every desktop sidebar to a flat list of top-level
+ * destinations; sub-navigation lives INSIDE each hub (the tabbed studios, the
+ * /admin/work worklist, and each group LANDING enumerates its children as
+ * tiles/cards). ADMIN_NAV_GROUPS is UNCHANGED and still the single source of
+ * truth — the six parents are still DERIVED from it (deriveSixMenus), and each
+ * parent still carries its group's items as the active-detection + badge-rollup
+ * input, but <AdminSidebarMenu> renders them as a flat row (the children never
+ * become a sub-list). Child routes still light their parent (the group items
+ * feed active-state, since they live on disjoint path roots the hub matchPrefix
+ * can't cover) and the aggregated queue badge still shows. This extends the
+ * vendor 5-page IA (2026-07-12) + the couple plain-leaf decision (2026-07-10).
+ *
  * ── 6-MENU RESPINE 2026-07-09 (owner: "integrate different pages, make it
- * up to 6 menus only") ──────────────────────────────────────────────────
- * The sidebar now renders exactly SIX menu rows — one expandable parent per
- * group — instead of six always-open sections (~69 visible links). Each
- * parent links to that menu's INTEGRATED hub surface and auto-expands its
- * children only while the active route is inside the section (the shipped
- * owner-approved "subnav expands from the side nav" SidebarItem pattern):
+ * up to 6 menus only") · SUPERSEDED-IN-PART by the 2026-07-15 flatten above ──
+ * The sidebar renders exactly SIX menu rows instead of six always-open sections
+ * (~69 visible links). Each parent links to that menu's INTEGRATED hub surface.
+ * (Historically each parent AUTO-EXPANDED its children while the active route was
+ * inside the section — that expand behavior was REMOVED by the flatten above.):
  *   Overview        → /admin            (queue tiles + work list live there)
  *   Accounts        → /admin/accounts   (tabbed Accounts Studio, shipped)
  *   Studio          → /admin/studio     (tabbed Studio Studio, shipped)
@@ -89,21 +102,16 @@
  * Live queue counts aggregate onto the Overview parent (worst-urgency tone)
  * so collapsing the queue links never hides SLA pressure.
  *
- * ── DECLUTTER 2026-07-10 (owner: "this is the admin?") ────────────────────
- * The 6-menu respine rendered each parent via the SHARED <SidebarItem>, whose
- * sub-list auto-expands whenever the active route is inside the section. But
- * the admin LANDS on /admin — the Overview ('queues') menu's own hub — so
- * Overview matched on arrival and auto-exploded its ~18 queue children, and the
- * clean six-menu rail read as a long cluttered list duplicating the /admin
- * queue TILES. Fix: render the six via the admin-local <AdminSidebarMenu>
- * (below), which keeps the SidebarItem look + the aggregated parent badge but
- * (a) makes the chevron a real toggle persisted under the same
- * setnayan.nav.section.<key>.open key, and (b) DEFAULTS the Overview menu
- * COLLAPSED even when active (collapsedWhenActive). The other five keep the
- * auto-expand-on-active default. No route/tile/ADMIN_NAV_GROUPS entry removed —
- * purely a default-expand-state change. (The mobile admin-bottom-nav is a flat
- * ≤5-tab strip with no expand logic, and admin-nav-fab is a single action —
- * neither replicates the expand behavior, so neither needed a mirror change.)
+ * ── DECLUTTER 2026-07-10 (owner: "this is the admin?") · SUPERSEDED by the
+ * 2026-07-15 flatten above ────────────────────────────────────────────────
+ * The 2026-07-10 pass kept the expandable menus but defaulted the Overview menu
+ * COLLAPSED even when active (a `collapsedWhenActive` flag on <AdminSidebarMenu>)
+ * so the rail didn't explode its ~18 queue children on arrival at /admin. The
+ * 2026-07-15 flatten removed expansion entirely, so that flag + its persisted
+ * toggle are gone — there is no longer any inline sub-list to collapse. (The
+ * mobile admin-bottom-nav is a flat ≤5-tab strip with no expand logic, and
+ * admin-nav-fab is a single action — neither ever replicated the expand
+ * behavior, so neither needed a change.)
  */
 
 import {
@@ -322,18 +330,13 @@ export function AdminSidebar({
     <section className="px-2 pb-2" aria-label="Admin menu">
       <ul className="flex flex-col gap-0.5">
         {menus.map((item) => (
-          <AdminSidebarMenu
-            key={item.key}
-            menu={item}
-            pathname={pathname}
-            // DECLUTTER (owner 2026-07-10): the Overview ('queues') menu is the
-            // /admin landing's own hub, so the shipped auto-expand-on-active rule
-            // exploded its ~18 queue children on arrival. Default it collapsed
-            // even when active — the queues stay reachable via the page tiles +
-            // the work list, and the toggle (persisted) reopens the section. The
-            // other five keep the auto-expand-on-active default.
-            collapsedWhenActive={item.key === 'queues'}
-          />
+          // FLAT (owner 2026-07-15 "solid menu with no submenus"): each of the
+          // six menus renders as a plain doorway to its hub landing — no chevron,
+          // no inline children. The group's child routes still light their parent
+          // (AdminSidebarMenu computes active-state across the group items) and
+          // the rolled-up queue badge still shows; the children themselves are
+          // reachable from the landing pages / tabbed studios / the work list.
+          <AdminSidebarMenu key={item.key} menu={item} pathname={pathname} />
         ))}
       </ul>
     </section>

@@ -247,6 +247,30 @@ function normalizeVendorProfileRow(data: Record<string, unknown>): VendorProfile
  * chain twice per render. Current callers pass two args → the third is
  * `undefined` for both, so the cache key still collapses to one entry.
  */
+/**
+ * Guarded read of the optional precise founding DATE (`in_business_since_date`,
+ * migration 20270805100000). Kept OUT of the shared profile select and read
+ * defensively — like `fetchVendorMicrosite` — so a not-yet-applied migration
+ * (this repo's known apply-lag) degrades to null instead of 42703-crashing the
+ * vendor dashboard. Returns the ISO date string, or null when unset/missing.
+ */
+export async function fetchVendorBusinessStartDate(
+  client: SupabaseClient,
+  vendorProfileId: string,
+): Promise<string | null> {
+  try {
+    const { data, error } = await client
+      .from('vendor_profiles')
+      .select('in_business_since_date')
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle();
+    if (error || !data) return null;
+    return (data as { in_business_since_date: string | null }).in_business_since_date ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export const fetchOwnVendorProfile = cache(async (
   supabase: SupabaseClient,
   userId: string,

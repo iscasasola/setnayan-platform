@@ -148,7 +148,7 @@ export function RecommendationsPanel({
       ) : null}
 
       {groups.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-ink/15 bg-cream p-8 text-center">
+        <div className="rounded-2xl border border-dashed border-ink/15 p-8 text-center">
           <Sparkles
             aria-hidden
             className="mx-auto mb-2 h-6 w-6 text-ink/30"
@@ -252,7 +252,7 @@ function ActiveRecCard({
   suggestedSet: Set<string>;
 }) {
   return (
-    <div className="rounded-2xl border border-ink/10 bg-cream p-4">
+    <div className="sn-tile p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-0.5">
           <div className="flex flex-wrap items-center gap-2">
@@ -276,7 +276,7 @@ function ActiveRecCard({
             <input type="hidden" name="service_code" value={rec.serviceCode} />
             <input type="hidden" name="enabled" value="false" />
             <SubmitButton
-              className="inline-flex h-9 items-center justify-center rounded-md border border-ink/20 bg-cream px-3 text-xs font-medium text-ink hover:border-ink/40"
+              className="inline-flex h-9 items-center justify-center rounded-md border border-ink/20 bg-white/70 px-3 text-xs font-medium text-ink hover:border-ink/40"
               pendingLabel="Turning off…"
             >
               Turn off
@@ -434,7 +434,7 @@ function SuggestToCoupleControl({
   return (
     <form
       action={suggestToCouple}
-      className="w-full max-w-md space-y-2 rounded-xl border border-ink/10 bg-cream p-3"
+      className="w-full max-w-md space-y-2 sn-row p-3"
     >
       <input type="hidden" name="addon_key" value={addonKey} />
       <p className="text-xs font-medium text-ink/75">
@@ -518,7 +518,7 @@ function NotAFitControl({ rec }: { rec: RecCard }) {
   return (
     <form
       action={flagFeedback}
-      className="space-y-2 rounded-xl border border-ink/10 bg-cream p-3"
+      className="space-y-2 sn-row p-3"
     >
       <input type="hidden" name="feedback_type" value="not_a_fit" />
       <input type="hidden" name="tile_id" value={rec.tileId} />
@@ -542,7 +542,7 @@ function NotAFitControl({ rec }: { rec: RecCard }) {
           Cancel
         </button>
         <SubmitButton
-          className="inline-flex h-8 items-center justify-center rounded-md border border-ink/20 bg-cream px-3 text-[11px] font-medium text-ink hover:border-ink/40"
+          className="inline-flex h-8 items-center justify-center rounded-md border border-ink/20 bg-white/70 px-3 text-[11px] font-medium text-ink hover:border-ink/40"
           pendingLabel="Sending…"
         >
           Send flag
@@ -590,7 +590,7 @@ function SuggestControl({
   return (
     <form
       action={flagFeedback}
-      className="w-full max-w-md space-y-2 rounded-xl border border-ink/10 bg-cream p-3"
+      className="w-full max-w-md space-y-2 sn-row p-3"
     >
       <input type="hidden" name="feedback_type" value="suggest_add" />
       <input type="hidden" name="tile_id" value={tileId} />
@@ -632,7 +632,7 @@ function SuggestControl({
           Cancel
         </button>
         <SubmitButton
-          className="inline-flex h-8 items-center justify-center rounded-md border border-ink/20 bg-cream px-3 text-[11px] font-medium text-ink hover:border-ink/40"
+          className="inline-flex h-8 items-center justify-center rounded-md border border-ink/20 bg-white/70 px-3 text-[11px] font-medium text-ink hover:border-ink/40"
           pendingLabel="Sending…"
         >
           Send suggestion

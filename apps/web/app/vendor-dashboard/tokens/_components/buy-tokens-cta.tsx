@@ -57,14 +57,16 @@ const NUMBER = new Intl.NumberFormat('en-PH');
 
 /**
  * Mobile SRP multiplier: 1.5× the web price.
- * Pack SRP prices (at ₱100/token web price):
- *   4-pack  → ₱400 web  → ₱600 mobile
- *   10-pack → ₱1,000 web → ₱1,500 mobile
- *   25-pack → ₱2,500 web → ₱3,750 mobile
- *   50-pack → ₱5,000 web → ₱7,500 mobile
- *   100-pack→ ₱10,000 web → ₱15,000 mobile
+ * Pack SRP prices (flat ₱200/token web price · 2026-07-15 catalog restructure,
+ * anchored at ₱1,000 = 5 tokens):
+ *   5-pack  → ₱1,000 web  → ₱1,500 mobile
+ *   10-pack → ₱2,000 web  → ₱3,000 mobile
+ *   25-pack → ₱5,000 web  → ₱7,500 mobile
+ *   50-pack → ₱10,000 web → ₱15,000 mobile
+ *   100-pack→ ₱20,000 web → ₱30,000 mobile
  *
- * If the admin changes the base token price, the SRP scales proportionally.
+ * The web token price is DERIVED from the live pack catalog below (price_php ÷
+ * token_count), so this SRP scales automatically whenever the admin reprices.
  */
 const MOBILE_SRP_MULTIPLIER = 1.5;
 
@@ -95,14 +97,14 @@ export function BuyTokensCta({
   const webTokenPrice =
     firstPack != null
       ? Math.round(firstPack.price_php / firstPack.token_count)
-      : 100;
+      : 200;
   const mobileTokenPrice = Math.round(webTokenPrice * MOBILE_SRP_MULTIPLIER);
 
   return (
-    <div className="m-card p-6">
+    <div className="sn-tile p-6">
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
-          <p className="m-label-mono">Token packs</p>
+          <p className="sn-eye">Token packs</p>
           <p className="mt-1 text-sm text-ink/65">
             Buy tokens to unlock matched couples. Purchased tokens never expire.
           </p>

@@ -215,7 +215,7 @@ export async function UsersSurface({
               password is shown once — refreshing this page clears it.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3 rounded-md bg-cream p-3">
+          <div className="flex flex-wrap items-center gap-3 rounded-md bg-white/70 p-3">
             <code className="break-all font-mono text-lg font-semibold text-ink">
               {tempPassword}
             </code>
@@ -368,7 +368,7 @@ function UsersTable({
                   <span
                     className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
                       u.account_type === 'vendor'
-                        ? 'bg-violet-100 text-violet-800'
+                        ? 'bg-[var(--sn-info-soft)] text-[color:var(--sn-info)]'
                         : u.account_type === 'admin'
                           ? 'bg-ink/15 text-ink'
                           : 'bg-success-100 text-success-800'
@@ -386,7 +386,7 @@ function UsersTable({
                 <td className="px-3 py-3">
                   <div className="flex flex-wrap gap-1">
                     {u.is_internal ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-purple-800">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--sn-info-soft)] px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-[color:var(--sn-info)]">
                         <ShieldCheck className="h-3 w-3" strokeWidth={2} />
                         Internal
                       </span>
@@ -543,7 +543,7 @@ function UsersTable({
               if (isExpanded && !u.is_internal) {
                 fragments.push(
                   <tr key={`${u.user_id}-grants`} id={`grants-${u.user_id}`}>
-                    <td colSpan={6} className="border-t border-terracotta/15 bg-cream/40 px-3 py-5">
+                    <td colSpan={6} className="border-t border-terracotta/15 bg-white/70 px-3 py-5">
                       <CompGrantsPanel
                         userId={u.user_id}
                         userEmail={u.email}
@@ -556,8 +556,8 @@ function UsersTable({
               if (isExpanded && u.is_internal) {
                 fragments.push(
                   <tr key={`${u.user_id}-grants-locked`} id={`grants-${u.user_id}`}>
-                    <td colSpan={6} className="border-t border-purple-200 bg-purple-50/40 px-3 py-4">
-                      <p className="text-sm text-purple-900">
+                    <td colSpan={6} className="border-t border-[color:var(--sn-info)]/30 bg-[var(--sn-info-soft)] px-3 py-4">
+                      <p className="text-sm text-[color:var(--sn-info)]">
                         This is an internal account (§ 10a) — it already carries
                         a permanent grant for every Setnayan service. Per-SKU
                         comps are not allowed on top.

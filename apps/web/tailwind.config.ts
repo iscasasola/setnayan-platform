@@ -51,6 +51,11 @@ const config: Config = {
         '2xl': 'var(--m-r-lg)', // 22
         '3xl': 'var(--m-r-xl)', // 36
         full: 'var(--m-r-full)', // 999
+        // Atelier-Glass kit radii (Glass PR-1, 2026-07-15). Named tokens so the
+        // kit surface recipes use `rounded-tile`/`rounded-card` instead of the
+        // lint:radius-forbidden arbitrary `rounded-[20px]`/`rounded-[18px]`.
+        tile: '20px', // .sn-tile / .sn-tile-dark
+        card: '18px', // .sn-card
       },
       colors: {
         // Themeable surface tokens — values resolve at runtime from CSS vars
@@ -194,6 +199,24 @@ const config: Config = {
           800: '#783b28',
           900: '#5f3021',
           950: '#34170f',
+        },
+        // `info` ← INFO-SLATE (Atelier-Glass kit `--sn-info` #4E6C82). The
+        // sanctioned NEUTRAL semantic — for outcomes that are neither success
+        // nor danger (e.g. a dispute resolved for the couple, or a high skill
+        // tier). Added 2026-07-15 to retire the last raw `violet` one-offs on the
+        // vendor surface (kit: gold + info-slate + warm semantics only).
+        info: {
+          50: '#f2f5f7',
+          100: '#e2eaef', // --sn-info-soft
+          200: '#c5d3dd',
+          300: '#9fb4c3',
+          400: '#7292a8',
+          500: '#547690',
+          600: '#4e6c82', // --sn-info
+          700: '#405767',
+          800: '#374a57',
+          900: '#2f3e49',
+          950: '#1e2831',
         },
       },
       fontFamily: {

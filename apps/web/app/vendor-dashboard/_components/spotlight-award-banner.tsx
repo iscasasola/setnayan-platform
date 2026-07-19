@@ -42,7 +42,7 @@ export function SpotlightAwardBanner({ awards }: { awards: SpotlightAwardType[] 
         </div>
         <div className="min-w-0 flex-1 space-y-2">
           <div className="space-y-1">
-            <p className="m-eyebrow text-[color:var(--m-orange-2,#b5762e)]">
+            <p className="sn-eye text-[color:var(--m-orange-2,#b5762e)]">
               Spotlight Award
             </p>
             <h2 className="text-lg font-semibold tracking-tight text-ink">

@@ -555,7 +555,7 @@ test.describe('serpentine chain snap', () => {
 
 // --- rect run + round kiss chaining (2026-06-13 follow-up) ---------------------
 
-import { CHAIR_PX, ROUND_KISS_GAP, rectChainSnap, roundKissSnap } from '../../lib/seating';
+import { CHAIR_PX, rectChainSnap } from '../../lib/seating';
 
 test.describe('rect chain snap (banquet / family head runs)', () => {
   // long_banquet_8: per=4 → hubW = 4·40+16 = 176 → halfLen 88.
@@ -605,37 +605,8 @@ test.describe('rect chain snap (banquet / family head runs)', () => {
   });
 });
 
-test.describe('round kiss snap', () => {
-  const rB = tableGeometry('round', 10).box.w / 2;
-  const rA = tableGeometry('round', 8).box.w / 2;
-  const B = { x: 500, y: 500, radius: rB };
-
-  test('snaps onto the line of centres at kiss distance, direction preserved', () => {
-    const drag = { x: B.x + rA + rB + 20, y: B.y - 14 };
-    const snap = roundKissSnap(drag, rA, [B]);
-    expect(snap).not.toBeNull();
-    const dist = Math.hypot(snap!.x - B.x, snap!.y - B.y);
-    expect(Math.abs(dist - (rA + rB + ROUND_KISS_GAP))).toBeLessThan(1e-9);
-    // Direction from the anchor is the drag direction (the couple picks the side).
-    const want = Math.atan2(drag.y - B.y, drag.x - B.x);
-    const got = Math.atan2(snap!.y - B.y, snap!.x - B.x);
-    expect(Math.abs(want - got)).toBeLessThan(1e-9);
-  });
-
-  test('kissed rounds stay clear of the collision threshold (chairs never overlap)', () => {
-    // Editor collision: AABB halves + 10px gap. Kiss distance must exceed it
-    // so the mount resolver never separates a kissed pair — and the chair
-    // rings (inside the boxes) cannot intersect.
-    const snap = roundKissSnap({ x: B.x + rA + rB + 5, y: B.y }, rA, [B]);
-    const dist = Math.hypot(snap!.x - B.x, snap!.y - B.y);
-    expect(dist).toBeGreaterThan(rA + rB + 10);
-  });
-
-  test('dead-centre drop and far drops do not snap', () => {
-    expect(roundKissSnap({ x: B.x, y: B.y }, rA, [B])).toBeNull();
-    expect(roundKissSnap({ x: B.x + rA + rB + 200, y: B.y }, rA, [B])).toBeNull();
-  });
-});
+// (Round-kiss snap removed 2026-07-16 — round tables are standalone furniture:
+// they never connect and always collide. See lib/seating-weld.test.ts.)
 
 // --- free-venue booth placement (no walls — gardens / open fields) ------------
 

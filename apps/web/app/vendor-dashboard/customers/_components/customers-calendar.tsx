@@ -261,11 +261,7 @@ export function CustomersCalendar({
         onHeatmapChange={setHeatmap}
       />
 
-      <div
-        className="rounded-xl border p-4 sm:p-5"
-        style={{ borderColor: 'var(--m-line)', background: '#fff' }}
-        aria-busy={pending}
-      >
+      <div className="sn-tile p-4 sm:p-5" aria-busy={pending}>
         {/* Month nav */}
         <div className="mb-4 flex items-center justify-between">
           <button
@@ -381,7 +377,7 @@ export function CustomersCalendar({
                 }}
               >
                 <span
-                  className="text-[11px] font-semibold tabular-nums"
+                  className="font-mono text-[11px] font-semibold"
                   style={{
                     color: isBlocked
                       ? '#fff'

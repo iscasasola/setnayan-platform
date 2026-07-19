@@ -255,7 +255,7 @@ export async function SettingsSurface({ searchParams }: Props) {
       <div className="mt-10 border-t border-ink/10 pt-8">
         <Link
           href="/admin/ugat?tab=onboarding"
-          className="group block rounded-xl border border-ink/10 bg-cream p-5 hover:border-terracotta/30 hover:bg-terracotta/5"
+          className="group block sn-tile p-5 hover:border-terracotta/30 hover:bg-terracotta/5"
         >
           <div className="flex items-start gap-3">
             <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-terracotta/10 text-terracotta">
@@ -283,7 +283,7 @@ export async function SettingsSurface({ searchParams }: Props) {
       <div className="mt-10 border-t border-ink/10 pt-8">
         <Link
           href="/admin/settings/payment-methods"
-          className="group block rounded-xl border border-ink/10 bg-cream p-5 hover:border-terracotta/30 hover:bg-terracotta/5"
+          className="group block sn-tile p-5 hover:border-terracotta/30 hover:bg-terracotta/5"
         >
           <div className="flex items-start gap-3">
             <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-terracotta/10 text-terracotta">
@@ -327,7 +327,7 @@ export async function SettingsSurface({ searchParams }: Props) {
           </p>
         </header>
 
-        <section className="rounded-xl border border-ink/10 bg-cream p-5">
+        <section className="sn-tile p-5">
           <label className="flex items-start gap-3">
             <input
               type="checkbox"
@@ -375,7 +375,7 @@ export async function SettingsSurface({ searchParams }: Props) {
           </p>
         </header>
 
-        <section className="rounded-xl border border-ink/10 bg-cream p-5">
+        <section className="sn-tile p-5">
           <h3 className="text-sm font-semibold text-ink">Sentry prod smoke test</h3>
           <p className="mt-1 text-xs text-ink/60">
             Triggers a controlled error tagged{' '}
@@ -431,7 +431,7 @@ function BrandIconCard({
         </p>
       </header>
 
-      <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-5">
+      <section className="space-y-4 sn-tile p-5">
         {hasIcon && logoSrc ? (
           <div className="flex flex-wrap items-center gap-5">
             <div className="flex flex-col items-center gap-1.5">
@@ -470,7 +470,7 @@ function BrandIconCard({
             </div>
           </div>
         ) : (
-          <p className="rounded-md border border-dashed border-ink/15 bg-cream p-3 text-xs text-ink/55">
+          <p className="rounded-md border border-dashed border-ink/15 bg-white/50 p-3 text-xs text-ink/55">
             Using the default gold Setnayan mark. Upload a square image below to
             replace it everywhere.
           </p>

@@ -343,7 +343,10 @@ export default async function SeatingLabPage({ params }: Props) {
   }
 
   return (
-    <section className="space-y-3">
+    <section className="relative space-y-3">
+      {/* The mirrored LIST | 2D | 3D segment now lives INSIDE the lab chrome,
+          stacked above the Build/Play toggle (owner 2026-07-17 · chrome overlap
+          fix) — no longer an overlay that crowds the Build panel. */}
       <SeatingLabLoader
         eventId={eventId}
         ghostBooths={ghostBooths}

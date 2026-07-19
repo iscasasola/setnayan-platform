@@ -227,7 +227,7 @@ export function EditorialMediaStudio({
     <div className="space-y-6">
       {/* Existing submissions */}
       {existing.length > 0 ? (
-        <section className="rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
+        <section className="sn-tile p-5 sm:p-6">
           <h2 className="text-lg font-semibold">Already on their editorial</h2>
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
             {existing.map((m) => (
@@ -260,7 +260,7 @@ export function EditorialMediaStudio({
       ) : null}
 
       {/* Add new */}
-      <section className="rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
+      <section className="sn-tile p-5 sm:p-6">
         <h2 className="text-lg font-semibold">Add to the editorial</h2>
         <p className="mt-0.5 text-sm text-ink/60">
           {photoRoom} photo{photoRoom === 1 ? '' : 's'} and {clipRoom} clip{clipRoom === 1 ? '' : 's'} left.

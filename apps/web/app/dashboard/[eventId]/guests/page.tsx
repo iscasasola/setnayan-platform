@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Link2, ArrowRight } from 'lucide-react';
+import { Link2, ArrowRight, Send, LayoutGrid } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveRoleSetKeyForEvent } from '@/lib/event-type-profile';
@@ -13,6 +13,7 @@ import {
   fetchGroupMembershipsByEvent,
   fetchGuestGroupsByEvent,
   fetchGuestsByEvent,
+  guestDisplayName,
   GROUP_CATEGORY_LABELS,
   ROLE_LABELS,
   RSVP_LABELS,
@@ -31,27 +32,40 @@ import {
   roleImportanceRank,
 } from '@/lib/role-groups';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
+import { SIDE_DOT } from '@/lib/side-colors';
 import { fetchAssignments, fetchFloorPlan, fetchTables } from '@/lib/seating';
 import { suggestTableFor } from '@/lib/seat-suggest';
 import { ensureFinalized } from '@/lib/pax';
+import { eventSkuActive } from '@/lib/entitlements';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { GuestListMultiselect } from './_components/guest-list-multiselect';
 import { CaptureBar } from './_components/capture-bar';
 import { GroupsSidebar } from './_components/groups-sidebar';
-import { LiveSearch } from './_components/live-search';
+import { GuestsSearch } from './_components/guests-search';
 import { MobileGuestCarousel } from './_components/mobile-guest-carousel';
 import {
   OpenQuickAddButton,
   QuickAddSheet,
 } from './_components/quick-add-sheet';
+import { SortSelect } from './_components/sort-select';
 import { GuestsViewSwitcher } from './_components/view-switcher';
 import { GuestMindMap } from './_components/guest-mind-map';
 import { ActiveFilters } from './_components/active-filters';
 import { UndoToastHost } from './_components/undo-toast';
 import { GuestDrawerHost } from './_components/guest-drawer';
+import { GuestDetailBody } from './_components/guest-detail-body';
+import {
+  InspectorColumn,
+  InspectorLayout,
+} from '@/app/_components/inspector/inspector-column';
 
 export const metadata = { title: 'Guests' };
+
+// The `?inspect=` selection param is read by the inspector shell (useSearchParams);
+// cookie-scoped auth already makes this route dynamic, but the explicit flag keeps
+// the search-param read off any static path (mirrors the Studio hub consumer).
+export const dynamic = 'force-dynamic';
 
 const SORT_OPTIONS = [
   // Importance — owner directive 2026-06-05 ("guest is always arranged based on
@@ -138,6 +152,7 @@ type Props = {
     team?: string;
     tag?: string;
     sort?: string;
+    inspect?: string;
     added?: string;
     saved?: string;
     removed?: string;
@@ -174,7 +189,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // which used to run as a 5th *sequential* round-trip after this block (owner
   // perf pass 2026-06-03). Folding it in drops one Singapore RTT off every
   // visit to the Guests tab.
-  const [guests, eventRow, groups, membershipsMap, joinUrl, pendingClaims, unsentInvites, assignments, tables, arrived, floorPlan] =
+  const [guests, eventRow, groups, membershipsMap, joinUrl, pendingClaims, unsentInvites, assignments, tables, arrived, floorPlan, brandedQrActive] =
     await Promise.all([
       fetchGuestsByEvent(supabase, eventId),
       supabase
@@ -238,6 +253,21 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       // never the slowest read) and is guarded like the other seat reads: a blip
       // degrades to the default anchor rather than taking down the Guests tab.
       fetchFloorPlan(supabase, eventId).catch(() => null),
+      // Living Roster QR doorway (2026-07-15) — is the paid CUSTOM_QR_GUEST
+      // upgrade admin-APPROVED for this event? Drives the guest drawer's QR
+      // section: when active it offers the real branded PNG download (the same
+      // gated /api/website/qr/guest/[guestId] route the Invitation surface uses);
+      // when not, the drawer routes to the Invitation page (where every guest's
+      // free default scannable QR always renders) + the Custom-QR studio. Read
+      // with the admin client because ownership is an EVENT fact while orders RLS
+      // is purchaser-scoped (a co-host who didn't place the order would be
+      // mis-gated) — exactly like the Invitation page + the PNG endpoint. Folds
+      // into this parallel fan-out; eventSkuActive throws on a non-graceful DB
+      // error, so degrade to the default (no branded download) rather than
+      // taking down the whole Guests tab.
+      eventSkuActive(createAdminClient(), eventId, 'CUSTOM_QR_GUEST').catch(
+        () => false,
+      ),
     ]);
   // Self-join reconcile queue — the ids feed the inline blush roster rows; the
   // count still drives the /guests/claims banner + the mobile carousel badge.
@@ -410,6 +440,40 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     membershipsMap.entries(),
   );
 
+  // Desktop inspector selection (Inspector P2) — resolve `?inspect=<guestId>` to a
+  // guest ALREADY in this page's fetched roster (no extra query). An unknown or
+  // stale id renders the inspector closed (hasSelection=false), never a blank
+  // rail. The body is the SAME <GuestDetailBody> the mobile sheet renders — one
+  // body, two frames — so the desktop column can't diverge from the sheet.
+  const inspectId = typeof search.inspect === 'string' ? search.inspect : null;
+  const inspectedGuest = inspectId
+    ? (guests.find((g) => g.guest_id === inspectId) ?? null)
+    : null;
+  const groupLabelById = new Map(groups.map((g) => [g.group_id, g.label] as const));
+  const inspectedGroupLabels = inspectedGuest
+    ? (membershipsMap.get(inspectedGuest.guest_id) ?? [])
+        .map((id) => groupLabelById.get(id))
+        .filter((l): l is string => Boolean(l))
+    : [];
+  const inspectorBody = inspectedGuest ? (
+    <InspectorColumn
+      eyebrow="Guest"
+      title={guestDisplayName(inspectedGuest)}
+      fullHref={`/dashboard/${eventId}/guests/${inspectedGuest.guest_id}`}
+      fullLabel="Open full details"
+      swapKey={inspectedGuest.guest_id}
+      ariaLabel={`${guestDisplayName(inspectedGuest)} details`}
+    >
+      <GuestDetailBody
+        guest={inspectedGuest}
+        groupLabels={inspectedGroupLabels}
+        eventId={eventId}
+        brandedQrActive={brandedQrActive}
+        showFullDetailsLink={false}
+      />
+    </InspectorColumn>
+  ) : null;
+
   const stats = computeGuestStats(guests);
   // Pax-target progress (Adaptive Pax Pricing Phase 2) — sure-attending vs the
   // couple's minimum pax (events.estimated_pax). null when no target is set.
@@ -433,6 +497,16 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       currentGroupId ||
       tagFilter ||
       teamFilter !== 'all',
+  );
+  // Roster lens-swap key (Glass PR-3) — a stable digest of the active filter
+  // dimensions. When any facet changes the key changes, remounting the roster
+  // wrapper so `.sn-lens-swap` cross-fades the new result set (§2d "tab/lens/
+  // filter body swaps: never a hard cut"). Sort/gview are display-only and are
+  // deliberately excluded (a re-sort isn't a lens change). The Living Roster's
+  // selection + optimistic state live in module-singleton stores, so the
+  // remount is presentational — no data/action/selection is lost.
+  const rosterLensKey = [q, rsvpFilter, view, currentGroupId ?? '', teamFilter, tagFilter].join(
+    '|',
   );
 
   // Resolve each guest's stored photo ref → a display URL once on the server:
@@ -477,7 +551,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     label: g.label,
   }));
 
-  return (
+  const master = (
     /* Owner directive 2026-06-01: top nav removed on Guests (mobile-first),
        matching the Vendors tab treatment. .shell-topbar{display:none} is
        scoped to this page via the injected <style> tag — the nav returns
@@ -496,19 +570,43 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       {/* Header is DESKTOP-ONLY (owner directive 2026-06-03 — "remove GUEST
           LIST / N guests since we already have Summary below"). On mobile the
           carousel's Summary panel carries the count; the top is just the list. */}
-      <header className="hidden flex-col gap-3 lg:flex lg:flex-row lg:items-end lg:justify-between">
+      <header className="sn-reveal hidden flex-col gap-3 lg:flex lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-            Guest list
-          </p>
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-            {stats.total} {stats.total === 1 ? 'guest' : 'guests'}
+          <p className="sn-eye">Guest list</p>
+          <h1 className="sn-h1 mt-1.5">
+            <span className="font-mono">{stats.total}</span>{' '}
+            <span className="sn-h1-tail">
+              {stats.total === 1 ? 'guest' : 'guests'}
+            </span>
           </h1>
         </div>
         <div className="hidden flex-col gap-2 self-start lg:flex lg:flex-row lg:items-center lg:self-auto">
-          {/* Share stays in the header; the add paths (primary add, CSV import,
-              quick-add list, full form) moved INTO the capture bar's Add input +
-              its overflow menu (Living Roster P2 · capture-first). */}
+          {/* Invite doorway (2026-07-15) — the Invite journey stage (/guests/invite:
+              the one join link + QR) was orphaned when the Living Roster reskin
+              dropped the lifecycle ribbon; this restores its desktop entry point.
+              Same button-secondary weight as the Share affordance beside it —
+              discoverable, not shouty. Share stays; the add paths (primary add,
+              CSV import, quick-add list, full form) live in the capture bar. */}
+          <Link
+            href={`/dashboard/${eventId}/guests/invite`}
+            className="button-secondary inline-flex items-center gap-2"
+          >
+            <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Invite guests
+          </Link>
+          {/* Seat-plan doorway (2026-07-15) — the Seat journey stage
+              (/seating: the "Arrange the room" editor, authoring truth for the
+              3D plan) was reachable ONLY from the mobile carousel's journey pill;
+              the desktop Guests page had no door to it. Same disease the Invite
+              door (beside) just cured. Same button-secondary weight — the proto's
+              `.gseat` glass pill. */}
+          <Link
+            href={`/dashboard/${eventId}/seating`}
+            className="button-secondary inline-flex items-center gap-2"
+          >
+            <LayoutGrid aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Arrange the room
+          </Link>
           {joinUrl ? <ShareDropdown joinUrl={joinUrl} /> : null}
         </div>
       </header>
@@ -573,20 +671,28 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           Same filter params, same server actions: this is presentation only.
           (Mobile top stays just the list; the carousel carries its own chrome.) */}
       <div className="gl-settle hidden space-y-3 lg:block">
-        {/* Capture-first (Living Roster P2): the dual-mode Add | Find bar heads
-            the chrome. Add parses "Ana Cruz +1 groom vip #Barkada" and lands it
-            inline; Find wraps LiveSearch. A new guest inherits the active Side
-            lens. Replaces the header's primary-add + More-ways disclosure. */}
+        {/* Capture-first (Living Roster P2): the CaptureBar heads the chrome as
+            the ADD doorway — parses "Ana Cruz +1 groom vip #Barkada" and lands
+            it inline. A new guest inherits the active Side lens. FIND lives in
+            the SummaryFacetBar query row now (search consolidation 2026-07-13),
+            not behind a mode toggle here. */}
         <CaptureBar
           eventId={eventId}
-          initialQuery={q}
           defaultSide={teamFilter === 'all' ? 'both' : teamFilter}
         />
 
+        {/* The single facet instrument. Search + Sort + List/Mind-map fold into
+            its query row (they were a separate Toolbar block pre-2026-07-13);
+            desktop chrome is now two blocks, not three. Desktop only — mobile
+            uses the carousel's own compose-row + Journey switch. */}
         <SummaryFacetBar
           stats={stats}
           eventId={eventId}
           search={search}
+          q={q}
+          sort={sort}
+          sortOptions={SORT_OPTIONS}
+          gview={gview}
           paxProgress={paxProgress}
           rsvpActive={rsvpFilter}
           teamActive={teamFilter}
@@ -598,16 +704,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           tagFilter={tagFilter}
           tags={allTags}
         />
-
-        {/* inline search + sort + list/map switch — desktop only; mobile uses
-            the carousel's Search panel + Journey view switch. */}
-        <Toolbar
-          eventId={eventId}
-          q={q}
-          sort={sort}
-          search={search}
-          gview={gview}
-        />
       </div>
 
       {/* Active filters — mobile sticky strip (lg:hidden). The always-visible
@@ -617,7 +713,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           (pl-11 left-pad dropped 2026-06-15 — the fixed back-X it cleared is
           gone, so the strip uses symmetric padding.) */}
       {hasAnyFilter ? (
-        <div className="sticky top-[calc(env(safe-area-inset-top)+0.5rem)] z-40 -mt-2 flex gap-2 overflow-x-auto rounded-xl border border-ink/10 bg-cream/95 px-3 py-2 backdrop-blur lg:hidden">
+        <div className="sticky top-[calc(env(safe-area-inset-top)+0.5rem)] z-40 -mt-2 flex gap-2 overflow-x-auto rounded-xl border border-white/60 bg-white/55 px-3 py-2 backdrop-blur-xl lg:hidden">
           <ActiveFilters
             eventId={eventId}
             search={search}
@@ -692,7 +788,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
          above, so the list gets the whole width instead of a cramped 240px
          column beside it. `gl-settle-delayed` eases the roster in a beat after
          the bar on first load (frozen under prefers-reduced-motion). */
-      <div className="gl-settle-delayed min-w-0 space-y-4">
+      <div key={rosterLensKey} className="gl-settle-delayed sn-lens-swap min-w-0 space-y-4">
           {visible.length === 0 ? (
             <EmptyState hasGuests={stats.total > 0} eventId={eventId} />
           ) : (
@@ -739,8 +835,22 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           slide-in quick-view a roster row opens. Both are portal-rendered
           client islands that sit idle until acted on. */}
       <UndoToastHost />
-      <GuestDrawerHost eventId={eventId} />
+      <GuestDrawerHost eventId={eventId} brandedQrActive={brandedQrActive} />
     </section>
+  );
+
+  // Finder-style master ▸ detail (Inspector P2): at ≥xl the roster reflows to
+  // leave room for the sticky guest inspector rail; below xl the rail is hidden
+  // and the name triggers navigate to the standalone detail route (mobile
+  // unchanged). The whole page is the master so the rail sits beside all of the
+  // roster chrome (facet bar, capture bar, header actions), exactly like Studio.
+  return (
+    <InspectorLayout
+      paramKey="inspect"
+      hasSelection={Boolean(inspectedGuest)}
+      master={master}
+      inspector={inspectorBody}
+    />
   );
 }
 
@@ -969,6 +1079,10 @@ function SummaryFacetBar({
   stats,
   eventId,
   search,
+  q,
+  sort,
+  sortOptions,
+  gview,
   paxProgress,
   rsvpActive,
   teamActive,
@@ -983,6 +1097,10 @@ function SummaryFacetBar({
   stats: GuestStats;
   eventId: string;
   search: Record<string, string | undefined>;
+  q: string;
+  sort: SortKey;
+  sortOptions: readonly { value: string; label: string }[];
+  gview: 'list' | 'map';
   paxProgress: PaxProgress | null;
   rsvpActive: RsvpStatus | '';
   teamActive: 'all' | 'bride' | 'groom';
@@ -1035,8 +1153,8 @@ function SummaryFacetBar({
     dot?: string;
   }[] = [
     { key: 'all', label: 'Everyone', count: teamCounts.all },
-    { key: 'bride', label: 'Bride', count: teamCounts.bride, dot: 'bg-danger-500' },
-    { key: 'groom', label: 'Groom', count: teamCounts.groom, dot: 'bg-sky-600' },
+    { key: 'bride', label: 'Bride', count: teamCounts.bride, dot: SIDE_DOT.bride },
+    { key: 'groom', label: 'Groom', count: teamCounts.groom, dot: SIDE_DOT.groom },
   ];
 
   // RSVP facet — toggle pills (tap an active one to clear), preserved from the
@@ -1049,9 +1167,20 @@ function SummaryFacetBar({
   ];
 
   return (
-    <div className="rounded-xl border border-ink/10 bg-cream">
+    <div
+      className="gl-settle rounded-tile border"
+      style={{
+        background: 'var(--sn-glass-bg)',
+        borderColor: 'var(--sn-glass-line)',
+        backdropFilter: 'var(--sn-glass-blur)',
+        WebkitBackdropFilter: 'var(--sn-glass-blur)',
+        boxShadow: 'var(--sn-sh-tile)',
+      }}
+    >
       {/* Root has NO overflow-hidden: the inline group pills' rename/delete kebab
           opens downward and would otherwise be clipped past the bar's bottom edge.
+          Glass panel (§1.2 .sn-tile recipe, inline so the sectioned px-4/py-3
+          layout keeps its own padding). ONE blurred panel — within the §1.6 budget.
           Meters — the pax target + confirmations progress that headlined the old
           stat strip, kept verbatim (data-display only). */}
       <div className="border-b border-ink/[0.07] px-4 py-3">
@@ -1061,7 +1190,7 @@ function SummaryFacetBar({
               <span className="font-mono uppercase tracking-[0.15em] text-terracotta">
                 {paxProgress.exceeded ? 'Now planning for' : 'Guest target'}
               </span>
-              <span className="tabular-nums text-ink/70">
+              <span className="font-mono tabular-nums text-ink/70">
                 {paxProgress.exceeded ? (
                   <>
                     {paxProgress.headcount} guests · {paxProgress.overBy} over your{' '}
@@ -1082,10 +1211,10 @@ function SummaryFacetBar({
                   ? `Now planning for ${paxProgress.headcount} attending guests, ${paxProgress.overBy} over the ${paxProgress.target} minimum pax`
                   : `${paxProgress.headcount} attending of a ${paxProgress.target} minimum pax target, ${paxProgress.progressPct}%`
               }
-              className="mt-1 h-2 overflow-hidden rounded-full bg-ink/10"
+              className="sn-bar mt-1 h-2 overflow-hidden rounded-full bg-ink/10"
             >
-              <div
-                className={`h-full rounded-full ${paxProgress.exceeded ? 'bg-terracotta-700' : 'bg-terracotta'}`}
+              <i
+                className={paxProgress.exceeded ? 'bg-terracotta-700' : 'bg-terracotta'}
                 style={{ width: `${paxProgress.exceeded ? 100 : paxProgress.progressPct}%` }}
               />
             </div>
@@ -1093,7 +1222,7 @@ function SummaryFacetBar({
                 from the sure-attending meter above. */}
             <div className="mt-1.5 flex items-baseline justify-between text-[11px] text-ink/55">
               <span className="font-mono uppercase tracking-[0.12em]">Pax pool</span>
-              <span className="tabular-nums">
+              <span className="font-mono tabular-nums">
                 {paxProgress.overListed > 0
                   ? `${paxProgress.listed} listed · ${paxProgress.overListed} over target`
                   : `${paxProgress.unassigned} unassigned · ${paxProgress.listed} of ${paxProgress.target} listed`}
@@ -1103,7 +1232,7 @@ function SummaryFacetBar({
         ) : null}
         <div className="flex items-baseline justify-between text-xs text-ink/55">
           <span className="font-mono uppercase tracking-[0.15em]">Confirmations</span>
-          <span className="tabular-nums">
+          <span className="font-mono tabular-nums">
             {responded} of {stats.total} responded · {pct}%
             {stats.plus_ones > 0 ? ` · ${stats.plus_ones} plus-ones` : ''}
           </span>
@@ -1116,6 +1245,23 @@ function SummaryFacetBar({
           <div className="h-full bg-success-400" style={{ width: `${seg(stats.attending)}%` }} />
           <div className="h-full bg-warn-300" style={{ width: `${seg(stats.maybe)}%` }} />
           <div className="h-full bg-danger-300" style={{ width: `${seg(stats.declined)}%` }} />
+        </div>
+      </div>
+
+      {/* Query row — the always-visible search + instant Sort + List/Mind-map
+          switch (search consolidation 2026-07-13, absorbed from the retired
+          Toolbar so search is never behind a toggle). Search + Sort are
+          Suspense-wrapped client islands (they read useSearchParams); the facet
+          bar itself stays a Server Component. */}
+      <div className="flex items-center gap-2 border-b border-ink/[0.07] px-4 py-3">
+        <Suspense fallback={null}>
+          <GuestsSearch initialValue={q} />
+        </Suspense>
+        <div className="flex shrink-0 items-center gap-2">
+          <Suspense fallback={null}>
+            <SortSelect value={sort} options={sortOptions} />
+          </Suspense>
+          <GuestsViewSwitcher eventId={eventId} active={gview} search={search} />
         </div>
       </div>
 
@@ -1237,17 +1383,17 @@ function LensPill({
       href={href}
       aria-current={active ? 'true' : undefined}
       title={title}
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors ${
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-[background-color,transform,color] ${
         active
-          ? 'border-terracotta bg-terracotta/10 font-semibold text-terracotta-700'
-          : 'border-ink/15 text-ink/70 hover:border-ink/30'
+          ? 'sn-chip-pop border-transparent bg-terracotta font-bold text-cream'
+          : 'border-white/60 bg-white/55 text-ink/70 hover:bg-white/85'
       }`}
     >
       {dot ? <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} /> : null}
       <span className="whitespace-nowrap">{children}</span>
       {typeof count === 'number' ? (
         <span
-          className={`tabular-nums ${active ? 'text-terracotta-700/70' : 'text-ink/40'}`}
+          className={`font-mono tabular-nums ${active ? 'text-cream/75' : 'text-ink/40'}`}
         >
           {count}
         </span>
@@ -1281,76 +1427,6 @@ function ShareDropdown({ joinUrl }: { joinUrl: string }) {
   );
 }
 
-function Toolbar({
-  eventId,
-  q,
-  sort,
-  search,
-  gview,
-}: {
-  eventId: string;
-  q: string;
-  sort: SortKey;
-  search: {
-    rsvp?: string;
-    view?: string;
-    group?: string;
-    team?: string;
-    tag?: string;
-    gview?: string;
-  };
-  gview: 'list' | 'map';
-}) {
-  // Search input is a CLIENT ISLAND (owner directive 2026-05-23 — "no
-  // need to press enter"). It owns its own state + debounces URL
-  // updates so typing filters live. Sort + Apply remain in a native
-  // form because sort changes are infrequent and the existing
-  // form-submit pattern is fine for them. The List/Mind-map switch (was
-  // its own stacked row pre-2026-06-13) now lives at the right of this
-  // bar.
-  return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-      {/* Suspense required: LiveSearch uses useSearchParams() */}
-      <Suspense fallback={null}>
-        <LiveSearch
-          initialValue={q}
-          placeholder="Search names, roles, groups, RSVP…"
-        />
-      </Suspense>
-      <form
-        action={`/dashboard/${eventId}/guests`}
-        method="get"
-        className="flex items-center gap-2"
-      >
-        {q ? <input type="hidden" name="q" value={q} /> : null}
-        {search.rsvp ? <input type="hidden" name="rsvp" value={search.rsvp} /> : null}
-        {search.view ? <input type="hidden" name="view" value={search.view} /> : null}
-        {search.group ? <input type="hidden" name="group" value={search.group} /> : null}
-        {search.team ? <input type="hidden" name="team" value={search.team} /> : null}
-        {search.tag ? <input type="hidden" name="tag" value={search.tag} /> : null}
-        {search.gview ? <input type="hidden" name="gview" value={search.gview} /> : null}
-        <select
-          name="sort"
-          defaultValue={sort}
-          className="input-field appearance-none bg-cream pr-8 sm:w-56"
-        >
-          {SORT_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              Sort: {o.label}
-            </option>
-          ))}
-        </select>
-        <button className="button-secondary" type="submit">
-          Apply
-        </button>
-      </form>
-      <div className="sm:ml-auto">
-        <GuestsViewSwitcher eventId={eventId} active={gview} search={search} />
-      </div>
-    </div>
-  );
-}
-
 function EmptyState({ hasGuests, eventId }: { hasGuests: boolean; eventId: string }) {
   if (hasGuests) {
     return (
@@ -1370,9 +1446,18 @@ function EmptyState({ hasGuests, eventId }: { hasGuests: boolean; eventId: strin
         No guests yet. Start by adding the couple&rsquo;s first invite.
       </p>
       {/* Lead with the one-tap quick-add sheet (name + side, done) — the heavy
-          detailed form stays one click away for power users. */}
+          detailed form stays one click away for power users. Inviting is THE
+          zero-state action, so the Invite doorway (2026-07-15) sits right here
+          beside adding names — share one link and let guests self-add. */}
       <div className="mt-4 flex flex-col items-center gap-2">
         <OpenQuickAddButton label="+ Add your first guest" />
+        <Link
+          href={`/dashboard/${eventId}/guests/invite`}
+          className="button-secondary inline-flex items-center gap-2"
+        >
+          <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Invite guests
+        </Link>
         <Link
           href={`/dashboard/${eventId}/guests/new`}
           className="text-xs text-ink/55 underline underline-offset-2 hover:text-ink"

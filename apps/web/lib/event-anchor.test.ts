@@ -14,6 +14,8 @@ import {
   ANCHOR_ORIGINS,
   ANCHOR_ORIGIN_LABELS,
   isAnchorOrigin,
+  canToggleRecur,
+  RECUR_TOGGLE_TYPES,
   FALLBACK_ANCHOR,
   milestoneAges,
   parseISO,
@@ -23,6 +25,7 @@ import {
   yearsBetween,
   nextOccurrence,
   nextAnniversary,
+  nextMonthsary,
   nextMilestone,
   nextBirthday,
   leadTimeFor,
@@ -81,6 +84,23 @@ test('ANCHOR_ORIGINS: no memorial/death option exists (babang-luksa guardrail)',
   assert.equal(ANCHOR_ORIGINS.length, 4);
   assert.ok(!ANCHOR_ORIGINS.some((o) => /memorial|death|luksa|passing/i.test(o)));
   for (const o of ANCHOR_ORIGINS) assert.ok(ANCHOR_ORIGIN_LABELS[o]);
+});
+
+// ── recur toggle eligibility ────────────────────────────────────────────────
+
+test('canToggleRecur: travel/corporate/gala/etc show the yearly toggle', () => {
+  for (const t of RECUR_TOGGLE_TYPES) assert.equal(canToggleRecur(t), true);
+  assert.equal(canToggleRecur('travel'), true);
+  assert.equal(canToggleRecur('corporate'), true);
+});
+
+test('canToggleRecur: anniversary/birthday (auto-recur) + one-time types do NOT toggle', () => {
+  assert.equal(canToggleRecur('anniversary'), false); // recurs by nature
+  assert.equal(canToggleRecur('birthday'), false); // recurs by nature
+  assert.equal(canToggleRecur('wedding'), false);
+  assert.equal(canToggleRecur('debut'), false);
+  assert.equal(canToggleRecur('christening'), false);
+  assert.equal(canToggleRecur(null), false);
 });
 
 // ── the milestone ladder ────────────────────────────────────────────────────
@@ -212,4 +232,20 @@ test('addMonths: clamps day overflow to the month end', () => {
 test('yearsBetween: birthday-accurate age', () => {
   assert.equal(yearsBetween(parseISO('2000-07-12')!, parseISO('2026-07-12')!), 26);
   assert.equal(yearsBetween(parseISO('2000-07-13')!, parseISO('2026-07-12')!), 25);
+});
+
+test('nextMonthsary: counts whole months and finds the next occurrence', () => {
+  // Anchor Feb 14 2024. On Jul 13 2026 the last monthsary was Jun 14 (28th); the
+  // next is Jul 14 2026 (29th).
+  assert.deepEqual(nextMonthsary('2024-02-14', '2026-07-13'), { n: 29, dateISO: '2026-07-14' });
+  // On the monthsary day itself, that day IS the next one (on-or-after).
+  assert.deepEqual(nextMonthsary('2024-02-14', '2026-07-14'), { n: 29, dateISO: '2026-07-14' });
+  // The day after rolls to next month.
+  assert.deepEqual(nextMonthsary('2024-02-14', '2026-07-15'), { n: 30, dateISO: '2026-08-14' });
+});
+
+test('nextMonthsary: clamps day-of-month overflow (31st anchor → short months)', () => {
+  // Jan 31 anchor: the Feb monthsary clamps to Feb 28/29.
+  assert.equal(nextMonthsary('2024-01-31', '2024-02-01')!.dateISO, '2024-02-29');
+  assert.equal(nextMonthsary('2024-01-31', '2024-03-15')!.dateISO, '2024-03-31');
 });

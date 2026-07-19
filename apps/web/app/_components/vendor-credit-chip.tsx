@@ -14,10 +14,22 @@ import type { ShowcaseVendorCredit } from '@/lib/showcase-db';
  * safe to render inside client components without pulling in server-only
  * showcase-db code.
  */
-export function VendorCreditChip({ vendor }: { vendor: ShowcaseVendorCredit }) {
+export function VendorCreditChip({
+  vendor,
+  srcTag,
+}: {
+  vendor: ShowcaseVendorCredit;
+  /**
+   * Optional arrival-source tag appended as `?src=…` (Creator Economy PR-C —
+   * inquiry-source taxonomy). The /realstories editorial credit chips pass
+   * 'editorial' so an inquiry sent from the vendor page they land on is
+   * labeled "Editorial Inquiry" for the vendor. Omit everywhere else.
+   */
+  srcTag?: string;
+}) {
   return (
     <Link
-      href={`/v/${vendor.slug}`}
+      href={srcTag ? `/v/${vendor.slug}?src=${encodeURIComponent(srcTag)}` : `/v/${vendor.slug}`}
       className="inline-flex items-center gap-1.5 rounded-full border border-ink/12 bg-white/80 px-2.5 py-1 text-[11px] font-medium text-ink/75 transition-colors hover:border-terracotta/40 hover:bg-white hover:text-ink"
     >
       {vendor.logoUrl ? (

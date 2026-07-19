@@ -47,10 +47,13 @@ type Props = {
   sidebar: ReactNode;
   /**
    * Pinned header slot rendered at the TOP of the sidebar, outside the
-   * scrollable nav area. Use this for identity / branding elements
-   * (AccountSwitcher, Wordmark + eyebrow) that must stay visible while the
-   * nav items below scroll. Hidden automatically when the sidebar collapses
-   * to the 64px icon rail via `[[data-sidebar-collapsed='1']_&]:hidden`.
+   * scrollable nav area. Use this for identity / branding elements (wordmark
+   * home-link + the SwitcherPlaqueTrigger account menu) that must stay
+   * visible while the nav items below scroll. The slot is NOT hidden on the
+   * 64px collapsed rail (Council Verdict 2026-07-16 — blanket-hiding it
+   * stranded home + every account action behind a persisted collapse):
+   * the header component itself renders compact icon variants via the
+   * `[data-sidebar-collapsed='1']` data-attr (see DoorwaySidebarHeader).
    */
   sidebarHeader?: ReactNode;
   /**
@@ -60,18 +63,11 @@ type Props = {
   sidebarFooter?: ReactNode;
   /** Optional sticky top bar slot rendered above main content. */
   topBar?: ReactNode;
-  /**
-   * Per-doorway ACTIVE accent for the dark sidebar panel ("Energy, not skin"):
-   * couple + vendor = 'wine' (default), admin = 'violet'. Flips
-   * `--m-sidebar-accent` on the <aside> via `.sn-sidebar--violet`; the rest of
-   * the dark-panel treatment is shared. The content area is unaffected.
-   */
-  accent?: 'wine' | 'violet';
   /** Main content area — scrollable. */
   children: ReactNode;
 };
 
-export function SidebarShell({ sidebar, sidebarHeader, sidebarFooter, topBar, accent = 'wine', children }: Props) {
+export function SidebarShell({ sidebar, sidebarHeader, sidebarFooter, topBar, children }: Props) {
   // Default expanded. Hydrate from localStorage on mount so SSR + initial
   // client render agree (both render expanded), then flip if persisted
   // state says otherwise. Avoids hydration mismatch.
@@ -121,23 +117,23 @@ export function SidebarShell({ sidebar, sidebarHeader, sidebarFooter, topBar, ac
         aria-label="Primary navigation"
         // `sn-sidebar` paints the Atelier frosted-glass panel + remaps the
         // base --m-* tokens the shared AccountSwitcher trigger reads (its panel
-        // portals to <body> and stays light). `--violet` flips the active accent
-        // for the admin doorway.
-        className={`sn-sidebar${accent === 'violet' ? ' sn-sidebar--violet' : ''} hidden lg:fixed lg:left-0 lg:top-0 lg:bottom-0 lg:z-30 lg:flex lg:flex-col lg:border-r`}
+        // portals to <body> and stays light). Every doorway shares the gold
+        // active accent (the admin violet fork was retired in Glass PR-1).
+        className="sn-sidebar hidden lg:fixed lg:left-0 lg:top-0 lg:bottom-0 lg:z-30 lg:flex lg:flex-col lg:border-r"
         style={{
           borderColor: 'var(--m-sidebar-line)',
           width: collapsed ? '4rem' : 'var(--sidebar-width, 16rem)',
           transition: 'width 180ms cubic-bezier(.2,.7,.2,1)',
         }}
       >
-        {/* Pinned header — identity / branding (AccountSwitcher, Wordmark).
-            Rendered outside the scroll container so it stays put while the
-            nav items below scroll. Hidden on the 64px collapsed rail. */}
+        {/* Pinned header — identity / branding (wordmark home-link + plaque
+            account-menu trigger). Rendered outside the scroll container so it
+            stays put while the nav items below scroll. Stays mounted on the
+            64px collapsed rail — the header's own data-attr variants swap to
+            icon-only (home mark + avatar trigger) so the account actions
+            never vanish with the rail. */}
         {sidebarHeader ? (
-          <div
-            className="shrink-0 border-b [[data-sidebar-collapsed='1']_&]:hidden"
-            style={{ borderColor: 'var(--m-line)' }}
-          >
+          <div className="shrink-0 border-b" style={{ borderColor: 'var(--m-line)' }}>
             {sidebarHeader}
           </div>
         ) : null}

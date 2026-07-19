@@ -264,9 +264,14 @@ export function PapicGuestCapture({
     // the face image. Dormant until a model is hosted (NEXT_PUBLIC_FACE_MODEL_URL)
     // → []; the 'saved' feedback never waits on it failing.
     let faceVectors: number[][] = [];
+    // Dominant-face center (normalized) from the SAME on-device pass — feeds
+    // Stories Tier-2 auto-reframe (persisted as papic_guest_captures.subject_center_*).
+    let subjectCenter: { x: number; y: number } | null = null;
     try {
       const { embedFaces } = await import('@/lib/face-embed');
-      faceVectors = await embedFaces(canvas);
+      const fe = await embedFaces(canvas);
+      faceVectors = fe.vectors;
+      subjectCenter = fe.subjectCenter;
     } catch {
       // best-effort — a face-tag miss never affects the saved photo
     }
@@ -314,6 +319,10 @@ export function PapicGuestCapture({
       // the guest opted in; the server sets consent_to_public from it.
       if (sharePublicly) form.append('share_publicly', '1');
       if (faceVectors.length > 0) form.append('face_vectors', JSON.stringify(faceVectors));
+      if (subjectCenter) {
+        form.append('subject_center_x', String(subjectCenter.x));
+        form.append('subject_center_y', String(subjectCenter.y));
+      }
       const postStart = Date.now();
       const res = await fetch('/api/papic/guest-capture', { method: 'POST', body: form });
       if (res.ok) recordUploadSample(blob.size, Date.now() - postStart);

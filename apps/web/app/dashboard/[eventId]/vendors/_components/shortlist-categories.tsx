@@ -52,6 +52,7 @@ import {
   isSuriAssistFreeForCategory,
 } from '@/lib/setnayan-ai-free-assist';
 import { NewManualVendorModal } from '@/app/dashboard/[eventId]/_components/new-manual-vendor-modal';
+import { InspectorTrigger } from '@/app/_components/inspector/inspector-column';
 import {
   searchMarketplaceForBench,
   type BenchMarketResult,
@@ -124,6 +125,9 @@ const SLCAT_CSS = `
 .slcat .vc{position:relative;flex:0 0 min(206px, calc(100vw - 132px));scroll-snap-align:start;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius: var(--m-r-md);overflow:hidden;text-decoration:none;color:inherit;transition:transform .13s cubic-bezier(.2,.7,.2,1),box-shadow .3s var(--ease)}
 .slcat .vc:active{transform:scale(.98)}
 .slcat .vc:hover{box-shadow:0 10px 28px -18px rgba(0,0,0,.4)}
+/* selected (desktop inspector open on this vendor) — quiet gold ring, kept even
+   through the card's own hover shadow (matches the other inspector consumers) */
+.slcat .vc[data-inspector-selected='true'],.slcat .vc[data-inspector-selected='true']:hover{border-color:transparent;box-shadow:0 0 0 2px var(--gold),0 10px 28px -18px rgba(0,0,0,.4)}
 .slcat .vc .img{height:108px;flex:0 0 108px;background:linear-gradient(135deg,#3a3f47,#565b63);display:flex;align-items:center;justify-content:center;position:relative}
 .slcat .vc .img img{width:100%;height:100%;object-fit:cover}
 .slcat .vc .ini{font-family:var(--serif);font-style:italic;font-size:26px;color:rgba(255,255,255,.7)}
@@ -249,7 +253,11 @@ function VendorCard({
   reason?: SortReason | null;
 }) {
   return (
-    <Link href={v.href} className="vc" prefetch={false}>
+    // Desktop inspector trigger (Merkado phase 3): at ≥xl a plain click opens the
+    // vendor's quick-view in the sticky inspector column instead of navigating;
+    // below xl and on modified / new-tab clicks it stays a plain link to `v.href`
+    // (the vendor's existing detail room). `?inspect=v:<vendorId>` selects it.
+    <InspectorTrigger inspectId={`v:${v.vendorId}`} href={v.href} className="vc">
       <span className="img">
         {v.photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -294,7 +302,7 @@ function VendorCard({
           <span className="price">{formatPhp(v.totalCostPhp)}</span>
         ) : null}
       </span>
-    </Link>
+    </InspectorTrigger>
   );
 }
 

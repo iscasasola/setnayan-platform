@@ -1,6 +1,4 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Users, Video, Wand2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { getCurrentUser } from '@/lib/auth';
@@ -26,15 +24,18 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { SeatingEditor, type SeatingGuest, type SeatingGroup } from './_components/seating-editor';
-import { DayOfEditingBanner } from './_components/day-of-editing-banner';
 import { setSeatingAutoplace, setSeatingGroupAdjacency } from './actions';
 
 export const metadata = { title: 'Seating chart' };
 
-type Props = { params: Promise<{ eventId: string }> };
+type Props = {
+  params: Promise<{ eventId: string }>;
+  searchParams: Promise<{ view?: string }>;
+};
 
-export default async function SeatingPage({ params }: Props) {
+export default async function SeatingPage({ params, searchParams }: Props) {
   const { eventId } = await params;
+  const { view: viewParam } = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
@@ -152,148 +153,51 @@ export default async function SeatingPage({ params }: Props) {
   const seatShortfall = Math.max(0, nonDeclinedCount - totalSeats);
 
   return (
-    <section className="space-y-3">
-      {/* The hero title + description were removed so the editor canvas fills
-          the screen (owner request 2026-06-21). Heading kept screen-reader-only
-          for a11y/SEO; the reserved→seated summary sits left and walkthrough
-          access is a single icon button pinned upper-right. */}
+    <>
+      {/* Heading kept screen-reader-only for a11y/SEO. The whole editor is now a
+          fixed 100dvh frame (scroll-less council verdict 2026-07-15): the
+          reserved→seated stats, the two seating policies, the walkthrough link,
+          and the day-of / walima / capacity banners all moved INTO the editor's
+          command bar + banner slot. This wrapper bleeds the shell content
+          padding so the frame fills the viewport with no document scroll. */}
       <h1 className="sr-only">Seating chart</h1>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {/* Reserved → seated. RSVP confirmation holds a guest's place; this is
-            the couple's view of how many reserved guests still need a chair. */}
-        {reservedCount > 0 ? (
-          <div className="flex items-stretch divide-x divide-ink/10 overflow-hidden rounded-xl border border-ink/10 bg-white/70">
-            <SeatStat label="Reserved" value={reservedCount} hint="confirmed attending" />
-            <SeatStat label="Seated" value={seatedCount} hint="in a chair" />
-            <SeatStat label="To seat" value={toSeatCount} highlight={toSeatCount > 0} />
-          </div>
-        ) : (
-          <span aria-hidden />
-        )}
-        <div className="flex items-center gap-2">
-          {/* Smart Seat-Plan Phase 5: turn live auto-seating on/off. A plain
-              server-action form (no client JS) that flips the flag. */}
-          <form action={setSeatingAutoplace}>
-            <input type="hidden" name="event_id" value={eventId} />
-            <input type="hidden" name="enabled" value={autoplaceEnabled ? 'false' : 'true'} />
-            <button
-              type="submit"
-              title={
-                autoplaceEnabled
-                  ? 'Auto-seating is ON — new guests get a provisional seat and role/group changes re-seat them. Click to turn off.'
-                  : 'Auto-seating is OFF — seat guests manually with Auto-Arrange or drag. Click to turn on.'
-              }
-              className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors ${
-                autoplaceEnabled
-                  ? 'border-terracotta/40 bg-terracotta/5 text-terracotta hover:border-terracotta/60'
-                  : 'border-ink/15 bg-white text-ink/55 hover:border-ink/30'
-              }`}
-            >
-              <Wand2 className="h-3.5 w-3.5" strokeWidth={1.75} />
-              Auto-seating {autoplaceEnabled ? 'On' : 'Off'}
-            </button>
-          </form>
-          {/* Smart Seat-Plan Phase 6 (gap G8): keep a group's overflow on adjacent
-              tables, or revert to the classic stage-order fill. */}
-          <form action={setSeatingGroupAdjacency}>
-            <input type="hidden" name="event_id" value={eventId} />
-            <input type="hidden" name="enabled" value={adjacencyEnabled ? 'false' : 'true'} />
-            <button
-              type="submit"
-              title={
-                adjacencyEnabled
-                  ? 'Groups stay together — an overflowing group spills to the nearest table. Click to use the classic stage-order fill instead.'
-                  : 'Classic fill — an overflowing group spills to the next stage-ranked table. Click to keep a group on adjacent tables.'
-              }
-              className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors ${
-                adjacencyEnabled
-                  ? 'border-terracotta/40 bg-terracotta/5 text-terracotta hover:border-terracotta/60'
-                  : 'border-ink/15 bg-white text-ink/55 hover:border-ink/30'
-              }`}
-            >
-              <Users className="h-3.5 w-3.5" strokeWidth={1.75} />
-              Keep groups together {adjacencyEnabled ? 'On' : 'Off'}
-            </button>
-          </form>
-          {/* Walkthrough videos — icon-only so it stays out of the editor's way
-              (owner request 2026-06-21). Title/aria-label carry the meaning. */}
-          <Link
-            href={`/dashboard/${eventId}/seating/walkthrough`}
-            title="Walkthrough videos"
-            aria-label="Walkthrough videos"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-ink/12 bg-white text-terracotta shadow-sm transition-colors hover:border-terracotta/40 hover:bg-terracotta/5"
-          >
-            <Video className="h-[18px] w-[18px]" strokeWidth={1.75} />
-          </Link>
-        </div>
+      <div className="-mx-4 -my-6 sm:-mx-6 lg:-mx-8">
+        <SeatingEditor
+          eventId={eventId}
+          roleSetKey={roleSet.key}
+          chineseTradition={chineseTradition}
+          tables={tables}
+          guests={seatingGuests}
+          groups={groups}
+          floorPlan={floorPlan}
+          booths={booths}
+          signs={signs}
+          bookedVendors={bookedVendors}
+          constraints={constraints}
+          eventDate={eventDate}
+          genderSeparationNote={genderSeparationNote}
+          seatShortfall={seatShortfall}
+          nonDeclinedCount={nonDeclinedCount}
+          totalSeats={totalSeats}
+          autoplaceEnabled={autoplaceEnabled}
+          adjacencyEnabled={adjacencyEnabled}
+          reservedCount={reservedCount}
+          toSeatReserved={toSeatCount}
+          setSeatingAutoplace={setSeatingAutoplace}
+          setSeatingGroupAdjacency={setSeatingGroupAdjacency}
+          initialView={viewParam === 'list' ? 'list' : 'plan'}
+          me={{
+            id: user.id,
+            name:
+              (user.user_metadata?.display_name as string | undefined) ||
+              (user.user_metadata?.full_name as string | undefined) ||
+              user.email?.split('@')[0] ||
+              'Someone',
+          }}
+        />
       </div>
 
-      <DayOfEditingBanner eventDate={eventDate} />
-
-      {genderSeparationNote ? (
-        <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/40 px-4 py-3 text-sm text-ink/80">
-          <span className="font-medium text-emerald-800">Walima seating:</span>{' '}
-          {genderSeparationNote}
-        </div>
-      ) : null}
-
-      {/* Smart Seat-Plan Phase 5/6: capacity shortfall — reconcile can only seat
-          guests it has chairs for, so nudge the couple to add tables. */}
-      {seatShortfall > 0 ? (
-        <div className="rounded-xl border border-amber-200/70 bg-amber-50/50 px-4 py-3 text-sm text-ink/80">
-          <span className="font-medium text-amber-800">Not enough seats:</span>{' '}
-          {nonDeclinedCount} guests but only {totalSeats} {totalSeats === 1 ? 'seat' : 'seats'} — add{' '}
-          more tables to seat everyone
-          {autoplaceEnabled ? ' (auto-seating fills them as you add tables)' : ''}.
-        </div>
-      ) : null}
-
-      <SeatingEditor
-        eventId={eventId}
-        roleSetKey={roleSet.key}
-        chineseTradition={chineseTradition}
-        tables={tables}
-        guests={seatingGuests}
-        groups={groups}
-        floorPlan={floorPlan}
-        booths={booths}
-        signs={signs}
-        bookedVendors={bookedVendors}
-        constraints={constraints}
-        me={{
-          id: user.id,
-          name:
-            (user.user_metadata?.display_name as string | undefined) ||
-            (user.user_metadata?.full_name as string | undefined) ||
-            user.email?.split('@')[0] ||
-            'Someone',
-        }}
-      />
-
       <MiniTour tourKey="customer_seat_plan_v1" />
-    </section>
-  );
-}
-
-/** One cell of the reserved → seated summary strip. */
-function SeatStat({
-  label,
-  value,
-  hint,
-  highlight,
-}: {
-  label: string;
-  value: number;
-  hint?: string;
-  highlight?: boolean;
-}) {
-  return (
-    <div className="flex-1 px-4 py-3 text-center">
-      <p className={`text-2xl font-semibold ${highlight ? 'text-terracotta' : 'text-ink'}`}>
-        {value}
-      </p>
-      <p className="text-xs font-medium uppercase tracking-wide text-ink/55">{label}</p>
-      {hint ? <p className="mt-0.5 text-[11px] text-ink/45">{hint}</p> : null}
-    </div>
+    </>
   );
 }

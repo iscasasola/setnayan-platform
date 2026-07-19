@@ -95,11 +95,11 @@ export default async function IndoorBlueprintPage({ params }: Props) {
 
       {owns ? (
         <>
-          <header className="space-y-2">
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <header className="sn-reveal space-y-2">
+            <p className="sn-eye">
               Indoor Blueprint
             </p>
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            <h1 className="sn-h1">
               Map your venue
             </h1>
           </header>
@@ -107,11 +107,11 @@ export default async function IndoorBlueprintPage({ params }: Props) {
         </>
       ) : (
         <>
-          <header className="space-y-2">
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+          <header className="sn-reveal space-y-2">
+            <p className="sn-eye">
               Indoor Blueprint
             </p>
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            <h1 className="sn-h1">
               Your whole venue, mapped and seated
             </h1>
             <p className="max-w-prose text-base text-ink/65">
@@ -211,9 +211,9 @@ async function OwnedView({
         saveAction={saveEntrance}
       />
 
-      <section className="rounded-2xl border border-ink/10 bg-cream p-5">
+      <section className="sn-tile p-5">
         <header className="space-y-1">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+          <p className="sn-eye">
             On the day
           </p>
           <h2 className="text-xl font-semibold tracking-tight">
@@ -284,10 +284,10 @@ async function UnownedView({
 
   return (
     <>
-      <section className="rounded-2xl border border-ink/10 bg-cream p-5">
+      <section className="sn-tile p-5">
         <header className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-1">
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+            <p className="sn-eye">
               What guests see
             </p>
             <h2 className="text-xl font-semibold tracking-tight">
@@ -313,9 +313,9 @@ async function UnownedView({
         </div>
       </section>
 
-      <section className="rounded-2xl border border-ink/10 bg-cream p-5">
+      <section className="sn-tile p-5">
         <header className="space-y-1">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+          <p className="sn-eye">
             What you get
           </p>
           <h2 className="text-xl font-semibold tracking-tight">

@@ -282,7 +282,7 @@ export async function VendorsSurface({
                   ) : null}
 
                   {claimUrl ? (
-                    <details className="rounded-md bg-cream/70 p-2 text-[11px] text-ink/70 ring-1 ring-inset ring-warn-200">
+                    <details className="rounded-md bg-white/70 p-2 text-[11px] text-ink/70 ring-1 ring-inset ring-warn-200">
                       <summary className="cursor-pointer font-medium text-ink/80">
                         Claim link
                       </summary>
@@ -371,14 +371,14 @@ export async function VendorsSurface({
 
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {vendors.length === 0 ? (
-          <li className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center text-sm text-ink/55 sm:col-span-2 lg:col-span-3">
+          <li className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-ink/55 sm:col-span-2 lg:col-span-3">
             No vendor profiles match.
           </li>
         ) : (
           vendors.map((v) => (
             <li
               key={v.vendor_profile_id}
-              className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-4"
+              className="flex flex-col gap-3 sn-tile p-4"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-3">
@@ -489,7 +489,7 @@ function VisibilityBadge({ value }: { value: VendorPublicVisibility }) {
 function Avatar({ logoUrl, name }: { logoUrl: string | null; name: string }) {
   if (logoUrl) {
     return (
-      <span className="inline-flex h-10 w-10 shrink-0 overflow-hidden rounded-full border border-ink/10 bg-cream">
+      <span className="inline-flex h-10 w-10 shrink-0 overflow-hidden rounded-full border border-ink/10 bg-white/70">
         <Image
           src={logoUrl}
           alt={`${name} logo`}

@@ -84,6 +84,25 @@ export function isAnchorOrigin(v: unknown): v is AnchorOrigin {
   return typeof v === 'string' && (ANCHOR_ORIGINS as readonly string[]).includes(v);
 }
 
+/**
+ * Types that show the "Make it a yearly thing?" toggle at creation (owner:
+ * "travel can be annual or one-time"). Anniversary + birthday recur by nature
+ * (no toggle needed); wedding/debut/christening/gender_reveal/graduation are
+ * one-time. The rest are user's choice.
+ */
+export const RECUR_TOGGLE_TYPES = [
+  'travel',
+  'celebration',
+  'corporate',
+  'gala_night',
+  'reunion',
+  'tournament',
+] as const;
+
+export function canToggleRecur(eventType: string | null | undefined): boolean {
+  return !!eventType && (RECUR_TOGGLE_TYPES as readonly string[]).includes(eventType);
+}
+
 export function anchorForType(eventType: string | null | undefined): TypeAnchorDefault {
   if (!eventType) return FALLBACK_ANCHOR;
   return ANCHOR_BY_TYPE[eventType] ?? FALLBACK_ANCHOR;
@@ -205,6 +224,34 @@ export function nextAnniversary(anchorISO: string, fromISO: string): Anniversary
   const date = parseISO(dateISO)!;
   const n = date.getUTCFullYear() - anchor.getUTCFullYear();
   return { n, dateISO };
+}
+
+export type MonthsaryOccurrence = { n: number; dateISO: string };
+
+/**
+ * The next MONTHSARY of `anchorISO` (a "together since" date), on or after
+ * `from`, with its ordinal N (whole months since the anchor). The monthly
+ * sibling of nextAnniversary — Filipino couples celebrate every month. N is 0 in
+ * the anchor month; the first celebrated return is N = 1. Day-of-month overflow
+ * clamps to the month's last day (addMonths handles Jan 31 → Feb 28/29).
+ */
+export function nextMonthsary(anchorISO: string, fromISO: string): MonthsaryOccurrence | null {
+  const anchor = parseISO(anchorISO);
+  const from = parseISO(fromISO);
+  if (!anchor || !from) return null;
+  // Whole months from the anchor to `from`'s month position, then step to the
+  // first monthsary date on or after `from` (at most one bump — the candidate is
+  // always inside `from`'s own month).
+  let n =
+    (from.getUTCFullYear() - anchor.getUTCFullYear()) * 12 +
+    (from.getUTCMonth() - anchor.getUTCMonth());
+  if (n < 0) n = 0;
+  let candidate = addMonths(anchor, n);
+  while (candidate.getTime() < from.getTime()) {
+    n += 1;
+    candidate = addMonths(anchor, n);
+  }
+  return { n, dateISO: toISO(candidate) };
 }
 
 export type MilestoneOccurrence = { age: number; dateISO: string; tier: NudgeTier };

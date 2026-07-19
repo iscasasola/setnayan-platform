@@ -212,8 +212,9 @@ export default async function PatiktokGallery({
         </Link>
       </div>
 
-      <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">Reels</p>
+        <h1 className="sn-h1">
           Pick the reel templates for your booth
         </h1>
         <p className="max-w-prose text-base text-ink/65">
@@ -223,7 +224,7 @@ export default async function PatiktokGallery({
           <span className="font-mono text-ink">9:16 · 1080×1920 · 1–30s</span>{' '}
           per clip.
         </p>
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        <p className="sn-eye">
           Record · render · download — right in your browser
         </p>
       </header>
@@ -334,7 +335,7 @@ export default async function PatiktokGallery({
       </ul>
 
       {visibleTemplates.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-6 text-center text-sm text-ink/55">
+        <p className="sn-row p-6 text-center text-sm text-ink/55">
           No templates in this category yet — pick another above.
         </p>
       ) : null}
@@ -358,7 +359,7 @@ function BoothLaunchPanel({ eventId }: { eventId: string }) {
     <section className="space-y-4 rounded-2xl border border-mulberry/20 bg-mulberry/5 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <p className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-mulberry-700">
+          <p className="sn-eye inline-flex items-center gap-1.5">
             <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Patiktok is yours
           </p>
@@ -396,9 +397,9 @@ function TiktokConnectPanel({
   grant: TiktokGrant | null;
 }) {
   return (
-    <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+    <section className="sn-tile space-y-3 p-5">
       <div className="space-y-1">
-        <p className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+        <p className="sn-eye inline-flex items-center gap-1.5">
           <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Optional · TikTok auto-post
         </p>
@@ -451,7 +452,7 @@ function YourRenders({
 }) {
   if (jobs.length === 0) return null;
   return (
-    <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+    <section className="sn-tile space-y-3 p-5">
       <header className="flex items-baseline justify-between gap-2">
         <h2 className="text-lg font-semibold tracking-tight">Your renders</h2>
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
@@ -569,10 +570,10 @@ function BuyCard({
   const priceLabel = pricePhp != null ? formatPhp(pricePhp) : null;
   const triggerLabel = priceLabel ? `Add Patiktok · ${priceLabel}` : 'Add Patiktok';
   return (
-    <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+    <section className="sn-tile space-y-3 p-5">
       <div className="flex items-start justify-between gap-2">
         <div className="space-y-1">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+          <p className="sn-eye">
             In-app service
           </p>
           <h2 className="text-lg font-semibold tracking-tight">Patiktok booth</h2>
@@ -706,7 +707,7 @@ function TemplateCard({
   coupleName: string;
 }) {
   return (
-    <article className="flex h-full flex-col gap-3 overflow-hidden rounded-xl border border-ink/10 bg-cream">
+    <article className="sn-row flex h-full flex-col gap-3 overflow-hidden">
       <Preview template={template} coupleName={coupleName} />
       <div className="space-y-2 px-4 pb-4">
         <div className="flex items-start justify-between gap-2">

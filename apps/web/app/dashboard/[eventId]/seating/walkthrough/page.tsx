@@ -83,8 +83,9 @@ export default async function WalkthroughPage({ params }: Props) {
         <ArrowLeft className="h-4 w-4" /> Back to seating
       </Link>
 
-      <header className="space-y-2">
-        <h1 className="flex items-center gap-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">Seating</p>
+        <h1 className="sn-h1 mt-1.5 flex items-center gap-2">
           <Video className="h-7 w-7 text-terracotta" strokeWidth={1.75} /> Walkthrough videos
         </h1>
         <p className="max-w-prose text-base text-ink/65">

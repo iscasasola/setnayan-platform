@@ -60,7 +60,7 @@ const HEADING_ID = 'chat-info-rail-heading';
  */
 export function ChatInfoRailColumn(props: ChatInfoRailProps) {
   return (
-    <aside className="hidden w-[19rem] shrink-0 flex-col overflow-y-auto rounded-xl border border-ink/10 bg-cream lg:flex">
+    <aside className="hidden w-[19rem] shrink-0 flex-col overflow-y-auto sn-row lg:flex">
       <RailBody {...props} headingId={HEADING_ID} />
     </aside>
   );

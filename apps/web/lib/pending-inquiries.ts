@@ -60,7 +60,14 @@ export async function dispatchPendingInquiries(userId: string): Promise<void> {
       if (groupIds.length > 0) {
         await Promise.allSettled(
           groupIds.map((groupId) =>
-            unlockCategoryWithInquiry({ eventId, groupId, count: perCategory }),
+            // PR-C source taxonomy: these held picks were made in the
+            // onboarding "reach my best matches" flow → Auto Build Recommendation.
+            unlockCategoryWithInquiry({
+              eventId,
+              groupId,
+              count: perCategory,
+              inquirySource: 'auto_build',
+            }),
           ),
         );
       }

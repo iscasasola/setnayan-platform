@@ -32,12 +32,19 @@ import { publishSaveTheDate } from '@/lib/launch-save-the-date';
  * (couple_can_update_event is the DB-level enforcement).
  */
 
-async function requireCouple(eventId: string) {
+async function requireCouple(eventId: string, opts?: { secured?: boolean }) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+  // Anon-draft boundary: launching / scheduling a Save-the-Date makes the event
+  // public and emails guests — never allowed for a native anonymous principal.
+  // They must "secure their plan" first. Design actions (reveal choice, dates)
+  // stay open so drafting still works without an account.
+  if (opts?.secured && user.is_anonymous) {
+    redirect(`/signup?next=/dashboard/${eventId}/studio/save-the-date`);
+  }
   const { data: membership } = await supabase
     .from('event_members')
     .select('event_id')
@@ -295,7 +302,7 @@ export async function launchSaveTheDate(
   eventId: string,
 ): Promise<{ ok: boolean; error?: string }> {
   if (!eventId) return { ok: false, error: 'missing-event' };
-  const supabase = await requireCouple(eventId);
+  const supabase = await requireCouple(eventId, { secured: true });
   // Shared go-public flip (lib/launch-save-the-date.ts) — also clears any
   // pending scheduled_launch_at, so "Launch now" cleanly overrides a schedule.
   const published = await publishSaveTheDate(supabase, eventId);
@@ -340,7 +347,7 @@ export async function scheduleSaveTheDateLaunch(
   if (Number.isNaN(when.getTime())) return { ok: false, error: 'bad-datetime' };
   if (when.getTime() <= Date.now()) return { ok: false, error: 'past' };
 
-  const supabase = await requireCouple(eventId);
+  const supabase = await requireCouple(eventId, { secured: true });
   const iso = when.toISOString();
   const { error } = await supabase
     .from('events')

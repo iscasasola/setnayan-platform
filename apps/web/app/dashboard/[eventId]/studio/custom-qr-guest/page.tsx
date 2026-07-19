@@ -125,8 +125,8 @@ export default async function CustomQrGuestPage({ params }: Props) {
         Back to add-ons
       </Link>
 
-      <header className="space-y-2">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+      <header className="sn-reveal space-y-2">
+        <p className="sn-eye">
           Custom QR per guest
         </p>
         {owns ? (
@@ -135,7 +135,7 @@ export default async function CustomQrGuestPage({ params }: Props) {
           // not-owned state below; the learn-more page (/studio/about/<key>)
           // carries the marketing for non-owners (Tier 4 surface-hygiene).
           <>
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            <h1 className="sn-h1">
               Your branded guest QRs
             </h1>
             <p className="max-w-prose text-base text-ink/65">
@@ -145,7 +145,7 @@ export default async function CustomQrGuestPage({ params }: Props) {
           </>
         ) : (
           <>
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            <h1 className="sn-h1">
               One scan, and your guest finds everything
             </h1>
             <p className="max-w-prose text-base text-ink/65">
@@ -248,7 +248,7 @@ async function OwnedView({
       </div>
 
       {cards.length === 0 ? (
-        <p className="rounded-xl border border-ink/10 bg-cream p-6 text-sm text-ink/60">
+        <p className="sn-row p-6 text-sm text-ink/60">
           Add guests to your{' '}
           <Link
             href={`/dashboard/${eventId}/guests`}
@@ -262,7 +262,7 @@ async function OwnedView({
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {cards.map((card) => (
             <li key={card.guestId}>
-              <article className="flex h-full flex-col items-center gap-3 rounded-2xl border border-ink/10 bg-cream p-5 text-center">
+              <article className="sn-row flex h-full flex-col items-center gap-3 p-5 text-center">
                 <div
                   aria-label={`Branded QR for ${card.name}`}
                   className="h-40 w-40 overflow-hidden rounded-xl border border-ink/10 bg-white p-2 [&_svg]:h-full [&_svg]:w-full"
@@ -346,9 +346,9 @@ async function UnownedView({
   return (
     <>
       {/* Side-by-side preview */}
-      <section className="rounded-2xl border border-ink/10 bg-cream p-5">
+      <section className="sn-tile p-5">
         <header className="space-y-1">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+          <p className="sn-eye">
             Your QR, two ways
           </p>
           <h2 className="text-xl font-semibold tracking-tight">
@@ -406,9 +406,9 @@ async function UnownedView({
       </section>
 
       {/* What you get + buy */}
-      <section className="rounded-2xl border border-ink/10 bg-cream p-5">
+      <section className="sn-tile p-5">
         <header className="space-y-1">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+          <p className="sn-eye">
             What you get
           </p>
           <h2 className="text-xl font-semibold tracking-tight">

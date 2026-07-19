@@ -10,6 +10,7 @@ import { LivePhotoWallCard } from './live-photo-wall-card';
 import { VideoGuestbookCard, type PabatiClipThumb } from './video-guestbook-card';
 import { LiveScheduleCard } from './live-schedule-card';
 import { CoordinatorBroadcastCard } from './coordinator-broadcast-card';
+import type { BroadcastCardData } from '@/lib/coordinator-broadcasts';
 import { GetHelpCard } from './get-help-card';
 import type { SameDayVendor } from '@/lib/same-day-vendors';
 
@@ -32,6 +33,9 @@ type Props = {
   pabatiClips?: PabatiClipThumb[];
   pabatiUsed?: number;
   pabatiTotal?: number;
+  /** Coordinator P3 — resolved server-side when NEXT_PUBLIC_COORDINATOR_P3_ENABLED
+   *  is on. Absent (flag off) = the card renders its pre-P3 stub exactly. */
+  broadcast?: BroadcastCardData;
 };
 
 export function DayOfModeGrid({
@@ -44,6 +48,7 @@ export function DayOfModeGrid({
   pabatiClips = [],
   pabatiUsed = 0,
   pabatiTotal = 0,
+  broadcast,
 }: Props) {
   return (
     <section
@@ -73,7 +78,7 @@ export function DayOfModeGrid({
           <VideoGuestbookCard pabatiActive={false} />
         )}
         <LiveScheduleCard eventId={eventId} blocks={blocks} />
-        <CoordinatorBroadcastCard />
+        <CoordinatorBroadcastCard eventId={eventId} broadcast={broadcast} />
         <GetHelpCard sameDayVendors={sameDayVendors} />
       </div>
 

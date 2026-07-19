@@ -97,11 +97,17 @@ function sources(p: Partial<SnapshotSources> = {}): SnapshotSources {
 
 const NOW = Date.parse('2027-06-01T00:00:00Z');
 
+/** Assert an indexed lookup actually returned a value (strict-null-safe test access). */
+function must<T>(value: T | undefined, what = 'value'): T {
+  assert.ok(value !== undefined, `expected ${what} to be present`);
+  return value;
+}
+
 test('maps service pricing + inclusions + addons', () => {
   const snap = toStoreSnapshot(sources(), NOW);
   assert.equal(snap.businessName, 'Blooms & Co.');
   assert.equal(snap.services.length, 1);
-  const s = snap.services[0];
+  const s = must(snap.services[0], 'service');
   assert.equal(s.serviceId, 's1');
   assert.equal(s.startingPricePhp, 48000);
   assert.equal(s.pricingBasis, 'per_pax');
@@ -113,7 +119,7 @@ test('maps service pricing + inclusions + addons', () => {
 });
 
 test('expired discounts are pruned; active ones kept', () => {
-  const s = toStoreSnapshot(sources(), NOW).services[0];
+  const s = must(toStoreSnapshot(sources(), NOW).services[0], 'service');
   assert.deepEqual(s.discounts, [{ type: 'early_booking', rate: 10, unit: 'pct' }]);
 });
 
@@ -127,7 +133,7 @@ test('inactive services and packages are dropped', () => {
 });
 
 test('package maps items + keeps centavos', () => {
-  const p = toStoreSnapshot(sources(), NOW).packages[0];
+  const p = must(toStoreSnapshot(sources(), NOW).packages[0], 'package');
   assert.equal(p.name, 'Gold');
   assert.equal(p.totalPriceCentavos, 4800000);
   assert.deepEqual(p.items, [
@@ -138,11 +144,12 @@ test('package maps items + keeps centavos', () => {
 
 test('coverage + reviews mapped; label optional', () => {
   const withLabel = toStoreSnapshot(sources({ coverageLabels: new Map([['wedding_photography', 'Wedding Photography']]) }), NOW);
-  assert.equal(withLabel.coverages[0].label, 'Wedding Photography');
-  assert.deepEqual(withLabel.coverages[0].eventTypes, ['wedding']);
-  assert.equal(withLabel.reviews[0].ratingOverall, 5);
+  const cov = must(withLabel.coverages[0], 'coverage');
+  assert.equal(cov.label, 'Wedding Photography');
+  assert.deepEqual(cov.eventTypes, ['wedding']);
+  assert.equal(must(withLabel.reviews[0], 'review').ratingOverall, 5);
   assert.equal(withLabel.avgRating, 4.8);
-  assert.equal(toStoreSnapshot(sources(), NOW).coverages[0].label, null);
+  assert.equal(must(toStoreSnapshot(sources(), NOW).coverages[0], 'coverage').label, null);
 });
 
 test('toEventBriefLite maps constraints + centavos->PHP per head', () => {

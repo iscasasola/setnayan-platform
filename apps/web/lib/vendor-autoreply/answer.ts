@@ -67,8 +67,9 @@ function buildPrice(store: VendorStoreSnapshot): string | null {
   const parts: string[] = [];
   if (lines.length === 1) parts.push(`Our ${lines[0]}.`);
   else if (lines.length > 1) parts.push(`Our starting rates — ${lines.slice(0, 3).join('; ')}.`);
-  if (pkgs.length > 0) {
-    parts.push(`Our ${pkgs[0].name} package is ${formatCentavosPhp(pkgs[0].totalPriceCentavos)}.`);
+  const firstPkg = pkgs[0];
+  if (firstPkg) {
+    parts.push(`Our ${firstPkg.name} package is ${formatCentavosPhp(firstPkg.totalPriceCentavos)}.`);
   }
   return parts.join(' ');
 }

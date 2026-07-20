@@ -18,8 +18,14 @@ catalog + `papic_tier_config` with **zero runtime references** — a fake ladder
 - `fetchCameraRates` reads all FOUR rate SKUs; Mini ↔ Roll fall back to each
   other in BOTH directions, so the ladder prices correctly whichever ₱30 catalog
   row the owner ultimately keeps.
-- New `fetchPapicTierConfig()` — reads `papic_tier_config` for display titles,
-  `points_per_day` and `wedding_day_cap_php`, so no surface hardcodes the ladder.
+- Tier metadata (display titles, `points_per_day`, `wedding_day_cap_php`) is read
+  through the **single** `fetchPapicTierConfig()` in `lib/papic-tier-copy.ts`
+  (landed by #3421), so no surface hardcodes the ladder. This module deliberately
+  carries **no second reader** — the draft's own `fetchPapicTierConfig` /
+  `PAPIC_TIER_CONFIG_FALLBACK` were dropped at merge in favour of #3421's, since
+  two readers is exactly how a title or a point budget drifts from the charge
+  path. The `PAPIC_*_CAP_FALLBACK_PHP` constants stay here: they are CHARGE-path
+  fallbacks consumed by `computeCameraQuote`, not display copy.
 - `computeCameraQuote` is now per-rung: each rung clamps at its OWN cap
   independently (Mini ₱6,000 · Ltd ₱10,000 · Unli ₱15,000), weddings only —
   non-wedding events stay uncapped, byte-identical to #3407. Legacy quote fields
@@ -47,12 +53,15 @@ gate meters them.
   arrives as a server-resolved prop from `papic_tier_config` + the catalog.
 - `studio/papic/actions.ts` — `purchasePapicCameras` and `purchasePapicExtras`
   both accept `mini`/`ltd`/`unlimited` (+ legacy `roll`) counts.
-- `/pricing` `_papic-estimator.tsx` — 3 segments instead of 2, each showing its
-  own rate/points/cap; the camera line now locks at the CHOSEN rung's cap,
-  mirroring `computeCameraQuote` instead of diverging from it.
-- `/pricing` page copy — replaced the stale synthetic-SKU blurb ("Ltd ₱30 (30
-  photos + 10 videos) … first 5 free … Ltd ₱9,000") with catalog+config-driven
-  text: correct rungs, correct points, `first 3 cameras free`, correct caps.
+- `/pricing` `_papic-estimator.tsx` + `/pricing/page.tsx` — the N-rung estimator
+  (a segment per rung, each with its own rate/capacity/cap, the camera line
+  locking at the CHOSEN rung's cap to mirror `computeCameraQuote`) and the
+  honest synthetic-SKU blurb both ship in **#3421's** derived form. #3421 landed
+  first with the same shape driven end-to-end off `publicPapicLadder()` +
+  `papicCapacityShort()` + `papicCapLadderPhrase()`, so at merge this PR's
+  hand-rolled twins were dropped rather than duplicated — the copy-guardrail
+  test (`lib/papic-copy-guardrails.test.ts`) stays the sole owner of those
+  strings and stays green.
 
 **Tests** — `lib/papic-cameras.test.ts` grows a three-rung block: independent
 per-rung billing, day multipliers, **roll and mini quote identically**, roll+mini

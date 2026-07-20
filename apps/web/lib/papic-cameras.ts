@@ -299,103 +299,13 @@ export function papicRungRate(rates: CameraRates, rung: PapicRung): number {
 // ── papic_tier_config — the admin-editable tier metadata (migration 20270821110000)
 //
 // display_title · points_per_day · wedding_day_cap_php live in ONE admin-editable
-// table. Every surface that labels a rung, states its daily budget, or quotes its
-// cap reads THIS — never a hardcoded string — so the owner can settle roll-vs-mini
-// (and reprice) in the DB without a deploy. The constants below are last-resort
-// fallbacks for a pre-migration/unreadable DB only.
-
-export type PapicTierConfig = {
-  tierCode: string;
-  displayTitle: string;
-  /** Daily capture-points budget. null = unlimited. */
-  pointsPerDay: number | null;
-  rateServiceCode: string | null;
-  /** Per-event WEDDING-only order cap default (per-event column overrides it). */
-  weddingDayCapPhp: number | null;
-  sortOrder: number;
-};
-
-export const PAPIC_TIER_CONFIG_FALLBACK: Record<PapicRung, PapicTierConfig> = {
-  mini: {
-    tierCode: 'mini',
-    displayTitle: 'Papic Mini',
-    pointsPerDay: 20,
-    rateServiceCode: PAPIC_CAMERA_MINI_SKU,
-    weddingDayCapPhp: PAPIC_MINI_CAP_FALLBACK_PHP,
-    sortOrder: 1,
-  },
-  ltd: {
-    tierCode: 'ltd',
-    displayTitle: 'Papic Ltd',
-    pointsPerDay: 70,
-    rateServiceCode: PAPIC_CAMERA_LTD_SKU,
-    weddingDayCapPhp: PAPIC_LTD_CAP_FALLBACK_PHP,
-    sortOrder: 2,
-  },
-  unlimited: {
-    tierCode: 'unlimited',
-    displayTitle: 'Papic Unli',
-    pointsPerDay: null,
-    rateServiceCode: PAPIC_CAMERA_UNLIMITED_SKU,
-    weddingDayCapPhp: PAPIC_UNLI_CAP_FALLBACK_PHP,
-    sortOrder: 3,
-  },
-};
-
-/**
- * Read the live tier config for the three paid rungs. The legacy 'roll' row is
- * folded into 'mini' ONLY when the 'mini' row is absent — so a DB where the
- * owner keeps roll as the canonical ₱30 row still labels + budgets correctly.
- * Never throws: any error yields the fallbacks.
- */
-export async function fetchPapicTierConfig(
-  supabase: SupabaseClient,
-): Promise<Record<PapicRung, PapicTierConfig>> {
-  const out: Record<PapicRung, PapicTierConfig> = {
-    mini: { ...PAPIC_TIER_CONFIG_FALLBACK.mini },
-    ltd: { ...PAPIC_TIER_CONFIG_FALLBACK.ltd },
-    unlimited: { ...PAPIC_TIER_CONFIG_FALLBACK.unlimited },
-  };
-  try {
-    const { data, error } = await supabase
-      .from('papic_tier_config')
-      .select(
-        'tier_code, display_title, points_per_day, rate_service_code, wedding_day_cap_php, sort_order, is_active',
-      )
-      .in('tier_code', ['mini', 'roll', 'ltd', 'unlimited']);
-    if (error || !data) return out;
-    const rows = new Map(data.map((r) => [r.tier_code as string, r]));
-    const apply = (rung: PapicRung, row: (typeof data)[number] | undefined) => {
-      if (!row) return;
-      out[rung] = {
-        tierCode: rung,
-        displayTitle:
-          (row.display_title as string | null)?.trim() ||
-          PAPIC_TIER_CONFIG_FALLBACK[rung].displayTitle,
-        pointsPerDay:
-          row.points_per_day == null ? null : Number(row.points_per_day),
-        rateServiceCode: (row.rate_service_code as string | null) ?? null,
-        weddingDayCapPhp:
-          row.wedding_day_cap_php == null
-            ? null
-            : Number(row.wedding_day_cap_php),
-        sortOrder: Number(row.sort_order ?? PAPIC_TIER_CONFIG_FALLBACK[rung].sortOrder),
-      };
-    };
-    // roll only stands in for mini when there is no mini row (see alias note).
-    apply('mini', rows.get('mini') ?? rows.get('roll'));
-    apply('ltd', rows.get('ltd'));
-    apply('unlimited', rows.get('unlimited'));
-    // The legacy roll row's display title is "Papic Mini (legacy roll)" — never
-    // show that to a couple; keep the clean Mini title when it stood in.
-    if (!rows.get('mini') && rows.get('roll')) {
-      out.mini.displayTitle = PAPIC_TIER_CONFIG_FALLBACK.mini.displayTitle;
-    }
-    return out;
-  } catch {
-    return out;
-  }
-}
+// table, and there is exactly ONE reader for it: `lib/papic-tier-copy.ts`
+// (fetchPapicTierConfig / PAPIC_TIER_CONFIG_FALLBACK), introduced by the
+// 2026-07-20 honesty pass and guarded by `lib/papic-copy-guardrails.test.ts`.
+// This module deliberately does NOT carry a second copy — a duplicate reader is
+// exactly how a display title or a point budget drifts from the charge path.
+// The PAPIC_*_CAP_FALLBACK_PHP constants above stay here because they are
+// CHARGE-path fallbacks consumed by computeCameraQuote, not display copy.
 
 /**
  * A per-camera order selection. Every rung is optional so a caller only names

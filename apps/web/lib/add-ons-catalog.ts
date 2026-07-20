@@ -156,6 +156,12 @@ export type AddOnEntry = {
  */
 export function addOnHref(key: string, eventId: string): string {
   if (key === 'orders') return `/dashboard/${eventId}/orders`;
+  // Papic Buong Araw (the flat event-level guest-camera pass, SKU PAPIC_GUEST)
+  // has no surface of its own — it is a rung on the SAME Papic set-up page the
+  // per-camera ladder is bought from. Pre-wired here so the day its status
+  // flips to 'live' the card opens a real surface instead of 404ing on a
+  // /studio/papic-guest route that does not exist.
+  if (key === 'papic-guest') return `/dashboard/${eventId}/studio/papic`;
   if (key === 'animated-monogram') return `/dashboard/${eventId}/monogram`;
   // Features that don't own a Studio surface of their own open their real home
   // rather than a "coming soon" stub — so every Studio button lands somewhere
@@ -578,6 +584,53 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
       motionBackground:
         'radial-gradient(circle at 50% 45%, #F4D9B0 0%, transparent 40%)',
       iconBadgeClass: 'bg-terracotta/40 text-cream',
+    },
+  },
+  {
+    // ── Papic Buong Araw — the flat, event-level guest-camera pass (SKU
+    // PAPIC_GUEST). Phase-0 gate 0h of the 2026-07-20 Papic access-scope
+    // verdict: before this entry the pass had NO app-wide doorway at all — its
+    // only mention outside checkout was the wedding onboarding pricing list
+    // (onboarding/wedding/_components/onboarding-pricing.ts), so a couple who
+    // skipped onboarding could never find it. The missing doorway, not a gate,
+    // was what kept it unsold.
+    //
+    // `surface: 'rsvp'` is HALF the gate — it hides the card wherever the event
+    // type has no RSVP surface (simple_event). It does NOT hide travel, whose
+    // profile row DOES enable rsvp (migration 20270804110223 added it to every
+    // non-wedding row). The authoritative predicate is
+    // lib/papic-event-access.ts · papicGuestPassAccess(); a surface that
+    // renders this row as buyable MUST call it (it carries the permanent
+    // travel deny + the anniversary controller split + the phase ladder).
+    //
+    // Deliberately `coming_soon` — pill "Soon", not clickable, no price shown.
+    // Flipping it to 'live' is blocked on the verdict's own Phase-0 gates that
+    // are NOT in this PR: 0b (the owner DB action repricing PAPIC_GUEST off the
+    // pax curve — the live catalog row still says ₱2,999, so a live card would
+    // advertise the wrong price), 0c (the event-scoped points pool), 0d/0e
+    // (ROPA row + DPO sign-off on the RSVP consent text). addOnHref already
+    // routes this key at the real Papic set-up surface, so the flip is a
+    // one-word change with no 404.
+    key: 'papic-guest',
+    surface: 'rsvp',
+    opensDirect: true,
+    label: 'Papic Buong Araw',
+    Icon: Camera,
+    iteration: '0012',
+    status: 'coming_soon',
+    category: 'photography',
+    blurb:
+      'One pass for the whole celebration — every guest on the list gets a camera, all day, no per-camera math.',
+    cta: 'See the pass',
+    studioGroup: 'capture',
+    serviceKey: 'PAPIC_GUEST',
+    poster: {
+      motion: 'pulse',
+      baseBackground:
+        'radial-gradient(circle at 50% 45%, #6B5324 0%, #241A12 75%)',
+      motionBackground:
+        'radial-gradient(circle at 50% 45%, #F4D9B0 0%, transparent 45%)',
+      iconBadgeClass: 'bg-cream/20 text-cream',
     },
   },
   {

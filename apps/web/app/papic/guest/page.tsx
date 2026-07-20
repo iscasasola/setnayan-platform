@@ -10,13 +10,18 @@ import { PapicGuestCapture } from './_components/papic-guest-capture';
 // camera"). Papic is priced per-camera (₱30 Ltd / ₱100 Unli per camera/day),
 // not a flat pack. The public guest-camera surface: a guest who has redeemed their
 // invite carries a setnayan_guest_session cookie (guest_id + event_id); this
-// page reads it, confirms the event owns the Premium Guest Camera Pack, and
-// hands the guest a browser camera with their per-guest 150-credit quota.
+// page reads it, confirms the event owns the guest-camera pass, and hands the
+// guest a browser camera with their per-guest 150-credit quota.
 //
 // No sign-in, no app install — the cookie is the identity. Capture goes through
 // POST /api/papic/guest-capture (server-side R2 PUT + the quota-enforcing
 // papic_record_guest_capture RPC), so nothing here trusts the client for the
 // credit cap. Admin client because this is a public surface with no RLS session.
+//
+// EVENT-TYPE NEUTRAL (Phase-0 gate 0g, access-scope verdict 2026-07-20): the
+// flat pass (PAPIC_GUEST · "Papic Buong Araw") opens beyond weddings, so no
+// copy on this page may say "wedding" or assume a couple. Which types may be
+// sold the pass is lib/papic-event-access.ts — this page does not decide it.
 
 export const dynamic = 'force-dynamic';
 
@@ -40,7 +45,7 @@ export default async function PapicGuestPage() {
         <h1 className="mt-3 text-xl font-semibold tracking-tight">Open your invitation first</h1>
         <p className="mt-2 text-sm text-ink/65">
           Scan your personal QR or open your invite link, then come back here to
-          start shooting candids for the couple.
+          start shooting candids for the host.
         </p>
       </Shell>
     );
@@ -48,13 +53,30 @@ export default async function PapicGuestPage() {
 
   const admin = createAdminClient();
 
-  const owns = await eventPapicGuestActive(admin, session.event_id);
+  // De-wedded copy (Papic access-scope verdict 2026-07-20, Phase-0 gate 0g):
+  // this surface is guest-facing on EVERY event type the Buong Araw pass opens
+  // (debut · birthday · christening · gender reveal · graduation · personally
+  // owned anniversary), so it must not say "wedding" or name an organizer role.
+  // The event's OWN display name carries the specificity instead; the neutral
+  // "this event" is the only fallback. Read in parallel with the ownership
+  // check (same query count as before) so the not-yet-on branch can name the
+  // event too.
+  const [owns, { data: ev }] = await Promise.all([
+    eventPapicGuestActive(admin, session.event_id),
+    admin
+      .from('events')
+      .select('display_name')
+      .eq('event_id', session.event_id)
+      .maybeSingle(),
+  ]);
+  const eventName = (ev?.display_name as string | null) || 'this event';
+
   if (!owns) {
     return (
       <Shell>
         <h1 className="mt-3 text-xl font-semibold tracking-tight">Guest cameras aren&rsquo;t on yet</h1>
         <p className="mt-2 text-sm text-ink/65">
-          The couple hasn&rsquo;t turned on guest cameras for this wedding. Sit
+          Guest cameras haven&rsquo;t been turned on for {eventName} yet. Sit
           back and enjoy the celebration!
         </p>
       </Shell>
@@ -62,14 +84,12 @@ export default async function PapicGuestPage() {
   }
 
   const [
-    { data: ev },
     { data: g },
     quota,
     { data: liveEnrollment },
     canKwento,
     { data: styleRow },
   ] = await Promise.all([
-      admin.from('events').select('display_name').eq('event_id', session.event_id).maybeSingle(),
       admin
         .from('guests')
         .select('first_name, display_name, ugc_terms_accepted_at')
@@ -103,7 +123,6 @@ export default async function PapicGuestPage() {
 
   const guestName =
     (g?.first_name as string | null) || (g?.display_name as string | null) || 'friend';
-  const eventName = (ev?.display_name as string | null) || 'the wedding';
   const eventStyle = asPapicStyle(
     (styleRow as { papic_style?: string } | null)?.papic_style,
   );
@@ -128,9 +147,9 @@ export default async function PapicGuestPage() {
       <Shell>
         <h1 className="mt-3 text-xl font-semibold tracking-tight">Camera unavailable</h1>
         <p className="mt-2 text-sm text-ink/65">
-          The couple has turned off your guest camera for this wedding. Photos
-          already shared remain in their gallery. If you think this is a
-          mistake, reach out to the couple directly.
+          Your guest camera for {eventName} has been turned off. Photos you
+          already shared stay in the gallery. If you think this is a mistake,
+          reach out to the host directly.
         </p>
       </Shell>
     );

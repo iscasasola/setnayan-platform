@@ -22,6 +22,11 @@ import {
   eventUnliFreeViaUnlock,
   eventLtdFreeViaUnlock,
 } from '@/lib/papic-cameras';
+import {
+  combinePointsGates,
+  fetchEventPoolStatus,
+  type EventPoolStatus,
+} from '@/lib/papic-event-pool';
 import { eventHasPapicUnlock } from '@/lib/entitlements';
 import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
 
@@ -150,8 +155,27 @@ export async function claimPapicSeat(formData: FormData) {
   }
 }
 
+/**
+ * The event-scoped pass pool's live state, returned on a successful capture so
+ * the camera can show a SOFT-STOP warning before the hard stop. `undefined`
+ * (omitted) for every event without a flat per-event pass — those have no fence.
+ */
+export type EventPoolSignal = {
+  /** Capture points left in the event pool. */
+  remaining: number;
+  /** The pool's total (base + top-up grants). */
+  total: number;
+  /** True once usage crosses the admin-set soft-stop line (default 85%). */
+  soft: boolean;
+};
+
 export type RecordSeatCaptureResult =
-  | { ok: true; count: number; photoId: string | null }
+  | {
+      ok: true;
+      count: number;
+      photoId: string | null;
+      eventPool?: EventPoolSignal;
+    }
   | { ok: false; error: string };
 
 /**
@@ -323,26 +347,98 @@ export async function recordSeatCapture(
       // carve-out): metering is money logic now, so an outage must block, not
       // silently un-meter. The presign probe (api/upload) is only the
       // orphan-byte leak guard; this reserve is the gate of record.
-      if (!unlocked) {
+      {
         const cost = papicCaptureCost(kind === 'clip' ? 'clip' : 'photo');
-        let gate: PointsGateVerdict;
-        try {
-          const admin = createAdminClient();
-          const { data: reserveOk, error: reserveErr } = await admin.rpc(
-            'papic_reserve_camera_points',
-            {
-              p_seat_id: seat.seat_id,
-              p_event_id: seat.event_id,
-              p_cost: cost,
-            },
-          );
-          gate = resolvePointsGate(
-            reserveErr ? (reserveErr.code ?? 'unknown') : null,
-            reserveOk === true ? true : reserveOk === false ? false : null,
-          );
-        } catch {
-          gate = 'blocked'; // thrown ≠ identifiable fn-not-found → fail-CLOSED
+        let seatGate: PointsGateVerdict = 'allow';
+        let seatBooked = false;
+        if (!unlocked) {
+          try {
+            const admin = createAdminClient();
+            const { data: reserveOk, error: reserveErr } = await admin.rpc(
+              'papic_reserve_camera_points',
+              {
+                p_seat_id: seat.seat_id,
+                p_event_id: seat.event_id,
+                p_cost: cost,
+              },
+            );
+            seatGate = resolvePointsGate(
+              reserveErr ? (reserveErr.code ?? 'unknown') : null,
+              reserveOk === true ? true : reserveOk === false ? false : null,
+            );
+            // Only a TRUE from the RPC actually spent points — a fn-not-found
+            // 'allow' booked nothing, so there'd be nothing to unwind.
+            seatBooked = reserveOk === true;
+          } catch {
+            seatGate = 'blocked'; // thrown ≠ identifiable fn-not-found → fail-CLOSED
+          }
         }
+
+        // ── EVENT-SCOPED capture fence (Phase 0c) ────────────────────────
+        // The flat per-event PASS (PAPIC_UNLOCK / PAPIC_UNLOCK_LTD / the
+        // ₱1,499 flat pass) used to bypass metering entirely — this is the
+        // missing bound. Pool = clamp(guests × 150, 5,000, 30,000) points,
+        // event-LIFETIME, admin-tunable in papic_event_pool_config; top-ups add
+        // via papic_event_point_grants. The RPC allows unconditionally for
+        // every NON-pass event, so today's behaviour is unchanged there. Same
+        // fail-CLOSED posture as the seat reserve — money logic.
+        let eventGate: PointsGateVerdict = 'allow';
+        let eventBooked = false;
+        if (seatGate !== 'blocked') {
+          try {
+            const admin = createAdminClient();
+            const { data: poolOk, error: poolErr } = await admin.rpc(
+              'papic_reserve_event_points',
+              { p_event_id: seat.event_id, p_cost: cost },
+            );
+            eventGate = resolvePointsGate(
+              poolErr ? (poolErr.code ?? 'unknown') : null,
+              poolOk === true ? true : poolOk === false ? false : null,
+            );
+            eventBooked = poolOk === true;
+          } catch {
+            eventGate = 'blocked';
+          }
+        }
+
+        // The TIGHTER of the two budgets wins.
+        const gate = combinePointsGates(seatGate, eventGate);
+
+        // A refused capture must never leave points spent. Whichever ledger was
+        // booked before the other refused gets released. Best-effort + never
+        // fatal — a failed unwind costs the couple points, not a broken camera.
+        if (gate !== 'allow') {
+          const admin = (() => {
+            try {
+              return createAdminClient();
+            } catch {
+              return null;
+            }
+          })();
+          if (admin && seatBooked) {
+            await admin
+              .rpc('papic_release_camera_points', {
+                p_seat_id: seat.seat_id,
+                p_cost: cost,
+              })
+              .then(
+                () => undefined,
+                () => undefined,
+              );
+          }
+          if (admin && eventBooked) {
+            await admin
+              .rpc('papic_release_event_points', {
+                p_event_id: seat.event_id,
+                p_cost: cost,
+              })
+              .then(
+                () => undefined,
+                () => undefined,
+              );
+          }
+        }
+
         if (gate === 'exhausted') {
           return { ok: false, error: 'camera_points_exhausted' };
         }
@@ -495,10 +591,35 @@ export async function recordSeatCapture(
     .eq('paparazzi_seat_id', seat.seat_id)
     .is('superseded_at', null);
 
+  // SOFT-STOP signal (Phase 0c): the event-scoped pass pool's live state rides
+  // back on every successful capture so the camera can warn BEFORE the hard
+  // stop ("running low on this event's shots") instead of only discovering the
+  // fence when a shot is refused. Absent (applies=false) for every non-pass
+  // event, and a pure display read — degrades to "no fence" on any error, which
+  // can never widen the actual gate (the reserve RPC above is the gate).
+  let eventPool: EventPoolSignal | undefined;
+  if (cameraTier) {
+    try {
+      const status: EventPoolStatus = await fetchEventPoolStatus(
+        createAdminClient(),
+        seat.event_id as string,
+      );
+      if (status.applies) {
+        eventPool = {
+          remaining: status.remainingPoints,
+          total: status.totalPoints,
+          soft: status.soft,
+        };
+      }
+    } catch {
+      eventPool = undefined;
+    }
+  }
+
   // photoId rides back so the capture UI can offer "tag who's in it" on the
   // shot just saved (tagSeatCapture below). Null only in the degraded path
   // where the insert returned no id — tagging is simply unavailable then.
-  return { ok: true, count: count ?? 0, photoId: insertedPhotoId };
+  return { ok: true, count: count ?? 0, photoId: insertedPhotoId, eventPool };
 }
 
 export type TagSeatCaptureResult =

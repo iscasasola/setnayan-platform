@@ -18,6 +18,7 @@ import {
   type SourceEventForClone,
 } from '@/lib/event-recurrence';
 import { isGatedLifeType } from '@/lib/life-event-gate';
+import { authorizePlanNextYear } from '@/lib/plan-next-year-authz';
 import { hasInPlanningWeddingForUser } from './wedding-guard';
 import { getBlockingLifeEvent } from './life-event-guard';
 import { resolvePick } from '@/app/onboarding/wedding/_data/wedding-cities';
@@ -464,8 +465,20 @@ export async function createWeddingEvent(formData: FormData) {
  * unique slug + admin insert + event_members couple row + on_event_created
  * trigger — so all the CHECK constraints and is_primary behave identically.
  *
- * Access is RLS-gated: the source SELECT runs on the user-scoped client, so a
- * non-member reads NULL and is bounced. Only recurrence-capable, non-wedding
+ * AUTHORIZATION: an explicit COUPLE-membership gate on (source event × caller),
+ * read on the user-scoped client, is the real gate. The RLS-gated source SELECT
+ * is defence-in-depth ONLY — it does NOT establish authority, because the
+ * `event_member_can_read` policy resolves through `current_event_ids()`, which
+ * returns every event_id the user has an `event_members` row for REGARDLESS of
+ * member_type. A mere GUEST of the source event (join flow seeds a real
+ * member_type='guest' row) therefore reads it back fine. Since a server action
+ * is a public POST — the `[eventId]` layout's couple gate never runs for it, and
+ * the caller need not have rendered the form — an RLS read alone let any guest
+ * clone a host's event into one they own as 'couple' (the insert below runs on
+ * the SERVICE-ROLE client and makes the caller a couple of the new event).
+ * Couple-only by design: the layout also admits accepted `event_moderators`, but
+ * only to VIEW the shell; a delegate proposes, never executes, and must not be
+ * handed couple-ownership of a fresh event. Only recurrence-capable, non-wedding
  * types are eligible (canPlanNextYear).
  */
 export async function planNextYearEvent(formData: FormData) {
@@ -481,7 +494,26 @@ export async function planNextYearEvent(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) return redirect('/login');
 
-  // RLS-gated read = the membership gate: a non-member reads NULL here.
+  // ── Authorization gate (see the doc comment above). Mirrors the house pattern
+  // at [eventId]/checklist-actions.ts: read the caller's OWN membership row on
+  // the user-scoped client (member_reads_membership RLS permits exactly that)
+  // and fail closed unless they are a 'couple' of the SOURCE event. This must
+  // run BEFORE anything touches the service-role client. The decision itself
+  // lives in lib/plan-next-year-authz so it is unit-pinned.
+  const authz = await authorizePlanNextYear(sourceId, user.id, {
+    readMembership: async (eventId, userId) => {
+      const { data } = await supabase
+        .from('event_members')
+        .select('member_type')
+        .eq('event_id', eventId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      return data as { member_type?: string | null } | null;
+    },
+  });
+  if (!authz.ok) return redirect('/dashboard');
+
+  // Defence-in-depth only — NOT the gate (a guest can read this too).
   const { data: source } = await supabase
     .from('events')
     .select(

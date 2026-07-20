@@ -39,10 +39,15 @@ export type PanoodControlState = {
   is_live: boolean;
   active_moment_id: number | null;
   updated_at: string;
+  /**
+   * Write-once timestamp of the FIRST press-live. Anchors the 24h paid broadcast window
+   * (lib/panood-watermark). Never moved by a re-press — DB trigger enforces it.
+   */
+  first_live_at: string | null;
 };
 
 const PANOOD_CONTROL_SELECT =
-  'id, event_id, program_source, preview_source, director_mode, is_live, active_moment_id, updated_at';
+  'id, event_id, program_source, preview_source, director_mode, is_live, active_moment_id, updated_at, first_live_at';
 
 /**
  * Get-or-create the single control-state row for an event (idempotent). On first
@@ -154,7 +159,15 @@ export async function setLiveAdmin(
   eventId: string,
   isLive: boolean,
 ): Promise<boolean> {
-  return writeControlStateAdmin(admin, eventId, { is_live: !!isLive });
+  // Stamp the window anchor on the way UP only, and only if unset. The DB trigger
+  // (trg_panood_first_live_at_immutable) is the real guarantee; this just avoids a pointless
+  // write. Stopping and restarting a broadcast must never open a fresh 24 hours.
+  if (!isLive) return writeControlStateAdmin(admin, eventId, { is_live: false });
+
+  const existing = await fetchOrInitControlStateAdmin(admin, eventId);
+  const patch: Record<string, unknown> = { is_live: true };
+  if (!existing?.first_live_at) patch.first_live_at = new Date().toISOString();
+  return writeControlStateAdmin(admin, eventId, patch);
 }
 
 /**

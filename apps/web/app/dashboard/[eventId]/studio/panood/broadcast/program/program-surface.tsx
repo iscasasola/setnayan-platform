@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { SetnayanOverlay } from '../_components/setnayan-overlay';
 import {
   clampSplitRatio,
   EMPTY_FRAME,
@@ -66,16 +67,25 @@ export function PanoodProgramSurface() {
     <div className="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden bg-black">
       {failure ? (
         <BridgeFailureCard failure={failure} />
-      ) : frame.secondaryStream && frame.stream ? (
-        <SplitComposite
-          primary={frame.stream}
-          secondary={frame.secondaryStream}
-          ratio={frame.splitRatio}
-        />
-      ) : frame.stream ? (
-        <StreamLayer stream={frame.stream} />
       ) : (
-        <NoSignalCard label={frame.label} />
+        <>
+          {frame.secondaryStream && frame.stream ? (
+            <SplitComposite
+              primary={frame.stream}
+              secondary={frame.secondaryStream}
+              ratio={frame.splitRatio}
+            />
+          ) : frame.stream ? (
+            <StreamLayer stream={frame.stream} />
+          ) : (
+            <NoSignalCard label={frame.label} />
+          )}
+          {/* The paywall. Server-decided upstream and carried over the bridge — this surface
+              never re-derives it. Covers every branch above, so OBS cannot capture a clean
+              frame from any state while the overlay is on. */}
+          {frame.overlay && <SetnayanOverlay size="full" reason={frame.overlayReason} />}
+          {frame.overlay && <ObsOrderingNotice />}
+        </>
       )}
     </div>
   );
@@ -141,6 +151,22 @@ function NoSignalCard({ label }: { label: string }) {
     <div className="px-8 text-center">
       <p className="text-sm font-medium uppercase tracking-[0.2em] text-white/40">
         {label}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * The OBS ordering trap: OBS streams whatever this window shows. A couple who starts streaming
+ * BEFORE pressing Go live would push an overlaid feed to their own YouTube. Say so here, on the
+ * captured surface itself, where it is impossible to miss — and where it also lands in any test
+ * recording they make, which is the cheapest possible lesson.
+ */
+function ObsOrderingNotice() {
+  return (
+    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 px-6 pb-5 text-center">
+      <p className="text-[11px] uppercase tracking-[0.18em] text-cream/55">
+        Press Go live in the control room to clear this overlay before you start streaming
       </p>
     </div>
   );

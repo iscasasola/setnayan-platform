@@ -21,6 +21,8 @@
  */
 
 /** What the pop-out needs to paint a frame. Mirrors the parent's PROGRAM monitor. */
+import type { WatermarkReason } from './panood-watermark';
+
 export type ProgramFrame = {
   /** On-air source key (`cam{n}` or a wall key), or null when nothing is cut up. */
   source: string | null;
@@ -37,6 +39,15 @@ export type ProgramFrame = {
   secondaryStream: MediaStream | null;
   /** 0..1 — fraction of width given to the PRIMARY stream. 0.5 = even split. */
   splitRatio: number;
+  /**
+   * Draw the full-screen SETNAYAN overlay? Decided SERVER-side by `decideWatermark` and pushed
+   * down here, so the console and the OBS pop-out can never disagree about whether the paywall
+   * is up. The pop-out must not re-derive this — it has no entitlement context and would be the
+   * easiest surface to leave uncovered.
+   */
+  overlay: boolean;
+  /** Why the overlay is (or is not) on — drives the pop-out's sub-line. */
+  overlayReason: WatermarkReason;
 };
 
 export type ProgramBridge = {
@@ -56,6 +67,9 @@ export const EMPTY_FRAME: ProgramFrame = {
   stream: null,
   secondaryStream: null,
   splitRatio: 0.5,
+  // Fail closed: a pop-out that has not yet heard from the console shows the paywall.
+  overlay: true,
+  overlayReason: 'unpaid',
 };
 
 /**

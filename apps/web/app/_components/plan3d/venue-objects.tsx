@@ -372,7 +372,8 @@ function boothSilhouette(kind: string, w: number, d: number, palette: Lab3DPalet
 
 /** A PRO / ENTERPRISE vendor's branded backdrop behind their booth: an accent-
  *  framed board carrying the vendor's logo (loaded from the resolved,
- *  same-origin display URL). Free / verified / solo booths never render this
+ *  cross-origin presigned R2 display URL — hence setCrossOrigin below).
+ *  Free / verified / solo booths never render this
  *  (gated by boothCanBrand at the call site). Manual TextureLoader (no Suspense
  *  boundary in these scenes); the plane keeps the logo's real aspect ratio so a
  *  wordmark isn't stretched, and drops silently if the image fails. */

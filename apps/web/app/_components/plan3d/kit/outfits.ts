@@ -20,7 +20,8 @@
  * The two Filipino-formalwear shells (booth decor):
  *   · barong — suit-proportioned, near-white jusi cloth with a subtle
  *     VERTICAL-embroidery bump texture (the classic pechera stitching) and a
- *     slight sheen. Procedural CanvasTexture only (CSP: no fetched assets),
+ *     slight sheen. Procedural CanvasTexture only (offline-first — no asset
+ *     pipeline; NOT a CSP limit, see BoothSign / GuestPhotoAvatar),
  *     imitating scene-lighting.tsx's fabricBumpMap builder.
  *   · filipiniana — the gown shell plus two flattened-sphere butterfly
  *     sleeves (terno); the sleeve geometry lives here so the renderer only

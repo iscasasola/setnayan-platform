@@ -13,7 +13,9 @@
  * (the instanced-chairs discipline), so a bottle shelf is shelf + 1 instanced
  * draw, never 6 meshes.
  *
- * TEXTURES: procedural CanvasTexture only (CSP: no fetched assets) — the
+ * TEXTURES: procedural CanvasTexture only (offline-first — no asset pipeline;
+ * NOT a CSP limit: the app ships only frame-ancestors, and BoothSign /
+ * GuestPhotoAvatar do fetch R2 textures) — the
  * LIVE lamp face, the woven banig counter skirt, clipboard scribbles and the
  * awning stripes, all lazy module singletons (browser-only, the fabricBumpMap
  * pattern). EMISSIVE props (LIVE lamp, mirror bulbs, moving-head beam) are

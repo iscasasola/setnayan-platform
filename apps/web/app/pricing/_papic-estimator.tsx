@@ -10,11 +10,14 @@
  * (lib/v2-catalog.ts · resolvePaxPricedOrderCentavos) — this is a marketing
  * calculator, not a purchase surface.
  *
- * Every rate comes from the live catalog (passed by the server page from
- * fetchV2CustomerCatalog) — nothing here is hardcoded except the graceful
- * fallbacks that only surface if a SKU row is missing from the DB. The model
- * mirrors the couple-facing Papic pricing:
- *   • per-camera, per-day rate (Ltd or Unli)
+ * Every rate comes from the live catalog + papic_tier_config (passed by the
+ * server page) — nothing here is hardcoded except the graceful fallbacks that
+ * only surface if a row is missing from the DB. The model mirrors the
+ * couple-facing Papic ladder (owner 2026-07-20):
+ *   • THREE rungs — Mini · Ltd · Unli — each a per-camera, per-day rate with its
+ *     own wedding cap (Mini ₱6,000 · Ltd ₱10,000 · Unli ₱15,000). The camera
+ *     line locks at the CHOSEN rung's cap, exactly like computeCameraQuote does
+ *     at order time.
  *   • plus one-time add-ons the couple ticks
  *   • the WHOLE build is capped at ₱capPerDay/day → beyond the cap it locks as
  *     "Unlimited + all boosters included", so it never costs more than the
@@ -23,11 +26,23 @@
 
 import { useState } from 'react';
 
+export type EstimatorRung = {
+  key: 'mini' | 'ltd' | 'unli';
+  /** Display title from papic_tier_config (e.g. "Papic Mini"). */
+  label: string;
+  /** Per-camera per-day rate from the catalog. */
+  rate: number;
+  /** This rung's wedding order cap. */
+  cap: number;
+  /** Daily capture-points budget · null = unlimited. */
+  pointsPerDay: number | null;
+};
+
 export type EstimatorRates = {
-  /** Ltd (Roll) per-camera per-day rate, from PAPIC_CAMERA_ROLL_DAY. */
-  ltd: number;
-  /** Unli per-camera per-day rate, from PAPIC_CAMERA_UNLIMITED_DAY. */
-  unli: number;
+  /** The ladder, entry rung first — resolved server-side. */
+  rungs: EstimatorRung[];
+  /** Free cameras every event gets (PAPIC_FREE_CAMERA_COUNT, passed in). */
+  freeCameras: number;
   /** The whole-build daily cap (₱/day). */
   capPerDay: number;
   /** Tickable one-time add-ons — label + price, resolved from the catalog. */
@@ -38,13 +53,17 @@ const peso = (n: number) => `₱${Math.round(n).toLocaleString('en-PH')}`;
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 export function PapicEstimator({ rates }: { rates: EstimatorRates }) {
-  const [tier, setTier] = useState<'ltd' | 'unli'>('ltd');
+  const [tierKey, setTierKey] = useState<string>(rates.rungs[0]?.key ?? 'mini');
   const [cameras, setCameras] = useState(10);
   const [days, setDays] = useState(1);
   const [checked, setChecked] = useState<Record<string, boolean>>({});
 
-  const rate = tier === 'unli' ? rates.unli : rates.ltd;
-  const papicTotal = cameras * rate * days;
+  const rung = rates.rungs.find((r) => r.key === tierKey) ?? rates.rungs[0];
+  const rate = rung?.rate ?? 0;
+  // Mirror computeCameraQuote: the camera line locks at the CHOSEN rung's cap.
+  const papicRaw = cameras * rate * days;
+  const papicTotal = rung ? Math.min(papicRaw, rung.cap) : papicRaw;
+  const rungCapped = papicRaw > papicTotal;
   const selectedSum = rates.addons.reduce(
     (sum, a) => (checked[a.key] ? sum + a.price : sum),
     0,
@@ -53,18 +72,19 @@ export function PapicEstimator({ rates }: { rates: EstimatorRates }) {
   const capped = papicTotal + selectedSum >= capValue;
   const total = capped ? capValue : papicTotal + selectedSum;
 
-  const seg = (t: 'ltd' | 'unli', label: string) => (
+  const seg = (r: EstimatorRung) => (
     <button
+      key={r.key}
       type="button"
-      onClick={() => setTier(t)}
-      aria-pressed={tier === t}
-      className={`flex-1 rounded-full px-4 py-2.5 text-sm font-medium transition-colors ${
-        tier === t
+      onClick={() => setTierKey(r.key)}
+      aria-pressed={tierKey === r.key}
+      className={`flex-1 rounded-full px-3 py-2.5 text-xs font-medium transition-colors sm:text-sm ${
+        tierKey === r.key
           ? 'bg-ink text-cream'
           : 'bg-transparent text-ink/60 hover:text-ink'
       }`}
     >
-      {label}
+      {r.label.replace(/^Papic /, '')} · {peso(r.rate)}
     </button>
   );
 
@@ -109,20 +129,28 @@ export function PapicEstimator({ rates }: { rates: EstimatorRates }) {
         Pick a tier, your cameras &amp; add-ons.
       </p>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink/65">
-        Papic is priced per camera, per day. Choose Ltd or Unli, set your
-        cameras and event days, and tick the add-ons you want — the total
-        updates live. This is a rough estimate; set exact options in the app.
+        Papic is priced per camera, per day. Your first {rates.freeCameras}{' '}
+        cameras are free — beyond that, choose a tier, set your cameras and event
+        days, and tick the add-ons you want; the total updates live. This is a
+        rough estimate; set exact options in the app.
       </p>
 
       <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <label className="mb-2 block font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-            Papic tier
+            Papic tier · per camera, per day
           </label>
           <div className="flex gap-1 rounded-full border border-ink/15 bg-cream p-1">
-            {seg('ltd', `Ltd · ${peso(rates.ltd)}/cam·day`)}
-            {seg('unli', `Unli · ${peso(rates.unli)}/cam·day`)}
+            {rates.rungs.map(seg)}
           </div>
+          {rung ? (
+            <p className="mt-2 text-xs text-ink/55">
+              {rung.pointsPerDay == null
+                ? 'No shot limit · archived to your Drive.'
+                : `${rung.pointsPerDay} capture points a day per camera — ${rung.pointsPerDay} photos, or ${Math.floor(rung.pointsPerDay / 3)} five-second clips.`}{' '}
+              Weddings cap at {peso(rung.cap)} for this tier.
+            </p>
+          ) : null}
         </div>
         <div>
           <label className="mb-2 block font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
@@ -211,10 +239,11 @@ export function PapicEstimator({ rates }: { rates: EstimatorRates }) {
             <div className="flex items-baseline justify-between gap-3">
               <div>
                 <p className="text-sm font-medium text-ink">
-                  Papic · {tier === 'unli' ? 'Unli' : 'Ltd'}
+                  {rung?.label ?? 'Papic'}
                 </p>
                 <p className="text-xs text-ink/55">
                   {cameras} cams × {peso(rate)} × {days}d
+                  {rungCapped ? ` · locked at the ${peso(rung!.cap)} cap` : ''}
                 </p>
               </div>
               <p className="font-sans text-base font-medium tabular-nums text-ink/80">

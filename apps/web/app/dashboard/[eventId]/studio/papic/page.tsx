@@ -43,11 +43,16 @@ import StylePicker from './style-picker';
 import QualityPicker from './quality-picker';
 import {
   fetchCameraRates,
+  fetchPapicTierConfig,
+  papicRungRate,
   isPapicUncapped,
   provisionFreeCamerasAdmin,
   PAPIC_MIN_PAID_CAMERAS,
   PAPIC_FREE_CAMERA_COUNT,
   PAPIC_MINI_CAP_FALLBACK_PHP,
+  PAPIC_LTD_CAP_FALLBACK_PHP,
+  PAPIC_UNLI_CAP_FALLBACK_PHP,
+  PAPIC_RUNGS,
 } from '@/lib/papic-cameras';
 import {
   countLimitedGuests,
@@ -229,9 +234,22 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     ? Number.MAX_SAFE_INTEGER
     : Number((event as Record<string, unknown>).papic_mini_cap_php ?? 0) ||
       PAPIC_MINI_CAP_FALLBACK_PHP;
+  const papicLtdCapPhp = uncappedEvent
+    ? Number.MAX_SAFE_INTEGER
+    : Number((event as Record<string, unknown>).papic_ltd_cap_php ?? 0) ||
+      PAPIC_LTD_CAP_FALLBACK_PHP;
   const papicUnliCapPhp = uncappedEvent
     ? Number.MAX_SAFE_INTEGER
-    : Number((event as Record<string, unknown>).papic_unli_cap_php ?? 0) || 15000;
+    : Number((event as Record<string, unknown>).papic_unli_cap_php ?? 0) ||
+      PAPIC_UNLI_CAP_FALLBACK_PHP;
+  // Admin-editable tier metadata (display titles + daily point budgets) — the
+  // extra-cameras ladder renders from THIS, never from hardcoded copy.
+  const papicTierConfig = await fetchPapicTierConfig(supabase);
+  const papicRungCapPhp: Record<(typeof PAPIC_RUNGS)[number], number> = {
+    mini: papicMiniCapPhp,
+    ltd: papicLtdCapPhp,
+    unlimited: papicUnliCapPhp,
+  };
 
   // Capture window → DAYS multiplier (price) + the picker's current state.
   const ev = event as Record<string, unknown>;
@@ -252,6 +270,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   const [
     { data: unlockPkg },
     ownsPapicUnlock,
+    ownsPapicUnlockLtd,
     papicPlatformSettings,
     { data: keepFullResRow },
     ownsKeepFullRes,
@@ -262,6 +281,10 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       .eq('package_code', 'PAPIC_UNLOCK')
       .maybeSingle(),
     eventSkuActive(unlockAdmin, eventId, 'PAPIC_UNLOCK'),
+    // The ₱9,000 twin frees the ₱30 rung it was sold against — today's Mini
+    // (legacy 'roll'). It does NOT cover the new ₱50 Ltd rung. See
+    // lib/papic-cameras.ts CameraQuoteOpts.
+    eventSkuActive(unlockAdmin, eventId, 'PAPIC_UNLOCK_LTD'),
     fetchPlatformSettings(supabase),
     // Keep Full-Res archive (owner 2026-07-11) — sold on the existing apply-then-pay.
     unlockAdmin
@@ -497,7 +520,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
                 Add a camera that isn&rsquo;t on the guest list
               </p>
               <p className="text-xs text-ink/60">
-                A videographer friend, a hired second shooter — Unlimited only.
+                A videographer friend, a hired second shooter — pick their tier.
                 {extraCameraCount > 0 ? ` ${extraCameraCount} active.` : ''}
               </p>
             </div>
@@ -512,9 +535,21 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           <div className="max-w-sm">
             <ExtraCamerasPicker
               eventId={eventId}
-              unlimitedRate={cameraRates.unlimited}
-              unliCapPhp={papicUnliCapPhp}
-              unliFree={ownsPapicUnlock}
+              rungs={PAPIC_RUNGS.map((rung) => ({
+                rung,
+                title: papicTierConfig[rung].displayTitle,
+                ratePhp: papicRungRate(cameraRates, rung),
+                pointsPerDay: papicTierConfig[rung].pointsPerDay,
+                capPhp: papicRungCapPhp[rung],
+                // PAPIC_UNLOCK frees Unli · PAPIC_UNLOCK_LTD frees the ₱30 Mini
+                // rung. Nothing frees the ₱50 Ltd rung today.
+                free:
+                  rung === 'unlimited'
+                    ? ownsPapicUnlock
+                    : rung === 'mini'
+                      ? ownsPapicUnlockLtd
+                      : false,
+              }))}
               days={papicDays}
               windowSummary={papicWindowSummary}
             />

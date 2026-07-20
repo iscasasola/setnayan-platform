@@ -488,11 +488,19 @@ export async function setGuestClipShowcaseApproval(formData: FormData) {
 // additive: the PAPIC_SEATS pack is untouched.
 // ─────────────────────────────────────────────────────────────────────────
 
+/** Read one rung's camera count off the posted form (absent/garbage → 0). */
+function rungCount(formData: FormData, field: string): number {
+  const n = Number(formData.get(field) ?? 0);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
 /**
- * Buy paid Papic cameras (Roll + Unlimited counts in the form). Validates the
- * 5-camera minimum + cost cap, creates the apply-then-pay order, and provisions
- * the cameras at their tiers. Redirects back to the Papic page with payment
- * instructions (reference code + amount).
+ * Buy paid Papic cameras across the THREE rungs — `mini` (₱30) · `ltd` (₱50) ·
+ * `unlimited` (₱100) — plus the legacy `roll` field, which is accepted forever
+ * and folded into Mini by computeCameraQuote (roll == Mini · see
+ * lib/papic-cameras.ts). Validates the minimum + per-rung cap, creates the
+ * apply-then-pay order, and provisions the cameras at their rungs. Redirects
+ * back to the Papic page with payment instructions (reference code + amount).
  */
 export async function purchasePapicCameras(formData: FormData) {
   const result = await getCoupleEventId(formData.get('event_id'));
@@ -511,8 +519,12 @@ export async function purchasePapicCameras(formData: FormData) {
     redirect('/login');
   }
 
-  const roll = Number(formData.get('roll') ?? 0);
-  const unlimited = Number(formData.get('unlimited') ?? 0);
+  const selection = {
+    mini: rungCount(formData, 'mini'),
+    ltd: rungCount(formData, 'ltd'),
+    unlimited: rungCount(formData, 'unlimited'),
+    roll: rungCount(formData, 'roll'), // legacy field name → folds into Mini
+  };
 
   const admin = createAdminClient();
 
@@ -545,9 +557,11 @@ export async function purchasePapicCameras(formData: FormData) {
     PAPIC_UNLOCK_LTD_BUNDLE_KEY,
   );
   const rates = await fetchCameraRates(admin);
-  const quote = computeCameraQuote({ roll, unlimited }, win.days, rates, caps, {
+  const quote = computeCameraQuote(selection, win.days, rates, caps, {
     unliFree: ownsUnlock,
-    ltdFree: ownsUnlockLtd,
+    // PAPIC_UNLOCK_LTD frees the ₱30 rung it was sold against — today's Mini
+    // (legacy 'roll'). It does NOT free the new ₱50 Ltd rung.
+    miniFree: ownsUnlockLtd,
     uncapped,
   });
 
@@ -595,7 +609,8 @@ export async function purchasePapicCameras(formData: FormData) {
     await provisionPaidCamerasAdmin(admin, {
       eventId,
       orderId: order.order_id,
-      rollCount: quote.rollCount,
+      miniCount: quote.miniCount,
+      ltdCount: quote.ltdCount,
       unlimitedCount: quote.unlimitedCount,
       validFrom: win.startIso,
       validUntil: win.endIso,
@@ -609,7 +624,7 @@ export async function purchasePapicCameras(formData: FormData) {
     // Free Unli provision (umbrella owner) — cameras are already active, no
     // payment instructions. Surface a "your cameras are ready" confirmation.
     redirect(
-      `/dashboard/${eventId}/studio/papic?papic_unlock_provisioned=${quote.unlimitedCount}`,
+      `/dashboard/${eventId}/studio/papic?papic_unlock_provisioned=${quote.paidCount}`,
     );
   }
   redirect(
@@ -796,17 +811,24 @@ export async function activatePapicLimited(formData: FormData) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Papic · UNLIMITED extras — cameras for shooters NOT on the guest list.
+// Papic · extra cameras — for shooters NOT on the guest list.
 //
 // The ONLY way to add a camera off the guest list (a videographer friend, a
-// hired second shooter). Off-list shooters have no guest record + no personal
-// gallery, so they're Unlimited only — uncapped, archived to Drive. Each extra
-// is a deliberate paid camera at the per-day rate, so the minimum is 1 (no
-// bulk-of-5 gate — owner UX call 2026-06-26; flagged for pricing review). These
-// stay anonymous paparazzi_seats with claim links (the existing per-camera path).
+// hired second shooter). These stay anonymous paparazzi_seats with claim links
+// (the per-camera path). Each extra is a deliberate paid camera at the per-day
+// rate, so the minimum is 1 (no bulk-of-5 gate — owner UX call 2026-06-26).
+//
+// Owner 2026-07-20: extras now span the FULL three-rung ladder (Mini ₱30 · Ltd
+// ₱50 · Unli ₱100) rather than Unlimited-only. Every rung meters through the
+// same capture-points budget from papic_tier_config, so an off-list Mini camera
+// is exactly as well-defined as an on-list one.
 // ─────────────────────────────────────────────────────────────────────────
 
-/** Buy N Unlimited extra cameras (off the guest list). Min 1. Apply-then-pay. */
+/**
+ * Buy extra cameras off the guest list, at any rung. Min 1 camera total.
+ * Apply-then-pay. Accepts `mini` / `ltd` / `unlimited` counts (plus the legacy
+ * `roll` field, folded into Mini).
+ */
 export async function purchasePapicExtras(formData: FormData) {
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) {
@@ -822,8 +844,13 @@ export async function purchasePapicExtras(formData: FormData) {
     redirect('/login');
   }
 
-  const unlimited = Number(formData.get('unlimited') ?? 0);
-  if (!Number.isFinite(unlimited) || unlimited < 1) {
+  const selection = {
+    mini: rungCount(formData, 'mini'),
+    ltd: rungCount(formData, 'ltd'),
+    unlimited: rungCount(formData, 'unlimited'),
+    roll: rungCount(formData, 'roll'), // legacy field name → folds into Mini
+  };
+  if (selection.mini + selection.ltd + selection.unlimited + selection.roll < 1) {
     redirect(`/dashboard/${eventId}/studio/papic?papic_error=min_extras`);
   }
 
@@ -844,20 +871,27 @@ export async function purchasePapicExtras(formData: FormData) {
   // guest-list cameras so the whole event opens/closes together).
   const win = await fetchEventPapicWindow(admin, eventId);
 
-  // PAPIC_UNLOCK owners get Unli free + uncapped.
-  const ownsUnlock = await eventSkuActive(admin, eventId, PAPIC_UNLOCK_BUNDLE_KEY);
+  // Unlock passes: PAPIC_UNLOCK frees Unli · PAPIC_UNLOCK_LTD frees the ₱30
+  // Mini rung (the rung it was sold against — see lib/papic-cameras.ts).
+  const [ownsUnlock, ownsUnlockLtd] = await Promise.all([
+    eventSkuActive(admin, eventId, PAPIC_UNLOCK_BUNDLE_KEY),
+    eventSkuActive(admin, eventId, PAPIC_UNLOCK_LTD_BUNDLE_KEY),
+  ]);
   const rates = await fetchCameraRates(admin);
-  const quote = computeCameraQuote({ roll: 0, unlimited }, win.days, rates, caps, {
+  const quote = computeCameraQuote(selection, win.days, rates, caps, {
     unliFree: ownsUnlock,
+    miniFree: ownsUnlockLtd,
     uncapped,
   });
 
   const isFree = quote.totalPhp === 0;
   const referenceCode = mintPapicReferenceCode();
   const windowLabel = formatWindowSummary(win.startIso, win.endIso);
-  const description = `Papic Unlimited extras — ${quote.unlimitedCount} camera${
-    quote.unlimitedCount === 1 ? '' : 's'
-  }${windowLabel ? ` · ${windowLabel}` : ` · ${win.days} day${win.days === 1 ? '' : 's'}`}`;
+  const description = `Papic extra cameras — ${quote.rungSummary}${
+    windowLabel
+      ? ` · ${windowLabel}`
+      : ` · ${win.days} day${win.days === 1 ? '' : 's'}`
+  }`;
   const { data: order, error: orderErr } = await admin
     .from('orders')
     .insert({
@@ -880,12 +914,13 @@ export async function purchasePapicExtras(formData: FormData) {
     );
   }
 
-  // Anonymous Unlimited seats (guest_id stays NULL → claim-link model).
+  // Anonymous seats at their chosen rungs (guest_id stays NULL → claim-link model).
   try {
     await provisionPaidCamerasAdmin(admin, {
       eventId,
       orderId: order.order_id,
-      rollCount: 0,
+      miniCount: quote.miniCount,
+      ltdCount: quote.ltdCount,
       unlimitedCount: quote.unlimitedCount,
       validFrom: win.startIso,
       validUntil: win.endIso,
@@ -897,7 +932,7 @@ export async function purchasePapicExtras(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/studio/papic`);
   if (isFree) {
     redirect(
-      `/dashboard/${eventId}/studio/papic?papic_unlock_provisioned=${quote.unlimitedCount}`,
+      `/dashboard/${eventId}/studio/papic?papic_unlock_provisioned=${quote.paidCount}`,
     );
   }
   redirect(

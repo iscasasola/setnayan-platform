@@ -16,7 +16,22 @@ import {
 import { RevealBand, LineRevealHeading } from './_pricing-motion';
 // Display-only Papic estimator (client). NEVER calls checkout — pure client
 // arithmetic over catalog rates passed as props. See _papic-estimator.tsx.
-import { PapicEstimator, type EstimatorRates } from './_papic-estimator';
+import {
+  PapicEstimator,
+  type EstimatorRates,
+  type EstimatorRung,
+} from './_papic-estimator';
+import {
+  fetchCameraRates,
+  fetchPapicTierConfig,
+  papicRungRate,
+  PAPIC_CAMERA_RATES_FALLBACK,
+  PAPIC_TIER_CONFIG_FALLBACK,
+  PAPIC_FREE_CAMERA_COUNT,
+  PAPIC_MINI_CAP_FALLBACK_PHP,
+  PAPIC_LTD_CAP_FALLBACK_PHP,
+  PAPIC_UNLI_CAP_FALLBACK_PHP,
+} from '@/lib/papic-cameras';
 
 /**
  * Force dynamic rendering · skip static prerender.
@@ -171,28 +186,82 @@ export default async function PricingPage() {
   const aiIntroLabel = setnayanAi ? `₱${formatPeso(setnayanAi.retail_price_php)}` : '₱499';
   const aiPeriod = setnayanAi ? formatBillingPeriodSuffix(setnayanAi.billing_period) : '';
 
-  // Collapse the two per-camera Papic rate SKUs into ONE synthetic "from ₱30/
-  // camera" catalog row for the grouped list + JSON-LD keeps the raw rows.
-  const papicRoll = customerSkus.find((s) => s.service_code === 'PAPIC_CAMERA_ROLL_DAY');
-  const papicUnlimited = customerSkus.find((s) => s.service_code === 'PAPIC_CAMERA_UNLIMITED_DAY');
-  const papicCamerasSynthetic: V2CustomerSku | null =
-    papicRoll || papicUnlimited
-      ? {
-          service_code: 'PAPIC_CAMERAS',
-          title: 'Papic Cameras',
-          retail_price_php: papicRoll?.retail_price_php ?? 30,
-          saas_overhead_cost_php: 0,
-          is_token_able: false,
-          description: `Turn your guests into paparazzi — every candid lands in your shared gallery. Ltd ₱${formatPeso(papicRoll?.retail_price_php ?? 30)} (30 photos + 10 videos) or Unli ₱${formatPeso(papicUnlimited?.retail_price_php ?? 100)} per camera, per day · first 5 free · each tier capped per day (Ltd ₱9,000 · Unli ₱15,000).`,
-          build_status: 'live',
-          billing_period: 'one_time',
-          is_pax_priced: true, // drives the "from ₱X" label
-          pax_floor: null,
-          pax_floor_price_php: null,
-          pax_increment_size: null,
-          pax_increment_price_php: null,
-        }
-      : null;
+  // The camera ladder, resolved from the live catalog + papic_tier_config —
+  // three rungs (Mini ₱30 · Ltd ₱50 · Unli ₱100) collapsed into ONE synthetic
+  // "from ₱30/camera" catalog row for the grouped list; JSON-LD keeps the raw
+  // rows. papicTierConfig supplies the display titles, daily point budgets and
+  // per-rung caps so nothing on this page hardcodes the ladder.
+  // Same guard the v2-catalog fetchers use: createAdminClient THROWS when
+  // SUPABASE_SERVICE_ROLE_KEY is unset (CI `production build`), so a miss must
+  // degrade to the module fallbacks rather than 500 the marketing page.
+  const papicAdmin = (() => {
+    try {
+      return createAdminClient();
+    } catch {
+      return null;
+    }
+  })();
+  const [papicTierConfig, papicRates] = papicAdmin
+    ? await Promise.all([
+        fetchPapicTierConfig(papicAdmin),
+        fetchCameraRates(papicAdmin),
+      ])
+    : [PAPIC_TIER_CONFIG_FALLBACK, PAPIC_CAMERA_RATES_FALLBACK];
+  const papicRungDefs: EstimatorRung[] = [
+    {
+      key: 'mini',
+      label: papicTierConfig.mini.displayTitle,
+      rate: papicRungRate(papicRates, 'mini'),
+      cap: papicTierConfig.mini.weddingDayCapPhp ?? PAPIC_MINI_CAP_FALLBACK_PHP,
+      pointsPerDay: papicTierConfig.mini.pointsPerDay,
+    },
+    {
+      key: 'ltd',
+      label: papicTierConfig.ltd.displayTitle,
+      rate: papicRungRate(papicRates, 'ltd'),
+      cap: papicTierConfig.ltd.weddingDayCapPhp ?? PAPIC_LTD_CAP_FALLBACK_PHP,
+      pointsPerDay: papicTierConfig.ltd.pointsPerDay,
+    },
+    {
+      key: 'unli',
+      label: papicTierConfig.unlimited.displayTitle,
+      rate: papicRungRate(papicRates, 'unlimited'),
+      cap:
+        papicTierConfig.unlimited.weddingDayCapPhp ?? PAPIC_UNLI_CAP_FALLBACK_PHP,
+      pointsPerDay: papicTierConfig.unlimited.pointsPerDay,
+    },
+  ];
+  const hasAnyPapicRateRow = [
+    'PAPIC_CAMERA_MINI_DAY',
+    'PAPIC_CAMERA_ROLL_DAY',
+    'PAPIC_CAMERA_LTD_DAY',
+    'PAPIC_CAMERA_UNLIMITED_DAY',
+  ].some((code) => customerSkus.some((s) => s.service_code === code));
+  const rungBlurb = (r: EstimatorRung) =>
+    `${r.label.replace(/^Papic /, '')} ₱${formatPeso(r.rate)}${
+      r.pointsPerDay == null ? ' (no limit)' : ` (${r.pointsPerDay} pts/day)`
+    }`;
+  const papicCamerasSynthetic: V2CustomerSku | null = hasAnyPapicRateRow
+    ? {
+        service_code: 'PAPIC_CAMERAS',
+        title: 'Papic Cameras',
+        retail_price_php: papicRungDefs[0]!.rate,
+        saas_overhead_cost_php: 0,
+        is_token_able: false,
+        description: `Turn your guests into paparazzi — every candid lands in your shared gallery. ${papicRungDefs
+          .map(rungBlurb)
+          .join(' · ')} per camera, per day · first ${PAPIC_FREE_CAMERA_COUNT} cameras free · weddings capped per tier (${papicRungDefs
+          .map((r) => `${r.label.replace(/^Papic /, '')} ₱${formatPeso(r.cap)}`)
+          .join(' · ')}).`,
+        build_status: 'live',
+        billing_period: 'one_time',
+        is_pax_priced: true, // drives the "from ₱X" label
+        pax_floor: null,
+        pax_floor_price_php: null,
+        pax_increment_size: null,
+        pax_increment_price_php: null,
+      }
+    : null;
 
   // Look up table for the grouped add-on renderer — includes the synthetic row.
   const skuByCode = new Map<string, V2CustomerSku>(
@@ -213,8 +282,8 @@ export default async function PricingPage() {
       .filter((r): r is { sku: V2CustomerSku; withPapic: boolean } => r !== null),
   })).filter((g) => g.rows.length > 0);
 
-  // Estimator rates — read from the catalog where available (₱30 Ltd / ₱100 Unli
-  // / ₱15,000 cap fallbacks only if a row is missing). Add-on prices for the
+  // Estimator rates — the ladder built above (catalog + papic_tier_config, with
+  // last-resort fallbacks only if a row is missing). Add-on prices for the
   // ticklist likewise come from the catalog.
   const rateOf = (code: string, fb: number) =>
     Number(customerSkus.find((s) => s.service_code === code)?.retail_price_php ?? fb);
@@ -229,9 +298,9 @@ export default async function PricingPage() {
     // excluded from the per-camera Papic estimator (owner 2026-07-10).
   ];
   const estimatorRates: EstimatorRates = {
-    ltd: rateOf('PAPIC_CAMERA_ROLL_DAY', 30),
-    unli: rateOf('PAPIC_CAMERA_UNLIMITED_DAY', 100),
-    capPerDay: 15000,
+    rungs: papicRungDefs,
+    freeCameras: PAPIC_FREE_CAMERA_COUNT,
+    capPerDay: PAPIC_UNLI_CAP_FALLBACK_PHP,
     addons: estimatorAddonDefs
       // Only offer an add-on the catalog actually carries (else drop it).
       .filter((a) => customerSkus.some((s) => s.service_code === a.code))

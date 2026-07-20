@@ -55,3 +55,19 @@ Prices verified as plain PHP `numeric`, not centavos (prod, 2026-07-20).
 SPEC IMPACT: Corpus already updated — `0012_papic/Papic_Pricing_Lock_2026-07-20.md` §2.3 (the
 ladder) and §11 (purchased buckets vs the guest-derived fence, and the PR-1 scope this
 implements), plus two DECISION_LOG rows dated 2026-07-20.
+
+### Reversal (follow-up in the same PR)
+
+**No downgrade path — by design** (owner 2026-07-21: upgrades yes, downgrades no). Tiers are
+additive grants in an append-only ledger, so a couple can only ever *add* points; there is no
+operation that swaps a bucket for a smaller one.
+
+The one reversal that must work is a **refunded / un-approved order** — and `deactivateOrderSku`
+previously early-returned for every SKU except `SETNAYAN_AI`, so a reversed Papic One order would
+have **kept its points** (buy → granted → refund → keep the pool). `reversePapicPassPoints` now
+deletes grants by `order_id` (idempotent; a no-op for non-Papic SKUs since no grant carries their
+`order_id`) and ledgers `order_refunded` with `points_revoked`.
+
+If the couple already spent more than the remaining grants cover, the pool's remaining goes
+non-positive and the **fail-closed** gate stops capture — the correct outcome for a reversed order,
+not a bug to paper over.

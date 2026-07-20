@@ -136,6 +136,50 @@ async function grantPapicPassPoints(ctx: ActivationContext): Promise<void> {
   }
 }
 
+/**
+ * Papic One — reverse a purchased point grant when an order is un-approved.
+ *
+ * Symmetric to grantPapicPassPoints. Deletes by order_id (idempotent, and a
+ * no-op for every non-Papic SKU because no grant carries that order_id).
+ * Non-fatal: a failure leaves points a refunded couple should not have, which an
+ * admin can clear — it must never block the reversal itself.
+ */
+async function reversePapicPassPoints(ctx: ActivationContext): Promise<void> {
+  try {
+    const { data, error } = await ctx.admin
+      .from('papic_event_point_grants')
+      .delete()
+      .eq('order_id', ctx.orderId)
+      .select('grant_id, points');
+    if (error) {
+      console.error('[sku-activation] Papic One grant reversal failed (non-fatal):', {
+        order_id: ctx.orderId,
+        error: error.message,
+      });
+      return;
+    }
+    if (!Array.isArray(data) || data.length === 0) return;
+
+    const revoked = data.reduce(
+      (sum, r) => sum + (typeof r.points === 'number' ? r.points : 0),
+      0,
+    );
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'order_refunded',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: {
+        service_key: ctx.serviceKey,
+        event_id: ctx.eventId,
+        points_revoked: revoked,
+      },
+    });
+  } catch (e) {
+    console.error('[sku-activation] Papic One grant reversal threw (non-fatal):', e);
+  }
+}
+
 // Exact-match hooks keyed by literal service_key.
 const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // 'concierge_complete' (TODAYS_FOCUS) → wedding-anchored concierge state machine.
@@ -683,6 +727,20 @@ async function deactivateSetnayanAiIfUnowned(ctx: ActivationContext): Promise<vo
  * (the bundle that granted it).
  */
 export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> {
+  // Papic One — reverse the purchased point grant.
+  //
+  // There is no DOWNGRADE path by design (owner 2026-07-20: upgrades yes,
+  // downgrades no). Tiers are additive grants in an append-only ledger, so a
+  // couple can only ever add points — there is no operation that swaps a bucket
+  // for a smaller one. The ONLY reversal is a refunded / un-approved order, and
+  // this is it: without it, buy → granted → refund → keep the points.
+  //
+  // Deleting by order_id is naturally idempotent. If the couple already SPENT
+  // more than the remaining grants cover, the pool's remaining goes non-positive
+  // and the fail-closed gate stops capture — which is the correct outcome for a
+  // reversed order, not a bug to paper over.
+  await reversePapicPassPoints(ctx);
+
   const grantsAi =
     ctx.serviceKey === 'SETNAYAN_AI' ||
     (BUNDLE_CHILD_SKUS[ctx.serviceKey as keyof typeof BUNDLE_CHILD_SKUS]?.includes(

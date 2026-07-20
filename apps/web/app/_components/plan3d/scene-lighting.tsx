@@ -13,7 +13,8 @@
  * WHAT IT IS
  *   · A procedural room environment map built from inline drei <Lightformer>
  *     panels ONLY — a warm key, a cool fill, an overhead wash and a soft floor
- *     bounce. NO preset, NO HDRI file, NO network fetch (CSP + offline-first).
+ *     bounce. NO preset, NO HDRI file, NO network fetch (offline-first — no
+ *     asset pipeline; NOT a CSP limit).
  *     `frames={1}` bakes the env map once (the panels never move), so there is
  *     no per-frame PMREM cost — image-based lighting is a near-free realism
  *     win for the standard materials all three surfaces already use.

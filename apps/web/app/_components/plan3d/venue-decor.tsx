@@ -22,7 +22,8 @@
  *   · Instanced or trivially cheap: chandeliers, string-light bulbs, floral
  *     blossoms, candles, centrepieces, perimeter shrubs and window panels are
  *     all `InstancedMesh` (one/two draws for a whole set) or a handful of meshes.
- *   · No fetched assets, no troika text, no CDN/HDRI (CSP + offline-first).
+ *   · No fetched assets, no troika text, no CDN/HDRI (offline-first — no asset
+ *     pipeline; NOT a CSP limit).
  *   · Degrades to nothing: `{}` (the default `reception_design`) renders the
  *     DEFAULT_DESIGN treatments; an explicit 'none'/'bare' renders nothing.
  *   · `quality: 'low'` (phone walk / guest venue) drops the most expensive bits

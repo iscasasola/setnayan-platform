@@ -18,6 +18,11 @@ test('wedding-surface add-ons carry the right surface', () => {
     editorial: 'website',
     'landing-page': 'website',
     'animated-monogram': 'monogram',
+    // Papic Buong Araw (PAPIC_GUEST) — the flat guest-camera pass needs a guest
+    // ROSTER, so it hides wherever the type has no RSVP surface (simple_event).
+    // NOTE: `surface` alone does NOT deny travel (its profile enables rsvp) —
+    // lib/papic-event-access.ts carries that deny.
+    'papic-guest': 'rsvp',
   };
   for (const [key, surface] of Object.entries(expected)) {
     const entry = byKey.get(key);
@@ -33,6 +38,18 @@ test('universal in-app services carry NO surface (shown for every event type)', 
     if (!entry) continue; // tolerate catalog churn — only assert when present
     assert.equal(entry.surface, undefined, `${key} must stay universal (no surface)`);
   }
+});
+
+test('Papic Buong Araw stays unbuyable until its Phase-0 gates land', () => {
+  // The live catalog row is still pax-priced at ₱2,999 (verdict gate 0b is an
+  // owner DB action), the event-scoped points pool (0c) is unbuilt, and the
+  // ROPA row + DPO consent-text sign-off (0d/0e) are open. A 'live' card would
+  // show the wrong price and open a buy path that cannot honour it. Flip this
+  // assertion in the SAME PR that flips the status — never before.
+  const entry = byKey.get('papic-guest');
+  assert.ok(entry, 'papic-guest add-on should exist (the doorway is gate 0h)');
+  assert.equal(entry!.status, 'coming_soon');
+  assert.equal(entry!.serviceKey, 'PAPIC_GUEST');
 });
 
 test('every surface value is a known ProfileSurface', () => {

@@ -157,7 +157,7 @@ export async function getHomePricingData(): Promise<PricingData> {
   const monogram = priceOf(catalog, 'ANIMATED_MONOGRAM', 999);
   const liveBg = priceOf(catalog, 'LIVE_BACKGROUND', 499);
   const pakanta = priceOf(catalog, 'PAKANTA', 2499);
-  const liveStudio = priceOf(catalog, 'PANOOD_SYSTEM', 2499); // Desktop Controller ₱2,499/day (Mobile ₱1,299/day is a separate SKU)
+  const liveStudio = priceOf(catalog, 'PANOOD_SYSTEM', 2500); // Desktop Controller ₱2,500/day (Mobile ₱1,500/day is a separate SKU)
 
   // Papic rungs — DERIVED from papic_tier_config (title · daily capture-POINT
   // budget · wedding cap) priced from the live catalog. This file must never

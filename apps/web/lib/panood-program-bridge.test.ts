@@ -26,6 +26,10 @@ import {
   installProgramBridge,
   resolveProgramBridge,
   EMPTY_FRAME,
+  clampSplitRatio,
+  splitRatioFromPointer,
+  SPLIT_RATIO_MIN,
+  SPLIT_RATIO_MAX,
   type ProgramBridge,
   type ProgramFrame,
 } from './panood-program-bridge';
@@ -161,4 +165,39 @@ test('dispose removes the bridge so a stale pop-out cannot bind to a dead consol
 
   bridge.dispose();
   assert.equal(resolveProgramBridge(), 'no-bridge');
+});
+
+/* -------------------------------------------------------------------------- */
+/*  Split-cam ratio math (PR #5)                                              */
+/* -------------------------------------------------------------------------- */
+
+test('clampSplitRatio keeps both panes legible', () => {
+  assert.equal(clampSplitRatio(0.5), 0.5);
+  assert.equal(clampSplitRatio(0), SPLIT_RATIO_MIN); // a 0%-wide pane reads as a glitch
+  assert.equal(clampSplitRatio(1), SPLIT_RATIO_MAX);
+  assert.equal(clampSplitRatio(-5), SPLIT_RATIO_MIN);
+  assert.equal(clampSplitRatio(42), SPLIT_RATIO_MAX);
+});
+
+test('clampSplitRatio collapses non-finite input to an even split', () => {
+  // A divider dragged before layout can produce NaN; an even split is the only
+  // safe fallback, since this frame may be going to air.
+  assert.equal(clampSplitRatio(Number.NaN), 0.5);
+  assert.equal(clampSplitRatio(Number.POSITIVE_INFINITY), 0.5);
+  assert.equal(clampSplitRatio(Number.NEGATIVE_INFINITY), 0.5);
+});
+
+test('splitRatioFromPointer maps pointer position across the track', () => {
+  const track = { left: 100, width: 400 };
+  assert.equal(splitRatioFromPointer(300, track), 0.5); // dead centre
+  assert.equal(splitRatioFromPointer(200, track), 0.25);
+  assert.equal(splitRatioFromPointer(100, track), SPLIT_RATIO_MIN); // clamped at the edge
+  assert.equal(splitRatioFromPointer(500, track), SPLIT_RATIO_MAX);
+});
+
+test('splitRatioFromPointer returns null for an unlaid-out track', () => {
+  // Returning null (not 0.5) lets the caller LEAVE the ratio alone rather than
+  // snapping the operator's divider to a clamp bound mid-drag.
+  assert.equal(splitRatioFromPointer(300, { left: 0, width: 0 }), null);
+  assert.equal(splitRatioFromPointer(300, { left: 0, width: Number.NaN }), null);
 });

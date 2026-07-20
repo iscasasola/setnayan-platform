@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import {
+  clampSplitRatio,
   EMPTY_FRAME,
   resolveProgramBridge,
   type BridgeFailure,
@@ -117,7 +118,7 @@ function SplitComposite({
   secondary: MediaStream;
   ratio: number;
 }) {
-  const clamped = Math.min(0.85, Math.max(0.15, ratio));
+  const clamped = clampSplitRatio(ratio);
   return (
     <div className="flex h-full w-full">
       <div className="relative h-full overflow-hidden" style={{ width: `${clamped * 100}%` }}>

@@ -16,12 +16,14 @@ import { TestResendButton } from './_components/test-resend-button';
 import { SecretCard } from './_components/secret-card';
 import { OAuthCard } from './_components/oauth-card';
 import { MayaCard } from './_components/maya-card';
+import { PayMongoCard } from './_components/paymongo-card';
 import { BuildTimeStatus } from './_components/build-time-status';
 import {
   SECRET_INTEGRATIONS,
   OAUTH_INTEGRATIONS,
   SOCIAL_INTEGRATIONS,
   MAYA_INTEGRATION,
+  PAYMONGO_INTEGRATION,
 } from '@/lib/integrations/registry';
 import { getSecretPresenceMap } from '@/lib/integration-config';
 
@@ -385,6 +387,28 @@ export default async function AdminIntegrationsPage({
             Boolean(process.env[MAYA_INTEGRATION.endpointEnv])
           }
           statusApproved={process.env.NEXT_PUBLIC_MAYA_STATUS === 'APPROVED'}
+        />
+      </section>
+
+      {/* Payments (PayMongo Phase 0) — 1 API secret + 2 webhook signing secrets */}
+      <section className="space-y-4">
+        <PayMongoCard
+          secretInDb={secretPresence[PAYMONGO_INTEGRATION.secretKeyColumn] ?? false}
+          secretInEnv={Boolean(process.env[PAYMONGO_INTEGRATION.secretKeyEnv])}
+          webhookTestInDb={secretPresence[PAYMONGO_INTEGRATION.webhookTestColumn] ?? false}
+          webhookTestInEnv={Boolean(process.env[PAYMONGO_INTEGRATION.webhookTestEnv])}
+          webhookLiveInDb={secretPresence[PAYMONGO_INTEGRATION.webhookLiveColumn] ?? false}
+          webhookLiveInEnv={Boolean(process.env[PAYMONGO_INTEGRATION.webhookLiveEnv])}
+          endpointValue={
+            ((oauthSettings?.[PAYMONGO_INTEGRATION.endpointColumn] as string | null) ?? '').trim() ||
+            process.env[PAYMONGO_INTEGRATION.endpointEnv] ||
+            PAYMONGO_INTEGRATION.endpointDefault
+          }
+          endpointFromEnv={
+            !((oauthSettings?.[PAYMONGO_INTEGRATION.endpointColumn] as string | null) ?? '').trim() &&
+            Boolean(process.env[PAYMONGO_INTEGRATION.endpointEnv])
+          }
+          statusApproved={process.env.NEXT_PUBLIC_PAYMONGO_STATUS === 'APPROVED'}
         />
       </section>
 

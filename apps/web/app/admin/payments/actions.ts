@@ -6,26 +6,13 @@ import { redirect } from 'next/navigation';
 // Shared admin gate (council fix #1 2026-07-09) — same Forbidden contract the
 // local requireAdmin had before it was promoted to lib/admin/require-admin.ts.
 import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
-// Couple referral rewards (2026-07-01). QUALIFYING EVENT = the referred
-// couple's FIRST PAID ORDER. Fired best-effort off an after() hook the moment
-// an order flips to 'paid' — never blocks or fails the reconciliation flow.
-// Idempotent + inert-when-reward-unset (see lib/referrals.ts).
-import { qualifyReferralOnFirstPaidOrder } from '@/lib/referrals';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { formatPhp, orderGrossOwed, isVatInclusiveServiceKey } from '@/lib/orders';
-import { computeVatFromBase, computeVatFromGross } from '@/lib/receipts';
-import { captureEvent } from '@/lib/analytics';
-import {
-  computePayoutBreakdown,
-  dispatchVendorPayouts,
-  getSetnayanFeeBps,
-  phpToCentavos,
-  releasePayoutHold,
-  resolveVendorVerificationState,
-} from '@/lib/payouts';
-import { branchIdFromServiceKey } from '@/lib/vendor-branches';
+// releasePayoutHold backs releasePayoutHoldAction (below); the payout-scheduling
+// + receipt helpers moved into lib/finalize-paid-order.ts with the promote block.
+import { releasePayoutHold } from '@/lib/payouts';
 // Day 3 of the voucher + inline-checkout sprint (CLAUDE.md 2026-05-29 Day 3
 // row). All admin payment-state transitions append a row to public.order_ledger
 // via the canonical helper. Best-effort writes — never throws, never blocks
@@ -46,6 +33,22 @@ import { appendLedger } from '@/lib/ledger';
 // so main's inline imports/constants are dropped here (typecheck confirms
 // nothing else references them).
 import { activateOrderSku, deactivateOrderSku } from '@/lib/sku-activation';
+// Shared order-fulfillment tail (order→paid · receipt · payouts · activation),
+// extracted VERBATIM from the promote block below so the manual admin lane and
+// the PayMongo gateway webhook produce byte-identical fulfillment.
+import { finalizePaidOrder } from '@/lib/finalize-paid-order';
+// Gateway refund path (Gap 4). resolveRefundMode branches manual vs gateway from
+// the order's matched payment; createPayMongoRefund actually moves the money back
+// via PayMongo for gateway-paid orders. shouldProceedToRefundStateMutation is the
+// API-first ordering gate (state mutation only after a confirmed refund) and
+// buildOrderRefundRow builds the deploy-safe conditional order_refunds insert.
+import {
+  resolveRefundMode,
+  shouldProceedToRefundStateMutation,
+  buildOrderRefundRow,
+  type RefundOutcome,
+} from '@/lib/paymongo-webhook-core';
+import { createPayMongoRefund } from '@/lib/paymongo';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -197,126 +200,38 @@ export async function approvePayment(formData: FormData) {
       }
     }
 
-    // Capture the update result. If this silently failed we'd notify
-    // the buyer "your order is paid" while the DB row still says
-    // pending — and downstream payout / receipt logic would diverge.
-    // Fail loudly so the admin can re-run rather than leaking a
-    // half-promoted order.
-    const { error: promoteErr } = await admin
-      .from('orders')
-      .update({ status: 'paid', updated_at: new Date().toISOString() })
-      .eq('order_id', payment.order_id);
-    if (promoteErr) {
-      await insertFaultLog({
-        event_type: 'SUPABASE_SAVE_ERROR',
-        element_name: 'Approve payment — promote order to paid',
-        file_path: 'app/admin/payments/actions.ts',
-        error_message: promoteErr.message,
-        payload_snapshot: { paymentId, orderId: payment.order_id, serviceKey: order?.service_key ?? null },
-      });
-      throw new Error(
-        `Failed to promote order ${payment.order_id} to paid: ${promoteErr.message}`,
-      );
-    }
-
-    // Best-effort (same contract as payment_matched above): the order is
-    // already promoted to 'paid'; a notification failure must not surface a
-    // 500 that makes the admin think the fully-successful approval failed.
-    try {
-      await emitNotification({
-        userId: payment.user_id,
-        type: 'order_paid',
-        title: `Order ${order?.public_id ?? ''} marked paid`,
-        body: "Your order is fully paid. We'll start work right away.",
-        relatedUrl: order?.event_id
-          ? `/dashboard/${order.event_id}/orders/${payment.order_id}`
-          : null,
-      });
-    } catch (e) {
-      console.error('order_paid notification failed (non-fatal):', e);
-    }
-
-    // Couple referral rewards — QUALIFYING EVENT is this buyer's FIRST PAID
-    // ORDER. If they signed up via a ?refc= code, the hook marks their open
-    // redemption qualified and (when the admin-managed reward is set) mints the
-    // two single-use reward vouchers. after() runs post-response so it never
-    // delays the admin's reconciliation click; the helper is best-effort and
-    // never throws. Idempotent — the redemption lookup only matches an `open`
-    // row, so re-approvals / partial-then-full flows can't double-mint.
-    after(() => qualifyReferralOnFirstPaidOrder(payment.user_id));
-
-    // Funnel event — fires the moment an order's status flips to paid.
-    // Distinct id is the buyer's Supabase user_id (payment.user_id), so it
-    // joins with `signup_completed` / `event_created` for the same person.
-    // `sku_key` maps to the order's `service_key` column (closest existing
-    // analog; no schema change per the wiring scope).
-    try {
-      await captureEvent({
-        distinctId: payment.user_id,
-        event: 'order_paid',
-        properties: {
-          order_id: payment.order_id,
-          amount_php: Number(payment.amount_php),
-          sku_key: order?.service_key ?? null,
-        },
-      });
-    } catch {
-      // analytics never breaks the admin reconciliation flow.
-    }
-
-    // Auto-issue an app transaction receipt — one per order. This is NOT a
-    // BIR Official Receipt (the actual BIR OR is issued separately, offline).
-    // The unique constraint on receipts.order_id makes the insert idempotent
-    // across retries; subsequent runs silently no-op.
-    await issueReceiptForOrder({ admin, orderId: payment.order_id });
-
-    // Vendor Payout dispatcher (locked 2026-05-16). If this order is linked
-    // to a vendor_profile (vendor_profile_id column on orders, populated by
-    // the legacy Setnayan Pay cart flow), schedule the payout rows now.
-    // Verified vendors get a single T+1 immediate stage; coming_soon /
-    // demoted get the 20/60/20 staged release.
-    //
-    // No-op when the order isn't a vendor booking (vendor_profile_id NULL)
-    // — couples buying Setnayan SKUs don't trigger vendor payouts. Failures
-    // here NEVER block the payment-approval flow; payouts can be retried
-    // from /admin/payouts.
-    //
-    // Retired 2026-05-28 V2 cutover — Setnayan Pay 5% convenience fee is
-    // retired entirely; Setnayan is now a software publisher, not a
-    // marketplace intermediary, and vendor bookings settle directly
-    // off-platform with 0% commission. This dispatcher stays wired for any
-    // legacy orders still carrying vendor_profile_id; new V2 orders won't
-    // route through it.
-    try {
-      await schedulePayoutsForOrder({
-        admin,
+    // All downstream fulfillment — order → paid, the order_paid notification,
+    // referral qualify, analytics, the app receipt, vendor payouts, AND per-SKU
+    // activation — is the SHARED helper (lib/finalize-paid-order.ts), so this
+    // manual admin lane and the PayMongo gateway webhook produce byte-identical
+    // fulfillment. The specific payment was already flipped → matched above
+    // (with admin_notes + reviewed_by + the 'payment_approved' ledger), so
+    // alreadyMatchedPayment=true tells the helper NOT to re-touch payment rows —
+    // exactly what the old inline promote block did (it never re-flipped). The
+    // shortfall-guard redirect above still exits BEFORE this for a short-paid
+    // order, so finalizePaidOrder (and its activation) never runs for one.
+    if (order) {
+      await finalizePaidOrder(admin, {
         orderId: payment.order_id,
+        order: {
+          event_id: order.event_id,
+          public_id: order.public_id,
+          service_key: order.service_key,
+        },
+        buyerUserId: payment.user_id,
         actorUserId: userId,
+        actorRole: 'admin',
+        alreadyMatchedPayment: true,
+        amountPhp: Number(payment.amount_php),
       });
-    } catch (e) {
-      console.error('vendor payout scheduling failed (non-fatal):', e);
     }
-  }
-
-  // Per-SKU activation dispatcher (PR3 hardening; PR4 dead-unlock repair
-  // 2026-06-15: moved OUT of the `if (promoteOrder)` block so it runs on EVERY
-  // approval). WHY: ownership reads off orders.status via checkOrderOwnership(),
-  // which already counts a 'submitted' order as OWNED — so the moment a payment
-  // is matched the capability is owned, whether or not the admin ticked
-  // "promote to paid". Previously activation lived inside the promote block, so
-  // approving WITHOUT promote matched the payment but never ran the side-effect
-  // provisioning (SETNAYAN_AI boolean, concierge state machine, vendor branch
-  // flag), leaving the capability owned-but-unprovisioned. Running it
-  // unconditionally aligns provisioning with ownership.
-  //
-  // Some SKUs need a side effect to unlock the capability; MOST are pure no-ops
-  // (ownership alone suffices). Non-fatal by contract — activateOrderSku never
-  // throws, so a failed activation leaves a recoverable state (admin re-runs /
-  // flips the row manually) but never rolls back the already-approved payment.
-  // Hooks are idempotent, so the promote-on path (which falls through to here
-  // exactly once) and a later re-approval are both safe. PR4 registers
-  // PAPIC_SEATS by editing lib/sku-activation.ts, NOT this block.
-  if (order) {
+  } else if (order) {
+    // Approve WITHOUT promote: the order stays pre-paid, but the capability is
+    // OWNED the moment the payment is matched (checkOrderOwnership counts a
+    // 'submitted' order as owned), so provisioning must still run — mirrors the
+    // pre-refactor behavior where activateOrderSku ran on EVERY approval.
+    // finalizePaidOrder owns this SAME call for the promote path, so it fires
+    // exactly once either way. Non-fatal by contract (never throws) + idempotent.
     await activateOrderSku({
       admin,
       orderId: payment.order_id,
@@ -341,182 +256,6 @@ export async function approvePayment(formData: FormData) {
   // fully-successful approval never shows the admin an error; the couple's UI
   // still refreshes a beat later. See DECISION_LOG 2026-07-05.
   after(() => revalidatePath('/dashboard', 'layout'));
-}
-
-async function schedulePayoutsForOrder(args: {
-  admin: ReturnType<typeof createAdminClient>;
-  orderId: string;
-  actorUserId: string;
-}): Promise<void> {
-  const { admin, orderId, actorUserId } = args;
-
-  // Pull the order + linked vendor + linked event date in one round-trip.
-  const { data: orderRow } = await admin
-    .from('orders')
-    .select(
-      `order_id, vendor_profile_id, confirmed_total_php, requested_total_php,
-       setnayan_fee_bps, gateway_fee_centavos, payment_method_key, event_id,
-       service_key,
-       vendor:vendor_profiles!orders_vendor_profile_id_fkey(public_visibility),
-       event:events!orders_event_id_fkey(event_date)`,
-    )
-    .eq('order_id', orderId)
-    .maybeSingle();
-
-  if (!orderRow) return;
-  const row = orderRow as unknown as {
-    order_id: string;
-    vendor_profile_id: string | null;
-    confirmed_total_php: number | null;
-    requested_total_php: number;
-    setnayan_fee_bps: number | null;
-    gateway_fee_centavos: number | null;
-    payment_method_key: string | null;
-    event_id: string | null;
-    service_key: string | null;
-    vendor: { public_visibility: string | null } | null;
-    event: { event_date: string | null } | null;
-  };
-
-  // Skip non-vendor orders silently — couples buying Setnayan SKUs don't
-  // generate a vendor payout schedule.
-  if (!row.vendor_profile_id) return;
-
-  // MONEY-DIRECTION GUARD (M1): a vendor payout must only ever be dispatched
-  // for a COUPLE BOOKING — i.e. an order where a couple paid Setnayan for a
-  // vendor's service and we owe the vendor their net. A vendor BRANCH
-  // activation order (`vendor_additional_branch__{id}`, owner-locked
-  // 2026-06-05) runs the OTHER direction: the VENDOR pays Setnayan ₱999 for an
-  // Enterprise sub-location. Those orders carry `vendor_profile_id` (the paying
-  // vendor) but NO `event_id` (there's no wedding behind them), so the old
-  // `if (!row.vendor_profile_id) return;` guard let them fall through and
-  // wrongly queued a vendor PAYOUT — i.e. Setnayan would pay the vendor for an
-  // order the vendor was paying US for.
-  //
-  // Two independent signals, either of which means "not a couple booking":
-  //   1. No linked event   → couple bookings always carry an event_id.
-  //   2. A branch service_key → the vendor-pays-Setnayan direction explicitly.
-  // The event_id check alone is robust; the service_key check is belt-and-
-  // suspenders for any other vendor-pays-Setnayan SKU that joins this code path.
-  const isBranchOrder =
-    !!row.service_key && branchIdFromServiceKey(row.service_key) !== null;
-  if (!row.event_id || isBranchOrder) return;
-
-  const basePhp = Number(row.confirmed_total_php ?? row.requested_total_php ?? 0);
-  if (basePhp <= 0) return;
-
-  // Gross = pre-VAT base + 12% VAT (the customer pays gross).
-  const { gross } = computeVatFromBase(basePhp);
-  const grossCentavos = phpToCentavos(gross);
-
-  // Effective convenience-fee bps: a per-order snapshot wins (orders.setnayan_fee_bps,
-  // captured at checkout) so historical orders keep their original fee; otherwise
-  // use the admin-set platform fee from platform_settings, which itself falls back
-  // to the 5.0% code constant when unset (= unchanged behavior pre-migration).
-  const effectiveFeeBps =
-    row.setnayan_fee_bps ?? (await getSetnayanFeeBps(admin));
-
-  const breakdown = computePayoutBreakdown({
-    grossCentavos,
-    setnayanFeeBps: effectiveFeeBps,
-    gatewayFeeCentavos: row.gateway_fee_centavos ?? undefined,
-  });
-
-  // Write the breakdown back onto the order row so receipts / vendor surfaces
-  // can read it without re-computing.
-  await admin
-    .from('orders')
-    .update({
-      gateway_fee_centavos: breakdown.gatewayFeeCentavos,
-      bir_withholding_centavos: breakdown.birWithholdingCentavos,
-      vendor_net_centavos: breakdown.vendorNetCentavos,
-      disbursement_fee_centavos: breakdown.disbursementFeeCentavos,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('order_id', orderId);
-
-  const verificationState = resolveVendorVerificationState({
-    public_visibility: row.vendor?.public_visibility ?? null,
-  });
-
-  await dispatchVendorPayouts(admin, {
-    orderId,
-    vendorProfileId: row.vendor_profile_id,
-    verificationState,
-    paidAt: new Date().toISOString(),
-    eventDate: row.event?.event_date ?? null,
-    breakdown,
-    // Default disbursement rail until the vendor sets a preferred one in
-    // their profile (V1.5 field). `maya_account` maps to the spec's
-    // 'maya' rail in the legacy `payout_method` CHECK column on
-    // vendor_payouts (migration 20260516020000).
-    payoutMethod: 'maya_account',
-    actorUserId,
-  });
-}
-
-async function issueReceiptForOrder(args: {
-  admin: ReturnType<typeof createAdminClient>;
-  orderId: string;
-}): Promise<void> {
-  const { admin, orderId } = args;
-
-  // Skip if a receipt was already issued for this order.
-  const { data: existing } = await admin
-    .from('receipts')
-    .select('receipt_id')
-    .eq('order_id', orderId)
-    .maybeSingle();
-  if (existing) return;
-
-  const { data: order } = await admin
-    .from('orders')
-    .select('user_id, service_key, confirmed_total_php, requested_total_php, voucher_discount_centavos')
-    .eq('order_id', orderId)
-    .maybeSingle();
-  if (!order) return;
-
-  // For customer SKUs the order's *_total_php fields are the **pre-VAT base**
-  // (the value Setnayan quotes); VAT is added on top, so the buyer paid
-  // base + 12%. For vendor charm prices the stored total is ALREADY the
-  // all-in gross (VAT baked in) — see isVatInclusiveServiceKey.
-  //
-  // #3 (money bug-hunt 2026-06-26): a BIR Official Receipt must reflect the
-  // amount actually paid. `requested_total_php` is the PRE-voucher base, so a
-  // voucher-discounted order whose `confirmed_total_php` is still NULL was
-  // getting a receipt overstating the pre-VAT/VAT/gross. Mirror `orderGrossOwed`:
-  // net the voucher discount off the requested base when not yet confirmed.
-  const voucherDiscountPhp = Number(order.voucher_discount_centavos ?? 0) / 100;
-  const storedTotal =
-    order.confirmed_total_php != null
-      ? Number(order.confirmed_total_php)
-      : Math.max(0, Number(order.requested_total_php ?? 0) - voucherDiscountPhp);
-  if (storedTotal <= 0) return;
-
-  const { data: buyer } = await admin
-    .from('users')
-    .select('email, display_name')
-    .eq('user_id', order.user_id)
-    .maybeSingle();
-
-  // VAT-inclusive vendor orders: back the VAT OUT of the gross so the receipt's
-  // pre_vat + vat sum to the ₱999 actually paid (not ₱999 + ₱119.88). Customer
-  // orders: build VAT UP from the pre-VAT base, unchanged.
-  const { preVat, vat, gross } = isVatInclusiveServiceKey(order.service_key)
-    ? computeVatFromGross(storedTotal)
-    : computeVatFromBase(storedTotal);
-
-  // or_serial defaults from public.or_serial_seq (atomic) — don't pass it.
-  // The display "Transaction No." is composed at read-time via formatReceiptNumber().
-  await admin.from('receipts').insert({
-    order_id: orderId,
-    user_id: order.user_id,
-    issued_to_email: buyer?.email ?? 'unknown@setnayan.com',
-    issued_to_name: buyer?.display_name ?? null,
-    pre_vat_php: preVat,
-    vat_amount_php: vat,
-    gross_total_php: gross,
-  });
 }
 
 export async function rejectPayment(formData: FormData) {
@@ -870,7 +609,7 @@ export async function refundOrder(formData: FormData) {
   const { data: orderBefore, error: readErr } = await admin
     .from('orders')
     .select(
-      'order_id, user_id, event_id, public_id, status, service_key, requested_total_php, confirmed_total_php',
+      'order_id, user_id, event_id, public_id, status, service_key, requested_total_php, confirmed_total_php, reference_code',
     )
     .eq('order_id', orderId)
     .maybeSingle();
@@ -898,9 +637,124 @@ export async function refundOrder(formData: FormData) {
     );
   }
 
-  // Step 2: flip the order to refunded. Conditional WHERE guards against
-  // a concurrent admin who already flipped it between the read and this
-  // update (race window is small but real).
+  // ── Step 2: resolve the refund RAIL up front — BEFORE any irreversible step ──
+  // (Fix #2, API-first). Nothing that revokes access or records the refund may
+  // happen until the money is confirmed returned, so we first learn HOW the order
+  // was paid, then branch:
+  //   • 'gateway' → the checkout drawer's PayMongo lane stamped the matched
+  //                 payment row with channel='paymongo' + a gateway_payment_id
+  //                 (pay_…, set by the webhook at fulfillment). We MOVE the money
+  //                 back via createPayMongoRefund and only THEN mutate state.
+  //   • 'manual'  → the legacy off-platform bank/e-wallet reversal (this action
+  //                 just records the truth; the owner transfers externally).
+  //
+  // Deploy-ordering guard (Fix #1): read the pre-existing `channel` column FIRST
+  // (always present) and touch the NEW `gateway_payment_id` column ONLY when the
+  // channel is PayMongo — the sole case a gateway refund is possible, which can
+  // only exist AFTER the hardening migration + the build-gated gateway go-live.
+  // So on a pre-migration deploy the manual path never selects a missing column.
+  const { data: matchedPay } = await admin
+    .from('payments')
+    .select('channel')
+    .eq('order_id', orderId)
+    .eq('status', 'matched')
+    .order('reviewed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const paidChannel = (matchedPay?.channel as string | null) ?? null;
+
+  let gatewayPaymentId: string | null = null;
+  if ((paidChannel ?? '').toLowerCase() === 'paymongo') {
+    // Gateway-paid → now (and only now) read the new gateway_payment_id column.
+    const { data: gwPay } = await admin
+      .from('payments')
+      .select('gateway_payment_id')
+      .eq('order_id', orderId)
+      .eq('status', 'matched')
+      .order('reviewed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    gatewayPaymentId = (gwPay?.gateway_payment_id as string | null) ?? null;
+  }
+  const refundMode = resolveRefundMode({ channel: paidChannel, gatewayPaymentId });
+
+  // ── GATEWAY: move the money FIRST; state mutation is gated on its success ────
+  let gatewayRefundId: string | null = null;
+  let gatewayOutcome: RefundOutcome | null = null;
+  if (refundMode === 'gateway') {
+    // Concurrency pre-check (best-effort): if an order_refunds row already exists
+    // for this order, a prior/concurrent caller already returned the money — do
+    // NOT call the gateway again. The UNIQUE(order_id) index is the authoritative
+    // guard; this read just shrinks the double-click window ahead of the API call.
+    const { data: existingRefund } = await admin
+      .from('order_refunds')
+      .select('order_id')
+      .eq('order_id', orderId)
+      .maybeSingle();
+    if (existingRefund) {
+      revalidatePath('/admin/payments');
+      throw new Error(
+        `Order ${orderBefore.public_id} already has a recorded refund. Nothing to do — refresh the page.`,
+      );
+    }
+
+    const gw = await createPayMongoRefund({
+      paymongoPaymentId: gatewayPaymentId as string,
+      amountCentavos: refundCentavos,
+      reason: 'requested_by_customer',
+      metadata: {
+        reference_code: orderBefore.reference_code ?? '',
+        order_id: orderId,
+      },
+    });
+    gatewayOutcome = gw;
+    if (gw.ok) gatewayRefundId = gw.refundId;
+  }
+
+  // API-first ordering contract: proceed to the IRREVERSIBLE steps (flip →
+  // deactivate → write order_refunds) ONLY when the money is known-returned
+  // (manual = unconditional; gateway = the /v1/refunds call succeeded).
+  if (!shouldProceedToRefundStateMutation({ mode: refundMode, gatewayOutcome })) {
+    // The gateway refund FAILED. Do the SAFE thing: touch NOTHING irreversible.
+    // We do NOT flip the order (it stays 'paid' — access intact), do NOT run
+    // deactivateOrderSku, and do NOT write an order_refunds row (a 'failed' row
+    // would consume the UNIQUE(order_id) slot and BLOCK the retry). The refund is
+    // therefore fully retryable with zero Studio surgery. A best-effort failure
+    // trail goes to admin_audit_log (JSONB metadata — needs no new column), never
+    // to order_refunds.
+    const failReason =
+      gatewayOutcome && !gatewayOutcome.ok ? (gatewayOutcome.reason ?? 'unknown error') : 'unknown error';
+    try {
+      await admin.from('admin_audit_log').insert({
+        action: 'refund_order_gateway_failed',
+        target_id: orderId,
+        actor_user_id: adminUserId,
+        metadata: {
+          order_public_id: orderBefore.public_id,
+          refund_amount_centavos: refundCentavos,
+          refund_amount_php: amountPhp,
+          reason,
+          failure_reason: failReason,
+          refund_mode: 'gateway',
+        },
+      });
+    } catch (e) {
+      console.error('[refundOrder] gateway-refund failure audit insert (non-fatal):', e);
+    }
+    throw new Error(
+      `PayMongo refund FAILED for order ${orderBefore.public_id}: ${failReason}. ` +
+        `The money was NOT returned and the order is UNCHANGED (still paid, access intact) — safe to retry.`,
+    );
+  }
+
+  // ── From here the money is EITHER already back through the gateway OR is an
+  //    off-platform manual reversal. Only now do the irreversible steps. ────────
+
+  // Flip the order to refunded. The guarded WHERE is the MUTEX: exactly one
+  // admin/path wins the paid|fulfilled → refunded transition, so a concurrent
+  // double-click cannot double-revoke access or double-record the refund. (On the
+  // gateway lane the pre-check above + PayMongo rejecting a second full refund
+  // against an already-refunded payment keep the money-move itself safe.)
   const { data: orderAfter, error: updErr } = await admin
     .from('orders')
     .update({ status: 'refunded', updated_at: new Date().toISOString() })
@@ -937,14 +791,22 @@ export async function refundOrder(formData: FormData) {
   // is the belt-and-suspenders idempotency guard — a 23505 unique-violation
   // here means another concurrent refund already inserted, which we surface
   // the same way as the WHERE-clause no-op above.
-  const { error: refundInsertErr } = await admin.from('order_refunds').insert({
-    order_id: orderId,
-    refund_amount_centavos: refundCentavos,
+  //
+  // Fix #1 (deploy-ordering): the row shape is built CONDITIONALLY by
+  // buildOrderRefundRow — the MANUAL path is byte-shape-identical to the
+  // pre-gateway insert (NO refund_mode / gateway_refund_id), so a manual GCash/BDO
+  // refund succeeds BEFORE the hardening migration adds those columns. Only the
+  // gateway path (unreachable pre-migration) adds them.
+  const refundRow = buildOrderRefundRow({
+    orderId,
+    refundCentavos,
     reason,
-    refunded_by_admin_id: adminUserId,
-    proof_url: proofUrl,
-    status: 'sent',
+    adminUserId,
+    proofUrl,
+    mode: refundMode,
+    gatewayRefundId,
   });
+  const { error: refundInsertErr } = await admin.from('order_refunds').insert(refundRow);
   if (refundInsertErr) {
     // The order row already flipped to refunded above — if we can't write
     // the audit row, the order state is inconsistent with the ledger.
@@ -973,6 +835,8 @@ export async function refundOrder(formData: FormData) {
         refund_amount_php: amountPhp,
         reason,
         proof_url: proofUrl,
+        refund_mode: refundMode,
+        gateway_refund_id: gatewayRefundId,
       },
     });
   } catch (auditErr) {
@@ -986,8 +850,11 @@ export async function refundOrder(formData: FormData) {
     type: 'payment_refunded',
     title: `Refund recorded for order ${orderBefore.public_id}`,
     body:
-      `Setnayan returned ${formatPhp(amountPhp)} to your bank or e-wallet. ` +
-      `Reach out if you don’t see the transfer within 1–3 banking days.`,
+      refundMode === 'gateway'
+        ? `Setnayan refunded ${formatPhp(amountPhp)} to the card or e-wallet you paid with. ` +
+          `It can take a few banking days to appear on your statement.`
+        : `Setnayan returned ${formatPhp(amountPhp)} to your bank or e-wallet. ` +
+          `Reach out if you don’t see the transfer within 1–3 banking days.`,
     relatedUrl: orderBefore.event_id
       ? `/dashboard/${orderBefore.event_id}/orders/${orderId}`
       : null,

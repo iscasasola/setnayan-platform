@@ -9,6 +9,7 @@ import {
   getSecretIntegration,
   getOAuthIntegration,
   MAYA_INTEGRATION,
+  PAYMONGO_INTEGRATION,
 } from '@/lib/integrations/registry';
 
 // Integration Activation Console — PR1 (email slice) · server actions.
@@ -273,6 +274,80 @@ export async function clearMayaSecrets(): Promise<void> {
     .update({
       [MAYA_INTEGRATION.publicKeyColumn]: null,
       [MAYA_INTEGRATION.secretKeyColumn]: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', 1);
+  revalidatePath('/admin/integrations');
+  redirect('/admin/integrations?cleared=1');
+}
+
+// ── PayMongo (Phase 0) — bespoke: 1 API secret + 2 webhook signing secrets ──
+//
+// PayMongo needs ONE API secret key (Basic-auth base64("<key>:")) + TWO webhook
+// signing secrets (separate test vs live) + one non-secret config (API base
+// URL), so it can't use the single-secret saveOAuthConfig. Each secret is
+// encrypted + written only when a non-blank value is entered (blank = keep
+// current); the endpoint is non-secret config (blank = clear → env fallback).
+export async function savePayMongoConfig(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const admin = createAdminClient();
+
+  // Non-secret config → platform_settings. Written UNCONDITIONALLY each save
+  // (blank = NULL = env fallback) — same prefill-keep contract as Maya/OAuth:
+  // the card prefills the resolved value, so a normal re-save preserves it; only
+  // a deliberately-blanked field clears it.
+  const endpointRaw = formData.get('paymongo_api_endpoint');
+  const endpoint =
+    typeof endpointRaw === 'string' && endpointRaw.trim() ? endpointRaw.trim() : null;
+  if (endpoint) {
+    let ok = false;
+    try {
+      const u = new URL(endpoint);
+      ok = u.protocol === 'https:' || u.protocol === 'http:';
+    } catch {
+      ok = false;
+    }
+    if (!ok) redirect('/admin/integrations?error=invalid_config');
+  }
+  await admin
+    .from('platform_settings')
+    .update({ [PAYMONGO_INTEGRATION.endpointColumn]: endpoint })
+    .eq('id', 1);
+
+  // Secrets → encrypt + write only the fields that were entered.
+  const secretPatch: Record<string, string> = {};
+  const keyRaw = formData.get('paymongo_secret_key');
+  if (typeof keyRaw === 'string' && keyRaw.trim()) {
+    secretPatch[PAYMONGO_INTEGRATION.secretKeyColumn] = encryptToken(keyRaw.trim());
+  }
+  const whTestRaw = formData.get('paymongo_webhook_secret_test');
+  if (typeof whTestRaw === 'string' && whTestRaw.trim()) {
+    secretPatch[PAYMONGO_INTEGRATION.webhookTestColumn] = encryptToken(whTestRaw.trim());
+  }
+  const whLiveRaw = formData.get('paymongo_webhook_secret_live');
+  if (typeof whLiveRaw === 'string' && whLiveRaw.trim()) {
+    secretPatch[PAYMONGO_INTEGRATION.webhookLiveColumn] = encryptToken(whLiveRaw.trim());
+  }
+  if (Object.keys(secretPatch).length > 0) {
+    await admin
+      .from('platform_integration_secrets')
+      .update({ ...secretPatch, updated_at: new Date().toISOString() })
+      .eq('id', 1);
+  }
+
+  revalidatePath('/admin/integrations');
+  redirect('/admin/integrations?saved=1');
+}
+
+export async function clearPayMongoSecrets(): Promise<void> {
+  await requireAdmin();
+  const admin = createAdminClient();
+  await admin
+    .from('platform_integration_secrets')
+    .update({
+      [PAYMONGO_INTEGRATION.secretKeyColumn]: null,
+      [PAYMONGO_INTEGRATION.webhookTestColumn]: null,
+      [PAYMONGO_INTEGRATION.webhookLiveColumn]: null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', 1);

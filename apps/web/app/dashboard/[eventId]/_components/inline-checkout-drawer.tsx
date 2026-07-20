@@ -258,6 +258,69 @@ export function InlineCheckoutDrawer({
   const originalGrossDisplay = formatGrossCentavos(originalPriceCentavos);
   const hasVoucher = voucherResult?.applied === true && voucherResult.code !== null;
 
+  // PayMongo instant-payment lane. NEXT_PUBLIC_* is inlined into the client
+  // bundle at build time, so this is the same build-time activation gate the
+  // server action re-checks. OFF (default) → the manual-QR path is the only
+  // rail and the PayMongo block stays a "Coming soon" locked preview.
+  const payMongoApproved = process.env.NEXT_PUBLIC_PAYMONGO_STATUS === 'APPROVED';
+
+  // Start an online PayMongo checkout: create the order (no screenshot) via the
+  // SAME submitOrderAction with payment_mode='paymongo', then redirect the buyer
+  // to the hosted checkout_url. NEVER marks anything paid — the webhook does.
+  const startPayMongo = () => {
+    if (submitPending) return;
+    setSubmitResult(null);
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    if (typeof cycles === 'number') fd.set('cycles', String(cycles));
+    fd.set('service_key', serviceKey);
+    fd.set('display_name', displayName);
+    fd.set('original_centavos', originalPriceCentavos);
+    // channel is required by the action's validation; the payments row records
+    // 'paymongo' as its rail.
+    fd.set('channel', 'paymongo');
+    fd.set('payment_mode', 'paymongo');
+    fd.set('client_idempotency_key', idempotencyKey);
+    if (referenceCode) fd.set('preminted_reference', referenceCode);
+    if (hasVoucher && voucherResult?.code) {
+      fd.set('voucher_code', voucherResult.code);
+      fd.set('voucher_discount_centavos', voucherResult.discount_centavos);
+    }
+    startSubmitTransition(async () => {
+      const result = await submitOrderAction(fd);
+      if (!result.ok && result.needsAccount) {
+        const next = encodeURIComponent(
+          window.location.pathname + window.location.search,
+        );
+        window.location.href = `/signup?next=${next}`;
+        return;
+      }
+      if (result.ok && result.checkout_url) {
+        // Leaves the app for PayMongo's hosted page; the transition stays pending
+        // until navigation unloads this component.
+        window.location.href = result.checkout_url;
+        return;
+      }
+      // Failure (or, defensively, ok-without-url) → render inline so the buyer
+      // can fall back to the manual GCash/BDO rails below.
+      setSubmitResult(
+        result.ok
+          ? { ok: false, reason: 'Could not start online payment. Please pay via GCash or BDO below.' }
+          : result,
+      );
+      if (!result.ok) {
+        void trackFailure({
+          eventType: 'SUPABASE_SAVE_ERROR',
+          elementName: 'Start PayMongo checkout',
+          filePath:
+            'app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx',
+          error: result.reason,
+          payload: { eventId, serviceKey },
+        });
+      }
+    });
+  };
+
   // On a successful submit, hold the brand loader's "Ready ✓" state briefly,
   // then reveal the confirmation card. Gives the completion beat room to play.
   useEffect(() => {
@@ -450,10 +513,20 @@ export function InlineCheckoutDrawer({
                   referenceCode={referenceCode}
                 />
 
-                {/* (3b) Instant online payment · shown but LOCKED until the
-                    PayMongo merchant verification is approved (owner directive
-                    2026-07-11). Purely presentational — not selectable. */}
-                <PayMongoSoon />
+                {/* (3b) Instant online payment · PayMongo. LIVE + selectable when
+                    the build-time gate NEXT_PUBLIC_PAYMONGO_STATUS='APPROVED' is
+                    on (routes through startPayMongo → hosted checkout); otherwise
+                    a "Coming soon" locked preview. The manual GCash/BDO rail above
+                    always stays as the fallback. */}
+                {payMongoApproved ? (
+                  <PayMongoPay
+                    onPay={startPayMongo}
+                    pending={submitPending}
+                    grossDisplay={finalGrossDisplay}
+                  />
+                ) : (
+                  <PayMongoSoon />
+                )}
 
                 {/* (4) Submit form. */}
                 <form
@@ -873,6 +946,57 @@ function PayMongoSoon() {
           one business day.
         </span>
       </p>
+    </div>
+  );
+}
+
+/**
+ * The PayMongo instant-payment rail, LIVE. Rendered only when
+ * NEXT_PUBLIC_PAYMONGO_STATUS='APPROVED'. One button opens the hosted checkout
+ * (Card / GCash / Maya / GrabPay / QR Ph) via startPayMongo. The manual GCash/BDO
+ * rail stays available above as the fallback.
+ */
+function PayMongoPay({
+  onPay,
+  pending,
+  grossDisplay,
+}: {
+  onPay: () => void;
+  pending: boolean;
+  grossDisplay: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-mulberry/30 bg-mulberry/[0.04] p-3">
+      <div className="mb-2 flex items-center justify-between gap-2 px-1">
+        <p className="text-xs font-semibold text-ink/70">
+          Instant payment <span className="font-normal text-ink/45">· via PayMongo</span>
+        </p>
+        <span className="inline-flex items-center gap-1 rounded-full bg-success-50 px-2 py-0.5 text-[10px] font-semibold text-success-800">
+          Available
+        </span>
+      </div>
+      <p className="px-1 text-[11px] leading-relaxed text-ink/55">
+        Pay instantly with Card, GCash, Maya, GrabPay, or QR Ph. Your access
+        unlocks automatically once payment clears — no screenshot needed.
+      </p>
+      <button
+        type="button"
+        onClick={onPay}
+        disabled={pending}
+        className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-full bg-mulberry px-5 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600 disabled:opacity-60"
+      >
+        {pending ? (
+          <>
+            <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
+            Starting…
+          </>
+        ) : (
+          <>
+            <CreditCard aria-hidden className="h-4 w-4" strokeWidth={2} />
+            Pay {grossDisplay} online
+          </>
+        )}
+      </button>
     </div>
   );
 }

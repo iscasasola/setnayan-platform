@@ -491,3 +491,116 @@ export async function resolveMayaConfig(): Promise<MayaConfig> {
       MAYA_CHECKOUT_ENDPOINT_DEFAULT,
   };
 }
+
+// ── PayMongo — one-time Checkout Sessions (Phase 0) ─────────────────────────
+//
+// DB-first / env-fallback resolver for the PayMongo credentials. Unlike Maya,
+// PayMongo authenticates with a SINGLE secret key (HTTP Basic base64("<key>:"),
+// empty password — there is no "public" key). The `endpoint` is the REST base
+// URL (default https://api.paymongo.com). UNCACHED; byte-identical to the env
+// reads when the DB columns are empty. The build-time activation gate
+// (NEXT_PUBLIC_PAYMONGO_STATUS) is NOT resolved here — it stays redeploy-gated,
+// mirroring resolveMayaConfig.
+const PAYMONGO_API_ENDPOINT_DEFAULT = 'https://api.paymongo.com';
+
+export interface PayMongoConfig {
+  secretKey: string;
+  endpoint: string;
+}
+
+export async function resolvePayMongoConfig(): Promise<PayMongoConfig> {
+  let secretKey = '';
+  let endpoint = '';
+  try {
+    const admin = createAdminClient();
+    const [secretRes, settingsRes] = await Promise.all([
+      admin
+        .from('platform_integration_secrets')
+        .select('paymongo_secret_key_enc')
+        .eq('id', 1)
+        .maybeSingle(),
+      admin
+        .from('platform_settings')
+        .select('paymongo_api_endpoint')
+        .eq('id', 1)
+        .maybeSingle(),
+    ]);
+    const enc = (secretRes.data as Record<string, unknown> | null)
+      ?.paymongo_secret_key_enc as string | null | undefined;
+    if (enc) {
+      try {
+        secretKey = decryptToken(enc);
+      } catch {
+        /* bad ciphertext → env fallback */
+      }
+    }
+    const set = settingsRes.data as Record<string, unknown> | null;
+    endpoint = ((set?.paymongo_api_endpoint as string | null) ?? '').trim();
+  } catch {
+    // DB unreachable / columns absent → env fallback below.
+  }
+  return {
+    secretKey: secretKey || process.env.PAYMONGO_SECRET_KEY || '',
+    endpoint:
+      endpoint ||
+      process.env.PAYMONGO_API_ENDPOINT ||
+      PAYMONGO_API_ENDPOINT_DEFAULT,
+  };
+}
+
+/** True when a PayMongo secret key is resolvable (DB or env). */
+export async function isPayMongoConfigured(): Promise<boolean> {
+  const { secretKey } = await resolvePayMongoConfig();
+  return Boolean(secretKey);
+}
+
+// ── PayMongo webhook signing secrets (Phase 1) ──────────────────────────────
+//
+// SEPARATE from the API secret key above. PayMongo signs each webhook delivery
+// with the signing secret of the WEBHOOK RESOURCE (test-mode webhooks and
+// live-mode webhooks are distinct resources with distinct secrets). The inbound
+// 'Paymongo-Signature' header carries BOTH a test HMAC (te=) and a live HMAC
+// (li=); the route recomputes HMAC-SHA256 over "<timestamp>.<raw-body>" with the
+// matching secret and timing-safe compares. DB-first / env-fallback, UNCACHED.
+// Either secret may be unset; the route fails CLOSED (503) only when BOTH are
+// absent, so it stays inert until the owner provisions at least one.
+export interface PayMongoWebhookSecrets {
+  test: string | null;
+  live: string | null;
+}
+
+export async function resolvePayMongoWebhookSecrets(): Promise<PayMongoWebhookSecrets> {
+  let test: string | null = null;
+  let live: string | null = null;
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from('platform_integration_secrets')
+      .select('paymongo_webhook_secret_test_enc, paymongo_webhook_secret_live_enc')
+      .eq('id', 1)
+      .maybeSingle();
+    const row = data as Record<string, unknown> | null;
+    const testEnc = row?.paymongo_webhook_secret_test_enc as string | null | undefined;
+    const liveEnc = row?.paymongo_webhook_secret_live_enc as string | null | undefined;
+    if (testEnc) {
+      try {
+        test = decryptToken(testEnc);
+      } catch {
+        /* bad ciphertext → env fallback */
+      }
+    }
+    if (liveEnc) {
+      try {
+        live = decryptToken(liveEnc);
+      } catch {
+        /* bad ciphertext → env fallback */
+      }
+    }
+  } catch {
+    // DB unreachable / columns absent → env fallback below.
+  }
+  return {
+    test: test || process.env.PAYMONGO_WEBHOOK_SECRET_TEST || null,
+    live: live || process.env.PAYMONGO_WEBHOOK_SECRET_LIVE || null,
+  };
+}

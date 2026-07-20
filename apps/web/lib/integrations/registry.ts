@@ -307,10 +307,36 @@ export const MAYA_INTEGRATION = {
   endpointEnv: 'MAYA_CHECKOUT_ENDPOINT',
 } as const;
 
+// ── PayMongo — one-time Checkout Sessions (Phase 0) ─────────────────────────
+//
+// Like Maya, PayMongo breaks the single-secret card shape — but differently: it
+// has ONE API secret key (base64("<key>:") Basic-auth, no "public" pair) PLUS two
+// WEBHOOK signing secrets (separate test vs live) that verify the inbound
+// Paymongo-Signature header. So it gets a bespoke card (PayMongoCard) + action
+// (savePayMongoConfig). This metadata is the column allowlist for that action +
+// the presence map. The build-time activation gate (NEXT_PUBLIC_PAYMONGO_STATUS)
+// is NOT here — it stays redeploy-gated, mirroring NEXT_PUBLIC_MAYA_STATUS.
+export const PAYMONGO_INTEGRATION = {
+  id: 'paymongo',
+  label: 'PayMongo — automated checkout',
+  secretKeyColumn: 'paymongo_secret_key_enc',
+  secretKeyEnv: 'PAYMONGO_SECRET_KEY',
+  webhookTestColumn: 'paymongo_webhook_secret_test_enc',
+  webhookTestEnv: 'PAYMONGO_WEBHOOK_SECRET_TEST',
+  webhookLiveColumn: 'paymongo_webhook_secret_live_enc',
+  webhookLiveEnv: 'PAYMONGO_WEBHOOK_SECRET_LIVE',
+  endpointColumn: 'paymongo_api_endpoint',
+  endpointEnv: 'PAYMONGO_API_ENDPOINT',
+  endpointDefault: 'https://api.paymongo.com',
+} as const;
+
 /** All secret columns across every registry — for the console presence map. */
 export const ALL_SECRET_COLUMNS: readonly string[] = [
   ...SECRET_INTEGRATIONS.map((i) => i.secretColumn),
   ...CREDENTIAL_INTEGRATIONS.map((i) => i.secretColumn),
   MAYA_INTEGRATION.publicKeyColumn,
   MAYA_INTEGRATION.secretKeyColumn,
+  PAYMONGO_INTEGRATION.secretKeyColumn,
+  PAYMONGO_INTEGRATION.webhookTestColumn,
+  PAYMONGO_INTEGRATION.webhookLiveColumn,
 ];

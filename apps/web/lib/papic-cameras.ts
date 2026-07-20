@@ -81,7 +81,37 @@ export async function eventLtdFreeViaUnlock(
  * (the constants below are last-resort fallbacks only).
  */
 
+// ── The camera ladder (owner-confirmed 2026-07-20) ──────────────────────────
+//
+// Life events run a THREE-rung paid ladder on top of the 3 free cameras:
+//
+//     Papic Mini  ₱30/camera/day · 20 pts/day · wedding cap ₱6,000
+//     Papic Ltd   ₱50/camera/day · 70 pts/day · wedding cap ₱10,000
+//     Papic Unli ₱100/camera/day ·      ∞     · wedding cap ₱15,000
+//
+// ⚠ `roll` ↔ `mini` — READ THIS BEFORE TOUCHING EITHER.
+// `roll` is the LEGACY tier code for the ₱30 rung. It shipped first (migration
+// 20270301000000 · SKU PAPIC_CAMERA_ROLL_DAY) back when there were only two
+// rungs, and it is what every already-sold ₱30 seat + order in prod references —
+// so it is NEVER deleted or repurposed (never-rename-technical-ids lock).
+// Papic v3 (owner 2026-07-17) renamed that rung to **Mini** and added a genuinely
+// new ₱50 **Ltd** rung above it. So today:
+//
+//     tier 'roll'  == tier 'mini'   — same 20 pts/day, same ₱6,000 cap, same ₱30.
+//                                     papic_tier_config carries BOTH rows with
+//                                     identical economics; roll is display-aliased
+//                                     to "Papic Mini".
+//     tier 'ltd'   == the NEW ₱50 rung — NOT the old "Ltd" wording that used to
+//                                     mean roll. Old comments/SKU titles calling
+//                                     the ₱30 rung "Ltd" are pre-v3 wording.
+//
+// New purchases write 'mini' / 'ltd' / 'unlimited'; 'roll' is accepted forever on
+// the read/enforce side and folds into the Mini rung in every quote + display.
+// Everything below funnels through papicRungForTier() so there is exactly ONE
+// place that knows about the alias.
 export const PAPIC_CAMERA_ROLL_SKU = 'PAPIC_CAMERA_ROLL_DAY';
+export const PAPIC_CAMERA_MINI_SKU = 'PAPIC_CAMERA_MINI_DAY';
+export const PAPIC_CAMERA_LTD_SKU = 'PAPIC_CAMERA_LTD_DAY';
 export const PAPIC_CAMERA_UNLIMITED_SKU = 'PAPIC_CAMERA_UNLIMITED_DAY';
 
 /** orders.service_key marker for a per-camera order (free-form TEXT column). */
@@ -104,38 +134,118 @@ export const PAPIC_FREE_CAMERA_INDEX_BASE = 100;
 
 /** Last-resort fallbacks if the catalog row is missing. Live prices come from the catalog. */
 export const PAPIC_CAMERA_ROLL_FALLBACK_PHP = 30;
+export const PAPIC_CAMERA_MINI_FALLBACK_PHP = 30; // same rung as roll (see the alias note above)
+export const PAPIC_CAMERA_LTD_FALLBACK_PHP = 50;
 export const PAPIC_CAMERA_UNLIMITED_FALLBACK_PHP = 100;
 export const PAPIC_DEFAULT_COST_CAP_PHP = 6999; // deprecated single cap (pre per-tier)
 /**
  * Per-tier WEDDING price caps — each tier's subtotal locks here (weddings only;
  * every other event type is uncapped, via the quote's `uncapped` flag). Live
- * values come from events.papic_mini_cap_php / papic_ltd_cap_php / papic_unli_cap_php;
- * these are last-resort fallbacks. Under the 2026-07-17 roll->Mini remap the
- * 'roll'/Mini tier caps at the MINI cap (₱6,000); PAPIC_LTD_CAP_FALLBACK is
- * reserved for the distinct Ltd tier added in a later PR (currently dormant).
+ * values come from events.papic_mini_cap_php / papic_ltd_cap_php / papic_unli_cap_php
+ * (per-event override) → papic_tier_config.wedding_day_cap_php (tier default) →
+ * these last-resort fallbacks. The legacy 'roll' tier caps at the MINI cap
+ * (roll == Mini · see the alias note above).
  */
 export const PAPIC_MINI_CAP_FALLBACK_PHP = 6000; // Mini (and legacy roll->Mini) — owner 2026-07-17
-export const PAPIC_LTD_CAP_FALLBACK_PHP = 10000; // Ltd (₱50 tier) — owner 2026-07-17 (dormant until the Ltd selection ships)
+export const PAPIC_LTD_CAP_FALLBACK_PHP = 10000; // Ltd (₱50 rung) — owner 2026-07-17
 export const PAPIC_UNLI_CAP_FALLBACK_PHP = 15000; // Unli = 150 cameras × ₱100
 
-export type CameraTier = 'free' | 'roll' | 'unlimited';
+/**
+ * Every per-camera tier code the DB accepts (paparazzi_seats.tier CHECK,
+ * migration 20270821110000). 'roll' is the legacy alias of 'mini'.
+ */
+export type CameraTier = 'free' | 'roll' | 'mini' | 'ltd' | 'unlimited';
 
-/** Per-camera per-day capture quota. null = unlimited. */
+/**
+ * The three PAID rungs of the ladder — the vocabulary the buy surfaces speak.
+ * 'roll' is deliberately absent: it is not a rung, it is Mini's legacy code.
+ */
+export type PapicRung = 'mini' | 'ltd' | 'unlimited';
+export const PAPIC_RUNGS: readonly PapicRung[] = ['mini', 'ltd', 'unlimited'];
+
+/**
+ * The ONE place that knows about the roll↔mini alias. Maps any stored tier code
+ * to the paid rung it bills/meters as, or null for the free tier / unknown.
+ *   'roll' → 'mini'  (legacy ₱30 seats + orders, identical economics)
+ */
+export function papicRungForTier(
+  tier: string | null | undefined,
+): PapicRung | null {
+  if (tier === 'roll' || tier === 'mini') return 'mini';
+  if (tier === 'ltd') return 'ltd';
+  if (tier === 'unlimited') return 'unlimited';
+  return null;
+}
+
+/**
+ * Is this per-camera tier a PAID rung — i.e. does capture stay blocked until its
+ * order is paid? True for every rung incl. the legacy 'roll'; false for 'free'.
+ * Written as "not free" (rather than an allow-list of rung names) so adding a
+ * rung can never silently open an unpaid capture hole.
+ */
+export function isPaidCameraTier(tier: CameraTier | null | undefined): boolean {
+  return tier != null && tier !== 'free';
+}
+
+/** The rate SKU each rung bills against. */
+export function papicRungSku(rung: PapicRung): string {
+  if (rung === 'unlimited') return PAPIC_CAMERA_UNLIMITED_SKU;
+  if (rung === 'ltd') return PAPIC_CAMERA_LTD_SKU;
+  return PAPIC_CAMERA_MINI_SKU;
+}
+
+/**
+ * Per-camera per-day capture quota. null = unlimited.
+ *
+ * @deprecated Superseded by the capture-POINTS budget in papic_tier_config (see
+ * papicCaptureCost + the points RPCs). Retained only for the deprecated
+ * papicTierDailyLimit below; the mini/ltd rows are the points budget expressed
+ * in the old per-kind shape (20 pts → 20 photos, 6 clips · 70 pts → 70 photos,
+ * 23 clips) and are NOT an independent source of truth.
+ */
 export const PAPIC_TIER_QUOTA: Record<
   CameraTier,
   { photos: number | null; videos: number | null }
 > = {
   free: { photos: 10, videos: 3 }, // owner 2026-07-11 (was 5 + 1) — fatter free taste
   roll: { photos: 30, videos: 10 },
+  mini: { photos: 20, videos: 6 },
+  ltd: { photos: 70, videos: 23 },
   unlimited: { photos: null, videos: null },
 };
 
-export type CameraRates = { roll: number; unlimited: number };
+/**
+ * Live per-camera-per-day rates, in PHP, keyed by rung. `roll` is carried
+ * alongside as the legacy ₱30 SKU's own price so the guest-list Limited path
+ * (lib/papic-limited.ts) keeps reading exactly what it always read.
+ */
+export type CameraRates = {
+  mini: number;
+  ltd: number;
+  unlimited: number;
+  /** @deprecated legacy alias of `mini` — the PAPIC_CAMERA_ROLL_DAY price. */
+  roll: number;
+};
+
+/** Last-resort rates when the catalog is unreadable (no DB / missing rows). */
+export const PAPIC_CAMERA_RATES_FALLBACK: CameraRates = {
+  mini: PAPIC_CAMERA_MINI_FALLBACK_PHP,
+  ltd: PAPIC_CAMERA_LTD_FALLBACK_PHP,
+  unlimited: PAPIC_CAMERA_UNLIMITED_FALLBACK_PHP,
+  roll: PAPIC_CAMERA_ROLL_FALLBACK_PHP,
+};
 
 /**
- * Read the admin-managed per-camera rates from platform_retail_catalog_v2.
- * Graceful-degrade to the fallbacks on a missing/legacy table or row so the
- * buy surface never crashes a pre-bootstrap database.
+ * Read the admin-managed per-camera rates from platform_retail_catalog_v2 — all
+ * FOUR rate SKUs (Mini · Ltd · Unli + the legacy Roll row).
+ *
+ * ⚠ The Mini rung resolves PAPIC_CAMERA_MINI_DAY, falling back to the legacy
+ * PAPIC_CAMERA_ROLL_DAY row (and vice-versa) — they are the same ₱30 rung, and
+ * which row the owner ultimately keeps is still an open catalog decision. Doing
+ * the fallback both ways means the ladder prices correctly whichever row wins.
+ *
+ * Graceful-degrade to the fallbacks on a missing/legacy table or row so the buy
+ * surface never crashes a pre-bootstrap database.
  */
 export async function fetchCameraRates(
   supabase: SupabaseClient,
@@ -144,14 +254,14 @@ export async function fetchCameraRates(
     const { data, error } = await supabase
       .from('platform_retail_catalog_v2')
       .select('service_code, retail_price_php')
-      .in('service_code', [PAPIC_CAMERA_ROLL_SKU, PAPIC_CAMERA_UNLIMITED_SKU]);
+      .in('service_code', [
+        PAPIC_CAMERA_ROLL_SKU,
+        PAPIC_CAMERA_MINI_SKU,
+        PAPIC_CAMERA_LTD_SKU,
+        PAPIC_CAMERA_UNLIMITED_SKU,
+      ]);
     if (error) {
-      if (error.code === '42P01' || error.code === '42703') {
-        return {
-          roll: PAPIC_CAMERA_ROLL_FALLBACK_PHP,
-          unlimited: PAPIC_CAMERA_UNLIMITED_FALLBACK_PHP,
-        };
-      }
+      if (error.code === '42P01' || error.code === '42703') return { ...PAPIC_CAMERA_RATES_FALLBACK };
       throw new Error(`fetchCameraRates failed: ${error.message}`);
     }
     const byCode = new Map(
@@ -160,23 +270,54 @@ export async function fetchCameraRates(
         Number(r.retail_price_php),
       ]),
     );
-    const roll = byCode.get(PAPIC_CAMERA_ROLL_SKU);
-    const unlimited = byCode.get(PAPIC_CAMERA_UNLIMITED_SKU);
+    const num = (code: string): number | null => {
+      const v = byCode.get(code);
+      return Number.isFinite(v) ? (v as number) : null;
+    };
+    const rollRow = num(PAPIC_CAMERA_ROLL_SKU);
+    const miniRow = num(PAPIC_CAMERA_MINI_SKU);
     return {
-      roll: Number.isFinite(roll) ? (roll as number) : PAPIC_CAMERA_ROLL_FALLBACK_PHP,
-      unlimited: Number.isFinite(unlimited)
-        ? (unlimited as number)
-        : PAPIC_CAMERA_UNLIMITED_FALLBACK_PHP,
+      // Same rung → each covers for the other, so a half-seeded catalog still prices.
+      mini: miniRow ?? rollRow ?? PAPIC_CAMERA_MINI_FALLBACK_PHP,
+      roll: rollRow ?? miniRow ?? PAPIC_CAMERA_ROLL_FALLBACK_PHP,
+      ltd: num(PAPIC_CAMERA_LTD_SKU) ?? PAPIC_CAMERA_LTD_FALLBACK_PHP,
+      unlimited:
+        num(PAPIC_CAMERA_UNLIMITED_SKU) ?? PAPIC_CAMERA_UNLIMITED_FALLBACK_PHP,
     };
   } catch {
-    return {
-      roll: PAPIC_CAMERA_ROLL_FALLBACK_PHP,
-      unlimited: PAPIC_CAMERA_UNLIMITED_FALLBACK_PHP,
-    };
+    return { ...PAPIC_CAMERA_RATES_FALLBACK };
   }
 }
 
-export type CameraSelection = { roll: number; unlimited: number };
+/** The live per-day rate for one rung. */
+export function papicRungRate(rates: CameraRates, rung: PapicRung): number {
+  const raw =
+    rung === 'unlimited' ? rates.unlimited : rung === 'ltd' ? rates.ltd : rates.mini;
+  return Number(raw) || PAPIC_CAMERA_RATES_FALLBACK[rung];
+}
+
+// ── papic_tier_config — the admin-editable tier metadata (migration 20270821110000)
+//
+// display_title · points_per_day · wedding_day_cap_php live in ONE admin-editable
+// table, and there is exactly ONE reader for it: `lib/papic-tier-copy.ts`
+// (fetchPapicTierConfig / PAPIC_TIER_CONFIG_FALLBACK), introduced by the
+// 2026-07-20 honesty pass and guarded by `lib/papic-copy-guardrails.test.ts`.
+// This module deliberately does NOT carry a second copy — a duplicate reader is
+// exactly how a display title or a point budget drifts from the charge path.
+// The PAPIC_*_CAP_FALLBACK_PHP constants above stay here because they are
+// CHARGE-path fallbacks consumed by computeCameraQuote, not display copy.
+
+/**
+ * A per-camera order selection. Every rung is optional so a caller only names
+ * what it sells. `roll` is the legacy alias of `mini` and is ADDED to it.
+ */
+export type CameraSelection = {
+  mini?: number;
+  ltd?: number;
+  unlimited?: number;
+  /** @deprecated legacy alias of `mini` — folded into the Mini rung. */
+  roll?: number;
+};
 
 export type CameraCaps = { mini: number; ltd: number; unli: number };
 
@@ -189,20 +330,51 @@ export function isPapicUncapped(eventType: string | null | undefined): boolean {
   return eventType !== 'wedding';
 }
 
+/** One rung's line on a quote. */
+export type CameraQuoteLine = {
+  rung: PapicRung;
+  count: number;
+  ratePhp: number;
+  /** count × rate × days, BEFORE the cap. */
+  subtotalPhp: number;
+  /** What is actually billed: 0 when freed by an unlock, else min(subtotal, cap). */
+  chargePhp: number;
+  capPhp: number;
+  /** Freed by an unlock pass (₱0, not clamped). */
+  free: boolean;
+  /** Clamped by its cap (never true when free or uncapped). */
+  capped: boolean;
+};
+
 export type CameraQuote = {
-  rollCount: number;
+  /** Per-rung lines — the ladder as data. */
+  lines: Record<PapicRung, CameraQuoteLine>;
+  miniCount: number;
+  ltdCount: number;
   unlimitedCount: number;
+  /** @deprecated legacy alias of miniCount (roll == Mini). */
+  rollCount: number;
   paidCount: number;
   days: number;
-  rollSubtotalPhp: number; // raw Ltd subtotal, before the cap
-  unlimitedSubtotalPhp: number; // raw Unli subtotal, before the cap
-  rollChargePhp: number; // Ltd subtotal after its ₱6,000 cap
-  unlimitedChargePhp: number; // Unli subtotal after its ₱10,000 cap
+  miniSubtotalPhp: number;
+  ltdSubtotalPhp: number;
+  unlimitedSubtotalPhp: number;
+  miniChargePhp: number;
+  ltdChargePhp: number;
+  unlimitedChargePhp: number;
+  /** @deprecated legacy alias of miniSubtotalPhp. */
+  rollSubtotalPhp: number;
+  /** @deprecated legacy alias of miniChargePhp. */
+  rollChargePhp: number;
   rawTotalPhp: number;
+  miniCapPhp: number;
+  /** The Ltd (₱50) rung's cap. ⚠ Pre-v3 this field carried the MINI cap. */
   ltdCapPhp: number;
   unliCapPhp: number;
   totalPhp: number;
-  capped: boolean; // true if EITHER tier hit its cap
+  capped: boolean; // true if ANY rung hit its cap
+  /** Just the ladder part, e.g. "3 Mini + 1 Unli" ("none" when empty). */
+  rungSummary: string;
   description: string;
 };
 
@@ -212,89 +384,143 @@ function intCount(n: unknown): number {
   return Number.isFinite(v) && v > 0 ? v : 0;
 }
 
+/** Short marketing label per rung, for order descriptions. */
+const RUNG_LABEL: Record<PapicRung, string> = {
+  mini: 'Mini',
+  ltd: 'Ltd',
+  unlimited: 'Unli',
+};
+
+export type CameraQuoteOpts = {
+  /** PAPIC_UNLOCK (₱15,000) owner → the Unli rung is free + uncapped. */
+  unliFree?: boolean;
+  /**
+   * PAPIC_UNLOCK_LTD (₱9,000) owner → the MINI rung (legacy 'roll', the ₱30
+   * cameras that pass was sold against) is free + uncapped.
+   */
+  miniFree?: boolean;
+  /**
+   * @deprecated Legacy name for {@link CameraQuoteOpts.miniFree}. When
+   * PAPIC_UNLOCK_LTD shipped (2026-07-11) the ₱30 rung was still called "Ltd";
+   * v3 renamed it to Mini and introduced a genuinely new ₱50 Ltd rung. The pass
+   * keeps freeing exactly what it always freed — the ₱30/Mini rung — so this
+   * alias is preserved verbatim and NO pass currently frees the new ₱50 rung.
+   * (Whether ₱9,000 should now also cover ₱50 Ltd is an OWNER pricing call.)
+   */
+  ltdFree?: boolean;
+  /** Non-wedding event → no caps at all (owner 2026-07-17). */
+  uncapped?: boolean;
+};
+
 /**
- * Quote a per-camera order. PURE + unit-testable. Total = (roll·rollRate +
- * unlimited·unlimitedRate) · days, clamped to the event cost cap.
+ * Quote a per-camera order across the THREE rungs. PURE + unit-testable — the
+ * single source both the pickers (client) and the buy actions (server) mirror.
  *
- * `opts.unliFree` (PAPIC_UNLOCK owners · owner 2026-06-26): the Unli tier is free
- * + uncapped, so its subtotal stays computed for display but its CHARGE collapses
- * to ₱0 and it never trips the cap. Roll (Ltd) is untouched — the umbrella covers
- * Unli only. Default false (paid path).
+ * Total = Σ over rungs of min(count · rate · days, rung cap), where a rung freed
+ * by its unlock pass charges ₱0 (subtotal still computed, for the "would be"
+ * display) and a non-wedding event skips the clamp entirely.
+ *
+ * `selection.roll` folds into Mini — legacy callers keep working unchanged.
  */
 export function computeCameraQuote(
   selection: CameraSelection,
   days: number,
   rates: CameraRates,
   caps: CameraCaps,
-  opts: { unliFree?: boolean; ltdFree?: boolean; uncapped?: boolean } = {},
+  opts: CameraQuoteOpts = {},
 ): CameraQuote {
   const unliFree = opts.unliFree === true;
-  const ltdFree = opts.ltdFree === true;
+  // miniFree is the honest name; ltdFree is its pre-v3 alias (see the type).
+  const miniFree = opts.miniFree === true || opts.ltdFree === true;
   // Non-wedding events are uncapped (owner 2026-07-17): the subtotal never
   // clamps and `capped` stays false. Caps still populate the *CapPhp fields for
   // reference. Defaults to false (wedding path).
   const uncapped = opts.uncapped === true;
-  const rollCount = intCount(selection.roll);
-  const unlimitedCount = intCount(selection.unlimited);
   const d = Math.max(1, Math.floor(Number(days)) || 1);
-  const rollRate = Number(rates.roll) || PAPIC_CAMERA_ROLL_FALLBACK_PHP;
-  const unlimitedRate =
-    Number(rates.unlimited) || PAPIC_CAMERA_UNLIMITED_FALLBACK_PHP;
 
-  // roll == Mini (owner 2026-07-17 roll->Mini remap) → caps at the MINI cap.
-  // The distinct Ltd tier (caps.ltd) is dormant until it ships as its own
-  // selection; unlimited == Unli caps at the Unli cap.
-  const miniCap =
-    Number(caps.mini) > 0 ? Number(caps.mini) : PAPIC_MINI_CAP_FALLBACK_PHP;
-  const unliCap =
-    Number(caps.unli) > 0 ? Number(caps.unli) : PAPIC_UNLI_CAP_FALLBACK_PHP;
+  // roll == Mini (see the alias note at the top of this module): the two counts
+  // are ONE rung and are summed before pricing, so roll and mini always quote
+  // identically.
+  const counts: Record<PapicRung, number> = {
+    mini: intCount(selection.mini) + intCount(selection.roll),
+    ltd: intCount(selection.ltd),
+    unlimited: intCount(selection.unlimited),
+  };
+  // CameraCaps keys the Unli cap as `unli`; the rung is named `unlimited`.
+  const capOf: Record<PapicRung, number> = {
+    mini: Number(caps.mini) > 0 ? Number(caps.mini) : PAPIC_MINI_CAP_FALLBACK_PHP,
+    ltd: Number(caps.ltd) > 0 ? Number(caps.ltd) : PAPIC_LTD_CAP_FALLBACK_PHP,
+    unlimited:
+      Number(caps.unli) > 0 ? Number(caps.unli) : PAPIC_UNLI_CAP_FALLBACK_PHP,
+  };
+  const freeOf: Record<PapicRung, boolean> = {
+    mini: miniFree,
+    ltd: false, // no pass frees the ₱50 rung today — owner call (see CameraQuoteOpts)
+    unlimited: unliFree,
+  };
 
-  const rollSubtotalPhp = rollCount * rollRate * d;
-  const unlimitedSubtotalPhp = unlimitedCount * unlimitedRate * d;
-  const rawTotalPhp = rollSubtotalPhp + unlimitedSubtotalPhp;
+  // Per-rung cap (owner 2026-06-26): each rung locks independently — so 300
+  // cameras on Mini still pay only the Mini cap, and that never eats into the
+  // Ltd or Unli headroom.
+  const lines = {} as Record<PapicRung, CameraQuoteLine>;
+  for (const rung of PAPIC_RUNGS) {
+    const count = counts[rung];
+    const ratePhp = papicRungRate(rates, rung);
+    const capPhp = capOf[rung];
+    const subtotalPhp = count * ratePhp * d;
+    const free = freeOf[rung];
+    const chargePhp = free
+      ? 0
+      : uncapped
+        ? subtotalPhp
+        : Math.min(subtotalPhp, capPhp);
+    lines[rung] = {
+      rung,
+      count,
+      ratePhp,
+      subtotalPhp,
+      chargePhp,
+      capPhp,
+      free,
+      // A rung never "caps" when its unlock frees it (₱0, not clamped) or when
+      // the event is uncapped (non-wedding — charge is the raw subtotal).
+      capped: !uncapped && !free && subtotalPhp > capPhp,
+    };
+  }
 
-  // Per-tier cap (owner 2026-06-26): each tier locks independently — so 300
-  // guests on Ltd still pay the Ltd cap. Unlock owners pay ₱0 for the tier their
-  // pass covers (free + uncapped): PAPIC_UNLOCK → Unli, PAPIC_UNLOCK_LTD → Ltd.
-  const rollChargePhp = ltdFree
-    ? 0
-    : uncapped
-      ? rollSubtotalPhp
-      : Math.min(rollSubtotalPhp, miniCap);
-  const unlimitedChargePhp = unliFree
-    ? 0
-    : uncapped
-      ? unlimitedSubtotalPhp
-      : Math.min(unlimitedSubtotalPhp, unliCap);
-  const totalPhp = rollChargePhp + unlimitedChargePhp;
-  const paidCount = rollCount + unlimitedCount;
+  const rawTotalPhp = PAPIC_RUNGS.reduce((s, r) => s + lines[r].subtotalPhp, 0);
+  const totalPhp = PAPIC_RUNGS.reduce((s, r) => s + lines[r].chargePhp, 0);
+  const paidCount = PAPIC_RUNGS.reduce((s, r) => s + lines[r].count, 0);
 
-  const parts: string[] = [];
-  if (rollCount) parts.push(`${rollCount} Ltd`);
-  if (unlimitedCount) parts.push(`${unlimitedCount} Unli`);
-  const description = `Papic cameras — ${parts.join(' + ') || 'none'} · ${d} day${
-    d > 1 ? 's' : ''
-  }`;
+  const parts = PAPIC_RUNGS.filter((r) => lines[r].count > 0).map(
+    (r) => `${lines[r].count} ${RUNG_LABEL[r]}`,
+  );
+  const rungSummary = parts.join(' + ') || 'none';
+  const description = `Papic cameras — ${rungSummary} · ${d} day${d > 1 ? 's' : ''}`;
 
   return {
-    rollCount,
-    unlimitedCount,
+    lines,
+    miniCount: lines.mini.count,
+    ltdCount: lines.ltd.count,
+    unlimitedCount: lines.unlimited.count,
+    rollCount: lines.mini.count,
     paidCount,
     days: d,
-    rollSubtotalPhp,
-    unlimitedSubtotalPhp,
-    rollChargePhp,
-    unlimitedChargePhp,
+    miniSubtotalPhp: lines.mini.subtotalPhp,
+    ltdSubtotalPhp: lines.ltd.subtotalPhp,
+    unlimitedSubtotalPhp: lines.unlimited.subtotalPhp,
+    miniChargePhp: lines.mini.chargePhp,
+    ltdChargePhp: lines.ltd.chargePhp,
+    unlimitedChargePhp: lines.unlimited.chargePhp,
+    rollSubtotalPhp: lines.mini.subtotalPhp,
+    rollChargePhp: lines.mini.chargePhp,
     rawTotalPhp,
-    ltdCapPhp: miniCap, // the cap applied to the roll/Mini tier (roll->Mini remap)
-    unliCapPhp: unliCap,
+    miniCapPhp: lines.mini.capPhp,
+    ltdCapPhp: lines.ltd.capPhp,
+    unliCapPhp: lines.unlimited.capPhp,
     totalPhp,
-    // A tier never "caps" when its unlock frees it (₱0, not clamped) or when the
-    // event is uncapped (non-wedding — charge is the raw subtotal).
-    capped:
-      !uncapped &&
-      ((!ltdFree && rollSubtotalPhp > miniCap) ||
-        (!unliFree && unlimitedSubtotalPhp > unliCap)),
+    capped: PAPIC_RUNGS.some((r) => lines[r].capped),
+    rungSummary,
     description,
   };
 }
@@ -302,8 +528,11 @@ export function computeCameraQuote(
 type ProvisionPaidCamerasInput = {
   eventId: string;
   orderId: string;
-  rollCount: number;
+  miniCount?: number;
+  ltdCount?: number;
   unlimitedCount: number;
+  /** @deprecated legacy alias of miniCount — ADDED to it (roll == Mini). */
+  rollCount?: number;
   validFrom: string | null;
   validUntil: string | null;
 };
@@ -321,9 +550,15 @@ export async function provisionPaidCamerasAdmin(
   admin: SupabaseClient,
   input: ProvisionPaidCamerasInput,
 ): Promise<number> {
-  const { eventId, orderId, rollCount, unlimitedCount, validFrom, validUntil } =
-    input;
-  const total = intCount(rollCount) + intCount(unlimitedCount);
+  const { eventId, orderId, validFrom, validUntil } = input;
+  // roll folds into Mini — a legacy caller passing rollCount provisions Mini
+  // seats at the SAME economics it always got (20 pts/day · ₱30 · ₱6,000 cap).
+  const perRung: Record<PapicRung, number> = {
+    mini: intCount(input.miniCount) + intCount(input.rollCount),
+    ltd: intCount(input.ltdCount),
+    unlimited: intCount(input.unlimitedCount),
+  };
+  const total = PAPIC_RUNGS.reduce((s, r) => s + perRung[r], 0);
   if (!eventId || !orderId || total === 0) return 0;
 
   // Next free index in the per-camera range.
@@ -365,9 +600,12 @@ export async function provisionPaidCamerasAdmin(
     });
     next += 1;
   };
-  for (let i = 0; i < intCount(rollCount); i += 1) add('roll', PAPIC_CAMERA_ROLL_SKU);
-  for (let i = 0; i < intCount(unlimitedCount); i += 1)
-    add('unlimited', PAPIC_CAMERA_UNLIMITED_SKU);
+  // New seats are written at their CANONICAL rung code ('mini' / 'ltd' /
+  // 'unlimited'); the DB accepts all five codes since migration 20270821110000
+  // and the points RPCs resolve each rung's budget from papic_tier_config.
+  for (const rung of PAPIC_RUNGS) {
+    for (let i = 0; i < perRung[rung]; i += 1) add(rung, papicRungSku(rung));
+  }
 
   const { error: insertErr } = await admin
     .from('paparazzi_seats')
@@ -398,7 +636,9 @@ export function mintPapicReferenceCode(): string {
 export const PAPIC_CAMERA_FREE_SKU = 'PAPIC_CAMERA_FREE';
 
 const PER_CAMERA_SKUS: ReadonlySet<string> = new Set([
-  PAPIC_CAMERA_ROLL_SKU,
+  PAPIC_CAMERA_ROLL_SKU, // legacy ₱30 rung (== Mini)
+  PAPIC_CAMERA_MINI_SKU,
+  PAPIC_CAMERA_LTD_SKU,
   PAPIC_CAMERA_UNLIMITED_SKU,
   PAPIC_CAMERA_FREE_SKU,
 ]);
@@ -415,7 +655,15 @@ export function papicPerCameraTier(
   tier: string | null | undefined,
 ): CameraTier | null {
   if (!skuCode || !PER_CAMERA_SKUS.has(skuCode)) return null;
-  if (tier === 'roll' || tier === 'unlimited' || tier === 'free') return tier;
+  if (
+    tier === 'roll' ||
+    tier === 'mini' ||
+    tier === 'ltd' ||
+    tier === 'unlimited' ||
+    tier === 'free'
+  ) {
+    return tier;
+  }
   return null;
 }
 

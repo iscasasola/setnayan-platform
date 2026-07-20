@@ -15,6 +15,8 @@ import {
 } from '@/lib/papic-seats';
 import {
   papicPerCameraTier,
+  papicRungForTier,
+  isPaidCameraTier,
   papicCameraOrderPaid,
   papicCaptureCost,
   resolvePointsGate,
@@ -315,7 +317,10 @@ export async function recordSeatCapture(
       } catch {
         unlocked = false;
       }
-      if (!unlocked && (cameraTier === 'roll' || cameraTier === 'unlimited')) {
+      // Every PAID rung (mini · legacy roll · ltd · unlimited) is gated; only the
+      // free tier skips. Expressed as "not free" so a new rung can never slip
+      // through the paid-gate by being missing from an allow-list.
+      if (!unlocked && isPaidCameraTier(cameraTier)) {
         let paid = false;
         try {
           const admin = createAdminClient();
@@ -324,13 +329,15 @@ export async function recordSeatCapture(
             seat.paid_order_id as string | null,
           );
           // Unlock umbrellas (money-gated · TRUE only on an ACTIVE order, so a
-          // non-owner's camera is never freed): PAPIC_UNLOCK (₱15,000) frees Unli;
-          // PAPIC_UNLOCK_LTD (₱9,000, owner 2026-07-11) frees Ltd (Roll). Each
-          // pass covers only its own tier.
-          if (!paid && cameraTier === 'unlimited') {
+          // non-owner's camera is never freed): PAPIC_UNLOCK (₱15,000) frees
+          // Unli; PAPIC_UNLOCK_LTD (₱9,000, owner 2026-07-11) frees the ₱30 rung
+          // it was sold against — legacy 'roll', today's Mini. The new ₱50 Ltd
+          // rung is covered by NO pass (owner pricing call) and stays gated.
+          const rung = papicRungForTier(cameraTier);
+          if (!paid && rung === 'unlimited') {
             paid = await eventUnliFreeViaUnlock(admin, seat.event_id as string);
           }
-          if (!paid && cameraTier === 'roll') {
+          if (!paid && rung === 'mini') {
             paid = await eventLtdFreeViaUnlock(admin, seat.event_id as string);
           }
         } catch {

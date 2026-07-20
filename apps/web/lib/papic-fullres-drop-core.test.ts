@@ -1,9 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  confirmedDriveKeys,
+  isDriveCopyConfirmed,
+  isDriveDeferred,
   isEligibleForDrop,
   resolveOriginalRef,
   DEFAULT_FULL_RES_RETENTION_DAYS,
+  type DriveArtifactRow,
   type DropCandidate,
 } from './papic-fullres-drop-core';
 
@@ -76,4 +80,65 @@ test('r2:// ref with an UNKNOWN bucket → null (never delete blindly)', () => {
   assert.equal(resolveOriginalRef('r2://some-other-bucket/a.jpg'), null);
   assert.equal(resolveOriginalRef('r2://'), null);
   assert.equal(resolveOriginalRef(''), null);
+});
+
+// ── Drive-aware defer guard (Build Brief ruling #4) ──────────────────────────
+// The single most dangerous branch in this module: a wrong `false` here deletes
+// the ONLY full-res copy of a wedding photo.
+
+const KEY = 'event-abc/papic/seat-1/photo.jpg';
+
+function art(over: Partial<DriveArtifactRow> = {}): DriveArtifactRow {
+  return { r2_object_key: KEY, drive_file_id: 'drive-file-1', ...over };
+}
+
+test('confirmed: uploaded high-res copy (drive_file_id present)', () => {
+  assert.equal(isDriveCopyConfirmed(art()), true);
+  assert.equal(isDriveCopyConfirmed(art({ copied_high_res: true })), true);
+  // photo_delivery_artifacts has no copied_high_res column — absent = the
+  // original bytes were uploaded, so it counts as high-res.
+  assert.equal(isDriveCopyConfirmed(art({ copied_high_res: undefined })), true);
+});
+
+test('NOT confirmed: queued / failed / retry-capped (no drive_file_id)', () => {
+  assert.equal(isDriveCopyConfirmed(art({ drive_file_id: null })), false);
+  assert.equal(isDriveCopyConfirmed(art({ drive_file_id: '' })), false);
+});
+
+test('NOT confirmed: a post-compression copy (copied_high_res=false)', () => {
+  assert.equal(isDriveCopyConfirmed(art({ copied_high_res: false })), false);
+});
+
+test('NOT confirmed: keyless row', () => {
+  assert.equal(isDriveCopyConfirmed(art({ r2_object_key: null })), false);
+});
+
+test('confirmedDriveKeys keeps only the confirmed rows', () => {
+  const keys = confirmedDriveKeys([
+    art(),
+    art({ r2_object_key: 'b.jpg', drive_file_id: null }),
+    art({ r2_object_key: 'c.jpg', copied_high_res: false }),
+    art({ r2_object_key: 'd.jpg' }),
+  ]);
+  assert.deepEqual([...keys].sort(), [KEY, 'd.jpg'].sort());
+});
+
+test('DEFER: Drive connected but this photo is not copied yet', () => {
+  const state = { kind: 'connected' as const, confirmedKeys: new Set<string>() };
+  assert.equal(isDriveDeferred(KEY, state), true);
+});
+
+test('DROPPABLE: Drive connected and this photo IS confirmed', () => {
+  const state = { kind: 'connected' as const, confirmedKeys: new Set([KEY]) };
+  assert.equal(isDriveDeferred(KEY, state), false);
+  // ...but a sibling key that isn't confirmed still defers.
+  assert.equal(isDriveDeferred('other.jpg', state), true);
+});
+
+test('UNCHANGED: Drive never connected → guard is a no-op', () => {
+  assert.equal(isDriveDeferred(KEY, { kind: 'not_connected' }), false);
+});
+
+test('DEFER: unreadable Drive state — a read failure never authorizes a delete', () => {
+  assert.equal(isDriveDeferred(KEY, { kind: 'unknown', reason: 'oauth_grants:boom' }), true);
 });

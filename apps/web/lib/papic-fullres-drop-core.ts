@@ -53,6 +53,94 @@ export function isEligibleForDrop(
   return ageDays >= opts.retentionDays;
 }
 
+// ============================================================================
+// Drive-aware defer guard (Papic_Build_Brief_2026-07-17.md ruling #4 — MANDATORY)
+//
+// The age + web-copy guards above only prove the GALLERY survives the drop.
+// They say nothing about the couple's FULL-RES second copy. The retention model
+// is "we drop our R2 original because the couple's Google Drive holds the
+// full-res" — so if the couple pointed a Drive at this event and that Drive copy
+// is queued / retrying / failed / missing, deleting our original leaves the
+// full-res original NOWHERE. Unrecoverable.
+//
+// So: when Drive is in play, a photo may only be dropped once its high-res Drive
+// copy is CONFIRMED. Everything else DEFERS (skip, keep, retry next sweep).
+//
+// ⚠ FAIL SAFE: a read failure must never authorize a deletion. If the Drive
+// state can't be read, or is ambiguous, the state is `unknown` and EVERY photo
+// for that event defers. Deleting is the irreversible branch; deferring costs
+// storage for a week.
+// ============================================================================
+
+/** What we know about an event's Drive-side full-res copy. */
+export type DriveCopyState =
+  /** The couple never pointed a Drive at this event → guard is a no-op. */
+  | { kind: 'not_connected' }
+  /** Drive is in play; these r2 keys have a CONFIRMED high-res copy on it. */
+  | { kind: 'connected'; confirmedKeys: ReadonlySet<string> }
+  /** Read failed / ambiguous → defer everything (never delete on ignorance). */
+  | { kind: 'unknown'; reason: string };
+
+/**
+ * One copy-tracking row, shaped to cover BOTH Drive tables:
+ *   • drive_copy_artifacts    (universal copy layer — has copied_high_res)
+ *   • photo_delivery_artifacts (0009 manual "Release to Drive" — no such column;
+ *     it uploads the ORIGINAL r2_object_key bytes, so absent = high-res).
+ * `drive_file_id` is the repo's canonical "this file is on the couple's Drive"
+ * predicate (see runDriveCopyBatch/markUploaded + the release-worker dedup).
+ */
+export type DriveArtifactRow = {
+  r2_object_key: string | null;
+  drive_file_id: string | null;
+  copied_high_res?: boolean | null;
+};
+
+/**
+ * Is this row a CONFIRMED high-res Drive copy? Deliberately strict — anything
+ * short of "the bytes are on the couple's Drive, at full res" is a NO:
+ *   • no drive_file_id → queued, retrying, failed, or retry-capped → NOT copied;
+ *   • copied_high_res === false → a post-compression copy, i.e. the full-res
+ *     original is NOT on Drive → dropping ours would lose it.
+ */
+export function isDriveCopyConfirmed(row: DriveArtifactRow): boolean {
+  if (!row.r2_object_key) return false;
+  if (!row.drive_file_id) return false;
+  if (row.copied_high_res === false) return false;
+  return true;
+}
+
+/** Collect the confirmed keys out of a mixed batch of copy-tracking rows. */
+export function confirmedDriveKeys(rows: readonly DriveArtifactRow[]): Set<string> {
+  const keys = new Set<string>();
+  for (const row of rows) {
+    if (isDriveCopyConfirmed(row)) keys.add(row.r2_object_key as string);
+  }
+  return keys;
+}
+
+/**
+ * THE guard. `true` = DEFER (keep our original this sweep). Pure so the sweep
+ * and its test share one definition.
+ *   • Drive not connected → false (unchanged pre-guard behaviour);
+ *   • Drive connected + copy confirmed → false (safe to drop, two copies exist);
+ *   • Drive connected + copy queued/failed/missing → true (DEFER);
+ *   • Drive state unknown → true (DEFER — a read failure must never authorize
+ *     a deletion).
+ */
+export function isDriveDeferred(r2ObjectKey: string, state: DriveCopyState): boolean {
+  switch (state.kind) {
+    case 'not_connected':
+      return false;
+    case 'connected':
+      return !state.confirmedKeys.has(r2ObjectKey);
+    case 'unknown':
+      return true;
+    default:
+      // Unreachable today, but an unrecognised state is ignorance → defer.
+      return true;
+  }
+}
+
 /**
  * Resolve r2_object_key → {bucket, key} for deletion. Legacy raw keys live in the
  * `media` bucket (where papic originals upload); an `r2://bucket/key` ref carries

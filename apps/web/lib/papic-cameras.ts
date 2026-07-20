@@ -85,9 +85,16 @@ export async function eventLtdFreeViaUnlock(
 //
 // Life events run a THREE-rung paid ladder on top of the 3 free cameras:
 //
-//     Papic Mini  ₱30/camera/day · 20 pts/day · wedding cap ₱6,000
-//     Papic Ltd   ₱50/camera/day · 70 pts/day · wedding cap ₱10,000
-//     Papic Unli ₱100/camera/day ·      ∞     · wedding cap ₱15,000
+//     Papic Mini ₱100/camera/day · 200 pts/day · wedding cap ₱6,000
+//     Papic Max  ₱200/camera/day · 500 pts/day · wedding cap ₱15,000
+//     (Papic Ltd — the ₱50 / 70-pt rung — is DEACTIVATED, migration 20270828150000)
+//
+// ⚠ "Papic Unli" IS RETIRED AS A NAME. The rung is capped at 500 points, and a
+// tier capped at 500 is not unlimited — shipping that word would advertise what
+// the code does not do. The TIER CODE stays 'unlimited' (schema CHECK value +
+// existing seat rows · never-rename lock); only the display title changed to
+// "Papic Max". Capping it means points_per_day went NULL -> 500, so the
+// fail-closed gate now BINDS on this rung where it never did before.
 //
 // ⚠ `roll` ↔ `mini` — READ THIS BEFORE TOUCHING EITHER.
 // `roll` is the LEGACY tier code for the ₱30 rung. It shipped first (migration
@@ -132,11 +139,16 @@ export const PAPIC_CAMERA_INDEX_BASE = 200;
  */
 export const PAPIC_FREE_CAMERA_INDEX_BASE = 100;
 
-/** Last-resort fallbacks if the catalog row is missing. Live prices come from the catalog. */
-export const PAPIC_CAMERA_ROLL_FALLBACK_PHP = 30;
-export const PAPIC_CAMERA_MINI_FALLBACK_PHP = 30; // same rung as roll (see the alias note above)
-export const PAPIC_CAMERA_LTD_FALLBACK_PHP = 50;
-export const PAPIC_CAMERA_UNLIMITED_FALLBACK_PHP = 100;
+/**
+ * Last-resort fallbacks if the catalog row is missing. Live prices come from the
+ * catalog. Owner ladder 2026-07-20 (migration 20270828150000): Mini ₱100 · Max
+ * ₱200. Ltd is DEACTIVATED — its constant survives for lineage only, so a stale
+ * read of a retired rung cannot quote ₱0.
+ */
+export const PAPIC_CAMERA_ROLL_FALLBACK_PHP = 100;
+export const PAPIC_CAMERA_MINI_FALLBACK_PHP = 100; // same rung as roll (see the alias note above)
+export const PAPIC_CAMERA_LTD_FALLBACK_PHP = 50; // retired rung — lineage only
+export const PAPIC_CAMERA_UNLIMITED_FALLBACK_PHP = 200; // "Papic Max" — capped at 500 pts, so no longer "Unli"
 export const PAPIC_DEFAULT_COST_CAP_PHP = 6999; // deprecated single cap (pre per-tier)
 /**
  * Per-tier WEDDING price caps — each tier's subtotal locks here (weddings only;
@@ -148,7 +160,7 @@ export const PAPIC_DEFAULT_COST_CAP_PHP = 6999; // deprecated single cap (pre pe
  */
 export const PAPIC_MINI_CAP_FALLBACK_PHP = 6000; // Mini (and legacy roll->Mini) — owner 2026-07-17
 export const PAPIC_LTD_CAP_FALLBACK_PHP = 10000; // Ltd (₱50 rung) — owner 2026-07-17
-export const PAPIC_UNLI_CAP_FALLBACK_PHP = 15000; // Unli = 150 cameras × ₱100
+export const PAPIC_UNLI_CAP_FALLBACK_PHP = 15000; // Papic Max (tier code stays 'unlimited') — 75 cameras × ₱200
 
 /**
  * Every per-camera tier code the DB accepts (paparazzi_seats.tier CHECK,

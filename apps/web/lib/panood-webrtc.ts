@@ -56,6 +56,29 @@ function signalChannelName(eventId: string): string {
   return `panood-rtc:${eventId}`;
 }
 
+/**
+ * Channel options for the signaling topic.
+ *
+ * `private: true` is a SECURITY REQUIREMENT, not a preference. Supabase evaluates RLS on
+ * `realtime.messages` for PRIVATE channels only — a public channel is unauthenticated by
+ * definition, and this one is keyed on an event id that travels in dashboard URLs and QR links.
+ *
+ * Without it, the policies in migration 20270829134804 are dead code and ANY stranger holding an
+ * event id could answer a camera's offer. The transport is one-publisher → one-viewer per slot,
+ * so that hijack does not merely eavesdrop — it TAKES the camera, and the couple's own control
+ * room goes black on that tile, mid-ceremony.
+ *
+ * Both halves must ship together. Do not flip this back to public.
+ */
+function signalChannelConfig() {
+  return {
+    config: {
+      private: true as const,
+      broadcast: { self: false },
+    },
+  };
+}
+
 type Sdp = { type: RTCSdpType; sdp: string };
 
 /** A camera slot is any non-empty string (the control room uses `cam{index}`). */
@@ -118,9 +141,10 @@ export function publishPanoodCamera({
   let helloTimer: ReturnType<typeof setInterval> | null = null;
   let closed = false;
 
-  const channel: RealtimeChannel = supabase.channel(signalChannelName(eventId), {
-    config: { broadcast: { self: false } },
-  });
+  const channel: RealtimeChannel = supabase.channel(
+    signalChannelName(eventId),
+    signalChannelConfig(),
+  );
 
   const send = (event: string, payload: Record<string, unknown>) => {
     void channel.send({ type: 'broadcast', event, payload });
@@ -215,9 +239,10 @@ export function watchPanoodCameras({
   const unwatchers = new Map<string, () => void>();
   let closed = false;
 
-  const channel: RealtimeChannel = supabase.channel(signalChannelName(eventId), {
-    config: { broadcast: { self: false } },
-  });
+  const channel: RealtimeChannel = supabase.channel(
+    signalChannelName(eventId),
+    signalChannelConfig(),
+  );
 
   const send = (event: string, payload: Record<string, unknown>) => {
     void channel.send({ type: 'broadcast', event, payload });

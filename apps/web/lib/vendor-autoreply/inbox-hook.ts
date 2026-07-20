@@ -42,6 +42,7 @@ import { fetchLatestReviewsByVendor } from '../vendor-reviews-preview';
 import type { VendorCoverageRow } from '../vendor-coverages';
 import type { VendorPackageWithItems } from '../vendor-packages';
 import { toEventBriefLite, toStoreSnapshot } from './adapter';
+import { maybeAutoAccept } from './auto-accept';
 import { decideReply } from './engine';
 import { evaluateAutoReplyGate, startOfManilaDayIso } from './inbox-decision';
 
@@ -80,7 +81,7 @@ export async function runVendorAutoReply(
     //    these two ids (single-tenant isolation).
     const { data: thread } = await admin
       .from('chat_threads')
-      .select('thread_id,event_id,vendor_profile_id')
+      .select('thread_id,event_id,vendor_profile_id,inquiry_status,compat_score_at_inquiry')
       .eq('thread_id', input.threadId)
       .maybeSingle();
     if (!thread) return;
@@ -88,9 +89,10 @@ export async function runVendorAutoReply(
     const eventId = thread.event_id as string;
 
     // 2. Bot config (opt-in) + 3. daily-cap count → the tested gate decides.
+    //    The auto_accept_* trio rides along for the Phase-4A step at the tail.
     const { data: config } = await admin
       .from('vendor_bot_config')
-      .select('enabled,daily_reply_cap')
+      .select('enabled,daily_reply_cap,auto_accept_enabled,auto_accept_threshold,daily_auto_accept_cap')
       .eq('vendor_profile_id', vendorId)
       .maybeSingle();
 
@@ -214,40 +216,69 @@ export async function runVendorAutoReply(
         action: 'handoff',
         was_llm: false,
       });
-      return;
-    }
+    } else {
+      const { data: botMessage, error: insertError } = await admin
+        .from('chat_messages')
+        .insert({
+          thread_id: thread.thread_id,
+          event_id: eventId,
+          vendor_profile_id: vendorId,
+          sender_user_id: null,
+          sender_role: 'vendor',
+          is_bot: true,
+          body: decision.replyText.slice(0, MAX_BODY),
+        })
+        .select('message_id')
+        .single();
+      if (insertError || !botMessage) {
+        throw new Error(`bot message insert failed: ${insertError?.message ?? 'no row returned'}`);
+      }
 
-    const { data: botMessage, error: insertError } = await admin
-      .from('chat_messages')
-      .insert({
-        thread_id: thread.thread_id,
-        event_id: eventId,
+      const { error: logError } = await admin.from('vendor_bot_replies').insert({
         vendor_profile_id: vendorId,
-        sender_user_id: null,
-        sender_role: 'vendor',
-        is_bot: true,
-        body: decision.replyText.slice(0, MAX_BODY),
-      })
-      .select('message_id')
-      .single();
-    if (insertError || !botMessage) {
-      throw new Error(`bot message insert failed: ${insertError?.message ?? 'no row returned'}`);
+        thread_id: thread.thread_id,
+        message_id: botMessage.message_id as string,
+        intent: decision.intent,
+        confidence: decision.confidence,
+        action: decision.action,
+        was_llm: false,
+      });
+      if (logError) {
+        // The reply already posted; a missing log row only under-counts the cap.
+        // Surface it loudly so it can't rot silently.
+        console.error('[vendor-autoreply] reply log insert failed:', logError.message);
+      }
     }
 
-    const { error: logError } = await admin.from('vendor_bot_replies').insert({
-      vendor_profile_id: vendorId,
-      thread_id: thread.thread_id,
-      message_id: botMessage.message_id as string,
-      intent: decision.intent,
-      confidence: decision.confidence,
-      action: decision.action,
-      was_llm: false,
-    });
-    if (logError) {
-      // The reply already posted; a missing log row only under-counts the cap.
-      // Surface it loudly so it can't rot silently.
-      console.error('[vendor-autoreply] reply log insert failed:', logError.message);
-    }
+    // 10. Phase 4A — compatibility auto-accept (What's-Next §7 / VFD-7). Runs
+    //     AFTER the front-desk answer in BOTH branches (auto-accept is about
+    //     the INQUIRY, not the question the engine could or couldn't answer).
+    //     Fail-closed inside; the no-token path never places a hold; only a
+    //     'pending' thread with the vendor opted in does any extra work.
+    await maybeAutoAccept(
+      {
+        threadId: thread.thread_id,
+        eventId,
+        vendorProfileId: vendorId,
+        inquiryStatus: (thread.inquiry_status as string | null) ?? null,
+        existingCompatScore:
+          typeof thread.compat_score_at_inquiry === 'number'
+            ? thread.compat_score_at_inquiry
+            : null,
+        businessName: ((profile.business_name as string | null) ?? '').trim(),
+        config: config
+          ? {
+              autoAcceptEnabled: config.auto_accept_enabled === true,
+              autoAcceptThreshold: Number(config.auto_accept_threshold ?? 78),
+              dailyAutoAcceptCap: Number(config.daily_auto_accept_cap ?? 0),
+            }
+          : null,
+        avgRating,
+        reviewCount,
+        eventRow: (eventRow as Record<string, unknown> | null) ?? null,
+      },
+      admin,
+    );
   } catch (err) {
     // FAIL-CLOSED: never propagate — the couple's message must be unaffected.
     console.error('[vendor-autoreply] runVendorAutoReply failed (non-fatal):', err);

@@ -1,10 +1,14 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Bot, Check, HandHelping } from 'lucide-react';
+import { Bot, Check, HandHelping, Zap } from 'lucide-react';
 
 import { useToast } from '@/app/_components/toast/toast-provider';
 import {
+  AUTO_ACCEPT_THRESHOLD_MAX,
+  AUTO_ACCEPT_THRESHOLD_MIN,
+  DAILY_AUTO_ACCEPT_CAP_MAX,
+  DAILY_AUTO_ACCEPT_CAP_MIN,
   DAILY_REPLY_CAP_MAX,
   DAILY_REPLY_CAP_MIN,
 } from '@/lib/vendor-autoreply/config';
@@ -15,19 +19,27 @@ import { updateAutoReplyConfig, type AutoReplySaveResult } from '../autoreply-ac
  * My Shop → "Auto-Reply Assistant" (Phase 4 config card · flag-dark — the page
  * only renders this behind NEXT_PUBLIC_VENDOR_AUTOREPLY_V1).
  *
- * WebsiteEditor idiom: the switch saves instantly + optimistically (revert +
- * toast on error); the daily-cap field saves with an inline button that appears
+ * WebsiteEditor idiom: switches save instantly + optimistically (revert +
+ * toast on error); the numeric fields save with an inline button that appears
  * when dirty. The explainer is STATIC — it mirrors the deterministic engine's
  * real intent set (lib/vendor-autoreply/intents.ts) so it can't over-promise.
- * Only `enabled` + `daily_reply_cap` are editable — the Phase-1 schema carries
- * no greeting/handoff copy columns, and the Pro columns wait for Phase 5/7.
+ * Editable fields: `enabled` + `daily_reply_cap` (Phase 4) and the Phase-4A
+ * auto-accept trio (`auto_accept_enabled` / `auto_accept_threshold` /
+ * `daily_auto_accept_cap`) — all columns the Phase-1 schema already carries.
+ * The remaining Pro columns (mode, voice_profile) wait for Phase 5/7.
  */
 export function AutoReplyCard({
   initialEnabled,
   initialDailyCap,
+  initialAutoAcceptEnabled,
+  initialAutoAcceptThreshold,
+  initialDailyAutoAcceptCap,
 }: {
   initialEnabled: boolean;
   initialDailyCap: number;
+  initialAutoAcceptEnabled: boolean;
+  initialAutoAcceptThreshold: number;
+  initialDailyAutoAcceptCap: number;
 }) {
   const toast = useToast();
   const [, startTransition] = useTransition();
@@ -36,6 +48,14 @@ export function AutoReplyCard({
   const [savedCap, setSavedCap] = useState(initialDailyCap);
   const [capVal, setCapVal] = useState(String(initialDailyCap));
   const capDirty = capVal.trim() !== String(savedCap);
+
+  const [autoAccept, setAutoAccept] = useState(initialAutoAcceptEnabled);
+  const [savedThreshold, setSavedThreshold] = useState(initialAutoAcceptThreshold);
+  const [thresholdVal, setThresholdVal] = useState(String(initialAutoAcceptThreshold));
+  const thresholdDirty = thresholdVal.trim() !== String(savedThreshold);
+  const [savedAcceptCap, setSavedAcceptCap] = useState(initialDailyAutoAcceptCap);
+  const [acceptCapVal, setAcceptCapVal] = useState(String(initialDailyAutoAcceptCap));
+  const acceptCapDirty = acceptCapVal.trim() !== String(savedAcceptCap);
 
   function save(
     entries: [string, string][],
@@ -71,6 +91,37 @@ export function AutoReplyCard({
         setSavedCap(res.dailyReplyCap);
         setCapVal(String(res.dailyReplyCap));
         toast.success('Daily reply cap saved.');
+      },
+    });
+  }
+
+  function toggleAutoAccept() {
+    const was = autoAccept;
+    const next = !was;
+    setAutoAccept(next);
+    save([['auto_accept_enabled', next ? 'true' : 'false']], {
+      onError: () => setAutoAccept(was),
+      onSuccess: () =>
+        toast.success(next ? 'Compatibility auto-accept is on.' : 'Compatibility auto-accept is off.'),
+    });
+  }
+
+  function saveThreshold() {
+    save([['auto_accept_threshold', thresholdVal.trim()]], {
+      onSuccess: (res) => {
+        setSavedThreshold(res.autoAcceptThreshold);
+        setThresholdVal(String(res.autoAcceptThreshold));
+        toast.success('Auto-accept threshold saved.');
+      },
+    });
+  }
+
+  function saveAcceptCap() {
+    save([['daily_auto_accept_cap', acceptCapVal.trim()]], {
+      onSuccess: (res) => {
+        setSavedAcceptCap(res.dailyAutoAcceptCap);
+        setAcceptCapVal(String(res.dailyAutoAcceptCap));
+        toast.success('Daily auto-accept cap saved.');
       },
     });
   }
@@ -138,6 +189,100 @@ export function AutoReplyCard({
         </div>
       </div>
 
+      {/* ── Phase 4A · Compatibility auto-accept (token hold) ────────────── */}
+      <div
+        className="mt-5 rounded-lg border p-3 sm:p-4"
+        style={{ borderColor: 'var(--m-line)' }}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-2.5">
+            <Zap
+              className="mt-0.5 h-4 w-4 shrink-0"
+              strokeWidth={1.75}
+              aria-hidden
+              style={{ color: 'var(--m-orange-2)' }}
+            />
+            <div className="min-w-0">
+              <h4 className="text-sm font-semibold text-ink">Compatibility auto-accept</h4>
+              <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
+                Accepts an inquiry for you when the couple&rsquo;s match score
+                clears your threshold — reserving one token as a hold, exactly
+                like accepting by hand. Out of tokens? It never borrows: the
+                assistant keeps answering and flags the waiting lead instead.
+              </p>
+            </div>
+          </div>
+          <Switch on={autoAccept} onClick={toggleAutoAccept} label="Compatibility auto-accept" />
+        </div>
+
+        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="autoaccept-threshold" className="block text-xs font-medium text-ink">
+              Match threshold (%)
+            </label>
+            <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
+              Only couples scoring at least this % are auto-accepted. 80+ =
+              strong matches, 60–79 = good matches.
+            </p>
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                id="autoaccept-threshold"
+                type="number"
+                inputMode="numeric"
+                min={AUTO_ACCEPT_THRESHOLD_MIN}
+                max={AUTO_ACCEPT_THRESHOLD_MAX}
+                step={1}
+                value={thresholdVal}
+                onChange={(e) => setThresholdVal(e.target.value)}
+                className="input-field max-w-[7rem]"
+                aria-label="Auto-accept match threshold"
+              />
+              <button
+                type="button"
+                disabled={!thresholdDirty}
+                onClick={saveThreshold}
+                className="rounded-md px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                style={{ background: 'var(--m-accent-deep)' }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+          <div>
+            <label htmlFor="autoaccept-daily-cap" className="block text-xs font-medium text-ink">
+              Daily auto-accept cap
+            </label>
+            <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
+              At most this many auto-accepts (and token holds) per day. Set 0
+              to pause auto-accepts without switching them off.
+            </p>
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                id="autoaccept-daily-cap"
+                type="number"
+                inputMode="numeric"
+                min={DAILY_AUTO_ACCEPT_CAP_MIN}
+                max={DAILY_AUTO_ACCEPT_CAP_MAX}
+                step={1}
+                value={acceptCapVal}
+                onChange={(e) => setAcceptCapVal(e.target.value)}
+                className="input-field max-w-[7rem]"
+                aria-label="Daily auto-accept cap"
+              />
+              <button
+                type="button"
+                disabled={!acceptCapDirty}
+                onClick={saveAcceptCap}
+                className="rounded-md px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                style={{ background: 'var(--m-accent-deep)' }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* ── Static explainer — mirrors the deterministic engine exactly ──── */}
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <div>
@@ -168,7 +313,10 @@ export function AutoReplyCard({
           </p>
           <ul className="mt-1.5 space-y-1 text-xs" style={{ color: 'var(--m-slate)' }}>
             <li>Customization requests</li>
-            <li>Booking decisions — it never accepts or commits for you</li>
+            <li>
+              Booking decisions — it never commits you to a booking. (With
+              auto-accept on, it only opens the chat for strong matches.)
+            </li>
             <li>Anything it isn&rsquo;t sure about, instead of guessing</li>
             <li>Questions your catalog has no data for</li>
           </ul>

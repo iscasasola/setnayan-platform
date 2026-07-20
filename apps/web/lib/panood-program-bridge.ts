@@ -127,3 +127,38 @@ export function resolveProgramBridge(): ProgramBridge | BridgeFailure {
     return 'no-bridge';
   }
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Split-cam ratio math (PR #5)                                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Narrowest a split pane may get. Below ~15% a pane is a sliver that reads as a
+ * rendering glitch on the venue screen rather than a deliberate composition, and
+ * the divider becomes hard to grab back. Symmetric: the other pane is capped at
+ * the same bound.
+ */
+export const SPLIT_RATIO_MIN = 0.15;
+export const SPLIT_RATIO_MAX = 0.85;
+
+/** Keyboard nudge step for the divider (arrow keys). */
+export const SPLIT_RATIO_STEP = 0.02;
+
+/** Clamp a split ratio into the legible band. NaN/±Infinity collapse to an even split. */
+export function clampSplitRatio(ratio: number): number {
+  if (!Number.isFinite(ratio)) return 0.5;
+  return Math.min(SPLIT_RATIO_MAX, Math.max(SPLIT_RATIO_MIN, ratio));
+}
+
+/**
+ * Ratio for a pointer at `clientX` over a track spanning [left, left+width].
+ * Returns null for a zero-width track (element not laid out yet) so callers
+ * leave the ratio alone rather than snapping the divider to a clamp bound.
+ */
+export function splitRatioFromPointer(
+  clientX: number,
+  track: { left: number; width: number },
+): number | null {
+  if (!Number.isFinite(track.width) || track.width <= 0) return null;
+  return clampSplitRatio((clientX - track.left) / track.width);
+}

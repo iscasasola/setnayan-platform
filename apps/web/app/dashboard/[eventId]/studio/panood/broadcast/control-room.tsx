@@ -28,7 +28,14 @@ import type { PanoodControlState } from '@/lib/panood-control';
 import { watchPanoodCameras } from '@/lib/panood-webrtc';
 import { getPanoodIceServers } from '@/app/panood/actions';
 import { panoodStreamingEnabled } from '@/lib/panood-camera-seats';
-import { installProgramBridge } from '@/lib/panood-program-bridge';
+import {
+  installProgramBridge,
+  clampSplitRatio,
+  splitRatioFromPointer,
+  SPLIT_RATIO_STEP,
+  SPLIT_RATIO_MIN,
+  SPLIT_RATIO_MAX,
+} from '@/lib/panood-program-bridge';
 
 // Client-safe row shapes. The server page (broadcast/page.tsx) STRIPS server-only
 // secrets — the camera claim_qr_token (a per-camera seat-hijack credential) and
@@ -161,6 +168,21 @@ export function PanoodControlRoom({
   }, [eventId, streamingOn]);
   const programStream = program ? camStreams[program] ?? null : null;
 
+  // ── Split cam (PR #5) ───────────────────────────────────────────────────────
+  // A second source composited beside PROGRAM at an operator-set ratio. Purely
+  // CLIENT state: the composite is drawn in the browser (and mirrored into the
+  // OBS pop-out over the bridge), so there is no control-plane row and no server
+  // action — nothing to persist, nothing to break if the console reloads mid-event.
+  // Picking a new PROGRAM clears the split so a cut is never ambiguous.
+  const [splitSource, setSplitSource] = useState<string | null>(null);
+  const [splitRatio, setSplitRatio] = useState(0.5);
+  const splitStream = splitSource ? camStreams[splitSource] ?? null : null;
+
+  function handleToggleSplit(source: string): void {
+    setSplitSource((prev) => (prev === source ? null : source));
+    setSplitRatio(0.5); // a fresh pairing always starts even
+  }
+
   // ── OBS program-output pop-out (PR #4) ──────────────────────────────────────
   // Publish the composited PROGRAM frame onto a same-origin window bridge the
   // chrome-less pop-out reads. The pop-out shares THESE MediaStream objects by
@@ -185,10 +207,10 @@ export function PanoodControlRoom({
       label: programLabelForBridge,
       live,
       stream: programStream,
-      secondaryStream: null, // wired by PR #5 (split cam)
-      splitRatio: 0.5,
+      secondaryStream: splitStream,
+      splitRatio,
     });
-  }, [program, programLabelForBridge, live, programStream]);
+  }, [program, programLabelForBridge, live, programStream, splitStream, splitRatio]);
 
   function openProgramPopout(): void {
     const existing = popoutRef.current;
@@ -227,6 +249,9 @@ export function PanoodControlRoom({
     const prev = program;
     setProgram(source); // optimistic
     setActiveMoment(null); // a manual cut clears the active-moment highlight
+    // Cutting to a source that IS the split partner would put the same camera on
+    // both sides; clear instead of showing a mirrored frame.
+    if (splitSource === source) setSplitSource(null);
     run(
       () => setProgramSource(eventId, source),
       () => setProgram(prev),
@@ -315,6 +340,9 @@ export function PanoodControlRoom({
             live={live}
             stream={programStream}
             onPopout={streamingOn ? openProgramPopout : undefined}
+            splitStream={splitStream}
+            splitRatio={splitRatio}
+            onSplitRatioChange={setSplitRatio}
           />
           <SourcesRail
             cameras={cameras}
@@ -322,6 +350,8 @@ export function PanoodControlRoom({
             onPick={handleSetProgram}
             disabled={isPending}
             camStreams={camStreams}
+            splitSource={splitSource}
+            onToggleSplit={streamingOn ? handleToggleSplit : undefined}
           />
           <MomentDirector
             moments={moments}
@@ -355,6 +385,9 @@ export function PanoodControlRoom({
           live={live}
           stream={programStream}
           onPopout={streamingOn ? openProgramPopout : undefined}
+          splitStream={splitStream}
+          splitRatio={splitRatio}
+          onSplitRatioChange={setSplitRatio}
         />
 
         {/* Swipeable camera strip — always visible above the tabs */}
@@ -403,6 +436,8 @@ export function PanoodControlRoom({
               onPick={handleSetProgram}
               disabled={isPending}
               camStreams={camStreams}
+              splitSource={splitSource}
+              onToggleSplit={streamingOn ? handleToggleSplit : undefined}
             />
           )}
           {mobileTab === 'walls' && (
@@ -482,12 +517,19 @@ function ProgramMonitor({
   live,
   stream,
   onPopout,
+  splitStream,
+  splitRatio,
+  onSplitRatioChange,
 }: {
   label: string;
   live: boolean;
   stream?: MediaStream | null;
   /** Opens the chrome-less program window OBS captures. Omitted when streaming is off. */
   onPopout?: () => void;
+  /** Second source composited beside program. Null = single-source program. */
+  splitStream?: MediaStream | null;
+  splitRatio?: number;
+  onSplitRatioChange?: (ratio: number) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   useEffect(() => {
@@ -538,7 +580,14 @@ function ProgramMonitor({
           live ? 'border-danger-500' : 'border-ink/15'
         }`}
       >
-        {stream ? (
+        {stream && splitStream ? (
+          <SplitProgram
+            primary={stream}
+            secondary={splitStream}
+            ratio={splitRatio ?? 0.5}
+            onRatioChange={onSplitRatioChange}
+          />
+        ) : stream ? (
           <video
             ref={videoRef}
             playsInline
@@ -563,6 +612,108 @@ function ProgramMonitor({
         )}
       </div>
     </section>
+  );
+}
+
+/**
+ * Side-by-side program composite with a draggable divider (PR #5).
+ *
+ * Drawn with plain CSS widths over two <video> elements rather than a canvas:
+ * a canvas composite would cost a per-frame draw loop on the operator's device
+ * for a visual the browser already does for free, and the OBS pop-out mirrors
+ * the same markup — so what the operator drags is literally what goes to air.
+ *
+ * The divider is keyboard-operable (arrows / Home / End) as well as draggable:
+ * on the desktop board this is a real production control, not decoration.
+ */
+function SplitProgram({
+  primary,
+  secondary,
+  ratio,
+  onRatioChange,
+}: {
+  primary: MediaStream;
+  secondary: MediaStream;
+  ratio: number;
+  onRatioChange?: (ratio: number) => void;
+}) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const draggingRef = useRef(false);
+  const pct = clampSplitRatio(ratio) * 100;
+
+  // Pointer events (not mouse) so a trackpad, a mouse and a touchscreen operator
+  // all get the same drag. Capture keeps the drag alive outside the element.
+  const moveTo = (clientX: number) => {
+    const box = wrapRef.current?.getBoundingClientRect();
+    if (!box || !onRatioChange) return;
+    const next = splitRatioFromPointer(clientX, box);
+    if (next !== null) onRatioChange(next);
+  };
+
+  const nudge = (delta: number) => onRatioChange?.(clampSplitRatio(ratio + delta));
+
+  return (
+    <div ref={wrapRef} className="absolute inset-0 flex">
+      <div className="relative h-full overflow-hidden" style={{ width: `${pct}%` }}>
+        <SplitPane stream={primary} />
+      </div>
+      <div
+        role="separator"
+        aria-label="Split position"
+        aria-orientation="vertical"
+        aria-valuenow={Math.round(pct)}
+        aria-valuemin={Math.round(SPLIT_RATIO_MIN * 100)}
+        aria-valuemax={Math.round(SPLIT_RATIO_MAX * 100)}
+        tabIndex={0}
+        onPointerDown={(e) => {
+          draggingRef.current = true;
+          e.currentTarget.setPointerCapture(e.pointerId);
+        }}
+        onPointerMove={(e) => {
+          if (draggingRef.current) moveTo(e.clientX);
+        }}
+        onPointerUp={(e) => {
+          draggingRef.current = false;
+          e.currentTarget.releasePointerCapture(e.pointerId);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowLeft') { e.preventDefault(); nudge(-SPLIT_RATIO_STEP); }
+          else if (e.key === 'ArrowRight') { e.preventDefault(); nudge(SPLIT_RATIO_STEP); }
+          else if (e.key === 'Home') { e.preventDefault(); onRatioChange?.(SPLIT_RATIO_MIN); }
+          else if (e.key === 'End') { e.preventDefault(); onRatioChange?.(SPLIT_RATIO_MAX); }
+        }}
+        className="group relative z-10 h-full w-1.5 shrink-0 cursor-col-resize bg-cream/70 outline-none transition-colors hover:bg-cream focus-visible:bg-cream"
+      >
+        {/* Widened invisible hit area — 6px is precise but not grabbable under pressure. */}
+        <span aria-hidden className="absolute inset-y-0 -left-2 -right-2" />
+      </div>
+      <div className="relative h-full flex-1 overflow-hidden">
+        <SplitPane stream={secondary} />
+      </div>
+    </div>
+  );
+}
+
+/** One pane of the split. object-cover — the panes are narrower than 16:9. */
+function SplitPane({ stream }: { stream: MediaStream }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.srcObject = stream;
+    void el.play().catch(() => {});
+    return () => {
+      el.srcObject = null;
+    };
+  }, [stream]);
+  return (
+    <video
+      ref={ref}
+      playsInline
+      autoPlay
+      muted
+      className="absolute inset-0 h-full w-full object-cover"
+    />
   );
 }
 
@@ -634,12 +785,18 @@ function SourcesRail({
   onPick,
   disabled,
   camStreams,
+  splitSource,
+  onToggleSplit,
 }: {
   cameras: PanoodCameraRow[];
   program: string | null;
   onPick: (source: string) => void;
   disabled: boolean;
   camStreams: Record<string, MediaStream>;
+  /** Camera currently composited beside program, if any. */
+  splitSource?: string | null;
+  /** Omitted when streaming is off — a split of two placeholders means nothing. */
+  onToggleSplit?: (source: string) => void;
 }) {
   return (
     <section
@@ -650,29 +807,57 @@ function SourcesRail({
         <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-ink/55">
           Sources
         </h2>
-        <span className="text-[11px] text-ink/45">Tap a source to put it on air</span>
+        <span className="text-[11px] text-ink/45">
+          {onToggleSplit ? 'Tap to put on air · “Split” to pair beside it' : 'Tap a source to put it on air'}
+        </span>
       </div>
 
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
         {cameras.map((cam) => {
           const key = cameraSourceKey(cam);
           const onAir = program === key;
+          const isSplit = splitSource === key;
+          // A camera already on air can't also be its own split partner.
+          const canSplit = Boolean(onToggleSplit) && !onAir;
           return (
-            <button
-              key={cam.id}
-              type="button"
-              disabled={disabled}
-              onClick={() => onPick(key)}
-              className={sourceTileClass(onAir)}
-            >
-              <SourceTileBody
-                Icon={Camera}
-                label={cameraLabel(cam)}
-                onAir={onAir}
-                status={cam.status}
-                stream={camStreams[key] ?? null}
-              />
-            </button>
+            <div key={cam.id} className="relative">
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => onPick(key)}
+                className={`w-full ${sourceTileClass(onAir)} ${
+                  isSplit ? 'ring-2 ring-terracotta/60' : ''
+                }`}
+              >
+                <SourceTileBody
+                  Icon={Camera}
+                  label={cameraLabel(cam)}
+                  onAir={onAir}
+                  status={cam.status}
+                  stream={camStreams[key] ?? null}
+                />
+              </button>
+              {canSplit && (
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => onToggleSplit?.(key)}
+                  aria-pressed={isSplit}
+                  title={
+                    isSplit
+                      ? 'Remove this camera from the split'
+                      : 'Show this camera beside the program source'
+                  }
+                  className={`absolute right-1.5 top-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] transition-colors ${
+                    isSplit
+                      ? 'bg-terracotta text-cream'
+                      : 'bg-ink/70 text-cream/90 hover:bg-ink'
+                  }`}
+                >
+                  {isSplit ? 'Split ✓' : 'Split'}
+                </button>
+              )}
+            </div>
           );
         })}
 

@@ -4,8 +4,12 @@ import { r2Delete } from '@/lib/r2';
 import { eventSkuActive } from '@/lib/entitlements';
 import {
   DEFAULT_FULL_RES_RETENTION_DAYS,
+  confirmedDriveKeys,
+  isDriveDeferred,
   isEligibleForDrop,
   resolveOriginalRef,
+  type DriveArtifactRow,
+  type DriveCopyState,
   type DropCandidate,
 } from '@/lib/papic-fullres-drop-core';
 import { claimPeriodicJob, WEEKLY_GAP_MS } from '@/lib/periodic-jobs';
@@ -26,11 +30,126 @@ import { claimPeriodicJob, WEEKLY_GAP_MS } from '@/lib/periodic-jobs';
 //   • display_r2_key MUST exist — never drop a photo with no web copy.
 //   • never a `sample/...` seed key.
 //   • Keep-Full-Res (HIGH_RES_ARCHIVE) events keep their originals on us.
+//   • DRIVE-AWARE DEFER (Papic_Build_Brief_2026-07-17.md ruling #4): if the
+//     couple pointed a Google Drive at this event, a photo is only droppable
+//     once its high-res Drive copy is CONFIRMED. Queued / retrying / failed /
+//     missing → defer. Drive state unreadable → defer. (A read failure must
+//     never authorize a deletion.)
 //   • only after captured_at < now - retentionDays.
 //   • the R2 delete resolves a known bucket or declines.
 // ============================================================================
 
 const KEEP_FULL_RES_SKU = 'HIGH_RES_ARCHIVE';
+
+/**
+ * Every oauth_grants.provider that means "this couple pointed a Google Drive at
+ * this event": the canonical connect ('drive'), the 2nd-Drive overflow
+ * ('drive_overflow'), and the legacy 0009 Photo-Delivery pilot
+ * ('drive_photo_delivery'). `revoked_at` is deliberately NOT filtered — a couple
+ * who connected and later disconnected may have left copies mid-flight, and the
+ * safe reading of "they intended a Drive copy" is the widest one.
+ */
+const DRIVE_INTENT_PROVIDERS = ['drive', 'drive_overflow', 'drive_photo_delivery'];
+
+/** Keep `.in()` lists bounded (the sweep can carry up to 1000 candidate keys). */
+const DRIVE_KEY_CHUNK = 200;
+
+function chunk<T>(arr: readonly T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+/**
+ * Read one event's Drive-copy state for a known set of candidate r2 keys.
+ *
+ * ⚠ FAIL SAFE by construction: EVERY error path returns `{kind:'unknown'}`,
+ * which makes isDriveDeferred() defer every photo for the event. A read failure
+ * must never authorize a deletion — we would rather pay another week of R2
+ * storage than delete the only full-res copy of someone's wedding.
+ */
+async function loadEventDriveCopyState(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  candidateKeys: readonly string[],
+): Promise<DriveCopyState> {
+  try {
+    // 1. Did this couple ever point a Drive at this event?
+    const grants = await admin
+      .from('oauth_grants')
+      .select('grant_id')
+      .eq('event_id', eventId)
+      .in('provider', DRIVE_INTENT_PROVIDERS)
+      .limit(1);
+    if (grants.error) {
+      return { kind: 'unknown', reason: `oauth_grants:${grants.error.message.slice(0, 120)}` };
+    }
+    let driveIntended = (grants.data ?? []).length > 0;
+
+    if (!driveIntended) {
+      // Legacy 0009 pilot events carry the Drive on the event row itself.
+      const ev = await admin
+        .from('events')
+        .select('photo_delivery_folder_id, photo_delivery_status')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      if (ev.error) {
+        return { kind: 'unknown', reason: `events:${ev.error.message.slice(0, 120)}` };
+      }
+      if (!ev.data) {
+        // The photo's event row is unreadable → we cannot prove Drive is absent.
+        return { kind: 'unknown', reason: 'events:row_missing' };
+      }
+      const status = (ev.data.photo_delivery_status as string | null) ?? 'idle';
+      driveIntended = Boolean(ev.data.photo_delivery_folder_id) || status !== 'idle';
+    }
+
+    if (!driveIntended) return { kind: 'not_connected' };
+
+    // 2. Which of these keys are CONFIRMED on the couple's Drive? Both copy
+    //    tables count — the universal drive_copy_artifacts layer and the 0009
+    //    photo_delivery_artifacts release path (which uploads the original
+    //    r2_object_key bytes, i.e. the full-res original).
+    const confirmed = new Set<string>();
+    for (const keys of chunk(candidateKeys, DRIVE_KEY_CHUNK)) {
+      if (keys.length === 0) continue;
+      const [copyRows, deliveryRows] = await Promise.all([
+        admin
+          .from('drive_copy_artifacts')
+          .select('r2_object_key, drive_file_id, copied_high_res')
+          .eq('event_id', eventId)
+          .in('r2_object_key', keys),
+        admin
+          .from('photo_delivery_artifacts')
+          .select('r2_object_key, drive_file_id')
+          .eq('event_id', eventId)
+          .in('r2_object_key', keys),
+      ]);
+      if (copyRows.error) {
+        return {
+          kind: 'unknown',
+          reason: `drive_copy_artifacts:${copyRows.error.message.slice(0, 120)}`,
+        };
+      }
+      if (deliveryRows.error) {
+        return {
+          kind: 'unknown',
+          reason: `photo_delivery_artifacts:${deliveryRows.error.message.slice(0, 120)}`,
+        };
+      }
+      for (const k of confirmedDriveKeys((copyRows.data ?? []) as DriveArtifactRow[])) {
+        confirmed.add(k);
+      }
+      for (const k of confirmedDriveKeys((deliveryRows.data ?? []) as DriveArtifactRow[])) {
+        confirmed.add(k);
+      }
+    }
+
+    return { kind: 'connected', confirmedKeys: confirmed };
+  } catch (e) {
+    return { kind: 'unknown', reason: `threw:${(e as Error)?.message?.slice(0, 120) ?? 'unknown'}` };
+  }
+}
 
 function dropEnabled(): boolean {
   // Owner 2026-07-11 "enable the drop" — ON by default now that the model is
@@ -54,6 +173,10 @@ export type FullResDropSummary = {
   eligible: number;
   dropped: number;
   skippedKeepFullRes: number;
+  /** Kept because the couple's high-res Drive copy isn't confirmed yet. */
+  deferredDriveCopy: number;
+  /** Events whose Drive state couldn't be read → all their photos deferred. */
+  driveStateUnknownEvents: number;
   failed: number;
   bytesReclaimed: number;
 };
@@ -126,9 +249,23 @@ export async function runFullResDropSweep(
   let eligible = 0;
   let dropped = 0;
   let skippedKeepFullRes = 0;
+  let deferredDriveCopy = 0;
+  let driveStateUnknownEvents = 0;
   let failed = 0;
   let bytesReclaimed = 0;
   const keepCache = new Map<string, boolean>();
+  const driveCache = new Map<string, DriveCopyState>();
+  const deferredByEvent = new Map<string, number>();
+
+  // Pre-pass: every age-eligible candidate key, grouped by event, so the Drive
+  // lookup for an event is ONE batched read instead of one per photo.
+  const candidateKeysByEvent = new Map<string, string[]>();
+  for (const it of items) {
+    if (!isEligibleForDrop(it, { retentionDays: days, nowMs })) continue;
+    const bucket = candidateKeysByEvent.get(it.event_id);
+    if (bucket) bucket.push(it.r2_object_key);
+    else candidateKeysByEvent.set(it.event_id, [it.r2_object_key]);
+  }
 
   for (const it of items) {
     if (!isEligibleForDrop(it, { retentionDays: days, nowMs })) continue;
@@ -141,6 +278,33 @@ export async function runFullResDropSweep(
     }
     if (keep) {
       skippedKeepFullRes += 1;
+      continue;
+    }
+
+    // DRIVE-AWARE DEFER. The retention model only works because the couple's
+    // Drive holds the full-res — so never drop ours until that copy is
+    // CONFIRMED. Unknown Drive state defers too: a read failure must never
+    // authorize a deletion.
+    let drive = driveCache.get(it.event_id);
+    if (drive === undefined) {
+      drive = await loadEventDriveCopyState(
+        admin,
+        it.event_id,
+        candidateKeysByEvent.get(it.event_id) ?? [it.r2_object_key],
+      );
+      driveCache.set(it.event_id, drive);
+      if (drive.kind === 'unknown') {
+        driveStateUnknownEvents += 1;
+        console.warn(
+          `[papic-fullres-drop] Drive state unreadable for event ${it.event_id} ` +
+            `(${drive.reason}) — DEFERRING every full-res drop for it. ` +
+            'A read failure must never authorize a deletion.',
+        );
+      }
+    }
+    if (isDriveDeferred(it.r2_object_key, drive)) {
+      deferredDriveCopy += 1;
+      deferredByEvent.set(it.event_id, (deferredByEvent.get(it.event_id) ?? 0) + 1);
       continue;
     }
 
@@ -163,6 +327,24 @@ export async function runFullResDropSweep(
     }
   }
 
+  // Observability: a stuck Drive copy must be visible, not a silent skip. Each
+  // deferred photo is one whose full-res second copy hasn't landed — if this
+  // number never falls for an event, that event's Drive sync is broken.
+  if (deferredDriveCopy > 0) {
+    const worst = [...deferredByEvent.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([id, n]) => `${id}=${n}`)
+      .join(', ');
+    console.warn(
+      `[papic-fullres-drop] Deferred ${deferredDriveCopy} full-res original(s) ` +
+        `across ${deferredByEvent.size} event(s) — high-res Drive copy not confirmed ` +
+        `(${driveStateUnknownEvents} event(s) had an unreadable Drive state). ` +
+        `Top: ${worst}. These retry next sweep; a number that never falls means ` +
+        'that event’s Drive sync is stuck.',
+    );
+  }
+
   return {
     dryRun,
     retentionDays: days,
@@ -170,6 +352,8 @@ export async function runFullResDropSweep(
     eligible,
     dropped,
     skippedKeepFullRes,
+    deferredDriveCopy,
+    driveStateUnknownEvents,
     failed,
     bytesReclaimed,
   };

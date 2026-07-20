@@ -11,6 +11,7 @@ import {
   provisionPanoodMomentsAdmin,
 } from '@/lib/panood-moments';
 import { fetchOrInitControlStateAdmin } from '@/lib/panood-control';
+import { requirePanoodControlRoomMember } from '@/lib/panood-control-room-access';
 import { PanoodControlRoom } from './control-room';
 
 export const metadata = { title: 'Panood control room · Setnayan' };
@@ -53,7 +54,7 @@ export default async function PanoodControlRoomPage({ params }: Props) {
   // Control-room membership: a moderator (couple OR coordinator added as one) or
   // legacy couple membership. Non-members are bounced to the dashboard — this is
   // a day-of operator surface, not a viewer page.
-  const isMember = await requireControlRoomMember(eventId, user.id);
+  const isMember = await requirePanoodControlRoomMember(eventId, user.id);
   if (!isMember) redirect(`/dashboard/${eventId}`);
 
   // PAID multicam controller gate. eventSkuActive degrades to false on a missing
@@ -144,30 +145,6 @@ export default async function PanoodControlRoomPage({ params }: Props) {
  * requireControlRoomMembership): a moderator (accepted, not removed — covers the
  * couple AND a coordinator added as a moderator) OR legacy couple membership.
  */
-async function requireControlRoomMember(
-  eventId: string,
-  userId: string,
-): Promise<boolean> {
-  const supabase = await createClient();
-  const { data: moderator } = await supabase
-    .from('event_moderators')
-    .select('moderator_id')
-    .eq('event_id', eventId)
-    .eq('user_id', userId)
-    .not('accepted_at', 'is', null)
-    .is('removed_at', null)
-    .maybeSingle();
-  if (moderator) return true;
-
-  const { data: legacy } = await supabase
-    .from('event_members')
-    .select('member_type')
-    .eq('event_id', eventId)
-    .eq('user_id', userId)
-    .maybeSingle();
-  return legacy?.member_type === 'couple';
-}
-
 /**
  * Honest upsell for an event that doesn't own the paid multicam controller. The
  * FREE single-cam livestream stays on ./setup — we point there, not at a dead

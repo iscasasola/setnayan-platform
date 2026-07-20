@@ -20,6 +20,7 @@ import {
   eventUnliFreeViaUnlock,
   eventLtdFreeViaUnlock,
 } from '@/lib/papic-cameras';
+import { combinePointsGates } from '@/lib/papic-event-pool';
 import { eventHasPapicUnlock } from '@/lib/entitlements';
 
 /**
@@ -376,30 +377,60 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // backstop. Fail-CLOSED on any RPC failure EXCEPT function-not-found
       // (resolvePointsGate — the seam-cutover carve-out), so a metering outage
       // can never silently un-meter a camera.
-      if (!unlocked) {
+      {
         const cameraKind = baseContentTypeOf(body.contentType).startsWith(
           'video/',
         )
           ? 'clip'
           : 'photo';
         const cost = papicCaptureCost(cameraKind);
-        let gate: PointsGateVerdict;
+        let seatGate: PointsGateVerdict = 'allow';
+        if (!unlocked) {
+          try {
+            const { data: remaining, error: remErr } = await admin.rpc(
+              'papic_camera_points_remaining',
+              { p_seat_id: seat.seat_id as string },
+            );
+            seatGate = resolvePointsGate(
+              remErr ? (remErr.code ?? 'unknown') : null,
+              typeof remaining === 'number' ? remaining >= cost : null,
+            );
+          } catch {
+            seatGate = 'blocked'; // thrown ≠ identifiable fn-not-found → fail-CLOSED
+          }
+        }
+        // EVENT-SCOPED capture fence (Phase 0c · lib/papic-event-pool.ts): the
+        // flat per-event PASS (PAPIC_UNLOCK / PAPIC_UNLOCK_LTD / the ₱1,499 flat
+        // pass) previously bypassed metering entirely — this is the missing
+        // bound. The RPC returns MAXINT for every NON-pass event, so this probe
+        // is a pure no-op there and today's behaviour is byte-identical. Pool =
+        // clamp(guests × 150, 5,000, 30,000) pts, admin-tunable in
+        // papic_event_pool_config. Same fail-CLOSED posture as the seat gate.
+        let eventGate: PointsGateVerdict;
         try {
-          const { data: remaining, error: remErr } = await admin.rpc(
-            'papic_camera_points_remaining',
-            { p_seat_id: seat.seat_id as string },
+          const { data: poolLeft, error: poolErr } = await admin.rpc(
+            'papic_event_points_remaining',
+            { p_event_id: seat.event_id as string },
           );
-          gate = resolvePointsGate(
-            remErr ? (remErr.code ?? 'unknown') : null,
-            typeof remaining === 'number' ? remaining >= cost : null,
+          eventGate = resolvePointsGate(
+            poolErr ? (poolErr.code ?? 'unknown') : null,
+            typeof poolLeft === 'number' ? poolLeft >= cost : null,
           );
         } catch {
-          gate = 'blocked'; // thrown ≠ identifiable fn-not-found → fail-CLOSED
+          eventGate = 'blocked';
         }
+        // The TIGHTER of the two budgets wins.
+        const gate = combinePointsGates(seatGate, eventGate);
         if (gate === 'exhausted') {
+          // Same 409 + camera_points_exhausted semantics either way (the client
+          // treats it as a terminal cap, no retry, no orphan bytes) — only the
+          // copy differs, because the event pool does NOT refill tomorrow.
           return NextResponse.json(
             {
-              error: 'This camera has used today’s shots — it refills tomorrow.',
+              error:
+                seatGate === 'exhausted'
+                  ? 'This camera has used today’s shots — it refills tomorrow.'
+                  : 'This event has used all its Papic shots.',
               code: 'camera_points_exhausted',
             },
             { status: 409 },

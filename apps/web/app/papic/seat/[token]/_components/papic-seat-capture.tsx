@@ -244,6 +244,10 @@ export function PapicSeatCapture({
   // Transient "you've used all your photos/clips" feedback when a gesture is
   // blocked by a per-seat cap (uncapped seats → never set).
   const [capNotice, setCapNotice] = useState<'photos' | 'clips' | null>(null);
+  // SOFT-STOP (Phase 0c): the event-scoped pass pool warns here BEFORE the hard
+  // stop, so a crew shooting a flat-pass event sees the fence coming instead of
+  // hitting it cold. Null on every event without a pass (no fence at all).
+  const [poolNotice, setPoolNotice] = useState<string | null>(null);
 
   // ---- capture roll + background upload queue ------------------------------
   // `shots` is the visible roll (newest first). The queue worker drains shots
@@ -517,6 +521,15 @@ export function PapicSeatCapture({
           throw new Error(result.error);
         }
 
+        // Event-pool SOFT-STOP: warn while there's still room, not at the wall.
+        // Absent on every non-pass event, so this stays null for them.
+        if (result.eventPool?.soft) {
+          setPoolNotice(
+            `Running low — about ${result.eventPool.remaining.toLocaleString()} shots left for this event.`,
+          );
+        } else if (result.eventPool) {
+          setPoolNotice(null);
+        }
         patchShot(shot.id, { status: 'saved', photoId: result.photoId });
         // Arm the inline "tag who's in it" affordance on the freshest saved shot.
         armTagging(result.photoId);
@@ -1228,6 +1241,9 @@ export function PapicSeatCapture({
                   ? 'That’s all your free photos — every one’s in the gallery.'
                   : 'That’s all your free clips — every one’s in the gallery.'}
               </p>
+            )}
+            {poolNotice && !saveError && !capNotice && (
+              <p className="text-center text-xs text-cream/80">{poolNotice}</p>
             )}
 
             {allFull ? (

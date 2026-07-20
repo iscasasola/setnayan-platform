@@ -12,6 +12,7 @@ import {
   Wand2,
   Camera,
   MonitorPlay,
+  ExternalLink,
 } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import {
@@ -27,6 +28,7 @@ import type { PanoodControlState } from '@/lib/panood-control';
 import { watchPanoodCameras } from '@/lib/panood-webrtc';
 import { getPanoodIceServers } from '@/app/panood/actions';
 import { panoodStreamingEnabled } from '@/lib/panood-camera-seats';
+import { installProgramBridge } from '@/lib/panood-program-bridge';
 
 // Client-safe row shapes. The server page (broadcast/page.tsx) STRIPS server-only
 // secrets — the camera claim_qr_token (a per-camera seat-hijack credential) and
@@ -159,6 +161,55 @@ export function PanoodControlRoom({
   }, [eventId, streamingOn]);
   const programStream = program ? camStreams[program] ?? null : null;
 
+  // ── OBS program-output pop-out (PR #4) ──────────────────────────────────────
+  // Publish the composited PROGRAM frame onto a same-origin window bridge the
+  // chrome-less pop-out reads. The pop-out shares THESE MediaStream objects by
+  // reference — it must never open its own WebRTC viewer, which would steal the
+  // phones' streams from this console (one publisher → one viewer per slot).
+  const programLabelForBridge = labelForSource(program, cameras);
+  const bridgeRef = useRef<ReturnType<typeof installProgramBridge> | null>(null);
+  const popoutRef = useRef<Window | null>(null);
+  useEffect(() => {
+    bridgeRef.current = installProgramBridge();
+    return () => {
+      bridgeRef.current?.dispose();
+      bridgeRef.current = null;
+      // Don't strand a pop-out showing a frozen frame OBS would keep sending.
+      popoutRef.current?.close();
+      popoutRef.current = null;
+    };
+  }, []);
+  useEffect(() => {
+    bridgeRef.current?.publish({
+      source: program,
+      label: programLabelForBridge,
+      live,
+      stream: programStream,
+      secondaryStream: null, // wired by PR #5 (split cam)
+      splitRatio: 0.5,
+    });
+  }, [program, programLabelForBridge, live, programStream]);
+
+  function openProgramPopout(): void {
+    const existing = popoutRef.current;
+    if (existing && !existing.closed) {
+      existing.focus();
+      return;
+    }
+    const win = window.open(
+      `/dashboard/${eventId}/studio/panood/broadcast/program`,
+      // A NAMED target so repeat clicks reuse the same OBS-captured window
+      // instead of spawning a second one the operator has to re-add as a source.
+      `setnayan-program-${eventId}`,
+      'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no',
+    );
+    if (!win) {
+      toast.error('Your browser blocked the pop-out. Allow pop-ups for Setnayan, then try again.');
+      return;
+    }
+    popoutRef.current = win;
+  }
+
   function run(
     action: () => Promise<ControlActionResult>,
     onError?: () => void,
@@ -259,7 +310,12 @@ export function PanoodControlRoom({
       <div className="hidden gap-5 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         {/* Left column: program + sources + moments */}
         <div className="space-y-5">
-          <ProgramMonitor label={programLabel} live={live} stream={programStream} />
+          <ProgramMonitor
+            label={programLabel}
+            live={live}
+            stream={programStream}
+            onPopout={streamingOn ? openProgramPopout : undefined}
+          />
           <SourcesRail
             cameras={cameras}
             program={program}
@@ -294,7 +350,12 @@ export function PanoodControlRoom({
 
       {/* ===== MOBILE STACK ===== */}
       <div className="space-y-4 lg:hidden">
-        <ProgramMonitor label={programLabel} live={live} stream={programStream} />
+        <ProgramMonitor
+          label={programLabel}
+          live={live}
+          stream={programStream}
+          onPopout={streamingOn ? openProgramPopout : undefined}
+        />
 
         {/* Swipeable camera strip — always visible above the tabs */}
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
@@ -420,10 +481,13 @@ function ProgramMonitor({
   label,
   live,
   stream,
+  onPopout,
 }: {
   label: string;
   live: boolean;
   stream?: MediaStream | null;
+  /** Opens the chrome-less program window OBS captures. Omitted when streaming is off. */
+  onPopout?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   useEffect(() => {
@@ -442,6 +506,18 @@ function ProgramMonitor({
         <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-ink/55">
           Program
         </h2>
+        <div className="flex items-center gap-2">
+        {onPopout && (
+          <button
+            type="button"
+            onClick={onPopout}
+            title="Opens a clean window with no controls — add it to OBS as a Window Capture, then stream to your own YouTube or Facebook."
+            className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-2.5 py-1 text-[11px] font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+          >
+            <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            Pop out for OBS
+          </button>
+        )}
         <span
           className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] ${
             live ? 'bg-danger-600 text-cream' : 'bg-ink/10 text-ink/60'
@@ -455,6 +531,7 @@ function ProgramMonitor({
           />
           {live ? 'On air' : 'Off air'}
         </span>
+        </div>
       </div>
       <div
         className={`relative flex aspect-video items-center justify-center overflow-hidden rounded-2xl border-2 bg-ink/90 text-cream/80 ${

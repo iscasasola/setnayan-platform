@@ -48,7 +48,11 @@ import {
   PAPIC_MIN_PAID_CAMERAS,
   PAPIC_FREE_CAMERA_COUNT,
   PAPIC_MINI_CAP_FALLBACK_PHP,
+  PAPIC_UNLI_CAP_FALLBACK_PHP,
 } from '@/lib/papic-cameras';
+// Per-tier capture-POINT budgets → the picker's capacity copy. Derived from the
+// admin-editable papic_tier_config, never spelled here (owner 2026-07-20).
+import { fetchPapicTierConfig } from '@/lib/papic-tier-copy';
 import {
   countLimitedGuests,
   computeLimitedQuote,
@@ -217,6 +221,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
 
   // Live admin-managed rates + per-tier caps.
   const cameraRates = await fetchCameraRates(supabase);
+  const papicTierConfig = await fetchPapicTierConfig(supabase);
   // Per-tier cost caps apply to WEDDINGS ONLY (owner 2026-07-17); every other
   // event type is uncapped. Mirror the charge path (studio/papic/actions.ts →
   // isPapicUncapped), which passes MAX_SAFE_INTEGER, so the picker quote never
@@ -485,6 +490,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           currentTier={limitedTier}
           limitedQuote={limitedQuote}
           unlimitedQuote={unlimitedQuote}
+          limitedPointsPerDay={papicTierConfig.roll.pointsPerDay}
+          unlimitedPointsPerDay={papicTierConfig.unlimited.pointsPerDay}
           days={papicDays}
           windowSummary={papicWindowSummary}
         />
@@ -636,6 +643,8 @@ function LimitedCard({
   currentTier,
   limitedQuote,
   unlimitedQuote,
+  limitedPointsPerDay,
+  unlimitedPointsPerDay,
   days,
   windowSummary,
 }: {
@@ -646,6 +655,9 @@ function LimitedCard({
   currentTier: 'roll' | 'unlimited' | null;
   limitedQuote: ReturnType<typeof computeLimitedQuote>;
   unlimitedQuote: ReturnType<typeof computeLimitedQuote>;
+  /** Daily capture-POINT budgets from papic_tier_config (null = unlimited). */
+  limitedPointsPerDay: number | null;
+  unlimitedPointsPerDay: number | null;
   days: number;
   windowSummary: string;
 }) {
@@ -735,11 +747,13 @@ function LimitedCard({
             billPhp: limitedQuote.frozenBillPhp,
             perDayPhp: limitedQuote.ratePhp,
             cameraCap: limitedQuote.cameraCap,
+            pointsPerDay: limitedPointsPerDay,
           }}
           unlimited={{
             billPhp: unlimitedQuote.frozenBillPhp,
             perDayPhp: unlimitedQuote.ratePhp,
             cameraCap: unlimitedQuote.cameraCap,
+            pointsPerDay: unlimitedPointsPerDay,
           }}
         />
       )}

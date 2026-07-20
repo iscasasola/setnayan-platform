@@ -26,7 +26,8 @@ export const APPROVED_LLMS_PRICES: readonly string[] = [
   '₱499', // Live Background
 
   // À-la-carte customer software services
-  '₱30', // Papic Ltd per camera per day (floor of the retail range)
+  '₱30', // Papic Mini per camera per day (floor of the retail range)
+  '₱50', // Papic Ltd per camera per day
   '₱100', // Papic Unli per camera per day
   '₱299', // Kwento
   '₱999', // Animated Monogram · Cinematic Reveal · Solo 28-day · additional-branch 28-day
@@ -36,15 +37,15 @@ export const APPROVED_LLMS_PRICES: readonly string[] = [
   '₱2,499', // Pakanta · Thank You Video · Live Studio Desktop (per day) · Pro vendor 28-day
   '₱2,500', // Live Photo Wall (per day)
   '₱2,999', // 3D Plan · Editorial PRO
-  '₱9,000', // Papic Ltd per-day cap (owner 2026-07-11, PR #3112)
-  '₱15,000', // Papic Unli per-day cap (owner 2026-07-11, PR #3112)
+  '₱6,000', // Papic Mini WEDDING cap (papic_tier_config.wedding_day_cap_php)
+  '₱15,000', // Papic Unli WEDDING cap (papic_tier_config.wedding_day_cap_php)
 
   // Vendor tokens + packs (flat ₱200/token · flat 1-token burn · 2026-07-15
   // catalog restructure: ₱1,000 = 5 tokens, ladder 5/10/25/50/100)
   '₱200', // flat per-token price · flat 1-token inquiry unlock (any region)
   '₱1,000', // 5-token anchor pack
   '₱5,000', // 25-token pack
-  '₱10,000', // 50-token pack
+  '₱10,000', // 50-token pack · also the Papic Ltd WEDDING cap
   '₱20,000', // 100-token pack
 
   // Vendor tier subscriptions (28-day / annual)

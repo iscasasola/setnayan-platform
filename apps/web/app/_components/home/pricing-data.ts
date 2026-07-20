@@ -21,6 +21,12 @@ import {
   formatPeso,
   type V2CustomerSku,
 } from '@/lib/v2-catalog';
+import {
+  papicCapacityShort,
+  papicFreeCameraCount,
+  publicPapicLadder,
+} from '@/lib/papic-tier-copy';
+import { readPapicTierConfig } from '@/lib/papic-tier-config-read';
 
 export type PriceModel = 'flat' | 'perDay' | 'perGuestDay';
 
@@ -107,9 +113,10 @@ function aiPeriodSuffix(): string {
 export async function getHomePricingData(): Promise<PricingData> {
   // Parallel reads; helpers return [] on error so the overlay still renders.
   // getVendorPrices reuses the vendor catalog read (cache()d) for the tier prices.
-  const [catalog, vendor] = await Promise.all([
+  const [catalog, vendor, papicTierConfig] = await Promise.all([
     fetchV2CustomerCatalog(),
     getVendorPrices(),
+    readPapicTierConfig(),
   ]);
 
   // Setnayan AI is a ONE-TIME, wedding-anchored purchase (owner 2026-07-10): a
@@ -125,9 +132,7 @@ export async function getHomePricingData(): Promise<PricingData> {
   const aiIntroPrice = peso(aiIntroPhp);
   const aiPrice = aiIntroPrice;
 
-  // ── Papic group (per-camera / per-day, all from catalog) ──
-  const papicRoll = priceOf(catalog, 'PAPIC_CAMERA_ROLL_DAY', 30);
-  const papicUnli = priceOf(catalog, 'PAPIC_CAMERA_UNLIMITED_DAY', 100);
+  // ── Papic group (per-camera / per-day; the rungs are derived below) ──
   const cameraBridge = priceOf(catalog, 'CAMERA_BRIDGE', 500); // owner 2026-07-08 (was 1299; rounded 499→500 2026-07-11)
   // Owner-locked FREE: Stories (2026-06-30) · Kwento + Pabati (2026-07-08).
   // Fallback 0 so an absent/zeroed catalog row renders "Free" via freeOrPrice(),
@@ -154,27 +159,43 @@ export async function getHomePricingData(): Promise<PricingData> {
   const pakanta = priceOf(catalog, 'PAKANTA', 2499);
   const liveStudio = priceOf(catalog, 'PANOOD_SYSTEM', 2499); // Desktop Controller ₱2,499/day (Mobile ₱1,299/day is a separate SKU)
 
+  // Papic rungs — DERIVED from papic_tier_config (title · daily capture-POINT
+  // budget · wedding cap) priced from the live catalog. This file must never
+  // spell a photo count, a clip count or a cap peso figure (owner 2026-07-20 ·
+  // guarded by lib/papic-copy-guardrails.test.ts). A rung whose rate SKU is
+  // absent drops out rather than rendering an invented price.
+  const papicFreeCameras = papicFreeCameraCount(papicTierConfig);
+  const papicLadderRows: PriceRow[] = publicPapicLadder(papicTierConfig)
+    .map((row): PriceRow | null => {
+      const sku = row.rateServiceCode
+        ? catalog.find((s) => s.service_code === row.rateServiceCode)
+        : undefined;
+      const rate = sku ? Number(sku.retail_price_php) : NaN;
+      if (!Number.isFinite(rate)) return null;
+      return {
+        n: `${row.displayTitle} · ${papicCapacityShort(row.pointsPerDay)}`,
+        v: `${peso(rate)}/guest·day`,
+        model: 'perGuestDay',
+        rate,
+        ...(row.weddingCapPhp != null ? { cap: row.weddingCapPhp } : {}),
+      };
+    })
+    .filter((r): r is PriceRow => r !== null);
+
   const groups: PriceGroup[] = [
     {
       title: 'Papic: candid capture, all in one place',
       tinted: true,
       rows: [
         { n: 'Gallery view · camera filters', v: 'Free', free: true },
-        { n: 'First 5 cameras · 10 photos + 3 videos each', v: 'Free', free: true },
         {
-          n: 'Papic Ltd · 30 photos + 10×5s',
-          v: `${peso(papicRoll.rate)}/guest·day`,
-          model: 'perGuestDay',
-          rate: papicRoll.rate,
-          cap: 9000,
+          n: `First ${papicFreeCameras} camera${papicFreeCameras === 1 ? '' : 's'} · ${papicCapacityShort(
+            papicTierConfig.free.pointsPerDay,
+          )}`,
+          v: 'Free',
+          free: true,
         },
-        {
-          n: 'Papic Unli · unlimited',
-          v: `${peso(papicUnli.rate)}/guest·day`,
-          model: 'perGuestDay',
-          rate: papicUnli.rate,
-          cap: 15000,
-        },
+        ...papicLadderRows,
         {
           n: 'Camera Bridge · DSLR, all cameras',
           v: `${peso(cameraBridge.rate)}/day`,
@@ -190,7 +211,6 @@ export async function getHomePricingData(): Promise<PricingData> {
           model: 'perDay',
           rate: liveWall.rate,
         },
-        { n: 'Unlock all of Papic · daily max', v: `${peso(15000)}/day`, model: 'perDay', rate: 15000 },
       ],
     },
     {

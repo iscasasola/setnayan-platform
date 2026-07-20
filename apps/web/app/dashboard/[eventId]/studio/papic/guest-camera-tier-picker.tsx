@@ -2,13 +2,20 @@
 
 import { useState } from 'react';
 import { activatePapicLimited } from './actions';
+import { papicCapacityPhrase } from '@/lib/papic-tier-copy';
 
 /**
  * Guest-camera tier picker (owner 2026-06-26 — "add the option to upgrade to
  * Unlimited"). The "a camera for every guest" card lets the couple run the WHOLE
- * guest list at either tier:
- *   • Limited   — ₱30/guest/day · 30 photos + 10 clips each · capped
- *   • Unlimited — ₱100/guest/day · no shot limit · archived to Drive · capped
+ * guest list at either tier — Limited (the roll/Mini rung) or Unlimited.
+ *
+ * CAPACITY COPY IS DERIVED, NEVER SPELLED (owner 2026-07-20). Each tier's daily
+ * budget is capture POINTS from the admin-editable papic_tier_config (1 photo =
+ * 1 pt · 1 five-second clip = 3 pts); the parent server component resolves it
+ * and passes `pointsPerDay`, which `papicCapacityPhrase` turns into copy. The
+ * previous hand-typed photos-plus-clips split was already false on both counts:
+ * the enforced roll budget is far smaller than it promised, and clips and
+ * photos draw on ONE shared purse, so neither number can be fixed.
  *
  * One control covers fresh activation AND a live upgrade/switch: pick a tier, hit
  * the button. When already live, keeping the current tier re-syncs (free, covers
@@ -24,12 +31,18 @@ function php(amount: number): string {
   })}`;
 }
 
-type TierInfo = { billPhp: number; perDayPhp: number; cameraCap: number };
+type TierInfo = {
+  billPhp: number;
+  perDayPhp: number;
+  cameraCap: number;
+  /** Daily capture-POINT budget from papic_tier_config. null = unlimited. */
+  pointsPerDay: number | null;
+};
 
 function TierOption({
   tier,
   label,
-  includes,
+  extra,
   info,
   selected,
   isCurrent,
@@ -38,7 +51,8 @@ function TierOption({
 }: {
   tier: 'roll' | 'unlimited';
   label: string;
-  includes: string;
+  /** Optional non-capacity note (capacity itself is derived from `info`). */
+  extra?: string;
   info: TierInfo;
   selected: boolean;
   isCurrent: boolean;
@@ -76,7 +90,10 @@ function TierOption({
             </span>
           ) : null}
         </span>
-        <span className="mt-0.5 block text-xs text-ink/60">{includes}</span>
+        <span className="mt-0.5 block text-xs text-ink/60">
+          {papicCapacityPhrase(info.pointsPerDay)}
+          {extra ? ` · ${extra}` : ''}
+        </span>
         <span className="mt-1 block text-xs text-ink/55">
           {php(info.perDayPhp)} / guest / day
         </span>
@@ -136,7 +153,6 @@ export default function GuestCameraTierPicker({
         <TierOption
           tier="roll"
           label="Limited"
-          includes="30 photos + 10 clips each, per day"
           info={limited}
           selected={tier === 'roll'}
           isCurrent={currentTier === 'roll'}
@@ -146,7 +162,7 @@ export default function GuestCameraTierPicker({
         <TierOption
           tier="unlimited"
           label="Unlimited"
-          includes="No shot limit · archived to your Drive"
+          extra="archived to your Drive"
           info={unlimited}
           selected={tier === 'unlimited'}
           isCurrent={currentTier === 'unlimited'}

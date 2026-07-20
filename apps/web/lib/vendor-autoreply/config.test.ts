@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  AUTO_ACCEPT_THRESHOLD_MAX,
+  AUTO_ACCEPT_THRESHOLD_MIN,
+  DAILY_AUTO_ACCEPT_CAP_MAX,
   DAILY_REPLY_CAP_MAX,
   DAILY_REPLY_CAP_MIN,
   parseAutoReplyConfigForm,
@@ -83,7 +86,77 @@ test('an empty form is "nothing to save"', () => {
 
 test('unknown fields are ignored, not patched', () => {
   const res = parseAutoReplyConfigForm(
-    form({ enabled: 'true', mode: 'smart', auto_accept_enabled: 'true' }),
+    form({ enabled: 'true', mode: 'smart', voice_profile: '{"x":1}' }),
   );
   assert.deepEqual(res, { ok: true, patch: { enabled: true } });
+});
+
+// ── Phase 4A — the auto-accept trio ─────────────────────────────────────────
+
+test('auto_accept_enabled parses to a toggle-only patch', () => {
+  const on = parseAutoReplyConfigForm(form({ auto_accept_enabled: 'true' }));
+  assert.deepEqual(on, { ok: true, patch: { auto_accept_enabled: true } });
+  const off = parseAutoReplyConfigForm(form({ auto_accept_enabled: ' FALSE ' }));
+  assert.deepEqual(off, { ok: true, patch: { auto_accept_enabled: false } });
+});
+
+test('garbage auto_accept_enabled is rejected, not coerced', () => {
+  const res = parseAutoReplyConfigForm(form({ auto_accept_enabled: 'yes' }));
+  assert.equal(res.ok, false);
+});
+
+test('auto_accept_threshold accepts the DB CHECK bounds (0–100)', () => {
+  const lo = parseAutoReplyConfigForm(
+    form({ auto_accept_threshold: String(AUTO_ACCEPT_THRESHOLD_MIN) }),
+  );
+  assert.deepEqual(lo, { ok: true, patch: { auto_accept_threshold: AUTO_ACCEPT_THRESHOLD_MIN } });
+  const hi = parseAutoReplyConfigForm(
+    form({ auto_accept_threshold: String(AUTO_ACCEPT_THRESHOLD_MAX) }),
+  );
+  assert.deepEqual(hi, { ok: true, patch: { auto_accept_threshold: AUTO_ACCEPT_THRESHOLD_MAX } });
+});
+
+test('auto_accept_threshold above 100 / non-integer is rejected', () => {
+  for (const bad of ['101', '-1', '78.5', 'abc', '']) {
+    const res = parseAutoReplyConfigForm(form({ auto_accept_threshold: bad }));
+    assert.equal(res.ok, false, `expected reject for ${JSON.stringify(bad)}`);
+  }
+});
+
+test('daily_auto_accept_cap parses within its own (tighter) ceiling', () => {
+  const ok = parseAutoReplyConfigForm(form({ daily_auto_accept_cap: '5' }));
+  assert.deepEqual(ok, { ok: true, patch: { daily_auto_accept_cap: 5 } });
+  const over = parseAutoReplyConfigForm(
+    form({ daily_auto_accept_cap: String(DAILY_AUTO_ACCEPT_CAP_MAX + 1) }),
+  );
+  assert.equal(over.ok, false);
+});
+
+test('all five fields together patch all five columns', () => {
+  const res = parseAutoReplyConfigForm(
+    form({
+      enabled: 'true',
+      daily_reply_cap: '20',
+      auto_accept_enabled: 'true',
+      auto_accept_threshold: '80',
+      daily_auto_accept_cap: '5',
+    }),
+  );
+  assert.deepEqual(res, {
+    ok: true,
+    patch: {
+      enabled: true,
+      daily_reply_cap: 20,
+      auto_accept_enabled: true,
+      auto_accept_threshold: 80,
+      daily_auto_accept_cap: 5,
+    },
+  });
+});
+
+test('one invalid auto-accept field rejects the whole form', () => {
+  const res = parseAutoReplyConfigForm(
+    form({ auto_accept_enabled: 'true', auto_accept_threshold: '200' }),
+  );
+  assert.equal(res.ok, false);
 });

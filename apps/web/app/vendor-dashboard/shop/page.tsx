@@ -87,7 +87,11 @@ import type { ProfileFieldData } from './_components/editable-row';
 import { updateBusinessStartDate } from '../actions';
 import { ServicesDisclosure } from './_components/services-disclosure';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
-import { DAILY_REPLY_CAP_DEFAULT } from '@/lib/vendor-autoreply/config';
+import {
+  AUTO_ACCEPT_THRESHOLD_DEFAULT,
+  DAILY_AUTO_ACCEPT_CAP_DEFAULT,
+  DAILY_REPLY_CAP_DEFAULT,
+} from '@/lib/vendor-autoreply/config';
 import { AutoReplyCard } from './_components/autoreply-card';
 
 /**
@@ -856,24 +860,48 @@ async function ShopHome({
 async function AutoReplySection({ vendorProfileId }: { vendorProfileId: string }) {
   let enabled = false;
   let dailyCap = DAILY_REPLY_CAP_DEFAULT;
+  let autoAcceptEnabled = false;
+  let autoAcceptThreshold = AUTO_ACCEPT_THRESHOLD_DEFAULT;
+  let dailyAutoAcceptCap = DAILY_AUTO_ACCEPT_CAP_DEFAULT;
   try {
     const supabase = await createClient();
     const { data } = await supabase
       .from('vendor_bot_config')
-      .select('enabled,daily_reply_cap')
+      .select(
+        'enabled,daily_reply_cap,auto_accept_enabled,auto_accept_threshold,daily_auto_accept_cap',
+      )
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();
-    const row = data as { enabled?: boolean; daily_reply_cap?: number } | null;
+    const row = data as {
+      enabled?: boolean;
+      daily_reply_cap?: number;
+      auto_accept_enabled?: boolean;
+      auto_accept_threshold?: number;
+      daily_auto_accept_cap?: number;
+    } | null;
     if (row) {
       enabled = Boolean(row.enabled);
       if (typeof row.daily_reply_cap === 'number') dailyCap = row.daily_reply_cap;
+      autoAcceptEnabled = Boolean(row.auto_accept_enabled);
+      if (typeof row.auto_accept_threshold === 'number') {
+        autoAcceptThreshold = row.auto_accept_threshold;
+      }
+      if (typeof row.daily_auto_accept_cap === 'number') {
+        dailyAutoAcceptCap = row.daily_auto_accept_cap;
+      }
     }
   } catch {
     // defaults above
   }
   return (
     <section id="auto-reply" aria-labelledby="auto-reply-heading">
-      <AutoReplyCard initialEnabled={enabled} initialDailyCap={dailyCap} />
+      <AutoReplyCard
+        initialEnabled={enabled}
+        initialDailyCap={dailyCap}
+        initialAutoAcceptEnabled={autoAcceptEnabled}
+        initialAutoAcceptThreshold={autoAcceptThreshold}
+        initialDailyAutoAcceptCap={dailyAutoAcceptCap}
+      />
     </section>
   );
 }

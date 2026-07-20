@@ -75,84 +75,43 @@ export async function eventPapicGuestActive(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<boolean> {
-  // 1. OWNERSHIP — any of the four Papic One rungs, not just the entry SKU.
-  //    (Migration 20270828140000 turned the flat pass into three purchased
-  //    buckets + a top-up. Checking only PAPIC_GUEST would leave a couple who
-  //    bought the 6,000- or 10,000-shot rung with granted points and NO cameras.)
+  // ALL FOUR Papic One rungs, not just the entry SKU.
+  //
+  // Migration 20270828140000 turned the flat pass into three purchased buckets
+  // plus a top-up. This gate still checked only PAPIC_GUEST, so a couple who
+  // bought the 6,000- or 10,000-shot rung was granted their points and got NO
+  // CAMERAS. That is the bug this fixes.
   const owned = await Promise.all(
     PAPIC_PASS_SERVICE_KEYS.map((key) => eventSkuActive(supabase, eventId, key)),
   );
-  if (!owned.some(Boolean)) return false;
-
-  // 2. THE DATE WINDOW. A couple picks the service date at purchase; buying
-  //    several passes covers several dates. NULL service_date = unscoped =
-  //    always on, which is what every legacy grant and admin comp carries — so
-  //    this can only ever ADD cameras relative to the old behaviour, never
-  //    silently remove them from an event that already had them.
-  return isPapicPassOpenOn(supabase, eventId, manilaToday());
+  return owned.some(Boolean);
 }
 
-/** Every SKU that grants the guest-camera pass (Papic One + the legacy pack). */
+/**
+ * Every SKU that grants the guest-camera pass.
+ *
+ * ── WHY THERE IS NO DATE HERE (owner 2026-07-21) ─────────────────────────
+ * The pass runs until the POINTS are depleted, not until a date passes. Points
+ * are already the bound — the fail-closed pool RPC refuses at zero — so a date
+ * gate would be a second fence around something already fenced, and the worst
+ * case is bounded by construction: N unused points is at most N more captures,
+ * whenever they happen.
+ *
+ * It is also the only model that survives a MULTI-DAY event. `travel` is
+ * multi_day = TRUE by definition, and a ten-day trip must not need ten
+ * purchases. Per-day scoping breaks there; points do not.
+ *
+ * A service_date column + date-aware gate were built and REMOVED before merge
+ * for exactly this reason (PR #3430). Do not reintroduce one without a concrete
+ * need — and if the pass ever does need to close, tie it to the RETENTION
+ * WINDOW (it shuts when the gallery does), not to a per-day picker.
+ */
 export const PAPIC_PASS_SERVICE_KEYS: readonly string[] = Object.freeze([
   PAPIC_GUEST_SERVICE_KEY,
   'PAPIC_GUEST_6K',
   'PAPIC_GUEST_10K',
   'PAPIC_GUEST_TOPUP',
 ]);
-
-/**
- * Today in **Asia/Manila** as YYYY-MM-DD.
- *
- * NOT `CURRENT_DATE` and not `new Date().toISOString()`. PH is UTC+8, so a
- * wedding morning maps to the PREVIOUS UTC date — 7am Manila on the 21st is 11pm
- * UTC on the 20th. Gating on a UTC date would leave the cameras shut for the
- * first eight hours of the day the couple actually paid for.
- */
-export function manilaToday(now: Date = new Date()): string {
-  return now.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
-}
-
-/**
- * Is the pass open on `isoDate` (YYYY-MM-DD)?
- *
- * TRUE when the event holds either an UNSCOPED grant (`service_date IS NULL` —
- * legacy or comp, always on) or one scoped to exactly this date.
- *
- * Fail-OPEN on a read error, deliberately and unlike the capture gate: this is a
- * DISPLAY/entry check that runs after ownership has already been confirmed, and
- * the authoritative spend guard is the fail-CLOSED points RPC. A transient DB
- * hiccup must not black out a paid couple's cameras mid-reception; it can only
- * ever let someone reach a surface where the real meter still refuses.
- */
-export async function isPapicPassOpenOn(
-  supabase: SupabaseClient,
-  eventId: string,
-  isoDate: string,
-): Promise<boolean> {
-  try {
-    const { data, error } = await supabase
-      .from('papic_event_point_grants')
-      .select('service_date')
-      .eq('event_id', eventId)
-      .or(`service_date.is.null,service_date.eq.${isoDate}`)
-      .limit(1);
-    if (error) return true;
-    // No grants at all → nothing date-scoped exists yet (e.g. the legacy
-    // PAPIC_GUEST order predates the grants ledger). Ownership already passed,
-    // so keep the historical always-on behaviour.
-    if (!Array.isArray(data)) return true;
-    if (data.length > 0) return true;
-
-    const { count, error: countErr } = await supabase
-      .from('papic_event_point_grants')
-      .select('grant_id', { count: 'exact', head: true })
-      .eq('event_id', eventId);
-    if (countErr) return true;
-    return (count ?? 0) === 0;
-  } catch {
-    return true;
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────────────
 // Quota — count a guest's captures + derive credits remaining. The

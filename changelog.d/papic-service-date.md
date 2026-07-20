@@ -1,45 +1,33 @@
-## 2026-07-21 · feat(papic): the couple picks the service date — and the pass stops being permanent
+## 2026-07-21 · fix(papic): the guest-camera gate must recognise all four Papic One rungs
 
-**The hole this closes.** `eventPapicGuestActive()` was a pure ownership check —
-`eventSkuActive(event, 'PAPIC_GUEST')`. **No date dimension existed anywhere**, so one purchase left
-every guest's camera live from admin approval onward, *forever*. Nobody chose that; it fell out of
-the pass never having had a window, and it is a storage and consent exposure.
+**The bug.** Migration `20270828140000` turned the flat pass into three purchased point buckets plus
+a top-up — but `eventPapicGuestActive()` still checked only `PAPIC_GUEST`. **A couple buying the
+6,000- or 10,000-shot rung would have been granted their points and gotten no cameras.** This is live
+on `main` right now; the gate now checks all four via `PAPIC_PASS_SERVICE_KEYS`.
 
-**🔴 It also fixes a bug introduced two PRs ago.** Migration `20270828140000` split the flat pass
-into three purchased buckets plus a top-up, but the gate still checked only `PAPIC_GUEST` — so a
-couple buying the **6,000- or 10,000-shot rung would have been granted points and gotten no
-cameras**. `PAPIC_PASS_SERVICE_KEYS` now covers all four.
+**No date gate — the pass runs until the POINTS are depleted** (owner 2026-07-21).
 
-**The model** (owner 2026-07-21): the couple picks the **service date** at purchase; buying several
-passes covers several dates — pre-nup, ceremony, after-party. Every capture from every date lands in
-**one album**, which needed no work: photos key to `event_id`, never to a purchase.
+A `service_date` column and a date-aware gate were built and **removed before merge**. The reasoning
+is worth keeping, because it will look like an omission later:
 
-**Points stay pooled** — one wedding purse across all dates. The date controls *when cameras work*,
-not how points are partitioned. That leaves the fail-closed reserve RPC untouched (money code),
-matches the one-album model, and lets a quiet pre-nup leave more for the reception. Accepted trade: a
-busy day can eat a later date's budget; the top-up is uncapped but pre-event, so the checkout
-arithmetic carries the warning.
+- **Points are already the bound.** The fail-closed pool RPC refuses at zero, so a date gate is a
+  second fence around something already fenced. The exposure that motivated dates — "the pass never
+  closes" — is bounded by construction anyway: N unused points is at most N more captures, whenever
+  they happen. Time was never what contained it.
+- **It is the only model that survives a multi-day event.** `travel` is `multi_day = TRUE` by
+  definition, and a ten-day trip must not need ten purchases. Per-day scoping breaks there; points
+  don't.
+- **It matches the rest of the design.** We settled on purchased buckets — you buy N shots and get N
+  shots. Days were the one place that model didn't hold.
 
-**NULL = unscoped = always on.** Both columns are nullable and **nothing is backfilled** — the
-migration *asserts* no pre-existing grant got a date, since that would strip cameras from a live
-event. So this can only ever add cameras relative to the old behaviour, never silently remove them.
-No grandfathering clause needed; don't write one.
+If the pass ever does need to close, tie it to the **retention window** — it shuts when the gallery
+does — rather than a per-day picker. Recorded in the `PAPIC_PASS_SERVICE_KEYS` docblock so the next
+session doesn't re-derive it.
 
-**⏰ The timezone trap.** `manilaToday()` resolves the date in **Asia/Manila**, not UTC and not
-`CURRENT_DATE`. PH is UTC+8, so a wedding morning maps to the *previous* UTC date — 7am Manila on the
-21st is 11pm UTC on the 20th. Gating on UTC would have shut the cameras for **the first eight hours
-of the day the couple paid for**. Verified across four boundary cases including both midnights.
+Multi-date events need nothing further: several purchases stack into one pool, and every capture from
+every date already lands in **one album** because photos key to `event_id`, never to a purchase.
 
-**Fail-open, deliberately.** `isPapicPassOpenOn` returns true on a read error — unlike the capture
-gate. It runs *after* ownership is confirmed and the authoritative spend guard is the fail-CLOSED
-points RPC, so a transient DB hiccup must not black out a paid couple mid-reception. Worst case it
-lets someone reach a surface where the real meter still refuses.
+No migration. No schema. One gate fix.
 
-- `orders.service_date` (nullable, generic — any dated service may adopt it)
-- `papic_event_point_grants.service_date`, copied at activation. Denormalised so the hot-path date
-  check is a single-table read, and so a refund reversal (DELETE by `order_id`) removes the window
-  with the points.
-
-⏳ Still needs `supabase db push`. A date picker at checkout is the remaining UI half.
-
-SPEC IMPACT: `0012_papic/Papic_Pricing_Lock_2026-07-20.md` § 2.3 — service-date model recorded.
+SPEC IMPACT: `0012_papic/Papic_Pricing_Lock_2026-07-20.md` § 2.3 — points-until-depleted recorded as
+the pass lifetime; the service-date model is explicitly NOT adopted.

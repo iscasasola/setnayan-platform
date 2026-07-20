@@ -108,23 +108,11 @@ async function grantPapicPassPoints(ctx: ActivationContext): Promise<void> {
       .limit(1);
     if (Array.isArray(existing) && existing.length > 0) return;
 
-    // The couple's chosen SERVICE DATE rides from the order onto the grant.
-    // NULL stays NULL — unscoped means always-on, so an order placed without a
-    // date keeps the legacy behaviour rather than being fenced to "today".
-    const { data: order } = await ctx.admin
-      .from('orders')
-      .select('service_date')
-      .eq('order_id', ctx.orderId)
-      .maybeSingle();
-    const serviceDate =
-      (order as { service_date?: string | null } | null)?.service_date ?? null;
-
     const { error } = await ctx.admin.from('papic_event_point_grants').insert({
       event_id: eventId,
       points,
       source: 'topup_order',
       order_id: ctx.orderId,
-      service_date: serviceDate,
       note: `Papic One · ${ctx.serviceKey}`,
     });
     if (error) {

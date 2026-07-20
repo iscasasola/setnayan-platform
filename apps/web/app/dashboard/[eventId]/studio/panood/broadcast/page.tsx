@@ -12,6 +12,7 @@ import {
 } from '@/lib/panood-moments';
 import { fetchOrInitControlStateAdmin } from '@/lib/panood-control';
 import { requirePanoodControlRoomMember } from '@/lib/panood-control-room-access';
+import { decideWatermark } from '@/lib/panood-watermark';
 import { PanoodControlRoom } from './control-room';
 
 export const metadata = { title: 'Panood control room · Setnayan' };
@@ -106,6 +107,16 @@ export default async function PanoodControlRoomPage({ params }: Props) {
     status: s.status,
   }));
 
+  // The SETNAYAN overlay decision — made HERE, on the server, and handed to the client as a
+  // rendered fact. `owned` is the paid unlock; `first_live_at` is the write-once window anchor.
+  // Never computed client-side: a paywall the browser decides is one devtools edit from free.
+  const watermark = decideWatermark({
+    paid: owned,
+    firstLiveAt: controlState?.first_live_at ?? null,
+    isLive: controlState?.is_live ?? false,
+    now: new Date(),
+  });
+
   return (
     <section className="space-y-6">
       <Link
@@ -135,6 +146,7 @@ export default async function PanoodControlRoomPage({ params }: Props) {
         screens={screens}
         moments={moments}
         controlState={controlState}
+        watermark={watermark}
       />
     </section>
   );

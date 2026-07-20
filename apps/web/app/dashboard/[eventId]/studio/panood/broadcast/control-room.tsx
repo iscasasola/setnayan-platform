@@ -28,6 +28,8 @@ import type { PanoodControlState } from '@/lib/panood-control';
 import { watchPanoodCameras } from '@/lib/panood-webrtc';
 import { getPanoodIceServers } from '@/app/panood/actions';
 import { panoodStreamingEnabled } from '@/lib/panood-camera-seats';
+import { SetnayanOverlay } from './_components/setnayan-overlay';
+import { WATERMARK_COPY, type WatermarkDecision } from '@/lib/panood-watermark';
 import {
   installProgramBridge,
   clampSplitRatio,
@@ -110,12 +112,18 @@ export function PanoodControlRoom({
   screens,
   moments,
   controlState,
+  watermark,
 }: {
   eventId: string;
   cameras: PanoodCameraRow[];
   screens: PanoodScreenRow[];
   moments: PanoodMomentRow[];
   controlState: PanoodControlState | null;
+  /**
+   * SERVER-decided overlay state (lib/panood-watermark). Never re-derived here — a client-side
+   * paywall decision would be one devtools edit from free. The client only RENDERS it.
+   */
+  watermark: WatermarkDecision;
 }) {
   const toast = useToast();
   const [isPending, startTransition] = useTransition();
@@ -209,8 +217,19 @@ export function PanoodControlRoom({
       stream: programStream,
       secondaryStream: splitStream,
       splitRatio,
+      overlay: watermark.overlay,
+      overlayReason: watermark.reason,
     });
-  }, [program, programLabelForBridge, live, programStream, splitStream, splitRatio]);
+  }, [
+    program,
+    programLabelForBridge,
+    live,
+    programStream,
+    splitStream,
+    splitRatio,
+    watermark.overlay,
+    watermark.reason,
+  ]);
 
   function openProgramPopout(): void {
     const existing = popoutRef.current;
@@ -340,6 +359,8 @@ export function PanoodControlRoom({
             live={live}
             stream={programStream}
             onPopout={streamingOn ? openProgramPopout : undefined}
+            overlay={watermark.overlay}
+            overlayReason={watermark.reason}
             splitStream={splitStream}
             splitRatio={splitRatio}
             onSplitRatioChange={setSplitRatio}
@@ -352,6 +373,7 @@ export function PanoodControlRoom({
             camStreams={camStreams}
             splitSource={splitSource}
             onToggleSplit={streamingOn ? handleToggleSplit : undefined}
+            overlay={watermark.overlay}
           />
           <MomentDirector
             moments={moments}
@@ -385,6 +407,8 @@ export function PanoodControlRoom({
           live={live}
           stream={programStream}
           onPopout={streamingOn ? openProgramPopout : undefined}
+          overlay={watermark.overlay}
+          overlayReason={watermark.reason}
           splitStream={splitStream}
           splitRatio={splitRatio}
           onSplitRatioChange={setSplitRatio}
@@ -438,6 +462,7 @@ export function PanoodControlRoom({
               camStreams={camStreams}
               splitSource={splitSource}
               onToggleSplit={streamingOn ? handleToggleSplit : undefined}
+              overlay={watermark.overlay}
             />
           )}
           {mobileTab === 'walls' && (
@@ -517,6 +542,8 @@ function ProgramMonitor({
   live,
   stream,
   onPopout,
+  overlay,
+  overlayReason,
   splitStream,
   splitRatio,
   onSplitRatioChange,
@@ -526,6 +553,9 @@ function ProgramMonitor({
   stream?: MediaStream | null;
   /** Opens the chrome-less program window OBS captures. Omitted when streaming is off. */
   onPopout?: () => void;
+  /** Draw the full-screen SETNAYAN paywall overlay over this monitor. */
+  overlay?: boolean;
+  overlayReason?: import('@/lib/panood-watermark').WatermarkReason;
   /** Second source composited beside program. Null = single-source program. */
   splitStream?: MediaStream | null;
   splitRatio?: number;
@@ -610,7 +640,17 @@ function ProgramMonitor({
             </div>
           </>
         )}
+        {/* The paywall, over whichever branch rendered above — split, single or placeholder. */}
+        {overlay && <SetnayanOverlay size="monitor" reason={overlayReason} />}
       </div>
+      {overlay && overlayReason && (
+        <p className="text-[11px] leading-relaxed text-ink/55">
+          <span className="font-semibold uppercase tracking-[0.14em] text-ink/70">
+            {WATERMARK_COPY[overlayReason].badge}
+          </span>{' '}
+          — {WATERMARK_COPY[overlayReason].detail}
+        </p>
+      )}
     </section>
   );
 }
@@ -731,12 +771,15 @@ function SourceTileBody({
   onAir,
   status,
   stream,
+  overlay,
 }: {
   Icon: typeof Camera;
   label: string;
   onAir: boolean;
   status?: string;
   stream?: MediaStream | null;
+  /** Thumbnails are a video surface too — an uncovered one is a hole in the paywall. */
+  overlay?: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   useEffect(() => {
@@ -763,6 +806,8 @@ function SourceTileBody({
         ) : (
           <Icon aria-hidden className="h-5 w-5" strokeWidth={1.5} />
         )}
+        {/* Thumbnails carry the paywall too — one uncovered video surface is the whole bypass. */}
+        {overlay && stream && <SetnayanOverlay size="thumb" />}
         {onAir && (
           <span className="absolute left-1.5 top-1.5 rounded-full bg-danger-600 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-cream">
             On air
@@ -787,6 +832,7 @@ function SourcesRail({
   camStreams,
   splitSource,
   onToggleSplit,
+  overlay,
 }: {
   cameras: PanoodCameraRow[];
   program: string | null;
@@ -797,6 +843,8 @@ function SourcesRail({
   splitSource?: string | null;
   /** Omitted when streaming is off — a split of two placeholders means nothing. */
   onToggleSplit?: (source: string) => void;
+  /** Draw the SETNAYAN overlay on every camera thumbnail. */
+  overlay?: boolean;
 }) {
   return (
     <section
@@ -835,6 +883,7 @@ function SourcesRail({
                   onAir={onAir}
                   status={cam.status}
                   stream={camStreams[key] ?? null}
+                  overlay={overlay}
                 />
               </button>
               {canSplit && (

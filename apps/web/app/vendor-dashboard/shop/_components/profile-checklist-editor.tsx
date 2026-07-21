@@ -76,7 +76,8 @@ export function ProfileChecklistEditor({
         </div>
         {pct < 100 ? (
           <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-            Fix each item right here — couples can see and contact you once your profile is complete.
+            Fix each item right here — a complete profile is what lets couples see and contact
+            you, and it&rsquo;s what unlocks getting verified.
           </p>
         ) : (
           <p

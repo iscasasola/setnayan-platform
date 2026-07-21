@@ -6,7 +6,11 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { canOpenAnotherShop } from '@/lib/shop-limits';
-import { OPEN_SHOP_EMAIL_RE, OPEN_SHOP_ERRORS } from '@/lib/open-shop-validation';
+import {
+  OPEN_SHOP_EMAIL_RE,
+  OPEN_SHOP_ERRORS,
+  OPEN_SHOP_LOGO_REQUIRED,
+} from '@/lib/open-shop-validation';
 
 /**
  * Vendor onboarding submit (owner 2026-07-03: "create a vendor onboarding. we
@@ -18,8 +22,14 @@ import { OPEN_SHOP_EMAIL_RE, OPEN_SHOP_ERRORS } from '@/lib/open-shop-validation
  * admin client after the auth check) and writes the onboarding basics onto it:
  *
  *   shop_name       → business_name        (required)
- *   logo_url        → logo_url              (required · §2.1b mandatory logo —
- *                     r2:// ref from the shared <FileUpload>, same as My Shop)
+ *   logo_url        → logo_url              (OPTIONAL here since 2026-07-21 —
+ *                     r2:// ref from the shared <FileUpload>, same as My Shop.
+ *                     Owner decision 4 softened §2.1b from mandatory-at-
+ *                     registration to mandatory-before-VERIFICATION: the gate
+ *                     now lives in lib/vendor-verification.ts
+ *                     `verificationSubmitMissing`, which reads
+ *                     `businessProfileChecklist().complete`. Shared flag:
+ *                     OPEN_SHOP_LOGO_REQUIRED in lib/open-shop-validation.)
  *   primary_service → services = [one of VENDOR_CATEGORIES]  (required)
  *   contact_name    → business_owner_name   (owner name · required)
  *   contact_phone   → contact_phone         (contact number · required)
@@ -79,7 +89,11 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   const contactPhone = clean(formData.get('contact_phone'), 32);
   const contactEmail = cleanEmail(formData.get('contact_email'));
   if (!shopName) redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.shopName));
-  if (!logoUrl) redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.logo));
+  // Logo gate reads the SHARED flag (client wizard reads the same one), so the
+  // two layers can never disagree. Off since 2026-07-21 — see the flag's doc.
+  if (OPEN_SHOP_LOGO_REQUIRED && !logoUrl) {
+    redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.logo));
+  }
   if (!primaryService || !CATEGORY_SET.has(primaryService)) {
     redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.service));
   }
@@ -169,13 +183,17 @@ export async function becomeVendor(formData: FormData): Promise<void> {
     : [primaryService, ...existingServices];
   const patch: Record<string, unknown> = {
     business_name: shopName,
-    logo_url: logoUrl,
     business_owner_name: contactName,
     contact_phone: contactPhone,
     contact_email: contactEmail,
     services,
     updated_at: new Date().toISOString(),
   };
+  // Guarded like location_city: now that the logo is optional here, an
+  // unconditional `logo_url: logoUrl` would NULL an existing logo whenever the
+  // wizard is re-run (mode 'complete') without re-uploading — breaking this
+  // module's own "blanks never clobber" contract and losing vendor data.
+  if (logoUrl) patch.logo_url = logoUrl;
   if (locationCity) patch.location_city = locationCity;
   const { error: updErr } = await admin
     .from('vendor_profiles')

@@ -13,6 +13,8 @@ import {
   Camera,
   MonitorPlay,
   ExternalLink,
+  LayoutGrid,
+  Rows3,
 } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import {
@@ -29,6 +31,13 @@ import { watchPanoodCameras } from '@/lib/panood-webrtc';
 import { getPanoodIceServers } from '@/app/panood/actions';
 import { panoodStreamingEnabled } from '@/lib/panood-camera-seats';
 import { SetnayanOverlay } from './_components/setnayan-overlay';
+import {
+  resolveConsoleLayout,
+  deviceLayout,
+  parseStoredLayout,
+  CONSOLE_LAYOUT_STORAGE_KEY,
+  type ConsoleLayout,
+} from '@/lib/panood-console-layout';
 import { WATERMARK_COPY, type WatermarkDecision } from '@/lib/panood-watermark';
 import {
   installProgramBridge,
@@ -141,6 +150,69 @@ export function PanoodControlRoom({
     Object.fromEntries(screens.map((s) => [s.id, s.current_source])),
   );
   const [mobileTab, setMobileTab] = useState<MobileTab>('moments');
+
+  // ── Console layout (board vs compact) ───────────────────────────────────────
+  // Keyed off the DEVICE, not the viewport. The console used a `lg:` breakpoint, which meant
+  // snapping OBS beside it on a laptop collapsed the director board into the phone layout —
+  // during setup for a broadcast. `screen.width` and pointer type don't move when a window does.
+  //
+  // `layout === null` until mount: the server cannot know the device, so the first paint keeps
+  // the original CSS breakpoints (both branches rendered, one display:none). Resolving in an
+  // effect avoids a hydration mismatch, and the visible result is identical on any machine where
+  // window ≈ screen — which is most of them.
+  const [layout, setLayout] = useState<ConsoleLayout | null>(null);
+  const [layoutOverride, setLayoutOverride] = useState<ConsoleLayout | null>(null);
+  // Captured when the show goes on air. While set, device signals stop moving the layout.
+  const frozenLayoutRef = useRef<ConsoleLayout | null>(null);
+
+  useEffect(() => {
+    const stored = parseStoredLayout(window.localStorage.getItem(CONSOLE_LAYOUT_STORAGE_KEY));
+    setLayoutOverride(stored);
+  }, []);
+
+  useEffect(() => {
+    function recompute() {
+      const pointerFine = window.matchMedia('(pointer: fine)').matches;
+      setLayout(
+        resolveConsoleLayout({
+          override: layoutOverride,
+          pointerFine,
+          screenWidth: window.screen?.width ?? window.innerWidth,
+          frozen: frozenLayoutRef.current,
+        }),
+      );
+    }
+    recompute();
+    // Only real device changes are worth listening to — an external monitor being plugged in,
+    // or a tablet gaining a trackpad. Deliberately NOT a resize listener.
+    const mq = window.matchMedia('(pointer: fine)');
+    mq.addEventListener('change', recompute);
+    return () => mq.removeEventListener('change', recompute);
+  }, [layoutOverride]);
+
+  // Freeze on the way ON AIR, release when the show stops.
+  useEffect(() => {
+    if (live) {
+      frozenLayoutRef.current =
+        frozenLayoutRef.current ??
+        layout ??
+        deviceLayout(
+          window.matchMedia('(pointer: fine)').matches,
+          window.screen?.width ?? window.innerWidth,
+        );
+    } else {
+      frozenLayoutRef.current = null;
+    }
+  }, [live, layout]);
+
+  function chooseLayout(next: ConsoleLayout): void {
+    setLayoutOverride(next);
+    try {
+      window.localStorage.setItem(CONSOLE_LAYOUT_STORAGE_KEY, next);
+    } catch {
+      // Private-mode / storage-disabled: the choice still applies for this session.
+    }
+  }
 
   // Real streaming (owner-gated NEXT_PUBLIC_PANOOD_STREAMING_ENABLED). When ON,
   // watch every publishing camera over WebRTC (P2P, STUN-only, nothing stored) and
@@ -350,8 +422,52 @@ export function PanoodControlRoom({
         </div>
       )}
 
-      {/* ===== DESKTOP BOARD ===== */}
-      <div className="hidden gap-5 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      {/* Layout switch — an operator must never be stuck with the wrong console on the day.
+          Hidden until the device decision resolves, so it can't flash the wrong active state. */}
+      {layout !== null && (
+        <div className="flex items-center justify-end gap-1.5">
+          <span className="mr-1 text-[11px] text-ink/45">Console</span>
+          <div className="inline-flex overflow-hidden rounded-md border border-ink/12">
+            <button
+              type="button"
+              onClick={() => chooseLayout('board')}
+              aria-pressed={layout === 'board'}
+              title="Full director board — program, sources, moments and screens side by side."
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium ${
+                layout === 'board' ? 'bg-ink/10 text-ink' : 'text-ink/60 hover:bg-ink/5'
+              }`}
+            >
+              <LayoutGrid aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+              Board
+            </button>
+            <button
+              type="button"
+              onClick={() => chooseLayout('compact')}
+              aria-pressed={layout === 'compact'}
+              title="Compact stack — program on top, one panel at a time. Built for a phone."
+              className={`inline-flex items-center gap-1.5 border-l border-ink/12 px-2.5 py-1 text-[11px] font-medium ${
+                layout === 'compact' ? 'bg-ink/10 text-ink' : 'text-ink/60 hover:bg-ink/5'
+              }`}
+            >
+              <Rows3 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+              Compact
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ===== DIRECTOR BOARD ===== */}
+      {/* Before mount (layout === null) the original CSS breakpoints apply, so the server render
+          and first paint are unchanged. After mount the device decision takes over. */}
+      <div
+        className={
+          layout === null
+            ? 'hidden gap-5 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]'
+            : layout === 'board'
+              ? 'grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]'
+              : 'hidden'
+        }
+      >
         {/* Left column: program + sources + moments */}
         <div className="space-y-5">
           <ProgramMonitor
@@ -401,7 +517,11 @@ export function PanoodControlRoom({
       </div>
 
       {/* ===== MOBILE STACK ===== */}
-      <div className="space-y-4 lg:hidden">
+      <div
+        className={
+          layout === null ? 'space-y-4 lg:hidden' : layout === 'compact' ? 'space-y-4' : 'hidden'
+        }
+      >
         <ProgramMonitor
           label={programLabel}
           live={live}

@@ -27,7 +27,17 @@ import tailwindcssAnimate from 'tailwindcss-animate';
 //     CSS-var values flip per globals.css.
 const config: Config = {
   darkMode: 'class',
-  content: ['./app/**/*.{ts,tsx}', './lib/**/*.{ts,tsx}'],
+  // `components/` is a second top-level component root alongside
+  // `app/_components/` (owner directive 2026-05-28). It was missing from this
+  // list, so any utility used ONLY under components/** was never generated —
+  // silently a no-op at runtime. It looked fine only because the heavily-used
+  // files there (skeletons, sd-loader) happen to share every class with some
+  // app/** file; ManualCheckoutModal, which doesn't, rendered fully unstyled.
+  content: [
+    './app/**/*.{ts,tsx}',
+    './components/**/*.{ts,tsx}',
+    './lib/**/*.{ts,tsx}',
+  ],
   theme: {
     screens: {
       sm: '640px',

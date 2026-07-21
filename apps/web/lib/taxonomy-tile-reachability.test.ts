@@ -81,17 +81,16 @@ const KNOWN_DEAD_TILES: Record<string, string> = {
 };
 
 test('every marketplace tile resolves to at least one canonical service', () => {
-  const dead: string[] = [];
-
-  for (const tile of WEDDING_TILE_ORDER) {
-    if (canonicalServicesForTile(tile).length === 0) {
-      dead.push(`${tile} (parent: ${TILE_PARENT[tile]})`);
-    }
-  }
-
-  const unexpected = dead.filter(
-    (entry) => !(entry.split(' ')[0] in KNOWN_DEAD_TILES),
+  // Keep the tile id alongside its rendered label — re-deriving the id by
+  // splitting the label back apart is both fragile and, under
+  // `noUncheckedIndexedAccess`, not even well-typed.
+  const dead = WEDDING_TILE_ORDER.filter(
+    (tile) => canonicalServicesForTile(tile).length === 0,
   );
+
+  const unexpected = dead
+    .filter((tile) => !(tile in KNOWN_DEAD_TILES))
+    .map((tile) => `${tile} (parent: ${TILE_PARENT[tile]})`);
 
   assert.deepEqual(
     unexpected,

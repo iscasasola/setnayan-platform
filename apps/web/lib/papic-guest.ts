@@ -75,8 +75,43 @@ export async function eventPapicGuestActive(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<boolean> {
-  return eventSkuActive(supabase, eventId, PAPIC_GUEST_SERVICE_KEY);
+  // ALL FOUR Papic One rungs, not just the entry SKU.
+  //
+  // Migration 20270828140000 turned the flat pass into three purchased buckets
+  // plus a top-up. This gate still checked only PAPIC_GUEST, so a couple who
+  // bought the 6,000- or 10,000-shot rung was granted their points and got NO
+  // CAMERAS. That is the bug this fixes.
+  const owned = await Promise.all(
+    PAPIC_PASS_SERVICE_KEYS.map((key) => eventSkuActive(supabase, eventId, key)),
+  );
+  return owned.some(Boolean);
 }
+
+/**
+ * Every SKU that grants the guest-camera pass.
+ *
+ * ── WHY THERE IS NO DATE HERE (owner 2026-07-21) ─────────────────────────
+ * The pass runs until the POINTS are depleted, not until a date passes. Points
+ * are already the bound — the fail-closed pool RPC refuses at zero — so a date
+ * gate would be a second fence around something already fenced, and the worst
+ * case is bounded by construction: N unused points is at most N more captures,
+ * whenever they happen.
+ *
+ * It is also the only model that survives a MULTI-DAY event. `travel` is
+ * multi_day = TRUE by definition, and a ten-day trip must not need ten
+ * purchases. Per-day scoping breaks there; points do not.
+ *
+ * A service_date column + date-aware gate were built and REMOVED before merge
+ * for exactly this reason (PR #3430). Do not reintroduce one without a concrete
+ * need — and if the pass ever does need to close, tie it to the RETENTION
+ * WINDOW (it shuts when the gallery does), not to a per-day picker.
+ */
+export const PAPIC_PASS_SERVICE_KEYS: readonly string[] = Object.freeze([
+  PAPIC_GUEST_SERVICE_KEY,
+  'PAPIC_GUEST_6K',
+  'PAPIC_GUEST_10K',
+  'PAPIC_GUEST_TOPUP',
+]);
 
 // ─────────────────────────────────────────────────────────────────────────
 // Quota — count a guest's captures + derive credits remaining. The

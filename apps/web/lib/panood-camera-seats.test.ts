@@ -259,20 +259,18 @@ test('panoodCameraCapForSku is 0 for the free tier / unknown SKUs (no operator s
 /*  Free tier + tier resolution (2026-07-21)                                   */
 /* -------------------------------------------------------------------------- */
 
-test('panoodCameraCapForTier gives the council-locked ladder', () => {
-  // free 3 overlaid -> Mobile 3 clean -> Desktop 8 clean. Mobile must never be a
-  // paid DOWNGRADE on camera count, which is why free is 3 and not 8.
+test('one price unlocks the full camera count', () => {
+  // ONE PRICE (owner 2026-07-21): ₱2,500/day unlocks everything, so there is no longer a
+  // Mobile-vs-Desktop entitlement split — paying always buys the full 8.
   assert.equal(panoodCameraCapForTier('free'), 3);
-  assert.equal(panoodCameraCapForTier('mobile'), 3);
-  assert.equal(panoodCameraCapForTier('desktop'), 8);
+  assert.equal(panoodCameraCapForTier('paid'), 8);
 });
 
 test('an admin grant can raise the free cap but never lower any tier', () => {
   assert.equal(panoodCameraCapForTier('free', 8), 8);
   assert.equal(panoodCameraCapForTier('free', 5), 5);
   // A grant below the tier's own floor is ignored, not applied.
-  assert.equal(panoodCameraCapForTier('desktop', 2), 8);
-  assert.equal(panoodCameraCapForTier('mobile', 1), 3);
+  assert.equal(panoodCameraCapForTier('paid', 2), 8);
 });
 
 test('a grant cannot exceed the transport ceiling of 8', () => {

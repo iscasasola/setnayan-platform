@@ -13,7 +13,7 @@ type Props = {
 // handed and exposes a copy-to-clipboard interaction with a visible "Copied"
 // affirmation. No network calls, and it does NOT fabricate a URL.
 //
-// 2026-06-25 honesty pass: the Panood setup page previously fed this a
+// 2026-06-25 honesty pass: the Live Studio setup page previously fed this a
 // stubbed `setnayan.com/v/panood/<slug>/...` placeholder for broadcaster +
 // camera-operator links. Those session links are minted by the live streaming
 // orchestrator (not built in V1), so the setup page now honest-states them as

@@ -9,7 +9,7 @@ import {
 } from '@/lib/panood-webrtc';
 import { getPanoodIceServers } from '@/app/panood/actions';
 
-// Panood · camera-operator local preview (PR5 — join + local preview only).
+// Live Studio · camera-operator local preview (PR5 — join + local preview only).
 //
 // The operator has CLAIMED the camera (POST → panood_claim_camera RPC). This
 // view opens the REAR camera with getUserMedia (facingMode: environment, same
@@ -54,7 +54,7 @@ export function PanoodCameraPublish({ cameraIndex, label, eventId, streamingEnab
         return;
       }
       const stream = await navigator.mediaDevices.getUserMedia({
-        // Rear camera (corpus: Papic/Panood capture is rear-only). `ideal` so a
+        // Rear camera (corpus: Papic/Live Studio capture is rear-only). `ideal` so a
         // single-camera device still gets a stream instead of an OverconstrainedError.
         // 1080p @ 30fps target for the Live Studio livestream (owner 2026-07-14) —
         // sharper than the browser default for a broadcast; `ideal`+`max` caps at
@@ -112,7 +112,7 @@ export function PanoodCameraPublish({ cameraIndex, label, eventId, streamingEnab
       <header className="flex items-center justify-between px-4 pt-[max(env(safe-area-inset-top),1rem)] pb-3">
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-cream/55">
-            Panood · live camera
+            Live Studio · live camera
           </p>
           <h1 className="mt-0.5 text-lg font-semibold tracking-tight">{camLabel}</h1>
         </div>

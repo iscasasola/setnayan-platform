@@ -71,7 +71,7 @@ type PanoodScreenRow = {
 };
 
 /**
- * The REAL Panood multicam control room (iteration 0011, PR4) — client console.
+ * The REAL Live Studio multicam control room (iteration 0011, PR4) — client console.
  *
  * Layout (from the agreed prototypes + the switcher-UI research):
  *   • PROGRAM monitor — always-on, shows what's broadcasting (the anchor).
@@ -317,9 +317,16 @@ export function PanoodControlRoom({
     return () => {
       bridgeRef.current?.dispose();
       bridgeRef.current = null;
-      // Don't strand a pop-out showing a frozen frame OBS would keep sending.
-      popoutRef.current?.close();
-      popoutRef.current = null;
+      // ⚠️ We deliberately do NOT close the pop-out here.
+      //
+      // This cleanup runs on ANY unmount — including an ordinary client-side navigation. Two
+      // links inside the console (the status-strip camera icon and "Connect a camera" in the
+      // sources rail) therefore used to CLOSE THE OBS CAPTURE WINDOW mid-broadcast. That is
+      // exactly what an operator taps when a camera drops, so the recovery action killed the
+      // stream. Closing someone's live output as a side effect of navigation is never right.
+      //
+      // The pop-out looks after itself instead: it re-resolves the bridge on a timer, so it
+      // reattaches when the console remounts and shows an explicit card if the tab really closed.
     };
   }, []);
   useEffect(() => {
@@ -629,7 +636,7 @@ export function PanoodControlRoom({
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
           {cameras.length === 0 ? (
             <p className="px-2 py-3 text-xs text-ink/55">
-              No cameras provisioned yet — add them in Panood setup.
+              No cameras provisioned yet — add them in Live Studio setup.
             </p>
           ) : (
             cameras.map((cam) => (
@@ -1161,7 +1168,7 @@ function SourcesRail({
 
       {cameras.length === 0 && (
         <p className="text-xs text-ink/55">
-          No cameras provisioned yet. Add camera operators in Panood setup — they’ll
+          No cameras provisioned yet. Add camera operators in Live Studio setup — they’ll
           appear here as live sources.
         </p>
       )}
@@ -1320,7 +1327,7 @@ function ScreensManager({
 
       {screens.length === 0 ? (
         <p className="text-xs text-ink/55">
-          No venue screens registered yet. Register displays in Panood setup to route
+          No venue screens registered yet. Register displays in Live Studio setup to route
           photos, a mirror of the broadcast, or your live background to each one.
         </p>
       ) : (

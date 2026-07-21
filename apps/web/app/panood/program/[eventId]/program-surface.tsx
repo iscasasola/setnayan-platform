@@ -6,6 +6,7 @@ import {
   clampSplitRatio,
   EMPTY_FRAME,
   resolveProgramBridge,
+  type ProgramBridge,
   type BridgeFailure,
   type ProgramFrame,
 } from '@/lib/panood-program-bridge';
@@ -33,29 +34,60 @@ export function PanoodProgramSurface() {
   const [failure, setFailure] = useState<BridgeFailure | null>(null);
 
   useEffect(() => {
-    const bridge = resolveProgramBridge();
-    if (typeof bridge === 'string') {
-      setFailure(bridge);
-      return;
-    }
-    setFailure(null);
-    setFrame(bridge.get());
-    const unsubscribe = bridge.subscribe(setFrame);
+    // RE-RESOLVE, never latch.
+    //
+    // The first version resolved the bridge once in a `[]` effect and held that object forever.
+    // Two ordinary operator actions broke it permanently and silently:
+    //   • F5 on the control room — a reload runs no React cleanup, so the old bridge is never
+    //     disposed; the reloaded tab installs a NEW bridge over the same key while this window
+    //     still holds the DEAD one. `opener.closed` is false after a reload, so the only liveness
+    //     probe said "fine" while the <video> held its last decoded frame — a still photograph
+    //     going out live, with no error state.
+    //   • Any client-side navigation in the console — same orphaning.
+    //
+    // So we re-resolve on the same cheap timer that already watched the opener. When the console
+    // remounts, this window reattaches to the new bridge and resumes on its own.
+    let bound: ProgramBridge | null = null;
+    let unsubscribe: (() => void) | null = null;
 
-    // The parent can go away without notice (operator closes the console tab).
-    // Poll cheaply so the surface can say so instead of freezing on a stale
-    // frame that OBS would keep broadcasting.
-    const openerWatch = setInterval(() => {
+    function attach(bridge: ProgramBridge) {
+      bound = bridge;
+      unsubscribe?.();
+      setFailure(null);
+      setFrame(bridge.get());
+      unsubscribe = bridge.subscribe(setFrame);
+    }
+
+    function poll() {
       const opener = window.opener as Window | null;
       if (!opener || opener.closed) {
+        // A genuinely closed console is terminal — say so rather than hold a frozen frame.
+        unsubscribe?.();
+        unsubscribe = null;
+        bound = null;
         setFailure('opener-closed');
-        clearInterval(openerWatch);
+        return;
       }
-    }, 2_000);
+      const resolved = resolveProgramBridge();
+      if (typeof resolved === 'string') {
+        // Console is mid-remount (reload / navigation). Report it, keep polling, recover.
+        if (bound) {
+          unsubscribe?.();
+          unsubscribe = null;
+          bound = null;
+        }
+        setFailure(resolved);
+        return;
+      }
+      // Identity check: a reloaded console publishes a DIFFERENT bridge object over the same key.
+      if (resolved !== bound) attach(resolved);
+    }
 
+    poll();
+    const timer = setInterval(poll, 2_000);
     return () => {
-      unsubscribe();
-      clearInterval(openerWatch);
+      clearInterval(timer);
+      unsubscribe?.();
     };
   }, []);
 

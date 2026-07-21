@@ -12,7 +12,7 @@ import {
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import { PanoodCameraPublish } from './_components/panood-camera-publish';
 
-// Panood · camera-operator join (public)
+// Live Studio · camera-operator join (public)
 //
 // A DIRECT clone of the Papic seat-claim page (/papic/claim/[token]). The couple
 // shares one link per camera (/panood/cam/[token]). The operator opens it on

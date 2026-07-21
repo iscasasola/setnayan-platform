@@ -1,4 +1,4 @@
-// Panood setup — stacked config-form shell.
+// Live Studio setup — stacked config-form shell.
 import { FormPageSkeleton } from '@/components/skeletons';
 
 export default function Loading() {

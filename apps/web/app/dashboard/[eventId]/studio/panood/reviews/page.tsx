@@ -3,15 +3,15 @@ import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, Star } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 
-// Iteration 0011 — Panood feature reviews list (App Store-style Ratings &
+// Iteration 0011 — Live Studio feature reviews list (App Store-style Ratings &
 // Reviews deep-link).
 //
 // Reads from the public.feature_reviews table introduced in
 // 20260517000000_feature_reviews.sql. Anyone with the URL can read; the
 // write surface (post-event review submission) ships in a follow-up
-// once we have a meaningful number of paid Panood orders.
+// once we have a meaningful number of paid Live Studio orders.
 
-export const metadata = { title: 'Panood reviews · Setnayan' };
+export const metadata = { title: 'Live Studio reviews · Setnayan' };
 
 type Props = { params: Promise<{ eventId: string }> };
 
@@ -72,16 +72,16 @@ export default async function PanoodReviewsPage({ params }: Props) {
         className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to Panood
+        Back to Live Studio
       </Link>
 
       <header className="sn-reveal space-y-2">
         <p className="sn-eye">Reviews</p>
         <h1 className="sn-h1">
-          What couples say about Panood
+          What couples say about Live Studio
         </h1>
         <p className="max-w-prose text-sm text-ink/65 sm:text-base">
-          Reviews come from couples who used Panood on their wedding. We open the write
+          Reviews come from couples who used Live Studio on their wedding. We open the write
           form post-event once your broadcast archive is delivered.
         </p>
       </header>
@@ -98,7 +98,7 @@ export default async function PanoodReviewsPage({ params }: Props) {
             </p>
             <p className="mt-1 text-xs text-ink/55">
               {reviewCount === 0
-                ? 'No reviews yet — Panood just launched'
+                ? 'No reviews yet — Live Studio just launched'
                 : `Based on ${reviewCount} review${reviewCount === 1 ? '' : 's'}`}
             </p>
           </div>
@@ -128,7 +128,7 @@ export default async function PanoodReviewsPage({ params }: Props) {
       {reviewCount === 0 ? (
         <div className="sn-row p-6 text-center">
           <p className="text-sm text-ink/70">
-            Be one of the first couples to broadcast with Panood — the review form opens
+            Be one of the first couples to broadcast with Live Studio — the review form opens
             after your event.
           </p>
         </div>

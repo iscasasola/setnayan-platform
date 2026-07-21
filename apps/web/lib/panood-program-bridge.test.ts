@@ -201,3 +201,33 @@ test('splitRatioFromPointer returns null for an unlaid-out track', () => {
   assert.equal(splitRatioFromPointer(300, { left: 0, width: 0 }), null);
   assert.equal(splitRatioFromPointer(300, { left: 0, width: Number.NaN }), null);
 });
+
+/* -------------------------------------------------------------------------- */
+/*  Re-resolution after a console reload (2026-07-21)                          */
+/* -------------------------------------------------------------------------- */
+
+test('a reloaded console installs a DIFFERENT bridge object over the same key', () => {
+  // This identity change is the only signal the pop-out has. A browser reload runs no React
+  // cleanup, so the old bridge is never disposed and `opener.closed` stays false — the pop-out
+  // would otherwise hold a dead bridge and keep broadcasting a frozen frame.
+  const first = installProgramBridge();
+  win.opener = win;
+  const a = resolveOk();
+
+  // Reload: the new tree installs over the same key WITHOUT the old one disposing.
+  const second = installProgramBridge();
+  const b = resolveOk();
+
+  assert.notEqual(a, b, 'a re-resolve must see a new object, or the pop-out cannot self-heal');
+  first.dispose();
+  second.dispose();
+});
+
+test('re-resolving after dispose reports a failure rather than a stale bridge', () => {
+  const bridge = installProgramBridge();
+  win.opener = win;
+  assert.notEqual(typeof resolveProgramBridge(), 'string');
+
+  bridge.dispose(); // console unmounted cleanly
+  assert.equal(resolveProgramBridge(), 'no-bridge', 'must degrade, not hand back the dead bridge');
+});

@@ -18,10 +18,10 @@ import { goLivePanood, endPanoodBroadcast } from './actions';
 import { useSaveLoader } from '@/components/sd-loader';
 
 /**
- * Panood Phase 1 — one-tap "Go live" + the OBS connection card.
+ * Live Studio Phase 1 — one-tap "Go live" + the OBS connection card.
  *
  * Client island over the server actions in ./actions.ts. When YouTube is
- * connected AND the event owns Panood, the couple presses ONE button and
+ * connected AND the event owns Live Studio, the couple presses ONE button and
  * Setnayan auto-creates the YouTube broadcast + RTMP stream on their own
  * channel, then hands them the OBS server URL + stream key here. They stream
  * INTO that broadcast from OBS (or the YouTube app) — Setnayan never sends
@@ -65,7 +65,7 @@ export function GoLiveCard({
 
   // Broadcast-readiness donut ("Energy, not skin" reskin 2026-07-09). A dense,
   // legible read of the go-live status this card ALREADY derives from its
-  // props — the three prerequisites (owns Panood · YouTube app review cleared ·
+  // props — the three prerequisites (owns Live Studio · YouTube app review cleared ·
   // channel connected), or a full "Live" ring once a broadcast is active. No
   // new data: pure re-expression of state already in scope. Presentation only.
   const prerequisites = [ownsPanood, oauthReady, connected];
@@ -204,7 +204,7 @@ function GoLivePrompt({
   if (!ownsPanood) {
     return (
       <p className="rounded-xl border border-dashed border-ink/15 bg-cream/60 px-4 py-3 text-sm text-ink/65">
-        Buy Panood for this event to unlock one-tap go-live.
+        Buy Live Studio for this event to unlock one-tap go-live.
       </p>
     );
   }

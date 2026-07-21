@@ -7,7 +7,7 @@ import { CamJoinFlow } from './_components/cam-join-flow';
 // Live Studio homepage DEMO join — `/panood/demo/[token]`. NOT the real Live
 // Studio camera join (see `/panood/cam/[token]` for that): this is the
 // ephemeral, no-sign-in live demo reached by scanning the ONE QR the
-// homepage's Panood dock tile shows (DECISION_LOG 2026-07-03). Both phones
+// homepage's Live Studio dock tile shows (DECISION_LOG 2026-07-03). Both phones
 // scan the same code; camera slots go by claim order. A fresh token is minted
 // every time the overlay opens — an old/reused/expired token fails closed to
 // a friendly dead-end, same shape as the Papic demo join.

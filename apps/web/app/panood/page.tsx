@@ -1,5 +1,5 @@
 /**
- * /panood — public marketing landing page for Panood, the live-broadcast
+ * /panood — public marketing landing page for Live Studio, the live-broadcast
  * experience (www.setnayan.com/panood).
  *
  * Part of the "Pa-" public-surface wave (owner-approved 2026-06-27; Pa- naming
@@ -9,7 +9,7 @@
  * Mulberry-accent primary CTA, and the layout-mounted SiteFooterChrome. The persistent
  * SiteChrome nav renders because '/panood' is registered in NAV_ROUTES.
  *
- * POSITIONING (locked "Panood human positioning"): sell PRESENCE ACROSS
+ * POSITIONING (locked "Live Studio human positioning"): sell PRESENCE ACROSS
  * DISTANCE — being there for the guests who can't be in the room. Copy sells
  * BENEFITS only (public-surface hygiene) and quotes NO price (admin-managed +
  * provisional — links to /pricing). Never names YouTube / the streaming stack.
@@ -29,9 +29,9 @@ export const revalidate = 3600;
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
-const PAGE_TITLE = 'Panood — Live-Stream Your Wedding · Setnayan';
+const PAGE_TITLE = 'Live Studio — Live-Stream Your Wedding · Setnayan';
 const PAGE_DESCRIPTION =
-  'Panood brings the people who can’t be in the room into your day — live. The lola overseas, the friends who couldn’t fly home, the family who couldn’t make it: they watch your wedding as it happens, right on your own wedding website. Presence across distance, for everyone you love.';
+  'Live Studio brings the people who can’t be in the room into your day — live. The lola overseas, the friends who couldn’t fly home, the family who couldn’t make it: they watch your wedding as it happens, right on your own wedding website. Presence across distance, for everyone you love.';
 const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
 
 export const metadata = {
@@ -45,7 +45,7 @@ export const metadata = {
     'watch wedding online',
     'wedding live stream app',
     'stream wedding to family abroad',
-    'Panood',
+    'Live Studio',
     'Setnayan',
   ],
   openGraph: {
@@ -53,7 +53,7 @@ export const metadata = {
     description: PAGE_DESCRIPTION,
     url: '/panood',
     type: 'website',
-    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Panood — live-stream your wedding' }],
+    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Live Studio — live-stream your wedding' }],
   },
   twitter: {
     card: 'summary_large_image',
@@ -68,7 +68,7 @@ export const metadata = {
 const APP_LD = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
-  name: 'Panood — Wedding Live Stream',
+  name: 'Live Studio — Wedding Live Stream',
   url: `${SITE_URL}/panood`,
   applicationCategory: 'MultimediaApplication',
   operatingSystem: 'Any (web browser)',
@@ -96,7 +96,7 @@ const FAQ = [
   },
   {
     q: 'What if a lot of people watch at once?',
-    a: 'It doesn’t matter. Panood handles ten viewers or ten thousand the same way — invite your whole barangay and everyone abroad without a second thought.',
+    a: 'It doesn’t matter. Live Studio handles ten viewers or ten thousand the same way — invite your whole barangay and everyone abroad without a second thought.',
   },
   {
     q: 'Can we keep the recording?',
@@ -104,7 +104,7 @@ const FAQ = [
   },
   {
     q: 'Does it replace our videographer?',
-    a: 'No. Panood is about presence in the moment — letting people who can’t be there feel like they are. Your videographer still makes the keepsake film; Panood makes sure no one misses the day itself.',
+    a: 'No. Live Studio is about presence in the moment — letting people who can’t be there feel like they are. Your videographer still makes the keepsake film; Live Studio makes sure no one misses the day itself.',
   },
 ];
 
@@ -121,7 +121,7 @@ const FAQ_LD = {
 const STEPS = [
   {
     t: 'Turn it on for your day',
-    d: 'Panood lives inside your Setnayan wedding. Switch it on for the day, and a live broadcast appears right on your own wedding website — nothing for your guests to set up.',
+    d: 'Live Studio lives inside your Setnayan wedding. Switch it on for the day, and a live broadcast appears right on your own wedding website — nothing for your guests to set up.',
   },
   {
     t: 'Everyone who can’t be there, watches',
@@ -159,7 +159,7 @@ export default function PanoodLandingPage() {
           </LineRevealHeading>
           <RevealBand stagger={0.08} y={14}>
             <p data-reveal-item className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
-              Panood brings the people who can’t be there into your day, live. The lola overseas, the friends who
+              Live Studio brings the people who can’t be there into your day, live. The lola overseas, the friends who
               couldn’t fly home, the family who couldn’t make it — they watch your wedding as it happens, right on
               your own wedding website.
             </p>
@@ -181,7 +181,7 @@ export default function PanoodLandingPage() {
         </header>
 
         {/* How it works — the one PanelThread panel. */}
-        <section className="mx-auto mt-16 max-w-3xl" aria-label="How Panood works">
+        <section className="mx-auto mt-16 max-w-3xl" aria-label="How Live Studio works">
           <HowItWorksPanel>
             <ol className="grid gap-6 sm:grid-cols-3">
               {STEPS.map((s, i) => (
@@ -200,12 +200,12 @@ export default function PanoodLandingPage() {
         </section>
 
         {/* The differentiator — rows rise in a quiet stagger. */}
-        <section className="mx-auto mt-16 max-w-3xl" aria-label="What makes Panood different">
+        <section className="mx-auto mt-16 max-w-3xl" aria-label="What makes Live Studio different">
           <LineRevealHeading className="text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">
             Presence, not just a link
           </LineRevealHeading>
           <p className="mx-auto mt-3 max-w-xl text-center text-base text-[#5F5E5A]">
-            A live stream shouldn’t feel like homework. Panood lives where your guests already are — your wedding.
+            A live stream shouldn’t feel like homework. Live Studio lives where your guests already are — your wedding.
           </p>
           <RevealList
             className="mt-7 overflow-hidden rounded-2xl border border-[var(--m-ink)]/10"
@@ -226,7 +226,7 @@ export default function PanoodLandingPage() {
         </section>
 
         {/* FAQ (backs the FAQPage schema) — incidental fade-up. */}
-        <section className="mx-auto mt-16 max-w-2xl" aria-label="Panood questions">
+        <section className="mx-auto mt-16 max-w-2xl" aria-label="Live Studio questions">
           <LineRevealHeading className="text-center font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">
             Questions, answered
           </LineRevealHeading>
@@ -247,8 +247,8 @@ export default function PanoodLandingPage() {
           <section className="mx-auto mt-14 max-w-2xl rounded-3xl border border-[var(--m-orange)]/40 bg-[#FBF6EA] px-6 py-10 text-center">
             <h2 className="font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">Let everyone be there</h2>
             <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
-              Panood lives inside your free Setnayan wedding — alongside your guest list, RSVP, seating, and website.
-              Start planning free, and add Panood when you’re ready.
+              Live Studio lives inside your free Setnayan wedding — alongside your guest list, RSVP, seating, and website.
+              Start planning free, and add Live Studio when you’re ready.
             </p>
             <Link
               href="/onboarding/wedding?from=panood"

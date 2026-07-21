@@ -20,9 +20,9 @@ import { requirePanoodControlRoomMember } from '@/lib/panood-control-room-access
 import { decideWatermark } from '@/lib/panood-watermark';
 import { PanoodControlRoom } from './control-room';
 
-export const metadata = { title: 'Panood control room · Setnayan' };
+export const metadata = { title: 'Live Studio control room · Setnayan' };
 
-// Iteration 0011 — Panood multicam CONTROL ROOM (PR4).
+// Iteration 0011 — Live Studio multicam CONTROL ROOM (PR4).
 //
 // Replaces the prior static MOCK broadcaster preview with the REAL,
 // persisting control room wired to the PR1-PR3 foundation

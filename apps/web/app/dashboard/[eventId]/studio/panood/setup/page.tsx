@@ -29,9 +29,9 @@ import { savePanoodWatchUrl, clearPanoodWatchUrl } from './actions';
 import { GoLiveCard } from './go-live-card';
 import { SubmitButton } from '@/app/_components/submit-button';
 
-export const metadata = { title: 'Panood setup · Setnayan' };
+export const metadata = { title: 'Live Studio setup · Setnayan' };
 
-// Iteration 0011 — Panood couple-facing setup + broadcaster admin surface.
+// Iteration 0011 — Live Studio couple-facing setup + broadcaster admin surface.
 //
 // Rewritten 2026-05-16 per the V1 scope expansion that wires real OAuth on
 // the V1.5+ scaffold setup pages (see CLAUDE.md decision log row 2026-05-16
@@ -54,7 +54,7 @@ export const metadata = { title: 'Panood setup · Setnayan' };
 // the admin catalog via formatV2Sku, never as a constant in code).
 const STYLE_PACK_MODES = 4;
 
-// Real per-event Panood ownership. 2026-06-25 honesty pass (see CLAUDE.md
+// Real per-event Live Studio ownership. 2026-06-25 honesty pass (see CLAUDE.md
 // decision log): the prior mockPanoodSetup() faked baseOwned:true + an extra
 // cam/hour + null packs regardless of what the couple actually bought. This
 // type now reflects ONLY what has a real source:
@@ -187,7 +187,7 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
   }
 
   // REAL pricing from the admin catalog (formatV2Sku). PANOOD_SYSTEM is NOT
-  // priced here: single-cam Panood live is FREE for every host (owner model
+  // priced here: single-cam Live Studio live is FREE for every host (owner model
   // 2026-06-26) and PANOOD_SYSTEM is the PAID multicam control-room upgrade
   // (built at /studio/panood/broadcast). The Animated-Monogram add-on
   // keeps its real catalog price;
@@ -209,7 +209,7 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
         className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to Panood
+        Back to Live Studio
       </Link>
 
       <header className="sn-reveal space-y-2">
@@ -353,7 +353,7 @@ function YoutubeConnect({
           Connect your YouTube channel
         </h2>
         <p className="max-w-prose text-sm text-ink/65">
-          Panood broadcasts to <em>your</em> YouTube channel — your family controls who
+          Live Studio broadcasts to <em>your</em> YouTube channel — your family controls who
           subscribes, the archive belongs to you, and the watch URL is yours forever. We
           request the minimum scopes needed to create + manage the live broadcast.
         </p>
@@ -497,7 +497,7 @@ function SetupStatus({ eventId }: { eventId: string }) {
             Step 2 · what you get
           </p>
           <h2 id="setup-status-heading" className="text-xl font-semibold tracking-tight">
-            Your Panood broadcast
+            Your Live Studio broadcast
           </h2>
         </div>
         {/* Single-cam live broadcast is FREE for any host (owner model
@@ -558,7 +558,7 @@ function SetupStatus({ eventId }: { eventId: string }) {
             href={`/dashboard/${eventId}/studio/panood`}
             className="text-terracotta hover:underline"
           >
-            Panood page
+            Live Studio page
           </Link>
           .
         </p>
@@ -652,7 +652,7 @@ function BroadcastSetup({ eventId }: { eventId: string }) {
           Going live with one camera from your own phone or OBS is free. The Setnayan
           multicam control room is the paid upgrade: one broadcaster who switches between
           several phone cameras, marks highlights, and cuts to standby — each camera a
-          phone running the Panood operator web client, no install. Open the control room
+          phone running the Live Studio operator web client, no install. Open the control room
           below to set it up.
         </p>
       </div>

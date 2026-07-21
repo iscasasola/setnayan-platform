@@ -3149,7 +3149,7 @@ function InvitationSite({
         {isLimitedPlusOne ? (
           <section className="rounded-xl border border-warn-200 bg-warn-50 p-5 text-sm text-warn-900">
             You&rsquo;re joining as a +1. Photos taken of you will appear in your inviter&rsquo;s
-            gallery — ask them to share. In-app features like Shutter and Photo Challenges
+            gallery — ask them to share. In-app features like Shutter
             require a full Setnayan account, which the couple hasn&rsquo;t enabled for +1s on
             this wedding.
           </section>
@@ -4175,7 +4175,7 @@ function TierComparisonWidget({ limited, eventNoun }: { limited: boolean; eventN
               Registered (locked for +1s)
             </p>
             <p className="text-sm text-ink/60">
-              Shutter · Selfie Camera · Photo Challenges · Saved Forever · Reel builder
+              Shutter · Selfie Camera · Saved Forever · Reel builder
             </p>
           </div>
         </div>

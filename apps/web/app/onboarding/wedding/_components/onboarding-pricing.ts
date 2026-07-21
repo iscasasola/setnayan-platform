@@ -218,12 +218,21 @@ export function buildOnboardingPricing(
   for (const [inappKey, serviceCode] of Object.entries(INAPP_TO_SERVICE_CODE)) {
     const sku = byCode.get(serviceCode);
     if (!sku) {
-      // Catalog read failure / missing row → safe ₱0 default (same failure
-      // shape as the shell's old `?? {out:0,set:0}` fallback). Degrades to an
-      // empty/₱0 row rather than crashing.
+      // Catalog read failure / missing row / INACTIVE SKU → degrade to an empty
+      // row rather than crashing.
+      //
+      // ⚠ `out` is zeroed here too, and that is the whole point. It previously
+      // kept OUT_ANCHORS while `set` fell to 0, so a retired or deactivated SKU
+      // rendered as FREE *and* credited its full compare-at saving. With
+      // PAPIC_SEATS and PAPIC_GUEST both inactive that was ₱107,000 of
+      // "savings" on two products the couple cannot buy at any price — the
+      // single most expensive false claim on the onboarding surface.
+      // A ₱0 price beside a ₱75,000 anchor is the worst possible pairing:
+      // silence is honest, a fake bargain is not. (Fixed 2026-07-21 · wave 0 of
+      // Papic_Website_Strategy_Council_Verdict_2026-07-20.md § 2.)
       svc[inappKey] = {
         set: 0,
-        out: OUT_ANCHORS[inappKey] ?? 0,
+        out: 0,
         label: '',
         isPax: false,
         buildStatus: 'not_built',

@@ -20,7 +20,6 @@ import {
 } from '@/lib/seating';
 import {
   DEFAULT_ENTRANCE,
-  INDOOR_BLUEPRINT_PRICE_PHP,
   INDOOR_BLUEPRINT_SERVICE_KEY,
   eventOwnsIndoorBlueprint,
   fetchEntrance,
@@ -63,7 +62,12 @@ export const metadata = { title: 'Indoor Blueprint · Setnayan' };
  */
 
 const SKU_CODE = INDOOR_BLUEPRINT_SERVICE_KEY;
-const FALLBACK_PRICE_PHP = INDOOR_BLUEPRINT_PRICE_PHP;
+// NO hardcoded price fallback. A compiled-in ₱1,499 is how this page kept
+// rendering a live buy drawer for a SKU retired in the catalog: the `??` below
+// swallowed the null and the fix "looked applied" while the drawer kept
+// selling. If the catalog has no readable ACTIVE price, we show no price and no
+// drawer (checkout would reject the POST anyway — see the retirement guard in
+// dashboard/[eventId]/checkout/actions.ts). Same shape as studio/editorial-pro.
 
 type Props = { params: Promise<{ eventId: string }> };
 
@@ -89,7 +93,7 @@ export default async function IndoorBlueprintPage({ params }: Props) {
   const active = owns ? await eventSkuActive(supabase, eventId, SKU_CODE) : false;
 
   const skuRecord = await formatV2Sku(SKU_CODE).catch(() => null);
-  const pricePhp = skuRecord?.price_php ?? FALLBACK_PRICE_PHP;
+  const pricePhp = skuRecord?.price_php ?? null;
 
   return (
     <section className="space-y-6">
@@ -281,7 +285,7 @@ async function UnownedView({
 }: {
   eventId: string;
   supabase: SupabaseLike;
-  pricePhp: number;
+  pricePhp: number | null;
   displayName: string | null;
 }) {
   const [tables, settings] = await Promise.all([
@@ -356,21 +360,29 @@ async function UnownedView({
         </ul>
 
         <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-ink/65">
-            One price for your whole venue ·{' '}
-            <span className="font-mono text-base text-ink">{formatPhp(pricePhp)}</span>
-          </p>
-          <div className="sm:w-auto">
-            <InlineCheckoutDrawer
-              eventId={eventId}
-              serviceKey={SKU_CODE}
-              displayName={`Indoor Blueprint${displayName ? ` · ${displayName}` : ''}`}
-              originalPriceCentavos={String(Math.round(pricePhp * 100))}
-              settings={settings}
-              triggerLabel="Map my venue"
-              triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:w-auto"
-            />
-          </div>
+          {pricePhp == null ? (
+            <p className="text-sm text-ink/65">
+              This service isn&rsquo;t available right now.
+            </p>
+          ) : (
+            <>
+              <p className="text-sm text-ink/65">
+                One price for your whole venue ·{' '}
+                <span className="font-mono text-base text-ink">{formatPhp(pricePhp)}</span>
+              </p>
+              <div className="sm:w-auto">
+                <InlineCheckoutDrawer
+                  eventId={eventId}
+                  serviceKey={SKU_CODE}
+                  displayName={`Indoor Blueprint${displayName ? ` · ${displayName}` : ''}`}
+                  originalPriceCentavos={String(Math.round(pricePhp * 100))}
+                  settings={settings}
+                  triggerLabel="Map my venue"
+                  triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:w-auto"
+                />
+              </div>
+            </>
+          )}
         </div>
         <p className="mt-3 text-xs text-ink/50">
           Haven&rsquo;t built your seating chart yet? Start on the{' '}

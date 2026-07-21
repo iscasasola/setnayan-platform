@@ -50,7 +50,11 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { uploadPublicAsset } from '@/lib/storage';
 import { validateAndCalculateVoucher } from '@/lib/vouchers/validate';
 import { appendLedger } from '@/lib/ledger';
-import { resolvePaxPricedOrderCentavos, resolveBundleChargeCentavos } from '@/lib/v2-catalog';
+import {
+  resolvePaxPricedOrderCentavos,
+  resolveBundleChargeCentavos,
+  resolveServiceSellability,
+} from '@/lib/v2-catalog';
 import { AI_SUB_SKU, parseCycles } from '@/lib/setnayan-ai-subscription';
 import { resolveSetnayanAiPerEventPricingEnabled } from '@/lib/integration-config';
 import {
@@ -344,19 +348,42 @@ export async function submitOrderAction(
     }
   }
 
-  // Retired-bundle guard (owner 2026-06-29 "no more essentials and complete").
-  // The Essentials (GUIDED_PACK) + Complete (MEDIA_PACK) bundles are deactivated
-  // and removed from every UI + the /studio/bundle route now 404s, so nothing
-  // submits these codes. But submitOrderAction does NOT require serviceKey to map
-  // to an active catalog row, and for a deactivated bundle resolveBundleChargeCentavos
-  // returns null (it honors is_active) — which would let the order fall back to the
-  // tamperable CLIENT price. Hard-reject the retired codes here so a forged/stale
-  // POST can never create a bundle order. Defense-in-depth alongside the UI removal.
-  const RETIRED_BUNDLE_CODES = new Set(['GUIDED_PACK', 'MEDIA_PACK']);
-  if (RETIRED_BUNDLE_CODES.has(serviceKey)) {
+  // ── GENERIC RETIREMENT GUARD ─────────────────────────────────────────────
+  // Generalizes the 2026-06-29 GUIDED_PACK/MEDIA_PACK denylist this replaces.
+  // `is_active=false` is the ONLY retirement switch in either catalog, and
+  // `submitOrderAction` is POST-able with any serviceKey (its action id ships in
+  // the client bundle of every InlineCheckoutDrawer mount), so the gate has to
+  // live HERE — not in a page component, and not as a per-SKU denylist someone
+  // has to remember to extend. Found 2026-07-21: COUPLE_WEBSITE_PRO (₱4,999) and
+  // INDOOR_BLUEPRINT (₱1,499) were both retired and both still fully purchasable.
+  //
+  // ⚠ It MUST run BEFORE both charge resolvers, and it must be a REJECT rather
+  // than an is_active filter inside them. "Resolver returns null" is exactly the
+  // bypass: the code below keeps the tamperable CLIENT price on a null resolve
+  // (see its own comment — "Only SKUs in NEITHER catalog … keep the client
+  // value"). Filtering inside the resolver would turn a retired SKU from
+  // "charged its real price" into "charged whatever the browser sent".
+  //
+  // 'unknown' (in neither catalog) deliberately ALLOWS: PAPIC_CAMERAS,
+  // SETNAYAN_AI_SUB, 'save-the-date:<slug>' and 'vendor_additional_branch__<uuid>'
+  // are all legitimate keys with no catalog row. A "must map to an active row"
+  // rule would break every one of them.
+  //
+  // Fails CLOSED on a read error. This knowingly reverses the older "a transient
+  // read failure NEVER blocks an order" stance for THIS check only: a checkout
+  // blocked for thirty seconds beats an order created at a client-supplied price.
+  const sellability = await resolveServiceSellability(serviceKey);
+  if (sellability === 'retired') {
     return {
       ok: false,
-      reason: 'This bundle is no longer available. Pick the software you want from your dashboard instead.',
+      reason:
+        'This service is no longer available. Pick the software you want from your dashboard instead.',
+    };
+  }
+  if (sellability === 'error') {
+    return {
+      ok: false,
+      reason: 'We could not confirm this service is available. Please try again in a moment.',
     };
   }
 

@@ -43,8 +43,7 @@ function stubClient(rows: Row[] | null, error: unknown = null) {
       };
     },
   };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return { client: client as any, seen };
+  return { client: client as unknown as Parameters<typeof isVendorProActive>[0], seen };
 }
 
 const FUTURE = new Date(Date.now() + 86_400_000).toISOString();

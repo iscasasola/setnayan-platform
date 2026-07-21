@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { SetnayanOverlay } from '../_components/setnayan-overlay';
+import { SetnayanOverlay } from '@/app/dashboard/[eventId]/studio/panood/broadcast/_components/setnayan-overlay';
 import {
   clampSplitRatio,
   EMPTY_FRAME,
@@ -64,7 +64,11 @@ export function PanoodProgramSurface() {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden bg-black">
+    // A real full-viewport route now, not a layer fighting the dashboard shell for cover.
+    // `h-[100dvh]` (not `fixed`) because this page owns the whole window — and because a
+    // view-transition-named ancestor once turned `fixed` into a zero-height containing block
+    // and silently rendered nothing at all.
+    <div className="flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-black">
       {failure ? (
         <BridgeFailureCard failure={failure} />
       ) : (

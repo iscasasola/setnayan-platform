@@ -344,7 +344,7 @@ export function PanoodControlRoom({
       return;
     }
     const win = window.open(
-      `/dashboard/${eventId}/studio/panood/broadcast/program`,
+      `/panood/program/${eventId}`,
       // A NAMED target so repeat clicks reuse the same OBS-captured window
       // instead of spawning a second one the operator has to re-add as a source.
       `setnayan-program-${eventId}`,

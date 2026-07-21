@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, Globe, Store } from 'lucide-react';
 
@@ -35,6 +35,7 @@ export function OpenShopWizard({
   logoDisplayMap,
   defaults,
   error,
+  initialStep = 1,
 }: {
   /** 'create' = no shop yet · 'complete' = shop exists but was never named. */
   mode: 'create' | 'complete';
@@ -65,7 +66,6 @@ export function OpenShopWizard({
   const [logoUrl, setLogoUrl] = useState(defaults.logoUrl);
   const [service, setService] = useState(defaults.primaryService);
   const [stepError, setStepError] = useState<string | null>(null);
-  const formRef = useRef<HTMLFormElement | null>(null);
 
   const next = () => {
     if (!shopName.trim()) {
@@ -156,7 +156,7 @@ export function OpenShopWizard({
           </p>
         )}
 
-        <form ref={formRef} action={becomeVendor} onSubmit={submitGate} className="mt-5 space-y-4">
+        <form action={becomeVendor} onSubmit={submitGate} className="mt-5 space-y-4">
           {/* Step 1 — always mounted so values survive step switches. */}
           <div className={step === 1 ? 'space-y-4' : 'hidden'}>
             <label className="block space-y-1">

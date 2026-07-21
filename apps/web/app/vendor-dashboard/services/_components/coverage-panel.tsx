@@ -8,6 +8,7 @@ import {
   updateCoverageServes,
   deleteCoverage,
 } from '../coverage-actions';
+import { leafServesEventType } from '@/lib/taxonomy-event-scope';
 
 /**
  * Coverage tab (v20 prototype structure — owner: "we had a prototype. follow
@@ -327,9 +328,10 @@ function CoverageBrowse({
 
   const allowedEventOptions = useMemo(() => {
     if (!leaf) return [] as EventTypeOption[];
-    if (!leaf.allowedEventTypes || leaf.allowedEventTypes.length === 0) return eventTypeOptions;
-    const allow = new Set(leaf.allowedEventTypes);
-    return eventTypeOptions.filter((e) => allow.has(e.key));
+    // FAIL-OPEN: an untagged leaf offers every active event type. This is the
+    // platform rule (lib/taxonomy-event-scope.ts); only the suggestion ranker
+    // inverts it.
+    return eventTypeOptions.filter((e) => leafServesEventType(leaf.allowedEventTypes, e.key));
   }, [leaf, eventTypeOptions]);
 
   function pickLeaf(hit: { leaf: CoverageLeaf; parentId: string; branchId: string }) {

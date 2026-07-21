@@ -242,6 +242,21 @@ export async function countUnreadMessages(
  *    this count on an un-migrated DB.
  *  - An errored count still falls through to 0 (gate opens). Pre-existing
  *    behaviour, deliberately unchanged here.
+ *
+ * KNOWN, ACCEPTED consequence of RA 10173 erasure: this counts rows, so
+ * `purgeUserAuthoredChat` (app/admin/users/actions.ts) hard-deleting a leaving
+ * user's authored messages lowers the count — and if it reaches 0 on a still-
+ * `pending` thread the pre-accept allowance re-opens and the next couple message
+ * is re-classified as a new inquiry (re-firing `vendor_inquiry`). That needs a
+ * SECOND surviving `event_members` row with `member_type='couple'` on the same
+ * event, and no code path creates one: every couple row is written by the
+ * event's own creator (create-event / onboarding), co-hosts accepted via
+ * /host/accept get `'coordinator'`, and every join / claim path writes
+ * `'guest'` — all under UNIQUE(event_id, user_id). So it is unreachable today.
+ * If multiple couple-type hosts are ever wired up, revisit: erasure must not be
+ * allowed to restore a spent allowance. Not defended against here, because the
+ * only defence would be a durable non-message counter, and erasure legally wins
+ * over a gate counter anyway.
  */
 export async function countCoupleMessages(
   admin: SupabaseClient,

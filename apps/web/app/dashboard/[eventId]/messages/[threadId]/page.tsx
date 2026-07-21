@@ -84,12 +84,16 @@ export default async function CoupleThreadPage({ params }: Props) {
   const livePax = await resolveLivePax(supabase, thread.event_id);
   const headerPax = livePax ?? thread.pax_current;
 
-  // One-follow-up gate (inquiry-followthrough 2026-06-16). While pending, only
-  // the couple can post (the vendor is accept-gated), so the couple-authored
-  // count == total messages here. Allow the composer for the inquiry itself
-  // (0 messages) and exactly ONE follow-up nudge (1 message); past that the
-  // form re-disables until the vendor accepts. Mirrors the server gate in
-  // sendChatMessage so the UI and the no-JS form path agree.
+  // One-follow-up gate (inquiry-followthrough 2026-06-16). Count only
+  // COUPLE-authored rows. A `pending` thread is NOT couple-only: the Vendor
+  // Auto-Reply Assistant posts into it as `sender_role='vendor', is_bot=true`
+  // (lib/vendor-autoreply/inbox-hook.ts) and `'system'` notes exist in the enum
+  // too — so `couple count == total messages` is FALSE, and counting every row
+  // let the bot's own reply eat one of the couple's two allowed pre-accept
+  // messages. Allow the composer for the inquiry itself (0 couple messages) and
+  // exactly ONE follow-up nudge (1); past that the form re-disables until the
+  // vendor accepts. Mirrors `countCoupleMessages` (lib/chat.ts) behind the
+  // server gate in sendChatMessage so the UI and the no-JS form path agree.
   const coupleMsgCount = initialMessages.filter(
     (m) => m.sender_role === 'couple',
   ).length;

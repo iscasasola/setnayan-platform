@@ -31,25 +31,29 @@ export type AddOnStats = {
 const JUST_LAUNCHED_ORDER_THRESHOLD = 5;
 const JUST_LAUNCHED_REVIEW_THRESHOLD = 3;
 
-// Maps the launcher manifest's `addon.key` → service_catalog.sku_codes that
-// count toward this feature. Mirrors the V1 SKU lock in
-// supabase/migrations/20260516000000_v1_sku_lock_service_catalog.sql.
-// Keep in sync when SKUs land or retire.
+// Maps the launcher manifest's `addon.key` → the `orders.service_key` values
+// that count toward this feature.
+//
+// ⚠ These MUST be V2 `platform_retail_catalog_v2.service_code` values, not the
+// legacy v1 `service_catalog.sku_code` values — `orders.service_key` has stored
+// V2 codes since the catalog cutover, and this map is matched against it with
+// `.in('service_key', skus)` here AND (via `lib/add-on-state.ts`) in
+// `resolveAddOnState`, which decides whether a couple sees "Launch" or a buy
+// button. A stale v1 code here does not merely under-count stats: it LOCKS a
+// paid couple out of the feature they bought.
+//
+// Fixed 2026-07-21 (admin-pricing council audit): `panood` still listed seven
+// v1 codes (`panood_daily_broadcast`, `ai_video_highlight_60s`, …), none of
+// which can ever match, while prod holds 2 paid `PANOOD_SYSTEM` orders on one
+// event — that event was being shown a buy button instead of its control room.
+// Keep in sync when SKUs land or retire; verify against
+// `platform_retail_catalog_v2`, never against `sku-catalog.ts`.
 export const ADD_ON_SKU_MAP: Record<string, ReadonlyArray<string>> = {
   panood: [
-    // Active SKUs per the 2026-05-17 always-multi-cam pivot · canonical
-    // source `apps/web/lib/sku-catalog.ts`. `panood_camera_sync` +
-    // `panood_annual_streaming_plus` retired (collapsed into the
-    // always-multi-cam baseline · removed from stats counting 2026-05-30
-    // pre-pilot audit followup so the lifetime traction badge reflects
-    // current sellable SKUs only).
-    'panood_daily_broadcast',
-    'panood_annual_streaming',
-    'ai_video_highlight_60s',
-    'ai_edited_highlight_3min',
-    'custom_monogram_pack',
-    'broadcast_style_pack',
-    'pro_camera_bridge_addon',
+    // Live Studio, repackaged 2026-07-20 into two controller SKUs
+    // (Desktop ₱2,500/day · Mobile ₱1,500/day). Both grant the feature.
+    'PANOOD_SYSTEM',
+    'PANOOD_SYSTEM_MOBILE',
   ],
   papic: [
     // 0012 SKUs slot in here once the iteration's catalog rows land.

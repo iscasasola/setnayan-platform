@@ -20,7 +20,8 @@ export const routes = {
     index: () => `/admin`,
     accountDeletions: () => `/admin/account-deletions`,
     addons: {
-      index: () => `/admin/pricing?tab=addons`,
+      // The Add-ons TAB was removed 2026-07-21; only the legacy-catalog report
+      // export survives (its button now lives on the Pricing tab).
       pricingReport: () => `/admin/addons/pricing-report`,
     },
     approvals: () => `/admin/approvals`,

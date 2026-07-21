@@ -2315,18 +2315,6 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 29,
   },
   {
-    key: "admin.sidebar.addons",
-    scope: "admin",
-    area: "admin-sidebar",
-    route: "/admin/addons",
-    label: "Add-ons",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Sparkles",
-    customRef: null,
-    sortOrder: 30,
-  },
-  {
     key: "admin.sidebar.discount-codes",
     scope: "admin",
     area: "admin-sidebar",

@@ -194,7 +194,6 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       // Money group — config + settings tail (note: /admin/settings also covers
       // /admin/settings/demo-mode + /admin/settings/payment-methods)
       '/admin/pricing',
-      '/admin/addons',
       '/admin/vendor-recommendations',
       '/admin/token-bands',
       '/admin/price-bands',

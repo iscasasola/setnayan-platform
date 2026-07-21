@@ -125,7 +125,6 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
     'The admin-managed retail catalog — every SKU price lives here, never in code.',
   'custom-plans':
     'Negotiated Custom vendor plans — dial a quote, apply a partner discount, send it for apply-then-pay approval.',
-  addons: 'Attachable add-on SKUs and their availability.',
   'vendor-recommendations':
     'The vendor-leaf → recommendable-SKU map and its two-way curation review queue.',
   'token-bands':

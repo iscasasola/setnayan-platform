@@ -2,7 +2,6 @@ import { Suspense, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
   DollarSign,
-  Sparkles,
   BadgeCheck,
   Coins,
   Gauge,
@@ -13,7 +12,6 @@ import {
 } from '@/components/skeletons';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { PricingSurface } from './_surfaces/pricing-surface';
-import { AddonsSurface } from './_surfaces/addons-surface';
 import { CustomPlansSurface } from './_surfaces/custom-plans-surface';
 import { TokenBandsSurface } from './_surfaces/token-bands-surface';
 import { PriceBandsSurface } from './_surfaces/price-bands-surface';
@@ -21,9 +19,20 @@ import { PriceBandsSurface } from './_surfaces/price-bands-surface';
 /**
  * Catalog Studio — the tabbed /admin/pricing shell that consolidates the Money
  * menu's pricing-config pages into ONE surface (owner: "yes" · Money split ·
- * 2026-07-10). Five tabs: Pricing (the shell/default tab) · Add-ons · Custom
- * plans · Token bands · Price bands. Same pattern as the Accounts + Studio +
+ * 2026-07-10). Four tabs: Pricing (the shell/default tab) · Custom plans ·
+ * Token bands · Price bands. Same pattern as the Accounts + Studio +
  * Insights studios (page shell + _surfaces/* + ?tab=).
+ *
+ * The Add-ons tab was REMOVED 2026-07-21 (owner: "we do not need the bundle
+ * maker as well", following the pricing-cleanup audit). It was the last surface
+ * reading the legacy v1 `service_catalog`, and it was broken three ways: it
+ * rendered only the 17 retired rows (it could not show the one active row), its
+ * purchase counter joined v1 `sku_code` against `orders.service_key` (which
+ * holds V2 codes) so every card read "No purchases yet", and its eligibility
+ * dots joined `sku_code` against `feature_policy.feature_key` (which holds
+ * slugs) so every dot was hollow. Its one worthwhile piece — the legacy-catalog
+ * report download — moved onto the Pricing tab. /admin/addons still resolves:
+ * it now redirects to the Pricing tab.
  *
  * MUTATION-SURFACE EDGES (why this shell is not a copy of the read-only
  * Insights shell):
@@ -39,7 +48,7 @@ import { PriceBandsSurface } from './_surfaces/price-bands-surface';
  */
 export const dynamic = 'force-dynamic';
 
-const TABS = ['pricing', 'addons', 'custom-plans', 'token-bands', 'price-bands'] as const;
+const TABS = ['pricing', 'custom-plans', 'token-bands', 'price-bands'] as const;
 type Tab = (typeof TABS)[number];
 
 function first(v: string | string[] | undefined): string | undefined {
@@ -52,7 +61,6 @@ function coerceTab(v: string | undefined): Tab {
 
 const TAB_STRIP: { key: Tab; label: string; icon: typeof DollarSign }[] = [
   { key: 'pricing', label: 'Pricing', icon: DollarSign },
-  { key: 'addons', label: 'Add-ons', icon: Sparkles },
   { key: 'custom-plans', label: 'Custom plans', icon: BadgeCheck },
   { key: 'token-bands', label: 'Token bands', icon: Coins },
   { key: 'price-bands', label: 'Price bands', icon: Gauge },
@@ -60,7 +68,6 @@ const TAB_STRIP: { key: Tab; label: string; icon: typeof DollarSign }[] = [
 
 const TAB_TITLE: Record<Tab, string> = {
   pricing: 'Pricing',
-  addons: 'Add-ons',
   'custom-plans': 'Custom plans',
   'token-bands': 'Token bands',
   'price-bands': 'Price bands',
@@ -92,8 +99,6 @@ function activeSurface(
   // price-bands' recomputed) MUST be forwarded or the success/error banners
   // silently stop rendering after a mutation.
   switch (tab) {
-    case 'addons':
-      return <AddonsSurface searchParams={Promise.resolve({ sku: first(search.sku) })} />;
     case 'custom-plans':
       return (
         <CustomPlansSurface

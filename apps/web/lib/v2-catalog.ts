@@ -619,3 +619,69 @@ export async function resolveBundleChargeCentavos(
 
   return Math.round(Number(pkg.retail_price_php) * 100);
 }
+
+/**
+ * Is this `service_key` SELLABLE right now? The single generic retirement gate
+ * for `submitOrderAction`.
+ *
+ * ── WHY THIS IS A SEPARATE PROBE AND NOT A FILTER ─────────────────────────
+ * The obvious fix for "retired SKUs are still purchasable" is to add
+ * `.eq('is_active', true)` to `resolvePaxPricedOrderCentavos`. That fix is
+ * BACKWARDS and strictly worse than the bug. In `submitOrderAction` a null
+ * resolve does NOT reject the order — it falls through and keeps the
+ * CLIENT-SUPPLIED `original_centavos` (see the comment above the resolve call:
+ * "Only SKUs in NEITHER catalog … keep the client value"). Filtering there
+ * would therefore downgrade a retired SKU from "buyable at its real ₱4,999" to
+ * "buyable at any price the browser POSTs, including ₱1".
+ *
+ * So this READS `is_active` rather than filtering on it — it needs to tell
+ * "retired" apart from "not in the catalog at all", which a filter destroys:
+ *
+ *   'sellable' — row exists in either catalog and is_active = true
+ *   'retired'  — row exists in either catalog and is_active = false → REJECT
+ *   'unknown'  — in NEITHER catalog. Legitimate and common: PAPIC_CAMERAS,
+ *                SETNAYAN_AI_SUB, 'save-the-date:<slug>' and
+ *                'vendor_additional_branch__<uuid>' style keys. → ALLOW. A
+ *                naive "must map to an active row" rule would kill all of them.
+ *   'error'    — DB/env failure → caller REJECTS (fail closed).
+ *
+ * ⚠ DO NOT reuse this to filter catalog READS. `is_active=false` is overloaded
+ * in this catalog: on SETNAYAN_AI_RENEW (₱799) it means "not independently
+ * sellable", NOT "retired" — it is the live renewal price for every AI
+ * subscriber past their first cycle. Filtering that read makes renewals fall
+ * back to the ₱1,499 intro price, an 88% overcharge with a matching BIR
+ * receipt. See lib/setnayan-ai-event-pricing.ts, which deliberately does not
+ * filter.
+ */
+export async function resolveServiceSellability(
+  serviceCode: string,
+): Promise<'sellable' | 'retired' | 'unknown' | 'error'> {
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return 'error';
+  }
+
+  const { data: retail, error: retailErr } = await admin
+    .from('platform_retail_catalog_v2')
+    .select('is_active')
+    .eq('service_code', serviceCode)
+    .maybeSingle();
+  if (retailErr) return 'error';
+  if (retail) {
+    return (retail as { is_active?: boolean | null }).is_active ? 'sellable' : 'retired';
+  }
+
+  const { data: pkg, error: pkgErr } = await admin
+    .from('platform_package_catalog')
+    .select('is_active')
+    .eq('package_code', serviceCode)
+    .maybeSingle();
+  if (pkgErr) return 'error';
+  if (pkg) {
+    return (pkg as { is_active?: boolean | null }).is_active ? 'sellable' : 'retired';
+  }
+
+  return 'unknown';
+}

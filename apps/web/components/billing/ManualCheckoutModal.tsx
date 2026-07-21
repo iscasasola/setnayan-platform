@@ -174,14 +174,15 @@ export default function ManualCheckoutModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="manual-checkout-title"
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md focus:outline-none"
+      className="fixed inset-0 z-[100] flex h-[100dvh] items-center justify-center bg-black/80 p-4 backdrop-blur-md focus:outline-none"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
         className="
-          relative w-full max-w-2xl overflow-hidden rounded-2xl
+          relative flex max-h-[90dvh] w-full max-w-2xl flex-col
+          overflow-hidden rounded-2xl
           border border-zinc-700/80
           bg-gradient-to-b from-zinc-900 via-zinc-950 to-zinc-900
           text-zinc-100 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.9)]
@@ -191,7 +192,7 @@ export default function ManualCheckoutModal({
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-zinc-400/30 to-transparent" aria-hidden />
 
         {/* Header */}
-        <div className="flex items-start justify-between border-b border-zinc-800 bg-zinc-950/60 px-7 py-5">
+        <div className="flex shrink-0 items-start justify-between border-b border-zinc-800 bg-zinc-950/60 px-7 py-5">
           <div>
             <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-zinc-500">
               Manual checkout · awaiting verification
@@ -219,8 +220,9 @@ export default function ManualCheckoutModal({
           </button>
         </div>
 
-        {/* Body */}
-        <div className="px-7 py-6">
+        {/* Body — the only scrolling region · header + footer stay pinned so
+            the reference code and the copy button are always reachable. */}
+        <div className="flex-1 overflow-y-auto px-7 py-6">
           {/* Total + line items */}
           <Block label="Total due">
             <div className="flex items-baseline gap-2">
@@ -384,7 +386,7 @@ export default function ManualCheckoutModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 border-t border-zinc-800 bg-zinc-950/60 px-7 py-4">
+        <div className="flex shrink-0 items-center justify-end gap-3 border-t border-zinc-800 bg-zinc-950/60 px-7 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <button
             type="button"
             onClick={onClose}

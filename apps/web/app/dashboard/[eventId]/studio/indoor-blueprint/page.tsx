@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { redirect } from 'next/navigation';
 import {
   ArrowLeft,
@@ -102,14 +103,7 @@ export default async function IndoorBlueprintPage({ params }: Props) {
 
       {active ? (
         <>
-          <header className="sn-reveal space-y-2">
-            <p className="sn-eye">
-              Indoor Blueprint
-            </p>
-            <h1 className="sn-h1">
-              Map your venue
-            </h1>
-          </header>
+          <PageMasthead title="Map your venue" />
           <OwnedView eventId={eventId} slug={event.slug} supabase={supabase} />
         </>
       ) : owns ? (

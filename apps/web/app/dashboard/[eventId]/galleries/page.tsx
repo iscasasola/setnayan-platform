@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { redirect } from 'next/navigation';
 import { Camera, Radio, Image as ImageIcon, ArrowRight, Images } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -140,16 +141,7 @@ export default async function GalleriesHubPage({ params }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
-      <header className="sn-reveal space-y-1">
-        <p className="sn-eye">
-          <Images aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> After the wedding
-        </p>
-        <h1 className="sn-h1">Galleries</h1>
-        <p className="text-sm text-ink/60">
-          Everything you collected, in one place. Deliveries land over the days
-          after the wedding — galleries fill in as they arrive.
-        </p>
-      </header>
+      <PageMasthead title="Galleries" lede="Everything you collected, in one place. Deliveries land over the days after the wedding — galleries fill in as they arrive." />
 
       <RevealList as="div" className="mt-6 space-y-3">
         {sources.map((s) => {

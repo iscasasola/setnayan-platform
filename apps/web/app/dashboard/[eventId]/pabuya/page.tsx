@@ -1,4 +1,5 @@
 import { Gift } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
 import { PabuyaManager } from './_components/pabuya-manager';
@@ -49,20 +50,7 @@ export default async function PabuyaDashboardPage({ params }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <header className="sn-reveal mb-6">
-        <p className="sn-eye">
-          <Gift aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-          Pabuya · E-Gifts
-        </p>
-        <h1 className="sn-h1 mt-1">
-          The digital money dance
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink/65">
-          Add the accounts guests can send a gift to — your own GCash, Maya,
-          bank, or PayPal. On your event page, guests scan your QR or copy your
-          handle and send straight to you.
-        </p>
-      </header>
+      <PageMasthead title="The digital money dance" lede="Add the accounts guests can send a gift to — your own GCash, Maya, bank, or PayPal. On your event page, guests scan your QR or copy your handle and send straight to you." />
 
       <PabuyaManager
         eventId={eventId}

@@ -6,7 +6,6 @@ import { createAdminClient } from './supabase/admin';
 import {
   TAXONOMY_MAP,
   TILE_PARENT,
-  FILIPINIANA_BARONG_CANONICALS,
   type WeddingFolder,
   type WeddingTile,
 } from './taxonomy';
@@ -209,9 +208,11 @@ const CANONICAL_SERVICES_BY_FOLDER: Map<WeddingFolder, string[]> = (() => {
 
 /**
  * canonical_services for a TILE, excluding marketplaceHidden canonicals.
- * Honors `secondary_tiles` cross-listing and the Filipiniana & Barongs
- * cross-view (the same terno/barong vendors as the four attire tiles,
- * surfaced via the tradition facet — categorized once, two discovery paths).
+ * Honors `secondary_tiles` cross-listing — including the Filipiniana &
+ * Barongs cross-view (the same terno/barong vendors as the attire tiles,
+ * surfaced via the tradition facet — categorized once, two discovery paths),
+ * which is a plain `secondary_tiles` entry as of 2026-07-21 rather than a
+ * hard-coded injection.
  * Cached at module load. Exported because the marketplace queries + counts
  * are tile-scoped in the 10-parent model.
  */
@@ -231,9 +232,14 @@ export const CANONICAL_SERVICES_BY_TILE: Map<WeddingTile, string[]> = (() => {
       }
     }
   }
-  // Filipiniana & Barongs cross-view (explicit list; same vendors as the
-  // attire tiles). The canonicals keep their primary attire tile too.
-  map.set('filipiniana_barongs', [...FILIPINIANA_BARONG_CANONICALS]);
+  // ⚠ NO hard-coded tile injection here. Until 2026-07-21 this line read
+  //     map.set('filipiniana_barongs', [...FILIPINIANA_BARONG_CANONICALS]);
+  // which made the tile REPORT 10 canonicals while zero taxonomy rows named
+  // it — a dead tile that the reachability guard counted as healthy. The
+  // cross-view now rides `secondary_tiles` like every other cross-listing, so
+  // the count above is derived from the data and the guard can see the truth.
+  // Do not re-add an override: `taxonomy-tile-reachability.test.ts` asserts
+  // this map equals what TAXONOMY_MAP derives, and will fail if you do.
   return map;
 })();
 
@@ -275,8 +281,14 @@ function deriveBuckets(tax: TaxonomySnapshot): {
       }
     }
   }
-  // Filipiniana & Barongs cross-view (explicit list; same vendors as the attire tiles).
-  byTile.set('filipiniana_barongs' as WeddingTile, [...FILIPINIANA_BARONG_CANONICALS]);
+  // ⚠ NO hard-coded tile injection here either (removed 2026-07-21 with the
+  // sync twin above). The DB path derives `filipiniana_barongs` from
+  // `canonical_service_taxonomy.secondary_tiles`, written by migration
+  // `20270830324110`. DEPLOYMENT NOTE: until that migration is pushed to
+  // prod, this DB-backed path resolves the tile to ZERO — /explore and
+  // category-search read the DB, not TAXONOMY_MAP. That is the honest state
+  // (the tile really is undeclarable by vendors until the data lands); the
+  // override used to hide it on one side only.
   return { byFolder, byTile };
 }
 

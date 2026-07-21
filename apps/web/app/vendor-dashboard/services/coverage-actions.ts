@@ -10,6 +10,7 @@ import { getEventTypeVocab } from '@/lib/event-types-db';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { getActiveFaithKeys } from '@/lib/faith-vocab-db';
+import { leafServesEventType } from '@/lib/taxonomy-event-scope';
 
 /** Validate a faiths[] submission against the ACTIVE `faith_vocab` keys (the
  *  DB is the vocab authority per the vendor_coverages.faiths column comment;
@@ -59,9 +60,10 @@ async function findLeaf(canonicalService: string): Promise<CoverageLeaf | null> 
 async function parseEventTypes(raw: string[], allowed: string[] | null): Promise<string[]> {
   const vocab = await getEventTypeVocab();
   const vocabKeys = new Set(vocab.map((v) => v.key));
-  const allowSet = allowed && allowed.length ? new Set(allowed) : null;
+  // `leafServesEventType` is the canonical FAIL-OPEN reading of
+  // applicable_event_types (NULL/empty = universal) — see lib/taxonomy-event-scope.ts.
   const out = Array.from(new Set(raw)).filter(
-    (k) => vocabKeys.has(k) && (!allowSet || allowSet.has(k)),
+    (k) => vocabKeys.has(k) && leafServesEventType(allowed, k),
   );
   if (out.length) return out;
   const firstAllowed = allowed?.[0];

@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { TAXONOMY_MAP, type WeddingTile } from '@/lib/taxonomy';
+
 export type VendorCategory =
   | 'venue'
   | 'religious_venue'
@@ -108,7 +110,17 @@ export const VENDOR_CATEGORIES: ReadonlyArray<VendorCategory> = [
 
 export const VENDOR_CATEGORY_LABEL: Record<VendorCategory, string> = {
   venue: 'Venue',
-  religious_venue: 'Religious Ceremony Venue',
+  // Relabelled 2026-07-21 (was "Religious Ceremony Venue"). The ENUM VALUE is
+  // deliberately unchanged: `religious_venue` is what the CEREMONY plan group
+  // reads (`wedding-plan-groups.ts` → categories: ['religious_venue',
+  // 'church_fees']) while `venue` routes to the RECEPTION card, so every
+  // ceremony room — church, mosque, kapilya, AND the city-hall / judge civil
+  // booking (`civil_ceremony_venue`) — must map to it to land on the right
+  // card. Only the human label was wrong: a civil ceremony rendered under
+  // "Religious Ceremony Venue". Renaming the enum instead would need a
+  // `vendor_category` ALTER TYPE + a data backfill + a plan-group rewrite, all
+  // to fix a string. Label follows the tile it represents (`ceremony_venue`).
+  religious_venue: 'Ceremony Venue',
   catering: 'Catering',
   crew_meals: 'Crew Meals',
   photographer: 'Photographer',
@@ -575,9 +587,10 @@ export type VendorAnonymityInput = {
   /**
    * vendor_profiles.services full array. Used to apply the **venue
    * exception** per CLAUDE.md 2026-05-30 refinement row: Ceremony +
-   * Reception Venues (services overlap with ['religious_venue',
-   * 'venue']) ALWAYS show real business_name regardless of tier or
-   * reveal timestamp. Physical-place + GMB-listed venues anonymizing
+   * Reception Venues ALWAYS show real business_name regardless of tier or
+   * reveal timestamp. Matched against BOTH vocabularies this column mixes —
+   * coarse `vendor_category` values and canonical service keys — see
+   * `isVendorVenueExempt`. Physical-place + GMB-listed venues anonymizing
    * breaks search + makes admin-seeded famous venues (Conrad · Shangri-
    * La · Cebu Marriott · etc. from migration `20260529000000`)
    * pointless. NULL or omitted = no venue check (legacy callers).
@@ -600,23 +613,60 @@ export type VendorAnonymityInput = {
 };
 
 /**
- * Venue canonical_services that ALWAYS show real business_name regardless
- * of tier or reveal timestamp. Per CLAUDE.md 2026-05-30 refinement row
- * "the only vendors that will have no screen names are the Ceremony and
- * Reception Venues. We will let them keep their names." Reasoning:
- * physical-place + GMB-listed venues anonymizing breaks search · couples
- * search "Manila Cathedral" or "Conrad Manila" by name · admin-seeded
- * famous venues from migration `20260529000000_venue_directory_seed.sql`
- * (Cebu Marriott · Shangri-La · Solaire · Sofitel · etc.) are pointless
- * to surface as anonymized taxonomy stubs. Multi-service vendors with
- * venue + catering bundle stay venue (real name) since the venue role
- * is canonical.
+ * Vendors that ALWAYS show real business_name regardless of tier or reveal
+ * timestamp. Per CLAUDE.md 2026-05-30 refinement row "the only vendors that
+ * will have no screen names are the Ceremony and Reception Venues. We will
+ * let them keep their names." Reasoning: physical-place + GMB-listed venues
+ * anonymizing breaks search · couples search "Manila Cathedral" or "Conrad
+ * Manila" by name · admin-seeded famous venues from migration
+ * `20260529000000_venue_directory_seed.sql` (Cebu Marriott · Shangri-La ·
+ * Solaire · Sofitel · etc.) are pointless to surface as anonymized taxonomy
+ * stubs. Multi-service vendors with venue + catering bundle stay venue (real
+ * name) since the venue role is canonical.
+ *
+ * ⚠ 2026-07-21 — `vendor_profiles.services` is a MIXED vocabulary. Both of
+ * these are true of the same column:
+ *
+ *   • COARSE `vendor_category` enum values, written by the profile picker and
+ *     by the venue-directory seed (`ARRAY['religious_venue','venue']`), and
+ *     PRESERVED verbatim by `syncProfileFromCoverages()`.
+ *   • CANONICAL service keys (`catholic_church_venue`, `hotel_ballroom`, …),
+ *     written by the taxonomy Coverage picker — that same sync recomputes the
+ *     canonical half of `services[]` from `vendor_coverages`.
+ *
+ * The original list only named the two coarse enum values, so when the
+ * ceremony_venue / reception tiles were seeded with 23 real canonicals
+ * (PR #3477) the exemption silently did not apply to ANY of them: a parish or
+ * a function hall that declares itself through the Coverage picker — the ONLY
+ * path a self-serve vendor has — would have been anonymized as
+ * "Manila Ceremony Venue #12". Both vocabularies are now checked, and the
+ * canonical half is DERIVED FROM THE TAXONOMY (tile ∈ VENUE_EXEMPT_TILES)
+ * rather than re-listed, so a new leaf on either venue tile is exempt the day
+ * it is seeded instead of silently losing the exemption.
  */
-const VENUE_EXEMPT_SERVICES: ReadonlyArray<string> = ['religious_venue', 'venue'];
+const VENUE_EXEMPT_CATEGORIES: ReadonlyArray<string> = ['religious_venue', 'venue'];
 
 /**
- * TRUE when vendor's services array overlaps with the venue exemption
- * list. Internal helper for `isVendorNameRevealed` — exposed as a
+ * The two tiles whose leaves are physical, GMB-listed places. `reception`
+ * includes `accommodation` (hotel room-block), which is intentional: a hotel
+ * is exactly the "couples search it by name" case the exemption exists for.
+ */
+const VENUE_EXEMPT_TILES: ReadonlyArray<WeddingTile> = ['ceremony_venue', 'reception'];
+
+/** Canonical service keys under the venue tiles, derived (never hand-listed). */
+const VENUE_EXEMPT_CANONICALS: ReadonlySet<string> = new Set(
+  Object.entries(TAXONOMY_MAP)
+    .filter(([, meta]) => {
+      const tiles = [meta.tile, ...(meta.secondary_tiles ?? [])];
+      return tiles.some((t) => t != null && VENUE_EXEMPT_TILES.includes(t));
+    })
+    .map(([canonical]) => canonical),
+);
+
+/**
+ * TRUE when the vendor's services array names a venue — by coarse
+ * `vendor_category` enum value OR by any canonical service key that sits on a
+ * venue tile. Internal helper for `isVendorNameRevealed` — exposed as a
  * standalone export so callers can branch on the exception independently
  * (e.g., admin moderation UIs that want to highlight venue rows).
  */
@@ -625,7 +675,8 @@ export function isVendorVenueExempt(
 ): boolean {
   if (!services || services.length === 0) return false;
   for (const s of services) {
-    if (VENUE_EXEMPT_SERVICES.includes(s)) return true;
+    if (VENUE_EXEMPT_CATEGORIES.includes(s)) return true;
+    if (VENUE_EXEMPT_CANONICALS.has(s)) return true;
   }
   return false;
 }
@@ -639,8 +690,10 @@ export function isVendorVenueExempt(
  * card, and the vendor-dashboard banner all branch identically.
  *
  * Order of checks (any one wins):
- *   1. Venue exception — services overlap with religious_venue / venue
- *      (per CLAUDE.md 2026-05-30 refinement row).
+ *   1. Venue exception — services name a venue, either as a coarse
+ *      vendor_category (religious_venue / venue) or as any canonical key on
+ *      the ceremony_venue / reception tiles (per CLAUDE.md 2026-05-30
+ *      refinement row · vocabulary fix 2026-07-21).
  *   2. Paid tier flag — Pro / Enterprise day-1 reveal.
  *   3. Reveal timestamp — first vendor chat reply stamped name_revealed_at.
  */

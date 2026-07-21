@@ -9,7 +9,10 @@
 --    if the venue is same as reception venue, then it must be identified."
 --
 -- The FIRST half is implemented here: ceremony_venue is seeded with places of
--- worship, one leaf per `faith_vocab` key, plus a faith-NULL anchor. It is NOT
+-- worship, one leaf per `faith_vocab` key, plus a faith-NULL anchor.
+-- ⚠ CORRECTION 2026-07-21 — that parity claim shipped one key SHORT: `Chinese`
+-- got no room (16 of the 17 active keys). Closed by the follow-up migration
+-- `20270830324110_taxonomy_filipiniana_crosslist_and_chinese_ceremony.sql`. It is NOT
 -- a generic venue list. The SECOND half ("same venue serves both") is a
 -- MODELLING change, not a taxonomy change — it is written up as a follow-up in
 -- the PR body and deliberately not forced in here.
@@ -28,9 +31,18 @@
 -- Owner decision 3 ("allocate services on what event they cover") is NOT
 -- implemented here: a tile-grain write is read live by /explore, the Shortlist
 -- and category-search and would un-publish every vendor under the tile for the
--- excluded event types, with no vendor action. NULL = universal = fail-open.
+-- excluded event types, with no vendor action.
 -- The real target of decision 3 is the separate live defect where
 -- vendor_profiles.event_types is stuck at ['wedding'].
+--
+-- ⚠ CORRECTION 2026-07-21 — this header originally read "NULL = universal =
+-- fail-open" full stop. That is true of every WRITE path and every VENDOR path
+-- but FALSE of `lib/leaf-suggestions-core.ts`, which treats an untagged leaf as
+-- WEDDING-ONLY (fail-CLOSED) so a recommender cannot push a wedding
+-- coordinator at a birthday. The two readings and why they differ are now
+-- pinned in `apps/web/lib/taxonomy-event-scope.ts` with unit tests. Net effect
+-- for these 23 rows is unchanged (they stay universal to vendors + /explore,
+-- and are only suggested on weddings until decision 3 tags them).
 --
 -- Idempotent (ON CONFLICT DO NOTHING). No ALTER TYPE — vendor_services.category
 -- is TEXT, and `venue` / `religious_venue` already exist on vendor_category.
@@ -118,6 +130,17 @@ DO $$
 DECLARE
   n INT;
   bad TEXT;
+  -- The 23 canonicals THIS migration inserts. Assertions (d) + (e) are scoped
+  -- to this list so they cannot fail on pre-existing rows under the same tiles.
+  new_ids TEXT[] := ARRAY[
+    'ceremony_venue_booking', 'catholic_church_venue', 'christian_church_venue',
+    'born_again_church_venue', 'inc_kapilya_venue', 'aglipayan_church_venue',
+    'orthodox_church_venue', 'sda_church_venue', 'kingdom_hall_venue',
+    'lds_temple_venue', 'mosque_venue', 'synagogue_venue', 'hindu_temple_venue',
+    'gurdwara_venue', 'buddhist_temple_venue', 'cultural_ceremony_site',
+    'civil_ceremony_venue', 'reception_venue', 'function_hall', 'events_place',
+    'hotel_ballroom', 'garden_reception_venue', 'resort_reception_venue'
+  ];
 BEGIN
   -- (a) The two target tiles must now stock a visible shelf.
   SELECT count(*) INTO n FROM public.canonical_service_taxonomy
@@ -141,19 +164,25 @@ BEGIN
      AND tile_id = 'reception' AND 'catering' = ANY(secondary_tiles);
   IF NOT FOUND THEN RAISE EXCEPTION 'accommodation lost its reception tile or catering cross-list'; END IF;
 
-  -- (d) Every new row has a real English display name.
+  -- (d) Every NEW row has a real English display name.
+  --     ⚠ Scoped to the 23 ids this migration inserts, NOT to the whole tile.
+  --     `tile_id IN ('ceremony_venue','reception')` also policed PRE-EXISTING
+  --     rows — `accommodation` above all — so an unrelated blank label written
+  --     by an admin years from now would abort THIS migration and block the
+  --     push. A migration asserts what it wrote. (Tightened 2026-07-21.)
   SELECT string_agg(s.canonical_service, ', ') INTO bad
     FROM public.canonical_service_schemas s
-    JOIN public.canonical_service_taxonomy t USING (canonical_service)
-   WHERE t.tile_id IN ('ceremony_venue', 'reception')
+   WHERE s.canonical_service = ANY(new_ids)
      AND (s.display_name_en IS NULL OR btrim(s.display_name_en) = '');
   IF bad IS NOT NULL THEN RAISE EXCEPTION 'blank display_name_en: %', bad; END IF;
 
   -- (e) NONE of the new rows may carry an event-type scope (owner decision 3
   --     is explicitly out of scope — writing it here un-publishes vendors).
+  --     Same tightening as (d): `accommodation` is allowed to be scoped by an
+  --     admin; this migration only vouches for its own inserts.
   SELECT string_agg(canonical_service, ', ') INTO bad
     FROM public.canonical_service_taxonomy
-   WHERE tile_id IN ('ceremony_venue', 'reception')
+   WHERE canonical_service = ANY(new_ids)
      AND applicable_event_types IS NOT NULL
      AND cardinality(applicable_event_types) > 0;
   IF bad IS NOT NULL THEN RAISE EXCEPTION 'new venue rows must stay event-type universal: %', bad; END IF;

@@ -14,6 +14,7 @@
  *   → selectDiverseLeaves (relevance-first + cross-tile diversity, capped)
  */
 import { selectDiverseLeaves, type LeafCandidate } from './leaf-surfacing';
+import { leafIsSuggestableForEventType } from './taxonomy-event-scope';
 
 /** A taxonomy leaf, flattened from getCoverageTaxonomy(). */
 export type LeafTaxNode = {
@@ -24,7 +25,9 @@ export type LeafTaxNode = {
   tileId: string;
   /** Human label for the parent tile ("Booths"). */
   tileLabel: string;
-  /** Event types this leaf applies to; null = all types. */
+  /** Event types this leaf applies to. NULL = untagged — treated as
+   *  WEDDING-ONLY here (fail-closed) and as UNIVERSAL everywhere else; see
+   *  `lib/taxonomy-event-scope.ts`. */
   allowedEventTypes: string[] | null;
 };
 
@@ -64,11 +67,12 @@ export function buildLeafCandidates(
     // treating null as "all types" would suggest wedding-only services (e.g. a
     // coordinator) on a birthday. An admin tags a leaf to opt it into other
     // event types. eventType == null (unknown) can't be filtered, so it passes.
-    const appliesToType =
-      leaf.allowedEventTypes != null
-        ? opts.eventType == null || leaf.allowedEventTypes.includes(opts.eventType)
-        : opts.eventType == null || opts.eventType === 'wedding';
-    if (!appliesToType) continue;
+    //
+    // ⚠ This INVERTS the platform-wide "NULL = universal = fail-open" rule that
+    // the vendor coverage picker and the admin scope editors use. That is
+    // deliberate and now documented + tested in `lib/taxonomy-event-scope.ts`
+    // — read it before changing either side.
+    if (!leafIsSuggestableForEventType(leaf.allowedEventTypes, opts.eventType)) continue;
     if (opts.plannedTileIds.has(leaf.tileId)) continue; // already planning this area
     const n = countFor(leaf.canonicalService);
     if (n <= 0) continue; // only-when-it-fits: no available vendor → never surface

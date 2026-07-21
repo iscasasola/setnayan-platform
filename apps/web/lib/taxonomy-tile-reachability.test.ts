@@ -40,31 +40,81 @@
  * only ever shrink. Adding a line is a deliberate, reviewed act that records
  * a known-broken shelf; it is not a way to make this test go green.
  *
+ * ── NO-OVERRIDE RULE (added 2026-07-21 — read this before "fixing" a tile) ─
+ *
+ * A count check is only as honest as the thing it counts. `filipiniana_barongs`
+ * passed this guard for months while being stone dead: `vendor-counts.ts`
+ * hard-coded `map.set('filipiniana_barongs', […])`, so the tile REPORTED 10
+ * canonicals while ZERO rows in `TAXONOMY_MAP` (and zero in prod
+ * `canonical_service_taxonomy`) named it. The marketplace advertised the tile
+ * and `getCoverageTaxonomy()` pruned the branch — advertised to couples,
+ * undeclarable by vendors — and the guard called it healthy.
+ *
+ * So the guard now checks TWO things, and the second is the one that matters:
+ *
+ *   1. every tile resolves to ≥1 canonical  (the original count check), and
+ *   2. that count is DERIVED FROM `TAXONOMY_MAP` and nothing else — the test
+ *      re-derives the tile→canonicals mapping from the raw data (primary
+ *      `tile` + `secondary_tiles`, minus `marketplaceHidden`) and asserts it
+ *      equals `canonicalServicesForTile()` exactly, tile by tile.
+ *
+ * Rule (2) makes an injection un-writable: any `map.set` / spread / special
+ * case in `vendor-counts.ts` that adds a canonical the taxonomy does not
+ * declare fails the parity test, and any that REMOVES one fails it too. A dead
+ * tile can now only be made to pass by giving it real canonicals.
+ *
  * ── ALSO KNOWN, NOT CAUGHT HERE ──────────────────────────────────────────
  *
  * ✅ FIXED 2026-07-21 — `reception` used to resolve to exactly ONE canonical
  * and it was `accommodation` (lodging), so function halls, events places and
  * hotel ballrooms had to mis-tag themselves as *accommodation* to surface at
- * all. A count check could never see that. `reception_venue` + the hall
- * family now exist; `accommodation` keeps its catering cross-list. Kept in
- * this comment as the worked example of what a count check CANNOT catch.
+ * all. A count check could never see that — a tile can be alive by count and
+ * semantically wrong. `reception_venue` + the hall family now exist;
+ * `accommodation` keeps its catering cross-list. Kept as the worked example of
+ * what neither of the two checks above can catch: only a human reading the
+ * leaf names can.
  *
- * 🚨 `filipiniana_barongs` is the SAME BUG CLASS, still live, and this guard
- * does NOT catch it either. It reports 10 canonicals — but only because
- * `vendor-counts.ts` hard-codes `map.set('filipiniana_barongs', [...])` for
- * the cross-view. ZERO rows in `TAXONOMY_MAP` (and zero in prod
- * `canonical_service_taxonomy`) actually name that tile; all 10 ids live
- * under `brides_attire` / `grooms_attire` with no `secondary_tiles`. So the
- * marketplace shows the tile while `getCoverageTaxonomy()` prunes the branch
- * and no vendor can ever declare it — advertised to couples, denied to
- * vendors. Needs its own owner call (cross-list via `secondary_tiles`, or
- * drop the hard-coded cross-view); deliberately NOT fixed here.
+ * ⚠ AND NEITHER CHECK SEES PROD. Both read `TAXONOMY_MAP` (compiled TS).
+ * `/explore` and category-search resolve tiles from `canonical_service_taxonomy`
+ * via `getCanonicalBuckets()`, so a tile is only really alive once its
+ * migration is PUSHED. A green run here means "the code is right", never "prod
+ * is fixed". There is no CI check for the DB half — see the deployment note in
+ * the PR body.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { WEDDING_TILE_ORDER, TILE_PARENT } from './taxonomy';
+import {
+  WEDDING_TILE_ORDER,
+  TILE_PARENT,
+  TAXONOMY_MAP,
+  FILIPINIANA_BARONG_CANONICALS,
+  WEDDING_FAITH_KEYS,
+  type WeddingTile,
+} from './taxonomy';
 import { canonicalServicesForTile } from './vendor-counts';
+
+/**
+ * Re-derive tile → canonicals straight from `TAXONOMY_MAP`, independently of
+ * `vendor-counts.ts`. This is the "second opinion" that makes an override
+ * impossible to hide behind: it knows only what the taxonomy DECLARES.
+ */
+function canonicalsByTileFromData(): Map<string, string[]> {
+  const byTile = new Map<string, string[]>();
+  const add = (tile: string, canonical: string) => {
+    const arr = byTile.get(tile) ?? [];
+    if (!arr.includes(canonical)) arr.push(canonical);
+    byTile.set(tile, arr);
+  };
+  for (const [canonical, meta] of Object.entries(TAXONOMY_MAP)) {
+    if (meta.marketplaceHidden || !meta.tile) continue;
+    add(meta.tile, canonical);
+    for (const secondary of meta.secondary_tiles ?? []) {
+      if (secondary !== meta.tile) add(secondary, canonical);
+    }
+  }
+  return byTile;
+}
 
 /**
  * Tiles that resolve to ZERO canonicals today — measured against
@@ -97,8 +147,11 @@ test('every marketplace tile resolves to at least one canonical service', () => 
   // Keep the tile id alongside its rendered label — re-deriving the id by
   // splitting the label back apart is both fragile and, under
   // `noUncheckedIndexedAccess`, not even well-typed.
+  // Measured against the DATA, not against vendor-counts' output — a
+  // hard-coded injection there must not be able to answer this question.
+  const fromData = canonicalsByTileFromData();
   const dead = WEDDING_TILE_ORDER.filter(
-    (tile) => canonicalServicesForTile(tile).length === 0,
+    (tile) => (fromData.get(tile) ?? []).length === 0,
   );
 
   const unexpected = dead
@@ -119,10 +172,9 @@ test('every marketplace tile resolves to at least one canonical service', () => 
 });
 
 test('KNOWN_DEAD_TILES is self-cleaning — a fixed tile must be removed from it', () => {
+  const fromData = canonicalsByTileFromData();
   const stale = Object.keys(KNOWN_DEAD_TILES).filter(
-    (tile) =>
-      canonicalServicesForTile(tile as (typeof WEDDING_TILE_ORDER)[number])
-        .length > 0,
+    (tile) => (fromData.get(tile) ?? []).length > 0,
   );
 
   assert.deepEqual(
@@ -146,5 +198,87 @@ test('every allowlisted tile is a real tile (typo guard)', () => {
     bogus,
     [],
     `KNOWN_DEAD_TILES names tiles that do not exist in WEDDING_TILE_ORDER: ${bogus.join(', ')}`,
+  );
+});
+
+test('tile canonicals come from the taxonomy — no hard-coded override may inject them', () => {
+  // THE ANTI-OVERRIDE CHECK. `canonicalServicesForTile()` is what the app
+  // asks; `canonicalsByTileFromData()` is what the taxonomy declares. If a
+  // future edit re-adds `map.set('some_tile', […])` — or drops a legitimate
+  // cross-listing — the two disagree here and this fails, so a dead tile can
+  // never again be made to LOOK alive.
+  const fromData = canonicalsByTileFromData();
+  const mismatches: string[] = [];
+
+  const tiles = new Set<string>([...WEDDING_TILE_ORDER, ...fromData.keys()]);
+  for (const tile of tiles) {
+    const declared = [...(fromData.get(tile) ?? [])].sort();
+    const served = [...canonicalServicesForTile(tile as WeddingTile)].sort();
+    const injected = served.filter((c) => !declared.includes(c));
+    const dropped = declared.filter((c) => !served.includes(c));
+    if (injected.length || dropped.length) {
+      mismatches.push(
+        `${tile}: injected=[${injected.join(', ')}] dropped=[${dropped.join(', ')}]`,
+      );
+    }
+  }
+
+  assert.deepEqual(
+    mismatches,
+    [],
+    `\n\nTILE CANONICALS DIVERGE FROM THE TAXONOMY.\n` +
+      `"injected" = vendor-counts.ts serves a canonical the taxonomy never declared\n` +
+      `  for that tile — i.e. a hard-coded override faking a live shelf. This is\n` +
+      `  exactly how filipiniana_barongs stayed dead for months while the\n` +
+      `  reachability count read 10. Declare it via tile / secondary_tiles instead.\n` +
+      `"dropped" = the taxonomy declares a canonical that never reaches the tile.\n\n` +
+      `  ${mismatches.join('\n  ')}\n`,
+  );
+});
+
+test('the Filipiniana & Barongs cross-view is declared as data, not injected', () => {
+  // Regression lock on the specific defect: the tile must resolve to exactly
+  // the documented cross-view set, and it must do so through secondary_tiles.
+  const fromData = canonicalsByTileFromData();
+  assert.deepEqual(
+    [...(fromData.get('filipiniana_barongs') ?? [])].sort(),
+    [...FILIPINIANA_BARONG_CANONICALS].sort(),
+    'filipiniana_barongs must resolve from TAXONOMY_MAP secondary_tiles alone',
+  );
+
+  // …and the 10 keep their primary attire tile — a cross-view re-homes nothing.
+  for (const canonical of FILIPINIANA_BARONG_CANONICALS) {
+    const meta = TAXONOMY_MAP[canonical];
+    assert.ok(meta, `${canonical} missing from TAXONOMY_MAP`);
+    assert.ok(
+      meta.tile === 'brides_attire' || meta.tile === 'grooms_attire',
+      `${canonical} must keep its primary attire tile (got ${String(meta.tile)})`,
+    );
+  }
+});
+
+test('every ceremony_venue faith tag is a real faith key, one room per faith', () => {
+  // The parity claim PR #3477 made and missed by one (`Chinese`). Asserted
+  // here so the next faith added to WEDDING_FAITH_KEYS fails until it gets a
+  // room — the DB half is asserted by migration 20270830324110 §4(d).
+  const rooms = Object.entries(TAXONOMY_MAP).filter(
+    ([, meta]) => meta.tile === 'ceremony_venue',
+  );
+  const tagged = new Set<string>(
+    rooms.flatMap(([, meta]) => (meta.faith ? [meta.faith as string] : [])),
+  );
+
+  const missing = WEDDING_FAITH_KEYS.filter((f) => !tagged.has(f));
+  assert.deepEqual(
+    missing,
+    [],
+    `Faith keys with no ceremony_venue room: ${missing.join(', ')}`,
+  );
+
+  // The faith-NULL anchor must survive: passesFaithFilter is include-only, so
+  // without it an untagged/non-wedding context sees an empty shelf.
+  assert.ok(
+    rooms.some(([, meta]) => meta.faith == null),
+    'ceremony_venue lost its faith-NULL anchor (ceremony_venue_booking)',
   );
 });

@@ -53,7 +53,9 @@ export const PACKAGE_CANONICAL_TO_VENDOR_CATEGORY: Record<string, VendorCategory
   hotel_ballroom: 'venue',
   garden_reception_venue: 'venue',
   resort_reception_venue: 'venue',
-  // Ceremony leaves — religious locations, one per faith_vocab key.
+  // Ceremony leaves — religious locations, one per ACTIVE faith_vocab key
+  // (all 17: the 9 from migration 20261109000000 + the 8 from 20261120000000).
+  // `chinese_temple_venue` closes the one key PR #3477 missed.
   catholic_church_venue: 'religious_venue',
   christian_church_venue: 'religious_venue',
   born_again_church_venue: 'religious_venue',
@@ -68,12 +70,16 @@ export const PACKAGE_CANONICAL_TO_VENDOR_CATEGORY: Record<string, VendorCategory
   hindu_temple_venue: 'religious_venue',
   gurdwara_venue: 'religious_venue',
   buddhist_temple_venue: 'religious_venue',
+  chinese_temple_venue: 'religious_venue',
   cultural_ceremony_site: 'religious_venue',
   // A civil ceremony is not religious, but `religious_venue` is the enum value
   // the CEREMONY plan group reads (`categories: ['religious_venue',
   // 'church_fees']` in wedding-plan-groups.ts) while `venue` routes to the
   // RECEPTION card. Functional placement wins over label purity: a city-hall
-  // booking belongs on the ceremony card, not the reception one.
+  // booking belongs on the ceremony card, not the reception one. The label
+  // half of that trade is now fixed too — VENDOR_CATEGORY_LABEL.religious_venue
+  // reads "Ceremony Venue" as of 2026-07-21, so a judge booking no longer
+  // renders under a religious heading.
   civil_ceremony_venue: 'religious_venue',
   // Food + drink
   catering: 'catering',

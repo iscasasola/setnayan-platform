@@ -561,11 +561,22 @@ export const WEDDING_TILES_BY_PARENT: Record<WeddingFolder, WeddingTile[]> =
 
 /**
  * `filipiniana_barongs` is a cross-view, not a primary bucket: these
- * canonicals keep their primary role tile (Bride's / Groom's / Women's /
- * Men's Attire) AND surface under the Filipiniana & Barongs tile via the
- * tradition facet. vendor-counts.ts adds these to the tile's canonical set
- * explicitly so a vendor shows in both places — categorized once, two
- * discovery paths.
+ * canonicals keep their primary role tile (Bride's / Groom's) AND surface
+ * under the Filipiniana & Barongs tile via the tradition facet — categorized
+ * once, two discovery paths.
+ *
+ * ⚠ 2026-07-21 — this list is now a DOCUMENTATION + PARITY-TEST constant, NOT
+ * the mechanism. Until today `vendor-counts.ts` injected it with a hard-coded
+ * `map.set('filipiniana_barongs', […])`, so the tile REPORTED 10 canonicals
+ * while zero rows in `TAXONOMY_MAP` (and zero in prod
+ * `canonical_service_taxonomy`) actually named it: the marketplace advertised
+ * the tile and `getCoverageTaxonomy()` pruned the branch, so no vendor could
+ * ever declare it. The cross-listing now rides the SAME `secondary_tiles`
+ * mechanism every other cross-view uses (migration
+ * `20270830324110_taxonomy_filipiniana_crosslist_and_chinese_ceremony.sql`
+ * writes the DB half), and `taxonomy-tile-reachability.test.ts` asserts this
+ * list equals what the data derives — so it can never drift back into being an
+ * override that fakes a passing count.
  */
 export const FILIPINIANA_BARONG_CANONICALS: ReadonlyArray<string> = [
   'filipiniana_terno',
@@ -758,6 +769,13 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   hindu_temple_venue:                { folder: 'venue', tile: 'ceremony_venue', phase: 'V1.2', faith: 'Hindu' },
   gurdwara_venue:                    { folder: 'venue', tile: 'ceremony_venue', phase: 'V1.2', faith: 'Sikh' },
   buddhist_temple_venue:             { folder: 'venue', tile: 'ceremony_venue', phase: 'V1.2', faith: 'Buddhist' },
+  // 2026-07-21 follow-up: the parity claim ("one place of worship per live
+  // faith_vocab key") shipped one key SHORT — `Chinese` was the only active
+  // key with no room, even though it already has 5 Tsinoy specialist leaves
+  // (migration 20270310764093) and its own `ceremony_type='chinese'`. The
+  // Tsinoy rite is held at a Taoist/Buddhist temple or the clan ancestral
+  // hall, so the room is real and distinct from `buddhist_temple_venue`.
+  chinese_temple_venue:              { folder: 'venue', tile: 'ceremony_venue', phase: 'V1.1.1', faith: 'Chinese', ph: true },
   cultural_ceremony_site:            { folder: 'venue', tile: 'ceremony_venue', phase: 'V1.5+', faith: 'Cultural', ph: true },
   civil_ceremony_venue:              { folder: 'venue', tile: 'ceremony_venue', phase: 'V1.1 base', faith: 'Civil' },
 
@@ -906,21 +924,21 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   // Bride's Attire
   bridal_gown_custom:                { folder: 'look', tile: 'brides_attire', phase: 'V1.1 base' },
   bridal_gown_rental:                { folder: 'look', tile: 'brides_attire', phase: 'V1.1.4', rental: true },
-  filipiniana_terno:                 { folder: 'look', tile: 'brides_attire', phase: 'V1.1.4', ph: true, tradition: true },
-  filipiniana_maria_clara:           { folder: 'look', tile: 'brides_attire', phase: 'V1.1.4', ph: true, tradition: true },
-  filipiniana_balintawak:            { folder: 'look', tile: 'brides_attire', phase: 'V1.1.4', ph: true, tradition: true },
-  muslim_modest_bridal:              { folder: 'look', tile: 'brides_attire', phase: 'V1.4', faith: 'Muslim', tradition: true },
-  inc_modest_bridal:                 { folder: 'look', tile: 'brides_attire', phase: 'V1.3', faith: 'INC', tradition: true },
-  maranao_wedding_attire:            { folder: 'look', tile: 'brides_attire', phase: 'V1.4', faith: 'Muslim', tradition: true },
-  tausug_wedding_attire:             { folder: 'look', tile: 'brides_attire', phase: 'V1.4', faith: 'Muslim', tradition: true },
-  yakan_wedding_attire:              { folder: 'look', tile: 'brides_attire', phase: 'V1.4', faith: 'Muslim', tradition: true },
+  filipiniana_terno:                 { folder: 'look', tile: 'brides_attire', phase: 'V1.1.4', ph: true, tradition: true, secondary_tiles: ['filipiniana_barongs'] },
+  filipiniana_maria_clara:           { folder: 'look', tile: 'brides_attire', phase: 'V1.1.4', ph: true, tradition: true, secondary_tiles: ['filipiniana_barongs'] },
+  filipiniana_balintawak:            { folder: 'look', tile: 'brides_attire', phase: 'V1.1.4', ph: true, tradition: true, secondary_tiles: ['filipiniana_barongs'] },
+  muslim_modest_bridal:              { folder: 'look', tile: 'brides_attire', phase: 'V1.4', faith: 'Muslim', tradition: true, secondary_tiles: ['filipiniana_barongs'] },
+  inc_modest_bridal:                 { folder: 'look', tile: 'brides_attire', phase: 'V1.3', faith: 'INC', tradition: true, secondary_tiles: ['filipiniana_barongs'] },
+  maranao_wedding_attire:            { folder: 'look', tile: 'brides_attire', phase: 'V1.4', faith: 'Muslim', tradition: true, secondary_tiles: ['filipiniana_barongs'] },
+  tausug_wedding_attire:             { folder: 'look', tile: 'brides_attire', phase: 'V1.4', faith: 'Muslim', tradition: true, secondary_tiles: ['filipiniana_barongs'] },
+  yakan_wedding_attire:              { folder: 'look', tile: 'brides_attire', phase: 'V1.4', faith: 'Muslim', tradition: true, secondary_tiles: ['filipiniana_barongs'] },
   qipao_cheongsam_attire:            { folder: 'look', tile: 'brides_attire', phase: 'V1.1.1', faith: 'Chinese', tradition: true },
   sari_lehenga_bridal:               { folder: 'look', tile: 'brides_attire', phase: 'V1.1.1', faith: 'Hindu', tradition: true },
   // Groom's Attire
   groom_suit_custom:                 { folder: 'look', tile: 'grooms_attire', phase: 'V1.1 base' },
   groom_suit_rental:                 { folder: 'look', tile: 'grooms_attire', phase: 'V1.1.4', rental: true },
-  barong_tagalog_custom:             { folder: 'look', tile: 'grooms_attire', phase: 'V1.1.4', ph: true, tradition: true },
-  barong_tagalog_rental:             { folder: 'look', tile: 'grooms_attire', phase: 'V1.1.4', ph: true, rental: true, tradition: true },
+  barong_tagalog_custom:             { folder: 'look', tile: 'grooms_attire', phase: 'V1.1.4', ph: true, tradition: true, secondary_tiles: ['filipiniana_barongs'] },
+  barong_tagalog_rental:             { folder: 'look', tile: 'grooms_attire', phase: 'V1.1.4', ph: true, rental: true, tradition: true, secondary_tiles: ['filipiniana_barongs'] },
   sherwani_groom:                    { folder: 'look', tile: 'grooms_attire', phase: 'V1.1.1', faith: 'Hindu', tradition: true },
   muslim_groom_attire:               { folder: 'look', tile: 'grooms_attire', phase: 'V1.1.1', faith: 'Muslim', tradition: true },
   maranao_groom_attire:              { folder: 'look', tile: 'grooms_attire', phase: 'V1.1.1', faith: 'Muslim', ph: true, tradition: true },

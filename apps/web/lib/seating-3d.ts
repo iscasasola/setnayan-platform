@@ -1181,6 +1181,13 @@ export type BoothVendor = {
    *  profile CTA (owner-locked surface D: free for verified vendors). Null /
    *  absent → no CTA. Optional so older cached scene payloads still parse. */
   slug?: string | null;
+  /** The vendor's own design for THIS event (event_vendor_booth_posters),
+   *  already resolved to a display URL — a 2:3 portrait panel that stands beside
+   *  the booth like a pull-up banner. Distinct from `logoUrl`, which is the
+   *  account-level mark on the backdrop board. Same `boothCanBrand` gate as the
+   *  logo (branding is the Pro/Enterprise perk). Optional so an older cached
+   *  scene payload (pre-poster) still parses. */
+  posterUrl?: string | null;
   /** Whether the profile can take bookings (`public_visibility === 'verified'`
    *  — lib/vendor-visibility isBookable). Gates the booth card's "Book this
    *  vendor" wording: a coming_soon profile keeps its slug (the profile page

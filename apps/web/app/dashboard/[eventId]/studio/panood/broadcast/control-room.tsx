@@ -16,6 +16,7 @@ import {
   ExternalLink,
   LayoutGrid,
   Rows3,
+  ChevronLeft,
 } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import {
@@ -119,6 +120,8 @@ function cameraLabel(cam: PanoodCameraRow): string {
 
 export function PanoodControlRoom({
   eventId,
+  eventName,
+  owned,
   cameras,
   screens,
   moments,
@@ -126,6 +129,10 @@ export function PanoodControlRoom({
   watermark,
 }: {
   eventId: string;
+  /** Couple's display name — 12px in the status strip, not a 36px h1 above the console. */
+  eventName: string;
+  /** Paid? Drives the one-word PREVIEW chip. The real paywall is the overlay on every surface. */
+  owned: boolean;
   cameras: PanoodCameraRow[];
   screens: PanoodScreenRow[];
   moments: PanoodMomentRow[];
@@ -448,54 +455,87 @@ export function PanoodControlRoom({
       className="flex flex-col gap-3 overflow-hidden"
       style={fitHeight ? { height: `${fitHeight}px` } : undefined}
     >
-      {/* Preview-mode honesty banner — only while real streaming is OFF */}
-      {!streamingOn && (
-        <div className="shrink-0 rounded-lg border border-warn-300/60 bg-warn-50 p-3 text-sm text-warn-900">
-          <span className="inline-flex items-center gap-1.5 font-medium">
-            <AlertTriangle aria-hidden className="h-4 w-4" strokeWidth={2} />
-            Live control — video preview pending
-          </span>
-          <p className="mt-1">
-            Your taps below are <strong>real</strong> and saved — they set the program
-            source, fire moments, and route your venue screens right now. The video tiles
-            are placeholders; live video arrives with the streaming rollout.
-          </p>
-        </div>
-      )}
+      {/* ── STATUS STRIP · 44px ────────────────────────────────────────────────────────────
+          Everything the page header used to spend ~150px saying, in one row that is also useful
+          during a show. 44px and not 32 because `globals.css` puts `min-height:44px` on every
+          <button> and this row holds several — fighting that with overrides would be a lie about
+          the tap targets. */}
+      <div className="flex h-11 shrink-0 items-center gap-2 rounded-lg border border-ink/10 bg-ink/[0.03] px-2">
+        {!live && (
+          <Link
+            href={`/dashboard/${eventId}/studio/panood/setup`}
+            aria-label="Back to Live Studio setup"
+            title="Back to Live Studio setup"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink/55 hover:bg-ink/5 hover:text-ink"
+          >
+            <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
+          </Link>
+        )}
 
-      {/* Layout switch — an operator must never be stuck with the wrong console on the day.
-          Hidden until the device decision resolves, so it can't flash the wrong active state. */}
-      {layout !== null && (
-        <div className="flex shrink-0 items-center justify-end gap-1.5">
-          <span className="mr-1 text-[11px] text-ink/45">Console</span>
-          <div className="inline-flex overflow-hidden rounded-md border border-ink/12">
-            <button
-              type="button"
-              onClick={() => chooseLayout('board')}
-              aria-pressed={layout === 'board'}
-              title="Full director board — program, sources, moments and screens side by side."
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium ${
-                layout === 'board' ? 'bg-ink/10 text-ink' : 'text-ink/60 hover:bg-ink/5'
-              }`}
-            >
-              <LayoutGrid aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-              Board
-            </button>
-            <button
-              type="button"
-              onClick={() => chooseLayout('compact')}
-              aria-pressed={layout === 'compact'}
-              title="Compact stack — program on top, one panel at a time. Built for a phone."
-              className={`inline-flex items-center gap-1.5 border-l border-ink/12 px-2.5 py-1 text-[11px] font-medium ${
-                layout === 'compact' ? 'bg-ink/10 text-ink' : 'text-ink/60 hover:bg-ink/5'
-              }`}
-            >
-              <Rows3 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-              Compact
-            </button>
-          </div>
-        </div>
-      )}
+        <span className="min-w-0 truncate text-xs font-medium text-ink/70">{eventName}</span>
+
+        {!owned && (
+          <span className="shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-terracotta">
+            Preview
+          </span>
+        )}
+        {!streamingOn && (
+          <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.16em] text-ink/40">
+            No video yet
+          </span>
+        )}
+
+        <span
+          className={`ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] ${
+            live ? 'bg-danger-600 text-cream' : 'bg-ink/10 text-ink/60'
+          }`}
+        >
+          <span
+            aria-hidden
+            className={`h-1.5 w-1.5 rounded-full ${live ? 'animate-pulse bg-cream' : 'bg-ink/40'}`}
+          />
+          {live ? 'On air' : 'Off air'}
+        </span>
+
+        <Link
+          href={`/dashboard/${eventId}/studio/panood/cameras`}
+          aria-label="Connect cameras"
+          title="Connect cameras — send a link to each phone"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink/60 hover:bg-ink/5 hover:text-ink"
+        >
+          <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
+        </Link>
+
+        {streamingOn && (
+          <button
+            type="button"
+            onClick={openProgramPopout}
+            aria-label="Pop out for OBS"
+            title="Opens a clean window with no controls — add it to OBS as a Window Capture."
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink/60 hover:bg-ink/5 hover:text-ink"
+          >
+            <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={2} />
+          </button>
+        )}
+
+        {/* Board/Compact is a set-once-per-device control (it persists), so it does not deserve
+            a permanent row of its own. Icon-only, at the end. */}
+        {layout !== null && (
+          <button
+            type="button"
+            onClick={() => chooseLayout(layout === 'board' ? 'compact' : 'board')}
+            aria-label={layout === 'board' ? 'Switch to compact console' : 'Switch to director board'}
+            title={layout === 'board' ? 'Switch to compact console' : 'Switch to director board'}
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink/60 hover:bg-ink/5 hover:text-ink"
+          >
+            {layout === 'board' ? (
+              <Rows3 aria-hidden className="h-4 w-4" strokeWidth={2} />
+            ) : (
+              <LayoutGrid aria-hidden className="h-4 w-4" strokeWidth={2} />
+            )}
+          </button>
+        )}
+      </div>
 
       {/* ===== DIRECTOR BOARD ===== */}
       {/* Before mount (layout === null) the original CSS breakpoints apply, so the server render

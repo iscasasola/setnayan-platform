@@ -12,3 +12,12 @@ c2d6f7e76835edd3d5f0c6b58b34034fe7f61418:apps/web/app/admin/pakanta/page.tsx:gen
 # range are scanned by gitleaks-action, so an inline allow at HEAD is not enough.
 3adb3d45550f227fbb1fb9969c1f09157f89ad1e:apps/web/app/vendor-dashboard/instagram-actions.ts:generic-api-key:171
 b30742ba764b469dfe954b93fc6acedb3d5e4917:.gitleaksignore:generic-api-key:8
+#
+# Same rule flags `PAPIC_PASS_SERVICE_KEYS` in lib/papic-guest.ts — a frozen list
+# of CATALOG SKU CODES (PAPIC_GUEST_6K / _10K / _TOPUP). They are public product
+# identifiers that appear verbatim in platform_retail_catalog_v2 and on the
+# pricing page; there is no credential here. The rule fires on the shape
+# `..._KEYS = [...]` plus the underscored uppercase literals, not on any entropy.
+# Renaming the const would NOT clear this: gitleaks-action scans every commit in
+# the PR range, so the introducing commit below stays matchable regardless of HEAD.
+3d81839f31fdde5e06efa35c5886dfe3b89061cc:apps/web/lib/papic-guest.ts:generic-api-key:97

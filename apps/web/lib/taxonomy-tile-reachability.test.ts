@@ -42,14 +42,23 @@
  *
  * ── ALSO KNOWN, NOT CAUGHT HERE ──────────────────────────────────────────
  *
- * `reception` resolves to exactly ONE canonical and it is `accommodation`
- * (lodging — owner directive 2026-05-22). It is therefore non-empty and this
- * guard passes it, but it is semantically wrong: function halls, events
- * places and hotel ballrooms have to mis-tag themselves as *accommodation*
- * to surface at all. A count check cannot see that. It is tracked in the expo
- * verdict as canonical `reception_venue`, and is deliberately NOT encoded
- * here — pinning an exact canonical set would fail on every legitimate edit
- * and teach the next reader to ignore this file.
+ * ✅ FIXED 2026-07-21 — `reception` used to resolve to exactly ONE canonical
+ * and it was `accommodation` (lodging), so function halls, events places and
+ * hotel ballrooms had to mis-tag themselves as *accommodation* to surface at
+ * all. A count check could never see that. `reception_venue` + the hall
+ * family now exist; `accommodation` keeps its catering cross-list. Kept in
+ * this comment as the worked example of what a count check CANNOT catch.
+ *
+ * 🚨 `filipiniana_barongs` is the SAME BUG CLASS, still live, and this guard
+ * does NOT catch it either. It reports 10 canonicals — but only because
+ * `vendor-counts.ts` hard-codes `map.set('filipiniana_barongs', [...])` for
+ * the cross-view. ZERO rows in `TAXONOMY_MAP` (and zero in prod
+ * `canonical_service_taxonomy`) actually name that tile; all 10 ids live
+ * under `brides_attire` / `grooms_attire` with no `secondary_tiles`. So the
+ * marketplace shows the tile while `getCoverageTaxonomy()` prunes the branch
+ * and no vendor can ever declare it — advertised to couples, denied to
+ * vendors. Needs its own owner call (cross-list via `secondary_tiles`, or
+ * drop the hard-coded cross-view); deliberately NOT fixed here.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -65,19 +74,23 @@ import { canonicalServicesForTile } from './vendor-counts';
  * change that seeds its canonicals; this test will fail until you do.
  */
 const KNOWN_DEAD_TILES: Record<string, string> = {
-  // 🚨 The headline defect. Catholic-majority market, wedding platform, and
-  // churches / chapels / garden + beach ceremony sites cannot appear at all.
-  // Venue is also the most-shopped category and the Enterprise-tier buyer.
-  // Fix: seed `ceremony_venue_booking` (expo verdict § the-8, item 2).
-  ceremony_venue:
-    'Zero canonicals since inception — no church/chapel/garden ceremony site can surface. Fix = seed ceremony_venue_booking.',
-
-  // Documentary › Editorial. The "editorial" shoot concept has a tile and no
-  // service behind it. Lower blast radius than ceremony_venue (couples reach
-  // photographers through `photography`), but the tile still advertises a
-  // shelf that can never stock.
+  // Documentary › Editorial. STILL DEAD ON PURPOSE.
+  //
+  // The owner defined the CATEGORY on 2026-07-21 — magazines and content
+  // companies a couple hires and pays directly, explicitly NOT photographers
+  // ("editorials are not photographers, these are companies that create
+  // content for weddings") — but not its GRAIN.
+  // `Editorial_and_Content_Creator_Coverage_2026-07-21.md` §7 #1 is the open
+  // sign-off: ONE canonical with facets, or TWO
+  // (`wedding_editorial_feature` + `content_creation_team`)? §6 of that doc
+  // says in terms: "Do not seed until it is made; a canonical is cheap to add
+  // and awkward to remove." The verbatim follow-up "couple requests from
+  // magazine, or content creators" reads like two, but the doc quotes that
+  // same line and still leaves the question open — so it is not a resolution.
+  //
+  // This line comes out in the follow-up PR that seeds the answer.
   editorial:
-    'Zero canonicals — tile advertises an editorial shoot with no canonical service behind it. Needs an owner call on the exact leaf before seeding.',
+    'Zero canonicals. Category is owner-defined (editorial/content companies, not photographers) but the GRAIN is an open sign-off — Editorial_and_Content_Creator_Coverage_2026-07-21.md §7 #1: one canonical with facets, or two. Do not seed ahead of it.',
 };
 
 test('every marketplace tile resolves to at least one canonical service', () => {

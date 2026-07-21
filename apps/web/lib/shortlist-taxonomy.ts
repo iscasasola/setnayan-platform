@@ -18,13 +18,15 @@
  * is the browse-the-bench surface, so this model is deliberately decoupled from
  * the plan-group lock/build machinery (it can't destabilize those tabs).
  *
- * Picks are stored by the 28-value `VendorCategory` enum, finer-grained tiles
- * are ~53 — so `CATEGORY_TO_TILE` bridges every enum value to a tile (sourced
- * from PLAN_GROUPS' catalogTile + a supplement for the few groups with no tile).
- * The bridge is EXHAUSTIVE over the enum, so a considered vendor is never lost.
+ * Picks are stored by the 45-value `VendorCategory` enum, finer-grained tiles
+ * are ~67 — so `CATEGORY_TO_TILE` bridges every enum value to a tile (sourced
+ * from PLAN_GROUPS' catalogTile + a supplement for the few groups with no tile
+ * + a final fill from the admin-blessed canonical bridge). The bridge is
+ * EXHAUSTIVE over the enum, so a considered vendor is never lost.
  */
 
-import { type VendorCategory } from '@/lib/vendors';
+import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
+import { primaryTileForVendorCategory } from '@/lib/vendor-category-taxonomy';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import {
   WEDDING_FOLDER_ORDER,
@@ -45,11 +47,14 @@ import type { VendorEnrichment } from '@/lib/vendors-plan-budget';
 const LOCKED_STATUSES = new Set(['contracted', 'deposit_paid', 'delivered', 'complete']);
 
 /**
- * Every `VendorCategory` → its taxonomy tile. Built from PLAN_GROUPS (each
- * group's `categories` → its `catalogTile`, first-writer-wins so the bridge is
- * stable), then a SUPPLEMENT for the categories whose plan group has no
- * `catalogTile` (Attire / Band-DJ-Performer / Logistics span several tiles). The
- * union is exhaustive over the enum so a considered pick always lands on a tile.
+ * Every `VendorCategory` → its taxonomy tile. THREE passes, first-writer-wins:
+ * PLAN_GROUPS (each group's `categories` → its `catalogTile`), then a
+ * SUPPLEMENT for the categories whose plan group has no `catalogTile` (Attire /
+ * Band-DJ-Performer / Logistics span several tiles), then a final fill from the
+ * canonical bridge. Only after that third pass is the union EXHAUSTIVE over all
+ * 45 enum values (asserted in shortlist-taxonomy-coverage.test.ts) — before
+ * 2026-07-21 this docstring claimed exhaustiveness while silently missing the 14
+ * non-wedding gap leaves, and `buildShortlistFolders` DROPPED those picks.
  */
 const CATEGORY_TO_TILE: Partial<Record<VendorCategory, WeddingTile>> = (() => {
   const m: Partial<Record<VendorCategory, WeddingTile>> = {};
@@ -72,10 +77,30 @@ const CATEGORY_TO_TILE: Partial<Record<VendorCategory, WeddingTile>> = (() => {
   for (const [c, t] of Object.entries(supplement)) {
     if (!(c in m)) m[c as VendorCategory] = t as WeddingTile;
   }
+  // Final fill (2026-07-21): anything still unmapped takes the ADMIN-blessed
+  // anchor from VENDOR_CATEGORY_CANONICAL — the compile-time-exhaustive
+  // Record<VendorCategory, …> in lib/vendor-category-taxonomy.ts. This is how
+  // the 14 non-wedding gap leaves (tour_guide, referee_official, …) land: each
+  // anchors 1:1 to its SAME-NAMED tier-2 tile under EXPERIENCE / DINING /
+  // LOGISTICS & SAFETY / INSURANCE / SPECIALTY / PROGRAM — not forced onto a
+  // wedding tile. Event-type scope (passesEventTypeFilter on the tile's
+  // applicable_event_types, seeded by 20270825054104) is what keeps a Tour Guide
+  // tile off a wedding Shortlist; a null bridge was never the right mechanism
+  // for that and only ever dropped the pick. Runs LAST so the two passes above
+  // keep first-writer-wins: the six deliberate Shortlist-specific placements
+  // (officiant/church_fees → ceremony_venue, security/misc → escort,
+  // string_quartet → orchestra, reception_decor → florist) stand, and the four
+  // canonically-EXEMPT categories keep a home instead of going null.
+  for (const c of VENDOR_CATEGORIES) {
+    if (c in m) continue;
+    const t = primaryTileForVendorCategory(c);
+    if (t) m[c] = t;
+  }
   return m;
 })();
 
-/** The tile a considered vendor belongs to (null only for an unknown category). */
+/** The tile a considered vendor belongs to (null only for a category outside
+ *  the enum — e.g. a raw DB string; every valid `VendorCategory` maps). */
 export function tileForCategory(category: VendorCategory): WeddingTile | null {
   return CATEGORY_TO_TILE[category] ?? null;
 }
@@ -84,7 +109,7 @@ export function tileForCategory(category: VendorCategory): WeddingTile | null {
  * Inverse bridge: a tile → a representative `VendorCategory` to store a
  * MANUALLY-added vendor under (the "Add manually" affordance writes
  * event_vendors.category). First category that maps to the tile wins; tiles
- * with no backing enum value (finer than the 28-value enum) fall back to 'misc'
+ * with no backing enum value (finer than the 45-value enum) fall back to 'misc'
  * — the couple's typed record is preserved either way.
  */
 const TILE_TO_CATEGORY: Partial<Record<WeddingTile, VendorCategory>> = (() => {

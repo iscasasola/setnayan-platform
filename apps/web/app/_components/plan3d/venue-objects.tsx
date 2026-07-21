@@ -44,6 +44,7 @@ import {
 } from '@/lib/seating-3d';
 import { BoothTemplate } from '@/app/_components/plan3d/kit/booth-template';
 import {
+  BOOTH_POSTER_FRAME,
   boothPosterLocalOffset,
   boothTemplateFor,
 } from '@/app/_components/plan3d/kit/booth-templates';
@@ -600,6 +601,8 @@ export function BoothMesh({
       </group>
     );
   }
+  // Generic silhouette: same helper, null spec -> the shared footprint.
+  const genericPoster = boothPosterLocalOffset(null);
   return (
     <group position={[pos.x, 0, pos.z]} rotation={[0, facingY, 0]}>
       {boothSilhouette(booth.kind, w, d, palette)}
@@ -609,7 +612,10 @@ export function BoothMesh({
         <SetnayanBoothSign w={w} />
       ) : null}
       {posterUrl ? (
-        <group position={[w / 2 + 0.42, 0, -0.2]}>
+        // Booth-LOCAL coords on purpose: this group is already a child of the
+        // yaw-rotated group above, so applying rotateLocalRad here (as the
+        // template branch must, being a SIBLING) would rotate it twice.
+        <group position={[genericPoster.x, 0, genericPoster.z]}>
           <BoothPoster url={posterUrl} palette={palette} />
         </group>
       ) : null}
@@ -660,8 +666,7 @@ export function BoothPoster({ url, palette }: { url: string; palette: Lab3DPalet
 
   // Fixed frame the artwork fits INTO — keeps every booth's banner the same
   // physical size regardless of what was uploaded.
-  const maxH = 1.15;
-  const maxW = 0.78;
+  const { maxW, maxH, railOverhang } = BOOTH_POSTER_FRAME;
   const artW = art ? Math.min(maxW, maxH * art.aspect) : maxW;
   const artH = art ? artW / art.aspect : maxH;
   const standTop = 0.28 + maxH;
@@ -685,7 +690,7 @@ export function BoothPoster({ url, palette }: { url: string; palette: Lab3DPalet
       </mesh>
       {/* Top rail */}
       <mesh position={[0, standTop + 0.03, 0]}>
-        <boxGeometry args={[maxW + 0.12, 0.05, 0.06]} />
+        <boxGeometry args={[maxW + railOverhang, 0.05, 0.06]} />
         <meshStandardMaterial color={palette.accent} roughness={0.4} metalness={0.2} />
       </mesh>
       {/* The artwork — just proud of the backing, facing the room. */}

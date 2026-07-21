@@ -130,6 +130,81 @@ async function purgeUserAuthoredChat(
   }
 }
 
+/**
+ * Delete every vendor store whose ONLY admin is the departing user.
+ *
+ * A store cannot outlive its last admin: `vendor_team_guard()` raises
+ * VENDOR_LAST_ADMIN rather than let a store end up admin-less, and a store with
+ * no admin would be unreachable anyway — nobody could edit it, respond to
+ * inquiries, or take it down. Since vendor_team_members.user_id is ON DELETE
+ * CASCADE, deleting the user would try to remove that last admin row and abort
+ * the entire auth delete. So the store has to go FIRST, on purpose.
+ *
+ * Stores that still have another admin are left alone — the departing user's
+ * membership row simply cascades away and the co-admin keeps the business.
+ *
+ * NOT best-effort, unlike the RA 10173 purges above: if we cannot clear the
+ * stores, the auth delete that follows is guaranteed to fail on the guard, so
+ * it's better to stop here with a legible message than to half-run the delete.
+ */
+async function deleteSoleAdminVendorStores(
+  admin: ReturnType<typeof createAdminClient>,
+  targetUserId: string,
+  actorUserId: string,
+): Promise<void> {
+  const { data: adminRows, error: readErr } = await admin
+    .from('vendor_team_members')
+    .select('vendor_profile_id')
+    .eq('user_id', targetUserId)
+    .eq('role', 'admin');
+  if (readErr) throw new Error(`Could not read vendor team memberships: ${readErr.message}`);
+  if (!adminRows || adminRows.length === 0) return;
+
+  for (const { vendor_profile_id: vendorProfileId } of adminRows) {
+    // Any OTHER admin on this store? If so the store survives without us.
+    const { count, error: countErr } = await admin
+      .from('vendor_team_members')
+      .select('vendor_team_member_id', { count: 'exact', head: true })
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('role', 'admin')
+      .neq('user_id', targetUserId);
+    if (countErr) throw new Error(`Could not count store admins: ${countErr.message}`);
+    if ((count ?? 0) > 0) continue;
+
+    const { data: store } = await admin
+      .from('vendor_profiles')
+      .select('business_name')
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle();
+
+    const { error: delErr } = await admin
+      .from('vendor_profiles')
+      .delete()
+      .eq('vendor_profile_id', vendorProfileId);
+    if (delErr) {
+      throw new Error(
+        `Could not delete the vendor store "${store?.business_name || vendorProfileId}" ` +
+          `whose only admin is this user: ${delErr.message}`,
+      );
+    }
+
+    // Audit-logged separately from the user delete: dropping a business is a
+    // material act the owner should be able to find on its own terms.
+    const { error: auditErr } = await admin.from('admin_audit_log').insert({
+      action: 'vendor_store_deleted_with_sole_admin',
+      target_id: vendorProfileId,
+      actor_user_id: actorUserId,
+      metadata: {
+        business_name: store?.business_name ?? null,
+        deleted_user_id: targetUserId,
+      },
+    });
+    if (auditErr) {
+      console.error('[deleteSoleAdminVendorStores] audit log insert failed', auditErr.message);
+    }
+  }
+}
+
 async function requireAdmin() {
   const supabase = await createClient();
   const {
@@ -278,6 +353,9 @@ export async function deleteUser(formData: FormData) {
   // RA 10173 — erase the departing user's authored chat message bodies before
   // the auth-delete nulls sender_user_id (retention audit gap · 2026-07-11).
   await purgeUserAuthoredChat(admin, targetUserId, adminUserId);
+  // A store cannot survive losing its last admin, and the cascade from
+  // auth.users would try exactly that — clear those stores first.
+  await deleteSoleAdminVendorStores(admin, targetUserId, adminUserId);
 
   const { error } = await admin.auth.admin.deleteUser(targetUserId);
   if (error) throw new Error(error.message);
@@ -340,6 +418,8 @@ export async function blacklistUser(formData: FormData) {
   // RA 10173 — erase authored chat message bodies before the auth-delete nulls
   // sender_user_id (same residue gap as deleteUser · retention audit 2026-07-11).
   await purgeUserAuthoredChat(admin, targetUserId, adminUserId);
+  // Same store-teardown requirement as deleteUser.
+  await deleteSoleAdminVendorStores(admin, targetUserId, adminUserId);
 
   const { error: dError } = await admin.auth.admin.deleteUser(targetUserId);
   if (dError) throw new Error(dError.message);

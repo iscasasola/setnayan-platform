@@ -11,64 +11,87 @@
  * what happened when migration 20270726622326 ("enable them all") turned on
  * anniversary · graduation · reunion · gala_night, and 20270307127948 added
  * simple_event. These tests make the next such gap loud.
+ *
+ * WHAT EACH TEST HERE CAN AND CANNOT CATCH — every claim below was mutation-
+ * tested (revert the thing, watch the named test fail):
+ *
+ *   1. `roster` — THE LOAD-BEARING TEST. Derived from `ANCHOR_BY_TYPE`, so it
+ *      covers the five at-risk types and fails the moment a type is added to
+ *      that map without a label. Verified: delete any of the five entries from
+ *      `CHECKLIST_EVENT_LABELS` → this test fails.
+ *   2. `roster sources agree` — keeps test 1's roster honest. It cross-checks
+ *      two INDEPENDENTLY-maintained production maps that are each keyed by the
+ *      full vocab, so a type half-added to the codebase is loud. Verified:
+ *      remove a key from either map → this test fails.
+ *   3. `newly-labelled types render the expected copy` — pins the exact strings
+ *      of the five entries this fix added (a rename/typo regression, which
+ *      test 1 would not see because renamed copy is still non-wedding).
+ *   4. `unknown event types still fall back to wedding chrome` — pins the
+ *      deliberate fall-through so a future "helpfully" derived-from-key default
+ *      cannot land unnoticed.
+ *
+ * The assertion that USED to be labelled "the load-bearing half" — looping
+ * `EVENT_TYPE_CHECKLIST_DEFS` — was that label's opposite. It PASSED against
+ * pre-fix code and can never catch this bug class: the at-risk types are
+ * precisely the ones with no dedicated def, which route through
+ * `GENERIC_EVENT_CHECKLIST_DEF` and so never appear in that registry at all
+ * (lib/checklist-event-type-defs.ts). Its only non-decorative content — that a
+ * def key must be inside the roster — survives as an assertion inside test 2.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { checklistChrome } from '@/lib/checklist';
 import { EVENT_TYPE_CHECKLIST_DEFS } from '@/lib/checklist-event-type-defs';
+import { ANCHOR_BY_TYPE } from '@/lib/event-anchor';
+import { SPECIALTY_CATALOG } from '@/lib/onboarding/specialty-catalog';
 
 /**
- * The `event_type_vocab` roster (Postgres), as of migration 20270726622326 —
- * all 14 rows are status='active' AND enabled=TRUE, so every one of them can
- * reach `checklistChrome`. `burial` is deliberately absent (owner-RETIRED
- * 2026-05-16).
+ * The creatable-type roster, DERIVED — not hand-listed. `ANCHOR_BY_TYPE`
+ * (lib/event-anchor.ts) is keyed by exactly the 14 active+enabled
+ * `event_type_vocab` rows as of migration 20270726622326 (`burial` deliberately
+ * absent — owner-RETIRED 2026-05-16), and it is load-bearing production code:
+ * the create-event action stamps `events.anchor_kind` from it, so a new type
+ * has to be added there or its anchor silently degrades to `FALLBACK_ANCHOR`.
  *
- * ⚠ HONEST WEAKNESS: this list is HAND-MAINTAINED, which makes it the weaker of
- * the two assertions below. The roster lives in the database and there is no TS
- * constant to import. `EVENT_TYPES_FALLBACK`
- * (app/dashboard/(account)/create-event/_components/event-types.ts) is NOT a
- * substitute — it is a frozen 9-row fail-open fallback whose own header says
- * "Do NOT add new types here", so importing it would assert only the rows that
- * already pass. Parsing supabase/migrations/*.sql at test time was considered
- * and rejected (cross-package file IO, brittle against multi-row INSERT/UPDATE
- * forms). So this catches a type added to the vocab *and* remembered here, and
- * it does NOT catch a type an admin creates at runtime via /admin/event-types.
- * Assertion (a) — the import-driven one — is the load-bearing half.
+ * HONEST LIMIT: this is still a TypeScript map, not a live read of the DB. A
+ * type an admin creates at runtime via /admin/event-types — or one added to the
+ * SQL vocab and to neither map below — is caught by nothing here. What is now
+ * impossible is the failure that actually happened: a type wired into the app's
+ * type maps but forgotten in `CHECKLIST_EVENT_LABELS`.
  */
-const EVENT_TYPE_VOCAB_KEYS = [
-  'wedding',
-  'birthday',
-  'celebration',
-  'travel',
-  'corporate',
-  'tournament',
-  'christening',
-  'gender_reveal',
-  'debut',
-  'anniversary',
-  'graduation',
-  'reunion',
-  'gala_night',
-  'simple_event',
-] as const;
+const EVENT_TYPE_ROSTER = Object.keys(ANCHOR_BY_TYPE);
 
-/** (a) The self-maintaining half: every per-type checklist def needs a label. */
-test('every event type with a checklist def has non-wedding chrome', () => {
-  const wedding = checklistChrome('wedding');
+/**
+ * Guards the roster ITSELF. `ANCHOR_BY_TYPE` and `SPECIALTY_CATALOG` are
+ * maintained by different features (date anchors vs. onboarding signature
+ * fields) and are each keyed by the whole vocab, so requiring them to agree
+ * turns "added the type to one place only" into a failing test rather than a
+ * quietly-shrunken roster for the test above. The defs registry is a legitimate
+ * SUBSET (only 8 types have a dedicated checklist template).
+ */
+test('roster sources agree (ANCHOR_BY_TYPE ≡ SPECIALTY_CATALOG ⊇ checklist defs)', () => {
+  const anchor = [...EVENT_TYPE_ROSTER].sort();
+  const specialty = Object.keys(SPECIALTY_CATALOG).sort();
+  assert.deepEqual(
+    anchor,
+    specialty,
+    'ANCHOR_BY_TYPE and SPECIALTY_CATALOG disagree — an event type was added to one map but not the other; the checklist roster below is derived from the first, so fix the drift before trusting it',
+  );
   for (const key of Object.keys(EVENT_TYPE_CHECKLIST_DEFS)) {
-    assert.notDeepEqual(
-      checklistChrome(key),
-      wedding,
-      `'${key}' has a checklist def but no CHECKLIST_EVENT_LABELS entry — it renders WEDDING chrome`,
+    assert.ok(
+      EVENT_TYPE_ROSTER.includes(key),
+      `'${key}' has a checklist def but is missing from ANCHOR_BY_TYPE — the derived roster would skip it`,
     );
   }
+  // Cheap tripwire: the roster is the vocab, so it can only grow.
+  assert.ok(EVENT_TYPE_ROSTER.length >= 14, 'event type roster shrank below the 14 vocab rows');
 });
 
-/** (b) The hand-listed half: every creatable vocab type needs a label. */
-test('every event_type_vocab type gets its own checklist chrome (no wedding fall-through)', () => {
+/** Every creatable type must get its own chrome — no wedding fall-through. */
+test('roster: every creatable event type gets its own checklist chrome', () => {
   const wedding = checklistChrome('wedding');
-  for (const key of EVENT_TYPE_VOCAB_KEYS.filter((k) => k !== 'wedding')) {
+  for (const key of EVENT_TYPE_ROSTER.filter((k) => k !== 'wedding')) {
     const chrome = checklistChrome(key);
     assert.notDeepEqual(
       chrome,

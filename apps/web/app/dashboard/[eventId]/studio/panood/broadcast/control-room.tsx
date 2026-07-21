@@ -31,6 +31,7 @@ import { watchPanoodCameras } from '@/lib/panood-webrtc';
 import { getPanoodIceServers } from '@/app/panood/actions';
 import { panoodStreamingEnabled } from '@/lib/panood-camera-seats';
 import { SetnayanOverlay } from './_components/setnayan-overlay';
+import { consoleFitHeight } from '@/lib/panood-console-fit';
 import {
   resolveConsoleLayout,
   deviceLayout,
@@ -204,6 +205,38 @@ export function PanoodControlRoom({
       frozenLayoutRef.current = null;
     }
   }, [live, layout]);
+
+  // ── Scroll-free fit ────────────────────────────────────────────────────────
+  // The console must fit one screen: during a ceremony, a control below the fold is a control
+  // you cannot reach. Height is MEASURED from the console's own top rather than summed from the
+  // shell's chrome (sticky bar + padding + mobile nav), so changing any of those can't rot this.
+  const consoleRef = useRef<HTMLDivElement>(null);
+  const [fitHeight, setFitHeight] = useState<number | null>(null);
+  useEffect(() => {
+    function measure() {
+      const el = consoleRef.current;
+      if (!el) return;
+      const safeRaw = getComputedStyle(document.documentElement).getPropertyValue('--sn-safe-bottom');
+      setFitHeight(
+        consoleFitHeight({
+          consoleTop: el.getBoundingClientRect().top,
+          viewportHeight: window.innerHeight,
+          // The bottom nav is `lg:hidden` — VIEWPORT-driven, not layout-driven. The two can
+          // disagree (a laptop in Compact still has no bottom nav).
+          bottomNavVisible: !window.matchMedia('(min-width: 1024px)').matches,
+          safeAreaBottom: Number.parseFloat(safeRaw) || 0,
+        }),
+      );
+    }
+    measure();
+    window.addEventListener('resize', measure);
+    window.addEventListener('orientationchange', measure);
+    return () => {
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('orientationchange', measure);
+    };
+    // Re-measure when the layout flips: the two modes put the console at different offsets.
+  }, [layout]);
 
   function chooseLayout(next: ConsoleLayout): void {
     setLayoutOverride(next);
@@ -406,10 +439,17 @@ export function PanoodControlRoom({
   const programLabel = labelForSource(program, cameras);
 
   return (
-    <div className="space-y-5">
+    <div
+      ref={consoleRef}
+      // Fixed-height flex column so nothing below the fold. `min-h-0` on the children is what
+      // lets the monitor actually shrink — without it a flex child refuses to go below its
+      // content size and the page scrolls anyway.
+      className="flex flex-col gap-3 overflow-hidden"
+      style={fitHeight ? { height: `${fitHeight}px` } : undefined}
+    >
       {/* Preview-mode honesty banner — only while real streaming is OFF */}
       {!streamingOn && (
-        <div className="rounded-lg border border-warn-300/60 bg-warn-50 p-3 text-sm text-warn-900">
+        <div className="shrink-0 rounded-lg border border-warn-300/60 bg-warn-50 p-3 text-sm text-warn-900">
           <span className="inline-flex items-center gap-1.5 font-medium">
             <AlertTriangle aria-hidden className="h-4 w-4" strokeWidth={2} />
             Live control — video preview pending
@@ -425,7 +465,7 @@ export function PanoodControlRoom({
       {/* Layout switch — an operator must never be stuck with the wrong console on the day.
           Hidden until the device decision resolves, so it can't flash the wrong active state. */}
       {layout !== null && (
-        <div className="flex items-center justify-end gap-1.5">
+        <div className="flex shrink-0 items-center justify-end gap-1.5">
           <span className="mr-1 text-[11px] text-ink/45">Console</span>
           <div className="inline-flex overflow-hidden rounded-md border border-ink/12">
             <button
@@ -462,14 +502,14 @@ export function PanoodControlRoom({
       <div
         className={
           layout === null
-            ? 'hidden gap-5 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]'
+            ? 'hidden min-h-0 flex-1 gap-5 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]'
             : layout === 'board'
-              ? 'grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]'
+              ? 'grid min-h-0 flex-1 gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]'
               : 'hidden'
         }
       >
-        {/* Left column: program + sources + moments */}
-        <div className="space-y-5">
+        {/* Left column: program takes the slack; the rails below scroll internally. */}
+        <div className="flex min-h-0 flex-col gap-4 overflow-hidden">
           <ProgramMonitor
             label={programLabel}
             live={live}
@@ -481,7 +521,11 @@ export function PanoodControlRoom({
             splitRatio={splitRatio}
             onSplitRatioChange={setSplitRatio}
           />
-          <SourcesRail
+          {/* Rails under the monitor scroll as a group so PROGRAM above stays pinned. Capped at
+              half the column: the monitor is the anchor and must never be squeezed out by a
+              long moment list. */}
+          <div className="flex max-h-[50%] shrink-0 flex-col gap-4 overflow-y-auto overscroll-contain">
+            <SourcesRail
             cameras={cameras}
             program={program}
             onPick={handleSetProgram}
@@ -491,16 +535,17 @@ export function PanoodControlRoom({
             onToggleSplit={streamingOn ? handleToggleSplit : undefined}
             overlay={watermark.overlay}
           />
-          <MomentDirector
-            moments={moments}
-            activeMoment={activeMoment}
-            onFire={handleFireMoment}
-            disabled={isPending}
-          />
+            <MomentDirector
+              moments={moments}
+              activeMoment={activeMoment}
+              onFire={handleFireMoment}
+              disabled={isPending}
+            />
+          </div>
         </div>
 
-        {/* Right column: go-live + mark + screens */}
-        <div className="space-y-5">
+        {/* Right column: scrolls internally so a long screens list never grows the console. */}
+        <div className="flex min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain">
           <GoLivePanel
             live={live}
             onToggle={handleToggleLive}
@@ -519,7 +564,11 @@ export function PanoodControlRoom({
       {/* ===== MOBILE STACK ===== */}
       <div
         className={
-          layout === null ? 'space-y-4 lg:hidden' : layout === 'compact' ? 'space-y-4' : 'hidden'
+          layout === null
+            ? 'flex min-h-0 flex-1 flex-col gap-3 lg:hidden'
+            : layout === 'compact'
+              ? 'flex min-h-0 flex-1 flex-col gap-3'
+              : 'hidden'
         }
       >
         <ProgramMonitor
@@ -564,8 +613,9 @@ export function PanoodControlRoom({
           )}
         </div>
 
-        {/* Tab body */}
-        <div className="min-h-[8rem]">
+        {/* Tab body — the ONE scrollable region. Everything else in the console is pinned, so an
+            operator can always see PROGRAM and the tab bar no matter how long a panel gets. */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {mobileTab === 'moments' && (
             <MomentDirector
               moments={moments}
@@ -694,8 +744,8 @@ function ProgramMonitor({
     }
   }, [stream]);
   return (
-    <section aria-label="Program monitor" className="space-y-2">
-      <div className="flex items-center justify-between">
+    <section aria-label="Program monitor" className="flex min-h-0 flex-1 flex-col gap-2">
+      <div className="flex shrink-0 items-center justify-between">
         <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-ink/55">
           Program
         </h2>
@@ -727,7 +777,10 @@ function ProgramMonitor({
         </div>
       </div>
       <div
-        className={`relative flex aspect-video items-center justify-center overflow-hidden rounded-2xl border-2 bg-ink/90 text-cream/80 ${
+        // NOT `aspect-video`: that derives height from WIDTH, which on a wide column produced a
+        // ~1000px monitor and pushed the whole console below the fold. Here the box takes the
+        // height the flex column has left, and the video letterboxes inside it (object-contain).
+        className={`relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-2xl border-2 bg-ink/90 text-cream/80 ${
           live ? 'border-danger-500' : 'border-ink/15'
         }`}
       >
@@ -744,7 +797,9 @@ function ProgramMonitor({
             playsInline
             autoPlay
             muted
-            className="absolute inset-0 h-full w-full object-cover"
+            // contain, not cover — the box is no longer 16:9, and cropping the couple's frame
+            // would make the operator misjudge their own shot.
+            className="absolute inset-0 h-full w-full object-contain"
           />
         ) : (
           <>

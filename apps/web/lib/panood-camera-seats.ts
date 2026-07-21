@@ -102,8 +102,18 @@ export function panoodCameraCapForSku(serviceCode: string): number {
  */
 export const PANOOD_FREE_CAMERA_COUNT = 3;
 
-/** Resolved entitlement tier for an event, independent of which SKU code granted it. */
-export type PanoodTier = 'free' | 'mobile' | 'desktop';
+/**
+ * Resolved entitlement for an event.
+ *
+ * ONE PRICE (owner-locked 2026-07-21): ₱2,500/day unlocks everything. There is no longer a
+ * Mobile-vs-Desktop entitlement split — that row was never purchasable (the only buy surface
+ * posts `PANOOD_SYSTEM`) and had zero orders, ever.
+ *
+ * The device distinction survives where it belongs: as a LAYOUT decision taken from the
+ * operator's hardware (lib/panood-console-layout.ts), never from what they paid. A phone operator
+ * and a laptop operator buy the same thing and each get the console their device can run.
+ */
+export type PanoodTier = 'free' | 'paid';
 
 /**
  * Camera cap by RESOLVED TIER — the render-time resolver.
@@ -118,11 +128,7 @@ export type PanoodTier = 'free' | 'mobile' | 'desktop';
  */
 export function panoodCameraCapForTier(tier: PanoodTier, grantedCap?: number | null): number {
   const base =
-    tier === 'desktop'
-      ? panoodCameraCapForSku('PANOOD_SYSTEM')
-      : tier === 'mobile'
-        ? panoodCameraCapForSku('PANOOD_SYSTEM_MOBILE')
-        : PANOOD_FREE_CAMERA_COUNT;
+    tier === 'paid' ? panoodCameraCapForSku('PANOOD_SYSTEM') : PANOOD_FREE_CAMERA_COUNT;
   // A grant can only ever RAISE the count, and never past the transport's own 8-camera ceiling.
   return Math.max(base, Math.min(grantedCap ?? 0, panoodCameraCapForSku('PANOOD_SYSTEM')));
 }
@@ -329,26 +335,29 @@ export async function provisionPanoodCamerasAdmin(
 }
 
 /**
- * Resolve an event's Live Studio tier from its entitlements.
+ * Resolve whether an event has paid for Live Studio.
  *
- * ⚠️ Fixes a LIVE defect: every gate previously checked only `PANOOD_SYSTEM`, so a couple who
- * paid ₱1,500 for the **Mobile Controller** was shown an upsell wall on the control room they
- * had just bought, bounced out of the OBS pop-out, and had every control action refused. Any
- * new ownership check must go through here, never through a single SKU literal.
+ * Still checks BOTH SKUs even though only `PANOOD_SYSTEM` is sellable now: the retired
+ * `PANOOD_SYSTEM_MOBILE` row is deactivated in the catalog, not revoked, so any historical
+ * holder must keep working. (Prod has zero such orders — this is belt and braces, and it costs
+ * one cached lookup.)
  *
- * Desktop wins when both are held — it is the strict superset (8 cameras, offline-capable).
- * Degrades to 'free' rather than throwing: a failed entitlement lookup must show the couple the
- * overlaid free tier, never a dead end.
+ * Every ownership check must route through here, never through a SKU literal. That is what
+ * caused the defect where a Mobile buyer was shown an upsell wall on the console they had just
+ * bought, bounced from the OBS pop-out, and refused on every control action.
+ *
+ * Degrades to 'free' rather than throwing: a failed entitlement lookup must land the couple on
+ * the overlaid free tier, never a dead end.
  */
 export async function resolvePanoodTier(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<PanoodTier> {
-  const [desktop, mobile] = await Promise.all([
+  const [current, legacy] = await Promise.all([
     eventSkuActive(supabase, eventId, 'PANOOD_SYSTEM').catch(() => false),
     eventSkuActive(supabase, eventId, 'PANOOD_SYSTEM_MOBILE').catch(() => false),
   ]);
-  return desktop ? 'desktop' : mobile ? 'mobile' : 'free';
+  return current || legacy ? 'paid' : 'free';
 }
 
 /**

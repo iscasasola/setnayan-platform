@@ -134,8 +134,11 @@ const ADDON_GROUPS: CatalogGroup[] = [
   {
     title: 'Go live & interactive',
     items: [
-      { code: 'PANOOD_SYSTEM_MOBILE' }, // Live Studio — Mobile Controller ₱1,299/day
-      { code: 'PANOOD_SYSTEM' }, // Live Studio — Desktop Controller ₱2,499/day
+      // ONE Live Studio SKU (owner 2026-07-21): ₱2,500/day unlocks everything, laptop or phone.
+      // PANOOD_SYSTEM_MOBILE was never purchasable — no buy surface ever posted it, and it had
+      // zero orders — so listing it here advertised a phantom product. Row is now inactive in
+      // the catalog and drops out of resolvedGroups automatically.
+      { code: 'PANOOD_SYSTEM' }, // Live Studio ₱2,500/day
       { code: 'LIVE_WALL' },
       { code: 'PATIKTOK_COMPILER' },
       { code: 'LIVE_BACKGROUND' },

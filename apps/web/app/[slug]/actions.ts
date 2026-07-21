@@ -463,3 +463,56 @@ export async function removeMyTag(
     .maybeSingle();
   if (ev?.slug) revalidatePath(`/${ev.slug}`);
 }
+
+/**
+ * setLaunchMode — the couple flips their website launch between AUTOMATIC (phase
+ * follows the event date) and MANUAL (pin one phase; it stays live for everyone
+ * until switched). Invoked from the in-context host bar on /[slug]
+ * (owner 2026-07-02). Single-select: choosing a phase implies manual, choosing
+ * 'auto' clears the pin — "activating one deactivates the other".
+ *
+ * Couple-gated (mirrors requireCouple on the STD launch actions): verified via
+ * the caller's OWN authed session, then written through it so the DB-level
+ * couple_can_update_event policy is the real enforcement. Returns a result
+ * (never redirects) so the public-page bar can react in place; revalidates the
+ * public path so guests pick up the new phase on their next load.
+ */
+export async function setLaunchMode(
+  eventId: string,
+  slug: string,
+  mode: 'auto' | 'manual',
+  phase?: 'save_the_date' | 'rsvp' | 'event' | 'editorial',
+): Promise<{ ok: boolean }> {
+  if (!eventId || (mode !== 'auto' && mode !== 'manual')) return { ok: false };
+  const validPhase =
+    phase === 'save_the_date' ||
+    phase === 'rsvp' ||
+    phase === 'event' ||
+    phase === 'editorial';
+  if (mode === 'manual' && !validPhase) return { ok: false };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false };
+
+  const { data: membership } = await supabase
+    .from('event_members')
+    .select('event_id')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .eq('member_type', 'couple')
+    .maybeSingle();
+  if (!membership) return { ok: false };
+
+  const update =
+    mode === 'manual'
+      ? { launch_mode: 'manual', manual_phase: phase }
+      : { launch_mode: 'auto', manual_phase: null };
+  const { error } = await supabase.from('events').update(update).eq('event_id', eventId);
+  if (error) return { ok: false };
+
+  if (slug) revalidatePath(`/${slug}`);
+  return { ok: true };
+}

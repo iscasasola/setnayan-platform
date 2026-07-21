@@ -1,21 +1,29 @@
 import {
   signInWithApple,
+  signInWithFacebook,
   signInWithGoogle,
 } from '@/app/auth/oauth-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { GoogleGIcon, AppleIcon } from '@/app/_components/oauth-icons';
+import { GoogleGIcon, AppleIcon, FacebookIcon } from '@/app/_components/oauth-icons';
 import { OAuthAccountTypeMirror } from '@/app/_components/oauth-account-type-mirror';
 
 /**
- * OAuth provider button row — Google + Apple.
+ * OAuth provider button row — Google + Apple + Facebook.
  *
- * 2026-06-15 provider-set change (owner directive): the V1 OAuth set is
+ * 2026-06-15 provider-set change (owner directive): the V1 OAuth set was
  * Google + Apple. Facebook OAuth login was removed; Apple was promoted
- * out of its earlier V1.1 deferral. (Facebook *sharing* —
- * lib/social/facebook.ts et al. — is a separate feature and is
- * untouched.) Apple Sign-In gates on Apple Developer Program enrollment
- * ($99/yr) + the Apple provider toggled ON in Supabase Studio, surfaced
- * via the NEXT_PUBLIC_OAUTH_APPLE_ENABLED flag below.
+ * out of its earlier V1.1 deferral. Apple Sign-In gates on Apple
+ * Developer Program enrollment ($99/yr) + the Apple provider toggled ON
+ * in Supabase Studio, surfaced via the NEXT_PUBLIC_OAUTH_APPLE_ENABLED
+ * flag below.
+ *
+ * 2026-07-21 (owner directive): Facebook is RE-ADDED as a third button,
+ * gated by NEXT_PUBLIC_OAUTH_FACEBOOK_ENABLED which ships OFF — the row
+ * is byte-identical on the live site until the owner pastes the Meta app
+ * credentials into Supabase Studio and flips the flag. Order is Google →
+ * Apple → Facebook (highest expected use first). (Facebook *sharing* —
+ * lib/social/facebook.ts et al. — is a separate feature on a separate
+ * credential and is untouched.)
  *
  * Mounted at the TOP of /login and /signup, above the "or continue with
  * email" divider. Industry-standard placement (Stripe, Linear, GitHub,
@@ -100,22 +108,23 @@ const BTN_LIGHT =
 // edge and the server runtime.
 const GOOGLE_ENABLED = process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED === 'true';
 const APPLE_ENABLED = process.env.NEXT_PUBLIC_OAUTH_APPLE_ENABLED === 'true';
+const FACEBOOK_ENABLED = process.env.NEXT_PUBLIC_OAUTH_FACEBOOK_ENABLED === 'true';
 
 /**
  * Whether at least one OAuth provider is enabled. /login + /signup
  * check this so they can drop the "or continue with email" divider
  * when there's no OAuth row above it to separate.
  */
-export const ANY_OAUTH_ENABLED = GOOGLE_ENABLED || APPLE_ENABLED;
+export const ANY_OAUTH_ENABLED = GOOGLE_ENABLED || APPLE_ENABLED || FACEBOOK_ENABLED;
 
 export function OAuthButtonRow({
   next,
   withAccountType = false,
   defaultAccountType = 'customer',
 }: Props) {
-  // Both providers off → render nothing. /login + /signup also use
+  // All providers off → render nothing. /login + /signup also use
   // ANY_OAUTH_ENABLED to drop the divider line when there's no row.
-  if (!GOOGLE_ENABLED && !APPLE_ENABLED) return null;
+  if (!ANY_OAUTH_ENABLED) return null;
   const btn = BTN_LIGHT;
   const appleFill = '#000000';
   // /signup: a hidden account_type input per OAuth form, SSR'd to the URL-derived
@@ -148,6 +157,16 @@ export function OAuthButtonRow({
           <SubmitButton className={btn} pendingLabel="Redirecting to Apple…">
             <AppleIcon fill={appleFill} />
             Continue with Apple
+          </SubmitButton>
+        </form>
+      ) : null}
+      {FACEBOOK_ENABLED ? (
+        <form action={signInWithFacebook}>
+          <input type="hidden" name="next" value={next} />
+          {accountTypeField}
+          <SubmitButton className={btn} pendingLabel="Redirecting to Facebook…">
+            <FacebookIcon />
+            Continue with Facebook
           </SubmitButton>
         </form>
       ) : null}

@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * OAuth sign-in server actions for Google + Apple.
+ * OAuth sign-in server actions for Google + Apple + Facebook.
  *
  * WHY a shared module instead of duplicating in /login/actions.ts and
  * /signup/actions.ts: the OAuth flow is identical regardless of whether
@@ -11,10 +11,17 @@
  * server action handles both surfaces. The page-level actions.ts files
  * stay focused on the email + password variant.
  *
- * 2026-06-15 provider-set change (owner directive): the V1 OAuth set is
+ * 2026-06-15 provider-set change (owner directive): the V1 OAuth set was
  * Google + Apple. Facebook OAuth login was removed and Apple was promoted
- * out of the V1.1 deferral. (Facebook *sharing* — lib/social/facebook.ts
- * et al. — is a separate feature and is untouched.)
+ * out of the V1.1 deferral.
+ *
+ * 2026-07-21 (owner directive "i also want to add facebook login"):
+ * Facebook is RE-ADDED as a third provider, gated by its own
+ * NEXT_PUBLIC_OAUTH_FACEBOOK_ENABLED flag which ships OFF — so nothing
+ * changes on the live site until the owner pastes the Meta app's
+ * credentials into Supabase Studio and flips the flag in Vercel.
+ * (Facebook *sharing* — lib/social/facebook.ts et al. — is a separate
+ * feature on a separate credential and is untouched by this.)
  *
  * Flow:
  *   1. User clicks "Continue with Google" form button on /login or /signup
@@ -37,6 +44,13 @@
  *     from the Apple Developer portal. Gates on Apple Developer Program
  *     enrollment ($99/yr). Add this app's /auth/callback URL to the
  *     Return URLs for the Services ID. See OWNER_ACTIONS.md.
+ *   - Facebook: Supabase Studio → Auth → Providers → Facebook → toggle ON
+ *     + paste App ID + App Secret from the Meta for Developers app (the
+ *     app needs the "Facebook Login" product added, with the Supabase
+ *     callback URL in Valid OAuth Redirect URIs). Basic `email` +
+ *     `public_profile` scope is auto-granted — no Meta App Review. NOTE
+ *     the app must ALSO be switched from Development to Live mode, or
+ *     only people with a role on the app can complete the login.
  */
 
 import { redirect } from 'next/navigation';
@@ -44,7 +58,7 @@ import { createClient } from '@/lib/supabase/server';
 import { safeNext } from '@/lib/auth';
 import { parseOAuthAccountType, buildOAuthCallbackUrl } from '@/lib/oauth-signup';
 
-type SupabaseOAuthProvider = 'google' | 'apple';
+type SupabaseOAuthProvider = 'google' | 'apple' | 'facebook';
 
 async function signInWithProvider(
   provider: SupabaseOAuthProvider,
@@ -96,4 +110,8 @@ export async function signInWithGoogle(formData: FormData) {
 
 export async function signInWithApple(formData: FormData) {
   return signInWithProvider('apple', formData);
+}
+
+export async function signInWithFacebook(formData: FormData) {
+  return signInWithProvider('facebook', formData);
 }

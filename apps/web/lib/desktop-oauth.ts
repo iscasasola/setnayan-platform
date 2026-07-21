@@ -33,7 +33,7 @@
 
 import { createClient } from '@/lib/supabase/client';
 
-export type DesktopOAuthProvider = 'google' | 'apple';
+export type DesktopOAuthProvider = 'google' | 'apple' | 'facebook';
 
 interface TauriCore {
   invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown>;

@@ -896,16 +896,33 @@ export function boothChassisSpec(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * The poster stand's own half-width. `BoothPoster` (venue-objects.tsx) draws a
- * fixed frame whose WIDEST element is the top rail at `maxW + 0.12` = 0.90 m,
- * so the stand reaches 0.45 m either side of its group origin.
- *
- * This number is why the original placement was wrong on nine of ten chassis:
- * the offset added a 0.42 m gap that was smaller than the stand's own half-
- * width, so the rail reached back INSIDE the booth body even on the 2.0 m
- * chassis it was tuned for.
+ * The poster stand's frame, in ONE place. `BoothPoster` (venue-objects.tsx)
+ * renders from these exact numbers, and the half-width below is DERIVED from
+ * them — so the placement maths can never quietly disagree with the geometry
+ * it is supposed to be clearing. (The original bug was precisely a hand-copied
+ * constant: the offset assumed a 0.42 m half-width for a stand that is 0.45.)
  */
-export const BOOTH_POSTER_HALF_W = 0.45;
+export const BOOTH_POSTER_FRAME = {
+  /** Artwork box width; the backing is this + 0.06. */
+  maxW: 0.78,
+  /** Artwork box height; the backing is this + 0.06. */
+  maxH: 1.15,
+  /** The top rail overhangs the artwork box by this much — it is the stand's
+   *  WIDEST element, so it is what sets the half-width. */
+  railOverhang: 0.12,
+} as const;
+
+/**
+ * The poster stand's own half-width — 0.45 m, from the top rail
+ * (`maxW + railOverhang` = 0.90 m wide).
+ *
+ * This is why the original placement was wrong on nine of ten chassis: the
+ * offset allowed a 0.42 m gap, which is SMALLER than the stand's own half-
+ * width, so the rail reached back inside the booth body even on the 2.0 m
+ * chassis the number was tuned for.
+ */
+export const BOOTH_POSTER_HALF_W =
+  (BOOTH_POSTER_FRAME.maxW + BOOTH_POSTER_FRAME.railOverhang) / 2;
 
 /** Walking clearance between the booth body and the poster stand. */
 const BOOTH_POSTER_GAP = 0.25;
@@ -993,14 +1010,49 @@ export function templateBoothObstacles(
 ): ObstacleDisc[] {
   const genericR = Math.max(BOOTH_FOOTPRINT_M.w, BOOTH_FOOTPRINT_M.d) / 2 + 0.4;
   const out: ObstacleDisc[] = [];
+  /**
+   * The per-event poster stand is solid too — without a disc walkers stroll
+   * straight through the banner. Gated on exactly what the RENDERER draws
+   * (`boothCanBrand(tier) && posterUrl`) and positioned by the same offset
+   * helper, so artwork and obstacle cannot drift apart.
+   *
+   * Called from BOTH branches deliberately: `venue-objects.tsx` renders the
+   * poster in the templated branch AND in the generic silhouette branch
+   * (:611), so a disc that only fired for templated booths would leave every
+   * untemplated one — `registration_desk` / `custom` / `unassigned` kinds, and
+   * vendor categories that resolve no template such as `accommodation` — with
+   * a banner nothing avoids.
+   */
+  const pushPosterDisc = (
+    b: Lab3DBooth,
+    c: { x: number; z: number },
+    facingY: number,
+    spec: ChassisSpec | null,
+  ) => {
+    if (!boothCanBrand(b.vendor?.tier) || !b.vendor?.posterUrl) return;
+    const r = rotateLocalRad(boothPosterLocalOffset(spec), facingY);
+    out.push({
+      c: { x: c.x + r.x, z: c.z + r.z },
+      // The stand's own half-width plus the ~0.4 m walking slack every other
+      // disc in this system carries.
+      r: BOOTH_POSTER_HALF_W + 0.4,
+    });
+  };
+
   for (const b of booths) {
     const c = pctToWorld(b.xPct, b.yPct, room);
     const spec = boothChassisSpec(b);
+    // Hoisted above the early return — the generic branch needs it for the
+    // poster disc. One extra atan2 per untemplated booth, inside a useMemo.
+    const facingY = boothFacingY(b, room);
     if (!spec) {
+      // Generic booth keeps the EXACT single disc it has always emitted, at
+      // the same index, so untemplated booths steer identically to before —
+      // the poster disc is strictly additive and comes after it.
       out.push({ c, r: genericR });
+      pushPosterDisc(b, c, facingY, null);
       continue;
     }
-    const facingY = boothFacingY(b, room);
     for (const d of spec.discs) {
       const r = rotateLocalRad({ x: d.x, z: d.z }, facingY);
       out.push({ c: { x: c.x + r.x, z: c.z + r.z }, r: d.r });
@@ -1017,22 +1069,8 @@ export function templateBoothObstacles(
         const r = rotateLocalRad({ x: a.x, z: a.z }, facingY);
         out.push({ c: { x: c.x + r.x, z: c.z + r.z }, r: 0.3 });
       }
-      // The per-event poster stand is solid too. It renders only in the
-      // TEMPLATE branch and only behind the same `boothCanBrand` gate as the
-      // artwork itself, so the disc is conditional on exactly what the
-      // renderer draws — same gate, same offset helper, no drift. Without
-      // this, walkers stroll straight through the banner.
-      if (boothCanBrand(b.vendor?.tier) && b.vendor?.posterUrl) {
-        const off = boothPosterLocalOffset(spec);
-        const r = rotateLocalRad(off, facingY);
-        out.push({
-          c: { x: c.x + r.x, z: c.z + r.z },
-          // The stand's own half-width plus the ~0.4 m walking slack every
-          // other disc in this system carries.
-          r: BOOTH_POSTER_HALF_W + 0.4,
-        });
-      }
     }
+    pushPosterDisc(b, c, facingY, spec);
   }
   return out;
 }

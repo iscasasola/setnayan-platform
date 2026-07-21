@@ -300,6 +300,31 @@ jobs:
       - name: Lint nested forms
         run: node apps/web/scripts/lint-nested-forms.mjs
 
+  lint-booth-poster-placement:
+    name: lint booth poster placement
+    runs-on: ubuntu-latest
+    # Fails when the 3D booth poster stand's position is hardcoded in
+    # venue-objects.tsx instead of read from boothPosterLocalOffset, or when
+    # BoothPoster re-declares the frame dimensions the placement maths depends
+    # on. PR #3437 shipped `w / 2 + 0.42` measured off the shared 2.0 m
+    # footprint — wrong body (the chassis is 1.8–3.4 m) and a gap smaller than
+    # the stand's own 0.45 m half-width, so the banner sat inside the booth on
+    # nine of ten chassis. A unit test CANNOT catch this: templateBoothObstacles
+    # calls the helper internally, so "renderer and obstacle agree" compares the
+    # module to itself and passes even when the renderer is hardcoded, and the
+    # renderer is JSX with no render harness in the unit suite. Not yet a
+    # required check — owner promotes via branch protection once proven quiet.
+    # See apps/web/scripts/lint-booth-poster-placement.mjs.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lint booth poster placement
+        run: node apps/web/scripts/lint-booth-poster-placement.mjs
+
   migration-timestamp-guard:
     name: migration timestamp guard
     runs-on: ubuntu-latest

@@ -32,6 +32,8 @@ import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { getEditorialEligibility } from '@/lib/editorial-vendor-media';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { BoothPosterCard } from './_components/booth-poster-card';
 import { blockRelevance, deriveCallTime } from '@/lib/vendor-timeline';
 import { fetchBlockRosMeta, isBlockTaggedToVendor } from '@/lib/schedule-ros';
 import {
@@ -438,6 +440,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     threads,
     editorialEligibility,
     { data: cocktailEdit },
+    { data: posterRow },
     { data: liveBlocks },
     { data: mySuggestions },
     returningFlags,
@@ -467,6 +470,16 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       fetchVendorThreads(supabase, profile.vendor_profile_id),
       getEditorialEligibility(admin, eventId, profile.vendor_profile_id),
       supabase.rpc('get_vendor_cocktail_editor', { p_event_id: eventId }),
+      // This org's booth poster for this event (its own table — one artwork per
+      // vendor per event, not per booked service row). Admin-read: the page is
+      // already booked/inquiry-gated above, and the row is scoped by
+      // marketplace_vendor_id below.
+      admin
+        .from('event_vendor_booth_posters')
+        .select('poster_ref')
+        .eq('event_id', eventId)
+        .eq('vendor_profile_id', profile.vendor_profile_id)
+        .maybeSingle(),
       supabase
         .from('event_schedule_blocks')
         .select('block_id, label, block_type, start_at, end_at, location, run_state, actual_start_at')
@@ -633,6 +646,11 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   const allBlocks = (liveBlocks ?? []) as LiveBlock[];
   const suggestions = (mySuggestions ?? []) as SuggestionRow[];
   const canEditCocktail = !!cocktailEdit;
+
+  // Booth poster: the stored ref is raw (r2://bucket/key), so resolve it to a
+  // display URL for the preview — the same ref → URL step the 3D scenes do.
+  const posterRef = (posterRow as { poster_ref?: string | null } | null)?.poster_ref ?? null;
+  const posterDisplayUrl = posterRef ? await displayUrlForStoredAsset(posterRef) : null;
 
   const blockLabel = new Map(allBlocks.map((b) => [b.block_id, b.label]));
 
@@ -963,6 +981,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       isImported={isImported}
       editorialEligibility={editorialEligibility}
       canEditCocktail={canEditCocktail}
+      vendorProfileId={profile.vendor_profile_id}
+      posterRef={posterRef}
+      posterDisplayUrl={posterDisplayUrl}
       completion={completion}
       eventVendorId={eventVendorId}
       depositRecorded={depositRecorded}
@@ -1624,6 +1645,11 @@ function OverviewTab(props: {
   isImported: boolean;
   editorialEligibility: Awaited<ReturnType<typeof getEditorialEligibility>>;
   canEditCocktail: boolean;
+  vendorProfileId: string;
+  /** Raw stored ref for this vendor's per-event booth poster, or null. */
+  posterRef: string | null;
+  /** Resolved display URL for the poster preview, or null. */
+  posterDisplayUrl: string | null;
   completion: {
     deposit_proof_url: string | null;
   } | null;
@@ -1652,6 +1678,9 @@ function OverviewTab(props: {
     isImported,
     editorialEligibility,
     canEditCocktail,
+    vendorProfileId,
+    posterRef,
+    posterDisplayUrl,
     completion,
     eventVendorId,
     depositRecorded,
@@ -2104,6 +2133,19 @@ function OverviewTab(props: {
             Arrange the cocktail area
           </Link>
         </div>
+      ) : null}
+
+      {/* Booth poster (booked). Deliberately NOT gated on canEditCocktail: the
+          poster belongs to the vendor's presence at the event, not to the
+          cocktail room, so a vendor whose booth sits in the reception must be
+          able to dress it — matching vendor_set_booth_poster's wider gate. */}
+      {isBooked ? (
+        <BoothPosterCard
+          eventId={eventId}
+          vendorProfileId={vendorProfileId}
+          initialRef={posterRef}
+          initialDisplayUrl={posterDisplayUrl}
+        />
       ) : null}
     </div>
   );

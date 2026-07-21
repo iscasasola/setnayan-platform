@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, Globe, Store } from 'lucide-react';
 
 import { SubmitButton } from '@/app/_components/submit-button';
+import { OPEN_SHOP_ERRORS, isValidOpenShopEmail } from '@/lib/open-shop-validation';
 import { FileUpload } from '@/app/_components/file-upload';
 import { SERVICE_GROUPS, VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import { becomeVendor } from '../actions';
@@ -52,28 +53,69 @@ export function OpenShopWizard({
     contactEmail: string;
   };
   error?: string;
+  /** From `?step=` — the server sends `&step=2` when it rejects a step-2 field,
+   *  so the wizard resumes there instead of discarding those values. */
+  initialStep?: 1 | 2;
 }) {
-  const [step, setStep] = useState<1 | 2>(1);
+  // Seeded from the `?step=` param so a SERVER rejection of a step-2 field
+  // re-renders at step 2 instead of dumping the vendor back to step 1 with
+  // their three step-2 values gone.
+  const [step, setStep] = useState<1 | 2>(initialStep === 2 ? 2 : 1);
   const [shopName, setShopName] = useState(defaults.shopName);
   const [logoUrl, setLogoUrl] = useState(defaults.logoUrl);
   const [service, setService] = useState(defaults.primaryService);
   const [stepError, setStepError] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
 
   const next = () => {
     if (!shopName.trim()) {
-      setStepError('Give your shop a name.');
+      setStepError(OPEN_SHOP_ERRORS.shopName);
       return;
     }
     if (!logoUrl.trim()) {
-      setStepError('Add your shop logo.');
+      setStepError(OPEN_SHOP_ERRORS.logo);
       return;
     }
     if (!service) {
-      setStepError('Pick your primary service.');
+      setStepError(OPEN_SHOP_ERRORS.service);
       return;
     }
     setStepError(null);
     setStep(2);
+  };
+
+  /**
+   * Step 2 had NO client validation while the server rejected three of its
+   * fields — so a blank phone or `juan@gmail` round-tripped to the server and
+   * came back as a step-1 remount with everything retyped. This mirrors next()
+   * using the SHARED strings + regex, so the two layers cannot disagree.
+   * The server remains authoritative; this only stops the pointless round trip.
+   */
+  const submitGate = (e: React.FormEvent<HTMLFormElement>) => {
+    const form = e.currentTarget;
+    const read = (name: string) =>
+      (form.elements.namedItem(name) as HTMLInputElement | null)?.value ?? '';
+    if (!read('contact_name').trim()) {
+      setStepError(OPEN_SHOP_ERRORS.contactName);
+      e.preventDefault();
+      return;
+    }
+    if (!read('contact_phone').trim()) {
+      setStepError(OPEN_SHOP_ERRORS.contactPhone);
+      e.preventDefault();
+      return;
+    }
+    if (!isValidOpenShopEmail(read('contact_email'))) {
+      setStepError(OPEN_SHOP_ERRORS.contactEmail);
+      e.preventDefault();
+      return;
+    }
+    if (!read('location_city').trim()) {
+      setStepError(OPEN_SHOP_ERRORS.locationCity);
+      e.preventDefault();
+      return;
+    }
+    setStepError(null);
   };
 
   return (
@@ -114,7 +156,7 @@ export function OpenShopWizard({
           </p>
         )}
 
-        <form action={becomeVendor} className="mt-5 space-y-4">
+        <form ref={formRef} action={becomeVendor} onSubmit={submitGate} className="mt-5 space-y-4">
           {/* Step 1 — always mounted so values survive step switches. */}
           <div className={step === 1 ? 'space-y-4' : 'hidden'}>
             <label className="block space-y-1">
@@ -145,8 +187,15 @@ export function OpenShopWizard({
                 onChange={(v) =>
                   setLogoUrl(Array.isArray(v) ? (v[0] ?? '') : (v ?? ''))
                 }
-                maxSizeMB={2}
-                acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+                maxSizeMB={10}
+                compressImage
+                acceptedTypes={[
+                  'image/png',
+                  'image/jpeg',
+                  'image/webp',
+                  'image/heic',
+                  'image/heif',
+                ]}
                 variant="square"
                 qrGuard
               />
@@ -215,6 +264,7 @@ export function OpenShopWizard({
               <input
                 name="contact_phone"
                 type="tel"
+                inputMode="tel"
                 defaultValue={defaults.contactPhone}
                 maxLength={32}
                 placeholder="+63 917 …"
@@ -238,7 +288,7 @@ export function OpenShopWizard({
 
             <label className="block space-y-1">
               <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                Location <span className="font-normal" style={{ color: 'var(--m-slate-3)' }}>· optional</span>
+                Location
               </span>
               <input
                 name="location_city"

@@ -355,9 +355,15 @@ export async function signUp(formData: FormData) {
   // Defensive cookie downgrade. signUp() may have set sb-* session cookies
   // when Supabase's email-confirm-required is off — honor the checkbox
   // before redirecting. When email-confirm is on (the more common config)
-  // no session cookies were set and this is a no-op. Runs before either
-  // redirect path so both autoConfirmed + check-email branches honor it.
-  if (!remember) {
+  // no session cookies were set and this is a no-op.
+  //
+  // ⚠ ORDERING (2026-07-21): this MUST run AFTER any session write, not before
+  // the branches. The autoConfirmed path below now signs the user in, which
+  // re-writes persistent sb-* cookies — downgrading first would be silently
+  // undone and an unchecked "Stay signed in" would leak a persistent session.
+  // Both branches call it themselves, immediately before their redirect.
+  async function applyRememberChoice(): Promise<void> {
+    if (remember) return;
     const cookieStore = await cookies();
     downgradeSupabaseCookiesToSessionOnly(cookieStore);
   }
@@ -421,10 +427,29 @@ export async function signUp(formData: FormData) {
         await applyReferralAtSignup(referralCode, data.user.id);
       }
     }
+    // 2026-07-21 — sign the new account IN instead of bouncing it to /login.
+    // Pre-fix, an auto-confirmed signup redirected to /login?ready=<email>,
+    // asking someone to retype the password they chose seconds earlier, at
+    // peak intent, on a phone whose password manager had just closed. The
+    // password is still in scope from the FormData read above, so this is a
+    // direct sign-in, not a re-prompt.
+    //
+    // STRICTLY ADDITIVE: any sign-in failure falls through to the exact
+    // /login?ready= redirect that shipped before, so this path is never worse
+    // than today — only better when it succeeds.
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    await applyRememberChoice();
+    if (!signInError) {
+      return redirect(next);
+    }
     return redirect(
       `/login?ready=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`,
     );
   }
+  await applyRememberChoice();
   return redirect(
     `/login?check_email=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`,
   );

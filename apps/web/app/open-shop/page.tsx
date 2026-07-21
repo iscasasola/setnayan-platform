@@ -28,9 +28,9 @@ export const metadata = { title: 'Open your shop · Setnayan' };
 export default async function OpenShopPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; step?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, step } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -87,9 +87,10 @@ export default async function OpenShopPage({
         locationCity: row?.location_city ?? '',
         contactName: row?.business_owner_name ?? '',
         contactPhone: row?.contact_phone ?? '',
-        contactEmail: row?.contact_email ?? '',
+        contactEmail: row?.contact_email ?? user.email ?? '',
       }}
       error={error}
+      initialStep={step === '2' ? 2 : 1}
     />
   );
 }

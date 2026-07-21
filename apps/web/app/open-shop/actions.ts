@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { canOpenAnotherShop } from '@/lib/shop-limits';
+import { OPEN_SHOP_EMAIL_RE, OPEN_SHOP_ERRORS } from '@/lib/open-shop-validation';
 
 /**
  * Vendor onboarding submit (owner 2026-07-03: "create a vendor onboarding. we
@@ -52,11 +53,13 @@ function cleanLogo(raw: FormDataEntryValue | null): string | null {
   return null;
 }
 
-/** Light email shape check — enough to keep obviously-broken strings out. */
+/** Light email shape check — enough to keep obviously-broken strings out.
+ *  Regex is SHARED with the client gate (lib/open-shop-validation) so the two
+ *  can never disagree about what "valid" means. */
 function cleanEmail(raw: FormDataEntryValue | null): string | null {
   const t = clean(raw, 254)?.toLowerCase() ?? null;
   if (!t) return null;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t) ? t : null;
+  return OPEN_SHOP_EMAIL_RE.test(t) ? t : null;
 }
 
 const CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
@@ -75,17 +78,27 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   const contactName = clean(formData.get('contact_name'));
   const contactPhone = clean(formData.get('contact_phone'), 32);
   const contactEmail = cleanEmail(formData.get('contact_email'));
-  if (!shopName) redirect('/open-shop?error=' + encodeURIComponent('Give your shop a name.'));
-  if (!logoUrl) redirect('/open-shop?error=' + encodeURIComponent('Add your shop logo.'));
+  if (!shopName) redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.shopName));
+  if (!logoUrl) redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.logo));
   if (!primaryService || !CATEGORY_SET.has(primaryService)) {
-    redirect('/open-shop?error=' + encodeURIComponent('Pick your primary service.'));
+    redirect('/open-shop?error=' + encodeURIComponent(OPEN_SHOP_ERRORS.service));
   }
-  if (!contactName) redirect('/open-shop?error=' + encodeURIComponent('Add the owner name.'));
+  // `&step=2` keeps a step-2 rejection ON step 2. Without it the wizard
+  // remounts at step 1 and silently discards all three step-2 values, because
+  // none of them have been written to the DB the `defaults` prop reads from.
+  // Needed even with the client gate, since the server rejects shapes the
+  // client accepts (and any DB error redirects here too).
+  if (!contactName)
+    redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactName));
   if (!contactPhone)
-    redirect('/open-shop?error=' + encodeURIComponent('Add a contact number.'));
+    redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactPhone));
   if (!contactEmail)
-    redirect('/open-shop?error=' + encodeURIComponent('Add a valid company email.'));
+    redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactEmail));
   const locationCity = clean(formData.get('location_city'), 64);
+  // Required as of 2026-07-21: a city-less listing cannot be ranked, filtered
+  // by couples, or given a screen-name namespace — it is invisible in practice.
+  if (!locationCity)
+    redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.locationCity));
 
   const admin = createAdminClient();
 

@@ -93,7 +93,7 @@ import {
   type ApplyVoucherResult,
   type SubmitOrderResult,
 } from '@/app/dashboard/[eventId]/checkout/actions';
-import { computeVatFromBase, DEFAULT_VAT_RATE_PCT } from '@/lib/receipts';
+import { computeVatFromBase } from '@/lib/receipts';
 
 export type InlineCheckoutDrawerProps = {
   serviceKey: string;
@@ -105,6 +105,12 @@ export type InlineCheckoutDrawerProps = {
    * e.g. 149900 for ₱1,499.00.
    */
   originalPriceCentavos: string;
+  /**
+   * Effective VAT rate from `platform_settings.default_vat_rate_pct`, resolved server-side via
+   * `getEffectiveVatRatePct` and handed down. 0 while Setnayan is non-VAT registered. Never
+   * hardcode it here — a hardcoded 12 outliving a configured 0 is exactly the bug this fixes.
+   */
+  vatRatePct?: number;
   eventId: string;
   /**
    * Per-USER subscription mode (Setnayan AI term pass): when set, the drawer
@@ -144,14 +150,15 @@ function formatPesoCentavos(centavosStr: string): string {
 }
 
 /**
- * The VAT-INCLUSIVE gross the couple actually pays, from a PRE-VAT base in
- * centavos. Owner ruling 2026-06-25: catalog prices are pre-VAT, +12% at
- * checkout. Uses the SAME computeVatFromBase as the server (submitOrderAction)
- * and the BIR receipt, so the number shown here equals the amount charged — no
- * drift, no underpayment.
+ * The gross the couple actually pays, from a PRE-VAT base in centavos.
+ *
+ * The rate is PASSED IN from the server (getEffectiveVatRatePct → platform_settings), never
+ * hardcoded here. It used to be a hardcoded 12 while the configured rate was 0, so this drawer
+ * quoted ₱2,800 for a ₱2,500 SKU — and the server charged the same, which is why the drift was
+ * invisible: both halves were wrong in the same direction.
  */
-function formatGrossCentavos(centavosStr: string): string {
-  const { gross } = computeVatFromBase(Number(centavosStr) / 100, DEFAULT_VAT_RATE_PCT);
+function formatGrossCentavos(centavosStr: string, vatRatePct: number): string {
+  const { gross } = computeVatFromBase(Number(centavosStr) / 100, vatRatePct);
   return `₱${gross.toLocaleString('en-PH', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -182,6 +189,9 @@ export function InlineCheckoutDrawer({
   serviceKey,
   displayName,
   originalPriceCentavos,
+  // Effective VAT rate, resolved SERVER-side from platform_settings and handed down. Defaults
+  // to 0 so a caller that forgets it under-quotes rather than inventing a tax.
+  vatRatePct = 0,
   eventId,
   cycles,
   settings,
@@ -259,8 +269,8 @@ export function InlineCheckoutDrawer({
   const finalPesoDisplay = formatPesoCentavos(finalPriceStr);
   const originalPesoDisplay = formatPesoCentavos(originalPriceCentavos);
   // VAT-inclusive gross = what the couple actually pays (the server charges this).
-  const finalGrossDisplay = formatGrossCentavos(finalPriceStr);
-  const originalGrossDisplay = formatGrossCentavos(originalPriceCentavos);
+  const finalGrossDisplay = formatGrossCentavos(finalPriceStr, vatRatePct);
+  const originalGrossDisplay = formatGrossCentavos(originalPriceCentavos, vatRatePct);
   const hasVoucher = voucherResult?.applied === true && voucherResult.code !== null;
 
   // On a successful submit, hold the brand loader's "Ready ✓" state briefly,
@@ -445,6 +455,7 @@ export function InlineCheckoutDrawer({
                     setVoucherResult(null);
                   }}
                   originalPesoDisplay={originalPesoDisplay}
+          vatRatePct={vatRatePct}
                 />
 
                 {/* (2) Channel toggle. */}
@@ -626,6 +637,7 @@ function VoucherBlock({
   onApply,
   onRemove,
   originalPesoDisplay,
+  vatRatePct,
 }: {
   showField: boolean;
   onShowField: () => void;
@@ -636,6 +648,8 @@ function VoucherBlock({
   onApply: () => void;
   onRemove: () => void;
   originalPesoDisplay: string;
+  /** Effective rate handed down from the drawer (server-resolved). */
+  vatRatePct: number;
 }) {
   const applied = voucherResult?.applied === true && voucherResult.code !== null;
   const rejected =
@@ -672,7 +686,7 @@ function VoucherBlock({
             </p>
             <p className="font-mono text-xs text-success-800/80">
               {voucherResult.discount_php} off · final total{' '}
-              {formatGrossCentavos(voucherResult.final_centavos)}
+              {formatGrossCentavos(voucherResult.final_centavos, vatRatePct)}
             </p>
           </div>
           <button

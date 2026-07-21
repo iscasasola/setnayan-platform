@@ -14,29 +14,29 @@ test('default rate is 12%', () => {
 });
 
 test('grosses a whole-peso base by 12% (₱10,000 → ₱11,200)', () => {
-  assert.deepEqual(computeVatFromBase(10000), { preVat: 10000, vat: 1200, gross: 11200, rate: 12 });
+  assert.deepEqual(computeVatFromBase(10000, 12), { preVat: 10000, vat: 1200, gross: 11200, rate: 12 });
 });
 
 test('rounds VAT + gross to 2 decimals (₱3,999 → VAT ₱479.88 → ₱4,478.88)', () => {
-  const r = computeVatFromBase(3999);
+  const r = computeVatFromBase(3999, 12);
   assert.equal(r.vat, 479.88);
   assert.equal(r.gross, 4478.88);
   assert.equal(r.preVat, 3999);
 });
 
 test('₱1,499 → VAT ₱179.88 → gross ₱1,678.88', () => {
-  const r = computeVatFromBase(1499);
+  const r = computeVatFromBase(1499, 12);
   assert.equal(r.vat, 179.88);
   assert.equal(r.gross, 1678.88);
 });
 
 test('zero base → zero VAT + zero gross (free SKUs unaffected)', () => {
-  assert.deepEqual(computeVatFromBase(0), { preVat: 0, vat: 0, gross: 0, rate: 12 });
+  assert.deepEqual(computeVatFromBase(0, 12), { preVat: 0, vat: 0, gross: 0, rate: 12 });
 });
 
 test('invariant: gross === preVat + vat, for many bases', () => {
   for (const base of [1, 99, 100.1, 250, 2999, 12999, 27999, 53981]) {
-    const { preVat, vat, gross } = computeVatFromBase(base);
+    const { preVat, vat, gross } = computeVatFromBase(base, 12);
     assert.equal(gross, Math.round((preVat + vat) * 100) / 100, `gross != preVat+vat at ${base}`);
     // VAT is exactly 12% of the (rounded) base, to 2dp.
     assert.equal(vat, Math.round(preVat * 12) / 100, `vat != 12% at ${base}`);
@@ -65,4 +65,12 @@ test('gross back-out never charges more than the quoted all-in price', () => {
   // Unlike building UP from base (which would inflate ₱999 → ₱1,118.88), the
   // gross stays the all-in figure the vendor actually sees + pays.
   assert.equal(computeVatFromGross(999).gross, 999);
+});
+
+test('the rate is a required argument — there is no implicit tax', () => {
+  // Regression guard. `computeVatFromBase` used to default to 12%, which silently overrode the
+  // configured `platform_settings.default_vat_rate_pct = 0` and billed every customer SKU 12%
+  // over its advertised price. The rate must always come from the caller.
+  assert.deepEqual(computeVatFromBase(2500, 0), { preVat: 2500, vat: 0, gross: 2500, rate: 0 });
+  assert.deepEqual(computeVatFromBase(2500, 12), { preVat: 2500, vat: 300, gross: 2800, rate: 12 });
 });

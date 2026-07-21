@@ -19,7 +19,26 @@ export type ReceiptRow = {
 const SELECT =
   'receipt_id,or_serial,order_id,user_id,issued_to_email,issued_to_name,issued_to_tin,pre_vat_php,vat_rate_pct,vat_amount_php,gross_total_php,issued_at,created_at';
 
-export const DEFAULT_VAT_RATE_PCT = 12;
+/**
+ * The PH STATUTORY VAT rate — a fact about the tax code, NOT a statement about what Setnayan
+ * charges. Kept for receipt labelling and for the day the ₱3M threshold forces registration.
+ *
+ * ⚠️ Do NOT use this as the rate to charge. Setnayan is currently **non-VAT registered** (sole
+ * prop under ICASA ENTERPRISE, 8% flat; VAT only at the ₱3M combined-gross tripwire), and the
+ * effective rate lives in `platform_settings.default_vat_rate_pct` — which the owner has set to
+ * 0. Use `getEffectiveVatRatePct()` on the server, or a rate passed down from it on the client.
+ *
+ * This constant used to be the default parameter of `computeVatFromBase`, which meant every
+ * customer SKU was silently grossed by 12% while the configured rate said 0 — a 12% overcharge
+ * on every purchase, labelled as a tax Setnayan is not registered to collect.
+ */
+export const PH_STATUTORY_VAT_RATE_PCT = 12;
+
+/**
+ * @deprecated Reads as "our rate" but is the statutory one. Kept as an alias so no call site
+ * silently changes meaning; new code must take the rate from settings.
+ */
+export const DEFAULT_VAT_RATE_PCT = PH_STATUTORY_VAT_RATE_PCT;
 
 /**
  * VAT is **added on top** of the quoted value (PH B2B convention).
@@ -33,7 +52,8 @@ export const DEFAULT_VAT_RATE_PCT = 12;
  */
 export function computeVatFromBase(
   basePhp: number,
-  vatRatePct: number = DEFAULT_VAT_RATE_PCT,
+  // REQUIRED on purpose. A defaulted rate is how a hardcoded 12% outlived a configured 0%.
+  vatRatePct: number,
 ): { preVat: number; vat: number; gross: number; rate: number } {
   const preVat = Math.round(basePhp * 100) / 100;
   const rate = vatRatePct;

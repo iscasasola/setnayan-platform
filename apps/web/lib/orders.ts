@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { DEFAULT_VAT_RATE_PCT, computeVatFromBase } from '@/lib/receipts';
+import { computeVatFromBase } from '@/lib/receipts';
 
 export type OrderStatus =
   | 'draft'
@@ -158,7 +158,12 @@ export function formatPhp(amount: number | null | undefined): string {
  * the **gross** = base + VAT, so headlineTotal/remaining/matched all run on
  * the gross figure. Receipts later record pre-VAT, VAT, and gross.
  */
-export function computeOrderTotals(order: OrderRow, payments: PaymentRow[]) {
+export function computeOrderTotals(
+  order: OrderRow,
+  payments: PaymentRow[],
+  /** Effective rate from platform_settings (getEffectiveVatRatePct). 0 ⇒ no VAT line. */
+  vatRatePct = 0,
+) {
   const matched = payments
     .filter((p) => p.status === 'matched')
     .reduce((acc, p) => acc + Number(p.amount_php), 0);
@@ -166,7 +171,7 @@ export function computeOrderTotals(order: OrderRow, payments: PaymentRow[]) {
     .filter((p) => p.status === 'pending')
     .reduce((acc, p) => acc + Number(p.amount_php), 0);
   const base = Number(order.confirmed_total_php ?? order.requested_total_php);
-  const { preVat, vat, gross, rate } = computeVatFromBase(base, DEFAULT_VAT_RATE_PCT);
+  const { preVat, vat, gross, rate } = computeVatFromBase(base, vatRatePct);
   return {
     matched,
     pending,
@@ -215,11 +220,13 @@ export function orderGrossOwed(opts: {
   confirmedTotalPhp: number | null;
   voucherDiscountPhp?: number;
   vatInclusive?: boolean;
+  /** Effective rate from platform_settings. Omitted ⇒ 0 — never a hardcoded 12. */
+  vatRatePct?: number;
 }): number {
   const base =
     opts.confirmedTotalPhp != null
       ? opts.confirmedTotalPhp
       : Math.max(0, opts.requestedTotalPhp - (opts.voucherDiscountPhp ?? 0));
   if (opts.vatInclusive) return Math.round(base * 100) / 100;
-  return computeVatFromBase(base, DEFAULT_VAT_RATE_PCT).gross;
+  return computeVatFromBase(base, opts.vatRatePct ?? 0).gross;
 }

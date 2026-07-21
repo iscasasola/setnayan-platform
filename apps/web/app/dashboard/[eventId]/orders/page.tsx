@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Plus, Receipt } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { getCurrentUser } from '@/lib/auth';
 import {
   ORDER_STATUS_LABEL,
@@ -29,6 +30,8 @@ export default async function CoupleOrdersPage({ params, searchParams }: Props) 
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
+  // Effective rate from platform_settings (0 while Setnayan is non-VAT registered).
+  const vatRatePct = await getEffectiveVatRatePct(supabase);
 
   const orders = await fetchOrdersForEvent(supabase, eventId);
 
@@ -100,6 +103,7 @@ export default async function CoupleOrdersPage({ params, searchParams }: Props) 
                     {formatPhp(
                       computeVatFromBase(
                         Number(o.confirmed_total_php ?? o.requested_total_php),
+                        vatRatePct,
                       ).gross,
                     )}
                     <span className="ml-1 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">

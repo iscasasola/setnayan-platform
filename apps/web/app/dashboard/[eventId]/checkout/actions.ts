@@ -57,7 +57,8 @@ import {
   SETNAYAN_AI_SKU,
   resolveSetnayanAiEventChargeCentavos,
 } from '@/lib/setnayan-ai-event-pricing';
-import { computeVatFromBase, DEFAULT_VAT_RATE_PCT } from '@/lib/receipts';
+import { computeVatFromBase } from '@/lib/receipts';
+import { getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { getRequestPlatform, isRequestPlatform } from '@/lib/request-platform';
 import { notifyAdminsOrderAwaitingReconciliation } from '@/lib/order-admin-notify';
@@ -529,9 +530,12 @@ export async function submitOrderAction(
   // phantom 'remaining'. The stored requested_total_php stays the PRE-VAT base
   // (computeOrderTotals grosses it); the voucher-adjusted base is what VAT applies
   // to, mirroring the gross the order will owe once approval sets confirmed_total_php.
+  // Effective rate from platform_settings — 0 while Setnayan is non-VAT registered. Previously
+  // a hardcoded 12 that ignored the configured 0, billing every customer SKU 12% over its
+  // advertised price (a ₱2,500 SKU instructed at ₱2,800).
   const finalAmountForPayment = computeVatFromBase(
     Number(voucherFinalCentavos) / 100,
-    DEFAULT_VAT_RATE_PCT,
+    await getEffectiveVatRatePct(supabase),
   ).gross;
 
   // Existing schema uses NUMERIC(12,2) requested_total_php · we land

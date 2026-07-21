@@ -57,6 +57,32 @@ export const LOCKED_FIELD_LABEL: Record<LockedIdentityFieldKey, string> = {
 export const VERIFIED_LOCK_ERROR =
   'Your shop is verified, so these details are locked. Request a correction instead.';
 
+/**
+ * ADDING A MISSING LOGO IS A COMPLETION, NOT A CORRECTION (2026-07-21).
+ *
+ * The verified-lock exists to stop a verified shop from *changing* the
+ * identity an admin signed off on. It was never meant to stop a vendor from
+ * FILLING IN a field that is empty — and until the logo became optional at
+ * registration, an empty logo on a verified shop was unreachable, so nobody
+ * noticed the difference.
+ *
+ * It is reachable now, and the consequence is a trap: `requestProfileCorrection`
+ * has no UI wired to it anywhere in the app (grep it — the only references are
+ * its own definition and a comment), so a verified vendor with a NULL logo had
+ * NO path to add one. That is strictly worse than the old registration wall.
+ *
+ * So: blank → non-blank on `logo_url` is allowed while verified. Non-blank →
+ * anything else stays locked, which is the rule that actually protects the
+ * signed-off identity. `null`/blank on the incoming value is never a
+ * "completion" — clearing a logo is not something this unlocks.
+ */
+export function isLockedLogoCompletion(
+  currentLogoUrl: string | null | undefined,
+  nextLogoUrl: string | null | undefined,
+): boolean {
+  return !currentLogoUrl?.trim() && !!nextLogoUrl?.trim();
+}
+
 // ---------------------------------------------------------------------------
 // Row type + reads
 // ---------------------------------------------------------------------------

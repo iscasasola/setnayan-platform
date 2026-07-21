@@ -3,8 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import {
-  businessProfileChecklist,
   fetchOwnVendorProfile,
+  probeBusinessProfileCompleteness,
   type VendorProfileRow,
 } from '@/lib/vendor-profile';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -446,8 +446,17 @@ export async function submitInlineForReview(
   }
 
   const uploads = (app.doc_uploads ?? {}) as DocUploadMap;
+  // Completeness comes from the narrow probe, NOT from `auth.profile`:
+  // `fetchOwnVendorProfile` degrades to a LEGACY projection on any read error
+  // and reports hq_address / business_owner_name / in_business_since_year as
+  // NULL. Gating on that would refuse a complete vendor's submit and name
+  // three fields they already filled in (2026-07-21).
+  const probe = await probeBusinessProfileCompleteness(auth.supabase, {
+    vendorProfileId: auth.vendorProfileId,
+  });
+  if (!probe.ok) return { ok: false, error: probe.error };
   const missing = verificationSubmitMissing({
-    profileComplete: businessProfileChecklist(auth.profile).complete,
+    profileComplete: probe.complete,
     uploads,
   });
   if (missing.length > 0) {

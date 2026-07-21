@@ -12,6 +12,10 @@ import {
   parseVerificationState,
   type VerificationState,
 } from '@/lib/vendor-verification';
+import {
+  probeBusinessProfileCompleteness,
+  verificationApprovalRefusal,
+} from '@/lib/vendor-profile';
 import { notifyVendorStatusChange } from '@/lib/vendor-status-notify';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import {
@@ -120,6 +124,24 @@ async function transitionVendorVisibility(opts: {
   const shouldVerify = opts.nextVisibility === 'verified';
   const toState: VerificationState = shouldVerify ? 'verified' : fromState;
   const stateChanges = shouldVerify && toState !== fromState;
+
+  // PROFILE-COMPLETENESS GATE (2026-07-21). Owner decision 4 put the logo
+  // requirement "before verification" — so this path, which mints a verified
+  // vendor without any application at all, has to honour it too. Otherwise
+  // "verified with a NULL logo" stays reachable and the vendor-side submit
+  // gate is enforcing a rule the admin console quietly ignores.
+  //
+  // Checked BEFORE the audit-log insert so a refusal writes nothing at all.
+  // Only on the verify transition: hidden / coming_soon / archived are
+  // marketplace moderation and must never be blocked by profile gaps.
+  if (shouldVerify) {
+    const refusal = verificationApprovalRefusal(
+      await probeBusinessProfileCompleteness(admin, {
+        vendorProfileId: opts.vendorProfileId,
+      }),
+    );
+    if (refusal) return { ok: false, error: refusal };
+  }
 
   const { error: auditErr } = await admin.from('admin_audit_log').insert({
     action: 'vendor_visibility_change',
@@ -346,6 +368,18 @@ async function applyApplicationDecision(
 
   switch (input.decision) {
     case 'approved': {
+      // Same PROFILE-COMPLETENESS GATE as the visibility path (2026-07-21).
+      // The vendor-side submit gate is not sufficient on its own: an
+      // application can be submitted while complete and approved later, and
+      // `set_in_review` / re-approval paths don't re-check anything. Approving
+      // is what LOCKS the identity fields, so it is the last moment the gap
+      // can still be closed cheaply.
+      const refusal = verificationApprovalRefusal(
+        await probeBusinessProfileCompleteness(admin, {
+          vendorProfileId: vendor.vendor_profile_id,
+        }),
+      );
+      if (refusal) return { ok: false, error: refusal };
       toState = 'verified';
       appStatus = 'approved';
       appDecision = 'approved';

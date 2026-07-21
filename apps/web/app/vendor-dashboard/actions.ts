@@ -18,6 +18,7 @@ import {
 import {
   LOCKED_IDENTITY_FIELD_KEYS,
   VERIFIED_LOCK_ERROR,
+  isLockedLogoCompletion,
   fetchVerifiedLock,
   isLockedIdentityFieldKey,
 } from '@/lib/vendor-corrections';
@@ -449,14 +450,31 @@ export async function saveVendorProfile(formData: FormData) {
       lockedCurrent = null;
     }
     const strip = payload as unknown as Record<string, unknown>;
-    for (const key of LOCKED_IDENTITY_FIELD_KEYS) delete strip[key];
+    for (const key of LOCKED_IDENTITY_FIELD_KEYS) {
+      // One exception (2026-07-21): a verified shop whose logo is EMPTY may
+      // still fill it in. Since the logo stopped being mandatory at
+      // registration, a verified vendor can exist with logo_url NULL — and
+      // with `requestProfileCorrection` having no UI wired to it, stripping
+      // this write would leave them no way to ever add a logo. Blank →
+      // non-blank only; changing an existing logo stays locked.
+      if (key === 'logo_url' && isLockedLogoCompletion(lockedCurrent?.logo_url, payload.logo_url)) {
+        continue;
+      }
+      delete strip[key];
+    }
   }
+  // True when the strip above let a first-ever logo through, so the publish
+  // gate below evaluates the value we are actually about to write.
+  const logoCompletionAllowed =
+    identityLocked && isLockedLogoCompletion(lockedCurrent?.logo_url, payload.logo_url);
 
   // Effective identity values for the publish gate — the CURRENT DB values
   // when locked (they're what stays written), the form payload otherwise.
   const eff = identityLocked
     ? {
-        logo_url: lockedCurrent?.logo_url ?? null,
+        logo_url: logoCompletionAllowed
+          ? payload.logo_url
+          : (lockedCurrent?.logo_url ?? null),
         business_name: lockedCurrent?.business_name ?? '',
         business_owner_name: lockedCurrent?.business_owner_name ?? null,
         hq_address: lockedCurrent?.hq_address ?? null,
@@ -693,7 +711,28 @@ export async function updateVendorProfileField(
     !GALLERY_MEDIA_FIELDS.has(field) &&
     (await fetchVerifiedLock(supabase, user.id))
   ) {
-    return { ok: false, error: VERIFIED_LOCK_ERROR };
+    // ONE exception (2026-07-21): a verified shop with an EMPTY logo may
+    // still add one. Owner decision 4 made the logo optional at registration,
+    // so "verified with logo_url NULL" is now a state a real vendor can be
+    // in — and this lock, with `requestProfileCorrection` having no UI wired
+    // to it anywhere, is what made that state permanent. Blank → non-blank
+    // only; replacing an existing logo stays locked, which is the rule that
+    // protects the identity an admin actually signed off on.
+    let allowLogoCompletion = false;
+    if (field === 'logo') {
+      const { data: cur } = await supabase
+        .from('vendor_profiles')
+        .select('logo_url')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      allowLogoCompletion = isLockedLogoCompletion(
+        (cur as { logo_url?: string | null } | null)?.logo_url ?? null,
+        parseLogoValue(formData.get('logo_url')),
+      );
+    }
+    if (!allowLogoCompletion) {
+      return { ok: false, error: VERIFIED_LOCK_ERROR };
+    }
   }
 
   // Build a SINGLE-column patch. `geocodeAddress` / `yearChanged` capture the

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { SetnayanOverlay, PaywalledVideo } from '../_components/setnayan-overlay';
+import { SetnayanOverlay } from '../_components/setnayan-overlay';
 import {
   clampSplitRatio,
   EMPTY_FRAME,
@@ -69,21 +69,17 @@ export function PanoodProgramSurface() {
         <BridgeFailureCard failure={failure} />
       ) : (
         <>
-          {/* The OUTER window is never scaled — that keeps OBS's window-capture resolution
-              unchanged; only the picture inside it shrinks. */}
-          <PaywallShrink active={frame.overlay}>
-            {frame.secondaryStream && frame.stream ? (
-              <SplitComposite
-                primary={frame.stream}
-                secondary={frame.secondaryStream}
-                ratio={frame.splitRatio}
-              />
-            ) : frame.stream ? (
-              <StreamLayer stream={frame.stream} />
-            ) : (
-              <NoSignalCard label={frame.label} />
-            )}
-          </PaywallShrink>
+          {frame.secondaryStream && frame.stream ? (
+            <SplitComposite
+              primary={frame.stream}
+              secondary={frame.secondaryStream}
+              ratio={frame.splitRatio}
+            />
+          ) : frame.stream ? (
+            <StreamLayer stream={frame.stream} />
+          ) : (
+            <NoSignalCard label={frame.label} />
+          )}
           {/* The paywall. Server-decided upstream and carried over the bridge — this surface
               never re-derives it. Covers every branch above, so OBS cannot capture a clean
               frame from any state while the overlay is on. */}
@@ -93,11 +89,6 @@ export function PanoodProgramSurface() {
       )}
     </div>
   );
-}
-
-/** Applies the paywall shrink only while the overlay is up; a cleared feed has no transform. */
-function PaywallShrink({ active, children }: { active: boolean; children: React.ReactNode }) {
-  return active ? <PaywalledVideo>{children}</PaywalledVideo> : <>{children}</>;
 }
 
 /** One full-bleed video. `object-contain` — never crop the couple's frame. */
@@ -173,7 +164,7 @@ function NoSignalCard({ label }: { label: string }) {
  */
 function ObsOrderingNotice() {
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-[20%] z-30 px-6 pb-2 text-center">
+    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 px-6 pb-5 text-center">
       <p className="text-[11px] uppercase tracking-[0.18em] text-cream/55">
         Press Go live in the control room to clear this overlay before you start streaming
       </p>

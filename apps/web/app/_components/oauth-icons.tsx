@@ -7,7 +7,9 @@
  * Google G: standardized 4-color quadrant geometry per Google's branding
  * guidelines (red #EA4335 · blue #4285F4 · yellow #FBBC05 · green #34A853).
  * Apple: the monochrome glyph sanctioned for light-mode "Sign in with Apple"
- * buttons. Both are nominative-use sign-in affordances, not app-icon copies.
+ * buttons. Facebook: the white "f" on the #1877F2 brand circle, Meta's own
+ * sanctioned mark for "Continue with Facebook" buttons. All three are
+ * nominative-use sign-in affordances, not app-icon copies.
  */
 
 export function GoogleGIcon() {
@@ -28,6 +30,21 @@ export function GoogleGIcon() {
       <path
         fill="#34A853"
         d="M12 23.5c2.9407 0 5.4067-.9707 7.207-2.6293l-3.8767-3.0067c-1.072.72-2.4513 1.1453-3.3303 1.1453-2.855 0-5.2387-1.6207-6.116-3.8067L2.1933 18.064C3.99 21.6913 7.7033 23.5 12 23.5z"
+      />
+    </svg>
+  );
+}
+
+export function FacebookIcon() {
+  // Meta's sanctioned "f" mark: white glyph on the #1877F2 brand circle. Used
+  // as-is on both the light and dark button variants — the brand circle carries
+  // its own contrast, so unlike the Apple glyph it needs no per-variant fill.
+  return (
+    <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" aria-hidden role="img" focusable={false}>
+      <circle cx="12" cy="12" r="12" fill="#1877F2" />
+      <path
+        fill="#FFFFFF"
+        d="M16.671 15.469 17.203 12h-3.328V9.749c0-.949.465-1.874 1.956-1.874h1.513V4.922s-1.373-.234-2.686-.234c-2.741 0-4.533 1.661-4.533 4.668V12H7.078v3.469h3.047v8.385a12.13 12.13 0 0 0 3.75 0v-8.385h2.796z"
       />
     </svg>
   );

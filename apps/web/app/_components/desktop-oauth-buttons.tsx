@@ -10,18 +10,19 @@
 
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import { GoogleGIcon, AppleIcon } from '@/app/_components/oauth-icons';
+import { GoogleGIcon, AppleIcon, FacebookIcon } from '@/app/_components/oauth-icons';
 import { signInWithProviderDesktop, type DesktopOAuthProvider } from '@/lib/desktop-oauth';
 
 const GOOGLE_ENABLED = process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED === 'true';
 const APPLE_ENABLED = process.env.NEXT_PUBLIC_OAUTH_APPLE_ENABLED === 'true';
+const FACEBOOK_ENABLED = process.env.NEXT_PUBLIC_OAUTH_FACEBOOK_ENABLED === 'true';
 
 const BTN_LIGHT =
   'flex w-full items-center justify-center gap-3 rounded-md border border-ink/20 bg-white px-4 py-2.5 text-sm font-medium text-ink/90 transition-colors hover:border-ink/40 hover:bg-ink/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40 disabled:cursor-not-allowed disabled:opacity-60';
 
 export function DesktopOAuthButtons({ next }: { next: string }) {
   const [pending, setPending] = useState<DesktopOAuthProvider | null>(null);
-  if (!GOOGLE_ENABLED && !APPLE_ENABLED) return null;
+  if (!GOOGLE_ENABLED && !APPLE_ENABLED && !FACEBOOK_ENABLED) return null;
   const BTN = BTN_LIGHT;
   const appleFill = '#000000';
 
@@ -62,6 +63,21 @@ export function DesktopOAuthButtons({ next }: { next: string }) {
             <AppleIcon fill={appleFill} />
           )}
           {pending === 'apple' ? 'Opening your browser…' : 'Continue with Apple'}
+        </button>
+      ) : null}
+      {FACEBOOK_ENABLED ? (
+        <button
+          type="button"
+          className={BTN}
+          disabled={pending !== null}
+          onClick={() => run('facebook')}
+        >
+          {pending === 'facebook' ? (
+            <Loader2 className="h-[18px] w-[18px] animate-spin" aria-hidden />
+          ) : (
+            <FacebookIcon />
+          )}
+          {pending === 'facebook' ? 'Opening your browser…' : 'Continue with Facebook'}
         </button>
       ) : null}
     </div>

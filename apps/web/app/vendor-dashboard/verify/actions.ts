@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { businessProfileChecklist, fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { notifyAdminsApplicationSubmitted } from '@/lib/vendor-status-notify';
 import {
   APPLICATION_TYPES,
@@ -13,6 +13,7 @@ import {
   countCompleteSlots,
   countCompleteVendorSlots,
   resolveApplicationFeeCentavos,
+  verificationSubmitMissing,
   type ApplicationType,
   type DocUploadMap,
 } from '@/lib/vendor-verification';
@@ -226,6 +227,33 @@ export async function submitApplication(formData: FormData): Promise<void> {
   // them here is what produced the deceptive "8 of 12" gate. Once integrations
   // ship, the gate moves to "12-doc complete required".
   const uploads = (app.doc_uploads ?? {}) as DocUploadMap;
+
+  // Profile-completeness gate (2026-07-21). The My Shop inline twin
+  // (`submitInlineForReview`) has always enforced `verificationSubmitMissing`,
+  // which requires a COMPLETE business profile — logo included. This path did
+  // not, so it could flip verification_state → 'pending_review' with a NULL
+  // logo. That divergence became load-bearing the moment the logo stopped
+  // being mandatory at registration (owner decision 4: "shop logo is only
+  // required before verification"), so both submit routes now read the one
+  // shared gate.
+  //
+  // Only the PROFILE reason is taken from the shared gate here: this page's
+  // document rule is deliberately the launch-soft VENDOR_DOC_SLOTS count
+  // below, not the 4-required-docs rule, and folding them together would
+  // tighten a second thing this change is not authorised to touch.
+  const checklist = businessProfileChecklist(profile);
+  const gateReasons = verificationSubmitMissing({
+    profileComplete: checklist.complete,
+    uploads,
+  });
+  if (gateReasons.includes('Finish your business profile')) {
+    redirect(
+      `/vendor-dashboard/verify?error=${encodeURIComponent(
+        `Finish your business profile before submitting — still missing: ${checklist.missing.join(', ')}.`,
+      )}`,
+    );
+  }
+
   const completeCount = countCompleteVendorSlots(uploads);
   const REQUIRED_TO_SUBMIT = VENDOR_DOC_SLOTS.length;
   if (completeCount < REQUIRED_TO_SUBMIT) {

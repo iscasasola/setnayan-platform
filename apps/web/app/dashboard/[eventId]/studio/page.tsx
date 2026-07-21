@@ -26,6 +26,7 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
+import { papicGuestPassAccess } from '@/lib/papic-event-access';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { RevealList } from '@/app/_components/reveal-list';
 import { Eye, MonitorPlay, Gift } from 'lucide-react';
@@ -90,8 +91,6 @@ export default async function StudioPage({ params, searchParams }: Props) {
   // website parts, Animated Monogram). Wedding enables ALL surfaces → nothing
   // filtered (byte-identical). Degrades to WEDDING_PROFILE on any read error.
   const profile = await resolveProfileByEvent(eventId);
-  const surfaceOk = (a: (typeof ADD_ONS)[number]) =>
-    !a.surface || surfaceEnabled(profile, a.surface);
 
   // Bundle-aware ownership for EVERY service in ONE query + live admin catalog
   // prices for the GET pills — fetched together. Ownership uses the admin client
@@ -103,8 +102,12 @@ export default async function StudioPage({ params, searchParams }: Props) {
   const serviceKeys = Array.from(
     new Set(ADD_ONS.map((a) => a.serviceKey).filter((k): k is string => Boolean(k))),
   );
-  const [{ active: ownedActive, pending: ownedPending }, { data: priceRows }, roadmapState] =
-    await Promise.all([
+  const [
+    { active: ownedActive, pending: ownedPending },
+    { data: priceRows },
+    roadmapState,
+    { data: eventRow },
+  ] = await Promise.all([
       eventActiveSkus(createAdminClient(), eventId),
       supabase
         .from('platform_retail_catalog_v2')
@@ -115,7 +118,48 @@ export default async function StudioPage({ params, searchParams }: Props) {
       // a hiccup in these five reads degrades the strip (to date-peak only, or
       // hidden) — it must never 500 the whole Studio hub for a nice-to-have.
       fetchRoadmapState(supabase, eventId, new Date()).catch(() => null),
+      // `community_id` splits ANNIVERSARY for the Papic access predicate: a
+      // couple's 25th (NULL) is Phase 1; a community-owned one is Phase 2. It
+      // cannot come from resolveProfileByEvent — that helper reads only
+      // `event_type` and is shared by every surface, so widening it would make
+      // every caller pay for a column one add-on needs. Joined here: no extra
+      // round trip.
+      supabase.from('events').select('community_id').eq('event_id', eventId).maybeSingle(),
     ]);
+
+  // Event-type gate for the Studio grid. TWO layers, and the second is not
+  // derivable from the first:
+  //
+  //   1. The generic SURFACE gate (0053 · 2026-06-28) — an add-on tagged with a
+  //      `surface` shows only when this event type's profile enables it.
+  //   2. The Papic guest-pass PREDICATE. `papic-guest` is tagged
+  //      `surface: 'rsvp'`, but travel's profile DOES enable rsvp in prod
+  //      (migration 20270804110223) — so the surface check alone would offer the
+  //      pass on a roaming, multi-day trip where "per event-day" is structurally
+  //      the wrong unit. That is a fake door. papicGuestPassAccess() carries the
+  //      permanent travel deny, the anniversary community split and the phase
+  //      ladder, and it FAILS CLOSED: a new event type does not inherit the pass
+  //      merely by having an RSVP surface.
+  //
+  // Until now the predicate had ZERO production callers — it shipped in PR #3423
+  // and nothing consulted it. This is that wiring.
+  //
+  // ⚠ This does NOT make anything purchasable. `papic-guest` is still
+  //   `status: 'coming_soon'`, and all four PAPIC_GUEST* catalog rows are
+  //   `is_active = false`, blocked on DPO gates 0d/0e (the guest-media ROPA row +
+  //   confirmation that the RSVP consent text names guest-phone capture and
+  //   face-sorted delivery). This only narrows WHO would ever see the card.
+  //   Flipping it live stays a separate, DPO-gated change.
+  const papicPassAllowed = papicGuestPassAccess({
+    profile,
+    communityId: (eventRow as { community_id?: string | null } | null)?.community_id ?? null,
+  }).allowed;
+
+  const surfaceOk = (a: (typeof ADD_ONS)[number]) => {
+    if (a.surface && !surfaceEnabled(profile, a.surface)) return false;
+    if (a.key === 'papic-guest') return papicPassAllowed;
+    return true;
+  };
 
   const priceMap = new Map<string, string>();
   for (const r of priceRows ?? []) {

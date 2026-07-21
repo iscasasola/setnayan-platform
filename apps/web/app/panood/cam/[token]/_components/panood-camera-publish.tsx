@@ -30,6 +30,51 @@ type Props = {
   streamingEnabled: boolean;
 };
 
+/**
+ * The operator's camera stream — rear camera plus mic.
+ *
+ * WITH A GRACEFUL MIC FALLBACK. A phone with no microphone, or an operator who taps "Don't allow"
+ * on the mic prompt while allowing the camera, must still get a working camera: losing the whole
+ * feed over audio would be far worse than a silent one. This mirrors the homepage demo's proven
+ * behaviour (`/panood/demo/[token]`), which is where these constraints come from.
+ *
+ * A blocked CAMERA still rejects the retry and propagates, so the caller's error state is
+ * unchanged.
+ */
+async function getCameraStream(): Promise<MediaStream> {
+  // Rear camera (corpus: Papic/Live Studio capture is rear-only). `ideal` so a single-camera
+  // device still gets a stream instead of an OverconstrainedError. 1080p @ 30fps target for the
+  // Live Studio livestream (owner 2026-07-14) — sharper than the browser default for a broadcast;
+  // `ideal`+`max` caps at 1080p (never 4K, too heavy to encode/relay) and degrades gracefully on
+  // weaker cameras. WebRTC still adapts down on poor networks.
+  const video: MediaTrackConstraints = {
+    facingMode: { ideal: 'environment' },
+    width: { ideal: 1920, max: 1920 },
+    height: { ideal: 1080, max: 1080 },
+    frameRate: { ideal: 30, max: 30 },
+  };
+  try {
+    return await navigator.mediaDevices.getUserMedia({
+      // MIC ON. A wedding broadcast without vows is not a broadcast.
+      //
+      // This used to be `audio: false`, so the real product captured a SILENT picture while the
+      // homepage demo had always captured the mic. The demo was better than the product, and it
+      // proves audio rides this transport fine — the publisher simply never asked for it.
+      //
+      // Echo cancellation and noise suppression matter in a church with a PA; auto-gain keeps a
+      // distant vow audible without the operator riding a fader they do not have.
+      video,
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    });
+  } catch (err) {
+    const name = (err as { name?: string } | null)?.name;
+    if (name === 'NotFoundError' || name === 'NotAllowedError' || name === 'OverconstrainedError') {
+      return await navigator.mediaDevices.getUserMedia({ video });
+    }
+    throw err;
+  }
+}
+
 export function PanoodCameraPublish({ cameraIndex, label, eventId, streamingEnabled }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -53,21 +98,7 @@ export function PanoodCameraPublish({ cameraIndex, label, eventId, streamingEnab
         setState('error');
         return;
       }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        // Rear camera (corpus: Papic/Live Studio capture is rear-only). `ideal` so a
-        // single-camera device still gets a stream instead of an OverconstrainedError.
-        // 1080p @ 30fps target for the Live Studio livestream (owner 2026-07-14) —
-        // sharper than the browser default for a broadcast; `ideal`+`max` caps at
-        // 1080p (never 4K, which would be too heavy to encode/relay) and degrades
-        // gracefully on weaker cameras. WebRTC still adapts down on poor networks.
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1920, max: 1920 },
-          height: { ideal: 1080, max: 1080 },
-          frameRate: { ideal: 30, max: 30 },
-        },
-        audio: false,
-      });
+      const stream = await getCameraStream();
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;

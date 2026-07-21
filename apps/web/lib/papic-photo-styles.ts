@@ -29,9 +29,16 @@
  *   • V1 has no video render pipeline, so clip BODIES stay un-styled; the clip
  *     POSTER frame is styled so the gallery thumbnail matches the look.
  *
- * Perf: getUserMedia frames are ~2 MP (≤1920×1080), so even the heaviest look
- * (LOMO: full-buffer chromatic-aberration resample + light leak + vignette) is
- * a handful of linear passes — well under a deliberate shutter's budget.
+ * Perf: frames are ~3.7 MP (2560×1440 — `HI_RES` in lib/use-papic-camera.ts:200,
+ * requested as `ideal` so a device may hand back less). Even the heaviest look
+ * (LOMO: full-buffer chromatic-aberration resample + light leak + vignette) is a
+ * handful of linear passes — well under a deliberate shutter's budget.
+ *
+ * ⚠ This line previously read "~2 MP (≤1920×1080)" and was stale by ~1.85×, which
+ * silently under-costed every proposal built on top of it. Corrected 2026-07-21
+ * (Papic_Low_Light_Council_Verdict_2026-07-21.md § 8 A2). ANY future multi-frame
+ * work — N-frame stacking, a 3D LUT, Drag mode — must be costed against 3.7 MP
+ * per frame, not 2. Re-check this comment whenever HI_RES changes.
  *
  * Note on the `!` non-null assertions in the hot loops: this repo runs
  * `noUncheckedIndexedAccess`, so a typed-array read types as `number | undefined`.

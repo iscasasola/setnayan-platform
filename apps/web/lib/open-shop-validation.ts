@@ -15,6 +15,34 @@
  * may only export async functions.
  */
 
+/**
+ * Is the shop logo required to FINISH registration?
+ *
+ * FALSE since 2026-07-21 (owner decision 4: "shop logo is only required before
+ * verification. starting your shop can start as name, next is completing the
+ * profile, then verification."). This softens iteration 0022 § 2.1b from
+ * mandatory-at-registration to mandatory-before-verification.
+ *
+ * The requirement did NOT disappear — it MOVED one stage later. The logo is
+ * still all of:
+ *   • a `businessProfileChecklist` item (lib/vendor-profile.ts) — so it is
+ *     counted in the My Shop completeness ring and named, by label, in the
+ *     itemised checklist the vendor sees;
+ *   • required to SUBMIT for verification, via `verificationSubmitMissing`
+ *     (lib/vendor-verification.ts), which gates on that checklist's `complete`;
+ *   • required to PUBLISH, via the save-time gate in
+ *     app/vendor-dashboard/actions.ts.
+ *
+ * Both the client wizard and the `becomeVendor` server action read THIS
+ * constant, so the two layers cannot drift into disagreeing about whether the
+ * logo is required — the exact bug class this module exists to prevent.
+ *
+ * Typed `boolean` (not the literal `false`) on purpose: the call sites stay
+ * real branches rather than being narrowed away, so flipping this one value is
+ * all it takes to restore the old rule.
+ */
+export const OPEN_SHOP_LOGO_REQUIRED: boolean = false;
+
 /** Light email shape check — enough to keep obviously-broken strings out. */
 export const OPEN_SHOP_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -29,6 +57,8 @@ export function isValidOpenShopEmail(raw: string): boolean {
  */
 export const OPEN_SHOP_ERRORS = {
   shopName: 'Give your shop a name.',
+  // Still the correct sentence if OPEN_SHOP_LOGO_REQUIRED is ever flipped back
+  // on; unused by the wizard while the logo is optional at registration.
   logo: 'Add your shop logo.',
   service: 'Pick your primary service.',
   contactName: 'Add the owner name.',

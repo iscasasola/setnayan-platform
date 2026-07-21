@@ -5,7 +5,11 @@ import Link from 'next/link';
 import { ArrowLeft, ArrowRight, Globe, Store } from 'lucide-react';
 
 import { SubmitButton } from '@/app/_components/submit-button';
-import { OPEN_SHOP_ERRORS, isValidOpenShopEmail } from '@/lib/open-shop-validation';
+import {
+  OPEN_SHOP_ERRORS,
+  OPEN_SHOP_LOGO_REQUIRED,
+  isValidOpenShopEmail,
+} from '@/lib/open-shop-validation';
 import { FileUpload } from '@/app/_components/file-upload';
 import { SERVICE_GROUPS, VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import { becomeVendor } from '../actions';
@@ -16,15 +20,25 @@ import { becomeVendor } from '../actions';
  * collected here, not deferred to My Shop). Two compact steps, one
  * always-mounted form (inputs persist across steps, one submit at the end):
  *
- *   1 · Your shop         — shop name · logo · primary service (pick 1)
+ *   1 · Your shop         — shop name · logo (OPTIONAL) · primary service
+ *                           (pick 1)
  *   2 · How couples reach you — owner name · contact number · company email
  *                              (all required) · location (optional)
  *
  * Everything else (website, social links, exact HQ pin, EST, portfolio,
  * documents) continues on My Shop — the profile checklist + Get-verified
  * journey are the rest of the onboarding (owner 2026-07-05: keep onboarding to
- * the six basics + location; website + social move to the dashboard). The logo
- * upload reuses the shared <FileUpload> → R2 pattern from My Shop; the
+ * the six basics + location; website + social move to the dashboard).
+ *
+ * The LOGO is optional here as of 2026-07-21 (owner decision 4: "shop logo is
+ * only required before verification. starting your shop can start as name,
+ * next is completing the profile, then verification"). It stays a
+ * business-profile checklist item, so the vendor still sees it as an
+ * outstanding row + a sub-100% completeness ring on My Shop, and still cannot
+ * publish or submit for verification without it. Required-ness is read from
+ * the shared OPEN_SHOP_LOGO_REQUIRED flag that the server action reads too.
+ *
+ * The logo upload reuses the shared <FileUpload> → R2 pattern from My Shop; the
  * primary-service labels come from the admin taxonomy (serviceLabels), falling
  * back to the in-code names.
  */
@@ -72,7 +86,8 @@ export function OpenShopWizard({
       setStepError(OPEN_SHOP_ERRORS.shopName);
       return;
     }
-    if (!logoUrl.trim()) {
+    // Same shared flag the server action gates on — the two can't drift.
+    if (OPEN_SHOP_LOGO_REQUIRED && !logoUrl.trim()) {
       setStepError(OPEN_SHOP_ERRORS.logo);
       return;
     }
@@ -176,7 +191,14 @@ export function OpenShopWizard({
 
             <div className="block space-y-1">
               <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                Shop logo<span className="ml-1 text-terracotta">*</span>
+                Shop logo
+                {OPEN_SHOP_LOGO_REQUIRED ? (
+                  <span className="ml-1 text-terracotta">*</span>
+                ) : (
+                  <span className="ml-1 font-normal" style={{ color: 'var(--m-slate-3)' }}>
+                    (optional for now)
+                  </span>
+                )}
               </span>
               <FileUpload
                 bucket="media"
@@ -200,7 +222,9 @@ export function OpenShopWizard({
                 qrGuard
               />
               <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                PNG, JPEG, or WebP up to 2&nbsp;MB. Couples see this on every vendor card.
+                PNG, JPEG, HEIC, or WebP up to 10&nbsp;MB. Couples see this on every vendor
+                card. You can add it later from My Shop — but you&rsquo;ll need it to publish
+                your shop and to get verified.
               </span>
             </div>
 

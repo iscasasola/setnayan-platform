@@ -13,20 +13,23 @@
  * simple_event. These tests make the next such gap loud.
  *
  * WHAT EACH TEST HERE CAN AND CANNOT CATCH — every claim below was mutation-
- * tested (revert the thing, watch the named test fail):
+ * tested (revert the thing, watch the named test fail). Listed in file/TAP
+ * order, so `not ok 2` maps to the second item.
  *
- *   1. `roster` — THE LOAD-BEARING TEST. Derived from `ANCHOR_BY_TYPE`, so it
- *      covers the five at-risk types and fails the moment a type is added to
- *      that map without a label. Verified: delete any of the five entries from
- *      `CHECKLIST_EVENT_LABELS` → this test fails.
- *   2. `roster sources agree` — keeps test 1's roster honest. It cross-checks
- *      two INDEPENDENTLY-maintained production maps that are each keyed by the
- *      full vocab, so a type half-added to the codebase is loud. Verified:
- *      remove a key from either map → this test fails.
- *   3. `newly-labelled types render the expected copy` — pins the exact strings
- *      of the five entries this fix added (a rename/typo regression, which
- *      test 1 would not see because renamed copy is still non-wedding).
- *   4. `unknown event types still fall back to wedding chrome` — pins the
+ *   `checklist defs stay inside the derived roster` — a cheap consistency
+ *      check, NOT the guardrail. It only fires if a type has a dedicated
+ *      checklist def but no `ANCHOR_BY_TYPE` entry. Verified: delete a key
+ *      from `ANCHOR_BY_TYPE` that has a def (e.g. `debut`) → this fails.
+ *   `roster: every creatable event type gets its own checklist chrome` — THE
+ *      LOAD-BEARING TEST. Derived from `ANCHOR_BY_TYPE`, so it covers the five
+ *      at-risk types and fails the moment a type is added to that map without
+ *      a label. Verified: delete any of the five entries from
+ *      `CHECKLIST_EVENT_LABELS` → this test fails; add a 15th type to
+ *      `ANCHOR_BY_TYPE` without a label → ONLY this test fails.
+ *   `newly-labelled types render the expected copy` — pins the exact strings
+ *      of the five entries this fix added (a rename/typo regression, which the
+ *      roster test would not see because renamed copy is still non-wedding).
+ *   `unknown event types still fall back to wedding chrome` — pins the
  *      deliberate fall-through so a future "helpfully" derived-from-key default
  *      cannot land unnoticed.
  *
@@ -36,7 +39,7 @@
  * precisely the ones with no dedicated def, which route through
  * `GENERIC_EVENT_CHECKLIST_DEF` and so never appear in that registry at all
  * (lib/checklist-event-type-defs.ts). Its only non-decorative content — that a
- * def key must be inside the roster — survives as an assertion inside test 2.
+ * def key must be inside the roster — survives as the first test below.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -44,48 +47,49 @@ import assert from 'node:assert/strict';
 import { checklistChrome } from '@/lib/checklist';
 import { EVENT_TYPE_CHECKLIST_DEFS } from '@/lib/checklist-event-type-defs';
 import { ANCHOR_BY_TYPE } from '@/lib/event-anchor';
-import { SPECIALTY_CATALOG } from '@/lib/onboarding/specialty-catalog';
 
 /**
- * The creatable-type roster, DERIVED — not hand-listed. `ANCHOR_BY_TYPE`
- * (lib/event-anchor.ts) is keyed by exactly the 14 active+enabled
- * `event_type_vocab` rows as of migration 20270726622326 (`burial` deliberately
- * absent — owner-RETIRED 2026-05-16), and it is load-bearing production code:
- * the create-event action stamps `events.anchor_kind` from it, so a new type
- * has to be added there or its anchor silently degrades to `FALLBACK_ANCHOR`.
+ * The creatable-type roster, derived rather than hand-listed IN THIS FILE.
+ * `ANCHOR_BY_TYPE` (lib/event-anchor.ts) is keyed by exactly the 14
+ * active+enabled `event_type_vocab` rows as of migration 20270726622326
+ * (`burial` deliberately absent — owner-RETIRED 2026-05-16), and it is
+ * load-bearing production code: the create-event action stamps
+ * `events.anchor_kind` from it, so a new type has to be added there or its
+ * anchor silently degrades to `FALLBACK_ANCHOR`.
+ *
+ * WHAT KEEPS THAT MAP HONEST IS NOT THIS FILE: `lib/event-anchor.test.ts`
+ * deep-equals its keys against a hand-listed 14, and
+ * `lib/onboarding/specialty-catalog.test.ts` pins `SPECIALTY_CATALOG` to the
+ * same 14. So adding a 15th type still means editing hand-maintained arrays —
+ * the derivation removes this file's copy of the list, not hand maintenance
+ * overall. (An earlier revision of this file cross-checked those two maps
+ * against each other; that assertion was deleted because both are already
+ * key-pinned in their own suites, so it could not catch anything new, and it
+ * coupled the checklist suite to onboarding — a type shipped without an
+ * onboarding specialty spec is a state production tolerates
+ * (`getSpecialtySpec` returns null).)
  *
  * HONEST LIMIT: this is still a TypeScript map, not a live read of the DB. A
  * type an admin creates at runtime via /admin/event-types — or one added to the
- * SQL vocab and to neither map below — is caught by nothing here. What is now
+ * SQL vocab and to no TS map — is caught by nothing here. What is now
  * impossible is the failure that actually happened: a type wired into the app's
  * type maps but forgotten in `CHECKLIST_EVENT_LABELS`.
  */
 const EVENT_TYPE_ROSTER = Object.keys(ANCHOR_BY_TYPE);
 
 /**
- * Guards the roster ITSELF. `ANCHOR_BY_TYPE` and `SPECIALTY_CATALOG` are
- * maintained by different features (date anchors vs. onboarding signature
- * fields) and are each keyed by the whole vocab, so requiring them to agree
- * turns "added the type to one place only" into a failing test rather than a
- * quietly-shrunken roster for the test above. The defs registry is a legitimate
- * SUBSET (only 8 types have a dedicated checklist template).
+ * Consistency only, and deliberately narrow: the defs registry is a legitimate
+ * SUBSET of the roster (only 8 of the 14 types have a dedicated checklist
+ * template), so all this can say is that a type with a def must also have an
+ * anchor. It is NOT what makes a missing label loud — the roster test below is.
  */
-test('roster sources agree (ANCHOR_BY_TYPE ≡ SPECIALTY_CATALOG ⊇ checklist defs)', () => {
-  const anchor = [...EVENT_TYPE_ROSTER].sort();
-  const specialty = Object.keys(SPECIALTY_CATALOG).sort();
-  assert.deepEqual(
-    anchor,
-    specialty,
-    'ANCHOR_BY_TYPE and SPECIALTY_CATALOG disagree — an event type was added to one map but not the other; the checklist roster below is derived from the first, so fix the drift before trusting it',
-  );
+test('checklist defs stay inside the derived roster', () => {
   for (const key of Object.keys(EVENT_TYPE_CHECKLIST_DEFS)) {
     assert.ok(
       EVENT_TYPE_ROSTER.includes(key),
       `'${key}' has a checklist def but is missing from ANCHOR_BY_TYPE — the derived roster would skip it`,
     );
   }
-  // Cheap tripwire: the roster is the vocab, so it can only grow.
-  assert.ok(EVENT_TYPE_ROSTER.length >= 14, 'event type roster shrank below the 14 vocab rows');
 });
 
 /** Every creatable type must get its own chrome — no wedding fall-through. */

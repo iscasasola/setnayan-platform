@@ -242,6 +242,39 @@ export async function countUnreadMessages(
  *    this count on an un-migrated DB.
  *  - An errored count still falls through to 0 (gate opens). Pre-existing
  *    behaviour, deliberately unchanged here.
+ *
+ * KNOWN, ACCEPTED consequence of RA 10173 erasure: this counts rows, so
+ * `purgeUserAuthoredChat` (app/admin/users/actions.ts) hard-deleting a leaving
+ * user's authored messages lowers the count — and if it reaches 0 on a still-
+ * `pending` thread the pre-accept allowance re-opens and the next couple message
+ * is re-classified as a new inquiry (re-firing `vendor_inquiry`). That needs a
+ * SECOND surviving `event_members` row with `member_type='couple'` on the same
+ * event. No SHIPPED APPLICATION PATH creates one: every couple row is written by
+ * the event's own creator (create-event / onboarding), co-hosts accepted via
+ * /host/accept get `'coordinator'`, and every join / claim path (incl. the
+ * `finalize_guest_claim` RPC) writes `'guest'`.
+ *
+ * Improbable, NOT impossible — do not read the above as a schema invariant:
+ *  - UNIQUE(event_id, user_id) (20260512000000_setnayan_base.sql) only stops ONE
+ *    user holding two rows. It says nothing about two DIFFERENT users both being
+ *    `member_type='couple'` on the same event.
+ *  - RLS permits it. `member_can_self_join` WITH CHECK includes
+ *    `OR event_id IN (SELECT public.current_couple_event_ids())`
+ *    (20261102000000_guest_invite_claim.sql), and `couple_can_update_member` has
+ *    a USING over couple events with no WITH CHECK
+ *    (20260513040000_fix_rls_infinite_recursion.sql) — so an existing couple
+ *    member (or an admin) can INSERT a second couple row, or promote a
+ *    guest/coordinator, straight through PostgREST with no app path involved.
+ *  - Legacy/seeded rows may already exist. The iteration-0048 backfill
+ *    (20260519100000) explicitly ranks "additional rows (rare)" per event.
+ *    One-time check: SELECT event_id FROM event_members WHERE
+ *    member_type='couple' GROUP BY 1 HAVING count(*) > 1;
+ *
+ * If multiple couple-type hosts are ever wired up, revisit: erasure must not be
+ * allowed to restore a spent allowance. Not defended against here, because the
+ * only defence would be a durable non-message counter, and erasure legally wins
+ * over a gate counter anyway. Blast radius is one re-fired `vendor_inquiry` plus
+ * one restored pre-accept message, which is why this stays documented, not coded.
  */
 export async function countCoupleMessages(
   admin: SupabaseClient,

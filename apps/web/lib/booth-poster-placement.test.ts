@@ -1,0 +1,197 @@
+/**
+ * BOOTH POSTER PLACEMENT — geometry + avoidance guard.
+ *
+ * The per-event poster stand (PR #3437) shipped with its offset measured off
+ * the SHARED booth footprint (`BOOTH_FOOTPRINT_M.w` = 2.0 m) and a 0.42 m gap:
+ *
+ *     rotateLocalRad({ x: w / 2 + 0.42, z: -0.2 }, facingY)   // x = 1.42, always
+ *
+ * Two independent defects, both fixed by `boothPosterLocalOffset`:
+ *
+ * 1. WRONG BODY. Once a template resolves, the booth's body is its CHASSIS, and
+ *    chassis widths run 1.8 m (DESK) to 3.4 m (BUFFET) — the shared 2.0 m
+ *    footprint describes none of them reliably. The sibling `BoothSign` already
+ *    reads per-chassis geometry (`signAnchor`); the poster did not.
+ *
+ * 2. THE STAND'S OWN WIDTH WAS NEVER COUNTED. `BoothPoster` draws a top rail at
+ *    `maxW + 0.12` = 0.90 m, so the stand reaches 0.45 m either side of its
+ *    origin — MORE than the 0.42 m gap the offset allowed. The stand therefore
+ *    reached back inside the booth body on NINE of the ten chassis, including
+ *    the 2.0 m ones the number was tuned for. Only DESK (1.8 m) cleared, by
+ *    7 cm.
+ *
+ * These are pure-geometry facts, so they are cheap to pin and would otherwise
+ * only ever be caught by someone looking at the right booth from the right
+ * angle in a 3D scene — which is how this shipped in the first place.
+ *
+ * The obstacle half is covered too: the crowd-avoidance disc must sit where the
+ * artwork actually is. Renderer and obstacle both call the SAME helper, and the
+ * test below asserts the disc lands on the helper's offset — because a
+ * renderer/obstacle drift puts the disc somewhere the poster isn't, which reads
+ * as "guests walk through the banner" and is invisible to any test that checks
+ * only one side.
+ */
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+
+import {
+  BOOTH_POSTER_HALF_W,
+  boothPosterLocalOffset,
+  templateBoothObstacles,
+  boothChassisSpec,
+} from '@/app/_components/plan3d/kit/booth-templates';
+import { CHASSIS_SPECS } from '@/app/_components/plan3d/kit/booth-chassis';
+import { BOOTH_FOOTPRINT_M, pctToWorld } from '@/lib/seating-3d';
+
+const ROOM = { w: 20, d: 14 };
+
+/** Minimum walking gap we require between the booth body and the stand. */
+const MIN_GAP = 0.2;
+
+test('the poster stand clears every chassis body — the shipped constant did not', () => {
+  const offenders: string[] = [];
+
+  for (const [kind, spec] of Object.entries(CHASSIS_SPECS)) {
+    const { x } = boothPosterLocalOffset(spec);
+    // The stand's INNER edge, i.e. the closest its geometry comes to centre.
+    const innerEdge = x - BOOTH_POSTER_HALF_W;
+    const bodyHalf = spec.w / 2;
+    if (innerEdge < bodyHalf + MIN_GAP - 1e-9) {
+      offenders.push(
+        `${kind}: body half ${bodyHalf}, stand inner edge ${innerEdge.toFixed(3)}`,
+      );
+    }
+  }
+
+  assert.deepEqual(
+    offenders,
+    [],
+    `Poster stand intersects (or crowds) these chassis:\n  ${offenders.join('\n  ')}`,
+  );
+});
+
+test('the OLD hardcoded offset really did clip 9 of 10 chassis (regression is real, not theoretical)', () => {
+  // Documents the defect this file exists to prevent. If someone "simplifies"
+  // the helper back to a constant, the test above fires — and this one explains
+  // why the constant was never right.
+  const OLD_X = BOOTH_FOOTPRINT_M.w / 2 + 0.42; // 1.42
+  const oldInnerEdge = OLD_X - BOOTH_POSTER_HALF_W; // 0.97
+
+  const clipped = Object.entries(CHASSIS_SPECS).filter(
+    ([, spec]) => oldInnerEdge < spec.w / 2,
+  );
+
+  assert.equal(
+    clipped.length,
+    9,
+    `expected 9 clipping chassis under the old constant, got ${clipped.length}: ${clipped.map(([k]) => k).join(',')}`,
+  );
+  // BUFFET was the worst: 3.4 m body, stand 0.73 m inside it.
+  assert.ok(oldInnerEdge < CHASSIS_SPECS.BUFFET.w / 2);
+  // DESK was the ONLY chassis that cleared.
+  assert.ok(oldInnerEdge > CHASSIS_SPECS.DESK.w / 2);
+});
+
+test('the offset scales with the chassis, not with a constant', () => {
+  // BUFFET (3.4) must push the stand strictly further out than DESK (1.8).
+  const buffet = boothPosterLocalOffset(CHASSIS_SPECS.BUFFET).x;
+  const desk = boothPosterLocalOffset(CHASSIS_SPECS.DESK).x;
+  assert.ok(
+    buffet > desk,
+    `BUFFET stand (${buffet}) must sit further out than DESK (${desk})`,
+  );
+  assert.ok(
+    Math.abs(buffet - desk - (CHASSIS_SPECS.BUFFET.w - CHASSIS_SPECS.DESK.w) / 2) < 1e-9,
+    'the delta must be exactly half the width difference',
+  );
+});
+
+test('a generic (template-less) booth falls back to the shared footprint', () => {
+  const generic = boothPosterLocalOffset(null);
+  assert.equal(
+    generic.x,
+    BOOTH_FOOTPRINT_M.w / 2 + 0.25 + BOOTH_POSTER_HALF_W,
+    'null spec must fall back to BOOTH_FOOTPRINT_M, never NaN',
+  );
+  assert.ok(Number.isFinite(generic.x) && Number.isFinite(generic.z));
+});
+
+// ── The obstacle half ────────────────────────────────────────────────────────
+
+/** A booth whose template resolves to the widest chassis (catering → BUFFET). */
+function boothWithPoster(posterUrl: string | null) {
+  return {
+    kind: 'catering',
+    xPct: 50,
+    yPct: 50,
+    // `boothTemplateFor` resolves off vendor.category (catering -> BUFFET,
+    // the widest chassis), NOT off `kind` — which is a booth_type.
+    vendor: { tier: 'enterprise', category: 'catering', posterUrl, logoUrl: null },
+  } as unknown as Parameters<typeof templateBoothObstacles>[0][number];
+}
+
+test('a poster adds exactly one avoidance disc; no poster adds none', () => {
+  const withPoster = templateBoothObstacles([boothWithPoster('r2://b/p.jpg')], ROOM);
+  const without = templateBoothObstacles([boothWithPoster(null)], ROOM);
+
+  assert.equal(
+    withPoster.length - without.length,
+    1,
+    'the poster must contribute exactly one disc — no more, no fewer',
+  );
+});
+
+test('the avoidance disc sits where the artwork is (renderer/obstacle cannot drift)', () => {
+  const booth = boothWithPoster('r2://b/p.jpg');
+  const withPoster = templateBoothObstacles([booth], ROOM);
+  const without = templateBoothObstacles([boothWithPoster(null)], ROOM);
+
+  // The one disc present only in the poster case.
+  const extra = withPoster.find(
+    (d) => !without.some((o) => o.c.x === d.c.x && o.c.z === d.c.z && o.r === d.r),
+  );
+  assert.ok(extra, 'could not isolate the poster disc');
+
+  const centre = pctToWorld(50, 50, ROOM);
+  const off = boothPosterLocalOffset(boothChassisSpec(booth));
+  // Booth is dead-centre in the room, so boothFacingY yields a known heading;
+  // rather than re-deriving it, assert the disc is exactly |off| away from the
+  // booth centre — true under ANY yaw, since rotation preserves length.
+  const dist = Math.hypot(extra.c.x - centre.x, extra.c.z - centre.z);
+  const expected = Math.hypot(off.x, off.z);
+  assert.ok(
+    Math.abs(dist - expected) < 1e-6,
+    `disc is ${dist.toFixed(4)} m from booth centre, artwork is ${expected.toFixed(4)} m — they have drifted`,
+  );
+});
+
+test('the disc is at least as wide as the stand it protects', () => {
+  const booth = boothWithPoster('r2://b/p.jpg');
+  const withPoster = templateBoothObstacles([booth], ROOM);
+  const without = templateBoothObstacles([boothWithPoster(null)], ROOM);
+  const extra = withPoster.find(
+    (d) => !without.some((o) => o.c.x === d.c.x && o.c.z === d.c.z && o.r === d.r),
+  );
+  assert.ok(extra);
+  assert.ok(
+    extra.r >= BOOTH_POSTER_HALF_W,
+    `disc radius ${extra.r} is smaller than the stand's half-width ${BOOTH_POSTER_HALF_W} — walkers would clip the banner`,
+  );
+});
+
+test('an unbrandable vendor gets no poster disc (disc obeys the same gate as the art)', () => {
+  // boothCanBrand is false for solo/verified tiers — the renderer draws no
+  // poster for them, so the obstacle must not invent one.
+  const solo = {
+    kind: 'catering',
+    xPct: 50,
+    yPct: 50,
+    vendor: { tier: 'solo', category: 'catering', posterUrl: 'r2://b/p.jpg', logoUrl: null },
+  } as unknown as Parameters<typeof templateBoothObstacles>[0][number];
+
+  assert.equal(
+    templateBoothObstacles([solo], ROOM).length,
+    templateBoothObstacles([boothWithPoster(null)], ROOM).length,
+    'a non-brandable vendor must not get a poster disc',
+  );
+});

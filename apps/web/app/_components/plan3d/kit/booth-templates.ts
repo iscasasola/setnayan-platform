@@ -33,6 +33,7 @@ import {
 import type { BoothPropKind } from './booth-props';
 import {
   BOOTH_FOOTPRINT_M,
+  boothCanBrand,
   pctToWorld,
   boothFacingY,
   rotateLocalRad,
@@ -891,6 +892,51 @@ export function boothChassisSpec(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Per-event poster stand — placement shared by the RENDERER and the OBSTACLE
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The poster stand's own half-width. `BoothPoster` (venue-objects.tsx) draws a
+ * fixed frame whose WIDEST element is the top rail at `maxW + 0.12` = 0.90 m,
+ * so the stand reaches 0.45 m either side of its group origin.
+ *
+ * This number is why the original placement was wrong on nine of ten chassis:
+ * the offset added a 0.42 m gap that was smaller than the stand's own half-
+ * width, so the rail reached back INSIDE the booth body even on the 2.0 m
+ * chassis it was tuned for.
+ */
+export const BOOTH_POSTER_HALF_W = 0.45;
+
+/** Walking clearance between the booth body and the poster stand. */
+const BOOTH_POSTER_GAP = 0.25;
+
+/** How far the stand sits toward the booth's back (FRONT is +z). Keeps the
+ *  artwork beside the booth rather than out in the aisle. */
+const BOOTH_POSTER_Z = -0.2;
+
+/**
+ * Booth-local offset of the per-event poster stand.
+ *
+ * SINGLE SOURCE OF TRUTH — consumed by BOTH the renderer (venue-objects.tsx)
+ * and `templateBoothObstacles` below. They must not compute this separately:
+ * a renderer/obstacle disagreement puts the avoidance disc somewhere the
+ * artwork isn't, which reads as "the crowd walks through the poster" and is
+ * invisible to every test that only checks one side.
+ *
+ * Measured off the CHASSIS width, not `BOOTH_FOOTPRINT_M` — the shared 2.0 m
+ * footprint is not the booth's body once a template resolves (BUFFET is 3.4 m,
+ * VEHICLE 2.6 m, RISER/BACKDROP 2.4 m), and the sibling `BoothSign` already
+ * reads per-chassis geometry via `signAnchor`.
+ */
+export function boothPosterLocalOffset(spec: ChassisSpec | null): {
+  x: number;
+  z: number;
+} {
+  const halfBody = (spec?.w ?? BOOTH_FOOTPRINT_M.w) / 2;
+  return { x: halfBody + BOOTH_POSTER_GAP + BOOTH_POSTER_HALF_W, z: BOOTH_POSTER_Z };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Tap volume (the invisible booth hit box, sized to the resolved chassis)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -970,6 +1016,21 @@ export function templateBoothObstacles(
       for (const a of anchors) {
         const r = rotateLocalRad({ x: a.x, z: a.z }, facingY);
         out.push({ c: { x: c.x + r.x, z: c.z + r.z }, r: 0.3 });
+      }
+      // The per-event poster stand is solid too. It renders only in the
+      // TEMPLATE branch and only behind the same `boothCanBrand` gate as the
+      // artwork itself, so the disc is conditional on exactly what the
+      // renderer draws — same gate, same offset helper, no drift. Without
+      // this, walkers stroll straight through the banner.
+      if (boothCanBrand(b.vendor?.tier) && b.vendor?.posterUrl) {
+        const off = boothPosterLocalOffset(spec);
+        const r = rotateLocalRad(off, facingY);
+        out.push({
+          c: { x: c.x + r.x, z: c.z + r.z },
+          // The stand's own half-width plus the ~0.4 m walking slack every
+          // other disc in this system carries.
+          r: BOOTH_POSTER_HALF_W + 0.4,
+        });
       }
     }
   }

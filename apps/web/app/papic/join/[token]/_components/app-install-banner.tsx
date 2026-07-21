@@ -10,6 +10,24 @@ import { Smartphone, X } from 'lucide-react';
 // SiteChrome / NAV_ROUTES is owned by another wave and must not be touched
 // here, so this banner lives and dies with this route.
 //
+// ⚠ WHAT THE APP DOES *NOT* DO — read before writing copy here.
+// The native shell is a REMOTE-URL Capacitor WebView (apps/mobile/capacitor.config.ts:
+// "this shell does NOT bundle the app"; server.url -> https://www.setnayan.com). It
+// loads the same hosted app and runs the SAME getUserMedia path via
+// lib/use-papic-camera.ts. `@capacitor/camera` is a declared dependency with ZERO
+// importers anywhere in apps/web.
+//
+// So installing it does NOT give a faster camera, a better camera, or instant
+// uploads — background upload is one of the named-but-unbuilt native gaps
+// (Container_App_Strategy_Council_Verdict_2026-07-13.md). This copy previously
+// promised "A faster camera and instant uploads", which was false, and sat eight
+// lines above the page's own "no app to install" line. Corrected 2026-07-21 per
+// Papic_Low_Light_Council_Verdict_2026-07-21.md § 8 A1.
+//
+// The honest claim today is convenience — a home-screen icon and no browser
+// chrome. Do not re-add a capture-quality claim unless a real native capture
+// plugin ships AND the frames actually differ.
+//
 // WHY IT'S MOSTLY DORMANT TODAY — the apps are built but not yet published
 // (App Store / Play enrollment is owner-gated). So the store links are
 // env-configured: until NEXT_PUBLIC_IOS_APP_STORE_URL / _ANDROID_PLAY_STORE_URL
@@ -87,7 +105,7 @@ export function AppInstallBanner({
         {storeUrl ? (
           <>
             <p className="mt-0.5 text-xs text-ink/60">
-              A faster camera and instant uploads. Or keep going right here in your browser.
+              Keeps Setnayan one tap away. The camera works exactly the same either way.
             </p>
             <a
               href={storeUrl}

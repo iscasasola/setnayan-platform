@@ -1173,18 +1173,6 @@ function SourcesRail({
         </p>
       )}
 
-      {/* Audio-meter placeholders */}
-      <div className="space-y-1 border-t border-ink/10 pt-3">
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">
-          Audio (preview)
-        </p>
-        <div className="h-2 overflow-hidden rounded-full bg-ink/10">
-          <div aria-hidden className="h-full w-0 bg-success-400" />
-        </div>
-        <p className="text-[10px] text-ink/45">
-          Live level meters arrive with the streaming rollout.
-        </p>
-      </div>
     </section>
   );
 }

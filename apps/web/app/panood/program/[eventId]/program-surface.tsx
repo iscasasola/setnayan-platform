@@ -127,14 +127,31 @@ export function PanoodProgramSurface() {
   );
 }
 
-/** One full-bleed video. `object-contain` — never crop the couple's frame. */
+/**
+ * One full-bleed video. `object-contain` — never crop the couple's frame.
+ *
+ * UNMUTED, deliberately, and only here.
+ *
+ * OBS captures this WINDOW's picture; it does not capture a muted element's audio. For the vows to
+ * reach the couple's YouTube, this surface has to actually make sound, which OBS then picks up via
+ * Desktop/Application Audio Capture. The control-room monitor stays muted on purpose — the operator
+ * is usually in the same room as a camera, and an unmuted monitor there is a feedback loop.
+ *
+ * Autoplay policy is the catch: a browser may refuse to start an unmuted element. This window is
+ * opened by a click, so it normally has activation — but if the unmuted play is rejected we FALL
+ * BACK TO MUTED rather than lose the picture. A silent broadcast is bad; a black one is worse.
+ */
 function StreamLayer({ stream }: { stream: MediaStream }) {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     el.srcObject = stream;
-    void el.play().catch(() => {});
+    el.muted = false;
+    void el.play().catch(() => {
+      el.muted = true;
+      void el.play().catch(() => {});
+    });
     return () => {
       el.srcObject = null;
     };
@@ -144,7 +161,7 @@ function StreamLayer({ stream }: { stream: MediaStream }) {
       ref={ref}
       playsInline
       autoPlay
-      muted
+      // NOT `muted` — see above. The effect re-asserts it and degrades on rejection.
       className="h-full w-full object-contain"
     />
   );

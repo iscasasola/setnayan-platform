@@ -163,6 +163,36 @@ test('suite page: every routes.* builder it references resolves to a real page',
   }
 });
 
+test('the Compare-vendors free doorway never lands on the param-gated /explore/compare', () => {
+  // 2026-07-22 audit: /explore/compare renders a comparison ONLY with
+  // ?ids=<uuid>,<uuid> — linked bare it redirect('/explore')s 100% of the time,
+  // so the free card was a dead doorway (existed, so routeExists/lint-routes
+  // passed, but never rendered a comparison). The fix: the static FREE_TOOLS
+  // fallback is the marketplace save-flow (routes.explore.index), and SuitePage
+  // builds /explore/compare?ids=… at render only once ≥2 vendors are saved.
+  const block = suiteSource.match(/const FREE_TOOLS[\s\S]*?\n\];/);
+  assert.ok(block, 'suite/page.tsx must contain the FREE_TOOLS array');
+  const compareEntry = block![0].match(/key:\s*'compare'[\s\S]*?\n {2}\}/);
+  assert.ok(compareEntry, "FREE_TOOLS must contain the 'compare' entry");
+  assert.match(
+    compareEntry![0],
+    /href:\s*\([^)]*\)\s*=>\s*routes\.explore\.index\(\)/,
+    "the compare card's static href must be routes.explore.index (the save-flow), " +
+      'not routes.explore.compare — which redirects away without ?ids=',
+  );
+  assert.doesNotMatch(
+    compareEntry![0],
+    /routes\.explore\.compare/,
+    'the compare card must not statically link the param-gated /explore/compare',
+  );
+  // …and the render-time smart doorway must build the real comparison with ids.
+  assert.match(
+    suiteSource,
+    /routes\.explore\.compare\(\)\}\?ids=/,
+    'SuitePage must build /explore/compare?ids=… at render when ≥2 vendors are saved',
+  );
+});
+
 // ── 2 · retired-prefix: no doorway points into a retired route tree ────────────
 
 test('no add-on href starts with a retired route prefix', () => {

@@ -128,9 +128,15 @@ const FREE_TOOLS: readonly FreeTool[] = [
   {
     key: 'compare',
     label: 'Compare vendors',
-    blurb: 'Put two saved vendors side by side — price, inclusions, reviews.',
+    blurb: 'Save vendors as you browse, then see two side by side — price, inclusions, reviews.',
     Icon: Scale,
-    href: () => routes.explore.compare(),
+    // Static fallback = the marketplace save-flow (routes.explore.index). The
+    // param-gated /explore/compare route renders a comparison ONLY with
+    // ?ids=<uuid>,<uuid> and redirect('/explore')s without them, so linking it
+    // bare is a dead doorway (audit 2026-07-22). SuitePage overrides this href
+    // at render with the couple's saved shortlist — jumping straight to the
+    // comparison once ≥2 vendors are saved.
+    href: () => routes.explore.index(),
     gradient: 'linear-gradient(135deg, #2B1810 0%, #5A2818 55%, #C97B4B 100%)',
   },
 ];
@@ -186,6 +192,7 @@ export default async function SuitePage({ params }: Props) {
     { data: priceRows },
     roadmapState,
     { data: eventRow },
+    { data: savedVendorRows },
   ] = await Promise.all([
     eventActiveSkus(createAdminClient(), eventId),
     supabase
@@ -201,7 +208,34 @@ export default async function SuitePage({ params }: Props) {
       .select('display_name, event_date, monogram_text')
       .eq('event_id', eventId)
       .maybeSingle(),
+    // Compare-vendors doorway — resolve the couple's saved shortlist in the same
+    // batch (identical query to /explore's compare-shortlist banner) so the free
+    // card can jump straight to a rendered comparison instead of the bare
+    // /explore/compare, which redirects away without ?ids= (audit 2026-07-22).
+    supabase
+      .from('event_vendors')
+      .select('marketplace_vendor_id')
+      .eq('event_id', eventId)
+      .not('marketplace_vendor_id', 'is', null)
+      .neq('status', 'declined')
+      .order('vendor_id', { ascending: true }),
   ]);
+
+  // The two earliest saved marketplace vendors → a real side-by-side comparison;
+  // fewer than two means there is nothing to compare, so the doorway falls back
+  // to the marketplace where the couple saves candidates first. Either target is
+  // a working page (the bare /explore/compare is not — it redirects).
+  const savedVendorIds = Array.from(
+    new Set(
+      (savedVendorRows ?? [])
+        .map((r) => r.marketplace_vendor_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  const compareHref =
+    savedVendorIds.length >= 2
+      ? `${routes.explore.compare()}?ids=${savedVendorIds[0]},${savedVendorIds[1]}`
+      : routes.explore.index();
 
   const persona: VignettePersona = {
     names: eventRow?.display_name?.trim() || 'Your day',
@@ -413,7 +447,7 @@ export default async function SuitePage({ params }: Props) {
           {stripFree.map((t) => (
             <StudioAppRow
               key={t.key}
-              href={t.href(eventId)}
+              href={t.key === 'compare' ? compareHref : t.href(eventId)}
               label={t.label}
               blurb={t.blurb}
               Icon={t.Icon}

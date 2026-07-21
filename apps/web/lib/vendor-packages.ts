@@ -38,9 +38,43 @@ import type { VendorCategory } from '@/lib/vendors';
  * Misc bucket instead of a specific planning group.
  */
 export const PACKAGE_CANONICAL_TO_VENDOR_CATEGORY: Record<string, VendorCategory> = {
-  // Venue + ceremony anchors
+  // Venue + ceremony anchors.
+  // `reception_venue` + `ceremony_venue_booking` became REAL canonicals on
+  // 2026-07-21 (dead-tile fix); `ceremony_venue` is kept as a legacy alias
+  // because it was in this map before the canonical existed and package seed
+  // data may already carry the string.
   reception_venue: 'venue',
   ceremony_venue: 'religious_venue',
+  ceremony_venue_booking: 'religious_venue',
+  // Reception leaves — the ballroom/hall family that used to have to mis-tag
+  // itself as `accommodation` to surface.
+  function_hall: 'venue',
+  events_place: 'venue',
+  hotel_ballroom: 'venue',
+  garden_reception_venue: 'venue',
+  resort_reception_venue: 'venue',
+  // Ceremony leaves — religious locations, one per faith_vocab key.
+  catholic_church_venue: 'religious_venue',
+  christian_church_venue: 'religious_venue',
+  born_again_church_venue: 'religious_venue',
+  inc_kapilya_venue: 'religious_venue',
+  aglipayan_church_venue: 'religious_venue',
+  orthodox_church_venue: 'religious_venue',
+  sda_church_venue: 'religious_venue',
+  kingdom_hall_venue: 'religious_venue',
+  lds_temple_venue: 'religious_venue',
+  mosque_venue: 'religious_venue',
+  synagogue_venue: 'religious_venue',
+  hindu_temple_venue: 'religious_venue',
+  gurdwara_venue: 'religious_venue',
+  buddhist_temple_venue: 'religious_venue',
+  cultural_ceremony_site: 'religious_venue',
+  // A civil ceremony is not religious, but `religious_venue` is the enum value
+  // the CEREMONY plan group reads (`categories: ['religious_venue',
+  // 'church_fees']` in wedding-plan-groups.ts) while `venue` routes to the
+  // RECEPTION card. Functional placement wins over label purity: a city-hall
+  // booking belongs on the ceremony card, not the reception one.
+  civil_ceremony_venue: 'religious_venue',
   // Food + drink
   catering: 'catering',
   cake_desserts: 'cake_maker',

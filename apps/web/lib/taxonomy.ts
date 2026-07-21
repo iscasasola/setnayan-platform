@@ -725,6 +725,58 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   // also provide catering", owner directive 2026-05-22).
   accommodation:                     { folder: 'venue', tile: 'reception', phase: 'V1.1 base', secondary_tiles: ['catering'] },
 
+  // ── CEREMONY VENUE (tile `ceremony_venue`) — dead-tile fix, 2026-07-21 ──
+  // Owner, verbatim: "ceremony venue are the religious locations for different
+  // religions." So these are the ROOMS, not the celebrants — orthogonal to the
+  // marketplaceHidden officiant rows above (a parish rents the church; the
+  // priest is a separate booking that auto-resolves from it).
+  //
+  // The faith tag is one-to-one with `faith_vocab` / WEDDING_FAITH_KEYS. This
+  // deliberately WIDENS the de-faith carve-out documented on `TaxonomyEntry.
+  // faith` ("officiants / seminars / counseling") to places of worship, on the
+  // grounds that a mosque's faith is intrinsic to the building, not a
+  // preference imposed on a neutral service. Food and cultural items stay
+  // un-tagged as before.
+  //
+  // ⚠ `ceremony_venue_booking` MUST stay faith-NULL. passesFaithFilter is
+  // include-only and `events.ceremony_type` defaults to 'catholic', so without
+  // an untagged anchor a couple who never picked a rite would see only the
+  // Catholic room — and a non-wedding event (empty faith set) would see an
+  // empty shelf, i.e. the exact defect this change closes.
+  ceremony_venue_booking:            { folder: 'venue', tile: 'ceremony_venue', phase: 'V1.1 base' },
+  catholic_church_venue:             { folder: 'venue', tile: 'ceremony_venue', phase: 'V1.1 base', faith: 'Catholic' },
+  christian_church_venue:            { folder: 'venue', tile: 'ceremony_venue', phase: 'V1.2', faith: 'Christian' },
+  born_again_church_venue:           { folder: 'venue', tile: 'ceremony_venue', phase: 'V1.2', faith: 'Born Again' },
+  inc_kapilya_venue:                 { folder: 'venue', tile: 'ceremony_venue', phase: 'V1.3', faith: 'INC', ph: true },
+  aglipayan_church_venue:            { folder: 'venue', tile: 'ceremony_venue', phase: 'V1.2', faith: 'Aglipayan', ph: true },
+  orthodox_church_venue:             { folder: 'venue', tile: 'ceremony_venue', phase: 'V1.2', faith: 'Orthodox' },
+  sda_church_venue:                  { folder: 'venue', tile: 'ceremony_venue', phase: 'V1.2', faith: 'SDA' },
+  kingdom_hall_venue:                { folder: 'venue', tile: 'ceremony_venue', phase: 'V1.2', faith: 'JW' },
+  lds_temple_venue:                  { folder: 'venue', tile: 'ceremony_venue', phase: 'V1.2', faith: 'LDS' },
+  mosque_venue:                      { folder: 'venue', tile: 'ceremony_venue', phase: 'V1.4', faith: 'Muslim' },
+  synagogue_venue:                   { folder: 'venue', tile: 'ceremony_venue', phase: 'V1.2', faith: 'Jewish' },
+  hindu_temple_venue:                { folder: 'venue', tile: 'ceremony_venue', phase: 'V1.2', faith: 'Hindu' },
+  gurdwara_venue:                    { folder: 'venue', tile: 'ceremony_venue', phase: 'V1.2', faith: 'Sikh' },
+  buddhist_temple_venue:             { folder: 'venue', tile: 'ceremony_venue', phase: 'V1.2', faith: 'Buddhist' },
+  cultural_ceremony_site:            { folder: 'venue', tile: 'ceremony_venue', phase: 'V1.5+', faith: 'Cultural', ph: true },
+  civil_ceremony_venue:              { folder: 'venue', tile: 'ceremony_venue', phase: 'V1.1 base', faith: 'Civil' },
+
+  // ── RECEPTION VENUE (tile `reception`) — the semantic half of the fix ──
+  // Before this, `reception` resolved to exactly ONE canonical and it was
+  // `accommodation` (lodging), so a function hall had to mis-tag itself as a
+  // hotel to surface at all. `accommodation` is untouched — it keeps its
+  // catering cross-list for the hotel room-block case.
+  //
+  // No `secondary_tiles: ['catering']` on `hotel_ballroom` here: cross-listing
+  // is its own owner decision (`accommodation` is the only cross-lister in the
+  // whole map, under the 2026-05-22 directive) and is deliberately deferred.
+  reception_venue:                   { folder: 'venue', tile: 'reception', phase: 'V1.1 base' },
+  function_hall:                     { folder: 'venue', tile: 'reception', phase: 'V1.1 base', ph: true },
+  events_place:                      { folder: 'venue', tile: 'reception', phase: 'V1.1 base', ph: true },
+  hotel_ballroom:                    { folder: 'venue', tile: 'reception', phase: 'V1.1 base' },
+  garden_reception_venue:            { folder: 'venue', tile: 'reception', phase: 'V1.1 base' },
+  resort_reception_venue:            { folder: 'venue', tile: 'reception', phase: 'V1.1 base' },
+
   // ════════════════════════════════════════════════════════════════════
   // PLANNING — Coordinator / Planner (one tile; faith + service-type facets).
   // ════════════════════════════════════════════════════════════════════

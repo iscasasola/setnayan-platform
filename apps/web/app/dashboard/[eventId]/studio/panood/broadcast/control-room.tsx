@@ -28,7 +28,7 @@ import type { PanoodControlState } from '@/lib/panood-control';
 import { watchPanoodCameras } from '@/lib/panood-webrtc';
 import { getPanoodIceServers } from '@/app/panood/actions';
 import { panoodStreamingEnabled } from '@/lib/panood-camera-seats';
-import { SetnayanOverlay, PaywalledVideo } from './_components/setnayan-overlay';
+import { SetnayanOverlay } from './_components/setnayan-overlay';
 import { WATERMARK_COPY, type WatermarkDecision } from '@/lib/panood-watermark';
 import {
   installProgramBridge,
@@ -611,8 +611,6 @@ function ProgramMonitor({
           live ? 'border-danger-500' : 'border-ink/15'
         }`}
       >
-        {/* Shrunk when the paywall is up so the marks land on chrome, not on the picture. */}
-        <MaybePaywalled active={Boolean(overlay)}>
         {stream && splitStream ? (
           <SplitProgram
             primary={stream}
@@ -643,8 +641,7 @@ function ProgramMonitor({
             </div>
           </>
         )}
-        </MaybePaywalled>
-        {/* The marks, OUTSIDE the scaled wrapper so they sit on the letterbox chrome. */}
+        {/* The paywall, over whichever branch rendered above — split, single or placeholder. */}
         {overlay && <SetnayanOverlay size="monitor" reason={overlayReason} />}
       </div>
       {overlay && overlayReason && (
@@ -761,14 +758,6 @@ function SplitPane({ stream }: { stream: MediaStream }) {
   );
 }
 
-/**
- * Applies the paywall shrink only when the paywall is up. A paid, cleared feed must render at
- * full size with no transform in the tree at all — the geometry IS the lock.
- */
-function MaybePaywalled({ active, children }: { active: boolean; children: React.ReactNode }) {
-  return active ? <PaywalledVideo>{children}</PaywalledVideo> : <>{children}</>;
-}
-
 function sourceTileClass(onAir: boolean): string {
   return `overflow-hidden rounded-xl border-2 text-left transition-colors disabled:opacity-60 ${
     onAir
@@ -807,19 +796,17 @@ function SourceTileBody({
   return (
     <>
       <div className="relative flex aspect-video items-center justify-center overflow-hidden bg-ink/85 text-cream/70">
-        <MaybePaywalled active={Boolean(overlay) && Boolean(stream)}>
-          {stream ? (
-            <video
-              ref={videoRef}
-              playsInline
-              autoPlay
-              muted
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-          ) : (
-            <Icon aria-hidden className="h-5 w-5" strokeWidth={1.5} />
-          )}
-        </MaybePaywalled>
+        {stream ? (
+          <video
+            ref={videoRef}
+            playsInline
+            autoPlay
+            muted
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        ) : (
+          <Icon aria-hidden className="h-5 w-5" strokeWidth={1.5} />
+        )}
         {/* Thumbnails carry the paywall too — one uncovered video surface is the whole bypass. */}
         {overlay && stream && <SetnayanOverlay size="thumb" />}
         {onAir && (

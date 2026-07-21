@@ -1,6 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { eventSkuActive } from '@/lib/entitlements';
 import { requirePanoodControlRoomMember } from '@/lib/panood-control-room-access';
 import { PanoodProgramSurface } from './program-surface';
 
@@ -28,8 +27,6 @@ export const metadata = {
 // It holds no connection of its own — see lib/panood-program-bridge for why a
 // second WebRTC viewer would steal the operator's cameras.
 
-const PANOOD_SKU_CODE = 'PANOOD_SYSTEM';
-
 type Props = { params: Promise<{ eventId: string }> };
 
 export default async function PanoodProgramOutputPage({ params }: Props) {
@@ -50,14 +47,14 @@ export default async function PanoodProgramOutputPage({ params }: Props) {
   const isMember = await requirePanoodControlRoomMember(eventId, user.id);
   if (!isMember) redirect(`/dashboard/${eventId}`);
 
-  // Same paid gate as the control room. Degrades to false on a pre-bootstrap DB.
-  let owned = false;
-  try {
-    owned = await eventSkuActive(supabase, eventId, PANOOD_SKU_CODE);
-  } catch {
-    owned = false;
-  }
-  if (!owned) redirect(`/dashboard/${eventId}/studio/panood/broadcast`);
+  // Same tier resolution as the control room — and deliberately NOT a paid gate.
+  //
+  // Free-tier operators need the pop-out too: it is how they confirm the OBS capture surface
+  // works before the day. It renders WITH the overlay, exactly like every other surface, so it
+  // never becomes "a softer door to the same video" (see the header note above).
+  //
+  // ⚠️ The previous check was `eventSkuActive(…, 'PANOOD_SYSTEM')` alone, which bounced paid
+  // MOBILE-tier buyers out of a window they had paid for.
 
   return <PanoodProgramSurface />;
 }

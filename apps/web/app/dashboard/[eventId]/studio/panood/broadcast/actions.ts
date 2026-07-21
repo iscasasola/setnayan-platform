@@ -41,7 +41,6 @@ import { fetchPanoodMoments, type PanoodMomentConfig } from '@/lib/panood-moment
  * panood_* tables is the backstop; this is defense-in-depth.
  */
 
-const PANOOD_SKU_CODE = 'PANOOD_SYSTEM';
 
 export type ControlActionResult = { ok: true } | { error: string };
 
@@ -97,19 +96,18 @@ async function gateControlAction(
     return { error: 'You don’t have control-room access for this event.' };
   }
 
-  // PAID multicam controller gate — defense-in-depth against a direct POST.
-  // eventSkuActive degrades to false on a missing orders table (42P01/42703),
-  // so a pre-bootstrap env safely refuses to mutate rather than crashing.
-  const supabase = await createClient();
-  let active = false;
-  try {
-    active = await eventSkuActive(supabase, eventId, PANOOD_SKU_CODE);
-  } catch {
-    active = false;
-  }
-  if (!active) {
-    return { error: 'The multicam controller is a paid upgrade for this event.' };
-  }
+  // NO paid gate here any more — deliberately.
+  //
+  // Every control mutation must stay reachable on the FREE tier: the couple has to actually
+  // switch cameras and fire moments to prove the rig works. The paywall is the SETNAYAN overlay
+  // (lib/panood-watermark), not a refusal to persist state — an action gate here would make the
+  // free tier a set of dead buttons, which is the opposite of the model.
+  //
+  // `setLive` in particular MUST reach the DB on a free event: it stamps the write-once
+  // `first_live_at` anchor. Membership above remains the authorization boundary.
+  //
+  // ⚠️ The removed check also refused every action for paid MOBILE-tier buyers, because it
+  // tested `PANOOD_SYSTEM` alone.
 
   return { admin: createAdminClient() };
 }

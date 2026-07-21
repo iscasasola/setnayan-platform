@@ -26,14 +26,22 @@ left three non-blocking items open.
    `app/admin/users/actions.ts` hard-deletes a leaving user's authored
    `chat_messages`, which can in principle drop the couple-authored count back to
    0 on a still-`pending` thread and re-open the pre-accept allowance (re-firing
-   `vendor_inquiry`). It is UNREACHABLE today: it needs a second surviving
-   `event_members` row with `member_type='couple'` on the same event, and no code
-   path creates one — every couple row is written by the event's own creator
+   `vendor_inquiry`). It needs a second surviving `event_members` row with
+   `member_type='couple'` on the same event, and no shipped APPLICATION path
+   creates one — every couple row is written by the event's own creator
    (create-event / onboarding), co-hosts accepted via `/host/accept` get
    `'coordinator'`, and all join / claim paths (including the
-   `finalize_guest_claim` RPC) write `'guest'`, all under UNIQUE(event_id, user_id).
-   Recorded in `countCoupleMessages`' docstring as a known, accepted consequence
-   with a revisit trigger if multi-couple hosts are ever wired up.
+   `finalize_guest_claim` RPC) write `'guest'`. Improbable, **not** impossible:
+   `UNIQUE(event_id, user_id)` only stops one USER holding two rows, RLS
+   (`member_can_self_join` / `couple_can_update_member`) still lets an existing
+   couple member or an admin insert or promote a second couple row through
+   PostgREST, and the iteration-0048 backfill explicitly handles pre-existing
+   "additional rows (rare)". Recorded in `countCoupleMessages`' docstring as a
+   known, accepted consequence (blast radius: one re-fired `vendor_inquiry` plus
+   one restored pre-accept message) with the one-time data check and a revisit
+   trigger if multi-couple hosts are ever wired up. `purgeUserAuthoredChat` now
+   carries a back-pointer to that analysis so the erasure path is not edited
+   blind.
 
 Also confirmed and deliberately left alone: the unfiltered-by-role
 `chat_messages` count in `apps/web/app/v/[slug]/inquiry-actions.ts` is thread-

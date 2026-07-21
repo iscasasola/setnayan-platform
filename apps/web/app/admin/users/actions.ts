@@ -104,6 +104,14 @@ async function purgeOwnedEventBirthData(
  * admin_audit_log (so the erasure miss is recoverable via a manual sweep) but
  * does NOT block the deletion — a stuck purge must never trap an account in an
  * undeletable state.
+ *
+ * Downstream note: these rows FEED A COUNTER. `countCoupleMessages`
+ * (lib/chat.ts) counts couple-authored rows per thread to decide whether a
+ * pending vendor thread has already spent its one pre-accept message. Deleting
+ * rows here lowers that count. Read that function's docstring before changing
+ * this delete — it records why the interaction is accepted rather than defended
+ * (it needs a second surviving `member_type='couple'` member on the event, which
+ * no shipped app path creates).
  */
 async function purgeUserAuthoredChat(
   admin: ReturnType<typeof createAdminClient>,

@@ -1,8 +1,9 @@
 // Money-split studio surface — the body of the former pricing page,
 // re-homed here (2026-07-10). actions/_components stay in /admin/pricing; the
 // legacy route is now a redirect (or, for pricing/settings, the studio shell).
+import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { Plus } from 'lucide-react';
+import { Plus, ChevronRight } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -143,6 +144,10 @@ export async function PricingSurface({ searchParams }: Props) {
       .select(
         'package_code,title,description,retail_price_php,is_active,updated_at,updated_by_admin_id',
       )
+      // Active-first, same as the retail + vendor queries. This was the ONE
+      // catalog query missing it, which is why a removed ₱12,999 bundle sorted
+      // above the live ₱15,000 one (price-ascending alone).
+      .order('is_active', { ascending: false })
       .order('retail_price_php', { ascending: true }),
     admin
       .from('vendor_billing_catalog')
@@ -203,9 +208,61 @@ export async function PricingSurface({ searchParams }: Props) {
     return `${timeAgo(iso)}${by ? ` by ${by}` : ''}`;
   };
 
+  // Row → editor-prop shapes. Extracted so the live list and the retired
+  // <details> render byte-identical editors (they must: both post into the same
+  // form, and a drifted prop shape here would make a retired row save
+  // differently from a live one).
+  const retailEditorRow = (row: RetailRow) => ({
+    service_code: row.service_code,
+    title: row.title,
+    description: row.description,
+    retail_price_php: row.retail_price_php,
+    saas_overhead_cost_php: row.saas_overhead_cost_php,
+    is_token_able: row.is_token_able,
+    is_active: row.is_active,
+    edited: editedStr(row.updated_at, row.updated_by_admin_id),
+  });
+  const bundleEditorRow = (row: BundleRow) => ({
+    package_code: row.package_code,
+    title: row.title,
+    description: row.description,
+    retail_price_php: row.retail_price_php,
+    is_active: row.is_active,
+    edited: editedStr(row.updated_at, row.updated_by_admin_id),
+  });
+  const vendorEditorRow = (row: VendorRow) => ({
+    sku_code: row.sku_code,
+    title: row.title,
+    description: row.description,
+    price_php: row.price_php,
+    offering_label: VENDOR_OFFERING_LABEL[row.offering_type],
+    token_grant_count: row.token_grant_count,
+    is_active: row.is_active,
+    edited: editedStr(row.updated_at, null),
+  });
+
+  // Retired-row split. Every catalog here is mostly-retired (the 2026-07-21
+  // audit measured 21/43 retail, 2/4 bundle, 2/27 vendor), and rendering them
+  // inline buried the ~49 rows an admin actually edits under ~117 total. Each
+  // section now shows its live rows and tucks the retired ones into a closed
+  // <details>.
+  //
+  // ⚠ <details>, NOT conditional rendering — on purpose. Every row below is a
+  // set of named inputs inside the ONE "Save all changes" form. Unmounting the
+  // retired rows would drop their fields from the POST body, silently changing
+  // what `saveAllPricing` diffs (it walks the submitted FormData). `<details>`
+  // keeps them mounted and submitted, just visually collapsed, so this is a
+  // pure presentation change with identical save semantics.
+  const activeRetail = retailRows.filter((r) => r.is_active);
+  const retiredRetail = retailRows.filter((r) => !r.is_active);
+  const activeBundles = bundleRows.filter((r) => r.is_active);
+  const retiredBundles = bundleRows.filter((r) => !r.is_active);
+  const activeVendor = vendorRows.filter((r) => r.is_active);
+  const retiredVendor = vendorRows.filter((r) => !r.is_active);
+
   // Stats.
-  const activeCount = retailRows.filter((r) => r.is_active).length;
-  const inactiveCount = retailRows.length - activeCount;
+  const activeCount = activeRetail.length;
+  const inactiveCount = retiredRetail.length;
   const paidRows = retailRows.filter((r) => r.retail_price_php > 0);
   const maxPrice = paidRows.length > 0 ? Math.max(...paidRows.map((r) => r.retail_price_php)) : 0;
   const minPrice = paidRows.length > 0 ? Math.min(...paidRows.map((r) => r.retail_price_php)) : 0;
@@ -287,7 +344,7 @@ export async function PricingSurface({ searchParams }: Props) {
         {/* ─── Customer SKUs ─────────────────────────────────────────── */}
         <section className="mb-10">
           <h2 className="mb-3 text-base font-semibold tracking-tight">
-            Customer SKUs ({retailRows.length})
+            Customer SKUs ({sectionCount(activeRetail.length, retiredRetail.length)})
           </h2>
           <div className="overflow-hidden rounded-2xl border border-ink/10">
             {retailRows.length === 0 ? (
@@ -304,21 +361,16 @@ export async function PricingSurface({ searchParams }: Props) {
                     { label: 'Active', align: 'center' },
                   ]}
                 />
-                {retailRows.map((row) => (
-                  <RetailRowEditor
-                    key={row.service_code}
-                    row={{
-                      service_code: row.service_code,
-                      title: row.title,
-                      description: row.description,
-                      retail_price_php: row.retail_price_php,
-                      saas_overhead_cost_php: row.saas_overhead_cost_php,
-                      is_token_able: row.is_token_able,
-                      is_active: row.is_active,
-                      edited: editedStr(row.updated_at, row.updated_by_admin_id),
-                    }}
-                  />
+                {activeRetail.map((row) => (
+                  <RetailRowEditor key={row.service_code} row={retailEditorRow(row)} />
                 ))}
+                {retiredRetail.length > 0 && (
+                  <RetiredDisclosure count={retiredRetail.length} noun="SKU">
+                    {retiredRetail.map((row) => (
+                      <RetailRowEditor key={row.service_code} row={retailEditorRow(row)} />
+                    ))}
+                  </RetiredDisclosure>
+                )}
               </>
             )}
           </div>
@@ -328,7 +380,7 @@ export async function PricingSurface({ searchParams }: Props) {
         <section className="mb-10">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold tracking-tight">
-              Bundles ({bundleRows.length})
+              Bundles ({sectionCount(activeBundles.length, retiredBundles.length)})
             </h2>
             <a
               href="#create-bundle"
@@ -350,19 +402,16 @@ export async function PricingSurface({ searchParams }: Props) {
                     { label: 'Active', align: 'center' },
                   ]}
                 />
-                {bundleRows.map((row) => (
-                  <BundleRowEditor
-                    key={row.package_code}
-                    row={{
-                      package_code: row.package_code,
-                      title: row.title,
-                      description: row.description,
-                      retail_price_php: row.retail_price_php,
-                      is_active: row.is_active,
-                      edited: editedStr(row.updated_at, row.updated_by_admin_id),
-                    }}
-                  />
+                {activeBundles.map((row) => (
+                  <BundleRowEditor key={row.package_code} row={bundleEditorRow(row)} />
                 ))}
+                {retiredBundles.length > 0 && (
+                  <RetiredDisclosure count={retiredBundles.length} noun="bundle">
+                    {retiredBundles.map((row) => (
+                      <BundleRowEditor key={row.package_code} row={bundleEditorRow(row)} />
+                    ))}
+                  </RetiredDisclosure>
+                )}
               </>
             )}
           </div>
@@ -371,7 +420,7 @@ export async function PricingSurface({ searchParams }: Props) {
         {/* ─── Vendor pricing ────────────────────────────────────────── */}
         <section className="mb-10">
           <h2 className="mb-1 text-base font-semibold tracking-tight">
-            Vendor pricing ({vendorRows.length})
+            Vendor pricing ({sectionCount(activeVendor.length, retiredVendor.length)})
           </h2>
           <p className="mb-3 text-sm text-ink/60">
             Subscriptions + bidding token packs from{' '}
@@ -392,21 +441,16 @@ export async function PricingSurface({ searchParams }: Props) {
                     { label: 'Active', align: 'center' },
                   ]}
                 />
-                {vendorRows.map((row) => (
-                  <VendorRowEditor
-                    key={row.sku_code}
-                    row={{
-                      sku_code: row.sku_code,
-                      title: row.title,
-                      description: row.description,
-                      price_php: row.price_php,
-                      offering_label: VENDOR_OFFERING_LABEL[row.offering_type],
-                      token_grant_count: row.token_grant_count,
-                      is_active: row.is_active,
-                      edited: editedStr(row.updated_at, null),
-                    }}
-                  />
+                {activeVendor.map((row) => (
+                  <VendorRowEditor key={row.sku_code} row={vendorEditorRow(row)} />
                 ))}
+                {retiredVendor.length > 0 && (
+                  <RetiredDisclosure count={retiredVendor.length} noun="SKU">
+                    {retiredVendor.map((row) => (
+                      <VendorRowEditor key={row.sku_code} row={vendorEditorRow(row)} />
+                    ))}
+                  </RetiredDisclosure>
+                )}
               </>
             )}
           </div>
@@ -544,6 +588,50 @@ export async function PricingSurface({ searchParams }: Props) {
         </p>
       </div>
     </div>
+  );
+}
+
+/** "22 active · 21 retired", or just "22" when nothing is retired. */
+function sectionCount(active: number, retired: number): string {
+  return retired === 0 ? `${active}` : `${active} active · ${retired} retired`;
+}
+
+/**
+ * Collapsed drawer holding a section's retired rows.
+ *
+ * Native <details> so it works without JS in a Server Component, and — the
+ * load-bearing part — so the rows inside STAY MOUNTED while hidden. They are
+ * inputs in the page's single "Save all changes" form; unmounting them would
+ * quietly shrink the POST body and change what `saveAllPricing` diffs. Closed
+ * by default: an admin opens this only to resurrect or re-price a dead SKU.
+ */
+function RetiredDisclosure({
+  count,
+  noun,
+  children,
+}: {
+  count: number;
+  noun: string;
+  children: ReactNode;
+}) {
+  return (
+    <details className="group border-t border-ink/10 bg-ink/[0.02]">
+      <summary className="flex cursor-pointer select-none items-center gap-2 px-4 py-3 text-sm font-medium text-ink/60 transition hover:bg-ink/5 [&::-webkit-details-marker]:hidden">
+        <ChevronRight
+          aria-hidden
+          className="h-4 w-4 shrink-0 transition-transform group-open:rotate-90"
+          strokeWidth={2}
+        />
+        <span>
+          {count} retired {noun}
+          {count === 1 ? '' : 's'}
+        </span>
+        <span className="text-xs font-normal text-ink/40">
+          — hidden from customers; still editable here
+        </span>
+      </summary>
+      <div className="border-t border-ink/10">{children}</div>
+    </details>
   );
 }
 

@@ -264,11 +264,15 @@ export async function GET() {
     // consented_by_user_id — the export ships only consents the SUBJECT gave,
     // not other hosts' consent rows on shared events. Internal bigserial id and
     // moderator FK stay out; coordinator email/label are the denormalised
-    // self-describing audit fields.
+    // self-describing audit fields. `scopes` (the {vendor_lock,checkout} money
+    // powers the subject granted, added 2026-07-19) is included so the export
+    // reflects WHAT was consented to, not just the scope_version — RA 10173
+    // completeness (the version string alone doesn't tell the subject which
+    // authorities they gave).
     supabase
       .from('coordinator_access_consents')
       .select(
-        'event_id, coordinator_email, coordinator_label, scope_version, granted_at, revoked_at',
+        'event_id, coordinator_email, coordinator_label, scope_version, scopes, granted_at, revoked_at',
       )
       .eq('consented_by_user_id', user.id)
       .order('granted_at', { ascending: true }),

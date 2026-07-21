@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Check, Sparkles, Wand2, ListChecks, CalendarHeart } from 'lucide-react';
+import { ArrowLeft, Check, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
@@ -15,6 +15,8 @@ import {
   resolveSetnayanAiPerUserEnabled,
 } from '@/lib/integration-config';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
+import { loadAiActivity } from '@/lib/setnayan-ai-activity';
+import { SetnayanAiValue } from './_components/setnayan-ai-value';
 
 export const metadata = { title: 'Setnayan AI · Setnayan' };
 
@@ -55,24 +57,6 @@ export const metadata = { title: 'Setnayan AI · Setnayan' };
 
 const SKU_CODE = 'SETNAYAN_AI';
 
-const WHAT_YOU_GET = [
-  {
-    icon: ListChecks,
-    title: 'Your ranked shortlist',
-    body: 'Vendors sorted by how well they fit your date, budget, location, guest count, faith and reviews — with a "% match" on each, not a generic directory.',
-  },
-  {
-    icon: CalendarHeart,
-    title: 'A plan that thinks ahead',
-    body: 'Recommended and statutory deadlines, reception-proximity sorting, and a nudge when someone is eyeing your date.',
-  },
-  {
-    icon: Wand2,
-    title: 'Yours for the whole wedding',
-    body: 'A one-time purchase that unlocks Setnayan AI for your entire wedding — it stays on the whole way through, with no renewals, no 28-day cycle and no charge ever again.',
-  },
-];
-
 type Props = { params: Promise<{ eventId: string }> };
 
 export default async function SetnayanAiPage({ params }: Props) {
@@ -84,10 +68,15 @@ export default async function SetnayanAiPage({ params }: Props) {
 
   const { data: event } = await supabase
     .from('events')
-    .select('event_id, display_name, planning_mode, setnayan_ai_active')
+    .select(
+      'event_id, display_name, planning_mode, setnayan_ai_active, event_date, event_date_precision, event_type, ceremony_type',
+    )
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) redirect(`/dashboard/${eventId}`);
+
+  const eventType = (event as { event_type?: string | null }).event_type ?? 'wedding';
+  const eventWord = eventType === 'wedding' ? 'wedding' : 'event';
 
   // DB-first paywall flag (Integration Activation Console — flips without a
   // redeploy); env-fallback when unset. Resolved once, threaded into the gate.
@@ -101,6 +90,20 @@ export default async function SetnayanAiPage({ params }: Props) {
     perUserEnabled: perUserOn,
     subscription: aiSubscription,
   });
+
+  // ACTIVE-only: the live per-event activity snapshot the "keeping for you"
+  // surface renders (cockpit briefing + tracked-deadline + payment-due figures).
+  // Skipped for the buy/paused states, which show the static value pitch. Every
+  // query inside fail-softs, so this never blocks the page.
+  const activity = active
+    ? await loadAiActivity(supabase, eventId, {
+        eventDate: (event as { event_date?: string | null }).event_date ?? null,
+        eventDatePrecision:
+          (event as { event_date_precision?: string | null }).event_date_precision ?? null,
+        eventType,
+        ceremonyType: (event as { ceremony_type?: string | null }).ceremony_type ?? null,
+      })
+    : null;
 
   // "Owns" = the entitlement is stamped OR a SETNAYAN_AI order (à-la-carte OR a
   // GUIDED_PACK/MEDIA_PACK bundle that includes it) is in flight (submitted /
@@ -152,12 +155,12 @@ export default async function SetnayanAiPage({ params }: Props) {
               Setnayan AI
             </p>
             <h1 className="sn-h1">
-              Your vendor shortlist is ranked
+              Everything it&rsquo;s keeping for {event.display_name ?? 'your wedding'}
             </h1>
             <p className="max-w-prose text-base text-ink/65">
-              Setnayan AI is on for {event.display_name ?? 'your wedding'} — every
-              available vendor is sorted by how well they fit your date, budget,
-              location, guest count and faith, each with a &ldquo;% match&rdquo;.
+              Setnayan AI is on — here&rsquo;s the full picture of what it&rsquo;s
+              watching, ranking and tracking for you right now, and the work it
+              saves you from holding by hand.
             </p>
           </header>
 
@@ -174,6 +177,8 @@ export default async function SetnayanAiPage({ params }: Props) {
               <ArrowLeft aria-hidden className="h-3.5 w-3.5 rotate-180" strokeWidth={2} />
             </Link>
           </div>
+
+          <SetnayanAiValue mode="live" activity={activity} eventWord={eventWord} />
         </>
       ) : owns || !paywallOn ? (
         <>
@@ -202,6 +207,8 @@ export default async function SetnayanAiPage({ params }: Props) {
               Turn on Assisted planning
             </Link>
           </div>
+
+          <SetnayanAiValue mode="preview" eventWord={eventWord} />
         </>
       ) : (
         <>
@@ -220,18 +227,7 @@ export default async function SetnayanAiPage({ params }: Props) {
             </p>
           </header>
 
-          <ul className="grid gap-3 sm:grid-cols-3">
-            {WHAT_YOU_GET.map(({ icon: Icon, title, body }) => (
-              <li
-                key={title}
-                className="sn-row p-4"
-              >
-                <Icon aria-hidden className="h-5 w-5 text-mulberry" strokeWidth={1.75} />
-                <p className="mt-2 text-sm font-medium text-ink">{title}</p>
-                <p className="mt-1 text-sm text-ink/65">{body}</p>
-              </li>
-            ))}
-          </ul>
+          <SetnayanAiValue mode="preview" eventWord={eventWord} />
 
           <div className="sn-tile p-5">
             {pricePhp != null && settings ? (

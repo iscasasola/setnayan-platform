@@ -87,6 +87,13 @@ export type SnapshotDateCluster = {
   count: number;
   categoryList?: string;
 };
+/** Two run-of-show blocks whose times overlap (GRD-06). */
+export type SnapshotScheduleClash = {
+  itemA: string;
+  itemB: string;
+  /** Human time label of the collision (e.g. "Sat, May 9, 3:00 PM"). */
+  slot: string;
+};
 
 export type PlanningSnapshot = {
   eventType: string;
@@ -98,6 +105,7 @@ export type PlanningSnapshot = {
   inquiries: SnapshotInquiry[];
   budget: SnapshotBudget | null;
   dateClusters: SnapshotDateCluster[];
+  scheduleClash: SnapshotScheduleClash[];
 };
 
 // ---- Tunable thresholds (the restraint dials; kept in one place) ------------
@@ -266,6 +274,23 @@ export function dateConvergenceTrigger(snap: PlanningSnapshot): Intervention[] {
   ];
 }
 
+/**
+ * Schedule-clash guard (GRD-06). Fires one intervention per pair of run-of-show
+ * blocks whose times overlap. The overlap detection lives in the snapshot
+ * adapter (a pure, tested helper); this trigger just renders each collision.
+ */
+export function scheduleClashTrigger(snap: PlanningSnapshot): Intervention[] {
+  return snap.scheduleClash.map((c) => ({
+    templateId: 'GRD-06',
+    category: 'guard' as const,
+    slots: { item_a: c.itemA, item_b: c.itemB, slot: c.slot },
+    // Between price (70) and over-budget (80): a clash is a real problem but
+    // rarely as time-critical as money already over the line.
+    priority: 75,
+    dedupeKey: `GRD-06:${c.itemA}:${c.itemB}:${c.slot}`,
+  }));
+}
+
 /** Run every trigger and collect the raw (pre-restraint) interventions. */
 export function runTriggers(snap: PlanningSnapshot, now: Date): Intervention[] {
   return [
@@ -274,6 +299,7 @@ export function runTriggers(snap: PlanningSnapshot, now: Date): Intervention[] {
     ...priceRiseTrigger(snap),
     ...overBudgetTrigger(snap),
     ...contractWindowTrigger(snap),
+    ...scheduleClashTrigger(snap),
     ...vendorQuietTrigger(snap),
     ...stuckCategoryTrigger(snap),
     ...dateConvergenceTrigger(snap),
@@ -318,6 +344,8 @@ function nextTaskLabel(iv: Intervention | undefined): string {
       return `sort out your ${iv.slots.document}`;
     case 'GRD-05':
       return 'trim the budget or raise the total';
+    case 'GRD-06':
+      return `resolve the clash at ${iv.slots.slot}`;
     case 'GRD-07':
       return `decide on ${iv.slots.vendor} before the window closes`;
     case 'SEC-04':
@@ -371,7 +399,11 @@ export function assembleWeeklyDigest(
   const flags = ranked
     .map((iv) => `• ${renderTemplate(iv.templateId, iv.slots, terminology, iv.variant ?? 'default')}`)
     .join('\n');
-  const checkedCount = snap.payments.length + snap.contracts.length + snap.shortlist.length;
+  const checkedCount =
+    snap.payments.length +
+    snap.contracts.length +
+    snap.shortlist.length +
+    snap.scheduleClash.length;
   const onTrack = Math.max(0, checkedCount - ranked.length);
   return renderTemplate(
     'SEC-01',

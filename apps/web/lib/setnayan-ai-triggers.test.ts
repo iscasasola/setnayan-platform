@@ -14,6 +14,7 @@ import {
   priceRiseTrigger,
   overBudgetTrigger,
   contractWindowTrigger,
+  scheduleClashTrigger,
   vendorQuietTrigger,
   stuckCategoryTrigger,
   dateConvergenceTrigger,
@@ -37,6 +38,7 @@ function emptySnap(over: Partial<PlanningSnapshot> = {}): PlanningSnapshot {
     inquiries: [],
     budget: null,
     dateClusters: [],
+    scheduleClash: [],
     ...over,
   };
 }
@@ -98,6 +100,23 @@ test('contractWindow: fires within the window', () => {
   );
   assert.equal(out.length, 1);
   assert.equal(out[0]!.templateId, 'GRD-07');
+});
+
+test('scheduleClash: one GRD-06 per collision, carrying both labels + slot', () => {
+  const out = scheduleClashTrigger(
+    emptySnap({
+      scheduleClash: [{ itemA: 'Ceremony', itemB: 'Cocktails', slot: 'Sat, May 9, 3:00 PM' }],
+    }),
+  );
+  assert.equal(out.length, 1);
+  assert.equal(out[0]!.templateId, 'GRD-06');
+  assert.deepEqual(out[0]!.slots, {
+    item_a: 'Ceremony',
+    item_b: 'Cocktails',
+    slot: 'Sat, May 9, 3:00 PM',
+  });
+  // No clashes → silent.
+  assert.equal(scheduleClashTrigger(emptySnap()).length, 0);
 });
 
 test('vendorQuiet: fires when unreplied ≥ 4 days', () => {

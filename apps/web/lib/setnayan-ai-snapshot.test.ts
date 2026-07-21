@@ -15,7 +15,10 @@ import {
   budgetFromCommitted,
   statutoryFromPaperwork,
   inquiriesFromThreads,
+  scheduleClashesFromBlocks,
+  clashBlocksFromScheduleRows,
   type BudgetLineItem,
+  type ScheduleClashBlock,
 } from './setnayan-ai-snapshot';
 
 const items: BudgetLineItem[] = [
@@ -147,4 +150,59 @@ test('inquiriesFromThreads: NEVER leaks a vendor name — masked category label 
     NOW,
   );
   assert.equal(masked[0]!.vendor, 'A vendor you inquired with');
+});
+
+// ---- GRD-06 schedule clash (overlap detection + row mapper) -----------------
+
+const clashBlock = (label: string, startMs: number, endMs: number): ScheduleClashBlock => ({
+  label,
+  timeLabel: `t${startMs}`,
+  startMs,
+  endMs,
+});
+
+test('scheduleClashesFromBlocks: a genuine overlap clashes, carrying both labels + start slot', () => {
+  const out = scheduleClashesFromBlocks([
+    clashBlock('Ceremony', 0, 10),
+    clashBlock('Cocktails', 5, 15), // overlaps Ceremony
+    clashBlock('Dinner', 20, 30), // clear of both
+  ]);
+  assert.equal(out.length, 1);
+  assert.deepEqual(out[0], { itemA: 'Ceremony', itemB: 'Cocktails', slot: 't0' });
+});
+
+test('scheduleClashesFromBlocks: touching endpoints do NOT clash; invalid/zero-length dropped', () => {
+  // back-to-back (one ends exactly when the next starts) is not a clash
+  assert.equal(
+    scheduleClashesFromBlocks([clashBlock('A', 0, 10), clashBlock('B', 10, 20)]).length,
+    0,
+  );
+  // zero-length + NaN bounds are dropped → the valid block has no partner
+  assert.equal(
+    scheduleClashesFromBlocks([
+      clashBlock('Zero', 5, 5),
+      clashBlock('NaN', Number.NaN, 10),
+      clashBlock('Solo', 0, 100),
+    ]).length,
+    0,
+  );
+});
+
+test('scheduleClashesFromBlocks: output is capped', () => {
+  const allOverlap = [0, 1, 2, 3, 4].map((i) => clashBlock(`B${i}`, 0, 100));
+  assert.equal(scheduleClashesFromBlocks(allOverlap, 3).length, 3);
+});
+
+test('clashBlocksFromScheduleRows: keeps top-level dated blocks, drops parts + open-ended', () => {
+  const rows = clashBlocksFromScheduleRows([
+    { label: 'Ceremony', start_at: '2026-05-09T15:00:00Z', end_at: '2026-05-09T16:00:00Z', parent_block_id: null },
+    { label: 'A part', start_at: '2026-05-09T15:10:00Z', end_at: '2026-05-09T15:20:00Z', parent_block_id: 'blk-1' }, // child → drop
+    { label: 'Open', start_at: '2026-05-09T18:00:00Z', end_at: null, parent_block_id: null }, // no end → drop
+    { label: '  ', start_at: '2026-05-09T17:00:00Z', end_at: '2026-05-09T18:00:00Z', parent_block_id: null }, // blank → fallback label
+  ]);
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0]!.label, 'Ceremony');
+  assert.equal(rows[1]!.label, 'A schedule item');
+  assert.ok(rows[0]!.timeLabel.length > 0);
+  assert.ok(Number.isFinite(rows[0]!.startMs) && Number.isFinite(rows[0]!.endMs));
 });

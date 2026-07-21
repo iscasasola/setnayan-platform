@@ -48,6 +48,10 @@ import {
   type PlanningSnapshot,
   type Intervention,
 } from '@/lib/setnayan-ai-triggers';
+import {
+  clashBlocksFromScheduleRows,
+  scheduleClashesFromBlocks,
+} from '@/lib/setnayan-ai-snapshot';
 import { renderTemplate, WEDDING_TERMINOLOGY } from '@/lib/setnayan-ai-templates';
 import { buildProgressStages } from '@/lib/progress-stages';
 import type { EventDatePrecision } from '@/lib/events';
@@ -827,6 +831,9 @@ export async function EventDashboard({
             }
           : null,
       dateClusters: [],
+      // GRD-06 clash — the same pure detection the notify snapshot uses, over
+      // the run-of-show blocks this surface already loaded.
+      scheduleClash: scheduleClashesFromBlocks(clashBlocksFromScheduleRows(scheduleBlocks)),
     };
     watchItems = applyRestraint(runTriggers(snapshot, now), { maxProactive: 4 }).map(
       (intervention) => ({

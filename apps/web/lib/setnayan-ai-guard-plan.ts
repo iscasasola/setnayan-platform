@@ -54,6 +54,8 @@ function guardTitle(iv: Intervention): string {
       return `Document deadline — ${iv.slots.document}`;
     case 'GRD-05':
       return 'Budget check — you’re over target';
+    case 'GRD-06':
+      return `Schedule clash — ${iv.slots.slot}`;
     case 'GRD-07':
       return `Decision window closing — ${iv.slots.vendor}`;
     default:
@@ -69,6 +71,8 @@ function guardUrl(iv: Intervention, eventId: string): string {
       return `/dashboard/${eventId}/budget`;
     case 'GRD-02':
       return `/dashboard/${eventId}/paperwork`;
+    case 'GRD-06':
+      return `/dashboard/${eventId}/schedule`;
     default:
       // The event Home now hosts the decisions/progress surface (the former
       // /progress route redirects here); land the couple there directly.

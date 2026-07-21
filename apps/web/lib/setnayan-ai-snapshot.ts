@@ -19,6 +19,10 @@
  *     deliberately NOT used — pre-accept threads are name-masked to the couple
  *     (chat accept-gate, 2026-06-02), so the slot carries the anonymous
  *     category label ("A photography vendor") instead. No name leak.
+ *   • schedule-clash (GRD-06) ← schedule_blocks whose [start_at, end_at)
+ *     intervals overlap among TOP-LEVEL blocks (parts nested under a parent are
+ *     legitimately inside it, never a clash). Pure overlap detection; no new
+ *     schema (Phase 1 of the guard-wiring build, 2026-07-22).
  *
  * Still EMPTY (no real data source — never fabricate):
  *   • priceChanges (GRD-03)  — needs the vendor price-change log, the Market
@@ -47,6 +51,7 @@ import {
   type SnapshotBudget,
   type SnapshotStatutory,
   type SnapshotInquiry,
+  type SnapshotScheduleClash,
 } from './setnayan-ai-triggers';
 import {
   DOCUMENT_META,
@@ -55,6 +60,7 @@ import {
   type PaperworkStatus,
 } from './paperwork';
 import { statusOfVendor } from './wedding-plan-groups';
+import { formatBlockTime } from './schedule';
 
 /** A budget line item as stored (event_vendor_line_items + the vendor name). */
 export type BudgetLineItem = {
@@ -215,6 +221,72 @@ export function inquiriesFromThreads(
   });
 }
 
+// ---- GRD-06 schedule clash (run-of-show overlap) ---------------------------
+
+/** A run-of-show block reduced to what clash detection needs. */
+export type ScheduleClashBlock = {
+  label: string;
+  /** Human time label of the block's start (for the intervention slot). */
+  timeLabel: string;
+  startMs: number;
+  endMs: number;
+};
+
+/** A raw schedule_blocks row, structurally typed for the row→input mapper. */
+export type ScheduleBlockLike = {
+  label: string | null;
+  start_at: string | null;
+  end_at: string | null;
+  parent_block_id: string | null;
+};
+
+/**
+ * Map schedule_blocks rows to clash-detection inputs. Only TOP-LEVEL blocks
+ * (parent_block_id === null) with both a start and an end are considered — a
+ * "part" nested under a parent is legitimately inside the parent's window and
+ * must never read as a clash. Unparseable timestamps are dropped.
+ */
+export function clashBlocksFromScheduleRows(
+  rows: ReadonlyArray<ScheduleBlockLike>,
+): ScheduleClashBlock[] {
+  return rows
+    .filter((r) => r.parent_block_id == null && !!r.start_at && !!r.end_at)
+    .map((r) => ({
+      label: (r.label ?? '').trim() || 'A schedule item',
+      timeLabel: formatBlockTime(r.start_at as string),
+      startMs: Date.parse(r.start_at as string),
+      endMs: Date.parse(r.end_at as string),
+    }));
+}
+
+/**
+ * Pure overlap detection (unit-tested). Two blocks clash iff their [start, end)
+ * intervals strictly overlap — touching endpoints (one ends exactly when the
+ * next starts) do NOT clash. Capped so a pathological schedule can't flood the
+ * digest; the restraint engine dedups downstream regardless.
+ */
+export function scheduleClashesFromBlocks(
+  blocks: ReadonlyArray<ScheduleClashBlock>,
+  maxClashes = 6,
+): SnapshotScheduleClash[] {
+  const valid = blocks
+    .filter((b) => Number.isFinite(b.startMs) && Number.isFinite(b.endMs) && b.endMs > b.startMs)
+    .sort((a, b) => a.startMs - b.startMs);
+  const out: SnapshotScheduleClash[] = [];
+  for (let i = 0; i < valid.length && out.length < maxClashes; i++) {
+    const a = valid[i]!;
+    for (let j = i + 1; j < valid.length && out.length < maxClashes; j++) {
+      const b = valid[j]!;
+      // Sorted by start → once a later block begins at/after `a` ends, nothing
+      // further out can overlap `a` either. b.startMs >= a.startMs by the sort,
+      // so strict overlap reduces to b.startMs < a.endMs.
+      if (b.startMs >= a.endMs) break;
+      out.push({ itemA: a.label, itemB: b.label, slot: a.timeLabel });
+    }
+  }
+  return out;
+}
+
 /** An empty snapshot for a given event type — the no-fabrication baseline. */
 function emptySnapshot(eventType: string): PlanningSnapshot {
   return {
@@ -227,6 +299,7 @@ function emptySnapshot(eventType: string): PlanningSnapshot {
     inquiries: [],
     budget: null,
     dateClusters: [],
+    scheduleClash: [],
   };
 }
 
@@ -253,6 +326,7 @@ export async function buildPlanningSnapshot(
     { data: vendorRows },
     { data: paperworkRows },
     { data: threadRows },
+    { data: scheduleRows },
   ] = await Promise.all([
     admin
       .from('events')
@@ -297,6 +371,11 @@ export async function buildPlanningSnapshot(
       .select('created_at, inquiry_status, vendor_profiles(services)')
       .eq('event_id', eventId)
       .eq('inquiry_status', 'pending'),
+    // GRD-06 clash — the run-of-show blocks (times + nesting) for overlap detection.
+    admin
+      .from('schedule_blocks')
+      .select('label, start_at, end_at, parent_block_id')
+      .eq('event_id', eventId),
   ]);
 
   // --- GRD-01 payments (line items + per-line settlement) --------------------
@@ -377,6 +456,11 @@ export async function buildPlanningSnapshot(
       };
     }),
     new Date(),
+  );
+
+  // --- GRD-06 schedule clash (overlapping run-of-show blocks) ----------------
+  snap.scheduleClash = scheduleClashesFromBlocks(
+    clashBlocksFromScheduleRows((scheduleRows ?? []) as ScheduleBlockLike[]),
   );
 
   // priceChanges / contracts / shortlist / dateClusters stay [] — no honest

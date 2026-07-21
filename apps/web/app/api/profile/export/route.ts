@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlsForStoredAssets } from '@/lib/uploads';
+import { listOutcome, singleOutcome, collectIncomplete } from '@/lib/export-integrity';
 
 /**
  * RA 10173 data-export endpoint (V1 slice).
@@ -25,13 +27,79 @@ import { displayUrlsForStoredAssets } from '@/lib/uploads';
  * Includes (2026-07-21 completeness) the coordinator-workspace prose the
  * subject AUTHORED: per-vendor working notes and day-of broadcasts. Both are
  * author-scoped, never event-scoped — see the WHY blocks at each select. A
- * companion guardrail (lib/export-coverage-guardrail.test.ts) now fails the
- * build when a new user-identifying table is neither exported nor explicitly
+ * companion guardrail (lib/export-coverage-guardrail.test.ts) fails the build
+ * when a new user-identifying table is neither exported nor explicitly
  * classified, so this class of silent omission cannot recur unreviewed.
  *
- * Not in scope for V1:
- *   • Audit log of past API access (no user-scoped access-log table — the
- *     0033 gateway ships api_keys only, consistent with "no public endpoints").
+ * ── NO SILENT EMPTIES (2026-07-21 fix-forward) ───────────────────────────────
+ * Every read below is unwrapped through lib/export-integrity, not `?? []`.
+ * A failed or un-attempted read now becomes a NAMED line in `not_included`
+ * and flips `export_complete` to false. Rationale: an empty array in a
+ * subject-access file reads as the assertion "you have no such records", and
+ * making that assertion when we simply failed to look is a false statement of
+ * fact to a data subject under the very law this endpoint serves.
+ *
+ * ── WHY TWO SECTIONS USE THE SERVICE-ROLE CLIENT ─────────────────────────────
+ * Every other read on this route uses the RLS-enforced session client, and
+ * that is right: for those tables a policy the subject already satisfies also
+ * returns exactly the subject's own rows, so RLS and completeness agree.
+ *
+ * They DISAGREE for the two author-scoped coordinator tables:
+ *
+ *   • event_vendor_working_notes (migration 20270825279091) has NO author
+ *     SELECT policy. Its only author-keyed policy is `evwn_author_delete`, a
+ *     DELETE policy — and a filter is not a grant. Reads are granted only by
+ *     `evwn_moderator_select` (current_moderator_event_ids) and
+ *     `evwn_couple_select` (current_couple_event_ids AND visibility='shared').
+ *   • coordinator_broadcasts (migration 20270825364600) grants SELECT only via
+ *     `current_event_ids()` (event_members) and `current_moderator_event_ids()`.
+ *     There is no sender policy at all.
+ *
+ * `removeHost` (app/dashboard/[eventId]/hosts/actions.ts) stamps
+ * event_moderators.removed_at AND deletes the event_members row — closing BOTH
+ * grants at once. A departed coordinator therefore reads ZERO rows from both
+ * tables. That is precisely the person most likely to file a subject-access
+ * request, and under the old `?? []` unwrap they received a file asserting they
+ * had written nothing. A coordinator who authored 'coordinator_private' notes
+ * and later lost the grant is in the same position.
+ *
+ * Error-surfacing alone cannot fix this: RLS-filtered-to-zero is NOT an error,
+ * it is an ordinary successful empty result, indistinguishable at the client
+ * from a true zero. Completeness therefore has to come from a read RLS cannot
+ * narrow.
+ *
+ * WHAT BOUNDS THE BYPASS — four properties, all of which must keep holding:
+ *   1. The filter value is `user.id` from `supabase.auth.getUser()`, a
+ *      server-verified session identity. It is NEVER taken from the request
+ *      body, query string, or a header — this route accepts no input at all,
+ *      so there is no parameter for a caller to tamper with.
+ *   2. The filter column is the AUTHOR column (author_user_id / sender_user_id),
+ *      i.e. the identity itself. The widest possible result set is "rows this
+ *      exact authenticated uid wrote" — definitionally the subject's own
+ *      personal data, and exactly what the export exists to return.
+ *   3. Scope is two tables and a fixed column projection. No `select('*')`, no
+ *      joins that could pull a third party's row in behind the bypass.
+ *   4. Read-only. No write ever uses this client on this route.
+ * If a future edit loosens (1) or (2) — an event_id filter, a caller-supplied
+ * id, a widened select — the bypass stops being bounded and this pattern must
+ * be REMOVED rather than extended.
+ *
+ * WHAT IS ACTUALLY PINNED BY TESTS (do not overstate this):
+ *   • T6 (lib/export-coverage-guardrail) is a TEXT-PROXIMITY match asserting the
+ *     author/sender column name appears near each table name. It catches a flip
+ *     to .eq('event_id', …). It does NOT see which client issues the read.
+ *   • T11 (same file) is the one that pins the client: it asserts both reads are
+ *     issued from `admin`, never from the RLS session client. Without it the
+ *     whole fix could be reverted by a drive-by refactor with a green build —
+ *     mutation-tested, it was.
+ * Properties 3 and 4 above are reviewed by humans, not asserted by any test.
+ *
+ * The cleaner long-term shape is author SELECT policies added by migration,
+ * which would let the session client do this. It is not bundled here because a
+ * migration only takes effect once pushed to prod and its failure mode if
+ * unpushed is the same undetectable silent empty — flagged for owner sign-off.
+ *
+ * Not in scope for V1: see `not_included` in the payload below.
  */
 export async function GET() {
   const supabase = await createClient();
@@ -40,6 +108,36 @@ export async function GET() {
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
+
+  // Privileged read client for the two author-scoped sections above.
+  //
+  // We gate on SUPABASE_SERVICE_ROLE_KEY being PRESENT rather than on
+  // createAdminClient() throwing. That is not belt-and-braces, it is the whole
+  // point: lib/supabase/admin.ts has a documented dev-only fallback that swaps
+  // in NEXT_PUBLIC_SUPABASE_ANON_KEY when the service key is unset under
+  // NODE_ENV==='development'. Construction then SUCCEEDS, so the catch below
+  // never fires — but the returned client carries no user session, auth.uid()
+  // is NULL, both coordinator policies match nothing, and the read comes back
+  // as zero rows with error null. That is indistinguishable from a true empty:
+  // the export would ship empty author sections with export_complete: true,
+  // i.e. the exact silent empty this route exists to kill, on the one surface
+  // (a local dev server) anybody would use to hand-verify the fix.
+  // Absent the key we take NO privileged read at all and mark both sections
+  // NOT READ, in dev and in prod alike.
+  let admin: ReturnType<typeof createAdminClient> | null = null;
+  let adminUnavailable: string | undefined;
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      admin = createAdminClient();
+    } catch {
+      admin = null;
+    }
+  }
+  if (!admin) {
+    adminUnavailable =
+      'The privileged read client required to guarantee completeness for author-scoped ' +
+      'coordinator records was unavailable on this run.';
   }
 
   const [
@@ -204,11 +302,15 @@ export async function GET() {
     //     the leak this endpoint must never commit.
     // Author-scoping is both COMPLETE (the subject gets every note they wrote,
     // at either visibility) and SAFE. Same grain as chat_messages_authored.
-    supabase
-      .from('event_vendor_working_notes')
-      .select('note_id, event_id, event_vendor_id, author_role, visibility, body, created_at')
-      .eq('author_user_id', user.id)
-      .order('created_at', { ascending: true }),
+    // Read via the SERVICE-ROLE client because this table has no author SELECT
+    // policy — see the bounded-bypass block at the top of this file.
+    admin
+      ? admin
+          .from('event_vendor_working_notes')
+          .select('note_id, event_id, event_vendor_id, author_role, visibility, body, created_at')
+          .eq('author_user_id', user.id)
+          .order('created_at', { ascending: true })
+      : Promise.resolve(null),
     // RA 10173 (2026-07-21) — day-of BROADCASTS the subject SENT (coordinator
     // P3, migration 20270825364600). SENDER-scoped, for the same reason
     // chat_messages is scoped to sender_user_id: the export ships what the
@@ -220,40 +322,72 @@ export async function GET() {
     // recipient's own — disclosing a third party's data to every guest.
     // sender_role is exported as provenance only: the migration's own
     // COMMENT ON COLUMN says authority comes from RLS, never from this label.
-    supabase
-      .from('coordinator_broadcasts')
-      .select('broadcast_id, event_id, sender_role, body, created_at')
-      .eq('sender_user_id', user.id)
-      .order('created_at', { ascending: true }),
+    // Read via the SERVICE-ROLE client because this table has no sender SELECT
+    // policy — see the bounded-bypass block at the top of this file.
+    admin
+      ? admin
+          .from('coordinator_broadcasts')
+          .select('broadcast_id, event_id, sender_role, body, created_at')
+          .eq('sender_user_id', user.id)
+          .order('created_at', { ascending: true })
+      : Promise.resolve(null),
   ]);
+
+  // ── Unwrap every read through the integrity helper ──────────────────────────
+  // `?? []` is banned on this route: it turns "the read failed" into the
+  // assertion "you have no such records".
+  const profile = singleOutcome('profile (users)', profileRes);
+  const events = listOutcome('event_memberships', eventsRes);
+  const ownedEvents = listOutcome<Record<string, unknown>>('owned_event_birth_data', ownedEventsRes);
+  const vendorProfile = singleOutcome<{
+    vendor_profile_id?: string;
+    logo_url?: string | null;
+    portfolio_r2_keys?: string[] | null;
+  }>('vendor_profile', vendorProfileRes);
+  const messages = listOutcome('chat_messages_authored', messagesRes);
+  const orders = listOutcome('orders', ordersRes);
+  const payments = listOutcome('payments', paymentsRes);
+  const faceEnrollments = listOutcome('face_enrollments', faceEnrollmentsRes);
+  const dependents = listOutcome('alaga_dependents', dependentsRes);
+  const godparents = listOutcome('alaga_godparents', godparentsRes);
+  const communityMemberships = listOutcome('samahan_memberships', communityMembershipsRes);
+  const coordinatorConsents = listOutcome('coordinator_access_consents', coordinatorConsentsRes);
+  const marketingShareConsents = listOutcome('marketing_share_consents', marketingShareConsentsRes);
+  const workingNotes = listOutcome(
+    'vendor_working_notes_authored',
+    workingNotesRes,
+    adminUnavailable,
+  );
+  const broadcastsSent = listOutcome(
+    'coordinator_broadcasts_sent',
+    broadcastsSentRes,
+    adminUnavailable,
+  );
 
   // Resolve the vendor's own media to usable URLs (additive — the raw r2:// keys
   // remain inside vendor_profile.* and each media row). RLS-enforced reads, so
   // a vendor only ever exports their OWN media.
-  const vp = vendorProfileRes.data as
-    | {
-        vendor_profile_id?: string;
-        logo_url?: string | null;
-        portfolio_r2_keys?: string[] | null;
-      }
-    | null;
+  const vp = vendorProfile.row;
 
   let vendorPortfolioMedia: string[] = [];
   let vendorSubmittedMedia: unknown[] = [];
+  let vendorMediaIncomplete: string | null = null;
   if (vp) {
     vendorPortfolioMedia = await displayUrlsForStoredAssets([
       vp.logo_url ?? null,
       ...(vp.portfolio_r2_keys ?? []),
     ]);
     if (vp.vendor_profile_id) {
-      const { data: mediaRows } = await supabase
+      const mediaRes = await supabase
         .from('editorial_vendor_media')
         .select(
           'public_id, event_id, media_type, still_r2_key, boomerang_r2_key, caption, moderation_state, created_at',
         )
         .eq('vendor_profile_id', vp.vendor_profile_id);
+      const media = listOutcome<Record<string, unknown>>('vendor_submitted_media', mediaRes);
+      vendorMediaIncomplete = media.incomplete;
       vendorSubmittedMedia = await Promise.all(
-        (mediaRows ?? []).map(async (m) => ({
+        media.rows.map(async (m) => ({
           ...m,
           media_urls: await displayUrlsForStoredAssets([
             (m.still_r2_key as string | null) ?? null,
@@ -264,9 +398,34 @@ export async function GET() {
     }
   }
 
+  // Sections that FAILED or were NOT READ. Empty on a clean run — which is what
+  // lets `export_complete` below be a true assertion rather than a hope.
+  const incompleteSections = collectIncomplete([
+    profile,
+    events,
+    ownedEvents,
+    vendorProfile,
+    { incomplete: vendorMediaIncomplete },
+    messages,
+    orders,
+    payments,
+    faceEnrollments,
+    dependents,
+    godparents,
+    communityMemberships,
+    coordinatorConsents,
+    marketingShareConsents,
+    workingNotes,
+    broadcastsSent,
+  ]);
+
   const exported = {
     exported_at: new Date().toISOString(),
     note: 'RA 10173 personal data export · Setnayan V1',
+    // TRUE only when every section below was read without error. When false,
+    // the failed sections are named at the end of `not_included` and their
+    // empty arrays must NOT be read as "no such records exist".
+    export_complete: incompleteSections.length === 0,
     media_note:
       'Media links are time-limited (presigned). The durable record is the r2:// keys inside vendor_profile / vendor_submitted_media.',
     auth: {
@@ -275,13 +434,13 @@ export async function GET() {
       created_at: user.created_at,
       last_sign_in_at: user.last_sign_in_at,
     },
-    profile: profileRes.data ?? null,
-    event_memberships: eventsRes.data ?? [],
+    profile: profile.row,
+    event_memberships: events.rows,
     // RA 10173 (PR-G) — the sensitive birth fields the user opted in to (BaZi
     // date-check), for events they own. The `events` join shape is the owner's
     // own row; flatten to the birth-relevant fields so the export is explicit
     // about what sensitive data Setnayan holds.
-    owned_event_birth_data: (ownedEventsRes.data ?? []).map((row) => {
+    owned_event_birth_data: ownedEvents.rows.map((row) => {
       // Supabase types a to-one embed as an object, but can surface it as a
       // single-element array depending on the relationship hint — normalize both.
       const rawEv = (row as { events?: unknown }).events;
@@ -300,36 +459,47 @@ export async function GET() {
         bazi_birthdata_consent_at: (ev?.bazi_birthdata_consent_at as string | null) ?? null,
       };
     }),
-    vendor_profile: vendorProfileRes.data ?? null,
+    vendor_profile: vendorProfile.row,
     vendor_portfolio_media: vendorPortfolioMedia,
     vendor_submitted_media: vendorSubmittedMedia,
-    chat_messages_authored: messagesRes.data ?? [],
+    chat_messages_authored: messages.rows,
     // RA 10173 (2026-07-05) — the subject's own commerce + biometric records.
-    orders: ordersRes.data ?? [],
-    payments: paymentsRes.data ?? [],
+    orders: orders.rows,
+    payments: payments.rows,
     // Biometric CONSENT metadata only — raw face_vector embeddings are
     // intentionally excluded from the export.
-    face_enrollments: faceEnrollmentsRes.data ?? [],
+    face_enrollments: faceEnrollments.rows,
     // RA 10173 (2026-07-17) — Alaga records (guardian-stored, claimed-as-own,
     // and handed-over history) + godparent edges. Consent stamps included.
-    alaga_dependents: dependentsRes.data ?? [],
-    alaga_godparents: godparentsRes.data ?? [],
+    alaga_dependents: dependents.rows,
+    alaga_godparents: godparents.rows,
     // Samahan memberships — group name (user-chosen), role, joined_at.
-    samahan_memberships: communityMembershipsRes.data ?? [],
+    samahan_memberships: communityMemberships.rows,
     // RA 10173 (2026-07-19) — consent receipts the subject gave: coordinator
     // data-sharing consents (grant + revocation stamps) and marketing-share
     // consents (per-artifact FB-feature grants incl. post/take-down evidence).
-    coordinator_access_consents: coordinatorConsentsRes.data ?? [],
-    marketing_share_consents: marketingShareConsentsRes.data ?? [],
+    coordinator_access_consents: coordinatorConsents.rows,
+    marketing_share_consents: marketingShareConsents.rows,
     // RA 10173 (2026-07-21) — coordinator-workspace prose the subject AUTHORED.
     // Author-scoped, never event-scoped (see the WHY blocks at each select).
-    vendor_working_notes_authored: workingNotesRes.data ?? [],
-    coordinator_broadcasts_sent: broadcastsSentRes.data ?? [],
+    // Read privileged so a coordinator whose grant was later revoked still
+    // receives the words they wrote (see the bounded-bypass block above).
+    vendor_working_notes_authored: workingNotes.rows,
+    coordinator_broadcasts_sent: broadcastsSent.rows,
     not_included: [
-      'audit_log (API access — no user-scoped access-log table in V1)',
+      // CORRECTED 2026-07-21 — the previous single line claimed "no user-scoped
+      // access-log table in V1". That was FALSE: supabase/migrations/
+      // 20270212405352 creates public.admin_data_access_log with an
+      // `accessed_user_id` column and an index its own comment labels
+      // "(subject-access)". The two claims are now separated and each is true.
+      'API-access audit log — genuinely does not exist: the 0033 gateway ships api_keys only and V1 has no public API endpoints, so no per-request access trail was ever recorded.',
+      'admin_data_access_log — this DOES exist and IS keyed to you (accessed_user_id): it records which Setnayan admin viewed your account, when, and on which surface. It is not shipped in this file because each row also names the admin who looked, and the disclosure shape for that is pending DPO review. Request it from the DPO and it will be provided.',
       'face_vector embeddings (biometric raw data — metadata only is exported)',
       'active alaga claim_token values (live bearer secrets — never exported)',
       'working notes + day-of broadcasts authored by OTHERS (third-party personal data — the export ships what the subject wrote, not what they received)',
+      // Anything that failed or went unread on THIS run, named. Empty on a
+      // clean export; `export_complete` above is the machine-readable twin.
+      ...incompleteSections,
     ],
   };
 

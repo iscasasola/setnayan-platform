@@ -82,8 +82,17 @@ import { listOutcome, singleOutcome, collectIncomplete } from '@/lib/export-inte
  *   4. Read-only. No write ever uses this client on this route.
  * If a future edit loosens (1) or (2) — an event_id filter, a caller-supplied
  * id, a widened select — the bypass stops being bounded and this pattern must
- * be REMOVED rather than extended. lib/export-coverage-guardrail T6 pins the
- * author-scoping half of that.
+ * be REMOVED rather than extended.
+ *
+ * WHAT IS ACTUALLY PINNED BY TESTS (do not overstate this):
+ *   • T6 (lib/export-coverage-guardrail) is a TEXT-PROXIMITY match asserting the
+ *     author/sender column name appears near each table name. It catches a flip
+ *     to .eq('event_id', …). It does NOT see which client issues the read.
+ *   • T11 (same file) is the one that pins the client: it asserts both reads are
+ *     issued from `admin`, never from the RLS session client. Without it the
+ *     whole fix could be reverted by a drive-by refactor with a green build —
+ *     mutation-tested, it was.
+ * Properties 3 and 4 above are reviewed by humans, not asserted by any test.
  *
  * The cleaner long-term shape is author SELECT policies added by migration,
  * which would let the session client do this. It is not bundled here because a
@@ -101,16 +110,31 @@ export async function GET() {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
-  // Privileged read client for the two author-scoped sections above. If it
-  // cannot be constructed (missing service-role key) we do NOT silently fall
-  // back to the session client — that would reproduce the exact silent-empty
-  // this fix exists to kill. The sections are marked NOT READ instead.
+  // Privileged read client for the two author-scoped sections above.
+  //
+  // We gate on SUPABASE_SERVICE_ROLE_KEY being PRESENT rather than on
+  // createAdminClient() throwing. That is not belt-and-braces, it is the whole
+  // point: lib/supabase/admin.ts has a documented dev-only fallback that swaps
+  // in NEXT_PUBLIC_SUPABASE_ANON_KEY when the service key is unset under
+  // NODE_ENV==='development'. Construction then SUCCEEDS, so the catch below
+  // never fires — but the returned client carries no user session, auth.uid()
+  // is NULL, both coordinator policies match nothing, and the read comes back
+  // as zero rows with error null. That is indistinguishable from a true empty:
+  // the export would ship empty author sections with export_complete: true,
+  // i.e. the exact silent empty this route exists to kill, on the one surface
+  // (a local dev server) anybody would use to hand-verify the fix.
+  // Absent the key we take NO privileged read at all and mark both sections
+  // NOT READ, in dev and in prod alike.
   let admin: ReturnType<typeof createAdminClient> | null = null;
   let adminUnavailable: string | undefined;
-  try {
-    admin = createAdminClient();
-  } catch {
-    admin = null;
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      admin = createAdminClient();
+    } catch {
+      admin = null;
+    }
+  }
+  if (!admin) {
     adminUnavailable =
       'The privileged read client required to guarantee completeness for author-scoped ' +
       'coordinator records was unavailable on this run.';

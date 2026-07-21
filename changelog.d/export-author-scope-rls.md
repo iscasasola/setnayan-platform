@@ -51,24 +51,78 @@ file only because each row also names the admin who looked.
   docblock rationale ("an operator acting in role") is true for the `*_by_user_id`
   names and FALSE for those two — there the subject IS the target. Measured
   fallout: 3 tables, not 11.
-- New `STAFF_ACTOR_FK` keeps pure `*_by` / `*_admin_id` operator stamps out, so
-  the widening does not degenerate into "every table".
-- `KNOWN_GAP_CEILING` 82 → 85, the one argued exception the ratchet allows: no
-  new gap was created, three PRE-EXISTING ones became countable for the first
-  time. Documented inline.
-- New T7 (heuristic sees non-`*_user_id` subject columns, and still excludes a
-  pure operator-stamp table), T8 (the false access-log claim stays corrected),
-  T9 (no bare `?? []` unwrap returns on the route).
+- New T7 (heuristic sees non-`*_user_id` subject columns), T8 (the false
+  access-log claim stays corrected), T9 (no bare `?? []` unwrap returns on the
+  route).
 
-Measured, not asserted: 344 tables · 36 FK-to-users columns the name regex
-misses across 25 tables · 22 of those are operator stamps.
+**5 · Second pass — three adversarial reviewers returned not-SOUND on the above.**
+All MUST FIXes addressed:
+- **The parser rewrite silently DE-ENFORCED two tables.** Switching to a
+  segment split fixed wrapped `REFERENCES` clauses but stripped only whole
+  comment LINES, so a comma inside a *trailing* `--` comment split the segment
+  and swallowed the next real column. 161 columns across 55 tables went
+  undetected; `people` and `vendor_meetings` fell OUT of the enforced tier while
+  still counting toward the ceiling — the exact "silently under-detects →
+  manufactures false confidence" failure this file exists to prevent, shipped
+  inside the fix for it. Comments are now stripped to end of line.
+- **`STAFF_ACTOR_FK` is DELETED, not narrowed.** Its blanket `.*_by` alternative
+  suppressed 22 tables wholesale, including `event_journey_steps.completed_by`
+  (the couple member who completed a planning step) and
+  `event_preparation_items.created_by` — genuine subject data with no
+  `*_user_id` column, hence invisible, unexported and unclassified. A regex
+  cannot decide this: `created_by` is an admin on `platform_expenses` and a data
+  subject on `event_preparation_items`. The FK signal is now unfiltered, and all
+  23 tables it pulls in are answered BY NAME (21 `DELIBERATE_EXCLUSIONS`, each
+  checked column-by-column against its migration; 2 `KNOWN_GAPS`).
+- **The dev-only anon-key fallback re-created the silent empty.**
+  `lib/supabase/admin.ts` swaps in `NEXT_PUBLIC_SUPABASE_ANON_KEY` when the
+  service key is unset under `NODE_ENV==='development'` — construction SUCCEEDS,
+  the try/catch never fires, the read runs with `auth.uid()` NULL, RLS returns
+  zero rows with `error` null, and the file ships `export_complete: true`. Prod
+  threw correctly, so this was never a production data defect, but it was live on
+  the one surface anyone would use to hand-verify the fix. The route now gates on
+  `process.env.SUPABASE_SERVICE_ROLE_KEY` being present; the comment that claimed
+  "we do NOT silently fall back" is rewritten to describe what actually happens.
+- **The core fix had NO test teeth.** Mutation testing showed both privileged
+  reads could be reverted to the RLS session client — restoring the original bug
+  verbatim — with 19/19 green and `tsc` clean. New **T11** asserts each table is
+  read from `admin` and NOT from `supabase`, that the filter is
+  `.eq(<author col>, user.id)`, and that the service-role key is gated on.
+- **New T10** asserts every classified table is still IN SCOPE — the reverse of
+  T3. Nothing previously caught "classified but the DETECTOR stopped seeing it",
+  which is how `people` and `vendor_meetings` went unguarded while green.
+- T9 hardened: the `?? []` detector no longer keys off the `*Res` naming
+  convention (the route's own original offender was `mediaRows ?? []`, which it
+  could never have caught), and the completeness assertion matches the FIELD
+  rather than the bare identifier, which also appears in three comments.
+- Corrected claims: `editorial_vendor_media.created_by` was stated to be caught
+  by the widening — `STAFF_ACTOR_FK` killed it; it is in scope now. The docblock
+  count "36 columns on 25 tables, 22 pure operator stamps" was wrong in both the
+  number and its stated meaning. Re-measured: **344 tables · 135 in the enforced
+  tier · 37 FK-to-users columns the name regex misses on 35 tables, 25 of them
+  invisible to the name regex alone · 87 second-tier (`event_id`-only)**. The
+  residual blind spot the FK signal cannot see (a bare `UUID`, or an FK added by
+  `ALTER TABLE … ADD CONSTRAINT`) is now stated in the docblock, and T10 asserts
+  the class of narrowing that hid it can never ship green again.
+- `KNOWN_GAP_CEILING` 82 → **87**, in two argued steps, with the incomplete
+  first justification corrected inline: the original 82 → 85 was argued on "no
+  new gap was created" while the same commit de-enforced two pre-existing ones.
 
-Red-before/green-after run for all four fixes (helper mutated to the old
-swallow; `STAFF_ACTOR`/FK detector reverted; parser reverted to line-oriented;
-false claim restored; `?? []` restored) — each failed only its own test, then
-passed on restore.
+Red-before/green-after, second pass (each mutation run against the real module,
+worktree restored after every one):
+- both privileged reads → session client: **T11 RED**, restored **12/12 green**
+- `SUPABASE_SERVICE_ROLE_KEY` gate removed: **T11 RED**
+- `export_complete:` field deleted, comments kept: **T9 RED**
+- `eventsRes.data ?? []` reintroduced (non-`*Res` shape): **T9 RED**
+- parser reverted to the whole-line comment filter: **T7 + T10 RED**, naming
+  `owner_alerts, event_preparation_items, people, vendor_meetings`
+- `STAFF_ACTOR_FK` reintroduced: **T7 + T10 RED**, naming all 23 suppressed tables
+
+`tsc --noEmit` exit 0 · `lib/**/*.test.ts` 2459/2459 pass.
 
 SPEC IMPACT: None. No SKU, price, schema, or product-surface change. The
-`admin_data_access_log` disclosure shape is flagged for DPO sign-off, and adding
+`admin_data_access_log` disclosure shape is flagged for DPO sign-off; adding
 author SELECT policies by migration (the cleaner long-term shape than the
-service-role read) is flagged for owner sign-off — neither is bundled here.
+service-role read) is flagged for owner sign-off; the `KNOWN_GAP_CEILING`
+82 → 87 raise needs the owner's explicit yes given the file's may-only-go-DOWN
+rule — none is bundled here.

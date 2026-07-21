@@ -29,29 +29,41 @@
  *     here and will never be flagged.
  *  2. Subject-column detection is TWO signals, not one (widened 2026-07-21 after
  *     adversarial review found the single name-regex under-detecting):
- *       (a) the name matches `SUBJECT_COL` (`user_id` / `*_user_id`), OR
+ *       (a) the name matches `SUBJECT_COL` (`user_id` / `*_user_id`), minus the
+ *           eight enumerated `STAFF_ACTOR` names, OR
  *       (b) the column carries `REFERENCES public.users(user_id)` under ANY
  *           name — which is how `marketing_share_consents.customer_id` is now
  *           seen. Before this, the guardrail could not see a table the export
  *           itself already reads.
- *     Both are still defeatable: a subject column with neither the name nor an
- *     explicit FK (a bare `UUID` holding a uid, or an FK added later by a
- *     `ADD CONSTRAINT` rather than inline) remains invisible. Measured after
- *     the widening: 344 tables · 36 FK-to-users columns whose names the regex
- *     misses, on 25 tables the regex alone could not see — 22 of which are pure
- *     `*_by` / `*_admin_id` operator stamps filtered by `STAFF_ACTOR_FK`.
- *     Parsing is segment-oriented (top-level comma split), not line-oriented,
- *     so a REFERENCES clause wrapped onto its own line is caught.
+ *     Signal (b) is applied with NO second suppressor. A first cut filtered it
+ *     through `STAFF_ACTOR_FK = /^(.*_by|…)$/`; that regex suppressed 22 tables
+ *     wholesale and took two genuine subject tables with it
+ *     (`event_journey_steps`, `event_preparation_items`), i.e. it re-created the
+ *     under-detection this widening exists to close. It is deleted; operator
+ *     stamps are now answered one-by-one in DELIBERATE_EXCLUSIONS.
+ *     Both signals remain defeatable, and this is the residual blind spot:
+ *     a subject column with neither the name nor an INLINE FK — a bare `UUID`
+ *     holding a uid, or an FK attached later by `ALTER TABLE … ADD CONSTRAINT`
+ *     rather than declared inline — is still invisible here and always will be.
+ *     Measured 2026-07-21 on this repo, after both fixes: 344 tables · 135 in
+ *     the enforced tier · 37 FK-to-users columns whose NAME the regex misses,
+ *     on 35 tables, of which 25 were invisible to the name regex alone.
+ *     Parsing is segment-oriented (top-level comma split with `--` comments
+ *     stripped to end of line), not line-oriented, so a REFERENCES clause
+ *     wrapped onto its own line is caught. T10 asserts that every table already
+ *     classified here is still SEEN, so a future narrowing of either signal
+ *     fails loudly instead of silently shrinking the guarded set.
  *  3. The SECOND tier is deliberately NOT enforced. Measured on this repo:
- *     344 tables · 107 carry a subject column (the enforced tier) · a further 92
+ *     344 tables · 135 carry a subject column (the enforced tier) · a further 87
  *     carry `event_id` (personal data reachable through an event) with NO
- *     subject column. Enforcing that tier would flag 199 of 344 tables and
- *     produce a ~180-entry allowlist nobody reads — i.e. exactly the rubber
+ *     subject column. Enforcing that tier would flag 222 of 344 tables and
+ *     produce a ~200-entry allowlist nobody reads — i.e. exactly the rubber
  *     stamp this test exists to prevent. The numbers are recorded so the
  *     trade-off stays auditable and revisitable, not so it stays permanent.
  *  4. A textual reference in the route proves a table is TOUCHED, not that it is
- *     CORRECTLY SCOPED. Only T6 checks scoping, and only for the two tables this
- *     PR fixed. Every other EXPORTED entry is trusted to be reviewed by a human.
+ *     CORRECTLY SCOPED. Only T6 (author column) and T11 (which CLIENT issues the
+ *     read) check scoping, and only for the two tables this PR fixed. Every
+ *     other EXPORTED entry is trusted to be reviewed by a human.
  *  5. Retired tables are not detected. `DROP TABLE` in these migrations is
  *     idempotency scaffolding preceding a CREATE, not retirement — so a
  *     genuinely dropped table would linger as a stale map entry until T3 is
@@ -143,11 +155,18 @@ function readSchema(): Map<string, TableSchema> {
       if (end < 0) continue;
 
       const entry = schema.get(table) ?? { cols: new Set<string>(), userFks: new Set<string>() };
-      const body = sql
-        .slice(createRe.lastIndex, end)
-        .split('\n')
-        .filter((l) => !l.trim().startsWith('--'))
-        .join('\n');
+      // Strip `--` comments to END OF LINE, not just whole comment LINES.
+      // A trailing inline comment routinely contains a comma:
+      //   … ON DELETE SET NULL,  -- the rite (kasal/binyag/kumpil), if any
+      // (20270514787557_phase2_person_connections_schema.sql:39). Under a
+      // whole-line filter that comma survives, splitTopLevel breaks the segment
+      // there, and the NEXT real column is swallowed into a segment starting
+      // with leftover comment text — so the ^-anchored column regex never sees
+      // it. Measured: the whole-line filter dropped 161 columns across 55
+      // tables and silently pushed `people` and `vendor_meetings` OUT of the
+      // enforced tier while the suite stayed green. T10 now makes that class of
+      // silent narrowing impossible to ship.
+      const body = sql.slice(createRe.lastIndex, end).replace(/--[^\n]*/g, '');
       for (const seg of splitTopLevel(body)) {
         const s = seg.trim();
         const col = /^([a-z0-9_]+)\s+[A-Za-z]/.exec(s)?.[1];
@@ -201,18 +220,25 @@ const STAFF_ACTOR =
  * table the export already reads but which the name regex could not see, i.e.
  * the guardrail was blind to a table it was supposedly guarding.
  *
- * The staff-actor exclusion still applies by NAME on top of the FK signal, and
- * these `*_by` / `*_admin_id` stamps are almost all pure operator stamps —
- * which is why most of the tables this widening pulls in land in
- * DELIBERATE_EXCLUSIONS rather than the backlog.
+ * ⚠ THERE IS DELIBERATELY NO SECOND SUPPRESSOR HERE.
+ * A first cut of this widening paired the FK signal with
+ * `STAFF_ACTOR_FK = /^(.*_by|.*_admin_id|…)$/` to keep operator stamps out.
+ * Adversarial review killed it, correctly: the blanket `.*_by` alternative
+ * suppressed 22 tables wholesale, including `event_journey_steps.completed_by`
+ * (the couple member who completed a planning step) and
+ * `event_preparation_items.created_by` (a couple-added prep item) — pure
+ * subject data with no `*_user_id` column, hence invisible, unexported and
+ * unclassified. A regex cannot decide this: `created_by` is a Setnayan admin on
+ * `platform_expenses` and a data subject on `event_preparation_items`. So the
+ * FK signal is now UNFILTERED and every table it pulls in is classified BY NAME
+ * below with a stated reason — which is the rule the rest of this file already
+ * lives by ("NO wildcards, NO prefix rules"). The cost is 22 extra
+ * DELIBERATE_EXCLUSIONS lines. That is the correct price.
  */
-const STAFF_ACTOR_FK =
-  /^(.*_by|.*_by_admin|.*_by_admin_id|.*_admin_id|.*_admin|override_admin_id)$/;
-
 function isSubjectColumn(col: string, userFks: Set<string>): boolean {
   if (STAFF_ACTOR.test(col)) return false;
   if (SUBJECT_COL.test(col)) return true;
-  return userFks.has(col) && !STAFF_ACTOR_FK.test(col);
+  return userFks.has(col);
 }
 
 function inScopeTables(schema: Map<string, TableSchema>): string[] {
@@ -269,6 +295,46 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'Platform configuration; platform_settings.ig_user_id is Setnayan’s OWN IG account, not a user’s.',
   vendor_verifications: 'Admin decision record — the uid on it is a staff actor, not the subject.',
   vendor_admin_motion_votes: 'Admin decision record — the uid on it is a staff actor, not the subject.',
+
+  // ── Newly VISIBLE 2026-07-21 (second pass) ────────────────────────────────
+  // These 21 became visible when STAFF_ACTOR_FK was DELETED (see the
+  // isSubjectColumn docblock). Each was checked column-by-column against its
+  // migration; in every one the only FK to public.users is a Setnayan-operator
+  // stamp on Setnayan's own configuration, books, or moderation queues. They
+  // are written out one by one, by name, precisely so nobody has to trust a
+  // regex's opinion about what `created_by` means on a given table.
+  discount_codes: 'Platform promo configuration — created_by_admin_id is the admin who authored the code.',
+  event_feature_policy_override:
+    'Per-event feature toggle set by staff — set_by_admin_id is the operator, not the subject.',
+  feature_policy: 'Platform feature-gate configuration — updated_by_admin_id is a staff actor.',
+  homepage_background_videos: 'Marketing site configuration — updated_by_admin_id is a staff actor.',
+  homepage_hero_config: 'Marketing site configuration — updated_by_admin_id is a staff actor.',
+  reveal_studio_config: 'Platform Reveal Studio configuration — updated_by_admin_id is a staff actor.',
+  site_widgets: 'Marketing site configuration — updated_by_admin_id is a staff actor.',
+  platform_compliance_facts:
+    'Setnayan’s OWN PIC/DPO compliance record (singleton row) — updated_by is a staff actor; the personal data in it is Setnayan’s officers, disclosed on /privacy, not a user’s.',
+  platform_expenses: 'Setnayan’s own books — created_by is the staff member who logged the expense.',
+  order_refunds: 'Admin reconciliation decision — refunded_by_admin_id is a staff actor. The subject-side record is `orders`/`payments`, both exported.',
+  vendor_2307_filings: 'BIR filing artifact generated by staff — generated_by_admin_id is a staff actor.',
+  vendor_self_comp_caps: 'Platform comp-cap configuration — raised_by_admin is a staff actor.',
+  vendor_correction_requests:
+    'Vendor identity-field correction queue — resolved_by is the reviewing admin; the request itself is keyed to vendor_profile_id, whose owner-side record is `vendor_profile` (exported).',
+  vendor_web_dossiers:
+    'Admin-run vendor due-diligence search — requested_by is the admin who ran it; the dossier is about a BUSINESS listing, not the account holder.',
+  moodboard_library_assets:
+    'Setnayan-curated mood-board asset library — uploaded_by is the internal stylist/admin who added the asset, not a data subject.',
+  social_posts:
+    'Setnayan’s OWN outbound social posts — created_by is the admin who composed the post. The couple-side record is `marketing_share_consents` (exported).',
+  fraud_signals:
+    'Anti-abuse detection record — reviewed_by is the reviewing admin; disclosure defeats detection (NPC investigation carve-out, same rule as blacklisted_emails).',
+  integrity_flags:
+    'Anti-abuse detection record (review fraud / ghost listing) — reviewed_by is the reviewing admin; disclosure defeats detection.',
+  vendor_image_flags:
+    'Anti-abuse detection record (image repost watch) — reviewed_by is the reviewing admin; disclosure defeats detection.',
+  vendor_qr_media_flags:
+    'Anti-abuse detection record (QR-in-media guard) — reviewed_by is the reviewing admin; disclosure defeats detection.',
+  owner_alerts:
+    'Internal ops alerting for the platform owner — acknowledged_by is the owner acting as operator; holds no user personal data.',
 };
 
 /**
@@ -314,6 +380,13 @@ const KNOWN_GAPS: Record<string, string> = {
   event_delegates: 'TODO(RA10173-backlog): delegate grants the subject holds or issued.',
   event_egift_methods: 'TODO(RA10173-backlog): the subject’s own e-gift payout handles (financial identifiers).',
   event_inspiration_assets: 'TODO(RA10173-backlog): uploads the subject contributed.',
+  // Newly VISIBLE 2026-07-21 (second pass): both were suppressed by the blanket
+  // `.*_by` alternative in the deleted STAFF_ACTOR_FK. Neither is an operator
+  // stamp — both name the couple/host member who acted.
+  event_journey_steps:
+    'TODO(RA10173-backlog): completed_by is the couple/host member who completed a planning step — their own progress record, not a staff stamp.',
+  event_preparation_items:
+    'TODO(RA10173-backlog): created_by is the couple member who added a prep item (source_tag `couple_manual`) — their own to-do text.',
   event_manual_vendors: 'TODO(RA10173-backlog): vendor contact details the subject typed in themselves.',
   event_meaningful_dates: 'TODO(RA10173-backlog): personal dates the subject recorded.',
   event_moderators: 'TODO(RA10173-backlog): coordinator/moderator grants naming the subject.',
@@ -393,17 +466,30 @@ const KNOWN_GAPS: Record<string, string> = {
  * exclusion). Raising it means shipping a new RA 10173 gap, which must be an
  * explicit, argued decision, never a drive-by edit.
  *
- * 82 → 85 on 2026-07-21. This is the ONE argued exception the docblock above
- * allows, and it is not a regression: no new gap was created. Correcting the
- * STAFF_ACTOR mistake (see its docblock) made three PRE-EXISTING gaps visible
- * to the counter for the first time — admin_data_access_log,
- * admin_approval_requests, vendor_admin_motions. The honest number went up
- * because the measurement got honest, not because coverage got worse. Refusing
- * the raise would have meant keeping the heuristic wrong to protect a number,
- * which is precisely the false confidence this file exists to prevent.
- * Every future movement must be downward.
+ * 82 → 87 on 2026-07-21, in two argued steps. This is the ONE exception the
+ * docblock above allows. No new gap was CREATED by either step; five
+ * PRE-EXISTING gaps became countable for the first time:
+ *
+ *   82 → 85  Correcting the STAFF_ACTOR mistake (see its docblock) exposed
+ *            admin_data_access_log, admin_approval_requests,
+ *            vendor_admin_motions.
+ *   85 → 87  Deleting STAFF_ACTOR_FK (see the isSubjectColumn docblock) exposed
+ *            event_journey_steps, event_preparation_items.
+ *
+ * ⚠ FULL DISCLOSURE, because the first cut of this change got this wrong:
+ * the ORIGINAL 82 → 85 raise was argued on the claim "no new gap was created",
+ * and that claim was incomplete. In the same commit a parser rewrite silently
+ * pushed `people` and `vendor_meetings` OUT of the enforced tier — they kept
+ * counting toward the ceiling while no longer being guarded at all, and the
+ * suite stayed green. Both are back in scope (parser fixed) and both are now
+ * pinned by name in T7, with T10 asserting the whole class can never recur.
+ *
+ * The honest number went up because the measurement got honest, not because
+ * coverage got worse. Refusing the raise would have meant keeping the heuristic
+ * wrong to protect a number — precisely the false confidence this file exists
+ * to prevent. Every future movement must be downward.
  */
-const KNOWN_GAP_CEILING = 85;
+const KNOWN_GAP_CEILING = 87;
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
@@ -495,12 +581,109 @@ test('T7 · the heuristic sees subject columns that are not named *_user_id', ()
     'vendor_admin_motions.target_user_id is the account the motion is ABOUT — the subject, not the operator.',
   );
 
-  // The complement still holds: a pure operator stamp must NOT drag a
-  // platform-config table into scope, or the widening degenerates into
-  // "every table", and the map becomes the rubber stamp T1 exists to prevent.
+  // Columns the deleted STAFF_ACTOR_FK blanket-`.*_by` suppressed. Neither is
+  // an operator stamp; both are the acting couple/host member.
   assert.ok(
-    !inScope.has('homepage_hero_config'),
-    'homepage_hero_config carries only updated_by_admin_id — an operator stamp on Setnayan’s own marketing config, not subject data.',
+    inScope.has('event_journey_steps'),
+    'event_journey_steps.completed_by REFERENCES public.users(user_id) and names the couple member who completed the step. ' +
+      'The table has NO *_user_id column, so if a name-based suppressor comes back it goes invisible, unexported and unclassified.',
+  );
+  assert.ok(
+    inScope.has('event_preparation_items'),
+    'event_preparation_items.created_by names the couple member who added the prep item — subject data, not a staff stamp.',
+  );
+
+  // Tables a whole-line `--` comment filter silently dropped out of the
+  // enforced tier while the suite stayed green (see the readSchema docblock).
+  // They are named individually because the failure was invisible in aggregate:
+  // the in-scope COUNT went up while these two fell out.
+  for (const t of ['people', 'vendor_meetings', 'person_connections']) {
+    assert.ok(
+      inScope.has(t),
+      `${t} carries a *_user_id column and must be in the enforced tier. ` +
+        'If it is not, the migration parser regressed — most likely a `--` comment is no longer being stripped to end of line, ' +
+        'so a comma inside a trailing comment is splitting the column body.',
+    );
+  }
+
+  // The complement still holds in its ONLY honest form. Operator-stamp tables
+  // ARE in scope now (there is no FK suppressor left), but each must be
+  // answered BY NAME rather than waved through by a pattern — otherwise the
+  // widening degenerates into "every table" and the map becomes the rubber
+  // stamp T1 exists to prevent.
+  assert.ok(
+    inScope.has('homepage_hero_config'),
+    'homepage_hero_config.updated_by_admin_id FKs to public.users, so the heuristic must SEE it…',
+  );
+  assert.ok(
+    'homepage_hero_config' in DELIBERATE_EXCLUSIONS,
+    '…and it must be answered by an explicit named reason (an operator stamp on Setnayan’s own marketing config), never by a regex.',
+  );
+});
+
+test('T10 · every classified table is still IN SCOPE (a narrowing heuristic must fail loudly)', () => {
+  // The reverse of T3. T3 catches "classified but the table is gone"; nothing
+  // caught "classified but the DETECTOR stopped seeing it" — which is how the
+  // first cut of this change de-enforced `people` and `vendor_meetings` while
+  // they kept counting toward KNOWN_GAP_CEILING. A guardrail that silently
+  // under-detects is worse than no guardrail; this is the assertion that makes
+  // that specific failure mode impossible to ship green.
+  const inScope = new Set(inScopeTables(readSchema()));
+  const missing = [...Object.keys(DELIBERATE_EXCLUSIONS), ...Object.keys(KNOWN_GAPS)].filter(
+    (t) => !inScope.has(t),
+  );
+  assert.deepEqual(
+    missing,
+    [],
+    `Classified here but NO LONGER detected as user-identifying: ${missing.join(', ')}.\n` +
+      'The subject-column heuristic narrowed. These tables are now unguarded while still counting toward ' +
+      'KNOWN_GAP_CEILING — i.e. the number says "guarded" and the code says nothing. Fix the detector, do not delete the entries.',
+  );
+});
+
+test('T11 · the two author-scoped reads use the PRIVILEGED client, not the session client', () => {
+  const src = fs.readFileSync(ROUTE, 'utf8');
+  // THE load-bearing assertion for this whole fix, and it is here because
+  // mutation testing proved its absence: reverting both reads to the RLS
+  // session client — i.e. restoring the exact bug — left 19/19 green.
+  //
+  // Neither table grants an author/sender SELECT policy, so a departed
+  // coordinator (removeHost stamps event_moderators.removed_at AND deletes the
+  // event_members row) reads ZERO rows through the session client and receives
+  // a subject-access file asserting they wrote nothing.
+  for (const [table, col] of [
+    ['event_vendor_working_notes', 'author_user_id'],
+    ['coordinator_broadcasts', 'sender_user_id'],
+  ] as const) {
+    assert.match(
+      src,
+      new RegExp(`admin\\s*\\n?\\s*\\.from\\(\\s*'${table}'\\s*\\)`),
+      `${table} must be read from the SERVICE-ROLE client (\`admin\`). It has no author SELECT policy, so an ` +
+        'RLS-enforced read returns zero rows for a coordinator whose grant was revoked — a false "you wrote nothing".',
+    );
+    assert.doesNotMatch(
+      src,
+      new RegExp(`supabase\\s*\\n?\\s*\\.from\\(\\s*'${table}'\\s*\\)`),
+      `${table} must NOT be read from the RLS session client — that is the exact bug this PR fixed.`,
+    );
+    // The bypass is only bounded while the filter is the author column itself.
+    assert.match(
+      src,
+      new RegExp(`'${table}'[\\s\\S]{0,400}?\\.eq\\(\\s*'${col}'\\s*,\\s*user\\.id\\s*\\)`),
+      `${table} must be filtered by .eq('${col}', user.id) — a server-verified session identity, never request input.`,
+    );
+  }
+
+  // And the privileged client must be gated on the SERVICE-ROLE KEY, not on
+  // createAdminClient() throwing: lib/supabase/admin.ts falls back to the ANON
+  // key under NODE_ENV==='development', so construction succeeds, the read runs
+  // unauthenticated, RLS returns 0 rows with error null, and export_complete
+  // ships TRUE. That is the silent empty, resurrected in dev.
+  assert.match(
+    src,
+    /process\.env\.SUPABASE_SERVICE_ROLE_KEY/,
+    'The route must gate the privileged read on SUPABASE_SERVICE_ROLE_KEY being present. ' +
+      'A try/catch around createAdminClient() is NOT enough — the dev-only anon-key fallback in lib/supabase/admin.ts never throws.',
   );
 });
 
@@ -528,14 +711,39 @@ test('T9 · no read on the export route is unwrapped with a bare `?? []`', () =>
   // `res.data ?? []` is exactly how the silent empty got shipped: a failed read
   // and a genuinely empty one become the same JSON. Every read now goes through
   // lib/export-integrity, which names failures in `not_included`.
-  const offenders = [...src.matchAll(/\w+Res(?:\.data)?\s*\?\?\s*\[\]/g)].map((m) => m[0]);
+  //
+  // Matched broadly, NOT via the `*Res` naming convention: the route's own
+  // original offender was `mediaRows ?? []`, which a `\w+Res` regex could never
+  // have caught, and any rename would defeat it. One legitimate non-read
+  // default is allowlisted by its exact text.
+  const ALLOWED_EMPTY_ARRAY_DEFAULTS = [
+    // A column default on an already-unwrapped row, not a read unwrap.
+    'vp.portfolio_r2_keys ?? []',
+  ];
+  // Comments are stripped first — this file and the route BOTH discuss `?? []`
+  // in prose, and a prose mention is not a defect.
+  const code = src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .filter((l) => !l.trim().startsWith('//'))
+    .join('\n');
+  const offenders = [...code.matchAll(/[^\n]*\?\?\s*\[\]/g)]
+    .map((m) => m[0].trim())
+    .filter((line) => !ALLOWED_EMPTY_ARRAY_DEFAULTS.some((ok) => line.includes(ok)));
   assert.deepEqual(
     offenders,
     [],
-    `Bare \`?? []\` unwrap(s) reintroduced on the export route: ${offenders.join(', ')}. ` +
+    `Bare \`?? []\` unwrap(s) reintroduced on the export route: ${offenders.join(' | ')}. ` +
       'Use listOutcome()/singleOutcome() from lib/export-integrity so a failed read is DISCLOSED, not silently rendered as "you have no such records".',
   );
-  assert.match(src, /export_complete/, 'the export must carry a machine-readable completeness flag');
+  // Match the FIELD, not the bare identifier: `export_complete` also appears in
+  // three comments on this route, so a bare-identifier match survived deleting
+  // the actual field (mutation-tested).
+  assert.match(
+    src,
+    /export_complete:\s*incompleteSections\.length === 0/,
+    'the export must carry a machine-readable completeness flag computed from the failed-section list',
+  );
 });
 
 test('T6 · those two stay AUTHOR-scoped, never event-scoped', () => {

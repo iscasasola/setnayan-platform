@@ -27,10 +27,21 @@
  *     inside a DO block, via dynamic SQL / EXECUTE, in a non-`public` schema, or
  *     outside supabase/migrations (e.g. applied straight to prod) is INVISIBLE
  *     here and will never be flagged.
- *  2. Column detection is line-oriented. An unusually formatted column
- *     declaration (wrapped across lines, or a column whose type token does not
- *     start with a letter) is missed — which can make a REAL subject table look
- *     out of scope and slip through unclassified.
+ *  2. Subject-column detection is TWO signals, not one (widened 2026-07-21 after
+ *     adversarial review found the single name-regex under-detecting):
+ *       (a) the name matches `SUBJECT_COL` (`user_id` / `*_user_id`), OR
+ *       (b) the column carries `REFERENCES public.users(user_id)` under ANY
+ *           name — which is how `marketing_share_consents.customer_id` is now
+ *           seen. Before this, the guardrail could not see a table the export
+ *           itself already reads.
+ *     Both are still defeatable: a subject column with neither the name nor an
+ *     explicit FK (a bare `UUID` holding a uid, or an FK added later by a
+ *     `ADD CONSTRAINT` rather than inline) remains invisible. Measured after
+ *     the widening: 344 tables · 36 FK-to-users columns whose names the regex
+ *     misses, on 25 tables the regex alone could not see — 22 of which are pure
+ *     `*_by` / `*_admin_id` operator stamps filtered by `STAFF_ACTOR_FK`.
+ *     Parsing is segment-oriented (top-level comma split), not line-oriented,
+ *     so a REFERENCES clause wrapped onto its own line is caught.
  *  3. The SECOND tier is deliberately NOT enforced. Measured on this repo:
  *     344 tables · 107 carry a subject column (the enforced tier) · a further 92
  *     carry `event_id` (personal data reachable through an event) with NO
@@ -61,13 +72,46 @@ const ROUTE = path.resolve(HERE, '..', 'app', 'api', 'profile', 'export', 'route
 /** Trailing table-constraint keywords that look like a column name at line start. */
 const NOT_A_COLUMN = /^(constraint|primary|unique|foreign|check|exclude|like)$/i;
 
+export type TableSchema = {
+  /** union of every column name seen across ALL migrations */
+  cols: Set<string>;
+  /** subset of `cols` that carries `REFERENCES public.users(user_id)` */
+  userFks: Set<string>;
+};
+
+/** Split a CREATE TABLE body on top-level commas — one entry per column/constraint. */
+function splitTopLevel(body: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let cur = '';
+  for (const ch of body) {
+    if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    if (ch === ',' && depth === 0) {
+      out.push(cur);
+      cur = '';
+    } else cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+
+const USER_FK = /REFERENCES\s+public\.users\s*\(\s*user_id/i;
+
 /**
- * table -> union of every column name seen across ALL migrations. Union (not
+ * table -> columns + which of them FK to public.users(user_id). Union (not
  * last-write) because several migrations DROP+CREATE the same table for
  * idempotency, and later ALTERs add columns.
+ *
+ * Segment-oriented, NOT line-oriented: a column declaration is frequently
+ * wrapped across lines with its REFERENCES clause on the next one, e.g.
+ *   customer_id    UUID NOT NULL
+ *                  REFERENCES public.users(user_id) ON DELETE CASCADE,
+ * (marketing_share_consents, 20261203000000_social_sharing_program.sql:72-73).
+ * A line-oriented parser sees the name but never the FK.
  */
-function readSchema(): Map<string, Set<string>> {
-  const cols = new Map<string, Set<string>>();
+function readSchema(): Map<string, TableSchema> {
+  const schema = new Map<string, TableSchema>();
   const files = fs
     .readdirSync(MIGRATIONS)
     .filter((f) => f.endsWith('.sql'))
@@ -98,28 +142,36 @@ function readSchema(): Map<string, Set<string>> {
       }
       if (end < 0) continue;
 
-      const set = cols.get(table) ?? new Set<string>();
-      for (const raw of sql.slice(createRe.lastIndex, end).split('\n')) {
-        const line = raw.trim();
-        if (line.startsWith('--')) continue;
-        const col = /^([a-z0-9_]+)\s+[A-Za-z]/.exec(line)?.[1];
-        if (col && !NOT_A_COLUMN.test(col)) set.add(col);
+      const entry = schema.get(table) ?? { cols: new Set<string>(), userFks: new Set<string>() };
+      const body = sql
+        .slice(createRe.lastIndex, end)
+        .split('\n')
+        .filter((l) => !l.trim().startsWith('--'))
+        .join('\n');
+      for (const seg of splitTopLevel(body)) {
+        const s = seg.trim();
+        const col = /^([a-z0-9_]+)\s+[A-Za-z]/.exec(s)?.[1];
+        if (!col || NOT_A_COLUMN.test(col)) continue;
+        entry.cols.add(col);
+        if (USER_FK.test(s)) entry.userFks.add(col);
       }
-      cols.set(table, set);
+      schema.set(table, entry);
     }
 
     const alterRe = /ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?public\.([a-z0-9_]+)([\s\S]*?);/gi;
     while ((m = alterRe.exec(sql))) {
-      const set = cols.get(m[1] ?? '');
-      if (!set) continue;
-      const addRe = /ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-z0-9_]+)/gi;
+      const entry = schema.get(m[1] ?? '');
+      if (!entry) continue;
+      const addRe = /ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-z0-9_]+)([^,;]*)/gi;
       let a: RegExpExecArray | null;
       while ((a = addRe.exec(m[2] ?? ''))) {
-        if (a[1]) set.add(a[1]);
+        if (!a[1]) continue;
+        entry.cols.add(a[1]);
+        if (USER_FK.test(a[2] ?? '')) entry.userFks.add(a[1]);
       }
     }
   }
-  return cols;
+  return schema;
 }
 
 /** `user_id` or anything ending `_user_id` — the account holder's own handle. */
@@ -129,13 +181,43 @@ const SUBJECT_COL = /^([a-z0-9_]*_)?user_id$/;
  * Setnayan-STAFF action stamps. These identify an operator acting in role, not
  * the account holder whose export this is — an admin's uid on a review row does
  * not make that row the admin's personal data.
+ *
+ * ⚠ `accessed_user_id` and `target_user_id` were WRONGLY listed here until
+ * 2026-07-21. On those two names the subject IS the target, not the operator:
+ * admin_data_access_log.accessed_user_id is the account that was LOOKED AT, and
+ * admin_approval_requests / vendor_admin_motions .target_user_id is the account
+ * the motion is ABOUT. Excluding them hid three tables from the guardrail
+ * entirely. The docblock rationale was true for the `*_by_user_id` names and
+ * simply false for those two; both are now in scope and classified below. T7
+ * pins that they stay in scope.
  */
 const STAFF_ACTOR =
-  /^(admin_user_id|reviewed_by_user_id|approved_by_user_id|decided_by_user_id|handled_by_user_id|moderated_by_user_id|resolved_by_user_id|accessed_user_id|actor_user_id|target_user_id)$/;
+  /^(admin_user_id|reviewed_by_user_id|approved_by_user_id|decided_by_user_id|handled_by_user_id|moderated_by_user_id|resolved_by_user_id|actor_user_id)$/;
 
-function inScopeTables(schema: Map<string, Set<string>>): string[] {
+/**
+ * Second, name-independent detector: any column with an explicit
+ * `REFERENCES public.users(user_id)` FK points at a person, whatever it is
+ * called. This is what catches `marketing_share_consents.customer_id` — a
+ * table the export already reads but which the name regex could not see, i.e.
+ * the guardrail was blind to a table it was supposedly guarding.
+ *
+ * The staff-actor exclusion still applies by NAME on top of the FK signal, and
+ * these `*_by` / `*_admin_id` stamps are almost all pure operator stamps —
+ * which is why most of the tables this widening pulls in land in
+ * DELIBERATE_EXCLUSIONS rather than the backlog.
+ */
+const STAFF_ACTOR_FK =
+  /^(.*_by|.*_by_admin|.*_by_admin_id|.*_admin_id|.*_admin|override_admin_id)$/;
+
+function isSubjectColumn(col: string, userFks: Set<string>): boolean {
+  if (STAFF_ACTOR.test(col)) return false;
+  if (SUBJECT_COL.test(col)) return true;
+  return userFks.has(col) && !STAFF_ACTOR_FK.test(col);
+}
+
+function inScopeTables(schema: Map<string, TableSchema>): string[] {
   return [...schema.entries()]
-    .filter(([, c]) => [...c].some((col) => SUBJECT_COL.test(col) && !STAFF_ACTOR.test(col)))
+    .filter(([, s]) => [...s.cols].some((col) => isSubjectColumn(col, s.userFks)))
     .map(([t]) => t)
     .sort();
 }
@@ -197,6 +279,16 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
  * exactly what this map exists to make visible.
  */
 const KNOWN_GAPS: Record<string, string> = {
+  // ── Newly VISIBLE 2026-07-21, not newly created ──────────────────────────
+  // These three were always gaps. They were invisible because STAFF_ACTOR
+  // wrongly claimed `accessed_user_id` / `target_user_id` name an operator; on
+  // these tables they name the SUBJECT. See the STAFF_ACTOR docblock.
+  admin_data_access_log:
+    'TODO(RA10173-backlog): accessed_user_id is the SUBJECT (the account an admin viewed), not the operator. The export currently discloses the table’s existence in `not_included` and routes the subject to the DPO, because each row also names the admin who looked — the disclosure shape is pending DPO review.',
+  admin_approval_requests:
+    'TODO(RA10173-backlog): target_user_id is the SUBJECT the two-admin motion is ABOUT — a decision record concerning them, which they are entitled to know exists.',
+  vendor_admin_motions:
+    'TODO(RA10173-backlog): target_user_id is the SUBJECT the vendor motion is ABOUT — same reasoning as admin_approval_requests.',
   account_deletion_requests:
     'TODO(RA10173-backlog): the subject’s own erasure requests — arguably the most export-worthy audit trail we hold.',
   blocked_users: 'TODO(RA10173-backlog): the subject’s own block list — their stated preference.',
@@ -300,8 +392,18 @@ const KNOWN_GAPS: Record<string, string> = {
  * moved into the export (or was consciously reclassified as a deliberate
  * exclusion). Raising it means shipping a new RA 10173 gap, which must be an
  * explicit, argued decision, never a drive-by edit.
+ *
+ * 82 → 85 on 2026-07-21. This is the ONE argued exception the docblock above
+ * allows, and it is not a regression: no new gap was created. Correcting the
+ * STAFF_ACTOR mistake (see its docblock) made three PRE-EXISTING gaps visible
+ * to the counter for the first time — admin_data_access_log,
+ * admin_approval_requests, vendor_admin_motions. The honest number went up
+ * because the measurement got honest, not because coverage got worse. Refusing
+ * the raise would have meant keeping the heuristic wrong to protect a number,
+ * which is precisely the false confidence this file exists to prevent.
+ * Every future movement must be downward.
  */
-const KNOWN_GAP_CEILING = 82;
+const KNOWN_GAP_CEILING = 85;
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
@@ -364,6 +466,76 @@ test('T5 · the two tables this PR fixed are exported (regression pin)', () => {
   const exported = exportedTables(fs.readFileSync(ROUTE, 'utf8'));
   assert.ok(exported.has('event_vendor_working_notes'), 'event_vendor_working_notes dropped from the export');
   assert.ok(exported.has('coordinator_broadcasts'), 'coordinator_broadcasts dropped from the export');
+});
+
+test('T7 · the heuristic sees subject columns that are not named *_user_id', () => {
+  const inScope = new Set(inScopeTables(readSchema()));
+
+  // FK-to-users under a different NAME. The export already reads this table,
+  // so before the 2026-07-21 widening the guardrail was blind to a table it
+  // was supposedly guarding — the clearest possible proof of under-detection.
+  assert.ok(
+    inScope.has('marketing_share_consents'),
+    'marketing_share_consents.customer_id REFERENCES public.users(user_id) — a subject column under a non-standard name. ' +
+      'If this is out of scope the FK detector regressed (likely: the parser went back to line-oriented, so the wrapped REFERENCES clause is invisible again).',
+  );
+
+  // Names STAFF_ACTOR wrongly claimed were operator stamps. On these tables the
+  // subject IS the target — see the STAFF_ACTOR docblock.
+  assert.ok(
+    inScope.has('admin_data_access_log'),
+    'admin_data_access_log.accessed_user_id is the account that was VIEWED — the subject, not the operator.',
+  );
+  assert.ok(
+    inScope.has('admin_approval_requests'),
+    'admin_approval_requests.target_user_id is the account the motion is ABOUT — the subject, not the operator.',
+  );
+  assert.ok(
+    inScope.has('vendor_admin_motions'),
+    'vendor_admin_motions.target_user_id is the account the motion is ABOUT — the subject, not the operator.',
+  );
+
+  // The complement still holds: a pure operator stamp must NOT drag a
+  // platform-config table into scope, or the widening degenerates into
+  // "every table", and the map becomes the rubber stamp T1 exists to prevent.
+  assert.ok(
+    !inScope.has('homepage_hero_config'),
+    'homepage_hero_config carries only updated_by_admin_id — an operator stamp on Setnayan’s own marketing config, not subject data.',
+  );
+});
+
+test('T8 · the false not_included claim about the access log stays corrected', () => {
+  const src = fs.readFileSync(ROUTE, 'utf8');
+  // The route asserted "no user-scoped access-log table in V1" while
+  // supabase/migrations/20270212405352 creates admin_data_access_log with an
+  // accessed_user_id column and an index its own comment labels
+  // "(subject-access)". Telling a data subject a false fact about what we hold
+  // is the same category of harm as the silent empty this PR fixes.
+  assert.doesNotMatch(
+    src,
+    /no user-scoped access-log table/,
+    'The export must not claim there is no user-scoped access-log table — admin_data_access_log is one.',
+  );
+  assert.match(
+    src,
+    /admin_data_access_log/,
+    'The export must name admin_data_access_log in not_included so the subject knows it exists and can request it.',
+  );
+});
+
+test('T9 · no read on the export route is unwrapped with a bare `?? []`', () => {
+  const src = fs.readFileSync(ROUTE, 'utf8');
+  // `res.data ?? []` is exactly how the silent empty got shipped: a failed read
+  // and a genuinely empty one become the same JSON. Every read now goes through
+  // lib/export-integrity, which names failures in `not_included`.
+  const offenders = [...src.matchAll(/\w+Res(?:\.data)?\s*\?\?\s*\[\]/g)].map((m) => m[0]);
+  assert.deepEqual(
+    offenders,
+    [],
+    `Bare \`?? []\` unwrap(s) reintroduced on the export route: ${offenders.join(', ')}. ` +
+      'Use listOutcome()/singleOutcome() from lib/export-integrity so a failed read is DISCLOSED, not silently rendered as "you have no such records".',
+  );
+  assert.match(src, /export_complete/, 'the export must carry a machine-readable completeness flag');
 });
 
 test('T6 · those two stay AUTHOR-scoped, never event-scoped', () => {

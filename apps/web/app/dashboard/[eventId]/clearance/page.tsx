@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, MonitorPlay, QrCode, Sparkles, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -72,21 +73,7 @@ export default async function ClearancePage({ params }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6">
-      <Link
-        href={base}
-        className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
-      >
-        <ArrowLeft className="h-4 w-4" /> Back to your dashboard
-      </Link>
-
-      <header className="sn-reveal mt-3 space-y-1">
-        <p className="sn-eye">Close out</p>
-        <h1 className="sn-h1">Close out the day</h1>
-        <p className="text-sm text-ink/60">
-          When the celebration winds down, wrap up the live services and close out — the app moves
-          into After mode (recap, galleries, and vendor reviews).
-        </p>
-      </header>
+      <PageMasthead title="Close out the day" back={base} backLabel="Back to your dashboard" lede="When the celebration winds down, wrap up the live services and close out — the app moves into After mode (recap, galleries, and vendor reviews)." />
 
       <ul className="mt-6 space-y-2">
         {steps.map((s) => {

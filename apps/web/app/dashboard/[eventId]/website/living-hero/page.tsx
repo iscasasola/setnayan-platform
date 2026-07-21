@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -52,19 +53,7 @@ export default async function LivingHeroPage({
         <span>Back to hero photo</span>
       </Link>
 
-      <header className="sn-reveal mb-8 space-y-2">
-        <p className="sn-eye">Hero video</p>
-        <h1 className="sn-h1">
-          Living hero
-        </h1>
-        <p className="max-w-prose text-sm text-ink/65 sm:text-base">
-          Turn a few seconds of video into a gentle, looping hero for your
-          wedding page — it plays forward, then reverses, so it never feels cut.
-          You pick the moment and the still frame; everything is made right on
-          your device, and the still is your photo for print and slow
-          connections.
-        </p>
-      </header>
+      <PageMasthead title="Living hero" lede="Turn a few seconds of video into a gentle, looping hero for your wedding page — it plays forward, then reverses, so it never feels cut. You pick the moment and the still frame; everything is made right on your device, and the still is your photo for print and slow connections." />
 
       <LivingHeroStudio
         eventId={eventId}

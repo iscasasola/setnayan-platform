@@ -781,6 +781,21 @@ const CHECKLIST_EVENT_LABELS: Record<string, { noun: string; title: string }> = 
   gender_reveal: { noun: 'gender reveal', title: 'Gender Reveal' },
   travel: { noun: 'trip', title: 'Trip' },
   celebration: { noun: 'celebration', title: 'Celebration' },
+  // The five `event_type_vocab` types that 20270726622326 ("enable them all",
+  // owner 2026-07-11) turned on AFTER this map was written. Each seeds the real
+  // GENERIC_EVENT_CHECKLIST_DEF template, so without an entry here they fell
+  // through the `!CHECKLIST_EVENT_LABELS[eventType]` guard below and rendered a
+  // fully-populated checklist under WEDDING chrome — "Wedding checklist", "Your
+  // wedding", an 18-months-out intro. The map must stay in step with the vocab;
+  // `checklist-event-labels.test.ts` is the guardrail against it drifting again.
+  anniversary: { noun: 'anniversary', title: 'Anniversary' },
+  graduation: { noun: 'graduation', title: 'Graduation' },
+  reunion: { noun: 'reunion', title: 'Reunion' },
+  gala_night: { noun: 'gala night', title: 'Gala Night' },
+  // `simple_event` is "Simple Event" in the vocab, but `title` is display COPY
+  // here, not the vocab label (cf. corporate → 'Corporate Event'). Plain "Event"
+  // keeps `dayOfLabel` reading as "Event day & after".
+  simple_event: { noun: 'event', title: 'Event' },
 };
 
 /**

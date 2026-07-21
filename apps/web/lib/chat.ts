@@ -217,6 +217,45 @@ export async function countUnreadMessages(
 }
 
 /**
+ * How many COUPLE-authored messages exist on a thread. Feeds chat-send's
+ * pre-accept allowance (the inquiry + exactly ONE follow-up while the thread is
+ * `pending`) and its "first message = new inquiry" notification swap.
+ *
+ * WHY the `sender_role` filter is load-bearing: a `pending` thread is NOT
+ * couple-only. The Vendor Auto-Reply Assistant posts into a still-pending
+ * thread as `sender_role='vendor', is_bot=true, sender_user_id=null`
+ * (lib/vendor-autoreply/inbox-hook.ts:227 — scheduled from chat-send's own
+ * `after()` on the couple's message), and `'system'` Setnayan notes exist in
+ * the enum too. Counting EVERY row on the thread (the shipped behaviour before
+ * this helper) let the bot's own answer eat one of the couple's two allowed
+ * pre-accept messages — so a bot that asked a clarifying question could strand
+ * its own conversation: the couple hit `followup_used` and could not reply.
+ * Only couple-authored rows may consume the couple's allowance.
+ *
+ * Deliberate non-choices:
+ *  - `'coordinator'` rows are NOT counted. No coordinator write path reaches a
+ *    pending thread today (chat-send resolves senderRole couple|vendor only,
+ *    via event_members.member_type='couple'). Wire them in here if that changes.
+ *  - No `.eq('is_bot', false)`. Couple rows are never bot, and `is_bot`
+ *    (migration 20270822679405) is owner-pushed — fetchMessages already
+ *    graceful-degrades for its absence, so filtering on it would risk erroring
+ *    this count on an un-migrated DB.
+ *  - An errored count still falls through to 0 (gate opens). Pre-existing
+ *    behaviour, deliberately unchanged here.
+ */
+export async function countCoupleMessages(
+  admin: SupabaseClient,
+  threadId: string,
+): Promise<number> {
+  const { count } = await admin
+    .from('chat_messages')
+    .select('*', { count: 'exact', head: true })
+    .eq('thread_id', threadId)
+    .eq('sender_role', 'couple');
+  return count ?? 0;
+}
+
+/**
  * Compute the current viewer's Viber-style archive state for a thread row that
  * embedded `reads:chat_thread_reads(archived_at)`. RLS scopes the embed to the
  * caller (chat_thread_reads_self_all → user_id = auth.uid()), so `reads` is a

@@ -43,7 +43,10 @@ import {
   type Lab3DCocktail,
 } from '@/lib/seating-3d';
 import { BoothTemplate } from '@/app/_components/plan3d/kit/booth-template';
-import { boothTemplateFor } from '@/app/_components/plan3d/kit/booth-templates';
+import {
+  boothPosterLocalOffset,
+  boothTemplateFor,
+} from '@/app/_components/plan3d/kit/booth-templates';
 import { CHASSIS_SPECS } from '@/app/_components/plan3d/kit/booth-chassis';
 import type { FigureQuality } from '@/app/_components/plan3d/kit/figure';
 import { SETNAYAN_BOOTH_PROMO_LABEL } from '@/lib/seating';
@@ -559,8 +562,6 @@ export function BoothMesh({
   // independent of it: a vendor may upload artwork without an account logo, or
   // vice versa, and each renders on its own.
   const posterUrl = boothCanBrand(booth.vendor?.tier) ? booth.vendor?.posterUrl ?? null : null;
-  // Stands to the booth's right, clear of the footprint, rotated with it.
-  const posterOffset = rotateLocalRad({ x: w / 2 + 0.42, z: -0.2 }, facingY);
   // Data-driven presence (owner directive 2026-07-16): a finalized vendor brands
   // the slot; an OPEN slot (no finalized vendor) defaults to Setnayan promotion.
   // A booked-but-unbrandable vendor (solo/verified) keeps the generic booth — it
@@ -568,8 +569,14 @@ export function BoothMesh({
   const openSlot = !booth.vendor;
   const template = boothTemplateFor(booth);
   if (template) {
-    const anchor = CHASSIS_SPECS[template.chassis].signAnchor;
+    const spec = CHASSIS_SPECS[template.chassis];
+    const anchor = spec.signAnchor;
     const sr = rotateLocalRad({ x: anchor[0], z: anchor[2] }, facingY);
+    // Stands beside the booth, rotated with it. Measured off the resolved
+    // CHASSIS (BUFFET is 3.4 m wide, not the shared 2.0 m footprint) and off
+    // the stand's OWN half-width, via the single helper the avoidance disc in
+    // templateBoothObstacles also uses — so artwork and obstacle cannot drift.
+    const posterOffset = rotateLocalRad(boothPosterLocalOffset(spec), facingY);
     return (
       <group>
         <BoothTemplate booth={booth} template={template} room={room} palette={palette} quality={quality} />

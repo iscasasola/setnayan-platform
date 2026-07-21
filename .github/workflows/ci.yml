@@ -123,6 +123,27 @@ jobs:
       - name: Lint retired strings
         run: node apps/web/scripts/lint-retired-strings.mjs
 
+  lint-page-masthead:
+    name: lint page masthead
+    runs-on: ubuntu-latest
+    # Fails when a NEW page hand-rolls a masthead (an .sn-eye inside a <header>).
+    # Until 2026-07-21 there was no shared page-header component, so ~80 dashboard pages each
+    # hand-rolled the same block and a CARD token drifted onto all of them — `.sn-eye`'s own spec
+    # comment in globals.css reads "Tile eyebrow". Nothing caught it because nothing was watching.
+    # A RATCHET, not a wall: the 115 existing files are baselined in
+    # apps/web/scripts/page-masthead-baseline.json, so this only fails on NEW drift. Delete a line
+    # from the baseline when you migrate a page to <PageMasthead>; never add one.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lint page masthead
+        working-directory: apps/web
+        run: node scripts/lint-page-masthead.mjs
+
   lint-bottom-nav:
     name: lint bottom-nav template
     runs-on: ubuntu-latest

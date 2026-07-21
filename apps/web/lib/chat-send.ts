@@ -7,7 +7,7 @@ import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
 import { leadTokenHoldEnabled, consumeLeadHoldOnCoupleReply } from '@/lib/lead-token-holds';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { runVendorAutoReply } from '@/lib/vendor-autoreply/inbox-hook';
-import { fetchThreadById } from './chat';
+import { fetchThreadById, countCoupleMessages } from './chat';
 import { notifyOtherParty } from './chat-actions';
 
 /**
@@ -168,17 +168,17 @@ export async function sendChatMessageCore(
   // see a "new inquiry" alert instead of the generic "new message" one.
   const admin = createAdminClient();
   let isFirstMessage = false;
-  // Existing message count on this thread BEFORE this insert. While the thread
-  // is pending only the couple can post (the vendor is accept-gated below), so
-  // this count == the number of couple messages so far. Used both for the
-  // "first message = inquiry" notification swap AND the one-follow-up gate.
+  // COUPLE-authored messages on this thread BEFORE this insert. Both consumers
+  // want the SAME number: the "first message = new inquiry" notification swap
+  // and the pre-accept one-follow-up gate are both about what the COUPLE has
+  // said so far. (The previous unfiltered count asserted "while pending only
+  // the couple can post" — that invariant is FALSE: the Vendor Auto-Reply
+  // Assistant posts into a pending thread as sender_role='vendor'/is_bot, so
+  // its own reply consumed one of the couple's two allowed messages. See
+  // countCoupleMessages' docstring for the full reasoning.)
   let priorMessageCount = 0;
   if (senderRole === 'couple') {
-    const { count } = await admin
-      .from('chat_messages')
-      .select('*', { count: 'exact', head: true })
-      .eq('thread_id', thread.thread_id);
-    priorMessageCount = count ?? 0;
+    priorMessageCount = await countCoupleMessages(admin, thread.thread_id);
     isFirstMessage = priorMessageCount === 0;
   }
 

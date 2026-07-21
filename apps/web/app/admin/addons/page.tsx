@@ -1,26 +1,20 @@
 import { redirect } from 'next/navigation';
 
 /**
- * Legacy /admin/addons → studio redirect (Money split · 2026-07-10). The surface
- * now lives at /admin/pricing?tab=addons; its body was re-homed into a _surfaces/*
- * file. actions/_components stay in this dir. Params are forwarded so deep-links
- * + post-mutation redirects land on the right tab with their flash intact.
+ * Legacy /admin/addons → Catalog Studio redirect.
+ *
+ * Was the Add-ons tab's redirect stub (Money split · 2026-07-10). That tab was
+ * REMOVED 2026-07-21 — it rendered only retired v1 `service_catalog` rows and
+ * its purchase counts + eligibility dots were structurally dead joins. The stub
+ * is kept so old bookmarks, the nav registry's stored route and any deep link
+ * still land somewhere real instead of 404-ing; it now points at the Pricing
+ * tab. The `?sku=` param it used to forward has no target anymore and is
+ * dropped. The sibling `pricing-report/` route below this dir is UNCHANGED and
+ * still live — it is the only export path for the legacy catalog, and its
+ * download button now sits on the Pricing tab.
  */
 export const dynamic = 'force-dynamic';
 
-type Props = {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-};
-
-function first(v: string | string[] | undefined): string | undefined {
-  return Array.isArray(v) ? v[0] : v;
-}
-
-export default async function Redirect({ searchParams }: Props) {
-  const search = await searchParams;
-  const out = new URLSearchParams();
-  out.set('tab', 'addons');
-  const sku = first(search.sku);
-  if (sku !== undefined) out.set('sku', sku);
-  redirect(`/admin/pricing?${out.toString()}`);
+export default async function Redirect() {
+  redirect('/admin/pricing');
 }

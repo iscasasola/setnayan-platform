@@ -107,7 +107,6 @@ export const routeMeta = {
   admin: {
     index: { icon: Home, label: 'Home / Overview' },
     accountDeletions: { icon: UserX, label: 'Account deletions' },
-    addons: { icon: Sparkles, label: 'Add-ons' },
     ads: { icon: Megaphone, label: 'Ads' },
     approvals: { icon: CheckCheck, label: 'Approvals' },
     brain: { icon: Brain, label: 'Setnayan AI brain' },

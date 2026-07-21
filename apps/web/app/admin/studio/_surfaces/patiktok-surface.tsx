@@ -99,11 +99,14 @@ export async function PatiktokSurface() {
 
   return (
     <section className="space-y-6">
+      {/* The Add-ons tab was removed 2026-07-21; this back-link now points at
+          the Catalog Studio's default (Pricing) tab. Left as an explicit href
+          rather than ?tab=addons, which coerceTab would silently swallow. */}
       <Link
-        href="/admin/pricing?tab=addons"
+        href="/admin/pricing"
         className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--m-orange-2)]"
       >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Back to add-ons
+        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Back to pricing
       </Link>
 
       <header className="space-y-1">

@@ -769,13 +769,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/custom-plans',
       },
       {
-        key: 'addons',
-        label: 'Add-ons',
-        href: '/admin/pricing?tab=addons',
-        icon: Sparkles,
-        matchPrefix: '/admin/addons',
-      },
-      {
         // Papic storage telemetry (owner 2026-07-11) — the real web-copy ratio +
         // per-event web-copy GB vs the 40 GB ceiling, to lock the provisional
         // storage numbers from measured data before hard-coding them.

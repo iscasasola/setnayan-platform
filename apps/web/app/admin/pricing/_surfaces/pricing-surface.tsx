@@ -3,12 +3,12 @@
 // legacy route is now a redirect (or, for pricing/settings, the studio shell).
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { Plus, ChevronRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
-import { saveAllPricing, createBundle } from '@/app/admin/pricing/actions';
+import { saveAllPricing } from '@/app/admin/pricing/actions';
 import { SETNAYAN_PAY_FEE_PCT } from '@/lib/vendor-earnings';
 import {
   RetailRowEditor,
@@ -20,7 +20,7 @@ import { RETAIL_GRID, TWOCOL_GRID } from '@/app/admin/pricing/_components/grids'
 import { requireAdmin } from '@/lib/admin/require-admin';
 
 /**
- * /admin/pricing — V2 catalog single-form bulk editor + bundle creator.
+ * /admin/pricing — V2 catalog single-form bulk editor.
  *
  * The whole catalog renders as ONE form where every row's price (+ title,
  * cost, description, active) is inline. A single "Save all changes" posts to
@@ -31,8 +31,18 @@ import { requireAdmin } from '@/lib/admin/require-admin';
  *     like PANOOD / GUIDED_PACK are self-explanatory (client rows in
  *     _components/catalog-editor.tsx). Bundle + vendor descriptions land in the
  *     description columns added by migration 20270124000000.
- *   - A "Create a bundle" card (its own form → `createBundle`) inserts a new
- *     platform_package_catalog row from a name + price.
+ *
+ * The "Create a bundle" card was REMOVED 2026-07-21 (owner: "we do not need the
+ * bundle maker as well"). It could only ever produce a BROKEN bundle: it wrote a
+ * platform_package_catalog row from a name + price, but a bundle is inert
+ * without `bundle_components` rows saying which SKUs it unlocks, and the maker
+ * had no way to write those (the page's own footer admitted it — "defining which
+ * services a bundle unlocks is a separate follow-up"). So every bundle it made
+ * would look sellable on /pricing while granting nothing. Zero bundles were ever
+ * created through it. The four real bundles are migration-authored, and the two
+ * live ones (PAPIC_UNLOCK ₱15,000 · PAPIC_UNLOCK_LTD ₱9,000) stay fully
+ * editable in the Bundles section below — only the CREATE path is gone. If a new
+ * bundle is ever needed, author it in a migration alongside its components.
  *
  * This surface is the single source of truth for app prices: saves revalidate
  * /pricing + /vendors so public prices update within seconds.
@@ -80,8 +90,6 @@ type Props = {
     saved?: string;
     skipped?: string;
     error?: string;
-    created?: string;
-    createError?: string;
   }>;
 };
 
@@ -126,8 +134,6 @@ export async function PricingSurface({ searchParams }: Props) {
   const savedCount = search.saved != null ? Number(search.saved) : null;
   const skippedCount = search.skipped != null ? Number(search.skipped) : 0;
   const hadError = search.error === '1';
-  const createdCode = search.created ?? null;
-  const createError = search.createError ?? null;
 
   const admin = createAdminClient();
 
@@ -277,7 +283,22 @@ export async function PricingSurface({ searchParams }: Props) {
   return (
     <div>
       <header className="mb-6 space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Pricing &amp; Catalog</h1>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight">Pricing &amp; Catalog</h1>
+          {/*
+            Re-homed from the Add-ons tab when that tab was removed 2026-07-21.
+            The route (/admin/addons/pricing-report) is unchanged and still the
+            only export path for the legacy v1 `service_catalog`, so it needed a
+            doorway here rather than being orphaned.
+          */}
+          <a
+            href="/admin/addons/pricing-report"
+            className="button-secondary self-start whitespace-nowrap text-sm"
+            download
+          >
+            Download legacy catalog report
+          </a>
+        </div>
         <p className="text-sm text-ink/60">
           Every price in the app reads from here. Click the ⓘ on a row to see what it is,
           edit any field, then hit <span className="font-medium text-ink">Save all changes</span>{' '}
@@ -287,25 +308,6 @@ export async function PricingSurface({ searchParams }: Props) {
         </p>
       </header>
 
-      {createdCode && (
-        <div className="mb-6 rounded-2xl border border-success-300/60 bg-success-50/80 p-4">
-          <p className="text-sm text-success-900">
-            Created bundle <code className="font-mono text-xs">{createdCode}</code> — set its
-            price, description and active state in the Bundles section above, then Save.
-          </p>
-        </div>
-      )}
-      {createError && (
-        <div className="mb-6 rounded-2xl border border-danger-300/60 bg-danger-50/80 p-4">
-          <p className="text-sm text-danger-900">
-            {createError === 'name'
-              ? 'A bundle needs a name.'
-              : createError === 'price'
-                ? 'Enter a valid bundle price (₱0 or more).'
-                : 'Could not create the bundle — please try again.'}
-          </p>
-        </div>
-      )}
       {savedCount !== null && (
         <SaveBanner
           saved={Number.isFinite(savedCount) ? savedCount : 0}
@@ -378,17 +380,16 @@ export async function PricingSurface({ searchParams }: Props) {
 
         {/* ─── Bundles ───────────────────────────────────────────────── */}
         <section className="mb-10">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="text-base font-semibold tracking-tight">
-              Bundles ({sectionCount(activeBundles.length, retiredBundles.length)})
-            </h2>
-            <a
-              href="#create-bundle"
-              className="inline-flex items-center gap-1 text-xs font-medium text-terracotta hover:underline"
-            >
-              <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Create a bundle
-            </a>
-          </div>
+          <h2 className="mb-1 text-base font-semibold tracking-tight">
+            Bundles ({sectionCount(activeBundles.length, retiredBundles.length)})
+          </h2>
+          <p className="mb-3 text-sm text-ink/60">
+            Migration-authored packages from{' '}
+            <code className="rounded bg-ink/5 px-1 font-mono text-xs">platform_package_catalog</code>.
+            Price, description + active state are editable here; which SKUs a bundle unlocks lives in{' '}
+            <code className="rounded bg-ink/5 px-1 font-mono text-xs">bundle_components</code> and is
+            migration-owned, so new bundles are authored in a migration alongside their components.
+          </p>
           <div className="overflow-hidden rounded-2xl border border-ink/10">
             {bundleRows.length === 0 ? (
               <Empty label="No bundles yet — create one below." />
@@ -510,81 +511,12 @@ export async function PricingSurface({ searchParams }: Props) {
         </div>
       </ConfirmForm>
 
-      {/* ─── Create a bundle (its own form — HTML forms can't nest) ──── */}
-      <section id="create-bundle" className="mb-10 scroll-mt-24">
-        <h2 className="mb-1 text-base font-semibold tracking-tight">Create a bundle</h2>
-        <p className="mb-3 text-sm text-ink/60">
-          Add a new bundle to{' '}
-          <code className="rounded bg-ink/5 px-1 font-mono text-xs">platform_package_catalog</code>.
-          A bundle is a name + a price (its <span className="italic">code</span> is generated from
-          the name). It appears in the Bundles section above, ready to fine-tune.
-        </p>
-        <ConfirmForm
-          action={createBundle}
-          title="Create this bundle?"
-          confirmLabel="Add bundle"
-          destructive={false}
-          message="This creates a new live bundle product — it appears on the public /pricing and /vendors pages right away."
-          className="rounded-2xl border border-ink/10 bg-paper p-4 sm:p-5"
-        >
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_10rem]">
-            <label className="block">
-              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                Bundle name
-              </span>
-              <input
-                name="bundle_name"
-                type="text"
-                required
-                placeholder="e.g. Setnayan Starter"
-                className="input-field mt-1 w-full"
-              />
-            </label>
-            <label className="block">
-              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                Price (₱)
-              </span>
-              <input
-                name="bundle_price"
-                type="number"
-                step="0.01"
-                min="0"
-                required
-                placeholder="9999"
-                className="input-field mt-1 w-full text-right tabular-nums"
-              />
-            </label>
-          </div>
-          <label className="mt-4 block">
-            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-              What this bundle includes (optional)
-            </span>
-            <textarea
-              name="bundle_desc"
-              rows={2}
-              placeholder="e.g. Setnayan AI plus the monogram, custom QR and websites."
-              className="input-field mt-1 min-h-[52px] w-full py-2 text-sm leading-relaxed"
-            />
-          </label>
-          <div className="mt-4">
-            <SubmitButton
-              className="inline-flex items-center gap-2 rounded-md border border-ink/20 px-4 py-2 text-sm font-medium text-ink/80 transition hover:bg-ink/5"
-              pendingLabel="Creating…"
-            >
-              <Plus aria-hidden className="h-4 w-4" strokeWidth={2} /> Add bundle
-            </SubmitButton>
-          </div>
-        </ConfirmForm>
-      </section>
-
       <div className="rounded-2xl border border-warn-300/60 bg-warn-50/80 p-5">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-warn-900">
           Deferred V1.x
         </p>
         <p className="mt-1 text-sm text-warn-900">
-          Two-admin approval gate on price deltas above ₱500 logs to console only for now. A
-          bundle stores name + price + description; defining which services a bundle{' '}
-          <span className="italic">unlocks</span> is a separate follow-up.
+          Two-admin approval gate on price deltas above ₱500 logs to console only for now.
         </p>
       </div>
     </div>

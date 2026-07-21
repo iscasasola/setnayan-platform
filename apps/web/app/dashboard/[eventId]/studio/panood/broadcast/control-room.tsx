@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import {
   Radio,
@@ -526,6 +527,7 @@ export function PanoodControlRoom({
               long moment list. */}
           <div className="flex max-h-[50%] shrink-0 flex-col gap-4 overflow-y-auto overscroll-contain">
             <SourcesRail
+            eventId={eventId}
             cameras={cameras}
             program={program}
             onPick={handleSetProgram}
@@ -626,6 +628,7 @@ export function PanoodControlRoom({
           )}
           {mobileTab === 'cameras' && (
             <SourcesRail
+              eventId={eventId}
               cameras={cameras}
               program={program}
               onPick={handleSetProgram}
@@ -1001,6 +1004,7 @@ function SourceTileBody({
 }
 
 function SourcesRail({
+  eventId,
   cameras,
   program,
   onPick,
@@ -1010,6 +1014,7 @@ function SourcesRail({
   onToggleSplit,
   overlay,
 }: {
+  eventId: string;
   cameras: PanoodCameraRow[];
   program: string | null;
   onPick: (source: string) => void;
@@ -1031,9 +1036,20 @@ function SourcesRail({
         <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-ink/55">
           Sources
         </h2>
-        <span className="text-[11px] text-ink/45">
-          {onToggleSplit ? 'Tap to put on air · “Split” to pair beside it' : 'Tap a source to put it on air'}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] text-ink/45">
+            {onToggleSplit ? 'Tap to put on air · “Split” to pair beside it' : 'Tap to put on air'}
+          </span>
+          {/* The moment an operator sees a camera they expected is missing, this is where they
+              look — so the doorway belongs here, not only in the page header. */}
+          <Link
+            href={`/dashboard/${eventId}/studio/panood/cameras`}
+            className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-terracotta hover:underline"
+          >
+            <Camera aria-hidden className="h-3 w-3" strokeWidth={2.5} />
+            Connect a camera
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">

@@ -131,6 +131,20 @@ export default async function PanoodCamerasPage({ params }: Props) {
         </Link>
       </div>
 
+      {/* Displays — deliberately an HONEST note, not a fake door. Live Studio venue screens are
+          NOT wired: `provisionPanoodScreensAdmin` has no callers, so no screen is ever created,
+          and `panoodScreenPairUrl` builds `/wall?code=…` while the route is `/wall/[eventId]`
+          (a 404) AND that route gates on the LIVE_WALL SKU — a different product. Showing a
+          pairing UI here would be a door onto nothing. */}
+      <div className="rounded-lg border border-ink/10 bg-ink/[0.02] p-4">
+        <h2 className="text-sm font-semibold">Venue displays</h2>
+        <p className="mt-1 max-w-prose text-xs leading-relaxed text-ink/60">
+          Routing a feed to a screen at the venue isn’t connected yet — the control room can
+          choose what each screen shows, but there’s no way to pair a screen to it. For now, put a
+          laptop on the screen and use the OBS program window from the control room.
+        </p>
+      </div>
+
       {rows.length === 0 ? (
         <p className="sn-tile p-6 text-sm text-ink/65">
           No camera seats yet. Open the control room once and they’ll be created for you.

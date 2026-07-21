@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft, Tv, Lock, Sparkles } from 'lucide-react';
+import { ArrowLeft, Tv, Lock, Sparkles, Camera } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventSkuActive } from '@/lib/entitlements';
@@ -137,6 +137,18 @@ export default async function PanoodControlRoomPage({ params }: Props) {
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         Back to Panood setup
+      </Link>
+
+      {/* Doorway to camera pairing. Without this the Cameras page was ORPHANED — an operator
+          standing in the control room had no way to reach the links that put a phone on air,
+          which is the first thing anyone needs here. (Wayfinding rule: a page ships with its
+          doorway.) */}
+      <Link
+        href={`/dashboard/${eventId}/studio/panood/cameras`}
+        className="ml-2 inline-flex items-center gap-1.5 rounded-md bg-terracotta/10 px-3 py-1.5 text-xs font-semibold text-terracotta hover:bg-terracotta/15"
+      >
+        <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        Connect cameras
       </Link>
 
       <header className="sn-reveal space-y-2">

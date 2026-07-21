@@ -539,7 +539,12 @@ export async function issueCompGrant(formData: FormData) {
 
   const targetUserId = formData.get('user_id');
   const scopeRaw = formData.get('scope');
-  const scopedSkusRaw = formData.get('scoped_skus');
+  // Checkboxes submit one value per checked service under the same name — use
+  // getAll. Falls back gracefully if the form still sends a single string
+  // (older browser / direct API call): split each value on comma/newline.
+  const scopedSkusRaw = formData.getAll('scoped_skus').flatMap((v) =>
+    typeof v === 'string' ? v.split(/[,\n]/).map((s) => s.trim()).filter(Boolean) : [],
+  );
   const expiryRaw = formData.get('expiry_at');
   const retailValueRaw = formData.get('retail_value_php');
   const rationaleRaw = formData.get('rationale');
@@ -563,29 +568,17 @@ export async function issueCompGrant(formData: FormData) {
     );
   }
 
-  // Parse + validate scoped_skus when scope='specific_skus'. The form
-  // sends a comma-separated string from the textarea; we trim + dedupe
-  // + lower-case to match service_catalog.sku_code style.
+  // Parse + validate scoped_skus when scope='specific_skus'. The form sends one
+  // value per checked service (getAll above, already trimmed/split); dedupe to
+  // match service_catalog.sku_code style.
   let scopedSkus: string[] | null = null;
   if (scopeRaw === 'specific_skus') {
-    if (typeof scopedSkusRaw !== 'string' || scopedSkusRaw.trim().length === 0) {
-      throw new Error(
-        'List at least one SKU code (comma-separated) when scope is specific services.',
-      );
-    }
-    const skus = Array.from(
-      new Set(
-        scopedSkusRaw
-          .split(/[,\n]/)
-          .map((s) => s.trim())
-          .filter((s) => s.length > 0),
-      ),
-    );
+    const skus = Array.from(new Set(scopedSkusRaw));
     if (skus.length === 0) {
-      throw new Error('List at least one SKU code when scope is specific services.');
+      throw new Error('Select at least one service when scope is specific services.');
     }
     if (skus.length > 50) {
-      throw new Error('Pick at most 50 SKUs in a single grant.');
+      throw new Error('Pick at most 50 services in a single grant.');
     }
     scopedSkus = skus;
   }

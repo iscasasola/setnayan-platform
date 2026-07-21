@@ -431,6 +431,12 @@ function hasLockedPick(picks: ReadonlyArray<PlanCardPick>): boolean {
   // wedding-plan-groups.ts uses the same CONFIRMED set under the hood,
   // but checking raw_status here makes the intent explicit.
   for (const p of picks) {
+    // Catch-all rows (2026-07-21) are PARKED in this group, not members of it —
+    // their category is in no plan group at all. They must show up in Budget,
+    // but they must never complete a card the couple never touched. Without
+    // this skip, one contracted `av_production` row locks "Logistics & Misc"
+    // and the home hero stops nudging for transport / security / giveaways.
+    if (p.bucketed_by_fallback) continue;
     if (p.raw_status !== null && CONFIRMED_SET.has(p.raw_status)) return true;
     if (p.status === 'locked') return true;
   }

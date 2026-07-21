@@ -27,7 +27,7 @@
 
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
 import { primaryTileForVendorCategory } from '@/lib/vendor-category-taxonomy';
-import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
+import { PLAN_GROUPS, planGroupForCategory } from '@/lib/wedding-plan-groups';
 import {
   WEDDING_FOLDER_ORDER,
   WEDDING_FOLDER_LABEL,
@@ -107,19 +107,43 @@ export function tileForCategory(category: VendorCategory): WeddingTile | null {
 
 /**
  * Inverse bridge: a tile → a representative `VendorCategory` to store a
- * MANUALLY-added vendor under (the "Add manually" affordance writes
- * event_vendors.category). First category that maps to the tile wins; tiles
- * with no backing enum value (finer than the 45-value enum) fall back to 'misc'
- * — the couple's typed record is preserved either way.
+ * MANUALLY-added vendor under (the "Add manually" affordance and the fit-QR add
+ * both write event_vendors.category from this). First category that maps to the
+ * tile wins; tiles with no backing enum value (finer than the 45-value enum)
+ * fall back to 'misc' — the couple's typed record is preserved either way.
+ *
+ * HARD INVARIANT (2026-07-21 · fix-forward on #3466): every value this map can
+ * return MUST be bucketable by `planGroupForCategory` — i.e. it must appear in
+ * some PLAN_GROUP's `categories`. The stored category is what the Budget tab's
+ * `bucketVendorsByGroup` keys on, and what the finalize conflict gate's
+ * `planGroupForCategory` keys on. #3466 fed the third (canonical-fill) pass of
+ * CATEGORY_TO_TILE into this inverse map, which flipped 14 tiles from 'misc'
+ * (bucketable · logistics group) to their leaf name (bucketable by NOTHING) —
+ * so a vendor added via fit-QR stopped appearing in Budget. Categories that no
+ * plan group claims are therefore SKIPPED here and the tile falls through to
+ * the 'misc' default, exactly as it did before #3466. The bucketer's catch-all
+ * is a BACKSTOP for rows already written, not a substitute for this — a
+ * caught-all row is stamped `bucketed_by_fallback` and deliberately does not
+ * count toward its fallback group's completeness. The forward direction
+ * (`tileForCategory`) is untouched — a pick already stored as `tour_guide`
+ * still surfaces on the Tour Guide tile, which is what #3466 correctly fixed.
  */
 const TILE_TO_CATEGORY: Partial<Record<WeddingTile, VendorCategory>> = (() => {
   const m: Partial<Record<WeddingTile, VendorCategory>> = {};
   for (const [cat, tile] of Object.entries(CATEGORY_TO_TILE)) {
-    if (tile && !(tile in m)) m[tile] = cat as VendorCategory;
+    if (!tile || tile in m) continue;
+    // Skip categories no plan group claims — storing one would drop the row
+    // out of Budget entirely. See the invariant above.
+    if (!planGroupForCategory(cat as VendorCategory)) continue;
+    m[tile] = cat as VendorCategory;
   }
   return m;
 })();
 
+/** The `VendorCategory` to STORE for a vendor added from `tile`. Always a
+ *  plan-group-bucketable value (see TILE_TO_CATEGORY) — the 'misc' default is
+ *  itself in the `logistics` group. Asserted in
+ *  shortlist-taxonomy-coverage.test.ts. */
 export function categoryForTile(tile: WeddingTile): VendorCategory {
   return TILE_TO_CATEGORY[tile] ?? ('misc' as VendorCategory);
 }
@@ -350,16 +374,27 @@ export function buildShortlistFolders(args: {
     let plannedCount = 0;
     for (const tile of tileIds) {
       const vendors = byTile.get(tile) ?? [];
+      // ── Scope filters. ALL THREE carry the same `vendors.length === 0`
+      // qualifier, because the invariant is one invariant: A COUPLE'S EXISTING
+      // PICK MUST NEVER VANISH FROM THEIR OWN SHORTLIST. These filters decide
+      // what to OFFER for browsing, not what to hide of what the couple already
+      // chose. Until 2026-07-21 only the hidden-tile guard was qualified and the
+      // two below dropped a considered pick wholesale — e.g. a couple who added
+      // a Tour Guide before switching the event type, or a vendor on a
+      // faith-tagged tile after a rite change, lost the record with no trace.
+      //
       // Tile-level marketplace_hidden (admin-only tile) — dropped from the
       // couple-facing Shortlist (it deep-links to /explore, where the tile is
-      // also hidden) UNLESS the couple already has a vendor of their own
-      // shortlisted/booked under it. A couple's existing pick must never
-      // vanish from their own Shortlist just because an admin later hid the
-      // tile from marketplace browsing. No tile is hidden today (no-op).
-      if (hiddenCategories[tile] && vendors.length === 0) continue;
-      // Event-type scope (tile-grain primary control) + faith scope.
-      if (!passesEventTypeFilter(tileEventTypes[tile] ?? null, eventType)) continue;
-      if (!tilePassesFaith(tile, faithSet, map)) continue;
+      // also hidden). No tile is hidden today (no-op).
+      if (vendors.length === 0 && hiddenCategories[tile]) continue;
+      // Event-type scope (tile-grain primary control).
+      if (
+        vendors.length === 0 &&
+        !passesEventTypeFilter(tileEventTypes[tile] ?? null, eventType)
+      )
+        continue;
+      // Faith scope.
+      if (vendors.length === 0 && !tilePassesFaith(tile, faithSet, map)) continue;
       pickCount += vendors.length;
       const planned = plannedTiles?.has(tile) ?? false;
       if (planned) plannedCount += 1;

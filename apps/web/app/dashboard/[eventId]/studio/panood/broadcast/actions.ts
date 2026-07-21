@@ -3,6 +3,9 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { canStartBroadcast } from '@/lib/panood-watermark';
+import { fetchOrInitControlStateAdmin } from '@/lib/panood-control';
+import { resolvePanoodTier } from '@/lib/panood-camera-seats';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventSkuActive } from '@/lib/entitlements';
 import {
@@ -146,6 +149,37 @@ export async function setLive(
 ): Promise<ControlActionResult> {
   const gate = await gateControlAction(eventId);
   if ('error' in gate) return gate;
+
+  // ── The 24-hour window bites HERE, and only here ────────────────────────────
+  //
+  // `canStartBroadcast` had ZERO call sites outside its own test, so one purchase bought unlimited
+  // clean broadcasts forever. It is enforced on the way UP only:
+  //
+  //   • Going OFF air is never blocked. Refusing to let someone stop broadcasting would be absurd.
+  //   • An in-flight broadcast is never interrupted — that rule outranks the paywall and lives in
+  //     `decideWatermark` (`expired-broadcasting`). This gate is about starting a NEW one.
+  //   • The FREE tier can still press live: it goes to air with the SETNAYAN overlay on, which is
+  //     the whole model. `canStartBroadcast` returns true for 'awaiting-go-live', which is what a
+  //     free event resolves to before its first press.
+  //
+  // Only an event that has already spent its window is stopped, and it is told why.
+  if (isLive) {
+    const supabase = await createClient();
+    const tier = await resolvePanoodTier(supabase, eventId);
+    const control = await fetchOrInitControlStateAdmin(gate.admin, eventId);
+    const allowed = canStartBroadcast({
+      paid: tier !== 'free',
+      firstLiveAt: control?.first_live_at ?? null,
+      isLive: false,
+      now: new Date(),
+    });
+    if (!allowed) {
+      return {
+        error:
+          'Your 24-hour broadcast window has ended. Unlock Live Studio again for this event day to go back on air.',
+      };
+    }
+  }
 
   const ok = await setLiveAdmin(gate.admin, eventId, isLive);
   if (!ok) return { error: 'Could not change the broadcast state. Please try again.' };

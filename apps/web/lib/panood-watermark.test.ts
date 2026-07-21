@@ -147,3 +147,46 @@ test('a custom window length is honoured', () => {
   assert.equal(d.overlay, false);
   assert.equal(d.reason, 'window-open');
 });
+
+/* ── The gate that was never called ───────────────────────────────────────── */
+
+test('the window is enforced on the way UP, and only there', () => {
+  // canStartBroadcast had ZERO call sites outside this file, so one purchase bought unlimited
+  // clean broadcasts forever. It is now wired into the setLive server action. These pin the
+  // exact contract that action depends on.
+  const expired = { paid: true, firstLiveAt: T0, isLive: false, now: hoursAfter(30) };
+
+  // Spent window blocks a NEW broadcast...
+  assert.equal(canStartBroadcast(expired), false);
+
+  // ...but an in-flight one is never judged by this gate: decideWatermark keeps the overlay OFF
+  // while still on air, and the action only consults canStartBroadcast when going live=true.
+  assert.equal(
+    decideWatermark({ ...expired, isLive: true }).reason,
+    'expired-broadcasting',
+    'a running broadcast must never be interrupted by an expired window',
+  );
+});
+
+test('the FREE tier can still press live — it goes to air overlaid', () => {
+  // The paywall is the overlay, not the go-live button. Blocking a free press would break the
+  // whole "connect, test, then buy" model AND would stop first_live_at ever being stamped.
+  assert.equal(
+    canStartBroadcast({ paid: false, firstLiveAt: null, isLive: false, now: T0 }),
+    false,
+    'unpaid has no window to spend',
+  );
+  assert.equal(
+    decideWatermark({ paid: false, firstLiveAt: null, isLive: true, now: T0 }).overlay,
+    true,
+    'and if it does go live, it goes live overlaid',
+  );
+});
+
+test('a paid event that has never gone live can always start', () => {
+  assert.equal(
+    canStartBroadcast({ paid: true, firstLiveAt: null, isLive: false, now: hoursAfter(9000) }),
+    true,
+    'buying early must never expire before the first press',
+  );
+});

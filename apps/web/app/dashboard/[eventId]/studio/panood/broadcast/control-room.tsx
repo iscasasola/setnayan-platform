@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import {
   Radio,
   Star,
@@ -29,7 +29,7 @@ import {
 } from './actions';
 import type { PanoodMomentRow } from '@/lib/panood-moments';
 import type { PanoodControlState } from '@/lib/panood-control';
-import { watchPanoodCameras } from '@/lib/panood-webrtc';
+import { watchPanoodCameras, type PeerConnectionState } from '@/lib/panood-webrtc';
 import { getPanoodIceServers } from '@/app/panood/actions';
 import { panoodStreamingEnabled } from '@/lib/panood-camera-seats';
 import { SetnayanOverlay } from './_components/setnayan-overlay';
@@ -262,6 +262,25 @@ export function PanoodControlRoom({
   // both the monitor and the tiles show placeholders.
   const streamingOn = panoodStreamingEnabled();
   const [camStreams, setCamStreams] = useState<Record<string, MediaStream>>({});
+  // Per-slot transport state. Until now this was thrown away (`onSlotState: () => {}`), which is
+  // why a dropped camera was undetectable: nothing removed the stream, so every surface kept
+  // showing a still frame and the tile chip reported the STALE database status.
+  const [slotStates, setSlotStates] = useState<Record<string, PeerConnectionState>>({});
+
+  /**
+   * Forget a camera's picture. Called when its peer fails OR when its track ends/mutes — two
+   * independent signals, because a phone can release the camera while the peer still reports
+   * 'connected'. Removing the stream is what turns a frozen frame into an honest "signal lost".
+   */
+  const dropSlot = useCallback((slot: string) => {
+    setCamStreams((prev) => {
+      if (!(slot in prev)) return prev;
+      const next = { ...prev };
+      delete next[slot];
+      return next;
+    });
+    setSlotStates((prev) => ({ ...prev, [slot]: 'failed' }));
+  }, []);
   useEffect(() => {
     if (!streamingOn) return;
     let viewer: ReturnType<typeof watchPanoodCameras> | null = null;
@@ -277,9 +296,24 @@ export function PanoodControlRoom({
         viewer = watchPanoodCameras({
           eventId,
           iceServers,
-          onTrack: (slot, stream) =>
-            setCamStreams((prev) => (prev[slot] === stream ? prev : { ...prev, [slot]: stream })),
-          onSlotState: () => {},
+          onTrack: (slot, stream) => {
+            setCamStreams((prev) => (prev[slot] === stream ? prev : { ...prev, [slot]: stream }));
+            setSlotStates((prev) => ({ ...prev, [slot]: 'connected' }));
+            // Second signal, independent of the peer connection: the phone can end a track
+            // (app backgrounded, camera released, user navigates away) while the RTCPeerConnection
+            // still reports 'connected'. Without this the tile keeps its last decoded frame.
+            for (const track of stream.getTracks()) {
+              track.onended = () => dropSlot(slot);
+              track.onmute = () => dropSlot(slot);
+            }
+          },
+          onSlotState: (slot, state) => {
+            setSlotStates((prev) => (prev[slot] === state ? prev : { ...prev, [slot]: state }));
+            // A failed peer must LOSE its picture. Leaving the stream in place is what made a
+            // dropped camera invisible: the monitor, the thumbnail and the OBS capture all held a
+            // frozen frame while every indicator still said "fine".
+            if (state === 'failed') dropSlot(slot);
+          },
         });
       });
     return () => {
@@ -288,6 +322,9 @@ export function PanoodControlRoom({
     };
   }, [eventId, streamingOn]);
   const programStream = program ? camStreams[program] ?? null : null;
+  // The on-air source lost its feed — the single most important thing this console can tell an
+  // operator, and until now it told them nothing at all.
+  const programLost = Boolean(program && slotStates[program] === 'failed' && !programStream);
 
   // ── Split cam (PR #5) ───────────────────────────────────────────────────────
   // A second source composited beside PROGRAM at an operator-set ratio. Purely
@@ -565,6 +602,7 @@ export function PanoodControlRoom({
             onPopout={streamingOn ? openProgramPopout : undefined}
             overlay={watermark.overlay}
             overlayReason={watermark.reason}
+            signalLost={programLost}
             splitStream={splitStream}
             splitRatio={splitRatio}
             onSplitRatioChange={setSplitRatio}
@@ -627,6 +665,7 @@ export function PanoodControlRoom({
           onPopout={streamingOn ? openProgramPopout : undefined}
           overlay={watermark.overlay}
           overlayReason={watermark.reason}
+          signalLost={programLost}
           splitStream={splitStream}
           splitRatio={splitRatio}
           onSplitRatioChange={setSplitRatio}
@@ -655,6 +694,7 @@ export function PanoodControlRoom({
                   onAir={program === cameraSourceKey(cam)}
                   status={cam.status}
                   stream={camStreams[cameraSourceKey(cam)] ?? null}
+                  lost={slotStates[cameraSourceKey(cam)] === 'failed'}
                   overlay={watermark.overlay}
                 />
               </button>
@@ -765,6 +805,7 @@ function ProgramMonitor({
   onPopout,
   overlay,
   overlayReason,
+  signalLost,
   splitStream,
   splitRatio,
   onSplitRatioChange,
@@ -776,6 +817,8 @@ function ProgramMonitor({
   onPopout?: () => void;
   /** Draw the full-screen SETNAYAN paywall overlay over this monitor. */
   overlay?: boolean;
+  /** The on-air camera dropped. Unmistakable, because the alternative is a frozen frame. */
+  signalLost?: boolean;
   overlayReason?: import('@/lib/panood-watermark').WatermarkReason;
   /** Second source composited beside program. Null = single-source program. */
   splitStream?: MediaStream | null;
@@ -865,6 +908,12 @@ function ProgramMonitor({
               </p>
             </div>
           </>
+        )}
+        {signalLost && (
+          <div className="absolute inset-x-0 top-0 z-30 flex items-center justify-center gap-2 bg-danger-600 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-cream">
+            <AlertTriangle aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
+            Signal lost — pick another camera
+          </div>
         )}
         {/* The paywall, over whichever branch rendered above — split, single or placeholder. */}
         {overlay && <SetnayanOverlay size="monitor" reason={overlayReason} />}
@@ -998,6 +1047,7 @@ function SourceTileBody({
   status,
   stream,
   overlay,
+  lost,
 }: {
   Icon: typeof Camera;
   label: string;
@@ -1006,6 +1056,12 @@ function SourceTileBody({
   stream?: MediaStream | null;
   /** Thumbnails are a video surface too — an uncovered one is a hole in the paywall. */
   overlay?: boolean;
+  /**
+   * This camera's peer failed or its track ended. Distinct from "never connected": the operator
+   * needs to tell a camera that DROPPED from one that was never claimed, because only the first
+   * is something they can fix by nudging the person holding the phone.
+   */
+  lost?: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   useEffect(() => {
@@ -1031,6 +1087,11 @@ function SourceTileBody({
           />
         ) : (
           <Icon aria-hidden className="h-5 w-5" strokeWidth={1.5} />
+        )}
+        {lost && (
+          <span className="absolute inset-x-0 bottom-0 z-20 bg-danger-600/90 px-1.5 py-0.5 text-center font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-cream">
+            Dropped
+          </span>
         )}
         {/* Thumbnails carry the paywall too — one uncovered video surface is the whole bypass. */}
         {overlay && stream && <SetnayanOverlay size="thumb" />}

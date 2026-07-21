@@ -358,6 +358,12 @@ async function readSkuPrice(serviceCode: string): Promise<number | null> {
     .from('platform_retail_catalog_v2')
     .select('retail_price_php')
     .eq('service_code', serviceCode)
+    // Honor is_active, same as readBundlePrice below. Without this a RETIRED
+    // service_code still resolved to a real price and could be charged through
+    // the gateway — the catalog's own "is this sellable?" switch was ignored on
+    // the à-la-carte path while the bundle path respected it (fixed 2026-07-21,
+    // admin-pricing council audit). Retired code → no row → null → caller 400s.
+    .eq('is_active', true)
     .maybeSingle();
   return data?.retail_price_php ? Number(data.retail_price_php) : null;
 }

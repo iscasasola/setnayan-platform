@@ -1,11 +1,22 @@
 /**
- * V1 SKU catalog constants.
+ * V1 SKU catalog constants — LEGACY. Do not add rows.
  *
  * Source of truth: `public.service_catalog` in Supabase (seeded by
  * supabase/migrations/20260516000000_v1_sku_lock_service_catalog.sql).
  * This file is a TypeScript mirror so server components can render
  * pricing without an extra round-trip. Keep in sync with the migration
  * whenever a SKU price changes.
+ *
+ * ⚠ The v1 catalog is superseded by `platform_retail_catalog_v2` (read it via
+ * `lib/v2-catalog.ts`). Anything CURRENTLY sellable lives there; this mirror is
+ * kept only for the handful of legacy reads that still resolve v1 `sku_code`s.
+ *
+ * ⚠ `isActive` here must mirror `service_catalog.is_active` in prod, where
+ * exactly ONE row is active (`vendor_verification_initial`). It had drifted to
+ * 19 — 18 rows retired in the DB on 2026-05-16/05-28 were still flagged active
+ * here, so `findSku()` handed callers live-looking prices for SKUs nobody can
+ * buy. Corrected 2026-07-21 (admin-pricing council audit). If you retire a SKU,
+ * flip it in BOTH places or this mirror starts lying again.
  *
  * Pricing is stored in centavos (1 peso = 100 centavos) to match the DB
  * schema. `priceCentavosToPeso` converts for display.
@@ -116,7 +127,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     subscription: false,
     refundable: false,
     purchaserRole: 'couple',
-    isActive: true,
+    isActive: false,
   },
   {
     skuCode: 'pro_widget_schedule',
@@ -128,7 +139,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     subscription: false,
     refundable: true,
     purchaserRole: 'couple',
-    isActive: true,
+    isActive: false,
   },
 
   // ---- Panood (live streaming) ----
@@ -147,7 +158,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     subscription: false,
     refundable: true,
     purchaserRole: 'couple',
-    isActive: true,
+    isActive: false,
   },
   {
     skuCode: 'panood_camera_sync',
@@ -175,7 +186,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     subscription: true,
     refundable: true,
     purchaserRole: 'couple',
-    isActive: true,
+    isActive: false,
   },
   {
     skuCode: 'panood_annual_streaming_plus',
@@ -202,7 +213,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     subscription: false,
     refundable: true,
     purchaserRole: 'couple',
-    isActive: true,
+    isActive: false,
   },
   {
     skuCode: 'paparazzi_5_seats',
@@ -214,7 +225,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     subscription: false,
     refundable: true,
     purchaserRole: 'couple',
-    isActive: true,
+    isActive: false,
   },
   {
     skuCode: 'paparazzi_camera_addon',
@@ -226,7 +237,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     subscription: false,
     refundable: true,
     purchaserRole: 'couple',
-    isActive: true,
+    isActive: false,
   },
   // Cam Bridge (DSLR pairing) — cataloged but isActive=false. Requires native
   // Papic-binary app + DSLR WiFi SDK access, both gated by the DTI chain
@@ -279,7 +290,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     subscription: false,
     refundable: true,
     purchaserRole: 'couple',
-    isActive: true,
+    isActive: false,
   },
   {
     skuCode: 'ai_edited_highlight_3min',
@@ -292,7 +303,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     subscription: false,
     refundable: true,
     purchaserRole: 'couple',
-    isActive: true,
+    isActive: false,
   },
 
   // ---- Vendor verification ----
@@ -318,7 +329,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     subscription: true,
     refundable: false,
     purchaserRole: 'vendor',
-    isActive: true,
+    isActive: false,
   },
   {
     skuCode: 'vendor_verification_redemption',
@@ -330,7 +341,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     subscription: false,
     refundable: false,
     purchaserRole: 'vendor',
-    isActive: true,
+    isActive: false,
   },
 
   // ---- All Tools Unlock bundle + individual tools ----
@@ -345,7 +356,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     subscription: true,
     refundable: true,
     purchaserRole: 'vendor',
-    isActive: true,
+    isActive: false,
   },
   {
     skuCode: 'tool_mood_board_weekly',
@@ -357,7 +368,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     subscription: true,
     refundable: true,
     purchaserRole: 'vendor',
-    isActive: true,
+    isActive: false,
   },
   {
     skuCode: 'tool_seat_arrangement_weekly',
@@ -369,7 +380,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     subscription: true,
     refundable: true,
     purchaserRole: 'vendor',
-    isActive: true,
+    isActive: false,
   },
   {
     skuCode: 'tool_palette_weekly',
@@ -381,7 +392,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     subscription: true,
     refundable: true,
     purchaserRole: 'vendor',
-    isActive: true,
+    isActive: false,
   },
   {
     skuCode: 'tool_qr_reader_weekly',
@@ -393,7 +404,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     subscription: true,
     refundable: true,
     purchaserRole: 'vendor',
-    isActive: true,
+    isActive: false,
   },
   {
     skuCode: 'tool_advanced_pricing_weekly',
@@ -405,7 +416,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     subscription: true,
     refundable: true,
     purchaserRole: 'vendor',
-    isActive: true,
+    isActive: false,
   },
 
   // ---- Vendor Pro + Contract Intelligence ----
@@ -419,7 +430,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     subscription: true,
     refundable: true,
     purchaserRole: 'vendor',
-    isActive: true,
+    isActive: false,
   },
   {
     // Retired 2026-05-18 — Contract Intelligence (iteration 0032) replaced by

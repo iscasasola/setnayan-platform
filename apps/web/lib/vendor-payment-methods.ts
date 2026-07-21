@@ -13,6 +13,7 @@
  *     vendor_payment_methods directly).
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isTierAtLeast } from './vendor-tier-caps';
 
 export type PaymentMethodType = 'bank' | 'qr' | 'link';
 export type ModerationStatus = 'approved' | 'pending_review' | 'held' | 'removed';
@@ -37,16 +38,6 @@ export type VendorPaymentMethodRow = {
   created_at: string;
   updated_at: string;
 };
-
-/**
- * Payment LINKS are gated to vendors on an active paid pro-tier subscription.
- * There is no DB tier column — tier = an active `orders` row. No Enterprise SKU
- * exists in the catalog yet; when one lands, add its sku_code here.
- */
-export const PRO_TIER_SKUS: readonly string[] = [
-  'vendor_pro_weekly',
-  'all_tools_unlock_annual',
-];
 
 /**
  * Recognised payment-provider domains — links here publish instantly. Anything
@@ -151,22 +142,56 @@ export function initialLinkModeration(rawUrl: string): {
   return { status: c.allowlisted ? 'approved' : 'pending_review', domain: c.domain, blocked: false };
 }
 
-/** True when the vendor (by auth user_id) holds an active paid pro-tier order. */
+/**
+ * True when the vendor (by auth user_id) is on Pro or better.
+ *
+ * READS `vendor_profiles.tier_state` — the canonical tier source everywhere else
+ * in the app (`lib/vendor-feature-gate.ts` · `lib/vendor-tier-caps.ts`).
+ *
+ * ── WHY THIS WAS REWRITTEN (2026-07-21, sell-vs-deliver gap audit) ──────────
+ * It used to gate on `orders.service_key IN ('vendor_pro_weekly',
+ * 'all_tools_unlock_annual')` — two V1 SKU codes RETIRED on 2026-05-28. Its own
+ * doc comment claimed "there is no DB tier column — tier = an active orders
+ * row", which stopped being true when `tier_state` landed: the subscription
+ * RPCs (`create_/approve_/confirm_vendor_subscription`) write `tier_state` and
+ * never touch `orders` at all. Prod: **0 orders have ever carried either code**
+ * while **5 vendor_profiles sit at tier_state='pro'** — so every Pro vendor was
+ * told "Payment links are a Pro & Enterprise feature — upgrade to add one",
+ * with no upgrade that could ever satisfy it. Same failure shape as the Live
+ * Studio lockout fixed in PR #3444: a hardcoded SKU-code list checked against a
+ * column those codes never reach.
+ *
+ * TWO PROD REALITIES THIS MUST HONOUR — both would break a naive rewrite:
+ *  1. **`tier_expires_at` is NULL for all 5 Pro vendors** (free-during-launch /
+ *     admin-set). NULL means NO EXPIRY, not "expired" — a `.gt()` filter here
+ *     would reproduce the exact lockout being fixed. Only a non-null timestamp
+ *     in the past deactivates.
+ *  2. **One user owns 46 vendor_profiles.** `.maybeSingle()` would throw on
+ *     multiple rows, so this reads all of the user's profiles and passes if ANY
+ *     is Pro-or-better.
+ *
+ * `isTierAtLeast(_, 'pro')` covers pro < enterprise < custom, so higher tiers
+ * inherit automatically and no future tier needs an edit here.
+ */
 export async function isVendorProActive(
   client: SupabaseClient,
   vendorUserId: string,
 ): Promise<boolean> {
-  const nowIso = new Date().toISOString();
   const { data, error } = await client
-    .from('orders')
-    .select('order_id')
-    .eq('user_id', vendorUserId)
-    .in('service_key', PRO_TIER_SKUS as string[])
-    .eq('status', 'paid')
-    .gt('expires_at', nowIso)
-    .limit(1);
-  if (error) return false;
-  return (data?.length ?? 0) > 0;
+    .from('vendor_profiles')
+    .select('tier_state, tier_expires_at')
+    .eq('user_id', vendorUserId);
+  if (error || !data) return false;
+
+  const now = Date.now();
+  return (data as { tier_state?: string | null; tier_expires_at?: string | null }[]).some(
+    (row) => {
+      if (!isTierAtLeast(row.tier_state, 'pro')) return false;
+      if (row.tier_expires_at == null) return true; // no expiry set → active
+      const expiry = new Date(row.tier_expires_at).getTime();
+      return Number.isFinite(expiry) && expiry > now;
+    },
+  );
 }
 
 /** Vendor's own methods (all of them). Call with the vendor's RLS client. */

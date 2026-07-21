@@ -16,6 +16,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { formatPhp, orderGrossOwed, isVatInclusiveServiceKey } from '@/lib/orders';
 import { computeVatFromBase, computeVatFromGross } from '@/lib/receipts';
+import { getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { captureEvent } from '@/lib/analytics';
 import {
   computePayoutBreakdown,
@@ -406,7 +407,7 @@ async function schedulePayoutsForOrder(args: {
   if (basePhp <= 0) return;
 
   // Gross = pre-VAT base + 12% VAT (the customer pays gross).
-  const { gross } = computeVatFromBase(basePhp);
+  const { gross } = computeVatFromBase(basePhp, await getEffectiveVatRatePct(admin));
   const grossCentavos = phpToCentavos(gross);
 
   // Effective convenience-fee bps: a per-order snapshot wins (orders.setnayan_fee_bps,
@@ -504,7 +505,7 @@ async function issueReceiptForOrder(args: {
   // orders: build VAT UP from the pre-VAT base, unchanged.
   const { preVat, vat, gross } = isVatInclusiveServiceKey(order.service_key)
     ? computeVatFromGross(storedTotal)
-    : computeVatFromBase(storedTotal);
+    : computeVatFromBase(storedTotal, await getEffectiveVatRatePct(admin));
 
   // or_serial defaults from public.or_serial_seq (atomic) — don't pass it.
   // The display "Transaction No." is composed at read-time via formatReceiptNumber().

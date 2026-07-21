@@ -67,7 +67,8 @@ const FALLBACK: PlatformSettingsRow = {
   gcash_account_name: null,
   gcash_number: null,
   gcash_qr_url: null,
-  default_vat_rate_pct: 12,
+  // 0, never 12 — an unreachable settings row must not invent a tax. See getEffectiveVatRatePct.
+  default_vat_rate_pct: 0,
   onboarding_bg_music_r2_key: null,
   onboarding_bg_music_enabled: true,
   admin_digest_enabled: false,
@@ -190,5 +191,30 @@ export async function isReferralProgramEnabled(): Promise<boolean> {
     return s.referral_program_enabled === true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * The VAT rate Setnayan actually charges, from `platform_settings.default_vat_rate_pct`.
+ *
+ * ⚠️ This exists because that setting was WRITE-ONLY. The admin settings page has always let the
+ * owner set it — and it is set to **0**, correctly, since Setnayan is non-VAT registered (sole
+ * prop under ICASA ENTERPRISE, 8% flat; VAT only at the ₱3M combined-gross tripwire). But no
+ * pricing code ever read it: `orders.ts` and the checkout imported a hardcoded `12` instead. Every
+ * customer SKU was grossed by 12% — a ₱2,500 SKU billed at ₱2,800 — presenting as VAT a tax
+ * Setnayan is not registered to collect.
+ *
+ * FALLS BACK TO 0, never to 12. If the settings row is unreadable, charging nothing extra is both
+ * the legally safe answer for a non-VAT taxpayer and the honest one: an unreachable database must
+ * never invent a tax on a customer's invoice. When the ₱3M threshold is crossed, the fix is to set
+ * the field — not to change code.
+ */
+export async function getEffectiveVatRatePct(supabase: SupabaseClient): Promise<number> {
+  try {
+    const settings = await fetchPlatformSettings(supabase);
+    const rate = Number(settings?.default_vat_rate_pct);
+    return Number.isFinite(rate) && rate >= 0 ? rate : 0;
+  } catch {
+    return 0;
   }
 }

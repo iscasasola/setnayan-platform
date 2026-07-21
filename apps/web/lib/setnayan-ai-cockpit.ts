@@ -105,6 +105,10 @@ export type CockpitInput = {
 
 function hasLockedPick(picks: ReadonlyArray<PlanCardPick>): boolean {
   for (const p of picks) {
+    // See the identical skip in lib/todays-one-thing.ts: catch-all rows are
+    // parked in their fallback group, not members of it, so they don't vote on
+    // whether that group is decided.
+    if (p.bucketed_by_fallback) continue;
     if (p.raw_status !== null && CONFIRMED_SET.has(p.raw_status)) return true;
     if (p.status === 'locked') return true;
   }
@@ -166,7 +170,10 @@ export function buildCockpitModel(
   const bucketed = bucketVendorsByGroup(vendors, null, null);
   for (const group of PLAN_GROUPS) {
     if (group.countsTowardLockable === false) continue;
-    const picks = bucketed.get(group.id) ?? [];
+    // Catch-all rows are excluded from the COUNT too, not just the lock check:
+    // "Pick your logistics & misc · 1 option saved" would be a decision the
+    // couple can't act on, about a vendor that isn't really in this group.
+    const picks = (bucketed.get(group.id) ?? []).filter((p) => !p.bucketed_by_fallback);
     if (picks.length === 0) continue; // no vendor booked — handled by (b)
     if (hasLockedPick(picks)) continue; // already locked — done
     const n = picks.length;

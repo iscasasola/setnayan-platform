@@ -606,6 +606,14 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   },
 ];
 
+/**
+ * Where `bucketVendorsByGroup` parks a pick whose `category` no plan group
+ * claims. `logistics` is the "Logistics & Misc" card — the same home the
+ * catch-all `misc` category already has, so an unclaimed value reads the same
+ * as an untyped one instead of vanishing.
+ */
+const UNBUCKETED_FALLBACK_GROUP: PlanGroupId = 'logistics';
+
 /** Status the badge surfaces for a vendor row. */
 export type VendorPickStatus = 'picked' | 'locked';
 
@@ -677,10 +685,25 @@ export function isHardSinglePickGroup(groupId: PlanGroupId): boolean {
 
 /**
  * Look up which PlanGroupId a vendor category belongs to, or null if the
- * category isn't part of any planning group. Mirrors the
- * `bucketVendorsByGroup` logic but returns just the bucket key — used
- * by the finalize server action to gate hard-single conflict checks
- * against the canonical group definition.
+ * category isn't part of any planning group — used by the finalize server
+ * action to gate hard-single conflict checks against the canonical group
+ * definition.
+ *
+ * ⚠ This DELIBERATELY DIVERGES from `bucketVendorsByGroup` as of 2026-07-21.
+ * It used to be described as "mirrors the bucketVendorsByGroup logic"; that is
+ * no longer true and restoring parity in either direction re-breaks one half:
+ *
+ *  - The BUCKETER has a catch-all (`UNBUCKETED_FALLBACK_GROUP`) because it
+ *    feeds DISPLAY surfaces, and a couple's vendor must never silently
+ *    disappear from Budget just because its category is off-taxonomy.
+ *  - This RESOLVER must keep returning `null`, because it answers "which
+ *    group's rules govern this category?" for the finalize gate. Handing back
+ *    `logistics` for a category logistics never claimed would apply another
+ *    group's lock rules to it. All four call sites null-guard deliberately.
+ *
+ * The `bucketed_by_fallback` stamp on PlanCardPick is how the two stay
+ * reconciled: the bucketer surfaces the row, the stamp keeps it from voting on
+ * the group's completeness.
  *
  * Entry-point cards (countsTowardLockable: false) are skipped because
  * their categories array is empty by definition; vendor rows with
@@ -868,6 +891,26 @@ export type PlanCardPick = {
   pax_surcharge_php?: number | null;
   pax_quote_base?: number | null;
   cost_basis_pax?: number | null;
+  /**
+   * TRUE when `bucketVendorsByGroup` parked this pick in
+   * `UNBUCKETED_FALLBACK_GROUP` because NO plan group claims its `category`
+   * (2026-07-21). The row is a real vendor and must be DISPLAYED — that is the
+   * whole point of the catch-all — but it does not BELONG to the group it was
+   * parked in, so it must not vote on that group's completeness.
+   *
+   * Consumers split on this:
+   *  - DISPLAY (Budget tab, Vendors tab planning cards) → render it normally.
+   *  - LOCK / PROGRESS (`hasLockedPick` in lib/todays-one-thing.ts and
+   *    lib/setnayan-ai-cockpit.ts, `countUnlockedCategories`) → IGNORE it.
+   *
+   * Why: without the stamp, one contracted `av_production` row reads as
+   * "Logistics & Misc is locked" and the couple is told a planning card is
+   * done that they never touched — the home hero stops nudging them to arrange
+   * transport / security / giveaways, permanently.
+   *
+   * Absent (undefined) on every normally-bucketed pick.
+   */
+  bucketed_by_fallback?: boolean;
 };
 
 export type GroupedPicks = {
@@ -1175,10 +1218,29 @@ export function bucketVendorsByGroup(
       pax_quote_base: toNum(v.pax_quote_base ?? null),
       cost_basis_pax: toNum(v.cost_basis_pax ?? null),
     };
+    let bucketed = false;
     for (const g of PLAN_GROUPS) {
       if (g.categories.includes(v.category)) {
         out.get(g.id)!.push(pick);
+        bucketed = true;
       }
+    }
+    // Catch-all (2026-07-21). Before this, a row whose `category` is in NO plan
+    // group was silently dropped from the Budget tab — the couple's vendor,
+    // with their money attached, just wasn't there. That is never the right
+    // outcome: PLAN_GROUPS covers the wedding-shaped subset of the 45-value
+    // enum, and rows can carry non-wedding leaves (tour_guide, event_medic, …)
+    // written by other surfaces or by direct DB edit. `logistics`
+    // ("Logistics & Misc") is where `misc` already lives, so an unclaimed
+    // category lands exactly where an untyped one would.
+    //
+    // STAMPED, because this helper is NOT display-only — three of its four
+    // callers read lock/progress semantics off the bucketed map. See the
+    // `bucketed_by_fallback` docstring on PlanCardPick. Display consumers show
+    // the row; lock/progress consumers skip it. Asserted in
+    // shortlist-taxonomy-coverage.test.ts.
+    if (!bucketed) {
+      out.get(UNBUCKETED_FALLBACK_GROUP)!.push({ ...pick, bucketed_by_fallback: true });
     }
   }
   return out as Map<PlanGroupId, GroupedPicks['picks']>;

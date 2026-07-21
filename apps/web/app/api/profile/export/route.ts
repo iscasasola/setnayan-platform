@@ -22,6 +22,13 @@ import { displayUrlsForStoredAssets } from '@/lib/uploads';
  * coordinator-access data-sharing consents and marketing-share (social
  * sharing program) per-artifact consents, each with grant + revocation stamps.
  *
+ * Includes (2026-07-21 completeness) the coordinator-workspace prose the
+ * subject AUTHORED: per-vendor working notes and day-of broadcasts. Both are
+ * author-scoped, never event-scoped — see the WHY blocks at each select. A
+ * companion guardrail (lib/export-coverage-guardrail.test.ts) now fails the
+ * build when a new user-identifying table is neither exported nor explicitly
+ * classified, so this class of silent omission cannot recur unreviewed.
+ *
  * Not in scope for V1:
  *   • Audit log of past API access (no user-scoped access-log table — the
  *     0033 gateway ships api_keys only, consistent with "no public endpoints").
@@ -49,6 +56,8 @@ export async function GET() {
     communityMembershipsRes,
     coordinatorConsentsRes,
     marketingShareConsentsRes,
+    workingNotesRes,
+    broadcastsSentRes,
   ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
@@ -179,6 +188,43 @@ export async function GET() {
       )
       .eq('customer_id', user.id)
       .order('created_at', { ascending: true }),
+    // RA 10173 (2026-07-21) — per-vendor WORKING NOTES the subject AUTHORED
+    // (coordinator P4, migration 20270825279091). AUTHOR-scoped on purpose;
+    // event-scoping would be both incomplete AND a third-party disclosure:
+    //   • a 'coordinator_private' note is the COORDINATOR's own working prep
+    //     about a vendor. That migration deliberately inverts Pattern B —
+    //     policy evwn_couple_select predicates on visibility = 'shared', so the
+    //     couple cannot read private notes even on their own event. An
+    //     event-scoped export would therefore hand a couple a silently PARTIAL
+    //     set (RLS quietly filters it) and, for a coordinator working several
+    //     events, would sweep in notes authored by other people.
+    //   • even a 'shared' note has exactly ONE author; the other party only
+    //     READS it. Event-scoping would drop the coordinator's words into the
+    //     couple's subject-access file — a third-party disclosure, precisely
+    //     the leak this endpoint must never commit.
+    // Author-scoping is both COMPLETE (the subject gets every note they wrote,
+    // at either visibility) and SAFE. Same grain as chat_messages_authored.
+    supabase
+      .from('event_vendor_working_notes')
+      .select('note_id, event_id, event_vendor_id, author_role, visibility, body, created_at')
+      .eq('author_user_id', user.id)
+      .order('created_at', { ascending: true }),
+    // RA 10173 (2026-07-21) — day-of BROADCASTS the subject SENT (coordinator
+    // P3, migration 20270825364600). SENDER-scoped, for the same reason
+    // chat_messages is scoped to sender_user_id: the export ships what the
+    // subject WROTE, not what they received. A broadcast is one-author-to-many-
+    // readers (policy coordinator_broadcasts_member_read gives every event
+    // member read), so the message text is the SENDER's personal data. An
+    // event-scoped read on a recipient's subject-access request would return
+    // the couple's and coordinator's announcements as if they were the
+    // recipient's own — disclosing a third party's data to every guest.
+    // sender_role is exported as provenance only: the migration's own
+    // COMMENT ON COLUMN says authority comes from RLS, never from this label.
+    supabase
+      .from('coordinator_broadcasts')
+      .select('broadcast_id, event_id, sender_role, body, created_at')
+      .eq('sender_user_id', user.id)
+      .order('created_at', { ascending: true }),
   ]);
 
   // Resolve the vendor's own media to usable URLs (additive — the raw r2:// keys
@@ -275,10 +321,15 @@ export async function GET() {
     // consents (per-artifact FB-feature grants incl. post/take-down evidence).
     coordinator_access_consents: coordinatorConsentsRes.data ?? [],
     marketing_share_consents: marketingShareConsentsRes.data ?? [],
+    // RA 10173 (2026-07-21) — coordinator-workspace prose the subject AUTHORED.
+    // Author-scoped, never event-scoped (see the WHY blocks at each select).
+    vendor_working_notes_authored: workingNotesRes.data ?? [],
+    coordinator_broadcasts_sent: broadcastsSentRes.data ?? [],
     not_included: [
       'audit_log (API access — no user-scoped access-log table in V1)',
       'face_vector embeddings (biometric raw data — metadata only is exported)',
       'active alaga claim_token values (live bearer secrets — never exported)',
+      'working notes + day-of broadcasts authored by OTHERS (third-party personal data — the export ships what the subject wrote, not what they received)',
     ],
   };
 

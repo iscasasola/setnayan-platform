@@ -130,44 +130,21 @@ export default async function PanoodControlRoomPage({ params }: Props) {
   });
 
   return (
-    <section className="space-y-6">
-      <Link
-        href={`/dashboard/${eventId}/studio/panood/setup`}
-        className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-      >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to Panood setup
-      </Link>
-
-      {/* Doorway to camera pairing. Without this the Cameras page was ORPHANED — an operator
-          standing in the control room had no way to reach the links that put a phone on air,
-          which is the first thing anyone needs here. (Wayfinding rule: a page ships with its
-          doorway.) */}
-      <Link
-        href={`/dashboard/${eventId}/studio/panood/cameras`}
-        className="ml-2 inline-flex items-center gap-1.5 rounded-md bg-terracotta/10 px-3 py-1.5 text-xs font-semibold text-terracotta hover:bg-terracotta/15"
-      >
-        <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Connect cameras
-      </Link>
-
-      <header className="sn-reveal space-y-2">
-        <p className="sn-eye">Broadcast</p>
-        <h1 className="sn-h1 flex items-center gap-3">
-          <Tv aria-hidden className="h-6 w-6 text-terracotta" strokeWidth={1.75} />
-          {event.display_name}
-        </h1>
-        <p className="max-w-prose text-sm text-ink/65">
-          Run the show from here. Tap a source to put it on air, fire a moment to
-          recompose the whole shot in one tap, and route each venue screen — every tap
-          is saved live.
-        </p>
-      </header>
-
-      {!owned && <UpgradeBanner eventId={eventId} />}
-
+    // NO page chrome. Everything that used to sit above PROGRAM — a back-link row, a duplicate
+    // "Connect cameras" button, a BROADCAST eyebrow, an h1 of the couple's own names, and a
+    // three-line paragraph describing the interface the operator is already looking at — spent
+    // roughly a sixth of the viewport telling someone standing at the wedding which wedding they
+    // are at. It is all folded into the console's own 44px status strip.
+    //
+    // The UpgradeBanner is gone too, and not for space: the rail is apply-then-pay with a 24-hour
+    // manual reconciliation SLA (every automated method in `setnayan_pay_methods` is inactive), so
+    // mid-show conversion is impossible by construction. An upsell that cannot convert is chrome.
+    // The free tier's paywall is the SETNAYAN overlay on every surface, which is unmissable.
+    <section className="contents">
       <PanoodControlRoom
         eventId={eventId}
+        eventName={event.display_name}
+        owned={owned}
         cameras={cameras}
         screens={screens}
         moments={moments}

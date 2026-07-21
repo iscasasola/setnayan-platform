@@ -19,7 +19,7 @@ Placement now comes from one helper, `boothPosterLocalOffset(spec)` = `chassisHa
 
 It contributed no avoidance disc. Fixed inside `templateBoothObstacles`, following the **staff-mascot precedent already in that same function** (which likewise pushes conditional discs from per-booth runtime data via `tpl.staff.count`). That placement matters: all three 3D call sites — `plan3d-scene.tsx`, the public `guest-venue-3d.tsx`, and the couple `seating-lab-3d.tsx` — call `templateBoothObstacles(booths, room)` with no local disc logic, so **the fix propagates to all three with zero call-site edits**.
 
-The disc is gated on `boothCanBrand(tier) && posterUrl`, i.e. the *same* condition the renderer draws on, and positioned by the *same* helper. Renderer and obstacle cannot drift — a drift would place the disc where the artwork isn't, which reads as "guests walk through the poster" and is invisible to any test checking only one side. A test asserts they agree.
+The disc is gated on `boothCanBrand(tier) && posterUrl`, i.e. the *same* condition the renderer draws on, and positioned by the *same* helper — so a drift would place the disc where the artwork isn't, which reads as "guests walk through the poster". *(See item 6: the unit test I first wrote for this could not actually prove it; a lint guard now does.)*
 
 **3 · The generic branch had BOTH defects still live — my first pass missed it.**
 
@@ -53,6 +53,6 @@ That cross-file invariant now has a `lint-booth-poster-placement.mjs` guard with
 
 **Test:** `lib/booth-poster-placement.test.ts`, 14 cases — clearance across all 10 chassis, the null-spec fallback, disc presence/absence, disc-vs-artwork agreement under any yaw (compares distance from booth centre, so it holds for all four facings), disc radius ≥ stand half-width, and the branding gate. One case pins the *old* constant's 9-chassis failure, so anyone "simplifying" the helper back to a literal learns why it was never right.
 
-Full suite 2420/2420. *(An earlier note in #3460 claimed 5 pre-existing failures on `main`; those were an artifact of an uninstalled worktree, not real — with deps installed everything passes.)*
+Full suite 2426/2426. *(An earlier note in #3460 claimed 5 pre-existing failures on `main`; those were an artifact of an uninstalled worktree, not real — with deps installed everything passes.)*
 
 SPEC IMPACT: None. Geometry fix to shipped behaviour.

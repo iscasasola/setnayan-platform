@@ -69,7 +69,7 @@ export function Sheet({
       role="dialog"
       aria-modal="true"
       aria-labelledby={labelledById}
-      className="fixed inset-0 z-50 flex items-end justify-center sm:items-stretch sm:justify-end focus:outline-none"
+      className="fixed inset-0 z-50 flex h-[100dvh] items-end justify-center sm:items-stretch sm:justify-end focus:outline-none"
     >
       {/* Backdrop — clicking dismisses. Rendered as a button so keyboard
           users get a focusable affordance, not just a div with onClick. */}
@@ -82,7 +82,7 @@ export function Sheet({
 
       {/* Sheet body */}
       <div
-        className="relative flex max-h-[90vh] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] sm:h-full sm:max-h-none sm:w-[22rem] sm:rounded-l-3xl sm:rounded-tr-none sm:shadow-[-30px_0_80px_-40px_rgba(26,26,26,0.4)]"
+        className="relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] sm:h-full sm:max-h-none sm:w-[22rem] sm:rounded-l-3xl sm:rounded-tr-none sm:shadow-[-30px_0_80px_-40px_rgba(26,26,26,0.4)]"
       >
         {title ? (
           <header className="flex items-center justify-between gap-3 border-b border-ink/10 px-5 py-3">

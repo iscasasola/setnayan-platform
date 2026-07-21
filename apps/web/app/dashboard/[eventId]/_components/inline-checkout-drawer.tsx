@@ -21,7 +21,12 @@
  *     eventId, and the platform settings + QR refs the drawer renders.
  *   • Collapsed state shows ONE button: "Add this service · ₱X,XXX.XX"
  *   • Click → expands the drawer with voucher + payment steps inline.
- *   • Mobile: bottom sheet (slide-up · max-h-[90vh] · safe-area-aware).
+ *   • Mobile: bottom sheet (slide-up · max-h-[90dvh] · safe-area-aware).
+ *     `dvh` (not `vh`) is load-bearing: on iOS Safari / Chrome Android `vh`
+ *     resolves to the LARGE viewport (URL bar hidden), so a `90vh` sheet is
+ *     bottom-anchored below the browser toolbar and its last rows — the
+ *     screenshot dropzone and "Submit request" — are unreachable. Reported
+ *     2026-07-21: "cannot complete transaction, bottom part not viewable".
  *   • Desktop: right-side drawer (matches ChoosePlanSheet positioning).
  *
  * Voucher flow:
@@ -321,7 +326,7 @@ export function InlineCheckoutDrawer({
         role="dialog"
         aria-modal="true"
         aria-labelledby="inline-checkout-title"
-        className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:justify-end focus:outline-none"
+        className="fixed inset-0 z-50 flex h-[100dvh] items-end justify-center sm:items-center sm:justify-end focus:outline-none"
       >
         {/* Backdrop */}
         <button
@@ -332,7 +337,7 @@ export function InlineCheckoutDrawer({
         />
 
         {/* Sheet — bottom on mobile, right drawer on desktop. */}
-        <div className="relative flex max-h-[90vh] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-xl sm:h-full sm:max-h-none sm:w-[28rem] sm:rounded-l-3xl sm:rounded-tr-none">
+        <div className="relative flex max-h-[90dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-ink/10 bg-cream shadow-xl sm:h-full sm:max-h-none sm:w-[28rem] sm:rounded-l-3xl sm:rounded-tr-none">
           <header className="flex items-start justify-between gap-3 border-b border-ink/10 px-5 py-4">
             <div className="space-y-0.5">
               <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
@@ -368,7 +373,9 @@ export function InlineCheckoutDrawer({
             </button>
           </header>
 
-          <div className="flex-1 overflow-y-auto px-5 py-4">
+          {/* Scroll body. The bottom pad clears the iOS home indicator so the
+              submit button is never sitting under it. */}
+          <div className="flex-1 overflow-y-auto px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
             {/*
               Body has three states:
               1. revealSuccess  → the confirmation card (after the loader's

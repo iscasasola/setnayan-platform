@@ -107,7 +107,7 @@ export function ChoosePlanSheet({
           role="dialog"
           aria-modal="true"
           aria-labelledby="choose-plan-title"
-          className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:justify-end focus:outline-none"
+          className="fixed inset-0 z-50 flex h-[100dvh] items-end justify-center sm:items-center sm:justify-end focus:outline-none"
         >
           {/* Backdrop */}
           <button
@@ -118,7 +118,7 @@ export function ChoosePlanSheet({
           />
 
           {/* Sheet */}
-          <div className="relative flex max-h-[90vh] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-xl sm:h-full sm:max-h-none sm:w-[28rem] sm:rounded-l-3xl sm:rounded-tr-none">
+          <div className="relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-xl sm:h-full sm:max-h-none sm:w-[28rem] sm:rounded-l-3xl sm:rounded-tr-none">
             <header className="flex items-start justify-between gap-3 border-b border-ink/10 px-5 py-4">
               <div className="space-y-0.5">
                 <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
@@ -141,7 +141,7 @@ export function ChoosePlanSheet({
               </button>
             </header>
 
-            <ul className="flex-1 divide-y divide-ink/10 overflow-y-auto">
+            <ul className="flex-1 divide-y divide-ink/10 overflow-y-auto pb-[max(0px,env(safe-area-inset-bottom))]">
               {plans.map((plan) => (
                 <li key={plan.sku_code} className="flex flex-col gap-2 px-5 py-4">
                   <div className="flex items-start justify-between gap-3">

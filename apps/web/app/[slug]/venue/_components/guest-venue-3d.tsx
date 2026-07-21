@@ -127,7 +127,18 @@ export type VenueScene = {
     xPct: number;
     yPct: number;
     offerings?: string | null;
-    vendor?: { name: string; category: string; logoUrl: string | null; slug?: string | null; bookable?: boolean } | null;
+    // `posterUrl` = the vendor's own design FOR THIS EVENT (a 2:3 portrait
+    // banner beside the booth), distinct from `logoUrl`, the account-level
+    // mark on the backdrop board. Optional so an older cached scene payload
+    // still parses.
+    vendor?: {
+      name: string;
+      category: string;
+      logoUrl: string | null;
+      posterUrl?: string | null;
+      slug?: string | null;
+      bookable?: boolean;
+    } | null;
   }[];
   /** Wayfinding signs (v2 payload). */
   signs?: { id: string; label: string; xPct: number; yPct: number; rotationDeg: number }[];

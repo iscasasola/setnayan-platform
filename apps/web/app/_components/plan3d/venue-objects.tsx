@@ -555,6 +555,12 @@ export function BoothMesh({
   const facingY = useMemo(() => boothFacingY({ xPct: booth.xPct, yPct: booth.yPct }, room), [booth.xPct, booth.yPct, room]);
   const { w, d } = BOOTH_FOOTPRINT_M;
   const branded = boothCanBrand(booth.vendor?.tier) && !!booth.vendor?.logoUrl;
+  // The per-event poster rides the SAME branding gate as the logo, but is
+  // independent of it: a vendor may upload artwork without an account logo, or
+  // vice versa, and each renders on its own.
+  const posterUrl = boothCanBrand(booth.vendor?.tier) ? booth.vendor?.posterUrl ?? null : null;
+  // Stands to the booth's right, clear of the footprint, rotated with it.
+  const posterOffset = rotateLocalRad({ x: w / 2 + 0.42, z: -0.2 }, facingY);
   // Data-driven presence (owner directive 2026-07-16): a finalized vendor brands
   // the slot; an OPEN slot (no finalized vendor) defaults to Setnayan promotion.
   // A booked-but-unbrandable vendor (solo/verified) keeps the generic booth — it
@@ -576,6 +582,14 @@ export function BoothMesh({
             <SetnayanBoothSign w={w} />
           </group>
         ) : null}
+        {posterUrl ? (
+          <group
+            position={[pos.x + posterOffset.x, 0, pos.z + posterOffset.z]}
+            rotation={[0, facingY, 0]}
+          >
+            <BoothPoster url={posterUrl} palette={palette} />
+          </group>
+        ) : null}
       </group>
     );
   }
@@ -586,6 +600,93 @@ export function BoothMesh({
         <BoothSign url={booth.vendor!.logoUrl!} w={w} palette={palette} />
       ) : openSlot ? (
         <SetnayanBoothSign w={w} />
+      ) : null}
+      {posterUrl ? (
+        <group position={[w / 2 + 0.42, 0, -0.2]}>
+          <BoothPoster url={posterUrl} palette={palette} />
+        </group>
+      ) : null}
+    </group>
+  );
+}
+
+/** The vendor's own design FOR THIS EVENT — a 2:3 portrait panel on a slim
+ *  stand, reading like the pull-up banner PH vendors already bring to a booth.
+ *  Deliberately a SEPARATE object from BoothSign: the sign is the account-level
+ *  logo on the backdrop board, this is bespoke artwork for one wedding, so they
+ *  sit side by side exactly as they would in the room.
+ *
+ *  Same texture path as BoothSign (manual TextureLoader, crossOrigin for the
+ *  cross-origin R2 display URL, silent drop on failure) and the same
+ *  boothCanBrand gate at the call site.
+ *
+ *  Upload enforces 2:3 (lib/booth-poster), but the plane still fits to the
+ *  texture's REAL aspect inside a fixed box — a legacy or hand-inserted ref can
+ *  then never stretch, it just letterboxes within the frame. */
+export function BoothPoster({ url, palette }: { url: string; palette: Lab3DPalette }) {
+  const [art, setArt] = useState<{ tex: THREE.Texture; aspect: number } | null>(null);
+  useEffect(() => {
+    let live = true;
+    const loader = new THREE.TextureLoader();
+    loader.setCrossOrigin('anonymous');
+    loader.load(
+      url,
+      (tex) => {
+        if (!live) {
+          tex.dispose();
+          return;
+        }
+        tex.colorSpace = THREE.SRGBColorSpace;
+        const img = tex.image as { width?: number; height?: number } | undefined;
+        const aspect = img?.width && img?.height ? img.width / img.height : 2 / 3;
+        setArt({ tex, aspect });
+      },
+      undefined,
+      () => {
+        /* a broken/blocked poster just leaves the booth with its logo only */
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [url]);
+
+  // Fixed frame the artwork fits INTO — keeps every booth's banner the same
+  // physical size regardless of what was uploaded.
+  const maxH = 1.15;
+  const maxW = 0.78;
+  const artW = art ? Math.min(maxW, maxH * art.aspect) : maxW;
+  const artH = art ? artW / art.aspect : maxH;
+  const standTop = 0.28 + maxH;
+
+  return (
+    <group>
+      {/* Foot */}
+      <mesh position={[0, 0.03, 0]} castShadow>
+        <boxGeometry args={[0.42, 0.06, 0.22]} />
+        <meshStandardMaterial color={palette.table} roughness={0.7} />
+      </mesh>
+      {/* Post */}
+      <mesh position={[0, 0.17, 0]}>
+        <boxGeometry args={[0.06, 0.28, 0.06]} />
+        <meshStandardMaterial color={palette.accent} roughness={0.45} metalness={0.2} />
+      </mesh>
+      {/* Banner backing */}
+      <mesh position={[0, 0.28 + maxH / 2, 0]} castShadow>
+        <boxGeometry args={[maxW + 0.06, maxH + 0.06, 0.03]} />
+        <meshStandardMaterial color={palette.table} roughness={0.6} />
+      </mesh>
+      {/* Top rail */}
+      <mesh position={[0, standTop + 0.03, 0]}>
+        <boxGeometry args={[maxW + 0.12, 0.05, 0.06]} />
+        <meshStandardMaterial color={palette.accent} roughness={0.4} metalness={0.2} />
+      </mesh>
+      {/* The artwork — just proud of the backing, facing the room. */}
+      {art ? (
+        <mesh position={[0, 0.28 + maxH / 2, 0.025]}>
+          <planeGeometry args={[artW, artH]} />
+          <meshBasicMaterial map={art.tex} transparent toneMapped={false} />
+        </mesh>
       ) : null}
     </group>
   );

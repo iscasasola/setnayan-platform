@@ -33,6 +33,8 @@ function rpcError(message: string | undefined): string {
       return 'Only a vendor account can do that.';
     case 'not_booked':
       return 'You’re not booked on this event yet.';
+    case 'booth_frozen':
+      return 'Booth designs lock 24 hours before the event, so nothing changes under the couple on the day.';
     case 'poster_ref_too_long':
       return 'That upload reference is too long. Please re-upload the poster.';
     default:

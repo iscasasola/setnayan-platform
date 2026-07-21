@@ -60,8 +60,14 @@ export default async function VenuePage({
   // same way, so the booth vendor card shows the business logo, not an r2:// ref.
   // Public business info (no token gate); this is purely ref → display URL.
   if (scene?.booths && scene.booths.length > 0) {
+    // Logos AND per-event posters are both raw refs on the same vendor block,
+    // so resolve them in ONE batch — a booth commonly carries both.
     const logoRefs = [
-      ...new Set(scene.booths.map((b) => b.vendor?.logoUrl).filter((r): r is string => !!r)),
+      ...new Set(
+        scene.booths
+          .flatMap((b) => [b.vendor?.logoUrl, b.vendor?.posterUrl])
+          .filter((r): r is string => !!r),
+      ),
     ];
     if (logoRefs.length > 0) {
       const resolvedLogos: Record<string, string> = Object.fromEntries(
@@ -72,8 +78,15 @@ export default async function VenuePage({
       scene = {
         ...scene,
         booths: scene.booths.map((b) =>
-          b.vendor?.logoUrl
-            ? { ...b, vendor: { ...b.vendor, logoUrl: resolvedLogos[b.vendor.logoUrl] ?? null } }
+          b.vendor?.logoUrl || b.vendor?.posterUrl
+            ? {
+                ...b,
+                vendor: {
+                  ...b.vendor,
+                  logoUrl: b.vendor.logoUrl ? resolvedLogos[b.vendor.logoUrl] ?? null : null,
+                  posterUrl: b.vendor.posterUrl ? resolvedLogos[b.vendor.posterUrl] ?? null : null,
+                },
+              }
             : b,
         ),
       };

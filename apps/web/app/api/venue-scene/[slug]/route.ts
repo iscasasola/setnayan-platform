@@ -31,12 +31,20 @@ async function resolveScenePhotos(data: unknown): Promise<unknown> {
 // server-rendered scene. Latent until v8 started returning `tier` (before that
 // boothCanBrand was always false and the branded backdrop never mounted).
 // Failed refs drop to null → the generic booth, same as an unbranded tier.
-type SceneBooth = { vendor?: { logoUrl?: string | null } | null };
+type SceneBooth = { vendor?: { logoUrl?: string | null; posterUrl?: string | null } | null };
 async function resolveBoothLogos(data: unknown): Promise<unknown> {
   if (!data || typeof data !== 'object') return data;
   const booths = (data as { booths?: SceneBooth[] | null }).booths;
   if (!booths || booths.length === 0) return data;
-  const distinct = [...new Set(booths.map((b) => b.vendor?.logoUrl).filter((r): r is string => !!r))];
+  // The account logo and the per-event poster are both raw refs on the same
+  // vendor block — resolve them in ONE batch, since a booth commonly has both.
+  const distinct = [
+    ...new Set(
+      booths
+        .flatMap((b) => [b.vendor?.logoUrl, b.vendor?.posterUrl])
+        .filter((r): r is string => !!r),
+    ),
+  ];
   if (distinct.length === 0) return data;
   const resolved: Record<string, string> = Object.fromEntries(
     (
@@ -46,8 +54,15 @@ async function resolveBoothLogos(data: unknown): Promise<unknown> {
   return {
     ...(data as object),
     booths: booths.map((b) =>
-      b.vendor?.logoUrl
-        ? { ...b, vendor: { ...b.vendor, logoUrl: resolved[b.vendor.logoUrl] ?? null } }
+      b.vendor?.logoUrl || b.vendor?.posterUrl
+        ? {
+            ...b,
+            vendor: {
+              ...b.vendor,
+              logoUrl: b.vendor.logoUrl ? resolved[b.vendor.logoUrl] ?? null : null,
+              posterUrl: b.vendor.posterUrl ? resolved[b.vendor.posterUrl] ?? null : null,
+            },
+          }
         : b,
     ),
   };

@@ -26,6 +26,7 @@ import {
   panoodCameraAnonEnabled,
   panoodCameraCapForSku,
   panoodCameraClaimUrl,
+  panoodCameraCapForTier,
 } from './panood-camera-seats';
 
 // ── 1. Token ────────────────────────────────────────────────────────────────
@@ -252,4 +253,43 @@ test('panoodCameraCapForSku is 0 for the free tier / unknown SKUs (no operator s
   assert.equal(panoodCameraCapForSku('SETNAYAN_AI'), 0);
   assert.equal(panoodCameraCapForSku(''), 0);
   assert.equal(panoodCameraCapForSku('panood_daily_broadcast'), 0);
+});
+
+/* -------------------------------------------------------------------------- */
+/*  Free tier + tier resolution (2026-07-21)                                   */
+/* -------------------------------------------------------------------------- */
+
+test('panoodCameraCapForTier gives the council-locked ladder', () => {
+  // free 3 overlaid -> Mobile 3 clean -> Desktop 8 clean. Mobile must never be a
+  // paid DOWNGRADE on camera count, which is why free is 3 and not 8.
+  assert.equal(panoodCameraCapForTier('free'), 3);
+  assert.equal(panoodCameraCapForTier('mobile'), 3);
+  assert.equal(panoodCameraCapForTier('desktop'), 8);
+});
+
+test('an admin grant can raise the free cap but never lower any tier', () => {
+  assert.equal(panoodCameraCapForTier('free', 8), 8);
+  assert.equal(panoodCameraCapForTier('free', 5), 5);
+  // A grant below the tier's own floor is ignored, not applied.
+  assert.equal(panoodCameraCapForTier('desktop', 2), 8);
+  assert.equal(panoodCameraCapForTier('mobile', 1), 3);
+});
+
+test('a grant cannot exceed the transport ceiling of 8', () => {
+  // The WebRTC controller tops out at 8 slots; a bad admin value must not provision 500 seats.
+  assert.equal(panoodCameraCapForTier('free', 500), 8);
+  assert.equal(panoodCameraCapForTier('free', Number.MAX_SAFE_INTEGER), 8);
+});
+
+test('a null/undefined grant is treated as no grant', () => {
+  assert.equal(panoodCameraCapForTier('free', null), 3);
+  assert.equal(panoodCameraCapForTier('free', undefined), 3);
+});
+
+test('free cameras take indexes 1..3 so a later paid order tops up in place', () => {
+  // This is what keeps an upgrade non-destructive: the couple's already-claimed cameras 1-3
+  // keep their tokens and their operators; Desktop just adds 4..8.
+  assert.deepEqual(missingCameraIndexes([], 3), [1, 2, 3]);
+  assert.deepEqual(missingCameraIndexes([1, 2, 3], 3), []);
+  assert.deepEqual(missingCameraIndexes([1, 2, 3], 8), [4, 5, 6, 7, 8]);
 });

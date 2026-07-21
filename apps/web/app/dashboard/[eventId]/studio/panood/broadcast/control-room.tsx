@@ -437,6 +437,7 @@ export function PanoodControlRoom({
                   onAir={program === cameraSourceKey(cam)}
                   status={cam.status}
                   stream={camStreams[cameraSourceKey(cam)] ?? null}
+                  overlay={watermark.overlay}
                 />
               </button>
             ))

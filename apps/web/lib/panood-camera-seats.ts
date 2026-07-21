@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { eventSkuActive } from '@/lib/entitlements';
 
 /**
  * apps/web/lib/panood-camera-seats.ts
@@ -86,6 +87,44 @@ export const PANOOD_TIER_CAMERA_CAP: Readonly<Record<string, number>> = Object.f
 
 export function panoodCameraCapForSku(serviceCode: string): number {
   return PANOOD_TIER_CAMERA_CAP[serviceCode] ?? 0;
+}
+
+/**
+ * Cameras on the FREE rig-verification tier (council-locked 2026-07-21).
+ *
+ * The free tier is fully functional but every video surface carries the SETNAYAN overlay: the
+ * couple pairs cameras, checks multiview and framing, and proves the rig works BEFORE paying.
+ *
+ * Three, not eight. `free 3 overlaid → Mobile 3 clean → Desktop 8 clean` is the only ladder in
+ * which the ₱1,500 Mobile tier is not a paid DOWNGRADE on the one axis the couple has just
+ * personally counted. The residual cost is real and accepted: a couple planning six cameras
+ * cannot rehearse all six, which is what `grantedCap` below exists to relieve.
+ */
+export const PANOOD_FREE_CAMERA_COUNT = 3;
+
+/** Resolved entitlement tier for an event, independent of which SKU code granted it. */
+export type PanoodTier = 'free' | 'mobile' | 'desktop';
+
+/**
+ * Camera cap by RESOLVED TIER — the render-time resolver.
+ *
+ * `panoodCameraCapForSku` above stays as-is for the order-activation hooks, which call it with
+ * hardcoded SKU literals. This one answers "how many cameras does this event get right now",
+ * which is a different question the moment a free tier exists.
+ *
+ * `grantedCap` is the admin top-up (council mitigation for the 3-camera free cap). It can only
+ * ever RAISE the count and is itself capped at 8 — the transport's ceiling — so a bad admin
+ * value cannot provision an unbounded number of seats.
+ */
+export function panoodCameraCapForTier(tier: PanoodTier, grantedCap?: number | null): number {
+  const base =
+    tier === 'desktop'
+      ? panoodCameraCapForSku('PANOOD_SYSTEM')
+      : tier === 'mobile'
+        ? panoodCameraCapForSku('PANOOD_SYSTEM_MOBILE')
+        : PANOOD_FREE_CAMERA_COUNT;
+  // A grant can only ever RAISE the count, and never past the transport's own 8-camera ceiling.
+  return Math.max(base, Math.min(grantedCap ?? 0, panoodCameraCapForSku('PANOOD_SYSTEM')));
 }
 
 /**
@@ -287,4 +326,58 @@ export async function provisionPanoodCamerasAdmin(
   } catch {
     return 0;
   }
+}
+
+/**
+ * Resolve an event's Live Studio tier from its entitlements.
+ *
+ * ⚠️ Fixes a LIVE defect: every gate previously checked only `PANOOD_SYSTEM`, so a couple who
+ * paid ₱1,500 for the **Mobile Controller** was shown an upsell wall on the control room they
+ * had just bought, bounced out of the OBS pop-out, and had every control action refused. Any
+ * new ownership check must go through here, never through a single SKU literal.
+ *
+ * Desktop wins when both are held — it is the strict superset (8 cameras, offline-capable).
+ * Degrades to 'free' rather than throwing: a failed entitlement lookup must show the couple the
+ * overlaid free tier, never a dead end.
+ */
+export async function resolvePanoodTier(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<PanoodTier> {
+  const [desktop, mobile] = await Promise.all([
+    eventSkuActive(supabase, eventId, 'PANOOD_SYSTEM').catch(() => false),
+    eventSkuActive(supabase, eventId, 'PANOOD_SYSTEM_MOBILE').catch(() => false),
+  ]);
+  return desktop ? 'desktop' : mobile ? 'mobile' : 'free';
+}
+
+/**
+ * Mint a fresh claim token for a camera, unbinding whoever currently holds it.
+ *
+ * This is the ONLY way a claimed camera returns to 'open' — the couple's remedy when an operator
+ * drops out, loses their phone, or was simply the wrong person. Clears the binding and the
+ * revocation together so one action fully recycles the seat.
+ *
+ * Scoped by BOTH id and event_id so a token from another event can never be recycled here, and
+ * left to table RLS (couple + coordinator) rather than a SECURITY DEFINER RPC — unlike the claim
+ * path, the caller here IS a control-room member and can write the row under their own session.
+ */
+export async function reissuePanoodCameraToken(
+  supabase: SupabaseClient,
+  eventId: string,
+  cameraId: number,
+): Promise<string | null> {
+  const token = generateCameraClaimToken();
+  const { error } = await supabase
+    .from('panood_camera_operators')
+    .update({
+      claim_qr_token: token,
+      claimer_user_id: null,
+      claimed_at: null,
+      revoked_at: null,
+      status: 'open',
+    })
+    .eq('id', cameraId)
+    .eq('event_id', eventId);
+  return error ? null : token;
 }

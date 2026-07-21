@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowRight, Store } from 'lucide-react';
@@ -146,19 +147,7 @@ export default async function PersonalizationPage({
 
   return (
     <section className="space-y-5">
-      <header className="sn-reveal space-y-1.5">
-        <p className="sn-eye">Personalization</p>
-        <h1
-          className="sn-h1"
-          style={{ letterSpacing: '-0.005em', color: 'var(--m-ink)' }}
-        >
-          Personalization
-        </h1>
-        <p className="text-sm text-ink/60">
-          Everything from your onboarding lives here. Refine it anytime — it tunes the services we
-          match and sort for you.
-        </p>
-      </header>
+      <PageMasthead title="Personalization" lede="Everything from your onboarding lives here. Refine it anytime — it tunes the services we match and sort for you." />
 
       {/* Band 1 — the basics (governance-free, editable inline) */}
       <div className="sn-tile p-4 sm:p-5">

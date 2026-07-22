@@ -505,6 +505,17 @@ export async function runLiteDeepSearch(inputs: DeepSearchInputs): Promise<Vendo
 }
 
 /**
+ * Is the AI research engine configured (ANTHROPIC_API_KEY present)? When FALSE,
+ * runDeepSearchOrLite silently falls back to the free keyless Lite pass — which
+ * is FINE for a free run, but a PAID (₱500) Deep Search must NOT be sold, because
+ * the buyer would be charged for the same result the free tier already gets. The
+ * paid buy action gates on this. Server-only env read.
+ */
+export function deepSearchAiConfigured(): boolean {
+  return Boolean(process.env.ANTHROPIC_API_KEY);
+}
+
+/**
  * Run deep search the best way available: the AI dossier when ANTHROPIC_API_KEY
  * is set (Haiku by default), otherwise the free keyless Lite pass. Returns the
  * dossier plus the model marker to store on the row so the admin sees which ran.

@@ -1,9 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   vendor3dPlanUnlockEligibility,
   applyVendor3dPlanUnlockDiscountCentavos,
   vendor3dPlanUnlockPriceCentavos,
+  vendor3dPlanUnlockDiscountHonored,
+  eventVendor3dPlanUnlockDiscountActive,
   VENDOR_3D_PLAN_UNLOCK_PRICE_PHP,
   VENDOR_3D_PLAN_UNLOCK_SERVICE_KEY,
   VENDOR_3D_PLAN_UNLOCK_DENY_MESSAGE,
@@ -152,4 +155,117 @@ test('constants: service key + centavos helper are coherent', () => {
   assert.equal(VENDOR_3D_PLAN_UNLOCK_SERVICE_KEY, 'SEATING_3D');
   assert.equal(vendor3dPlanUnlockPriceCentavos(), DISCOUNT_CENTAVOS);
   assert.equal(vendor3dPlanUnlockPriceCentavos(), 100000);
+});
+
+// ── vendor3dPlanUnlockDiscountHonored (charge-time re-validation · H1) ────────
+
+test('charge-time: discount honored only when unlock + active booth + still booked', () => {
+  assert.equal(
+    vendor3dPlanUnlockDiscountHonored({
+      hasUnlock: true,
+      boothAddonActive: true,
+      stillBooked: true,
+    }),
+    true,
+  );
+});
+
+test('charge-time: a LAPSED booth kills the discount (money-integrity)', () => {
+  assert.equal(
+    vendor3dPlanUnlockDiscountHonored({
+      hasUnlock: true,
+      boothAddonActive: false,
+      stillBooked: true,
+    }),
+    false,
+  );
+});
+
+test('charge-time: an UN-BOOKED / cancelled vendor kills the discount', () => {
+  assert.equal(
+    vendor3dPlanUnlockDiscountHonored({
+      hasUnlock: true,
+      boothAddonActive: true,
+      stillBooked: false,
+    }),
+    false,
+  );
+});
+
+test('charge-time: no unlock record → no discount', () => {
+  assert.equal(
+    vendor3dPlanUnlockDiscountHonored({
+      hasUnlock: false,
+      boothAddonActive: true,
+      stillBooked: true,
+    }),
+    false,
+  );
+});
+
+// ── eventVendor3dPlanUnlockDiscountActive (DB re-validation · H1) ─────────────
+//
+// A per-table fake Supabase client: the unlock read resolves the attributing
+// vendor, then vendor_profiles gives the booth window + event_vendors the booking.
+// Each `.from(table)` returns a builder whose awaited terminal (maybeSingle)
+// yields that table's canned { data }.
+const FIXED_NOW = Date.parse('2026-07-22T00:00:00.000Z');
+const ACTIVE_BOOTH = '2026-08-19T00:00:00.000Z'; // future → active
+const LAPSED_BOOTH = '2026-07-01T00:00:00.000Z'; // past → lapsed
+
+function fakeUnlockClient(opts: {
+  unlock: { vendor_profile_id: string; unlocked_at: string | null } | null;
+  boothExpiry: string | null;
+  booked: boolean;
+}): SupabaseClient {
+  const byTable: Record<string, { data: unknown }> = {
+    event_vendor_3d_plan_unlocks: { data: opts.unlock },
+    vendor_profiles: { data: opts.boothExpiry == null ? null : { booth_addon_expires_at: opts.boothExpiry } },
+    event_vendors: { data: opts.booked ? { vendor_id: 'ev-1' } : null },
+  };
+  return {
+    from(table: string) {
+      const result = byTable[table] ?? { data: null };
+      const builder: Record<string, unknown> = {
+        select: () => builder,
+        eq: () => builder,
+        in: () => builder,
+        limit: () => builder,
+        maybeSingle: () => Promise.resolve({ ...result, error: null }),
+      };
+      return builder;
+    },
+  } as unknown as SupabaseClient;
+}
+
+test('DB re-validation: honored when booth active + still booked', async () => {
+  const client = fakeUnlockClient({
+    unlock: { vendor_profile_id: 'v-1', unlocked_at: null },
+    boothExpiry: ACTIVE_BOOTH,
+    booked: true,
+  });
+  assert.equal(await eventVendor3dPlanUnlockDiscountActive(client, 'evt-1', FIXED_NOW), true);
+});
+
+test('DB re-validation: NOT honored when the attributing booth lapsed', async () => {
+  const client = fakeUnlockClient({
+    unlock: { vendor_profile_id: 'v-1', unlocked_at: null },
+    boothExpiry: LAPSED_BOOTH,
+    booked: true,
+  });
+  assert.equal(await eventVendor3dPlanUnlockDiscountActive(client, 'evt-1', FIXED_NOW), false);
+});
+
+test('DB re-validation: NOT honored when the vendor is no longer booked', async () => {
+  const client = fakeUnlockClient({
+    unlock: { vendor_profile_id: 'v-1', unlocked_at: null },
+    boothExpiry: ACTIVE_BOOTH,
+    booked: false,
+  });
+  assert.equal(await eventVendor3dPlanUnlockDiscountActive(client, 'evt-1', FIXED_NOW), false);
+});
+
+test('DB re-validation: NOT honored when no unlock record exists', async () => {
+  const client = fakeUnlockClient({ unlock: null, boothExpiry: ACTIVE_BOOTH, booked: true });
+  assert.equal(await eventVendor3dPlanUnlockDiscountActive(client, 'evt-1', FIXED_NOW), false);
 });

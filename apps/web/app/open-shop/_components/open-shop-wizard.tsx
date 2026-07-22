@@ -45,6 +45,7 @@ import { becomeVendor } from '../actions';
 export function OpenShopWizard({
   mode,
   serviceLabels,
+  eventTypeOptions,
   vendorProfileId,
   logoDisplayMap,
   defaults,
@@ -54,6 +55,8 @@ export function OpenShopWizard({
   /** 'create' = no shop yet · 'complete' = shop exists but was never named. */
   mode: 'create' | 'complete';
   serviceLabels?: Record<string, string>;
+  /** The event types a vendor can serve (admin-driven roster). */
+  eventTypeOptions: { key: string; label: string; emoji: string }[];
   /** Owned shop id (null before the row exists) — scopes the logo R2 prefix. */
   vendorProfileId?: string | null;
   /** r2Ref → 24h display URL, so an already-uploaded logo paints on load. */
@@ -62,6 +65,7 @@ export function OpenShopWizard({
     shopName: string;
     logoUrl: string;
     primaryService: string;
+    eventTypes: string[];
     locationCity: string;
     contactName: string;
     contactPhone: string;
@@ -79,6 +83,11 @@ export function OpenShopWizard({
   const [shopName, setShopName] = useState(defaults.shopName);
   const [logoUrl, setLogoUrl] = useState(defaults.logoUrl);
   const [service, setService] = useState(defaults.primaryService);
+  const [events, setEvents] = useState<string[]>(
+    defaults.eventTypes?.length ? defaults.eventTypes : ['wedding'],
+  );
+  const toggleEvent = (k: string) =>
+    setEvents((c) => (c.includes(k) ? c.filter((x) => x !== k) : [...c, k]));
   const [stepError, setStepError] = useState<string | null>(null);
 
   const next = () => {
@@ -255,6 +264,42 @@ export function OpenShopWizard({
                 Just one for now — add the rest from My Shop.
               </span>
             </label>
+
+            <div className="block space-y-1.5">
+              <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                Events you serve
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {eventTypeOptions.map((e) => {
+                  const on = events.includes(e.key);
+                  return (
+                    <label
+                      key={e.key}
+                      className="cursor-pointer select-none rounded-full border px-3 py-1 text-sm transition-colors"
+                      style={
+                        on
+                          ? { background: 'var(--m-ink)', color: 'var(--m-paper)', borderColor: 'var(--m-ink)' }
+                          : { borderColor: 'var(--m-line)', color: 'var(--m-slate)' }
+                      }
+                    >
+                      <input
+                        type="checkbox"
+                        name="event_types"
+                        value={e.key}
+                        checked={on}
+                        onChange={() => toggleEvent(e.key)}
+                        className="hidden"
+                      />
+                      <span aria-hidden className="mr-1">{e.emoji}</span>
+                      {e.label}
+                    </label>
+                  );
+                })}
+              </div>
+              <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                Couples planning these events can find you. Pick all that apply — change it anytime from My Shop.
+              </span>
+            </div>
 
             <button
               type="button"

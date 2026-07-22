@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/server';
 import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
+import { getEventTypeVocab } from '@/lib/event-types-db';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { OpenShopWizard } from './_components/open-shop-wizard';
 
@@ -46,7 +47,7 @@ export default async function OpenShopPage({
   const { data: owned } = await supabase
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id, business_name, logo_url, services, location_city, business_owner_name, contact_phone, contact_email',
+      'vendor_profile_id, business_name, logo_url, services, event_types, location_city, business_owner_name, contact_phone, contact_email',
     )
     .eq('user_id', user.id)
     .maybeSingle();
@@ -55,6 +56,7 @@ export default async function OpenShopPage({
     business_name?: string | null;
     logo_url?: string | null;
     services?: string[] | null;
+    event_types?: string[] | null;
     location_city?: string | null;
     business_owner_name?: string | null;
     contact_phone?: string | null;
@@ -65,6 +67,16 @@ export default async function OpenShopPage({
   // Taxonomy-driven labels for the primary-service picker (degrades to the
   // in-code names on a hiccup).
   const { serviceLabels } = await fetchVendorServicePickerVocab();
+
+  // Event-type roster the vendor can serve (admin-driven; same source the
+  // marketplace ?event_type= filter + the My Shop coverage editor read). Without
+  // this signal a new shop is stuck at the column default ['wedding'] and is
+  // invisible for every non-wedding event it actually serves.
+  const eventTypeOptions = (await getEventTypeVocab()).map((e) => ({
+    key: e.key,
+    label: e.label,
+    emoji: e.emoji,
+  }));
 
   // Pre-resolve a display URL for an already-uploaded logo so the <FileUpload>
   // thumbnail paints on first load (a fresh signup won't have one yet).
@@ -78,12 +90,17 @@ export default async function OpenShopPage({
     <OpenShopWizard
       mode={row ? 'complete' : 'create'}
       serviceLabels={serviceLabels}
+      eventTypeOptions={eventTypeOptions}
       vendorProfileId={row?.vendor_profile_id ?? null}
       logoDisplayMap={logoDisplayMap}
       defaults={{
         shopName: row?.business_name ?? '',
         logoUrl: row?.logo_url ?? '',
         primaryService: row?.services?.[0] ?? '',
+        // Seed from any existing selection so re-running onboarding never
+        // clobbers a richer set the vendor set via the coverage editor; a
+        // brand-new shop starts on the sensible ['wedding'] default.
+        eventTypes: row?.event_types?.length ? row.event_types : ['wedding'],
         locationCity: row?.location_city ?? '',
         contactName: row?.business_owner_name ?? '',
         contactPhone: row?.contact_phone ?? '',

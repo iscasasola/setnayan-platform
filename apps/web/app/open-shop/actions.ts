@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
+import { getEventTypeVocab } from '@/lib/event-types-db';
 import { canOpenAnotherShop } from '@/lib/shop-limits';
 import {
   OPEN_SHOP_EMAIL_RE,
@@ -114,6 +115,24 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   if (!locationCity)
     redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.locationCity));
 
+  // Event types the shop serves — the signal that makes a NON-wedding vendor
+  // discoverable (the marketplace ?event_type= filter reads vendor_profiles.
+  // event_types). Without capturing it here, a new shop keeps the column's
+  // ['wedding'] default and is invisible for every other event it serves.
+  // Validate against the admin roster (same keys the column CHECK + the coverage
+  // editor accept); empty/invalid → fall back to ['wedding'] so it is never
+  // event-typeless (the column is NOT NULL). The wizard seeds its checkboxes
+  // from the shop's current event_types, so a re-run reflects — never clobbers —
+  // a richer set the vendor set in the coverage editor.
+  const eventVocabKeys = new Set((await getEventTypeVocab()).map((e) => e.key));
+  const submittedEventTypes = formData
+    .getAll('event_types')
+    .filter((v): v is string => typeof v === 'string')
+    .map((v) => v.trim())
+    .filter((v) => eventVocabKeys.has(v));
+  const eventTypes =
+    submittedEventTypes.length > 0 ? Array.from(new Set(submittedEventTypes)) : ['wedding'];
+
   const admin = createAdminClient();
 
   // Self-heal account_type: anyone opening a vendor shop IS a vendor. Corrects a
@@ -187,6 +206,7 @@ export async function becomeVendor(formData: FormData): Promise<void> {
     contact_phone: contactPhone,
     contact_email: contactEmail,
     services,
+    event_types: eventTypes,
     updated_at: new Date().toISOString(),
   };
   // Guarded like location_city: now that the logo is optional here, an

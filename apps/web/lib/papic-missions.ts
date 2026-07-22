@@ -97,6 +97,21 @@ export type VendorChallengeRow = {
   completions: number;
 };
 
+// A consented guest capture delivered to a sponsoring vendor (from the
+// papic_vendor_challenge_photos RPC, Phase 5). WEB-COPY refs only — never the
+// geo-bearing original; the caller presigns them.
+export type VendorChallengePhotoRow = {
+  capture_id: string;
+  mission_id: string;
+  prompt: string;
+  media_type: 'photo' | 'clip';
+  display_r2_key: string | null;
+  thumb_r2_key: string | null;
+  poster_r2_key: string | null;
+  clip_web_r2_key: string | null;
+  captured_at: string;
+};
+
 // The lifecycle a vendor sees for their custom challenge (§3.6): pending the
 // couple's tap → live once approved → rejected if the couple declined it (the
 // review RPC deactivates a rejected row, leaving approved=false). Pure.

@@ -126,7 +126,6 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'Unlimited answering', b: 'Answer every matched couple, no weekly cap (Free is capped at 10 a week).' },
           { n: 'Quote-to-booking funnel', b: 'See views → inquiries → signed over time, plus every booking’s source.' },
           { n: 'Won & lost reasons', b: 'See why couples said yes or walked, and fix the real leak.' },
-          { n: 'Peso-per-lead scorecard', b: 'See the true cost of each booked couple vs your spend.' },
           { n: 'Your own funnel metrics', b: 'Track reply rate, average reply time, and inquiry-to-booking live.' },
           { n: 'Earnings dashboard', b: 'Year-to-date revenue, monthly subtotals and scheduled payouts in one view.' },
           { n: 'Recap sharing', b: 'One-tap share of every wedding you helped create, straight to your Facebook Page.' },
@@ -189,7 +188,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
 export const VENDOR_CUSTOM_TIER = {
   name: 'Custom · from ₱8,999 / 28 days',
   tagline:
-    'Everything in Enterprise, automatically, plus dials for what you need: more branches (₱999 each), reach up to nationwide, more team seats and event slots, a bigger portfolio, monthly included inquiry tokens, and your own domain. A dedicated account manager and quarterly business review come with it.',
+    'Everything in Enterprise, automatically, plus dials for what you need: more branches (₱999 each), reach up to nationwide, more team seats and event slots, a bigger portfolio, and your own domain. A dedicated account manager and quarterly business review come with it.',
   // Custom-only dials, enumerated (owner 2026-07-05) so the /vendors benefit
   // matrix AND the cross-tier benefit count reflect the full negotiated tier.
   // Each is a real thing a Custom vendor gets. Consumed by buildCustomOnlyGroup()
@@ -200,7 +199,6 @@ export const VENDOR_CUSTOM_TIER = {
     'Nationwide reach',
     'Your own custom domain',
     'Dedicated account manager · white-glove',
-    'Monthly included inquiry tokens',
     'Negotiated team-seat ceiling',
     'Negotiated event-slot ceiling',
     'Unlimited portfolio',

@@ -12,13 +12,18 @@
  * 2307 / EWT / Official Receipt obligation on this leg. The vendor handles
  * their own Form 2307 + OR on the offline ₱15k as the income recipient.
  *
- * What Setnayan DOES capture: a 2-token handshake fee burned from the
- * accepting vendor's wallet via the existing `consume_vendor_assets()`
- * RPC (earned-first FIFO · returns BOOLEAN false on shortfall · per
- * migration 20260628000000 PASS 8). The handshake stamps the accepting
- * vendor's `vendor_profile_id` as the canonical ownership record so the
- * Phase E telemetry checkpoints can attribute future event rewards to
- * the right vendor.
+ * ── FREE TO ACCEPT (2026-07-22 · token retirement) ───────────────────────────
+ * Accepting a gig used to burn a 2-token handshake from the vendor's wallet via
+ * `consume_vendor_assets()`. Vendor token PACKS are now retired (owner 2026-07-21
+ * · migration 20270910266901 · is_active=false) and answering a couple was made
+ * FREE (migration 20270909586177), so a token-less vendor had NO way to top up
+ * and would be STRANDED — unable to accept a gig at all, with the error pointing
+ * at a deleted redeem page. Mirroring how the inquiry burn was neutralised,
+ * accepting a gig is now FREE: the `consume_vendor_assets` call is dropped, the
+ * gig records 0 handshake tokens, and the atomic claim still stamps the accepting
+ * vendor's `vendor_profile_id` as the canonical ownership record so the Phase E
+ * telemetry checkpoints can attribute future event rewards to the right vendor.
+ * The token wallet / consume RPC plumbing is left DORMANT (not deleted).
  *
  * Per [[feedback_setnayan_orphan_prevention]] every action has clear
  * entry points: postManpowerGig from /dashboard/[eventId]/manpower (host
@@ -64,28 +69,24 @@ export type ManpowerGigRow = {
 };
 
 // ============================================================================
-// 1. acceptManpowerGig — vendor-only · 2-token handshake
+// 1. acceptManpowerGig — vendor-only · FREE handshake (token retirement)
 // ============================================================================
 //
 // Flow:
 //   a. Resolve the calling vendor's vendor_profile_id.
 //   b. Verify the gig exists + status='pending' + (optional) vendor_profile_id
 //      not already set.
-//   c. Call consume_vendor_assets(vendor_profile_id, 2). On shortfall the
-//      RPC RAISES with INSUFFICIENT_WALLET_BALANCES — caught and returned as
-//      a polite 'insufficient_tokens' status with brand-voice copy.
-//   d. UPDATE manpower_gigs SET status='accepted', vendor_profile_id=...,
+//   c. UPDATE manpower_gigs SET status='accepted', vendor_profile_id=...,
 //      accepted_at=NOW() WHERE gig_id=? AND status='pending' RETURNING *.
 //      If 0 rows (race condition · another vendor claimed it between our
 //      reads), log + return 'race_lost'.
-//   e. Revalidate vendor + host paths.
+//   d. Revalidate vendor + host paths.
+//
+// No token is consumed — accepting is free (see the FREE-TO-ACCEPT note at the
+// top of this file). handshake_tokens_consumed stays at its 0 default.
 
 export type AcceptManpowerResult =
   | { status: 'ok'; gig: ManpowerGigRow }
-  | {
-      status: 'insufficient_tokens';
-      message: string;
-    }
   | { status: 'not_signed_in' }
   | { status: 'no_vendor_profile' }
   | { status: 'not_found' }
@@ -139,34 +140,10 @@ export async function acceptManpowerGig(
     return { status: 'already_claimed' };
   }
 
-  // 2-token handshake via the existing earned-first FIFO RPC. Wrapped in
-  // try/catch because the RPC RAISEs on shortfall (it doesn't return false
-  // on shortfall — it throws). Match the canonical pattern from
-  // /vendor-dashboard/redeem-code/actions.ts (which also catches the RPC
-  // exception → translates to brand-voice copy).
-  const { error: spendError } = await supabase.rpc('consume_vendor_assets', {
-    p_vendor_id: vendor.vendor_profile_id,
-    p_spend_amount: 2,
-  });
-
-  if (spendError) {
-    if ((spendError.message ?? '').includes('INSUFFICIENT_WALLET_BALANCES')) {
-      return {
-        status: 'insufficient_tokens',
-        message:
-          'You need 2 tokens to accept this gig. Buy a token pack from your wallet first.',
-      };
-    }
-    return { status: 'error', message: spendError.message };
-  }
-
-  // Atomic claim. Match `status='pending'` + `vendor_profile_id IS NULL`
-  // to prevent races: if another vendor's UPDATE landed between our pre-
-  // check and this write, the WHERE returns 0 rows. The race window is
-  // sub-second (gig pre-fetch → token spend → UPDATE). On race-lost the
-  // 2 tokens are already burned — log + return so the vendor sees the
-  // honest outcome. No refund RPC in V1 · the rare-race token loss is
-  // accepted trade-off vs. building a refund primitive (V1.x candidate).
+  // Atomic claim — accepting is FREE (no token consume). Match
+  // `status='pending'` + `vendor_profile_id IS NULL` to prevent races: if
+  // another vendor's UPDATE landed between our pre-check and this write, the
+  // WHERE returns 0 rows and we return 'race_lost'.
   const nowIso = new Date().toISOString();
   const { data: claimed, error: claimError } = await supabase
     .from('manpower_gigs')
@@ -186,7 +163,7 @@ export async function acceptManpowerGig(
   }
   if (!claimed) {
     console.warn(
-      '[manpower] Race-lost on acceptManpowerGig — 2 tokens spent, gig already claimed.',
+      '[manpower] Race-lost on acceptManpowerGig — gig already claimed by another vendor.',
       { gigId, vendorProfileId: vendor.vendor_profile_id },
     );
     return { status: 'race_lost' };
@@ -250,14 +227,12 @@ export async function completeGig(gigId: string): Promise<CompleteGigResult> {
 }
 
 // ============================================================================
-// 3. cancelGig — vendor OR host · NO token refund on cancel
+// 3. cancelGig — vendor OR host · nothing to refund (accept is free)
 // ============================================================================
 //
-// Per CLAUDE.md 2026-05-28 third row § (a) Phase F: the 2-token handshake
-// is fully earned by Setnayan once accept fires. Cancellations don't
-// refund the handshake — the platform's compute + reward attribution
-// commitment already kicked in. This matches the "no release fee" + "audit
-// only" posture from CLAUDE.md 2026-05-27 row Rule 2 vendor-side release.
+// Accepting a gig is free (token retirement 2026-07-22), so a cancellation has
+// nothing to refund. Only pending or accepted gigs can be cancelled; completed
+// gigs are closed and cancelled gigs are immutable.
 
 export type CancelGigResult =
   | { status: 'ok' }

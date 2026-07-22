@@ -8,6 +8,8 @@ Follow-up to the Phase 2–3 guards (#3518) — closes the three fixable gaps fr
 
 **#3 — demo/bulk noise removed.** Migration `20270911239524` re-defines the capture function to skip `is_demo` services (`AND NEW.is_demo IS NOT TRUE`), so seeded demo vendors no longer pollute the global history table.
 
-Typecheck 0 · lint clean · build clean · full unit suite green (2708) · `test:db:ci` 3/3 (incl. the new trigger test) · migration-doctor + timestamp clean. Migrations auto-apply on merge.
+**#4 — GRD-09 now fires both directions (freed-up follow-up).** A deleted calendar block leaves no `created_at` to read, so migration `20270911937450` adds a small `vendor_availability_freed` log fed by an AFTER DELETE trigger on `vendor_calendar_blocks` (RLS: vendor-owner + admin read; rows written only by the SECURITY DEFINER trigger). `availabilityChangesFromBlocks` gained a `status` param and `loadVendorChangeSignals` now concatenates "newly booked" (from `vendor_calendar_blocks`) + "available again" (from the freed log) into GRD-09 — so a shortlisted top pick freeing up on the couple's date surfaces as good news, in-app and by notification. Proven by a new db-test (INSERT → DELETE a block → assert one freed row carrying the old range).
 
-SPEC IMPACT: None. Leaves the two by-design scopes intact (price history starts empty / only future changes; GRD-09 flags "became busy", not "freed up").
+Typecheck 0 · lint clean · build clean · full unit suite green (2710) · `test:db:ci` 4/4 (incl. the price + freed trigger tests) · migration-doctor + timestamp clean. Migrations auto-apply on merge.
+
+SPEC IMPACT: None. Price history remains forward-only (starts empty / only future changes). GRD-09 now covers both "became busy" and "freed up", matching the `/setnayan-ai` "watches for availability" promise.

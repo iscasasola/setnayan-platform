@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { uploadPublicAsset } from '@/lib/storage';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { createVendorChallenge } from '@/lib/papic-games';
 
 /**
  * Vendor Suggest flow on the shared day-of timeline — feature-access program
@@ -381,6 +382,48 @@ export async function suggestScheduleChange(formData: FormData) {
   redirect(
     `/vendor-dashboard/clients/${eventId}?suggest=${error ? 'error' : 'sent'}`,
   );
+}
+
+/**
+ * createVendorChallengeAction — Papic Games §3.4/§3.6: a booked Pro-and-up vendor
+ * authors a custom Photo Challenge for this event. The RPC is the authoritative
+ * gate (booked + Pro/Enterprise/Custom + copy bounds) and lands the mission
+ * approved=false; the couple approves it on their Papic page. Mirrors
+ * suggestScheduleChange (a vendor PROPOSES; the couple okays). Flag-gated in the
+ * wrapper. (A couple notification would need a new NotificationType — deferred;
+ * the couple sees pending challenges on their Papic studio page.)
+ */
+export async function createVendorChallengeAction(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const prompt = formData.get('prompt');
+  if (
+    typeof eventId !== 'string' ||
+    eventId.length === 0 ||
+    typeof prompt !== 'string' ||
+    prompt.trim().length === 0
+  ) {
+    redirect('/vendor-dashboard/clients');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) redirect('/vendor-dashboard');
+
+  // The RPC is the authoritative gate (booked + Pro-and-up + copy bounds). On a
+  // gate failure it no-ops and the challenge simply doesn't appear in the list;
+  // the panel already shows the upsell to non-Pro vendors, so the common cases
+  // never reach here. Feedback is the revalidated list (a new challenge appears).
+  await createVendorChallenge(supabase, {
+    eventId,
+    prompt: prompt.trim().slice(0, 280),
+  });
+
+  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+  redirect(`/vendor-dashboard/clients/${eventId}`);
 }
 
 // ==========================================================================

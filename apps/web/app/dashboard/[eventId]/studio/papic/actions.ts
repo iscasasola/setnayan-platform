@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventSkuActive } from '@/lib/entitlements';
+import { reviewVendorChallenge } from '@/lib/papic-games';
 import {
   PAPIC_CAMERAS_ORDER_KEY,
   PAPIC_FREE_CAMERA_INDEX_BASE,
@@ -111,6 +112,42 @@ export async function setPapicStorageR2(formData: FormData) {
 
   revalidatePath(`/dashboard/${eventId}/studio/papic`);
   redirect(`/dashboard/${eventId}/studio/papic?storage_set=r2`);
+}
+
+/**
+ * reviewVendorChallengeAction — Papic Games §3.6: approve (→ live) or decline
+ * (→ deactivated) a pending vendor custom challenge. The RPC is the authoritative
+ * gate: it re-checks couple/coordinator/admin of the mission's event and RAISEs
+ * otherwise (a non-member no-ops). We deliberately DON'T reuse getCoupleEventId
+ * here — it is couple-only (the RPC + the approval panel's RLS also admit
+ * coordinators) and it emits a storage-scoped error message. Flag-gated in the
+ * wrapper. Feedback is the revalidated panel (an actioned row leaves "pending").
+ */
+export async function reviewVendorChallengeAction(formData: FormData) {
+  const rawEventId = formData.get('event_id');
+  const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
+  if (!eventId) {
+    redirect('/dashboard');
+  }
+
+  const missionId = formData.get('mission_id');
+  const decision = formData.get('decision');
+  if (
+    typeof missionId !== 'string' ||
+    missionId.length === 0 ||
+    (decision !== 'approve' && decision !== 'reject')
+  ) {
+    redirect(`/dashboard/${eventId}/studio/papic`);
+  }
+
+  const supabase = await createClient();
+  await reviewVendorChallenge(supabase, {
+    missionId,
+    approve: decision === 'approve',
+  });
+
+  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  redirect(`/dashboard/${eventId}/studio/papic`);
 }
 
 /** The five event-wide Papic looks (mirrors the CHECK on events.papic_style and

@@ -34,6 +34,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { getEditorialEligibility } from '@/lib/editorial-vendor-media';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { BoothPosterCard } from './_components/booth-poster-card';
+import { VendorChallengeSection } from './_components/vendor-challenge-section';
 import { blockRelevance, deriveCallTime } from '@/lib/vendor-timeline';
 import { fetchBlockRosMeta, isBlockTaggedToVendor } from '@/lib/schedule-ros';
 import {
@@ -2146,6 +2147,12 @@ function OverviewTab(props: {
           initialRef={posterRef}
           initialDisplayUrl={posterDisplayUrl}
         />
+      ) : null}
+
+      {/* Papic Games — custom Photo Challenge authoring (booked-only). Self-gates
+          on the flag + the vendor's Pro tier; renders nothing when off. */}
+      {isBooked ? (
+        <VendorChallengeSection eventId={eventId} vendorProfileId={vendorProfileId} />
       ) : null}
     </div>
   );

@@ -18,9 +18,7 @@ import {
   type LeadTier,
 } from '@/lib/admin/intelligence-stats';
 import { DEMO_MODE_COOKIE_NAME } from '@/lib/demo-mode';
-import { fetchAdminPesoOverview } from '@/lib/vendor-peso';
 import { fetchAdminOutcomeOverview } from '@/lib/inquiry-outcomes';
-import { PesoPerLeadAdminCard } from '../_components/peso-per-lead-admin-card';
 import { WonLostAdminCard } from '../_components/won-lost-admin-card';
 
 /**
@@ -79,10 +77,7 @@ export async function IntelligenceSurface({ searchParams }: Props) {
   // now redirects here). The page already ran requireAdmin() and both RPCs
   // self-gate on is_console_admin(), so these service-role reads only resolve
   // for admins.
-  const [pesoOverview, outcomeOverview] = await Promise.all([
-    fetchAdminPesoOverview(),
-    fetchAdminOutcomeOverview(),
-  ]);
+  const outcomeOverview = await fetchAdminOutcomeOverview();
 
   return (
     <div>
@@ -116,9 +111,9 @@ export async function IntelligenceSurface({ searchParams }: Props) {
         </p>
       </header>
 
-      {/* Vendor unit economics — Peso-per-Lead ROI + Won/Lost reasons (moved
-          from /admin/insights so the studio stays the one analytics home). */}
-      <PesoPerLeadAdminCard overview={pesoOverview} />
+      {/* Vendor unit economics — Won/Lost reasons (moved from /admin/insights
+          so the studio stays the one analytics home). Peso-per-Lead card removed
+          2026-07-22 — its token-burn model died when answering became free. */}
       <WonLostAdminCard overview={outcomeOverview} />
 
       {/* Stale-window picker — GET form, no client JS (mirrors /admin/growth). */}

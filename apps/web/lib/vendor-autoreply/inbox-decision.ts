@@ -12,13 +12,19 @@
 //                                      land as sender_role='vendor', so they —
 //                                      and real vendor/system/coordinator
 //                                      messages — can never re-trigger it)
-//   3. vendor has no bot config row  -> never (bot is strictly opt-in)
-//   4. config.enabled = false        -> never
-//   5. daily reply cap reached       -> never (cap 0 = bot never replies)
+//   3. no active Vendor AI add-on    -> never (the assistant is a PAID, per-
+//                                      vendor-entitled add-on — owner 2026-07-22.
+//                                      The flag is the GLOBAL master switch; this
+//                                      is the PER-VENDOR gate. The inbox stays
+//                                      free — only the AI auto-answer is gated)
+//   4. vendor has no bot config row  -> never (bot is strictly opt-in)
+//   5. config.enabled = false        -> never
+//   6. daily reply cap reached       -> never (cap 0 = bot never replies)
 
 export type AutoReplySkipReason =
   | 'flag_off'
   | 'not_couple'
+  | 'no_addon'
   | 'no_config'
   | 'bot_disabled'
   | 'cap_reached';
@@ -30,6 +36,13 @@ export type AutoReplyGateInput = {
   flagEnabled: boolean;
   /** Role of the message that just landed ('couple' | 'vendor' | 'system' | …). */
   senderRole: string;
+  /**
+   * Does the vendor have an ACTIVE Vendor AI add-on entitlement right now
+   * (isVendorAiAddonActive(vendor_profiles.ai_addon_expires_at))? The per-vendor
+   * gate that makes the add-on real: no active add-on → the assistant never
+   * runs (the vendor's inbox still works by hand). Owner-locked 2026-07-22.
+   */
+  addonActive: boolean;
   /** The vendor's vendor_bot_config row, or null when none exists. */
   config: { enabled: boolean; dailyReplyCap: number } | null;
   /** vendor_bot_replies rows logged for this vendor since start of (Manila) day. */
@@ -39,6 +52,7 @@ export type AutoReplyGateInput = {
 export function evaluateAutoReplyGate(input: AutoReplyGateInput): AutoReplyGate {
   if (!input.flagEnabled) return { run: false, reason: 'flag_off' };
   if (input.senderRole !== 'couple') return { run: false, reason: 'not_couple' };
+  if (!input.addonActive) return { run: false, reason: 'no_addon' };
   if (!input.config) return { run: false, reason: 'no_config' };
   if (!input.config.enabled) return { run: false, reason: 'bot_disabled' };
   if (input.repliesToday >= input.config.dailyReplyCap) {

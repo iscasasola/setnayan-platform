@@ -10,13 +10,21 @@ import {
   TIER_SUBSCRIPTION_BUNDLE_TOKENS,
   TIER_CAPS,
   asVendorTier,
+  isTierAtLeast,
   type VendorTier,
 } from '@/lib/vendor-tier-caps';
+import {
+  fetchVendorAiAddonState,
+  fetchVendorAiAddonPricePhp,
+  isVendorAiAddonActive,
+} from '@/lib/vendor-addon-pricing';
+import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { SubscriptionCycleToggle } from './_components/cycle-toggle';
 import {
   SubscriptionCards,
   type SubscriptionCardData,
 } from './_components/subscription-cards';
+import { AiAddonCard } from './_components/ai-addon-card';
 import { TokenWalletSection } from './_components/token-wallet-section';
 import type { TokenPack } from '@/app/vendor-dashboard/tokens/_components/buy-tokens-cta';
 
@@ -130,10 +138,11 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
 
-  // Soft-probe tier_state + tier_expires_at (not in the shared profile select).
+  // Soft-probe tier_state + tier_expires_at + verification_state (none in the
+  // shared profile select). verification_state gates the Vendor AI add-on.
   const { data: tierRow } = await supabase
     .from('vendor_profiles')
-    .select('tier_state, tier_expires_at, tier_billing_cycle')
+    .select('tier_state, tier_expires_at, tier_billing_cycle, verification_state')
     .eq('user_id', user.id)
     .maybeSingle();
   const currentTier = asVendorTier(
@@ -143,6 +152,19 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
     (tierRow as { tier_expires_at?: string | null } | null)?.tier_expires_at ?? null;
   const currentCycle =
     (tierRow as { tier_billing_cycle?: string | null } | null)?.tier_billing_cycle ?? null;
+  const isVerifiedVendor =
+    (tierRow as { verification_state?: string | null } | null)?.verification_state === 'verified';
+
+  // ── Vendor AI ("the AI Chatbot") add-on state (owner 2026-07-22) ───────────
+  // Paid (Solo+) + verified only. Soft reads (fetchVendorAiAddonState is
+  // try/catch) so a pre-migration DB degrades to "not activated, trial
+  // available" instead of blanking the page.
+  const isPaidTierForAddon = isTierAtLeast(currentTier, 'solo');
+  const [aiAddonState, aiAddonPricePhp] = await Promise.all([
+    fetchVendorAiAddonState(supabase, profile.vendor_profile_id),
+    fetchVendorAiAddonPricePhp(supabase),
+  ]);
+  const aiAddonActive = isVendorAiAddonActive(aiAddonState.expiresAt);
 
   // DB prices for the chosen cycle, keyed by sku_code.
   const [vendorCatalog, settings] = await Promise.all([
@@ -362,6 +384,18 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
           <ArrowRight className="h-4 w-4" strokeWidth={2} aria-hidden />
         </span>
       </Link>
+
+      {/* Vendor AI ("the AI Chatbot") add-on — free first 28-day cycle, then
+          ₱1,500/28d, on paid + verified shops (owner 2026-07-22). */}
+      <AiAddonCard
+        eligible={isPaidTierForAddon && isVerifiedVendor}
+        paidButUnverified={isPaidTierForAddon && !isVerifiedVendor}
+        trialAvailable={aiAddonState.trialUsedAt == null}
+        active={aiAddonActive}
+        expiresAt={aiAddonState.expiresAt}
+        pricePhp={aiAddonPricePhp}
+        assistantLive={vendorAutoReplyEnabled()}
+      />
 
       {/* Apply-then-pay payment instructions when a PLAN/COMBINED order was just
           started. Token-only (TKN-) top-ups are intentionally excluded — their

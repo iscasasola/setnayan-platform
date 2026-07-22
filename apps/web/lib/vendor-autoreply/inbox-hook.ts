@@ -10,6 +10,11 @@
 // Contracts this file enforces:
 //   • FLAG-DARK — everything behind NEXT_PUBLIC_VENDOR_AUTOREPLY_V1 (default
 //     OFF). Flag off = this function returns before touching the DB.
+//   • PAID ADD-ON GATE (owner 2026-07-22) — the assistant is the "Vendor AI"
+//     add-on: it runs for a vendor only while their ai_addon_expires_at window
+//     is live (isVendorAiAddonActive). The flag is the GLOBAL master switch;
+//     this per-vendor entitlement is what a vendor buys. The INBOX stays free —
+//     only the AI auto-answer is gated.
 //   • FAIL-CLOSED — the entire pipeline runs inside try/catch and NEVER
 //     throws: a bot failure must never block, delay, or error the couple's
 //     message (which was already inserted before `after()` even scheduled us).
@@ -45,6 +50,7 @@ import { toEventBriefLite, toStoreSnapshot } from './adapter';
 import { maybeAutoAccept } from './auto-accept';
 import { decideReply } from './engine';
 import { evaluateAutoReplyGate, startOfManilaDayIso } from './inbox-decision';
+import { isVendorAiAddonActive } from '../vendor-addon-pricing';
 
 /** chat_messages CHECK caps body at 4000 chars — never let a long templated
  *  answer violate it (fail the CHECK → fail-closed → no reply at all). */
@@ -88,13 +94,29 @@ export async function runVendorAutoReply(
     const vendorId = thread.vendor_profile_id as string;
     const eventId = thread.event_id as string;
 
-    // 2. Bot config (opt-in) + 3. daily-cap count → the tested gate decides.
-    //    The auto_accept_* trio rides along for the Phase-4A step at the tail.
+    // 2. Bot config (opt-in) + 3. daily-cap count + the per-vendor Vendor AI
+    //    add-on entitlement → the tested gate decides. The auto_accept_* trio
+    //    rides along for the Phase-4A step at the tail.
     const { data: config } = await admin
       .from('vendor_bot_config')
       .select('enabled,daily_reply_cap,auto_accept_enabled,auto_accept_threshold,daily_auto_accept_cap')
       .eq('vendor_profile_id', vendorId)
       .maybeSingle();
+
+    // Vendor AI is a PAID, per-vendor-entitled add-on (owner 2026-07-22): the
+    // assistant runs only while this vendor's ai_addon_expires_at is in the
+    // future. The global flag above is the master switch; THIS is the per-vendor
+    // gate that makes the add-on real (no fake door). Read is soft — a
+    // pre-migration column / unreadable row degrades to "not entitled", which
+    // fail-closes the assistant (the inbox itself still works by hand).
+    const { data: addonRow } = await admin
+      .from('vendor_profiles')
+      .select('ai_addon_expires_at')
+      .eq('vendor_profile_id', vendorId)
+      .maybeSingle();
+    const addonActive = isVendorAiAddonActive(
+      (addonRow as { ai_addon_expires_at?: string | null } | null)?.ai_addon_expires_at ?? null,
+    );
 
     const { count: repliesToday } = await admin
       .from('vendor_bot_replies')
@@ -105,6 +127,7 @@ export async function runVendorAutoReply(
     const gate = evaluateAutoReplyGate({
       flagEnabled: vendorAutoReplyEnabled(),
       senderRole: input.senderRole,
+      addonActive,
       config: config
         ? {
             enabled: config.enabled === true,

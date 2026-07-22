@@ -24,6 +24,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { resolveStillRef } from '@/lib/papic-display-ref';
 import { assembleStoryPhotoSet } from '@/lib/guest-stories-photo-set';
 import {
   STORIES_TEMPLATES,
@@ -120,16 +121,29 @@ async function readTaggedPhotos(
     photoIds.length
       ? admin
           .from('papic_photos')
-          .select('photo_id, r2_object_key')
+          // Derivative columns + full_res_dropped_at so resolveStillRef can prefer
+          // the drop-durable, geo-stripped web copy over the raw original (which
+          // 404s once the 90-day full-res sweep runs — a bug already LIVE here).
+          .select('photo_id, r2_object_key, display_r2_key, thumb_r2_key, full_res_dropped_at')
           .in('photo_id', photoIds)
           .eq('moderation_state', 'clean')
           .eq('photo_type', 'photo')
           .is('hidden_at', null)
-      : Promise.resolve({ data: [] as { photo_id: string; r2_object_key: string }[] }),
+      : Promise.resolve({
+          data: [] as {
+            photo_id: string;
+            r2_object_key: string | null;
+            display_r2_key: string | null;
+            thumb_r2_key: string | null;
+            full_res_dropped_at: string | null;
+          }[],
+        }),
     captureIds.length
       ? admin
           .from('papic_guest_captures')
-          .select('capture_id, r2_object_key, subject_center_x, subject_center_y')
+          .select(
+            'capture_id, r2_object_key, display_r2_key, thumb_r2_key, full_res_dropped_at, subject_center_x, subject_center_y',
+          )
           .in('capture_id', captureIds)
           .eq('moderation_state', 'clean')
           // Guest CLIPS (media_type='clip') are excluded — Stories are
@@ -142,7 +156,10 @@ async function readTaggedPhotos(
       : Promise.resolve({
           data: [] as {
             capture_id: string;
-            r2_object_key: string;
+            r2_object_key: string | null;
+            display_r2_key: string | null;
+            thumb_r2_key: string | null;
+            full_res_dropped_at: string | null;
             subject_center_x: number | null;
             subject_center_y: number | null;
           }[],
@@ -152,9 +169,29 @@ async function readTaggedPhotos(
   const keyById = new Map<string, string>();
   // Tier-2 dominant-face center per capture (guest captures only) → subjectCenter.
   const centerById = new Map<string, { x: number; y: number }>();
-  for (const p of photosRes.data ?? []) keyById.set(p.photo_id, p.r2_object_key);
+  // Stories are PHOTO inputs rendered onto a canvas, so each resolves to a STILL
+  // image ref (thumb ?? display ?? raw). A dropped original never reaches the
+  // <img> loader (resolveStillRef excludes it), so the reel no longer dies on a
+  // "Could not load a tagged photo" after the full-res sweep.
+  for (const p of photosRes.data ?? []) {
+    const ref = resolveStillRef({
+      photo_type: 'photo',
+      r2_object_key: p.r2_object_key,
+      display_r2_key: p.display_r2_key,
+      thumb_r2_key: p.thumb_r2_key,
+      full_res_dropped_at: p.full_res_dropped_at,
+    });
+    if (ref) keyById.set(p.photo_id, ref);
+  }
   for (const c of capturesRes.data ?? []) {
-    keyById.set(c.capture_id, c.r2_object_key);
+    const ref = resolveStillRef({
+      media_type: 'photo',
+      r2_object_key: c.r2_object_key,
+      display_r2_key: c.display_r2_key,
+      thumb_r2_key: c.thumb_r2_key,
+      full_res_dropped_at: c.full_res_dropped_at,
+    });
+    if (ref) keyById.set(c.capture_id, ref);
     if (typeof c.subject_center_x === 'number' && typeof c.subject_center_y === 'number') {
       centerById.set(c.capture_id, { x: c.subject_center_x, y: c.subject_center_y });
     }

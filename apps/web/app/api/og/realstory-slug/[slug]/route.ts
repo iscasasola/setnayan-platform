@@ -97,7 +97,9 @@ export async function GET(
           dateLabel: data.eventDateFormatted ?? '',
           palette: data.monogramColor ? [data.monogramColor] : [],
           isSample: false,
-          heroPhotoUrl: data.heroPhotoUrl,
+          // Prefer the STABLE streaming media URL (survives presign expiry across
+          // a crawler's cache re-fetch); fall back to the presigned hero.
+          heroPhotoUrl: data.heroStableUrl ?? data.heroPhotoUrl,
         },
         format,
       );

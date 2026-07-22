@@ -16,6 +16,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { resolveStillRef, stableMediaPath } from '@/lib/papic-display-ref';
 import { eventSkuActive } from '@/lib/entitlements';
 import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
 import { tierCaps } from '@/lib/vendor-tier-caps';
@@ -344,6 +345,10 @@ export type EditorialData = {
   loveStoryParagraphs: string[];
   published: boolean;
   heroPhotoUrl: string | null;
+  // Crawler-durable hero for OG / social cards — the stable streaming media-route
+  // URL (absolute) when the hero resolved from a Papic ref, else null (OG falls
+  // back to heroPhotoUrl). Optional so the sample/mock editorials need not set it.
+  heroStableUrl?: string | null;
   // The couple's LIVING HERO — a pre-baked forward+reverse boomerang MP4
   // (events.landing_page_hero_video_r2_key). When present, the editorial hero
   // plays it as a muted, looping, GIF-like banner with heroPhotoUrl as the
@@ -855,7 +860,10 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   try {
     const { data: rows, error } = await admin
       .from('papic_photos')
-      .select('photo_id, r2_object_key, captured_at')
+      // Derivative columns + full_res_dropped_at so the gallery still resolves to
+      // the drop-durable web copy — the raw original 404s after the 90-day sweep
+      // (a bug already LIVE on this public page).
+      .select('photo_id, r2_object_key, display_r2_key, thumb_r2_key, full_res_dropped_at, captured_at')
       .eq('event_id', eventId)
       .eq('photo_type', 'photo')
       .is('hidden_at', null)
@@ -870,7 +878,13 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
       papicRows = (rows as Array<Record<string, unknown>>)
         .map((r) => ({
           photoId: asString(r.photo_id),
-          key: asString(r.r2_object_key),
+          key: resolveStillRef({
+            photo_type: 'photo',
+            r2_object_key: asString(r.r2_object_key),
+            display_r2_key: asString(r.display_r2_key),
+            thumb_r2_key: asString(r.thumb_r2_key),
+            full_res_dropped_at: asString(r.full_res_dropped_at),
+          }),
           capturedAt: asString(r.captured_at) ?? null,
         }))
         .filter((r): r is PapicRow => Boolean(r.photoId && r.key));
@@ -971,9 +985,11 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   let guestTimelineRows: GuestCaptureRow[] = [];
   try {
     // Recency slice (gallery) — captured_at DESC, same cap as the seat photos.
+    // Guest photos are dropped by the same 90-day sweep, so resolve to the
+    // drop-durable still (this block merges into papicRows, presigned below).
     const { data: rows, error } = await admin
       .from('papic_guest_captures')
-      .select('capture_id, r2_object_key, captured_at')
+      .select('capture_id, r2_object_key, display_r2_key, thumb_r2_key, full_res_dropped_at, captured_at')
       .eq('event_id', eventId)
       .eq('media_type', 'photo')
       .eq('consent_to_public', true)
@@ -985,7 +1001,13 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
       guestGalleryRows = (rows as Array<Record<string, unknown>>)
         .map((r) => ({
           captureId: asString(r.capture_id),
-          key: asString(r.r2_object_key),
+          key: resolveStillRef({
+            media_type: 'photo',
+            r2_object_key: asString(r.r2_object_key),
+            display_r2_key: asString(r.display_r2_key),
+            thumb_r2_key: asString(r.thumb_r2_key),
+            full_res_dropped_at: asString(r.full_res_dropped_at),
+          }),
           capturedAt: asString(r.captured_at) ?? null,
         }))
         .filter((r): r is GuestCaptureRow => Boolean(r.captureId && r.key));
@@ -1068,11 +1090,15 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   // Presign the Papic captures once; reused by gallery + essay (and the hero
   // auto-pick reads from the same ordered list).
   const papicUrlByPhotoId = new Map<string, string>();
+  // Still ref (derivative) per photo id — reused by the OG hero to build a
+  // crawler-durable stable media URL (heroStableUrl below).
+  const papicStillRefByPhotoId = new Map<string, string>();
   if (papicRows.length > 0) {
     const urls = await Promise.all(papicRows.map((r) => displayUrlForStoredAsset(r.key)));
     papicRows.forEach((r, i) => {
       const u = urls[i];
       if (u) papicUrlByPhotoId.set(r.photoId, u);
+      papicStillRefByPhotoId.set(r.photoId, r.key);
     });
   }
   // Ordered list of presigned Papic photo URLs (most-recent first), de-duped.
@@ -1083,6 +1109,11 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   // 6. Hero photo (OPTIONAL). Resolve event_editorial.hero_photo_id → R2 key →
   // presigned URL. Skips silently on any error.
   let heroPhotoUrl: string | null = null;
+  // The stored ref the hero resolved from — Papic paths only. Powers a stable,
+  // crawler-durable OG media URL (heroStableUrl below). Couple-upload / website
+  // heroes aren't touched by the 90-day full-res drop, so they leave this null
+  // and OG falls back to the presigned heroPhotoUrl (unchanged behaviour).
+  let heroRef: string | null = null;
 
   // 6-pre. Couple-uploaded hero cover (FREE · draft_json.heroUpload). An EXPLICIT
   // couple pick WINS over the Papic auto-pick + the website-hero fallback (the
@@ -1108,7 +1139,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
       // (sets 'clean'), after which it resolves again.
       const { data: photoRow } = await admin
         .from('papic_photos')
-        .select('r2_object_key, photo_type')
+        .select('r2_object_key, display_r2_key, thumb_r2_key, full_res_dropped_at, photo_type')
         .eq('photo_id', heroPhotoId)
         .eq('event_id', eventId)
         .not(
@@ -1117,10 +1148,22 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
           '("nsfw_blocked","consent_withheld","faceblock_withheld")',
         )
         .maybeSingle();
-      const key = asString((photoRow as Record<string, unknown> | null)?.r2_object_key);
-      const ptype = asString((photoRow as Record<string, unknown> | null)?.photo_type);
-      if (key && ptype !== 'clip') {
-        heroPhotoUrl = await displayUrlForStoredAsset(key);
+      const pr = photoRow as Record<string, unknown> | null;
+      const ptype = asString(pr?.photo_type);
+      if (ptype !== 'clip') {
+        // Drop-durable still — the raw original 404s for this OG hero after the
+        // 90-day sweep; the derivative survives.
+        const stillRef = resolveStillRef({
+          photo_type: 'photo',
+          r2_object_key: asString(pr?.r2_object_key),
+          display_r2_key: asString(pr?.display_r2_key),
+          thumb_r2_key: asString(pr?.thumb_r2_key),
+          full_res_dropped_at: asString(pr?.full_res_dropped_at),
+        });
+        if (stillRef) {
+          heroPhotoUrl = await displayUrlForStoredAsset(stillRef);
+          heroRef = stillRef;
+        }
       }
     } catch {
       heroPhotoUrl = null;
@@ -1165,7 +1208,10 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     } catch {
       // tags unavailable → keep the most-recent default
     }
-    if (heroKey) heroPhotoUrl = papicUrlByPhotoId.get(heroKey) ?? null;
+    if (heroKey) {
+      heroPhotoUrl = papicUrlByPhotoId.get(heroKey) ?? null;
+      heroRef = papicStillRefByPhotoId.get(heroKey) ?? null;
+    }
   }
   // Fallback B: still no hero → reuse the couple's website hero image so the
   // editorial still leads with a photo. displayUrlForStoredAsset passes
@@ -1175,6 +1221,17 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
       asString((event as Record<string, unknown>).landing_page_hero_image_url),
     );
   }
+
+  // OG / crawler durability: when the hero resolved from a Papic ref, point the
+  // share-card render at the STABLE streaming media route (app/papic/media) — an
+  // absolute, signature-less URL that streams bytes and survives a presign
+  // expiry — instead of a 24h presign. Null for legacy / website heroes (OG then
+  // uses the presigned heroPhotoUrl, unchanged).
+  const heroStablePath = stableMediaPath(heroRef);
+  const heroStableUrl =
+    heroStablePath && heroStablePath.startsWith('/papic/media/')
+      ? `${(process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '')}${heroStablePath}`
+      : null;
 
   // 6a-bis. Living-hero boomerang (events.landing_page_hero_video_r2_key). The
   // Living Hero Studio already bakes the couple's pick into a forward+reverse
@@ -1999,6 +2056,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     loveStoryParagraphs: loveStoryFallbackParagraphs(loveStory),
     published,
     heroPhotoUrl,
+    heroStableUrl,
     heroVideoUrl,
     metrics,
     archetype,

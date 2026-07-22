@@ -1,6 +1,7 @@
 import { MessageCircleHeart } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { resolveStillRef } from '@/lib/papic-display-ref';
 import { KwentoQueueControls, type KwentoRow } from './kwento-queue-controls';
 
 /**
@@ -47,17 +48,76 @@ export async function KwentoQueue({ eventId }: { eventId: string }) {
   const seatIds = rows
     .filter((r) => r.source_table === 'papic_photos')
     .map((r) => r.source_id as string);
+  // The anchor is always a THUMBNAIL (a still), so each row resolves through
+  // resolveStillRef — for a clip that's the poster (never the raw MP4), for a
+  // photo the thumb/display derivative (never the dropped original after the
+  // 90-day sweep). Derivative + type + full_res_dropped_at columns are selected
+  // so the resolver has what it needs.
+  type GuestCapAnchor = {
+    capture_id: string;
+    r2_object_key: string | null;
+    display_r2_key: string | null;
+    thumb_r2_key: string | null;
+    poster_r2_key: string | null;
+    media_type: string | null;
+    full_res_dropped_at: string | null;
+  };
+  type SeatAnchor = {
+    photo_id: string;
+    r2_object_key: string | null;
+    display_r2_key: string | null;
+    thumb_r2_key: string | null;
+    poster_r2_key: string | null;
+    photo_type: string | null;
+    full_res_dropped_at: string | null;
+  };
   const [{ data: caps }, { data: seats }] = await Promise.all([
     guestCapIds.length
-      ? admin.from('papic_guest_captures').select('capture_id, r2_object_key').in('capture_id', guestCapIds)
-      : Promise.resolve({ data: [] as { capture_id: string; r2_object_key: string | null }[] }),
+      ? admin
+          .from('papic_guest_captures')
+          .select(
+            'capture_id, r2_object_key, display_r2_key, thumb_r2_key, poster_r2_key, media_type, full_res_dropped_at',
+          )
+          .in('capture_id', guestCapIds)
+      : Promise.resolve({ data: [] as GuestCapAnchor[] }),
     seatIds.length
-      ? admin.from('papic_photos').select('photo_id, r2_object_key').in('photo_id', seatIds)
-      : Promise.resolve({ data: [] as { photo_id: string; r2_object_key: string | null }[] }),
+      ? admin
+          .from('papic_photos')
+          .select(
+            'photo_id, r2_object_key, display_r2_key, thumb_r2_key, poster_r2_key, photo_type, full_res_dropped_at',
+          )
+          .in('photo_id', seatIds)
+      : Promise.resolve({ data: [] as SeatAnchor[] }),
   ]);
   const refOf = new Map<string, string | null>([
-    ...(caps ?? []).map((c) => [c.capture_id as string, c.r2_object_key as string | null] as const),
-    ...(seats ?? []).map((p) => [p.photo_id as string, p.r2_object_key as string | null] as const),
+    ...((caps ?? []) as GuestCapAnchor[]).map(
+      (c) =>
+        [
+          c.capture_id,
+          resolveStillRef({
+            media_type: c.media_type,
+            r2_object_key: c.r2_object_key,
+            display_r2_key: c.display_r2_key,
+            thumb_r2_key: c.thumb_r2_key,
+            poster_r2_key: c.poster_r2_key,
+            full_res_dropped_at: c.full_res_dropped_at,
+          }),
+        ] as const,
+    ),
+    ...((seats ?? []) as SeatAnchor[]).map(
+      (p) =>
+        [
+          p.photo_id,
+          resolveStillRef({
+            photo_type: p.photo_type,
+            r2_object_key: p.r2_object_key,
+            display_r2_key: p.display_r2_key,
+            thumb_r2_key: p.thumb_r2_key,
+            poster_r2_key: p.poster_r2_key,
+            full_res_dropped_at: p.full_res_dropped_at,
+          }),
+        ] as const,
+    ),
   ]);
 
   const enriched: KwentoRow[] = await Promise.all(

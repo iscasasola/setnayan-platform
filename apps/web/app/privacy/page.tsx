@@ -272,9 +272,11 @@ export default function PrivacyPage() {
             photo is downloaded or shared out, we remove its EXIF/GPS metadata
             first so the copy you send does not reveal where it was taken; if
             that strip cannot complete for a given file, we drop the file rather
-            than release a location-bearing original. (Video clips retain their
-            embedded metadata for now while we finish the equivalent strip; we
-            will update this notice as that rolls out.)
+            than release a location-bearing original. (Short video clips are shown
+            and shared as a re-encoded web copy that is produced without the
+            capture device&rsquo;s location or other embedded metadata; the
+            couple&rsquo;s own full-resolution clip originals stay private in our
+            storage and keep whatever the camera recorded.)
           </p>
           <p className="pt-2">
             <strong>Guest capture is consent-gated.</strong> If you take photos

@@ -232,6 +232,18 @@ export async function compressVideoForWeb(
         const cap = isWebCopy ? WEB_LONG_EDGE : LONG_EDGE_CAP;
         const code = await ffmpeg.exec([
           '-i', inName,
+          // PRIVACY (RA 10173 · CLAUDE.md "geo stripped on outbound shares"): DROP
+          // ALL container/global metadata from the re-encode — most importantly the
+          // QuickTime location atom (com.apple.quicktime.location.ISO6709) and the
+          // creation_time a phone / native-app / DSLR-bridge source can stamp on a
+          // clip. ffmpeg's DEFAULT is `-map_metadata 0` (COPY global metadata from
+          // the first input), so a plain re-encode would carry GPS THROUGH into this
+          // served web copy — the strip must be EXPLICIT, not incidental. This is a
+          // web-PLAYBACK derivative (galleries / guest pages / outbound shares serve
+          // it via resolvePlayRef → clip_web_r2_key), NOT the couple's own
+          // download-original (that path streams the raw R2 object directly and never
+          // runs through here, so their full-res originals keep their metadata).
+          '-map_metadata', '-1',
           '-vf',
           `scale='min(${cap},iw)':'min(${cap},ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2`,
           '-c:v', 'libx264',

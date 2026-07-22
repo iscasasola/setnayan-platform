@@ -5,15 +5,15 @@
  * migration 20270305885232_papic_capture_window_per_event).
  *
  * The couple picks a window for their event's Papic — a START (day + time) and
- * an END (day; the time is auto-set to end-of-day). That single window drives
- * BOTH halves of the spec at once:
+ * an END (day; the time is auto-set to end-of-day). That single window sets how
+ * long the cameras can SHOOT — paparazzi_seats.valid_from / valid_until are
+ * stamped to it and capture is gated to it.
  *
- *   • the BILL — every camera (Limited guest cameras + Unlimited extras) is
- *     priced `cameras × rate/day × DAYS`, DAYS being the calendar-inclusive
- *     span of the window (≥ 1). One day for a single-day wedding; the full trip
- *     span for travel.
- *   • how long the cameras can SHOOT — paparazzi_seats.valid_from / valid_until
- *     are stamped to the window and capture is gated to it.
+ * ⚠ The window is NOT a price input. Papic is FLAT per camera (2026-07-22 naming
+ * lock · migration 20270830568357): the charge is `cameras × rate`, no per-day
+ * multiplier — matching /pricing (_papic-estimator.tsx). `days` (the calendar-
+ * inclusive span, ≥ 1) is surfaced for the seat window + labels only. The old
+ * `cameras × rate/day × DAYS` bill engine was retired with the flat rename.
  *
  * Event-type rules (owner 2026-06-26):
  *   • travel  — free range: day 1 → end date of the trip (both picked).

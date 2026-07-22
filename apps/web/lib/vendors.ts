@@ -560,6 +560,25 @@ export type VendorAnonymityInput = {
    */
   isPaidTier?: boolean;
   /**
+   * TRUE when `vendor_profiles.verification_state === 'verified'`.
+   *
+   * The "OPEN IT UP" lock (owner 2026-07-22 · Vendor_Subscription_Ladder_
+   * 2026-07-22 §3): **a vendor's NAME is never gated.** A verified vendor is an
+   * "already-qualified" business — couples must always see who's there, on
+   * EVERY tier, from day 1. So a verified vendor's real `business_name` reveals
+   * regardless of tier or `name_revealed_at`. This is the load-bearing reveal
+   * signal now — NOT tier — because a verified vendor on the free plan carries
+   * `tier_state='free'` (verification never changes tier_state), so keying the
+   * reveal on tier alone would leave real verified vendors anonymized.
+   *
+   * Conversely, an UNVERIFIED vendor (this flag false) never reveals via this
+   * path — the smallest safe scope: surfaces that don't gate on
+   * verification_state (some working-set / relationship surfaces) still show the
+   * placeholder for unverified vendors, so the de-gate can't over-expose them.
+   * Defaults to FALSE when the caller has no verification data to source from.
+   */
+  is_verified?: boolean;
+  /**
    * vendor.services[0] — the primary canonical_service used to derive
    * the taxonomy half of the placeholder. NULL when the vendor has no
    * services on file (falls through to a generic 'Wedding Vendor'
@@ -641,13 +660,20 @@ export function isVendorVenueExempt(
  * Order of checks (any one wins):
  *   1. Venue exception — services overlap with religious_venue / venue
  *      (per CLAUDE.md 2026-05-30 refinement row).
- *   2. Paid tier flag — Pro / Enterprise day-1 reveal.
- *   3. Reveal timestamp — first vendor chat reply stamped name_revealed_at.
+ *   2. Verified vendor — the "open it up" lock (2026-07-22): a verified
+ *      vendor's name is NEVER gated, on any tier, from day 1.
+ *   3. Paid tier flag — the tier declares nameMode 'true' (Solo+ · and
+ *      the de-gated Verified tier). Belt-and-suspenders with (2).
+ *   4. Reveal timestamp — first vendor chat reply stamped name_revealed_at.
  */
 export function isVendorNameRevealed(
-  input: Pick<VendorAnonymityInput, 'name_revealed_at' | 'isPaidTier' | 'services'>,
+  input: Pick<
+    VendorAnonymityInput,
+    'name_revealed_at' | 'isPaidTier' | 'services' | 'is_verified'
+  >,
 ): boolean {
   if (isVendorVenueExempt(input.services)) return true;
+  if (input.is_verified) return true; // "open it up" — verified name never gated
   if (input.isPaidTier) return true;
   return input.name_revealed_at !== null;
 }

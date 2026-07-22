@@ -140,6 +140,10 @@ export type VendorCardData = {
    *  real business_name) + the review-display gate (stars / comments).
    *  Optional + `?? null` → free → hidden when absent. */
   tier_state?: string | null;
+  /** `vendor_profiles.verification_state` — hydrated by page.tsx in the same
+   *  enrichment batch as tier_state. Drives the "open it up" name reveal: a
+   *  VERIFIED vendor's real business_name is never gated (shown on any tier). */
+  verification_state?: string | null;
   /**
    * Relationship depth between this couple's active event and the vendor (0–3).
    * Computed from event_vendors + vendor_event_unlocks when the viewer is
@@ -234,8 +238,10 @@ export function VendorCard({
     location_city: vendor.location_city,
     services: vendor.services,
     screen_name: vendor.screen_name ?? null,
-    // Phase C: Pro/Enterprise reveal real business_name day-1.
+    // Phase C: Pro/Enterprise reveal real business_name day-1. Open-it-up lock:
+    // a VERIFIED vendor's name is never gated — revealed on any tier.
     isPaidTier: isTrueNameTier(vendor.tier_state ?? null),
+    is_verified: vendor.verification_state === 'verified',
   });
   const slug = vendor.business_slug ?? null;
   const href = slug ? `/v/${slug}` : `#`;

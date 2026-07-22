@@ -186,8 +186,10 @@ function FolderVendorCard({
     name_revealed_at: vendor.name_revealed_at ?? null,
     services: vendor.services ?? null,
     screen_name: vendor.screen_name ?? null,
-    // Phase C: Pro/Enterprise reveal real business_name day-1.
+    // Phase C: Pro/Enterprise reveal real business_name day-1. Open-it-up lock:
+    // a VERIFIED vendor's name is never gated — revealed on any tier.
     isPaidTier: isTrueNameTier(vendor.tier_state ?? null),
+    is_verified: vendor.verification_state === 'verified',
     primary_canonical_service: vendor.services?.[0] ?? null,
     location_city: vendor.location_city ?? null,
   });

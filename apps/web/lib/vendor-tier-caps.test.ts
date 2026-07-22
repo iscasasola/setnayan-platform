@@ -12,6 +12,7 @@ import assert from 'node:assert/strict';
 import {
   canUseCalls,
   canSeeMarketIntel,
+  isTrueNameTier,
   TIER_CAPS,
   VENDOR_TIERS,
   type VendorTier,
@@ -123,4 +124,34 @@ test('ladder · Market Intel unlocks at Pro and never below', () => {
   assert.equal(canSeeMarketIntel('pro'), true);
   assert.equal(canSeeMarketIntel('enterprise'), true);
   assert.equal(canSeeMarketIntel('custom'), true);
+});
+
+// ── "Open it up" — name is NEVER gated (Vendor_Subscription_Ladder_2026-07-22 §3) ──
+// The name paywall is retired: the legacy Verified tier NO LONGER anonymizes
+// (was nameMode 'screen'). Every couple-facing/paid tier shows the real business
+// name day-1. `free` keeps nameMode 'hidden' as the conservative default for a
+// truly-unverified vendor — the actual reveal for a verified free-plan vendor
+// comes from `is_verified` (verification_state='verified') at the resolver, not
+// from the tier (see lib/vendors.test.ts), so unverified vendors are never
+// over-exposed even where a surface's query isn't verification-gated.
+
+test('name paywall removed: legacy Verified tier reveals the real name day-1', () => {
+  assert.equal(
+    TIER_CAPS.verified.nameMode,
+    'true',
+    "Verified must no longer anonymize (was 'screen' — the name paywall)",
+  );
+  assert.equal(isTrueNameTier('verified'), true);
+});
+
+test('every PAID tier reveals the real name day-1 (Solo/Pro/Enterprise/Custom)', () => {
+  for (const tier of ['solo', 'pro', 'enterprise', 'custom'] as const) {
+    assert.equal(TIER_CAPS[tier].nameMode, 'true', `${tier} shows the real name day-1`);
+    assert.equal(isTrueNameTier(tier), true);
+  }
+});
+
+test('free tier stays hidden by tier (conservative default; reveal comes from verification)', () => {
+  assert.equal(TIER_CAPS.free.nameMode, 'hidden');
+  assert.equal(isTrueNameTier('free'), false);
 });

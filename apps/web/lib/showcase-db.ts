@@ -302,7 +302,7 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
         const { data: profs } = await admin
           .from('vendor_profiles')
           .select(
-            'vendor_profile_id, business_name, business_slug, logo_url, tier_state, name_revealed_at, screen_name, services, location_city',
+            'vendor_profile_id, business_name, business_slug, logo_url, tier_state, name_revealed_at, screen_name, services, location_city, verification_state',
           )
           .in('vendor_profile_id', profileIds);
         // Resolve each eligible profile's logo once (not per story).
@@ -321,6 +321,7 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
               screen_name: string | null;
               services: string[] | null;
               location_city: string | null;
+              verification_state: string | null;
             }>
           ).map(async (p) => {
             // The SSOT cap (now always true — rule 2) kept as the read so any
@@ -345,6 +346,7 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
                 services: p.services ?? null,
                 screen_name: p.screen_name ?? null,
                 isPaidTier: isTrueNameTier(p.tier_state ?? null),
+                is_verified: p.verification_state === 'verified',
               }),
               slug: p.business_slug,
               logoUrl: p.logo_url ? await displayUrlForStoredAsset(p.logo_url) : null,

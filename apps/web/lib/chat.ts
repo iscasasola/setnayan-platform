@@ -108,6 +108,12 @@ export type CoupleThreadWithVendor = ChatThreadRow & {
      * is stamped. Null (pre-migration deploy / missing) → free → hidden.
      */
     tier_state: string | null;
+    /**
+     * `vendor_profiles.verification_state`. Open-it-up lock (2026-07-22): a
+     * VERIFIED vendor's name is never gated — the real business_name surfaces
+     * on any tier, so couples always see who they're messaging.
+     */
+    verification_state: string | null;
   } | null;
 };
 
@@ -307,7 +313,7 @@ function computeArchived(row: {
 }
 
 const COUPLE_VENDOR_EMBED =
-  'vendor:vendor_profiles(business_name, logo_url, public_id, screen_name, name_revealed_at, services, location_city, tier_state)';
+  'vendor:vendor_profiles(business_name, logo_url, public_id, screen_name, name_revealed_at, services, location_city, tier_state, verification_state)';
 
 export async function fetchCoupleThreads(
   supabase: SupabaseClient,

@@ -275,3 +275,17 @@ test('availabilityChangesFromBlocks: non-overlapping / unwatched / no-date → e
   // no event date
   assert.equal(availabilityChangesFromBlocks([], NAME, null, 'x').length, 0);
 });
+
+test('availabilityChangesFromBlocks: uses the Asia/Manila day (a PH-early-morning block on a prior UTC day still counts)', () => {
+  // 2026-05-09 01:00–02:00 Manila == 2026-05-08 17:00–18:00 UTC. A UTC-midnight
+  // window would MISS this (it ends before 2026-05-09T00:00Z); the Manila-day
+  // window ([2026-05-08T16:00Z, 2026-05-09T16:00Z)) catches it.
+  const out = availabilityChangesFromBlocks(
+    [{ vendorProfileId: 'v2', blockedAt: '2026-05-08T17:00:00Z', blockedUntil: '2026-05-08T18:00:00Z' }],
+    NAME,
+    '2026-05-09',
+    'May 9, 2026',
+  );
+  assert.equal(out.length, 1);
+  assert.equal(out[0]!.vendor, 'Grand Venue');
+});

@@ -359,7 +359,11 @@ export function availabilityChangesFromBlocks(
   dateLabel: string,
 ): SnapshotAvailabilityChange[] {
   if (!eventDateIso) return [];
-  const dayStart = new Date(`${eventDateIso.slice(0, 10)}T00:00:00`).getTime();
+  // The event "day" is the Asia/Manila calendar day (PH, UTC+8, no DST) — same
+  // convention as vendors_blocked_on_date. Anchoring to +08:00 (not the server's
+  // UTC/local midnight) keeps a block right at the day boundary from being
+  // attributed to the wrong day.
+  const dayStart = new Date(`${eventDateIso.slice(0, 10)}T00:00:00+08:00`).getTime();
   const dayEnd = dayStart + 86_400_000;
   if (Number.isNaN(dayStart)) return [];
   const seen = new Set<string>();
@@ -397,6 +401,79 @@ function emptySnapshot(eventType: string): PlanningSnapshot {
 }
 
 // ---- DB wrapper -------------------------------------------------------------
+
+/**
+ * GRD-03 price rises + GRD-09 availability changes for the vendors a couple
+ * shortlisted/booked. Shared by the notify snapshot (buildPlanningSnapshot) AND
+ * the in-app Overview watch rail (event-dashboard) so both show the same
+ * signals. Takes an ADMIN client — the vendor_service_price_history table is
+ * RLS'd to vendor-owner + admin, so a couple client can't read it. Fail-soft: a
+ * missing table / read error leaves both empty. Only marketplace-linked vendors
+ * (a non-null id) are watched; manual vendor rows are skipped.
+ */
+export async function loadVendorChangeSignals(
+  admin: SupabaseClient,
+  watchedVendors: ReadonlyArray<{ id: string | null; name: string | null }>,
+  eventDate: string | null,
+  now: Date = new Date(),
+): Promise<{ priceChanges: SnapshotPriceChange[]; availability: SnapshotAvailabilityChange[] }> {
+  const watched = watchedVendors.filter(
+    (v): v is { id: string; name: string | null } => !!v.id,
+  );
+  const watchedIds = [...new Set(watched.map((v) => v.id))];
+  if (watchedIds.length === 0) return { priceChanges: [], availability: [] };
+
+  const nameById = new Map<string, string>();
+  for (const v of watched) {
+    if (!nameById.has(v.id)) nameById.set(v.id, v.name ?? 'A vendor you saved');
+  }
+  const sinceIso = new Date(
+    now.getTime() - PRICE_AVAILABILITY_WINDOW_DAYS * 86_400_000,
+  ).toISOString();
+  const dateLabel = eventDate
+    ? new Date(`${eventDate.slice(0, 10)}T00:00:00`).toLocaleDateString('en-PH', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : 'your date';
+
+  const [{ data: priceRows }, { data: blockRows }] = await Promise.all([
+    admin
+      .from('vendor_service_price_history')
+      .select('vendor_profile_id, category, old_price_php, new_price_php, changed_at')
+      .in('vendor_profile_id', watchedIds)
+      .gte('changed_at', sinceIso),
+    admin
+      .from('vendor_calendar_blocks')
+      .select('vendor_profile_id, blocked_at, blocked_until, created_at')
+      .in('vendor_profile_id', watchedIds)
+      .gte('created_at', sinceIso),
+  ]);
+
+  return {
+    priceChanges: priceChangesFromHistory(
+      (priceRows ?? []).map((r) => ({
+        vendorProfileId: (r as { vendor_profile_id: string }).vendor_profile_id,
+        category: (r as { category: string | null }).category,
+        oldPricePhp: (r as { old_price_php: number | null }).old_price_php,
+        newPricePhp: (r as { new_price_php: number | null }).new_price_php,
+        changedAt: (r as { changed_at: string }).changed_at,
+      })),
+      nameById,
+    ),
+    availability: availabilityChangesFromBlocks(
+      (blockRows ?? []).map((r) => ({
+        vendorProfileId: (r as { vendor_profile_id: string }).vendor_profile_id,
+        blockedAt: (r as { blocked_at: string }).blocked_at,
+        blockedUntil: (r as { blocked_until: string }).blocked_until,
+      })),
+      nameById,
+      eventDate,
+      dateLabel,
+    ),
+  };
+}
 
 /**
  * Build a PlanningSnapshot for one event from real data. Every read is
@@ -557,69 +634,19 @@ export async function buildPlanningSnapshot(
   );
 
   // --- GRD-03 price-change + GRD-09 availability-change ----------------------
-  // For the marketplace vendors the couple has shortlisted or booked, read the
-  // global price-change log + the vendor calendar and surface recent moves. Only
-  // marketplace-linked vendors have a system-tracked price/calendar; a manual
-  // vendor row has no marketplace_vendor_id and is skipped. Fail-soft: a missing
-  // table / column leaves both empty.
-  const watched = (vendorRows ?? [])
-    .map((v) => ({
+  // The couple's shortlisted/booked marketplace vendors → recent price rises +
+  // newly-busy-on-your-date. Shared with the in-app watch rail (event-dashboard)
+  // so both surfaces show the same signals.
+  const signals = await loadVendorChangeSignals(
+    admin,
+    (vendorRows ?? []).map((v) => ({
       id: (v as { marketplace_vendor_id?: string | null }).marketplace_vendor_id ?? null,
       name: (v as { vendor_name?: string | null }).vendor_name ?? null,
-    }))
-    .filter((v): v is { id: string; name: string | null } => !!v.id);
-  const watchedIds = [...new Set(watched.map((v) => v.id))];
-
-  if (watchedIds.length > 0) {
-    const nameById = new Map<string, string>();
-    for (const v of watched) {
-      if (!nameById.has(v.id)) nameById.set(v.id, v.name ?? 'A vendor you saved');
-    }
-    const sinceIso = new Date(
-      Date.now() - PRICE_AVAILABILITY_WINDOW_DAYS * 86_400_000,
-    ).toISOString();
-    const dateLabel = eventDate
-      ? new Date(`${eventDate.slice(0, 10)}T00:00:00`).toLocaleDateString('en-PH', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-        })
-      : 'your date';
-
-    const [{ data: priceRows }, { data: blockRows }] = await Promise.all([
-      admin
-        .from('vendor_service_price_history')
-        .select('vendor_profile_id, category, old_price_php, new_price_php, changed_at')
-        .in('vendor_profile_id', watchedIds)
-        .gte('changed_at', sinceIso),
-      admin
-        .from('vendor_calendar_blocks')
-        .select('vendor_profile_id, blocked_at, blocked_until, created_at')
-        .in('vendor_profile_id', watchedIds)
-        .gte('created_at', sinceIso),
-    ]);
-
-    snap.priceChanges = priceChangesFromHistory(
-      (priceRows ?? []).map((r) => ({
-        vendorProfileId: (r as { vendor_profile_id: string }).vendor_profile_id,
-        category: (r as { category: string | null }).category,
-        oldPricePhp: (r as { old_price_php: number | null }).old_price_php,
-        newPricePhp: (r as { new_price_php: number | null }).new_price_php,
-        changedAt: (r as { changed_at: string }).changed_at,
-      })),
-      nameById,
-    );
-    snap.availability = availabilityChangesFromBlocks(
-      (blockRows ?? []).map((r) => ({
-        vendorProfileId: (r as { vendor_profile_id: string }).vendor_profile_id,
-        blockedAt: (r as { blocked_at: string }).blocked_at,
-        blockedUntil: (r as { blocked_until: string }).blocked_until,
-      })),
-      nameById,
-      eventDate,
-      dateLabel,
-    );
-  }
+    })),
+    eventDate,
+  );
+  snap.priceChanges = signals.priceChanges;
+  snap.availability = signals.availability;
 
   // contracts / shortlist / dateClusters stay [] — no honest data source yet
   // (see the header comment). Never fabricate.

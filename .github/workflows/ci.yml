@@ -32,13 +32,15 @@ jobs:
       - name: Unit tests
         run: pnpm --filter @setnayan/web test:unit
 
-      # Self-enforcing net for adding an event type: replays the migrations into
-      # in-process PGlite and asserts every ENABLED event_type_vocab type has a
-      # checklist label + an AI price tier (else it renders "Wedding checklist" /
-      # silently defaults to ₱499). Runs ONLY this one db-test (~10s, no external
-      # DB), not the whole tests/db suite. See Adding_A_New_Event_Type_Checklist.
-      - name: Event-type coverage guard (DB vocab)
-        run: pnpm --filter @setnayan/web test:event-type-coverage
+      # CI-safe db-tests: replay the migrations into in-process PGlite (~10s each,
+      # no external DB) and assert data-layer invariants. Currently:
+      #   • event-type-coverage — every ENABLED event_type_vocab type has a
+      #     checklist label + AI tier (else "Wedding checklist" / silent ₱499).
+      #   • vendor-price-history-trigger — the vendor_services price-change trigger
+      #     logs to vendor_service_price_history (GRD-03's source), skips demo.
+      # A curated list, NOT the whole tests/db suite (which was never wired to CI).
+      - name: Data-layer guards (DB replay)
+        run: pnpm --filter @setnayan/web test:db:ci
 
   build:
     name: production build

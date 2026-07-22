@@ -10,6 +10,7 @@ import {
 } from '@/lib/papic-event-pool-gate';
 import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
 import { screenCapture } from '@/lib/nsfw-screen';
+import { clipWebKeyDistinct } from '@/lib/papic-display-ref';
 
 // POST /api/papic/guest-capture
 //
@@ -33,6 +34,116 @@ const MAX_CLIP_BYTES = 25_000_000; // ~25 MB
 // stamps a longer duration; the RPC ALSO clamps with LEAST(ms,10000).
 const MAX_CLIP_MS = 10000;
 
+// Byte floor for an accepted clip web copy — anything at/below this is a
+// truncated / empty transcode, not a real clip (raw stays the only copy).
+const MIN_CLIP_WEB_BYTES = 1024;
+
+type GuestSession = NonNullable<Awaited<ReturnType<typeof readGuestSession>>>;
+
+// ── Clip web-copy follow-up (Papic storage PR-1) ─────────────────────────────
+//
+// The client produces a ~0.5 MB H.264 web copy of a clip AFTER the raw capture
+// has already recorded (best-effort, off-main-thread) and POSTs it back here as
+// a `mode=web_copy` follow-up keyed on the returned capture_id — it is NEVER
+// serialized into the capture POST (a multi-second wasm transcode must not block
+// the raw upload/record path or the next capture). This handler PUTs the web
+// copy to a SIBLING `-web.mp4` key (provably distinct from the poster still and
+// the raw), then writes clip_web_r2_key + the real object size via a
+// service-role UPDATE keyed on capture_id. It does NOT re-meter, reserve pool
+// points, re-run the RPC, or touch Drive — the raw already did all of that.
+async function handleGuestClipWebCopy(
+  form: FormData,
+  session: GuestSession,
+): Promise<NextResponse> {
+  const captureIdRaw = form.get('capture_id');
+  const captureId = typeof captureIdRaw === 'string' ? captureIdRaw.trim() : '';
+  if (!captureId) {
+    return NextResponse.json({ error: 'no_capture_id' }, { status: 400 });
+  }
+  const webFile = form.get('clip_web');
+  if (!(webFile instanceof File)) {
+    return NextResponse.json({ error: 'no_file' }, { status: 400 });
+  }
+  if (!webFile.type.startsWith('video/')) {
+    return NextResponse.json({ error: 'bad_type' }, { status: 415 });
+  }
+  if (webFile.size <= MIN_CLIP_WEB_BYTES) {
+    return NextResponse.json({ error: 'too_small' }, { status: 400 });
+  }
+  if (webFile.size > MAX_CLIP_BYTES) {
+    return NextResponse.json({ error: 'too_large' }, { status: 413 });
+  }
+  if (!isR2Configured()) {
+    return NextResponse.json({ error: 'uploads_unavailable' }, { status: 503 });
+  }
+
+  const admin = createAdminClient();
+
+  // OWNERSHIP: the capture must belong to THIS guest session (guest_id +
+  // event_id) and be a clip. Reading poster/display/raw keys lets us assert the
+  // web key is distinct before persisting (the poster-trap guard).
+  const { data: cap, error: capErr } = await admin
+    .from('papic_guest_captures')
+    .select('capture_id, media_type, r2_object_key, poster_r2_key, display_r2_key, clip_web_r2_key')
+    .eq('capture_id', captureId)
+    .eq('guest_id', session.guest_id)
+    .eq('event_id', session.event_id)
+    .maybeSingle();
+  if (capErr || !cap) {
+    return NextResponse.json({ error: 'not_found' }, { status: 404 });
+  }
+  if ((cap as { media_type?: string | null }).media_type !== 'clip') {
+    return NextResponse.json({ error: 'not_a_clip' }, { status: 400 });
+  }
+  // Idempotent: a web copy already landed for this capture — don't PUT a second.
+  if ((cap as { clip_web_r2_key?: string | null }).clip_web_r2_key) {
+    return NextResponse.json({ status: 'ok', already: true });
+  }
+
+  const bytes = new Uint8Array(await webFile.arrayBuffer());
+  // SIBLING key — a fresh stamp + `-web.mp4` suffix. Never the raw `.mp4` (older
+  // stamp, no suffix) nor the poster `-poster.jpg` (image). content-type video/*.
+  const stamp = Date.now();
+  const webKey = `papic/guest/${session.guest_id}/papic-${stamp}-web.mp4`;
+  const webRef = `r2://${R2_BUCKETS.media}/${webKey}`;
+
+  // Poster-trap guard: never persist a web key equal to the poster / display /
+  // raw key (would let the still + play resolvers collide, and PR-2's drop then
+  // delete a still a play surface points at). Structurally impossible here (the
+  // `-web.mp4` sibling can't equal an image poster), but assert it anyway.
+  if (
+    !clipWebKeyDistinct(webRef, {
+      poster_r2_key: (cap as { poster_r2_key?: string | null }).poster_r2_key ?? null,
+      display_r2_key: (cap as { display_r2_key?: string | null }).display_r2_key ?? null,
+      r2_object_key: (cap as { r2_object_key?: string | null }).r2_object_key ?? null,
+    })
+  ) {
+    return NextResponse.json({ error: 'key_collision' }, { status: 409 });
+  }
+
+  try {
+    await r2Upload({
+      bucket: R2_BUCKETS.media,
+      key: webKey,
+      body: bytes,
+      contentType: 'video/mp4',
+    });
+  } catch {
+    return NextResponse.json({ error: 'upload_failed' }, { status: 502 });
+  }
+
+  // clip_web_bytes = the real object size (the exact bytes we just PUT).
+  const { error: updErr } = await admin
+    .from('papic_guest_captures')
+    .update({ clip_web_r2_key: webRef, clip_web_bytes: bytes.length })
+    .eq('capture_id', captureId)
+    .eq('guest_id', session.guest_id);
+  if (updErr) {
+    return NextResponse.json({ error: 'persist_failed' }, { status: 500 });
+  }
+  return NextResponse.json({ status: 'ok' });
+}
+
 export async function POST(req: Request) {
   const session = await readGuestSession();
   if (!session) {
@@ -44,6 +155,13 @@ export async function POST(req: Request) {
     form = await req.formData();
   } catch {
     return NextResponse.json({ error: 'bad_request' }, { status: 400 });
+  }
+
+  // CLIP WEB-COPY follow-up (Papic storage PR-1): a `mode=web_copy` POST is NOT a
+  // new capture — it carries the small H.264 web copy for an already-recorded
+  // clip, keyed on capture_id. Branch BEFORE any metering / pool reserve / RPC.
+  if (form.get('mode') === 'web_copy') {
+    return handleGuestClipWebCopy(form, session);
   }
 
   // media_type: 'photo' (default · JPEG path) | 'clip' (a guest-recorded ≤5s

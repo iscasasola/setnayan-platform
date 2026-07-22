@@ -4,6 +4,7 @@ import {
   isClipRow,
   resolveStillRef,
   resolvePlayRef,
+  clipWebKeyDistinct,
   stableMediaPath,
   type PapicDisplayRow,
 } from './papic-display-ref';
@@ -139,6 +140,30 @@ test('play surface resolves after (future) clip drop: alaala-orb', () => {
     resolvePlayRef({ media_type: 'clip', clip_web_r2_key: DERIV.clipWeb, r2_object_key: DERIV.rawVideo, full_res_dropped_at: '2026-07-01T00:00:00Z' }),
     DERIV.clipWeb,
   );
+});
+
+// ── clipWebKeyDistinct · POSTER-TRAP guard (Papic storage PR-1) ───────────────
+test('clipWebKeyDistinct: the -web key must differ from the poster/display/raw keys', () => {
+  const row = {
+    poster_r2_key: DERIV.poster,
+    display_r2_key: DERIV.poster, // for clips, display == poster
+    r2_object_key: DERIV.rawVideo,
+  };
+  // A real sibling -web.mp4 key → distinct → OK to persist.
+  assert.equal(clipWebKeyDistinct(DERIV.clipWeb, row), true);
+  // The poster still, the display still, and the raw video are each REJECTED —
+  // persisting any of them as the web copy would collide still-vs-play and let
+  // PR-2's drop delete a key a play surface points at.
+  assert.equal(clipWebKeyDistinct(DERIV.poster, row), false);
+  assert.equal(clipWebKeyDistinct(DERIV.rawVideo, row), false);
+  assert.equal(clipWebKeyDistinct(DERIV.poster, { poster_r2_key: DERIV.poster }), false);
+  // Empty / whitespace / null are never a valid web key.
+  assert.equal(clipWebKeyDistinct('', row), false);
+  assert.equal(clipWebKeyDistinct('   ', row), false);
+  assert.equal(clipWebKeyDistinct(null, row), false);
+  assert.equal(clipWebKeyDistinct(undefined, row), false);
+  // Distinct from a row with no still/raw keys at all → still fine.
+  assert.equal(clipWebKeyDistinct(DERIV.clipWeb, {}), true);
 });
 
 // ── stableMediaPath ──────────────────────────────────────────────────────────

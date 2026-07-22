@@ -68,6 +68,9 @@ export type RawPhoto = {
   display_r2_key?: string | null;
   thumb_r2_key?: string | null;
   poster_r2_key?: string | null;
+  // The small playable web copy of a clip (Papic storage PR-1) — resolvePlayRef
+  // prefers it over the raw video.
+  clip_web_r2_key?: string | null;
   full_res_dropped_at?: string | null;
   photo_type: 'photo' | 'clip';
   captured_at: string;
@@ -81,6 +84,7 @@ export type RawGuestCapture = {
   display_r2_key?: string | null;
   thumb_r2_key?: string | null;
   poster_r2_key?: string | null;
+  clip_web_r2_key?: string | null;
   full_res_dropped_at?: string | null;
   media_type: 'photo' | 'clip';
   captured_at: string;
@@ -622,8 +626,10 @@ export async function fetchMomentGraph(
       // unscreened (never-checked), and the RA 10173 consent_withheld /
       // faceblock_withheld opt-out media — `hidden_at` is NOT a content proxy
       // (NSFW screening writes only moderation_state). Non-negotiable safety gate.
+      // clip_web_r2_key: resolvePlayRef prefers the small web copy for clip
+      // moments (Papic storage PR-1); omitting it would fall clips back to raw.
       .select(
-        'photo_id, event_id, r2_object_key, display_r2_key, thumb_r2_key, poster_r2_key, full_res_dropped_at, photo_type, captured_at, captured_by_person_id',
+        'photo_id, event_id, r2_object_key, display_r2_key, thumb_r2_key, poster_r2_key, clip_web_r2_key, full_res_dropped_at, photo_type, captured_at, captured_by_person_id',
       )
       .in('event_id', eventIds)
       .eq('moderation_state', 'clean')
@@ -635,7 +641,7 @@ export async function fetchMomentGraph(
       // Same clean-only safety gate. `media_type` is now selected so a guest 5s
       // clip renders as a clip, not a broken <img> (was hardcoded 'photo').
       .select(
-        'capture_id, event_id, guest_id, r2_object_key, display_r2_key, thumb_r2_key, poster_r2_key, full_res_dropped_at, media_type, captured_at',
+        'capture_id, event_id, guest_id, r2_object_key, display_r2_key, thumb_r2_key, poster_r2_key, clip_web_r2_key, full_res_dropped_at, media_type, captured_at',
       )
       .in('event_id', eventIds)
       .eq('moderation_state', 'clean')

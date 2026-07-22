@@ -76,6 +76,30 @@ export function resolvePlayRef(row: PapicDisplayRow): string | null {
   return firstRef(row.clip_web_r2_key, droppedRaw);
 }
 
+/**
+ * POSTER-TRAP guard (Papic storage PR-1): a clip's web copy is a VIDEO and must
+ * be stored under its own key — never equal to the poster/display still (an
+ * image) or the raw original. If a bug ever wrote the poster's key as the web
+ * copy, resolveStillRef (poster) and resolvePlayRef (web copy) would collide and
+ * the later full-res drop could delete the still a play surface still points at.
+ * So the capture path asserts distinctness BEFORE persisting clip_web_r2_key.
+ *
+ * Returns true only when `webKey` is a non-empty ref that differs from every one
+ * of poster_r2_key / display_r2_key / r2_object_key present on the row.
+ */
+export function clipWebKeyDistinct(
+  webKey: string | null | undefined,
+  row: Pick<PapicDisplayRow, 'poster_r2_key' | 'display_r2_key' | 'r2_object_key'>,
+): boolean {
+  if (typeof webKey !== 'string') return false;
+  const key = webKey.trim();
+  if (key.length === 0) return false;
+  for (const other of [row.poster_r2_key, row.display_r2_key, row.r2_object_key]) {
+    if (typeof other === 'string' && other.trim() === key) return false;
+  }
+  return true;
+}
+
 /** First non-empty string among the candidates, else null. */
 function firstRef(...candidates: Array<string | null | undefined>): string | null {
   for (const c of candidates) {

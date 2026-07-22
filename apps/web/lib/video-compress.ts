@@ -40,6 +40,30 @@ const AUDIO_BITRATE = '192k'; // high-quality audio to match the quality-first t
 const SKIP_BELOW_BYTES = 12 * 1024 * 1024; // 12 MB
 const SKIP_BELOW_BITRATE = 8_000_000; // 8 Mbps — already a streamable, high-quality rate
 
+// ── WEB-COPY profile (Papic storage PR-1) ─────────────────────────────────────
+// A DELIBERATELY SMALL, storage-minimal playable copy of a Papic clip (~0.3–0.6
+// MB for a 10s clip), produced at capture so galleries serve it and the heavy raw
+// clip becomes droppable later. This is a different intent from the quality-first
+// path above (which preserves the couple's original resolution): here we WANT to
+// shrink hard. So the web480 profile:
+//   • caps the LONG edge to 854 px → a 9:16 Papic clip (the norm) lands ~480×854,
+//     i.e. a ≤480 px SHORT side, using the SAME single-quoted `min(...)` filter
+//     idiom the quality path uses (the quotes protect the inner comma);
+//   • encodes H.264 BASELINE (max device compatibility) at CRF 30 (visually fine
+//     small, far below the quality path's CRF 21) with 64 kbps AAC;
+//   • NEVER skips on small inputs — even a small raw clip should become a tiny web
+//     copy — and (unlike the quality path) does not need a duration probe.
+// Same never-throws contract: on unsupported/failure it returns the ORIGINAL File
+// unchanged, so the caller detects "no web copy" by reference-equality (result ===
+// input) and simply omits it — the raw stays the only playable copy.
+const WEB_LONG_EDGE = 854; // 9:16 → ~480 short edge; the storage-minimal target
+const WEB_CRF = '30';
+const WEB_AUDIO_BITRATE = '64k';
+
+// Byte floor for an accepted web copy — anything at/below this is a truncated /
+// empty transcode, not a real clip, and must be ignored (raw stays the copy).
+export const WEB_COPY_MIN_BYTES = 1024;
+
 // Pinned core version (matches @ffmpeg/ffmpeg 0.12.x). UMD single-thread build.
 const CORE_BASE = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
 
@@ -100,23 +124,38 @@ export async function compressVideoForWeb(
      * one (narrow) bypass.
      */
     maxDurationS?: number;
+    /**
+     * Encode profile:
+     *   • 'quality' (default) — the couple's Save-the-Date path: preserve the
+     *     ORIGINAL resolution up to 4K, CRF 21, 192k audio; SKIP already-light
+     *     inputs. Behaviour unchanged from before this option existed.
+     *   • 'web480' — the Papic storage web-copy: shrink HARD to a ~0.5 MB
+     *     playable derivative (854 long edge → ≤480 short edge, H.264 baseline,
+     *     CRF 30, 64k audio). NEVER skips small inputs (even a small raw clip
+     *     should become a tiny web copy) and needs no duration probe.
+     */
+    profile?: 'quality' | 'web480';
   } = {},
 ): Promise<File> {
   const { onProgress, signal, maxDurationS } = opts;
+  const isWebCopy = opts.profile === 'web480';
   if (!canCompressVideo()) return file;
 
-  // ── Skip clips that are already light enough to stream smoothly.
-  onProgress?.({ phase: 'probing', ratio: 0 });
-  const duration = await probeDurationSeconds(file);
-  const bitrate = duration && duration > 0 ? (file.size * 8) / duration : null;
-  // Duration-cap backstop: unknown or over-cap duration forces the encode.
-  const needsTrim =
-    maxDurationS != null && (duration === null || duration > maxDurationS + 1);
-  if (
-    !needsTrim &&
-    (file.size < SKIP_BELOW_BYTES || (bitrate !== null && bitrate < SKIP_BELOW_BITRATE))
-  ) {
-    return file;
+  // ── Skip clips that are already light enough to stream smoothly (quality
+  // profile only — the web copy ALWAYS re-encodes, and needs no probe).
+  let needsTrim = false;
+  if (!isWebCopy) {
+    onProgress?.({ phase: 'probing', ratio: 0 });
+    const duration = await probeDurationSeconds(file);
+    const bitrate = duration && duration > 0 ? (file.size * 8) / duration : null;
+    // Duration-cap backstop: unknown or over-cap duration forces the encode.
+    needsTrim = maxDurationS != null && (duration === null || duration > maxDurationS + 1);
+    if (
+      !needsTrim &&
+      (file.size < SKIP_BELOW_BYTES || (bitrate !== null && bitrate < SKIP_BELOW_BITRATE))
+    ) {
+      return file;
+    }
   }
 
   try {
@@ -145,23 +184,27 @@ export async function compressVideoForWeb(
     const outName = 'out.mp4';
     await ffmpeg.writeFile(inName, await fetchFile(file));
 
-    // Keep the ORIGINAL resolution up to a 4K long edge (only downscale a >4K
-    // source; preserves ≤4K in BOTH orientations — min(cap,iw)+min(cap,ih)+decrease
-    // caps the longer side), force even dimensions (H.264). Re-encode H.264/AAC at a
-    // visually-transparent CRF with a maxrate cap, faststart for progressive play.
+    // web480: cap the LONG edge to 854 (9:16 → ~480 short edge) using the same
+    // single-quoted `min(...)` filter idiom (quotes protect the inner comma) —
+    // H.264 BASELINE, CRF 30, 64k audio, faststart → a storage-minimal web copy.
+    // quality: keep the ORIGINAL resolution up to a 4K long edge (only downscale a
+    // >4K source; preserves ≤4K in BOTH orientations — min(cap,iw)+min(cap,ih)+
+    // decrease caps the longer side), force even dimensions (H.264). Re-encode
+    // H.264/AAC at a visually-transparent CRF with a maxrate cap, faststart.
+    const cap = isWebCopy ? WEB_LONG_EDGE : LONG_EDGE_CAP;
     const code = await ffmpeg.exec([
       '-i', inName,
       '-vf',
-      `scale='min(${LONG_EDGE_CAP},iw)':'min(${LONG_EDGE_CAP},ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2`,
+      `scale='min(${cap},iw)':'min(${cap},ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2`,
       '-c:v', 'libx264',
-      '-profile:v', 'high',
+      '-profile:v', isWebCopy ? 'baseline' : 'high',
       '-pix_fmt', 'yuv420p',
       '-preset', PRESET,
-      '-crf', CRF,
-      '-maxrate', MAXRATE,
-      '-bufsize', BUFSIZE,
+      '-crf', isWebCopy ? WEB_CRF : CRF,
+      // Quality path caps peak bitrate; the web copy lets CRF govern (no maxrate).
+      ...(isWebCopy ? [] : ['-maxrate', MAXRATE, '-bufsize', BUFSIZE]),
       '-c:a', 'aac',
-      '-b:a', AUDIO_BITRATE,
+      '-b:a', isWebCopy ? WEB_AUDIO_BITRATE : AUDIO_BITRATE,
       '-movflags', '+faststart',
       // Output-duration cap (content rule, e.g. the 30s showcase clip) — +1s
       // tolerance matches the picker validator's container-rounding allowance.

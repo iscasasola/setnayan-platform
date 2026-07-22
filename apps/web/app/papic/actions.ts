@@ -195,11 +195,22 @@ export async function recordSeatCapture(
   kind: 'photo' | 'clip' = 'photo',
   posterR2Key?: string,
   durationMs?: number,
+  // Papic storage PR-1: the small H.264 web copy of a clip (already PUT to R2 by
+  // the client) + its real byte size. Clips only; optional (a failed/unsupported
+  // transcode omits both → column stays NULL, raw stays the only playable copy).
+  clipWebR2Key?: string,
+  clipWebBytes?: number,
 ): Promise<RecordSeatCaptureResult> {
   const cleanToken = token?.trim();
   const cleanKey = r2ObjectKey?.trim();
   // Poster frame (clips only) — the NSFW screen's image proxy for the video.
   const cleanPoster = kind === 'clip' ? posterR2Key?.trim() || null : null;
+  // Clip web copy (clips only). The bytes are only meaningful with a key.
+  const cleanClipWeb = kind === 'clip' ? clipWebR2Key?.trim() || null : null;
+  const cleanClipWebBytes =
+    cleanClipWeb && typeof clipWebBytes === 'number' && Number.isFinite(clipWebBytes) && clipWebBytes > 0
+      ? Math.round(clipWebBytes)
+      : null;
   if (!cleanToken || !cleanKey) return { ok: false, error: 'missing_input' };
 
   // Server-side 10-second clip cap (defense-in-depth · owner 2026-07-22 · §0).
@@ -472,6 +483,9 @@ export async function recordSeatCapture(
           paparazzi_seat_id: seat.seat_id,
           r2_object_key: cleanKey,
           photo_type: kind === 'clip' ? 'clip' : 'photo',
+          // Clip web copy (Papic storage PR-1) — null for photos / no-transcode.
+          clip_web_r2_key: cleanClipWeb,
+          clip_web_bytes: cleanClipWebBytes,
           expires_at: expiresAt,
         })
         .select('photo_id')
@@ -487,16 +501,30 @@ export async function recordSeatCapture(
             photo_type: 'clip',
             // The poster frame the NSFW screen classifies as the clip's proxy.
             poster_r2_key: cleanPoster,
+            // Clip web copy (Papic storage PR-1) — the small playable derivative.
+            clip_web_r2_key: cleanClipWeb,
+            clip_web_bytes: cleanClipWebBytes,
             expires_at: expiresAt,
           })
           .select('photo_id')
           .single()
       : await insertWithoutPoster();
 
-    // Pre-migration env (poster_r2_key column absent → PostgREST PGRST204):
-    // retry without the poster — losing the screen proxy must never lose a clip.
-    if (insertError && cleanPoster && insertError.code === 'PGRST204') {
-      ({ data: inserted, error: insertError } = await insertWithoutPoster());
+    // Pre-migration env (poster_r2_key OR clip_web_* column absent → PostgREST
+    // PGRST204): retry with the MINIMAL shape (no poster, no web copy) — losing
+    // the screen proxy or the web copy must never lose the clip itself.
+    if (insertError && insertError.code === 'PGRST204') {
+      ({ data: inserted, error: insertError } = await supabase
+        .from('papic_photos')
+        .insert({
+          event_id: seat.event_id,
+          paparazzi_seat_id: seat.seat_id,
+          r2_object_key: cleanKey,
+          photo_type: kind === 'clip' ? 'clip' : 'photo',
+          expires_at: expiresAt,
+        })
+        .select('photo_id')
+        .single());
     }
 
     if (insertError) {

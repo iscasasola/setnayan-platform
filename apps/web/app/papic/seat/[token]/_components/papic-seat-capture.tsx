@@ -44,6 +44,11 @@ import {
   clipVideoBitsPerSecond,
   recordUploadSample,
 } from '@/lib/papic-adaptive-quality';
+import {
+  compressVideoForWeb,
+  canCompressVideo,
+  WEB_COPY_MIN_BYTES,
+} from '@/lib/video-compress';
 
 // Papic · paparazzo capture (client)
 //
@@ -513,10 +518,45 @@ export function PapicSeatCapture({
             posterRef = undefined; // poster is best-effort; clip still lands
           }
         }
+        // CLIP WEB-COPY (Papic storage PR-1): a ~0.5 MB H.264 derivative uploaded
+        // to its OWN R2 key (/api/upload UUID-prefixes every key, so it is
+        // provably distinct from the raw + the .jpg poster) and recorded inline
+        // via recordSeatCapture. The RAW `mainRef` is already in R2 above, so this
+        // never risks the raw — a failed/unsupported transcode just omits the web
+        // copy (column stays NULL, raw stays the only playable copy). ffmpeg.wasm
+        // encodes in its own worker, so the camera/shutter stay responsive; only
+        // this serial drain worker waits (new shots keep enqueuing instantly).
+        let clipWebRef: string | undefined;
+        let clipWebBytes: number | undefined;
+        if (shot.kind === 'clip' && shot.blob && canCompressVideo()) {
+          try {
+            const src = new File([shot.blob], `papic-web-${Date.now()}.mp4`, {
+              type: 'video/mp4',
+            });
+            const web = await compressVideoForWeb(src, { profile: 'web480' });
+            // Reference-equality: compressVideoForWeb returns the INPUT unchanged
+            // on skip/failure (or when not smaller) → nothing worth storing.
+            if (web !== src && web.size > WEB_COPY_MIN_BYTES && web.size < shot.blob.size) {
+              clipWebRef = await uploadBlob(web, 'video/mp4', 'mp4');
+              clipWebBytes = web.size;
+            }
+          } catch {
+            clipWebRef = undefined; // web copy is best-effort; clip still lands
+            clipWebBytes = undefined;
+          }
+        }
         const result =
           shot.kind === 'photo'
             ? await recordSeatCapture(token, mainRef, 'photo')
-            : await recordSeatCapture(token, mainRef, 'clip', posterRef, shot.durationMs);
+            : await recordSeatCapture(
+                token,
+                mainRef,
+                'clip',
+                posterRef,
+                shot.durationMs,
+                clipWebRef,
+                clipWebBytes,
+              );
 
         if (!result.ok) {
           if (isCapCode(result.error)) {

@@ -29,6 +29,11 @@ import { PapicChallengePanel } from './papic-challenge-panel';
 import { enqueuePapicGuestCapture } from '@/lib/offline/service-handlers/papic-drain';
 import { triggerSyncNow } from '@/lib/offline/sync-daemon';
 import {
+  compressVideoForWeb,
+  canCompressVideo,
+  WEB_COPY_MIN_BYTES,
+} from '@/lib/video-compress';
+import {
   getPapicQualityTier,
   photoJpegQuality,
   clipVideoBitsPerSecond,
@@ -500,6 +505,34 @@ export function PapicGuestCapture({
     return new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
   }, [videoRef]);
 
+  // CLIP WEB-COPY (Papic storage PR-1) — a BACKGROUND follow-up, fired only after
+  // the raw clip has ALREADY recorded (we have its capture_id). It transcodes a
+  // ~0.5 MB H.264 web copy off the main thread (ffmpeg.wasm runs in its own
+  // worker) and POSTs it back as `mode=web_copy` to update clip_web_r2_key by
+  // capture_id. Deliberately NOT awaited by the capture path: it must NEVER block
+  // the raw upload/record or the next capture. Best-effort end-to-end — on
+  // unsupported / transcode-skip / any failure it just returns, the column stays
+  // NULL, and the raw remains the only playable copy (delivery is never gated on
+  // it). The heavy ffmpeg core is lazy-loaded inside compressVideoForWeb, so this
+  // import costs nothing until a clip actually records.
+  const uploadClipWebCopy = useCallback(async (clip: Blob, captureId: string) => {
+    try {
+      if (!canCompressVideo()) return;
+      const src = new File([clip], `papic-web-${Date.now()}.mp4`, { type: 'video/mp4' });
+      const web = await compressVideoForWeb(src, { profile: 'web480' });
+      // Reference-equality: compressVideoForWeb returns the INPUT unchanged on
+      // skip/failure (or when the copy wasn't smaller) → nothing worth storing.
+      if (web === src || web.size <= WEB_COPY_MIN_BYTES || web.size >= clip.size) return;
+      const form = new FormData();
+      form.append('mode', 'web_copy');
+      form.append('capture_id', captureId);
+      form.append('clip_web', web, `papic-${Date.now()}-web.mp4`);
+      await fetch('/api/papic/guest-capture', { method: 'POST', body: form });
+    } catch {
+      // best-effort — the raw stays the playable copy
+    }
+  }, []);
+
   const uploadClip = useCallback(
     async (clip: Blob, durationMs: number) => {
       setBusy(true);
@@ -572,6 +605,9 @@ export function PapicGuestCapture({
         );
         // Clips skip the Flash prompt (the moment's already captured as video).
         if (json.captureId) onSavedCapture(json.captureId, false);
+        // Kick the web-copy transcode in the BACKGROUND (not awaited) — the raw
+        // is already recorded, so this never blocks the capture path.
+        if (json.captureId) void uploadClipWebCopy(clip, json.captureId);
       } catch {
         // Infra failure — persist so the clip uploads on reconnect.
         const queued = await enqueuePapicGuestCapture({
@@ -595,7 +631,7 @@ export function PapicGuestCapture({
         setBusy(false);
       }
     },
-    [sharePublicly, onSavedCapture, eventId],
+    [sharePublicly, onSavedCapture, eventId, uploadClipWebCopy],
   );
 
   const stopRecording = useCallback(() => {

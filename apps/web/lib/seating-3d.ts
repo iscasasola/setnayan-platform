@@ -1194,6 +1194,14 @@ export type BoothVendor = {
    *  is publicly visible) but must not invite a booking it can't take.
    *  Optional (older payloads → falsy → the conservative "view" wording). */
   bookable?: boolean;
+  /** Whether the vendor holds an ACTIVE paid 3D Booth add-on entitlement
+   *  (`isVendor3dBoothActive(vendor_profiles.booth_addon_expires_at)`,
+   *  server-resolved). Owner-locked 2026-07-22: a booth brands (logo + poster)
+   *  ONLY when the vendor is a brandable tier AND has this add-on live — see
+   *  {@link boothIsBranded}. Absent/false → the generic (unbranded) booth, which
+   *  is exactly the pre-add-on behaviour. Optional so an older cached scene
+   *  payload still parses (→ falsy → generic booth). */
+  boothAddonActive?: boolean;
 };
 
 /** One structured "what you get" line on the booth vendor card — a menu dish,
@@ -1203,10 +1211,28 @@ export type BoothVendor = {
 export type BoothCardItem = { label: string; worthPhp?: number | null };
 
 /** Booth branding is a PRO / ENTERPRISE perk (owner-locked 2026-07-04): those
- *  tiers texture their logo onto the 3D booth; free / verified / solo stay
- *  generic. One gate, shared by every 3D surface's BoothMesh. */
+ *  tiers CAN texture their logo onto the 3D booth; free / verified / solo stay
+ *  generic. Tier-only predicate — the paid 3D Booth add-on entitlement is
+ *  layered on top by {@link boothIsBranded}. Still used directly by the vendor's
+ *  OWN booth showcase/preview (/v/[slug]/booth) — a Pro vendor previews the perk
+ *  before buying the add-on — and by the shared gate below. */
 export function boothCanBrand(tier: string | null | undefined): boolean {
   return tier === 'pro' || tier === 'enterprise';
+}
+
+/** THE single booth-branding decision boundary for a couple's rendered 3D Plan
+ *  (owner-locked 2026-07-22): a booth brands (logo backdrop + per-event poster)
+ *  ONLY when the vendor is a brandable tier (boothCanBrand) AND holds an ACTIVE
+ *  paid 3D Booth add-on (`vendor.boothAddonActive`, server-resolved from
+ *  `isVendor3dBoothActive(booth_addon_expires_at)`). A Pro/Enterprise vendor
+ *  WITHOUT the add-on falls back to the generic (unbranded) booth — exactly the
+ *  pre-add-on behaviour. Pure — every 3D BoothMesh call site reads this same
+ *  boolean, so the entitlement can never drift between the logo, the poster, and
+ *  the crowd-avoidance disc. Demo + the vendor's own showcase set
+ *  `boothAddonActive: true` (illustrative/preview surfaces, not a couple's real
+ *  published plan). */
+export function boothIsBranded(vendor: BoothVendor | null | undefined): boolean {
+  return !!vendor && boothCanBrand(vendor.tier) && vendor.boothAddonActive === true;
 }
 
 /** A placed vendor booth (percent canvas). `kind` mirrors event_floor_booths.booth_type. */

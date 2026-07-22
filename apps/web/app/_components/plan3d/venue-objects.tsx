@@ -35,7 +35,7 @@ import {
   rotateLocalRad,
   venueObjectDims,
   BOOTH_FOOTPRINT_M,
-  boothCanBrand,
+  boothIsBranded,
   type Lab3DPalette,
   type Lab3DSceneObject,
   type Lab3DBooth,
@@ -378,7 +378,7 @@ function boothSilhouette(kind: string, w: number, d: number, palette: Lab3DPalet
  *  framed board carrying the vendor's logo (loaded from the resolved,
  *  cross-origin presigned R2 display URL — hence setCrossOrigin below).
  *  Free / verified / solo booths never render this
- *  (gated by boothCanBrand at the call site). Manual TextureLoader (no Suspense
+ *  (gated by boothIsBranded at the call site). Manual TextureLoader (no Suspense
  *  boundary in these scenes); the plane keeps the logo's real aspect ratio so a
  *  wordmark isn't stretched, and drops silently if the image fails. */
 export function BoothSign({ url, w, palette }: { url: string; w: number; palette: Lab3DPalette }) {
@@ -558,11 +558,11 @@ export function BoothMesh({
   // the SAME yaw (rotateLocalRad) and the sign is spun to face the room.
   const facingY = useMemo(() => boothFacingY({ xPct: booth.xPct, yPct: booth.yPct }, room), [booth.xPct, booth.yPct, room]);
   const { w, d } = BOOTH_FOOTPRINT_M;
-  const branded = boothCanBrand(booth.vendor?.tier) && !!booth.vendor?.logoUrl;
+  const branded = boothIsBranded(booth.vendor) && !!booth.vendor?.logoUrl;
   // The per-event poster rides the SAME branding gate as the logo, but is
   // independent of it: a vendor may upload artwork without an account logo, or
   // vice versa, and each renders on its own.
-  const posterUrl = boothCanBrand(booth.vendor?.tier) ? booth.vendor?.posterUrl ?? null : null;
+  const posterUrl = boothIsBranded(booth.vendor) ? booth.vendor?.posterUrl ?? null : null;
   // Data-driven presence (owner directive 2026-07-16): a finalized vendor brands
   // the slot; an OPEN slot (no finalized vendor) defaults to Setnayan promotion.
   // A booked-but-unbrandable vendor (solo/verified) keeps the generic booth — it
@@ -631,7 +631,7 @@ export function BoothMesh({
  *
  *  Same texture path as BoothSign (manual TextureLoader, crossOrigin for the
  *  cross-origin R2 display URL, silent drop on failure) and the same
- *  boothCanBrand gate at the call site.
+ *  boothIsBranded gate at the call site.
  *
  *  Upload enforces 2:3 (lib/booth-poster), but the plane still fits to the
  *  texture's REAL aspect inside a fixed box — a legacy or hand-inserted ref can

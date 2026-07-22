@@ -138,6 +138,12 @@ export type VenueScene = {
       posterUrl?: string | null;
       slug?: string | null;
       bookable?: boolean;
+      // Paid 3D Booth add-on entitlement (owner 2026-07-22) — the page joins it
+      // in via fetchBooths (booth_addon_expires_at → isVendor3dBoothActive). The
+      // branded booth (logo + poster) renders only when this is true AND the
+      // tier is brandable (boothIsBranded). Absent → generic booth. `tier` rides
+      // the RPC payload structurally; boothAddonActive is threaded here.
+      boothAddonActive?: boolean;
     } | null;
   }[];
   /** Wayfinding signs (v2 payload). */

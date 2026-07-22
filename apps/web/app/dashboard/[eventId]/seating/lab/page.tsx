@@ -48,6 +48,7 @@ import {
 } from '@/lib/mood-board';
 import { sanitizeReceptionDesign } from '@/lib/reception-scene';
 import { SeatingLabLoader } from './_components/seating-lab-loader';
+import { Couple3dPlanUnlockNotice } from './_components/couple-3d-plan-unlock-notice';
 
 export const metadata = { title: 'Seating · 3D lab (prototype)' };
 
@@ -274,6 +275,9 @@ export default async function SeatingLabPage({ params }: Props) {
           tier: b.vendor.tier,
           slug: b.vendor.slug,
           bookable: b.vendor.bookable,
+          // Paid 3D Booth add-on entitlement (owner 2026-07-22) → gates branding
+          // in the couple's own lab, same boothIsBranded gate as the guest walk.
+          boothAddonActive: b.vendor.boothAddonActive,
         }
       : null,
   }));
@@ -344,6 +348,11 @@ export default async function SeatingLabPage({ params }: Props) {
 
   return (
     <section className="relative space-y-3">
+      {/* Couple-facing acknowledgement: "your 3D Plan upgrade was unlocked by
+          <vendor>" when a booked vendor with an active 3D Booth add-on unlocked
+          the discounted 3D Plan. Renders null when there's no vendor unlock. */}
+      <Couple3dPlanUnlockNotice eventId={eventId} />
+
       {/* The mirrored LIST | 2D | 3D segment now lives INSIDE the lab chrome,
           stacked above the Build/Play toggle (owner 2026-07-17 · chrome overlap
           fix) — no longer an overlay that crowds the Build panel. */}

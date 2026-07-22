@@ -35,6 +35,7 @@ import { getEditorialEligibility } from '@/lib/editorial-vendor-media';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { BoothPosterCard } from './_components/booth-poster-card';
 import { VendorChallengeSection } from './_components/vendor-challenge-section';
+import { Vendor3dPlanUnlockSection } from './_components/vendor-3d-plan-unlock-section';
 import { blockRelevance, deriveCallTime } from '@/lib/vendor-timeline';
 import { fetchBlockRosMeta, isBlockTaggedToVendor } from '@/lib/schedule-ros';
 import {
@@ -2153,6 +2154,14 @@ function OverviewTab(props: {
           on the flag + the vendor's Pro tier; renders nothing when off. */}
       {isBooked ? (
         <VendorChallengeSection eventId={eventId} vendorProfileId={vendorProfileId} />
+      ) : null}
+
+      {/* 3D Plan unlock (booked-only). A vendor with an ACTIVE 3D Booth add-on
+          unlocks the discounted ₱1,000 SEATING_3D for this couple; self-gates on
+          the add-on window (shows the honest "add the 3D Booth add-on" state when
+          inactive). */}
+      {isBooked ? (
+        <Vendor3dPlanUnlockSection eventId={eventId} vendorProfileId={vendorProfileId} />
       ) : null}
     </div>
   );

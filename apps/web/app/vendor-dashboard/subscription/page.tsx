@@ -18,6 +18,11 @@ import {
   fetchVendorAiAddonPricePhp,
   isVendorAiAddonActive,
 } from '@/lib/vendor-addon-pricing';
+import {
+  fetchVendor3dBoothState,
+  fetchVendor3dBoothPricePhp,
+  isVendor3dBoothActive,
+} from '@/lib/vendor-3d-booth-pricing';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { SubscriptionCycleToggle } from './_components/cycle-toggle';
 import {
@@ -25,6 +30,7 @@ import {
   type SubscriptionCardData,
 } from './_components/subscription-cards';
 import { AiAddonCard } from './_components/ai-addon-card';
+import { BoothAddonCard } from './_components/booth-addon-card';
 import { TokenWalletSection } from './_components/token-wallet-section';
 import type { TokenPack } from '@/app/vendor-dashboard/tokens/_components/buy-tokens-cta';
 
@@ -165,6 +171,18 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
     fetchVendorAiAddonPricePhp(supabase),
   ]);
   const aiAddonActive = isVendorAiAddonActive(aiAddonState.expiresAt);
+
+  // ── 3D Booth add-on state (owner 2026-07-22) ───────────────────────────────
+  // PRO+ (Pro / Enterprise / Custom) + verified only — booth branding is a
+  // Pro/Enterprise perk, so the add-on that turns it on is Pro+ too. Soft reads
+  // (try/catch inside) degrade to "not activated, trial available" on a
+  // pre-migration DB instead of blanking the page.
+  const isProTierForBooth = isTierAtLeast(currentTier, 'pro');
+  const [boothAddonState, boothAddonPricePhp] = await Promise.all([
+    fetchVendor3dBoothState(supabase, profile.vendor_profile_id),
+    fetchVendor3dBoothPricePhp(supabase),
+  ]);
+  const boothAddonActive = isVendor3dBoothActive(boothAddonState.expiresAt);
 
   // DB prices for the chosen cycle, keyed by sku_code.
   const [vendorCatalog, settings] = await Promise.all([
@@ -395,6 +413,18 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         expiresAt={aiAddonState.expiresAt}
         pricePhp={aiAddonPricePhp}
         assistantLive={vendorAutoReplyEnabled()}
+      />
+
+      {/* 3D Booth add-on — free first 28-day cycle, then ₱1,500/28d, on
+          Pro/Enterprise/Custom + verified shops (owner 2026-07-22). Turns on the
+          vendor's branded booth inside their couples' published 3D Plans. */}
+      <BoothAddonCard
+        eligible={isProTierForBooth && isVerifiedVendor}
+        paidButUnverified={isProTierForBooth && !isVerifiedVendor}
+        trialAvailable={boothAddonState.trialUsedAt == null}
+        active={boothAddonActive}
+        expiresAt={boothAddonState.expiresAt}
+        pricePhp={boothAddonPricePhp}
       />
 
       {/* Deep Search — a metered ₱500/search add-on that researches the vendor's

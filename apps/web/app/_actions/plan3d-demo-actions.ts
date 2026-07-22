@@ -205,6 +205,11 @@ async function applyDemoBoothRotation(
           tier: v.tier,
           slug: v.slug,
           bookable: v.bookable,
+          // Demo is an ILLUSTRATIVE showcase, not a real couple's published
+          // plan — brand on tier alone (boothIsBranded still needs this true),
+          // so the homepage demo renders byte-identical to before the add-on
+          // gate. NOT a real entitlement check.
+          boothAddonActive: true,
         },
       };
     });
@@ -364,6 +369,9 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
           tier: b.vendor.tier,
           slug: b.vendor.slug,
           bookable: b.vendor.bookable,
+          // Demo showcase (illustrative, not a real published plan): brand on
+          // tier alone so the sample event renders as before the add-on gate.
+          boothAddonActive: true,
         }
       : null,
   }));

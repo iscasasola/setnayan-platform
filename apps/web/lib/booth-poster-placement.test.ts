@@ -127,7 +127,9 @@ function boothWithPoster(posterUrl: string | null) {
     yPct: 50,
     // `boothTemplateFor` resolves off vendor.category (catering -> BUFFET,
     // the widest chassis), NOT off `kind` — which is a booth_type.
-    vendor: { tier: 'enterprise', category: 'catering', posterUrl, logoUrl: null },
+    // boothAddonActive:true = the paid 3D Booth add-on is live, so the branded
+    // poster (and its avoidance disc) render — boothIsBranded's second factor.
+    vendor: { tier: 'enterprise', category: 'catering', posterUrl, logoUrl: null, boothAddonActive: true },
   } as unknown as Parameters<typeof templateBoothObstacles>[0][number];
 }
 
@@ -213,7 +215,9 @@ function genericBoothWithPoster(posterUrl: string | null) {
     kind: 'registration_desk',
     xPct: 50,
     yPct: 50,
-    vendor: { tier: 'enterprise', posterUrl, logoUrl: null },
+    // boothAddonActive:true = the paid 3D Booth add-on is live (boothIsBranded's
+    // second factor), so the branded poster + its avoidance disc render.
+    vendor: { tier: 'enterprise', posterUrl, logoUrl: null, boothAddonActive: true },
   } as unknown as Parameters<typeof templateBoothObstacles>[0][number];
 }
 

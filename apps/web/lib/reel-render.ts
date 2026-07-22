@@ -272,47 +272,118 @@ export function splitFrames(total: number, parts: number): number[] {
   return Array.from({ length: parts }, (_, i) => base + (i < rem ? 1 : 0));
 }
 
-/** Hard cap on any single CLIP slot, in seconds (CLAUDE.md hard constraint). */
-const CLIP_SLOT_MAX_SEC = 5;
+/**
+ * Hard ceiling on any single CLIP slot, in seconds.
+ *
+ * Raised 5 → 10 (2026-07-22) after clip capture moved to a 10s/7-point currency
+ * (#3501): a guest can now record up to 10s, so the reel must be able to PLAY up
+ * to 10s of that footage at 1×. This is a per-slot ceiling, NOT the reel budget
+ * — the reel is still 1–30s total (see {@link buildBeatSchedule}). 10 clips ×
+ * 10s would be 100s, far past the 30s cap, so the scheduler budgets the WHOLE
+ * reel to `totalSec` and each clip gets `min(this ceiling, its footage length,
+ * its fair share of the budget)`. Many clips → each gets a smaller share;
+ * few clips → each can stretch toward 10s.
+ */
+const CLIP_SLOT_MAX_SEC = 10;
 
 /**
- * Per-source duration schedule (SECONDS), beat-aware.
+ * Ceiling (seconds) for ONE render source's slot, used by both render paths to
+ * feed `buildBeatSchedule({ slotMaxSec })`:
+ *   • photo → ∞ (a still holds any length),
+ *   • clip  → min({@link CLIP_SLOT_MAX_SEC}, its own footage length when known),
+ *     so a short clip never wins a slot it can't fill at 1× (which would leave a
+ *     frozen tail on both paths). Footage length unknown (null) → the flat 10s
+ *     ceiling; the render loop's own duration clamp bounds playback either way.
+ */
+function clipSlotCeilingSec(source: RenderClip): number {
+  if ((source.kind ?? 'clip') === 'photo') return Infinity;
+  const dur = source.durationSec;
+  return dur && dur > 0 ? Math.min(CLIP_SLOT_MAX_SEC, dur) : CLIP_SLOT_MAX_SEC;
+}
+
+/**
+ * Per-source duration schedule (SECONDS), beat-aware and total-budgeted.
  *
  * Walks the track's beat onsets with a `beatsPerCut` stride and assigns one
  * source per cut, so each source's on-screen span is a run of beats — cuts land
- * on the rhythm. A clip source is hard-capped at {@link CLIP_SLOT_MAX_SEC}; a
- * photo can hold a longer beat gap (a still doesn't run out of footage). The
- * returned spans always sum to `totalSec` (the last span absorbs any remainder)
- * so the reel is exactly the requested length.
+ * on the rhythm. Each source's span is clamped to its CEILING: a clip is capped
+ * at {@link CLIP_SLOT_MAX_SEC} (and, when the caller passes `slotMaxSec`, at its
+ * own footage length so a short clip never wins a slot it can't fill at 1×); a
+ * photo is uncapped (a still holds any length). The returned spans sum to
+ * `totalSec` whenever the reel has at least one uncapped (photo) source to
+ * absorb the remainder; an all-clips reel with too little footage ends a touch
+ * short rather than fast-motioning to fill the target.
  *
- * Falls back to an EVEN split (every source gets `totalSec / n`, clips still
- * capped) when there's no usable beat grid — so a NULL `beat_grid` reproduces
- * the legacy behavior exactly.
+ * BUDGET, not just a cap: because the spans are derived from `totalSec` and then
+ * capped, the SUM never exceeds the reel's chosen length. Bumping the clip
+ * ceiling to 10s therefore cannot blow past 30s — with many clips each still
+ * only gets `totalSec / n` (their fair share); the 10s ceiling only bites when
+ * few clips compete for a long reel.
+ *
+ * Falls back to an EVEN split (every source gets `totalSec / n`, then capped)
+ * when there's no usable beat grid — so a NULL `beat_grid` reproduces the legacy
+ * behavior exactly.
  *
  * Pure + exported so the scheduler is unit-testable in Node (no DOM/canvas).
  *
- * @param totalSec  Target reel length, seconds.
+ * @param totalSec  Target reel length, seconds (the whole budget; 1–30).
  * @param kinds     Per-source media kind, in order ('clip' | 'photo').
- * @param opts      `beatGrid` (nullable) + `beatsPerCut` (default 1).
+ * @param opts      `beatGrid` (nullable) + `beatsPerCut` (default 1) +
+ *                  `slotMaxSec` (per-source ceiling, seconds — clips should pass
+ *                  `min(CLIP_SLOT_MAX_SEC, footageSec)`) + `minSlotSec` (per-slot
+ *                  FLOOR; default 0 — dormant, no template ships one, see note).
  */
 export function buildBeatSchedule(
   totalSec: number,
   kinds: ReadonlyArray<'clip' | 'photo'>,
-  opts: { beatGrid?: BeatGrid | null; beatsPerCut?: number } = {},
+  opts: {
+    beatGrid?: BeatGrid | null;
+    beatsPerCut?: number;
+    /**
+     * Per-source slot CEILING (seconds), in `kinds` order. Lets a caller cap a
+     * clip slot at the clip's own footage length so budget isn't wasted on a
+     * slot it can't fill at 1×. Omit an entry (or pass a non-finite value) to
+     * use the default ceiling: {@link CLIP_SLOT_MAX_SEC} for a clip, ∞ for a
+     * photo (a still holds any length).
+     */
+    slotMaxSec?: ReadonlyArray<number>;
+    /**
+     * Per-slot FLOOR (seconds; default 0 = no floor). When a template declares a
+     * minimum slot duration, pass it here: the scheduler raises each slot to the
+     * floor, borrowing from larger slots, and DROPS trailing slots that no
+     * longer fit the budget (`floor(totalSec / minSlotSec)` slots max).
+     *
+     * NOTE (2026-07-22): NO template in the corpus declares a minimum-slot
+     * duration today — there is no such field on `RenderTemplate`, `Stories
+     * Template`, or the external `/template_library/*.json` manifests. This
+     * parameter makes the pure scheduler READY to honor a floor without faking a
+     * manifest value; wiring a real per-template floor needs an owner decision on
+     * the schema field + an under-run policy (drop-slot / swap-template / error).
+     */
+    minSlotSec?: number;
+  } = {},
 ): number[] {
   const n = kinds.length;
   if (n === 0 || totalSec <= 0) return [];
 
-  const cap = (kind: 'clip' | 'photo', span: number) =>
-    kind === 'clip' ? Math.min(span, CLIP_SLOT_MAX_SEC) : span;
+  // Per-source ceiling: explicit `slotMaxSec` wins; else clip → CLIP_SLOT_MAX_SEC,
+  // photo → ∞ (uncapped).
+  const ceilAt = (i: number): number => {
+    const provided = opts.slotMaxSec?.[i];
+    if (provided != null && Number.isFinite(provided) && provided >= 0) return provided;
+    return kinds[i] === 'clip' ? CLIP_SLOT_MAX_SEC : Infinity;
+  };
+  const cap = (i: number, span: number) => Math.min(span, ceilAt(i));
+  const finish = (spans: number[]): number[] =>
+    applyMinFloor(normalizeToTotal(spans, totalSec, ceilAt), totalSec, opts.minSlotSec ?? 0);
 
   const evenFallback = (): number[] => {
     const each = totalSec / n;
-    const out = kinds.map((k) => cap(k, each));
-    // Make the spans cover exactly [0, totalSec]: stretch the LAST span to
-    // absorb the rounding/cap remainder (a photo can grow; a capped clip can't,
-    // so a residual tail just means the previous frame holds — acceptable).
-    return normalizeToTotal(out, totalSec, kinds);
+    const out = kinds.map((_, i) => cap(i, each));
+    // Make the spans cover exactly [0, totalSec]: stretch the LAST uncapped span
+    // to absorb the rounding/cap remainder (a photo can grow; a capped clip
+    // can't, so a residual tail just means the previous frame holds).
+    return finish(out);
   };
 
   const grid = opts.beatGrid;
@@ -336,7 +407,7 @@ export function buildBeatSchedule(
     const isLast = i === n - 1;
     if (isLast) {
       // Last source fills to the end so the reel is exactly totalSec.
-      spans.push(cap(kinds[i]!, totalSec - cursor));
+      spans.push(cap(i, totalSec - cursor));
       break;
     }
     // Next cut = `stride` beats ahead of the current beat onset.
@@ -346,7 +417,7 @@ export function buildBeatSchedule(
     // forward by at least one beat's worth, else evenly.
     if (cutAt <= cursor + 1e-3) cutAt = cursor + totalSec / n;
     cutAt = Math.min(cutAt, totalSec);
-    spans.push(cap(kinds[i]!, cutAt - cursor));
+    spans.push(cap(i, cutAt - cursor));
     cursor = cutAt;
     beatIdx = nextIdx;
     if (cursor >= totalSec - 1e-3) {
@@ -355,30 +426,32 @@ export function buildBeatSchedule(
       if (remaining > 0) {
         const tail = Math.max(0, totalSec - cursor);
         const each = remaining > 0 ? tail / remaining : 0;
-        for (let j = i + 1; j < n; j++) spans.push(cap(kinds[j]!, each));
+        for (let j = i + 1; j < n; j++) spans.push(cap(j, each));
       }
       break;
     }
   }
-  return normalizeToTotal(spans, totalSec, kinds);
+  return finish(spans);
 }
 
 /**
  * Stretch/scale a span list so it sums to `totalSec`, WITHOUT ever pushing a
- * clip span past the {@link CLIP_SLOT_MAX_SEC} hard cap.
+ * span past its own ceiling ({@link ceilAt}).
  *
- * Positive residual is poured first onto PHOTO spans (uncapped — a still holds
- * for any length), then onto clip spans only up to their 5s cap. If no
- * uncapped headroom remains, the residual is intentionally left UNFILLED: the
- * 5-second clip cap is a hard product constraint that outranks hitting the
- * exact target duration, so an all-clips reel with too little footage just ends
- * a touch short rather than violating the cap. Negative residual (cap math
- * overshot) trims the longest span. Keeps every span ≥ 0.
+ * Positive residual is poured first onto an UNCAPPED (photo, ∞ ceiling) span,
+ * then onto bounded (clip) spans only up to each one's headroom under its
+ * ceiling. If no headroom remains, the residual is intentionally left UNFILLED:
+ * a clip slot's footage/10s ceiling outranks hitting the exact target duration,
+ * so an all-clips reel with too little footage just ends a touch short rather
+ * than fast-motioning. Negative residual (cap math overshot) trims the longest
+ * span. Keeps every span ≥ 0.
+ *
+ * @param ceilAt Per-index ceiling in seconds (∞ = uncapped, e.g. a photo).
  */
 function normalizeToTotal(
   spans: number[],
   totalSec: number,
-  kinds: ReadonlyArray<'clip' | 'photo'>,
+  ceilAt: (i: number) => number,
 ): number[] {
   const out = spans.map((s) => Math.max(0, s));
   const sum = out.reduce((a, b) => a + b, 0);
@@ -386,29 +459,72 @@ function normalizeToTotal(
   if (Math.abs(residual) < 1e-3) return out;
 
   if (residual > 0) {
-    // Pass 1 — photo spans absorb residual freely (uncapped).
+    // Pass 1 — the first uncapped (∞-ceiling / photo) span absorbs residual
+    // freely, so a reel with any photo lands exactly on totalSec.
     for (let i = 0; i < out.length && residual > 1e-6; i++) {
-      if (kinds[i] === 'photo') {
+      if (!Number.isFinite(ceilAt(i))) {
         out[i] = (out[i] ?? 0) + residual;
         residual = 0;
         break;
       }
     }
-    // Pass 2 — clip spans take residual only up to the 5s cap.
+    // Pass 2 — bounded (clip) spans take residual only up to their headroom.
     for (let i = 0; i < out.length && residual > 1e-6; i++) {
-      if (kinds[i] === 'clip') {
-        const headroom = Math.max(0, CLIP_SLOT_MAX_SEC - (out[i] ?? 0));
-        const give = Math.min(headroom, residual);
-        out[i] = (out[i] ?? 0) + give;
-        residual -= give;
-      }
+      const headroom = Math.max(0, ceilAt(i) - (out[i] ?? 0));
+      if (!Number.isFinite(headroom)) continue; // already handled in pass 1
+      const give = Math.min(headroom, residual);
+      out[i] = (out[i] ?? 0) + give;
+      residual -= give;
     }
-    // Any remaining residual is dropped — the 5s cap wins over exact duration.
+    // Any remaining residual is dropped — the per-slot ceiling wins over exact
+    // duration.
   } else {
     // Over-allocated (cap math overshot) — trim the longest span down.
     let longest = 0;
     for (let i = 1; i < out.length; i++) if ((out[i] ?? 0) > (out[longest] ?? 0)) longest = i;
     out[longest] = Math.max(0, (out[longest] ?? 0) + residual);
+  }
+  return out;
+}
+
+/**
+ * Honor a per-slot minimum (FLOOR), seconds. No-op when `minSec <= 0` (the
+ * default — no template ships a floor today, see {@link buildBeatSchedule}).
+ *
+ * Guarantees every non-zero slot is ≥ `minSec`: sub-floor slots are raised by
+ * borrowing from the largest slots (never taking a donor below the floor). When
+ * more slots exist than the budget can seat at the floor
+ * (`n · minSec > totalSec`), the TRAILING slots are dropped to 0 — the render
+ * loop skips a 0-length source. Best-effort: it never grows the total beyond
+ * `totalSec` by more than borrow rounding, and may end the reel a touch short
+ * when floors force it. Deterministic; keeps every span ≥ 0.
+ */
+function applyMinFloor(spans: number[], totalSec: number, minSec: number): number[] {
+  if (!(minSec > 0)) return spans;
+  const out = spans.map((s) => Math.max(0, s));
+  const maxSlots = Math.max(0, Math.floor(totalSec / minSec + 1e-9));
+  const active = out.map((s, i) => (s > 1e-6 ? i : -1)).filter((i) => i >= 0);
+  // Drop trailing slots that can't be seated at the floor.
+  while (active.length > maxSlots) out[active.pop()!] = 0;
+  // Raise any surviving sub-floor slot to the floor, borrowing from the largest.
+  for (const i of active) {
+    if ((out[i] ?? 0) >= minSec - 1e-9) continue;
+    let need = minSec - (out[i] ?? 0);
+    const donors = active
+      .filter((d) => d !== i)
+      .sort((a, b) => (out[b] ?? 0) - (out[a] ?? 0));
+    for (const d of donors) {
+      if (need <= 1e-9) break;
+      const avail = (out[d] ?? 0) - minSec;
+      if (avail <= 1e-9) continue;
+      const take = Math.min(avail, need);
+      out[d] = (out[d] ?? 0) - take;
+      out[i] = (out[i] ?? 0) + take;
+      need -= take;
+    }
+    // No donor headroom left (all at the floor) — pull the remainder up; the
+    // reel total dips slightly below target so the floor still holds.
+    if (need > 1e-9) out[i] = (out[i] ?? 0) + need;
   }
   return out;
 }
@@ -709,10 +825,14 @@ async function renderWithWebCodecs(
 
   const totalFrames = Math.max(1, Math.round(durationSec * FPS));
   const kinds = clips.map((c) => c.kind ?? 'clip');
-  // Beat-aware frame budget when a grid is present; even split otherwise.
+  const slotMaxSec = clips.map(clipSlotCeilingSec);
+  // Beat-aware frame budget when a grid is present; even split otherwise. Each
+  // clip slot is ceilinged at min(10s, its own footage) so budget isn't spent on
+  // a slot it can't fill at 1×.
   const spans = buildBeatSchedule(durationSec, kinds, {
     beatGrid: opts.beatGrid,
     beatsPerCut: opts.beatsPerCut,
+    slotMaxSec,
   });
   const perClip = spansToUnits(spans, totalFrames);
   const frameDurUs = Math.round(1_000_000 / FPS);
@@ -757,10 +877,17 @@ async function renderWithWebCodecs(
       const video = await loadVideo(source.url);
       try {
         const span = effectiveDuration(video, source.durationSec);
+        // Play the clip at 1× REAL-TIME: output frame f (shown at t = f/FPS into
+        // the slot) samples source time f/FPS, so a 10s clip in a 10s slot runs
+        // 0→10s at natural speed — no fast-motion. When the slot is shorter than
+        // the footage (many clips share the budget) it plays the first `n/FPS`
+        // seconds at 1× (graceful early cut, not a speed-up); when the slot
+        // outruns the footage, the last frame holds via the `maxT` clamp.
+        const maxT = Math.max(0, span - 1e-3);
         for (let f = 0; f < n; f++) {
           if (encoderError) throw encoderError;
           if (signal?.aborted) throw new DOMException('Render cancelled', 'AbortError');
-          const localT = n <= 1 ? 0 : (f / n) * Math.max(0.05, span - 0.001);
+          const localT = Math.min(f / FPS, maxT);
           await seekTo(video, localT);
           drawCover(ctx, video, template);
           drawOverlay(ctx, template);
@@ -984,10 +1111,14 @@ async function renderWithMediaRecorder(opts: RenderOptions): Promise<RenderResul
   audio?.start();
   const totalMs = Math.max(500, durationSec * 1000);
   const kinds = clips.map((c) => c.kind ?? 'clip');
+  const slotMaxSec = clips.map(clipSlotCeilingSec);
   // Beat-aware wall-clock budget when a grid is present; even split otherwise.
+  // Each clip slot is ceilinged at min(10s, its own footage); the <video> plays
+  // at 1× for the slot's `ms`, so a 10s clip in a 10s slot plays end-to-end.
   const spans = buildBeatSchedule(durationSec, kinds, {
     beatGrid: opts.beatGrid,
     beatsPerCut: opts.beatsPerCut,
+    slotMaxSec,
   });
   const perClipMs = spansToUnits(spans, Math.round(totalMs));
   const downbeats = opts.beatGrid?.downbeats ?? [];

@@ -27,6 +27,18 @@ export type PapicMissionRow = {
   created_at: string;
 };
 
+// The guest-facing mission view (from the papic_guest_missions RPC): the live
+// mission fields + whether THIS guest has completed it.
+export type GuestMissionRow = {
+  mission_id: string;
+  mission_type: PapicMissionType;
+  prompt: string;
+  vendor_id: string | null;
+  target_guest_id: string | null;
+  target_role: string | null;
+  completed: boolean;
+};
+
 export const MISSION_TYPE_LABELS: Record<PapicMissionType, string> = {
   prompt: 'Prompt',
   roster: 'Roster mission',

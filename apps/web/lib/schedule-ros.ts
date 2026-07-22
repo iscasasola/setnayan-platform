@@ -30,12 +30,11 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-/** UI gate for the new P2 surfaces (responsible-party editor, audience lens,
- *  bulk retime, template picker). Default OFF — absent/other = today's
- *  behavior exactly. Owner flips after pushing migration 20270825042743. */
-export function isScheduleRosP2Enabled(): boolean {
-  return process.env.NEXT_PUBLIC_SCHEDULE_ROS_P2_ENABLED === 'true';
-}
+// P2 activation moved to the admin Data Privacy control board
+// (`coordinator_run_of_show`). This module is pulled into a client bundle
+// (via coordinator-broadcasts.ts → the day-of-mode client cards), so it must
+// NOT read the server-only control — the server caller (schedule/page.tsx)
+// reads `isDataPrivacyControlActive('coordinator_run_of_show')` directly.
 
 // ───────────────────────── responsible-party meta ─────────────────────────
 

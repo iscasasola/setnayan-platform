@@ -29,7 +29,9 @@ export type PrivacyControlKey =
   | 'dependent_minor_profiles'
   | 'home_activity_signals'
   | 'coordinator_consent_money'
-  | 'coordinator_prep_release';
+  | 'coordinator_prep_release'
+  | 'coordinator_run_of_show'
+  | 'coordinator_day_of_broadcast';
 
 export type PrivacyControlDef = {
   key: PrivacyControlKey;
@@ -130,6 +132,24 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
     category: 'Coordinator private working set',
     riskNote:
       'Widens the coordinator’s private working surface over the couple’s planning data (schedule). Same consent basis as the coordinator consent gate.',
+  },
+  {
+    key: 'coordinator_run_of_show',
+    title: 'Coordinator filtered run-of-show (P2)',
+    description:
+      'Coordinator schedule chrome: per-vendor / per-couple / per-guest filtered views over the one master run-of-show, responsible-party tags, reusable templates, and bulk retime.',
+    category: 'Coordinator activation — not privacy-sensitive',
+    riskNote:
+      'No RA 10173 exposure — an activation switch, not a privacy control. Filters the already-guest-visible schedule; adds no new data collection or sharing.',
+  },
+  {
+    key: 'coordinator_day_of_broadcast',
+    title: 'Coordinator day-of broadcast + call-times (P3)',
+    description:
+      'The day-of broadcast card (announcements to event members) and the optional per-vendor email call-times derived from the run-of-show.',
+    category: 'Coordinator activation — not privacy-sensitive',
+    riskNote:
+      'No RA 10173 exposure — an activation switch. Emails go to booked vendors’ existing contact addresses; no new PII collection.',
   },
 ];
 

@@ -8,11 +8,13 @@ import { fetchBlockRosMeta } from '@/lib/schedule-ros';
 import {
   buildCallTimeEmail,
   deriveVendorCallTimes,
-  isCoordinatorP3Enabled,
   validateBroadcastBody,
   type CallTimeVendor,
 } from '@/lib/coordinator-broadcasts';
-import { resolveBroadcastAuthority } from '@/lib/coordinator-broadcasts-server';
+import {
+  isCoordinatorP3Enabled,
+  resolveBroadcastAuthority,
+} from '@/lib/coordinator-broadcasts-server';
 
 /**
  * Coordinator P3 server actions — day-of broadcast + email call-times
@@ -38,7 +40,7 @@ export type SendBroadcastResult =
 export async function sendCoordinatorBroadcast(
   formData: FormData,
 ): Promise<SendBroadcastResult> {
-  if (!isCoordinatorP3Enabled()) {
+  if (!(await isCoordinatorP3Enabled())) {
     return { ok: false, error: 'Broadcasts are not enabled yet.' };
   }
   const eventId = formData.get('event_id');
@@ -89,7 +91,7 @@ export type EmailCallTimesResult =
 export async function emailVendorCallTimes(
   formData: FormData,
 ): Promise<EmailCallTimesResult> {
-  if (!isCoordinatorP3Enabled()) return { ok: false, reason: 'not_enabled' };
+  if (!(await isCoordinatorP3Enabled())) return { ok: false, reason: 'not_enabled' };
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     return { ok: false, reason: 'error' };

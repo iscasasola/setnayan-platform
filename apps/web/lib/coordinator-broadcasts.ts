@@ -8,9 +8,9 @@
  * app/dashboard/[eventId]/_actions/day-of-broadcast.ts (writes + sends).
  *
  * This module owns:
- *   1. The UI flag (`isCoordinatorP3Enabled`) — default OFF; absent/other =
- *      today's behavior exactly (the broadcast card keeps rendering its
- *      pre-P3 stub). Owner flips after pushing migration 20270825364600.
+ *   1. (The activation gate moved to the admin Data Privacy control board —
+ *      `coordinator_day_of_broadcast`, read server-side in
+ *      coordinator-broadcasts-server.ts; this pure module can't read it.)
  *   2. Broadcast body validation (`validateBroadcastBody`) — mirrors the
  *      table's CHECK (1..500 chars) so bad input fails in-process, not in RLS.
  *   3. Call-time derivation (`deriveVendorCallTimes`) — per-vendor call time
@@ -23,12 +23,10 @@
 
 import type { RosMetaMap } from '@/lib/schedule-ros';
 
-/** UI gate for the P3 surfaces (broadcast composer + feed, call-time email
- *  button). Default OFF — absent/other = today's behavior exactly. Owner
- *  flips after pushing migration 20270825364600 (coordinator_broadcasts). */
-export function isCoordinatorP3Enabled(): boolean {
-  return process.env.NEXT_PUBLIC_COORDINATOR_P3_ENABLED === 'true';
-}
+// P3 activation moved to the admin Data Privacy control board
+// (`coordinator_day_of_broadcast`). This is a PURE core imported into client
+// bundles (the day-of-mode cards), so it must NOT read the server-only control
+// — isCoordinatorP3Enabled now lives in coordinator-broadcasts-server.ts.
 
 // ───────────────────────────── broadcasts ─────────────────────────────
 

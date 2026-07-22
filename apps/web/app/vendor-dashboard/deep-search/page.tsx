@@ -1,6 +1,6 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -131,24 +131,12 @@ export default async function VendorDeepSearchPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
-      <Link
-        href="/vendor-dashboard/subscription"
-        className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
-      >
-        <ArrowLeft className="h-4 w-4" strokeWidth={2} aria-hidden />
-        Plan &amp; tokens
-      </Link>
-
-      <header className="mt-4">
-        <p className="sn-eye">Deep Search</p>
-        <h1 className="sn-h1 mt-1">Learn what the web knows about your business.</h1>
-        <p className="mt-2 max-w-prose text-sm text-ink/65">
-          We research your business across your website, public social pages,
-          directories, and review sites, then hand you a &ldquo;what we
-          learned&rdquo; review — your services, the prices you have out there, and
-          where you show up — to copy into your Shop profile.
-        </p>
-      </header>
+      <PageMasthead
+        title="Learn what the web knows about your business."
+        back="/vendor-dashboard/subscription"
+        backLabel="Plan & tokens"
+        lede="We research your business across your website, public social pages, directories, and review sites, then hand you a “what we learned” review — your services, the prices you have out there, and where you show up — to copy into your Shop profile."
+      />
 
       <section className="sn-tile mt-6 p-6">
         <div className="flex items-start gap-3">

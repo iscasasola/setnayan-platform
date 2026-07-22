@@ -40,6 +40,7 @@ import { setPapicStorageDrive, setPapicStorageR2 } from './actions';
 import { resolveStoredWindow, formatWindowSummary } from '@/lib/papic-window';
 import PapicWindowPicker from './papic-window-picker';
 import StylePicker from './style-picker';
+import { VendorChallengesApproval } from './vendor-challenges-approval';
 import QualityPicker from './quality-picker';
 import {
   fetchCameraRates,
@@ -634,6 +635,10 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
         </Link>
       </section>
+
+      {/* Papic Games — pending vendor challenges awaiting the couple's okay (§3.6).
+          Self-gates on the flag + hides when there's nothing to review. */}
+      <VendorChallengesApproval eventId={eventId} />
 
       {/* Add-on services (shipped surfaces). */}
       <LiveWallCard eventId={eventId} />

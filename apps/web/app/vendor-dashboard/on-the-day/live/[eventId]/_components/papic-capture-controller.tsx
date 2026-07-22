@@ -220,7 +220,7 @@ export function PapicCaptureController({
             }
             flash('You’re out of shots for this event.');
           } else if (json.error === 'video_not_allowed') {
-            flash('Papic Lite is photos only.');
+            flash('This tier is photos only.');
           } else if (json.error === 'consent_required') {
             flash('Consent is required before capturing.');
           } else {

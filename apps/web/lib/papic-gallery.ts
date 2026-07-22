@@ -35,8 +35,10 @@ export type GalleryPhoto = {
   kind: 'photo' | 'clip';
   // Which capture table the row lives in. The showcase-approval toggle routes
   // to the matching action: seat clips flip papic_photos, guest clips flip
-  // papic_guest_captures. (Photos never carry a showcase gate.)
-  source: 'seat' | 'guest';
+  // papic_guest_captures. (Photos never carry a showcase gate.) 'vendor' = a
+  // vendor's own documentation capture compiled into the gallery (photos only in
+  // v1 — vendor clips have no poster derivative yet).
+  source: 'seat' | 'guest' | 'vendor';
   tagged: boolean;
   tagSource: GalleryTagSource;
   capturedAt: string;
@@ -66,7 +68,7 @@ export async function fetchPapicGallery(
 ): Promise<GalleryPhoto[]> {
   const now = Date.now();
 
-  const [seatRes, guestRes] = await Promise.all([
+  const [seatRes, guestRes, vendorRes] = await Promise.all([
     supabase
       .from('papic_photos')
       .select(
@@ -83,11 +85,25 @@ export async function fetchPapicGallery(
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
       .limit(GALLERY_LIMIT),
+    // Vendor documentation captures (owner 2026-07-22 "compiles on the event
+    // gallery"). Photos only in v1 — vendor clips have no poster derivative to
+    // tile. Nothing surfaces until the WHOLE LANE is DPO-approved (the admin
+    // 'vendor_papic_capture' control is default-inactive, so no capture exists
+    // until then); once live, the vendor_papic_captures_member_read RLS policy
+    // scopes the couple to NSFW-checked, non-hidden rows of their own event.
+    supabase
+      .from('vendor_papic_captures')
+      .select('capture_id, r2_object_key, media_type, captured_at, hidden_at, nsfw_checked, consent_basis')
+      .eq('event_id', eventId)
+      .eq('media_type', 'photo')
+      .order('captured_at', { ascending: false })
+      .limit(GALLERY_LIMIT),
   ]);
 
   // Graceful-degrade: a missing table/column (pre-migration) → empty, never crash.
   const seatRows = seatRes.error ? [] : (seatRes.data ?? []);
   const guestRows = guestRes.error ? [] : (guestRes.data ?? []);
+  const vendorRows = vendorRes.error ? [] : (vendorRes.data ?? []);
 
   const visibleSeat = seatRows.filter(
     (r) =>
@@ -97,6 +113,16 @@ export async function fetchPapicGallery(
   );
   const visibleGuest = guestRows.filter(
     (r) => r.moderation_state !== 'nsfw_blocked' && !r.hidden_at,
+  );
+  // Defense-in-depth over the RLS policy: NSFW-checked, non-hidden vendor captures
+  // only. (consent_basis <> pending is a backstop — the capture route stamps
+  // 'event_consent', so nothing is pending on the live path; the real gate is the
+  // whole-lane DPO control that governs whether captures exist at all.)
+  const visibleVendor = vendorRows.filter(
+    (r) =>
+      r.nsfw_checked === true &&
+      r.consent_basis !== 'pending_dpo_ruling' &&
+      !r.hidden_at,
   );
 
   // Tags — best-effort. If photo_tags isn't couple-readable / absent, every photo
@@ -196,7 +222,22 @@ export async function fetchPapicGallery(
     };
   });
 
-  const merged = [...seatPhotos, ...guestPhotos].sort(
+  // Vendor documentation photos (v1). No derivatives, but the original carries no
+  // geo (stripped at capture) so it's safe to serve to the couple's own gallery.
+  const vendorPhotos: Pre[] = visibleVendor.map((r) => ({
+    id: r.capture_id as string,
+    ref: r.r2_object_key as string | null,
+    videoRef: null,
+    kind: 'photo',
+    source: 'vendor',
+    tagged: false,
+    tagSource: 'untagged',
+    capturedAt: r.captured_at as string,
+    showcaseApproved: undefined,
+    showcaseConsent: undefined,
+  }));
+
+  const merged = [...seatPhotos, ...guestPhotos, ...vendorPhotos].sort(
     (a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime(),
   );
 
@@ -208,8 +249,10 @@ export async function fetchPapicGallery(
       // Full-res, geo-stripped save via the same-origin route (photos only;
       // clips save through the video path). The route re-checks couple auth +
       // event scope, so the id/src in the URL confer no access on their own.
+      // Vendor captures have no full-res save route yet (the save-photo route
+      // only handles seat/guest); the tile view still works.
       saveUrl:
-        rest.kind === 'photo'
+        rest.kind === 'photo' && rest.source !== 'vendor'
           ? `/dashboard/${eventId}/studio/papic/save-photo?id=${encodeURIComponent(
               rest.id,
             )}&src=${rest.source}`

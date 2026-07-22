@@ -2,7 +2,7 @@
  * Unit suite for the vendor on-the-day Papic capture tier + capture-points model
  * (owner-locked 2026-07-18). Invariants: the tier is EARNED by the token path
  * (founder-comp or a spent/held token → Ltd; else Lite), a paid Unli upgrade
- * wins, Lite is photos-only, and the points ledger (photo=1, clip=7) enforces
+ * wins, Lite is 50 pts + video (owner 2026-07-22), and the points ledger (photo=1, clip=7) enforces
  * each tier's budget.
  */
 import { test } from 'node:test';
@@ -38,10 +38,11 @@ test('capture points: photo=1, clip=7', () => {
   assert.equal(pointsSpent([]), 0);
 });
 
-test('tier specs: Lite 20/photos-only, Ltd 70/video, Unli unlimited', () => {
+test('tier specs: Lite 50/video, Ltd 70/video, Unli unlimited', () => {
+  // Owner 2026-07-22: free documentation is 50 pts + video (was 20/photos-only).
   assert.deepEqual(
     { p: tierSpec('lite').points, v: tierSpec('lite').allowVideo },
-    { p: 20, v: false },
+    { p: 50, v: true },
   );
   assert.deepEqual(
     { p: tierSpec('ltd').points, v: tierSpec('ltd').allowVideo },
@@ -96,17 +97,20 @@ test('resolve: no upgrade → the derived base tier', () => {
   assert.equal(resolveVendorPapicTier(prov({ hasUnlock: true }), false), 'lite');
 });
 
-test('canCapture: Lite blocks clips (photos-only)', () => {
-  assert.deepEqual(canCapture('lite', 0, 'clip'), {
-    ok: false,
-    reason: 'video_not_allowed',
-  });
+test('canCapture: Lite now allows clips (documentation is photos + video)', () => {
+  assert.deepEqual(canCapture('lite', 0, 'clip'), { ok: true });
   assert.deepEqual(canCapture('lite', 0, 'photo'), { ok: true });
+  // A clip costs 7 pts, so 43 spent + a 7-pt clip = 50 (still fits); 44 overflows.
+  assert.deepEqual(canCapture('lite', 43, 'clip'), { ok: true });
+  assert.deepEqual(canCapture('lite', 44, 'clip'), {
+    ok: false,
+    reason: 'out_of_points',
+  });
 });
 
-test('canCapture: Lite runs out at 20 photos', () => {
-  assert.deepEqual(canCapture('lite', 19, 'photo'), { ok: true });
-  assert.deepEqual(canCapture('lite', 20, 'photo'), {
+test('canCapture: Lite runs out at 50 points', () => {
+  assert.deepEqual(canCapture('lite', 49, 'photo'), { ok: true });
+  assert.deepEqual(canCapture('lite', 50, 'photo'), {
     ok: false,
     reason: 'out_of_points',
   });
@@ -134,10 +138,10 @@ test('canCapture: Unli is unlimited (photos + clips, any count)', () => {
 test('captureAllowance: points left clamps at 0, unlimited stays null', () => {
   assert.deepEqual(captureAllowance('lite', 5), {
     tier: 'lite',
-    allowVideo: false,
-    pointsCap: 20,
+    allowVideo: true,
+    pointsCap: 50,
     pointsSpent: 5,
-    pointsLeft: 15,
+    pointsLeft: 45,
   });
   assert.equal(captureAllowance('lite', 999).pointsLeft, 0);
   assert.equal(captureAllowance('unli', 999).pointsLeft, null);
@@ -146,7 +150,7 @@ test('captureAllowance: points left clamps at 0, unlimited stays null', () => {
 });
 
 test('tierReadout: human badge strings', () => {
-  assert.equal(tierReadout('lite'), 'Papic Lite · 20 photos');
+  assert.equal(tierReadout('lite'), 'Papic Lite · 50 pts · photos + video');
   assert.equal(tierReadout('ltd'), 'Papic Ltd · 70 pts · photos + video');
   assert.equal(tierReadout('unli'), 'Papic Unli · unlimited');
 });

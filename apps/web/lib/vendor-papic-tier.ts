@@ -7,7 +7,10 @@
  * the customer inquiry — it is derived, never chosen:
  *   • Accepted by SPENDING a lead token, OR a FOUNDER-comped (token-free) accept
  *     → Papic Ltd (70 capture points, photos + 10-second clips).
- *   • Any other accept (no token) → Papic Lite (20 points, PHOTOS-ONLY, no video).
+ *   • Any other accept (no token) → Papic Lite. Owner 2026-07-22: the FREE
+ *     documentation allowance is 50 points, photos + 10-second video (raised from
+ *     20 pts / photos-only, matching the couple free-pool grant). ⚠ video is no
+ *     longer a paid differentiator — Ltd now only adds +20 pts.
  * Unli (unlimited) stays a latent tier an admin can comp (a grant row with
  * tier='unli'); the vendor-facing +₱50 self-serve upgrade was DROPPED
  * (owner 2026-07-18 — "not allow upgrade +50 if it is difficult"), which removes
@@ -43,14 +46,19 @@ export type VendorPapicTierSpec = {
   tier: VendorPapicTier;
   /** Capture-point budget for the day. null = unlimited (Unli). */
   points: number | null;
-  /** Whether clips (≤10s) are allowed. Lite is PHOTOS-ONLY. */
+  /** Whether clips (≤10s) are allowed. */
   allowVideo: boolean;
   /** Short human label for the readout badge. */
   label: string;
 };
 
+// Owner 2026-07-22: every booked vendor gets a FREE 50-point documentation
+// allowance per event, photos AND video (matches the couple free-pool grant of
+// 50 pts). This raised Lite from 20→50 pts and turned video ON for the free tier.
+// ⚠ ladder note: video is no longer a paid differentiator — the paid Ltd tier now
+// only adds +20 points over the free tier; re-tier the paid ladder if desired.
 export const VENDOR_PAPIC_TIERS: Record<VendorPapicTier, VendorPapicTierSpec> = {
-  lite: { tier: 'lite', points: 20, allowVideo: false, label: 'Papic Lite' },
+  lite: { tier: 'lite', points: 50, allowVideo: true, label: 'Papic Lite' },
   ltd: { tier: 'ltd', points: 70, allowVideo: true, label: 'Papic Ltd' },
   unli: { tier: 'unli', points: null, allowVideo: true, label: 'Papic Unli' },
 };

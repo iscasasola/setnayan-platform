@@ -27,10 +27,11 @@
 export type VendorPapicTier = 'lite' | 'ltd' | 'unli';
 export type VendorPapicMedia = 'photo' | 'clip';
 
-/** Points a single capture costs. 1 photo = 1 pt · 1×5s clip = 3 pts. */
+/** Points a single capture costs. 1 photo = 1 pt · 1×10s clip = 7 pts
+ *  (owner override 2026-07-22 · §0). Mirrors the couple pool's clip weight. */
 export const VENDOR_PAPIC_POINTS: Record<VendorPapicMedia, number> = {
   photo: 1,
-  clip: 3,
+  clip: 7,
 };
 
 export function pointsForMedia(media: VendorPapicMedia): number {

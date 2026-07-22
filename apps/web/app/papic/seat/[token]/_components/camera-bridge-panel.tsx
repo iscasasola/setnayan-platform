@@ -289,7 +289,7 @@ export function CameraBridgePanel({ token, seatIndex, eventId }: Props) {
           className="inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-cream/20 px-4 py-2.5 text-sm font-medium text-cream/90 hover:bg-cream/10 disabled:opacity-60"
         >
           <Video aria-hidden className="h-4 w-4" strokeWidth={2} />
-          5s clip
+          10s clip
         </button>
         <button
           type="button"

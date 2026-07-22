@@ -29,7 +29,7 @@ import type { VendorPapicTier } from '@/lib/vendor-papic-tier';
 // retrying it can't succeed — so those keep the live rollback + toast.
 
 const HOLD_MS = 260; // press longer than this → start recording
-const CLIP_MAX_MS = 5000; // 5-SECOND HARD CAP — corpus lock
+const CLIP_MAX_MS = 10000; // 10-SECOND CLIP CAP — owner 2026-07-22 · §0
 
 function pickClipMime(): string {
   const cands = [
@@ -86,7 +86,7 @@ export function PapicCaptureController({
   const unlimited = pointsCap == null;
   const pointsLeft = unlimited ? null : Math.max(0, pointsCap - spent);
   const canPhoto = unlimited || spent + 1 <= (pointsCap ?? 0);
-  const canClip = allowVideo && (unlimited || spent + 3 <= (pointsCap ?? 0));
+  const canClip = allowVideo && (unlimited || spent + 7 <= (pointsCap ?? 0));
   const outOfPoints = !unlimited && (pointsLeft ?? 0) <= 0;
 
   const flash = useCallback((msg: string) => {
@@ -148,8 +148,9 @@ export function PapicCaptureController({
     ) => {
       setInFlight((n) => n + 1);
       // Optimistic point spend so the meter + gating stay ahead of the network;
-      // the server is the hard gate and reconciles on its response.
-      const cost = kind === 'clip' ? 3 : 1;
+      // the server is the hard gate and reconciles on its response. Mirrors
+      // VENDOR_PAPIC_POINTS (1 photo = 1 pt · 1×10s clip = 7 pts · §0).
+      const cost = kind === 'clip' ? 7 : 1;
       setSpent((s) => s + cost);
       // Hand a capture that failed on INFRASTRUCTURE to the durable offline
       // queue (IndexedDB — survives a tab death). On success OWNERSHIP

@@ -168,9 +168,9 @@ test('uncapped does not override an unlock free tier (still ₱0)', () => {
 // return 409 camera_points_exhausted (presign refuses the URL — no orphan bytes;
 // record refuses the row — the capture never lands).
 
-test('points cost: 1 photo = 1 point · 1 five-second clip = 3 points', () => {
+test('points cost: 1 photo = 1 point · 1 ten-second clip = 7 points', () => {
   assert.equal(papicCaptureCost('photo'), 1);
-  assert.equal(papicCaptureCost('clip'), 3);
+  assert.equal(papicCaptureCost('clip'), 7);
 });
 
 test('exhausted budget → "exhausted" (the seams answer 409 camera_points_exhausted, no presign URL)', () => {

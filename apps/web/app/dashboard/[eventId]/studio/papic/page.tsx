@@ -395,7 +395,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           Wedding photo capture
         </h1>
         <p className="max-w-prose text-base text-ink/65">
-          Your guests become the camera crew — every photo and 5-second clip lands
+          Your guests become the camera crew — every photo and 10-second clip lands
           in your gallery, tagged, in real time.
         </p>
       </header>
@@ -1482,9 +1482,9 @@ function ShutterSection() {
       </h3>
       <p className="max-w-prose text-sm text-ink/65">
         In the phone browser, Papic is one shutter button with a Photo / Clip
-        toggle — tap for a photo, flip to Clip for a 5-second clip. No app to
+        toggle — tap for a photo, flip to Clip for a 10-second clip. No app to
         install; front camera is off by design (rear-only, for quality). Every
-        clip runs the full 5 seconds and uploads in the background. Drag-to-shoot
+        clip runs up to 10 seconds and uploads in the background. Drag-to-shoot
         and a synced flash arrive with the native app (V1.5).
       </p>
     </div>
@@ -1506,7 +1506,7 @@ function CaptureDefaultsSection() {
     {
       Icon: Hand,
       title: 'Locked-down by design',
-      body: 'Rear-only, 5-second clip cap, no settings for your crew to fiddle with.',
+      body: 'Rear-only, 10-second clip cap, no settings for your crew to fiddle with.',
     },
   ];
   return (

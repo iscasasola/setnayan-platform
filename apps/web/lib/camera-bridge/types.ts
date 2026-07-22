@@ -39,12 +39,12 @@ export type BridgeBrand = 'canon' | 'nikon' | 'sony' | 'fujifilm' | 'internal' |
 export type BridgeStatus = 'disconnected' | 'pairing' | 'live' | 'recording';
 
 /**
- * Papic product lock (0012 § "Gesture shutter"): every clip is EXACTLY 5
+ * Papic product lock (owner 2026-07-22 · §0): every clip is EXACTLY 10
  * seconds — not "up to". The core rejects any `triggerClip` beyond this so no
  * brand adapter can drift past the cap. (Patiktok/Panood takes are NOT clips —
  * they consume the `livePreview()` stream, never `triggerClip`.)
  */
-export const PAPIC_CLIP_DURATION_MS = 5000;
+export const PAPIC_CLIP_DURATION_MS = 10000;
 
 /** One live-view frame. CCAPI live view is a JPEG pull (~720p), not H.264. */
 export interface VideoFrame {

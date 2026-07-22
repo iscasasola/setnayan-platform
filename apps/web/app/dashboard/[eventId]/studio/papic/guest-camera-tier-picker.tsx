@@ -11,7 +11,7 @@ import { papicCapacityPhrase } from '@/lib/papic-tier-copy';
  *
  * CAPACITY COPY IS DERIVED, NEVER SPELLED (owner 2026-07-20). Each tier's daily
  * budget is capture POINTS from the admin-editable papic_tier_config (1 photo =
- * 1 pt · 1 five-second clip = 3 pts); the parent server component resolves it
+ * 1 pt · 1 ten-second clip = 7 pts); the parent server component resolves it
  * and passes `pointsPerDay`, which `papicCapacityPhrase` turns into copy. The
  * previous hand-typed photos-plus-clips split was already false on both counts:
  * the enforced roll budget is far smaller than it promised, and clips and

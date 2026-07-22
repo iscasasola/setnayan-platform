@@ -712,9 +712,11 @@ export function papicTierDailyLimit(
 //   • papic_reserve_camera_points(seat, event, cost) — the AUTHORITATIVE,
 //     atomic record-layer gate (papic/actions.recordSeatCapture).
 
-/** Points one capture costs. The 3× clip weight mirrors the tier ladder's math. */
+/** Points one capture costs. The 7× clip weight mirrors the tier ladder's math
+ *  (owner override 2026-07-22: a 10-second clip is worth 7 points, up from the
+ *  earlier 5-second / 3-point clip — Papic_One_Pool_Model_Spec §0). */
 export const PAPIC_POINTS_PER_PHOTO = 1;
-export const PAPIC_POINTS_PER_CLIP = 3;
+export const PAPIC_POINTS_PER_CLIP = 7;
 
 /** Points a capture of `kind` spends against the camera's daily budget. */
 export function papicCaptureCost(kind: 'photo' | 'clip'): number {

@@ -32,10 +32,10 @@ import {
 import { eventHasPapicUnlock } from '@/lib/entitlements';
 import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
 
-// Server-side 5-second clip cap (corpus constraint · not configurable). The
-// client enforces 5s with a recorder timer; this tolerance (5.5s) absorbs
+// Server-side 10-second clip cap (owner 2026-07-22 · §0 · not configurable). The
+// client enforces 10s with a recorder timer; this tolerance (10.5s) absorbs
 // MediaRecorder stop latency while still rejecting clips that are clearly long.
-const CLIP_MAX_MS_SERVER_TOLERANCE = 5_500;
+const CLIP_MAX_MS_SERVER_TOLERANCE = 10_500;
 
 // Papic · paparazzo (claimer) actions — the public photo-crew surface.
 //
@@ -202,8 +202,8 @@ export async function recordSeatCapture(
   const cleanPoster = kind === 'clip' ? posterR2Key?.trim() || null : null;
   if (!cleanToken || !cleanKey) return { ok: false, error: 'missing_input' };
 
-  // Server-side 5-second clip cap (defense-in-depth · corpus hard constraint).
-  // The client enforces it with a recorder timer, but the 5s cap must not rely
+  // Server-side 10-second clip cap (defense-in-depth · owner 2026-07-22 · §0).
+  // The client enforces it with a recorder timer, but the 10s cap must not rely
   // on the browser alone: a measured duration over the tolerance is rejected
   // here. Spoofable by a hostile direct caller, but raises the bar beyond
   // "client setTimeout only"; the tight per-object byte ceiling on the upload
@@ -346,7 +346,7 @@ export async function recordSeatCapture(
         if (!paid) return { ok: false, error: 'awaiting_payment' };
       }
       // Capture-POINTS reserve (Papic v3 · brief PR-3) — the AUTHORITATIVE,
-      // race-safe gate: 1 photo = 1 pt · 1 clip = 3 pts, atomically booked by
+      // race-safe gate: 1 photo = 1 pt · 1 clip = 7 pts, atomically booked by
       // papic_reserve_camera_points against the tier's daily budget from
       // papic_tier_config (roll 20 · ltd 70 · free/mini/unlimited NULL=∞
       // passthrough — free + Papic One draw ONLY the shared event pool per the

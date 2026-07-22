@@ -8,13 +8,18 @@ import {
   clipEligibleForDrop,
   clipWebCopyCustodyOk,
   confirmedDriveKeys,
+  guestClipItem,
+  guestPhotoItem,
   isDriveDeferred,
   isEligibleForDrop,
   resolveOriginalRef,
+  sameResolvedObject,
+  seatClipItem,
+  seatPhotoItem,
   type ClipDropCandidate,
   type DriveArtifactRow,
   type DriveCopyState,
-  type DropCandidate,
+  type PapicDropItem,
 } from '@/lib/papic-fullres-drop-core';
 import { claimPeriodicJob, WEEKLY_GAP_MS } from '@/lib/periodic-jobs';
 
@@ -211,19 +216,11 @@ export type FullResDropSummary = {
   bytesReclaimed: number;
 };
 
-type Item = DropCandidate & {
-  table: 'papic_photos' | 'papic_guest_captures';
-  idCol: 'photo_id' | 'capture_id';
-  id: string;
-  event_id: string;
-  /** 'photo' → isEligibleForDrop; 'clip' → clipEligibleForDrop + HEAD custody. */
-  kind: 'photo' | 'clip';
-  /** Clip-only (null on photos): the poster still + web copy for the clip guards. */
-  poster_r2_key: string | null;
-  clip_web_r2_key: string | null;
-  clip_web_bytes: number | null;
-  orig_bytes: number | null;
-};
+// The candidate shape + its row→Item builders live in the pure core module so the
+// sweep and its regression test materialise Items through the SAME code (a
+// hand-built fixture masked the clip-wiring bug). `photo_type`/`media_type` are
+// carried on clip Items so isClipRow() is genuinely true for a real sweep clip.
+type Item = PapicDropItem;
 
 export async function runFullResDropSweep(
   opts: { limit?: number; dryRun?: boolean; retentionDaysOverride?: number } = {},
@@ -268,7 +265,7 @@ export async function runFullResDropSweep(
         admin
           .from('papic_photos')
           .select(
-            'photo_id, event_id, r2_object_key, display_r2_key, poster_r2_key, clip_web_r2_key, clip_web_bytes, orig_bytes, captured_at, full_res_dropped_at',
+            'photo_id, event_id, photo_type, r2_object_key, display_r2_key, poster_r2_key, clip_web_r2_key, clip_web_bytes, orig_bytes, captured_at, full_res_dropped_at',
           )
           .eq('photo_type', 'clip')
           .is('full_res_dropped_at', null)
@@ -279,7 +276,7 @@ export async function runFullResDropSweep(
         admin
           .from('papic_guest_captures')
           .select(
-            'capture_id, event_id, r2_object_key, display_r2_key, poster_r2_key, clip_web_r2_key, clip_web_bytes, orig_bytes, captured_at, full_res_dropped_at',
+            'capture_id, event_id, media_type, r2_object_key, display_r2_key, poster_r2_key, clip_web_r2_key, clip_web_bytes, orig_bytes, captured_at, full_res_dropped_at',
           )
           .eq('media_type', 'clip')
           .is('full_res_dropped_at', null)
@@ -291,66 +288,10 @@ export async function runFullResDropSweep(
     : [{ data: [] as Record<string, unknown>[] }, { data: [] as Record<string, unknown>[] }];
 
   const items: Item[] = [
-    ...((seat.data ?? []) as Record<string, unknown>[]).map((r) => ({
-      table: 'papic_photos' as const,
-      idCol: 'photo_id' as const,
-      id: r.photo_id as string,
-      event_id: r.event_id as string,
-      kind: 'photo' as const,
-      r2_object_key: r.r2_object_key as string,
-      display_r2_key: (r.display_r2_key as string | null) ?? null,
-      poster_r2_key: null,
-      clip_web_r2_key: null,
-      clip_web_bytes: null,
-      captured_at: r.captured_at as string,
-      full_res_dropped_at: (r.full_res_dropped_at as string | null) ?? null,
-      orig_bytes: (r.orig_bytes as number | null) ?? null,
-    })),
-    ...((guest.data ?? []) as Record<string, unknown>[]).map((r) => ({
-      table: 'papic_guest_captures' as const,
-      idCol: 'capture_id' as const,
-      id: r.capture_id as string,
-      event_id: r.event_id as string,
-      kind: 'photo' as const,
-      r2_object_key: r.r2_object_key as string,
-      display_r2_key: (r.display_r2_key as string | null) ?? null,
-      poster_r2_key: null,
-      clip_web_r2_key: null,
-      clip_web_bytes: null,
-      captured_at: r.captured_at as string,
-      full_res_dropped_at: (r.full_res_dropped_at as string | null) ?? null,
-      orig_bytes: (r.orig_bytes as number | null) ?? null,
-    })),
-    ...((seatClips.data ?? []) as Record<string, unknown>[]).map((r) => ({
-      table: 'papic_photos' as const,
-      idCol: 'photo_id' as const,
-      id: r.photo_id as string,
-      event_id: r.event_id as string,
-      kind: 'clip' as const,
-      r2_object_key: r.r2_object_key as string,
-      display_r2_key: (r.display_r2_key as string | null) ?? null,
-      poster_r2_key: (r.poster_r2_key as string | null) ?? null,
-      clip_web_r2_key: (r.clip_web_r2_key as string | null) ?? null,
-      clip_web_bytes: (r.clip_web_bytes as number | null) ?? null,
-      captured_at: r.captured_at as string,
-      full_res_dropped_at: (r.full_res_dropped_at as string | null) ?? null,
-      orig_bytes: (r.orig_bytes as number | null) ?? null,
-    })),
-    ...((guestClips.data ?? []) as Record<string, unknown>[]).map((r) => ({
-      table: 'papic_guest_captures' as const,
-      idCol: 'capture_id' as const,
-      id: r.capture_id as string,
-      event_id: r.event_id as string,
-      kind: 'clip' as const,
-      r2_object_key: r.r2_object_key as string,
-      display_r2_key: (r.display_r2_key as string | null) ?? null,
-      poster_r2_key: (r.poster_r2_key as string | null) ?? null,
-      clip_web_r2_key: (r.clip_web_r2_key as string | null) ?? null,
-      clip_web_bytes: (r.clip_web_bytes as number | null) ?? null,
-      captured_at: r.captured_at as string,
-      full_res_dropped_at: (r.full_res_dropped_at as string | null) ?? null,
-      orig_bytes: (r.orig_bytes as number | null) ?? null,
-    })),
+    ...((seat.data ?? []) as Record<string, unknown>[]).map(seatPhotoItem),
+    ...((guest.data ?? []) as Record<string, unknown>[]).map(guestPhotoItem),
+    ...((seatClips.data ?? []) as Record<string, unknown>[]).map(seatClipItem),
+    ...((guestClips.data ?? []) as Record<string, unknown>[]).map(guestClipItem),
   ];
 
   let eligible = 0;
@@ -438,6 +379,18 @@ export async function runFullResDropSweep(
     // Note we HEAD `clip_web_r2_key` but only ever DELETE `r2_object_key` (the raw)
     // — clipEligibleForDrop already proved they are DISTINCT objects.
     if (it.kind === 'clip') {
+      // DEFENSE-IN-DEPTH (resolved-level distinctness): refuse if the web copy and
+      // the raw resolve to the SAME R2 object. clipEligibleForDrop proved the key
+      // STRINGS differ, but two forms (legacy `key` vs `r2://setnayan-media/key`)
+      // can resolve to one object — in which case the HEAD below would verify, and
+      // this delete would destroy, the very object that is the only playable web
+      // copy. Assert distinctness at the resolved level before deleting. Fail
+      // closed (sameResolvedObject also returns true when either ref is
+      // unresolvable, subsuming the null-web-ref case).
+      if (sameResolvedObject(it.clip_web_r2_key ?? '', it.r2_object_key)) {
+        clipWebUnverified += 1;
+        continue;
+      }
       const webRef = resolveOriginalRef(it.clip_web_r2_key ?? '');
       if (!webRef) {
         clipWebUnverified += 1;

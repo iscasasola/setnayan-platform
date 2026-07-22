@@ -296,3 +296,148 @@ export function resolveOriginalRef(
   }
   return { bucket: MEDIA_BUCKET, key: r2ObjectKey };
 }
+
+/**
+ * DEFENSE-IN-DEPTH before the irreversible clip-raw delete: do two r2 refs
+ * resolve to the SAME R2 object? Two DIFFERENT key STRINGS can point at one
+ * object — a legacy `foo/bar.mp4` vs its `r2://setnayan-media/foo/bar.mp4` form
+ * both resolve to `{setnayan-media, foo/bar.mp4}`. clipEligibleForDrop's string
+ * distinctness (clipWebKeyDistinct) would call those distinct, so if the clip's
+ * web copy and its raw were written in the two forms, the custody HEAD would end
+ * up inspecting — and the delete destroying — the very object that is the only
+ * playable web copy. The byte-exact HEAD already catches the realistic case; this
+ * asserts it explicitly at the resolved level. FAIL CLOSED: an unresolvable ref
+ * can't be PROVEN distinct → treated as "same" (→ refuse to drop).
+ */
+export function sameResolvedObject(a: string, b: string): boolean {
+  const ra = resolveOriginalRef(a);
+  const rb = resolveOriginalRef(b);
+  if (!ra || !rb) return true; // can't prove distinct → fail closed (treat as same)
+  return ra.bucket === rb.bucket && ra.key === rb.key;
+}
+
+// ============================================================================
+// Sweep row → Item builders (Papic storage PR-2 wiring). Extracted PURE so the
+// sweep AND its regression test materialise candidate Items through the SAME
+// code. A hand-built ClipDropCandidate fixture (with media_type pre-set) MASKED
+// the original wiring bug: the sweep's clip .map() set kind:'clip' but never
+// carried photo_type / media_type, so isClipRow() — which reads ONLY those two —
+// was always false, clipEligibleForDrop was always false, and the whole
+// custody/delete chain was dead (clipsDropped stuck at 0) while the tests were
+// green. Both capture tables map here; a CLIP Item MUST carry its type column so
+// isClipRow() is genuinely true for a real sweep clip Item.
+// ============================================================================
+
+/** One drop candidate as the sweep materialises it from a DB row. */
+export type PapicDropItem = DropCandidate & {
+  table: 'papic_photos' | 'papic_guest_captures';
+  idCol: 'photo_id' | 'capture_id';
+  id: string;
+  event_id: string;
+  /** 'photo' → isEligibleForDrop; 'clip' → clipEligibleForDrop + HEAD custody. */
+  kind: 'photo' | 'clip';
+  /** papic_photos.photo_type — CARRIED so isClipRow() sees it (clip wiring). */
+  photo_type: string | null;
+  /** papic_guest_captures.media_type — CARRIED so isClipRow() sees it. */
+  media_type: string | null;
+  /** Clip-only (null on photos): the poster still + web copy for the clip guards. */
+  poster_r2_key: string | null;
+  clip_web_r2_key: string | null;
+  clip_web_bytes: number | null;
+  orig_bytes: number | null;
+};
+
+type Row = Record<string, unknown>;
+const asStr = (v: unknown): string | null => (v as string | null) ?? null;
+const asNum = (v: unknown): number | null => (v as number | null) ?? null;
+
+/** papic_photos PHOTO row → Item (photos dispatch on kind — never isClipRow). */
+export function seatPhotoItem(r: Row): PapicDropItem {
+  return {
+    table: 'papic_photos',
+    idCol: 'photo_id',
+    id: r.photo_id as string,
+    event_id: r.event_id as string,
+    kind: 'photo',
+    photo_type: null,
+    media_type: null,
+    r2_object_key: r.r2_object_key as string,
+    display_r2_key: asStr(r.display_r2_key),
+    poster_r2_key: null,
+    clip_web_r2_key: null,
+    clip_web_bytes: null,
+    captured_at: r.captured_at as string,
+    full_res_dropped_at: asStr(r.full_res_dropped_at),
+    orig_bytes: asNum(r.orig_bytes),
+  };
+}
+
+/** papic_guest_captures PHOTO row → Item. */
+export function guestPhotoItem(r: Row): PapicDropItem {
+  return {
+    table: 'papic_guest_captures',
+    idCol: 'capture_id',
+    id: r.capture_id as string,
+    event_id: r.event_id as string,
+    kind: 'photo',
+    photo_type: null,
+    media_type: null,
+    r2_object_key: r.r2_object_key as string,
+    display_r2_key: asStr(r.display_r2_key),
+    poster_r2_key: null,
+    clip_web_r2_key: null,
+    clip_web_bytes: null,
+    captured_at: r.captured_at as string,
+    full_res_dropped_at: asStr(r.full_res_dropped_at),
+    orig_bytes: asNum(r.orig_bytes),
+  };
+}
+
+/**
+ * papic_photos CLIP row → Item. `photo_type` is carried from the row (the clip
+ * SELECT MUST fetch it) so isClipRow() is genuinely true — without it the clip
+ * drop is inert.
+ */
+export function seatClipItem(r: Row): PapicDropItem {
+  return {
+    table: 'papic_photos',
+    idCol: 'photo_id',
+    id: r.photo_id as string,
+    event_id: r.event_id as string,
+    kind: 'clip',
+    photo_type: asStr(r.photo_type),
+    media_type: null,
+    r2_object_key: r.r2_object_key as string,
+    display_r2_key: asStr(r.display_r2_key),
+    poster_r2_key: asStr(r.poster_r2_key),
+    clip_web_r2_key: asStr(r.clip_web_r2_key),
+    clip_web_bytes: asNum(r.clip_web_bytes),
+    captured_at: r.captured_at as string,
+    full_res_dropped_at: asStr(r.full_res_dropped_at),
+    orig_bytes: asNum(r.orig_bytes),
+  };
+}
+
+/**
+ * papic_guest_captures CLIP row → Item. `media_type` is carried from the row (the
+ * clip SELECT MUST fetch it) so isClipRow() is genuinely true.
+ */
+export function guestClipItem(r: Row): PapicDropItem {
+  return {
+    table: 'papic_guest_captures',
+    idCol: 'capture_id',
+    id: r.capture_id as string,
+    event_id: r.event_id as string,
+    kind: 'clip',
+    photo_type: null,
+    media_type: asStr(r.media_type),
+    r2_object_key: r.r2_object_key as string,
+    display_r2_key: asStr(r.display_r2_key),
+    poster_r2_key: asStr(r.poster_r2_key),
+    clip_web_r2_key: asStr(r.clip_web_r2_key),
+    clip_web_bytes: asNum(r.clip_web_bytes),
+    captured_at: r.captured_at as string,
+    full_res_dropped_at: asStr(r.full_res_dropped_at),
+    orig_bytes: asNum(r.orig_bytes),
+  };
+}

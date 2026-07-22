@@ -31,6 +31,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { RevealList } from '@/app/_components/reveal-list';
 import { Eye, MonitorPlay, Gift } from 'lucide-react';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
 // The cinema-poster card (service-poster.tsx) still owns the `PosterStyle`
 // type that the catalog + Services tab consume, so it is intentionally kept.
@@ -81,6 +82,17 @@ function comingSoonLast(a: AddOnEntry, b: AddOnEntry): number {
 
 export default async function StudioPage({ params, searchParams }: Props) {
   const { eventId } = await params;
+
+  // Suite replaces the Studio hub (owner 2026-07-22: "retire those not needed").
+  // When Suite is on, this legacy hub is retired — redirect to it (same flag the
+  // Suite page and the nav swap key on, so the hub and the nav stay consistent).
+  // When Suite is off (never in prod), the hub still serves as the fallback, and
+  // its own tool sub-routes (/studio/save-the-date, /studio/led, …) are untouched
+  // either way — only this index page redirects.
+  const suiteOn =
+    process.env.NEXT_PUBLIC_SUITE === 'true' || process.env.VERCEL_ENV === 'preview';
+  if (suiteOn) redirect(`/dashboard/${eventId}/suite`);
+
   const sp = searchParams ? await searchParams : {};
 
   const supabase = await createClient();

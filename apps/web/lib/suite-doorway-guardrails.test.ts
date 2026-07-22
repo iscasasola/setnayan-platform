@@ -51,17 +51,14 @@ const RETIRED_PREFIXES = ['/design', '/vendors/compare'] as const;
  * green while asserting the gap still looks exactly the way we think it does —
  * if reality changes (owner flips a status, a real surface ships), the paired
  * assertion below fails and this allowlist must be updated consciously.
+ *
+ * BOTH prior gaps RESOLVED 2026-07-22 (owner pricing answers), so this is empty:
+ *   • photo-delivery — moved to studioGroup 'utility' (delivered THROUGH Papic),
+ *     so it no longer sits in the free layer. Locked below.
+ *   • music-creator  — RETIRED (folded into Pakanta); the card is removed from
+ *     the catalog. Locked below.
  */
-const KNOWN_GAPS: Record<string, string> = {
-  'photo-delivery':
-    'TODO(0009): the /studio/photo-delivery page renders but the Drive backend is stubbed. ' +
-    'Owner decision pending to mark it coming_soon so it stops sitting in the free layer as if it works ' +
-    '(Whats_Next_Suite_AI_Pricing §2 "Free-layer honesty fixes").',
-  'music-creator':
-    'TODO: Music Creator has no browse surface of its own — addOnHref routes it to Pakanta. ' +
-    'Delete+301 vs build a real music-browse surface is Pricing open question #7 ' +
-    '(Whats_Next_Suite_AI_Pricing §3).',
-};
+const KNOWN_GAPS: Record<string, string> = {};
 
 const PAGE_FILES = ['page.tsx', 'page.ts', 'page.jsx', 'page.js', 'route.ts', 'route.tsx'];
 
@@ -281,15 +278,15 @@ test('a free-trial chip is never presented as "Free" (trial ≠ free)', () => {
 });
 
 test('the Suite free layer is exactly the reviewed set (any change is a conscious diff)', () => {
+  // 2026-07-22: music-creator RETIRED (folds into Pakanta) and photo-delivery
+  // moved to 'utility' (delivered THROUGH Papic) — both consciously dropped here.
   assert.deepEqual(suiteFreeLayerKeys().sort(), [
     'animated-monogram',
     'editorial',
     'event',
     'landing-page',
     'mood-board',
-    'music-creator',
     'panood',
-    'photo-delivery',
     'playlist',
     'rsvp',
     'save-the-date',
@@ -312,24 +309,31 @@ test('every live/web_v1 entry opens a working page (known gaps pinned in KNOWN_G
   }
 });
 
-test('KNOWN_GAPS still describe reality (update the allowlist when they resolve)', () => {
-  // photo-delivery: still presented as a shipped free tool while the Drive
-  // backend is stubbed. When the owner marks it coming_soon (or the backend
-  // ships), this fails → delete its KNOWN_GAPS entry.
+test('the 2026-07-22 free-layer resolutions hold (Photo Delivery on Papic, Music Creator → Pakanta)', () => {
+  // photo-delivery: delivered THROUGH Papic → moved to studioGroup 'utility', so
+  // it is out of the free layer but its page stays reachable by deep link. If it
+  // ever returns to the free layer (non-utility + free), this fails on purpose.
   const photoDelivery = ADD_ONS.find((a) => a.key === 'photo-delivery');
-  assert.ok(photoDelivery, 'photo-delivery should exist in the catalog');
+  assert.ok(photoDelivery, 'photo-delivery should still exist in the catalog (page kept)');
   assert.equal(
-    photoDelivery!.status,
-    'web_v1',
-    'photo-delivery status changed — resolve its KNOWN_GAPS entry',
+    photoDelivery!.studioGroup,
+    'utility',
+    'photo-delivery must stay out of the free layer — it is delivered via Papic',
   );
-  assert.equal(photoDelivery!.tier, 'free');
+  assert.ok(
+    !suiteFreeLayerKeys().includes('photo-delivery'),
+    'photo-delivery must not appear in the Suite free layer',
+  );
 
-  // music-creator: no surface of its own — routes to Pakanta. When it gets a
-  // real browse surface (or is deleted+301'd), this fails → update KNOWN_GAPS.
+  // music-creator: RETIRED — the card is removed from the catalog (folds into
+  // Pakanta). The addOnHref alias stays as the "301 to Pakanta" for old links.
+  assert.ok(
+    !ADD_ONS.some((a) => a.key === 'music-creator'),
+    'music-creator card must be retired from the catalog',
+  );
   assert.equal(
     addOnHref('music-creator', EVT),
     `/dashboard/${EVT}/studio/pakanta`,
-    'music-creator no longer routes to Pakanta — resolve its KNOWN_GAPS entry',
+    'the music-creator → Pakanta alias (301) must remain so lingering links resolve',
   );
 });

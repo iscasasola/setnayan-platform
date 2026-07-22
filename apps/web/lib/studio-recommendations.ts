@@ -59,7 +59,6 @@ export const STUDIO_PEAK_MONTHS: Readonly<Record<string, number>> = {
   'save-the-date': 8,
   'animated-monogram': 7,
   pakanta: 6,
-  'music-creator': 6,
   'custom-qr-guest': 5,
   rsvp: 5,
   led: 4,

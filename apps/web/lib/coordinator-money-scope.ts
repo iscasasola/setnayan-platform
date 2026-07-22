@@ -15,10 +15,11 @@ import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate'
  *   • 'checkout'    — may handle payments: submit orders, upload payment
  *                     proof, record vendor deposits.
  *
- * Flag posture — NEXT_PUBLIC_COORDINATOR_CONSENT_GATE_ENABLED (default OFF):
- *   • Flag OFF → returns true unconditionally. Flag-off behavior is EXACTLY
+ * Control posture — the `coordinator_consent_money` Data Privacy control
+ * (admin-approved at /admin/data-privacy; default INACTIVE):
+ *   • INACTIVE → returns true unconditionally. Inactive behavior is EXACTLY
  *     today's (membership-only guards) — no reads, no new denials.
- *   • Flag ON  → couple members are always allowed; any non-couple caller is
+ *   • ACTIVE   → couple members are always allowed; any non-couple caller is
  *     allowed only when an un-revoked consent row for one of their live
  *     moderator rows grants the requested scope. Everything else — no
  *     moderator row, no consent row, revoked consent, scope not granted,
@@ -36,10 +37,25 @@ export async function coordinatorMoneyScopeAllowed(
   userId: string,
   scope: CoordinatorMoneyScope,
 ): Promise<boolean> {
-  // Flag OFF → exact current behavior (permissive; membership guards upstream
-  // remain the only gate).
-  if (!isCoordinatorConsentGateEnabled()) return true;
+  // Control INACTIVE → exact current behavior (permissive; membership guards
+  // upstream remain the only gate). Short-circuits before any DB read.
+  if (!(await isCoordinatorConsentGateEnabled())) return true;
+  return coordinatorMoneyScopeGranted(admin, eventId, userId, scope);
+}
 
+/**
+ * The gate-free core: assumes the coordinator_consent_money control is active,
+ * and resolves whether this caller holds the requested money scope on this
+ * event — couple → always; coordinator → an un-revoked consent row grants it;
+ * everything else fail-closed. Split out so unit tests exercise the scope logic
+ * without the DB-backed control (the wrapper above is a thin gate).
+ */
+export async function coordinatorMoneyScopeGranted(
+  admin: SupabaseClient,
+  eventId: string,
+  userId: string,
+  scope: CoordinatorMoneyScope,
+): Promise<boolean> {
   // Couple members always hold full money authority over their own event.
   const { data: member } = await admin
     .from('event_members')

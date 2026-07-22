@@ -219,7 +219,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // backfilled as partner1/partner2 moderators, is excluded. visibilityMap is
   // best-effort (pre-migration → empty → everything treated couple_visible), so
   // the page never breaks before the migration lands.
-  const prepEnabled = isCoordinatorPrepReleaseEnabled();
+  const prepEnabled = await isCoordinatorPrepReleaseEnabled();
   let isCoordinator = false;
   let stagedBlocks: ScheduleBlockRow[] = [];
   if (prepEnabled) {

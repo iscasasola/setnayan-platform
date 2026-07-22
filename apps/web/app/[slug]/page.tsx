@@ -4251,7 +4251,9 @@ function TierComparisonWidget({ limited, eventNoun }: { limited: boolean; eventN
             <li>· Everything in Public</li>
             <li>· <strong>Shutter</strong> — capture &amp; tag photos as a guest</li>
             <li>· <strong>Selfie Camera</strong> — branded {eventNoun} selfie cam</li>
-            <li>· <strong>Photo &amp; Video Challenges</strong> — fun mini-quests</li>
+            {papicGamesEnabled() ? (
+              <li>· <strong>Photo Challenges</strong> — fun mini-quests</li>
+            ) : null}
             <li>· <strong>Saved Forever</strong> — photos kept permanently</li>
             <li>· Build your own souvenir reel</li>
           </ul>

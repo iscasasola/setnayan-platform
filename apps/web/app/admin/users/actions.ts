@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revokeAllSessions } from '@/lib/force-logout';
+import { parseStoredAsset } from '@/lib/uploads';
+import { r2Delete } from '@/lib/r2';
 
 /**
  * RA 10173 right-to-erasure helper (PR-G).
@@ -293,7 +295,10 @@ async function purgeUserOwnedRecords(
  *   3. scrub the auth.users email to a per-user tombstone (frees the original
  *      address for re-signup — the blacklist gate still blocks blacklisted ones —
  *      and removes the email PII from the auth schema);
- *   4. run the domain PII purges (owned-event birth data · authored chat bodies).
+ *   4. run the domain PII purges (owned-event owner data · authored chat bodies ·
+ *      the user's other owner-scoped records via `purgeUserOwnedRecords`);
+ *   5. delete the user's OWN uploaded files from R2 (profile photo · shop logo)
+ *      so nulling the DB pointer doesn't orphan the object.
  * No DELETE is issued, so all the RESTRICT FKs + the vendor-admin trigger are
  * sidestepped, and it is idempotent (re-running re-tombstones to the same values).
  *
@@ -336,6 +341,20 @@ async function eraseUserAccount(
         if (error) console.error('[eraseUserAccount] audit-log write failed', error.message);
       });
   };
+
+  // 0. Capture the user's OWN uploaded-file refs (profile photo · shop logo)
+  //    BEFORE the anonymize nulls those columns — nulling the DB pointer alone
+  //    orphans the object in R2. (Papic/event photos are shared-event → left for
+  //    the DPO shared-record ruling; gov-ID/selfie were retired 2026-07-03 and
+  //    are never stored.)
+  const [preUser, preVendor] = await Promise.all([
+    admin.from('users').select('profile_photo_url').eq('user_id', targetUserId).maybeSingle(),
+    admin.from('vendor_profiles').select('logo_url').eq('user_id', targetUserId).maybeSingle(),
+  ]);
+  const ownFileRefs = [
+    (preUser.data as { profile_photo_url?: string | null } | null)?.profile_photo_url,
+    (preVendor.data as { logo_url?: string | null } | null)?.logo_url,
+  ].filter((v): v is string => typeof v === 'string' && v.length > 0);
 
   // 1. Anonymize the public.users PII + lock the account out via deleted_at.
   //    email is NOT NULL → tombstone rather than null. Covers the sensitive PI
@@ -387,7 +406,23 @@ async function eraseUserAccount(
   await purgeUserAuthoredChat(admin, targetUserId, actorUserId);
   await purgeUserOwnedRecords(admin, targetUserId, actorUserId);
 
-  // 5. Success audit.
+  // 5. Delete the user's own uploaded FILES from R2 (the objects behind the
+  //    now-nulled profile-photo + shop-logo pointers). Best-effort: r2Delete
+  //    throws only if R2 is unconfigured — caught so a storage hiccup can't trap
+  //    the erasure. Only `r2://` refs from the current upload flow are removed;
+  //    a legacy/external URL is left (it may not even be ours).
+  for (const ref of ownFileRefs) {
+    const asset = parseStoredAsset(ref);
+    if (asset?.kind === 'r2') {
+      try {
+        await r2Delete({ bucket: asset.bucket, key: asset.key });
+      } catch (e) {
+        await auditFail('r2-object-delete', e instanceof Error ? e.message : String(e));
+      }
+    }
+  }
+
+  // 6. Success audit.
   await admin
     .from('admin_audit_log')
     .insert({

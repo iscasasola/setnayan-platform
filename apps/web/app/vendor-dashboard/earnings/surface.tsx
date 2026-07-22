@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Wallet, Clock3, CheckCircle2, ShieldCheck, Info, Coins } from 'lucide-react';
+import { Wallet, Clock3, CheckCircle2, ShieldCheck, Info } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -140,9 +140,9 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
         A log of bookings you&rsquo;ve closed through Setnayan. You keep 100% of what
         couples pay you — Setnayan no longer routes payments between you and your
         clients. This page is the running ledger you use to track direct bookings.
-        Manage your plan and token packs on the{' '}
+        Manage your plan on the{' '}
         <Link href="/vendor-dashboard/subscription" className="underline hover:text-ink">
-          Plan &amp; tokens
+          Plan
         </Link>{' '}
         tab.
       </p>
@@ -159,29 +159,6 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
           </p>
         </div>
       </article>
-
-      {/* Buy-tokens discovery · repointed from the retired redeem-code voucher
-          surface (hard-deleted 2026-07-01 under "no free tokens"). Tokens are
-          purchased at ₱100 each (verified stores only). Lands on the unified
-          Plan & tokens hub. */}
-      <Link
-        href="/vendor-dashboard/subscription"
-        className="group flex items-center justify-between gap-3 rounded-2xl border border-orange/20 bg-orange/5 p-4 text-sm text-ink/75 hover:bg-orange/10"
-      >
-        <div className="flex items-start gap-3">
-          <Coins aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-orange" strokeWidth={1.75} />
-          <div className="space-y-1">
-            <p className="font-medium text-ink">About tokens</p>
-            <p className="text-sm text-ink/70">
-              Answering couples is free. Tokens are used only for certain vendor
-              add-ons — manage them on the Plan &amp; tokens page.
-            </p>
-          </div>
-        </div>
-        <span className="shrink-0 rounded-md bg-orange/15 px-3 py-1.5 text-xs font-medium text-orange group-hover:bg-orange/20">
-          Buy tokens →
-        </span>
-      </Link>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Stat

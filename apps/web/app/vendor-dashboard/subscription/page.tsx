@@ -59,7 +59,7 @@ import type { TokenPack } from '@/app/vendor-dashboard/tokens/_components/buy-to
  * tier_expires_at are not in FULL_VENDOR_PROFILE_SELECT).
  */
 
-export const metadata = { title: 'Plan & tokens · Vendor' };
+export const metadata = { title: 'Plan · Vendor' };
 
 const NUMBER = new Intl.NumberFormat('en-PH');
 
@@ -287,7 +287,7 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
   return (
     <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
       <header className="mb-6 sm:mb-8">
-        <p className="sn-eye">Plan &amp; tokens</p>
+        <p className="sn-eye">Plan</p>
         <h1 className="sn-h1 mt-1">
           Choose your plan.
         </h1>
@@ -520,7 +520,9 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         </div>
       )}
 
-      {/* Token wallet — buy standalone packs, see balances + history */}
+      {/* Token wallet — reduced to a dormant read-only balance panel (renders
+          only if a retained balance exists; token packs are retired, nothing
+          spends tokens). */}
       <TokenWalletSection />
     </main>
   );

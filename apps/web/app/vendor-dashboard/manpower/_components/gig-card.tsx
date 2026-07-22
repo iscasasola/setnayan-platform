@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import Link from 'next/link';
 import { Banknote, HandCoins, Check, X, Loader2 } from 'lucide-react';
 import {
   acceptManpowerGig,
@@ -15,16 +14,13 @@ import { useSaveLoader } from '@/components/sd-loader';
  * V2 Phase F · GigCard
  *
  * Renders a single manpower gig in one of three modes:
- *   - open      → vendor can accept (2-token handshake)
+ *   - open      → vendor can accept (free · token retirement 2026-07-22)
  *   - accepted  → vendor can mark complete or cancel
  *   - wrapped   → read-only display
  *
- * The accept CTA shows an insufficient-tokens fallback banner when the
- * vendor wallet < 2. Polite brand voice — surfaces a deep link to the
- * redeem-code page where the vendor can top up.
- *
- * Per [[feedback_setnayan_no_dev_text_post_launch]] copy is brand-voice
- * editorial register. No engineering jargon · no "ERROR" strings.
+ * Accepting a gig is free — there is no wallet gate. Per
+ * [[feedback_setnayan_no_dev_text_post_launch]] copy is brand-voice editorial
+ * register. No engineering jargon · no "ERROR" strings.
  */
 
 type Mode = 'open' | 'accepted' | 'wrapped';
@@ -50,13 +46,11 @@ export function GigCard({
   mode,
   statusLabel,
   statusStyle,
-  insufficientTokens = false,
 }: {
   gig: ManpowerGigRow;
   mode: Mode;
   statusLabel: string;
   statusStyle: string;
-  insufficientTokens?: boolean;
 }) {
   const [banner, setBanner] = useState<
     | { kind: 'success'; msg: string }
@@ -78,10 +72,8 @@ export function GigCard({
       if (result.status === 'ok') {
         setBanner({
           kind: 'success',
-          msg: 'Gig accepted · 2 tokens spent. The host will be notified.',
+          msg: 'Gig accepted. The host will be notified.',
         });
-      } else if (result.status === 'insufficient_tokens') {
-        setBanner({ kind: 'error', msg: result.message });
       } else if (result.status === 'already_claimed') {
         setBanner({
           kind: 'error',
@@ -90,7 +82,7 @@ export function GigCard({
       } else if (result.status === 'race_lost') {
         setBanner({
           kind: 'error',
-          msg: 'Another vendor claimed this gig at the same moment. Your tokens were spent · please contact support if you believe this is in error.',
+          msg: 'Another vendor claimed this gig at the same moment. Try another open gig.',
         });
       } else if (result.status === 'no_vendor_profile') {
         setBanner({
@@ -199,44 +191,27 @@ export function GigCard({
 
       {mode === 'open' ? (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          {insufficientTokens ? (
-            <div
-              role="alert"
-              className="flex w-full items-center justify-between gap-2 rounded-md border border-warn-300/50 bg-warn-50 px-3 py-2 text-sm text-warn-900"
-            >
-              <span>
-                You need 2 tokens to accept. Top up to claim this gig.
-              </span>
-              <Link
-                href="/vendor-dashboard/subscription"
-                className="text-xs font-medium text-warn-800 underline"
-              >
-                Buy tokens →
-              </Link>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={handleAccept}
-              disabled={pending}
-              className="m-btn inline-flex items-center gap-1.5 disabled:opacity-60"
-              style={{
-                background: 'var(--m-orange)',
-                color: 'white',
-                padding: '8px 16px',
-                borderRadius: 'var(--m-r-md)',
-                fontSize: '14px',
-                fontWeight: 500,
-              }}
-            >
-              {pending ? (
-                <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} aria-hidden />
-              ) : (
-                <HandCoins className="h-4 w-4" strokeWidth={1.75} />
-              )}
-              {pending ? 'Accepting…' : 'Accept · 2 tokens'}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleAccept}
+            disabled={pending}
+            className="m-btn inline-flex items-center gap-1.5 disabled:opacity-60"
+            style={{
+              background: 'var(--m-orange)',
+              color: 'white',
+              padding: '8px 16px',
+              borderRadius: 'var(--m-r-md)',
+              fontSize: '14px',
+              fontWeight: 500,
+            }}
+          >
+            {pending ? (
+              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} aria-hidden />
+            ) : (
+              <HandCoins className="h-4 w-4" strokeWidth={1.75} />
+            )}
+            {pending ? 'Accepting…' : 'Accept gig'}
+          </button>
         </div>
       ) : null}
 

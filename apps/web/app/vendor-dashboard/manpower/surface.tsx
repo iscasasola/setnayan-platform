@@ -1,6 +1,5 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { HardHat, Clock, BadgeCheck, Wallet } from 'lucide-react';
+import { HardHat, Clock, BadgeCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { GigCard } from './_components/gig-card';
 import type { ManpowerGigRow, ManpowerGigStatus } from './actions';
@@ -10,9 +9,9 @@ import type { ManpowerGigRow, ManpowerGigStatus } from './actions';
  *
  * WHY (canonical · CLAUDE.md 2026-05-28 third row § (a) Phase F):
  * vendors browse open manpower gigs posted by hosts on events the vendor
- * is involved with (any event_vendors link to the same event_id). Accept
- * spends 2 tokens (earned-first FIFO via consume_vendor_assets). The cash
- * ₱15k flows directly from host to vendor crew off-platform; Setnayan
+ * is involved with (any event_vendors link to the same event_id). Accepting
+ * a gig is FREE (token retirement 2026-07-22 — no consume_vendor_assets). The
+ * cash ₱15k flows directly from host to vendor crew off-platform; Setnayan
  * never touches the money so we issue no BIR receipt on this leg.
  *
  * Eligibility for "Open gigs":
@@ -60,35 +59,25 @@ export default async function VendorManpowerPage() {
     redirect('/vendor-dashboard/verify');
   }
 
-  // Wallet balance + this vendor's gigs + the events they're linked to all key
-  // off the same vendor id and don't consume each other — one parallel batch
-  // instead of three serial round-trips (owner perf pass 2026-06-03). The
-  // open-gigs read below stays sequential (it needs eligibleEventIds).
-  const [{ data: wallet }, { data: myGigs }, { data: eventLinks }] =
-    await Promise.all([
-      // Wallet balance — surfaces the "token balance" reassurance.
-      supabase
-        .from('vendor_wallets')
-        .select('purchased_tokens, earned_tokens')
-        .eq('vendor_id', vendor.vendor_profile_id)
-        .maybeSingle(),
-      // 1. Vendor's accepted/completed/cancelled gigs (vendor_profile_id match).
-      supabase
-        .from('manpower_gigs')
-        .select(
-          'gig_id, event_id, posted_by_user_id, vendor_profile_id, gig_label, cash_amount_php_centavos, handshake_tokens_consumed, status, posted_at, accepted_at, completed_at, cancelled_at, cancellation_reason, notes, bir_exempt_note',
-        )
-        .eq('vendor_profile_id', vendor.vendor_profile_id)
-        .order('posted_at', { ascending: false }),
-      // 2. Events the vendor is involved with (→ open gigs below).
-      supabase
-        .from('event_vendors')
-        .select('event_id')
-        .eq('marketplace_vendor_id', vendor.vendor_profile_id),
-    ]);
-
-  const totalTokens =
-    (wallet?.earned_tokens ?? 0) + (wallet?.purchased_tokens ?? 0);
+  // This vendor's gigs + the events they're linked to key off the same vendor
+  // id and don't consume each other — one parallel batch instead of two serial
+  // round-trips. The open-gigs read below stays sequential (it needs
+  // eligibleEventIds).
+  const [{ data: myGigs }, { data: eventLinks }] = await Promise.all([
+    // 1. Vendor's accepted/completed/cancelled gigs (vendor_profile_id match).
+    supabase
+      .from('manpower_gigs')
+      .select(
+        'gig_id, event_id, posted_by_user_id, vendor_profile_id, gig_label, cash_amount_php_centavos, handshake_tokens_consumed, status, posted_at, accepted_at, completed_at, cancelled_at, cancellation_reason, notes, bir_exempt_note',
+      )
+      .eq('vendor_profile_id', vendor.vendor_profile_id)
+      .order('posted_at', { ascending: false }),
+    // 2. Events the vendor is involved with (→ open gigs below).
+    supabase
+      .from('event_vendors')
+      .select('event_id')
+      .eq('marketplace_vendor_id', vendor.vendor_profile_id),
+  ]);
 
   const eligibleEventIds = Array.from(
     new Set((eventLinks ?? []).map((row) => row.event_id)),
@@ -128,36 +117,18 @@ export default async function VendorManpowerPage() {
             Manpower gigs
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
-            Pick up day-of crew gigs from hosts you&apos;re already serving. 2
-            tokens to accept · cash flows direct from the host to your crew.
+            Pick up day-of crew gigs from hosts you&apos;re already serving. Free
+            to accept · cash flows direct from the host to your crew.
           </p>
         </header>
 
-        {/* Token-balance reassurance — pulls actual wallet state */}
-        <div className="sn-tile mt-6 flex flex-wrap items-center gap-3 px-4 py-3">
-          <Wallet className="h-4 w-4 text-slate-500" strokeWidth={1.75} />
-          <span className="text-sm text-slate-700">
-            <span className="font-medium">{totalTokens}</span> tokens available
-            ({wallet?.earned_tokens ?? 0} earned + {wallet?.purchased_tokens ?? 0}{' '}
-            purchased)
-          </span>
-          {totalTokens < 2 ? (
-            <Link
-              href="/vendor-dashboard/subscription"
-              className="text-xs font-medium text-orange-700 underline"
-            >
-              Buy tokens →
-            </Link>
-          ) : null}
-        </div>
-
         {/* BIR-exempt note · surfaced prominently per spec */}
-        <aside className="sn-tile mt-4 p-4">
+        <aside className="sn-tile mt-6 p-4">
           <p className="sn-eye">Setnayan note</p>
           <p className="mt-1.5 text-sm leading-relaxed text-slate-700">
             Setnayan doesn&apos;t touch the ₱15,000 — it flows direct from the
-            host to your crew. You handle your own Form 2307 on this. The
-            2-token handshake stamps your business as the gig owner for event
+            host to your crew. You handle your own Form 2307 on this. Accepting a
+            gig is free · it stamps your business as the gig owner for event
             rewards.
           </p>
         </aside>
@@ -180,7 +151,6 @@ export default async function VendorManpowerPage() {
                   mode="open"
                   statusLabel={STATUS_LABEL[gig.status]}
                   statusStyle={STATUS_STYLE[gig.status]}
-                  insufficientTokens={totalTokens < 2}
                 />
               </li>
             ))}

@@ -9,6 +9,12 @@ import { runFullResDropSweep } from '@/lib/papic-fullres-drop';
 // PAPIC_FULLRES_DROP_ENABLED='true'. Pass ?dry=1 to force a preview even when
 // enabled (safe to hit manually to see the eligible count first).
 //
+// CLIPS (Papic storage PR-2) are swept only when PAPIC_CLIP_DROP_ENABLED='true'
+// (a separate go-live gate, OFF by default); a clip's raw is dropped only after
+// its HEAD-verified, grace-aged web copy is confirmed, and only the raw is
+// deleted (the poster still + web copy are kept). Summary carries clipsDropped +
+// clipWebUnverified for that path.
+//
 // Auth: EITHER `Authorization: Bearer <CRON_SECRET>` (Vercel Cron) OR
 //   `x-cron-secret: <CRON_SECRET>` (manual). Timing-safe, fail-closed.
 

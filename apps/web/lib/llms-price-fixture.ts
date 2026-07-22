@@ -32,21 +32,21 @@ export const APPROVED_LLMS_PRICES: readonly string[] = [
   '₱1,299', // Pabati (per day) · Live Studio Mobile (per day)
   '₱1,499', // Setnayan AI one-time (single ₱1,499 SKU, owner FINAL 2026-07-12) · Patiktok
   '₱1,999', // Papic Pool — 6,000 shots
-  '₱2,000', // Stories (per-day cap) · 10-token pack (2026-07-12 reprice)
+  '₱2,000', // Stories (per-day cap)
   '₱2,499', // Pakanta · Thank You Video · Live Studio Desktop (per day)
   '₱2,500', // Live Photo Wall (per day) · Pro vendor 28-day
   '₱2,999', // 3D Plan · Editorial PRO · Papic Pool 10,000 shots + the +10,000 top-up
 
-  // Vendor tokens + packs (flat ₱200/token · flat 1-token burn · 2026-07-15
-  // catalog restructure: ₱1,000 = 5 tokens, ladder 5/10/25/50/100)
-  '₱200', // flat per-token price · flat 1-token inquiry unlock (any region)
-  '₱1,000', // 5-token anchor pack · Solo vendor 28-day
-  '₱5,000', // 25-token pack
-  '₱10,000', // 50-token pack · Solo vendor annual
-  '₱20,000', // 100-token pack
+  // Vendor Solo tier subscription (28-day / annual). Token PACKS were retired
+  // 2026-07-21 (owner) and answering an inquiry is now FREE, so the token-only
+  // pack figures (₱200 per-token · ₱5,000 25-pack · ₱20,000 100-pack) were
+  // removed from llms.txt + here. ₱1,000 and ₱10,000 survive only as Solo's own
+  // 28-day / annual prices below.
+  '₱1,000', // Solo vendor 28-day
+  '₱10,000', // Solo vendor annual
 
   // Vendor tier subscriptions (28-day / annual) — round-number reprice 2026-07-22.
-  // Solo 28-day ₱1,000 + Solo annual ₱10,000 share the token-pack figures above;
+  // Solo 28-day ₱1,000 + Solo annual ₱10,000 are the two figures just above;
   // Pro 28-day ₱2,500 shares Live Photo Wall above.
   '₱25,000', // Pro annual (was ₱24,999)
   '₱8,000', // Enterprise 28-day (was ₱7,999)

@@ -7,7 +7,8 @@
 // on papicGamesEnabled(); renders null when the flag is off. Mounted after
 // BoothPosterCard (booked-only) on the client-event card.
 
-import { Trophy, Check } from 'lucide-react';
+import Link from 'next/link';
+import { Trophy, Check, ImageIcon } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchVendorChallenges } from '@/lib/papic-games';
@@ -120,24 +121,33 @@ export async function VendorChallengeSection({
 
       {sponsored ? (
         // Paid → the vendor may author challenges (the RPC re-checks the paid
-        // sponsorship server-side).
-        <form action={createVendorChallengeAction} className="mt-4 space-y-2">
-          <input type="hidden" name="event_id" value={eventId} />
-          <textarea
-            name="prompt"
-            required
-            maxLength={280}
-            rows={2}
-            placeholder="Order our signature calamansi mojito and show us the pour"
-            className="w-full resize-none rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta/50 focus:outline-none"
-          />
-          <SubmitButton
-            pendingLabel="Submitting"
-            className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
+        // sponsorship server-side) + collect the consented guest photos (Phase 5).
+        <>
+          <form action={createVendorChallengeAction} className="mt-4 space-y-2">
+            <input type="hidden" name="event_id" value={eventId} />
+            <textarea
+              name="prompt"
+              required
+              maxLength={280}
+              rows={2}
+              placeholder="Order our signature calamansi mojito and show us the pour"
+              className="w-full resize-none rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta/50 focus:outline-none"
+            />
+            <SubmitButton
+              pendingLabel="Submitting"
+              className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
+            >
+              Submit for the couple&rsquo;s okay
+            </SubmitButton>
+          </form>
+          <Link
+            href={`/vendor-dashboard/clients/${eventId}/challenge-photos`}
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:text-terracotta/80"
           >
-            Submit for the couple&rsquo;s okay
-          </SubmitButton>
-        </form>
+            <ImageIcon aria-hidden className="h-4 w-4" strokeWidth={2} />
+            View shared photos
+          </Link>
+        </>
       ) : eligibility.ok ? (
         // Eligible to buy → the ₱400 sponsorship CTA.
         <>

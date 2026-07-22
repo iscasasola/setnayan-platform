@@ -22,6 +22,11 @@
 
 import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  VENDOR_3D_PLAN_UNLOCK_SERVICE_KEY,
+  applyVendor3dPlanUnlockDiscountCentavos,
+  eventHasVendor3dPlanUnlock,
+} from '@/lib/vendor-3d-plan-unlock';
 
 /**
  * Catalog price recurrence (migration 20270322883953). `one_time` = a single
@@ -569,9 +574,32 @@ export async function resolvePaxPricedOrderCentavos(
       event && event.estimated_pax != null ? Number(event.estimated_pax) : null;
   }
 
+  const standardCentavos = computePaxPriceCentavos(config, pax);
+
+  // ── Vendor-enabled couple discount (owner 2026-07-22) ──────────────────────
+  // A booked vendor with an ACTIVE 3D Booth add-on can unlock the 3D Plan for
+  // their couple → SEATING_3D drops from the standard catalog price (₱2,999) to
+  // ₱1,000. Server-authoritative: read the per-event unlock record (admin client)
+  // and let the PURE selector pick the price — it only touches SEATING_3D, only
+  // when unlocked, and only ever LOWERS. So a tampered/stale client price still
+  // can't beat ₱1,000, and a couple with no vendor-unlock pays the full ₱2,999.
+  // The unlock is discount-eligibility ONLY — it grants no free access, and the
+  // couple still buys SEATING_3D through this same apply-then-pay checkout.
+  if (serviceCode === VENDOR_3D_PLAN_UNLOCK_SERVICE_KEY) {
+    const unlocked = await eventHasVendor3dPlanUnlock(admin, eventId);
+    return {
+      is_pax_priced: config.is_pax_priced,
+      centavos: applyVendor3dPlanUnlockDiscountCentavos(
+        serviceCode,
+        standardCentavos,
+        unlocked,
+      ),
+    };
+  }
+
   return {
     is_pax_priced: config.is_pax_priced,
-    centavos: computePaxPriceCentavos(config, pax),
+    centavos: standardCentavos,
   };
 }
 

@@ -69,6 +69,7 @@ import { TeaCeremonyCard } from './_components/tea-ceremony-card';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { fetchPublicScheduleBlocks, type ScheduleBlockRow } from '@/lib/schedule';
+import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
 import { GuestToHostCta } from '@/app/_components/guest-to-host-cta';
 import { NavLinksRow } from '@/app/_components/nav-links';
@@ -815,7 +816,11 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // Schedule widget. fetchPublicScheduleBlocks already takes the admin
   // client + event_id and returns only the rows the host has marked
   // public — safe to show to anonymous visitors.
-  const scheduleBlocks = await fetchPublicScheduleBlocks(admin, event.event_id);
+  const scheduleBlocks = await fetchPublicScheduleBlocks(
+    admin,
+    event.event_id,
+    await isCoordinatorPrepReleaseEnabled(),
+  );
 
   // Spatial backdrop (Wedding_Website_Effects_and_Editing_Spec_2026-06-11
   // §2.1b) — the AI-generated world behind the RSVP page. SEPARATE tolerant

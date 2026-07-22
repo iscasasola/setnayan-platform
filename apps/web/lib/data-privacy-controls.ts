@@ -27,7 +27,9 @@ export type PrivacyControlKey =
   | 'cross_event_vendor_recall'
   | 'faith_religion_graph'
   | 'dependent_minor_profiles'
-  | 'home_activity_signals';
+  | 'home_activity_signals'
+  | 'coordinator_consent_money'
+  | 'coordinator_prep_release';
 
 export type PrivacyControlDef = {
   key: PrivacyControlKey;
@@ -110,6 +112,24 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
     category: 'Profile & onboarding PI',
     riskNote:
       'Some signals are SPI. The live /privacy notice must list what is collected and the purpose.',
+  },
+  {
+    key: 'coordinator_consent_money',
+    title: 'Coordinator consent + money scopes',
+    description:
+      'The RA 10173 consent modal at the coordinator invite (guest list, seating, schedule, vendor chats) AND the couple’s optional "Can lock vendors" / "Can handle payments" scopes that let a coordinator finalize vendors and handle checkout on the couple’s behalf.',
+    category: 'Guest PII + money via coordinator',
+    riskNote:
+      'Widens a coordinator’s access over guest PII and, if the couple grants it, money-adjacent actions. Consent is captured at invite; face/biometric data stays excluded. Confirm the DPO ruling before activating.',
+  },
+  {
+    key: 'coordinator_prep_release',
+    title: 'Coordinator prep-then-release',
+    description:
+      'Lets a coordinator stage schedule (run-of-show) blocks privately and release them to the couple. Staged blocks are hidden from the couple, guests, and booked vendors until released.',
+    category: 'Coordinator private working set',
+    riskNote:
+      'Widens the coordinator’s private working surface over the couple’s planning data (schedule). Same consent basis as the coordinator consent gate.',
   },
 ];
 

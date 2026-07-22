@@ -181,7 +181,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
   const justRevoked = search.invite_revoked === '1';
   const grantUpdated = search.grant_updated === '1';
   const hostRemoved = search.host_removed === '1';
-  const consentGateEnabled = isCoordinatorConsentGateEnabled();
+  const consentGateEnabled = await isCoordinatorConsentGateEnabled();
 
   // Build the share URL with a localhost-safe fallback. In production this
   // resolves to https://www.setnayan.com via SITE_URL; locally to localhost.

@@ -169,7 +169,7 @@ export async function createScheduleBlock(formData: FormData) {
   // STAGED (coordinator_only, hidden from the couple until released). Gated by
   // the flag + coordinator role; flag-off / couple / family → couple_visible
   // (the DB default) and the column is never referenced.
-  if (isCoordinatorPrepReleaseEnabled() && formData.get('prep') === 'on') {
+  if ((await isCoordinatorPrepReleaseEnabled()) && formData.get('prep') === 'on') {
     if (await isEventCoordinator(supabase, user.id, eventId)) {
       insertRow.visibility = 'coordinator_only';
     }
@@ -244,7 +244,7 @@ export async function toggleBlockVisibility(formData: FormData) {
  * this (the couple can't see staged blocks to begin with). Flag-gated.
  */
 export async function setBlockPrepVisibility(formData: FormData) {
-  if (!isCoordinatorPrepReleaseEnabled()) {
+  if (!(await isCoordinatorPrepReleaseEnabled())) {
     throw new Error('Prep-then-release is not enabled.');
   }
   const eventId = formData.get('event_id');

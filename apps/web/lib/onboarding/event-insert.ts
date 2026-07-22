@@ -18,6 +18,10 @@ export type GenericInsertOpts = {
   /** NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED — guards the experience_* columns so the
    *  insert never references them before migration 20270208703382 is applied. */
   experienceEnabled: boolean;
+  /** The `home_activity_signals` data-privacy control (RA 10173). When false,
+   *  the per-type SPI signal (signature_details — e.g. a christening honoree's
+   *  DOB/gender) is stripped to NULL. Fail-closed: the event is still created. */
+  homeSignalsEnabled: boolean;
 };
 
 export function buildGenericEventInsert(
@@ -88,9 +92,12 @@ export function buildGenericEventInsert(
     together_since: null,
     // Per-type signature answers (the generalised love_story). NULL when nothing
     // was captured, so the Brief's specialty richness gate reads "not
-    // personalised yet" rather than "answered with {}".
+    // personalised yet" rather than "answered with {}". Gated by the
+    // home_activity_signals control — stripped to NULL when it isn't Active.
     signature_details:
-      payload.signatureDetails && Object.keys(payload.signatureDetails).length > 0
+      opts.homeSignalsEnabled &&
+      payload.signatureDetails &&
+      Object.keys(payload.signatureDetails).length > 0
         ? payload.signatureDetails
         : null,
     // Experience-persona intent — flag-guarded (absent before the migration lands).

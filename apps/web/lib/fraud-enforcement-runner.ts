@@ -1,6 +1,7 @@
 import 'server-only';
 import * as Sentry from '@sentry/nextjs';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { isDataPrivacyControlActiveWith } from '@/lib/data-privacy-controls';
 import {
   FRAUD_AUTOSUSPEND_THRESHOLD,
   FRAUD_AUTOSUSPEND_MIN_SIGNALS,
@@ -127,6 +128,12 @@ export async function maybeAutoSuspendVendor(
   vendorProfileId: string,
 ): Promise<boolean> {
   try {
+    // RA 10173 automated-decision gate. The auto-suspend significantly affects a
+    // vendor, so it fires only while the `antifraud_trust_signals` data-privacy
+    // control is Active. Fail-closed = no automated suspension; detection/scoring
+    // into the admin queue is unaffected, so humans can still act manually.
+    if (!(await isDataPrivacyControlActiveWith(admin, 'antifraud_trust_signals'))) return false;
+
     const { data: vendorRow } = await admin
       .from('vendor_profiles')
       .select('vendor_profile_id, fraud_suspended_at, fraud_banned_at, public_visibility')
@@ -219,6 +226,9 @@ export async function maybeAutoSuspendVendor(
  */
 export async function runAutoSuspendSweep(admin?: Admin): Promise<number> {
   const client = admin ?? createAdminClient();
+  // Short-circuit the whole sweep when the automated-decision control is off
+  // (maybeAutoSuspendVendor also re-checks per vendor — this just skips the scan).
+  if (!(await isDataPrivacyControlActiveWith(client, 'antifraud_trust_signals'))) return 0;
   let suspended = 0;
   try {
     // Only vendors WITH an open-signal aggregate at/above the bar AND with the

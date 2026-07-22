@@ -1,10 +1,12 @@
 import Link from 'next/link';
-import { ShieldCheck, CheckCircle2, Circle, Ban, Download, FileText, FolderArchive } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, Circle, Ban, Archive, Download, FileText, FolderArchive } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { relativeTime } from '@/lib/activity';
 import {
   fetchDataPrivacyControls,
+  PRIVACY_CONTROL_GROUP_ORDER,
+  PRIVACY_CONTROL_GROUP_LABEL,
   type PrivacyControlRow,
   type PrivacyControlStatus,
 } from '@/lib/data-privacy-controls';
@@ -48,11 +50,12 @@ const TABS: { key: TabKey; label: string }[] = [
 
 const STATUS_META: Record<
   PrivacyControlStatus,
-  { label: string; tone: 'active' | 'off' | 'blocked'; icon: typeof CheckCircle2 }
+  { label: string; tone: 'active' | 'off' | 'blocked' | 'retired'; icon: typeof CheckCircle2 }
 > = {
   active: { label: 'Active', tone: 'active', icon: CheckCircle2 },
   inactive: { label: 'Off', tone: 'off', icon: Circle },
   blocked: { label: 'Blocked', tone: 'blocked', icon: Ban },
+  retired: { label: 'Retired', tone: 'retired', icon: Archive },
 };
 
 export default async function DataPrivacyPage({
@@ -67,6 +70,8 @@ export default async function DataPrivacyPage({
   const admin = createAdminClient();
   const controls = await fetchDataPrivacyControls(admin);
   const activeCount = controls.filter((c) => c.status === 'active').length;
+  const retiredCount = controls.filter((c) => c.status === 'retired').length;
+  const liveTotal = controls.length - retiredCount;
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
@@ -84,7 +89,8 @@ export default async function DataPrivacyPage({
           checklist. Features read this board, so a control that isn’t <strong>Active</strong> stays
           off everywhere.
           <span className="mt-1 block" style={{ color: 'var(--m-slate-3)' }}>
-            {activeCount} of {controls.length} controls active.
+            {activeCount} of {liveTotal} controls active
+            {retiredCount > 0 ? ` · ${retiredCount} retired` : ''}.
           </span>
         </p>
       </header>
@@ -116,13 +122,7 @@ export default async function DataPrivacyPage({
         })}
       </nav>
 
-      {active === 'controls' ? (
-        <ul className="space-y-3">
-          {controls.map((c) => (
-            <ControlCard key={c.control_key} control={c} />
-          ))}
-        </ul>
-      ) : null}
+      {active === 'controls' ? <ControlsBoard controls={controls} /> : null}
 
       {active === 'coverage' ? <CoveragePanel controls={controls} /> : null}
 
@@ -211,6 +211,53 @@ function NpcDocuments() {
   );
 }
 
+/**
+ * The control board, rendered as risk-grouped sections (biometric → vendor →
+ * automated/AI → coordinator → onboarding → activation switches), with any
+ * RETIRED controls pulled into their own muted section at the bottom so a
+ * parked, feature-less control never sits among the live switches.
+ */
+function ControlsBoard({ controls }: { controls: PrivacyControlRow[] }) {
+  const live = controls.filter((c) => c.status !== 'retired');
+  const retired = controls.filter((c) => c.status === 'retired');
+
+  return (
+    <div className="space-y-8">
+      {PRIVACY_CONTROL_GROUP_ORDER.map((g) => {
+        const rows = live.filter((c) => c.group === g);
+        if (rows.length === 0) return null;
+        return (
+          <section key={g}>
+            <h2 className="sn-sec">{PRIVACY_CONTROL_GROUP_LABEL[g]}</h2>
+            <ul className="mt-3 space-y-3">
+              {rows.map((c) => (
+                <ControlCard key={c.control_key} control={c} />
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+
+      {retired.length > 0 ? (
+        <section>
+          <h2 className="sn-sec flex items-center gap-2" style={{ color: 'var(--m-slate-3)' }}>
+            <Archive aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Retired
+          </h2>
+          <p className="mt-1 max-w-2xl text-sm" style={{ color: 'var(--m-slate-3)' }}>
+            Feature removed or never built — parked for audit lineage. Fail-closed everywhere
+            (nothing reads a retired control as active). Restore to bring it back onto the board.
+          </p>
+          <ul className="mt-3 space-y-3">
+            {retired.map((c) => (
+              <ControlCard key={c.control_key} control={c} />
+            ))}
+          </ul>
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
 function ControlCard({ control: c }: { control: PrivacyControlRow }) {
   const meta = STATUS_META[c.status];
   const StatusIcon = meta.icon;
@@ -222,7 +269,7 @@ function ControlCard({ control: c }: { control: PrivacyControlRow }) {
         : 'var(--m-slate-3)';
 
   return (
-    <li className="sn-tile">
+    <li className="sn-tile" style={c.status === 'retired' ? { opacity: 0.72 } : undefined}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">

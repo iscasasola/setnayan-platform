@@ -6,7 +6,7 @@ import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
 import { DATA_PRIVACY_CONTROLS, type PrivacyControlStatus } from '@/lib/data-privacy-controls';
 
 const VALID_KEYS = new Set<string>(DATA_PRIVACY_CONTROLS.map((c) => c.key));
-const VALID_STATUS = new Set<PrivacyControlStatus>(['inactive', 'active', 'blocked']);
+const VALID_STATUS = new Set<PrivacyControlStatus>(['inactive', 'active', 'blocked', 'retired']);
 
 export type ControlActionResult = { status: 'ok' | 'error'; message: string };
 
@@ -63,6 +63,8 @@ export async function setDataPrivacyControl(
         ? `“${def.title}” is now active.`
         : status === 'blocked'
           ? `“${def.title}” is blocked.`
-          : `“${def.title}” is off.`,
+          : status === 'retired'
+            ? `“${def.title}” is retired.`
+            : `“${def.title}” is off.`,
   };
 }

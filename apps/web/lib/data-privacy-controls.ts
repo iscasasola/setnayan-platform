@@ -8,16 +8,22 @@
  * `isDataPrivacyControlActive` — so the owner controls activation in-app, no
  * env flag, no redeploy.
  *
- * The catalog below mirrors the migration seed. A control missing from the DB
- * (e.g. pre-migration) reads as INACTIVE — fail-closed, so nothing privacy-
- * sensitive silently activates.
+ * The catalog below mirrors the migration seed (base migration 20270814219429 +
+ * the coordinator / vendor-AI / overhaul follow-ups). A control missing from the
+ * DB (e.g. pre-migration) reads as INACTIVE — fail-closed, so nothing privacy-
+ * sensitive silently activates. Each def also carries a `group` (its board
+ * section) and every gate reads `status === 'active'`, so 'inactive', 'blocked',
+ * and 'retired' all fail-closed.
  */
 
 import { cache } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 
-export type PrivacyControlStatus = 'inactive' | 'active' | 'blocked';
+// 'retired' = the control's feature was removed or never built — parked for
+// audit lineage, sunk to its own board section, and (like 'inactive'/'blocked')
+// fail-closed everywhere the gate reads `=== 'active'`.
+export type PrivacyControlStatus = 'inactive' | 'active' | 'blocked' | 'retired';
 
 export type PrivacyControlKey =
   | 'vendor_papic_capture'
@@ -33,7 +39,41 @@ export type PrivacyControlKey =
   | 'coordinator_run_of_show'
   | 'coordinator_day_of_broadcast'
   | 'vendor_ai_autoreply'
-  | 'vendor_deep_search';
+  | 'vendor_deep_search'
+  | 'antifraud_trust_signals'
+  | 'device_fingerprint';
+
+/**
+ * Risk-grouped sections for the board. `group` is the KIND of data a control
+ * governs; it drives the section a control renders under (a retired control is
+ * pulled into its own "Retired" section regardless of group). Ordered most- to
+ * least-sensitive.
+ */
+export type PrivacyControlGroup =
+  | 'biometric_sensitive'
+  | 'vendor_mediated'
+  | 'automated_ai'
+  | 'coordinator'
+  | 'profile_onboarding'
+  | 'activation_switch';
+
+export const PRIVACY_CONTROL_GROUP_ORDER: readonly PrivacyControlGroup[] = [
+  'biometric_sensitive',
+  'vendor_mediated',
+  'automated_ai',
+  'coordinator',
+  'profile_onboarding',
+  'activation_switch',
+];
+
+export const PRIVACY_CONTROL_GROUP_LABEL: Record<PrivacyControlGroup, string> = {
+  biometric_sensitive: 'Biometric & sensitive PI',
+  vendor_mediated: 'Vendor-mediated guest data',
+  automated_ai: 'Automated processing & AI',
+  coordinator: 'Coordinator access',
+  profile_onboarding: 'Profile & onboarding',
+  activation_switch: 'Activation switches (not privacy-sensitive)',
+};
 
 export type PrivacyControlDef = {
   key: PrivacyControlKey;
@@ -41,12 +81,14 @@ export type PrivacyControlDef = {
   description: string;
   category: string;
   riskNote: string;
+  group: PrivacyControlGroup;
 };
 
 /** Catalog — mirror of the migration seed (kept in sync by hand). */
 export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
   {
     key: 'vendor_papic_capture',
+    group: 'vendor_mediated',
     title: 'Vendor Papic capture',
     description:
       'Lets a booked vendor collect photos and 10s clips of the event they are working (10 free + Ltd/Unli). Media is the vendor’s, scoped to their booked event.',
@@ -56,6 +98,7 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
   },
   {
     key: 'vendor_guest_delivery',
+    group: 'vendor_mediated',
     title: 'Per-guest vendor delivery tracker',
     description:
       'Lets a pax-serving vendor mark which guests have received their product (meal, souvenir) — unchecked = not yet received.',
@@ -65,6 +108,7 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
   },
   {
     key: 'face_enrollment',
+    group: 'biometric_sensitive',
     title: 'Face detection & auto-tag',
     description:
       'Per-event face enrollment + auto-tagging of Papic photos (≥0.85 auto, 0.65–0.85 suggested). Vectors are per-event-scoped, never reused across events.',
@@ -74,15 +118,17 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
   },
   {
     key: 'papic_geo_metadata',
+    group: 'vendor_mediated',
     title: 'Capture geolocation metadata',
     description:
-      'Stamps captured_at + geo on photos/clips when a device fix is available. Geo is stripped on outbound shares; the original on R2 retains it.',
+      'Would stamp captured_at + geo on photos/clips when a device fix is available. NOT BUILT: no Papic capture path collects or writes geo today (the metadata plumbing is dead code hitting a presign-only route), so there is no live location processing to gate.',
     category: 'Location data',
     riskNote:
-      'Location is PI. Retention + the share-time strip must be disclosed; the stored original still carries geo.',
+      'Location is PI. Retired because nothing currently captures it — the ROPA "location on captures" activity is aspirational, not current processing. If geo capture is ever built, gate the write at recordSeatCapture and un-retire this control.',
   },
   {
     key: 'cross_event_vendor_recall',
+    group: 'vendor_mediated',
     title: 'Cross-event vendor recall',
     description:
       'Surfaces a guest’s previously-saved / previously-booked vendors across their events (guest_saved_vendors, prior-event names).',
@@ -92,6 +138,7 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
   },
   {
     key: 'faith_religion_graph',
+    group: 'biometric_sensitive',
     title: 'Faith / religion person graph',
     description:
       'Optional religion on a person unlocks faith-rite events (Binyag → Communion → Confirmation → Wedding) and sponsor/godparent edges.',
@@ -101,6 +148,7 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
   },
   {
     key: 'dependent_minor_profiles',
+    group: 'biometric_sensitive',
     title: 'Dependent & minor profiles',
     description:
       'Lets a guardian account hold profiles for dependents, including minors (under 18) and elders, with transfer at age of majority.',
@@ -110,6 +158,7 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
   },
   {
     key: 'home_activity_signals',
+    group: 'profile_onboarding',
     title: 'Home & onboarding signal capture',
     description:
       'Captures the SPI/PI signals the updated Home + onboarding collect (event brief, love-story, experience quiz) to drive the free deterministic engines.',
@@ -119,6 +168,7 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
   },
   {
     key: 'coordinator_consent_money',
+    group: 'coordinator',
     title: 'Coordinator consent + money scopes',
     description:
       'The RA 10173 consent modal at the coordinator invite (guest list, seating, schedule, vendor chats) AND the couple’s optional "Can lock vendors" / "Can handle payments" scopes that let a coordinator finalize vendors and handle checkout on the couple’s behalf.',
@@ -128,6 +178,7 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
   },
   {
     key: 'coordinator_prep_release',
+    group: 'coordinator',
     title: 'Coordinator prep-then-release',
     description:
       'Lets a coordinator stage schedule (run-of-show) blocks privately and release them to the couple. Staged blocks are hidden from the couple, guests, and booked vendors until released.',
@@ -137,6 +188,7 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
   },
   {
     key: 'coordinator_run_of_show',
+    group: 'activation_switch',
     title: 'Coordinator filtered run-of-show (P2)',
     description:
       'Coordinator schedule chrome: per-vendor / per-couple / per-guest filtered views over the one master run-of-show, responsible-party tags, reusable templates, and bulk retime.',
@@ -146,6 +198,7 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
   },
   {
     key: 'coordinator_day_of_broadcast',
+    group: 'activation_switch',
     title: 'Coordinator day-of broadcast + call-times (P3)',
     description:
       'The day-of broadcast card (announcements to event members) and the optional per-vendor email call-times derived from the run-of-show.',
@@ -155,6 +208,7 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
   },
   {
     key: 'vendor_ai_autoreply',
+    group: 'automated_ai',
     title: 'Vendor AI (auto-reply)',
     description:
       'The paid Vendor AI add-on reads a couple’s inbox messages + Event Brief (dates, pax, budget-per-head, venue) and auto-answers — and can auto-accept — on the vendor’s behalf. Deterministic (no LLM); the couple sees it labelled "⚡ AI auto-reply".',
@@ -164,12 +218,33 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
   },
   {
     key: 'vendor_deep_search',
+    group: 'automated_ai',
     title: 'Vendor Deep Search',
     description:
       'The paid Deep Search add-on runs AI web-research (Anthropic web_search) over the vendor’s OWN business across public sources incl. review sites, and stores a structured dossier (vendor_web_dossiers) to auto-fill the vendor profile.',
     category: 'AI web-research + dossier storage',
     riskNote:
       'AI web-research via the Anthropic web_search subprocessor; may read third-party PII (reviewers, named clients) from the open web; a dossier is stored. The /privacy notice needs a Deep-Search section + a retention limit; DPO review of third-party-source storage required.',
+  },
+  {
+    key: 'antifraud_trust_signals',
+    group: 'automated_ai',
+    title: 'Anti-fraud automated vendor suspension',
+    description:
+      'Identity-clustering + five-signal vendor fraud scoring, and the ONE automated decision it can take: a reversible auto-suspend (hides the vendor + freezes badges) when the aggregate open-signal score crosses the bar. Detection/scoring into the admin review queue is unaffected — only the automated suspension is gated.',
+    category: 'Automated decision (vendor)',
+    riskNote:
+      'An automated decision that significantly affects a vendor under RA 10173 — it needs a published disclosure, a legitimate-interest assessment, and a documented contest/appeal path (NPC task t1-4). Fail-closed = no automated suspension; humans still act from the queue.',
+  },
+  {
+    key: 'device_fingerprint',
+    group: 'automated_ai',
+    title: 'Device-fingerprint fraud data',
+    description:
+      'Records a coarse, first-party per-browser device id (hashed server-side, never the raw id) into user_devices, lighting up identity-cluster + shared-device detection. Deliberately coarse — no canvas/behavioral fingerprint, no external SDK.',
+    category: 'Fraud prevention / device data',
+    riskNote:
+      'A NEW pseudonymous data-collection practice. A DPO review is on file (12_Device_Fingerprint_DPO_Review) and a documented LIA is still owed (NPC task t2-10). Kept OFF until DPO sign-off; the capture path AND-gates this control with the NEXT_PUBLIC_DEVICE_FINGERPRINT_ENABLED env flag.',
   },
 ];
 
@@ -185,6 +260,8 @@ export type PrivacyControlRow = {
   note: string | null;
   sort_order: number;
   updated_at: string | null;
+  /** From the code catalog (not the DB) — the board's section grouping. */
+  group: PrivacyControlGroup;
 };
 
 /**
@@ -216,6 +293,7 @@ export async function fetchDataPrivacyControls(
       note: row?.note ?? null,
       sort_order: row?.sort_order ?? (i + 1) * 10,
       updated_at: row?.updated_at ?? null,
+      group: c.group,
     };
   }).sort((a, b) => a.sort_order - b.sort_order);
 }

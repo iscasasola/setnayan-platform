@@ -7,6 +7,7 @@ import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { manilaToday } from '@/lib/std-views';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { sendEmail } from '@/lib/email';
 import { renderBrandedEmail } from '@/lib/email-template';
 import {
@@ -30,8 +31,14 @@ import {
  * this owner.
  */
 export async function addDependent(formData: FormData): Promise<void> {
-  // Hard gate: inert until the DPO clears the counsel review + flips the flag.
-  if (!dependentPeopleEnabled()) redirect('/dashboard/people');
+  // Hard gate: inert until the DPO clears the counsel review + flips the flag,
+  // AND the owner activates the dependent_minor_profiles data-privacy control
+  // (RA 10173 — minors' SPI). Both must hold before any new minor data is stored.
+  // NOTE: only the WRITE is control-gated; delete/erasure below stays reachable
+  // whenever the flag is on, so a data-subject erasure is never blocked.
+  if (!dependentPeopleEnabled() || !(await isDataPrivacyControlActive('dependent_minor_profiles'))) {
+    redirect('/dashboard/people');
+  }
 
   const supabase = await createClient();
   const {
@@ -112,7 +119,11 @@ export async function deleteDependent(formData: FormData): Promise<void> {
  * spouse (who can READ shared rows) can never flip another person's sharing.
  */
 export async function setDependentSharing(formData: FormData): Promise<void> {
-  if (!dependentPeopleEnabled()) redirect('/dashboard/people');
+  // Sharing a minor's row is dependent SPI processing — same control belt as the
+  // addDependent write (env flag AND dependent_minor_profiles). Fail-closed.
+  if (!dependentPeopleEnabled() || !(await isDataPrivacyControlActive('dependent_minor_profiles'))) {
+    redirect('/dashboard/people');
+  }
   const dependentId = String(formData.get('dependent_id') ?? '').trim();
   const share = String(formData.get('share') ?? '') === '1';
   if (!dependentId) redirect('/dashboard/people');
@@ -140,7 +151,18 @@ export async function setDependentSharing(formData: FormData): Promise<void> {
  * reference another guardian's child). Flag-gated.
  */
 export async function addGodparent(formData: FormData): Promise<void> {
-  if (!dependentPeopleEnabled()) redirect('/dashboard/people');
+  // A ninong/ninang edge is BOTH minor-dependent SPI and a faith-rite edge, so it
+  // requires the env flag AND both controls (dependent_minor_profiles +
+  // faith_religion_graph). Fail-closed — matches the read gates on the Year-view
+  // rite moments and the godchild reminder job. Removal (deleteGodparent) stays
+  // env-only so an erasure is never blocked.
+  if (
+    !dependentPeopleEnabled() ||
+    !(await isDataPrivacyControlActive('dependent_minor_profiles')) ||
+    !(await isDataPrivacyControlActive('faith_religion_graph'))
+  ) {
+    redirect('/dashboard/people');
+  }
 
   const supabase = await createClient();
   const {

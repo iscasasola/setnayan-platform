@@ -213,10 +213,12 @@ export type NotificationType =
   //   ai_payment_due → GRD-01: a vendor payment milestone is due within 7 days
   //                    (event_vendor_line_items due dates). ON the email
   //                    allowlist per spec § 4.1 ("payment due soon → email").
-  //   ai_guard_alert → the other honestly-sourced guard templates today:
-  //                    GRD-02 (statutory paperwork deadline) + GRD-05 (over
-  //                    budget). In-app only — spec § 4.1 keeps non-payment
-  //                    guards out of the interrupt channels.
+  //   ai_guard_alert → the other honestly-sourced guard templates: GRD-02
+  //                    (statutory deadline), GRD-03 (a shortlisted vendor's price
+  //                    rose), GRD-05 (over budget), GRD-06 (run-of-show clash),
+  //                    GRD-09 (a shortlisted vendor got booked on your date).
+  //                    In-app only — spec § 4.1 keeps non-payment guards out of
+  //                    the interrupt/email channels.
   | 'ai_payment_due'
   | 'ai_guard_alert'
   // Added 2026-07-11 (Relationship Workspace + Appointments · PR 12 follow-ups)

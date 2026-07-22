@@ -359,7 +359,11 @@ export function availabilityChangesFromBlocks(
   dateLabel: string,
 ): SnapshotAvailabilityChange[] {
   if (!eventDateIso) return [];
-  const dayStart = new Date(`${eventDateIso.slice(0, 10)}T00:00:00`).getTime();
+  // The event "day" is the Asia/Manila calendar day (PH, UTC+8, no DST) — same
+  // convention as vendors_blocked_on_date. Anchoring to +08:00 (not the server's
+  // UTC/local midnight) keeps a block right at the day boundary from being
+  // attributed to the wrong day.
+  const dayStart = new Date(`${eventDateIso.slice(0, 10)}T00:00:00+08:00`).getTime();
   const dayEnd = dayStart + 86_400_000;
   if (Number.isNaN(dayStart)) return [];
   const seen = new Set<string>();

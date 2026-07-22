@@ -93,18 +93,25 @@ export default async function VenuePage({
     }
 
     // Booth vendors' marketplace profile slugs (the booth card's free
-    // "Book this vendor" CTA — owner-locked surface D). The RPC payload
-    // predates the slug field, so join it here via fetchBooths, which already
-    // nulls the slug unless the profile is publicly visible — and carries
-    // `bookable` (verified-only) so the card only says "Book" when the
-    // profile can actually take bookings. Public business info only;
-    // fail-soft (a missing event row just means no CTA).
+    // "Book this vendor" CTA — owner-locked surface D) AND the paid 3D Booth
+    // add-on entitlement (owner 2026-07-22 — gates whether the booth brands).
+    // The RPC payload predates both fields, so join them here via fetchBooths,
+    // which nulls the slug unless the profile is publicly visible, carries
+    // `bookable` (verified-only), and resolves `boothAddonActive`
+    // (isVendor3dBoothActive(booth_addon_expires_at)) — THE gate the client's
+    // boothIsBranded render check requires on top of the Pro/Enterprise tier.
+    // Public business info only; fail-soft (a missing event row → no CTA, and
+    // boothAddonActive defaults false → the generic unbranded booth).
     if (eventId) {
       const boothRows = await fetchBooths(admin, eventId);
       const profileById = new Map(
         boothRows.map((b) => [
           b.booth_id,
-          { slug: b.vendor?.slug ?? null, bookable: b.vendor?.bookable ?? false },
+          {
+            slug: b.vendor?.slug ?? null,
+            bookable: b.vendor?.bookable ?? false,
+            boothAddonActive: b.vendor?.boothAddonActive ?? false,
+          },
         ]),
       );
       scene = {
@@ -117,6 +124,7 @@ export default async function VenuePage({
                   ...b.vendor,
                   slug: profileById.get(b.id)?.slug ?? null,
                   bookable: profileById.get(b.id)?.bookable ?? false,
+                  boothAddonActive: profileById.get(b.id)?.boothAddonActive ?? false,
                 },
               }
             : b,

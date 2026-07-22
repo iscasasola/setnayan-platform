@@ -33,7 +33,7 @@ import {
 import type { BoothPropKind } from './booth-props';
 import {
   BOOTH_FOOTPRINT_M,
-  boothCanBrand,
+  boothIsBranded,
   pctToWorld,
   boothFacingY,
   rotateLocalRad,
@@ -1013,7 +1013,7 @@ export function templateBoothObstacles(
   /**
    * The per-event poster stand is solid too — without a disc walkers stroll
    * straight through the banner. Gated on exactly what the RENDERER draws
-   * (`boothCanBrand(tier) && posterUrl`) and positioned by the same offset
+   * (`boothIsBranded(vendor) && posterUrl`) and positioned by the same offset
    * helper, so artwork and obstacle cannot drift apart.
    *
    * Called from BOTH branches deliberately: `venue-objects.tsx` renders the
@@ -1029,7 +1029,7 @@ export function templateBoothObstacles(
     facingY: number,
     spec: ChassisSpec | null,
   ) => {
-    if (!boothCanBrand(b.vendor?.tier) || !b.vendor?.posterUrl) return;
+    if (!boothIsBranded(b.vendor) || !b.vendor?.posterUrl) return;
     const r = rotateLocalRad(boothPosterLocalOffset(spec), facingY);
     out.push({
       c: { x: c.x + r.x, z: c.z + r.z },

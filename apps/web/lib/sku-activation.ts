@@ -24,6 +24,10 @@ import {
   VENDOR_AI_ADDON_SKU_CODE,
   nextVendorAiAddonExpiry,
 } from '@/lib/vendor-addon-pricing';
+import {
+  VENDOR_3D_BOOTH_SKU_CODE,
+  nextVendor3dBoothExpiry,
+} from '@/lib/vendor-3d-booth-pricing';
 import { VENDOR_PHOTO_CHALLENGE_SKU_CODE } from '@/lib/vendor-photo-challenge';
 
 /**
@@ -305,6 +309,80 @@ async function activateVendorAiAddonOrder(ctx: ActivationContext): Promise<void>
 }
 
 /**
+ * 3D Booth add-on — activate a paid 28-day cycle on approval (owner 2026-07-22).
+ * The FREE first cycle activates DIRECTLY in the buy action (an atomic trial
+ * claim); this hook is the PAID-renewal path. Mirrors activateVendorAiAddonOrder
+ * exactly — same window shape, on vendor_profiles.booth_addon_expires_at.
+ *
+ * Reads the paying vendor off the order (orders.vendor_profile_id), stamps a
+ * fresh 28-day entitlement window (stacking from the later of now / current
+ * expiry so an early re-up keeps the remaining time), and — defensively — marks
+ * the one-time trial used if a paid order somehow lands with it still NULL.
+ *
+ * IDEMPOTENT via a prior 'service_activated' ledger row for this order (same
+ * guard as the AI add-on), so a re-approval never double-extends the window.
+ * Throws only on the write so activateOrderSku's outer catch logs + the order
+ * stays 'paid' (recoverable). (Function declaration → hoisted so the frozen
+ * EXACT_HOOKS map below can reference it.)
+ */
+async function activateVendor3dBoothOrder(ctx: ActivationContext): Promise<void> {
+  // (1) Idempotency — already activated this order?
+  const { data: prior } = await ctx.admin
+    .from('order_ledger')
+    .select('order_id')
+    .eq('order_id', ctx.orderId)
+    .eq('event_type', 'service_activated')
+    .limit(1)
+    .maybeSingle();
+  if (prior) return;
+
+  // (2) The paying vendor is on the order.
+  const { data: order } = await ctx.admin
+    .from('orders')
+    .select('vendor_profile_id')
+    .eq('order_id', ctx.orderId)
+    .maybeSingle();
+  const vendorProfileId =
+    (order as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
+  if (!vendorProfileId) return;
+
+  // (3) Current window + trial marker → the new (stacked) expiry.
+  const { data: vp } = await ctx.admin
+    .from('vendor_profiles')
+    .select('booth_addon_expires_at, booth_addon_trial_used_at')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  const currentExpiry =
+    (vp as { booth_addon_expires_at?: string | null } | null)?.booth_addon_expires_at ?? null;
+  const trialUsedAt =
+    (vp as { booth_addon_trial_used_at?: string | null } | null)?.booth_addon_trial_used_at ?? null;
+  const newExpiry = nextVendor3dBoothExpiry(currentExpiry, Date.now());
+
+  const update: Record<string, unknown> = { booth_addon_expires_at: newExpiry };
+  // A paid order always means the trial already ran, but never leave it NULL
+  // (that would hand a paid vendor a second "free" cycle).
+  if (!trialUsedAt) update.booth_addon_trial_used_at = new Date().toISOString();
+
+  const { error } = await ctx.admin
+    .from('vendor_profiles')
+    .update(update)
+    .eq('vendor_profile_id', vendorProfileId);
+  if (error) throw new Error(`vendor_3d_booth activation write failed: ${error.message}`);
+
+  await appendLedger(ctx.admin, {
+    order_id: ctx.orderId,
+    event_type: 'service_activated',
+    actor_user_id: ctx.actorUserId,
+    actor_role: 'admin',
+    metadata: {
+      service_key: ctx.serviceKey,
+      vendor_profile_id: vendorProfileId,
+      booth_addon_expires_at: newExpiry,
+    },
+  });
+}
+
+/**
  * Photo Challenge add-on — write the per-(vendor,event) sponsorship entitlement
  * on approval (owner 2026-07-22). ₱400 / event, no free cycle (unlike the AI
  * add-on): every approved order is a paid sponsorship. The row is what the
@@ -383,6 +461,11 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // the entitlement window on the paying vendor (the free first cycle is
   // direct-activated in the buy action). See activateVendorAiAddonOrder.
   [VENDOR_AI_ADDON_SKU_CODE]: activateVendorAiAddonOrder,
+
+  // 'vendor_3d_booth' → paid 3D Booth 28-day renewal. Stamps
+  // vendor_profiles.booth_addon_expires_at on the paying vendor (the free first
+  // cycle is direct-activated in the buy action). See activateVendor3dBoothOrder.
+  [VENDOR_3D_BOOTH_SKU_CODE]: activateVendor3dBoothOrder,
 
   // 'concierge_complete' (TODAYS_FOCUS) → wedding-anchored concierge state machine.
   concierge_complete: async (ctx) => {

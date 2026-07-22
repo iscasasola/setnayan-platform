@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isBookable, isPubliclyVisible, parseVisibility } from './vendor-visibility';
+import { isVendor3dBoothActive } from './vendor-3d-booth-pricing';
 // Iteration 0053 Phase 2: the wedding seating-tier data now lives in
 // lib/role-sets.ts (single source). We import WEDDING_ROLE_SET as the DEFAULT
 // for every tier classifier so un-threaded callers behave exactly as before;
@@ -1776,6 +1777,11 @@ export type FloorBoothRow = {
     // owner-locked surface-D contract; a coming_soon profile keeps its slug
     // (the profile page is publicly visible) but is NOT bookable.
     bookable: boolean;
+    // Whether the vendor holds an ACTIVE paid 3D Booth add-on (owner 2026-07-22
+    // · isVendor3dBoothActive(booth_addon_expires_at)). THE gate the branded
+    // booth render (lib/seating-3d.ts boothIsBranded) requires on top of the
+    // Pro/Enterprise tier — false → the generic (unbranded) booth.
+    boothAddonActive: boolean;
   } | null;
 };
 
@@ -1790,7 +1796,7 @@ export async function fetchBooths(
       // TWO relationships to vendor_profiles (linked_vendor_profile_id and
       // marketplace_vendor_id) and an unhinted embed errors as ambiguous.
       'booth_id,event_id,booth_type,label,x_pos,y_pos,sort_order,zone,event_vendor_id,offerings,' +
-        'event_vendors(vendor_name,category,vendor_profiles!marketplace_vendor_id(logo_url,tier_state,business_slug,public_visibility))',
+        'event_vendors(vendor_name,category,vendor_profiles!marketplace_vendor_id(logo_url,tier_state,business_slug,public_visibility,booth_addon_expires_at))',
     )
     .eq('event_id', eventId)
     .order('sort_order', { ascending: true })
@@ -1823,6 +1829,7 @@ export async function fetchBooths(
     tier_state: string | null;
     business_slug: string | null;
     public_visibility: string | null;
+    booth_addon_expires_at: string | null;
   } | null;
   type Joined = Omit<FloorBoothRow, 'vendor'> & {
     event_vendors:
@@ -1854,6 +1861,7 @@ export async function fetchBooths(
             tier: vp?.tier_state ?? null,
             slug: vp && isPubliclyVisible(parseVisibility(vp.public_visibility)) ? vp.business_slug ?? null : null,
             bookable: vp ? isBookable(parseVisibility(vp.public_visibility)) : false,
+            boothAddonActive: isVendor3dBoothActive(vp?.booth_addon_expires_at ?? null),
           }
         : null,
     };

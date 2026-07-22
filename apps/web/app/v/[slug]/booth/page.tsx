@@ -168,6 +168,11 @@ export default async function VendorBoothShowcasePage({ params }: Props) {
       tier: vendor.tier_state,
       slug: vendor.business_slug,
       bookable: true,
+      // The vendor's OWN booth showcase is a PREVIEW of the perk (already
+      // Pro/Enterprise-gated by the boothCanBrand SoftGate above) — brand it so
+      // they see what the 3D Booth add-on renders in couples' plans. Not a real
+      // couple's published plan, so it does not require the paid entitlement.
+      boothAddonActive: true,
     },
   };
   if (!boothTemplateFor(booth)) {

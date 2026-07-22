@@ -274,6 +274,9 @@ export default async function SeatingLabPage({ params }: Props) {
           tier: b.vendor.tier,
           slug: b.vendor.slug,
           bookable: b.vendor.bookable,
+          // Paid 3D Booth add-on entitlement (owner 2026-07-22) → gates branding
+          // in the couple's own lab, same boothIsBranded gate as the guest walk.
+          boothAddonActive: b.vendor.boothAddonActive,
         }
       : null,
   }));

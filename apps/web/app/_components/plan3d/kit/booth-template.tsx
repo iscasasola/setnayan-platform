@@ -37,7 +37,7 @@ import { useMemo } from 'react';
 import {
   pctToWorld,
   boothFacingY,
-  boothCanBrand,
+  boothIsBranded,
   type Lab3DBooth,
   type Lab3DPalette,
 } from '@/lib/seating-3d';
@@ -86,9 +86,10 @@ export function BoothTemplate({
     }));
   }, [booth.id, template.staff.count, template.staff.outfit, spec.staffAnchors.length]);
 
-  // Branded (pro/enterprise + logo) booths get the shared BoothSign logo
-  // backdrop from BoothMesh; everyone else hangs the drawn nameboard here.
-  const branded = boothCanBrand(booth.vendor?.tier) && !!booth.vendor?.logoUrl;
+  // Branded (pro/enterprise + active 3D Booth add-on + logo) booths get the
+  // shared BoothSign logo backdrop from BoothMesh; everyone else hangs the drawn
+  // nameboard here. boothIsBranded matches BoothMesh's gate exactly.
+  const branded = boothIsBranded(booth.vendor) && !!booth.vendor?.logoUrl;
   const signText =
     booth.label.trim() || booth.vendor?.name.trim() || template.signText;
 

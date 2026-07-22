@@ -59,7 +59,7 @@ import { AI_SUB_SKU, parseCycles } from '@/lib/setnayan-ai-subscription';
 import { resolveSetnayanAiPerEventPricingEnabled } from '@/lib/integration-config';
 import {
   SETNAYAN_AI_SKU,
-  resolveSetnayanAiEventChargeCentavos,
+  resolveSetnayanAiTypeChargeCentavos,
 } from '@/lib/setnayan-ai-event-pricing';
 import { computeVatFromBase } from '@/lib/receipts';
 import { getEffectiveVatRatePct } from '@/lib/platform-settings';
@@ -421,20 +421,21 @@ export async function submitOrderAction(
     }
   }
 
-  // Per-EVENT Setnayan AI (owner 2026-07-02): ₱499 on an event's FIRST cycle,
-  // ₱799 on every cycle after. When the per-event pricing flag is on, the
-  // authoritative charge for a SETNAYAN_AI order is intro-vs-renewal by the
-  // event's STORED state (server re-resolved, so a tampered client can't force
-  // the intro price on a renewal). Inert while the flag is off — the helper is
-  // never called and the flat ₱499 catalog resolve above stands, byte-identical.
+  // Per-EVENT-TYPE Setnayan AI (owner-locked 2026-07-22): the authoritative
+  // charge is set by the event's TYPE on the load-based ladder (₱1,499 Wedding ·
+  // ₱999 Debut/Corporate · ₱499 standard · ₱99 light · ₱0 no-vendors), resolved
+  // server-side from the event's STORED type so a tampered client can't force a
+  // cheaper tier. Gated by the per-event-pricing flag: inert while off — the
+  // helper is never called and the flat SETNAYAN_AI catalog resolve above stands,
+  // byte-identical. (Supersedes the intro/renew cadence formerly resolved here.)
   if (serviceKey === SETNAYAN_AI_SKU && eventIdClean) {
     if (await resolveSetnayanAiPerEventPricingEnabled()) {
-      const perEventCentavos = await resolveSetnayanAiEventChargeCentavos(
+      const perTypeCentavos = await resolveSetnayanAiTypeChargeCentavos(
         createAdminClient(),
         eventIdClean,
       );
-      if (perEventCentavos != null) {
-        originalCentavos = BigInt(perEventCentavos);
+      if (perTypeCentavos != null) {
+        originalCentavos = BigInt(perTypeCentavos);
       }
     }
   }

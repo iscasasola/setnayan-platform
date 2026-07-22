@@ -66,7 +66,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ token: string 
     photoIds.length
       ? admin
           .from('papic_photos')
-          .select('photo_id, r2_object_key, display_r2_key, full_res_dropped_at, photo_type, captured_at')
+          .select('photo_id, r2_object_key, clip_web_r2_key, display_r2_key, full_res_dropped_at, photo_type, captured_at')
           .in('photo_id', photoIds)
           .eq('moderation_state', 'clean')
           .is('hidden_at', null)
@@ -74,6 +74,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ token: string 
           data: [] as Array<{
             photo_id: string;
             r2_object_key: string;
+            clip_web_r2_key: string | null;
             display_r2_key: string | null;
             full_res_dropped_at: string | null;
             photo_type: string;
@@ -83,7 +84,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ token: string 
     captureIds.length
       ? admin
           .from('papic_guest_captures')
-          .select('capture_id, r2_object_key, display_r2_key, full_res_dropped_at, media_type, captured_at')
+          .select('capture_id, r2_object_key, clip_web_r2_key, display_r2_key, full_res_dropped_at, media_type, captured_at')
           .in('capture_id', captureIds)
           .eq('moderation_state', 'clean')
           .is('hidden_at', null)
@@ -91,6 +92,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ token: string 
           data: [] as Array<{
             capture_id: string;
             r2_object_key: string;
+            clip_web_r2_key: string | null;
             display_r2_key: string | null;
             full_res_dropped_at: string | null;
             media_type: string;
@@ -122,13 +124,22 @@ export async function GET(_req: Request, ctx: { params: Promise<{ token: string 
   // downgrade to the derivative while the original exists. CLIPS keep their video
   // original (`.mp4`) — MP4 GPS strip needs an ffmpeg pass Vercel can't run on the
   // serving path, so it is DEFERRED; browser-captured Papic clips carry no GPS.
+  // "Download originals" — a clip serves its RAW while it exists; ONLY once the raw
+  // is dropped (PR-2 makes clips droppable) does it fall back to the small
+  // `clip_web` web copy, so a dropped clip never 404s / silently vanishes.
   const dl = (
     orig: string | null,
     display: string | null,
     dropped: string | null,
     isClip: boolean,
+    clipWeb: string | null,
   ): Pick<Item, 'ref' | 'needsStrip' | 'ext'> | null => {
-    if (isClip) return orig ? { ref: orig, needsStrip: false, ext: 'mp4' } : null;
+    if (isClip) {
+      if (orig && !dropped) return { ref: orig, needsStrip: false, ext: 'mp4' };
+      if (clipWeb) return { ref: clipWeb, needsStrip: false, ext: 'mp4' };
+      if (orig) return { ref: orig, needsStrip: false, ext: 'mp4' };
+      return null;
+    }
     // Full-res original, stripped on the fly — the target for a normal gallery.
     if (orig && !dropped) return { ref: orig, needsStrip: true, ext: 'jpg' };
     // Original dropped after 3 months → the stripped web copy is what's left.
@@ -139,7 +150,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ token: string 
   };
   for (const p of photosRes.data ?? []) {
     const isClip = p.photo_type === 'clip';
-    const sel = dl(p.r2_object_key, p.display_r2_key, p.full_res_dropped_at, isClip);
+    const sel = dl(p.r2_object_key, p.display_r2_key, p.full_res_dropped_at, isClip, p.clip_web_r2_key);
     if (sel) {
       items.push({
         id: p.photo_id,
@@ -151,7 +162,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ token: string 
   }
   for (const c of capturesRes.data ?? []) {
     const isClip = c.media_type === 'clip';
-    const sel = dl(c.r2_object_key, c.display_r2_key, c.full_res_dropped_at, isClip);
+    const sel = dl(c.r2_object_key, c.display_r2_key, c.full_res_dropped_at, isClip, c.clip_web_r2_key);
     if (sel) {
       items.push({
         id: c.capture_id,

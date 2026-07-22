@@ -4,6 +4,7 @@ import {
   isClipRow,
   resolveStillRef,
   resolvePlayRef,
+  clipWebKeyDistinct,
   stableMediaPath,
   type PapicDisplayRow,
 } from './papic-display-ref';
@@ -139,6 +140,83 @@ test('play surface resolves after (future) clip drop: alaala-orb', () => {
     resolvePlayRef({ media_type: 'clip', clip_web_r2_key: DERIV.clipWeb, r2_object_key: DERIV.rawVideo, full_res_dropped_at: '2026-07-01T00:00:00Z' }),
     DERIV.clipWeb,
   );
+});
+
+// ── PLAY surfaces rerouted through resolvePlayRef (this PR) ───────────────────
+// The couple's Papic studio gallery (lib/papic-gallery), the public wedding recap
+// "As the Day Unfolded" + Kwento anchors (app/[slug]/…/editorial/data.ts), and the
+// download-originals ZIPs all used to hand a clip's RAW r2_object_key straight to a
+// <video>. They now SELECT clip_web_r2_key + full_res_dropped_at and resolve the
+// playable ref through resolvePlayRef — so playback prefers the small web copy and
+// a dropped raw becomes null instead of a 404. Each fixture proves both halves.
+for (const surface of [
+  'couple studio gallery (papic-gallery: seat clip)',
+  'couple studio gallery (papic-gallery: guest clip)',
+  'public recap · As the Day Unfolded (editorial 5b-bis)',
+  'public recap · Kwento anchor (papic_photos clip)',
+  'public recap · Kwento anchor (papic_guest_captures clip)',
+]) {
+  test(`play surface prefers the web copy: ${surface}`, () => {
+    // A clip with a populated clip_web_r2_key resolves to the web copy (NOT the raw).
+    const withWeb = resolvePlayRef({
+      media_type: 'clip',
+      clip_web_r2_key: DERIV.clipWeb,
+      r2_object_key: DERIV.rawVideo,
+    });
+    assert.equal(withWeb, DERIV.clipWeb);
+    assert.notEqual(withWeb, DERIV.rawVideo);
+    // No web copy yet (today's normal case) → the raw video, so playback still works.
+    assert.equal(
+      resolvePlayRef({ media_type: 'clip', r2_object_key: DERIV.rawVideo }),
+      DERIV.rawVideo,
+    );
+  });
+
+  test(`play surface is drop-safe: ${surface}`, () => {
+    // A dropped raw WITH a web copy → the web copy (never the dead raw pointer).
+    assert.equal(
+      resolvePlayRef({
+        media_type: 'clip',
+        clip_web_r2_key: DERIV.clipWeb,
+        r2_object_key: DERIV.rawVideo,
+        full_res_dropped_at: '2026-07-01T00:00:00Z',
+      }),
+      DERIV.clipWeb,
+    );
+    // A dropped raw with NO web copy → null (a handled gap), never the 404 raw.
+    assert.equal(
+      resolvePlayRef({
+        media_type: 'clip',
+        r2_object_key: DERIV.rawVideo,
+        full_res_dropped_at: '2026-07-01T00:00:00Z',
+      }),
+      null,
+    );
+  });
+}
+
+// ── clipWebKeyDistinct · POSTER-TRAP guard (Papic storage PR-1) ───────────────
+test('clipWebKeyDistinct: the -web key must differ from the poster/display/raw keys', () => {
+  const row = {
+    poster_r2_key: DERIV.poster,
+    display_r2_key: DERIV.poster, // for clips, display == poster
+    r2_object_key: DERIV.rawVideo,
+  };
+  // A real sibling -web.mp4 key → distinct → OK to persist.
+  assert.equal(clipWebKeyDistinct(DERIV.clipWeb, row), true);
+  // The poster still, the display still, and the raw video are each REJECTED —
+  // persisting any of them as the web copy would collide still-vs-play and let
+  // PR-2's drop delete a key a play surface points at.
+  assert.equal(clipWebKeyDistinct(DERIV.poster, row), false);
+  assert.equal(clipWebKeyDistinct(DERIV.rawVideo, row), false);
+  assert.equal(clipWebKeyDistinct(DERIV.poster, { poster_r2_key: DERIV.poster }), false);
+  // Empty / whitespace / null are never a valid web key.
+  assert.equal(clipWebKeyDistinct('', row), false);
+  assert.equal(clipWebKeyDistinct('   ', row), false);
+  assert.equal(clipWebKeyDistinct(null, row), false);
+  assert.equal(clipWebKeyDistinct(undefined, row), false);
+  // Distinct from a row with no still/raw keys at all → still fine.
+  assert.equal(clipWebKeyDistinct(DERIV.clipWeb, {}), true);
 });
 
 // ── stableMediaPath ──────────────────────────────────────────────────────────

@@ -47,7 +47,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ eventId: strin
   const [{ data: seatRows }, { data: guestRows }] = await Promise.all([
     supabase
       .from('papic_photos')
-      .select('photo_id, r2_object_key, display_r2_key, full_res_dropped_at, photo_type, captured_at')
+      .select('photo_id, r2_object_key, clip_web_r2_key, display_r2_key, full_res_dropped_at, photo_type, captured_at')
       .eq('event_id', eventId)
       .is('hidden_at', null)
       .neq('moderation_state', 'nsfw_blocked')
@@ -55,7 +55,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ eventId: strin
       .limit(MAX_ITEMS),
     supabase
       .from('papic_guest_captures')
-      .select('capture_id, r2_object_key, display_r2_key, full_res_dropped_at, captured_at')
+      .select('capture_id, r2_object_key, clip_web_r2_key, display_r2_key, full_res_dropped_at, media_type, captured_at')
       .eq('event_id', eventId)
       .is('hidden_at', null)
       .neq('moderation_state', 'nsfw_blocked')
@@ -86,14 +86,24 @@ export async function GET(_req: Request, ctx: { params: Promise<{ eventId: strin
   // downgrade to the derivative while the original exists. CLIPS keep their video
   // original (`.mp4`) — MP4/container GPS strip needs an ffmpeg pass Vercel can't
   // run on the serving path, so it is DEFERRED; browser-captured Papic clips carry
-  // no GPS anyway.
+  // no GPS anyway. This is a "download originals" route, so a clip serves its RAW
+  // while it exists; ONLY once the raw is dropped (PR-2 makes clips droppable) does
+  // it fall back to the small `clip_web` web copy — so a dropped clip never 404s /
+  // silently vanishes from the ZIP.
   const dl = (
     orig: string | null,
     display: string | null,
     dropped: string | null,
     isClip: boolean,
+    clipWeb: string | null,
   ): Pick<Item, 'ref' | 'needsStrip' | 'ext'> | null => {
-    if (isClip) return orig ? { ref: orig, needsStrip: false, ext: 'mp4' } : null;
+    if (isClip) {
+      // Raw clip while present (the true original); after a drop, the web copy.
+      if (orig && !dropped) return { ref: orig, needsStrip: false, ext: 'mp4' };
+      if (clipWeb) return { ref: clipWeb, needsStrip: false, ext: 'mp4' };
+      if (orig) return { ref: orig, needsStrip: false, ext: 'mp4' };
+      return null;
+    }
     // Full-res original, stripped on the fly — the target for a normal gallery.
     if (orig && !dropped) return { ref: orig, needsStrip: true, ext: 'jpg' };
     // Original dropped after 3 months → the stripped web copy is what's left.
@@ -109,6 +119,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ eventId: strin
       r.display_r2_key as string | null,
       r.full_res_dropped_at as string | null,
       isClip,
+      r.clip_web_r2_key as string | null,
     );
     if (sel) {
       items.push({
@@ -120,16 +131,18 @@ export async function GET(_req: Request, ctx: { params: Promise<{ eventId: strin
     }
   }
   for (const r of guestRows ?? []) {
+    const isClip = r.media_type === 'clip';
     const sel = dl(
       r.r2_object_key as string | null,
       r.display_r2_key as string | null,
       r.full_res_dropped_at as string | null,
-      false,
+      isClip,
+      r.clip_web_r2_key as string | null,
     );
     if (sel) {
       items.push({
         id: r.capture_id as string,
-        kind: 'photo',
+        kind: isClip ? 'clip' : 'photo',
         at: (r.captured_at as string) ?? null,
         ...sel,
       });

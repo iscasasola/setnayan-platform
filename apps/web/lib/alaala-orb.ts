@@ -90,11 +90,18 @@ export const fetchAlaalaOrbClips = cache(async function fetchAlaalaOrbClips(
   // proxy, not what the orb plays. `full_res_dropped_at` is selected so a dropped
   // raw is never signed once clips become droppable (PR-4); today it's always the
   // raw video (unchanged), since clips have no web-copy yet and never drop.
-  let rows: Array<{ r2_object_key: string | null; full_res_dropped_at: string | null }>;
+  let rows: Array<{
+    r2_object_key: string | null;
+    clip_web_r2_key: string | null;
+    full_res_dropped_at: string | null;
+  }>;
   try {
     const { data, error } = await admin
       .from('papic_guest_captures')
-      .select('r2_object_key, full_res_dropped_at, captured_at')
+      // clip_web_r2_key is SELECTed so resolvePlayRef prefers the small web copy
+      // (Papic storage PR-1) — omitting it would silently fall the orb back to
+      // the heavy raw video even once a web copy exists.
+      .select('r2_object_key, clip_web_r2_key, full_res_dropped_at, captured_at')
       .in('event_id', eventIds)
       .eq('media_type', 'clip')
       .eq('consent_to_public', true)
@@ -104,7 +111,11 @@ export const fetchAlaalaOrbClips = cache(async function fetchAlaalaOrbClips(
       .order('captured_at', { ascending: false })
       .limit(limit);
     if (error) return [];
-    rows = (data ?? []) as Array<{ r2_object_key: string | null; full_res_dropped_at: string | null }>;
+    rows = (data ?? []) as Array<{
+      r2_object_key: string | null;
+      clip_web_r2_key: string | null;
+      full_res_dropped_at: string | null;
+    }>;
   } catch {
     return [];
   }
@@ -114,6 +125,7 @@ export const fetchAlaalaOrbClips = cache(async function fetchAlaalaOrbClips(
       resolvePlayRef({
         media_type: 'clip',
         r2_object_key: r.r2_object_key,
+        clip_web_r2_key: r.clip_web_r2_key,
         full_res_dropped_at: r.full_res_dropped_at,
       }),
     )

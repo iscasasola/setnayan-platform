@@ -20,6 +20,10 @@ import {
   extendUserAiSubscription,
 } from '@/lib/setnayan-ai-subscription';
 import { resolveSetnayanAiPerEventPricingEnabled } from '@/lib/integration-config';
+import {
+  VENDOR_AI_ADDON_SKU_CODE,
+  nextVendorAiAddonExpiry,
+} from '@/lib/vendor-addon-pricing';
 
 /**
  * apps/web/lib/sku-activation.ts
@@ -225,8 +229,87 @@ async function reversePapicPassPoints(ctx: ActivationContext): Promise<void> {
   }
 }
 
+/**
+ * Vendor AI ("the AI Chatbot") add-on — activate a paid 28-day cycle on
+ * approval (owner 2026-07-22). The FREE first cycle activates DIRECTLY in the
+ * buy action (an atomic trial claim); this hook is the PAID-renewal path.
+ *
+ * Reads the paying vendor off the order (orders.vendor_profile_id), stamps a
+ * fresh 28-day entitlement window on vendor_profiles.ai_addon_expires_at
+ * (stacking from the later of now / current expiry so an early re-up keeps the
+ * remaining time), and — defensively — marks the one-time trial used if a paid
+ * order somehow lands with it still NULL.
+ *
+ * IDEMPOTENT via a prior 'service_activated' ledger row for this order (same
+ * guard as SETNAYAN_AI_SUB), so a re-approval never double-extends the window.
+ * Throws only on the write so activateOrderSku's outer catch logs + the order
+ * stays 'paid' (recoverable). (Function declaration → hoisted so the frozen
+ * EXACT_HOOKS map below can reference it.)
+ */
+async function activateVendorAiAddonOrder(ctx: ActivationContext): Promise<void> {
+  // (1) Idempotency — already activated this order?
+  const { data: prior } = await ctx.admin
+    .from('order_ledger')
+    .select('order_id')
+    .eq('order_id', ctx.orderId)
+    .eq('event_type', 'service_activated')
+    .limit(1)
+    .maybeSingle();
+  if (prior) return;
+
+  // (2) The paying vendor is on the order.
+  const { data: order } = await ctx.admin
+    .from('orders')
+    .select('vendor_profile_id')
+    .eq('order_id', ctx.orderId)
+    .maybeSingle();
+  const vendorProfileId =
+    (order as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
+  if (!vendorProfileId) return;
+
+  // (3) Current window + trial marker → the new (stacked) expiry.
+  const { data: vp } = await ctx.admin
+    .from('vendor_profiles')
+    .select('ai_addon_expires_at, ai_addon_trial_used_at')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  const currentExpiry =
+    (vp as { ai_addon_expires_at?: string | null } | null)?.ai_addon_expires_at ?? null;
+  const trialUsedAt =
+    (vp as { ai_addon_trial_used_at?: string | null } | null)?.ai_addon_trial_used_at ?? null;
+  const newExpiry = nextVendorAiAddonExpiry(currentExpiry, Date.now());
+
+  const update: Record<string, unknown> = { ai_addon_expires_at: newExpiry };
+  // A paid order always means the trial already ran, but never leave it NULL
+  // (that would hand a paid vendor a second "free" cycle).
+  if (!trialUsedAt) update.ai_addon_trial_used_at = new Date().toISOString();
+
+  const { error } = await ctx.admin
+    .from('vendor_profiles')
+    .update(update)
+    .eq('vendor_profile_id', vendorProfileId);
+  if (error) throw new Error(`vendor_ai_addon activation write failed: ${error.message}`);
+
+  await appendLedger(ctx.admin, {
+    order_id: ctx.orderId,
+    event_type: 'service_activated',
+    actor_user_id: ctx.actorUserId,
+    actor_role: 'admin',
+    metadata: {
+      service_key: ctx.serviceKey,
+      vendor_profile_id: vendorProfileId,
+      ai_addon_expires_at: newExpiry,
+    },
+  });
+}
+
 // Exact-match hooks keyed by literal service_key.
 const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
+  // 'vendor_ai_addon' → paid Vendor AI ("AI Chatbot") 28-day renewal. Stamps
+  // the entitlement window on the paying vendor (the free first cycle is
+  // direct-activated in the buy action). See activateVendorAiAddonOrder.
+  [VENDOR_AI_ADDON_SKU_CODE]: activateVendorAiAddonOrder,
+
   // 'concierge_complete' (TODAYS_FOCUS) → wedding-anchored concierge state machine.
   concierge_complete: async (ctx) => {
     if (!ctx.eventId) return;

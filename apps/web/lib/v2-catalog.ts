@@ -71,17 +71,19 @@ export type V2VendorSku = {
   // ~17% off vs monthly × 12 · charm-priced -1 endings · same per-tier
   // capability shape as monthly equivalents (max_categories + max_sub_seats
   // identical) · only price + billing cadence differ.
-  // `branch` / `seat` / `custom_addon` extend the union as the vendor add-on
-  // ladder grew (extra branch #20270128654206 · extra seat #20270511762904 ·
-  // Custom-tier composition SKUs #20270512705572). fetchV2VendorCatalog reads
-  // EVERY active row (no offering_type filter), so all of these flow through.
+  // `branch` / `seat` / `custom_addon` / `vendor_addon_recurring` extend the
+  // union as the vendor add-on ladder grew (extra branch #20270128654206 ·
+  // extra seat #20270511762904 · Custom-tier composition SKUs #20270512705572 ·
+  // Vendor AI add-on #20270905761946). fetchV2VendorCatalog reads EVERY active
+  // row (no offering_type filter), so all of these flow through.
   offering_type:
     | 'subscription_monthly'
     | 'subscription_annual'
     | 'token_pack'
     | 'branch'
     | 'seat'
-    | 'custom_addon';
+    | 'custom_addon'
+    | 'vendor_addon_recurring';
   token_grant_count: number | null;
   max_categories: number | null;
   max_sub_seats: number | null;

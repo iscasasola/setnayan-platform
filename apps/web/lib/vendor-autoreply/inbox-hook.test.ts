@@ -4,7 +4,8 @@
  *
  *   • FLAG OFF / non-couple sender → the function returns without touching the
  *     client AT ALL (the stub throws on any access — zero behavior change).
- *   • bot disabled / no config / cap reached → no bot message is inserted.
+ *   • bot disabled / no config / cap reached / no active Vendor AI add-on → no
+ *     bot message is inserted.
  *   • couple + enabled + under cap → posts ONE chat_messages row with
  *     sender_role='vendor' + is_bot=true + sender_user_id=null, then logs a
  *     vendor_bot_replies row pointing at it.
@@ -151,7 +152,13 @@ function happyCanned(overrides: Record<string, Canned> = {}): Record<string, Can
     vendor_bot_config: { single: { enabled: true, daily_reply_cap: 30 } },
     vendor_bot_replies: { count: 0 },
     chat_messages: { single: { body: 'How much is your wedding package?' } },
-    vendor_profiles: { single: { business_name: 'Blooms & Co.' } },
+    // The stub returns ONE canned single per table, and vendor_profiles is read
+    // twice — for the AI add-on entitlement (ai_addon_expires_at) and for
+    // business_name. Carry both fields; the far-future expiry keeps the paid
+    // add-on gate open in the happy path.
+    vendor_profiles: {
+      single: { business_name: 'Blooms & Co.', ai_addon_expires_at: '2099-01-01T00:00:00.000Z' },
+    },
     vendor_services: { rows: [service()] },
     vendor_service_inclusions: { rows: [] },
     vendor_service_discounts: { rows: [] },
@@ -199,6 +206,20 @@ test('daily cap reached → no bot message', () =>
   withFlag('true', async () => {
     const log: InsertLogEntry[] = [];
     const canned = happyCanned({ vendor_bot_replies: { count: 30 } });
+    await runVendorAutoReply({ threadId: 't1', senderRole: 'couple' }, fakeAdmin(canned, log));
+    assert.equal(log.length, 0);
+  }));
+
+test('no active Vendor AI add-on → no bot message (paid-add-on gate)', () =>
+  withFlag('true', async () => {
+    const log: InsertLogEntry[] = [];
+    // Vendor is enabled + under cap, but the add-on window is expired → the
+    // assistant must not run (the inbox still works by hand).
+    const canned = happyCanned({
+      vendor_profiles: {
+        single: { business_name: 'Blooms & Co.', ai_addon_expires_at: '2000-01-01T00:00:00.000Z' },
+      },
+    });
     await runVendorAutoReply({ threadId: 't1', senderRole: 'couple' }, fakeAdmin(canned, log));
     assert.equal(log.length, 0);
   }));

@@ -194,7 +194,7 @@ export default async function PricingPage() {
   // grouped add-on renderer below follows.
   //
   // Capacity is expressed in the points currency the code actually enforces
-  // (1 photo = 1 pt · 1 five-second clip = 3 pts), so the copy stays true if an
+  // (1 photo = 1 pt · 1 ten-second clip = 7 pts), so the copy stays true if an
   // admin retunes a budget. Caps are WEDDINGS-ONLY (lib/papic-cameras.ts ·
   // isPapicUncapped) and clamp the tier's whole booking, not a per-day figure.
   const papicLadder = publicPapicLadder(papicTierConfig)

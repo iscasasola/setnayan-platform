@@ -82,7 +82,7 @@ const APP_LD = {
     'Every photo automatically finds the people in it',
     'Each guest gets their own personal gallery',
     'Personal souvenir video reels set to music',
-    '5-second candid clips, not just photos',
+    '10-second candid clips, not just photos',
     'Lives on the couple’s own wedding website',
     'The couple receives every photo, tagged or not',
   ],
@@ -144,7 +144,7 @@ const STEPS = [
 
 const VS = [
   ['A shared link everyone digs through', 'Each guest’s own gallery, sorted by face'],
-  ['Photos only', 'Photos and 5-second candid clips'],
+  ['Photos only', 'Photos and 10-second candid clips'],
   ['You scroll to find yourself', 'Your photos find you'],
   ['A separate site that expires', 'Lives on your own wedding website'],
   ['Some moments get lost', 'The couple receives every photo, guaranteed'],

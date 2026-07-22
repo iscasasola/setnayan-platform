@@ -19,7 +19,7 @@ import type { PointsGateVerdict } from '@/lib/papic-cameras';
  * ── THE FENCE ────────────────────────────────────────────────────────────
  * One EVENT-LIFETIME capture-points pool, consulted ALONGSIDE the per-camera
  * budget. The TIGHTER of the two wins (see {@link combinePointsGates}). Same
- * point costs as the ladder: 1 photo = 1 pt · 1 five-second clip = 3 pts.
+ * point costs as the ladder: 1 photo = 1 pt · 1 ten-second clip = 7 pts.
  *
  * ── THE FORMULA (pricing-relevant · admin-tunable, NOT hardcoded) ─────────
  *   pool = clamp(guestCount × pointsPerGuest, floorPoints, ceilingPoints)

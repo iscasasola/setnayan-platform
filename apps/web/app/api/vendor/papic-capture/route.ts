@@ -14,7 +14,7 @@ import { canCapture, pointsForMedia } from '@/lib/vendor-papic-tier';
 // POST /api/vendor/papic-capture
 //
 // The vendor ON-THE-DAY Papic capture lane (owner-locked 2026-07-18). A signed-in
-// vendor working a booked event shoots photos (and, on Ltd/Unli, ≤5s clips) into
+// vendor working a booked event shoots photos (and, on Ltd/Unli, ≤10s clips) into
 // their OWN capture lane (public.vendor_papic_captures). Whole capture is done
 // server-side (mirrors the guest route): validate → enforce the tier's
 // capture-point budget → PUT to R2 with the service-role client → insert the row
@@ -24,13 +24,16 @@ import { canCapture, pointsForMedia } from '@/lib/vendor-papic-tier';
 // ⚠️ COUNSEL-GATED: this whole surface is gated by isVendorPapicCaptureEnabled()
 // (the admin Data Privacy control `vendor_papic_capture`, default OFF). Until the
 // DPO/NPC ruling flips it, this route 403s and no guest PI is collected. Geo is
-// never stored; the 5s clip cap is a product lock; NSFW is always-on.
+// never stored; the 10s clip cap is a product lock; NSFW is always-on.
 
 export const runtime = 'nodejs';
 
 const MAX_PHOTO_BYTES = 12_000_000; // 12 MB — a phone JPEG is well under this
-const MAX_CLIP_BYTES = 25_000_000; // ~25 MB — a 5s 1080p phone clip
-const MAX_CLIP_MS = 5000; // 5-SECOND HARD CAP — corpus lock, not configurable
+const MAX_CLIP_BYTES = 25_000_000; // ~25 MB — a short 1080p phone clip
+// 10-SECOND CLIP CAP — owner override 2026-07-22 · §0. Mirrors the guest route
+// (app/api/papic/guest-capture MAX_CLIP_MS); the DB CHECK on vendor_papic_captures
+// was relaxed to 10000 in the same PR so a real 6–10s vendor clip records.
+const MAX_CLIP_MS = 10000;
 const MAX_POSTER_BYTES = 5_000_000;
 
 export async function POST(req: Request) {
@@ -101,7 +104,7 @@ export async function POST(req: Request) {
   }
   const vendorProfileId = profile.vendor_profile_id;
 
-  // Clip extras: client-stamped duration (≤5s) + the poster frame (the NSFW proxy
+  // Clip extras: client-stamped duration (≤10s) + the poster frame (the NSFW proxy
   // — nsfwjs is image-only, we never classify the video bytes).
   let durationMs: number | null = null;
   let posterBytes: Uint8Array | undefined;
@@ -134,7 +137,7 @@ export async function POST(req: Request) {
 
   // 5. Tier + capture-points enforcement (service-role reads — provenance is
   // RLS-scoped to owner/admin, and the tier must be authoritative). Lite is
-  // photos-only; each tier's point budget is the ceiling (photo=1, clip=3).
+  // photos-only; each tier's point budget is the ceiling (photo=1, clip=7).
   const admin = createAdminClient();
   const [tier, spent] = await Promise.all([
     deriveVendorPapicTier(admin, vendorProfileId, eventId),

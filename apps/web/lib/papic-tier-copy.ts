@@ -13,7 +13,7 @@
  *   • the studio guest-camera picker promised "30 photos + 10 clips each".
  * Enforcement, meanwhile, runs on capture POINTS resolved from the
  * admin-editable `public.papic_tier_config` table (migration 20270821110000 +
- * the RPCs in 20270821110100): 1 photo = 1 point · 1 five-second clip = 3
+ * the RPCs in 20270821110100): 1 photo = 1 point · 1 ten-second clip = 7
  * points, budget `points_per_day` per tier (NULL = unlimited).
  *
  * THE RULE this module enforces: a display surface must never spell a photo
@@ -220,16 +220,16 @@ export function papicFreeGrantPoints(config: PapicTierConfig): number {
  * The honest capacity sentence for a points budget.
  *
  * NOT "N photos + M clips" — the budget is one purse, so clips eat into the
- * photo count. "about N photos a day, or fewer if you shoot clips — a 5-second
- * clip counts as 3" is the true shape, and it stays true whether the budget is
+ * photo count. "about N photos a day, or fewer if you shoot clips — a 10-second
+ * clip counts as 7" is the true shape, and it stays true whether the budget is
  * 20 points or 60.
  */
 export function papicCapacityPhrase(pointsPerDay: number | null): string {
-  if (pointsPerDay == null) return 'unlimited photos and 5-second clips, every day';
+  if (pointsPerDay == null) return 'unlimited photos and 10-second clips, every day';
   const photos = Math.floor(pointsPerDay / PAPIC_POINTS_PER_PHOTO);
   return (
     `about ${photos} photo${photos === 1 ? '' : 's'} a day — fewer if you shoot ` +
-    `clips, since one 5-second clip counts as ${PAPIC_POINTS_PER_CLIP}`
+    `clips, since one 10-second clip counts as ${PAPIC_POINTS_PER_CLIP}`
   );
 }
 
@@ -238,7 +238,7 @@ export function papicCapacityShort(pointsPerDay: number | null): string {
   if (pointsPerDay == null) return 'unlimited shots per day';
   const photos = Math.floor(pointsPerDay / PAPIC_POINTS_PER_PHOTO);
   const clips = Math.floor(pointsPerDay / PAPIC_POINTS_PER_CLIP);
-  return `~${photos} photos/day, or ~${clips} five-second clips`;
+  return `~${photos} photos/day, or ~${clips} ten-second clips`;
 }
 
 /** Peso formatter local to this module (avoids importing the catalog reader). */

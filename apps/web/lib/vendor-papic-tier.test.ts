@@ -2,7 +2,7 @@
  * Unit suite for the vendor on-the-day Papic capture tier + capture-points model
  * (owner-locked 2026-07-18). Invariants: the tier is EARNED by the token path
  * (founder-comp or a spent/held token → Ltd; else Lite), a paid Unli upgrade
- * wins, Lite is photos-only, and the points ledger (photo=1, clip=3) enforces
+ * wins, Lite is photos-only, and the points ledger (photo=1, clip=7) enforces
  * each tier's budget.
  */
 import { test } from 'node:test';
@@ -28,12 +28,12 @@ const prov = (p: Partial<VendorAcceptProvenance>): VendorAcceptProvenance => ({
   ...p,
 });
 
-test('capture points: photo=1, clip=3', () => {
+test('capture points: photo=1, clip=7', () => {
   assert.equal(pointsForMedia('photo'), 1);
-  assert.equal(pointsForMedia('clip'), 3);
+  assert.equal(pointsForMedia('clip'), 7);
   assert.equal(
     pointsSpent([{ media_type: 'photo' }, { media_type: 'clip' }, { media_type: 'photo' }]),
-    5,
+    9,
   );
   assert.equal(pointsSpent([]), 0);
 });
@@ -112,9 +112,9 @@ test('canCapture: Lite runs out at 20 photos', () => {
   });
 });
 
-test('canCapture: Ltd — a clip needs 3 points of headroom', () => {
-  assert.deepEqual(canCapture('ltd', 67, 'clip'), { ok: true }); // 67 + 3 = 70
-  assert.deepEqual(canCapture('ltd', 68, 'clip'), {
+test('canCapture: Ltd — a clip needs 7 points of headroom', () => {
+  assert.deepEqual(canCapture('ltd', 63, 'clip'), { ok: true }); // 63 + 7 = 70
+  assert.deepEqual(canCapture('ltd', 64, 'clip'), {
     ok: false,
     reason: 'out_of_points',
   });

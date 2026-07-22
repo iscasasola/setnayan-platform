@@ -29,9 +29,9 @@ const MAX_BYTES = 12_000_000; // 12 MB — a phone JPEG is well under this
 // A 5-second 1080p phone clip is comfortably under this; oversized uploads are
 // rejected before any R2 round-trip.
 const MAX_CLIP_BYTES = 25_000_000; // ~25 MB
-// 5-SECOND HARD CAP — corpus lock, not configurable. The route rejects a client
-// that stamps a longer duration; the RPC ALSO clamps with LEAST(ms,5000).
-const MAX_CLIP_MS = 5000;
+// 10-SECOND CLIP CAP — owner 2026-07-22 · §0. The route rejects a client that
+// stamps a longer duration; the RPC ALSO clamps with LEAST(ms,10000).
+const MAX_CLIP_MS = 10000;
 
 export async function POST(req: Request) {
   const session = await readGuestSession();
@@ -172,7 +172,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ status: 'terms_required' }, { status: 403 });
   }
 
-  // The capture's point cost (1 photo · 3 clip) — the ONE currency the shared
+  // The capture's point cost (1 photo · 7 clip) — the ONE currency the shared
   // event pool meters (Free / Papic One / Papic Pool all draw the same pool).
   const cost = papicCaptureCost(isClip ? 'clip' : 'photo');
 

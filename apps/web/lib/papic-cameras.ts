@@ -683,7 +683,7 @@ export function papicPerCameraTier(
  * The per-camera per-day limit for a capture kind (null = unlimited).
  *
  * @deprecated Papic v3 (owner 2026-07-17) replaced the per-kind photo/video
- * quotas with a single capture-POINTS budget (1 photo = 1 pt · 1 clip = 3 pts)
+ * quotas with a single capture-POINTS budget (1 photo = 1 pt · 1 clip = 7 pts)
  * resolved from the admin-editable papic_tier_config table. Both enforcement
  * seams (api/upload presign + papic/actions record) now call the points RPCs
  * (migration 20270821110100). Kept one release alongside the deprecated
@@ -700,7 +700,7 @@ export function papicTierDailyLimit(
 // ── Capture POINTS (Papic v3 · owner 2026-07-17 · brief PR-3) ───────────────
 //
 // One per-camera-per-day budget, spent in POINTS: 1 photo = 1 point · 1
-// five-second clip = 3 points. Budgets live in the admin-editable
+// ten-second clip = 7 points. Budgets live in the admin-editable
 // papic_tier_config table (roll 20 · ltd 70 · free/mini/unlimited NULL=∞) —
 // NEVER hardcoded here. Free + Papic One ('mini') were flipped to NULL by the
 // one-pool migration (owner 2026-07-22 · §0): their per-camera reserve passes
@@ -712,9 +712,11 @@ export function papicTierDailyLimit(
 //   • papic_reserve_camera_points(seat, event, cost) — the AUTHORITATIVE,
 //     atomic record-layer gate (papic/actions.recordSeatCapture).
 
-/** Points one capture costs. The 3× clip weight mirrors the tier ladder's math. */
+/** Points one capture costs. The 7× clip weight mirrors the tier ladder's math
+ *  (owner override 2026-07-22: a 10-second clip is worth 7 points, up from the
+ *  earlier 5-second / 3-point clip — Papic_One_Pool_Model_Spec §0). */
 export const PAPIC_POINTS_PER_PHOTO = 1;
-export const PAPIC_POINTS_PER_CLIP = 3;
+export const PAPIC_POINTS_PER_CLIP = 7;
 
 /** Points a capture of `kind` spends against the camera's daily budget. */
 export function papicCaptureCost(kind: 'photo' | 'clip'): number {

@@ -49,8 +49,8 @@ import {
 //
 // The working web-capture slice for a claimed seat. Rear camera (getUserMedia
 // facingMode: environment). PHOTO mode freezes a frame to a canvas → JPEG. CLIP
-// mode records up to 5 seconds via MediaRecorder (a HARD client cap — the corpus
-// constraint, not configurable), grabs a poster frame, and uploads both.
+// mode records up to 10 seconds via MediaRecorder (a HARD client cap — owner
+// 2026-07-22 · §0, not configurable), grabs a poster frame, and uploads both.
 //
 // SHUTTER IS OPTIMISTIC (2026-06-26): the frame is frozen instantly, the count
 // bumps, a "Saved" flash fires, and the shot is pushed onto a background upload
@@ -61,7 +61,7 @@ import {
 // the shutter must never feel like it hung). A seat may carry a per-day capture
 // cap (per-camera tiers); pack seats are uncapped.
 
-const CLIP_MAX_MS = 5_000; // 5-second hard cap (corpus constraint · not configurable)
+const CLIP_MAX_MS = 10_000; // 10-second clip cap (owner 2026-07-22 · §0 · not configurable)
 const HOLD_MS = 260; // tap-vs-hold boundary: a press held this long starts a clip
 const TAG_CAP = 10; // max tags per photo (corpus hard cap · mirrored server-side)
 const ROLL_MAX = 24; // most-recent shots kept in the session roll strip
@@ -528,7 +528,7 @@ export function PapicSeatCapture({
             return;
           }
           if (result.error === 'clip_too_long') {
-            setSaveError('Clips are capped at 5 seconds — give it another go.');
+            setSaveError('Clips are capped at 10 seconds — give it another go.');
             patchShot(shot.id, { status: 'failed' });
             rollbackCount(shot.kind);
             return;
@@ -789,12 +789,12 @@ export function PapicSeatCapture({
     recordingRef.current = true;
     setRecording(true);
     setRecElapsed(0);
-    // Live 5-second countdown — drives the progress bar + ring + numeric readout.
+    // Live 10-second countdown — drives the progress bar + ring + numeric readout.
     recTickRef.current = setInterval(() => {
       const elapsed = Date.now() - clipStartRef.current;
       setRecElapsed(Math.min(elapsed, CLIP_MAX_MS));
     }, 100);
-    // Hard 5-second cap — auto-stop. Not configurable (corpus constraint).
+    // Hard 10-second cap — auto-stop. Not configurable (owner 2026-07-22 · §0).
     clipTimerRef.current = setTimeout(stopClip, CLIP_MAX_MS);
   }, [ready, switching, clipFull, grabFrame, enqueueShot, stopClip, streamRef]);
 
@@ -1092,7 +1092,7 @@ export function PapicSeatCapture({
                 Rec · {recSecondsLeft}s
               </span>
             </div>
-            {/* 5-second countdown as a draining bottom progress bar. */}
+            {/* 10-second countdown as a draining bottom progress bar. */}
             <div className="absolute inset-x-0 bottom-0 h-1.5 bg-cream/20">
               <div
                 className="h-full bg-terracotta transition-[width] duration-100 ease-linear"
@@ -1344,7 +1344,7 @@ export function PapicSeatCapture({
                         recording ? stopClip() : clipFull ? flashCapNotice('clips') : startClip()
                       }
                     >
-                      {recording ? 'Stop recording' : 'Record a 5-second clip'}
+                      {recording ? 'Stop recording' : 'Record a 10-second clip'}
                     </button>
                   )}
                 </div>

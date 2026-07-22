@@ -36,7 +36,7 @@ import {
 } from '@/lib/papic-adaptive-quality';
 
 const TAG_CAP = 10; // max tags per photo (corpus hard cap · mirrored server-side)
-const MAX_CLIP_MS = 5000; // 5-SECOND HARD CAP — corpus lock, mirrored route + RPC.
+const MAX_CLIP_MS = 10000; // 10-SECOND CLIP CAP (owner 2026-07-22 · §0) — mirrored route + RPC.
 const HOLD_MS = 260; // tap-vs-hold boundary: a press held this long starts a clip
 
 /** Friendly, guest-facing copy for a tag failure. The camera never breaks on a
@@ -73,7 +73,7 @@ function tagErrorMessage(error: string): string {
 //
 // PHOTO + CLIP: the gesture shutter (tap = photo, press-and-hold = record) — no
 // mode toggle. The stream always grabs audio and a MediaRecorder records with a
-// HARD 5000ms client stop (the corpus 5s cap, re-clamped server-side) plus a
+// HARD 10000ms client stop (the 10s clip cap, re-clamped server-side) plus a
 // poster frame (first frame to a canvas, JPEG — the NSFW-screen proxy). The
 // clip + poster + duration POST to the SAME route with media_type=clip. Guest
 // clips the guest opts to share publicly (sharePublicly) AND the couple later
@@ -678,7 +678,7 @@ export function PapicGuestCapture({
     recordingRef.current = true;
     setRecording(true);
 
-    // HARD 5-second stop — the corpus cap (route + RPC clamp too).
+    // HARD 10-second stop — the clip cap (route + RPC clamp too).
     stopTimerRef.current = setTimeout(stopRecording, MAX_CLIP_MS);
     tickRef.current = setInterval(() => {
       setRecElapsed(Math.min(MAX_CLIP_MS, Date.now() - startedAtRef.current));
@@ -1186,7 +1186,7 @@ export function PapicGuestCapture({
               <span className="h-2 w-2 animate-pulse rounded-full bg-cream" />
               REC
             </span>
-            {/* 5-second countdown as a bottom progress bar. */}
+            {/* 10-second countdown as a bottom progress bar. */}
             <div className="absolute inset-x-0 bottom-0 h-1.5 bg-cream/20">
               <div
                 className="h-full bg-terracotta transition-[width] duration-100 ease-linear"
@@ -1285,7 +1285,7 @@ export function PapicGuestCapture({
                 onClick={() => (recording ? stopRecording() : void startRecording())}
                 disabled={busy || !ready || tagging}
               >
-                {recording ? 'Stop recording' : 'Record a 5-second clip'}
+                {recording ? 'Stop recording' : 'Record a 10-second clip'}
               </button>
             </div>
           </div>

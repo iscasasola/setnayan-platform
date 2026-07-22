@@ -110,7 +110,7 @@ export function LifeStoryInline() {
         <Facet
           icon={Images}
           title="Every event"
-          body="Photos and 5-second clips from all your celebrations."
+          body="Photos and 10-second clips from all your celebrations."
         />
         <Facet
           icon={Trophy}

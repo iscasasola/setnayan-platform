@@ -8,8 +8,8 @@
  *
  *   (a) POOL BINDING (Residual Risk R4) — a priced event pool actually binds:
  *       papic_reserve_event_points decrements the pool and refuses at 0, on BOTH
- *       the photo weight (1 pt) and the clip weight (3 pts), never partially.
- *       This is the exact fence the guest-capture route bypassed before this PR.
+ *       the photo weight (1 pt) and the clip weight (7 pts · owner 2026-07-22 §0),
+ *       never partially. The fence the guest-capture route bypassed before #3493.
  *   (b) FREE POOL CAP — the event-creation trigger seeds exactly ONE 50-pt
  *       free_grant, the pool applies, the 51st capture is refused, and a free
  *       event (owning no PAPIC_GUEST order) can still record via the pool.
@@ -176,37 +176,40 @@ function makePoolAdmin(): SupabaseClient {
 
 // ── (a) POOL BINDING — the R4 fence, photo + clip, fail-closed ──────────────
 test('pool binds a priced grant — photo + clip, fail-closed, never partial', async () => {
+  // Clip weight is DERIVED (owner 2026-07-22 · §0 raised it 3 → 7); the pool is
+  // sized to one photo of headroom over an exact clip so both fits are exact.
+  const clip = papicCaptureCost('clip'); // 7
+  const poolPts = clip + 1; // 8
   const eventId = await createEvent('Pool Binding E');
-  // Isolate to a known N=4: drop the auto-seeded free_grant, add a 4-pt top-up.
+  // Isolate to a known N: drop the auto-seeded free_grant, add a poolPts top-up.
   await db.query(`DELETE FROM public.papic_event_point_grants WHERE event_id = $1`, [eventId]);
   await db.query(
     `INSERT INTO public.papic_event_point_grants (event_id, points, source)
-     VALUES ($1, 4, 'topup_order')`,
-    [eventId],
+     VALUES ($1, $2, 'topup_order')`,
+    [eventId, poolPts],
   );
 
   const status = await poolStatus(eventId);
   assert.equal(status.applies, true, 'a granted event applies');
-  assert.equal(status.total, 4, 'grant-only total == SUM(grants), no guest-clamp base');
+  assert.equal(status.total, poolPts, 'grant-only total == SUM(grants), no guest-clamp base');
 
-  // PHOTO path (1 pt): 4 succeed, the 5th is refused.
-  for (let i = 1; i <= 4; i += 1) {
+  // PHOTO path (1 pt): poolPts succeed, the next is refused.
+  for (let i = 1; i <= poolPts; i += 1) {
     assert.equal(await reserve(eventId, 1), true, `photo ${i} should book`);
   }
-  assert.equal(await reserve(eventId, 1), false, '5th photo refused at 0');
+  assert.equal(await reserve(eventId, 1), false, `photo ${poolPts + 1} refused at 0`);
 
-  // CLIP path (3 pts): exact-fit then refuse.
+  // CLIP path (7 pts): one photo, then a clip exactly fits the remaining 7.
   await clearUsage(eventId);
-  assert.equal(await reserve(eventId, 1), true, 'photo → used 1, remaining 3');
-  assert.equal(await reserve(eventId, 3), true, 'clip exactly fits the last 3');
-  assert.equal(await reserve(eventId, 3), false, 'clip refused at remaining 0');
+  assert.equal(await reserve(eventId, 1), true, 'photo → used 1, remaining 7');
+  assert.equal(await reserve(eventId, clip), true, 'clip exactly fits the last 7');
+  assert.equal(await reserve(eventId, clip), false, 'clip refused at remaining 0');
 
-  // A clip NEVER partially books: with remaining 1, a 3-pt clip is refused whole.
+  // A clip NEVER partially books: with remaining < clip (>0), a clip is refused whole.
   await clearUsage(eventId);
   assert.equal(await reserve(eventId, 1), true);
-  assert.equal(await reserve(eventId, 1), true);
-  assert.equal(await reserve(eventId, 1), true); // used 3, remaining 1
-  assert.equal(await reserve(eventId, 3), false, 'clip never partially books');
+  assert.equal(await reserve(eventId, 1), true); // used 2, remaining 6 (< 7)
+  assert.equal(await reserve(eventId, clip), false, 'clip never partially books');
 });
 
 // ── (b) FREE POOL CAP — exactly 50, 51st refused, records via pool ──────────

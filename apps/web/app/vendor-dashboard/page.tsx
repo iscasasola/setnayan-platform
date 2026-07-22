@@ -34,10 +34,10 @@ import { formatPhp } from '@/lib/vendors';
  * board. Three live streams, all wired to real sources (never the mockup's
  * sample numbers), assembled in `fetchVendorOverviewData`:
  *
- *   1. "What's new"  — a decision feed of act-on-now cards (new inquiries with
- *      the flat 1-token (₱200) cost to Accept · lock requests · new 5-star
+ *   1. "What's new"  — a decision feed of act-on-now cards (new inquiries —
+ *      answering couples is free · lock requests · new 5-star
  *      reviews awaiting a reply · flagged delivery delays). Centrepiece.
- *   2. Amber note    — the token-cost-follows-event-location explainer.
+ *   2. Amber note    — the "answering couples is free" explainer.
  *   3. "Ongoing"     — the vendor's open tasks with due chips.
  *   4. "Upcoming schedules" — the next 5 booked events by date.
  *
@@ -290,8 +290,8 @@ export default async function VendorOverviewPage() {
           style={{ color: 'var(--sn-gold-700)' }}
         />
         <p>
-          Answering a lead costs a flat 1 token (₱200), anywhere in the
-          Philippines. You only spend when you Accept.
+          Answering couples is free — reply to any lead at no cost, anywhere in
+          the Philippines. Accept to see who they are and start the conversation.
         </p>
       </div>
 

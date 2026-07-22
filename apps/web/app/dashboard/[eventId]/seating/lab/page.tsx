@@ -49,6 +49,7 @@ import {
 import { sanitizeReceptionDesign } from '@/lib/reception-scene';
 import { SeatingLabLoader } from './_components/seating-lab-loader';
 import { Couple3dPlanUnlockNotice } from './_components/couple-3d-plan-unlock-notice';
+import { Couple3dPlanBuy } from './_components/couple-3d-plan-buy';
 
 export const metadata = { title: 'Seating · 3D lab (prototype)' };
 
@@ -352,6 +353,12 @@ export default async function SeatingLabPage({ params }: Props) {
           <vendor>" when a booked vendor with an active 3D Booth add-on unlocked
           the discounted 3D Plan. Renders null when there's no vendor unlock. */}
       <Couple3dPlanUnlockNotice eventId={eventId} />
+
+      {/* The live "Add the 3D Plan" buy CTA — flows through the same apply-then-pay
+          SEATING_3D checkout every couple SKU uses. Priced ₱1,000 when a vendor
+          unlocked it (see notice above), else ₱2,999. Renders an owned/pending/
+          unlocked state instead of a duplicate button when already purchased. */}
+      <Couple3dPlanBuy eventId={eventId} />
 
       {/* The mirrored LIST | 2D | 3D segment now lives INSIDE the lab chrome,
           stacked above the Build/Play toggle (owner 2026-07-17 · chrome overlap

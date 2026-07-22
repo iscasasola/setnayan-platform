@@ -11,6 +11,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   canUseCalls,
+  canSeeMarketIntel,
   TIER_CAPS,
   VENDOR_TIERS,
   type VendorTier,
@@ -47,4 +48,79 @@ test('calls: every tier in the matrix declares the calls cap (completeness)', ()
       `${tier} must declare a boolean calls cap`,
     );
   }
+});
+
+// ── Subscription-ladder contents (Vendor_Subscription_Ladder_2026-07-22 §1/§4) ──
+// Locks the tier CONTENTS — categories, agent seats, reach/radius, market intel —
+// against the owner-locked ladder so a future edit can't silently drift the caps
+// away from what's marketed. Prices are NOT asserted here (they live in the live
+// vendor_billing_catalog; TIER_PRICE_PHP is only a fallback).
+
+test('ladder · Free: 1 category, local reach, no market intel, no agent seats', () => {
+  const c = TIER_CAPS.free;
+  assert.equal(c.parentCategories, 1, 'Free lists under exactly 1 category');
+  assert.equal(c.serviceRadiusKm, 0, 'Free reach is local (0 km — no expanded reach)');
+  assert.equal(c.marketIntel, false, 'Free has no Market Intel');
+  assert.equal(canSeeMarketIntel('free'), false);
+  assert.equal(c.agentAccounts, 0, 'Free has no agent seats');
+});
+
+test('ladder · Solo: expanded reach + analytics, still no Market Intel', () => {
+  const c = TIER_CAPS.solo;
+  assert.ok(c.serviceRadiusKm > 0, 'Solo unlocks reach beyond local');
+  assert.equal(c.performanceTrends, true, 'Solo gets business-performance analytics');
+  assert.equal(c.marketIntel, false, 'Solo does NOT get Market Intel (Pro+ only)');
+  assert.equal(canSeeMarketIntel('solo'), false);
+});
+
+test('ladder · Pro: Market Intel + up to 3 seats + expanded reach', () => {
+  const c = TIER_CAPS.pro;
+  assert.equal(c.marketIntel, true, 'Pro gets Market Intel (Demand Radar + Price-Position)');
+  assert.equal(canSeeMarketIntel('pro'), true);
+  assert.equal(c.agentAccounts, 3, 'Pro = up to 3 agent seats');
+  assert.ok(
+    c.serviceRadiusKm > TIER_CAPS.solo.serviceRadiusKm,
+    'Pro reach is wider than Solo',
+  );
+});
+
+test('ladder · Enterprise: up to 10 seats + 100 km reach + unlimited categories', () => {
+  const c = TIER_CAPS.enterprise;
+  assert.equal(c.agentAccounts, 10, 'Enterprise = up to 10 team seats');
+  assert.equal(c.serviceRadiusKm, 100, 'Enterprise = 100 km reach');
+  assert.equal(c.parentCategories, Infinity, 'Enterprise = unlimited categories');
+  assert.equal(c.marketIntel, true, 'Enterprise keeps Market Intel');
+});
+
+test('ladder · Custom: unlimited, runs as Enterprise-or-better on every axis', () => {
+  const c = TIER_CAPS.custom;
+  const e = TIER_CAPS.enterprise;
+  assert.equal(c.parentCategories, Infinity, 'Custom = unlimited categories');
+  assert.equal(c.servicesPerLeaf, Infinity, 'Custom = unlimited service listings');
+  assert.ok(c.agentAccounts >= e.agentAccounts, 'Custom seats >= Enterprise');
+  assert.ok(c.serviceRadiusKm >= e.serviceRadiusKm, 'Custom reach >= Enterprise');
+  assert.equal(c.marketIntel, true, 'Custom keeps Market Intel');
+});
+
+test('ladder · reach is monotonic Free ≤ Solo ≤ Pro ≤ Enterprise', () => {
+  const { free, solo, pro, enterprise } = TIER_CAPS;
+  assert.ok(free.serviceRadiusKm <= solo.serviceRadiusKm);
+  assert.ok(solo.serviceRadiusKm <= pro.serviceRadiusKm);
+  assert.ok(pro.serviceRadiusKm <= enterprise.serviceRadiusKm);
+});
+
+test('ladder · agent seats are monotonic Free ≤ Solo ≤ Pro ≤ Enterprise', () => {
+  const { free, solo, pro, enterprise } = TIER_CAPS;
+  assert.ok(free.agentAccounts <= solo.agentAccounts);
+  assert.ok(solo.agentAccounts <= pro.agentAccounts);
+  assert.ok(pro.agentAccounts <= enterprise.agentAccounts);
+});
+
+test('ladder · Market Intel unlocks at Pro and never below', () => {
+  assert.equal(canSeeMarketIntel('free'), false);
+  assert.equal(canSeeMarketIntel('verified'), false);
+  assert.equal(canSeeMarketIntel('solo'), false);
+  assert.equal(canSeeMarketIntel('pro'), true);
+  assert.equal(canSeeMarketIntel('enterprise'), true);
+  assert.equal(canSeeMarketIntel('custom'), true);
 });

@@ -651,8 +651,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         <div className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
           <p className="text-sm text-ink">
             <span className="font-semibold">New inquiry.</span> Accept to see who
-            they are and reply — 1 token (₱200). You only spend when you accept.
-            Or decline if you&rsquo;re not available for this date.
+            they are and reply — it&rsquo;s free. Or decline if you&rsquo;re not
+            available for this date.
           </p>
           {/* Inquiry basics (PR 1 · owner-approved 2026-07-11) — decision-useful,
               non-identifying facts surfaced on the MASKED lead. The couple's name
@@ -696,8 +696,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                 Returning client
               </span>
               Booked you for{' '}
-              {returning.prior_event_display_name ?? 'a previous event'}
-              {returning.resync_flat ? ' — accepting costs just 1 token.' : '.'}
+              {returning.prior_event_display_name ?? 'a previous event'}.
             </p>
           ) : null}
           {/* Phase D — lead trust badge. Positive-only; shown only when the couple

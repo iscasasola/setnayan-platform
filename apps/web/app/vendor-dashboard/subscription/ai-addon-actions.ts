@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
+import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { appendLedger } from '@/lib/ledger';
 import {
   VENDOR_AI_ADDON_SKU_CODE,
@@ -87,6 +88,16 @@ export async function activateVendorAiAddon(
   const role = await resolveVendorRole(supabase, user.id);
   if (!canManageVendor(role)) {
     return err('Only the owner or an admin can manage the Vendor AI add-on.');
+  }
+
+  // ── Feature-availability gate (defence in depth) ───────────────────────────
+  // Vendor AI is a MASTER-FLAG-DARK feature: the assistant only answers couples
+  // once NEXT_PUBLIC_VENDOR_AUTOREPLY_V1 is on. Never take money for an add-on
+  // that can't run yet — reject here even if the flag flipped off between the
+  // card render and this submit. (The card already hides the buy CTA while the
+  // flag is off; this is the server-side backstop.)
+  if (!vendorAutoReplyEnabled()) {
+    return err('Vendor AI isn’t available yet — it’s launching shortly. You won’t be charged.');
   }
 
   // ── Tier + verification gate (BEFORE pricing) ──────────────────────────────

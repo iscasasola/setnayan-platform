@@ -1534,8 +1534,8 @@ function VendorCompletionCard({
 // Returning-client marker + quick-action bar (Details/Overview tab, PR 5).
 //
 // Marker: rendered ONLY when `returningFlag` is present — i.e. this couple has a
-// prior CONFIRMED booking with this vendor on a DIFFERENT event (the same signal
-// that makes an inquiry-accept cost a flat 1 token). The reuse RPC returns the
+// prior CONFIRMED booking with this vendor on a DIFFERENT event (answering an
+// inquiry is now free — the returning-client signal is informational only). The reuse RPC returns the
 // most-recent prior event's name/date (DISTINCT ON) — not an exact count and not
 // its event_id — so we name that one past event rather than link a list.
 //

@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
+import { seating3dEnabled } from '@/lib/seating-3d-flag';
 import { appendLedger } from '@/lib/ledger';
 import {
   VENDOR_3D_BOOTH_SKU_CODE,
@@ -91,6 +92,15 @@ export async function activateVendor3dBooth(
   const role = await resolveVendorRole(supabase, user.id);
   if (!canManageVendor(role)) {
     return err('Only the owner or an admin can manage the 3D Booth add-on.');
+  }
+
+  // ── Feature-availability gate (defence in depth) ───────────────────────────
+  // The branded booth only renders inside a couple's 3D Plan, which is gated by
+  // the NEXT_PUBLIC_SEATING_3D kill-switch (on by default). If 3D is switched
+  // off there's nowhere for the booth to appear — never take money for it. The
+  // card hides its buy CTA in this state; this is the server-side backstop.
+  if (!seating3dEnabled()) {
+    return err('The 3D Plan is switched off right now, so the 3D Booth can’t run — you won’t be charged.');
   }
 
   // ── Tier + verification gate (BEFORE pricing) ──────────────────────────────

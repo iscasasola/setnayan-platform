@@ -370,6 +370,70 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
+        <Section title="Vendor AI assistant (automated replies)">
+          <p>
+            A vendor may turn on a paid <strong>Vendor AI assistant</strong> for
+            their own shop. When they do, it can read the messages in
+            <em> your chat with that vendor</em> and your event brief (event
+            date, guest count, budget per head, and venue) to answer common
+            questions — and, if the vendor allows it, accept a booking request —
+            automatically, on that vendor&rsquo;s behalf.
+          </p>
+          <p className="pt-2">
+            You always see an automated message labelled{' '}
+            <strong>&ldquo;&#9889; AI auto-reply&rdquo;</strong>, so you know a
+            person didn&rsquo;t type it. The assistant is{' '}
+            <strong>deterministic</strong> — it follows fixed rules and never
+            invents answers or commitments — and it is <strong>single-tenant</strong>:
+            it only ever acts for the one vendor whose chat it is in, and never
+            reads across vendors or across your events.
+          </p>
+          <p className="pt-2">
+            <strong>Lawful basis &amp; your rights.</strong> We process these
+            messages on the basis of your own act of messaging that vendor
+            (consent) and the couple&ndash;vendor relationship (contract). Because
+            a machine, not a person, is replying, RA 10173 &sect; 34 (automated
+            processing) and &sect; 16(c) (right to object) apply: you can always
+            reach a human — every message you send still goes to the vendor, and
+            nothing is hidden from them — and you may object through our{' '}
+            <Link href="/help" className="text-terracotta hover:underline">
+              Help Center
+            </Link>{' '}
+            or our Data Protection Officer (above).
+          </p>
+          <p className="pt-2">
+            <strong>What we do not do here:</strong> we never feed sensitive
+            personal information — religion, civil status, family or dependent
+            details, or biometric/face data — into the assistant, and it never
+            has access to your guest list.
+          </p>
+        </Section>
+
+        <Section title="Vendor Deep Search (vendor business research)">
+          <p>
+            Vendors can run <strong>Deep Search</strong>, a paid tool that uses AI
+            to research <em>their own business</em> across public web sources —
+            their own website, directory listings, and review sites — and builds a
+            short summary the vendor reviews to fill in their Setnayan profile.
+          </p>
+          <p className="pt-2">
+            This is about the vendor&rsquo;s business information. The research
+            runs through <strong>Anthropic&rsquo;s AI web search</strong> (United
+            States; see Subprocessors below). We <strong>never</strong> send your
+            guest list, your messages, or your personal data into it. Public pages
+            the tool reads may incidentally mention other people (for example, the
+            name on a public review); we keep only a structured business summary,
+            not the raw pages, and delete it on a rolling <strong>180-day</strong>
+            {' '}basis.
+          </p>
+          <p className="pt-2">
+            <strong>Lawful basis.</strong> The vendor initiates it about their own
+            business (consent + contract); for any incidental, already-public
+            third-party content we rely on legitimate interest (RA 10173 &sect;
+            12(f)), minimised to a business summary and short retention.
+          </p>
+        </Section>
+
         <Section title="Anti-fraud &amp; trust integrity">
           <p>
             To keep our marketplace signals honest — reviews, ratings, badges,
@@ -867,7 +931,7 @@ export default function PrivacyPage() {
             <li>Resend (transactional email)</li>
             <li>Sentry (server-side error monitoring · stack traces only)</li>
             <li>PostHog Cloud (product analytics — opt-out available in your profile)</li>
-            <li>Anthropic (AI features · United States · never trained on your data)</li>
+            <li>Anthropic (AI features, including AI web research for the vendor Deep Search tool · United States · never trained on your data)</li>
             <li>Suno (AI music generation for Pakanta and rendered videos · United States · no guest or personal data is sent)</li>
             <li>
               Google (YouTube Data API — only for couples who purchase Panood

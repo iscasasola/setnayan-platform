@@ -145,27 +145,9 @@ export const ADD_ON_DETAILS: Record<string, AddOnDetail> = {
     ],
   },
 
-  'music-creator': {
-    eyebrow: 'Music',
-    heroTitle: 'A soundtrack you can actually use.',
-    tagline:
-      'Hand-picked tracks — or your own — cleared for every wedding video you make. No fees, ever.',
-    paragraphs: [
-      'Every reel and highlight needs music you won’t get flagged for.',
-      'Pick from the library or make your own — cleared for every video at your wedding, forever.',
-    ],
-    highlights: [
-      'Tracks for every mood',
-      'Make your own in a tap',
-      'No licences, no per-video fees',
-      'Backs every Setnayan video at your day',
-    ],
-    preview: [
-      { context: 'Library', glyph: '♬', caption: 'Browse by mood and feel.' },
-      { context: 'Your own', glyph: '✶', caption: 'Make a custom track.' },
-      { context: 'Cleared', glyph: '✓', caption: 'Use it on every video, free.' },
-    ],
-  },
+  // 'music-creator' detail RETIRED 2026-07-22 with its card (folded into
+  // Pakanta) — a detail entry with no catalog card is an orphan (asserted by
+  // add-ons-detail's "no detail key is orphaned" test).
 
   pakanta: {
     eyebrow: 'Pakanta',

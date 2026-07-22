@@ -68,7 +68,6 @@ const ARC: ReadonlyArray<Stage> = [
       { key: 'animated-monogram' },
       { key: 'pakanta' },
       { key: 'led' },
-      { key: 'music-creator' },
       { key: 'playlist' },
     ],
   },

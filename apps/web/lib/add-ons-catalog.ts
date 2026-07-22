@@ -165,9 +165,9 @@ export function addOnHref(key: string, eventId: string): string {
   if (key === 'animated-monogram') return `/dashboard/${eventId}/monogram`;
   // Features that don't own a Studio surface of their own open their real home
   // rather than a "coming soon" stub — so every Studio button lands somewhere
-  // usable. landing-page → the wedding-website hub; music-creator → Pakanta
-  // (its own detail copy already frames it as "generate a custom score —
-  // Pakanta"). Both destinations handle their own free-use / paywall.
+  // usable. landing-page → the wedding-website hub. `music-creator` is RETIRED
+  // (2026-07-22 · folded into Pakanta) — its card is gone, but the alias stays
+  // as the "301 to Pakanta" so any lingering deep link still resolves.
   if (key === 'landing-page') return `/dashboard/${eventId}/website`;
   if (key === 'music-creator') return `/dashboard/${eventId}/studio/pakanta`;
   // Seat plan opens the 3D lab by default; `NEXT_PUBLIC_SEATING_3D='false'`
@@ -448,30 +448,11 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
       iconBadgeClass: 'bg-sky-100/15 text-sky-100',
     },
   },
-  {
-    key: 'music-creator',
-    label: 'Music Creator',
-    Icon: Music,
-    iteration: '0034',
-    status: 'web_v1',
-    category: 'tool',
-    blurb:
-      'Music you’re cleared to use on every wedding video — no fees.',
-    cta: 'Browse music',
-    studioGroup: 'branding',
-    tier: 'free',
-    poster: {
-      // Atelier-Glass retirement (Glass PR-4, 2026-07-15): retired the purple
-      // gradient + chip (the other studio violet island) to a warm gold-brown,
-      // keeping the App Store variety on-language (no violet).
-      motion: 'pulse',
-      baseBackground:
-        'linear-gradient(135deg, #241A12 0%, #4A331F 50%, #7A5326 100%)',
-      motionBackground:
-        'radial-gradient(circle at 50% 50%, #F0D8A8 0%, transparent 50%)',
-      iconBadgeClass: 'bg-cream/20 text-cream',
-    },
-  },
+  // Music Creator — RETIRED 2026-07-22 (owner: fold into Pakanta ₱2,500). It
+  // never had a browse surface of its own (its card already routed to Pakanta),
+  // and the ~400-track songs.ts catalogue is unused. The card is removed here;
+  // any lingering `music-creator` link still resolves to Pakanta via addOnHref
+  // (the "301 to Pakanta"), so no doorway 404s.
   {
     key: 'playlist',
     label: 'Playlist',
@@ -676,9 +657,11 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb:
       'Your photographer’s full-resolution gallery, delivered to your Drive.',
     cta: 'Set up',
-    studioGroup: 'capture',
-    // Free tool (Drive hand-off) — mark it so the card shows "Free", not a
-    // money-style "Get".
+    // Delivered THROUGH Papic (owner 2026-07-22: "Photo Delivery on Papic"), so
+    // it is not a standalone free card. `utility` keeps the /studio/photo-delivery
+    // page reachable by deep link but drops it from the Suite free layer + grids
+    // (both filter `studioGroup !== 'utility'`). tier stays 'free'.
+    studioGroup: 'utility',
     tier: 'free',
     poster: {
       motion: 'drift',

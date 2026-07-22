@@ -10,6 +10,7 @@ import {
 } from '@/lib/data-privacy-controls';
 import { NPC_DOCUMENTS, NPC_DOC_GROUP_LABEL, type NpcDocGroup } from '@/lib/npc-documents';
 import { ControlActions } from './_components/control-actions';
+import { CoveragePanel } from './_components/coverage-panel';
 
 export const metadata = { title: 'Data Privacy · Admin' };
 export const dynamic = 'force-dynamic';
@@ -68,6 +69,8 @@ export default async function DataPrivacyPage() {
           <ControlCard key={c.control_key} control={c} />
         ))}
       </ul>
+
+      <CoveragePanel controls={controls} />
 
       <NpcDocuments />
     </div>

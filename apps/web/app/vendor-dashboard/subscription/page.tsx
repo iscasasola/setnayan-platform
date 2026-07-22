@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowRight, Crown, Sparkles } from 'lucide-react';
+import { ArrowRight, Crown, Search, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
@@ -396,6 +396,40 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         pricePhp={aiAddonPricePhp}
         assistantLive={vendorAutoReplyEnabled()}
       />
+
+      {/* Deep Search — a metered ₱500/search add-on that researches the vendor's
+          OWN business to auto-fill their profile. Pro+ get 1 free per 28-day
+          cycle; Solo always pays. The runnable surface lives on its own sub-route
+          (owner 2026-07-22). */}
+      <Link
+        href="/vendor-dashboard/deep-search"
+        className="sn-card sn-press mt-5 flex flex-wrap items-center gap-4 p-5 sm:flex-nowrap"
+      >
+        <span
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+          style={{ background: 'var(--m-paper)', border: '1px solid var(--m-line)' }}
+        >
+          <Search className="h-5 w-5 text-terracotta" strokeWidth={1.75} aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-base font-semibold text-ink">
+            Deep Search — auto-fill your profile from the web.
+          </p>
+          <p className="mt-0.5 text-sm text-ink/60">
+            {isPaidTierForAddon
+              ? isVerifiedVendor
+                ? isTierAtLeast(currentTier, 'pro')
+                  ? 'We research your business and hand you a “what we learned” review. 1 free every 28 days, then ₱500 each.'
+                  : 'We research your business and hand you a “what we learned” review. ₱500 per search on Solo.'
+                : 'Get verified to run Deep Search — it researches your business and hands you a “what we learned” review to copy in.'
+              : 'A paid-plan add-on: we research your business and hand you a “what we learned” review to auto-fill your profile.'}
+          </p>
+        </div>
+        <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-ink">
+          Open Deep Search
+          <ArrowRight className="h-4 w-4" strokeWidth={2} aria-hidden />
+        </span>
+      </Link>
 
       {/* Apply-then-pay payment instructions when a PLAN/COMBINED order was just
           started. Token-only (TKN-) top-ups are intentionally excluded — their

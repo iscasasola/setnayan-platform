@@ -30,6 +30,7 @@ import { eventInitials } from '@/lib/event-initials';
 import { EventMonogram } from '@/app/_components/event-monogram';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
+import { PromoFreeWindowBanner } from '@/app/_components/promo-free-window-banner';
 
 type Props = {
   children: React.ReactNode;
@@ -456,6 +457,9 @@ export default async function EventLayout({ children, params }: Props) {
               two <main> elements in one tree — invalid HTML / duplicate
               landmark. */}
           <div className="mx-auto w-full px-4 py-6 sm:px-6 lg:px-8">
+            {/* Live "free this weekend" promo announcement (self-gates to null
+                when PROMO_FREE_WINDOWS_ENABLED is off or nothing is live). */}
+            <PromoFreeWindowBanner />
             {children}
           </div>
         </div>

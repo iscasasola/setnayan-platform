@@ -5,6 +5,7 @@ import {
   BadgeCheck,
   Coins,
   Gauge,
+  Gift,
 } from 'lucide-react';
 import {
   TablePageSkeleton,
@@ -15,6 +16,7 @@ import { PricingSurface } from './_surfaces/pricing-surface';
 import { CustomPlansSurface } from './_surfaces/custom-plans-surface';
 import { TokenBandsSurface } from './_surfaces/token-bands-surface';
 import { PriceBandsSurface } from './_surfaces/price-bands-surface';
+import { FreeWindowsSurface } from './_surfaces/free-windows-surface';
 
 /**
  * Catalog Studio — the tabbed /admin/pricing shell that consolidates the Money
@@ -48,7 +50,13 @@ import { PriceBandsSurface } from './_surfaces/price-bands-surface';
  */
 export const dynamic = 'force-dynamic';
 
-const TABS = ['pricing', 'custom-plans', 'token-bands', 'price-bands'] as const;
+const TABS = [
+  'pricing',
+  'custom-plans',
+  'token-bands',
+  'price-bands',
+  'free-windows',
+] as const;
 type Tab = (typeof TABS)[number];
 
 function first(v: string | string[] | undefined): string | undefined {
@@ -64,6 +72,7 @@ const TAB_STRIP: { key: Tab; label: string; icon: typeof DollarSign }[] = [
   { key: 'custom-plans', label: 'Custom plans', icon: BadgeCheck },
   { key: 'token-bands', label: 'Token bands', icon: Coins },
   { key: 'price-bands', label: 'Price bands', icon: Gauge },
+  { key: 'free-windows', label: 'Free windows', icon: Gift },
 ];
 
 const TAB_TITLE: Record<Tab, string> = {
@@ -71,6 +80,7 @@ const TAB_TITLE: Record<Tab, string> = {
   'custom-plans': 'Custom plans',
   'token-bands': 'Token bands',
   'price-bands': 'Price bands',
+  'free-windows': 'Free windows',
 };
 
 function tabSkeleton(tab: Tab): ReactNode {
@@ -111,6 +121,18 @@ function activeSurface(
       return (
         <PriceBandsSurface
           searchParams={Promise.resolve({ recomputed: first(search.recomputed) })}
+        />
+      );
+    case 'free-windows':
+      return (
+        <FreeWindowsSurface
+          searchParams={Promise.resolve({
+            created: first(search.created),
+            saved: first(search.saved),
+            deleted: first(search.deleted),
+            createError: first(search.createError),
+            error: first(search.error),
+          })}
         />
       );
     default:

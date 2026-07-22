@@ -1,4 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  isSkuFreeForCouplesNow,
+  promoFreeSkusForCouples,
+} from '@/lib/promo-free-windows';
 
 /**
  * apps/web/lib/entitlements.ts
@@ -513,6 +517,13 @@ export async function eventOwnsSku(
   //    never leaks across accounts. Checked last: it's the rare path.
   if (await eventHasCompGrant(supabase, eventId, serviceKey)) return true;
 
+  // 4. Promo free window — a live admin announcement makes this SKU free for all
+  //    couples right now. Treat it as OWNED so buy surfaces hide the purchase CTA
+  //    (a couple must never be charged for something that is free this moment).
+  //    Ephemeral + flag-guarded (empty set / short-circuit when off) — see
+  //    eventSkuActive + lib/promo-free-windows.ts.
+  if (await isSkuFreeForCouplesNow(serviceKey)) return true;
+
   return false;
 }
 
@@ -539,6 +550,14 @@ export async function eventSkuActive(
   for (const bundleKey of bundlesGrantingSku(composition, serviceKey)) {
     if (await checkOrderActive(supabase, eventId, bundleKey)) return true;
   }
+
+  // Promo free window — a live admin announcement (PROMO_FREE_WINDOWS_ENABLED)
+  // makes this SKU free for ALL couples during its date range, exactly like a
+  // comp grant but audience-wide + ephemeral (reverts when the window closes).
+  // The audience is global, so there is no per-event scoping to resolve. Reads
+  // short-circuit to an empty set when the flag is off, so this is byte-identical
+  // to today until the owner turns a promo on. See lib/promo-free-windows.ts.
+  if (await isSkuFreeForCouplesNow(serviceKey)) return true;
 
   // Admin comp grant — bypass the handshake gate too (a gifted feature is
   // unlocked immediately; there's no payment to verify). Host-scoped server-side.
@@ -654,6 +673,14 @@ export async function eventActiveSkus(
   // those codes. Host-scoped server-side (event_comp_active_skus), so it never
   // leaks across accounts. Graceful-degrade to [] pre-migration.
   for (const sku of await eventCompActiveSkus(supabase, eventId)) {
+    active.add(sku);
+  }
+
+  // Promo free windows — union every SKU currently free for all couples via a
+  // live admin announcement into `active` (a promo unlock is on, never pending),
+  // so the Studio grid renders it as owned/included. Empty set + short-circuit
+  // when PROMO_FREE_WINDOWS_ENABLED is off. See lib/promo-free-windows.ts.
+  for (const sku of await promoFreeSkusForCouples()) {
     active.add(sku);
   }
 

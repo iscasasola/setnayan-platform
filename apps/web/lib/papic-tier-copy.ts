@@ -77,7 +77,10 @@ export const PAPIC_TIER_CONFIG_FALLBACK: Record<PapicTierCode, PapicTierConfigRo
   },
   mini: {
     tierCode: 'mini',
-    displayTitle: 'Papic Mini',
+    // Renamed 'Papic Mini' → 'Papic One' by the 2026-07-22 naming lock
+    // (migration 20270830568357). "Papic One" = the dedicated per-camera
+    // product. Mirrors the live `papic_tier_config.display_title` DB value.
+    displayTitle: 'Papic One',
     pointsPerDay: 20,
     rateServiceCode: 'PAPIC_CAMERA_MINI_DAY',
     seatsPerEvent: 0,
@@ -86,8 +89,10 @@ export const PAPIC_TIER_CONFIG_FALLBACK: Record<PapicTierCode, PapicTierConfigRo
     isActive: true,
   },
   // Legacy ₱30 rung — aliases to Mini economics. Kept for prod rows + the
-  // guest-list "Limited" path (never-rename-technical-ids lock). Hidden from
-  // the public ladder by `publicPapicLadder()`.
+  // guest-list "Limited" path (never-rename-technical-ids lock). RETIRED as a
+  // live meter by the 2026-07-22 rename (migration 20270830568357): a per-day
+  // 'roll' meter under the flat "Papic One" name would contradict the flat
+  // promise, so it is deactivated (also hidden from the public ladder anyway).
   roll: {
     tierCode: 'roll',
     displayTitle: 'Papic Mini (legacy roll)',
@@ -96,7 +101,7 @@ export const PAPIC_TIER_CONFIG_FALLBACK: Record<PapicTierCode, PapicTierConfigRo
     seatsPerEvent: 0,
     weddingCapPhp: 6000,
     sortOrder: 1,
-    isActive: true,
+    isActive: false,
   },
   ltd: {
     tierCode: 'ltd',
@@ -108,6 +113,9 @@ export const PAPIC_TIER_CONFIG_FALLBACK: Record<PapicTierCode, PapicTierConfigRo
     sortOrder: 2,
     isActive: true,
   },
+  // "Papic Max" (formerly "Papic Unli") — RETIRED by the 2026-07-22 naming lock
+  // (migration 20270830568357 deactivates the 'unlimited' tier). Row kept for
+  // lineage; isActive=false drops it from every public ladder.
   unlimited: {
     tierCode: 'unlimited',
     displayTitle: 'Papic Unli',
@@ -116,7 +124,7 @@ export const PAPIC_TIER_CONFIG_FALLBACK: Record<PapicTierCode, PapicTierConfigRo
     seatsPerEvent: 0,
     weddingCapPhp: 15000,
     sortOrder: 3,
-    isActive: true,
+    isActive: false,
   },
 };
 

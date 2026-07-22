@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 import { eventPapicActive } from '@/lib/papic-seats';
+import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import {
   VENDOR_PHOTO_CHALLENGE_SKU_CODE,
   resolveVendorPhotoChallengePricePhp,
@@ -91,6 +92,15 @@ export async function sponsorPhotoChallenge(
   const role = await resolveVendorRole(supabase, user.id);
   if (!canManageVendor(role)) {
     return err('Only the owner or an admin can sponsor a Photo Challenge.');
+  }
+
+  // ── Feature-availability gate (defence in depth) ───────────────────────────
+  // Photo Challenge rides the flag-dark Papic Games engine. The buy surface
+  // (VendorChallengeSection) already renders null when NEXT_PUBLIC_PAPIC_GAMES_V1
+  // is off, but the flag can flip between render and submit — never take money
+  // for a challenge that can't run.
+  if (!papicGamesEnabled()) {
+    return err('Photo Challenge isn’t available yet — it’s launching shortly. You won’t be charged.');
   }
 
   const admin = createAdminClient();

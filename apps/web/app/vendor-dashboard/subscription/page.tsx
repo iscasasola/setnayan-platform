@@ -24,6 +24,7 @@ import {
   isVendor3dBoothActive,
 } from '@/lib/vendor-3d-booth-pricing';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
+import { seating3dEnabled } from '@/lib/seating-3d-flag';
 import { SubscriptionCycleToggle } from './_components/cycle-toggle';
 import {
   SubscriptionCards,
@@ -419,6 +420,7 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
           Pro/Enterprise/Custom + verified shops (owner 2026-07-22). Turns on the
           vendor's branded booth inside their couples' published 3D Plans. */}
       <BoothAddonCard
+        available={seating3dEnabled()}
         eligible={isProTierForBooth && isVerifiedVendor}
         paidButUnverified={isProTierForBooth && !isVerifiedVendor}
         trialAvailable={boothAddonState.trialUsedAt == null}

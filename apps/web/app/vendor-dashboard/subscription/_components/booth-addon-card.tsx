@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, Lock, Store } from 'lucide-react';
+import { Check, Clock, Lock, Store } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
@@ -18,6 +18,8 @@ import {
  * Plans; without it a Pro/Enterprise vendor keeps the generic booth.
  *
  * Honest states (mirror the Vendor AI add-on card):
+ *   • 3D Plan switched off (NEXT_PUBLIC_SEATING_3D='false') → "Coming soon", NO
+ *     buy CTA — the booth has nowhere to render, so we never take money for it.
  *   • not eligible (below Pro OR unverified) → a muted upsell, no CTA.
  *   • eligible + trial available → "Turn on 3D Booth — free first cycle".
  *   • eligible + active → live chip + "active through …" + a Renew button.
@@ -39,6 +41,10 @@ function fmtDate(s: string) {
 }
 
 export type BoothAddonCardProps = {
+  /** seating3dEnabled() — the 3D Plan master switch (kill-switch, on by default).
+   *  When OFF the whole add-on is "Coming soon": no buy CTA renders (and the
+   *  server action rejects), because a booth can't render if 3D is switched off. */
+  available: boolean;
   /** Pro+ (Pro / Enterprise / Custom) AND verified — the only shops that can buy. */
   eligible: boolean;
   /** True while the shop is on a Pro+ tier but NOT yet verified. */
@@ -54,7 +60,8 @@ export type BoothAddonCardProps = {
 };
 
 export function BoothAddonCard(props: BoothAddonCardProps) {
-  const { eligible, paidButUnverified, trialAvailable, active, expiresAt, pricePhp } = props;
+  const { available, eligible, paidButUnverified, trialAvailable, active, expiresAt, pricePhp } =
+    props;
 
   const toast = useToast();
   const router = useRouter();
@@ -110,8 +117,21 @@ export function BoothAddonCard(props: BoothAddonCardProps) {
         </div>
       </div>
 
-      {/* ── Eligibility-gated CTA ─────────────────────────────────────────── */}
-      {!eligible ? (
+      {/* ── Availability + eligibility-gated CTA ──────────────────────────── */}
+      {!available ? (
+        /* 3D Plan switched off → the whole add-on is "Coming soon": no buy CTA,
+           so a vendor can't pay for a booth that has nowhere to render. */
+        <div
+          className="mt-4 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs text-ink/60"
+          style={{ borderColor: 'var(--m-line)' }}
+        >
+          <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+          <span>
+            Coming soon — the 3D Plan is being finalized. You&rsquo;ll be able to
+            turn on your branded booth here the moment it goes live.
+          </span>
+        </div>
+      ) : !eligible ? (
         <div
           className="mt-4 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs text-ink/60"
           style={{ borderColor: 'var(--m-line)' }}

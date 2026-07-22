@@ -42,8 +42,9 @@ export async function Couple3dPlanUnlockNotice({ eventId }: { eventId: string })
       <Boxes aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
       <p>
         Your 3D Plan upgrade was unlocked by <span className="font-semibold">{vendorName}</span> — add
-        it for <span className="font-semibold">{peso(VENDOR_3D_PLAN_UNLOCK_PRICE_PHP)}</span> from your
-        dashboard. You choose what to publish.
+        it below for the discounted{' '}
+        <span className="font-semibold">{peso(VENDOR_3D_PLAN_UNLOCK_PRICE_PHP)}</span>. You choose
+        what to publish.
       </p>
     </div>
   );

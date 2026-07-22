@@ -171,10 +171,10 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
         <div className="flex items-start gap-3">
           <Coins aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-orange" strokeWidth={1.75} />
           <div className="space-y-1">
-            <p className="font-medium text-ink">Need more tokens?</p>
+            <p className="font-medium text-ink">About tokens</p>
             <p className="text-sm text-ink/70">
-              Buy a token pack to answer more inquiries · tokens spend on
-              answering couples and vendor add-ons.
+              Answering couples is free. Tokens are used only for certain vendor
+              add-ons — manage them on the Plan &amp; tokens page.
             </p>
           </div>
         </div>

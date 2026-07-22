@@ -127,18 +127,13 @@ export default async function VendorMessagesPage() {
                   <>
                     <span
                       className="ml-1 mt-0.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta"
-                      title={
-                        returning.resync_flat
-                          ? 'A client you previously locked — accepting costs just 1 token'
-                          : 'A client you previously locked'
-                      }
+                      title="A client you previously locked"
                     >
                       Returning client
                     </span>
                     <p className="mt-0.5 truncate text-xs text-ink/65">
                       Booked you for{' '}
                       {returning.prior_event_display_name ?? 'a previous event'}
-                      {returning.resync_flat ? ' · accepting costs just 1 token' : ''}
                     </p>
                   </>
                 ) : null}

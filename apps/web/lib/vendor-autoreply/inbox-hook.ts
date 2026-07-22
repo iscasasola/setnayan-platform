@@ -36,6 +36,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '../supabase/admin';
 import { vendorAutoReplyEnabled } from '../vendor-autoreply-flag';
+import { isDataPrivacyControlActiveWith } from '../data-privacy-controls';
 import { buildEventBrief, type EventBriefSource } from '../event-brief';
 import {
   fetchVendorServices,
@@ -82,6 +83,14 @@ export async function runVendorAutoReply(
 
   try {
     const admin = adminOverride ?? createAdminClient();
+
+    // DPO gate — the AI auto-reply is a privacy-sensitive flow (it reads couple
+    // messages + Event Brief and answers on the vendor's behalf). It stays dark
+    // until the owner approves it at /admin/data-privacy (fail-closed), on top of
+    // the global flag above and the vendor's paid add-on entitlement below. Read
+    // through THIS admin client so the check shares the hook's single-tenant
+    // isolation and is unit-testable with the injected stub.
+    if (!(await isDataPrivacyControlActiveWith(admin, 'vendor_ai_autoreply'))) return;
 
     // 1. Thread → vendor + event scope. Everything after this is keyed to
     //    these two ids (single-tenant isolation).

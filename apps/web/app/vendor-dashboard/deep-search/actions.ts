@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { deepSearchAiConfigured, type VendorDossier } from '@/lib/vendor-deep-search';
 import {
   runAndRecordVendorDeepSearch,
@@ -87,6 +88,13 @@ export async function runVendorDeepSearch(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  // DPO gate — Deep Search is a privacy-sensitive flow (AI web-research over
+  // public sources + dossier storage). Fail-closed until the owner approves it
+  // at /admin/data-privacy, so it never runs (or charges) while undisclosed.
+  if (!(await isDataPrivacyControlActive('vendor_deep_search'))) {
+    return err('Deep Search isn’t available yet — it’s pending a privacy review.');
+  }
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) return err('No vendor profile found.');

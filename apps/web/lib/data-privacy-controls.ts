@@ -31,7 +31,9 @@ export type PrivacyControlKey =
   | 'coordinator_consent_money'
   | 'coordinator_prep_release'
   | 'coordinator_run_of_show'
-  | 'coordinator_day_of_broadcast';
+  | 'coordinator_day_of_broadcast'
+  | 'vendor_ai_autoreply'
+  | 'vendor_deep_search';
 
 export type PrivacyControlDef = {
   key: PrivacyControlKey;
@@ -151,6 +153,24 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
     riskNote:
       'No RA 10173 exposure — an activation switch. Emails go to booked vendors’ existing contact addresses; no new PII collection.',
   },
+  {
+    key: 'vendor_ai_autoreply',
+    title: 'Vendor AI (auto-reply)',
+    description:
+      'The paid Vendor AI add-on reads a couple’s inbox messages + Event Brief (dates, pax, budget-per-head, venue) and auto-answers — and can auto-accept — on the vendor’s behalf. Deterministic (no LLM); the couple sees it labelled "⚡ AI auto-reply".',
+    category: 'Automated processing of couple messages',
+    riskNote:
+      'Automated processing of couple chat + event data on the vendor’s behalf. The live /privacy notice needs a Vendor-AI section (purpose + legal basis) before this activates; couple-faith consumption must stay unwired. DPO sign-off required.',
+  },
+  {
+    key: 'vendor_deep_search',
+    title: 'Vendor Deep Search',
+    description:
+      'The paid Deep Search add-on runs AI web-research (Anthropic web_search) over the vendor’s OWN business across public sources incl. review sites, and stores a structured dossier (vendor_web_dossiers) to auto-fill the vendor profile.',
+    category: 'AI web-research + dossier storage',
+    riskNote:
+      'AI web-research via the Anthropic web_search subprocessor; may read third-party PII (reviewers, named clients) from the open web; a dossier is stored. The /privacy notice needs a Deep-Search section + a retention limit; DPO review of third-party-source storage required.',
+  },
 ];
 
 export type PrivacyControlRow = {
@@ -201,6 +221,29 @@ export async function fetchDataPrivacyControls(
 }
 
 /**
+ * The gate, reading through a caller-provided admin client. Hook code that
+ * already holds an admin client (e.g. the vendor auto-reply inbox hook) calls
+ * THIS so the read rides the same single-tenant client — and stays unit-testable
+ * with an injected stub. Fail-closed: any error / missing row → false.
+ */
+export async function isDataPrivacyControlActiveWith(
+  admin: SupabaseClient,
+  key: PrivacyControlKey,
+): Promise<boolean> {
+  try {
+    const { data, error } = await admin
+      .from('data_privacy_controls')
+      .select('status')
+      .eq('control_key', key)
+      .maybeSingle();
+    if (error || !data) return false;
+    return (data as { status: string }).status === 'active';
+  } catch {
+    return false;
+  }
+}
+
+/**
  * The gate every privacy-sensitive feature reads. TRUE only when the control is
  * explicitly `active` in the DB. Fail-closed: any error / missing row → false.
  * Request-cached so many call sites in one render share a single read.
@@ -208,14 +251,7 @@ export async function fetchDataPrivacyControls(
 export const isDataPrivacyControlActive = cache(
   async (key: PrivacyControlKey): Promise<boolean> => {
     try {
-      const admin = createAdminClient();
-      const { data, error } = await admin
-        .from('data_privacy_controls')
-        .select('status')
-        .eq('control_key', key)
-        .maybeSingle();
-      if (error || !data) return false;
-      return (data as { status: string }).status === 'active';
+      return await isDataPrivacyControlActiveWith(createAdminClient(), key);
     } catch {
       return false;
     }

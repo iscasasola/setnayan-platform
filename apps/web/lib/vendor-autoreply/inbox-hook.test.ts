@@ -148,6 +148,9 @@ function service(): VendorServiceRow {
 
 function happyCanned(overrides: Record<string, Canned> = {}): Record<string, Canned> {
   return {
+    // DPO control ACTIVE — the owner has approved the Vendor-AI flow at
+    // /admin/data-privacy, so the fail-closed privacy gate lets the run proceed.
+    data_privacy_controls: { single: { status: 'active' } },
     chat_threads: { single: { thread_id: 't1', event_id: 'e1', vendor_profile_id: 'v1' } },
     vendor_bot_config: { single: { enabled: true, daily_reply_cap: 30 } },
     vendor_bot_replies: { count: 0 },
@@ -219,6 +222,18 @@ test('no active Vendor AI add-on → no bot message (paid-add-on gate)', () =>
       vendor_profiles: {
         single: { business_name: 'Blooms & Co.', ai_addon_expires_at: '2000-01-01T00:00:00.000Z' },
       },
+    });
+    await runVendorAutoReply({ threadId: 't1', senderRole: 'couple' }, fakeAdmin(canned, log));
+    assert.equal(log.length, 0);
+  }));
+
+test('DPO control inactive → no bot message (privacy fail-closed)', () =>
+  withFlag('true', async () => {
+    const log: InsertLogEntry[] = [];
+    // Everything else is happy, but the owner has NOT approved the Vendor-AI
+    // flow at /admin/data-privacy → the assistant must not run.
+    const canned = happyCanned({
+      data_privacy_controls: { single: { status: 'inactive' } },
     });
     await runVendorAutoReply({ threadId: 't1', senderRole: 'couple' }, fakeAdmin(canned, log));
     assert.equal(log.length, 0);

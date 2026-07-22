@@ -38,9 +38,10 @@ test('every canonical event type maps to its locked tier + price', () => {
     ['anniversary', 'C', 499],
     ['graduation', 'C', 499],
     ['reunion', 'C', 499],
-    ['gala_night', 'C', 499],
+    ['gala_night', 'B', 999],
     ['gender_reveal', 'D', 99],
-    ['dinner_date', 'D', 99],
+    ['date', 'D', 99],
+    ['hangout', 'D', 99],
     ['simple_event', 'E', 0],
   ];
   for (const [type, tier, php] of cases) {

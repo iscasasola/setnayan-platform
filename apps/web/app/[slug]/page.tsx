@@ -9,6 +9,7 @@ import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { isSetnayanHost, isLocalOrPreviewHost } from '@/lib/custom-domain-resolve';
 import {
@@ -3595,8 +3596,9 @@ function RsvpWidget({
 
       {limited ? null : (
         <p className="text-xs text-ink/50">
-          You&rsquo;ll be able to add a song request, dance style, and Photo Challenge
-          opt-in when you sign up for a free Setnayan account.
+          You&rsquo;ll be able to add a song request and dance style
+          {papicGamesEnabled() ? ', plus a Photo Challenge opt-in,' : ''} when you sign
+          up for a free Setnayan account.
         </p>
       )}
 

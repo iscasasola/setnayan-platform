@@ -29,8 +29,11 @@ export type AiPriceTier = 'A' | 'B' | 'C' | 'D' | 'E';
 
 /**
  * event_type → tier. Explicit for every canonical type (14). Anniversary /
- * graduation / reunion were not in the 2026-07-17 load study; they are assigned
- * to C (standard event) pending owner review — see the DECISION_LOG note.
+ * graduation / reunion sit at C (standard event). Tournament dropped C → D
+ * (₱99) after the 2026-07-22 reach study: at ~25% of the wedding category set
+ * it is a few specialized vendors (referee/medic/insurance/trophies), not a
+ * standard-event spread — Travel stays C because its low count buys the
+ * bespoke itinerary engine. See DECISION_LOG 2026-07-22 + the reach-matrix study.
  */
 export const AI_TIER_BY_EVENT_TYPE: Readonly<Record<string, AiPriceTier>> = {
   wedding: 'A',
@@ -40,7 +43,7 @@ export const AI_TIER_BY_EVENT_TYPE: Readonly<Record<string, AiPriceTier>> = {
   birthday: 'C',
   celebration: 'C',
   travel: 'C',
-  tournament: 'C',
+  tournament: 'D',
   anniversary: 'C',
   graduation: 'C',
   reunion: 'C',

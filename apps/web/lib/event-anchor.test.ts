@@ -59,11 +59,11 @@ test('anchorForType: unknown/admin type falls back to a chosen fixed date', () =
   assert.deepEqual(anchorForType(undefined), FALLBACK_ANCHOR);
 });
 
-test('ANCHOR_BY_TYPE covers all 14 known types', () => {
+test('ANCHOR_BY_TYPE covers all 16 known types', () => {
   const expected = [
     'wedding', 'anniversary', 'debut', 'birthday', 'christening', 'gender_reveal',
     'travel', 'graduation', 'reunion', 'corporate', 'tournament', 'gala_night',
-    'celebration', 'simple_event',
+    'celebration', 'simple_event', 'date', 'hangout',
   ];
   assert.deepEqual(Object.keys(ANCHOR_BY_TYPE).sort(), [...expected].sort());
 });

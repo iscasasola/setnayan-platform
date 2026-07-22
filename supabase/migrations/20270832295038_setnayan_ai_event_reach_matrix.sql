@@ -5,83 +5,86 @@
 -- type cover 89-100% of the wedding set. Owner-designed 2026-07-22 (study:
 -- Setnayan_AI_Event_Reach_Matrix_Study_2026-07-22.md; DECISION_LOG 2026-07-22).
 --
+-- EVENT TYPES are the 14 REGISTERED in event_type_vocab (a trigger rejects any
+-- other): wedding, debut, corporate, christening, birthday, celebration,
+-- travel, tournament, anniversary, graduation, reunion, gender_reveal,
+-- gala_night, simple_event. `dinner_date` is NOT yet registered (still a
+-- proposal) so it is NOT referenced here; `simple_event` is the no-vendor type
+-- (no categories). `gala_night` (a formal gala) gets a provisional reach =
+-- Celebration ∪ Corporate — owner to confirm.
+--
 -- WHY THIS ENFORCES ISOLATION
 --   Vendor-coverages resolves a category's event types as: the canonical's own
 --   override, ELSE its tile's applicable_event_types (lib/vendor-coverages.ts).
 --   The 72 rows below are the coarse service_categories TILES, so every fine
 --   canonical under them inherits the scope — no need to touch all 270+
---   canonicals. Result (reach as % of Wedding): Wedding 100 · Debut 83 ·
---   Corporate 76 · Anniversary 68 · Birthday/Celebration 67 · Graduation 65 ·
---   Reunion 63 · Christening 62 · Gender-reveal 44 · Tournament 25 · Travel 16 ·
---   Dinner-Date 8. Guarantees (machine-checked): a wedding can't be completed
---   elsewhere (6 wedding-only leaves + 4 rite leaves shared only with
---   christening); a debut can't be done as a birthday (12 exclusive leaves).
+--   canonicals. Reach as % of Wedding: Wedding 100 · Gala 84 · Debut 82 ·
+--   Corporate 76 · Anniversary 68 · Birthday/Celebration 66 · Graduation 65 ·
+--   Reunion 63 · Christening 61 · Gender-reveal 44 · Tournament 24 · Travel 13.
+--   Guarantees (machine-checked): a wedding can't be completed elsewhere (6
+--   wedding-only leaves + 4 rite leaves shared only with christening); a debut
+--   can't be done as a birthday (12 exclusive leaves).
 --
 -- OWNER EDITS folded in: booths reach christening + gender-reveal; christening
--- carries no band-heavy program; dinner date += cake; livestream removed from
--- the marketplace (it's the in-app Live Studio — "we won't sell services
--- similar to our in-app services"); accommodation scoped to Travel + Wedding.
+-- carries no band-heavy program; dinner date += cake (deferred with dinner_date
+-- itself); livestream removed from the marketplace (it's the in-app Live Studio
+-- — "we won't sell services similar to our in-app services"); accommodation
+-- scoped to Travel + Wedding.
 --
 -- Idempotent: UPDATE-by-id + a marketplace_hidden flip + one canonical override.
 -- ============================================================================
 
 -- ---- 1. per-tile reach (72 leaves, grouped by identical event-type set) -----
-UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','corporate','christening','birthday','celebration','travel','tournament','anniversary','graduation','reunion','gender_reveal']::text[], updated_at=now()
+UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','corporate','christening','birthday','celebration','travel','tournament','anniversary','graduation','reunion','gender_reveal','gala_night']::text[], updated_at=now()
   WHERE id IN ('digital_services','photo_video');
-UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','corporate','christening','birthday','celebration','tournament','anniversary','graduation','reunion','gender_reveal','dinner_date']::text[], updated_at=now()
-  WHERE id IN ('souvenir_giveaways');
-UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','corporate','christening','birthday','celebration','tournament','anniversary','graduation','reunion','gender_reveal']::text[], updated_at=now()
-  WHERE id IN ('reception','host_mc','catering');
-UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','corporate','christening','birthday','celebration','anniversary','graduation','reunion','gender_reveal','dinner_date']::text[], updated_at=now()
-  WHERE id IN ('cake','florist');
-UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','corporate','christening','birthday','celebration','anniversary','graduation','reunion','gender_reveal']::text[], updated_at=now()
-  WHERE id IN ('stylist_decorator','printing','mobile_bar','coffee_espresso','mocktail','food_truck','dessert','massage_chair','food_cart','photo_booth','perfume_bar','arcade_games','henna_tattoo','mini_nail_bar','tarot_astrology_palmistry','caricature_calligraphy_painting','engraving_embroidery');
-UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','corporate','birthday','celebration','tournament','anniversary','graduation','reunion','gender_reveal']::text[], updated_at=now()
+UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','corporate','christening','birthday','celebration','tournament','anniversary','graduation','reunion','gender_reveal','gala_night']::text[], updated_at=now()
+  WHERE id IN ('reception','host_mc','catering','souvenir_giveaways');
+UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','corporate','christening','birthday','celebration','anniversary','graduation','reunion','gender_reveal','gala_night']::text[], updated_at=now()
+  WHERE id IN ('cake','stylist_decorator','florist','printing','mobile_bar','coffee_espresso','mocktail','food_truck','dessert','massage_chair','food_cart','photo_booth','perfume_bar','arcade_games','henna_tattoo','mini_nail_bar','tarot_astrology_palmistry','caricature_calligraphy_painting','engraving_embroidery');
+UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','corporate','birthday','celebration','tournament','anniversary','graduation','reunion','gender_reveal','gala_night']::text[], updated_at=now()
   WHERE id IN ('lights_sound');
-UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','corporate','christening','birthday','celebration','tournament','anniversary','graduation','reunion']::text[], updated_at=now()
+UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','corporate','christening','birthday','celebration','tournament','anniversary','graduation','reunion','gala_night']::text[], updated_at=now()
   WHERE id IN ('guest_shuttle','coordinator');
-UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','corporate','christening','birthday','celebration','anniversary','graduation','reunion']::text[], updated_at=now()
+UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','corporate','christening','birthday','celebration','anniversary','graduation','reunion','gala_night']::text[], updated_at=now()
   WHERE id IN ('grooming','stations');
-UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','christening','birthday','celebration','anniversary','graduation','reunion']::text[], updated_at=now()
+UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','christening','birthday','celebration','anniversary','graduation','reunion','gala_night']::text[], updated_at=now()
   WHERE id IN ('womens_attire','mens_attire','hmua');
-UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','corporate','birthday','celebration','anniversary','graduation','reunion']::text[], updated_at=now()
+UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','corporate','birthday','celebration','anniversary','graduation','reunion','gala_night']::text[], updated_at=now()
   WHERE id IN ('live_band','dj','performers','outdoor');
-UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','christening','celebration','anniversary','graduation','reunion']::text[], updated_at=now()
+UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','christening','celebration','anniversary','graduation','reunion','gala_night']::text[], updated_at=now()
   WHERE id IN ('filipiniana_barongs');
-UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','corporate','birthday','celebration','anniversary','reunion']::text[], updated_at=now()
+UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','corporate','birthday','celebration','anniversary','reunion','gala_night']::text[], updated_at=now()
   WHERE id IN ('dance_floor');
-UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','corporate','birthday','celebration','travel','tournament']::text[], updated_at=now()
+UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','corporate','birthday','celebration','travel','tournament','gala_night']::text[], updated_at=now()
   WHERE id IN ('event_insurance');
+UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','corporate','tournament','gala_night']::text[], updated_at=now()
+  WHERE id IN ('crew_meals');
+UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','celebration','anniversary','gala_night']::text[], updated_at=now()
+  WHERE id IN ('fireworks');
+UPDATE public.service_categories SET applicable_event_types = ARRAY['corporate','birthday','travel','tournament','gala_night']::text[], updated_at=now()
+  WHERE id IN ('personal_accident_insurance');
 UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','anniversary','graduation']::text[], updated_at=now()
   WHERE id IN ('jewelleries_accessories');
-UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','corporate','tournament']::text[], updated_at=now()
-  WHERE id IN ('crew_meals');
-UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','celebration','anniversary']::text[], updated_at=now()
-  WHERE id IN ('fireworks');
-UPDATE public.service_categories SET applicable_event_types = ARRAY['corporate','birthday','travel','tournament']::text[], updated_at=now()
-  WHERE id IN ('personal_accident_insurance');
+UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','corporate','gala_night']::text[], updated_at=now()
+  WHERE id IN ('orchestra','av_production','led_wall','editorial','escort','date_specialist');
+UPDATE public.service_categories SET applicable_event_types = ARRAY['corporate','tournament','graduation','gala_night']::text[], updated_at=now()
+  WHERE id IN ('trophies_awards');
+UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','corporate','tournament','gala_night']::text[], updated_at=now()
+  WHERE id IN ('event_medic');
 UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','anniversary']::text[], updated_at=now()
   WHERE id IN ('wellness_fitness');
-UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut','corporate']::text[], updated_at=now()
-  WHERE id IN ('orchestra','av_production','led_wall','editorial','escort','date_specialist');
-UPDATE public.service_categories SET applicable_event_types = ARRAY['corporate','tournament','graduation']::text[], updated_at=now()
-  WHERE id IN ('trophies_awards');
-UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','corporate','tournament']::text[], updated_at=now()
-  WHERE id IN ('event_medic');
 UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','christening']::text[], updated_at=now()
   WHERE id IN ('ceremony_venue','officiants','counseling_seminars','choir');
 UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding','debut']::text[], updated_at=now()
   WHERE id IN ('choreographer');
+UPDATE public.service_categories SET applicable_event_types = ARRAY['corporate','gala_night']::text[], updated_at=now()
+  WHERE id IN ('speaker_talent');
 UPDATE public.service_categories SET applicable_event_types = ARRAY['christening','birthday']::text[], updated_at=now()
   WHERE id IN ('kids_entertainer');
-UPDATE public.service_categories SET applicable_event_types = ARRAY['travel','dinner_date']::text[], updated_at=now()
-  WHERE id IN ('restaurant_reservation');
 UPDATE public.service_categories SET applicable_event_types = ARRAY['wedding']::text[], updated_at=now()
   WHERE id IN ('wedding_paperwork','brides_attire','grooms_attire','wedding_singer','bridal_car','travel_honeymoon');
-UPDATE public.service_categories SET applicable_event_types = ARRAY['corporate']::text[], updated_at=now()
-  WHERE id IN ('speaker_talent');
 UPDATE public.service_categories SET applicable_event_types = ARRAY['travel']::text[], updated_at=now()
-  WHERE id IN ('tour_activity','tour_guide','travel_insurance');
+  WHERE id IN ('tour_activity','tour_guide','restaurant_reservation','travel_insurance');
 UPDATE public.service_categories SET applicable_event_types = ARRAY['tournament']::text[], updated_at=now()
   WHERE id IN ('referee_official');
 UPDATE public.service_categories SET applicable_event_types = ARRAY['gender_reveal']::text[], updated_at=now()

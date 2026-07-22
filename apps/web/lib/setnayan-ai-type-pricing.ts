@@ -48,7 +48,11 @@ export const AI_TIER_BY_EVENT_TYPE: Readonly<Record<string, AiPriceTier>> = {
   graduation: 'C',
   reunion: 'C',
   gender_reveal: 'D',
-  dinner_date: 'D',
+  gala_night: 'C', // ⚠ registered type; provisional. 83% reach (Debut-level) →
+                   // reach-as-floor argues for B/₱999; C/₱499 is the safe default
+                   // until the owner prices gala_night. See the reach-matrix study.
+  dinner_date: 'D', // NOT yet registered in event_type_vocab (still a proposal);
+                    // kept as forward-prep — no live event can be dinner_date.
   simple_event: 'E',
 };
 

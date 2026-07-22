@@ -25,6 +25,7 @@ import {
   type PapicStyle,
 } from '@/lib/papic-photo-styles';
 import { PapicCameraControls } from '@/app/papic/_components/camera-controls';
+import { PapicChallengePanel } from './papic-challenge-panel';
 import { enqueuePapicGuestCapture } from '@/lib/offline/service-handlers/papic-drain';
 import { triggerSyncNow } from '@/lib/offline/sync-daemon';
 import {
@@ -1295,6 +1296,11 @@ export function PapicGuestCapture({
               ? `Recording… ${Math.ceil((MAX_CLIP_MS - recElapsed) / 1000)}s left`
               : 'Tap for a photo · press and hold to record (up to 5s).'}
         </p>
+
+        {/* Photo Challenges (Papic Games §5#3) — self-gated: renders nothing
+            until NEXT_PUBLIC_PAPIC_GAMES_V1 is on / the event has live missions.
+            Completing one attaches the guest's most recent capture. */}
+        <PapicChallengePanel lastCaptureId={lastCaptureId} />
 
         {/* Public-sharing opt-in (Alaala orb gate · RA 10173). Explicit, never
             pre-checked, default OFF. When ON, the shots this guest captures are

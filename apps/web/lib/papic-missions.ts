@@ -61,3 +61,22 @@ export function boothMissionPrompt(vendorName: string): string {
 export function isMissionLive(m: Pick<PapicMissionRow, 'is_active' | 'approved'>): boolean {
   return m.is_active && m.approved;
 }
+
+// The guest's own progress across their live missions (§5 — the guest-facing
+// "leaderboard" in Phase 3b is a personal progress meter; a cross-guest ranked
+// board needs an aggregate RPC and is deferred). Pure, so the panel and any
+// server surface count identically.
+export function missionProgress(
+  missions: readonly Pick<GuestMissionRow, 'completed'>[],
+): { done: number; total: number; allDone: boolean } {
+  const total = missions.length;
+  const done = missions.reduce((n, m) => n + (m.completed ? 1 : 0), 0);
+  return { done, total, allDone: total > 0 && done === total };
+}
+
+// Order for the guest list: not-yet-done first (there's always something to do
+// at the top), then completed. Stable within each group — Array.sort is stable,
+// and the RPC already returns created_at ASC — so ordering stays deterministic.
+export function sortGuestMissions(missions: readonly GuestMissionRow[]): GuestMissionRow[] {
+  return [...missions].sort((a, b) => Number(a.completed) - Number(b.completed));
+}

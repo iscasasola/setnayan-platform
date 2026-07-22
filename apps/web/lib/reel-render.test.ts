@@ -141,15 +141,15 @@ test('beat schedule sums exactly to the reel duration at 90/110/130 BPM', () => 
   }
 });
 
-test('clip spans never exceed the 5-second hard cap at any tempo', () => {
+test('clip spans never exceed the 10-second hard cap at any tempo', () => {
   for (const bpm of [90, 110, 130]) {
     // Sparse cuts (4 beats/cut) deliberately try to give each slot a long gap;
-    // clip slots must still clamp to 5s while photo slots may run longer.
+    // clip slots must still clamp to the 10s ceiling while photo slots run longer.
     const kinds: ('photo' | 'clip')[] = ['clip', 'photo', 'clip', 'photo'];
     const spans = buildBeatSchedule(30, kinds, { beatGrid: gridAtBpm(bpm), beatsPerCut: 4 });
     spans.forEach((s, i) => {
       if (kinds[i] === 'clip') {
-        assert.ok(s <= 5 + SUM_EPS, `clip span ${s}s ≤ 5s @ ${bpm}bpm`);
+        assert.ok(s <= 10 + SUM_EPS, `clip span ${s}s ≤ 10s @ ${bpm}bpm`);
       }
     });
   }
@@ -173,19 +173,77 @@ test('falls back to an even split when beat_grid is NULL (legacy behavior)', () 
   assert.ok(Math.abs(sum(spans) - 30) < SUM_EPS);
 });
 
-test('even-split fallback still caps clips at 5s', () => {
+test('even-split fallback caps clips at the 10s ceiling', () => {
   const kinds: ('photo' | 'clip')[] = ['clip', 'clip'];
   const spans = buildBeatSchedule(30, kinds, { beatGrid: null });
-  // Each would be 15s evenly; clips clamp to 5s, and the residual lands somewhere
-  // safe (there's no photo, so the last span grows — but it's still a clip and
-  // capped, so the total may be < 30 here: assert the CAP, not the sum).
-  for (const s of spans) assert.ok(s <= 5 + SUM_EPS, `clip ≤ 5s (got ${s})`);
+  // Each would be 15s evenly; clips clamp to the 10s ceiling. There's no photo to
+  // absorb the residual, so the reel ends short (20s) rather than fast-motioning:
+  // assert the CAP, not the sum.
+  for (const s of spans) assert.ok(s <= 10 + SUM_EPS, `clip ≤ 10s (got ${s})`);
+  assert.ok(sum(spans) <= 30 + SUM_EPS, `never over budget (got ${sum(spans)})`);
 });
 
 test('a degenerate grid (one beat) falls back to even', () => {
   const kinds: ('photo' | 'clip')[] = ['photo', 'photo'];
   const spans = buildBeatSchedule(30, kinds, { beatGrid: { bpm: 100, beats: [0.5] } });
   for (const s of spans) assert.ok(Math.abs(s - 15) < SUM_EPS);
+});
+
+// ---------------------------------------------------------------------------
+// 10s clip slots (2026-07-22) — a clip may now occupy up to 10s at 1×, but the
+// SUM of slots stays within the reel's 1–30s budget.
+// ---------------------------------------------------------------------------
+
+test('a single 10s clip now occupies more than the old 5s cap when the budget allows', () => {
+  // One clip, a 30s target: the whole budget is free, so the clip stretches to
+  // its 10s footage ceiling — the exact regression the 5→10 bump fixes. Before,
+  // this span would have clamped to 5s (a 10s clip half-used).
+  const spans = buildBeatSchedule(30, ['clip'], { beatGrid: null, slotMaxSec: [10] });
+  assert.equal(spans.length, 1);
+  assert.ok(spans[0]! > 5, `clip span ${spans[0]}s exceeds the old 5s cap`);
+  assert.ok(Math.abs(spans[0]! - 10) < SUM_EPS, `clamps to the 10s ceiling (got ${spans[0]})`);
+});
+
+test('a many-clip reel stays ≤30s total, each clip a fair share', () => {
+  // 8 clips (well within the max 5 guest + 5 couple = 10 sources) at a 30s target.
+  // 8 × 10s = 80s would blow the cap, so each gets its fair ~3.75s and the SUM
+  // never exceeds the reel budget.
+  const kinds: ('photo' | 'clip')[] = Array<'clip'>(8).fill('clip');
+  const slotMaxSec = Array<number>(8).fill(10);
+  const spans = buildBeatSchedule(30, kinds, { beatGrid: null, slotMaxSec });
+  assert.ok(sum(spans) <= 30 + SUM_EPS, `never over the 30s budget (got ${sum(spans)})`);
+  assert.ok(Math.abs(sum(spans) - 30) < SUM_EPS, `uses the full 30s budget (got ${sum(spans)})`);
+  for (const s of spans) assert.ok(s <= 10 + SUM_EPS && s > 0, `each clip ≤10s, non-zero (got ${s})`);
+});
+
+test('slotMaxSec caps a clip slot at its own footage length (no frozen tail)', () => {
+  // A 3s clip and a 10s clip share a 30s reel. The short clip must not win more
+  // than its 3s of footage — a longer slot would freeze on its last frame.
+  const kinds: ('photo' | 'clip')[] = ['clip', 'clip'];
+  const spans = buildBeatSchedule(30, kinds, { beatGrid: null, slotMaxSec: [3, 10] });
+  assert.ok(spans[0]! <= 3 + SUM_EPS, `short clip capped at its 3s footage (got ${spans[0]})`);
+  assert.ok(spans[1]! <= 10 + SUM_EPS, `long clip capped at 10s (got ${spans[1]})`);
+  assert.ok(sum(spans) <= 30 + SUM_EPS, `never over budget (got ${sum(spans)})`);
+});
+
+test('minSlotSec honors a template floor: every slot ≥ floor, trailing dropped, ≤ budget', () => {
+  // 10 clips, a 30s reel, a 4s template floor. Only floor(30/4)=7 slots fit at
+  // the floor, so 3 trailing slots drop to 0; survivors each ≥ 4s; ≤ 30s total.
+  const kinds: ('photo' | 'clip')[] = Array<'clip'>(10).fill('clip');
+  const slotMaxSec = Array<number>(10).fill(10);
+  const spans = buildBeatSchedule(30, kinds, { beatGrid: null, slotMaxSec, minSlotSec: 4 });
+  const nonZero = spans.filter((s) => s > 1e-6);
+  assert.ok(nonZero.length <= 7, `at most floor(30/4)=7 slots survive (got ${nonZero.length})`);
+  for (const s of nonZero) assert.ok(s >= 4 - SUM_EPS, `each surviving slot ≥ 4s floor (got ${s})`);
+  assert.ok(sum(spans) <= 30 + SUM_EPS, `never over the 30s budget (got ${sum(spans)})`);
+});
+
+test('minSlotSec defaults to no floor (legacy behavior unchanged)', () => {
+  const kinds: ('photo' | 'clip')[] = ['clip', 'clip', 'clip'];
+  const withFloor = buildBeatSchedule(30, kinds, { beatGrid: null, slotMaxSec: [10, 10, 10] });
+  // No minSlotSec → all three 10s slots survive (sum 30).
+  assert.equal(withFloor.filter((s) => s > 1e-6).length, 3);
+  assert.ok(Math.abs(sum(withFloor) - 30) < SUM_EPS, `uses the full budget (got ${sum(withFloor)})`);
 });
 
 // ---------------------------------------------------------------------------

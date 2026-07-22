@@ -6,52 +6,60 @@
  * ⚠ This widget NEVER touches checkout, payment, entitlements, or any server
  * action. It is pure client-side arithmetic over rates passed in as props so a
  * couple can eyeball what a Papic build would cost before they ever start an
- * order. The authoritative charge is always resolved server-side at order time
- * (lib/papic-cameras.ts · computeCameraQuote) — this is a marketing calculator,
- * not a purchase surface.
+ * order. The authoritative charge is always resolved server-side at order time.
+ *
+ * FLAT MODEL (2026-07-22 naming lock · migration 20270830568357). Papic is two
+ * products, both flat-priced — no per-day multiplier, no per-tier wedding cap:
+ *   • Papic One  — dedicated cameras, a flat price PER CAMERA (first N free).
+ *   • Papic Pool — one shared shot pool for every guest's phone, a flat pass
+ *     per bucket (3,000 / 6,000 / 10,000 shots).
+ * The old per-camera × rate × days engine (and the per-tier wedding cap it
+ * applied to the removed "Papic Max" rung) is gone.
  *
  * EVERY number here arrives as a prop, derived server-side from the live
  * catalog + the admin-editable papic_tier_config (owner 2026-07-20 — "make
  * every Papic price/capacity claim honest and derived, never hardcoded"). This
- * file must never spell a rung, a photo/clip count, or a cap peso figure:
- *   • rungs        → publicPapicLadder(papic_tier_config)
- *   • capacity     → papicCapacityShort(points_per_day)
- *   • wedding cap  → papic_tier_config.wedding_day_cap_php, PER RUNG
- *   • free cameras → papic_tier_config.free.seats_per_event
+ * file must never spell a rung, a photo/clip count, or a free-camera count:
+ *   • Papic One price + capacity → papic_tier_config + papicCapacityShort()
+ *   • Papic Pool buckets         → platform_retail_catalog_v2 (PAPIC_GUEST*)
+ *   • free cameras               → papic_tier_config.free.seats_per_event
  * `lib/papic-copy-guardrails.test.ts` fails CI if a literal creeps back.
- *
- * Cap semantics MIRROR computeCameraQuote: the cap clamps that tier's WHOLE
- * camera subtotal (cameras × rate × days — it is not multiplied by days), it
- * applies to WEDDINGS ONLY (every other event type bills the raw subtotal), and
- * it does NOT cover the one-time add-ons. The old widget applied ONE flat cap
- * figure to the whole build (both tiers, add-ons included, multiplied by days)
- * and claimed it "auto-upgraded to Unlimited with every booster included" —
- * neither was true of the charge path; both are gone.
  */
 
 import { useState } from 'react';
 
-export type EstimatorTier = {
-  /** papic_tier_config.tier_code — used only as a React key / selection id. */
-  key: string;
-  /** papic_tier_config.display_title (e.g. "Papic Mini"). */
+/** Papic One — the dedicated-camera product (flat, per camera, no days). */
+export type EstimatorOne = {
+  /** papic_tier_config.display_title — "Papic One". */
   label: string;
-  /** Per-camera per-day rate from the tier's catalog rate SKU. */
+  /** Flat price per camera, from the tier's catalog rate SKU. */
   pricePhp: number;
   /** Derived capacity sentence (papicCapacityShort) — never written here. */
   capacity: string;
-  /** WEDDING-only cap on this tier's camera subtotal. null = uncapped. */
-  weddingCapPhp: number | null;
+};
+
+/** Papic Pool — one shared shot-pool pass (a flat bucket price). */
+export type EstimatorPoolBucket = {
+  /** platform_retail_catalog_v2 service_code — React key / selection id. */
+  key: string;
+  /** Bucket label (e.g. "3,000 shots"), derived from the catalog title. */
+  label: string;
+  /** Flat pass price. */
+  pricePhp: number;
 };
 
 export type EstimatorRates = {
   /** Free cameras every event gets, from papic_tier_config.free.seats_per_event. */
   freeCameras: number;
-  /** The public ladder, in sort order. Empty = the catalog is unreadable. */
-  tiers: EstimatorTier[];
+  /** Papic One — the dedicated-camera rung. null = the ladder is unreadable. */
+  one: EstimatorOne | null;
+  /** Papic Pool — the shared-pool buckets, in price order. Empty = none active. */
+  pool: EstimatorPoolBucket[];
   /** Tickable one-time add-ons — label + price, resolved from the catalog. */
   addons: Array<{ key: string; label: string; price: number }>;
 };
+
+type Mode = 'one' | 'pool';
 
 const peso = (n: number) => `₱${Math.round(n).toLocaleString('en-PH')}`;
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
@@ -91,28 +99,49 @@ function Stepper({
 }
 
 export function PapicEstimator({ rates }: { rates: EstimatorRates }) {
-  const [tierKey, setTierKey] = useState<string>(rates.tiers[0]?.key ?? '');
-  const [cameras, setCameras] = useState(10);
-  const [days, setDays] = useState(1);
+  const hasOne = rates.one != null;
+  const hasPool = rates.pool.length > 0;
+
+  const [mode, setMode] = useState<Mode>(hasOne ? 'one' : 'pool');
+  const [cameras, setCameras] = useState(5);
+  const [bucketKey, setBucketKey] = useState<string>(rates.pool[0]?.key ?? '');
   const [checked, setChecked] = useState<Record<string, boolean>>({});
 
-  // No readable ladder → render nothing rather than an invented price.
-  const tier = rates.tiers.find((t) => t.key === tierKey) ?? rates.tiers[0];
-  if (!tier) return null;
+  // Nothing readable → render nothing rather than an invented price.
+  if (!hasOne && !hasPool) return null;
 
-  const rawCameraTotal = cameras * tier.pricePhp * days;
-  // The wedding cap clamps the tier's WHOLE camera subtotal (mirrors
-  // computeCameraQuote); other event types pay the raw subtotal.
-  const cameraTotal =
-    tier.weddingCapPhp != null
-      ? Math.min(rawCameraTotal, tier.weddingCapPhp)
-      : rawCameraTotal;
-  const capped = tier.weddingCapPhp != null && rawCameraTotal > tier.weddingCapPhp;
+  // A selected mode that isn't available falls back to the one that is.
+  const effectiveMode: Mode =
+    mode === 'one' ? (hasOne ? 'one' : 'pool') : hasPool ? 'pool' : 'one';
+
+  const one = rates.one;
+  const bucket = rates.pool.find((b) => b.key === bucketKey) ?? rates.pool[0];
+
+  // Papic One: the first `freeCameras` are free; only the rest are billed.
+  const paidCameras = Math.max(0, cameras - rates.freeCameras);
+  const productTotal =
+    effectiveMode === 'one' && one
+      ? paidCameras * one.pricePhp
+      : bucket
+        ? bucket.pricePhp
+        : 0;
+
   const addonsTotal = rates.addons.reduce(
     (sum, a) => (checked[a.key] ? sum + a.price : sum),
     0,
   );
-  const total = cameraTotal + addonsTotal;
+  const total = productTotal + addonsTotal;
+
+  // Summary line — computed with narrowing so no non-null assertions are needed.
+  let productLabel = '';
+  let productDetail = '';
+  if (effectiveMode === 'one' && one) {
+    productLabel = `Papic · ${one.label}`;
+    productDetail = `${cameras} camera${cameras === 1 ? '' : 's'} · first ${rates.freeCameras} free · ${paidCameras} × ${peso(one.pricePhp)}`;
+  } else if (bucket) {
+    productLabel = `Papic · ${bucket.label}`;
+    productDetail = 'One shared pass for the whole event';
+  }
 
   return (
     <div className="rounded-2xl border-2 border-terracotta/30 bg-cream p-6 sm:p-8">
@@ -120,63 +149,82 @@ export function PapicEstimator({ rates }: { rates: EstimatorRates }) {
         Build your Papic
       </p>
       <p className="mt-2 font-display text-2xl font-medium tracking-tight text-ink">
-        Pick a tier, your cameras &amp; add-ons.
-      </p>
-      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink/65">
-        Your first {rates.freeCameras} camera{rates.freeCameras === 1 ? '' : 's'} are
-        free. Beyond that Papic is priced per camera, per day — pick a tier, set
-        your cameras and event days, and tick the add-ons you want. The total
-        updates live. This is a rough estimate; set exact options in the app.
+        Estimate your Papic — dedicated cameras or a shared pool.
       </p>
 
-      <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
-        <div className="sm:col-span-2">
-          <label className="mb-2 block font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-            Papic tier
-          </label>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            {rates.tiers.map((t) => (
+      {/* Product toggle — only when both are available */}
+      {hasOne && hasPool ? (
+        <div className="mt-5 inline-flex rounded-full border border-ink/15 bg-cream p-1">
+          {(['one', 'pool'] as Mode[]).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              aria-pressed={effectiveMode === m}
+              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                effectiveMode === m
+                  ? 'bg-terracotta text-cream'
+                  : 'text-ink/70 hover:bg-ink/[0.05]'
+              }`}
+            >
+              {m === 'one' ? (one?.label ?? 'Papic One') : 'Papic Pool'}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {/* Papic One — flat per-camera */}
+      {effectiveMode === 'one' && one ? (
+        <div className="mt-6">
+          <p className="max-w-2xl text-sm leading-relaxed text-ink/65">
+            {one.label} is a flat {peso(one.pricePhp)} per camera for the friends
+            or family you trust. Your first {rates.freeCameras}{' '}
+            camera{rates.freeCameras === 1 ? '' : 's'} are free — beyond that,
+            add as many as you like. Each camera shoots {one.capacity}.
+          </p>
+          <div className="mt-5">
+            <label className="mb-2 block font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+              Cameras · <span className="text-ink/70">{cameras}</span> dedicated
+              shooters
+            </label>
+            <Stepper
+              value={cameras}
+              onDec={() => setCameras((c) => clamp(c - 1, 1, 50))}
+              onInc={() => setCameras((c) => clamp(c + 1, 1, 50))}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      {/* Papic Pool — flat bucket */}
+      {effectiveMode === 'pool' && bucket ? (
+        <div className="mt-6">
+          <p className="max-w-2xl text-sm leading-relaxed text-ink/65">
+            Papic Pool is one shared pass every guest&rsquo;s phone draws from —
+            no per-camera math. Pick your shot pool; the whole event shares it.
+          </p>
+          <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {rates.pool.map((b) => (
               <button
                 type="button"
-                key={t.key}
-                onClick={() => setTierKey(t.key)}
-                aria-pressed={t.key === tier.key}
+                key={b.key}
+                onClick={() => setBucketKey(b.key)}
+                aria-pressed={b.key === bucket.key}
                 className={`rounded-xl border px-4 py-3 text-left transition-colors ${
-                  t.key === tier.key
+                  b.key === bucket.key
                     ? 'border-terracotta bg-terracotta/[0.06]'
                     : 'border-ink/15 bg-cream hover:border-ink/30'
                 }`}
               >
-                <span className="block text-sm font-medium text-ink">{t.label}</span>
+                <span className="block text-sm font-medium text-ink">{b.label}</span>
                 <span className="mt-0.5 block font-mono text-xs text-ink/60">
-                  {peso(t.pricePhp)}/cam·day
+                  {peso(b.pricePhp)}
                 </span>
-                <span className="mt-1 block text-xs text-ink/55">{t.capacity}</span>
               </button>
             ))}
           </div>
         </div>
-        <div>
-          <label className="mb-2 block font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-            Cameras · <span className="text-ink/70">{cameras}</span> guests shooting
-          </label>
-          <Stepper
-            value={cameras}
-            onDec={() => setCameras((c) => clamp(c - 10, 10, 500))}
-            onInc={() => setCameras((c) => clamp(c + 10, 10, 500))}
-          />
-        </div>
-        <div>
-          <label className="mb-2 block font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-            Event days · <span className="text-ink/70">{days}</span>
-          </label>
-          <Stepper
-            value={days}
-            onDec={() => setDays((d) => clamp(d - 1, 1, 3))}
-            onInc={() => setDays((d) => clamp(d + 1, 1, 3))}
-          />
-        </div>
-      </div>
+      ) : null}
 
       {rates.addons.length > 0 && (
         <div className="mt-6">
@@ -218,21 +266,11 @@ export function PapicEstimator({ rates }: { rates: EstimatorRates }) {
       <div className="mt-6 space-y-2 rounded-xl border border-ink/10 bg-ink/[0.02] p-5">
         <div className="flex items-baseline justify-between gap-3">
           <div>
-            <p className="text-sm font-medium text-ink">
-              Papic · {tier.label}
-              {capped ? (
-                <span className="ml-2 inline-flex rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta">
-                  wedding cap
-                </span>
-              ) : null}
-            </p>
-            <p className="text-xs text-ink/55">
-              {cameras} cams × {peso(tier.pricePhp)} × {days}d
-              {capped ? ` = ${peso(rawCameraTotal)}, capped` : ''}
-            </p>
+            <p className="text-sm font-medium text-ink">{productLabel}</p>
+            <p className="text-xs text-ink/55">{productDetail}</p>
           </div>
           <p className="font-sans text-base font-medium tabular-nums text-ink/80">
-            {peso(cameraTotal)}
+            {peso(productTotal)}
           </p>
         </div>
         {rates.addons
@@ -254,11 +292,9 @@ export function PapicEstimator({ rates }: { rates: EstimatorRates }) {
       </div>
 
       <p className="mt-4 text-xs leading-relaxed text-ink/50">
-        {tier.weddingCapPhp != null
-          ? `For a wedding, your ${tier.label} cameras never total more than ${peso(
-              tier.weddingCapPhp,
-            )} — however many you add. Other event types are billed at the plain per-camera total. Add-ons are charged separately.`
-          : `${tier.label} cameras are billed at the plain per-camera total. Add-ons are charged separately.`}{' '}
+        {effectiveMode === 'one'
+          ? `Papic One is a flat per-camera price with your first ${rates.freeCameras} free — no per-day or per-hour math. Add-ons are charged separately.`
+          : 'Papic Pool is one flat pass for the whole event. Add-ons are charged separately.'}{' '}
         Estimate only — no charge is made here.
       </p>
     </div>

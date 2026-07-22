@@ -109,7 +109,7 @@ const FAQ = [
   },
   {
     q: 'Who takes the photos?',
-    a: 'Your choice. A handful of designated friends or family can be your crew with their own dedicated cameras (Papic Mini and Papic Max), or every guest can capture their own night (Papic One — like handing each table a digital disposable camera).',
+    a: 'Your choice. Add one or more dedicated cameras for the friends or family you trust (Papic One), or open a shared pool so every guest shoots from their own phone into one gallery (Papic Pool — like handing each table a digital disposable camera).',
   },
   {
     q: 'Will we get all the photos?',
@@ -247,17 +247,17 @@ export default function PapicLandingPage() {
           </LineRevealHeading>
           <RevealBand className="mt-7 grid gap-6 sm:grid-cols-2" stagger={0.08}>
             <div data-reveal-item className="rounded-2xl border border-[var(--m-ink)]/10 bg-white/60 p-6">
-              <h3 className="font-serif text-lg text-[var(--m-ink)]">Dedicated cameras</h3>
+              <h3 className="font-serif text-lg text-[var(--m-ink)]">Papic One</h3>
               <p className="mt-2 text-sm text-[#5F5E5A]">
-                Papic Mini or Papic Max — a camera of its own for a few friends or family you trust, with their own
-                shots. The rest of your guests can put their phones down and just be there.
+                A camera of its own for the few friends or family you trust — their shots, all night. Add as many as you
+                like. The rest of your guests can put their phones down and just be there.
               </p>
             </div>
             <div data-reveal-item className="rounded-2xl border border-[var(--m-ink)]/10 bg-white/60 p-6">
-              <h3 className="font-serif text-lg text-[var(--m-ink)]">Papic One</h3>
+              <h3 className="font-serif text-lg text-[var(--m-ink)]">Papic Pool</h3>
               <p className="mt-2 text-sm text-[#5F5E5A]">
-                Every guest gets their own capture — like handing each table a digital disposable camera. The whole room
-                shares its view of the night, and everyone keeps their own.
+                Every guest shoots from their own phone into one shared pool — like handing each table a digital
+                disposable camera. The whole room shares its view of the night, and everyone keeps their own.
               </p>
             </div>
           </RevealBand>

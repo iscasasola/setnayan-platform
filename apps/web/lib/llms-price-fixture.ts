@@ -26,26 +26,23 @@ export const APPROVED_LLMS_PRICES: readonly string[] = [
   '₱499', // Live Background
 
   // À-la-carte customer software services
-  '₱30', // Papic Mini per camera per day (floor of the retail range)
-  '₱50', // Papic Ltd per camera per day
-  '₱100', // Papic Unli per camera per day
+  '₱100', // Papic One — flat per-camera price (floor of the retail range)
   '₱299', // Kwento
-  '₱999', // Animated Monogram · Cinematic Reveal · Solo 28-day · additional-branch 28-day
+  '₱999', // Animated Monogram · Cinematic Reveal · Solo 28-day · additional-branch 28-day · Papic Pool 3,000 shots
   '₱1,299', // Pabati (per day) · Live Studio Mobile (per day)
   '₱1,499', // Setnayan AI one-time (single ₱1,499 SKU, owner FINAL 2026-07-12) · Patiktok
+  '₱1,999', // Papic Pool — 6,000 shots
   '₱2,000', // Stories (per-day cap) · 10-token pack (2026-07-12 reprice)
   '₱2,499', // Pakanta · Thank You Video · Live Studio Desktop (per day) · Pro vendor 28-day
   '₱2,500', // Live Photo Wall (per day)
-  '₱2,999', // 3D Plan · Editorial PRO
-  '₱6,000', // Papic Mini WEDDING cap (papic_tier_config.wedding_day_cap_php)
-  '₱15,000', // Papic Unli WEDDING cap (papic_tier_config.wedding_day_cap_php)
+  '₱2,999', // 3D Plan · Editorial PRO · Papic Pool 10,000 shots + the +10,000 top-up
 
   // Vendor tokens + packs (flat ₱200/token · flat 1-token burn · 2026-07-15
   // catalog restructure: ₱1,000 = 5 tokens, ladder 5/10/25/50/100)
   '₱200', // flat per-token price · flat 1-token inquiry unlock (any region)
   '₱1,000', // 5-token anchor pack
   '₱5,000', // 25-token pack
-  '₱10,000', // 50-token pack · also the Papic Ltd WEDDING cap
+  '₱10,000', // 50-token pack
   '₱20,000', // 100-token pack
 
   // Vendor tier subscriptions (28-day / annual)

@@ -156,7 +156,7 @@ export type AddOnEntry = {
  */
 export function addOnHref(key: string, eventId: string): string {
   if (key === 'orders') return `/dashboard/${eventId}/orders`;
-  // Papic Buong Araw (the flat event-level guest-camera pass, SKU PAPIC_GUEST)
+  // Papic Pool (the flat event-level shared guest-camera pass, SKU PAPIC_GUEST)
   // has no surface of its own — it is a rung on the SAME Papic set-up page the
   // per-camera ladder is bought from. Pre-wired here so the day its status
   // flips to 'live' the card opens a real surface instead of 404ing on a
@@ -587,9 +587,10 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     },
   },
   {
-    // ── Papic Buong Araw — the flat, event-level guest-camera pass (SKU
-    // PAPIC_GUEST). Phase-0 gate 0h of the 2026-07-20 Papic access-scope
-    // verdict: before this entry the pass had NO app-wide doorway at all — its
+    // ── Papic Pool — the flat, event-level shared guest-camera pass (SKU
+    // PAPIC_GUEST · renamed from "Papic Buong Araw" by the 2026-07-22 naming
+    // lock, migration 20270830568357). Phase-0 gate 0h of the 2026-07-20 Papic
+    // access-scope verdict: before this entry the pass had NO app-wide doorway at all — its
     // only mention outside checkout was the wedding onboarding pricing list
     // (onboarding/wedding/_components/onboarding-pricing.ts), so a couple who
     // skipped onboarding could never find it. The missing doorway, not a gate,
@@ -614,7 +615,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     key: 'papic-guest',
     surface: 'rsvp',
     opensDirect: true,
-    label: 'Papic Buong Araw',
+    label: 'Papic Pool',
     Icon: Camera,
     iteration: '0012',
     status: 'coming_soon',

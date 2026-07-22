@@ -21,7 +21,6 @@ import { PapicEstimator, type EstimatorRates } from './_papic-estimator';
 // this page must never spell a photo count, a clip count or a cap peso figure
 // as a literal (owner 2026-07-20 · guarded by lib/papic-copy-guardrails.test.ts).
 import {
-  papicCapLadderPhrase,
   papicCapacityShort,
   papicFreeCameraCount,
   publicPapicLadder,
@@ -211,31 +210,26 @@ export default async function PricingPage() {
   const papicFromPhp = papicLadder.length
     ? Math.min(...papicLadder.map((r) => r.pricePhp))
     : null;
-  const papicCapLadder = papicCapLadderPhrase(papicTierConfig);
 
-  // Collapse the per-camera rate SKUs into ONE synthetic "from ₱X/camera"
-  // catalog row for the grouped list; JSON-LD keeps the raw rows.
+  // Collapse the per-camera rate SKU(s) into ONE synthetic "from ₱X/camera"
+  // catalog row for the grouped list; JSON-LD keeps the raw rows. Flat model
+  // (2026-07-22 rename): Papic One is a flat price PER CAMERA — no per-day
+  // multiplier, no wedding cap. The days/cap framing was removed here.
   const papicCamerasSynthetic: V2CustomerSku | null =
     papicFromPhp != null
       ? {
           service_code: 'PAPIC_CAMERAS',
-          title: 'Papic Cameras',
+          title: 'Papic One',
           retail_price_php: papicFromPhp,
           saas_overhead_cost_php: 0,
           is_token_able: false,
           description:
             `Turn your guests into paparazzi — every candid lands in your shared gallery. ` +
-            `Your first ${papicFreeCameras} camera${papicFreeCameras === 1 ? '' : 's'} are free. Beyond that, per camera per day: ` +
+            `Your first ${papicFreeCameras} camera${papicFreeCameras === 1 ? '' : 's'} are free; after that, ` +
             papicLadder
-              .map(
-                ({ row, pricePhp }) =>
-                  `${row.displayTitle} ₱${formatPeso(pricePhp)} (${papicCapacityShort(row.pointsPerDay)})`,
-              )
+              .map(({ row, pricePhp }) => `${row.displayTitle} is ₱${formatPeso(pricePhp)} per camera`)
               .join(' · ') +
-            `.` +
-            (papicCapLadder
-              ? ` Weddings cap per tier (${papicCapLadder}); other event types are billed at the plain per-camera total.`
-              : ''),
+            `.`,
           build_status: 'live',
           billing_period: 'one_time',
           is_pax_priced: true, // drives the "from ₱X" label
@@ -280,15 +274,42 @@ export default async function PricingPage() {
     // Pakanta (custom wedding song, 0036) is NOT a Papic add-on — deliberately
     // excluded from the per-camera Papic estimator (owner 2026-07-10).
   ];
+  // Papic One — the single dedicated-camera rung (flat per-camera). Prefer the
+  // 'mini' rung (Papic One); fall back to the cheapest live rung. null = the
+  // ladder is unreadable at build time (catalog empty).
+  const papicOneRung =
+    papicLadder.find(({ row }) => row.tierCode === 'mini') ?? papicLadder[0] ?? null;
+
+  // Papic Pool — the shared shot-pool buckets, flat-priced from the live
+  // catalog. Only the three base buckets (3k/6k/10k); the +10,000 top-up is not
+  // a base pick. Absent rows drop out (a coming-soon Pool → no Pool picker, per
+  // the same "never hardcode a missing SKU" doctrine as the grouped renderer).
+  const POOL_BUCKET_CODES = ['PAPIC_GUEST', 'PAPIC_GUEST_6K', 'PAPIC_GUEST_10K']; // gitleaks:allow — Papic Pool SKU service_codes, not secrets
+  const papicPoolBuckets = POOL_BUCKET_CODES.map((code) =>
+    customerSkus.find((s) => s.service_code === code),
+  )
+    .filter((s): s is V2CustomerSku => Boolean(s))
+    .map((s) => ({
+      key: s.service_code,
+      // Short bucket label from the catalog title ("Papic Pool — 3,000 shots
+      // (per event)" → "3,000 shots"); never a hardcoded shot count.
+      label: s.title
+        .replace(/^Papic Pool\s*[—-]\s*/i, '')
+        .replace(/\s*\(per event\)\s*$/i, ''),
+      pricePhp: Number(s.retail_price_php),
+    }))
+    .sort((a, b) => a.pricePhp - b.pricePhp);
+
   const estimatorRates: EstimatorRates = {
     freeCameras: papicFreeCameras,
-    tiers: papicLadder.map(({ row, pricePhp }) => ({
-      key: row.tierCode,
-      label: row.displayTitle,
-      pricePhp,
-      capacity: papicCapacityShort(row.pointsPerDay),
-      weddingCapPhp: row.weddingCapPhp,
-    })),
+    one: papicOneRung
+      ? {
+          label: papicOneRung.row.displayTitle,
+          pricePhp: papicOneRung.pricePhp,
+          capacity: papicCapacityShort(papicOneRung.row.pointsPerDay),
+        }
+      : null,
+    pool: papicPoolBuckets,
     addons: estimatorAddonDefs
       // Only offer an add-on the catalog actually carries (else drop it).
       .filter((a) => customerSkus.some((s) => s.service_code === a.code))

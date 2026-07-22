@@ -6,12 +6,13 @@ import { eventKwentoEnabled } from '@/lib/kwento-access';
 import { asPapicStyle } from '@/lib/papic-photo-styles';
 import { PapicGuestCapture } from './_components/papic-guest-capture';
 
-// Papic · guest camera (PAPIC_GUEST — "Every guest's phone, a candid
-// camera"). Papic is priced per-camera (₱30 Ltd / ₱100 Unli per camera/day),
-// not a flat pack. The public guest-camera surface: a guest who has redeemed their
-// invite carries a setnayan_guest_session cookie (guest_id + event_id); this
-// page reads it, confirms the event owns the guest-camera pass, and hands the
-// guest a browser camera with their per-guest 150-credit quota.
+// Papic · guest camera (PAPIC_GUEST — "Every guest's phone, a candid camera").
+// This is the shared "Papic Pool" pass: unlimited guest phones draw from one
+// shared shot pool, so nothing here is priced per-camera. The public
+// guest-camera surface: a guest who has redeemed their invite carries a
+// setnayan_guest_session cookie (guest_id + event_id); this page reads it,
+// confirms the event owns the guest-camera pass, and hands the guest a browser
+// camera with their per-guest quota.
 //
 // No sign-in, no app install — the cookie is the identity. Capture goes through
 // POST /api/papic/guest-capture (server-side R2 PUT + the quota-enforcing
@@ -19,9 +20,9 @@ import { PapicGuestCapture } from './_components/papic-guest-capture';
 // credit cap. Admin client because this is a public surface with no RLS session.
 //
 // EVENT-TYPE NEUTRAL (Phase-0 gate 0g, access-scope verdict 2026-07-20): the
-// flat pass (PAPIC_GUEST · "Papic Buong Araw") opens beyond weddings, so no
-// copy on this page may say "wedding" or assume a couple. Which types may be
-// sold the pass is lib/papic-event-access.ts — this page does not decide it.
+// flat pass (PAPIC_GUEST · "Papic Pool") opens beyond weddings, so no copy on
+// this page may say "wedding" or assume a couple. Which types may be sold the
+// pass is lib/papic-event-access.ts — this page does not decide it.
 
 export const dynamic = 'force-dynamic';
 

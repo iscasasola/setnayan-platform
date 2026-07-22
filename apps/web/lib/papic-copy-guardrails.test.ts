@@ -150,13 +150,15 @@ test('free-camera count comes from config, not a literal', () => {
   assert.equal(papicFreeCameraCount(retuned), 7);
 });
 
-test('the public ladder is the three buyable rungs, in order', () => {
+test('the public ladder drops retired rungs — Papic One is the live camera', () => {
   const ladder = publicPapicLadder(PAPIC_TIER_CONFIG_FALLBACK);
-  // free is not purchasable; roll is the LEGACY alias of mini (same ₱30, same
-  // budget) and would read as a duplicate product.
+  // free is not purchasable; roll is the LEGACY alias of mini; unlimited
+  // ("Papic Max") was RETIRED by the 2026-07-22 naming lock (migration
+  // 20270830568357 · isActive=false in the fallback). Papic One (mini) + Ltd
+  // are the rungs that survive.
   assert.deepEqual(
     ladder.map((r) => r.tierCode),
-    ['mini', 'ltd', 'unlimited'],
+    ['mini', 'ltd'],
   );
   // Deactivating a tier removes it from every surface at once.
   const off = {
@@ -165,7 +167,7 @@ test('the public ladder is the three buyable rungs, in order', () => {
   };
   assert.deepEqual(
     publicPapicLadder(off).map((r) => r.tierCode),
-    ['mini', 'unlimited'],
+    ['mini'],
   );
 });
 
@@ -173,9 +175,11 @@ test('cap copy says weddings, and follows the config', () => {
   assert.match(papicCapPhrase(6000), /₱6,000 max for a wedding/);
   assert.match(papicCapPhrase(12345), /₱12,345 max for a wedding/);
   assert.equal(papicCapPhrase(null), 'no cap');
+  // 'Papic Unli' (unlimited) is retired → dropped from the live ladder; 'Papic
+  // Mini' is now 'Papic One' (2026-07-22 rename).
   assert.equal(
     papicCapLadderPhrase(PAPIC_TIER_CONFIG_FALLBACK),
-    'Papic Mini ₱6,000 · Papic Ltd ₱10,000 · Papic Unli ₱15,000',
+    'Papic One ₱6,000 · Papic Ltd ₱10,000',
   );
 });
 
@@ -208,6 +212,13 @@ test('the fallback tier table mirrors the migration seed exactly', () => {
     };
   }
   assert.equal(Object.keys(seeded).length, 5, 'expected 5 seeded tier rows');
+  // The 2026-07-22 naming lock (migration 20270830568357) retitled the mini
+  // rung 'Papic Mini' → 'Papic One' AFTER this seed. The fallback mirrors the
+  // LIVE display title, so apply that one post-seed rename before comparing;
+  // every other field still pins byte-for-byte to the seed.
+  if (seeded.mini) {
+    (seeded.mini as { displayTitle: string }).displayTitle = 'Papic One';
+  }
   for (const code of Object.keys(seeded) as PapicTierCode[]) {
     const fb = PAPIC_TIER_CONFIG_FALLBACK[code];
     assert.deepEqual(

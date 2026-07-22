@@ -32,6 +32,14 @@ jobs:
       - name: Unit tests
         run: pnpm --filter @setnayan/web test:unit
 
+      # Self-enforcing net for adding an event type: replays the migrations into
+      # in-process PGlite and asserts every ENABLED event_type_vocab type has a
+      # checklist label + an AI price tier (else it renders "Wedding checklist" /
+      # silently defaults to ₱499). Runs ONLY this one db-test (~10s, no external
+      # DB), not the whole tests/db suite. See Adding_A_New_Event_Type_Checklist.
+      - name: Event-type coverage guard (DB vocab)
+        run: pnpm --filter @setnayan/web test:event-type-coverage
+
   build:
     name: production build
     runs-on: ubuntu-latest

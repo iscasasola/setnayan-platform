@@ -89,3 +89,27 @@ test('a DEMO service price change is NOT logged (20270911239524 skip-demo)', asy
   );
   assert.equal(await historyCount(vendor), 0, 'demo service → no history row');
 });
+
+test('deleting a vendor_calendar_blocks row logs a vendor_availability_freed row (its old range)', async () => {
+  const vendor = await newVendor('freed@vsph.test');
+  const b = await db.query<{ block_id: string }>(
+    `INSERT INTO public.vendor_calendar_blocks (vendor_profile_id, blocked_at, blocked_until, block_label)
+     VALUES ($1, '2026-05-09T00:00:00Z', '2026-05-10T00:00:00Z', 'test block')
+     RETURNING block_id`,
+    [vendor],
+  );
+  const before = await db.query<{ c: number }>(
+    `SELECT count(*)::int c FROM public.vendor_availability_freed WHERE vendor_profile_id = $1`,
+    [vendor],
+  );
+  assert.equal(before.rows[0]!.c, 0, 'no freed row before the delete');
+
+  await db.query(`DELETE FROM public.vendor_calendar_blocks WHERE block_id = $1`, [b.rows[0]!.block_id]);
+
+  const after = await db.query<{ blocked_at: string; blocked_until: string }>(
+    `SELECT blocked_at, blocked_until FROM public.vendor_availability_freed WHERE vendor_profile_id = $1`,
+    [vendor],
+  );
+  assert.equal(after.rows.length, 1, 'the delete logged exactly one freed row');
+  assert.ok(after.rows[0]!.blocked_at, 'the freed row carries the old blocked range');
+});

@@ -289,3 +289,15 @@ test('availabilityChangesFromBlocks: uses the Asia/Manila day (a PH-early-mornin
   assert.equal(out.length, 1);
   assert.equal(out[0]!.vendor, 'Grand Venue');
 });
+
+test('availabilityChangesFromBlocks: the status is passed through (freed-up "available again")', () => {
+  const out = availabilityChangesFromBlocks(
+    [{ vendorProfileId: 'v2', blockedAt: '2026-05-09T02:00:00Z', blockedUntil: '2026-05-09T20:00:00Z' }],
+    NAME,
+    '2026-05-09',
+    'May 9, 2026',
+    'available again',
+  );
+  assert.equal(out.length, 1);
+  assert.equal(out[0]!.status, 'available again');
+});

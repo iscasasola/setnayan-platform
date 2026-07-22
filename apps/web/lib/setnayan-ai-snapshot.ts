@@ -27,9 +27,10 @@
  *     (vendor_service_price_history, captured by a trigger on vendor_services)
  *     joined to the couple's shortlisted/booked marketplace vendors — recent
  *     net rises. (Phase 3, 2026-07-22.)
- *   • availability (GRD-09)  ← vendor_calendar_blocks created recently that
- *     overlap the couple's event date, for those same watched vendors — "a top
- *     pick just got booked on your day". (Phase 2, 2026-07-22.)
+ *   • availability (GRD-09)  ← for the same watched vendors: a recently-created
+ *     vendor_calendar_blocks overlapping the event date ("newly booked on your
+ *     day") AND a recently-removed block from vendor_availability_freed ("free
+ *     again"). (Phase 2 + freed-up follow-up, 2026-07-22.)
  *
  * Still EMPTY (no real data source — never fabricate):
  *   • contracts (GRD-07)     — no decision/cancellation-window model exists on
@@ -357,6 +358,7 @@ export function availabilityChangesFromBlocks(
   nameById: ReadonlyMap<string, string>,
   eventDateIso: string | null,
   dateLabel: string,
+  status = 'newly booked',
 ): SnapshotAvailabilityChange[] {
   if (!eventDateIso) return [];
   // The event "day" is the Asia/Manila calendar day (PH, UTC+8, no DST) — same
@@ -377,7 +379,7 @@ export function availabilityChangesFromBlocks(
     // Interval [from, until) overlaps the event day [dayStart, dayEnd).
     if (from < dayEnd && until > dayStart) {
       seen.add(r.vendorProfileId);
-      out.push({ vendor, date: dateLabel, status: 'newly booked' });
+      out.push({ vendor, date: dateLabel, status });
     }
   }
   return out;
@@ -438,7 +440,7 @@ export async function loadVendorChangeSignals(
       })
     : 'your date';
 
-  const [{ data: priceRows }, { data: blockRows }] = await Promise.all([
+  const [{ data: priceRows }, { data: blockRows }, { data: freedRows }] = await Promise.all([
     admin
       .from('vendor_service_price_history')
       .select('vendor_profile_id, category, old_price_php, new_price_php, changed_at')
@@ -449,7 +451,38 @@ export async function loadVendorChangeSignals(
       .select('vendor_profile_id, blocked_at, blocked_until, created_at')
       .in('vendor_profile_id', watchedIds)
       .gte('created_at', sinceIso),
+    admin
+      .from('vendor_availability_freed')
+      .select('vendor_profile_id, blocked_at, blocked_until, freed_at')
+      .in('vendor_profile_id', watchedIds)
+      .gte('freed_at', sinceIso),
   ]);
+
+  const toBlockRow = (r: unknown): AvailabilityBlockRow => ({
+    vendorProfileId: (r as { vendor_profile_id: string }).vendor_profile_id,
+    blockedAt: (r as { blocked_at: string }).blocked_at,
+    blockedUntil: (r as { blocked_until: string }).blocked_until,
+  });
+
+  // "Newly booked" (a current block on the date) + "available again" (a block
+  // that covered the date was just removed). Same overlap logic, opposite
+  // direction. The restraint engine dedups per vendor+date if both churn.
+  const availability = [
+    ...availabilityChangesFromBlocks(
+      (blockRows ?? []).map(toBlockRow),
+      nameById,
+      eventDate,
+      dateLabel,
+      'newly booked',
+    ),
+    ...availabilityChangesFromBlocks(
+      (freedRows ?? []).map(toBlockRow),
+      nameById,
+      eventDate,
+      dateLabel,
+      'available again',
+    ),
+  ];
 
   return {
     priceChanges: priceChangesFromHistory(
@@ -462,16 +495,7 @@ export async function loadVendorChangeSignals(
       })),
       nameById,
     ),
-    availability: availabilityChangesFromBlocks(
-      (blockRows ?? []).map((r) => ({
-        vendorProfileId: (r as { vendor_profile_id: string }).vendor_profile_id,
-        blockedAt: (r as { blocked_at: string }).blocked_at,
-        blockedUntil: (r as { blocked_until: string }).blocked_until,
-      })),
-      nameById,
-      eventDate,
-      dateLabel,
-    ),
+    availability,
   };
 }
 

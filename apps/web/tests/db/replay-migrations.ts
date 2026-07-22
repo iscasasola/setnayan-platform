@@ -64,10 +64,6 @@ export const ALLOWED_SKIP: ReadonlyMap<string, string> = new Map([
     '20270723385655_keep_full_res_archive_sku.sql',
     'catalog seed whose billing_period predates the final CHECK on platform_retail_catalog_v2 (ordering artifact; resolves via retry on most runs)',
   ],
-  [
-    '20270832295038_setnayan_ai_event_reach_matrix.sql',
-    "writes applicable_event_types = ARRAY[...,'dinner_date'] but no migration seeds 'dinner_date' into event_type_vocab (prod-only vocab, HOLD-OWNER per 20270825054104), so the validate_applicable_event_types trigger (20261104000000) rejects it on a FRESH replay — prod-data dependency, not a schema bug",
-  ],
 ]);
 
 const BOOTSTRAP = `

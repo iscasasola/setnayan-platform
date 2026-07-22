@@ -1,35 +1,34 @@
 /**
- * Peso-Per-Lead Scorecard reader (Wave 6 vendor benefit · unit economics).
+ * Admin Peso-Per-Lead overview reader (platform unit economics).
  *
- * Assembles a vendor's — or, for admins, the whole platform's — cost-per-lead
- * and cost-per-booked-couple from the two reporting RPCs added in
+ * Assembles the platform-wide cost-per-lead and cost-per-booked-couple for the
+ * admin app-performance surface, from the reporting RPC in
  * 20270322391018_peso_per_lead_scorecard.sql:
- *   • vendor_peso_per_lead(p_vendor_profile_id, p_period_days)  — ownership-gated
- *   • admin_peso_per_lead_overview(p_period_days)               — is_console_admin-gated
+ *   • admin_peso_per_lead_overview(p_period_days)  — is_console_admin-gated
  *
  * WHERE THE ₱/TOKEN PRICE COMES FROM (NOT hardcoded here)
  * ------------------------------------------------------
- * The RPCs return token COUNTS (tokens_burned_total). The peso value of a token
- * is the admin-managed, owner-locked flat price `TOKEN_PRICE_PHP` exported from
- * lib/v2/region-token-burn.ts (₱200 today). We read it from there so the price
- * has ONE source of truth across the app — this module never inlines a literal.
- * Subscription spend already arrives as real PHP from vendor_subscriptions.
+ * The RPC returns token COUNTS (tokens_burned_total). The peso value of a token
+ * is the admin-managed flat price `TOKEN_PRICE_PHP` from lib/v2/region-token-burn.ts
+ * (₱200 today), read from there so the price has ONE source of truth. Subscription
+ * spend already arrives as real PHP from vendor_subscriptions.
  *
- * BEHAVIORAL HONESTY — why token spend can read ₱0
- * ------------------------------------------------
- * The burn-on-answer path (unlock_vendor_event) IS live: a paid-tier vendor
- * consumes 1–3 region-banded tokens to accept an inquiry — VERIFIED ≤10/wk AND
- * burns, SOLO/PRO/ENTERPRISE unlimited AND burns — via
- * consume_vendor_assets_per_voucher. `tokens_burned_total` is 0 in prod today
- * only because no paid vendor has burned a qualifying inquiry yet (the lone real
- * vendor is the founder) — NOT because the consume is off. This reader
- * surfaces that truthfully via the `burnInert` flag (a misnomer kept for
- * compatibility: it means "₱0 token spend in the window," not "burn disabled");
- * it NEVER fabricates spend.
+ * ⚠ ANSWERING IS NOW FREE (2026-07-22)
+ * ------------------------------------
+ * Migration 20270909586177 neutralised the token burn in `unlock_vendor_event`
+ * (v_tokens forced to 0), so accepting an inquiry no longer costs a token —
+ * `tokens_burned_total` is 0 going forward and token-spend reads ₱0. The
+ * `burnInert` flag ("₱0 token spend in the window") is therefore effectively
+ * always true now; this reader still surfaces real subscription spend truthfully
+ * and never fabricates spend. (The token packs were also retired the same day.)
+ *
+ * The vendor-side self-scorecard (`fetchVendorPesoScorecard`) + its dashboard card
+ * were REMOVED 2026-07-22 — orphaned (never mounted) and premised on the now-dead
+ * burn-on-answer model. Only the admin overview below remains. ⚠ Whether this
+ * admin surface should stay (token spend is now structurally ₱0) is an owner call.
  */
 
 import 'server-only';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { TOKEN_PRICE_PHP } from '@/lib/v2/region-token-burn';
 
@@ -39,102 +38,8 @@ export { TOKEN_PRICE_PHP };
 /** Default reporting window — one 28-day billing cycle. */
 export const PESO_DEFAULT_PERIOD_DAYS = 28;
 
-/** Raw counts as returned by `vendor_peso_per_lead` (pre-multiply). */
-type VendorPesoRpcRow = {
-  period_days: number;
-  since: string;
-  tokens_burned_total: number;
-  leads_answered: number;
-  subscription_php: number;
-  finalized_bookings: number;
-};
-
-/** A vendor's assembled scorecard (peso-resolved + derived ratios). */
-export type VendorPesoScorecard = {
-  periodDays: number;
-  since: string;
-  tokenPricePhp: number;
-  /** Σ(tokens_burned) over the window. 0 when no paid vendor burned this window. */
-  tokensBurnedTotal: number;
-  /** tokensBurnedTotal × tokenPricePhp. ₱0 when no burns this window. */
-  tokenSpendPhp: number;
-  /** Real PHP from paid subscription orders in the window. */
-  subscriptionSpendPhp: number;
-  /** tokenSpendPhp + subscriptionSpendPhp. */
-  totalSpendPhp: number;
-  /** Count of vendor_event_unlocks (answered inquiries) in the window. */
-  leadsAnswered: number;
-  /** Lifetime finalized_booking_count (NOT window-scoped — labelled as such). */
-  finalizedBookings: number;
-  /** totalSpendPhp ÷ finalizedBookings, or null when 0 bookings. */
-  costPerBookedCouplePhp: number | null;
-  /** tokenSpendPhp ÷ leadsAnswered — the marginal peso-per-lead. null when 0 leads. */
-  costPerLeadPhp: number | null;
-  /** All-in (token + subscription) ÷ leadsAnswered. null when 0 leads. */
-  allInCostPerLeadPhp: number | null;
-  /**
-   * TRUE when token spend is ₱0 in the window. NOTE: a misnomer kept for
-   * compatibility — the burn is LIVE (unlock_vendor_event consumes for Pro/Ent);
-   * this only means "no burns in this window" (no qualifying inquiry answered yet).
-   */
-  burnInert: boolean;
-  /** TRUE when there is no spend at all (token OR subscription) to report. */
-  noSpendYet: boolean;
-};
-
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
-}
-
-/** Turn the RPC counts into a peso-resolved scorecard (price read from DB const). */
-function assembleScorecard(row: VendorPesoRpcRow): VendorPesoScorecard {
-  const tokensBurnedTotal = Number(row.tokens_burned_total) || 0;
-  const subscriptionSpendPhp = round2(Number(row.subscription_php) || 0);
-  const leadsAnswered = Number(row.leads_answered) || 0;
-  const finalizedBookings = Number(row.finalized_bookings) || 0;
-
-  const tokenSpendPhp = round2(tokensBurnedTotal * TOKEN_PRICE_PHP);
-  const totalSpendPhp = round2(tokenSpendPhp + subscriptionSpendPhp);
-
-  return {
-    periodDays: Number(row.period_days) || PESO_DEFAULT_PERIOD_DAYS,
-    since: row.since,
-    tokenPricePhp: TOKEN_PRICE_PHP,
-    tokensBurnedTotal,
-    tokenSpendPhp,
-    subscriptionSpendPhp,
-    totalSpendPhp,
-    leadsAnswered,
-    finalizedBookings,
-    costPerBookedCouplePhp:
-      finalizedBookings > 0 ? round2(totalSpendPhp / finalizedBookings) : null,
-    costPerLeadPhp: leadsAnswered > 0 ? round2(tokenSpendPhp / leadsAnswered) : null,
-    allInCostPerLeadPhp:
-      leadsAnswered > 0 ? round2(totalSpendPhp / leadsAnswered) : null,
-    // Burn is inert whenever no tokens were actually burned to peso value —
-    // the pilot truth (the consume call isn't wired yet).
-    burnInert: tokenSpendPhp === 0,
-    noSpendYet: totalSpendPhp === 0,
-  };
-}
-
-/**
- * Read a vendor's OWN scorecard. Uses the caller's RLS-bound server client so
- * the ownership gate in the RPC (vendor_profiles.user_id = auth.uid()) applies.
- * Returns null if the RPC errors (e.g. caller doesn't own the profile) — the UI
- * then simply omits the card rather than throwing.
- */
-export async function fetchVendorPesoScorecard(
-  supabase: SupabaseClient,
-  vendorProfileId: string,
-  periodDays: number = PESO_DEFAULT_PERIOD_DAYS,
-): Promise<VendorPesoScorecard | null> {
-  const { data, error } = await supabase.rpc('vendor_peso_per_lead', {
-    p_vendor_profile_id: vendorProfileId,
-    p_period_days: periodDays,
-  });
-  if (error || !data) return null;
-  return assembleScorecard(data as VendorPesoRpcRow);
 }
 
 /** One row of the admin platform-wide overview (peso-resolved). */
@@ -167,7 +72,7 @@ export type AdminPesoOverview = {
     /** Blended platform cost-per-booked-couple. null when 0 bookings. */
     costPerBookedCouplePhp: number | null;
   };
-  /** TRUE when NO vendor has any token-burn spend (pilot reality). */
+  /** TRUE when NO vendor has any token-burn spend (now structurally the case). */
   burnInert: boolean;
 };
 

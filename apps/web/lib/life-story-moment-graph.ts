@@ -33,6 +33,7 @@ import type {
   ScoredMoment,
 } from './life-story-types';
 import { scoreMoments } from './life-story-significance';
+import { resolveStillRef, resolvePlayRef } from './papic-display-ref';
 
 // ---------------------------------------------------------------------------
 // Tunables
@@ -61,6 +62,13 @@ export type RawPhoto = {
   photo_id: string;
   event_id: string;
   r2_object_key: string;
+  // Derivative refs + drop marker (optional — pre-migration rows omit them). A
+  // photo moment resolves to a drop-durable STILL; a clip moment to its playable
+  // video (the flash renders <img> vs <video> off `type`).
+  display_r2_key?: string | null;
+  thumb_r2_key?: string | null;
+  poster_r2_key?: string | null;
+  full_res_dropped_at?: string | null;
   photo_type: 'photo' | 'clip';
   captured_at: string;
   captured_by_person_id: string | null;
@@ -70,6 +78,10 @@ export type RawGuestCapture = {
   event_id: string;
   guest_id: string;
   r2_object_key: string | null;
+  display_r2_key?: string | null;
+  thumb_r2_key?: string | null;
+  poster_r2_key?: string | null;
+  full_res_dropped_at?: string | null;
   media_type: 'photo' | 'clip';
   captured_at: string;
 };
@@ -276,6 +288,12 @@ export function assembleMomentGraph(raw: RawInputs, viewer: MomentGraphViewer): 
   >();
 
   for (const photo of raw.photos) {
+    // A clip plays as <video> (raw video / clip_web); a photo shows as <img>
+    // (drop-durable still). A row with no viewable ref (dropped w/o derivative)
+    // is skipped, never surfaced as a broken tile.
+    const r2Key =
+      photo.photo_type === 'clip' ? resolvePlayRef(photo) : resolveStillRef(photo);
+    if (!r2Key) continue;
     const mk = mediaKey('papic_photos', photo.photo_id);
     const capturerPerson = photo.captured_by_person_id
       ? (personById.get(photo.captured_by_person_id) ?? null)
@@ -301,14 +319,18 @@ export function assembleMomentGraph(raw: RawInputs, viewer: MomentGraphViewer): 
       sourceTable: 'papic_photos',
       sourceId: photo.photo_id,
       type: photo.photo_type,
-      r2Key: photo.r2_object_key,
+      r2Key,
       eventId: photo.event_id,
       capturedAt: photo.captured_at,
     });
   }
 
   for (const capture of raw.guestCaptures) {
-    if (!capture.r2_object_key) continue; // quota-only rows carry no bytes to show
+    // Quota-only rows (null r2_object_key) and dropped-without-derivative rows
+    // both resolve to null → skipped. Clip → playable video, photo → still.
+    const r2Key =
+      capture.media_type === 'clip' ? resolvePlayRef(capture) : resolveStillRef(capture);
+    if (!r2Key) continue;
     const mk = mediaKey('papic_guest_captures', capture.capture_id);
     const guest = guestById.get(capture.guest_id) ?? null;
     const person = guest?.person_id ? (personById.get(guest.person_id) ?? null) : null;
@@ -326,7 +348,7 @@ export function assembleMomentGraph(raw: RawInputs, viewer: MomentGraphViewer): 
       sourceTable: 'papic_guest_captures',
       sourceId: capture.capture_id,
       type: capture.media_type,
-      r2Key: capture.r2_object_key,
+      r2Key,
       eventId: capture.event_id,
       capturedAt: capture.captured_at,
     });
@@ -600,7 +622,9 @@ export async function fetchMomentGraph(
       // unscreened (never-checked), and the RA 10173 consent_withheld /
       // faceblock_withheld opt-out media — `hidden_at` is NOT a content proxy
       // (NSFW screening writes only moderation_state). Non-negotiable safety gate.
-      .select('photo_id, event_id, r2_object_key, photo_type, captured_at, captured_by_person_id')
+      .select(
+        'photo_id, event_id, r2_object_key, display_r2_key, thumb_r2_key, poster_r2_key, full_res_dropped_at, photo_type, captured_at, captured_by_person_id',
+      )
       .in('event_id', eventIds)
       .eq('moderation_state', 'clean')
       .is('hidden_at', null)
@@ -610,7 +634,9 @@ export async function fetchMomentGraph(
       .from('papic_guest_captures')
       // Same clean-only safety gate. `media_type` is now selected so a guest 5s
       // clip renders as a clip, not a broken <img> (was hardcoded 'photo').
-      .select('capture_id, event_id, guest_id, r2_object_key, media_type, captured_at')
+      .select(
+        'capture_id, event_id, guest_id, r2_object_key, display_r2_key, thumb_r2_key, poster_r2_key, full_res_dropped_at, media_type, captured_at',
+      )
       .in('event_id', eventIds)
       .eq('moderation_state', 'clean')
       .is('hidden_at', null)

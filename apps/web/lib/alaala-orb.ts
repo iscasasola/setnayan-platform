@@ -2,6 +2,7 @@ import 'server-only';
 import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { resolvePlayRef } from '@/lib/papic-display-ref';
 
 /**
  * Alaala memory-orb feed — the consumer half of the Papic → Alaala flywheel.
@@ -84,13 +85,16 @@ export const fetchAlaalaOrbClips = cache(async function fetchAlaalaOrbClips(
   // media_type='clip' + non-hidden + NSFW-clean (never 'unscreened' or a
   // *_blocked verdict on a public surface). Newest first. Graceful-degrade: a
   // missing column (pre-migration) → [], orb stays cold rather than crashing the
-  // marketing page. We presign the clip's own r2_object_key (the video) — the
-  // poster_r2_key is only the moderation proxy, not what the orb plays.
-  let rows: Array<{ r2_object_key: string | null }>;
+  // marketing page. The clip PLAYS a video, so it resolves through resolvePlayRef
+  // (clip_web_r2_key ?? r2_object_key) — the poster_r2_key is only the moderation
+  // proxy, not what the orb plays. `full_res_dropped_at` is selected so a dropped
+  // raw is never signed once clips become droppable (PR-4); today it's always the
+  // raw video (unchanged), since clips have no web-copy yet and never drop.
+  let rows: Array<{ r2_object_key: string | null; full_res_dropped_at: string | null }>;
   try {
     const { data, error } = await admin
       .from('papic_guest_captures')
-      .select('r2_object_key, captured_at')
+      .select('r2_object_key, full_res_dropped_at, captured_at')
       .in('event_id', eventIds)
       .eq('media_type', 'clip')
       .eq('consent_to_public', true)
@@ -100,13 +104,19 @@ export const fetchAlaalaOrbClips = cache(async function fetchAlaalaOrbClips(
       .order('captured_at', { ascending: false })
       .limit(limit);
     if (error) return [];
-    rows = (data ?? []) as Array<{ r2_object_key: string | null }>;
+    rows = (data ?? []) as Array<{ r2_object_key: string | null; full_res_dropped_at: string | null }>;
   } catch {
     return [];
   }
 
   const refs = rows
-    .map((r) => r.r2_object_key)
+    .map((r) =>
+      resolvePlayRef({
+        media_type: 'clip',
+        r2_object_key: r.r2_object_key,
+        full_res_dropped_at: r.full_res_dropped_at,
+      }),
+    )
     .filter((k): k is string => typeof k === 'string' && k.trim().length > 0);
   if (refs.length === 0) return [];
 

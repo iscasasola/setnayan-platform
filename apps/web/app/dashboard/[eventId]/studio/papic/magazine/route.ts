@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { resolveStillRef } from '@/lib/papic-display-ref';
 import { safeFetchImageBytes } from '@/lib/safe-image-fetch';
 import { loadEditorialData } from '@/app/[slug]/_components/editorial/data';
 import { composeCopy } from '@/app/[slug]/_components/editorial/compose';
@@ -73,7 +74,9 @@ export async function GET(
   const [{ data: seatRows }, { data: guestRows }, { data: msgRows }] = await Promise.all([
     supabase
       .from('papic_photos')
-      .select('photo_id, r2_object_key, captured_at')
+      // Derivative columns + full_res_dropped_at so the still resolves to the
+      // drop-durable web copy (sharp decodes a JPEG/AVIF still, never a video).
+      .select('photo_id, r2_object_key, display_r2_key, thumb_r2_key, full_res_dropped_at, captured_at')
       .eq('event_id', eventId)
       .eq('photo_type', 'photo')
       .is('hidden_at', null)
@@ -81,7 +84,7 @@ export async function GET(
       .limit(400),
     supabase
       .from('papic_guest_captures')
-      .select('capture_id, r2_object_key, captured_at')
+      .select('capture_id, r2_object_key, display_r2_key, thumb_r2_key, full_res_dropped_at, captured_at')
       .eq('event_id', eventId)
       // Photos only — guest clips (media_type='clip') carry a video r2_object_key
       // that `sharp()` can't decode below, so they must never enter the magazine
@@ -113,7 +116,14 @@ export async function GET(
       sourceId: r.photo_id as string,
       capturedAtMs: Date.parse((r.captured_at as string) ?? '') || 0,
     });
-    if (r.r2_object_key) refByKey.set(key, r.r2_object_key as string);
+    const ref = resolveStillRef({
+      photo_type: 'photo',
+      r2_object_key: r.r2_object_key as string | null,
+      display_r2_key: r.display_r2_key as string | null,
+      thumb_r2_key: r.thumb_r2_key as string | null, // gitleaks:allow — R2 object-key field, not a secret
+      full_res_dropped_at: r.full_res_dropped_at as string | null,
+    });
+    if (ref) refByKey.set(key, ref);
   }
   for (const r of guestRows ?? []) {
     const key = `papic_guest_captures:${r.capture_id as string}`;
@@ -122,7 +132,14 @@ export async function GET(
       sourceId: r.capture_id as string,
       capturedAtMs: Date.parse((r.captured_at as string) ?? '') || 0,
     });
-    if (r.r2_object_key) refByKey.set(key, r.r2_object_key as string);
+    const ref = resolveStillRef({
+      media_type: 'photo',
+      r2_object_key: r.r2_object_key as string | null,
+      display_r2_key: r.display_r2_key as string | null,
+      thumb_r2_key: r.thumb_r2_key as string | null, // gitleaks:allow — R2 object-key field, not a secret
+      full_res_dropped_at: r.full_res_dropped_at as string | null,
+    });
+    if (ref) refByKey.set(key, ref);
   }
 
   if (captures.length === 0) {

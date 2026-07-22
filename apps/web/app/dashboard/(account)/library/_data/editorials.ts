@@ -31,6 +31,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { resolveStillRef } from '@/lib/papic-display-ref';
 import { fetchUserEvents } from '@/lib/events';
 
 /** A single editorial the user can see, ready to render as a card. */
@@ -206,7 +207,11 @@ export async function fetchLibraryEditorials(
     try {
       const { data } = await admin
         .from('papic_photos')
-        .select('photo_id, r2_object_key, photo_type, moderation_state')
+        // Derivative columns + full_res_dropped_at so the hero thumb resolves to
+        // the drop-durable web copy (a dropped original 404s otherwise).
+        .select(
+          'photo_id, r2_object_key, display_r2_key, thumb_r2_key, full_res_dropped_at, photo_type, moderation_state',
+        )
         .in('photo_id', heroPhotoIds)
         // Public-safe: never surface a moderation-withheld capture as a thumb.
         .not(
@@ -217,10 +222,20 @@ export async function fetchLibraryEditorials(
       for (const r of (data ?? []) as Array<{
         photo_id: string | null;
         r2_object_key: string | null;
+        display_r2_key: string | null;
+        thumb_r2_key: string | null;
+        full_res_dropped_at: string | null;
         photo_type: string | null;
       }>) {
-        if (r.photo_id && r.r2_object_key && r.photo_type !== 'clip') {
-          heroKeyByPhotoId.set(r.photo_id, r.r2_object_key);
+        if (r.photo_id && r.photo_type !== 'clip') {
+          const ref = resolveStillRef({
+            photo_type: 'photo',
+            r2_object_key: r.r2_object_key,
+            display_r2_key: r.display_r2_key,
+            thumb_r2_key: r.thumb_r2_key,
+            full_res_dropped_at: r.full_res_dropped_at,
+          });
+          if (ref) heroKeyByPhotoId.set(r.photo_id, ref);
         }
       }
     } catch {

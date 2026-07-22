@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventSkuActive } from '@/lib/entitlements';
 import { reviewVendorChallenge } from '@/lib/papic-games';
+import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import {
   PAPIC_CAMERAS_ORDER_KEY,
   PAPIC_FREE_CAMERA_INDEX_BASE,
@@ -145,6 +146,106 @@ export async function reviewVendorChallengeAction(formData: FormData) {
     missionId,
     approve: decision === 'approve',
   });
+
+  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  redirect(`/dashboard/${eventId}/studio/papic`);
+}
+
+// ==========================================================================
+// Couple-authored challenges + curation (Papic Games §5). The couple has RLS
+// FOR ALL on papic_missions (couple/coordinator+admin member policy), so these
+// are RLS-direct writes — no RPC. The RLS WITH CHECK / USING is the authoritative
+// gate: a non-member's write is rejected, so we rely on it (same posture as
+// reviewVendorChallengeAction) and redirect plainly; the revalidated manager is
+// the feedback. Couple challenges are PRE-APPROVED (the couple authors their own).
+// ==========================================================================
+
+/** The couple authors their own generic Photo Challenge. source='couple',
+ *  mission_type='prompt', approved=true so it goes live to guests immediately. */
+export async function createCoupleChallengeAction(formData: FormData) {
+  const rawEventId = formData.get('event_id');
+  const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
+  const prompt = formData.get('prompt');
+  if (!eventId) {
+    redirect('/dashboard');
+  }
+  if (!papicGamesEnabled()) {
+    redirect(`/dashboard/${eventId}/studio/papic`);
+  }
+  if (typeof prompt !== 'string' || prompt.trim().length === 0) {
+    redirect(`/dashboard/${eventId}/studio/papic`);
+  }
+
+  const supabase = await createClient();
+  await supabase.from('papic_missions').insert({
+    event_id: eventId,
+    mission_type: 'prompt',
+    source: 'couple',
+    prompt: prompt.trim().slice(0, 280),
+    approved: true,
+    is_active: true,
+  });
+
+  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  redirect(`/dashboard/${eventId}/studio/papic`);
+}
+
+/** Hide (is_active=false) or show any of the event's missions — auto booth,
+ *  approved vendor, or the couple's own. Curation, not deletion. */
+export async function setCoupleChallengeActiveAction(formData: FormData) {
+  const rawEventId = formData.get('event_id');
+  const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
+  const missionId = formData.get('mission_id');
+  const active = formData.get('active');
+  if (!eventId) {
+    redirect('/dashboard');
+  }
+  if (!papicGamesEnabled()) {
+    redirect(`/dashboard/${eventId}/studio/papic`);
+  }
+  if (
+    typeof missionId !== 'string' ||
+    missionId.length === 0 ||
+    (active !== 'true' && active !== 'false')
+  ) {
+    redirect(`/dashboard/${eventId}/studio/papic`);
+  }
+
+  const supabase = await createClient();
+  await supabase
+    .from('papic_missions')
+    .update({ is_active: active === 'true' })
+    .eq('mission_id', missionId)
+    .eq('event_id', eventId);
+
+  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  redirect(`/dashboard/${eventId}/studio/papic`);
+}
+
+/** Delete one of the couple's OWN challenges. Auto/vendor missions are hidden via
+ *  the toggle, never deleted here (a deleted auto mission would just regenerate;
+ *  a vendor's challenge is theirs) — so this is scoped source='couple'. */
+export async function deleteCoupleChallengeAction(formData: FormData) {
+  const rawEventId = formData.get('event_id');
+  const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
+  const missionId = formData.get('mission_id');
+  if (!eventId) {
+    redirect('/dashboard');
+  }
+  if (!papicGamesEnabled()) {
+    redirect(`/dashboard/${eventId}/studio/papic`);
+  }
+  if (typeof missionId !== 'string' || missionId.length === 0) {
+    redirect(`/dashboard/${eventId}/studio/papic`);
+  }
+
+  const supabase = await createClient();
+  await supabase
+    .from('papic_missions')
+    .delete()
+    .eq('mission_id', missionId)
+    .eq('event_id', eventId)
+    .eq('source', 'couple');
 
   revalidatePath(`/dashboard/${eventId}/studio/papic`);
   redirect(`/dashboard/${eventId}/studio/papic`);

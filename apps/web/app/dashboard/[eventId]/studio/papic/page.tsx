@@ -41,6 +41,7 @@ import { resolveStoredWindow, formatWindowSummary } from '@/lib/papic-window';
 import PapicWindowPicker from './papic-window-picker';
 import StylePicker from './style-picker';
 import { VendorChallengesApproval } from './vendor-challenges-approval';
+import { CoupleChallengesManager } from './couple-challenges-manager';
 import QualityPicker from './quality-picker';
 import {
   fetchCameraRates,
@@ -635,6 +636,10 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
         </Link>
       </section>
+
+      {/* Papic Games — the couple's own challenge authoring + curation (§5).
+          Self-gates on the flag. */}
+      <CoupleChallengesManager eventId={eventId} />
 
       {/* Papic Games — pending vendor challenges awaiting the couple's okay (§3.6).
           Self-gates on the flag + hides when there's nothing to review. */}

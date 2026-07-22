@@ -36,8 +36,7 @@ export type GalleryPhoto = {
   // Which capture table the row lives in. The showcase-approval toggle routes
   // to the matching action: seat clips flip papic_photos, guest clips flip
   // papic_guest_captures. (Photos never carry a showcase gate.) 'vendor' = a
-  // vendor's own documentation capture compiled into the gallery (photos only in
-  // v1 — vendor clips have no poster derivative yet).
+  // vendor's own documentation capture (photo or clip) compiled into the gallery.
   source: 'seat' | 'guest' | 'vendor';
   tagged: boolean;
   tagSource: GalleryTagSource;
@@ -86,16 +85,15 @@ export async function fetchPapicGallery(
       .order('captured_at', { ascending: false })
       .limit(GALLERY_LIMIT),
     // Vendor documentation captures (owner 2026-07-22 "compiles on the event
-    // gallery"). Photos only in v1 — vendor clips have no poster derivative to
-    // tile. Nothing surfaces until the WHOLE LANE is DPO-approved (the admin
-    // 'vendor_papic_capture' control is default-inactive, so no capture exists
-    // until then); once live, the vendor_papic_captures_member_read RLS policy
-    // scopes the couple to NSFW-checked, non-hidden rows of their own event.
+    // gallery") — photos AND clips (a clip tiles on its poster_r2_key). Nothing
+    // surfaces until the WHOLE LANE is DPO-approved (the admin 'vendor_papic_capture'
+    // control is default-inactive, so no capture exists until then); once live, the
+    // vendor_papic_captures_member_read RLS policy scopes the couple to NSFW-checked,
+    // non-hidden rows of their own event.
     supabase
       .from('vendor_papic_captures')
-      .select('capture_id, r2_object_key, media_type, captured_at, hidden_at, nsfw_checked, consent_basis')
+      .select('capture_id, r2_object_key, poster_r2_key, media_type, captured_at, hidden_at, nsfw_checked, consent_basis')
       .eq('event_id', eventId)
-      .eq('media_type', 'photo')
       .order('captured_at', { ascending: false })
       .limit(GALLERY_LIMIT),
   ]);
@@ -122,7 +120,10 @@ export async function fetchPapicGallery(
     (r) =>
       r.nsfw_checked === true &&
       r.consent_basis !== 'pending_dpo_ruling' &&
-      !r.hidden_at,
+      !r.hidden_at &&
+      // A clip needs its poster to tile — never surface a posterless clip (which
+      // would render a blank tile). Photos have no poster requirement.
+      (r.media_type !== 'clip' || r.poster_r2_key),
   );
 
   // Tags — best-effort. If photo_tags isn't couple-readable / absent, every photo
@@ -222,20 +223,28 @@ export async function fetchPapicGallery(
     };
   });
 
-  // Vendor documentation photos (v1). No derivatives, but the original carries no
-  // geo (stripped at capture) so it's safe to serve to the couple's own gallery.
-  const vendorPhotos: Pre[] = visibleVendor.map((r) => ({
-    id: r.capture_id as string,
-    ref: r.r2_object_key as string | null,
-    videoRef: null,
-    kind: 'photo',
-    source: 'vendor',
-    tagged: false,
-    tagSource: 'untagged',
-    capturedAt: r.captured_at as string,
-    showcaseApproved: undefined,
-    showcaseConsent: undefined,
-  }));
+  // Vendor documentation (photos + clips). No web derivatives, but the original
+  // carries no geo (stripped at capture) so it's safe for the couple's own gallery.
+  // A clip tiles on its poster_r2_key and plays from the original; a photo shows
+  // the original directly. (Vendor captures have no showcase gate — that orb is
+  // guest/couple content; the grid's ShowcaseToggle already excludes source=vendor.)
+  const vendorPhotos: Pre[] = visibleVendor.map((r) => {
+    const isClip = (r.media_type as string | undefined) === 'clip';
+    return {
+      id: r.capture_id as string,
+      ref: isClip
+        ? (r.poster_r2_key as string | null)
+        : (r.r2_object_key as string | null),
+      videoRef: isClip ? (r.r2_object_key as string | null) : null,
+      kind: isClip ? ('clip' as const) : ('photo' as const),
+      source: 'vendor' as const,
+      tagged: false,
+      tagSource: 'untagged' as GalleryTagSource,
+      capturedAt: r.captured_at as string,
+      showcaseApproved: undefined,
+      showcaseConsent: undefined,
+    };
+  });
 
   const merged = [...seatPhotos, ...guestPhotos, ...vendorPhotos].sort(
     (a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime(),

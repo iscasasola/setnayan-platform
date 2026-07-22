@@ -169,16 +169,22 @@ export async function POST(req: Request) {
   }
   const r2Ref = `r2://${R2_BUCKETS.media}/${key}`;
 
+  let posterRef: string | null = null;
   if (isClip && posterBytes) {
     try {
+      const posterKey = `${base}-poster.jpg`;
       await r2Upload({
         bucket: R2_BUCKETS.media,
-        key: `${base}-poster.jpg`,
+        key: posterKey,
         body: posterBytes,
         contentType: 'image/jpeg',
       });
+      posterRef = `r2://${R2_BUCKETS.media}/${posterKey}`;
     } catch {
-      // best-effort — a posterless clip just stays unscreened (never surfaced)
+      // Poster upload failed → drop the bytes so the NSFW screen also skips (a
+      // clip with no persisted poster must NOT get nsfw_checked=true and surface
+      // as a posterless/blank tile — it stays unscreened, excluded).
+      posterBytes = undefined;
     }
   }
 
@@ -192,6 +198,7 @@ export async function POST(req: Request) {
       vendor_profile_id: vendorProfileId,
       event_id: eventId,
       r2_object_key: r2Ref,
+      poster_r2_key: posterRef,
       media_type: mediaType,
       clip_duration_ms: isClip ? durationMs : null,
       device_model: deviceModel,

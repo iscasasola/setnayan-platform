@@ -9,6 +9,7 @@ import { runSeoPeriodicJobs } from '@/lib/seo/seo-cron-jobs';
 import { maybeRunRetentionSweep } from '@/lib/retention-sweep';
 import { maybeRunVendorDossierRetention } from '@/lib/vendor-dossier-retention';
 import { maybeRunPapicFullResDrop } from '@/lib/papic-fullres-drop';
+import { maybeRunPapicNsfwRescreen } from '@/lib/papic-nsfw-rescreen-sweep';
 import { maybeRunDriveCopyRetry } from '@/lib/papic-drive-copy-retry';
 import { maybeRunAnonDraftSweep } from '@/lib/anon-draft-sweep';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
@@ -129,6 +130,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // traffic + a WEEKLY DB claim. Purges web-research dossiers past 180 days.
   after(() => maybeRunVendorDossierRetention().catch(() => {}));
   after(() => maybeRunPapicFullResDrop().catch(() => {}));
+  // Papic NSFW re-screen heal — CRON-FREE: admin traffic + a ~20-min DB claim.
+  // screenCapture() is fail-open + fire-and-forget, and its per-event healer only
+  // runs from two COUPLE-SIDE after() sites — so a capture whose first screen
+  // dropped, on an event no couple revisits, would stay 'unscreened' (dark on
+  // every guest-facing surface) forever. This heals those globally without a
+  // couple visit. Bounded (≤25 events/sweep) + 15-min grace so an in-flight
+  // screen is never re-run; never throws.
+  after(() => maybeRunPapicNsfwRescreen().catch(() => {}));
   // Autonomous Drive-copy retry (Papic storage PR-4) — CRON-FREE: admin traffic +
   // a DAILY DB claim. Re-drives failed Google-Drive copies with exponential
   // back-off up to a ceiling and surfaces what's stranded past it, so a transient

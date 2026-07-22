@@ -15,6 +15,7 @@ import {
   overBudgetTrigger,
   contractWindowTrigger,
   scheduleClashTrigger,
+  availabilityChangeTrigger,
   vendorQuietTrigger,
   stuckCategoryTrigger,
   dateConvergenceTrigger,
@@ -39,6 +40,7 @@ function emptySnap(over: Partial<PlanningSnapshot> = {}): PlanningSnapshot {
     budget: null,
     dateClusters: [],
     scheduleClash: [],
+    availability: [],
     ...over,
   };
 }
@@ -117,6 +119,24 @@ test('scheduleClash: one GRD-06 per collision, carrying both labels + slot', () 
   });
   // No clashes → silent.
   assert.equal(scheduleClashTrigger(emptySnap()).length, 0);
+});
+
+test('availabilityChange: one GRD-09 per vendor whose date moved', () => {
+  const out = availabilityChangeTrigger(
+    emptySnap({
+      availability: [{ vendor: 'Grand Venue', date: 'May 9, 2026', status: 'newly booked' }],
+    }),
+  );
+  assert.equal(out.length, 1);
+  assert.equal(out[0]!.templateId, 'GRD-09');
+  assert.deepEqual(out[0]!.slots, {
+    vendor: 'Grand Venue',
+    date: 'May 9, 2026',
+    status: 'newly booked',
+  });
+  assert.equal(out[0]!.priority, 80);
+  // No availability change → silent.
+  assert.equal(availabilityChangeTrigger(emptySnap()).length, 0);
 });
 
 test('vendorQuiet: fires when unreplied ≥ 4 days', () => {

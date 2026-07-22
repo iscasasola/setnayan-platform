@@ -834,6 +834,10 @@ export async function EventDashboard({
       // GRD-06 clash — the same pure detection the notify snapshot uses, over
       // the run-of-show blocks this surface already loaded.
       scheduleClash: scheduleClashesFromBlocks(clashBlocksFromScheduleRows(scheduleBlocks)),
+      // GRD-03 price / GRD-09 availability run on the notify sweep's snapshot
+      // (buildPlanningSnapshot) which does the vendor-history joins; the in-app
+      // watch rail leaves them empty rather than duplicate that read here.
+      availability: [],
     };
     watchItems = applyRestraint(runTriggers(snapshot, now), { maxProactive: 4 }).map(
       (intervention) => ({

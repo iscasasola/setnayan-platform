@@ -94,6 +94,14 @@ export type SnapshotScheduleClash = {
   /** Human time label of the collision (e.g. "Sat, May 9, 3:00 PM"). */
   slot: string;
 };
+/** A shortlisted/booked vendor whose availability for the event date changed (GRD-09). */
+export type SnapshotAvailabilityChange = {
+  vendor: string;
+  /** Human date label the change affects (the couple's event date). */
+  date: string;
+  /** What changed, e.g. "newly booked" / "no longer free". */
+  status: string;
+};
 
 export type PlanningSnapshot = {
   eventType: string;
@@ -106,6 +114,7 @@ export type PlanningSnapshot = {
   budget: SnapshotBudget | null;
   dateClusters: SnapshotDateCluster[];
   scheduleClash: SnapshotScheduleClash[];
+  availability: SnapshotAvailabilityChange[];
 };
 
 // ---- Tunable thresholds (the restraint dials; kept in one place) ------------
@@ -291,6 +300,23 @@ export function scheduleClashTrigger(snap: PlanningSnapshot): Intervention[] {
   }));
 }
 
+/**
+ * Availability-change guard (GRD-09). Fires when a vendor the couple has
+ * shortlisted or booked just became busy on their event date — the snapshot
+ * adapter detects the change from the global vendor calendar; this renders it.
+ */
+export function availabilityChangeTrigger(snap: PlanningSnapshot): Intervention[] {
+  return snap.availability.map((a) => ({
+    templateId: 'GRD-09',
+    category: 'guard' as const,
+    slots: { vendor: a.vendor, date: a.date, status: a.status },
+    // Availability slipping on a top pick is time-critical — as high as an
+    // over-budget flag; you may need to lock or replace them fast.
+    priority: 80,
+    dedupeKey: `GRD-09:${a.vendor}:${a.date}`,
+  }));
+}
+
 /** Run every trigger and collect the raw (pre-restraint) interventions. */
 export function runTriggers(snap: PlanningSnapshot, now: Date): Intervention[] {
   return [
@@ -300,6 +326,7 @@ export function runTriggers(snap: PlanningSnapshot, now: Date): Intervention[] {
     ...overBudgetTrigger(snap),
     ...contractWindowTrigger(snap),
     ...scheduleClashTrigger(snap),
+    ...availabilityChangeTrigger(snap),
     ...vendorQuietTrigger(snap),
     ...stuckCategoryTrigger(snap),
     ...dateConvergenceTrigger(snap),
@@ -344,10 +371,14 @@ function nextTaskLabel(iv: Intervention | undefined): string {
       return `sort out your ${iv.slots.document}`;
     case 'GRD-05':
       return 'trim the budget or raise the total';
+    case 'GRD-03':
+      return `lock in ${iv.slots.vendor} before the price climbs further`;
     case 'GRD-06':
       return `resolve the clash at ${iv.slots.slot}`;
     case 'GRD-07':
       return `decide on ${iv.slots.vendor} before the window closes`;
+    case 'GRD-09':
+      return `lock or replace ${iv.slots.vendor} — their date just moved`;
     case 'SEC-04':
       return `nudge ${iv.slots.vendor}`;
     case 'SEC-02':
@@ -403,7 +434,9 @@ export function assembleWeeklyDigest(
     snap.payments.length +
     snap.contracts.length +
     snap.shortlist.length +
-    snap.scheduleClash.length;
+    snap.scheduleClash.length +
+    snap.priceChanges.length +
+    snap.availability.length;
   const onTrack = Math.max(0, checkedCount - ranked.length);
   return renderTemplate(
     'SEC-01',

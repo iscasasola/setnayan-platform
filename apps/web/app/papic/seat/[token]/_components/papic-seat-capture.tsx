@@ -31,6 +31,7 @@ import {
   type PapicStyle,
 } from '@/lib/papic-photo-styles';
 import { usePapicCamera } from '@/lib/use-papic-camera';
+import type { PapicFaceMode } from '@/lib/papic-face-mode';
 import { PapicCameraControls } from '@/app/papic/_components/camera-controls';
 import {
   enqueuePapicSeatCapture,
@@ -118,6 +119,12 @@ type Props = {
   /** The event-wide look (set once by the couple at Papic setup). LOCKED — the
    *  paparazzo can't change it; it's baked into every photo this seat takes. */
   eventStyle: PapicStyle;
+  /** Resolved per-event face-tag mode (One-Pool spec §3.4). mode_b (default) →
+   *  the on-device embedder is NEVER called: no face descriptor is computed or
+   *  transmitted for this seat's captures. Only mode_a (a consented custom-QR
+   *  roster) runs `embedFaces`. Resolved server-side, forced to mode_b for
+   *  christening/debut. */
+  faceMode: PapicFaceMode;
 };
 
 /** A single capture as it moves through the background upload queue. Drives both
@@ -176,6 +183,7 @@ export function PapicSeatCapture({
   clipCap = null,
   isAnon = false,
   eventStyle,
+  faceMode,
 }: Props) {
   // The event-wide look is LOCKED (couple-set at setup) — baked into every photo.
   // styleRef mirrors the prop so grabFrame reads it without a dep churn.
@@ -412,6 +420,10 @@ export function PapicSeatCapture({
   // (NEXT_PUBLIC_FACE_MODEL_URL) — embedFaces then returns [] and this no-ops.
   const autoTagFromBlob = useCallback(
     async (photoId: string, imageBlob: Blob) => {
+      // FACE-MODE GATE (One-Pool spec §3.4): in mode_b `embedFaces` is NEVER
+      // called — no 128-d descriptor is computed and nothing is transmitted.
+      // Only mode_a (a consented custom-QR roster) reaches the embedder.
+      if (faceMode !== 'mode_a') return;
       try {
         const { embedFaces } = await import('@/lib/face-embed');
         const url = URL.createObjectURL(imageBlob);
@@ -433,7 +445,7 @@ export function PapicSeatCapture({
         // best-effort — a face-tag miss never affects the saved photo
       }
     },
-    [token],
+    [token, faceMode],
   );
 
   // CLIP auto-tag (owner 2026-07-11 "we want multi tagging"): a clip is a moving
@@ -444,6 +456,9 @@ export function PapicSeatCapture({
   // model is hosted or on any decode/seek error → never touches the saved clip).
   const autoTagFromClip = useCallback(
     async (photoId: string, videoBlob: Blob) => {
+      // FACE-MODE GATE (One-Pool spec §3.4): mode_b never samples/embeds clip
+      // frames — no descriptor is computed or transmitted. Only mode_a runs it.
+      if (faceMode !== 'mode_a') return;
       try {
         const { embedClipFaces } = await import('@/lib/face-embed-clip');
         const vectors = await embedClipFaces(videoBlob);
@@ -454,7 +469,7 @@ export function PapicSeatCapture({
         // best-effort — a face-tag miss never affects the saved clip
       }
     },
-    [token],
+    [token, faceMode],
   );
 
   // Roll back the optimistic count when a shot fails for a non-cap reason — the

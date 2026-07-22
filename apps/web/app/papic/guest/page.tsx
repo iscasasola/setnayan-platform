@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
 import { eventKwentoEnabled } from '@/lib/kwento-access';
 import { asPapicStyle } from '@/lib/papic-photo-styles';
+import { resolveFaceMode } from '@/lib/papic-face-mode';
 import { PapicGuestCapture } from './_components/papic-guest-capture';
 
 // Papic · guest camera (PAPIC_GUEST — "Every guest's phone, a candid
@@ -65,11 +66,17 @@ export default async function PapicGuestPage() {
     eventPapicGuestActive(admin, session.event_id),
     admin
       .from('events')
-      .select('display_name')
+      .select('display_name, papic_face_mode, event_type')
       .eq('event_id', session.event_id)
       .maybeSingle(),
   ]);
   const eventName = (ev?.display_name as string | null) || 'this event';
+  // Face-tag mode gate (One-Pool spec §3.4). Fail-closed to mode_b: a
+  // pre-migration DB (column absent → null) yields no embedding on this camera.
+  const faceMode = resolveFaceMode(
+    (ev as { papic_face_mode?: string | null } | null)?.papic_face_mode,
+    (ev as { event_type?: string | null } | null)?.event_type,
+  );
 
   if (!owns) {
     return (
@@ -167,6 +174,7 @@ export default async function PapicGuestPage() {
       canKwento={canKwento}
       guestUnlimited={quota.unlimited}
       eventStyle={eventStyle}
+      faceMode={faceMode}
     />
   );
 }

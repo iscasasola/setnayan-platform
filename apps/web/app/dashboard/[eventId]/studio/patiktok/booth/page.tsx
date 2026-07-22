@@ -18,6 +18,7 @@ import {
   type PatiktokTemplate,
 } from '@/lib/patiktok';
 import { BoothCapture } from '../_components/booth-capture';
+import { resolveFaceMode } from '@/lib/papic-face-mode';
 
 // Iteration 0017 Phase 4 — Patiktok Operator Dashboard.
 //
@@ -62,9 +63,15 @@ export default async function PatiktokBoothDashboard({
 
   const { data: event } = await supabase
     .from('events')
-    .select('display_name, event_date')
+    .select('display_name, event_date, papic_face_mode, event_type')
     .eq('event_id', eventId)
     .maybeSingle();
+  // Face-tag mode gate (One-Pool spec §3.4). Fail-closed to mode_b; forced to
+  // mode_b for christening/debut. Gates the booth pre-fill embedder below.
+  const faceMode = resolveFaceMode(
+    (event as { papic_face_mode?: string | null } | null)?.papic_face_mode,
+    (event as { event_type?: string | null } | null)?.event_type,
+  );
 
   // Count today's submissions for soft-cap check. The spec's soft cap is
   // per-booth per-day; here we use "submissions enqueued in the last 24 h"
@@ -165,6 +172,7 @@ export default async function PatiktokBoothDashboard({
         guests={guests}
         tables={tables}
         faceEnabled={faceEnabled}
+        faceMode={faceMode}
       />
 
       <OperatorTips />
@@ -312,12 +320,14 @@ function RecordCTA({
   guests,
   tables,
   faceEnabled,
+  faceMode,
 }: {
   eventId: string;
   primaryTemplate: PatiktokTemplate;
   guests: BoothGuest[];
   tables: BoothTable[];
   faceEnabled: boolean;
+  faceMode: import('@/lib/papic-face-mode').PapicFaceMode;
 }) {
   return (
     <div className="space-y-3">
@@ -331,6 +341,7 @@ function RecordCTA({
         guests={guests}
         tables={tables}
         faceEnabled={faceEnabled}
+        faceMode={faceMode}
       />
       <Link
         href={`/dashboard/${eventId}/studio/patiktok/${primaryTemplate.slug}`}

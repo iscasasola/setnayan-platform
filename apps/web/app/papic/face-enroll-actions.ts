@@ -3,6 +3,7 @@
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VECTOR_MODEL } from '@/lib/face-embed-core';
+import { FACE_CONSENT_COPY_VERSION } from '@/lib/papic-face-mode';
 
 // Day-of / camera face enrollment — the "register your face if you haven't yet"
 // path for a guest who SKIPPED the optional RSVP selfie. Same write as the RSVP
@@ -28,7 +29,14 @@ export async function enrollGuestFace(
 
     const selfieRef = clean(formData.get('selfie_ref'));
     const consent = clean(formData.get('biometric_consent')) === '1';
-    if (!selfieRef || !consent) return { ok: false };
+    // Adults-only gate (RA 10173 · NPC — minors scoped OUT of biometric
+    // enrollment for V1). Server-side backstop for the client checkbox: a
+    // crafted/replayed POST with biometric_consent=1 must not enrol a minor.
+    // No age is stored — a boolean attestation only. Parity with submitRsvp;
+    // this is ALSO the custom-QR enrol path (a guest who scanned their custom
+    // QR carries the session this action reads).
+    const ageAffirmed = clean(formData.get('age_affirmation')) === '1';
+    if (!selfieRef || !consent || !ageAffirmed) return { ok: false };
 
     const admin = createAdminClient();
     const guestId = session.guest_id;
@@ -181,6 +189,8 @@ export async function enrollGuestFace(
         vector_model: s.vector ? VECTOR_MODEL : null,
         consent_at: nowIso,
         consent_source: consentSource,
+        // Consent evidence (One-Pool spec §3.3): pin WHAT disclosure was shown.
+        consent_copy_version: FACE_CONSENT_COPY_VERSION,
       })),
     );
 

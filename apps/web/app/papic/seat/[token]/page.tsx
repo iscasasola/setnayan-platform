@@ -4,6 +4,7 @@ import { CircleAlert } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { asPapicStyle } from '@/lib/papic-photo-styles';
+import { resolveFaceMode } from '@/lib/papic-face-mode';
 import { PapicSeatCapture } from './_components/papic-seat-capture';
 import { CameraBridgePanel } from './_components/camera-bridge-panel';
 
@@ -97,13 +98,19 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
         .is('superseded_at', null),
       admin
         .from('events')
-        .select('papic_style')
+        .select('papic_style, papic_face_mode, event_type')
         .eq('event_id', seat.event_id as string)
         .maybeSingle(),
     ]);
 
   const eventStyle = asPapicStyle(
     (styleRow as { papic_style?: string } | null)?.papic_style,
+  );
+  // Face-tag mode gate (One-Pool spec §3.4). Fail-closed to mode_b: a
+  // pre-migration DB (column absent → row read null) yields no embedding.
+  const faceMode = resolveFaceMode(
+    (styleRow as { papic_face_mode?: string | null } | null)?.papic_face_mode,
+    (styleRow as { event_type?: string | null } | null)?.event_type,
   );
 
 
@@ -119,6 +126,7 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
         clipCap={null}
         isAnon={Boolean(user.is_anonymous)}
         eventStyle={eventStyle}
+        faceMode={faceMode}
       />
       {bridgeEnabled ? (
         <CameraBridgePanel

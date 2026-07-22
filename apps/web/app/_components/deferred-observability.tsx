@@ -29,6 +29,7 @@
 // browser is still parsing/executing the main bundle anyway.
 
 import { useEffect } from 'react';
+import { scrubFaceVectorsFromEvent } from '@/lib/observability-scrub';
 
 const SENTRY_DSN = process.env.NEXT_PUBLIC_SENTRY_DSN;
 
@@ -144,9 +145,10 @@ export function DeferredObservability() {
               }),
             ],
             // Best-effort PII scrubber on the whole event payload (breadcrumbs,
-            // request data, extra context, error messages). Complements the
-            // replay masking above.
-            beforeSend: (event) => scrubPii(event),
+            // request data, extra context, error messages), plus a fail-closed
+            // biometric face-vector scrub (RA 10173 · One-Pool spec §3.4 step 5)
+            // so a 128-d descriptor can never leave the browser in an event.
+            beforeSend: (event) => scrubPii(scrubFaceVectorsFromEvent(event)),
             // Session replays are expensive — disable steady-state
             // capture and only record when an error actually fires.
             replaysSessionSampleRate: 0,

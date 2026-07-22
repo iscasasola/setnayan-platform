@@ -9,6 +9,7 @@ import { parseStoredAsset } from '@/lib/uploads';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { VECTOR_MODEL } from '@/lib/face-embed-core';
+import { FACE_CONSENT_COPY_VERSION } from '@/lib/papic-face-mode';
 import { readGuestSession } from '@/lib/guest-session';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { emitNotification } from '@/lib/notification-emit';
@@ -248,6 +249,8 @@ export async function submitRsvp(
         vector_model: faceVector ? VECTOR_MODEL : null,
         consent_at: new Date().toISOString(),
         consent_source: 'rsvp',
+        // Consent evidence (One-Pool spec §3.3): pin WHAT disclosure was shown.
+        consent_copy_version: FACE_CONSENT_COPY_VERSION,
       });
     } catch {
       // Selfie/enrollment failure never blocks the RSVP.

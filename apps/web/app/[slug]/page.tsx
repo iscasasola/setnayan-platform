@@ -40,6 +40,7 @@ import { eventPabatiActive, fetchPabatiQuota } from '@/lib/pabati';
 import { PabatiPrompt } from './_components/pabati-prompt';
 import { eventOwnsPapicSeats } from '@/lib/papic-seats';
 import { asPapicStyle, type PapicStyle } from '@/lib/papic-photo-styles';
+import { resolveFaceMode, type PapicFaceMode } from '@/lib/papic-face-mode';
 import { resolveGuestCamera } from '@/lib/papic-limited';
 import { eventSkuActive } from '@/lib/entitlements';
 import { eventOwnsCustomQrGuest } from '@/lib/seat-pass';
@@ -1142,6 +1143,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         termsAccepted: boolean;
         guestUnlimited: boolean;
         eventStyle: PapicStyle;
+        faceMode: PapicFaceMode;
       }
     | null = null;
   if (papicGuestActive) {
@@ -1159,11 +1161,12 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
           .eq('event_id', event.event_id)
           .eq('blocked_guest_id', guest.guest_id)
           .maybeSingle(),
-        // Locked event-wide Papic look — defensive read so a pre-migration DB
-        // (no papic_style column) falls back to ORIG instead of breaking.
+        // Locked event-wide Papic look + face-tag mode — defensive read so a
+        // pre-migration DB (no papic_style / papic_face_mode column) falls back
+        // to ORIG / mode_b instead of breaking.
         admin
           .from('events')
-          .select('papic_style')
+          .select('papic_style, papic_face_mode')
           .eq('event_id', event.event_id)
           .maybeSingle(),
       ]);
@@ -1178,6 +1181,12 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         guestUnlimited: quota.unlimited,
         eventStyle: asPapicStyle(
           (styleRow as { papic_style?: string } | null)?.papic_style,
+        ),
+        // Face-tag mode gate (One-Pool spec §3.4). Fail-closed to mode_b;
+        // forced to mode_b for christening/debut via event.event_type.
+        faceMode: resolveFaceMode(
+          (styleRow as { papic_face_mode?: string | null } | null)?.papic_face_mode,
+          event.event_type,
         ),
       };
     }
@@ -2468,6 +2477,7 @@ function InvitationSite({
     termsAccepted: boolean;
     guestUnlimited: boolean;
     eventStyle: PapicStyle;
+    faceMode: PapicFaceMode;
   } | null;
   /** Inline Pabati video-greeting recorder (PABATI) — non-null only when the
    *  event owns the active (admin-approved) pack. Mounts the guest recorder
@@ -2860,6 +2870,7 @@ function InvitationSite({
             needsFaceEnroll={needsFaceEnroll}
             guestUnlimited={papicGuest.guestUnlimited}
             eventStyle={papicGuest.eventStyle}
+            faceMode={papicGuest.faceMode}
           />
         ) : null}
 

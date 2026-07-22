@@ -187,6 +187,55 @@ export function clipWebCopyCustodyOk(
 }
 
 // ============================================================================
+// No-Drive HOLD-AND-WARN gate (Papic storage PR-4 · retention-lapse safety).
+//
+// An event with NO Google Drive pointed at it (`not_connected`) has its full-res
+// original in exactly ONE place — our R2. Dropping it is irreversible, so it must
+// NEVER happen silently: the couple gets a pre-drop nudge (the ~day-76 warning
+// email, WARN_LEAD_DAYS before the 90-day fuse) telling them to download their
+// originals or connect Drive. This gate refuses to drop a no-Drive original until
+// that warning was PROVABLY sent (`full_res_drop_warned_at` stamped) AND a lead-
+// time grace has elapsed — so a couple who never connected Drive can't lose an
+// original in one silent sweep, and neither can a lapsed Keep-Full-Res event
+// (whose warn stamp is null while the SKU was active → held on lapse until the
+// warn job nudges it). Unwarned → HOLD (retry next sweep). The compressed gallery
+// (display/thumb) is untouched either way — only the full-res original is at
+// stake. There is NO paid "keep full-res" upsell in this path (retired
+// 2026-07-17): the free fallback is download-in-window / connect-Drive / else
+// hold-and-warn.
+// ============================================================================
+
+/**
+ * Minimum lead-time between the couple being warned and their no-Drive full-res
+ * original becoming droppable. The warning fires ~WARN_LEAD_DAYS (14) before the
+ * fuse, so in the normal flow this 7-day floor is already satisfied by the time
+ * a photo is age-eligible; it only ever HOLDS when the warn never actually landed
+ * (email failed / event missed the batch / SKU-lapse with a null stamp).
+ */
+export const NO_DRIVE_DROP_WARN_GRACE_DAYS = 7;
+
+/**
+ * May a no-Drive event's full-res original be dropped yet? Pure, so the sweep and
+ * its test share one definition. `true` ONLY when the couple was provably warned
+ * AND the grace elapsed:
+ *   • warnedAt null / unparseable → false — never warned → HOLD (no silent loss);
+ *   • warned less than graceDays ago → false — inside the lead-time → HOLD;
+ *   • warned ≥ graceDays ago → true — the couple had their window; drop is allowed.
+ * Applies to the `not_connected` branch only — a confirmed Drive copy is the
+ * safety net for connected events, so those never need this gate.
+ */
+export function noDriveDropAllowed(
+  warnedAtIso: string | null,
+  opts: { nowMs: number; graceDays?: number },
+): boolean {
+  if (!warnedAtIso) return false;
+  const warnedMs = Date.parse(warnedAtIso);
+  if (!Number.isFinite(warnedMs)) return false;
+  const graceMs = (opts.graceDays ?? NO_DRIVE_DROP_WARN_GRACE_DAYS) * MS_PER_DAY;
+  return opts.nowMs - warnedMs >= graceMs;
+}
+
+// ============================================================================
 // Drive-aware defer guard (Papic_Build_Brief_2026-07-17.md ruling #4 — MANDATORY)
 //
 // The age + web-copy guards above only prove the GALLERY survives the drop.

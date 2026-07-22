@@ -1,4 +1,4 @@
-import { HardDrive } from 'lucide-react';
+import { HardDrive, CloudOff } from 'lucide-react';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -7,6 +7,8 @@ import {
   DEFAULT_WEB_COPY_CEILING_GB,
   type StorageRow,
 } from '@/lib/papic-storage-telemetry';
+import { listStrandedDriveCopies } from '@/lib/papic-drive-copy-retry';
+import { DRIVE_COPY_RETRY_CEILING } from '@/lib/papic-drive-copy-retry-core';
 
 // Read-only admin readout for the Papic storage byte-telemetry (migration
 // 20270718100867). Surfaces the two numbers the pricing councils flagged as
@@ -102,6 +104,16 @@ export default async function PapicStoragePage() {
   const overCeiling = perEvent.filter((e) => e.summary.overWebCopyCeiling).length;
   const capped = rows.length >= ROW_CAP * 2;
 
+  // Drive copies stranded past the retry ceiling (Papic storage PR-4). Each one
+  // is a couple's full-res original that never reached their Google Drive after
+  // every retry — so the full-res drop is DEFERRING its raw forever (a permanent
+  // hot cost). Surfaced so an admin can act: reconnect the couple's Drive, hand
+  // off the originals, or accept the retained raw.
+  const stranded = await listStrandedDriveCopies(100).catch(() => ({
+    total: 0,
+    rows: [] as Awaited<ReturnType<typeof listStrandedDriveCopies>>['rows'],
+  }));
+
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6">
       <header className="flex items-center gap-3">
@@ -189,6 +201,58 @@ export default async function PapicStoragePage() {
             )}
           </tbody>
         </table>
+      </section>
+
+      <section className="space-y-3">
+        <header className="flex items-center gap-2">
+          <CloudOff className="h-5 w-5 text-ink/50" aria-hidden />
+          <div>
+            <h2 className="text-base font-semibold text-ink">Stranded Drive copies</h2>
+            <p className="text-sm text-ink/60">
+              Full-res originals that never reached the couple&rsquo;s Google Drive after{' '}
+              {DRIVE_COPY_RETRY_CEILING}+ retries. The retry sweep has given up (no hot loop),
+              and the full-res drop is deferring each one&rsquo;s raw indefinitely. Reconnect the
+              couple&rsquo;s Drive or hand off the originals to clear them.
+            </p>
+          </div>
+        </header>
+
+        {stranded.total === 0 ? (
+          <p className="rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+            None stranded — every Drive copy is landing (or still within its back-off retries).
+          </p>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border border-ink/10">
+            <table className="w-full text-sm">
+              <thead className="bg-ink/[0.03] text-left text-xs text-ink/60">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Event</th>
+                  <th className="px-3 py-2 font-medium">Type</th>
+                  <th className="px-3 py-2 font-medium">File</th>
+                  <th className="px-3 py-2 text-right font-medium">Attempts</th>
+                  <th className="px-3 py-2 font-medium">Last error</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ink/5">
+                {stranded.rows.map((s, i) => (
+                  <tr key={`${s.eventId}-${i}`} className="bg-amber-50/40">
+                    <td className="max-w-[12rem] truncate px-3 py-2 font-mono text-xs text-ink/70">
+                      {s.eventId}
+                    </td>
+                    <td className="px-3 py-2 text-ink/70">{s.artifactType}</td>
+                    <td className="max-w-[12rem] truncate px-3 py-2 text-ink/70">{s.fileName}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-ink/70">
+                      {s.attemptCount.toLocaleString()}
+                    </td>
+                    <td className="max-w-[16rem] truncate px-3 py-2 text-xs text-ink/55">
+                      {s.lastErrorText ?? '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </div>
   );

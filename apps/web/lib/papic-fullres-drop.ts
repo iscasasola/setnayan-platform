@@ -12,6 +12,8 @@ import {
   guestPhotoItem,
   isDriveDeferred,
   isEligibleForDrop,
+  NO_DRIVE_DROP_WARN_GRACE_DAYS,
+  noDriveDropAllowed,
   resolveOriginalRef,
   sameResolvedObject,
   seatClipItem,
@@ -190,6 +192,18 @@ function retentionDays(): number {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : DEFAULT_FULL_RES_RETENTION_DAYS;
 }
 
+function warnGateEnabled(): boolean {
+  // Papic storage PR-4 — no-Drive HOLD-AND-WARN safety. SAFE-DEFAULT ON: a
+  // not_connected event's full-res original is never dropped unless the couple
+  // was provably warned (the ~day-76 nudge) + a lead-time grace elapsed. This
+  // only ever PREVENTS a deletion (it can never cause one), so on-by-default is
+  // the safe direction — and prod has only excluded sample photos today, so it
+  // changes nothing live. KILL-SWITCH: PAPIC_DROP_REQUIRE_WARN='false' reverts to
+  // the pre-PR-4 behaviour (drop no-Drive originals at the fuse without the
+  // warn-proof gate).
+  return process.env.PAPIC_DROP_REQUIRE_WARN !== 'false';
+}
+
 export type FullResDropSummary = {
   dryRun: boolean;
   retentionDays: number;
@@ -205,6 +219,13 @@ export type FullResDropSummary = {
   deferredDriveCopy: number;
   /** Events whose Drive state couldn't be read → all their photos deferred. */
   driveStateUnknownEvents: number;
+  /**
+   * No-Drive originals HELD (not dropped) because the couple wasn't provably
+   * warned + past the lead-time grace yet (Papic storage PR-4 hold-and-warn). A
+   * couple who never connected Drive can't silently lose an original — the raw is
+   * kept until the ~day-76 nudge lands and its window elapses.
+   */
+  heldNoDriveUnwarned: number;
   /**
    * Clips kept because the web-copy OBJECT custody check failed — missing /
    * size-mismatch / non-video / within the fresh-grace window. A destructive-
@@ -301,11 +322,15 @@ export async function runFullResDropSweep(
   let deferredDriveCopy = 0;
   let driveStateUnknownEvents = 0;
   let clipWebUnverified = 0;
+  let heldNoDriveUnwarned = 0;
   let failed = 0;
   let bytesReclaimed = 0;
+  const warnGate = warnGateEnabled();
   const keepCache = new Map<string, boolean>();
   const driveCache = new Map<string, DriveCopyState>();
+  const warnedAtCache = new Map<string, string | null>();
   const deferredByEvent = new Map<string, number>();
+  const heldByEvent = new Map<string, number>();
 
   // COLUMN-LEVEL eligibility, dispatched by kind. Photos use the photo predicate;
   // clips use the clip predicate (poster-trap guarded, distinct + byte-floored web
@@ -366,6 +391,32 @@ export async function runFullResDropSweep(
       deferredDriveCopy += 1;
       deferredByEvent.set(it.event_id, (deferredByEvent.get(it.event_id) ?? 0) + 1);
       continue;
+    }
+
+    // HOLD-AND-WARN (Papic storage PR-4 · no-Drive retention-lapse safety). A
+    // `not_connected` event has its full-res original ONLY on our R2 — deleting it
+    // is irreversible. Never do it silently: require the couple was provably
+    // warned (the ~day-76 nudge stamps events.full_res_drop_warned_at) AND a lead-
+    // time grace elapsed. Unwarned → HOLD (retry next sweep; the warn job nudges
+    // them). Connected events skip this — their confirmed Drive copy is the safety
+    // net (and unconfirmed ones already deferred above). The compressed gallery is
+    // never at stake here; only the full-res original.
+    if (warnGate && drive.kind === 'not_connected') {
+      let warnedAt = warnedAtCache.get(it.event_id);
+      if (warnedAt === undefined) {
+        const { data: evRow } = await admin
+          .from('events')
+          .select('full_res_drop_warned_at')
+          .eq('event_id', it.event_id)
+          .maybeSingle();
+        warnedAt = (evRow?.full_res_drop_warned_at as string | null) ?? null;
+        warnedAtCache.set(it.event_id, warnedAt);
+      }
+      if (!noDriveDropAllowed(warnedAt, { nowMs })) {
+        heldNoDriveUnwarned += 1;
+        heldByEvent.set(it.event_id, (heldByEvent.get(it.event_id) ?? 0) + 1);
+        continue;
+      }
     }
 
     const ref = resolveOriginalRef(it.r2_object_key);
@@ -434,6 +485,25 @@ export async function runFullResDropSweep(
     );
   }
 
+  // Observability: no-Drive originals HELD pending a proven warn. Not a silent
+  // skip — a clear held/warned state. If this number never falls for an event,
+  // the ~day-76 nudge isn't reaching that couple (check the warn job / their
+  // email), so their originals stay safely held rather than silently dropped.
+  if (heldNoDriveUnwarned > 0) {
+    const worst = [...heldByEvent.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([id, n]) => `${id}=${n}`)
+      .join(', ');
+    console.warn(
+      `[papic-fullres-drop] HELD ${heldNoDriveUnwarned} no-Drive full-res original(s) ` +
+        `across ${heldByEvent.size} event(s) — the couple hasn't been provably warned + ` +
+        `past the ${NO_DRIVE_DROP_WARN_GRACE_DAYS}-day grace, so the original is kept (never a ` +
+        `silent loss). They drop once the day-76 nudge lands and its window elapses. ` +
+        `Top: ${worst}.`,
+    );
+  }
+
   // Observability: a stuck Drive copy must be visible, not a silent skip. Each
   // deferred photo is one whose full-res second copy hasn't landed — if this
   // number never falls for an event, that event's Drive sync is broken.
@@ -463,6 +533,7 @@ export async function runFullResDropSweep(
     skippedKeepFullRes,
     deferredDriveCopy,
     driveStateUnknownEvents,
+    heldNoDriveUnwarned,
     clipWebUnverified,
     failed,
     bytesReclaimed,

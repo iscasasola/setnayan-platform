@@ -67,6 +67,41 @@ const HANDLERS: Record<ServiceCode, (item: OfflineItem) => Promise<SyncResult>> 
   live_wall: syncOneLiveWall,
 };
 
+// ── Eviction backstop (the "7-day TTL" the per-service handlers reference) ────
+//
+// Until now this was a comment-only promise: the daemon only ever incremented
+// `retry_count`, so a permanently-failing item (a 4xx the client shouldn't have
+// queued, or an event pool that never refills) retried FOREVER. These two bounds
+// make the eviction real — a still-failing item is dropped once EITHER bound is
+// crossed, so doomed items stop hammering the network. The TTL is the primary
+// bound (matches the "7-day TTL eviction is the backstop" handler comments); the
+// retry cap is a secondary guard against a fast-firing daemon retrying one item
+// thousands of times before the 7 days elapse.
+
+/** How long a queued item may sit unsent before the daemon gives up on it. */
+export const OFFLINE_ITEM_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+/** Hard ceiling on retry attempts for a single item (secondary to the TTL). */
+export const OFFLINE_MAX_RETRY_COUNT = 50;
+
+/**
+ * True when a still-failing queued item has exhausted its retry budget — it is
+ * older than the TTL, or it has been retried more than the cap — and should be
+ * EVICTED rather than attempted again. Pure + `nowMs`-injectable so it is unit
+ * testable without a browser (the rest of the daemon needs IndexedDB). A
+ * malformed `queued_at` never ages out on time alone (Date.parse → NaN), so the
+ * retry cap is the guaranteed backstop in that case.
+ */
+export function isOfflineItemExpired(
+  item: Pick<OfflineItem, 'queued_at' | 'retry_count'>,
+  nowMs: number = Date.now(),
+): boolean {
+  const queuedMs = Date.parse(item.queued_at);
+  const agedOut = Number.isFinite(queuedMs) && nowMs - queuedMs > OFFLINE_ITEM_TTL_MS;
+  const retriedOut = item.retry_count >= OFFLINE_MAX_RETRY_COUNT;
+  return agedOut || retriedOut;
+}
+
 /**
  * Register the daemon with the browser's Background Sync API so the
  * service worker fires `OFFLINE_SYNC_TAG` when connectivity returns
@@ -145,6 +180,21 @@ export async function triggerSyncNow(): Promise<SyncRunSummary[]> {
       let failed = 0;
 
       for (const item of items) {
+        // Eviction backstop: a still-failing item past the 7-day TTL or the
+        // retry cap is doomed — evict it (dequeue) instead of attempting it
+        // again, so permanently-failing captures stop retrying forever. Counts
+        // as `failed` (it never delivered), and the pending count drops so the
+        // diagnostic no longer shows a stuck item hammering the network.
+        if (isOfflineItemExpired(item)) {
+          try {
+            await dequeueOfflineItem(service, item.item_id);
+          } catch {
+            // Dequeue failed — leave it; the next pass retries the eviction.
+          }
+          failed += 1;
+          continue;
+        }
+
         let result: SyncResult;
         try {
           result = await handler(item);

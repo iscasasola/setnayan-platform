@@ -27,9 +27,12 @@ import { clipWebKeyDistinct } from '@/lib/papic-display-ref';
 export const runtime = 'nodejs';
 
 const MAX_BYTES = 12_000_000; // 12 MB — a phone JPEG is well under this
-// A 5-second 1080p phone clip is comfortably under this; oversized uploads are
-// rejected before any R2 round-trip.
-const MAX_CLIP_BYTES = 25_000_000; // ~25 MB
+// A 10-second 1440p clip at the client's bounded ~10 Mbps encode targets
+// 10 Mbps × 10 s ÷ 8 = ~12.5 MB. This ceiling keeps ~3× headroom over that for
+// VBR overshoot + the audio track + container overhead, so a legitimate 10s
+// clip never 413s. Oversized uploads are rejected (413 too_large) before any R2
+// round-trip. (Was 25 MB, sized for the retired 5-second/1080p clip.)
+const MAX_CLIP_BYTES = 40_000_000; // 40 MB
 // 10-SECOND CLIP CAP — owner 2026-07-22 · §0. The route rejects a client that
 // stamps a longer duration; the RPC ALSO clamps with LEAST(ms,10000).
 const MAX_CLIP_MS = 10000;
@@ -167,7 +170,7 @@ export async function POST(req: Request) {
     return handleGuestClipWebCopy(form, session);
   }
 
-  // media_type: 'photo' (default · JPEG path) | 'clip' (a guest-recorded ≤5s
+  // media_type: 'photo' (default · JPEG path) | 'clip' (a guest-recorded ≤10s
   // video — Option A, the path that feeds the Alaala orb). The branch governs
   // the MIME allow-list, size cap, R2 key, and the poster/duration the clip
   // carries. An absent/unknown value → 'photo' so the original path is exact.
@@ -197,7 +200,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'uploads_unavailable' }, { status: 503 });
   }
 
-  // Clip extras (clip path only): the client-stamped duration (5s hard cap, also
+  // Clip extras (clip path only): the client-stamped duration (10s hard cap, also
   // re-clamped in the RPC) and the poster frame — the NSFW-screen proxy (nsfwjs
   // is image-only; we never classify the video bytes). A posterless clip stays
   // 'unscreened' (excluded from guest surfaces structurally).

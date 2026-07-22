@@ -93,8 +93,16 @@ export function photoJpegQuality(tier: PapicQualityTier): number {
   return tier === 'full' ? 0.9 : 0.72;
 }
 
-/** MediaRecorder `videoBitsPerSecond` for a clip at this tier. `undefined` lets
- *  the browser pick its default (highest); reduced/queue-only cap it. */
+/** MediaRecorder `videoBitsPerSecond` for a clip at this tier. Every tier is now
+ *  BOUNDED. 'full' used to return `undefined`, which let the browser pick its
+ *  default bitrate (often 20–40+ Mbps) — fine for the retired 5-second/1080p
+ *  clip, but a 10-second 1440p clip at that default blew past the route byte
+ *  ceiling and 413'd (which the offline queue then mishandled as a transient
+ *  failure → silent data loss). 10 Mbps is ample for 1440p; a 10s clip targets
+ *  10 Mbps × 10 s ÷ 8 = 12.5 MB, comfortably under the route ceilings. The
+ *  return type keeps `| undefined` so a future tier could opt back into the
+ *  browser default, but no current tier does. */
 export function clipVideoBitsPerSecond(tier: PapicQualityTier): number | undefined {
-  return tier === 'full' ? undefined : 2_500_000; // ~2.5 Mbps, ample for 1080p
+  // 'full' → ~10 Mbps (bounded, 1440p) · reduced/queue-only → ~2.5 Mbps.
+  return tier === 'full' ? 10_000_000 : 2_500_000;
 }

@@ -160,14 +160,36 @@ test('drainGuestCaptureWith: a queued clip re-POSTs the full multipart form', as
   assert.ok(form.get('poster'));
 });
 
-test('drainGuestCaptureWith: a terminal state (quota_exhausted) resolves the item (dequeue)', async () => {
-  const post = async (): Promise<GuestPostResult> => ({
-    ok: false,
-    status: 409,
-    body: { status: 'quota_exhausted' },
-  });
-  const result = await drainGuestCaptureWith(post, guestPayload());
-  assert.deepEqual(result, { ok: true }); // dropped, not retried forever
+test('drainGuestCaptureWith: pool exhaustion is NOT dequeued as success (kept + surfaced)', async () => {
+  // Both status strings the route can return for an exhausted shared event pool.
+  // Neither may resolve the item as ok:true — that silently discarded the shot
+  // while counting it a success. It must stay queued + surfaced so a top-up can
+  // still land it (and the daemon's TTL/retry cap terminalizes it otherwise).
+  for (const status of ['quota_exhausted', 'camera_points_exhausted']) {
+    const post = async (): Promise<GuestPostResult> => ({
+      ok: false,
+      status: 409,
+      body: { status },
+    });
+    const result = await drainGuestCaptureWith(post, guestPayload());
+    assert.deepEqual(
+      result,
+      { ok: false, error: 'camera_points_exhausted' },
+      `${status} must be kept (ok:false), not silently discarded`,
+    );
+  }
+});
+
+test('drainGuestCaptureWith: blocked / terms are terminal with nothing to save → dequeue', async () => {
+  for (const status of ['blocked', 'terms_required']) {
+    const post = async (): Promise<GuestPostResult> => ({
+      ok: false,
+      status: 403,
+      body: { status },
+    });
+    const result = await drainGuestCaptureWith(post, guestPayload());
+    assert.deepEqual(result, { ok: true }, `${status} resolves the item (dequeue)`);
+  }
 });
 
 test('drainGuestCaptureWith: a 5xx is kept for retry; a network throw is kept', async () => {

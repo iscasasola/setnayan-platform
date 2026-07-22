@@ -29,6 +29,7 @@ import {
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import { ServerTimer } from '@/lib/server-timing';
+import { PromoFreeWindowBannerVendor } from '@/app/_components/promo-free-window-banner-vendor';
 
 /**
  * Vendor dashboard layout — v2.1 Navigation Phase 2 (vendor doorway).
@@ -350,7 +351,12 @@ export default async function VendorDashboardLayout({
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last
             row of content. SidebarShell already handles the desktop
             sidebar offset via its lg:pl-[var(--shell-main-offset)] math. */}
-        <div className="pb-[calc(env(safe-area-inset-bottom)+92px)] lg:pb-0">{children}</div>
+        <div className="pb-[calc(env(safe-area-inset-bottom)+92px)] lg:pb-0">
+          {/* Live vendor "free tier" promo announcement (self-gates to null when
+              PROMO_FREE_WINDOWS_ENABLED is off or nothing is live). */}
+          <PromoFreeWindowBannerVendor />
+          {children}
+        </div>
       </SidebarShell>
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
           BottomNav primitive. Sits outside SidebarShell so it doesn't

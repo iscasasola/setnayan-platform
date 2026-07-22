@@ -1,9 +1,10 @@
 /**
  * Unit suite for the vendor on-the-day Papic capture tier + capture-points model
- * (owner-locked 2026-07-18). Invariants: the tier is EARNED by the token path
- * (founder-comp or a spent/held token → Ltd; else Lite), a paid Unli upgrade
- * wins, Lite is 50 pts + video (owner 2026-07-22), and the points ledger (photo=1, clip=7) enforces
- * each tier's budget.
+ * (owner-locked 2026-07-18). Invariants: with tokens retired (2026-07-21) the
+ * interim base tier is EARNED only by a founder-comp accept (→ Ltd; else Lite), a
+ * paid Unli upgrade wins, Lite is the 50-pt gift + video (owner 2026-07-22), the
+ * points ledger (photo=1, clip=7) enforces each tier's budget, and the fee-scaled
+ * allowance runs 50 pts (₱0) → 200 pts (₱4,000).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -17,14 +18,15 @@ import {
   baseTierFromProvenance,
   resolveVendorPapicTier,
   tierReadout,
+  vendorPapicPointsForBookingFee,
+  VENDOR_PAPIC_BASE_GIFT_POINTS,
+  VENDOR_PAPIC_MAX_POINTS,
   type VendorAcceptProvenance,
 } from './vendor-papic-tier';
 
 const prov = (p: Partial<VendorAcceptProvenance>): VendorAcceptProvenance => ({
   hasUnlock: false,
   founderComp: false,
-  tokensBurned: 0,
-  hasActiveHold: false,
   ...p,
 });
 
@@ -56,30 +58,16 @@ test('base tier: no unlock → Lite (the floor)', () => {
   assert.equal(baseTierFromProvenance(prov({ hasUnlock: false })), 'lite');
 });
 
-test('base tier: founder-comp accept → Ltd (as-if-paid)', () => {
+test('base tier: founder-comp accept → Ltd (as-if-paid, non-token)', () => {
   assert.equal(
-    baseTierFromProvenance(prov({ hasUnlock: true, founderComp: true, tokensBurned: 0 })),
+    baseTierFromProvenance(prov({ hasUnlock: true, founderComp: true })),
     'ltd',
   );
 });
 
-test('base tier: token burned (live or consumed hold) → Ltd', () => {
+test('base tier: ordinary booked accept (not founder) → Lite (tokens retired)', () => {
   assert.equal(
-    baseTierFromProvenance(prov({ hasUnlock: true, tokensBurned: 1 })),
-    'ltd',
-  );
-});
-
-test('base tier: reserved (held) token, not yet consumed → Ltd', () => {
-  assert.equal(
-    baseTierFromProvenance(prov({ hasUnlock: true, tokensBurned: 0, hasActiveHold: true })),
-    'ltd',
-  );
-});
-
-test('base tier: unlock exists but no token spent + not founder → Lite', () => {
-  assert.equal(
-    baseTierFromProvenance(prov({ hasUnlock: true, tokensBurned: 0, hasActiveHold: false })),
+    baseTierFromProvenance(prov({ hasUnlock: true, founderComp: false })),
     'lite',
   );
 });
@@ -93,8 +81,29 @@ test('resolve: a PAID Unli upgrade wins over any base tier', () => {
 });
 
 test('resolve: no upgrade → the derived base tier', () => {
-  assert.equal(resolveVendorPapicTier(prov({ hasUnlock: true, tokensBurned: 2 }), false), 'ltd');
+  assert.equal(
+    resolveVendorPapicTier(prov({ hasUnlock: true, founderComp: true }), false),
+    'ltd',
+  );
   assert.equal(resolveVendorPapicTier(prov({ hasUnlock: true }), false), 'lite');
+});
+
+test('fee-scaled points: ₱0 → 50 (gift floor), ₱4,000 → 200 (ceiling)', () => {
+  assert.equal(vendorPapicPointsForBookingFee(0), VENDOR_PAPIC_BASE_GIFT_POINTS);
+  assert.equal(vendorPapicPointsForBookingFee(0), 50);
+  assert.equal(vendorPapicPointsForBookingFee(4000), VENDOR_PAPIC_MAX_POINTS);
+  assert.equal(vendorPapicPointsForBookingFee(4000), 200);
+});
+
+test('fee-scaled points: proportional in between, capped above the ceiling', () => {
+  assert.equal(vendorPapicPointsForBookingFee(2000), 125); // halfway → 50 + 75
+  assert.equal(vendorPapicPointsForBookingFee(1000), 88); // 50 + 37.5 → round
+  assert.equal(vendorPapicPointsForBookingFee(8000), 200); // clamped at the ceiling
+});
+
+test('fee-scaled points: junk fee (negative / NaN) → the gift floor', () => {
+  assert.equal(vendorPapicPointsForBookingFee(-500), 50);
+  assert.equal(vendorPapicPointsForBookingFee(Number.NaN), 50);
 });
 
 test('canCapture: Lite now allows clips (documentation is photos + video)', () => {

@@ -51,6 +51,7 @@ import {
 import {
   clashBlocksFromScheduleRows,
   scheduleClashesFromBlocks,
+  loadVendorChangeSignals,
 } from '@/lib/setnayan-ai-snapshot';
 import { renderTemplate, WEDDING_TERMINOLOGY } from '@/lib/setnayan-ai-templates';
 import { buildProgressStages } from '@/lib/progress-stages';
@@ -261,7 +262,7 @@ export async function EventDashboard({
       try {
         return await supabase
           .from('event_vendors')
-          .select('vendor_id, vendor_name, category, status, total_cost_php')
+          .select('vendor_id, vendor_name, category, status, total_cost_php, marketplace_vendor_id')
           .eq('event_id', eventId)
           .is('archived_at', null)
           .order('created_at', { ascending: true });
@@ -544,6 +545,7 @@ export async function EventDashboard({
     category: VendorCategory;
     status: string | null;
     total_cost_php: number | string | null;
+    marketplace_vendor_id: string | null;
   }>;
 
   // ---- Committed budget — same formula as the Overview (paid + fulfilled
@@ -806,6 +808,16 @@ export async function EventDashboard({
   // fed ONLY what this surface already loaded (payments due + budget). -------
   let watchItems: Array<{ intervention: Intervention; copy: string }> = [];
   if (aiActive) {
+    // GRD-03 price + GRD-09 availability — the SAME vendor-history join the
+    // notify snapshot runs, so the in-app rail shows these two too (not just
+    // notifications). Uses the admin client (the price-history table is RLS'd
+    // away from the couple). Fail-soft to empty.
+    const changeSignals = await loadVendorChangeSignals(
+      adminClient,
+      eventVendors.map((v) => ({ id: v.marketplace_vendor_id, name: v.vendor_name })),
+      event.event_date,
+      now,
+    ).catch(() => ({ priceChanges: [], availability: [] }));
     const snapshot: PlanningSnapshot = {
       eventType,
       payments: upcoming.paymentItemsNext30d.map((item) => ({
@@ -816,7 +828,7 @@ export async function EventDashboard({
       })),
       statutory: [],
       shortlist: [],
-      priceChanges: [],
+      priceChanges: changeSignals.priceChanges,
       contracts: [],
       inquiries: [],
       budget:
@@ -834,10 +846,8 @@ export async function EventDashboard({
       // GRD-06 clash — the same pure detection the notify snapshot uses, over
       // the run-of-show blocks this surface already loaded.
       scheduleClash: scheduleClashesFromBlocks(clashBlocksFromScheduleRows(scheduleBlocks)),
-      // GRD-03 price / GRD-09 availability run on the notify sweep's snapshot
-      // (buildPlanningSnapshot) which does the vendor-history joins; the in-app
-      // watch rail leaves them empty rather than duplicate that read here.
-      availability: [],
+      // GRD-09 availability — same signals as the notify snapshot (loaded above).
+      availability: changeSignals.availability,
     };
     watchItems = applyRestraint(runTriggers(snapshot, now), { maxProactive: 4 }).map(
       (intervention) => ({

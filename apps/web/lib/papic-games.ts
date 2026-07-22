@@ -77,6 +77,23 @@ export async function completeMission(
   return typeof data === 'string' ? data : null;
 }
 
+// A guest grants OR withdraws the §4.1 per-vendor share consent on a completed
+// mission (the RA 10173 §16 withdrawal path). Returns the effective share state
+// (always false for a vendorless mission / on failure / flag off).
+export async function setCompletionConsent(
+  supabase: SupabaseClient,
+  input: { guestId: string; missionId: string; consent: boolean },
+): Promise<boolean> {
+  if (!papicGamesEnabled()) return false;
+  const { data, error } = await supabase.rpc('papic_set_completion_consent' as never, {
+    p_guest_id: input.guestId,
+    p_mission_id: input.missionId,
+    p_consent: input.consent,
+  } as never);
+  if (error) return false;
+  return data === true;
+}
+
 // A booked Pro/Enterprise vendor authors a custom challenge (§3.4). Returns a
 // tagged result so the caller can distinguish the RPC's RAISE reasons (needs
 // Pro / not booked / bad copy) and drive an upsell vs a plain error. `unavailable`

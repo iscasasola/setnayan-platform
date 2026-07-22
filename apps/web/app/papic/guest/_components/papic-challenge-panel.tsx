@@ -1,11 +1,13 @@
 'use client';
 
-// Papic Games — Phase 3b: the guest Photo Challenge panel on the capture surface
-// (spec §5#3). Shows the guest's live missions + their own progress, and lets
-// them mark one done by attaching the photo they just took, with an explicit
-// §4 share-consent tap. Flag-gated (papicGamesEnabled) — renders nothing until
-// NEXT_PUBLIC_PAPIC_GAMES_V1 is on. The guest_id is never touched here: both
-// endpoints derive it from the setnayan_guest_session cookie server-side.
+// Papic Games — the guest Photo Challenge panel on the capture surface (spec §5#3).
+// Shows the guest's live missions + their own progress, and lets them mark one
+// done by attaching the photo they just took. The §4 share consent is a SEPARATE,
+// PER-VENDOR tap that appears once a VENDOR mission is done ("Share this photo with
+// <vendor>?", §4.1) — and it doubles as the RA 10173 §16 withdrawal path (Share ⇄
+// Keep private, anytime). Flag-gated (papicGamesEnabled) — renders nothing until
+// NEXT_PUBLIC_PAPIC_GAMES_V1 is on. guest_id is never touched here: every endpoint
+// derives it from the setnayan_guest_session cookie server-side.
 
 import { useCallback, useEffect, useState } from 'react';
 import { Camera, Check, ChevronDown, Loader2, Trophy } from 'lucide-react';
@@ -33,7 +35,6 @@ export function PapicChallengePanel({ lastCaptureId }: Props) {
 function ChallengePanelInner({ lastCaptureId }: Props) {
   const [missions, setMissions] = useState<GuestMissionRow[] | null>(null);
   const [open, setOpen] = useState(false);
-  const [consent, setConsent] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,11 +65,9 @@ function ChallengePanelInner({ lastCaptureId }: Props) {
         const res = await fetch('/api/papic/guest-complete-mission', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            missionId,
-            captureId: lastCaptureId,
-            consentToShare: consent,
-          }),
+          // Consent is a SEPARATE per-vendor tap AFTER completion (§4.1) — never
+          // bundled into the completion. A challenge always completes as private.
+          body: JSON.stringify({ missionId, captureId: lastCaptureId, consentToShare: false }),
         });
         if (!res.ok) {
           setError("Couldn't save that one — try again.");
@@ -81,7 +80,32 @@ function ChallengePanelInner({ lastCaptureId }: Props) {
         setBusyId(null);
       }
     },
-    [lastCaptureId, consent, refresh],
+    [lastCaptureId, refresh],
+  );
+
+  // Grant OR withdraw the per-vendor share on a completed mission (§4.1 / §16).
+  const setShare = useCallback(
+    async (missionId: string, consent: boolean) => {
+      setBusyId(missionId);
+      setError(null);
+      try {
+        const res = await fetch('/api/papic/guest-mission-consent', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ missionId, consent }),
+        });
+        if (!res.ok) {
+          setError("Couldn't update sharing — try again.");
+          return;
+        }
+        await refresh();
+      } catch {
+        setError("Couldn't update sharing — try again.");
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [refresh],
   );
 
   // Nothing to show until loaded, and hide entirely when this event has no live
@@ -134,25 +158,11 @@ function ChallengePanelInner({ lastCaptureId }: Props) {
             </p>
           )}
 
-          {/* §4 explicit share consent — default OFF (RA 10173). Governs the
-              consent_to_share stored on completions made while it's on. */}
-          <label className="flex items-start gap-2 rounded-lg border border-cream/12 bg-cream/5 px-3 py-2 text-xs text-cream/75">
-            <input
-              type="checkbox"
-              checked={consent}
-              onChange={(e) => setConsent(e.target.checked)}
-              className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-mulberry"
-            />
-            <span>
-              Let the couple and the challenge’s vendor see the photos I complete
-              these with. Optional — off by default.
-            </span>
-          </label>
-
           <ul className="space-y-2">
             {ordered.map((m) => {
               const label = MISSION_TYPE_LABELS[m.mission_type] ?? 'Challenge';
               const busy = busyId === m.mission_id;
+              const isVendorMission = Boolean(m.vendor_id && m.vendor_name);
               return (
                 <li
                   key={m.mission_id}
@@ -190,6 +200,55 @@ function ChallengePanelInner({ lastCaptureId }: Props) {
                       </button>
                     )}
                   </div>
+
+                  {/* §4.1 per-vendor share tap — appears only once a VENDOR mission
+                      is done. Explicit, default private; Share ⇄ Keep private is
+                      also the RA 10173 §16 withdrawal path. Vendorless (couple)
+                      missions never show it. */}
+                  {m.completed && isVendorMission ? (
+                    <div className="mt-2 rounded-lg border border-cream/12 bg-cream/5 px-2.5 py-2">
+                      <p className="text-[11px] text-cream/75">
+                        Share this photo with{' '}
+                        <span className="font-medium text-cream/90">{m.vendor_name}</span>?
+                      </p>
+                      <div className="mt-1.5 flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => void setShare(m.mission_id, true)}
+                          disabled={busy}
+                          aria-pressed={m.consent_shared}
+                          className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition disabled:opacity-40 ${
+                            m.consent_shared
+                              ? 'bg-mulberry text-cream'
+                              : 'bg-cream/10 text-cream/70 hover:bg-cream/20'
+                          }`}
+                        >
+                          {busy && !m.consent_shared ? (
+                            <Loader2 aria-hidden className="h-3 w-3 animate-spin" strokeWidth={2} />
+                          ) : null}
+                          Share
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void setShare(m.mission_id, false)}
+                          disabled={busy}
+                          aria-pressed={!m.consent_shared}
+                          className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition disabled:opacity-40 ${
+                            !m.consent_shared
+                              ? 'bg-cream/20 text-cream'
+                              : 'bg-cream/10 text-cream/60 hover:bg-cream/20'
+                          }`}
+                        >
+                          Keep private
+                        </button>
+                      </div>
+                      <p className="mt-1 text-[10px] text-cream/40">
+                        {m.consent_shared
+                          ? 'Shared — you can change this anytime.'
+                          : 'Private by default. The couple gets your photos either way.'}
+                      </p>
+                    </div>
+                  ) : null}
                 </li>
               );
             })}

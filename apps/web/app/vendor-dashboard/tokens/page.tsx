@@ -8,7 +8,7 @@ import { redirect } from 'next/navigation';
  * apply-then-pay ?ordered / ?error flags so any in-flight links keep working.
  */
 
-export const metadata = { title: 'Plan & tokens · Vendor' };
+export const metadata = { title: 'Plan · Vendor' };
 
 type Props = {
   searchParams: Promise<{ ordered?: string; error?: string }>;

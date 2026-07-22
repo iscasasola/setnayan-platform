@@ -342,11 +342,17 @@ export async function acceptInquiry(formData: FormData) {
   const { supabase, thread } = await loadVendorThreadForActor(threadId);
 
   if (thread.inquiry_status !== 'accepted') {
-    // Burn-on-answer (owner-locked token economy 2026-06-05). Accepting an
-    // inquiry IS the vendor's "answer" (a vendor can't even reply before
-    // accepting). It costs ONE idempotent unlock per (vendor, event), banded
-    // by the wedding's region (₱200/400/600 = 1/2/3 tokens), and that single
-    // unlock covers ALL of this vendor's services for the event. The RPC
+    // ⚠ ANSWERING IS FREE (2026-07-22 · token retirement · migration
+    // 20270909586177): unlock_vendor_event still runs — it keeps every gate +
+    // records the idempotent unlock — but forces the token burn to 0, so nothing
+    // is charged on the live path. The historical burn model is described below
+    // for the dormant HOLD path + reversibility; on the live path no token moves.
+    //
+    // Burn-on-answer (historical · owner-locked token economy 2026-06-05).
+    // Accepting an inquiry IS the vendor's "answer" (a vendor can't even reply
+    // before accepting). It cost ONE idempotent unlock per (vendor, event),
+    // banded by the wedding's region (₱200/400/600 = 1/2/3 tokens), and that
+    // single unlock covers ALL of this vendor's services for the event. The RPC
     // (unlock_vendor_event) is atomic + idempotent + TIER-GATED. Per the LIVE
     // body (migration 20270307985604, verified retune 2026-06-25): FREE can't
     // accept in-app inquiries; VERIFIED is capped at ≤10 new unlocks/rolling-week
@@ -387,8 +393,13 @@ export async function acceptInquiry(formData: FormData) {
         );
       }
       if (/INSUFFICIENT_WALLET_BALANCES/.test(burnErr.message)) {
+        // Dead on the LIVE path — answering is free (unlock_vendor_event forces
+        // the burn to 0), so this can no longer fire there. Retained only for the
+        // dormant HOLD path (NEXT_PUBLIC_LEAD_TOKEN_HOLD_ENABLED, default OFF),
+        // which still escrows a token. Token packs are retired, so there is no
+        // "top up" remedy to point at — keep the copy honest and generic.
         fail(
-          'You need tokens to accept this inquiry. Top up your token balance, then try again — one unlock covers all your services for this event.',
+          'We couldn’t open this inquiry right now. Please try again, or contact Setnayan support if it keeps happening.',
         );
       }
       fail('Could not accept right now — please try again in a moment.');
@@ -407,9 +418,9 @@ export async function acceptInquiry(formData: FormData) {
       type: 'inquiry_accepted',
     });
     // Part B — Setnayan Exclusive perk reveal (v2.1 §7.2).
-    // After the vendor burns tokens to pursue an inquiry, insert one system
-    // message per service that carries an exclusive_perk_text, using the
-    // admin client so the 'system' sender_role bypasses couple/vendor RLS.
+    // After the vendor accepts an inquiry (free), insert one system message per
+    // service that carries an exclusive_perk_text, using the admin client so the
+    // 'system' sender_role bypasses couple/vendor RLS.
     await revealExclusivePerks({
       threadId: thread.thread_id,
       eventId: thread.event_id,

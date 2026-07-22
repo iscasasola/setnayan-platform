@@ -241,8 +241,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // Anonymization-until-accept (Glass PR-6b): pre-accept, the thread header + the
   // customer rail show the neutral placeholder ("A couple planning a {type} in
   // {city}") built from the non-identifying `get_pending_inquiry_basics` facts —
-  // never the couple's event title. Post-accept (token burned) the real label
-  // shows. The message-stream `counterpartyLabel` stays the generic `coupleLabel`
+  // never the couple's event title. Post-accept (answering is free) the real
+  // label shows. The message-stream `counterpartyLabel` stays the generic `coupleLabel`
   // (which the vendor's RLS already resolves to "Couple" while pending) so chat
   // bubbles read naturally rather than repeating the long placeholder.
   const inquiryRevealed = isInquiryRevealed(thread);

@@ -392,11 +392,10 @@ export function VendorSidebar({
 
 /**
  * VendorSidebarFooter — the prototype's pinned footer, passed to
- * <SidebarShell sidebarFooter>. Two rows, BOTH linking to the unified Plan &
- * tokens hub (/vendor-dashboard/subscription):
- *   1. Plan chip — a gold "Pro" pill (tier label · Free shows "Free") +
- *      "Plan & tokens" label.
- *   2. Token balance row — "Your tokens ◎ N" (Coins icon + balance).
+ * <SidebarShell sidebarFooter>. One row linking to the Plan hub
+ * (/vendor-dashboard/subscription): a gold "Pro" pill (tier label · Free shows
+ * "Free") + "Plan" label, with the vendor's retained token balance right-aligned
+ * (tokens are retired — the balance is read-only, nothing spends them).
  * SidebarShell hides this whole slot when the sidebar collapses to the 64px rail.
  */
 export function VendorSidebarFooter({
@@ -438,7 +437,7 @@ export function VendorSidebarFooter({
           {tierLabel}
         </span>
         <span className="text-xs" style={{ color: 'var(--m-sidebar-fg-soft)' }}>
-          Plan &amp; tokens
+          Plan
         </span>
         <span
           className="ml-auto inline-flex items-center gap-1 text-xs font-semibold"

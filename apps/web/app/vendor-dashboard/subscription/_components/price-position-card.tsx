@@ -3,10 +3,11 @@ import type { PricePositionResult } from '@/lib/price-position';
 import { paxBucketLabel, prettyCategory } from '@/lib/price-position';
 
 /**
- * Price-Position Meter card (Wave 6 vendor benefit · the last "Soon" one) —
- * rendered on /vendor-dashboard/subscription beside the Peso-per-lead card.
+ * Price-Position Meter card (Wave 6 vendor benefit · the last "Soon" one).
  * A server component (pure render): "your price sits in the Xth percentile for
  * {category} in {region}" with a low / median / high band rail.
+ * (The Peso-per-lead card it once sat beside was removed 2026-07-22 when
+ * answering became free — see migration 20270911189993.)
  *
  * BEHAVIORAL HONESTY: when the band was suppressed below the min-N sample floor
  * (founder-only market today), the result is { status: 'no_data' } and this card

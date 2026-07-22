@@ -5,9 +5,9 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
+import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
-import type { VendorDossier } from '@/lib/vendor-deep-search';
+import { deepSearchAiConfigured, type VendorDossier } from '@/lib/vendor-deep-search';
 import {
   runAndRecordVendorDeepSearch,
   buildVendorDeepSearchInputs,
@@ -100,7 +100,10 @@ export async function runVendorDeepSearch(
   if (!profile) return err('No vendor profile found.');
   const vendorProfileId = profile.vendor_profile_id;
 
-  const role = await resolveVendorRole(supabase, user.id);
+  // Scope the role check to THIS vendor profile (not the user's global-highest
+  // role) so an agent/viewer on this shop can't spend on Deep Search via a role
+  // they hold on some other vendor.
+  const role = await resolveVendorRoleForProfile(supabase, user.id, vendorProfileId);
   if (!canManageVendor(role)) {
     return err('Only the owner or an admin can run Deep Search.');
   }
@@ -144,7 +147,7 @@ export async function runVendorDeepSearch(
     skuRow && (skuRow as { is_active?: boolean | null }).is_active !== false
       ? Number((skuRow as { price_php: number | string }).price_php)
       : null;
-  const pricePhp = resolveDeepSearchPricePhp({ tier, usesThisCycle, cyclePricePhp });
+  let pricePhp = resolveDeepSearchPricePhp({ tier, usesThisCycle, cyclePricePhp });
 
   const inputs = buildVendorDeepSearchInputs({
     business_name: profile.business_name,
@@ -154,30 +157,74 @@ export async function runVendorDeepSearch(
     gallery_video_links: profile.gallery_video_links ?? [],
   });
 
-  // ── FREE search → run now, record was_free=true ────────────────────────────
+  // ── FREE search → ATOMICALLY CLAIM the allowance, THEN run ──────────────────
+  // The old flow was read-decide-run: count uses → ₱0 → run → write the usage row
+  // AFTER. Concurrent requests all read 0 uses and all ran free. Now we CLAIM the
+  // one free run per cycle BEFORE running: the partial unique index
+  // (vendor_profile_id, free_cycle_start) WHERE was_free serializes a burst —
+  // exactly one INSERT wins, the rest hit a unique violation and fall through to
+  // the paid ₱500 path. Matches the AI/booth add-ons' atomic trial claims.
   if (pricePhp <= 0) {
-    const result = await runAndRecordVendorDeepSearch({
-      admin,
-      vendorProfileId,
-      requestedByUserId: user.id,
-      inputs,
-      wasFree: true,
-      orderId: null,
-    });
-    if (result.status === 'failed') {
-      // No usage row was written on failure — the free search is still available.
-      return err(result.error);
+    const { data: claimRow, error: claimErr } = await admin
+      .from('vendor_deep_search_uses')
+      .insert({
+        vendor_profile_id: vendorProfileId,
+        was_free: true,
+        free_cycle_start: cycleStartIso,
+        order_id: null,
+        dossier_id: null,
+      })
+      .select('id')
+      .maybeSingle();
+
+    if (!claimErr && claimRow) {
+      // Won the claim → run the free search against this pre-claimed usage row.
+      const claimUseId = (claimRow as { id: number }).id;
+      const result = await runAndRecordVendorDeepSearch({
+        admin,
+        vendorProfileId,
+        requestedByUserId: user.id,
+        inputs,
+        wasFree: true,
+        orderId: null,
+        claimUseId,
+      });
+      if (result.status === 'failed') {
+        // Roll the claim back so a retry still gets this cycle's free run — a
+        // failed run must never burn the allowance.
+        await admin.from('vendor_deep_search_uses').delete().eq('id', claimUseId);
+        return err(result.error);
+      }
+      revalidatePath(DEEP_SEARCH_PAGE);
+      return {
+        status: 'ran',
+        dossier: result.dossier,
+        wasFree: true,
+        message: 'Deep Search finished — review what we learned and apply it to your profile.',
+      };
     }
-    revalidatePath(DEEP_SEARCH_PAGE);
-    return {
-      status: 'ran',
-      dossier: result.dossier,
-      wasFree: true,
-      message: 'Deep Search finished — review what we learned and apply it to your profile.',
-    };
+
+    // Lost the claim (unique violation) or a transient insert error → the free run
+    // for this cycle is gone. FAIL TOWARD CHARGING: re-price to the paid ₱500 and
+    // continue to apply-then-pay (never hand out a second free run).
+    pricePhp = resolveDeepSearchPricePhp({
+      tier,
+      usesThisCycle: usesThisCycle + 1,
+      cyclePricePhp,
+    });
   }
 
   // ── PAID search → apply-then-pay (runs on admin approval) ───────────────────
+  // Without the AI research engine (ANTHROPIC_API_KEY unset) a run silently
+  // degrades to the free keyless Lite pass — so a paid ₱500 charge would buy
+  // nothing the free tier doesn't already get. Block the SALE (the free Lite path
+  // above still works at ₱0). No order is created, so nothing is charged.
+  if (!deepSearchAiConfigured()) {
+    return err(
+      'Deep Search is temporarily unavailable — the research engine is offline. You won’t be charged.',
+    );
+  }
+
   const channel = parseChannel(formData.get('channel'));
   const referenceCode = generateReferenceCode();
 

@@ -71,6 +71,51 @@ export const resolveVendorRole = cache(async (
 });
 
 /**
+ * Resolve the user's role ON A SPECIFIC vendor profile — the SCOPED companion to
+ * {@link resolveVendorRole}.
+ *
+ * WHY this exists (money-integrity fix S1): the buy/unlock actions act on ONE
+ * `vendorProfileId` (from fetchOwnVendorProfile) but gated on
+ * `resolveVendorRole(user.id)`, which returns the user's GLOBAL-HIGHEST role
+ * across EVERY vendor they sit on. A user who is only an agent/viewer on the
+ * profile being acted on, but an owner/admin on some OTHER vendor, would pass the
+ * global check and manage add-ons / unlock discounts on a shop they don't manage.
+ * This scopes the role to the exact profile: membership rows for THIS
+ * (user, vendor) only; the legacy founding-admin fallback is likewise scoped to a
+ * vendor_profiles row this user OWNS. Returns null when the user has no role on
+ * this specific profile. Mirrors resolveVendorRole's shape (not React-cache'd —
+ * it is keyed by the extra profile arg and called at most once per action).
+ */
+export async function resolveVendorRoleForProfile(
+  supabase: SupabaseClient,
+  userId: string,
+  vendorProfileId: string,
+): Promise<VendorTeamRole | null> {
+  const { data: memberships } = await supabase
+    .from('vendor_team_members')
+    .select('role')
+    .eq('user_id', userId)
+    .eq('vendor_profile_id', vendorProfileId);
+
+  const roles = (memberships ?? [])
+    .map((m) => (m as { role: VendorTeamRole }).role)
+    .filter((r): r is VendorTeamRole => r in ROLE_RANK);
+  if (roles.length > 0) {
+    return roles.sort((a, b) => ROLE_RANK[b] - ROLE_RANK[a])[0] ?? 'viewer';
+  }
+
+  // Legacy fallback: the founding owner of a vendor_profiles row with no
+  // membership row is the founding admin — but ONLY for the profile they OWN.
+  const { data: owned } = await supabase
+    .from('vendor_profiles')
+    .select('vendor_profile_id')
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  return owned ? 'admin' : null;
+}
+
+/**
  * Nav item keys an agent/viewer may see. Owner/admin always see the full nav.
  * Phase 2b opened the agent's operational surfaces (Bookings / Messages) now
  * that per-customer RLS scoping is live. NOTE (2026-07-02): 'services' was

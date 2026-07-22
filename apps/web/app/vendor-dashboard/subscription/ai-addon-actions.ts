@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
+import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { appendLedger } from '@/lib/ledger';
@@ -85,7 +85,10 @@ export async function activateVendorAiAddon(
   if (!profile) return err('No vendor profile found.');
   const vendorProfileId = profile.vendor_profile_id;
 
-  const role = await resolveVendorRole(supabase, user.id);
+  // Scope the role check to THIS vendor profile (not the user's global-highest
+  // role) so an agent/viewer on this shop can't manage its add-on via a role they
+  // hold on some other vendor.
+  const role = await resolveVendorRoleForProfile(supabase, user.id, vendorProfileId);
   if (!canManageVendor(role)) {
     return err('Only the owner or an admin can manage the Vendor AI add-on.');
   }
@@ -184,6 +187,10 @@ export async function activateVendorAiAddon(
         confirmed_total_php: 0,
         status: 'paid',
         reference_code: referenceCode,
+        // Stamp the order's window so the renewal-reminder job nudges the vendor
+        // before the free cycle lapses (subscriptions_due_for_renewal_reminder
+        // reads orders.expires_at).
+        expires_at: newExpiry,
       })
       .select('order_id')
       .maybeSingle();

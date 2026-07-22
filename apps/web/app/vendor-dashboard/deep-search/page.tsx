@@ -134,7 +134,7 @@ export default async function VendorDeepSearchPage() {
       <PageMasthead
         title="Learn what the web knows about your business."
         back="/vendor-dashboard/subscription"
-        backLabel="Plan & tokens"
+        backLabel="Plan"
         lede="We research your business across your website, public social pages, directories, and review sites, then hand you a “what we learned” review — your services, the prices you have out there, and where you show up — to copy into your Shop profile."
       />
 

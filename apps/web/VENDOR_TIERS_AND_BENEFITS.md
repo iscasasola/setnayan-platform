@@ -5,6 +5,35 @@
 > of every benefit. Drives both the `/vendors` marketing page AND the
 > `/vendor-dashboard` gating. Two sessions edit this — see the protocol below.
 
+> ## ⚠ SUPERSEDED on the token / answering-monetization model (2026-07-22)
+>
+> **Owner retired vendor tokens (2026-07-21). Every claim below that vendor
+> revenue is "subscriptions + tokens", that answering "burns a region-banded
+> token", that a tier is `inAppGated` (token burn), or that Boosters / included
+> "inquiry tokens" / a token wallet exist — is HISTORICAL. Do not build from it.**
+>
+> As-built truth (code is canonical — `lib/chat-actions.ts`,
+> `lib/vendor-tier-caps.ts`, the two migrations below):
+> - **Answering a matched couple is FREE on every tier.** The inquiry unlock no
+>   longer burns a token — `unlock_vendor_event` forces the burn to 0 (migration
+>   `20270909586177`). All gates survive: FREE can't answer in-app
+>   (`TIER_FREE_NO_INAPP`), Verified is capped at 10 new answers/rolling-week
+>   (`VERIFIED_WEEKLY_LIMIT`), the unlock is idempotent per (vendor, event).
+> - **Vendor token PACKS are retired** — `is_active=false` (migration
+>   `20270910266901`); nothing is buyable, so `INSUFFICIENT_WALLET_BALANCES` can
+>   no longer strand a paid vendor. Accepting a **manpower gig is FREE** too (the
+>   old 2-token handshake was dropped in the same 2026-07-22 pass).
+> - **Vendor revenue = subscriptions + apply-then-pay PHP add-ons**, NOT tokens.
+>   The four vendor add-ons — Vendor AI, 3D Booth, Deep Search, Photo Challenge —
+>   are all apply-then-pay PHP (prices are DB-driven; never hardcode them).
+> - **Tokens are now "receive-only":** they can still be GRANTED (subscription
+>   bundles + admin grants) and show as a read-only balance, but nothing buys or
+>   spends them. The token wallet / bundle-grant / burn DB plumbing is left
+>   DORMANT (not deleted) for reversibility.
+>
+> The tier ALLOCATION, caps, naming, and non-token benefits below remain
+> current. Only the token/answering-money mechanics are superseded.
+
 ## How the two sessions use this doc
 
 Two Claude Code sessions coordinate through this file (both work in `apps/web`):

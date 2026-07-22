@@ -30,6 +30,9 @@ import {
 } from '@/lib/vendor-3d-booth-pricing';
 import { VENDOR_PHOTO_CHALLENGE_SKU_CODE } from '@/lib/vendor-photo-challenge';
 import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
+import { resolveAddonDeactivationExpiry } from '@/lib/vendor-addon-deactivation';
+import { isTierAtLeast, type VendorTier } from '@/lib/vendor-tier-caps';
+import * as Sentry from '@sentry/nextjs';
 import {
   runAndRecordVendorDeepSearch,
   buildVendorDeepSearchInputs,
@@ -66,6 +69,38 @@ export type ActivationContext = {
 };
 
 type ActivationHook = (ctx: ActivationContext) => Promise<void>;
+
+/**
+ * S2 defence-in-depth — re-assert a vendor add-on's tier + verification gate AT
+ * ACTIVATION TIME, on the paying vendor. The buy actions gate this before an
+ * order is created, but a comp / self-comp / directly-inserted order can reach
+ * activation WITHOUT that gate. Re-checking here means a paid-but-ineligible
+ * order (sub-tier or unverified — e.g. a self-comp bypass, or a vendor who
+ * downgraded between buy and approval) never provisions the feature. Throws so
+ * the dispatcher's outer catch logs + Sentry-reports it and the order stays
+ * recoverable (admin can refund). Reads tier_state + verification_state with the
+ * admin client (RLS-bypassed).
+ */
+async function assertVendorAddonActivationEligible(
+  ctx: ActivationContext,
+  vendorProfileId: string,
+  minTier: VendorTier,
+): Promise<void> {
+  const { data: gate } = await ctx.admin
+    .from('vendor_profiles')
+    .select('tier_state, verification_state')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  const tier = (gate as { tier_state?: string | null } | null)?.tier_state ?? null;
+  const verification =
+    (gate as { verification_state?: string | null } | null)?.verification_state ?? null;
+  if (!isTierAtLeast(tier, minTier) || verification !== 'verified') {
+    throw new Error(
+      `vendor add-on activation blocked: ${ctx.serviceKey} requires ${minTier}+ and verified ` +
+        `(tier=${tier ?? 'null'}, verification=${verification ?? 'null'})`,
+    );
+  }
+}
 
 /**
  * Stamp a 365-day access window on the order (owner 2026-07-10 · the ₱999/yr
@@ -135,6 +170,7 @@ async function grantPapicPassPoints(ctx: ActivationContext): Promise<void> {
         service_key: ctx.serviceKey,
         error: error.message,
       });
+      reportActivationFault('activate:papic_points_insert', ctx, error);
       return;
     }
 
@@ -147,6 +183,7 @@ async function grantPapicPassPoints(ctx: ActivationContext): Promise<void> {
     });
   } catch (e) {
     console.error('[sku-activation] Papic One grant threw (non-fatal):', e);
+    reportActivationFault('activate:papic_points', ctx, e);
   }
 }
 
@@ -177,6 +214,7 @@ async function grantPapicCameraPoints(ctx: ActivationContext): Promise<void> {
         order_id: ctx.orderId,
         error: error.message,
       });
+      reportActivationFault('activate:papic_camera_grant_rpc', ctx, error);
       return;
     }
     await appendLedger(ctx.admin, {
@@ -192,6 +230,7 @@ async function grantPapicCameraPoints(ctx: ActivationContext): Promise<void> {
     });
   } catch (e) {
     console.error('[sku-activation] Papic One camera grant threw (non-fatal):', e);
+    reportActivationFault('activate:papic_camera_grant', ctx, e);
   }
 }
 
@@ -277,6 +316,9 @@ async function activateVendorAiAddonOrder(ctx: ActivationContext): Promise<void>
     (order as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
   if (!vendorProfileId) return;
 
+  // (2b) S2 — re-assert Solo+ & verified on the paying vendor (defence in depth).
+  await assertVendorAddonActivationEligible(ctx, vendorProfileId, 'solo');
+
   // (3) Current window + trial marker → the new (stacked) expiry.
   const { data: vp } = await ctx.admin
     .from('vendor_profiles')
@@ -299,6 +341,16 @@ async function activateVendorAiAddonOrder(ctx: ActivationContext): Promise<void>
     .update(update)
     .eq('vendor_profile_id', vendorProfileId);
   if (error) throw new Error(`vendor_ai_addon activation write failed: ${error.message}`);
+
+  // Stamp the order's own billing window so the renewal-reminder job
+  // (subscriptions_due_for_renewal_reminder reads orders.expires_at) mails this
+  // vendor before the add-on lapses — mirrors the branch/subdomain add-on hooks.
+  // Best-effort (the entitlement window on vendor_profiles is the load-bearing
+  // one); a missed stamp only skips a reminder, never the feature.
+  await ctx.admin
+    .from('orders')
+    .update({ expires_at: newExpiry, updated_at: new Date().toISOString() })
+    .eq('order_id', ctx.orderId);
 
   await appendLedger(ctx.admin, {
     order_id: ctx.orderId,
@@ -351,6 +403,10 @@ async function activateVendor3dBoothOrder(ctx: ActivationContext): Promise<void>
     (order as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
   if (!vendorProfileId) return;
 
+  // (2b) S2 — re-assert Pro+ & verified on the paying vendor (booth branding is a
+  // Pro perk; defence in depth against a comp/self-comp bypass).
+  await assertVendorAddonActivationEligible(ctx, vendorProfileId, 'pro');
+
   // (3) Current window + trial marker → the new (stacked) expiry.
   const { data: vp } = await ctx.admin
     .from('vendor_profiles')
@@ -373,6 +429,14 @@ async function activateVendor3dBoothOrder(ctx: ActivationContext): Promise<void>
     .update(update)
     .eq('vendor_profile_id', vendorProfileId);
   if (error) throw new Error(`vendor_3d_booth activation write failed: ${error.message}`);
+
+  // Stamp the order's own billing window so the renewal-reminder job
+  // (subscriptions_due_for_renewal_reminder reads orders.expires_at) mails this
+  // vendor before the add-on lapses — mirrors the branch/subdomain add-on hooks.
+  await ctx.admin
+    .from('orders')
+    .update({ expires_at: newExpiry, updated_at: new Date().toISOString() })
+    .eq('order_id', ctx.orderId);
 
   await appendLedger(ctx.admin, {
     order_id: ctx.orderId,
@@ -426,6 +490,9 @@ async function activatePhotoChallengeSponsorship(ctx: ActivationContext): Promis
   const vendorProfileId =
     (order as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
   if (!vendorProfileId) return;
+
+  // (2b) S2 — re-assert Pro+ & verified on the paying vendor (defence in depth).
+  await assertVendorAddonActivationEligible(ctx, vendorProfileId, 'pro');
 
   // (3) Upsert the entitlement. ignoreDuplicates → INSERT … ON CONFLICT
   //     (event_id, vendor_profile_id) DO NOTHING: a vendor holds at most one
@@ -493,6 +560,10 @@ async function activateVendorDeepSearchOrder(ctx: ActivationContext): Promise<vo
     (order as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
   const requestedByUserId = (order as { user_id?: string | null } | null)?.user_id ?? null;
   if (!vendorProfileId) return;
+
+  // (2b) S2 — re-assert Solo+ & verified on the paying vendor BEFORE the costly
+  // web+AI run (defence in depth against a comp/self-comp bypass).
+  await assertVendorAddonActivationEligible(ctx, vendorProfileId, 'solo');
 
   // (3) Snapshot the vendor's current business facts → inputs.
   const { data: vp } = await ctx.admin
@@ -760,6 +831,7 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
       await provisionPapicSeatsAdmin(ctx.admin, eventId);
     } catch (e) {
       console.error('[sku-activation] PAPIC_SEATS seat provisioning threw (non-fatal):', e);
+      reportActivationFault('activate:PAPIC_SEATS', ctx, e);
     }
   },
 
@@ -801,6 +873,7 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
       );
     } catch (e) {
       console.error('[sku-activation] PANOOD_SYSTEM camera provisioning threw (non-fatal):', e);
+      reportActivationFault('activate:PANOOD_SYSTEM', ctx, e);
     }
   },
 
@@ -817,6 +890,7 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
         '[sku-activation] PANOOD_SYSTEM_MOBILE camera provisioning threw (non-fatal):',
         e,
       );
+      reportActivationFault('activate:PANOOD_SYSTEM_MOBILE', ctx, e);
     }
   },
 
@@ -887,6 +961,7 @@ async function activateBundleChildren(ctx: ActivationContext): Promise<void> {
         `[sku-activation] bundle child ${child} of ${ctx.serviceKey} threw (non-fatal):`,
         e,
       );
+      reportActivationFault('activate:bundle_child', { ...ctx, serviceKey: child }, e);
     }
   }
 }
@@ -1049,9 +1124,40 @@ const PREFIX_HOOKS: ReadonlyArray<{
 ]);
 
 /**
+ * Report an activation/deactivation-hook failure to Sentry so a PAID-but-
+ * unentitled order (or an un-reversed refund) is ALERTABLE, not silent.
+ *
+ * WHY: the hooks are non-fatal by contract — a throw is swallowed to
+ * console.error so the admin's approval/refund never rolls back. But Sentry is
+ * NOT wired to capture console output, so a paid order whose activation silently
+ * failed left the customer charged with no feature and no alert. Tagged with the
+ * order_id + service_key so on-call can find + re-run the stuck order. Best-effort
+ * (never throws): a telemetry failure must never break the money path.
+ */
+function reportActivationFault(
+  where: string,
+  ctx: Pick<ActivationContext, 'orderId' | 'serviceKey' | 'eventId'>,
+  e: unknown,
+): void {
+  try {
+    Sentry.captureException(e, {
+      tags: { feature: 'sku-activation', where },
+      extra: {
+        order_id: ctx.orderId,
+        service_key: ctx.serviceKey,
+        event_id: ctx.eventId ?? null,
+      },
+    });
+  } catch {
+    /* telemetry must never break the money path */
+  }
+}
+
+/**
  * Run the activation hook (if any) for a freshly-paid order. NEVER throws —
- * each hook is wrapped; failures are logged and swallowed so the parent
- * approval flow completes. No-op for any service_key without a registered hook.
+ * each hook is wrapped; failures are logged, Sentry-reported, and swallowed so
+ * the parent approval flow completes. No-op for any service_key without a
+ * registered hook.
  */
 export async function activateOrderSku(ctx: ActivationContext): Promise<void> {
   const exact = EXACT_HOOKS[ctx.serviceKey];
@@ -1060,7 +1166,10 @@ export async function activateOrderSku(ctx: ActivationContext): Promise<void> {
   try {
     await hook(ctx);
   } catch (e) {
+    // Paid-but-unentitled: the order is already 'paid' but the capability never
+    // provisioned. Log AND alert (Sentry) so it's recoverable, not silent.
     console.error(`[sku-activation] hook for ${ctx.serviceKey} threw (non-fatal):`, e);
+    reportActivationFault('activate', ctx, e);
   }
 }
 
@@ -1097,16 +1206,113 @@ async function deactivateSetnayanAiIfUnowned(ctx: ActivationContext): Promise<vo
 }
 
 /**
+ * Reverse a paid vendor ADD-ON window (Vendor AI / 3D Booth) when its funding
+ * order is rejected/refunded. Like SETNAYAN_AI's stored flag, the
+ * vendor_profiles.{ai,booth}_addon_expires_at window is a one-way latch —
+ * activation stamps it, nothing cleared it — so a refund otherwise left the paid
+ * add-on live ("refund the money, keep the feature"). Reads THIS order's own
+ * 'service_activated' ledger row to learn which window it stamped, then expires
+ * that window ONLY when it is still the CURRENT one (resolveAddonDeactivationExpiry
+ * never clobbers a later-stacked renewal cycle). Throws only on the write so the
+ * outer catch in deactivateOrderSku logs + reports it (recoverable).
+ */
+async function deactivateVendorAddonWindow(
+  ctx: ActivationContext,
+  opts: {
+    expiryColumn: 'ai_addon_expires_at' | 'booth_addon_expires_at';
+    ledgerExpiryKey: string;
+  },
+): Promise<void> {
+  // The paying vendor is on the order.
+  const { data: order } = await ctx.admin
+    .from('orders')
+    .select('vendor_profile_id')
+    .eq('order_id', ctx.orderId)
+    .maybeSingle();
+  const vendorProfileId =
+    (order as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
+  if (!vendorProfileId) return;
+
+  // What window did THIS order stamp? (its own 'service_activated' ledger row —
+  // paid renewal carries {ai,booth}_addon_expires_at; the free-first-cycle order
+  // carries expires_at.)
+  const { data: ledgerRow } = await ctx.admin
+    .from('order_ledger')
+    .select('metadata')
+    .eq('order_id', ctx.orderId)
+    .eq('event_type', 'service_activated')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const meta =
+    (ledgerRow as { metadata?: Record<string, unknown> | null } | null)?.metadata ?? null;
+  const stampedExpiry =
+    (meta?.[opts.ledgerExpiryKey] as string | undefined) ??
+    (meta?.expires_at as string | undefined) ??
+    null;
+
+  // The vendor's CURRENT window.
+  const { data: vp } = await ctx.admin
+    .from('vendor_profiles')
+    .select(opts.expiryColumn)
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  const currentExpiry =
+    (vp as Record<string, string | null> | null)?.[opts.expiryColumn] ?? null;
+
+  const newExpiry = resolveAddonDeactivationExpiry(currentExpiry, stampedExpiry, Date.now());
+  if (newExpiry === currentExpiry) return; // a later cycle owns it (or nothing active) → no-op
+
+  const { error } = await ctx.admin
+    .from('vendor_profiles')
+    .update({ [opts.expiryColumn]: newExpiry })
+    .eq('vendor_profile_id', vendorProfileId);
+  if (error) {
+    throw new Error(`${opts.expiryColumn} deactivation write failed: ${error.message}`);
+  }
+}
+
+/**
+ * Reverse a Photo Challenge sponsorship when its ₱400 order is rejected/refunded
+ * — delete the papic_photo_challenge_sponsorships row for THIS (event, vendor) so
+ * a refunded vendor can no longer author a sponsored challenge. Scoped to the
+ * order's own vendor + event (never another sponsor's row). Deleting by
+ * (event_id, vendor_profile_id) is naturally idempotent (a second reversal is a
+ * no-op). Throws only on the write so the outer catch logs + reports it.
+ */
+async function deactivatePhotoChallengeSponsorship(ctx: ActivationContext): Promise<void> {
+  if (!ctx.eventId) return;
+  const { data: order } = await ctx.admin
+    .from('orders')
+    .select('vendor_profile_id')
+    .eq('order_id', ctx.orderId)
+    .maybeSingle();
+  const vendorProfileId =
+    (order as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
+  if (!vendorProfileId) return;
+
+  const { error } = await ctx.admin
+    .from('papic_photo_challenge_sponsorships')
+    .delete()
+    .eq('event_id', ctx.eventId)
+    .eq('vendor_profile_id', vendorProfileId);
+  if (error) {
+    throw new Error(`vendor_photo_challenge deactivation delete failed: ${error.message}`);
+  }
+}
+
+/**
  * Reverse the flag-backed side effects of an order that was just REVERSED
  * (rejectPayment → cancelled · refundOrder → refunded). NEVER throws (wrapped +
- * logged), symmetric to activateOrderSku. MUST be called AFTER the order's
- * status flip is committed so the re-derivation sees the new state.
+ * logged + Sentry-reported), symmetric to activateOrderSku. MUST be called AFTER
+ * the order's status flip is committed so the re-derivation sees the new state.
  *
- * Only entitlements with a STORED flag need reversing — today just SETNAYAN_AI.
- * PAPIC_SEATS' activation (seat provisioning) is orders-backed and needs no
- * reversal. Orders-backed gates need
- * nothing here. Fires for a direct SETNAYAN_AI reversal OR a bundle reversal
- * (the bundle that granted it).
+ * Entitlements with a STORED window/row need reversing: SETNAYAN_AI (flag),
+ * Vendor AI + 3D Booth (28-day window), and the Photo Challenge sponsorship row.
+ * `vendor_deep_search` is already-consumed (a completed web/AI run) → nothing to
+ * reverse. PAPIC_SEATS' seat provisioning + all other orders-backed gates re-lock
+ * for free off orders.status, so they need nothing here. Fires for a direct
+ * reversal OR a bundle reversal (the bundle that granted the child).
  */
 export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> {
   // Papic One — reverse the purchased point grant.
@@ -1123,6 +1329,34 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
   // reversed order, not a bug to paper over.
   await reversePapicPassPoints(ctx);
 
+  // Vendor add-on windows (paid renewal OR free first cycle) — expire the window
+  // this order stamped, if it's still the current one. Non-fatal + idempotent.
+  if (ctx.serviceKey === VENDOR_AI_ADDON_SKU_CODE) {
+    try {
+      await deactivateVendorAddonWindow(ctx, {
+        expiryColumn: 'ai_addon_expires_at',
+        ledgerExpiryKey: 'ai_addon_expires_at',
+      });
+    } catch (e) {
+      reportActivationFault('deactivate:vendor_ai_addon', ctx, e);
+    }
+  } else if (ctx.serviceKey === VENDOR_3D_BOOTH_SKU_CODE) {
+    try {
+      await deactivateVendorAddonWindow(ctx, {
+        expiryColumn: 'booth_addon_expires_at',
+        ledgerExpiryKey: 'booth_addon_expires_at',
+      });
+    } catch (e) {
+      reportActivationFault('deactivate:vendor_3d_booth', ctx, e);
+    }
+  } else if (ctx.serviceKey === VENDOR_PHOTO_CHALLENGE_SKU_CODE) {
+    try {
+      await deactivatePhotoChallengeSponsorship(ctx);
+    } catch (e) {
+      reportActivationFault('deactivate:vendor_photo_challenge', ctx, e);
+    }
+  }
+
   const grantsAi =
     ctx.serviceKey === 'SETNAYAN_AI' ||
     (BUNDLE_CHILD_SKUS[ctx.serviceKey as keyof typeof BUNDLE_CHILD_SKUS]?.includes(
@@ -1134,5 +1368,6 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
     await deactivateSetnayanAiIfUnowned(ctx);
   } catch (e) {
     console.error(`[sku-activation] deactivation for ${ctx.serviceKey} threw (non-fatal):`, e);
+    reportActivationFault('deactivate:SETNAYAN_AI', ctx, e);
   }
 }

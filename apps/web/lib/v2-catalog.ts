@@ -25,7 +25,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import {
   VENDOR_3D_PLAN_UNLOCK_SERVICE_KEY,
   applyVendor3dPlanUnlockDiscountCentavos,
-  eventHasVendor3dPlanUnlock,
+  eventVendor3dPlanUnlockDiscountActive,
 } from '@/lib/vendor-3d-plan-unlock';
 
 /**
@@ -579,14 +579,17 @@ export async function resolvePaxPricedOrderCentavos(
   // ── Vendor-enabled couple discount (owner 2026-07-22) ──────────────────────
   // A booked vendor with an ACTIVE 3D Booth add-on can unlock the 3D Plan for
   // their couple → SEATING_3D drops from the standard catalog price (₱2,999) to
-  // ₱1,000. Server-authoritative: read the per-event unlock record (admin client)
-  // and let the PURE selector pick the price — it only touches SEATING_3D, only
-  // when unlocked, and only ever LOWERS. So a tampered/stale client price still
-  // can't beat ₱1,000, and a couple with no vendor-unlock pays the full ₱2,999.
-  // The unlock is discount-eligibility ONLY — it grants no free access, and the
-  // couple still buys SEATING_3D through this same apply-then-pay checkout.
+  // ₱1,000. Server-authoritative: eventVendor3dPlanUnlockDiscountActive RE-VALIDATES
+  // the unlock AT CHARGE TIME — the record must exist AND the attributing vendor
+  // must STILL have a live 3D Booth add-on AND still be booked on the event — then
+  // the PURE selector picks the price (only SEATING_3D, only when honored, only
+  // ever LOWERS). So a lapsed booth / un-booked / cancelled vendor no longer
+  // yields ₱1,000, a tampered/stale client price still can't beat ₱1,000, and a
+  // couple with no live vendor-unlock pays the full ₱2,999. The unlock is
+  // discount-eligibility ONLY — it grants no free access, and the couple still
+  // buys SEATING_3D through this same apply-then-pay checkout.
   if (serviceCode === VENDOR_3D_PLAN_UNLOCK_SERVICE_KEY) {
-    const unlocked = await eventHasVendor3dPlanUnlock(admin, eventId);
+    const unlocked = await eventVendor3dPlanUnlockDiscountActive(admin, eventId);
     return {
       is_pax_priced: config.is_pax_priced,
       centavos: applyVendor3dPlanUnlockDiscountCentavos(

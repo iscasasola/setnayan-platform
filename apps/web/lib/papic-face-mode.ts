@@ -60,6 +60,33 @@ export function faceModeAllowsEmbedding(mode: PapicFaceMode): boolean {
 }
 
 /**
+ * SERVER-SIDE biometric write guard. Given the EFFECTIVE face mode and whatever
+ * descriptor a client POSTed, return the (face_vector, vector_model) pair that
+ * may actually be persisted to `guest_face_enrollments`.
+ *
+ * mode_a: the descriptor is stored (model stamped only when a vector is present).
+ * mode_b — including christening/debut FORCED mode_b — HARD-NULLS the vector AND
+ * the model: no biometric descriptor is ever written, even if the payload carried
+ * one (a crafted/replayed POST cannot bypass). This is the write that makes the
+ * migration's "no face descriptor … stored" guarantee literally TRUE at the DB
+ * boundary; the client-side embed skip is defense-in-depth on top of it.
+ *
+ * The selfie image + consent record are written separately by the caller and are
+ * NOT affected — the only thing this drops in mode_b is the biometric vector.
+ *
+ * `vectorModel` is injected (not imported) so this stays isomorphic + dependency-
+ * free; call sites pass their VECTOR_MODEL constant.
+ */
+export function faceVectorForMode(
+  mode: PapicFaceMode,
+  candidate: number[] | null | undefined,
+  vectorModel: string,
+): { face_vector: number[] | null; vector_model: string | null } {
+  const vec = mode === 'mode_a' && candidate && candidate.length > 0 ? candidate : null;
+  return { face_vector: vec, vector_model: vec ? vectorModel : null };
+}
+
+/**
  * Server resolver: read `events.papic_face_mode` + `event_type` through an
  * admin/RLS client and return the EFFECTIVE mode (christening/debut forced to
  * mode_b). Fail-closed to mode_b on any error or missing row — no event ever

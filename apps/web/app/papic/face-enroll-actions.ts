@@ -3,7 +3,11 @@
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VECTOR_MODEL } from '@/lib/face-embed-core';
-import { FACE_CONSENT_COPY_VERSION } from '@/lib/papic-face-mode';
+import {
+  FACE_CONSENT_COPY_VERSION,
+  resolvePapicFaceMode,
+  faceVectorForMode,
+} from '@/lib/papic-face-mode';
 
 // Day-of / camera face enrollment — the "register your face if you haven't yet"
 // path for a guest who SKIPPED the optional RSVP selfie. Same write as the RSVP
@@ -176,22 +180,34 @@ export async function enrollGuestFace(
       .eq('guest_id', guestId)
       .is('revoked_at', null);
 
+    // BIOMETRIC WRITE GUARD (One-Pool spec §3.4). Resolve the EFFECTIVE face
+    // mode server-side (christening/debut forced to mode_b; fail-closed) and
+    // HARD-NULL every shot's descriptor unless this is an explicit mode_a event
+    // — so a crafted POST carrying `selfie_vector(s)` on a mode_b / forced-mode_b
+    // event can NEVER persist a biometric. The selfie image + consent rows are
+    // still written (display photo / day-of features preserved); only the
+    // vectors are dropped. Closes the christening/debut minor-honoree leak.
+    const faceMode = await resolvePapicFaceMode(admin, eventId);
+
     const nowIso = new Date().toISOString();
     const { error } = await admin.from('guest_face_enrollments').insert(
-      shots.map((s) => ({
-        event_id: eventId,
-        guest_id: guestId,
-        asset_url: s.ref,
-        source: 'guest_portal',
-        quality_score: s.quality,
-        quality_meta: s.meta,
-        face_vector: s.vector,
-        vector_model: s.vector ? VECTOR_MODEL : null,
-        consent_at: nowIso,
-        consent_source: consentSource,
-        // Consent evidence (One-Pool spec §3.3): pin WHAT disclosure was shown.
-        consent_copy_version: FACE_CONSENT_COPY_VERSION,
-      })),
+      shots.map((s) => {
+        const stored = faceVectorForMode(faceMode, s.vector, VECTOR_MODEL);
+        return {
+          event_id: eventId,
+          guest_id: guestId,
+          asset_url: s.ref,
+          source: 'guest_portal',
+          quality_score: s.quality,
+          quality_meta: s.meta,
+          face_vector: stored.face_vector,
+          vector_model: stored.vector_model,
+          consent_at: nowIso,
+          consent_source: consentSource,
+          // Consent evidence (One-Pool spec §3.3): pin WHAT disclosure was shown.
+          consent_copy_version: FACE_CONSENT_COPY_VERSION,
+        };
+      }),
     );
 
     return { ok: !error };

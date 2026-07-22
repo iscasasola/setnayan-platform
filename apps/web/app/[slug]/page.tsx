@@ -41,7 +41,7 @@ import { eventPabatiActive, fetchPabatiQuota } from '@/lib/pabati';
 import { PabatiPrompt } from './_components/pabati-prompt';
 import { eventOwnsPapicSeats } from '@/lib/papic-seats';
 import { asPapicStyle, type PapicStyle } from '@/lib/papic-photo-styles';
-import { resolveFaceMode, type PapicFaceMode } from '@/lib/papic-face-mode';
+import { resolveFaceMode, resolvePapicFaceMode, type PapicFaceMode } from '@/lib/papic-face-mode';
 import { resolveGuestCamera } from '@/lib/papic-limited';
 import { eventSkuActive } from '@/lib/entitlements';
 import { eventOwnsCustomQrGuest } from '@/lib/seat-pass';
@@ -1355,9 +1355,17 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
           ? 'Couldn’t save that just now — please try again.'
           : null;
 
+  // Effective face-tag mode for the RSVP selfie + day-of enroll surfaces on this
+  // page (One-Pool spec §3.4). Resolved server-side via the same helper the
+  // capture gates use — christening/debut forced to mode_b, fail-closed to
+  // mode_b on a pre-migration DB. Threaded into SelfieCapture so a mode_b guest
+  // never has a descriptor computed; the enroll actions null any vector anyway.
+  const rsvpFaceMode = await resolvePapicFaceMode(admin, event.event_id);
+
   return (
     <>
       <InvitationSite
+        faceMode={rsvpFaceMode}
         event={event}
         guest={guest}
         qrSvg={qrSvg}
@@ -2391,6 +2399,7 @@ function InvitationSite({
   accountlessPhotosClosed,
   eventVendorCredits,
   saveFlash,
+  faceMode,
 }: {
   event: EventRow;
   guest: GuestRow;
@@ -2504,6 +2513,9 @@ function InvitationSite({
   eventVendorCredits: VendorCard[];
   /** Invite/Join v2: flash after a guest saves a vendor (ok / needs_account / error). */
   saveFlash: string | null;
+  /** Server-resolved effective face-tag mode (One-Pool spec §3.4) for the RSVP
+   *  selfie + day-of enroll surfaces. mode_b ⇒ no descriptor computed. */
+  faceMode: PapicFaceMode;
 }) {
   const sideLabel =
     guest.side === 'both'
@@ -2851,7 +2863,7 @@ function InvitationSite({
             RSVP selfie. One tap enrolls them so their candid photos auto-find
             them. Self-hides once enrolled; QR-scan tagging is the fallback. */}
         {needsFaceEnroll ? (
-          <DayOfFaceEnroll context={isLive ? 'day_of' : 'pre_event'} />
+          <DayOfFaceEnroll context={isLive ? 'day_of' : 'pre_event'} faceMode={faceMode} />
         ) : null}
 
         {/* Inline Papic guest camera — auto-shown in-context when the couple owns
@@ -3132,6 +3144,7 @@ function InvitationSite({
             eventId={event.event_id}
             eventPublicId={event.public_id}
             limited={isLimitedPlusOne}
+            faceMode={faceMode}
           />
         ) : null}
 
@@ -3482,11 +3495,14 @@ function RsvpWidget({
   eventId,
   eventPublicId,
   limited,
+  faceMode,
 }: {
   guest: GuestRow;
   eventId: string;
   eventPublicId: string;
   limited: boolean;
+  /** Effective face-tag mode — passed to the selfie so mode_b skips the embedder. */
+  faceMode: PapicFaceMode;
 }) {
   const action = submitRsvp.bind(null, eventId, guest.guest_id);
 
@@ -3554,7 +3570,7 @@ function RsvpWidget({
       </div>
 
       <div className="selfie-reveal">
-        <SelfieCapture />
+        <SelfieCapture faceMode={faceMode} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

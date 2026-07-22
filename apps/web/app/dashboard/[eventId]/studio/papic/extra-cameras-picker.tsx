@@ -19,8 +19,9 @@ import { purchasePapicExtras } from './actions';
  * server-side from papic_tier_config + platform_retail_catalog_v2 — nothing
  * about the ladder is hardcoded here, so the owner can settle prices/titles in
  * the DB without touching this file. The quote math mirrors computeCameraQuote
- * (lib/papic-cameras.ts) exactly: per-rung min(count × rate × days, rung cap),
- * summed.
+ * (lib/papic-cameras.ts) exactly: per-rung min(count × rate, rung cap), summed.
+ * FLAT per camera — the capture-window length is NOT a price multiplier
+ * (2026-07-22 naming lock; matches /pricing _papic-estimator.tsx).
  *
  * Self-contained (only the server action import) so nothing server-only leaks
  * into the client bundle.
@@ -99,7 +100,11 @@ export default function ExtraCamerasPicker({
   eventId: string;
   /** The ladder, entry rung first. Server-resolved — see ExtraCameraRung. */
   rungs: ExtraCameraRung[];
-  /** Capture-window day multiplier — price = count × rate × days, then capped. */
+  /**
+   * Capture-window length (days) — informational only (how long the cameras
+   * shoot). NOT a price multiplier: the charge is FLAT count × rate (2026-07-22
+   * naming lock), matching /pricing.
+   */
   days?: number;
   /** Human window label, e.g. "Jun 12–14 · 3 days". */
   windowSummary?: string;
@@ -113,7 +118,9 @@ export default function ExtraCamerasPicker({
   const d = Math.max(1, Math.floor(days) || 1);
   const lines = rungs.map((r) => {
     const count = counts[r.rung] ?? 0;
-    const raw = count * r.ratePhp * d;
+    // FLAT: count × rate. The window length `d` never multiplies the price
+    // (2026-07-22 flat naming lock) — it only labels the coverage span below.
+    const raw = count * r.ratePhp;
     const charge = r.free ? 0 : Math.min(raw, r.capPhp);
     return { rung: r, count, raw, charge, capped: !r.free && raw > r.capPhp };
   });
@@ -156,7 +163,7 @@ export default function ExtraCamerasPicker({
               <div className="mt-0.5 text-xs text-ink/55">
                 {rung.free
                   ? 'Free with your unlock pass'
-                  : `${php(rung.ratePhp)} / camera / day`}
+                  : `${php(rung.ratePhp)} / camera`}
               </div>
             </div>
             <Stepper

@@ -347,7 +347,11 @@ export type CameraQuoteLine = {
   rung: PapicRung;
   count: number;
   ratePhp: number;
-  /** count × rate × days, BEFORE the cap. */
+  /**
+   * count × rate, BEFORE the cap. FLAT per camera — the capture-window day
+   * count is NOT a price multiplier (2026-07-22 flat naming lock · migration
+   * 20270830568357; matches /pricing _papic-estimator.tsx).
+   */
   subtotalPhp: number;
   /** What is actually billed: 0 when freed by an unlock, else min(subtotal, cap). */
   chargePhp: number;
@@ -428,9 +432,17 @@ export type CameraQuoteOpts = {
  * Quote a per-camera order across the THREE rungs. PURE + unit-testable — the
  * single source both the pickers (client) and the buy actions (server) mirror.
  *
- * Total = Σ over rungs of min(count · rate · days, rung cap), where a rung freed
- * by its unlock pass charges ₱0 (subtotal still computed, for the "would be"
- * display) and a non-wedding event skips the clamp entirely.
+ * Total = Σ over rungs of min(count · rate, rung cap), where a rung freed by its
+ * unlock pass charges ₱0 (subtotal still computed, for the "would be" display)
+ * and a non-wedding event skips the clamp entirely.
+ *
+ * ⚠ FLAT per camera (2026-07-22 naming lock · migration 20270830568357). The
+ * `days` argument is the capture-WINDOW length: it still sets seat validity
+ * (valid_from/valid_until, resolved by the caller) and rides the order
+ * description, but it is NEVER a price multiplier. /pricing promises "flat per
+ * camera — no per-day or per-hour math" (_papic-estimator.tsx: paidCameras ×
+ * rate), and this charge path must equal that. The old `× days` engine was
+ * retired with the flat rename.
  *
  * `selection.roll` folds into Mini — legacy callers keep working unchanged.
  */
@@ -448,6 +460,8 @@ export function computeCameraQuote(
   // clamps and `capped` stays false. Caps still populate the *CapPhp fields for
   // reference. Defaults to false (wedding path).
   const uncapped = opts.uncapped === true;
+  // The capture-window length (days). Kept for the order description + returned
+  // for callers that record the window — but NOT a price multiplier (flat model).
   const d = Math.max(1, Math.floor(Number(days)) || 1);
 
   // roll == Mini (see the alias note at the top of this module): the two counts
@@ -479,7 +493,9 @@ export function computeCameraQuote(
     const count = counts[rung];
     const ratePhp = papicRungRate(rates, rung);
     const capPhp = capOf[rung];
-    const subtotalPhp = count * ratePhp * d;
+    // FLAT: count × rate. The window length `d` never multiplies the price
+    // (2026-07-22 flat naming lock) — it only sizes the seat validity window.
+    const subtotalPhp = count * ratePhp;
     const free = freeOf[rung];
     const chargePhp = free
       ? 0

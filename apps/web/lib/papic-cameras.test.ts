@@ -257,13 +257,36 @@ test('three rungs bill independently at their own rates', () => {
   assert.equal(q.capped, false);
 });
 
-test('days multiply every rung', () => {
+test('days do NOT multiply the charge — Papic is FLAT per camera (window is duration-only)', () => {
+  // FLAT naming lock (2026-07-22 · migration 20270830568357): the capture window
+  // sizes seat validity, NOT the price. A 3-day window bills exactly the same as
+  // a 1-day one — matching /pricing's "no per-day or per-hour math" promise.
   const q = computeCameraQuote({ mini: 2, ltd: 2, unlimited: 1 }, 3, RATES, LADDER_CAPS);
-  assert.equal(q.miniChargePhp, 180); // 2 × ₱30 × 3d
-  assert.equal(q.ltdChargePhp, 300); // 2 × ₱50 × 3d
-  assert.equal(q.unlimitedChargePhp, 300); // 1 × ₱100 × 3d
-  assert.equal(q.totalPhp, 780);
-  assert.equal(q.days, 3);
+  assert.equal(q.miniChargePhp, 60); // 2 × ₱30 — NOT × 3 days
+  assert.equal(q.ltdChargePhp, 100); // 2 × ₱50
+  assert.equal(q.unlimitedChargePhp, 100); // 1 × ₱100
+  assert.equal(q.totalPhp, 260);
+  assert.equal(q.days, 3); // window span still surfaced (seat validity + description), just never billed
+  // Window-independent by construction: the 1-day quote is identical.
+  const oneDay = computeCameraQuote({ mini: 2, ltd: 2, unlimited: 1 }, 1, RATES, LADDER_CAPS);
+  assert.equal(oneDay.totalPhp, q.totalPhp);
+});
+
+test('Papic One (mini) flat quote equals the /pricing estimator — count × rate, any window', () => {
+  // /pricing _papic-estimator.tsx computes productTotal = paidCameras ×
+  // one.pricePhp (the mini rate), with NO days. The Studio buy path
+  // (purchasePapicCameras / purchasePapicExtras → computeCameraQuote) MUST equal
+  // that for the same PAID-camera count, at the real ₱100 Papic One rate, for
+  // every capture-window length. This is the /pricing == Studio == charge lock.
+  const PROD_RATES: CameraRates = { mini: 100, roll: 100, ltd: 50, unlimited: 200 };
+  const PROD_CAPS: CameraCaps = { mini: 6000, ltd: 10000, unli: 15000 };
+  const estimatorTotal = (paidCameras: number, ratePhp: number) => paidCameras * ratePhp;
+  for (const days of [1, 2, 7, 30]) {
+    const q = computeCameraQuote({ mini: 3 }, days, PROD_RATES, PROD_CAPS);
+    assert.equal(q.miniChargePhp, 300); // 3 × ₱100
+    assert.equal(q.totalPhp, estimatorTotal(3, PROD_RATES.mini)); // == /pricing flat: ₱300
+    assert.equal(q.totalPhp, 300);
+  }
 });
 
 test('roll and mini quote IDENTICALLY — roll is the legacy code for the Mini rung', () => {

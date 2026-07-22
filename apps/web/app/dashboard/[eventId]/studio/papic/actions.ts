@@ -1084,9 +1084,10 @@ export async function purchasePapicExtras(formData: FormData) {
 // Papic · CAPTURE WINDOW (owner 2026-06-26 · migration 20270305885232).
 //
 // The couple picks ONE window for their event's Papic — a start (day + time)
-// and an end (day; the time is auto-set to end-of-day). The window sets BOTH
-// the bill (cameras × rate/day × DAYS) and how long every camera can shoot
-// (paparazzi_seats.valid_from/valid_until). Event-type rules live in
+// and an end (day; the time is auto-set to end-of-day). The window sets how long
+// every camera can shoot (paparazzi_seats.valid_from/valid_until) — NOT the
+// price: Papic is FLAT per camera (2026-07-22 naming lock), no per-day math.
+// Event-type rules live in
 // lib/papic-window.ts: travel = free range (day 1 → end of trip); every other
 // type is anchored to event_date (cover the day, extend BEFORE not AFTER).
 //

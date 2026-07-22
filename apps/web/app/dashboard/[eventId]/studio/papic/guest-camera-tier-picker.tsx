@@ -33,7 +33,8 @@ function php(amount: number): string {
 
 type TierInfo = {
   billPhp: number;
-  perDayPhp: number;
+  /** Flat per-camera rate (NOT per day — 2026-07-22 flat naming lock). */
+  ratePhp: number;
   cameraCap: number;
   /** Daily capture-POINT budget from papic_tier_config. null = unlimited. */
   pointsPerDay: number | null;
@@ -95,7 +96,7 @@ function TierOption({
           {extra ? ` · ${extra}` : ''}
         </span>
         <span className="mt-1 block text-xs text-ink/55">
-          {php(info.perDayPhp)} / guest / day
+          {php(info.ratePhp)} / guest
         </span>
       </span>
       <span className="shrink-0 text-right">

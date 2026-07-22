@@ -14,8 +14,9 @@ import {
 /**
  * Papic CAPTURE WINDOW picker (owner 2026-06-26). The couple picks a start
  * (day + time) and an end DAY; the end TIME is auto-set (end-of-day). The chosen
- * span drives BOTH the price (cameras × rate/day × DAYS) and how long every
- * camera can shoot. Event-type rules (mirrored from lib/papic-window.ts):
+ * span sets how long every camera can shoot (seat validity) — it does NOT set
+ * the price: Papic is FLAT per camera (2026-07-22 naming lock), no per-day math.
+ * Event-type rules (mirrored from lib/papic-window.ts):
  *   • travel  — free range: day 1 → end date of the trip.
  *   • else    — anchored to the event date: covers the day, extend BEFORE it
  *               (capture the prep), never AFTER. The end day is pinned.
@@ -96,8 +97,8 @@ export default function PapicWindowPicker({
           </p>
           <p className="max-w-prose text-xs text-ink/60">
             {travel
-              ? 'Day 1 to the last day of your trip. The window sets your price and how long every camera can shoot.'
-              : 'When your cameras open and close. Start earlier to capture the prep — it ends on your event day. The window sets your price and how long cameras shoot.'}
+              ? 'Day 1 to the last day of your trip. The window sets how long every camera can shoot.'
+              : 'When your cameras open and close. Start earlier to capture the prep — it ends on your event day. The window sets how long every camera can shoot.'}
           </p>
         </div>
         {windowIsSet ? (
@@ -164,8 +165,8 @@ export default function PapicWindowPicker({
           <p className="text-xs text-amber-700">{errorText}</p>
         ) : (
           <p className="text-xs text-ink/55">
-            {previewDays} day{previewDays === 1 ? '' : 's'} of capture — your
-            camera prices below update to match.
+            {previewDays} day{previewDays === 1 ? '' : 's'} of capture — how long
+            every camera can shoot.
           </p>
         )}
 

@@ -789,13 +789,13 @@ function LimitedCard({
           dayLabel={dayLabel}
           limited={{
             billPhp: limitedQuote.frozenBillPhp,
-            perDayPhp: limitedQuote.ratePhp,
+            ratePhp: limitedQuote.ratePhp,
             cameraCap: limitedQuote.cameraCap,
             pointsPerDay: limitedPointsPerDay,
           }}
           unlimited={{
             billPhp: unlimitedQuote.frozenBillPhp,
-            perDayPhp: unlimitedQuote.ratePhp,
+            ratePhp: unlimitedQuote.ratePhp,
             cameraCap: unlimitedQuote.cameraCap,
             pointsPerDay: unlimitedPointsPerDay,
           }}

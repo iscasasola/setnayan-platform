@@ -112,8 +112,8 @@ export type LimitedQuote = {
   ratePhp: number;
   capPhp: number;
   days: number;
-  rawBillPhp: number; // guestCount · rate · days, before the cap
-  frozenBillPhp: number; // after the Ltd cap
+  rawBillPhp: number; // guestCount · rate (flat, no days), before the cap
+  frozenBillPhp: number; // after the cost cap
   cameraCap: number; // max guest cameras one Limited purchase covers (cap / rate)
   capped: boolean; // raw bill exceeded the cap (price locked)
   overflow: number; // guests beyond cameraCap (need Unlimited / free tier)
@@ -148,9 +148,16 @@ export async function countLimitedGuests(
 
 /**
  * Quote a Limited (guest-list) activation. PURE + unit-testable. The bill is
- * guestCount · rate · days, clamped to the Ltd cost cap — so even 300 guests on
- * Limited never pays more than the cap. cameraCap = how many guest cameras that
- * one capped purchase covers (so late RSVPs beyond it are flagged, not billed).
+ * guestCount · rate (FLAT per camera), clamped to the cost cap — so even 300
+ * guests on Limited never pays more than the cap. cameraCap = how many guest
+ * cameras that one capped purchase covers (so late RSVPs beyond it are flagged,
+ * not billed).
+ *
+ * ⚠ FLAT per camera (2026-07-22 naming lock · migration 20270830568357). A
+ * guest camera at the roll tier IS a Papic One (roll == mini), so it must price
+ * exactly like /pricing's flat per-camera promise. `days` is the capture-WINDOW
+ * length — kept for the snapshot + display, but NEVER a price multiplier (the
+ * old `× days` engine was retired with the flat rename).
  */
 export function computeLimitedQuote(
   guestCount: number,
@@ -161,12 +168,13 @@ export function computeLimitedQuote(
   const n = intOf(guestCount);
   const rate = Number(ratePhp) > 0 ? Number(ratePhp) : PAPIC_CAMERA_ROLL_FALLBACK_PHP;
   const cap = Number(capPhp) > 0 ? Number(capPhp) : PAPIC_LTD_CAP_FALLBACK_PHP;
+  // Window length — surfaced (snapshot.days + display) but not billed.
   const d = Math.max(1, Math.floor(Number(days)) || 1);
 
-  const rawBillPhp = n * rate * d;
+  const rawBillPhp = n * rate;
   const frozenBillPhp = Math.min(rawBillPhp, cap);
-  // How many cameras the cap covers for the chosen day-count.
-  const cameraCap = Math.max(0, Math.floor(cap / (rate * d)));
+  // How many cameras the cap covers at the flat per-camera rate.
+  const cameraCap = Math.max(0, Math.floor(cap / rate));
   const overflow = Math.max(0, n - cameraCap);
 
   return {

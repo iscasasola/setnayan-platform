@@ -24,6 +24,7 @@ import {
   VENDOR_AI_ADDON_SKU_CODE,
   nextVendorAiAddonExpiry,
 } from '@/lib/vendor-addon-pricing';
+import { VENDOR_PHOTO_CHALLENGE_SKU_CODE } from '@/lib/vendor-photo-challenge';
 
 /**
  * apps/web/lib/sku-activation.ts
@@ -303,8 +304,81 @@ async function activateVendorAiAddonOrder(ctx: ActivationContext): Promise<void>
   });
 }
 
+/**
+ * Photo Challenge add-on — write the per-(vendor,event) sponsorship entitlement
+ * on approval (owner 2026-07-22). ₱400 / event, no free cycle (unlike the AI
+ * add-on): every approved order is a paid sponsorship. The row is what the
+ * papic_create_vendor_challenge RPC requires before a booked Pro/Enterprise
+ * vendor may author a challenge for the event.
+ *
+ * Reads the paying vendor + event off the order and upserts one
+ * papic_photo_challenge_sponsorships row. IDEMPOTENT two ways: a prior
+ * 'service_activated' ledger row for this order short-circuits, and the
+ * (event_id, vendor_profile_id) UNIQUE + ignoreDuplicates upsert means a
+ * re-approval (or a second order that slipped past the buy-action guard) never
+ * duplicates or errors. Throws only on the write so activateOrderSku's outer
+ * catch logs it + the order stays 'paid' (recoverable). (Function declaration →
+ * hoisted, so the frozen EXACT_HOOKS map below can reference it.)
+ */
+async function activatePhotoChallengeSponsorship(ctx: ActivationContext): Promise<void> {
+  if (!ctx.eventId) return; // a sponsorship is per-event; no event → nothing to grant
+  const eventId = ctx.eventId;
+
+  // (1) Idempotency — already activated this order?
+  const { data: prior } = await ctx.admin
+    .from('order_ledger')
+    .select('order_id')
+    .eq('order_id', ctx.orderId)
+    .eq('event_type', 'service_activated')
+    .limit(1)
+    .maybeSingle();
+  if (prior) return;
+
+  // (2) The paying vendor is on the order.
+  const { data: order } = await ctx.admin
+    .from('orders')
+    .select('vendor_profile_id')
+    .eq('order_id', ctx.orderId)
+    .maybeSingle();
+  const vendorProfileId =
+    (order as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
+  if (!vendorProfileId) return;
+
+  // (3) Upsert the entitlement. ignoreDuplicates → INSERT … ON CONFLICT
+  //     (event_id, vendor_profile_id) DO NOTHING: a vendor holds at most one
+  //     sponsorship per event, so a re-approval / duplicate order is a no-op.
+  const { error } = await ctx.admin.from('papic_photo_challenge_sponsorships').upsert(
+    {
+      event_id: eventId,
+      vendor_profile_id: vendorProfileId,
+      order_id: ctx.orderId,
+    },
+    { onConflict: 'event_id,vendor_profile_id', ignoreDuplicates: true },
+  );
+  if (error) {
+    throw new Error(`vendor_photo_challenge activation write failed: ${error.message}`);
+  }
+
+  await appendLedger(ctx.admin, {
+    order_id: ctx.orderId,
+    event_type: 'service_activated',
+    actor_user_id: ctx.actorUserId,
+    actor_role: 'admin',
+    metadata: {
+      service_key: ctx.serviceKey,
+      vendor_profile_id: vendorProfileId,
+      event_id: eventId,
+    },
+  });
+}
+
 // Exact-match hooks keyed by literal service_key.
 const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
+  // 'vendor_photo_challenge' → Photo Challenge per-event sponsorship (owner
+  // 2026-07-22). Writes the papic_photo_challenge_sponsorships entitlement for
+  // the paying (vendor, event). See activatePhotoChallengeSponsorship.
+  [VENDOR_PHOTO_CHALLENGE_SKU_CODE]: activatePhotoChallengeSponsorship,
+
   // 'vendor_ai_addon' → paid Vendor AI ("AI Chatbot") 28-day renewal. Stamps
   // the entitlement window on the paying vendor (the free first cycle is
   // direct-activated in the buy action). See activateVendorAiAddonOrder.

@@ -136,8 +136,8 @@ export async function POST(req: Request) {
       : null;
 
   // 5. Tier + capture-points enforcement (service-role reads — provenance is
-  // RLS-scoped to owner/admin, and the tier must be authoritative). Lite is
-  // photos-only; each tier's point budget is the ceiling (photo=1, clip=7).
+  // RLS-scoped to owner/admin, and the tier must be authoritative). Each tier's
+  // point budget is the ceiling (photo=1, clip=7); free Lite is 50 pts + video.
   const admin = createAdminClient();
   const [tier, spent] = await Promise.all([
     deriveVendorPapicTier(admin, vendorProfileId, eventId),

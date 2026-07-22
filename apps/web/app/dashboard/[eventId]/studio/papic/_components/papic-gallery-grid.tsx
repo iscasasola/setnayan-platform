@@ -155,7 +155,7 @@ export function PapicGalleryGrid({
                     Video
                   </span>
                 )}
-                {eventId && p.kind === 'clip' ? (
+                {eventId && p.kind === 'clip' && p.source !== 'vendor' ? (
                   <ShowcaseToggle
                     eventId={eventId}
                     photoId={p.id}

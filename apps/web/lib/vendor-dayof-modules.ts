@@ -271,7 +271,7 @@ export const DAY_OF_MODULES: readonly DayOfModule[] = [
     id: 'vendor_papic',
     label: 'Papic capture',
     blurb:
-      'Shoot photos and clips of the event you’re working. Free Papic Lite (20 photos); Papic Ltd (70 pts, photos + video) when you accepted the booking with a token.',
+      'Shoot photos and clips of the event you’re working. Free Papic Lite (50 pts, photos + video); Papic Ltd (70 pts) when you accepted the booking with a token.',
     defaultOnFor: ['capture'],
     alwaysAvailable: true,
     requiresGrant: true,

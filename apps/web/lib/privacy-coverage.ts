@@ -85,6 +85,16 @@ export const CONTROL_COVERAGE: Record<PrivacyControlKey, ControlCoverage> = {
     declaredIn: [],
     note: 'Activation switch, not privacy-sensitive — no filing declaration needed.',
   },
+  vendor_ai_autoreply: {
+    privacySensitive: true,
+    declaredIn: [],
+    note: 'Automated processing of couple chat + Event Brief on the vendor’s behalf. NOT yet declared — needs a /privacy Vendor-AI section + a ROPA entry + DPO sign-off. Held fail-closed by the data-privacy control until then.',
+  },
+  vendor_deep_search: {
+    privacySensitive: true,
+    declaredIn: [],
+    note: 'AI web-research (Anthropic web_search subprocessor) + dossier storage. NOT yet declared — needs a /privacy Deep-Search section, a retention limit (180-day TTL), + a ROPA entry + DPO review. Held fail-closed by the data-privacy control until then.',
+  },
 };
 
 export type FilingActivityGap = { docKey: string; activity: string; note: string };

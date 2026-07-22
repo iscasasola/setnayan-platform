@@ -15,14 +15,15 @@ import { revokeAllSessions } from '@/lib/force-logout';
  * per-partner birth date/time captured for the BaZi date-check — SURVIVES the
  * delete. That's a right-to-erasure violation for sensitive data.
  *
- * This NULLs the 5 birth/consent columns on every event the deleted user OWNS
- * (member_type='couple') BEFORE the auth delete cascades the membership rows
- * away (after which we'd no longer be able to find the owner→event link). The
- * rest of the event row is intentionally left intact — a wedding can have two
- * partners + coordinators; we purge the leaving user's sensitive data, not the
- * shared event. Best-effort: a purge failure is logged but does not block the
- * deletion (a stuck purge must never trap an account in an undeletable state);
- * the column-level COMMENTs flag this data for a manual sweep if needed.
+ * This NULLs, on every event the deleted user OWNS (member_type='couple'), the
+ * 5 birth/consent columns PLUS the owner's own contact PII (owner_email,
+ * owner_display_name, photo_delivery_account_email) and the live encrypted
+ * photo-delivery OAuth token. The SHARED fields (bride/groom names, venue) are
+ * left intact — a wedding can have two partners + coordinators; we purge the
+ * leaving user's own data, not the shared event (whether partial-erasure of a
+ * shared record should go further is a DPO/counsel ruling). Best-effort: a purge
+ * failure is logged but does not block the deletion (a stuck purge must never
+ * trap an account in an undeletable state).
  *
  * Uses the service-role admin client (passed in) so it isn't subject to the
  * leaving user's RLS, which may already be partially torn down.
@@ -74,10 +75,18 @@ async function purgeOwnedEventBirthData(
       partner_b_birth_date: null,
       partner_b_birth_time: null,
       bazi_birthdata_consent_at: null,
+      // The account owner's own contact PII carried on the event row, plus the
+      // LIVE encrypted Google photo-delivery OAuth token — a credential that
+      // must not survive erasure. (bride/groom names + venue are SHARED with the
+      // co-partner/coordinators → left for the DPO shared-record ruling.)
+      owner_email: null,
+      owner_display_name: null,
+      photo_delivery_account_email: null,
+      photo_delivery_oauth_token_encrypted: null,
     })
     .in('event_id', eventIds);
   if (purgeErr) {
-    await recordErasureFailure('birth-data-purge', purgeErr.message, eventIds);
+    await recordErasureFailure('owner-pii-purge', purgeErr.message, eventIds);
   }
 }
 
@@ -139,6 +148,132 @@ async function purgeUserAuthoredChat(
 }
 
 /**
+ * RA 10173 right-to-erasure — the erased user's OTHER owner-scoped personal data,
+ * beyond the users identity row + owned-event data + authored chat that
+ * `eraseUserAccount` already handles. Every table here is reachable ONLY as the
+ * target's OWN PII (their own FK, or the person node they claimed), so scrubbing
+ * it harms no other data subject.
+ *
+ * Deliberately EXCLUDED (DPO / counsel judgment calls — see the PR): shared-event
+ * fields (bride/groom/venue), financial + BIR records (receipts/orders/payments/
+ * payouts — lawful retention), consent-audit tables, the fraud identity graph
+ * (retention review already pending), third-party PII the user ENTERED about
+ * others, per-event guest-side biometrics + the R2 objects behind verification
+ * docs / face selfies / chat attachments (a DB scrub alone orphans the file).
+ *
+ * Best-effort per step, mirroring the purges above: a failure is audit-logged,
+ * never thrown, so one bad step can't trap the account in an undeletable state.
+ */
+async function purgeUserOwnedRecords(
+  admin: ReturnType<typeof createAdminClient>,
+  targetUserId: string,
+  actorUserId: string,
+): Promise<void> {
+  const nowIso = new Date().toISOString();
+  const tombstoneEmail = `erased+${targetUserId}@erased.setnayan.invalid`;
+
+  const step = async (
+    stage: string,
+    exec: () => PromiseLike<{ error: { message: string } | null }>,
+  ) => {
+    const { error } = await exec();
+    if (error) {
+      console.error(`[purgeUserOwnedRecords] ${stage} failed`, error.message);
+      await admin
+        .from('admin_audit_log')
+        .insert({
+          action: 'erasure_step_failed',
+          target_id: targetUserId,
+          actor_user_id: actorUserId,
+          metadata: { stage, message: error.message },
+        })
+        .then(({ error: auditErr }) => {
+          if (auditErr) console.error('[purgeUserOwnedRecords] audit-log write failed', auditErr.message);
+        });
+    }
+  };
+
+  // people — the user's OWN durable identity node (claimed_by_user_id UNIQUE).
+  // Anonymize the 7 PII columns + tombstone the node. Rows they merely CREATED
+  // for third parties (created_by_user_id) are left — that's someone else's PII.
+  await step('people-anonymize', () =>
+    admin
+      .from('people')
+      .update({
+        display_name: null,
+        first_name: null,
+        last_name: null,
+        email: null,
+        phone: null,
+        profile_photo_url: null,
+        birth_date: null,
+        deleted_at: nowIso,
+      })
+      .eq('claimed_by_user_id', targetUserId),
+  );
+
+  // user_face_profiles — the account's OWN biometric template. Sensitive PI with
+  // no retention basis → delete the row outright.
+  await step('user-face-profile-delete', () =>
+    admin.from('user_face_profiles').delete().eq('user_id', targetUserId),
+  );
+
+  // push_subscriptions — device push endpoints/keys. Useless after lockout.
+  await step('push-subscriptions-delete', () =>
+    admin.from('push_subscriptions').delete().eq('user_id', targetUserId),
+  );
+
+  // dependents / godparents — the user's PRIVATE family records (owner-scoped;
+  // no other data subject can reach them; may hold a minor's sensitive PI).
+  await step('dependents-delete', () =>
+    admin.from('dependents').delete().eq('owner_user_id', targetUserId),
+  );
+  await step('godparents-delete', () =>
+    admin.from('godparents').delete().eq('owner_user_id', targetUserId),
+  );
+
+  // guest_claims — the user's own name/email presented when claiming a guest
+  // seat. claimer_name is NOT NULL → tombstone; the rest → null.
+  await step('guest-claims-anonymize', () =>
+    admin
+      .from('guest_claims')
+      .update({ claimer_name: '[erased]', claimer_email: null, otp_sent_to: null })
+      .eq('claimer_user_id', targetUserId),
+  );
+
+  // help_messages — support tickets the user authored. Keep the shell for
+  // support continuity but erase every PII field (all three are NOT NULL bar the
+  // name → tombstone/placeholder rather than null).
+  await step('help-messages-anonymize', () =>
+    admin
+      .from('help_messages')
+      .update({ sender_email: tombstoneEmail, sender_name: null, subject: '[erased]', body: '[erased]' })
+      .eq('user_id', targetUserId),
+  );
+
+  // vendor_profiles — the user's OWN shop (user_id is UNIQUE = sole owner). Scrub
+  // the contact PII, blank the NOT NULL name, and unpublish it from the
+  // marketplace. The shell stays for team continuity (DPO note in the PR).
+  await step('vendor-profile-anonymize', () =>
+    admin
+      .from('vendor_profiles')
+      .update({
+        business_name: '',
+        business_slug: null,
+        tagline: null,
+        website: null,
+        contact_email: null,
+        contact_phone: null,
+        logo_url: null,
+        business_owner_name: null,
+        location_city: null,
+        is_published: false,
+      })
+      .eq('user_id', targetUserId),
+  );
+}
+
+/**
  * RA 10173 right-to-erasure — the terminal erasure step (soft-delete + anonymize).
  *
  * REPLACES the old hard `auth.admin.deleteUser`, which THREW for any user with
@@ -165,11 +300,17 @@ async function purgeUserAuthoredChat(
  * Legal posture: this erases the data subject's PERSONAL data. Transactional /
  * attribution rows (orders, vendor-team membership, audit) persist under the
  * lawful basis to retain business records — you erase the personal data, not
- * every row. ⚠ Completeness of the PII sweep beyond the users row + these two
- * purges (face enrollments, uploaded IDs, a vendor's own profile PII) is a
- * DPO / counsel retention-review item. Best-effort per step, matching the
- * purges: a failure is audit-logged, never thrown, so erasure can't trap the
- * account in an undeletable state.
+ * every row. Coverage now: the users identity row (incl. religion/civil-status/
+ * sex/address/venue), owned-event owner data + the photo-delivery OAuth token,
+ * authored chat, and (via `purgeUserOwnedRecords`) the people node, account
+ * biometrics, family records, shop contact PII, support tickets, push tokens,
+ * and guest claims. ⚠ STILL a DPO / counsel retention-review item (NOT scrubbed
+ * here): per-event guest-side biometrics + the R2 objects behind verification
+ * docs / face selfies / chat attachments; shared-event fields; financial + BIR
+ * records; consent-audit tables; and the fraud identity graph (note: this DOES
+ * null `users.address_normalized`, a fraud-graph input — carve out if counsel
+ * establishes a fraud-retention basis). Best-effort per step: a failure is
+ * audit-logged, never thrown, so erasure can't trap the account undeletable.
  */
 async function eraseUserAccount(
   admin: ReturnType<typeof createAdminClient>,
@@ -197,7 +338,9 @@ async function eraseUserAccount(
   };
 
   // 1. Anonymize the public.users PII + lock the account out via deleted_at.
-  //    email is NOT NULL → tombstone rather than null.
+  //    email is NOT NULL → tombstone rather than null. Covers the sensitive PI
+  //    (§3(l)) the identity row carries beyond name/contact: religion, civil
+  //    status, sex, address, self-review venue, and the public social-post link.
   const { error: pErr } = await admin
     .from('users')
     .update({
@@ -207,6 +350,18 @@ async function eraseUserAccount(
       profile_photo_url: null,
       birth_date: null,
       slug: null,
+      religion: null,
+      religion_consent_at: null,
+      civil_status: null,
+      civil_status_consent_at: null,
+      sex: null,
+      sex_consent_at: null,
+      address_normalized: null,
+      venue_address: null,
+      venue_name: null,
+      social_post_url: null,
+      last_login_at: null,
+      last_ghost_check_at: null,
       deleted_at: nowIso,
       updated_at: nowIso,
     })
@@ -225,9 +380,12 @@ async function eraseUserAccount(
   });
   if (aErr) await auditFail('auth-scrub', aErr.message);
 
-  // 4. Domain PII purges (owned-event birth data · authored chat bodies).
+  // 4. Domain PII purges (owned-event owner data · authored chat bodies · the
+  //    user's other owner-scoped records — people node, biometrics, family
+  //    records, shop contact PII, support tickets, push tokens, guest claims).
   await purgeOwnedEventBirthData(admin, targetUserId, actorUserId);
   await purgeUserAuthoredChat(admin, targetUserId, actorUserId);
+  await purgeUserOwnedRecords(admin, targetUserId, actorUserId);
 
   // 5. Success audit.
   await admin

@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { resolvePlayRef } from '@/lib/papic-display-ref';
 
 // The couple's real Papic gallery — both crew (paparazzi) captures and guest
 // captures, with presigned thumbnails. Reads under the COUPLE's RLS session
@@ -69,7 +70,7 @@ export async function fetchPapicGallery(
     supabase
       .from('papic_photos')
       .select(
-        'photo_id, r2_object_key, poster_r2_key, display_r2_key, thumb_r2_key, photo_type, captured_at, moderation_state, hidden_at, expires_at, consent_to_public, couple_approved_for_showcase',
+        'photo_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, photo_type, captured_at, moderation_state, hidden_at, expires_at, consent_to_public, couple_approved_for_showcase',
       )
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
@@ -77,7 +78,7 @@ export async function fetchPapicGallery(
     supabase
       .from('papic_guest_captures')
       .select(
-        'capture_id, r2_object_key, poster_r2_key, display_r2_key, thumb_r2_key, media_type, captured_at, hidden_at, moderation_state, consent_to_public, couple_approved_for_showcase',
+        'capture_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, media_type, captured_at, hidden_at, moderation_state, consent_to_public, couple_approved_for_showcase',
       )
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
@@ -137,9 +138,17 @@ export async function fetchPapicGallery(
         (r.display_r2_key as string | null) ??
         (isClip ? (r.poster_r2_key as string | null) : (r.r2_object_key as string | null)) ??
         (r.r2_object_key as string | null),
-      // The playable video lives at r2_object_key for a clip (the tile shows its
-      // poster). Photos have no separate video.
-      videoRef: isClip ? (r.r2_object_key as string | null) : null,
+      // The playable video for a clip resolves through resolvePlayRef (clip_web
+      // web copy preferred, drop-safe) — never the raw key directly; the tile
+      // shows its poster. Photos have no separate video.
+      videoRef: isClip
+        ? resolvePlayRef({
+            photo_type: 'clip',
+            r2_object_key: r.r2_object_key as string | null,
+            clip_web_r2_key: r.clip_web_r2_key as string | null,
+            full_res_dropped_at: r.full_res_dropped_at as string | null,
+          })
+        : null,
       kind: isClip ? 'clip' : 'photo',
       source: 'seat',
       tagged: Boolean(tagSrc),
@@ -169,7 +178,14 @@ export async function fetchPapicGallery(
         (r.display_r2_key as string | null) ??
         (isClip ? (r.poster_r2_key as string | null) : (r.r2_object_key as string | null)) ??
         (r.r2_object_key as string | null),
-      videoRef: isClip ? (r.r2_object_key as string | null) : null,
+      videoRef: isClip
+        ? resolvePlayRef({
+            media_type: 'clip',
+            r2_object_key: r.r2_object_key as string | null,
+            clip_web_r2_key: r.clip_web_r2_key as string | null,
+            full_res_dropped_at: r.full_res_dropped_at as string | null,
+          })
+        : null,
       kind: isClip ? 'clip' : 'photo',
       source: 'guest',
       tagged: Boolean(tagSrc),

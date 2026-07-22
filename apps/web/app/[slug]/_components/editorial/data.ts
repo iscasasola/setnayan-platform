@@ -16,7 +16,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { resolveStillRef, stableMediaPath } from '@/lib/papic-display-ref';
+import { resolveStillRef, resolvePlayRef, stableMediaPath } from '@/lib/papic-display-ref';
 import { eventSkuActive } from '@/lib/entitlements';
 import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
 import { tierCaps } from '@/lib/vendor-tier-caps';
@@ -896,8 +896,10 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   // 5b-bis. The day's Papic 5-second CLIPS (photo_type='clip'). Same fail-closed
   // moderation filter as the photos above, ordered oldest-first so they slot into
   // the "As the Day Unfolded" timeline in the order they happened. The playable
-  // MP4 lives at r2_object_key; poster_r2_key is the freeze-frame. A missing
-  // table/column (pre-Papic event) degrades to an empty list.
+  // ref resolves through resolvePlayRef (clip_web_r2_key ?? raw), so playback
+  // prefers the small ~0.5 MB web copy and correctly drops a raw that PR-2 later
+  // makes droppable; poster_r2_key is the freeze-frame (still, resolved
+  // separately). A missing table/column (pre-Papic event) degrades to an empty list.
   type PapicClipRow = {
     photoId: string;
     key: string;
@@ -908,7 +910,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   try {
     const { data: rows, error } = await admin
       .from('papic_photos')
-      .select('photo_id, r2_object_key, poster_r2_key, captured_at')
+      .select('photo_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, captured_at')
       .eq('event_id', eventId)
       .eq('photo_type', 'clip')
       .is('hidden_at', null)
@@ -923,7 +925,13 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
       papicClipRows = (rows as Array<Record<string, unknown>>)
         .map((r) => ({
           photoId: asString(r.photo_id),
-          key: asString(r.r2_object_key),
+          // Play ref (web copy preferred, drop-safe) — never the raw key directly.
+          key: resolvePlayRef({
+            photo_type: 'clip',
+            r2_object_key: asString(r.r2_object_key),
+            clip_web_r2_key: asString(r.clip_web_r2_key),
+            full_res_dropped_at: asString(r.full_res_dropped_at),
+          }),
           posterKey: asString(r.poster_r2_key) ?? null,
           capturedAt: asString(r.captured_at) ?? null,
         }))
@@ -1873,7 +1881,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
         try {
           const { data: pRows } = await admin
             .from('papic_photos')
-            .select('photo_id, r2_object_key, poster_r2_key, photo_type')
+            .select('photo_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, photo_type')
             .eq('event_id', eventId)
             .in('photo_id', Array.from(photoAnchorIds))
             .is('hidden_at', null)
@@ -1884,9 +1892,19 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
             );
           for (const p of (pRows ?? []) as Array<Record<string, unknown>>) {
             const id = asString(p.photo_id);
-            const key = asString(p.r2_object_key);
-            if (!id || !key) continue;
             const type = asString(p.photo_type) === 'clip' ? 'clip' : 'photo';
+            // A CLIP plays a VIDEO → resolvePlayRef (web copy preferred, drop-safe);
+            // a PHOTO keeps its original key (a still, presigned below).
+            const key =
+              type === 'clip'
+                ? resolvePlayRef({
+                    photo_type: 'clip',
+                    r2_object_key: asString(p.r2_object_key),
+                    clip_web_r2_key: asString(p.clip_web_r2_key),
+                    full_res_dropped_at: asString(p.full_res_dropped_at),
+                  })
+                : asString(p.r2_object_key);
+            if (!id || !key) continue;
             photoAnchors.set(id, { type, key, posterKey: asString(p.poster_r2_key) });
           }
         } catch {
@@ -1901,7 +1919,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
         try {
           const { data: cRows } = await admin
             .from('papic_guest_captures')
-            .select('capture_id, r2_object_key, display_r2_key, poster_r2_key, media_type')
+            .select('capture_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, display_r2_key, poster_r2_key, media_type')
             .eq('event_id', eventId)
             .in('capture_id', Array.from(captureAnchorIds))
             .eq('consent_to_public', true)
@@ -1910,13 +1928,19 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
           for (const c of (cRows ?? []) as Array<Record<string, unknown>>) {
             const id = asString(c.capture_id);
             const type = asString(c.media_type) === 'clip' ? 'clip' : 'photo';
-            // A CLIP must render the playable original (r2_object_key); the
-            // display_r2_key derivative is a still (lightbox image), never a video.
-            // A PHOTO prefers the display derivative, falling back to the original
-            // when derivatives haven't been generated (mirrors lib/papic-gallery).
+            // A CLIP must render a VIDEO → resolvePlayRef (web copy preferred,
+            // drop-safe); the display_r2_key derivative is a still (lightbox image),
+            // never a video. A PHOTO prefers the display derivative, falling back to
+            // the original when derivatives haven't been generated (mirrors
+            // lib/papic-gallery).
             const key =
               type === 'clip'
-                ? asString(c.r2_object_key)
+                ? resolvePlayRef({
+                    media_type: 'clip',
+                    r2_object_key: asString(c.r2_object_key),
+                    clip_web_r2_key: asString(c.clip_web_r2_key),
+                    full_res_dropped_at: asString(c.full_res_dropped_at),
+                  })
                 : asString(c.display_r2_key) ?? asString(c.r2_object_key);
             if (!id || !key) continue;
             captureAnchors.set(id, { type, key, posterKey: asString(c.poster_r2_key) });

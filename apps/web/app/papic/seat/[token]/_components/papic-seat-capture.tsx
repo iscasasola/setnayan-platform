@@ -22,6 +22,7 @@ import {
   recordSeatCapture,
   tagSeatCapture,
   autoTagSeatCapture,
+  persistSeatClipWebCopy,
 } from '@/app/papic/actions';
 import { makeQrDetector } from '@/lib/qr-scan';
 import {
@@ -44,6 +45,11 @@ import {
   clipVideoBitsPerSecond,
   recordUploadSample,
 } from '@/lib/papic-adaptive-quality';
+import {
+  compressVideoForWeb,
+  canCompressVideo,
+  WEB_COPY_MIN_BYTES,
+} from '@/lib/video-compress';
 
 // Papic · paparazzo capture (client)
 //
@@ -472,6 +478,34 @@ export function PapicSeatCapture({
     [token, faceMode],
   );
 
+  // CLIP WEB-COPY (Papic storage PR-1) — a BACKGROUND follow-up fired only AFTER
+  // the raw clip has already recorded (we have its photoId). It transcodes a
+  // ~0.5 MB H.264 web copy off the main thread (ffmpeg.wasm runs in its own
+  // worker), PUTs it to its OWN R2 key via the same presign+PUT path (/api/upload
+  // UUID-prefixes every key → provably distinct from the raw + poster), then
+  // persists clip_web_r2_key by photoId through persistSeatClipWebCopy (auth-scoped
+  // to this seat session). Deliberately NOT awaited by the drain: it must never
+  // block the raw record or delay the serial worker moving to the next shot.
+  // Best-effort end-to-end — on unsupported / transcode-skip / any failure it just
+  // returns, the column stays NULL, and the raw remains the only playable copy.
+  const uploadSeatClipWebCopy = useCallback(
+    async (clip: Blob, photoId: string) => {
+      try {
+        if (!canCompressVideo()) return;
+        const src = new File([clip], `papic-web-${Date.now()}.mp4`, { type: 'video/mp4' });
+        const web = await compressVideoForWeb(src, { profile: 'web480' });
+        // Reference-equality: compressVideoForWeb returns the INPUT unchanged on
+        // skip/failure (or when the copy wasn't smaller) → nothing worth storing.
+        if (web === src || web.size <= WEB_COPY_MIN_BYTES || web.size >= clip.size) return;
+        const clipWebRef = await uploadBlob(web, 'video/mp4', 'mp4');
+        await persistSeatClipWebCopy(token, photoId, clipWebRef, web.size);
+      } catch {
+        // best-effort — the raw stays the playable copy
+      }
+    },
+    [uploadBlob, token],
+  );
+
   // Roll back the optimistic count when a shot fails for a non-cap reason — the
   // slot is free again (matters for capped seats).
   const rollbackCount = useCallback((kind: 'photo' | 'clip') => {
@@ -513,6 +547,14 @@ export function PapicSeatCapture({
             posterRef = undefined; // poster is best-effort; clip still lands
           }
         }
+        // RECORD THE RAW FIRST — with NULL web columns. The clip's web copy is a
+        // multi-second wasm transcode; it must NEVER delay the raw clip's DB record
+        // nor occupy the serial drain worker (that would back up the unbounded
+        // in-memory queue at a high capture rate → memory-pressure loss of queued
+        // raws). So the web copy is produced + persisted as a FIRE-AND-FORGET
+        // follow-up below, off the drain, exactly like the guest `mode=web_copy`
+        // path. A failed/unsupported transcode just leaves clip_web_r2_key NULL and
+        // the raw `mainRef` (already in R2) stays the only playable copy.
         const result =
           shot.kind === 'photo'
             ? await recordSeatCapture(token, mainRef, 'photo')
@@ -559,6 +601,12 @@ export function PapicSeatCapture({
             const faceSource =
               shot.faceBlob ?? (shot.kind === 'clip' ? shot.poster : shot.blob);
             if (faceSource) void autoTagFromBlob(result.photoId, faceSource);
+          }
+          // Kick the web-copy transcode + persist in the BACKGROUND (not awaited),
+          // so the drain returns immediately and moves to the next shot. The raw is
+          // already recorded above, so this never blocks or risks the raw clip.
+          if (shot.kind === 'clip' && shot.blob) {
+            void uploadSeatClipWebCopy(shot.blob, result.photoId);
           }
         }
         setSaveError(null);
@@ -626,6 +674,7 @@ export function PapicSeatCapture({
       armTagging,
       autoTagFromBlob,
       autoTagFromClip,
+      uploadSeatClipWebCopy,
       rollbackCount,
     ],
   );

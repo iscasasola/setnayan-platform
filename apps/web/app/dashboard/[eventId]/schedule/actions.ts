@@ -32,8 +32,33 @@ import {
   isTravelOnlyBlockType,
   tourDoubleBookMessage,
 } from '@/lib/schedule-travel';
+import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 
 const VALID_TYPES = new Set<ScheduleBlockType>(SCHEDULE_BLOCK_TYPES);
+
+/**
+ * Coordinator P1: is this user the event's EXTERNAL coordinator
+ * (event_moderators role_subtype='wedding_planner_external', accepted, not
+ * removed)? Gates prep-then-release so the couple (backfilled as partner1/
+ * partner2 moderators) and family delegates can't stage/hide schedule items
+ * from the couple.
+ */
+async function isEventCoordinator(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  eventId: string,
+): Promise<boolean> {
+  const { data } = await supabase
+    .from('event_moderators')
+    .select('moderator_id')
+    .eq('event_id', eventId)
+    .eq('user_id', userId)
+    .eq('role_subtype', 'wedding_planner_external')
+    .not('accepted_at', 'is', null)
+    .is('removed_at', null)
+    .maybeSingle();
+  return !!data;
+}
 
 /** events.event_type for an RLS-visible event; null when unreadable. */
 async function fetchEventType(
@@ -129,7 +154,7 @@ export async function createScheduleBlock(formData: FormData) {
     }
   }
 
-  const { error } = await supabase.from('event_schedule_blocks').insert({
+  const insertRow: Record<string, unknown> = {
     event_id: eventId,
     label: trimmedLabel,
     block_type: blockTypeRaw,
@@ -139,7 +164,17 @@ export async function createScheduleBlock(formData: FormData) {
     notes: nullIfBlank(formData.get('notes')),
     is_public: formData.get('is_public') === 'on',
     parent_block_id: parentBlockId,
-  });
+  };
+  // Coordinator P1 prep-then-release: an external coordinator may create a block
+  // STAGED (coordinator_only, hidden from the couple until released). Gated by
+  // the flag + coordinator role; flag-off / couple / family → couple_visible
+  // (the DB default) and the column is never referenced.
+  if (isCoordinatorPrepReleaseEnabled() && formData.get('prep') === 'on') {
+    if (await isEventCoordinator(supabase, user.id, eventId)) {
+      insertRow.visibility = 'coordinator_only';
+    }
+  }
+  const { error } = await supabase.from('event_schedule_blocks').insert(insertRow);
   if (error) throw new Error(error.message);
 
   revalidatePath(`/dashboard/${eventId}/schedule`);
@@ -194,6 +229,54 @@ export async function toggleBlockVisibility(formData: FormData) {
   const { error } = await supabase
     .from('event_schedule_blocks')
     .update({ is_public: desired, updated_at: new Date().toISOString() })
+    .eq('block_id', blockId)
+    .eq('event_id', eventId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/schedule`);
+  revalidatePath(`/dashboard/${eventId}`);
+}
+
+/**
+ * Coordinator P1 prep-then-release: STAGE a block (coordinator_only — hidden
+ * from the couple, guests, and booked vendors) or RELEASE it to the couple
+ * (couple_visible — stamps released_at). Only the external coordinator may call
+ * this (the couple can't see staged blocks to begin with). Flag-gated.
+ */
+export async function setBlockPrepVisibility(formData: FormData) {
+  if (!isCoordinatorPrepReleaseEnabled()) {
+    throw new Error('Prep-then-release is not enabled.');
+  }
+  const eventId = formData.get('event_id');
+  const blockId = formData.get('block_id');
+  const desired = formData.get('visibility');
+  if (
+    typeof eventId !== 'string' ||
+    typeof blockId !== 'string' ||
+    (desired !== 'coordinator_only' && desired !== 'couple_visible')
+  ) {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  if (!(await isEventCoordinator(supabase, user.id, eventId))) {
+    throw new Error('Only the event coordinator can stage or release schedule items.');
+  }
+
+  const patch: { visibility: string; updated_at: string; released_at?: string } = {
+    visibility: desired,
+    updated_at: new Date().toISOString(),
+  };
+  // Releasing to the couple stamps the moment; staging leaves released_at as-is.
+  if (desired === 'couple_visible') patch.released_at = new Date().toISOString();
+
+  const { error } = await supabase
+    .from('event_schedule_blocks')
+    .update(patch)
     .eq('block_id', blockId)
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);

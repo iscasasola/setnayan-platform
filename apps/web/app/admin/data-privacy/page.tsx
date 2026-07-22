@@ -3,15 +3,13 @@ import { ShieldCheck, CheckCircle2, Circle, Ban, Download, FileText, FolderArchi
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { relativeTime } from '@/lib/activity';
-import { FormFlash } from '@/app/_components/forms/form-flash';
-import { SubmitButton } from '@/app/_components/submit-button';
 import {
   fetchDataPrivacyControls,
   type PrivacyControlRow,
   type PrivacyControlStatus,
 } from '@/lib/data-privacy-controls';
 import { NPC_DOCUMENTS, NPC_DOC_GROUP_LABEL, type NpcDocGroup } from '@/lib/npc-documents';
-import { setDataPrivacyControl } from './actions';
+import { ControlActions } from './_components/control-actions';
 
 export const metadata = { title: 'Data Privacy · Admin' };
 export const dynamic = 'force-dynamic';
@@ -38,13 +36,8 @@ const STATUS_META: Record<
   blocked: { label: 'Blocked', tone: 'blocked', icon: Ban },
 };
 
-export default async function DataPrivacyPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ flash?: string; error?: string }>;
-}) {
+export default async function DataPrivacyPage() {
   await requireAdmin();
-  const search = await searchParams;
   const admin = createAdminClient();
   const controls = await fetchDataPrivacyControls(admin);
 
@@ -69,9 +62,6 @@ export default async function DataPrivacyPage({
           </span>
         </p>
       </header>
-
-      {search.error ? <FormFlash tone="error">{search.error}</FormFlash> : null}
-      {search.flash ? <FormFlash tone="success">{search.flash}</FormFlash> : null}
 
       <ul className="space-y-3">
         {controls.map((c) => (
@@ -214,50 +204,8 @@ function ControlCard({ control: c }: { control: PrivacyControlRow }) {
           ) : null}
         </div>
 
-        {/* Approve / turn off / block */}
-        <form action={setDataPrivacyControl} className="flex shrink-0 flex-col items-stretch gap-2">
-          <input type="hidden" name="control_key" value={c.control_key} />
-          <input
-            type="text"
-            name="note"
-            defaultValue={c.note ?? ''}
-            placeholder="Note (optional)"
-            maxLength={1000}
-            className="w-44 rounded-md border px-2.5 py-1.5 text-xs"
-            style={{ borderColor: 'var(--m-line)', color: 'var(--m-ink)' }}
-          />
-          <div className="flex gap-2">
-            {c.status !== 'active' ? (
-              <SubmitButton
-                name="status"
-                value="active"
-                className="flex-1 rounded-lg px-3 py-1.5 text-xs font-semibold text-white"
-                style={{ background: 'var(--m-ink)' }}
-              >
-                Approve · activate
-              </SubmitButton>
-            ) : (
-              <SubmitButton
-                name="status"
-                value="inactive"
-                className="flex-1 rounded-lg border px-3 py-1.5 text-xs font-semibold"
-                style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}
-              >
-                Turn off
-              </SubmitButton>
-            )}
-            {c.status !== 'blocked' ? (
-              <SubmitButton
-                name="status"
-                value="blocked"
-                className="rounded-lg border px-3 py-1.5 text-xs font-semibold"
-                style={{ borderColor: 'var(--sn-danger, #b42318)', color: 'var(--sn-danger, #b42318)' }}
-              >
-                Block
-              </SubmitButton>
-            ) : null}
-          </div>
-        </form>
+        {/* Approve / turn off / block — in-place via useActionState, no page nav */}
+        <ControlActions control={c} />
       </div>
     </li>
   );

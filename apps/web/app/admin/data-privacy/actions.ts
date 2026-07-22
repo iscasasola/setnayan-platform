@@ -1,7 +1,6 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
 import { DATA_PRIVACY_CONTROLS, type PrivacyControlStatus } from '@/lib/data-privacy-controls';
@@ -9,28 +8,28 @@ import { DATA_PRIVACY_CONTROLS, type PrivacyControlStatus } from '@/lib/data-pri
 const VALID_KEYS = new Set<string>(DATA_PRIVACY_CONTROLS.map((c) => c.key));
 const VALID_STATUS = new Set<PrivacyControlStatus>(['inactive', 'active', 'blocked']);
 
-function done(msg: string) {
-  redirect(`/admin/data-privacy?flash=${encodeURIComponent(msg)}`);
-}
-function fail(msg: string): never {
-  redirect(`/admin/data-privacy?error=${encodeURIComponent(msg)}`);
-}
+export type ControlActionResult = { status: 'ok' | 'error'; message: string };
 
 /**
  * Set a data-privacy control's status (admin approval board). Records the
  * approving admin + timestamp + note as the RA 10173 audit trail. Upserts so a
- * not-yet-seeded control still saves. The row already carries its catalog copy
- * from the seed; we write only the mutable fields.
+ * not-yet-seeded control still saves.
+ *
+ * Returns a per-submission result (no redirect) so the card updates IN PLACE via
+ * useActionState — approving revalidates the board (so this card's status badge
+ * refreshes) but never navigates, so the page no longer blanks/scrolls to top.
  */
-export async function setDataPrivacyControl(formData: FormData): Promise<void> {
+export async function setDataPrivacyControl(
+  formData: FormData,
+): Promise<ControlActionResult> {
   const { userId } = await requireAdmin();
 
   const key = String(formData.get('control_key') ?? '');
   const status = String(formData.get('status') ?? '') as PrivacyControlStatus;
   const note = (String(formData.get('note') ?? '').trim() || null)?.slice(0, 1000) ?? null;
 
-  if (!VALID_KEYS.has(key)) fail('Unknown control.');
-  if (!VALID_STATUS.has(status)) fail('Invalid status.');
+  if (!VALID_KEYS.has(key)) return { status: 'error', message: 'Unknown control.' };
+  if (!VALID_STATUS.has(status)) return { status: 'error', message: 'Invalid status.' };
 
   const def = DATA_PRIVACY_CONTROLS.find((c) => c.key === key)!;
   const admin = createAdminClient();
@@ -52,14 +51,18 @@ export async function setDataPrivacyControl(formData: FormData): Promise<void> {
     },
     { onConflict: 'control_key' },
   );
-  if (error) fail(error.message);
+  if (error) return { status: 'error', message: error.message };
 
+  // Refresh the board's data in place (updates this card's status badge). No
+  // redirect → the page doesn't navigate/blank; only the changed card updates.
   revalidatePath('/admin/data-privacy');
-  done(
-    status === 'active'
-      ? `“${def.title}” is now active.`
-      : status === 'blocked'
-        ? `“${def.title}” is blocked.`
-        : `“${def.title}” is off.`,
-  );
+  return {
+    status: 'ok',
+    message:
+      status === 'active'
+        ? `“${def.title}” is now active.`
+        : status === 'blocked'
+          ? `“${def.title}” is blocked.`
+          : `“${def.title}” is off.`,
+  };
 }

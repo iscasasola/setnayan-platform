@@ -8,9 +8,13 @@
 -- number this migration touches is the DURATION clamp inside
 -- papic_record_guest_capture, the guest-phone record path: it clamped stored
 -- duration_ms to LEAST(ms, 5000). With the 10-second cap that clamp would
--- silently truncate a genuine 10s guest clip's metadata to 5s (the seat path
--- inserts duration un-clamped, so the two paths would disagree). Raise the clamp
--- to 10000 so both paths agree.
+-- silently truncate a genuine 10s guest clip's metadata to 5s. This clamp is on
+-- the GUEST path ONLY: guest captures persist duration_ms on
+-- papic_guest_captures, so the clamp is what gets stored. The seat path stores
+-- NO clip duration (it writes papic_photos, which has no duration_ms column — it
+-- only validates duration to reject an over-long clip, never records it), so
+-- there is nothing on the seat side to keep in sync. Raise the clamp to 10000 so
+-- a real 10s guest clip records its true duration.
 --
 -- Byte-identical to the definition in 20270902148488 (the metering PR) EXCEPT
 -- the single 5000 → 10000 in the clip-duration clamp. No signature change, no

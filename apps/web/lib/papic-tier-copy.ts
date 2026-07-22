@@ -13,7 +13,7 @@
  *   • the studio guest-camera picker promised "30 photos + 10 clips each".
  * Enforcement, meanwhile, runs on capture POINTS resolved from the
  * admin-editable `public.papic_tier_config` table (migration 20270821110000 +
- * the RPCs in 20270821110100): 1 photo = 1 point · 1 five-second clip = 3
+ * the RPCs in 20270821110100): 1 photo = 1 point · 1 ten-second clip = 7
  * points, budget `points_per_day` per tier (NULL = unlimited).
  *
  * THE RULE this module enforces: a display surface must never spell a photo

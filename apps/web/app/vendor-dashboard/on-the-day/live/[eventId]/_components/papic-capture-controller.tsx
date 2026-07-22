@@ -9,11 +9,11 @@ import {
   isPapicVendorTerminalError,
 } from '@/lib/offline/service-handlers/papic-vendor-drain';
 import { triggerSyncNow } from '@/lib/offline/sync-daemon';
-import type { VendorPapicTier } from '@/lib/vendor-papic-tier';
+import { VENDOR_PAPIC_POINTS, type VendorPapicTier } from '@/lib/vendor-papic-tier';
 
 // The vendor on-the-day Papic capture controller (owner-locked 2026-07-18).
 // A consent gate → the live camera → gesture shutter (tap = photo · press-and-
-// hold = ≤5s clip, Ltd/Unli only) → the server-side capture route enforces the
+// hold = ≤10s clip, Ltd/Unli only) → the server-side capture route enforces the
 // tier's capture-point budget. Lite is photos-only; Ltd (and an admin-comped
 // Unli) allow clips. Kept deliberately simple vs the couple seat surface (no
 // face tag, no roll) — the vendor is working, so the shutter stays responsive
@@ -85,8 +85,9 @@ export function PapicCaptureController({
 
   const unlimited = pointsCap == null;
   const pointsLeft = unlimited ? null : Math.max(0, pointsCap - spent);
-  const canPhoto = unlimited || spent + 1 <= (pointsCap ?? 0);
-  const canClip = allowVideo && (unlimited || spent + 7 <= (pointsCap ?? 0));
+  const canPhoto = unlimited || spent + VENDOR_PAPIC_POINTS.photo <= (pointsCap ?? 0);
+  const canClip =
+    allowVideo && (unlimited || spent + VENDOR_PAPIC_POINTS.clip <= (pointsCap ?? 0));
   const outOfPoints = !unlimited && (pointsLeft ?? 0) <= 0;
 
   const flash = useCallback((msg: string) => {
@@ -148,9 +149,10 @@ export function PapicCaptureController({
     ) => {
       setInFlight((n) => n + 1);
       // Optimistic point spend so the meter + gating stay ahead of the network;
-      // the server is the hard gate and reconciles on its response. Mirrors
-      // VENDOR_PAPIC_POINTS (1 photo = 1 pt · 1×10s clip = 7 pts · §0).
-      const cost = kind === 'clip' ? 7 : 1;
+      // the server is the hard gate and reconciles on its response. Sourced from
+      // VENDOR_PAPIC_POINTS (1 photo = 1 pt · 1×10s clip = 7 pts · §0) so it can
+      // never drift from the constant the server ledger enforces.
+      const cost = kind === 'clip' ? VENDOR_PAPIC_POINTS.clip : VENDOR_PAPIC_POINTS.photo;
       setSpent((s) => s + cost);
       // Hand a capture that failed on INFRASTRUCTURE to the durable offline
       // queue (IndexedDB — survives a tab death). On success OWNERSHIP
@@ -470,7 +472,7 @@ export function PapicCaptureController({
             />
           </button>
           <span className="text-[11px] font-medium text-white/80">
-            {canClip ? 'Tap photo · hold for a 5s clip' : allowVideo ? '' : 'Photos only on Papic Lite'}
+            {canClip ? 'Tap photo · hold for a 10s clip' : allowVideo ? '' : 'Photos only on Papic Lite'}
           </span>
         </div>
       </div>

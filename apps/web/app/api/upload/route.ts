@@ -374,7 +374,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         }
       }
       // Capture-POINTS presign gate (Papic v3 · brief PR-3): 1 photo = 1 pt ·
-      // 1 clip = 3 pts, budget resolved by the RPC from papic_tier_config
+      // 1 clip = 7 pts, budget resolved by the RPC from papic_tier_config
       // (free/mini/roll 20 · ltd 70 · unlimited ∞ — admin-editable, never
       // hardcoded here). At 0 remaining we refuse the URL — no URL ⇒ no orphan
       // R2 bytes; the record-layer reserve (papic/actions) is the authoritative

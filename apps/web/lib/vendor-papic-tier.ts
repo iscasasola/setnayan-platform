@@ -6,14 +6,15 @@
  * A vendor's free capture tier for a booked event is EARNED by HOW they accepted
  * the customer inquiry — it is derived, never chosen:
  *   • Accepted by SPENDING a lead token, OR a FOUNDER-comped (token-free) accept
- *     → Papic Ltd (70 capture points, photos + 5-second clips).
+ *     → Papic Ltd (70 capture points, photos + 10-second clips).
  *   • Any other accept (no token) → Papic Lite (20 points, PHOTOS-ONLY, no video).
  * Unli (unlimited) stays a latent tier an admin can comp (a grant row with
  * tier='unli'); the vendor-facing +₱50 self-serve upgrade was DROPPED
  * (owner 2026-07-18 — "not allow upgrade +50 if it is difficult"), which removes
  * the whole apply-then-pay / order-reconciliation path.
  *
- * Capture-points currency (owner 2026-07-17): 1 photo = 1 pt · 1×5s clip = 3 pts.
+ * Capture-points currency (owner 2026-07-17; clip reweighted 2026-07-22 · §0):
+ * 1 photo = 1 pt · 1×10s clip = 7 pts.
  *
  * The base tier (Lite/Ltd) is DERIVED live from vendor_event_unlocks — never
  * stored. Only the paid Unli upgrade is persisted (vendor_papic_capture_grants
@@ -42,7 +43,7 @@ export type VendorPapicTierSpec = {
   tier: VendorPapicTier;
   /** Capture-point budget for the day. null = unlimited (Unli). */
   points: number | null;
-  /** Whether 5-second clips are allowed. Lite is PHOTOS-ONLY. */
+  /** Whether clips (≤10s) are allowed. Lite is PHOTOS-ONLY. */
   allowVideo: boolean;
   /** Short human label for the readout badge. */
   label: string;

@@ -58,7 +58,9 @@ test('encode params per tier', () => {
   assert.equal(photoJpegQuality('full'), 0.9);
   assert.equal(photoJpegQuality('reduced'), 0.72);
   assert.equal(photoJpegQuality('queue_only'), 0.72);
-  assert.equal(clipVideoBitsPerSecond('full'), undefined);
+  // 'full' is now BOUNDED (was undefined → browser default) so a 10s 1440p clip
+  // can't blow past the route byte ceiling and 413. reduced/queue stay capped.
+  assert.equal(clipVideoBitsPerSecond('full'), 10_000_000);
   assert.equal(clipVideoBitsPerSecond('reduced'), 2_500_000);
   assert.equal(clipVideoBitsPerSecond('queue_only'), 2_500_000);
 });

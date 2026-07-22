@@ -193,8 +193,10 @@ export function usePapicCamera({ enabled }: { enabled: boolean }): PapicCamera {
       // ~VGA photos — far below the camera's capability, bad for a candid-PHOTO
       // product. `ideal` 1440p targets QHD (≈3.7 MP stills, ~4–10× the old
       // default) and degrades gracefully on weaker cameras — no `exact`/`max`, so
-      // never an OverconstrainedError, and 5s clips off the same stream stay
-      // manageable. Applies to BOTH capture surfaces via this shared hook.
+      // never an OverconstrainedError, and 10s clips off the same stream stay
+      // manageable (the clip encode is bitrate-bounded in papic-adaptive-quality,
+      // so a 10s 1440p clip targets ~12.5 MB). Applies to BOTH capture surfaces
+      // via this shared hook.
       // (True full-sensor stills would need ImageCapture.takePhoto(), which iOS
       //  Safari doesn't support — deferred; this lifts every platform uniformly.)
       const HI_RES = { width: { ideal: 2560 }, height: { ideal: 1440 } } as const;

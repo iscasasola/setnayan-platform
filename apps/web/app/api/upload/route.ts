@@ -66,12 +66,13 @@ type RequestBody = {
   papicSeatToken?: string;
 };
 
-// Papic seat captures are images (photo / clip poster) + short clips only, and
-// a 5s clip is small — so the seat path uses TIGHT per-object ceilings (well
+// Papic seat captures are images (photo / clip poster) + short clips only. A
+// 10-second 1440p clip at the client's bounded ~10 Mbps encode is ~12.5 MB
+// (10 Mbps × 10 s ÷ 8) — so the seat path uses TIGHT per-object ceilings (well
 // below the generic 10 MB image / 200 MB video caps) as the real backstop
 // against a leaked-link storage-abuse / long-clip attempt.
 const PAPIC_SEAT_IMAGE_MAX_BYTES = 12 * 1024 * 1024; // 12 MB
-const PAPIC_SEAT_VIDEO_MAX_BYTES = 40 * 1024 * 1024; // 40 MB — a 5s clip is far under this
+const PAPIC_SEAT_VIDEO_MAX_BYTES = 48 * 1024 * 1024; // 48 MB — ~3.8× a ~12.5 MB 10s/1440p clip; headroom for VBR overshoot + audio (was 40 MB, sized for a 5s clip)
 
 const BUCKET_KEYS: ReadonlySet<R2BucketKey> = new Set([
   'media',
@@ -536,7 +537,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
   // Per-type override (audio/video chrome) takes precedence over the bucket
   // cap; otherwise the bucket's own cap applies. The Papic seat path uses its
-  // OWN tight ceilings (a 5s clip is small) regardless of the generic overrides.
+  // OWN tight ceilings (a 10s clip is small) regardless of the generic overrides.
   let maxBytes: number;
   if (seatMode) {
     maxBytes = baseContentType.startsWith('video/')

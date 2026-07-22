@@ -65,6 +65,21 @@ function tagErrorMessage(error: string): string {
   }
 }
 
+/**
+ * Is a non-OK guest-capture upload a PERMANENT reject that will fail identically
+ * on every retry? A 4xx from the route (413 too_large, 400 bad_request, 415
+ * bad_type, …) means the bytes themselves are unacceptable — re-sending the
+ * same bytes later can NEVER succeed, so the shot must NOT go into the offline
+ * retry queue with a reassuring "will upload when you're back online" message
+ * (that was silent data loss). Only TRANSIENT failures are worth queuing:
+ * a network throw, a 5xx, or a 429 rate-limit (a 4xx by number, but genuinely
+ * retryable). 409 (pool exhausted) and 403 (blocked / terms) are handled by the
+ * callers before this runs, so they never reach here.
+ */
+function isPermanentUploadReject(status: number): boolean {
+  return status >= 400 && status < 500 && status !== 429;
+}
+
 // Papic · guest capture (client)
 //
 // Mirrors the seat-capture surface (apps/web/app/papic/seat/[token]/_components/
@@ -374,6 +389,18 @@ export function PapicGuestCapture({
         return;
       }
       if (!res.ok || json.status !== 'ok') {
+        // PERMANENT 4xx reject (413 too_large, 400, 415, …) — the bytes are
+        // unacceptable and a retry can never succeed, so do NOT queue it for
+        // offline retry (that told the guest it was saved while it was lost).
+        // Name the real cause instead. Transient failures fall through to throw.
+        if (isPermanentUploadReject(res.status)) {
+          setSaveError(
+            res.status === 413 || json.error === 'too_large'
+              ? 'That shot was too large to save — try again.'
+              : "That shot couldn't be saved — please try again.",
+          );
+          return;
+        }
         throw new Error(json.error ?? 'record');
       }
 
@@ -604,6 +631,20 @@ export function PapicGuestCapture({
           return;
         }
         if (!res.ok || json.status !== 'ok') {
+          // PERMANENT 4xx reject (413 too_large, 400, 415, …). A 413 means the
+          // clip is too big for the route ceiling and will 413 identically on
+          // every retry — queuing it (with a "will upload when you're back
+          // online" message) silently loses it. So do NOT queue: name the real
+          // cause. Only transient failures fall through to the catch (which
+          // queues with the honest offline message).
+          if (isPermanentUploadReject(res.status)) {
+            setSaveError(
+              res.status === 413 || json.error === 'too_large'
+                ? 'That clip was too long or heavy to save — try a shorter one.'
+                : "That clip couldn't be saved — please try again.",
+            );
+            return;
+          }
           throw new Error(json.error ?? 'record');
         }
 

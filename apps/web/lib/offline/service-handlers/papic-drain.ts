@@ -212,13 +212,33 @@ export interface PapicGuestQueuePayload {
   captured_at_ms: number;
 }
 
-/** Guest server states that resolve a queued item WITHOUT a successful land —
- *  the capture can never deliver (quota gone, blocked, terms revoked), so the
- *  drain drops it (dequeue) instead of retrying to the 7-day TTL. */
+/** Guest server states that resolve a queued item WITHOUT a successful land AND
+ *  with nothing to preserve — the guest was blocked from the event, or hasn't
+ *  accepted the UGC terms, so the capture can never deliver and there is no shot
+ *  worth keeping. The drain drops it (dequeue). Pool exhaustion is deliberately
+ *  NOT here — see GUEST_POOL_EXHAUSTED_STATES. */
 const GUEST_RESOLVED_STATES: ReadonlySet<string> = new Set([
-  'quota_exhausted',
   'blocked',
   'terms_required',
+]);
+
+/** The guest-capture route signals an EXHAUSTED shared event pool with EITHER
+ *  string: `camera_points_exhausted` (the pool pre-check + reserve gates, HTTP
+ *  409) or `quota_exhausted` (the record RPC's per-guest gate, HTTP 409). Both
+ *  mean "no points right now."
+ *
+ *  This used to live in GUEST_RESOLVED_STATES (only `quota_exhausted`, and the
+ *  `camera_points_exhausted` string wasn't even recognized), so a drained
+ *  capture that hit an exhausted pool was dequeued as ok:true — silently
+ *  discarded while counted as a success. New policy: exhaustion is NOT a
+ *  resolved success. We return ok:false so the item stays queued + visible
+ *  (its `last_error` surfaces in the admin diagnostic / per-event "waiting to
+ *  upload" surfaces). A pool CAN refill (a couple top-up), so a later drain can
+ *  still land the shot; if it never refills, the sync daemon's 7-day TTL /
+ *  retry cap evicts it rather than looping forever. */
+const GUEST_POOL_EXHAUSTED_STATES: ReadonlySet<string> = new Set([
+  'camera_points_exhausted',
+  'quota_exhausted',
 ]);
 
 function parseGuestPayload(payload: Record<string, unknown>): PapicGuestQueuePayload | null {
@@ -293,8 +313,17 @@ export async function drainGuestCaptureWith(
 
   const state = res.body?.status;
   if (res.ok && state === 'ok') return { ok: true };
-  // Terminal: the capture can never land — resolve the item so the daemon drops
-  // it (ok:true is the only dequeue signal SyncResult exposes).
+  // Pool exhausted (either status string) — NOT a resolved success. Keep the
+  // item queued + surfaced (last_error) instead of dequeuing it as ok:true
+  // (which silently discarded the shot). A top-up can still land it on a later
+  // drain; the daemon's TTL / retry cap terminalizes it if the pool never
+  // refills. Reported under one stable error string for the diagnostic.
+  if (state && GUEST_POOL_EXHAUSTED_STATES.has(state)) {
+    return { ok: false, error: 'camera_points_exhausted' };
+  }
+  // Terminal AND nothing to save (blocked / terms) — the capture can never land
+  // and there is no shot to preserve, so resolve the item (ok:true is the only
+  // dequeue signal SyncResult exposes) so the daemon drops it.
   if (state && GUEST_RESOLVED_STATES.has(state)) return { ok: true };
   // Anything else (5xx, transient) — keep the item; the daemon retries.
   return { ok: false, error: res.body?.error ?? `http_${res.status}` };

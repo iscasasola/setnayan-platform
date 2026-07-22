@@ -80,3 +80,26 @@ export function missionProgress(
 export function sortGuestMissions(missions: readonly GuestMissionRow[]): GuestMissionRow[] {
   return [...missions].sort((a, b) => Number(a.completed) - Number(b.completed));
 }
+
+// A vendor's own custom challenge for an event (from the papic_vendor_challenges
+// RPC): the copy + its approval/active status + a completion count (a non-PII
+// aggregate — the photos themselves stay DPO-gated in a later phase).
+export type VendorChallengeRow = {
+  mission_id: string;
+  prompt: string;
+  approved: boolean;
+  is_active: boolean;
+  created_at: string;
+  completions: number;
+};
+
+// The lifecycle a vendor sees for their custom challenge (§3.6): pending the
+// couple's tap → live once approved → rejected if the couple declined it (the
+// review RPC deactivates a rejected row, leaving approved=false). Pure.
+export type VendorChallengeStatus = 'pending' | 'live' | 'rejected';
+export function vendorChallengeStatus(
+  c: Pick<VendorChallengeRow, 'approved' | 'is_active'>,
+): VendorChallengeStatus {
+  if (!c.is_active) return 'rejected';
+  return c.approved ? 'live' : 'pending';
+}

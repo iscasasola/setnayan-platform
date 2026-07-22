@@ -3,8 +3,7 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, Check, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
-import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
-import { getCustomerSkuPriceLabel } from '@/lib/v2-catalog';
+import { resolveSetnayanAiTypePricePhp } from '@/lib/setnayan-ai-event-pricing';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { eventOwnsSku } from '@/lib/entitlements';
 import { isSetnayanAiActiveForUser } from '@/lib/setnayan-ai';
@@ -116,18 +115,17 @@ export default async function SetnayanAiPage({ params }: Props) {
     event.setnayan_ai_active === true ||
     (await eventOwnsSku(supabase, eventId, SKU_CODE));
 
-  // Pricing from the live V2 catalog (single source of truth). null when the
-  // row is unreadable (e.g. no service-role key in CI / pre-seed) → the buy
-  // block degrades gracefully instead of inventing a number.
-  //   • pricePhp     → the raw pesos used ONLY for the checkout charge centavos
-  //     (the server re-resolves the authoritative charge at order time anyway).
-  //   • priceLabel   → the DISPLAY string from the catalog. Setnayan AI is a
-  //     ONE-TIME purchase (unlocks for the whole wedding · owner 2026-07-02, no
-  //     recurrence), so the fallback shows a plain peso amount with no /28-day
-  //     unit. Both come from the catalog; neither is hardcoded.
-  const skuRecord = await formatV2Sku(SKU_CODE).catch(() => null);
-  const pricePhp = skuRecord?.price_php ?? null;
-  const priceLabel = await getCustomerSkuPriceLabel(SKU_CODE).catch(() => null);
+  // Per-EVENT-TYPE pricing (owner-locked 2026-07-22): the price is this event
+  // type's tier on the load ladder — ₱1,499 Wedding · ₱999 Debut/Corporate ·
+  // ₱499 standard · ₱99 light · ₱0 no-vendors — resolved from the catalog (never
+  // hardcoded; last-resort fallback in lib/setnayan-ai-type-pricing.ts). The
+  // order still charges SETNAYAN_AI (the entitlement); checkout re-resolves this
+  // same per-type amount server-side. Tier E (no vendors) → 0 → no buy shown;
+  // any unreadable read → 0 → the buy block degrades to its graceful fallback.
+  const typePricePhp = await resolveSetnayanAiTypePricePhp(supabase, eventType).catch(() => 0);
+  const pricePhp = typePricePhp > 0 ? typePricePhp : null;
+  const priceLabel =
+    pricePhp != null ? `₱${Math.round(pricePhp).toLocaleString('en-PH')}` : null;
 
   // Only the BUY branch needs the BDO/GCash settings · fetch lazily there.
   const showBuy = !active && !owns && paywallOn;

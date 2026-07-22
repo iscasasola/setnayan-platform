@@ -21,7 +21,10 @@ export function CoveragePanel({ controls }: { controls: PrivacyControlRow[] }) {
   const activeKeys = new Set(
     controls.filter((c) => c.status === 'active').map((c) => c.control_key),
   );
-  const report = computePrivacyCoverage(activeKeys);
+  const retiredKeys = new Set(
+    controls.filter((c) => c.status === 'retired').map((c) => c.control_key),
+  );
+  const report = computePrivacyCoverage(activeKeys, retiredKeys);
   const titleFor = (key: string) =>
     controls.find((c) => c.control_key === key)?.title ?? key;
 
@@ -70,26 +73,32 @@ export function CoveragePanel({ controls }: { controls: PrivacyControlRow[] }) {
         {controls.map((c) => {
           const cov = CONTROL_COVERAGE[c.control_key as keyof typeof CONTROL_COVERAGE];
           if (!cov) return null;
+          const isRetired = c.status === 'retired';
           const declared = cov.declaredIn.length > 0;
-          const tone = !cov.privacySensitive
+          const tone = isRetired
             ? 'var(--m-slate-3)'
-            : declared
-              ? 'var(--sn-success, #157347)'
-              : 'var(--sn-danger, #b42318)';
+            : !cov.privacySensitive
+              ? 'var(--m-slate-3)'
+              : declared
+                ? 'var(--sn-success, #157347)'
+                : 'var(--sn-danger, #b42318)';
           return (
             <li
               key={c.control_key}
               className="sn-tile flex flex-wrap items-start justify-between gap-2 py-2.5"
+              style={isRetired ? { opacity: 0.72 } : undefined}
             >
               <span className="min-w-0 text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                 {c.title}
               </span>
               <span className="text-xs" style={{ color: tone }}>
-                {!cov.privacySensitive
-                  ? 'n/a · activation switch'
-                  : declared
-                    ? `Declared: ${cov.declaredIn.map(docTitle).join(', ')}`
-                    : '⚠ Not in the filing'}
+                {isRetired
+                  ? 'Retired · not live processing'
+                  : !cov.privacySensitive
+                    ? 'n/a · activation switch'
+                    : declared
+                      ? `Declared: ${cov.declaredIn.map(docTitle).join(', ')}`
+                      : '⚠ Not in the filing'}
               </span>
             </li>
           );
@@ -101,24 +110,30 @@ export function CoveragePanel({ controls }: { controls: PrivacyControlRow[] }) {
         <p className="font-mono text-[10px] uppercase tracking-[0.15em]" style={{ color: 'var(--m-slate-3)' }}>
           Declared, but no live control
         </p>
-        <ul className="mt-2 space-y-1.5">
-          {FILING_ACTIVITIES_WITHOUT_CONTROL.map((g) => (
-            <li key={g.docKey} className="sn-tile py-2.5">
-              <p className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                <FileWarning
-                  aria-hidden
-                  className="mr-1.5 inline h-4 w-4 align-[-2px]"
-                  style={{ color: 'var(--m-orange-2)' }}
-                  strokeWidth={1.75}
-                />
-                {g.activity}
-              </p>
-              <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate-2)' }}>
-                {g.note} <span style={{ color: 'var(--m-slate-3)' }}>({docTitle(g.docKey)})</span>
-              </p>
-            </li>
-          ))}
-        </ul>
+        {FILING_ACTIVITIES_WITHOUT_CONTROL.length === 0 ? (
+          <p className="mt-2 text-xs" style={{ color: 'var(--sn-success, #157347)' }}>
+            None — every declared activity now has a control on the board.
+          </p>
+        ) : (
+          <ul className="mt-2 space-y-1.5">
+            {FILING_ACTIVITIES_WITHOUT_CONTROL.map((g) => (
+              <li key={g.docKey} className="sn-tile py-2.5">
+                <p className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                  <FileWarning
+                    aria-hidden
+                    className="mr-1.5 inline h-4 w-4 align-[-2px]"
+                    style={{ color: 'var(--m-orange-2)' }}
+                    strokeWidth={1.75}
+                  />
+                  {g.activity}
+                </p>
+                <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate-2)' }}>
+                  {g.note} <span style={{ color: 'var(--m-slate-3)' }}>({docTitle(g.docKey)})</span>
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {/* Candidate flows not yet on the board */}

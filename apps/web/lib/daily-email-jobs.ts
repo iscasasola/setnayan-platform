@@ -15,6 +15,7 @@ import {
   godchildReminderUnsubscribeHeaders,
 } from '@/lib/godchild-reminder-emails';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
+import { isDataPrivacyControlActiveWith } from '@/lib/data-privacy-controls';
 import { eventSkuActive } from '@/lib/entitlements';
 import { claimPeriodicJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
 import { addDaysToIso } from '@/lib/anniversary-dates';
@@ -213,8 +214,15 @@ export async function runGodchildBirthdayReminders(): Promise<{ scanned: number;
   // so we never even issue the RPC until the deliberate DPO flag flip.
   if (!dependentPeopleEnabled()) return { scanned: 0, sent: 0 };
 
-  const today = manilaTodayIso();
   const admin = createAdminClient();
+  // Godparent/godchild edges are faith-rite (sensitive PI) processing — fenced
+  // behind the faith_religion_graph data-privacy control, ANDed with the flag.
+  // Fail-closed: no religion-derived reminders unless the control is Active.
+  if (!(await isDataPrivacyControlActiveWith(admin, 'faith_religion_graph'))) {
+    return { scanned: 0, sent: 0 };
+  }
+
+  const today = manilaTodayIso();
 
   const { data, error } = await admin.rpc('godchildren_with_birthday_soon', {
     p_today: today,

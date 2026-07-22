@@ -3,6 +3,7 @@
 import { createHash } from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
 import { deviceFingerprintEnabled } from '@/lib/device-capture-flag';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 
 /**
  * Phase E slice 1 — record a secured account's coarse device id into
@@ -20,7 +21,11 @@ import { deviceFingerprintEnabled } from '@/lib/device-capture-flag';
 const DEVICE_HASH_SALT = process.env.DEVICE_HASH_SALT ?? 'sn-device-fp-v1';
 
 export async function recordDeviceHash(deviceId: string): Promise<void> {
+  // AND-gate: the client-side env flag is the pre-check, but the authoritative
+  // RA 10173 gate is the `device_fingerprint` data-privacy control (DPO-gated).
+  // BOTH must be on before any device id is collected/hashed/stored. Fail-closed.
   if (!deviceFingerprintEnabled()) return;
+  if (!(await isDataPrivacyControlActive('device_fingerprint'))) return;
   const raw = typeof deviceId === 'string' ? deviceId.trim() : '';
   // A well-formed client id is a UUID (~36 chars). Bound the input hard so a
   // forged/oversized value can never be abused as a storage vector.

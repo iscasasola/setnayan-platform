@@ -47,6 +47,7 @@ const OPTS: GenericInsertOpts = {
   userId: 'user-1',
   isAnonymous: false,
   experienceEnabled: false,
+  homeSignalsEnabled: true,
 };
 
 test('every wedding-only CHECK column is NULL/false (CHECK-safe for a non-wedding type)', () => {
@@ -139,5 +140,13 @@ test('signature_details: NULL when omitted', () => {
 
 test('signature_details: NULL when empty object (so the Brief reads "not captured")', () => {
   const row = buildGenericEventInsert(payload({ signatureDetails: {} }), OPTS);
+  assert.equal(row.signature_details, null);
+});
+
+test('signature_details: STRIPPED to NULL when home_activity_signals is off (RA 10173 gate)', () => {
+  const row = buildGenericEventInsert(
+    payload({ signatureDetails: { who: 'milestone', food: 'catered' } }),
+    { ...OPTS, homeSignalsEnabled: false },
+  );
   assert.equal(row.signature_details, null);
 });

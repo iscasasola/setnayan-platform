@@ -7,6 +7,7 @@ import { buildYearMoments, type MomentEvent, type YearMoment } from '@/lib/year-
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { buildDependentMoments, type DependentForMoments } from '@/lib/dependent-moments';
 import { buildDependentRiteMoments, type DependentForRites } from '@/lib/faith-rites';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 
 export const metadata = { title: 'Your year' };
 
@@ -80,9 +81,12 @@ export default async function YearPage() {
 
   // Family graph (Phase 3, flag-off): fold the guardian's dependents' next
   // milestones (a child's 7th/debut, an elder's 60th) into the year. Gated —
-  // inert until dependentPeopleEnabled() + counsel clearance.
+  // inert until dependentPeopleEnabled() + counsel clearance. Each of the two
+  // RA 10173 data-privacy controls is ANDed in: `dependent_minor_profiles` gates
+  // reading dependents at all, and `faith_religion_graph` separately gates the
+  // religion→rite moments (religion is sensitive PI). Fail-closed on both.
   let dependentMoments: YearMoment[] = [];
-  if (dependentPeopleEnabled()) {
+  if (dependentPeopleEnabled() && (await isDataPrivacyControlActive('dependent_minor_profiles'))) {
     const { data: deps } = await supabase
       .from('dependents')
       .select('dependent_id, name, birth_date, sex, religion, claimed_user_id');
@@ -94,9 +98,10 @@ export default async function YearPage() {
       religion: string | null;
       claimed_user_id: string | null;
     })[]).filter((d) => d.claimed_user_id !== user.id);
+    const faithEnabled = await isDataPrivacyControlActive('faith_religion_graph');
     dependentMoments = [
       ...buildDependentMoments(rows as DependentForMoments[], today),
-      ...buildDependentRiteMoments(rows as DependentForRites[], today),
+      ...(faithEnabled ? buildDependentRiteMoments(rows as DependentForRites[], today) : []),
     ];
   }
 

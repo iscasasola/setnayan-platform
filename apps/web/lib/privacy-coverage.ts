@@ -43,7 +43,7 @@ export const CONTROL_COVERAGE: Record<PrivacyControlKey, ControlCoverage> = {
   papic_geo_metadata: {
     privacySensitive: true,
     declaredIn: ['ropa'],
-    note: 'Location data on captures — ROPA activity.',
+    note: 'RETIRED — no capture path stamps geo today, so there is no live location processing. The ROPA "location on captures" activity is aspirational; un-retire the control if geo capture is ever built.',
   },
   cross_event_vendor_recall: {
     privacySensitive: true,
@@ -95,24 +95,25 @@ export const CONTROL_COVERAGE: Record<PrivacyControlKey, ControlCoverage> = {
     declaredIn: [],
     note: 'AI web-research (Anthropic web_search subprocessor) + dossier storage. NOT yet declared — needs a /privacy Deep-Search section, a retention limit (180-day TTL), + a ROPA entry + DPO review. Held fail-closed by the data-privacy control until then.',
   },
+  antifraud_trust_signals: {
+    privacySensitive: true,
+    declaredIn: ['dpia-antifraud', 'ropa'],
+    note: 'Automated vendor suspension — an RA 10173 automated decision with a filed DPIA (09_DPIA_AntiFraud). Before relying on it, confirm the published disclosure + legitimate-interest assessment + contest/appeal path land (NPC task t1-4).',
+  },
+  device_fingerprint: {
+    privacySensitive: true,
+    declaredIn: ['device-fingerprint-review', 'ropa'],
+    note: 'Coarse per-browser device id for fraud. DPO review on file (12_Device_Fingerprint_DPO_Review); a documented LIA is still owed (NPC task t2-10). Held OFF (control inactive AND env flag) until DPO sign-off.',
+  },
 };
 
 export type FilingActivityGap = { docKey: string; activity: string; note: string };
 
 /** Processing activities the NPC filing declares (via a DPIA/review) that have
- *  NO live control on the board — the reverse drift. */
-export const FILING_ACTIVITIES_WITHOUT_CONTROL: readonly FilingActivityGap[] = [
-  {
-    docKey: 'dpia-antifraud',
-    activity: 'Anti-fraud, trust & integrity signals',
-    note: 'A DPIA is filed for this, but no live control gates it on the board.',
-  },
-  {
-    docKey: 'device-fingerprint-review',
-    activity: 'Device-fingerprint data use',
-    note: 'A DPO review is filed, but no live control gates it on the board.',
-  },
-];
+ *  NO live control on the board — the reverse drift. Both prior gaps (anti-fraud,
+ *  device-fingerprint) now have controls on the board, so this list is empty; a
+ *  new filed-but-ungated activity would reappear here. */
+export const FILING_ACTIVITIES_WITHOUT_CONTROL: readonly FilingActivityGap[] = [];
 
 export type CandidateFlow = { name: string; note: string };
 
@@ -147,12 +148,18 @@ export type PrivacyCoverageReport = {
   undeclaredActive: PrivacyControlKey[];
 };
 
-/** Derive the coverage report from the set of currently-active control keys. */
+/**
+ * Derive the coverage report from the set of currently-active control keys.
+ * `retiredKeys` are excluded from the privacy-sensitive denominator — a retired
+ * control gates no live processing, so it shouldn't count against declaration
+ * coverage (nor can it be "undeclared-active" — it isn't active).
+ */
 export function computePrivacyCoverage(
   activeKeys: ReadonlySet<string>,
+  retiredKeys: ReadonlySet<string> = new Set(),
 ): PrivacyCoverageReport {
   const sensitive = (Object.keys(CONTROL_COVERAGE) as PrivacyControlKey[]).filter(
-    (k) => CONTROL_COVERAGE[k].privacySensitive,
+    (k) => CONTROL_COVERAGE[k].privacySensitive && !retiredKeys.has(k),
   );
   const undeclared = sensitive.filter((k) => CONTROL_COVERAGE[k].declaredIn.length === 0);
   return {

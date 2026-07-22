@@ -15,6 +15,7 @@ import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
 import { allowAnonMint } from '@/lib/anon-mint-throttle';
 import { captchaOptions } from '@/lib/turnstile';
 import { experienceQuizEnabled } from '@/lib/experience-quiz';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { generateUniqueSlug } from '@/lib/slugs';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { buildGenericEventInsert } from '@/lib/onboarding/event-insert';
@@ -97,6 +98,7 @@ export async function commitOnboardingEvent(
       userId: user.id,
       isAnonymous: Boolean(user.is_anonymous),
       experienceEnabled: experienceQuizEnabled(),
+      homeSignalsEnabled: await isDataPrivacyControlActive('home_activity_signals'),
     },
   );
 

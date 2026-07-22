@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
 import { allowAnonMint } from '@/lib/anon-mint-throttle';
 import { experienceQuizEnabled } from '@/lib/experience-quiz';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import {
   syncEventSongPicks,
   fetchSongBankCurated,
@@ -443,6 +444,12 @@ export async function commitOnboardingWedding(
   // Normalize legacy 'nolimit' value (pre-fix localStorage cache) → DB canonical 'no_limit'.
   const budgetBand = payload.budgetBand === 'nolimit' ? 'no_limit' : payload.budgetBand;
 
+  // Home & onboarding SPI-signal capture gate (RA 10173). The "Our Love Story"
+  // blob + voice/language + since-date are SPI-adjacent; capture them only while
+  // the `home_activity_signals` control is Active. Fail-closed = still create the
+  // event, but strip the story signals (empty love_story / null the rest).
+  const homeSignalsEnabled = await isDataPrivacyControlActive('home_activity_signals');
+
   const { data: insertedEvent, error: insertError } = await admin
     .from('events')
     .insert({
@@ -489,11 +496,11 @@ export async function commitOnboardingWedding(
       // voice/language → story_tone / story_language (covert renames · migration
       // 20260913000000, which ships with this change). special_message / together_since
       // are their own columns from the foundation migration. COVERT: story-shaped only.
-      love_story: payload.loveStory ?? {},
-      story_tone: payload.storyTone ?? null,
-      story_language: payload.storyLanguage ?? null,
-      special_message: payload.specialMessage ?? null,
-      together_since: payload.togetherSince ?? null,
+      love_story: homeSignalsEnabled ? (payload.loveStory ?? {}) : {},
+      story_tone: homeSignalsEnabled ? (payload.storyTone ?? null) : null,
+      story_language: homeSignalsEnabled ? (payload.storyLanguage ?? null) : null,
+      special_message: homeSignalsEnabled ? (payload.specialMessage ?? null) : null,
+      together_since: homeSignalsEnabled ? (payload.togetherSince ?? null) : null,
       // Experience-persona profile (iteration 0016 · flag-gated). GUARDED by the flag
       // so the insert only references these columns when the experience quiz is live —
       // keeps the commit safe to ship before migration 20270207000000 is applied (OFF →

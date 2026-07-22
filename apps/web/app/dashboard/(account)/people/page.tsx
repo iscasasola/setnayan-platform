@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { ConnectionsPanel, type ConnectionItem } from './_components/connections-panel';
 import { DependentsSection } from './_components/dependents-section';
 import { SamahanPeopleSection } from './_components/samahan-people-section';
@@ -41,7 +42,10 @@ export default async function PeoplePage({
   searchParams: Promise<{ error?: string; saved?: string; removed?: string }>;
 }) {
   const showConnections = peopleConnectionsEnabled();
-  const showDependents = dependentPeopleEnabled();
+  // Dependents (minors' SPI) surface only when the env flag AND the
+  // dependent_minor_profiles data-privacy control are both on. Fail-closed.
+  const showDependents =
+    dependentPeopleEnabled() && (await isDataPrivacyControlActive('dependent_minor_profiles'));
 
   // Both flags off (production today) → the honest coming-soon preview.
   if (!showConnections && !showDependents) {

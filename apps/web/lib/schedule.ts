@@ -4,6 +4,7 @@ import {
   isChineseOverlay,
   type CeremonyOverlayInput,
 } from '@/lib/chinese-wedding';
+import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 
 export type ScheduleBlockType =
   | 'pre_ceremony'
@@ -102,15 +103,52 @@ export async function fetchPublicScheduleBlocks(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<ScheduleBlockRow[]> {
-  const { data, error } = await supabase
+  let query = supabase
     .from('event_schedule_blocks')
     .select(SELECT)
     .eq('event_id', eventId)
-    .eq('is_public', true)
+    .eq('is_public', true);
+  // Guest day-of site runs on the SERVICE-ROLE admin client, which BYPASSES
+  // RLS — so a coordinator's unreleased prep block must be excluded here in app
+  // code (the RLS public_read tightening does not protect the admin path).
+  // Flag-gated: with the flag OFF no row is coordinator_only (and the column
+  // may predate its migration), so we never reference it.
+  if (isCoordinatorPrepReleaseEnabled()) {
+    query = query.neq('visibility', 'coordinator_only');
+  }
+  const { data, error } = await query
     .order('start_at', { ascending: true })
     .order('sort_order', { ascending: true });
   if (error) throw new Error(`fetchPublicScheduleBlocks failed: ${error.message}`);
   return (data ?? []) as ScheduleBlockRow[];
+}
+
+/**
+ * Coordinator P1: per-block prep-then-release visibility, for the coordinator's
+ * schedule editor (badge staged blocks + offer "Release to couple"). Best-effort
+ * — returns an empty map when the flag is OFF or the column predates its
+ * migration (42703), so callers never break pre-migration (mirrors the P2
+ * fetchBlockRosMeta pattern).
+ */
+export async function fetchScheduleVisibility(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<Map<string, { visibility: string; released_at: string | null }>> {
+  const map = new Map<string, { visibility: string; released_at: string | null }>();
+  if (!isCoordinatorPrepReleaseEnabled()) return map;
+  const { data, error } = await supabase
+    .from('event_schedule_blocks')
+    .select('block_id, visibility, released_at')
+    .eq('event_id', eventId);
+  if (error) return map; // pre-migration / no access → treat as all couple_visible
+  for (const row of (data ?? []) as {
+    block_id: string;
+    visibility: string;
+    released_at: string | null;
+  }[]) {
+    map.set(row.block_id, { visibility: row.visibility, released_at: row.released_at });
+  }
+  return map;
 }
 
 /**

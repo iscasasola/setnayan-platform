@@ -2,6 +2,8 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { planAutoTags, type EnrollmentVec } from '@/lib/face-match-core';
 import { accountSeedsForEvent } from '@/lib/account-face-profile';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
+import { resolvePapicFaceMode } from '@/lib/papic-face-mode';
 
 // Papic face auto-tagging — server-side MATCHER ("match-on-our-server").
 //
@@ -39,6 +41,16 @@ export async function autoTagCapture(params: {
       return { autoTagged: 0 };
     }
     const admin = createAdminClient();
+
+    // FAIL-CLOSED BIOMETRIC GATES (One-Pool spec §3.4). Both must hold before a
+    // descriptor is EVER matched or persisted as a tag — the server backstop for
+    // the client mode gate (a crafted POST that transmits vectors to a Mode-B /
+    // control-off event is dropped here):
+    //   (1) the /admin/data-privacy 'face_enrollment' control is ACTIVE — until
+    //       now this control had ZERO runtime callers, so it was a paper record;
+    //   (2) the event resolves to mode_a (christening/debut are forced mode_b).
+    if (!(await isDataPrivacyControlActive('face_enrollment'))) return { autoTagged: 0 };
+    if ((await resolvePapicFaceMode(admin, eventId)) !== 'mode_a') return { autoTagged: 0 };
 
     // This event's consented, non-revoked enrollments that actually have a vector.
     const { data: enr, error } = await admin

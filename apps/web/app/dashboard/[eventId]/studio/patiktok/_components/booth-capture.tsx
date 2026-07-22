@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { matchPatiktokFace, recordPatiktokClip } from '../actions';
+import type { PapicFaceMode } from '@/lib/papic-face-mode';
 import { TagSheet, type BoothGuest, type BoothTable, type BoothTag } from './tag-sheet';
 
 type CaptureTemplate = {
@@ -78,6 +79,7 @@ export function BoothCapture({
   guests,
   tables,
   faceEnabled,
+  faceMode,
 }: {
   eventId: string;
   template: CaptureTemplate;
@@ -86,6 +88,11 @@ export function BoothCapture({
   // True when the event has consented face enrollments (Papic on) — unlocks the
   // one-shot face pre-fill of the "Recording for:" tag. Phase B.
   faceEnabled: boolean;
+  // Resolved per-event face-tag mode (One-Pool spec §3.4). mode_b (default) →
+  // `embedFaces` is NEVER called here, so no descriptor is computed/transmitted.
+  // Only mode_a (a consented custom-QR roster) runs the pre-fill embedder.
+  // Forced to mode_b for christening/debut (resolved server-side).
+  faceMode: PapicFaceMode;
 }) {
   const targetSec = Math.min(
     Math.max(1, template.defaultDurationSec || 10),
@@ -378,7 +385,11 @@ export function BoothCapture({
   // surface a "Looks like…?" confirm on a medium one. Best-effort + silent —
   // a miss just leaves the tag empty (manual / QR still work).
   useEffect(() => {
-    if (!faceEnabled || phase !== 'ready' || tag || faceTriedRef.current) return;
+    // FACE-MODE GATE (One-Pool spec §3.4): mode_b never runs the pre-fill
+    // embedder — no descriptor is computed or transmitted. Only mode_a (a
+    // consented custom-QR roster) proceeds. Folded in alongside `faceEnabled`.
+    if (faceMode !== 'mode_a' || !faceEnabled || phase !== 'ready' || tag || faceTriedRef.current)
+      return;
     faceTriedRef.current = true;
     let cancelled = false;
     const timer = setTimeout(async () => {
@@ -386,6 +397,8 @@ export function BoothCapture({
         setFaceBusy(true);
         const canvas = grabFrame();
         if (!canvas) return;
+        // Redundant local backstop so `embedFaces` is never reached in mode_b.
+        if (faceMode !== 'mode_a') return;
         const { embedFaces } = await import('@/lib/face-embed');
         const { vectors } = await embedFaces(canvas);
         if (cancelled || vectors.length === 0) return;
@@ -409,7 +422,7 @@ export function BoothCapture({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [faceEnabled, phase, tag, eventId, grabFrame]);
+  }, [faceEnabled, faceMode, phase, tag, eventId, grabFrame]);
 
   const cameraOpen = phase !== 'idle' && phase !== 'error';
   const retakesLeft = MAX_RETAKES - retakeCount;

@@ -18,6 +18,7 @@ import {
 import { DayOfFaceEnroll } from '@/app/[slug]/_components/day-of-face-enroll';
 import { makeQrDetector } from '@/lib/qr-scan';
 import { usePapicCamera } from '@/lib/use-papic-camera';
+import type { PapicFaceMode } from '@/lib/papic-face-mode';
 import {
   applyPapicStyle,
   cssPreviewFilter,
@@ -103,6 +104,12 @@ type Props = {
   /** The event-wide look (set once by the couple at Papic setup). LOCKED — the
    *  guest can't change it; it's baked into every photo they capture. */
   eventStyle: PapicStyle;
+  /** Resolved per-event face-tag mode (One-Pool spec §3.4). mode_b (default) →
+   *  the on-device embedder is NEVER called: no face descriptor is computed or
+   *  transmitted for this guest's captures. Only mode_a (a consented custom-QR
+   *  roster) runs `embedFaces`. Resolved server-side, forced to mode_b for
+   *  christening/debut. */
+  faceMode: PapicFaceMode;
 };
 
 export function PapicGuestCapture({
@@ -116,6 +123,7 @@ export function PapicGuestCapture({
   canKwento = false,
   guestUnlimited = false,
   eventStyle,
+  faceMode,
 }: Props) {
   // The event-wide look is LOCKED (couple-set at setup) — baked into every photo.
   const styleRef = useRef<PapicStyle>(eventStyle);
@@ -267,13 +275,19 @@ export function PapicGuestCapture({
     // Dominant-face center (normalized) from the SAME on-device pass — feeds
     // Stories Tier-2 auto-reframe (persisted as papic_guest_captures.subject_center_*).
     let subjectCenter: { x: number; y: number } | null = null;
-    try {
-      const { embedFaces } = await import('@/lib/face-embed');
-      const fe = await embedFaces(canvas);
-      faceVectors = fe.vectors;
-      subjectCenter = fe.subjectCenter;
-    } catch {
-      // best-effort — a face-tag miss never affects the saved photo
+    // FACE-MODE GATE (One-Pool spec §3.4): in mode_b `embedFaces` is NEVER
+    // called — no 128-d descriptor is computed and none is transmitted (the
+    // offline path below also carries nothing, since faceVectors stays []).
+    // Only mode_a (a consented custom-QR roster) reaches the embedder.
+    if (faceMode === 'mode_a') {
+      try {
+        const { embedFaces } = await import('@/lib/face-embed');
+        const fe = await embedFaces(canvas);
+        faceVectors = fe.vectors;
+        subjectCenter = fe.subjectCenter;
+      } catch {
+        // best-effort — a face-tag miss never affects the saved photo
+      }
     }
 
     // Bake the LOCKED event look into the delivered photo (after the clean embed).
@@ -410,6 +424,7 @@ export function PapicGuestCapture({
     canKwento,
     videoRef,
     eventId,
+    faceMode,
   ]);
 
   // Drain any guest captures persisted to the offline queue (a signal drop, or a

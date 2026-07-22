@@ -7,6 +7,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { findPatiktokTemplate } from '@/lib/patiktok';
 import { planAutoTags, type EnrollmentVec } from '@/lib/face-match-core';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
+import { resolvePapicFaceMode } from '@/lib/papic-face-mode';
 import { presignDisplayUrl, displayUrlForStoredAsset } from '@/lib/uploads';
 import { isR2Configured, R2_BUCKETS } from '@/lib/r2';
 import { sendPatiktokReelReadyEmail } from '@/lib/patiktok-reel-emails';
@@ -258,8 +260,16 @@ export async function matchPatiktokFace(input: {
     .maybeSingle();
   if (!member) return null;
 
+  // FAIL-CLOSED BIOMETRIC GATES (One-Pool spec §3.4), same backstop as the Papic
+  // matcher (lib/face-match.ts): the /admin/data-privacy 'face_enrollment'
+  // control must be ACTIVE, and the event must resolve to mode_a (christening/
+  // debut forced to mode_b). Either off → no enrollment vector is ever read or
+  // matched, even against a crafted probe.
+  if (!(await isDataPrivacyControlActive('face_enrollment'))) return null;
+
   // Admin read of the enrollment vectors (RLS keeps them out of client reach).
   const admin = createAdminClient();
+  if ((await resolvePapicFaceMode(admin, input.eventId)) !== 'mode_a') return null;
   const { data: enr } = await admin
     .from('guest_face_enrollments')
     .select('guest_id, face_vector')

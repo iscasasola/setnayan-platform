@@ -204,6 +204,18 @@ test('a single 10s clip now occupies more than the old 5s cap when the budget al
   assert.ok(Math.abs(spans[0]! - 10) < SUM_EPS, `clamps to the 10s ceiling (got ${spans[0]})`);
 });
 
+test('a clip with NO explicit slotMaxSec uses the CLIP_SLOT_MAX_SEC default (guards the 5→10 bump)', () => {
+  // Same one-clip/30s case, but WITHOUT an explicit slotMaxSec — so the clip
+  // falls back to the CLIP_SLOT_MAX_SEC default that clipSlotCeilingSec wires
+  // into both render paths. The explicit-[10] test above passes even if the
+  // constant is reverted to 5; this one does not — revert CLIP_SLOT_MAX_SEC to
+  // 5 and this fails, catching a silent regression of the fix.
+  const spans = buildBeatSchedule(30, ['clip'], { beatGrid: null });
+  assert.equal(spans.length, 1);
+  assert.ok(spans[0]! > 5, `default ceiling lets the clip exceed the old 5s cap (got ${spans[0]})`);
+  assert.ok(Math.abs(spans[0]! - 10) < SUM_EPS, `defaults to the 10s ceiling (got ${spans[0]})`);
+});
+
 test('a many-clip reel stays ≤30s total, each clip a fair share', () => {
   // 8 clips (well within the max 5 guest + 5 couple = 10 sources) at a 30s target.
   // 8 × 10s = 80s would blow the cap, so each gets its fair ~3.75s and the SUM

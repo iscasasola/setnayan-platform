@@ -14,12 +14,12 @@ import { fetchScheduleBlocks } from '@/lib/schedule';
 import { fetchBlockRosMeta } from '@/lib/schedule-ros';
 import {
   deriveVendorCallTimes,
-  isCoordinatorP3Enabled,
   type BroadcastCardData,
   type CallTimeVendor,
 } from '@/lib/coordinator-broadcasts';
 import {
   fetchLatestBroadcasts,
+  isCoordinatorP3Enabled,
   resolveBroadcastAuthority,
 } from '@/lib/coordinator-broadcasts-server';
 import { isEmailConfigured } from '@/lib/email';
@@ -234,7 +234,7 @@ export default async function EventHomePage({
     // only — the derivable vendor call-time count + email availability that
     // drive the "Email call-times" button. Flag off → `dayOfBroadcast` stays
     // undefined and the card renders its pre-P3 stub exactly as today.
-    if (isCoordinatorP3Enabled()) {
+    if (await isCoordinatorP3Enabled()) {
       try {
         const [broadcastItems, authority] = await Promise.all([
           fetchLatestBroadcasts(supabase, eventId, 3),

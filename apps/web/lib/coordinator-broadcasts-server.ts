@@ -8,6 +8,7 @@ import type {
   BroadcastSenderRole,
   CoordinatorBroadcastItem,
 } from '@/lib/coordinator-broadcasts';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 
 /**
  * Coordinator P3 — server half of lib/coordinator-broadcasts.ts (which stays
@@ -16,6 +17,16 @@ import type {
  * never crashes when the table hasn't been pushed to prod yet (same graceful
  * pre-migration posture as schedule-ros.ts' fetchBlockRosMeta).
  */
+
+/**
+ * Activation gate for the P3 surfaces (broadcast composer + feed, call-time
+ * email button). Reads the admin-approved `coordinator_day_of_broadcast`
+ * Data Privacy control (default inactive = today's pre-P3 stub). Server-only —
+ * lives here, not in the pure client-imported coordinator-broadcasts.ts.
+ */
+export async function isCoordinatorP3Enabled(): Promise<boolean> {
+  return isDataPrivacyControlActive('coordinator_day_of_broadcast');
+}
 
 /**
  * Latest broadcasts for the day-of card, newest first. Best-effort: any error

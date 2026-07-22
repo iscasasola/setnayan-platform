@@ -123,7 +123,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-papic',
         title: 'What is Papic?',
-        body: 'Guest-side photo capture for your wedding. Two purchase modes: Papic Guest (scales with guest count — disposable-camera mode for general guests, 24 photos plus 10 ten-second videos per guest, tagged to each guest by QR so everyone gets their own) and Papic 5 Seats (five seats for designated paparazzi friends and family with unlimited photos plus unlimited videos for 5 hours). Current prices are on setnayan.com/pricing.',
+        body: "Candid photo (and short-video) capture for your event. A few friends you pick — your photo crew — shoot freely from their phones, and you can also let every guest snap photos too. Everyone opens a simple camera from a QR link (no app to install); every shot lands in your private gallery in real time and is matched to the right guests, so each person gets the photos they're in — and untagged photos still land (Papic never drops one). Clips run up to 10 seconds, and optional face-matching (only with each guest's consent) auto-sorts photos to the people in them. Your gallery stays online — keep the originals by downloading them or syncing to your own Google Drive. There's a free tier to try it; current prices are on setnayan.com/pricing.",
       },
       {
         slug: 'what-is-panood',

@@ -34,7 +34,7 @@ test('every canonical event type maps to its locked tier + price', () => {
     ['birthday', 'C', 499],
     ['celebration', 'C', 499],
     ['travel', 'C', 499],
-    ['tournament', 'C', 499],
+    ['tournament', 'D', 99],
     ['anniversary', 'C', 499],
     ['graduation', 'C', 499],
     ['reunion', 'C', 499],

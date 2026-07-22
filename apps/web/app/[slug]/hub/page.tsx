@@ -64,6 +64,7 @@ import { resolveMonogram } from '@/lib/monogram';
 import { NavLinksRow } from '@/app/_components/nav-links';
 import { ScheduleWidget } from '../_components/schedule-widget';
 import { DayOfFaceEnroll } from '../_components/day-of-face-enroll';
+import { resolvePapicFaceMode, type PapicFaceMode } from '@/lib/papic-face-mode';
 import { WhatsHappeningCard } from '@/app/dashboard/[eventId]/_components/day-of-mode/whats-happening-card';
 import { LiveWallBlock, type LiveWallCaption } from '../_components/live-wall-block';
 import { HubShell } from '../_components/hub/hub-shell';
@@ -249,6 +250,9 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   let galleryPhotos: { id: string; url: string }[] = [];
   let galleryTotal = 0;
   let needsFaceEnroll = false;
+  // Effective face-tag mode for the day-of enroll surface (One-Pool spec §3.4).
+  // Fail-closed default; resolved server-side only when we actually offer enroll.
+  let hubFaceMode: PapicFaceMode = 'mode_b';
   let tableLabel: string | null = null;
   let arrived = false;
   let qrSvg = '';
@@ -303,6 +307,9 @@ export default async function EventHubPage({ params, searchParams }: Props) {
         .is('revoked_at', null)
         .maybeSingle();
       needsFaceEnroll = !liveEnrollment;
+      if (needsFaceEnroll) {
+        hubFaceMode = await resolvePapicFaceMode(admin, event.event_id);
+      }
     }
 
     // Seat label + door arrival (graceful-degrade — these tables/columns may not
@@ -715,7 +722,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
         ) : null}
       </article>
 
-      {needsFaceEnroll ? <DayOfFaceEnroll context="hub" /> : null}
+      {needsFaceEnroll ? <DayOfFaceEnroll context="hub" faceMode={hubFaceMode} /> : null}
     </div>
   ) : null;
 

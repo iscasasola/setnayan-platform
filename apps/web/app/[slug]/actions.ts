@@ -9,7 +9,11 @@ import { parseStoredAsset } from '@/lib/uploads';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { VECTOR_MODEL } from '@/lib/face-embed-core';
-import { FACE_CONSENT_COPY_VERSION } from '@/lib/papic-face-mode';
+import {
+  FACE_CONSENT_COPY_VERSION,
+  resolvePapicFaceMode,
+  faceVectorForMode,
+} from '@/lib/papic-face-mode';
 import { readGuestSession } from '@/lib/guest-session';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { emitNotification } from '@/lib/notification-emit';
@@ -228,6 +232,17 @@ export async function submitRsvp(
         }
       }
 
+      // BIOMETRIC WRITE GUARD (One-Pool spec §3.4). Resolve the EFFECTIVE face
+      // mode server-side (christening/debut forced to mode_b; fail-closed) and
+      // HARD-NULL the descriptor unless this is an explicit mode_a event — so a
+      // crafted POST carrying `selfie_vector` on a mode_b / forced-mode_b event
+      // can NEVER persist a biometric. The selfie image + consent row below are
+      // still written (profile photo / day-of features are preserved); only the
+      // vector is dropped. This is the write that makes the migration's
+      // "no face descriptor … stored" guarantee true at the DB boundary.
+      const faceMode = await resolvePapicFaceMode(admin, eventId);
+      const stored = faceVectorForMode(faceMode, faceVector, VECTOR_MODEL);
+
       // Upsert: the partial unique index allows only one non-revoked enrollment
       // per (event, guest), so retire any live row before inserting the fresh
       // one (re-RSVP with a new selfie supersedes the old).
@@ -245,8 +260,8 @@ export async function submitRsvp(
         source: 'rsvp_selfie',
         quality_score: qualityScore,
         quality_meta: qualityMeta,
-        face_vector: faceVector,
-        vector_model: faceVector ? VECTOR_MODEL : null,
+        face_vector: stored.face_vector,
+        vector_model: stored.vector_model,
         consent_at: new Date().toISOString(),
         consent_source: 'rsvp',
         // Consent evidence (One-Pool spec §3.3): pin WHAT disclosure was shown.

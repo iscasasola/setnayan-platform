@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Sparkles, Check } from 'lucide-react';
 import { SelfieCapture } from './selfie-capture';
 import { enrollGuestFace } from '@/app/papic/face-enroll-actions';
+import type { PapicFaceMode } from '@/lib/papic-face-mode';
 
 // "Register your face if you haven't yet" — the day-of catch for a guest who
 // skipped the optional RSVP selfie. Wraps the same SelfieCapture (consent +
@@ -19,6 +20,7 @@ export function DayOfFaceEnroll({
   context = 'day_of',
   onDone,
   onSkip,
+  faceMode = 'mode_b',
 }: {
   /** Free-text provenance stored as consent_source (e.g. 'day_of', 'guest_camera'). */
   context?: string;
@@ -26,6 +28,9 @@ export function DayOfFaceEnroll({
   onDone?: () => void;
   /** When provided, renders a "Not now" dismiss (used in the camera fallback). */
   onSkip?: () => void;
+  /** Server-resolved effective face mode, threaded to SelfieCapture so mode_b
+   *  computes/transmits NO descriptor. Fail-closed default: mode_b. */
+  faceMode?: PapicFaceMode;
 }) {
   const [ready, setReady] = useState(false);
   const [phase, setPhase] = useState<'idle' | 'saving' | 'done'>('idle');
@@ -77,7 +82,7 @@ export function DayOfFaceEnroll({
 
       <form action={submit} className="mt-4 space-y-4">
         <input type="hidden" name="enroll_context" value={context} />
-        <SelfieCapture onReadyChange={setReady} multiShot />
+        <SelfieCapture onReadyChange={setReady} multiShot faceMode={faceMode} />
 
         <div className="flex flex-wrap items-center gap-3">
           <button

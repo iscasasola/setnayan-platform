@@ -11,6 +11,7 @@ import {
   Upload,
 } from 'lucide-react';
 import type { FaceGateResult } from '@/lib/face-gate';
+import type { PapicFaceMode } from '@/lib/papic-face-mode';
 
 /**
  * RSVP selfie capture (owner directive 2026-06-05 — guest photos come from a
@@ -71,6 +72,7 @@ export function SelfieCapture({
   onReadyChange,
   multiShot = false,
   maxShots = 3,
+  faceMode = 'mode_b',
 }: {
   /** Fires when a consented selfie is captured + uploaded (or cleared) — lets a
    *  standalone enroll form gate its submit. The RSVP form omits it (no-op). */
@@ -80,6 +82,14 @@ export function SelfieCapture({
    *  enrollment. Default false → unchanged single-shot behavior (RSVP path). */
   multiShot?: boolean;
   maxShots?: number;
+  /** Server-resolved effective face-tag mode (One-Pool spec §3.4). In mode_b
+   *  (the fail-closed DEFAULT — christening/debut are forced here, and every
+   *  generic/shared-QR event lands here) NO face descriptor is computed or
+   *  transmitted: the selfie still uploads as a profile photo, we just skip the
+   *  on-device embedder. Only an explicit mode_a event runs `embedSingleFace`.
+   *  The server enrollment guard nulls any vector regardless — this prop is the
+   *  first line so a mode_b guest never has a descriptor computed at all. */
+  faceMode?: PapicFaceMode;
 } = {}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -171,13 +181,20 @@ export function SelfieCapture({
         gateLocal = null;
       }
 
+      // FACE-MODE GATE (One-Pool spec §3.4): in mode_b `embedSingleFace` is NEVER
+      // called — no 128-d descriptor is computed and none is transmitted (the
+      // hidden `selfie_vector` input stays absent). The selfie still uploads
+      // below as the guest's profile photo. Only mode_a (a consented custom-QR
+      // roster; christening/debut are forced to mode_b) reaches the embedder.
       let vectorLocal: number[] | null = null;
-      try {
-        const { embedSingleFace } = await import('@/lib/face-embed');
-        const r = await embedSingleFace(canvas);
-        vectorLocal = r ? r.vector : null;
-      } catch {
-        vectorLocal = null;
+      if (faceMode === 'mode_a') {
+        try {
+          const { embedSingleFace } = await import('@/lib/face-embed');
+          const r = await embedSingleFace(canvas);
+          vectorLocal = r ? r.vector : null;
+        } catch {
+          vectorLocal = null;
+        }
       }
 
       const blob = await new Promise<Blob | null>((resolve) =>
@@ -208,7 +225,7 @@ export function SelfieCapture({
       if (!putRes.ok) throw new Error('Upload failed — check your signal.');
       return { ref: data.r2Ref, vector: vectorLocal, gate: gateLocal };
     },
-    [],
+    [faceMode],
   );
 
   const capture = useCallback(async () => {

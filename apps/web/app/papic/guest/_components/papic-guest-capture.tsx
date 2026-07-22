@@ -1098,6 +1098,7 @@ export function PapicGuestCapture({
         <div className="mx-auto mt-6 w-full max-w-md">
           <DayOfFaceEnroll
             context="guest_camera"
+            faceMode={faceMode}
             onDone={() => {
               setEnrolled(true);
               setEnrolling(false);

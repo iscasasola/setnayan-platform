@@ -17,6 +17,8 @@ import {
   inquiriesFromThreads,
   scheduleClashesFromBlocks,
   clashBlocksFromScheduleRows,
+  priceChangesFromHistory,
+  availabilityChangesFromBlocks,
   type BudgetLineItem,
   type ScheduleClashBlock,
 } from './setnayan-ai-snapshot';
@@ -205,4 +207,71 @@ test('clashBlocksFromScheduleRows: keeps top-level dated blocks, drops parts + o
   assert.equal(rows[1]!.label, 'A schedule item');
   assert.ok(rows[0]!.timeLabel.length > 0);
   assert.ok(Number.isFinite(rows[0]!.startMs) && Number.isFinite(rows[0]!.endMs));
+});
+
+// ---- GRD-03 price change (from global history) ------------------------------
+
+const NAME = new Map([['v1', 'Bloom Florals'], ['v2', 'Grand Venue']]);
+
+test('priceChangesFromHistory: nets earliest-old → latest-new per vendor+category; drops unwatched', () => {
+  const out = priceChangesFromHistory(
+    [
+      { vendorProfileId: 'v1', category: 'florist', oldPricePhp: 20000, newPricePhp: 22000, changedAt: '2026-02-01T00:00:00Z' },
+      { vendorProfileId: 'v1', category: 'florist', oldPricePhp: 22000, newPricePhp: 25000, changedAt: '2026-02-10T00:00:00Z' },
+      { vendorProfileId: 'v9', category: 'catering', oldPricePhp: 1, newPricePhp: 2, changedAt: '2026-02-05T00:00:00Z' }, // unwatched → dropped
+    ],
+    NAME,
+  );
+  assert.equal(out.length, 1);
+  assert.deepEqual(out[0], { vendor: 'Bloom Florals', category: 'florist', oldPricePhp: 20000, newPricePhp: 25000 });
+});
+
+test('priceChangesFromHistory: null prices skipped; category humanized', () => {
+  const out = priceChangesFromHistory(
+    [
+      { vendorProfileId: 'v2', category: 'reception_venue', oldPricePhp: null, newPricePhp: 5, changedAt: '2026-02-01T00:00:00Z' }, // skip
+      { vendorProfileId: 'v2', category: 'reception_venue', oldPricePhp: 80000, newPricePhp: 90000, changedAt: '2026-02-02T00:00:00Z' },
+    ],
+    NAME,
+  );
+  assert.equal(out.length, 1);
+  assert.equal(out[0]!.category, 'reception venue');
+  assert.deepEqual([out[0]!.oldPricePhp, out[0]!.newPricePhp], [80000, 90000]);
+});
+
+// ---- GRD-09 availability change ---------------------------------------------
+
+test('availabilityChangesFromBlocks: a block overlapping the event day fires once per vendor', () => {
+  const out = availabilityChangesFromBlocks(
+    [
+      { vendorProfileId: 'v2', blockedAt: '2026-05-09T02:00:00Z', blockedUntil: '2026-05-09T20:00:00Z' },
+      { vendorProfileId: 'v2', blockedAt: '2026-05-09T21:00:00Z', blockedUntil: '2026-05-09T23:00:00Z' }, // same vendor → deduped
+    ],
+    NAME,
+    '2026-05-09',
+    'May 9, 2026',
+  );
+  assert.equal(out.length, 1);
+  assert.deepEqual(out[0], { vendor: 'Grand Venue', date: 'May 9, 2026', status: 'newly booked' });
+});
+
+test('availabilityChangesFromBlocks: non-overlapping / unwatched / no-date → empty', () => {
+  // block is a different day
+  assert.equal(
+    availabilityChangesFromBlocks(
+      [{ vendorProfileId: 'v2', blockedAt: '2026-05-01T00:00:00Z', blockedUntil: '2026-05-02T00:00:00Z' }],
+      NAME, '2026-05-09', 'May 9, 2026',
+    ).length,
+    0,
+  );
+  // unwatched vendor
+  assert.equal(
+    availabilityChangesFromBlocks(
+      [{ vendorProfileId: 'v9', blockedAt: '2026-05-09T02:00:00Z', blockedUntil: '2026-05-09T20:00:00Z' }],
+      NAME, '2026-05-09', 'May 9, 2026',
+    ).length,
+    0,
+  );
+  // no event date
+  assert.equal(availabilityChangesFromBlocks([], NAME, null, 'x').length, 0);
 });

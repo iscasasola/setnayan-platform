@@ -31,6 +31,7 @@ import {
 } from '@/lib/papic-event-pool';
 import { eventHasPapicUnlock } from '@/lib/entitlements';
 import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
+import { clipWebKeyDistinct } from '@/lib/papic-display-ref';
 
 // Server-side 10-second clip cap (owner 2026-07-22 · §0 · not configurable). The
 // client enforces 10s with a recorder timer; this tolerance (10.5s) absorbs
@@ -195,22 +196,17 @@ export async function recordSeatCapture(
   kind: 'photo' | 'clip' = 'photo',
   posterR2Key?: string,
   durationMs?: number,
-  // Papic storage PR-1: the small H.264 web copy of a clip (already PUT to R2 by
-  // the client) + its real byte size. Clips only; optional (a failed/unsupported
-  // transcode omits both → column stays NULL, raw stays the only playable copy).
-  clipWebR2Key?: string,
-  clipWebBytes?: number,
 ): Promise<RecordSeatCaptureResult> {
+  // RAW-ONLY record path (Papic storage PR-1): this writes the raw clip/photo row
+  // with NULL clip_web columns. The small H.264 web copy is a separate, off-drain
+  // FIRE-AND-FORGET step (persistSeatClipWebCopy) fired by the capture client AFTER
+  // this returns — never inline here, so a multi-second wasm transcode can't delay
+  // the raw record or occupy the serial drain worker. Mirrors the guest path, where
+  // papic_record_guest_capture also records the raw only and the web copy follows.
   const cleanToken = token?.trim();
   const cleanKey = r2ObjectKey?.trim();
   // Poster frame (clips only) — the NSFW screen's image proxy for the video.
   const cleanPoster = kind === 'clip' ? posterR2Key?.trim() || null : null;
-  // Clip web copy (clips only). The bytes are only meaningful with a key.
-  const cleanClipWeb = kind === 'clip' ? clipWebR2Key?.trim() || null : null;
-  const cleanClipWebBytes =
-    cleanClipWeb && typeof clipWebBytes === 'number' && Number.isFinite(clipWebBytes) && clipWebBytes > 0
-      ? Math.round(clipWebBytes)
-      : null;
   if (!cleanToken || !cleanKey) return { ok: false, error: 'missing_input' };
 
   // Server-side 10-second clip cap (defense-in-depth · owner 2026-07-22 · §0).
@@ -483,9 +479,8 @@ export async function recordSeatCapture(
           paparazzi_seat_id: seat.seat_id,
           r2_object_key: cleanKey,
           photo_type: kind === 'clip' ? 'clip' : 'photo',
-          // Clip web copy (Papic storage PR-1) — null for photos / no-transcode.
-          clip_web_r2_key: cleanClipWeb,
-          clip_web_bytes: cleanClipWebBytes,
+          // clip_web_r2_key / clip_web_bytes are left NULL here — the web copy is
+          // stamped by the off-drain persistSeatClipWebCopy follow-up.
           expires_at: expiresAt,
         })
         .select('photo_id')
@@ -501,18 +496,15 @@ export async function recordSeatCapture(
             photo_type: 'clip',
             // The poster frame the NSFW screen classifies as the clip's proxy.
             poster_r2_key: cleanPoster,
-            // Clip web copy (Papic storage PR-1) — the small playable derivative.
-            clip_web_r2_key: cleanClipWeb,
-            clip_web_bytes: cleanClipWebBytes,
             expires_at: expiresAt,
           })
           .select('photo_id')
           .single()
       : await insertWithoutPoster();
 
-    // Pre-migration env (poster_r2_key OR clip_web_* column absent → PostgREST
-    // PGRST204): retry with the MINIMAL shape (no poster, no web copy) — losing
-    // the screen proxy or the web copy must never lose the clip itself.
+    // Pre-migration env (poster_r2_key column absent → PostgREST PGRST204): retry
+    // with the MINIMAL shape (no poster) — losing the screen proxy must never lose
+    // the clip itself.
     if (insertError && insertError.code === 'PGRST204') {
       ({ data: inserted, error: insertError } = await supabase
         .from('papic_photos')
@@ -656,6 +648,122 @@ export async function recordSeatCapture(
   // shot just saved (tagSeatCapture below). Null only in the degraded path
   // where the insert returned no id — tagging is simply unavailable then.
   return { ok: true, count: count ?? 0, photoId: insertedPhotoId, eventPool };
+}
+
+export type PersistSeatClipWebCopyResult =
+  | { ok: true; already?: boolean }
+  | { ok: false; error: string };
+
+/**
+ * Persist the small H.264 web copy of an ALREADY-RECORDED seat clip (Papic
+ * storage PR-1). Mirrors the guest `mode=web_copy` follow-up: the client
+ * transcodes the ~0.5 MB copy off the main thread AFTER recordSeatCapture has
+ * already written the raw row (with NULL web columns), PUTs it to R2 via
+ * /api/upload (which UUID-prefixes every key, so the copy is provably distinct
+ * from the raw + poster), and then calls this to stamp clip_web_r2_key +
+ * clip_web_bytes on the row — a FIRE-AND-FORGET step that never blocks the raw
+ * record or the next capture.
+ *
+ * AUTH is scoped to the seat session exactly like autoTagSeatCapture: the seat is
+ * resolved by token under the claimer's RLS session (paparazzi_seats_claimer_read
+ * returns the row ONLY for the claimer, so resolving it IS the auth check), and
+ * the photo must belong to THAT seat — so a crafted call can never write onto
+ * another seat's / event's row (the UPDATE is additionally scoped by
+ * paparazzi_seat_id, and papic_photos_claimer_own RLS re-enforces ownership on
+ * the write). Idempotent: a row that already carries a web copy is left alone.
+ * Never throws — a failed persist just leaves the raw as the only playable copy.
+ */
+export async function persistSeatClipWebCopy(
+  token: string,
+  photoId: string,
+  clipWebR2Key: string,
+  clipWebBytes?: number,
+): Promise<PersistSeatClipWebCopyResult> {
+  try {
+    const cleanToken = token?.trim();
+    const cleanPhotoId = photoId?.trim();
+    const cleanClipWeb = clipWebR2Key?.trim();
+    if (!cleanToken || !cleanPhotoId || !cleanClipWeb) {
+      return { ok: false, error: 'missing_input' };
+    }
+    const cleanBytes =
+      typeof clipWebBytes === 'number' && Number.isFinite(clipWebBytes) && clipWebBytes > 0
+        ? Math.round(clipWebBytes)
+        : null;
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { ok: false, error: 'unauthenticated' };
+
+    // RLS (paparazzi_seats_claimer_read) returns the seat only for its claimer —
+    // resolving it by token doubles as the auth check.
+    const { data: seat } = await supabase
+      .from('paparazzi_seats')
+      .select('seat_id, revoked_at, claimer_user_id')
+      .eq('claim_qr_token', cleanToken)
+      .maybeSingle();
+    if (!seat || seat.claimer_user_id !== user.id || seat.revoked_at) {
+      return { ok: false, error: 'not_your_seat' };
+    }
+
+    // The photo must belong to THIS seat and be a clip. Read the still/raw keys so
+    // the poster-trap guard can assert the web key is distinct before persisting.
+    const { data: photo, error: photoErr } = await supabase
+      .from('papic_photos')
+      .select('photo_id, photo_type, r2_object_key, poster_r2_key, display_r2_key, clip_web_r2_key')
+      .eq('photo_id', cleanPhotoId)
+      .eq('paparazzi_seat_id', seat.seat_id)
+      .maybeSingle();
+    // Pre-migration env (clip_web_r2_key column absent → 42703): the raw clip is
+    // already saved and playable — silently skip persisting the web copy.
+    if (photoErr) {
+      if (photoErr.code === '42703' || photoErr.code === '42P01') {
+        return { ok: false, error: 'unavailable' };
+      }
+      return { ok: false, error: 'lookup_failed' };
+    }
+    if (!photo) return { ok: false, error: 'not_your_photo' };
+    if ((photo.photo_type as string | null) !== 'clip') {
+      return { ok: false, error: 'not_a_clip' };
+    }
+    // Idempotent: a web copy already landed for this clip — don't overwrite it.
+    if (photo.clip_web_r2_key) return { ok: true, already: true };
+
+    // POSTER-TRAP guard (parity with the guest route): never persist a web key
+    // equal to the poster/display still or the raw video — that would collide the
+    // still + play resolvers and let PR-2's drop delete a key a play surface still
+    // points at. Structurally impossible (the /api/upload UUID prefix makes the
+    // web key unique), but assert it anyway.
+    if (
+      !clipWebKeyDistinct(cleanClipWeb, {
+        poster_r2_key: (photo.poster_r2_key as string | null) ?? null,
+        display_r2_key: (photo.display_r2_key as string | null) ?? null,
+        r2_object_key: (photo.r2_object_key as string | null) ?? null,
+      })
+    ) {
+      return { ok: false, error: 'key_collision' };
+    }
+
+    // UPDATE under the claimer's RLS session — papic_photos_claimer_own re-enforces
+    // that this user owns the seat this photo hangs off, and the explicit
+    // paparazzi_seat_id scope means a crafted photo_id can't touch a foreign row.
+    const { error: updErr } = await supabase
+      .from('papic_photos')
+      .update({ clip_web_r2_key: cleanClipWeb, clip_web_bytes: cleanBytes })
+      .eq('photo_id', cleanPhotoId)
+      .eq('paparazzi_seat_id', seat.seat_id);
+    if (updErr) {
+      // Column absent pre-migration, or a transient write error — the raw clip is
+      // already the playable copy, so this is a soft failure, never a broken clip.
+      return { ok: false, error: updErr.code === 'PGRST204' ? 'unavailable' : 'persist_failed' };
+    }
+    return { ok: true };
+  } catch {
+    // best-effort — a failed web-copy persist never affects the saved clip
+    return { ok: false, error: 'persist_failed' };
+  }
 }
 
 export type TagSeatCaptureResult =

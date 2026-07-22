@@ -30,23 +30,48 @@ validates ownership + `video/*` + size, PUTs to a sibling `-web.mp4` key
 the real object size — keeping the fragile `papic_record_guest_capture` RPC
 arity untouched. Drive still receives the RAW original.
 
-**Seat path** (`papic-seat-capture.tsx` + `recordSeatCapture`): the web copy is
-produced after the raw upload and passed as new optional trailing args into the
-clean direct insert (`/api/upload` UUID-prefixes every key, so the copy is
-distinct by construction). The insert's PGRST204 fallback now strips the web
-columns too, so a pre-migration env still never loses a clip.
+**Seat path** (`papic-seat-capture.tsx` + `recordSeatCapture` +
+`persistSeatClipWebCopy`): the web copy is a **BACKGROUND follow-up**, symmetric
+with the guest path. `recordSeatCapture` is now RAW-ONLY (the clip_web trailing
+args + inline transcode were removed) — it writes the clip row with NULL web
+columns and returns immediately. The capture client then FIRE-AND-FORGETs
+`uploadSeatClipWebCopy`: transcode → presign+PUT to its own `/api/upload`
+UUID-prefixed key → `persistSeatClipWebCopy(token, photoId, key, bytes)`, a new
+server action that UPDATEs `clip_web_r2_key`/`clip_web_bytes` **auth-scoped to the
+seat session** (seat resolved by token under `paparazzi_seats_claimer_read` RLS,
+photo scoped to that seat, `papic_photos_claimer_own` re-enforces the write — a
+crafted call can't touch another seat's/event's row). Idempotent + poster-trap
+guarded. This was a red-team HIGH: the old inline transcode `await`ed a
+multi-second wasm encode INSIDE the serial drain worker, delaying the raw clip's
+DB record and backing up the unbounded in-memory queue (memory-pressure loss of
+queued raws at a high capture rate).
 
-**Reader wiring** — `resolvePlayRef` already prefers `clip_web_r2_key`; audited
-every caller's SELECT and added the column where missing: `lib/alaala-orb.ts`
-(needed it) and `lib/life-story-moment-graph.ts` (both papic_photos +
-papic_guest_captures SELECTs needed it). `generateClipThumb`'s `display_r2_key =
-posterRef` is deliberately UNTOUCHED (still stays an image; the web copy is
-play-only). New `clipWebKeyDistinct` poster-trap guard asserts the web key never
-equals the still/raw key before persisting.
+**Reader wiring** — `resolvePlayRef` prefers `clip_web_r2_key` (drop-safe);
+audited + rerouted EVERY hand-rolled clip `<video>`/download surface to it (each
+now SELECTs `clip_web_r2_key` + `full_res_dropped_at`): `lib/papic-gallery.ts`
+(couple studio gallery — seat + guest clip `videoRef`), the public wedding recap
+`app/[slug]/…/editorial/data.ts` (5b-bis "As the Day Unfolded" + both Kwento
+anchors — the highest-traffic public clip surface), and the download-originals
+routes `…/studio/papic/gallery-zip` + `papic/me/[token]/download` (serve the raw
+while it exists, fall back to the web copy once a clip is dropped so it never
+404s / vanishes from the ZIP). Earlier callers `lib/alaala-orb.ts` +
+`lib/life-story-moment-graph.ts` were already routed. `generateClipThumb`'s
+`display_r2_key = posterRef` is deliberately UNTOUCHED (still stays an image; the
+web copy is play-only). `clipWebKeyDistinct` poster-trap guard now runs on BOTH
+the guest route AND the seat action before persisting.
 
-Tests: new `tests/db/papic-clip-web-copy.db.test.ts` (migration replays clean +
-4 columns exist + clip rows round-trip on both tables); `clipWebKeyDistinct`
-unit test; the resolver's clip_web-over-raw preference stays covered.
+**Perf/robustness** — `lib/video-compress.ts` now reuses a SINGLE lazily-loaded
+ffmpeg.wasm instance (was `new FFmpeg()` + a full core load per clip), serialized
+through a promise-chain mutex (single-thread core + fixed FS filenames → no
+overlapping encodes) with per-op progress-listener cleanup; the shared instance
+is never terminated. The guest `mode=web_copy` UPDATE also scopes on `event_id`
+for symmetry (capture_id is already unique).
+
+Tests: `tests/db/papic-clip-web-copy.db.test.ts` (migration replays clean + 4
+columns exist + clip rows round-trip on both tables); `clipWebKeyDistinct` unit
+test; the resolver's clip_web-over-raw preference + drop-safety now covered per
+rerouted PLAY surface (couple gallery seat/guest, recap 5b-bis, both Kwento
+anchors).
 
 SPEC IMPACT: storage — clip web-copy at capture (`clip_web_r2_key` /
 `clip_web_bytes` on both Papic capture tables; producer for the clip full-res

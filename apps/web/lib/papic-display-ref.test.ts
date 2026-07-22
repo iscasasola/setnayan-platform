@@ -142,6 +142,59 @@ test('play surface resolves after (future) clip drop: alaala-orb', () => {
   );
 });
 
+// ── PLAY surfaces rerouted through resolvePlayRef (this PR) ───────────────────
+// The couple's Papic studio gallery (lib/papic-gallery), the public wedding recap
+// "As the Day Unfolded" + Kwento anchors (app/[slug]/…/editorial/data.ts), and the
+// download-originals ZIPs all used to hand a clip's RAW r2_object_key straight to a
+// <video>. They now SELECT clip_web_r2_key + full_res_dropped_at and resolve the
+// playable ref through resolvePlayRef — so playback prefers the small web copy and
+// a dropped raw becomes null instead of a 404. Each fixture proves both halves.
+for (const surface of [
+  'couple studio gallery (papic-gallery: seat clip)',
+  'couple studio gallery (papic-gallery: guest clip)',
+  'public recap · As the Day Unfolded (editorial 5b-bis)',
+  'public recap · Kwento anchor (papic_photos clip)',
+  'public recap · Kwento anchor (papic_guest_captures clip)',
+]) {
+  test(`play surface prefers the web copy: ${surface}`, () => {
+    // A clip with a populated clip_web_r2_key resolves to the web copy (NOT the raw).
+    const withWeb = resolvePlayRef({
+      media_type: 'clip',
+      clip_web_r2_key: DERIV.clipWeb,
+      r2_object_key: DERIV.rawVideo,
+    });
+    assert.equal(withWeb, DERIV.clipWeb);
+    assert.notEqual(withWeb, DERIV.rawVideo);
+    // No web copy yet (today's normal case) → the raw video, so playback still works.
+    assert.equal(
+      resolvePlayRef({ media_type: 'clip', r2_object_key: DERIV.rawVideo }),
+      DERIV.rawVideo,
+    );
+  });
+
+  test(`play surface is drop-safe: ${surface}`, () => {
+    // A dropped raw WITH a web copy → the web copy (never the dead raw pointer).
+    assert.equal(
+      resolvePlayRef({
+        media_type: 'clip',
+        clip_web_r2_key: DERIV.clipWeb,
+        r2_object_key: DERIV.rawVideo,
+        full_res_dropped_at: '2026-07-01T00:00:00Z',
+      }),
+      DERIV.clipWeb,
+    );
+    // A dropped raw with NO web copy → null (a handled gap), never the 404 raw.
+    assert.equal(
+      resolvePlayRef({
+        media_type: 'clip',
+        r2_object_key: DERIV.rawVideo,
+        full_res_dropped_at: '2026-07-01T00:00:00Z',
+      }),
+      null,
+    );
+  });
+}
+
 // ── clipWebKeyDistinct · POSTER-TRAP guard (Papic storage PR-1) ───────────────
 test('clipWebKeyDistinct: the -web key must differ from the poster/display/raw keys', () => {
   const row = {

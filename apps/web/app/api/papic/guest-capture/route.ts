@@ -137,7 +137,10 @@ async function handleGuestClipWebCopy(
     .from('papic_guest_captures')
     .update({ clip_web_r2_key: webRef, clip_web_bytes: bytes.length })
     .eq('capture_id', captureId)
-    .eq('guest_id', session.guest_id);
+    .eq('guest_id', session.guest_id)
+    // Belt-and-suspenders: capture_id is already unique, but scope the write to the
+    // session's event too (symmetry with the ownership read above).
+    .eq('event_id', session.event_id);
   if (updErr) {
     return NextResponse.json({ error: 'persist_failed' }, { status: 500 });
   }

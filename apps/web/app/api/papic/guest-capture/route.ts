@@ -3,7 +3,11 @@ import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isR2Configured, r2Upload, R2_BUCKETS } from '@/lib/r2';
 import { ingestToWall } from '@/lib/live-wall';
-import { papicCaptureCost, resolvePointsGate } from '@/lib/papic-cameras';
+import { papicCaptureCost } from '@/lib/papic-cameras';
+import {
+  papicEventPoolPreCheckExhausted,
+  papicReserveEventPoolForCapture,
+} from '@/lib/papic-event-pool-gate';
 import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
 import { screenCapture } from '@/lib/nsfw-screen';
 
@@ -180,11 +184,7 @@ export async function POST(req: Request) {
   // RPC's own gate decides (legacy behaviour byte-identical), and any RPC error
   // just skips the optimization — the reserve still gates.
   {
-    const { data: remaining, error: remErr } = await admin.rpc(
-      'papic_event_points_remaining',
-      { p_event_id: session.event_id },
-    );
-    if (!remErr && typeof remaining === 'number' && remaining < cost) {
+    if (await papicEventPoolPreCheckExhausted(admin, session.event_id, cost)) {
       return NextResponse.json({ status: 'camera_points_exhausted' }, { status: 409 });
     }
   }
@@ -236,20 +236,17 @@ export async function POST(req: Request) {
   // resolvePointsGate). A refused reserve unwinds below if the record then fails.
   let eventBooked = false;
   {
-    const { data: poolOk, error: poolErr } = await admin.rpc(
-      'papic_reserve_event_points',
-      { p_event_id: session.event_id, p_cost: cost },
-    );
-    const gate = resolvePointsGate(
-      poolErr ? (poolErr.code ?? 'unknown') : null,
-      poolOk === true ? true : poolOk === false ? false : null,
-    );
     // Only a TRUE actually spent points — a fn-not-found 'allow' booked nothing.
-    eventBooked = poolOk === true;
-    if (gate === 'exhausted') {
+    const { outcome, booked } = await papicReserveEventPoolForCapture(
+      admin,
+      session.event_id,
+      cost,
+    );
+    eventBooked = booked;
+    if (outcome === 'exhausted') {
       return NextResponse.json({ status: 'camera_points_exhausted' }, { status: 409 });
     }
-    if (gate === 'blocked') {
+    if (outcome === 'blocked') {
       return NextResponse.json({ status: 'points_check_failed' }, { status: 503 });
     }
   }

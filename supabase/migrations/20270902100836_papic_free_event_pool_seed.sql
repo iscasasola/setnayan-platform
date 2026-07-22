@@ -4,11 +4,13 @@
 -- Papic_One_Pool_Model_Spec §0: "Free is Papic pool with just 50 points"). ONE
 -- shared 50-pt event pool per event, seeded via a free_grant at event creation.
 -- NO per-seat reserve — "just 50 points" is a plain shared budget, first-come.
--- The existing free seats draw the SAME pool (once the pool binding migration
--- makes grant-driven events apply).
+-- The existing free seats draw the SAME pool: the 20270901123354 config
+-- migration flips papic_tier_config.free.points_per_day → NULL, so a free seat's
+-- per-camera reserve passes through and the event pool is its sole gate (once
+-- the pool binding migration makes grant-driven events apply).
 --
 -- Additive + idempotent + inert-on-apply. No is_active / status flip. No new
--- surface. Depends on migration 20270832465221 having already legalized the
+-- surface. Depends on migration 20270901123354 having already legalized the
 -- 'free_grant' source value.
 --
 -- NEW events only — no backfill of existing events (they keep zero grants →

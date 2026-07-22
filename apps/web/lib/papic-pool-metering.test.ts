@@ -15,6 +15,13 @@
  *       event (owning no PAPIC_GUEST order) can still record via the pool.
  *   (c) ONE GRANT — Papic One grants 250 pts PER paid mini camera into the same
  *       pool (2 cameras = 500), idempotent by order_id.
+ *   (d) FREE SHARED POOL (Fix 1) — a free event's tier='free' seats meter ONLY
+ *       against the single 50-pt free_grant pool (no per-seat 20/day reserve);
+ *       a seat capture decrements the same pool a guest phone reads, and the
+ *       51st capture across BOTH is refused.
+ *   (e) ROUTE GATE (Fix 3) — the guest-capture route's extracted pool gate
+ *       books to exhaustion and refuses the (N+1)th with the verdict the route
+ *       maps to 409 `camera_points_exhausted` (reserve-before-record ordering).
  *
  * Lives under lib/ (not tests/db/) so it runs in the `test:unit` glob
  * (lib/**\/*.test.ts) alongside the other metering unit tests; the replay
@@ -25,7 +32,13 @@ import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import type { PGlite } from '@electric-sql/pglite';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createReplayedDb, type ReplayResult } from '../tests/db/replay-migrations';
+import { papicCaptureCost } from './papic-cameras';
+import {
+  papicEventPoolPreCheckExhausted,
+  papicReserveEventPoolForCapture,
+} from './papic-event-pool-gate';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -85,6 +98,80 @@ async function poolStatus(
 
 async function clearUsage(eventId: string): Promise<void> {
   await db.query(`DELETE FROM public.papic_event_pool_usage WHERE event_id = $1`, [eventId]);
+}
+
+/** papic_event_points_remaining(event) — what a guest phone reads. */
+async function eventRemaining(eventId: string): Promise<number> {
+  const r = await db.query<{ v: number }>(
+    `SELECT public.papic_event_points_remaining($1) AS v`,
+    [eventId],
+  );
+  return Number(r.rows[0]!.v);
+}
+
+/** papic_reserve_camera_points(seat, event, cost) — the PER-SEAT gate. */
+async function reserveCamera(seatId: string, eventId: string, cost: number): Promise<boolean> {
+  const r = await db.query<{ ok: boolean }>(
+    `SELECT public.papic_reserve_camera_points($1, $2, $3) AS ok`,
+    [seatId, eventId, cost],
+  );
+  return r.rows[0]!.ok === true;
+}
+
+/** papic_camera_points_remaining(seat) — MAXINT means the seat has no per-seat cap. */
+async function cameraRemaining(seatId: string): Promise<number> {
+  const r = await db.query<{ v: number }>(
+    `SELECT public.papic_camera_points_remaining($1) AS v`,
+    [seatId],
+  );
+  return Number(r.rows[0]!.v);
+}
+
+async function seatDayUsageRows(seatId: string): Promise<number> {
+  const r = await db.query<{ c: number }>(
+    `SELECT COUNT(*) AS c FROM public.papic_seat_day_usage WHERE seat_id = $1`,
+    [seatId],
+  );
+  return Number(r.rows[0]!.c);
+}
+
+/** Provision a real tier='free' seat, exactly as provisionFreeCamerasAdmin does. */
+async function createFreeSeat(eventId: string, seatIndex: number): Promise<string> {
+  const r = await db.query<{ seat_id: string }>(
+    `INSERT INTO public.paparazzi_seats
+       (event_id, seat_index, sku_code, claim_qr_token, tier)
+     VALUES ($1, $2, 'PAPIC_CAMERA_FREE', $3, 'free') RETURNING seat_id`,
+    [eventId, seatIndex, randomUUID()],
+  );
+  return r.rows[0]!.seat_id;
+}
+
+/**
+ * A minimal Supabase-client stand-in whose `.rpc()` runs against the real
+ * replayed PGlite — enough to drive the guest-capture route's extracted pool
+ * gate (papic_event_points_remaining + papic_reserve_event_points). The route's
+ * `admin` is exactly this shape at these two call sites.
+ */
+function makePoolAdmin(): SupabaseClient {
+  return {
+    rpc: async (fn: string, args: Record<string, unknown>) => {
+      if (fn === 'papic_event_points_remaining') {
+        const r = await db.query<{ v: number }>(
+          `SELECT public.papic_event_points_remaining($1) AS v`,
+          [args.p_event_id],
+        );
+        return { data: Number(r.rows[0]!.v), error: null };
+      }
+      if (fn === 'papic_reserve_event_points') {
+        const r = await db.query<{ v: boolean }>(
+          `SELECT public.papic_reserve_event_points($1, $2) AS v`,
+          [args.p_event_id, args.p_cost],
+        );
+        return { data: r.rows[0]!.v === true, error: null };
+      }
+      return { data: null, error: null };
+    },
+  } as unknown as SupabaseClient;
 }
 
 // ── (a) POOL BINDING — the R4 fence, photo + clip, fail-closed ──────────────
@@ -209,4 +296,101 @@ test('Papic One grants 250 per paid camera (2 → 500), idempotent by order', as
   // Idempotent: a re-approval must not double-grant.
   await db.query(`SELECT public.papic_grant_camera_points($1, $2)`, [eventId, orderId]);
   assert.equal(await sum(), 500, 're-approval does not double-grant');
+});
+
+// ── (d) FREE = ONE shared 50-pt pool, NO per-seat reserve (Fix 1) ────────────
+// The invariant from Papic_One_Pool_Model_Spec §0: on a FREE event the 3 free
+// seats AND guest phones ALL draw the single 50-pt free_grant pool, first-come,
+// with NO per-seat reserve. This is exactly what breaks if the metering flip
+// touches only 'mini' and leaves 'free' at its 20-pt/day per-seat budget.
+test('free event: seats + guest phones share ONE 50-pt pool with no per-seat reserve', async () => {
+  const eventId = await createEvent('Free Shared Pool I'); // trigger seeds 50 pts
+  const seatId = await createFreeSeat(eventId, 100);
+
+  // (1) NO per-seat reserve — free.points_per_day is now NULL, so the per-camera
+  // reserve is a pure passthrough: 30 reserves (WELL past the retired 20/day
+  // per-seat cap that would have refused the 21st) all succeed and the per-seat
+  // ledger stays empty. Under the pre-fix free=20 budget this loop fails at 21
+  // and writes a papic_seat_day_usage row — the exact contradiction Fix 1 removes.
+  for (let i = 1; i <= 30; i += 1) {
+    assert.equal(await reserveCamera(seatId, eventId, 1), true, `free camera reserve ${i} passes through`);
+  }
+  assert.equal(await seatDayUsageRows(seatId), 0, 'no per-seat ledger row → no per-seat reserve');
+  assert.equal(await cameraRemaining(seatId), 2147483647, 'free seat is per-seat-uncapped (pool is the only gate)');
+
+  // (2) A free seat and a guest phone draw the SAME 50-pt event pool. The
+  // per-camera passthrough above spent NOTHING from the event pool, so it still
+  // reads a full 50. A seat capture then books 1 EVENT point (its sole gate),
+  // which the guest phone immediately reads back as 49 — same pool, same ledger.
+  assert.equal((await poolStatus(eventId)).total, 50, 'free pool total is 50');
+  assert.equal(await eventRemaining(eventId), 50, 'pool untouched by the per-seat passthrough');
+  assert.equal(await reserve(eventId, 1), true, 'seat capture books 1 event point');
+  assert.equal(await eventRemaining(eventId), 49, 'guest phone reads the seat-decremented pool');
+
+  // (3) The 51st capture across BOTH the seat and the guest is refused (1 already
+  // spent above → 49 more fit, the 51st does not).
+  for (let i = 1; i <= 49; i += 1) {
+    assert.equal(await reserve(eventId, 1), true, `pooled capture ${i} within the shared 50`);
+  }
+  assert.equal(await reserve(eventId, 1), false, '51st capture across seat + guest refused');
+});
+
+// ── (e) ROUTE gate: reserve-before-record ordering + FALSE→409 mapping ───────
+// The guest-capture route (app/api/papic/guest-capture/route.ts) cannot be
+// imported in this runner (it pulls the Next `server-only` virtual module via
+// lib/r2 + lib/drive-copy), so this drives the route's EXTRACTED pool gate —
+// the exact two helpers the route now calls, against the real replayed pool.
+// Proves: the pre-check + reserve refuse the (N+1)th capture with the verdicts
+// the route maps to 409 `camera_points_exhausted`, and every reserve books
+// BEFORE the record RPC would run (reserve-before-record ordering).
+test('route pool gate: books to exhaustion, then N+1 → 409 camera_points_exhausted', async () => {
+  const eventId = await createEvent('Route Gate J'); // 50-pt free_grant
+  const admin = makePoolAdmin();
+  const cost = papicCaptureCost('photo'); // 1
+  assert.equal(cost, 1);
+
+  // 50 captures book. On each, the fail-OPEN pre-check says "not exhausted" (so
+  // the route proceeds to the R2 PUT), then the AUTHORITATIVE reserve books the
+  // point BEFORE the record RPC — outcome 'allow', booked true.
+  for (let i = 1; i <= 50; i += 1) {
+    assert.equal(
+      await papicEventPoolPreCheckExhausted(admin, eventId, cost),
+      false,
+      `pre-check open at capture ${i}`,
+    );
+    assert.deepEqual(
+      await papicReserveEventPoolForCapture(admin, eventId, cost),
+      { outcome: 'allow', booked: true },
+      `reserve ${i} books before record`,
+    );
+  }
+
+  // The 51st: BOTH route seams refuse. The pre-check now reports exhausted (the
+  // route 409s before any R2 PUT), and the reserve returns FALSE → outcome
+  // 'exhausted' with booked=false (nothing to unwind) → the route returns
+  // NextResponse.json({ status: 'camera_points_exhausted' }, { status: 409 }).
+  assert.equal(
+    await papicEventPoolPreCheckExhausted(admin, eventId, cost),
+    true,
+    'pre-check reports exhausted at N+1 (route 409 before R2 PUT)',
+  );
+  const refused = await papicReserveEventPoolForCapture(admin, eventId, cost);
+  assert.deepEqual(
+    refused,
+    { outcome: 'exhausted', booked: false },
+    'reserve refuses at N+1 → route maps to 409 camera_points_exhausted',
+  );
+
+  // Map the gate verdict to the exact HTTP response the route emits, so this
+  // test pins the FALSE→409 contract end-to-end (not just the verdict string).
+  const routeResponse = (r: { outcome: string }) =>
+    r.outcome === 'exhausted'
+      ? { status: 409 as const, body: { status: 'camera_points_exhausted' as const } }
+      : r.outcome === 'blocked'
+        ? { status: 503 as const, body: { status: 'points_check_failed' as const } }
+        : { status: 200 as const, body: null };
+  assert.deepEqual(routeResponse(refused), {
+    status: 409,
+    body: { status: 'camera_points_exhausted' },
+  });
 });

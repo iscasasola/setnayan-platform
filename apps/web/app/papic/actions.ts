@@ -348,8 +348,9 @@ export async function recordSeatCapture(
       // Capture-POINTS reserve (Papic v3 · brief PR-3) — the AUTHORITATIVE,
       // race-safe gate: 1 photo = 1 pt · 1 clip = 3 pts, atomically booked by
       // papic_reserve_camera_points against the tier's daily budget from
-      // papic_tier_config (free/mini/roll 20 · ltd 70 · unlimited ∞ passthrough
-      // — admin-editable, never hardcoded here). Fail-CLOSED on any RPC failure
+      // papic_tier_config (roll 20 · ltd 70 · free/mini/unlimited NULL=∞
+      // passthrough — free + Papic One draw ONLY the shared event pool per the
+      // one-pool model; admin-editable, never hardcoded here). Fail-CLOSED on any RPC failure
       // EXCEPT function-not-found (resolvePointsGate — the seam-cutover
       // carve-out): metering is money logic now, so an outage must block, not
       // silently un-meter. The presign probe (api/upload) is only the

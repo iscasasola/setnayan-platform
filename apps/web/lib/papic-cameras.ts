@@ -701,9 +701,12 @@ export function papicTierDailyLimit(
 //
 // One per-camera-per-day budget, spent in POINTS: 1 photo = 1 point · 1
 // five-second clip = 3 points. Budgets live in the admin-editable
-// papic_tier_config table (free/mini/roll 20 · ltd 70 · unlimited NULL=∞) —
-// NEVER hardcoded here. The DB RPCs (migration 20270821110100) resolve the
-// budget internally:
+// papic_tier_config table (roll 20 · ltd 70 · free/mini/unlimited NULL=∞) —
+// NEVER hardcoded here. Free + Papic One ('mini') were flipped to NULL by the
+// one-pool migration (owner 2026-07-22 · §0): their per-camera reserve passes
+// through, so a free/One seat draws ONLY the shared event pool
+// (papic_reserve_event_points), no per-seat reserve. The DB RPCs (migration
+// 20270821110100) resolve the budget internally:
 //   • papic_camera_points_remaining(seat) — read-only probe for the PRESIGN
 //     seam (api/upload): refuse the upload URL at 0 so no orphan R2 bytes.
 //   • papic_reserve_camera_points(seat, event, cost) — the AUTHORITATIVE,
@@ -757,12 +760,14 @@ export function resolvePointsGate(
 
 /**
  * Materialize the event's FREE cameras — the "always 3 seats / event" Free tier
- * (owner 2026-07-17: Free = 3 seats × 20 points/day; face-sort + personal reels
- * ON). Before this, "3 free cameras" was display copy with nothing to bind to:
- * no tier='free' per-camera seats were ever provisioned, so free capture ran
- * through the uncapped legacy path — the fake door brief PR-3 closes. These are
- * real paparazzi_seats rows (sku_code PAPIC_CAMERA_FREE · tier 'free'), so the
- * points RPCs meter them exactly like paid cameras, at the free budget.
+ * (owner 2026-07-22 · §0: Free = these 3 seats drawing the ONE shared 50-pt event
+ * pool, no per-seat reserve; face-sort + personal reels ON). Before this, "3 free
+ * cameras" was display copy with nothing to bind to: no tier='free' per-camera
+ * seats were ever provisioned, so free capture ran through the uncapped legacy
+ * path — the fake door brief PR-3 closes. These are real paparazzi_seats rows
+ * (sku_code PAPIC_CAMERA_FREE · tier 'free'); since free.points_per_day is now
+ * NULL, their per-camera reserve passes through and the shared event pool
+ * (papic_reserve_event_points) is the sole gate — same plumbing as Papic One.
  *
  * Idempotent dense top-up at fixed indexes 100..102 (mirrors the pack's 1..5
  * pattern): re-running only fills missing indexes and never disturbs a claimed

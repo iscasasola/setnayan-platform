@@ -8,9 +8,10 @@
 -- SAME papic_event_point_grants ledger and the SAME reserve RPC.
 --
 -- NEVER-RENAME LOCK honored: no service_code / tier_code is renamed or dropped.
--- The ONLY tier write here is a metering number (mini.points_per_day → NULL),
--- not an identity or price. Nothing is flipped is_active. Additive + idempotent
--- + inert on apply (nothing runs until app code calls the new function).
+-- The ONLY tier writes here are metering numbers (mini.points_per_day → NULL AND
+-- free.points_per_day → NULL), not an identity or price. Nothing is flipped
+-- is_active. Additive + idempotent + inert on apply (nothing runs until app code
+-- calls the new function).
 --
 -- Prefix auto-allocated via `pnpm migration:new` to sort AFTER every existing
 -- migration, so the applied-migration guards it supersedes
@@ -37,18 +38,26 @@ ALTER TABLE public.papic_event_pool_config
   ADD COLUMN IF NOT EXISTS camera_grant_points INTEGER NOT NULL DEFAULT 250
     CHECK (camera_grant_points >= 0);
 
--- ---- 1c. Window-total metering for Papic One -----------------------------
--- Drop the per-camera-per-day throttle on the 'mini' tier so a Papic One seat
--- meters ONLY against the event pool ("one gate, no per-seat reserve").
+-- ---- 1c. Window-total metering for Papic One AND Free --------------------
+-- Drop the per-camera-per-day throttle on BOTH the 'mini' (Papic One) tier and
+-- the 'free' tier so their seats meter ONLY against the ONE shared event pool
+-- ("one gate, no per-seat reserve" — owner 2026-07-22 · §0). This is the fix the
+-- 20270902100836 free-pool-seed migration's own header promises: "NO per-seat
+-- reserve — the existing free seats draw the SAME pool". Free was still at 20
+-- pts/day/seat, so its 3 seats kept a hidden per-seat reserve that contradicted
+-- the invariant; NULL removes it, so a free seat draws the same 50-pt free_grant
+-- pool exactly like a Papic One seat draws its 250-pt grant.
+--
 -- papic_reserve_camera_points returns TRUE without touching the ledger when
 -- points_per_day IS NULL (20270821110100), exactly like the 'unlimited' tier —
 -- so the seat path's existing papic_reserve_event_points call becomes the sole
--- gate for Papic One. Supersedes the applied guard at 20270828150000 (which
--- asserted mini.points_per_day=200 at ITS historical position); a forward UPDATE
--- does not re-run that DO block.
+-- gate for both Papic One and Free. Supersedes the applied guard at
+-- 20270828150000 (which asserted mini.points_per_day=200 at ITS historical
+-- position, and never asserted free); a forward UPDATE does not re-run that DO
+-- block.
 UPDATE public.papic_tier_config
    SET points_per_day = NULL, updated_at = NOW()
- WHERE tier_code = 'mini' AND points_per_day IS DISTINCT FROM NULL;
+ WHERE tier_code IN ('mini', 'free') AND points_per_day IS DISTINCT FROM NULL;
 
 -- ---- 1d. The Papic One grant engine --------------------------------------
 -- SECURITY DEFINER so it can write the service-role-only grants ledger.
@@ -72,6 +81,13 @@ BEGIN
   IF p_event_id IS NULL OR p_order_id IS NULL THEN
     RETURN 0;
   END IF;
+
+  -- Serialize concurrent approvals of the SAME order so the EXISTS→INSERT guard
+  -- below can never double-grant under a two-approver / retry race. Transaction-
+  -- scoped advisory lock keyed on the order (same pattern the guest-capture RPC
+  -- uses on guest_id); it self-releases at COMMIT/ROLLBACK. Cheaper + data-risk-
+  -- free vs a partial UNIQUE index on live rows.
+  PERFORM pg_advisory_xact_lock(hashtextextended(p_order_id::text, 0));
 
   -- Idempotent by order_id: a re-approved order must never double-grant.
   IF EXISTS (

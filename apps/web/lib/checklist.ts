@@ -796,6 +796,12 @@ const CHECKLIST_EVENT_LABELS: Record<string, { noun: string; title: string }> = 
   // here, not the vocab label (cf. corporate → 'Corporate Event'). Plain "Event"
   // keeps `dayOfLabel` reading as "Event day & after".
   simple_event: { noun: 'event', title: 'Event' },
+  // The two casual-outing types (owner 2026-07-22). Without these they fell
+  // through to WEDDING chrome — a "Date"/"Hangout" event showing "Wedding
+  // checklist / Your wedding". Kept in step with the vocab (checklist-event-
+  // labels.test.ts guards this via ANCHOR_BY_TYPE, which now includes them).
+  date: { noun: 'date', title: 'Date' },
+  hangout: { noun: 'hangout', title: 'Hangout' },
 };
 
 /**

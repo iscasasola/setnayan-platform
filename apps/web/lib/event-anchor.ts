@@ -58,6 +58,8 @@ export const ANCHOR_BY_TYPE: Record<string, TypeAnchorDefault> = {
   gala_night: { kind: 'fixed_date', dateModel: 'input' },
   celebration: { kind: 'fixed_date', dateModel: 'input' },
   simple_event: { kind: 'fixed_date', dateModel: 'input' },
+  date: { kind: 'fixed_date', dateModel: 'input' },
+  hangout: { kind: 'fixed_date', dateModel: 'input' },
 };
 
 /** Unknown/admin-created types fall back to a chosen fixed date. */

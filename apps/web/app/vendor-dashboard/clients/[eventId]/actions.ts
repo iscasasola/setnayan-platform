@@ -417,10 +417,39 @@ export async function createVendorChallengeAction(formData: FormData) {
   // gate failure it no-ops and the challenge simply doesn't appear in the list;
   // the panel already shows the upsell to non-Pro vendors, so the common cases
   // never reach here. Feedback is the revalidated list (a new challenge appears).
-  await createVendorChallenge(supabase, {
+  const res = await createVendorChallenge(supabase, {
     eventId,
     prompt: prompt.trim().slice(0, 280),
   });
+
+  // On a successful submit, tell the couple a challenge is waiting for their okay
+  // (gap #6 — otherwise a pending challenge stalls unseen behind the approval
+  // panel). Best-effort fan-out over couple members via the admin client,
+  // mirroring suggestScheduleChange. Only reached when the games flag is on
+  // (createVendorChallenge no-ops with the flag off, so res.ok is false).
+  if (res.ok) {
+    try {
+      const admin = createAdminClient();
+      const vendorName = profile.business_name?.trim() || 'A vendor';
+      const { data: members } = await admin
+        .from('event_members')
+        .select('user_id')
+        .eq('event_id', eventId)
+        .eq('member_type', 'couple');
+      for (const m of members ?? []) {
+        if (!m.user_id) continue;
+        await emitNotification({
+          userId: m.user_id,
+          type: 'papic_challenge_pending',
+          title: `${vendorName} added a photo challenge`,
+          body: 'Approve it to share it with your guests.',
+          relatedUrl: `/dashboard/${eventId}/studio/papic`,
+        });
+      }
+    } catch (e) {
+      console.error('[createVendorChallengeAction] couple notify failed:', e);
+    }
+  }
 
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
   redirect(`/vendor-dashboard/clients/${eventId}`);

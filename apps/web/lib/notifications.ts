@@ -133,6 +133,12 @@ export type NotificationType =
   | 'dispute_resolved'
   | 'vendor_review_reply'
   | 'schedule_suggestion'
+  // Added 2026-07-22 — Papic Games §3.6: a booked vendor submitted a custom
+  // photo challenge; the couple must approve it before it reaches guests.
+  // Couple-recipient, in-app tray only (matches schedule_suggestion). Fired from
+  // createVendorChallengeAction; only ever emitted when the games flag is on
+  // (the create wrapper no-ops otherwise, so the emit path is never reached).
+  | 'papic_challenge_pending'
   | 'pax_surcharge_changed'
   | 'vendor_joined'
   | 'editorial_decision'
@@ -288,6 +294,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   dispute_resolved: 'Dispute resolved',
   vendor_review_reply: 'Vendor replied to your review',
   schedule_suggestion: 'Schedule suggestion',
+  papic_challenge_pending: 'Photo challenge to approve',
   pax_surcharge_changed: 'Guest-count charge updated',
   vendor_joined: 'Vendor joined',
   editorial_decision: 'Editorial decision',
@@ -385,6 +392,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // A suggested timeline edit needs the couple's okay → amber (action-needed),
   // matching schedule_suggestion's sibling review_request.
   schedule_suggestion: 'bg-warn-100 text-warn-900',
+  // A vendor's photo challenge needs the couple's okay before it reaches guests → amber.
+  papic_challenge_pending: 'bg-warn-100 text-warn-900',
   // A changed guest-count charge needs the couple's attention/confirm → amber.
   pax_surcharge_changed: 'bg-warn-100 text-warn-900',
   // An invited vendor accepting/claiming = a positive arrival → emerald.

@@ -47,7 +47,7 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
     key: 'vendor_papic_capture',
     title: 'Vendor Papic capture',
     description:
-      'Lets a booked vendor collect photos and 5s clips of the event they are working (10 free + Ltd/Unli). Media is the vendor’s, scoped to their booked event.',
+      'Lets a booked vendor collect photos and 10s clips of the event they are working (10 free + Ltd/Unli). Media is the vendor’s, scoped to their booked event.',
     category: 'Guest media via vendor',
     riskNote:
       'The vendor becomes a third-party controller of guest images — a consent basis for guest capture is required. NSFW filter on, geo stripped on share.',

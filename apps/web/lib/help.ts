@@ -123,7 +123,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-papic',
         title: 'What is Papic?',
-        body: 'Guest-side photo capture for your wedding. Two purchase modes: Papic Guest (scales with guest count — disposable-camera mode for general guests, 24 photos plus 10 5-second videos per guest, tagged to each guest by QR so everyone gets their own) and Papic 5 Seats (five seats for designated paparazzi friends and family with unlimited photos plus unlimited videos for 5 hours). Current prices are on setnayan.com/pricing.',
+        body: 'Guest-side photo capture for your wedding. Two purchase modes: Papic Guest (scales with guest count — disposable-camera mode for general guests, 24 photos plus 10 ten-second videos per guest, tagged to each guest by QR so everyone gets their own) and Papic 5 Seats (five seats for designated paparazzi friends and family with unlimited photos plus unlimited videos for 5 hours). Current prices are on setnayan.com/pricing.',
       },
       {
         slug: 'what-is-panood',
@@ -498,7 +498,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'papic-crew-how-to-shoot',
         title: 'Crew: I was asked to shoot — how does it work?',
-        body: "The couple sent you a seat link. Open it on your phone, sign in, and tap to claim your seat — your phone is now a candid camera for their wedding. Shoot photos and up-to-5-second clips freely; everything uploads to their gallery automatically. To mark who's in a shot, tap 'Tag who's in it' and hold a guest's place-card QR or a table sign in frame — no typing. If you don't tag, the photo still reaches the couple.",
+        body: "The couple sent you a seat link. Open it on your phone, sign in, and tap to claim your seat — your phone is now a candid camera for their wedding. Shoot photos and up-to-10-second clips freely; everything uploads to their gallery automatically. To mark who's in a shot, tap 'Tag who's in it' and hold a guest's place-card QR or a table sign in frame — no typing. If you don't tag, the photo still reaches the couple.",
       },
     ],
   },

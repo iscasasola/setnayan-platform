@@ -73,10 +73,24 @@ on:
     paths:
       - 'supabase/migrations/**'
   workflow_dispatch:
+  # Safety-net (added 2026-07-23). The `push` trigger above can SILENTLY SKIP a
+  # migration merge: with the shared `concurrency` group below + cancel-in-
+  # progress:false, GitHub keeps only ONE in-progress + ONE pending run per
+  # group, so when several migration PRs merge in a burst the intermediate
+  # pending runs are superseded and never apply. Observed live 2026-07-22
+  # (#3546 + #3549 both merged migrations but produced no run; they applied
+  # only via a manual dispatch). This schedule re-runs `supabase db push`
+  # (idempotent — the `gate` step no-ops when secrets are unset, and db push
+  # skips already-applied migrations) every 30 min so any skipped migration
+  # self-heals within the window instead of sitting unapplied and surfacing as
+  # "Try again" errors in prod. Tune the cadence if CI-minute cost matters.
+  schedule:
+    - cron: '17,47 * * * *'
 
 # Serialize applies across overlapping main pushes. `cancel-in-progress`
 # left FALSE because a half-applied migration set is a worse state than
-# a queued-up second run.
+# a queued-up second run. (The scheduled safety-net above shares this group,
+# so it simply queues behind a live apply instead of racing it.)
 concurrency:
   group: supabase-migrations-prod
   cancel-in-progress: false

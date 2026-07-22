@@ -171,7 +171,13 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     agentAccounts: 0,
     scheduling: 'hybrid',
     marketplaceSearchable: true,
-    nameMode: 'screen',
+    // NAME IS NEVER GATED (owner "open it up" lock · Vendor_Subscription_Ladder_
+    // 2026-07-22 §3). Was 'screen' (anonymized until first chat reply / upgrade)
+    // — the name paywall. A `verified` vendor is a real, verified business on the
+    // free plan; couples must always see who's there, so the real business name
+    // shows day-1 on every tier. Paid tiers buy PROMINENCE + REACH (radius,
+    // seats, categories, market intel), never the name itself.
+    nameMode: 'true',
     marketIntel: false,
     theftWatch: false,
     performanceTrends: false,
@@ -458,7 +464,14 @@ export function tierCaps(tier: string | null | undefined): TierCaps {
   return TIER_CAPS[asVendorTier(tier)];
 }
 
-/** Pro/Enterprise → real business name revealed day-1 (the `isPaidTier` reveal flag). */
+/**
+ * TRUE when the tier shows the real business name day-1 (the `isPaidTier` reveal
+ * flag passed to resolveVendorDisplayName). Per the "open it up" lock
+ * (Vendor_Subscription_Ladder_2026-07-22 §3) a vendor's name is NEVER gated, so
+ * every couple-facing tier resolves 'true' here; only the internal unverified
+ * `free` state may still carry the anonymized placeholder. Derive from the
+ * `nameMode` cap — never hardcode a tier set (that was the vendor-cards.ts bug).
+ */
 export function isTrueNameTier(tier: string | null | undefined): boolean {
   return tierCaps(tier).nameMode === 'true';
 }

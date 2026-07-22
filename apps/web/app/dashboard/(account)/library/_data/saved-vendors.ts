@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { filterFavoritableVendorIds } from '@/lib/vendor-favorite-gate';
 import { resolveVendorDisplayName, displayServiceLabel } from '@/lib/vendors';
+import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 
 /**
  * Library · Saved Vendors data layer.
@@ -66,12 +67,15 @@ type ProfileAnonymityRow = {
   name_revealed_at: string | null;
   screen_name: string | null;
   tier_state: string | null;
+  verification_state: string | null;
 };
 
-// Day-1 real-name reveal tiers. Custom runs as Enterprise → nameMode 'true', so
-// it joins pro/enterprise here. (Solo's separate name-reveal decision is out of
-// scope for the Custom-tier build.)
-const PAID_TIERS = new Set(['pro', 'enterprise', 'custom']);
+// Day-1 real-name reveal is derived from the tier capability matrix
+// (`isTrueNameTier` → `tierCaps(tier).nameMode === 'true'`), not a hardcoded
+// set. Per the "open it up" lock (Vendor_Subscription_Ladder_2026-07-22 §3) a
+// vendor's NAME is never gated, so every couple-facing tier resolves to the
+// real business name; the old `{pro,enterprise,custom}` set also wrongly
+// excluded Solo (nameMode 'true').
 
 /** Title-case the saved-row `category` enum (e.g. `wedding_cake`) as a last
  *  resort when the hydrated vendor has no services array to derive a label. */
@@ -138,7 +142,7 @@ export async function fetchSavedVendors(): Promise<SavedVendorCard[]> {
   // app/explore/page.tsx's follow-up vendor_profiles batch).
   const { data: profileData } = await admin
     .from('vendor_profiles')
-    .select('vendor_profile_id,name_revealed_at,screen_name,tier_state')
+    .select('vendor_profile_id,name_revealed_at,screen_name,tier_state,verification_state')
     .in('vendor_profile_id', gatedIds);
 
   const profileById = new Map<string, ProfileAnonymityRow>();
@@ -156,9 +160,8 @@ export async function fetchSavedVendors(): Promise<SavedVendorCard[]> {
     const displayName = resolveVendorDisplayName({
       business_name: stats?.business_name ?? null,
       name_revealed_at: profile?.name_revealed_at ?? null,
-      isPaidTier: profile?.tier_state
-        ? PAID_TIERS.has(profile.tier_state)
-        : false,
+      isPaidTier: isTrueNameTier(profile?.tier_state ?? null),
+      is_verified: profile?.verification_state === 'verified',
       primary_canonical_service: primaryService,
       location_city: stats?.location_city ?? null,
       services,

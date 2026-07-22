@@ -89,40 +89,54 @@ export async function searchMarketplaceForBench(rawQuery: string): Promise<Bench
   const ids = stats.map((r) => r.vendor_profile_id);
   const { data: profRows } = await admin
     .from('vendor_profiles')
-    .select('vendor_profile_id, screen_name, name_revealed_at, tier_state')
+    .select('vendor_profile_id, screen_name, name_revealed_at, tier_state, verification_state')
     .in('vendor_profile_id', ids);
   const profById = new Map<
     string,
-    { screen_name: string | null; name_revealed_at: string | null; tier_state: string | null }
+    {
+      screen_name: string | null;
+      name_revealed_at: string | null;
+      tier_state: string | null;
+      verification_state: string | null;
+    }
   >();
   for (const p of (profRows as {
     vendor_profile_id: string;
     screen_name: string | null;
     name_revealed_at: string | null;
     tier_state: string | null;
+    verification_state: string | null;
   }[] | null) ?? []) {
     profById.set(p.vendor_profile_id, {
       screen_name: p.screen_name,
       name_revealed_at: p.name_revealed_at,
       tier_state: p.tier_state,
+      verification_state: p.verification_state,
     });
   }
 
   return stats.map((r) => {
     const prof = profById.get(r.vendor_profile_id);
     const isPaidTier = isTrueNameTier(prof?.tier_state ?? null);
+    // Open-it-up lock: a VERIFIED vendor's name is never gated. Keyed on
+    // verification_state (not tier) so an UNVERIFIED vendor surfaced here (this
+    // discovery read is NOT verification-gated at the query layer) stays a
+    // placeholder — the de-gate can't leak an unverified real business name.
+    const isVerified = prof?.verification_state === 'verified';
     const name = resolveVendorDisplayName({
       business_name: r.business_name,
       screen_name: prof?.screen_name ?? null,
       name_revealed_at: prof?.name_revealed_at ?? null,
       services: r.services,
       isPaidTier,
+      is_verified: isVerified,
       primary_canonical_service: r.services?.[0] ?? null,
       location_city: r.location_city,
     });
     const revealed = isVendorNameRevealed({
       name_revealed_at: prof?.name_revealed_at ?? null,
       isPaidTier,
+      is_verified: isVerified,
       services: r.services,
     });
     const rating = r.avg_rating_overall != null ? Number(r.avg_rating_overall) : null;

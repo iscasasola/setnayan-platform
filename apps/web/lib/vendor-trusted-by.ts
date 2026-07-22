@@ -65,7 +65,7 @@ export async function fetchTrustedByVendors(
   const { data: profiles, error: profErr } = await admin
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id,business_name,business_slug,location_city,services,name_revealed_at,screen_name,tier_state',
+      'vendor_profile_id,business_name,business_slug,location_city,services,name_revealed_at,screen_name,tier_state,verification_state',
     )
     .in('vendor_profile_id', [...relByVendor.keys()]);
   if (profErr || !profiles) return [];
@@ -75,7 +75,9 @@ export async function fetchTrustedByVendors(
     const services = (p.services as string[] | null) ?? null;
     const nameRevealedAt = (p.name_revealed_at as string | null) ?? null;
     const isPaidTier = isTrueNameTier((p.tier_state as string | null) ?? null);
-    const nameRevealed = isVendorNameRevealed({ name_revealed_at: nameRevealedAt, isPaidTier, services });
+    // Open-it-up lock: a VERIFIED vendor's name is never gated (any tier).
+    const isVerified = (p.verification_state as string | null) === 'verified';
+    const nameRevealed = isVendorNameRevealed({ name_revealed_at: nameRevealedAt, isPaidTier, is_verified: isVerified, services });
     const displayName = resolveVendorDisplayName({
       business_name: (p.business_name as string | null) ?? '',
       name_revealed_at: nameRevealedAt,
@@ -84,6 +86,7 @@ export async function fetchTrustedByVendors(
       services,
       screen_name: (p.screen_name as string | null) ?? null,
       isPaidTier,
+      is_verified: isVerified,
     });
     const slug = p.business_slug as string | null;
     out.push({

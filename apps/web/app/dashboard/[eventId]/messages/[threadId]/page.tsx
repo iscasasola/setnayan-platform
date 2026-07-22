@@ -57,7 +57,7 @@ export default async function CoupleThreadPage({ params }: Props) {
   const { data: vendor } = await supabase
     .from('vendor_profiles')
     .select(
-      'business_name, logo_url, contact_email, tagline, screen_name, name_revealed_at, services, location_city, tier_state',
+      'business_name, logo_url, contact_email, tagline, screen_name, name_revealed_at, services, location_city, tier_state, verification_state',
     )
     .eq('vendor_profile_id', thread.vendor_profile_id)
     .maybeSingle();
@@ -72,8 +72,10 @@ export default async function CoupleThreadPage({ params }: Props) {
         name_revealed_at: vendor.name_revealed_at ?? null,
         services: vendor.services ?? null,
         screen_name: vendor.screen_name ?? null,
-        // Phase C: Pro/Enterprise reveal real business_name day-1.
+        // Phase C: Pro/Enterprise reveal real business_name day-1. Open-it-up
+        // lock: a VERIFIED vendor's name is never gated (any tier).
         isPaidTier: isTrueNameTier(vendor.tier_state ?? null),
+        is_verified: vendor.verification_state === 'verified',
         primary_canonical_service: vendor.services?.[0] ?? null,
         location_city: vendor.location_city ?? null,
       })

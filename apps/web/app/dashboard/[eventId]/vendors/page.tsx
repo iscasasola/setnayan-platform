@@ -288,7 +288,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         .in('vendor_profile_id', marketplaceIds),
       enrichmentAdmin
         .from('vendor_profiles')
-        .select('vendor_profile_id, name_revealed_at, screen_name, tier_state')
+        .select('vendor_profile_id, name_revealed_at, screen_name, tier_state, verification_state')
         .in('vendor_profile_id', marketplaceIds),
       // Accept-gate state (#1c, CLAUDE.md 2026-06-02) — the chat thread per
       // picked marketplace vendor for THIS event. Surfaces a Waiting / Open /
@@ -321,6 +321,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       name_revealed_at: string | null;
       screen_name: string | null;
       tier_state: string | null;
+      verification_state: string | null;
     };
 
     const statsByProfile = new Map<string, StatsRow>();
@@ -402,6 +403,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         business_name: s.business_name,
         name_revealed_at: a?.name_revealed_at ?? null,
         isPaidTier: isTrueNameTier(a?.tier_state ?? null),
+        is_verified: a?.verification_state === 'verified',
         primary_canonical_service: s.services?.[0] ?? null,
         location_city: s.location_city,
         services: s.services,
@@ -417,6 +419,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       const nameRevealed = isVendorNameRevealed({
         name_revealed_at: a?.name_revealed_at ?? null,
         isPaidTier: isTrueNameTier(a?.tier_state ?? null),
+        is_verified: a?.verification_state === 'verified',
         services: s.services,
       });
       marketplaceCardByVendorId.set(v.vendor_id, {

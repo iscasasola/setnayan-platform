@@ -856,8 +856,10 @@ export async function searchCategoryVendors(input: {
       screen_name: prof?.screen_name ?? null,
       name_revealed_at: prof?.name_revealed_at ?? null,
       services: prof?.services ?? null,
-      // Phase C: Pro/Enterprise reveal real business_name day-1.
+      // Phase C: Pro/Enterprise reveal real business_name day-1. Open-it-up
+      // lock: a VERIFIED vendor's name is never gated (revealed on any tier).
       isPaidTier: isTrueNameTier(prof?.tier_state ?? null),
+      is_verified: r.verification_state === 'verified',
       primary_canonical_service: prof?.services?.[0] ?? null,
       location_city: r.location_city ?? null,
     });
@@ -866,6 +868,7 @@ export async function searchCategoryVendors(input: {
     const nameAnonymized = !isVendorNameRevealed({
       name_revealed_at: prof?.name_revealed_at ?? null,
       isPaidTier: isTrueNameTier(prof?.tier_state ?? null),
+      is_verified: r.verification_state === 'verified',
       services: prof?.services ?? null,
     });
     const vLat = (r.hq_latitude as number | null) ?? null;

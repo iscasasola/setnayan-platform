@@ -71,7 +71,9 @@ function boothDisplayName(vendor: BoothVendorRow): string {
     location_city: vendor.location_city,
     services: vendor.services ?? null,
     screen_name: vendor.screen_name ?? null,
+    // Open-it-up lock: a VERIFIED vendor's name is never gated (any tier).
     isPaidTier: isTrueNameTier(vendor.tier_state ?? null),
+    is_verified: vendor.verification_state === 'verified',
   });
 }
 

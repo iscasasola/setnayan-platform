@@ -108,10 +108,11 @@ type VendorNameRow = {
   tier_state: string | null;
   services: string[] | null;
   screen_name: string | null;
+  verification_state: string | null;
 };
 
 const VENDOR_NAME_FIELDS =
-  'vendor_profile_id, business_name, business_slug, logo_url, location_city, public_visibility, name_revealed_at, tier_state, services, screen_name';
+  'vendor_profile_id, business_name, business_slug, logo_url, location_city, public_visibility, name_revealed_at, tier_state, services, screen_name, verification_state';
 
 function displayNameFor(r: VendorNameRow): string {
   return resolveVendorDisplayName({
@@ -122,6 +123,7 @@ function displayNameFor(r: VendorNameRow): string {
     services: r.services ?? null,
     screen_name: r.screen_name ?? null,
     isPaidTier: isTrueNameTier(r.tier_state ?? null),
+    is_verified: r.verification_state === 'verified',
   });
 }
 

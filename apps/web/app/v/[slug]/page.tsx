@@ -388,10 +388,10 @@ export async function vendorMetadataBySlug(slug: string) {
     services: vendor.services ?? null,
     screen_name: vendor.screen_name ?? null,
     // Phase C: thread the vendor's real tier_state into the day-1 name
-    // reveal. Pro/Enterprise (isTrueNameTier === true) reveal the real
-    // business_name immediately; Free (hidden) + Verified (screen) stay
-    // anonymized. `?? null` → isTrueNameTier(null) → free → hidden.
+    // reveal. Open-it-up lock (2026-07-22): a VERIFIED vendor's name is never
+    // gated — revealed on any tier. Pro/Enterprise (isTrueNameTier) also reveal.
     isPaidTier: isTrueNameTier(vendor.tier_state ?? null),
+    is_verified: vendor.verification_state === 'verified',
   });
   const titleText = `${displayLabel} · Setnayan vendor${suffix}`;
   const descText = vendor.tagline ?? `${displayLabel} on Setnayan.`;
@@ -1050,8 +1050,10 @@ export async function renderVendorBySlug({
     // computed taxonomy-and-city placeholder.
     services: vendor.services ?? null,
     screen_name: vendor.screen_name ?? null,
-    // Phase C: Pro/Enterprise reveal the real business_name day-1.
+    // Phase C: Pro/Enterprise reveal the real business_name day-1. Open-it-up
+    // lock: a VERIFIED vendor's name is never gated (revealed on any tier).
     isPaidTier: isTrueNameTier(vendor.tier_state ?? null),
+    is_verified: vendor.verification_state === 'verified',
   });
 
   // Resolve viewer state for the FollowGate (iteration 0019 § Gate). Public

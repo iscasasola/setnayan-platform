@@ -235,7 +235,7 @@ export async function resolveShoppableVendors(
   const { data } = await admin
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id, public_id, business_name, business_slug, logo_url, location_city, public_visibility, name_revealed_at, tier_state, services, screen_name',
+      'vendor_profile_id, public_id, business_name, business_slug, logo_url, location_city, public_visibility, name_revealed_at, tier_state, services, screen_name, verification_state',
     )
     .or(`business_slug.in.(${ids.join(',')}),public_id.in.(${ids.join(',')})`);
 
@@ -251,6 +251,7 @@ export async function resolveShoppableVendors(
     tier_state: string | null;
     services: string[] | null;
     screen_name: string | null;
+    verification_state: string | null;
   }>;
 
   // Index by both keys so we can preserve the creator's input order. A vendor with
@@ -292,6 +293,7 @@ export async function resolveShoppableVendors(
         services: r.services ?? null,
         screen_name: r.screen_name ?? null,
         isPaidTier: isTrueNameTier(r.tier_state ?? null),
+        is_verified: r.verification_state === 'verified',
       }),
       city: r.location_city,
       logoUrl: r.logo_url,

@@ -65,7 +65,7 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
     const { data: vendor } = await supabase
       .from('vendor_profiles')
       .select(
-        'business_name, contact_email, screen_name, name_revealed_at, services, location_city, tier_state',
+        'business_name, contact_email, screen_name, name_revealed_at, services, location_city, tier_state, verification_state',
       )
       .eq('vendor_profile_id', search.vendor_profile_id)
       .maybeSingle();
@@ -84,8 +84,10 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
         name_revealed_at: vendor.name_revealed_at ?? null,
         services: vendor.services ?? null,
         screen_name: vendor.screen_name ?? null,
-        // Phase C: Pro/Enterprise reveal real business_name day-1.
+        // Phase C: Pro/Enterprise reveal real business_name day-1. Open-it-up
+        // lock: a VERIFIED vendor's name is never gated (any tier).
         isPaidTier: isTrueNameTier(vendor.tier_state ?? null),
+        is_verified: vendor.verification_state === 'verified',
         primary_canonical_service: vendor.services?.[0] ?? null,
         location_city: vendor.location_city ?? null,
       });
@@ -121,8 +123,10 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
           name_revealed_at: t.vendor.name_revealed_at ?? null,
           services: t.vendor.services ?? null,
           screen_name: t.vendor.screen_name ?? null,
-          // Phase C: Pro/Enterprise reveal real business_name day-1.
+          // Phase C: Pro/Enterprise reveal real business_name day-1. Open-it-up
+          // lock: a VERIFIED vendor's name is never gated (any tier).
           isPaidTier: isTrueNameTier(t.vendor.tier_state ?? null),
+          is_verified: t.vendor.verification_state === 'verified',
           primary_canonical_service: t.vendor.services?.[0] ?? null,
           location_city: t.vendor.location_city ?? null,
         })
@@ -138,6 +142,7 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
       ? isVendorNameRevealed({
           name_revealed_at: t.vendor.name_revealed_at ?? null,
           isPaidTier: isTrueNameTier(t.vendor.tier_state ?? null),
+          is_verified: t.vendor.verification_state === 'verified',
           services: t.vendor.services ?? null,
         })
       : false;

@@ -1,6 +1,7 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveVendorDisplayName, displayServiceLabel } from '@/lib/vendors';
+import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 
 /**
  * Shared marketplace-vendor card hydration (Invite/Join v2). Given a set of
@@ -21,11 +22,15 @@ export type VendorCard = {
   categoryLabel: string | null;
 };
 
-// Tiers whose real business name is revealed on the card day-1. Pro/Enterprise
-// and Custom (which runs as Enterprise → nameMode 'true'). Solo is deliberately
-// left out here to preserve current behavior — the §6 audit flagged that as a
-// separate owner decision, out of scope for the Custom-tier build.
-const PAID_TIERS = new Set(['pro', 'enterprise', 'custom']);
+// Day-1 real-name reveal is now derived from the tier capability matrix
+// (`isTrueNameTier` → `tierCaps(tier).nameMode === 'true'`) rather than a
+// hardcoded tier set. Per the owner "open it up" lock (Vendor_Subscription_
+// Ladder_2026-07-22 §3): a vendor's NAME is never gated — every couple-facing
+// tier shows the real business name. This also fixes the long-standing bug the
+// §6 audit flagged: the old `{pro,enterprise,custom}` set excluded Solo (whose
+// `nameMode` is already 'true'), anonymizing a paid Solo vendor's card. Which
+// vendors are shown at all is still gated by `verification_state='verified'` at
+// the query layer — this only decides the NAME shown for an already-visible row.
 
 function fallbackCategoryLabel(category: string | null): string | null {
   if (!category) return null;
@@ -68,7 +73,7 @@ export async function hydrateVendorCards(
 
   const { data: profileData } = await admin
     .from('vendor_profiles')
-    .select('vendor_profile_id,name_revealed_at,screen_name,tier_state')
+    .select('vendor_profile_id,name_revealed_at,screen_name,tier_state,verification_state')
     .in('vendor_profile_id', ids);
   const profileById = new Map<string, Record<string, unknown>>();
   for (const p of profileData ?? []) profileById.set(p.vendor_profile_id as string, p);
@@ -84,7 +89,8 @@ export async function hydrateVendorCards(
     const displayName = resolveVendorDisplayName({
       business_name: businessName,
       name_revealed_at: (profile?.name_revealed_at as string | null) ?? null,
-      isPaidTier: tierState ? PAID_TIERS.has(tierState) : false,
+      isPaidTier: isTrueNameTier(tierState),
+      is_verified: (profile?.verification_state as string | null) === 'verified',
       primary_canonical_service: primaryService,
       location_city: (stats?.location_city as string | null) ?? null,
       services,

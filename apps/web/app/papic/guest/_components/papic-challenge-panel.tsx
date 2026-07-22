@@ -21,18 +21,24 @@ import type { GuestMissionRow } from '@/lib/papic-missions';
 
 type Props = {
   /** The id of the guest's most recent capture, lifted from the parent camera.
-   *  A challenge is completed by attaching this photo, so the action is only
-   *  enabled once the guest has taken at least one shot. */
+   *  A challenge is completed by attaching this shot, so the action is only
+   *  enabled once the guest has taken at least one. */
   lastCaptureId: string | null;
+  /** The media kind of that last shot — a challenge completes with EITHER a photo
+   *  or a video, so the button names whichever they just took. */
+  lastCaptureKind?: 'photo' | 'clip' | null;
 };
 
-export function PapicChallengePanel({ lastCaptureId }: Props) {
+export function PapicChallengePanel({ lastCaptureId, lastCaptureKind }: Props) {
   // Hard flag gate — no fetch, no render, nothing mounts until the owner flips it.
   if (!papicGamesEnabled()) return null;
-  return <ChallengePanelInner lastCaptureId={lastCaptureId} />;
+  return <ChallengePanelInner lastCaptureId={lastCaptureId} lastCaptureKind={lastCaptureKind} />;
 }
 
-function ChallengePanelInner({ lastCaptureId }: Props) {
+function ChallengePanelInner({ lastCaptureId, lastCaptureKind }: Props) {
+  // Name the last shot: "photo" / "video" once taken, generic "shot" before.
+  const shotNoun =
+    lastCaptureKind === 'clip' ? 'video' : lastCaptureKind === 'photo' ? 'photo' : 'shot';
   const [missions, setMissions] = useState<GuestMissionRow[] | null>(null);
   const [open, setOpen] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -56,7 +62,7 @@ function ChallengePanelInner({ lastCaptureId }: Props) {
   const complete = useCallback(
     async (missionId: string) => {
       if (!lastCaptureId) {
-        setError('Take a photo first, then tap a challenge to mark it done.');
+        setError('Take a photo or video first, then tap a challenge to mark it done.');
         return;
       }
       setBusyId(missionId);
@@ -154,7 +160,7 @@ function ChallengePanelInner({ lastCaptureId }: Props) {
             </p>
           ) : (
             <p className="text-xs text-cream/55">
-              Take a photo for each one, then tap “Use my last photo.”
+              Take a photo or a short video for each one, then tap “use my last shot.”
             </p>
           )}
 
@@ -196,7 +202,7 @@ function ChallengePanelInner({ lastCaptureId }: Props) {
                         ) : (
                           <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                         )}
-                        Use my last photo
+                        Use my last {shotNoun}
                       </button>
                     )}
                   </div>
@@ -256,7 +262,7 @@ function ChallengePanelInner({ lastCaptureId }: Props) {
 
           {!lastCaptureId ? (
             <p className="text-[11px] text-cream/45">
-              Take a photo above, then come back to mark a challenge done.
+              Take a photo or video above, then come back to mark a challenge done.
             </p>
           ) : null}
           {error ? <p className="text-xs text-terracotta">{error}</p> : null}

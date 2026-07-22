@@ -204,6 +204,10 @@ export function PapicGuestCapture({
   // table QR to mark who's in it, so it lands in that guest's "Photos of you".
   // Mirrors the seat camera, on the same rear stream.
   const [lastCaptureId, setLastCaptureId] = useState<string | null>(null);
+  // The media kind of the last shot (photo tap vs held clip) — so the Photo
+  // Challenge panel can name it ("use my last photo" / "…video"). A challenge
+  // completes with EITHER; papic_guest_captures holds both.
+  const [lastCaptureKind, setLastCaptureKind] = useState<'photo' | 'clip' | null>(null);
   const [tagging, setTagging] = useState(false);
   const [tagCount, setTagCount] = useState(0);
   const [taggedNames, setTaggedNames] = useState<string[]>([]);
@@ -386,6 +390,7 @@ export function PapicGuestCapture({
         setDeletePhase('idle');
         // Arm scan-to-tag for the shot just saved (fresh tag state per photo).
         setLastCaptureId(json.captureId);
+        setLastCaptureKind('photo');
         setTagging(false);
         setTagCount(0);
         setTaggedNames([]);
@@ -477,6 +482,8 @@ export function PapicGuestCapture({
     setSentMessageId(null);
     setDeletePhase('idle');
     setLastCaptureId(captureId);
+    // openFlash is true for a photo, false for a held clip (see the call site).
+    setLastCaptureKind(openFlash ? 'photo' : 'clip');
     setTagging(false);
     setTagCount(0);
     setTaggedNames([]);
@@ -1301,7 +1308,7 @@ export function PapicGuestCapture({
         {/* Photo Challenges (Papic Games §5#3) — self-gated: renders nothing
             until NEXT_PUBLIC_PAPIC_GAMES_V1 is on / the event has live missions.
             Completing one attaches the guest's most recent capture. */}
-        <PapicChallengePanel lastCaptureId={lastCaptureId} />
+        <PapicChallengePanel lastCaptureId={lastCaptureId} lastCaptureKind={lastCaptureKind} />
 
         {/* Public-sharing opt-in (Alaala orb gate · RA 10173). Explicit, never
             pre-checked, default OFF. When ON, the shots this guest captures are

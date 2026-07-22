@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isVendor3dBoothActive } from './vendor-3d-booth-pricing';
 
 /**
  * vendor-3d-plan-unlock.ts — the VENDOR-ENABLED COUPLE DISCOUNT on the 3D Plan.
@@ -33,6 +34,19 @@ export const VENDOR_3D_PLAN_UNLOCK_SERVICE_KEY = 'SEATING_3D';
 
 /** The per-event unlock table (migration 20270909783681). */
 export const VENDOR_3D_PLAN_UNLOCK_TABLE = 'event_vendor_3d_plan_unlocks';
+
+/**
+ * "Booked" = a contracted-or-further event_vendors row. The single source shared
+ * by the unlock action's booked-gate AND the charge-time re-validation, so the
+ * two can never drift (a vendor whose booking is what unlocked the discount is
+ * re-checked against the SAME status set when the couple actually pays).
+ */
+export const VENDOR_3D_PLAN_UNLOCK_BOOKED_STATUSES = [
+  'contracted',
+  'deposit_paid',
+  'delivered',
+  'complete',
+] as const;
 
 /**
  * Owner-locked 2026-07-22: the DISCOUNTED price (PHP) a couple pays for the 3D
@@ -166,13 +180,98 @@ export async function fetchEventVendor3dPlanUnlock(
 
 /**
  * Has this event's 3D Plan discount been unlocked by a booked vendor? The boolean
- * the checkout price resolver consults. Soft-degrades to `false` on any error /
- * missing table (a pre-migration DB never mis-prices — the couple just pays the
- * standard price). Pass an ADMIN client on server surfaces.
+ * the VENDOR-side surfaces (the unlock action's idempotency check + the "you've
+ * unlocked this" card) consult — it answers only "does an unlock ROW exist",
+ * NOT "is the discount still honored at charge time" (that is
+ * {@link eventVendor3dPlanUnlockDiscountActive}). Soft-degrades to `false` on any
+ * error / missing table (a pre-migration DB never mis-prices — the couple just
+ * pays the standard price). Pass an ADMIN client on server surfaces.
  */
 export async function eventHasVendor3dPlanUnlock(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<boolean> {
   return (await fetchEventVendor3dPlanUnlock(supabase, eventId)) != null;
+}
+
+// ── Charge-time re-validation (money integrity) ──────────────────────────────
+
+export type Vendor3dPlanUnlockRevalidationInput = {
+  /** Does an unlock record exist for the event at all? */
+  hasUnlock: boolean;
+  /** Is the ATTRIBUTING vendor's 3D Booth add-on STILL active (not lapsed)? */
+  boothAddonActive: boolean;
+  /** Is the ATTRIBUTING vendor STILL booked on the event (contracted+)? */
+  stillBooked: boolean;
+};
+
+/**
+ * THE charge-time decision — pure, so it is exhaustively unit-tested. The ₱1,000
+ * discount is honored ONLY while the unlock still stands on its own terms: the
+ * record exists AND the vendor who unlocked it still has a live 3D Booth add-on
+ * AND is still booked on the event. A lapsed booth, an un-booked / cancelled
+ * vendor, or a missing record all fall back to the STANDARD price — the discount
+ * is a live entitlement, not a one-way latch stamped once and honored forever.
+ */
+export function vendor3dPlanUnlockDiscountHonored(
+  input: Vendor3dPlanUnlockRevalidationInput,
+): boolean {
+  return input.hasUnlock && input.boothAddonActive && input.stillBooked;
+}
+
+/**
+ * Is the ₱1,000 discount STILL valid for this event AT CHARGE TIME? The boolean
+ * the server-authoritative price resolver consults (lib/v2-catalog.ts
+ * resolvePaxPricedOrderCentavos). Unlike {@link eventHasVendor3dPlanUnlock} (which
+ * only checks a row exists), this RE-VALIDATES the attributing vendor: it re-reads
+ * their 3D Booth add-on window (isVendor3dBoothActive) and re-confirms their
+ * contracted-or-further event_vendors booking. So a vendor whose booth lapsed, or
+ * who is no longer booked / cancelled, no longer yields the couple ₱1,000 — the
+ * couple pays the standard price instead.
+ *
+ * FAIL-SAFE: any read error degrades to `false` (standard price) — a transient
+ * fault must NEVER hand out the discount to a vendor who no longer qualifies. Pass
+ * an ADMIN client (the resolver runs server-side; the couple's RLS can't see the
+ * vendor's add-on window or their event_vendors booking row).
+ */
+export async function eventVendor3dPlanUnlockDiscountActive(
+  supabase: SupabaseClient,
+  eventId: string,
+  nowMs: number = Date.now(),
+): Promise<boolean> {
+  const unlock = await fetchEventVendor3dPlanUnlock(supabase, eventId);
+  if (!unlock) return false;
+  try {
+    // (1) The attributing vendor's 3D Booth add-on must still be active.
+    const { data: vp } = await supabase
+      .from('vendor_profiles')
+      .select('booth_addon_expires_at')
+      .eq('vendor_profile_id', unlock.vendorProfileId)
+      .maybeSingle();
+    const boothAddonActive = isVendor3dBoothActive(
+      (vp as { booth_addon_expires_at?: string | null } | null)?.booth_addon_expires_at ?? null,
+      nowMs,
+    );
+
+    // (2) The attributing vendor must still be booked on THIS event.
+    const { data: bookedRow } = await supabase
+      .from('event_vendors')
+      .select('vendor_id')
+      .eq('event_id', eventId)
+      .eq('marketplace_vendor_id', unlock.vendorProfileId)
+      .in('status', VENDOR_3D_PLAN_UNLOCK_BOOKED_STATUSES as unknown as string[])
+      .limit(1)
+      .maybeSingle();
+    const stillBooked = bookedRow != null;
+
+    return vendor3dPlanUnlockDiscountHonored({
+      hasUnlock: true,
+      boothAddonActive,
+      stillBooked,
+    });
+  } catch {
+    // Fail toward the STANDARD price — never toward a discount for a vendor who
+    // may no longer qualify.
+    return false;
+  }
 }

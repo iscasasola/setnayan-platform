@@ -68,6 +68,14 @@ export type RunVendorDeepSearchArgs = {
   wasFree: boolean;
   /** The paid order that funded a ₱500 run (NULL for the free run). */
   orderId: string | null;
+  /**
+   * The id of a usage row PRE-CLAIMED by the caller BEFORE the run (the free-run
+   * atomic-claim path). When set, the finished dossier is linked to THIS row
+   * instead of inserting a new usage row — so the allowance is claimed exactly
+   * once, at claim time, not after the run. NULL/omitted = the legacy behavior
+   * (insert a fresh usage row on success — used by the paid-order activation hook).
+   */
+  claimUseId?: number | null;
 };
 
 export type RunVendorDeepSearchResult =
@@ -88,6 +96,7 @@ export async function runAndRecordVendorDeepSearch(
   args: RunVendorDeepSearchArgs,
 ): Promise<RunVendorDeepSearchResult> {
   const { admin, vendorProfileId, requestedByUserId, inputs, wasFree, orderId } = args;
+  const claimUseId = args.claimUseId ?? null;
 
   // (1) Open a 'running' dossier row so a slow/failed run is still traceable.
   const { data: row, error: insErr } = await admin
@@ -134,12 +143,23 @@ export async function runAndRecordVendorDeepSearch(
   // (4) Log the use — this is what the allowance counter reads. Only on success,
   //     so a failed run never counts. was_free records which side of the free
   //     allowance the run landed on.
-  await admin.from('vendor_deep_search_uses').insert({
-    vendor_profile_id: vendorProfileId,
-    was_free: wasFree,
-    order_id: orderId,
-    dossier_id: dossierId,
-  });
+  //
+  //     When the caller PRE-CLAIMED the allowance (free-run atomic-claim path),
+  //     the usage row already exists — LINK the dossier to it instead of inserting
+  //     a duplicate. Otherwise (paid-order activation hook) insert a fresh row.
+  if (claimUseId != null) {
+    await admin
+      .from('vendor_deep_search_uses')
+      .update({ dossier_id: dossierId })
+      .eq('id', claimUseId);
+  } else {
+    await admin.from('vendor_deep_search_uses').insert({
+      vendor_profile_id: vendorProfileId,
+      was_free: wasFree,
+      order_id: orderId,
+      dossier_id: dossierId,
+    });
+  }
 
   return { status: 'complete', dossierId, dossier, model };
 }

@@ -7,6 +7,7 @@ import { maybeRecomputeSpotlightAwards } from '@/lib/spotlight-awards';
 import { maybeRunFraudClusterSweep } from '@/lib/fraud-cluster-sweep';
 import { runSeoPeriodicJobs } from '@/lib/seo/seo-cron-jobs';
 import { maybeRunRetentionSweep } from '@/lib/retention-sweep';
+import { maybeRunVendorDossierRetention } from '@/lib/vendor-dossier-retention';
 import { maybeRunPapicFullResDrop } from '@/lib/papic-fullres-drop';
 import { maybeRunDriveCopyRetry } from '@/lib/papic-drive-copy-retry';
 import { maybeRunAnonDraftSweep } from '@/lib/anon-draft-sweep';
@@ -124,6 +125,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // Vercel crons). Both keep their own safety (legal-hold exclusion / kill-switch
   // + per-run limit); the routes are retained as manual/curl triggers. Never throws.
   after(() => maybeRunRetentionSweep().catch(() => {}));
+  // Deep Search dossier TTL (RA 10173 storage-limitation) — CRON-FREE: admin
+  // traffic + a WEEKLY DB claim. Purges web-research dossiers past 180 days.
+  after(() => maybeRunVendorDossierRetention().catch(() => {}));
   after(() => maybeRunPapicFullResDrop().catch(() => {}));
   // Autonomous Drive-copy retry (Papic storage PR-4) — CRON-FREE: admin traffic +
   // a DAILY DB claim. Re-drives failed Google-Drive copies with exponential

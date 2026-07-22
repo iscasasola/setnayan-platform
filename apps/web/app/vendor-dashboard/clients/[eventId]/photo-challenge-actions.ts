@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
+import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { eventPapicActive } from '@/lib/papic-seats';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import {
@@ -89,7 +89,10 @@ export async function sponsorPhotoChallenge(
   if (!profile) return err('No vendor profile found.');
   const vendorProfileId = profile.vendor_profile_id;
 
-  const role = await resolveVendorRole(supabase, user.id);
+  // Scope the role check to THIS vendor profile (not the user's global-highest
+  // role) so an agent/viewer on this shop can't sponsor a paid Photo Challenge via
+  // a role they hold on some other vendor.
+  const role = await resolveVendorRoleForProfile(supabase, user.id, vendorProfileId);
   if (!canManageVendor(role)) {
     return err('Only the owner or an admin can sponsor a Photo Challenge.');
   }
@@ -145,6 +148,27 @@ export async function sponsorPhotoChallenge(
   });
   if (!eligibility.ok) {
     return err(PHOTO_CHALLENGE_DENY_MESSAGE[eligibility.reason]);
+  }
+
+  // ── Pending-order guard (double-charge prevention) ─────────────────────────
+  // The entitlement dedupes only on APPROVAL (alreadySponsored, above), so two
+  // quick submits before an admin approves would mint TWO ₱400 orders for one
+  // event. Reject a second submit while a 'submitted' order for this
+  // (event, vendor, SKU) is still in review — mirrors the couple-3D buy's
+  // owned-includes-submitted guard.
+  const { data: pendingOrder } = await admin
+    .from('orders')
+    .select('order_id')
+    .eq('event_id', eventId)
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('service_key', VENDOR_PHOTO_CHALLENGE_SKU_CODE)
+    .eq('status', 'submitted')
+    .limit(1)
+    .maybeSingle();
+  if (pendingOrder) {
+    return err(
+      'You already have a Photo Challenge order in review for this event — it unlocks once our team confirms your payment.',
+    );
   }
 
   // ── Re-read the authoritative ₱400 price + is_active from the catalog ───────

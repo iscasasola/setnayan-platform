@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
+import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import {
   fetchVendor3dBoothState,
   isVendor3dBoothActive,
@@ -13,6 +13,7 @@ import {
 import {
   VENDOR_3D_PLAN_UNLOCK_TABLE,
   VENDOR_3D_PLAN_UNLOCK_PRICE_PHP,
+  VENDOR_3D_PLAN_UNLOCK_BOOKED_STATUSES,
   vendor3dPlanUnlockEligibility,
   eventHasVendor3dPlanUnlock,
   VENDOR_3D_PLAN_UNLOCK_DENY_MESSAGE,
@@ -50,9 +51,6 @@ function err(message: string): Vendor3dPlanUnlockActionState {
   return { status: 'error', message };
 }
 
-/** Booked = a contracted-or-further event_vendors row (mirrors the challenge RPC). */
-const BOOKED_STATUSES = ['contracted', 'deposit_paid', 'delivered', 'complete'] as const;
-
 export async function unlockVendor3dPlanForCouple(
   _prev: Vendor3dPlanUnlockActionState,
   formData: FormData,
@@ -72,7 +70,10 @@ export async function unlockVendor3dPlanForCouple(
   if (!profile) return err('No vendor profile found.');
   const vendorProfileId = profile.vendor_profile_id;
 
-  const role = await resolveVendorRole(supabase, user.id);
+  // Scope the role check to THIS vendor profile (not the user's global-highest
+  // role) so an agent/viewer on this shop can't unlock the discount via a role
+  // they hold on some other vendor.
+  const role = await resolveVendorRoleForProfile(supabase, user.id, vendorProfileId);
   if (!canManageVendor(role)) {
     return err('Only the owner or an admin can unlock the 3D Plan for a couple.');
   }
@@ -92,7 +93,7 @@ export async function unlockVendor3dPlanForCouple(
     .select('vendor_id')
     .eq('event_id', eventId)
     .eq('marketplace_vendor_id', vendorProfileId)
-    .in('status', BOOKED_STATUSES as unknown as string[])
+    .in('status', VENDOR_3D_PLAN_UNLOCK_BOOKED_STATUSES as unknown as string[])
     .limit(1)
     .maybeSingle();
   const booked = bookedRow != null;

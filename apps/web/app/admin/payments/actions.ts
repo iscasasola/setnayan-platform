@@ -47,6 +47,7 @@ import { appendLedger } from '@/lib/ledger';
 // so main's inline imports/constants are dropped here (typecheck confirms
 // nothing else references them).
 import { activateOrderSku, deactivateOrderSku } from '@/lib/sku-activation';
+import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -318,13 +319,25 @@ export async function approvePayment(formData: FormData) {
   // exactly once) and a later re-approval are both safe. PR4 registers
   // PAPIC_SEATS by editing lib/sku-activation.ts, NOT this block.
   if (order) {
-    await activateOrderSku({
+    const activationCtx = {
       admin,
       orderId: payment.order_id,
       eventId: order.event_id ?? null,
       serviceKey: order.service_key ?? '',
       actorUserId: userId,
-    });
+    };
+    // Deep Search runs a 10–30s live web + AI pass inside its activation hook.
+    // Awaiting it here would hold the admin's Approve click open for the whole
+    // run — and a request timeout could strand the order half-activated but
+    // re-clickable. Defer it to after(): approval returns fast, and the hook is
+    // idempotent (ledger + UNIQUE(order_id) guards) so the post-response run is
+    // safe. Every other SKU's hook is fast → stays synchronous so a failure still
+    // surfaces on this response.
+    if (activationCtx.serviceKey === VENDOR_DEEP_SEARCH_SKU_CODE) {
+      after(() => activateOrderSku(activationCtx));
+    } else {
+      await activateOrderSku(activationCtx);
+    }
   }
 
   // The admin's OWN views revalidate synchronously so the queue reflects the

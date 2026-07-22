@@ -1,8 +1,9 @@
 /**
  * Wiring suite for the vendor Papic tier DERIVATION (lib/vendor-papic-grants.ts).
  * Unlike vendor-papic-tier.test.ts (the pure model), this proves the DB reads
- * translate correctly: vendor_event_unlocks / lead_token_holds → base tier, and
- * a vendor_papic_capture_grants 'unli' row (money-verified) → Unli. Uses a stub
+ * translate correctly: vendor_event_unlocks.comp_reason → base tier, and a
+ * vendor_papic_capture_grants 'unli' row (money-verified) → Unli. Tokens retired
+ * (2026-07-21) — a historical token-burn row no longer earns Ltd. Uses a stub
  * Supabase client so no live DB is needed.
  */
 import { test } from 'node:test';
@@ -50,36 +51,25 @@ test('derive: founder-comped accept → Ltd (as-if-paid)', async () => {
   assert.equal(await deriveVendorPapicTier(c, 'v1', 'e1'), 'ltd');
 });
 
-test('derive: token burned → Ltd', async () => {
+test('derive: a historical token-burn row is now IGNORED → Lite (tokens retired)', async () => {
   const c = stubClient({
     vendor_event_unlocks: { data: { comp_reason: null, tokens_burned: 2 } },
-    vendor_papic_capture_grants: { data: null },
-  });
-  assert.equal(await deriveVendorPapicTier(c, 'v1', 'e1'), 'ltd');
-});
-
-test('derive: unlock but no token + not founder → Lite', async () => {
-  const c = stubClient({
-    vendor_event_unlocks: { data: { comp_reason: null, tokens_burned: 0 } },
-    lead_token_holds: { data: null },
     vendor_papic_capture_grants: { data: null },
   });
   assert.equal(await deriveVendorPapicTier(c, 'v1', 'e1'), 'lite');
 });
 
-test('derive: a reserved (held) token → Ltd', async () => {
+test('derive: an ordinary booked accept (not founder) → Lite', async () => {
   const c = stubClient({
-    vendor_event_unlocks: { data: { comp_reason: null, tokens_burned: 0 } },
-    lead_token_holds: { data: { status: 'held' } },
+    vendor_event_unlocks: { data: { comp_reason: null } },
     vendor_papic_capture_grants: { data: null },
   });
-  assert.equal(await deriveVendorPapicTier(c, 'v1', 'e1'), 'ltd');
+  assert.equal(await deriveVendorPapicTier(c, 'v1', 'e1'), 'lite');
 });
 
 test('derive: an admin-comped unli grant (no order) → Unli', async () => {
   const c = stubClient({
-    vendor_event_unlocks: { data: { comp_reason: null, tokens_burned: 0 } },
-    lead_token_holds: { data: null },
+    vendor_event_unlocks: { data: { comp_reason: null } },
     vendor_papic_capture_grants: { data: { tier: 'unli', upgrade_order_id: null } },
   });
   assert.equal(await deriveVendorPapicTier(c, 'v1', 'e1'), 'unli');
@@ -87,8 +77,7 @@ test('derive: an admin-comped unli grant (no order) → Unli', async () => {
 
 test('derive: an unli grant with a PAID order → Unli', async () => {
   const c = stubClient({
-    vendor_event_unlocks: { data: { comp_reason: null, tokens_burned: 0 } },
-    lead_token_holds: { data: null },
+    vendor_event_unlocks: { data: { comp_reason: null } },
     vendor_papic_capture_grants: { data: { tier: 'unli', upgrade_order_id: 'o1' } },
     orders: { data: { status: 'paid' } },
   });
@@ -114,8 +103,6 @@ test('provenance: a read error fails closed to no-unlock', async () => {
   assert.deepEqual(p, {
     hasUnlock: false,
     founderComp: false,
-    tokensBurned: 0,
-    hasActiveHold: false,
   });
 });
 

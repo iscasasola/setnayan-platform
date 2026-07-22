@@ -4,18 +4,23 @@
  *
  * Reads three sources to answer "what tier is this vendor for this booked event,
  * and how many capture points have they spent?":
- *   1. vendor_event_unlocks (+ lead_token_holds) → the derived BASE tier.
+ *   1. vendor_event_unlocks.comp_reason → the derived BASE tier (founder-comp).
  *   2. vendor_papic_capture_grants (tier='unli') → a PAID Unli upgrade override.
  *   3. vendor_papic_captures → capture points already spent.
+ *
+ * 🚫 TOKENS RETIRED (owner 2026-07-21): the old lead_token_holds / tokens_burned
+ * signals that used to earn Ltd are dead and are no longer read — only the
+ * non-token founder-comp remains. (The fee-scaled allowance in vendor-papic-tier
+ * supersedes this Lite/Ltd ladder once the booking-fee input is built.)
  *
  * ALL reads FAIL-CLOSED: the base tier degrades to 'lite' (the floor) and a paid
  * upgrade degrades to false. This perk is free, so a hiccup can only ever
  * UNDER-grant, never hand out a capability that wasn't earned/paid — and the
  * Unli check is money logic, so it must never open on error.
  *
- * Run on the SERVICE-ROLE admin client: vendor_event_unlocks / lead_token_holds
- * are RLS-scoped to the vendor owner/admin only, and the live console can run as
- * a per-event grantee (not the owner), so an RLS read would see nothing.
+ * Run on the SERVICE-ROLE admin client: vendor_event_unlocks is RLS-scoped to the
+ * vendor owner/admin only, and the live console can run as a per-event grantee
+ * (not the owner), so an RLS read would see nothing.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -32,13 +37,12 @@ import {
 const EMPTY_PROVENANCE: VendorAcceptProvenance = {
   hasUnlock: false,
   founderComp: false,
-  tokensBurned: 0,
-  hasActiveHold: false,
 };
 
 /**
- * Read accept provenance for (vendor, event) from vendor_event_unlocks
- * (+ lead_token_holds). No unlock row → the vendor never accepted → floor (Lite).
+ * Read accept provenance for (vendor, event) from vendor_event_unlocks. No unlock
+ * row → the vendor never accepted → floor (Lite). Only the founder-comp signal is
+ * read now (tokens retired 2026-07-21 — see the module header).
  */
 export async function fetchVendorAcceptProvenance(
   admin: SupabaseClient,
@@ -48,33 +52,14 @@ export async function fetchVendorAcceptProvenance(
   try {
     const { data: unlock, error } = await admin
       .from('vendor_event_unlocks')
-      .select('comp_reason, tokens_burned')
+      .select('comp_reason')
       .eq('vendor_profile_id', vendorProfileId)
       .eq('event_id', eventId)
       .maybeSingle();
     if (error || !unlock) return EMPTY_PROVENANCE;
 
-    const row = unlock as { comp_reason: string | null; tokens_burned: number | null };
-    const founderComp = row.comp_reason === 'founder';
-    const tokensBurned = Number(row.tokens_burned) || 0;
-
-    // Only need the hold lookup when neither founder-comp nor a burn is recorded:
-    // a still-'held' token (hold path, pre-reply) reads tokens_burned=0 but IS a
-    // token the vendor committed — it counts as spent for the tier.
-    let hasActiveHold = false;
-    if (!founderComp && tokensBurned <= 0) {
-      const { data: hold } = await admin
-        .from('lead_token_holds')
-        .select('status')
-        .eq('vendor_profile_id', vendorProfileId)
-        .eq('event_id', eventId)
-        .in('status', ['held', 'consumed'])
-        .gt('tokens', 0)
-        .maybeSingle();
-      hasActiveHold = Boolean(hold);
-    }
-
-    return { hasUnlock: true, founderComp, tokensBurned, hasActiveHold };
+    const row = unlock as { comp_reason: string | null };
+    return { hasUnlock: true, founderComp: row.comp_reason === 'founder' };
   } catch {
     return EMPTY_PROVENANCE;
   }

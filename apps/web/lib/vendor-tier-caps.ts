@@ -331,19 +331,18 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
  * `vendor_billing_catalog` (read via getVendorPrices) is authoritative. Never
  * hardcode a price in UI copy.
  *
- * LADDER B (owner-confirmed 2026-07-01 · the pre-reset ₱2,000/6,000/10,000
- * "Ladder A" is dead): Solo ₱999 · Pro ₱2,499 · Enterprise ₱7,999 /28d, with
+ * ROUND-NUMBER LADDER (owner 2026-07-22 · reprice off the charm "Ladder B"
+ * ₱999/₱2,499/₱7,999): Solo ₱1,000 · Pro ₱2,500 · Enterprise ₱8,000 /28d, with
  * annual = 10× the 28-day fee (a subscription year is 13 cycles, billed for 10
- * — first 3 free). Enterprise became a BOUNDED tier on 2026-07-01 (₱4,999→₱7,499)
- * and its 28-day fee was finalized at ₱7,999 on 2026-07-10 (annual ₱79,999); a
+ * — first 3 free): ₱10,000 · ₱25,000 · ₱80,000. Enterprise is a BOUNDED tier; a
  * negotiated "Custom" tier for the truly-unlimited case sits above it.
  */
 export const TIER_PRICE_PHP: Record<VendorTier, { monthly: number; annual: number }> = {
   free: { monthly: 0, annual: 0 },
   verified: { monthly: 0, annual: 0 },
-  solo: { monthly: 999, annual: 9999 },
-  pro: { monthly: 2499, annual: 24999 },
-  enterprise: { monthly: 7999, annual: 79999 },
+  solo: { monthly: 1000, annual: 10000 },
+  pro: { monthly: 2500, annual: 25000 },
+  enterprise: { monthly: 8000, annual: 80000 },
   // Custom is priced PER PLAN (composed 28-day total on vendor_custom_plans,
   // computed by lib/vendor-custom-pricing.ts). These are the base-only fallback
   // figures (base ₱8,999/28d · annual = 10× base) for display when no plan is

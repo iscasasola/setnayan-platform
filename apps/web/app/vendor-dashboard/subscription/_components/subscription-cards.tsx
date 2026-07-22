@@ -15,8 +15,8 @@
  *   top-ups still live in the Token packs card below.
  *
  * MOBILE CHANNEL PRICING (SRP · 1.5× the web price, illustrative)
- *   Pro:        ~₱3,750/28d  (1.5× ₱2,499 web)
- *   Enterprise: ~₱12,000/28d (1.5× ₱7,999 web)
+ *   Pro:        ~₱3,750/28d  (1.5× ₱2,500 web)
+ *   Enterprise: ~₱12,000/28d (1.5× ₱8,000 web)
  *
  * The "Buy on web for less" banner guides vendors to the web checkout where
  * canonical DB prices apply. The server action (startSubscriptionPurchase)
@@ -96,7 +96,7 @@ export function SubscriptionCards({
       {native && (
         <WebNudgeBanner
           savingsCopy="up to 33% off"
-          webPricesCopy="Solo ₱999/28d · Pro ₱2,499/28d · Enterprise ₱7,999/28d on web"
+          webPricesCopy="Solo ₱1,000/28d · Pro ₱2,500/28d · Enterprise ₱8,000/28d on web"
           webUrl="https://setnayan.com/vendor-dashboard/subscription"
         />
       )}

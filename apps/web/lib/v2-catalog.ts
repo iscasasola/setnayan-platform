@@ -282,29 +282,30 @@ export const getVendorPrices = cache(async () => {
   const save = (mo: number | null, yr: number | null, fb: string) =>
     mo != null && yr != null ? `₱${formatPeso(mo * 13 - yr)}` : fb;
   // Fallback strings/numbers mirror the LIVE vendor_billing_catalog ladder
-  // (Solo ₱999/₱9,999 · Pro ₱2,499/₱24,999 · Enterprise ₱7,999/₱79,999) so a
-  // DB-unreachable build never renders a stale pre-reprice price. They only
-  // ever surface if the catalog read returns empty — the live read wins.
+  // (Solo ₱1,000/₱10,000 · Pro ₱2,500/₱25,000 · Enterprise ₱8,000/₱80,000 —
+  // round-number reprice 2026-07-22) so a DB-unreachable build never renders a
+  // stale price. They only ever surface if the catalog read returns empty —
+  // the live read wins.
   return {
-    soloMonthly: fmt(soloMo, '₱999'),
-    soloAnnual: fmt(soloYr, '₱9,999'),
-    soloAnnualSave: save(soloMo, soloYr, '₱2,988'),
-    proMonthly: fmt(proMo, '₱2,499'),
-    proAnnual: fmt(proYr, '₱24,999'),
-    proAnnualSave: save(proMo, proYr, '₱7,488'),
-    enterpriseMonthly: fmt(entMo, '₱7,999'),
-    enterpriseAnnual: fmt(entYr, '₱79,999'),
-    enterpriseAnnualSave: save(entMo, entYr, '₱23,988'),
+    soloMonthly: fmt(soloMo, '₱1,000'),
+    soloAnnual: fmt(soloYr, '₱10,000'),
+    soloAnnualSave: save(soloMo, soloYr, '₱3,000'),
+    proMonthly: fmt(proMo, '₱2,500'),
+    proAnnual: fmt(proYr, '₱25,000'),
+    proAnnualSave: save(proMo, proYr, '₱7,500'),
+    enterpriseMonthly: fmt(entMo, '₱8,000'),
+    enterpriseAnnual: fmt(entYr, '₱80,000'),
+    enterpriseAnnualSave: save(entMo, entYr, '₱24,000'),
     branch: fmt(branch, '₱999'),
     tokenUnit: `₱${formatPeso(tokenUnit)}`,
     // Raw numbers for the schema.org JSON-LD Offers (need unformatted values).
     num: {
-      soloMonthly: soloMo ?? 999,
-      soloAnnual: soloYr ?? 9999,
-      proMonthly: proMo ?? 2499,
-      proAnnual: proYr ?? 24999,
-      enterpriseMonthly: entMo ?? 7999,
-      enterpriseAnnual: entYr ?? 79999,
+      soloMonthly: soloMo ?? 1000,
+      soloAnnual: soloYr ?? 10000,
+      proMonthly: proMo ?? 2500,
+      proAnnual: proYr ?? 25000,
+      enterpriseMonthly: entMo ?? 8000,
+      enterpriseAnnual: entYr ?? 80000,
     },
   };
 });

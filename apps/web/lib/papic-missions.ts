@@ -28,15 +28,19 @@ export type PapicMissionRow = {
 };
 
 // The guest-facing mission view (from the papic_guest_missions RPC): the live
-// mission fields + whether THIS guest has completed it.
+// mission fields + whether THIS guest has completed it, and — for a vendor
+// mission — the vendor's name (the "Share with <vendor>?" label) and this guest's
+// current share state (§4.1). vendor_name is null for couple/generic missions.
 export type GuestMissionRow = {
   mission_id: string;
   mission_type: PapicMissionType;
   prompt: string;
   vendor_id: string | null;
+  vendor_name: string | null;
   target_guest_id: string | null;
   target_role: string | null;
   completed: boolean;
+  consent_shared: boolean;
 };
 
 export const MISSION_TYPE_LABELS: Record<PapicMissionType, string> = {

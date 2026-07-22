@@ -23,16 +23,21 @@
  *     intervals overlap among TOP-LEVEL blocks (parts nested under a parent are
  *     legitimately inside it, never a clash). Pure overlap detection; no new
  *     schema (Phase 1 of the guard-wiring build, 2026-07-22).
+ *   • priceChanges (GRD-03)  ← the GLOBAL vendor price-change log
+ *     (vendor_service_price_history, captured by a trigger on vendor_services)
+ *     joined to the couple's shortlisted/booked marketplace vendors — recent
+ *     net rises. (Phase 3, 2026-07-22.)
+ *   • availability (GRD-09)  ← vendor_calendar_blocks created recently that
+ *     overlap the couple's event date, for those same watched vendors — "a top
+ *     pick just got booked on your day". (Phase 2, 2026-07-22.)
  *
  * Still EMPTY (no real data source — never fabricate):
- *   • priceChanges (GRD-03)  — needs the vendor price-change log, the Market
- *     Intelligence spec's net-new table. Nothing records price history today.
  *   • contracts (GRD-07)     — no decision/cancellation-window model exists on
  *     event_vendors or the 0032 contract tables.
  *   • shortlist (SEC-02/03)  — "stuck for N weeks" needs per-category shortlist
  *     age tracking; the build/shortlist models store current state, not history.
  *   • dateClusters (SEC-07)  — no per-vendor availability-by-date signal to
- *     cluster until the availability log lands.
+ *     cluster.
  *
  * The row→snapshot mapping is split into PURE helpers (unit-tested); the DB
  * fetch is a thin wrapper. Consumers: computeUserAiDigest (the account digest
@@ -52,6 +57,8 @@ import {
   type SnapshotStatutory,
   type SnapshotInquiry,
   type SnapshotScheduleClash,
+  type SnapshotPriceChange,
+  type SnapshotAvailabilityChange,
 } from './setnayan-ai-triggers';
 import {
   DOCUMENT_META,
@@ -287,6 +294,91 @@ export function scheduleClashesFromBlocks(
   return out;
 }
 
+// ---- GRD-03 price-change + GRD-09 availability-change (global vendor history)
+
+/** How far back a vendor price move / availability block counts as "recent". */
+export const PRICE_AVAILABILITY_WINDOW_DAYS = 45;
+
+/** A vendor_service_price_history row, reduced for the pure mapper. */
+export type PriceHistoryRow = {
+  vendorProfileId: string;
+  category: string | null;
+  oldPricePhp: number | null;
+  newPricePhp: number | null;
+  changedAt: string; // ISO
+};
+
+/**
+ * Collapse the recent price-history rows to one net change per (vendor,
+ * category): old = the earliest old price in the window, new = the latest new
+ * price. Only vendors the couple actually watches (present in `nameById`) are
+ * kept — a change to some other vendor is not their concern. The GRD-03 trigger
+ * fires only when new > old, so a raise-then-drop that nets flat stays quiet.
+ */
+export function priceChangesFromHistory(
+  rows: ReadonlyArray<PriceHistoryRow>,
+  nameById: ReadonlyMap<string, string>,
+): SnapshotPriceChange[] {
+  const byKey = new Map<string, { vendor: string; category: string; old: number; latest: number }>();
+  const sorted = [...rows].sort((a, b) => a.changedAt.localeCompare(b.changedAt));
+  for (const r of sorted) {
+    const vendor = nameById.get(r.vendorProfileId);
+    if (!vendor) continue;
+    if (r.oldPricePhp == null || r.newPricePhp == null) continue;
+    const category = (r.category ?? '').replace(/[_-]+/g, ' ').trim() || 'a service';
+    const key = `${r.vendorProfileId}:${category}`;
+    const cur = byKey.get(key);
+    if (!cur) byKey.set(key, { vendor, category, old: r.oldPricePhp, latest: r.newPricePhp });
+    else cur.latest = r.newPricePhp; // sorted asc → the last row wins as "new"
+  }
+  return [...byKey.values()].map((v) => ({
+    vendor: v.vendor,
+    category: v.category,
+    oldPricePhp: v.old,
+    newPricePhp: v.latest,
+  }));
+}
+
+/** A vendor_calendar_blocks row, reduced for the pure mapper. */
+export type AvailabilityBlockRow = {
+  vendorProfileId: string;
+  blockedAt: string; // ISO
+  blockedUntil: string; // ISO
+};
+
+/**
+ * A watched vendor "just became busy on your date": a block whose interval
+ * overlaps the couple's event day. Only recently-created blocks reach this (the
+ * query filters on created_at), so a block overlapping the date IS the change.
+ * One alert per vendor; unknown/unwatched vendors dropped.
+ */
+export function availabilityChangesFromBlocks(
+  rows: ReadonlyArray<AvailabilityBlockRow>,
+  nameById: ReadonlyMap<string, string>,
+  eventDateIso: string | null,
+  dateLabel: string,
+): SnapshotAvailabilityChange[] {
+  if (!eventDateIso) return [];
+  const dayStart = new Date(`${eventDateIso.slice(0, 10)}T00:00:00`).getTime();
+  const dayEnd = dayStart + 86_400_000;
+  if (Number.isNaN(dayStart)) return [];
+  const seen = new Set<string>();
+  const out: SnapshotAvailabilityChange[] = [];
+  for (const r of rows) {
+    const vendor = nameById.get(r.vendorProfileId);
+    if (!vendor || seen.has(r.vendorProfileId)) continue;
+    const from = Date.parse(r.blockedAt);
+    const until = Date.parse(r.blockedUntil);
+    if (Number.isNaN(from) || Number.isNaN(until)) continue;
+    // Interval [from, until) overlaps the event day [dayStart, dayEnd).
+    if (from < dayEnd && until > dayStart) {
+      seen.add(r.vendorProfileId);
+      out.push({ vendor, date: dateLabel, status: 'newly booked' });
+    }
+  }
+  return out;
+}
+
 /** An empty snapshot for a given event type — the no-fabrication baseline. */
 function emptySnapshot(eventType: string): PlanningSnapshot {
   return {
@@ -300,6 +392,7 @@ function emptySnapshot(eventType: string): PlanningSnapshot {
     budget: null,
     dateClusters: [],
     scheduleClash: [],
+    availability: [],
   };
 }
 
@@ -357,7 +450,7 @@ export async function buildPlanningSnapshot(
       .eq('status', 'awaiting_payment'),
     admin
       .from('event_vendors')
-      .select('status, total_cost_php, category, vendor_name')
+      .select('status, total_cost_php, category, vendor_name, marketplace_vendor_id')
       .eq('event_id', eventId)
       .is('archived_at', null),
     admin
@@ -463,9 +556,73 @@ export async function buildPlanningSnapshot(
     clashBlocksFromScheduleRows((scheduleRows ?? []) as ScheduleBlockLike[]),
   );
 
-  // priceChanges / contracts / shortlist / dateClusters stay [] — no honest
-  // data source yet (see the header comment for exactly what would populate
-  // each). Never fabricate.
+  // --- GRD-03 price-change + GRD-09 availability-change ----------------------
+  // For the marketplace vendors the couple has shortlisted or booked, read the
+  // global price-change log + the vendor calendar and surface recent moves. Only
+  // marketplace-linked vendors have a system-tracked price/calendar; a manual
+  // vendor row has no marketplace_vendor_id and is skipped. Fail-soft: a missing
+  // table / column leaves both empty.
+  const watched = (vendorRows ?? [])
+    .map((v) => ({
+      id: (v as { marketplace_vendor_id?: string | null }).marketplace_vendor_id ?? null,
+      name: (v as { vendor_name?: string | null }).vendor_name ?? null,
+    }))
+    .filter((v): v is { id: string; name: string | null } => !!v.id);
+  const watchedIds = [...new Set(watched.map((v) => v.id))];
+
+  if (watchedIds.length > 0) {
+    const nameById = new Map<string, string>();
+    for (const v of watched) {
+      if (!nameById.has(v.id)) nameById.set(v.id, v.name ?? 'A vendor you saved');
+    }
+    const sinceIso = new Date(
+      Date.now() - PRICE_AVAILABILITY_WINDOW_DAYS * 86_400_000,
+    ).toISOString();
+    const dateLabel = eventDate
+      ? new Date(`${eventDate.slice(0, 10)}T00:00:00`).toLocaleDateString('en-PH', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        })
+      : 'your date';
+
+    const [{ data: priceRows }, { data: blockRows }] = await Promise.all([
+      admin
+        .from('vendor_service_price_history')
+        .select('vendor_profile_id, category, old_price_php, new_price_php, changed_at')
+        .in('vendor_profile_id', watchedIds)
+        .gte('changed_at', sinceIso),
+      admin
+        .from('vendor_calendar_blocks')
+        .select('vendor_profile_id, blocked_at, blocked_until, created_at')
+        .in('vendor_profile_id', watchedIds)
+        .gte('created_at', sinceIso),
+    ]);
+
+    snap.priceChanges = priceChangesFromHistory(
+      (priceRows ?? []).map((r) => ({
+        vendorProfileId: (r as { vendor_profile_id: string }).vendor_profile_id,
+        category: (r as { category: string | null }).category,
+        oldPricePhp: (r as { old_price_php: number | null }).old_price_php,
+        newPricePhp: (r as { new_price_php: number | null }).new_price_php,
+        changedAt: (r as { changed_at: string }).changed_at,
+      })),
+      nameById,
+    );
+    snap.availability = availabilityChangesFromBlocks(
+      (blockRows ?? []).map((r) => ({
+        vendorProfileId: (r as { vendor_profile_id: string }).vendor_profile_id,
+        blockedAt: (r as { blocked_at: string }).blocked_at,
+        blockedUntil: (r as { blocked_until: string }).blocked_until,
+      })),
+      nameById,
+      eventDate,
+      dateLabel,
+    );
+  }
+
+  // contracts / shortlist / dateClusters stay [] — no honest data source yet
+  // (see the header comment). Never fabricate.
   return snap;
 }
 

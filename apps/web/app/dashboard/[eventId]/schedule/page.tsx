@@ -48,9 +48,9 @@ import type { RunOfShowBlock } from '@/lib/run-of-show';
 import {
   EMPTY_ROS_META,
   fetchBlockRosMeta,
-  isScheduleRosP2Enabled,
   type RosMetaMap,
 } from '@/lib/schedule-ros';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { templatesForEventType } from '@/lib/schedule-templates';
 import {
   BulkRetimePanel,
@@ -194,7 +194,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // vendor registry that feed the filtered run-of-show chrome. Both fetches
   // are SKIPPED entirely while the flag is dark; fetchBlockRosMeta is
   // additionally best-effort (pre-migration → empty map, page unaffected).
-  const rosEnabled = isScheduleRosP2Enabled();
+  const rosEnabled = await isDataPrivacyControlActive('coordinator_run_of_show');
   let rosMeta: RosMetaMap = EMPTY_ROS_META;
   let rosVendors: EventVendorOption[] = [];
   if (rosEnabled) {
@@ -219,7 +219,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // backfilled as partner1/partner2 moderators, is excluded. visibilityMap is
   // best-effort (pre-migration → empty → everything treated couple_visible), so
   // the page never breaks before the migration lands.
-  const prepEnabled = isCoordinatorPrepReleaseEnabled();
+  const prepEnabled = await isCoordinatorPrepReleaseEnabled();
   let isCoordinator = false;
   let stagedBlocks: ScheduleBlockRow[] = [];
   if (prepEnabled) {

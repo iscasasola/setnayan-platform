@@ -3686,7 +3686,7 @@ export async function recordDeposit(
     // couple-only and predates consent-scoped coordinator authority. Couples
     // (and everyone when the flag is OFF) keep the RLS-scoped write.
     const ledgerClient =
-      !callerIsCouple && isCoordinatorConsentGateEnabled()
+      !callerIsCouple && (await isCoordinatorConsentGateEnabled())
         ? createAdminClient()
         : supabase;
     const { error: payErr } = await ledgerClient.from('event_vendor_payments').insert({

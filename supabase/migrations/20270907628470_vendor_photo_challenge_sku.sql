@@ -147,11 +147,23 @@ CREATE POLICY papic_photo_challenge_sponsorships_admin_all
   USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 -- ── 4 · re-gate papic_create_vendor_challenge on the paid sponsorship ─────────
--- CREATE OR REPLACE of the 20270902380131 RPC, adding the entitlement gate: a
--- booked Pro/Enterprise/Custom vendor may author a custom challenge ONLY when
--- they have paid the ₱400 Photo Challenge sponsorship for THIS event. Everything
--- else is unchanged (copy bounds → vendor identity → booked gate → Pro+ gate),
--- so a gate failure keeps the same clear RAISE messages.
+-- CREATE OR REPLACE of the RPC (latest prior definition: 20270906348207), adding
+-- the entitlement gate: a booked Pro/Enterprise/Custom vendor may author a custom
+-- challenge ONLY when they have PAID the ₱400 Photo Challenge sponsorship for THIS
+-- event. Everything else is unchanged (copy bounds → vendor identity → booked gate
+-- → Pro+ gate), so a gate failure keeps the same clear RAISE messages.
+--
+-- ⚠ SUPERSEDES 20270906348207 — TWO SAME-DAY OWNER DECISIONS DIFFER, SURFACED FOR
+-- SIGN-OFF. That migration (#3515) had (a) extended eligibility DOWN to 'solo'
+-- and (b) left authoring FREE during launch (collection deferred: "a per-event
+-- apply-then-pay gate is an owner decision for when paying vendors exist"). THIS
+-- migration IS that apply-then-pay gate, and it follows THIS task's owner-lock
+-- (2026-07-22): ₱400/event, PRO/ENTERPRISE ONLY. So it (a) narrows the tier gate
+-- back to pro/enterprise/custom (dropping 'solo') and (b) requires a PAID
+-- sponsorship (ending free-during-launch — which #3515 anticipated). The Solo
+-- inclusion is the one genuine contradiction between the two decisions; the owner
+-- must confirm which wins. Flip 'solo' back into the tier list + the eligibility
+-- gate (lib/vendor-photo-challenge.ts → isTierAtLeast('solo')) if Solo should pay.
 CREATE OR REPLACE FUNCTION public.papic_create_vendor_challenge(
   p_event_id UUID,
   p_prompt   TEXT

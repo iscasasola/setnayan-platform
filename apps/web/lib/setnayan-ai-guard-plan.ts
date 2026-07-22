@@ -52,12 +52,16 @@ function guardTitle(iv: Intervention): string {
       return `Payment due soon — ${iv.slots.vendor}`;
     case 'GRD-02':
       return `Document deadline — ${iv.slots.document}`;
+    case 'GRD-03':
+      return `Price went up — ${iv.slots.vendor}`;
     case 'GRD-05':
       return 'Budget check — you’re over target';
     case 'GRD-06':
       return `Schedule clash — ${iv.slots.slot}`;
     case 'GRD-07':
       return `Decision window closing — ${iv.slots.vendor}`;
+    case 'GRD-09':
+      return `Availability changed — ${iv.slots.vendor}`;
     default:
       return 'Setnayan AI flagged something';
   }
@@ -71,6 +75,9 @@ function guardUrl(iv: Intervention, eventId: string): string {
       return `/dashboard/${eventId}/budget`;
     case 'GRD-02':
       return `/dashboard/${eventId}/paperwork`;
+    case 'GRD-03':
+    case 'GRD-09':
+      return `/dashboard/${eventId}/vendors`;
     case 'GRD-06':
       return `/dashboard/${eventId}/schedule`;
     default:

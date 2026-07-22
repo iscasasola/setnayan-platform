@@ -16,9 +16,11 @@ function guestMission(over: Partial<GuestMissionRow>): GuestMissionRow {
     mission_type: 'prompt',
     prompt: 'do a thing',
     vendor_id: null,
+    vendor_name: null,
     target_guest_id: null,
     target_role: null,
     completed: false,
+    consent_shared: false,
     ...over,
   };
 }

@@ -49,6 +49,7 @@ import { canViewSlugEvent } from '@/lib/slug-access';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { fetchPublicScheduleBlocks } from '@/lib/schedule';
+import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { eventPapicGuestActive } from '@/lib/papic-guest';
 import { eventOwnsPapicSeats } from '@/lib/papic-seats';
@@ -209,7 +210,11 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   // ── Shared data: public schedule (every viewer). fetchPublicScheduleBlocks
   // already returns only is_public rows, so we just split out the top-level
   // blocks for the "happening now" card. ────────────────────────────────────
-  const scheduleBlocks = await fetchPublicScheduleBlocks(admin, event.event_id);
+  const scheduleBlocks = await fetchPublicScheduleBlocks(
+    admin,
+    event.event_id,
+    await isCoordinatorPrepReleaseEnabled(),
+  );
   const eventTz = eventTimezoneFromCoords(
     event.venue_latitude,
     event.venue_longitude,

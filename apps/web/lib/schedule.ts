@@ -4,7 +4,6 @@ import {
   isChineseOverlay,
   type CeremonyOverlayInput,
 } from '@/lib/chinese-wedding';
-import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 
 export type ScheduleBlockType =
   | 'pre_ceremony'
@@ -102,6 +101,7 @@ export async function fetchScheduleBlocks(
 export async function fetchPublicScheduleBlocks(
   supabase: SupabaseClient,
   eventId: string,
+  excludeStaged = false,
 ): Promise<ScheduleBlockRow[]> {
   let query = supabase
     .from('event_schedule_blocks')
@@ -110,10 +110,11 @@ export async function fetchPublicScheduleBlocks(
     .eq('is_public', true);
   // Guest day-of site runs on the SERVICE-ROLE admin client, which BYPASSES
   // RLS — so a coordinator's unreleased prep block must be excluded here in app
-  // code (the RLS public_read tightening does not protect the admin path).
-  // Flag-gated: with the flag OFF no row is coordinator_only (and the column
-  // may predate its migration), so we never reference it.
-  if (isCoordinatorPrepReleaseEnabled()) {
+  // code (the RLS public_read tightening does not protect the admin path). The
+  // caller passes `excludeStaged` (the coordinator_prep_release control): this
+  // module is client-imported, so it must NOT read the server-only control
+  // itself. With excludeStaged=false we never reference the column.
+  if (excludeStaged) {
     query = query.neq('visibility', 'coordinator_only');
   }
   const { data, error } = await query
@@ -126,16 +127,16 @@ export async function fetchPublicScheduleBlocks(
 /**
  * Coordinator P1: per-block prep-then-release visibility, for the coordinator's
  * schedule editor (badge staged blocks + offer "Release to couple"). Best-effort
- * — returns an empty map when the flag is OFF or the column predates its
- * migration (42703), so callers never break pre-migration (mirrors the P2
- * fetchBlockRosMeta pattern).
+ * — returns an empty map when the column predates its migration (42703), so
+ * callers never break pre-migration (mirrors the P2 fetchBlockRosMeta pattern).
+ * The CALLER gates this on the coordinator_prep_release control (this module is
+ * client-imported and can't read the server-only control).
  */
 export async function fetchScheduleVisibility(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<Map<string, { visibility: string; released_at: string | null }>> {
   const map = new Map<string, { visibility: string; released_at: string | null }>();
-  if (!isCoordinatorPrepReleaseEnabled()) return map;
   const { data, error } = await supabase
     .from('event_schedule_blocks')
     .select('block_id, visibility, released_at')

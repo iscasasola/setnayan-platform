@@ -134,7 +134,7 @@ export async function inviteHost(formData: FormData) {
     // ON. Flag OFF = unchanged behavior. Server-side defense-in-depth behind
     // the client consent modal, and it covers BOTH invite entry points.
     if (
-      isCoordinatorConsentGateEnabled() &&
+      (await isCoordinatorConsentGateEnabled()) &&
       isCoordinatorDelegate &&
       formData.get('coordinator_consent') !== '1'
     ) {
@@ -169,7 +169,7 @@ export async function inviteHost(formData: FormData) {
     // Record the RA 10173 consent (corpus spec § 3a) now that the invite row
     // exists. Best-effort: consent was already required above, so this audit
     // copy failing must never undo a successful invite.
-    if (isCoordinatorConsentGateEnabled() && isCoordinatorDelegate && inserted) {
+    if ((await isCoordinatorConsentGateEnabled()) && isCoordinatorDelegate && inserted) {
       // Owner 2026-07-19 #5 — consent-SCOPED money authority. The consent
       // modal's two default-OFF toggles arrive as '1' when granted; anything
       // else records the scope as NOT granted (fail-closed). scope_version

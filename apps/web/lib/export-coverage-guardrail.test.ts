@@ -304,6 +304,8 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   // are written out one by one, by name, precisely so nobody has to trust a
   // regex's opinion about what `created_by` means on a given table.
   discount_codes: 'Platform promo configuration — created_by_admin_id is the admin who authored the code.',
+  promo_free_windows:
+    'Platform promo configuration (free-window announcements) — created_by is the admin who scheduled the window; the row defines a promo, not any data subject’s personal data.',
   event_feature_policy_override:
     'Per-event feature toggle set by staff — set_by_admin_id is the operator, not the subject.',
   feature_policy: 'Platform feature-gate configuration — updated_by_admin_id is a staff actor.',

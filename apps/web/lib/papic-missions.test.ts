@@ -6,6 +6,7 @@ import {
   MISSION_TYPE_LABELS,
   missionProgress,
   sortGuestMissions,
+  vendorChallengeStatus,
 } from './papic-missions';
 import type { GuestMissionRow, PapicMissionType } from './papic-missions';
 
@@ -71,4 +72,13 @@ test('sortGuestMissions puts not-yet-done first, stable within group', () => {
   );
   // pure — input is not mutated.
   assert.deepEqual([b, a, d, c].map((m) => m.mission_id), ['b', 'a', 'd', 'c']);
+});
+
+test('vendorChallengeStatus maps approved/active to a lifecycle', () => {
+  // inactive always reads rejected, regardless of approved.
+  assert.equal(vendorChallengeStatus({ approved: false, is_active: false }), 'rejected');
+  assert.equal(vendorChallengeStatus({ approved: true, is_active: false }), 'rejected');
+  // active + approved = live; active + not-yet-approved = pending the couple.
+  assert.equal(vendorChallengeStatus({ approved: true, is_active: true }), 'live');
+  assert.equal(vendorChallengeStatus({ approved: false, is_active: true }), 'pending');
 });

@@ -25,6 +25,11 @@ import {
   nextVendorAiAddonExpiry,
 } from '@/lib/vendor-addon-pricing';
 import { VENDOR_PHOTO_CHALLENGE_SKU_CODE } from '@/lib/vendor-photo-challenge';
+import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
+import {
+  runAndRecordVendorDeepSearch,
+  buildVendorDeepSearchInputs,
+} from '@/lib/vendor-deep-search-run';
 
 /**
  * apps/web/lib/sku-activation.ts
@@ -372,12 +377,98 @@ async function activatePhotoChallengeSponsorship(ctx: ActivationContext): Promis
   });
 }
 
+/**
+ * Deep Search (vendor-facing) — on approval of a ₱500 apply-then-pay order, RUN
+ * the web-research deep search on the paying vendor's OWN business and record it
+ * (owner 2026-07-22). Pay-then-run: there is no pre-paid credit ledger to draw
+ * from, so the paid run happens HERE, at approval, reusing the same engine +
+ * store as the free-search run action (runAndRecordVendorDeepSearch, was_free=
+ * false). The resulting dossier is what the vendor's Deep Search surface renders.
+ *
+ * Reads the paying vendor + user off the order, snapshots their current profile
+ * facts, and runs. IDEMPOTENT two ways: a prior 'service_activated' ledger row
+ * for this order short-circuits, and a UNIQUE(order_id) partial index on
+ * vendor_deep_search_uses stops a rare re-run from double-counting the paid run.
+ * Throws only when the run FAILS so activateOrderSku's outer catch logs it and
+ * the order stays 'paid' (recoverable — a re-approval, seeing no ledger row,
+ * re-runs). (Function declaration → hoisted, so the frozen EXACT_HOOKS map below
+ * can reference it.)
+ */
+async function activateVendorDeepSearchOrder(ctx: ActivationContext): Promise<void> {
+  // (1) Idempotency — already activated this order?
+  const { data: prior } = await ctx.admin
+    .from('order_ledger')
+    .select('order_id')
+    .eq('order_id', ctx.orderId)
+    .eq('event_type', 'service_activated')
+    .limit(1)
+    .maybeSingle();
+  if (prior) return;
+
+  // (2) The paying vendor + user are on the order.
+  const { data: order } = await ctx.admin
+    .from('orders')
+    .select('vendor_profile_id, user_id')
+    .eq('order_id', ctx.orderId)
+    .maybeSingle();
+  const vendorProfileId =
+    (order as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
+  const requestedByUserId = (order as { user_id?: string | null } | null)?.user_id ?? null;
+  if (!vendorProfileId) return;
+
+  // (3) Snapshot the vendor's current business facts → inputs.
+  const { data: vp } = await ctx.admin
+    .from('vendor_profiles')
+    .select('business_name, website, location_city, services, gallery_video_links')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  if (!vp) return;
+  const inputs = buildVendorDeepSearchInputs({
+    business_name: (vp as { business_name?: string | null }).business_name ?? '',
+    website: (vp as { website?: string | null }).website ?? null,
+    location_city: (vp as { location_city?: string | null }).location_city ?? null,
+    services: (vp as { services?: string[] | null }).services ?? [],
+    gallery_video_links: (vp as { gallery_video_links?: string[] | null }).gallery_video_links ?? [],
+  });
+
+  // (4) Run + record the paid search (was_free=false, linked to this order).
+  const result = await runAndRecordVendorDeepSearch({
+    admin: ctx.admin,
+    vendorProfileId,
+    requestedByUserId,
+    inputs,
+    wasFree: false,
+    orderId: ctx.orderId,
+  });
+  if (result.status === 'failed') {
+    // Throw so the order stays recoverable (no ledger row → a re-approval re-runs).
+    throw new Error(`vendor_deep_search run failed: ${result.error}`);
+  }
+
+  await appendLedger(ctx.admin, {
+    order_id: ctx.orderId,
+    event_type: 'service_activated',
+    actor_user_id: ctx.actorUserId,
+    actor_role: 'admin',
+    metadata: {
+      service_key: ctx.serviceKey,
+      vendor_profile_id: vendorProfileId,
+      dossier_id: result.dossierId,
+    },
+  });
+}
+
 // Exact-match hooks keyed by literal service_key.
 const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // 'vendor_photo_challenge' → Photo Challenge per-event sponsorship (owner
   // 2026-07-22). Writes the papic_photo_challenge_sponsorships entitlement for
   // the paying (vendor, event). See activatePhotoChallengeSponsorship.
   [VENDOR_PHOTO_CHALLENGE_SKU_CODE]: activatePhotoChallengeSponsorship,
+
+  // 'vendor_deep_search' → paid (₱500) vendor Deep Search. Runs the research on
+  // approval + records was_free=false (pay-then-run). See
+  // activateVendorDeepSearchOrder.
+  [VENDOR_DEEP_SEARCH_SKU_CODE]: activateVendorDeepSearchOrder,
 
   // 'vendor_ai_addon' → paid Vendor AI ("AI Chatbot") 28-day renewal. Stamps
   // the entitlement window on the paying vendor (the free first cycle is

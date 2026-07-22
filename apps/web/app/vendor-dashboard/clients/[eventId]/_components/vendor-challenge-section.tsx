@@ -17,7 +17,10 @@ import { createVendorChallengeAction } from '../actions';
 
 // Paid Pro-and-up (mirrors the RPC's tier gate — pro/enterprise/custom). Below
 // this the vendor sees an upsell, not a compose box.
-const PRO_PLUS: readonly VendorTier[] = ['pro', 'enterprise', 'custom'];
+// Paid tiers that may author a custom challenge (mirrors the RPC's gate). Owner
+// 2026-07-22 extended eligibility DOWN to Solo (₱400/event for solo/pro/enterprise);
+// 'custom' stays eligible. free/verified see the upsell.
+const PAID_CREATE_TIERS: readonly VendorTier[] = ['solo', 'pro', 'enterprise', 'custom'];
 
 const STATUS_BADGE: Record<VendorChallengeStatus, { label: string; cls: string }> = {
   pending: { label: 'Awaiting couple', cls: 'bg-mulberry/15 text-mulberry' },
@@ -39,7 +42,7 @@ export async function VendorChallengeSection({
     fetchVendorChallenges(supabase, eventId),
     resolveVendorTier(supabase, vendorProfileId),
   ]);
-  const canCreate = PRO_PLUS.includes(tier);
+  const canCreate = PAID_CREATE_TIERS.includes(tier);
 
   return (
     <section className="rounded-2xl border border-ink/10 bg-white p-5 sm:p-6">
@@ -102,9 +105,10 @@ export async function VendorChallengeSection({
         </form>
       ) : (
         <p className="mt-4 rounded-lg border border-mulberry/20 bg-mulberry/[0.05] px-3 py-2.5 text-xs text-ink/70">
-          Custom challenges are a <span className="font-semibold">Pro</span> feature —
-          upgrade to author them at every event you&rsquo;re booked for. (The free auto
-          booth mission is already live for your guests.)
+          Custom challenges are a <span className="font-semibold">paid-plan</span> feature —
+          upgrade to <span className="font-semibold">Solo</span> or higher to author them at
+          every event you&rsquo;re booked for. (The free auto booth mission is already live
+          for your guests.)
         </p>
       )}
     </section>

@@ -352,6 +352,111 @@ export async function reScreenStuckCaptures(eventId: string): Promise<number> {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// Periodic GLOBAL heal — reScreenAllStuckCaptures.
+//
+// reScreenStuckCaptures() above is only fired from TWO after() sites, and both
+// are COUPLE-SIDE (the Papic moderation page + the Life-Flash account page). So
+// if a capture's first screenCapture() drops (fail-open leaves it 'unscreened')
+// AND no couple ever opens either page, the row stays 'unscreened' FOREVER —
+// permanently dark on every guest-facing allowlist surface (guest-live-gallery
+// + Live Wall show only moderation_state='clean'), a safe photo lost to a screen
+// hiccup with nothing to heal it. Guest surfaces fail CLOSED, so this is bounded
+// (an unscreened row never *projects*) but it never self-heals absent a couple.
+//
+// This sweep closes the hole WITHOUT a couple visit: it discovers the events
+// that still have grace-aged 'unscreened' captures and re-runs the existing
+// per-event heal on each. It is fired cron-free from admin traffic (the central
+// periodic-job site, alongside the Papic full-res drop that works these same
+// tables) via maybeRunPapicNsfwRescreen() — see lib/papic-nsfw-rescreen-sweep.ts.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** Cap on events healed per global sweep — keeps one opportunistic pass cheap;
+ *  a larger backlog drains over successive sweeps (fully idempotent). */
+export const RESCREEN_SWEEP_MAX_EVENTS = 25;
+/** Rows scanned per table when discovering stuck events (partial-index-backed). */
+const RESCREEN_SWEEP_SCAN_LIMIT = 500;
+
+/**
+ * PURE: from raw (event_id, created_at) capture rows, pick the DISTINCT events
+ * that have at least one capture older than the grace window — deduped,
+ * oldest-first (input order preserved), capped at maxEvents. Extracting the
+ * selection keeps the grace-window guard unit-testable without a DB: a row only
+ * seconds old (its first screen may still be in flight) must NOT pull its event
+ * into the sweep, so we never fight a normal async screen that's still running.
+ */
+export function selectStuckEventIds(
+  rows: ReadonlyArray<{ event_id?: string | null; created_at?: string | null }>,
+  opts: { nowMs: number; graceMs: number; maxEvents: number },
+): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const eventId = row.event_id;
+    if (typeof eventId !== 'string' || eventId.length === 0) continue;
+    if (seen.has(eventId)) continue;
+    const createdMs = row.created_at ? Date.parse(row.created_at) : NaN;
+    if (!Number.isFinite(createdMs)) continue; // unparseable timestamp → skip (never sweep blind)
+    // Strictly older than the grace window — matches the DB discovery query's
+    // `.lt('created_at', now - graceMs)`, so a row exactly at the edge (or newer,
+    // its first screen possibly still in flight) is NOT swept.
+    if (opts.nowMs - createdMs <= opts.graceMs) continue;
+    seen.add(eventId);
+    out.push(eventId);
+    if (out.length >= opts.maxEvents) break;
+  }
+  return out;
+}
+
+/**
+ * GLOBAL cron-free heal. Discovers every Papic event that still has a grace-aged
+ * 'unscreened' capture (across BOTH capture tables), then runs the existing
+ * per-event reScreenStuckCaptures on each. Bounded (RESCREEN_SWEEP_MAX_EVENTS)
+ * and never-throwing; the discovery query is served by a partial index over the
+ * transient 'unscreened' set (migration `papic_captures_unscreened_sweep_idx`).
+ * The per-event heal is idempotent (UPDATEs only rows still 'unscreened'), so
+ * this is safe to re-run and safe to race the couple-side after() sites.
+ * Returns how many events it swept.
+ */
+export async function reScreenAllStuckCaptures(): Promise<number> {
+  try {
+    const { createAdminClient } = await import('@/lib/supabase/admin');
+    const admin = createAdminClient();
+    const nowMs = Date.now();
+    const cutoff = new Date(nowMs - RESCREEN_GRACE_MS).toISOString();
+    const tables: ScreenCaptureTable[] = ['papic_photos', 'papic_guest_captures'];
+    const rows: Array<{ event_id?: string | null; created_at?: string | null }> = [];
+    for (const table of tables) {
+      const { data, error } = await admin
+        .from(table)
+        .select('event_id, created_at')
+        .eq('moderation_state', 'unscreened')
+        .lt('created_at', cutoff)
+        .order('created_at', { ascending: true })
+        .limit(RESCREEN_SWEEP_SCAN_LIMIT);
+      // Pre-migration (missing column → 42703) or any read error → skip this
+      // table, never the whole sweep.
+      if (error || !data) continue;
+      rows.push(
+        ...(data as Array<{ event_id?: string | null; created_at?: string | null }>),
+      );
+    }
+    const eventIds = selectStuckEventIds(rows, {
+      nowMs,
+      graceMs: RESCREEN_GRACE_MS,
+      maxEvents: RESCREEN_SWEEP_MAX_EVENTS,
+    });
+    let swept = 0;
+    for (const eventId of eventIds) {
+      await reScreenStuckCaptures(eventId);
+      swept += 1;
+    }
+    return swept;
+  } catch {
+    return 0;
+  }
+}
+
 /**
  * Screen one editorial_vendor_media row (the "From Your Vendors" submissions)
  * and persist the verdict. Mirrors screenCapture() but for the editorial table,

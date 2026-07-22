@@ -138,6 +138,111 @@ async function purgeUserAuthoredChat(
   }
 }
 
+/**
+ * RA 10173 right-to-erasure — the terminal erasure step (soft-delete + anonymize).
+ *
+ * REPLACES the old hard `auth.admin.deleteUser`, which THREW for any user with
+ * activity: ~46 foreign keys to auth.users / public.users are ON DELETE
+ * NO ACTION / RESTRICT, and `vendor_team_guard_trg` aborts the delete of a
+ * vendor's sole admin. So the admin Delete button — and the RA 10173 self-serve
+ * erasure queue that funnels through here — 500'd on real accounts, leaving
+ * erasure unfulfillable. Worse, the two PII purges used to run and COMMIT
+ * *before* the throwing hard-delete, so a failed delete left the account LIVE
+ * with its birth data + chat already erased (an inconsistent, unrecoverable state).
+ *
+ * Fix: we never DELETE auth.users. Instead we
+ *   1. anonymize the public.users PII + stamp `deleted_at` (the middleware +
+ *      dashboard/vendor-dashboard layouts reject any session with deleted_at set
+ *      — immediate lockout);
+ *   2. revoke every live session;
+ *   3. scrub the auth.users email to a per-user tombstone (frees the original
+ *      address for re-signup — the blacklist gate still blocks blacklisted ones —
+ *      and removes the email PII from the auth schema);
+ *   4. run the domain PII purges (owned-event birth data · authored chat bodies).
+ * No DELETE is issued, so all the RESTRICT FKs + the vendor-admin trigger are
+ * sidestepped, and it is idempotent (re-running re-tombstones to the same values).
+ *
+ * Legal posture: this erases the data subject's PERSONAL data. Transactional /
+ * attribution rows (orders, vendor-team membership, audit) persist under the
+ * lawful basis to retain business records — you erase the personal data, not
+ * every row. ⚠ Completeness of the PII sweep beyond the users row + these two
+ * purges (face enrollments, uploaded IDs, a vendor's own profile PII) is a
+ * DPO / counsel retention-review item. Best-effort per step, matching the
+ * purges: a failure is audit-logged, never thrown, so erasure can't trap the
+ * account in an undeletable state.
+ */
+async function eraseUserAccount(
+  admin: ReturnType<typeof createAdminClient>,
+  targetUserId: string,
+  actorUserId: string,
+): Promise<void> {
+  const nowIso = new Date().toISOString();
+  // Per-user unique tombstone (auth.users.email + public.users.email are unique).
+  // The .invalid TLD (RFC 2606) can never be a real deliverable address.
+  const tombstoneEmail = `erased+${targetUserId}@erased.setnayan.invalid`;
+
+  const auditFail = async (stage: string, message: string) => {
+    console.error(`[eraseUserAccount] ${stage} failed`, message);
+    await admin
+      .from('admin_audit_log')
+      .insert({
+        action: 'erasure_step_failed',
+        target_id: targetUserId,
+        actor_user_id: actorUserId,
+        metadata: { stage, message },
+      })
+      .then(({ error }) => {
+        if (error) console.error('[eraseUserAccount] audit-log write failed', error.message);
+      });
+  };
+
+  // 1. Anonymize the public.users PII + lock the account out via deleted_at.
+  //    email is NOT NULL → tombstone rather than null.
+  const { error: pErr } = await admin
+    .from('users')
+    .update({
+      email: tombstoneEmail,
+      display_name: null,
+      phone: null,
+      profile_photo_url: null,
+      birth_date: null,
+      slug: null,
+      deleted_at: nowIso,
+      updated_at: nowIso,
+    })
+    .eq('user_id', targetUserId);
+  if (pErr) await auditFail('users-anonymize', pErr.message);
+
+  // 2. Kill live sessions so the lockout is immediate on every device.
+  const revoked = await revokeAllSessions(targetUserId);
+  if (!revoked.ok) await auditFail('session-revoke', revoked.error);
+
+  // 3. Scrub the auth.users email (frees the original + removes email PII).
+  //    email_confirm:true applies it immediately without mailing the tombstone.
+  const { error: aErr } = await admin.auth.admin.updateUserById(targetUserId, {
+    email: tombstoneEmail,
+    email_confirm: true,
+  });
+  if (aErr) await auditFail('auth-scrub', aErr.message);
+
+  // 4. Domain PII purges (owned-event birth data · authored chat bodies).
+  await purgeOwnedEventBirthData(admin, targetUserId, actorUserId);
+  await purgeUserAuthoredChat(admin, targetUserId, actorUserId);
+
+  // 5. Success audit.
+  await admin
+    .from('admin_audit_log')
+    .insert({
+      action: 'user_erased',
+      target_id: targetUserId,
+      actor_user_id: actorUserId,
+      metadata: { method: 'soft_delete_anonymize' },
+    })
+    .then(({ error }) => {
+      if (error) console.error('[eraseUserAccount] success audit write failed', error.message);
+    });
+}
+
 async function requireAdmin() {
   const supabase = await createClient();
   const {
@@ -251,11 +356,11 @@ export async function forceSignOutUser(formData: FormData) {
 }
 
 /**
- * Hard-delete a user. Removes the auth.users row, which cascades to
- * public.users. The email is then free for re-signup — e.g., a vendor who
- * wants to re-register as a customer.
- *
- * To also block the email from being re-used, call `blacklistUser` instead.
+ * Erase a user (RA 10173 right-to-erasure). Soft-deletes + anonymizes via
+ * `eraseUserAccount` — no auth.users DELETE is issued (that used to throw on any
+ * account with activity; see the helper's docstring). The original email is
+ * freed for re-signup (the tombstone releases it); to also BLOCK re-use, call
+ * `blacklistUser` instead.
  *
  * Safety guards:
  * - Cannot delete yourself
@@ -279,24 +384,17 @@ export async function deleteUser(formData: FormData) {
     throw new Error('Cannot delete an internal account');
   }
 
-  // RA 10173 (PR-G) — purge sensitive birth data on owned events BEFORE the auth
-  // delete cascades the membership rows away (events have no owner FK, so the
-  // data would otherwise survive the delete). Right-to-erasure.
-  await purgeOwnedEventBirthData(admin, targetUserId, adminUserId);
-  // RA 10173 — erase the departing user's authored chat message bodies before
-  // the auth-delete nulls sender_user_id (retention audit gap · 2026-07-11).
-  await purgeUserAuthoredChat(admin, targetUserId, adminUserId);
-
-  const { error } = await admin.auth.admin.deleteUser(targetUserId);
-  if (error) throw new Error(error.message);
+  await eraseUserAccount(admin, targetUserId, adminUserId);
 
   revalidatePath('/admin/users');
 }
 
 /**
- * Hard-delete a user AND add their email to the permanent blacklist. The
- * email is then rejected by the signup server action. Reverse with
- * `unblacklistEmail`.
+ * Erase a user (RA 10173) AND add their email to the permanent blacklist so the
+ * signup server action rejects it. Same soft-delete + anonymize as `deleteUser`
+ * (via `eraseUserAccount`), but the blacklist row captured here keeps the
+ * original address blocked even though the tombstone frees it in auth. Reverse
+ * with `unblacklistEmail`.
  *
  * Safety guards:
  * - Cannot blacklist yourself
@@ -330,9 +428,10 @@ export async function blacklistUser(formData: FormData) {
       ? reasonRaw.trim()
       : null;
 
-  // Insert blacklist row FIRST so a failure here doesn't leave the user
-  // deleted but not blacklisted. Duplicate-key just means the email is
-  // already blacklisted — proceed to delete anyway.
+  // Insert blacklist row FIRST — capturing the ORIGINAL email BEFORE erasure
+  // tombstones it — so a failure here doesn't leave the user erased but not
+  // blacklisted. Duplicate-key just means the email is already blacklisted —
+  // proceed to erase anyway.
   const { error: bError } = await admin.from('blacklisted_emails').insert({
     email: target.email.toLowerCase(),
     reason,
@@ -342,23 +441,16 @@ export async function blacklistUser(formData: FormData) {
     throw new Error(bError.message);
   }
 
-  // RA 10173 (PR-G) — purge sensitive birth data on owned events BEFORE the auth
-  // delete cascades the membership rows away (same no-owner-FK gap as deleteUser).
-  await purgeOwnedEventBirthData(admin, targetUserId, adminUserId);
-  // RA 10173 — erase authored chat message bodies before the auth-delete nulls
-  // sender_user_id (same residue gap as deleteUser · retention audit 2026-07-11).
-  await purgeUserAuthoredChat(admin, targetUserId, adminUserId);
-
-  const { error: dError } = await admin.auth.admin.deleteUser(targetUserId);
-  if (dError) throw new Error(dError.message);
+  await eraseUserAccount(admin, targetUserId, adminUserId);
 
   revalidatePath('/admin/users');
 }
 
 /**
  * Remove an email from the blacklist so it can be used to sign up again.
- * The associated auth/user record is already gone (was hard-deleted at
- * blacklist time), so this only clears the gate at the signup action.
+ * The associated account was erased (soft-deleted + anonymized) at blacklist
+ * time and its auth email tombstoned, so the original address is free — this
+ * only clears the blacklist gate at the signup action.
  */
 export async function unblacklistEmail(formData: FormData) {
   await requireAdmin();

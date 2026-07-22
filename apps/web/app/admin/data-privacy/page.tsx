@@ -11,22 +11,40 @@ import {
 import { NPC_DOCUMENTS, NPC_DOC_GROUP_LABEL, type NpcDocGroup } from '@/lib/npc-documents';
 import { ControlActions } from './_components/control-actions';
 import { CoveragePanel } from './_components/coverage-panel';
+import { NpcChecklist } from './_components/npc-checklist';
 
-export const metadata = { title: 'Data Privacy · Admin' };
+export const metadata = { title: 'Data Privacy & NPC Filing · Admin' };
 export const dynamic = 'force-dynamic';
 
 /**
- * /admin/data-privacy — the Data Privacy control board (RA 10173).
+ * /admin/data-privacy — the Data Privacy & NPC Filing hub (RA 10173).
  *
- * One row per privacy-sensitive capability. The owner/admin approves activation
- * here; the flip is recorded (approved_by + approved_at + note) as the audit
- * trail that supports the NPC filing. Feature gates read `status='active'` from
- * `data_privacy_controls` (via lib/data-privacy-controls `isDataPrivacyControlActive`),
- * so activation is an in-app decision — no env flag, no redeploy.
+ * One surface, four tabs:
+ *   - Controls        the live control board — approve each privacy-sensitive
+ *                     capability; the flip records approved_by/at (audit trail).
+ *                     Features read `status='active'` from data_privacy_controls
+ *                     (isDataPrivacyControlActive), so activation is an in-app
+ *                     decision — no env flag, no redeploy.
+ *   - Coverage & drift the bridge: which live controls are declared in the NPC
+ *                     filing, and which declared activities lack a live control.
+ *   - Checklist       the counsel-prepared NPC pre-filing worklist.
+ *   - Documents       the DPO-prepared NPC submission PDFs (drafts pending
+ *                     external counsel review before lodging).
+ *
+ * /admin/npc-readiness redirects into ?tab=checklist (the old separate surface).
  *
  * Auth: /admin layout gates non-admins; requireAdmin() re-asserts here.
  * Pre-migration DBs render the code catalog, all inactive (fail-closed).
  */
+
+type TabKey = 'controls' | 'coverage' | 'checklist' | 'documents';
+
+const TABS: { key: TabKey; label: string }[] = [
+  { key: 'controls', label: 'Controls' },
+  { key: 'coverage', label: 'Coverage & drift' },
+  { key: 'checklist', label: 'NPC checklist' },
+  { key: 'documents', label: 'Documents' },
+];
 
 const STATUS_META: Record<
   PrivacyControlStatus,
@@ -37,42 +55,80 @@ const STATUS_META: Record<
   blocked: { label: 'Blocked', tone: 'blocked', icon: Ban },
 };
 
-export default async function DataPrivacyPage() {
+export default async function DataPrivacyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
   await requireAdmin();
+  const { tab } = await searchParams;
+  const active: TabKey = (TABS.find((t) => t.key === tab)?.key ?? 'controls') as TabKey;
+
   const admin = createAdminClient();
   const controls = await fetchDataPrivacyControls(admin);
-
   const activeCount = controls.filter((c) => c.status === 'active').length;
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-6 space-y-2">
+      <header className="mb-5 space-y-2">
         <p className="sn-eye flex items-center gap-2">
           <ShieldCheck aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Data Privacy · RA 10173
         </p>
         <h1 className="text-2xl font-semibold tracking-tight" style={{ color: 'var(--m-ink)' }}>
-          Privacy control board
+          Data Privacy &amp; NPC Filing
         </h1>
         <p className="max-w-2xl text-sm" style={{ color: 'var(--m-slate-2)' }}>
-          Every privacy-sensitive capability, and the switch that turns it on. Approving a control
-          records who approved it and when — the audit trail for the NPC filing. Features read this
-          board, so a control that isn’t <strong>Active</strong> stays off everywhere.
+          One place for the live control board and the NPC filing. Approve each privacy-sensitive
+          capability, check what’s declared to the regulator, and work down the pre-filing
+          checklist. Features read this board, so a control that isn’t <strong>Active</strong> stays
+          off everywhere.
           <span className="mt-1 block" style={{ color: 'var(--m-slate-3)' }}>
-            {activeCount} of {controls.length} active.
+            {activeCount} of {controls.length} controls active.
           </span>
         </p>
       </header>
 
-      <ul className="space-y-3">
-        {controls.map((c) => (
-          <ControlCard key={c.control_key} control={c} />
-        ))}
-      </ul>
+      {/* Tab bar */}
+      <nav
+        className="mb-6 flex gap-1 overflow-x-auto border-b"
+        style={{ borderColor: 'var(--m-line)' }}
+        aria-label="Compliance sections"
+      >
+        {TABS.map((t) => {
+          const isActive = t.key === active;
+          return (
+            <Link
+              key={t.key}
+              href={t.key === 'controls' ? '/admin/data-privacy' : `/admin/data-privacy?tab=${t.key}`}
+              scroll={false}
+              aria-current={isActive ? 'page' : undefined}
+              className="-mb-px shrink-0 border-b-2 px-3 py-2 text-sm font-semibold transition-colors"
+              style={
+                isActive
+                  ? { borderColor: 'var(--m-ink)', color: 'var(--m-ink)' }
+                  : { borderColor: 'transparent', color: 'var(--m-slate-3)' }
+              }
+            >
+              {t.label}
+            </Link>
+          );
+        })}
+      </nav>
 
-      <CoveragePanel controls={controls} />
+      {active === 'controls' ? (
+        <ul className="space-y-3">
+          {controls.map((c) => (
+            <ControlCard key={c.control_key} control={c} />
+          ))}
+        </ul>
+      ) : null}
 
-      <NpcDocuments />
+      {active === 'coverage' ? <CoveragePanel controls={controls} /> : null}
+
+      {active === 'checklist' ? <NpcChecklist /> : null}
+
+      {active === 'documents' ? <NpcDocuments /> : null}
     </div>
   );
 }
@@ -90,7 +146,7 @@ function NpcDocuments() {
   const groups: NpcDocGroup[] = ['executive', 'pack', 'companion', 'audit'];
 
   return (
-    <section className="mt-10">
+    <section>
       <h2 className="sn-sec flex items-center gap-2">
         <FileText aria-hidden className="h-4 w-4" strokeWidth={1.75} /> NPC submission documents
       </h2>

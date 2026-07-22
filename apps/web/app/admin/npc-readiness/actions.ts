@@ -1,7 +1,6 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
 import {
@@ -19,24 +18,19 @@ const VALID_STATUS = new Set<NpcTaskStatus>([
   'not_applicable',
 ]);
 
-function done(msg: string) {
-  redirect(`/admin/npc-readiness?flash=${encodeURIComponent(msg)}`);
-}
-function fail(msg: string): never {
-  redirect(`/admin/npc-readiness?error=${encodeURIComponent(msg)}`);
-}
+export type NpcTaskResult = { status: 'ok' | 'error'; message: string };
 
 /**
  * Update one NPC filing task's status/note/evidence. Records the resolver +
- * timestamp on resolve. Enforces the council's structural anti-false-assurance
- * guards (verdict §5) so the board can never quietly imply the filing is cleared:
- *
- *   (2) counsel-gated tasks can't resolve without a written counsel reference in
- *       the note;
+ * timestamp on resolve. Enforces the anti-false-assurance guards (verdict §5):
+ *   (2) counsel-gated tasks can't resolve without a written counsel reference;
  *   (3) the FILE-the-DPS task (t3-13) can't resolve until external counsel
  *       review (t0-1) is itself resolved.
+ *
+ * Returns a per-submission result (no redirect) so the checklist tab of the
+ * compliance hub updates IN PLACE via useActionState — no page navigation/blank.
  */
-export async function setNpcFilingTask(formData: FormData): Promise<void> {
+export async function setNpcFilingTask(formData: FormData): Promise<NpcTaskResult> {
   const { userId } = await requireAdmin();
 
   const key = String(formData.get('task_key') ?? '');
@@ -45,15 +39,19 @@ export async function setNpcFilingTask(formData: FormData): Promise<void> {
   const evidence = (String(formData.get('evidence') ?? '').trim() || null)?.slice(0, 500) ?? null;
 
   const def = getNpcTask(key);
-  if (!def) fail('Unknown task.');
-  if (!VALID_STATUS.has(status)) fail('Invalid status.');
+  if (!def) return { status: 'error', message: 'Unknown task.' };
+  if (!VALID_STATUS.has(status)) return { status: 'error', message: 'Invalid status.' };
 
   const admin = createAdminClient();
 
   // Guard (2): a counsel-gated task can't be resolved without a written counsel
   // reference — the owner physically cannot mark it done without citing counsel.
   if (def.counselGated && status === 'resolved' && !note) {
-    fail('This item needs external counsel sign-off. Add a written counsel reference (name + memo date) in the note before resolving.');
+    return {
+      status: 'error',
+      message:
+        'This item needs external counsel sign-off. Add a written counsel reference (name + memo date) in the note before resolving.',
+    };
   }
 
   // Guard (3): filing the DPS on an unreviewed packet is the one irreversible
@@ -65,7 +63,11 @@ export async function setNpcFilingTask(formData: FormData): Promise<void> {
       .eq('task_key', COUNSEL_REVIEW_TASK)
       .maybeSingle();
     if ((gate as { status?: string } | null)?.status !== 'resolved') {
-      fail('You can’t mark the NPC filing done before external counsel review (t0-1) is resolved.');
+      return {
+        status: 'error',
+        message:
+          'You can’t mark the NPC filing done before external counsel review (t0-1) is resolved.',
+      };
     }
   }
 
@@ -93,8 +95,8 @@ export async function setNpcFilingTask(formData: FormData): Promise<void> {
     },
     { onConflict: 'task_key' },
   );
-  if (error) fail(error.message);
+  if (error) return { status: 'error', message: error.message };
 
-  revalidatePath('/admin/npc-readiness');
-  done(`Updated “${def.title}”.`);
+  revalidatePath('/admin/data-privacy');
+  return { status: 'ok', message: `Updated “${def.title}”.` };
 }

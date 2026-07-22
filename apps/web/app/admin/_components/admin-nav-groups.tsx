@@ -247,25 +247,16 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/corrections',
       },
       {
-        // Data Privacy control board (RA 10173). One approval switch per
-        // privacy-sensitive capability (vendor guest capture, biometrics, geo,
-        // cross-event linkage, minors, faith). Approving records who/when — the
-        // audit trail for the NPC filing; feature gates read status='active'.
+        // Data Privacy & NPC Filing hub (RA 10173) — one surface, four tabs:
+        // the live control board (one approval switch per privacy-sensitive
+        // capability; feature gates read status='active'), filing coverage &
+        // drift, the NPC pre-filing checklist, and the submission documents.
+        // /admin/npc-readiness redirects into ?tab=checklist.
         key: 'data-privacy',
-        label: 'Data Privacy',
+        label: 'Data Privacy & NPC Filing',
         href: '/admin/data-privacy',
         icon: ShieldCheck,
         matchPrefix: '/admin/data-privacy',
-      },
-      {
-        // NPC pre-filing readiness worklist (RA 10173). The completeness audit's
-        // Tier 0-3 checklist as tracked work; external counsel review is the
-        // standing gate. Sibling of the Data Privacy board.
-        key: 'npc-readiness',
-        label: 'NPC Filing',
-        href: '/admin/npc-readiness',
-        icon: ListChecks,
-        matchPrefix: '/admin/npc-readiness',
       },
       {
         // Review-fraud + ghost-listing screener queue (No fake reviews, no ghost

@@ -3,6 +3,7 @@ import {
   CopyObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -243,6 +244,49 @@ export async function r2Delete(args: {
   await client.send(
     new DeleteObjectCommand({ Bucket: args.bucket, Key: args.key }),
   );
+}
+
+/**
+ * What R2 knows about a stored object, from a HEAD (metadata-only, no bytes):
+ * its real size, content-type, and last-modified time. Used as a CUSTODY proof
+ * before an irreversible delete — never trust a DB key column alone for a
+ * client-produced derivative (a written key can point at a truncated / 0-byte /
+ * missing object).
+ */
+export type R2HeadResult = {
+  /** ContentLength in bytes; NaN if R2 omitted it (treat as un-verifiable). */
+  size: number;
+  /** Content-Type as stored (e.g. 'video/mp4'), or null if absent. */
+  contentType: string | null;
+  /** When the object was last written to R2, or null if absent. */
+  lastModified: Date | null;
+};
+
+/**
+ * HEADs one R2 object and returns its size / content-type / last-modified, or
+ * `null` when the object is missing OR the read fails for ANY reason. FAIL-SAFE
+ * by contract: a caller gating an irreversible delete on this MUST treat `null`
+ * (and any un-verifiable field) as "custody NOT proven → do not delete". Throws
+ * only if R2 isn't configured (a config error, not an object state).
+ */
+export async function r2Head(args: {
+  bucket: R2BucketName;
+  key: string;
+}): Promise<R2HeadResult | null> {
+  const client = requireR2Client();
+  try {
+    const res = await client.send(
+      new HeadObjectCommand({ Bucket: args.bucket, Key: args.key }),
+    );
+    return {
+      size: typeof res.ContentLength === 'number' ? res.ContentLength : Number.NaN,
+      contentType: res.ContentType ?? null,
+      lastModified: res.LastModified ?? null,
+    };
+  } catch {
+    // Missing object, 403, network blip — all resolve to "cannot prove custody".
+    return null;
+  }
 }
 
 /**

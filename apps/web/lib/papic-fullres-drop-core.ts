@@ -4,10 +4,31 @@
 // Type-only import (erased at runtime) so this stays a pure module — importing
 // the R2_BUCKETS *value* would pull in r2.ts's `server-only` + AWS SDK and make
 // this untestable. Bucket names are mirrored as literals below.
-import type { R2BucketName } from '@/lib/r2';
+import type { R2BucketName, R2HeadResult } from '@/lib/r2';
+// Pure, dependency-free helpers (no `server-only`) — safe to import here.
+import { clipWebKeyDistinct, isClipRow } from '@/lib/papic-display-ref';
 
 /** Free full-res window before OUR R2 original is dropped (owner 2026-07-11). */
 export const DEFAULT_FULL_RES_RETENTION_DAYS = 90;
+
+/**
+ * A clip's web copy must have EXISTED for at least this long before its raw is
+ * droppable (Papic storage · retention-lapse fresh-grace). Measured against the
+ * R2 object's real LastModified — NOT a DB column, so a truncated/bad backfill
+ * transcode PUT today cannot convert straight to raw loss even if the age fuse
+ * (captured_at) has already elapsed (the backfill case). New capture-time web
+ * copies are contemporaneous with the raw, so this is satisfied long before the
+ * 90-day fuse ever fires.
+ */
+export const CLIP_WEB_DROP_GRACE_DAYS = 7;
+
+/**
+ * Byte floor for a clip web copy to count as a real playable derivative. Mirrors
+ * MIN_CLIP_WEB_BYTES on the capture path (guest-capture route). A sub-floor
+ * `clip_web_bytes` — or a HEAD size below it — means the web copy is not a real
+ * object → refuse to drop the raw.
+ */
+export const CLIP_WEB_MIN_BYTES = 1024;
 
 const MS_PER_DAY = 86_400_000;
 
@@ -51,6 +72,118 @@ export function isEligibleForDrop(
   if (!Number.isFinite(capturedMs)) return false;
   const ageDays = (opts.nowMs - capturedMs) / MS_PER_DAY;
   return ageDays >= opts.retentionDays;
+}
+
+// ============================================================================
+// CLIP full-res drop (Papic storage PR-2 — the cost win). A clip's raw video
+// r2_object_key is ~2× the bytes of a 10s photo-equivalent and, unlike a photo,
+// its `display_r2_key` is a POSTER STILL (an image), not a playable fallback. So
+// clips CANNOT reuse isEligibleForDrop:
+//   • isEligibleForDrop's `!display_r2_key → skip` guard would PASS for every
+//     clip (poster is always present) and delete the ~8 MB motion clip while
+//     only a still survives — the "poster trap".
+// A clip's raw is droppable ONLY once a DISTINCT, real, HEAD-verified playable
+// web copy (clip_web_r2_key) exists AND the couple's Drive custody clears (Guard
+// B, in the sweep) AND a fresh-grace window has elapsed on the web object.
+// ============================================================================
+
+export type ClipDropCandidate = {
+  /** papic_photos.photo_type — must be 'clip'. */
+  photo_type?: string | null;
+  /** papic_guest_captures.media_type — must be 'clip'. */
+  media_type?: string | null;
+  /** The raw video — the ONLY key this drop ever deletes. */
+  r2_object_key: string | null;
+  /** The poster still (display==poster for clips) — kept forever, never dropped. */
+  poster_r2_key: string | null;
+  display_r2_key: string | null;
+  /** The small playable web copy — kept forever; its object is the custody proof. */
+  clip_web_r2_key: string | null;
+  /** The web copy's real object size, persisted at upload. */
+  clip_web_bytes: number | null;
+  captured_at: string;
+  full_res_dropped_at: string | null;
+};
+
+/**
+ * COLUMN-LEVEL eligibility to drop a CLIP's raw video. Pure — the OBJECT custody
+ * proof (HEAD: exists / size matches / content-type video/* / grace age) is a
+ * separate async step (clipWebCopyCustodyOk) because it needs R2. A wrong `true`
+ * here would delete a motion clip leaving only a still, so every guard is a hard
+ * gate:
+ *   • already dropped → false (idempotent);
+ *   • not a clip → false (photos use isEligibleForDrop — never cross the streams);
+ *   • NO web copy (clip_web_r2_key null) → false. THIS is what keeps every
+ *     existing / un-backfilled clip safe: before the deferred backfill (PR-3)
+ *     writes web copies, every legacy clip has a null key and is INELIGIBLE;
+ *   • web key not DISTINCT from poster / display / raw → false (poster-trap: a
+ *     poster masquerading as the web copy would let the drop delete the still a
+ *     play surface points at);
+ *   • clip_web_bytes absent or below the floor → false (the HEAD size custody
+ *     check depends on a real persisted size);
+ *   • raw key absent or a `sample/…` seed key → false;
+ *   • younger than the retention window → false.
+ */
+export function clipEligibleForDrop(
+  row: ClipDropCandidate,
+  opts: { retentionDays: number; nowMs: number },
+): boolean {
+  if (row.full_res_dropped_at) return false;
+  if (!isClipRow(row)) return false;
+  if (!row.r2_object_key || row.r2_object_key.startsWith('sample/')) return false;
+  // Web copy must exist AND be a DISTINCT object from the poster/display still and
+  // the raw video (clipWebKeyDistinct requires a non-empty key ≠ all three).
+  if (
+    !clipWebKeyDistinct(row.clip_web_r2_key, {
+      poster_r2_key: row.poster_r2_key,
+      display_r2_key: row.display_r2_key,
+      r2_object_key: row.r2_object_key,
+    })
+  ) {
+    return false;
+  }
+  // A real, persisted web-copy size at/above the floor. (Custody HEAD re-checks
+  // the live object matches this exactly.) Coerce defensively — a bigint column
+  // could arrive as a numeric string; a null/undefined/non-numeric value → NaN →
+  // fail-closed (INELIGIBLE), never a drop.
+  const bytes = row.clip_web_bytes == null ? Number.NaN : Number(row.clip_web_bytes);
+  if (!Number.isFinite(bytes) || bytes < CLIP_WEB_MIN_BYTES) {
+    return false;
+  }
+  const capturedMs = new Date(row.captured_at).getTime();
+  if (!Number.isFinite(capturedMs)) return false;
+  const ageDays = (opts.nowMs - capturedMs) / MS_PER_DAY;
+  return ageDays >= opts.retentionDays;
+}
+
+/**
+ * OBJECT-LEVEL custody proof for a clip web copy — the last gate before an
+ * irreversible raw delete. Pure: the sweep does the r2Head() I/O, then this
+ * decides. `true` ONLY when the live web object is proven durable AND aged:
+ *   • the HEAD succeeded (a null head = missing / 403 / network → NEVER drop);
+ *   • its size is finite, ≥ the byte floor, AND EXACTLY equals the persisted
+ *     clip_web_bytes (a truncated / partial-PUT object mismatches → NEVER drop);
+ *   • its content-type is video/* (a poster image mis-stored as the web copy
+ *     would be an image/* → NEVER drop);
+ *   • it was written ≥ graceMs ago (fresh-grace: a just-written web copy — e.g. a
+ *     bad backfill transcode — must not convert straight to raw loss). A missing
+ *     LastModified means we can't prove the age → NEVER drop.
+ * Every failure path is fail-closed (keep the raw, retry a later sweep).
+ */
+export function clipWebCopyCustodyOk(
+  head: R2HeadResult | null,
+  expectedBytes: number,
+  opts: { graceMs: number; nowMs: number },
+): boolean {
+  if (!head) return false;
+  if (!Number.isFinite(head.size)) return false;
+  if (head.size < CLIP_WEB_MIN_BYTES) return false;
+  if (!Number.isFinite(expectedBytes) || head.size !== expectedBytes) return false;
+  if (!head.contentType || !head.contentType.toLowerCase().startsWith('video/')) return false;
+  if (!head.lastModified) return false;
+  const ageMs = opts.nowMs - head.lastModified.getTime();
+  if (!Number.isFinite(ageMs)) return false;
+  return ageMs >= opts.graceMs;
 }
 
 // ============================================================================
@@ -162,4 +295,149 @@ export function resolveOriginalRef(
       : null;
   }
   return { bucket: MEDIA_BUCKET, key: r2ObjectKey };
+}
+
+/**
+ * DEFENSE-IN-DEPTH before the irreversible clip-raw delete: do two r2 refs
+ * resolve to the SAME R2 object? Two DIFFERENT key STRINGS can point at one
+ * object — a legacy `foo/bar.mp4` vs its `r2://setnayan-media/foo/bar.mp4` form
+ * both resolve to `{setnayan-media, foo/bar.mp4}`. clipEligibleForDrop's string
+ * distinctness (clipWebKeyDistinct) would call those distinct, so if the clip's
+ * web copy and its raw were written in the two forms, the custody HEAD would end
+ * up inspecting — and the delete destroying — the very object that is the only
+ * playable web copy. The byte-exact HEAD already catches the realistic case; this
+ * asserts it explicitly at the resolved level. FAIL CLOSED: an unresolvable ref
+ * can't be PROVEN distinct → treated as "same" (→ refuse to drop).
+ */
+export function sameResolvedObject(a: string, b: string): boolean {
+  const ra = resolveOriginalRef(a);
+  const rb = resolveOriginalRef(b);
+  if (!ra || !rb) return true; // can't prove distinct → fail closed (treat as same)
+  return ra.bucket === rb.bucket && ra.key === rb.key;
+}
+
+// ============================================================================
+// Sweep row → Item builders (Papic storage PR-2 wiring). Extracted PURE so the
+// sweep AND its regression test materialise candidate Items through the SAME
+// code. A hand-built ClipDropCandidate fixture (with media_type pre-set) MASKED
+// the original wiring bug: the sweep's clip .map() set kind:'clip' but never
+// carried photo_type / media_type, so isClipRow() — which reads ONLY those two —
+// was always false, clipEligibleForDrop was always false, and the whole
+// custody/delete chain was dead (clipsDropped stuck at 0) while the tests were
+// green. Both capture tables map here; a CLIP Item MUST carry its type column so
+// isClipRow() is genuinely true for a real sweep clip Item.
+// ============================================================================
+
+/** One drop candidate as the sweep materialises it from a DB row. */
+export type PapicDropItem = DropCandidate & {
+  table: 'papic_photos' | 'papic_guest_captures';
+  idCol: 'photo_id' | 'capture_id';
+  id: string;
+  event_id: string;
+  /** 'photo' → isEligibleForDrop; 'clip' → clipEligibleForDrop + HEAD custody. */
+  kind: 'photo' | 'clip';
+  /** papic_photos.photo_type — CARRIED so isClipRow() sees it (clip wiring). */
+  photo_type: string | null;
+  /** papic_guest_captures.media_type — CARRIED so isClipRow() sees it. */
+  media_type: string | null;
+  /** Clip-only (null on photos): the poster still + web copy for the clip guards. */
+  poster_r2_key: string | null;
+  clip_web_r2_key: string | null;
+  clip_web_bytes: number | null;
+  orig_bytes: number | null;
+};
+
+type Row = Record<string, unknown>;
+const asStr = (v: unknown): string | null => (v as string | null) ?? null;
+const asNum = (v: unknown): number | null => (v as number | null) ?? null;
+
+/** papic_photos PHOTO row → Item (photos dispatch on kind — never isClipRow). */
+export function seatPhotoItem(r: Row): PapicDropItem {
+  return {
+    table: 'papic_photos',
+    idCol: 'photo_id',
+    id: r.photo_id as string,
+    event_id: r.event_id as string,
+    kind: 'photo',
+    photo_type: null,
+    media_type: null,
+    r2_object_key: r.r2_object_key as string,
+    display_r2_key: asStr(r.display_r2_key),
+    poster_r2_key: null,
+    clip_web_r2_key: null,
+    clip_web_bytes: null,
+    captured_at: r.captured_at as string,
+    full_res_dropped_at: asStr(r.full_res_dropped_at),
+    orig_bytes: asNum(r.orig_bytes),
+  };
+}
+
+/** papic_guest_captures PHOTO row → Item. */
+export function guestPhotoItem(r: Row): PapicDropItem {
+  return {
+    table: 'papic_guest_captures',
+    idCol: 'capture_id',
+    id: r.capture_id as string,
+    event_id: r.event_id as string,
+    kind: 'photo',
+    photo_type: null,
+    media_type: null,
+    r2_object_key: r.r2_object_key as string,
+    display_r2_key: asStr(r.display_r2_key),
+    poster_r2_key: null,
+    clip_web_r2_key: null,
+    clip_web_bytes: null,
+    captured_at: r.captured_at as string,
+    full_res_dropped_at: asStr(r.full_res_dropped_at),
+    orig_bytes: asNum(r.orig_bytes),
+  };
+}
+
+/**
+ * papic_photos CLIP row → Item. `photo_type` is carried from the row (the clip
+ * SELECT MUST fetch it) so isClipRow() is genuinely true — without it the clip
+ * drop is inert.
+ */
+export function seatClipItem(r: Row): PapicDropItem {
+  return {
+    table: 'papic_photos',
+    idCol: 'photo_id',
+    id: r.photo_id as string,
+    event_id: r.event_id as string,
+    kind: 'clip',
+    photo_type: asStr(r.photo_type),
+    media_type: null,
+    r2_object_key: r.r2_object_key as string,
+    display_r2_key: asStr(r.display_r2_key),
+    poster_r2_key: asStr(r.poster_r2_key),
+    clip_web_r2_key: asStr(r.clip_web_r2_key),
+    clip_web_bytes: asNum(r.clip_web_bytes),
+    captured_at: r.captured_at as string,
+    full_res_dropped_at: asStr(r.full_res_dropped_at),
+    orig_bytes: asNum(r.orig_bytes),
+  };
+}
+
+/**
+ * papic_guest_captures CLIP row → Item. `media_type` is carried from the row (the
+ * clip SELECT MUST fetch it) so isClipRow() is genuinely true.
+ */
+export function guestClipItem(r: Row): PapicDropItem {
+  return {
+    table: 'papic_guest_captures',
+    idCol: 'capture_id',
+    id: r.capture_id as string,
+    event_id: r.event_id as string,
+    kind: 'clip',
+    photo_type: null,
+    media_type: asStr(r.media_type),
+    r2_object_key: r.r2_object_key as string,
+    display_r2_key: asStr(r.display_r2_key),
+    poster_r2_key: asStr(r.poster_r2_key),
+    clip_web_r2_key: asStr(r.clip_web_r2_key),
+    clip_web_bytes: asNum(r.clip_web_bytes),
+    captured_at: r.captured_at as string,
+    full_res_dropped_at: asStr(r.full_res_dropped_at),
+    orig_bytes: asNum(r.orig_bytes),
+  };
 }

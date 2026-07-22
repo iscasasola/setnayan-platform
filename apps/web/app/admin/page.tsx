@@ -500,14 +500,8 @@ export default async function AdminOverview() {
           <Tile
             href="/admin/data-privacy"
             icon="shield-check"
-            title="Data Privacy"
-            body="Approve each privacy-sensitive capability (RA 10173) — the control board."
-          />
-          <Tile
-            href="/admin/npc-readiness"
-            icon="list-checks"
-            title="NPC Filing"
-            body="Work down the NPC pre-filing checklist — counsel review is the gate."
+            title="Data Privacy & NPC Filing"
+            body="Approve privacy-sensitive capabilities, track filing coverage, and work down the NPC pre-filing checklist — one hub (RA 10173)."
           />
           <Tile
             href="/admin/fraud"

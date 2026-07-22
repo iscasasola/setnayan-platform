@@ -143,9 +143,11 @@ export function clipEligibleForDrop(
     return false;
   }
   // A real, persisted web-copy size at/above the floor. (Custody HEAD re-checks
-  // the live object matches this exactly.)
-  const bytes = row.clip_web_bytes;
-  if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes < CLIP_WEB_MIN_BYTES) {
+  // the live object matches this exactly.) Coerce defensively — a bigint column
+  // could arrive as a numeric string; a null/undefined/non-numeric value → NaN →
+  // fail-closed (INELIGIBLE), never a drop.
+  const bytes = row.clip_web_bytes == null ? Number.NaN : Number(row.clip_web_bytes);
+  if (!Number.isFinite(bytes) || bytes < CLIP_WEB_MIN_BYTES) {
     return false;
   }
   const capturedMs = new Date(row.captured_at).getTime();

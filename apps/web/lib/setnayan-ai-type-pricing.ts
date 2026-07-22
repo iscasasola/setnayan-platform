@@ -28,12 +28,12 @@
 export type AiPriceTier = 'A' | 'B' | 'C' | 'D' | 'E';
 
 /**
- * event_type → tier. Explicit for every canonical type (14). Anniversary /
- * graduation / reunion sit at C (standard event). Tournament dropped C → D
- * (₱99) after the 2026-07-22 reach study: at ~25% of the wedding category set
- * it is a few specialized vendors (referee/medic/insurance/trophies), not a
- * standard-event spread — Travel stays C because its low count buys the
- * bespoke itinerary engine. See DECISION_LOG 2026-07-22 + the reach-matrix study.
+ * event_type → tier (2026-07-22 reach study + owner locks). Anniversary /
+ * graduation / reunion sit at C. Tournament dropped C → D (₱99 — ~25% reach, a
+ * few specialist vendors; Travel stays C for the itinerary engine). gala_night =
+ * B (₱999 — its 84% reach is Debut-level). date / hangout = D (₱99 — short
+ * casual outings). simple_event = E (no vendors). Unknown types default to C.
+ * See DECISION_LOG 2026-07-22 + the reach-matrix study.
  */
 export const AI_TIER_BY_EVENT_TYPE: Readonly<Record<string, AiPriceTier>> = {
   wedding: 'A',
@@ -48,11 +48,9 @@ export const AI_TIER_BY_EVENT_TYPE: Readonly<Record<string, AiPriceTier>> = {
   graduation: 'C',
   reunion: 'C',
   gender_reveal: 'D',
-  gala_night: 'C', // ⚠ registered type; provisional. 83% reach (Debut-level) →
-                   // reach-as-floor argues for B/₱999; C/₱499 is the safe default
-                   // until the owner prices gala_night. See the reach-matrix study.
-  dinner_date: 'D', // NOT yet registered in event_type_vocab (still a proposal);
-                    // kept as forward-prep — no live event can be dinner_date.
+  gala_night: 'B', // ₱999 — its 84% reach is Debut-level (owner-locked 2026-07-22).
+  date: 'D', // casual romantic outing (dinner/lunch/movie date) — ₱99, Tier D.
+  hangout: 'D', // casual barkada get-together (coffee, movie night) — ₱99, Tier D.
   simple_event: 'E',
 };
 

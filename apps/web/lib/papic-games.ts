@@ -10,6 +10,7 @@ import type {
   GuestMissionRow,
   PapicMissionRow,
   VendorChallengeRow,
+  VendorChallengePhotoRow,
 } from './papic-missions';
 
 // Idempotently generate the FREE booth missions for an event's booked vendors
@@ -139,4 +140,19 @@ export async function fetchVendorChallenges(
   } as never);
   if (error || !data) return [];
   return data as unknown as VendorChallengeRow[];
+}
+
+// A booked, SPONSORED vendor collects the CONSENTED guest photos from their
+// challenges (Phase 5). The RPC applies the consent + strict-moderation gates and
+// returns web-copy refs only. Returns [] when the flag is off / on failure.
+export async function fetchVendorChallengePhotos(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<VendorChallengePhotoRow[]> {
+  if (!papicGamesEnabled()) return [];
+  const { data, error } = await supabase.rpc('papic_vendor_challenge_photos' as never, {
+    p_event_id: eventId,
+  } as never);
+  if (error || !data) return [];
+  return data as unknown as VendorChallengePhotoRow[];
 }

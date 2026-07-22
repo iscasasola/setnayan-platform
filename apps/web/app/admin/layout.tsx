@@ -8,6 +8,7 @@ import { maybeRunFraudClusterSweep } from '@/lib/fraud-cluster-sweep';
 import { runSeoPeriodicJobs } from '@/lib/seo/seo-cron-jobs';
 import { maybeRunRetentionSweep } from '@/lib/retention-sweep';
 import { maybeRunPapicFullResDrop } from '@/lib/papic-fullres-drop';
+import { maybeRunDriveCopyRetry } from '@/lib/papic-drive-copy-retry';
 import { maybeRunAnonDraftSweep } from '@/lib/anon-draft-sweep';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { requireAdmin } from '@/lib/admin/require-admin';
@@ -124,6 +125,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // + per-run limit); the routes are retained as manual/curl triggers. Never throws.
   after(() => maybeRunRetentionSweep().catch(() => {}));
   after(() => maybeRunPapicFullResDrop().catch(() => {}));
+  // Autonomous Drive-copy retry (Papic storage PR-4) — CRON-FREE: admin traffic +
+  // a DAILY DB claim. Re-drives failed Google-Drive copies with exponential
+  // back-off up to a ceiling and surfaces what's stranded past it, so a transient
+  // Drive failure is retried (not silently lost) and the full-res drop stops
+  // deferring those raws forever. Non-destructive; never throws.
+  after(() => maybeRunDriveCopyRetry().catch(() => {}));
   // Daily cleanup of abandoned anonymous-draft accounts + their events (RA 10173
   // data-minimization) — anon-onboarding hardening PR-3. No-op until the feature
   // flag is on and a draft ages past the TTL. Own legal-hold + is_anonymous

@@ -57,15 +57,29 @@ export async function enqueueRelease(input: {
     return { ok: false, reason: `not_releasable_in_status:${status}` };
   }
 
-  // 2. List deliverable photos.
-  const { data: allPhotos, error: photosErr } = await admin
-    .from('papic_photos')
-    .select('photo_id, r2_object_key, size_bytes')
-    .eq('event_id', input.eventId)
-    .is('hidden_at', null);
-  if (photosErr) return { ok: false, reason: `papic_photos_query:${photosErr.message.slice(0, 64)}` };
+  // 2. List deliverable media — seat/paparazzi captures (papic_photos) AND
+  //    guest-camera captures (papic_guest_captures). Papic storage PR-4 added the
+  //    guest branch so a guest clip/photo original gets the same Release-to-Drive
+  //    path (and is backed up before the guest-inclusive full-res drop runs);
+  //    papic_guest_captures carries orig_bytes (not size_bytes) + a nullable
+  //    r2_object_key, so we skip captures with no R2 object.
+  const [seatRes, guestRes] = await Promise.all([
+    admin
+      .from('papic_photos')
+      .select('photo_id, r2_object_key, size_bytes')
+      .eq('event_id', input.eventId)
+      .is('hidden_at', null),
+    admin
+      .from('papic_guest_captures')
+      .select('capture_id, r2_object_key, orig_bytes')
+      .eq('event_id', input.eventId)
+      .is('hidden_at', null)
+      .not('r2_object_key', 'is', null),
+  ]);
+  if (seatRes.error) return { ok: false, reason: `papic_photos_query:${seatRes.error.message.slice(0, 64)}` };
+  if (guestRes.error) return { ok: false, reason: `papic_guest_captures_query:${guestRes.error.message.slice(0, 64)}` };
 
-  // Phase 2 dedup: skip photos the Drive-copy auto-sync feeder already copied
+  // Phase 2 dedup: skip media the Drive-copy auto-sync feeder already copied
   // (both write to the same events.photo_delivery_folder_id), so a manual
   // "Release to Drive" never produces a duplicate file. Match on r2_object_key.
   const { data: copiedRows } = await admin
@@ -74,15 +88,37 @@ export async function enqueueRelease(input: {
     .eq('event_id', input.eventId)
     .not('drive_file_id', 'is', null);
   const copiedKeys = new Set((copiedRows ?? []).map((r) => r.r2_object_key as string));
-  const photos = (allPhotos ?? []).filter(
-    (p) => !copiedKeys.has(p.r2_object_key as string),
-  );
 
-  const totalFiles = photos.length;
-  const totalBytes = (photos ?? []).reduce(
-    (acc, p) => acc + (Number(p.size_bytes) || 0),
-    0,
-  );
+  // Unified deliverable list — one shape across both source tables. source_table
+  // + source_id key the join row so seat and guest rows for the same event never
+  // collide in the (event_id, source_table, source_photo_id) dedupe index.
+  type Deliverable = {
+    sourceTable: 'papic_photos' | 'papic_guest_captures';
+    sourceId: string;
+    r2Key: string;
+    sizeBytes: number | null;
+  };
+  const deliverables: Deliverable[] = [
+    ...((seatRes.data ?? [])
+      .filter((p) => !copiedKeys.has(p.r2_object_key as string))
+      .map((p) => ({
+        sourceTable: 'papic_photos' as const,
+        sourceId: p.photo_id as string,
+        r2Key: p.r2_object_key as string,
+        sizeBytes: (p.size_bytes as number | null) ?? null,
+      }))),
+    ...((guestRes.data ?? [])
+      .filter((p) => !copiedKeys.has(p.r2_object_key as string))
+      .map((p) => ({
+        sourceTable: 'papic_guest_captures' as const,
+        sourceId: p.capture_id as string,
+        r2Key: p.r2_object_key as string,
+        sizeBytes: (p.orig_bytes as number | null) ?? null,
+      }))),
+  ];
+
+  const totalFiles = deliverables.length;
+  const totalBytes = deliverables.reduce((acc, p) => acc + (Number(p.sizeBytes) || 0), 0);
 
   // 3. Create the job row.
   const { data: job, error: jobErr } = await admin
@@ -118,14 +154,14 @@ export async function enqueueRelease(input: {
   }
 
   // 5. Upsert artifacts. Re-release reuses any row that already has a
-  //    drive_file_id; new photos get fresh rows.
-  const artifactRows = (photos ?? []).map((p) => ({
+  //    drive_file_id; new media (seat OR guest) get fresh rows.
+  const artifactRows = deliverables.map((p) => ({
     job_id: jobId,
     event_id: input.eventId,
-    source_table: 'papic_photos' as const,
-    source_photo_id: p.photo_id as string,
-    r2_object_key: p.r2_object_key as string,
-    size_bytes: (p.size_bytes as number | null) ?? null,
+    source_table: p.sourceTable,
+    source_photo_id: p.sourceId,
+    r2_object_key: p.r2Key,
+    size_bytes: p.sizeBytes,
   }));
   const { error: artErr } = await admin
     .from('photo_delivery_artifacts')

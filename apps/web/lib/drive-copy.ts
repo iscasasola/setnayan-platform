@@ -178,24 +178,47 @@ export async function enqueueDriveCopy(input: {
  * Sequential per file to keep memory bounded (one artifact in memory at a
  * time — same reasoning as the 0009 release worker on Vercel's 1GB ceiling).
  * Ensures each artifact type's subfolder exactly once per call.
+ *
+ * By default retries rows below MAX_ATTEMPTS (the normal capture/release path).
+ * The autonomous retry sweep (lib/papic-drive-copy-retry.ts) passes a raised
+ * `attemptCap` (the retry ceiling) to reach rows the normal batch abandoned at
+ * MAX_ATTEMPTS, plus a `retryDue` gate that enforces the exponential back-off so
+ * a broken Drive is never hammered in a tight loop. Both options default to the
+ * pre-existing behaviour, so every other caller is unaffected.
  */
 export async function runDriveCopyBatch(input: {
   eventId: string;
   batchSize?: number;
   accessToken?: string;
+  /** Retry rows with attempt_count < this. Default MAX_ATTEMPTS (normal path). */
+  attemptCap?: number;
+  /** Per-row back-off gate (retry sweep). Default: every fetched row is due. */
+  retryDue?: (row: { attempt_count: number; last_error_at: string | null }) => boolean;
 }): Promise<{ uploaded: number; failed: number; remaining: number }> {
   const admin = createAdminClient();
   const batchSize = input.batchSize ?? DEFAULT_BATCH_SIZE;
+  const attemptCap = input.attemptCap ?? MAX_ATTEMPTS;
 
-  const { data: pending } = await admin
+  const { data: pendingRaw } = await admin
     .from('drive_copy_artifacts')
-    .select('artifact_id, artifact_type, r2_object_key, file_name, mime_type')
+    .select('artifact_id, artifact_type, r2_object_key, file_name, mime_type, attempt_count, last_error_at')
     .eq('event_id', input.eventId)
     .is('drive_file_id', null)
-    .lt('attempt_count', MAX_ATTEMPTS)
+    .lt('attempt_count', attemptCap)
     .order('attempt_count', { ascending: true })
     .order('created_at', { ascending: true })
     .limit(batchSize);
+
+  // Back-off gate (retry sweep only): drop rows that failed too recently so a
+  // permanently-broken Drive is retried increasingly sparsely, never hammered.
+  const pending = input.retryDue
+    ? (pendingRaw ?? []).filter((r) =>
+        input.retryDue!({
+          attempt_count: (r.attempt_count as number | null) ?? 0,
+          last_error_at: (r.last_error_at as string | null) ?? null,
+        }),
+      )
+    : pendingRaw;
 
   if (!pending || pending.length === 0) {
     return { uploaded: 0, failed: 0, remaining: 0 };

@@ -349,12 +349,23 @@ function retentionDays(): number {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 90;
 }
 
+// Papic storage PR-4 — warn about aging CLIPS too, but ONLY when the clip drop is
+// actually armed (PAPIC_CLIP_DROP_ENABLED='true'). Clips only become droppable
+// once they have a web copy (clip_web_r2_key), and the drop's no-Drive hold-and-
+// warn gate keeps an unwarned clip's raw HELD until this nudge lands — so the warn
+// audience must include clip-aging events when clips are droppable, and must NOT
+// warn prematurely when the clip drop is still off.
+function clipDropEnabled(): boolean {
+  return process.env.PAPIC_CLIP_DROP_ENABLED === 'true';
+}
+
 export async function runPapicDropWarning(): Promise<{ candidates: number; sent: number }> {
   const admin = createAdminClient();
   const days = retentionDays();
   const cutoff = new Date(Date.now() - (days - WARN_LEAD_DAYS) * 86_400_000).toISOString();
+  const clipsArmed = clipDropEnabled();
 
-  const [seat, guest] = await Promise.all([
+  const [seat, guest, seatClips, guestClips] = await Promise.all([
     admin
       .from('papic_photos')
       .select('event_id')
@@ -371,9 +382,38 @@ export async function runPapicDropWarning(): Promise<{ candidates: number; sent:
       .not('display_r2_key', 'is', null)
       .lt('captured_at', cutoff)
       .limit(4000),
+    // Clip branches mirror the drop sweep's clip candidate filter (a web copy must
+    // exist) so we only nudge couples whose clip originals are actually droppable.
+    clipsArmed
+      ? admin
+          .from('papic_photos')
+          .select('event_id')
+          .eq('photo_type', 'clip')
+          .is('full_res_dropped_at', null)
+          .not('clip_web_r2_key', 'is', null)
+          .lt('captured_at', cutoff)
+          .limit(4000)
+      : Promise.resolve({ data: [] as { event_id: string }[] }),
+    clipsArmed
+      ? admin
+          .from('papic_guest_captures')
+          .select('event_id')
+          .eq('media_type', 'clip')
+          .is('full_res_dropped_at', null)
+          .not('clip_web_r2_key', 'is', null)
+          .lt('captured_at', cutoff)
+          .limit(4000)
+      : Promise.resolve({ data: [] as { event_id: string }[] }),
   ]);
   const eventIds = [
-    ...new Set([...(seat.data ?? []), ...(guest.data ?? [])].map((r) => r.event_id as string)),
+    ...new Set(
+      [
+        ...(seat.data ?? []),
+        ...(guest.data ?? []),
+        ...(seatClips.data ?? []),
+        ...(guestClips.data ?? []),
+      ].map((r) => r.event_id as string),
+    ),
   ];
   if (eventIds.length === 0) return { candidates: 0, sent: 0 };
 

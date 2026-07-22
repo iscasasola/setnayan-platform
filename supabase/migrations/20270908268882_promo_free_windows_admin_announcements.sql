@@ -14,10 +14,15 @@
 -- the date window (see the migrations-auto-apply rule: a go-live hold is a flag
 -- shipped OFF, never "hold the push").
 --
--- V1 code enforces the 'all_couples' audience only. The vendor side needs a
--- separate enforcement point (vendor SKUs carry a DB CHECK (price_php > 0) and
--- vendor "free" is the flag-dark VENDOR_TIER_FEATURE_GATE today) — the schema
--- carries 'all_vendors'/'segment' forward so that lands without a migration.
+-- Two audiences ship:
+--   'all_couples' → covered_service_keys resolve as owned via lib/entitlements.ts.
+--   'all_vendors' → every vendor is promoted to promoted_vendor_tier for free,
+--                   ORed into resolveVendorTier() (the vendor feature-tier choke
+--                   point). Vendor billing can't be zeroed in-catalog (DB CHECK
+--                   price_php > 0), so the free vendor path is a tier PROMOTION,
+--                   never a ₱0 subscription row. Inert until paid vendor billing
+--                   is on (VENDOR_TIER_FEATURE_GATE) — everyone's free before that.
+-- 'segment' is schema-forward (targeted filters) and unused in V1.
 --
 -- IDs: UUID PK (matches orders / discount_codes; no generate_public_id letter
 -- needed for an admin-only object).
@@ -40,6 +45,10 @@ CREATE TABLE IF NOT EXISTS public.promo_free_windows (
                           CHECK (audience_type IN ('all_couples','all_vendors','segment')),
   -- Future segment filters (event_type, region, planning stage). Unused in V1.
   audience_params       JSONB NOT NULL DEFAULT '{}'::jsonb,
+  -- 'all_vendors' windows promote every vendor to this paid tier for free during
+  -- the window (resolveVendorTier ORs it in, never a downgrade). NULL for couple
+  -- windows (they use covered_service_keys instead).
+  promoted_vendor_tier  TEXT CHECK (promoted_vendor_tier IN ('solo','pro','enterprise')),
   starts_at             TIMESTAMPTZ NOT NULL,
   ends_at               TIMESTAMPTZ NOT NULL,
   -- Master per-row switch (a deactivated window never frees anything, even
@@ -49,7 +58,11 @@ CREATE TABLE IF NOT EXISTS public.promo_free_windows (
   created_by            UUID REFERENCES public.users(user_id) ON DELETE SET NULL,
   created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT promo_free_windows_window_order CHECK (ends_at > starts_at)
+  CONSTRAINT promo_free_windows_window_order CHECK (ends_at > starts_at),
+  -- A vendor window MUST name a promoted tier; a non-vendor window MUST NOT.
+  CONSTRAINT promo_free_windows_vendor_tier CHECK (
+    (audience_type = 'all_vendors') = (promoted_vendor_tier IS NOT NULL)
+  )
 );
 
 COMMENT ON TABLE public.promo_free_windows IS

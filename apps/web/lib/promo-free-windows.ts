@@ -28,6 +28,10 @@
 
 import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { tierRank, type VendorTier } from '@/lib/vendor-tier-caps';
+
+/** The paid tiers a vendor free window can promote every vendor to. */
+export type PromotedVendorTier = 'solo' | 'pro' | 'enterprise';
 
 export type PromoFreeWindow = {
   promo_window_id: string;
@@ -35,10 +39,30 @@ export type PromoFreeWindow = {
   blurb: string | null;
   covered_service_keys: string[];
   audience_type: 'all_couples' | 'all_vendors' | 'segment';
+  promoted_vendor_tier: PromotedVendorTier | null;
   starts_at: string;
   ends_at: string;
   show_banner: boolean;
 };
+
+const SELECT_COLS =
+  'promo_window_id, title, blurb, covered_service_keys, audience_type, promoted_vendor_tier, starts_at, ends_at, show_banner';
+
+function mapWindow(row: Record<string, unknown>): PromoFreeWindow {
+  return {
+    promo_window_id: row.promo_window_id as string,
+    title: row.title as string,
+    blurb: (row.blurb as string | null) ?? null,
+    covered_service_keys: Array.isArray(row.covered_service_keys)
+      ? (row.covered_service_keys as string[])
+      : [],
+    audience_type: row.audience_type as PromoFreeWindow['audience_type'],
+    promoted_vendor_tier: (row.promoted_vendor_tier as PromotedVendorTier | null) ?? null,
+    starts_at: row.starts_at as string,
+    ends_at: row.ends_at as string,
+    show_banner: Boolean(row.show_banner),
+  };
+}
 
 /**
  * Master kill-switch. Server-only env (the gate + banner are server-side), so no
@@ -56,42 +80,38 @@ export function isPromoFreeWindowsEnabled(): boolean {
 export const getLiveCoupleFreeWindows = cache(
   async (): Promise<PromoFreeWindow[]> => {
     if (!isPromoFreeWindowsEnabled()) return [];
-
-    let admin;
-    try {
-      admin = createAdminClient();
-    } catch {
-      return [];
-    }
-
-    const nowIso = new Date().toISOString();
-    const { data, error } = await admin
-      .from('promo_free_windows')
-      .select(
-        'promo_window_id, title, blurb, covered_service_keys, audience_type, starts_at, ends_at, show_banner',
-      )
-      .eq('is_active', true)
-      .eq('audience_type', 'all_couples')
-      .lte('starts_at', nowIso)
-      .gt('ends_at', nowIso)
-      .order('ends_at', { ascending: true });
-
-    if (error || !data) return [];
-
-    return data.map((row) => ({
-      promo_window_id: row.promo_window_id as string,
-      title: row.title as string,
-      blurb: (row.blurb as string | null) ?? null,
-      covered_service_keys: Array.isArray(row.covered_service_keys)
-        ? (row.covered_service_keys as string[])
-        : [],
-      audience_type: row.audience_type as PromoFreeWindow['audience_type'],
-      starts_at: row.starts_at as string,
-      ends_at: row.ends_at as string,
-      show_banner: Boolean(row.show_banner),
-    }));
+    return fetchLiveWindows('all_couples');
   },
 );
+
+/**
+ * Shared live-window fetch for one audience. Admin-client read; graceful-degrade
+ * to [] on any error. Callers are cache()d, so this runs at most once per
+ * (audience) per request. NOT flag-guarded itself — the cached callers are.
+ */
+async function fetchLiveWindows(
+  audienceType: PromoFreeWindow['audience_type'],
+): Promise<PromoFreeWindow[]> {
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return [];
+  }
+
+  const nowIso = new Date().toISOString();
+  const { data, error } = await admin
+    .from('promo_free_windows')
+    .select(SELECT_COLS)
+    .eq('is_active', true)
+    .eq('audience_type', audienceType)
+    .lte('starts_at', nowIso)
+    .gt('ends_at', nowIso)
+    .order('ends_at', { ascending: true });
+
+  if (error || !data) return [];
+  return data.map((row) => mapWindow(row as Record<string, unknown>));
+}
 
 /**
  * The flattened set of couple service_codes that are FREE right now via any live
@@ -122,4 +142,58 @@ export async function isSkuFreeForCouplesNow(
  */
 export async function getCoupleFreeWindowBanners(): Promise<PromoFreeWindow[]> {
   return (await getLiveCoupleFreeWindows()).filter((w) => w.show_banner);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Vendor audience — a live all_vendors window PROMOTES every vendor to a paid
+// tier for free (resolveVendorTier ORs it in). Vendor "free" can't be a ₱0
+// subscription (DB CHECK price_php > 0), so it's a tier promotion, not a comp.
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * The vendor-audience windows LIVE right now. cache()d; [] when flag off / error.
+ */
+export const getLiveVendorFreeWindows = cache(
+  async (): Promise<PromoFreeWindow[]> => {
+    if (!isPromoFreeWindowsEnabled()) return [];
+    return fetchLiveWindows('all_vendors');
+  },
+);
+
+/**
+ * The HIGHEST paid tier any live vendor window promotes to right now (by tier
+ * rank), or null when the flag is off / nothing is live. resolveVendorTier reads
+ * this and upgrades a vendor to it (never a downgrade). Two overlapping windows
+ * (e.g. Solo + Pro) → the vendor gets the better one.
+ */
+export const getPromotedVendorTierNow = cache(
+  async (): Promise<PromotedVendorTier | null> => {
+    const windows = await getLiveVendorFreeWindows();
+    let best: PromotedVendorTier | null = null;
+    for (const w of windows) {
+      const t = w.promoted_vendor_tier;
+      if (t && (best === null || tierRank(t) > tierRank(best))) best = t;
+    }
+    return best;
+  },
+);
+
+/**
+ * Promote a vendor's real tier by any live vendor free window (never a
+ * downgrade). Pure over the resolved promo tier so resolveVendorTier stays a
+ * one-liner. Returns realTier unchanged when no promo outranks it.
+ */
+export function applyVendorTierPromotion(
+  realTier: VendorTier,
+  promoted: PromotedVendorTier | null,
+): VendorTier {
+  if (promoted && tierRank(promoted) > tierRank(realTier)) return promoted;
+  return realTier;
+}
+
+/**
+ * Banner windows for vendors — live AND show_banner=true.
+ */
+export async function getVendorFreeWindowBanners(): Promise<PromoFreeWindow[]> {
+  return (await getLiveVendorFreeWindows()).filter((w) => w.show_banner);
 }

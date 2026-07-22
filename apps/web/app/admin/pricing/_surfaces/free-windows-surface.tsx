@@ -32,6 +32,7 @@ type PromoRow = {
   blurb: string | null;
   covered_service_keys: string[];
   audience_type: string;
+  promoted_vendor_tier: string | null;
   starts_at: string;
   ends_at: string;
   is_active: boolean;
@@ -73,6 +74,7 @@ const CREATE_ERROR_COPY: Record<string, string> = {
   starts: 'Set a valid start date and time.',
   ends: 'Set a valid end date and time.',
   order: 'The end must be after the start.',
+  tier: 'Pick which paid tier to give vendors for free.',
   db: 'Could not save the free window. Please try again.',
 };
 
@@ -95,7 +97,7 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
     admin
       .from('promo_free_windows')
       .select(
-        'promo_window_id, title, blurb, covered_service_keys, audience_type, starts_at, ends_at, is_active, show_banner, created_at',
+        'promo_window_id, title, blurb, covered_service_keys, audience_type, promoted_vendor_tier, starts_at, ends_at, is_active, show_banner, created_at',
       )
       .order('created_at', { ascending: false }),
     fetchV2CustomerCatalog(),
@@ -119,11 +121,11 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
           <h1 className="text-2xl font-semibold tracking-tight">Free windows</h1>
         </div>
         <p className="text-sm text-ink/65">
-          Schedule an announcement that makes chosen services{' '}
-          <strong>free for every couple</strong> during a date range. While it&rsquo;s
-          live the services show as included on their dashboard (no code, no
-          checkout) and a banner tells them about it. When the window ends, the
-          services go back to paid unless the couple already bought them.
+          Schedule an announcement that makes services <strong>free during a date
+          range</strong> — pick services for <strong>couples</strong>, or a paid
+          tier for <strong>vendors</strong>. While it&rsquo;s live the freebie shows
+          as included (no code, no checkout) and a banner tells them about it. When
+          the window ends, it reverts to paid unless they already bought it.
         </p>
       </header>
 
@@ -178,9 +180,12 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
       {/* Create form */}
       <form
         action={createFreeWindow}
-        className="sn-tile mb-8 space-y-4 !p-5"
+        className="sn-tile mb-6 space-y-4 !p-5"
       >
-        <h2 className="text-sm font-semibold text-ink">New free window</h2>
+        <input type="hidden" name="audience_type" value="all_couples" />
+        <h2 className="text-sm font-semibold text-ink">
+          New free window · <span className="text-ink/60">for couples</span>
+        </h2>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block text-sm">
@@ -273,11 +278,87 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
 
         <div className="flex items-center gap-3 pt-1">
           <SubmitButton className="button-primary text-sm" pendingLabel="Creating…">
-            Create free window
+            Create couple free window
           </SubmitButton>
-          <span className="text-xs text-ink/50">
-            Audience: all couples (vendor + segment targeting coming later).
-          </span>
+          <span className="text-xs text-ink/50">Audience: all couples.</span>
+        </div>
+      </form>
+
+      {/* Create form — vendors */}
+      <form action={createFreeWindow} className="sn-tile mb-8 space-y-4 !p-5">
+        <input type="hidden" name="audience_type" value="all_vendors" />
+        <h2 className="text-sm font-semibold text-ink">
+          New free window · <span className="text-ink/60">for vendors</span>
+        </h2>
+        <p className="text-xs text-ink/55">
+          Gives <strong>every vendor</strong> a paid tier&rsquo;s features for free
+          during the window (a tier upgrade, not a ₱0 plan). Reverts when it ends.
+          Note: while paid vendor billing is still off for launch, all vendors
+          already have every feature — this only bites once paid tiers go live.
+        </p>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-ink/80">Title</span>
+            <input
+              name="title"
+              required
+              maxLength={120}
+              placeholder="Free Pro month for all vendors"
+              className="input-field w-full"
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-ink/80">
+              Give vendors this tier
+            </span>
+            <select name="promoted_vendor_tier" required className="input-field w-full">
+              <option value="solo">Solo</option>
+              <option value="pro">Pro</option>
+              <option value="enterprise">Enterprise</option>
+            </select>
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-ink/80">
+              Banner blurb <span className="text-ink/45">(optional)</span>
+            </span>
+            <input
+              name="blurb"
+              maxLength={240}
+              placeholder="Pro is on us all month — no charge."
+              className="input-field w-full"
+            />
+          </label>
+          <div className="hidden sm:block" aria-hidden />
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-ink/80">
+              Starts <span className="text-ink/45">(PH time)</span>
+            </span>
+            <input type="datetime-local" name="starts_at" required className="input-field w-full" />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-ink/80">
+              Ends <span className="text-ink/45">(PH time)</span>
+            </span>
+            <input type="datetime-local" name="ends_at" required className="input-field w-full" />
+          </label>
+        </div>
+
+        <label className="flex items-center gap-2 text-sm text-ink/80">
+          <input
+            type="checkbox"
+            name="show_banner"
+            defaultChecked
+            className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+          />
+          Show the announcement banner to vendors while it&rsquo;s live
+        </label>
+
+        <div className="flex items-center gap-3 pt-1">
+          <SubmitButton className="button-primary text-sm" pendingLabel="Creating…">
+            Create vendor free window
+          </SubmitButton>
+          <span className="text-xs text-ink/50">Audience: all vendors.</span>
         </div>
       </form>
 
@@ -309,18 +390,25 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
                     ) : null}
                     <p className="mt-1 text-xs text-ink/55">
                       {fmtDateTime(row.starts_at)} → {fmtDateTime(row.ends_at)}
-                      {' · '}all couples
+                      {' · '}
+                      {row.audience_type === 'all_vendors' ? 'all vendors' : 'all couples'}
                       {row.show_banner ? ' · banner on' : ' · banner off'}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      {row.covered_service_keys.map((code) => (
-                        <span
-                          key={code}
-                          className="inline-flex rounded-md bg-ink/[0.04] px-2 py-0.5 text-[11px] text-ink/70"
-                        >
-                          {titleFor.get(code) ?? code}
+                      {row.audience_type === 'all_vendors' ? (
+                        <span className="inline-flex rounded-md bg-terracotta/10 px-2 py-0.5 text-[11px] font-medium capitalize text-terracotta-700">
+                          Vendors → {row.promoted_vendor_tier ?? '—'} tier, free
                         </span>
-                      ))}
+                      ) : (
+                        row.covered_service_keys.map((code) => (
+                          <span
+                            key={code}
+                            className="inline-flex rounded-md bg-ink/[0.04] px-2 py-0.5 text-[11px] text-ink/70"
+                          >
+                            {titleFor.get(code) ?? code}
+                          </span>
+                        ))
+                      )}
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">

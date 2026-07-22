@@ -2,9 +2,9 @@
 
 Owner ask (2026-07-22): "on admin on the pricing … create announcements when we
 want to provide free paid services at a certain date for vendors and users for
-their events." Ships the **couples** side, flag-dark.
+their events." Ships **both audiences** — couples and vendors — flag-dark.
 
-**Model — entitlement-OR, not a ₱0 order.** A live `promo_free_windows` row
+**Couples — entitlement-OR, not a ₱0 order.** A live `promo_free_windows` row
 (is_active AND now within `[starts_at, ends_at)`) makes its `covered_service_keys`
 resolve as OWNED for every couple during the window, ORed into `eventSkuActive`,
 `eventOwnsSku`, and the batch `eventActiveSkus` in `lib/entitlements.ts` — exactly
@@ -17,16 +17,30 @@ has none). The buy-CTA `eventOwnsSku` OR means a couple is never charged for
 something that is free this moment; the Studio grid shows covered SKUs as
 included.
 
+**Vendors — a tier PROMOTION, not a ₱0 subscription.** Vendor SKUs carry a DB
+`CHECK (price_php > 0)`, so vendor "free" can't be a zero-peso plan. Instead a live
+`audience_type='all_vendors'` window names a `promoted_vendor_tier`
+(solo/pro/enterprise); `resolveVendorTier` — the ONE feature-tier choke point all 7
+vendor gates read — upgrades every vendor to it for free during the window, never a
+downgrade (`applyVendorTierPromotion` compares `tierRank`). All 7 callers are
+feature gates (theft-watch, recaps, earnings, creators, performance, calls, help
+routing), so the promotion is exactly the tier they should see; billing surfaces
+read `vendor_subscriptions` directly and are untouched. ⚠ Also inert until paid
+vendor billing is switched on (`VENDOR_TIER_FEATURE_GATE`) — before that every
+vendor already has every feature, so a "free tier" window is a no-op; it's wired
+for the day that flips.
+
 **Surfaces.** New migration `20270908268882_promo_free_windows` (table + RLS at
 create time — admin-only; server reads via the service-role client). New reader
 `lib/promo-free-windows.ts` (flag-gated, `cache()`d, graceful-degrade to empty).
 New admin tab **Catalog Studio → Free windows** (`/admin/pricing?tab=free-windows`)
 to author/activate/deactivate/delete windows, pick the covered couple SKUs from
-the live catalog, and set a PH-time date range (`_surfaces/free-windows-{surface,
-actions}.tsx` · every write audit-logged). New couple banner
-`app/_components/promo-free-window-banner.tsx`, mounted once in the event layout
-(self-gates to null when nothing is live) — the in-app announcement channel the
-owner picked.
+the live catalog (couple form) OR pick a vendor tier (vendor form), and set a
+PH-time date range (`_surfaces/free-windows-{surface,actions}.tsx` · every write
+audit-logged). Two in-app banners mounted once each — couple
+(`promo-free-window-banner.tsx`, event layout) + vendor
+(`promo-free-window-banner-vendor.tsx`, vendor-dashboard layout), both self-gating
+to null when nothing is live — the announcement channel the owner picked.
 
 **Gated OFF by env `PROMO_FREE_WINDOWS_ENABLED` (default off).** While off, every
 reader short-circuits before touching the DB, so entitlements + layout are
@@ -36,11 +50,10 @@ migrations-auto-apply rule (a go-live hold is a flag shipped OFF, not "hold the
 push"). The owner flips it the day a promo should go live.
 
 **Scope / known edges (V1):**
-- **Couples only.** The schema carries `audience_type` `all_couples`/`all_vendors`
-  /`segment` forward, but code enforces `all_couples` only. A free VENDOR window
-  needs a separate enforcement point — vendor SKUs carry a DB `CHECK (price_php >
-  0)` (can't be zeroed) and vendor "free" today is the flag-dark
-  `VENDOR_TIER_FEATURE_GATE` — so it's a follow-up, no migration needed.
+- **Both audiences ship** (couples + vendors). `segment` (targeted filters) stays
+  schema-forward and unused.
+- **Vendor path is inert until paid billing is on** (`VENDOR_TIER_FEATURE_GATE`) —
+  see above.
 - **Standard-entitlement SKUs only.** SKUs gated purely by `eventSkuActive`/
   `eventOwnsSku` (Animated Monogram, 3D Plan, Editorial PRO, …) go free cleanly.
   Bespoke-metered SKUs (Papic per-camera day quotas, guest credit caps) read
@@ -50,8 +63,9 @@ push"). The owner flips it the day a promo should go live.
   follow-up, not V1.
 
 SPEC IMPACT: New admin capability + a new "free-service promo" concept that
-composes the existing comp-grant/entitlement model. Logged as a `DECISION_LOG.md`
-row (couples-side scope, entitlement-OR model, flag-dark, ephemeral, all-couples
-audience). No locked-decision change — commission stays 0%, pricing tables
-unchanged; this is an admin lever over existing SKUs. Owner sign-off flagged in
-the PR for the ephemeral-vs-claim and couples-first decisions.
+composes the existing comp-grant/entitlement model (couples) and the vendor
+feature-tier model (vendors). Logged as `DECISION_LOG.md` rows (entitlement-OR for
+couples, tier-promotion for vendors, flag-dark, ephemeral). No locked-decision
+change — commission stays 0%, pricing tables unchanged; this is an admin lever over
+existing SKUs/tiers. Owner sign-off flagged in the PR for the ephemeral-vs-claim
+decision.

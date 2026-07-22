@@ -19,16 +19,27 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { asVendorTier, type VendorTier } from './vendor-tier-caps';
+import {
+  applyVendorTierPromotion,
+  getPromotedVendorTierNow,
+} from './promo-free-windows';
 
 export function isVendorFeatureGateEnabled(): boolean {
   return process.env.VENDOR_TIER_FEATURE_GATE === 'true';
 }
 
 /**
- * Resolve a vendor's `tier_state`. It is deliberately NOT part of the shared
- * `FULL_VENDOR_PROFILE_SELECT` (this keeps the gate additive), so read it with
- * a targeted single-column query keyed on the primary-key `vendor_profile_id`.
- * Defaults to `free` when absent/unknown.
+ * Resolve a vendor's EFFECTIVE feature tier. Base is `tier_state` (deliberately
+ * NOT part of the shared `FULL_VENDOR_PROFILE_SELECT` — keeps the gate additive —
+ * so read with a targeted single-column query on the PK). Defaults to `free`.
+ *
+ * Then a live admin "free window" for all vendors (PROMOTED_VENDOR_TIER · flag
+ * PROMO_FREE_WINDOWS_ENABLED) upgrades that tier for free during its window —
+ * never a downgrade. All 7 callers are feature gates (theft-watch, recaps,
+ * earnings, creators, performance, calls, help routing), so the promotion is
+ * exactly the tier those gates should see; billing/subscription surfaces read
+ * vendor_subscriptions directly, not this. The promo read short-circuits to null
+ * when the flag is off → byte-identical to today. See lib/promo-free-windows.ts.
  */
 export async function resolveVendorTier(
   supabase: SupabaseClient,
@@ -39,5 +50,8 @@ export async function resolveVendorTier(
     .select('tier_state')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
-  return asVendorTier((data as { tier_state?: string | null } | null)?.tier_state);
+  const realTier = asVendorTier(
+    (data as { tier_state?: string | null } | null)?.tier_state,
+  );
+  return applyVendorTierPromotion(realTier, await getPromotedVendorTierNow());
 }

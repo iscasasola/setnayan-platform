@@ -39,31 +39,45 @@ function parsePhLocal(raw: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+const VENDOR_TIERS = ['solo', 'pro', 'enterprise'];
+
 export async function createFreeWindow(formData: FormData): Promise<never> {
   const { userId } = await requireAdminAction();
 
+  const isVendor = String(formData.get('audience_type') ?? 'all_couples') === 'all_vendors';
   const title = String(formData.get('title') ?? '').trim();
   const blurb = String(formData.get('blurb') ?? '').trim();
-  const skus = formData
-    .getAll('service_keys')
-    .map((v) => String(v))
-    .filter(Boolean);
   const startsAt = parsePhLocal(String(formData.get('starts_at') ?? ''));
   const endsAt = parsePhLocal(String(formData.get('ends_at') ?? ''));
 
   if (!title) backWith('createError', 'title');
-  if (skus.length === 0) backWith('createError', 'skus');
   if (!startsAt) backWith('createError', 'starts');
   if (!endsAt) backWith('createError', 'ends');
   if (endsAt! <= startsAt!) backWith('createError', 'order');
 
-  // Only real, live couple SKUs may be freed (defense-in-depth: the form is
-  // POST-able with arbitrary service_keys). Silently drop anything not in the
-  // live catalog; if nothing survives, that's a validation failure.
-  const catalog = await fetchV2CustomerCatalog();
-  const valid = new Set(catalog.map((s) => s.service_code));
-  const covered = skus.filter((s) => valid.has(s));
-  if (covered.length === 0) backWith('createError', 'skus');
+  let covered: string[] = [];
+  let promotedTier: string | null = null;
+
+  if (isVendor) {
+    // Vendor window: promote every vendor to a paid tier for free (no SKUs).
+    const tier = String(formData.get('promoted_vendor_tier') ?? '');
+    if (!VENDOR_TIERS.includes(tier)) backWith('createError', 'tier');
+    promotedTier = tier;
+  } else {
+    // Couple window: only real, live couple SKUs may be freed (defense-in-depth:
+    // the form is POST-able with arbitrary service_keys). Silently drop anything
+    // not in the live catalog; if nothing survives, that's a validation failure.
+    const skus = formData
+      .getAll('service_keys')
+      .map((v) => String(v))
+      .filter(Boolean);
+    const catalog = await fetchV2CustomerCatalog();
+    const valid = new Set(catalog.map((s) => s.service_code));
+    covered = skus.filter((s) => valid.has(s));
+    if (covered.length === 0) backWith('createError', 'skus');
+  }
+
+  const audienceType = isVendor ? 'all_vendors' : 'all_couples';
 
   const admin = createAdminClient();
   const { data, error } = await admin
@@ -72,7 +86,8 @@ export async function createFreeWindow(formData: FormData): Promise<never> {
       title,
       blurb: blurb || null,
       covered_service_keys: covered,
-      audience_type: 'all_couples',
+      audience_type: audienceType,
+      promoted_vendor_tier: promotedTier,
       starts_at: startsAt!.toISOString(),
       ends_at: endsAt!.toISOString(),
       is_active: true,
@@ -90,8 +105,9 @@ export async function createFreeWindow(formData: FormData): Promise<never> {
     actor_user_id: userId,
     metadata: {
       title,
+      audience_type: audienceType,
       covered_service_keys: covered,
-      audience_type: 'all_couples',
+      promoted_vendor_tier: promotedTier,
       starts_at: startsAt!.toISOString(),
       ends_at: endsAt!.toISOString(),
     },

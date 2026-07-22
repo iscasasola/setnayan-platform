@@ -34,6 +34,7 @@ import {
   papicCapacityPhrase,
   papicCapacityShort,
   papicFreeCameraCount,
+  papicFreeGrantPoints,
   publicPapicLadder,
   type PapicTierCode,
 } from './papic-tier-copy';
@@ -148,6 +149,14 @@ test('free-camera count comes from config, not a literal', () => {
     free: { ...PAPIC_TIER_CONFIG_FALLBACK.free, seatsPerEvent: 7 },
   };
   assert.equal(papicFreeCameraCount(retuned), 7);
+});
+
+test('free-pool points come from config, not a literal', () => {
+  // Papic Free = the shared event pool capped at 50 pts (owner 2026-07-22). The
+  // literal lives in ONE place (the fallback const); config overrides it.
+  assert.equal(papicFreeGrantPoints(PAPIC_TIER_CONFIG_FALLBACK), 50);
+  const retuned = { ...PAPIC_TIER_CONFIG_FALLBACK, freeGrantPoints: 90 };
+  assert.equal(papicFreeGrantPoints(retuned as never), 90);
 });
 
 test('the public ladder drops retired rungs — Papic One is the live camera', () => {

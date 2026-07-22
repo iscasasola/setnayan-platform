@@ -137,6 +137,51 @@ async function grantPapicPassPoints(ctx: ActivationContext): Promise<void> {
 }
 
 /**
+ * Papic One — grant a purchased point bucket PER PAID CAMERA into the shared
+ * event pool (owner 2026-07-22 · Papic_One_Pool_Model_Spec §0: ₱100/camera →
+ * 250 pts each). The buy order's service_key is PAPIC_CAMERAS (the per-camera
+ * buy order — NOT the mini seat's own sku_code PAPIC_CAMERA_MINI_DAY). Delegates
+ * to the SQL engine papic_grant_camera_points, which counts THIS order's mini
+ * seats (250 × N in one grant) and is idempotent by order_id — a re-approval
+ * never double-grants. Repeatable: each new per-camera order is a distinct
+ * order_id and grants again. Reversal is symmetric via reversePapicPassPoints
+ * (deletes every grant by order_id, regardless of source).
+ *
+ * NON-FATAL per the dispatcher contract: a failure leaves a paid order with no
+ * points, which an admin can re-run — it must never roll back the approval.
+ * (Function declaration → hoisted, so the frozen EXACT_HOOKS map can reference it.)
+ */
+async function grantPapicCameraPoints(ctx: ActivationContext): Promise<void> {
+  if (!ctx.eventId) return;
+  try {
+    const { error } = await ctx.admin.rpc('papic_grant_camera_points', {
+      p_event_id: ctx.eventId,
+      p_order_id: ctx.orderId,
+    });
+    if (error) {
+      console.error('[sku-activation] Papic One camera grant failed (non-fatal):', {
+        order_id: ctx.orderId,
+        error: error.message,
+      });
+      return;
+    }
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'service_activated',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: {
+        service_key: ctx.serviceKey,
+        event_id: ctx.eventId,
+        kind: 'papic_camera_grant',
+      },
+    });
+  } catch (e) {
+    console.error('[sku-activation] Papic One camera grant threw (non-fatal):', e);
+  }
+}
+
+/**
  * Papic One — reverse a purchased point grant when an order is un-approved.
  *
  * Symmetric to grantPapicPassPoints. Deletes by order_id (idempotent, and a
@@ -399,6 +444,12 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   PAPIC_GUEST_6K: grantPapicPassPoints,
   PAPIC_GUEST_10K: grantPapicPassPoints,
   PAPIC_GUEST_TOPUP: grantPapicPassPoints,
+
+  // Papic One — the per-camera buy order (owner 2026-07-22). service_key is
+  // PAPIC_CAMERAS (the buy order), NOT the mini seat's sku_code
+  // PAPIC_CAMERA_MINI_DAY. 250 pts per paid camera into the SAME shared event
+  // pool, repeatable (each buy is its own order_id) + idempotent per order.
+  PAPIC_CAMERAS: grantPapicCameraPoints,
 
   // 'PANOOD_SYSTEM' (Desktop) / 'PANOOD_SYSTEM_MOBILE' (Mobile) → paid Live Studio
   // controller. On approval, PROVISION the tier's camera-operator seats so the

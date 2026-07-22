@@ -3,7 +3,11 @@ import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isR2Configured, r2Upload, R2_BUCKETS } from '@/lib/r2';
 import { ingestToWall } from '@/lib/live-wall';
-import { fetchGuestQuota } from '@/lib/papic-guest';
+import { papicCaptureCost } from '@/lib/papic-cameras';
+import {
+  papicEventPoolPreCheckExhausted,
+  papicReserveEventPoolForCapture,
+} from '@/lib/papic-event-pool-gate';
 import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
 import { screenCapture } from '@/lib/nsfw-screen';
 
@@ -168,12 +172,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ status: 'terms_required' }, { status: 403 });
   }
 
-  // Pre-check the quota so we don't PUT an object that the RPC would then
-  // reject — keeps R2 free of orphans for the common exhausted case. The RPC's
-  // advisory-locked count is still the authoritative gate for the boundary.
-  const pre = await fetchGuestQuota(admin, session.event_id, session.guest_id);
-  if (pre.remaining <= 0) {
-    return NextResponse.json({ status: 'quota_exhausted', ...pre }, { status: 409 });
+  // The capture's point cost (1 photo · 3 clip) — the ONE currency the shared
+  // event pool meters (Free / Papic One / Papic Pool all draw the same pool).
+  const cost = papicCaptureCost(isClip ? 'clip' : 'photo');
+
+  // Pre-check the shared event pool so we don't PUT an object the reserve would
+  // then refuse — keeps R2 free of orphans for the common exhausted case. The
+  // AUTHORITATIVE, race-safe gate is the papic_reserve_event_points reserve
+  // below (fail-CLOSED). This pre-check fails OPEN by design: a non-applies
+  // event (no grant / no pass) returns MAXINT so this is a no-op and the record
+  // RPC's own gate decides (legacy behaviour byte-identical), and any RPC error
+  // just skips the optimization — the reserve still gates.
+  {
+    if (await papicEventPoolPreCheckExhausted(admin, session.event_id, cost)) {
+      return NextResponse.json({ status: 'camera_points_exhausted' }, { status: 409 });
+    }
   }
 
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -214,6 +227,30 @@ export async function POST(req: Request) {
     }
   }
 
+  // ── EVENT-POOL reserve (Phase 0c uniform gate) — the AUTHORITATIVE, race-safe
+  // cap for every guest capture. Free / Papic One / Papic Pool all draw this one
+  // shared pool; papic_reserve_event_points atomically books `cost` points (or
+  // allows unconditionally on a non-applies event, ledger untouched). Same
+  // fail-CLOSED posture as the seat path (papic/actions.ts): block on any RPC
+  // error EXCEPT function-not-found (the seam-cutover carve-out in
+  // resolvePointsGate). A refused reserve unwinds below if the record then fails.
+  let eventBooked = false;
+  {
+    // Only a TRUE actually spent points — a fn-not-found 'allow' booked nothing.
+    const { outcome, booked } = await papicReserveEventPoolForCapture(
+      admin,
+      session.event_id,
+      cost,
+    );
+    eventBooked = booked;
+    if (outcome === 'exhausted') {
+      return NextResponse.json({ status: 'camera_points_exhausted' }, { status: 409 });
+    }
+    if (outcome === 'blocked') {
+      return NextResponse.json({ status: 'points_check_failed' }, { status: 503 });
+    }
+  }
+
   // Record the capture, carrying the guest's public-share consent + (for clips)
   // media_type + duration + poster on the row. Graceful-degrade: if the extended
   // RPC isn't deployed yet, retry the 3-arg then the 2-arg signature so the
@@ -239,6 +276,23 @@ export async function POST(req: Request) {
         p_r2_object_key: r2Ref,
       }));
     }
+  }
+
+  // If the record failed OR came back non-ok (quota_exhausted / not_owned /
+  // invalid_guest), unwind the pool reservation so a refused capture never
+  // leaves points spent — symmetric to the seat path. Best-effort; a failed
+  // unwind costs the couple points, never a broken capture.
+  const recordStatus = (data as { status?: string } | null)?.status;
+  if ((error || recordStatus !== 'ok') && eventBooked) {
+    await admin
+      .rpc('papic_release_event_points', {
+        p_event_id: session.event_id,
+        p_cost: cost,
+      })
+      .then(
+        () => undefined,
+        () => undefined,
+      );
   }
   if (error) {
     return NextResponse.json({ error: 'record_failed' }, { status: 500 });

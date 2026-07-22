@@ -203,6 +203,20 @@ export function papicFreeCameraCount(config: PapicTierConfig): number {
 }
 
 /**
+ * Papic Free = the ONE shared event pool capped at this many points (owner
+ * 2026-07-22 · "Free is Papic pool with just 50 points"). The live value is the
+ * admin-editable `papic_event_pool_config.free_grant_points`; this helper reads
+ * it off the config object when present and falls back to the seed literal in
+ * ONE place, so no display surface ever hardcodes "50". Mirrors the
+ * papicFreeCameraCount pattern.
+ */
+export const PAPIC_FREE_GRANT_POINTS_FALLBACK = 50;
+export function papicFreeGrantPoints(config: PapicTierConfig): number {
+  const n = (config as unknown as { freeGrantPoints?: number }).freeGrantPoints;
+  return typeof n === 'number' && n > 0 ? n : PAPIC_FREE_GRANT_POINTS_FALLBACK;
+}
+
+/**
  * The honest capacity sentence for a points budget.
  *
  * NOT "N photos + M clips" — the budget is one purse, so clips eat into the

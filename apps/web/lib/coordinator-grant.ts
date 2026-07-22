@@ -5,6 +5,7 @@ import {
   generateInvitationToken,
   type ModeratorPermissions,
 } from './event-moderators';
+import { isCoordinatorConsentGateEnabled } from './coordinator-consent-gate';
 
 const INVITE_TTL_DAYS = 7;
 const MS_PER_DAY = 86_400_000;
@@ -33,6 +34,19 @@ export async function autoInviteCoordinator(
 ): Promise<{ created: boolean }> {
   const email = params.email.trim().toLowerCase();
   if (!email) return { created: false };
+
+  // RA 10173 consent gate (corpus Coordinator_Role_Feature_Spec § 3a). Unlike
+  // the manual "Promote your coordinator" flow (inviteHost), this path fires as
+  // a side effect of a booking-status write — there is NO couple consent
+  // interaction here, so it can't record the couple's data-privacy consent for
+  // sharing guest PII. When the `coordinator_consent_money` Data Privacy control
+  // is ACTIVE, silently auto-creating that PII-sharing delegate would bypass the
+  // recorded-consent requirement the control exists to enforce — so we SUPPRESS
+  // the auto-invite (fail-closed) and leave the couple to promote the
+  // coordinator through the consent-gated manual form, which captures consent +
+  // writes coordinator_access_consents. INACTIVE (default) = exact prior
+  // behavior (auto-grant as before; no consent system is live anyway).
+  if (await isCoordinatorConsentGateEnabled()) return { created: false };
 
   // Dedupe against any active wedding-planner delegate already covering this email.
   const { data: existing } = await admin

@@ -1,4 +1,5 @@
-import { CheckCircle2, Clock, Gavel, MinusCircle, Circle, AlertTriangle } from 'lucide-react';
+import Link from 'next/link';
+import { CheckCircle2, Clock, Gavel, MinusCircle, Circle, AlertTriangle, ArrowRight } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { relativeTime } from '@/lib/activity';
 import {
@@ -159,6 +160,16 @@ function TaskCard({ task: t, counselGatedStill }: { task: NpcTaskRow; counselGat
               {t.note ? <p><strong>Note:</strong> {t.note}</p> : null}
               {t.status === 'resolved' && t.resolvedAt ? <p>Resolved {relativeTime(t.resolvedAt)}</p> : null}
             </div>
+          ) : null}
+          {t.relatedControlKey ? (
+            <Link
+              href="/admin/data-privacy?tab=controls"
+              scroll={false}
+              className="mt-2 inline-flex items-center gap-1 text-xs font-semibold hover:underline"
+              style={{ color: 'var(--m-orange-2)' }}
+            >
+              Related privacy control <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            </Link>
           ) : null}
         </div>
 

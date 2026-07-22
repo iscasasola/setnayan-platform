@@ -7,7 +7,6 @@
   "app/admin/data-privacy/page.tsx",
   "app/admin/disputes/page.tsx",
   "app/admin/fraud/page.tsx",
-  "app/admin/npc-readiness/page.tsx",
   "app/admin/page.tsx",
   "app/admin/payment-options/page.tsx",
   "app/admin/payments/page.tsx",

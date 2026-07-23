@@ -230,3 +230,46 @@ export function orderGrossOwed(opts: {
   if (opts.vatInclusive) return Math.round(base * 100) / 100;
   return computeVatFromBase(base, opts.vatRatePct ?? 0).gross;
 }
+
+/**
+ * Tolerance (in PHP) absorbed when comparing the matched-payment total against
+ * the gross owed — covers centavo rounding accumulated across multiple partial
+ * payments. Was an inline `const SHORTFALL_TOLERANCE_PHP = 1` inside
+ * approvePayment; hoisted so the reconciliation predicate + its tests share
+ * one source of truth.
+ */
+export const ORDER_SHORTFALL_TOLERANCE_PHP = 1;
+
+/**
+ * True iff the matched-payment total covers the gross owed (within the centavo
+ * tolerance) — i.e. the order is FULLY reconciled and may legitimately reach
+ * status='paid'. A short/partial transfer returns false. Pure + unit-testable.
+ */
+export function orderReconciledToPaid(args: {
+  matchedTotalPhp: number;
+  owedPhp: number;
+  tolerancePhp?: number;
+}): boolean {
+  const tol = args.tolerancePhp ?? ORDER_SHORTFALL_TOLERANCE_PHP;
+  return args.matchedTotalPhp >= args.owedPhp - tol;
+}
+
+/**
+ * The provisioning gate for admin payment approval.
+ *
+ * SKU activation (flip events.setnayan_ai_active, materialise Papic seats, run
+ * the concierge state machine, …) must fire ONLY when the order actually
+ * reaches status='paid' — that means the admin ticked "Also mark order as
+ * paid" (promoteOrder) AND the matched payments fully reconcile the amount
+ * owed (reconciledToPaid). Approving a ₱1 payment on a ₱X order, or approving
+ * with promote unchecked, must NOT provision the full SKU.
+ *
+ * Pure boolean of the two decisions so a mutation to either the AND or the
+ * underlying comparison is caught by tests.
+ */
+export function shouldProvisionOnApproval(args: {
+  promoteOrder: boolean;
+  reconciledToPaid: boolean;
+}): boolean {
+  return args.promoteOrder && args.reconciledToPaid;
+}

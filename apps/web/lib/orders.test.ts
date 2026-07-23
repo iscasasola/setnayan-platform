@@ -7,7 +7,13 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { orderGrossOwed, isVatInclusiveServiceKey } from './orders';
+import {
+  orderGrossOwed,
+  isVatInclusiveServiceKey,
+  orderReconciledToPaid,
+  shouldProvisionOnApproval,
+  ORDER_SHORTFALL_TOLERANCE_PHP,
+} from './orders';
 
 test('no voucher, unconfirmed → gross of the requested base (₱10,000 → ₱11,200)', () => {
   assert.equal(orderGrossOwed({ requestedTotalPhp: 10000, confirmedTotalPhp: null, vatRatePct: 12 }), 11200);
@@ -104,4 +110,52 @@ test('vendor all-in prices ignore the rate entirely, set or not', () => {
       999,
     );
   }
+});
+
+// ---------------------------------------------------------------------------
+// orderReconciledToPaid + shouldProvisionOnApproval — the (c) provisioning gate
+// (money fix: SKU activation must fire only when the order actually reaches
+// 'paid', i.e. promoted AND fully reconciled). A ₱1 payment on a ₱X order, or
+// an approval with promote unchecked, must NOT provision the full SKU.
+// ---------------------------------------------------------------------------
+
+test('tolerance constant is ₱1 (centavo rounding across partial payments)', () => {
+  assert.equal(ORDER_SHORTFALL_TOLERANCE_PHP, 1);
+});
+
+test('orderReconciledToPaid: exact cover reconciles', () => {
+  assert.equal(orderReconciledToPaid({ matchedTotalPhp: 11200, owedPhp: 11200 }), true);
+});
+
+test('orderReconciledToPaid: ₱1 partial on a ₱11,200 order does NOT reconcile', () => {
+  assert.equal(orderReconciledToPaid({ matchedTotalPhp: 1, owedPhp: 11200 }), false);
+});
+
+test('orderReconciledToPaid: within ₱1 tolerance still reconciles', () => {
+  // 11199 vs 11200 → shortfall of ₱1, absorbed by the tolerance.
+  assert.equal(orderReconciledToPaid({ matchedTotalPhp: 11199, owedPhp: 11200 }), true);
+});
+
+test('orderReconciledToPaid: ₱1.01 short breaches the tolerance', () => {
+  assert.equal(orderReconciledToPaid({ matchedTotalPhp: 11198.99, owedPhp: 11200 }), false);
+});
+
+test('orderReconciledToPaid: overpayment reconciles', () => {
+  assert.equal(orderReconciledToPaid({ matchedTotalPhp: 20000, owedPhp: 11200 }), true);
+});
+
+test('shouldProvisionOnApproval: provisions ONLY when promoted AND reconciled', () => {
+  assert.equal(shouldProvisionOnApproval({ promoteOrder: true, reconciledToPaid: true }), true);
+});
+
+test('shouldProvisionOnApproval: promote unchecked → no provision (even if reconciled)', () => {
+  assert.equal(shouldProvisionOnApproval({ promoteOrder: false, reconciledToPaid: true }), false);
+});
+
+test('shouldProvisionOnApproval: promoted but short → no provision', () => {
+  assert.equal(shouldProvisionOnApproval({ promoteOrder: true, reconciledToPaid: false }), false);
+});
+
+test('shouldProvisionOnApproval: neither → no provision', () => {
+  assert.equal(shouldProvisionOnApproval({ promoteOrder: false, reconciledToPaid: false }), false);
 });

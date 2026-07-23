@@ -73,7 +73,7 @@ export async function getPoolGalleryPage(
         // Tile image: cheapest web derivative first. The RPC guarantees these
         // are derivative keys only (and on FaceBlock events, ONLY the baked
         // blur in display_r2_key) — never the geo-bearing original.
-        const thumbKey = r.thumb_r2_key ?? r.display_r2_key ?? r.poster_r2_key;
+        const thumbKey = r.thumb_r2_key ?? r.display_r2_key ?? r.poster_r2_key; // gitleaks:allow — R2 object-key fields, not secrets
         const thumbUrl = thumbKey
           ? await displayUrlForStoredAsset(thumbKey, { ttlSeconds: URL_TTL_SECONDS })
           : null;

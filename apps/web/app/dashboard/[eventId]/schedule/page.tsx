@@ -42,6 +42,7 @@ import { PreparationAgendaView } from './_components/preparation-agenda';
 import { JourneyView } from './_components/journey-view';
 import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
+import { resolveAreaLevel, type ModeratorPermissions } from '@/lib/event-moderators';
 // Coordinator P2 — filtered run-of-show (flag-gated: every ros-p2 surface
 // renders only when NEXT_PUBLIC_SCHEDULE_ROS_P2_ENABLED === 'true', so
 // flag-off/absent keeps this page byte-identical to today).
@@ -256,6 +257,36 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
         ? 'preparation'
         : 'event-day';
 
+  // Run-of-show advance permission, derived server-side (was hardcoded true —
+  // a view-only delegate admitted by the layout saw the button and got a 42501
+  // from the RPC on tap). Mirrors the widened advance_schedule_block gate
+  // (migration 20270917100000): any event_members row (current_event_ids) OR a
+  // delegate whose permission grid resolves schedule:'edit' (the coordinator
+  // the owner directive admits). Both reads are the caller's own rows (RLS-
+  // safe); errors degrade to "no button", never a crash.
+  const [advMemberRes, advDelegateRes] = await Promise.all([
+    supabase
+      .from('event_members')
+      .select('member_type')
+      .eq('event_id', eventId)
+      .eq('user_id', user.id)
+      .maybeSingle(),
+    supabase
+      .from('event_moderators')
+      .select('permissions_json')
+      .eq('event_id', eventId)
+      .eq('user_id', user.id)
+      .not('accepted_at', 'is', null)
+      .is('removed_at', null)
+      .maybeSingle(),
+  ]);
+  const canAdvanceRunOfShow =
+    Boolean(advMemberRes.data) ||
+    resolveAreaLevel(
+      (advDelegateRes.data?.permissions_json ?? null) as ModeratorPermissions | null,
+      'schedule',
+    ) === 'edit';
+
   // Run-of-show header rows (now/next/±N) off the shared run-state. Top-level
   // blocks only — the header tracks the headline timeline, not sub-parts.
   const runOfShowBlocks: RunOfShowBlock[] = scheduleBlocks
@@ -321,10 +352,15 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       ) : (
         <>
           {/* Run-of-show header — live now/next/±N driven by the shared
-              run-state. The couple/host (and a delegate coordinator) advance it
-              via the single-winner advance_schedule_block RPC. */}
+              run-state. The couple/host (and a delegate coordinator with
+              schedule:edit — RPC gate widened by migration 20270917100000)
+              advance it via the single-winner advance_schedule_block RPC. */}
           {runOfShowBlocks.length > 0 ? (
-            <RunOfShowHeader eventId={eventId} initial={runOfShowBlocks} canAdvance />
+            <RunOfShowHeader
+              eventId={eventId}
+              initial={runOfShowBlocks}
+              canAdvance={canAdvanceRunOfShow}
+            />
           ) : null}
           {/* Travel-only itinerary chrome: the GRD-06 clash guard (overlapping
               tours + uncovered nights) and the day-by-day trip lens over the

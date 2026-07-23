@@ -29,6 +29,15 @@ import {
   UtensilsCrossed,
 } from 'lucide-react';
 import type { ScheduleBlockRow } from '@/lib/schedule';
+import { pickTriggerNowNext } from '@/lib/run-of-show';
+
+/** What the card's schedule tile renders. `happeningNow` = the pick is the
+ *  host-set LIVE block (run-of-show trigger), so the tile labels it
+ *  "Happening now" instead of "Coming up". Absent/false = preview semantics. */
+export type NextScheduleBlockPick = Pick<
+  ScheduleBlockRow,
+  'label' | 'start_at' | 'location'
+> & { happeningNow?: boolean };
 
 // ---- Types from the parent page ------------------------------------------
 
@@ -45,7 +54,7 @@ export type GuestHubData = {
   mealPreference: string | null;
   dietaryRestrictions: string | null;
   /** Next upcoming public schedule block (may be null when none are set). */
-  nextScheduleBlock: Pick<ScheduleBlockRow, 'label' | 'start_at' | 'location'> | null;
+  nextScheduleBlock: NextScheduleBlockPick | null;
   /** /[slug] paths for the nav links. */
   slug: string;
   /** Whether the guest is a limited +1 (hides certain links). */
@@ -130,12 +139,31 @@ function formatTime(iso: string): string {
  * Pick the nearest upcoming block from the already-fetched public schedule.
  * "Upcoming" = start_at is in the future (or within the last 15 min to cover
  * the "happening now" window). Returns top-level blocks only (no children).
+ *
+ * With `preferRunState` (NEXT_PUBLIC_GUEST_NOW_TRIGGER, owner directive
+ * 2026-07-23): once the host/coordinator has started the run of show, the
+ * card follows the run_state pointer — the 'live' block first, else the first
+ * still-'upcoming' block (a private live block simply isn't in the public
+ * list, so this degrades to the next visible moment — no teaser). While the
+ * show hasn't started, the wall-clock inference below runs unchanged.
  */
 export function pickNextScheduleBlock(
   blocks: ScheduleBlockRow[],
-): Pick<ScheduleBlockRow, 'label' | 'start_at' | 'location'> | null {
-  const now = Date.now() - 15 * 60 * 1000; // 15 min grace
+  opts?: { preferRunState?: boolean },
+): NextScheduleBlockPick | null {
   const topLevel = blocks.filter((b) => !b.parent_block_id && b.is_public);
+  if (opts?.preferRunState) {
+    const picked = pickTriggerNowNext(topLevel);
+    if (picked) {
+      const chosen = picked.current ?? picked.next;
+      if (!chosen) return null; // program wrapped — nothing to come up
+      const { label, start_at, location } = chosen;
+      // happeningNow flips the card's label from "Coming up" to "Happening
+      // now" — the host-set live block is the current moment, not a preview.
+      return { label, start_at, location, happeningNow: chosen === picked.current };
+    }
+  }
+  const now = Date.now() - 15 * 60 * 1000; // 15 min grace
   const upcoming = topLevel
     .filter((b) => new Date(b.start_at).getTime() >= now)
     .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
@@ -317,7 +345,7 @@ export function GuestHubCard({ data }: { data: GuestHubData }) {
               />
               <div className="min-w-0">
                 <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/50">
-                  Coming up
+                  {nextScheduleBlock.happeningNow ? 'Happening now' : 'Coming up'}
                 </p>
                 <p className="mt-0.5 font-serif text-base italic leading-snug text-ink">
                   {nextScheduleBlock.label}

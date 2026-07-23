@@ -98,6 +98,69 @@ export function deriveRunOfShow(
   };
 }
 
+// ── Guest "What's happening now" trigger read (owner directive 2026-07-23) ──
+//
+// Guest surfaces historically infer "now" from the wall clock. When the host /
+// coordinator has actually started the run of show (some block advanced past
+// 'upcoming'), the run-state pointer is the truth and the clock is only a
+// fallback. These helpers are generic over any block shape carrying an
+// OPTIONAL run_state so both the /[slug] widgets (full ScheduleBlockRow) and
+// the day-of cards (trimmed shapes) share one derivation — per the § 5 study,
+// the derivation lives in lib/ so the in-flight 5-tab hub rebuild can re-home
+// the panels without reimplementing it.
+
+type MaybeRunStateBlock = {
+  block_id: string;
+  start_at: string;
+  run_state?: RunState | null;
+};
+
+/**
+ * True once the host/coordinator has actually taken the wheel — any block is
+ * 'live' or 'done'. While false, guest surfaces MUST keep their wall-clock
+ * inference (the pointer is unset; there is nothing to follow). Missing /
+ * undefined run_state (callers that don't select it) counts as 'upcoming'.
+ */
+export function hasRunShowSignal(
+  blocks: ReadonlyArray<{ run_state?: RunState | null }>,
+): boolean {
+  return blocks.some((b) => b.run_state === 'live' || b.run_state === 'done');
+}
+
+/**
+ * Trigger-driven now/next over an arbitrary block shape.
+ *
+ * Returns null when the show hasn't started (no 'live'/'done' block) — the
+ * caller falls back to time inference. Otherwise:
+ *   • current — the single 'live' block (advance_schedule_block is
+ *     single-winner, so at most one). null = "between moments", INCLUDING the
+ *     case where the live block is a private (is_public=false) row the guest
+ *     can't see — the caller must degrade gracefully, never tease it.
+ *   • next — the first 'upcoming' block after current (or the first upcoming
+ *     overall when nothing visible is live).
+ */
+export function pickTriggerNowNext<T extends MaybeRunStateBlock>(
+  blocks: ReadonlyArray<T>,
+): { current: T | null; next: T | null } | null {
+  if (!hasRunShowSignal(blocks)) return null;
+  const ordered = [...blocks].sort((a, b) => {
+    const ta = new Date(a.start_at).getTime();
+    const tb = new Date(b.start_at).getTime();
+    if (Number.isNaN(ta) || Number.isNaN(tb) || ta === tb) {
+      return a.block_id < b.block_id ? -1 : a.block_id > b.block_id ? 1 : 0;
+    }
+    return ta - tb;
+  });
+  const currentIdx = ordered.findIndex((b) => b.run_state === 'live');
+  const current = currentIdx >= 0 ? (ordered[currentIdx] ?? null) : null;
+  const searchFrom = currentIdx >= 0 ? currentIdx + 1 : 0;
+  const next =
+    ordered
+      .slice(searchFrom)
+      .find((b) => (b.run_state ?? 'upcoming') === 'upcoming') ?? null;
+  return { current, next };
+}
+
 /** Human "running 12 min late" / "8 min early" / "on time" label. */
 export function driftLabel(driftMinutes: number | null): string | null {
   if (driftMinutes == null) return null;

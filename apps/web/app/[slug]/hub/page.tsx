@@ -48,6 +48,7 @@ import { readGuestSession } from '@/lib/guest-session';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
+import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { fetchPublicScheduleBlocks } from '@/lib/schedule';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
@@ -219,6 +220,12 @@ export default async function EventHubPage({ params, searchParams }: Props) {
     event.venue_latitude,
     event.venue_longitude,
   );
+  // run_state / actual_start_at ride along (owner directive 2026-07-23): when
+  // NEXT_PUBLIC_GUEST_NOW_TRIGGER is on, the Now panel follows the host-set
+  // pointer instead of the wall clock. These columns are already anon-safe —
+  // fetchPublicScheduleBlocks returns is_public rows only, and the anon RLS
+  // policy has exposed them since migration 20270321980372.
+  const guestNowTrigger = isGuestNowTriggerEnabled();
   const topLevelBlocks = scheduleBlocks
     .filter((b) => !b.parent_block_id)
     .map((b) => ({
@@ -227,6 +234,8 @@ export default async function EventHubPage({ params, searchParams }: Props) {
       start_at: b.start_at,
       end_at: b.end_at,
       location: b.location,
+      run_state: b.run_state,
+      actual_start_at: b.actual_start_at,
     }));
 
   // ── Watch (Panood) — single-cam live is free; the staged URL is the only
@@ -455,7 +464,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   const nowPanel = (
     <div className="mx-auto max-w-md space-y-4">
       {showWhatsHappening ? (
-        <WhatsHappeningCard blocks={topLevelBlocks} />
+        <WhatsHappeningCard blocks={topLevelBlocks} runStateTrigger={guestNowTrigger} />
       ) : (
         <article className="space-y-1 rounded-2xl border border-ink/10 bg-cream p-5">
           <p className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.18em] text-terracotta">
@@ -520,7 +529,14 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   const schedulePanel = (
     <div className="mx-auto max-w-md">
       {scheduleBlocks.length > 0 ? (
-        <ScheduleWidget blocks={scheduleBlocks} eventTz={eventTz} />
+        <ScheduleWidget
+          blocks={scheduleBlocks}
+          eventTz={eventTz}
+          nowTrigger={guestNowTrigger}
+          estimated={
+            guestNowTrigger && (dayOfPhase === 'pre' || dayOfPhase === 'inactive')
+          }
+        />
       ) : (
         <article className="rounded-2xl border border-ink/10 bg-cream p-6 text-center">
           <p className="font-mono text-xs uppercase tracking-[0.25em] text-terracotta">

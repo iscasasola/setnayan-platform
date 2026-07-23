@@ -75,6 +75,7 @@ import { GuestToHostCta } from '@/app/_components/guest-to-host-cta';
 import { NavLinksRow } from '@/app/_components/nav-links';
 import { PublicPageActions } from '@/app/_components/public-page-actions';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
+import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { GuestPreload } from './_components/guest-preload';
 import { GuestHubBar } from './_components/guest-hub-bar';
 import { PublicEventDayBar } from './_components/public-event-day-bar';
@@ -1318,7 +1319,11 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     tableLabel: guestTableLabel,
     mealPreference: guest.meal_preference,
     dietaryRestrictions: guest.dietary_restrictions,
-    nextScheduleBlock: pickNextScheduleBlock(scheduleBlocks),
+    // "Coming up" follows the host-set run-of-show pointer when the trigger
+    // flag is on (owner directive 2026-07-23); wall-clock inference otherwise.
+    nextScheduleBlock: pickNextScheduleBlock(scheduleBlocks, {
+      preferRunState: isGuestNowTriggerEnabled(),
+    }),
     slug,
     isLimitedPlusOne:
       guest.plus_one_of_guest_id !== null && guest.plus_one_mode === 'limited',
@@ -2227,6 +2232,10 @@ function PublicLanding({
               event={event}
               scheduleBlocks={scheduleBlocks}
               isLive={dayOfPhase === 'live'}
+              scheduleEstimated={
+                isGuestNowTriggerEnabled() &&
+                (dayOfPhase === 'pre' || dayOfPhase === 'inactive')
+              }
               ourPhotoUrls={ourPhotoUrls}
             />
           ))}
@@ -2257,12 +2266,16 @@ function PublicHideableWidget({
   event,
   scheduleBlocks,
   isLive,
+  scheduleEstimated = false,
   ourPhotoUrls,
 }: {
   widget: InvitationWidgetRow;
   event: EventRow;
   scheduleBlocks: ScheduleBlockRow[];
   isLive: boolean;
+  /** RSVP-season "Estimated program" label on the schedule widget (owner
+   *  directive 2026-07-23, NEXT_PUBLIC_GUEST_NOW_TRIGGER-gated upstream). */
+  scheduleEstimated?: boolean;
   ourPhotoUrls: string[];
 }) {
   switch (widget.widget_type) {
@@ -2280,7 +2293,12 @@ function PublicHideableWidget({
       // the editor's "always-on pin replaces hideable" contract).
       return !isLive && scheduleBlocks.length > 0 ? (
         <>
-          <ScheduleWidget blocks={scheduleBlocks} eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)} />
+          <ScheduleWidget
+            blocks={scheduleBlocks}
+            eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
+            nowTrigger={isGuestNowTriggerEnabled()}
+            estimated={scheduleEstimated}
+          />
           {isChineseWedding(event) ? <TeaCeremonyCard event={event} /> : null}
         </>
       ) : null;
@@ -2878,7 +2896,11 @@ function InvitationSite({
             aria-label="Day-of schedule"
             className="rounded-2xl border-2 border-success-300 bg-success-50/50 p-2"
           >
-            <ScheduleWidget blocks={scheduleBlocks} eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)} />
+            <ScheduleWidget
+              blocks={scheduleBlocks}
+              eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
+              nowTrigger={isGuestNowTriggerEnabled()}
+            />
           </section>
         ) : null}
 
@@ -3210,6 +3232,10 @@ function InvitationSite({
             sideLabel={sideLabel}
             scheduleBlocks={scheduleBlocks}
             isLive={isLive}
+            scheduleEstimated={
+              isGuestNowTriggerEnabled() &&
+              (dayOfPhase === 'pre' || dayOfPhase === 'inactive')
+            }
             isLimitedPlusOne={isLimitedPlusOne}
             ourPhotoUrls={ourPhotoUrls}
           />
@@ -3264,6 +3290,7 @@ function HideableWidgetRender({
   sideLabel,
   scheduleBlocks,
   isLive,
+  scheduleEstimated = false,
   isLimitedPlusOne,
   ourPhotoUrls,
 }: {
@@ -3273,6 +3300,9 @@ function HideableWidgetRender({
   sideLabel: string;
   scheduleBlocks: ScheduleBlockRow[];
   isLive: boolean;
+  /** RSVP-season "Estimated program" label on the schedule widget (owner
+   *  directive 2026-07-23, NEXT_PUBLIC_GUEST_NOW_TRIGGER-gated upstream). */
+  scheduleEstimated?: boolean;
   isLimitedPlusOne: boolean;
   ourPhotoUrls: string[];
 }) {
@@ -3316,7 +3346,12 @@ function HideableWidgetRender({
       // article body — NOT here too, or a Chinese event with visible
       // schedule blocks would show the card twice.)
       return !isLive && scheduleBlocks.length > 0 ? (
-        <ScheduleWidget blocks={scheduleBlocks} eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)} />
+        <ScheduleWidget
+          blocks={scheduleBlocks}
+          eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
+          nowTrigger={isGuestNowTriggerEnabled()}
+          estimated={scheduleEstimated}
+        />
       ) : null;
 
     case 'venue_map':

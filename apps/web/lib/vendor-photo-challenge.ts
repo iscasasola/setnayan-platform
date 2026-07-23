@@ -107,12 +107,12 @@ export function photoChallengeEligibility(
 /** Human copy for each deny reason (surfaced in the vendor UI). */
 export const PHOTO_CHALLENGE_DENY_MESSAGE: Record<PhotoChallengeDenyReason, string> = {
   tier_too_low:
-    'Photo Challenge is a Pro / Enterprise add-on. Upgrade your plan to sponsor one.',
-  unverified: 'Get your shop verified first — Photo Challenge unlocks once you’re verified.',
-  not_booked: 'You can only sponsor a Photo Challenge on an event you’re booked for.',
+    'Papic Challenges is a Pro / Enterprise add-on. Upgrade your plan to sponsor it.',
+  unverified: 'Get your shop verified first — Papic Challenges unlocks once you’re verified.',
+  not_booked: 'You can only sponsor Papic Challenges on an event you’re booked for.',
   papic_inactive:
-    'Photo Challenge runs on Papic — it’s available once the couple has Papic active for this event.',
-  already_sponsored: 'You’ve already sponsored a Photo Challenge for this event.',
+    'Papic Challenges runs on Papic — it’s available once the couple has Papic active for this event.',
+  already_sponsored: 'You’ve already sponsored Papic Challenges for this event.',
 };
 
 // ── DB readers (client passed in — no server-only import) ────────────────────

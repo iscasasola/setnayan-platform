@@ -441,7 +441,7 @@ export async function createVendorChallengeAction(formData: FormData) {
         await emitNotification({
           userId: m.user_id,
           type: 'papic_challenge_pending',
-          title: `${vendorName} added a photo challenge`,
+          title: `${vendorName} added a Papic Challenge`,
           body: 'Approve it to share it with your guests.',
           relatedUrl: `/dashboard/${eventId}/studio/papic`,
         });

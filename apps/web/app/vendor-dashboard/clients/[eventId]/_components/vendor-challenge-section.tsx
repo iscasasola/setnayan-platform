@@ -75,7 +75,7 @@ export async function VendorChallengeSection({
     <section className="rounded-2xl border border-ink/10 bg-white p-5 sm:p-6">
       <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
         <Trophy aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2} />
-        Photo Challenge
+        Papic Challenges
         {sponsored ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/15 px-2 py-0.5 text-[11px] font-semibold text-terracotta">
             <Check className="h-3 w-3" strokeWidth={2.5} aria-hidden />
@@ -152,7 +152,7 @@ export async function VendorChallengeSection({
         // Eligible to buy → the ₱400 sponsorship CTA.
         <>
           <p className="mt-4 text-sm font-medium text-ink">
-            {`Sponsor Photo Challenge for this event — ₱${pricePhp.toLocaleString('en-PH')}.`}
+            {`Sponsor Papic Challenges for this event — ₱${pricePhp.toLocaleString('en-PH')}.`}
           </p>
           <PhotoChallengeBuy eventId={eventId} pricePhp={pricePhp} />
         </>

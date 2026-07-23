@@ -47,7 +47,7 @@ export async function CoupleChallengesManager({ eventId }: { eventId: string }) 
     <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
       <h3 className="flex items-center gap-2 text-sm font-medium text-ink">
         <Trophy aria-hidden className="h-4 w-4 text-mulberry" strokeWidth={1.75} />
-        Photo Challenges
+        Papic Challenges
       </h3>
       <p className="mt-1 text-xs text-ink/60">
         Little photo missions for your guests. Write your own, and hide any you
@@ -62,7 +62,7 @@ export async function CoupleChallengesManager({ eventId }: { eventId: string }) 
           required
           maxLength={280}
           rows={2}
-          aria-label="Write a photo challenge for your guests"
+          aria-label="Write a Papic Challenge for your guests"
           placeholder="Get a photo with the newlyweds on the dance floor"
           className="w-full resize-none rounded-xl border border-ink/10 bg-cream/70 px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus:border-mulberry/40 focus:outline-none"
         />

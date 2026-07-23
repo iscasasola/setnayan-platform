@@ -296,7 +296,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   dispute_resolved: 'Dispute resolved',
   vendor_review_reply: 'Vendor replied to your review',
   schedule_suggestion: 'Schedule suggestion',
-  papic_challenge_pending: 'Photo challenge to approve',
+  papic_challenge_pending: 'Papic Challenge to approve',
   pax_surcharge_changed: 'Guest-count charge updated',
   vendor_joined: 'Vendor joined',
   editorial_decision: 'Editorial decision',

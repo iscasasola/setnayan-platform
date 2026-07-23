@@ -3618,7 +3618,7 @@ function RsvpWidget({
       {limited ? null : (
         <p className="text-xs text-ink/50">
           You&rsquo;ll be able to add a song request and dance style
-          {papicGamesEnabled() ? ', plus a Photo Challenge opt-in,' : ''} when you sign
+          {papicGamesEnabled() ? ', plus a Papic Challenge opt-in,' : ''} when you sign
           up for a free Setnayan account.
         </p>
       )}
@@ -4257,7 +4257,7 @@ function TierComparisonWidget({ limited, eventNoun }: { limited: boolean; eventN
             <li>· <strong>Shutter</strong> — capture &amp; tag photos as a guest</li>
             <li>· <strong>Selfie Camera</strong> — branded {eventNoun} selfie cam</li>
             {papicGamesEnabled() ? (
-              <li>· <strong>Photo Challenges</strong> — fun mini-quests</li>
+              <li>· <strong>Papic Challenges</strong> — fun mini-quests</li>
             ) : null}
             <li>· <strong>Saved Forever</strong> — photos kept permanently</li>
             <li>· Build your own souvenir reel</li>

@@ -8,7 +8,6 @@ import { canViewSlugEvent } from '@/lib/slug-access';
 import { Logo } from '@/app/_components/logo';
 import {
   DEFAULT_ENTRANCE,
-  INDOOR_BLUEPRINT_SERVICE_KEY,
   type EntrancePos,
   clampPct,
 } from '@/lib/indoor-blueprint';
@@ -22,19 +21,21 @@ export const metadata = { title: 'Find your table · Setnayan' };
 export const dynamic = 'force-dynamic';
 
 /**
- * /[slug]/find-my-table — the guest-facing half of the Indoor Blueprint SKU
- * (₱1,499 · closes v2-catalog.ts INDOOR_BLUEPRINT 'partial' "entrance-to-table
- * nav not built"). A signed-in guest taps "Find my table" from their
- * invitation page and lands here: their assigned table highlighted on the
- * couple's floor plan, the venue entrance marked, a path drawn from the door.
+ * /[slug]/find-my-table — the guest-facing half of Indoor Blueprint. A signed-in
+ * guest taps "Find my table" from their invitation page and lands here: their
+ * assigned table highlighted on the couple's floor plan, the venue entrance
+ * marked, a path drawn from the door.
  *
- * SAFETY / gating — this is a gated guest surface, NOT the always-rendered
- * public landing page:
+ * FREE (owner 2026-07-23: "indoor blueprint is free and uses the 2D Plan for
+ * free"). No paid-order gate — the wayfinding rides on the already-free 2D seat
+ * plan. When the couple hasn't built a chart yet, this degrades to a friendly
+ * "floor plan on its way" prompt (the tables-empty branch below).
+ *
+ * SAFETY / gating — this is a session-gated guest surface, NOT the always-
+ * rendered public landing page:
  *   • Resolves the event by slug (admin client — public route, no RLS session).
  *   • Requires a valid guest-session cookie for THIS event; otherwise renders a
  *     friendly "open this from your invitation" prompt (no seating data read).
- *   • Gates on the event owning a paid INDOOR_BLUEPRINT order BEFORE any
- *     seating query runs — unowned events show an "ask the couple" message.
  * The seating reads use the admin client (the public route carries no RLS
  * session) but are constrained to this event_id + this guest_id and carry no
  * extra PII beyond table labels the guest is meant to see — mirrors the
@@ -81,30 +82,9 @@ export default async function FindMyTablePage({ params }: Props) {
     );
   }
 
-  // Gate on the paid SKU BEFORE touching seating. Graceful-degrade on a
-  // missing/legacy orders table (42P01 / 42703) → treat as not owned.
-  let owns = false;
-  const { data: ordersData, error: ordersError } = await admin
-    .from('orders')
-    .select('status')
-    .eq('event_id', event.event_id)
-    .eq('service_key', INDOOR_BLUEPRINT_SERVICE_KEY)
-    .not('status', 'in', '("cancelled","refunded","lapsed")');
-  if (ordersError && ordersError.code !== '42P01' && ordersError.code !== '42703') {
-    throw new Error(`Failed to resolve Indoor Blueprint ownership: ${ordersError.message}`);
-  }
-  owns = (ordersData ?? []).length > 0;
-
-  if (!owns) {
-    return (
-      <Shell displayName={event.display_name} slug={slug}>
-        <PromptCard
-          title="No venue map yet"
-          body="The couple hasn’t added the Indoor Blueprint venue map for this wedding. You’ll find your table on the printed seating signs at the venue."
-        />
-      </Shell>
-    );
-  }
+  // Indoor Blueprint is free (owner 2026-07-23) — no paid-order gate. The
+  // tables-empty branch below is the graceful "floor plan on its way" state when
+  // the couple hasn't built a seating chart yet.
 
   // Resolve this guest's table assignment.
   const { data: assignment } = await admin

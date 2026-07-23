@@ -280,10 +280,14 @@ test('a free-trial chip is never presented as "Free" (trial ≠ free)', () => {
 test('the Suite free layer is exactly the reviewed set (any change is a conscious diff)', () => {
   // 2026-07-22: music-creator RETIRED (folds into Pakanta) and photo-delivery
   // moved to 'utility' (delivered THROUGH Papic) — both consciously dropped here.
+  // 2026-07-23: indoor-blueprint ADDED — owner "indoor blueprint is free and uses
+  // the 2D Plan for free"; the retired paid ₱1,499 SKU is now a free tool riding
+  // on the free 2D seat plan (tier:'free', opensDirect).
   assert.deepEqual(suiteFreeLayerKeys().sort(), [
     'animated-monogram',
     'editorial',
     'event',
+    'indoor-blueprint',
     'landing-page',
     'mood-board',
     'panood',

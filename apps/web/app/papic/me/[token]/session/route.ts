@@ -11,13 +11,24 @@ import { setGuestSession } from '@/lib/guest-session';
 // (the SAME pattern the invite-redeem + seat-claim routes already use — the
 // token is the guest's camera credential), then redirects into the decorator.
 // Route Handler because cookie writes are only allowed here, never in a render.
+//
+// ?next= picks the landing among a FIXED allowlist of session-scoped surfaces
+// (default: the decorator; 'pool' → the Shared Pool Gallery). Allowlisted-only
+// — never a caller-supplied path (no open redirect).
 
 export const dynamic = 'force-dynamic';
+
+const NEXT_DESTINATIONS: Record<string, string> = {
+  decorate: '/papic/decorate',
+  pool: '/papic/pool',
+};
 
 export async function GET(req: Request, ctx: { params: Promise<{ token: string }> }) {
   const { token } = await ctx.params;
   const cleanToken = token?.trim();
-  const decorate = new URL('/papic/decorate', new URL(req.url).origin);
+  const url = new URL(req.url);
+  const destPath = NEXT_DESTINATIONS[url.searchParams.get('next') ?? ''] ?? '/papic/decorate';
+  const decorate = new URL(destPath, url.origin);
   if (!cleanToken) return NextResponse.redirect(decorate);
 
   const admin = createAdminClient();

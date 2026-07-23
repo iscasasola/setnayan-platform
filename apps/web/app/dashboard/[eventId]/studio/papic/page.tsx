@@ -71,6 +71,7 @@ import {
 import ExtraCamerasPicker from './extra-cameras-picker';
 import GuestCameraTierPicker from './guest-camera-tier-picker';
 import { LiveWallCard } from './_components/live-wall-card';
+import { PoolGalleryCard } from './_components/pool-gallery-card';
 import { MagazineCard } from './_components/magazine-card';
 import { RecapCard } from './_components/recap-card';
 import {
@@ -655,6 +656,11 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
 
       {/* Add-on services (shipped surfaces). */}
       <LiveWallCard eventId={eventId} />
+
+      {/* Shared Pool Gallery — couple-only open/close (build ⑥). Self-gates on
+          the env flag + Papic-active; renders nothing until both hold. */}
+      <PoolGalleryCard eventId={eventId} />
+
       <MagazineCard eventId={eventId} />
       <RecapCard eventId={eventId} />
 

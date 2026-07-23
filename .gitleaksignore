@@ -21,3 +21,10 @@ b30742ba764b469dfe954b93fc6acedb3d5e4917:.gitleaksignore:generic-api-key:8
 # Renaming the const would NOT clear this: gitleaks-action scans every commit in
 # the PR range, so the introducing commit below stays matchable regardless of HEAD.
 3d81839f31fdde5e06efa35c5886dfe3b89061cc:apps/web/lib/papic-guest.ts:generic-api-key:97
+#
+# Same rule flags the R2 object-key COLUMN references in the Shared Pool
+# Gallery reader (thumb_r2_key / display_r2_key / poster_r2_key — storage
+# paths, not credentials). The introducing commit predates the inline
+# `gitleaks:allow` added at c2f40393b, and gitleaks-action scans every commit
+# in the PR range, so the historical fingerprint must be pinned here too.
+b616f6804a6ebd405717ff676c0434a85223aa3d:apps/web/lib/papic-pool-gallery.ts:generic-api-key:76

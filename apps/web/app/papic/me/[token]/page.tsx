@@ -3,6 +3,7 @@ import { ArrowRight, Camera, CircleAlert, Clock, Download, Images, Sparkles } fr
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveGuestCamera } from '@/lib/papic-limited';
 import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
+import { papicPoolGalleryEnabled } from '@/lib/papic-pool-flag';
 import { GuestStoryMaker } from './_components/guest-story-maker';
 
 // Papic · MY camera (guest personal-QR → Limited roll camera).
@@ -38,6 +39,32 @@ function Shell({ children }: { children: React.ReactNode }) {
         {children}
       </div>
     </main>
+  );
+}
+
+/** Doorway to the Shared Pool Gallery ("Everyone's photos") — renders ONLY
+ *  when the env flag is on AND the couple opened the pool for this event
+ *  (events.pool_gallery_open, DEFAULT FALSE). When either is off there is no
+ *  door at all (owner rule: guests see NOTHING, no dead door). The link goes
+ *  through the token→session bridge so the pool page is session-scoped and no
+ *  guest token appears in the pool URL. */
+async function PoolDoorway({ eventId, token }: { eventId: string; token: string }) {
+  if (!papicPoolGalleryEnabled()) return null;
+  const admin = createAdminClient();
+  const { data: ev } = await admin
+    .from('events')
+    .select('pool_gallery_open')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (!ev?.pool_gallery_open) return null;
+  return (
+    <a
+      href={`/papic/me/${encodeURIComponent(token)}/session?next=pool`}
+      className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md bg-ink/5 px-4 py-2 text-sm font-medium text-ink/80 transition hover:bg-ink/10"
+    >
+      <Images aria-hidden className="h-4 w-4" strokeWidth={2} />
+      Browse everyone&rsquo;s photos
+    </a>
   );
 }
 
@@ -201,6 +228,7 @@ export default async function PapicMyCameraPage({ params }: Props) {
           spot is still being set up. Check back closer to the day.
         </p>
         <GuestGallery eventId={guest.event_id} guestId={guest.guest_id} token={cleanToken!} />
+        <PoolDoorway eventId={guest.event_id} token={cleanToken!} />
         {backLink}
       </Shell>
     );
@@ -220,6 +248,7 @@ export default async function PapicMyCameraPage({ params }: Props) {
           will be ready to shoot.
         </p>
         <GuestGallery eventId={guest.event_id} guestId={guest.guest_id} token={cleanToken!} />
+        <PoolDoorway eventId={guest.event_id} token={cleanToken!} />
         {backLink}
       </Shell>
     );
@@ -248,6 +277,7 @@ export default async function PapicMyCameraPage({ params }: Props) {
         <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
       </Link>
       <GuestGallery eventId={guest.event_id} guestId={guest.guest_id} token={cleanToken!} />
+      <PoolDoorway eventId={guest.event_id} token={cleanToken!} />
       {backLink}
     </Shell>
   );

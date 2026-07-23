@@ -5,7 +5,7 @@
  * (RLS-bound) session. The guest_message_blocks_manage policy's WITH CHECK used
  * to require only `event_id IN current_event_ids()` — which admits a plain guest
  * — so the INSERT (WITH CHECK, not USING) let ANY guest silence any other guest.
- * Migration 20270831174208 tightens that WITH CHECK to the couple/coordinator
+ * Migration 20270920030000 tightens that WITH CHECK to the couple/coordinator
  * member_type gate; this predicate is the app-level mirror of that gate
  * (defense-in-depth + a friendly error), matching how the couple-side
  * moderation actions in the same file resolve authority from

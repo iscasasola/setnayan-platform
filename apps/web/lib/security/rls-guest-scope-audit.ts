@@ -1,6 +1,6 @@
 /**
  * Static auditor for the RLS guest-scope hardening migration
- * (supabase/migrations/20270831174208_rls_guest_scope.sql).
+ * (supabase/migrations/20270920030000_rls_guest_scope.sql).
  *
  * The migration re-scopes a set of sensitive RLS policies OFF the guest-admitting
  * public.current_event_ids() helper. This module lets a unit test assert, from
@@ -33,7 +33,9 @@ export type RescopedPolicy = {
 export const RESCOPED_POLICIES: RescopedPolicy[] = [
   { table: 'oauth_grants', policy: 'event_member_reads_oauth_grants', requiredSubstring: 'current_couple_event_ids' },
   { table: 'guests', policy: 'event_member_can_read_guest', requiredSubstring: 'current_couple_or_coordinator_event_ids' },
-  { table: 'orders', policy: 'orders_owner_read', requiredSubstring: 'current_couple_event_ids' },
+  // orders: couple + COORDINATOR (owner decision 2026-07-23 — closes the guest
+  // leak while preserving the signed-off coordinator/co-host read from 20270129279924).
+  { table: 'orders', policy: 'orders_owner_read', requiredSubstring: 'current_couple_or_coordinator_event_ids' },
   { table: 'guest_face_enrollments', policy: 'event_member_can_read_face_enrollment', requiredSubstring: 'current_couple_event_ids' },
   { table: 'event_vendor_payment_plan', policy: 'event_vendor_payment_plan_host_select', requiredSubstring: 'current_couple_event_ids' },
   { table: 'event_vendor_payment_plan', policy: 'event_vendor_payment_plan_host_write', requiredSubstring: 'current_couple_event_ids' },

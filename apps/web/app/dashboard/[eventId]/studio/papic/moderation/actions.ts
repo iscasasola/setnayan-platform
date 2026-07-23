@@ -358,7 +358,7 @@ export async function blockKwentoGuest(
 
   // Authority gate (defense-in-depth). The guest_message_blocks_manage WITH
   // CHECK is now tightened to member_type IN ('couple','coordinator') by
-  // migration 20270831174208 (it previously gated on current_event_ids, which
+  // migration 20270920030000 (it previously gated on current_event_ids, which
   // admits a plain guest on INSERT — letting ANY guest silence any other). This
   // app-level check mirrors that RLS gate so we (a) fail with a friendly
   // 'forbidden' instead of a raw RLS violation and (b) stay closed even if the

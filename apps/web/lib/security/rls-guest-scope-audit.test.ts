@@ -1,6 +1,6 @@
 /**
  * Guards the RLS guest-scope hardening migration
- * (supabase/migrations/20270831174208_rls_guest_scope.sql).
+ * (supabase/migrations/20270920030000_rls_guest_scope.sql).
  *
  * The migration re-scopes sensitive policies off the guest-admitting
  * current_event_ids() helper. If any DROP/CREATE regresses back to
@@ -30,7 +30,7 @@ const MIGRATION_PATH = join(
   '..',
   'supabase',
   'migrations',
-  '20270831174208_rls_guest_scope.sql',
+  '20270920030000_rls_guest_scope.sql',
 );
 
 const SQL = readFileSync(MIGRATION_PATH, 'utf8');

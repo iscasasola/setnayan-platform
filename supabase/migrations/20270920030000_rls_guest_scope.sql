@@ -51,16 +51,20 @@ CREATE POLICY event_member_can_read_guest ON public.guests
   );
 
 -- ── orders · orders_owner_read (SELECT) ─────────────────────────────────────
--- The money ledger. Co-host (spouse) read was the intent; a guest must not read
--- it. Coordinators are deliberately NOT added (money-wall). The direct-owner
--- (user_id = auth.uid()) and admin arms are preserved verbatim.
+-- The money ledger. Co-host (spouse) read was the intent (20270129279924, owner
+-- sign-off); a guest must NOT read it — that was the leak. Scoped to couple +
+-- COORDINATOR (owner decision 2026-07-23: coordinators are event managers who
+-- see shared purchases; only plain guests lose it), which closes the leak
+-- without reverting the signed-off coordinator/co-host access and matches the
+-- guests-table scope above. The direct-owner (user_id = auth.uid()) and admin
+-- arms are preserved verbatim.
 -- (was: current_event_ids — 20270129279924)
 DROP POLICY IF EXISTS orders_owner_read ON public.orders;
 CREATE POLICY orders_owner_read ON public.orders
   FOR SELECT TO authenticated
   USING (
     user_id = auth.uid()
-    OR event_id IN (SELECT public.current_couple_event_ids())
+    OR event_id IN (SELECT public.current_couple_or_coordinator_event_ids())
     OR public.is_admin()
   );
 
@@ -103,7 +107,7 @@ CREATE POLICY event_vendor_payment_plan_host_write
 -- The table comment asserted "Host-scoped RLS via current_event_ids()." — now
 -- couple-scoped. Fix the invariant claim in the same commit.
 COMMENT ON TABLE public.event_vendor_payment_plan IS
-  'Vendor Transaction Lifecycle Phase 2 PR-B — per-booking PAYMENT PLAN frozen at lock from the booked service''s vendor_service_payment_schedules template. instances_json = [{seq,label,amount_php,due_date,percent_bps?,amount_kind?}]; empty = no schedule (pay vendor directly). cleared_at/by set in PR-D. Couple-scoped RLS via current_couple_event_ids() (money-wall — re-scoped 20270831174208 off current_event_ids so guests can no longer read or delete it).';
+  'Vendor Transaction Lifecycle Phase 2 PR-B — per-booking PAYMENT PLAN frozen at lock from the booked service''s vendor_service_payment_schedules template. instances_json = [{seq,label,amount_php,due_date,percent_bps?,amount_kind?}]; empty = no schedule (pay vendor directly). cleared_at/by set in PR-D. Couple-scoped RLS via current_couple_event_ids() (money-wall — re-scoped 20270920030000 off current_event_ids so guests can no longer read or delete it).';
 
 -- ── budget_allocation_decisions · SELECT (+ DELETE companion) ───────────────
 -- The table comment already says "Couple-own-only". It was not true: both the

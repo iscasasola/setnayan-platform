@@ -118,7 +118,7 @@ export function SuiteSearch({
           <p className="sn-eye">
             {results.length} {results.length === 1 ? 'service' : 'services'}
           </p>
-          <ul className="sn-tile divide-y divide-ink/10 overflow-hidden p-0">
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {results.map((r) => r.node)}
           </ul>
         </section>

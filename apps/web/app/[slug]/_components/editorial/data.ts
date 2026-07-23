@@ -17,6 +17,11 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveStillRef, resolvePlayRef, stableMediaPath } from '@/lib/papic-display-ref';
+import {
+  PUBLIC_SAFE_MODERATION_STATE,
+  isPublicSafeModerationState,
+  filterPublicSafeRows,
+} from '@/lib/public-media-visibility';
 import { eventSkuActive } from '@/lib/entitlements';
 import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
@@ -824,8 +829,11 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   const servicesSetnayan = firstPickDen; // count of event_vendors = services planned with Setnayan
 
   // 5. Photos delivered (best-effort; omit if the count can't be had cheaply).
-  // PUBLIC surface → exclude moderation-withheld captures (NSFW screen +
-  // consent/faceblock verdicts). 'unscreened' still counts (fail-open).
+  // PUBLIC surface → fail-CLOSED: count ONLY screened-clean captures. 'unscreened'
+  // (e.g. a never-screened capture) is EXCLUDED, matching the media reads below
+  // and the canonical guest-live-gallery allowlist. (Was a fail-OPEN blocklist
+  // that let 'unscreened' through and filtered on consent/faceblock states no
+  // code path writes.)
   let photos: number | null = null;
   try {
     const { count, error } = await admin
@@ -833,11 +841,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
       .select('photo_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
       .is('hidden_at', null)
-      .not(
-        'moderation_state',
-        'in',
-        '("nsfw_blocked","consent_withheld","faceblock_withheld")',
-      );
+      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE);
     if (!error && typeof count === 'number') photos = count;
   } catch {
     photos = null;
@@ -855,11 +859,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
       .eq('event_id', eventId)
       .eq('photo_type', 'clip')
       .is('hidden_at', null)
-      .not(
-        'moderation_state',
-        'in',
-        '("nsfw_blocked","consent_withheld","faceblock_withheld")',
-      );
+      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE);
     if (!error && typeof count === 'number') clips = count;
   } catch {
     clips = null;
@@ -867,10 +867,10 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
 
   // 5b. The day's Papic captures (best-effort, shared by hero + gallery +
   // essay). Clean, non-hidden, type 'photo' only (never a clip), most-recent
-  // first. PUBLIC surface → moderation-withheld captures are excluded (same
-  // verdict set as the photo COUNT above). A missing table/column (pre-Papic
-  // event, 42P01/42703) degrades to an empty list → every consumer falls back
-  // to its prior source exactly as before.
+  // first. PUBLIC surface → fail-CLOSED: only screened-clean captures show
+  // ('unscreened' is EXCLUDED, same allowlist as the photo COUNT above). A
+  // missing table/column (pre-Papic event, 42P01/42703) degrades to an empty
+  // list → every consumer falls back to its prior source exactly as before.
   type PapicRow = { photoId: string; key: string; capturedAt: string | null };
   let papicRows: PapicRow[] = [];
   try {
@@ -878,20 +878,17 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
       .from('papic_photos')
       // Derivative columns + full_res_dropped_at so the gallery still resolves to
       // the drop-durable web copy — the raw original 404s after the 90-day sweep
-      // (a bug already LIVE on this public page).
-      .select('photo_id, r2_object_key, display_r2_key, thumb_r2_key, full_res_dropped_at, captured_at')
+      // (a bug already LIVE on this public page). moderation_state is selected for
+      // the client-side defense-in-depth gate below.
+      .select('photo_id, r2_object_key, display_r2_key, thumb_r2_key, full_res_dropped_at, captured_at, moderation_state')
       .eq('event_id', eventId)
       .eq('photo_type', 'photo')
       .is('hidden_at', null)
-      .not(
-        'moderation_state',
-        'in',
-        '("nsfw_blocked","consent_withheld","faceblock_withheld")',
-      )
+      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)
       .order('captured_at', { ascending: false })
       .limit(EDITORIAL_PAPIC_GALLERY_CAP);
     if (!error && Array.isArray(rows)) {
-      papicRows = (rows as Array<Record<string, unknown>>)
+      papicRows = filterPublicSafeRows(rows as Array<Record<string, unknown>>)
         .map((r) => ({
           photoId: asString(r.photo_id),
           key: resolveStillRef({
@@ -909,13 +906,17 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     papicRows = [];
   }
 
-  // 5b-bis. The day's Papic 5-second CLIPS (photo_type='clip'). Same fail-closed
-  // moderation filter as the photos above, ordered oldest-first so they slot into
-  // the "As the Day Unfolded" timeline in the order they happened. The playable
-  // ref resolves through resolvePlayRef (clip_web_r2_key ?? raw), so playback
-  // prefers the small ~0.5 MB web copy and correctly drops a raw that PR-2 later
-  // makes droppable; poster_r2_key is the freeze-frame (still, resolved
-  // separately). A missing table/column (pre-Papic event) degrades to an empty list.
+  // 5b-bis. The day's Papic 5-second CLIPS (photo_type='clip'). Fail-CLOSED
+  // moderation filter (only 'clean'), ordered oldest-first so they slot into the
+  // "As the Day Unfolded" timeline in the order they happened. CRITICAL: a clip
+  // whose poster-frame extraction failed never gets NSFW-screened (screenCapture
+  // returns early with no poster → the row stays 'unscreened'), so the previous
+  // fail-OPEN blocklist auto-played never-screened UGC on this public page. The
+  // allowlist below excludes it. The playable ref resolves through resolvePlayRef
+  // (clip_web_r2_key ?? raw), so playback prefers the small ~0.5 MB web copy and
+  // correctly drops a raw that PR-2 later makes droppable; poster_r2_key is the
+  // freeze-frame (still, resolved separately). A missing table/column (pre-Papic
+  // event) degrades to an empty list.
   type PapicClipRow = {
     photoId: string;
     key: string;
@@ -926,19 +927,15 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   try {
     const { data: rows, error } = await admin
       .from('papic_photos')
-      .select('photo_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, captured_at')
+      .select('photo_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, captured_at, moderation_state')
       .eq('event_id', eventId)
       .eq('photo_type', 'clip')
       .is('hidden_at', null)
-      .not(
-        'moderation_state',
-        'in',
-        '("nsfw_blocked","consent_withheld","faceblock_withheld")',
-      )
+      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)
       .order('captured_at', { ascending: true })
       .limit(EDITORIAL_PAPIC_CLIP_CAP);
     if (!error && Array.isArray(rows)) {
-      papicClipRows = (rows as Array<Record<string, unknown>>)
+      papicClipRows = filterPublicSafeRows(rows as Array<Record<string, unknown>>)
         .map((r) => ({
           photoId: asString(r.photo_id),
           // Play ref (web copy preferred, drop-safe) — never the raw key directly.
@@ -961,27 +958,24 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   // SEPARATE, wider read from the recency-capped gallery slice above. The gallery
   // query is `captured_at DESC` limit 24 (evening-biased on a photo-heavy day),
   // but a story timeline needs the whole day's arc, so this reads `captured_at
-  // ASC` across the event (cap 48) with the SAME fail-closed moderation filter.
-  // Lightweight rows only (photo_id, key, captured_at) — buckets are built from
-  // these FIRST, and only the ≤3 media each chapter uses get presigned later.
+  // ASC` across the event (cap 48) with the SAME fail-CLOSED moderation allowlist
+  // ('clean' only). Lightweight rows only (photo_id, key, captured_at, + the
+  // moderation_state used by the client-side gate) — buckets are built from these
+  // FIRST, and only the ≤3 media each chapter uses get presigned later.
   type TimelinePhotoRow = { photoId: string; key: string; capturedAt: string | null };
   let timelinePhotoRows: TimelinePhotoRow[] = [];
   try {
     const { data: rows, error } = await admin
       .from('papic_photos')
-      .select('photo_id, r2_object_key, captured_at')
+      .select('photo_id, r2_object_key, captured_at, moderation_state')
       .eq('event_id', eventId)
       .eq('photo_type', 'photo')
       .is('hidden_at', null)
-      .not(
-        'moderation_state',
-        'in',
-        '("nsfw_blocked","consent_withheld","faceblock_withheld")',
-      )
+      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)
       .order('captured_at', { ascending: true })
       .limit(EDITORIAL_TIMELINE_PHOTO_CAP);
     if (!error && Array.isArray(rows)) {
-      timelinePhotoRows = (rows as Array<Record<string, unknown>>)
+      timelinePhotoRows = filterPublicSafeRows(rows as Array<Record<string, unknown>>)
         .map((r) => ({
           photoId: asString(r.photo_id),
           key: asString(r.r2_object_key),
@@ -997,13 +991,16 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   // SKU) join the day. PUBLIC surface → these fail closed on the SAME double gate
   // the Alaala public showcase enforces (lib/alaala-orb.ts): a guest photo surfaces
   // ONLY when the GUEST opted in (consent_to_public) AND the couple picked it
-  // (couple_approved_for_showcase) AND it isn't hidden. This table carries NO NSFW
-  // moderation_state — the two approval/consent gates ARE its public gate, so we
-  // never include a raw/unapproved guest shot. Photos only (media_type='photo';
-  // guest clips stay to the Alaala orb path). A missing table/column (pre-SKU
-  // event, 42P01/42703) degrades to [] → the day is exactly Papic-only as before.
-  // These are UNIONED into both the recency gallery slice and the captured_at-ASC
-  // timeline below; deduped by r2 key against papic_photos just in case.
+  // (couple_approved_for_showcase) AND it isn't hidden — AND it passed the NSFW
+  // screen (moderation_state='clean'). This table DOES carry a moderation_state
+  // column (migration 20261104000959) and lib/nsfw-screen.ts screens it, so the
+  // consent/approval gates are NOT a substitute for screening — a couple can
+  // approve a shot the classifier never cleared. Fail-CLOSED on 'clean' matches
+  // guest-live-gallery. Photos only (media_type='photo'; guest clips stay to the
+  // Alaala orb path). A missing table/column (pre-SKU event, 42P01/42703) degrades
+  // to [] → the day is exactly Papic-only as before. These are UNIONED into both
+  // the recency gallery slice and the captured_at-ASC timeline below; deduped by
+  // r2 key against papic_photos just in case.
   type GuestCaptureRow = { captureId: string; key: string; capturedAt: string | null };
   let guestGalleryRows: GuestCaptureRow[] = [];
   let guestTimelineRows: GuestCaptureRow[] = [];
@@ -1013,16 +1010,17 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     // drop-durable still (this block merges into papicRows, presigned below).
     const { data: rows, error } = await admin
       .from('papic_guest_captures')
-      .select('capture_id, r2_object_key, display_r2_key, thumb_r2_key, full_res_dropped_at, captured_at')
+      .select('capture_id, r2_object_key, display_r2_key, thumb_r2_key, full_res_dropped_at, captured_at, moderation_state')
       .eq('event_id', eventId)
       .eq('media_type', 'photo')
       .eq('consent_to_public', true)
       .eq('couple_approved_for_showcase', true)
       .is('hidden_at', null)
+      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)
       .order('captured_at', { ascending: false })
       .limit(EDITORIAL_PAPIC_GALLERY_CAP);
     if (!error && Array.isArray(rows)) {
-      guestGalleryRows = (rows as Array<Record<string, unknown>>)
+      guestGalleryRows = filterPublicSafeRows(rows as Array<Record<string, unknown>>)
         .map((r) => ({
           captureId: asString(r.capture_id),
           key: resolveStillRef({
@@ -1043,16 +1041,17 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     // Timeline sweep — captured_at ASC across the day, same cap as seat timeline.
     const { data: rows, error } = await admin
       .from('papic_guest_captures')
-      .select('capture_id, r2_object_key, captured_at')
+      .select('capture_id, r2_object_key, captured_at, moderation_state')
       .eq('event_id', eventId)
       .eq('media_type', 'photo')
       .eq('consent_to_public', true)
       .eq('couple_approved_for_showcase', true)
       .is('hidden_at', null)
+      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)
       .order('captured_at', { ascending: true })
       .limit(EDITORIAL_TIMELINE_PHOTO_CAP);
     if (!error && Array.isArray(rows)) {
-      guestTimelineRows = (rows as Array<Record<string, unknown>>)
+      guestTimelineRows = filterPublicSafeRows(rows as Array<Record<string, unknown>>)
         .map((r) => ({
           captureId: asString(r.capture_id),
           key: asString(r.r2_object_key),
@@ -1163,18 +1162,15 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
       // (sets 'clean'), after which it resolves again.
       const { data: photoRow } = await admin
         .from('papic_photos')
-        .select('r2_object_key, display_r2_key, thumb_r2_key, full_res_dropped_at, photo_type')
+        .select('r2_object_key, display_r2_key, thumb_r2_key, full_res_dropped_at, photo_type, moderation_state')
         .eq('photo_id', heroPhotoId)
         .eq('event_id', eventId)
-        .not(
-          'moderation_state',
-          'in',
-          '("nsfw_blocked","consent_withheld","faceblock_withheld")',
-        )
+        .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)
         .maybeSingle();
       const pr = photoRow as Record<string, unknown> | null;
       const ptype = asString(pr?.photo_type);
-      if (ptype !== 'clip') {
+      // Defense-in-depth: never render a hero whose state isn't screened-clean.
+      if (ptype !== 'clip' && isPublicSafeModerationState(pr?.moderation_state)) {
         // Drop-durable still — the raw original 404s for this OG hero after the
         // 90-day sweep; the derivative survives.
         const stillRef = resolveStillRef({
@@ -1522,16 +1518,12 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
       try {
         const { data: rows } = await admin
           .from('papic_photos')
-          .select('photo_id, r2_object_key')
+          .select('photo_id, r2_object_key, moderation_state')
           .eq('event_id', eventId)
           .in('photo_id', missing)
-          .not(
-            'moderation_state',
-            'in',
-            '("nsfw_blocked","consent_withheld","faceblock_withheld")',
-          )
+          .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)
           .is('hidden_at', null);
-        for (const r of (rows ?? []) as Array<Record<string, unknown>>) {
+        for (const r of filterPublicSafeRows((rows ?? []) as Array<Record<string, unknown>>)) {
           const id = asString(r.photo_id);
           const key = asString(r.r2_object_key);
           if (!id || !key) continue;
@@ -1891,22 +1883,20 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
       const photoAnchors = new Map<string, AnchorMedia>();
       const captureAnchors = new Map<string, AnchorMedia>();
 
-      // papic_photos anchors — SAME fail-closed moderation filter as everywhere
-      // else on this surface (withheld verdicts + hidden excluded).
+      // papic_photos anchors — SAME fail-CLOSED moderation allowlist as everywhere
+      // else on this surface (only 'clean'; 'unscreened' + withheld + hidden
+      // excluded). A Kwento anchor can be a CLIP that plays here, so an unscreened
+      // clip must never resolve.
       if (photoAnchorIds.size > 0) {
         try {
           const { data: pRows } = await admin
             .from('papic_photos')
-            .select('photo_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, photo_type')
+            .select('photo_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, photo_type, moderation_state')
             .eq('event_id', eventId)
             .in('photo_id', Array.from(photoAnchorIds))
             .is('hidden_at', null)
-            .not(
-              'moderation_state',
-              'in',
-              '("nsfw_blocked","consent_withheld","faceblock_withheld")',
-            );
-          for (const p of (pRows ?? []) as Array<Record<string, unknown>>) {
+            .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE);
+          for (const p of filterPublicSafeRows((pRows ?? []) as Array<Record<string, unknown>>)) {
             const id = asString(p.photo_id);
             const type = asString(p.photo_type) === 'clip' ? 'clip' : 'photo';
             // A CLIP plays a VIDEO → resolvePlayRef (web copy preferred, drop-safe);
@@ -1929,19 +1919,23 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
       }
 
       // papic_guest_captures anchors — the disposable-camera SKU. Public gate is
-      // the consent + couple-approval double gate (no NSFW column on this table),
-      // consistent with the "As the Day Unfolded" timeline read above.
+      // the consent + couple-approval double gate AND the NSFW screen: this table
+      // DOES carry a moderation_state column (migration 20261104000959) that
+      // lib/nsfw-screen.ts writes, so couple-approval is NOT a substitute for
+      // screening. Fail-CLOSED on 'clean', consistent with the "As the Day
+      // Unfolded" timeline read above.
       if (captureAnchorIds.size > 0) {
         try {
           const { data: cRows } = await admin
             .from('papic_guest_captures')
-            .select('capture_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, display_r2_key, poster_r2_key, media_type')
+            .select('capture_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, display_r2_key, poster_r2_key, media_type, moderation_state')
             .eq('event_id', eventId)
             .in('capture_id', Array.from(captureAnchorIds))
             .eq('consent_to_public', true)
             .eq('couple_approved_for_showcase', true)
-            .is('hidden_at', null);
-          for (const c of (cRows ?? []) as Array<Record<string, unknown>>) {
+            .is('hidden_at', null)
+            .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE);
+          for (const c of filterPublicSafeRows((cRows ?? []) as Array<Record<string, unknown>>)) {
             const id = asString(c.capture_id);
             const type = asString(c.media_type) === 'clip' ? 'clip' : 'photo';
             // A CLIP must render a VIDEO → resolvePlayRef (web copy preferred,
@@ -2235,15 +2229,15 @@ export async function loadEditorialChaptersForEditor(
   try {
     const { data, error } = await admin
       .from('papic_photos')
-      .select('photo_id, r2_object_key, captured_at')
+      .select('photo_id, r2_object_key, captured_at, moderation_state')
       .eq('event_id', eventId)
       .eq('photo_type', 'photo')
       .is('hidden_at', null)
-      .not('moderation_state', 'in', '("nsfw_blocked","consent_withheld","faceblock_withheld")')
+      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)
       .order('captured_at', { ascending: true })
       .limit(EDITORIAL_TIMELINE_PHOTO_CAP);
     if (!error && Array.isArray(data)) {
-      for (const r of data as Array<Record<string, unknown>>) {
+      for (const r of filterPublicSafeRows(data as Array<Record<string, unknown>>)) {
         const photoId = asString(r.photo_id);
         const key = asString(r.r2_object_key);
         if (photoId && key) rows.push({ photoId, key, posterKey: null, capturedAt: asString(r.captured_at), kind: 'photo' });
@@ -2255,15 +2249,15 @@ export async function loadEditorialChaptersForEditor(
   try {
     const { data, error } = await admin
       .from('papic_photos')
-      .select('photo_id, r2_object_key, poster_r2_key, captured_at')
+      .select('photo_id, r2_object_key, poster_r2_key, captured_at, moderation_state')
       .eq('event_id', eventId)
       .eq('photo_type', 'clip')
       .is('hidden_at', null)
-      .not('moderation_state', 'in', '("nsfw_blocked","consent_withheld","faceblock_withheld")')
+      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)
       .order('captured_at', { ascending: true })
       .limit(EDITORIAL_PAPIC_CLIP_CAP);
     if (!error && Array.isArray(data)) {
-      for (const r of data as Array<Record<string, unknown>>) {
+      for (const r of filterPublicSafeRows(data as Array<Record<string, unknown>>)) {
         const photoId = asString(r.photo_id);
         const key = asString(r.r2_object_key);
         if (photoId && key) rows.push({ photoId, key, posterKey: asString(r.poster_r2_key), capturedAt: asString(r.captured_at), kind: 'clip' });

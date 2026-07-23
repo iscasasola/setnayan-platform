@@ -20,7 +20,7 @@ import { eventOwnsSku } from '@/lib/entitlements';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { RevealList } from '@/app/_components/reveal-list';
 import { eventNoun, eventNounCap } from '@/lib/event-noun';
-import { guestColumnsEnabled } from '@/lib/guest-columns';
+import { guestColumnsActive } from '@/lib/guest-columns-gate';
 
 export const metadata = { title: 'Event website' };
 
@@ -253,8 +253,9 @@ export default async function WebsiteHubPage({
           blurb="Your front-page story after the day — words, photos, hero, and which features show."
         />
         {/* Guest Columns review queue doorway (BUILD ① · wayfinding rule: a
-            page ships with its doorway). Flag-gated with the whole feature. */}
-        {guestColumnsEnabled() ? (
+            page ships with its doorway). Gated with the whole feature (env
+            flag AND the guest_columns DPO control — no dead door). */}
+        {(await guestColumnsActive()) ? (
           <QuickLink
             data-reveal-item
             href={`/dashboard/${eventId}/studio/guest-columns`}

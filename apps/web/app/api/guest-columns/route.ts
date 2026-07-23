@@ -5,8 +5,8 @@ import { moderateKwentoText } from '@/lib/kwento-moderation';
 import {
   GUEST_COLUMN_BODY_MAX,
   GUEST_COLUMN_TITLE_MAX,
-  guestColumnsEnabled,
 } from '@/lib/guest-columns';
+import { guestColumnsActive } from '@/lib/guest-columns-gate';
 
 // POST   /api/guest-columns — a zero-account guest submits (or edits) their ONE
 //                             column for the couple's paper.
@@ -27,7 +27,9 @@ import {
 //   * RA 10173: consent is required on every submit — no tick, no send
 //     (consent_captured_at NOT NULL is the DB backstop).
 //
-// Whole surface behind GUEST_COLUMNS_ENABLED (default OFF).
+// Whole surface behind GUEST_COLUMNS_ENABLED (default OFF) AND the
+// 'guest_columns' DPO control (/admin/data-privacy, fail-closed) — the env
+// flag short-circuits first, so the dark path stays DB-read-free.
 
 export const dynamic = 'force-dynamic';
 
@@ -43,7 +45,7 @@ const FRIENDLY: Record<string, { status: number; error: string }> = {
 };
 
 export async function POST(req: Request) {
-  if (!guestColumnsEnabled()) {
+  if (!(await guestColumnsActive())) {
     return NextResponse.json({ error: 'not_available' }, { status: 404 });
   }
   const session = await readGuestSession();
@@ -102,7 +104,7 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE() {
-  if (!guestColumnsEnabled()) {
+  if (!(await guestColumnsActive())) {
     return NextResponse.json({ error: 'not_available' }, { status: 404 });
   }
   const session = await readGuestSession();

@@ -1,11 +1,11 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getLifecyclePhase } from '@/lib/invitation-widgets';
 import {
-  guestColumnsEnabled,
   type OwnGuestColumn,
   type GuestColumnStatus,
   type PublishedGuestColumn,
 } from '@/lib/guest-columns';
+import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { GuestColumnForm } from './guest-column-form';
 
 /**
@@ -24,8 +24,8 @@ import { GuestColumnForm } from './guest-column-form';
  *      close-state mirrored from getLifecyclePhase (the server-side cutoff
  *      lives in the guest_submit_column RPC; this is the courtesy mirror).
  *
- * Behind GUEST_COLUMNS_ENABLED (default OFF) — renders nothing until the
- * owner flips the flag.
+ * Behind GUEST_COLUMNS_ENABLED (default OFF) AND the 'guest_columns' DPO
+ * control (/admin/data-privacy) — renders nothing until both are on.
  */
 export async function GuestColumnCard({
   eventId,
@@ -36,7 +36,7 @@ export async function GuestColumnCard({
   guestId: string;
   eventDate: string | null;
 }) {
-  if (!guestColumnsEnabled()) return null;
+  if (!(await guestColumnsActive())) return null;
 
   const closed = getLifecyclePhase(eventDate) === 'editorial';
   const admin = createAdminClient();

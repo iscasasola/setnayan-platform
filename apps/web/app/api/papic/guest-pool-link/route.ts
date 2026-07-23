@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { papicPoolGalleryEnabled } from '@/lib/papic-pool-flag';
+import { papicPoolGalleryActive } from '@/lib/papic-pool-gate';
 
 // POST /api/papic/guest-pool-link — "I'm in this."
 //
@@ -19,7 +19,7 @@ export const runtime = 'nodejs';
 const SOURCE_TABLES = new Set(['papic_photos', 'papic_guest_captures']);
 
 export async function POST(req: Request) {
-  if (!papicPoolGalleryEnabled()) {
+  if (!(await papicPoolGalleryActive())) {
     return NextResponse.json({ ok: false, error: 'unavailable' }, { status: 404 });
   }
   const session = await readGuestSession();

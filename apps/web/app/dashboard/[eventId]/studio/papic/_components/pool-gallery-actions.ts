@@ -17,7 +17,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { papicPoolGalleryEnabled } from '@/lib/papic-pool-flag';
+import { papicPoolGalleryActive } from '@/lib/papic-pool-gate';
 
 type ActionResult = { ok: true; open: boolean } | { ok: false; error: string };
 
@@ -25,7 +25,7 @@ export async function setPoolGalleryOpen(
   eventId: string,
   open: boolean,
 ): Promise<ActionResult> {
-  if (!papicPoolGalleryEnabled()) return { ok: false, error: 'unavailable' };
+  if (!(await papicPoolGalleryActive())) return { ok: false, error: 'unavailable' };
   const clean = eventId?.trim();
   if (!clean) return { ok: false, error: 'missing_event' };
 

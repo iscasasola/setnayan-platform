@@ -1,14 +1,15 @@
 import { Images } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { papicPoolGalleryEnabled } from '@/lib/papic-pool-flag';
+import { papicPoolGalleryActive } from '@/lib/papic-pool-gate';
 import { eventPapicActive } from '@/lib/papic-seats';
 import { PoolGalleryToggle } from './pool-gallery-toggle';
 
 /**
  * Shared Pool Gallery — the couple's control card on the Papic studio page
  * (OnTheDay build ⑥), rendered beside the LiveWallCard. Server component:
- * renders ONLY when the env flag is on AND Papic is active for this event
+ * renders ONLY when the env flag + the 'papic_pool_gallery' DPO control are
+ * on AND Papic is active for this event
  * (there is no pool without captures). Reads the current toggle state, then
  * hands the flip to the client toggle → the COUPLE-ONLY server action.
  *
@@ -18,7 +19,7 @@ import { PoolGalleryToggle } from './pool-gallery-toggle';
  * retroactive on the next read.
  */
 export async function PoolGalleryCard({ eventId }: { eventId: string }) {
-  if (!papicPoolGalleryEnabled()) return null;
+  if (!(await papicPoolGalleryActive())) return null;
 
   const supabase = await createClient();
   const papicActive = await eventPapicActive(supabase, eventId);

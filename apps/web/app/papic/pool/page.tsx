@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { Images } from 'lucide-react';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { papicPoolGalleryEnabled } from '@/lib/papic-pool-flag';
+import { papicPoolGalleryActive } from '@/lib/papic-pool-gate';
 import { getPoolGalleryPage } from '@/lib/papic-pool-gallery';
 import { PoolGrid } from './_components/pool-grid';
 
@@ -17,9 +17,10 @@ import { PoolGrid } from './_components/pool-grid';
 //
 // Session-gated: reached only through the setnayan_guest_session cookie (the
 // /papic/me/[token]/session bridge) — no guest token ever appears in this URL.
-// Double-gated: NEXT_PUBLIC_PAPIC_POOL_GALLERY env AND the per-event couple
-// toggle (events.pool_gallery_open, DEFAULT FALSE). When either is off the
-// page 404s — the couple owns whether this door exists at all (no dead door).
+// Triple-gated: NEXT_PUBLIC_PAPIC_POOL_GALLERY env AND the 'papic_pool_gallery'
+// DPO control (/admin/data-privacy, fail-closed — env short-circuits first) AND
+// the per-event couple toggle (events.pool_gallery_open, DEFAULT FALSE). When
+// any is off the page 404s — no dead door.
 
 export const dynamic = 'force-dynamic';
 
@@ -40,7 +41,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 }
 
 export default async function PapicPoolPage() {
-  if (!papicPoolGalleryEnabled()) notFound();
+  if (!(await papicPoolGalleryActive())) notFound();
 
   const session = await readGuestSession();
   if (!session) {

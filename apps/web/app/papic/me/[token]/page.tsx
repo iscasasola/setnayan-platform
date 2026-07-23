@@ -3,7 +3,7 @@ import { ArrowRight, Camera, CircleAlert, Clock, Download, Images, Sparkles } fr
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveGuestCamera } from '@/lib/papic-limited';
 import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
-import { papicPoolGalleryEnabled } from '@/lib/papic-pool-flag';
+import { papicPoolGalleryActive } from '@/lib/papic-pool-gate';
 import { GuestStoryMaker } from './_components/guest-story-maker';
 
 // Papic · MY camera (guest personal-QR → Limited roll camera).
@@ -43,13 +43,14 @@ function Shell({ children }: { children: React.ReactNode }) {
 }
 
 /** Doorway to the Shared Pool Gallery ("Everyone's photos") — renders ONLY
- *  when the env flag is on AND the couple opened the pool for this event
+ *  when the env flag + the 'papic_pool_gallery' DPO control are on AND the
+ *  couple opened the pool for this event
  *  (events.pool_gallery_open, DEFAULT FALSE). When either is off there is no
  *  door at all (owner rule: guests see NOTHING, no dead door). The link goes
  *  through the token→session bridge so the pool page is session-scoped and no
  *  guest token appears in the pool URL. */
 async function PoolDoorway({ eventId, token }: { eventId: string; token: string }) {
-  if (!papicPoolGalleryEnabled()) return null;
+  if (!(await papicPoolGalleryActive())) return null;
   const admin = createAdminClient();
   const { data: ev } = await admin
     .from('events')

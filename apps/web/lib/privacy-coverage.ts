@@ -105,6 +105,16 @@ export const CONTROL_COVERAGE: Record<PrivacyControlKey, ControlCoverage> = {
     declaredIn: ['device-fingerprint-review', 'ropa'],
     note: 'Coarse per-browser device id for fraud. DPO review on file (12_Device_Fingerprint_DPO_Review); a documented LIA is still owed (NPC task t2-10). Held OFF (control inactive AND env flag) until DPO sign-off.',
   },
+  guest_columns: {
+    privacySensitive: true,
+    declaredIn: [],
+    note: 'NOT DECLARED YET (on purpose — honest drift): guest-authored columns publish guest text + bylines to the open web after couple approval. Owed before activation: a /privacy section for guest-authored publication + a ROPA activity. Held fail-closed (control inactive AND GUEST_COLUMNS_ENABLED env flag off).',
+  },
+  papic_pool_gallery: {
+    privacySensitive: true,
+    declaredIn: [],
+    note: 'NOT DECLARED YET (on purpose — honest drift): the shared pool exposes every guest’s clean-screened captures (web copies) to all session guests, plus self-link tagging. Owed before activation: a /privacy section for event-wide pool sharing + a ROPA activity. Held fail-closed (control inactive AND NEXT_PUBLIC_PAPIC_POOL_GALLERY env flag off AND the couple’s per-event toggle).',
+  },
 };
 
 export type FilingActivityGap = { docKey: string; activity: string; note: string };

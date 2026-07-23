@@ -27,6 +27,7 @@ const NOTICE_BY_CODE: Record<Exclude<SendProposalError, 'unauthenticated' | 'not
   thread_closed: 'proposal_thread_closed',
   needs_template: 'proposal_needs_template',
   tier_free: 'proposal_tier_free',
+  fee_unpaid: 'proposal_fee_unpaid',
   failed: 'proposal_failed',
 };
 

@@ -1,57 +1,35 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  isBookingFeeEnforced,
+  decideFeeGate,
+  BOOKING_FEE_SCHEDULE_VERSION,
+  type BookingFeeAttribution,
+  type FeeGateResult,
+  type OpenChargeResult,
+} from '@/lib/booking-fee-gate';
 
 /**
  * The Booking-Fee charge access layer — thin, typed wrappers over the
- * service-role RPCs defined in migration 20270916909942. The fee amount is
- * computed AUTHORITATIVELY in SQL (public.booking_fee_centavos, the mirror of
- * lib/booking-fee.ts); these wrappers never pass a fee amount, only identifiers.
+ * service-role RPCs defined in migration 20270916909942, plus the async send-gate.
+ * The fee amount is computed AUTHORITATIVELY in SQL (public.booking_fee_centavos,
+ * the mirror of lib/booking-fee.ts); these wrappers never pass a fee amount, only
+ * identifiers. The pure gate RULES (attribution, two-key enforcement, the send
+ * decision) live in lib/booking-fee-gate.ts and are re-exported here so existing
+ * importers of '@/lib/booking-fee-charge' keep working.
  *
- * INERT until the flag is flipped. Nothing here runs on the live send path while
- * isBookingFeeEnabled() is false, so the whole system ships dark.
+ * INERT until enforced. Nothing here runs on the live send path while
+ * isBookingFeeEnforced() is false.
  */
-
-/**
- * The fee is off until this flag is set (default off — same value client +
- * server, mirroring isPaymentGatedLockEnabled). While off, no fee is computed,
- * charged, or gated: the proposal send behaves exactly as it does today.
- */
-export function isBookingFeeEnabled(): boolean {
-  const v = process.env.NEXT_PUBLIC_BOOKING_FEE_ENABLED;
-  return v === 'true' || v === '1' || v === 'TRUE';
-}
-
-/**
- * The fee schedule in force. Stamped on every charge so a future reprice cannot
- * silently rewrite history. MUST match the SQL default in the ledger migration.
- */
-export const BOOKING_FEE_SCHEDULE_VERSION = '2026-07-23-flat2';
-
-export type BookingFeeAttribution = 'sourced' | 'import';
-
-export type BookingFeeChargeStatus =
-  | 'pending'
-  | 'paid'
-  | 'failed'
-  | 'expired'
-  | 'waived_import';
-
-export type OpenChargeResult = {
-  charge_id: string;
-  status: BookingFeeChargeStatus;
-  amount_charged_centavos: number;
-  computed_fee_centavos: number;
-  attribution: BookingFeeAttribution;
-  reused: boolean;
-};
+export * from '@/lib/booking-fee-gate';
 
 /**
  * Open (or reuse) the single live charge for a proposal. Call with the
  * SERVICE-ROLE admin client — the RPC is service_role-only, so the fee amount is
  * never client-influenced. `attribution` is resolved server-side by the send
  * action (sourced when a marketplace-sourced thread predates the send, else
- * import → free). Returns null on any error (fail-closed: the caller must treat a
- * null as "not cleared" and refuse to send).
+ * import → free). Returns null on any error (fail-closed at the RPC boundary; the
+ * gate decision then fail-OPENs on null so a transient error never traps a send).
  */
 export async function openBookingFeeCharge(
   admin: SupabaseClient,
@@ -102,4 +80,28 @@ export async function isProposalFeeCleared(
   });
   if (error) return false;
   return Boolean(data);
+}
+
+/**
+ * The proposal send-gate. Returns whether the draft→sent flip may proceed.
+ * Composes the two-key enforcement check with the charge open + the pure decision
+ * (see lib/booking-fee-gate.ts for the full fail-safe contract). Call with the
+ * SERVICE-ROLE admin client.
+ */
+export async function bookingFeeSendGate(
+  admin: SupabaseClient,
+  args: {
+    proposalId: string;
+    attribution: BookingFeeAttribution;
+    threadId: string | null;
+  },
+): Promise<FeeGateResult> {
+  if (!isBookingFeeEnforced()) return { cleared: true };
+  const charge = await openBookingFeeCharge(
+    admin,
+    args.proposalId,
+    args.attribution,
+    args.threadId,
+  );
+  return decideFeeGate(charge);
 }

@@ -7,6 +7,8 @@ import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
 import { leadTokenHoldEnabled, consumeLeadHoldOnCoupleReply } from '@/lib/lead-token-holds';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { runVendorAutoReply } from '@/lib/vendor-autoreply/inbox-hook';
+import { chatContactFilterEnabled } from '@/lib/chat-contact-filter-flag';
+import { scanForContactInfo } from '@/lib/chat-contact-filter';
 import { fetchThreadById, countCoupleMessages } from './chat';
 import { notifyOtherParty } from './chat-actions';
 
@@ -271,20 +273,88 @@ export async function sendChatMessageCore(
     };
   }
 
-  const { error } = await supabase.from('chat_messages').insert({
+  // Off-platform-contact filter (CHAT_CONTACT_FILTER_ENABLED · default OFF).
+  // Deterministic, ₱0, no-LLM. When ON, MASK the actual contact payload (phone /
+  // email / social URL / @handle / app-name / euphemism / solicitation) in the
+  // delivered body and record the ORIGINAL to chat_message_flags for admin
+  // review. Runs for BOTH couple + vendor (system/bot messages never reach this
+  // core — they insert via the service-role client elsewhere). When the flag is
+  // OFF the scan never runs and finalBody === trimmed, so the send is
+  // byte-identical to before the filter existed. Attachment-only sends have an
+  // empty trimmed body → no scan.
+  let finalBody = trimmed;
+  let contactScan: ReturnType<typeof scanForContactInfo> | null = null;
+  if (chatContactFilterEnabled() && trimmed.length > 0) {
+    contactScan = scanForContactInfo(trimmed);
+    if (contactScan.hasHit) finalBody = contactScan.masked;
+  }
+  const needContactFlag = contactScan?.hasHit ?? false;
+
+  // Build the insert once; when a flag must be recorded we also read back the
+  // new message_id (the flag row FKs to it). The no-flag path stays a plain
+  // insert with no RETURNING, exactly as before.
+  const messageInsert = supabase.from('chat_messages').insert({
     thread_id: thread.thread_id,
     event_id: thread.event_id,
     vendor_profile_id: thread.vendor_profile_id,
     sender_user_id: user.id,
     sender_role: senderRole,
-    body: trimmed,
+    body: finalBody,
     ...(attachment ?? {}),
   });
-  if (error) {
-    // Never surface raw Postgres/PostgREST text to the client (constraint/RLS
-    // internals). Log it server-side for observability; return friendly copy.
-    console.error('[sendChatMessageCore] message insert failed:', error.message);
-    return { ok: false, code: 'insert_failed', message: 'Couldn’t send your message. Please try again.' };
+
+  let insertedMessageId: string | null = null;
+  if (needContactFlag) {
+    const { data, error } = await messageInsert.select('message_id').maybeSingle();
+    if (error) {
+      console.error('[sendChatMessageCore] message insert failed:', error.message);
+      return { ok: false, code: 'insert_failed', message: 'Couldn’t send your message. Please try again.' };
+    }
+    insertedMessageId = (data as { message_id?: string } | null)?.message_id ?? null;
+  } else {
+    const { error } = await messageInsert;
+    if (error) {
+      // Never surface raw Postgres/PostgREST text to the client (constraint/RLS
+      // internals). Log it server-side for observability; return friendly copy.
+      console.error('[sendChatMessageCore] message insert failed:', error.message);
+      return { ok: false, code: 'insert_failed', message: 'Couldn’t send your message. Please try again.' };
+    }
+  }
+
+  // Record the flag off the request path (best-effort · never blocks the send).
+  // METADATA ONLY — categories + hit_count + sender/context, NEVER the message
+  // text: the owner-locked admin-account-access model (2026-06-22) forbids
+  // Setnayan staff from reading couple↔vendor chat bodies, so the moderator
+  // queue carries only the abuse signal (what kind of contact info, by whom, how
+  // often), not the conversation. Service-role client so it lands regardless of
+  // the RLS on the moderator-only queue; a pre-migration table miss or any write
+  // error is logged and swallowed — the message has already been delivered
+  // (masked) at this point.
+  if (needContactFlag && insertedMessageId && contactScan) {
+    const messageId = insertedMessageId;
+    const scan = contactScan;
+    after(async () => {
+      try {
+        const { error: flagErr } = await admin.from('chat_message_flags').insert({
+          message_id: messageId,
+          thread_id: thread.thread_id,
+          event_id: thread.event_id,
+          vendor_profile_id: thread.vendor_profile_id,
+          sender_user_id: user.id,
+          sender_role: senderRole,
+          categories: scan.categories,
+          hit_count: scan.hits.length,
+        });
+        if (flagErr) {
+          console.error('[sendChatMessageCore] contact-flag insert failed (non-blocking):', flagErr.message);
+        }
+      } catch (caught) {
+        console.error(
+          '[sendChatMessageCore] contact-flag threw (non-blocking):',
+          caught instanceof Error ? caught.message : String(caught),
+        );
+      }
+    });
   }
 
   // vendor_first_reply_at — stamp the thread when the vendor sends their first
@@ -346,9 +416,11 @@ export async function sendChatMessageCore(
     vendorProfileId: thread.vendor_profile_id,
     senderRole,
     senderUserId: user.id,
+    // Use the MASKED body so a contact payload never leaks via the notification
+    // or its email (finalBody === trimmed when the filter is off / no hit).
     // Attachment-only messages have no text — give the notification a sensible
     // preview instead of an empty string.
-    body: trimmed || (attachment ? '📎 Sent an attachment' : ''),
+    body: finalBody || (attachment ? '📎 Sent an attachment' : ''),
     isFirstMessage,
   });
 

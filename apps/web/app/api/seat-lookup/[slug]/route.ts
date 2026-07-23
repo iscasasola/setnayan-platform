@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { enforceRateLimit, rateLimited429 } from '@/lib/with-rate-limit';
+import { clientIp } from '@/lib/client-ip';
 import {
   sanitizeSeatLookupQuery,
   SEAT_LOOKUP_MAX_MATCHES,
@@ -23,22 +25,6 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-// Best-effort in-memory throttle. NOT a hard guarantee across serverless
-// instances — the real anti-enumeration guards are the min-length + LIMIT 25 +
-// minimal-columns in the RPC. This just blunts a trivial single-instance flood.
-const WINDOW_MS = 10_000;
-const MAX_HITS = 20;
-const hits = new Map<string, number[]>();
-
-function rateLimited(ip: string): boolean {
-  const now = Date.now();
-  const recent = (hits.get(ip) ?? []).filter((t) => now - t < WINDOW_MS);
-  recent.push(now);
-  if (hits.size > 5000) hits.clear(); // crude bound; best-effort only
-  hits.set(ip, recent);
-  return recent.length > MAX_HITS;
-}
-
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ slug: string }> },
@@ -46,13 +32,15 @@ export async function GET(
   const { slug } = await params;
   if (!slug) return NextResponse.json({ matches: [] });
 
-  const ip =
-    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    req.headers.get('x-real-ip') ||
-    'unknown';
-  if (rateLimited(ip)) {
-    return NextResponse.json({ error: 'too_many_requests' }, { status: 429 });
-  }
+  // Durable, cross-instance throttle (L1 in-memory + L2 Postgres sliding window;
+  // fails open on a limiter outage). The RPC is now EXACT-match (own seat only),
+  // so this is defence-in-depth against a spray of guessed full names rather than
+  // the primary anti-enumeration guard.
+  const rl = await enforceRateLimit('seat_lookup', clientIp(req.headers), {
+    limit: 20,
+    windowSecs: 10,
+  });
+  if (!rl.ok) return rateLimited429(rl.retryAfterSecs);
 
   const query = sanitizeSeatLookupQuery(new URL(req.url).searchParams.get('q'));
   // Too short / empty → empty result, never an error or a roster dump.

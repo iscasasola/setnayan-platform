@@ -8,8 +8,10 @@ import { normalizeGuestName } from '@/lib/guest-name';
 /** Minimum query length — refuse 0/1-char probes (anti roster-enumeration). */
 export const SEAT_LOOKUP_MIN_LEN = 2;
 
-/** Hard cap on returned matches (mirrors the RPC's LIMIT). */
-export const SEAT_LOOKUP_MAX_MATCHES = 25;
+/** Hard cap on returned matches (mirrors the RPC's LIMIT). The RPC now
+ *  EXACT-matches a full name (own seat only), so a result is one guest — or a
+ *  rare same-name pair — never the old up-to-25 substring roster. */
+export const SEAT_LOOKUP_MAX_MATCHES = 5;
 
 export type SeatMatch = {
   display_name: string;

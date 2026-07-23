@@ -70,6 +70,7 @@ const editorialProUpgradeHref = (eventId: string) =>
 const ORDERABLE_SECTION_LABELS: Record<EditorialOrderKey, string> = {
   chapters: 'As the Day Unfolded',
   kwento: 'What They Whispered',
+  guestColumns: 'Letters to the Editor',
   gallery: 'From the Day (photos)',
   fromVendors: 'From Your Vendors',
   liveWall: 'Live Photo Wall',
@@ -85,6 +86,7 @@ const ORDERABLE_SECTION_LABELS: Record<EditorialOrderKey, string> = {
 const ORDERABLE_SECTION_TOGGLE: Record<EditorialOrderKey, keyof EditorialSections> = {
   chapters: 'gallery',
   kwento: 'kwento',
+  guestColumns: 'guestColumns',
   gallery: 'gallery',
   fromVendors: 'fromVendors',
   liveWall: 'liveWall',
@@ -110,6 +112,7 @@ const SECTIONS: Array<{ key: keyof EditorialSections; label: string; help: strin
   { key: 'videoGuestbook', label: 'Video guestbook', help: 'Your guests’ 5-second video greetings (Pabati), if you have it.' },
   { key: 'watchFilm', label: 'Watch the film', help: 'Your Live Studio broadcast replay, if you streamed the day.' },
   { key: 'kwento', label: 'What they whispered', help: 'Your guests’ best wishes (Kwento), captured on the day.' },
+  { key: 'guestColumns', label: 'Letters to the editor', help: 'Short columns your guests wrote for your paper — only the ones you approved.' },
   { key: 'fromTheCouple', label: 'From the couple', help: 'Your thank-you note to guests.' },
   { key: 'vendorsWeLoved', label: 'Vendors we loved', help: 'The vendors you recommended — your endorsements, shown to future couples.' },
 ];
@@ -212,6 +215,7 @@ export function EditorialEditor({
   showcaseOptedIn = false,
   landingVisibility = 'public',
   isWedding = true,
+  guestColumnsOn = false,
 }: {
   eventId: string;
   slug: string | null;
@@ -241,6 +245,10 @@ export function EditorialEditor({
    *  event_type='wedding'), so the opt-in toggle is wedding-only — a non-wedding
    *  couple toggling it would set consent that never surfaces. */
   isWedding?: boolean;
+  /** Guest Columns (GUEST_COLUMNS_ENABLED, server env — default OFF). When off,
+   *  the "Letters to the Editor" toggle + order row are hidden so the editor
+   *  never surfaces a section that can't render (no fake doors). */
+  guestColumnsOn?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -281,7 +289,10 @@ export function EditorialEditor({
   // Working order of the reorderable content sections. Resolved once from the
   // saved order (default order when none saved), reordered by up/down buttons.
   const [sectionOrder, setSectionOrder] = useState<EditorialOrderKey[]>(() =>
-    resolveSectionOrder(savedSectionOrder),
+    // Flag-dark keys are stripped from the WORKING order (never shown, never
+    // reordered); the server's sanitize + the renderer's resolveSectionOrder
+    // both re-append missing keys, so a save while the flag is off is safe.
+    resolveSectionOrder(savedSectionOrder).filter((k) => guestColumnsOn || k !== 'guestColumns'),
   );
 
   // ── PRO: manual guest wishes ("What They Said") ───────────────────────────
@@ -988,7 +999,7 @@ export function EditorialEditor({
           Turn any feature off to keep it off your editorial. The masthead, headline, and hero always show.
         </p>
         <div className="mt-4 space-y-1.5">
-          {SECTIONS.map((s) => {
+          {SECTIONS.filter((s) => guestColumnsOn || s.key !== 'guestColumns').map((s) => {
             const on = form.sections[s.key] !== false;
             return (
               <button

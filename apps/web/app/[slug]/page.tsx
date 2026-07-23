@@ -95,6 +95,7 @@ import { eventStdOpeningsActive } from '@/lib/std-openings';
 import { defaultInvitationLaunchIso } from '@/lib/save-the-date-content';
 import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config';
 import { OurStory } from './_components/our-story';
+import { GuestColumnCard } from './_components/guest-column-card';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import {
   buildSitePaletteVars,
@@ -3254,6 +3255,10 @@ function InvitationSite({
             The normal body only renders pre-event (STD + editorial are separate
             branches), so this naturally stays off the post-event Editorial. */}
         <OurStory loveStory={event.love_story} variant="full" />
+        {/* Guest Columns (BUILD ① · GUEST_COLUMNS_ENABLED, default OFF) — the
+            guest's one column for the couple's paper + the approved columns.
+            Guest-session tree only (cookie holders); flag off → renders null. */}
+        <GuestColumnCard eventId={event.event_id} guestId={guest.guest_id} eventDate={event.event_date} />
           </>
         )}
 

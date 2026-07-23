@@ -60,7 +60,7 @@
     "leaflet": "^1.9.4",
     "lucide-react": "^1.14.0",
     "mp4-muxer": "^5.2.2",
-    "next": "^15.1.0",
+    "next": "^15.5.21",
     "nsfwjs": "^4.3.0",
     "opentype.js": "^2.0.0",
     "paper": "^0.12.18",

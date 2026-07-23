@@ -3,8 +3,14 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveTokens, type ProposalLineItem } from '@/lib/vendor-proposals';
+import {
+  bookingFeeSendGate,
+  bookingFeeAttribution,
+  isBookingFeeEnforced,
+} from '@/lib/booking-fee-charge';
 import {
   resolveProposalValues,
   resolvePackageLineItems,
@@ -164,6 +170,37 @@ export async function sendProposal(formData: FormData) {
 
   const proposalId = String(formData.get('proposal_id') ?? '');
   const publicId = String(formData.get('public_id') ?? '');
+
+  // Booking-fee prepaid gate — skipped entirely unless ENFORCED (flag on + live
+  // Maya rail). Resolve the (vendor, event) thread for attribution, then block the
+  // send (no flip) when the fee is unpaid; the draft persists so the vendor can pay
+  // via checkout (PR-4) and re-send this same draft.
+  if (isBookingFeeEnforced()) {
+    const admin = createAdminClient();
+    const { data: prop } = await admin
+      .from('vendor_proposals')
+      .select('event_id, vendor_profile_id')
+      .eq('proposal_id', proposalId)
+      .eq('status', 'draft')
+      .maybeSingle();
+    if (prop) {
+      const { data: thread } = await admin
+        .from('chat_threads')
+        .select('thread_id, inquiry_source')
+        .eq('event_id', prop.event_id)
+        .eq('vendor_profile_id', prop.vendor_profile_id)
+        .maybeSingle();
+      const feeGate = await bookingFeeSendGate(admin, {
+        proposalId,
+        attribution: bookingFeeAttribution(thread?.inquiry_source ?? null),
+        threadId: thread?.thread_id ?? null,
+      });
+      if (!feeGate.cleared) {
+        revalidatePath(`/proposals/${publicId}`);
+        redirect(`/proposals/${publicId}?notice=fee_unpaid`);
+      }
+    }
+  }
 
   // RLS: only the org's own DRAFT rows are updatable — the flip freezes it.
   // Return the keys so we can retire any earlier live proposal for this pair.

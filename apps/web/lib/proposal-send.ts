@@ -14,6 +14,12 @@ import {
   sanitizeAndResolveSchedule,
   type ResolvedSchedule,
 } from '@/lib/proposal-payment-schedule';
+import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  bookingFeeSendGate,
+  bookingFeeAttribution,
+  isBookingFeeEnforced,
+} from '@/lib/booking-fee-charge';
 
 /**
  * Shared CORE for the in-chat vendor proposal (a "quote" is simply a proposal
@@ -41,6 +47,10 @@ export type SendProposalError =
   | 'thread_closed'
   | 'tier_free'
   | 'needs_template'
+  // Booking-fee prepaid gate: a fee is owed on this send and hasn't been paid.
+  // Only reachable when the fee is ENFORCED (flag on + live Maya rail); until then
+  // the gate always clears. The draft is left in place to be completed at checkout.
+  | 'fee_unpaid'
   | 'failed';
 
 export type SendProposalResult =
@@ -287,6 +297,25 @@ export async function sendProposalCore(
     .single();
   if (insErr || !inserted) return { ok: false, code: 'failed', message: 'Couldn’t send that proposal. Please try again.' };
 
+  // 5b · Booking-fee prepaid gate. Inert unless ENFORCED (flag on + live Maya
+  // rail); until then this whole block is skipped and the send is unchanged. When
+  // enforced and the fee is unpaid, the draft is left in place (not deleted) so
+  // checkout (PR-4) can complete the send for this same proposal.
+  if (isBookingFeeEnforced()) {
+    const feeGate = await bookingFeeSendGate(createAdminClient(), {
+      proposalId: inserted.proposal_id,
+      attribution: bookingFeeAttribution(thread.inquiry_source),
+      threadId: thread.thread_id,
+    });
+    if (!feeGate.cleared) {
+      return {
+        ok: false,
+        code: 'fee_unpaid',
+        message: 'A booking fee applies to sending this proposal. Complete the fee payment to send.',
+      };
+    }
+  }
+
   const { error: sendErr } = await supabase
     .from('vendor_proposals')
     .update({ status: 'sent', sent_at: new Date().toISOString(), updated_at: new Date().toISOString() })
@@ -488,6 +517,23 @@ export async function sendCustomProposalCore(
     .select('proposal_id, public_id')
     .single();
   if (insErr || !inserted) return { ok: false, code: 'failed', message: 'Couldn’t send that quote. Please try again.' };
+
+  // Booking-fee prepaid gate (see sendProposalCore). Inert unless enforced; on an
+  // unpaid fee the draft is left for checkout (PR-4) to complete.
+  if (isBookingFeeEnforced()) {
+    const feeGate = await bookingFeeSendGate(createAdminClient(), {
+      proposalId: inserted.proposal_id,
+      attribution: bookingFeeAttribution(thread.inquiry_source),
+      threadId: thread.thread_id,
+    });
+    if (!feeGate.cleared) {
+      return {
+        ok: false,
+        code: 'fee_unpaid',
+        message: 'A booking fee applies to sending this quote. Complete the fee payment to send.',
+      };
+    }
+  }
 
   const { error: sendErr } = await supabase
     .from('vendor_proposals')

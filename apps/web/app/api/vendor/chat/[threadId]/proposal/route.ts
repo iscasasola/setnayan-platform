@@ -14,6 +14,7 @@ const STATUS_BY_CODE: Record<SendProposalError, number> = {
   thread_closed: 403,
   tier_free: 403,
   needs_template: 422,
+  fee_unpaid: 402, // Payment Required — the booking fee for this send is unpaid
   failed: 500,
 };
 

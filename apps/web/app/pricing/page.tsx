@@ -140,17 +140,20 @@ const ADDON_GROUPS: CatalogGroup[] = [
       { code: 'PANOOD_SYSTEM' }, // Live Studio ₱2,500/day
       { code: 'LIVE_WALL' },
       { code: 'PATIKTOK_COMPILER' },
-      { code: 'LIVE_BACKGROUND' },
+      // LIVE_BACKGROUND is bundle-only (2026-07-22) — folded into Monogram PRO —
+      // so it is is_active=false and drops out of resolvedGroups automatically.
       { code: 'SEATING_3D' }, // 3D Plan — walk the reception in 3D (activated 2026-07-10)
     ],
   },
   {
     title: 'Your website',
     items: [
-      // COUPLE_WEBSITE_PRO umbrella deactivated/unbundled 2026-07-10 — Editorial +
-      // Reveal now sell standalone (row auto-drops via resolvedGroups when inactive).
-      { code: 'EDITORIAL_PRO' },
-      { code: 'STD_PREMIUM_OPENINGS' }, // Cinematic Reveal
+      // Website PRO REACTIVATED + repriced ₱3,500 (owner 2026-07-22): the umbrella
+      // and the ONLY way to get Editorial PRO + the Cinematic Reveal, both now
+      // bundle-only (is_active=false → their standalone rows auto-drop from
+      // resolvedGroups). COUPLE_WEBSITE_PRO must be LISTED here or the reactivated
+      // umbrella never appears (resolvedGroups only renders codes in a group).
+      { code: 'COUPLE_WEBSITE_PRO' }, // Website PRO ₱3,500 — includes Reveal + Editorial PRO
       { code: 'EVENT_SUBDOMAIN' }, // Custom subdomain yourname.setnayan.com ₱999/year (owner 2026-07-10)
       { code: 'WEBSITE_UPGRADE', gate: true }, // only if active in the catalog
     ],

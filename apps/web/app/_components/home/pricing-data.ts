@@ -143,19 +143,19 @@ export async function getHomePricingData(): Promise<PricingData> {
   const liveWall = priceOf(catalog, 'LIVE_WALL', 2500);
 
   // ── Couple Website group ──
-  const reveal = priceOf(catalog, 'STD_PREMIUM_OPENINGS', 999);
   const galleryUpload = priceOf(catalog, 'WEBSITE_GALLERY_UPLOAD', 100);
   const mapLink = priceOf(catalog, 'WEBSITE_MAP_LINKING', 100);
   const themes = priceOf(catalog, 'WEBSITE_THEMES', 1000);
-  const editorialPro = priceOf(catalog, 'EDITORIAL_PRO', 2999);
   const subdomain = priceOf(catalog, 'EVENT_SUBDOMAIN', 999); // yourname.setnayan.com (owner 2026-07-10)
-  // COUPLE_WEBSITE_PRO umbrella retired/unbundled 2026-07-10 — Editorial + Reveal
-  // now sell standalone; no umbrella row is shown.
+  // Website PRO REACTIVATED + repriced ₱3,500 (owner 2026-07-22): the umbrella
+  // and the ONLY way to get Editorial PRO + the Cinematic Reveal, both now
+  // bundle-only (is_active=false → their standalone rows are removed here so the
+  // priceOf fallback can't reprint a stale standalone price).
+  const websitePro = priceOf(catalog, 'COUPLE_WEBSITE_PRO', 3500);
 
   // ── Everything else ──
   const seating3d = priceOf(catalog, 'SEATING_3D', 2999);
-  const monogram = priceOf(catalog, 'ANIMATED_MONOGRAM', 999);
-  const liveBg = priceOf(catalog, 'LIVE_BACKGROUND', 499);
+  const monogram = priceOf(catalog, 'ANIMATED_MONOGRAM', 1000); // Monogram PRO — now includes Live Background
   const pakanta = priceOf(catalog, 'PAKANTA', 2499);
   const liveStudio = priceOf(catalog, 'PANOOD_SYSTEM', 2500); // Desktop Controller ₱2,500/day (Mobile ₱1,500/day is a separate SKU)
 
@@ -218,11 +218,10 @@ export async function getHomePricingData(): Promise<PricingData> {
       tinted: true,
       rows: [
         { n: 'The whole 4-in-1 site + unlimited RSVP', v: 'Free', free: true },
-        { n: 'Reveal · cinematic openings + your music, video & photos', v: reveal.v },
+        { n: 'Website PRO · Cinematic Reveal + Editorial PRO, one unlock', v: websitePro.v },
         { n: 'Photo gallery upload', v: galleryUpload.v },
         { n: 'Waze / Google Map link', v: mapLink.v },
         { n: 'Themes · RSVP + Event + Editorial', v: themes.v },
-        { n: 'Editorial PRO · author your front page', v: editorialPro.v },
         { n: 'Custom subdomain · yourname.setnayan.com', note: '· coming soon', v: `${subdomain.v}/year` },
       ],
     },
@@ -230,8 +229,7 @@ export async function getHomePricingData(): Promise<PricingData> {
       title: 'Everything else, à la carte',
       rows: [
         { n: '3D Plan · full 3D + site integration', v: seating3d.v },
-        { n: 'Animated Monogram', v: monogram.v },
-        { n: 'Live Background · video or template bg', v: liveBg.v },
+        { n: 'Animated Monogram · includes Live Background', v: monogram.v },
         { n: 'Pakanta', v: pakanta.v },
         {
           n: 'Live Studio · multicam',

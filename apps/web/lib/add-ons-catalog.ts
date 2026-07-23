@@ -368,41 +368,18 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
       iconBadgeClass: 'bg-cream/20 text-cream',
     },
   },
+  // Editorial PRO standalone card RETIRED 2026-07-22 (owner: bundle-only). It is
+  // now conferred ONLY by Website PRO (COUPLE_WEBSITE_PRO alias · EDITORIAL_PRO
+  // catalog row is is_active=false), so it no longer has its own doorway. The
+  // /studio/editorial-pro buy surface stays but upsells Website PRO for
+  // non-owners (never posts the retired EDITORIAL_PRO SKU).
   {
-    // Editorial PRO — the à-la-carte authorship unlock for the Editor's Desk
-    // (named moments · per-moment write-ups · chapter/order/guest-wishes
-    // editors · no watermark). serviceKey EDITORIAL_PRO; the COUPLE_WEBSITE_PRO
-    // umbrella confers it too (SKU_OWNERSHIP_ALIASES). opensDirect → the card
-    // opens this SKU's own /studio/editorial-pro buy surface (which handles
-    // owned / included / pending states), skipping the /about interstitial.
-    key: 'editorial-pro',
-    surface: 'website',
-    opensDirect: true,
-    label: 'Editorial PRO',
-    Icon: Newspaper,
-    iteration: '0038',
-    status: 'live',
-    category: 'digital_services',
-    blurb:
-      'Name every moment, tell each story, arrange your front page, edit the wishes — your wedding editorial, authored by you. Prints clean, no watermark.',
-    cta: 'Unlock Editorial PRO',
-    studioGroup: 'website',
-    serviceKey: 'EDITORIAL_PRO',
-    poster: {
-      motion: 'scan',
-      baseBackground:
-        'radial-gradient(circle at 40% 40%, #2A2A2E 0%, #121214 80%)',
-      motionBackground:
-        'linear-gradient(90deg, transparent 0%, rgba(169, 131, 75, 0.55) 50%, transparent 100%)',
-      iconBadgeClass: 'bg-cream/20 text-cream',
-    },
-  },
-  {
-    // Couple Website PRO — the UMBRELLA unlock. One purchase confers every
-    // premium website touch across the whole lifecycle (Save the Date openings +
-    // RSVP + on-the-day + Editorial PRO) and drops the "Powered by Setnayan"
-    // watermark everywhere. serviceKey COUPLE_WEBSITE_PRO. opensDirect → its own
-    // /studio/website-pro buy surface (owned / pending states handled there).
+    // Couple Website PRO — the UMBRELLA unlock, and (2026-07-22) the ONLY way to
+    // get the Save-the-Date Cinematic Reveal + Editorial PRO, both now bundle-
+    // only. One ₱3,500 purchase confers every premium website touch across the
+    // whole lifecycle (Reveal openings + RSVP + on-the-day + Editorial PRO) and
+    // drops the "Powered by Setnayan" watermark everywhere. serviceKey
+    // COUPLE_WEBSITE_PRO. opensDirect → its own /studio/website-pro buy surface.
     key: 'website-pro',
     surface: 'website',
     opensDirect: true,
@@ -412,7 +389,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     status: 'live',
     category: 'digital_services',
     blurb:
-      'Every premium touch across your whole website — Save the Date openings, RSVP, the on-the-day page, and the Editorial — plus the Setnayan watermark removed everywhere.',
+      'The one upgrade for your whole website — the Save-the-Date Cinematic Reveal, RSVP, the on-the-day page, and Editorial PRO — plus the Setnayan watermark removed everywhere. The only way to get the Reveal and Editorial PRO.',
     cta: 'Unlock Website PRO',
     studioGroup: 'website',
     serviceKey: 'COUPLE_WEBSITE_PRO',
@@ -506,13 +483,15 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     status: 'web_v1',
     category: 'digital_services',
     blurb:
-      'Your mark, drawn to life — on your QR, your page, your signage.',
+      'Your mark, drawn to life — on your QR, your page, your signage, and up on the LED stage screen.',
     cta: 'Open the maker',
     studioGroup: 'branding',
     // The maker itself is free (the lettered / cipher / upload monogram is
     // never gated) → "Free" chip. serviceKey keeps the Animated-Monogram SKU
     // ownership badge, so the chip flips to "Active" once the paid draw-on
-    // animation is owned (chip priority: Active > Pending > Free).
+    // animation is owned (chip priority: Active > Pending > Free). As of
+    // 2026-07-22, Monogram PRO (₱1,000) ALSO confers the LED Live Background
+    // (SKU_OWNERSHIP_ALIASES: LIVE_BACKGROUND ← ANIMATED_MONOGRAM).
     tier: 'free',
     serviceKey: 'ANIMATED_MONOGRAM',
     poster: {
@@ -719,16 +698,23 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     },
   },
   {
+    // LED Background — bundle-only 2026-07-22 (owner: Live Background is part of
+    // Monogram PRO ₱1,000). serviceKey is ANIMATED_MONOGRAM (NOT the retired
+    // LIVE_BACKGROUND), so the pill shows the live Monogram-PRO price / "Active"
+    // for owners — never the stale standalone LIVE_BACKGROUND price. opensDirect
+    // opens the maker, which renders for owners (LIVE_BACKGROUND conferred via the
+    // ANIMATED_MONOGRAM alias) and upsells Monogram PRO to everyone else.
     key: 'led',
     label: 'LED Background',
     Icon: Sparkles,
     iteration: '0005',
+    opensDirect: true,
     status: 'web_v1',
     category: 'led_background',
-    blurb: 'Your name and monogram, twenty feet tall on the stage screen.',
-    cta: 'Choose template',
+    blurb: 'Your name and monogram, twenty feet tall on the stage screen — included with Monogram PRO.',
+    cta: 'Design your LED',
     studioGroup: 'branding',
-    serviceKey: 'LIVE_BACKGROUND',
+    serviceKey: 'ANIMATED_MONOGRAM',
     poster: {
       motion: 'pulse',
       baseBackground:

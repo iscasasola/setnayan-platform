@@ -1142,7 +1142,10 @@ const groupDigits = (raw: string) => {
    the inapp keys here map 1:1 to service_codes in onboarding-pricing.ts INAPP_TO_SERVICE_CODE. */
 // indoor_blueprint RETIRED from the catalog (owner 2026-06-08) → removed from the offered set
 // (a retired SKU drops out of fetchV2CustomerCatalog → would otherwise render at ₱0).
-const INAPP_KEYS = ['papic_seats', 'advanced_website', 'animated_monogram', 'panood', 'papic_guest', 'pakanta', 'custom_qr', 'live_background', 'pabati', 'guest_stories', 'thank_you', 'live_photowall'];
+// live_background dropped 2026-07-22: Live Background is bundle-only (folded into
+// Monogram PRO = animated_monogram), so it is no longer a standalone onboarding
+// pick (its SKU is is_active=false → the card would otherwise render as ₱0).
+const INAPP_KEYS = ['papic_seats', 'advanced_website', 'animated_monogram', 'panood', 'papic_guest', 'pakanta', 'custom_qr', 'pabati', 'guest_stories', 'thank_you', 'live_photowall'];
 // Onboarding pick → its in-app add-on checkout route (the InlineCheckoutDrawer · BDO/GCash QR +
 // reference card). Only services with a BUILT checkout page are listed; Purchase Now jumps to the
 // first picked one of these, else falls back to the Services tab (owner 2026-06-06).
@@ -1174,8 +1177,11 @@ const PICK_TO_INAPP: Record<string, string[]> = {
   // Feast
   cake: ['papic_guest'], stations: ['papic_guest'],
   // Design
-  stylist: ['animated_monogram', 'live_background'], florist: ['animated_monogram'], lights_sound: ['live_background'],
-  dance_floor: ['live_photowall'], led_wall: ['live_background'], fireworks: ['thank_you'], outdoor: ['panood'],
+  // live_background folded into Monogram PRO (animated_monogram) 2026-07-22, so
+  // vendors that used to point at the LED Background now recommend Monogram PRO,
+  // which includes it.
+  stylist: ['animated_monogram'], florist: ['animated_monogram'], lights_sound: ['animated_monogram'],
+  dance_floor: ['live_photowall'], led_wall: ['animated_monogram'], fireworks: ['thank_you'], outdoor: ['panood'],
   // Program
   host_mc: ['pabati'], live_band: ['pakanta'], orchestra: ['pakanta'], choir: ['pakanta'], wedding_singer: ['pakanta'],
   dj: ['pakanta'], performers: ['thank_you'], choreographer: ['thank_you'],
@@ -1197,7 +1203,7 @@ const PICK_TO_INAPP: Record<string, string[]> = {
 };
 /* Priority order for the recommended set. Dedup against the picks bounds the union to the ≤14
    in-app services, so every chosen leaf surfaces its matched add-on(s) — no cap (owner 2026-06-05). */
-const REC_PRIORITY = ['papic_seats', 'thank_you', 'animated_monogram', 'pakanta', 'panood', 'live_background', 'live_photowall', 'papic_guest', 'guest_stories', 'pabati', 'advanced_website', 'custom_qr'];
+const REC_PRIORITY = ['papic_seats', 'thank_you', 'animated_monogram', 'pakanta', 'panood', 'live_photowall', 'papic_guest', 'guest_stories', 'pabati', 'advanced_website', 'custom_qr'];
 function recommendedInappFor(picks: string[]): string[] {
   const set = new Set<string>();
   for (const p of picks) for (const k of (PICK_TO_INAPP[p] ?? [])) set.add(k);

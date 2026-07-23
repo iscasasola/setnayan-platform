@@ -87,7 +87,8 @@ export const STUDIO_PEAK_MONTHS: Readonly<Record<string, number>> = {
 export const STUDIO_RECOMMEND_EXCLUDED: ReadonlySet<string> = new Set([
   'orders',
   'website-pro',
-  'editorial-pro',
+  // 'editorial-pro' card retired 2026-07-22 (bundle-only via Website PRO) — no
+  // longer a catalog entry, so it needs no exclusion.
   'supplies-marketplace',
 ]);
 

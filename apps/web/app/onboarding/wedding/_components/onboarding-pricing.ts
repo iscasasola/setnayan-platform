@@ -54,14 +54,19 @@ import {
  */
 export const INAPP_TO_SERVICE_CODE: Record<string, string> = {
   papic_seats: 'PAPIC_SEATS',
-  advanced_website: 'PRO_WEBSITE',
+  // "Advanced Website" = the reactivated Website PRO umbrella (owner 2026-07-22 ·
+  // ₱3,500). Was the legacy PRO_WEBSITE code, which is is_active=false (absorbed
+  // into COUPLE_WEBSITE_PRO) — so this now sells the live umbrella that also
+  // includes the bundle-only Editorial PRO + Cinematic Reveal.
+  advanced_website: 'COUPLE_WEBSITE_PRO',
   animated_monogram: 'ANIMATED_MONOGRAM',
   panood: 'PANOOD_SYSTEM',
   papic_guest: 'PAPIC_GUEST',
   pakanta: 'PAKANTA',
   custom_qr: 'CUSTOM_QR_GUEST',
   // indoor_blueprint RETIRED (owner 2026-06-08) — dropped from the catalog + the offered set.
-  live_background: 'LIVE_BACKGROUND',
+  // live_background RETIRED as an onboarding pick (owner 2026-07-22): Live
+  // Background is bundle-only, folded into Monogram PRO (animated_monogram).
   pabati: 'PABATI',
   guest_stories: 'PAPIC_ADDON_STORIES',
   thank_you: 'PAPIC_ADDON_THANK_YOU',

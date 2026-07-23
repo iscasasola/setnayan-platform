@@ -29,6 +29,7 @@ import {
   type RevealChoice,
 } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { resolveServiceSellability } from '@/lib/v2-catalog';
 import { formatPhp } from '@/lib/orders';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
@@ -145,13 +146,22 @@ export default async function SaveTheDatePage({ params }: Props) {
       ? await displayUrlForStoredAsset(stdMedia.posterKey)
       : null;
 
-  const [ownsOpenings, openingsSku, settings, revealConfig] = await Promise.all([
-    eventOwnsStdOpenings(supabase, eventId),
-    formatV2Sku(STD_PREMIUM_OPENINGS_SERVICE_KEY).catch(() => null),
-    fetchPlatformSettings(supabase),
-    fetchRevealConfig(),
-  ]);
+  const [ownsOpenings, openingsSku, settings, revealConfig, openingsSellability, websiteProSku] =
+    await Promise.all([
+      eventOwnsStdOpenings(supabase, eventId),
+      formatV2Sku(STD_PREMIUM_OPENINGS_SERVICE_KEY).catch(() => null),
+      fetchPlatformSettings(supabase),
+      fetchRevealConfig(),
+      // The Cinematic Reveal is bundle-only (2026-07-22): once its catalog row is
+      // is_active=false, the standalone drawer would dead-end at checkout, so we
+      // gate on real sellability and upsell Website PRO instead. Reads DB
+      // is_active → self-heals through the migration-push window.
+      resolveServiceSellability(STD_PREMIUM_OPENINGS_SERVICE_KEY),
+      formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null),
+    ]);
   const openingsPricePhp = openingsSku?.price_php ?? null;
+  const openingsStandaloneSellable = openingsSellability === 'sellable';
+  const websiteProPricePhp = websiteProSku?.price_php ?? null;
 
   // Presigned media — resolved server-side once; passed as initial content to
   // the client builder (so presigned URLs never expire mid-session).
@@ -318,7 +328,7 @@ export default async function SaveTheDatePage({ params }: Props) {
             lifts to reveal your page on your live site.
           </p>
         </div>
-      ) : openingsPricePhp != null && openingsPricePhp > 0 ? (
+      ) : openingsStandaloneSellable && openingsPricePhp != null && openingsPricePhp > 0 ? (
         <section className="space-y-3 rounded-2xl border border-mulberry/20 bg-mulberry/5 p-5 sm:p-6">
           <div className="flex items-start gap-3">
             <Sparkles
@@ -355,9 +365,46 @@ export default async function SaveTheDatePage({ params }: Props) {
           </div>
         </section>
       ) : (
-        <p className="sn-row px-5 py-4 text-sm text-ink/55">
-          The cinematic openings are being set up — check back shortly.
-        </p>
+        // Bundle-only: the cinematic opening comes with Website PRO. Upsell it
+        // (a real, working buy surface) rather than a standalone checkout that
+        // would be rejected — owners already hit the "unlocked" branch above.
+        <section className="space-y-3 rounded-2xl border border-mulberry/20 bg-mulberry/5 p-5 sm:p-6">
+          <div className="flex items-start gap-3">
+            <Sparkles
+              aria-hidden
+              className="mt-0.5 h-5 w-5 shrink-0 text-mulberry"
+              strokeWidth={1.75}
+            />
+            <div className="space-y-1">
+              <h2 className="font-serif text-lg italic">The cinematic opening is part of Website PRO</h2>
+              <p className="max-w-prose text-sm text-ink/70">
+                Your film is free. The{' '}
+                <span className="font-medium text-ink">cinematic opening</span> — plus Editorial
+                PRO and every premium touch across your site — comes with Website PRO.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-ink/65">
+              One unlock for your whole website
+              {websiteProPricePhp != null ? (
+                <>
+                  {' '}
+                  ·{' '}
+                  <span className="font-mono text-base text-ink">
+                    {formatPhp(websiteProPricePhp)}
+                  </span>
+                </>
+              ) : null}
+            </p>
+            <Link
+              href={`/dashboard/${eventId}/studio/website-pro`}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 sm:w-auto"
+            >
+              Unlock Website PRO
+            </Link>
+          </div>
+        </section>
       )}
 
       {/* Three-step live builder */}

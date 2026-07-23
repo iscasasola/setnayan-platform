@@ -179,14 +179,24 @@ export async function eventCompActiveSkus(
  * STD_PREMIUM_OPENINGS ← COUPLE_WEBSITE_PRO (owner confirmation 2026-07-04:
  * "Couple Website pro unlocks all pro features for the website, Save the date,
  * rsvp, event(on the day), editorial") — the Save-the-Date cinematic openings
- * are one of the four umbrella phases, so the umbrella confers them too. The
- * openings stay purchasable à la carte at their own catalog price; this only
- * adds the read-side grant.
+ * are one of the four umbrella phases, so the umbrella confers them too.
+ *
+ * As of 2026-07-22 (owner-locked bundle restructure) EDITORIAL_PRO and
+ * STD_PREMIUM_OPENINGS are BUNDLE-ONLY — their standalone catalog rows are
+ * is_active=false, so COUPLE_WEBSITE_PRO (repriced ₱3,500) is the ONLY way to
+ * buy them. These aliases become the sole purchase→ownership path.
+ *
+ * LIVE_BACKGROUND ← ANIMATED_MONOGRAM (owner-locked 2026-07-22): Live Background
+ * is now bundle-only, folded into Monogram PRO (ANIMATED_MONOGRAM, repriced
+ * ₱1,000). An order under ANIMATED_MONOGRAM confers LIVE_BACKGROUND ownership;
+ * existing direct LIVE_BACKGROUND owners keep access. One-directional — owning
+ * LIVE_BACKGROUND does NOT confer ANIMATED_MONOGRAM.
  */
 export const SKU_OWNERSHIP_ALIASES: Readonly<Record<string, ReadonlyArray<string>>> =
   Object.freeze({
     EDITORIAL_PRO: Object.freeze(['COUPLE_WEBSITE_PRO']),
     STD_PREMIUM_OPENINGS: Object.freeze(['COUPLE_WEBSITE_PRO']),
+    LIVE_BACKGROUND: Object.freeze(['ANIMATED_MONOGRAM']),
   });
 
 /**

@@ -22,7 +22,10 @@ const ALLOWED_PATHS = [
 // 2026-05-28) that drifted from the live product — they carried retired
 // claims (₱1,499 verification fee, "BIR-compliant receipts", "Today's Focus").
 // Disallowed 2026-06-13 so crawlers + AI answer engines stop indexing stale copy.
-const DISALLOWED_PATHS = ['/dashboard', '/vendor-dashboard', '/admin', '/api', '/receipts', '/keynote', '/proto'];
+// /papic/me/[token] carries a guest's bearer QR token in the path (also
+// noindex'd at the page level). Pre-fetch-disallow so compliant crawlers never
+// request the tokenized URL. Bare /papic (marketing) stays crawlable.
+const DISALLOWED_PATHS = ['/dashboard', '/vendor-dashboard', '/admin', '/api', '/receipts', '/keynote', '/proto', '/papic/me'];
 const QUERY_DISALLOWS = ['/*?sort=', '/*?filter=', '/*?session=', '/*?ref='];
 
 const AI_ANSWER_ENGINES = ['ChatGPT-User', 'OAI-SearchBot', 'PerplexityBot', 'ClaudeBot'];

@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, Camera, CircleAlert, Clock, Download, Images, Sparkles } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -27,6 +28,16 @@ import { GuestStoryMaker } from './_components/guest-story-maker';
 // here runs on an always-rendered page. force-dynamic — per-request resolution.
 
 export const dynamic = 'force-dynamic';
+
+// The URL of this page carries the guest's bearer QR token (guests.qr_token)
+// as a path segment — a standing credential. It must never be indexed or
+// followed by any crawler (open-browse privacy hardening, council §3 row 5(f);
+// robots.ts also pre-fetch-disallows /papic/me). Sibling token routes
+// (/papic/seat|join|claim|demo/[token]) carry the same exposure and warrant
+// the same treatment in a follow-up.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 type Props = {
   params: Promise<{ token: string }>;

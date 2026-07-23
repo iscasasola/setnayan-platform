@@ -4,7 +4,7 @@ import { ArrowLeft, Newspaper } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { guestColumnsEnabled } from '@/lib/guest-columns';
+import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { ColumnQueueControls, type ColumnRow } from './_components/column-queue-controls';
 
 export const metadata = { title: 'Guest columns · Studio · Setnayan' };
@@ -25,14 +25,15 @@ export const dynamic = 'force-dynamic';
  * AFTER this membership gate (the kwento-queue precedent); the approve/decline
  * actions ride the RLS via the reviewer's own session.
  *
- * Behind GUEST_COLUMNS_ENABLED (default OFF) — 404s until the owner flips it.
+ * Behind GUEST_COLUMNS_ENABLED (default OFF) AND the 'guest_columns' DPO
+ * control (/admin/data-privacy, fail-closed) — 404s until both are on.
  */
 export default async function GuestColumnsQueuePage({
   params,
 }: {
   params: Promise<{ eventId: string }>;
 }) {
-  if (!guestColumnsEnabled()) notFound();
+  if (!(await guestColumnsActive())) notFound();
 
   const { eventId } = await params;
   const user = await getCurrentUser();

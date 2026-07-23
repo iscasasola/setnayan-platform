@@ -11,7 +11,10 @@
  * section) is gated behind GUEST_COLUMNS_ENABLED — a server-side env flag,
  * default OFF. The schema is inert until this flips (the PABUYA_PUBLIC_ROUTE
  * precedent: flag default-off IS the go-live hold, since migrations auto-apply
- * on merge).
+ * on merge). On top of the flag, every server surface ALSO requires the
+ * 'guest_columns' Data-Privacy control to be Active (/admin/data-privacy —
+ * see lib/guest-columns-gate.ts; env short-circuits first, control
+ * fail-closed).
  */
 
 export const GUEST_COLUMN_TITLE_MAX = 60;

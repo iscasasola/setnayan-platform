@@ -41,7 +41,9 @@ export type PrivacyControlKey =
   | 'vendor_ai_autoreply'
   | 'vendor_deep_search'
   | 'antifraud_trust_signals'
-  | 'device_fingerprint';
+  | 'device_fingerprint'
+  | 'guest_columns'
+  | 'papic_pool_gallery';
 
 /**
  * Risk-grouped sections for the board. `group` is the KIND of data a control
@@ -52,6 +54,7 @@ export type PrivacyControlKey =
 export type PrivacyControlGroup =
   | 'biometric_sensitive'
   | 'vendor_mediated'
+  | 'guest_content'
   | 'automated_ai'
   | 'coordinator'
   | 'profile_onboarding'
@@ -60,6 +63,7 @@ export type PrivacyControlGroup =
 export const PRIVACY_CONTROL_GROUP_ORDER: readonly PrivacyControlGroup[] = [
   'biometric_sensitive',
   'vendor_mediated',
+  'guest_content',
   'automated_ai',
   'coordinator',
   'profile_onboarding',
@@ -69,6 +73,7 @@ export const PRIVACY_CONTROL_GROUP_ORDER: readonly PrivacyControlGroup[] = [
 export const PRIVACY_CONTROL_GROUP_LABEL: Record<PrivacyControlGroup, string> = {
   biometric_sensitive: 'Biometric & sensitive PI',
   vendor_mediated: 'Vendor-mediated guest data',
+  guest_content: 'Guest content & publication',
   automated_ai: 'Automated processing & AI',
   coordinator: 'Coordinator access',
   profile_onboarding: 'Profile & onboarding',
@@ -245,6 +250,26 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
     category: 'Fraud prevention / device data',
     riskNote:
       'A NEW pseudonymous data-collection practice. A DPO review is on file (12_Device_Fingerprint_DPO_Review) and a documented LIA is still owed (NPC task t2-10). Kept OFF until DPO sign-off; the capture path AND-gates this control with the NEXT_PUBLIC_DEVICE_FINGERPRINT_ENABLED env flag.',
+  },
+  {
+    key: 'guest_columns',
+    group: 'guest_content',
+    title: 'Guest Columns (guest-authored paper)',
+    description:
+      'Every guest may write ONE short column (title + body, size-capped) for the couple’s paper. The couple approves before publish; approved columns render on the PUBLIC guest site and the post-event editorial with the guest’s byline. Tier-1 moderation screens every submit; the guest can withdraw at any time (RA 10173 self-serve takedown).',
+    category: 'Guest-authored public content',
+    riskNote:
+      'Publishes guest-authored text + byline (guest PII) to the open web after couple approval. Consent is captured on every submit, but the live /privacy notice and the ROPA do not declare this publication flow yet — activate only after they cover it and the DPO ruling is on file. Every surface AND-gates this control with the GUEST_COLUMNS_ENABLED env flag.',
+  },
+  {
+    key: 'papic_pool_gallery',
+    group: 'guest_content',
+    title: 'Papic Shared Pool Gallery',
+    description:
+      'Lets every session guest browse the WHOLE event capture pool (clean-screened photos + clips, web copies only) and self-link ("I’m in this") into photos — a manual_pick tag that joins their personal gallery, ZIP download, and Story reel. The couple’s per-event toggle (events.pool_gallery_open, default OFF) still applies on top of this control, and closing it is retroactive.',
+    category: 'Event-wide guest media exposure',
+    riskNote:
+      'Widens photo/clip visibility from per-guest tagged delivery to EVERY guest in the event — guests see other guests’ images. The pool read bakes the FaceBlock blur rule, the photo_consent veto, and web-copy-only keys (never the geo-bearing original); still a new exposure surface the /privacy notice and ROPA must declare before this activates. DPO ruling required. Every surface AND-gates this control with the NEXT_PUBLIC_PAPIC_POOL_GALLERY env flag.',
   },
 ];
 

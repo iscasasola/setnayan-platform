@@ -19,7 +19,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveStillRef, resolvePlayRef, stableMediaPath } from '@/lib/papic-display-ref';
 import { eventSkuActive } from '@/lib/entitlements';
 import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
-import { guestColumnsEnabled } from '@/lib/guest-columns';
+import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { tierCaps } from '@/lib/vendor-tier-caps';
 import {
   fetchEventRecommendations,
@@ -2025,13 +2025,14 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
 
   // ── "Letters to the Editor" — approved Guest Columns ─────────────────────────
   // guest_columns (BUILD ① · migration 20270917200000), behind the
-  // GUEST_COLUMNS_ENABLED flag (default OFF → never even queried). PUBLIC
+  // GUEST_COLUMNS_ENABLED flag (default OFF → never even queried) AND the
+  // 'guest_columns' DPO control (fail-closed; env short-circuits first). PUBLIC
   // surface → FAILS CLOSED exactly like the kwento block above: only
   // status='approved' + moderation_state='clean' + author not publicly hidden.
   // Bylines resolve from `guests` (same one-read pattern). A missing table
   // (pre-migration, 42P01) degrades to [] → section hidden.
   const guestColumns: Array<{ title: string; body: string; author: string | null }> = [];
-  if (guestColumnsEnabled()) {
+  if (await guestColumnsActive()) {
     try {
       const { data: colRows, error } = await admin
         .from('guest_columns')

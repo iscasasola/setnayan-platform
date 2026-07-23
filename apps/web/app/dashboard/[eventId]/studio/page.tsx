@@ -124,7 +124,10 @@ export default async function StudioPage({ params, searchParams }: Props) {
       supabase
         .from('platform_retail_catalog_v2')
         .select('service_code, retail_price_php')
-        .in('service_code', serviceKeys),
+        .in('service_code', serviceKeys)
+        // Only price ACTIVE SKUs — a retired (is_active=false) SKU must not print
+        // a stale standalone price pill (e.g. the bundle-only LED Background card).
+        .eq('is_active', true),
       // The couple's planning state (months-to-date + hard structural signals)
       // that powers the "Recommended for you now" strip. `.catch(() => null)` so
       // a hiccup in these five reads degrades the strip (to date-peak only, or

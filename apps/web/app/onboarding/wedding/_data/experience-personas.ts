@@ -204,7 +204,11 @@ export const EXP_PERSONAS: ExpPersona[] = [
     ideal: { for_whom: ['couple', 'guests'], feel: ['midsize', 'grand'], energy: ['refined'], roots: ['modern'], effort: ['allout', 'balanced'] },
     feel: 'modern',
     extras: ['stylist', 'led_wall', 'lights_sound', 'dj', 'bride_attire'],
-    services: ['live_background', 'animated_monogram', 'advanced_website'],
+    // live_background folded into Monogram PRO (animated_monogram) 2026-07-22 —
+    // it is no longer a standalone onboarding pick, so it is dropped here (unlike
+    // persona-packs.ts, the wedding path derivePlanFromPersona returns services
+    // raw with no VALID_SERVICE_KEYS filter, so a stale key would render as ₱0).
+    services: ['animated_monogram', 'advanced_website'],
     refinementSeeds: { stylist: ['Modern minimalist'], photo_video: ['pv_editorial'], catering: ['cuisine_fusion'] },
   },
   {

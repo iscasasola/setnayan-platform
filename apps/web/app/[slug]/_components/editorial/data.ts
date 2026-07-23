@@ -88,10 +88,14 @@ export const EDITORIAL_TIMELINE_PHOTO_CAP = 48;
 const SERVICE_LABELS: Record<string, string> = {
   ANIMATED_MONOGRAM: 'Animated Monogram',
   CAMERA_BRIDGE: 'Camera Bridge',
+  COUPLE_WEBSITE_PRO: 'Website PRO',
   CUSTOM_QR_GUEST: 'Custom Guest QR',
+  // EDITORIAL_PRO + STD_PREMIUM_OPENINGS are bundle-only (2026-07-22 · via Website
+  // PRO). Kept here so existing/bundle owners still get a clean "Powered by" label.
   EDITORIAL_PRO: 'Editorial PRO',
   EVENT_WEBSITE: 'Event Website',
   LIVE_BACKGROUND: 'Live Background',
+  STD_PREMIUM_OPENINGS: 'Cinematic Reveal',
   LIVE_WALL: 'Live Photo Wall',
   PABATI: 'Pabati',
   PAKANTA: 'Pakanta',

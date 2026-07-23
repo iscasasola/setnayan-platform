@@ -198,7 +198,11 @@ export default async function SuitePage({ params }: Props) {
     supabase
       .from('platform_retail_catalog_v2')
       .select('service_code, retail_price_php')
-      .in('service_code', serviceKeys),
+      .in('service_code', serviceKeys)
+      // Only price ACTIVE SKUs. A retired (is_active=false) SKU must not print a
+      // stale standalone price pill — e.g. the bundle-only LED Background card
+      // (serviceKey LIVE_BACKGROUND) shows a neutral pill, not the old ₱499.
+      .eq('is_active', true),
     fetchRoadmapState(supabase, eventId, new Date()).catch(() => null),
     // PR-2 persona — the cheaply-derivable personalization the vignette cards
     // wear (names on the website hero, initials on the LED wall / QR badge,

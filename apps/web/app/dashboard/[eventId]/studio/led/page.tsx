@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { eventSkuActive } from '@/lib/entitlements';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { resolveServiceSellability } from '@/lib/v2-catalog';
 import { formatPhp } from '@/lib/orders';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
@@ -236,11 +237,20 @@ async function UnownedView({
   // hardcoded price). null when the catalog row is unreadable (e.g. no
   // service-role key in CI / pre-seed) → the buy block degrades gracefully
   // below rather than inventing a number. In prod the row is always seeded.
-  const [skuRecord, settings] = await Promise.all([
+  const [skuRecord, settings, sellability, monogramSku] = await Promise.all([
     formatV2Sku(SKU_CODE).catch(() => null),
     fetchPlatformSettings(supabase),
+    // Live Background is bundle-only (2026-07-22): once its catalog row is
+    // is_active=false, resolveServiceSellability returns 'retired' and the
+    // standalone drawer would dead-end at checkout — so we gate on it and upsell
+    // Monogram PRO instead. Reads DB is_active, so it self-heals through the
+    // migration-push window (standalone stays while the SKU is still sellable).
+    resolveServiceSellability(SKU_CODE),
+    formatV2Sku('ANIMATED_MONOGRAM').catch(() => null),
   ]);
   const pricePhp = skuRecord?.price_php ?? null;
+  const standaloneSellable = sellability === 'sellable';
+  const monogramPricePhp = monogramSku?.price_php ?? null;
 
   return (
     <section className="sn-tile p-5">
@@ -281,7 +291,7 @@ async function UnownedView({
         </li>
       </ul>
 
-      {pricePhp != null ? (
+      {standaloneSellable && pricePhp != null ? (
         <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-ink/65">
             One price for your wedding ·{' '}
@@ -300,9 +310,28 @@ async function UnownedView({
           </div>
         </div>
       ) : (
-        <p className="mt-5 text-sm text-ink/65">
-          Pricing loads from your catalog &mdash; please refresh in a moment.
-        </p>
+        // Bundle-only: the LED Background comes with Monogram PRO. Send the couple
+        // to the Monogram surface (the ₱1,000 buy) instead of a standalone
+        // checkout that would be rejected — they own it the moment that's approved.
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-ink/65">
+            Included with{' '}
+            <span className="font-medium text-ink">Monogram PRO</span>
+            {monogramPricePhp != null ? (
+              <>
+                {' '}
+                ·{' '}
+                <span className="font-mono text-base text-ink">{formatPhp(monogramPricePhp)}</span>
+              </>
+            ) : null}
+          </p>
+          <Link
+            href={`/dashboard/${eventId}/monogram`}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 sm:w-auto"
+          >
+            Get Monogram PRO
+          </Link>
+        </div>
       )}
     </section>
   );

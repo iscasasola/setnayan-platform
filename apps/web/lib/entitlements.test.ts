@@ -642,10 +642,17 @@ test('eventActiveSkus: a pending COUPLE_WEBSITE_PRO order marks both aliased can
   assert.equal(pending.has('STD_PREMIUM_OPENINGS'), true);
 });
 
-test('SKU_OWNERSHIP_ALIASES: the umbrella entries are exactly the owner-locked pair', () => {
-  assert.deepEqual(Object.keys(SKU_OWNERSHIP_ALIASES).sort(), ['EDITORIAL_PRO', 'STD_PREMIUM_OPENINGS']);
+test('SKU_OWNERSHIP_ALIASES: exactly the owner-locked bundle-only grants', () => {
+  // 2026-07-22 bundle restructure: EDITORIAL_PRO + STD_PREMIUM_OPENINGS via the
+  // Website PRO umbrella; LIVE_BACKGROUND via Monogram PRO (ANIMATED_MONOGRAM).
+  assert.deepEqual(Object.keys(SKU_OWNERSHIP_ALIASES).sort(), [
+    'EDITORIAL_PRO',
+    'LIVE_BACKGROUND',
+    'STD_PREMIUM_OPENINGS',
+  ]);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.EDITORIAL_PRO, ['COUPLE_WEBSITE_PRO']);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.STD_PREMIUM_OPENINGS, ['COUPLE_WEBSITE_PRO']);
+  assert.deepEqual(SKU_OWNERSHIP_ALIASES.LIVE_BACKGROUND, ['ANIMATED_MONOGRAM']);
 });
 
 // ──────────────────────────────────────────────────────────────────────────

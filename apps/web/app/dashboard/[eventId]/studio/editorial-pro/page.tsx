@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { resolveServiceSellability } from '@/lib/v2-catalog';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import {
   eventOwnsEditorialPro,
@@ -70,11 +71,17 @@ export default async function EditorialProBuyPage({ params }: Props) {
   //   • active       — Editorial PRO is admin-approved (feature unlocked).
   //   • owned        — Editorial PRO is owned INCLUDING a pending 'submitted'
   //     order (double-buy prevention); owned && !active ⇒ payment under review.
-  const [ownsUmbrella, active, owned] = await Promise.all([
+  const [ownsUmbrella, active, owned, sellability] = await Promise.all([
     eventOwnsCoupleWebsitePro(admin, eventId).catch(() => false),
     isEditorialProActive(admin, eventId).catch(() => false),
     eventOwnsEditorialPro(admin, eventId).catch(() => false),
+    // Editorial PRO is bundle-only (2026-07-22): once its catalog row is
+    // is_active=false, a standalone drawer would dead-end at checkout, so gate on
+    // real sellability and upsell Website PRO instead. Reads DB is_active →
+    // self-heals through the migration-push window.
+    resolveServiceSellability(SKU_CODE),
   ]);
+  const editorialProSellable = sellability === 'sellable';
 
   const supabase = await createClient();
   const skuRecord = await formatV2Sku(SKU_CODE).catch(() => null);
@@ -168,8 +175,8 @@ export default async function EditorialProBuyPage({ params }: Props) {
             Track your order
           </Link>
         </div>
-      ) : priceCentavos != null && pricePhp != null ? (
-        /* ── NOT OWNED — the working buy drawer. ── */
+      ) : editorialProSellable && priceCentavos != null && pricePhp != null ? (
+        /* ── NOT OWNED — the working buy drawer (only while standalone-sellable). ── */
         <div className="space-y-4">
           <InlineCheckoutDrawer
             serviceKey={SKU_CODE}
@@ -192,9 +199,22 @@ export default async function EditorialProBuyPage({ params }: Props) {
           </p>
         </div>
       ) : (
-        <p className="text-sm text-ink/65">
-          Pricing loads from your catalog &mdash; please refresh in a moment.
-        </p>
+        /* ── Bundle-only: Editorial PRO comes with Website PRO. Upsell it (a real
+             buy surface) rather than a standalone drawer that would be rejected. ── */
+        <div className="rounded-xl border border-mulberry/20 bg-mulberry/5 p-5">
+          <p className="mb-1 text-sm font-semibold text-ink">Editorial PRO is part of Website PRO</p>
+          <p className="text-sm text-ink/70">
+            Author your front-page story — plus the Save-the-Date Cinematic Reveal, RSVP, and your
+            on-the-day page — all in one unlock with Website PRO.
+          </p>
+          <Link
+            href={WEBSITE_PRO_HREF(eventId)}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-semibold text-cream hover:bg-mulberry-600"
+          >
+            Unlock Website PRO
+            <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+          </Link>
+        </div>
       )}
     </section>
   );

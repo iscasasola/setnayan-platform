@@ -174,7 +174,11 @@ async function selectVendorProfileBy(
     hq_latitude: null,
     hq_longitude: null,
     // Business Profile fields added 2026-06-28 — null in the legacy/pre-
-    // migration read; the completion gate simply reads them as "missing".
+    // migration read; the completion RING simply reads them as "missing".
+    // ⚠ NEVER decide a GATE from this row (2026-07-21): completeness now
+    // gates verification, and these three NULLs would refuse a vendor who
+    // filled every field in. Gates use `probeBusinessProfileCompleteness`
+    // below, which reports a failed read as a failed read.
     business_owner_name: null,
     in_business_since_year: null,
     // Featured-videos column (20270518165113) added after the legacy SELECT
@@ -511,4 +515,94 @@ export function profileCompletion(profile: VendorProfileRow | null): {
   const { items } = businessProfileChecklist(profile);
   const done = items.filter((i) => i.ok).length;
   return { done, total: items.length, missing: items.filter((i) => !i.ok).map((i) => i.label) };
+}
+
+// ---------------------------------------------------------------------------
+// Gate-grade completeness probe (2026-07-21)
+//
+// `fetchOwnVendorProfile` is deliberately RESILIENT: when the FULL projection
+// errors it falls back to LEGACY and back-fills `hq_address`,
+// `business_owner_name` and `in_business_since_year` as NULL "so the
+// completion gate simply reads them as missing". That was a harmless UI
+// downgrade while completeness only dimmed a progress ring. It stopped being
+// harmless the moment completeness GATES VERIFICATION: one transient
+// PostgREST/RLS hiccup would tell a fully-complete vendor that their Company
+// address, Business owner and EST are missing, and refuse their submit — a
+// false accusation, fail-closed, with no way for the vendor to act on it.
+//
+// So decisions never read a possibly-degraded row. This probe reads ONLY the
+// eight checklist columns — the narrowest select in the codebase, and one that
+// cannot be "partially" satisfied — and reports FAILURE as failure instead of
+// silently laundering it into "incomplete". Callers surface "we couldn't check
+// — try again", never a list of fields the vendor already filled in.
+// ---------------------------------------------------------------------------
+
+/** The eight columns `businessProfileChecklist` reads. Nothing else. */
+export const BUSINESS_PROFILE_SELECT =
+  'logo_url,business_name,business_owner_name,hq_address,contact_phone,contact_email,services,in_business_since_year';
+
+export type ProfileCompletenessProbe =
+  | { ok: true; complete: boolean; missing: string[]; logoMissing: boolean }
+  | { ok: false; error: string };
+
+/** Copy shown when the probe itself failed — never blames the vendor. */
+export const PROFILE_PROBE_ERROR =
+  'We couldn’t check your business profile just now — please try again in a moment.';
+
+export async function probeBusinessProfileCompleteness(
+  supabase: SupabaseClient,
+  by: { vendorProfileId: string } | { userId: string },
+): Promise<ProfileCompletenessProbe> {
+  const column = 'vendorProfileId' in by ? 'vendor_profile_id' : 'user_id';
+  const value = 'vendorProfileId' in by ? by.vendorProfileId : by.userId;
+  try {
+    const { data, error } = await supabase
+      .from('vendor_profiles')
+      .select(BUSINESS_PROFILE_SELECT)
+      .eq(column, value)
+      .maybeSingle();
+    if (error) return { ok: false, error: PROFILE_PROBE_ERROR };
+    if (!data) return { ok: false, error: 'Vendor profile not found.' };
+    const checklist = businessProfileChecklist(
+      data as unknown as VendorProfileRow,
+    );
+    return {
+      ok: true,
+      complete: checklist.complete,
+      missing: checklist.missing,
+      logoMissing: !checklist.items.find((i) => i.key === 'logo')?.ok,
+    };
+  } catch {
+    return { ok: false, error: PROFILE_PROBE_ERROR };
+  }
+}
+
+/**
+ * The admin-side verification guard, as a PURE function so it can be tested
+ * without a database.
+ *
+ * Owner decision 4 (2026-07-21) moved the logo requirement from registration
+ * to "before verification". A gate on the vendor's own submit button does not
+ * implement that rule, because the admin console can mint a verified vendor
+ * outright: `/admin/verify` Approve flips `public_visibility → 'verified'`,
+ * and that flip now also advances `verification_state → 'verified'` — for a
+ * vendor who may never have submitted anything. Left open, "verified with a
+ * NULL logo" stays reachable and the stated goal is simply not met.
+ *
+ * Deliberately NO admin override. An admin approving an incomplete profile
+ * produces exactly the vendor this whole workstream exists to prevent — one
+ * who is verified, therefore identity-locked, and therefore (before this PR)
+ * could never add the missing logo through the product. Refusing is cheap: the
+ * admin asks the vendor to finish the row the console names for them.
+ *
+ * Returns an error sentence to refuse with, or `null` to proceed.
+ */
+export function verificationApprovalRefusal(
+  probe: ProfileCompletenessProbe,
+): string | null {
+  if (!probe.ok) {
+    return `Couldn’t read this vendor’s business profile — approval refused rather than guessed. (${probe.error})`;
+  }
+  if (probe.complete) return null;
+  return `This vendor’s business profile is incomplete — still missing: ${probe.missing.join(', ')}. Verifying now would lock those fields with the gaps in them. Ask them to finish the profile first.`;
 }

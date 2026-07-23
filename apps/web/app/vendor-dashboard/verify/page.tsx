@@ -1,10 +1,14 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import {
   CheckCircle2,
   FileCheck,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import {
+  fetchOwnVendorProfile,
+  probeBusinessProfileCompleteness,
+} from '@/lib/vendor-profile';
 import {
   APPLICATION_TYPES,
   VENDOR_DOC_SLOTS,
@@ -129,6 +133,20 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
   // against 12 made a finished application read as a stuck "8 of 12 · 67%".
   const completeCount = countCompleteVendorSlots(docMap);
   const totalSlots = VENDOR_DOC_SLOTS.length;
+
+  // The OTHER half of the submit gate (2026-07-21). `submitApplication`
+  // refuses an incomplete business profile — the logo included, which is the
+  // whole point of "the logo is required before verification". Counting only
+  // document slots here left a logo-less vendor looking at an ENABLED submit
+  // button that the server then bounced: a requirement removed from the door
+  // and sprung silently three screens later, which is the same drop-off bug
+  // this workstream exists to fix. Read from the same probe the action uses so
+  // the button and the server cannot disagree.
+  const profileProbe = await probeBusinessProfileCompleteness(supabase, {
+    vendorProfileId: profile.vendor_profile_id,
+  });
+  const profileMissing = profileProbe.ok ? profileProbe.missing : [];
+  const profileProbeFailed = !profileProbe.ok;
   const hasDraft = application?.status === 'draft';
   const isPending = application?.status === 'pending_review';
   const isInReview = application?.status === 'in_review';
@@ -237,6 +255,8 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
           applicationId={application.application_id}
           completeCount={completeCount}
           totalSlots={totalSlots}
+          profileMissing={profileMissing}
+          profileProbeFailed={profileProbeFailed}
         />
       ) : null}
 
@@ -564,13 +584,26 @@ function SubmitCard({
   applicationId,
   completeCount,
   totalSlots,
+  profileMissing,
+  profileProbeFailed,
 }: {
   applicationId: string;
   completeCount: number;
   totalSlots: number;
+  /** Business-profile checklist labels still outstanding (logo included). */
+  profileMissing: string[];
+  /** The completeness read itself failed — don't accuse, don't enable. */
+  profileProbeFailed: boolean;
 }) {
   const REQUIRED_TO_SUBMIT = totalSlots;
-  const eligible = completeCount >= REQUIRED_TO_SUBMIT;
+  const docsIn = completeCount >= REQUIRED_TO_SUBMIT;
+  const profileIn = !profileProbeFailed && profileMissing.length === 0;
+  const eligible = docsIn && profileIn;
+  const blockedTitle = !docsIn
+    ? `Add ${REQUIRED_TO_SUBMIT - completeCount} more checklist items to submit.`
+    : profileProbeFailed
+      ? 'We couldn’t check your business profile just now — reload in a moment.'
+      : `Finish your business profile first — still missing: ${profileMissing.join(', ')}.`;
   return (
     <article className="space-y-3 sn-tile p-5">
       <div>
@@ -584,9 +617,32 @@ function SubmitCard({
           Submit once all <span className="font-medium">{totalSlots}</span> of
           your items are uploaded. The admin-run checks complete on our side
           afterward (listed under &ldquo;We handle this&rdquo; above). Setnayan
-          SLA is <span className="font-medium">3–5 business days</span>.
+          SLA is <span className="font-medium">3–5 business days</span>. Your
+          business profile has to be complete too — including your shop logo.
         </p>
       </div>
+      {!profileIn ? (
+        <p
+          className="rounded-md border border-ink/15 bg-ink/[0.03] p-3 text-sm text-ink/75"
+          role="status"
+        >
+          {profileProbeFailed ? (
+            <>
+              We couldn’t check your business profile just now — reload this
+              page in a moment.
+            </>
+          ) : (
+            <>
+              Finish your business profile before submitting — still missing:{' '}
+              <span className="font-medium">{profileMissing.join(', ')}</span>.{' '}
+              <Link className="underline" href="/vendor-dashboard/shop">
+                Complete it on My Shop
+              </Link>
+              .
+            </>
+          )}
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center gap-3">
         {eligible ? (
           <form action={submitApplication}>
@@ -604,7 +660,7 @@ function SubmitCard({
             type="button"
             disabled
             className="button-primary inline-flex h-10 cursor-not-allowed items-center gap-2 px-4 text-sm opacity-50"
-            title={`Add ${REQUIRED_TO_SUBMIT - completeCount} more checklist items to submit.`}
+            title={blockedTitle}
           >
             <FileCheck aria-hidden className="h-4 w-4" strokeWidth={2} />
             Submit for review ({completeCount}/{totalSlots})

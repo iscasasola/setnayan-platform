@@ -3,7 +3,10 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { businessProfileChecklist, fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import {
+  fetchOwnVendorProfile,
+  probeBusinessProfileCompleteness,
+} from '@/lib/vendor-profile';
 import { notifyAdminsApplicationSubmitted } from '@/lib/vendor-status-notify';
 import {
   APPLICATION_TYPES,
@@ -13,6 +16,7 @@ import {
   countCompleteSlots,
   countCompleteVendorSlots,
   resolveApplicationFeeCentavos,
+  VERIFICATION_MISSING_PROFILE,
   verificationSubmitMissing,
   type ApplicationType,
   type DocUploadMap,
@@ -240,16 +244,30 @@ export async function submitApplication(formData: FormData): Promise<void> {
   // Only the PROFILE reason is taken from the shared gate here: this page's
   // document rule is deliberately the launch-soft VENDOR_DOC_SLOTS count
   // below, not the 4-required-docs rule, and folding them together would
-  // tighten a second thing this change is not authorised to touch.
-  const checklist = businessProfileChecklist(profile);
+  // tighten a second thing this change is not authorised to touch. The reason
+  // string is IMPORTED (VERIFICATION_MISSING_PROFILE), not re-typed — a
+  // literal here is the exact drift this shared module exists to prevent.
+  //
+  // Completeness comes from `probeBusinessProfileCompleteness`, NOT from the
+  // `profile` row above: `fetchOwnVendorProfile` degrades to a LEGACY
+  // projection on any read error and reports hq_address / business_owner_name
+  // / in_business_since_year as NULL. Gating on that would accuse a complete
+  // vendor of missing three fields they already filled in. The probe reports
+  // failure as failure, and we say so.
+  const probe = await probeBusinessProfileCompleteness(supabase, {
+    vendorProfileId: profile.vendor_profile_id,
+  });
+  if (!probe.ok) {
+    redirect(`/vendor-dashboard/verify?error=${encodeURIComponent(probe.error)}`);
+  }
   const gateReasons = verificationSubmitMissing({
-    profileComplete: checklist.complete,
+    profileComplete: probe.complete,
     uploads,
   });
-  if (gateReasons.includes('Finish your business profile')) {
+  if (gateReasons.includes(VERIFICATION_MISSING_PROFILE)) {
     redirect(
       `/vendor-dashboard/verify?error=${encodeURIComponent(
-        `Finish your business profile before submitting — still missing: ${checklist.missing.join(', ')}.`,
+        `Finish your business profile before submitting — still missing: ${probe.missing.join(', ')}.`,
       )}`,
     );
   }

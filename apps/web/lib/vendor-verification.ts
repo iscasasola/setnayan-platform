@@ -593,6 +593,16 @@ export function requiredDocsComplete(uploads: DocUploadMap): boolean {
 }
 
 /**
+ * The exact reason string `verificationSubmitMissing` emits when the business
+ * profile is incomplete. Exported because callers BRANCH on it (the /verify
+ * submit path takes only the profile reason and leaves the launch-soft
+ * document rule alone) — and a re-typed literal at the call site is precisely
+ * the client/server drift this module exists to prevent. Import it; never
+ * retype it.
+ */
+export const VERIFICATION_MISSING_PROFILE = 'Finish your business profile';
+
+/**
  * The ONE submit gate for verification (owner flow 2026-07-03: complete the
  * profile → the documents appear → upload → submit → "we contact you for final
  * confirmation"). Submitting requires a complete profile + the 4 required
@@ -607,7 +617,7 @@ export function verificationSubmitMissing(input: {
   uploads: DocUploadMap;
 }): string[] {
   const missing: string[] = [];
-  if (!input.profileComplete) missing.push('Finish your business profile');
+  if (!input.profileComplete) missing.push(VERIFICATION_MISSING_PROFILE);
   if (!requiredDocsComplete(input.uploads)) {
     missing.push('Upload your DTI/SEC, BIR 2303, Business Permit, and bank proof');
   }

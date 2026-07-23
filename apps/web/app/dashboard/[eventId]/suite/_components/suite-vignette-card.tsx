@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { type LucideIcon } from 'lucide-react';
 import type { RowPill } from '../../studio/_components/studio-app-row';
+import { ServiceTags } from '../../studio/_components/service-tags';
 import styles from './suite-vignette.module.css';
 
 /**
@@ -44,6 +45,8 @@ type Props = {
   gradient: string;
   pill: RowPill;
   persona: VignettePersona;
+  /** Browse/filter chips shown under the blurb. */
+  tags?: readonly string[];
 };
 
 /** Pill tone classes — mirrors StudioAppRow's PillEl so price/status reads
@@ -208,6 +211,7 @@ export function SuiteVignetteCard({
   gradient,
   pill,
   persona,
+  tags,
 }: Props) {
   return (
     <li data-reveal-item className="list-none">
@@ -233,6 +237,7 @@ export function SuiteVignetteCard({
             ) : null}
           </div>
           <p className="line-clamp-2 text-[13px] leading-snug text-ink/60">{blurb}</p>
+          <ServiceTags tags={tags} className="pt-1" />
           <p className="pt-0.5 text-[13px] font-medium text-terracotta-700">
             {cta} <span aria-hidden>›</span>
           </p>

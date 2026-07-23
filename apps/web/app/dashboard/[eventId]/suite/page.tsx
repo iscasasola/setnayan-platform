@@ -12,6 +12,7 @@ import { eventActiveSkus } from '@/lib/entitlements';
 import { deriveMonogram } from '@/lib/monogram';
 import { StudioAppRow, type RowPill } from '../studio/_components/studio-app-row';
 import { SuiteVignetteCard, type VignettePersona } from './_components/suite-vignette-card';
+import { SuiteSearch, type SuiteSearchItem } from './_components/suite-search';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
@@ -79,6 +80,8 @@ type FreeTool = {
   Icon: LucideIcon;
   href: (eventId: string) => string;
   gradient: string;
+  /** Browse/filter chips shown under the blurb + indexed by Suite search. */
+  tags: readonly string[];
   /** The one hero free helper, given a featured card instead of a strip row. */
   featured?: boolean;
 };
@@ -86,6 +89,7 @@ type FreeTool = {
 const FREE_TOOLS: readonly FreeTool[] = [
   {
     key: 'find-date',
+    tags: ['Planning', 'Dates', 'Free'],
     label: 'Find your date',
     blurb: 'Your people and your vendors, matched to the dates you’re weighing — your 3 best, ranked.',
     Icon: CalendarSearch,
@@ -95,6 +99,7 @@ const FREE_TOOLS: readonly FreeTool[] = [
   },
   {
     key: 'guests',
+    tags: ['Guests', 'Planning', 'Free'],
     label: 'Guest List',
     blurb: 'Your living roster — add, group, and seat every guest.',
     Icon: Users,
@@ -103,6 +108,7 @@ const FREE_TOOLS: readonly FreeTool[] = [
   },
   {
     key: 'budget',
+    tags: ['Budget', 'Planning', 'Free'],
     label: 'Budget Planner',
     blurb: 'Track every payment — vendor packages, crew meals, and proof.',
     Icon: Wallet,
@@ -111,6 +117,7 @@ const FREE_TOOLS: readonly FreeTool[] = [
   },
   {
     key: 'schedule',
+    tags: ['Planning', 'Day-of', 'Free'],
     label: 'Schedule',
     blurb: 'Your run-of-show — every block of the day, in order.',
     Icon: CalendarClock,
@@ -119,6 +126,7 @@ const FREE_TOOLS: readonly FreeTool[] = [
   },
   {
     key: 'checklist',
+    tags: ['Planning', 'Free'],
     label: 'Checklist',
     blurb: 'Everything to do for your day, timed to your date.',
     Icon: ListChecks,
@@ -127,6 +135,7 @@ const FREE_TOOLS: readonly FreeTool[] = [
   },
   {
     key: 'compare',
+    tags: ['Vendors', 'Planning', 'Free'],
     label: 'Compare vendors',
     blurb: 'Save vendors as you browse, then see two side by side — price, inclusions, reviews.',
     Icon: Scale,
@@ -338,24 +347,73 @@ export default async function SuitePage({ params }: Props) {
       Icon={a.Icon}
       gradient={a.poster.baseBackground}
       pill={pillFor(a)}
+      tags={a.tags}
     />
   );
 
   const featuredFree = FREE_TOOLS.find((t) => t.featured);
   const stripFree = FREE_TOOLS.filter((t) => !t.featured);
 
+  // Flatten everything the couple can browse into one searchable index for the
+  // Suite search box. Each result renders as a StudioAppRow with its live pill +
+  // tags; coming-soon + utility are excluded (they aren't in the browse view
+  // either — active/addable/freeSkus are already non-coming-soon, non-utility).
+  // SuiteSearch dedups by key.
+  const hay = (label: string, blurb: string, tags: readonly string[] = []) =>
+    `${label} ${blurb} ${tags.join(' ')}`.toLowerCase();
+  const searchItems: SuiteSearchItem[] = [
+    ...[...active, ...addable, ...freeSkus].map((a) => ({
+      key: a.key,
+      text: hay(a.label, a.blurb, a.tags),
+      tags: a.tags ?? [],
+      node: (
+        <StudioAppRow
+          key={a.key}
+          href={cardHref(a)}
+          label={a.label}
+          blurb={a.blurb}
+          Icon={a.Icon}
+          gradient={a.poster.baseBackground}
+          pill={pillFor(a)}
+          tags={a.tags}
+        />
+      ),
+    })),
+    ...FREE_TOOLS.map((t) => ({
+      key: t.key,
+      text: hay(t.label, t.blurb, t.tags),
+      tags: t.tags,
+      node: (
+        <StudioAppRow
+          key={t.key}
+          href={t.key === 'compare' ? compareHref : t.href(eventId)}
+          label={t.label}
+          blurb={t.blurb}
+          Icon={t.Icon}
+          gradient={t.gradient}
+          pill={{ text: 'Free', tone: 'free' }}
+          tags={t.tags}
+        />
+      ),
+    })),
+  ];
+
   return (
-    <section className="space-y-8">
+    <section className="space-y-6">
       <header className="sn-reveal space-y-2">
         <p className="sn-eye">In-app services</p>
         <h1 className="sn-h1 mt-1.5">{SUITE_NAME}</h1>
         <p className="max-w-prose text-base text-ink/65">
           Everything for your day, in one room — what you have, what’s free, and what you
-          can add. Start with what we suggest for where you are.
+          can add. Search to jump straight to a service, or start with what we suggest.
         </p>
       </header>
 
-      {/* Secretary lead — the phase-aware next steps. */}
+      {/* Search filters the whole browse view below to matching services; empty
+          query → the normal Recommended / Yours / Add / Free sections. */}
+      <SuiteSearch items={searchItems}>
+        <div className="space-y-8">
+          {/* Secretary lead — the phase-aware next steps. */}
       {recommended.length > 0 ? (
         <section aria-label="Recommended for you now" className="space-y-3">
           <div>
@@ -372,6 +430,7 @@ export default async function SuitePage({ params }: Props) {
                 Icon={a.Icon}
                 gradient={a.poster.baseBackground}
                 pill={pillFor(a)}
+                tags={a.tags}
               />
             ))}
           </RevealList>
@@ -419,6 +478,7 @@ export default async function SuitePage({ params }: Props) {
                     gradient={a.poster.baseBackground}
                     pill={pillFor(a)}
                     persona={persona}
+                    tags={a.tags}
                   />
                 ))}
               </RevealList>
@@ -444,6 +504,7 @@ export default async function SuitePage({ params }: Props) {
             Icon={featuredFree.Icon}
             gradient={featuredFree.gradient}
             pill={{ text: 'Free', tone: 'free' }}
+            tags={featuredFree.tags}
           />
         ) : null}
 
@@ -457,11 +518,14 @@ export default async function SuitePage({ params }: Props) {
               Icon={t.Icon}
               gradient={t.gradient}
               pill={{ text: 'Free', tone: 'free' }}
+              tags={t.tags}
             />
           ))}
           {freeSkus.map(rowFor)}
         </RevealList>
-      </section>
+        </section>
+        </div>
+      </SuiteSearch>
     </section>
   );
 }

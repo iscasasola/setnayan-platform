@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ChevronRight, type LucideIcon } from 'lucide-react';
 import { type ReactNode } from 'react';
 import { InspectorTrigger } from '@/app/_components/inspector/inspector-column';
+import { ServiceTags } from './service-tags';
 
 /**
  * StudioAppRow — an iOS App Store-style list row for the Studio hub.
@@ -43,6 +44,8 @@ type Props = {
   /** When set (and `href` present), the row opens the inspector column on
    *  desktop rather than navigating. */
   inspectId?: string | null;
+  /** Optional browse/filter chips shown under the blurb (Suite). */
+  tags?: readonly string[];
 };
 
 function PillEl({ pill }: { pill: NonNullable<RowPill> }) {
@@ -72,6 +75,7 @@ export function StudioAppRow({
   pill,
   trailing,
   inspectId,
+  tags,
 }: Props) {
   const inner = (
     <>
@@ -88,6 +92,7 @@ export function StudioAppRow({
         <span className="mt-0.5 line-clamp-2 block text-[13px] leading-snug text-ink/60">
           {blurb}
         </span>
+        <ServiceTags tags={tags} className="mt-1.5" />
       </span>
 
       {pill ? <PillEl pill={pill} /> : null}

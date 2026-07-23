@@ -80,6 +80,11 @@ export type SiteBodyPlan = {
    *  (PR1's exported firewall). The allow-list is the privacy boundary:
    *  guest-personal types can never appear here by construction. */
   publicSafeWidgets: InvitationWidgetRow[];
+  /** Open-browse PR5 (owner 2026-07-23) — may the LIVE-media blocks
+   *  (watch-live + Live Photo Wall) render? Guests always may; an anonymous
+   *  (cookie-less) viewer only when the couple opted `events.live_media_public`.
+   *  site-body.tsx ANDs this onto the two anonymous live-render gates. */
+  liveMediaVisible: boolean;
 };
 
 export function resolveSiteBodyPlan(input: {
@@ -94,6 +99,9 @@ export function resolveSiteBodyPlan(input: {
   hasHeroMedia: boolean;
   /** `Boolean(bgMusicUrl)`. */
   hasBgMusic: boolean;
+  /** `Boolean(event.live_media_public)` — the couple's opt-in for anonymous
+   *  live media (PR5). Guests see live media regardless of this. */
+  liveMediaPublic: boolean;
   widgets: readonly InvitationWidgetRow[];
 }): SiteBodyPlan {
   const {
@@ -104,6 +112,7 @@ export function resolveSiteBodyPlan(input: {
     isSample,
     hasHeroMedia,
     hasBgMusic,
+    liveMediaPublic,
     widgets,
   } = input;
 
@@ -149,5 +158,8 @@ export function resolveSiteBodyPlan(input: {
         PUBLIC_WIDGET_ALLOWLIST.includes(w.widget_type) &&
         (!phasesEnabled || widgetInPhase(w.widget_type, lifecyclePhase)),
     ),
+    // Guests always see live media; an anonymous viewer only when the couple
+    // opted in (PR5). site-body.tsx ANDs this onto the two anonymous gates.
+    liveMediaVisible: identity === 'guest' || liveMediaPublic,
   };
 }

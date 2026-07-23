@@ -2,7 +2,7 @@
 
 The bundle half of the owner's 2026-07-22 pricing answers (DECISION_LOG 2026-07-22 · Pricing.md § 00.G #1–#3), following the safe cleanups + reprices in PR #3559. Enforcement is DB-driven: `resolveServiceSellability` reads `platform_retail_catalog_v2.is_active`, and checkout rejects a retired SKU — so deactivating a standalone row blocks its standalone sale, while ownership stays order-based so **no existing owner is stripped**.
 
-**Migration `20270915000000`** (idempotent · reaches prod only on `supabase db push`):
+**Migration `20270915796315`** (idempotent · reaches prod only on `supabase db push`):
 - Website PRO (`COUPLE_WEBSITE_PRO`) — REACTIVATED + repriced ₱4,999 → **₱3,500**, description updated. Now the only path to Editorial PRO + the Cinematic Reveal.
 - Monogram PRO (`ANIMATED_MONOGRAM`) — repriced ₱999 → **₱1,000**, description updated; now also confers the LED Live Background.
 - Editorial PRO / Cinematic Reveal / Live Background — `is_active=false` (bundle-only).

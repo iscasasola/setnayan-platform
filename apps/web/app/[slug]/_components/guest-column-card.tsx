@@ -135,7 +135,7 @@ export async function GuestColumnCard({
               <h3 className="font-display text-lg font-medium italic text-ink">{col.title}</h3>
               <p className="mt-1.5 text-sm text-ink/80">{col.body}</p>
               {col.author ? (
-                <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.14em] text-ink/50">
+                <p className="mt-2 font-mono text-xs uppercase tracking-[0.14em] text-ink/50">
                   — {col.author}
                 </p>
               ) : null}

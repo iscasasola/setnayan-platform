@@ -170,7 +170,7 @@ export function GuestColumnForm({
           <div>
             <label htmlFor="gcol-title" className="block text-xs font-medium text-ink/70">
               Title
-              <span className="ml-1.5 font-mono text-[10px] text-ink/40">
+              <span className="ml-1.5 font-mono text-xs text-ink/40">
                 {title.length}/{GUEST_COLUMN_TITLE_MAX}
               </span>
             </label>
@@ -187,7 +187,7 @@ export function GuestColumnForm({
           <div>
             <label htmlFor="gcol-body" className="block text-xs font-medium text-ink/70">
               Your column
-              <span className="ml-1.5 font-mono text-[10px] text-ink/40">
+              <span className="ml-1.5 font-mono text-xs text-ink/40">
                 {body.length}/{GUEST_COLUMN_BODY_MAX}
               </span>
             </label>

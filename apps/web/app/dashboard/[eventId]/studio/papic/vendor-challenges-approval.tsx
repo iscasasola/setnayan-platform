@@ -33,10 +33,10 @@ export async function VendorChallengesApproval({ eventId }: { eventId: string })
     <section className="rounded-2xl border border-mulberry/30 bg-mulberry/[0.05] p-5 sm:p-6">
       <h3 className="flex items-center gap-2 text-sm font-medium text-ink">
         <Trophy aria-hidden className="h-4 w-4 text-mulberry" strokeWidth={1.75} />
-        Vendor Photo Challenges — your okay
+        Vendor Papic Challenges — your okay
       </h3>
       <p className="mt-1 text-xs text-ink/60">
-        A booked vendor wrote a photo challenge for your guests. Approve the ones
+        A booked vendor wrote a Papic Challenge for your guests. Approve the ones
         you like; they only go live once you do.
       </p>
 

@@ -49,7 +49,7 @@ export function PhotoChallengeBuy({
         pendingLabel="Starting…"
         className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
       >
-        {`Sponsor a Photo Challenge — ${peso(pricePhp)}`}
+        {`Sponsor Papic Challenges — ${peso(pricePhp)}`}
       </SubmitButton>
 
       {state.status === 'error' ? (
@@ -64,7 +64,7 @@ export function PhotoChallengeBuy({
           <p className="mt-1">
             Pay to our BDO or GCash account and put{' '}
             <span className="font-mono font-semibold">{state.referenceCode}</span> in the
-            transfer note. Photo Challenge unlocks for this event once our team confirms
+            transfer note. Papic Challenges unlocks for this event once our team confirms
             your payment (within 24 hours).
           </p>
         </div>

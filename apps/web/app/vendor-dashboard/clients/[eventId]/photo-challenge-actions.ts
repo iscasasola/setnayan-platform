@@ -94,7 +94,7 @@ export async function sponsorPhotoChallenge(
   // a role they hold on some other vendor.
   const role = await resolveVendorRoleForProfile(supabase, user.id, vendorProfileId);
   if (!canManageVendor(role)) {
-    return err('Only the owner or an admin can sponsor a Photo Challenge.');
+    return err('Only the owner or an admin can sponsor Papic Challenges.');
   }
 
   // ── Feature-availability gate (defence in depth) ───────────────────────────
@@ -103,7 +103,7 @@ export async function sponsorPhotoChallenge(
   // is off, but the flag can flip between render and submit — never take money
   // for a challenge that can't run.
   if (!papicGamesEnabled()) {
-    return err('Photo Challenge isn’t available yet — it’s launching shortly. You won’t be charged.');
+    return err('Papic Challenges isn’t available yet — it’s launching shortly. You won’t be charged.');
   }
 
   const admin = createAdminClient();
@@ -167,7 +167,7 @@ export async function sponsorPhotoChallenge(
     .maybeSingle();
   if (pendingOrder) {
     return err(
-      'You already have a Photo Challenge order in review for this event — it unlocks once our team confirms your payment.',
+      'You already have a Papic Challenges order in review for this event — it unlocks once our team confirms your payment.',
     );
   }
 
@@ -180,7 +180,7 @@ export async function sponsorPhotoChallenge(
     .eq('sku_code', VENDOR_PHOTO_CHALLENGE_SKU_CODE)
     .maybeSingle();
   if (skuRow && (skuRow as { is_active?: boolean | null }).is_active === false) {
-    return err('Photo Challenge is temporarily unavailable. Please try again later.');
+    return err('Papic Challenges is temporarily unavailable. Please try again later.');
   }
   const cyclePricePhp =
     skuRow && (skuRow as { is_active?: boolean | null }).is_active !== false
@@ -199,7 +199,7 @@ export async function sponsorPhotoChallenge(
       user_id: user.id,
       vendor_profile_id: vendorProfileId,
       service_key: VENDOR_PHOTO_CHALLENGE_SKU_CODE,
-      description: 'Photo Challenge (per event)',
+      description: 'Papic Challenges (per event)',
       requested_total_php: pricePhp,
       status: 'submitted',
       reference_code: referenceCode,
@@ -207,7 +207,7 @@ export async function sponsorPhotoChallenge(
     .select('order_id')
     .maybeSingle();
   if (oErr || !orderRow) {
-    return err('Could not start the Photo Challenge order. Please try again.');
+    return err('Could not start the Papic Challenges order. Please try again.');
   }
   const orderId = (orderRow as { order_id: string }).order_id;
 
@@ -222,7 +222,7 @@ export async function sponsorPhotoChallenge(
   });
   if (pErr) {
     await supabase.from('orders').delete().eq('order_id', orderId);
-    return err('Could not start the Photo Challenge payment. Please try again.');
+    return err('Could not start the Papic Challenges payment. Please try again.');
   }
 
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
@@ -230,6 +230,6 @@ export async function sponsorPhotoChallenge(
     status: 'ordered',
     referenceCode,
     amountPhp: pricePhp,
-    message: `Order started. Pay ₱${pricePhp.toLocaleString('en-PH')} with reference ${referenceCode} — Photo Challenge unlocks once our team confirms your payment (within 24 hours).`,
+    message: `Order started. Pay ₱${pricePhp.toLocaleString('en-PH')} with reference ${referenceCode} — Papic Challenges unlocks once our team confirms your payment (within 24 hours).`,
   };
 }

@@ -24,7 +24,7 @@
 >   no longer strand a paid vendor. Accepting a **manpower gig is FREE** too (the
 >   old 2-token handshake was dropped in the same 2026-07-22 pass).
 > - **Vendor revenue = subscriptions + apply-then-pay PHP add-ons**, NOT tokens.
->   The four vendor add-ons — Vendor AI, 3D Booth, Deep Search, Photo Challenge —
+>   The four vendor add-ons — Vendor AI, 3D Booth, Deep Search, Papic Challenges —
 >   are all apply-then-pay PHP (prices are DB-driven; never hardcode them).
 > - **Tokens are now "receive-only":** they can still be GRANTED (subscription
 >   bundles + admin grants) and show as a read-only balance, but nothing buys or

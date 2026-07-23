@@ -95,7 +95,7 @@ export default async function VendorChallengePhotosPage({
           <ImageIcon aria-hidden className="mx-auto h-8 w-8 text-ink/25" strokeWidth={1.5} />
           <p className="mt-3 text-sm text-ink/55">
             No shared photos yet. They appear here as guests complete your challenges and
-            tap “share” — once you’ve sponsored Photo Challenge for this event.
+            tap “share” — once you’ve sponsored Papic Challenges for this event.
           </p>
         </div>
       ) : (

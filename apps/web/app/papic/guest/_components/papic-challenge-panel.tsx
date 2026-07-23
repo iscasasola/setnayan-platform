@@ -124,7 +124,7 @@ function ChallengePanelInner({ lastCaptureId, lastCaptureKind }: Props) {
   return (
     <section
       className="mx-auto w-full max-w-sm rounded-xl border border-cream/15 bg-cream/5"
-      aria-label="Photo challenges"
+      aria-label="Papic Challenges"
     >
       <button
         type="button"
@@ -134,7 +134,7 @@ function ChallengePanelInner({ lastCaptureId, lastCaptureKind }: Props) {
       >
         <span className="inline-flex items-center gap-2 text-sm font-medium text-cream/90">
           <Trophy aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
-          Photo Challenges
+          Papic Challenges
         </span>
         <span className="inline-flex items-center gap-2">
           <span

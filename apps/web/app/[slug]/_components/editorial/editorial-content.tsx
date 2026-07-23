@@ -318,6 +318,18 @@ export async function EditorialContent({
                   <KwentoWall quotes={data.kwentoQuotes} names={data.firstNames} />
                 </div>
               ) : null,
+            // Letters to the Editor — approved Guest Columns (BUILD ①,
+            // GUEST_COLUMNS_ENABLED; data.guestColumns is absent/[] when off).
+            guestColumns:
+              isOn('guestColumns') && (data.guestColumns?.length ?? 0) > 0 ? (
+                <div key="guestColumns">
+                  <SectionRule title="Letters to the Editor" />
+                  <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/45">
+                    columns from the guests, approved by the couple
+                  </p>
+                  <GuestColumnsWall columns={data.guestColumns ?? []} />
+                </div>
+              ) : null,
             // Shared photos from the day ("From the Day").
             gallery:
               isOn('gallery') && data.galleryPhotos.length ? (
@@ -1158,6 +1170,40 @@ function VideoGuestbookWall({ clips }: { clips: string[] }): ReactElement {
  * not author-hidden; anchor gated per source table), so this only paints safe
  * wishes and safe media.
  */
+/**
+ * "Letters to the Editor" — approved Guest Columns (guest_columns · BUILD ①).
+ * Text-only op-eds: a 2-column masonry of small titled letters, each a serif
+ * headline + short body + mono byline. Fails closed upstream (approved + clean
+ * + not author-hidden, behind GUEST_COLUMNS_ENABLED) so this only paints
+ * couple-approved words.
+ */
+function GuestColumnsWall({
+  columns,
+}: {
+  columns: NonNullable<EditorialData['guestColumns']>;
+}): ReactElement {
+  return (
+    <div className="mt-4 gap-4 [column-fill:_balance] sm:columns-2">
+      {columns.slice(0, 6).map((c, i) => (
+        <article
+          key={i}
+          className="mb-4 break-inside-avoid border-l-2 border-terracotta/40 pl-4"
+        >
+          <h3 className="m-0 font-display text-lg font-medium italic leading-snug text-ink">
+            {c.title}
+          </h3>
+          <p className="mt-1.5 font-serif text-base leading-snug text-ink/85">{c.body}</p>
+          {c.author ? (
+            <p className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-ink/50">
+              {c.author}
+            </p>
+          ) : null}
+        </article>
+      ))}
+    </div>
+  );
+}
+
 function KwentoWall({
   quotes,
   names,

@@ -20,6 +20,7 @@ import { eventOwnsSku } from '@/lib/entitlements';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { RevealList } from '@/app/_components/reveal-list';
 import { eventNoun, eventNounCap } from '@/lib/event-noun';
+import { guestColumnsEnabled } from '@/lib/guest-columns';
 
 export const metadata = { title: 'Event website' };
 
@@ -251,6 +252,17 @@ export default async function WebsiteHubPage({
           title="Editorial"
           blurb="Your front-page story after the day — words, photos, hero, and which features show."
         />
+        {/* Guest Columns review queue doorway (BUILD ① · wayfinding rule: a
+            page ships with its doorway). Flag-gated with the whole feature. */}
+        {guestColumnsEnabled() ? (
+          <QuickLink
+            data-reveal-item
+            href={`/dashboard/${eventId}/studio/guest-columns`}
+            icon={<Newspaper aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />}
+            title="Guest columns"
+            blurb="Short columns your guests wrote for your paper — approve or return each one."
+          />
+        ) : null}
       </RevealList>
 
       {/* Your page through time — the 4-path lifecycle. One page, but it shows

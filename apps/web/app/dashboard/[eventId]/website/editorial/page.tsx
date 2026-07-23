@@ -16,6 +16,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { siteUrl } from '@/lib/social/urls';
 import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { EditorialEditor } from './_components/editorial-editor';
+import { guestColumnsEnabled } from '@/lib/guest-columns';
 import type { EditorialEditorInput } from './actions';
 import { eventNoun } from '@/lib/event-noun';
 
@@ -246,6 +247,7 @@ export default async function EditorialEditorPage({
         chapterOverrides={chapterCards.overrides}
         savedSectionOrder={savedSectionOrder}
         savedReviews={savedReviews}
+        guestColumnsOn={guestColumnsEnabled()}
         shareUrl={shareUrl}
         showcaseOptedIn={showcaseOptedIn}
         landingVisibility={landingVisibility}

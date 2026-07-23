@@ -11,6 +11,10 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { notifyAdminsOrderAwaitingReconciliation } from '@/lib/order-admin-notify';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
+import {
+  decideSelfCompAuthority,
+  type VendorTeamRole,
+} from '@/lib/self-comp-authority';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -88,12 +92,39 @@ export async function createOrder(formData: FormData) {
     // cheap to fake on the client).
     const { data: member } = await supabase
       .from('vendor_team_members')
-      .select('role, vendor_profile_id')
+      .select('role')
       .eq('vendor_profile_id', selfPurchaseVendorProfileId)
       .eq('user_id', user.id)
       .maybeSingle();
-    if (!member || (member.role !== 'owner' && member.role !== 'admin')) {
-      throw new Error('Not authorised to self-comp this vendor.');
+
+    // MONEY FIX (b): this branch mints an order at status='paid' and runs SKU
+    // activation on the caller-supplied `eventId`. The vendor-team check above
+    // only proves "I own a vendor" — a self-registered vendor gets an auto
+    // owner row on their own profile, so it is trivially satisfiable and says
+    // NOTHING about the target event. Without an event-authority check a vendor
+    // could provision a paid SKU (flip events.setnayan_ai_active, materialise
+    // Papic seats, …) onto a STRANGER'S event. Self-comp is "comp for MYSELF" —
+    // so the caller must ALSO be a couple member of the target event. That
+    // scopes it to the vendor's own weddings (still bounded by the per-quarter
+    // enforce_vendor_self_comp_quota trigger on comp_grants).
+    const { data: coupleMembership } = await supabase
+      .from('event_members')
+      .select('event_id')
+      .eq('event_id', eventId)
+      .eq('user_id', user.id)
+      .eq('member_type', 'couple')
+      .maybeSingle();
+
+    const decision = decideSelfCompAuthority({
+      vendorRole: (member?.role as VendorTeamRole | undefined) ?? null,
+      isCoupleMemberOfEvent: Boolean(coupleMembership),
+    });
+    if (!decision.allowed) {
+      throw new Error(
+        decision.reason === 'not_event_couple'
+          ? 'You can only self-comp a service for your own event.'
+          : 'Not authorised to self-comp this vendor.',
+      );
     }
 
     const orderResult = await createSelfCompOrder({
@@ -112,7 +143,8 @@ export async function createOrder(formData: FormData) {
   // #13 (money bug-hunt): a standard customer order must be for an event the
   // buyer belongs to. The orders RLS only checks `user_id = auth.uid()`, so a
   // forged `event_id` would otherwise bind the order to a stranger's event. The
-  // self-comp branch returns above (a vendor self-comping isn't an event member).
+  // self-comp branch redirects above (and, after money fix (b), is itself scoped
+  // to a couple member of the target event), so it never falls through to here.
   const { data: membership } = await supabase
     .from('event_members')
     .select('event_id')

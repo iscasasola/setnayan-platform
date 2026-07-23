@@ -14,7 +14,13 @@ import { qualifyReferralOnFirstPaidOrder } from '@/lib/referrals';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
-import { formatPhp, orderGrossOwed, isVatInclusiveServiceKey } from '@/lib/orders';
+import {
+  formatPhp,
+  orderGrossOwed,
+  isVatInclusiveServiceKey,
+  orderReconciledToPaid,
+  shouldProvisionOnApproval,
+} from '@/lib/orders';
 import { computeVatFromBase, computeVatFromGross } from '@/lib/receipts';
 import { getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { captureEvent } from '@/lib/analytics';
@@ -148,6 +154,11 @@ export async function approvePayment(formData: FormData) {
     console.error('payment_matched notification failed (non-fatal):', e);
   }
 
+  // Did this approval FULLY reconcile the order to 'paid'? SKU activation below
+  // is gated on this (shouldProvisionOnApproval) so a partial/short payment —
+  // or an approval with "promote" unchecked — never provisions the full SKU.
+  let reconciledToPaid = false;
+
   if (promoteOrder) {
     // SHORTFALL GUARD (2026-06-25): an order must not be marked fully 'paid'
     // (which issues a receipt + fires vendor payouts) unless the MATCHED payments
@@ -179,8 +190,11 @@ export async function approvePayment(formData: FormData) {
         // 2026-07-05; see isVatInclusiveServiceKey + DECISION_LOG).
         vatInclusive: isVatInclusiveServiceKey(order.service_key),
       });
-      const SHORTFALL_TOLERANCE_PHP = 1; // absorb centavo rounding across payments
-      if (matchedTotal < owed - SHORTFALL_TOLERANCE_PHP) {
+      reconciledToPaid = orderReconciledToPaid({
+        matchedTotalPhp: matchedTotal,
+        owedPhp: owed,
+      });
+      if (!reconciledToPaid) {
         // A short/partial transfer is a NORMAL business case — it must not
         // promote the order, but it must NOT crash the admin with a generic
         // 500 either. The payment is already matched (recorded); surface the
@@ -197,6 +211,11 @@ export async function approvePayment(formData: FormData) {
           `record it as partial, or promote once the balance is paid.`;
         redirect(`/admin/payments?filter=all&notice=${encodeURIComponent(notice)}&noticeType=warn`);
       }
+    } else {
+      // No stored total to reconcile against (legacy/ad-hoc order with a null
+      // requested_total_php). The admin's explicit "promote to paid" governs —
+      // there is no shortfall basis to check — so the order does reach 'paid'.
+      reconciledToPaid = true;
     }
 
     // Capture the update result. If this silently failed we'd notify
@@ -300,25 +319,29 @@ export async function approvePayment(formData: FormData) {
     }
   }
 
-  // Per-SKU activation dispatcher (PR3 hardening; PR4 dead-unlock repair
-  // 2026-06-15: moved OUT of the `if (promoteOrder)` block so it runs on EVERY
-  // approval). WHY: ownership reads off orders.status via checkOrderOwnership(),
-  // which already counts a 'submitted' order as OWNED — so the moment a payment
-  // is matched the capability is owned, whether or not the admin ticked
-  // "promote to paid". Previously activation lived inside the promote block, so
-  // approving WITHOUT promote matched the payment but never ran the side-effect
-  // provisioning (SETNAYAN_AI boolean, concierge state machine, vendor branch
-  // flag), leaving the capability owned-but-unprovisioned. Running it
-  // unconditionally aligns provisioning with ownership.
+  // Per-SKU activation dispatcher (PR3 hardening). Provisions the SKU side
+  // effect (SETNAYAN_AI boolean, concierge state machine, vendor branch flag,
+  // Papic seats, …).
   //
-  // Some SKUs need a side effect to unlock the capability; MOST are pure no-ops
-  // (ownership alone suffices). Non-fatal by contract — activateOrderSku never
-  // throws, so a failed activation leaves a recoverable state (admin re-runs /
-  // flips the row manually) but never rolls back the already-approved payment.
-  // Hooks are idempotent, so the promote-on path (which falls through to here
-  // exactly once) and a later re-approval are both safe. PR4 registers
-  // PAPIC_SEATS by editing lib/sku-activation.ts, NOT this block.
-  if (order) {
+  // MONEY FIX (c): this MUST fire only when the order actually reaches
+  // status='paid' — i.e. the admin promoted it AND the matched payments fully
+  // reconcile the amount owed (shouldProvisionOnApproval). A prior "PR4
+  // dead-unlock repair" (2026-06-15) moved it OUT of the promote block so it
+  // ran on EVERY approval, reasoning that a matched payment = owned capability.
+  // But that let approving a ₱1 partial payment (or approving with "promote"
+  // unchecked) provision the FULL SKU without full payment — directly
+  // contradicting the shortfall notice at the top of the promote block ("the
+  // order was NOT marked paid"). Provisioning now tracks 'paid', not merely
+  // 'matched'. (The separate ownership-CTA question — checkOrderOwnership()
+  // counting a 'submitted' order as owned — is not provisioning and is out of
+  // scope here.)
+  //
+  // Non-fatal by contract — activateOrderSku never throws, so a failed
+  // activation leaves a recoverable state (admin re-runs / flips the row
+  // manually) but never rolls back the already-approved payment. Hooks are
+  // idempotent, so a later re-approval is safe. PR4 registers PAPIC_SEATS by
+  // editing lib/sku-activation.ts, NOT this block.
+  if (order && shouldProvisionOnApproval({ promoteOrder, reconciledToPaid })) {
     const activationCtx = {
       admin,
       orderId: payment.order_id,

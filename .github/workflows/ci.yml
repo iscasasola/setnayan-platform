@@ -32,13 +32,12 @@ jobs:
       - name: Unit tests
         run: pnpm --filter @setnayan/web test:unit
 
-      # CI-safe db-tests: replay the migrations into in-process PGlite (~10s each,
-      # no external DB) and assert data-layer invariants. Currently:
-      #   • event-type-coverage — every ENABLED event_type_vocab type has a
-      #     checklist label + AI tier (else "Wedding checklist" / silent ₱499).
-      #   • vendor-price-history-trigger — the vendor_services price-change trigger
-      #     logs to vendor_service_price_history (GRD-03's source), skips demo.
-      # A curated list, NOT the whole tests/db suite (which was never wired to CI).
+      # CI-safe db-tests: replay every migration into in-process PGlite (no
+      # external DB) and assert data-layer invariants. Runs the WHOLE
+      # tests/db/*.db.test.ts suite (~20s total) — every db test now gates PRs,
+      # not the old 2-test curated list (which silently let migration/schema
+      # regressions through: PR4/PR5 db tests were never CI-run until now).
+      # Gap audit 2026-07-23 · Batch B7.
       - name: Data-layer guards (DB replay)
         run: pnpm --filter @setnayan/web test:db:ci
 

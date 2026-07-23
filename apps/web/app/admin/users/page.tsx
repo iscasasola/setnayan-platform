@@ -6,10 +6,11 @@ import { redirect } from 'next/navigation';
  * The Users LIST now lives at /admin/accounts?tab=users; its body was
  * re-homed byte-identical into app/admin/accounts/_surfaces/users-surface.tsx.
  * This stub forwards every incoming search param (q, filter, plus the transient
- * flags the users server-actions still redirect here with — temp_password,
- * for_email, expand, grant_banner, signed_out, error) onto the studio route so
- * bookmarks, deep-links, AND every post-action redirect land correctly on the
- * Users tab.
+ * flags the users server-actions still redirect here with — expand, grant_banner,
+ * signed_out, error) onto the studio route so bookmarks, deep-links, AND every
+ * post-action redirect land correctly on the Users tab. (The reset-password temp
+ * password now rides a short-TTL httpOnly cookie, NOT a query param — see
+ * resetUserPassword — so temp_password/for_email are deliberately not forwarded.)
  *
  * NOTE: actions.ts is intentionally NOT moved — the re-homed surface imports it
  * from here, and its redirects to /admin/users?… flow through this stub.
@@ -31,8 +32,6 @@ export default async function AdminUsersRedirect({ searchParams }: Props) {
   for (const key of [
     'q',
     'filter',
-    'temp_password',
-    'for_email',
     'expand',
     'grant_banner',
     'signed_out',

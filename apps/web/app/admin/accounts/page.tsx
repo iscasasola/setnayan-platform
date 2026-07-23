@@ -1,5 +1,10 @@
 import Link from 'next/link';
+import { cookies } from 'next/headers';
 import { Users, Briefcase, TestTube, CalendarDays, MapPin } from 'lucide-react';
+import {
+  parseTempPasswordFlash,
+  TEMP_PASSWORD_FLASH_COOKIE,
+} from '@/lib/account-erasure';
 import { UsersSurface } from './_surfaces/users-surface';
 import { VendorsSurface } from './_surfaces/vendors-surface';
 import { EventsSurface } from './_surfaces/events-surface';
@@ -66,6 +71,14 @@ export default async function AdminAccountsPage({ searchParams }: Props) {
   const search = await searchParams;
   const tab = coerceTab(first(search.tab));
 
+  // Temp-password flash — read the short-TTL httpOnly cookie set by
+  // resetUserPassword (it replaced the plaintext-in-URL delivery). Rendered once
+  // by UsersSurface below; the cookie self-expires (RSC can't clear it mid-render).
+  const pwFlash =
+    tab === 'users'
+      ? parseTempPasswordFlash((await cookies()).get(TEMP_PASSWORD_FLASH_COOKIE)?.value ?? null)
+      : null;
+
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       <nav
@@ -110,8 +123,8 @@ export default async function AdminAccountsPage({ searchParams }: Props) {
         <UsersSurface
           q={first(search.q) ?? ''}
           filter={first(search.filter) ?? 'all'}
-          tempPassword={first(search.temp_password) ?? null}
-          forEmail={first(search.for_email) ?? null}
+          tempPassword={pwFlash?.password ?? null}
+          forEmail={pwFlash?.email ?? null}
           expandUserId={first(search.expand) ?? null}
           grantBanner={first(search.grant_banner) ?? null}
           signedOut={first(search.signed_out) ?? null}

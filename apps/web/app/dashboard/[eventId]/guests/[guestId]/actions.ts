@@ -6,6 +6,8 @@ import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
+import { parseStoredAsset } from '@/lib/uploads';
+import { r2Delete } from '@/lib/r2';
 import { sendEventAccountMagicLink } from '@/lib/event-account-link';
 import {
   INVITED_TO_BLOCKS,
@@ -202,7 +204,7 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
     .eq('event_id', eventId)
     .eq('guest_id', guestId)
     .maybeSingle();
-  const { error } = await supabase
+  const { data: updatedRows, error } = await supabase
     .from('guests')
     .update({
       first_name,
@@ -229,7 +231,8 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
       updated_at: new Date().toISOString(),
     })
     .eq('event_id', eventId)
-    .eq('guest_id', guestId);
+    .eq('guest_id', guestId)
+    .select('guest_id');
 
   if (error) {
     // The partial unique indexes (bride/groom: migration 20260531010000;
@@ -246,22 +249,78 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
     return redirect(`${backTo}?error=${encodeURIComponent(friendly)}`);
   }
 
-  // RA 10173 governance: revoke any live face-recognition enrolment (the
-  // biometric data Papic would consume) when EITHER photo consent is withdrawn
-  // OR the host excludes this guest from face recognition (minor safeguard,
-  // DPIA BV-8). Couple JWT is RLS-scoped to its own event. Best-effort.
-  if (!photo_consent || face_recognition_excluded) {
-    await supabase
+  // AUTHORIZATION GATE. The RLS-scoped UPDATE above is the edit-authorization
+  // check, but a caller WITHOUT couple/coordinator-edit rights matches 0 rows
+  // and returns NO error — so `!error` is not proof of authorization. The
+  // service-role biometric mutations below (r2Delete + hard-delete of face
+  // enrolments) bypass RLS, so they MUST NOT run unless the RLS UPDATE
+  // actually touched the row. Require a returned row before proceeding;
+  // otherwise an unauthorized caller could wipe an arbitrary guest's
+  // biometrics/selfie via this action.
+  if (!updatedRows || updatedRows.length === 0) {
+    return redirect(`${backTo}?error=not_authorized`);
+  }
+
+  // RA 10173 governance — biometric withdrawal. Two host toggles reach here, and
+  // they must be handled DIFFERENTLY (the old code merely set `revoked_at` for
+  // both, which left `face_vector` + the full-res R2 selfie sitting in storage
+  // indefinitely — the matcher ignored them, but the biometric data survived):
+  //
+  //  • photo_consent OFF → the selfie must go ENTIRELY. Delete the R2 selfie
+  //    objects behind every enrolment for this guest (best-effort; deleting the
+  //    row alone orphans the object), then HARD-DELETE the enrolment rows
+  //    (destroying face_vector). The selfie display photo is nulled just below.
+  //  • face_recognition_excluded, photo consent RETAINED → stop biometric
+  //    processing only: revoke + NULL the face_vector, but KEEP the selfie image
+  //    (it's still a consented display photo, and it shares the R2 object with
+  //    the enrolment asset — deleting it would break the retained photo).
+  //
+  // Run the biometric mutations through the SERVICE-ROLE admin client, NOT the
+  // user JWT. The guests UPDATE above is the edit-authorization gate — it only
+  // succeeds for a couple (couple_writes_guest) OR a co-host/coordinator with
+  // guest_list='edit' (guests_moderator_write is FOR ALL, migration
+  // 20261129003000). But the ONLY write policy on guest_face_enrollments is
+  // couple_writes_face_enrollment (couple/admin-only, migration 20260901000000)
+  // — a coordinator's enrolment DELETE would silently match 0 rows under the
+  // user JWT, leaving face_vector alive with revoked_at NULL (matcher still
+  // treats it live) while r2Delete (not RLS-gated) already removed the selfie:
+  // a dangling asset + a retained biometric — the exact RA 10173 gap this closes.
+  // Mirrors how the account-deletion purge (admin/users/actions.ts) uses the
+  // admin client. Gated on the already-succeeded, edit-authorized guests update;
+  // still hard-scoped to (event_id, guest_id). Best-effort throughout.
+  const bioAdmin = createAdminClient();
+  if (!photo_consent) {
+    const { data: enrols } = await bioAdmin
       .from('guest_face_enrollments')
-      .update({ revoked_at: new Date().toISOString() })
+      .select('asset_url')
+      .eq('event_id', eventId)
+      .eq('guest_id', guestId);
+    for (const row of enrols ?? []) {
+      const asset = parseStoredAsset((row as { asset_url?: string | null }).asset_url);
+      if (asset?.kind !== 'r2') continue;
+      try {
+        await r2Delete({ bucket: asset.bucket, key: asset.key });
+      } catch {
+        /* best-effort — a storage hiccup must not block consent withdrawal */
+      }
+    }
+    await bioAdmin
+      .from('guest_face_enrollments')
+      .delete()
+      .eq('event_id', eventId)
+      .eq('guest_id', guestId);
+  } else if (face_recognition_excluded) {
+    await bioAdmin
+      .from('guest_face_enrollments')
+      .update({ revoked_at: new Date().toISOString(), face_vector: null, vector_model: null })
       .eq('event_id', eventId)
       .eq('guest_id', guestId)
       .is('revoked_at', null);
   }
-  // Turning photo consent OFF additionally clears a selfie display photo (a
+  // Turning photo consent OFF additionally clears the selfie display photo (a
   // Gmail avatar, display-only + non-biometric, is left intact). A face-
   // recognition EXCLUSION does NOT delete the guest's photo — it only stops
-  // biometric enrolment.
+  // biometric enrolment (handled above).
   if (!photo_consent) {
     await supabase
       .from('guests')

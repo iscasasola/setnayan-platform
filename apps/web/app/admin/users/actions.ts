@@ -2,11 +2,22 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revokeAllSessions } from '@/lib/force-logout';
 import { parseStoredAsset } from '@/lib/uploads';
 import { r2Delete } from '@/lib/r2';
+import {
+  distinctGuestIds,
+  distinctPersonIds,
+  serializeTempPasswordFlash,
+  TEMP_PASSWORD_FLASH_COOKIE,
+} from '@/lib/account-erasure';
+
+// TTL of the temp-password flash cookie (see TEMP_PASSWORD_FLASH_COOKIE) — a
+// copy-it-now window, not a store.
+const TEMP_PASSWORD_FLASH_TTL_SECONDS = 120;
 
 /**
  * RA 10173 right-to-erasure helper (PR-G).
@@ -160,8 +171,9 @@ async function purgeUserAuthoredChat(
  * fields (bride/groom/venue), financial + BIR records (receipts/orders/payments/
  * payouts — lawful retention), consent-audit tables, the fraud identity graph
  * (retention review already pending), third-party PII the user ENTERED about
- * others, per-event guest-side biometrics + the R2 objects behind verification
- * docs / face selfies / chat attachments (a DB scrub alone orphans the file).
+ * others, and the R2 objects behind verification docs / chat attachments (a DB
+ * scrub alone orphans the file). (Per-event guest-side biometrics + face
+ * selfies are erased separately by `purgeUserGuestBiometrics`.)
  *
  * Best-effort per step, mirroring the purges above: a failure is audit-logged,
  * never thrown, so one bad step can't trap the account in an undeletable state.
@@ -276,6 +288,149 @@ async function purgeUserOwnedRecords(
 }
 
 /**
+ * RA 10173 right-to-erasure — the subject's PER-EVENT guest-side BIOMETRICS.
+ *
+ * The guest-face-enrolment table has NO user FK: a row holds the biometric
+ * template + `asset_url` (the full-res R2 selfie behind it) and is
+ * keyed by (event_id, guest_id). Nothing in the identity/owner-scoped purges
+ * above reaches it, so before this the subject's face vector + selfie survived
+ * account deletion indefinitely. Enrolments are written at RSVP
+ * (`app/[slug]/actions.ts`) and day-of (`app/papic/face-enroll-actions.ts`).
+ *
+ * We resolve the leaving user's guest identities via `event_members.guest_id`
+ * (the user→guest link), then hard-delete every enrolment on those guest rows —
+ * dropping the R2 selfie objects FIRST so deleting the DB row doesn't orphan the
+ * file — and null the subject's own selfie DISPLAY photo on those guest rows
+ * (the selfie is the subject's face = their PI, and shares the R2 object with the
+ * enrolment asset, so leaving it would both retain the PI and dangle a pointer
+ * to a just-deleted object).
+ *
+ * Best-effort per step, mirroring the other purges: every failure is
+ * audit-logged, never thrown, so one bad step can't trap the account undeletable.
+ */
+async function purgeUserGuestBiometrics(
+  admin: ReturnType<typeof createAdminClient>,
+  targetUserId: string,
+  actorUserId: string,
+): Promise<void> {
+  const nowIso = new Date().toISOString();
+  const auditFail = async (stage: string, message: string) => {
+    console.error(`[purgeUserGuestBiometrics] ${stage} failed`, message);
+    await admin
+      .from('admin_audit_log')
+      .insert({
+        action: 'erasure_step_failed',
+        target_id: targetUserId,
+        actor_user_id: actorUserId,
+        metadata: { stage, message, kind: 'guest_biometrics' },
+      })
+      .then(({ error }) => {
+        if (error) console.error('[purgeUserGuestBiometrics] audit-log write failed', error.message);
+      });
+  };
+
+  // Resolve the subject's guest identities via BOTH user→guest links, unioned:
+  //
+  //  (1) event_members.guest_id — the guest row a signed-in account is bound to
+  //      when it JOINS an event (app/join/[eventId]/actions.ts). Covers the
+  //      common "RSVP'd, then joined" path.
+  //  (2) the person spine — guests.person_id → people.claimed_by_user_id. A guest
+  //      row is auto-linked to its durable person node by EMAIL on insert
+  //      (set_guest_person trigger / resolve_or_claim_person, migration
+  //      20270514555975), and an account CLAIMS that person by the same email.
+  //      This catches enrolments the subject made WITHOUT ever joining the event
+  //      — e.g. a selfie RSVP on the public event page (submitRsvp writes a
+  //      guest-face-enrolment row from a guest-session guestId with NO
+  //      event_members insert), then a later same-email signup + account delete.
+  //      Resolving only via (1) would leave that face_vector + full-res R2 selfie
+  //      surviving deletion — the exact RA 10173 erasure gap this step closes.
+  //
+  // Ordering note: purgeUserOwnedRecords runs BEFORE this step and only NULLs the
+  // people PII columns + stamps deleted_at — it does NOT null claimed_by_user_id
+  // (that UNIQUE link is retained), so the (2) lookup is still resolvable here.
+  const { data: memberships, error: mErr } = await admin
+    .from('event_members')
+    .select('guest_id')
+    .eq('user_id', targetUserId)
+    .not('guest_id', 'is', null);
+  if (mErr) {
+    await auditFail('biometrics-membership-lookup', mErr.message);
+    return;
+  }
+
+  const { data: claimedPersons, error: pnErr } = await admin
+    .from('people')
+    .select('person_id')
+    .eq('claimed_by_user_id', targetUserId);
+  if (pnErr) {
+    await auditFail('biometrics-person-lookup', pnErr.message);
+    return;
+  }
+  const personIds = distinctPersonIds(
+    (claimedPersons ?? []) as { person_id?: string | null }[],
+  );
+
+  let personLinkedGuests: { guest_id?: string | null }[] = [];
+  if (personIds.length > 0) {
+    const { data: pg, error: pgErr } = await admin
+      .from('guests')
+      .select('guest_id')
+      .in('person_id', personIds);
+    if (pgErr) {
+      await auditFail('biometrics-person-guest-lookup', pgErr.message);
+      return;
+    }
+    personLinkedGuests = (pg ?? []) as { guest_id?: string | null }[];
+  }
+
+  const guestIds = distinctGuestIds([
+    ...((memberships ?? []) as { guest_id?: string | null }[]),
+    ...personLinkedGuests,
+  ]);
+  if (guestIds.length === 0) return;
+
+  // Pull enrolment asset refs (ALL rows, incl. superseded/revoked — every selfie
+  // this subject ever enrolled for these events must go) before deleting.
+  const { data: enrols, error: eErr } = await admin
+    .from('guest_face_enrollments') // chat-guard-allow: RA 10173 erasure — reads only asset_url (the R2 selfie key) to clean up storage, never a face vector
+    .select('asset_url')
+    .in('guest_id', guestIds);
+  if (eErr) {
+    await auditFail('biometrics-enrolment-lookup', eErr.message);
+    return;
+  }
+
+  // Delete the R2 selfie objects (full-res biometric source). r2Delete is
+  // idempotent on a missing key; best-effort per object.
+  for (const row of enrols ?? []) {
+    const asset = parseStoredAsset((row as { asset_url?: string | null }).asset_url);
+    if (asset?.kind !== 'r2') continue;
+    try {
+      await r2Delete({ bucket: asset.bucket, key: asset.key });
+    } catch (e) {
+      await auditFail('biometrics-r2-delete', e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  // Hard-delete the enrolment rows (vector + asset ref + consent record).
+  const { error: dErr } = await admin
+    .from('guest_face_enrollments') // chat-guard-allow: RA 10173 erasure — hard-deletes the subject's OWN enrolment rows (no vector is read)
+    .delete()
+    .in('guest_id', guestIds);
+  if (dErr) await auditFail('biometrics-enrolment-delete', dErr.message);
+
+  // Null the subject's OWN selfie display photo on those guest rows (their face
+  // = their PI; also avoids a dangling pointer to the deleted R2 object). Only
+  // 'selfie'-sourced photos — a Gmail avatar is display-only, non-biometric.
+  const { error: pErr } = await admin
+    .from('guests')
+    .update({ photo_url: null, photo_source: null, photo_updated_at: nowIso })
+    .in('guest_id', guestIds)
+    .eq('photo_source', 'selfie');
+  if (pErr) await auditFail('biometrics-guest-photo-null', pErr.message);
+}
+
+/**
  * RA 10173 right-to-erasure — the terminal erasure step (soft-delete + anonymize).
  *
  * REPLACES the old hard `auth.admin.deleteUser`, which THREW for any user with
@@ -307,11 +462,13 @@ async function purgeUserOwnedRecords(
  * lawful basis to retain business records — you erase the personal data, not
  * every row. Coverage now: the users identity row (incl. religion/civil-status/
  * sex/address/venue), owned-event owner data + the photo-delivery OAuth token,
- * authored chat, and (via `purgeUserOwnedRecords`) the people node, account
+ * authored chat, (via `purgeUserOwnedRecords`) the people node, account
  * biometrics, family records, shop contact PII, support tickets, push tokens,
- * and guest claims. ⚠ STILL a DPO / counsel retention-review item (NOT scrubbed
- * here): per-event guest-side biometrics + the R2 objects behind verification
- * docs / face selfies / chat attachments; shared-event fields; financial + BIR
+ * and guest claims, and (via `purgeUserGuestBiometrics`) the subject's per-event
+ * guest-side face enrolments (vector) + the R2 selfies behind them + their
+ * selfie display photos. ⚠ STILL a DPO / counsel retention-review item (NOT
+ * scrubbed here): the R2 objects behind verification docs / chat attachments;
+ * shared-event fields; financial + BIR
  * records; consent-audit tables; and the fraud identity graph (note: this DOES
  * null `users.address_normalized`, a fraud-graph input — carve out if counsel
  * establishes a fraud-retention basis). Best-effort per step: a failure is
@@ -400,11 +557,13 @@ async function eraseUserAccount(
   if (aErr) await auditFail('auth-scrub', aErr.message);
 
   // 4. Domain PII purges (owned-event owner data · authored chat bodies · the
-  //    user's other owner-scoped records — people node, biometrics, family
-  //    records, shop contact PII, support tickets, push tokens, guest claims).
+  //    user's other owner-scoped records — people node, account biometrics,
+  //    family records, shop contact PII, support tickets, push tokens, guest
+  //    claims · the subject's per-event GUEST-side biometrics + selfies).
   await purgeOwnedEventBirthData(admin, targetUserId, actorUserId);
   await purgeUserAuthoredChat(admin, targetUserId, actorUserId);
   await purgeUserOwnedRecords(admin, targetUserId, actorUserId);
+  await purgeUserGuestBiometrics(admin, targetUserId, actorUserId);
 
   // 5. Delete the user's own uploaded FILES from R2 (the objects behind the
   //    now-nulled profile-photo + shop-logo pointers). Best-effort: r2Delete
@@ -663,7 +822,8 @@ export async function unblacklistEmail(formData: FormData) {
 /**
  * Generates a 12-char temporary password (no ambiguous chars like 0/O/1/l),
  * sets it on the target account via the admin API, and redirects with the
- * temp password in a transient query param so the admin can copy + share it.
+ * temp password in a short-TTL httpOnly cookie (NOT the URL) so the admin can
+ * copy + share it without the secret leaking into request logs or history.
  *
  * Useful when Supabase's outbound email isn't wired (no Resend SMTP yet)
  * and a user can't reset their own password. Internal/team-pool only.
@@ -696,8 +856,8 @@ export async function resetUserPassword(formData: FormData) {
   // RED #3. Every admin mutation logs to admin_audit_log so the owner can
   // reconstruct who-did-what during pilot. We intentionally do NOT include the
   // temp password in the audit row — only the fact that a reset happened. The
-  // temp password rides the redirect query param to the surface admin and is
-  // never persisted server-side.
+  // temp password rides a short-TTL httpOnly cookie (set below) to the surface
+  // that renders it, NOT a URL, and is never persisted server-side.
   const { error: auditErr } = await admin.from('admin_audit_log').insert({
     action: 'user_password_reset',
     target_id: targetUserId,
@@ -710,10 +870,27 @@ export async function resetUserPassword(formData: FormData) {
     console.error('[resetUserPassword] audit log insert failed', auditErr.message);
   }
 
-  revalidatePath('/admin/users');
-  redirect(
-    `/admin/users?temp_password=${encodeURIComponent(tempPassword)}&for_email=${encodeURIComponent(existing.email)}`,
+  // Deliver the temp password + email via a short-TTL httpOnly cookie instead of
+  // the URL. Putting them in `?temp_password=…&for_email=…` (the old behaviour)
+  // wrote plaintext credentials + the account email into Vercel/edge request
+  // logs and the admin's browser history. The cookie is httpOnly (page JS can
+  // never read it), path-scoped to /admin, and expires in ~2 minutes — a
+  // copy-it-now flash the admin surface reads server-side and renders once.
+  const jar = await cookies();
+  jar.set(
+    TEMP_PASSWORD_FLASH_COOKIE,
+    serializeTempPasswordFlash({ password: tempPassword, email: existing.email }),
+    {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/admin',
+      maxAge: TEMP_PASSWORD_FLASH_TTL_SECONDS,
+    },
   );
+
+  revalidatePath('/admin/users');
+  redirect('/admin/users');
 }
 
 function generateTempPassword(): string {

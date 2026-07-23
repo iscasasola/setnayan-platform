@@ -2264,7 +2264,11 @@ export async function renderVendorBySlug({
                   ? 'editorial'
                   : search.src === 'favorites'
                     ? 'favorites'
-                    : null
+                    : search.src === 'explore'
+                      ? 'explore'
+                      : search.src === 'search'
+                        ? 'search'
+                        : null
               }
             />
           ) : null}

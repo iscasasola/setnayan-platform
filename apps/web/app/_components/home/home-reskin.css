@@ -115,16 +115,24 @@ html.hr-snap {
   align-items: center;
 }
 .home-reskin .hr-nav .hr-logo {
-  width: 46px;
   height: 46px;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 9px;
   color: #fff;
   cursor: pointer;
   transition: transform 0.2s ease;
   border: none;
-  padding: 0;
+  padding: 0 15px 0 13px;
+}
+.home-reskin .hr-nav .hr-wordmark {
+  font-family: var(--hr-sans);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  white-space: nowrap;
 }
 .home-reskin .hr-nav .hr-logo:hover {
   transform: scale(1.06);
@@ -202,6 +210,11 @@ html.hr-snap {
   .home-reskin .hr-nav .hr-logo {
     width: 40px;
     height: 40px;
+    padding: 0;
+    gap: 0;
+  }
+  .home-reskin .hr-nav .hr-wordmark {
+    display: none;
   }
   .home-reskin .hr-nav .hr-logo svg {
     width: 18px;
@@ -336,7 +349,11 @@ html.hr-snap {
   font-size: clamp(1rem, 2.4vw, 1.35rem);
   font-weight: 300;
   color: rgba(255, 255, 255, 0.82);
-  margin: 18px 0 0;
+  /* auto side-margins + a readable max line-length keep the longer plain-language
+     purpose line (Google OAuth branding review) centered and tidy instead of
+     stretching edge-to-edge on wide viewports. */
+  margin: 18px auto 0;
+  max-width: 54ch;
   letter-spacing: -0.01em;
 }
 .home-reskin .hr-hctas {

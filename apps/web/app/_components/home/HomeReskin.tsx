@@ -51,7 +51,12 @@ const HOME_HERO = {
       Plan your moments.
     </>
   ),
-  sub: 'The independent hub to keep a lifetime of memories, and plan any event, free.',
+  // Plain-language purpose line (Google OAuth branding review 2026-07-23): names
+  // the app "Setnayan" and states what it does, including the two capabilities
+  // that use the requested Google scopes — YouTube livestreaming (Live Studio)
+  // and Google Drive photo delivery (drive.file) — so the reviewer can see the
+  // app's purpose without decoding the poetic hero copy.
+  sub: 'Setnayan is the Filipino app for planning weddings and life events — plan free, livestream your day to YouTube, deliver your photos to Google Drive, and keep every memory for life.',
 };
 
 /**
@@ -445,8 +450,8 @@ export function HomeReskin({
       <nav className="hr-nav">
         <button
           className="hr-logo hr-glass-dark"
-          aria-label="Home"
-          title="Home"
+          aria-label="Setnayan — home"
+          title="Setnayan"
           onClick={goHome}
         >
           {/* Official Setnayan mark (filled glyph, paints in currentColor). The
@@ -455,6 +460,13 @@ export function HomeReskin({
               white on the cinematic gate and ink once opened — the same adaptive
               behavior the old 3-dot placeholder had. */}
           <SetnayanMark className="h-5 w-5" aria-hidden="true" />
+          {/* Visible "Setnayan" wordmark beside the mark: the homepage now shows
+              the exact app name that the Google OAuth consent screen is
+              configured with (branding review 2026-07-23 — the prominent hero
+              text is the "Set na ’yan" tagline, which a reviewer reads as NOT
+              matching "Setnayan"). Hidden on ≤480px, where the square badge
+              stands in; OAuth reviewers verify on desktop. */}
+          <span className="hr-wordmark">Setnayan</span>
         </button>
         <div className="hr-links hr-glass-dark">
           {/* Setnayan AI was removed from the nav (owner 2026-07-03) — the Suri

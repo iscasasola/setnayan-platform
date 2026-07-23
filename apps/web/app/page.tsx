@@ -59,6 +59,12 @@ export const metadata = {
     'Filipino life events app',
   ],
   openGraph: {
+    // siteName exposes the exact application name "Setnayan" as og:site_name so
+    // Google's OAuth branding matcher reads the same name configured on the
+    // consent screen (2026-07-23 verification: it was flagging a name mismatch
+    // because the page had no og:site_name and the visible headline is a
+    // tagline, not the app name).
+    siteName: 'Setnayan',
     title: HOME_TITLE,
     description: HOME_DESCRIPTION,
     url: '/',

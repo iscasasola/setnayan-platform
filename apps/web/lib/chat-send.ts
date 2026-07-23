@@ -7,6 +7,8 @@ import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
 import { leadTokenHoldEnabled, consumeLeadHoldOnCoupleReply } from '@/lib/lead-token-holds';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { runVendorAutoReply } from '@/lib/vendor-autoreply/inbox-hook';
+import { chatContactFilterEnabled } from '@/lib/chat-contact-filter-flag';
+import { evaluateMessage, CONTACT_BLOCK_MESSAGE } from '@/lib/chat-contact-filter';
 import { fetchThreadById, countCoupleMessages } from './chat';
 import { notifyOtherParty } from './chat-actions';
 
@@ -67,6 +69,7 @@ export type SendMessageError =
   | 'tier_free'
   | 'attachment_invalid'
   | 'attachment_failed'
+  | 'contact_blocked'
   | 'insert_failed';
 
 export type SendMessageResult =
@@ -242,6 +245,52 @@ export async function sendChatMessageCore(
     }
   }
 
+  // Chatroom blocked-rules — off-platform-contact filter
+  // (NEXT_PUBLIC_CHAT_CONTACT_FILTER_ENABLED · default OFF). Deterministic, ₱0,
+  // no-LLM. When ON, a message that shares a phone number (in any disguised
+  // form), an email / social link / @handle, or a blocklisted app-name /
+  // euphemism / solicitation is BLOCKED here — before we upload any attachment
+  // or insert anything — and the attempt is recorded (METADATA ONLY: categories
+  // + hit_count + sender/context, NEVER the text, per the 2026-06-22 owner-locked
+  // admin-no-chat-read invariant). Runs for BOTH couple + vendor; system/bot
+  // messages never reach this core. OFF ⇒ this block is skipped entirely and the
+  // send is byte-identical to before the filter existed. Attachment-only sends
+  // have an empty trimmed body → evaluateMessage returns not-blocked.
+  if (chatContactFilterEnabled() && trimmed.length > 0) {
+    const evaluation = evaluateMessage(trimmed);
+    if (evaluation.blocked) {
+      // Record the blocked attempt off the request path (best-effort · never
+      // throws). Service-role client so it lands regardless of the moderator-only
+      // RLS; a pre-migration table miss is logged and swallowed.
+      const categories = evaluation.categories;
+      const hitCount = evaluation.matched.length;
+      after(async () => {
+        try {
+          const { error: flagErr } = await admin.from('chat_message_flags').insert({
+            message_id: null,
+            thread_id: thread.thread_id,
+            event_id: thread.event_id,
+            vendor_profile_id: thread.vendor_profile_id,
+            sender_user_id: user.id,
+            sender_role: senderRole,
+            categories,
+            hit_count: hitCount,
+            outcome: 'blocked',
+          });
+          if (flagErr) {
+            console.error('[sendChatMessageCore] contact-block record failed (non-blocking):', flagErr.message);
+          }
+        } catch (caught) {
+          console.error(
+            '[sendChatMessageCore] contact-block record threw (non-blocking):',
+            caught instanceof Error ? caught.message : String(caught),
+          );
+        }
+      });
+      return { ok: false, code: 'contact_blocked', message: CONTACT_BLOCK_MESSAGE };
+    }
+  }
+
   // All gates passed — NOW upload the attachment (if any) to R2. Public URL is
   // acceptable for v1 (matches the vendor-handover proof-image precedent);
   // signed-URL access control is a tracked follow-up. On any upload failure we
@@ -347,7 +396,8 @@ export async function sendChatMessageCore(
     senderRole,
     senderUserId: user.id,
     // Attachment-only messages have no text — give the notification a sensible
-    // preview instead of an empty string.
+    // preview instead of an empty string. (A message that reaches this point has
+    // already passed the contact filter, so trimmed is safe to preview.)
     body: trimmed || (attachment ? '📎 Sent an attachment' : ''),
     isFirstMessage,
   });

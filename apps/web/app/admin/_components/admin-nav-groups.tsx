@@ -227,6 +227,17 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/user-reports',
       },
       {
+        // Off-platform-contact chat flags. Couple↔vendor messages caught sharing
+        // a phone/email/social link/@handle/app-name/euphemism/solicitation get
+        // masked at send time and recorded here (gated by
+        // CHAT_CONTACT_FILTER_ENABLED). Anti-disintermediation review queue.
+        key: 'chat-flags',
+        label: 'Chat contact flags',
+        href: '/admin/chat-flags',
+        icon: ShieldAlert,
+        matchPrefix: '/admin/chat-flags',
+      },
+      {
         // Reverse-image repost-watch queue. Cross-vendor perceptual-hash matches
         // (a vendor's new upload matching an older image owned by a DIFFERENT,
         // non-demo vendor). Detect-and-review only — never auto-takes-down.

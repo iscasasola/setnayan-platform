@@ -284,6 +284,8 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'Anti-abuse investigation record — disclosure defeats detection (NPC investigation carve-out; counsel-reviewed).',
   concierge_abuse_flags:
     'Anti-abuse investigation record — disclosure defeats detection (NPC investigation carve-out; counsel-reviewed).',
+  chat_message_flags:
+    'Anti-abuse enforcement record (off-platform-contact block) — metadata only (categories + timestamp of a blocked message, NEVER the text); exporting it hands the subject the exact filter triggers to evade (NPC investigation carve-out, same rule as concierge_abuse_flags). sender_user_id is the blocked sender.',
   concierge_brain_chunks:
     'Setnayan-authored planning content; the *_by stamp is an internal editor, not a data subject.',
   concierge_plan_templates:

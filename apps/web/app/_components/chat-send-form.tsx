@@ -27,6 +27,8 @@ import { useRef, useState } from 'react';
 import { Paperclip, Send, X } from 'lucide-react';
 import { SubmitButton } from './submit-button';
 import { trackFailure } from '@/lib/telemetry/track-error';
+import { chatContactFilterEnabled } from '@/lib/chat-contact-filter-flag';
+import { evaluateMessage, CONTACT_BLOCK_MESSAGE } from '@/lib/chat-contact-filter';
 
 type Props = {
   threadId: string;
@@ -46,6 +48,11 @@ export function ChatSendForm({ threadId, sendAction }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+  // Off-platform-contact block message (chatroom blocked-rules). Shown inline
+  // when the composer catches contact info BEFORE sending — instant feedback so
+  // the sender edits without a server round-trip. The server re-checks
+  // authoritatively (no-JS + native paths), so this is UX, not the gate.
+  const [blockError, setBlockError] = useState<string | null>(null);
 
   const clearFile = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -67,6 +74,15 @@ export function ChatSendForm({ threadId, sendAction }: Props) {
         const fileVal = formData.get('attachment');
         const hasFile = fileVal instanceof File && fileVal.size > 0;
         if (!bodyVal && !hasFile) return;
+
+        // Chatroom blocked-rules — block off-platform contact info before it
+        // ever leaves the browser (the server re-checks too). Keeps the text so
+        // the sender can edit and resend.
+        if (chatContactFilterEnabled() && bodyVal && evaluateMessage(bodyVal).blocked) {
+          setBlockError(CONTACT_BLOCK_MESSAGE);
+          return;
+        }
+        setBlockError(null);
 
         try {
           await sendAction(formData);
@@ -118,6 +134,14 @@ export function ChatSendForm({ threadId, sendAction }: Props) {
           {fileError}
         </p>
       ) : null}
+      {blockError ? (
+        <p
+          className="self-stretch rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-2 text-xs text-terracotta-700"
+          role="alert"
+        >
+          {blockError}
+        </p>
+      ) : null}
 
       <div className="flex items-end gap-2">
         {/* Paperclip attach button — opens the OS file picker. */}
@@ -160,6 +184,7 @@ export function ChatSendForm({ threadId, sendAction }: Props) {
           placeholder="Type a message…"
           className="input-field min-h-[60px] flex-1 py-2"
           onInput={() => {
+            if (blockError) setBlockError(null);
             window.dispatchEvent(
               new CustomEvent('chat-stream:input', { detail: { threadId } }),
             );

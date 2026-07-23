@@ -23,6 +23,7 @@ const STATUS_BY_CODE: Record<SendMessageError, number> = {
   tier_free: 403,
   attachment_invalid: 422,
   attachment_failed: 500,
+  contact_blocked: 422, // off-platform contact info — caller edits + resends
   insert_failed: 500,
 };
 

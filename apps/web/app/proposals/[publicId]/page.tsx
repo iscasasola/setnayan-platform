@@ -10,6 +10,8 @@ import { fetchProposalPaymentMethods } from '@/lib/vendor-payment-methods.server
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { PrintButton } from '@/components/print-button';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { fetchPendingFeeCharge } from '@/lib/booking-fee-checkout';
+import { BookingFeePayPrompt } from './_components/booking-fee-pay-prompt';
 import {
   PROPOSAL_STATUS_LABEL,
   PROPOSAL_STATUS_TONE,
@@ -147,6 +149,14 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
     methodIds,
   });
 
+  // Booking-fee pending charge — only present when the fee is enforced and a send
+  // was gate-blocked (PR-3b/PR-4). Drives the pay-prompt on the vendor's draft;
+  // null in every other case (the norm today).
+  const pendingFeeCharge =
+    isVendorSide && proposal.status === 'draft'
+      ? await fetchPendingFeeCharge(supabase, proposal.proposal_id)
+      : null;
+
   return (
     <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-10 sm:px-6 print:max-w-none print:space-y-4 print:py-2">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
@@ -173,6 +183,22 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
       {search.notice === 'send_failed' || search.notice === 'respond_failed' ? (
         <p role="alert" className="rounded-lg bg-warn-50 px-3 py-2 text-sm text-warn-900 print:hidden">
           That didn&rsquo;t go through — refresh and try again.
+        </p>
+      ) : null}
+
+      {search.notice === 'fee_paid' ? (
+        <p role="status" className="rounded-lg bg-success-50 px-3 py-2 text-sm text-success-900 print:hidden">
+          Booking fee paid — you can send this proposal now.
+        </p>
+      ) : null}
+      {search.notice === 'fee_unpaid' || search.notice === 'fee_cancelled' ? (
+        <p role="alert" className="rounded-lg bg-warn-50 px-3 py-2 text-sm text-warn-900 print:hidden">
+          A booking fee is due before this proposal can send — see below.
+        </p>
+      ) : null}
+      {search.notice === 'fee_checkout_failed' || search.notice === 'fee_gone' ? (
+        <p role="alert" className="rounded-lg bg-warn-50 px-3 py-2 text-sm text-warn-900 print:hidden">
+          We couldn&rsquo;t open the fee payment — please try again.
         </p>
       ) : null}
 
@@ -343,16 +369,26 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
       {/* Actions */}
       {isVendorSide && proposal.status === 'draft' ? (
         <div className="flex flex-wrap items-center gap-2 print:hidden">
-          <form action={sendProposal}>
-            <input type="hidden" name="proposal_id" value={proposal.proposal_id} />
-            <input type="hidden" name="public_id" value={proposal.public_id} />
-            <SubmitButton
-              pendingLabel="Sending…"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-4 py-2 text-sm font-medium text-cream"
-            >
-              <Send aria-hidden className="h-4 w-4" /> Send to couple
-            </SubmitButton>
-          </form>
+          {pendingFeeCharge ? (
+            // A fee is due — the vendor pays here, then re-sends the same draft
+            // (which now clears the gate). Hide plain "Send" until it's paid.
+            <BookingFeePayPrompt
+              chargeId={pendingFeeCharge.chargeId}
+              publicId={proposal.public_id}
+              feeCentavos={pendingFeeCharge.amountChargedCentavos}
+            />
+          ) : (
+            <form action={sendProposal}>
+              <input type="hidden" name="proposal_id" value={proposal.proposal_id} />
+              <input type="hidden" name="public_id" value={proposal.public_id} />
+              <SubmitButton
+                pendingLabel="Sending…"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-4 py-2 text-sm font-medium text-cream"
+              >
+                <Send aria-hidden className="h-4 w-4" /> Send to couple
+              </SubmitButton>
+            </form>
+          )}
           <form action={deleteDraftProposal}>
             <input type="hidden" name="proposal_id" value={proposal.proposal_id} />
             <SubmitButton

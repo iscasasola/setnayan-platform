@@ -74,7 +74,7 @@ export default async function LaunchHubPage({ params }: Props) {
   const services: Service[] = [
     {
       key: 'panood',
-      name: 'Panood — livestream',
+      name: 'Live Studio — livestream',
       blurb: 'Bring everyone who could not make it into the room.',
       owned: panoodState.state === 'launch',
       launchLabel: 'Go live',

@@ -100,7 +100,10 @@ export default async function PapicGuestPage() {
   ] = await Promise.all([
       admin
         .from('guests')
-        .select('first_name, display_name, ugc_terms_accepted_at')
+        // qr_token rides along so the Papic Challenges reward CTA can link the
+        // guest into THEIR OWN Story maker (/papic/me/[token]) — resolved
+        // server-side from the cookie session, never client-supplied.
+        .select('first_name, display_name, ugc_terms_accepted_at, qr_token')
         .eq('guest_id', session.guest_id)
         .maybeSingle(),
       fetchGuestQuota(admin, session.event_id, session.guest_id),
@@ -176,6 +179,7 @@ export default async function PapicGuestPage() {
       guestUnlimited={quota.unlimited}
       eventStyle={eventStyle}
       faceMode={faceMode}
+      storyToken={((g as { qr_token?: string | null } | null)?.qr_token as string | null) ?? null}
     />
   );
 }

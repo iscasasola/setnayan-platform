@@ -182,8 +182,9 @@ export default async function PapicMyCameraPage({ params }: Props) {
           This link isn&rsquo;t active
         </h1>
         <p className="mt-3 text-sm text-ink/65">
-          This personal QR doesn&rsquo;t open a camera right now. Ask the couple
-          to re-share your invitation link and try again.
+          This personal QR doesn&rsquo;t open a camera right now — it may have been
+          replaced with a new one. Ask your host for your current QR or link and
+          try again.
         </p>
         <Link
           href="/"

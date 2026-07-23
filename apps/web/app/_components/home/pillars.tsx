@@ -85,8 +85,8 @@ export const PILLAR_HEROES: PillarHero[] = [
     id: 'hr-p4',
     sectionId: 'hr-p2',
     feat: { pillar: 1, card: 3 }, // Likha → Live Studio preview
-    name: 'Panood',
-    role: 'Live Studio',
+    name: 'Live Studio',
+    role: 'Broadcast',
     head: 'Everyone you love, there. Wherever they are.',
     desc: 'The people who couldn’t travel watch it all unfold live, as if they were sitting in the front row the whole time.',
     photo: 'radial-gradient(120% 90% at 50% 30%, #ABAEB2 0%, #7d8084 44%, #45484d 100%)',
@@ -502,7 +502,7 @@ const LikhaanLiveStudio = (
       <div className="hr-msw hr-ph" style={{ height: 32, borderRadius: 'var(--hr-r7)' }} />
     </div>
     <div className="hr-mk-h" style={{ margin: '11px 0 0', color: '#97742f' }}>
-      A real control room: cut between phone cameras live · try it from the Panood tile
+      A real control room: cut between phone cameras live · try it from the Live Studio tile
     </div>
   </div>
 );
@@ -1191,7 +1191,7 @@ export const PILLARS: Pillar[] = [
         fl: (
           <>
             Your phones become the cameras, and you get a real control room to cut between angles
-            live for everyone who couldn’t make the trip. <em>Try the control room from the Panood
+            live for everyone who couldn’t make the trip. <em>Try the control room from the Live Studio
             tile, two phones.</em> Full event livestream rolling out.
           </>
         ),

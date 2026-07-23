@@ -21,7 +21,7 @@ import type { MarketingLocale } from '@/lib/marketing-i18n';
 // index. Keep both arrays in lockstep.
 
 const META: { Icon: LucideIcon; sku: string }[] = [
-  { Icon: Tv, sku: 'Panood' },
+  { Icon: Tv, sku: 'Live Studio' },
   { Icon: Camera, sku: 'Papic' },
   { Icon: Video, sku: 'Patiktok' },
   { Icon: Palette, sku: 'Pakulay' },

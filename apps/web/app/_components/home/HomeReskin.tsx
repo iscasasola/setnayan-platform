@@ -532,7 +532,7 @@ export function HomeReskin({
               Try the live demo, you and a friend, right now
             </button>
           )}
-          {hero?.name === 'Panood' && (
+          {hero?.name === 'Live Studio' && (
             <button className="hr-ai-cta" onClick={() => setOverlay('panood-demo')}>
               Try the control room&nbsp;·&nbsp;two phones
             </button>

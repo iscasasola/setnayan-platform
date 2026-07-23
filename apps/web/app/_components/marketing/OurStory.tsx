@@ -52,7 +52,7 @@ const KEPT: Array<{ mock: FeatureMockKind; eyebrow: string; title: string; line:
     eyebrow: 'The people',
     title: 'Everyone you wished could be there.',
     line: 'The lola who couldn’t travel. The cousin overseas. Brought into the room — to see your day as if they were standing in it.',
-    via: 'Panood',
+    via: 'Live Studio',
   },
   {
     mock: 'stories',

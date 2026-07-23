@@ -75,6 +75,7 @@ import { GuestToHostCta } from '@/app/_components/guest-to-host-cta';
 import { NavLinksRow } from '@/app/_components/nav-links';
 import { PublicPageActions } from '@/app/_components/public-page-actions';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
+import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { GuestPreload } from './_components/guest-preload';
 import { GuestHubBar } from './_components/guest-hub-bar';
 import { PublicEventDayBar } from './_components/public-event-day-bar';
@@ -94,6 +95,7 @@ import { eventStdOpeningsActive } from '@/lib/std-openings';
 import { defaultInvitationLaunchIso } from '@/lib/save-the-date-content';
 import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config';
 import { OurStory } from './_components/our-story';
+import { GuestColumnCard } from './_components/guest-column-card';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import {
   buildSitePaletteVars,
@@ -117,6 +119,13 @@ import { getGuestLiveGallery, type GuestLiveGallery } from '@/lib/guest-live-gal
 import { fetchEventVendorCredits } from '@/lib/event-vendor-credits';
 import type { VendorCard } from '@/lib/vendor-cards';
 import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
+import {
+  fetchRoamManifest,
+  liveStudioRoamEnabled,
+  selectFeaturedZone,
+  type RoamManifest,
+} from '@/lib/live-studio-roam';
+import { RoamWatchPicker } from './_components/roam-watch-picker';
 import { GuestHubCard, pickNextScheduleBlock, type GuestHubData } from './_components/guest-hub-card';
 import { fetchEntrance, type EntrancePos } from '@/lib/indoor-blueprint';
 import { fetchTables, type EventTableRow } from '@/lib/seating';
@@ -124,7 +133,7 @@ import { YourSeatBlock } from './_components/your-seat-block';
 
 /** Panood Watch-Live data for the day-of page (shown whenever a watch URL is
  *  staged — single-cam Panood live is free for every host). */
-type WatchLiveData = { embedUrl: string; watchUrl: string };
+type WatchLiveData = { embedUrl: string; watchUrl: string; roam?: RoamManifest };
 
 /** Live Photo Wall data threaded into the day-of page (LIVE_WALL owners only). */
 type LiveWallData = {
@@ -899,6 +908,28 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
           watchLive = { embedUrl: youTubeEmbedUrl(videoId), watchUrl };
         }
       }
+      // Live Studio ROAM (flag-dark, default OFF): when the couple owns a
+      // multi-camera Roam broadcast, the public manifest (events.live_studio_roam_manifest,
+      // mirrored non-secret) turns the single embed into a camera/zone picker. The
+      // featured zone becomes the fallback embedUrl so every existing `watchLive`
+      // gate keeps firing even for a Roam-only event (no CAST watch URL). When the
+      // flag is off (prod default), this whole block is skipped and CAST behavior
+      // is byte-for-byte unchanged. Graceful-degrades to [] pre-migration.
+      if (liveStudioRoamEnabled()) {
+        const roam = await fetchRoamManifest(admin, event.event_id);
+        const featured = selectFeaturedZone(roam);
+        if (featured) {
+          try {
+            watchLive = {
+              embedUrl: youTubeEmbedUrl(featured.videoId),
+              watchUrl: `https://www.youtube.com/watch?v=${featured.videoId}`,
+              roam,
+            };
+          } catch {
+            // invalid featured id — keep any CAST watchLive as-is
+          }
+        }
+      }
     } catch {
       liveWall = null;
       watchLive = null;
@@ -1289,7 +1320,11 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     tableLabel: guestTableLabel,
     mealPreference: guest.meal_preference,
     dietaryRestrictions: guest.dietary_restrictions,
-    nextScheduleBlock: pickNextScheduleBlock(scheduleBlocks),
+    // "Coming up" follows the host-set run-of-show pointer when the trigger
+    // flag is on (owner directive 2026-07-23); wall-clock inference otherwise.
+    nextScheduleBlock: pickNextScheduleBlock(scheduleBlocks, {
+      preferRunState: isGuestNowTriggerEnabled(),
+    }),
     slug,
     isLimitedPlusOne:
       guest.plus_one_of_guest_id !== null && guest.plus_one_mode === 'limited',
@@ -1430,6 +1465,9 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
             ? `/${event.slug}/hub`
             : null
         }
+        selfRotateEnabled={process.env.GUEST_QR_SELF_ROTATE === 'true'}
+        dayOfLive={dayOfPhase === 'live'}
+        slug={event.slug ?? slug}
       />
     </>
   );
@@ -1604,6 +1642,12 @@ type GuestRow = {
  * iframe src is structurally a YouTube embed, never raw user input.
  */
 function WatchLiveBlock({ watchLive }: { watchLive: WatchLiveData }) {
+  // Live Studio ROAM: when a multi-camera manifest is present, render the
+  // camera/zone/venue picker instead of the single directed embed. Reuses this
+  // block's existing render sites (day-of + landing), so no prop-threading change.
+  if (watchLive.roam && watchLive.roam.length > 0) {
+    return <RoamWatchPicker manifest={watchLive.roam} />;
+  }
   return (
     <section
       aria-label="Watch the celebration live"
@@ -2099,8 +2143,9 @@ function PublicLanding({
         ) : null}
         {reason === 'invalid_invite' ? (
           <p className="mx-auto max-w-prose rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
-            That invite link doesn&rsquo;t look right. Ask the couple to send you a fresh
-            one — every guest has their own personal link.
+            That invite link doesn&rsquo;t look right — it may have been replaced with a new
+            one. Ask your host for your current QR or link; every guest has their own, and
+            an old one stops working the moment it&rsquo;s replaced.
           </p>
         ) : reason === 'wrong_event' ? (
           <p className="mx-auto max-w-prose rounded-md border border-warn-300 bg-warn-50 px-4 py-3 text-sm text-warn-900">
@@ -2188,6 +2233,10 @@ function PublicLanding({
               event={event}
               scheduleBlocks={scheduleBlocks}
               isLive={dayOfPhase === 'live'}
+              scheduleEstimated={
+                isGuestNowTriggerEnabled() &&
+                (dayOfPhase === 'pre' || dayOfPhase === 'inactive')
+              }
               ourPhotoUrls={ourPhotoUrls}
             />
           ))}
@@ -2218,12 +2267,16 @@ function PublicHideableWidget({
   event,
   scheduleBlocks,
   isLive,
+  scheduleEstimated = false,
   ourPhotoUrls,
 }: {
   widget: InvitationWidgetRow;
   event: EventRow;
   scheduleBlocks: ScheduleBlockRow[];
   isLive: boolean;
+  /** RSVP-season "Estimated program" label on the schedule widget (owner
+   *  directive 2026-07-23, NEXT_PUBLIC_GUEST_NOW_TRIGGER-gated upstream). */
+  scheduleEstimated?: boolean;
   ourPhotoUrls: string[];
 }) {
   switch (widget.widget_type) {
@@ -2241,7 +2294,12 @@ function PublicHideableWidget({
       // the editor's "always-on pin replaces hideable" contract).
       return !isLive && scheduleBlocks.length > 0 ? (
         <>
-          <ScheduleWidget blocks={scheduleBlocks} eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)} />
+          <ScheduleWidget
+            blocks={scheduleBlocks}
+            eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
+            nowTrigger={isGuestNowTriggerEnabled()}
+            estimated={scheduleEstimated}
+          />
           {isChineseWedding(event) ? <TeaCeremonyCard event={event} /> : null}
         </>
       ) : null;
@@ -2839,7 +2897,11 @@ function InvitationSite({
             aria-label="Day-of schedule"
             className="rounded-2xl border-2 border-success-300 bg-success-50/50 p-2"
           >
-            <ScheduleWidget blocks={scheduleBlocks} eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)} />
+            <ScheduleWidget
+              blocks={scheduleBlocks}
+              eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
+              nowTrigger={isGuestNowTriggerEnabled()}
+            />
           </section>
         ) : null}
 
@@ -3171,6 +3233,10 @@ function InvitationSite({
             sideLabel={sideLabel}
             scheduleBlocks={scheduleBlocks}
             isLive={isLive}
+            scheduleEstimated={
+              isGuestNowTriggerEnabled() &&
+              (dayOfPhase === 'pre' || dayOfPhase === 'inactive')
+            }
             isLimitedPlusOne={isLimitedPlusOne}
             ourPhotoUrls={ourPhotoUrls}
           />
@@ -3189,6 +3255,10 @@ function InvitationSite({
             The normal body only renders pre-event (STD + editorial are separate
             branches), so this naturally stays off the post-event Editorial. */}
         <OurStory loveStory={event.love_story} variant="full" />
+        {/* Guest Columns (BUILD ① · GUEST_COLUMNS_ENABLED, default OFF) — the
+            guest's one column for the couple's paper + the approved columns.
+            Guest-session tree only (cookie holders); flag off → renders null. */}
+        <GuestColumnCard eventId={event.event_id} guestId={guest.guest_id} eventDate={event.event_date} />
           </>
         )}
 
@@ -3225,6 +3295,7 @@ function HideableWidgetRender({
   sideLabel,
   scheduleBlocks,
   isLive,
+  scheduleEstimated = false,
   isLimitedPlusOne,
   ourPhotoUrls,
 }: {
@@ -3234,6 +3305,9 @@ function HideableWidgetRender({
   sideLabel: string;
   scheduleBlocks: ScheduleBlockRow[];
   isLive: boolean;
+  /** RSVP-season "Estimated program" label on the schedule widget (owner
+   *  directive 2026-07-23, NEXT_PUBLIC_GUEST_NOW_TRIGGER-gated upstream). */
+  scheduleEstimated?: boolean;
   isLimitedPlusOne: boolean;
   ourPhotoUrls: string[];
 }) {
@@ -3277,7 +3351,12 @@ function HideableWidgetRender({
       // article body — NOT here too, or a Chinese event with visible
       // schedule blocks would show the card twice.)
       return !isLive && scheduleBlocks.length > 0 ? (
-        <ScheduleWidget blocks={scheduleBlocks} eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)} />
+        <ScheduleWidget
+          blocks={scheduleBlocks}
+          eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
+          nowTrigger={isGuestNowTriggerEnabled()}
+          estimated={scheduleEstimated}
+        />
       ) : null;
 
     case 'venue_map':

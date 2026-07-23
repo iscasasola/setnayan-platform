@@ -19,6 +19,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveStillRef, resolvePlayRef, stableMediaPath } from '@/lib/papic-display-ref';
 import { eventSkuActive } from '@/lib/entitlements';
 import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
+import { guestColumnsEnabled } from '@/lib/guest-columns';
 import { tierCaps } from '@/lib/vendor-tier-caps';
 import {
   fetchEventRecommendations,
@@ -69,6 +70,9 @@ export const EDITORIAL_DAY_CHAPTER_CAP = 10;
 /** How many Kwento guest wishes to surface in "What They Whispered". */
 export const EDITORIAL_KWENTO_CAP = 8;
 
+/** How many approved Guest Columns to surface in "Letters to the Editor". */
+export const EDITORIAL_GUEST_COLUMN_CAP = 6;
+
 /** How many clean Papic 5-second clips to pull into the day timeline. */
 export const EDITORIAL_PAPIC_CLIP_CAP = 14;
 
@@ -99,7 +103,7 @@ const SERVICE_LABELS: Record<string, string> = {
   LIVE_WALL: 'Live Photo Wall',
   PABATI: 'Pabati',
   PAKANTA: 'Pakanta',
-  PANOOD_SYSTEM: 'Panood Livestream',
+  PANOOD_SYSTEM: 'Live Studio',
   PAPIC_ADDON_STORIES: 'Guest Stories',
   PAPIC_ADDON_THANK_YOU: 'Thank-You Video',
   PAPIC_GUEST: 'Papic Guest',
@@ -216,6 +220,7 @@ export type EditorialSections = {
   fromVendors: boolean;
   vendorsWeLoved: boolean;
   kwento: boolean;
+  guestColumns: boolean;
   watchFilm: boolean;
 };
 
@@ -231,6 +236,7 @@ export const EDITORIAL_SECTION_KEYS: ReadonlyArray<keyof EditorialSections> = [
   'fromVendors',
   'vendorsWeLoved',
   'kwento',
+  'guestColumns',
   'watchFilm',
 ];
 
@@ -415,6 +421,12 @@ export type EditorialData = {
   // the words still approved). [] when the couple has no Kwento or the table is
   // absent (section then hidden).
   kwentoQuotes: KwentoQuote[];
+  // "Letters to the Editor" — approved Guest Columns (guest_columns · BUILD ①,
+  // GUEST_COLUMNS_ENABLED). Fail-closed exactly like kwentoQuotes: only
+  // status='approved' + moderation_state='clean' + author not hidden, bylines
+  // from `guests`. OPTIONAL so the samples (and any pre-feature callers) need
+  // no change — absent/[] hides the section. Flag off → never loaded.
+  guestColumns?: Array<{ title: string; body: string; author: string | null }>;
   // Live Studio replay — "Watch the Film". The youtube-nocookie EMBED URL for
   // the couple's Panood broadcast replay, gated on: a valid events.panood_watch_url
   // (normalize-or-rejected) AND an ACTIVE Panood/Live Studio SKU. Null → the
@@ -2011,6 +2023,62 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     // table absent (pre-Kwento) or any error → no whispers section
   }
 
+  // ── "Letters to the Editor" — approved Guest Columns ─────────────────────────
+  // guest_columns (BUILD ① · migration 20270917200000), behind the
+  // GUEST_COLUMNS_ENABLED flag (default OFF → never even queried). PUBLIC
+  // surface → FAILS CLOSED exactly like the kwento block above: only
+  // status='approved' + moderation_state='clean' + author not publicly hidden.
+  // Bylines resolve from `guests` (same one-read pattern). A missing table
+  // (pre-migration, 42P01) degrades to [] → section hidden.
+  const guestColumns: Array<{ title: string; body: string; author: string | null }> = [];
+  if (guestColumnsEnabled()) {
+    try {
+      const { data: colRows, error } = await admin
+        .from('guest_columns')
+        .select('title, body_text, guest_id')
+        .eq('event_id', eventId)
+        .eq('status', 'approved')
+        .eq('moderation_state', 'clean')
+        .eq('author_publicly_hidden', false)
+        .order('submitted_at', { ascending: true })
+        .limit(EDITORIAL_GUEST_COLUMN_CAP);
+      const rows = !error && Array.isArray(colRows) ? (colRows as Array<Record<string, unknown>>) : [];
+      if (rows.length > 0) {
+        const colGuestIds = Array.from(
+          new Set(rows.map((r) => asString(r.guest_id)).filter((v): v is string => Boolean(v))),
+        );
+        const colNameByGuest = new Map<string, string>();
+        if (colGuestIds.length > 0) {
+          try {
+            const { data: gRows } = await admin
+              .from('guests')
+              .select('guest_id, display_name, first_name, last_name')
+              .in('guest_id', colGuestIds);
+            for (const g of (gRows ?? []) as Array<Record<string, unknown>>) {
+              const id = asString(g.guest_id);
+              if (!id) continue;
+              const name =
+                asString(g.display_name) ??
+                [asString(g.first_name), asString(g.last_name)].filter(Boolean).join(' ').trim();
+              if (name) colNameByGuest.set(id, name);
+            }
+          } catch {
+            // no names → columns render unattributed
+          }
+        }
+        for (const r of rows) {
+          const title = asString(r.title);
+          const body = asString(r.body_text);
+          if (!title || !body) continue;
+          const gid = asString(r.guest_id);
+          guestColumns.push({ title, body, author: gid ? colNameByGuest.get(gid) ?? null : null });
+        }
+      }
+    } catch {
+      // pre-migration DB / transient failure → [] → section hidden
+    }
+  }
+
   // ── "Watch the Film" — Live Studio (Panood) replay ───────────────────────────
   // The couple's broadcast replay, embedded via youtube-nocookie. Gated on ALL
   // THREE, fail-closed: (1) events.panood_watch_url present + (2) it normalizes to
@@ -2102,6 +2170,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
     pabatiActive,
     vendorMedia,
     kwentoQuotes,
+    guestColumns,
     watchFilmEmbedUrl,
     sections: readSections(draftJson),
     sectionOrder: readSectionOrder(draftJson),
@@ -2527,7 +2596,7 @@ function mariaAndJuan(): EditorialData {
       { author: 'Maria & Juan', role: 'couple', quote: 'We planned the whole thing on Setnayan — and on the day, everything was just set.', stars: 5 },
       { author: 'Tita Bing', role: 'guest', quote: 'The most organized wedding I have been to — everyone knew where to go and when.', stars: 5 },
     ],
-    servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic', 'Panood Livestream', 'Pakanta'],
+    servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic', 'Live Studio', 'Pakanta'],
     galleryPhotos: [
       '/realstories/maria-juan-g1.jpg',
       '/realstories/maria-juan-g2.jpg',
@@ -2883,7 +2952,7 @@ function peterAndMary(): EditorialData {
       { author: 'Peter & Mary', role: 'couple', quote: 'A 150-guest wedding sounds impossible until every vendor is reading the same timeline.', stars: 5 },
       { author: 'Lola Pacing', role: 'guest', quote: 'Big wedding, but it felt warm and personal. Nobody was lost, everyone was fed.', stars: 5 },
     ],
-    servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic', 'Panood Livestream'],
+    servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic', 'Live Studio'],
     galleryPhotos: [
       '/realstories/peter-mary-g1.jpg',
       '/realstories/peter-mary-g2.jpg',

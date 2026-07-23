@@ -37,7 +37,7 @@ const COPY: Record<
     items: [
       {
         title: 'A receipt for every software purchase',
-        body: 'Every software service you buy from Setnayan (Animated Monogram, Setnayan AI, Panood, Patiktok, etc.) gets an itemized receipt, emailed to you and archived in your dashboard, so you always have a record of what you paid.',
+        body: 'Every software service you buy from Setnayan (Animated Monogram, Setnayan AI, Live Studio, Patiktok, etc.) gets an itemized receipt, emailed to you and archived in your dashboard, so you always have a record of what you paid.',
       },
       {
         title: 'RA 10173 (Data Privacy Act) compliant',
@@ -61,7 +61,7 @@ const COPY: Record<
     items: [
       {
         title: 'Resibo para sa bawat software purchase',
-        body: 'Bawat software service na binili mo sa Setnayan (Animated Monogram, Setnayan AI, Panood, Patiktok, etc.) ay may itemized receipt, ipinapadala sa email mo at naka-archive sa dashboard mo, para may record ka lagi ng binayaran mo.',
+        body: 'Bawat software service na binili mo sa Setnayan (Animated Monogram, Setnayan AI, Live Studio, Patiktok, etc.) ay may itemized receipt, ipinapadala sa email mo at naka-archive sa dashboard mo, para may record ka lagi ng binayaran mo.',
       },
       {
         title: 'RA 10173 (Data Privacy Act) compliant',

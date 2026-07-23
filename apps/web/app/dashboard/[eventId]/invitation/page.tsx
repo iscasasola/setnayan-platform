@@ -15,9 +15,11 @@ import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
 import { eventSkuActive } from '@/lib/entitlements';
 import { deriveMonogram, resolveMonogram } from '@/lib/monogram';
+import { getDayOfPhase } from '@/lib/day-of-mode';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { reissueGuestToken, updateEventSlug, updateMonogram } from './actions';
 import { SlugField } from './_components/slug-field';
+import { ReissueQrButton } from './_components/reissue-qr-button';
 
 export const metadata = { title: 'Invitations' };
 
@@ -25,6 +27,7 @@ type Props = {
   params: Promise<{ eventId: string }>;
   searchParams: Promise<{
     reissued?: string;
+    reissue_error?: string;
     slug_saved?: string;
     slug_error?: string;
     mono_saved?: string;
@@ -128,6 +131,30 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   const qrByGuest = new Map(qrEntries.map((e) => [e.guestId, e]));
 
   const reissuedGuestId = search.reissued ?? null;
+  const reissueError = search.reissue_error ?? null;
+
+  // Build ④ rotation metadata — read defensively: the qr_token_rotated_at
+  // column lands with migration 20270917400000; before it applies (or on any
+  // read error) this map is simply empty and the page renders as before.
+  const rotatedAtByGuest = new Map<string, string>();
+  try {
+    const { data: rotatedRows } = await createAdminClient()
+      .from('guests')
+      .select('guest_id, qr_token_rotated_at')
+      .eq('event_id', eventId)
+      .not('qr_token_rotated_at', 'is', null);
+    for (const r of rotatedRows ?? []) {
+      if (r.qr_token_rotated_at) rotatedAtByGuest.set(r.guest_id, r.qr_token_rotated_at);
+    }
+  } catch {
+    // pre-migration / degraded read — no badges, nothing else changes
+  }
+
+  // Live day-of window (T-1h..T+8h): the confirm dialog escalates to a typed
+  // confirm — rotating mid-event kills the guest's printed place card and the
+  // check-in desk scan within one refresh.
+  const dayOfLive = event.event_date ? getDayOfPhase(event.event_date) === 'live' : false;
+
   const slugSaved = search.slug_saved === '1';
   const slugErrorKey = search.slug_error ?? null;
   const slugError = slugErrorKey
@@ -203,8 +230,17 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
           role="status"
           className="rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
         >
-          Token rotated. The previously-printed QR for this guest is now invalid — reprint
-          and re-send their card.
+          QR replaced. The previously printed QR and every shared link for this guest are now
+          invalid — reprint and re-send their card. Their RSVP, seat, and photos are unchanged.
+        </p>
+      ) : null}
+
+      {reissueError ? (
+        <p
+          role="alert"
+          className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
+        >
+          Couldn&rsquo;t replace that QR: {reissueError}
         </p>
       ) : null}
 
@@ -384,14 +420,13 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                           PNG
                         </a>
                       ) : null}
-                      <form action={reissueAction} className="inline">
-                        <SubmitButton
-                          className="text-sm text-terracotta-700 underline-offset-4 hover:underline disabled:opacity-60"
-                          pendingLabel="…"
-                        >
-                          Re-issue
-                        </SubmitButton>
-                      </form>
+                      <ReissueQrButton
+                        action={reissueAction}
+                        guestName={guestDisplayName(guest)}
+                        hasEmail={Boolean(guest.email)}
+                        dayOfLive={dayOfLive}
+                        rotatedAt={rotatedAtByGuest.get(guest.guest_id) ?? null}
+                      />
                     </div>
                   </td>
                 </tr>
@@ -429,14 +464,13 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                 </div>
               </div>
               <div className="flex items-center gap-4">
-                <form action={reissueAction}>
-                  <SubmitButton
-                    className="text-sm text-terracotta-700 underline-offset-4 hover:underline disabled:opacity-60"
-                    pendingLabel="…"
-                  >
-                    Re-issue token
-                  </SubmitButton>
-                </form>
+                <ReissueQrButton
+                  action={reissueAction}
+                  guestName={guestDisplayName(guest)}
+                  hasEmail={Boolean(guest.email)}
+                  dayOfLive={dayOfLive}
+                  rotatedAt={rotatedAtByGuest.get(guest.guest_id) ?? null}
+                />
                 {brandedActive ? (
                   <a
                     href={`/api/website/qr/guest/${guest.guest_id}`}

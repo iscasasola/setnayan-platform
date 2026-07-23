@@ -14,6 +14,7 @@ import {
   Users,
   Globe,
   Square,
+  Trophy,
 } from 'lucide-react';
 import { DayOfFaceEnroll } from '@/app/[slug]/_components/day-of-face-enroll';
 import { makeQrDetector } from '@/lib/qr-scan';
@@ -25,7 +26,7 @@ import {
   type PapicStyle,
 } from '@/lib/papic-photo-styles';
 import { PapicCameraControls } from '@/app/papic/_components/camera-controls';
-import { PapicChallengePanel } from './papic-challenge-panel';
+import { PapicChallengePanel, type ArmedChallenge } from './papic-challenge-panel';
 import { enqueuePapicGuestCapture } from '@/lib/offline/service-handlers/papic-drain';
 import { triggerSyncNow } from '@/lib/offline/sync-daemon';
 import {
@@ -131,6 +132,10 @@ type Props = {
    *  roster) runs `embedFaces`. Resolved server-side, forced to mode_b for
    *  christening/debut. */
   faceMode: PapicFaceMode;
+  /** The guest's own personal QR token (server-resolved from the session —
+   *  never client-supplied), so the challenge-completion reward can link into
+   *  their Story maker at /papic/me/[token]. Null → no reward CTA. */
+  storyToken?: string | null;
 };
 
 export function PapicGuestCapture({
@@ -145,6 +150,7 @@ export function PapicGuestCapture({
   guestUnlimited = false,
   eventStyle,
   faceMode,
+  storyToken = null,
 }: Props) {
   // The event-wide look is LOCKED (couple-set at setup) — baked into every photo.
   const styleRef = useRef<PapicStyle>(eventStyle);
@@ -224,10 +230,14 @@ export function PapicGuestCapture({
   // table QR to mark who's in it, so it lands in that guest's "Photos of you".
   // Mirrors the seat camera, on the same rear stream.
   const [lastCaptureId, setLastCaptureId] = useState<string | null>(null);
-  // The media kind of the last shot (photo tap vs held clip) — so the Photo
-  // Challenge panel can name it ("use my last photo" / "…video"). A challenge
-  // completes with EITHER; papic_guest_captures holds both.
+  // The media kind of the last shot (photo tap vs held clip) — so the Papic
+  // Challenges panel can name it. A challenge completes with EITHER;
+  // papic_guest_captures holds both.
   const [lastCaptureKind, setLastCaptureKind] = useState<'photo' | 'clip' | null>(null);
+  // The ARMED Papic Challenge (SELECT → COMMENCE → RETAKE, owner 2026-07-23):
+  // lifted from the panel so the capture stage can show what the next shot
+  // counts for. The panel owns the mechanic; this is display-only state.
+  const [armedChallenge, setArmedChallenge] = useState<ArmedChallenge | null>(null);
   const [tagging, setTagging] = useState(false);
   const [tagCount, setTagCount] = useState(0);
   const [taggedNames, setTaggedNames] = useState<string[]>([]);
@@ -1279,6 +1289,16 @@ export function PapicGuestCapture({
             </div>
           </>
         )}
+        {/* ARMED-CHALLENGE indicator (SELECT → COMMENCE) — shows on the stage
+            what the next shot counts for, until the capture completes it. */}
+        {armedChallenge && !exhausted ? (
+          <span className="absolute inset-x-3 bottom-3 mx-auto inline-flex w-fit max-w-full items-center gap-1.5 rounded-full bg-ink/70 px-3 py-1.5 text-xs font-medium text-cream">
+            <Trophy aria-hidden className="h-3.5 w-3.5 shrink-0 text-cream" strokeWidth={2} />
+            <span className="truncate">
+              Next shot: {armedChallenge.prompt}
+            </span>
+          </span>
+        ) : null}
         {justSaved && (
           <div className="absolute inset-0 flex items-center justify-center bg-cream/15">
             <span className="inline-flex items-center gap-2 rounded-full bg-ink/70 px-4 py-2 text-sm font-medium text-cream">
@@ -1379,13 +1399,19 @@ export function PapicGuestCapture({
             ? 'Your camera is all used up — enjoy the celebration.'
             : recording
               ? `Recording… ${Math.ceil((MAX_CLIP_MS - recElapsed) / 1000)}s left`
-              : 'Tap for a photo · press and hold to record (up to 5s).'}
+              : 'Tap for a photo · press and hold to record (up to 10s).'}
         </p>
 
-        {/* Photo Challenges (Papic Games §5#3) — self-gated: renders nothing
+        {/* Papic Challenges (Papic Games §5#3) — self-gated: renders nothing
             until NEXT_PUBLIC_PAPIC_GAMES_V1 is on / the event has live missions.
-            Completing one attaches the guest's most recent capture. */}
-        <PapicChallengePanel lastCaptureId={lastCaptureId} lastCaptureKind={lastCaptureKind} />
+            SELECT → COMMENCE → RETAKE: the guest arms a challenge, the next
+            capture completes it (the panel watches lastCaptureId). */}
+        <PapicChallengePanel
+          lastCaptureId={lastCaptureId}
+          lastCaptureKind={lastCaptureKind}
+          onArmedChange={setArmedChallenge}
+          storyHref={storyToken ? `/papic/me/${encodeURIComponent(storyToken)}#story` : null}
+        />
 
         {/* Public-sharing opt-in (Alaala orb gate · RA 10173). Explicit, never
             pre-checked, default OFF. When ON, the shots this guest captures are

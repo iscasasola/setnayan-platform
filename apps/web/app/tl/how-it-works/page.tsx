@@ -94,7 +94,7 @@ const ROLE_CARDS: ReadonlyArray<RoleCard> = [
     where: [
       'Guest list, invitation site, vendors, budget, seating, mood board',
       'Day-of mode from T-1h to T+8h — table + schedule + photo wall',
-      'Add-ons (LED, photo delivery, Panood, Papic, supplies marketplace, at iba pa)',
+      'Add-ons (LED, photo delivery, Live Studio, Papic, supplies marketplace, at iba pa)',
     ],
     helpHref: '/help?role=couple',
   },

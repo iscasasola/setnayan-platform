@@ -38,7 +38,7 @@ const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
 
 const PAGE_TITLE = 'Alaala — A New Way to Remember · Setnayan';
 const PAGE_DESCRIPTION =
-  'Alaala brings together everything you create on Setnayan — Papic, Panood, your event website, your 3D plan, and your monogram — into one living memory you can open any time: your life-events collection, gathered as you go. A new way to remember, for every event you’ll ever hold.';
+  'Alaala brings together everything you create on Setnayan — Papic, Live Studio, your event website, your 3D plan, and your monogram — into one living memory you can open any time: your life-events collection, gathered as you go. A new way to remember, for every event you’ll ever hold.';
 const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
 
 export const metadata = {
@@ -81,7 +81,7 @@ const APP_LD = {
   operatingSystem: 'Any (web browser)',
   description: PAGE_DESCRIPTION,
   featureList: [
-    'Brings together Papic, Panood, your event website, your 3D plan, and your monogram',
+    'Brings together Papic, Live Studio, your event website, your 3D plan, and your monogram',
     'A living memory you can relive, share, and keep — not a folder of files',
     'Guests join from your event link — nothing to download',
     'Works for every kind of event, not just weddings',
@@ -95,7 +95,7 @@ const APP_LD = {
 const FAQ = [
   {
     q: 'What is Alaala?',
-    a: 'Alaala (ah-LAH-lah) is Tagalog for the memory you keep. On Setnayan it’s everything you create for your event, in one place — your candid photos (Papic), your live broadcast (Panood), your website (Pawebsite), your 3D plan (Pa3D), and your monogram (PaLogo) — gathered into one living memory you can return to any time.',
+    a: 'Alaala (ah-LAH-lah) is Tagalog for the memory you keep. On Setnayan it’s everything you create for your event, in one place — your candid photos (Papic), your live broadcast (Live Studio), your website (Pawebsite), your 3D plan (Pa3D), and your monogram (PaLogo) — gathered into one living memory you can return to any time.',
   },
   {
     q: 'Is it free?',
@@ -136,7 +136,7 @@ const PILLARS: { role: string; name: string; desc: string; href: string }[] = [
   },
   {
     role: 'Presence',
-    name: 'Panood',
+    name: 'Live Studio',
     desc: 'Everyone who couldn’t be there, in the room with you — live, as it happens.',
     href: '/panood',
   },
@@ -189,7 +189,7 @@ export default function AlaalaLandingPage() {
           <RevealBand stagger={0.08} y={14}>
             <p data-reveal-item className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
               Albums freeze a day into a few still frames. Alaala holds what it was really like — moving,
-              many-voiced, alive. Everything you make on Setnayan — Papic, Panood, your website, your plan, your
+              many-voiced, alive. Everything you make on Setnayan — Papic, Live Studio, your website, your plan, your
               mark — woven into one living memory you can open any time.
             </p>
             <div data-reveal-item className="mt-7 flex flex-wrap items-center justify-center gap-3">
@@ -214,7 +214,7 @@ export default function AlaalaLandingPage() {
         <section className="mt-14 flex flex-col items-center" aria-label="A living memory">
           <AlaalaOrb className="h-[260px] w-[260px] sm:h-[320px] sm:w-[320px]" />
           <p className="mt-6 max-w-md text-center text-sm text-[#5F5E5A]">
-            Papic, Panood, Pawebsite, Pa3D, PaLogo — woven into one. Memories that move.
+            Papic, Live Studio, Pawebsite, Pa3D, PaLogo — woven into one. Memories that move.
           </p>
         </section>
 

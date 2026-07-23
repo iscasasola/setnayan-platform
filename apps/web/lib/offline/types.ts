@@ -60,7 +60,7 @@ export const SERVICE_CODES: readonly ServiceCode[] = [
  */
 export const SERVICE_LABELS: Record<ServiceCode, string> = {
   papic: 'Papic — photo capture',
-  panood: 'Panood — livestream cache',
+  panood: 'Live Studio — livestream cache',
   patiktok: 'Patiktok — booth video',
   pabati: 'Pabati — guest clips',
   camera_bridge: 'Camera Bridge — DSLR transit',

@@ -1097,7 +1097,7 @@ function DateCalendar({
    onboarding-pricing.ts → buildOnboardingPricing reading platform_retail_catalog_v2). These maps carry
    only display copy + posters; pricing.svc[k] carries the numbers. */
 const BUNDLE_ITEMS: Record<string, string> = {
-  advanced_website: 'Advanced Website', papic_guest: 'Papic for guests', guest_stories: 'Guest Stories', pabati: 'Pabati guestbook', papic_seats: 'Papic · 5 seats', animated_monogram: 'Animated Monogram', thank_you: 'Thank-You Video', pakanta: 'Pakanta · your song', custom_qr: 'Custom QR per guest', panood: 'Panood livestream', live_background: 'Live Background', live_photowall: 'Live Photo Wall', indoor_blueprint: 'Indoor Blueprint', high_res: 'High-Res Archive',
+  advanced_website: 'Advanced Website', papic_guest: 'Papic for guests', guest_stories: 'Guest Stories', pabati: 'Pabati guestbook', papic_seats: 'Papic · 5 seats', animated_monogram: 'Animated Monogram', thank_you: 'Thank-You Video', pakanta: 'Pakanta · your song', custom_qr: 'Custom QR per guest', panood: 'Live Studio livestream', live_background: 'Live Background', live_photowall: 'Live Photo Wall', indoor_blueprint: 'Indoor Blueprint', high_res: 'High-Res Archive',
 };
 /* Plain-language benefit copy — functional outcome + emotional anchor (JTBD · Bundle_Benefits_Best_Practices_2026-06-02.md). */
 const BUNDLE_BENEFIT: Record<string, string> = {

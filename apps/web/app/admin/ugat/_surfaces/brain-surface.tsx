@@ -95,7 +95,7 @@ const TOPIC_FILES: Array<{ filename: string; label: string; tagline: string }> =
   {
     filename: '06_Setnayan_Feature_Reference.md',
     label: '06 · Setnayan Feature Reference',
-    tagline: 'Panood · Papic · LED · Pakanta — what they do and how to access',
+    tagline: 'Live Studio · Papic · LED · Pakanta — what they do and how to access',
   },
   {
     filename: '07_Vendor_Decision_Logic.md',

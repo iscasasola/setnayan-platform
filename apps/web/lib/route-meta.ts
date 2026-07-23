@@ -192,7 +192,7 @@ export const routeMeta = {
       musicCreator: { icon: Music, label: 'Music Creator' },
       pakanta: { icon: Music, label: 'Pakanta' },
       panood: {
-        index: { icon: Tv, label: 'Panood' },
+        index: { icon: Tv, label: 'Live Studio' },
         broadcast: { icon: Tv, label: 'Open broadcaster preview' },
       },
       papic: { icon: Camera, label: 'Papic' },

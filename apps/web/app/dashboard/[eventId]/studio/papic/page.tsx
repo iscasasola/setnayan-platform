@@ -79,6 +79,7 @@ import {
   DriveReconnectBanner,
 } from '@/app/_components/drive-connect-card';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { HostPoolMeterCard } from './_components/host-pool-meter-card';
 
 // Iteration 0012 — Papic studio (couple setup surface).
 //
@@ -566,6 +567,13 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         </div>
 
       </section>
+
+      {/* Capture-pool meter (build ③ PR-1) — READ-ONLY, flag-dark behind
+          NEXT_PUBLIC_PAPIC_POOL_BAR (default off → renders nothing). Self-gates
+          flag → viewer-RLS membership → pool-applies. Mounted here, right under
+          the cameras it meters — deliberately NOT in the add-on region below,
+          which PR #3581 (PoolGalleryCard) is concurrently editing. */}
+      <HostPoolMeterCard eventId={eventId} />
 
       {/* Your Papic look — the event-wide capture template the couple picks
           once. Baked into every camera's photos (seats, guests) on

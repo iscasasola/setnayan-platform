@@ -100,7 +100,7 @@ export default async function OurStoryPage() {
             the features behind the Google scopes. This is the page Google's
             OAuth reviewers read to confirm the app's purpose (the consent
             screen's "Application home page" points here), so it names the
-            Google Drive (Papic / Photo Delivery) + YouTube (Panood) features
+            Google Drive (Papic / Photo Delivery) + YouTube (Live Studio) features
             and links the privacy policy. Keeps the cinematic front page + the
             manifesto above untouched. */}
         <section className="border-t border-[var(--m-line)] px-6 py-16 sm:py-20">
@@ -158,7 +158,7 @@ export default async function OurStoryPage() {
                   Livestream your day — on your own YouTube channel.
                 </span>{' '}
                 <span className="text-[var(--m-slate)]">
-                  With Panood, the loved ones who can&rsquo;t be there watch your
+                  With Live Studio, the loved ones who can&rsquo;t be there watch your
                   wedding live, embedded right on your event page.
                 </span>
               </li>

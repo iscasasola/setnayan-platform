@@ -10,7 +10,8 @@ import { fetchRoadmapState } from '@/lib/wedding-roadmap-signals';
 import { formatPhp } from '@/lib/orders';
 import { eventActiveSkus } from '@/lib/entitlements';
 import { deriveMonogram } from '@/lib/monogram';
-import { StudioAppRow, type RowPill } from '../studio/_components/studio-app-row';
+import { type RowPill } from '../studio/_components/studio-app-row';
+import { SuiteServiceCard } from './_components/suite-service-card';
 import { SuiteVignetteCard, type VignettePersona } from './_components/suite-vignette-card';
 import { SuiteSearch, type SuiteSearchItem } from './_components/suite-search';
 import { createClient } from '@/lib/supabase/server';
@@ -55,13 +56,13 @@ export const dynamic = 'force-dynamic';
 /** The surface name — single source of truth so a rename is one edit. */
 const SUITE_NAME = 'Suite';
 
-/** Outcome-framed section headers for the "Add to your day" cards (owner:
+/** Outcome-framed section headers for the "Add to your event" cards (owner:
  *  group by what you get, not by internal category). Maps the locked
  *  studioGroup to an outcome label. */
 const OUTCOME_LABEL: Record<StudioGroup, string> = {
-  setnayan_ai: 'Plan your day',
+  setnayan_ai: 'Plan your event',
   website: 'Your website',
-  capture: 'Your day, captured',
+  capture: 'Your event, captured',
   branding: 'Your look & keepsakes',
   utility: 'More',
 };
@@ -128,7 +129,7 @@ const FREE_TOOLS: readonly FreeTool[] = [
     key: 'checklist',
     tags: ['Planning', 'Free'],
     label: 'Checklist',
-    blurb: 'Everything to do for your day, timed to your date.',
+    blurb: 'Everything to do for your event, timed to your date.',
     Icon: ListChecks,
     href: (id) => routes.dashboard.checklist(id),
     gradient: 'linear-gradient(135deg, #1A1410 0%, #3A281C 55%, #6B4A30 100%)',
@@ -251,7 +252,7 @@ export default async function SuitePage({ params }: Props) {
       : routes.explore.index();
 
   const persona: VignettePersona = {
-    names: eventRow?.display_name?.trim() || 'Your day',
+    names: eventRow?.display_name?.trim() || 'Your event',
     initials: (
       eventRow?.monogram_text?.trim() || deriveMonogram(eventRow?.display_name)
     ).slice(0, 12),
@@ -314,8 +315,8 @@ export default async function SuitePage({ params }: Props) {
       : monthsToDate > 6
         ? 'Where couples put their energy with this much time to go.'
         : monthsToDate > 3
-          ? 'The pieces to line up as your day gets closer.'
-          : 'Your last stretch — capture, and the day itself.';
+          ? 'The pieces to line up as your event gets closer.'
+          : 'Your last stretch — capture, and the event itself.';
 
   // ── Partition the catalog: what you own, what you can add, what's free. ────
   const eligible = ADD_ONS.filter((a) => surfaceOk(a) && a.studioGroup !== 'utility');
@@ -338,8 +339,10 @@ export default async function SuitePage({ params }: Props) {
     }))
     .filter((s) => s.items.length > 0);
 
-  const rowFor = (a: AddOnEntry) => (
-    <StudioAppRow
+  // A catalog service → a Suite grid tile (box). Owner 2026-07-23: the Suite
+  // reads as an app-store grid of many features, not full-width rows.
+  const cardFor = (a: AddOnEntry) => (
+    <SuiteServiceCard
       key={a.key}
       href={cardHref(a)}
       label={a.label}
@@ -351,14 +354,25 @@ export default async function SuitePage({ params }: Props) {
     />
   );
 
-  const featuredFree = FREE_TOOLS.find((t) => t.featured);
-  const stripFree = FREE_TOOLS.filter((t) => !t.featured);
+  // A free PLANNING tool (not a catalog SKU) → the same grid tile.
+  const freeToolCard = (t: FreeTool) => (
+    <SuiteServiceCard
+      key={t.key}
+      href={t.key === 'compare' ? compareHref : t.href(eventId)}
+      label={t.label}
+      blurb={t.blurb}
+      Icon={t.Icon}
+      gradient={t.gradient}
+      pill={{ text: 'Free', tone: 'free' }}
+      tags={t.tags}
+    />
+  );
 
   // Flatten everything the couple can browse into one searchable index for the
-  // Suite search box. Each result renders as a StudioAppRow with its live pill +
-  // tags; coming-soon + utility are excluded (they aren't in the browse view
-  // either — active/addable/freeSkus are already non-coming-soon, non-utility).
-  // SuiteSearch dedups by key.
+  // Suite search box. Each result renders as a SuiteServiceCard grid tile with
+  // its live pill + tags; coming-soon + utility are excluded (they aren't in the
+  // browse view either — active/addable/freeSkus are already non-coming-soon,
+  // non-utility). SuiteSearch dedups by key.
   const hay = (label: string, blurb: string, tags: readonly string[] = []) =>
     `${label} ${blurb} ${tags.join(' ')}`.toLowerCase();
   const searchItems: SuiteSearchItem[] = [
@@ -366,35 +380,13 @@ export default async function SuitePage({ params }: Props) {
       key: a.key,
       text: hay(a.label, a.blurb, a.tags),
       tags: a.tags ?? [],
-      node: (
-        <StudioAppRow
-          key={a.key}
-          href={cardHref(a)}
-          label={a.label}
-          blurb={a.blurb}
-          Icon={a.Icon}
-          gradient={a.poster.baseBackground}
-          pill={pillFor(a)}
-          tags={a.tags}
-        />
-      ),
+      node: cardFor(a),
     })),
     ...FREE_TOOLS.map((t) => ({
       key: t.key,
       text: hay(t.label, t.blurb, t.tags),
       tags: t.tags,
-      node: (
-        <StudioAppRow
-          key={t.key}
-          href={t.key === 'compare' ? compareHref : t.href(eventId)}
-          label={t.label}
-          blurb={t.blurb}
-          Icon={t.Icon}
-          gradient={t.gradient}
-          pill={{ text: 'Free', tone: 'free' }}
-          tags={t.tags}
-        />
-      ),
+      node: freeToolCard(t),
     })),
   ];
 
@@ -404,7 +396,7 @@ export default async function SuitePage({ params }: Props) {
         <p className="sn-eye">In-app services</p>
         <h1 className="sn-h1 mt-1.5">{SUITE_NAME}</h1>
         <p className="max-w-prose text-base text-ink/65">
-          Everything for your day, in one room — what you have, what’s free, and what you
+          Everything for your event, in one room — what you have, what’s free, and what you
           can add. Search to jump straight to a service, or start with what we suggest.
         </p>
       </header>
@@ -420,19 +412,11 @@ export default async function SuitePage({ params }: Props) {
             <p className="sn-eye">Recommended for you now</p>
             <p className="mt-1 text-sm text-ink/60">{recommendLede}</p>
           </div>
-          <RevealList as="ul" className="sn-tile divide-y divide-ink/10 overflow-hidden p-0">
-            {recommended.map((a) => (
-              <StudioAppRow
-                key={a.key}
-                href={cardHref(a)}
-                label={a.label}
-                blurb={a.blurb}
-                Icon={a.Icon}
-                gradient={a.poster.baseBackground}
-                pill={pillFor(a)}
-                tags={a.tags}
-              />
-            ))}
+          <RevealList
+            as="ul"
+            className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+          >
+            {recommended.map(cardFor)}
           </RevealList>
         </section>
       ) : null}
@@ -442,22 +426,25 @@ export default async function SuitePage({ params }: Props) {
         <section aria-label="Yours for this event" className="space-y-3">
           <div>
             <p className="sn-eye">Yours</p>
-            <p className="mt-1 text-sm text-ink/60">Already working for your day.</p>
+            <p className="mt-1 text-sm text-ink/60">Already working for your event.</p>
           </div>
-          <RevealList as="ul" className="sn-tile divide-y divide-ink/10 overflow-hidden p-0">
-            {active.map(rowFor)}
+          <RevealList
+            as="ul"
+            className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+          >
+            {active.map(cardFor)}
           </RevealList>
         </section>
       ) : null}
 
-      {/* Add to your day — sellable features as animated vignette cards
+      {/* Add to your event — sellable features as animated vignette cards
           (Suite PR-2): each card is a small CSS-only stage showing what the
           feature DOES, personalized with the couple's names / initials / date
           where the scene calls for them. Same hrefs + live pills as the rows. */}
       {addByOutcome.length > 0 ? (
-        <section aria-label="Add to your day" className="space-y-5">
+        <section aria-label="Add to your event" className="space-y-5">
           <div className="border-t border-ink/10 pt-6">
-            <h2 className="sn-sec text-xl">Add to your day</h2>
+            <h2 className="sn-sec text-xl">Add to your event</h2>
             <p className="mt-1 max-w-prose text-sm text-ink/60">
               Grouped by what you get. Every price is live — no surprises.
             </p>
@@ -496,32 +483,12 @@ export default async function SuitePage({ params }: Props) {
           </p>
         </div>
 
-        {featuredFree ? (
-          <StudioAppRow
-            href={featuredFree.href(eventId)}
-            label={featuredFree.label}
-            blurb={featuredFree.blurb}
-            Icon={featuredFree.Icon}
-            gradient={featuredFree.gradient}
-            pill={{ text: 'Free', tone: 'free' }}
-            tags={featuredFree.tags}
-          />
-        ) : null}
-
-        <RevealList as="ul" className="sn-tile divide-y divide-ink/10 overflow-hidden p-0">
-          {stripFree.map((t) => (
-            <StudioAppRow
-              key={t.key}
-              href={t.key === 'compare' ? compareHref : t.href(eventId)}
-              label={t.label}
-              blurb={t.blurb}
-              Icon={t.Icon}
-              gradient={t.gradient}
-              pill={{ text: 'Free', tone: 'free' }}
-              tags={t.tags}
-            />
-          ))}
-          {freeSkus.map(rowFor)}
+        <RevealList
+          as="ul"
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+        >
+          {FREE_TOOLS.map(freeToolCard)}
+          {freeSkus.map(cardFor)}
         </RevealList>
         </section>
         </div>

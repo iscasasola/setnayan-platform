@@ -27,6 +27,10 @@ import { usePathname, useSearchParams } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/client';
 import { analyticsAllowed, CONSENT_CHANGE_EVENT } from '@/lib/cookie-consent';
+import {
+  sanitizeAnalyticsProperties,
+  stripSensitiveParams,
+} from '@/lib/analytics-sanitize';
 
 // Type-only import — erased at compile time, so no runtime cost.
 import type posthogType from 'posthog-js';
@@ -102,6 +106,9 @@ export function PostHogProvider({ children, userId }: PostHogProviderProps) {
         person_profiles: 'identified_only',
         capture_pageview: false,
         capture_pageleave: true,
+        // Strip guest bearer tokens from every event's URL properties.
+        sanitize_properties: (properties) =>
+          sanitizeAnalyticsProperties(properties as Record<string, unknown>),
       });
     });
     return () => {
@@ -203,11 +210,13 @@ function PostHogPageTracker() {
       if (cancelled || !client) return;
       if (!isLoaded(client)) return;
       const search = searchParams?.toString();
-      const url =
+      const rawUrl =
         typeof window !== 'undefined'
           ? window.location.origin + pathname + (search ? `?${search}` : '')
           : pathname + (search ? `?${search}` : '');
-      client.capture('$pageview', { $current_url: url });
+      // Scrub at the source too — sanitize_properties covers it as well, but
+      // this keeps a guest token from ever being built into the captured url.
+      client.capture('$pageview', { $current_url: stripSensitiveParams(rawUrl) });
     });
     return () => {
       cancelled = true;

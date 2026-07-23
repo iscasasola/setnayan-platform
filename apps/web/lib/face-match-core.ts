@@ -24,7 +24,7 @@
 
 export const FACE_AUTO_MAX_DISTANCE = 0.5;
 export const FACE_SUGGEST_MAX_DISTANCE = 0.6;
-export const MAX_TAGS_PER_PHOTO = 10;
+export const MAX_TAGS_PER_PHOTO = 20; // owner-raised 10→20, 2026-07-23
 
 export type EnrollmentVec = {
   guestId: string;
@@ -70,8 +70,10 @@ export function planAutoTags(params: {
   faceVectors: number[][];
   /** The event's consented, non-revoked enrollments (caller filters those). */
   enrollments: EnrollmentVec[];
-  /** Guests already tagged on this photo (QR/manual/auto) — never re-tagged, and they fill the cap. */
+  /** Guests EVER tagged on this photo incl. tombstoned removals (QR/manual/auto) — never re-tagged (the gravestone rule). */
   alreadyTaggedGuestIds?: string[];
+  /** LIVE (non-removed) tag count — fills the cap. Defaults to alreadyTaggedGuestIds.length for callers without tombstone data. */
+  liveTagCount?: number;
 }): AutoTagPlan {
   const { faceVectors, enrollments } = params;
   const already = new Set(params.alreadyTaggedGuestIds ?? []);
@@ -103,9 +105,9 @@ export function planAutoTags(params: {
   autoCandidates.sort((a, b) => a.distance - b.distance);
   suggestions.sort((a, b) => a.distance - b.distance);
 
-  // 10-tag cap is COMBINED with existing tags; auto-tags take the remaining slots
-  // by closeness and never exceed it.
-  const remaining = Math.max(0, MAX_TAGS_PER_PHOTO - already.size);
+  // The tag cap is COMBINED with existing LIVE tags (tombstones never burn
+  // slots — owner 2026-07-23); auto-tags take the remaining slots by closeness.
+  const remaining = Math.max(0, MAX_TAGS_PER_PHOTO - (params.liveTagCount ?? already.size));
   const autoTags = autoCandidates.slice(0, remaining);
 
   return { autoTags, suggestions };

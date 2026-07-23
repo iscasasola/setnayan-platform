@@ -42,6 +42,7 @@ import {
   type RoadmapItemKey,
   type RoadmapSignals,
 } from '@/lib/wedding-roadmap';
+import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 
 /**
  * The months-out at which each add-on is MOST relevant. Lower = closer to the
@@ -74,6 +75,12 @@ export const STUDIO_PEAK_MONTHS: Readonly<Record<string, number>> = {
   patiktok: 1,
   // After the day.
   editorial: 0,
+  // Live Studio Roam — a capture-the-day service like Cast/Papic (peak month 2).
+  // Flag-gated to stay consistent with the flag-gated catalog entry
+  // (add-ons-catalog.ts): when NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED is off, Roam
+  // is absent from BOTH the catalog and this map, so the drift guards stay
+  // consistent (no "stale peak key not in catalog"). Flips in at launch.
+  ...(liveStudioRoamEnabled() ? { 'live-studio-roam': 2 } : {}),
 };
 
 /**

@@ -20,6 +20,7 @@ import {
   Type,
   Camera,
   Tv,
+  Video,
   Gem,
   Sparkles,
   Film,
@@ -37,6 +38,7 @@ import {
 import type { PosterStyle } from '@/app/dashboard/[eventId]/studio/_components/service-poster';
 import type { PlanGroupId } from '@/lib/wedding-plan-groups';
 import type { ProfileSurface } from '@/lib/event-type-profile';
+import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 
 export type AddOnStatus = 'live' | 'web_v1' | 'coming_soon';
 
@@ -230,7 +232,7 @@ export function appStoreDetailHref(key: string, eventId: string): string {
   return `/dashboard/${eventId}/studio/about/${key}`;
 }
 
-export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
+const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
   {
     key: 'setnayan-ai',
     tags: ['Setnayan AI', 'Planning', 'Vendors', 'Popular'],
@@ -608,7 +610,11 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     key: 'panood',
     tags: ['Live', 'Video', 'Day-of', 'Free'],
     opensDirect: true,
-    label: 'Live Studio',
+    // "Live Studio Cast" = the directed single-feed variant (owner 2026-07-23: Live
+    // Studio has two variants, Cast + Roam). Key stays 'panood' / serviceKey
+    // PANOOD_SYSTEM (live product; internal rename is a separate effort). ⚠ Umbrella
+    // "Live Studio" copy on marketing/home/alaala/editorial is NOT reconciled here.
+    label: 'Live Studio Cast',
     Icon: Tv,
     iteration: '0011',
     status: 'web_v1',
@@ -809,6 +815,50 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     },
   },
 ];
+
+/**
+ * Live Studio ROAM — the multi-camera "guests pick which camera / wander the
+ * venue" variant (owner 2026-07-23: Live Studio has two variants, Cast + Roam).
+ * Paid ₱3,500/day (serviceKey LIVE_STUDIO_ROAM; price is admin-managed via the
+ * catalog, never hardcoded here). No dedicated /studio page yet → opensDirect is
+ * omitted so the tile opens the generic App Store detail (/studio/[addon]).
+ *
+ * FLAG-GATED: appended to ADD_ONS only when NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED
+ * is on. Until launch the flag is off AND the catalog row is is_active=false
+ * (migration 20270919479280), so Roam is fully dark — no Suite/Studio tile, not
+ * on /pricing, not buyable. At launch the owner flips the flag + is_active.
+ */
+const LIVE_STUDIO_ROAM_ENTRY: AddOnEntry = {
+  key: 'live-studio-roam',
+  tags: ['Live', 'Video', 'Multi-cam', 'Day-of'],
+  label: 'Live Studio Roam',
+  Icon: Video,
+  iteration: '0011',
+  status: 'web_v1',
+  category: 'photography',
+  blurb:
+    'Guests choose which camera to watch and wander your event — multiple angles and venues, live on your page, with the directed feed as the default.',
+  cta: 'Set up',
+  studioGroup: 'capture',
+  serviceKey: 'LIVE_STUDIO_ROAM',
+  poster: {
+    motion: 'scan',
+    baseBackground:
+      'linear-gradient(135deg, #08131F 0%, #123A4A 50%, #1A6E7A 100%)',
+    motionBackground:
+      'linear-gradient(90deg, transparent 0%, rgba(90, 220, 200, 0.75) 50%, transparent 100%)',
+    iconBadgeClass: 'bg-teal-100/15 text-teal-50',
+  },
+};
+
+/**
+ * The Studio/Suite catalog. Live Studio Roam is appended only behind its flag so
+ * the tile stays dark until launch (see LIVE_STUDIO_ROAM_ENTRY). Every other
+ * consumer imports ADD_ONS unchanged.
+ */
+export const ADD_ONS: ReadonlyArray<AddOnEntry> = liveStudioRoamEnabled()
+  ? [...BASE_ADD_ONS, LIVE_STUDIO_ROAM_ENTRY]
+  : BASE_ADD_ONS;
 
 // `StudioFreeTool` + `studioFreeTools()` removed 2026-07-11 — dead code, imported
 // nowhere (the Studio hub renders the four free planning tools via the couple

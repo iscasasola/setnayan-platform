@@ -23,6 +23,7 @@
  */
 
 import type { DemoFrame } from '@/app/_components/app-store/studio-card-demo';
+import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 
 export type DetailPreview = {
   /** Small eyebrow over the frame — "The reveal", "By morning". */
@@ -369,6 +370,36 @@ export const ADD_ON_DETAILS: Record<string, AddOnDetail> = {
     ],
   },
 };
+
+// Live Studio ROAM detail — flag-gated to stay consistent with the flag-gated
+// catalog entry (add-ons-catalog.ts) + peak-months (studio-recommendations.ts):
+// when NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED is off, Roam is absent from the
+// catalog AND has no detail key here, so the "no orphaned detail key" guard
+// holds. Flips in at launch. Result-framed voice; no mechanics (per this file's
+// voice rule). Roam has no bespoke /studio page, so it uses this App Store detail.
+if (liveStudioRoamEnabled()) {
+  ADD_ON_DETAILS['live-studio-roam'] = {
+    eyebrow: 'Live Studio Roam',
+    heroTitle: 'They pick where to watch.',
+    tagline:
+      'Family who can’t be there choose their own view — the vows, the dance floor, the whole room — and move between them, live.',
+    paragraphs: [
+      'Distance shouldn’t mean one fixed camera.',
+      'Let the people you love roam your celebration from wherever they are — following the moment that matters most to them, as it happens, with the directed view always one tap away.',
+    ],
+    highlights: [
+      'Guests choose their own angle',
+      'Move between the ceremony, the floor, every corner',
+      'One tap back to the main view',
+      'Watch from anywhere, right on your event page',
+    ],
+    preview: [
+      { context: 'Their choice', glyph: '◉', caption: 'Every guest picks the view they want to watch.' },
+      { context: 'Wander', glyph: '⤢', caption: 'Move between the ceremony, the floor, the whole room.' },
+      { context: 'From afar', glyph: '♡', caption: 'The ones who can’t be there feel like they are.' },
+    ],
+  };
+}
 
 /** Detail content for an add-on key, or null when it has none. */
 export function addOnDetail(key: string): AddOnDetail | null {

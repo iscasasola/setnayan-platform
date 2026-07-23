@@ -10,7 +10,8 @@ import { fetchRoadmapState } from '@/lib/wedding-roadmap-signals';
 import { formatPhp } from '@/lib/orders';
 import { eventActiveSkus } from '@/lib/entitlements';
 import { deriveMonogram } from '@/lib/monogram';
-import { StudioAppRow, type RowPill } from '../studio/_components/studio-app-row';
+import { type RowPill } from '../studio/_components/studio-app-row';
+import { SuiteServiceCard } from './_components/suite-service-card';
 import { SuiteVignetteCard, type VignettePersona } from './_components/suite-vignette-card';
 import { SuiteSearch, type SuiteSearchItem } from './_components/suite-search';
 import { createClient } from '@/lib/supabase/server';
@@ -338,8 +339,10 @@ export default async function SuitePage({ params }: Props) {
     }))
     .filter((s) => s.items.length > 0);
 
-  const rowFor = (a: AddOnEntry) => (
-    <StudioAppRow
+  // A catalog service → a Suite grid tile (box). Owner 2026-07-23: the Suite
+  // reads as an app-store grid of many features, not full-width rows.
+  const cardFor = (a: AddOnEntry) => (
+    <SuiteServiceCard
       key={a.key}
       href={cardHref(a)}
       label={a.label}
@@ -351,14 +354,25 @@ export default async function SuitePage({ params }: Props) {
     />
   );
 
-  const featuredFree = FREE_TOOLS.find((t) => t.featured);
-  const stripFree = FREE_TOOLS.filter((t) => !t.featured);
+  // A free PLANNING tool (not a catalog SKU) → the same grid tile.
+  const freeToolCard = (t: FreeTool) => (
+    <SuiteServiceCard
+      key={t.key}
+      href={t.key === 'compare' ? compareHref : t.href(eventId)}
+      label={t.label}
+      blurb={t.blurb}
+      Icon={t.Icon}
+      gradient={t.gradient}
+      pill={{ text: 'Free', tone: 'free' }}
+      tags={t.tags}
+    />
+  );
 
   // Flatten everything the couple can browse into one searchable index for the
-  // Suite search box. Each result renders as a StudioAppRow with its live pill +
-  // tags; coming-soon + utility are excluded (they aren't in the browse view
-  // either — active/addable/freeSkus are already non-coming-soon, non-utility).
-  // SuiteSearch dedups by key.
+  // Suite search box. Each result renders as a SuiteServiceCard grid tile with
+  // its live pill + tags; coming-soon + utility are excluded (they aren't in the
+  // browse view either — active/addable/freeSkus are already non-coming-soon,
+  // non-utility). SuiteSearch dedups by key.
   const hay = (label: string, blurb: string, tags: readonly string[] = []) =>
     `${label} ${blurb} ${tags.join(' ')}`.toLowerCase();
   const searchItems: SuiteSearchItem[] = [
@@ -366,35 +380,13 @@ export default async function SuitePage({ params }: Props) {
       key: a.key,
       text: hay(a.label, a.blurb, a.tags),
       tags: a.tags ?? [],
-      node: (
-        <StudioAppRow
-          key={a.key}
-          href={cardHref(a)}
-          label={a.label}
-          blurb={a.blurb}
-          Icon={a.Icon}
-          gradient={a.poster.baseBackground}
-          pill={pillFor(a)}
-          tags={a.tags}
-        />
-      ),
+      node: cardFor(a),
     })),
     ...FREE_TOOLS.map((t) => ({
       key: t.key,
       text: hay(t.label, t.blurb, t.tags),
       tags: t.tags,
-      node: (
-        <StudioAppRow
-          key={t.key}
-          href={t.key === 'compare' ? compareHref : t.href(eventId)}
-          label={t.label}
-          blurb={t.blurb}
-          Icon={t.Icon}
-          gradient={t.gradient}
-          pill={{ text: 'Free', tone: 'free' }}
-          tags={t.tags}
-        />
-      ),
+      node: freeToolCard(t),
     })),
   ];
 
@@ -420,19 +412,11 @@ export default async function SuitePage({ params }: Props) {
             <p className="sn-eye">Recommended for you now</p>
             <p className="mt-1 text-sm text-ink/60">{recommendLede}</p>
           </div>
-          <RevealList as="ul" className="sn-tile divide-y divide-ink/10 overflow-hidden p-0">
-            {recommended.map((a) => (
-              <StudioAppRow
-                key={a.key}
-                href={cardHref(a)}
-                label={a.label}
-                blurb={a.blurb}
-                Icon={a.Icon}
-                gradient={a.poster.baseBackground}
-                pill={pillFor(a)}
-                tags={a.tags}
-              />
-            ))}
+          <RevealList
+            as="ul"
+            className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+          >
+            {recommended.map(cardFor)}
           </RevealList>
         </section>
       ) : null}
@@ -444,8 +428,11 @@ export default async function SuitePage({ params }: Props) {
             <p className="sn-eye">Yours</p>
             <p className="mt-1 text-sm text-ink/60">Already working for your day.</p>
           </div>
-          <RevealList as="ul" className="sn-tile divide-y divide-ink/10 overflow-hidden p-0">
-            {active.map(rowFor)}
+          <RevealList
+            as="ul"
+            className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+          >
+            {active.map(cardFor)}
           </RevealList>
         </section>
       ) : null}
@@ -496,32 +483,12 @@ export default async function SuitePage({ params }: Props) {
           </p>
         </div>
 
-        {featuredFree ? (
-          <StudioAppRow
-            href={featuredFree.href(eventId)}
-            label={featuredFree.label}
-            blurb={featuredFree.blurb}
-            Icon={featuredFree.Icon}
-            gradient={featuredFree.gradient}
-            pill={{ text: 'Free', tone: 'free' }}
-            tags={featuredFree.tags}
-          />
-        ) : null}
-
-        <RevealList as="ul" className="sn-tile divide-y divide-ink/10 overflow-hidden p-0">
-          {stripFree.map((t) => (
-            <StudioAppRow
-              key={t.key}
-              href={t.key === 'compare' ? compareHref : t.href(eventId)}
-              label={t.label}
-              blurb={t.blurb}
-              Icon={t.Icon}
-              gradient={t.gradient}
-              pill={{ text: 'Free', tone: 'free' }}
-              tags={t.tags}
-            />
-          ))}
-          {freeSkus.map(rowFor)}
+        <RevealList
+          as="ul"
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+        >
+          {FREE_TOOLS.map(freeToolCard)}
+          {freeSkus.map(cardFor)}
         </RevealList>
         </section>
         </div>

@@ -14,6 +14,7 @@ import {
   cyclesFromAmount,
   extendUserAiSubscription,
   parseCycles,
+  reverseUserAiSubscriptionWindow,
 } from './setnayan-ai-subscription';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -80,4 +81,74 @@ test('extend: zero cycles is a no-op (returns the later of now/current)', () => 
 test('extend: invalid current date is treated as no window', () => {
   const out = extendUserAiSubscription('not-a-date', 1, NOW);
   assert.equal(out.getTime() - NOW.getTime(), CYCLE);
+});
+
+// ---------------------------------------------------------------------------
+// reverseUserAiSubscriptionWindow — refund/reject rolls back the per-user
+// window the term-pass order stamped (AUTHZ/lifecycle fix: "refund the money,
+// keep the sub" hole in lib/sku-activation.ts deactivateOrderSku).
+// ---------------------------------------------------------------------------
+
+test('reverse: this order is the tail → subtract its cycles from active_until', () => {
+  const until = new Date(NOW.getTime() + 2 * CYCLE); // granted 2 cycles from now
+  const out = reverseUserAiSubscriptionWindow({
+    currentActiveUntil: until,
+    lastOrderId: 'o1',
+    orderId: 'o1',
+    cycles: 2,
+    now: NOW,
+  });
+  assert.ok(out, 'expected a rollback date');
+  assert.equal(out!.getTime(), NOW.getTime()); // 2 cycles removed → back to now
+});
+
+test('reverse: a LATER re-up owns the tail → no-op (never clobber a paid cycle)', () => {
+  const until = new Date(NOW.getTime() + 3 * CYCLE);
+  const out = reverseUserAiSubscriptionWindow({
+    currentActiveUntil: until,
+    lastOrderId: 'o2', // a newer order stacked on top
+    orderId: 'o1',
+    cycles: 1,
+    now: NOW,
+  });
+  assert.equal(out, null);
+});
+
+test('reverse: no window → no-op', () => {
+  assert.equal(
+    reverseUserAiSubscriptionWindow({
+      currentActiveUntil: null,
+      lastOrderId: 'o1',
+      orderId: 'o1',
+      cycles: 1,
+      now: NOW,
+    }),
+    null,
+  );
+});
+
+test('reverse: zero/negative cycles → no-op', () => {
+  const until = new Date(NOW.getTime() + CYCLE);
+  assert.equal(
+    reverseUserAiSubscriptionWindow({ currentActiveUntil: until, lastOrderId: 'o1', orderId: 'o1', cycles: 0, now: NOW }),
+    null,
+  );
+  assert.equal(
+    reverseUserAiSubscriptionWindow({ currentActiveUntil: until, lastOrderId: 'o1', orderId: 'o1', cycles: -2, now: NOW }),
+    null,
+  );
+});
+
+test('reverse: rollback may land in the PAST (window fully consumed) → gate reads inactive', () => {
+  const until = new Date(NOW.getTime() + 1 * CYCLE); // only 1 cycle of runway left
+  const out = reverseUserAiSubscriptionWindow({
+    currentActiveUntil: until,
+    lastOrderId: 'o1',
+    orderId: 'o1',
+    cycles: 2, // this order granted 2 → removing them lands before now
+    now: NOW,
+  });
+  assert.ok(out);
+  assert.ok(out!.getTime() < NOW.getTime());
+  assert.equal(out!.getTime(), NOW.getTime() - CYCLE);
 });

@@ -72,6 +72,43 @@ export function extendUserAiSubscription(
   return new Date(base.getTime() + add * AI_SUB_CYCLE_DAYS * MS_PER_DAY);
 }
 
+/**
+ * Reverse the window a refunded/rejected term-pass order stamped (the inverse of
+ * `extendUserAiSubscription`). Symmetric to the vendor add-on reversal
+ * (resolveAddonDeactivationExpiry): only rolls back when THIS order is still the
+ * tail of the window — i.e. `lastOrderId === orderId` — so a later paid re-up
+ * that stacked on top is never clobbered.
+ *
+ * Returns the reduced `active_until` (Date) to write, or `null` for a no-op:
+ *   • no window / no cycles → nothing to reverse.
+ *   • `lastOrderId !== orderId` → a later cycle owns the tail; leave it intact
+ *     (the conservative choice — never strip a still-owed paid cycle).
+ * When it IS the tail, subtract `cycles × 28 days` from the current expiry; the
+ * result may land in the past, which the lazy-expiry gate correctly reads as
+ * "no longer active".
+ *
+ * PURE (no I/O). The caller clears `last_order_id` after applying, so a second
+ * reversal of the same order sees `lastOrderId !== orderId` and no-ops.
+ */
+export function reverseUserAiSubscriptionWindow(args: {
+  currentActiveUntil: Date | string | null | undefined;
+  lastOrderId: string | null | undefined;
+  orderId: string;
+  cycles: number;
+  now: Date;
+}): Date | null {
+  const { currentActiveUntil, lastOrderId, orderId, cycles, now } = args;
+  const current = toValidDate(currentActiveUntil);
+  if (!current) return null; // no window to reverse
+  if (!Number.isFinite(cycles) || cycles <= 0) return null; // nothing was granted
+  if (lastOrderId !== orderId) return null; // a later re-up owns the tail → no-op
+  const reduced = current.getTime() - cycles * AI_SUB_CYCLE_DAYS * MS_PER_DAY;
+  // Never extend past the current expiry; clamp so a bogus over-large cycle count
+  // can't push the window into the FUTURE. (reduced <= current always holds for
+  // positive cycles, but keep the min defensive.)
+  return new Date(Math.min(reduced, current.getTime()));
+}
+
 function toValidDate(value: Date | string | null | undefined): Date | null {
   if (!value) return null;
   const d = value instanceof Date ? value : new Date(value);

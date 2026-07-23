@@ -116,3 +116,54 @@ export function vendorProfileIdFromCustomPlanServiceKey(
   const id = serviceKey.slice(CUSTOM_PLAN_SERVICE_KEY_PREFIX.length);
   return id.length > 0 ? id : null;
 }
+
+/** A candidate plan row for activation selection (only the fields we bind on). */
+export type CustomPlanCandidate = {
+  custom_plan_id: string;
+  status: string;
+  quoted_28d_php: number | string | null;
+  updated_at?: string | null;
+};
+
+/**
+ * Pick the Custom plan a freshly-PAID order activates.
+ *
+ * The order carries NO custom_plan_id FK (orders.service_key only encodes the
+ * vendor), and the plan row's `composition` is mutated in place by every new
+ * request — so binding to "the most-recently-updated plan" (the old behaviour)
+ * lets a vendor pay a CHEAP quote and receive whatever composition the row was
+ * last edited to, or bind to a stale already-active plan. This binds on the one
+ * invariant the order DOES pin: the price it was quoted at. A plan is
+ * activatable by this order only when:
+ *   • it is in a PAYABLE, not-yet-live state ('quoted' | 'pending_payment') —
+ *     never 'active' (already provisioned), 'draft' (unpriced), 'rejected' or
+ *     'lapsed'; and
+ *   • its CURRENT `quoted_28d_php` equals the order's paid amount (within half a
+ *     peso) — so a composition edited after this order was quoted no longer
+ *     matches, closing the pay-cheap / get-expensive swap.
+ * Among matches, the most-recently-updated wins (there is normally exactly one,
+ * because both request paths reuse a single non-active row per vendor). Returns
+ * `null` when nothing matches — the caller must then REFUSE to activate (leaving
+ * the paid order recoverable) rather than provision the wrong plan.
+ *
+ * PURE (no I/O) so the binding rule is unit-testable.
+ */
+export function selectActivatableCustomPlan(
+  candidates: ReadonlyArray<CustomPlanCandidate>,
+  orderAmountPhp: number,
+): string | null {
+  const amount = Number(orderAmountPhp);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  const PAYABLE = new Set(['quoted', 'pending_payment']);
+  const matches = candidates.filter((c) => {
+    if (!PAYABLE.has(c.status)) return false;
+    const quoted = Number(c.quoted_28d_php);
+    return Number.isFinite(quoted) && Math.abs(quoted - amount) < 0.5;
+  });
+  matches.sort((a, b) => {
+    const ta = a.updated_at ? Date.parse(a.updated_at) : 0;
+    const tb = b.updated_at ? Date.parse(b.updated_at) : 0;
+    return tb - ta; // most-recent first
+  });
+  return matches[0]?.custom_plan_id ?? null;
+}

@@ -5,8 +5,12 @@ import { branchIdFromServiceKey } from '@/lib/vendor-branches';
 import {
   seatServiceKey,
   vendorProfileIdFromSeatServiceKey,
+  extraSeatsFromPaidCount,
 } from '@/lib/vendor-seats';
-import { vendorProfileIdFromCustomPlanServiceKey } from '@/lib/vendor-custom-catalog';
+import {
+  vendorProfileIdFromCustomPlanServiceKey,
+  selectActivatableCustomPlan,
+} from '@/lib/vendor-custom-catalog';
 import { BUNDLE_CHILD_SKUS, eventSkuActive } from '@/lib/entitlements';
 import { provisionPapicSeatsAdmin } from '@/lib/papic-seats';
 import { papicPassPointsForSku } from '@/lib/papic-pass-tiers';
@@ -18,6 +22,7 @@ import {
   AI_SUB_SKU,
   cyclesFromAmount,
   extendUserAiSubscription,
+  reverseUserAiSubscriptionWindow,
 } from '@/lib/setnayan-ai-subscription';
 import { resolveSetnayanAiPerEventPricingEnabled } from '@/lib/integration-config';
 import {
@@ -966,6 +971,36 @@ async function activateBundleChildren(ctx: ActivationContext): Promise<void> {
   }
 }
 
+/**
+ * Recompute vendor_profiles.extra_agent_seats = the number of PAID
+ * vendor_extra_seat orders for this vendor, and write it. RECOMPUTE (not an
+ * increment/decrement) so it is self-healing + idempotent: on ACTIVATION the
+ * just-paid order is counted in; on REVERSAL the refunded/cancelled order has
+ * already left the 'paid' set (deactivate runs AFTER the status flip), so the
+ * same recompute LOWERS the seat count. Shared by the activation prefix hook and
+ * the deactivation path so the two can never drift. Throws on the write so the
+ * caller's outer catch logs + reports it (recoverable).
+ */
+async function recomputeVendorExtraSeats(
+  admin: SupabaseClient,
+  vendorProfileId: string,
+): Promise<number> {
+  const { count } = await admin
+    .from('orders')
+    .select('order_id', { count: 'exact', head: true })
+    .eq('service_key', seatServiceKey(vendorProfileId))
+    .eq('status', 'paid');
+  const paidSeats = extraSeatsFromPaidCount(count);
+  const { error } = await admin
+    .from('vendor_profiles')
+    .update({ extra_agent_seats: paidSeats })
+    .eq('vendor_profile_id', vendorProfileId);
+  if (error) {
+    throw new Error(`vendor_extra_seat seat recompute write failed: ${error.message}`);
+  }
+  return paidSeats;
+}
+
 // Prefix/predicate hooks for dynamic-suffix service_keys (e.g. branch ids).
 const PREFIX_HOOKS: ReadonlyArray<{
   match: (serviceKey: string) => boolean;
@@ -1008,19 +1043,7 @@ const PREFIX_HOOKS: ReadonlyArray<{
     run: async (ctx) => {
       const vendorProfileId = vendorProfileIdFromSeatServiceKey(ctx.serviceKey);
       if (!vendorProfileId) return;
-      const { count } = await ctx.admin
-        .from('orders')
-        .select('order_id', { count: 'exact', head: true })
-        .eq('service_key', seatServiceKey(vendorProfileId))
-        .eq('status', 'paid');
-      const paidSeats = Math.max(count ?? 0, 0);
-      const { error } = await ctx.admin
-        .from('vendor_profiles')
-        .update({ extra_agent_seats: paidSeats })
-        .eq('vendor_profile_id', vendorProfileId);
-      if (error) {
-        throw new Error(`vendor_extra_seat activation write failed: ${error.message}`);
-      }
+      const paidSeats = await recomputeVendorExtraSeats(ctx.admin, vendorProfileId);
       await appendLedger(ctx.admin, {
         order_id: ctx.orderId,
         event_type: 'service_activated',
@@ -1037,30 +1060,87 @@ const PREFIX_HOOKS: ReadonlyArray<{
   {
     // 'vendor_custom_plan__{vendor_profile_id}' → PROVISION the negotiated
     // Custom tier (owner-signed §11). When the admin approves the quote payment,
-    // flip the vendor to tier_state='custom' + promote the org's newest quoted /
-    // pending plan to 'active' so the effective-caps overlay
-    // (lib/vendor-effective-caps.ts) reads the composed ceilings. The one-active-
-    // plan unique index (WHERE status='active') means a stale prior active row
-    // must be demoted first — so this idempotently retires every OTHER active
-    // plan for the org to 'lapsed', then activates this order's plan. Re-approval
-    // is safe (the target is already active → the UPDATEs are no-ops).
+    // flip the vendor to tier_state='custom' + promote THE PLAN THIS ORDER PAID
+    // FOR to 'active' so the effective-caps overlay (lib/vendor-effective-caps.ts)
+    // reads the composed ceilings. The one-active-plan unique index (WHERE
+    // status='active') means a stale prior active row must be demoted first — so
+    // this idempotently retires every OTHER active plan for the org to 'lapsed',
+    // then activates this order's plan.
+    //
+    // BINDING (security): the order has no custom_plan_id FK and the plan's
+    // composition is mutated in place, so the OLD "most-recently-updated
+    // non-terminal row" selection let a vendor pay a CHEAP quote and receive the
+    // row's latest (expensive) composition, or bind to a stale already-active
+    // plan. selectActivatableCustomPlan binds on the price the order was quoted
+    // at (a plan is activatable only when its CURRENT quoted_28d_php matches the
+    // paid amount AND it is in a payable, not-yet-live state), and we REFUSE
+    // (throw → order stays recoverable) rather than provision the wrong plan.
+    // Idempotent: a prior 'service_activated' ledger row for this order
+    // short-circuits, so a re-approval (whose plan is now 'active', not a
+    // payable candidate) is a safe no-op instead of a spurious refusal.
     match: (serviceKey) => vendorProfileIdFromCustomPlanServiceKey(serviceKey) !== null,
     run: async (ctx) => {
       const vendorProfileId = vendorProfileIdFromCustomPlanServiceKey(ctx.serviceKey);
       if (!vendorProfileId) return;
 
-      // The plan this order quoted — the most-recently-updated non-terminal row
-      // for the org (quoted / pending_payment / active). We activate exactly one.
-      const { data: target } = await ctx.admin
-        .from('vendor_custom_plans')
-        .select('custom_plan_id, status')
-        .eq('vendor_profile_id', vendorProfileId)
-        .in('status', ['quoted', 'pending_payment', 'active'])
-        .order('updated_at', { ascending: false })
+      // (0) Idempotency — already activated this order? (Lets us exclude 'active'
+      //     from the candidate set below without turning a re-approval into a
+      //     spurious "no matching plan" refusal.)
+      const { data: prior } = await ctx.admin
+        .from('order_ledger')
+        .select('order_id')
+        .eq('order_id', ctx.orderId)
+        .eq('event_type', 'service_activated')
         .limit(1)
         .maybeSingle();
-      const targetId = (target as { custom_plan_id?: string } | null)?.custom_plan_id ?? null;
-      if (!targetId) return; // nothing to provision (defensive)
+      if (prior) return;
+
+      // (1) The amount THIS order paid — the invariant the order pins.
+      const { data: order } = await ctx.admin
+        .from('orders')
+        .select('confirmed_total_php, requested_total_php')
+        .eq('order_id', ctx.orderId)
+        .maybeSingle();
+      const amountPhp = Number(
+        (order as { confirmed_total_php?: number | string | null } | null)?.confirmed_total_php ??
+          (order as { requested_total_php?: number | string | null } | null)?.requested_total_php ??
+          0,
+      );
+
+      // (2) Candidate plans — payable OR already-active rows for the org. Bind by
+      //     price (selectActivatableCustomPlan) among the PAYABLE ones; the
+      //     'active' rows are read only to recognise an already-provisioned order
+      //     (crash-recovery below), never to (re)activate.
+      const { data: candidates } = await ctx.admin
+        .from('vendor_custom_plans')
+        .select('custom_plan_id, status, quoted_28d_php, updated_at')
+        .eq('vendor_profile_id', vendorProfileId)
+        .in('status', ['quoted', 'pending_payment', 'active'])
+        .order('updated_at', { ascending: false });
+      const candidateRows = Array.isArray(candidates) ? candidates : [];
+      const targetId = selectActivatableCustomPlan(candidateRows, amountPhp);
+      if (!targetId) {
+        // Crash-recovery no-op: if the org already holds an ACTIVE plan priced at
+        // this order's amount, a prior run provisioned it but its final ledger
+        // write did not land (so the idempotency guard above didn't fire). The
+        // entitlement is already correct → treat as done rather than throwing a
+        // false "no matching plan" alarm. (This RECOGNISES an already-active plan
+        // by price; it never activates one — selectActivatableCustomPlan still
+        // refuses 'active' rows.)
+        const alreadyActive = candidateRows.some(
+          (c) =>
+            c.status === 'active' &&
+            Number.isFinite(Number(c.quoted_28d_php)) &&
+            Math.abs(Number(c.quoted_28d_php) - amountPhp) < 0.5,
+        );
+        if (alreadyActive) return;
+        // No plan matches this order's paid amount → do NOT provision a wrong
+        // plan. Throw so the order stays 'paid' + recoverable (Sentry-alerted by
+        // the dispatcher's outer catch); an admin reconciles the mismatch.
+        throw new Error(
+          `vendor_custom_plan: no payable plan for vendor ${vendorProfileId} matches the paid amount ${amountPhp}`,
+        );
+      }
 
       // Stamp the Custom tier + lapse anchor FIRST — before touching the plan
       // rows. tier_expires_at = the 28-day window end (also written to the order
@@ -1302,17 +1382,91 @@ async function deactivatePhotoChallengeSponsorship(ctx: ActivationContext): Prom
 }
 
 /**
+ * Reverse the Setnayan AI per-USER subscription window a refunded/rejected
+ * SETNAYAN_AI_SUB term-pass order stamped — without this, a refund left the
+ * per-user AI window live ("refund the money, keep the sub"), symmetric to the
+ * SETNAYAN_AI (per-event flag) reversal below. Reads the buyer off the order +
+ * the cycles this order granted from its own 'service_activated' ledger row, then
+ * rolls back user_ai_subscription.active_until ONLY when this order is still the
+ * window's tail (reverseUserAiSubscriptionWindow: a later stacked re-up is never
+ * clobbered). Clears last_order_id so a re-reversal is a no-op. Throws only on
+ * the write so deactivateOrderSku's per-branch catch logs + reports it.
+ */
+async function reverseUserAiSubscriptionOrder(ctx: ActivationContext): Promise<void> {
+  const { data: order } = await ctx.admin
+    .from('orders')
+    .select('user_id')
+    .eq('order_id', ctx.orderId)
+    .maybeSingle();
+  const userId = (order as { user_id?: string | null } | null)?.user_id ?? null;
+  if (!userId) return;
+
+  // How many cycles did THIS order grant? (its own activation ledger metadata)
+  const { data: ledgerRow } = await ctx.admin
+    .from('order_ledger')
+    .select('metadata')
+    .eq('order_id', ctx.orderId)
+    .eq('event_type', 'service_activated')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const meta =
+    (ledgerRow as { metadata?: Record<string, unknown> | null } | null)?.metadata ?? null;
+  const cycles = Number(meta?.cycles ?? 0);
+  if (!Number.isFinite(cycles) || cycles <= 0) return; // this order granted nothing
+
+  const { data: sub } = await ctx.admin
+    .from('user_ai_subscription')
+    .select('active_until, last_order_id')
+    .eq('user_id', userId)
+    .maybeSingle();
+  const reduced = reverseUserAiSubscriptionWindow({
+    currentActiveUntil: (sub as { active_until?: string | null } | null)?.active_until ?? null,
+    lastOrderId: (sub as { last_order_id?: string | null } | null)?.last_order_id ?? null,
+    orderId: ctx.orderId,
+    cycles,
+    now: new Date(),
+  });
+  if (!reduced) return; // a later re-up owns the tail (or nothing to reverse) → no-op
+
+  const { error } = await ctx.admin
+    .from('user_ai_subscription')
+    .update({
+      active_until: reduced.toISOString(),
+      last_order_id: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', userId);
+  if (error) throw new Error(`SETNAYAN_AI_SUB reversal write failed: ${error.message}`);
+
+  await appendLedger(ctx.admin, {
+    order_id: ctx.orderId,
+    event_type: 'order_refunded',
+    actor_user_id: ctx.actorUserId,
+    actor_role: 'admin',
+    metadata: {
+      service_key: ctx.serviceKey,
+      user_id: userId,
+      cycles_reversed: cycles,
+      active_until: reduced.toISOString(),
+    },
+  });
+}
+
+/**
  * Reverse the flag-backed side effects of an order that was just REVERSED
  * (rejectPayment → cancelled · refundOrder → refunded). NEVER throws (wrapped +
  * logged + Sentry-reported), symmetric to activateOrderSku. MUST be called AFTER
  * the order's status flip is committed so the re-derivation sees the new state.
  *
- * Entitlements with a STORED window/row need reversing: SETNAYAN_AI (flag),
- * Vendor AI + 3D Booth (28-day window), and the Photo Challenge sponsorship row.
- * `vendor_deep_search` is already-consumed (a completed web/AI run) → nothing to
- * reverse. PAPIC_SEATS' seat provisioning + all other orders-backed gates re-lock
- * for free off orders.status, so they need nothing here. Fires for a direct
- * reversal OR a bundle reversal (the bundle that granted the child).
+ * Entitlements with a STORED window/row need reversing: SETNAYAN_AI (per-event
+ * flag), SETNAYAN_AI_SUB (per-USER subscription window), the vendor extra-seat
+ * COUNT, Vendor AI + 3D Booth (28-day window), and the Photo Challenge
+ * sponsorship row. `vendor_deep_search` is already-consumed (a completed web/AI
+ * run) → nothing to reverse. PAPIC_SEATS' seat provisioning + all other
+ * orders-backed gates re-lock for free off orders.status, so they need nothing
+ * here. Fires for a direct reversal OR a bundle reversal (the bundle that granted
+ * the child).
  */
 export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> {
   // Papic One — reverse the purchased point grant.
@@ -1354,6 +1508,28 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
       await deactivatePhotoChallengeSponsorship(ctx);
     } catch (e) {
       reportActivationFault('deactivate:vendor_photo_challenge', ctx, e);
+    }
+  } else if (ctx.serviceKey === AI_SUB_SKU) {
+    // Setnayan AI per-USER subscription — roll back the window this order stamped
+    // (else: refund the money, keep the sub). Non-fatal + idempotent.
+    try {
+      await reverseUserAiSubscriptionOrder(ctx);
+    } catch (e) {
+      reportActivationFault('deactivate:setnayan_ai_sub', ctx, e);
+    }
+  }
+
+  // Vendor extra seat — a refunded/cancelled seat order must LOWER the paid seat
+  // count. Recompute from the live paid-order set (the reversed order already
+  // left 'paid' before this runs), symmetric to the activation prefix hook.
+  // Non-fatal + idempotent (recompute, not decrement). Independent of the
+  // if/else chain above (a seat service_key matches none of those branches).
+  const seatVendorId = vendorProfileIdFromSeatServiceKey(ctx.serviceKey);
+  if (seatVendorId) {
+    try {
+      await recomputeVendorExtraSeats(ctx.admin, seatVendorId);
+    } catch (e) {
+      reportActivationFault('deactivate:vendor_extra_seat', ctx, e);
     }
   }
 

@@ -50,6 +50,18 @@ export function vendorProfileIdFromSeatServiceKey(serviceKey: string): string | 
 }
 
 /**
+ * Normalise a `SELECT count` of PAID extra-seat orders into the number to store
+ * on `vendor_profiles.extra_agent_seats`. Both the activation hook (on approval)
+ * and the reversal hook (on refund/reject) RECOMPUTE from the live paid-order
+ * count rather than increment/decrement, so the value is self-healing and never
+ * double-counts. A null/negative count floors at 0. PURE (unit-testable).
+ */
+export function extraSeatsFromPaidCount(count: number | null | undefined): number {
+  const n = Number(count);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
+/**
  * Effective team-seat cap = the tier's base `agentAccounts` + paid extra seats.
  * Extra seats are only ever > 0 for Enterprise/Custom (the buy flow is gated),
  * so this is a no-op for every other tier. `Infinity` base stays `Infinity`.

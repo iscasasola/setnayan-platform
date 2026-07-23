@@ -873,10 +873,10 @@ function eventCards(
           </Card>,
         ]
       : []),
-    <Card key="panood" icon={<Tv />} title="Live stream — Panood" sub="Broadcast your ceremony">
+    <Card key="panood" icon={<Tv />} title="Live Studio" sub="Broadcast your ceremony">
       <Desc>Broadcast your ceremony to the guests who can&rsquo;t be there in person.</Desc>
       <CardLink href={`/dashboard/${p.eventId}/studio/panood`} ghost>
-        <ArrowUpRight aria-hidden /> Set up Panood
+        <ArrowUpRight aria-hidden /> Set up Live Studio
       </CardLink>
     </Card>,
     <ProCard

@@ -99,7 +99,7 @@ const SERVICE_LABELS: Record<string, string> = {
   LIVE_WALL: 'Live Photo Wall',
   PABATI: 'Pabati',
   PAKANTA: 'Pakanta',
-  PANOOD_SYSTEM: 'Panood Livestream',
+  PANOOD_SYSTEM: 'Live Studio',
   PAPIC_ADDON_STORIES: 'Guest Stories',
   PAPIC_ADDON_THANK_YOU: 'Thank-You Video',
   PAPIC_GUEST: 'Papic Guest',
@@ -2527,7 +2527,7 @@ function mariaAndJuan(): EditorialData {
       { author: 'Maria & Juan', role: 'couple', quote: 'We planned the whole thing on Setnayan — and on the day, everything was just set.', stars: 5 },
       { author: 'Tita Bing', role: 'guest', quote: 'The most organized wedding I have been to — everyone knew where to go and when.', stars: 5 },
     ],
-    servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic', 'Panood Livestream', 'Pakanta'],
+    servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic', 'Live Studio', 'Pakanta'],
     galleryPhotos: [
       '/realstories/maria-juan-g1.jpg',
       '/realstories/maria-juan-g2.jpg',
@@ -2883,7 +2883,7 @@ function peterAndMary(): EditorialData {
       { author: 'Peter & Mary', role: 'couple', quote: 'A 150-guest wedding sounds impossible until every vendor is reading the same timeline.', stars: 5 },
       { author: 'Lola Pacing', role: 'guest', quote: 'Big wedding, but it felt warm and personal. Nobody was lost, everyone was fed.', stars: 5 },
     ],
-    servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic', 'Panood Livestream'],
+    servicesAvailed: ['Setnayan AI', 'Event Website', 'Papic', 'Live Studio'],
     galleryPhotos: [
       '/realstories/peter-mary-g1.jpg',
       '/realstories/peter-mary-g2.jpg',

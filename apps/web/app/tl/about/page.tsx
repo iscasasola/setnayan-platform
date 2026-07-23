@@ -210,10 +210,10 @@ export default function AboutPageTaglish() {
               seating, budget, at schedule; free mood board; marketplace ng
               verified Pinoy wedding vendors na direkta mong ma-message; at
               in-app services — libreng single-camera livestreaming sa sarili
-              mong YouTube (Panood), candid photo capture (Papic), custom
+              mong YouTube (Live Studio), candid photo capture (Papic), custom
               wedding song (Pakanta), at bespoke monograms. Libreng gamitin ang
               bawat service; may malinaw na presyo ang ilang upgrades, gaya ng
-              multicam control room ng Panood. Kayo ng vendor ang nag-uusap sa booking;
+              multicam control room ng Live Studio. Kayo ng vendor ang nag-uusap sa booking;
               hindi hinahawakan ng Setnayan ang pera.
             </p>
             <p className="text-base leading-relaxed text-ink/75">

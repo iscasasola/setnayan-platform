@@ -83,7 +83,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'does-setnayan-take-commission',
         title: 'Does Setnayan take commission on vendor bookings?',
-        body: 'No. 0% commission on every vendor booking, every tier. Setnayan never touches money between couples and vendors. Revenue comes from software purchases by couples (planning tiers plus services like Papic, Panood, and the Editorial Website) and vendor subscriptions (Pro and Enterprise, 28-day or annual).',
+        body: 'No. 0% commission on every vendor booking, every tier. Setnayan never touches money between couples and vendors. Revenue comes from software purchases by couples (planning tiers plus services like Papic, Live Studio, and the Editorial Website) and vendor subscriptions (Pro and Enterprise, 28-day or annual).',
       },
       {
         slug: 'what-is-todays-focus',
@@ -127,7 +127,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       },
       {
         slug: 'what-is-panood',
-        title: 'What is Panood?',
+        title: 'What is Live Studio?',
         body: 'Live streaming for your wedding, embedded directly on your event website — priced per day (current rate on setnayan.com/pricing). Guests and family who couldn\'t attend in person can watch the ceremony and reception live without leaving Setnayan.',
       },
       {

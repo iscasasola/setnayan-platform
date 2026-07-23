@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import {
   ArrowUpRight,
+  BookHeart,
   CalendarClock,
   CheckCircle2,
   Globe,
@@ -68,7 +69,7 @@ export default async function WebsiteHubPage({
       .maybeSingle(),
     supabase
       .from('events')
-      .select('event_id, display_name, slug, event_type')
+      .select('event_id, display_name, slug, event_type, love_story')
       .eq('event_id', eventId)
       .maybeSingle(),
   ]);
@@ -88,6 +89,22 @@ export default async function WebsiteHubPage({
 
   const event = eventRes.data;
   if (!event) notFound();
+
+  // Has the couple told any of their story yet? Drives the our-story QuickLink's
+  // nudge blurb (onboarding's "Add it later" → this doorway is the later).
+  const loveStoryBlob =
+    event.love_story && typeof event.love_story === 'object'
+      ? (event.love_story as Record<string, unknown>)
+      : {};
+  const hasLoveStory = Object.values(loveStoryBlob).some(
+    (v) =>
+      (typeof v === 'string' && v.trim() !== '') ||
+      (Array.isArray(v) && v.length > 0) ||
+      (v !== null &&
+        typeof v === 'object' &&
+        !Array.isArray(v) &&
+        Object.values(v).some((a) => typeof a === 'string' && a.trim() !== '')),
+  );
 
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
@@ -200,6 +217,19 @@ export default async function WebsiteHubPage({
 
       {/* Quick links — light hand-offs to the surfaces that pair with the page */}
       <RevealList as="div" className="grid gap-4 sm:grid-cols-2">
+        {event.event_type === 'wedding' ? (
+          <QuickLink
+            data-reveal-item
+            href={`/dashboard/${eventId}/website/our-story`}
+            icon={<BookHeart aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />}
+            title="Our story"
+            blurb={
+              hasLoveStory
+                ? 'How you met, the spark, the yes — and your timeline of moments.'
+                : 'You said “add it later” at onboarding — this is later. Tell your story.'
+            }
+          />
+        ) : null}
         <QuickLink
           data-reveal-item
           href={`/dashboard/${eventId}/invitation`}

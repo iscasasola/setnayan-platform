@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { resolvePaymongoConfig } from '@/lib/integration-config';
 import { verifyPaymongoSignature, parsePaymongoEvent } from '@/lib/paymongo-webhook';
 
 // POST /api/webhooks/paymongo — PayMongo booking-fee settlement webhook.
@@ -13,8 +14,9 @@ import { verifyPaymongoSignature, parsePaymongoEvent } from '@/lib/paymongo-webh
 export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
-  const secret = process.env.PAYMONGO_WEBHOOK_SECRET;
-  if (!secret) {
+  // Signing secret resolves DB-first (admin card) with env fallback.
+  const { webhookSecret } = await resolvePaymongoConfig();
+  if (!webhookSecret) {
     // Inert until provisioned — never process an unverifiable event.
     return NextResponse.json({ error: 'not_configured' }, { status: 503 });
   }
@@ -22,7 +24,7 @@ export async function POST(req: Request) {
   // RAW body — must be the exact bytes PayMongo signed.
   const raw = await req.text();
   const sig = req.headers.get('paymongo-signature');
-  if (!verifyPaymongoSignature(raw, sig, secret)) {
+  if (!verifyPaymongoSignature(raw, sig, webhookSecret)) {
     return NextResponse.json({ error: 'bad_signature' }, { status: 400 });
   }
 

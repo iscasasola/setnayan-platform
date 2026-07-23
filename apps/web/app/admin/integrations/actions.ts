@@ -9,6 +9,7 @@ import {
   getSecretIntegration,
   getOAuthIntegration,
   MAYA_INTEGRATION,
+  PAYMONGO_INTEGRATION,
 } from '@/lib/integrations/registry';
 
 // Integration Activation Console — PR1 (email slice) · server actions.
@@ -273,6 +274,48 @@ export async function clearMayaSecrets(): Promise<void> {
     .update({
       [MAYA_INTEGRATION.publicKeyColumn]: null,
       [MAYA_INTEGRATION.secretKeyColumn]: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', 1);
+  revalidatePath('/admin/integrations');
+  redirect('/admin/integrations?cleared=1');
+}
+
+// ── PayMongo (booking-fee rail) — two secrets, no non-secret config ──────────
+export async function savePaymongoConfig(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const admin = createAdminClient();
+
+  // Encrypt + write ONLY the fields that were entered (blank = keep current). The
+  // column names come from the registry allowlist — never a raw form value.
+  const secretPatch: Record<string, string> = {};
+  const skRaw = formData.get('paymongo_secret_key');
+  if (typeof skRaw === 'string' && skRaw.trim()) {
+    secretPatch[PAYMONGO_INTEGRATION.secretKeyColumn] = encryptToken(skRaw.trim());
+  }
+  const whRaw = formData.get('paymongo_webhook_secret');
+  if (typeof whRaw === 'string' && whRaw.trim()) {
+    secretPatch[PAYMONGO_INTEGRATION.webhookSecretColumn] = encryptToken(whRaw.trim());
+  }
+  if (Object.keys(secretPatch).length > 0) {
+    await admin
+      .from('platform_integration_secrets')
+      .update({ ...secretPatch, updated_at: new Date().toISOString() })
+      .eq('id', 1);
+  }
+
+  revalidatePath('/admin/integrations');
+  redirect('/admin/integrations?saved=1');
+}
+
+export async function clearPaymongoSecrets(): Promise<void> {
+  await requireAdmin();
+  const admin = createAdminClient();
+  await admin
+    .from('platform_integration_secrets')
+    .update({
+      [PAYMONGO_INTEGRATION.secretKeyColumn]: null,
+      [PAYMONGO_INTEGRATION.webhookSecretColumn]: null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', 1);

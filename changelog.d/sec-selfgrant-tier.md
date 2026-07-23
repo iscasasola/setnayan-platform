@@ -1,5 +1,14 @@
 ## 2026-07-23 · fix(security): entitlement columns are not self-writable + refund/lifecycle reversals
 
+**Adoption hardening (adversarial review before merge):** the `guard_vendor_profiles_entitlement()`
+trigger inspected only `tier_state`/`tier_expires_at` — the paid team-seat add-on `extra_agent_seats`
+(the same PR adds refund-reversal for it) was left self-writable, so that self-grant class stayed
+open on the same table. The guard now also blocks `extra_agent_seats` on INSERT (must be 0) and
+UPDATE (must equal OLD) for a non-privileged writer. Migration re-stamped `20270831020000` →
+`20270920020000` (above main's max, allocator rules; body otherwise unchanged). Trigger role-behavior
+is not exercised by the PGlite db harness (Supabase `authenticated`/`anon` roles don't exist there —
+needs a live-DB role check).
+
 **AUTHZ hardening — the entitled party could self-grant paid tiers, and refunds did not reverse them.**
 
 ### DB — new migration `supabase/migrations/20270831020000_entitlement_write_guard.sql`

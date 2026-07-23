@@ -88,25 +88,33 @@ BEGIN
   IF current_user IN ('authenticated', 'anon') AND NOT public.is_admin() THEN
     IF TG_OP = 'INSERT' THEN
       -- A non-privileged writer may only create a row at the 'free' default with
-      -- no expiry. Legitimate registration (app/open-shop/actions.ts) inserts
-      -- {user_id} only via the service-role admin client, so this never fires on
-      -- the real path; it closes the DELETE+re-INSERT self-elevation vector.
+      -- no expiry and ZERO paid extra seats. Legitimate registration
+      -- (app/open-shop/actions.ts) inserts {user_id} only via the service-role
+      -- admin client, so this never fires on the real path; it closes the
+      -- DELETE+re-INSERT self-elevation vector — including the paid team-seat
+      -- add-on (extra_agent_seats · migration 20270511762904 · a paid entitlement
+      -- provisioned only by the service-role activation path).
       IF NEW.tier_state IS DISTINCT FROM 'free'::public.vendor_tier_state
          OR NEW.tier_expires_at IS NOT NULL
+         OR NEW.extra_agent_seats IS DISTINCT FROM 0
       THEN
         RAISE EXCEPTION
-          'vendor_profiles.tier_state/tier_expires_at is not writable by the vendor (self-grant blocked)'
+          'vendor_profiles.tier_state/tier_expires_at/extra_agent_seats is not writable by the vendor (self-grant blocked)'
           USING ERRCODE = 'insufficient_privilege',
-                HINT = 'Tier changes go through the admin console or the paid activation path (service_role).';
+                HINT = 'Tier + paid seat changes go through the admin console or the paid activation path (service_role).';
       END IF;
     ELSE  -- UPDATE
+      -- A plain profile edit (business_name, logo, …) keeps every guarded column
+      -- = OLD, so this no-ops; only a self-grant of tier, expiry, or paid extra
+      -- seats is blocked.
       IF NEW.tier_state IS DISTINCT FROM OLD.tier_state
          OR NEW.tier_expires_at IS DISTINCT FROM OLD.tier_expires_at
+         OR NEW.extra_agent_seats IS DISTINCT FROM OLD.extra_agent_seats
       THEN
         RAISE EXCEPTION
-          'vendor_profiles.tier_state/tier_expires_at is not writable by the vendor (self-grant blocked)'
+          'vendor_profiles.tier_state/tier_expires_at/extra_agent_seats is not writable by the vendor (self-grant blocked)'
           USING ERRCODE = 'insufficient_privilege',
-                HINT = 'Tier changes go through the admin console or the paid activation path (service_role).';
+                HINT = 'Tier + paid seat changes go through the admin console or the paid activation path (service_role).';
       END IF;
     END IF;
   END IF;

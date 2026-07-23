@@ -1,10 +1,25 @@
 // Shared row/data types for the public event-website route (`app/[slug]`).
 // Extracted verbatim from `app/[slug]/page.tsx` (OPEN-BROWSE PR1 — zero-
 // behavior extraction) so the `_components/` split can share them without
-// circular imports.
+// circular imports. OPEN-BROWSE PR2 adds the `_lib/loaders.ts` return types
+// (EventMedia · LiveLayerData · GuestContext) — all type-only imports, so the
+// module stays value-free for the client components that import from it.
 import type { GuestRole } from '@/lib/guests';
 import type { RoamManifest } from '@/lib/live-studio-roam';
 import type { WallTile } from '@/lib/live-wall-logic';
+import type { MonogramConfig } from '@/lib/monogram';
+import type { MonogramMotionKey } from '@/lib/monogram-motion';
+import type { StudioAnim } from '@/app/_components/studio-reveal-player';
+import type { StdBackground } from '@/lib/std-backgrounds';
+import type { ScheduleBlockRow } from '@/lib/schedule';
+import type { RsvpBackdropConfig } from '@/lib/spatial-backdrop';
+import type { GuestLiveGallery } from '@/lib/guest-live-gallery';
+import type { VendorCard } from '@/lib/vendor-cards';
+import type { PapicStyle } from '@/lib/papic-photo-styles';
+import type { PapicFaceMode } from '@/lib/papic-face-mode';
+import type { EventTableRow } from '@/lib/seating';
+import type { EntrancePos } from '@/lib/indoor-blueprint';
+import type { GuestHubData } from '../_components/guest-hub-card';
 
 /** Panood Watch-Live data for the day-of page (shown whenever a watch URL is
  *  staged — single-cam Panood live is free for every host). */
@@ -141,6 +156,99 @@ export type EventRow = {
   site_bg_music_enabled?: boolean | null;
   site_bg_music_r2_key?: string | null;
 };
+
+// ---------------------------------------------------------------------------
+// Loader return types (OPEN-BROWSE PR2 — `_lib/loaders.ts`). Shapes mirror the
+// values page.tsx's inline data block produced; the components' own prop types
+// are untouched (these must stay assignable to them).
+// ---------------------------------------------------------------------------
+
+/** Auto-filled ceremony + reception venue names (finalized bookings ?? manual
+ *  ?? event) + reception city, for the STD film's venue beats. */
+export type StdVenues = {
+  ceremony: string | null;
+  reception: string | null;
+  receptionCity: string | null;
+};
+
+/** `loadMedia` — hero/photos/monogram/Save-the-Date media resolution, shared
+ *  verbatim by every render branch (PrivateLanding included). */
+export type EventMedia = {
+  monogram: MonogramConfig;
+  animatedMonogram: MonogramMotionKey | false;
+  proWatermarkHidden: boolean;
+  bespokeSvg: string | null;
+  studioAnim: StudioAnim;
+  heroPhotoUrl: string | null;
+  heroVideoUrl: string | null;
+  bgMusicUrl: string | null;
+  stdBackground: StdBackground;
+  stdBackgroundUrl: string | null;
+  stdVideoUrl: string | null;
+  stdVideoPosterUrl: string | null;
+  stdVenues: StdVenues;
+  ourPhotoUrls: string[];
+  ownsStdReveal: boolean;
+};
+
+/** `loadLiveLayer` — public schedule + RSVP-era backdrop config + live-window
+ *  Watch-Live / Live Photo Wall + the anonymous event-day chrome inputs. */
+export type LiveLayerData = {
+  scheduleBlocks: ScheduleBlockRow[];
+  backdropConfig: RsvpBackdropConfig | null;
+  liveWall: LiveWallData | null;
+  watchLive: WatchLiveData | null;
+  publicCandidCameraActive: boolean;
+  publicAlbumHref: string | null;
+};
+
+/** Inline Papic guest camera mount data (mirrors the /papic/guest route). */
+export type GuestPapicCamera = {
+  initialRemaining: number;
+  total: number;
+  termsAccepted: boolean;
+  guestUnlimited: boolean;
+  eventStyle: PapicStyle;
+  faceMode: PapicFaceMode;
+};
+
+/** Pabati video-guestbook quota display data. */
+export type GuestPabatiQuota = { initialRemaining: number; total: number };
+
+/** "Your seat" inline wayfinding map (free 2D seat plan). */
+export type GuestSeatMap = {
+  tables: EventTableRow[];
+  entrance: EntrancePos;
+  targetTableId: string;
+};
+
+/**
+ * `loadGuestContext` — THE ONLY loader that may select guest columns; requires
+ * a verified guest session as a parameter. Discriminated so the orchestrator
+ * keeps its exact control flow: `not_found` → PublicLanding
+ * reason="invalid_invite" · `unconfirmed_tba` → the /welcome redirect ·
+ * `ready` → the full guest render context.
+ */
+export type GuestContext =
+  | { kind: 'not_found' }
+  | { kind: 'unconfirmed_tba' }
+  | {
+      kind: 'ready';
+      guest: GuestRow;
+      qrSvg: string;
+      invitationUrl: string;
+      papicGuestActive: boolean;
+      guestRollCameraReady: boolean;
+      seatPassActive: boolean;
+      guestLiveGallery: GuestLiveGallery | null;
+      needsFaceEnroll: boolean;
+      papicGuest: GuestPapicCamera | null;
+      pabati: GuestPabatiQuota | null;
+      guestHubData: GuestHubData;
+      seatMap: GuestSeatMap | null;
+      rsvpFaceMode: PapicFaceMode;
+      eventVendorCredits: VendorCard[];
+    };
 
 export type GuestRow = {
   guest_id: string;

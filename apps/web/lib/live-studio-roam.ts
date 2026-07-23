@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { isYouTubeVideoId } from '@/lib/panood-watch';
 
 /**
- * apps/web/lib/panood-roam.ts
+ * apps/web/lib/live-studio-roam.ts
  *
  * The data layer for Live Studio ROAM — the "guests pick which camera / wander
  * the venue" product (2026-07-23 owner design session; see
@@ -11,12 +11,12 @@ import { isYouTubeVideoId } from '@/lib/panood-watch';
  * one to watch, with the directed feed as the default.
  *
  * ROAM is deliberately isolated from CAST (the existing directed single-feed
- * product): its own tables (panood_roam_zones / panood_roam_channel_pool /
- * panood_roam_streams, migration 20270918111955) so it can run many concurrent
+ * product): its own tables (live_studio_roam_zones / live_studio_roam_channel_pool /
+ * live_studio_roam_streams, migration 20270918111955) so it can run many concurrent
  * broadcasts without loosening CAST's single-active panood_broadcasts index.
  *
  * The public picker never reads the roam tables. Their non-secret fields are
- * mirrored into events.panood_roam_manifest (a jsonb array), exactly as CAST's
+ * mirrored into events.live_studio_roam_manifest (a jsonb array), exactly as CAST's
  * watch URL mirrors into events.panood_watch_url — so the public event page reads
  * ONE column and never sees a stream key. This module holds the flag, the
  * manifest types, and the pure manifest helpers shared by the reader and the
@@ -35,16 +35,16 @@ import { isYouTubeVideoId } from '@/lib/panood-watch';
  * NEXT_PUBLIC_ so the server-rendered event page and the client picker read the
  * SAME flag — one source of truth.
  */
-export function panoodRoamEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_PANOOD_ROAM_ENABLED === 'true';
+export function liveStudioRoamEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED === 'true';
 }
 
-/** Zone lifecycle (mirrors the panood_roam_zones CHECK constraint). */
-export const PANOOD_ROAM_ZONE_STATUSES = ['planned', 'live', 'offline', 'disabled'] as const;
-export type PanoodRoamZoneStatus = (typeof PANOOD_ROAM_ZONE_STATUSES)[number];
+/** Zone lifecycle (mirrors the live_studio_roam_zones CHECK constraint). */
+export const ROAM_ZONE_STATUSES = ['planned', 'live', 'offline', 'disabled'] as const;
+export type RoamZoneStatus = (typeof ROAM_ZONE_STATUSES)[number];
 
 /**
- * One entry in the PUBLIC picker manifest (events.panood_roam_manifest). Only
+ * One entry in the PUBLIC picker manifest (events.live_studio_roam_manifest). Only
  * non-secret, viewer-facing fields — never a stream key. `videoId` is the YouTube
  * liveBroadcast id (== the public watch id).
  */
@@ -54,7 +54,7 @@ export type RoamZoneManifestEntry = {
   venueLabel: string | null;
   videoId: string;
   featured: boolean;
-  status: PanoodRoamZoneStatus;
+  status: RoamZoneStatus;
 };
 
 export type RoamManifest = RoamZoneManifestEntry[];
@@ -80,8 +80,8 @@ export function parseRoamManifest(raw: unknown): RoamManifest {
     const zoneIndex = typeof r.zoneIndex === 'number' && Number.isFinite(r.zoneIndex) ? r.zoneIndex : out.length + 1;
     const venueLabel =
       typeof r.venueLabel === 'string' && r.venueLabel.trim() ? r.venueLabel.trim() : null;
-    const status = (PANOOD_ROAM_ZONE_STATUSES as readonly string[]).includes(r.status as string)
-      ? (r.status as PanoodRoamZoneStatus)
+    const status = (ROAM_ZONE_STATUSES as readonly string[]).includes(r.status as string)
+      ? (r.status as RoamZoneStatus)
       : 'live';
     out.push({
       zoneIndex,
@@ -131,7 +131,7 @@ export function groupZonesByVenue(manifest: RoamManifest): { venue: string | nul
 
 /**
  * Read + parse the public ROAM manifest for an event from
- * events.panood_roam_manifest. Graceful-degrade to [] on a missing/legacy column
+ * events.live_studio_roam_manifest. Graceful-degrade to [] on a missing/legacy column
  * (42703) or table (42P01) so a pre-migration database shows the CAST single
  * embed rather than crashing — matches the panood-seats.ts / panood-watch posture.
  */
@@ -141,12 +141,12 @@ export async function fetchRoamManifest(
 ): Promise<RoamManifest> {
   const { data, error } = await supabase
     .from('events')
-    .select('panood_roam_manifest')
+    .select('live_studio_roam_manifest')
     .eq('event_id', eventId)
     .maybeSingle();
   if (error) {
     if (error.code === '42P01' || error.code === '42703') return [];
     return [];
   }
-  return parseRoamManifest((data as { panood_roam_manifest?: unknown } | null)?.panood_roam_manifest);
+  return parseRoamManifest((data as { live_studio_roam_manifest?: unknown } | null)?.live_studio_roam_manifest);
 }

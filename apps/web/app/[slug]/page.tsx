@@ -120,10 +120,10 @@ import type { VendorCard } from '@/lib/vendor-cards';
 import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
 import {
   fetchRoamManifest,
-  panoodRoamEnabled,
+  liveStudioRoamEnabled,
   selectFeaturedZone,
   type RoamManifest,
-} from '@/lib/panood-roam';
+} from '@/lib/live-studio-roam';
 import { RoamWatchPicker } from './_components/roam-watch-picker';
 import { GuestHubCard, pickNextScheduleBlock, type GuestHubData } from './_components/guest-hub-card';
 import { fetchEntrance, type EntrancePos } from '@/lib/indoor-blueprint';
@@ -908,13 +908,13 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         }
       }
       // Live Studio ROAM (flag-dark, default OFF): when the couple owns a
-      // multi-camera Roam broadcast, the public manifest (events.panood_roam_manifest,
+      // multi-camera Roam broadcast, the public manifest (events.live_studio_roam_manifest,
       // mirrored non-secret) turns the single embed into a camera/zone picker. The
       // featured zone becomes the fallback embedUrl so every existing `watchLive`
       // gate keeps firing even for a Roam-only event (no CAST watch URL). When the
       // flag is off (prod default), this whole block is skipped and CAST behavior
       // is byte-for-byte unchanged. Graceful-degrades to [] pre-migration.
-      if (panoodRoamEnabled()) {
+      if (liveStudioRoamEnabled()) {
         const roam = await fetchRoamManifest(admin, event.event_id);
         const featured = selectFeaturedZone(roam);
         if (featured) {

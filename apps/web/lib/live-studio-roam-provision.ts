@@ -1,20 +1,20 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isYouTubeVideoId } from '@/lib/panood-watch';
-import type { RoamManifest, PanoodRoamZoneStatus } from '@/lib/panood-roam';
+import type { RoamManifest, RoamZoneStatus } from '@/lib/live-studio-roam';
 
 /**
- * apps/web/lib/panood-roam-provision.ts
+ * apps/web/lib/live-studio-roam-provision.ts
  *
  * The provisioning SPINE for Live Studio ROAM (2026-07-23 owner design session;
  * `Live_Studio_Cast_and_Roam_2026-07-23.md`). Three concerns, all flag-dark
- * (`NEXT_PUBLIC_PANOOD_ROAM_ENABLED`) and isolated from CAST:
+ * (`NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED`) and isolated from CAST:
  *
  *   1. CHANNEL POOL lifecycle — check a Setnayan-owned channel out of the pool
  *      for an event's window, return it after (the owner-locked "our own channel"
  *      model; one channel per event isolates concurrency + copyright-strike blast
  *      radius).
  *   2. MANIFEST MIRROR — build the PUBLIC picker manifest from the (control-plane)
- *      zones + (service-role) streams and write it to events.panood_roam_manifest,
+ *      zones + (service-role) streams and write it to events.live_studio_roam_manifest,
  *      exactly as CAST mirrors its watch URL into events.panood_watch_url. This is
  *      what makes the event-page picker light up.
  *   3. YOUTUBE BROADCAST creation (N per event) — see provisionRoamBroadcasts
@@ -40,7 +40,7 @@ export type RoamZoneRow = {
   label: string;
   venue_label: string | null;
   is_featured: boolean;
-  status: PanoodRoamZoneStatus;
+  status: RoamZoneStatus;
 };
 
 export type RoamStreamRow = {
@@ -100,7 +100,7 @@ export function buildRoamManifest(zones: RoamZoneRow[], streams: RoamStreamRow[]
 }
 
 /**
- * Rebuild + persist events.panood_roam_manifest from the current zones + streams.
+ * Rebuild + persist events.live_studio_roam_manifest from the current zones + streams.
  * Call after any provisioning / go-live / zone change so the public picker
  * reflects reality. Service-role (admin) — reads the secret-bearing streams table.
  * Returns the number of zones written, or 0 on a pre-migration DB.
@@ -110,10 +110,10 @@ export async function mirrorRoamManifest(admin: SupabaseClient, eventId: string)
   try {
     const [{ data: zones, error: zErr }, { data: streams, error: sErr }] = await Promise.all([
       admin
-        .from('panood_roam_zones')
+        .from('live_studio_roam_zones')
         .select('id, zone_index, label, venue_label, is_featured, status')
         .eq('event_id', eventId),
-      admin.from('panood_roam_streams').select('zone_id, broadcast_id, status').eq('event_id', eventId),
+      admin.from('live_studio_roam_streams').select('zone_id, broadcast_id, status').eq('event_id', eventId),
     ]);
     if (zErr?.code === UNDEFINED_TABLE || sErr?.code === UNDEFINED_TABLE) return 0;
     if (zErr || sErr) return 0;
@@ -124,7 +124,7 @@ export async function mirrorRoamManifest(admin: SupabaseClient, eventId: string)
     );
     const { error: upErr } = await admin
       .from('events')
-      .update({ panood_roam_manifest: manifest })
+      .update({ live_studio_roam_manifest: manifest })
       .eq('event_id', eventId);
     if (upErr?.code === UNDEFINED_COLUMN || upErr) return 0;
     return manifest.length;
@@ -138,7 +138,7 @@ export async function mirrorRoamManifest(admin: SupabaseClient, eventId: string)
  *
  * Idempotent: if the event already holds a channel, that one is returned. Else
  * the first available + verified channel is claimed (status → 'checked_out'). The
- * partial unique index panood_roam_channel_pool_one_per_event is the hard backstop
+ * partial unique index live_studio_roam_channel_pool_one_per_event is the hard backstop
  * against a race binding two channels to one event. Service-role (admin).
  *
  * Returns the claimed channel, or null when the pool is empty / all busy — the
@@ -153,7 +153,7 @@ export async function checkoutPoolChannel(
   try {
     // Already holding one? (idempotent re-provision)
     const { data: existing, error: exErr } = await admin
-      .from('panood_roam_channel_pool')
+      .from('live_studio_roam_channel_pool')
       .select(SELECT)
       .eq('checked_out_event_id', eventId)
       .eq('status', 'checked_out')
@@ -163,7 +163,7 @@ export async function checkoutPoolChannel(
 
     // Claim the first available, verified channel.
     const { data: free, error: freeErr } = await admin
-      .from('panood_roam_channel_pool')
+      .from('live_studio_roam_channel_pool')
       .select(SELECT)
       .eq('status', 'available')
       .eq('verified', true)
@@ -173,7 +173,7 @@ export async function checkoutPoolChannel(
     if (freeErr || !free) return null;
 
     const { data: claimed, error: claimErr } = await admin
-      .from('panood_roam_channel_pool')
+      .from('live_studio_roam_channel_pool')
       .update({
         status: 'checked_out',
         checked_out_event_id: eventId,
@@ -199,7 +199,7 @@ export async function returnPoolChannel(admin: SupabaseClient, eventId: string):
   if (!eventId) return false;
   try {
     const { error } = await admin
-      .from('panood_roam_channel_pool')
+      .from('live_studio_roam_channel_pool')
       .update({
         status: 'available',
         checked_out_event_id: null,
@@ -216,7 +216,7 @@ export async function returnPoolChannel(admin: SupabaseClient, eventId: string):
 
 /**
  * ⛔ NOT WIRED YET — the YouTube broadcast-creation step (create N liveBroadcasts,
- * one per zone, on the checked-out pool channel; persist to panood_roam_streams;
+ * one per zone, on the checked-out pool channel; persist to live_studio_roam_streams;
  * then mirrorRoamManifest). It reuses the CAST lifecycle verbatim
  * (lib/panood-youtube.ts: createYoutubeBroadcast → createYoutubeStream →
  * bindYoutubeBroadcast → transitionYoutubeBroadcast), looping over zones instead

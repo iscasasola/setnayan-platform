@@ -172,7 +172,8 @@ function FolderVendorCard({
   trustedReviewCount: number;
 }) {
   const slug = vendor.business_slug;
-  const href = slug ? `/v/${slug}` : '#';
+  // ?src=explore stamps inquiry_source for Booking-Fee attribution (PR-0).
+  const href = slug ? `/v/${slug}?src=explore` : '#';
   // Anonymity-aware display name per CLAUDE.md 2026-05-30 row. Free +
   // Verified vendors pre-first-reply surface as their stored screen_name
   // (Bark format) · paid + revealed + venue-exempt vendors surface as

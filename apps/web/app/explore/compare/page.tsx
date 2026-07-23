@@ -677,7 +677,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                     />
                     {row.business_slug ? (
                       <Link
-                        href={`/v/${row.business_slug}`}
+                        href={`/v/${row.business_slug}?src=explore`}
                         className="mt-2 inline-flex text-xs font-medium text-terracotta underline-offset-4 hover:underline"
                       >
                         View full profile →

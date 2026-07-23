@@ -26,7 +26,7 @@ import type { BottomNavItem } from '@/app/_components/nav/types';
 import type { LucideIcon } from 'lucide-react';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
-import type { LifecyclePhase } from '@/lib/day-of-mode';
+import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import { buildCustomerMenuTree } from '@/lib/customer-menu';
 
 export function CustomerBottomNav({
@@ -36,7 +36,7 @@ export function CustomerBottomNav({
   hideKeys,
 }: {
   eventId: string;
-  phase?: LifecyclePhase;
+  phase?: MenuLifecyclePhase;
   navSlots?: Record<string, NavSlotLite>;
   /** Top-level menu keys to drop for this event type (e.g. ['explore','budget']
    *  for a vendor-free Simple Event). Resolved from the profile in layout.tsx. */

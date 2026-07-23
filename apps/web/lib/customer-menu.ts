@@ -45,7 +45,7 @@ import {
   Star, Newspaper, Images,
   type LucideIcon,
 } from 'lucide-react';
-import type { LifecyclePhase } from '@/lib/day-of-mode';
+import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import { BUDGET_BUILD_TABS, TAB_META } from './budget-build';
 
 /**
@@ -117,7 +117,7 @@ export type CustomerMenuCtx = {
   dayOfOpen?: boolean;
   /** When set, overrides the returned tree with the phase-appropriate menus.
    *  Day-of and After menus have no children (the dock hides). */
-  phase?: LifecyclePhase;
+  phase?: MenuLifecyclePhase;
   /** Top-level menu keys to drop for this event type, derived from its
    *  Event-Type Profile (e.g. ['explore','budget'] for a vendor-free Simple
    *  Event). Empty/undefined → every menu shows (wedding + all existing types

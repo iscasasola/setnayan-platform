@@ -9,7 +9,7 @@ import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import { sweepExpiredConcierge } from '@/lib/concierge';
 import { fetchGuestsByEvent } from '@/lib/guests';
 import { isChineseWedding, isMuslimWedding } from '@/lib/chinese-wedding';
-import { getLifecyclePhase } from '@/lib/day-of-mode';
+import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { fetchScheduleBlocks } from '@/lib/schedule';
 import { fetchBlockRosMeta } from '@/lib/schedule-ros';
 import {
@@ -152,7 +152,7 @@ export default async function EventHomePage({
   // grid that takes over above the dashboard. Outside the window we render
   // nothing extra and skip every query.
   const dayOfActive = event.event_date
-    ? getLifecyclePhase(
+    ? getMenuLifecyclePhase(
         event.event_date,
         (event as { cleared_at?: string | null }).cleared_at ?? null,
       ) === 'dayof'

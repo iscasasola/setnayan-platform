@@ -76,7 +76,8 @@ export function isEventDayActive(eventDate: string | Date): boolean {
 }
 
 /** The Event Lifecycle Menu phase — which menu the bottom nav shows. */
-export type LifecyclePhase = 'plan' | 'dayof' | 'after';
+// NOT the public-website lifecycle: that is `LifecyclePhase` in lib/invitation-widgets.ts (save_the_date → rsvp → event → editorial), which `app/[slug]/page.tsx` consumes. Renamed from `LifecyclePhase` (OPEN-BROWSE PR1) to end the name collision.
+export type MenuLifecyclePhase = 'plan' | 'dayof' | 'after';
 
 /**
  * The Event Lifecycle Menu phase: **Plan → Day-of → After** (2026-06-16).
@@ -93,10 +94,11 @@ export type LifecyclePhase = 'plan' | 'dayof' | 'after';
  * 20261231020000 and read defensively (a missing/null value just means
  * "not cleared", so this stays safe before the migration is applied).
  */
-export function getLifecyclePhase(
+// NOT the public-website phase resolver: that is `getLifecyclePhase` in lib/invitation-widgets.ts. Renamed from `getLifecyclePhase` (OPEN-BROWSE PR1) to end the name collision.
+export function getMenuLifecyclePhase(
   eventDate: string | Date | null | undefined,
   clearedAt: string | Date | null | undefined,
-): LifecyclePhase {
+): MenuLifecyclePhase {
   if (clearedAt) return 'after';
   if (!eventDate) return 'plan';
   const eventMs = eventDateToEpoch(eventDate);

@@ -33,6 +33,7 @@ import {
 } from '@/lib/papic-photo-styles';
 import { usePapicCamera } from '@/lib/use-papic-camera';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
+import type { PapicGeoInput } from '@/lib/papic-geo';
 import { PapicCameraControls } from '@/app/papic/_components/camera-controls';
 import {
   enqueuePapicSeatCapture,
@@ -131,6 +132,10 @@ type Props = {
    *  roster) runs `embedFaces`. Resolved server-side, forced to mode_b for
    *  christening/debut. */
   faceMode: PapicFaceMode;
+  /** The `papic_geo_metadata` data-privacy control, resolved server-side. When
+   *  false (the default — the control ships OFF), the client NEVER requests a
+   *  location fix and never stamps geo; the server re-gates on write. */
+  geoEnabled?: boolean;
 };
 
 /** A single capture as it moves through the background upload queue. Drives both
@@ -149,6 +154,9 @@ type Shot = {
   ext: string;
   poster?: Blob | null;
   durationMs?: number;
+  /** Last-known location fix at capture time (papic_geo_metadata). undefined when
+   *  geo is disabled; { unavailable: true } when enabled but no fix was had. */
+  geo?: PapicGeoInput;
   /** A CLEAN (un-styled) JPEG of the same frame, used ONLY for on-device face
    *  embedding. The event look would wreck face-api's descriptors, so faces are
    *  read from this, never from the styled delivery blob. */
@@ -190,6 +198,7 @@ export function PapicSeatCapture({
   isAnon = false,
   eventStyle,
   faceMode,
+  geoEnabled = false,
 }: Props) {
   // The event-wide look is LOCKED (couple-set at setup) — baked into every photo.
   // styleRef mirrors the prop so grabFrame reads it without a dep churn.
@@ -215,6 +224,39 @@ export function PapicSeatCapture({
     window.addEventListener('online', drain);
     return () => window.removeEventListener('online', drain);
   }, []);
+
+  // Location fix for geo-stamping (papic_geo_metadata). ONLY when the control is
+  // active — geoEnabled is resolved server-side, so a disabled control never
+  // prompts the paparazzo for location. We watch (not per-shot getCurrentPosition)
+  // so the shutter never blocks on a GPS fix: each capture stamps the latest known
+  // position, or { unavailable: true } if none arrived. Coarse (enableHighAccuracy
+  // false); the server is the authoritative gate on write.
+  const geoFixRef = useRef<{ lat: number; lon: number; accuracyM: number } | null>(null);
+  useEffect(() => {
+    if (!geoEnabled || typeof navigator === 'undefined' || !navigator.geolocation) return;
+    const id = navigator.geolocation.watchPosition(
+      (pos) => {
+        geoFixRef.current = {
+          lat: pos.coords.latitude,
+          lon: pos.coords.longitude,
+          accuracyM: pos.coords.accuracy,
+        };
+      },
+      () => {
+        // Denied / timeout / no signal — keep any last-known fix; currentGeo()
+        // returns { unavailable: true } only when there has never been one.
+      },
+      { enableHighAccuracy: false, maximumAge: 60_000, timeout: 15_000 },
+    );
+    return () => navigator.geolocation.clearWatch(id);
+  }, [geoEnabled]);
+
+  const currentGeo = useCallback((): PapicGeoInput | undefined => {
+    if (!geoEnabled) return undefined;
+    const fix = geoFixRef.current;
+    if (fix) return { lat: fix.lat, lon: fix.lon, accuracyM: fix.accuracyM };
+    return { unavailable: true };
+  }, [geoEnabled]);
 
   // The live camera + its flip / lens controls (shared hook owns the stream).
   const {
@@ -529,6 +571,7 @@ export function PapicSeatCapture({
           contentType: shot.contentType,
           blob: shot.blob,
           durationMs: shot.durationMs,
+          geo: shot.geo,
           reason: 'low_bandwidth',
         });
         if (queuedId) {
@@ -557,8 +600,8 @@ export function PapicSeatCapture({
         // the raw `mainRef` (already in R2) stays the only playable copy.
         const result =
           shot.kind === 'photo'
-            ? await recordSeatCapture(token, mainRef, 'photo')
-            : await recordSeatCapture(token, mainRef, 'clip', posterRef, shot.durationMs);
+            ? await recordSeatCapture(token, mainRef, 'photo', undefined, undefined, shot.geo)
+            : await recordSeatCapture(token, mainRef, 'clip', posterRef, shot.durationMs, shot.geo);
 
         if (!result.ok) {
           if (isCapCode(result.error)) {
@@ -647,6 +690,7 @@ export function PapicSeatCapture({
           contentType: shot.contentType,
           blob: shot.blob,
           durationMs: shot.durationMs,
+          geo: shot.geo,
           reason: code || 'network',
         });
         if (queuedId) {
@@ -754,9 +798,10 @@ export function PapicSeatCapture({
       blob,
       contentType: 'image/jpeg',
       ext: 'jpg',
+      geo: currentGeo(),
       faceBlob: clean,
     });
-  }, [ready, switching, photoFull, grabFrame, enqueueShot]);
+  }, [ready, switching, photoFull, grabFrame, enqueueShot, currentGeo]);
 
   const stopClip = useCallback(() => {
     // Flip the synchronous flag the instant we ask the recorder to stop, so a
@@ -828,6 +873,7 @@ export function PapicSeatCapture({
         contentType: mime,
         ext,
         poster,
+        geo: currentGeo(),
         faceBlob: grabbed?.clean ?? null,
         durationMs,
       });
@@ -845,7 +891,7 @@ export function PapicSeatCapture({
     }, 100);
     // Hard 10-second cap — auto-stop. Not configurable (owner 2026-07-22 · §0).
     clipTimerRef.current = setTimeout(stopClip, CLIP_MAX_MS);
-  }, [ready, switching, clipFull, grabFrame, enqueueShot, stopClip, streamRef]);
+  }, [ready, switching, clipFull, grabFrame, enqueueShot, stopClip, streamRef, currentGeo]);
 
   // Flash a transient "you've used your photos/clips" notice (per-seat caps).
   const flashCapNotice = useCallback((kind: 'photos' | 'clips') => {

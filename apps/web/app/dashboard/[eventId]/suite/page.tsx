@@ -56,13 +56,13 @@ export const dynamic = 'force-dynamic';
 /** The surface name — single source of truth so a rename is one edit. */
 const SUITE_NAME = 'Suite';
 
-/** Outcome-framed section headers for the "Add to your day" cards (owner:
+/** Outcome-framed section headers for the "Add to your event" cards (owner:
  *  group by what you get, not by internal category). Maps the locked
  *  studioGroup to an outcome label. */
 const OUTCOME_LABEL: Record<StudioGroup, string> = {
-  setnayan_ai: 'Plan your day',
+  setnayan_ai: 'Plan your event',
   website: 'Your website',
-  capture: 'Your day, captured',
+  capture: 'Your event, captured',
   branding: 'Your look & keepsakes',
   utility: 'More',
 };
@@ -129,7 +129,7 @@ const FREE_TOOLS: readonly FreeTool[] = [
     key: 'checklist',
     tags: ['Planning', 'Free'],
     label: 'Checklist',
-    blurb: 'Everything to do for your day, timed to your date.',
+    blurb: 'Everything to do for your event, timed to your date.',
     Icon: ListChecks,
     href: (id) => routes.dashboard.checklist(id),
     gradient: 'linear-gradient(135deg, #1A1410 0%, #3A281C 55%, #6B4A30 100%)',
@@ -252,7 +252,7 @@ export default async function SuitePage({ params }: Props) {
       : routes.explore.index();
 
   const persona: VignettePersona = {
-    names: eventRow?.display_name?.trim() || 'Your day',
+    names: eventRow?.display_name?.trim() || 'Your event',
     initials: (
       eventRow?.monogram_text?.trim() || deriveMonogram(eventRow?.display_name)
     ).slice(0, 12),
@@ -315,8 +315,8 @@ export default async function SuitePage({ params }: Props) {
       : monthsToDate > 6
         ? 'Where couples put their energy with this much time to go.'
         : monthsToDate > 3
-          ? 'The pieces to line up as your day gets closer.'
-          : 'Your last stretch — capture, and the day itself.';
+          ? 'The pieces to line up as your event gets closer.'
+          : 'Your last stretch — capture, and the event itself.';
 
   // ── Partition the catalog: what you own, what you can add, what's free. ────
   const eligible = ADD_ONS.filter((a) => surfaceOk(a) && a.studioGroup !== 'utility');
@@ -396,7 +396,7 @@ export default async function SuitePage({ params }: Props) {
         <p className="sn-eye">In-app services</p>
         <h1 className="sn-h1 mt-1.5">{SUITE_NAME}</h1>
         <p className="max-w-prose text-base text-ink/65">
-          Everything for your day, in one room — what you have, what’s free, and what you
+          Everything for your event, in one room — what you have, what’s free, and what you
           can add. Search to jump straight to a service, or start with what we suggest.
         </p>
       </header>
@@ -426,7 +426,7 @@ export default async function SuitePage({ params }: Props) {
         <section aria-label="Yours for this event" className="space-y-3">
           <div>
             <p className="sn-eye">Yours</p>
-            <p className="mt-1 text-sm text-ink/60">Already working for your day.</p>
+            <p className="mt-1 text-sm text-ink/60">Already working for your event.</p>
           </div>
           <RevealList
             as="ul"
@@ -437,14 +437,14 @@ export default async function SuitePage({ params }: Props) {
         </section>
       ) : null}
 
-      {/* Add to your day — sellable features as animated vignette cards
+      {/* Add to your event — sellable features as animated vignette cards
           (Suite PR-2): each card is a small CSS-only stage showing what the
           feature DOES, personalized with the couple's names / initials / date
           where the scene calls for them. Same hrefs + live pills as the rows. */}
       {addByOutcome.length > 0 ? (
-        <section aria-label="Add to your day" className="space-y-5">
+        <section aria-label="Add to your event" className="space-y-5">
           <div className="border-t border-ink/10 pt-6">
-            <h2 className="sn-sec text-xl">Add to your day</h2>
+            <h2 className="sn-sec text-xl">Add to your event</h2>
             <p className="mt-1 max-w-prose text-sm text-ink/60">
               Grouped by what you get. Every price is live — no surprises.
             </p>

@@ -244,7 +244,9 @@ export function VendorCard({
     is_verified: vendor.verification_state === 'verified',
   });
   const slug = vendor.business_slug ?? null;
-  const href = slug ? `/v/${slug}` : `#`;
+  // ?src=explore stamps the thread's inquiry_source for Booking-Fee attribution
+  // (PR-0) — an organic marketplace discovery, not a direct hit.
+  const href = slug ? `/v/${slug}?src=explore` : `#`;
   const visibility = parseVisibility(vendor.public_visibility);
   const bookable = isBookable(visibility);
   const isComingSoon = visibility === 'coming_soon';

@@ -56,6 +56,9 @@ export const INQUIRY_SOURCES = [
   'editorial',
   'auto_build',
   'degree',
+  // Organic marketplace discovery — Booking-Fee SOURCED origins (PR-0).
+  'explore',
+  'search',
 ] as const;
 
 export type InquirySource = (typeof INQUIRY_SOURCES)[number];
@@ -70,6 +73,8 @@ export const INQUIRY_SOURCE_LABEL: Record<InquirySource, string> = {
   editorial: 'Editorial Inquiry',
   auto_build: 'Auto Build Recommendation',
   degree: 'Degree Recommendation',
+  explore: 'Explore Inquiry',
+  search: 'Search Inquiry',
 };
 
 /** Companion chip label when chat_threads.is_returning is TRUE. */

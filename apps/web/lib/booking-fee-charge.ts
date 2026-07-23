@@ -1,7 +1,8 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
-  isBookingFeeEnforced,
+  isBookingFeeEnabled,
+  isBookingFeeRailLive,
   decideFeeGate,
   BOOKING_FEE_SCHEDULE_VERSION,
   type BookingFeeAttribution,
@@ -96,7 +97,7 @@ export async function bookingFeeSendGate(
     threadId: string | null;
   },
 ): Promise<FeeGateResult> {
-  if (!isBookingFeeEnforced()) return { cleared: true };
+  if (!(await isBookingFeeEnforcedServer(admin))) return { cleared: true };
   const charge = await openBookingFeeCharge(
     admin,
     args.proposalId,
@@ -104,4 +105,59 @@ export async function bookingFeeSendGate(
     args.threadId,
   );
   return decideFeeGate(charge);
+}
+
+/** Admin DB toggle: platform_settings.booking_fee_collection_enabled. */
+async function dbBookingFeeToggle(admin: SupabaseClient): Promise<boolean> {
+  try {
+    const { data } = await admin
+      .from('platform_settings')
+      .select('booking_fee_collection_enabled')
+      .eq('id', 1)
+      .maybeSingle();
+    return Boolean(
+      (data as { booking_fee_collection_enabled?: boolean } | null)
+        ?.booking_fee_collection_enabled,
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Are PayMongo credentials present in the DB (both secrets non-null)? */
+async function dbPaymongoCredsPresent(admin: SupabaseClient): Promise<boolean> {
+  try {
+    const { data } = await admin
+      .from('platform_integration_secrets')
+      .select('paymongo_secret_key_enc, paymongo_webhook_secret_enc')
+      .eq('id', 1)
+      .maybeSingle();
+    const r = data as {
+      paymongo_secret_key_enc?: string | null;
+      paymongo_webhook_secret_enc?: string | null;
+    } | null;
+    return Boolean(r?.paymongo_secret_key_enc && r?.paymongo_webhook_secret_enc);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The authoritative, DB-aware enforcement check (supersedes the pure env-only
+ * isBookingFeeEnforced for the live gate). Enforces when BOTH:
+ *   • ENABLED — env NEXT_PUBLIC_BOOKING_FEE_ENABLED, OR the admin DB toggle
+ *     (platform_settings.booking_fee_collection_enabled), AND
+ *   • RAIL LIVE — env NEXT_PUBLIC_BOOKING_FEE_RAIL_LIVE, OR PayMongo credentials
+ *     present in the DB.
+ * So an owner activates entirely from /admin/integrations (paste keys + flip the
+ * toggle), no redeploy. FAIL-SAFE: any read error → not enforced → the send
+ * proceeds (a DB hiccup must never trap a live proposal). Short-circuits on the
+ * enabled check so the common (off) case is a single cheap read.
+ */
+export async function isBookingFeeEnforcedServer(
+  admin: SupabaseClient,
+): Promise<boolean> {
+  const enabled = isBookingFeeEnabled() || (await dbBookingFeeToggle(admin));
+  if (!enabled) return false;
+  return isBookingFeeRailLive() || (await dbPaymongoCredsPresent(admin));
 }

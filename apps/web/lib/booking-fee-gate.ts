@@ -21,7 +21,7 @@ export function isBookingFeeEnabled(): boolean {
  * the owner flips this one flag once the rail is KYC-approved AND the checkout
  * (PR-4) is wired — the gate doesn't care which gateway settles the charge.
  */
-function isBookingFeeRailLive(): boolean {
+export function isBookingFeeRailLive(): boolean {
   const v = process.env.NEXT_PUBLIC_BOOKING_FEE_RAIL_LIVE;
   return v === 'true' || v === '1' || v === 'TRUE';
 }

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { isKwentoModerator } from '@/lib/security/kwento-moderation-authz';
 
 // Iteration 0012 Papic — couple-side UGC moderation actions.
 //
@@ -354,6 +355,30 @@ export async function blockKwentoGuest(
 ): Promise<KwentoActionResult> {
   if (!guestId?.trim()) return { ok: false, error: 'missing_input' };
   const supabase = await createClient();
+
+  // Authority gate (defense-in-depth). The guest_message_blocks_manage WITH
+  // CHECK is now tightened to member_type IN ('couple','coordinator') by
+  // migration 20270831174208 (it previously gated on current_event_ids, which
+  // admits a plain guest on INSERT — letting ANY guest silence any other). This
+  // app-level check mirrors that RLS gate so we (a) fail with a friendly
+  // 'forbidden' instead of a raw RLS violation and (b) stay closed even if the
+  // policy ever regresses. Only the couple or an accepted coordinator on THIS
+  // event may block, resolved from event_members.member_type like the
+  // couple-side moderation actions above.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'unauthorized' };
+  const { data: membership } = await supabase
+    .from('event_members')
+    .select('member_type')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (!isKwentoModerator(membership?.member_type)) {
+    return { ok: false, error: 'forbidden' };
+  }
+
   const { error } = await supabase.from('guest_message_blocks').insert({
     event_id: eventId,
     guest_id: guestId,

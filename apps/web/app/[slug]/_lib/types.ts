@@ -110,6 +110,9 @@ export type EventRow = {
   // TRUE only for the Maria & Jose public-tour sample event. Used to suppress the
   // Save-the-Date view beacon so tour traffic never inflates the sample's stats.
   is_sample?: boolean | null;
+  // Open-browse PR5 (owner 2026-07-23): FALSE = livestream + Live Photo Wall are
+  // guests-only; TRUE = couple opted the ANONYMOUS live-media render public.
+  live_media_public?: boolean | null;
   // JSONB column populated by the host via /dashboard/[eventId]/website/photo-moments.
   // Shape: { intro_copy: string, moments: [{ time_label, title, note, mode }] }.
   // Unknown / empty shapes degrade gracefully in PhotoMomentsWidget — the

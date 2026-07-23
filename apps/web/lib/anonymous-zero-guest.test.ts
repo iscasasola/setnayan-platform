@@ -141,6 +141,7 @@ test('anonymous widget filter === PUBLIC_WIDGET_ALLOWLIST (flag-off render)', ()
     isSample: false,
     hasHeroMedia: false,
     hasBgMusic: false,
+    liveMediaPublic: false,
     widgets: fullRegistry(),
   });
   assert.deepEqual(
@@ -177,6 +178,7 @@ test('guest-personal widget types never pass the anonymous filter in ANY phase',
         isSample: false,
         hasHeroMedia: false,
         hasBgMusic: false,
+        liveMediaPublic: false,
         widgets: poisonedRegistry,
       });
       for (const w of plan.publicSafeWidgets) {

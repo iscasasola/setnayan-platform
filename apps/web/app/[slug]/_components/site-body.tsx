@@ -331,6 +331,7 @@ export function SiteBody({
     isSample: Boolean(event.is_sample),
     hasHeroMedia,
     hasBgMusic: Boolean(bgMusicUrl),
+    liveMediaPublic: Boolean(event.live_media_public),
     widgets,
   });
 
@@ -538,7 +539,7 @@ export function SiteBody({
             {/* Panood Watch-Live — anonymous path FIRST: the remote relatives
                 clicking the shared link from Messenger are exactly the cookie-less
                 viewers this exists for. */}
-            {dayOfPhase === 'live' && watchLive ? (
+            {dayOfPhase === 'live' && plan.liveMediaVisible && watchLive ? (
               <section className="mt-10">
                 <WatchLiveBlock watchLive={watchLive} />
               </section>
@@ -549,7 +550,7 @@ export function SiteBody({
                 celebration window. Same screened feed as the projector. The id is the
                 anchor the event-day bar's "Photos" button scrolls to (publicAlbumHref
                 above) — scroll-margin keeps it clear of the fixed bottom bar. */}
-            {dayOfPhase === 'live' && liveWall ? (
+            {dayOfPhase === 'live' && plan.liveMediaVisible && liveWall ? (
               <section id="live-photo-wall" className="mt-10 scroll-mt-6">
                 <LiveWallBlock
                   slug={event.slug}

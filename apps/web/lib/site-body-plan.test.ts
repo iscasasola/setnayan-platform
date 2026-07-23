@@ -68,6 +68,7 @@ function planFor(
     isSample: false,
     hasHeroMedia: false,
     hasBgMusic: true,
+    liveMediaPublic: false,
     widgets: fullRegistry(),
     ...overrides,
   });
@@ -269,6 +270,34 @@ test('anonymous hero banner renders only on the normal body with hero media', ()
     assert.equal(
       planFor('guest', phase, { hasHeroMedia: true }).anonymousHeroBanner,
       false,
+    );
+  }
+});
+
+// ---------------------------------------------------------------------------
+// PR5 — live-media visibility. Guests always see live media; an anonymous
+// (cookie-less) viewer only when the couple opted `events.live_media_public`.
+// ---------------------------------------------------------------------------
+
+test('liveMediaVisible: guests always; anonymous only when the couple opts in', () => {
+  for (const phase of PHASES) {
+    // A guest sees live media in every phase, regardless of the opt-in.
+    assert.equal(planFor('guest', phase).liveMediaVisible, true, `guest ${phase}`);
+    assert.equal(
+      planFor('guest', phase, { liveMediaPublic: true }).liveMediaVisible,
+      true,
+      `guest opted ${phase}`,
+    );
+    // Anonymous is gated: default FALSE closed, TRUE only on the couple's opt-in.
+    assert.equal(
+      planFor('anonymous', phase).liveMediaVisible,
+      false,
+      `anonymous default-closed ${phase}`,
+    );
+    assert.equal(
+      planFor('anonymous', phase, { liveMediaPublic: true }).liveMediaVisible,
+      true,
+      `anonymous opted-in ${phase}`,
     );
   }
 });

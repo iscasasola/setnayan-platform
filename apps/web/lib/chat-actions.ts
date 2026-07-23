@@ -23,6 +23,7 @@ import {
   acceptInquiryViaHold,
   runVendorLeadReportBackstop,
 } from '@/lib/lead-token-holds';
+import { freeInquiryAcceptEnabled } from '@/lib/free-inquiry-accept';
 
 /**
  * Mark a thread as read for the current user — stamps (or refreshes)
@@ -373,16 +374,25 @@ export async function acceptInquiry(formData: FormData) {
     // genuinely replies; released if they ghost). Flag OFF → the live burn RPC,
     // byte-identical to before. Both raise the same TIER/LIMIT/BALANCE errors, so
     // the handling below is unchanged.
-    const { error: burnErr } = leadTokenHoldEnabled()
-      ? await acceptInquiryViaHold(supabase, {
-          vendorProfileId: thread.vendor_profile_id,
-          eventId: thread.event_id,
-          threadId: thread.thread_id,
-        })
-      : await supabase.rpc('unlock_vendor_event', {
+    // PR-1: when the free-answer flag is on (default off), route to the
+    // no-tier-gate variant so free/verified vendors can accept without the
+    // TIER_FREE_NO_INAPP / VERIFIED_WEEKLY_LIMIT wall. Off → the live path below
+    // is byte-identical to today. Free-answer wins over the dormant HOLD path.
+    const { error: burnErr } = freeInquiryAcceptEnabled()
+      ? await supabase.rpc('unlock_vendor_event_free', {
           p_vendor_profile_id: thread.vendor_profile_id,
           p_event_id: thread.event_id,
-        });
+        })
+      : leadTokenHoldEnabled()
+        ? await acceptInquiryViaHold(supabase, {
+            vendorProfileId: thread.vendor_profile_id,
+            eventId: thread.event_id,
+            threadId: thread.thread_id,
+          })
+        : await supabase.rpc('unlock_vendor_event', {
+            p_vendor_profile_id: thread.vendor_profile_id,
+            p_event_id: thread.event_id,
+          });
     if (burnErr) {
       if (/TIER_FREE_NO_INAPP/.test(burnErr.message)) {
         fail('Get your account verified to start receiving and answering couples in the app.');

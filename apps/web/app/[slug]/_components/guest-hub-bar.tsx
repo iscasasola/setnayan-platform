@@ -1,9 +1,21 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { Camera, Images, LayoutGrid, QrCode, User, UserPlus, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import {
+  AlertTriangle,
+  Camera,
+  Images,
+  LayoutGrid,
+  QrCode,
+  RefreshCw,
+  User,
+  UserPlus,
+  X,
+} from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { rotateMyGuestQr } from '../rotate-qr-actions';
 
 // Guest event-page hub bar (owner 2026-06-26). When a guest scans their
 // personal QR they land on their own InvitationSite view; this turns that page
@@ -33,6 +45,9 @@ export function GuestHubBar({
   galleryCount,
   showClaimAnchor,
   hubHref,
+  selfRotateEnabled,
+  dayOfLive,
+  slug,
 }: {
   /** Guest personal QR token — the /papic/me/[token] bridge resolves it. */
   qrToken: string;
@@ -53,6 +68,12 @@ export function GuestHubBar({
   /** When set (event-day live/post), a top-left chip opens the fullscreen
    *  no-scroll guest hub at this href. Undefined outside the event day. */
   hubHref?: string | null;
+  /** GUEST_QR_SELF_ROTATE flag (server-resolved) — shows "Get a new QR". */
+  selfRotateEnabled?: boolean;
+  /** Event is inside the live day-of window (typed confirm required). */
+  dayOfLive?: boolean;
+  /** Route slug — the self-rotate action revalidates this path. */
+  slug?: string;
 }) {
   const [qrOpen, setQrOpen] = useState(false);
   const qrDialogRef = useRef<HTMLDivElement>(null);
@@ -61,6 +82,16 @@ export function GuestHubBar({
     onClose: () => setQrOpen(false),
     containerRef: qrDialogRef,
   });
+
+  // Self-rotation state (build ④ — flag-gated by selfRotateEnabled).
+  const router = useRouter();
+  const [rotateConfirming, setRotateConfirming] = useState(false);
+  const [rotateTyped, setRotateTyped] = useState('');
+  const [rotateStatus, setRotateStatus] = useState<'idle' | 'done' | 'rate_limited' | 'error'>(
+    'idle',
+  );
+  const [rotatePending, startRotate] = useTransition();
+  const rotateArmed = !dayOfLive || rotateTyped.trim().toUpperCase() === 'ROTATE';
 
   // Camera destination: prefer the guest's own paid roll camera, fall back to
   // the couple's candid camera, otherwise the center control is disabled.
@@ -210,6 +241,110 @@ export function GuestHubBar({
             <p className="mt-4 break-all font-mono text-[0.65rem] tracking-[0.05em] text-ink/50">
               {invitationUrl}
             </p>
+
+            {/* Guest QR self-rotation (build ④ · owner-signed: guests hold
+                rotation authority). Flag-gated server-side — the section only
+                renders when GUEST_QR_SELF_ROTATE is on. */}
+            {selfRotateEnabled ? (
+              <div className="mt-4 border-t border-ink/10 pt-3 text-left">
+                {rotateStatus === 'done' ? (
+                  <p role="status" className="text-xs text-success-700">
+                    Done — this is your new QR. Your old printed QR and old links no longer
+                    work. Your seat, RSVP, and photos are untouched.
+                  </p>
+                ) : rotateStatus === 'rate_limited' ? (
+                  <p role="alert" className="text-xs text-terracotta-700">
+                    Your QR was already replaced 3 times in the last 24 hours. Ask your host
+                    if you need it replaced again.
+                  </p>
+                ) : rotateStatus === 'error' ? (
+                  <p role="alert" className="text-xs text-terracotta-700">
+                    Something went wrong. Try again — or ask your host to replace your QR
+                    for you.
+                  </p>
+                ) : !rotateConfirming ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRotateTyped('');
+                      setRotateConfirming(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-ink/60 underline-offset-4 hover:text-terracotta hover:underline"
+                  >
+                    <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                    Lost your QR? Get a new one
+                  </button>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-xs text-ink/70">
+                      Get a new QR? Your printed QR and every old link{' '}
+                      <span className="font-semibold text-ink">stop working immediately</span> —
+                      your seat, RSVP, and photos stay. Your host will be notified.
+                    </p>
+                    {dayOfLive ? (
+                      <div className="rounded-md border border-terracotta/40 bg-terracotta/10 px-2.5 py-2 text-[0.7rem] text-terracotta-700">
+                        <p className="flex items-start gap-1 font-semibold">
+                          <AlertTriangle
+                            aria-hidden
+                            className="mt-0.5 h-3 w-3 shrink-0"
+                            strokeWidth={2}
+                          />
+                          The event is live right now.
+                        </p>
+                        <p className="mt-0.5">
+                          Your printed place card stops scanning the moment you confirm — the
+                          check-in desk can still find you by name. Type{' '}
+                          <span className="font-mono font-semibold">ROTATE</span> to confirm.
+                        </p>
+                        <input
+                          type="text"
+                          value={rotateTyped}
+                          onChange={(e) => setRotateTyped(e.target.value)}
+                          placeholder="ROTATE"
+                          aria-label="Type ROTATE to confirm"
+                          className="mt-1.5 w-full rounded border border-terracotta/40 bg-white px-2 py-1 font-mono text-xs text-ink placeholder:text-ink/30"
+                        />
+                      </div>
+                    ) : null}
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        disabled={!rotateArmed || rotatePending}
+                        onClick={() =>
+                          startRotate(async () => {
+                            try {
+                              const res = await rotateMyGuestQr(slug ?? '');
+                              if (res.ok) {
+                                setRotateStatus('done');
+                                setRotateConfirming(false);
+                                router.refresh();
+                              } else if (res.reason === 'rate_limited') {
+                                setRotateStatus('rate_limited');
+                              } else {
+                                setRotateStatus('error');
+                              }
+                            } catch {
+                              setRotateStatus('error');
+                            }
+                          })
+                        }
+                        className="inline-flex items-center gap-1 rounded-full bg-terracotta px-3 py-1.5 text-xs font-semibold text-cream transition hover:bg-terracotta-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <RefreshCw aria-hidden className="h-3 w-3" strokeWidth={2} />
+                        {rotatePending ? 'Replacing…' : 'Yes, replace my QR'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRotateConfirming(false)}
+                        className="text-xs text-ink/55 underline-offset-4 hover:text-ink hover:underline"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

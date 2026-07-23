@@ -1430,6 +1430,9 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
             ? `/${event.slug}/hub`
             : null
         }
+        selfRotateEnabled={process.env.GUEST_QR_SELF_ROTATE === 'true'}
+        dayOfLive={dayOfPhase === 'live'}
+        slug={event.slug ?? slug}
       />
     </>
   );
@@ -2099,8 +2102,9 @@ function PublicLanding({
         ) : null}
         {reason === 'invalid_invite' ? (
           <p className="mx-auto max-w-prose rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
-            That invite link doesn&rsquo;t look right. Ask the couple to send you a fresh
-            one — every guest has their own personal link.
+            That invite link doesn&rsquo;t look right — it may have been replaced with a new
+            one. Ask your host for your current QR or link; every guest has their own, and
+            an old one stops working the moment it&rsquo;s replaced.
           </p>
         ) : reason === 'wrong_event' ? (
           <p className="mx-auto max-w-prose rounded-md border border-warn-300 bg-warn-50 px-4 py-3 text-sm text-warn-900">

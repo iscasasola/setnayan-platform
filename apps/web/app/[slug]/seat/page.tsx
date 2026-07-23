@@ -131,7 +131,19 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
         .maybeSingle(),
     ]);
 
-    if (!guestRow && !tableRow) notFound();
+    // Dead token — fail CLOSED with a helpful landing instead of a bare 404.
+    // The most likely cause is a rotated QR (build ④): the old code died the
+    // moment it was replaced, and only the current QR gets you in.
+    if (!guestRow && !tableRow) {
+      return (
+        <SeatPassShell displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+          <PromptCard
+            title="This QR code isn’t active"
+            body="It may have been replaced with a new one. If it’s a guest’s personal QR, ask the guest for their current QR — hosts can also reprint it from their dashboard. At the door, the check-in desk can always find guests by name."
+          />
+        </SeatPassShell>
+      );
+    }
 
     // Personal token → never render it directly. Hand off to the claim hop,
     // which consumes the token, signs the guest-session cookie, and redirects

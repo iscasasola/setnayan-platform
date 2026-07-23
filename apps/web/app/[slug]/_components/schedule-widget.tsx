@@ -10,7 +10,7 @@ import {
   type ScheduleBlockRow,
 } from '@/lib/schedule';
 import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
-import type { RunOfShowBlock } from '@/lib/run-of-show';
+import { pickTriggerNowNext, type RunOfShowBlock } from '@/lib/run-of-show';
 import { ProgressRing } from '@/app/_components/progress-ring';
 
 type Props = {
@@ -18,6 +18,21 @@ type Props = {
   /** Event's IANA timezone (from venue coords) — times render in the viewer's
    *  own local time relative to this. */
   eventTz: string;
+  /**
+   * NEXT_PUBLIC_GUEST_NOW_TRIGGER (resolved server-side, owner directive
+   * 2026-07-23): when true AND the host/coordinator has started the run of
+   * show, the per-block "Happening now" / "Up next" badges + progress ring
+   * follow run_state instead of the wall clock — so they can no longer
+   * contradict the RunOfShowHeader rendered directly above them. Wall clock
+   * stays the fallback while everything is still 'upcoming'.
+   */
+  nowTrigger?: boolean;
+  /**
+   * RSVP-season labeling (same flag, resolved server-side): true during the
+   * pre/inactive phases — the schedule is the couple's plan, not a live
+   * program, and is labeled "Estimated" per the owner directive.
+   */
+  estimated?: boolean;
 };
 
 /**
@@ -28,7 +43,7 @@ type Props = {
  *   • up next — first block whose start_at is in the future
  * Everything else is rendered in muted ink.
  */
-export function ScheduleWidget({ blocks, eventTz }: Props) {
+export function ScheduleWidget({ blocks, eventTz, nowTrigger = false, estimated = false }: Props) {
   const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -70,7 +85,20 @@ export function ScheduleWidget({ blocks, eventTz }: Props) {
   const nowMs = now?.getTime() ?? 0;
   let currentIndex = -1;
   let upNextIndex = -1;
-  if (now) {
+  // Run-state trigger read (owner directive 2026-07-23): once the host /
+  // coordinator has started the show, the pointer wins over the wall clock.
+  // pickTriggerNowNext returns null while everything is 'upcoming' (or a
+  // private live block hides the pointer AND nothing visible is done) — then
+  // the wall-clock inference below runs exactly as before.
+  const triggerPick = nowTrigger ? pickTriggerNowNext(ordered) : null;
+  if (triggerPick) {
+    currentIndex = triggerPick.current
+      ? ordered.findIndex((b) => b.block_id === triggerPick.current!.block_id)
+      : -1;
+    upNextIndex = triggerPick.next
+      ? ordered.findIndex((b) => b.block_id === triggerPick.next!.block_id)
+      : -1;
+  } else if (now) {
     for (let i = 0; i < ordered.length; i++) {
       const block = ordered[i];
       if (!block) continue;
@@ -89,14 +117,17 @@ export function ScheduleWidget({ blocks, eventTz }: Props) {
   // done once its virtual end (explicit or the next block's start) has passed.
   // Only surfaced once the program has actually begun so it's a live pulse, not
   // a pre-event 0%. Palette-driven ring (couple accent), never dashboard wine.
-  const completed = now
-    ? ordered.reduce((n, _b, i) => {
-        const end = ends[i];
-        return end !== null && end !== undefined && end <= nowMs ? n + 1 : n;
-      }, 0)
-    : 0;
+  const completed = triggerPick
+    ? ordered.filter((b) => b.run_state === 'done').length
+    : now
+      ? ordered.reduce((n, _b, i) => {
+          const end = ends[i];
+          return end !== null && end !== undefined && end <= nowMs ? n + 1 : n;
+        }, 0)
+      : 0;
   const total = ordered.length;
-  const programBegun = now !== null && (currentIndex >= 0 || completed > 0);
+  const programBegun =
+    triggerPick !== null || (now !== null && (currentIndex >= 0 || completed > 0));
   const progressPct = total > 0 ? (completed / total) * 100 : 0;
 
   // Run-of-show header — read-only for guests (no advance control). Driven by
@@ -128,6 +159,16 @@ export function ScheduleWidget({ blocks, eventTz }: Props) {
           <h2 className="font-serif text-2xl italic leading-tight tracking-tight text-ink">
             The run of show
           </h2>
+          {estimated && !triggerPick ? (
+            /* RSVP-season honesty (owner directive 2026-07-23): before the
+               day, these times are the couple's plan — not a live program.
+               Suppressed the moment the host actually starts the run of show
+               (early start edge) — a live pointer and an "Estimated" label
+               would contradict each other. */
+            <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50">
+              Estimated program · times may shift on the day
+            </p>
+          ) : null}
         </div>
         {programBegun ? (
           <ProgressRing

@@ -36,7 +36,7 @@ export default function PrivacyPage() {
             How we handle your data
           </h1>
           <p className="text-xs text-ink/55">
-            Effective 2026-05-13 · last updated 2026-07-17 · subject to RA 10173 (Philippines Data Privacy Act)
+            Effective 2026-05-13 · last updated 2026-07-23 · subject to RA 10173 (Philippines Data Privacy Act)
           </p>
         </header>
 
@@ -369,6 +369,47 @@ export default function PrivacyPage() {
             When you chat with a Setnayan vendor, the vendor sees only your event display
             name and date — never your email or personal name unless you choose to share.
             This is a load-bearing product rule.
+          </p>
+        </Section>
+
+        <Section title="Coordinators you invite (delegated access)">
+          <p>
+            You can invite a <strong>coordinator</strong> to help plan your event. A
+            coordinator is someone on your side — a planner, a family member, a friend —
+            not a Setnayan employee. Before they get any access, they accept a consent
+            screen that names exactly what they will be able to see and do: your{' '}
+            <strong>guest list, seating, schedule, and your chats with vendors</strong>.
+          </p>
+          <p className="pt-2">
+            Two abilities are <strong>off by default</strong> and only turn on if you
+            explicitly grant them: <strong>&ldquo;Can finalize vendors&rdquo;</strong>{' '}
+            (lock in a vendor choice for you) and{' '}
+            <strong>&ldquo;Can handle payments&rdquo;</strong> (complete an apply-then-pay
+            checkout on your behalf). Even with the payments scope,{' '}
+            <strong>Setnayan never holds, moves, or records the transfer of any money</strong>
+            {' '}— the coordinator only prepares the same off-platform payment you would,
+            and settlement happens directly between you and the vendor.
+          </p>
+          <p className="pt-2">
+            A coordinator can also <strong>draft schedule items privately and release them
+            to you</strong> when ready; drafts stay hidden from you, your guests, and your
+            vendors until the coordinator releases them.
+          </p>
+          <p className="pt-2">
+            <strong>Lawful basis &amp; your control.</strong> We process this on your consent
+            (captured on that invite screen) and the planning contract (RA 10173 &sect;&nbsp;12(a)
+            and &sect;&nbsp;12(b)). You can <strong>narrow or revoke</strong> a
+            coordinator&rsquo;s access at any time, and revoking it takes effect going
+            forward. Objections go to our{' '}
+            <Link href="/help" className="text-terracotta hover:underline">
+              Help Center
+            </Link>{' '}
+            or our Data Protection Officer (above).
+          </p>
+          <p className="pt-2">
+            <strong>What we do not do here:</strong> a coordinator never receives your face
+            or biometric data, and their access is scoped to the one event you invited them
+            to — never across your other events.
           </p>
         </Section>
 

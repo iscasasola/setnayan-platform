@@ -67,13 +67,13 @@ export const CONTROL_COVERAGE: Record<PrivacyControlKey, ControlCoverage> = {
   },
   coordinator_consent_money: {
     privacySensitive: true,
-    declaredIn: [],
-    note: 'NEW (2026-07-21) — not yet in the filing. Add a ROPA activity for coordinator access to guest PII + money authority.',
+    declaredIn: ['ropa'],
+    note: 'Declared: ROPA DPS-14 (Coordinator Delegated Access) + the public /privacy "Coordinators you invite" section. Money scopes are opt-in and keep the platform-wide "Setnayan never holds/moves money" stance; confirm the DPO ruling before activating.',
   },
   coordinator_prep_release: {
     privacySensitive: true,
-    declaredIn: [],
-    note: 'NEW (2026-07-21) — not yet in the filing. Add a ROPA line for a coordinator’s staged access to planning data.',
+    declaredIn: ['ropa'],
+    note: 'Declared: ROPA DPS-14 (Coordinator Delegated Access) — the prep-then-release staged-schedule access + the public /privacy "Coordinators you invite" section.',
   },
   coordinator_run_of_show: {
     privacySensitive: false,
@@ -87,13 +87,13 @@ export const CONTROL_COVERAGE: Record<PrivacyControlKey, ControlCoverage> = {
   },
   vendor_ai_autoreply: {
     privacySensitive: true,
-    declaredIn: [],
-    note: 'Automated processing of couple chat + Event Brief on the vendor’s behalf. NOT yet declared — needs a /privacy Vendor-AI section + a ROPA entry + DPO sign-off. Held fail-closed by the data-privacy control until then.',
+    declaredIn: ['ropa'],
+    note: 'Declared: ROPA DPS-13 (Vendor AI Assistant) + the public /privacy "Vendor AI assistant (automated replies)" section (§34 automated-processing basis, "⚡ AI auto-reply" label). Held fail-closed by the control until DPO sign-off.',
   },
   vendor_deep_search: {
     privacySensitive: true,
-    declaredIn: [],
-    note: 'AI web-research (Anthropic web_search subprocessor) + dossier storage. NOT yet declared — needs a /privacy Deep-Search section, a retention limit (180-day TTL), + a ROPA entry + DPO review. Held fail-closed by the data-privacy control until then.',
+    declaredIn: ['ropa'],
+    note: 'Declared: ROPA DPS-13 (Vendor AI Assistant) + the public /privacy "Vendor Deep Search" section (Anthropic web_search subprocessor, 180-day dossier TTL, §12(f)). Held fail-closed by the control until DPO sign-off.',
   },
   antifraud_trust_signals: {
     privacySensitive: true,

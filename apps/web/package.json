@@ -24,10 +24,10 @@
     "seed:demo-vendors": "tsx scripts/seed-demo-vendors.ts",
     "host:face-models": "node scripts/host-face-models.mjs",
     "capture:demos": "node scripts/capture-demo-videos.mjs",
-    "test:unit": "tsx --test \"lib/**/*.test.ts\"",
+    "test:unit": "tsx --test \"lib/**/*.test.ts\" \"app/**/*.test.ts\"",
     "test:db": "tsx --test \"tests/db/*.db.test.ts\"",
     "test:event-type-coverage": "tsx --test tests/db/event-type-coverage.db.test.ts",
-    "test:db:ci": "tsx --test tests/db/event-type-coverage.db.test.ts tests/db/vendor-price-history-trigger.db.test.ts",
+    "test:db:ci": "tsx --test \"tests/db/*.db.test.ts\"",
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test"
   },

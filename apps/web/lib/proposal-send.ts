@@ -18,7 +18,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import {
   bookingFeeSendGate,
   bookingFeeAttribution,
-  isBookingFeeEnforced,
 } from '@/lib/booking-fee-charge';
 
 /**
@@ -297,11 +296,12 @@ export async function sendProposalCore(
     .single();
   if (insErr || !inserted) return { ok: false, code: 'failed', message: 'Couldn’t send that proposal. Please try again.' };
 
-  // 5b · Booking-fee prepaid gate. Inert unless ENFORCED (flag on + live Maya
-  // rail); until then this whole block is skipped and the send is unchanged. When
-  // enforced and the fee is unpaid, the draft is left in place (not deleted) so
-  // checkout (PR-4) can complete the send for this same proposal.
-  if (isBookingFeeEnforced()) {
+  // 5b · Booking-fee prepaid gate. Self-guarding: the gate returns cleared unless
+  // the fee is ENFORCED (enabled + a live rail — env flags OR the admin DB toggle
+  // + PayMongo creds), so when off the send is unchanged. When enforced and the
+  // fee is unpaid, the draft is left in place (not deleted) so checkout can
+  // complete the send for this same proposal.
+  {
     const feeGate = await bookingFeeSendGate(createAdminClient(), {
       proposalId: inserted.proposal_id,
       attribution: bookingFeeAttribution(thread.inquiry_source),
@@ -518,9 +518,9 @@ export async function sendCustomProposalCore(
     .single();
   if (insErr || !inserted) return { ok: false, code: 'failed', message: 'Couldn’t send that quote. Please try again.' };
 
-  // Booking-fee prepaid gate (see sendProposalCore). Inert unless enforced; on an
-  // unpaid fee the draft is left for checkout (PR-4) to complete.
-  if (isBookingFeeEnforced()) {
+  // Booking-fee prepaid gate (see sendProposalCore). Self-guarding — cleared
+  // unless enforced; on an unpaid fee the draft is left for checkout to complete.
+  {
     const feeGate = await bookingFeeSendGate(createAdminClient(), {
       proposalId: inserted.proposal_id,
       attribution: bookingFeeAttribution(thread.inquiry_source),

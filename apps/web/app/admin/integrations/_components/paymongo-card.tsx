@@ -1,5 +1,9 @@
-import { KeyRound, ShieldAlert, Webhook } from 'lucide-react';
-import { savePaymongoConfig, clearPaymongoSecrets } from '../actions';
+import { KeyRound, ShieldAlert, Webhook, Power } from 'lucide-react';
+import {
+  savePaymongoConfig,
+  clearPaymongoSecrets,
+  setBookingFeeCollectionEnabled,
+} from '../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 
 // Integration Activation Console — PayMongo (booking-fee rail). TWO secrets: the
@@ -14,13 +18,16 @@ export function PaymongoCard({
   webhookInDb,
   secretInEnv,
   webhookInEnv,
+  collectionEnabled,
 }: {
   secretInDb: boolean;
   webhookInDb: boolean;
   secretInEnv: boolean;
   webhookInEnv: boolean;
+  collectionEnabled: boolean;
 }) {
   const keysReady = (secretInDb || secretInEnv) && (webhookInDb || webhookInEnv);
+  const live = keysReady && collectionEnabled;
   return (
     <section className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5">
       <div className="flex items-center justify-between gap-2">
@@ -30,10 +37,14 @@ export function PaymongoCard({
         </h3>
         <span
           className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ${
-            keysReady ? 'bg-emerald-100 text-emerald-900' : 'bg-ink/10 text-ink/70'
+            live
+              ? 'bg-emerald-100 text-emerald-900'
+              : keysReady
+                ? 'bg-amber-100 text-amber-900'
+                : 'bg-ink/10 text-ink/70'
           }`}
         >
-          {keysReady ? 'Rail ready' : 'No keys'}
+          {live ? 'Live · collecting' : keysReady ? 'Keys ready · off' : 'No keys'}
         </span>
       </div>
 
@@ -102,6 +113,38 @@ export function PaymongoCard({
           </SubmitButton>
         </form>
       ) : null}
+
+      <form
+        action={setBookingFeeCollectionEnabled}
+        className="flex items-center justify-between gap-3 rounded-lg border-t border-ink/10 pt-4"
+      >
+        <input type="hidden" name="enabled" value={collectionEnabled ? '0' : '1'} />
+        <div>
+          <p className="inline-flex items-center gap-1.5 text-sm font-medium text-ink">
+            <Power aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Fee collection: {collectionEnabled ? 'ON' : 'OFF'}
+          </p>
+          <p className="mt-0.5 text-xs text-ink/55">
+            {collectionEnabled
+              ? keysReady
+                ? 'Live — sourced proposals are charged when sent.'
+                : 'On, but idle until PayMongo keys are added above.'
+              : keysReady
+                ? 'Keys are ready. Turn on to start collecting — no redeploy.'
+                : 'Add the keys above, then turn this on to go live.'}
+          </p>
+        </div>
+        <SubmitButton
+          pendingLabel={collectionEnabled ? 'Turning off…' : 'Turning on…'}
+          className={`shrink-0 inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+            collectionEnabled
+              ? 'border border-ink/15 bg-cream text-ink/70 hover:border-rose-300 hover:text-rose-700'
+              : 'bg-emerald-600 text-white hover:bg-emerald-700'
+          }`}
+        >
+          {collectionEnabled ? 'Turn off' : 'Turn on'}
+        </SubmitButton>
+      </form>
 
       <p className="inline-flex items-start gap-2 text-xs text-ink/55">
         <ShieldAlert aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />

@@ -9,7 +9,7 @@ import { resolveTokens, type ProposalLineItem } from '@/lib/vendor-proposals';
 import {
   bookingFeeSendGate,
   bookingFeeAttribution,
-  isBookingFeeEnforced,
+  isBookingFeeEnforcedServer,
 } from '@/lib/booking-fee-charge';
 import {
   resolveProposalValues,
@@ -171,12 +171,12 @@ export async function sendProposal(formData: FormData) {
   const proposalId = String(formData.get('proposal_id') ?? '');
   const publicId = String(formData.get('public_id') ?? '');
 
-  // Booking-fee prepaid gate — skipped entirely unless ENFORCED (flag on + live
-  // Maya rail). Resolve the (vendor, event) thread for attribution, then block the
-  // send (no flip) when the fee is unpaid; the draft persists so the vendor can pay
-  // via checkout (PR-4) and re-send this same draft.
-  if (isBookingFeeEnforced()) {
-    const admin = createAdminClient();
+  // Booking-fee prepaid gate — skipped entirely unless ENFORCED (env flags OR the
+  // admin DB toggle + PayMongo creds). Resolve the (vendor, event) thread for
+  // attribution, then block the send (no flip) when the fee is unpaid; the draft
+  // persists so the vendor can pay via checkout and re-send this same draft.
+  const admin = createAdminClient();
+  if (await isBookingFeeEnforcedServer(admin)) {
     const { data: prop } = await admin
       .from('vendor_proposals')
       .select('event_id, vendor_profile_id')

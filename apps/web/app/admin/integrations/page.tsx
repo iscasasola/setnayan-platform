@@ -397,6 +397,9 @@ export default async function AdminIntegrationsPage({
           webhookInDb={secretPresence[PAYMONGO_INTEGRATION.webhookSecretColumn] ?? false}
           secretInEnv={Boolean(process.env[PAYMONGO_INTEGRATION.secretKeyEnv])}
           webhookInEnv={Boolean(process.env[PAYMONGO_INTEGRATION.webhookSecretEnv])}
+          collectionEnabled={Boolean(
+            (oauthSettings as Record<string, unknown> | null)?.booking_fee_collection_enabled,
+          )}
         />
       </section>
 

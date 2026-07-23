@@ -322,3 +322,17 @@ export async function clearPaymongoSecrets(): Promise<void> {
   revalidatePath('/admin/integrations');
   redirect('/admin/integrations?cleared=1');
 }
+
+// The admin go-live toggle for booking-fee collection (platform_settings). Paired
+// with the PayMongo keys above: enforcement needs BOTH this ON and the rail live.
+export async function setBookingFeeCollectionEnabled(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const admin = createAdminClient();
+  const enabled = formData.get('enabled') === '1';
+  await admin
+    .from('platform_settings')
+    .update({ booking_fee_collection_enabled: enabled })
+    .eq('id', 1);
+  revalidatePath('/admin/integrations');
+  redirect('/admin/integrations?saved=1');
+}

@@ -43,6 +43,11 @@ test('mobile without the leading 0 is blocked', () => {
   assert.equal(blocked('9178807163'), true);
 });
 
+test('"O"-for-zero and other long/intl formats are blocked', () => {
+  assert.equal(blocked('O917-880-7163'), true); // letter O for 0
+  assert.equal(blocked('+1 202 555 0199'), true); // 11-digit international
+});
+
 // -- Email / link / handle ---------------------------------------------------
 
 test('email is blocked', () => {
@@ -91,6 +96,14 @@ test('two unrelated numbers far apart are not fused into a phone', () => {
     blocked('We expect 150 guests. Our all-in budget is around 80000 pesos.'),
     false,
   );
+});
+
+test('a comma-separated number list is not fused into a phone', () => {
+  assert.equal(blocked('table counts: 5, 10, 3, 200, 50, 99, 12'), false);
+});
+
+test('a date with a time is not read as a phone', () => {
+  assert.equal(blocked('let us meet on 2026-09-17 14:30 at the venue'), false);
 });
 
 test('ordinary words containing app substrings are allowed', () => {

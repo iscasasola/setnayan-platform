@@ -105,14 +105,29 @@ const PHONE_SHAPE = /(?:0|63)?9\d{9}/;
 
 function containsPhone(raw: string): boolean {
   const normalized = spelledDigitsToNumerals(raw);
-  // Collapse each non-digit run: short (<= gap) -> removed (fuse the digits),
-  // long -> a newline break. Then test each digit group for a phone shape.
-  const collapsed = normalized.replace(/[^\d]+/g, (run) =>
+
+  // Tier 1 — PH mobile shape, tolerating short filler (incl. a few words)
+  // between the digits. Collapse each non-digit run: short (<= gap) -> removed
+  // (fuse the digits), long -> a break. Catches 0917 880 7163 / 0 9 1 7 ... /
+  // 0917 my number is 8807163 / spelled-out / +63.
+  const t1 = normalized.replace(/[^\d]+/g, (run) =>
     run.length <= PHONE_FILLER_GAP ? '' : '\n',
   );
-  for (const group of collapsed.split('\n')) {
+  for (const group of t1.split('\n')) {
     if (group.length >= 10 && PHONE_SHAPE.test(group)) return true;
   }
+
+  // Tier 2 — a densely written number of 11+ digits using ONLY tight phone
+  // separators (space, parens, +, -). Catches international / long numbers that
+  // aren't PH-mobile-shaped ("or other" · owner). Commas, colons, slashes, and
+  // letters BREAK the run — so a number list ("5, 10, 3, 200, 50") and a
+  // datetime ("2026-09-17 14:30") don't fuse into a false hit. The 11-digit
+  // floor (not 10) keeps a date+hour from tripping it.
+  const t2 = normalized.replace(/[\s().+-]{1,2}/g, '');
+  for (const group of t2.split(/\D+/)) {
+    if (group.length >= 11) return true;
+  }
+
   return false;
 }
 

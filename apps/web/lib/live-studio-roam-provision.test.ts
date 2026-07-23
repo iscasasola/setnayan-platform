@@ -12,7 +12,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildRoamManifest, type RoamStreamRow, type RoamZoneRow } from './panood-roam-provision';
+import { buildRoamManifest, type RoamStreamRow, type RoamZoneRow } from './live-studio-roam-provision';
 
 const VID_A = 'dQw4w9WgXcQ';
 const VID_B = 'abcdefghijk';

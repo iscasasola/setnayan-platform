@@ -7,9 +7,9 @@
  * as the default landing view. This is the "guests wander the venue" experience.
  *
  * Self-contained + presentational: it renders whatever manifest it is given
- * (events.panood_roam_manifest, parsed via parseRoamManifest server-side) and
+ * (events.live_studio_roam_manifest, parsed via parseRoamManifest server-side) and
  * owns only the "which zone is selected" state. The PAGE decides whether to mount
- * it at all — gated on panoodRoamEnabled() AND a non-empty manifest — so when the
+ * it at all — gated on liveStudioRoamEnabled() AND a non-empty manifest — so when the
  * flag is off or no ROAM streams exist, this never renders and the page falls back
  * to the CAST single embed (WatchLiveBlock). Returns null on an empty manifest as
  * a belt-and-braces guard.
@@ -25,7 +25,7 @@ import {
   selectFeaturedZone,
   type RoamManifest,
   type RoamZoneManifestEntry,
-} from '@/lib/panood-roam';
+} from '@/lib/live-studio-roam';
 import { youTubeEmbedUrl } from '@/lib/panood-watch';
 
 export function RoamWatchPicker({ manifest }: { manifest: RoamManifest }) {

@@ -1,6 +1,6 @@
 /**
  * Live Studio ROAM pure-logic invariants (Node built-in test runner, run via
- * tsx). Guards the deterministic, Supabase-free half of lib/panood-roam.ts — the
+ * tsx). Guards the deterministic, Supabase-free half of lib/live-studio-roam.ts — the
  * public-manifest parsing + selection helpers the event-page picker relies on:
  *
  *   1. PARSE — parseRoamManifest() is an injection barrier: every entry must
@@ -8,7 +8,7 @@
  *      the result is stably ordered by zoneIndex.
  *   2. SELECT — selectFeaturedZone() lands on featured → first-live → first → null.
  *   3. GROUP — groupZonesByVenue() buckets by venue, preserving order.
- *   4. FLAG — panoodRoamEnabled() is strict-'true' gated (default OFF).
+ *   4. FLAG — liveStudioRoamEnabled() is strict-'true' gated (default OFF).
  *
  * Run: `pnpm test:unit`  (CI: the "unit tests" step).
  */
@@ -17,11 +17,11 @@ import assert from 'node:assert/strict';
 
 import {
   groupZonesByVenue,
-  panoodRoamEnabled,
+  liveStudioRoamEnabled,
   parseRoamManifest,
   selectFeaturedZone,
   type RoamManifest,
-} from './panood-roam';
+} from './live-studio-roam';
 
 const VID_A = 'dQw4w9WgXcQ'; // 11 chars — valid
 const VID_B = 'abcdefghijk'; // 11 chars — valid
@@ -134,19 +134,19 @@ test('groupZonesByVenue puts venue-less zones under a null group', () => {
 
 // ── 4. Flag ───────────────────────────────────────────────────────────────
 
-test('panoodRoamEnabled is strict-true gated (default OFF)', () => {
-  const prev = process.env.NEXT_PUBLIC_PANOOD_ROAM_ENABLED;
+test('liveStudioRoamEnabled is strict-true gated (default OFF)', () => {
+  const prev = process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED;
   try {
-    delete process.env.NEXT_PUBLIC_PANOOD_ROAM_ENABLED;
-    assert.equal(panoodRoamEnabled(), false);
-    process.env.NEXT_PUBLIC_PANOOD_ROAM_ENABLED = 'false';
-    assert.equal(panoodRoamEnabled(), false);
-    process.env.NEXT_PUBLIC_PANOOD_ROAM_ENABLED = '1';
-    assert.equal(panoodRoamEnabled(), false); // only the literal 'true' enables
-    process.env.NEXT_PUBLIC_PANOOD_ROAM_ENABLED = 'true';
-    assert.equal(panoodRoamEnabled(), true);
+    delete process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED;
+    assert.equal(liveStudioRoamEnabled(), false);
+    process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED = 'false';
+    assert.equal(liveStudioRoamEnabled(), false);
+    process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED = '1';
+    assert.equal(liveStudioRoamEnabled(), false); // only the literal 'true' enables
+    process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED = 'true';
+    assert.equal(liveStudioRoamEnabled(), true);
   } finally {
-    if (prev === undefined) delete process.env.NEXT_PUBLIC_PANOOD_ROAM_ENABLED;
-    else process.env.NEXT_PUBLIC_PANOOD_ROAM_ENABLED = prev;
+    if (prev === undefined) delete process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED;
+    else process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED = prev;
   }
 });

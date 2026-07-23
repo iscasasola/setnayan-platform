@@ -59,9 +59,9 @@ test('bookingFeeAttribution: null / unknown / non-billable → import (free)', (
   assert.equal(bookingFeeAttribution('degree'), 'import'); // not in the billable set
 });
 
-test('isBookingFeeEnforced: TWO-KEY — needs both the flag AND Maya APPROVED', () => {
+test('isBookingFeeEnforced: TWO-KEY — needs both the flag AND a live rail', () => {
   withEnv(
-    { NEXT_PUBLIC_BOOKING_FEE_ENABLED: undefined, NEXT_PUBLIC_MAYA_STATUS: undefined },
+    { NEXT_PUBLIC_BOOKING_FEE_ENABLED: undefined, NEXT_PUBLIC_BOOKING_FEE_RAIL_LIVE: undefined },
     () => {
       assert.equal(isBookingFeeEnforced(), false); // neither
 
@@ -69,7 +69,7 @@ test('isBookingFeeEnforced: TWO-KEY — needs both the flag AND Maya APPROVED', 
       assert.equal(isBookingFeeEnabled(), true);
       assert.equal(isBookingFeeEnforced(), false); // flag on, no rail → NOT enforced
 
-      process.env.NEXT_PUBLIC_MAYA_STATUS = 'APPROVED';
+      process.env.NEXT_PUBLIC_BOOKING_FEE_RAIL_LIVE = 'true';
       assert.equal(isBookingFeeEnforced(), true); // both keys → enforced
 
       delete process.env.NEXT_PUBLIC_BOOKING_FEE_ENABLED;

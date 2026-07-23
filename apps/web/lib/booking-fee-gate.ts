@@ -16,15 +16,26 @@ export function isBookingFeeEnabled(): boolean {
 }
 
 /**
+ * Whether a payment rail is live enough to actually collect a fee. The chosen
+ * rail is PayMongo (owner 2026-07-23, superseding Maya). Rail-AGNOSTIC by design:
+ * the owner flips this one flag once the rail is KYC-approved AND the checkout
+ * (PR-4) is wired — the gate doesn't care which gateway settles the charge.
+ */
+function isBookingFeeRailLive(): boolean {
+  const v = process.env.NEXT_PUBLIC_BOOKING_FEE_RAIL_LIVE;
+  return v === 'true' || v === '1' || v === 'TRUE';
+}
+
+/**
  * TWO-KEY enforcement. The gate only ever blocks a send when BOTH the feature
- * flag is on AND a live payment rail exists (Maya APPROVED). Without a rail there
- * is no way to pay a computed fee, so a hard gate would trap a sourced vendor's
- * proposal unsendable — the exact harm the model exists to remove. So the flag
- * alone is inert; enforcement wakes only once the owner has done Maya KYC (and
- * shipped the checkout, PR-4).
+ * flag is on AND a live payment rail exists. Without a rail there is no way to pay
+ * a computed fee, so a hard gate would trap a sourced vendor's proposal
+ * unsendable — the exact harm the model exists to remove. So the flag alone is
+ * inert; enforcement wakes only once the owner has done PayMongo KYC and shipped
+ * the checkout (PR-4), then flipped NEXT_PUBLIC_BOOKING_FEE_RAIL_LIVE.
  */
 export function isBookingFeeEnforced(): boolean {
-  return isBookingFeeEnabled() && process.env.NEXT_PUBLIC_MAYA_STATUS === 'APPROVED';
+  return isBookingFeeEnabled() && isBookingFeeRailLive();
 }
 
 /**

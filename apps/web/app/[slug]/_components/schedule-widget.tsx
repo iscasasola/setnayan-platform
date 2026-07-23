@@ -165,7 +165,7 @@ export function ScheduleWidget({ blocks, eventTz, nowTrigger = false, estimated 
                Suppressed the moment the host actually starts the run of show
                (early start edge) — a live pointer and an "Estimated" label
                would contradict each other. */
-            <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50">
+            <p className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
               Estimated program · times may shift on the day
             </p>
           ) : null}

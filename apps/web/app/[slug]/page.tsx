@@ -117,6 +117,13 @@ import { getGuestLiveGallery, type GuestLiveGallery } from '@/lib/guest-live-gal
 import { fetchEventVendorCredits } from '@/lib/event-vendor-credits';
 import type { VendorCard } from '@/lib/vendor-cards';
 import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
+import {
+  fetchRoamManifest,
+  panoodRoamEnabled,
+  selectFeaturedZone,
+  type RoamManifest,
+} from '@/lib/panood-roam';
+import { RoamWatchPicker } from './_components/roam-watch-picker';
 import { GuestHubCard, pickNextScheduleBlock, type GuestHubData } from './_components/guest-hub-card';
 import { fetchEntrance, type EntrancePos } from '@/lib/indoor-blueprint';
 import { fetchTables, type EventTableRow } from '@/lib/seating';
@@ -124,7 +131,7 @@ import { YourSeatBlock } from './_components/your-seat-block';
 
 /** Panood Watch-Live data for the day-of page (shown whenever a watch URL is
  *  staged — single-cam Panood live is free for every host). */
-type WatchLiveData = { embedUrl: string; watchUrl: string };
+type WatchLiveData = { embedUrl: string; watchUrl: string; roam?: RoamManifest };
 
 /** Live Photo Wall data threaded into the day-of page (LIVE_WALL owners only). */
 type LiveWallData = {
@@ -899,6 +906,28 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
           watchLive = { embedUrl: youTubeEmbedUrl(videoId), watchUrl };
         }
       }
+      // Live Studio ROAM (flag-dark, default OFF): when the couple owns a
+      // multi-camera Roam broadcast, the public manifest (events.panood_roam_manifest,
+      // mirrored non-secret) turns the single embed into a camera/zone picker. The
+      // featured zone becomes the fallback embedUrl so every existing `watchLive`
+      // gate keeps firing even for a Roam-only event (no CAST watch URL). When the
+      // flag is off (prod default), this whole block is skipped and CAST behavior
+      // is byte-for-byte unchanged. Graceful-degrades to [] pre-migration.
+      if (panoodRoamEnabled()) {
+        const roam = await fetchRoamManifest(admin, event.event_id);
+        const featured = selectFeaturedZone(roam);
+        if (featured) {
+          try {
+            watchLive = {
+              embedUrl: youTubeEmbedUrl(featured.videoId),
+              watchUrl: `https://www.youtube.com/watch?v=${featured.videoId}`,
+              roam,
+            };
+          } catch {
+            // invalid featured id — keep any CAST watchLive as-is
+          }
+        }
+      }
     } catch {
       liveWall = null;
       watchLive = null;
@@ -1607,6 +1636,12 @@ type GuestRow = {
  * iframe src is structurally a YouTube embed, never raw user input.
  */
 function WatchLiveBlock({ watchLive }: { watchLive: WatchLiveData }) {
+  // Live Studio ROAM: when a multi-camera manifest is present, render the
+  // camera/zone/venue picker instead of the single directed embed. Reuses this
+  // block's existing render sites (day-of + landing), so no prop-threading change.
+  if (watchLive.roam && watchLive.roam.length > 0) {
+    return <RoamWatchPicker manifest={watchLive.roam} />;
+  }
   return (
     <section
       aria-label="Watch the celebration live"

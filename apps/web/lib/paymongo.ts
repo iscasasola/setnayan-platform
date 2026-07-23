@@ -1,9 +1,11 @@
 import 'server-only';
+import { resolvePaymongoConfig } from '@/lib/integration-config';
 
 /**
  * PayMongo REST client — booking-fee Checkout Sessions (owner-chosen rail
- * 2026-07-23). DORMANT until PAYMONGO_SECRET_KEY is set: isPaymongoConfigured()
- * gates every call, so nothing hits the network until the owner provisions keys.
+ * 2026-07-23). Credentials resolve DB-first (the /admin/integrations card writes
+ * them encrypted) with env fallback, so pasting the key applies live with no
+ * redeploy. DORMANT until a secret key is present.
  *
  * Auth is HTTP Basic with the secret key as username + EMPTY password
  * (`base64("sk_...:")`). Amounts are integer CENTAVOS.
@@ -11,13 +13,14 @@ import 'server-only';
 
 const PAYMONGO_API = 'https://api.paymongo.com';
 
-export function isPaymongoConfigured(): boolean {
-  return Boolean(process.env.PAYMONGO_SECRET_KEY);
+/** Configured when a secret key is resolvable (DB or env). Async — reads the DB. */
+export async function isPaymongoConfigured(): Promise<boolean> {
+  const { secretKey } = await resolvePaymongoConfig();
+  return Boolean(secretKey);
 }
 
-function authHeader(): string {
-  const key = process.env.PAYMONGO_SECRET_KEY ?? '';
-  return 'Basic ' + Buffer.from(`${key}:`).toString('base64');
+function authHeader(secretKey: string): string {
+  return 'Basic ' + Buffer.from(`${secretKey}:`).toString('base64');
 }
 
 export type CheckoutMethod = 'gcash' | 'card' | 'paymaya' | 'grab_pay' | 'qrph';
@@ -51,13 +54,14 @@ export async function createBookingFeeCheckout(args: {
   /** Stable per-charge key so a retry doesn't mint a second session. */
   idempotencyKey: string;
 }): Promise<CreateCheckoutResult> {
-  if (!isPaymongoConfigured()) return null;
   if (!Number.isInteger(args.amountCentavos) || args.amountCentavos <= 0) return null;
+  const { secretKey } = await resolvePaymongoConfig();
+  if (!secretKey) return null;
   try {
     const res = await fetch(`${PAYMONGO_API}/v2/checkout_sessions`, {
       method: 'POST',
       headers: {
-        Authorization: authHeader(),
+        Authorization: authHeader(secretKey),
         'Content-Type': 'application/json',
         'Idempotency-Key': args.idempotencyKey,
       },

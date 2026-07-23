@@ -28,6 +28,7 @@ import { enqueueOfflineItem } from '../db';
 import type { OfflineItem, SyncResult } from '../types';
 import { deliverCapture, type PapicSinkDeps } from '../../camera-bridge/papic-sink';
 import type { CapturedFile } from '../../camera-bridge/types';
+import type { PapicGeoInput } from '../../papic-geo';
 
 /**
  * Queue payload contract — written by the seat capture UI's enqueue helper,
@@ -41,6 +42,10 @@ export interface PapicSeatQueuePayload {
   captured_at_ms: number;
   duration_ms?: number;
   bytes: Blob | ArrayBuffer;
+  /** Location fix captured at shutter time (papic_geo_metadata). Carried through
+   *  the offline queue so a fix isn't lost when a capture drains later; the server
+   *  re-gates on the control at record time. undefined = no fix carried. */
+  geo?: PapicGeoInput;
 }
 
 /**
@@ -94,6 +99,12 @@ function parsePayload(payload: Record<string, unknown>): PapicSeatQueuePayload |
     captured_at_ms: capturedAtMs,
     duration_ms: typeof payload.duration_ms === 'number' ? payload.duration_ms : undefined,
     bytes,
+    // Best-effort: a stored geo blob is a plain object; buildPapicGeoFields
+    // re-validates the coords server-side, so lenient parsing is safe.
+    geo:
+      payload.geo && typeof payload.geo === 'object'
+        ? (payload.geo as PapicGeoInput)
+        : undefined,
   };
 }
 
@@ -116,8 +127,10 @@ export function buildSeatSinkDeps(
     kind: 'photo' | 'clip',
     posterR2Ref?: string,
     durationMs?: number,
+    geo?: PapicGeoInput,
   ) => Promise<{ ok: true; count: number; photoId: string | null } | { ok: false; error: string }>,
   extractClipPosterBytes: (bytes: Uint8Array, mimeType: string) => Promise<Uint8Array | null>,
+  geo?: PapicGeoInput,
 ): Omit<PapicSinkDeps, 'enqueueOffline'> {
   return {
     presign: async (req) => {
@@ -146,7 +159,7 @@ export function buildSeatSinkDeps(
       return res.ok;
     },
     record: async (r2Ref, kind, posterR2Ref) => {
-      const result = await record(seatToken, r2Ref, kind, posterR2Ref, durationMs);
+      const result = await record(seatToken, r2Ref, kind, posterR2Ref, durationMs, geo);
       return result.ok ? { ok: true, count: result.count } : { ok: false, error: result.error };
     },
     extractPoster: async (file) => extractClipPosterBytes(file.bytes, file.mimeType),
@@ -185,6 +198,7 @@ async function drainSeatCapture(item: OfflineItem): Promise<SyncResult> {
     parsed.duration_ms,
     recordSeatCapture,
     extractClipPosterBytes,
+    parsed.geo,
   );
   return drainPapicCaptureWith(deps, parsed, await toBytes(parsed.bytes));
 }
@@ -376,6 +390,7 @@ export async function enqueuePapicSeatCapture(input: {
   blob: Blob;
   capturedAtMs?: number;
   durationMs?: number;
+  geo?: PapicGeoInput;
   reason?: string;
 }): Promise<string | null> {
   if (typeof window === 'undefined' || typeof indexedDB === 'undefined') return null;
@@ -387,6 +402,7 @@ export async function enqueuePapicSeatCapture(input: {
     captured_at_ms: input.capturedAtMs ?? Date.now(),
     duration_ms: input.durationMs,
     bytes: input.blob,
+    geo: input.geo,
   };
   try {
     return await enqueueOfflineItem('papic', {

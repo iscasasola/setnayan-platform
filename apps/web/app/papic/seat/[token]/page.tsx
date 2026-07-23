@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { asPapicStyle } from '@/lib/papic-photo-styles';
 import { resolveFaceMode } from '@/lib/papic-face-mode';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { PapicSeatCapture } from './_components/papic-seat-capture';
 import { CameraBridgePanel } from './_components/camera-bridge-panel';
 
@@ -113,6 +114,10 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
     (styleRow as { event_type?: string | null } | null)?.event_type,
   );
 
+  // Geo-stamp gate (papic_geo_metadata, RA 10173). Resolved server-side so the
+  // client only requests a location fix when the owner has activated the control;
+  // the server re-gates on write (recordSeatCapture). Fail-closed → OFF by default.
+  const geoEnabled = await isDataPrivacyControlActive('papic_geo_metadata');
 
   return (
     <>
@@ -127,6 +132,7 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
         isAnon={Boolean(user.is_anonymous)}
         eventStyle={eventStyle}
         faceMode={faceMode}
+        geoEnabled={geoEnabled}
       />
       {bridgeEnabled ? (
         <CameraBridgePanel

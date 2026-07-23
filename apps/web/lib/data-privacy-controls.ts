@@ -121,10 +121,10 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
     group: 'vendor_mediated',
     title: 'Capture geolocation metadata',
     description:
-      'Would stamp captured_at + geo on photos/clips when a device fix is available. NOT BUILT: no Papic capture path collects or writes geo today (the metadata plumbing is dead code hitting a presign-only route), so there is no live location processing to gate.',
+      'Stamps a coarse location fix (lat/lon + accuracy, or a geo_unavailable flag) onto Papic photos/clips at capture, when the paparazzo grants location. Geo is written server-side only while this control is active; it is never returned in any share/gallery/download, and full-res originals are EXIF-stripped on the way out.',
     category: 'Location data',
     riskNote:
-      'Location is PI. Retired because nothing currently captures it — the ROPA "location on captures" activity is aspirational, not current processing. If geo capture is ever built, gate the write at recordSeatCapture and un-retire this control.',
+      'Location is PI. Ships OFF (fail-closed) — this is a NEW location-data collection; activate only after confirming the public /privacy "Photos and videos — location data" disclosure and the DPO ruling. The stored original on R2 retains geo; outbound shares never expose it.',
   },
   {
     key: 'cross_event_vendor_recall',

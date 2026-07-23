@@ -43,7 +43,7 @@ export const CONTROL_COVERAGE: Record<PrivacyControlKey, ControlCoverage> = {
   papic_geo_metadata: {
     privacySensitive: true,
     declaredIn: ['ropa'],
-    note: 'RETIRED — no capture path stamps geo today, so there is no live location processing. The ROPA "location on captures" activity is aspirational; un-retire the control if geo capture is ever built.',
+    note: 'Papic capture geo-stamp (ROPA DPS-05) — the capture path is now built and fail-closed behind this control, which ships OFF. The public /privacy "Photos and videos — location data" section already discloses it; activate after the DPO ruling.',
   },
   cross_event_vendor_recall: {
     privacySensitive: true,

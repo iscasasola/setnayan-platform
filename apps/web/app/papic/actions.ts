@@ -9,6 +9,8 @@ import { screenCapture } from '@/lib/nsfw-screen';
 import { ingestToWall } from '@/lib/live-wall';
 import { parsePapicTagScan } from '@/lib/papic-tag';
 import { autoTagCapture } from '@/lib/face-match';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
+import { buildPapicGeoFields, type PapicGeoInput } from '@/lib/papic-geo';
 import {
   eventOwnsPapicSeats,
   papicSeatAnonEnabled,
@@ -196,6 +198,7 @@ export async function recordSeatCapture(
   kind: 'photo' | 'clip' = 'photo',
   posterR2Key?: string,
   durationMs?: number,
+  geo?: PapicGeoInput,
 ): Promise<RecordSeatCaptureResult> {
   // RAW-ONLY record path (Papic storage PR-1): this writes the raw clip/photo row
   // with NULL clip_web columns. The small H.264 web copy is a separate, off-drain
@@ -468,6 +471,14 @@ export async function recordSeatCapture(
   // free sampler was the only path that ever set an expiry.
   const expiresAt: string | null = null;
 
+  // Capture geolocation (papic_geo_metadata, RA 10173). Fail-closed: geo is
+  // written ONLY when the data-privacy control is active — a hostile direct
+  // caller that transmits geo to a control-off event has it dropped here (the
+  // client also self-gates and won't request a fix when off). buildPapicGeoFields
+  // returns {} when off → spreading it writes no geo column, leaving them NULL.
+  const geoEnabled = await isDataPrivacyControlActive('papic_geo_metadata');
+  const geoFields = buildPapicGeoFields(geoEnabled, geo);
+
   let insertedPhotoId: string | null = null;
 
   {
@@ -482,6 +493,7 @@ export async function recordSeatCapture(
           // clip_web_r2_key / clip_web_bytes are left NULL here — the web copy is
           // stamped by the off-drain persistSeatClipWebCopy follow-up.
           expires_at: expiresAt,
+          ...geoFields,
         })
         .select('photo_id')
         .single();
@@ -497,14 +509,15 @@ export async function recordSeatCapture(
             // The poster frame the NSFW screen classifies as the clip's proxy.
             poster_r2_key: cleanPoster,
             expires_at: expiresAt,
+            ...geoFields,
           })
           .select('photo_id')
           .single()
       : await insertWithoutPoster();
 
-    // Pre-migration env (poster_r2_key column absent → PostgREST PGRST204): retry
-    // with the MINIMAL shape (no poster) — losing the screen proxy must never lose
-    // the clip itself.
+    // Pre-migration env (poster_r2_key OR the geo columns absent → PostgREST
+    // PGRST204): retry with the MINIMAL shape (no poster, no geo) — losing the
+    // screen proxy or the geo stamp must never lose the clip/photo itself.
     if (insertError && insertError.code === 'PGRST204') {
       ({ data: inserted, error: insertError } = await supabase
         .from('papic_photos')

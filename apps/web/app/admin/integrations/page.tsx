@@ -16,12 +16,14 @@ import { TestResendButton } from './_components/test-resend-button';
 import { SecretCard } from './_components/secret-card';
 import { OAuthCard } from './_components/oauth-card';
 import { MayaCard } from './_components/maya-card';
+import { PaymongoCard } from './_components/paymongo-card';
 import { BuildTimeStatus } from './_components/build-time-status';
 import {
   SECRET_INTEGRATIONS,
   OAUTH_INTEGRATIONS,
   SOCIAL_INTEGRATIONS,
   MAYA_INTEGRATION,
+  PAYMONGO_INTEGRATION,
 } from '@/lib/integrations/registry';
 import { getSecretPresenceMap } from '@/lib/integration-config';
 
@@ -385,6 +387,16 @@ export default async function AdminIntegrationsPage({
             Boolean(process.env[MAYA_INTEGRATION.endpointEnv])
           }
           statusApproved={process.env.NEXT_PUBLIC_MAYA_STATUS === 'APPROVED'}
+        />
+      </section>
+
+      {/* Payments — PayMongo: booking-fee rail (2 secrets, DB-first) */}
+      <section className="space-y-4">
+        <PaymongoCard
+          secretInDb={secretPresence[PAYMONGO_INTEGRATION.secretKeyColumn] ?? false}
+          webhookInDb={secretPresence[PAYMONGO_INTEGRATION.webhookSecretColumn] ?? false}
+          secretInEnv={Boolean(process.env[PAYMONGO_INTEGRATION.secretKeyEnv])}
+          webhookInEnv={Boolean(process.env[PAYMONGO_INTEGRATION.webhookSecretEnv])}
         />
       </section>
 

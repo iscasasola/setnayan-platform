@@ -491,3 +491,54 @@ export async function resolveMayaConfig(): Promise<MayaConfig> {
       MAYA_CHECKOUT_ENDPOINT_DEFAULT,
   };
 }
+
+export interface PaymongoConfig {
+  /** sk_live_… / sk_test_… — checkout creation (HTTP Basic username). */
+  secretKey: string;
+  /** whsk_… — webhook signature verification. NOT the sk_ key. */
+  webhookSecret: string;
+}
+
+/**
+ * Resolve PayMongo credentials DB-first (the admin card writes them encrypted),
+ * with env fallback (PAYMONGO_SECRET_KEY / PAYMONGO_WEBHOOK_SECRET). Mirrors
+ * resolveMayaConfig: service-role read, each decrypt individually try/caught so a
+ * bad/rotated ciphertext degrades to env, outer try/catch so a missing column
+ * (pre-migration) is byte-identical to today's env-only behaviour. UNCACHED on
+ * purpose — a key just pasted must take effect on the next request.
+ */
+export async function resolvePaymongoConfig(): Promise<PaymongoConfig> {
+  let secretKey = '';
+  let webhookSecret = '';
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from('platform_integration_secrets')
+      .select('paymongo_secret_key_enc, paymongo_webhook_secret_enc')
+      .eq('id', 1)
+      .maybeSingle();
+    const sec = data as Record<string, unknown> | null;
+    const skEnc = sec?.paymongo_secret_key_enc as string | null | undefined;
+    const whEnc = sec?.paymongo_webhook_secret_enc as string | null | undefined;
+    if (skEnc) {
+      try {
+        secretKey = decryptToken(skEnc);
+      } catch {
+        /* bad ciphertext → env fallback */
+      }
+    }
+    if (whEnc) {
+      try {
+        webhookSecret = decryptToken(whEnc);
+      } catch {
+        /* bad ciphertext → env fallback */
+      }
+    }
+  } catch {
+    // DB unreachable / columns absent → env fallback below.
+  }
+  return {
+    secretKey: secretKey || process.env.PAYMONGO_SECRET_KEY || '',
+    webhookSecret: webhookSecret || process.env.PAYMONGO_WEBHOOK_SECRET || '',
+  };
+}

@@ -307,10 +307,25 @@ export const MAYA_INTEGRATION = {
   endpointEnv: 'MAYA_CHECKOUT_ENDPOINT',
 } as const;
 
+// PayMongo — the booking-fee rail. Two secrets (checkout key + webhook signing
+// secret), no non-secret config column. Resolved DB-first (resolvePaymongoConfig)
+// so pasting the keys in the admin card applies live, no redeploy. The column
+// allowlist for savePaymongoConfig + the presence map.
+export const PAYMONGO_INTEGRATION = {
+  id: 'paymongo',
+  label: 'PayMongo — booking-fee rail',
+  secretKeyColumn: 'paymongo_secret_key_enc',
+  secretKeyEnv: 'PAYMONGO_SECRET_KEY',
+  webhookSecretColumn: 'paymongo_webhook_secret_enc',
+  webhookSecretEnv: 'PAYMONGO_WEBHOOK_SECRET',
+} as const;
+
 /** All secret columns across every registry — for the console presence map. */
 export const ALL_SECRET_COLUMNS: readonly string[] = [
   ...SECRET_INTEGRATIONS.map((i) => i.secretColumn),
   ...CREDENTIAL_INTEGRATIONS.map((i) => i.secretColumn),
   MAYA_INTEGRATION.publicKeyColumn,
   MAYA_INTEGRATION.secretKeyColumn,
+  PAYMONGO_INTEGRATION.secretKeyColumn,
+  PAYMONGO_INTEGRATION.webhookSecretColumn,
 ];

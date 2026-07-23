@@ -266,8 +266,9 @@ export async function UsersSurface({
               ) : (
                 'the user'
               )}{' '}
-              via a secure channel (DM, in-person, encrypted message). The
-              password is shown once — refreshing this page clears it.
+              via a secure channel (DM, in-person, encrypted message). It&apos;s
+              delivered by a one-time httpOnly cookie (never the URL) and expires
+              within a couple of minutes — copy it now.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 rounded-md bg-white/70 p-3">

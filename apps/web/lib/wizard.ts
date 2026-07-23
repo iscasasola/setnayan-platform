@@ -687,7 +687,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     order: 16.7,
     phase: 'programming',
     kind: 'external_process',
-    title: 'Activate Panood',
+    title: 'Activate Live Studio',
     whyItMatters:
       "Live-stream the ceremony + reception to your overseas family on YOUR own YouTube channel — no Setnayan brand on the broadcast. Setnayan handles multi-cam switching; you keep the recordings forever. T-2 months gives the broadcaster setup time + your YouTube OAuth gate.",
     pillLabel: 'Programming',
@@ -1225,7 +1225,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'external_process',
     title: 'Get your Couple Keepsake Bundle',
     whyItMatters:
-      "The post-event memento bundle. Print-ready PDF album + photo download + Panood broadcast reel + your final playlist as a shareable artifact. One purchase · everything that made your day comes home with you.",
+      "The post-event memento bundle. Print-ready PDF album + photo download + Live Studio broadcast reel + your final playlist as a shareable artifact. One purchase · everything that made your day comes home with you.",
     pillLabel: 'Post-event',
     prerequisites: ['download_photos'],
   },

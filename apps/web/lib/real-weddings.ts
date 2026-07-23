@@ -97,7 +97,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
     witnessQuote:
       'When Maria walked in, the whole garden went quiet. Even the birds.',
     witnessAttribution: 'Ate Celine, Maid of Honor',
-    services: ['Papic', 'Panood', 'Monogram', 'Setnayan AI'],
+    services: ['Papic', 'Live Studio', 'Monogram', 'Setnayan AI'],
     editionNumber: 1,
     story: [
       {
@@ -184,7 +184,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
     witnessQuote:
       'They said their vows just as the last sun hit the water. We all just stopped.',
     witnessAttribution: 'Kuya Marco, Best Man',
-    services: ['Papic', 'Panood'],
+    services: ['Papic', 'Live Studio'],
     editionNumber: 2,
     story: [
       {
@@ -274,7 +274,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
     witnessQuote:
       "Mary floated down that aisle like the florals were holding her up.",
     witnessAttribution: 'Father Romano, presiding priest',
-    services: ['Papic', 'Panood', 'Monogram', 'Setnayan AI'],
+    services: ['Papic', 'Live Studio', 'Monogram', 'Setnayan AI'],
     editionNumber: 4,
     story: [
       {
@@ -448,7 +448,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
     witnessQuote:
       "They never stopped holding hands in the car. That's what fifty years looks like.",
     witnessAttribution: 'Carmela, eldest daughter',
-    services: ['Panood', 'Setnayan AI'],
+    services: ['Live Studio', 'Setnayan AI'],
     editionNumber: 7,
     story: [
       {

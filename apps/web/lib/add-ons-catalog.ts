@@ -608,7 +608,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     key: 'panood',
     tags: ['Live', 'Video', 'Day-of', 'Free'],
     opensDirect: true,
-    label: 'Panood',
+    label: 'Live Studio',
     Icon: Tv,
     iteration: '0011',
     status: 'web_v1',

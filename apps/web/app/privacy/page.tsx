@@ -712,9 +712,9 @@ export default function PrivacyPage() {
           </ul>
         </Section>
 
-        <Section title="YouTube integration (Panood)">
+        <Section title="YouTube integration (Live Studio)">
           <p>
-            Couples who purchase a Panood SKU (live wedding broadcast) connect
+            Couples who purchase a Live Studio SKU (live wedding broadcast) connect
             their own YouTube channel to Setnayan so the live ceremony can
             stream to their channel and embed on the event landing page. The
             connection uses Google&rsquo;s standard OAuth sign-in. You can
@@ -792,7 +792,7 @@ export default function PrivacyPage() {
               immediately:
               <ul className="ml-5 mt-1 list-disc space-y-1">
                 <li>
-                  In Setnayan, open the Panood page and click{' '}
+                  In Setnayan, open the Live Studio page and click{' '}
                   <em>Disconnect YouTube</em>. We soft-revoke the grant
                   locally.
                 </li>
@@ -977,7 +977,7 @@ export default function PrivacyPage() {
             <li>Anthropic (AI features, including AI web research for the vendor Deep Search tool · United States · never trained on your data)</li>
             <li>Suno (AI music generation for Pakanta and rendered videos · United States · no guest or personal data is sent)</li>
             <li>
-              Google (YouTube Data API — only for couples who purchase Panood
+              Google (YouTube Data API — only for couples who purchase Live Studio
               and explicitly connect their YouTube channel via OAuth; Google
               Drive API — only for couples who use Photo Delivery or Papic
               and explicitly connect a Drive account via OAuth)

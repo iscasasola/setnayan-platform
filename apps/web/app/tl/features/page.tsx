@@ -12,12 +12,12 @@ export const revalidate = 3600;
 export const metadata = {
   title: 'Lahat ng Feature sa Setnayan — Wedding & Life-Events Platform Philippines',
   description:
-    'Guest list, seating, budget, mood board, schedule, vendor ledger, plus day-of apparatus (Panood, Papic, Pakulay). Ang buong feature catalog ng Filipino-first events platform — sa Taglish.',
+    'Guest list, seating, budget, mood board, schedule, vendor ledger, plus day-of apparatus (Live Studio, Papic, Pakulay). Ang buong feature catalog ng Filipino-first events platform — sa Taglish.',
   alternates: localeAlternates('tl', FEATURES_PATHS),
   keywords: [
     'Filipino wedding features',
     'wedding planning tools Philippines',
-    'Panood live streaming',
+    'Live Studio live streaming',
     'Papic wedding photography',
     'Pakulay mood board',
     'wedding seating chart Tagalog',
@@ -26,7 +26,7 @@ export const metadata = {
   openGraph: {
     title: 'Lahat ng Feature sa Setnayan — Wedding & Life-Events Platform Philippines',
     description:
-      'Guest list, seating, budget, mood board, schedule, vendor ledger, plus day-of apparatus (Panood, Papic, Pakulay) — sa Taglish.',
+      'Guest list, seating, budget, mood board, schedule, vendor ledger, plus day-of apparatus (Live Studio, Papic, Pakulay) — sa Taglish.',
     url: '/tl/features',
   },
 };

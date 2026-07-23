@@ -192,9 +192,9 @@ export default function AboutPage() {
               marketplace of
               verified Filipino wedding vendors you message directly, and
               in-app services — free single-camera livestreaming to your own
-              YouTube (Panood), candid photo capture (Papic), a custom wedding
+              YouTube (Live Studio), candid photo capture (Papic), a custom wedding
               song (Pakanta), and bespoke monograms. Every service is free to
-              use; some have clearly priced upgrades, like Panood&rsquo;s
+              use; some have clearly priced upgrades, like Live Studio&rsquo;s
               multicam control room. Couples and vendors
               agree on bookings between themselves; Setnayan never holds the
               money.

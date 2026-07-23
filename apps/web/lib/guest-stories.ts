@@ -27,6 +27,10 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveStillRef } from '@/lib/papic-display-ref';
 import { assembleStoryPhotoSet } from '@/lib/guest-stories-photo-set';
 import {
+  assembleStoryMediaSet,
+  type StoryMediaEntry,
+} from '@/lib/guest-stories-media-set';
+import {
   STORIES_TEMPLATES,
   STORY_MAX_PHOTOS,
   STORY_MIN_PHOTOS,
@@ -40,6 +44,12 @@ import {
 export { STORY_MIN_PHOTOS, STORY_MAX_PHOTOS, DEFAULT_STORY_TEMPLATE };
 
 const URL_TTL_SECONDS = 60 * 60;
+
+/** Presign cap for the PICKER's pickable set (each item is 1–2 presigns). */
+const STORY_PICKER_MAX = 40;
+
+/** Cap on the catalogue tracks offered in the music chooser. */
+const MUSIC_OPTIONS_MAX = 8;
 
 export type StoryPhoto = {
   id: string;
@@ -67,6 +77,23 @@ export type StoryTemplateSummary = {
   durationSec: number;
 };
 
+/**
+ * One pickable item for the Story PICKER — the guest's own tagged photos AND
+ * clips, any mix (owner 2026-07-23; supersedes the 5 guest + 5 couple split).
+ * `url` is the RENDER source: a still web copy for a photo, the geo-stripped
+ * `clip_web_r2_key` web copy for a clip (clips without a web copy never appear
+ * here — the raw geo-bearing original is NEVER served outbound).
+ */
+export type StoryMediaItem = {
+  id: string;
+  kind: 'photo' | 'clip';
+  url: string;
+  /** Still image URL for the picker grid (clip → poster/thumb); null → icon. */
+  thumbUrl: string | null;
+  durationSec: number | null;
+  subjectCenter?: { x: number; y: number } | null;
+};
+
 export type GuestStoryPlan = {
   /** How many clean tagged photos the guest has in total. */
   taggedPhotoCount: number;
@@ -74,8 +101,20 @@ export type GuestStoryPlan = {
   canRender: boolean;
   /** Ordered photos to feed the reel (only present when canRender). */
   photos: StoryPhoto[];
+  /**
+   * The PICKABLE set (photos + clips, newest tag first, presigned) for the
+   * "choose your own" flow. May be non-empty even when `canRender` is false —
+   * clips can push a guest over the STORY_MIN_PHOTOS floor.
+   */
+  media: StoryMediaItem[];
   template: StoryTemplateSummary;
   music: StoryMusic | null;
+  /**
+   * The tracks the guest may choose from (Pakanta first when the event owns
+   * one, then owned-catalogue tracks). Owned music ONLY — the guest's own
+   * upload (BYO §16.7) never appears here because it never reaches the server.
+   */
+  musicOptions: StoryMusic[];
 };
 
 function templateSummary(slug: string): StoryTemplateSummary {
@@ -98,7 +137,7 @@ function templateSummary(slug: string): StoryTemplateSummary {
 async function readTaggedPhotos(
   eventId: string,
   guestId: string,
-): Promise<{ photos: StoryPhoto[]; total: number }> {
+): Promise<{ photos: StoryPhoto[]; total: number; media: StoryMediaItem[] }> {
   const admin = createAdminClient();
   const { data: tags } = await admin
     .from('photo_tags')
@@ -108,7 +147,7 @@ async function readTaggedPhotos(
     .is('removed_at', null)
     .order('created_at', { ascending: false })
     .limit(80);
-  if (!tags || tags.length === 0) return { photos: [], total: 0 };
+  if (!tags || tags.length === 0) return { photos: [], total: 0, media: [] };
 
   const photoIds = tags
     .filter((t) => t.source_table === 'papic_photos')
@@ -124,17 +163,24 @@ async function readTaggedPhotos(
           // Derivative columns + full_res_dropped_at so resolveStillRef can prefer
           // the drop-durable, geo-stripped web copy over the raw original (which
           // 404s once the 90-day full-res sweep runs — a bug already LIVE here).
-          .select('photo_id, r2_object_key, display_r2_key, thumb_r2_key, full_res_dropped_at')
+          // photo_type/poster/clip_web ride along so tagged CLIPS can join the
+          // PICKER set through their geo-stripped web copy (photos-only auto
+          // path is unchanged — clips are filtered out of it below).
+          .select(
+            'photo_id, photo_type, r2_object_key, display_r2_key, thumb_r2_key, poster_r2_key, clip_web_r2_key, full_res_dropped_at',
+          )
           .in('photo_id', photoIds)
           .eq('moderation_state', 'clean')
-          .eq('photo_type', 'photo')
           .is('hidden_at', null)
       : Promise.resolve({
           data: [] as {
             photo_id: string;
+            photo_type: string | null;
             r2_object_key: string | null;
             display_r2_key: string | null;
             thumb_r2_key: string | null;
+            poster_r2_key: string | null;
+            clip_web_r2_key: string | null;
             full_res_dropped_at: string | null;
           }[],
         }),
@@ -142,23 +188,21 @@ async function readTaggedPhotos(
       ? admin
           .from('papic_guest_captures')
           .select(
-            'capture_id, r2_object_key, display_r2_key, thumb_r2_key, full_res_dropped_at, subject_center_x, subject_center_y',
+            'capture_id, media_type, duration_ms, r2_object_key, display_r2_key, thumb_r2_key, poster_r2_key, clip_web_r2_key, full_res_dropped_at, subject_center_x, subject_center_y',
           )
           .in('capture_id', captureIds)
           .eq('moderation_state', 'clean')
-          // Guest CLIPS (media_type='clip') are excluded — Stories are
-          // PHOTO-driven (see module header). A clip's r2_object_key is an MP4,
-          // and feeding it to the client-side <img> loader rejects the whole
-          // render with "Could not load a tagged photo". Mirrors the
-          // photo_type='photo' filter on the papic_photos query above.
-          .eq('media_type', 'photo')
           .is('hidden_at', null)
       : Promise.resolve({
           data: [] as {
             capture_id: string;
+            media_type: string | null;
+            duration_ms: number | null;
             r2_object_key: string | null;
             display_r2_key: string | null;
             thumb_r2_key: string | null;
+            poster_r2_key: string | null;
+            clip_web_r2_key: string | null;
             full_res_dropped_at: string | null;
             subject_center_x: number | null;
             subject_center_y: number | null;
@@ -169,11 +213,30 @@ async function readTaggedPhotos(
   const keyById = new Map<string, string>();
   // Tier-2 dominant-face center per capture (guest captures only) → subjectCenter.
   const centerById = new Map<string, { x: number; y: number }>();
+  // The PICKER's mixed set (photos + clips) keyed by tag source_id.
+  const entryById = new Map<string, StoryMediaEntry>();
+  const nonEmpty = (v: string | null | undefined): string | null =>
+    typeof v === 'string' && v.trim().length > 0 ? v : null;
   // Stories are PHOTO inputs rendered onto a canvas, so each resolves to a STILL
   // image ref (thumb ?? display ?? raw). A dropped original never reaches the
   // <img> loader (resolveStillRef excludes it), so the reel no longer dies on a
   // "Could not load a tagged photo" after the full-res sweep.
   for (const p of photosRes.data ?? []) {
+    if (p.photo_type === 'clip') {
+      // Clip → PICKER only, and ONLY via the geo-stripped web copy. Never the
+      // raw r2_object_key (geo-bearing; also 404s after the full-res drop).
+      entryById.set(p.photo_id, {
+        kind: 'clip',
+        renderKey: nonEmpty(p.clip_web_r2_key),
+        stillKey: resolveStillRef({
+          photo_type: 'clip',
+          thumb_r2_key: p.thumb_r2_key,
+          poster_r2_key: p.poster_r2_key,
+        }),
+        durationSec: null, // papic_photos stores no clip duration
+      });
+      continue;
+    }
     const ref = resolveStillRef({
       photo_type: 'photo',
       r2_object_key: p.r2_object_key,
@@ -182,8 +245,30 @@ async function readTaggedPhotos(
       full_res_dropped_at: p.full_res_dropped_at,
     });
     if (ref) keyById.set(p.photo_id, ref);
+    entryById.set(p.photo_id, {
+      kind: 'photo',
+      renderKey: ref,
+      stillKey: ref,
+      durationSec: null,
+    });
   }
   for (const c of capturesRes.data ?? []) {
+    if (c.media_type === 'clip') {
+      entryById.set(c.capture_id, {
+        kind: 'clip',
+        renderKey: nonEmpty(c.clip_web_r2_key),
+        stillKey: resolveStillRef({
+          media_type: 'clip',
+          thumb_r2_key: c.thumb_r2_key,
+          poster_r2_key: c.poster_r2_key,
+        }),
+        durationSec:
+          typeof c.duration_ms === 'number' && c.duration_ms > 0
+            ? c.duration_ms / 1000
+            : null,
+      });
+      continue;
+    }
     const ref = resolveStillRef({
       media_type: 'photo',
       r2_object_key: c.r2_object_key,
@@ -195,6 +280,13 @@ async function readTaggedPhotos(
     if (typeof c.subject_center_x === 'number' && typeof c.subject_center_y === 'number') {
       centerById.set(c.capture_id, { x: c.subject_center_x, y: c.subject_center_y });
     }
+    entryById.set(c.capture_id, {
+      kind: 'photo',
+      renderKey: ref,
+      stillKey: ref,
+      durationSec: null,
+      subjectCenter: centerById.get(c.capture_id) ?? null,
+    });
   }
 
   const { ordered, total } = assembleStoryPhotoSet(
@@ -214,7 +306,38 @@ async function readTaggedPhotos(
     )
   ).filter((p): p is StoryPhoto => Boolean(p));
 
-  return { photos, total };
+  // The PICKER set: photos + web-copied clips in tag order, presigned. Clips
+  // without a web copy were already dropped by the assembler (renderKey null).
+  const pickable = assembleStoryMediaSet(
+    tags.map((t) => ({ source_id: t.source_id as string })),
+    entryById,
+  ).slice(0, STORY_PICKER_MAX);
+  const media = (
+    await Promise.all(
+      pickable.map(async (m): Promise<StoryMediaItem | null> => {
+        const url = await displayUrlForStoredAsset(m.renderKey, {
+          ttlSeconds: URL_TTL_SECONDS,
+        });
+        if (!url) return null;
+        const thumbUrl =
+          m.stillKey === m.renderKey
+            ? url
+            : m.stillKey
+              ? await displayUrlForStoredAsset(m.stillKey, { ttlSeconds: URL_TTL_SECONDS })
+              : null;
+        return {
+          id: m.id,
+          kind: m.kind,
+          url,
+          thumbUrl,
+          durationSec: m.durationSec,
+          subjectCenter: m.subjectCenter ?? centerById.get(m.id) ?? null,
+        };
+      }),
+    )
+  ).filter((m): m is StoryMediaItem => Boolean(m));
+
+  return { photos, total, media };
 }
 
 /**
@@ -334,6 +457,63 @@ export async function pickOwnedReelMusic(): Promise<StoryMusic | null> {
 }
 
 /**
+ * The MUSIC CHOOSER options for a guest Story: the couple's Pakanta song first
+ * (event-personal, when owned), then up to MUSIC_OPTIONS_MAX active owned
+ * catalogue tracks. Owned music ONLY — never major-label; the §16.7 BYO upload
+ * is client-side-only and never appears here. Defensive against a missing
+ * `beat_grid` column (mirrors pickMusic); never throws — a music-read hiccup
+ * degrades to an empty list, which the UI treats as "no chooser, default only".
+ */
+async function listMusicOptions(eventId: string): Promise<StoryMusic[]> {
+  const admin = createAdminClient();
+  const options: StoryMusic[] = [];
+  const pakanta = await pickPakantaSong(eventId);
+  if (pakanta?.url) options.push(pakanta);
+  const resolveUrl = async (ref: string | null): Promise<string | null> =>
+    ref ? await displayUrlForStoredAsset(ref) : null;
+  try {
+    let rows:
+      | { track_slug: string; display_name: string; source_url: string | null; beat_grid?: unknown }[]
+      | null = null;
+    const { data, error } = await admin
+      .from('reel_music_tracks')
+      .select('track_slug, display_name, source_url, beat_grid')
+      .eq('is_active', true)
+      .eq('is_premium', false)
+      .order('created_at', { ascending: true })
+      .limit(MUSIC_OPTIONS_MAX);
+    if (error) {
+      if (error.code === '42703') {
+        // Older DB without beat_grid — retry without the column.
+        const { data: bare } = await admin
+          .from('reel_music_tracks')
+          .select('track_slug, display_name, source_url')
+          .eq('is_active', true)
+          .eq('is_premium', false)
+          .order('created_at', { ascending: true })
+          .limit(MUSIC_OPTIONS_MAX);
+        rows = bare ?? null;
+      }
+    } else {
+      rows = data ?? null;
+    }
+    for (const row of rows ?? []) {
+      const url = await resolveUrl((row.source_url as string | null) ?? null);
+      if (!url) continue; // un-ingested master → not offerable
+      options.push({
+        trackSlug: row.track_slug,
+        displayName: row.display_name,
+        url,
+        beatGrid: ((row.beat_grid as BeatGrid | null | undefined) ?? null),
+      });
+    }
+  } catch {
+    // music trouble must never block a free Story — chooser just shrinks
+  }
+  return options;
+}
+
+/**
  * Assemble the full render plan for a guest's Story. The caller MUST have
  * already verified the (eventId, guestId) pair from the guest's qr_token
  * capability. Never throws — returns a `canRender:false` plan on any read
@@ -345,28 +525,35 @@ export async function buildGuestStoryPlan(
 ): Promise<GuestStoryPlan> {
   const template = templateSummary(DEFAULT_STORY_TEMPLATE);
   try {
-    const { photos, total } = await readTaggedPhotos(eventId, guestId);
+    const { photos, total, media } = await readTaggedPhotos(eventId, guestId);
     const canRender = photos.length >= STORY_MIN_PHOTOS;
+    // Any render possible (auto OR picker — clips count toward the floor)?
+    const anyRenderable = canRender || media.length >= STORY_MIN_PHOTOS;
     // INTERIM → owned-catalogue priority: the couple's Pakanta song first (so
     // guest reels have sound today), else the first owned reel-music master.
     // Both are Setnayan-owned (no major-label); NULL on both → silent render.
-    const music = canRender
+    const music = anyRenderable
       ? ((await pickPakantaSong(eventId)) ?? (await pickMusic()))
       : null;
+    const musicOptions = anyRenderable ? await listMusicOptions(eventId) : [];
     return {
       taggedPhotoCount: total,
       canRender,
       photos: canRender ? photos : [],
+      media,
       template,
       music,
+      musicOptions,
     };
   } catch {
     return {
       taggedPhotoCount: 0,
       canRender: false,
       photos: [],
+      media: [],
       template,
       music: null,
+      musicOptions: [],
     };
   }
 }

@@ -17,6 +17,7 @@ export async function prepareGuestStory(token: string): Promise<GuestStoryPlan> 
     taggedPhotoCount: 0,
     canRender: false,
     photos: [],
+    media: [],
     template: {
       slug: 'golden-hour-stories-30',
       name: 'Golden Hour',
@@ -25,6 +26,7 @@ export async function prepareGuestStory(token: string): Promise<GuestStoryPlan> 
       durationSec: 30,
     },
     music: null,
+    musicOptions: [],
   };
   if (!cleanToken) return empty;
 

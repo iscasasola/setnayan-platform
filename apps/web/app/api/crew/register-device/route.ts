@@ -16,14 +16,19 @@
  * level), THEN re-fetch the actual token and timingSafeEqual it
  * against the user-supplied value before trusting the result.
  *
- * Auth: this endpoint uses the service-role admin client because:
- *   (a) the crew device is NOT yet a signed-in Setnayan user — they
- *       hold no Supabase auth session, only the QR token + their
- *       vendor's identifier.
- *   (b) RLS on registered_crew_devices has no INSERT policy by
- *       design (per Phase D migration § 4 comment) — all writes
- *       route through this endpoint where app code enforces
- *       authorization.
+ * Auth: the caller MUST be an authenticated vendor team member, and the
+ * supplied vendor_profile_id MUST be one they actually control. We derive the
+ * caller's authorized vendor set from their session via
+ * public.current_vendor_profile_ids() and reject (403) any request whose
+ * vendor_profile_id is not in that set. The service-role admin client is used
+ * ONLY for the two operations that legitimately need to bypass RLS:
+ *   (a) the constant-time master-QR token lookup/compare, and
+ *   (b) the registered_crew_devices upsert — that table has no INSERT policy by
+ *       design (per Phase D migration § 4 comment), so all writes route through
+ *       this endpoint AFTER the app-level authorization check above.
+ * The client-supplied vendor_profile_id is NEVER trusted on its own — doing so
+ * previously let any token holder register a device under an arbitrary vendor
+ * (exhausting a competitor's 5-device cap or masquerading as their crew).
  *
  * Per [[feedback_setnayan_orphan_prevention]] the endpoint is the
  * canonical consumer of the master QR; not orphan-reachable from any
@@ -36,6 +41,8 @@
 import { NextResponse } from 'next/server';
 import { timingSafeEqual } from 'node:crypto';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
+import { resolveAuthorizedCrewVendorId } from '@/lib/security/crew-vendor-authz';
 
 export const runtime = 'nodejs';
 
@@ -105,6 +112,41 @@ export async function POST(req: Request) {
     );
   }
 
+  // Authorization: the caller must be an authenticated vendor team member and
+  // the supplied vendor_profile_id must be one they actually control. We derive
+  // the authorized set from their session (current_vendor_profile_ids); a
+  // supplied id outside that set is rejected. The client-supplied id is never
+  // trusted on its own.
+  const session = await createClient();
+  const {
+    data: { user },
+  } = await session.auth.getUser();
+  if (!user) {
+    return NextResponse.json(
+      { error: 'Sign in as the vendor whose crew device you are registering.' },
+      { status: 401 },
+    );
+  }
+  const { data: authorizedIds, error: vendorErr } = await session.rpc(
+    'current_vendor_profile_ids',
+  );
+  if (vendorErr) {
+    return NextResponse.json(
+      { error: 'Could not verify vendor authorization.' },
+      { status: 500 },
+    );
+  }
+  const authorizedVendorProfileId = resolveAuthorizedCrewVendorId(
+    vendorProfileId,
+    (authorizedIds as string[] | null) ?? [],
+  );
+  if (!authorizedVendorProfileId) {
+    return NextResponse.json(
+      { error: 'You are not authorized to register a device for that vendor.' },
+      { status: 403 },
+    );
+  }
+
   const supabase = createAdminClient();
 
   // Step 1 · index lookup by token. We accept that this lookup itself
@@ -163,7 +205,7 @@ export async function POST(req: Request) {
     .upsert(
       {
         event_id: eventId,
-        vendor_profile_id: vendorProfileId,
+        vendor_profile_id: authorizedVendorProfileId,
         device_fingerprint: fingerprint,
         device_label: label,
         last_seen_at: new Date().toISOString(),

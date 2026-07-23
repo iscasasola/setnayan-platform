@@ -337,3 +337,26 @@ test('the 2026-07-22 free-layer resolutions hold (Photo Delivery on Papic, Music
     'the music-creator → Pakanta alias (301) must remain so lingering links resolve',
   );
 });
+
+// ── 6 · Suite search/browse tags — every service is tagged ─────────────────────
+
+test('every catalog service carries browse tags (Suite search + chips)', () => {
+  // The Suite shows tag chips per service and indexes them in its search box.
+  // A service with no tags renders a blank chip row and is only findable by its
+  // label/blurb — so every catalog entry must carry at least one short tag.
+  const untagged = ADD_ONS.filter((a) => !a.tags || a.tags.length === 0).map((a) => a.key);
+  assert.deepEqual(
+    untagged,
+    [],
+    `catalog services missing browse tags (add a \`tags\` array): ${untagged.join(', ')}`,
+  );
+  // Tags stay short (1–2 words) so the chips + search read cleanly.
+  for (const a of ADD_ONS) {
+    for (const t of a.tags ?? []) {
+      assert.ok(
+        t.length > 0 && t.split(/\s+/).length <= 2,
+        `${a.key}: tag "${t}" should be 1–2 words`,
+      );
+    }
+  }
+});

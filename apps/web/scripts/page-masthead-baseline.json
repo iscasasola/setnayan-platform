@@ -97,6 +97,7 @@
   "app/dashboard/[eventId]/website/hero-photo/page.tsx",
   "app/dashboard/[eventId]/website/launch/page.tsx",
   "app/dashboard/[eventId]/website/our-photos/page.tsx",
+  "app/dashboard/[eventId]/website/our-story/page.tsx",
   "app/dashboard/[eventId]/website/page.tsx",
   "app/dashboard/[eventId]/website/photo-moments/page.tsx",
   "app/dashboard/[eventId]/website/privacy/page.tsx",

@@ -86,6 +86,13 @@ export type AddOnEntry = {
   /** Couple-side category placement — see InAppServiceCategory. */
   category: InAppServiceCategory;
   blurb: string;
+  /**
+   * Short browse/filter tags (e.g. 'Photos', 'Website', 'Day-of', 'Free') shown
+   * as chips on the Suite card/row and indexed by the Suite search box. Keep
+   * them 1–2 words, Title Case. Optional — untagged services still render + are
+   * searchable by label + blurb.
+   */
+  tags?: readonly string[];
   cta: string;
   poster: PosterStyle;
   /**
@@ -226,14 +233,14 @@ export function appStoreDetailHref(key: string, eventId: string): string {
 export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   {
     key: 'setnayan-ai',
+    tags: ['Setnayan AI', 'Planning', 'Vendors', 'Popular'],
     label: 'Setnayan AI',
     Icon: Gem,
     iteration: '0016',
     status: 'live',
     category: 'tool',
-    blurb:
-      'The vendors that fit your budget, date, and style — already at the top.',
-    cta: 'See your matches',
+    blurb: 'Your whole planning office — it matches vendors to your budget and date, reminds you what’s next, and guards every deadline.',
+    cta: 'Open your planner',
     studioGroup: 'setnayan_ai',
     serviceKey: 'SETNAYAN_AI',
     poster: {
@@ -251,12 +258,13 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'orders',
+    tags: ['Account', 'Payments'],
     label: 'Orders',
     Icon: Receipt,
     iteration: '0034',
     status: 'live',
     category: 'tool',
-    blurb: 'View your in-app purchases · reference codes · payment status',
+    blurb: 'Your in-app purchases, reference codes, and payment status — all in one place.',
     cta: 'View orders',
     studioGroup: 'utility',
     tier: 'free',
@@ -271,14 +279,14 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'save-the-date',
+    tags: ['Invitation', 'Website', 'Before', 'Free'],
     surface: 'save_the_date',
     label: 'Save the Date',
     Icon: Sparkles,
     iteration: '0024',
     status: 'live',
     category: 'photography',
-    blurb:
-      'The reveal that opens your invitation — in your colors, and it plays itself.',
+    blurb: 'A save-the-date film that plays itself, in your colors — free; add the cinematic reveal with Website PRO.',
     cta: 'Choose your reveal',
     studioGroup: 'website',
     // The content film is FREE; the cinematic openings are a paid in-surface
@@ -301,6 +309,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   // appStoreDetailHref → /site-editor/[eventId]/<phase>).
   {
     key: 'rsvp',
+    tags: ['Website', 'Invitation', 'Guests', 'Free'],
     surface: 'rsvp',
     opensDirect: true,
     label: 'RSVP',
@@ -308,8 +317,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0002',
     status: 'live',
     category: 'tool',
-    blurb:
-      'The run-up page — your invitation, the RSVP form, and every detail guests need.',
+    blurb: 'The run-up page — your invitation, the RSVP form, and every detail your guests need.',
     cta: 'Edit your RSVP page',
     studioGroup: 'website',
     tier: 'free',
@@ -324,6 +332,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'event',
+    tags: ['Website', 'Guests', 'Day-of', 'Free'],
     surface: 'website',
     opensDirect: true,
     label: 'Event',
@@ -331,8 +340,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0031',
     status: 'live',
     category: 'tool',
-    blurb:
-      'The wedding day itself — the live, day-of page guests open at the venue.',
+    blurb: 'The live day-of page your guests open at the venue — schedule, seats, and what’s happening now.',
     cta: 'Edit your event-day page',
     studioGroup: 'website',
     tier: 'free',
@@ -347,6 +355,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'editorial',
+    tags: ['Website', 'Keepsake', 'After', 'Free'],
     surface: 'website',
     opensDirect: true,
     label: 'Editorial',
@@ -354,8 +363,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0038',
     status: 'live',
     category: 'tool',
-    blurb:
-      'After the day — your wedding as a story, with the gallery and a thank-you.',
+    blurb: 'After the day — your wedding told as a story, with the gallery and a thank-you note.',
     cta: 'Edit your editorial',
     studioGroup: 'website',
     tier: 'free',
@@ -381,6 +389,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // drops the "Powered by Setnayan" watermark everywhere. serviceKey
     // COUPLE_WEBSITE_PRO. opensDirect → its own /studio/website-pro buy surface.
     key: 'website-pro',
+    tags: ['Website', 'Upgrade', 'Popular'],
     surface: 'website',
     opensDirect: true,
     label: 'Website PRO',
@@ -388,8 +397,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0002',
     status: 'live',
     category: 'digital_services',
-    blurb:
-      'The one upgrade for your whole website — the Save-the-Date Cinematic Reveal, RSVP, the on-the-day page, and Editorial PRO — plus the Setnayan watermark removed everywhere. The only way to get the Reveal and Editorial PRO.',
+    blurb: 'One upgrade for your whole site — the cinematic reveal, Editorial PRO authoring, and no watermark.',
     cta: 'Unlock Website PRO',
     studioGroup: 'website',
     serviceKey: 'COUPLE_WEBSITE_PRO',
@@ -404,6 +412,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'landing-page',
+    tags: ['Website', 'Free'],
     surface: 'website',
     opensDirect: true,
     label: 'Whole website',
@@ -411,8 +420,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0002',
     status: 'web_v1',
     category: 'tool',
-    blurb:
-      'All four parts in one place — settings, RSVP, event day, and editorial.',
+    blurb: 'All four parts of your website in one editor — save-the-date, RSVP, day-of, and editorial.',
     cta: 'Open the editor',
     studioGroup: 'website',
     tier: 'free',
@@ -432,13 +440,13 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   // (the "301 to Pakanta"), so no doorway 404s.
   {
     key: 'playlist',
+    tags: ['Music', 'Planning', 'Free'],
     label: 'Playlist',
     Icon: Music,
     iteration: '0016',
     status: 'web_v1',
     category: 'tool',
-    blurb:
-      'The right song for every moment — handed straight to your DJ.',
+    blurb: 'The right song for every moment — built for you, and handed straight to your DJ.',
     cta: 'Build your lineup',
     studioGroup: 'setnayan_ai',
     tier: 'free',
@@ -456,12 +464,13 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // from the onboarding love story (lib/pakanta-brief.ts); the page only
     // collects the music top-up. Couple surface: /studio/pakanta.
     key: 'pakanta',
+    tags: ['Music', 'Keepsake'],
     label: 'Pakanta',
     Icon: Music,
     iteration: '0036',
     status: 'live',
     category: 'digital_services',
-    blurb: 'An original song written from your love story — yours to keep.',
+    blurb: 'An original song written from your love story — yours to keep, and it scores your videos.',
     cta: 'Create your song',
     studioGroup: 'branding',
     serviceKey: 'PAKANTA',
@@ -476,14 +485,14 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'animated-monogram',
+    tags: ['Branding', 'Monogram', 'Free'],
     surface: 'monogram',
     label: 'Monogram Maker',
     Icon: Type,
     iteration: '0004',
     status: 'web_v1',
     category: 'digital_services',
-    blurb:
-      'Your mark, drawn to life — on your QR, your page, your signage, and up on the LED stage screen.',
+    blurb: 'Your monogram, drawn to life on your QR, page, and signage. PRO adds the animation and the LED backdrop.',
     cta: 'Open the maker',
     studioGroup: 'branding',
     // The maker itself is free (the lettered / cipher / upload monogram is
@@ -505,13 +514,13 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'custom-qr-guest',
+    tags: ['Invitation', 'Guests', 'Branding'],
     label: 'Custom QR per guest',
     Icon: QrCode,
     iteration: '0002',
     status: 'web_v1',
     category: 'tool',
-    blurb:
-      'A branded code for every guest — your monogram and colors, print-ready.',
+    blurb: 'A branded QR for every guest — your monogram and colors, print-ready on each invite.',
     cta: 'Brand my QRs',
     studioGroup: 'branding',
     serviceKey: 'CUSTOM_QR_GUEST',
@@ -526,12 +535,13 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'papic',
+    tags: ['Photos', 'Video', 'Capture', 'Day-of', 'Popular'],
     label: 'Papic',
     Icon: Camera,
     iteration: '0012',
     status: 'web_v1',
     category: 'photography',
-    blurb: 'Your guests become the photographers — every candid in your gallery by morning.',
+    blurb: 'Your guests become the photographers — every candid and clip in your gallery by morning.',
     cta: 'Set up',
     studioGroup: 'capture',
     freeTrial: 'Free to try',
@@ -573,6 +583,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // routes this key at the real Papic set-up surface, so the flip is a
     // one-word change with no 404.
     key: 'papic-guest',
+    tags: ['Photos', 'Capture', 'Day-of', 'Soon'],
     surface: 'rsvp',
     opensDirect: true,
     label: 'Papic Pool',
@@ -580,8 +591,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0012',
     status: 'coming_soon',
     category: 'photography',
-    blurb:
-      'One pass for the whole celebration — every guest on the list gets a camera, all day, no per-camera math.',
+    blurb: 'One pass for the whole celebration — every guest on the list gets a camera, all day.',
     cta: 'See the pass',
     studioGroup: 'capture',
     serviceKey: 'PAPIC_GUEST',
@@ -596,13 +606,14 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'panood',
+    tags: ['Live', 'Video', 'Day-of', 'Free'],
     opensDirect: true,
     label: 'Panood',
     Icon: Tv,
     iteration: '0011',
     status: 'web_v1',
     category: 'photography',
-    blurb: 'Your wedding live — everyone who can’t be there, there.',
+    blurb: 'Your wedding streamed live so everyone who can’t be there is — free with a single camera.',
     cta: 'Set up',
     studioGroup: 'capture',
     // Single-cam live broadcast is FREE for every host (owner model 2026-06-26 —
@@ -628,13 +639,13 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'photo-delivery',
+    tags: ['Photos', 'Delivery'],
     label: 'Photo Delivery',
     Icon: ImageDown,
     iteration: '0009',
     status: 'web_v1',
     category: 'tool',
-    blurb:
-      'Your photographer’s full-resolution gallery, delivered to your Drive.',
+    blurb: 'Your photographer’s full-resolution gallery, handed straight to your Google Drive.',
     cta: 'Set up',
     // Delivered THROUGH Papic (owner 2026-07-22: "Photo Delivery on Papic"), so
     // it is not a standalone free card. `utility` keeps the /studio/photo-delivery
@@ -653,12 +664,13 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'patiktok',
+    tags: ['Video', 'Reels', 'Day-of'],
     label: 'Patiktok',
     Icon: Film,
     iteration: '0017',
     status: 'web_v1',
     category: 'photobooth',
-    blurb: 'Polished vertical reels from your day — ready to post.',
+    blurb: 'Polished vertical reels from a booth at your party — edited and ready to post.',
     cta: 'Browse templates',
     studioGroup: 'capture',
     // Paid SKU — without this the Studio card never flips to Active/Pending when
@@ -675,6 +687,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'supplies-marketplace',
+    tags: ['Print', 'Favors', 'Soon'],
     opensDirect: true,
     label: 'Paprint',
     Icon: Printer,
@@ -684,8 +697,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // present as live. Flip to 'web_v1'/'live' when real checkout ships.
     status: 'coming_soon',
     category: 'tool',
-    blurb:
-      'Wedding-day print pack + favors from vetted PH suppliers — direct to your venue',
+    blurb: 'Wedding-day print pack and favors from vetted PH suppliers, shipped to your venue.',
     cta: 'Browse Paprint',
     studioGroup: 'utility',
     poster: {
@@ -708,6 +720,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // no stale standalone ₱499 pill shows — a non-owner sees a neutral pill and
     // the maker page upsells Monogram PRO. opensDirect opens the maker directly.
     key: 'led',
+    tags: ['Branding', 'Live', 'Day-of'],
     label: 'LED Background',
     Icon: Sparkles,
     iteration: '0005',
@@ -729,13 +742,13 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'indoor-blueprint',
+    tags: ['Planning', 'Guests', 'Day-of'],
     label: 'Indoor Blueprint',
     Icon: MapPin,
     iteration: '0008',
     status: 'web_v1',
     category: 'tool',
-    blurb:
-      'Every guest walks straight from the door to their table.',
+    blurb: 'A guided path so every guest walks straight from the door to their table.',
     cta: 'Map my venue',
     studioGroup: 'branding',
     serviceKey: 'INDOOR_BLUEPRINT',
@@ -750,13 +763,13 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     key: 'mood-board',
+    tags: ['Planning', 'Branding', 'Free'],
     label: 'Mood Board',
     Icon: Palette,
     iteration: '0010',
     status: 'web_v1',
     category: 'tool',
-    blurb:
-      'Your wedding palette — and it flows into every Setnayan piece.',
+    blurb: 'Pick your wedding palette — and it flows into every Setnayan piece you make.',
     cta: 'Open board',
     studioGroup: 'branding',
     tier: 'free',
@@ -775,13 +788,14 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // precedent (indoor-blueprint + mood-board live here) without touching the
     // owner-locked 4-section sub-nav. Its href is flag-aware — see addOnHref.
     key: 'seating',
+    tags: ['Planning', 'Guests', 'Free'],
     opensDirect: true,
     label: 'Seat Plan',
     Icon: LayoutGrid,
     iteration: '0008',
     status: 'web_v1',
     category: 'tool',
-    blurb: 'Lay out your tables and seat every guest with drag-and-drop.',
+    blurb: 'Lay out your tables and seat every guest with simple drag-and-drop.',
     cta: 'Open seat plan',
     studioGroup: 'branding',
     tier: 'free',

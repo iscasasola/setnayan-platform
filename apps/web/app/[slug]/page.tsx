@@ -1332,34 +1332,24 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   };
 
   // "Your seat" inline map — surface the entrance→table wayfinding map on the
-  // event website itself, but only when the guest is seated AND the couple owns
-  // the paid Indoor Blueprint SKU. The free tier remains the table label in the
-  // Guest Hub card + the public /find-seat name-search finder.
+  // event website itself whenever the guest is seated. Indoor Blueprint is FREE
+  // (owner 2026-07-23: "indoor blueprint is free and uses the 2D Plan for
+  // free"), so there is no paid gate — the map rides on the free 2D seat plan.
+  // The empty-chart case still shows nothing (seatTables.length > 0 guard).
   let seatMap:
     | { tables: EventTableRow[]; entrance: EntrancePos; targetTableId: string }
     | null = null;
   if (guestTableId && guestTableLabel) {
-    // Paid-only ACTIVE gate (admin-approved) — the inline wayfinding map shows
-    // only after the Setnayan team verifies the Indoor Blueprint payment, not on
-    // a still-pending order. Mirrors the eventSkuActive handshake every other
-    // paid feature on this page uses (LIVE_WALL / PANOOD_SYSTEM / PAPIC_GUEST).
-    const ownsIndoorBlueprint = await eventSkuActive(
-      admin,
-      event.event_id,
-      'INDOOR_BLUEPRINT',
-    );
-    if (ownsIndoorBlueprint) {
-      try {
-        const [seatTables, seatEntrance] = await Promise.all([
-          fetchTables(admin, event.event_id),
-          fetchEntrance(admin, event.event_id),
-        ]);
-        if (seatTables.length > 0) {
-          seatMap = { tables: seatTables, entrance: seatEntrance, targetTableId: guestTableId };
-        }
-      } catch {
-        seatMap = null;
+    try {
+      const [seatTables, seatEntrance] = await Promise.all([
+        fetchTables(admin, event.event_id),
+        fetchEntrance(admin, event.event_id),
+      ]);
+      if (seatTables.length > 0) {
+        seatMap = { tables: seatTables, entrance: seatEntrance, targetTableId: guestTableId };
       }
+    } catch {
+      seatMap = null;
     }
   }
 

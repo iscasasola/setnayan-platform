@@ -1,59 +1,28 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { defaultTablePosition, type EventTableRow, type TableType } from '@/lib/seating';
-import { checkOrderOwnership, eventHasCompGrant } from '@/lib/entitlements';
 
 /**
  * apps/web/lib/indoor-blueprint.ts
  *
- * Closes the partial INDOOR_BLUEPRINT SKU (₱1,499 · "Your whole venue, mapped
- * and seated" · v2.1 brief § 5 + Onboarding Blueprint §3.3). The seating-chart
- * editor (iteration 0008) is already live — tables placed on a floor plan,
- * guests assigned. v2-catalog.ts marks INDOOR_BLUEPRINT 'partial' because the
- * "entrance → table" wayfinding half ("entrance-to-table nav not built") has
- * never shipped. THIS adds the missing wayfinding: a guest-facing "find your
- * table" view that highlights the guest's assigned table on the published floor
- * plan and draws a path from the venue entrance, plus a couple-facing preview.
+ * The entrance→table wayfinding shared by the couple studio
+ * (/dashboard/[eventId]/studio/indoor-blueprint) and the guest surfaces
+ * (/[slug]/find-my-table + the inline seat map on the landing page): geometry
+ * that highlights a guest's assigned table on the published floor plan and
+ * draws a path from the venue entrance.
  *
- * Gating — same owned-orders pattern as eventOwnsProWebsite() / the
- * custom-qr-guest page (CLAUDE.md 2026-05-22 + 2026-05-30): an `orders` row
- * with service_key = 'INDOOR_BLUEPRINT' whose status is NOT cancelled /
- * refunded / lapsed. A still-in-reconciliation 'submitted' order counts as
- * owned so the couple can't double-buy mid-reconciliation.
+ * FREE (owner 2026-07-23: "indoor blueprint is free and uses the 2D Plan for
+ * free"). Indoor Blueprint rides on the already-free 2D seat plan (iteration
+ * 0008), so it is NOT sold — the retired paid ₱1,499 INDOOR_BLUEPRINT SKU stays
+ * is_active=false and none of these helpers gate on ownership anymore. The old
+ * eventOwnsIndoorBlueprint / INDOOR_BLUEPRINT_SERVICE_KEY / *_PRICE_PHP paid-gate
+ * exports were removed with that change (no remaining importers).
  *
- * SAFETY — every helper here that touches the database runs ONLY behind a gate
- * (the couple's add-on page is auth-bound; the guest find-my-table route is
- * behind the same ownership check before any seating query fires). NOTHING here
- * runs on the always-rendered public landing page. Graceful-degrade on a
- * missing/legacy table (42P01 undefined_table · 42703 undefined_column) so a
- * pre-bootstrap database surfaces the upgrade CTA / no-blueprint state rather
- * than crashing — matches the PR #380/#390 + website/page.tsx hotfix pattern.
+ * SAFETY — the DB helpers here (fetchEntrance) run only behind an auth/session
+ * gate (the couple's add-on page is auth-bound; the guest find-my-table route is
+ * session-cookie gated) and graceful-degrade on a missing/legacy column (42P01 /
+ * 42703) to the conventional default rather than crashing. NOTHING here runs on
+ * the always-rendered public landing page unrestricted.
  */
-
-export const INDOOR_BLUEPRINT_SERVICE_KEY = 'INDOOR_BLUEPRINT';
-export const INDOOR_BLUEPRINT_PRICE_PHP = 1499; // v2.1 brief § 5 · ₱1,499
-
-/**
- * Does this event own the paid Indoor Blueprint upgrade?
- *
- * Delegates to the shared checkOrderOwnership() reader (lib/entitlements.ts) —
- * refund-aware, graceful-degrade on a missing orders table so the gated surface
- * shows the upgrade CTA rather than throwing.
- */
-export async function eventOwnsIndoorBlueprint(
-  supabase: SupabaseClient,
-  eventId: string,
-): Promise<boolean> {
-  // entitlement-gate-lint: bare-ok (INDOOR_BLUEPRINT is in NO bundle — it is
-  // never granted by GUIDED_PACK/MEDIA_PACK, so the bare exact-key reader is
-  // correct here and eventOwnsSku would be misleading. Verified against
-  // BUNDLE_CHILD_SKUS.)
-  if (await checkOrderOwnership(supabase, eventId, INDOOR_BLUEPRINT_SERVICE_KEY)) {
-    return true;
-  }
-  // Admin comp grant — an all_services / specific_skus gift covering this SKU
-  // unlocks it too (host-scoped server-side · lib/entitlements eventHasCompGrant).
-  return eventHasCompGrant(supabase, eventId, INDOOR_BLUEPRINT_SERVICE_KEY);
-}
 
 // ─────────────────────────────────────────────────────────────────────────
 // Geometry — the wayfinding map renders the same canonical floor-plan

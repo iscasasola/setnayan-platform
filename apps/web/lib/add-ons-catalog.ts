@@ -741,6 +741,13 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     },
   },
   {
+    // FREE (owner 2026-07-23: "indoor blueprint is free and uses the 2D Plan for
+    // free"). The entrance→table wayfinding rides on the already-free 2D seat
+    // plan, so it is never sold — no serviceKey (no ownership/price read),
+    // tier:'free' surfaces the "Free" pill, and opensDirect opens the studio
+    // straight away (no /about buy interstitial). Mirrors the mood-board / seat
+    // plan free-tool pattern. Supersedes the retired paid ₱1,499 INDOOR_BLUEPRINT
+    // SKU (catalog row stays is_active=false).
     key: 'indoor-blueprint',
     tags: ['Planning', 'Guests', 'Day-of'],
     label: 'Indoor Blueprint',
@@ -751,7 +758,8 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb: 'A guided path so every guest walks straight from the door to their table.',
     cta: 'Map my venue',
     studioGroup: 'branding',
-    serviceKey: 'INDOOR_BLUEPRINT',
+    tier: 'free',
+    opensDirect: true,
     poster: {
       motion: 'drift',
       baseBackground:

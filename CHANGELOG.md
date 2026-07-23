@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-22 · feat(security): append-only audit trail — admin account-access model Phase 1b
+
+Closes the security audit's top finding: the admin audit trail was mutable by a privileged path (RLS denies admin UPDATE/DELETE, but the service-role client bypasses RLS). Makes `admin_audit_log` + `admin_data_access_log` **append-only at the schema level**.
+
+- **Migration `20270214469084_audit_append_only_immutable.sql`** — a `BEFORE UPDATE OR DELETE` trigger (`enforce_audit_append_only`) on both tables that fires for **every role incl. service_role** (triggers aren't RLS): DELETE is always blocked; UPDATE is blocked **except** the FK `ON DELETE SET NULL` anonymization (verified on prod: `actor_user_id` / `admin_user_id` / `accessed_user_id` are all SET NULL). ⚠ That carve-out is load-bearing — without it, an append-only trigger would break user deletion / RA 10173 erasure (the cascade SET-NULLs these rows). Plus a belt-and-suspenders `REVOKE UPDATE, DELETE`.
+
+⚠ **NOT applied to prod by the author** — behavior-changing on a critical path; must be cascade-tested (delete a user → confirm the SET-NULL still succeeds) before prod. Applies at merge after review. **PR opened as a DRAFT** (the only reliable hold — the repo re-arms auto-merge).
+
+SPEC IMPACT: Recorded — `Admin_Account_Access_Model_2026-06-22.md` + DECISION_LOG 2026-06-22. No app-code/SKU change.
+
+---
+
 ## 2026-06-22 · feat(admin): data-access log — admin account-access model Phase 1a
 
 RA 10173 "right to know who accessed my data" substrate for the admin account-access model (`Admin_Account_Access_Model_2026-06-22.md` · DECISION_LOG 2026-06-22). Records which admin VIEWED which account's data (distinct from `admin_audit_log`, which records admin write ACTIONS).

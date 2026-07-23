@@ -22,27 +22,28 @@ export const APPROVED_LLMS_PRICES: readonly string[] = [
   // Free / zero
   '₱0',
 
-  // À-la-carte add-on that shares this figure (Setnayan AI moved off ₱499 → ₱1,499 on 2026-07-12)
-  '₱499', // Live Background
-
-  // À-la-carte customer software services
+  // À-la-carte customer software services.
+  // ₱499 (Live Background) RETIRED from the body 2026-07-22 — Live Background is
+  // bundle-only now (folded into Monogram PRO ₱1,000), so it no longer prints a
+  // standalone price and ₱499 left the fixture.
   '₱100', // Papic One — flat per-camera price (floor of the retail range)
   '₱299', // Kwento
-  '₱999', // Animated Monogram · Cinematic Reveal · additional-branch 28-day · Papic Pool 3,000 shots
+  '₱999', // Custom Subdomain (per year) · additional-branch 28-day · Papic Pool 3,000 shots
   '₱1,299', // Pabati (per day) · Live Studio Mobile (per day)
   '₱1,499', // Setnayan AI one-time (single ₱1,499 SKU, owner FINAL 2026-07-12) · Patiktok
   '₱1,999', // Papic Pool — 6,000 shots
   '₱2,000', // Stories (per-day cap)
   '₱2,499', // Pakanta · Thank You Video · Live Studio Desktop (per day)
   '₱2,500', // Live Photo Wall (per day) · Pro vendor 28-day
-  '₱2,999', // 3D Plan · Editorial PRO · Papic Pool 10,000 shots + the +10,000 top-up
+  '₱2,999', // 3D Plan · Papic Pool 10,000 shots + the +10,000 top-up
+  '₱3,500', // Website PRO — the umbrella (Cinematic Reveal + Editorial PRO, both bundle-only · owner 2026-07-22)
 
   // Vendor Solo tier subscription (28-day / annual). Token PACKS were retired
   // 2026-07-21 (owner) and answering an inquiry is now FREE, so the token-only
   // pack figures (₱200 per-token · ₱5,000 25-pack · ₱20,000 100-pack) were
   // removed from llms.txt + here. ₱1,000 and ₱10,000 survive only as Solo's own
   // 28-day / annual prices below.
-  '₱1,000', // Solo vendor 28-day
+  '₱1,000', // Solo vendor 28-day · Animated Monogram (Monogram PRO · reprice 2026-07-22)
   '₱10,000', // Solo vendor annual
 
   // Vendor tier subscriptions (28-day / annual) — round-number reprice 2026-07-22.

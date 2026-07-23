@@ -14,10 +14,14 @@ The bundle half of the owner's 2026-07-22 pricing answers (DECISION_LOG 2026-07-
 - LED maker (`/studio/led`) → upsells Monogram PRO.
 - Editorial PRO page → upsells Website PRO.
 
-**Catalog cards**: retired the standalone `editorial-pro` card (bundle-only); strengthened the `website-pro` blurb; `led` now keys its serviceKey to `ANIMATED_MONOGRAM` (shows the live ₱1,000 Monogram-PRO price / "Active" for owners, never the stale ₱499); `animated-monogram` blurb notes the LED inclusion.
+**Catalog cards**: retired the standalone `editorial-pro` card (bundle-only); strengthened the `website-pro` blurb; the `led` card keeps `serviceKey: LIVE_BACKGROUND` (the same canonical the LED maker + save route gate on, so the grid pill and the tool surface can never disagree — a Monogram-PRO owner reads "Active" via the alias), and the Suite/Studio price query now filters `is_active` so a retired SKU never prints a stale standalone pill (the bundle-only LED card shows a neutral pill, not ₱499); `animated-monogram` blurb notes the LED inclusion.
 
 **No misleading prices**: `/pricing` now lists `COUPLE_WEBSITE_PRO` (the reactivated umbrella would otherwise be invisible) and the three standalones auto-drop; the home pricing overlay's `priceOf(..., fallback)` rows for Reveal / Editorial PRO / Live Background were replaced with a Website-PRO row (the fallback would have reprinted stale standalone prices); onboarding drops the `live_background` pick and remaps "Advanced Website" to `COUPLE_WEBSITE_PRO`; persona-packs fold `live_background` into `animated_monogram`.
 
-Verified: `tsc --noEmit` clean · `next lint` clean (one pre-existing warning) · **all 2754 unit tests pass** · migration-timestamp guard · entitlement-gates guard.
+Also synced `public/llms.txt` + `lib/llms-price-fixture.ts` (the AI-crawler pricing surface, which does NOT self-heal from the catalog): Website PRO ₱3,500 added, Monogram ₱1,000, and the three standalones reframed as bundle-only (₱499 dropped, ₱3,500 added — fixture kept in bidirectional sync).
 
-SPEC IMPACT: Pricing.md § 00 / § 00.G #1–#3 — mirrored after merge (§ 00 rule: code lands first). Records Website PRO ₱3,500 · Monogram PRO ₱1,000 · Editorial PRO / Cinematic Reveal / Live Background bundle-only. ⚠ Reaches prod only after `supabase db push`. FOLLOW-UP (deferred, non-blocking): `public/llms.txt` marketing copy still lists the three as standalone + the umbrella as "retired" — a copy-sync pass (with `lib/llms-price-fixture.ts`) once this lands.
+A 4-lens adversarial review (dead-button · owner-access · price-display · onboarding) ran against the diff; its two confirmed findings are fixed in this same PR: (1) the `led` serviceKey was realigned to `LIVE_BACKGROUND` + the price query filtered so the grid pill can't disagree with the maker gate; (2) `experience-personas.ts` still injected the retired `live_background` pick (latent behind the dark experience-quiz flag) — dropped.
+
+Verified: `tsc --noEmit` clean · `next lint` clean (one pre-existing warning) · **all 2754 unit tests pass** (incl. llms-price-drift, the buyable-declares-free-or-paid invariant, and the Suite doorway guardrails) · migration-timestamp guard · entitlement-gates guard.
+
+SPEC IMPACT: Pricing.md § 00 / § 00.G #1–#3 — mirrored after merge (§ 00 rule: code lands first). Records Website PRO ₱3,500 · Monogram PRO ₱1,000 · Editorial PRO / Cinematic Reveal / Live Background bundle-only. ⚠ Reaches prod only after `supabase db push`.

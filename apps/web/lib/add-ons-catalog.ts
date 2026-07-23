@@ -699,11 +699,14 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
   },
   {
     // LED Background — bundle-only 2026-07-22 (owner: Live Background is part of
-    // Monogram PRO ₱1,000). serviceKey is ANIMATED_MONOGRAM (NOT the retired
-    // LIVE_BACKGROUND), so the pill shows the live Monogram-PRO price / "Active"
-    // for owners — never the stale standalone LIVE_BACKGROUND price. opensDirect
-    // opens the maker, which renders for owners (LIVE_BACKGROUND conferred via the
-    // ANIMATED_MONOGRAM alias) and upsells Monogram PRO to everyone else.
+    // Monogram PRO ₱1,000). serviceKey stays LIVE_BACKGROUND — the SAME canonical
+    // the LED maker + save route gate on — so the grid pill and the tool surface
+    // can never disagree (a Monogram-PRO owner reads "Active" here via the
+    // LIVE_BACKGROUND ← ANIMATED_MONOGRAM alias, exactly as the maker grants
+    // access; a direct LIVE_BACKGROUND owner reads "Active" too). Its catalog row
+    // is is_active=false, and the Suite/Studio price query filters is_active, so
+    // no stale standalone ₱499 pill shows — a non-owner sees a neutral pill and
+    // the maker page upsells Monogram PRO. opensDirect opens the maker directly.
     key: 'led',
     label: 'LED Background',
     Icon: Sparkles,
@@ -714,7 +717,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb: 'Your name and monogram, twenty feet tall on the stage screen — included with Monogram PRO.',
     cta: 'Design your LED',
     studioGroup: 'branding',
-    serviceKey: 'ANIMATED_MONOGRAM',
+    serviceKey: 'LIVE_BACKGROUND',
     poster: {
       motion: 'pulse',
       baseBackground:

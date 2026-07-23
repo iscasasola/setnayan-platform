@@ -8,7 +8,7 @@ import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
 // chat flag queue (chat_message_flags · migration 20270920573307). A flag can be:
 //   · reviewed   — seen + noted (e.g. coached the vendor); status 'reviewed'.
 //   · dismiss    — false positive / no action; status 'dismissed'.
-// The message was already delivered MASKED at send time — these actions record
+// The message was already BLOCKED at send time — these actions record
 // the moderator outcome, they do not change what the counterparty saw.
 //
 // Mirrors the requireAdmin + revalidatePath shape of admin/user-reports/actions.ts.

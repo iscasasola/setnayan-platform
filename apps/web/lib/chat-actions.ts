@@ -106,7 +106,15 @@ export async function sendChatMessage(formData: FormData) {
     // no-JS form path we redirect back with an error flag; on the JS path
     // return_to is stripped, so this returns and the composer keeps the user's
     // text + file for a retry.
-    if (result.code === 'attachment_invalid' || result.code === 'attachment_failed') {
+    // A blocked message (off-platform contact) also fails gracefully — the
+    // sender sees why and edits. On the no-JS form path we redirect back with the
+    // reason; on the JS path return_to is stripped (the composer already blocked
+    // it client-side and shows the message), so this just returns.
+    if (
+      result.code === 'attachment_invalid' ||
+      result.code === 'attachment_failed' ||
+      result.code === 'contact_blocked'
+    ) {
       if (typeof returnTo === 'string' && returnTo.startsWith('/')) {
         redirect(
           `${returnTo}${returnTo.includes('?') ? '&' : '?'}error=1&msg=${encodeURIComponent(result.message)}`,

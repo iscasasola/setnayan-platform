@@ -14,15 +14,15 @@ export const dynamic = 'force-dynamic';
  * /admin/chat-flags — moderator ABUSE-SIGNAL queue for couple↔vendor chat
  * messages that carried off-platform contact info (phone / email / social URL /
  * @handle / app-name / euphemism / solicitation). The send path
- * (lib/chat-send.ts) masks the payload in the delivered message and records
- * METADATA ONLY here — the category of what was shared, by whom, how often —
- * NEVER the message text. This is deliberate: the owner-locked admin-account-
- * access model (2026-06-22) forbids Setnayan staff from reading couple↔vendor
- * chat bodies (published trust promise · lint-admin-chat-guard). So this surface
- * lets a moderator spot a repeat off-platform-pusher without reading anyone's
- * conversation. Behaviour is gated behind CHAT_CONTACT_FILTER_ENABLED; the queue
- * only fills once the owner flips the flag on. Auth is enforced at the layout
- * level (admin only).
+ * (lib/chat-send.ts) BLOCKS the message (it never sends) and records METADATA
+ * ONLY here — the category of what was shared, by whom, how often — NEVER the
+ * message text. This is deliberate: the owner-locked admin-account-access model
+ * (2026-06-22) forbids Setnayan staff from reading couple↔vendor chat bodies
+ * (published trust promise · lint-admin-chat-guard). So this surface lets a
+ * moderator spot a repeat off-platform-pusher without reading anyone's
+ * conversation. Behaviour is gated behind NEXT_PUBLIC_CHAT_CONTACT_FILTER_ENABLED;
+ * the queue only fills once the owner flips the flag on. Auth is enforced at the
+ * layout level (admin only).
  */
 
 type FlagRow = {
@@ -143,13 +143,13 @@ export default async function AdminChatFlagsPage({
           <h1 className="text-2xl font-semibold tracking-tight">Chat contact flags</h1>
         </div>
         <p className="text-sm text-ink/65">
-          Couple↔vendor chat messages caught sharing off-platform contact info
-          (phone, email, social/messaging links, @handles, app names, or
-          &ldquo;add me on&hellip;&rdquo; solicitations). The payload was already
-          masked in the delivered message. This queue shows only the <em>signal</em>
-          — what kind of contact info, by whom, how often — never the message text
-          (Setnayan staff don&apos;t read chats). Use it to spot a repeat
-          off-platform-pusher; review or dismiss false positives. Latest 200
+          Couple↔vendor chat messages <strong>blocked</strong> for sharing
+          off-platform contact info (phone, email, social/messaging links,
+          @handles, app names, or &ldquo;add me on&hellip;&rdquo; solicitations).
+          The message never reached the other person. This queue shows only the{' '}
+          <em>signal</em> — what kind of contact info, by whom, how often — never
+          the message text (Setnayan staff don&apos;t read chats). Use it to spot a
+          repeat off-platform-pusher; review or dismiss false positives. Latest 200
           matching the filter, newest first.
         </p>
       </header>
@@ -211,7 +211,7 @@ export default async function AdminChatFlagsPage({
                 </div>
 
                 <p className="text-sm text-ink/80">
-                  <span className="font-medium">{who}</span> shared{' '}
+                  <span className="font-medium">{who}</span> was blocked from sharing{' '}
                   {(r.hit_count ?? 0) > 1 ? `${r.hit_count} pieces of ` : ''}off-platform
                   contact info
                   {vn ? (
@@ -231,9 +231,9 @@ export default async function AdminChatFlagsPage({
                 </p>
 
                 <p className="rounded-md border border-white/60 bg-white/70 px-3 py-2 text-xs text-ink/60">
-                  Message text is not shown — Setnayan staff don&apos;t read chats.
-                  The couple/vendor received the message with the contact details
-                  masked.
+                  The message was blocked — it never reached the other person.
+                  Its text is not shown here (Setnayan staff don&apos;t read chats);
+                  only the rule categories above are recorded.
                 </p>
 
                 {r.status !== 'open' && r.action_taken && (
@@ -275,7 +275,7 @@ export default async function AdminChatFlagsPage({
 
       <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
         Source · iteration 0019 · table <code>chat_message_flags</code> (migration
-        20270920573307) · gated by <code>CHAT_CONTACT_FILTER_ENABLED</code>
+        20270920573307) · gated by <code>NEXT_PUBLIC_CHAT_CONTACT_FILTER_ENABLED</code>
       </p>
     </div>
   );

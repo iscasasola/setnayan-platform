@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { chatContactFilterEnabled } from './chat-contact-filter-flag';
 
-const KEY = 'CHAT_CONTACT_FILTER_ENABLED';
+const KEY = 'NEXT_PUBLIC_CHAT_CONTACT_FILTER_ENABLED';
 
 function withEnv(value: string | undefined, fn: () => void) {
   const prev = process.env[KEY];

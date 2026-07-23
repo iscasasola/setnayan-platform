@@ -14,8 +14,10 @@
 --   flag-write target and the /admin/chat-flags queue's source.
 --
 -- DESIGN
---   * One row per flagged message (UNIQUE message_id) — the send path writes at
---     most one flag per insert, so a re-send is a new message = a new row.
+--   * One row per BLOCKED attempt. The message is rejected (never inserted into
+--     chat_messages), so message_id is NULL — the row is a record of a blocked
+--     try, not a pointer to a delivered message. (message_id is kept nullable for
+--     forward-compat if a future "flag-but-deliver" mode is ever added.)
 --   * Written by the SERVICE-ROLE admin client (bypasses RLS), same pattern as
 --     revealExclusivePerks — so there is NO authenticated INSERT policy. Reads +
 --     resolutions are admin-only via public.is_admin(). Neither the couple nor
@@ -41,9 +43,9 @@ CREATE TABLE IF NOT EXISTS public.chat_message_flags (
   id                 BIGSERIAL PRIMARY KEY,
   flag_id            UUID NOT NULL UNIQUE DEFAULT gen_random_uuid(),
   public_id          TEXT NOT NULL UNIQUE DEFAULT public.generate_public_id('W'),
-  -- The flagged message + its thread. CASCADE so a hard-deleted message/thread
-  -- takes its flag record with it.
-  message_id         UUID NOT NULL UNIQUE
+  -- The blocked message is never inserted, so message_id is NULL. Nullable +
+  -- CASCADE (if a message ever were linked, a hard-delete takes its flag too).
+  message_id         UUID
                        REFERENCES public.chat_messages(message_id) ON DELETE CASCADE,
   thread_id          UUID NOT NULL
                        REFERENCES public.chat_threads(thread_id) ON DELETE CASCADE,
@@ -58,8 +60,12 @@ CREATE TABLE IF NOT EXISTS public.chat_message_flags (
   -- euphemism | solicit (see lib/chat-contact-filter.ts). This is the ONLY
   -- content-derived data stored — a set of category labels, never the text.
   categories         TEXT[] NOT NULL DEFAULT '{}',
-  -- How many spans were detected in the message (severity signal, not content).
+  -- How many rules fired on the message (severity signal, not content).
   hit_count          INTEGER NOT NULL DEFAULT 0,
+  -- What the filter did. 'blocked' = message rejected (the only live outcome
+  -- today); 'flagged' reserved for a future deliver-but-record mode.
+  outcome            TEXT NOT NULL DEFAULT 'blocked'
+                       CHECK (outcome IN ('blocked', 'flagged')),
   status             TEXT NOT NULL DEFAULT 'open'
                        CHECK (status IN ('open', 'reviewed', 'dismissed')),
   action_taken       TEXT,
@@ -99,12 +105,12 @@ CREATE POLICY chat_message_flags_admin_update ON public.chat_message_flags
 -- vendors must never read or write this moderator-only queue.
 
 COMMENT ON TABLE public.chat_message_flags IS
-  'Admin abuse-signal queue for couple↔vendor chat messages that carried '
-  'off-platform contact info (phone/email/social URL/@handle/app-name/euphemism/'
-  'solicit). The send path (lib/chat-send.ts) masks the payload in the delivered '
-  'message and records METADATA ONLY here (categories + hit_count + sender_role '
-  '+ context) via the service-role client — NEVER the message text, per the '
-  'owner-locked admin-no-chat-read invariant (2026-06-22). Admin-only RLS '
-  '(is_admin). Gated behind CHAT_CONTACT_FILTER_ENABLED.';
+  'Admin record of couple↔vendor chat messages BLOCKED for off-platform contact '
+  'info (phone/email/social URL/@handle/app-name/euphemism/solicit). The send '
+  'path (lib/chat-send.ts) rejects the message and records METADATA ONLY here '
+  '(categories + hit_count + sender_role + context) via the service-role client '
+  '— NEVER the message text, per the owner-locked admin-no-chat-read invariant '
+  '(2026-06-22). Admin-only RLS (is_admin). Gated behind '
+  'NEXT_PUBLIC_CHAT_CONTACT_FILTER_ENABLED.';
 
 COMMIT;

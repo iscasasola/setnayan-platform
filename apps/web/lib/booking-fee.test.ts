@@ -1,42 +1,47 @@
 /**
- * Unit suite for the vendor booking-fee schedule (owner-locked 2026-07-21).
- * The boundary cases are lifted verbatim from the build brief's test table
- * (Booking_Fee_Build_Plan_2026-07-21.md): 2,500→₱50 · 2,501→₱50.02 ·
- * 50,000→₱1,000 · 150,000→₱2,500 · 300,000→₱4,000 · >300,000→₱4,000, plus the
- * model doc's worked examples.
+ * Unit suite for the vendor booking-fee schedule (owner-directed 2026-07-23:
+ * a single LINEAR rate, ₱50 floor, ₱4,000 cap locked at ₱300,000). The rate is
+ * fixed by the cap anchor: ₱4,000 ÷ ₱300,000 = 1.3333%.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { bookingFeePhp, bookingFeeEffectiveRate, BOOKING_FEE } from './booking-fee';
+import {
+  bookingFeePhp,
+  bookingFeeEffectiveRate,
+  BOOKING_FEE,
+  BOOKING_FEE_RATE,
+} from './booking-fee';
 
-test('floor: any positive proposal up to ₱2,500 → ₱50 flat', () => {
+test('rate is fixed by the cap anchor: ₱4,000 / ₱300,000', () => {
+  assert.equal(BOOKING_FEE_RATE, 4000 / 300000);
+  assert.ok(Math.abs(BOOKING_FEE_RATE - 0.0133333) < 1e-6);
+});
+
+test('floor: any positive proposal below the floor-crossing → ₱50', () => {
   assert.equal(bookingFeePhp(1), 50);
   assert.equal(bookingFeePhp(1_000), 50);
-  assert.equal(bookingFeePhp(2_500), 50);
+  assert.equal(bookingFeePhp(3_750), 50); // 1.3333% × 3,750 = 50 → floor meets the line
 });
 
-test('just above the floor is continuous: ₱2,501 → ₱50.02', () => {
-  // 50 + 2% × (2,501 − 2,500) = 50 + 0.02
-  assert.equal(bookingFeePhp(2_501), 50.02);
+test('just above the floor-crossing is continuous: ₱3,751 → ₱50.01', () => {
+  // 1.3333% × 3,751 = 50.0133 → 50.01
+  assert.equal(bookingFeePhp(3_751), 50.01);
 });
 
-test('build-brief boundary table', () => {
-  assert.equal(bookingFeePhp(50_000), 1_000);
-  assert.equal(bookingFeePhp(150_000), 2_500);
+test('linear span — a straight 1.3333%', () => {
+  assert.equal(bookingFeePhp(10_000), 133.33);
+  assert.equal(bookingFeePhp(50_000), 666.67);
+  assert.equal(bookingFeePhp(75_000), 1_000);
+  assert.equal(bookingFeePhp(150_000), 2_000);
+  assert.equal(bookingFeePhp(225_000), 3_000);
+});
+
+test('cap: locks at ₱4,000 from ₱300,000 upward', () => {
   assert.equal(bookingFeePhp(300_000), 4_000);
   assert.equal(bookingFeePhp(300_001), 4_000);
-});
-
-test('model-doc worked examples', () => {
-  assert.equal(bookingFeePhp(10_000), 200); // 2.00%
-  assert.equal(bookingFeePhp(80_000), 1_450); // 50 + 950 + 450 → 1.81%
-  assert.equal(bookingFeePhp(1_000_000), 4_000); // capped → 0.40%
-});
-
-test('cap: never exceeds ₱4,000, no matter how large', () => {
-  assert.equal(bookingFeePhp(3_000_000), BOOKING_FEE.capPhp);
-  assert.equal(bookingFeePhp(999_999_999), 4_000);
+  assert.equal(bookingFeePhp(1_000_000), BOOKING_FEE.capPhp);
+  assert.equal(bookingFeePhp(3_000_000), 4_000);
 });
 
 test('₱0 / barter / junk → 0 (no consideration, no fee — open sign-off #4)', () => {
@@ -46,11 +51,12 @@ test('₱0 / barter / junk → 0 (no consideration, no fee — open sign-off #4)
   assert.equal(bookingFeePhp(Number.POSITIVE_INFINITY), 0);
 });
 
-test('effective rate only ever falls (2.00% → 0.40%)', () => {
-  assert.equal(bookingFeeEffectiveRate(10_000), 0.02);
-  assert.ok(bookingFeeEffectiveRate(80_000) < 0.02);
-  assert.ok(bookingFeeEffectiveRate(300_000) < bookingFeeEffectiveRate(80_000));
-  assert.ok(Math.abs(bookingFeeEffectiveRate(1_000_000) - 0.004) < 1e-9);
+test('effective rate: flat 1.3333% across the linear span, falls above the cap', () => {
+  assert.ok(Math.abs(bookingFeeEffectiveRate(10_000) - 0.0133333) < 1e-4);
+  assert.ok(Math.abs(bookingFeeEffectiveRate(150_000) - 0.0133333) < 1e-6);
+  assert.equal(bookingFeeEffectiveRate(300_000), 4000 / 300000);
+  assert.ok(bookingFeeEffectiveRate(1_000_000) < bookingFeeEffectiveRate(300_000));
+  assert.ok(bookingFeeEffectiveRate(1_000) > 0.0133333); // floor → higher effective rate
   assert.equal(bookingFeeEffectiveRate(0), 0);
 });
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { UserPlus } from 'lucide-react';
-import type { LifecyclePhase } from '@/lib/day-of-mode';
+import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import { NavFab } from '@/app/_components/nav/nav-fab';
 
 /**
@@ -25,7 +25,7 @@ export function CustomerNavFab({
   phase = 'plan',
 }: {
   eventId: string;
-  phase?: LifecyclePhase;
+  phase?: MenuLifecyclePhase;
 }) {
   if (phase === 'after') return null;
 

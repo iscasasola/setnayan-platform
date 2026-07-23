@@ -4,7 +4,7 @@ import { notFound, redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { sweepGuardNotifications } from '@/lib/setnayan-ai-notify';
-import { getLifecyclePhase } from '@/lib/day-of-mode';
+import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { isReferralProgramEnabled } from '@/lib/platform-settings';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
@@ -258,11 +258,11 @@ export default async function EventLayout({ children, params }: Props) {
 
   // Event Lifecycle Menu (2026-06-16): the bottom-nav roster swaps by lifecycle
   // phase (Plan → Day-of → After). Computed SERVER-SIDE so there's no client
-  // Date.now() / hydration flash. `getLifecyclePhase` uses isEventDayActive
+  // Date.now() / hydration flash. `getMenuLifecyclePhase` uses isEventDayActive
   // (live ‖ post) so an EVENING reception — which lands in `post` — still gets
   // the Day-of bar, and the `cleared_at` close-out (PR3) flips it to `after`.
   // (The `after` roster lands in PR4; until then `after` shows the Plan bar.)
-  const phase = getLifecyclePhase(
+  const phase = getMenuLifecyclePhase(
     event.event_date as string | null,
     (event as { cleared_at?: string | null }).cleared_at ?? null,
   );

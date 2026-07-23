@@ -323,6 +323,7 @@ export function widgetShouldRender(row: InvitationWidgetRow | null): boolean {
  *   - event         : the wedding day itself — the live day-of surface
  *   - editorial     : after the wedding — the story / gallery recap
  */
+// NOT the dashboard bottom-nav menu phase: that is `MenuLifecyclePhase` in lib/day-of-mode.ts (plan → dayof → after). This WEBSITE pair is the one `app/[slug]/page.tsx` consumes.
 export type LifecyclePhase = 'save_the_date' | 'rsvp' | 'event' | 'editorial';
 
 /**
@@ -402,6 +403,7 @@ export function isWebsitePhasesEnabled(): boolean {
  * 'rsvp', which skipped the Save-the-Date entirely for date-less weddings —
  * owner 2026-06-18: a rendered Save-the-Date didn't show because of this.)
  */
+// NOT the dashboard menu-phase resolver: that is `getMenuLifecyclePhase` in lib/day-of-mode.ts.
 export function getLifecyclePhase(eventDate: string | null): LifecyclePhase {
   if (!eventDate) return 'save_the_date';
   switch (getDayOfPhase(eventDate)) {

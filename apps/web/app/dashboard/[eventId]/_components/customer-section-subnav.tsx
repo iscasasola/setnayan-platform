@@ -43,7 +43,7 @@ import { isDayOfOpen } from '@/lib/guest-journey';
 import { goToBuildTab, BB_TAB_EVENT, type BudgetBuildTab } from '@/lib/budget-build';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
-import type { LifecyclePhase } from '@/lib/day-of-mode';
+import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 
 export function CustomerSectionSubnav({
   eventId,
@@ -60,7 +60,7 @@ export function CustomerSectionSubnav({
    *  When a child carries a `slotKey`, its admin override is overlaid on the
    *  code default — so every sub-nav child is editable from /admin/menus. */
   navSlots?: Record<string, NavSlotLite>;
-  phase?: LifecyclePhase;
+  phase?: MenuLifecyclePhase;
   /** Top-level menu keys to drop for this event type (e.g. ['explore','budget']
    *  for a vendor-free Simple Event). Resolved from the profile in layout.tsx. */
   hideKeys?: string[];

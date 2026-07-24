@@ -201,7 +201,7 @@ export function ChatMessageStream({
       const [{ data: amRows }, { data: itemRows }] = await Promise.all([
         supabase
           .from('proposal_amendments')
-          .select('amendment_id, status, raised_by, note, base_proposal_id')
+          .select('amendment_id, status, raised_by, note, base_proposal_id, locked_at')
           .in('amendment_id', ids),
         supabase
           .from('proposal_amendment_items')
@@ -216,6 +216,7 @@ export function ChatMessageStream({
         raised_by: ChatAmendmentData['raised_by'];
         note: string | null;
         base_proposal_id: string | null;
+        locked_at: string | null;
       }>;
       // Base proposal totals for the "current → new total" line.
       const propIds = Array.from(
@@ -262,6 +263,7 @@ export function ChatMessageStream({
               baseTotalCentavos: a.base_proposal_id
                 ? totalByProp.get(a.base_proposal_id) ?? null
                 : null,
+              lockedAt: a.locked_at,
             },
             items: itemsByAm.get(a.amendment_id) ?? [],
           };

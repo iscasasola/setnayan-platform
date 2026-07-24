@@ -28,6 +28,7 @@ import { emitNotification } from '@/lib/notification-emit';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import {
   signedAmount,
+  newTotalPhp,
   AMENDMENT_ITEM_KINDS,
   type AmendmentItemKind,
 } from '@/lib/proposal-amendments';
@@ -811,6 +812,85 @@ export async function markAmendmentItemDelivered(formData: FormData): Promise<vo
     .eq('item_id', itemId)
     .eq('item_kind', 'request')
     .is('delivered_at', null);
+
+  if (back) {
+    revalidatePath(back);
+    redirect(back);
+  }
+  redirect(dest);
+}
+
+// ============================================================================
+// Customer "Lock this deal" (negotiation rework · council verdict 2026-07-24).
+// Only the COUPLE locks. Freezes the accepted Deal: stamps the amendment's
+// locked_at (card shows "Locked") + writes the frozen total onto the thread
+// (agreed_price_centavos + locked_at + locked_by_user_id) — the handoff to the
+// PAYMENT session. RLS scopes both writes to the caller's relationship.
+// ============================================================================
+
+export async function lockDeal(formData: FormData): Promise<void> {
+  const threadId = str(formData.get('thread_id'), 64);
+  const amendmentId = str(formData.get('amendment_id'), 64);
+  const back = safeReturn(formData.get('return_to'));
+  const dest = back ?? '/dashboard';
+  if (!chatNegotiationEnabled() || !threadId || !amendmentId) redirect(dest);
+
+  const supabase = await createClient();
+  const ctx = await loadThreadRole(supabase, threadId);
+  // Only the customer (couple) locks.
+  if (!ctx || ctx.role !== 'couple') redirect(dest);
+
+  // Load the accepted amendment + its base proposal total + items → new total.
+  const { data: amRow } = await supabase
+    .from('proposal_amendments')
+    .select('amendment_id, status, base_proposal_id')
+    .eq('amendment_id', amendmentId)
+    .maybeSingle();
+  const am = amRow as { status?: string; base_proposal_id?: string | null } | null;
+  if (!am || am.status !== 'accepted') redirect(dest);
+
+  const [{ data: items }, baseTotal] = await Promise.all([
+    supabase
+      .from('proposal_amendment_items')
+      .select('amount_php')
+      .eq('amendment_id', amendmentId),
+    (async () => {
+      if (!am.base_proposal_id) return null;
+      const { data } = await supabase
+        .from('vendor_proposals')
+        .select('total_centavos')
+        .eq('proposal_id', am.base_proposal_id)
+        .maybeSingle();
+      return (data as { total_centavos?: number } | null)?.total_centavos ?? null;
+    })(),
+  ]);
+  const itemAmounts = ((items ?? []) as Array<{ amount_php: number | string | null }>).map((i) => ({
+    amount_php: i.amount_php == null ? null : Number(i.amount_php),
+  }));
+  const newTotal = newTotalPhp(baseTotal, itemAmounts); // pesos, or null if no base
+  const agreedCentavos = newTotal == null ? null : Math.round(newTotal * 100);
+
+  const now = new Date().toISOString();
+
+  // Stamp the Deal (single-winner: only an accepted, not-yet-locked one).
+  await supabase
+    .from('proposal_amendments')
+    .update({ locked_at: now })
+    .eq('amendment_id', amendmentId)
+    .eq('status', 'accepted')
+    .is('locked_at', null);
+
+  // Freeze the price onto the thread — the payment session reads this.
+  await supabase
+    .from('chat_threads')
+    .update({
+      agreed_price_centavos: agreedCentavos,
+      locked_at: now,
+      locked_by_user_id: ctx.userId,
+    })
+    .eq('thread_id', threadId);
+
+  await notifyChangeCounterparty(ctx, 'Deal locked', 'accepted');
 
   if (back) {
     revalidatePath(back);

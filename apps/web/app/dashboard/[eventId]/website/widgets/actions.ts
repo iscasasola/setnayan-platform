@@ -1,9 +1,10 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { isWidgetType } from '@/lib/invitation-widgets';
+import { requireHostMembershipOrThrow } from '@/lib/host-gate';
+import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 
 /**
  * Invitation Widgets Editor — server actions (V1 · 2026-05-22 PM).
@@ -24,49 +25,11 @@ import { isWidgetType } from '@/lib/invitation-widgets';
  * drag-and-drop on top of the same actions without server changes.
  */
 
-/**
- * Host membership gate — mirrors the canonical helper repeated in every
- * /website sub-editor's actions.ts. Accepts:
- *   1. event_moderators rows with accepted_at IS NOT NULL AND removed_at IS NULL
- *   2. event_members rows with member_type = 'couple' (V1 backwards-compat)
- *
- * Throws on unauthenticated or unauthorized callers. The thrown error
- * surfaces as a 500 to the caller — Next.js form actions don't have a
- * clean way to surface 403 specifically without client-side state.
- */
-async function requireHostMembership(eventId: string): Promise<string> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  // Source 1 — event_moderators (canonical going forward · iteration 0048).
-  const { data: moderator } = await supabase
-    .from('event_moderators')
-    .select('moderator_id')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .not('accepted_at', 'is', null)
-    .is('removed_at', null)
-    .maybeSingle();
-
-  if (moderator) return user.id;
-
-  // Source 2 — event_members couple row (V1 backwards-compat).
-  const { data: legacy } = await supabase
-    .from('event_members')
-    .select('member_type')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  if (legacy && (legacy as { member_type: string }).member_type === 'couple') {
-    return user.id;
-  }
-
-  throw new Error('Forbidden — only current hosts can edit widget visibility.');
-}
+// Host gate: the canonical lib/host-gate.ts helper (throw variant — this
+// editor surfaces a 500 on unauthorized rather than redirecting). The message
+// preserves the pre-dedup wording. See lib/host-gate.ts for the redirect-vs-
+// throw split the council surfaced (§1.4).
+const WIDGET_FORBIDDEN = 'Forbidden — only current hosts can edit widget visibility.';
 
 /**
  * Revalidate the editor, the website hub, and the public landing page.
@@ -82,11 +45,8 @@ async function revalidateForWidgetChange(eventId: string): Promise<void> {
     .eq('event_id', eventId)
     .maybeSingle();
 
-  revalidatePath(`/dashboard/${eventId}/website/widgets`);
-  revalidatePath(`/dashboard/${eventId}/website`);
-  if (event?.slug) {
-    revalidatePath(`/${event.slug}`);
-  }
+  revalidateWebsiteEditor(eventId, 'widgets');
+  revalidateGuestSite(event?.slug);
 }
 
 /**
@@ -125,7 +85,7 @@ export async function toggleWidgetVisibility(formData: FormData): Promise<void> 
   const widgetId = widgetIdRaw as string;
   const nextVisible = nextVisibleRaw === '1';
 
-  await requireHostMembership(eventId);
+  await requireHostMembershipOrThrow(eventId, WIDGET_FORBIDDEN);
 
   const supabase = await createClient();
 
@@ -206,7 +166,7 @@ async function moveWidget(formData: FormData, direction: 'up' | 'down'): Promise
   const eventId = eventIdRaw as string;
   const widgetId = widgetIdRaw as string;
 
-  await requireHostMembership(eventId);
+  await requireHostMembershipOrThrow(eventId, WIDGET_FORBIDDEN);
 
   const supabase = await createClient();
 

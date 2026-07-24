@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { requireHostMembership } from '@/lib/host-gate';
 
 /**
  * Server actions for the wedding landing page hero photo editor.
@@ -31,38 +32,6 @@ import { createClient } from '@/lib/supabase/server';
  * Cross-ref: CLAUDE.md 2026-05-22 row · Hero Photo PR sibling of #381
  * Privacy + #382 Dress Code + #383 Photo Moments.
  */
-
-async function requireHostMembership(eventId: string): Promise<string> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  // event_moderators (canonical going forward, iteration 0048 V1).
-  const { data: moderator } = await supabase
-    .from('event_moderators')
-    .select('moderator_id')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .not('accepted_at', 'is', null)
-    .is('removed_at', null)
-    .maybeSingle();
-
-  if (moderator) return user.id;
-
-  // event_members couple row (V1 backwards-compat).
-  const { data: legacy } = await supabase
-    .from('event_members')
-    .select('member_type')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  if (legacy?.member_type === 'couple') return user.id;
-
-  redirect('/dashboard');
-}
 
 export async function uploadHeroPhoto(formData: FormData) {
   const eventIdRaw = formData.get('event_id');

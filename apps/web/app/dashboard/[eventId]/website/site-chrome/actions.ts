@@ -16,36 +16,9 @@
  * source. Music never autoplays (the player is tap-to-start), per §6.2.
  */
 import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-
-async function requireHostMembership(eventId: string): Promise<string> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { data: moderator } = await supabase
-    .from('event_moderators')
-    .select('moderator_id')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .not('accepted_at', 'is', null)
-    .is('removed_at', null)
-    .maybeSingle();
-  if (moderator) return user.id;
-
-  const { data: legacy } = await supabase
-    .from('event_members')
-    .select('member_type')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (legacy?.member_type === 'couple') return user.id;
-
-  redirect('/dashboard');
-}
+import { requireHostMembership } from '@/lib/host-gate';
+import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 
 function r2RefOrNull(v: FormDataEntryValue | null): string | null {
   return typeof v === 'string' && v.startsWith('r2://') ? v : null;
@@ -57,24 +30,39 @@ export async function updateSiteChrome(
 ): Promise<void> {
   await requireHostMembership(eventId);
 
-  const musicRef = r2RefOrNull(formData.get('bg_music_url'));
-  const videoRef = r2RefOrNull(formData.get('hero_video_url'));
-  // Checkbox: present only when checked. Music can't be enabled without a track.
-  const enabledRequested = formData.get('bg_music_enabled') === 'on';
-  const musicEnabled = enabledRequested && Boolean(musicRef);
+  // Omit-when-untouched (council §1.4 hardening): only write a column when the
+  // form actually carried its control. The unconditional write nulled
+  // landing_page_hero_video_r2_key / the music keys whenever a field was absent
+  // — stale-tab / partial-post data loss. This editor always renders both
+  // controls, so normal saves are unchanged; only a malformed post is spared.
+  const update: Record<string, unknown> = {};
+
+  if (formData.has('bg_music_url')) {
+    const musicRef = r2RefOrNull(formData.get('bg_music_url'));
+    // Checkbox: present only when checked. Music can't be enabled without a track.
+    const enabledRequested = formData.get('bg_music_enabled') === 'on';
+    update.site_bg_music_r2_key = musicRef;
+    update.site_bg_music_source = musicRef ? 'upload' : null;
+    update.site_bg_music_enabled = enabledRequested && Boolean(musicRef);
+  }
+  if (formData.has('hero_video_url')) {
+    update.landing_page_hero_video_r2_key = r2RefOrNull(formData.get('hero_video_url'));
+  }
 
   const supabase = await createClient();
-  const { data: event, error } = await supabase
-    .from('events')
-    .update({
-      site_bg_music_r2_key: musicRef,
-      site_bg_music_source: musicRef ? 'upload' : null,
-      site_bg_music_enabled: musicEnabled,
-      landing_page_hero_video_r2_key: videoRef,
-    })
-    .eq('event_id', eventId)
-    .select('slug')
-    .maybeSingle();
+  const hasWrite = Object.keys(update).length > 0;
+  const { data: event, error } = hasWrite
+    ? await supabase
+        .from('events')
+        .update(update)
+        .eq('event_id', eventId)
+        .select('slug')
+        .maybeSingle()
+    : await supabase
+        .from('events')
+        .select('slug')
+        .eq('event_id', eventId)
+        .maybeSingle();
 
   if (error) {
     redirect(
@@ -84,8 +72,7 @@ export async function updateSiteChrome(
     );
   }
 
-  revalidatePath(`/dashboard/${eventId}/website/site-chrome`);
-  revalidatePath(`/dashboard/${eventId}/website`);
-  if (event?.slug) revalidatePath(`/${event.slug}`);
+  revalidateWebsiteEditor(eventId, 'site-chrome');
+  revalidateGuestSite(event?.slug);
   redirect(`/dashboard/${eventId}/website/site-chrome?saved=1`);
 }

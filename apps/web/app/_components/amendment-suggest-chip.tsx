@@ -45,7 +45,7 @@ export function AmendmentSuggestChip({
         onClick={() => setOpen(true)}
         className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-mulberry/30 bg-mulberry/[0.06] px-3 py-1 text-xs font-medium text-mulberry hover:bg-mulberry/10"
       >
-        🧾 Request proposal changes
+        🧾 Send a deal
       </button>
     );
   }

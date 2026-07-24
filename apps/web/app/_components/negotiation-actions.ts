@@ -653,7 +653,7 @@ async function insertAmendment(
   });
   if (cardErr) console.error('[negotiation] amendment card insert failed:', cardErr.message);
 
-  await notifyChangeCounterparty(ctx, 'Proposal changes', 'raised');
+  await notifyChangeCounterparty(ctx, 'Deal', 'raised');
   return amendmentId;
 }
 
@@ -691,7 +691,7 @@ export async function createAmendmentFromChat(formData: FormData): Promise<void>
     base?.proposalId ?? null,
     items!,
     note,
-    `🧾 Requested proposal changes (${n} item${n === 1 ? '' : 's'})`,
+    `🧾 Deal — ${n} item${n === 1 ? "" : "s"}`,
   );
 
   if (back) {
@@ -730,7 +730,7 @@ export async function respondAmendmentFromChat(formData: FormData): Promise<void
     .select('amendment_id');
 
   if (updated && updated.length > 0) {
-    await notifyChangeCounterparty(ctx!, 'Proposal changes', decision === 'accept' ? 'accepted' : 'declined');
+    await notifyChangeCounterparty(ctx!, 'Deal', decision === 'accept' ? 'accepted' : 'declined');
   }
 
   if (back) {
@@ -781,7 +781,7 @@ export async function counterAmendmentFromChat(formData: FormData): Promise<void
     base?.proposalId ?? null,
     items!,
     note,
-    `🧾 Counter — proposal changes (${n} item${n === 1 ? '' : 's'})`,
+    `🧾 Counter deal — ${n} item${n === 1 ? "" : "s"}`,
   );
 
   if (back) {

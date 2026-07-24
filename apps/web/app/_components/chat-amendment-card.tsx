@@ -91,7 +91,7 @@ export function ChatAmendmentCard({ data, items, viewerRole, threadId, returnPat
         </span>
         <div className="min-w-0 leading-tight">
           <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
-            Proposal changes
+            Deal
           </p>
           <p className="truncate text-[15px] font-medium text-ink">
             {items.length} item{items.length === 1 ? '' : 's'} requested

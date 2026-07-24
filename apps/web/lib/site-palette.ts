@@ -157,6 +157,41 @@ export function buildSitePaletteVars(
   };
 }
 
+// ── Website Pro · manual site colours (Launch settings §4.4 · PR-C) ───────────
+// Two NET-NEW couple-chosen colours (events.site_bg_color / site_button_color,
+// #rrggbb hex) that OVERRIDE the Mood-Board-derived tokens for the guest site.
+// This is a DIRECT override — no WCAG remap like buildSitePaletteVars — because
+// the couple picks these explicitly with a live preview; the editor validates
+// the hex, and the renderer gates the whole thing on ACTIVE Website Pro. Returns
+// null when NEITHER column carries a valid hex, so the caller injects nothing
+// and the page renders exactly as today (the load-bearing "inert" contract).
+//
+//   • background → --color-cream  (the page bg + every cream surface token)
+//   • button     → --color-mulberry + its -600 / -700 hover derivatives (CTA)
+//
+// The caller layers these OVER buildSitePaletteVars, so a couple who set only
+// one colour keeps the palette (or brand default) for the other role.
+export function buildCustomSiteColorVars(
+  bgHex: string | null | undefined,
+  buttonHex: string | null | undefined,
+): Record<string, string> | null {
+  const vars: Record<string, string> = {};
+
+  const bg = bgHex ? hexToRgb(bgHex) : null;
+  if (bg) {
+    vars['--color-cream'] = channels(bg);
+  }
+
+  const button = buttonHex ? hexToRgb(buttonHex) : null;
+  if (button) {
+    vars['--color-mulberry'] = channels(button);
+    vars['--color-mulberry-600'] = channels(darken(button, 0.15));
+    vars['--color-mulberry-700'] = channels(darken(button, 0.28));
+  }
+
+  return Object.keys(vars).length > 0 ? vars : null;
+}
+
 // ── Save-the-Date reveal colours (0024 addendum §4) ───────────────────────────
 // The envelope role-map: wax seal = the DEEP ACCENT, veil tulle = a sheer
 // hue-carrying tint. Both pull from the same Mood-Board pool as the page theme

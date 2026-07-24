@@ -238,6 +238,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     monogram,
     animatedMonogram,
     proWatermarkHidden,
+    siteColorVars,
     bespokeSvg,
     studioAnim,
     heroPhotoUrl,
@@ -326,6 +327,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
           animatedMonogram={animatedMonogram}
           bespokeSvg={bespokeSvg}
           proWatermarkHidden={proWatermarkHidden}
+          siteColorVars={siteColorVars}
         />
       );
     }
@@ -454,6 +456,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     liveWall,
     watchLive,
     proWatermarkHidden,
+    siteColorVars,
   };
   const renderAnonymous = (reason: AnonymousReason) => (
     <SiteBody

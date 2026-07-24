@@ -1,0 +1,175 @@
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { ArrowRight, ReceiptText, ArrowLeft } from 'lucide-react';
+import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
+import {
+  ORDER_STATUS_LABEL,
+  ORDER_STATUS_TONE,
+  formatPhp,
+  type OrderRow,
+} from '@/lib/orders';
+import {
+  fetchVendorFeeOrders,
+  bucketFeeOrders,
+} from '@/lib/vendor-booking-fees.server';
+import { vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
+
+export const metadata = { title: 'Booking fees · Vendor' };
+
+function fmtDate(s: string) {
+  return new Date(s).toLocaleDateString('en-PH', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+/**
+ * /vendor-dashboard/booking-fees — the vendor-facing list of their Setnayan
+ * booking-fee orders (5% of a booked total, past their free-5). Each row links
+ * to the same manual-QR pay flow couples use, reachable from the Plan hub
+ * doorway. READ-ONLY surfacing: this never mints or mutates a fee — it lists the
+ * orders the fee-charge path already created (RLS scopes to the caller's own).
+ *
+ * Not flag-gated at the page level: a vendor with an outstanding fee must always
+ * be able to reach + pay it (deep-link durability). The DOORWAY that advertises
+ * this page + the notification sweep ARE flag-gated, so nothing new is surfaced
+ * while the fee system is dark.
+ */
+export default async function VendorBookingFeesPage() {
+  const user = await getCurrentUser();
+  if (!user) redirect(loginRedirectPath('/vendor-dashboard/booking-fees'));
+  const supabase = await createClient();
+
+  const orders = await fetchVendorFeeOrders(supabase, user.id);
+  const { due, settled, closed } = bucketFeeOrders(orders);
+
+  const totalDue = due.reduce(
+    (acc, o) => acc + Number(o.confirmed_total_php ?? o.requested_total_php ?? 0),
+    0,
+  );
+
+  return (
+    <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
+      <Link
+        href="/vendor-dashboard/subscription"
+        className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+      >
+        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        Back to Plan
+      </Link>
+
+      <header className="mt-4 mb-6 sm:mb-8">
+        <p className="sn-eye">Billing</p>
+        <h1 className="sn-h1 mt-1">Booking fees</h1>
+        <p className="mt-2 max-w-prose text-sm text-ink/65">
+          Setnayan charges a 5% booking fee once a couple confirms a booking with
+          you — but only past your first 5 booked customers, who are free. Fees
+          are paid on the same GCash/BDO rail as everything else and clear once
+          our team confirms your payment (within 24 hours).
+        </p>
+        {due.length > 0 ? (
+          <div className="mt-4 rounded-lg border border-warn-300/60 bg-warn-50 px-4 py-3 text-sm text-warn-900">
+            You have{' '}
+            <span className="font-semibold">
+              {due.length} unpaid {due.length === 1 ? 'fee' : 'fees'}
+            </span>{' '}
+            totalling <span className="font-mono font-semibold">{formatPhp(totalDue)}</span>.
+          </div>
+        ) : null}
+      </header>
+
+      {orders.length === 0 ? (
+        <div className="sn-tile p-8 text-center">
+          <ReceiptText
+            className="mx-auto h-8 w-8 text-ink/30"
+            strokeWidth={1.5}
+            aria-hidden
+          />
+          <p className="mt-3 text-sm font-medium text-ink">No booking fees yet.</p>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-ink/55">
+            Your first 5 booked customers are free. When a 6th booking locks in,
+            its fee will show up here to pay.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {due.length > 0 ? (
+            <FeeGroup title="Due" tone="warn" orders={due} />
+          ) : null}
+          {settled.length > 0 ? (
+            <FeeGroup title="Paid" tone="good" orders={settled} />
+          ) : null}
+          {closed.length > 0 ? (
+            <FeeGroup title="Closed" tone="muted" orders={closed} />
+          ) : null}
+        </div>
+      )}
+    </main>
+  );
+}
+
+function FeeGroup({
+  title,
+  tone,
+  orders,
+}: {
+  title: string;
+  tone: 'warn' | 'good' | 'muted';
+  orders: OrderRow[];
+}) {
+  return (
+    <section className="space-y-3">
+      <p
+        className={
+          'sn-eye ' +
+          (tone === 'warn'
+            ? 'text-terracotta-700'
+            : tone === 'good'
+              ? 'text-success-700'
+              : 'text-ink/50')
+        }
+      >
+        {title}
+      </p>
+      <ul className="space-y-2">
+        {orders.map((o) => {
+          const amount = Number(o.confirmed_total_php ?? o.requested_total_php ?? 0);
+          return (
+            <li key={o.order_id}>
+              <Link
+                href={vendorBookingFeePayPath(o.order_id)}
+                className="sn-card sn-press flex items-center gap-4 p-4"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-ink">
+                    {formatPhp(amount)}
+                    <span className="ml-2 font-mono text-[11px] font-normal text-terracotta-700">
+                      {o.reference_code}
+                    </span>
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-ink/55">
+                    {o.description || 'Setnayan booking fee'} · {fmtDate(o.created_at)}
+                  </p>
+                </div>
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+                    ORDER_STATUS_TONE[o.status]
+                  }`}
+                >
+                  {ORDER_STATUS_LABEL[o.status]}
+                </span>
+                <ArrowRight
+                  className="h-4 w-4 shrink-0 text-ink/40"
+                  strokeWidth={2}
+                  aria-hidden
+                />
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}

@@ -38,6 +38,8 @@ import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { detectNegotiation } from '@/lib/chat-negotiation-detect';
 import { ChatAppointmentCard, type ChatAppointmentData } from './chat-appointment-card';
 import { ScheduleSuggestChip } from './schedule-suggest-chip';
+import { ChatChangeOrderCard, type ChatChangeOrderData } from './chat-change-order-card';
+import { ChangeRequestSuggestChip } from './change-request-suggest-chip';
 import type { AppointmentKind } from '@/lib/appointments';
 
 /** Display data for the in-thread proposal card, fetched by proposal_id. */
@@ -162,6 +164,49 @@ export function ChatMessageStream({
             scheduled_at: a.scheduled_at,
             status: a.status,
             initiated_by: a.initiated_by,
+          };
+        }
+        return next;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [messages, supabase, negotiationOn]);
+
+  // Change-order cards (negotiation Phase 2): a message with change_order_id
+  // renders as a discount/inclusion request card. Fetch live display data
+  // (RLS-scoped) per id, refetched on any message-set change so a status flip
+  // (accept / decline / counter) repaints.
+  const [changeOrderCards, setChangeOrderCards] = useState<Record<string, ChatChangeOrderData>>({});
+  useEffect(() => {
+    if (!negotiationOn) return;
+    const ids = [
+      ...new Set(messages.map((m) => m.change_order_id).filter((x): x is string => !!x)),
+    ];
+    if (ids.length === 0) return;
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from('vendor_change_orders')
+        .select('change_order_id, title, delta_amount_php, status, raised_by')
+        .in('change_order_id', ids);
+      if (cancelled || !data) return;
+      setChangeOrderCards(() => {
+        const next: Record<string, ChatChangeOrderData> = {};
+        for (const c of data as Array<{
+          change_order_id: string;
+          title: string;
+          delta_amount_php: number | string;
+          status: ChatChangeOrderData['status'];
+          raised_by: ChatChangeOrderData['raised_by'];
+        }>) {
+          next[c.change_order_id] = {
+            change_order_id: c.change_order_id,
+            title: c.title,
+            delta_amount_php: Number(c.delta_amount_php),
+            status: c.status,
+            raised_by: c.raised_by,
           };
         }
         return next;
@@ -489,6 +534,30 @@ export function ChatMessageStream({
               </li>
             );
           }
+          // Change-order cards (negotiation Phase 2): a message with
+          // change_order_id renders the discount/inclusion request card with the
+          // counterparty's accept / counter / decline actions. Falls back to the
+          // body until data loads; degrades to a plain bubble when the flag is
+          // off (body is a readable "💸 …"/"➕ Inclusion request: …").
+          if (negotiationOn && m.change_order_id) {
+            const co = changeOrderCards[m.change_order_id];
+            return (
+              <li key={m.message_id} className="flex justify-center">
+                {co ? (
+                  <ChatChangeOrderCard
+                    data={co}
+                    viewerRole={viewerRole}
+                    threadId={threadId}
+                    returnPath={returnPathFor(m)}
+                  />
+                ) : (
+                  <div className="w-full max-w-[92%] rounded-xl border border-terracotta/40 bg-terracotta/[0.06] p-3">
+                    <p className="whitespace-pre-wrap break-words text-sm text-ink/80">{m.body}</p>
+                  </div>
+                )}
+              </li>
+            );
+          }
           // System messages (e.g. the Build re-quote nudge) are automated
           // Setnayan notes — centered, owned by neither side, labelled
           // "Setnayan". Never "from the couple"/"from the vendor".
@@ -558,9 +627,24 @@ export function ChatMessageStream({
               ownsBubble(m, viewerRole) &&
               !m.proposal_id &&
               !m.appointment_id &&
+              !m.change_order_id &&
               m.body &&
               detectNegotiation(m.body).primary === 'schedule' ? (
                 <ScheduleSuggestChip
+                  threadId={threadId}
+                  returnPath={returnPathFor(m)}
+                  body={m.body}
+                />
+              ) : null}
+              {/* Phase 2: discount / inclusion suggestion chips under the
+                  sender's own message. A message can raise both. */}
+              {negotiationOn &&
+              ownsBubble(m, viewerRole) &&
+              !m.proposal_id &&
+              !m.appointment_id &&
+              !m.change_order_id &&
+              m.body ? (
+                <ChangeRequestSuggestChip
                   threadId={threadId}
                   returnPath={returnPathFor(m)}
                   body={m.body}

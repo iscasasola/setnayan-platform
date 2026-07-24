@@ -159,6 +159,13 @@ export type ChatMessageRow = {
    */
   appointment_id?: string | null;
   /**
+   * Set when this message announces a discount/inclusion request — renders as an
+   * in-thread change-order card (accept / counter / decline) backed by
+   * vendor_change_orders. Negotiation Phase 2 (migration 20270921698789), same
+   * flag. NULL on every other message.
+   */
+  change_order_id?: string | null;
+  /**
    * Optional file attachment (chat file sharing, PR 2). All four are NULL on
    * text-only messages. `attachment_url` is the public R2 URL; the renderer
    * shows an <img> thumbnail for image MIMEs and a file chip otherwise.
@@ -535,7 +542,7 @@ export async function fetchMessages(
   // plain human bubble. The thread page must never crash ahead of a migration.
   const withBot = await supabase
     .from('chat_messages')
-    .select(`${MESSAGE_SELECT},is_bot,appointment_id`)
+    .select(`${MESSAGE_SELECT},is_bot,appointment_id,change_order_id`)
     .eq('thread_id', threadId)
     .order('created_at', { ascending: true });
   if (!withBot.error) return (withBot.data ?? []) as ChatMessageRow[];

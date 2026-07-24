@@ -27,6 +27,8 @@ import { type DayOfPhase } from '@/lib/day-of-mode';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { GuestPreload } from './guest-preload';
 import { PublicEventDayBar } from './public-event-day-bar';
+import { SiteMenuBar } from './site-menu-bar';
+import { siteMenuEnabled, SITE_MENU_ANCHORS } from '../_lib/site-menu';
 import { StdViewBeacon } from './std-view-beacon';
 import { BackgroundMusic } from './background-music';
 import { EditorialContent } from './editorial/editorial-content';
@@ -392,6 +394,19 @@ export function SiteBody({
   /** The anonymous tree — verbatim the old PublicLanding body. */
   const anonymousTree = (anon: AnonymousSiteIdentity) => {
     const { reason, publicCandidCameraActive, publicAlbumHref } = anon;
+    // Open-browse MENU SHELL (PR6, flag-dark; always on for the sample event).
+    // Present-flags gate each middle tab so it never anchors to a section that
+    // did not render (the council's no-dead-anchors rule). Anchor ids below.
+    const menuOn = siteMenuEnabled({
+      flag: process.env.NEXT_PUBLIC_WEBSITE_MENU_ENABLED,
+      isSample: Boolean(event.is_sample),
+    });
+    const menuSections = {
+      details: plan.publicSafeWidgets.length > 0,
+      story: Boolean(event.love_story),
+      // "Gallery" = the live photo wall (the livestream is a separate concern).
+      gallery: dayOfPhase === 'live' && plan.liveMediaVisible && Boolean(liveWall),
+    };
     // Task #13 — day-of-mode badge surfaces to public-landing viewers too so a
     // guest at the venue without a session cookie still sees "happening now".
     const dayOfBadge =
@@ -408,6 +423,9 @@ export function SiteBody({
 
     return (
       <>
+        {/* Menu-shell anchor targets (PR6). aria-hidden zero-height markers so
+            the fixed SiteMenuBar's in-page links land on the right sections. */}
+        <div id={SITE_MENU_ANCHORS.home} aria-hidden className="scroll-mt-6" />
         {/* When a hero photo/video is uploaded, render a full-bleed banner
             (normal body only — plan.anonymousHeroBanner). Otherwise fall back
             to the centered text-only treatment inside the normal branch. */}
@@ -552,6 +570,7 @@ export function SiteBody({
                 above) — scroll-margin keeps it clear of the fixed bottom bar. */}
             {dayOfPhase === 'live' && plan.liveMediaVisible && liveWall ? (
               <section id="live-photo-wall" className="mt-10 scroll-mt-6">
+                <span id={SITE_MENU_ANCHORS.gallery} aria-hidden className="sr-only" />
                 <LiveWallBlock
                   slug={event.slug}
                   initialTiles={liveWall.tiles}
@@ -573,7 +592,7 @@ export function SiteBody({
              *  treatment, just a thinner per-type dispatcher because the
              *  anonymous path doesn't have a guest object to pass. */}
             {plan.publicSafeWidgets.length > 0 ? (
-              <section className="mt-12 space-y-8">
+              <section id={SITE_MENU_ANCHORS.details} className="mt-12 space-y-8 scroll-mt-6">
                 {plan.publicSafeWidgets.map((widget) => (
                   <PublicHideableWidget
                     key={widget.widget_id}
@@ -594,9 +613,19 @@ export function SiteBody({
             {/* Our Story — the couple's love story on the run-up paths (rsvp/event).
                 The normal body only renders pre-event (STD + editorial are separate
                 branches), so this naturally stays off the post-event Editorial. */}
-            <OurStory loveStory={event.love_story} variant="full" />
+            <div id={SITE_MENU_ANCHORS.story} className="scroll-mt-6">
+              <OurStory loveStory={event.love_story} variant="full" />
+            </div>
           </>
         ))}
+        {/* Me tab target — the anonymous account/claim affordance lives in the
+            fixed PublicEventDayBar; this bottom marker gives the tab a landing. */}
+        <div id={SITE_MENU_ANCHORS.me} aria-hidden className="scroll-mt-6" />
+        {/* Open-browse menu shell (PR6) — fixed bottom tab bar of in-page
+            anchors. Flag-dark (NEXT_PUBLIC_WEBSITE_MENU_ENABLED) + always on for
+            the sample event. Coexists with PublicEventDayBar until PR11 retires
+            the old bars. */}
+        {menuOn ? <SiteMenuBar sections={menuSections} /> : null}
       </>
     );
   };

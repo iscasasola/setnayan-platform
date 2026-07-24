@@ -153,7 +153,7 @@ import { ChatSendForm } from '@/app/_components/chat-send-form';
 // stays out of the initial page JS until that tab mounts — see the lazy loader.
 import { ThreadCallLauncherLazy } from '@/app/_components/thread-call-launcher-lazy';
 import { resolveThreadCallsEnabled } from '@/lib/thread-calls-gate';
-import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
+import { ChatSafetyBanner } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
 import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
 // Completion handshake (Event Lifecycle Menu §6.1) — surface the couple's
@@ -2170,7 +2170,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               blockedByMe={blockState.blockedByMe}
             />
           </div>
-          <ChatPrivacyNotice />
+          <ChatSafetyBanner />
           <ThreadInterestChips supabase={supabase} threadId={thread.thread_id} />
           <ChatMessageStream
             threadId={thread.thread_id}

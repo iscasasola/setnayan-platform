@@ -55,6 +55,10 @@ export const ADD_ON_SKU_MAP: Record<string, ReadonlyArray<string>> = {
     'PANOOD_SYSTEM',
     'PANOOD_SYSTEM_MOBILE',
   ],
+  // Live Studio Roam — its own feature key (separate SKU LIVE_STUDIO_ROAM, separate
+  // controller) so an event that buys Roam flips its Roam card/detail to 'launch'
+  // independently of Cast (panood). Drives resolveAddOnState + fetchAddOnStats.
+  'live-studio-roam': ['LIVE_STUDIO_ROAM'],
   papic: [
     // 0012 SKUs slot in here once the iteration's catalog rows land.
   ],

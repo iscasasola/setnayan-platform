@@ -839,6 +839,12 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
 const LIVE_STUDIO_ROAM_ENTRY: AddOnEntry = {
   key: 'live-studio-roam',
   tags: ['Live', 'Video', 'Multi-cam', 'Day-of'],
+  // opensDirect → the tile (both not-owned detail + owned deep-link) routes to the
+  // bespoke /studio/live-studio-roam App Store detail page (mirrors panood), which
+  // mounts the buy drawer and, once owned, opens the channel controller. Without this
+  // the tile fell through to the generic /studio/[addon] placeholder (no roam meta →
+  // notFound) — a broken doorway.
+  opensDirect: true,
   label: 'Live Studio Roam',
   Icon: Video,
   iteration: '0011',

@@ -4,7 +4,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { uploadPublicAsset } from '@/lib/storage';
 import { tierCaps } from '@/lib/vendor-tier-caps';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
-import { leadTokenHoldEnabled, consumeLeadHoldOnCoupleReply } from '@/lib/lead-token-holds';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { runVendorAutoReply } from '@/lib/vendor-autoreply/inbox-hook';
 import { chatContactFilterEnabled } from '@/lib/chat-contact-filter-flag';
@@ -361,17 +360,6 @@ export async function sendChatMessageCore(
     // lock; after() runs post-response). Fire-and-forget: the wrapper swallows
     // its own errors so a stale stat never blocks the send.
     after(() => triggerVendorActivityRecompute(thread.vendor_profile_id));
-  }
-
-  // Phase B (fake-inquiry protection): a genuine couple reply on an ACCEPTED
-  // thread is the "two-way contact" signal that consumes the vendor's token hold
-  // (the hold placed at accept becomes a real charge). Fakes never reach here —
-  // they never reply — so their hold is instead auto-released by the sweep. The
-  // thread status read here predates this message (the couple's inquiry + one
-  // follow-up land while 'pending'; only post-accept replies are 'accepted').
-  // Off the request path, idempotent, dormant unless the flag is on.
-  if (senderRole === 'couple' && thread.inquiry_status === 'accepted' && leadTokenHoldEnabled()) {
-    after(() => consumeLeadHoldOnCoupleReply(thread.vendor_profile_id, thread.event_id));
   }
 
   // Vendor Auto-Reply Assistant (Phase 3b · NEXT_PUBLIC_VENDOR_AUTOREPLY_V1,

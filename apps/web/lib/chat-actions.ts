@@ -18,11 +18,6 @@ import {
   FOUNDER_INQUIRY_NOTIFICATION_TITLE,
   FOUNDER_INQUIRY_NOTIFICATION_PREFIX,
 } from '@/lib/founder-seats';
-import {
-  leadTokenHoldEnabled,
-  acceptInquiryViaHold,
-  runVendorLeadReportBackstop,
-} from '@/lib/lead-token-holds';
 import { freeInquiryAcceptEnabled } from '@/lib/free-inquiry-accept';
 
 /**
@@ -376,31 +371,19 @@ export async function acceptInquiry(formData: FormData) {
     // RAISE rolls the whole tx back (no phantom unlock) — we surface a friendly,
     // tier-appropriate message and do NOT accept. The RPC also ownership-checks
     // the caller (defense-in-depth atop the loadVendorThreadForActor gate above).
-    // Phase B (fake-inquiry protection): when the hold flag is ON, route to the
-    // PARALLEL unlock_vendor_event_hold — same gates + same error codes, but it
-    // HOLDS the token instead of burning it (consumed only when the couple
-    // genuinely replies; released if they ghost). Flag OFF → the live burn RPC,
-    // byte-identical to before. Both raise the same TIER/LIMIT/BALANCE errors, so
-    // the handling below is unchanged.
     // PR-1: when the free-answer flag is on (default off), route to the
     // no-tier-gate variant so free/verified vendors can accept without the
     // TIER_FREE_NO_INAPP / VERIFIED_WEEKLY_LIMIT wall. Off → the live path below
-    // is byte-identical to today. Free-answer wins over the dormant HOLD path.
+    // is byte-identical to today.
     const { error: burnErr } = freeInquiryAcceptEnabled()
       ? await supabase.rpc('unlock_vendor_event_free', {
           p_vendor_profile_id: thread.vendor_profile_id,
           p_event_id: thread.event_id,
         })
-      : leadTokenHoldEnabled()
-        ? await acceptInquiryViaHold(supabase, {
-            vendorProfileId: thread.vendor_profile_id,
-            eventId: thread.event_id,
-            threadId: thread.thread_id,
-          })
-        : await supabase.rpc('unlock_vendor_event', {
-            p_vendor_profile_id: thread.vendor_profile_id,
-            p_event_id: thread.event_id,
-          });
+      : await supabase.rpc('unlock_vendor_event', {
+          p_vendor_profile_id: thread.vendor_profile_id,
+          p_event_id: thread.event_id,
+        });
     if (burnErr) {
       if (/TIER_FREE_NO_INAPP/.test(burnErr.message)) {
         fail('Get your account verified to start receiving and answering couples in the app.');
@@ -408,16 +391,6 @@ export async function acceptInquiry(formData: FormData) {
       if (/VERIFIED_WEEKLY_LIMIT/.test(burnErr.message)) {
         fail(
           'You’ve answered your 10 inquiries for this week. Upgrade to Pro for unlimited inquiries, or come back next week.',
-        );
-      }
-      if (/INSUFFICIENT_WALLET_BALANCES/.test(burnErr.message)) {
-        // Dead on the LIVE path — answering is free (unlock_vendor_event forces
-        // the burn to 0), so this can no longer fire there. Retained only for the
-        // dormant HOLD path (NEXT_PUBLIC_LEAD_TOKEN_HOLD_ENABLED, default OFF),
-        // which still escrows a token. Token packs are retired, so there is no
-        // "top up" remedy to point at — keep the copy honest and generic.
-        fail(
-          'We couldn’t open this inquiry right now. Please try again, or contact Setnayan support if it keeps happening.',
         );
       }
       fail('Could not accept right now — please try again in a moment.');
@@ -717,23 +690,6 @@ export async function reportUser(formData: FormData) {
         : null,
   });
   if (error) throw new Error(error.message);
-
-  // Phase C (fake-inquiry protection): when a VENDOR reports a couple, wire the
-  // report into the token economy — refund this vendor's held token if the lead
-  // never replied, and refund the whole blast radius if ≥N distinct vendors have
-  // reported this couple. The report row above (+ admin review) is unchanged;
-  // this only returns money. Off the request path, dormant unless the hold
-  // feature is live.
-  if (role === 'vendor' && leadTokenHoldEnabled()) {
-    after(() =>
-      runVendorLeadReportBackstop({
-        vendorProfileId: thread.vendor_profile_id,
-        eventId: thread.event_id,
-        reportedUserId: targetUserId,
-        reason,
-      }),
-    );
-  }
 
   const dest = safeReturn(formData.get('return_to'), 'reported=1');
   if (dest) {

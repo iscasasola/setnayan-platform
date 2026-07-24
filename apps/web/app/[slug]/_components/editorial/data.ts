@@ -1002,66 +1002,17 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   // the recency gallery slice and the captured_at-ASC timeline below; deduped by
   // r2 key against papic_photos just in case.
   type GuestCaptureRow = { captureId: string; key: string; capturedAt: string | null };
-  let guestGalleryRows: GuestCaptureRow[] = [];
-  let guestTimelineRows: GuestCaptureRow[] = [];
-  try {
-    // Recency slice (gallery) — captured_at DESC, same cap as the seat photos.
-    // Guest photos are dropped by the same 90-day sweep, so resolve to the
-    // drop-durable still (this block merges into papicRows, presigned below).
-    const { data: rows, error } = await admin
-      .from('papic_guest_captures')
-      .select('capture_id, r2_object_key, display_r2_key, thumb_r2_key, full_res_dropped_at, captured_at, moderation_state')
-      .eq('event_id', eventId)
-      .eq('media_type', 'photo')
-      .eq('consent_to_public', true)
-      .eq('couple_approved_for_showcase', true)
-      .is('hidden_at', null)
-      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)
-      .order('captured_at', { ascending: false })
-      .limit(EDITORIAL_PAPIC_GALLERY_CAP);
-    if (!error && Array.isArray(rows)) {
-      guestGalleryRows = filterPublicSafeRows(rows as Array<Record<string, unknown>>)
-        .map((r) => ({
-          captureId: asString(r.capture_id),
-          key: resolveStillRef({
-            media_type: 'photo',
-            r2_object_key: asString(r.r2_object_key),
-            display_r2_key: asString(r.display_r2_key),
-            thumb_r2_key: asString(r.thumb_r2_key),
-            full_res_dropped_at: asString(r.full_res_dropped_at),
-          }),
-          capturedAt: asString(r.captured_at) ?? null,
-        }))
-        .filter((r): r is GuestCaptureRow => Boolean(r.captureId && r.key));
-    }
-  } catch {
-    guestGalleryRows = [];
-  }
-  try {
-    // Timeline sweep — captured_at ASC across the day, same cap as seat timeline.
-    const { data: rows, error } = await admin
-      .from('papic_guest_captures')
-      .select('capture_id, r2_object_key, captured_at, moderation_state')
-      .eq('event_id', eventId)
-      .eq('media_type', 'photo')
-      .eq('consent_to_public', true)
-      .eq('couple_approved_for_showcase', true)
-      .is('hidden_at', null)
-      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)
-      .order('captured_at', { ascending: true })
-      .limit(EDITORIAL_TIMELINE_PHOTO_CAP);
-    if (!error && Array.isArray(rows)) {
-      guestTimelineRows = filterPublicSafeRows(rows as Array<Record<string, unknown>>)
-        .map((r) => ({
-          captureId: asString(r.capture_id),
-          key: asString(r.r2_object_key),
-          capturedAt: asString(r.captured_at) ?? null,
-        }))
-        .filter((r): r is GuestCaptureRow => Boolean(r.captureId && r.key));
-    }
-  } catch {
-    guestTimelineRows = [];
-  }
+  // Guest PHOTOS are intentionally NOT surfaced on the public recap. The only
+  // writer of couple_approved_for_showcase (the studio approve action in
+  // studio/papic/actions.ts) is CLIPS-only, so the old gallery + timeline reads'
+  // filter `media_type='photo' AND couple_approved_for_showcase=true` could never
+  // match — both always returned []. Removed the two dead per-recap queries (gap
+  // audit B2; owner 2026-07-24 "remove the empty photo section"). Guest CLIPS
+  // still surface via the Alaala orb path (the capture-anchor read below handles
+  // them); to make guest photos showable, add a photo-approval action + restore
+  // these gated reads.
+  const guestGalleryRows: GuestCaptureRow[] = [];
+  const guestTimelineRows: GuestCaptureRow[] = [];
 
   // Merge guest captures into the seat-photo lists, deduped by r2 key (a guest
   // shot should never collide with a seat shot, but guard anyway), then re-cap.

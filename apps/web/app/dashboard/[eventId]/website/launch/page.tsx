@@ -223,14 +223,14 @@ export default async function WebsiteLaunchPage({
       key: 'bg-color',
       name: 'Background color',
       blurb: 'Tint the whole site to your motif.',
-      href: `/site-editor/${eventId}`,
+      href: `${base}/website/colors`,
       Icon: Paintbrush,
     },
     {
       key: 'button-color',
       name: 'Button color',
       blurb: 'Match every button to your palette.',
-      href: `/site-editor/${eventId}`,
+      href: `${base}/website/colors`,
       Icon: CircleDot,
     },
   ];

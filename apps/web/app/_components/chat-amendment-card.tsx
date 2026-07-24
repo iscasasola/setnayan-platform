@@ -12,6 +12,7 @@ import {
   respondAmendmentFromChat,
   counterAmendmentFromChat,
   markAmendmentItemDelivered,
+  lockDeal,
 } from './negotiation-actions';
 import { AmendmentBuilder, type AmendmentBuilderRow } from './amendment-builder';
 import {
@@ -37,6 +38,7 @@ export type ChatAmendmentData = {
   raised_by: 'couple' | 'vendor' | null;
   note: string | null;
   baseTotalCentavos: number | null;
+  lockedAt: string | null;
 };
 
 type Props = {
@@ -192,6 +194,30 @@ export function ChatAmendmentCard({ data, items, viewerRole, threadId, returnPat
         <p className="border-t border-ink/10 px-3.5 py-2 text-xs text-ink/55">
           Waiting for {viewerRole === 'couple' ? 'the vendor' : 'the couple'} to respond.
         </p>
+      ) : null}
+
+      {/* Lock — only the customer (couple) locks an ACCEPTED deal; freezes the
+          agreed price for the payment step. */}
+      {isAccepted ? (
+        <div className="border-t border-ink/10 bg-ink/[0.02] px-3.5 py-2.5">
+          {data.lockedAt ? (
+            <p className="inline-flex items-center gap-1.5 text-xs font-medium text-success-700">
+              🔒 Deal locked — price frozen.
+            </p>
+          ) : viewerRole === 'couple' ? (
+            <form action={lockDeal}>
+              <input type="hidden" name="thread_id" value={threadId} />
+              <input type="hidden" name="amendment_id" value={data.amendment_id} />
+              <input type="hidden" name="return_to" value={returnPath} />
+              <button className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-3.5 text-sm font-medium text-cream hover:bg-mulberry-600">
+                🔒 Lock this deal
+                {newTotal != null ? ` — ₱${newTotal.toLocaleString('en-PH')}` : ''}
+              </button>
+            </form>
+          ) : (
+            <p className="text-xs text-ink/55">Waiting for the couple to lock the deal.</p>
+          )}
+        </div>
       ) : null}
     </div>
   );

@@ -82,6 +82,11 @@ import { PublicHideableWidget } from './public-hideable-widget';
 import { RsvpWidget } from './rsvp-widget';
 import { WatchLiveBlock } from './watch-live-block';
 import { SpotlightCard } from './spotlight-card';
+import {
+  SectionEmptyPlate,
+  FindModeCard,
+  PublicEventDetails,
+} from './empty-states';
 
 /**
  * SiteBody — the ONE body tree for the guest event website
@@ -368,7 +373,26 @@ export function SiteBody({
    */
   const phasedBody = (normalBody: () => React.ReactNode): React.ReactNode =>
     plan.body === 'editorial' ? (
-      <EditorialContent eventId={event.event_id} />
+      plan.openBrowse ? (
+        // Open-browse PR8 (council §5.1/§5.2 — "editorial leads an ARCHIVE"):
+        // the editorial cover keeps its body-replacing takeover, then the
+        // browsable site persists BELOW it so Story/Details/Photos stay
+        // reachable and the guest's QR survives in Me (today's editorial phase
+        // strips the whole site). Precedent: GuestHubBar already persists below
+        // the guest editorial. `plan.openBrowse` is FALSE for every prod event
+        // (DEFAULT FALSE), so the flag-off editorial is byte-identical — the
+        // takeover alone, exactly as today.
+        <>
+          <EditorialContent eventId={event.event_id} />
+          <div
+            aria-hidden
+            className="mx-auto my-12 h-px w-24 max-w-full bg-ink/15"
+          />
+          {normalBody()}
+        </>
+      ) : (
+        <EditorialContent eventId={event.event_id} />
+      )
     ) : plan.body === 'save_the_date' ? (
       <SaveTheDateView
         displayName={event.display_name}
@@ -422,12 +446,32 @@ export function SiteBody({
       flag: process.env.NEXT_PUBLIC_WEBSITE_MENU_ENABLED,
       isSample: Boolean(event.is_sample),
     });
+    // Open-browse (PR8): the archive tense for post-event empty plates, and
+    // whether Details/Story always render (they carry event-level facts + a
+    // teaser plate under open-browse, so their menu tabs are never dead).
+    const archiveTense = plan.body === 'editorial';
     const menuSections = {
-      details: plan.publicSafeWidgets.length > 0,
-      story: Boolean(event.love_story),
+      details: plan.openBrowse || plan.publicSafeWidgets.length > 0,
+      story: plan.openBrowse || Boolean(event.love_story),
       // "Gallery" = the live photo wall (the livestream is a separate concern).
       gallery: dayOfPhase === 'live' && plan.liveMediaVisible && Boolean(liveWall),
     };
+    // The public widget nodes, factored so both the flag-off and open-browse
+    // Details branches render the identical set (no duplication).
+    const publicWidgetNodes = plan.publicSafeWidgets.map((widget) => (
+      <PublicHideableWidget
+        key={widget.widget_id}
+        widget={widget}
+        event={event}
+        scheduleBlocks={scheduleBlocks}
+        isLive={dayOfPhase === 'live'}
+        scheduleEstimated={
+          isGuestNowTriggerEnabled() &&
+          (dayOfPhase === 'pre' || dayOfPhase === 'inactive')
+        }
+        ourPhotoUrls={ourPhotoUrls}
+      />
+    ));
     // Task #13 — day-of-mode badge surfaces to public-landing viewers too so a
     // guest at the venue without a session cookie still sees "happening now".
     const dayOfBadge =
@@ -615,36 +659,53 @@ export function SiteBody({
              *  sub-component is reused from the guest tree — same visual
              *  treatment, just a thinner per-type dispatcher because the
              *  anonymous path doesn't have a guest object to pass. */}
-            {plan.publicSafeWidgets.length > 0 ? (
+            {plan.openBrowse ? (
+              // Open-browse Details — always present so the tab is never dead:
+              // event-level facts (the anonymous event_details variant — §5.10),
+              // the public widgets, then a teaser plate when nothing is filled.
               <section id={SITE_MENU_ANCHORS.details} className="mt-12 space-y-8 scroll-mt-6">
-                {plan.publicSafeWidgets.map((widget) => (
-                  <PublicHideableWidget
-                    key={widget.widget_id}
-                    widget={widget}
-                    event={event}
-                    scheduleBlocks={scheduleBlocks}
-                    isLive={dayOfPhase === 'live'}
-                    scheduleEstimated={
-                      isGuestNowTriggerEnabled() &&
-                      (dayOfPhase === 'pre' || dayOfPhase === 'inactive')
-                    }
-                    ourPhotoUrls={ourPhotoUrls}
-                  />
-                ))}
+                <PublicEventDetails
+                  dateLabel={event.event_date ? formatEventDate(event.event_date) : null}
+                  venueName={event.venue_name}
+                  venueAddress={event.venue_address}
+                />
+                {publicWidgetNodes}
+                {plan.publicSafeWidgets.length === 0 ? (
+                  <SectionEmptyPlate kind="details" pastTense={archiveTense} />
+                ) : null}
+              </section>
+            ) : plan.publicSafeWidgets.length > 0 ? (
+              <section id={SITE_MENU_ANCHORS.details} className="mt-12 space-y-8 scroll-mt-6">
+                {publicWidgetNodes}
               </section>
             ) : null}
 
             {/* Our Story — the couple's love story on the run-up paths (rsvp/event).
                 The normal body only renders pre-event (STD + editorial are separate
-                branches), so this naturally stays off the post-event Editorial. */}
+                branches), so this naturally stays off the post-event Editorial.
+                Under open-browse a teaser plate stands in when there's no story so
+                the Story tab never lands on nothing. */}
             <div id={SITE_MENU_ANCHORS.story} className="scroll-mt-6">
-              <OurStory loveStory={event.love_story} variant="full" />
+              {event.love_story ? (
+                <OurStory loveStory={event.love_story} variant="full" />
+              ) : plan.openBrowse ? (
+                <SectionEmptyPlate kind="story" pastTense={archiveTense} />
+              ) : (
+                <OurStory loveStory={event.love_story} variant="full" />
+              )}
             </div>
           </>
         ))}
-        {/* Me tab target — the anonymous account/claim affordance lives in the
-            fixed PublicEventDayBar; this bottom marker gives the tab a landing. */}
-        <div id={SITE_MENU_ANCHORS.me} aria-hidden className="scroll-mt-6" />
+        {/* Me tab — under open-browse a cookie-less visitor gets designed
+            find-mode (§1.1); otherwise the account/claim affordance lives in the
+            fixed PublicEventDayBar and this marker just gives the tab a landing. */}
+        {plan.openBrowse ? (
+          <section id={SITE_MENU_ANCHORS.me} className="mt-12 scroll-mt-6">
+            <FindModeCard slug={event.slug} reason={reason} pastTense={archiveTense} />
+          </section>
+        ) : (
+          <div id={SITE_MENU_ANCHORS.me} aria-hidden className="scroll-mt-6" />
+        )}
         {/* Open-browse menu shell (PR6) — fixed bottom tab bar of in-page
             anchors. Flag-dark (NEXT_PUBLIC_WEBSITE_MENU_ENABLED) + always on for
             the sample event. Coexists with PublicEventDayBar until PR11 retires

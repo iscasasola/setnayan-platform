@@ -1,7 +1,7 @@
 /**
  * PRIVACY: a couple / co-host must NOT see the vendor's booking-fee order.
  * END-TO-END DB verification (migrations replayed) of the tightened co-host read
- * policy (20270930100000_orders_cohost_exclude_vendor_payer): the vendor-payer
+ * policy (20270930140000_orders_cohost_exclude_vendor_payer): the vendor-payer
  * fee order — stamped with the couple's event_id so the vendor's own pay screen
  * can scope it — must be invisible to every event member while the vendor still
  * reads it and admins still see everything.

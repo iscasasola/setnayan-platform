@@ -12,7 +12,7 @@ reference code and status. A couple must never see what their vendor is charged.
 
 Closed at BOTH layers (defense in depth), vendor + admin access intact:
 
-- **RLS (the real guard):** `20270930100000_orders_cohost_exclude_vendor_payer.sql`
+- **RLS (the real guard):** `20270930140000_orders_cohost_exclude_vendor_payer.sql`
   tightens the co-host branch so it only admits orders whose PAYER is themselves
   an `event_members` row of that event (new SECURITY DEFINER helper
   `public.is_event_member(event_id, user_id)`). Couple purchasers + co-hosts are

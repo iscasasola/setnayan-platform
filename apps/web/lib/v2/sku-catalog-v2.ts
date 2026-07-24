@@ -51,6 +51,11 @@ export const V2_SKU_CODES = [
   'LIVE_WALL',
   'PAKANTA',
   'PANOOD_SYSTEM',
+  // Live Studio Roam — the multi-camera "guests pick which camera / wander" variant
+  // (₱3,500/day · owner 2026-07-23). Seeded by migration 20270919479280, activated by
+  // 20270930100000. Listed here so formatV2Sku('LIVE_STUDIO_ROAM') resolves the live
+  // catalog price for the Roam buy drawer (else it price-null'd like every missing code).
+  'LIVE_STUDIO_ROAM',
   'PAPIC_ADDON_THANK_YOU',
   'PAPIC_GUEST',
   'PAPIC_SEATS',

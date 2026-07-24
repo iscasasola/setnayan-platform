@@ -27,6 +27,7 @@ import {
   applyVendor3dPlanUnlockDiscountCentavos,
   eventVendor3dPlanUnlockDiscountActive,
 } from '@/lib/vendor-3d-plan-unlock';
+import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 
 /**
  * Catalog price recurrence (migration 20270322883953). `one_time` = a single
@@ -170,7 +171,7 @@ export async function fetchV2CustomerCatalog(): Promise<V2CustomerSku[]> {
   } catch {
     return [];
   }
-  const { data, error } = await admin
+  let query = admin
     .from('platform_retail_catalog_v2')
     .select('service_code, title, retail_price_php, saas_overhead_cost_php, is_token_able, description, billing_period, is_pax_priced, pax_floor, pax_floor_price_php, pax_increment_size, pax_increment_price_php')
     // RETIRED SKUs must not surface on /pricing, /vendors, the admin discount
@@ -180,8 +181,18 @@ export async function fetchV2CustomerCatalog(): Promise<V2CustomerSku[]> {
     .eq('is_active', true)
     // Belt-and-suspenders: the old Today's-Focus / Setnayan-AI-planner SKU stays
     // excluded by name too (it is also is_active=false). See DECISION_LOG 2026-06-05.
-    .neq('service_code', 'TODAYS_FOCUS')
-    .order('service_code', { ascending: true });
+    .neq('service_code', 'TODAYS_FOCUS');
+
+  // Live Studio Roam is is_active=TRUE (so its flag-gated buy path works — migration
+  // 20270930100000) but must stay OFF /pricing until launch (owner-locked "not on
+  // /pricing until launch"). Exclude it by name while the Roam flag is off — the same
+  // idiom as the TODAYS_FOCUS name-exclusion above. When the owner flips the flag, Roam
+  // appears on /pricing AND the Studio tile lights up together — one launch switch.
+  if (!liveStudioRoamEnabled()) {
+    query = query.neq('service_code', 'LIVE_STUDIO_ROAM');
+  }
+
+  const { data, error } = await query.order('service_code', { ascending: true });
 
   if (error || !data) return [];
 

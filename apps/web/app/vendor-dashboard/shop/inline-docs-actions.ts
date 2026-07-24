@@ -30,6 +30,7 @@ import {
   type DocUploadMap,
 } from '@/lib/vendor-verification';
 import { DOC_SLOT_KEYS, buildSlotValue } from '@/lib/vendor-verification-slots';
+import { parseRegistrationNumber, UNIQUE_VIOLATION } from '@/lib/vendor-registration-number';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
@@ -57,7 +58,43 @@ export type InlineDocsPayload = {
   vendorTotal: number;
   /** docs_complete — all 12 incl. the 4 Setnayan-run slots (the publish gate). */
   allComplete: boolean;
+  /** Government registration number the vendor typed (raw, for the input's
+   *  current value). Null when never submitted. Soft-probed so a pre-migration
+   *  database degrades to null instead of crashing the read. */
+  registrationNumberRaw: string | null;
+  /** TRUE when the last submitted number COLLIDED with another shop's — the
+   *  application is flagged for admin review (not hard-blocked). */
+  registrationNumberNeedsReview: boolean;
 };
+
+/**
+ * Soft probe for the vendor's registration-number columns
+ * (migration 20270925937630). Returns defaults on ANY error so a pre-migration
+ * database serves the docs surface instead of crashing.
+ */
+async function fetchRegistrationNumberState(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<{ raw: string | null; needsReview: boolean }> {
+  try {
+    const { data, error } = await supabase
+      .from('vendor_profiles')
+      .select('registration_number_raw,registration_number_needs_review')
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle();
+    if (error || !data) return { raw: null, needsReview: false };
+    const row = data as {
+      registration_number_raw?: string | null;
+      registration_number_needs_review?: boolean | null;
+    };
+    return {
+      raw: row.registration_number_raw ?? null,
+      needsReview: Boolean(row.registration_number_needs_review),
+    };
+  } catch {
+    return { raw: null, needsReview: false };
+  }
+}
 
 export type DocSlotSaveResult =
   | { ok: true; vendorComplete: number; vendorTotal: number; allComplete: boolean }
@@ -136,9 +173,13 @@ export async function loadInlineDocs(): Promise<InlineDocsPayload> {
     vendorComplete: 0,
     vendorTotal: VENDOR_TOTAL,
     allComplete: false,
+    registrationNumberRaw: null,
+    registrationNumberNeedsReview: false,
   };
   const auth = await requireVendorId();
   if (!auth) return empty;
+
+  const regNumber = await fetchRegistrationNumberState(auth.supabase, auth.vendorProfileId);
 
   const app = await fetchLatestApplication(auth.supabase, auth.vendorProfileId).catch(() => null);
   const status = (app?.status as ApplicationStatus | undefined) ?? null;
@@ -155,6 +196,8 @@ export async function loadInlineDocs(): Promise<InlineDocsPayload> {
       vendorComplete: countCompleteVendorSlots(docMap),
       vendorTotal: VENDOR_TOTAL,
       allComplete: Boolean(app.docs_complete),
+      registrationNumberRaw: regNumber.raw,
+      registrationNumberNeedsReview: regNumber.needsReview,
     };
   }
 
@@ -170,6 +213,8 @@ export async function loadInlineDocs(): Promise<InlineDocsPayload> {
       vendorComplete: countCompleteVendorSlots(docMap),
       vendorTotal: VENDOR_TOTAL,
       allComplete: Boolean(app.docs_complete),
+      registrationNumberRaw: regNumber.raw,
+      registrationNumberNeedsReview: regNumber.needsReview,
     };
   }
 
@@ -177,7 +222,13 @@ export async function loadInlineDocs(): Promise<InlineDocsPayload> {
   // one row (starts empty). A transient insert failure degrades to an empty
   // editable view; the first upload will retry the create.
   const draft = await resolveEditableDraft(auth.supabase, auth.vendorProfileId);
-  if (!draft.ok) return { ...empty, editable: true };
+  if (!draft.ok)
+    return {
+      ...empty,
+      editable: true,
+      registrationNumberRaw: regNumber.raw,
+      registrationNumberNeedsReview: regNumber.needsReview,
+    };
   return {
     applicationId: draft.applicationId,
     status: 'draft',
@@ -187,6 +238,8 @@ export async function loadInlineDocs(): Promise<InlineDocsPayload> {
     vendorComplete: 0,
     vendorTotal: VENDOR_TOTAL,
     allComplete: false,
+    registrationNumberRaw: regNumber.raw,
+    registrationNumberNeedsReview: regNumber.needsReview,
   };
 }
 
@@ -391,6 +444,100 @@ export async function updateDocUploadInline(
   };
 }
 
+// ---------------------------------------------------------------------------
+// Government registration number capture + uniqueness enforcement
+//
+// The vendor types their government registration number (BIR TIN / DTI / SEC /
+// Mayor's Permit) during verification. It is stored on THEIR OWN
+// vendor_profiles row (RLS: vendor_profiles_owner) as:
+//   • registration_number_raw        — what they typed (display / admin)
+//   • registration_number_normalized — the canonical key the partial-UNIQUE
+//     index guards (anti-farm: no two shops share one registered identity)
+//
+// Collision handling is RLS-SAFE BY CONSTRUCTION: a vendor's session can only
+// SELECT its own row, so a pre-check "does anyone else have this number?" query
+// would see nothing. We therefore rely on the DB unique constraint — the write
+// that sets `normalized` fails with SQLSTATE 23505 when another vendor already
+// holds it. On that failure we do NOT hard-block: we record the raw attempt +
+// set `registration_number_needs_review = TRUE` (leaving `normalized` NULL so
+// the index is never violated), which routes the vendor into the existing
+// manual admin verification review, and return a clear message.
+// ---------------------------------------------------------------------------
+
+export type RegNumberSaveResult =
+  | { ok: true; needsReview: boolean }
+  | { ok: false; error: string };
+
+export async function saveRegistrationNumberInline(
+  _prev: RegNumberSaveResult | null,
+  formData: FormData,
+): Promise<RegNumberSaveResult> {
+  const auth = await requireVendorId();
+  if (!auth) return { ok: false, error: 'Please sign in again.' };
+
+  const parsed = parseRegistrationNumber(String(formData.get('registration_number') ?? ''));
+  if (!parsed.ok) {
+    if (parsed.reason === 'empty') {
+      return { ok: false, error: 'Enter your government registration number.' };
+    }
+    return {
+      ok: false,
+      error: 'That does not look like a complete registration number — enter your full BIR TIN, DTI, SEC, or permit number.',
+    };
+  }
+
+  const now = new Date().toISOString();
+
+  // Happy path: claim the normalized identity on our own row. Updating our row
+  // to a value it already holds is a no-op for the unique index (same row), so
+  // re-submitting the same number is idempotent and clears any prior review
+  // flag. A DIFFERENT vendor holding it → 23505, handled below.
+  const { error: claimErr } = await auth.supabase
+    .from('vendor_profiles')
+    .update({
+      registration_number_raw: parsed.raw,
+      registration_number_normalized: parsed.normalized,
+      registration_number_needs_review: false,
+      registration_number_submitted_at: now,
+      updated_at: now,
+    })
+    .eq('vendor_profile_id', auth.vendorProfileId);
+
+  if (!claimErr) {
+    revalidatePath('/vendor-dashboard/shop');
+    revalidatePath('/vendor-dashboard/verify');
+    return { ok: true, needsReview: false };
+  }
+
+  // Collision (or any unique violation) → soft-flag for admin review instead of
+  // hard-blocking. Record the raw attempt WITHOUT the normalized key so the
+  // index stays intact. Any OTHER error is surfaced as-is.
+  const isCollision =
+    (claimErr as { code?: string }).code === UNIQUE_VIOLATION ||
+    /duplicate key|unique constraint/i.test(claimErr.message ?? '');
+  if (!isCollision) {
+    return { ok: false, error: claimErr.message };
+  }
+
+  const { error: flagErr } = await auth.supabase
+    .from('vendor_profiles')
+    .update({
+      registration_number_raw: parsed.raw,
+      registration_number_normalized: null,
+      registration_number_needs_review: true,
+      registration_number_submitted_at: now,
+      updated_at: now,
+    })
+    .eq('vendor_profile_id', auth.vendorProfileId);
+  if (flagErr) return { ok: false, error: flagErr.message };
+
+  revalidatePath('/vendor-dashboard/shop');
+  revalidatePath('/vendor-dashboard/verify');
+  // ok:true — the submission was ACCEPTED (not lost), just flagged. The UI
+  // shows REGISTRATION_NUMBER_TAKEN_MESSAGE via needsReview.
+  return { ok: true, needsReview: true };
+}
+
 export type SubmitResult = { ok: true } | { ok: false; error: string };
 
 /**
@@ -446,9 +593,12 @@ export async function submitInlineForReview(
   }
 
   const uploads = (app.doc_uploads ?? {}) as DocUploadMap;
+  const regNumber = await fetchRegistrationNumberState(auth.supabase, auth.vendorProfileId);
   const missing = verificationSubmitMissing({
     profileComplete: businessProfileChecklist(auth.profile).complete,
     uploads,
+    // A collided number keeps raw (needs_review) → still "on file".
+    registrationNumberOnFile: Boolean(regNumber.raw),
   });
   if (missing.length > 0) {
     return { ok: false, error: `Not quite ready: ${missing.join(' · ').toLowerCase()}.` };

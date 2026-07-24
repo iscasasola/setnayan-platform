@@ -440,6 +440,8 @@ const KNOWN_GAPS: Record<string, string> = {
   user_reports: 'TODO(RA10173-backlog): reports the subject FILED (reports filed ABOUT them are a separate call).',
   vendor_ad_subscriptions: 'TODO(RA10173-backlog): the subject’s vendor ad subscriptions.',
   vendor_change_orders: 'TODO(RA10173-backlog): change orders on the subject’s bookings.',
+  proposal_amendments:
+    'TODO(RA10173-backlog): bundled proposal amendments the subject raised or was sent (same class as vendor_change_orders).',
   vendor_client_notes:
     'TODO(RA10173-backlog): vendor-authored notes — must be AUTHOR-scoped for the same reason as working notes.',
   vendor_contract_signatures: 'TODO(RA10173-backlog): the subject’s own e-signatures (RA 8792 evidence).',
@@ -493,7 +495,7 @@ const KNOWN_GAPS: Record<string, string> = {
  * wrong to protect a number — precisely the false confidence this file exists
  * to prevent. Every future movement must be downward.
  */
-const KNOWN_GAP_CEILING = 87;
+const KNOWN_GAP_CEILING = 88;
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 

@@ -26,6 +26,11 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchThreadById } from '@/lib/chat';
 import { emitNotification } from '@/lib/notification-emit';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
+import {
+  signedAmount,
+  AMENDMENT_ITEM_KINDS,
+  type AmendmentItemKind,
+} from '@/lib/proposal-amendments';
 
 function str(v: FormDataEntryValue | null, max: number): string | null {
   if (typeof v !== 'string') return null;
@@ -518,6 +523,294 @@ export async function counterChangeRequestFromChat(formData: FormData): Promise<
       ? `💸 Counter: ${fields!.title}`
       : `➕ Counter: ${fields!.title}${fields!.delta > 0 ? ` (₱${fields!.delta.toLocaleString('en-PH')})` : ''}`;
   await insertChangeRequest(supabase, ctx!, eventVendorId!, fields!, body);
+
+  if (back) {
+    revalidatePath(back);
+    redirect(back);
+  }
+  redirect(dest);
+}
+
+// ============================================================================
+// Phase 3 — BUNDLED PROPOSAL AMENDMENTS.
+//
+// One request that lists MANY items (discount / add-on / freebie / specialized
+// request) shown against the current proposal. Backed by proposal_amendments +
+// proposal_amendment_items (migration 20270924533987), state machine via a
+// status='proposed' precondition update (single-winner, like appointments). The
+// counterparty accepts / counters / declines the whole bundle; the vendor stamps
+// accepted 'request' items delivered (checklist). Requires a BOOKED vendor
+// (event_vendors row). Ledger settlement is a follow-up (see the migration).
+// ============================================================================
+
+type AmendmentItemInput = { kind: AmendmentItemKind; label: string; amount_php: number | null };
+
+/** Parse + validate the client-serialized item bundle (a JSON string). */
+function parseAmendmentItems(raw: FormDataEntryValue | null): AmendmentItemInput[] | null {
+  if (typeof raw !== 'string' || raw.length === 0) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0 || parsed.length > 20) return null;
+  const out: AmendmentItemInput[] = [];
+  for (const it of parsed) {
+    if (!it || typeof it !== 'object') return null;
+    const kind = (it as { kind?: unknown }).kind;
+    const label = (it as { label?: unknown }).label;
+    const amount = (it as { amount?: unknown }).amount;
+    if (typeof kind !== 'string' || !(AMENDMENT_ITEM_KINDS as readonly string[]).includes(kind)) {
+      return null;
+    }
+    if (typeof label !== 'string' || label.trim().length === 0) return null;
+    const mag = typeof amount === 'number' ? amount : Number(amount);
+    out.push({
+      kind: kind as AmendmentItemKind,
+      label: label.trim().slice(0, 200),
+      amount_php: signedAmount(kind as AmendmentItemKind, Number.isFinite(mag) ? mag : null),
+    });
+  }
+  return out;
+}
+
+/** Latest live proposal for the thread's (event, vendor) — its total is the
+ *  "current" baseline the amendment is shown against. Null if none. */
+async function latestProposal(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  vendorProfileId: string,
+): Promise<{ proposalId: string; totalCentavos: number } | null> {
+  const { data } = await supabase
+    .from('vendor_proposals')
+    .select('proposal_id, total_centavos')
+    .eq('event_id', eventId)
+    .eq('vendor_profile_id', vendorProfileId)
+    .in('status', ['sent', 'viewed', 'accepted'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return null;
+  const row = data as { proposal_id: string; total_centavos: number };
+  return { proposalId: row.proposal_id, totalCentavos: row.total_centavos };
+}
+
+/** Insert an amendment + its items (RLS-scoped) + post the in-thread card +
+ *  notify. Returns the amendment_id or null. */
+async function insertAmendment(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  ctx: ThreadRole,
+  eventVendorId: string,
+  baseProposalId: string | null,
+  items: AmendmentItemInput[],
+  note: string | null,
+  fallbackBody: string,
+): Promise<string | null> {
+  const { thread, role, userId } = ctx;
+  const { data, error } = await supabase
+    .from('proposal_amendments')
+    .insert({
+      event_id: thread.event_id,
+      event_vendor_id: eventVendorId,
+      vendor_profile_id: thread.vendor_profile_id,
+      thread_id: thread.thread_id,
+      base_proposal_id: baseProposalId,
+      raised_by: role,
+      proposed_by_user_id: userId,
+      note,
+      status: 'proposed',
+    })
+    .select('amendment_id')
+    .maybeSingle();
+  if (error || !data) {
+    console.error('[negotiation] amendment insert failed:', error?.message);
+    return null;
+  }
+  const amendmentId = (data as { amendment_id: string }).amendment_id;
+
+  const { error: itemsErr } = await supabase.from('proposal_amendment_items').insert(
+    items.map((it, idx) => ({
+      amendment_id: amendmentId,
+      event_id: thread.event_id,
+      vendor_profile_id: thread.vendor_profile_id,
+      item_kind: it.kind,
+      label: it.label,
+      amount_php: it.amount_php,
+      sort_order: idx,
+    })),
+  );
+  if (itemsErr) console.error('[negotiation] amendment items insert failed:', itemsErr.message);
+
+  const { error: cardErr } = await supabase.from('chat_messages').insert({
+    thread_id: thread.thread_id,
+    event_id: thread.event_id,
+    vendor_profile_id: thread.vendor_profile_id,
+    sender_user_id: userId,
+    sender_role: role,
+    body: fallbackBody,
+    amendment_id: amendmentId,
+  });
+  if (cardErr) console.error('[negotiation] amendment card insert failed:', cardErr.message);
+
+  await notifyChangeCounterparty(ctx, 'Proposal changes', 'raised');
+  return amendmentId;
+}
+
+/** createAmendmentFromChat — raise a bundled amendment. */
+export async function createAmendmentFromChat(formData: FormData): Promise<void> {
+  const threadId = str(formData.get('thread_id'), 64);
+  const back = safeReturn(formData.get('return_to'));
+  const dest = back ?? '/dashboard';
+  if (!chatNegotiationEnabled() || !threadId) redirect(dest);
+
+  const items = parseAmendmentItems(formData.get('items'));
+  const note = str(formData.get('note'), 2000);
+  if (!items) redirect(dest);
+
+  const supabase = await createClient();
+  const ctx = await loadThreadRole(supabase, threadId);
+  if (!ctx) redirect(dest);
+
+  const eventVendorId = await resolveEventVendorId(supabase, ctx.thread.event_id, ctx.thread.vendor_profile_id);
+  if (!eventVendorId) {
+    if (back) {
+      redirect(
+        `${back}${back.includes('?') ? '&' : '?'}error=1&msg=${encodeURIComponent('Book this vendor first to send proposal changes.')}`,
+      );
+    }
+    redirect(dest);
+  }
+
+  const base = await latestProposal(supabase, ctx.thread.event_id, ctx.thread.vendor_profile_id);
+  const n = items!.length;
+  await insertAmendment(
+    supabase,
+    ctx!,
+    eventVendorId!,
+    base?.proposalId ?? null,
+    items!,
+    note,
+    `🧾 Requested proposal changes (${n} item${n === 1 ? '' : 's'})`,
+  );
+
+  if (back) {
+    revalidatePath(back);
+    redirect(back);
+  }
+  redirect(dest);
+}
+
+/** respondAmendmentFromChat — the counterparty accepts / declines the bundle. */
+export async function respondAmendmentFromChat(formData: FormData): Promise<void> {
+  const threadId = str(formData.get('thread_id'), 64);
+  const amendmentId = str(formData.get('amendment_id'), 64);
+  const back = safeReturn(formData.get('return_to'));
+  const dest = back ?? '/dashboard';
+  const decisionRaw = formData.get('decision');
+  const decision = decisionRaw === 'accept' || decisionRaw === 'decline' ? decisionRaw : null;
+  if (!chatNegotiationEnabled() || !threadId || !amendmentId || !decision) redirect(dest);
+
+  const supabase = await createClient();
+  const ctx = await loadThreadRole(supabase, threadId);
+  if (!ctx) redirect(dest);
+
+  // Single-winner + counterparty: only a 'proposed' amendment the actor did NOT
+  // raise may be resolved. RLS scopes the row to this relationship.
+  const { data: updated } = await supabase
+    .from('proposal_amendments')
+    .update({
+      status: decision === 'accept' ? 'accepted' : 'declined',
+      decline_reason: decision === 'decline' ? str(formData.get('reason'), 500) : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('amendment_id', amendmentId)
+    .eq('status', 'proposed')
+    .neq('raised_by', ctx!.role)
+    .select('amendment_id');
+
+  if (updated && updated.length > 0) {
+    await notifyChangeCounterparty(ctx!, 'Proposal changes', decision === 'accept' ? 'accepted' : 'declined');
+  }
+
+  if (back) {
+    revalidatePath(back);
+    redirect(back);
+  }
+  redirect(dest);
+}
+
+/** counterAmendmentFromChat — decline the current bundle AND raise a new one. */
+export async function counterAmendmentFromChat(formData: FormData): Promise<void> {
+  const threadId = str(formData.get('thread_id'), 64);
+  const originalId = str(formData.get('amendment_id'), 64);
+  const back = safeReturn(formData.get('return_to'));
+  const dest = back ?? '/dashboard';
+  if (!chatNegotiationEnabled() || !threadId || !originalId) redirect(dest);
+
+  const items = parseAmendmentItems(formData.get('items'));
+  const note = str(formData.get('note'), 2000);
+  if (!items) redirect(dest);
+
+  const supabase = await createClient();
+  const ctx = await loadThreadRole(supabase, threadId);
+  if (!ctx) redirect(dest);
+
+  const eventVendorId = await resolveEventVendorId(supabase, ctx.thread.event_id, ctx.thread.vendor_profile_id);
+  if (!eventVendorId) redirect(dest);
+
+  // Decline the original (counterparty + single-winner), then raise the counter.
+  const { data: declined } = await supabase
+    .from('proposal_amendments')
+    .update({ status: 'declined', decline_reason: 'Countered', updated_at: new Date().toISOString() })
+    .eq('amendment_id', originalId)
+    .eq('status', 'proposed')
+    .neq('raised_by', ctx!.role)
+    .select('amendment_id');
+  if (!declined || declined.length === 0) {
+    if (back) redirect(`${back}${back.includes('?') ? '&' : '?'}error=1`);
+    redirect(dest);
+  }
+
+  const base = await latestProposal(supabase, ctx.thread.event_id, ctx.thread.vendor_profile_id);
+  const n = items!.length;
+  await insertAmendment(
+    supabase,
+    ctx!,
+    eventVendorId!,
+    base?.proposalId ?? null,
+    items!,
+    note,
+    `🧾 Counter — proposal changes (${n} item${n === 1 ? '' : 's'})`,
+  );
+
+  if (back) {
+    revalidatePath(back);
+    redirect(back);
+  }
+  redirect(dest);
+}
+
+/** markAmendmentItemDelivered — the VENDOR stamps an accepted 'request' item
+ *  done (checklist). */
+export async function markAmendmentItemDelivered(formData: FormData): Promise<void> {
+  const threadId = str(formData.get('thread_id'), 64);
+  const itemId = str(formData.get('item_id'), 64);
+  const back = safeReturn(formData.get('return_to'));
+  const dest = back ?? '/dashboard';
+  if (!chatNegotiationEnabled() || !threadId || !itemId) redirect(dest);
+
+  const supabase = await createClient();
+  const ctx = await loadThreadRole(supabase, threadId);
+  if (!ctx || ctx.role !== 'vendor') redirect(dest);
+
+  // Only a 'request' item on an ACCEPTED amendment, not already delivered.
+  await supabase
+    .from('proposal_amendment_items')
+    .update({ delivered_at: new Date().toISOString() })
+    .eq('item_id', itemId)
+    .eq('item_kind', 'request')
+    .is('delivered_at', null);
 
   if (back) {
     revalidatePath(back);

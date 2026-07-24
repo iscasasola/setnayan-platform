@@ -1,15 +1,14 @@
 'use client';
 
-// In-thread appointment card (negotiation auto-reader Phase 1). Renders a
-// schedule/meeting request that landed in the chat stream (a chat_messages row
-// with appointment_id set) and gives the COUNTERPARTY the accept / propose-new-
-// time / decline actions — all backed by the EXISTING respondAppointment server
-// action + event_appointments single-winner machine. The proposer just sees the
-// status. Purely presentational over that action; no new state machine.
+// In-thread appointment card (negotiation Phase 1) — now rendered as a
+// structured information card (NegotiationCardShell) rather than a bubble. The
+// COUNTERPARTY gets accept / propose-new-time / decline (backed by the existing
+// respondAppointment single-winner machine); the proposer sees the status.
 
 import { useState } from 'react';
 import { respondAppointment } from './appointments-actions';
 import { APPOINTMENT_KIND_LABEL, type AppointmentKind } from '@/lib/appointments';
+import { NegotiationCardShell, type NegRow, type NegStatusTone } from './negotiation-card-shell';
 
 export type ChatAppointmentData = {
   appointment_id: string;
@@ -43,18 +42,27 @@ function formatWhen(iso: string | null): string {
   }).format(d);
 }
 
-const STATUS_META: Record<ChatAppointmentData['status'], { label: string; cls: string }> = {
-  proposed: { label: 'Awaiting response', cls: 'bg-warn-100 text-warn-900' },
-  confirmed: { label: 'Confirmed', cls: 'bg-success-100 text-success-900' },
-  done: { label: 'Done', cls: 'bg-ink/10 text-ink/60' },
-  cancelled: { label: 'Declined', cls: 'bg-ink/5 text-ink/50' },
+const STATUS: Record<ChatAppointmentData['status'], { tone: NegStatusTone; label: string }> = {
+  proposed: { tone: 'awaiting', label: 'Awaiting' },
+  confirmed: { tone: 'agreed', label: 'Confirmed' },
+  done: { tone: 'agreed', label: 'Done' },
+  cancelled: { tone: 'declined', label: 'Declined' },
 };
 
 export function ChatAppointmentCard({ data, viewerRole, eventId, vendorProfileId, returnPath }: Props) {
   const [reviseOpen, setReviseOpen] = useState(false);
   const isProposer = data.initiated_by === viewerRole;
   const canAct = data.status === 'proposed' && !isProposer;
-  const meta = STATUS_META[data.status];
+  const st = STATUS[data.status];
+
+  const rows: NegRow[] = [
+    { label: 'When', value: formatWhen(data.scheduled_at) },
+    { label: 'Format', value: APPOINTMENT_KIND_LABEL[data.kind] },
+    {
+      label: 'Requested by',
+      value: isProposer ? 'You' : viewerRole === 'couple' ? 'The vendor' : 'The couple',
+    },
+  ];
 
   const hidden = (
     <>
@@ -66,71 +74,53 @@ export function ChatAppointmentCard({ data, viewerRole, eventId, vendorProfileId
     </>
   );
 
-  return (
-    <div className="w-full max-w-[92%] rounded-xl border border-terracotta/40 bg-terracotta/[0.06] p-3">
-      <div className="flex items-center gap-2">
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
-          📅 Meeting request
-        </p>
-        <span className={`ml-auto rounded-full px-2 py-0.5 text-[11px] font-medium ${meta.cls}`}>
-          {meta.label}
-        </span>
-      </div>
-      <p className="mt-1 text-sm font-semibold text-ink">{data.label}</p>
-      <p className="text-sm text-ink/70">
-        {APPOINTMENT_KIND_LABEL[data.kind]} · {formatWhen(data.scheduled_at)}
-      </p>
-
-      {canAct ? (
-        <div className="mt-2.5 flex flex-wrap gap-2">
-          <form action={respondAppointment}>
-            {hidden}
-            <input type="hidden" name="decision" value="confirm" />
-            <button className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-3.5 text-sm font-medium text-cream hover:bg-mulberry-600">
-              Accept
-            </button>
-          </form>
-          <button
-            type="button"
-            onClick={() => setReviseOpen((v) => !v)}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-ink/20 px-3.5 text-sm font-medium text-ink/75 hover:bg-ink/[0.04]"
-          >
-            Propose new time
-          </button>
-          <form action={respondAppointment}>
-            {hidden}
-            <input type="hidden" name="decision" value="decline" />
-            <button className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-ink/15 px-3.5 text-sm font-medium text-terracotta hover:bg-terracotta/5">
-              Decline
-            </button>
-          </form>
-        </div>
-      ) : null}
-
-      {canAct && reviseOpen ? (
-        <form action={respondAppointment} className="mt-2.5 flex flex-wrap items-end gap-2 rounded-lg border border-ink/10 bg-cream p-2.5">
+  const footer = canAct ? (
+    <>
+      <form action={respondAppointment}>
+        {hidden}
+        <input type="hidden" name="decision" value="confirm" />
+        <button className="inline-flex h-9 items-center rounded-lg bg-mulberry px-3.5 text-sm font-medium text-cream hover:bg-mulberry-600">
+          Accept
+        </button>
+      </form>
+      <button
+        type="button"
+        onClick={() => setReviseOpen((v) => !v)}
+        className="inline-flex h-9 items-center rounded-lg border border-ink/20 px-3.5 text-sm font-medium text-ink/75 hover:bg-ink/[0.04]"
+      >
+        Propose new time
+      </button>
+      <form action={respondAppointment}>
+        {hidden}
+        <input type="hidden" name="decision" value="decline" />
+        <button className="inline-flex h-9 items-center rounded-lg border border-ink/15 px-3.5 text-sm font-medium text-terracotta hover:bg-terracotta/5">
+          Decline
+        </button>
+      </form>
+      {reviseOpen ? (
+        <form action={respondAppointment} className="mt-1 flex w-full flex-wrap items-end gap-2">
           {hidden}
           <input type="hidden" name="decision" value="propose_new" />
           <label className="flex flex-col gap-1 text-[11px] font-medium text-ink/60">
             New time
-            <input
-              type="datetime-local"
-              name="scheduled_at"
-              required
-              className="input-field h-9 text-sm"
-            />
+            <input type="datetime-local" name="scheduled_at" required className="input-field h-9 text-sm" />
           </label>
           <button className="inline-flex h-9 items-center rounded-lg bg-mulberry px-3.5 text-sm font-medium text-cream hover:bg-mulberry-600">
             Send new time
           </button>
         </form>
       ) : null}
+    </>
+  ) : null;
 
-      {data.status === 'proposed' && isProposer ? (
-        <p className="mt-2 text-xs text-ink/55">
-          Waiting for {viewerRole === 'couple' ? 'the vendor' : 'the couple'} to respond.
-        </p>
-      ) : null}
-    </div>
+  return (
+    <NegotiationCardShell
+      type="schedule"
+      title={data.label}
+      statusTone={st.tone}
+      statusLabel={st.label}
+      rows={rows}
+      footer={footer}
+    />
   );
 }

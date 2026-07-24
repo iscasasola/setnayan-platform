@@ -221,6 +221,26 @@ export type InvitationWidgetRow = {
   config_json: unknown;
   created_at: string;
   updated_at: string;
+  /**
+   * Open-browse three-state couple control (PR4 migration
+   * 20270919912384). `'auto'` = the site decides (hasContent + phase
+   * emphasis); `'shown'` = force-show; `'hidden'` = force-hide. The legacy
+   * `is_visible` column stays the flag-OFF render gate; `mode` is only
+   * consulted on the open-browse path. Optional at the type level so
+   * pre-open-browse callers (and the pure golden tests) that never set it
+   * keep compiling; a missing value reconciles to the couple's `is_visible`
+   * choice via {@link openBrowseSectionVisible}.
+   */
+  mode?: 'auto' | 'shown' | 'hidden';
+  /**
+   * Open-browse per-widget who-can-see dial (PR5 migration
+   * 20270920050000). `'public'` (default) = everyone; `'guests_only'` =
+   * cookie-verified guests only. ANDed with `mode` on the open-browse path
+   * (mode = show/hide, audience = who); inert on the flag-off path. Optional
+   * for the same compile-compat reason as `mode`; a missing value is treated
+   * as `'public'`.
+   */
+  audience?: 'public' | 'guests_only';
 };
 
 /**
@@ -430,4 +450,210 @@ export function getLifecyclePhase(eventDate: string | null): LifecyclePhase {
       return daysUntil > STD_THRESHOLD_DAYS ? 'save_the_date' : 'rsvp';
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Open-browse engine (OPEN-BROWSE PR7 · council verdict 2026-07-22 §1.3)
+//
+// Under open-browse the lifecycle phase stops being a GATE (widgetInPhase →
+// render boolean) and becomes EMPHASIS: everything the couple published exists
+// from day one behind the five-tab menu; the phase decides only what Home
+// leads with. `WIDGET_SPOTLIGHT` supersedes `WIDGET_PHASES` on this path — it
+// yields an ordering weight + which phases a widget may be Home's spotlight,
+// NEVER a render boolean. `WIDGET_PHASES` is untouched and stays the flag-OFF
+// path's gate (deleted only at PR11 after the flip soaks), so both matrices
+// coexist by design.
+//
+// EVERYTHING here is dormant in production: it is consulted only when the
+// per-event `events.website_open_browse` column is TRUE, which DEFAULTs FALSE
+// for every event (flipped for demo events + new events at PR11). With the
+// column FALSE the guest site renders byte-for-byte as it does today.
+// ---------------------------------------------------------------------------
+
+/**
+ * Per-widget open-browse emphasis. `weight` orders the widened widget list
+ * (lower = earlier); `spotlightPhases` is the set of phases in which this
+ * widget is *eligible* to be Home's one signature spotlight (the phase's
+ * emphasis pick — see {@link pickHomeSpotlight}). Exhaustive over WIDGET_TYPES
+ * (the Record type makes adding a widget without an entry a compile error),
+ * mirroring WIDGET_PHASES's compile-time exhaustiveness.
+ */
+export type WidgetSpotlightSpec = {
+  weight: number;
+  spotlightPhases: LifecyclePhase[];
+};
+
+export const WIDGET_SPOTLIGHT: Record<WidgetType, WidgetSpotlightSpec> = {
+  // Always-on chrome — never in the widened hideable list, weight is nominal.
+  hero: { weight: 0, spotlightPhases: [] },
+  greeting: { weight: 1, spotlightPhases: [] },
+  qr_card: { weight: 2, spotlightPhases: [] },
+  rsvp: { weight: 3, spotlightPhases: ['rsvp'] },
+  // Hideable widgets, in the council's Details/Story/Photos reading order.
+  event_details: { weight: 10, spotlightPhases: [] },
+  countdown: { weight: 11, spotlightPhases: ['save_the_date'] },
+  schedule: { weight: 12, spotlightPhases: ['event'] },
+  venue_map: { weight: 13, spotlightPhases: ['event'] },
+  dress_code: { weight: 14, spotlightPhases: [] },
+  what_to_bring: { weight: 15, spotlightPhases: [] },
+  tier_comparison: { weight: 16, spotlightPhases: [] },
+  our_love_story: { weight: 20, spotlightPhases: [] },
+  our_photos: { weight: 21, spotlightPhases: [] },
+  special_message: { weight: 22, spotlightPhases: ['editorial'] },
+  photo_moments: { weight: 23, spotlightPhases: [] },
+  your_photos: { weight: 30, spotlightPhases: ['event', 'editorial'] },
+};
+
+/**
+ * The four phases in which qr_card + greeting must be reachable under
+ * open-browse (council §1.2 — the personal QR personalizes in EVERY phase,
+ * fixing the live `WIDGET_PHASES` defect that strips qr_card in
+ * save_the_date/editorial). These two always-on gates widen to all phases on
+ * the open-browse path; on the flag-off path WIDGET_PHASES still governs them.
+ */
+export const OPEN_BROWSE_ALL_PHASES: readonly LifecyclePhase[] = [
+  'save_the_date',
+  'rsvp',
+  'event',
+  'editorial',
+];
+
+/**
+ * Per-widget terminal state under open-browse (council §1.3). Time-bound
+ * widgets get an explicit terminal state instead of blanket-open — the
+ * finding that sank the "Anchored Monolith" was that widening the lists with
+ * no degraded states permanently serves a live RSVP form + future-tense
+ * "what to bring" under the post-event editorial.
+ *
+ *   - `active`  — renders normally (present-tense copy).
+ *   - `archive` — post-event past-tense copy (PR8 authors the strings; until
+ *                 then the renderer treats `archive` like a NOT-YET-shown
+ *                 section so no future-tense content leaks — see
+ *                 {@link isTerminalRenderable}).
+ *   - `closed`  — the RSVP form after close: a quiet status card, not the
+ *                 open form (PR8 copy; excluded until then).
+ *
+ * PR7 computes the descriptor and EXCLUDES anything non-`active` from the
+ * widened lists / gates so the dormant flag-on path is *correct* (never
+ * wrong-tense), leaving `archive`/`closed` COPY rendering to PR8's owner copy
+ * pass. This is the documented PR7→PR8 seam.
+ */
+export type WidgetTerminalState = 'active' | 'archive' | 'closed';
+
+/**
+ * Resolve a widget's terminal state for a phase under open-browse. The
+ * time-bound widgets called out in §1.3:
+ *   - `countdown` → `archive` post-event ("Married [date]" stamp, PR8).
+ *   - `what_to_bring` / `photo_moments` → `archive` post-event (past-tense).
+ *   - `rsvp` → `closed` post-event (quiet closed card; the form stays open
+ *     through the live window — day-of confirmations are real PH behavior).
+ * Everything else is `active` in every phase (evergreen). Only the
+ * `editorial` phase is post-event; `event` (the wedding day) keeps the form
+ * open, so RSVP is `active` there.
+ */
+export function resolveWidgetTerminalState(
+  type: WidgetType,
+  phase: LifecyclePhase,
+): WidgetTerminalState {
+  const postEvent = phase === 'editorial';
+  if (!postEvent) return 'active';
+  if (type === 'rsvp') return 'closed';
+  if (type === 'countdown' || type === 'what_to_bring' || type === 'photo_moments') {
+    return 'archive';
+  }
+  return 'active';
+}
+
+/**
+ * Whether a widget in the given terminal state may render in PR7. Only
+ * `active` renders today; `archive`/`closed` need the PR8 copy pass, so PR7
+ * excludes them (correct-but-incomplete over wrong-tense). When PR8 lands the
+ * degraded renderers this predicate widens to `true` for `archive`/`closed`.
+ */
+export function isTerminalRenderable(state: WidgetTerminalState): boolean {
+  return state === 'active';
+}
+
+/**
+ * Reconcile a widget row's open-browse visibility. Because PR9's
+ * `setSectionMode` writer lands AFTER this reader, a row hidden between the
+ * PR4 migration and the PR9 cutover may carry `mode='auto'` while
+ * `is_visible=false` — the migration's backfill only tagged rows hidden
+ * BEFORE it ran. So the reader must treat `is_visible=false` OR `mode='hidden'`
+ * as hidden (the migration comment's load-bearing rule), EXCEPT always-on rows
+ * which render regardless. `mode='shown'` force-shows a hideable row even if a
+ * legacy `is_visible=false` lingers (the couple's newer, explicit choice wins).
+ */
+export function openBrowseSectionVisible(row: InvitationWidgetRow): boolean {
+  if (row.is_always_on) return true;
+  if (row.mode === 'hidden') return false;
+  if (row.mode === 'shown') return true;
+  // mode 'auto' (or unset, pre-PR9): fall back to the legacy is_visible gate.
+  return row.is_visible;
+}
+
+/**
+ * Whether a widget is visible to the given identity under open-browse — the
+ * `audience` dial ANDed onto {@link openBrowseSectionVisible}. `guests_only`
+ * widgets never render for the anonymous (cookie-less) tier; `public` (the
+ * default, and any unset value) renders for both.
+ */
+export function openBrowseWidgetVisibleTo(
+  row: InvitationWidgetRow,
+  identity: 'anonymous' | 'guest',
+): boolean {
+  if (!openBrowseSectionVisible(row)) return false;
+  if (identity === 'anonymous' && row.audience === 'guests_only') return false;
+  return true;
+}
+
+/**
+ * The shared emptiness predicate (council §1.3 graft). `widgetShouldRender`
+ * checks only `is_visible`/`is_always_on`, NEVER whether the widget has any
+ * content — so the menu and the renderer could disagree (a menu tab pointing
+ * at an empty section). `hasContent` is the ONE predicate both consume.
+ *
+ * Content presence is data the pure lib cannot see (it lives in `events.*`
+ * columns, R2 media, schedule rows), so the caller passes a per-type resolver
+ * via `ctx`. Widgets absent from the map default to HAVING content (fail-open:
+ * a widget the couple explicitly kept visible is assumed intentional), matching
+ * the existing "render everything for pre-backfill rows" posture.
+ */
+export function hasContent(
+  type: WidgetType,
+  ctx: Partial<Record<WidgetType, boolean>>,
+): boolean {
+  const known = ctx[type];
+  return known === undefined ? true : known;
+}
+
+/**
+ * The widened, ordered, terminal-state-aware widget list for the open-browse
+ * path — the drop-in replacement for the phase-fenced `visibleHideableWidgets`
+ * used by `resolveSiteBodyPlan` when `website_open_browse` is TRUE. It:
+ *   1. keeps only hideable rows visible to `identity` (mode + audience),
+ *   2. drops rows whose content is empty for this event (`hasContent`),
+ *   3. drops rows whose terminal state isn't renderable yet (PR7 seam),
+ *   4. orders by `WIDGET_SPOTLIGHT.weight` (falling back to `display_order`).
+ * No phase FENCE — a published, non-empty, active widget renders in every
+ * phase (that is the whole point of open-browse).
+ */
+export function openBrowseWidgetsInOrder(input: {
+  widgets: readonly InvitationWidgetRow[];
+  identity: 'anonymous' | 'guest';
+  phase: LifecyclePhase;
+  content: Partial<Record<WidgetType, boolean>>;
+}): InvitationWidgetRow[] {
+  const { widgets, identity, phase, content } = input;
+  return [...widgets]
+    .filter((w) => !w.is_always_on)
+    .filter((w) => openBrowseWidgetVisibleTo(w, identity))
+    .filter((w) => hasContent(w.widget_type, content))
+    .filter((w) => isTerminalRenderable(resolveWidgetTerminalState(w.widget_type, phase)))
+    .sort((a, b) => {
+      const wa = WIDGET_SPOTLIGHT[a.widget_type].weight;
+      const wb = WIDGET_SPOTLIGHT[b.widget_type].weight;
+      if (wa !== wb) return wa - wb;
+      return a.display_order - b.display_order;
+    });
 }

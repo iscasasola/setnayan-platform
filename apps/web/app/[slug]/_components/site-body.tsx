@@ -81,6 +81,7 @@ import { InvitationShell } from './invitation-shell';
 import { PublicHideableWidget } from './public-hideable-widget';
 import { RsvpWidget } from './rsvp-widget';
 import { WatchLiveBlock } from './watch-live-block';
+import { SpotlightCard } from './spotlight-card';
 
 /**
  * SiteBody — the ONE body tree for the guest event website
@@ -323,8 +324,26 @@ export function SiteBody({
 }: SiteBodyProps) {
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
 
+  // Open-browse PR7 — per-widget content presence for the shared hasContent()
+  // predicate. Only consulted when `event.website_open_browse` is TRUE; a
+  // widget the couple kept visible but that has no content this event is
+  // dropped from the widened list so the menu never points at an empty
+  // section. Unmapped types fail OPEN (assumed present). Byte-inert on the
+  // flag-off path (resolveSiteBodyPlan ignores `content` when openBrowse=false).
+  const openBrowseContent = {
+    schedule: scheduleBlocks.length > 0,
+    venue_map: Boolean(event.venue_name || event.venue_address),
+    our_love_story: Boolean(event.love_story),
+    our_photos: ourPhotoUrls.length > 0,
+    special_message: Boolean(event.special_message),
+    what_to_bring: Boolean(event.what_to_bring),
+    countdown: Boolean(event.event_date),
+  };
+
   // THE phase spine — computed once, consumed by every gate below. See
-  // lib/site-body-plan.ts for the verbatim old-condition mapping.
+  // lib/site-body-plan.ts for the verbatim old-condition mapping. `openBrowse`
+  // (DEFAULT FALSE per-event) flips phases from gates to emphasis; when FALSE
+  // the plan is byte-identical to the pre-PR7 computation (golden-locked).
   const plan = resolveSiteBodyPlan({
     identity: identity.kind,
     phasesEnabled,
@@ -335,6 +354,8 @@ export function SiteBody({
     hasBgMusic: Boolean(bgMusicUrl),
     liveMediaPublic: Boolean(event.live_media_public),
     widgets,
+    openBrowse: Boolean(event.website_open_browse),
+    content: openBrowseContent,
   });
 
   /**
@@ -426,6 +447,9 @@ export function SiteBody({
         {/* Menu-shell anchor targets (PR6). aria-hidden zero-height markers so
             the fixed SiteMenuBar's in-page links land on the right sections. */}
         <div id={SITE_MENU_ANCHORS.home} aria-hidden className="scroll-mt-6" />
+        {/* Open-browse Home spotlight (PR7). Null (byte-inert) unless
+            event.website_open_browse is TRUE; identity-aware. */}
+        {plan.spotlight ? <SpotlightCard spotlight={plan.spotlight} /> : null}
         {/* When a hero photo/video is uploaded, render a full-bleed banner
             (normal body only — plan.anonymousHeroBanner). Otherwise fall back
             to the centered text-only treatment inside the normal branch. */}
@@ -692,6 +716,10 @@ export function SiteBody({
           {menuOn ? (
             <div id={SITE_MENU_ANCHORS.home} aria-hidden className="scroll-mt-6" />
           ) : null}
+          {/* Open-browse Home spotlight (PR7). Null (byte-inert) unless
+              event.website_open_browse is TRUE; identity-aware (guest → RSVP /
+              event → Watch Live). */}
+          {plan.spotlight ? <SpotlightCard spotlight={plan.spotlight} /> : null}
           {/* Guest Hub Card — persistent status summary for identified returning
               guests. Shows RSVP status, seat, meal, and next schedule item at
               a glance on every return visit. Hidden from anonymous visitors

@@ -616,7 +616,10 @@ export default function PrivacyPage() {
               <strong>Right to erasure:</strong> the same profile page has an
               account-deletion action (type DELETE to confirm). When you request
               account deletion, our team reviews and permanently erases your
-              personal data within one business day of the request. Because
+              personal data within one business day of the request — except
+              records we are legally required to keep, such as tax and receipt
+              records under BIR rules, which we retain for the required period
+              and then delete. Because
               deletion is permanent and immediate upon processing, it cannot be
               undone once completed — please contact{' '}
               <a
@@ -993,7 +996,7 @@ export default function PrivacyPage() {
           <p>
             For privacy questions or RA 10173 requests, message us via the{' '}
             <Link href="/help" className="text-terracotta hover:underline">help center</Link>{' '}
-            with subject &ldquo;Privacy&rdquo;. We&rsquo;ll respond within one business day.
+            with subject &ldquo;Privacy&rdquo;. We&rsquo;ll respond within 15 business days (usually much sooner).
           </p>
         </Section>
       </article>

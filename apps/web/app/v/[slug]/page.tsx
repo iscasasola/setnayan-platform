@@ -73,6 +73,9 @@ import type {
   VendorPackageWithItems,
 } from '@/lib/vendor-packages';
 import { ShareButton } from './_components/share-button';
+import { verifiedMedianEnabled } from '@/lib/verified-median-flag';
+import { fetchVendorVerifiedMedian } from '@/lib/verified-median-read';
+import { VerifiedPriceCard } from './_components/verified-price-card';
 import { parseVideoLink, type VideoPlatform } from '@/lib/video-embed';
 import { fetchVendorIgMediaForPublic } from '@/lib/vendor-instagram-status';
 import {
@@ -778,6 +781,15 @@ export async function renderVendorBySlug({
   // mutual-accept handshake (accepted + active vendor_partnerships pointing at
   // this vendor). Founder-only marketplace → [] today; the section hides itself.
   const trustedBy = await fetchTrustedByVendors(admin, vendor.vendor_profile_id);
+
+  // Verified "typical price" (dark behind NEXT_PUBLIC_VERIFIED_MEDIAN_ENABLED).
+  // The median of this vendor's OWN locked-booking declared prices. Read ONLY
+  // when the flag is on AND the vendor isn't hiding prices publicly. Returns the
+  // vendor's own rounded typical price — no cross-vendor comparison (comp-law).
+  const verifiedTypicalPrice =
+    verifiedMedianEnabled() && !hidePricesPublicly
+      ? await fetchVendorVerifiedMedian(vendor.vendor_profile_id)
+      : null;
 
   // Favorites count (owner 2026-07-02: favorites PUBLIC / viewers vendor-only) —
   // distinct couples who follow OR saved this vendor (count_saves_for_vendor
@@ -2112,6 +2124,18 @@ export async function renderVendorBySlug({
             servesByService={servesByService}
             showcaseByService={showcaseByService}
             hidePrices={hidePricesPublicly}
+          />
+        ) : null}
+
+        {/* Verified "typical price" (dark) — the vendor's OWN median of their
+            locked-booking prices, shown as a self-referential guide. Renders
+            only when the flag is on, the median is established (≥ min sample),
+            and the vendor isn't hiding prices. No cross-vendor comparison. */}
+        {verifiedTypicalPrice?.result.status === 'established' &&
+        verifiedTypicalPrice.typicalPricePhp != null ? (
+          <VerifiedPriceCard
+            typicalPricePhp={verifiedTypicalPrice.typicalPricePhp}
+            sampleN={verifiedTypicalPrice.result.sampleN}
           />
         ) : null}
 

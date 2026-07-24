@@ -49,6 +49,9 @@ import {
 import { VendorTierGate, VendorTierTeaser } from '../_components/tier-gate';
 import { HealthCompositeCard } from './_components/health-composite-card';
 import { GrowthRecsCard } from './_components/growth-recs-card';
+import { verifiedMedianEnabled } from '@/lib/verified-median-flag';
+import { fetchVendorVerifiedMedian } from '@/lib/verified-median-read';
+import { VerifiedMedianCard } from './_components/verified-median-card';
 import { RoiAttributionCard } from './_components/roi-attribution-card';
 import type { MomentumWindow, MomentumMode } from './_components/momentum-card';
 import { FunnelPreviewCard } from './_components/funnel-preview-card';
@@ -584,6 +587,13 @@ export default async function PerformanceHome({
     );
   };
 
+  // Verified-median pricing (dark behind NEXT_PUBLIC_VERIFIED_MEDIAN_ENABLED).
+  // Off → skip the read entirely, render nothing. Computed on the full-render
+  // path only (after every early return above).
+  const verifiedMedian = verifiedMedianEnabled()
+    ? await fetchVendorVerifiedMedian(profile.vendor_profile_id)
+    : null;
+
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-10 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       {/* ── Arrangement (owner 2026-07-02 design pass): ONE bounded windowed zone
@@ -596,6 +606,7 @@ export default async function PerformanceHome({
         <HealthCompositeCard health={health} monthDelta={monthDelta}>
           <GrowthRecsCard recs={growthRecs} />
         </HealthCompositeCard>
+        {verifiedMedian ? <VerifiedMedianCard data={verifiedMedian} /> : null}
       </div>
 
       {/* 2 · Performance over time — the ONE windowed zone. The filter row is its

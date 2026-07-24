@@ -2,9 +2,14 @@
 
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { isWidgetType } from '@/lib/invitation-widgets';
+import { hasContent, isWidgetType, type WidgetType } from '@/lib/invitation-widgets';
 import { requireHostMembershipOrThrow } from '@/lib/host-gate';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
+import {
+  SECTION_CONTENT_EVENT_COLUMNS,
+  computeSectionContentMap,
+  type SectionContentEvent,
+} from '@/lib/website-section-content';
 
 /**
  * Invitation Widgets Editor — server actions (V1 · 2026-05-22 PM).
@@ -122,6 +127,131 @@ export async function toggleWidgetVisibility(formData: FormData): Promise<void> 
 
   if (updateErr) {
     throw new Error(`Failed to update widget visibility: ${updateErr.message}`);
+  }
+
+  await revalidateForWidgetChange(eventId);
+  redirect(`/dashboard/${eventId}/website/widgets?saved=1`);
+}
+
+// The three legal open-browse section modes (matches the CHECK constraint on
+// invitation_widgets.mode from migration 20270919912384).
+const SECTION_MODES = ['auto', 'shown', 'hidden'] as const;
+type SectionMode = (typeof SECTION_MODES)[number];
+
+function isSectionMode(value: unknown): value is SectionMode {
+  return typeof value === 'string' && (SECTION_MODES as readonly string[]).includes(value);
+}
+
+/**
+ * Set a widget's OPEN-BROWSE three-state section mode (Auto / Shown / Hidden)
+ * — the couple's `mode` writer (OPEN-BROWSE PR9 · council verdict §1.4). This
+ * is ADDITIVE to `toggleWidgetVisibility`: `mode` and `is_visible` coexist, and
+ * PR7's reader (`openBrowseSectionVisible`) treats `is_visible=false` OR
+ * `mode='hidden'` as hidden while `mode='shown'` force-shows a hideable row.
+ *
+ *   - `auto`   — the site decides (falls back to the legacy `is_visible` gate).
+ *   - `shown`  — force-show. REFUSED when the widget's source has no content:
+ *                force-on must never manufacture a blank guest-facing section
+ *                (redirects with ?error=empty_source instead of writing).
+ *   - `hidden` — force-hide.
+ *
+ * Always-on rows (Home / QR / Greeting / RSVP) are NEVER holdable (§1.4) — a
+ * mode write against one silently no-ops.
+ *
+ * Form fields:
+ *   - event_id  — the event the widget belongs to (also the gate subject).
+ *   - widget_id — the row PK.
+ *   - next_mode — one of auto | shown | hidden.
+ */
+export async function setSectionMode(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const widgetIdRaw = formData.get('widget_id');
+  const nextModeRaw = formData.get('next_mode');
+
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    redirect('/dashboard');
+  }
+  if (typeof widgetIdRaw !== 'string' || widgetIdRaw.length === 0) {
+    throw new Error('Missing widget id.');
+  }
+  if (!isSectionMode(nextModeRaw)) {
+    throw new Error('Invalid mode.');
+  }
+  const eventId = eventIdRaw as string;
+  const widgetId = widgetIdRaw as string;
+  const nextMode = nextModeRaw;
+
+  await requireHostMembershipOrThrow(
+    eventId,
+    'Forbidden — only current hosts can edit section visibility.',
+  );
+
+  const supabase = await createClient();
+
+  // Re-read the target row to confirm is_always_on + widget_type. The .eq on
+  // both widget_id AND event_id keeps a host from touching another event's row
+  // by guessing IDs (RLS backstops this; defense in depth is cheap).
+  const { data: row, error: readErr } = await supabase
+    .from('invitation_widgets')
+    .select('widget_id, widget_type, is_always_on')
+    .eq('widget_id', widgetId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+
+  if (readErr) {
+    throw new Error(`Failed to load widget: ${readErr.message}`);
+  }
+  if (!row) {
+    throw new Error('Widget not found on this event.');
+  }
+  if (row.is_always_on) {
+    // Always-on sections are never holdable (council §1.4 "Home and Me are
+    // never holdable"). Silent no-op rather than throw — the editor UI never
+    // renders this control for always-on rows, but a hand-crafted POST could.
+    redirect(`/dashboard/${eventId}/website/widgets`);
+  }
+
+  const widgetType = row.widget_type as WidgetType;
+
+  // "Shown disabled while empty" — force-on must never manufacture a blank
+  // guest-facing section. Compute content presence with the SAME signals the
+  // guest site uses (lib/website-section-content mirrors site-body's
+  // openBrowseContent map). Types with no clear signal fail OPEN via hasContent.
+  if (nextMode === 'shown') {
+    const { data: eventRow, error: eventErr } = await supabase
+      .from('events')
+      .select(SECTION_CONTENT_EVENT_COLUMNS)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (eventErr) {
+      throw new Error(`Failed to load event: ${eventErr.message}`);
+    }
+    const contentMap = await computeSectionContentMap(
+      supabase,
+      eventId,
+      (eventRow ?? {
+        event_date: null,
+        venue_name: null,
+        venue_address: null,
+        love_story: null,
+        special_message: null,
+        what_to_bring: null,
+        our_photos: null,
+      }) as SectionContentEvent,
+    );
+    if (!hasContent(widgetType, contentMap)) {
+      redirect(`/dashboard/${eventId}/website/widgets?error=empty_source`);
+    }
+  }
+
+  const { error: updateErr } = await supabase
+    .from('invitation_widgets')
+    .update({ mode: nextMode })
+    .eq('widget_id', widgetId)
+    .eq('event_id', eventId);
+
+  if (updateErr) {
+    redirect(`/dashboard/${eventId}/website/widgets?error=mode_write`);
   }
 
   await revalidateForWidgetChange(eventId);

@@ -1188,6 +1188,18 @@ export type BoothVendor = {
    *  logo (branding is the Pro/Enterprise perk). Optional so an older cached
    *  scene payload (pre-poster) still parses. */
   posterUrl?: string | null;
+  /** Booth Studio (`event_vendor_booth_posters.poster_content`): the vendor's
+   *  STRUCTURED, palette-harmonized poster for THIS event — headline / offer /
+   *  price / accent composed at runtime in the couple's Mood Board palette (see
+   *  lib/booth-studio). Distinct from `posterUrl` (a raw uploaded image): this
+   *  is data, not a fetched raster, so it can never carry a presigned URL into a
+   *  cached scene payload. `logoPublicUrl` is the vendor logo resolved to a
+   *  PUBLIC (never presigned) R2 URL for the optional logo lockup. Rendered only
+   *  behind NEXT_PUBLIC_BOOTH_STUDIO_ENABLED. Optional so an older cached scene
+   *  payload (pre-Booth-Studio) still parses. Typed loosely here (the shape
+   *  lives in lib/booth-studio, which must not be imported into this hot pure
+   *  module); the renderer sanitizes it. */
+  posterContent?: unknown;
   /** Whether the profile can take bookings (`public_visibility === 'verified'`
    *  — lib/vendor-visibility isBookable). Gates the booth card's "Book this
    *  vendor" wording: a coming_soon profile keeps its slug (the profile page

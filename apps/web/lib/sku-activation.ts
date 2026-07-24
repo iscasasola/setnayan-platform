@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { appendLedger } from '@/lib/ledger';
 import { activateConcierge } from '@/app/dashboard/(account)/profile/concierge/actions';
 import { branchIdFromServiceKey } from '@/lib/vendor-branches';
+import { chargeIdFromBookingFeeLockServiceKey } from '@/lib/booking-fee-lock';
+import { settleBookingFeeCharge } from '@/lib/booking-fee-charge';
 import {
   seatServiceKey,
   vendorProfileIdFromSeatServiceKey,
@@ -1006,6 +1008,28 @@ const PREFIX_HOOKS: ReadonlyArray<{
   match: (serviceKey: string) => boolean;
   run: ActivationHook;
 }> = Object.freeze([
+  {
+    // 'vendor_booking_fee__{charge_id}' → SETTLE the booking-fee ledger charge.
+    // This is the missing connection: the booking_fee_charges ledger opens
+    // 'pending' at LOCK and was never settled. When the admin approves the
+    // vendor's fee payment (order → 'paid' → activateOrderSku), settle the exact
+    // charge. Idempotent (booking_fee_settle_charge no-ops a non-pending charge),
+    // so a re-approval is safe. Fires only on a fully-reconciled 'paid' order
+    // (shouldProvisionOnApproval), never on a partial/short transfer.
+    match: (serviceKey) => chargeIdFromBookingFeeLockServiceKey(serviceKey) !== null,
+    run: async (ctx) => {
+      const chargeId = chargeIdFromBookingFeeLockServiceKey(ctx.serviceKey);
+      if (!chargeId) return;
+      const settled = await settleBookingFeeCharge(ctx.admin, chargeId, 'manual', ctx.orderId);
+      await appendLedger(ctx.admin, {
+        order_id: ctx.orderId,
+        event_type: 'service_activated',
+        actor_user_id: ctx.actorUserId,
+        actor_role: 'admin',
+        metadata: { service_key: ctx.serviceKey, booking_fee_charge_id: chargeId, settled },
+      });
+    },
+  },
   {
     // 'vendor_additional_branch__{branch_id}' → flip branch active + stamp 28d period.
     match: (serviceKey) => branchIdFromServiceKey(serviceKey) !== null,

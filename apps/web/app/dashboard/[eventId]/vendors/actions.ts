@@ -15,6 +15,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { autoInviteCoordinator } from '@/lib/coordinator-grant';
 import { emitNotification } from '@/lib/notification-emit';
+import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
+import { collectBookingFeeAtLock } from '@/lib/booking-fee-lock.server';
 import { uploadPublicAsset } from '@/lib/storage';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { resolveLivePax } from '@/lib/pax';
@@ -2132,6 +2134,26 @@ export async function finalizeVendor(
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error(`[finalizeVendor] proposal auto-resolve failed for vendor_id=${vendorId}:`, e);
+  }
+
+  // ----------------------------------------------------------------------
+  // Booking fee AT LOCK (owner 2026-07-24 — the fee TRIGGER moved from proposal
+  // SEND to the LOCK; base = the couple-confirmed event_vendors.total_cost_php).
+  //
+  // SHIPS DARK: collectBookingFeeAtLock is a pure no-op unless
+  // NEXT_PUBLIC_BOOKING_FEE_ENABLED is on, so this block is byte-behaviour-
+  // identical to today. Pre-gated on the marketplace link too, so an off-platform
+  // vendor never even calls in. A verified vendor's first 5 booked customers are
+  // FREE; booking 6+ mints a 5% vendor-payer order on the manual QR rail.
+  // Fully fail-soft: the lock already committed — a fee hiccup never rolls it back.
+  // ----------------------------------------------------------------------
+  if (isBookingFeeEnabled() && targetVendor.marketplace_vendor_id) {
+    try {
+      await collectBookingFeeAtLock(createAdminClient(), { eventVendorId: vendorId });
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error(`[finalizeVendor] booking-fee collect failed for vendor_id=${vendorId} event_id=${eventId}:`, e);
+    }
   }
 
   return { status: 'ok', vendorId, lockedStatus: LOCKED_STATUS, milestone };

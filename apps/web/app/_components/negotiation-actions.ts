@@ -26,6 +26,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchThreadById } from '@/lib/chat';
 import { emitNotification } from '@/lib/notification-emit';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
+import { bookVendorAtChatLock } from '@/lib/chat-lock-booking.server';
+import { VENDOR_NOT_VERIFIED_COUPLE_MESSAGE } from '@/lib/vendor-verification';
 import {
   signedAmount,
   newTotalPhp,
@@ -821,11 +823,25 @@ export async function markAmendmentItemDelivered(formData: FormData): Promise<vo
 }
 
 // ============================================================================
-// Customer "Lock this deal" (negotiation rework · council verdict 2026-07-24).
-// Only the COUPLE locks. Freezes the accepted Deal: stamps the amendment's
-// locked_at (card shows "Locked") + writes the frozen total onto the thread
-// (agreed_price_centavos + locked_at + locked_by_user_id) — the handoff to the
-// PAYMENT session. RLS scopes both writes to the caller's relationship.
+// Customer "Lock this deal" — Option A: the LOCK **IS** the booking
+// (owner 2026-07-24). Only the COUPLE locks. On lock we:
+//   1. Advance the real event_vendors row into 'contracted' at the NEGOTIATED
+//      total (event_vendors.total_cost_php = the accepted Deal's new total) and
+//      collect the 5% Booking Fee on that exact number — via the SHARED lock
+//      core `bookVendorAtChatLock`, which reuses the SAME verified-gate
+//      (isMarketplaceVendorBookable + the event_vendors_require_verified_before_
+//      lock DB trigger) and the SAME collectBookingFeeAtLock the vendor-page
+//      finalize uses. So the chat price and the charged base are identical by
+//      construction, and a later vendor-page finalize (or vice-versa) is a no-op
+//      (the booking-fee ledger is deduped per vendor×event).
+//   2. Freeze the accepted Deal (proposal_amendments.locked_at → card "Locked")
+//      + write the frozen total onto the thread (agreed_price_centavos +
+//      locked_at + locked_by_user_id) — the payment-session read point.
+//
+// An UNVERIFIED marketplace vendor can't be locked via chat either — the couple
+// sees a friendly message (no lock, no charge). Off-platform threads (no
+// marketplace event_vendors link) still record the price, fire no fee, don't
+// crash. RLS + the DB trigger scope every write to the caller's relationship.
 // ============================================================================
 
 export async function lockDeal(formData: FormData): Promise<void> {
@@ -869,6 +885,49 @@ export async function lockDeal(formData: FormData): Promise<void> {
   }));
   const newTotal = newTotalPhp(baseTotal, itemAmounts); // pesos, or null if no base
   const agreedCentavos = newTotal == null ? null : Math.round(newTotal * 100);
+
+  // ── Option A: the chat lock IS the booking ───────────────────────────────
+  // Advance the real event_vendors row at the negotiated total THROUGH the
+  // shared lock core (verified-gate + collectBookingFeeAtLock). Only when we
+  // have BOTH a marketplace event_vendors row AND a concrete negotiated number
+  // (agreedCentavos) — so the 5% can only ever fire on the exact price we also
+  // freeze onto the thread below (parity by construction). resolveEventVendorId
+  // matches event_vendors.marketplace_vendor_id = thread.vendor_profile_id, so
+  // that resolved row's marketplace link IS ctx.thread.vendor_profile_id.
+  const failBack = (msg: string): never => {
+    if (back) {
+      redirect(`${back}${back.includes('?') ? '&' : '?'}error=1&msg=${encodeURIComponent(msg)}`);
+    }
+    redirect(dest);
+  };
+  const eventVendorId = await resolveEventVendorId(
+    supabase,
+    ctx.thread.event_id,
+    ctx.thread.vendor_profile_id,
+  );
+  if (eventVendorId && agreedCentavos != null && newTotal != null) {
+    const outcome = await bookVendorAtChatLock(supabase, createAdminClient(), {
+      eventId: ctx.thread.event_id,
+      eventVendorId,
+      marketplaceVendorId: ctx.thread.vendor_profile_id,
+      agreedTotalPhp: newTotal,
+    });
+    // Refuse the lock (no price freeze, no Deal stamp) when the vendor can't be
+    // booked — surface a friendly reason instead of a raw error.
+    if (outcome.status === 'not_verified') {
+      failBack(VENDOR_NOT_VERIFIED_COUPLE_MESSAGE);
+    }
+    if (outcome.status === 'hard_single_blocked') {
+      failBack(
+        'You already locked another vendor in this category. Switch them from the vendor page first, then lock this deal.',
+      );
+    }
+    if (outcome.status === 'error') {
+      failBack('We could not lock this deal just now — please try again.');
+    }
+    // 'no_marketplace_link' | 'booked' | 'already_booked' → fall through to
+    // freeze the price + stamp the Deal.
+  }
 
   const now = new Date().toISOString();
 

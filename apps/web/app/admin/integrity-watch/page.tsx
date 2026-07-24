@@ -3,6 +3,7 @@ import {
   Star,
   Store,
   Users,
+  Coins,
   RefreshCw,
   ShieldAlert,
   EyeOff,
@@ -17,6 +18,7 @@ import {
   resolveIntegrityFlag,
   rescanReviewsForFraud,
   rescanGhostListings,
+  rescanUnderDeclaredLocks,
 } from './actions';
 import {
   REVIEW_FRAUD_REASON_LABEL,
@@ -26,6 +28,11 @@ import {
   GHOST_LISTING_REASON_LABEL,
   type GhostListingDetail,
 } from '@/lib/ghost-listing-scoring';
+import {
+  PLAUSIBILITY_REASON_LABEL,
+  type PlausibilityDetail,
+} from '@/lib/plausibility-scoring';
+import { plausibilityScannerEnabled } from '@/lib/plausibility-scanner-flag';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
 
@@ -58,12 +65,16 @@ type FlagStatus = 'open' | 'dismissed' | 'confirmed_fraud' | 'listing_hidden';
 type FlagRow = {
   id: number;
   public_id: string;
-  kind: 'review_fraud' | 'ghost_listing' | 'inquiry_concentration';
+  kind: 'review_fraud' | 'ghost_listing' | 'inquiry_concentration' | 'price_underdeclaration';
   subject_vendor_id: string;
   subject_review_id: string | null;
   score: number;
   reason: string;
-  detail: ReviewFraudDetail | GhostListingDetail | Record<string, unknown>;
+  detail:
+    | ReviewFraudDetail
+    | GhostListingDetail
+    | PlausibilityDetail
+    | Record<string, unknown>;
   status: FlagStatus;
   resolution_notes: string | null;
   reviewed_at: string | null;
@@ -75,7 +86,7 @@ const INQUIRY_CONCENTRATION_REASON_LABEL: Record<string, string> = {
   sock_puppet_concentration: 'Linked accounts targeting one vendor',
 };
 
-type Tab = 'reviews' | 'listings' | 'inquiries';
+type Tab = 'reviews' | 'listings' | 'inquiries' | 'prices';
 type StatusFilter = 'open' | 'confirmed' | 'dismissed' | 'all';
 
 const STATUS_LABEL: Record<FlagStatus, string> = {
@@ -98,9 +109,12 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: 'all', label: 'All' },
 ];
 
-function normalizeTab(raw: string | undefined): Tab {
+function normalizeTab(raw: string | undefined, pricesEnabled: boolean): Tab {
   if (raw === 'listings') return 'listings';
   if (raw === 'inquiries') return 'inquiries';
+  // 'prices' only resolves when the scanner flag is on — while dark the tab is
+  // unreachable and the page behaves exactly as before.
+  if (raw === 'prices' && pricesEnabled) return 'prices';
   return 'reviews';
 }
 function normalizeStatus(raw: string | undefined): StatusFilter {
@@ -124,7 +138,9 @@ function reasonLabel(kind: FlagRow['kind'], reason: string): string {
       ? REVIEW_FRAUD_REASON_LABEL
       : kind === 'ghost_listing'
         ? GHOST_LISTING_REASON_LABEL
-        : INQUIRY_CONCENTRATION_REASON_LABEL;
+        : kind === 'price_underdeclaration'
+          ? PLAUSIBILITY_REASON_LABEL
+          : INQUIRY_CONCENTRATION_REASON_LABEL;
   return map[reason] ?? reason;
 }
 
@@ -152,6 +168,23 @@ function evidenceChips(row: FlagRow): string[] {
       chips.push(`${gd.inbound_message_count} message(s), 0 replies`);
     if (gd.dormant_days > 120) chips.push(`dormant ${gd.dormant_days}d`);
     if (gd.duplicate_of_count) chips.push(`duplicate of ${gd.duplicate_of_count} listing(s)`);
+  } else if (row.kind === 'price_underdeclaration') {
+    // Non-PII: this lock's own figure + this vendor's own reference aggregates.
+    const pd = d as unknown as PlausibilityDetail;
+    const peso = (n: number) => `₱${Math.round(n).toLocaleString('en-PH')}`;
+    chips.push(`lock ${peso(pd.lock_price_php)}`);
+    const t = pd.tiers ?? ({} as PlausibilityDetail['tiers']);
+    if (t.self_consistency?.fired && t.self_consistency.refPhp != null)
+      chips.push(
+        `${t.self_consistency.severity}% below own median (${peso(t.self_consistency.refPhp)})`,
+      );
+    if (t.inclusion_floor?.fired && t.inclusion_floor.refPhp != null)
+      chips.push(
+        `${t.inclusion_floor.severity}% below stated inclusion worth (${peso(t.inclusion_floor.refPhp)})`,
+      );
+    if (t.category_median?.fired)
+      // Internal corroboration only — never surfaced to couples/vendors.
+      chips.push(`internal: ${t.category_median.severity}% below category band`);
   } else {
     // inquiry_concentration — one linked identity-cluster spraying this vendor.
     const id = d as {
@@ -179,14 +212,17 @@ export default async function AdminIntegrityWatchPage({
 }) {
   await requireAdmin();
   const search = await searchParams;
-  const tab = normalizeTab(search.tab);
+  const pricesEnabled = plausibilityScannerEnabled();
+  const tab = normalizeTab(search.tab, pricesEnabled);
   const status = normalizeStatus(search.status);
   const kind =
     tab === 'reviews'
       ? 'review_fraud'
       : tab === 'listings'
         ? 'ghost_listing'
-        : 'inquiry_concentration';
+        : tab === 'prices'
+          ? 'price_underdeclaration'
+          : 'inquiry_concentration';
 
   const admin = createAdminClient();
 
@@ -241,12 +277,32 @@ export default async function AdminIntegrityWatchPage({
     .select('id', { count: 'exact', head: true })
     .eq('kind', 'inquiry_concentration')
     .eq('status', 'open');
+  // Only counted when the scanner is enabled (dark otherwise).
+  const openPrices = pricesEnabled
+    ? (
+        await admin
+          .from('integrity_flags')
+          .select('id', { count: 'exact', head: true })
+          .eq('kind', 'price_underdeclaration')
+          .eq('status', 'open')
+      ).count
+    : 0;
 
   // Inquiries have no rescan — they're raised by the cron-free fraud-cluster
   // sweep, not an on-demand backfill.
   const hasRescan = tab !== 'inquiries';
-  const rescanAction = tab === 'reviews' ? rescanReviewsForFraud : rescanGhostListings;
-  const rescanLabel = tab === 'reviews' ? 'Rescan reviews' : 'Rescan listings';
+  const rescanAction =
+    tab === 'reviews'
+      ? rescanReviewsForFraud
+      : tab === 'prices'
+        ? rescanUnderDeclaredLocks
+        : rescanGhostListings;
+  const rescanLabel =
+    tab === 'reviews'
+      ? 'Rescan reviews'
+      : tab === 'prices'
+        ? 'Rescan prices'
+        : 'Rescan listings';
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
@@ -285,7 +341,8 @@ export default async function AdminIntegrityWatchPage({
         <div className="mb-4">
           <FormFlash tone="success">
             Rescan complete — {search.scanned ?? '0'}{' '}
-            {tab === 'reviews' ? 'review(s)' : 'listing(s)'} scanned;{' '}
+            {tab === 'reviews' ? 'review(s)' : tab === 'prices' ? 'lock(s)' : 'listing(s)'}{' '}
+            scanned;{' '}
             {search.flagged ?? '0'} new flag(s). New matches (if any) appear below.
           </FormFlash>
         </div>
@@ -326,6 +383,19 @@ export default async function AdminIntegrityWatchPage({
           <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Inquiries
           {openInquiries ? ` · ${openInquiries}` : ''}
         </Link>
+        {pricesEnabled && (
+          <Link
+            href="/admin/integrity-watch?tab=prices"
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ${
+              tab === 'prices'
+                ? 'bg-ink text-cream'
+                : 'border border-ink/15 text-ink/70 hover:bg-ink/[0.04]'
+            }`}
+          >
+            <Coins aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Prices
+            {openPrices ? ` · ${openPrices}` : ''}
+          </Link>
+        )}
       </div>
 
       {/* Status filters */}
@@ -359,7 +429,9 @@ export default async function AdminIntegrityWatchPage({
             ? ' Use “Rescan listings” to sweep the marketplace.'
             : tab === 'inquiries'
               ? ' Linked-account inquiry sprays surface here automatically (shadow mode) once device-fingerprint capture is on.'
-              : ' Reviews are screened automatically on submit — use “Rescan reviews” to backfill historical ones.'}
+              : tab === 'prices'
+                ? ' Use “Rescan prices” to sweep couple-confirmed locks for implausibly low declared prices. Couple-confirmation stays the anchor — this is a second layer for triage only, never an automated penalty.'
+                : ' Reviews are screened automatically on submit — use “Rescan reviews” to backfill historical ones.'}
         </p>
       ) : (
         <ul className="space-y-4">
@@ -446,6 +518,19 @@ export default async function AdminIntegrityWatchPage({
                           <EyeOff aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                           Hide listing
                         </button>
+                      ) : r.kind === 'price_underdeclaration' ? (
+                        // price_underdeclaration: confirm the under-declaration
+                        // (VERDICT only — records the flag; never adjusts the
+                        // price, penalizes the vendor, or touches the lock).
+                        <button
+                          type="submit"
+                          name="action"
+                          value="confirm_fraud"
+                          className="inline-flex items-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta-700 hover:bg-terracotta/10"
+                        >
+                          <ShieldAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                          Confirm under-declaration
+                        </button>
                       ) : (
                         // inquiry_concentration: confirm the ATTACK (verdict only —
                         // never touches the victim vendor). No "hide listing".
@@ -490,9 +575,10 @@ export default async function AdminIntegrityWatchPage({
 
       <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
         Source · review-fraud screener + ghost-listing detector +
-        inquiry-concentration sweep · table <code>integrity_flags</code>{' '}
-        (migration 20270412000042) · deterministic · detect-and-review only ·
-        non-PII evidence
+        inquiry-concentration sweep
+        {pricesEnabled ? ' + price-under-declaration scanner' : ''} · table{' '}
+        <code>integrity_flags</code> (migration 20270412000042) · deterministic ·
+        detect-and-review only · non-PII evidence
       </p>
     </div>
   );

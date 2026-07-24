@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { rescanAllReviewsForFraud } from '@/lib/review-fraud-screener';
 import { scanForGhostListings } from '@/lib/ghost-listing-detector';
+import { scanForUnderDeclaredLocks } from '@/lib/plausibility-scanner';
+import { plausibilityScannerEnabled } from '@/lib/plausibility-scanner-flag';
 
 // Shared admin gate (require-admin.ts) — identical contract to the local
 // requireAdmin this file used to duplicate (login redirect · Forbidden throw).
@@ -48,6 +50,19 @@ const ACTION_NOTE: Record<Action, string> = {
   hide_listing: 'Ghost listing hidden — un-published from the marketplace.',
 };
 
+/** Kind-aware resolution note (confirm_fraud reads differently per kind — a
+ *  price-under-declaration confirm is a triage VERDICT, not a "review fraud"
+ *  finding, and never adjusts the price or penalizes the vendor). */
+function resolutionNote(action: Action, kind: string): string {
+  if (action === 'confirm_fraud' && kind === 'price_underdeclaration') {
+    return 'Confirmed implausible under-declaration. Verdict recorded for triage; NO automated penalty — any follow-up is a separate, deliberate admin step.';
+  }
+  if (action === 'confirm_fraud' && kind === 'inquiry_concentration') {
+    return 'Confirmed linked-account inquiry concentration. Verdict recorded; the targeted vendor is the victim and is never penalized.';
+  }
+  return ACTION_NOTE[action];
+}
+
 /**
  * Resolve an integrity flag. For hide_listing (ghost_listing flags only) also
  * un-publishes the subject vendor_profiles row. NEVER auto-deletes a review.
@@ -84,9 +99,12 @@ export async function resolveIntegrityFlag(formData: FormData) {
   if (
     action === 'confirm_fraud' &&
     kind !== 'review_fraud' &&
-    kind !== 'inquiry_concentration'
+    kind !== 'inquiry_concentration' &&
+    kind !== 'price_underdeclaration'
   ) {
-    throw new Error('Confirm only applies to review-fraud or inquiry-concentration flags.');
+    throw new Error(
+      'Confirm only applies to review-fraud, inquiry-concentration, or price-under-declaration flags.',
+    );
   }
   if (action === 'hide_listing' && kind !== 'ghost_listing') {
     throw new Error('Hide listing only applies to ghost-listing flags.');
@@ -107,7 +125,7 @@ export async function resolveIntegrityFlag(formData: FormData) {
     .from('integrity_flags')
     .update({
       status: ACTION_STATUS[action],
-      resolution_notes: ACTION_NOTE[action] + extraNote,
+      resolution_notes: resolutionNote(action, kind) + extraNote,
       reviewed_by: userId,
       reviewed_at: new Date().toISOString(),
     })
@@ -174,5 +192,23 @@ export async function rescanGhostListings() {
   revalidatePath('/admin/integrity-watch');
   redirect(
     `/admin/integrity-watch?tab=listings&scanned=${summary.vendorsScanned}&flagged=${summary.flagsUpserted}`,
+  );
+}
+
+/**
+ * Admin "Rescan prices" — deterministically sweep every couple-confirmed, linked,
+ * non-excluded lock for implausible under-declaration + upsert flags. Gated on
+ * the launch flag: a no-op that redirects back unchanged while the scanner is
+ * dark, so the action is inert even if reached directly.
+ */
+export async function rescanUnderDeclaredLocks() {
+  await requireAdmin();
+  if (!plausibilityScannerEnabled()) {
+    redirect('/admin/integrity-watch');
+  }
+  const summary = await scanForUnderDeclaredLocks();
+  revalidatePath('/admin/integrity-watch');
+  redirect(
+    `/admin/integrity-watch?tab=prices&scanned=${summary.locksScanned}&flagged=${summary.flagsUpserted}`,
   );
 }

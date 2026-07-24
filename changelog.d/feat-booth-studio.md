@@ -22,7 +22,7 @@ untouched.
   the same `(event_id, vendor_profile_id)` join as the logo/poster, so a vendor's
   content can only reach their own booth at that event.
 - New: `lib/booth-studio.ts` (+ tests), `lib/booth-studio-flag.ts`, `BoothStudioPoster`
-  renderer. Migration `20270928100000_booth_studio.sql`: `poster_content` column
+  renderer. Migration `20270928120000_booth_studio.sql`: `poster_content` column
   (poster_ref made nullable + non-empty CHECK), `vendor_set_booth_studio_content`
   setter RPC (booked-vendor gate), v11 scene RPC, and the `booth_studio` catalog SKU.
 - Cached-payload safety: all new scene fields are OPTIONAL, so old cached payloads

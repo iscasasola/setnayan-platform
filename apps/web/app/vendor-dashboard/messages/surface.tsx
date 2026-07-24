@@ -74,8 +74,12 @@ export default async function VendorMessagesPage() {
   // Archived section here too (out of the active list). Only exists when the
   // flag is on; inert otherwise.
   const isDisplaced = (t: (typeof threads)[number]) => t.inquiry_status === 'displaced';
-  const activeThreads = threads.filter((t) => !t.archived && !isDisplaced(t));
-  const archivedThreads = threads.filter((t) => t.archived || isDisplaced(t));
+  // Removed (archive-not-delete): the couple withdrew the inquiry. The thread +
+  // messages are PRESERVED as the evidence record — fold it out of the active
+  // list into "Archived" on the vendor side too (mirrors the displaced fold).
+  const isRemoved = (t: (typeof threads)[number]) => t.archived_at != null;
+  const activeThreads = threads.filter((t) => !t.archived && !isDisplaced(t) && !isRemoved(t));
+  const archivedThreads = threads.filter((t) => t.archived || isDisplaced(t) || isRemoved(t));
 
   const renderRow = (t: (typeof threads)[number]) => {
     const returning =

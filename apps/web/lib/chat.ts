@@ -68,6 +68,15 @@ export type ChatThreadRow = {
   /** The inquirer (thread opener) — powers the vendor-side "creator collab
    *  active" marker (PR-C). Base-table column; optional for older mappers. */
   created_by_user_id?: string | null;
+  /**
+   * THREAD-level removal marker (migration 20270926679942). Non-NULL when the
+   * couple removed the vendor / withdrew the inquiry — the thread + messages are
+   * preserved (immutable evidence) but folded OUT of the active list into
+   * "Archived", and re-adding the vendor NULLs it to resume the same thread.
+   * Distinct from CoupleThreadWithVendor.archived (the per-user Viber marker).
+   * Optional so a pre-migration mapper degrades to "not removed".
+   */
+  archived_at?: string | null;
 };
 
 export type CoupleThreadWithVendor = ChatThreadRow & {
@@ -191,7 +200,7 @@ export type ChatMessageRow = {
 };
 
 const THREAD_SELECT =
-  'thread_id,public_id,event_id,vendor_profile_id,created_by_user_id,created_at,updated_at,inquiry_status,accepted_at,declined_at,decline_reason,pax_at_inquiry,pax_current,vendor_first_reply_at,referring_chapter_id,inquiry_source,is_returning';
+  'thread_id,public_id,event_id,vendor_profile_id,created_by_user_id,created_at,updated_at,inquiry_status,accepted_at,declined_at,decline_reason,pax_at_inquiry,pax_current,vendor_first_reply_at,referring_chapter_id,inquiry_source,is_returning,archived_at';
 
 /**
  * Count of message threads with at least one unread message for the current

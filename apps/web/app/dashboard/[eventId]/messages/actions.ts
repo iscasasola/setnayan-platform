@@ -7,17 +7,25 @@ import { fetchThreadById } from '@/lib/chat';
 import { isFollowingVendor } from '@/lib/follow';
 
 /**
- * Withdraw a couple-side inquiry (inquiry-followthrough 2026-06-16). Mirrors the
- * couple-own `deleteVendor` remove path (vendors/actions.ts): validate → auth →
- * scope-check → hard delete the row, all gated by the couple's own RLS. The
- * `chat_threads_member_write` policy is FOR ALL and the couple passes it via
- * `current_couple_event_ids()`, so this delete is RLS-safe; `chat_messages` +
- * `chat_thread_reads` carry ON DELETE CASCADE so dependents clean up with the
- * thread. We re-check `thread.event_id === eventId` as defense-in-depth so a
- * thread can only be withdrawn from its own event surface. No schema change —
- * there is no 'withdrawn' inquiry_status, so a withdraw is a remove, matching
- * how a couple removes a vendor pick. Fail-soft: a missing thread (already gone)
- * just redirects back to the list.
+ * Withdraw a couple-side inquiry / remove a vendor (inquiry-followthrough
+ * 2026-06-16). ARCHIVE, NOT DELETE (2026-07-24): the conversation is the
+ * dispute/evidence record + the source of the couple-confirmed booking amount,
+ * so it must never be destroyed by a user. This stamps
+ * `chat_threads.archived_at` (migration 20270926679942) instead of hard-
+ * deleting the thread — the thread + every message is preserved, just folded
+ * out of the couple's ACTIVE list into the "Archived" section (re-openable).
+ * Re-adding the vendor NULLs archived_at and resumes THIS thread (the
+ * UNIQUE(event_id, vendor_profile_id) upsert in startThreadByVendorEmail /
+ * submitInquiry), so no history is orphaned.
+ *
+ * RLS: the couple passes `chat_threads_member_update` via
+ * `current_couple_event_ids()`, so the archive UPDATE is RLS-safe. As of
+ * 20270926679942 there is NO DELETE policy on chat_threads — a hard delete
+ * would be denied anyway; the archive is the only remove available to a user.
+ * We keep the `thread.event_id === eventId` re-check as defense-in-depth so a
+ * thread can only be withdrawn from its own event surface. Fail-soft: a missing
+ * thread (RLS-invisible / already archived) just redirects back to the list.
+ * Idempotent — re-archiving an already-archived thread is a harmless re-stamp.
  */
 export async function withdrawInquiry(formData: FormData) {
   const eventId = formData.get('event_id');
@@ -33,13 +41,13 @@ export async function withdrawInquiry(formData: FormData) {
   if (!user) redirect('/login');
 
   // Scope-check: the thread must exist (RLS-visible to this couple) and belong
-  // to this event. A null thread means it's already gone — fall through to the
-  // list rather than erroring.
+  // to this event. A null thread means it's gone/invisible — fall through to
+  // the list rather than erroring.
   const thread = await fetchThreadById(supabase, threadId);
   if (thread && thread.event_id === eventId) {
     const { error } = await supabase
       .from('chat_threads')
-      .delete()
+      .update({ archived_at: new Date().toISOString() })
       .eq('thread_id', threadId)
       .eq('event_id', eventId);
     if (error) throw new Error(error.message);
@@ -103,7 +111,10 @@ export async function startThreadByVendorEmail(formData: FormData) {
   }
 
   // Upsert by the (event_id, vendor_profile_id) UNIQUE pair so re-tapping
-  // "Start thread" just resumes the existing one.
+  // "Start thread" just resumes the existing one. `archived_at: null` un-
+  // archives a previously-removed thread so re-adding the vendor RESUMES the
+  // preserved conversation rather than leaving it stranded in "Archived"
+  // (fresh INSERTs default to NULL, so this is a no-op there).
   const { data: thread, error: insertErr } = await supabase
     .from('chat_threads')
     .upsert(
@@ -111,6 +122,7 @@ export async function startThreadByVendorEmail(formData: FormData) {
         event_id: eventId,
         vendor_profile_id: vendor.vendor_profile_id,
         created_by_user_id: user.id,
+        archived_at: null,
       },
       { onConflict: 'event_id,vendor_profile_id' },
     )

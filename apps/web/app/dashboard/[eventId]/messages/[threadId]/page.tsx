@@ -14,8 +14,9 @@ import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { ThreadCallLauncher } from '@/app/_components/thread-call-launcher';
 import { resolveThreadCallsEnabled } from '@/lib/thread-calls-gate';
 import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
-import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
+import { ChatSafetyBanner } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
+import { ThreadQuotationsCard } from './_components/thread-quotations-card';
 import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Thread' };
@@ -160,7 +161,14 @@ export default async function CoupleThreadPage({ params }: Props) {
         />
       </header>
 
-      <ChatPrivacyNotice />
+      <ChatSafetyBanner />
+
+      <ThreadQuotationsCard
+        supabase={supabase}
+        eventId={eventId}
+        vendorProfileId={thread.vendor_profile_id}
+        vendorLabel={vendorLabel}
+      />
 
       <ThreadInterestChips supabase={supabase} threadId={threadId} />
 

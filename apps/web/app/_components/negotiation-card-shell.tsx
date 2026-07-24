@@ -99,7 +99,7 @@ export function NegotiationCardShell({
       className={`w-full max-w-[92%] overflow-hidden rounded-xl border border-ink/10 border-l-[3px] ${t.stripe} bg-surface shadow-sm ${statusTone === 'declined' ? 'opacity-70' : ''}`}
     >
       <div className="flex items-center gap-3 px-3.5 py-3">
-        <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] ${t.tile}`}>
+        <span className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${t.tile}`}>
           <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
         </span>
         <div className="min-w-0 leading-tight">

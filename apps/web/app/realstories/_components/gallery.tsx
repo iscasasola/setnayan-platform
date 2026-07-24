@@ -183,6 +183,9 @@ export function Tile({ item, size, tag }: { item: GalleryItem; size: TileSize; t
         : 'min-h-[220px]';
   const base = item.palette[0] ?? '#6B4E3D';
   const showVideo = Boolean(item.heroVideoUrl);
+  // Fall back to the palette strip if the hero image is missing/fails to load,
+  // so a broken image URL never renders a broken <img> on the gallery.
+  const [imgFailed, setImgFailed] = useState(false);
 
   return (
     <div className="flex flex-col">
@@ -194,12 +197,13 @@ export function Tile({ item, size, tag }: { item: GalleryItem; size: TileSize; t
       {/* Background: video > image > palette strip */}
       {showVideo ? (
         <BoomerangVideo src={item.heroVideoUrl as string} poster={item.heroImageUrl} alt={item.coupleNames} />
-      ) : item.heroImageUrl ? (
+      ) : item.heroImageUrl && !imgFailed ? (
         <img
           src={item.heroImageUrl}
           alt=""
           className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]"
           loading={size === 'cover' ? 'eager' : 'lazy'}
+          onError={() => setImgFailed(true)}
         />
       ) : (
         <div className="absolute inset-0 flex" aria-hidden>

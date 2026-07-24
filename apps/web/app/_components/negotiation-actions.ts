@@ -33,12 +33,6 @@ function str(v: FormDataEntryValue | null, max: number): string | null {
   return t.length > 0 ? t : null;
 }
 
-function toIso(v: FormDataEntryValue | null): string | null {
-  if (typeof v !== 'string' || v.length === 0) return null;
-  const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
-}
-
 function safeReturn(v: FormDataEntryValue | null): string | null {
   const p = str(v, 300);
   return p && p.startsWith('/') ? p : null;

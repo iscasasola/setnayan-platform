@@ -7,10 +7,12 @@ import assert from 'node:assert/strict';
 import { TIME_SLOTS, dayBeforeEventIso, isoDate } from './appointment-slots';
 
 test('TIME_SLOTS run 8:00 AM to 8:00 PM in 30-min steps', () => {
-  assert.equal(TIME_SLOTS[0].value, '08:00');
-  assert.equal(TIME_SLOTS[0].label, '8:00 AM');
-  assert.equal(TIME_SLOTS[TIME_SLOTS.length - 1].value, '20:00');
-  assert.equal(TIME_SLOTS[TIME_SLOTS.length - 1].label, '8:00 PM');
+  const first = TIME_SLOTS[0];
+  const last = TIME_SLOTS[TIME_SLOTS.length - 1];
+  assert.equal(first?.value, '08:00');
+  assert.equal(first?.label, '8:00 AM');
+  assert.equal(last?.value, '20:00');
+  assert.equal(last?.label, '8:00 PM');
   // 8:00 → 20:00 inclusive, every 30 min = 25 slots (no 20:30).
   assert.equal(TIME_SLOTS.length, 25);
   assert.ok(TIME_SLOTS.some((s) => s.value === '12:00' && s.label === '12:00 PM'));

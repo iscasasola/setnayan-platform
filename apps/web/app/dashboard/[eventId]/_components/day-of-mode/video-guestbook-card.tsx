@@ -100,7 +100,7 @@ export function VideoGuestbookCard(props: Props) {
           Share the guest link
         </Link>
         <Link
-          href={`/dashboard/${eventId}/gallery`}
+          href={`/dashboard/${eventId}/galleries`}
           className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:bg-ink/10"
         >
           Manage

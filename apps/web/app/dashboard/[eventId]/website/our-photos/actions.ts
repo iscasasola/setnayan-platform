@@ -20,6 +20,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { requireHostMembership } from '@/lib/host-gate';
+import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 
 /** Hard cap on the gallery size — keeps the page light + bounds R2 cost. */
@@ -40,6 +41,28 @@ export async function updateOurPhotos(
   const deduped = Array.from(new Set(refs)).slice(0, MAX_PHOTOS);
 
   const supabase = await createClient();
+
+  // ── Website PRO gate + grandfather (owner 2026-07-24 · Launch settings §3) ──
+  // Defense-in-depth mirror of the page gate: a couple that is NOT PRO and has
+  // NO existing gallery can't create one via a crafted POST. A couple that
+  // already curated photos (grandfathered) OR owns PRO edits freely. Fail-open
+  // on a throwing entitlement read (treat as owned) so a real couple is never
+  // blocked from their own content.
+  const proActive = await eventCoupleWebsiteProActive(supabase, eventId).catch(() => true);
+  if (!proActive) {
+    const { data: existing } = await supabase
+      .from('events')
+      .select('our_photos')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    const hadContent =
+      Array.isArray(existing?.our_photos) &&
+      existing.our_photos.some(
+        (r): r is string => typeof r === 'string' && r.startsWith('r2://'),
+      );
+    if (!hadContent) redirect(`/dashboard/${eventId}/studio/website-pro`);
+  }
+
   const { data: event, error } = await supabase
     .from('events')
     .update({ our_photos: deduped })

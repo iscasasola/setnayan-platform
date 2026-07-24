@@ -226,6 +226,19 @@ export async function saveEditorial(
       ? (existing.draft_json as Record<string, unknown>)
       : {};
 
+  // ── Website PRO gate + grandfather (owner 2026-07-24 · Launch settings §3) ──
+  // Editorial editing is a Website PRO perk. Defense-in-depth mirror of the page
+  // gate: a NOT-PRO couple with NO authored editorial (empty draft_json AND never
+  // published) can't create one via a crafted request. A couple that already
+  // authored editorial (grandfathered) OR owns PRO saves freely — and we never
+  // touch what they already saved. isPro is computed once here and reused below.
+  const isPro = await isEditorialProActive(admin, eventId);
+  const hasExistingEditorial =
+    Object.keys(base).length > 0 || existing?.published_at != null;
+  if (!isPro && !hasExistingEditorial) {
+    return { ok: false, error: 'Editing your editorial is part of Website PRO.' };
+  }
+
   const t = (s: string) => s.trim();
   const draft: Record<string, unknown> = { ...base };
   // Only persist non-empty overrides — blank fields let the engine auto-write.
@@ -271,8 +284,7 @@ export async function saveEditorial(
   // author them — but we do NOT delete any values already saved on `base` (a
   // formerly-PRO couple keeps their existing overrides/order/wishes; we just
   // decline NEW ones). `draft` starts as a spread of `base`, so leaving a key
-  // untouched preserves it.
-  const isPro = await isEditorialProActive(admin, eventId);
+  // untouched preserves it. (isPro resolved once at the top of this action.)
   if (isPro) {
     // "As the Day Unfolded" per-chapter curation. Persist the ordered, sanitized
     // set; an empty result deletes the key so the chapters revert to pure auto.

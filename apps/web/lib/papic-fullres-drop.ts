@@ -264,6 +264,11 @@ export async function runFullResDropSweep(
       .is('full_res_dropped_at', null)
       .not('display_r2_key', 'is', null)
       .lt('captured_at', cutoffIso)
+      // Cursor (gap audit · anti-starvation): least-recently-deferred first (NULL
+      // = never deferred → sorts first), THEN oldest capture. A Drive-deferred row
+      // is re-stamped each pass (below) so it rotates to the back of the window
+      // instead of permanently occupying the oldest-N head and blocking newer drops.
+      .order('full_res_drop_deferred_at', { ascending: true, nullsFirst: true })
       .order('captured_at', { ascending: true })
       .limit(limit),
     admin
@@ -273,6 +278,11 @@ export async function runFullResDropSweep(
       .is('full_res_dropped_at', null)
       .not('display_r2_key', 'is', null)
       .lt('captured_at', cutoffIso)
+      // Cursor (gap audit · anti-starvation): least-recently-deferred first (NULL
+      // = never deferred → sorts first), THEN oldest capture. A Drive-deferred row
+      // is re-stamped each pass (below) so it rotates to the back of the window
+      // instead of permanently occupying the oldest-N head and blocking newer drops.
+      .order('full_res_drop_deferred_at', { ascending: true, nullsFirst: true })
       .order('captured_at', { ascending: true })
       .limit(limit),
   ]);
@@ -292,6 +302,8 @@ export async function runFullResDropSweep(
           .is('full_res_dropped_at', null)
           .not('clip_web_r2_key', 'is', null)
           .lt('captured_at', cutoffIso)
+          // Cursor (gap audit · anti-starvation) — see the photo query above.
+          .order('full_res_drop_deferred_at', { ascending: true, nullsFirst: true })
           .order('captured_at', { ascending: true })
           .limit(limit),
         admin
@@ -303,6 +315,8 @@ export async function runFullResDropSweep(
           .is('full_res_dropped_at', null)
           .not('clip_web_r2_key', 'is', null)
           .lt('captured_at', cutoffIso)
+          // Cursor (gap audit · anti-starvation) — see the photo query above.
+          .order('full_res_drop_deferred_at', { ascending: true, nullsFirst: true })
           .order('captured_at', { ascending: true })
           .limit(limit),
       ])
@@ -331,6 +345,11 @@ export async function runFullResDropSweep(
   const warnedAtCache = new Map<string, string | null>();
   const deferredByEvent = new Map<string, number>();
   const heldByEvent = new Map<string, number>();
+  // Cursor advance (gap audit · anti-starvation): every DEFERRED candidate gets
+  // its full_res_drop_deferred_at re-stamped after the loop so the next sweep
+  // orders it behind never-/less-recently-deferred rows. Keyed by table → the
+  // id column + the ids to stamp. Never populated on a dry run.
+  const deferredStampByTable = new Map<string, { idCol: string; ids: Array<string | number> }>();
 
   // COLUMN-LEVEL eligibility, dispatched by kind. Photos use the photo predicate;
   // clips use the clip predicate (poster-trap guarded, distinct + byte-floored web
@@ -390,6 +409,11 @@ export async function runFullResDropSweep(
     if (isDriveDeferred(it.r2_object_key, drive)) {
       deferredDriveCopy += 1;
       deferredByEvent.set(it.event_id, (deferredByEvent.get(it.event_id) ?? 0) + 1);
+      if (!dryRun) {
+        const bucket = deferredStampByTable.get(it.table);
+        if (bucket) bucket.ids.push(it.id);
+        else deferredStampByTable.set(it.table, { idCol: it.idCol, ids: [it.id] });
+      }
       continue;
     }
 
@@ -469,6 +493,28 @@ export async function runFullResDropSweep(
     } catch {
       // Best-effort: leave it unstamped so the next sweep retries.
       failed += 1;
+    }
+  }
+
+  // Cursor advance (gap audit · anti-starvation). Stamp every DEFERRED candidate
+  // with full_res_drop_deferred_at = now so the next sweep orders it AFTER
+  // never-/less-recently-deferred rows and it stops occupying the oldest-N head.
+  // Only populated on a real run (the collector skips dry runs). Best-effort +
+  // chunked; a failed stamp just means the row is re-considered next run — the
+  // cursor only affects ORDER, never eligibility, so nothing is dropped unsafely.
+  if (deferredStampByTable.size > 0) {
+    const stampIso = new Date().toISOString();
+    for (const [table, { idCol, ids }] of deferredStampByTable) {
+      for (let i = 0; i < ids.length; i += DRIVE_KEY_CHUNK) {
+        try {
+          await admin
+            .from(table)
+            .update({ full_res_drop_deferred_at: stampIso })
+            .in(idCol, ids.slice(i, i + DRIVE_KEY_CHUNK));
+        } catch {
+          // best-effort — ordering-only, retried next sweep
+        }
+      }
     }
   }
 

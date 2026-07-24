@@ -18,6 +18,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { requireHostMembership } from '@/lib/host-gate';
+import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 
 function r2RefOrNull(v: FormDataEntryValue | null): string | null {
@@ -35,21 +36,43 @@ export async function updateSiteChrome(
   // landing_page_hero_video_r2_key / the music keys whenever a field was absent
   // — stale-tab / partial-post data loss. This editor always renders both
   // controls, so normal saves are unchanged; only a malformed post is spared.
+  const supabase = await createClient();
   const update: Record<string, unknown> = {};
 
   if (formData.has('bg_music_url')) {
     const musicRef = r2RefOrNull(formData.get('bg_music_url'));
     // Checkbox: present only when checked. Music can't be enabled without a track.
     const enabledRequested = formData.get('bg_music_enabled') === 'on';
-    update.site_bg_music_r2_key = musicRef;
-    update.site_bg_music_source = musicRef ? 'upload' : null;
-    update.site_bg_music_enabled = enabledRequested && Boolean(musicRef);
+
+    // ── Website PRO gate + grandfather (owner 2026-07-24 · Launch settings §3) ──
+    // Background music is a Website PRO perk (the video hero below is NOT).
+    // Defense-in-depth mirror of the page gate: a NOT-PRO couple with no existing
+    // song can't set one via a crafted post. A couple that already has a song
+    // (grandfathered) OR owns PRO writes music normally. Fail-open on a throwing
+    // entitlement read (treat as owned). The video hero write is never affected.
+    let allowMusic = true;
+    const proActive = await eventCoupleWebsiteProActive(supabase, eventId).catch(() => true);
+    if (!proActive) {
+      const { data: existing } = await supabase
+        .from('events')
+        .select('site_bg_music_r2_key')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      allowMusic =
+        typeof existing?.site_bg_music_r2_key === 'string' &&
+        existing.site_bg_music_r2_key.startsWith('r2://');
+    }
+
+    if (allowMusic) {
+      update.site_bg_music_r2_key = musicRef;
+      update.site_bg_music_source = musicRef ? 'upload' : null;
+      update.site_bg_music_enabled = enabledRequested && Boolean(musicRef);
+    }
   }
   if (formData.has('hero_video_url')) {
     update.landing_page_hero_video_r2_key = r2RefOrNull(formData.get('hero_video_url'));
   }
 
-  const supabase = await createClient();
   const hasWrite = Object.keys(update).length > 0;
   const { data: event, error } = hasWrite
     ? await supabase

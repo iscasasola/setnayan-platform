@@ -143,14 +143,19 @@ export async function getHomePricingData(): Promise<PricingData> {
   const liveWall = priceOf(catalog, 'LIVE_WALL', 2500);
 
   // ── Couple Website group ──
-  const galleryUpload = priceOf(catalog, 'WEBSITE_GALLERY_UPLOAD', 100);
-  const mapLink = priceOf(catalog, 'WEBSITE_MAP_LINKING', 100);
-  const themes = priceOf(catalog, 'WEBSITE_THEMES', 1000);
+  // Map link + Themes are owner-locked FREE (2026-07-24 · Launch settings §3 ·
+  // "the rest will be deemed free"). Fallback 0 + freeOrPrice → they read Free
+  // while their catalog rows are is_active=false; if an admin ever re-prices one
+  // active, that live price shows instead (never a hardcoded claim over a paid row).
+  const mapLink = priceOf(catalog, 'WEBSITE_MAP_LINKING', 0);
+  const themes = priceOf(catalog, 'WEBSITE_THEMES', 0);
   const subdomain = priceOf(catalog, 'EVENT_SUBDOMAIN', 999); // yourname.setnayan.com (owner 2026-07-10)
-  // Website PRO REACTIVATED + repriced ₱3,500 (owner 2026-07-22): the umbrella
-  // and the ONLY way to get Editorial PRO + the Cinematic Reveal, both now
-  // bundle-only (is_active=false → their standalone rows are removed here so the
-  // priceOf fallback can't reprint a stale standalone price).
+  // Website PRO REACTIVATED + repriced ₱3,500 (owner 2026-07-22 · 2026-07-24): the
+  // umbrella and the ONLY way to get the Cinematic Reveal, Save-the-Date video,
+  // Photo gallery, Background music, Editorial editing + the two new colour
+  // controls — all now bundle-only (their standalone rows are removed here so the
+  // priceOf fallback can't reprint a stale standalone price). WEBSITE_GALLERY_UPLOAD
+  // folds INTO this umbrella (owner 2026-07-24), so it has no standalone row.
   const websitePro = priceOf(catalog, 'COUPLE_WEBSITE_PRO', 3500);
 
   // ── Everything else ──
@@ -218,10 +223,9 @@ export async function getHomePricingData(): Promise<PricingData> {
       tinted: true,
       rows: [
         { n: 'The whole 4-in-1 site + unlimited RSVP', v: 'Free', free: true },
-        { n: 'Website PRO · Cinematic Reveal + Editorial PRO, one unlock', v: websitePro.v },
-        { n: 'Photo gallery upload', v: galleryUpload.v },
-        { n: 'Waze / Google Map link', v: mapLink.v },
-        { n: 'Themes · RSVP + Event + Editorial', v: themes.v },
+        { n: 'Website PRO · Reveal, video, gallery, music & Editorial — one unlock', v: websitePro.v },
+        { n: 'Waze / Google Map link', ...freeOrPrice(mapLink) },
+        { n: 'Themes · RSVP + Event + Editorial', ...freeOrPrice(themes) },
         { n: 'Custom subdomain · yourname.setnayan.com', note: '· coming soon', v: `${subdomain.v}/year` },
       ],
     },

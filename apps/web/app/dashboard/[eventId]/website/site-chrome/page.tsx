@@ -5,8 +5,10 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { FileUpload } from '@/app/_components/file-upload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { updateSiteChrome } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { WebsiteProLock } from '../_components/website-pro-lock';
 
 export const metadata = { title: 'Music & video hero · Setnayan' };
 
@@ -52,6 +54,15 @@ export default async function SiteChromeEditorPage({
       ? event.landing_page_hero_video_r2_key
       : null;
   const musicEnabled = event.site_bg_music_enabled === true;
+
+  // ── Website PRO gate + grandfather (owner 2026-07-24 · Launch settings §3) ──
+  // ONLY background music is a Website PRO perk here — the video hero stays FREE
+  // and always renders. The music gate = (NOT PRO) AND (no music set yet). A
+  // couple that already uploaded a song (grandfathered) OR owns PRO keeps the
+  // music control, and the live guest site never loses a launched song (only the
+  // EDITOR gates). Fail-open on a throwing entitlement read (treat as owned).
+  const proActive = await eventCoupleWebsiteProActive(supabase, eventId).catch(() => true);
+  const musicGated = !proActive && !musicRef;
 
   const [musicUrl, videoUrl] = await Promise.all([
     musicRef ? displayUrlForStoredAsset(musicRef) : Promise.resolve(null),
@@ -110,39 +121,50 @@ export default async function SiteChromeEditorPage({
       </header>
 
       <form action={updateAction} className="space-y-8">
-        {/* Background music */}
-        <fieldset className="space-y-3 sn-tile p-5">
-          <legend className="sn-eye flex items-center gap-2 px-1">
-            <Music aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Background music
-          </legend>
-          <p className="text-sm text-ink/60">
-            A looping song while guests browse. It never plays on its own — a
-            small “Play music” button lets each guest start or pause it.
-          </p>
-          <FileUpload
-            bucket="media"
-            pathPrefix={`events/${eventId}/site-music`}
-            name="bg_music_url"
-            multiple={false}
-            maxSizeMB={20}
-            acceptedTypes={['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/ogg', 'audio/wav']}
-            currentValue={musicRef}
-            initialDisplayUrls={musicDisplay}
-            variant="wide"
-            label="Song file"
-            help="MP3, M4A, AAC, OGG, or WAV. Up to 20 MB."
+        {/* Background music — Website PRO (video hero below stays free). When
+            gated, an inline lock replaces the field; no bg_music_* inputs render,
+            so the action leaves any existing (none, when gated) music untouched. */}
+        {musicGated ? (
+          <WebsiteProLock
+            eventId={eventId}
+            variant="inline"
+            featureName="Background music"
+            description="Add a soft looping song guests can play while they browse your website. It's part of Website PRO."
           />
-          <label className="flex items-center gap-2 text-sm text-ink">
-            <input
-              type="checkbox"
-              name="bg_music_enabled"
-              defaultChecked={musicEnabled}
-              className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+        ) : (
+          <fieldset className="space-y-3 sn-tile p-5">
+            <legend className="sn-eye flex items-center gap-2 px-1">
+              <Music aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+              Background music
+            </legend>
+            <p className="text-sm text-ink/60">
+              A looping song while guests browse. It never plays on its own — a
+              small “Play music” button lets each guest start or pause it.
+            </p>
+            <FileUpload
+              bucket="media"
+              pathPrefix={`events/${eventId}/site-music`}
+              name="bg_music_url"
+              multiple={false}
+              maxSizeMB={20}
+              acceptedTypes={['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/ogg', 'audio/wav']}
+              currentValue={musicRef}
+              initialDisplayUrls={musicDisplay}
+              variant="wide"
+              label="Song file"
+              help="MP3, M4A, AAC, OGG, or WAV. Up to 20 MB."
             />
-            Turn background music on for guests
-          </label>
-        </fieldset>
+            <label className="flex items-center gap-2 text-sm text-ink">
+              <input
+                type="checkbox"
+                name="bg_music_enabled"
+                defaultChecked={musicEnabled}
+                className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+              />
+              Turn background music on for guests
+            </label>
+          </fieldset>
+        )}
 
         {/* Video hero */}
         <fieldset className="space-y-3 sn-tile p-5">

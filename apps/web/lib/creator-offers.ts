@@ -415,9 +415,9 @@ export async function fetchCreatorInfluence(
 // Cron-free expiry sweep — flip every offer still 'pending' past its window to
 // 'expired' AND REFUND the escrowed reach tokens (credited back as purchased/
 // non-expiring tokens to whoever paid; exactly-once via refunded_at + the row
-// lock inside the RPC). Mirrors maybeSweepGhostedLeadHolds: a cheap in-memory
-// pre-throttle + a durable daily compare-and-swap on platform_settings so any
-// vendor's visit sweeps the fleet.
+// lock inside the RPC). Same cron-free shape as the other login-driven sweeps: a
+// cheap in-memory pre-throttle + a durable daily compare-and-swap on
+// platform_settings so any vendor's visit sweeps the fleet.
 // ---------------------------------------------------------------------------
 export async function sweepExpiredCreatorOffers(): Promise<number> {
   const admin = createAdminClient();

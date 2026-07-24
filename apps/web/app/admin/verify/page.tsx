@@ -2,6 +2,10 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import {
+  countOtherClusterAccounts,
+  type ClusterRow,
+} from '@/lib/identity-cluster-linkage';
 import { displayServiceLabel } from '@/lib/vendors';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import {
@@ -133,6 +137,13 @@ type ApplicationRow = {
     /** TRUE when that number DUPLICATED another shop's registered identity —
      *  the anti-farm flag (migration 20270925937630). */
     registrationNumberNeedsReview: boolean;
+    /** How many OTHER accounts share this vendor owner's identity cluster
+     *  (device/address/payment linkage, `identity_clusters` matview). Surfaced
+     *  only alongside the duplicate-reg flag so a farmer using a fresh permit but
+     *  the same fingerprint is still catchable. null when there is no linkage /
+     *  no matview row. DORMANT (always null) until device-fingerprint capture is
+     *  enabled — the matview is empty without it. */
+    identityClusterOtherAccounts: number | null;
   };
 };
 
@@ -391,6 +402,61 @@ async function ApplicationsSurface({
     }
   }
 
+  // Identity-cluster linkage for vendors already soft-flagged on a duplicate reg
+  // number. READ-ONLY of the existing `identity_clusters` matview — we never
+  // CAPTURE a fingerprint here (that stays DPO-gated behind
+  // NEXT_PUBLIC_DEVICE_FINGERPRINT_ENABLED). Goal: a farmer who typed a fresh
+  // permit but signed up on the same device/account footprint still surfaces.
+  // DORMANT until capture is enabled — the matview is empty without it, so every
+  // probe below returns nothing and the value stays null. Keyed by
+  // vendor_profile_id → count of OTHER accounts in the owner's cluster.
+  const clusterLinkMap: Record<string, number> = {};
+  const flaggedVendorIds = vendorIds.filter((id) => regMap[id]?.needsReview);
+  if (flaggedVendorIds.length > 0) {
+    // vendor_profile_id → owner user_id (soft-probe; degrade to none on error).
+    const { data: ownerRows } = await admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id, user_id')
+      .in('vendor_profile_id', flaggedVendorIds)
+      .then((r) => (r.error ? { data: null } : r));
+    const ownerByVendor = new Map<string, string>();
+    for (const row of (ownerRows ?? []) as Array<{ vendor_profile_id: string; user_id: string | null }>) {
+      if (row.user_id) ownerByVendor.set(row.vendor_profile_id, row.user_id);
+    }
+    const ownerUserIds = Array.from(new Set(ownerByVendor.values()));
+    if (ownerUserIds.length > 0) {
+      // Each flagged owner's own cluster row (matview may be absent/empty pre-capture).
+      const { data: ownRows } = await admin
+        .from('identity_clusters')
+        .select('user_id, cluster_id')
+        .in('user_id', ownerUserIds)
+        .then((r) => (r.error ? { data: null } : r));
+      const flaggedOwnRows = ((ownRows ?? []) as ClusterRow[]).map((r) => ({
+        user_id: String(r.user_id),
+        cluster_id: String(r.cluster_id),
+      }));
+      const clusterIds = Array.from(new Set(flaggedOwnRows.map((r) => r.cluster_id)));
+      let memberRows: ClusterRow[] = [];
+      if (clusterIds.length > 0) {
+        // Full membership of those clusters (to size each one).
+        const { data: sizeRows } = await admin
+          .from('identity_clusters')
+          .select('user_id, cluster_id')
+          .in('cluster_id', clusterIds)
+          .then((r) => (r.error ? { data: null } : r));
+        memberRows = ((sizeRows ?? []) as ClusterRow[]).map((r) => ({
+          user_id: String(r.user_id),
+          cluster_id: String(r.cluster_id),
+        }));
+      }
+      const othersByUser = countOtherClusterAccounts(flaggedOwnRows, memberRows);
+      for (const [vendorProfileId, userId] of ownerByVendor) {
+        const others = othersByUser[userId];
+        if (others && others > 0) clusterLinkMap[vendorProfileId] = others;
+      }
+    }
+  }
+
   let vendorMap: Record<string, ApplicationRow['vendor']> = {};
   if (vendorIds.length > 0) {
     const { data: vendorData } = await admin
@@ -415,6 +481,7 @@ async function ApplicationsSurface({
           experienceVerifiedAt: expMap[v.vendor_profile_id]?.verifiedAt ?? null,
           registrationNumberRaw: regMap[v.vendor_profile_id]?.raw ?? null,
           registrationNumberNeedsReview: regMap[v.vendor_profile_id]?.needsReview ?? false,
+          identityClusterOtherAccounts: clusterLinkMap[v.vendor_profile_id] ?? null,
         },
       ]),
     );
@@ -445,6 +512,7 @@ async function ApplicationsSurface({
       experienceVerifiedAt: null,
       registrationNumberRaw: regMap[v.vendor_profile_id]?.raw ?? null,
       registrationNumberNeedsReview: regMap[v.vendor_profile_id]?.needsReview ?? false,
+      identityClusterOtherAccounts: clusterLinkMap[v.vendor_profile_id] ?? null,
     }));
   }
 
@@ -466,6 +534,7 @@ async function ApplicationsSurface({
       experienceVerifiedAt: null,
       registrationNumberRaw: null,
       registrationNumberNeedsReview: false,
+      identityClusterOtherAccounts: null,
     },
   }));
 
@@ -660,6 +729,17 @@ function ApplicationCard({
               }
             >
               Duplicate reg #
+            </span>
+          ) : null}
+          {application.vendor.registrationNumberNeedsReview &&
+          application.vendor.identityClusterOtherAccounts &&
+          application.vendor.identityClusterOtherAccounts > 0 ? (
+            <span
+              className="inline-flex items-center rounded-full border border-rose-400/60 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-rose-700"
+              title={`This account shares a device/identity cluster with ${application.vendor.identityClusterOtherAccounts} other account${application.vendor.identityClusterOtherAccounts === 1 ? '' : 's'} (identity_clusters linkage). A fresh permit on the same footprint — investigate for perk-farming before approving.`}
+            >
+              +{application.vendor.identityClusterOtherAccounts} linked acct
+              {application.vendor.identityClusterOtherAccounts === 1 ? '' : 's'}
             </span>
           ) : null}
           <VerificationStateBadge state={application.vendor.verification_state} />

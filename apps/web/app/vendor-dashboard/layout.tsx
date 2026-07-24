@@ -4,7 +4,6 @@ import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { runLoginGhostingCheck } from '@/lib/ghosting';
-import { maybeSweepGhostedLeadHolds } from '@/lib/lead-token-holds';
 import { maybeSweepExpiredCreatorOffers } from '@/lib/creator-offers';
 import { countUnread } from '@/lib/notifications';
 import { countUnreadMessages } from '@/lib/chat';
@@ -261,11 +260,6 @@ export default async function VendorDashboardLayout({
   // (gated inside the helper). Vendor side: nudge if inquiries they received
   // sit unanswered past the threshold.
   after(() => runLoginGhostingCheck(user.id, 'vendor'));
-  // Ghosted lead-hold sweep (fake-inquiry protection) — CRON-FREE: rides vendor
-  // traffic via after() + a durable daily DB claim (replaces the retired Vercel
-  // cron). The RPC is global + idempotent, so any vendor's visit sweeps every
-  // vendor's ghosts; a no-op when the hold feature is off. Never throws.
-  after(() => maybeSweepGhostedLeadHolds().catch(() => {}));
   // Expired creator-offer sweep (Creator Economy P1) — CRON-FREE, same pattern:
   // an unanswered discount offer past its window RELEASES the vendor's held reach
   // token (refund). Global + idempotent; any vendor's visit sweeps the fleet.

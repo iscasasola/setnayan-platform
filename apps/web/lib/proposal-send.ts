@@ -566,3 +566,32 @@ export async function sendCustomProposalCore(
     priceLabel,
   };
 }
+
+/**
+ * Settle-on-VIEW's legit half: transition a proposal sent→viewed when a
+ * CUSTOMER-side member (couple/coordinator, never the vendor) opens a delivered
+ * quote. 'viewed' is a load-bearing proposal status the vendor's clients/funnel
+ * surfaces read ("your quote was opened") — independent of any token economy.
+ *
+ * The RPC re-verifies customer-side membership itself and only transitions
+ * sent→viewed (idempotent — a re-open or a vendor's own preview no-ops). Runs on
+ * the admin client so it works cleanly from `after()` off the request path.
+ * Best-effort — never throws (the couple already saw the quote).
+ *
+ * (The former token-consume side of this — the vendor's held lead-token settled
+ * on view — was retired with the lead-token HOLD path; only the status
+ * transition remains.)
+ */
+export async function markProposalViewed(publicId: string, viewerUserId: string): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    await admin.rpc('mark_proposal_viewed' as never, {
+      p_public_id: publicId,
+      p_viewer_user_id: viewerUserId,
+    } as never);
+  } catch (e) {
+    // Best-effort — the couple already saw the quote; a missed transition just
+    // means the vendor's "opened" signal lags until the next open.
+    console.warn('[proposal-send] mark-viewed failed:', e);
+  }
+}

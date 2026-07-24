@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { reconcileEventLeadHoldsOnDelete } from '@/lib/lead-token-holds';
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -42,13 +41,6 @@ export async function deleteEvent(formData: FormData) {
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('Invalid event_id');
   }
-
-  // Token reconciliation FIRST (Vendor_Token_Settlement §6): explicitly release
-  // any outstanding HELD lead-token holds (refund — never debited) with an audit
-  // reason, before the cascade wipes them silently. CONSUMED holds are left spent
-  // (already settled). No-op when the hold feature is off. Best-effort — never
-  // blocks the delete. (Captures the affected vendors for future notification.)
-  await reconcileEventLeadHoldsOnDelete(eventId, 'event_deleted');
 
   const admin = createAdminClient();
   const { error } = await admin.from('events').delete().eq('event_id', eventId);

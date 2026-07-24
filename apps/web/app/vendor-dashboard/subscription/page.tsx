@@ -1,7 +1,10 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowRight, Crown, Search, Sparkles } from 'lucide-react';
+import { ArrowRight, Crown, Search, Sparkles, ReceiptText } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
+import { countDueVendorFeeOrders } from '@/lib/vendor-booking-fees.server';
+import { VENDOR_BOOKING_FEES_PATH } from '@/lib/vendor-booking-fees';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
@@ -284,6 +287,13 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
     currentTier === 'enterprise' ||
     currentTier === 'custom';
 
+  // Booking-fee doorway (surfacing layer). Flag-gated AND count-gated so nothing
+  // shows when the fee system is dark OR the vendor owes nothing ("no fee →
+  // nothing shows"). RLS scopes the count to this vendor's own fee orders.
+  const bookingFeeDueCount = isBookingFeeEnabled()
+    ? await countDueVendorFeeOrders(supabase, user.id)
+    : 0;
+
   return (
     <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
       <header className="mb-6 sm:mb-8">
@@ -343,6 +353,36 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
           </div>
         )}
       </header>
+
+      {/* Booking-fee doorway — appears only when the fee system is live AND this
+          vendor has an unpaid fee (surfacing layer; no fee → nothing shows). */}
+      {bookingFeeDueCount > 0 ? (
+        <Link
+          href={VENDOR_BOOKING_FEES_PATH}
+          className="sn-card sn-press mb-5 flex flex-wrap items-center gap-4 border-warn-300/60 bg-warn-50 p-5 sm:flex-nowrap"
+        >
+          <span
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+            style={{ background: 'var(--m-paper)', border: '1px solid var(--m-line)' }}
+          >
+            <ReceiptText className="h-5 w-5 text-terracotta" strokeWidth={1.75} aria-hidden />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-base font-semibold text-ink">
+              You have {bookingFeeDueCount} unpaid booking{' '}
+              {bookingFeeDueCount === 1 ? 'fee' : 'fees'}.
+            </p>
+            <p className="mt-0.5 text-sm text-ink/60">
+              Pay your Setnayan booking fee on the same GCash/BDO rail — it clears
+              once our team confirms your payment.
+            </p>
+          </div>
+          <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-ink">
+            View booking fees
+            <ArrowRight className="h-4 w-4" strokeWidth={2} aria-hidden />
+          </span>
+        </Link>
+      ) : null}
 
       {/* Monthly / annual toggle (client component · updates ?cycle=) */}
       <SubscriptionCycleToggle cycle={cycle} />

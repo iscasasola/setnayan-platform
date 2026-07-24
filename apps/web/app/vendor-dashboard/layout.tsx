@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { runLoginGhostingCheck } from '@/lib/ghosting';
 import { maybeSweepExpiredCreatorOffers } from '@/lib/creator-offers';
+import { maybeSweepVendorBookingFeeNotifications } from '@/lib/vendor-booking-fees.server';
 import { countUnread } from '@/lib/notifications';
 import { countUnreadMessages } from '@/lib/chat';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -264,6 +265,13 @@ export default async function VendorDashboardLayout({
   // an unanswered discount offer past its window RELEASES the vendor's held reach
   // token (refund). Global + idempotent; any vendor's visit sweeps the fleet.
   after(() => maybeSweepExpiredCreatorOffers().catch(() => {}));
+  // Booking-fee notification sweep (CRON-FREE · surfacing layer). Because the
+  // fee-charge create path is a parallel lane we must NOT hook, the vendor's
+  // "your booking fee is due" notification is DERIVED post-response from the
+  // existence of an unpaid vendor_booking_fee order — idempotent + flag-gated
+  // inside the helper, so it never double-notifies and no-ops when the fee
+  // system is dark.
+  after(() => maybeSweepVendorBookingFeeNotifications(user.id).catch(() => {}));
 
   // Vendor-access gate — canonical rule: a user has access if they own a
   // vendor_profiles row OR sit on any vendor_team_members row. getSwitcherData

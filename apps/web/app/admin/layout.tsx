@@ -12,6 +12,7 @@ import { maybeRunPapicFullResDrop } from '@/lib/papic-fullres-drop';
 import { maybeRunPapicNsfwRescreen } from '@/lib/papic-nsfw-rescreen-sweep';
 import { maybeRunDriveCopyRetry } from '@/lib/papic-drive-copy-retry';
 import { maybeRunAnonDraftSweep } from '@/lib/anon-draft-sweep';
+import { maybeRunPhotoDeliveryDrain } from '@/lib/photo-delivery-drain';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { countUnread } from '@/lib/notifications';
@@ -149,6 +150,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // flag is on and a draft ages past the TTL. Own legal-hold + is_anonymous
   // re-confirm inside; never throws.
   after(() => maybeRunAnonDraftSweep().catch(() => {}));
+  // "Release to Drive" drainer (gap audit) — CRON-FREE: admin traffic + a ~10-min
+  // DB claim. The click-time after() drain is bounded (240 uploads), so a bigger
+  // release stalls with a still-'running' job and no advancer. This keeps stalled
+  // deliveries moving without a user click; bounded per invocation. Never throws.
+  after(() => maybeRunPhotoDeliveryDrain().catch(() => {}));
 
   const displayName = profile?.display_name ?? profile?.email ?? 'Setnayan Team';
 

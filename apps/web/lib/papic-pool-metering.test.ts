@@ -69,9 +69,13 @@ async function createUser(email: string): Promise<string> {
 }
 
 async function createGuest(eventId: string): Promise<string> {
+  // Stamp ugc_terms_accepted_at so the guest clears the restored terms gate in
+  // papic_record_guest_capture (migration 20270920602517). These pool-metering
+  // tests exercise pool accounting, not the one-time UGC-terms gate — a guest
+  // who has NOT accepted terms is covered by the guest-capture RPC's own tests.
   const r = await db.query<{ guest_id: string }>(
-    `INSERT INTO public.guests (event_id, first_name, last_name, side, group_category)
-     VALUES ($1, 'Test', 'Guest', 'both', 'friends') RETURNING guest_id`,
+    `INSERT INTO public.guests (event_id, first_name, last_name, side, group_category, ugc_terms_accepted_at)
+     VALUES ($1, 'Test', 'Guest', 'both', 'friends', now()) RETURNING guest_id`,
     [eventId],
   );
   return r.rows[0]!.guest_id;

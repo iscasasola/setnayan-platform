@@ -667,9 +667,31 @@ export function SiteBody({
     const isLive = dayOfPhase === 'live';
     const isPost = dayOfPhase === 'post';
 
+    // Open-browse MENU SHELL (PR6, flag-dark; always on for the sample event).
+    // Mirrors anonymousTree, so a guest gets the SAME five-tab structure (§1.1).
+    // The markers + the fixed bar render ONLY when the menu is enabled, so a
+    // flag-off real event keeps its exact DOM (the PR7 flag-off goldens stay
+    // byte-stable). Present-flags gate each middle tab to a section that
+    // actually rendered on THIS guest page (no dead anchors — the council rule).
+    const menuOn = siteMenuEnabled({
+      flag: process.env.NEXT_PUBLIC_WEBSITE_MENU_ENABLED,
+      isSample: Boolean(event.is_sample),
+    });
+    const menuSections = {
+      details: plan.hideableInOrder.length > 0,
+      story: Boolean(event.love_story),
+      // "Gallery" = the live photo wall (mirrors the LiveWallBlock gate below).
+      gallery: isLive && Boolean(liveWall),
+    };
+
     return (
       <>
         <article className="space-y-12">
+          {/* Menu-shell anchor target (PR6) — top-of-page "Home" landing. Gated
+              on menuOn so the flag-off DOM is untouched. */}
+          {menuOn ? (
+            <div id={SITE_MENU_ANCHORS.home} aria-hidden className="scroll-mt-6" />
+          ) : null}
           {/* Guest Hub Card — persistent status summary for identified returning
               guests. Shows RSVP status, seat, meal, and next schedule item at
               a glance on every return visit. Hidden from anonymous visitors
@@ -861,12 +883,18 @@ export function SiteBody({
                   event owns LIVE_WALL and the live window is on; polls for fresh
                   tiles while the tab is visible. */}
               {isLive && liveWall ? (
-                <LiveWallBlock
-                  slug={event.slug}
-                  initialTiles={liveWall.tiles}
-                  initialCount={liveWall.count}
-                  initialCaption={liveWall.caption}
-                />
+                <>
+                  {/* Menu-shell "Gallery" anchor (PR6) — lands on the live wall. */}
+                  {menuOn ? (
+                    <span id={SITE_MENU_ANCHORS.gallery} aria-hidden className="sr-only" />
+                  ) : null}
+                  <LiveWallBlock
+                    slug={event.slug}
+                    initialTiles={liveWall.tiles}
+                    initialCount={liveWall.count}
+                    initialCaption={liveWall.caption}
+                  />
+                </>
               ) : null}
 
               {/* "Add your face" — shown across the whole pre-event window (gated in
@@ -1169,6 +1197,12 @@ export function SiteBody({
                   /dashboard/[eventId]/website/widgets — invitation_widgets
                   table column display_order governs the order; is_visible
                   governs which widgets render at all. */}
+              {/* Menu-shell "Details" anchor (PR6) — the couple's detail widgets
+                  (schedule · dress code · FAQ · registry · …). Present only when
+                  at least one such widget rendered, matching menuSections.details. */}
+              {menuOn && plan.hideableInOrder.length > 0 ? (
+                <span id={SITE_MENU_ANCHORS.details} aria-hidden className="sr-only" />
+              ) : null}
               {plan.hideableInOrder.map((widget) => (
                 <HideableWidgetRender
                   key={widget.widget_id}
@@ -1199,6 +1233,12 @@ export function SiteBody({
               {/* Our Story — the couple's love story on the run-up paths (rsvp/event).
                   The normal body only renders pre-event (STD + editorial are separate
                   branches), so this naturally stays off the post-event Editorial. */}
+              {/* Menu-shell "Story" anchor (PR6) — present only when a love story
+                  exists (OurStory renders nothing otherwise), matching
+                  menuSections.story. */}
+              {menuOn && event.love_story ? (
+                <span id={SITE_MENU_ANCHORS.story} aria-hidden className="sr-only" />
+              ) : null}
               <OurStory loveStory={event.love_story} variant="full" />
               {/* Guest Columns (BUILD ① · GUEST_COLUMNS_ENABLED, default OFF) — the
                   guest's one column for the couple's paper + the approved columns.
@@ -1207,6 +1247,12 @@ export function SiteBody({
             </>
           ))}
 
+          {/* Menu-shell "Me" anchor (PR6) — the guest's account/sign-out area at
+              the foot of the page. The guest's personal-QR affordance stays on
+              the coexisting GuestHubBar until PR11 retires it. */}
+          {menuOn ? (
+            <div id={SITE_MENU_ANCHORS.me} aria-hidden className="scroll-mt-6" />
+          ) : null}
           {/* Footer with sign-out */}
           <section className="border-t border-ink/10 pt-6 text-center text-xs text-ink/50">
             <form action={`/${event.slug}/sign-out`} method="post">
@@ -1217,6 +1263,12 @@ export function SiteBody({
           </section>
         </article>
         <GuestGuidedTour tourKey="guest_welcome_v1" />
+        {/* Open-browse menu shell (PR6) — fixed bottom tab bar of in-page
+            anchors, SAME structure as anonymousTree. Flag-dark
+            (NEXT_PUBLIC_WEBSITE_MENU_ENABLED) + always on for the sample event.
+            Coexists with the GuestHubBar (page.tsx) until PR11 retires the old
+            bars. */}
+        {menuOn ? <SiteMenuBar sections={menuSections} /> : null}
       </>
     );
   };

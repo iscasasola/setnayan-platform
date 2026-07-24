@@ -108,8 +108,12 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
   // Archived section on this side too (never in the active list). Only exists
   // when the flag is on; inert otherwise.
   const isDisplaced = (t: (typeof threads)[number]) => t.inquiry_status === 'displaced';
-  const activeThreads = threads.filter((t) => !t.archived && !isDisplaced(t));
-  const archivedThreads = threads.filter((t) => t.archived || isDisplaced(t));
+  // Removed (archive-not-delete): the couple withdrew this inquiry / removed the
+  // vendor. The thread + messages are PRESERVED as the evidence record — it just
+  // folds into "Archived" (re-openable; re-adding the vendor un-archives it).
+  const isRemoved = (t: (typeof threads)[number]) => t.archived_at != null;
+  const activeThreads = threads.filter((t) => !t.archived && !isDisplaced(t) && !isRemoved(t));
+  const archivedThreads = threads.filter((t) => t.archived || isDisplaced(t) || isRemoved(t));
 
   const renderRow = (t: (typeof threads)[number]) => {
     // Anonymity-aware thread label per CLAUDE.md 2026-05-30 row.
@@ -155,7 +159,11 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
             title={vendorDisplayName}
             avatar={<ThreadListAvatar logoUrl={vendorLogoUrl} name={vendorDisplayName} />}
             badge={
-              t.inquiry_status === 'pending' ? (
+              t.archived_at != null ? (
+                <span className="mt-0.5 inline-block rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
+                  Removed
+                </span>
+              ) : t.inquiry_status === 'pending' ? (
                 <span className="mt-0.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
                   Waiting for reply
                 </span>

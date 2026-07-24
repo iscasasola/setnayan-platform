@@ -379,7 +379,11 @@ export default async function LauncherPage({
         .from('chat_threads')
         .select('vendor_profile_id')
         .in('vendor_profile_id', shopIds)
-        .eq('inquiry_status', 'pending');
+        .eq('inquiry_status', 'pending')
+        // Exclude couple-removed (archived) inquiries — a withdrawn thread must
+        // not show as a phantom "pending inquiry" attention item. The outer
+        // try/catch graceful-degrades if archived_at isn't in the DB yet.
+        .is('archived_at', null);
       for (const row of (data ?? []) as Array<{
         vendor_profile_id: string | null;
       }>) {

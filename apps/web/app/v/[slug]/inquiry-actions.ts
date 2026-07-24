@@ -267,6 +267,10 @@ export async function startServiceInquiry(input: {
         event_id: eventId,
         vendor_profile_id: vendorProfileId,
         created_by_user_id: user.id,
+        // Re-inquiring RESUMES a previously-removed thread: un-archive it so the
+        // preserved conversation returns to the active list (migration
+        // 20270926679942). No-op on a fresh INSERT (defaults NULL).
+        archived_at: null,
         ...(livePax != null ? { pax_current: livePax } : {}),
       },
       { onConflict: 'event_id,vendor_profile_id' },

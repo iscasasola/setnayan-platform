@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { respondAppointment } from './appointments-actions';
 import { APPOINTMENT_KIND_LABEL, type AppointmentKind } from '@/lib/appointments';
+import { TIME_SLOTS, todayIsoLocal, dayBeforeEventIso } from '@/lib/appointment-slots';
 import { NegotiationCardShell, type NegRow, type NegStatusTone } from './negotiation-card-shell';
 
 export type ChatAppointmentData = {
@@ -25,6 +26,7 @@ type Props = {
   eventId: string;
   vendorProfileId: string;
   returnPath: string;
+  eventDate: string | null;
 };
 
 function formatWhen(iso: string | null): string {
@@ -49,8 +51,20 @@ const STATUS: Record<ChatAppointmentData['status'], { tone: NegStatusTone; label
   cancelled: { tone: 'declined', label: 'Declined' },
 };
 
-export function ChatAppointmentCard({ data, viewerRole, eventId, vendorProfileId, returnPath }: Props) {
+export function ChatAppointmentCard({
+  data,
+  viewerRole,
+  eventId,
+  vendorProfileId,
+  returnPath,
+  eventDate,
+}: Props) {
   const [reviseOpen, setReviseOpen] = useState(false);
+  const [reviseDate, setReviseDate] = useState('');
+  const [reviseTime, setReviseTime] = useState('');
+  const minDate = todayIsoLocal();
+  const maxDate = dayBeforeEventIso(eventDate);
+  const reviseWhen = reviseDate && reviseTime ? `${reviseDate}T${reviseTime}:00+08:00` : '';
   const isProposer = data.initiated_by === viewerRole;
   const canAct = data.status === 'proposed' && !isProposer;
   const st = STATUS[data.status];
@@ -98,14 +112,43 @@ export function ChatAppointmentCard({ data, viewerRole, eventId, vendorProfileId
         </button>
       </form>
       {reviseOpen ? (
-        <form action={respondAppointment} className="mt-1 flex w-full flex-wrap items-end gap-2">
+        <form action={respondAppointment} className="mt-1 flex w-full flex-col gap-2">
           {hidden}
           <input type="hidden" name="decision" value="propose_new" />
-          <label className="flex flex-col gap-1 text-[11px] font-medium text-ink/60">
-            New time
-            <input type="datetime-local" name="scheduled_at" required className="input-field h-9 text-sm" />
-          </label>
-          <button className="inline-flex h-9 items-center rounded-lg bg-mulberry px-3.5 text-sm font-medium text-cream hover:bg-mulberry-600">
+          <input type="hidden" name="scheduled_at" value={reviseWhen} />
+          <div className="flex flex-wrap gap-2">
+            <label className="flex flex-1 flex-col gap-1 text-[11px] font-medium text-ink/60">
+              New date
+              <input
+                type="date"
+                required
+                min={minDate}
+                max={maxDate ?? undefined}
+                value={reviseDate}
+                onChange={(e) => setReviseDate(e.target.value)}
+                className="input-field h-9 text-sm"
+              />
+            </label>
+            <label className="flex flex-1 flex-col gap-1 text-[11px] font-medium text-ink/60">
+              Time
+              <select
+                required
+                value={reviseTime}
+                onChange={(e) => setReviseTime(e.target.value)}
+                className="input-field h-9 text-sm"
+              >
+                <option value="" disabled>
+                  Pick a time
+                </option>
+                {TIME_SLOTS.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <button className="inline-flex h-9 items-center self-start rounded-lg bg-mulberry px-3.5 text-sm font-medium text-cream hover:bg-mulberry-600">
             Send new time
           </button>
         </form>

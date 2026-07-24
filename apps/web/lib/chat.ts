@@ -152,6 +152,13 @@ export type ChatMessageRow = {
   /** Set when this message announces a vendor proposal (renders as a card). */
   proposal_id?: string | null;
   /**
+   * Set when this message announces a schedule/meeting request — renders as an
+   * in-thread appointment card (accept / propose-new-time / decline) backed by
+   * event_appointments. NULL on every other message. Negotiation auto-reader
+   * Phase 1 (migration 20270920827160), gated by NEXT_PUBLIC_CHAT_NEGOTIATION_V1.
+   */
+  appointment_id?: string | null;
+  /**
    * Optional file attachment (chat file sharing, PR 2). All four are NULL on
    * text-only messages. `attachment_url` is the public R2 URL; the renderer
    * shows an <img> thumbnail for image MIMEs and a file chip otherwise.
@@ -521,19 +528,19 @@ export async function fetchMessages(
   threadId: string,
 ): Promise<ChatMessageRow[]> {
   // Bot-label-aware select first (is_bot · migration 20270822679405, vendor
-  // autoreply Phase 1). GRACEFUL DEGRADE (mirrors fetchCoupleThreads): the
-  // migration is owner-pushed and may not be live yet — an unknown column
-  // errors the whole select, so on ANY error retry WITHOUT is_bot and treat
-  // every message as human. The thread page must never crash ahead of the
-  // migration.
+  // autoreply Phase 1; appointment_id · migration 20270920827160, negotiation
+  // Phase 1). GRACEFUL DEGRADE (mirrors fetchCoupleThreads): these columns are
+  // owner-pushed and may not be live yet — an unknown column errors the whole
+  // select, so on ANY error retry WITHOUT them and treat every message as a
+  // plain human bubble. The thread page must never crash ahead of a migration.
   const withBot = await supabase
     .from('chat_messages')
-    .select(`${MESSAGE_SELECT},is_bot`)
+    .select(`${MESSAGE_SELECT},is_bot,appointment_id`)
     .eq('thread_id', threadId)
     .order('created_at', { ascending: true });
   if (!withBot.error) return (withBot.data ?? []) as ChatMessageRow[];
   logQueryError(
-    'fetchMessages (is_bot select)',
+    'fetchMessages (is_bot/appointment_id select)',
     withBot.error,
     { thread_id: threadId, missing_relation: isMissingRelationError(withBot.error) },
     'graceful_degrade',

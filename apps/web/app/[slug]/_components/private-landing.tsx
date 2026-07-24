@@ -21,6 +21,7 @@ export function PrivateLanding({
   animatedMonogram,
   bespokeSvg,
   proWatermarkHidden,
+  siteColorVars,
 }: {
   event: EventRow;
   monogram: MonogramConfig;
@@ -34,9 +35,16 @@ export function PrivateLanding({
   /** Paid COUPLE_WEBSITE_PRO perk — drop the "Powered by Setnayan" footer
    *  watermark when the event owns the active upgrade. */
   proWatermarkHidden: boolean;
+  /** Website Pro net-new manual site colours (Launch settings §4.4 · PR-C) —
+   *  pre-gated --color-* overrides (null when inert). Renders as today when null. */
+  siteColorVars: Record<string, string> | null;
 }) {
   return (
-    <InvitationShell rolePalette={event.role_palette} hideWatermark={proWatermarkHidden}>
+    <InvitationShell
+      rolePalette={event.role_palette}
+      hideWatermark={proWatermarkHidden}
+      customColorVars={siteColorVars}
+    >
       <div className="space-y-8 text-center">
         <div className="flex justify-center">
           <HeroMonogram

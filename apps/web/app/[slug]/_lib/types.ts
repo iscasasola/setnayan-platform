@@ -60,6 +60,13 @@ export type EventRow = {
   // in InvitationShell. Shape is Partial<Record<PaletteKey, string[]>>; typed
   // unknown + sanitized at use so a thin/absent palette degrades to defaults.
   role_palette?: unknown;
+  // Website Pro net-new manual site colours (events.site_bg_color /
+  // site_button_color · #rrggbb hex · migration 20270930244819). Override the
+  // Mood-Board-derived --color-cream / --color-mulberry tokens on the guest
+  // site, applied ONLY when set AND the event owns active Website Pro
+  // (loadMedia gates + resolves them into `siteColorVars`). NULL = inert.
+  site_bg_color?: string | null;
+  site_button_color?: string | null;
   // Couple's love story (events.love_story JSONB, written at onboarding; also
   // feeds Pakanta). Rendered on the pre-event paths (Save the Date teaser ·
   // RSVP · Event) via <OurStory>; NOT on the post-event Editorial. Typed
@@ -186,6 +193,9 @@ export type EventMedia = {
   monogram: MonogramConfig;
   animatedMonogram: MonogramMotionKey | false;
   proWatermarkHidden: boolean;
+  // Website Pro net-new manual site colour overrides (PR-C) — pre-gated on
+  // ACTIVE Website Pro + non-NULL columns; null when inert (renders as today).
+  siteColorVars: Record<string, string> | null;
   bespokeSvg: string | null;
   studioAnim: StudioAnim;
   heroPhotoUrl: string | null;

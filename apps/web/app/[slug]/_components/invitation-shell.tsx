@@ -19,6 +19,7 @@ export function InvitationShell({
   rolePalette,
   fullBleed = false,
   hideWatermark = false,
+  customColorVars,
 }: {
   children: React.ReactNode;
   backdrop?: React.ReactNode;
@@ -36,8 +37,22 @@ export function InvitationShell({
   // experience — drop the Setnayan/Invitation top bar + footer + the centred
   // max-width column so it plays edge-to-edge with no chrome.
   fullBleed?: boolean;
+  // Website Pro net-new manual site colours (Launch settings §4.4 · PR-C) —
+  // pre-computed --color-* overrides (lib/site-palette buildCustomSiteColorVars),
+  // ALREADY gated on ACTIVE Website Pro upstream (loadMedia). When present they
+  // layer OVER the Mood-Board palette (couple's manual pick wins). When
+  // undefined/null the merge is a NO-OP: `themeVars` stays byte-identical to the
+  // palette-only result, so a non-Pro / unset event renders exactly as today.
+  customColorVars?: Record<string, string> | null;
 }) {
-  const themeVars = buildSitePaletteVars(sanitizeRolePalette(rolePalette));
+  const paletteVars = buildSitePaletteVars(sanitizeRolePalette(rolePalette));
+  // Byte-safety: when there are no custom colours, `themeVars` is IDENTICAL to
+  // `paletteVars` (the pre-PR-C value). Only when custom colours exist do we
+  // spread them over the palette (custom wins per-role).
+  const themeVars =
+    customColorVars && Object.keys(customColorVars).length > 0
+      ? { ...(paletteVars ?? {}), ...customColorVars }
+      : paletteVars;
   if (fullBleed) {
     return (
       <main

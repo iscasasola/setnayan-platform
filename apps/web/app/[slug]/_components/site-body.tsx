@@ -297,6 +297,10 @@ type SiteBodyProps = {
    *  watermark when the event owns the active upgrade. Resolved once at the
    *  top-level page (eventCoupleWebsiteProActive). */
   proWatermarkHidden: boolean;
+  /** Website Pro net-new manual site colours (Launch settings §4.4 · PR-C) —
+   *  pre-gated --color-* overrides (null when inert). Layered over the Mood-Board
+   *  palette in InvitationShell; null → no override → renders as today. */
+  siteColorVars: Record<string, string> | null;
 };
 
 export function SiteBody({
@@ -326,6 +330,7 @@ export function SiteBody({
   liveWall,
   watchLive,
   proWatermarkHidden,
+  siteColorVars,
 }: SiteBodyProps) {
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
 
@@ -1368,6 +1373,7 @@ export function SiteBody({
       rolePalette={event.role_palette}
       fullBleed={plan.fullBleed}
       hideWatermark={proWatermarkHidden}
+      customColorVars={siteColorVars}
     >
       <GuestPreload eventSlug={event.slug} />
       {/* Item #8 — discreet floating share/report chrome. Share shows ONLY when

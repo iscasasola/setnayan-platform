@@ -23,6 +23,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { buildCustomSiteColorVars } from '@/lib/site-palette';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
 import { eventPabatiActive, fetchPabatiQuota } from '@/lib/pabati';
 import { eventOwnsPapicSeats } from '@/lib/papic-seats';
@@ -99,7 +100,7 @@ export const loadEventShell = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample, live_media_public, website_open_browse',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_bg_color, site_button_color, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_accent_hex, is_sample, live_media_public, website_open_browse',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -215,6 +216,21 @@ export const loadMedia = cache(
     // watermark, the safe default) on any orders-table shape error — see
     // lib/couple-website-pro.ts. The free baseline website keeps the watermark.
     const proWatermarkHidden = await eventCoupleWebsiteProActive(admin, event.event_id);
+
+    // Website Pro net-new manual site colours (Launch settings §4.4 · PR-C).
+    // The couple's chosen background + button colours (events.site_bg_color /
+    // site_button_color) override the Mood-Board palette tokens on the guest
+    // site — but ONLY when the event owns ACTIVE Website Pro (same gate as the
+    // watermark). Reuses the boolean already resolved above (no extra roundtrip).
+    // buildCustomSiteColorVars returns null when both columns are NULL, so a
+    // non-Pro OR unset event yields `siteColorVars = null` → InvitationShell adds
+    // no override → the page renders byte-identically to today (inert contract).
+    const siteColorVars = proWatermarkHidden
+      ? buildCustomSiteColorVars(
+          event.site_bg_color as string | null,
+          event.site_button_color as string | null,
+        )
+      : null;
 
     // Setnayan-AI bespoke monogram (Phase 2 of the monogram overhaul). When the
     // couple applied a bespoke mark (events.monogram_custom_svg — sanitized at
@@ -350,6 +366,7 @@ export const loadMedia = cache(
       monogram,
       animatedMonogram,
       proWatermarkHidden,
+      siteColorVars,
       bespokeSvg,
       studioAnim,
       heroPhotoUrl,

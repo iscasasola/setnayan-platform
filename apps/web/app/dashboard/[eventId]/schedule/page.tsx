@@ -72,6 +72,12 @@ import {
   isTravelEventType,
 } from '@/lib/schedule-travel';
 import { TravelClashGuard, TravelItineraryView } from './_components/travel-itinerary';
+import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
+import { APPOINTMENT_KINDS } from '@/lib/appointments';
+import {
+  VendorMeetingsSection,
+  type ScheduleMeeting,
+} from './_components/vendor-meetings-section';
 
 export const metadata = { title: 'Schedule' };
 
@@ -301,6 +307,54 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       actual_start_at: b.actual_start_at,
     }));
 
+  // Vendor meetings on the schedule (negotiation → schedule integration).
+  // Read-only surface of proposed/confirmed event_appointments so an approve /
+  // new-time / decline in chat reflects here automatically. Flag-gated (dark
+  // until negotiations launch). RLS lets the couple read their event's rows.
+  let vendorMeetings: ScheduleMeeting[] = [];
+  if (chatNegotiationEnabled()) {
+    const { data: apptRows } = await supabase
+      .from('event_appointments')
+      .select(
+        'appointment_id, kind, custom_label, scheduled_at, status, vendor_profile_id, thread_id',
+      )
+      .eq('event_id', eventId)
+      .in('status', ['proposed', 'confirmed'])
+      .order('scheduled_at', { ascending: true, nullsFirst: false });
+    const rows = (apptRows ?? []) as Array<{
+      appointment_id: string;
+      kind: string;
+      custom_label: string | null;
+      scheduled_at: string | null;
+      status: 'proposed' | 'confirmed';
+      vendor_profile_id: string | null;
+      thread_id: string | null;
+    }>;
+    const vpIds = Array.from(
+      new Set(rows.map((r) => r.vendor_profile_id).filter((v): v is string => Boolean(v))),
+    );
+    const nameByVp = new Map<string, string>();
+    if (vpIds.length > 0) {
+      const { data: vps } = await supabase
+        .from('vendor_profiles')
+        .select('vendor_profile_id, business_name')
+        .in('vendor_profile_id', vpIds);
+      for (const v of (vps ?? []) as Array<{ vendor_profile_id: string; business_name: string | null }>)
+        nameByVp.set(v.vendor_profile_id, (v.business_name ?? '').trim() || 'a vendor');
+    }
+    vendorMeetings = rows.map((r) => ({
+      appointment_id: r.appointment_id,
+      kind: (APPOINTMENT_KINDS as readonly string[]).includes(r.kind)
+        ? (r.kind as ScheduleMeeting['kind'])
+        : 'video',
+      label: r.custom_label?.trim() || 'Meeting',
+      scheduled_at: r.scheduled_at,
+      status: r.status,
+      vendorName: r.vendor_profile_id ? nameByVp.get(r.vendor_profile_id) ?? 'a vendor' : 'a vendor',
+      threadId: r.thread_id ?? null,
+    }));
+  }
+
   return (
     <section className="space-y-6">
       <header className="sn-reveal space-y-3">
@@ -336,6 +390,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
           journeyCount={journey.totalEntries}
         />
       </header>
+
+      <VendorMeetingsSection eventId={eventId} meetings={vendorMeetings} />
 
       {active === 'journey' ? (
         <JourneyView

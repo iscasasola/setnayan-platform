@@ -605,11 +605,24 @@ export function requiredDocsComplete(uploads: DocUploadMap): boolean {
 export function verificationSubmitMissing(input: {
   profileComplete: boolean;
   uploads: DocUploadMap;
+  /**
+   * Whether the vendor has submitted a government registration number
+   * (`vendor_profiles.registration_number_raw IS NOT NULL`). This is the
+   * anti-farm identity key — required to submit so a shop can't get verified
+   * (and start its perk window) under no comparable identity at all. Optional
+   * for backward-compatibility: only enforced when explicitly `false`. A
+   * COLLIDED number still counts as "on file" (it routes to admin review, not a
+   * hard block), so a vendor whose number duplicated another's can still submit.
+   */
+  registrationNumberOnFile?: boolean;
 }): string[] {
   const missing: string[] = [];
   if (!input.profileComplete) missing.push('Finish your business profile');
   if (!requiredDocsComplete(input.uploads)) {
     missing.push('Upload your DTI/SEC, BIR 2303, Business Permit, and bank proof');
+  }
+  if (input.registrationNumberOnFile === false) {
+    missing.push('Add your government registration number');
   }
   return missing;
 }

@@ -128,6 +128,11 @@ type ApplicationRow = {
     demotion_count: number;
     inBusinessSinceYear: number | null;
     experienceVerifiedAt: string | null;
+    /** Government registration number the vendor submitted (raw). */
+    registrationNumberRaw: string | null;
+    /** TRUE when that number DUPLICATED another shop's registered identity —
+     *  the anti-farm flag (migration 20270925937630). */
+    registrationNumberNeedsReview: boolean;
   };
 };
 
@@ -363,6 +368,29 @@ async function ApplicationsSurface({
     }
   }
 
+  // Government registration number + anti-farm collision flag (migration
+  // 20270925937630). Separate soft-probe (NOT folded into the vendor select
+  // below) so a pre-migration DB degrades to defaults instead of erroring the
+  // whole vendor read. Keyed by vendor_profile_id.
+  const regMap: Record<string, { raw: string | null; needsReview: boolean }> = {};
+  if (vendorIds.length > 0) {
+    const { data: regRows } = await admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id, registration_number_raw, registration_number_needs_review')
+      .in('vendor_profile_id', vendorIds)
+      .then((r) => (r.error ? { data: null } : r));
+    for (const v of (regRows ?? []) as Array<{
+      vendor_profile_id: string;
+      registration_number_raw?: string | null;
+      registration_number_needs_review?: boolean | null;
+    }>) {
+      regMap[v.vendor_profile_id] = {
+        raw: v.registration_number_raw ?? null,
+        needsReview: Boolean(v.registration_number_needs_review),
+      };
+    }
+  }
+
   let vendorMap: Record<string, ApplicationRow['vendor']> = {};
   if (vendorIds.length > 0) {
     const { data: vendorData } = await admin
@@ -385,6 +413,8 @@ async function ApplicationsSurface({
           demotion_count: (v.demotion_count as number | null) ?? 0,
           inBusinessSinceYear: expMap[v.vendor_profile_id]?.year ?? null,
           experienceVerifiedAt: expMap[v.vendor_profile_id]?.verifiedAt ?? null,
+          registrationNumberRaw: regMap[v.vendor_profile_id]?.raw ?? null,
+          registrationNumberNeedsReview: regMap[v.vendor_profile_id]?.needsReview ?? false,
         },
       ]),
     );
@@ -413,6 +443,8 @@ async function ApplicationsSurface({
       demotion_count: (v.demotion_count as number | null) ?? 0,
       inBusinessSinceYear: null,
       experienceVerifiedAt: null,
+      registrationNumberRaw: regMap[v.vendor_profile_id]?.raw ?? null,
+      registrationNumberNeedsReview: regMap[v.vendor_profile_id]?.needsReview ?? false,
     }));
   }
 
@@ -432,6 +464,8 @@ async function ApplicationsSurface({
       demotion_count: 0,
       inBusinessSinceYear: null,
       experienceVerifiedAt: null,
+      registrationNumberRaw: null,
+      registrationNumberNeedsReview: false,
     },
   }));
 
@@ -616,6 +650,18 @@ function ApplicationCard({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <SlaBadge tone={slaTone} label={slaText} />
+          {application.vendor.registrationNumberNeedsReview ? (
+            <span
+              className="inline-flex items-center rounded-full border border-amber-400/60 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-amber-700"
+              title={
+                application.vendor.registrationNumberRaw
+                  ? `Submitted registration number "${application.vendor.registrationNumberRaw}" duplicates another shop's — possible perk-farming. Investigate before approving.`
+                  : "Submitted registration number duplicates another shop's — investigate before approving."
+              }
+            >
+              Duplicate reg #
+            </span>
+          ) : null}
           <VerificationStateBadge state={application.vendor.verification_state} />
           <StatusBadge status={application.status} />
         </div>
@@ -631,6 +677,14 @@ function ApplicationCard({
           ) : null}
           {application.vendor.location_city ? (
             <p>{application.vendor.location_city}</p>
+          ) : null}
+          {application.vendor.registrationNumberRaw ? (
+            <p>
+              Reg #:{' '}
+              <span className="font-medium text-ink">
+                {application.vendor.registrationNumberRaw}
+              </span>
+            </p>
           ) : null}
         </div>
         <div className="space-y-0.5">

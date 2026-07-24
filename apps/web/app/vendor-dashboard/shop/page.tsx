@@ -311,6 +311,22 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   } catch {
     // pre-migration → defaults above
   }
+  // Anti-farm identity gate input (migration 20270925937630) — soft-probe the
+  // vendor's registration number so the shared submit gate can require it. A
+  // collided number keeps raw (needs_review) → still counts as "on file".
+  let registrationNumberOnFile = false;
+  try {
+    const { data } = await supabase
+      .from('vendor_profiles')
+      .select('registration_number_raw')
+      .eq('vendor_profile_id', vendorId)
+      .maybeSingle();
+    registrationNumberOnFile = Boolean(
+      (data as { registration_number_raw?: string | null } | null)?.registration_number_raw,
+    );
+  } catch {
+    // pre-migration → treated as not-on-file (the gate then asks for it)
+  }
   const meetSlot = verifyUploads.google_meet;
   const meetScheduledAt =
     meetSlot && typeof meetSlot === 'object' && !Array.isArray(meetSlot) && 'scheduled_at' in meetSlot
@@ -328,6 +344,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     submitMissing: verificationSubmitMissing({
       profileComplete: completion.complete,
       uploads: verifyUploads,
+      registrationNumberOnFile,
     }),
     validateEmail,
     validatePhone,

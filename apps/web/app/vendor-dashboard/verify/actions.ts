@@ -254,6 +254,27 @@ export async function submitApplication(formData: FormData): Promise<void> {
     );
   }
 
+  // Anti-farm identity gate (migration 20270925937630): a shop cannot start its
+  // verification (and its perk window) with no government registration number
+  // on file. Soft-probe so a pre-migration DB degrades to "not present" rather
+  // than crashing; a collided number keeps raw (needs_review) → still counts.
+  const { data: regRow } = await supabase
+    .from('vendor_profiles')
+    .select('registration_number_raw')
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .maybeSingle()
+    .then((r) => (r.error ? { data: null } : r));
+  const registrationNumberOnFile = Boolean(
+    (regRow as { registration_number_raw?: string | null } | null)?.registration_number_raw,
+  );
+  if (!registrationNumberOnFile) {
+    redirect(
+      `/vendor-dashboard/verify?error=${encodeURIComponent(
+        'Add your government registration number (BIR TIN, DTI, SEC, or permit) before submitting.',
+      )}`,
+    );
+  }
+
   const completeCount = countCompleteVendorSlots(uploads);
   const REQUIRED_TO_SUBMIT = VENDOR_DOC_SLOTS.length;
   if (completeCount < REQUIRED_TO_SUBMIT) {

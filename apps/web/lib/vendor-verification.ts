@@ -45,6 +45,61 @@ export function parseVerificationState(raw: unknown): VerificationState {
     : 'unverified';
 }
 
+/**
+ * The ONE predicate for "can this marketplace vendor be BOOKED / LOCKED by a
+ * couple?" (owner 2026-07-24: "they can only book customers if they are
+ * verified"). Only `verified` qualifies — `unverified` / `pending_review` /
+ * `demoted` / `rejected` do NOT. Kept in code (not the DB) so the app-side
+ * friendly gate and the `enforce_booking_requires_verified_vendor` DB trigger
+ * read the SAME rule.
+ */
+export function isBookableVerificationState(
+  state: VerificationState,
+): boolean {
+  return state === 'verified';
+}
+
+/**
+ * True when a MARKETPLACE vendor is currently verified — the booking gate.
+ * Reads `vendor_profiles.verification_state`; a missing row or read error
+ * resolves to NOT verified (fail-closed — the couple's lock is a commitment, so
+ * an unreadable state must not silently pass).
+ *
+ * Pass a client that can read the row even for a NON-verified profile — public
+ * RLS on `vendor_profiles` is verified-only, so callers use the admin/service
+ * client, having already proven the couple owns the booking. Off-platform /
+ * manual vendors (no `vendor_profile_id`) carry no verification concept and are
+ * never passed here — callers skip the check when `marketplace_vendor_id` is
+ * NULL.
+ */
+export async function isMarketplaceVendorBookable(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('vendor_profiles')
+      .select('verification_state')
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle();
+    if (error || !data) return false;
+    return isBookableVerificationState(
+      parseVerificationState(
+        (data as { verification_state?: unknown }).verification_state,
+      ),
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The couple-facing copy when a lock is blocked because the vendor isn't
+ * verified yet. Single source so every surface reads identically.
+ */
+export const VENDOR_NOT_VERIFIED_COUPLE_MESSAGE =
+  "This vendor is completing verification and can't be booked just yet. Keep them shortlisted — you'll be able to lock them once they're verified.";
+
 // ---------------------------------------------------------------------------
 // Application type + status
 // ---------------------------------------------------------------------------

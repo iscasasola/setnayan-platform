@@ -31,6 +31,7 @@ import {
   planGroupForCategory,
 } from '@/lib/wedding-plan-groups';
 import { CONFIRMED_VENDOR_STATUSES, recomputeReceptionAnchor } from '@/lib/events';
+import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
 import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
 import { intersectViableCandidates, formatCandidateDate } from '@/lib/candidate-dates';
@@ -587,6 +588,15 @@ export type FinalizeVendorResult =
   // vendor_lock_proposals row and returns this so the couple can confirm.
   // Money-adjacent guard (locking seeds the payment schedule).
   | { status: 'proposed'; vendorId: string; vendorName: string }
+  // Booking-requires-verified gate (owner 2026-07-24: "they can only book
+  // customers if they are verified"). A MARKETPLACE vendor can only be LOCKED
+  // once its vendor_profiles.verification_state = 'verified'. Returned before
+  // any write so the couple sees a friendly "still verifying" message; the DB
+  // trigger event_vendors_require_verified_before_lock is the hard guard that
+  // also catches the wizard + package-cascade + slot-RPC write paths.
+  // Off-platform / manual vendors carry no verification concept and never hit
+  // this. Grandfathered: already-locked rows return 'already_locked' first.
+  | { status: 'vendor_not_verified'; vendorId: string; vendorName: string }
   | { status: 'error'; message: string };
 
 const LOCKED_STATUS: VendorStatus = 'contracted';
@@ -707,6 +717,32 @@ export async function finalizeVendor(
     (CONFIRMED_VENDOR_STATUSES as readonly string[]).includes(targetVendor.status)
   ) {
     return { status: 'already_locked', vendorId };
+  }
+
+  // ── Booking requires a VERIFIED vendor (owner 2026-07-24) ─────────────────
+  // A marketplace vendor can only be BOOKED/LOCKED once verified. This is the
+  // friendly, couple-facing PRE-CHECK; the DB trigger
+  // (event_vendors_require_verified_before_lock) is the HARD guard that also
+  // covers the wizard + package-cascade + slot-RPC write paths. Runs BEFORE the
+  // coordinator propose-lock branch so a coordinator can't even PROPOSE an
+  // unverified vendor. Off-platform / manual vendors (no marketplace_vendor_id)
+  // have no verification concept → lock directly. Grandfathering is automatic:
+  // an already-locked row returned 'already_locked' above and never reaches
+  // here, so existing contracted rows with (now-)unverified vendors are safe.
+  // The read uses the admin client (public RLS on vendor_profiles is
+  // verified-only; the couple already proved they own this booking above).
+  if (targetVendor.marketplace_vendor_id) {
+    const bookable = await isMarketplaceVendorBookable(
+      createAdminClient(),
+      targetVendor.marketplace_vendor_id,
+    );
+    if (!bookable) {
+      return {
+        status: 'vendor_not_verified',
+        vendorId,
+        vendorName: (targetVendor.vendor_name as string | null) ?? 'this vendor',
+      };
+    }
   }
 
   // Coordinator "propose a lock" (corpus spec § 4) — money-adjacent guard.

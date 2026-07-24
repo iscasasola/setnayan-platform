@@ -68,6 +68,10 @@ export function BuildLocked({
             vendorId: p.vendor_id,
             name: p.marketplace_business_name ?? p.vendor_name ?? 'Vendor',
             cost: p.rolled_cost_php,
+            // Booking-requires-verified gate (owner 2026-07-24). Enrichment sets
+            // is_verified for picked MARKETPLACE vendors (undefined for
+            // off-platform / not-yet-joined → no indicator, server + DB decide).
+            isVerified: p.is_verified,
           },
         ];
       }),
@@ -139,6 +143,7 @@ export function BuildLocked({
                 pendingLabel="Locking…"
                 className={LOCK_BTN_CLASS}
                 wrapperClassName=""
+                isVerified={r.isVerified}
               />
             </div>
           ))}

@@ -13,6 +13,7 @@ import {
   Lock,
   Pencil,
   Sparkles,
+  Wand2,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
@@ -21,15 +22,36 @@ import {
   type InvitationWidgetRow,
   type WidgetType,
   WIDGET_CATALOG_BY_TYPE,
+  hasContent,
   isWidgetType,
   sortWidgetsForEditor,
 } from '@/lib/invitation-widgets';
 import {
+  SECTION_CONTENT_EVENT_COLUMNS,
+  computeSectionContentMap,
+  type SectionContentEvent,
+} from '@/lib/website-section-content';
+import {
   moveWidgetDown,
   moveWidgetUp,
+  setSectionMode,
   toggleWidgetVisibility,
 } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+
+/**
+ * Widgets that auto-populate their content from another part of the couple's
+ * planning work — surfaced as a light hint line under the row so the couple
+ * knows WHERE to add content (rather than hunting for a per-widget editor that
+ * doesn't exist). Kept factual + short.
+ */
+const AUTO_POPULATE_HINT: Partial<Record<WidgetType, string>> = {
+  schedule: 'Fills from your Schedule.',
+  our_photos: 'Fills from Our Photos.',
+  venue_map: 'Fills from your venue details.',
+  countdown: 'Fills from your event date.',
+  our_love_story: 'Fills from your onboarding love story.',
+};
 
 export const metadata = { title: 'Customize widgets · Setnayan' };
 
@@ -78,7 +100,7 @@ export default async function WidgetsEditorPage({
 
   const { data: event } = await supabase
     .from('events')
-    .select('event_id, display_name, slug, event_type')
+    .select(`event_id, display_name, slug, event_type, ${SECTION_CONTENT_EVENT_COLUMNS}`)
     .eq('event_id', eventId)
     .maybeSingle();
 
@@ -91,7 +113,7 @@ export default async function WidgetsEditorPage({
   const { data: widgetsRaw } = await supabase
     .from('invitation_widgets')
     .select(
-      'widget_id, event_id, widget_type, display_order, is_visible, is_always_on, tier, config_json, created_at, updated_at',
+      'widget_id, event_id, widget_type, display_order, is_visible, is_always_on, tier, config_json, created_at, updated_at, mode, audience',
     )
     .eq('event_id', eventId);
 
@@ -140,6 +162,17 @@ export default async function WidgetsEditorPage({
     ? `/${event.slug}?invite=${encodeURIComponent(previewGuest.qr_token)}`
     : null;
 
+  // Per-widget content presence — the SAME signals the guest site reads (see
+  // lib/website-section-content, which mirrors site-body's openBrowseContent
+  // map). Drives the "Shown disabled while empty" rule so a couple can't
+  // force-on a section that would render blank to guests. Types with no clear
+  // signal fail OPEN via hasContent() (treated as having content).
+  const contentMap = await computeSectionContentMap(
+    supabase,
+    eventId,
+    event as unknown as SectionContentEvent,
+  );
+
   const sorted = sortWidgetsForEditor(widgets);
   const alwaysOnRows = sorted.filter((w) => w.is_always_on);
   const hideableRows = sorted.filter((w) => !w.is_always_on);
@@ -149,9 +182,11 @@ export default async function WidgetsEditorPage({
   const errorMessage =
     errorParam === 'always_on'
       ? `That widget can't be hidden — your ${eventNoun(event.event_type)}'s load-bearing surfaces stay visible.`
-      : errorParam
-        ? "We couldn't save that change. Try again, or contact support if this keeps happening."
-        : null;
+      : errorParam === 'empty_source'
+        ? "You can't force-show a section that's still empty. Add its content first, then set it to Shown."
+        : errorParam
+          ? "We couldn't save that change. Try again, or contact support if this keeps happening."
+          : null;
 
   return (
     <section className="space-y-8">
@@ -295,6 +330,7 @@ export default async function WidgetsEditorPage({
               row={row}
               eventId={eventId}
               noun={eventNoun(event.event_type)}
+              hasContent={hasContent(row.widget_type, contentMap)}
               isFirstHideable={false}
               isLastHideable={false}
             />
@@ -326,6 +362,7 @@ export default async function WidgetsEditorPage({
                 row={row}
                 eventId={eventId}
                 noun={eventNoun(event.event_type)}
+                hasContent={hasContent(row.widget_type, contentMap)}
                 isFirstHideable={index === 0}
                 isLastHideable={index === hideableRows.length - 1}
               />
@@ -356,12 +393,14 @@ function WidgetRow({
   row,
   eventId,
   noun,
+  hasContent: rowHasContent,
   isFirstHideable,
   isLastHideable,
 }: {
   row: InvitationWidgetRow;
   eventId: string;
   noun: 'wedding' | 'event';
+  hasContent: boolean;
   isFirstHideable: boolean;
   isLastHideable: boolean;
 }) {
@@ -374,6 +413,12 @@ function WidgetRow({
   // Form-only (no JS) so it works on the slowest 4G in PH per the
   // mobile-first commitment locked across iteration 0031.
   const nextVisible = row.is_visible ? '0' : '1';
+
+  // Open-browse section mode (PR9). A missing value reconciles to 'auto' (the
+  // migration default). The control renders for hideable rows only — always-on
+  // sections are never holdable (council §1.4).
+  const currentMode = row.mode ?? 'auto';
+  const autoHint = AUTO_POPULATE_HINT[row.widget_type];
 
   return (
     <li
@@ -418,9 +463,20 @@ function WidgetRow({
             Edit content
           </Link>
         ) : null}
+        {autoHint ? (
+          <p className="flex items-center gap-1 text-[11px] text-ink/45">
+            <Wand2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+            {autoHint}
+          </p>
+        ) : null}
       </div>
 
-      {/* Controls — visibility toggle + Up / Down */}
+      {/* Controls column — the legacy visibility toggle + reorder on top,
+          the open-browse three-state mode control below (hideable rows only).
+          Both coexist by design: is_visible is the flag-OFF render gate; mode
+          is the open-browse couple control (PR7 reader treats is_visible=false
+          OR mode='hidden' as hidden). */}
+      <div className="flex flex-col gap-2 sm:items-end">
       <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
         {/* Visibility toggle */}
         <form action={toggleWidgetVisibility} className="flex items-center">
@@ -508,6 +564,58 @@ function WidgetRow({
             </SubmitButton>
           </form>
         ) : null}
+      </div>
+
+      {/* Open-browse three-state section mode — hideable rows only. Always-on
+          sections are never holdable (council §1.4), so they get no control.
+          Form-only (no JS): each state is its own submit posting setSectionMode.
+          The Shown button is disabled when the section has no content yet —
+          force-on must never manufacture a blank guest-facing section. */}
+      {!row.is_always_on ? (
+        <div
+          className="flex flex-wrap items-center gap-1"
+          role="group"
+          aria-label={`${catalog.label} — when browsing is open`}
+        >
+          {(['auto', 'shown', 'hidden'] as const).map((m) => {
+            const selected = currentMode === m;
+            const disabledShown = m === 'shown' && !rowHasContent;
+            const label = m === 'auto' ? 'Auto' : m === 'shown' ? 'Shown' : 'Hidden';
+            const modeTitle =
+              m === 'auto'
+                ? 'Auto — let your page decide based on the section’s content.'
+                : m === 'shown'
+                  ? disabledShown
+                    ? 'Add content first — an empty section can’t be forced on.'
+                    : 'Always show this section to guests.'
+                  : 'Always hide this section from guests.';
+            return (
+              <form key={m} action={setSectionMode} className="flex">
+                <input type="hidden" name="event_id" value={eventId} />
+                <input type="hidden" name="widget_id" value={row.widget_id} />
+                <input type="hidden" name="next_mode" value={m} />
+                <SubmitButton
+                  pendingLabel="…"
+                  overlay={false}
+                  disabled={disabledShown}
+                  aria-pressed={selected}
+                  className={`inline-flex h-8 min-h-[36pt] items-center rounded-md border px-2.5 text-[11px] font-medium transition-colors sm:min-h-0 ${
+                    disabledShown
+                      ? 'cursor-not-allowed border-ink/10 bg-cream/60 text-ink/35'
+                      : selected
+                        ? 'border-terracotta bg-terracotta/10 text-terracotta-700'
+                        : 'border-ink/15 bg-cream text-ink/60 hover:border-ink/30 hover:text-ink'
+                  }`}
+                  aria-label={`Set ${catalog.label} to ${label}`}
+                  title={modeTitle}
+                >
+                  {label}
+                </SubmitButton>
+              </form>
+            );
+          })}
+        </div>
+      ) : null}
       </div>
     </li>
   );

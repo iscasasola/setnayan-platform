@@ -329,12 +329,21 @@ export async function reScreenStuckCaptures(eventId: string): Promise<number> {
     const tables: ScreenCaptureTable[] = ['papic_photos', 'papic_guest_captures'];
     let healed = 0;
     for (const table of tables) {
+      // Exclude poster-LESS clips: screenCapture() classifies a clip by its
+      // poster frame and BAILS without writing state when there's no poster, so
+      // such rows sit 'unscreened' forever. In a fixed RESCREEN_LIMIT window with
+      // no order they'd re-fill it every run and starve genuinely-screenable
+      // photos (which then stay dark on every guest surface). Keep a row iff it's
+      // NOT a clip OR it has a poster; order oldest-first so the window advances.
+      const clipCol = table === 'papic_photos' ? 'photo_type' : 'media_type';
       const { data: stuck, error } = await admin
         .from(table)
         .select('r2_object_key')
         .eq('event_id', eventId)
         .eq('moderation_state', 'unscreened')
         .lt('created_at', cutoff)
+        .or(`${clipCol}.is.null,${clipCol}.neq.clip,poster_r2_key.not.is.null`)
+        .order('created_at', { ascending: true })
         .limit(RESCREEN_LIMIT);
       // Pre-migration (missing column → 42703) or any read error → skip this
       // table, never the whole sweep.
@@ -427,11 +436,16 @@ export async function reScreenAllStuckCaptures(): Promise<number> {
     const tables: ScreenCaptureTable[] = ['papic_photos', 'papic_guest_captures'];
     const rows: Array<{ event_id?: string | null; created_at?: string | null }> = [];
     for (const table of tables) {
+      // Same poster-less-clip exclusion as reScreenStuckCaptures — otherwise an
+      // event whose ONLY unscreened rows are unscreenable clips looks "stuck"
+      // forever and this sweep re-picks it every run for a no-op per-event heal.
+      const clipCol = table === 'papic_photos' ? 'photo_type' : 'media_type';
       const { data, error } = await admin
         .from(table)
         .select('event_id, created_at')
         .eq('moderation_state', 'unscreened')
         .lt('created_at', cutoff)
+        .or(`${clipCol}.is.null,${clipCol}.neq.clip,poster_r2_key.not.is.null`)
         .order('created_at', { ascending: true })
         .limit(RESCREEN_SWEEP_SCAN_LIMIT);
       // Pre-migration (missing column → 42703) or any read error → skip this

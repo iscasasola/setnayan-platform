@@ -325,14 +325,26 @@ export async function runRenewalReminders(): Promise<{ scanned: number; sent: nu
         expiresAt: new Date(c.expires_at),
         renewUrl: `${APP_URL}/pricing`,
       });
-      await sendEmail({
+      const result = await sendEmail({
         to: c.buyer_email,
         subject: email.subject,
         text: email.text,
         html: email.html,
         headers: renewalUnsubscribeHeaders(),
       });
-      sent += 1;
+      if (result.ok) {
+        sent += 1;
+      } else {
+        // sendEmail RETURNS {ok:false} (Resend unconfigured / 429 / 5xx) rather
+        // than throwing, so the catch below never sees it. Release the
+        // idempotency lock so a later daily claim retries this candidate —
+        // otherwise the reminder is permanently suppressed. (Anniversary pattern.)
+        await admin
+          .from('renewal_reminder_log')
+          .delete()
+          .eq('order_id', c.order_id)
+          .eq('reminder_window', window);
+      }
     } catch {
       // Release the lock so a later run can retry this candidate.
       await admin
@@ -452,7 +464,9 @@ export async function runPapicDropWarning(): Promise<{ candidates: number; sent:
     const { data: user } = await admin
       .from('users')
       .select('email')
-      .eq('id', member.user_id as string)
+      // users.id is BIGSERIAL; the auth UUID is users.user_id — join on the
+      // UUID or this always matches 0 rows and the deletion-warning never sends.
+      .eq('user_id', member.user_id as string)
       .maybeSingle();
     const email = (user?.email as string | null) ?? null;
     if (!email) continue;

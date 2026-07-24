@@ -419,7 +419,7 @@ function NoDatePrompt({ eventId }: { eventId: string }) {
         by&rdquo; target anchored to PSA + LGU + parish lead times.
       </p>
       <Link
-        href={`/dashboard/${eventId}/settings`}
+        href={`/dashboard/${eventId}/date-selection`}
         className="mt-2 inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.15em] text-warn-900 underline"
       >
         Set wedding date
@@ -475,7 +475,7 @@ function UnknownCeremonyPrompt({ eventId }: { eventId: string }) {
         applies. Catholic, Civil, INC, and Muslim each carry distinct paperwork.
       </p>
       <Link
-        href={`/dashboard/${eventId}/settings`}
+        href={`/dashboard/${eventId}/date-selection`}
         className="mt-2 inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.15em] text-terracotta underline"
       >
         Choose ceremony type

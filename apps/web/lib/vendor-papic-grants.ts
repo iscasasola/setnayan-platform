@@ -119,16 +119,22 @@ export async function fetchVendorPapicPointsSpent(
   vendorProfileId: string,
   eventId: string,
 ): Promise<number> {
+  // Money logic (see module header): a read failure must FAIL-CLOSED. Reporting
+  // 0 spent would hand the vendor a full fresh budget on any transient error.
+  // Return an assume-exhausted sentinel so captureAllowance clamps pointsLeft to
+  // 0 (blocked) — a metering outage stops capture, never silently un-meters it.
+  const ASSUME_EXHAUSTED = Number.MAX_SAFE_INTEGER;
   try {
-    const { data } = await client
+    const { data, error } = await client
       .from('vendor_papic_captures')
       .select('media_type')
       .eq('vendor_profile_id', vendorProfileId)
       .eq('event_id', eventId)
       .is('hidden_at', null);
+    if (error) return ASSUME_EXHAUSTED;
     return pointsSpent((data ?? []) as { media_type: VendorPapicMedia }[]);
   } catch {
-    return 0;
+    return ASSUME_EXHAUSTED;
   }
 }
 

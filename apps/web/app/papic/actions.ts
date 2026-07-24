@@ -291,6 +291,14 @@ export async function recordSeatCapture(
   // authoritative gate; the presign probe in /api/upload is the orphan-byte
   // leak guard). Free cameras (tier 'free' · provisionFreeCamerasAdmin) meter
   // through the same points gate at the free budget.
+  //
+  // Capture-points reserved by the metering gate below are tracked at THIS scope
+  // so an ABORT after the gate (most notably the papic_photos insert failing)
+  // can release them — otherwise the couple's points are spent on a capture that
+  // produced no photo (a silent points leak).
+  let abortReleaseSeatId: string | null = null;
+  let abortReleaseEventId: string | null = null;
+  let abortReleaseCost = 0;
   {
     if (cameraTier) {
       // ── Capture WINDOW gate (owner 2026-06-26) ──────────────────────────
@@ -422,6 +430,15 @@ export async function recordSeatCapture(
         // The TIGHTER of the two budgets wins.
         const gate = combinePointsGates(seatGate, eventGate);
 
+        // ALLOWED: the reserved points stay spent — record what to release if a
+        // later step aborts (see the papic_photos insert below). REFUSED is
+        // released immediately just under here, so these stay null on that path.
+        if (gate === 'allow') {
+          if (seatBooked) abortReleaseSeatId = seat.seat_id as string;
+          if (eventBooked) abortReleaseEventId = seat.event_id as string;
+          abortReleaseCost = cost;
+        }
+
         // A refused capture must never leave points spent. Whichever ledger was
         // booked before the other refused gets released. Best-effort + never
         // fatal — a failed unwind costs the couple points, not a broken camera.
@@ -533,6 +550,35 @@ export async function recordSeatCapture(
     }
 
     if (insertError) {
+      // The capture was metered (points reserved) but the row never landed —
+      // release the reserved points so the couple isn't charged for a photo
+      // that does not exist. Best-effort + never fatal (mirrors the refusal
+      // unwind above); a failed release costs points, not a broken camera.
+      if (abortReleaseCost > 0 && (abortReleaseSeatId || abortReleaseEventId)) {
+        const rel = (() => {
+          try {
+            return createAdminClient();
+          } catch {
+            return null;
+          }
+        })();
+        if (rel && abortReleaseSeatId) {
+          await rel
+            .rpc('papic_release_camera_points', {
+              p_seat_id: abortReleaseSeatId,
+              p_cost: abortReleaseCost,
+            })
+            .then(() => undefined, () => undefined);
+        }
+        if (rel && abortReleaseEventId) {
+          await rel
+            .rpc('papic_release_event_points', {
+              p_event_id: abortReleaseEventId,
+              p_cost: abortReleaseCost,
+            })
+            .then(() => undefined, () => undefined);
+        }
+      }
       return { ok: false, error: insertError.message.slice(0, 80) };
     }
     insertedPhotoId = (inserted?.photo_id as string) ?? null;

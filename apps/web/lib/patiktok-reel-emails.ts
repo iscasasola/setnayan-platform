@@ -41,7 +41,8 @@ export async function sendPatiktokReelReadyEmail(input: {
     const { data: userRow } = await admin
       .from('users')
       .select('email, display_name')
-      .eq('id', coupleUserId)
+      // users.id is BIGSERIAL; the auth UUID is users.user_id — join on the UUID.
+      .eq('user_id', coupleUserId)
       .maybeSingle();
     const to = ((userRow?.email as string | null) ?? '').trim();
     if (!to) return;

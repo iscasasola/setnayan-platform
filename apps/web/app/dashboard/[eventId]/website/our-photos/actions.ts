@@ -18,43 +18,12 @@
  * can prune orphans) — same policy as removeHeroPhoto.
  */
 import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { requireHostMembership } from '@/lib/host-gate';
+import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 
 /** Hard cap on the gallery size — keeps the page light + bounds R2 cost. */
 const MAX_PHOTOS = 24;
-
-async function requireHostMembership(eventId: string): Promise<string> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  // event_moderators (canonical going forward, iteration 0048 V1).
-  const { data: moderator } = await supabase
-    .from('event_moderators')
-    .select('moderator_id')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .not('accepted_at', 'is', null)
-    .is('removed_at', null)
-    .maybeSingle();
-
-  if (moderator) return user.id;
-
-  // event_members couple row (V1 backwards-compat).
-  const { data: legacy } = await supabase
-    .from('event_members')
-    .select('member_type')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  if (legacy?.member_type === 'couple') return user.id;
-
-  redirect('/dashboard');
-}
 
 export async function updateOurPhotos(
   eventId: string,
@@ -86,8 +55,7 @@ export async function updateOurPhotos(
     );
   }
 
-  revalidatePath(`/dashboard/${eventId}/website/our-photos`);
-  revalidatePath(`/dashboard/${eventId}/website`);
-  if (event?.slug) revalidatePath(`/${event.slug}`);
+  revalidateWebsiteEditor(eventId, 'our-photos');
+  revalidateGuestSite(event?.slug);
   redirect(`/dashboard/${eventId}/website/our-photos?saved=1`);
 }

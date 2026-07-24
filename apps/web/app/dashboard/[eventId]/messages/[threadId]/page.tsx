@@ -11,6 +11,7 @@ import { canonicalServiceToPlanGroupId } from '@/lib/wedding-plan-groups';
 import { resolveLivePax } from '@/lib/pax';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
+import { NegotiationComposerMenu } from '@/app/_components/negotiation-composer-menu';
 import { ThreadCallLauncher } from '@/app/_components/thread-call-launcher';
 import { resolveThreadCallsEnabled } from '@/lib/thread-calls-gate';
 import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
@@ -206,6 +207,11 @@ export default async function CoupleThreadPage({ params }: Props) {
               accept.
             </p>
           ) : null}
+          <NegotiationComposerMenu
+            threadId={threadId}
+            returnPath={`/dashboard/${eventId}/messages/${threadId}`}
+            eventDate={eventDate}
+          />
           <ChatSendForm threadId={threadId} sendAction={sendChatMessage} />
         </div>
       ) : thread.inquiry_status === 'pending' ? (

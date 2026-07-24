@@ -49,6 +49,7 @@ import {
 } from '@/lib/auspicious-date';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
+import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import {
   parseWizardState,
   WIZARD_TASKS,
@@ -455,6 +456,17 @@ export async function completeVendorPickFromMarketplace(
     .maybeSingle();
   if (priorErr) throw new Error(priorErr.message);
   if (!priorRow) throw new Error('Event not found');
+
+  // Booking requires a VERIFIED vendor (owner 2026-07-24) — this INSERT locks a
+  // MARKETPLACE vendor (status='contracted'), so gate it the same as
+  // finalizeVendor. The DB trigger is the hard guard; this friendly throw keeps
+  // the wizard from producing a raw 23514. Admin read (verification_state is not
+  // public-readable for non-verified profiles).
+  if (!(await isMarketplaceVendorBookable(createAdminClient(), marketplaceVendorIdRaw))) {
+    throw new Error(
+      "This vendor is completing verification and can't be booked just yet. You'll be able to lock them once they're verified.",
+    );
+  }
 
   // Insert event_vendors row with status='contracted' directly · the
   // wizard skips the considering→contracted two-step flow because the
@@ -1111,6 +1123,17 @@ export async function lockBoothToEvent(formData: FormData): Promise<void> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  // Booking requires a VERIFIED vendor (owner 2026-07-24) — only when this booth
+  // lock points at a MARKETPLACE vendor. Off-platform booths (name only, no
+  // marketplace_vendor_id) carry no verification concept and lock directly.
+  if (typeof marketplaceVendorIdRaw === 'string' && marketplaceVendorIdRaw.length > 0) {
+    if (!(await isMarketplaceVendorBookable(createAdminClient(), marketplaceVendorIdRaw))) {
+      throw new Error(
+        "This vendor is completing verification and can't be booked just yet. You'll be able to lock them once they're verified.",
+      );
+    }
+  }
 
   const insertPayload: Record<string, unknown> = {
     event_id: eventIdRaw,

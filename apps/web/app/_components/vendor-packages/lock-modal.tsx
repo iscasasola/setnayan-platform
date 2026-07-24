@@ -81,6 +81,12 @@ export function LockPackageModal({
         setError('That package is paused by the vendor.');
         return;
       }
+      if (result.status === 'vendor_not_verified') {
+        setError(
+          `${result.vendorName} is completing verification and can't be booked just yet — you'll be able to lock this package once they're verified.`,
+        );
+        return;
+      }
       setError(result.message || 'Something went wrong.');
     });
   }

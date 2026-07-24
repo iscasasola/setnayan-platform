@@ -43,6 +43,11 @@ export function PendingLockProposals({
       setBusyId(null);
       if (res.status === 'ok' || res.status === 'already_locked') {
         setItems((prev) => prev.filter((x) => x.id !== p.id));
+      } else if (res.status === 'vendor_not_verified') {
+        // Booking-requires-verified gate (owner 2026-07-24).
+        setNote(
+          `${p.vendorName} is completing verification and can't be booked just yet.`,
+        );
       } else if (res.status === 'error' || res.status === 'not_found') {
         setNote(`Couldn't lock ${p.vendorName}. Try from its card below.`);
       } else {

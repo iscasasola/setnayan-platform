@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import {
   computeCustomization,
   keptItems,
@@ -37,6 +39,10 @@ export type LockPackageResult =
   | { status: 'package_not_found' }
   | { status: 'package_inactive' }
   | { status: 'already_locked'; bookingId: string }
+  // Booking requires a VERIFIED vendor (owner 2026-07-24) — a package cascade
+  // inserts contracted event_vendors rows for pkg.vendor_profile_id, so it's
+  // gated the same as finalizeVendor. The DB trigger is the hard guard.
+  | { status: 'vendor_not_verified'; vendorName: string }
   | { status: 'error'; message: string };
 
 /**
@@ -126,6 +132,17 @@ export async function lockPackage(
     .maybeSingle();
   if (!vendor) {
     return { status: 'error', message: 'Vendor profile missing for package' };
+  }
+
+  // 5b. Booking requires a VERIFIED vendor (owner 2026-07-24). The cascade below
+  //     inserts contracted event_vendors rows for this vendor — gate it the same
+  //     as finalizeVendor. Admin read: verification_state isn't public-readable
+  //     for a non-verified profile. The DB trigger is the hard backstop.
+  if (!(await isMarketplaceVendorBookable(createAdminClient(), pkg.vendor_profile_id))) {
+    return {
+      status: 'vendor_not_verified',
+      vendorName: vendor.business_name || pkg.package_name || 'this vendor',
+    };
   }
 
   // 6. Insert the booking row first (status=locked, customizations

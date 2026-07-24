@@ -10,12 +10,16 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   APPLICATION_TYPES,
   APPLICATION_TYPE_NAME,
   APPLICATION_TYPE_SKU,
   applicationTypeLabel,
   feeLabelForCentavos,
+  isBookableVerificationState,
+  isMarketplaceVendorBookable,
+  VERIFICATION_STATES,
 } from './vendor-verification';
 
 test('feeLabelForCentavos renders ₱0 (and anything ≤ 0) as "Free"', () => {
@@ -87,5 +91,90 @@ test('APPLICATION_TYPE_SKU maps to the canonical seeded sku_codes', () => {
   assert.equal(
     APPLICATION_TYPE_SKU.post_demotion,
     'verification_reverification',
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Booking-requires-verified gate (owner 2026-07-24) — the app-side half of the
+// rule the DB trigger enforce_booking_requires_verified_vendor also enforces.
+// ---------------------------------------------------------------------------
+
+test('isBookableVerificationState: ONLY "verified" is bookable', () => {
+  assert.equal(isBookableVerificationState('verified'), true);
+  for (const s of VERIFICATION_STATES) {
+    if (s === 'verified') continue;
+    assert.equal(
+      isBookableVerificationState(s),
+      false,
+      `${s} must NOT be bookable`,
+    );
+  }
+});
+
+/** Minimal supabase-client stub: one vendor_profiles row lookup by id. */
+function stubClient(
+  row: { verification_state?: unknown } | null,
+  opts: { error?: boolean } = {},
+): SupabaseClient {
+  return {
+    from() {
+      return {
+        select() {
+          return {
+            eq() {
+              return {
+                async maybeSingle() {
+                  return opts.error
+                    ? { data: null, error: { message: 'boom' } }
+                    : { data: row, error: null };
+                },
+              };
+            },
+          };
+        },
+      };
+    },
+  } as unknown as SupabaseClient;
+}
+
+test('isMarketplaceVendorBookable: true only for a verified profile', async () => {
+  assert.equal(
+    await isMarketplaceVendorBookable(
+      stubClient({ verification_state: 'verified' }),
+      'vp-1',
+    ),
+    true,
+  );
+});
+
+test('isMarketplaceVendorBookable: false for every non-verified state', async () => {
+  for (const s of ['unverified', 'pending_review', 'demoted', 'rejected']) {
+    assert.equal(
+      await isMarketplaceVendorBookable(
+        stubClient({ verification_state: s }),
+        'vp-1',
+      ),
+      false,
+      `${s} must resolve NOT bookable`,
+    );
+  }
+});
+
+test('isMarketplaceVendorBookable: fail-closed on a missing row or a read error', async () => {
+  assert.equal(await isMarketplaceVendorBookable(stubClient(null), 'vp-x'), false);
+  assert.equal(
+    await isMarketplaceVendorBookable(
+      stubClient({ verification_state: 'verified' }, { error: true }),
+      'vp-x',
+    ),
+    false,
+  );
+  // Unknown / garbage state → parseVerificationState → 'unverified' → false.
+  assert.equal(
+    await isMarketplaceVendorBookable(
+      stubClient({ verification_state: 'weird' }),
+      'vp-x',
+    ),
+    false,
   );
 });

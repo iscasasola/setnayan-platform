@@ -90,6 +90,7 @@ import {
 } from '@/lib/build-3state';
 import { getCategoryBuildStates } from './build-3state-actions';
 import { BuildLocked } from './_components/build-locked';
+import { ReuseBookingsPanel } from './_components/reuse-bookings-panel';
 import { BuildCompare, type CompareDatesInfo } from './_components/build-compare';
 import { type SavedPlanBuild, type PlanBuildSnapshot } from './build-actions';
 import {
@@ -1302,6 +1303,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
             region: buildAnchors.location.region,
           }}
         />
+        {/* Reusable Locked Bookings — dark behind NEXT_PUBLIC_REUSABLE_BOOKINGS_ENABLED;
+            renders null when off (owner 2026-07-24). */}
+        <ReuseBookingsPanel />
       </div>
     );
     return (

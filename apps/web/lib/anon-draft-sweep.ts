@@ -46,6 +46,12 @@ export async function runAnonDraftSweep(): Promise<{ scanned: number; deleted: n
     .select('user_id')
     .like('email', `%${ANON_EMAIL_DOMAIN}`)
     .lt('created_at', cutoffIso)
+    // Cursor (gap audit · anti-wedge): least-recently-skipped first (NULL = never
+    // skipped → sorts first), THEN oldest. Every skip below re-stamps the row so
+    // it rotates to the back of the window instead of permanently occupying the
+    // head and blocking deletable drafts behind it.
+    .order('anon_sweep_skipped_at', { ascending: true, nullsFirst: true })
+    .order('created_at', { ascending: true })
     .limit(BATCH);
   if (error) {
     console.error('[anon-draft-sweep] candidate query failed:', error.message);
@@ -55,6 +61,21 @@ export async function runAnonDraftSweep(): Promise<{ scanned: number; deleted: n
   const rows = candidates ?? [];
   let deleted = 0;
 
+  // Stamp a SKIPPED candidate so the next run orders it behind never-/less-
+  // recently-skipped rows (see the query ORDER above). Best-effort — a failed
+  // stamp just means the row is re-considered next run; the cursor is
+  // ordering-only and never gates deletion, so nothing is deleted unsafely.
+  const markSkipped = async (id: string): Promise<void> => {
+    try {
+      await admin
+        .from('users')
+        .update({ anon_sweep_skipped_at: new Date().toISOString() })
+        .eq('user_id', id);
+    } catch {
+      /* ordering-only — safe to retry next run */
+    }
+  };
+
   for (const row of rows) {
     const uid = (row as { user_id: string }).user_id;
     try {
@@ -63,7 +84,13 @@ export async function runAnonDraftSweep(): Promise<{ scanned: number; deleted: n
       // update failed (signup/actions.ts), so re-confirm before ANY delete —
       // deleting a converted (real) account would be data loss.
       const { data: got, error: getErr } = await admin.auth.admin.getUserById(uid);
-      if (getErr || got?.user?.is_anonymous !== true) continue;
+      if (getErr || got?.user?.is_anonymous !== true) {
+        // Converted (real) account with a lingering placeholder email, or a
+        // transient lookup error — either way don't delete. Stamp so a permanent
+        // converted-account row can't wedge the window.
+        await markSkipped(uid);
+        continue;
+      }
 
       // Events this draft created — an anon user is only ever a 'couple' member
       // of its own event.
@@ -85,7 +112,11 @@ export async function runAnonDraftSweep(): Promise<{ scanned: number; deleted: n
           .select('order_id')
           .in('event_id', eventIds)
           .limit(1);
-        if (paid && paid.length > 0) continue;
+        if (paid && paid.length > 0) {
+          // Legal hold (BIR / contract floor). Stamp so a held draft rotates back.
+          await markSkipped(uid);
+          continue;
+        }
 
         const { error: delEventsErr } = await admin
           .from('events')
@@ -93,6 +124,7 @@ export async function runAnonDraftSweep(): Promise<{ scanned: number; deleted: n
           .in('event_id', eventIds);
         if (delEventsErr) {
           console.error(`[anon-draft-sweep] event delete failed (${uid}):`, delEventsErr.message);
+          await markSkipped(uid);
           continue;
         }
       }
@@ -102,11 +134,14 @@ export async function runAnonDraftSweep(): Promise<{ scanned: number; deleted: n
       const { error: delUserErr } = await admin.auth.admin.deleteUser(uid);
       if (delUserErr) {
         console.error(`[anon-draft-sweep] auth delete failed (${uid}):`, delUserErr.message);
+        await markSkipped(uid);
         continue;
       }
       deleted++;
     } catch (e) {
       console.error(`[anon-draft-sweep] unexpected error (${uid}):`, e);
+      // Unresolved this pass — stamp so it can't wedge the head of the window.
+      await markSkipped(uid);
     }
   }
 

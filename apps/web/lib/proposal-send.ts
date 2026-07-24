@@ -3,7 +3,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile, type VendorProfileRow } from '@/lib/vendor-profile';
 import { fetchThreadById, type ChatThreadRow } from '@/lib/chat';
 import { notifyOtherParty } from '@/lib/chat-actions';
-import { tierCaps } from '@/lib/vendor-tier-caps';
 import { resolveTokens, formatCentavos, type ProposalLineItem } from '@/lib/vendor-proposals';
 import {
   resolveProposalValues,
@@ -106,34 +105,13 @@ async function gateVendorProposalThread(
     };
   }
 
-  // FREE-tier block — a proposal posts a vendor chat_messages row, so it must
-  // clear the SAME in-app messaging gate sendChatMessageCore enforces. Without
-  // this, a FREE vendor on an admin-accepted thread (accepted via the
-  // service-role path that skips unlock_vendor_event's TIER_FREE_NO_INAPP) could
-  // post a proposal card here, bypassing the FREE in-app block. Isolated tier
-  // probe (tier_state is excluded from the full profile select).
-  // NOTE: mirrors the probe in lib/chat-send.ts — worth extracting into one
-  // shared vendor-chat tier-gate helper so the two can't drift.
-  {
-    let tier: string | null = null;
-    try {
-      const { data: tierRow } = await supabase
-        .from('vendor_profiles')
-        .select('tier_state')
-        .eq('vendor_profile_id', profile.vendor_profile_id)
-        .maybeSingle();
-      tier = (tierRow as { tier_state?: string } | null)?.tier_state ?? null;
-    } catch {
-      tier = null;
-    }
-    if (tierCaps(tier).chat === 'none') {
-      return {
-        ok: false,
-        code: 'tier_free',
-        message: 'Get your account verified to message couples in the app.',
-      };
-    }
-  }
+  // Inbox ungated (owner 2026-07-24) — the mirrored FREE-tier block that used to
+  // sit here (matching sendChatMessageCore's tier gate) has been REMOVED. A
+  // proposal is an answer, and the inbox is never locked by tier: a vendor on any
+  // tier who has an accepted thread can post a proposal. The gate this mirrored
+  // is gone in lib/chat-send.ts, so keeping it here would re-introduce the wall
+  // we just removed. Couple-side spam protection is unaffected (it lives on the
+  // inquiry-open path in lib/inquiry-gate.ts, not here).
 
   return { ok: true, user, profile, thread };
 }

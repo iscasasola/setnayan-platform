@@ -18,7 +18,6 @@ import {
   FOUNDER_INQUIRY_NOTIFICATION_TITLE,
   FOUNDER_INQUIRY_NOTIFICATION_PREFIX,
 } from '@/lib/founder-seats';
-import { freeInquiryAcceptEnabled } from '@/lib/free-inquiry-accept';
 
 /**
  * Mark a thread as read for the current user — stamps (or refreshes)
@@ -346,53 +345,36 @@ export async function acceptInquiry(formData: FormData) {
   const { supabase, thread } = await loadVendorThreadForActor(threadId);
 
   if (thread.inquiry_status !== 'accepted') {
-    // ⚠ ANSWERING IS FREE (2026-07-22 · token retirement · migration
-    // 20270909586177): unlock_vendor_event still runs — it keeps every gate +
-    // records the idempotent unlock — but forces the token burn to 0, so nothing
-    // is charged on the live path. The historical burn model is described below
-    // for the dormant HOLD path + reversibility; on the live path no token moves.
+    // ── The inbox is ungated (owner 2026-07-24) ───────────────────────────────
+    // Every vendor — free, verified, or paid — can receive AND answer couple
+    // inquiries with no tier wall and no weekly cap ("your inbox is never
+    // locked"). Accepting an inquiry IS the vendor's answer (a vendor can't reply
+    // before accepting), so this is the single enforcement point for "can this
+    // vendor answer?" — and it no longer discriminates by tier.
     //
-    // Burn-on-answer (historical · owner-locked token economy 2026-06-05).
-    // Accepting an inquiry IS the vendor's "answer" (a vendor can't even reply
-    // before accepting). It cost ONE idempotent unlock per (vendor, event),
-    // banded by the wedding's region (₱200/400/600 = 1/2/3 tokens), and that
-    // single unlock covers ALL of this vendor's services for the event. The RPC
-    // (unlock_vendor_event) is atomic + idempotent + TIER-GATED. Per the LIVE
-    // body (migration 20270307985604, verified retune 2026-06-25): FREE can't
-    // accept in-app inquiries; VERIFIED is capped at ≤10 new unlocks/rolling-week
-    // AND burns 1-3 tokens per answer; SOLO/PRO/ENTERPRISE are uncapped + burn
-    // 1-3 tokens. The band resolves events.region → public.regions.burn_band by
-    // alias-match (burn-band single source, migration 20270331100000).
-    //   NOTE — the old "FREE-VERIFIED answers free" carve-out and the returning-
-    //   customer FLAT-1 "resync" branch are NO LONGER in the live RPC: the resync
-    //   branch was dropped at 20270221294989 (vendor_tier_solo) and verified was
-    //   moved onto the burning path at 20270307985604. Don't reason from those.
-    // A re-accept of an already-unlocked (vendor,event) is free + un-gated. Any
-    // RAISE rolls the whole tx back (no phantom unlock) — we surface a friendly,
-    // tier-appropriate message and do NOT accept. The RPC also ownership-checks
+    // We always route to unlock_vendor_event_free, the no-tier-gate variant of
+    // unlock_vendor_event (migration 20270917330128) that drops exactly two
+    // blocks — the TIER_FREE_NO_INAPP raise (free-tier block) and the
+    // VERIFIED_WEEKLY_LIMIT raise (10/rolling-week cap) — while preserving every
+    // other invariant: the answering-member ownership check (FORBIDDEN), the
+    // idempotent per-(vendor,event) unlock, founder-seat comp, and the 0-token
+    // unlock row (answering is free — token packs are retired).
+    //
+    // ANTI-SPAM IS UNTOUCHED. Ungating the *vendor* inbox does not remove the
+    // *couple*-side spam protections that keep a bot/sock-puppet flood from ever
+    // reaching this point: the inquiry velocity caps + Turnstile in
+    // lib/inquiry-gate.ts (NEXT_PUBLIC_INQUIRY_GATE_ENABLED) still limit how many
+    // inquiries a couple can open. This change only stops us penalising a vendor
+    // for answering the couples who do get through.
+    //
+    // A re-accept of an already-unlocked (vendor,event) is a no-op. Any RAISE
+    // rolls the whole tx back (no phantom unlock); the RPC also ownership-checks
     // the caller (defense-in-depth atop the loadVendorThreadForActor gate above).
-    // PR-1: when the free-answer flag is on (default off), route to the
-    // no-tier-gate variant so free/verified vendors can accept without the
-    // TIER_FREE_NO_INAPP / VERIFIED_WEEKLY_LIMIT wall. Off → the live path below
-    // is byte-identical to today.
-    const { error: burnErr } = freeInquiryAcceptEnabled()
-      ? await supabase.rpc('unlock_vendor_event_free', {
-          p_vendor_profile_id: thread.vendor_profile_id,
-          p_event_id: thread.event_id,
-        })
-      : await supabase.rpc('unlock_vendor_event', {
-          p_vendor_profile_id: thread.vendor_profile_id,
-          p_event_id: thread.event_id,
-        });
+    const { error: burnErr } = await supabase.rpc('unlock_vendor_event_free', {
+      p_vendor_profile_id: thread.vendor_profile_id,
+      p_event_id: thread.event_id,
+    });
     if (burnErr) {
-      if (/TIER_FREE_NO_INAPP/.test(burnErr.message)) {
-        fail('Get your account verified to start receiving and answering couples in the app.');
-      }
-      if (/VERIFIED_WEEKLY_LIMIT/.test(burnErr.message)) {
-        fail(
-          'You’ve answered your 10 inquiries for this week. Upgrade to Pro for unlimited inquiries, or come back next week.',
-        );
-      }
       fail('Could not accept right now — please try again in a moment.');
     }
 

@@ -145,9 +145,9 @@ function CardGrid({ children }: { children: React.ReactNode }) {
 
 export function VendorGrowThesis() {
   const items = [
-    { b: '0%', s: 'commission, always — you keep 100% of every sale' },
-    { b: '₱0', s: 'to run your whole business, import your clients & get discovered' },
-    { b: 'Pay only', s: 'when a booking comes through us — never just for data' },
+    { b: '₱0', s: 'to join, run your whole business & bring your own clients — always free' },
+    { b: '0% now', s: 'commission while we launch — you keep every peso you earn' },
+    { b: 'First 5 free', s: 'the bookings we bring you are on us — then a flat 5%, only on couples we source' },
   ];
   return (
     <div style={{ background: 'var(--m-ink)', color: 'var(--m-mulberry-3)' }}>
@@ -359,7 +359,7 @@ export function VendorGrowFairPay() {
         <Eyebrow center>Fair by design</Eyebrow>
         <H2>Never spend a peso that doesn&rsquo;t grow your business.</H2>
         <Lede>
-          Most platforms charge you big just to hand you data. We don&rsquo;t. If we can&rsquo;t bring you customers, you owe us nothing — keep running your business and importing clients, free. You only ever pay when a real booking comes through us.
+          Most platforms charge you big just to hand you data. We don&rsquo;t. Joining is free, running your whole business is free, and bringing your own clients is always free. While we launch, commission is <b style={{ color: 'var(--m-ink)' }}>0%</b>. After that, your first five Setnayan-sourced bookings are on us — then a <b style={{ color: 'var(--m-ink)' }}>flat 5%</b>, only on the couples we bring you. Your imported and repeat clients stay free, forever.
         </Lede>
       </div>
     </section>
@@ -443,7 +443,7 @@ export function VendorGrowNoFakes() {
         <Eyebrow center>Merit only</Eyebrow>
         <H2>No fakes. No pay-to-win. Ever.</H2>
         <Lede style={{ maxWidth: '56ch', margin: '0 auto' }}>
-          We study and hunt fake results continuously — and it only gets sharper as we grow. Any vendor caught faking to boost themselves loses all their data and is permanently banned. In return, we ask one thing: your best work, and honest communication with couples.
+          Ranking is merit-only — you can&rsquo;t buy your way up, ever. Any vendor caught faking results to inflate their own standing loses all their data and is permanently banned. In return, we ask one thing: your best work, and honest communication with couples.
         </Lede>
       </section>
     </div>
@@ -459,13 +459,13 @@ export function VendorGrowReach() {
         <Eyebrow>Reach that compounds</Eyebrow>
         <H2>Beyond events — into faith, and trusted circles.</H2>
         <Lede>
-          We extend your reach across event types <em>and</em> religion. And with trusted-shop recommendations up to the 3rd degree, the more you serve people well, the more we recommend you to their nearest friends and family — reach that grows itself. Booster subscriptions are there when you want to amplify your presence.
+          We extend your reach across event types <em>and</em> religion. And with trusted-shop recommendations up to the 3rd degree, the more you serve people well, the more we recommend you to their nearest friends and family — reach that grows itself. It&rsquo;s always earned, never bought.
         </Lede>
       </div>
       <CardGrid>
         <GridCard icon="⛪" title="Events + faith reach" body="Matched by the event types you serve and the rites you specialize in." />
         <GridCard icon="👪" title="Trusted-shop recommendations" body="Serve people well and we recommend you to their circle — up to the 3rd degree." />
-        <GridCard icon="🚀" title="Booster subscriptions" body="Optional boosts to extend your reach and sharpen your brand presentation." />
+        <GridCard icon="🧭" title="Appear where couples plan" body="Show up inside the planner and budget couples actually use — matched to what they're building, never paid placement." />
       </CardGrid>
     </section>
   );
@@ -483,6 +483,8 @@ export function VendorGrowTools() {
       </div>
       <CardGrid>
         <GridCard icon="▦" title="Custom QR" body="Add your services to anyone — in or out of the app. Dedicated codes whether they've inquired or already paid." />
+        <GridCard icon="₱" title="Price your way" body="Build services priced by fixed package, per guest, or per hour — with inclusions, add-ons and custom payment schedules." />
+        <GridCard icon="📞" title="In-app video & audio calls" body="Meet couples face-to-face right in the thread. Peer-to-peer and never recorded." />
         <GridCard icon="★" title="Printable review QR" body="Print it, place it at the event — collect real reviews from real guests on the day." />
         <GridCard icon="✎" title="Contracts on record" body="Every agreement timestamped to a per-event paper trail." />
         <GridCard icon="👥" title="Your team" body="Add crew with their own scoped logins — no shared passwords." />
@@ -507,7 +509,7 @@ export function VendorGrowGetPaid() {
           </Lede>
         </div>
         <ul style={{ listStyle: 'none', padding: 0, margin: '24px 0 0', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <FeatureLI icon="₱" title="Direct to your GCash / bank" body="0% commission — and we never hold your money." />
+          <FeatureLI icon="₱" title="Direct to your GCash / bank" body="0% while we launch — and we never hold a peso of yours." />
           <FeatureLI icon="◷" title="PH-style milestone tracking" body="Reservation → progress → balance, with proof — the way couples pay here." />
           <FeatureLI icon="🛡" title="No-show downpayment protection" body="A frozen, agreed cancellation policy makes a forfeited deposit defensible." />
           <FeatureLI icon="📆" title="Payday calendar" body="Every upcoming due-date across all your bookings, on one timeline." />
@@ -537,7 +539,7 @@ export function VendorGrowCTA() {
           </Link>
         </div>
         <p style={{ maxWidth: 1120, margin: '26px auto 0', textAlign: 'center', fontSize: 12, color: 'var(--m-slate-3)', fontStyle: 'italic' }}>
-          0% commission, always · we never hold your money · merit-only ranking.
+          0% commission while we launch · we never hold your money · merit-only ranking.
         </p>
       </section>
     </div>

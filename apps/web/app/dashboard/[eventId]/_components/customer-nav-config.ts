@@ -105,9 +105,10 @@ export function buildCustomerNavGroups(
     hideKeys?: string[];
     websiteEnabled?: boolean;
     monogramEnabled?: boolean;
-    /** The event's public slug. When present, the top-level "Launch" entry
-     *  points AT the couple's live personal website (`/[slug]`); when absent
-     *  (no slug yet) it falls back to the go-live/setup surface. */
+    /** The event's public slug. Retained for callers/other consumers; the
+     *  "Launch" entry no longer routes on it (owner 2026-07-24 — Launch opens
+     *  the settings-first `/website/launch` surface, which links to the live
+     *  `/[slug]` via "View my site"). */
     slug?: string | null;
     /** Live guest count → the Guests item's badge (neutral tone). Resolved
      *  server-side in layout.tsx; omit/0 → no badge (never fabricated). */
@@ -116,21 +117,21 @@ export function buildCustomerNavGroups(
 ): NavGroup[] {
   const base = `/dashboard/${eventId}`;
 
-  // Launch = the couple's live personal website. It lives in its OWN "Go live"
+  // Launch = the couple's website control surface. It lives in its OWN "Go live"
   // section (design: setnayan-overview-energy.html), not among the Plan items.
-  // OPENS THE COUPLE'S LIVE PERSONAL WEBSITE (`/[slug]`) directly (owner
-  // 2026-07-02 "launch on customer event is their personal website"). A
-  // signed-in host always sees their own page even while it's private
-  // (app/[slug]/page.tsx host-gate), so this is safe pre-publish; before a slug
-  // exists we fall back to the go-live/setup surface (`/website/launch`) so they
-  // can publish. Gated on the 'website' surface (websiteEnabled).
+  // OPENS THE SETTINGS-FIRST LAUNCH SURFACE (`/website/launch`) — owner
+  // 2026-07-24 "when we open Launch, instead of the website, we start by the
+  // settings (free) and the settings when Website Pro is unlocked". (Supersedes
+  // the 2026-07-02 "open the live `/[slug]` directly" ruling; the live site is
+  // now one click away via "View my site" on that surface.) Gated on the
+  // 'website' surface (websiteEnabled). Design: Design_Launch_Settings_2026-07-24/.
   const launchItem: NavItem | null = opts?.websiteEnabled
     ? {
         key: 'launch',
         label: 'Launch',
-        href: opts?.slug ? `/${opts.slug}` : `${base}/website/launch`,
+        href: `${base}/website/launch`,
         icon: Rocket,
-        matchPrefix: opts?.slug ? `/${opts.slug}` : `${base}/website/launch`,
+        matchPrefix: `${base}/website/launch`,
       }
     : null;
 

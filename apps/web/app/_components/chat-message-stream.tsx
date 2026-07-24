@@ -39,7 +39,12 @@ import { detectNegotiation } from '@/lib/chat-negotiation-detect';
 import { ChatAppointmentCard, type ChatAppointmentData } from './chat-appointment-card';
 import { ScheduleSuggestChip } from './schedule-suggest-chip';
 import { ChatChangeOrderCard, type ChatChangeOrderData } from './chat-change-order-card';
-import { ChangeRequestSuggestChip } from './change-request-suggest-chip';
+import {
+  ChatAmendmentCard,
+  type ChatAmendmentData,
+  type AmendmentItemView,
+} from './chat-amendment-card';
+import { AmendmentSuggestChip } from './amendment-suggest-chip';
 import type { AppointmentKind } from '@/lib/appointments';
 
 /** Display data for the in-thread proposal card, fetched by proposal_id. */
@@ -213,6 +218,95 @@ export function ChatMessageStream({
             delta_amount_php: Number(c.delta_amount_php),
             status: c.status,
             raised_by: c.raised_by,
+          };
+        }
+        return next;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [messages, supabase, negotiationOn]);
+
+  // Amendment cards (negotiation Phase 3): a message with amendment_id renders a
+  // bundled proposal amendment. Fetch the amendment rows + their items + the base
+  // proposal totals (RLS-scoped), refetched on any message-set change so a
+  // status flip / delivered stamp repaints.
+  const [amendmentCards, setAmendmentCards] = useState<
+    Record<string, { data: ChatAmendmentData; items: AmendmentItemView[] }>
+  >({});
+  useEffect(() => {
+    if (!negotiationOn) return;
+    const ids = [...new Set(messages.map((m) => m.amendment_id).filter((x): x is string => !!x))];
+    if (ids.length === 0) return;
+    let cancelled = false;
+    void (async () => {
+      const [{ data: amRows }, { data: itemRows }] = await Promise.all([
+        supabase
+          .from('proposal_amendments')
+          .select('amendment_id, status, raised_by, note, base_proposal_id')
+          .in('amendment_id', ids),
+        supabase
+          .from('proposal_amendment_items')
+          .select('item_id, amendment_id, item_kind, label, amount_php, delivered_at, sort_order')
+          .in('amendment_id', ids)
+          .order('sort_order', { ascending: true }),
+      ]);
+      if (cancelled || !amRows) return;
+      const ams = amRows as Array<{
+        amendment_id: string;
+        status: ChatAmendmentData['status'];
+        raised_by: ChatAmendmentData['raised_by'];
+        note: string | null;
+        base_proposal_id: string | null;
+      }>;
+      // Base proposal totals for the "current → new total" line.
+      const propIds = Array.from(
+        new Set(ams.map((a) => a.base_proposal_id).filter((v): v is string => Boolean(v))),
+      );
+      const totalByProp = new Map<string, number>();
+      if (propIds.length > 0) {
+        const { data: props } = await supabase
+          .from('vendor_proposals')
+          .select('proposal_id, total_centavos')
+          .in('proposal_id', propIds);
+        for (const p of (props ?? []) as Array<{ proposal_id: string; total_centavos: number }>)
+          totalByProp.set(p.proposal_id, p.total_centavos);
+      }
+      const itemsByAm = new Map<string, AmendmentItemView[]>();
+      for (const it of (itemRows ?? []) as Array<{
+        item_id: string;
+        amendment_id: string;
+        item_kind: AmendmentItemView['kind'];
+        label: string;
+        amount_php: number | string | null;
+        delivered_at: string | null;
+      }>) {
+        const arr = itemsByAm.get(it.amendment_id) ?? [];
+        arr.push({
+          item_id: it.item_id,
+          kind: it.item_kind,
+          label: it.label,
+          amount_php: it.amount_php == null ? null : Number(it.amount_php),
+          delivered_at: it.delivered_at,
+        });
+        itemsByAm.set(it.amendment_id, arr);
+      }
+      if (cancelled) return;
+      setAmendmentCards(() => {
+        const next: Record<string, { data: ChatAmendmentData; items: AmendmentItemView[] }> = {};
+        for (const a of ams) {
+          next[a.amendment_id] = {
+            data: {
+              amendment_id: a.amendment_id,
+              status: a.status,
+              raised_by: a.raised_by,
+              note: a.note,
+              baseTotalCentavos: a.base_proposal_id
+                ? totalByProp.get(a.base_proposal_id) ?? null
+                : null,
+            },
+            items: itemsByAm.get(a.amendment_id) ?? [],
           };
         }
         return next;
@@ -565,6 +659,30 @@ export function ChatMessageStream({
               </li>
             );
           }
+          // Amendment cards (negotiation Phase 3): a message with amendment_id
+          // renders the bundled proposal amendment (current-vs-requested, accept
+          // / counter / decline + checklist). Falls back to the body until data
+          // loads; degrades to a plain bubble when the flag is off.
+          if (negotiationOn && m.amendment_id) {
+            const am = amendmentCards[m.amendment_id];
+            return (
+              <li key={m.message_id} className="flex justify-center">
+                {am ? (
+                  <ChatAmendmentCard
+                    data={am.data}
+                    items={am.items}
+                    viewerRole={viewerRole}
+                    threadId={threadId}
+                    returnPath={returnPathFor(m)}
+                  />
+                ) : (
+                  <div className="w-full max-w-[92%] rounded-xl border border-mulberry/30 bg-mulberry/[0.06] p-3">
+                    <p className="whitespace-pre-wrap break-words text-sm text-ink/80">{m.body}</p>
+                  </div>
+                )}
+              </li>
+            );
+          }
           // System messages (e.g. the Build re-quote nudge) are automated
           // Setnayan notes — centered, owned by neither side, labelled
           // "Setnayan". Never "from the couple"/"from the vendor".
@@ -635,6 +753,7 @@ export function ChatMessageStream({
               !m.proposal_id &&
               !m.appointment_id &&
               !m.change_order_id &&
+              !m.amendment_id &&
               m.body &&
               detectNegotiation(m.body).primary === 'schedule' ? (
                 <ScheduleSuggestChip
@@ -644,15 +763,18 @@ export function ChatMessageStream({
                   eventDate={eventDate}
                 />
               ) : null}
-              {/* Phase 2: discount / inclusion suggestion chips under the
-                  sender's own message. A message can raise both. */}
+              {/* Phase 3: bundled "request proposal changes" chip under the
+                  sender's own message (supersedes the P2 single-item chip for
+                  creating new changes; existing change-order cards still
+                  resolve). Opens the multi-item amendment builder. */}
               {negotiationOn &&
               ownsBubble(m, viewerRole) &&
               !m.proposal_id &&
               !m.appointment_id &&
               !m.change_order_id &&
+              !m.amendment_id &&
               m.body ? (
-                <ChangeRequestSuggestChip
+                <AmendmentSuggestChip
                   threadId={threadId}
                   returnPath={returnPathFor(m)}
                   body={m.body}

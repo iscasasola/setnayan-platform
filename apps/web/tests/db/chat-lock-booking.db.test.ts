@@ -200,17 +200,21 @@ test('cross entry-point: vendor-finalize then chat re-lock → ONE charge, never
   assert.equal(first.computed_fee_centavos, 1_000_000, '5% of ₱200,000');
 
   // Entry point #2 — the couple ALSO hits chat lock. bookVendorAtChatLock sees an
-  // already-'contracted' row → refresh_fee_only → NO rewrite, just the idempotent
-  // fee RPC. Model that: DON'T rewrite; re-open the charge.
-  const rewritten = await chatLockWrite(evId, eventId, 999_999); // (would-be) but skipped in core
-  // Sanity: the money-status precondition still allowed 'contracted' → the write
-  // matches, so the CORE (not this raw SQL) is what skips it. Prove the FEE guard
-  // holds regardless of a rewrite:
+  // already-'contracted' row → refresh_fee_only → NO rewrite in the CORE. Here we
+  // raw-write a NEW total to prove two guards at once: (a) the fee RPC still reuses
+  // the ONE live charge (no second charge), and (b) the post-lock re-derive trigger
+  // (migration 20270930120000) tracks the amended total IN PLACE — still one charge,
+  // same id, its (pending, unpaid) amount re-derived to 5% of the new total.
+  const rewritten = await chatLockWrite(evId, eventId, 999_999);
   assert.equal(rewritten, 1, 'raw update matched (core skips this; fee guard is the backstop)');
   const second = await openLockCharge(evId);
   assert.equal(second.reused, true, 're-lock reuses the live charge');
   assert.equal(second.charge_id, first.charge_id, 'same charge id — no second charge');
-  assert.equal(second.computed_fee_centavos, 1_000_000, 'fee frozen at the first lock — no re-charge on a new total');
+  assert.equal(
+    second.computed_fee_centavos,
+    4_999_995,
+    'pending fee RE-DERIVED to 5% of the amended ₱999,999 — not doubled, not stale',
+  );
 
   const count = await db.query<{ c: number }>(
     `SELECT count(*)::int c FROM public.booking_fee_charges WHERE event_vendor_id = $1`, [evId],

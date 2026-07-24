@@ -34,6 +34,11 @@ import {
 } from '@/lib/chat';
 import { formatCentavos, PROPOSAL_STATUS_LABEL } from '@/lib/vendor-proposals';
 import { trackFailure } from '@/lib/telemetry/track-error';
+import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
+import { detectNegotiation } from '@/lib/chat-negotiation-detect';
+import { ChatAppointmentCard, type ChatAppointmentData } from './chat-appointment-card';
+import { ScheduleSuggestChip } from './schedule-suggest-chip';
+import type { AppointmentKind } from '@/lib/appointments';
 
 /** Display data for the in-thread proposal card, fetched by proposal_id. */
 type ProposalCardData = {
@@ -119,6 +124,63 @@ export function ChatMessageStream({
       cancelled = true;
     };
   }, [messages, supabase]);
+
+  // Appointment cards (negotiation auto-reader Phase 1): a message with
+  // appointment_id renders as a schedule request card. Fetch the appointment's
+  // live display data (RLS-scoped) once per id, refetched whenever the message
+  // set changes so a status flip (accept / decline / propose-new) repaints.
+  const negotiationOn = chatNegotiationEnabled();
+  const [appointmentCards, setAppointmentCards] = useState<Record<string, ChatAppointmentData>>({});
+  useEffect(() => {
+    if (!negotiationOn) return;
+    const ids = [
+      ...new Set(messages.map((m) => m.appointment_id).filter((x): x is string => !!x)),
+    ];
+    if (ids.length === 0) return;
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from('event_appointments')
+        .select('appointment_id, kind, type, custom_label, scheduled_at, status, initiated_by')
+        .in('appointment_id', ids);
+      if (cancelled || !data) return;
+      setAppointmentCards(() => {
+        const next: Record<string, ChatAppointmentData> = {};
+        for (const a of data as Array<{
+          appointment_id: string;
+          kind: AppointmentKind;
+          type: string;
+          custom_label: string | null;
+          scheduled_at: string | null;
+          status: ChatAppointmentData['status'];
+          initiated_by: ChatAppointmentData['initiated_by'];
+        }>) {
+          next[a.appointment_id] = {
+            appointment_id: a.appointment_id,
+            kind: a.kind,
+            label: a.custom_label?.trim() || 'Meeting',
+            scheduled_at: a.scheduled_at,
+            status: a.status,
+            initiated_by: a.initiated_by,
+          };
+        }
+        return next;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [messages, supabase, negotiationOn]);
+
+  // In-app path back to THIS thread page — the return target for negotiation
+  // server actions (appointment create / respond redirect + revalidate here).
+  const returnPathFor = useCallback(
+    (m: ChatMessageRow) =>
+      viewerRole === 'couple'
+        ? `/dashboard/${m.event_id}/messages/${threadId}`
+        : `/vendor-dashboard/messages/${threadId}`,
+    [viewerRole, threadId],
+  );
 
   // Scroll management: only auto-stick to bottom if the user IS near the
   // bottom. Tracking this in a ref (not state) avoids spurious re-renders
@@ -401,6 +463,32 @@ export function ChatMessageStream({
               </li>
             );
           }
+          // Appointment cards (negotiation Phase 1): a message with
+          // appointment_id renders the schedule request card with the
+          // counterparty's accept / propose-new-time / decline actions. Falls
+          // back to the message body until the appointment data loads. Only when
+          // the flag is on — off, it degrades to a plain bubble (body is a
+          // readable "📅 Meeting request: …").
+          if (negotiationOn && m.appointment_id) {
+            const appt = appointmentCards[m.appointment_id];
+            return (
+              <li key={m.message_id} className="flex justify-center">
+                {appt ? (
+                  <ChatAppointmentCard
+                    data={appt}
+                    viewerRole={viewerRole}
+                    eventId={m.event_id}
+                    vendorProfileId={m.vendor_profile_id}
+                    returnPath={returnPathFor(m)}
+                  />
+                ) : (
+                  <div className="w-full max-w-[92%] rounded-xl border border-terracotta/40 bg-terracotta/[0.06] p-3">
+                    <p className="whitespace-pre-wrap break-words text-sm text-ink/80">{m.body}</p>
+                  </div>
+                )}
+              </li>
+            );
+          }
           // System messages (e.g. the Build re-quote nudge) are automated
           // Setnayan notes — centered, owned by neither side, labelled
           // "Setnayan". Never "from the couple"/"from the vendor".
@@ -419,7 +507,7 @@ export function ChatMessageStream({
           return (
             <li
               key={m.message_id}
-              className={`flex ${ownsBubble(m, viewerRole) ? 'justify-end' : 'justify-start'}`}
+              className={`flex flex-col ${ownsBubble(m, viewerRole) ? 'items-end' : 'items-start'}`}
             >
               <div
                 className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${
@@ -462,6 +550,22 @@ export function ChatMessageStream({
                   {formatChatTimestamp(m.created_at)}
                 </p>
               </div>
+              {/* Negotiation auto-reader (Phase 1): under the sender's OWN
+                  message, if the deterministic reader flags a meeting topic,
+                  offer a one-tap "set up this meeting" chip. Suggestion-grade —
+                  nothing is created until they tap + confirm. Flag-gated. */}
+              {negotiationOn &&
+              ownsBubble(m, viewerRole) &&
+              !m.proposal_id &&
+              !m.appointment_id &&
+              m.body &&
+              detectNegotiation(m.body).primary === 'schedule' ? (
+                <ScheduleSuggestChip
+                  threadId={threadId}
+                  returnPath={returnPathFor(m)}
+                  body={m.body}
+                />
+              ) : null}
             </li>
           );
         })

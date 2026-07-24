@@ -33,6 +33,14 @@ export default async function CoupleThreadPage({ params }: Props) {
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.event_id !== eventId) notFound();
 
+  // Event date bounds the meeting-request picker (today → day before the event).
+  const { data: eventRow } = await supabase
+    .from('events')
+    .select('event_date')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const eventDate = (eventRow as { event_date?: string | null } | null)?.event_date ?? null;
+
   // UGC block state (Apple 1.2) — drives the thread menu label + composer gating.
   const blockState = await getThreadBlockState(thread, user.id, 'couple');
 
@@ -162,6 +170,7 @@ export default async function CoupleThreadPage({ params }: Props) {
         currentUserId={user.id}
         viewerRole="couple"
         counterpartyLabel={vendorLabel}
+        eventDate={eventDate}
       />
 
       {blockState.blockedByMe || blockState.blockedByThem ? (

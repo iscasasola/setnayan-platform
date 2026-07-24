@@ -584,6 +584,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         currentUserId={user.id}
         viewerRole="vendor"
         counterpartyLabel={coupleLabel}
+        eventDate={event?.event_date ?? null}
       />
 
       {blockState.blockedByMe || blockState.blockedByThem ? (

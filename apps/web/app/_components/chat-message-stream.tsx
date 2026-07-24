@@ -66,6 +66,11 @@ type Props = {
    * display_name (per identity-masking — never the couple's personal name).
    */
   counterpartyLabel: string;
+  /**
+   * The event's date (yyyy-mm-dd) or null — bounds the meeting-request date
+   * picker (today → day before the event). Negotiation Phase 1.
+   */
+  eventDate?: string | null;
 };
 
 const TYPING_DEBOUNCE_MS = 700;
@@ -77,6 +82,7 @@ export function ChatMessageStream({
   currentUserId,
   viewerRole,
   counterpartyLabel,
+  eventDate = null,
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
   // the channel objects we attach to it must outlive each render.
@@ -525,6 +531,7 @@ export function ChatMessageStream({
                     eventId={m.event_id}
                     vendorProfileId={m.vendor_profile_id}
                     returnPath={returnPathFor(m)}
+                    eventDate={eventDate}
                   />
                 ) : (
                   <div className="w-full max-w-[92%] rounded-xl border border-terracotta/40 bg-terracotta/[0.06] p-3">
@@ -634,6 +641,7 @@ export function ChatMessageStream({
                   threadId={threadId}
                   returnPath={returnPathFor(m)}
                   body={m.body}
+                  eventDate={eventDate}
                 />
               ) : null}
               {/* Phase 2: discount / inclusion suggestion chips under the

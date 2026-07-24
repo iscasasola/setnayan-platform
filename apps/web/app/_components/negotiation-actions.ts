@@ -60,9 +60,15 @@ export async function createScheduleRequestFromChat(formData: FormData): Promise
   const kindRaw = formData.get('kind');
   const kind =
     kindRaw === 'in_person' || kindRaw === 'video' || kindRaw === 'voice' ? kindRaw : null;
-  const scheduledAt = toIso(formData.get('scheduled_at'));
+  // A picked DATE (yyyy-mm-dd) + a TIME slot (HH:MM), combined at Manila (+08:00).
+  const date = str(formData.get('date'), 10);
+  const time = str(formData.get('time'), 5);
   const title = str(formData.get('title'), 120);
-  if (!kind || !scheduledAt) redirect(dest);
+  const shapeOk =
+    !!date && !!time && /^\d{4}-\d{2}-\d{2}$/.test(date) && /^([01]\d|2[0-3]):[0-5]\d$/.test(time);
+  if (!kind || !shapeOk) redirect(dest);
+  const scheduledAt = new Date(`${date}T${time}:00+08:00`);
+  if (Number.isNaN(scheduledAt.getTime())) redirect(dest);
 
   const supabase = await createClient();
   const {
@@ -99,6 +105,29 @@ export async function createScheduleRequestFromChat(formData: FormData): Promise
       : null;
   if (!role) redirect(dest);
 
+  // Window rule (owner 2026-07-24): a meeting must fall between TODAY and the day
+  // BEFORE the event. Compare Manila calendar dates as strings (tz-correct, no
+  // clock math). Server-authoritative — the client date input also bounds it.
+  const todayManila = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(
+    new Date(),
+  );
+  const { data: evRow } = await supabase
+    .from('events')
+    .select('event_date')
+    .eq('event_id', thread.event_id)
+    .maybeSingle();
+  const eventDate = (evRow as { event_date?: string | null } | null)?.event_date ?? null;
+  const failWindow = (msg: string): never => {
+    if (back) {
+      redirect(`${back}${back.includes('?') ? '&' : '?'}error=1&msg=${encodeURIComponent(msg)}`);
+    }
+    redirect(dest);
+  };
+  if ((date as string) < todayManila) failWindow('Pick a meeting date from today onward.');
+  if (eventDate && (date as string) >= eventDate) {
+    failWindow('Meetings must be scheduled before the event day.');
+  }
+
   const label = title ?? 'Meeting';
 
   // Insert the appointment (RLS-scoped) and read back its id for the card FK.
@@ -111,7 +140,7 @@ export async function createScheduleRequestFromChat(formData: FormData): Promise
       kind,
       type: 'custom',
       custom_label: label,
-      scheduled_at: scheduledAt,
+      scheduled_at: scheduledAt.toISOString(),
       status: 'proposed',
       initiated_by: role,
       proposed_by_user_id: user.id,

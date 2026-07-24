@@ -347,7 +347,10 @@ export function buildShortlistFolders(args: {
       reviewCount: ext?.review_count ?? null,
       isVerified: ext?.is_verified ?? false,
       isSetnayan: ext?.is_setnayan_service ?? false,
-      href: `/dashboard/${eventId}/vendors/${v.vendor_id}`,
+      // Canonical per-service room (33-call-site convention). A bare
+      // /vendors/[vendorId] 404s at sub-xl viewports (no page there); link
+      // straight to /workspace. A redirect page also backstops the bare route.
+      href: `/dashboard/${eventId}/vendors/${v.vendor_id}/workspace`,
       // Fit-badge · reach. `within_radius` is undefined for manual vendors / when
       // coords or tier are unknown → NULL (badge hidden, never a false "out of
       // range"). serviceRadiusKm feeds the "within N km" label.

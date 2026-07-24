@@ -8,7 +8,7 @@ import {
   FLAG_STATUS_TONE,
   FLAG_TYPE_LABEL,
   formatAutoResolveCountdown,
-  sweepAutoResolveStaleFlags,
+  sweepEscalateStaleFlags,
   type FlagStatus,
   type FlagType,
 } from '@/lib/force-majeure';
@@ -78,7 +78,7 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
   // Per the no-cron lock (PR #47, 2026-05-14): every admin pageview sweeps
   // stale `open` / `under_review` flags past their 7-day auto-resolve
   // window. Idempotent + best-effort; failures never block render.
-  await sweepAutoResolveStaleFlags(admin);
+  await sweepEscalateStaleFlags(admin);
 
   let query = admin
     .from('force_majeure_flags')
@@ -89,7 +89,9 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
     .limit(200);
 
   if (filter === 'open_set') {
-    query = query.in('status', ['open', 'under_review']);
+    // Include `escalated` — a stale flag the sweep advanced for attention must
+    // stay in the default triage queue, never disappear (gap audit B2).
+    query = query.in('status', ['open', 'under_review', 'escalated']);
   } else if (filter !== 'all') {
     query = query.eq('status', filter);
   }

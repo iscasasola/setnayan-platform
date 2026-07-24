@@ -11,7 +11,7 @@ import {
   FLAG_STATUS_LABEL,
   FLAG_STATUS_TONE,
   formatAutoResolveCountdown,
-  sweepAutoResolveStaleFlags,
+  sweepEscalateStaleFlags,
   type FlagStatus,
   type FlagType,
 } from '@/lib/force-majeure';
@@ -57,7 +57,7 @@ export default async function CoupleDisputesPage({ params, searchParams }: Props
   // Per the no-cron lock (PR #47, 2026-05-14): every couple pageview
   // sweeps stale `open` / `under_review` flags past their 7-day window.
   // Uses the admin client because RLS restricts UPDATE to admins.
-  await sweepAutoResolveStaleFlags(createAdminClient());
+  await sweepEscalateStaleFlags(createAdminClient());
 
   const [flagsRes, vendorsRes] = await Promise.all([
     supabase

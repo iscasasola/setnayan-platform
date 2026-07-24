@@ -26,6 +26,10 @@ export const FLAG_TYPE_LABEL: Record<FlagType, string> = {
 export const FLAG_STATUSES = [
   'open',
   'under_review',
+  // A stale flag the auto-sweep advanced for admin attention (it is NOT a
+  // resolution — the flag stays in the triage queue). Added 2026-07-24 (gap
+  // audit B2): the sweep used to silently mark stale flags 'resolved'.
+  'escalated',
   'refund_issued',
   'rescheduled',
   'partial_credit',
@@ -39,6 +43,7 @@ export type FlagStatus = (typeof FLAG_STATUSES)[number];
 export const FLAG_STATUS_LABEL: Record<FlagStatus, string> = {
   open: 'Open',
   under_review: 'Under review',
+  escalated: 'Escalated',
   refund_issued: 'Refund issued',
   rescheduled: 'Rescheduled',
   partial_credit: 'Partial credit',
@@ -52,6 +57,7 @@ export const FLAG_STATUS_LABEL: Record<FlagStatus, string> = {
 export const FLAG_STATUS_TONE: Record<FlagStatus, string> = {
   open: 'bg-danger-100 text-danger-800',
   under_review: 'bg-warn-100 text-warn-900',
+  escalated: 'bg-danger-100 text-danger-800',
   refund_issued: 'bg-success-100 text-success-800',
   rescheduled: 'bg-success-100 text-success-800',
   partial_credit: 'bg-success-100 text-success-800',
@@ -85,10 +91,18 @@ export function isResolutionAction(value: unknown): value is ResolutionAction {
 }
 
 /**
- * Idempotent lazy sweep — flips stale `open` / `under_review` flags to
- * `resolved` once their 7-day `auto_resolve_at` window has elapsed. Call
+ * Idempotent lazy sweep — advances stale `open` / `under_review` flags to
+ * `escalated` once their 7-day `auto_resolve_at` window has elapsed. Call
  * from any page that lists or surfaces force-majeure flags (admin queue +
  * couple disputes page) so the data converges on next pageview.
+ *
+ * Gap audit B2 (2026-07-24): this used to silently mark stale flags
+ * `resolved` from the admin's (or the couple's OWN) triage pageview — a
+ * destructive close of an untouched dispute, and the "escalated" path the
+ * help/tour copy promises did not exist. It now ESCALATES: the flag stays in
+ * the admin triage queue (page.tsx admits `escalated` into the default
+ * filter) with no resolution stamped, so a real admin still decides the
+ * outcome. Nothing is ever auto-CLOSED without a human.
  *
  * Per the owner-locked no-cron architecture (PR #47, 2026-05-14): use
  * database state + on-access checks instead of any scheduled job. The
@@ -98,23 +112,18 @@ export function isResolutionAction(value: unknown): value is ResolutionAction {
  * client can't UPDATE `force_majeure_flags` (admin-only UPDATE policy
  * from the base migration).
  */
-export async function sweepAutoResolveStaleFlags(
+export async function sweepEscalateStaleFlags(
   adminClient: SupabaseClient,
 ): Promise<void> {
   try {
     const nowIso = new Date().toISOString();
     await adminClient
       .from('force_majeure_flags')
-      .update({
-        status: 'resolved',
-        resolved_at: nowIso,
-        resolution_notes:
-          'Auto-resolved after 7-day window with no admin action.',
-      })
+      .update({ status: 'escalated' })
       .in('status', ['open', 'under_review'])
       .lt('auto_resolve_at', nowIso);
   } catch (e) {
-    console.error('[force-majeure] auto-resolve sweep failed:', e);
+    console.error('[force-majeure] escalation sweep failed:', e);
   }
 }
 

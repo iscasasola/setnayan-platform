@@ -69,15 +69,12 @@ import Link from 'next/link';
 import {
   Check,
   CheckCircle2,
-  Clock,
   CreditCard,
   ExternalLink,
   Loader2,
   Lock,
-  Smartphone,
   Tag,
   Upload,
-  Wallet,
   X,
 } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
@@ -468,11 +465,6 @@ export function InlineCheckoutDrawer({
                   referenceCode={referenceCode}
                 />
 
-                {/* (3b) Instant online payment · shown but LOCKED until the
-                    PayMongo merchant verification is approved (owner directive
-                    2026-07-11). Purely presentational — not selectable. */}
-                <PayMongoSoon />
-
                 {/* (4) Submit form. */}
                 <form
                   onSubmit={(e) => {
@@ -836,65 +828,6 @@ function MethodCard({
         {selected ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
       </span>
     </button>
-  );
-}
-
-/**
- * The PayMongo instant-payment rail, shown but LOCKED. Owner directive
- * 2026-07-11: keep the online options visible (Card / Maya / GrabPay) but
- * un-clickable until the PayMongo merchant verification (BIR COR → submit →
- * approval) lands. Presentational only — no state, never selectable.
- */
-function PayMongoSoon() {
-  const options: { icon: typeof CreditCard; title: string; desc: string }[] = [
-    { icon: CreditCard, title: 'Credit / Debit Card', desc: 'Visa · Mastercard' },
-    { icon: Wallet, title: 'Maya', desc: 'Instant e-wallet' },
-    { icon: Smartphone, title: 'GrabPay', desc: 'Instant e-wallet' },
-  ];
-  return (
-    <div className="rounded-2xl border border-dashed border-ink/15 bg-cream/60 p-3">
-      <div className="mb-2 flex items-center justify-between gap-2 px-1">
-        <p className="text-xs font-semibold text-ink/70">
-          Instant payment{' '}
-          <span className="font-normal text-ink/45">· via PayMongo</span>
-        </p>
-        <span className="inline-flex items-center gap-1 rounded-full bg-warn-50 px-2 py-0.5 text-[10px] font-semibold text-warn-900">
-          <Clock aria-hidden className="h-3 w-3" strokeWidth={2.25} />
-          Coming soon
-        </span>
-      </div>
-      <div className="space-y-2">
-        {options.map((o) => {
-          const Icon = o.icon;
-          return (
-            <div
-              key={o.title}
-              aria-disabled="true"
-              className="flex cursor-not-allowed items-center gap-3 rounded-xl border border-ink/10 bg-ink/[0.02] px-3 py-2 opacity-60"
-            >
-              <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg bg-ink/5 text-ink/40">
-                <Icon aria-hidden className="h-4 w-4" strokeWidth={2} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[13px] font-medium text-ink/50">
-                  {o.title}
-                </span>
-                <span className="block text-[11px] text-ink/40">{o.desc}</span>
-              </span>
-              <Lock aria-hidden className="h-3.5 w-3.5 flex-none text-ink/35" strokeWidth={2} />
-            </div>
-          );
-        })}
-      </div>
-      <p className="mt-2 flex gap-1.5 px-1 text-[11px] leading-relaxed text-ink/50">
-        <Clock aria-hidden className="mt-0.5 h-3 w-3 flex-none text-warn-900" strokeWidth={2} />
-        <span>
-          Instant online payment unlocks once our PayMongo verification is
-          approved. Until then, GCash or BDO work perfectly — we confirm within
-          one business day.
-        </span>
-      </p>
-    </div>
   );
 }
 

@@ -39,10 +39,13 @@ export function isBookingFeeEnforced(): boolean {
 }
 
 /**
- * The fee schedule in force. Stamped on every charge so a future reprice cannot
- * silently rewrite history. MUST match the SQL default in the ledger migration.
+ * The fee schedule in force. Stamped on every charge (the app always passes this
+ * value explicitly to the ledger RPC — see booking-fee-charge.ts) so a future
+ * reprice cannot silently rewrite history. Bumped 2026-07-24 for the flat-5%/no-cap
+ * reprice; the ledger migration's SQL DEFAULT ('2026-07-23-flat2') is the historical
+ * fallback and is never used on the app path.
  */
-export const BOOKING_FEE_SCHEDULE_VERSION = '2026-07-23-flat2';
+export const BOOKING_FEE_SCHEDULE_VERSION = '2026-07-24-flat5-nocap';
 
 export type BookingFeeAttribution = 'sourced' | 'import';
 

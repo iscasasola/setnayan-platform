@@ -4,6 +4,7 @@ import { fetchBooths } from '@/lib/seating';
 import { GuestVenueLoader } from './_components/guest-venue-loader';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { resolveBoothStudioContent } from '@/lib/booth-studio';
 import type { VenueScene } from './_components/guest-venue-3d';
 
 // Guest-facing 3D venue explorer (owner 2026-06-26, Sims-style). Public, no
@@ -75,20 +76,32 @@ export default async function VenuePage({
           await Promise.all(logoRefs.map(async (ref) => [ref, await displayUrlForStoredAsset(ref)] as const))
         ).filter((e): e is [string, string] => e[1] !== null),
       );
+      // Booth Studio: resolve the STRUCTURED poster content and attach the
+      // vendor logo as a PUBLIC (never presigned) URL — read from the RAW logo
+      // ref BEFORE it is overwritten with the presigned display URL. Harmless
+      // when the render flag is off (nothing reads it).
+      const publicBase = process.env.R2_PUBLIC_URL;
       scene = {
         ...scene,
-        booths: scene.booths.map((b) =>
-          b.vendor?.logoUrl || b.vendor?.posterUrl
-            ? {
-                ...b,
-                vendor: {
-                  ...b.vendor,
-                  logoUrl: b.vendor.logoUrl ? resolvedLogos[b.vendor.logoUrl] ?? null : null,
-                  posterUrl: b.vendor.posterUrl ? resolvedLogos[b.vendor.posterUrl] ?? null : null,
-                },
-              }
-            : b,
-        ),
+        booths: scene.booths.map((b) => {
+          const v = b.vendor;
+          if (!v) return b;
+          const studio = resolveBoothStudioContent(
+            (v as { posterContent?: unknown }).posterContent,
+            v.logoUrl,
+            publicBase,
+          );
+          if (!v.logoUrl && !v.posterUrl && !studio) return b;
+          return {
+            ...b,
+            vendor: {
+              ...v,
+              logoUrl: v.logoUrl ? resolvedLogos[v.logoUrl] ?? null : null,
+              posterUrl: v.posterUrl ? resolvedLogos[v.posterUrl] ?? null : null,
+              ...(studio ? { posterContent: studio } : {}),
+            },
+          };
+        }),
       };
     }
 

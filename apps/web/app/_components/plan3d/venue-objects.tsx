@@ -51,6 +51,13 @@ import {
 import { CHASSIS_SPECS } from '@/app/_components/plan3d/kit/booth-chassis';
 import type { FigureQuality } from '@/app/_components/plan3d/kit/figure';
 import { SETNAYAN_BOOTH_PROMO_LABEL } from '@/lib/seating';
+import { boothStudioEnabled } from '@/lib/booth-studio-flag';
+import {
+  BOOTH_STUDIO_CANVAS,
+  composeBoothStudioLayout,
+  sanitizeBoothStudioContent,
+  type BoothStudioContentResolved,
+} from '@/lib/booth-studio';
 
 type Room = { w: number; d: number };
 
@@ -563,6 +570,27 @@ export function BoothMesh({
   // independent of it: a vendor may upload artwork without an account logo, or
   // vice versa, and each renders on its own.
   const posterUrl = boothIsBranded(booth.vendor) ? booth.vendor?.posterUrl ?? null : null;
+  // Booth Studio (behind NEXT_PUBLIC_BOOTH_STUDIO_ENABLED): the STRUCTURED,
+  // palette-harmonized poster. Same branding gate as the raw poster. When
+  // present it REPLACES the raw poster (never both — no double banner). With the
+  // flag OFF `studioResolved` is ALWAYS null, so the booth is byte-identical to
+  // today (DARK). sanitize fails safe → a missing/garbage poster_content yields
+  // null and simply falls back to the raw poster (or nothing).
+  const rawPosterContent = booth.vendor?.posterContent;
+  const studioBase =
+    boothStudioEnabled() && boothIsBranded(booth.vendor)
+      ? sanitizeBoothStudioContent(rawPosterContent)
+      : null;
+  const studioResolved: BoothStudioContentResolved | null = studioBase
+    ? {
+        ...studioBase,
+        logoPublicUrl:
+          typeof (rawPosterContent as { logoPublicUrl?: unknown } | null | undefined)?.logoPublicUrl ===
+          'string'
+            ? (rawPosterContent as { logoPublicUrl?: string }).logoPublicUrl ?? null
+            : null,
+      }
+    : null;
   // Data-driven presence (owner directive 2026-07-16): a finalized vendor brands
   // the slot; an OPEN slot (no finalized vendor) defaults to Setnayan promotion.
   // A booked-but-unbrandable vendor (solo/verified) keeps the generic booth — it
@@ -590,12 +618,16 @@ export function BoothMesh({
             <SetnayanBoothSign w={w} />
           </group>
         ) : null}
-        {posterUrl ? (
+        {studioResolved || posterUrl ? (
           <group
             position={[pos.x + posterOffset.x, 0, pos.z + posterOffset.z]}
             rotation={[0, facingY, 0]}
           >
-            <BoothPoster url={posterUrl} palette={palette} />
+            {studioResolved ? (
+              <BoothStudioPoster content={studioResolved} palette={palette} />
+            ) : (
+              <BoothPoster url={posterUrl!} palette={palette} />
+            )}
           </group>
         ) : null}
       </group>
@@ -611,12 +643,16 @@ export function BoothMesh({
       ) : openSlot ? (
         <SetnayanBoothSign w={w} />
       ) : null}
-      {posterUrl ? (
+      {studioResolved || posterUrl ? (
         // Booth-LOCAL coords on purpose: this group is already a child of the
         // yaw-rotated group above, so applying rotateLocalRad here (as the
         // template branch must, being a SIBLING) would rotate it twice.
         <group position={[genericPoster.x, 0, genericPoster.z]}>
-          <BoothPoster url={posterUrl} palette={palette} />
+          {studioResolved ? (
+            <BoothStudioPoster content={studioResolved} palette={palette} />
+          ) : (
+            <BoothPoster url={posterUrl!} palette={palette} />
+          )}
         </group>
       ) : null}
     </group>
@@ -698,6 +734,197 @@ export function BoothPoster({ url, palette }: { url: string; palette: Lab3DPalet
         <mesh position={[0, 0.28 + maxH / 2, 0.025]}>
           <planeGeometry args={[artW, artH]} />
           <meshBasicMaterial map={art.tex} transparent toneMapped={false} />
+        </mesh>
+      ) : null}
+    </group>
+  );
+}
+
+/** BOOTH STUDIO — the vendor's STRUCTURED, palette-harmonized poster for THIS
+ *  event (behind NEXT_PUBLIC_BOOTH_STUDIO_ENABLED). Unlike {@link BoothPoster}
+ *  (a raw uploaded raster), this composes the poster AT RUNTIME on a
+ *  CanvasTexture from the vendor's structured fields (headline / offer / price)
+ *  in the COUPLE'S mood-board palette — the same browser-only canvas pattern as
+ *  setnayanPromoTexture, so this module keeps its "no fetched asset for the
+ *  poster art" contract and, crucially, no URL for the poster text can ever
+ *  expire inside a cached scene payload.
+ *
+ *  The OPTIONAL logo lockup is the only raster: it is drawn from
+ *  `content.logoPublicUrl`, which the server resolver produced from the PUBLIC
+ *  R2 host (never presigned — lib/booth-studio publicPosterAssetUrl). If it is
+ *  absent or fails to load, the poster falls back to a typographic monogram from
+ *  the headline initials, so a booth never renders empty.
+ *
+ *  Same stand geometry + BOOTH_POSTER_FRAME as BoothPoster, so a Studio poster
+ *  and a raw poster occupy the identical footprint (and the same crowd-avoidance
+ *  disc). */
+export function BoothStudioPoster({
+  content,
+  palette,
+}: {
+  content: BoothStudioContentResolved;
+  palette: Lab3DPalette;
+}) {
+  // Key the memo/effect on PRIMITIVE fields, not the `content` object: BoothMesh
+  // rebuilds `content` every render, so an object dep would rebuild the canvas
+  // texture every frame (churn + flicker). With primitives the layout + texture
+  // are stable until the poster actually changes.
+  const { headline, offer, price, accent, logoPublicUrl } = content;
+  const layout = useMemo(
+    () =>
+      composeBoothStudioLayout(
+        { headline, offer, price, accent },
+        { accent: palette.accent, table: palette.table, wall: palette.wall },
+      ),
+    [headline, offer, price, accent, palette.accent, palette.table, palette.wall],
+  );
+
+  // Paint the structured layout onto a canvas (optionally with the public logo)
+  // and hand it to THREE as a texture. Re-runs when the layout or logo changes.
+  const [tex, setTex] = useState<THREE.CanvasTexture | null>(null);
+  useEffect(() => {
+    let live = true;
+    const canvas = document.createElement('canvas');
+    canvas.width = BOOTH_STUDIO_CANVAS.w;
+    canvas.height = BOOTH_STUDIO_CANVAS.h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const paint = (logo: HTMLImageElement | null) => {
+      const { width: W, height: H } = layout;
+      // Board.
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = layout.bg;
+      ctx.fillRect(0, 0, W, H);
+      // Hairline accent frame — tasteful, not a loud ad.
+      ctx.strokeStyle = layout.accent;
+      ctx.lineWidth = 4;
+      promoRoundRect(ctx, 10, 10, W - 20, H - 20, 18);
+      ctx.stroke();
+
+      // Logo lockup (public raster) OR a typographic monogram fallback.
+      const lb = layout.logoBox;
+      if (logo && logo.width > 0 && logo.height > 0) {
+        const aspect = logo.width / logo.height;
+        let lw = lb.w;
+        let lh = lw / aspect;
+        if (lh > lb.h) {
+          lh = lb.h;
+          lw = lh * aspect;
+        }
+        ctx.drawImage(logo, lb.x - lw / 2, lb.y - lh / 2, lw, lh);
+      } else {
+        const initials = (headline ?? '')
+          .split(' ')
+          .map((s) => s[0])
+          .filter(Boolean)
+          .slice(0, 2)
+          .join('')
+          .toUpperCase();
+        if (initials) {
+          ctx.fillStyle = layout.accent;
+          ctx.beginPath();
+          ctx.arc(lb.x, lb.y, Math.min(lb.w, lb.h) / 2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = layout.accentInk;
+          ctx.font = '700 64px "Space Mono", ui-monospace, monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(initials, lb.x, lb.y + 2);
+        }
+      }
+
+      // Accent divider under the logo band.
+      ctx.fillStyle = layout.accent;
+      ctx.fillRect(W * 0.32, H * 0.4, W * 0.36, 4);
+
+      // Text lines.
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      for (const line of layout.lines) {
+        if (line.kind === 'price') {
+          // Price as an accent chip so the offer reads as a value, not a shout.
+          ctx.font = `${line.weight} ${line.size}px system-ui, -apple-system, sans-serif`;
+          const tw = ctx.measureText(line.text).width;
+          const padX = 26;
+          const chipW = tw + padX * 2;
+          const chipH = line.size + 22;
+          ctx.fillStyle = layout.accent;
+          promoRoundRect(ctx, (W - chipW) / 2, line.y - chipH / 2, chipW, chipH, chipH / 2);
+          ctx.fill();
+          ctx.fillStyle = line.color;
+          ctx.fillText(line.text, W / 2, line.y);
+        } else {
+          ctx.fillStyle = line.color;
+          ctx.font = `${line.weight} ${line.size}px system-ui, -apple-system, sans-serif`;
+          ctx.fillText(line.text, W / 2, line.y, W * 0.86);
+        }
+      }
+
+      const t = new THREE.CanvasTexture(canvas);
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = 4;
+      t.needsUpdate = true;
+      if (live) {
+        setTex((prev) => {
+          prev?.dispose();
+          return t;
+        });
+      } else {
+        t.dispose();
+      }
+    };
+
+    // Paint text-first (instant), then upgrade with the logo once it loads.
+    paint(null);
+    if (logoPublicUrl) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        if (live) paint(img);
+      };
+      img.onerror = () => {
+        /* keep the text-only poster — never leave the booth blank */
+      };
+      img.src = logoPublicUrl;
+    }
+
+    return () => {
+      live = false;
+    };
+  }, [layout, headline, logoPublicUrl]);
+
+  const { maxW, maxH, railOverhang } = BOOTH_POSTER_FRAME;
+  const standTop = 0.28 + maxH;
+
+  return (
+    <group>
+      {/* Foot */}
+      <mesh position={[0, 0.03, 0]} castShadow>
+        <boxGeometry args={[0.42, 0.06, 0.22]} />
+        <meshStandardMaterial color={palette.table} roughness={0.7} />
+      </mesh>
+      {/* Post */}
+      <mesh position={[0, 0.17, 0]}>
+        <boxGeometry args={[0.06, 0.28, 0.06]} />
+        <meshStandardMaterial color={palette.accent} roughness={0.45} metalness={0.2} />
+      </mesh>
+      {/* Banner backing */}
+      <mesh position={[0, 0.28 + maxH / 2, 0]} castShadow>
+        <boxGeometry args={[maxW + 0.06, maxH + 0.06, 0.03]} />
+        <meshStandardMaterial color={palette.table} roughness={0.6} />
+      </mesh>
+      {/* Top rail */}
+      <mesh position={[0, standTop + 0.03, 0]}>
+        <boxGeometry args={[maxW + railOverhang, 0.05, 0.06]} />
+        <meshStandardMaterial color={palette.accent} roughness={0.4} metalness={0.2} />
+      </mesh>
+      {/* The composed artwork — full-fills the frame (the canvas is 2:3 by
+       *  construction, so no letterbox), just proud of the backing. */}
+      {tex ? (
+        <mesh position={[0, 0.28 + maxH / 2, 0.025]}>
+          <planeGeometry args={[maxW, maxH]} />
+          <meshBasicMaterial map={tex} transparent toneMapped={false} />
         </mesh>
       ) : null}
     </group>

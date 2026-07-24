@@ -136,6 +136,11 @@ export type VenueScene = {
       category: string;
       logoUrl: string | null;
       posterUrl?: string | null;
+      // Booth Studio structured poster (behind NEXT_PUBLIC_BOOTH_STUDIO_ENABLED),
+      // resolved server-side to `{ headline, offer, price, accent?, logoPublicUrl? }`.
+      // Typed loosely (the shape lives in lib/booth-studio; BoothMesh sanitizes it).
+      // Optional so an older cached scene payload still parses.
+      posterContent?: unknown;
       slug?: string | null;
       bookable?: boolean;
       // Paid 3D Booth add-on entitlement (owner 2026-07-22) — the page joins it

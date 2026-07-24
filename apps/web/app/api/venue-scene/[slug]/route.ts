@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { resolveBoothStudioContent } from '@/lib/booth-studio';
 
 // Guest photos in the payload (present only for a token holder + a host setting
 // that returns them) arrive as RAW stored refs (r2:// or bare URL). A client
@@ -31,7 +32,9 @@ async function resolveScenePhotos(data: unknown): Promise<unknown> {
 // server-rendered scene. Latent until v8 started returning `tier` (before that
 // boothCanBrand was always false and the branded backdrop never mounted).
 // Failed refs drop to null → the generic booth, same as an unbranded tier.
-type SceneBooth = { vendor?: { logoUrl?: string | null; posterUrl?: string | null } | null };
+type SceneBooth = {
+  vendor?: { logoUrl?: string | null; posterUrl?: string | null; posterContent?: unknown } | null;
+};
 async function resolveBoothLogos(data: unknown): Promise<unknown> {
   if (!data || typeof data !== 'object') return data;
   const booths = (data as { booths?: SceneBooth[] | null }).booths;
@@ -51,20 +54,28 @@ async function resolveBoothLogos(data: unknown): Promise<unknown> {
       await Promise.all(distinct.map(async (ref) => [ref, await displayUrlForStoredAsset(ref)] as const))
     ).filter((e): e is [string, string] => e[1] !== null),
   );
+  // Booth Studio: resolve the STRUCTURED poster content and attach the vendor
+  // logo as a PUBLIC (never presigned) URL — read from the RAW logo ref BEFORE
+  // it is overwritten with the presigned display URL below. Harmless data when
+  // the render flag is off (nothing reads it), so no cache-key coupling.
+  const publicBase = process.env.R2_PUBLIC_URL;
   return {
     ...(data as object),
-    booths: booths.map((b) =>
-      b.vendor?.logoUrl || b.vendor?.posterUrl
-        ? {
-            ...b,
-            vendor: {
-              ...b.vendor,
-              logoUrl: b.vendor.logoUrl ? resolved[b.vendor.logoUrl] ?? null : null,
-              posterUrl: b.vendor.posterUrl ? resolved[b.vendor.posterUrl] ?? null : null,
-            },
-          }
-        : b,
-    ),
+    booths: booths.map((b) => {
+      const v = b.vendor;
+      if (!v) return b;
+      const studio = resolveBoothStudioContent(v.posterContent, v.logoUrl, publicBase);
+      if (!v.logoUrl && !v.posterUrl && !studio) return b;
+      return {
+        ...b,
+        vendor: {
+          ...v,
+          logoUrl: v.logoUrl ? resolved[v.logoUrl] ?? null : null,
+          posterUrl: v.posterUrl ? resolved[v.posterUrl] ?? null : null,
+          ...(studio ? { posterContent: studio } : {}),
+        },
+      };
+    }),
   };
 }
 

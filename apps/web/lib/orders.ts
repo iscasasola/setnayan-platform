@@ -273,3 +273,64 @@ export function shouldProvisionOnApproval(args: {
 }): boolean {
   return args.promoteOrder && args.reconciledToPaid;
 }
+
+/**
+ * Case-insensitive: does the payment's reference number CONTAIN the order's
+ * reference code? The couple is told to paste the code ('SN' + 8 hex) into the
+ * transfer note, so the bank/GCash reference the admin recorded should contain
+ * it. Mirrors the inline `matchesRef` the admin payments queue already computed;
+ * hoisted so the decisive-match predicate + its tests share one definition.
+ */
+export function referenceContainsCode(
+  referenceNumber: string | null | undefined,
+  referenceCode: string | null | undefined,
+): boolean {
+  if (!referenceNumber || !referenceCode) return false;
+  return referenceNumber.toUpperCase().includes(referenceCode.toUpperCase());
+}
+
+/**
+ * The DECISIVE-MATCH predicate that gates one-click and batch approval.
+ *
+ * A pending payment is a "clean match" — safe to approve without the full
+ * confirm modal — iff BOTH:
+ *   1. its reference number contains the order's reference code, AND
+ *   2. this SINGLE payment on its own FULLY reconciles the gross owed
+ *      (orderReconciledToPaid) — a partial / short transfer is NOT clean.
+ *
+ * Deliberately a strict SUBSET of what approvePayment's shortfall guard allows,
+ * so the fast path can never approve something the guard would reject:
+ *   • `owed` is computed EXACTLY as the guard computes it — same orderGrossOwed
+ *     args, same implicit (unset ⇒ 0) VAT rate — so a decisive match here always
+ *     clears the guard there.
+ *   • it tests THIS payment ALONE against the full owed; when prior matched
+ *     payments already exist the real guard sums them (only more likely to
+ *     reconcile), so single-payment cover ⟹ the guard passes.
+ *   • a null requested total (legacy ad-hoc order with no reconciliation basis)
+ *     is NOT decisive — those keep the full manual confirm.
+ *
+ * Pure + unit-testable. Both the queue UI and the server action call this, so
+ * the client can never flag as clean a row the server wouldn't independently
+ * agree is clean.
+ */
+export function isDecisivePaymentMatch(args: {
+  referenceNumber: string | null | undefined;
+  referenceCode: string | null | undefined;
+  amountPhp: number;
+  requestedTotalPhp: number | null | undefined;
+  confirmedTotalPhp: number | null | undefined;
+  voucherDiscountPhp?: number;
+  serviceKey: string | null | undefined;
+}): boolean {
+  if (!referenceContainsCode(args.referenceNumber, args.referenceCode)) return false;
+  // No stored total to reconcile against → not decisive; needs a human.
+  if (args.requestedTotalPhp == null) return false;
+  const owed = orderGrossOwed({
+    requestedTotalPhp: Number(args.requestedTotalPhp),
+    confirmedTotalPhp: args.confirmedTotalPhp != null ? Number(args.confirmedTotalPhp) : null,
+    voucherDiscountPhp: args.voucherDiscountPhp ?? 0,
+    // Match the guard exactly (approvePayment passes no vatRatePct → 0).
+    vatInclusive: isVatInclusiveServiceKey(args.serviceKey),
+  });
+  return orderReconciledToPaid({ matchedTotalPhp: Number(args.amountPhp), owedPhp: owed });
+}

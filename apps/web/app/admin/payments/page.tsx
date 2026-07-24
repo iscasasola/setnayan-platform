@@ -6,17 +6,20 @@ import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { InboxMatcher, type MatcherPayment } from './_components/inbox-matcher';
+import { BatchApproveBar, BatchApproveCheckbox } from './_components/batch-approve-controls';
 import {
   ORDER_STATUS_LABEL,
   ORDER_STATUS_TONE,
   PAYMENT_STATUS_LABEL,
   PAYMENT_STATUS_TONE,
   formatPhp,
+  isDecisivePaymentMatch,
   type OrderStatus,
   type PaymentStatus,
 } from '@/lib/orders';
 import {
   approvePayment,
+  batchApprovePayments,
   confirmOrderTotal,
   refundOrder,
   rejectPayment,
@@ -60,6 +63,10 @@ type PaymentJoined = {
     service_key: string | null;
     requested_total_php: number;
     confirmed_total_php: number | null;
+    // Applied voucher discount in centavos. Needed so the decisive-match
+    // predicate computes `owed` EXACTLY as approvePayment's shortfall guard
+    // does (which nets the voucher off an unconfirmed base).
+    voucher_discount_centavos: number | null;
     status: OrderStatus;
     // Originating platform — web | ios | android (migration 20270103040000).
     // Null on pre-migration rows / pre-stamp orders → shown as "web".
@@ -120,8 +127,8 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
     // embed would keep them with a null order). Every payment has an order, so
     // !inner drops nothing else.
     const orderEmbed = platformFilter
-      ? 'order:orders!inner(public_id, reference_code, description, service_key, requested_total_php, confirmed_total_php, status, platform)'
-      : 'order:orders(public_id, reference_code, description, service_key, requested_total_php, confirmed_total_php, status, platform)';
+      ? 'order:orders!inner(public_id, reference_code, description, service_key, requested_total_php, confirmed_total_php, voucher_discount_centavos, status, platform)'
+      : 'order:orders(public_id, reference_code, description, service_key, requested_total_php, confirmed_total_php, voucher_discount_centavos, status, platform)';
     let paymentsQuery = admin
       .from('payments')
       .select(
@@ -362,12 +369,40 @@ function PaymentsList({
     label: p.user?.email ?? p.order?.public_id ?? '—',
     orderPublicId: p.order?.public_id ?? null,
   }));
+
+  // Decorate each payment with the DECISIVE-MATCH verdict (reference contains
+  // the order code AND this single transfer fully reconciles the gross owed —
+  // computed by the same pure predicate the server re-checks on approve). Only
+  // PENDING rows can be clean matches. Surface clean matches first so the admin
+  // clears the safe ones fastest, then batch-approve or one-click them.
+  const decorated = payments.map((p) => ({
+    p,
+    decisive:
+      p.status === 'pending' &&
+      isDecisivePaymentMatch({
+        referenceNumber: p.reference_number,
+        referenceCode: p.order?.reference_code ?? null,
+        amountPhp: p.amount_php,
+        requestedTotalPhp: p.order?.requested_total_php ?? null,
+        confirmedTotalPhp: p.order?.confirmed_total_php ?? null,
+        voucherDiscountPhp:
+          p.order?.voucher_discount_centavos != null
+            ? Number(p.order.voucher_discount_centavos) / 100
+            : 0,
+        serviceKey: p.order?.service_key ?? null,
+      }),
+  }));
+  // Stable sort: clean matches to the top, everything else keeps its order.
+  const ordered = [...decorated].sort((a, b) => Number(b.decisive) - Number(a.decisive));
+  const totalCleanMatches = decorated.filter((d) => d.decisive).length;
+
   return (
     <>
       <InboxMatcher payments={matcherRows} />
+      <BatchApproveBar action={batchApprovePayments} totalCleanMatches={totalCleanMatches} />
       <div className="sn-tile">
       <ul className="space-y-3">
-      {payments.map((p) => {
+      {ordered.map(({ p, decisive }) => {
         const matchesRef =
           !!p.reference_number &&
           !!p.order?.reference_code &&
@@ -376,7 +411,9 @@ function PaymentsList({
           <li
             key={p.payment_id}
             id={`payment-${p.payment_id}`}
-            className="sn-row scroll-mt-20 space-y-3 p-4"
+            className={`sn-row scroll-mt-20 space-y-3 p-4${
+              decisive ? ' ring-1 ring-success-300/70' : ''
+            }`}
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0 space-y-0.5">
@@ -386,13 +423,23 @@ function PaymentsList({
                 </p>
                 <p className="text-sm font-semibold text-ink">{p.user?.email ?? '—'}</p>
               </div>
-              <span
-                className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
-                  PAYMENT_STATUS_TONE[p.status]
-                }`}
-              >
-                {PAYMENT_STATUS_LABEL[p.status]}
-              </span>
+              <div className="flex flex-col items-end gap-1.5">
+                <span
+                  className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+                    PAYMENT_STATUS_TONE[p.status]
+                  }`}
+                >
+                  {PAYMENT_STATUS_LABEL[p.status]}
+                </span>
+                {decisive ? (
+                  <>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-success-700 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.15em] text-cream">
+                      Clean match
+                    </span>
+                    <BatchApproveCheckbox paymentId={p.payment_id} />
+                  </>
+                ) : null}
+              </div>
             </div>
 
             {p.order?.description ? (
@@ -471,36 +518,63 @@ function PaymentsList({
 
             {p.status === 'pending' ? (
               <div className="space-y-2 border-t border-ink/10 pt-3">
-                <ConfirmForm
-                  action={approvePayment}
-                  title="Approve this payment?"
-                  confirmLabel="Approve · matched"
-                  destructive={false}
-                  message="This marks the payment matched (and, if checked, the order paid) — it issues the receipt, unlocks the couple's purchase, and releases the vendor payout. Approve only after you've confirmed the transfer in the bank/GCash inbox."
-                  className="space-y-2"
-                >
-                  <input type="hidden" name="payment_id" value={p.payment_id} />
-                  <input
-                    name="admin_notes"
-                    placeholder="Optional note (e.g. bank confirmed at 14:32)"
-                    className="input-field h-9 py-0 text-sm"
-                  />
-                  <label className="flex items-center gap-2 text-xs text-ink/65">
-                    <input
-                      type="checkbox"
-                      name="promote_order"
-                      defaultChecked
-                      className="h-4 w-4 cursor-pointer accent-terracotta"
-                    />
-                    Also mark order as paid
-                  </label>
-                  <SubmitButton
-                    className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-success-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-success-800 disabled:opacity-70"
-                    pendingLabel="Approving…"
+                {decisive ? (
+                  /*
+                    ONE-CLICK APPROVE — decisive clean match only (reference code
+                    present AND the transfer fully covers the amount owed). No
+                    confirm modal: this is a single click on a row the admin has
+                    reviewed. It still runs the SAME approvePayment → shortfall
+                    guard → provisioning path (promote_order forced on because a
+                    clean match fully reconciles); if the amount ever fails to
+                    reconcile at write time the guard refuses to promote. Non-
+                    clean rows below keep the full confirm modal.
+                  */
+                  <form action={approvePayment} className="space-y-1">
+                    <input type="hidden" name="payment_id" value={p.payment_id} />
+                    <input type="hidden" name="promote_order" value="on" />
+                    <SubmitButton
+                      className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-md bg-success-700 px-4 py-1.5 text-sm font-semibold text-cream hover:bg-success-800 disabled:opacity-70"
+                      pendingLabel="Approving…"
+                    >
+                      One-click approve · clean match
+                    </SubmitButton>
+                    <p className="text-[11px] text-ink/50">
+                      Reference matches and the amount fully covers what&rsquo;s owed. Confirm the
+                      transfer in your inbox first.
+                    </p>
+                  </form>
+                ) : (
+                  <ConfirmForm
+                    action={approvePayment}
+                    title="Approve this payment?"
+                    confirmLabel="Approve · matched"
+                    destructive={false}
+                    message="This marks the payment matched (and, if checked, the order paid) — it issues the receipt, unlocks the couple's purchase, and releases the vendor payout. Approve only after you've confirmed the transfer in the bank/GCash inbox."
+                    className="space-y-2"
                   >
-                    Approve · matched
-                  </SubmitButton>
-                </ConfirmForm>
+                    <input type="hidden" name="payment_id" value={p.payment_id} />
+                    <input
+                      name="admin_notes"
+                      placeholder="Optional note (e.g. bank confirmed at 14:32)"
+                      className="input-field h-9 py-0 text-sm"
+                    />
+                    <label className="flex items-center gap-2 text-xs text-ink/65">
+                      <input
+                        type="checkbox"
+                        name="promote_order"
+                        defaultChecked
+                        className="h-4 w-4 cursor-pointer accent-terracotta"
+                      />
+                      Also mark order as paid
+                    </label>
+                    <SubmitButton
+                      className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-success-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-success-800 disabled:opacity-70"
+                      pendingLabel="Approving…"
+                    >
+                      Approve · matched
+                    </SubmitButton>
+                  </ConfirmForm>
+                )}
                 {/*
                   Day 3 of the voucher + inline-checkout sprint (CLAUDE.md
                   2026-05-29 Day 3 row): "Request resubmit" middle path. Use

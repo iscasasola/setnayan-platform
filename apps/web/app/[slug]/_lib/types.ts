@@ -113,6 +113,12 @@ export type EventRow = {
   // Open-browse PR5 (owner 2026-07-23): FALSE = livestream + Live Photo Wall are
   // guests-only; TRUE = couple opted the ANONYMOUS live-media render public.
   live_media_public?: boolean | null;
+  // Open-browse PR7 master switch (council verdict 2026-07-22): FALSE (default)
+  // = today's phase-gated site; TRUE = the open-browse site where lifecycle
+  // phases are spotlights, not gates. Read by resolveSiteBodyPlan's openBrowse
+  // input. Dormant in prod (DEFAULT FALSE); flipped by the couple board (PR9) /
+  // new-event default (PR11).
+  website_open_browse?: boolean | null;
   // JSONB column populated by the host via /dashboard/[eventId]/website/photo-moments.
   // Shape: { intro_copy: string, moments: [{ time_label, title, note, mode }] }.
   // Unknown / empty shapes degrade gracefully in PhotoMomentsWidget — the

@@ -15,14 +15,15 @@ import { ClipboardPaste, CornerDownRight, X } from 'lucide-react';
  * falling back to an **amount-only** hint when no code is present.
  *
  * It takes NO action — it only finds the row and offers a jump link. The admin
- * still approves manually through the existing ConfirmForm guard. (The persisted
- * `payment_inbox_messages` table + the 4-tier SQL `match_inbox_to_order` matcher
- * are a later server-side layer; this is the zero-migration client slice.)
+ * still approves manually through the existing approve guard. (The persisted
+ * `payment_inbox_messages` table + the server-side SQL `match_inbox_to_order`
+ * matcher are a later layer; this client slice is a 2-tier — reference, then
+ * amount — zero-migration helper.)
  */
 
 export type MatcherPayment = {
   payment_id: string;
-  /** order.reference_code — the exact-match token (8-char Crockford). */
+  /** order.reference_code — the exact-match token ('SN' + 8 uppercase hex). */
   reference_code: string | null;
   amount_php: number;
   /** Human label for the row — couple email, else order public id. */

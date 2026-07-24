@@ -10,6 +10,8 @@ import assert from 'node:assert/strict';
 import {
   orderGrossOwed,
   isVatInclusiveServiceKey,
+  isDecisivePaymentMatch,
+  referenceContainsCode,
   orderReconciledToPaid,
   shouldProvisionOnApproval,
   ORDER_SHORTFALL_TOLERANCE_PHP,
@@ -158,4 +160,180 @@ test('shouldProvisionOnApproval: promoted but short → no provision', () => {
 
 test('shouldProvisionOnApproval: neither → no provision', () => {
   assert.equal(shouldProvisionOnApproval({ promoteOrder: false, reconciledToPaid: false }), false);
+});
+
+// ---------------------------------------------------------------------------
+// referenceContainsCode + isDecisivePaymentMatch — the DECISIVE-MATCH predicate
+// that gates one-click + batch approval. It MUST be a strict subset of the
+// approvePayment shortfall guard: a decisive match here always clears the guard
+// there, and a short / mismatched payment must NEVER read as decisive (that's
+// the "shortfall rows are excluded from batch" guarantee — the batch action
+// re-runs this predicate server-side before any write).
+// ---------------------------------------------------------------------------
+
+test('referenceContainsCode: case-insensitive substring, nulls false', () => {
+  assert.equal(referenceContainsCode('gcash ref SN1A2B3C4D thanks', 'sn1a2b3c4d'), true);
+  assert.equal(referenceContainsCode('SN1A2B3C4D', 'SN1A2B3C4D'), true);
+  assert.equal(referenceContainsCode('totally different note', 'SN1A2B3C4D'), false);
+  assert.equal(referenceContainsCode(null, 'SN1A2B3C4D'), false);
+  assert.equal(referenceContainsCode('SN1A2B3C4D', null), false);
+  assert.equal(referenceContainsCode('', ''), false);
+});
+
+const CODE = 'SN1A2B3C4D';
+
+test('isDecisivePaymentMatch: reference matches AND amount fully covers → clean (one-click/batch OK)', () => {
+  // Customer SKU: the guard computes owed with NO implicit VAT (rate 0), so
+  // owed = the ₱2,500 base. A ₱2,500 transfer that carries the code is decisive.
+  assert.equal(
+    isDecisivePaymentMatch({
+      referenceNumber: `GCash ref ${CODE}`,
+      referenceCode: CODE,
+      amountPhp: 2500,
+      requestedTotalPhp: 2500,
+      confirmedTotalPhp: null,
+      serviceKey: 'SETNAYAN_AI',
+    }),
+    true,
+  );
+});
+
+test('isDecisivePaymentMatch: SHORTFALL (partial transfer) is NOT decisive → excluded from batch', () => {
+  // Reference matches, but ₱1 on a ₱2,500 order does not reconcile. This is the
+  // core money-safety case: a short payment can never be batch/one-click approved.
+  assert.equal(
+    isDecisivePaymentMatch({
+      referenceNumber: CODE,
+      referenceCode: CODE,
+      amountPhp: 1,
+      requestedTotalPhp: 2500,
+      confirmedTotalPhp: null,
+      serviceKey: 'SETNAYAN_AI',
+    }),
+    false,
+  );
+  // Just over ₱1 short (beyond tolerance) is also excluded.
+  assert.equal(
+    isDecisivePaymentMatch({
+      referenceNumber: CODE,
+      referenceCode: CODE,
+      amountPhp: 2498.99,
+      requestedTotalPhp: 2500,
+      confirmedTotalPhp: null,
+      serviceKey: 'SETNAYAN_AI',
+    }),
+    false,
+  );
+});
+
+test('isDecisivePaymentMatch: reference MISMATCH is not decisive even when the amount covers', () => {
+  assert.equal(
+    isDecisivePaymentMatch({
+      referenceNumber: 'no code in this note',
+      referenceCode: CODE,
+      amountPhp: 2500,
+      requestedTotalPhp: 2500,
+      confirmedTotalPhp: null,
+      serviceKey: 'SETNAYAN_AI',
+    }),
+    false,
+  );
+});
+
+test('isDecisivePaymentMatch: missing reference number is not decisive', () => {
+  assert.equal(
+    isDecisivePaymentMatch({
+      referenceNumber: null,
+      referenceCode: CODE,
+      amountPhp: 2500,
+      requestedTotalPhp: 2500,
+      confirmedTotalPhp: null,
+      serviceKey: 'SETNAYAN_AI',
+    }),
+    false,
+  );
+});
+
+test('isDecisivePaymentMatch: null requested total (ad-hoc order) is never decisive — needs a human', () => {
+  assert.equal(
+    isDecisivePaymentMatch({
+      referenceNumber: CODE,
+      referenceCode: CODE,
+      amountPhp: 9999,
+      requestedTotalPhp: null,
+      confirmedTotalPhp: null,
+      serviceKey: 'SETNAYAN_AI',
+    }),
+    false,
+  );
+});
+
+test('isDecisivePaymentMatch: within ₱1 tolerance still reconciles → decisive', () => {
+  assert.equal(
+    isDecisivePaymentMatch({
+      referenceNumber: CODE,
+      referenceCode: CODE,
+      amountPhp: 2499, // ₱1 short, absorbed by the tolerance
+      requestedTotalPhp: 2500,
+      confirmedTotalPhp: null,
+      serviceKey: 'SETNAYAN_AI',
+    }),
+    true,
+  );
+});
+
+test('isDecisivePaymentMatch: vendor all-in (VAT-inclusive) ₱999 paid in full → decisive', () => {
+  assert.equal(
+    isDecisivePaymentMatch({
+      referenceNumber: `paid ${CODE}`,
+      referenceCode: CODE,
+      amountPhp: 999,
+      requestedTotalPhp: 999,
+      confirmedTotalPhp: null,
+      serviceKey: 'vendor_additional_branch__abc',
+    }),
+    true,
+  );
+  // Same order, ₱1 short → not decisive.
+  assert.equal(
+    isDecisivePaymentMatch({
+      referenceNumber: `paid ${CODE}`,
+      referenceCode: CODE,
+      amountPhp: 900,
+      requestedTotalPhp: 999,
+      confirmedTotalPhp: null,
+      serviceKey: 'vendor_additional_branch__abc',
+    }),
+    false,
+  );
+});
+
+test('isDecisivePaymentMatch: voucher-discounted unconfirmed order — owed nets the discount', () => {
+  // requested ₱2,500, ₱500 voucher, unconfirmed → owed ₱2,000. A ₱2,000 transfer
+  // with the code is decisive; the pre-voucher ₱2,500 basis is NOT used.
+  assert.equal(
+    isDecisivePaymentMatch({
+      referenceNumber: CODE,
+      referenceCode: CODE,
+      amountPhp: 2000,
+      requestedTotalPhp: 2500,
+      confirmedTotalPhp: null,
+      voucherDiscountPhp: 500,
+      serviceKey: 'SETNAYAN_AI',
+    }),
+    true,
+  );
+  // ₱1,900 on the same ₱2,000-owed order is short → not decisive.
+  assert.equal(
+    isDecisivePaymentMatch({
+      referenceNumber: CODE,
+      referenceCode: CODE,
+      amountPhp: 1900,
+      requestedTotalPhp: 2500,
+      confirmedTotalPhp: null,
+      voucherDiscountPhp: 500,
+      serviceKey: 'SETNAYAN_AI',
+    }),
+    false,
+  );
 });

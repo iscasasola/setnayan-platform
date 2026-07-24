@@ -18,6 +18,7 @@ import {
   formatPhp,
   orderGrossOwed,
   isVatInclusiveServiceKey,
+  isDecisivePaymentMatch,
   orderReconciledToPaid,
   shouldProvisionOnApproval,
 } from '@/lib/orders';
@@ -69,6 +70,49 @@ export async function approvePayment(formData: FormData) {
   if (typeof paymentId !== 'string') throw new Error('Invalid input');
 
   const admin = createAdminClient();
+  const outcome = await approvePaymentCore({ admin, userId, paymentId, adminNotes, promoteOrder });
+  if (!outcome.ok) {
+    // Shortfall — surface the same inline warn notice + URL the guard used
+    // before it was hoisted into the core helper. A NEXT_REDIRECT control exit,
+    // so (exactly like the prior in-line throw/redirect) nothing below runs.
+    redirect(
+      `/admin/payments?filter=all&notice=${encodeURIComponent(outcome.message)}&noticeType=warn`,
+    );
+  }
+  // The admin's OWN views revalidate synchronously so the queue reflects the
+  // approval on this response.
+  revalidatePath('/admin/payments');
+  revalidatePath('/admin/payouts');
+  // Couple-facing surfaces refresh a beat later, post-response — see the note
+  // in approvePaymentCore's provisioning block for why this is deferred.
+  after(() => revalidatePath('/dashboard', 'layout'));
+}
+
+/**
+ * The shared core of admin payment approval. Runs EVERY guard end-to-end — the
+ * pending→matched state-machine flip, ledger + notifications, the SHORTFALL
+ * GUARD, order promotion, receipt issuance, vendor payouts, and per-SKU
+ * provisioning — and RETURNS its outcome instead of redirecting, so both the
+ * single-row `approvePayment` action and the `batchApprovePayments` action
+ * drive the identical money path:
+ *
+ *   • `{ ok: true }`             — payment matched (and, when promote+reconciled,
+ *                                  the order fully paid + provisioned).
+ *   • `{ ok: false, shortfall }` — payment matched but the transfer is short, so
+ *                                  the order was NOT promoted/provisioned.
+ *
+ * Genuine failures (payment already resolved, DB write errors) still THROW —
+ * the single action surfaces them as before; the batch action catches them
+ * per-row so one bad row never aborts the rest. Callers own revalidation.
+ */
+async function approvePaymentCore(args: {
+  admin: ReturnType<typeof createAdminClient>;
+  userId: string;
+  paymentId: string;
+  adminNotes: string | null;
+  promoteOrder: boolean;
+}): Promise<{ ok: true } | { ok: false; shortfall: true; message: string }> {
+  const { admin, userId, paymentId, adminNotes, promoteOrder } = args;
   // State-machine guard (Task 8 pilot hardening, 2026-06-01): only flip
   // pending → matched. If the row was already matched/rejected (race with
   // another admin, double-click after 503, stale page render), the WHERE
@@ -201,15 +245,16 @@ export async function approvePayment(formData: FormData) {
         // "why" as an inline notice on the queue instead of an uncaught throw,
         // so the admin can record it as partial or chase the balance. (Was a
         // `throw new Error(...)` that rendered the generic error page — see
-        // DECISION_LOG 2026-07-05.) The redirect is a NEXT_REDIRECT control
-        // exit, so — exactly like the prior throw — activation below does NOT
-        // run for a short-paid order.
+        // DECISION_LOG 2026-07-05.) Returning here (rather than redirecting
+        // in-line) is what lets the single + batch callers each surface this
+        // their own way; either way activation below does NOT run for a
+        // short-paid order, and the order was never promoted.
         const notice =
           `Payment matched, but the order was NOT marked paid: ` +
           `${formatPhp(matchedTotal)} received vs ${formatPhp(owed)} owed (incl. 12% VAT) — ` +
           `${formatPhp(owed - matchedTotal)} short. Leave “Also mark order as paid” unchecked to ` +
           `record it as partial, or promote once the balance is paid.`;
-        redirect(`/admin/payments?filter=all&notice=${encodeURIComponent(notice)}&noticeType=warn`);
+        return { ok: false, shortfall: true, message: notice };
       }
     } else {
       // No stored total to reconcile against (legacy/ad-hoc order with a null
@@ -363,21 +408,139 @@ export async function approvePayment(formData: FormData) {
     }
   }
 
-  // The admin's OWN views revalidate synchronously so the queue reflects the
-  // approval on this response.
+  // Fully successful. The caller owns revalidation:
+  //   • the admin queue (/admin/payments, /admin/payouts) revalidates
+  //     synchronously so the row reflects the approval on this response;
+  //   • the broad couple-facing `/dashboard` layout revalidate is DEFERRED to
+  //     after() by the caller (2026-07-05) — that re-render can hit a
+  //     render-time fault in a couple page (Sentry JAVASCRIPT-NEXTJS-B) which
+  //     would otherwise surface a generic 500 to the admin even though the
+  //     approval fully succeeded, making them re-click an already-done
+  //     reconciliation. Post-response it can't. See DECISION_LOG 2026-07-05.
+  return { ok: true };
+}
+
+/**
+ * Server-side re-verification of the DECISIVE-MATCH predicate for one payment.
+ * NEVER trust the client's checkbox — a hand-rolled POST could list any
+ * payment_id. This re-loads the payment + its order fresh and re-runs the same
+ * pure `isDecisivePaymentMatch` the queue used to render the badge, so the
+ * batch path can only ever approve rows the server independently agrees are
+ * clean. Only `pending` payments are eligible.
+ */
+async function isPaymentDecisiveById(
+  admin: ReturnType<typeof createAdminClient>,
+  paymentId: string,
+): Promise<boolean> {
+  const { data } = await admin
+    .from('payments')
+    .select(
+      'status, amount_php, reference_number, order:orders!inner(reference_code, requested_total_php, confirmed_total_php, voucher_discount_centavos, service_key)',
+    )
+    .eq('payment_id', paymentId)
+    .maybeSingle();
+  if (!data || data.status !== 'pending') return false;
+  const order = (data as unknown as {
+    order: {
+      reference_code: string | null;
+      requested_total_php: number | null;
+      confirmed_total_php: number | null;
+      voucher_discount_centavos: number | null;
+      service_key: string | null;
+    } | null;
+  }).order;
+  if (!order) return false;
+  return isDecisivePaymentMatch({
+    referenceNumber: (data as { reference_number: string | null }).reference_number,
+    referenceCode: order.reference_code,
+    amountPhp: Number((data as { amount_php: number }).amount_php),
+    requestedTotalPhp: order.requested_total_php,
+    confirmedTotalPhp: order.confirmed_total_php,
+    voucherDiscountPhp:
+      order.voucher_discount_centavos != null ? Number(order.voucher_discount_centavos) / 100 : 0,
+    serviceKey: order.service_key,
+  });
+}
+
+/**
+ * Batch-approve every SELECTED clean-match payment.
+ *
+ * SAFETY MODEL — this is the admin ACTING on rows they've already reviewed, not
+ * the system auto-approving on load:
+ *   • Only payments the admin explicitly checked are submitted.
+ *   • Each id is RE-VERIFIED server-side as a decisive clean match
+ *     (isPaymentDecisiveById) before any write — a non-clean / shortfall /
+ *     already-resolved row is skipped, never force-approved. This is the
+ *     "only rows that pass the decisive-match test are batch-approvable"
+ *     guarantee; there is deliberately no select-all-and-force path.
+ *   • Approval runs through the SAME approvePaymentCore money path as the
+ *     single-row action, so the shortfall guard, receipt, payout, and
+ *     provisioning logic are all preserved unchanged. `promoteOrder` is true
+ *     because a decisive match by definition fully covers the amount owed — but
+ *     if that ever fails to reconcile at write time (stale row, concurrent
+ *     partial), the core's shortfall guard still refuses to promote it and it's
+ *     reported as a failure, not silently paid.
+ *   • Per-row success/failure is aggregated into an inline notice; one bad row
+ *     never aborts the rest.
+ */
+export async function batchApprovePayments(formData: FormData) {
+  const { userId } = await requireAdmin();
+  const ids = formData
+    .getAll('batch_payment_ids')
+    .filter((v): v is string => typeof v === 'string' && v.length > 0);
+  const uniqueIds = Array.from(new Set(ids));
+  if (uniqueIds.length === 0) {
+    redirect(
+      `/admin/payments?filter=pending&notice=${encodeURIComponent(
+        'No payments were selected.',
+      )}&noticeType=warn`,
+    );
+  }
+
+  const admin = createAdminClient();
+  let approved = 0;
+  let skipped = 0; // not a clean match at write time (never force-approved)
+  let failed = 0; // shortfall / DB error — surfaced, never silently paid
+
+  for (const id of uniqueIds) {
+    // Re-verify decisive server-side. A row that isn't a clean match right now
+    // is skipped — it keeps its full manual confirm on the queue.
+    if (!(await isPaymentDecisiveById(admin, id))) {
+      skipped += 1;
+      continue;
+    }
+    try {
+      const outcome = await approvePaymentCore({
+        admin,
+        userId,
+        paymentId: id,
+        adminNotes: null,
+        promoteOrder: true,
+      });
+      if (outcome.ok) approved += 1;
+      else failed += 1; // defensive: decisive check should preclude a shortfall
+    } catch (e) {
+      // Already-resolved (race) or a DB write error — count it, keep going.
+      console.error('batchApprovePayments row failed (non-fatal to batch):', id, e);
+      failed += 1;
+    }
+  }
+
+  // Revalidate once for the whole batch — same surfaces the single action
+  // refreshes, deferring the broad couple-facing layout to after().
   revalidatePath('/admin/payments');
   revalidatePath('/admin/payouts');
-  // Force a refresh of the couple's user-facing routes so any
-  // activation-reading UI (Setnayan AI banner, add-on pages) picks up the
-  // status change. DEFERRED to after() (2026-07-05): this broad
-  // `/dashboard`-layout revalidation re-renders couple pages, and a render-time
-  // fault in one of them (e.g. the checklist page's revalidate-during-render,
-  // Sentry JAVASCRIPT-NEXTJS-B) would otherwise surface as a generic 500 to the
-  // admin EVEN THOUGH the approval fully succeeded — making them re-click an
-  // already-done reconciliation. Running it post-response guarantees a
-  // fully-successful approval never shows the admin an error; the couple's UI
-  // still refreshes a beat later. See DECISION_LOG 2026-07-05.
   after(() => revalidatePath('/dashboard', 'layout'));
+
+  const parts = [`${approved} approved`];
+  if (skipped > 0) parts.push(`${skipped} skipped (no longer a clean match)`);
+  if (failed > 0) parts.push(`${failed} failed (review individually)`);
+  const noticeType = skipped > 0 || failed > 0 ? 'warn' : 'success';
+  redirect(
+    `/admin/payments?filter=pending&notice=${encodeURIComponent(
+      parts.join(' · '),
+    )}&noticeType=${noticeType}`,
+  );
 }
 
 async function schedulePayoutsForOrder(args: {

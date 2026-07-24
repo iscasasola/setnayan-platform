@@ -23,6 +23,7 @@ import {
   filterPublicSafeRows,
 } from '@/lib/public-media-visibility';
 import { eventSkuActive } from '@/lib/entitlements';
+import { loadConsentVetoedPapicIds } from './consent-veto';
 import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { tierCaps } from '@/lib/vendor-tier-caps';
@@ -828,6 +829,14 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   }
   const servicesSetnayan = firstPickDen; // count of event_vendors = services planned with Setnayan
 
+  // 4-bis. RA 10173 consent veto (gap audit B3). The set of papic_photos whose
+  // tagged guests include anyone who opted OUT of photos — withheld from EVERY
+  // public image read below, exactly like the Live Photo Wall's G2 veto. On a
+  // resolve failure we fail CLOSED (drop all papic captures → manual uploads
+  // only). Resolved ONCE here and reused by the gallery / clip / timeline / hero
+  // / essay / kwento reads.
+  const consentVeto = await loadConsentVetoedPapicIds(admin, eventId);
+
   // 5. Photos delivered (best-effort; omit if the count can't be had cheaply).
   // PUBLIC surface → fail-CLOSED: count ONLY screened-clean captures. 'unscreened'
   // (e.g. a never-screened capture) is EXCLUDED, matching the media reads below
@@ -900,7 +909,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
           }),
           capturedAt: asString(r.captured_at) ?? null,
         }))
-        .filter((r): r is PapicRow => Boolean(r.photoId && r.key));
+        .filter((r): r is PapicRow => Boolean(r.photoId && r.key && !consentVeto.ids.has(r.photoId)));
     }
   } catch {
     papicRows = [];
@@ -948,7 +957,7 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
           posterKey: asString(r.poster_r2_key) ?? null,
           capturedAt: asString(r.captured_at) ?? null,
         }))
-        .filter((r): r is PapicClipRow => Boolean(r.photoId && r.key));
+        .filter((r): r is PapicClipRow => Boolean(r.photoId && r.key && !consentVeto.ids.has(r.photoId)));
     }
   } catch {
     papicClipRows = [];
@@ -981,9 +990,18 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
           key: asString(r.r2_object_key),
           capturedAt: asString(r.captured_at) ?? null,
         }))
-        .filter((r): r is TimelinePhotoRow => Boolean(r.photoId && r.key));
+        .filter((r): r is TimelinePhotoRow => Boolean(r.photoId && r.key && !consentVeto.ids.has(r.photoId)));
     }
   } catch {
+    timelinePhotoRows = [];
+  }
+
+  // B3 fail-CLOSED: if the consent veto could not be resolved (transient error),
+  // withhold ALL papic captures rather than risk showing an opted-out guest. The
+  // recap degrades to the couple's manual `our_photos` uploads (no guest tags).
+  if (consentVeto.failed) {
+    papicRows = [];
+    papicClipRows = [];
     timelinePhotoRows = [];
   }
 
@@ -1105,7 +1123,9 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   }
 
   const heroPhotoId = asString(editorial?.hero_photo_id);
-  if (!heroPhotoUrl && heroPhotoId) {
+  // B3: a consent-vetoed capture (or a failed veto resolve) never leads the recap,
+  // even when the couple curated it as the hero — consent wins over curation.
+  if (!heroPhotoUrl && heroPhotoId && !consentVeto.failed && !consentVeto.ids.has(heroPhotoId)) {
     try {
       // PUBLIC surface → a moderation-withheld capture never renders as the
       // hero, even if the couple picked it before the screen finished. The
@@ -1464,7 +1484,11 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   if (essayIds.length > 0) {
     // Resolve curated picks in their chosen order. Reuse the already-presigned
     // gallery map where it overlaps; presign any ids outside the gallery slice.
-    const missing = essayIds.filter((id) => !papicUrlByPhotoId.has(id));
+    // B3: never presign a consent-vetoed capture (or anything, on a failed veto)
+    // — a vetoed id then has no URL in the map, so it drops out of the essay.
+    const missing = consentVeto.failed
+      ? []
+      : essayIds.filter((id) => !papicUrlByPhotoId.has(id) && !consentVeto.ids.has(id));
     if (missing.length > 0) {
       try {
         const { data: rows } = await admin
@@ -1861,7 +1885,10 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
                     full_res_dropped_at: asString(p.full_res_dropped_at),
                   })
                 : asString(p.r2_object_key);
-            if (!id || !key) continue;
+            // B3: a Kwento wish anchored to a consent-vetoed capture (or any
+            // capture, on a failed veto) resolves to text-only — the words are
+            // still approved, but the opted-out guest's media never renders.
+            if (!id || !key || consentVeto.failed || consentVeto.ids.has(id)) continue;
             photoAnchors.set(id, { type, key, posterKey: asString(p.poster_r2_key) });
           }
         } catch {
@@ -2160,6 +2187,12 @@ export async function loadEditorialChaptersForEditor(
     return { cards: [], overrides: [] };
   }
 
+  // B3: the same RA 10173 consent veto the public loader applies. A capture whose
+  // tagged guest opted out can never publish, so it must NOT appear as a curatable
+  // chapter lead in the couple's editor either (curating it would be a footgun —
+  // they'd name a moment that the public recap withholds). Fail CLOSED.
+  const consentVeto = await loadConsentVetoedPapicIds(admin, eventId);
+
   // Current overrides (from draft_json). Read even when there are no cards, so the
   // editor can drop stale ones on the next save.
   let overrides: ChapterOverride[] = [];
@@ -2191,7 +2224,8 @@ export async function loadEditorialChaptersForEditor(
       for (const r of filterPublicSafeRows(data as Array<Record<string, unknown>>)) {
         const photoId = asString(r.photo_id);
         const key = asString(r.r2_object_key);
-        if (photoId && key) rows.push({ photoId, key, posterKey: null, capturedAt: asString(r.captured_at), kind: 'photo' });
+        if (photoId && key && !consentVeto.failed && !consentVeto.ids.has(photoId))
+          rows.push({ photoId, key, posterKey: null, capturedAt: asString(r.captured_at), kind: 'photo' });
       }
     }
   } catch {
@@ -2211,7 +2245,8 @@ export async function loadEditorialChaptersForEditor(
       for (const r of filterPublicSafeRows(data as Array<Record<string, unknown>>)) {
         const photoId = asString(r.photo_id);
         const key = asString(r.r2_object_key);
-        if (photoId && key) rows.push({ photoId, key, posterKey: asString(r.poster_r2_key), capturedAt: asString(r.captured_at), kind: 'clip' });
+        if (photoId && key && !consentVeto.failed && !consentVeto.ids.has(photoId))
+          rows.push({ photoId, key, posterKey: asString(r.poster_r2_key), capturedAt: asString(r.captured_at), kind: 'clip' });
       }
     }
   } catch {

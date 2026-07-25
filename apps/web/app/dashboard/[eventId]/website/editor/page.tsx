@@ -21,6 +21,12 @@ import { updateSiteChrome } from '../site-chrome/actions';
 import { updateLandingPageVisibility } from '../privacy/actions';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SectionsPanel } from './_components/sections-panel';
+import { DressCodePanel, PhotoMomentsPanel } from './_components/authoring-panels';
+import { updateDressCode } from '../dress-code/actions';
+import { normalizeDressCodeConfig } from '../dress-code/_components/dress-code-fields';
+import { updatePhotoMoments } from '../photo-moments/actions';
+import { parsePhotoMomentsConfig } from '../photo-moments/config';
+import { eventNoun } from '@/lib/event-noun';
 import {
   toggleWidgetVisibility,
   moveWidgetUp,
@@ -75,7 +81,7 @@ export default async function WebsiteEditorPage({
   const { data: event } = await supabase
     .from('events')
     .select(
-      `event_id, display_name, slug, event_type, event_date, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_bg_color, site_button_color, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, ${SECTION_CONTENT_EVENT_COLUMNS}`,
+      `event_id, display_name, slug, event_type, event_date, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_bg_color, site_button_color, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, dress_code_config, photo_moments_config, ${SECTION_CONTENT_EVENT_COLUMNS}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -166,6 +172,13 @@ export default async function WebsiteEditorPage({
     supabase,
     eventId,
     event as Parameters<typeof computeSectionContentMap>[2],
+  );
+
+  const dressCodeConfig = normalizeDressCodeConfig(
+    (event as { dress_code_config?: unknown }).dress_code_config,
+  );
+  const photoMomentsConfig = parsePhotoMomentsConfig(
+    (event as { photo_moments_config?: unknown }).photo_moments_config,
   );
 
   const colorsLocked = lockedIf(Boolean(event.site_bg_color || event.site_button_color));
@@ -310,6 +323,14 @@ export default async function WebsiteEditorPage({
           blurb: 'Palette, dos and don’ts.',
           href: `${w}/dress-code`,
           anchor: 'details',
+          panel: (
+            <DressCodePanel
+              action={updateDressCode.bind(null, eventId)}
+              eventId={eventId}
+              config={dressCodeConfig}
+              eventNoun={eventNoun((event.event_type as string | null) ?? 'wedding')}
+            />
+          ),
         },
         {
           key: 'photo-moments',
@@ -317,6 +338,7 @@ export default async function WebsiteEditorPage({
           blurb: 'When to lift the camera, when to stay present.',
           href: `${w}/photo-moments`,
           anchor: 'details',
+          panel: <PhotoMomentsPanel eventId={eventId} initial={photoMomentsConfig} />,
         },
         {
           key: 'special-message',

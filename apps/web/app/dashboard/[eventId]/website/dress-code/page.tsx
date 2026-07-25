@@ -5,8 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { eventNoun } from '@/lib/event-noun';
 import { updateDressCode, type DressCodeConfig } from './actions';
-import { ListField } from './_components/list-field';
-import { PaletteField } from './_components/palette-field';
+import { DressCodeFields, normalizeDressCodeConfig } from './_components/dress-code-fields';
 import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Edit dress code · Setnayan' };
@@ -52,7 +51,7 @@ export default async function DressCodeEditorPage({
   // pre-bind args like this so the page-level eventId travels with the form.
   const updateAction = updateDressCode.bind(null, eventId);
 
-  const savedConfig = normalizeConfig(event.dress_code_config);
+  const savedConfig = normalizeDressCodeConfig(event.dress_code_config);
   const isConfigEmpty =
     !savedConfig.title &&
     !savedConfig.description &&
@@ -127,77 +126,7 @@ export default async function DressCodeEditorPage({
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start lg:gap-8">
         {/* Editor */}
         <form action={updateAction} className="space-y-6">
-          {/* Title */}
-          <div className="space-y-2">
-            <label
-              htmlFor="dress-code-title"
-              className="sn-eye block"
-            >
-              Headline
-            </label>
-            <input
-              id="dress-code-title"
-              type="text"
-              name="title"
-              defaultValue={config.title}
-              maxLength={80}
-              placeholder="e.g. Look magical · Dress in Filipiniana · Garden formal"
-              className="block w-full min-h-[44pt] rounded-md border border-ink/15 bg-white px-3 py-2 text-base text-ink placeholder:text-ink/35 focus-visible:border-ink/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-            />
-            <p className="text-xs text-ink/55">One short headline. Up to 80 characters.</p>
-          </div>
-
-          {/* Description */}
-          <div className="space-y-2">
-            <label
-              htmlFor="dress-code-description"
-              className="sn-eye block"
-            >
-              Guidance
-            </label>
-            <textarea
-              id="dress-code-description"
-              name="description"
-              defaultValue={config.description}
-              maxLength={600}
-              rows={4}
-              placeholder="A sentence or two on what you're picturing. Formal? Garden party? Filipiniana? Lean into the palette? Tell guests in your own voice."
-              className="block w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-base text-ink placeholder:text-ink/35 focus-visible:border-ink/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-            />
-            <p className="text-xs text-ink/55">Up to 600 characters.</p>
-          </div>
-
-          {/* Palette */}
-          <div className="space-y-2">
-            <p className="sn-eye">
-              Palette
-            </p>
-            <p className="text-xs text-ink/55">
-              Up to six swatches. Guests use these to dress in colors that
-              match your {eventNoun(event.event_type)}&rsquo;s mood.
-            </p>
-            <PaletteField initial={config.palette} />
-          </div>
-
-          {/* Do */}
-          <div className="space-y-2">
-            <p className="font-mono text-xs uppercase tracking-[0.18em] text-success-700">
-              Do
-            </p>
-            <p className="text-xs text-ink/55">What you&rsquo;d love guests to wear.</p>
-            <ListField name="dos" tone="do" initial={config.dos} />
-          </div>
-
-          {/* Don't */}
-          <div className="space-y-2">
-            <p className="font-mono text-xs uppercase tracking-[0.18em] text-danger-700">
-              Don&rsquo;t
-            </p>
-            <p className="text-xs text-ink/55">
-              What you&rsquo;d rather they skip. Be kind — they&rsquo;ll read this.
-            </p>
-            <ListField name="donts" tone="dont" initial={config.donts} />
-          </div>
+          <DressCodeFields config={config} eventNoun={eventNoun(event.event_type)} />
 
           {/* Submit */}
           <div className="flex flex-wrap items-center gap-3 border-t border-ink/10 pt-4">
@@ -271,31 +200,6 @@ const INC_DRESS_CODE_SUGGESTION: DressCodeConfig = {
  * only writes valid hex; older rows that bypassed the editor might be in any
  * shape, so guard each field).
  */
-function normalizeConfig(raw: unknown): DressCodeConfig {
-  const obj = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
-  return {
-    title: typeof obj.title === 'string' ? obj.title : '',
-    description: typeof obj.description === 'string' ? obj.description : '',
-    dos: Array.isArray(obj.dos)
-      ? obj.dos.filter((v): v is string => typeof v === 'string')
-      : [],
-    donts: Array.isArray(obj.donts)
-      ? obj.donts.filter((v): v is string => typeof v === 'string')
-      : [],
-    palette: Array.isArray(obj.palette)
-      ? obj.palette
-          .map((row) => {
-            if (!row || typeof row !== 'object') return null;
-            const r = row as Record<string, unknown>;
-            const name = typeof r.name === 'string' ? r.name : '';
-            const hex = typeof r.hex === 'string' ? r.hex : '';
-            if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return null;
-            return { name, hex };
-          })
-          .filter((row): row is { name: string; hex: string } => row !== null)
-      : [],
-  };
-}
 
 /**
  * Server-rendered preview — intentionally a stripped-down copy of the

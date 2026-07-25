@@ -390,3 +390,27 @@ jobs:
 
       - name: Lint vendor layout revalidate
         run: node apps/web/scripts/lint-vendor-layout-revalidate.mjs
+
+  lint-changelog-dir:
+    name: lint changelog fragment dir
+    runs-on: ubuntu-latest
+    # Fails when a `changelog.d/` directory exists anywhere but the repo root.
+    # scripts/changelog-collect.mjs reads ONLY <repoRoot>/changelog.d, so a
+    # fragment written to any other one is never folded into CHANGELOG.md and
+    # never deleted — it just sits there looking like a healthy pending
+    # fragment. The failure mode is pure silence, which is why it ran unnoticed
+    # for months: by 2026-07-25 two orphan dirs held 172 stranded fragments
+    # (167 in apps/web/changelog.d, 5 in apps/changelog.d) whose content never
+    # reached the changelog. Both were migrated with `git mv`; this guard stops
+    # a third from forming. Docs alone can't — changelog.d/README.md and
+    # CLAUDE.md already said "put it in the root dir" the entire time the 172
+    # piled up. Pure node, no install. See apps/web/scripts/lint-changelog-dir.mjs.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lint changelog fragment dir
+        run: node apps/web/scripts/lint-changelog-dir.mjs

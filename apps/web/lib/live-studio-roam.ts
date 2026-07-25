@@ -107,18 +107,39 @@ export function parseRoamManifest(raw: unknown): RoamManifest {
 }
 
 /**
+ * The DEFAULT-CHANNEL rule, over anything that carries the two fields it reads.
+ *
+ * "The host's ★ default, else the first one that is actually live, else the first
+ * one at all." Generic because the same rule has to run over two different shapes:
+ * the public manifest (RoamZoneManifestEntry, below) and the host's raw channel
+ * rows (lib/live-studio-publish.ts → decideProgramAir, which picks the ONE channel
+ * a free host may put to air). Two spellings of "which channel is the default" is
+ * exactly how a paywall and a viewer end up disagreeing about which camera is the
+ * free one.
+ *
+ * Deliberately CUT-BLIND: it never looks at `mainStage`. Callers that want the cut
+ * to win layer it on top (selectMainStageZone), and callers that must NOT let the
+ * cut move the answer — the free tier's pinned channel — use this directly.
+ */
+export function selectDefaultChannel<T extends { featured: boolean; status: string }>(
+  channels: readonly T[],
+): T | null {
+  if (channels.length === 0) return null;
+  return (
+    channels.find((z) => z.featured) ??
+    channels.find((z) => z.status === 'live') ??
+    channels[0] ??
+    null
+  );
+}
+
+/**
  * Pick the zone the picker should land on by default: the featured zone, else the
  * first live one, else the first entry, else null (empty manifest). Pure +
  * exported so it is unit-tested and shared with the picker's initial state.
  */
 export function selectFeaturedZone(manifest: RoamManifest): RoamZoneManifestEntry | null {
-  if (manifest.length === 0) return null;
-  return (
-    manifest.find((z) => z.featured) ??
-    manifest.find((z) => z.status === 'live') ??
-    manifest[0] ??
-    null
-  );
+  return selectDefaultChannel(manifest);
 }
 
 /**

@@ -40,6 +40,12 @@ import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
 import { resolveAddonDeactivationExpiry } from '@/lib/vendor-addon-deactivation';
 import { type VendorTier } from '@/lib/vendor-tier-caps';
 import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
+import { isVendorAiLadderEnabled } from '@/lib/vendor-ai-ladder-flag';
+import {
+  VENDOR_AI_ADVANCED_SKU_CODE,
+  nextVendorAiLevel,
+  vendorAiLevelForServiceKey,
+} from '@/lib/vendor-ai-level';
 import {
   vendorAddonActivationAllowed,
   vendorAddonActivationBlockedReason,
@@ -348,9 +354,19 @@ async function activateVendorAiAddonOrder(ctx: ActivationContext): Promise<void>
   await assertVendorAddonActivationEligible(ctx, vendorProfileId, 'solo');
 
   // (3) Current window + trial marker → the new (stacked) expiry.
+  // ⚠ `ai_addon_level` is named ONLY when the ladder flag is on. PostgREST
+  // answers a select naming an unknown column with 42703 and nulls the WHOLE
+  // row, so an environment that has not yet received migration 20271003111715
+  // must never see the column in a query — that would blank the profile and
+  // silently skip the activation below.
+  const ladder = isVendorAiLadderEnabled();
   const { data: vp } = await ctx.admin
     .from('vendor_profiles')
-    .select('ai_addon_expires_at, ai_addon_trial_used_at')
+    .select(
+      ladder
+        ? 'ai_addon_expires_at, ai_addon_trial_used_at, ai_addon_level'
+        : 'ai_addon_expires_at, ai_addon_trial_used_at',
+    )
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
   const currentExpiry =
@@ -363,6 +379,22 @@ async function activateVendorAiAddonOrder(ctx: ActivationContext): Promise<void>
   // A paid order always means the trial already ran, but never leave it NULL
   // (that would hand a paid vendor a second "free" cycle).
   if (!trialUsedAt) update.ai_addon_trial_used_at = new Date().toISOString();
+
+  // Ladder: stamp which LEVEL this window now grants. Derived from the ORDER'S
+  // service_key (server-side, never client input) and merged with the current
+  // level via nextVendorAiLevel, which takes the HIGHER rung — buying Advanced
+  // mid-cycle promotes, and buying Basic while already Advanced must not demote
+  // a vendor who paid more. Only ever written here and in the free-cycle claim,
+  // both service-role; vendor self-writes are blocked by
+  // trg_guard_vendor_profiles_entitlement.
+  if (ladder) {
+    const currentLevel =
+      (vp as { ai_addon_level?: string | null } | null)?.ai_addon_level ?? null;
+    update.ai_addon_level = nextVendorAiLevel(
+      currentLevel,
+      vendorAiLevelForServiceKey(ctx.serviceKey),
+    );
+  }
 
   const { error } = await ctx.admin
     .from('vendor_profiles')
@@ -668,6 +700,10 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // the entitlement window on the paying vendor (the free first cycle is
   // direct-activated in the buy action). See activateVendorAiAddonOrder.
   [VENDOR_AI_ADDON_SKU_CODE]: activateVendorAiAddonOrder,
+  // Ladder: Advanced shares the SAME hook and the SAME entitlement window — the
+  // hook derives which level to stamp from the order's own service_key. A second
+  // map entry (rather than a renamed key) keeps every historical order valid.
+  [VENDOR_AI_ADVANCED_SKU_CODE]: activateVendorAiAddonOrder,
 
   // 'vendor_3d_booth' → paid 3D Booth 28-day renewal. Stamps
   // vendor_profiles.booth_addon_expires_at on the paying vendor (the free first
@@ -1415,6 +1451,57 @@ async function deactivateVendorAddonWindow(
 }
 
 /**
+ * Re-derive `vendor_profiles.ai_addon_level` when a Vendor AI order is reversed
+ * (rejected / refunded), and demote to 'basic' when the vendor no longer owns
+ * ADVANCED by any live order.
+ *
+ * ⚠ WHY THIS IS SEPARATE FROM deactivateVendorAddonWindow: that helper returns
+ * EARLY (`if (newExpiry === currentExpiry) return`) whenever a later cycle still
+ * owns the window — which is exactly the case where a refunded Advanced order
+ * leaves a live Basic window behind. A level reset written inside it would be
+ * skipped in the one scenario that matters, leaving "refund the Advanced money,
+ * keep the Advanced capability".
+ *
+ * RE-DERIVE, never blind-clear (same reasoning as the SETNAYAN_AI reversal): the
+ * vendor may still hold Advanced through a SECOND live order, and demoting them
+ * for a refund of a different one would revoke something they paid for. Only when
+ * no live Advanced order remains does the level drop.
+ *
+ * The window itself is handled separately, so a vendor who bought Basic and then
+ * Advanced keeps their Basic cycle intact — they lose the rung, not the time.
+ */
+async function rederiveVendorAiLevelOnReversal(ctx: ActivationContext): Promise<void> {
+  if (!isVendorAiLadderEnabled()) return; // never name the column while dark
+
+  const { data: order } = await ctx.admin
+    .from('orders')
+    .select('vendor_profile_id')
+    .eq('order_id', ctx.orderId)
+    .maybeSingle();
+  const vendorProfileId =
+    (order as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
+  if (!vendorProfileId) return;
+
+  // Does ANOTHER live Advanced order still entitle them? (This order has already
+  // been flipped out of the live set by the time reversal runs.)
+  const { data: liveAdvanced } = await ctx.admin
+    .from('orders')
+    .select('order_id')
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('service_key', VENDOR_AI_ADVANCED_SKU_CODE)
+    .in('status', ['paid', 'fulfilled'])
+    .neq('order_id', ctx.orderId)
+    .limit(1);
+  if (liveAdvanced && liveAdvanced.length > 0) return; // still legitimately Advanced
+
+  const { error } = await ctx.admin
+    .from('vendor_profiles')
+    .update({ ai_addon_level: 'basic' })
+    .eq('vendor_profile_id', vendorProfileId);
+  if (error) throw new Error(`ai_addon_level demotion failed: ${error.message}`);
+}
+
+/**
  * Reverse a Photo Challenge sponsorship when its ₱400 order is rejected/refunded
  * — delete the papic_photo_challenge_sponsorships row for THIS (event, vendor) so
  * a refunded vendor can no longer author a sponsored challenge. Scoped to the
@@ -1547,7 +1634,10 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
 
   // Vendor add-on windows (paid renewal OR free first cycle) — expire the window
   // this order stamped, if it's still the current one. Non-fatal + idempotent.
-  if (ctx.serviceKey === VENDOR_AI_ADDON_SKU_CODE) {
+  if (
+    ctx.serviceKey === VENDOR_AI_ADDON_SKU_CODE ||
+    ctx.serviceKey === VENDOR_AI_ADVANCED_SKU_CODE
+  ) {
     try {
       await deactivateVendorAddonWindow(ctx, {
         expiryColumn: 'ai_addon_expires_at',
@@ -1555,6 +1645,15 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
       });
     } catch (e) {
       reportActivationFault('deactivate:vendor_ai_addon', ctx, e);
+    }
+    // Independent of the window rollback ON PURPOSE — deactivateVendorAddonWindow
+    // returns early when a later cycle owns the window, which is precisely the
+    // refunded-Advanced-over-live-Basic case. Own try/catch so neither step can
+    // swallow the other.
+    try {
+      await rederiveVendorAiLevelOnReversal(ctx);
+    } catch (e) {
+      reportActivationFault('deactivate:vendor_ai_level', ctx, e);
     }
   } else if (ctx.serviceKey === VENDOR_3D_BOOTH_SKU_CODE) {
     try {

@@ -11,6 +11,13 @@ import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pri
 import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { appendLedger } from '@/lib/ledger';
+import { nonStackingFreeExpiry } from '@/lib/vendor-addon-first5-free';
+import { isVendorLaunchFreeWindowEnabled } from '@/lib/vendor-launch-free-window-flag';
+import {
+  isVendorLaunchFreeNow,
+  vendorLaunchFreePricePhp,
+  VENDOR_LAUNCH_FREE_WINDOW_END_LABEL,
+} from '@/lib/vendor-launch-free-window-coverage';
 import {
   VENDOR_AI_ADDON_SKU_CODE,
   VENDOR_AI_ADDON_FALLBACK_PHP,
@@ -42,6 +49,13 @@ import {
  * BEFORE pricing, and re-reads the ₱1,500 authoritative price + the SKU's
  * is_active flag from vendor_billing_catalog (mirrors the token-purchase RPC's
  * is_active guard). The client sends only the pay channel — never a price.
+ *
+ * ── 2026-07-25 LAUNCH FREE WINDOW (owner-locked · flag-dark) ────────────────
+ * Behind `NEXT_PUBLIC_VENDOR_LAUNCH_FREE_WINDOW` this add-on is ₱0 until
+ * 2026-11-30 (`lib/vendor-launch-free-window-coverage`). It activates through a
+ * REPEATABLE grant that does NOT consume `ai_addon_trial_used_at`, so the
+ * vendor's one free cycle survives the window. Flag OFF (default) =
+ * byte-identical to today.
  */
 
 export type VendorAiAddonActionState =
@@ -160,36 +174,83 @@ export async function activateVendorAiAddon(
   const cyclePricePhp = isVendorAddonTieredPricingEnabled()
     ? resolveVendorAddonPricePhp('ai_chatbot_basic', tier)
     : catalogCyclePricePhp;
-  const pricePhp = resolveVendorAiAddonPricePhp({ trialUsed, cyclePricePhp });
+  // ── Launch free window (owner 2026-07-25 · flag-dark) ──────────────────────
+  // Behind NEXT_PUBLIC_VENDOR_LAUNCH_FREE_WINDOW this add-on is ₱0 until
+  // 2026-11-30 to seed supply. It is a REPEATABLE grant, NOT a trial: the branch
+  // below deliberately does not stamp ai_addon_trial_used_at, so the vendor still
+  // holds their one free cycle when the window closes. Applied to the RESOLVED
+  // price rather than injected as cyclePricePhp because
+  // resolveVendorAiAddonPricePhp coerces a ₱0 input back up to the ₱1,500
+  // fallback; that is safe ONLY because this can only move the price DOWN to ₱0
+  // and can never overwrite the free first cycle with a positive number. Flag off
+  // → `launchFree` is false and everything below is byte-identical to today.
+  const launchInput = {
+    sku: 'vendor_ai_addon',
+    enabled: isVendorLaunchFreeWindowEnabled(),
+    nowMs: Date.now(),
+  };
+  const launchFree = isVendorLaunchFreeNow(launchInput);
+
+  const pricePhp = vendorLaunchFreePricePhp(
+    resolveVendorAiAddonPricePhp({ trialUsed, cyclePricePhp }),
+    launchInput,
+  );
   /** What a cycle costs this vendor once the free first cycle is spent — so no
    *  message below hardcodes ₱1,500, which is wrong for the entry band. */
   const renewalPricePhp = resolveVendorAiAddonPricePhp({ trialUsed: true, cyclePricePhp });
   const peso = (n: number) => '₱' + n.toLocaleString('en-PH');
 
-  // ── FREE first cycle → atomic claim + direct activation ────────────────────
+  // ── FREE cycle → direct activation ─────────────────────────────────────────
+  // Two shapes reach here: the launch-window REPEATABLE grant (no trial to burn)
+  // and the legacy one-time trial with its atomic claim, unchanged.
   if (pricePhp <= 0) {
     const admin = createAdminClient();
     const nowIso = new Date().toISOString();
-    const newExpiry = nextVendorAiAddonExpiry(null, Date.now());
+    const oneCycleFromNow = nextVendorAiAddonExpiry(null, Date.now());
+    let newExpiry = oneCycleFromNow;
 
-    // Atomic one-time claim: only succeeds while the trial is still unused, so a
-    // double-click / two tabs can never grant two free cycles.
-    const { data: claimed, error: claimErr } = await admin
-      .from('vendor_profiles')
-      .update({ ai_addon_trial_used_at: nowIso, ai_addon_expires_at: newExpiry })
-      .eq('vendor_profile_id', vendorProfileId)
-      .is('ai_addon_trial_used_at', null)
-      .select('vendor_profile_id');
+    if (launchFree) {
+      // Repeatable grant — there is no one-time claim to serialize a burst on, so
+      // clamp the window to ONE cycle ahead (nonStackingFreeExpiry). Pressing the
+      // button ten times lands on the same ~28-days-from-now instead of stacking
+      // 280 free days that would outlive the launch window. Deliberately leaves
+      // ai_addon_trial_used_at alone.
+      const { data: curRow } = await admin
+        .from('vendor_profiles')
+        .select('ai_addon_expires_at')
+        .eq('vendor_profile_id', vendorProfileId)
+        .maybeSingle();
+      const currentExpiry =
+        (curRow as { ai_addon_expires_at?: string | null } | null)?.ai_addon_expires_at ?? null;
+      newExpiry = nonStackingFreeExpiry(currentExpiry, oneCycleFromNow);
 
-    if (claimErr) {
-      return err('Could not activate Vendor AI right now. Please try again.');
-    }
-    if (!claimed || claimed.length === 0) {
-      // Lost the race (another request just claimed the trial) — the caller
-      // should re-submit and land on the paid path. Surface it plainly.
-      return err(
-        `Your free cycle was just used. Refresh to buy the next cycle (${peso(renewalPricePhp)} / 28 days).`,
-      );
+      const { error: grantErr } = await admin
+        .from('vendor_profiles')
+        .update({ ai_addon_expires_at: newExpiry })
+        .eq('vendor_profile_id', vendorProfileId);
+      if (grantErr) {
+        return err('Could not activate Vendor AI right now. Please try again.');
+      }
+    } else {
+      // Atomic one-time claim: only succeeds while the trial is still unused, so a
+      // double-click / two tabs can never grant two free cycles.
+      const { data: claimed, error: claimErr } = await admin
+        .from('vendor_profiles')
+        .update({ ai_addon_trial_used_at: nowIso, ai_addon_expires_at: newExpiry })
+        .eq('vendor_profile_id', vendorProfileId)
+        .is('ai_addon_trial_used_at', null)
+        .select('vendor_profile_id');
+
+      if (claimErr) {
+        return err('Could not activate Vendor AI right now. Please try again.');
+      }
+      if (!claimed || claimed.length === 0) {
+        // Lost the race (another request just claimed the trial) — the caller
+        // should re-submit and land on the paid path. Surface it plainly.
+        return err(
+          `Your free cycle was just used. Refresh to buy the next cycle (${peso(renewalPricePhp)} / 28 days).`,
+        );
+      }
     }
 
     // Audit-only ₱0 'paid' order (no payment row — payments.amount_php > 0).
@@ -201,7 +262,9 @@ export async function activateVendorAiAddon(
         user_id: user.id,
         vendor_profile_id: vendorProfileId,
         service_key: VENDOR_AI_ADDON_SKU_CODE,
-        description: 'Vendor AI — AI Chatbot (first cycle · free)',
+        description: launchFree
+          ? 'Vendor AI — AI Chatbot (free · launch window)'
+          : 'Vendor AI — AI Chatbot (first cycle · free)',
         requested_total_php: 0,
         confirmed_total_php: 0,
         status: 'paid',
@@ -223,7 +286,7 @@ export async function activateVendorAiAddon(
         metadata: {
           service_key: VENDOR_AI_ADDON_SKU_CODE,
           vendor_profile_id: vendorProfileId,
-          kind: 'ai_addon_free_first_cycle',
+          kind: launchFree ? 'ai_addon_free_launch_window' : 'ai_addon_free_first_cycle',
           expires_at: newExpiry,
         },
       });
@@ -233,8 +296,10 @@ export async function activateVendorAiAddon(
     revalidatePath('/vendor-dashboard/shop');
     return {
       status: 'activated',
-      message:
-        `Vendor AI is on — your free first 28-day cycle is active. After it ends, it’s ${peso(renewalPricePhp)} / 28 days.`,
+      message: launchFree
+        ? `Vendor AI is on — free through ${VENDOR_LAUNCH_FREE_WINDOW_END_LABEL} while we're in launch. After that it's ${peso(renewalPricePhp)} / 28 days` +
+          (trialUsed ? '.' : ", and your free first cycle is still waiting for you.")
+        : `Vendor AI is on — your free first 28-day cycle is active. After it ends, it’s ${peso(renewalPricePhp)} / 28 days.`,
     };
   }
 

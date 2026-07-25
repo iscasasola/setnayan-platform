@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Bot, Check, Clock, Lock } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { VENDOR_LAUNCH_FREE_WINDOW_END_LABEL } from '@/lib/vendor-launch-free-window-coverage';
 import {
   activateVendorAiAddon,
   type VendorAiAddonActionState,
@@ -58,6 +59,11 @@ export type AiAddonCardProps = {
    *  because the assistant can't answer anyone until it's turned on platform-wide.
    *  We never take money for a feature that can't run yet. */
   assistantLive: boolean;
+  /** The 2026-07-25 launch free window is LIVE for this add-on (flag-dark) — it
+   *  grants at ₱0 until 2026-11-30 WITHOUT spending the vendor's free first
+   *  cycle, so it outranks `trialAvailable` for copy. Absent/false → unchanged.
+   *  Mirrors `isVendorLaunchFreeNow` on the server. */
+  launchFree?: boolean;
 };
 
 export function AiAddonCard(props: AiAddonCardProps) {
@@ -70,6 +76,9 @@ export function AiAddonCard(props: AiAddonCardProps) {
     pricePhp,
     assistantLive,
   } = props;
+  const launchFree = props.launchFree === true;
+  /** No money changes hands — launch window OR the one-time free first cycle. */
+  const freeCycle = launchFree || trialAvailable;
 
   const toast = useToast();
   const router = useRouter();
@@ -113,7 +122,12 @@ export function AiAddonCard(props: AiAddonCardProps) {
             this only adds the AI auto-answer.
           </p>
           <p className="mt-2 text-sm font-medium text-ink">
-            {trialAvailable ? (
+            {launchFree ? (
+              <>
+                Free through {VENDOR_LAUNCH_FREE_WINDOW_END_LABEL} while
+                we&rsquo;re in launch, then {peso(pricePhp)} / 28 days.
+              </>
+            ) : trialAvailable ? (
               <>Free first 28-day cycle, then {peso(pricePhp)} / 28 days.</>
             ) : (
               <>{peso(pricePhp)} / 28 days.</>
@@ -153,8 +167,8 @@ export function AiAddonCard(props: AiAddonCardProps) {
         </div>
       ) : (
         <form action={formAction} className="mt-4">
-          {/* The paid path needs a pay channel; the free first cycle ignores it. */}
-          {!trialAvailable ? (
+          {/* The paid path needs a pay channel; a free cycle ignores it. */}
+          {!freeCycle ? (
             <fieldset className="mb-3">
               <legend className="text-xs font-medium text-ink">Pay with</legend>
               <div className="mt-1.5 flex flex-wrap gap-3">
@@ -172,13 +186,17 @@ export function AiAddonCard(props: AiAddonCardProps) {
 
           <SubmitButton
             className="inline-flex items-center gap-1.5 rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90"
-            pendingLabel={trialAvailable ? 'Turning on…' : 'Starting…'}
+            pendingLabel={freeCycle ? 'Turning on…' : 'Starting…'}
           >
-            {trialAvailable
-              ? 'Turn on Vendor AI — free first cycle'
-              : active
-                ? `Renew — ${peso(pricePhp)} / 28 days`
-                : `Reactivate — ${peso(pricePhp)} / 28 days`}
+            {launchFree
+              ? active
+                ? 'Extend Vendor AI — still free'
+                : 'Turn on Vendor AI — free during launch'
+              : trialAvailable
+                ? 'Turn on Vendor AI — free first cycle'
+                : active
+                  ? `Renew — ${peso(pricePhp)} / 28 days`
+                  : `Reactivate — ${peso(pricePhp)} / 28 days`}
           </SubmitButton>
 
           {/* Apply-then-pay instructions after a paid order was started. */}

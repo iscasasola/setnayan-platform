@@ -28,6 +28,11 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { notifyAdminsSubscriptionPending } from '@/lib/subscription-purchase-notify';
+import { isVendorLaunchFreeWindowEnabled } from '@/lib/vendor-launch-free-window-flag';
+import {
+  isVendorLaunchFreeNow,
+  VENDOR_LAUNCH_FREE_WINDOW_END_LABEL,
+} from '@/lib/vendor-launch-free-window-coverage';
 
 const ERR = (msg: string) =>
   redirect('/vendor-dashboard/subscription?error=' + encodeURIComponent(msg));
@@ -45,6 +50,26 @@ const ERR = (msg: string) =>
  * so the page shows the payment-instructions panel for the new order.
  */
 export async function startSubscriptionPurchase(formData: FormData): Promise<void> {
+  // ── Launch free window (owner 2026-07-25 · flag-dark) ──────────────────────
+  // Paid plans are ₱0 until 2026-11-30. `create_vendor_subscription` prices the
+  // order FROM vendor_billing_catalog (which has a price_php > 0 CHECK) and has
+  // no ₱0 branch, so the only honest server behaviour during the window is to
+  // mint NO order at all — never one the vendor is then asked to pay. The cards
+  // already render a non-submitting "Free during launch" state; this is the
+  // backstop for a stale page / a direct POST. Flag off → never taken, and this
+  // action is byte-identical to today.
+  if (
+    isVendorLaunchFreeNow({
+      sku: 'vendor_subscription',
+      enabled: isVendorLaunchFreeWindowEnabled(),
+      nowMs: Date.now(),
+    })
+  ) {
+    ERR(
+      `Paid plans are free through ${VENDOR_LAUNCH_FREE_WINDOW_END_LABEL} — there's nothing to pay while we're in launch.`,
+    );
+  }
+
   const sku = formData.get('sku_code');
   if (typeof sku !== 'string' || sku.trim().length === 0) {
     ERR('Pick a plan to continue.');

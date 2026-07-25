@@ -35,6 +35,11 @@ import {
   first5BookingsRemaining,
 } from '@/lib/vendor-addon-first5-free';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
+import { isVendorLaunchFreeWindowEnabled } from '@/lib/vendor-launch-free-window-flag';
+import {
+  isVendorLaunchFreeNow,
+  VENDOR_LAUNCH_FREE_WINDOW_END_LABEL,
+} from '@/lib/vendor-launch-free-window-coverage';
 import { seating3dEnabled } from '@/lib/seating-3d-flag';
 import { SubscriptionCycleToggle } from './_components/cycle-toggle';
 import {
@@ -230,6 +235,19 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
     enabled: first5FreeEnabled,
   });
   const first5Remaining = first5FreeEnabled ? first5BookingsRemaining(committedBookings) : 0;
+
+  // ── Launch free window (owner 2026-07-25 · flag-dark) ──────────────────────
+  // Reads the SAME pure decision each buy action does, off the same flag + the
+  // same clock, so a card can never advertise ₱0 for something the server would
+  // still charge for (or vice versa). Flag off → every one of these is false and
+  // the page is byte-identical to today.
+  const launchWindowEnabled = isVendorLaunchFreeWindowEnabled();
+  const launchNowMs = Date.now();
+  const launchFreeFor = (sku: string) =>
+    isVendorLaunchFreeNow({ sku, enabled: launchWindowEnabled, nowMs: launchNowMs });
+  const subscriptionLaunchFree = launchFreeFor('vendor_subscription');
+  const aiAddonLaunchFree = launchFreeFor('vendor_ai_addon');
+  const boothAddonLaunchFree = launchFreeFor('vendor_3d_booth');
 
   // DB prices for the chosen cycle, keyed by sku_code.
   const [vendorCatalog, settings] = await Promise.all([
@@ -427,6 +445,22 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         </Link>
       ) : null}
 
+      {/* Launch free window — paid plans cost ₱0 until 2026-11-30 (flag-dark).
+          Rendered only while the window is live for subscriptions, so nothing
+          changes with the flag off. */}
+      {subscriptionLaunchFree ? (
+        <div className="mb-5 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
+          <p className="font-semibold">
+            Every paid plan is free through {VENDOR_LAUNCH_FREE_WINDOW_END_LABEL}.
+          </p>
+          <p className="mt-0.5">
+            We&rsquo;re in launch — you don&rsquo;t need to buy a plan yet, and we
+            won&rsquo;t take a payment for one. The prices below are what
+            they&rsquo;ll cost once the launch window closes.
+          </p>
+        </div>
+      ) : null}
+
       {/* Monthly / annual toggle (client component · updates ?cycle=) */}
       <SubscriptionCycleToggle cycle={cycle} />
 
@@ -435,6 +469,7 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         <SubscriptionCards
           cycle={cycle}
           packs={addonPacks}
+          launchFree={subscriptionLaunchFree}
           cards={visibleTiers.flatMap((tier) => {
             const sku = skuFor(tier, cycle);
             // Catalog price first; fall back to the code matrix only if the DB
@@ -497,6 +532,7 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         expiresAt={aiAddonState.expiresAt}
         pricePhp={aiAddonPricePhp}
         assistantLive={vendorAutoReplyEnabled()}
+        launchFree={aiAddonLaunchFree}
       />
 
       {/* 3D Booth add-on — free first 28-day cycle, then ₱1,500/28d, on
@@ -514,6 +550,7 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         pricePhp={boothAddonPricePhp}
         first5Free={boothFirst5Free}
         first5Remaining={first5Remaining}
+        launchFree={boothAddonLaunchFree}
       />
 
       {/* Deep Search — a metered ₱500/search add-on that researches the vendor's

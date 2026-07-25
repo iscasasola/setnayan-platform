@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Check, Clock, Lock, Store } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { VENDOR_LAUNCH_FREE_WINDOW_END_LABEL } from '@/lib/vendor-launch-free-window-coverage';
 import {
   activateVendor3dBooth,
   type Vendor3dBoothActionState,
@@ -71,6 +72,11 @@ export type BoothAddonCardProps = {
   /** How many of the first 5 bookings are still to come — powers the honest
    *  "2 to go" line so the perk never reads as permanently free. */
   first5Remaining?: number;
+  /** The 2026-07-25 launch free window is LIVE for this add-on (flag-dark) — it
+   *  grants at ₱0 until 2026-11-30 without spending the vendor's one free cycle.
+   *  Outranks both `first5Free` and `trialAvailable` for copy. Absent/false →
+   *  unchanged. Mirrors `isVendorLaunchFreeNow` on the server. */
+  launchFree?: boolean;
 };
 
 export function BoothAddonCard(props: BoothAddonCardProps) {
@@ -84,10 +90,12 @@ export function BoothAddonCard(props: BoothAddonCardProps) {
     pricePhp,
   } = props;
   const first5Free = props.first5Free === true;
+  const launchFree = props.launchFree === true;
   const first5Remaining = Math.max(0, Math.floor(props.first5Remaining ?? 0));
-  /** A free cycle is granted with no money changing hands — from the first-5
-   *  perk (repeatable) or the legacy one-time trial. Both skip the pay channel. */
-  const freeCycle = first5Free || trialAvailable;
+  /** A free cycle is granted with no money changing hands — from the launch
+   *  window, the first-5 perk (both repeatable) or the legacy one-time trial.
+   *  All three skip the pay channel. */
+  const freeCycle = launchFree || first5Free || trialAvailable;
 
   const toast = useToast();
   const router = useRouter();
@@ -131,7 +139,12 @@ export function BoothAddonCard(props: BoothAddonCardProps) {
             generic.
           </p>
           <p className="mt-2 text-sm font-medium text-ink">
-            {first5Free ? (
+            {launchFree ? (
+              <>
+                Free through {VENDOR_LAUNCH_FREE_WINDOW_END_LABEL} while we&rsquo;re
+                in launch, then {peso(pricePhp)} / 28 days.
+              </>
+            ) : first5Free ? (
               <>
                 Free while you&rsquo;re on your first 5 bookings
                 {first5Remaining > 0 ? <> &middot; {first5Remaining} to go</> : null}, then{' '}
@@ -198,15 +211,19 @@ export function BoothAddonCard(props: BoothAddonCardProps) {
             className="inline-flex items-center gap-1.5 rounded-lg bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta/90"
             pendingLabel={freeCycle ? 'Turning on…' : 'Starting…'}
           >
-            {first5Free
+            {launchFree
               ? active
                 ? 'Extend 3D Booth — still free'
-                : 'Turn on 3D Booth — free'
-              : trialAvailable
-                ? 'Turn on 3D Booth — free first cycle'
-                : active
-                  ? `Renew — ${peso(pricePhp)} / 28 days`
-                  : `Reactivate — ${peso(pricePhp)} / 28 days`}
+                : 'Turn on 3D Booth — free during launch'
+              : first5Free
+                ? active
+                  ? 'Extend 3D Booth — still free'
+                  : 'Turn on 3D Booth — free'
+                : trialAvailable
+                  ? 'Turn on 3D Booth — free first cycle'
+                  : active
+                    ? `Renew — ${peso(pricePhp)} / 28 days`
+                    : `Reactivate — ${peso(pricePhp)} / 28 days`}
           </SubmitButton>
 
           {/* Apply-then-pay instructions after a paid order was started. */}

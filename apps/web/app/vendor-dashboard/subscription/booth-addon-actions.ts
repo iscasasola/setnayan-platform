@@ -23,6 +23,12 @@ import {
   first5BookingsRemaining,
   nonStackingFreeExpiry,
 } from '@/lib/vendor-addon-first5-free';
+import { isVendorLaunchFreeWindowEnabled } from '@/lib/vendor-launch-free-window-flag';
+import {
+  isVendorLaunchFreeNow,
+  vendorLaunchFreePricePhp,
+  VENDOR_LAUNCH_FREE_WINDOW_END_LABEL,
+} from '@/lib/vendor-launch-free-window-coverage';
 import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 
 /**
@@ -67,6 +73,13 @@ import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
  * The matching RENDER gate is `lib/booth-branding-tier-gate` — same flag, so
  * access and price flip together and a Free vendor can never pay for a booth
  * that would still render generic.
+ *
+ * ── 2026-07-25 LAUNCH FREE WINDOW (owner-locked · flag-dark) ────────────────
+ * Behind `NEXT_PUBLIC_VENDOR_LAUNCH_FREE_WINDOW` this add-on is ₱0 until
+ * 2026-11-30 (`lib/vendor-launch-free-window-coverage`). It activates through
+ * the same REPEATABLE, non-trial-consuming grant path as the first-5 policy, so
+ * the vendor's one-time free cycle survives the window. Flag OFF (default) =
+ * byte-identical to today.
  */
 
 export type Vendor3dBoothActionState =
@@ -206,23 +219,45 @@ export async function activateVendor3dBooth(
     enabled: first5Enabled,
   });
 
-  const pricePhp = first5Enabled
+  // ── Launch free window (owner 2026-07-25 · flag-dark) ──────────────────────
+  // Selected vendor paid features are ₱0 until 2026-11-30 to seed supply. This
+  // is a REPEATABLE grant, NOT a trial: it deliberately does not touch
+  // booth_addon_trial_used_at, so the vendor still holds their one free cycle
+  // when the window closes. Applied to the RESOLVED price rather than injected
+  // as cyclePricePhp because resolveVendor3dBoothPricePhp coerces a ₱0 input
+  // back up to the ₱1,500 fallback — and it is safe here only because it can
+  // ONLY move the price down to ₱0 (never over a ₱0 trial with a positive
+  // number). Flag off → `launchFree` is false and everything below is
+  // byte-identical to today.
+  const launchInput = {
+    sku: 'vendor_3d_booth',
+    enabled: isVendorLaunchFreeWindowEnabled(),
+    nowMs: Date.now(),
+  };
+  const launchFree = isVendorLaunchFreeNow(launchInput);
+
+  /** Today's price, before the launch window is considered. */
+  const basePricePhp = first5Enabled
     ? first5Free
       ? 0
       : renewalPricePhp
     : resolveVendor3dBoothPricePhp({ trialUsed, cyclePricePhp });
+  const pricePhp = vendorLaunchFreePricePhp(basePricePhp, launchInput);
+
+  /** A free cycle that must NOT burn the one-time trial claim. */
+  const repeatableFree = first5Free || launchFree;
 
   // ── FREE cycle → direct activation ─────────────────────────────────────────
-  // Two shapes reach here. `first5Free` is the REPEATABLE grant (free while the
-  // vendor is inside their first 5 bookings); otherwise it is the legacy one-time
-  // trial, unchanged.
+  // Three shapes reach here. `launchFree` and `first5Free` are REPEATABLE grants
+  // (the launch window / the vendor's first 5 bookings); otherwise it is the
+  // legacy one-time trial, unchanged.
   if (pricePhp <= 0) {
     const admin = createAdminClient();
     const nowIso = new Date().toISOString();
     const oneCycleFromNow = nextVendor3dBoothExpiry(null, Date.now());
     let newExpiry = oneCycleFromNow;
 
-    if (first5Free) {
+    if (repeatableFree) {
       // REPEATABLE grant — no trial to claim, so the atomic one-time claim that
       // made the trial double-click-proof does not apply. Clamp the window to ONE
       // cycle ahead instead (nonStackingFreeExpiry), so pressing the button ten
@@ -279,9 +314,11 @@ export async function activateVendor3dBooth(
         user_id: user.id,
         vendor_profile_id: vendorProfileId,
         service_key: VENDOR_3D_BOOTH_SKU_CODE,
-        description: first5Free
-          ? '3D Booth — Branded Virtual Booth (free · first 5 bookings)'
-          : '3D Booth — Branded Virtual Booth (first cycle · free)',
+        description: launchFree
+          ? '3D Booth — Branded Virtual Booth (free · launch window)'
+          : first5Free
+            ? '3D Booth — Branded Virtual Booth (free · first 5 bookings)'
+            : '3D Booth — Branded Virtual Booth (first cycle · free)',
         requested_total_php: 0,
         confirmed_total_php: 0,
         status: 'paid',
@@ -303,7 +340,11 @@ export async function activateVendor3dBooth(
         metadata: {
           service_key: VENDOR_3D_BOOTH_SKU_CODE,
           vendor_profile_id: vendorProfileId,
-          kind: first5Free ? 'booth_addon_free_first5_bookings' : 'booth_addon_free_first_cycle',
+          kind: launchFree
+            ? 'booth_addon_free_launch_window'
+            : first5Free
+              ? 'booth_addon_free_first5_bookings'
+              : 'booth_addon_free_first_cycle',
           expires_at: newExpiry,
           ...(first5Free ? { committed_bookings: committedBookings } : {}),
         },
@@ -314,9 +355,12 @@ export async function activateVendor3dBooth(
     revalidatePath('/vendor-dashboard/shop');
     return {
       status: 'activated',
-      message: first5Free
-        ? `Your 3D Booth is on — free while you're on your first ${FREE_BOOKING_LIMIT} bookings (${first5BookingsRemaining(committedBookings)} to go). From your ${FREE_BOOKING_LIMIT + 1}th booking it's ${peso(renewalPricePhp)} / 28 days.`
-        : `Your 3D Booth is on — your free first 28-day cycle is active. After it ends, it’s ${peso(renewalPricePhp)} / 28 days.`,
+      message: launchFree
+        ? `Your 3D Booth is on — free through ${VENDOR_LAUNCH_FREE_WINDOW_END_LABEL} while we're in launch. After that it's ${peso(renewalPricePhp)} / 28 days` +
+          (trialUsed ? '.' : ", and your free first cycle is still waiting for you.")
+        : first5Free
+          ? `Your 3D Booth is on — free while you're on your first ${FREE_BOOKING_LIMIT} bookings (${first5BookingsRemaining(committedBookings)} to go). From your ${FREE_BOOKING_LIMIT + 1}th booking it's ${peso(renewalPricePhp)} / 28 days.`
+          : `Your 3D Booth is on — your free first 28-day cycle is active. After it ends, it’s ${peso(renewalPricePhp)} / 28 days.`,
     };
   }
 

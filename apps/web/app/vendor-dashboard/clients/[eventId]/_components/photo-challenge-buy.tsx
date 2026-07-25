@@ -14,9 +14,11 @@ import {
  * Owner-locked 2026-07-22: ₱400 / event, Pro/Enterprise + verified + booked +
  * Papic active. No free cycle (per-event, not a subscription).
  *
- * `free` = "free until your 6th booking" is active for this vendor (owner
- * 2026-07-25): no pay channel is collected and the sponsorship activates
- * IMMEDIATELY rather than waiting on an admin confirming a payment.
+ * `free` = a ₱0 grant is active for this vendor (owner 2026-07-25) — either
+ * "free until your 6th booking" OR the launch free window (free through
+ * 2026-11-30): no pay channel is collected and the sponsorship activates
+ * IMMEDIATELY rather than waiting on an admin confirming a payment. The panel
+ * above says WHICH; this control only needs to know money isn't changing hands.
  */
 
 const IDLE: PhotoChallengeActionState = { status: 'idle' };

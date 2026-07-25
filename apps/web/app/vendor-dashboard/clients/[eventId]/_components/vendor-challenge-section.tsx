@@ -22,6 +22,11 @@ import {
   first5BookingsRemaining,
 } from '@/lib/vendor-addon-first5-free';
 import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
+import { isVendorLaunchFreeWindowEnabled } from '@/lib/vendor-launch-free-window-flag';
+import {
+  isVendorLaunchFreeNow,
+  VENDOR_LAUNCH_FREE_WINDOW_END_LABEL,
+} from '@/lib/vendor-launch-free-window-coverage';
 import { eventPapicActive } from '@/lib/papic-seats';
 import {
   fetchPhotoChallengeSponsored,
@@ -90,6 +95,15 @@ export async function VendorChallengeSection({
     enabled: first5Enabled,
   });
   const first5Remaining = first5Enabled ? first5BookingsRemaining(committedBookings) : 0;
+
+  // Launch free window (owner 2026-07-25, flag-dark) — the SAME pure decision the
+  // buy action makes, so the panel can never advertise ₱0 for something the
+  // server would still charge for. Flag off → false, and this panel is unchanged.
+  const launchFree = isVendorLaunchFreeNow({
+    sku: 'papic_challenge',
+    enabled: isVendorLaunchFreeWindowEnabled(),
+    nowMs: Date.now(),
+  });
 
   // The same pure gate the buy action enforces (booked is implied by mount).
   const eligibility = photoChallengeEligibility({
@@ -182,16 +196,18 @@ export async function VendorChallengeSection({
         // Eligible to buy → the ₱400 sponsorship CTA (or the ₱0 grant).
         <>
           <p className="mt-4 text-sm font-medium text-ink">
-            {first5Free
-              ? `Sponsor Papic Challenges for this event — free while you're on your first 5 bookings` +
-                (first5Remaining > 0 ? ` (${first5Remaining} to go)` : '') +
-                `, then ₱${effectivePricePhp.toLocaleString('en-PH')}.`
-              : `Sponsor Papic Challenges for this event — ₱${effectivePricePhp.toLocaleString('en-PH')}.`}
+            {launchFree
+              ? `Sponsor Papic Challenges for this event — free through ${VENDOR_LAUNCH_FREE_WINDOW_END_LABEL} while we're in launch, then ₱${effectivePricePhp.toLocaleString('en-PH')}.`
+              : first5Free
+                ? `Sponsor Papic Challenges for this event — free while you're on your first 5 bookings` +
+                  (first5Remaining > 0 ? ` (${first5Remaining} to go)` : '') +
+                  `, then ₱${effectivePricePhp.toLocaleString('en-PH')}.`
+                : `Sponsor Papic Challenges for this event — ₱${effectivePricePhp.toLocaleString('en-PH')}.`}
           </p>
           <PhotoChallengeBuy
             eventId={eventId}
             pricePhp={effectivePricePhp}
-            free={first5Free}
+            free={first5Free || launchFree}
           />
         </>
       ) : (

@@ -16,6 +16,12 @@ import {
   fetchVendorCommittedBookingCount,
   first5BookingsRemaining,
 } from '@/lib/vendor-addon-first5-free';
+import { isVendorLaunchFreeWindowEnabled } from '@/lib/vendor-launch-free-window-flag';
+import {
+  isVendorLaunchFreeNow,
+  vendorLaunchFreePricePhp,
+  VENDOR_LAUNCH_FREE_WINDOW_END_LABEL,
+} from '@/lib/vendor-launch-free-window-coverage';
 import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 import { eventPapicActive } from '@/lib/papic-seats';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
@@ -49,6 +55,11 @@ import {
  * papic_photo_challenge_sponsorships entitlement, which the
  * papic_create_vendor_challenge RPC requires before a vendor may author a
  * challenge.
+ *
+ * ── 2026-07-25 LAUNCH FREE WINDOW (owner-locked · flag-dark) ────────────────
+ * Behind `NEXT_PUBLIC_VENDOR_LAUNCH_FREE_WINDOW` sponsoring is ₱0 until
+ * 2026-11-30 (`lib/vendor-launch-free-window-coverage`), riding the same free
+ * grant path as the first-5 policy. Flag OFF (default) = byte-identical to today.
  */
 
 export type PhotoChallengeActionState =
@@ -226,7 +237,19 @@ export async function sponsorPhotoChallenge(
     committedBookingCount: committedBookings,
     enabled: first5Enabled,
   });
-  const pricePhp = first5Free ? 0 : listPricePhp;
+  // ── Launch free window (owner 2026-07-25 · flag-dark) ──────────────────────
+  // Behind NEXT_PUBLIC_VENDOR_LAUNCH_FREE_WINDOW, sponsoring is ₱0 until
+  // 2026-11-30. There is no trial or per-cycle allowance to burn here (the
+  // dedupe is the (event_id, vendor_profile_id) sponsorship UNIQUE), so this
+  // rides the SAME free path as the first-5 grant. Flag off → `launchFree` is
+  // false and everything below is byte-identical to today.
+  const launchInput = {
+    sku: 'papic_challenge',
+    enabled: isVendorLaunchFreeWindowEnabled(),
+    nowMs: Date.now(),
+  };
+  const launchFree = isVendorLaunchFreeNow(launchInput);
+  const pricePhp = vendorLaunchFreePricePhp(first5Free ? 0 : listPricePhp, launchInput);
 
   // ── FREE sponsorship → direct activation (no payment, no admin step) ────────
   // Mirrors the 3D booth's free path: an audit-only ₱0 'paid' order (no payments
@@ -244,7 +267,9 @@ export async function sponsorPhotoChallenge(
         user_id: user.id,
         vendor_profile_id: vendorProfileId,
         service_key: VENDOR_PHOTO_CHALLENGE_SKU_CODE,
-        description: 'Papic Challenges (per event · free · first 5 bookings)',
+        description: launchFree
+          ? 'Papic Challenges (per event · free · launch window)'
+          : 'Papic Challenges (per event · free · first 5 bookings)',
         requested_total_php: 0,
         confirmed_total_php: 0,
         status: 'paid',
@@ -278,8 +303,14 @@ export async function sponsorPhotoChallenge(
         service_key: VENDOR_PHOTO_CHALLENGE_SKU_CODE,
         vendor_profile_id: vendorProfileId,
         event_id: eventId,
-        kind: 'papic_challenge_free_first5_bookings',
-        committed_bookings: committedBookings,
+        kind: launchFree
+          ? 'papic_challenge_free_launch_window'
+          : 'papic_challenge_free_first5_bookings',
+        // NaN when the first-5 flag is off (the count is never read) — omit it
+        // rather than writing a null that reads as "zero bookings".
+        ...(Number.isFinite(committedBookings)
+          ? { committed_bookings: committedBookings }
+          : {}),
       },
     });
 
@@ -287,10 +318,11 @@ export async function sponsorPhotoChallenge(
     const remaining = first5BookingsRemaining(committedBookings);
     return {
       status: 'activated',
-      message:
-        `Papic Challenges is on for this event — free while you're on your first ${FREE_BOOKING_LIMIT} bookings` +
-        (remaining > 0 ? ` (${remaining} to go)` : '') +
-        `. From your ${FREE_BOOKING_LIMIT + 1}th booking it's ₱${listPricePhp.toLocaleString('en-PH')} per event.`,
+      message: launchFree
+        ? `Papic Challenges is on for this event — free through ${VENDOR_LAUNCH_FREE_WINDOW_END_LABEL} while we're in launch. After that it's ₱${listPricePhp.toLocaleString('en-PH')} per event.`
+        : `Papic Challenges is on for this event — free while you're on your first ${FREE_BOOKING_LIMIT} bookings` +
+          (remaining > 0 ? ` (${remaining} to go)` : '') +
+          `. From your ${FREE_BOOKING_LIMIT + 1}th booking it's ₱${listPricePhp.toLocaleString('en-PH')} per event.`,
     };
   }
 

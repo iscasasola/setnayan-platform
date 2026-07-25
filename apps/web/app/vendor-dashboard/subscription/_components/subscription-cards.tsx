@@ -32,6 +32,7 @@ import { Check } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { WebNudgeBanner } from '@/app/vendor-dashboard/_components/web-nudge-banner';
 import { isNativeApp } from '@/lib/capacitor';
+import { VENDOR_LAUNCH_FREE_WINDOW_END_LABEL } from '@/lib/vendor-launch-free-window-coverage';
 import type { TokenPack } from '@/app/vendor-dashboard/tokens/_components/buy-tokens-cta';
 import { startSubscriptionPurchase } from '../actions';
 
@@ -68,11 +69,22 @@ export function SubscriptionCards({
   cards,
   cycle,
   packs = [],
+  launchFree = false,
 }: {
   cards: SubscriptionCardData[];
   cycle: 'monthly' | 'annual';
   /** Token packs available to fold into a plan order as an optional add-on. */
   packs?: TokenPack[];
+  /**
+   * The 2026-07-25 launch free window is LIVE for subscriptions (flag-dark) —
+   * every paid plan costs ₱0 until 2026-11-30. Because the plan order is minted
+   * by `create_vendor_subscription`, which reads the catalog price and cannot
+   * mint a ₱0 row, we do NOT create an order at all during the window: the CTA
+   * turns into a non-submitting "Free during launch" state and
+   * `startSubscriptionPurchase` refuses server-side. That way the page can never
+   * say "free" while the rail takes a payment. Default false → unchanged.
+   */
+  launchFree?: boolean;
 }) {
   const [native, setNative] = useState(false);
   // '' = no add-on. The selection applies to whichever plan card is submitted.
@@ -101,7 +113,13 @@ export function SubscriptionCards({
         />
       )}
 
-      {packs.length > 0 && (
+      {/* Bundle-tokens picker. Hidden during the launch window: it only exists to
+          fold a pack into the PLAN order, and during the window no plan order is
+          minted — leaving it up would be a dead end (pick a pack, "You pay ₱X",
+          no button). Token packs are NOT launch-free (stored value, not a
+          feature) and stay buyable standalone at /vendor-dashboard/tokens.
+          `launchFree` defaults false → unchanged with the flag off. */}
+      {packs.length > 0 && !launchFree && (
         <div
           className="mb-4 rounded-xl border p-4"
           style={{ background: 'var(--m-paper)', borderColor: 'var(--m-line)' }}
@@ -205,16 +223,23 @@ export function SubscriptionCards({
 
               <p className="mt-4">
                 <span className="text-3xl font-semibold text-ink">
-                  ₱{NUMBER.format(displayPrice)}
+                  {launchFree ? '₱0' : `₱${NUMBER.format(displayPrice)}`}
                 </span>
                 <span className="text-sm text-ink/55">
                   {' '}
                   / {cycle === 'monthly' ? '28 days' : 'year'}
                 </span>
               </p>
-              <p className="mt-0.5 text-xs text-ink/55">
-                ≈ ₱{NUMBER.format(perDay)}/day · ₱{NUMBER.format(perWeek)}/week
-              </p>
+              {launchFree ? (
+                <p className="mt-0.5 text-xs text-ink/55">
+                  Free through {VENDOR_LAUNCH_FREE_WINDOW_END_LABEL} · ₱
+                  {NUMBER.format(displayPrice)} after launch
+                </p>
+              ) : (
+                <p className="mt-0.5 text-xs text-ink/55">
+                  ≈ ₱{NUMBER.format(perDay)}/day · ₱{NUMBER.format(perWeek)}/week
+                </p>
+              )}
               {cycle === 'annual' && (
                 <p className="mt-1 inline-flex w-fit items-center rounded-full bg-success-100 px-2 py-0.5 text-[11px] font-medium text-success-800">
                   Save 12 weeks vs paying monthly
@@ -267,20 +292,34 @@ export function SubscriptionCards({
                 </div>
               )}
 
-              <form action={startSubscriptionPurchase} className="mt-5">
-                <input type="hidden" name="sku_code" value={card.sku} />
-                <input
-                  type="hidden"
-                  name="addon_token_pack_sku"
-                  value={addonSku}
-                />
-                <SubmitButton
-                  className="button-primary w-full"
-                  pendingLabel="Starting…"
+              {launchFree ? (
+                /* Launch window — no order is minted (create_vendor_subscription
+                   can't price a plan at ₱0), so there is nothing to submit. A
+                   plain disabled control keeps the card honest: it says free and
+                   it takes no payment. */
+                <button
+                  type="button"
+                  disabled
+                  className="button-primary mt-5 w-full cursor-default opacity-70"
                 >
-                  {addonPack ? `${baseLabel} · pay ₱${NUMBER.format(orderTotal)}` : baseLabel}
-                </SubmitButton>
-              </form>
+                  Free during launch — nothing to pay
+                </button>
+              ) : (
+                <form action={startSubscriptionPurchase} className="mt-5">
+                  <input type="hidden" name="sku_code" value={card.sku} />
+                  <input
+                    type="hidden"
+                    name="addon_token_pack_sku"
+                    value={addonSku}
+                  />
+                  <SubmitButton
+                    className="button-primary w-full"
+                    pendingLabel="Starting…"
+                  >
+                    {addonPack ? `${baseLabel} · pay ₱${NUMBER.format(orderTotal)}` : baseLabel}
+                  </SubmitButton>
+                </form>
+              )}
             </section>
           );
         })}

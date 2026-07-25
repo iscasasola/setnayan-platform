@@ -28,6 +28,12 @@ import {
 } from '@/lib/vendor-3d-booth-pricing';
 import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
 import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
+import { isVendorAddonFirst5FreeEnabled } from '@/lib/vendor-addon-first5-free-flag';
+import {
+  addonIsFreeUnderFirst5,
+  fetchVendorCommittedBookingCount,
+  first5BookingsRemaining,
+} from '@/lib/vendor-addon-first5-free';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { seating3dEnabled } from '@/lib/seating-3d-flag';
 import { SubscriptionCycleToggle } from './_components/cycle-toggle';
@@ -198,6 +204,22 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
     ? resolveVendorAddonPricePhp('ads_3d_plan', currentTier)
     : boothAddonCatalogPricePhp;
   const boothAddonActive = isVendor3dBoothActive(boothAddonState.expiresAt);
+
+  // "Free until your 6th booking" (owner 2026-07-25, flag-dark). Reads the SAME
+  // pure decision the buy action does, off the SAME committed-booking count, so
+  // the price on the card and the price charged can never disagree. The count
+  // read fails CLOSED, so a bad read shows the paid price rather than a ₱0 the
+  // server would refuse. Flag off → both false/0 and the card is unchanged.
+  const first5FreeEnabled = isVendorAddonFirst5FreeEnabled();
+  const committedBookings = first5FreeEnabled
+    ? await fetchVendorCommittedBookingCount(supabase, profile.vendor_profile_id)
+    : Number.NaN;
+  const boothFirst5Free = addonIsFreeUnderFirst5({
+    sku: 'ads_3d_plan',
+    committedBookingCount: committedBookings,
+    enabled: first5FreeEnabled,
+  });
+  const first5Remaining = first5FreeEnabled ? first5BookingsRemaining(committedBookings) : 0;
 
   // DB prices for the chosen cycle, keyed by sku_code.
   const [vendorCatalog, settings] = await Promise.all([
@@ -480,6 +502,8 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         active={boothAddonActive}
         expiresAt={boothAddonState.expiresAt}
         pricePhp={boothAddonPricePhp}
+        first5Free={boothFirst5Free}
+        first5Remaining={first5Remaining}
       />
 
       {/* Deep Search — a metered ₱500/search add-on that researches the vendor's

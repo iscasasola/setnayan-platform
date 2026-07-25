@@ -16,6 +16,14 @@ import {
 } from '@/lib/vendor-3d-booth-pricing';
 import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
 import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
+import { isVendorAddonFirst5FreeEnabled } from '@/lib/vendor-addon-first5-free-flag';
+import {
+  addonIsFreeUnderFirst5,
+  fetchVendorCommittedBookingCount,
+  first5BookingsRemaining,
+  nonStackingFreeExpiry,
+} from '@/lib/vendor-addon-first5-free';
+import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 
 /**
  * 3D Booth add-on — buy/activate a 28-day cycle.
@@ -175,36 +183,91 @@ export async function activateVendor3dBooth(
   const cyclePricePhp = tieredPricing
     ? resolveVendorAddonPricePhp('ads_3d_plan', tier)
     : catalogCyclePricePhp;
-  const pricePhp = resolveVendor3dBoothPricePhp({ trialUsed, cyclePricePhp });
-  /** The standing renewal price for THIS vendor — what a cycle costs once the
-   *  free first cycle is spent. Used in copy so no message hardcodes ₱1,500. */
+
+  /** The standing renewal price for THIS vendor — what a cycle costs once any
+   *  free grant is spent. Used in copy so no message hardcodes ₱1,500. */
   const renewalPricePhp = resolveVendor3dBoothPricePhp({ trialUsed: true, cyclePricePhp });
   const peso = (n: number) => '₱' + n.toLocaleString('en-PH');
 
-  // ── FREE first cycle → atomic claim + direct activation ────────────────────
+  // ── "Free until your 6th booking" (owner 2026-07-25) ───────────────────────
+  // When this policy is live it REPLACES the one-time free 28-day cycle: free is
+  // decided ONLY by the first-5 window, and it REPEATS while the vendor is inside
+  // it. The count is read from event_vendors (NOT booking_fee_ledger — that is
+  // empty while the booking-fee flag is off) and fails CLOSED, so a broken read
+  // charges rather than gives away. Flag off → `first5Free` is false and the
+  // trial path below runs byte-identically to today.
+  const first5Enabled = isVendorAddonFirst5FreeEnabled();
+  const committedBookings = first5Enabled
+    ? await fetchVendorCommittedBookingCount(supabase, vendorProfileId)
+    : Number.NaN;
+  const first5Free = addonIsFreeUnderFirst5({
+    sku: 'ads_3d_plan',
+    committedBookingCount: committedBookings,
+    enabled: first5Enabled,
+  });
+
+  const pricePhp = first5Enabled
+    ? first5Free
+      ? 0
+      : renewalPricePhp
+    : resolveVendor3dBoothPricePhp({ trialUsed, cyclePricePhp });
+
+  // ── FREE cycle → direct activation ─────────────────────────────────────────
+  // Two shapes reach here. `first5Free` is the REPEATABLE grant (free while the
+  // vendor is inside their first 5 bookings); otherwise it is the legacy one-time
+  // trial, unchanged.
   if (pricePhp <= 0) {
     const admin = createAdminClient();
     const nowIso = new Date().toISOString();
-    const newExpiry = nextVendor3dBoothExpiry(null, Date.now());
+    const oneCycleFromNow = nextVendor3dBoothExpiry(null, Date.now());
+    let newExpiry = oneCycleFromNow;
 
-    // Atomic one-time claim: only succeeds while the trial is still unused, so a
-    // double-click / two tabs can never grant two free cycles.
-    const { data: claimed, error: claimErr } = await admin
-      .from('vendor_profiles')
-      .update({ booth_addon_trial_used_at: nowIso, booth_addon_expires_at: newExpiry })
-      .eq('vendor_profile_id', vendorProfileId)
-      .is('booth_addon_trial_used_at', null)
-      .select('vendor_profile_id');
+    if (first5Free) {
+      // REPEATABLE grant — no trial to claim, so the atomic one-time claim that
+      // made the trial double-click-proof does not apply. Clamp the window to ONE
+      // cycle ahead instead (nonStackingFreeExpiry), so pressing the button ten
+      // times lands on the same ~28-days-from-now rather than stacking 280 free
+      // days that would outlive the vendor's 6th booking. Deliberately does NOT
+      // touch booth_addon_trial_used_at: the trial is a separate, dormant
+      // mechanic while this policy is live, and burning it here would silently
+      // cost the vendor their legacy free cycle if the policy is ever switched off.
+      const { data: curRow } = await admin
+        .from('vendor_profiles')
+        .select('booth_addon_expires_at')
+        .eq('vendor_profile_id', vendorProfileId)
+        .maybeSingle();
+      const currentExpiry =
+        (curRow as { booth_addon_expires_at?: string | null } | null)?.booth_addon_expires_at ??
+        null;
+      newExpiry = nonStackingFreeExpiry(currentExpiry, oneCycleFromNow);
 
-    if (claimErr) {
-      return err('Could not activate 3D Booth right now. Please try again.');
-    }
-    if (!claimed || claimed.length === 0) {
-      // Lost the race (another request just claimed the trial) — the caller
-      // should re-submit and land on the paid path. Surface it plainly.
-      return err(
-        `Your free cycle was just used. Refresh to buy the next cycle (${peso(renewalPricePhp)} / 28 days).`,
-      );
+      const { error: grantErr } = await admin
+        .from('vendor_profiles')
+        .update({ booth_addon_expires_at: newExpiry })
+        .eq('vendor_profile_id', vendorProfileId);
+      if (grantErr) {
+        return err('Could not activate 3D Booth right now. Please try again.');
+      }
+    } else {
+      // Atomic one-time claim: only succeeds while the trial is still unused, so a
+      // double-click / two tabs can never grant two free cycles.
+      const { data: claimed, error: claimErr } = await admin
+        .from('vendor_profiles')
+        .update({ booth_addon_trial_used_at: nowIso, booth_addon_expires_at: newExpiry })
+        .eq('vendor_profile_id', vendorProfileId)
+        .is('booth_addon_trial_used_at', null)
+        .select('vendor_profile_id');
+
+      if (claimErr) {
+        return err('Could not activate 3D Booth right now. Please try again.');
+      }
+      if (!claimed || claimed.length === 0) {
+        // Lost the race (another request just claimed the trial) — the caller
+        // should re-submit and land on the paid path. Surface it plainly.
+        return err(
+          `Your free cycle was just used. Refresh to buy the next cycle (${peso(renewalPricePhp)} / 28 days).`,
+        );
+      }
     }
 
     // Audit-only ₱0 'paid' order (no payment row — payments.amount_php > 0).
@@ -216,7 +279,9 @@ export async function activateVendor3dBooth(
         user_id: user.id,
         vendor_profile_id: vendorProfileId,
         service_key: VENDOR_3D_BOOTH_SKU_CODE,
-        description: '3D Booth — Branded Virtual Booth (first cycle · free)',
+        description: first5Free
+          ? '3D Booth — Branded Virtual Booth (free · first 5 bookings)'
+          : '3D Booth — Branded Virtual Booth (first cycle · free)',
         requested_total_php: 0,
         confirmed_total_php: 0,
         status: 'paid',
@@ -238,8 +303,9 @@ export async function activateVendor3dBooth(
         metadata: {
           service_key: VENDOR_3D_BOOTH_SKU_CODE,
           vendor_profile_id: vendorProfileId,
-          kind: 'booth_addon_free_first_cycle',
+          kind: first5Free ? 'booth_addon_free_first5_bookings' : 'booth_addon_free_first_cycle',
           expires_at: newExpiry,
+          ...(first5Free ? { committed_bookings: committedBookings } : {}),
         },
       });
     }
@@ -248,7 +314,9 @@ export async function activateVendor3dBooth(
     revalidatePath('/vendor-dashboard/shop');
     return {
       status: 'activated',
-      message: `Your 3D Booth is on — your free first 28-day cycle is active. After it ends, it’s ${peso(renewalPricePhp)} / 28 days.`,
+      message: first5Free
+        ? `Your 3D Booth is on — free while you're on your first ${FREE_BOOKING_LIMIT} bookings (${first5BookingsRemaining(committedBookings)} to go). From your ${FREE_BOOKING_LIMIT + 1}th booking it's ${peso(renewalPricePhp)} / 28 days.`
+        : `Your 3D Booth is on — your free first 28-day cycle is active. After it ends, it’s ${peso(renewalPricePhp)} / 28 days.`,
     };
   }
 

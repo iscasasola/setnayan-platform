@@ -178,10 +178,20 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
   // try/catch) so a pre-migration DB degrades to "not activated, trial
   // available" instead of blanking the page.
   const isPaidTierForAddon = isTierAtLeast(currentTier, 'solo');
-  const [aiAddonState, aiAddonPricePhp] = await Promise.all([
+  const [aiAddonState, aiAddonCatalogPricePhp] = await Promise.all([
     fetchVendorAiAddonState(supabase, profile.vendor_profile_id),
     fetchVendorAiAddonPricePhp(supabase),
   ]);
+  // 2026-07-25 tiered band for AI Chatbot Basic (₱2,000 Free/Solo · ₱1,500
+  // Pro/Ent). Mirrors ai-addon-actions.ts so the card and the charge agree.
+  const aiAddonPricePhp = isVendorAddonTieredPricingEnabled()
+    ? resolveVendorAddonPricePhp('ai_chatbot_basic', currentTier)
+    : aiAddonCatalogPricePhp;
+  // Deep Search — About-You band (₱1,000 Free/Solo · ₱500 Pro/Ent) for the
+  // doorway copy below, so the tile never quotes a price the runner won't charge.
+  const deepSearchPricePhp = isVendorAddonTieredPricingEnabled()
+    ? resolveVendorAddonPricePhp('deep_search_about_you', currentTier)
+    : 500;
   const aiAddonActive = isVendorAiAddonActive(aiAddonState.expiresAt);
 
   // ── 3D Booth add-on state (owner 2026-07-22) ───────────────────────────────
@@ -528,8 +538,8 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
             {isPaidTierForAddon
               ? isVerifiedVendor
                 ? isTierAtLeast(currentTier, 'pro')
-                  ? 'We research your business and hand you a “what we learned” review. 1 free every 28 days, then ₱500 each.'
-                  : 'We research your business and hand you a “what we learned” review. ₱500 per search on Solo.'
+                  ? `We research your business and hand you a “what we learned” review. 1 free every 28 days, then ₱${deepSearchPricePhp.toLocaleString('en-PH')} each.`
+                  : `We research your business and hand you a “what we learned” review. ₱${deepSearchPricePhp.toLocaleString('en-PH')} per search on Solo.`
                 : 'Get verified to run Deep Search — it researches your business and hands you a “what we learned” review to copy in.'
               : 'A paid-plan add-on: we research your business and hand you a “what we learned” review to auto-fill your profile.'}
           </p>

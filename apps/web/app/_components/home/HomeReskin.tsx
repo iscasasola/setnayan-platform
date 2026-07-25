@@ -850,9 +850,10 @@ export function HomeReskin({
               not only from the footer. That link must keep matching the URL
               configured on the OAuth consent screen. Deliberately describes
               what Setnayan DOES with the access rather than promising what it
-              can't touch — the granted scopes (auth/youtube +
-              auth/youtube.upload) are broad, and a narrower claim here than the
-              scopes support would be untrue. */}
+              can't touch — the granted scope (auth/youtube) is broad, and a
+              narrower claim here than the scope supports would be untrue.
+              (auth/youtube.upload was dropped 2026-07-25; see
+              YOUTUBE_OAUTH_SCOPES in lib/panood-youtube.ts.) */}
           <p className="hr-adef hr-anote">
             <em>Why Setnayan asks for YouTube access:</em> Live Studio is optional and off by
             default. When a couple turns it on, Setnayan asks them to connect their own YouTube

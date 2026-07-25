@@ -118,8 +118,15 @@ export function vendorAiLevelForServiceKey(serviceKey: string | null | undefined
  * Takes the HIGHER rung, because both levels share one window: buying Advanced
  * mid-cycle must promote, and buying Basic while already Advanced must NOT
  * silently demote a vendor who has paid more (their remaining Advanced time is
- * theirs). A demotion is therefore only ever the lapse of the window itself, or
- * an explicit admin/refund action.
+ * theirs).
+ *
+ * ⚠ CALLER CONTRACT — pass `current` ONLY while the window is still LIVE.
+ * The level marker is never cleared on lapse (expiry is evaluated at read time;
+ * there is no cron), so feeding a STALE 'advanced' into this function re-arms
+ * Advanced on the next BASIC purchase — buy Advanced once, then renew on Basic
+ * forever. Callers must pass `null` once `isVendorAiAddonActive(expiry)` is
+ * false: a lapsed rung is SPENT, and this purchase alone decides the new level.
+ * See `activateVendorAiAddonOrder` in `lib/sku-activation.ts`.
  */
 export function nextVendorAiLevel(
   current: string | null | undefined,

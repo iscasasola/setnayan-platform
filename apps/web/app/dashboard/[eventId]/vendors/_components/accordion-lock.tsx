@@ -22,6 +22,10 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useSaveLoader } from '@/components/sd-loader';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import {
+  VENDOR_FULLY_BOOKED_BADGE_LABEL,
+  vendorFullyBookedCoupleMessage,
+} from '@/lib/vendor-free-tier-booking-cap-ui';
+import {
   finalizeVendor,
   listLockTimeSlots,
   revertVendorToConsidering,
@@ -118,7 +122,22 @@ type LockState =
     }
   | { kind: 'error'; message: string }
   // Coordinator proposed the lock (spec § 4) — the couple confirms it.
-  | { kind: 'proposed'; vendorName: string };
+  | { kind: 'proposed'; vendorName: string }
+  // Free-tier concurrent-booking cap (owner 2026-07-25 · model § 4). The vendor
+  // is holding every booking slot their plan allows, so the CTA goes DISABLED
+  // and reads "Fully booked". Not an error state — a capacity state: the couple
+  // can still message this vendor (inbox/chat are never gated), and a slot
+  // frees when one of the vendor's events wraps. Only reachable when the
+  // server-side flag is on; flag OFF this kind never occurs.
+  // `depositNotRecordedMessage` is set only on the narrow race where the
+  // couple ALSO submitted a downpayment and the vendor's last slot went between
+  // the pre-check and the write: nothing was booked and nothing was logged, and
+  // the couple must be told so in as many words.
+  | {
+      kind: 'fully_booked';
+      vendorName: string;
+      depositNotRecordedMessage?: string;
+    };
 
 type ToastState =
   | { kind: 'hidden' }
@@ -384,6 +403,16 @@ export function AccordionLockButton({
               "This vendor is completing verification and can't be booked just yet. Keep them shortlisted — you'll be able to lock them once they're verified.",
           });
           return;
+        case 'vendor_fully_booked':
+          // Free-tier concurrent-booking cap (owner 2026-07-25). Capacity, not
+          // an error — disable the CTA, say so plainly, and keep the door to
+          // messaging open (inbox/chat are never gated by the cap).
+          setState({
+            kind: 'fully_booked',
+            vendorName: result.vendorName,
+            depositNotRecordedMessage: result.depositNotRecordedMessage,
+          });
+          return;
         case 'not_signed_in':
           setState({ kind: 'error', message: 'Sign in again to lock this vendor.' });
           return;
@@ -423,13 +452,21 @@ export function AccordionLockButton({
       <button
         type="button"
         className={className}
-        disabled={isPending}
+        // Free-tier cap: a fully-booked vendor can't take another booking, so
+        // the CTA is DISABLED and relabelled. `state.kind === 'fully_booked'`
+        // is unreachable while the server flag is off → flag-OFF renders
+        // exactly as before.
+        disabled={isPending || state.kind === 'fully_booked'}
         onClick={() => {
           haptic('confirm');
           requestLock();
         }}
       >
-        {isPending && state.kind === 'idle' ? pendingLabel : label}
+        {state.kind === 'fully_booked'
+          ? VENDOR_FULLY_BOOKED_BADGE_LABEL
+          : isPending && state.kind === 'idle'
+            ? pendingLabel
+            : label}
       </button>
 
       {/* Booking-requires-verified indicator (owner 2026-07-24) — surfaces the
@@ -442,6 +479,20 @@ export function AccordionLockButton({
         >
           <Clock aria-hidden className="h-3 w-3" strokeWidth={2} />
           Verifying — can&apos;t lock yet
+        </p>
+      ) : null}
+
+      {/* Free-tier "Fully booked" capacity notice (owner 2026-07-25 · model
+          § 4). role="status", NOT alert — nothing failed; the vendor is simply
+          at capacity. Says what the couple can still do (message them) and
+          never mentions the vendor's plan. */}
+      {state.kind === 'fully_booked' ? (
+        <p
+          role="status"
+          className="mt-2 rounded-md border border-amber-300/60 bg-amber-50/70 px-3 py-2 text-[11px] text-amber-900"
+        >
+          {state.depositNotRecordedMessage ??
+            vendorFullyBookedCoupleMessage(state.vendorName)}
         </p>
       ) : null}
 

@@ -5,6 +5,9 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
+import { isFreeTierBookingCapError } from '@/lib/vendor-free-tier-booking-cap-ui';
+import { isVendorFullyBookedUiEnabled } from '@/lib/vendor-free-tier-booking-cap-ui-flag';
+import { isMarketplaceVendorFullyBooked } from '@/lib/vendor-free-tier-booking-cap.server';
 import {
   computeCustomization,
   keptItems,
@@ -43,6 +46,12 @@ export type LockPackageResult =
   // inserts contracted event_vendors rows for pkg.vendor_profile_id, so it's
   // gated the same as finalizeVendor. The DB trigger is the hard guard.
   | { status: 'vendor_not_verified'; vendorName: string }
+  // Free-tier concurrent-booking cap (owner 2026-07-25 · model § 4). The cascade
+  // below inserts CONTRACTED event_vendors rows, so a fully-booked free-tier
+  // vendor is refused here the same way finalizeVendor refuses a single lock —
+  // with a couple-facing "Fully booked" state instead of the DB trigger's raw
+  // check_violation. Flag-dark; chat with the vendor stays open regardless.
+  | { status: 'vendor_fully_booked'; vendorName: string }
   | { status: 'error'; message: string };
 
 /**
@@ -145,6 +154,25 @@ export async function lockPackage(
     };
   }
 
+  // 5c. Free-tier "Fully booked" cap (owner 2026-07-25). Same friendly
+  //     pre-check finalizeVendor runs, for the same reason: the cascade below
+  //     creates contracted rows the DB trigger would refuse. The UI flag
+  //     decides whether this layer exists; whether a booking is REFUSED comes
+  //     from platform_settings.free_tier_booking_cap_enabled, which
+  //     isMarketplaceVendorFullyBooked reads itself — the same row the trigger
+  //     reads. Fails OPEN on a read error (the trigger is the authority).
+  if (
+    isVendorFullyBookedUiEnabled() &&
+    (await isMarketplaceVendorFullyBooked(createAdminClient(), pkg.vendor_profile_id, {
+      excludeEventId: eventId,
+    }))
+  ) {
+    return {
+      status: 'vendor_fully_booked',
+      vendorName: vendor.business_name || pkg.package_name || 'this vendor',
+    };
+  }
+
   // 6. Insert the booking row first (status=locked, customizations
   //    persisted, totals computed). primary_event_vendor_id is filled
   //    in after the cascade inserts.
@@ -199,6 +227,14 @@ export async function lockPackage(
         .from('event_vendor_packages')
         .delete()
         .eq('booking_id', bookingId);
+      // Free-tier booking cap raced our pre-check (or the pre-check was off):
+      // translate the trigger's raw check_violation into "Fully booked".
+      if (isVendorFullyBookedUiEnabled() && isFreeTierBookingCapError(cascadeErr)) {
+        return {
+          status: 'vendor_fully_booked',
+          vendorName: vendor.business_name || pkg.package_name || 'this vendor',
+        };
+      }
       return { status: 'error', message: cascadeErr.message };
     }
 

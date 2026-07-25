@@ -10,6 +10,10 @@ import {
   type VendorPackageWithItems,
 } from '@/lib/vendor-packages';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import {
+  VENDOR_FULLY_BOOKED_BADGE_LABEL,
+  vendorFullyBookedCoupleMessage,
+} from '@/lib/vendor-free-tier-booking-cap-ui';
 import { lockPackage, type LockPackageResult } from '../../dashboard/[eventId]/vendors/packages/actions';
 
 /**
@@ -33,6 +37,10 @@ export function LockPackageModal({
   const [removedIds, setRemovedIds] = useState<string[]>([...defaultRemovedIds]);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Free-tier concurrent-booking cap (owner 2026-07-25) — set only when the
+  // server refuses the lock for capacity. Unreachable while the server flag is
+  // off, so flag-OFF renders exactly as before.
+  const [fullyBooked, setFullyBooked] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
 
   const { remainingConsumableCentavos, totalLockedCentavos, removedTotalCentavos } =
@@ -49,12 +57,14 @@ export function LockPackageModal({
   function close() {
     setOpen(false);
     setError(null);
+    setFullyBooked(false);
   }
 
   useModalA11y({ open, onClose: close, containerRef: dialogRef });
 
   function onLock() {
     setError(null);
+    setFullyBooked(false);
     startTransition(async () => {
       const result: LockPackageResult = await lockPackage(eventId, pkg.package_id, {
         removed_item_ids: removedIds,
@@ -79,6 +89,13 @@ export function LockPackageModal({
       }
       if (result.status === 'package_inactive') {
         setError('That package is paused by the vendor.');
+        return;
+      }
+      if (result.status === 'vendor_fully_booked') {
+        // Free-tier concurrent-booking cap (owner 2026-07-25 · model § 4).
+        // Capacity, not a failure: disable the CTA and keep messaging open.
+        setFullyBooked(true);
+        setError(vendorFullyBookedCoupleMessage(result.vendorName));
         return;
       }
       if (result.status === 'vendor_not_verified') {
@@ -220,7 +237,16 @@ export function LockPackageModal({
               </dl>
 
               {error ? (
-                <p className="mb-3 flex items-start gap-2 rounded-lg border border-danger-300/50 bg-danger-50/40 px-3 py-2 text-xs text-danger-800">
+                // Free-tier cap = capacity, not an error → amber + role="status".
+                // Everything else keeps the red alert treatment.
+                <p
+                  role={fullyBooked ? 'status' : undefined}
+                  className={`mb-3 flex items-start gap-2 rounded-lg border px-3 py-2 text-xs ${
+                    fullyBooked
+                      ? 'border-amber-300/60 bg-amber-50/70 text-amber-900'
+                      : 'border-danger-300/50 bg-danger-50/40 text-danger-800'
+                  }`}
+                >
                   <AlertCircle
                     aria-hidden
                     className="mt-0.5 h-3.5 w-3.5 shrink-0"
@@ -233,11 +259,15 @@ export function LockPackageModal({
               <button
                 type="button"
                 onClick={onLock}
-                disabled={isPending}
+                disabled={isPending || fullyBooked}
                 className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-terracotta bg-terracotta px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
-                {isPending ? 'Locking…' : 'Lock this package'}
+                {fullyBooked
+                  ? VENDOR_FULLY_BOOKED_BADGE_LABEL
+                  : isPending
+                    ? 'Locking…'
+                    : 'Lock this package'}
               </button>
               <p className="mt-2 text-center text-[10px] text-ink/45">
                 Everything in this package will lock on your event home.

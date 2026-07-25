@@ -3,6 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { collectBookingFeeAtLock } from '@/lib/booking-fee-lock.server';
 import { planChatLockBooking } from '@/lib/chat-lock-booking';
+import { isFreeTierBookingCapError } from '@/lib/vendor-free-tier-booking-cap-ui';
+import { isVendorFullyBookedUiEnabled } from '@/lib/vendor-free-tier-booking-cap-ui-flag';
 
 /**
  * `bookVendorAtChatLock` — the SHARED lock primitive behind the couple's chat
@@ -31,6 +33,13 @@ export type ChatLockBookingOutcome =
   | { status: 'no_marketplace_link' }
   // Marketplace vendor is not verified → the lock is refused (friendly message).
   | { status: 'not_verified' }
+  // Free-tier concurrent-booking cap (owner 2026-07-25 · model § 4): the vendor
+  // already holds the 3 active bookings their plan allows, so this lock is
+  // refused with a "Fully booked" message instead of the trigger's raw error.
+  // The THREAD ITSELF IS NOT GATED — chat stays open, the couple just can't
+  // close the booking yet. Only reachable while NEXT_PUBLIC_VENDOR_FULLY_BOOKED_UI
+  // is on; flag OFF this outcome never occurs.
+  | { status: 'fully_booked' }
   // First lock committed at the negotiated total; fee attempted (`feeCharged` =
   // a 6th+ paid order was minted, vs free-5 / flag-off / off-platform).
   | { status: 'booked'; feeCharged: boolean }
@@ -96,6 +105,12 @@ export async function bookVendorAtChatLock(
       .eq('event_id', eventId)
       .not('status', 'in', '("deposit_paid","delivered","complete")');
     if (error) {
+      // Free-tier booking cap (owner 2026-07-25): enforce_free_tier_booking_cap
+      // refused the lock. Map to the friendly "Fully booked" outcome so the
+      // couple never reads a raw Postgres sentence in chat. Flag-dark.
+      if (isVendorFullyBookedUiEnabled() && isFreeTierBookingCapError(error)) {
+        return { status: 'fully_booked' };
+      }
       // The verified DB trigger raises check_violation (23514) when a demotion
       // races our pre-check — map to the friendly not_verified outcome.
       if (error.code === '23514' && /vendor_not_verified/.test(error.message ?? '')) {

@@ -7,7 +7,7 @@
  * PAYS NOTHING YET. They ship together at launch but are independent policies, and
  * keeping them apart means the giveaway can be switched off without also reverting
  * the price bands (or the reverse). Matches the one-flag-per-policy convention of
- * `vendor-launch-free-window-flag.ts` / `vendor-free-tier-booking-cap-flag.ts`.
+ * `vendor-launch-free-window-flag.ts` / `vendor-free-tier-booking-cap-ui-flag.ts`.
  *
  * NEXT_PUBLIC so the card's price preview and the server's charge agree on one
  * value. Default OFF → the module is inert: the 3D booth keeps its one-time free

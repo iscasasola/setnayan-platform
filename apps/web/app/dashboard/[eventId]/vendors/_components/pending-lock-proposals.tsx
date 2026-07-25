@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { Loader2, UserCheck, X } from 'lucide-react';
 import { dismissVendorLockProposal, finalizeVendor } from '../actions';
+import { vendorFullyBookedCoupleMessage } from '@/lib/vendor-free-tier-booking-cap-ui';
 
 export type PendingLockProposal = {
   id: number;
@@ -47,6 +48,16 @@ export function PendingLockProposals({
         // Booking-requires-verified gate (owner 2026-07-24).
         setNote(
           `${p.vendorName} is completing verification and can't be booked just yet.`,
+        );
+      } else if (res.status === 'vendor_fully_booked') {
+        // Free-tier concurrent-booking cap (owner 2026-07-25 · model § 4).
+        // NOT a "needs a few details" gate — there is nothing for the couple to
+        // finish, and the card below has a DISABLED CTA. Say what is actually
+        // true: capacity. (If they also sent a downpayment, the server hands
+        // back the "not recorded" sentence — show that instead.)
+        setNote(
+          res.depositNotRecordedMessage ??
+            vendorFullyBookedCoupleMessage(p.vendorName),
         );
       } else if (res.status === 'error' || res.status === 'not_found') {
         setNote(`Couldn't lock ${p.vendorName}. Try from its card below.`);

@@ -34,6 +34,12 @@ import {
 } from '@/lib/wedding-plan-groups';
 import { CONFIRMED_VENDOR_STATUSES, recomputeReceptionAnchor } from '@/lib/events';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
+import {
+  fullyBookedRefusalPayload,
+  isFreeTierBookingCapError,
+} from '@/lib/vendor-free-tier-booking-cap-ui';
+import { isVendorFullyBookedUiEnabled } from '@/lib/vendor-free-tier-booking-cap-ui-flag';
+import { isMarketplaceVendorFullyBooked } from '@/lib/vendor-free-tier-booking-cap.server';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
 import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
 import { intersectViableCandidates, formatCandidateDate } from '@/lib/candidate-dates';
@@ -599,6 +605,25 @@ export type FinalizeVendorResult =
   // Off-platform / manual vendors carry no verification concept and never hit
   // this. Grandfathered: already-locked rows return 'already_locked' first.
   | { status: 'vendor_not_verified'; vendorId: string; vendorName: string }
+  // Free-tier concurrent-booking cap (owner 2026-07-25 · model § 4). The vendor
+  // already holds the 3 concurrent active bookings the free plan allows, so a
+  // NEW lock is refused and the couple sees a "Fully booked" state instead of
+  // the DB trigger's raw check_violation. Discovery, inbox and CHAT are NOT
+  // gated — a fully-booked vendor still takes messages and sends proposals.
+  // Returned either from the friendly pre-check (which reads the SAME DB switch
+  // the trigger reads) or translated from the trigger's error at the write.
+  // Flag-dark by default.
+  //
+  // `depositNotRecordedMessage` is set ONLY on the narrow race where the couple
+  // ALSO submitted a downpayment with this attempt and the vendor's last slot
+  // went between the pre-check and the write. The lock did not commit, so no
+  // ledger row was written — the money path must SAY SO rather than fail silent.
+  | {
+      status: 'vendor_fully_booked';
+      vendorId: string;
+      vendorName: string;
+      depositNotRecordedMessage?: string;
+    }
   | { status: 'error'; message: string };
 
 const LOCKED_STATUS: VendorStatus = 'contracted';
@@ -744,6 +769,33 @@ export async function finalizeVendor(
         vendorId,
         vendorName: (targetVendor.vendor_name as string | null) ?? 'this vendor',
       };
+    }
+
+    // ── Free-tier "Fully booked" cap (owner 2026-07-25 · model § 4) ─────────
+    // Friendly PRE-CHECK mirroring the verified gate above: a free-tier vendor
+    // holding 3 concurrent active bookings can't take a 4th. The DB trigger
+    // (enforce_free_tier_booking_cap) is the hard guard — this only spares the
+    // couple its raw error. The UI flag decides whether this LAYER exists;
+    // whether a booking is REFUSED comes from
+    // platform_settings.free_tier_booking_cap_enabled, which
+    // isMarketplaceVendorFullyBooked reads itself — the same row the trigger
+    // reads, so the two can never disagree. Fails OPEN on a read error.
+    //
+    // ORDER MATTERS: this sits ABOVE the downpayment gate, so a couple is never
+    // asked to pay for a lock the cap will refuse.
+    if (isVendorFullyBookedUiEnabled()) {
+      const fullyBooked = await isMarketplaceVendorFullyBooked(
+        createAdminClient(),
+        targetVendor.marketplace_vendor_id,
+        { excludeEventId: eventId },
+      );
+      if (fullyBooked) {
+        return {
+          status: 'vendor_fully_booked',
+          vendorId,
+          vendorName: (targetVendor.vendor_name as string | null) ?? 'this vendor',
+        };
+      }
     }
   }
 
@@ -1079,6 +1131,38 @@ export async function finalizeVendor(
     };
   };
 
+  // ── Free-tier cap refusal AT A WRITE SITE ────────────────────────────────
+  // The pre-check above (which reads the same DB switch the trigger reads)
+  // normally catches this BEFORE the downpayment gate. Reaching here means the
+  // vendor's last slot went in the window between the pre-check and the write.
+  //
+  // MONEY PATH: when the couple submitted a downpayment with this attempt, the
+  // lock did NOT commit, so the deposit-persist block far below (marker stamp +
+  // event_vendor_payments row + vendor notification) never runs. That is the
+  // right outcome — there is no booking to hang a payment on — but it must not
+  // be SILENT: the couple gets an explicit "your downpayment was NOT recorded"
+  // sentence, and ops get a log line. Setnayan never holds this money (it is
+  // paid to the vendor directly and only LOGGED here), so there is nothing to
+  // refund and nothing to reverse.
+  const capRefusal = (): Extract<
+    FinalizeVendorResult,
+    { status: 'vendor_fully_booked' }
+  > => {
+    const vendorName =
+      (targetVendor.vendor_name as string | null) ?? 'this vendor';
+    if (dpProvided) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[finalizeVendor] free-tier booking cap refused a lock that carried a downpayment — NOTHING was recorded (no booking, no ledger row). event_id=${eventId} vendor_id=${vendorId}`,
+      );
+    }
+    return {
+      status: 'vendor_fully_booked',
+      vendorId,
+      ...fullyBookedRefusalPayload({ vendorName, depositSubmitted: dpProvided }),
+    };
+  };
+
   // PR A · Soft-hold limit gate (Rule 3 of the lock/delete/overlap
   // architecture — CLAUDE.md 2026-05-24 row "Canonical wizard sequence
   // reconciled 38 → 45 + Lock/delete/overlap architecture").
@@ -1168,6 +1252,12 @@ export async function finalizeVendor(
         },
       );
       if (acqErr) {
+        // Free-tier booking cap: the slot RPC's status→'contracted' flip trips
+        // enforce_free_tier_booking_cap. Translate the raw check_violation into
+        // the friendly "Fully booked" state (flag-dark: OFF = unchanged).
+        if (isVendorFullyBookedUiEnabled() && isFreeTierBookingCapError(acqErr)) {
+          return capRefusal();
+        }
         // The slot RPC flips status→'contracted' inside its lock; if that loses
         // the hard-single race it raises 23505 on the partial index. Surface
         // the Switch/Cancel modal instead of a red error.
@@ -1415,6 +1505,14 @@ export async function finalizeVendor(
       .eq('event_id', eventId)
       .not('status', 'in', '("deposit_paid","delivered","complete")');
     if (lockErr) {
+      // Free-tier booking cap (owner 2026-07-25): enforce_free_tier_booking_cap
+      // refused this lock because the vendor already holds 3 concurrent active
+      // bookings. Translate the raw check_violation into the friendly "Fully
+      // booked" state — never a fault log, this is an expected refusal, not a
+      // failure. Flag-dark: OFF = the raw error path is byte-identical to today.
+      if (isVendorFullyBookedUiEnabled() && isFreeTierBookingCapError(lockErr)) {
+        return capRefusal();
+      }
       // Lost the hard-single race to a concurrent host: the partial-unique
       // index rejected this second CONFIRMED row with 23505. Re-read the
       // winning sibling and surface the same Switch/Cancel modal as the early

@@ -14,9 +14,17 @@
  * wiring site, not here.
  *
  * PURE: no I/O, no clock, no env — just the cap constant + pure predicates, so
- * it unit-tests under `tsx --test`. The env flag that switches the live lock
- * path onto this cap lives in `vendor-free-tier-booking-cap-flag.ts` (keeps this
- * module I/O-free). Inert until a consumer is wired behind that flag.
+ * it unit-tests under `tsx --test`.
+ *
+ * WHETHER THE CAP IS ARMED IS A DB SWITCH, NOT AN ENV FLAG:
+ * `platform_settings.free_tier_booking_cap_enabled` — the row the DB trigger
+ * `enforce_free_tier_booking_cap` reads, and the row the server-side pre-check
+ * in `vendor-free-tier-booking-cap.server.ts` reads. (An env stand-in,
+ * `vendor-free-tier-booking-cap-flag.ts` / `NEXT_PUBLIC_VENDOR_FREE_BOOKING_CAP`,
+ * was DELETED 2026-07-26 with zero call sites: an env var cannot track a DB
+ * column, and both directions of drift were real money defects.)
+ * `vendor-free-tier-booking-cap-ui-flag.ts` gates only whether the couple-facing
+ * LAYER exists, never whether a booking is refused.
  */
 import { isTierAtLeast } from './vendor-tier-caps';
 

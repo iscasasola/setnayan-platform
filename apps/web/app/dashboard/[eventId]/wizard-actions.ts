@@ -51,6 +51,12 @@ import { isChineseWedding } from '@/lib/chinese-wedding';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import {
+  isFreeTierBookingCapError,
+  vendorFullyBookedCoupleMessage,
+} from '@/lib/vendor-free-tier-booking-cap-ui';
+import { isVendorFullyBookedUiEnabled } from '@/lib/vendor-free-tier-booking-cap-ui-flag';
+import { isMarketplaceVendorFullyBooked } from '@/lib/vendor-free-tier-booking-cap.server';
+import {
   parseWizardState,
   WIZARD_TASKS,
   type WizardState,
@@ -468,6 +474,23 @@ export async function completeVendorPickFromMarketplace(
     );
   }
 
+  // Free-tier "Fully booked" cap (owner 2026-07-25 · model § 4). Same gate as
+  // finalizeVendor: this INSERT flips a row to 'contracted', so
+  // enforce_free_tier_booking_cap applies here too and WITHOUT this the wizard
+  // rethrows the trigger's raw Postgres sentence at the host. Refuses exactly
+  // when the trigger would (isMarketplaceVendorFullyBooked reads the same
+  // platform_settings switch). Flag-dark: OFF = no read, no behaviour change.
+  if (
+    isVendorFullyBookedUiEnabled() &&
+    (await isMarketplaceVendorFullyBooked(
+      createAdminClient(),
+      marketplaceVendorIdRaw,
+      { excludeEventId: eventIdRaw },
+    ))
+  ) {
+    throw new Error(vendorFullyBookedCoupleMessage(vendorNameRaw));
+  }
+
   // Insert event_vendors row with status='contracted' directly · the
   // wizard skips the considering→contracted two-step flow because the
   // host has already committed by clicking [Lock this vendor]. No DB
@@ -485,7 +508,14 @@ export async function completeVendorPickFromMarketplace(
     })
     .select('vendor_id')
     .maybeSingle();
-  if (insertErr) throw new Error(insertErr.message);
+  if (insertErr) {
+    // Free-tier cap raced the pre-check above. NEVER rethrow the trigger's raw
+    // message at the host — translate it. Flag-dark: OFF = unchanged.
+    if (isVendorFullyBookedUiEnabled() && isFreeTierBookingCapError(insertErr)) {
+      throw new Error(vendorFullyBookedCoupleMessage(vendorNameRaw));
+    }
+    throw new Error(insertErr.message);
+  }
   if (!inserted) throw new Error('Could not lock vendor — try again');
 
   // Advance wizard_state.<taskId> · re-render moves to next task.
@@ -1133,6 +1163,19 @@ export async function lockBoothToEvent(formData: FormData): Promise<void> {
         "This vendor is completing verification and can't be booked just yet. You'll be able to lock them once they're verified.",
       );
     }
+    // Free-tier "Fully booked" cap — same reason as the vendor-pick action
+    // above: this booth INSERT is a 'contracted' write the trigger polices, and
+    // without this the host reads a raw Postgres sentence. Flag-dark.
+    if (
+      isVendorFullyBookedUiEnabled() &&
+      (await isMarketplaceVendorFullyBooked(
+        createAdminClient(),
+        marketplaceVendorIdRaw,
+        { excludeEventId: eventIdRaw },
+      ))
+    ) {
+      throw new Error(vendorFullyBookedCoupleMessage(vendorNameRaw));
+    }
   }
 
   const insertPayload: Record<string, unknown> = {
@@ -1164,7 +1207,13 @@ export async function lockBoothToEvent(formData: FormData): Promise<void> {
   const { error: insertErr } = await supabase
     .from('event_vendors')
     .insert(insertPayload);
-  if (insertErr) throw new Error(insertErr.message);
+  if (insertErr) {
+    // Free-tier cap raced the pre-check above — translate, never rethrow raw.
+    if (isVendorFullyBookedUiEnabled() && isFreeTierBookingCapError(insertErr)) {
+      throw new Error(vendorFullyBookedCoupleMessage(vendorNameRaw));
+    }
+    throw new Error(insertErr.message);
+  }
 
   // Critical: do NOT advance wizard_state. Card 14 advances only when
   // host clicks [I have all the booths I need] which fires markTaskDone.

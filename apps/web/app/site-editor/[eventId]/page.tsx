@@ -1,23 +1,35 @@
-import { redirect } from 'next/navigation';
+import { SiteEditor } from './_components/site-editor';
+import { loadSiteEditorData } from './_data';
+
+export const metadata = { title: 'Website editor' };
 
 /**
- * RETIRED (Unified Website Editor · PR-2 · owner-locked 2026-07-25).
+ * /site-editor/[eventId] — full-screen, Reels-style wedding-website editor.
+ * This is the COMBINED editor (the Studio "Whole website" card): all four
+ * parts — Settings · RSVP · Event · Editorial — as tabs in one surface. Each
+ * part also has its own standalone editor at /site-editor/[eventId]/<phase>
+ * (the RSVP / Event / Editorial Studio cards), built from the same per-phase
+ * cards via the PhaseEditor component.
  *
- * The legacy site-editor is gone: website editing now lives on the ONE unified
- * editor, where the couple edits while watching their real page. This route
- * stays only as a redirect so old links (bookmarks, emails, the lib route
- * builders in routes.ts / add-ons-catalog.ts / customer-menu.ts, and the
- * studio/[addon] phase redirect) keep landing somewhere correct.
+ * WHY a TOP-LEVEL route (sibling of /dashboard, /vendors, /v) instead of a
+ * child of /dashboard/[eventId]: the owner's spec (CLAUDE.md 2026-05-31
+ * "Reels-style editor") requires a full-screen takeover that leaves all
+ * dashboard chrome behind, with a ✕ top-left to return. Next.js nested layouts
+ * COMPOSE — a route under dashboard/[eventId]/layout.tsx cannot strip that
+ * layout's sidebar + bottom-nav. So the editor must live outside EventLayout's
+ * subtree. The root app/layout.tsx still wraps this route, so ThemeProvider +
+ * the FOUC theme script are intact.
  *
- * Its one unique setting — the RSVP spatial backdrop — was ported to
- * `website/editor/actions.ts`; its hero-photo save/clear were byte-dupes of
- * `website/hero-photo/actions.ts` and were deleted with the old actions file.
+ * AUTHORIZATION + DATA: both live in the shared loader (./_data.ts) so this
+ * editor and the three phase editors agree on the membership gate, the
+ * register-to-use gate, and exactly what they show.
  */
-export default async function RetiredSiteEditorRoute({
+export default async function SiteEditorPage({
   params,
 }: {
   params: Promise<{ eventId: string }>;
 }) {
   const { eventId } = await params;
-  redirect(`/dashboard/${eventId}/website/editor`);
+  const props = await loadSiteEditorData(eventId, `/site-editor/${eventId}`);
+  return <SiteEditor {...props} />;
 }

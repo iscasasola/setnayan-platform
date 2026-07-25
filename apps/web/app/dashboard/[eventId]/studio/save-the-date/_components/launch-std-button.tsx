@@ -87,7 +87,7 @@ export function LaunchStdButton({
   const [pending, start] = useTransition();
   const save = useSaveLoader();
 
-  const previewHref = `/dashboard/${eventId}/website/editor`;
+  const previewHref = `/site-editor/${eventId}`;
 
   function doLaunch() {
     setError(null);

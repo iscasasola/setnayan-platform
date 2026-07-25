@@ -1,23 +1,21 @@
-import { redirect } from 'next/navigation';
+import { PhaseEditor } from '../_components/site-editor';
+import { loadSiteEditorData } from '../_data';
+
+export const metadata = { title: 'RSVP page editor' };
 
 /**
- * RETIRED (Unified Website Editor · PR-2 · owner-locked 2026-07-25).
- *
- * The legacy site-editor is gone: website editing now lives on the ONE unified
- * editor, where the couple edits while watching their real page. This route
- * stays only as a redirect so old links (bookmarks, emails, the lib route
- * builders in routes.ts / add-ons-catalog.ts / customer-menu.ts, and the
- * studio/[addon] phase redirect) keep landing somewhere correct.
- *
- * Its one unique setting — the RSVP spatial backdrop — was ported to
- * `website/editor/actions.ts`; its hero-photo save/clear were byte-dupes of
- * `website/hero-photo/actions.ts` and were deleted with the old actions file.
+ * /site-editor/[eventId]/rsvp — the standalone RSVP-part editor (the Studio
+ * "RSVP" card). One of the four website parts; same machinery as the combined
+ * editor's RSVP tab (PhaseEditor + the shared loader), but on its own
+ * full-screen route. See ../_data.ts for the auth + data contract and
+ * ../_components/site-editor.tsx PhaseEditor for the UI.
  */
-export default async function RetiredSiteEditorRoute({
+export default async function RsvpEditorPage({
   params,
 }: {
   params: Promise<{ eventId: string }>;
 }) {
   const { eventId } = await params;
-  redirect(`/dashboard/${eventId}/website/editor`);
+  const props = await loadSiteEditorData(eventId, `/site-editor/${eventId}/rsvp`);
+  return <PhaseEditor {...props} phase="rsvp" />;
 }

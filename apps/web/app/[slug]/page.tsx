@@ -66,10 +66,6 @@ type Props = {
     invite?: string;
     invite_error?: string;
     phase?: string;
-    // Unified Website Editor (PR-1) — `?editor=1` mounts the click-to-edit
-    // bridge INSIDE the editor's preview iframe. Host-gated exactly like
-    // `?phase=` below; ignored for guests/anonymous so their bytes never change.
-    editor?: string;
     // PR4 P1 — per-visit preview of the auto-playing STD film while it bakes.
     film?: string;
     // Invite/Join v2 — guest "save a vendor" result flash (ok/needs_account/error).
@@ -386,25 +382,6 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
       ? (phaseParam as LifecyclePhase)
       : null;
 
-  // Unified Website Editor (PR-1) — `?editor=1` mounts the click-to-edit bridge
-  // for the couple's own preview iframe. STRICTER than the phase override: real
-  // host membership only (no demo-event shortcut), because the bridge posts
-  // edit intents to a parent editor window. The lookup fires only when the param
-  // is present, so the normal guest path pays zero extra queries — and with the
-  // param absent (every guest, always) `editorMode` is false and the bridge is
-  // never rendered, so guest HTML is unchanged byte-for-byte.
-  let editorMode = false;
-  if (search.editor === '1') {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) {
-      // React.cache'd — shares the lookup with the private gate / phase preview.
-      editorMode = await loadHostMembership(admin, event.event_id, user.id);
-    }
-  }
-
   // Task #13 — day-of phase (drives the live badge + pinned schedule). Real,
   // unless the demo override forces a phase (event→live so the day-of UI shows).
   const dayOfPhase: DayOfPhase = phaseOverride
@@ -480,7 +457,6 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     watchLive,
     proWatermarkHidden,
     siteColorVars,
-    editorMode,
   };
   const renderAnonymous = (reason: AnonymousReason) => (
     <SiteBody

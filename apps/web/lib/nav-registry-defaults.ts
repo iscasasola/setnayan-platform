@@ -616,7 +616,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     key: "customer.sidebar.website",
     scope: "customer",
     area: "customer-sidebar",
-    route: "/dashboard/[eventId]/website/editor",
+    route: "/site-editor/[eventId]",
     label: "Website",
     labelKind: "literal",
     iconKind: "lucide",
@@ -630,7 +630,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     key: "customer.sidebar.launch",
     scope: "customer",
     area: "customer-sidebar",
-    route: "/dashboard/[eventId]/website/editor",
+    route: "/dashboard/[eventId]/website/launch",
     label: "Launch",
     labelKind: "literal",
     iconKind: "lucide",
@@ -1150,12 +1150,11 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 4,
   },
   {
-    // "Launch" route child (owner 2026-06-28) — preview + go-live surface;
-    // re-pointed 2026-07-25 to the unified website editor.
+    // "Launch" route child (owner 2026-06-28) — preview + go-live surface.
     key: "customer.studio-subnav.launch",
     scope: "customer",
     area: "studio-subnav",
-    route: "/dashboard/[eventId]/website/editor",
+    route: "/dashboard/[eventId]/website/launch",
     label: "Launch",
     labelKind: "literal",
     iconKind: "lucide",

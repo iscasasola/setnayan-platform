@@ -609,6 +609,7 @@ export default async function AdminOverview() {
         <Tile href="/admin/vendors" icon="briefcase" title="Vendors" body="Every vendor_profile + published status." />
         <Tile href="/admin/patiktok" icon="camera" title="Patiktok renders" body="Client-side reel render queue + failures." />
         <Tile href="/admin/integrations" icon="layout-grid" title="Integrations" body="Turn email + integrations on without a redeploy." />
+        <Tile href="/admin/secrets" icon="shield-check" title="Secrets & Rotation" body="Every platform key, its age, and how to replace it." />
         <Tile
           href="/admin/verify"
           icon="shield-check"

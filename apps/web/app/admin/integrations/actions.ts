@@ -10,6 +10,7 @@ import {
   getOAuthIntegration,
   MAYA_INTEGRATION,
 } from '@/lib/integrations/registry';
+import { CONSOLE_COLUMN_TO_SECRET_ID } from '@/lib/secrets/rotation-registry';
 
 // Integration Activation Console — PR1 (email slice) · server actions.
 //
@@ -35,6 +36,43 @@ async function requireAdmin(): Promise<void> {
   }
 }
 
+/**
+ * Feed the Secrets & Rotation board (/admin/secrets).
+ *
+ * A key saved HERE is a real rotation, so it should reset that secret's age
+ * clock — otherwise the board nags the owner to rotate something they just
+ * rotated. Maps the secrets-table COLUMN we wrote to its registry id.
+ *
+ * BEST-EFFORT BY CONTRACT: wrapped so a missing table (pre-migration), an
+ * unmapped column, or any DB hiccup can never turn a successful key save into a
+ * failed action. Bookkeeping must never outrank the thing it books.
+ */
+async function stampRotation(secretColumn: string): Promise<void> {
+  const secretId = CONSOLE_COLUMN_TO_SECRET_ID[secretColumn];
+  if (!secretId) return;
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const nowIso = new Date().toISOString();
+    await createAdminClient()
+      .from('platform_secret_rotations')
+      .upsert(
+        {
+          secret_id: secretId,
+          last_rotated_at: nowIso,
+          rotated_by: user?.email ?? user?.id ?? null,
+          note: 'Saved from the Integrations console.',
+          updated_at: nowIso,
+        },
+        { onConflict: 'secret_id' },
+      );
+  } catch {
+    // Never fatal.
+  }
+}
+
 export async function saveResendConfig(formData: FormData): Promise<void> {
   await requireAdmin();
   const admin = createAdminClient();
@@ -57,6 +95,7 @@ export async function saveResendConfig(formData: FormData): Promise<void> {
       .from('platform_integration_secrets')
       .update({ resend_api_key_enc: enc, updated_at: new Date().toISOString() })
       .eq('id', 1);
+    await stampRotation('resend_api_key_enc');
   }
 
   revalidatePath('/admin/integrations');
@@ -103,6 +142,7 @@ export async function saveIntegrationSecret(formData: FormData): Promise<void> {
       .from('platform_integration_secrets')
       .update({ [def.secretColumn]: enc, updated_at: new Date().toISOString() })
       .eq('id', 1);
+    await stampRotation(def.secretColumn);
   }
 
   revalidatePath('/admin/integrations');
@@ -174,6 +214,7 @@ export async function saveOAuthConfig(formData: FormData): Promise<void> {
       .from('platform_integration_secrets')
       .update({ [def.secretColumn]: enc, updated_at: new Date().toISOString() })
       .eq('id', 1);
+    await stampRotation(def.secretColumn);
   }
 
   revalidatePath('/admin/integrations');
@@ -259,6 +300,8 @@ export async function saveMayaConfig(formData: FormData): Promise<void> {
       .from('platform_integration_secrets')
       .update({ ...secretPatch, updated_at: new Date().toISOString() })
       .eq('id', 1);
+    // Both Maya columns map to the same registry id — stamp once.
+    await stampRotation(MAYA_INTEGRATION.secretKeyColumn);
   }
 
   revalidatePath('/admin/integrations');

@@ -40,6 +40,7 @@ import {
   Handshake,
   Home,
   Images,
+  KeyRound,
   Landmark,
   LifeBuoy,
   Lightbulb,
@@ -877,6 +878,19 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/integrations',
         icon: Plug,
         matchPrefix: '/admin/integrations',
+      },
+      {
+        // Secrets & Rotation — every platform key in one place with an age
+        // alarm, a per-key runbook, in-app writes to the Vercel env, and the
+        // dual-key ENCRYPTION_KEY procedure. Sits directly beside Integrations
+        // (the two are halves of the same job: Integrations turns a service ON,
+        // this one keeps its credential fresh) and cross-links to it for the
+        // DB-stored secrets. A page ships with its doorway — 2026-07-25.
+        key: 'secrets',
+        label: 'Secrets & Rotation',
+        href: '/admin/secrets',
+        icon: KeyRound,
+        matchPrefix: '/admin/secrets',
       },
       {
         // Personal account security — admins use the shared /dashboard/profile

@@ -263,7 +263,7 @@ before(async () => {
 });
 
 after(async () => {
-  await replay?.cleanup?.();
+  await replay?.db?.close?.();
 });
 
 /* ── 1 · THE BUG IS FIXED ─────────────────────────────────────────────────────────────── */

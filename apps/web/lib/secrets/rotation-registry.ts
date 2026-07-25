@@ -454,10 +454,10 @@ export const SECRET_REGISTRY: readonly SecretDef[] = [
     generateHint: OPENSSL_HINT,
     steps: [
       ...SELF_GENERATED_STEPS.slice(0, 3),
-      'ONE external copy exists: Supabase Vault secret `cron_secret` (Dashboard → Project Settings → Vault) — the quarterly BIR 2307 pg_cron job sends it as its X-Cron-Secret header. Update it to the same value, or that job gets 401s until the next rotation.',
+      'A DB-side twin exists: Supabase Vault secret `cron_secret` (Dashboard → Project Settings → Vault). No pg_cron job consumes it today (the 2307 job was retired 2026-07-25), but keep it in sync — any future DB-scheduled job that calls an app cron route reads it.',
     ],
     impact:
-      'Manual curl triggers of the sweep routes + the re-encrypt endpoint on this page, and the quarterly BIR 2307 pg_cron job (via the Supabase Vault copy — see steps).',
+      'Manual curl triggers of the sweep routes + the re-encrypt endpoint on this page. Keep the Supabase Vault twin in sync (see steps).',
   },
   {
     id: 'oauth_refresh_cron_secret',

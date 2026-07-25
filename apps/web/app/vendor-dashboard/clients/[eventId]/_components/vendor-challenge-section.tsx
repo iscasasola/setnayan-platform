@@ -15,6 +15,12 @@ import { fetchVendorChallenges } from '@/lib/papic-games';
 import { vendorChallengeStatus, type VendorChallengeStatus } from '@/lib/papic-missions';
 import { asVendorTier } from '@/lib/vendor-tier-caps';
 import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
+import { isVendorAddonFirst5FreeEnabled } from '@/lib/vendor-addon-first5-free-flag';
+import {
+  addonIsFreeUnderFirst5,
+  fetchVendorCommittedBookingCount,
+  first5BookingsRemaining,
+} from '@/lib/vendor-addon-first5-free';
 import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 import { eventPapicActive } from '@/lib/papic-seats';
 import {
@@ -70,6 +76,20 @@ export async function VendorChallengeSection({
   const effectivePricePhp = tieredPricing
     ? resolveVendorAddonPricePhp('papic_challenge', tier)
     : pricePhp;
+
+  // "Free until your 6th booking" (owner 2026-07-25, flag-dark). Same pure
+  // decision + same committed-booking count the buy action uses, so the price
+  // shown here and the price charged there can never disagree.
+  const first5Enabled = isVendorAddonFirst5FreeEnabled();
+  const committedBookings = first5Enabled
+    ? await fetchVendorCommittedBookingCount(supabase, vendorProfileId)
+    : Number.NaN;
+  const first5Free = addonIsFreeUnderFirst5({
+    sku: 'papic_challenge',
+    committedBookingCount: committedBookings,
+    enabled: first5Enabled,
+  });
+  const first5Remaining = first5Enabled ? first5BookingsRemaining(committedBookings) : 0;
 
   // The same pure gate the buy action enforces (booked is implied by mount).
   const eligibility = photoChallengeEligibility({
@@ -159,12 +179,20 @@ export async function VendorChallengeSection({
           </Link>
         </>
       ) : eligibility.ok ? (
-        // Eligible to buy → the ₱400 sponsorship CTA.
+        // Eligible to buy → the ₱400 sponsorship CTA (or the ₱0 grant).
         <>
           <p className="mt-4 text-sm font-medium text-ink">
-            {`Sponsor Papic Challenges for this event — ₱${effectivePricePhp.toLocaleString('en-PH')}.`}
+            {first5Free
+              ? `Sponsor Papic Challenges for this event — free while you're on your first 5 bookings` +
+                (first5Remaining > 0 ? ` (${first5Remaining} to go)` : '') +
+                `, then ₱${effectivePricePhp.toLocaleString('en-PH')}.`
+              : `Sponsor Papic Challenges for this event — ₱${effectivePricePhp.toLocaleString('en-PH')}.`}
           </p>
-          <PhotoChallengeBuy eventId={eventId} pricePhp={effectivePricePhp} />
+          <PhotoChallengeBuy
+            eventId={eventId}
+            pricePhp={effectivePricePhp}
+            free={first5Free}
+          />
         </>
       ) : (
         // Not eligible → the honest reason (below Pro, unverified, or Papic not active).

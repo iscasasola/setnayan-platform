@@ -129,9 +129,9 @@ export function buildCustomerNavGroups(
     ? {
         key: 'launch',
         label: 'Launch',
-        href: `${base}/website/launch`,
+        href: `${base}/website/editor`,
         icon: Rocket,
-        matchPrefix: `${base}/website/launch`,
+        matchPrefix: `${base}/website`,
       }
     : null;
 

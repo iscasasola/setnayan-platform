@@ -43,7 +43,9 @@ function viewSrc(publicLandingUrl: string, key: PhaseKey): string {
 /** The website-editor route that edits this part directly. "Live" = the combined
  *  editor; the others = their per-phase editor routes (/site-editor/[id]/<phase>). */
 function editHref(eventId: string, key: PhaseKey): string {
-  return key === 'live' ? `/site-editor/${eventId}` : `/site-editor/${eventId}/${key}`;
+  // Unified editor (2026-07-25): every 'edit' path lands on the one editor.
+  void key;
+  return `/dashboard/${eventId}/website/editor`;
 }
 
 export function WebsiteLaunchPreview({

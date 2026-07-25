@@ -101,6 +101,81 @@ const GUARDED_ADDON_COLUMNS = [
   'booth_addon_trial_used_at',
 ] as const;
 
+// ── the AI ladder LEVEL marker (20271003111715) ─────────────────────────────
+// The level decides whether the vendor gets Basic or Advanced behaviour, so it
+// must be exactly as unwritable as the windows above. Kept separate because it
+// is TEXT, not a timestamp, and because self-promotion 'basic' -> 'advanced' is
+// the specific attack.
+
+test('a vendor CANNOT self-promote ai_addon_level to advanced', async () => {
+  const { uid, vendorProfileId } = await newVendor('level-promote@guard.test');
+  await asVendor(uid);
+  await assert.rejects(
+    () =>
+      db.query(
+        `UPDATE public.vendor_profiles SET ai_addon_level = 'advanced'
+          WHERE vendor_profile_id = $1`,
+        [vendorProfileId],
+      ),
+    /self-grant blocked/,
+  );
+  await reset();
+  const r = await db.query<{ lvl: string }>(
+    `SELECT ai_addon_level AS lvl FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
+    [vendorProfileId],
+  );
+  assert.equal(r.rows[0]!.lvl, 'basic', 'the level must stay basic');
+});
+
+test('every vendor defaults to level basic, and the CHECK rejects junk levels', async () => {
+  const { vendorProfileId } = await newVendor('level-default@guard.test');
+  await reset();
+  const r = await db.query<{ lvl: string }>(
+    `SELECT ai_addon_level AS lvl FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
+    [vendorProfileId],
+  );
+  assert.equal(r.rows[0]!.lvl, 'basic', 'least privilege by default');
+
+  await asService();
+  await assert.rejects(
+    () =>
+      db.query(
+        `UPDATE public.vendor_profiles SET ai_addon_level = 'ultra' WHERE vendor_profile_id = $1`,
+        [vendorProfileId],
+      ),
+    /vendor_profiles_ai_addon_level_check/,
+  );
+});
+
+test('the SERVICE-ROLE activation path CAN promote the level', async () => {
+  const { vendorProfileId } = await newVendor('level-service@guard.test');
+  await asService();
+  await db.query(
+    `UPDATE public.vendor_profiles SET ai_addon_level = 'advanced' WHERE vendor_profile_id = $1`,
+    [vendorProfileId],
+  );
+  await reset();
+  const r = await db.query<{ lvl: string }>(
+    `SELECT ai_addon_level AS lvl FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
+    [vendorProfileId],
+  );
+  assert.equal(r.rows[0]!.lvl, 'advanced');
+});
+
+test('the ADVANCED SKU is seeded INACTIVE — nothing is sellable yet', async () => {
+  await reset();
+  const r = await db.query<{ sku: string; active: boolean; price: string }>(
+    `SELECT sku_code AS sku, is_active AS active, price_php AS price
+       FROM public.vendor_billing_catalog WHERE sku_code = 'vendor_ai_addon_advanced'`,
+  );
+  assert.equal(r.rows.length, 1, 'the Advanced row must exist');
+  assert.equal(r.rows[0]!.active, false, 'it must ship switched OFF (capabilities unbuilt)');
+  assert.equal(Number(r.rows[0]!.price), 3000, 'seeded at the ENTRY band so a fallback cannot under-charge');
+  // The new SKU code must carry the vendor_ prefix or lib/orders.ts
+  // isVatInclusiveServiceKey mis-handles VAT and orders strand.
+  assert.ok('vendor_ai_addon_advanced'.startsWith('vendor_'));
+});
+
 for (const col of GUARDED_ADDON_COLUMNS) {
   test(`a vendor CANNOT self-grant ${col}`, async () => {
     const { uid, vendorProfileId } = await newVendor(`selfgrant-${col}@guard.test`);

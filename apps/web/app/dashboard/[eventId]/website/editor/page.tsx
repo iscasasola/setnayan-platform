@@ -7,6 +7,8 @@ import { getLifecyclePhase } from '@/lib/invitation-widgets';
 import { LaunchStdButton } from '../../studio/save-the-date/_components/launch-std-button';
 import { EditorShell, type RailGroup } from './_components/editor-shell';
 import { TextPanel } from './_components/text-panel';
+import { ColorsPanel, ProLockPanel } from './_components/pro-panels';
+import { updateSiteColors } from '../colors/actions';
 import { updateSpecialMessage } from '../special-message/actions';
 import { updateWhatToBring } from '../what-to-bring/actions';
 
@@ -86,6 +88,15 @@ export default async function WebsiteEditorPage({
   // Locked = no Pro AND no existing content (the grandfather rule shipped in
   // PR #3664 — a couple who already has content keeps editing it).
   const lockedIf = (hasContent: boolean) => !ownsPro && !hasContent;
+  const proUnlockHref = `${base}/studio/website-pro`;
+  /** A locked Pro row's inline panel: one honest line + the ONE umbrella CTA. */
+  const lockPanel = (featureName: string) => (
+    <ProLockPanel featureName={featureName} unlockHref={proUnlockHref} />
+  );
+
+  const colorsLocked = lockedIf(Boolean(event.site_bg_color || event.site_button_color));
+  const musicLocked = lockedIf(Boolean(event.site_bg_music_r2_key));
+  const galleryLocked = lockedIf(ourPhotos.length > 0);
 
   const groups: RailGroup[] = [
     {
@@ -119,7 +130,18 @@ export default async function WebsiteEditorPage({
           blurb: 'Background and button colors.',
           href: `${w}/colors`,
           pro: true,
-          locked: lockedIf(Boolean(event.site_bg_color || event.site_button_color)),
+          locked: colorsLocked,
+          panel: colorsLocked ? (
+            lockPanel('Colors')
+          ) : (
+            <ColorsPanel
+              action={updateSiteColors.bind(null, eventId)}
+              eventId={eventId}
+              rowKey="colors"
+              bgColor={(event.site_bg_color as string | null) ?? null}
+              buttonColor={(event.site_button_color as string | null) ?? null}
+            />
+          ),
         },
         {
           key: 'music',
@@ -127,7 +149,8 @@ export default async function WebsiteEditorPage({
           blurb: 'A song that plays softly as guests browse.',
           href: `${w}/site-chrome`,
           pro: true,
-          locked: lockedIf(Boolean(event.site_bg_music_r2_key)),
+          locked: musicLocked,
+          ...(musicLocked ? { panel: lockPanel('Background music') } : {}),
         },
       ],
     },
@@ -166,7 +189,8 @@ export default async function WebsiteEditorPage({
           href: `${w}/our-photos`,
           anchor: 'gallery',
           pro: true,
-          locked: lockedIf(ourPhotos.length > 0),
+          locked: galleryLocked,
+          ...(galleryLocked ? { panel: lockPanel('Photo gallery') } : {}),
         },
         {
           key: 'dress-code',
@@ -240,6 +264,10 @@ export default async function WebsiteEditorPage({
           label: 'Save-the-Date',
           blurb: 'The announcement film — opening, video, launch date.',
           href: `${base}/studio/save-the-date`,
+          // The film itself is free; its Cinematic Reveal + video beats are Pro
+          // (already gated in the STD studio via STD_PREMIUM_OPENINGS →
+          // COUPLE_WEBSITE_PRO), so we only hint here — never block the row.
+          status: ownsPro ? 'Pro beats on' : undefined,
         },
         {
           key: 'editorial',
@@ -248,6 +276,7 @@ export default async function WebsiteEditorPage({
           href: `${w}/editorial`,
           pro: true,
           locked: !ownsPro,
+          ...(!ownsPro ? { panel: lockPanel('Editorial editing') } : {}),
         },
       ],
     },
@@ -259,7 +288,8 @@ export default async function WebsiteEditorPage({
       publicLandingUrl={slug ? `/${slug}` : null}
       initialPhase={initialPhase}
       initialOpenRow={typeof openRow === 'string' ? openRow : null}
-      proUnlockHref={`${base}/studio/website-pro`}
+      proUnlockHref={proUnlockHref}
+      showProCta={!ownsPro}
       liveHref={slug ? `/${slug}` : null}
       goLiveSlot={
         <LaunchStdButton

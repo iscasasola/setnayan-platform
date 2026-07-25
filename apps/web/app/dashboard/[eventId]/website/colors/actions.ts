@@ -28,6 +28,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireHostMembership } from '@/lib/host-gate';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
+import { resolveReturnTo } from '@/lib/editor-return';
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
@@ -84,5 +85,7 @@ export async function updateSiteColors(
 
   revalidateWebsiteEditor(eventId, 'colors');
   revalidateGuestSite(event?.slug);
-  redirect(`/dashboard/${eventId}/website/colors?saved=1`);
+  redirect(
+    resolveReturnTo(formData, `/dashboard/${eventId}/website/colors?saved=1`, '?saved=1'),
+  );
 }

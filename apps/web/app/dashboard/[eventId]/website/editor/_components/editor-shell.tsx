@@ -68,6 +68,7 @@ export function EditorShell({
   initialPhase,
   initialOpenRow = null,
   proUnlockHref,
+  showProCta = true,
   liveHref,
   goLiveSlot,
 }: {
@@ -78,6 +79,8 @@ export function EditorShell({
   /** `?open=<rowKey>` — the row a save redirected back to (PR-3). */
   initialOpenRow?: string | null;
   proUnlockHref: string;
+  /** Hide the umbrella CTA once the couple owns Website Pro (PR-4). */
+  showProCta?: boolean;
   liveHref: string | null;
   /** The go-live / schedule control (server component passed as a child). */
   goLiveSlot?: React.ReactNode;
@@ -280,18 +283,24 @@ export function EditorShell({
             </section>
           ))}
 
-          <Link
-            href={proUnlockHref}
-            className="mt-2 flex items-center justify-between gap-3 rounded-2xl bg-ink px-4 py-3 text-cream"
-          >
-            <span className="text-xs text-cream/80">
-              <span className="block font-semibold text-cream">Website Pro</span>
-              Seven upgrades, one unlock.
-            </span>
-            <span className="shrink-0 rounded-full bg-amber-400 px-3 py-1.5 text-xs font-semibold text-ink">
-              ₱3,500
-            </span>
-          </Link>
+          {/* The umbrella unlock (PR-4) — shown only while the couple does NOT
+              own Pro, so an owner's rail isn't nagged. One CTA for all seven. */}
+          {showProCta ? (
+            <div className="mt-2 rounded-2xl bg-ink px-4 py-3.5 text-cream">
+              <p className="text-xs font-semibold text-cream">Website Pro</p>
+              <p className="mt-0.5 text-[0.7rem] leading-relaxed text-cream/70">
+                Seven upgrades, one unlock — Cinematic Reveal · Save-the-Date video ·
+                Photo gallery · Background music · Editorial editing · Background color ·
+                Button color. Also removes the “Powered by Setnayan” mark.
+              </p>
+              <Link
+                href={proUnlockHref}
+                className="mt-2.5 inline-flex items-center rounded-full bg-amber-400 px-4 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-amber-300"
+              >
+                Unlock Website Pro · ₱3,500
+              </Link>
+            </div>
+          ) : null}
         </nav>
 
         {/* ── RIGHT PREVIEW ─────────────────────────────────────────── */}

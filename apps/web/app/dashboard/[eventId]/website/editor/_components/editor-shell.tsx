@@ -9,6 +9,8 @@ import {
   Lock,
   Monitor,
   PanelsTopLeft,
+  Play,
+  QrCode,
   Smartphone,
 } from 'lucide-react';
 
@@ -168,15 +170,42 @@ export function EditorShell({
             )}
           </button>
           {liveHref ? (
-            <Link
-              href={liveHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-ink/5"
-            >
-              View live
-              <ArrowUpRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            </Link>
+            <>
+              {/* Scan-to-view QR (owner 2026-07-25) — the master event QR the
+                  /api/website/qr route already serves; scanning opens the live
+                  site on a phone. <details> popover: zero JS, click-away closes. */}
+              <details className="relative">
+                <summary
+                  className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-ink/5 [&::-webkit-details-marker]:hidden"
+                  title="Scan with a phone to open your live site"
+                >
+                  <QrCode aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                  Scan to view
+                </summary>
+                <div className="absolute right-0 top-full z-30 mt-2 w-48 rounded-2xl border border-ink/10 bg-white p-3 shadow-lg">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- dynamic same-origin PNG from our QR route */}
+                  <img
+                    src={`/api/website/qr${liveHref}`}
+                    alt="QR code that opens your live website"
+                    width={168}
+                    height={168}
+                    className="h-auto w-full rounded-lg"
+                  />
+                  <p className="mt-1.5 text-center text-[0.65rem] text-ink/55">
+                    Point a phone camera here to open your site.
+                  </p>
+                </div>
+              </details>
+              <Link
+                href={liveHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-ink/5"
+              >
+                View live
+                <ArrowUpRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+              </Link>
+            </>
           ) : null}
         </div>
       </header>
@@ -340,6 +369,21 @@ export function EditorShell({
                 {p.label}
               </button>
             ))}
+            {publicLandingUrl ? (
+              /* Pre-experience (owner 2026-07-25): open the CURRENT phase full-
+                 screen in a new tab — the veil reveal, the film, the day-of page,
+                 the After — exactly as a guest meets it, uncramped by the pane. */
+              <Link
+                href={`${publicLandingUrl}?phase=${phase}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 text-xs font-medium text-cream transition-colors hover:bg-ink/90"
+                title="Open this page full-screen, exactly as guests experience it"
+              >
+                <Play aria-hidden className="h-3 w-3" strokeWidth={2} />
+                Experience
+              </Link>
+            ) : null}
             <span className="ml-auto hidden font-mono text-[0.6rem] uppercase tracking-[0.16em] text-ink/35 xl:inline">
               Tap a section to edit
             </span>

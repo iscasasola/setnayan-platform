@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Lock } from 'lucide-react';
 
@@ -113,28 +114,39 @@ function HexField({
   label: string;
   defaultValue: string | null;
 }) {
+  // The swatch IS the picker (owner 2026-07-25): a native color input drives a
+  // hidden text field so blank ( = "use my Mood-Board palette") stays possible —
+  // <input type="color"> alone always posts a value, so it can never mean "unset".
+  const [hex, setHex] = useState<string>(defaultValue ?? '');
   return (
     <div>
       <label htmlFor={id} className="mb-1 block text-[0.7rem] font-semibold text-ink/60">
         {label}
       </label>
       <div className="flex items-center gap-2">
-        <span
-          aria-hidden
-          className="h-6 w-6 shrink-0 rounded-full border border-ink/15"
-          style={defaultValue ? { background: defaultValue } : undefined}
-        />
-        <input
-          id={id}
-          name={name}
-          type="text"
-          inputMode="text"
-          maxLength={7}
-          placeholder="#A9834B"
-          defaultValue={defaultValue ?? ''}
-          pattern="^$|^#[0-9a-fA-F]{6}$"
-          className="w-full rounded-lg border border-ink/15 bg-white px-2.5 py-1.5 font-mono text-xs text-ink outline-none focus:border-terracotta"
-        />
+        <span className="relative inline-flex h-7 w-7 shrink-0">
+          <input
+            id={id}
+            type="color"
+            aria-label={`Pick ${label.toLowerCase()} color`}
+            value={hex || '#f4ecdd'}
+            onChange={(e) => setHex(e.target.value)}
+            className="absolute inset-0 h-full w-full cursor-pointer rounded-full border border-ink/15 p-0 [&::-webkit-color-swatch-wrapper]:p-0.5 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-none [&::-moz-color-swatch]:rounded-full [&::-moz-color-swatch]:border-none"
+          />
+        </span>
+        <input type="hidden" name={name} value={hex} />
+        <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink/60">
+          {hex || 'Palette (default)'}
+        </span>
+        {hex ? (
+          <button
+            type="button"
+            onClick={() => setHex('')}
+            className="shrink-0 rounded-full border border-ink/15 px-2 py-0.5 text-[0.62rem] font-medium text-ink/55 hover:border-ink/30"
+          >
+            Clear
+          </button>
+        ) : null}
       </div>
     </div>
   );

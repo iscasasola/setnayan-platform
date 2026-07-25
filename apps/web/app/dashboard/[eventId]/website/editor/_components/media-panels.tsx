@@ -229,3 +229,28 @@ export function VisibilityPanel({
     </form>
   );
 }
+
+/** Open browsing — the five-tab master switch, flipped inline (owner 2026-07-25). */
+export function OpenBrowsePanel({
+  action,
+  eventId,
+  on,
+}: {
+  action: (formData: FormData) => void | Promise<void>;
+  eventId: string;
+  on: boolean;
+}) {
+  return (
+    <form action={action} className={PANEL}>
+      <input type="hidden" name="event_id" value={eventId} />
+      <input type="hidden" name="open_browse" value={on ? '0' : '1'} />
+      <ReturnTo eventId={eventId} rowKey="open-browse" />
+      <p className="text-xs text-ink/60">
+        {on
+          ? 'Guests can browse every page of your site from day one — the five-tab site.'
+          : 'Guests currently see only the page for the current moment (invitation, day-of, after).'}
+      </p>
+      <SaveButton label={on ? 'Turn off open browsing' : 'Turn on open browsing'} />
+    </form>
+  );
+}

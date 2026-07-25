@@ -144,6 +144,10 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
     'Pilot demo-mode toggle. Surfaces seeded showcase data and hides retired SKU surfaces.',
   'my-account':
     'Your personal account — display name, change password, and sign out other devices.',
+  integrations:
+    'Turn external services on — email, AI, social publishing, payments — without a redeploy.',
+  secrets:
+    'Every API key and password: how old it is, when to replace it, and a paste box to do it here.',
 };
 
 /** Map a single NavItem → the LandingItem card shape (attach its description). */

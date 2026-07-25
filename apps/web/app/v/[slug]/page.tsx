@@ -27,6 +27,8 @@ import {
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
 import { isTrueNameTier, tierCaps } from '@/lib/vendor-tier-caps';
+import { vendorSeoPlan } from '@/lib/vendor-seo-tier';
+import { isVendorSeoTierGateEnabled } from '@/lib/vendor-seo-tier-flag';
 import { experienceTier, vendorExperienceEnabled, yearsInBusiness } from '@/lib/vendor-experience';
 import {
   fetchVendorServices,
@@ -1303,6 +1305,18 @@ export async function renderVendorBySlug({
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
   ).replace(/\/$/, '');
 
+  // External-visibility ladder (Vendor_Monetization_Model_LOCKED_2026-07-25 § 8)
+  // — FLAG-DARK. The IDENTITY graph below + the BreadcrumbList are "basic
+  // indexability", free for every tier and never gated. Only the two paid
+  // enrichments read the plan: `entityGraph` (knowsAbout · Solo+) and
+  // `offerGraph` (hasOfferCatalog · makesOffer · priceRange · Pro+). With
+  // NEXT_PUBLIC_VENDOR_SEO_TIER_GATE unset, vendorSeoPlan() returns the legacy
+  // all-true plan → this page's JSON-LD is byte-identical to today.
+  const seoPlan = vendorSeoPlan(
+    vendor.tier_state ?? null,
+    isVendorSeoTierGateEnabled(),
+  );
+
   const vendorJsonLd: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': ['LocalBusiness', 'ProfessionalService'],
@@ -1333,7 +1347,9 @@ export async function renderVendorBySlug({
   // Vendor services — surface canonical_service strings as `knowsAbout`
   // entries so AI engines can match the vendor against category queries.
   // Maps the enum key to its human-readable label when recognized.
-  if (Array.isArray(vendor.services) && vendor.services.length > 0) {
+  // GEO enrichment → Solo+ (seoPlan.entityGraph); always on while the gate is
+  // dark.
+  if (seoPlan.entityGraph && Array.isArray(vendor.services) && vendor.services.length > 0) {
     vendorJsonLd.knowsAbout = vendor.services.map((s: string) =>
       isCanonicalService(s) ? displayServiceLabel(s) : s,
     );
@@ -1367,7 +1383,10 @@ export async function renderVendorBySlug({
   // not leak a peso figure the visible page hides — so makesOffer + priceRange
   // are omitted entirely (the OfferCatalog of service NAMES below stays, as it
   // carries no prices).
-  const offerPackages = hidePricesPublicly
+  // AEO offer graph → Pro+ (seoPlan.offerGraph). Stacks with — never overrides —
+  // the two existing suppressions: the vendor's own hide-prices choice and the
+  // "no ₱0 phantom offers" price filter.
+  const offerPackages = hidePricesPublicly || !seoPlan.offerGraph
     ? []
     : vendorPackages.filter(
         (pkg) => typeof pkg.total_price_centavos === 'number' && pkg.total_price_centavos > 0,
@@ -1403,7 +1422,10 @@ export async function renderVendorBySlug({
   // OfferCatalog → Offer → Service, each linked back to the vendor as
   // provider. Lets Google + AI engines answer "does {vendor} do X?" with
   // structured precision instead of fuzzy string match.
-  if (Array.isArray(vendor.services) && vendor.services.length > 0) {
+  // AEO offer graph → Pro+ (seoPlan.offerGraph). The lighter `knowsAbout` array
+  // above still carries the same service names at Solo, so a Solo vendor stays
+  // matchable — Pro buys the OfferCatalog's structured precision, not the facts.
+  if (seoPlan.offerGraph && Array.isArray(vendor.services) && vendor.services.length > 0) {
     vendorJsonLd.hasOfferCatalog = {
       '@type': 'OfferCatalog',
       /* Hybrid-anonymity (V2.1 amendment #2): the OfferCatalog's

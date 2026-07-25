@@ -31,12 +31,32 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { vendorSeoPlan } from '@/lib/vendor-seo-tier';
+import { isVendorSeoTierGateEnabled } from '@/lib/vendor-seo-tier-flag';
 
 export const revalidate = 3600;
+
+type VendorSitemapRow = {
+  business_slug: string | null;
+  updated_at: string;
+  tier_state?: string | null;
+};
 
 export async function GET(): Promise<Response> {
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com';
+
+  // Priority-sitemap tiering (Vendor_Monetization_Model_LOCKED_2026-07-25 § 8)
+  // — FLAG-DARK. While dark we neither READ nor USE `tier_state`: the select
+  // string is the original two columns and every row keeps the flat 0.8
+  // priority, so the emitted XML is byte-identical to today. (Gating the READ
+  // too, not just the use, is deliberate — PostgREST answers a select naming an
+  // unknown column with 42703 and nulls the WHOLE row, so a schema/deploy skew
+  // must not be able to empty the sitemap while the feature is off.)
+  const seoGateOn = isVendorSeoTierGateEnabled();
+  const selectCols = seoGateOn
+    ? 'business_slug, updated_at, tier_state'
+    : 'business_slug, updated_at';
 
   let urls = '';
 
@@ -47,11 +67,11 @@ export async function GET(): Promise<Response> {
     // If is_demo column doesn't yet exist (migrations behind), fall back
     // to the unfiltered visibility check (same defensive pattern the
     // prior sitemap.ts used for venue_directory).
-    let rows: { business_slug: string | null; updated_at: string }[] | null = null;
+    let rows: VendorSitemapRow[] | null = null;
 
     const primary = await admin
       .from('vendor_profiles')
-      .select('business_slug, updated_at')
+      .select(selectCols)
       .eq('public_visibility', 'verified')
       // PR-B — exclude UNVERIFIED vendors from the sitemap. An unverified
       // vendor has no public website (mirrored in /v/[slug] + Explore), so
@@ -62,8 +82,14 @@ export async function GET(): Promise<Response> {
       .order('updated_at', { ascending: false })
       .limit(50_000);
 
-    if (primary.error && /(is_demo|verification_state)/i.test(primary.error.message)) {
-      // Schema fallback — is_demo or verification_state column missing in
+    // `tier_state` joins the skew-tolerant column list: if the gate is ON in an
+    // environment whose schema lacks it, we degrade to the base fallback select
+    // (flat priority) instead of logging and emitting an EMPTY sitemap.
+    if (
+      primary.error &&
+      /(is_demo|verification_state|tier_state)/i.test(primary.error.message)
+    ) {
+      // Schema fallback — is_demo, verification_state or tier_state missing in
       // this environment (migrations behind). Fall back to the
       // public_visibility check alone.
       const fallback = await admin
@@ -79,19 +105,23 @@ export async function GET(): Promise<Response> {
     } else if (primary.error) {
       console.error('[sitemap-vendors] primary error', primary.error.message);
     } else {
-      rows = primary.data;
+      rows = primary.data as unknown as VendorSitemapRow[] | null;
     }
 
     if (rows && rows.length > 0) {
       urls = rows
         .filter(
-          (row): row is { business_slug: string; updated_at: string } =>
+          (row): row is VendorSitemapRow & { business_slug: string } =>
             typeof row.business_slug === 'string' && row.business_slug.length > 0,
         )
-        .map(
-          (row) =>
-            `  <url>\n    <loc>${baseUrl}/${encodeURIComponent(row.business_slug)}</loc>\n    <lastmod>${new Date(row.updated_at).toISOString()}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>\n  </url>`,
-        )
+        .map((row) => {
+          // Dark ⇒ legacy plan ⇒ 0.8 for every row (today's constant).
+          const priority = vendorSeoPlan(
+            seoGateOn ? row.tier_state ?? null : null,
+            seoGateOn,
+          ).sitemapPriority;
+          return `  <url>\n    <loc>${baseUrl}/${encodeURIComponent(row.business_slug)}</loc>\n    <lastmod>${new Date(row.updated_at).toISOString()}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>${priority}</priority>\n  </url>`;
+        })
         .join('\n');
     }
   } catch (e) {

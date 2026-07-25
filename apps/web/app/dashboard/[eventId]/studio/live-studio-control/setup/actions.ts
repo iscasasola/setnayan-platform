@@ -45,6 +45,28 @@ import { normalizeYouTubeWatchUrl } from '@/lib/panood-watch';
  * The whole surface is behind NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED; each action
  * re-checks the flag (defense-in-depth — a server action id ships in the client
  * bundle) and no-ops with a redirect back to Studio when the flag is off.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════
+ * ⭐ WAVE 3 — THE PAYWALL MOVED (owner-locked 2026-07-25 · § 4d, SUPERSEDING the
+ * Wave 1/2 gating that most of this file was written under).
+ *
+ * These actions are now HOST-GATED ONLY. Adding a camera, naming it, cutting
+ * between channels on CH 1, placing the monogram / lower third and setting
+ * guest-pick are all REHEARSAL: they write control-plane rows that no guest can
+ * see, on the host's own phones, at their own rehearsal. Charging ₱2,999 before
+ * they have ever felt that was the defect § 4d exists to fix.
+ *
+ * The paywall now sits at PUBLICATION — lib/live-studio-publish.ts, enforced in
+ * mirrorRoamManifest (the only writer of the guest-visible multi-channel manifest)
+ * and re-enforced on every public read in app/[slug]/_lib/loaders.ts. Nothing in
+ * this file can publish anything, which is exactly why nothing in this file needs
+ * an entitlement gate.
+ *
+ * The two exceptions, and they are principled: ⚡ markHighlight / deleteHighlight
+ * keep requireLiveStudioOwned. A "moment" is an offset into a REAL broadcast, not a
+ * rehearsal artifact, and Wave 2 shipped it as part of the paid unlock (§ 4b) —
+ * § 4d moved the multi-cam gate, it did not make the paid extras free.
+ * ══════════════════════════════════════════════════════════════════════════════
  */
 
 const SETUP_PATH = (eventId: string) =>
@@ -84,12 +106,14 @@ async function requireHostMembership(eventId: string): Promise<void> {
 }
 
 /**
- * The PAID gate for the multi-camera controller (unified Live Studio · 2026-07-25).
- * These control-plane writes (add/delete/feature a camera, cut/clear the Main Stage)
- * are the LOCKED half of the shared controller — only a host who owns LIVE_STUDIO may
- * run them. The UI already greys them out for a free host with an "Unlock" CTA; this
- * is the server-side backstop so the lock can't be bypassed by replaying a form post.
- * The FREE single-camera livestream (savePanoodWatchUrl / go-live) is NOT gated here.
+ * The PAID gate — now used ONLY by the ⚡ highlight-moment actions.
+ *
+ * ⚠ WAVE 3 (§ 4d): this must NOT be re-added to the rehearsal / configuration
+ * actions. It used to guard add / rename / delete / feature / cut / clear / overlay
+ * / guest-pick, and moving it off those is the entire point of "rehearse free, pay
+ * to broadcast". The publication paywall lives in lib/live-studio-publish.ts. If a
+ * future action can make something GUEST-VISIBLE, gate it there — not here.
+ *
  * A locked host is bounced to the detail/buy page rather than erroring.
  */
 async function requireLiveStudioOwned(eventId: string): Promise<void> {
@@ -115,7 +139,6 @@ export async function addRoamZone(formData: FormData): Promise<void> {
   }
 
   await requireHostMembership(eventId);
-  await requireLiveStudioOwned(eventId);
   const supabase = await createClient();
 
   // Read current zones (for cap + next index). RLS scopes this to the host's event.
@@ -168,7 +191,6 @@ export async function deleteRoamZone(formData: FormData): Promise<void> {
   if (!Number.isFinite(zoneId)) redirect(SETUP_PATH(eventId));
 
   await requireHostMembership(eventId);
-  await requireLiveStudioOwned(eventId);
   const supabase = await createClient();
   await supabase
     .from('live_studio_roam_zones')
@@ -205,7 +227,6 @@ export async function renameRoamZone(formData: FormData): Promise<void> {
   const venueLabel = normalizeVenueLabel(formData.get('venue_label'));
 
   await requireHostMembership(eventId);
-  await requireLiveStudioOwned(eventId);
   const supabase = await createClient();
   const { error } = await supabase
     .from('live_studio_roam_zones')
@@ -238,7 +259,6 @@ export async function cutToMainStage(formData: FormData): Promise<void> {
   if (!Number.isFinite(zoneId)) redirect(SETUP_PATH(eventId));
 
   await requireHostMembership(eventId);
-  await requireLiveStudioOwned(eventId);
   const supabase = await createClient();
   // Clear the current cut, then set the chosen one. Two writes (Supabase JS has no
   // multi-statement txn); a transient partial state degrades to "no cut → featured"
@@ -266,7 +286,6 @@ export async function clearMainStage(formData: FormData): Promise<void> {
   if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
 
   await requireHostMembership(eventId);
-  await requireLiveStudioOwned(eventId);
   const supabase = await createClient();
   await supabase
     .from('live_studio_roam_zones')
@@ -289,7 +308,6 @@ export async function setFeaturedRoamZone(formData: FormData): Promise<void> {
   if (!Number.isFinite(zoneId)) redirect(SETUP_PATH(eventId));
 
   await requireHostMembership(eventId);
-  await requireLiveStudioOwned(eventId);
   const supabase = await createClient();
   // Clear existing featured, then set the chosen one. Two writes (Supabase JS has
   // no multi-statement txn); the picker's selectFeaturedZone tolerates zero-or-one
@@ -311,20 +329,34 @@ export async function setFeaturedRoamZone(formData: FormData): Promise<void> {
 
 /* ══════════════════════════════════════════════════════════════════════════════
    WAVE 2 — the ₱0 broadcast extras (owner-locked 2026-07-25 · § 4b)
+   WAVE 3 — their gating RELOCATED (owner-locked 2026-07-25 · § 4d)
 
-   GATING, per owner lock, enforced here as the server backstop:
-     • Ⓜ monogram · ▬ lower third · ⚡ highlights → requireLiveStudioOwned (PAID)
-     • ⬛ event QR                                → host-gated ONLY (FREE)
-     • guest-pick                                → requireLiveStudioOwned (PAID;
-       it only means anything once there are multiple channels to pick between)
+   GATING as it stands now:
+     • Ⓜ monogram · ▬ lower third → host-gated ONLY. PLACING them is rehearsal
+       (§ 4d lists "place/configure the monogram + lower third" as free); PUTTING
+       THEM ON AIR is still paid, and that is enforced where it belongs —
+       resolveOverlays() re-asks the entitlement on the program surface every
+       render, so a free host's configured monogram simply is not drawn on air.
+     • ⬛ event QR                 → host-gated ONLY (FREE, owner-locked § 4b)
+     • guest-pick                 → host-gated ONLY. Setting the switch is
+       rehearsal; it only MEANS anything against a published multi-channel
+       manifest, and the publish gate already reduces a free event to one channel
+       (lib/live-studio-publish.ts), so the switch is inert without the unlock
+       rather than blocked before it.
+     • ⚡ highlights               → requireLiveStudioOwned (PAID). A moment is an
+       offset into a real broadcast, not a rehearsal artifact.
 
-   The free tier's "POWERED BY SETNAYAN" lower third has NO action at all — it is
-   derived from the entitlement in resolveOverlays(), so there is no request a free
-   host could replay to remove it. That is deliberate: a `setLowerThird(enabled=false)`
-   that a free host could reach would be the hole.
+   The free tier's "POWERED BY SETNAYAN" lower third STILL has no action at all — it
+   is derived from the entitlement in resolveOverlays(), never stored, so there is no
+   request a free host could replay to remove it and no column to tamper with. That
+   property is why letting a free host write `lower_third_*` is safe: their own text
+   is stored and previewed, and the free branch of the resolver never consults it.
    ══════════════════════════════════════════════════════════════════════════════ */
 
-/** Ⓜ monogram overlay — on/off + which corner. PAID. */
+/**
+ * Ⓜ monogram overlay — on/off + which corner. FREE TO PLACE (§ 4d rehearsal);
+ * only drawn ON AIR for a host who owns LIVE_STUDIO (resolveOverlays).
+ */
 export async function setMonogramOverlay(formData: FormData): Promise<void> {
   const eventIdRaw = formData.get('event_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
@@ -337,7 +369,6 @@ export async function setMonogramOverlay(formData: FormData): Promise<void> {
   const positionRaw = formData.get('position');
 
   await requireHostMembership(eventId);
-  await requireLiveStudioOwned(eventId);
   const supabase = await createClient();
 
   const patch: Parameters<typeof saveOverlaySettings>[2] = {};
@@ -353,7 +384,13 @@ export async function setMonogramOverlay(formData: FormData): Promise<void> {
 }
 
 /**
- * ▬ Lower third — on/off + the host's own two lines. PAID.
+ * ▬ Lower third — on/off + the host's own two lines. FREE TO WRITE (§ 4d
+ * rehearsal); only drawn ON AIR for a host who owns LIVE_STUDIO.
+ *
+ * A free host who types their own bar still broadcasts "POWERED BY SETNAYAN": the
+ * free branch of resolveOverlays never reads these columns. Storing their text is
+ * therefore not a hole — it is the rehearsal they are entitled to, and the thing
+ * they buy is putting it on air.
  *
  * Text is normalized + length-capped by the shared pure helpers, so the bar cannot
  * be made to overflow the frame from the form.
@@ -368,7 +405,6 @@ export async function setLowerThird(formData: FormData): Promise<void> {
   const hasText = formData.has('title') || formData.has('subtitle');
 
   await requireHostMembership(eventId);
-  await requireLiveStudioOwned(eventId);
   const supabase = await createClient();
 
   const patch: Parameters<typeof saveOverlaySettings>[2] = {};
@@ -421,13 +457,17 @@ export async function setEventQrOverlay(formData: FormData): Promise<void> {
 }
 
 /**
- * GUEST-PICK — the real, optional switch (owner-locked "make it optional"). PAID:
- * with one channel there is nothing to pick between, so this only means something
- * for a multi-camera host.
+ * GUEST-PICK — the real, optional switch (owner-locked "make it optional").
+ * HOST-GATED, free to set (§ 4d lists "set guest-pick" as rehearsal).
  *
  * The public page honors it by OMISSION (lib/live-studio-roam.ts → applyGuestPick),
  * so flipping this off actually removes the other channels' video ids from what the
  * viewer is sent — it is not a hidden picker.
+ *
+ * Free to SET, inert without the unlock: the publish gate reduces a free event's
+ * manifest to the single on-air channel BEFORE applyGuestPick runs, so "guests may
+ * pick" has nothing to pick between. That composition is why this needed no
+ * entitlement gate of its own — one enforcement point, not two that can disagree.
  */
 export async function setGuestPick(formData: FormData): Promise<void> {
   const eventIdRaw = formData.get('event_id');
@@ -438,7 +478,6 @@ export async function setGuestPick(formData: FormData): Promise<void> {
   if (typeof enabledRaw !== 'string') redirect(SETUP_PATH(eventId));
 
   await requireHostMembership(eventId);
-  await requireLiveStudioOwned(eventId);
   const supabase = await createClient();
 
   const { error } = await supabase

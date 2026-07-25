@@ -25,7 +25,16 @@ import { goLivePanood, endPanoodBroadcast } from '../../panood/setup/actions';
  * cannot work.
  *
  * Going live is FREE for every host (owner model 2026-06-26) — the LIVE_STUDIO SKU
- * gates the multi-camera extras, never this button. So there is no entitlement prop.
+ * gates broadcasting MORE THAN ONE camera, never this button. So there is still no
+ * entitlement prop here.
+ *
+ * ⭐ WAVE 3 (owner-locked 2026-07-25 · § 4d "rehearse free, pay to broadcast"): the
+ * paywall is stated AT THIS MOMENT rather than as padlocks over the tiles — but as a
+ * sibling element the page owns (see the "Rehearse free · Unlock … to broadcast all
+ * your cameras" line under this row), NOT as a disabled button. This button must
+ * stay live and free for every host: the live /pricing page promises "Single-camera
+ * livestream" free, and breaking that to sell the multi-cam upgrade would be selling
+ * against our own published promise.
  */
 export function TransportRow({
   eventId,

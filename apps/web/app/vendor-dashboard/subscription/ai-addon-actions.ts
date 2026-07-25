@@ -7,6 +7,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
+import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
+import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { appendLedger } from '@/lib/ledger';
 import {
@@ -143,11 +145,26 @@ export async function activateVendorAiAddon(
   if (skuRow && (skuRow as { is_active?: boolean | null }).is_active === false) {
     return err('Vendor AI is temporarily unavailable. Please try again later.');
   }
-  const cyclePricePhp =
+  const catalogCyclePricePhp =
     skuRow && (skuRow as { is_active?: boolean | null }).is_active !== false
       ? Number((skuRow as { price_php: number | string }).price_php)
       : null;
+  // 2026-07-25 tiered add-on model: the CYCLE price comes from the code SSOT band
+  // (₱2,000 Free/Solo · ₱1,500 Pro/Ent) instead of the flat catalog row.
+  //
+  // ⚠ INJECTED AS THE INPUT, never as the final price. resolveVendorAiAddonPricePhp
+  // short-circuits to ₱0 on the free first cycle BEFORE it looks at this value, so
+  // overwriting `pricePhp` afterwards would silently bill the trial. Same shape as
+  // booth-addon-actions.ts. The tier is re-read server-side above, so a tampered
+  // client can never force the cheaper Pro band.
+  const cyclePricePhp = isVendorAddonTieredPricingEnabled()
+    ? resolveVendorAddonPricePhp('ai_chatbot_basic', tier)
+    : catalogCyclePricePhp;
   const pricePhp = resolveVendorAiAddonPricePhp({ trialUsed, cyclePricePhp });
+  /** What a cycle costs this vendor once the free first cycle is spent — so no
+   *  message below hardcodes ₱1,500, which is wrong for the entry band. */
+  const renewalPricePhp = resolveVendorAiAddonPricePhp({ trialUsed: true, cyclePricePhp });
+  const peso = (n: number) => '₱' + n.toLocaleString('en-PH');
 
   // ── FREE first cycle → atomic claim + direct activation ────────────────────
   if (pricePhp <= 0) {
@@ -170,7 +187,9 @@ export async function activateVendorAiAddon(
     if (!claimed || claimed.length === 0) {
       // Lost the race (another request just claimed the trial) — the caller
       // should re-submit and land on the paid path. Surface it plainly.
-      return err('Your free cycle was just used. Refresh to buy the next cycle (₱1,500 / 28 days).');
+      return err(
+        `Your free cycle was just used. Refresh to buy the next cycle (${peso(renewalPricePhp)} / 28 days).`,
+      );
     }
 
     // Audit-only ₱0 'paid' order (no payment row — payments.amount_php > 0).
@@ -215,7 +234,7 @@ export async function activateVendorAiAddon(
     return {
       status: 'activated',
       message:
-        'Vendor AI is on — your free first 28-day cycle is active. After it ends, it’s ₱1,500 / 28 days.',
+        `Vendor AI is on — your free first 28-day cycle is active. After it ends, it’s ${peso(renewalPricePhp)} / 28 days.`,
     };
   }
 

@@ -75,3 +75,33 @@ test('a lapsed (past) expiry restarts the window from now', () => {
   const expiry = Date.parse(nextVendorAiAddonExpiry(past, now));
   assert.equal(expiry - now, VENDOR_AI_ADDON_PERIOD_DAYS * 24 * 60 * 60 * 1000);
 });
+
+// ── 2026-07-25 tiered band, INJECTED as the cycle price ─────────────────────
+// The band must reach this resolver as its INPUT, never replace its OUTPUT.
+// resolveVendorAiAddonPricePhp short-circuits to ₱0 on the free first cycle
+// BEFORE reading cyclePricePhp; overwriting the result afterwards would bill the
+// trial. These pin that the injection shape is the safe one.
+
+test('band injection preserves the free FIRST cycle on every band', () => {
+  for (const band of [2000, 1500]) {
+    assert.equal(
+      resolveVendorAiAddonPricePhp({ trialUsed: false, cyclePricePhp: band }),
+      0,
+      `band ${band}`,
+    );
+  }
+});
+
+test('band injection sets the RENEWAL price', () => {
+  assert.equal(resolveVendorAiAddonPricePhp({ trialUsed: true, cyclePricePhp: 2000 }), 2000);
+  assert.equal(resolveVendorAiAddonPricePhp({ trialUsed: true, cyclePricePhp: 1500 }), 1500);
+});
+
+test('flag OFF: a null/absent catalog price still falls back to ₱1,500', () => {
+  // The flag-off path passes the catalog value through untouched, so the
+  // pre-existing fallback must be unchanged.
+  assert.equal(
+    resolveVendorAiAddonPricePhp({ trialUsed: true, cyclePricePhp: null }),
+    VENDOR_AI_ADDON_FALLBACK_PHP,
+  );
+});

@@ -7,6 +7,7 @@ import {
   ChevronRight,
   ExternalLink,
   Lock,
+  Monitor,
   PanelsTopLeft,
   Smartphone,
 } from 'lucide-react';
@@ -55,6 +56,19 @@ export type RailGroup = {
 };
 
 type PhaseKey = 'save_the_date' | 'rsvp' | 'event' | 'editorial';
+
+/**
+ * Preview device (2026-07-25 owner ask). The preview is a real iframe, so
+ * changing its WIDTH makes the guest site's own responsive breakpoints respond —
+ * this shows the actual mobile and desktop layouts, not a mock-up of them.
+ * Phone = 430px (the common PH handset width the site is designed against);
+ * Desktop = the full pane, which on a laptop clears the site's `lg:` breakpoint.
+ */
+type DeviceKey = 'mobile' | 'desktop';
+const DEVICES: Array<{ key: DeviceKey; label: string; Icon: typeof Smartphone }> = [
+  { key: 'mobile', label: 'Phone', Icon: Smartphone },
+  { key: 'desktop', label: 'Desktop', Icon: Monitor },
+];
 const PHASES: Array<{ key: PhaseKey; label: string }> = [
   { key: 'save_the_date', label: 'Save-the-Date' },
   { key: 'rsvp', label: 'Invitation' },
@@ -89,6 +103,8 @@ export function EditorShell({
   const [activeRow, setActiveRow] = useState<string | null>(initialOpenRow);
   const [openPanel, setOpenPanel] = useState<string | null>(initialOpenRow);
   const [mobilePane, setMobilePane] = useState<'edit' | 'preview'>('edit');
+  // Most couples' guests open the site on a phone, so the preview starts there.
+  const [device, setDevice] = useState<DeviceKey>('mobile');
   const frameRef = useRef<HTMLIFrameElement | null>(null);
 
   const previewSrc = publicLandingUrl
@@ -324,9 +340,34 @@ export function EditorShell({
                 {p.label}
               </button>
             ))}
-            <span className="ml-auto hidden font-mono text-[0.6rem] uppercase tracking-[0.16em] text-ink/35 sm:inline">
-              Live preview · tap a section to edit
+            <span className="ml-auto hidden font-mono text-[0.6rem] uppercase tracking-[0.16em] text-ink/35 xl:inline">
+              Tap a section to edit
             </span>
+            <div
+              role="group"
+              aria-label="Preview device"
+              className="ml-auto flex items-center gap-1 rounded-full border border-ink/15 bg-white p-0.5 xl:ml-2"
+            >
+              {DEVICES.map((d) => {
+                const Icon = d.Icon;
+                const on = device === d.key;
+                return (
+                  <button
+                    key={d.key}
+                    type="button"
+                    onClick={() => setDevice(d.key)}
+                    aria-pressed={on}
+                    title={`Preview as ${d.label.toLowerCase()}`}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.7rem] font-medium transition-colors ${
+                      on ? 'bg-ink text-cream' : 'text-ink/55 hover:text-ink'
+                    }`}
+                  >
+                    <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                    <span className="hidden sm:inline">{d.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <div className="flex min-h-0 flex-1 justify-center px-4 pb-4">
             {previewSrc ? (
@@ -335,10 +376,16 @@ export function EditorShell({
                 key={`${phase}`}
                 src={previewSrc}
                 title="Your website preview"
-                className="h-full w-full max-w-[430px] rounded-t-2xl border border-ink/10 bg-white shadow-lg"
+                className={`h-full w-full rounded-t-2xl border border-ink/10 bg-white shadow-lg transition-[max-width] duration-300 ${
+                  device === 'mobile' ? 'max-w-[430px]' : 'max-w-none'
+                }`}
               />
             ) : (
-              <div className="flex h-full w-full max-w-[430px] items-center justify-center rounded-t-2xl border border-dashed border-ink/20 bg-white/60 p-8 text-center">
+              <div
+                className={`flex h-full w-full items-center justify-center rounded-t-2xl border border-dashed border-ink/20 bg-white/60 p-8 text-center ${
+                  device === 'mobile' ? 'max-w-[430px]' : 'max-w-none'
+                }`}
+              >
                 <p className="text-sm text-ink/55">
                   Set your website address to see a live preview here.
                 </p>

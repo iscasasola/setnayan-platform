@@ -14,6 +14,8 @@ import {
   resolveVendor3dBoothPricePhp,
   nextVendor3dBoothExpiry,
 } from '@/lib/vendor-3d-booth-pricing';
+import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
+import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 
 /**
  * 3D Booth add-on — buy/activate a 28-day cycle.
@@ -44,6 +46,19 @@ import {
  * never a price. Booth branding is a Pro/Enterprise perk (boothCanBrand), so the
  * add-on that turns it on is Pro+ too — hence `isTierAtLeast(tier, 'pro')` (vs
  * the AI add-on's Solo+ gate).
+ *
+ * ── 2026-07-25 TIERED ADD-ON MODEL (owner-locked · flag-dark) ───────────────
+ * Behind `NEXT_PUBLIC_VENDOR_ADDON_TIERED_PRICING` the Pro+ gate LIFTS and 3D
+ * Plan Ads becomes buyable on EVERY tier at the tier-banded price —
+ * `resolveVendorAddonPricePhp('ads_3d_plan', tier)` → ₱2,000 Free/Solo, ₱1,500
+ * Pro/Enterprise. The tier is re-read here from `vendor_profiles.tier_state`, so
+ * the band is server-authoritative and a tampered client can never buy at the
+ * cheaper Pro price. Everything else is untouched: verified-only, the one-time
+ * free first cycle, the atomic trial claim, and apply-then-pay. Flag OFF
+ * (default) = byte-identical to today (Pro+ gate, flat catalog price).
+ * The matching RENDER gate is `lib/booth-branding-tier-gate` — same flag, so
+ * access and price flip together and a Free vendor can never pay for a booth
+ * that would still render generic.
  */
 
 export type Vendor3dBoothActionState =
@@ -119,7 +134,10 @@ export async function activateVendor3dBooth(
   const verification =
     (gateRow as { verification_state?: string | null } | null)?.verification_state ?? null;
 
-  if (!isTierAtLeast(tier, 'pro')) {
+  // Tiered add-on model ON → every tier may buy (at its own band's price); OFF →
+  // today's Pro+ gate, verbatim.
+  const tieredPricing = isVendorAddonTieredPricingEnabled();
+  if (!tieredPricing && !isTierAtLeast(tier, 'pro')) {
     return err('3D Booth is available on the Pro, Enterprise, and Custom plans. Upgrade to add it.');
   }
   if (verification !== 'verified') {
@@ -147,11 +165,21 @@ export async function activateVendor3dBooth(
   if (skuRow && (skuRow as { is_active?: boolean | null }).is_active === false) {
     return err('3D Booth is temporarily unavailable. Please try again later.');
   }
-  const cyclePricePhp =
+  const catalogCyclePricePhp =
     skuRow && (skuRow as { is_active?: boolean | null }).is_active !== false
       ? Number((skuRow as { price_php: number | string }).price_php)
       : null;
+  // Under the tiered model the CYCLE price comes from the code SSOT band
+  // (₱2,000 entry / ₱1,500 growth) instead of the flat catalog row; the free
+  // first cycle and every other rule below are unchanged.
+  const cyclePricePhp = tieredPricing
+    ? resolveVendorAddonPricePhp('ads_3d_plan', tier)
+    : catalogCyclePricePhp;
   const pricePhp = resolveVendor3dBoothPricePhp({ trialUsed, cyclePricePhp });
+  /** The standing renewal price for THIS vendor — what a cycle costs once the
+   *  free first cycle is spent. Used in copy so no message hardcodes ₱1,500. */
+  const renewalPricePhp = resolveVendor3dBoothPricePhp({ trialUsed: true, cyclePricePhp });
+  const peso = (n: number) => '₱' + n.toLocaleString('en-PH');
 
   // ── FREE first cycle → atomic claim + direct activation ────────────────────
   if (pricePhp <= 0) {
@@ -174,7 +202,9 @@ export async function activateVendor3dBooth(
     if (!claimed || claimed.length === 0) {
       // Lost the race (another request just claimed the trial) — the caller
       // should re-submit and land on the paid path. Surface it plainly.
-      return err('Your free cycle was just used. Refresh to buy the next cycle (₱1,500 / 28 days).');
+      return err(
+        `Your free cycle was just used. Refresh to buy the next cycle (${peso(renewalPricePhp)} / 28 days).`,
+      );
     }
 
     // Audit-only ₱0 'paid' order (no payment row — payments.amount_php > 0).
@@ -218,8 +248,7 @@ export async function activateVendor3dBooth(
     revalidatePath('/vendor-dashboard/shop');
     return {
       status: 'activated',
-      message:
-        'Your 3D Booth is on — your free first 28-day cycle is active. After it ends, it’s ₱1,500 / 28 days.',
+      message: `Your 3D Booth is on — your free first 28-day cycle is active. After it ends, it’s ${peso(renewalPricePhp)} / 28 days.`,
     };
   }
 

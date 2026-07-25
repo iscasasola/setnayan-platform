@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { boothCanBrand } from '@/lib/seating-3d';
+import { boothTierCanBrand } from '@/lib/booth-branding-tier-gate';
 import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { after } from 'next/server';
@@ -712,15 +712,17 @@ export async function renderVendorBySlug({
 
   const visibility = parseVisibility(vendor.public_visibility);
   const bookable = isBookable(visibility);
-  // 3D Booth Ads · Part C: Pro/Enterprise vendors get a shareable "walk into my
-  // booth" 3D showcase at /v/[slug]/booth (same gate that brands a booth). Behind
+  // 3D Booth Ads · Part C: vendors on a booth-brandable tier get a shareable
+  // "walk into my booth" 3D showcase at /v/[slug]/booth (same gate that brands a
+  // booth — Pro/Enterprise today, every tier once the 2026-07-25 tiered add-on
+  // model is live, since 3D Plan Ads becomes buyable on Free/Solo). Behind
   // NEXT_PUBLIC_PLAN3D_BOOTH_SHOWCASE (inlined; kept in lock-step with the route).
   // Include verification_state so the link never appears for a vendor the booth
   // route will notFound() (the profile page skips its verified-gate for owner-
   // preview / demo mode, so a mid-re-verification Pro vendor could see a dead link).
   const canShowBooth =
     process.env.NEXT_PUBLIC_PLAN3D_BOOTH_SHOWCASE === 'true' &&
-    boothCanBrand(vendor.tier_state ?? null) &&
+    boothTierCanBrand(vendor.tier_state ?? null) &&
     vendor.verification_state === 'verified';
   const isComingSoon = visibility === 'coming_soon';
 

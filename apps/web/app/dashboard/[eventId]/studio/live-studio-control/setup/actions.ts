@@ -7,6 +7,8 @@ import {
   canAddZone,
   computeNextZoneIndex,
   normalizeZoneInput,
+  normalizeZoneLabel,
+  normalizeVenueLabel,
 } from '@/lib/live-studio-roam-zones';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { eventSkuActive } from '@/lib/entitlements';
@@ -165,6 +167,46 @@ export async function deleteRoamZone(formData: FormData): Promise<void> {
 
   revalidatePath(SETUP_PATH(eventId));
   redirect(`${SETUP_PATH(eventId)}?zone_deleted=1`);
+}
+
+/**
+ * RENAME a channel in place — the ✎ on each camera tile (approved single-screen
+ * controller, Wave 1). Channel names are the HOST'S OWN (owner 2026-07-25): the
+ * text under each tile is theirs, and they must be able to fix it on the day
+ * without leaving the one screen. Reuses the same pure normalizers as the add
+ * form (one validation source of truth) and the same host + ownership gates as
+ * every other control-plane write, so a free host cannot rename anything.
+ */
+export async function renameRoamZone(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const zoneIdRaw = formData.get('zone_id');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
+  const eventId = eventIdRaw;
+  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  const zoneId = typeof zoneIdRaw === 'string' ? Number(zoneIdRaw) : NaN;
+  if (!Number.isFinite(zoneId)) redirect(SETUP_PATH(eventId));
+
+  const label = normalizeZoneLabel(formData.get('label'));
+  if (!label) {
+    redirect(`${SETUP_PATH(eventId)}?zone_error=label`);
+  }
+  // Venue is optional: an empty field clears the grouping (normalize → null).
+  const venueLabel = normalizeVenueLabel(formData.get('venue_label'));
+
+  await requireHostMembership(eventId);
+  await requireLiveStudioOwned(eventId);
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('live_studio_roam_zones')
+    .update({ label, venue_label: venueLabel })
+    .eq('event_id', eventId)
+    .eq('id', zoneId);
+  if (error) {
+    redirect(`${SETUP_PATH(eventId)}?zone_error=save`);
+  }
+
+  revalidatePath(SETUP_PATH(eventId));
+  redirect(`${SETUP_PATH(eventId)}?zone_renamed=1`);
 }
 
 /**

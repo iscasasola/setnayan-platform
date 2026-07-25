@@ -7,8 +7,32 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ADD_ONS } from './add-ons-catalog';
+import { ADD_ON_SKU_MAP } from './add-on-stats';
 
 const byKey = new Map(ADD_ONS.map((a) => [a.key, a] as const));
+
+// ── Unified Live Studio: no dead buy buttons for the retired SKUs (2026-07-25) ──
+
+test('no Studio tile sells the retired LIVE_STUDIO_ROAM SKU (no dead buy button)', () => {
+  // LIVE_STUDIO_ROAM is is_active=false (retired into LIVE_STUDIO). If any tile still
+  // carried it as serviceKey, its buy drawer would 500-reject at checkout
+  // (resolveServiceSellability → 'retired'). The unified tile must sell LIVE_STUDIO.
+  for (const a of ADD_ONS) {
+    assert.notEqual(
+      a.serviceKey,
+      'LIVE_STUDIO_ROAM',
+      `add-on "${a.key}" must not sell the retired Roam SKU`,
+    );
+  }
+});
+
+test('the Live Studio feature resolves ownership against the active LIVE_STUDIO SKU', () => {
+  // Ownership/stats/launch-state read orders by these service_keys. After the
+  // merge the feature must grant on LIVE_STUDIO; the retired LIVE_STUDIO_ROAM stays
+  // so any historical order still flips the card to 'launch'.
+  const skus = ADD_ON_SKU_MAP['live-studio-roam'] ?? [];
+  assert.ok(skus.includes('LIVE_STUDIO'), 'live-studio feature must grant on LIVE_STUDIO');
+});
 
 test('wedding-surface add-ons carry the right surface', () => {
   const expected: Record<string, string> = {

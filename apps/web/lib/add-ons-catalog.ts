@@ -826,36 +826,37 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
 ];
 
 /**
- * Live Studio ROAM — the multi-camera "guests pick which camera / wander the
- * venue" variant (owner 2026-07-23: Live Studio has two variants, Cast + Roam).
- * Paid ₱3,500/day (serviceKey LIVE_STUDIO_ROAM; price is admin-managed via the
- * catalog, never hardcoded here). No dedicated /studio page yet → opensDirect is
- * omitted so the tile opens the generic App Store detail (/studio/[addon]).
+ * Live Studio — the UNIFIED customer-facing SKU (owner 2026-07-25) that merges
+ * Cast (directed single feed) + Roam (guests pick their view) into ONE switching
+ * product: a directed Main Stage plus switchable guest cameras. Paid ₱2,999 per
+ * event (serviceKey LIVE_STUDIO; price is admin-managed via the catalog, never
+ * hardcoded here). Built on the Roam substrate — the tile keeps the internal key
+ * `live-studio-roam` (like "Live Studio Cast" keeps the internal `panood` name),
+ * so its route/detail/state/stats wiring is untouched.
+ *
+ * opensDirect → routes to the bespoke /studio/live-studio-roam App Store detail
+ * page, which mounts the buy drawer and, once owned, opens the switching controller.
  *
  * FLAG-GATED: appended to ADD_ONS only when NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED
- * is on. Until launch the flag is off AND the catalog row is is_active=false
- * (migration 20270919479280), so Roam is fully dark — no Suite/Studio tile, not
- * on /pricing, not buyable. At launch the owner flips the flag + is_active.
+ * is on (reusing the existing Roam flag as the launch switch). Until launch the flag
+ * is off, LIVE_STUDIO is excluded from /pricing by name, and the old LIVE_STUDIO_ROAM
+ * row is is_active=false — so Live Studio is fully dark. At launch the owner flips
+ * the flag (and runs the Cast/PANOOD_SYSTEM retirement cutover).
  */
-const LIVE_STUDIO_ROAM_ENTRY: AddOnEntry = {
+const LIVE_STUDIO_ENTRY: AddOnEntry = {
   key: 'live-studio-roam',
   tags: ['Live', 'Video', 'Multi-cam', 'Day-of'],
-  // opensDirect → the tile (both not-owned detail + owned deep-link) routes to the
-  // bespoke /studio/live-studio-roam App Store detail page (mirrors panood), which
-  // mounts the buy drawer and, once owned, opens the channel controller. Without this
-  // the tile fell through to the generic /studio/[addon] placeholder (no roam meta →
-  // notFound) — a broken doorway.
   opensDirect: true,
-  label: 'Live Studio Roam',
+  label: 'Live Studio',
   Icon: Video,
   iteration: '0011',
   status: 'web_v1',
   category: 'photography',
   blurb:
-    'Guests choose which camera to watch and wander your event — multiple angles and venues, live on your page, with the directed feed as the default.',
+    'Stream your celebration live — direct a Main Stage between your cameras, or let remote guests pick their own view, across every angle and venue.',
   cta: 'Set up',
   studioGroup: 'capture',
-  serviceKey: 'LIVE_STUDIO_ROAM',
+  serviceKey: 'LIVE_STUDIO',
   poster: {
     motion: 'scan',
     baseBackground:
@@ -867,12 +868,12 @@ const LIVE_STUDIO_ROAM_ENTRY: AddOnEntry = {
 };
 
 /**
- * The Studio/Suite catalog. Live Studio Roam is appended only behind its flag so
- * the tile stays dark until launch (see LIVE_STUDIO_ROAM_ENTRY). Every other
+ * The Studio/Suite catalog. The unified Live Studio tile is appended only behind
+ * its flag so it stays dark until launch (see LIVE_STUDIO_ENTRY). Every other
  * consumer imports ADD_ONS unchanged.
  */
 export const ADD_ONS: ReadonlyArray<AddOnEntry> = liveStudioRoamEnabled()
-  ? [...BASE_ADD_ONS, LIVE_STUDIO_ROAM_ENTRY]
+  ? [...BASE_ADD_ONS, LIVE_STUDIO_ENTRY]
   : BASE_ADD_ONS;
 
 // `StudioFreeTool` + `studioFreeTools()` removed 2026-07-11 — dead code, imported

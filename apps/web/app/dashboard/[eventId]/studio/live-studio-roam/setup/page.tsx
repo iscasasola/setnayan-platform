@@ -11,6 +11,9 @@ import {
   Clock3,
   Lock,
   Radio,
+  MonitorPlay,
+  Scissors,
+  PowerOff,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { eventSkuActive } from '@/lib/entitlements';
@@ -19,11 +22,19 @@ import { MAX_ROAM_ZONES, canAddZone } from '@/lib/live-studio-roam-zones';
 import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { addRoamZone, deleteRoamZone, setFeaturedRoamZone } from './actions';
+import {
+  addRoamZone,
+  deleteRoamZone,
+  setFeaturedRoamZone,
+  cutToMainStage,
+  clearMainStage,
+} from './actions';
 
-export const metadata = { title: 'Live Studio Roam setup · Setnayan' };
+export const metadata = { title: 'Live Studio controller · Setnayan' };
 
-const ROAM_SKU = 'LIVE_STUDIO_ROAM';
+// Unified Live Studio SKU (2026-07-25) — the controller-ownership gate keys on the
+// merged LIVE_STUDIO SKU, not the retired LIVE_STUDIO_ROAM.
+const LIVE_STUDIO_SKU = 'LIVE_STUDIO';
 
 type ZoneRow = {
   id: number;
@@ -31,6 +42,7 @@ type ZoneRow = {
   label: string;
   venue_label: string | null;
   is_featured: boolean;
+  is_main_stage: boolean;
   status: string;
 };
 
@@ -40,6 +52,8 @@ type Props = {
     zone_added?: string;
     zone_deleted?: string;
     featured_set?: string;
+    main_stage_cut?: string;
+    main_stage_cleared?: string;
     zone_error?: string;
   }>;
 };
@@ -50,7 +64,14 @@ export default async function LiveStudioRoamSetupPage({ params, searchParams }: 
   if (!liveStudioRoamEnabled()) notFound();
 
   const { eventId } = await params;
-  const { zone_added, zone_deleted, featured_set, zone_error } = await searchParams;
+  const {
+    zone_added,
+    zone_deleted,
+    featured_set,
+    main_stage_cut,
+    main_stage_cleared,
+    zone_error,
+  } = await searchParams;
 
   const supabase = await createClient();
   const {
@@ -67,17 +88,18 @@ export default async function LiveStudioRoamSetupPage({ params, searchParams }: 
 
   // Roam is a paid capability end-to-end (no free tier, unlike Cast single-cam). The
   // controller assumes ownership; a non-owner is bounced to the detail page to buy.
-  const owned = await eventSkuActive(supabase, eventId, ROAM_SKU);
+  const owned = await eventSkuActive(supabase, eventId, LIVE_STUDIO_SKU);
   if (!owned) redirect(`/dashboard/${eventId}/studio/live-studio-roam`);
 
   // Current channels/zones (control-plane; RLS scopes to the host's own event).
   const { data: zoneRows } = await supabase
     .from('live_studio_roam_zones')
-    .select('id, zone_index, label, venue_label, is_featured, status')
+    .select('id, zone_index, label, venue_label, is_featured, is_main_stage, status')
     .eq('event_id', eventId)
     .order('zone_index', { ascending: true });
   const zones = (zoneRows ?? []) as ZoneRow[];
   const atCap = !canAddZone(zones.length);
+  const mainStageZone = zones.find((z) => z.is_main_stage) ?? null;
 
   // Live-streaming readiness: the pool-channel OAuth path (G1/G3/G4). Reuses the
   // Cast OAuth config probe — until the owner's Setnayan channel + OAuth are ready,
@@ -91,12 +113,12 @@ export default async function LiveStudioRoamSetupPage({ params, searchParams }: 
         className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to Live Studio Roam
+        Back to Live Studio
       </Link>
 
       <PageMasthead
-        title="Set up your cameras"
-        lede="Name each camera your guests can choose between — one per angle, room, or venue. Mark the one you want the picker to open on as the default view; guests can switch to any other camera with one tap, and jump back to your default any time."
+        title="Live Studio controller"
+        lede="One directed Main Stage plus your guest cameras. Name each camera — one per angle, room, or venue — then cut whichever one you want onto the Main Stage with a tap. Guests watch your directed Main Stage by default, and can switch to any camera themselves."
       />
 
       {zone_added ? (
@@ -107,6 +129,12 @@ export default async function LiveStudioRoamSetupPage({ params, searchParams }: 
       ) : null}
       {featured_set ? (
         <Banner tone="success" Icon={Star}>Default camera updated.</Banner>
+      ) : null}
+      {main_stage_cut ? (
+        <Banner tone="success" Icon={Scissors}>Cut to Main Stage.</Banner>
+      ) : null}
+      {main_stage_cleared ? (
+        <Banner tone="muted" Icon={PowerOff}>Main Stage is off air.</Banner>
       ) : null}
       {zone_error === 'label' ? (
         <Banner tone="error" Icon={AlertCircle}>Give the camera a name before adding it.</Banner>
@@ -120,6 +148,103 @@ export default async function LiveStudioRoamSetupPage({ params, searchParams }: 
         <Banner tone="error" Icon={AlertCircle}>Couldn’t save that camera — please try again.</Banner>
       ) : null}
 
+      {/* ── Main Stage (the directed channel · switcher) ─────────────────── */}
+      <section aria-labelledby="roam-mainstage-heading" className="sn-tile space-y-4 p-5 sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-1">
+            <p className="sn-eye">Main Stage</p>
+            <h2
+              id="roam-mainstage-heading"
+              className="flex items-center gap-2 text-xl font-semibold tracking-tight"
+            >
+              <MonitorPlay aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
+              Your directed feed
+            </h2>
+          </div>
+          {mainStageZone ? (
+            <form action={clearMainStage}>
+              <input type="hidden" name="event_id" value={eventId} />
+              <SubmitButton
+                pendingLabel="Ending…"
+                className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-white px-2.5 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:border-burgundy/40 hover:text-burgundy"
+              >
+                <PowerOff aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Take off air
+              </SubmitButton>
+            </form>
+          ) : null}
+        </div>
+
+        {/* Live monitor — the camera currently cut to the Main Stage. Real video
+            arrives with the streaming rollout (OAuth-gated below); today this shows
+            which source is on air so the director can cut confidently. */}
+        <div className="flex aspect-video w-full items-center justify-center rounded-lg border border-ink/10 bg-ink text-center">
+          {mainStageZone ? (
+            <p className="inline-flex flex-col items-center gap-1.5 font-mono text-xs uppercase tracking-[0.2em] text-cream">
+              <span className="inline-flex items-center gap-2">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-danger-400" />
+                On air
+              </span>
+              <span className="text-sm font-semibold tracking-normal normal-case text-cream">
+                {mainStageZone.label}
+              </span>
+            </p>
+          ) : (
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-cream/50">
+              Main Stage off air — cut a camera below
+            </p>
+          )}
+        </div>
+
+        {zones.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-ink/15 bg-cream/60 p-4 text-sm text-ink/60">
+            Add cameras below, then cut one onto the Main Stage.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+              Cut a camera to Main Stage
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {zones.map((z) => (
+                <form key={z.id} action={cutToMainStage}>
+                  <input type="hidden" name="event_id" value={eventId} />
+                  <input type="hidden" name="zone_id" value={z.id} />
+                  <SubmitButton
+                    pendingLabel="Cutting…"
+                    disabled={z.is_main_stage}
+                    className={[
+                      'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+                      z.is_main_stage
+                        ? 'cursor-default bg-terracotta text-cream'
+                        : 'border border-ink/15 bg-white text-ink/70 hover:border-terracotta/40 hover:text-terracotta',
+                    ].join(' ')}
+                  >
+                    {z.is_main_stage ? (
+                      <Radio aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                    ) : (
+                      <Scissors aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                    )}
+                    <span>
+                      <span className="font-mono text-[10px] text-current/60">#{z.zone_index}</span>{' '}
+                      {z.label}
+                    </span>
+                    {z.is_main_stage ? (
+                      <span className="font-mono text-[0.6rem] uppercase tracking-wider">on air</span>
+                    ) : null}
+                  </SubmitButton>
+                </form>
+              ))}
+            </div>
+            <p className="text-xs text-ink/55">
+              One tap cuts that camera onto the Main Stage — the directed feed every guest sees by
+              default. No compositing or picture-in-picture in this version; it&rsquo;s a clean cut
+              between whole cameras.
+            </p>
+          </div>
+        )}
+      </section>
+
       {/* ── Channel list ─────────────────────────────────────────────────── */}
       <section aria-labelledby="roam-channels-heading" className="sn-tile space-y-4 p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -131,7 +256,7 @@ export default async function LiveStudioRoamSetupPage({ params, searchParams }: 
           </div>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-3 py-1 text-xs font-medium text-success-900">
             <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Roam active on this event
+            Live Studio active on this event
           </span>
         </div>
 

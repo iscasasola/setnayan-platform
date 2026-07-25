@@ -20,6 +20,7 @@ import {
   liveStudioRoamEnabled,
   parseRoamManifest,
   selectFeaturedZone,
+  selectMainStageZone,
   type RoamManifest,
 } from './live-studio-roam';
 
@@ -40,6 +41,16 @@ test('parseRoamManifest keeps valid entries and normalizes fields', () => {
   assert.equal(m[0]?.featured, true);
   assert.equal(m[1]?.venueLabel, null); // missing venue → null
   assert.equal(m[1]?.status, 'offline');
+  assert.equal(m[0]?.mainStage, false); // absent → not the Main Stage cut
+});
+
+test('parseRoamManifest reads the mainStage flag (the Main Stage cut)', () => {
+  const m = parseRoamManifest([
+    { zoneIndex: 1, label: 'A', videoId: VID_A },
+    { zoneIndex: 2, label: 'B', videoId: VID_B, mainStage: true },
+  ]);
+  assert.equal(m[0]?.mainStage, false);
+  assert.equal(m[1]?.mainStage, true);
 });
 
 test('parseRoamManifest drops entries without a real YouTube video id (injection barrier)', () => {
@@ -108,6 +119,34 @@ test('selectFeaturedZone falls back to first live, then first, then null', () =>
   assert.equal(selectFeaturedZone(noneLive)?.label, 'A');
 
   assert.equal(selectFeaturedZone([]), null);
+});
+
+// ── 2b. Select Main Stage (the directed cut) ───────────────────────────────
+
+test('selectMainStageZone prefers the zone cut to Main Stage', () => {
+  const m: RoamManifest = parseRoamManifest([
+    { zoneIndex: 1, label: 'A', videoId: VID_A, featured: true, status: 'live' },
+    { zoneIndex: 2, label: 'B', videoId: VID_B, mainStage: true, status: 'live' },
+  ]);
+  // The live cut (B) wins over the static featured/default (A).
+  assert.equal(selectMainStageZone(m)?.label, 'B');
+});
+
+test('selectMainStageZone falls back to the featured zone when nothing is cut', () => {
+  const m: RoamManifest = parseRoamManifest([
+    { zoneIndex: 1, label: 'A', videoId: VID_A, status: 'live' },
+    { zoneIndex: 2, label: 'B', videoId: VID_B, featured: true, status: 'live' },
+  ]);
+  assert.equal(selectMainStageZone(m)?.label, 'B');
+});
+
+test('selectMainStageZone falls back to first-live then null on an empty manifest', () => {
+  const noneCutOrFeatured: RoamManifest = parseRoamManifest([
+    { zoneIndex: 1, label: 'A', videoId: VID_A, status: 'offline' },
+    { zoneIndex: 2, label: 'B', videoId: VID_B, status: 'live' },
+  ]);
+  assert.equal(selectMainStageZone(noneCutOrFeatured)?.label, 'B');
+  assert.equal(selectMainStageZone([]), null);
 });
 
 // ── 3. Group by venue ─────────────────────────────────────────────────────

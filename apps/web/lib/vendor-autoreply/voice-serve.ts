@@ -82,9 +82,15 @@ export function serveVoicedReply(input: VoiceServeInput): VoiceServeResult {
   if (usable.length === 0) return neutral(neutralText, 'no_phrasings');
 
   const idx = pickPhrasingIndex(usable.length, input.rotationKey);
-  if (idx < 0) return neutral(neutralText, 'no_phrasings');
+  // `idx < 0` and a missing element are the same failure to the caller: there
+  // was no envelope to render, so answer neutrally. Checked rather than
+  // asserted because `usable[idx]` is `string | undefined` under
+  // `noUncheckedIndexedAccess`, and a non-null assertion here would trade a
+  // compile-time guarantee for a runtime crash on the reply hot path.
+  const chosen = idx >= 0 ? usable[idx] : undefined;
+  if (chosen === undefined) return neutral(neutralText, 'no_phrasings');
 
-  const rendered = renderPhrasing(usable[idx], neutralText);
+  const rendered = renderPhrasing(chosen, neutralText);
   if (!rendered) return neutral(neutralText, 'render_failed');
 
   const max = input.maxLength ?? VOICED_BODY_MAX;

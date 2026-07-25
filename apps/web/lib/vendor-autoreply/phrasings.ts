@@ -34,6 +34,7 @@
 
 import {
   isHouseVoice,
+  type VoiceLanguageMix,
   type VoiceProfile,
 } from '../vendor-voice-profile';
 import type { Intent } from './types';
@@ -90,17 +91,22 @@ export function assertFactFree(envelope: string): boolean {
  * sign-off (`honorify()`); baking `po` in here would contradict a vendor who
  * turned honorifics OFF, and would double up on one who turned them on.
  */
-const LEAD_INS_BY_LANGUAGE: Record<string, Record<string, readonly string[]>> = {
-  english: {
-    price: ['Here are our rates —', 'On pricing —'],
-    availability: ['On availability —', 'About your date —'],
-    inclusions: ['Here’s what’s included —', 'On inclusions —'],
-    capability: ['On what we do —'],
-    coverage: ['On what we cover —'],
-    lead_time: ['On timing —'],
-    discount: ['On current offers —'],
-    social_proof: ['A little about our work —'],
-  },
+type LeadInTable = Record<string, readonly string[]>;
+
+/** English is also the FALLBACK table, so it is named rather than inlined. */
+const ENGLISH_LEAD_INS: LeadInTable = {
+  price: ['Here are our rates —', 'On pricing —'],
+  availability: ['On availability —', 'About your date —'],
+  inclusions: ['Here’s what’s included —', 'On inclusions —'],
+  capability: ['On what we do —'],
+  coverage: ['On what we cover —'],
+  lead_time: ['On timing —'],
+  discount: ['On current offers —'],
+  social_proof: ['A little about our work —'],
+};
+
+const LEAD_INS_BY_LANGUAGE: Record<VoiceLanguageMix, LeadInTable> = {
+  english: ENGLISH_LEAD_INS,
   taglish_light: {
     price: ['Sa rates namin —', 'Here are our rates —'],
     availability: ['Sa availability —', 'About your date —'],
@@ -142,8 +148,13 @@ const EMOJI_BY_LEVEL: Record<string, readonly string[]> = {
 
 /** Extra warm closers for the `effusive` warmth, per language. Fact-free by
  *  construction, and `po`-free for the same reason as the lead-ins. */
-const EFFUSIVE_CLOSERS_BY_LANGUAGE: Record<string, readonly string[]> = {
-  english: ['Excited to hear from you!', 'We’d love to be part of your day!'],
+const ENGLISH_EFFUSIVE_CLOSERS: readonly string[] = [
+  'Excited to hear from you!',
+  'We’d love to be part of your day!',
+];
+
+const EFFUSIVE_CLOSERS_BY_LANGUAGE: Record<VoiceLanguageMix, readonly string[]> = {
+  english: ENGLISH_EFFUSIVE_CLOSERS,
   taglish_light: ['Excited kami to hear from you!', 'We’d love to be part of your day!'],
   taglish_heavy: ['Excited kaming makasama kayo!', 'Sana mapabilang kami sa inyong araw!'],
   cebuano: ['Excited kaayo mi nga makadungog ninyo!', 'Gusto kaayo mi nga makauban kamo!'],
@@ -190,17 +201,18 @@ export function buildPhrasingsForIntent(profile: VoiceProfile, intent: Intent | 
 
   const greeting = punctuateGreeting(honorify(profile.greeting, profile.honorifics), profile.warmth);
   const signoff = punctuateSignoff(honorify(profile.signoff, profile.honorifics), profile.warmth);
-  // Unknown/future language values fall back to English rather than dropping
-  // the lead-in entirely — a coerced profile should never silently lose voice.
-  const leadInTable = LEAD_INS_BY_LANGUAGE[profile.languageMix] ?? LEAD_INS_BY_LANGUAGE.english;
+  // The `??` fallbacks are runtime belt-and-braces, not type narrowing: the
+  // tables are keyed by the full VoiceLanguageMix union, but a hand-edited DB
+  // row could still carry a value outside it, and an unknown language must fall
+  // back to English rather than silently dropping the vendor's voice.
+  const leadInTable = LEAD_INS_BY_LANGUAGE[profile.languageMix] ?? ENGLISH_LEAD_INS;
   const leadIns = profile.warmth === 'concise' ? [''] : ['', ...(leadInTable[intent] ?? [])];
   const emojis = EMOJI_BY_LEVEL[profile.emojiLevel] ?? [''];
   const closers =
     profile.warmth === 'effusive'
       ? [
           '',
-          ...(EFFUSIVE_CLOSERS_BY_LANGUAGE[profile.languageMix] ??
-            EFFUSIVE_CLOSERS_BY_LANGUAGE.english),
+          ...(EFFUSIVE_CLOSERS_BY_LANGUAGE[profile.languageMix] ?? ENGLISH_EFFUSIVE_CLOSERS),
         ]
       : [''];
 

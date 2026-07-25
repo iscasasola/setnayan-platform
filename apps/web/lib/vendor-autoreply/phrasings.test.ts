@@ -95,7 +95,7 @@ test('the bare {{answer}} envelope is always FIRST — the house voice is always
 test('the HOUSE voice produces exactly one envelope, rendering byte-identically to today', () => {
   const list = buildPhrasingsForIntent(HOUSE_VOICE, 'price');
   assert.deepEqual(list, [ANSWER_SLOT]);
-  assert.equal(renderPhrasing(list[0], ANSWER), ANSWER);
+  assert.equal(renderPhrasing(list[0] ?? '', ANSWER), ANSWER);
 });
 
 test('DETERMINISTIC — same profile, same library, same order', () => {

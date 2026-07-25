@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowRight, ReceiptText, ArrowLeft } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import {
@@ -60,28 +61,24 @@ export default async function VendorBookingFeesPage() {
         Back to Plan
       </Link>
 
-      <header className="mt-4 mb-6 sm:mb-8">
-        <p className="sn-eye">Billing</p>
-        <h1 className="sn-h1 mt-1">Booking fees</h1>
-        <p className="mt-2 max-w-prose text-sm text-ink/65">
-          Setnayan charges a 5% booking fee once a couple confirms a booking with
-          you — but only past your first 5 booked customers, who are free. Fees
-          are paid on the same GCash/BDO rail as everything else and clear once
-          our team confirms your payment (within 24 hours).
-        </p>
-        {due.length > 0 ? (
-          <div className="mt-4 rounded-lg border border-warn-300/60 bg-warn-50 px-4 py-3 text-sm text-warn-900">
-            You have{' '}
-            <span className="font-semibold">
-              {due.length} unpaid {due.length === 1 ? 'fee' : 'fees'}
-            </span>{' '}
-            totalling <span className="font-mono font-semibold">{formatPhp(totalDue)}</span>.
-          </div>
-        ) : null}
-      </header>
+      <PageMasthead
+        className="mt-4"
+        title="Booking fees"
+        lede="Setnayan charges a 5% booking fee once a couple confirms a booking with you — but only past your first 5 booked customers, who are free. Fees are paid on the same GCash/BDO rail as everything else and clear once our team confirms your payment (within 24 hours)."
+      />
+
+      {due.length > 0 ? (
+        <div className="mt-4 rounded-lg border border-warn-300/60 bg-warn-50 px-4 py-3 text-sm text-warn-900">
+          You have{' '}
+          <span className="font-semibold">
+            {due.length} unpaid {due.length === 1 ? 'fee' : 'fees'}
+          </span>{' '}
+          totalling <span className="font-mono font-semibold">{formatPhp(totalDue)}</span>.
+        </div>
+      ) : null}
 
       {orders.length === 0 ? (
-        <div className="sn-tile p-8 text-center">
+        <div className="sn-tile mt-6 p-8 text-center sm:mt-8">
           <ReceiptText
             className="mx-auto h-8 w-8 text-ink/30"
             strokeWidth={1.5}
@@ -94,7 +91,7 @@ export default async function VendorBookingFeesPage() {
           </p>
         </div>
       ) : (
-        <div className="space-y-8">
+        <div className="mt-6 space-y-8 sm:mt-8">
           {due.length > 0 ? (
             <FeeGroup title="Due" tone="warn" orders={due} />
           ) : null}

@@ -87,7 +87,6 @@ import {
   FindModeCard,
   PublicEventDetails,
 } from './empty-states';
-import { EditorBridge } from './editor-bridge';
 
 /**
  * SiteBody — the ONE body tree for the guest event website
@@ -302,11 +301,6 @@ type SiteBodyProps = {
    *  pre-gated --color-* overrides (null when inert). Layered over the Mood-Board
    *  palette in InvitationShell; null → no override → renders as today. */
   siteColorVars: Record<string, string> | null;
-  /** Unified Website Editor (PR-1) — TRUE only when the page resolved
-   *  `?editor=1` AND server-verified host membership. Mounts the click-to-edit
-   *  bridge for the editor's preview iframe. FALSE for every guest/anonymous
-   *  visitor (and absent → false), so their HTML is unchanged byte-for-byte. */
-  editorMode?: boolean;
 };
 
 export function SiteBody({
@@ -337,7 +331,6 @@ export function SiteBody({
   watchLive,
   proWatermarkHidden,
   siteColorVars,
-  editorMode = false,
 }: SiteBodyProps) {
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
 
@@ -1413,11 +1406,6 @@ export function SiteBody({
           would otherwise bleed through / over the veil reveal. (owner 2026-06-19) */}
       {plan.backgroundMusic && bgMusicUrl ? <BackgroundMusic src={bgMusicUrl} /> : null}
       {identity.kind === 'anonymous' ? anonymousTree(identity) : guestTree(identity)}
-      {/* Unified Website Editor (PR-1) — the click-to-edit bridge for the
-          editor's preview iframe. `editorMode` is TRUE only for a verified host
-          who passed `?editor=1`; for every guest/anonymous visitor this renders
-          nothing, so their HTML is byte-identical to before. */}
-      {editorMode ? <EditorBridge /> : null}
     </InvitationShell>
   );
 }

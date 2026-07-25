@@ -97,7 +97,7 @@ export default async function AddOnDetailPage({ params }: Props) {
   // (which prefixes /dashboard/[eventId]/). Mirror addOnHref()'s same-key branch
   // so a direct hit / old bookmark to /studio/<phase> lands in the editor.
   if (addon === 'rsvp' || addon === 'event' || addon === 'editorial') {
-    redirect(`/dashboard/${eventId}/website/editor`);
+    redirect(`/site-editor/${eventId}/${addon}`);
   }
   const shipped = SHIPPED_REDIRECTS[addon];
   if (shipped) redirect(`/dashboard/${eventId}/${shipped}`);

@@ -128,10 +128,9 @@ export type CustomerMenuCtx = {
    *  "Launch" route child. Resolved from the profile in
    *  layout.tsx. Undefined/false → the child is omitted. */
   websiteEnabled?: boolean;
-  /** The event's public slug, resolved from the event row in layout.tsx.
-   *  NOTE: the "Launch" child no longer routes on it (2026-07-25 — Launch opens
-   *  the unified website editor, which carries its own "View live" link); the
-   *  field stays because callers pass it and future children may use it. */
+  /** The event's public slug. When present, the "Launch" child opens the
+   *  couple's live personal website (`/[slug]`); when absent it falls back to
+   *  the go-live/setup surface. Resolved from the event row in layout.tsx. */
   slug?: string | null;
 };
 
@@ -260,6 +259,7 @@ export function buildCustomerMenuTree(
         ...(SUITE_NAV_ON ? [`${base}/suite`] : []),
         `${base}/studio`,
         `${base}/design`,
+        `/site-editor/${eventId}`,
         `${base}/monogram`,
       ],
       // The 4 Studio sections are the docked sub-nav — anchor children scrolling to
@@ -289,14 +289,13 @@ export function buildCustomerMenuTree(
         ...(ctx.websiteEnabled
           ? [{ key: 'event-page', label: 'Event page', icon: Eye, kind: 'route' as const, href: `${base}/event-page`, match: `${base}/event-page`, slotKey: 'customer.studio-subnav.event-page' }]
           : []),
-        // "Launch" (owner 2026-06-28; repointed 2026-07-02 → live site; repointed
-        // AGAIN 2026-07-25 → the UNIFIED WEBSITE EDITOR). Owner: opening Launch
-        // should start at the settings, editing the site while SEEING it — not
-        // jump into the page (or the retired /site-editor). The editor carries
-        // go-live + "View live" itself, so the live page is one tap away. This is
-        // the mobile twin of the sidebar item in customer-nav-config.ts — the two
-        // must stay pointed at the same place. Only when the event type enables
-        // the 'website' surface.
+        // "Launch" (owner 2026-06-28; repointed 2026-07-02) — a ROUTE child
+        // that OPENS THE COUPLE'S LIVE PERSONAL WEBSITE (`/[slug]`) directly
+        // (owner: "launch on customer event is their personal website"). A
+        // signed-in host always sees their own page even while it's private, so
+        // this is safe pre-publish; before a slug exists we fall back to the
+        // go-live/setup surface (`/website/launch`). Only when the event type
+        // enables the 'website' surface.
         ...(ctx.websiteEnabled
           ? [
               {
@@ -304,8 +303,8 @@ export function buildCustomerMenuTree(
                 label: 'Launch',
                 icon: Rocket,
                 kind: 'route' as const,
-                href: `${base}/website/editor`,
-                match: `${base}/website/editor`,
+                href: ctx.slug ? `/${ctx.slug}` : `${base}/website/launch`,
+                match: ctx.slug ? `/${ctx.slug}` : `${base}/website/launch`,
                 slotKey: 'customer.studio-subnav.launch',
               },
             ]

@@ -195,7 +195,7 @@ export default async function WebsiteHubPage({
 
           <div className="flex flex-wrap gap-3 pt-1">
             <Link
-              href={`/dashboard/${eventId}/website/editor`}
+              href={`/site-editor/${eventId}`}
               className="inline-flex h-11 min-h-[44pt] items-center justify-center gap-2 rounded-md bg-mulberry px-5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry"
             >
               <Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -291,21 +291,21 @@ export default async function WebsiteHubPage({
             />
             <PhasePart
               data-reveal-item
-              editHref={`/dashboard/${eventId}/website/editor`}
+              editHref={`/site-editor/${eventId}/rsvp`}
               previewHref={`${publicLandingUrl}?phase=rsvp`}
               title="RSVP"
               blurb="The run-up — your invitation and the RSVP form."
             />
             <PhasePart
               data-reveal-item
-              editHref={`/dashboard/${eventId}/website/editor`}
+              editHref={`/site-editor/${eventId}/event`}
               previewHref={`${publicLandingUrl}?phase=event`}
               title="Event"
               blurb={`The ${eventNoun(event.event_type)} day — the live, day-of page.`}
             />
             <PhasePart
               data-reveal-item
-              editHref={`/dashboard/${eventId}/website/editor`}
+              editHref={`/site-editor/${eventId}/editorial`}
               previewHref={`${publicLandingUrl}?phase=editorial`}
               title="Editorial"
               blurb="After — the recap, gallery, and thank-you."

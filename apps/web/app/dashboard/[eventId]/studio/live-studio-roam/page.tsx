@@ -10,31 +10,37 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 
-// Live Studio ROAM — the multi-camera "guests pick which camera / wander" variant of
-// Live Studio (owner 2026-07-23; Cast + Roam). App Store-style detail surface, mirrored
-// on the Cast/panood pilot (studio/panood/page.tsx):
+// UNIFIED Live Studio — one switching-based product that merges Cast (the directed
+// single feed) + Roam (guests pick their view) into a directed Main Stage plus
+// switchable guest cameras (owner 2026-07-25; Live_Studio_Unified_Spec_2026-07-25.md).
+// App Store-style detail surface, built on the Roam substrate:
 //
-//   • PAID capability (no free tier — Cast is the free single-cam entry). serviceKey
-//     LIVE_STUDIO_ROAM, priced LIVE from the admin catalog via formatV2Sku — never
-//     hardcoded. The buy reuses AddOnStateCta / InlineCheckoutDrawer; the checkout's
-//     serviceKey is LIVE_STUDIO_ROAM so submitOrderAction re-resolves the price from
-//     platform_retail_catalog_v2 and rides the QR rail → /admin/payments.
-//   • Once OWNED, the CTA flips to "Open controller" → ./setup (the channel-config
-//     surface), exactly as Cast's owned CTA opens its control room.
+//   • PAID capability (no free tier — the single-camera livestream stays free).
+//     serviceKey LIVE_STUDIO, priced LIVE from the admin catalog via formatV2Sku —
+//     never hardcoded. The buy reuses AddOnStateCta / InlineCheckoutDrawer; the
+//     checkout's serviceKey is LIVE_STUDIO so submitOrderAction re-resolves the price
+//     from platform_retail_catalog_v2 (₱2,999 · per event · one_time) and rides the
+//     QR rail → /admin/payments.
+//   • Once OWNED, the CTA flips to "Open controller" → ./setup (the unified switching
+//     controller: name cameras, cut them onto the Main Stage, set the default view).
 //
 // FLAG-GATED (NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED): the Studio tile that links here is
 // already flag-gated (add-ons-catalog.ts); this page notFound()s when the flag is off as
-// defense-in-depth against a direct hit. Live YouTube streaming is a further, separate
-// owner-OAuth gate (pool channel — see ./setup) — configuring + buying Roam needs none
-// of it.
+// defense-in-depth. Live YouTube streaming is a further, separate owner-OAuth gate (pool
+// channel — see ./setup) — configuring + buying Live Studio needs none of it.
+//
+// NOTE the route/feature key stays `live-studio-roam` (internal), the same way "Live
+// Studio Cast" keeps the internal `panood` name — renaming the route is a separate,
+// churny effort. Everything the customer sees says "Live Studio".
 
-export const metadata = { title: 'Live Studio Roam · Setnayan' };
+export const metadata = { title: 'Live Studio · Setnayan' };
 
 type Props = { params: Promise<{ eventId: string }> };
 
-const ROAM_SKU_CODE = 'LIVE_STUDIO_ROAM';
+const LIVE_STUDIO_SKU_CODE = 'LIVE_STUDIO';
+const FEATURE_KEY = 'live-studio-roam';
 
-export default async function LiveStudioRoamPage({ params }: Props) {
+export default async function LiveStudioPage({ params }: Props) {
   if (!liveStudioRoamEnabled()) notFound();
 
   const { eventId } = await params;
@@ -54,26 +60,25 @@ export default async function LiveStudioRoamPage({ params }: Props) {
 
   const controllerHref = `/dashboard/${eventId}/studio/live-studio-roam/setup`;
 
-  const [stats, stateCtx, settings, roamSku] = await Promise.all([
-    fetchAddOnStats(supabase, 'live-studio-roam'),
-    resolveAddOnState(supabase, eventId, 'live-studio-roam', 'couple', controllerHref),
+  const [stats, stateCtx, settings, sku] = await Promise.all([
+    fetchAddOnStats(supabase, FEATURE_KEY),
+    resolveAddOnState(supabase, eventId, FEATURE_KEY, 'couple', controllerHref),
     fetchPlatformSettings(supabase),
-    formatV2Sku(ROAM_SKU_CODE).catch(() => null),
+    formatV2Sku(LIVE_STUDIO_SKU_CODE).catch(() => null),
   ]);
 
   // Live catalog price (display only; the charge is re-resolved server-side from
-  // ROAM_SKU_CODE in submitOrderAction, so a catalog miss only blanks the label).
-  const roamCentavos = roamSku?.price_centavos ?? 0;
-  const priceLabel = roamSku ? formatPhp(roamSku.price_php) : '—';
-  const fromLabel = `${priceLabel} / day`;
+  // LIVE_STUDIO_SKU_CODE in submitOrderAction, so a catalog miss only blanks the label).
+  const centavos = sku?.price_centavos ?? 0;
+  const priceLabel = sku ? formatPhp(sku.price_php) : '—';
 
-  const roamPlanRow: PlanRow = {
-    name: 'Multi-camera Roam',
+  const planRow: PlanRow = {
+    name: 'Live Studio',
     scope:
-      'Everything unlocks for one event-day — name multiple cameras across your angles, rooms, and venues; guests pick which one to watch and switch live, with your chosen default view one tap away. Cameras join as phones via the event QR (no install, no per-camera fee).',
+      'Everything unlocks for one event. Name multiple cameras across your angles, rooms, and venues; cut whichever one you want onto your directed Main Stage with a tap, and let remote guests pick their own view and switch live. Cameras join as phones via the event QR (no install, no per-camera fee).',
     price: priceLabel,
-    unit: ' / day',
-    badge: 'Per event-day',
+    unit: '',
+    badge: 'Per event',
   };
 
   const stats4: StatTile[] = [
@@ -97,42 +102,42 @@ export default async function LiveStudioRoamPage({ params }: Props) {
     {
       eyebrow: 'Cameras',
       value: 'Multi',
-      caption: 'Guests pick the view',
+      caption: 'Cut + guest-pick',
     },
     {
       eyebrow: 'Pricing',
       value: priceLabel,
-      caption: 'per event-day',
+      caption: 'per event',
     },
   ];
 
-  const roamCta = (
+  const cta = (
     <AddOnStateCta
       context={stateCtx}
       launchLabel="Open controller"
       choosePlan={{
         eventId,
-        triggerLabel: 'Add Roam',
-        priceFromLabel: fromLabel,
-        // Single per-day SKU. serviceKey = ROAM_SKU_CODE so the drawer's order
-        // re-resolves the price from the admin catalog; priceCentavos is the live
-        // catalog price threaded through for the inline voucher math.
+        triggerLabel: 'Add Live Studio',
+        priceFromLabel: priceLabel,
+        // Single per-event SKU. serviceKey = LIVE_STUDIO_SKU_CODE so the drawer's order
+        // re-resolves the price from the admin catalog; priceCentavos is the live catalog
+        // price threaded through for the inline voucher math.
         plans: [
           {
-            sku_code: ROAM_SKU_CODE,
-            name: roamPlanRow.name,
-            scope: roamPlanRow.scope,
-            price: roamPlanRow.price,
-            unit: roamPlanRow.unit,
-            badge: roamPlanRow.badge,
-            priceCentavos: String(roamCentavos),
+            sku_code: LIVE_STUDIO_SKU_CODE,
+            name: planRow.name,
+            scope: planRow.scope,
+            price: planRow.price,
+            unit: planRow.unit,
+            badge: planRow.badge,
+            priceCentavos: String(centavos),
           },
         ],
         settings,
         introCopy:
-          'Live Studio Roam gives your guests multiple cameras to choose between — different angles, rooms, even different venues — with your directed view as the default. Buy one Roam day per event-day; set up your cameras right after.',
+          'Live Studio streams your celebration live for everyone who can’t be there. One directed Main Stage plus switchable guest cameras — different angles, rooms, even different venues. Cut the Main Stage between them with a tap, or let remote guests pick their own view. Buy one Live Studio per event; set up your cameras right after.',
         footnote:
-          'Apply-then-pay flow · we confirm price before payment · refunds follow the standard 24-hour SLA. Cameras join as phones via the event QR — no per-camera fee.',
+          'Apply-then-pay flow · we confirm price before payment · refunds follow the standard 24-hour SLA. Cameras join as phones via the event QR — no per-camera fee. The free single-camera livestream is unchanged.',
       }}
     />
   );
@@ -142,38 +147,39 @@ export default async function LiveStudioRoamPage({ params }: Props) {
       back={{ href: `/dashboard/${eventId}/studio`, label: 'Back to add-ons' }}
       hero={{
         Icon: Video,
-        eyebrow: 'Live Studio Roam',
-        title: 'Let everyone pick their view.',
+        eyebrow: 'Live Studio',
+        title: 'Stream it live — your way.',
         tagline:
-          'Give the people you love multiple cameras to choose between — following the moment that matters most to them, as it happens, across every angle and venue, with your directed view always one tap away.',
+          'Give the people you love a front-row seat from anywhere. Direct a Main Stage between your cameras with a tap, or let each guest choose the angle they want to watch — every corner of your day, live.',
         statusPill: statusPillForState(stateCtx.state) ?? { label: 'Web V1', tone: 'accent' },
-        cta: roamCta,
+        cta,
       }}
       stats={stats4}
       justLaunchedChip={stats.hasLaunchSignal ? null : 'Just launched · early access'}
       highlights={{
         title: "What you'll have",
         items: [
-          'Name multiple cameras — one per angle, room, or venue',
-          'Guests choose which camera to watch and switch live',
-          'Your directed view is the default — one tap back any time',
+          'One directed Main Stage you cut between cameras with a tap',
+          'Multiple cameras — one per angle, room, or venue',
+          'Guests can pick their own view and switch live',
           'Cameras join as phones via the event QR — no install, no per-camera fee',
           'Plays right on your event page, in your colors',
-          'Covers one event-day — add a Roam day per event-day',
+          'One price, per event — the free single-camera livestream stays free',
         ],
       }}
       description={{
         paragraphs: [
-          'A wedding happens in more than one place at once — the ceremony up front, the reception floor, the photo booth in the corner, sometimes a whole second venue. Live Studio Roam lets the people who can’t be there choose which of those to watch, and wander between them, instead of being locked to a single directed feed.',
-          `You set up your cameras in the controller (${priceLabel} / day for one event-day): name each one, group them by venue, and mark the camera the picker opens on by default. Each camera is just a phone your paparazzi join by scanning the event QR — no install, no per-camera fee. On broadcast day the picker appears on your event page, in your colors, and every remote guest chooses their own view.`,
-          'Roam is the multi-camera sibling of Live Studio Cast (the free single-camera livestream). Cast directs one feed for everyone; Roam hands the choice to your guests.',
+          'A celebration happens in more than one place at once — the ceremony up front, the reception floor, the photo booth in the corner, sometimes a whole second venue. Live Studio lets you direct all of it: line up your cameras, then cut whichever one matters most onto the Main Stage every remote guest is watching.',
+          `You set it up in the controller (${priceLabel}, one price per event): name each camera, group them by venue, mark a default, and cut between them live on the day. Each camera is just a phone your paparazzi join by scanning the event QR — no install, no per-camera fee. Guests who want to wander can pick their own view; everyone else follows your directed Main Stage.`,
+          'Live Studio merges the two things people asked for — a directed broadcast and a choose-your-own-camera experience — into one tool. The single-camera livestream stays free; Live Studio is the multi-camera upgrade.',
         ],
-        plans: [roamPlanRow],
+        plans: [planRow],
         notIncluded: [
           'Your camera people are friends or family with phones — not a hired crew.',
-          'Cast (the free single-camera livestream) is a separate service — Roam is the paid multi-camera upgrade.',
-          'A Setnayan-provided camera kit is an optional add-on, not included in this per-day price.',
-          'Build state: the channel controller and picker are in place; live multi-camera streaming rolls out as the streaming infrastructure comes online.',
+          'The free single-camera livestream is a separate, always-free service — Live Studio is the paid multi-camera upgrade.',
+          'No compositing in this version — picture-in-picture, split-screen, and graphics overlays are a later Pro layer. Live Studio cuts cleanly between whole cameras.',
+          'A Setnayan-provided camera kit is an optional add-on, not included in this price.',
+          'Build state: the switching controller and picker are in place; live multi-camera streaming rolls out as the streaming infrastructure comes online.',
         ],
       }}
     />

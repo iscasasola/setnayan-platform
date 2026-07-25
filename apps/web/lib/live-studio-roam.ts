@@ -54,6 +54,15 @@ export type RoamZoneManifestEntry = {
   venueLabel: string | null;
   videoId: string;
   featured: boolean;
+  /**
+   * Unified Live Studio (2026-07-25): this zone is the one currently CUT to the
+   * directed **Main Stage** output (at most one true per event). The viewer plays
+   * the main-stage zone on the "Main Stage" channel; a later provisioning mirror
+   * stamps this from live_studio_roam_zones.is_main_stage. Defaults false, so a
+   * pre-unified manifest simply has no cut and the Main Stage falls back to the
+   * featured zone (selectMainStageZone).
+   */
+  mainStage: boolean;
   status: RoamZoneStatus;
 };
 
@@ -89,6 +98,7 @@ export function parseRoamManifest(raw: unknown): RoamManifest {
       venueLabel,
       videoId,
       featured: r.featured === true,
+      mainStage: r.mainStage === true,
       status,
     });
   }
@@ -109,6 +119,19 @@ export function selectFeaturedZone(manifest: RoamManifest): RoamZoneManifestEntr
     manifest[0] ??
     null
   );
+}
+
+/**
+ * Pick the zone whose feed the directed **Main Stage** (channel 1 of the unified
+ * Live Studio) should currently carry: the zone explicitly cut to Main Stage
+ * (mainStage), else the featured/default zone, else the first live one, else the
+ * first entry, else null (empty manifest). Switching only — Main Stage always
+ * mirrors exactly ONE camera's feed (no compositing). Pure + exported so the
+ * viewer's Main-Stage channel and the unit tests share one source of truth.
+ */
+export function selectMainStageZone(manifest: RoamManifest): RoamZoneManifestEntry | null {
+  if (manifest.length === 0) return null;
+  return manifest.find((z) => z.mainStage) ?? selectFeaturedZone(manifest);
 }
 
 /**

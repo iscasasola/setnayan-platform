@@ -42,8 +42,21 @@ test('buildRoamManifest includes a zone that has an active stream with a valid v
     venueLabel: 'Church',
     videoId: VID_A,
     featured: true,
+    mainStage: false,
     status: 'live',
   });
+});
+
+test('buildRoamManifest carries is_main_stage through as mainStage (the current cut)', () => {
+  const m = buildRoamManifest(
+    [
+      zone({ id: 1, zone_index: 1, label: 'Aisle' }),
+      zone({ id: 2, zone_index: 2, label: 'Floor', is_main_stage: true }),
+    ],
+    [stream({ zone_id: 1, broadcast_id: VID_A }), stream({ zone_id: 2, broadcast_id: VID_B })],
+  );
+  assert.equal(m.find((z) => z.label === 'Aisle')?.mainStage, false);
+  assert.equal(m.find((z) => z.label === 'Floor')?.mainStage, true);
 });
 
 test('buildRoamManifest omits a zone with no stream', () => {

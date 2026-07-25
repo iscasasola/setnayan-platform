@@ -142,6 +142,62 @@ export async function deleteRoamZone(formData: FormData): Promise<void> {
   redirect(`${SETUP_PATH(eventId)}?zone_deleted=1`);
 }
 
+/**
+ * CUT one camera to the directed **Main Stage** (unified Live Studio · 2026-07-25).
+ * The switching half of the unified controller: one tap re-points the Main Stage
+ * output at this zone. At most one zone per event is on Main Stage, so this clears
+ * any prior cut first (two writes; the viewer's selectMainStageZone tolerates
+ * zero-or-one main-stage and falls back to featured). Switching only — NO
+ * server-side compositing. Control-plane write to live_studio_roam_zones only.
+ */
+export async function cutToMainStage(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const zoneIdRaw = formData.get('zone_id');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
+  const eventId = eventIdRaw;
+  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  const zoneId = typeof zoneIdRaw === 'string' ? Number(zoneIdRaw) : NaN;
+  if (!Number.isFinite(zoneId)) redirect(SETUP_PATH(eventId));
+
+  await requireHostMembership(eventId);
+  const supabase = await createClient();
+  // Clear the current cut, then set the chosen one. Two writes (Supabase JS has no
+  // multi-statement txn); a transient partial state degrades to "no cut → featured"
+  // rather than error (selectMainStageZone).
+  await supabase
+    .from('live_studio_roam_zones')
+    .update({ is_main_stage: false })
+    .eq('event_id', eventId)
+    .eq('is_main_stage', true);
+  await supabase
+    .from('live_studio_roam_zones')
+    .update({ is_main_stage: true })
+    .eq('event_id', eventId)
+    .eq('id', zoneId);
+
+  revalidatePath(SETUP_PATH(eventId));
+  redirect(`${SETUP_PATH(eventId)}?main_stage_cut=1`);
+}
+
+/** Deactivate the Main Stage — clears any current cut (no camera on air). */
+export async function clearMainStage(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
+  const eventId = eventIdRaw;
+  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+
+  await requireHostMembership(eventId);
+  const supabase = await createClient();
+  await supabase
+    .from('live_studio_roam_zones')
+    .update({ is_main_stage: false })
+    .eq('event_id', eventId)
+    .eq('is_main_stage', true);
+
+  revalidatePath(SETUP_PATH(eventId));
+  redirect(`${SETUP_PATH(eventId)}?main_stage_cleared=1`);
+}
+
 /** Mark one zone as the featured (default) camera — clears any prior featured. */
 export async function setFeaturedRoamZone(formData: FormData): Promise<void> {
   const eventIdRaw = formData.get('event_id');

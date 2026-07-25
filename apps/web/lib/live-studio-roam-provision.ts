@@ -40,6 +40,10 @@ export type RoamZoneRow = {
   label: string;
   venue_label: string | null;
   is_featured: boolean;
+  // Unified Live Studio (2026-07-25): the zone currently cut to the directed Main
+  // Stage. Optional so a pre-unified read (before the is_main_stage column) still
+  // type-checks; absent → no cut → the viewer falls back to the featured zone.
+  is_main_stage?: boolean | null;
   status: RoamZoneStatus;
 };
 
@@ -93,6 +97,7 @@ export function buildRoamManifest(zones: RoamZoneRow[], streams: RoamStreamRow[]
       venueLabel: z.venue_label,
       videoId: stream.broadcast_id,
       featured: z.is_featured === true,
+      mainStage: z.is_main_stage === true,
       status: z.status,
     });
   }
@@ -111,7 +116,7 @@ export async function mirrorRoamManifest(admin: SupabaseClient, eventId: string)
     const [{ data: zones, error: zErr }, { data: streams, error: sErr }] = await Promise.all([
       admin
         .from('live_studio_roam_zones')
-        .select('id, zone_index, label, venue_label, is_featured, status')
+        .select('id, zone_index, label, venue_label, is_featured, is_main_stage, status')
         .eq('event_id', eventId),
       admin.from('live_studio_roam_streams').select('zone_id, broadcast_id, status').eq('event_id', eventId),
     ]);

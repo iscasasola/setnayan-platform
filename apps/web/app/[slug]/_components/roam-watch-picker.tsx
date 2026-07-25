@@ -22,20 +22,28 @@ import { useMemo, useState } from 'react';
 
 import {
   groupZonesByVenue,
-  selectFeaturedZone,
+  selectMainStageZone,
   type RoamManifest,
   type RoamZoneManifestEntry,
 } from '@/lib/live-studio-roam';
 import { youTubeEmbedUrl } from '@/lib/panood-watch';
 
+// The picker's current channel: the directed Main Stage ('main'), or one specific
+// guest camera (its zoneIndex). Main Stage is channel 1 — the default landing.
+type Selection = 'main' | number;
+
 export function RoamWatchPicker({ manifest }: { manifest: RoamManifest }) {
-  const featured = useMemo(() => selectFeaturedZone(manifest), [manifest]);
-  const [activeIndex, setActiveIndex] = useState<number | null>(featured?.zoneIndex ?? null);
+  // The zone whose feed the directed Main Stage currently carries (the cut, else
+  // the featured/first zone). Guests land here by default.
+  const mainStageZone = useMemo(() => selectMainStageZone(manifest), [manifest]);
+  const [selection, setSelection] = useState<Selection>('main');
 
   const groups = useMemo(() => groupZonesByVenue(manifest), [manifest]);
+  const onMain = selection === 'main';
   const active: RoamZoneManifestEntry | null = useMemo(
-    () => manifest.find((z) => z.zoneIndex === activeIndex) ?? featured,
-    [manifest, activeIndex, featured],
+    () =>
+      onMain ? mainStageZone : manifest.find((z) => z.zoneIndex === selection) ?? mainStageZone,
+    [manifest, selection, onMain, mainStageZone],
   );
 
   if (manifest.length === 0 || !active) return null;
@@ -57,7 +65,7 @@ export function RoamWatchPicker({ manifest }: { manifest: RoamManifest }) {
       <div className="flex items-center justify-between gap-3 px-4 py-2.5">
         <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-cream">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-danger-400" />
-          Watch live · {active.label}
+          {onMain ? `Main Stage · ${active.label}` : `Watch live · ${active.label}`}
         </p>
         <a
           href={watchUrl}
@@ -86,9 +94,28 @@ export function RoamWatchPicker({ manifest }: { manifest: RoamManifest }) {
         )}
       </div>
 
-      {/* Camera picker — grouped by venue. Guests tap to switch angle/place. */}
+      {/* Channel picker — Main Stage (directed) first, then the guest cameras
+          grouped by venue. Guests tap to switch angle/place, or jump back to the
+          directed Main Stage any time. */}
       {manifest.length > 1 ? (
         <div className="space-y-3 border-t border-cream/10 px-4 py-3">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setSelection('main')}
+              aria-pressed={onMain}
+              className={[
+                'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition',
+                onMain ? 'bg-terracotta text-cream' : 'bg-cream/10 text-cream/80 hover:bg-cream/20',
+              ].join(' ')}
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-danger-400" aria-hidden />
+              <span>Main Stage</span>
+              <span className="font-mono text-[0.6rem] uppercase tracking-wider opacity-70">
+                directed
+              </span>
+            </button>
+          </div>
           {groups.map((group) => (
             <div key={group.venue ?? '_'} className="space-y-1.5">
               {group.venue ? (
@@ -98,13 +125,13 @@ export function RoamWatchPicker({ manifest }: { manifest: RoamManifest }) {
               ) : null}
               <div className="flex flex-wrap gap-2">
                 {group.zones.map((zone) => {
-                  const isActive = zone.zoneIndex === active.zoneIndex;
+                  const isActive = !onMain && zone.zoneIndex === active.zoneIndex;
                   const isOffline = zone.status === 'offline' || zone.status === 'disabled';
                   return (
                     <button
                       key={zone.zoneIndex}
                       type="button"
-                      onClick={() => setActiveIndex(zone.zoneIndex)}
+                      onClick={() => setSelection(zone.zoneIndex)}
                       aria-pressed={isActive}
                       className={[
                         'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition',
@@ -121,7 +148,7 @@ export function RoamWatchPicker({ manifest }: { manifest: RoamManifest }) {
                       <span>{zone.label}</span>
                       {zone.featured ? (
                         <span className="font-mono text-[0.6rem] uppercase tracking-wider opacity-70">
-                          main
+                          default
                         </span>
                       ) : null}
                     </button>

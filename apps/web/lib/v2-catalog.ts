@@ -127,7 +127,8 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   ANIMATED_MONOGRAM:   'live',     // drawn-live monogram bound to the SKU · PR #729 · 2026-06-01
   PANOOD_SYSTEM:       'live',     // = Live Studio — the ONE SKU, ₱2,500/day, unlocks everything (owner 2026-07-21) · marked live 2026-07-10 (owner "all features active") · YouTube verified-app is an external gate tracked separately
   PANOOD_SYSTEM_MOBILE: 'live',    // RETIRED 2026-07-21 — never purchasable (no buy surface, zero orders); catalog row deactivated. Kept here so any historical holder still resolves. (owner-locked 2026-07-08 · migration 20270526326110) · marked live 2026-07-10
-  LIVE_STUDIO_ROAM:    'partial',  // = Live Studio Roam ₱3,500/day (owner 2026-07-23). Foundation + picker + provisioning spine shipped flag-dark; catalog row seeded is_active=FALSE (not on /pricing, not sellable) until launch (flip is_active=TRUE + NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED). YouTube broadcast orchestration pending G1 (verified Setnayan channel). Bump to 'live' at launch. · migration 20270919479280
+  LIVE_STUDIO_ROAM:    'partial',  // = Live Studio Roam ₱3,500/day (owner 2026-07-23). RETIRED into LIVE_STUDIO 2026-07-25 (is_active=false, migration 20271001110000). Kept for historical order rows.
+  LIVE_STUDIO:         'partial',  // = UNIFIED Live Studio ₱2,999/event (owner 2026-07-25) — merges Cast (PANOOD_SYSTEM) + Roam (LIVE_STUDIO_ROAM) into one switching controller. Built on the Roam substrate; controller (Main Stage cut) + unified viewer shipped flag-dark behind NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED. Excluded from /pricing by name until launch. YouTube broadcast orchestration still pending G1. Bump to 'live' at launch. · migration 20271001110000
   PATIKTOK_COMPILER:   'live',     // ₱1,499/day booth · marked live 2026-07-10 (owner "all features active") · TikTok app review tracked separately
   PAPIC_GUEST:         'live',     // guest camera end-to-end: cookie identity + server quota (150) + capture · 2026-06-02
   PAPIC_SEATS:         'live',     // photo crew end-to-end: provision + claim + capture · PR #731 + migration 20260718000000 · 2026-06-01
@@ -189,7 +190,13 @@ export async function fetchV2CustomerCatalog(): Promise<V2CustomerSku[]> {
   // idiom as the TODAYS_FOCUS name-exclusion above. When the owner flips the flag, Roam
   // appears on /pricing AND the Studio tile lights up together — one launch switch.
   if (!liveStudioRoamEnabled()) {
-    query = query.neq('service_code', 'LIVE_STUDIO_ROAM');
+    query = query
+      .neq('service_code', 'LIVE_STUDIO_ROAM')
+      // The unified Live Studio SKU (₱2,999 · owner 2026-07-25) is is_active=TRUE so
+      // its flag-gated buy path resolves a price, but must stay OFF /pricing until
+      // launch — same idiom. When the owner flips the flag, Live Studio appears on
+      // /pricing AND the Studio tile lights up together — one launch switch.
+      .neq('service_code', 'LIVE_STUDIO');
   }
 
   const { data, error } = await query.order('service_code', { ascending: true });

@@ -734,13 +734,20 @@ export default function PrivacyPage() {
           </p>
           <ul className="ml-5 list-disc space-y-1 pt-2">
             <li>
+              {/* .../auth/youtube.upload was dropped 2026-07-25 — it was
+                  requested for the same-day-edit upload feature, which the
+                  owner retired 2026-06-28, and no code ever called an upload
+                  endpoint. This list must keep matching YOUTUBE_OAUTH_SCOPES in
+                  lib/panood-youtube.ts AND the OAuth consent screen: a privacy
+                  policy that discloses a scope we don't request is as wrong as
+                  one that hides a scope we do. */}
               <strong>Scopes requested.</strong> Only{' '}
               <code className="font-mono text-[12px]">.../auth/youtube</code>{' '}
-              (create and manage live broadcasts on your channel),{' '}
-              <code className="font-mono text-[12px]">.../auth/youtube.upload</code>{' '}
-              (upload videos · used by V1.5+ AI Edited Highlight),{' '}
+              (create and manage the live broadcast for your event),{' '}
               <code className="font-mono text-[12px]">.../auth/userinfo.email</code>, and{' '}
               <code className="font-mono text-[12px]">.../auth/userinfo.profile</code>.
+              We do <strong>not</strong> request permission to upload videos to
+              your channel.
               We never request read access to your subscribers, comments, view
               history, watch history, search history, or any YouTube data
               unrelated to the broadcast we created for your event.

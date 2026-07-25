@@ -38,14 +38,29 @@ const GOOGLE_REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
 const YOUTUBE_CHANNELS_URL = 'https://www.googleapis.com/youtube/v3/channels';
 
 /**
- * Scopes requested at consent time. `youtube` gives broadcast lifecycle
- * (create/start/end live broadcasts via the LiveBroadcasts resource);
- * `youtube.upload` is included so the future "Upload the same-day-edit
- * back to the channel" feature (TODO(0011)) doesn't require a re-consent.
+ * Scopes requested at consent time — deliberately the MINIMUM this integration
+ * actually exercises. `youtube` covers everything we call: the broadcast
+ * lifecycle (create/start/end via LiveBroadcasts), the RTMP ingestion binding
+ * (LiveStreams), and the channel read that confirms which channel is connected.
+ *
+ * `youtube.upload` was REMOVED 2026-07-25. It had been requested speculatively,
+ * to spare a future re-consent for an "upload the same-day-edit back to the
+ * channel" feature (TODO(0011)) — but that SKU was owner-RETIRED 2026-06-28
+ * ("remove same day edit", PR #2362), so the scope was being requested for a
+ * product that no longer exists. Nothing in this file (the only module that
+ * touches the YouTube API) ever called an upload endpoint: Setnayan never sends
+ * video bytes at all — the couple's own encoder pushes to the stream key.
+ *
+ * That matters beyond tidiness: Google reviews "Requesting Minimum Scopes" as
+ * its own axis during sensitive-scope verification, and carrying an unused
+ * broad scope is a standing rejection risk.
+ *
+ * ⚠ If an upload feature is ever revived, adding the scope back here is not
+ * sufficient on its own — it must also be re-declared on the OAuth consent
+ * screen and will require re-consent from already-connected users.
  */
 export const YOUTUBE_OAUTH_SCOPES = [
   'https://www.googleapis.com/auth/youtube',
-  'https://www.googleapis.com/auth/youtube.upload',
 ] as const;
 
 export type PanoodYoutubeConfigStatus =

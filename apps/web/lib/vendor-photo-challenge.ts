@@ -76,6 +76,15 @@ export type PhotoChallengeEligibilityInput = {
   papicActive: boolean;
   /** Does a papic_photo_challenge_sponsorships row already exist for (vendor, event)? */
   alreadySponsored: boolean;
+  /**
+   * 2026-07-25 tiered add-on model: when true, the Pro+ tier gate is LIFTED —
+   * every tier (incl. Free/Verified/Solo) may sponsor, paying the entry price.
+   * Default false → the pre-2026-07-25 Pro-and-up gate. The caller sets this from
+   * `isVendorAddonTieredPricingEnabled()`; keeping it a plain input keeps this
+   * module pure (no env read). Mirrors the SQL side (papic_create_vendor_challenge
+   * reads platform_settings.vendor_addon_tiered_pricing_enabled).
+   */
+  allTiersAllowed?: boolean;
 };
 
 export type PhotoChallengeEligibility =
@@ -96,7 +105,8 @@ export type PhotoChallengeEligibility =
 export function photoChallengeEligibility(
   input: PhotoChallengeEligibilityInput,
 ): PhotoChallengeEligibility {
-  if (!isTierAtLeast(input.tier, 'pro')) return { ok: false, reason: 'tier_too_low' };
+  if (!input.allTiersAllowed && !isTierAtLeast(input.tier, 'pro'))
+    return { ok: false, reason: 'tier_too_low' };
   if (input.verification !== 'verified') return { ok: false, reason: 'unverified' };
   if (!input.booked) return { ok: false, reason: 'not_booked' };
   if (!input.papicActive) return { ok: false, reason: 'papic_inactive' };

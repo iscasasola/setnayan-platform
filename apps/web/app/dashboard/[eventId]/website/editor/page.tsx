@@ -21,7 +21,20 @@ import { updateSiteChrome } from '../site-chrome/actions';
 import { updateLandingPageVisibility } from '../privacy/actions';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SectionsPanel } from './_components/sections-panel';
-import { DressCodePanel, PhotoMomentsPanel } from './_components/authoring-panels';
+import {
+  DressCodePanel,
+  PhotoMomentsPanel,
+  StoryPanel,
+  SchedulePeekPanel,
+  StdPanel,
+  EditorialPanel,
+} from './_components/authoring-panels';
+import { OpenBrowsePanel } from './_components/media-panels';
+import { setOpenBrowse } from './actions';
+import { updateOurStory } from '../our-story/actions';
+import type { LoveStoryBlob } from '../our-story/_components/story-fields';
+import { paletteSwatches } from '@/lib/site-palette';
+import type { RolePalette } from '@/lib/mood-board';
 import { updateDressCode } from '../dress-code/actions';
 import { normalizeDressCodeConfig } from '../dress-code/_components/dress-code-fields';
 import { updatePhotoMoments } from '../photo-moments/actions';
@@ -81,7 +94,7 @@ export default async function WebsiteEditorPage({
   const { data: event } = await supabase
     .from('events')
     .select(
-      `event_id, display_name, slug, event_type, event_date, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_bg_color, site_button_color, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, dress_code_config, photo_moments_config, ${SECTION_CONTENT_EVENT_COLUMNS}`,
+      `event_id, display_name, slug, event_type, event_date, venue_name, venue_address, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_bg_color, site_button_color, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_invitation_launch_date, ${SECTION_CONTENT_EVENT_COLUMNS}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -174,9 +187,42 @@ export default async function WebsiteEditorPage({
     event as Parameters<typeof computeSectionContentMap>[2],
   );
 
+  // Public schedule blocks — the same set guests see (source of truth stays
+  // the Schedule page; the panel mirrors it + links there).
+  const { data: scheduleBlocksRaw } = await supabase
+    .from('event_schedule_blocks')
+    .select('block_id, label, start_at, location')
+    .eq('event_id', eventId)
+    .eq('is_public', true)
+    .order('start_at', { ascending: true })
+    .limit(12);
+  const scheduleBlocks = (scheduleBlocksRaw ?? []) as Array<{
+    block_id: string;
+    label: string;
+    start_at: string;
+    location: string | null;
+  }>;
+
+  const story: LoveStoryBlob =
+    event.love_story && typeof event.love_story === 'object'
+      ? (event.love_story as LoveStoryBlob)
+      : {};
+
   const dressCodeConfig = normalizeDressCodeConfig(
     (event as { dress_code_config?: unknown }).dress_code_config,
   );
+  // Dress code starts from the Mood Board (owner 2026-07-25): when the couple
+  // hasn't set a palette yet, seed the panel's swatches from role_palette so
+  // "edit" begins from their own colours, not a blank. Saving persists the
+  // override — the source shows, the couple can change it (their call A).
+  if (dressCodeConfig.palette.length === 0) {
+    dressCodeConfig.palette = paletteSwatches(
+      (event as { role_palette?: RolePalette | null }).role_palette ?? null,
+    )
+      .slice(0, 6)
+      .map((hex) => ({ name: '', hex }));
+  }
+
   const photoMomentsConfig = parsePhotoMomentsConfig(
     (event as { photo_moments_config?: unknown }).photo_moments_config,
   );
@@ -217,6 +263,13 @@ export default async function WebsiteEditorPage({
           blurb: 'Let guests browse every page from day one.',
           href: `${w}/widgets`,
           status: event.website_open_browse === true ? 'On' : 'Off',
+          panel: (
+            <OpenBrowsePanel
+              action={setOpenBrowse}
+              eventId={eventId}
+              on={event.website_open_browse === true}
+            />
+          ),
         },
         {
           key: 'colors',
@@ -288,6 +341,13 @@ export default async function WebsiteEditorPage({
           href: `${w}/our-story`,
           anchor: 'story',
           status: event.love_story ? 'Written' : 'Not set',
+          panel: (
+            <StoryPanel
+              action={updateOurStory.bind(null, eventId)}
+              eventId={eventId}
+              story={story}
+            />
+          ),
         },
         {
           key: 'details',
@@ -295,6 +355,16 @@ export default async function WebsiteEditorPage({
           blurb: 'Date, venue, run-of-show.',
           href: `${w}/widgets`,
           anchor: 'details',
+          status: scheduleBlocks.length > 0 ? `${scheduleBlocks.length} public` : 'No schedule',
+          panel: (
+            <SchedulePeekPanel
+              eventId={eventId}
+              eventDate={(event.event_date as string | null) ?? null}
+              venueName={(event as { venue_name?: string | null }).venue_name ?? null}
+              venueAddress={(event as { venue_address?: string | null }).venue_address ?? null}
+              blocks={scheduleBlocks}
+            />
+          ),
         },
         {
           key: 'gallery',
@@ -414,6 +484,21 @@ export default async function WebsiteEditorPage({
           // (already gated in the STD studio via STD_PREMIUM_OPENINGS →
           // COUPLE_WEBSITE_PRO), so we only hint here — never block the row.
           status: ownsPro ? 'Pro beats on' : undefined,
+          panel: (
+            <StdPanel
+              eventId={eventId}
+              openingLabel={String(
+                (event as { std_reveal_template?: string | null }).std_reveal_template ?? 'sheer veil',
+              ).replace(/_/g, ' ')}
+              themeLabel={
+                (event as { std_theme?: string | null }).std_theme?.replace(/_/g, ' ') ?? null
+              }
+              launchDate={
+                (event as { std_invitation_launch_date?: string | null })
+                  .std_invitation_launch_date ?? null
+              }
+            />
+          ),
         },
         {
           key: 'editorial',
@@ -422,7 +507,10 @@ export default async function WebsiteEditorPage({
           href: `${w}/editorial`,
           pro: true,
           locked: !ownsPro,
-          ...(!ownsPro ? { panel: lockPanel('Editorial editing') } : {}),
+          // Free-vs-Pro split, honest in BOTH states (owner 2026-07-25).
+          panel: (
+            <EditorialPanel eventId={eventId} ownsPro={ownsPro} unlockHref={proUnlockHref} />
+          ),
         },
       ],
     },

@@ -15,9 +15,11 @@
  * write layer.
  */
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { requireHostMembership } from '@/lib/host-gate';
 import { isSpatialThemeKey } from '@/lib/spatial-backdrop';
+import { resolveReturnTo } from '@/lib/editor-return';
 
 /** Set the RSVP-phase spatial backdrop (theme + intensity). */
 export async function saveRsvpBackdrop(formData: FormData): Promise<void> {
@@ -55,4 +57,32 @@ export async function clearRsvpBackdrop(formData: FormData): Promise<void> {
 
   revalidatePath(`/dashboard/${eventId}/website/editor`);
   revalidatePath('/[slug]', 'page');
+}
+
+/**
+ * Toggle open browsing (`events.website_open_browse`) — the couple's master
+ * switch for the five-tab browse-everything site (owner 2026-07-25: the editor
+ * row must flip it inline, not pop to another screen). Host-gated like the
+ * backdrop actions above; honors `return_to` so the editor keeps its place.
+ */
+export async function setOpenBrowse(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const openRaw = formData.get('open_browse');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
+  if (openRaw !== '0' && openRaw !== '1') return;
+  const eventId = eventIdRaw;
+
+  await requireHostMembership(eventId);
+  const supabase = await createClient();
+
+  const { data: event } = await supabase
+    .from('events')
+    .update({ website_open_browse: openRaw === '1' })
+    .eq('event_id', eventId)
+    .select('slug')
+    .maybeSingle();
+
+  revalidatePath(`/dashboard/${eventId}/website/editor`);
+  if (event?.slug) revalidatePath(`/${event.slug}`);
+  redirect(resolveReturnTo(formData, `/dashboard/${eventId}/website/editor?open=open-browse`));
 }

@@ -1,11 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { eventSkuActive } from '@/lib/entitlements';
-import { LIVE_STUDIO_SKU } from '@/lib/live-studio-control';
 import {
   selectDefaultChannel,
   selectMainStageZone,
   type RoamManifest,
 } from '@/lib/live-studio-roam';
+// WAVE 7 · the entitlement resolution moved here: `resolveBroadcastWindow` answers
+// ownership AND whether the purchased event-day is running, from one place. This
+// file no longer reads `eventSkuActive` / `LIVE_STUDIO_SKU` directly — going through
+// the window is what stops a second, time-blind rule existing beside the first.
+import { resolveBroadcastWindow } from '@/lib/live-studio-window-server';
 
 /**
  * apps/web/lib/live-studio-publish.ts
@@ -140,13 +143,36 @@ export function limitPublishedManifest(manifest: RoamManifest, owned: boolean): 
 }
 
 /**
- * Resolve the LIVE_STUDIO entitlement for a publish decision. FAIL-CLOSED: any
- * throw, any transport error, any missing table resolves to `false`.
+ * ⭐ THE ONE ANSWER to "may this host broadcast multi-cam right now?"
+ *
+ * WAVE 7 (owner-locked 2026-07-25 · § 4f ②): holding the SKU is no longer the whole
+ * question. ₱2,999 buys ONE EVENT-DAY, so this delegates to
+ * `resolveBroadcastWindow` (lib/live-studio-window-server.ts), which answers ownership AND
+ * whether the purchased day is currently running.
+ *
+ * DELIBERATELY DELEGATED RATHER THAN DUPLICATED. Every publication path already
+ * funnels through this function — the manifest write gate (mirrorRoamManifest), the
+ * public read gate (app/[slug]/_lib/loaders.ts), and Wave 5's program output — so
+ * putting the window HERE gives the whole product one rule. A second time check
+ * bolted onto one of those call sites would be a rule that can disagree with this
+ * one, and the way it would disagree is a paying couple losing cameras mid-ceremony
+ * on one surface while keeping them on another.
+ *
+ * ⚠ THE WINDOW NEVER INTERRUPTS. `resolveBroadcastWindow` reads whether a broadcast
+ * is on air and keeps multi-cam ON for one that started inside the window, so a
+ * lapse cannot strip the public manifest out from under watching guests mid-wedding.
+ * It bites at the NEXT go-live. That is why the never-interrupt rule lives in the
+ * shared resolver and not in a caller.
+ *
+ * FAIL-CLOSED, unchanged: any throw, transport error or missing table resolves to
+ * `false`, and `false` means "publish one channel, not many".
  *
  * Pass a SERVICE-ROLE / admin client on public + provisioning surfaces — `orders`
  * RLS is purchaser-scoped, so a session client on the public wedding page would read
  * "not owned" for a host who genuinely paid. (That direction is safe rather than
  * exploitable, but it would wrongly strip a paying couple's multi-cam mid-wedding.)
+ * Wave 7 makes that guidance sharper, not softer: the broadcast-DAY count is read
+ * from the same purchaser-scoped `orders` table.
  */
 export async function canPublishMultiCam(
   supabase: SupabaseClient,
@@ -154,7 +180,10 @@ export async function canPublishMultiCam(
 ): Promise<boolean> {
   if (!eventId) return false;
   try {
-    return await eventSkuActive(supabase, eventId, LIVE_STUDIO_SKU);
+    // Not named `window` — shadowing the global in a module that is bundled for both
+    // sides is a smell nobody should have to think about twice.
+    const decision = await resolveBroadcastWindow(supabase, eventId);
+    return decision.multiCam;
   } catch {
     return false;
   }

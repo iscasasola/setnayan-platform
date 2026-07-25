@@ -40,7 +40,9 @@ import {
   type ChannelCameraView,
 } from '@/lib/live-studio-channel-cameras';
 import { formatPhp } from '@/lib/orders';
-import { eventSkuActive } from '@/lib/entitlements';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { ADD_A_DAY_LABEL } from '@/lib/live-studio-window';
+import { resolveBroadcastWindow } from '@/lib/live-studio-window-server';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import {
   LIVE_STUDIO_SKU,
@@ -83,6 +85,8 @@ import {
 } from '@/lib/panood-broadcast';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { decideProgramAir, type ProgramChannel } from '@/lib/live-studio-publish';
+import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
+import { BroadcastWindowStrip } from './_components/broadcast-window-strip';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { CopyButton } from '@/app/_components/copy-button';
 import { TransportRow } from './transport-row';
@@ -296,14 +300,11 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   // actions use (isLiveStudioSetupHost) so the two cannot drift.
   if (!(await isLiveStudioSetupHost(eventId, user.id))) redirect(`/dashboard/${eventId}`);
 
-  // ── Entitlement — WAVE 3: this governs BROADCASTING, not using. A free host is
-  // not bounced and nothing is locked away; `owned` decides whether they may put
-  // more than one camera (and the paid overlays) on air, and therefore whether the
-  // unlock affordances render at all.
-  const owned = await eventSkuActive(supabase, eventId, LIVE_STUDIO_SKU);
+  // ── Price + links. The ENTITLEMENT itself is resolved further down, once the
+  // active broadcast is known — WAVE 7 makes it depend on whether a broadcast is on
+  // air (the never-interrupt rule), so it cannot be answered this early.
   const sku = await formatV2Sku(LIVE_STUDIO_SKU).catch(() => null);
   const priceLabel = sku ? formatPhp(sku.price_php) : null;
-  const lock = liveStudioControlLock(owned, priceLabel);
   const detailHref = liveStudioDetailPath(eventId);
 
   // ── Camera channels (control-plane; RLS scopes to the host's own event).
@@ -408,6 +409,47 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
 
   // The one fact the tally depends on: is the broadcast actually up?
   const isLive = Boolean(activeBroadcast);
+  // When the CURRENT broadcast started. This BOUNDS the never-interrupt rule: a
+  // broadcast that began inside the paid window finishes clean, one that began after
+  // it lapsed is a NEXT go-live and gets no protection.
+  const broadcastStartedAt =
+    activeBroadcast?.went_live_at ?? activeBroadcast?.scheduled_start_at ?? null;
+
+  // ── ⭐ WAVE 7 · THE BROADCAST WINDOW ─────────────────────────────────────────
+  // (owner-locked 2026-07-25 · Live_Studio_Unified_Spec § 4f ② · lib/live-studio-window.ts)
+  //
+  // ₱2,999 buys ONE EVENT-DAY of MULTI-CAM broadcasting, anchored on first go-live,
+  // extendable by another ₱2,999, and never interrupted mid-broadcast. This is the
+  // SAME resolver `canPublishMultiCam` delegates to, so the controller, the program
+  // pop-out, the manifest mirror and the public page cannot disagree about whether
+  // this host may put more than one camera on air.
+  //
+  // ⚠ ADMIN CLIENT, and this is a correctness fix, not a shortcut. `orders` RLS is
+  // purchaser-scoped (orders_owner_read: user_id = auth.uid()), so a coordinator
+  // running the controller for a couple who paid would read "not owned" AND zero
+  // broadcast-days under their own session — silently downgraded to one camera,
+  // mid-wedding, on a day that cannot be re-run. Membership was verified above by
+  // isLiveStudioSetupHost, which is the authorization boundary; the same posture the
+  // Wave 5 program pop-out already documents for the identical read. `isLive` and the
+  // start time are handed in rather than re-queried — this page already read them.
+  const broadcastWindow = await resolveBroadcastWindow(admin, eventId, {
+    isLive,
+    broadcastStartedAt,
+  });
+
+  // TWO FACTS, and conflating them would produce dishonest copy.
+  //
+  //   • `owned` — may they broadcast multi-cam RIGHT NOW? The capability. Feeds the
+  //     program-output gate, the on-air overlay resolution, everything that decides
+  //     what actually goes out.
+  //   • `entitled` — have they bought Live Studio at all? Feeds only the WORDS. A
+  //     host whose event-day lapsed still owns the product, so showing them
+  //     "Unlock · ₱2,999" would ask them to buy something they already have; what
+  //     they need is "Add another day", which the window strip offers.
+  const owned = broadcastWindow.multiCam;
+  const entitled = broadcastWindow.reason !== 'not-owned';
+  const lock = liveStudioControlLock(entitled, priceLabel);
+
   const tiles = buildChannelTiles({ zones, multiCamUnlocked: lock.multiCamUnlocked, isLive });
 
   // ── ⭐ WAVE 5 · THE PATH TO AIR, and its paywall ──────────────────────────
@@ -469,11 +511,28 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
     lowerThird: rehearsalOverlays.lowerThird ?? airOverlays.lowerThird,
   };
   const highlights = await fetchHighlights(supabase, eventId);
-  const canMark = canMarkHighlight({ owned, isLive });
+  // WAVE 7: `entitled`, not `owned`. A moment is a timestamp into a broadcast, not
+  // multi-cam broadcasting — a couple who bought Live Studio can mark moments on any
+  // stream they run, including one after their event-day lapsed. Deliberately kept in
+  // step with the server action (requireLiveStudioOwned), which the window also does
+  // not gate: blocking a paying couple from tidying their own moment list after the
+  // wedding would be petty, and a UI stricter than its own POST handler is a bug.
+  const canMark = canMarkHighlight({ owned: entitled, isLive });
 
   // The go-live-moment paywall: only when there is genuinely something they cannot
   // broadcast (more than one camera configured, no unlock). Price from the catalog.
-  const showUnlockNotice = showRehearsalUnlockNotice({ owned, configuredChannels: zones.length });
+  // WAVE 7: `entitled` — a host mid-lapse is not sold the SKU again; the window strip
+  // tells them their day ended and offers another one.
+  const showUnlockNotice = showRehearsalUnlockNotice({
+    owned: entitled,
+    configuredChannels: zones.length,
+  });
+
+  // BDO + GCash details for the in-context "Add another day" purchase. Same rail as
+  // every other SKU — the shared inline checkout drawer → submitOrderAction → QR →
+  // /admin/payments. Null (a pre-bootstrap settings row) simply hides the CTA rather
+  // than offering a purchase with nowhere to pay.
+  const paySettings = await fetchPlatformSettings(supabase).catch(() => null);
 
   // Guest-pick — the real switch (Wave 2). Guarded read: a pre-migration database
   // must not break the controller, and "unknown" defaults to ON (the owner default).
@@ -785,6 +844,47 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             </form>
           </div>
 
+          {/* ── ⭐ WAVE 7 · THE BROADCAST DAY + THE 12-HOUR ARCHIVE CAP ───────
+              (owner-locked 2026-07-25 · § 4f ②/③.)
+
+              Sits directly under the transport because both warnings are about a
+              broadcast that is already running, and both are TIME CROSSINGS mid-show
+              — which is why they live in a client component that ticks rather than in
+              this server render nobody is going to refresh.
+
+              ① at ~1 hour left: say so and offer another day, right here.
+              ② past the end: if on air, promise plainly that nothing is interrupted;
+                 if off air, say the next go-live is the free single camera.
+              ③ approaching 12 hours: YouTube archives only the first 12 hours, so a
+                 longer stream can leave no replay — the sharp edge for a wedding
+                 feeding the Alaala handover.
+
+              It DECIDES nothing: the entitlement is `broadcastWindow` above, resolved
+              server-side on every render of this page, the pop-out and the public
+              page. Nothing here disables a control or ends a broadcast. */}
+          <BroadcastWindowStrip
+            expiresAt={broadcastWindow.expiresAt}
+            isLive={isLive}
+            broadcastStartedAt={broadcastStartedAt}
+            addADay={
+              paySettings ? (
+                <InlineCheckoutDrawer
+                  eventId={eventId}
+                  serviceKey={LIVE_STUDIO_SKU}
+                  displayName={ADD_A_DAY_LABEL}
+                  // Catalog price, threaded for the drawer's voucher math only — the
+                  // CHARGE is re-resolved server-side from the SKU in
+                  // submitOrderAction, so a tampered value cannot change what is
+                  // billed. One price, no ladder (owner: "I just want 1 price").
+                  originalPriceCentavos={String(sku?.price_centavos ?? 0)}
+                  settings={paySettings}
+                  triggerLabel={priceLabel ? `${ADD_A_DAY_LABEL} · ${priceLabel}` : ADD_A_DAY_LABEL}
+                  triggerClassName="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-mulberry px-3 py-2 font-mono text-[10.5px] font-bold uppercase tracking-[0.04em] text-cream transition-colors hover:bg-mulberry-600 disabled:opacity-70"
+                />
+              ) : null
+            }
+          />
+
           {/* ── ⭐ WAVE 5 · THE PATH TO AIR ───────────────────────────────────
               Installs the program bridge (so Channel 1 has an output window at
               all) and opens the chrome-less pop-out the host's encoder captures.
@@ -815,9 +915,25 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                 <span className="font-semibold text-ink">
                   That cut is rehearsal — your broadcast is still on {airLabel}.
                 </span>{' '}
-                Switching cameras on air is what the unlock
-                {priceLabel ? ` (${priceLabel})` : ''} buys. Choose which single camera your free
-                broadcast carries with the ★ default control below.
+                {/* WAVE 7 · the copy forks on `entitled`, not on the capability. Telling
+                    a couple who ALREADY BOUGHT Live Studio that switching "is what the
+                    unlock buys" would be false — they bought it; their event-day ran
+                    out. The honest sentence names the day, and the strip above it
+                    carries the button. */}
+                {entitled ? (
+                  <>
+                    Your broadcast day has ended, so live switching is paused. Add another day
+                    {priceLabel ? ` (${priceLabel})` : ''} to cut between cameras on air again —
+                    until then, choose which single camera goes out with the ★ default control
+                    below.
+                  </>
+                ) : (
+                  <>
+                    Switching cameras on air is what the unlock
+                    {priceLabel ? ` (${priceLabel})` : ''} buys. Choose which single camera your
+                    free broadcast carries with the ★ default control below.
+                  </>
+                )}
               </span>
             </p>
           ) : null}

@@ -20,6 +20,7 @@ import { createClient } from '@/lib/supabase/server';
 import { requireHostMembership } from '@/lib/host-gate';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
+import { resolveReturnTo } from '@/lib/editor-return';
 
 function r2RefOrNull(v: FormDataEntryValue | null): string | null {
   return typeof v === 'string' && v.startsWith('r2://') ? v : null;
@@ -97,5 +98,7 @@ export async function updateSiteChrome(
 
   revalidateWebsiteEditor(eventId, 'site-chrome');
   revalidateGuestSite(event?.slug);
-  redirect(`/dashboard/${eventId}/website/site-chrome?saved=1`);
+  redirect(
+    resolveReturnTo(formData, `/dashboard/${eventId}/website/site-chrome?saved=1`, '?saved=1'),
+  );
 }

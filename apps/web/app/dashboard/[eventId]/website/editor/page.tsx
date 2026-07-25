@@ -8,7 +8,18 @@ import { LaunchStdButton } from '../../studio/save-the-date/_components/launch-s
 import { EditorShell, type RailGroup } from './_components/editor-shell';
 import { TextPanel } from './_components/text-panel';
 import { ColorsPanel, ProLockPanel } from './_components/pro-panels';
+import {
+  HeroPhotoPanel,
+  GalleryPanel,
+  SiteChromePanel,
+  VisibilityPanel,
+} from './_components/media-panels';
 import { updateSiteColors } from '../colors/actions';
+import { uploadHeroPhoto } from '../hero-photo/actions';
+import { updateOurPhotos } from '../our-photos/actions';
+import { updateSiteChrome } from '../site-chrome/actions';
+import { updateLandingPageVisibility } from '../privacy/actions';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { updateSpecialMessage } from '../special-message/actions';
 import { updateWhatToBring } from '../what-to-bring/actions';
 
@@ -48,7 +59,7 @@ export default async function WebsiteEditorPage({
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, slug, event_type, event_date, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_bg_color, site_button_color, special_message, what_to_bring',
+      'event_id, display_name, slug, event_type, event_date, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_bg_color, site_button_color, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -94,6 +105,30 @@ export default async function WebsiteEditorPage({
     <ProLockPanel featureName={featureName} unlockHref={proUnlockHref} />
   );
 
+  // Presigned display URLs so the inline uploaders show what's already set
+  // (same helper the sub-pages use).
+  const heroRef = (event.landing_page_hero_image_url as string | null) ?? null;
+  const musicRef = (event.site_bg_music_r2_key as string | null) ?? null;
+  const videoRef = (event.landing_page_hero_video_r2_key as string | null) ?? null;
+  const galleryRefs = ourPhotos.filter((r): r is string => typeof r === 'string');
+  const displayFor = async (refs: Array<string | null>) => {
+    const out: Record<string, string> = {};
+    await Promise.all(
+      refs
+        .filter((r): r is string => Boolean(r))
+        .map(async (ref) => {
+          const url = await displayUrlForStoredAsset(ref);
+          if (url) out[ref] = url;
+        }),
+    );
+    return out;
+  };
+  const [heroDisplay, galleryDisplay, chromeDisplay] = await Promise.all([
+    displayFor([heroRef]),
+    displayFor(galleryRefs),
+    displayFor([musicRef, videoRef]),
+  ]);
+
   const colorsLocked = lockedIf(Boolean(event.site_bg_color || event.site_button_color));
   const musicLocked = lockedIf(Boolean(event.site_bg_music_r2_key));
   const galleryLocked = lockedIf(ourPhotos.length > 0);
@@ -116,6 +151,13 @@ export default async function WebsiteEditorPage({
           blurb: 'Private while you build, public when you launch.',
           href: `${w}/privacy`,
           status: visibility === 'private' ? 'Private' : visibility === 'public' ? 'Public' : 'Unlisted',
+          panel: (
+            <VisibilityPanel
+              action={updateLandingPageVisibility}
+              eventId={eventId}
+              visibility={visibility}
+            />
+          ),
         },
         {
           key: 'open-browse',
@@ -150,7 +192,19 @@ export default async function WebsiteEditorPage({
           href: `${w}/site-chrome`,
           pro: true,
           locked: musicLocked,
-          ...(musicLocked ? { panel: lockPanel('Background music') } : {}),
+          panel: musicLocked ? (
+            lockPanel('Background music')
+          ) : (
+            <SiteChromePanel
+              action={updateSiteChrome.bind(null, eventId)}
+              eventId={eventId}
+              musicRef={musicRef}
+              musicEnabled={event.site_bg_music_enabled === true}
+              musicDisplay={chromeDisplay}
+              videoRef={videoRef}
+              videoDisplay={chromeDisplay}
+            />
+          ),
         },
       ],
     },
@@ -165,7 +219,15 @@ export default async function WebsiteEditorPage({
           blurb: 'The photo and names at the top.',
           href: `${w}/hero-photo`,
           anchor: 'home',
-          status: event.landing_page_hero_image_url ? 'Photo set' : 'Not set',
+          status: heroRef ? 'Photo set' : 'Not set',
+          panel: (
+            <HeroPhotoPanel
+              action={uploadHeroPhoto}
+              eventId={eventId}
+              currentRef={heroRef}
+              displayUrls={heroDisplay}
+            />
+          ),
         },
         {
           key: 'story',
@@ -190,7 +252,18 @@ export default async function WebsiteEditorPage({
           anchor: 'gallery',
           pro: true,
           locked: galleryLocked,
-          ...(galleryLocked ? { panel: lockPanel('Photo gallery') } : {}),
+          status: galleryLocked ? undefined : `${galleryRefs.length} photo${galleryRefs.length === 1 ? '' : 's'}`,
+          panel: galleryLocked ? (
+            lockPanel('Photo gallery')
+          ) : (
+            <GalleryPanel
+              action={updateOurPhotos.bind(null, eventId)}
+              eventId={eventId}
+              currentRefs={galleryRefs}
+              displayUrls={galleryDisplay}
+              maxFiles={24}
+            />
+          ),
         },
         {
           key: 'dress-code',

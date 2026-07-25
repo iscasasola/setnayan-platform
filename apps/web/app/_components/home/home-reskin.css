@@ -1487,6 +1487,25 @@ html.hr-snap {
   font-weight: 500;
   color: var(--hr-ink);
 }
+/* The OAuth data-request disclosure. Set a step down from the main paragraph —
+   it's a disclosure, not a pitch — but NOT faint: a reviewer has to be able to
+   read it. */
+.home-reskin .hr-about .hr-anote {
+  font-size: clamp(0.86rem, 1.4vw, 0.95rem);
+  line-height: 1.6;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--hr-line);
+}
+/* `.home-reskin a` strips underlines site-wide; the privacy-policy link has to
+   read unmistakably AS a link — Google's checklist requires an "easily
+   accessible" one, and an un-underlined word in a paragraph isn't that. */
+.home-reskin .hr-about .hr-anote a {
+  color: var(--hr-ink);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 
 .home-reskin .hr-btn-dark {
   margin-top: 30px;

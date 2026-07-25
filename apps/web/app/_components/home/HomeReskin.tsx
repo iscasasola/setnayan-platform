@@ -187,6 +187,59 @@ export function HomeReskin({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── A scroll gesture opens the gate, exactly as "Learn more" does ──
+  // The gate sets `overflow:hidden` on <html>, so before this a wheel/swipe on
+  // the hero did NOTHING: anyone who scrolls instead of clicking hit a dead end
+  // and never reached the content — including the purpose copy and the
+  // privacy-policy link in the footer, two things Google's App Homepage
+  // checklist requires a reviewer to be able to find without interacting.
+  // (Owner-approved 2026-07-25.) Nothing about the design changes: the
+  // cinematic screen still loads first, and this routes through the SAME
+  // openGate() the button uses, so the reveal + smooth scroll are identical.
+  useEffect(() => {
+    // Only while the gate is shut, and never while an overlay is up — the
+    // overlays scroll their own bodies (`overflow-y:auto`) and a wheel inside
+    // one must not blow the gate open behind it.
+    if (opened || overlay) return;
+    const open = () => openGate();
+    // Downward intent only; scrolling up at the top is a no-op, as before.
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY > 0) open();
+    };
+    // Touch: finger moving UP = scrolling down. Require vertical dominance so a
+    // horizontal swipe across the pillar dock doesn't trip the gate.
+    let sx = 0;
+    let sy = 0;
+    const onTouchStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (!t) return;
+      sx = t.clientX;
+      sy = t.clientY;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (!t) return;
+      const dy = sy - t.clientY;
+      const dx = Math.abs(t.clientX - sx);
+      if (dy > 12 && dy > dx) open();
+    };
+    // Keyboard scrolling is a scroll too. Space is deliberately excluded — it
+    // activates a focused button, and the hero CTAs are buttons.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'PageDown' || e.key === 'ArrowDown' || e.key === 'End') open();
+    };
+    window.addEventListener('wheel', onWheel, { passive: true });
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('wheel', onWheel);
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [opened, overlay, openGate]);
+
   // Logo = Home: restore hero, scroll to top, re-lock the gate.
   const goHome = useCallback(() => {
     const reduce = reduceMotion();
@@ -787,6 +840,26 @@ export function HomeReskin({
             and <em>Live Studio</em> creates the couple’s own YouTube live broadcast and streams
             the ceremony to it, so family working abroad can watch the moment it happens. Every
             photo, video, and milestone gathers into one living memory the couple keeps, for life.
+          </p>
+          {/* Google's App Homepage checklist requires the homepage to "explain
+              with transparency the purpose for which your app requests user
+              data" — describing the FEATURE is not the same as explaining the
+              DATA REQUEST, and this paragraph is the latter. It also carries a
+              privacy-policy link, so the checklist's "include a link to your
+              privacy policy" is satisfied inside the purpose block itself and
+              not only from the footer. That link must keep matching the URL
+              configured on the OAuth consent screen. Deliberately describes
+              what Setnayan DOES with the access rather than promising what it
+              can't touch — the granted scopes (auth/youtube +
+              auth/youtube.upload) are broad, and a narrower claim here than the
+              scopes support would be untrue. */}
+          <p className="hr-adef hr-anote">
+            <em>Why Setnayan asks for YouTube access:</em> Live Studio is optional and off by
+            default. When a couple turns it on, Setnayan asks them to connect their own YouTube
+            account, and uses that connection to set up and run the live broadcast for their own
+            event — scheduling it, starting and ending it, and streaming their ceremony to it.
+            Nothing is broadcast to their channel unless they turn Live Studio on for their event.
+            Full details are in our <Link href="/privacy">Privacy Policy</Link>.
           </p>
         </section>
 

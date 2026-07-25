@@ -352,6 +352,22 @@ const nextConfig: NextConfig = {
       // standalone page once chapter volume outgrows the shelf — a permanent
       // redirect would be cached against that promotion.
       { source: '/storytellers', destination: '/realstories#storytellers', permanent: false },
+      // 2026-07-25 — Live Studio route rename: the customer-facing surface moved
+      // from `/studio/live-studio-roam` → `/studio/live-studio-control` (owner:
+      // "one unified controller, not Cast-vs-Roam"). Redirect the old path (detail
+      // page AND the /setup controller, via :path*) so bookmarks / in-app deep
+      // links never 404. TEMPORARY (307): the whole surface is still behind a dark
+      // flag, so a permanent redirect shouldn't be cached against a future retarget.
+      {
+        source: '/dashboard/:eventId/studio/live-studio-roam/:path*',
+        destination: '/dashboard/:eventId/studio/live-studio-control/:path*',
+        permanent: false,
+      },
+      {
+        source: '/dashboard/:eventId/studio/live-studio-roam',
+        destination: '/dashboard/:eventId/studio/live-studio-control',
+        permanent: false,
+      },
     ];
   },
   async rewrites() {

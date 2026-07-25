@@ -1,5 +1,6 @@
+import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { Video } from 'lucide-react';
+import { Video, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { formatPhp } from '@/lib/orders';
 import { AppStoreLayout, type PlanRow, type StatTile } from '@/app/_components/app-store/layout';
@@ -58,7 +59,7 @@ export default async function LiveStudioPage({ params }: Props) {
     .maybeSingle();
   if (!event) notFound();
 
-  const controllerHref = `/dashboard/${eventId}/studio/live-studio-roam/setup`;
+  const controllerHref = `/dashboard/${eventId}/studio/live-studio-control/setup`;
 
   const [stats, stateCtx, settings, sku] = await Promise.all([
     fetchAddOnStats(supabase, FEATURE_KEY),
@@ -111,11 +112,18 @@ export default async function LiveStudioPage({ params }: Props) {
     },
   ];
 
+  // One controller shared by free + paid (owner 2026-07-25): a host who hasn't
+  // bought Live Studio can still OPEN the controller and go live free with a single
+  // camera — the multi-camera extras simply show locked there. So for any non-owned
+  // state we surface a secondary "Open the controller" link beside the buy CTA. When
+  // owned ('launch'), the primary CTA already opens the controller, so we don't
+  // duplicate it.
   const cta = (
-    <AddOnStateCta
-      context={stateCtx}
-      launchLabel="Open controller"
-      choosePlan={{
+    <div className="space-y-2">
+      <AddOnStateCta
+        context={stateCtx}
+        launchLabel="Open controller"
+        choosePlan={{
         eventId,
         triggerLabel: 'Add Live Studio',
         priceFromLabel: priceLabel,
@@ -138,8 +146,18 @@ export default async function LiveStudioPage({ params }: Props) {
           'Live Studio streams your celebration live for everyone who can’t be there. One directed Main Stage plus switchable guest cameras — different angles, rooms, even different venues. Cut the Main Stage between them with a tap, or let remote guests pick their own view. Buy one Live Studio per event; set up your cameras right after.',
         footnote:
           'Apply-then-pay flow · we confirm price before payment · refunds follow the standard 24-hour SLA. Cameras join as phones via the event QR — no per-camera fee. The free single-camera livestream is unchanged.',
-      }}
-    />
+        }}
+      />
+      {stateCtx.state !== 'launch' ? (
+        <Link
+          href={controllerHref}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:underline"
+        >
+          Open the controller — go live free with one camera
+          <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+        </Link>
+      ) : null}
+    </div>
   );
 
   return (

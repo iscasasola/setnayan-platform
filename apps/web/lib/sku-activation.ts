@@ -29,6 +29,7 @@ import {
 import { resolveSetnayanAiPerEventPricingEnabled } from '@/lib/integration-config';
 import {
   VENDOR_AI_ADDON_SKU_CODE,
+  isVendorAiAddonActive,
   nextVendorAiAddonExpiry,
 } from '@/lib/vendor-addon-pricing';
 import {
@@ -388,8 +389,19 @@ async function activateVendorAiAddonOrder(ctx: ActivationContext): Promise<void>
   // both service-role; vendor self-writes are blocked by
   // trg_guard_vendor_profiles_entitlement.
   if (ladder) {
-    const currentLevel =
-      (vp as { ai_addon_level?: string | null } | null)?.ai_addon_level ?? null;
+    // ⚠ Carry the existing rung forward ONLY while the window is still LIVE.
+    //
+    // nextVendorAiLevel takes the HIGHER rung so a Basic re-up mid-cycle cannot
+    // strip Advanced time the vendor already paid for. That is right INSIDE a
+    // live window and WRONG across a lapse: the marker is never cleared on lapse
+    // (expiry is evaluated at read time, there is no cron), so a stale
+    // 'advanced' would otherwise re-arm on the next BASIC purchase — buy
+    // Advanced once, then renew on Basic forever (~₱1,000/cycle × 13/yr).
+    // A lapsed rung is SPENT: pass null and let this purchase decide the level.
+    const windowLive = isVendorAiAddonActive(currentExpiry);
+    const currentLevel = windowLive
+      ? ((vp as { ai_addon_level?: string | null } | null)?.ai_addon_level ?? null)
+      : null;
     update.ai_addon_level = nextVendorAiLevel(
       currentLevel,
       vendorAiLevelForServiceKey(ctx.serviceKey),

@@ -190,6 +190,65 @@ export type VendorBadgeInput = {
  */
 export type CompletedBookingCounts = ReadonlyMap<string, number>;
 
+/**
+ * Organic-badge → MERIT points bridge (Vendor_Monetization_Model_LOCKED
+ * 2026-07-25 § 5 "organic rank = merit for everyone incl. Free").
+ *
+ * `lib/vendor-rank-boost.ts` computes a 0–100 merit score from reviews,
+ * completed bookings, responsiveness and proximity; these points are the
+ * "recognition" slice of that score. They live HERE, next to the badge engine,
+ * because every badge in this file is organic by construction — earned from
+ * receipt-backed reviews and vetted completed events, never from a tier, an ad
+ * spend, or a subscription state. Keeping the mapping beside the engine is what
+ * makes "merit is blind to money" checkable by reading one file.
+ *
+ * 🚫 A paid placement is NOT a badge and must never appear in `VendorBadge`.
+ * The Featured/Sponsored slot is a separate, always-labeled concept — see
+ * `FEATURED_LABEL` in `lib/vendor-rank-boost.ts`. If a paid signal is ever added
+ * to this union, the merit score stops being merit.
+ *
+ * Points are deliberately small: they break ties between comparable vendors,
+ * they do not create rank on their own. Total is capped at
+ * {@link MERIT_BADGE_POINTS_MAX} so a fully-stacked vendor can't run away with
+ * the category.
+ */
+export const MERIT_BADGE_POINTS: Readonly<Record<VendorBadge, number>> = {
+  // Recency, not achievement — the smallest nudge so a freshly vetted vendor
+  // isn't invisible behind incumbents while it builds a review history.
+  new: 1,
+  // A trust state every legitimate vendor reaches; worth a point, not a tier.
+  verified: 1,
+  // 10+ receipt-backed reviews at ≥4.7★ — the strongest organic quality signal.
+  couple_trusted: 4,
+  // Top 10% by VETTED completed events.
+  most_booking: 3,
+  // Top 5% by weighted trusted-review score.
+  top_pick: 4,
+};
+
+/** Ceiling for the badge slice of the merit score. */
+export const MERIT_BADGE_POINTS_MAX = 10;
+
+/**
+ * Sum the organic recognition points for a badge set, capped at
+ * {@link MERIT_BADGE_POINTS_MAX}. Pure — no clock, no I/O, no env. Unknown badge
+ * keys contribute 0 rather than throwing, so a stale cached payload degrades to
+ * "no bonus" instead of breaking a search page.
+ */
+export function badgeMeritPoints(
+  badges: ReadonlyArray<VendorBadge> | null | undefined,
+): number {
+  if (!badges || badges.length === 0) return 0;
+  let total = 0;
+  const seen = new Set<VendorBadge>();
+  for (const badge of badges) {
+    if (seen.has(badge)) continue;
+    seen.add(badge);
+    total += MERIT_BADGE_POINTS[badge] ?? 0;
+  }
+  return Math.min(MERIT_BADGE_POINTS_MAX, total);
+}
+
 const NEW_BADGE_WINDOW_MS = 90 * 24 * 60 * 60 * 1000;
 // 10% / 5% thresholds — per the brief. These are cumulative-distribution
 // floors: a vendor must be at OR above the 90th percentile of bookings

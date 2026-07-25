@@ -80,6 +80,14 @@ import {
   PRICE_FIT_NEUTRAL,
   type ServicePricingRow,
 } from '@/lib/smart-sort';
+import { isVendorRankBoostEnabled } from '@/lib/vendor-rank-boost-flag';
+import {
+  meritScore,
+  partitionFeatured,
+  type FeaturableVendor,
+} from '@/lib/vendor-rank-boost';
+import { fetchCompletedBookingCounts } from '@/lib/vendor-badges';
+import { fetchTrustedReviewStatsForMany } from '@/lib/reviews';
 import { resolveLivePax } from '@/lib/pax';
 import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
 import { computeBudgetAllocation } from '@/lib/budget-allocation';
@@ -102,6 +110,19 @@ export type CategoryVendorResult = {
   distanceKm: number | null;
   verified: boolean;
   boosted: boolean;
+  /**
+   * This row occupies a PAID, clearly-labeled Featured slot
+   * (Vendor_Monetization_Model_LOCKED_2026-07-25 § 5 · lib/vendor-rank-boost).
+   *
+   * The renderer MUST show the "Sponsored" chip + the paid-placement
+   * disclosure whenever this is true — the label is not optional and not
+   * dismissible. If a surface can't render the label, it must not honour the
+   * slot.
+   *
+   * ALWAYS false while `NEXT_PUBLIC_VENDOR_RANK_BOOST_ENABLED` is off, so the
+   * flag-OFF payload and rendering are byte-identical to today.
+   */
+  featuredSlot: boolean;
   /** Compatibility score (0–100) + tier · lib/compat-score · the §2 GATE+SCORE
    *  soft layer (Customer_Vendor_Marketplace_Architecture_2026-06-04 §2).
    *  DISPLAY-only in this PR — the result ORDER stays the owner-locked
@@ -257,6 +278,22 @@ export async function searchCategoryVendors(input: {
   // today until the flag flips on. Nothing here ever hard-filters — it only
   // reorders WITHIN the existing tail tier and surfaces a budget-pressure nudge.
   const smartSort = isSmartSortEnabled();
+
+  // Merit-first ranking + CAPPED paid boost + labeled Featured slots
+  // (NEXT_PUBLIC_VENDOR_RANK_BOOST_ENABLED · lib/vendor-rank-boost-flag).
+  // Vendor_Monetization_Model_LOCKED_2026-07-25 § 5.
+  //
+  // OFF by default: every read + branch below is guarded, `featuredSlot` is
+  // always false, and the owner-locked 2026-05-31 ladder (relationship →
+  // boosted → top-10 reviews → tail) runs exactly as today — byte-identical.
+  //
+  // ON: the UNBOUNDED `ad_rank` tier (which floats every paid vendor above the
+  // whole review-ranked pool) is replaced by (a) a merit-first organic list in
+  // which the tier bonus is capped so a materially better FREE vendor can never
+  // be buried, and (b) at most 2 quality-floored slots that ALWAYS render the
+  // "Sponsored" label. The relationship tier still leads — a vendor the couple
+  // already works with is never displaced by a paid slot.
+  const rankBoost = isVendorRankBoostEnabled();
 
   const groupCanonicals = canonicalsForGroup(groupId);
   if (groupCanonicals.length === 0) return EMPTY;
@@ -643,6 +680,43 @@ export async function searchCategoryVendors(input: {
     });
   }
 
+  // ── Merit-first ranking inputs (flag-gated · § 5) ────────────────────────
+  // All three reads happen ONLY when NEXT_PUBLIC_VENDOR_RANK_BOOST_ENABLED is
+  // on, so the off-path issues exactly the same queries as today.
+  //
+  // `tier_expires_at` is read in its OWN narrow select rather than being added
+  // to the shared `vendor_profiles` select above: PostgREST answers a select
+  // naming an unknown column with 42703 and nulls the WHOLE row, so a
+  // schema/deploy skew must not be able to blank screen_name / tier_state and
+  // break the entire result set. Here a skew can at worst empty this one map.
+  //
+  // Fail-CLOSED on the expiry read: if it errors we can't tell an active plan
+  // from a lapsed one, so featuring is switched off for this request rather
+  // than handing out top-of-page slots we can't justify. Ranking still runs.
+  const tierExpiresAtById = new Map<string, number | null>();
+  let featuredSlotsAllowed = rankBoost;
+  const trustedStatsById = rankBoost
+    ? await fetchTrustedReviewStatsForMany(admin, ids)
+    : null;
+  const completedBookingsById = rankBoost
+    ? await fetchCompletedBookingCounts(admin, ids)
+    : null;
+  if (rankBoost) {
+    const { data: expRows, error: expErr } = await admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id, tier_expires_at')
+      .in('vendor_profile_id', ids);
+    if (expErr) {
+      featuredSlotsAllowed = false;
+    } else {
+      for (const row of expRows ?? []) {
+        const r = row as { vendor_profile_id: string; tier_expires_at: string | null };
+        const ms = r.tier_expires_at ? Date.parse(r.tier_expires_at) : null;
+        tierExpiresAtById.set(r.vendor_profile_id, ms);
+      }
+    }
+  }
+
   // ── First-Look Window (Wave 2) ───────────────────────────────────────────
   // Read the admin-managed config defensively (lib/firstlook — the two columns
   // may still be mid-apply in prod, so this is a dedicated try/catch reader that
@@ -848,6 +922,17 @@ export async function searchCategoryVendors(input: {
     /** Pax-adjusted cheapest "starts at" PHP (null = no usable price). Feeds the
      *  budget-pressure nudge; internal (never surfaced on the public result). */
     _startsAt: number | null;
+    /** `vendor_profiles.tier_state` — the paid-tier entitlement. Read by the
+     *  flag-gated capped boost only; the OFF path never looks at it. */
+    _tier: string | null;
+    /** `vendor_profiles.tier_expires_at` as epoch ms; null = no expiry = active
+     *  (prod reality — every real paid row carries NULL). Flag-gated. */
+    _tierExpiresAtMs: number | null;
+    /** 0–100 merit, computed from match-to-need · reviews · completed bookings
+     *  · responsiveness · proximity ONLY (lib/vendor-rank-boost · meritScore).
+     *  BLIND to tier and ad spend by construction. 0 on the flag-OFF path
+     *  (never read there). */
+    _merit: number;
   };
   const shaped: Shaped[] = recs.map((r) => {
     const prof = profById.get(r.vendor_profile_id);
@@ -966,6 +1051,9 @@ export async function searchCategoryVendors(input: {
       distanceKm: dKm,
       verified: r.public_visibility === 'verified',
       boosted: adRank > 0,
+      // Placeholder — the real value is stamped from `featuredIds` in the final
+      // map, after the ladder has decided who occupies a slot.
+      featuredSlot: false,
       compatScore,
       compatTier,
       respondsFast,
@@ -986,6 +1074,38 @@ export async function searchCategoryVendors(input: {
       _facetMatch: fm?.matchedCount ?? 0,
       _priceFit: priceFit,
       _startsAt: startsAt,
+      _tier: prof?.tier_state ?? null,
+      _tierExpiresAtMs: tierExpiresAtById.get(r.vendor_profile_id) ?? null,
+      // Merit is computed from RECEIPT-BACKED signals only — trusted (arm's-
+      // length) reviews and VETTED completed events, never the raw
+      // review_count / avg_rating_overall that a sockpuppet ring can inflate.
+      // Nothing paid reaches this number; the tier bonus is added afterwards,
+      // capped, in rankWithCappedBoost.
+      _merit: rankBoost
+        ? meritScore({
+            // Match to need = share of the couple's SELECTED facets this vendor
+            // actually matches. null (→ neutral, never a penalty) when the
+            // couple selected nothing or the vendor carries no facet tags —
+            // which is also what keeps this term from reordering anything on a
+            // search with no active refinement.
+            matchToNeed:
+              facetSelectedCount > 0 && facetMatchCount !== null
+                ? facetMatchCount / facetSelectedCount
+                : null,
+            trustedReviewCount:
+              trustedStatsById?.get(r.vendor_profile_id)?.trusted_review_count ?? 0,
+            trustedAvgRating:
+              trustedStatsById?.get(r.vendor_profile_id)?.trusted_avg_rating ?? 0,
+            completedBookings: completedBookingsById?.get(r.vendor_profile_id) ?? 0,
+            respondsFast,
+            distanceKm: dKm,
+            // NOTE: deliberately NOT the vendor's serviceRadiusKm — that value
+            // is derived from tier_state (vendor-tier-caps), so using it as the
+            // proximity horizon would hand higher tiers a wider, UNCAPPED
+            // proximity credit and smuggle money into the merit score. The
+            // horizon must stay tier-independent; the lib default applies.
+          })
+        : 0,
     };
   });
 
@@ -1012,58 +1132,90 @@ export async function searchCategoryVendors(input: {
     (s) => !withRelationshipIds.has(s.vendorProfileId),
   );
 
-  // Tier 1 favorites: empty until the cross-event favorites table ships (V1.x).
-  // Tier 2 boosted: ad_rank desc (within the no-relationship pool).
-  const boosted = noRelationshipShaped
-    .filter((s) => s.boosted)
-    .sort(
-      (a, b) =>
-        b._adRank - a._adRank ||
-        (facetSelected ? b._facetMatch - a._facetMatch : 0),
-    );
-  const rest0 = noRelationshipShaped.filter((s) => !s.boosted);
-  // Tier 3 top-10 by review_count then rating. When the couple has an active
-  // facet selection, matched vendors float to the front of this tier first (the
-  // soft rank), so an explicit refinement surfaces matches into the top tier.
-  const byReview = [...rest0].sort(
-    (a, b) =>
-      (facetSelected ? b._facetMatch - a._facetMatch : 0) ||
-      b._reviews - a._reviews ||
-      b._rating - a._rating,
-  );
-  const top10 = byReview.slice(0, 10);
-  const top10Ids = new Set(top10.map((s) => s.vendorProfileId));
-  // Tier 4 the rest, nearest-first when we have coords, else keep review order.
-  const tail = rest0.filter((s) => !top10Ids.has(s.vendorProfileId));
-  tail.sort((a, b) => {
-    // Facet soft rank leads (only when the couple has an active selection), so a
-    // matching vendor floats above the distance/review order within the tail.
-    if (facetSelected && b._facetMatch !== a._facetMatch) {
-      return b._facetMatch - a._facetMatch;
-    }
-    // Smart-sort SOFT price-fit re-rank (flag-gated · lib/smart-sort). Scoped to
-    // the TAIL tier ONLY — the relationship / boosted / top-reviews tiers stay
-    // exactly as the owner-locked ladder puts them, so this never reorders across
-    // a tier boundary. Because priceFitScore returns a flat 1.0 for EVERY vendor
-    // within budget, all affordable vendors tie here and fall through to the
-    // existing distance→review order unchanged; only OVER-budget vendors sink
-    // (proportionally to how far over). Off-path (`!smartSort`) this term is a
-    // no-op (all _priceFit === PRICE_FIT_NEUTRAL) → byte-identical tail order.
-    if (smartSort && b._priceFit !== a._priceFit) {
-      return b._priceFit - a._priceFit;
-    }
-    // Reception-proximity sort is now FREE for every couple (2026-07-12) — it's
-    // part of match-based sort, no longer gated on `aiActive`. Falls back to
-    // review/rating order only when the event has no reception coords.
-    if (hasCoords) {
-      const da = a.distanceKm ?? Number.POSITIVE_INFINITY;
-      const db = b.distanceKm ?? Number.POSITIVE_INFINITY;
-      if (da !== db) return da - db;
-    }
-    return b._reviews - a._reviews || b._rating - a._rating;
-  });
+  // ── § 5 merit-first ladder (flag-gated) ──────────────────────────────────
+  // Replaces the unbounded ad_rank tier below with:
+  //   relationship → [≤2 labeled Sponsored slots] → merit-first + capped boost.
+  // Featured slots sit BELOW the relationship tier on purpose: a vendor the
+  // couple already works with is never displaced by a paid placement.
+  const featuredIds = new Set<string>();
+  let ordered: Shaped[];
 
-  let ordered = [...withRelationship, ...boosted, ...top10, ...tail];
+  if (rankBoost) {
+    const rankable: (FeaturableVendor & { _row: Shaped })[] =
+      noRelationshipShaped.map((s) => ({
+        id: s.vendorProfileId,
+        meritScore: s._merit,
+        tier: s._tier,
+        verified: s.verified,
+        tierExpiresAtMs: s._tierExpiresAtMs,
+        _row: s,
+      }));
+    const { featured, organic } = partitionFeatured(rankable, {
+      nowMs: Date.now(),
+      // Fail-closed when the tier_expires_at read failed: still rank, but sell
+      // no slots — we can't prove the paid window is open.
+      ...(featuredSlotsAllowed ? {} : { maxSlots: 0 }),
+    });
+    for (const f of featured) featuredIds.add(f.id);
+    ordered = [
+      ...withRelationship,
+      ...featured.map((f) => f._row),
+      ...organic.map((o) => o._row),
+    ];
+  } else {
+    // Tier 1 favorites: empty until the cross-event favorites table ships (V1.x).
+    // Tier 2 boosted: ad_rank desc (within the no-relationship pool).
+    const boosted = noRelationshipShaped
+      .filter((s) => s.boosted)
+      .sort(
+        (a, b) =>
+          b._adRank - a._adRank ||
+          (facetSelected ? b._facetMatch - a._facetMatch : 0),
+      );
+    const rest0 = noRelationshipShaped.filter((s) => !s.boosted);
+    // Tier 3 top-10 by review_count then rating. When the couple has an active
+    // facet selection, matched vendors float to the front of this tier first (the
+    // soft rank), so an explicit refinement surfaces matches into the top tier.
+    const byReview = [...rest0].sort(
+      (a, b) =>
+        (facetSelected ? b._facetMatch - a._facetMatch : 0) ||
+        b._reviews - a._reviews ||
+        b._rating - a._rating,
+    );
+    const top10 = byReview.slice(0, 10);
+    const top10Ids = new Set(top10.map((s) => s.vendorProfileId));
+    // Tier 4 the rest, nearest-first when we have coords, else keep review order.
+    const tail = rest0.filter((s) => !top10Ids.has(s.vendorProfileId));
+    tail.sort((a, b) => {
+      // Facet soft rank leads (only when the couple has an active selection), so a
+      // matching vendor floats above the distance/review order within the tail.
+      if (facetSelected && b._facetMatch !== a._facetMatch) {
+        return b._facetMatch - a._facetMatch;
+      }
+      // Smart-sort SOFT price-fit re-rank (flag-gated · lib/smart-sort). Scoped to
+      // the TAIL tier ONLY — the relationship / boosted / top-reviews tiers stay
+      // exactly as the owner-locked ladder puts them, so this never reorders across
+      // a tier boundary. Because priceFitScore returns a flat 1.0 for EVERY vendor
+      // within budget, all affordable vendors tie here and fall through to the
+      // existing distance→review order unchanged; only OVER-budget vendors sink
+      // (proportionally to how far over). Off-path (`!smartSort`) this term is a
+      // no-op (all _priceFit === PRICE_FIT_NEUTRAL) → byte-identical tail order.
+      if (smartSort && b._priceFit !== a._priceFit) {
+        return b._priceFit - a._priceFit;
+      }
+      // Reception-proximity sort is now FREE for every couple (2026-07-12) — it's
+      // part of match-based sort, no longer gated on `aiActive`. Falls back to
+      // review/rating order only when the event has no reception coords.
+      if (hasCoords) {
+        const da = a.distanceKm ?? Number.POSITIVE_INFINITY;
+        const db = b.distanceKm ?? Number.POSITIVE_INFINITY;
+        if (da !== db) return da - db;
+      }
+      return b._reviews - a._reviews || b._rating - a._rating;
+    });
+
+    ordered = [...withRelationship, ...boosted, ...top10, ...tail];
+  }
 
   // Show-farther expander: the default fetch already shows the in-range set, so
   // return ONLY the out-of-range vendors here (nearest-first), tagged for the
@@ -1130,6 +1282,8 @@ export async function searchCategoryVendors(input: {
     distanceKm: s.distanceKm,
     verified: s.verified,
     boosted: s.boosted,
+    // Empty set on the flag-OFF path → always false → unchanged payload.
+    featuredSlot: featuredIds.has(s.vendorProfileId),
     compatScore: s.compatScore,
     compatTier: s.compatTier,
     respondsFast: s.respondsFast,

@@ -30,6 +30,7 @@ import {
 } from '../_actions/category-search';
 import type { FacetDimension, FacetSelection } from '@/lib/vendor-facets';
 import { isSmartSortEnabled } from '@/lib/smart-sort-flag';
+import { FEATURED_LABEL, FEATURED_DISCLOSURE } from '@/lib/vendor-rank-boost';
 
 const CSS = `
 .csov{position:fixed;inset:0;z-index:120;display:flex;flex-direction:column;
@@ -59,6 +60,11 @@ const CSS = `
 .csov .r .badge{display:inline-flex;flex:0 0 auto;align-self:center;min-height:0;align-items:center;gap:3px;border-radius: var(--m-r-full);padding:2px 6px;line-height:1.4;white-space:nowrap;text-transform:uppercase}
 .csov .r .badge.vrf{color:var(--gold-deep);background:rgba(169,131,75,.16)}
 .csov .r .badge.bst{color:var(--mulberry);background:rgba(30, 26, 18,.1)}
+/* Paid Featured slot (§5). Deliberately the HIGHEST-contrast chip in the row —
+   an outlined, solid-fill mark that can't be mistaken for a trust badge. It is
+   never conditional on hover/space and never truncates: a paid placement that
+   isn't obviously a paid placement is the failure mode we're designing out. */
+.csov .r .badge.spo{font-weight:700;color:var(--ink);background:rgba(169,131,75,.28);border:1px solid var(--gold-deep)}
 /* Paid-placement disclosure + hybrid-anonymity hint — quiet, ink-soft so
    they read as clarifications, not alarms. */
 .csov .r .disclose{display:block;width:100%;margin-top:4px;font-family:var(--mono);font-size:8px;letter-spacing:.04em;color:var(--ink-soft);opacity:.82}
@@ -450,7 +456,16 @@ export function CategorySearchOverlay({
                 Replies fast
               </span>
             ) : null}
-            {r.boosted ? (
+            {/* Paid Featured slot (§5 · lib/vendor-rank-boost). Always labeled,
+                always visible. Rendered INSTEAD of the legacy "Featured" chip so
+                a row never carries two competing placement labels. `featuredSlot`
+                is false on the flag-OFF path, so this branch is unreachable and
+                the legacy chip below renders exactly as today. */}
+            {r.featuredSlot ? (
+              <span className="badge spo" title={FEATURED_DISCLOSURE}>
+                {FEATURED_LABEL}
+              </span>
+            ) : r.boosted ? (
               <span
                 className="badge bst"
                 title="Paid placement — this vendor partners with Setnayan. Not an AI recommendation."
@@ -491,7 +506,9 @@ export function CategorySearchOverlay({
           {/* Paid-placement disclosure (trust): boosted vendors float above the
               review-ranked tier; spell out that "Featured" = a paid partnership
               so couples don't read it as a Setnayan recommendation. */}
-          {r.boosted ? (
+          {r.featuredSlot ? (
+            <span className="disclose">{FEATURED_DISCLOSURE}</span>
+          ) : r.boosted ? (
             <span className="disclose">Paid partnership with Setnayan</span>
           ) : null}
           {/* Hybrid-anonymity hint: Free/Verified vendors show a placeholder

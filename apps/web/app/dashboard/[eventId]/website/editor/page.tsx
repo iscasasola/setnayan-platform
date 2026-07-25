@@ -6,6 +6,9 @@ import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { getLifecyclePhase } from '@/lib/invitation-widgets';
 import { LaunchStdButton } from '../../studio/save-the-date/_components/launch-std-button';
 import { EditorShell, type RailGroup } from './_components/editor-shell';
+import { TextPanel } from './_components/text-panel';
+import { updateSpecialMessage } from '../special-message/actions';
+import { updateWhatToBring } from '../what-to-bring/actions';
 
 export const metadata = { title: 'Website editor' };
 
@@ -28,10 +31,13 @@ export const metadata = { title: 'Website editor' };
  */
 export default async function WebsiteEditorPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ eventId: string }>;
+  searchParams: Promise<{ open?: string }>;
 }) {
   const { eventId } = await params;
+  const { open: openRow } = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
@@ -40,7 +46,7 @@ export default async function WebsiteEditorPage({
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, slug, event_type, event_date, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_bg_color, site_button_color',
+      'event_id, display_name, slug, event_type, event_date, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_bg_color, site_button_color, special_message, what_to_bring',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -182,6 +188,20 @@ export default async function WebsiteEditorPage({
           blurb: 'A note to your guests.',
           href: `${w}/special-message`,
           anchor: 'details',
+          status: event.special_message ? 'Written' : 'Not set',
+          // Inline panel (PR-3) — posts to the SAME action the sub-page uses.
+          panel: (
+            <TextPanel
+              action={updateSpecialMessage.bind(null, eventId)}
+              eventId={eventId}
+              rowKey="special-message"
+              name="message"
+              label="Your message"
+              maxLength={600}
+              placeholder="A heartfelt note to everyone joining you…"
+              defaultValue={(event.special_message as string | null) ?? ''}
+            />
+          ),
         },
         {
           key: 'what-to-bring',
@@ -189,6 +209,19 @@ export default async function WebsiteEditorPage({
           blurb: 'Gifts, registry, or a kind no-gift note.',
           href: `${w}/what-to-bring`,
           anchor: 'details',
+          status: event.what_to_bring ? 'Written' : 'Not set',
+          panel: (
+            <TextPanel
+              action={updateWhatToBring.bind(null, eventId)}
+              eventId={eventId}
+              rowKey="what-to-bring"
+              name="note"
+              label="What to bring"
+              maxLength={600}
+              placeholder="Gifts, registry, or a kind no-gift note…"
+              defaultValue={(event.what_to_bring as string | null) ?? ''}
+            />
+          ),
         },
         {
           key: 'sections-order',
@@ -225,6 +258,7 @@ export default async function WebsiteEditorPage({
       groups={groups}
       publicLandingUrl={slug ? `/${slug}` : null}
       initialPhase={initialPhase}
+      initialOpenRow={typeof openRow === 'string' ? openRow : null}
       proUnlockHref={`${base}/studio/website-pro`}
       liveHref={slug ? `/${slug}` : null}
       goLiveSlot={

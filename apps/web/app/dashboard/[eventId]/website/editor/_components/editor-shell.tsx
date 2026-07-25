@@ -2,7 +2,14 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, ExternalLink, Lock, PanelsTopLeft, Smartphone } from 'lucide-react';
+import {
+  ArrowUpRight,
+  ChevronRight,
+  ExternalLink,
+  Lock,
+  PanelsTopLeft,
+  Smartphone,
+} from 'lucide-react';
 
 /**
  * EditorShell — the unified website editor's two-pane client shell
@@ -33,6 +40,11 @@ export type RailRow = {
   /** Website Pro item — gold tag; `locked` adds the lock affordance. */
   pro?: boolean;
   locked?: boolean;
+  /** Inline edit panel (PR-3) — rendered by the SERVER component with the
+   *  feature's own bound server action, so this client shell only toggles its
+   *  visibility and never owns a write path. When absent the row stays a
+   *  deep-link to the editor that owns the setting. */
+  panel?: React.ReactNode;
 };
 
 export type RailGroup = {
@@ -54,6 +66,7 @@ export function EditorShell({
   groups,
   publicLandingUrl,
   initialPhase,
+  initialOpenRow = null,
   proUnlockHref,
   liveHref,
   goLiveSlot,
@@ -62,13 +75,16 @@ export function EditorShell({
   /** `/[slug]` — null when the couple has no URL yet. */
   publicLandingUrl: string | null;
   initialPhase: PhaseKey;
+  /** `?open=<rowKey>` — the row a save redirected back to (PR-3). */
+  initialOpenRow?: string | null;
   proUnlockHref: string;
   liveHref: string | null;
   /** The go-live / schedule control (server component passed as a child). */
   goLiveSlot?: React.ReactNode;
 }) {
   const [phase, setPhase] = useState<PhaseKey>(initialPhase);
-  const [activeRow, setActiveRow] = useState<string | null>(null);
+  const [activeRow, setActiveRow] = useState<string | null>(initialOpenRow);
+  const [openPanel, setOpenPanel] = useState<string | null>(initialOpenRow);
   const [mobilePane, setMobilePane] = useState<'edit' | 'preview'>('edit');
   const frameRef = useRef<HTMLIFrameElement | null>(null);
 
@@ -166,56 +182,100 @@ export function EditorShell({
                 ) : null}
               </p>
               <div className="mt-2 flex flex-col gap-1.5">
-                {group.rows.map((row) => (
-                  <Link
-                    key={row.key}
-                    id={`rail-row-${row.key}`}
-                    href={row.href}
-                    onMouseEnter={() => scrollPreviewTo(row.anchor)}
-                    onFocus={() => scrollPreviewTo(row.anchor)}
-                    onClick={() => {
-                      setActiveRow(row.key);
-                      scrollPreviewTo(row.anchor);
-                    }}
-                    className={`flex items-center gap-2.5 rounded-xl border bg-white px-3 py-2.5 transition-colors ${
-                      activeRow === row.key
-                        ? 'border-amber-400 ring-2 ring-amber-200'
-                        : 'border-ink/10 hover:border-ink/25'
-                    }`}
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[0.82rem] font-semibold text-ink">
-                        {row.label}
-                      </span>
-                      {row.blurb ? (
-                        <span className="block text-[0.7rem] text-ink/50">{row.blurb}</span>
-                      ) : null}
-                    </span>
-                    {row.pro ? (
-                      <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[0.6rem] font-bold uppercase tracking-wide text-amber-800">
-                        {row.locked ? (
-                          <Lock aria-hidden className="mr-0.5 inline h-2.5 w-2.5" strokeWidth={2.5} />
+                {group.rows.map((row) => {
+                  const isActive = activeRow === row.key;
+                  const isOpen = openPanel === row.key;
+                  const meta = (
+                    <>
+                      <span className="min-w-0 flex-1 text-left">
+                        <span className="block text-[0.82rem] font-semibold text-ink">
+                          {row.label}
+                        </span>
+                        {row.blurb ? (
+                          <span className="block text-[0.7rem] text-ink/50">{row.blurb}</span>
                         ) : null}
-                        Pro
                       </span>
-                    ) : row.status ? (
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-[0.65rem] font-medium ${
-                          row.status === 'Not set' || row.status === 'Off' || row.status === 'Hidden'
-                            ? 'bg-ink/5 text-ink/55'
-                            : 'bg-success-100 text-success-800'
-                        }`}
-                      >
-                        {row.status}
-                      </span>
-                    ) : null}
-                    <ExternalLink
-                      aria-hidden
-                      className="h-3 w-3 shrink-0 text-ink/30"
-                      strokeWidth={2}
-                    />
-                  </Link>
-                ))}
+                      {row.pro ? (
+                        <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[0.6rem] font-bold uppercase tracking-wide text-amber-800">
+                          {row.locked ? (
+                            <Lock
+                              aria-hidden
+                              className="mr-0.5 inline h-2.5 w-2.5"
+                              strokeWidth={2.5}
+                            />
+                          ) : null}
+                          Pro
+                        </span>
+                      ) : row.status ? (
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[0.65rem] font-medium ${
+                            row.status === 'Not set' ||
+                            row.status === 'Off' ||
+                            row.status === 'Hidden'
+                              ? 'bg-ink/5 text-ink/55'
+                              : 'bg-success-100 text-success-800'
+                          }`}
+                        >
+                          {row.status}
+                        </span>
+                      ) : null}
+                    </>
+                  );
+                  const shellClass = `rounded-xl border bg-white transition-colors ${
+                    isActive ? 'border-amber-400 ring-2 ring-amber-200' : 'border-ink/10'
+                  }`;
+
+                  // Rows WITH an inline panel expand in place (PR-3); rows
+                  // without one still deep-link to the editor that owns them.
+                  if (row.panel) {
+                    return (
+                      <div key={row.key} id={`rail-row-${row.key}`} className={shellClass}>
+                        <button
+                          type="button"
+                          onMouseEnter={() => scrollPreviewTo(row.anchor)}
+                          onClick={() => {
+                            setActiveRow(row.key);
+                            setOpenPanel(isOpen ? null : row.key);
+                            scrollPreviewTo(row.anchor);
+                          }}
+                          aria-expanded={isOpen}
+                          className="flex w-full items-center gap-2.5 px-3 py-2.5 hover:bg-cream/40"
+                        >
+                          {meta}
+                          <ChevronRight
+                            aria-hidden
+                            className={`h-3.5 w-3.5 shrink-0 text-ink/30 transition-transform ${
+                              isOpen ? 'rotate-90' : ''
+                            }`}
+                            strokeWidth={2}
+                          />
+                        </button>
+                        {isOpen ? row.panel : null}
+                      </div>
+                    );
+                  }
+                  return (
+                    <Link
+                      key={row.key}
+                      id={`rail-row-${row.key}`}
+                      href={row.href}
+                      onMouseEnter={() => scrollPreviewTo(row.anchor)}
+                      onFocus={() => scrollPreviewTo(row.anchor)}
+                      onClick={() => {
+                        setActiveRow(row.key);
+                        scrollPreviewTo(row.anchor);
+                      }}
+                      className={`flex items-center gap-2.5 px-3 py-2.5 ${shellClass} hover:border-ink/25`}
+                    >
+                      {meta}
+                      <ExternalLink
+                        aria-hidden
+                        className="h-3 w-3 shrink-0 text-ink/30"
+                        strokeWidth={2}
+                      />
+                    </Link>
+                  );
+                })}
               </div>
             </section>
           ))}

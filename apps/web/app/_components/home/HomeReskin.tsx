@@ -170,6 +170,23 @@ export function HomeReskin({
     }, 70);
   }, []);
 
+  // ── Deep links into the below-fold content survive the gate ──
+  // The gate scroll-locks <html> on mount, so landing on `/#what-is-setnayan`
+  // (or any in-content anchor) would otherwise strand the visitor on the hero
+  // with the target unreachable — the browser's own hash jump gets undone the
+  // moment `hr-gate-closed` lands. Open the gate and scroll to the target
+  // instead. Scoped to ids INSIDE #hr-content so a `#hr-hero` link (or any
+  // stray hash) still leaves the cinematic gate closed as designed.
+  useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (!id) return;
+    if (!document.getElementById(id)?.closest('#hr-content')) return;
+    openGate(id);
+    // Mount-only: a later in-page hash change is an ordinary anchor jump, and
+    // by then the gate is already open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Logo = Home: restore hero, scroll to top, re-lock the gate.
   const goHome = useCallback(() => {
     const reduce = reduceMotion();
@@ -734,6 +751,43 @@ export function HomeReskin({
           <Link className="hr-btn-dark" href="/onboarding/wedding">
             Start planning · free
           </Link>
+        </section>
+
+        {/* ── "What is Setnayan?" — the plain-language statement of purpose ──
+            Everything else on this page is editorial: the copy evokes rather
+            than explains, and the concrete description of what the product IS
+            lived only in metadata + the JSON-LD graph. That's fine for a
+            visitor and NOT fine for a reviewer, and it cost us a Google OAuth
+            brand verification (2026-07-25) on two counts: "your home page does
+            not explain the purpose of your app", and the OAuth consent-screen
+            app name "Setnayan" not matching the page — the visible wordmark
+            renders "SETNAYAN" in caps and the title-case string never appeared
+            as prose.
+
+            So this block is deliberately literal, and three things in it are
+            load-bearing — do not "tighten" them away:
+              1. the literal title-case string "Setnayan" as body prose,
+              2. a plain description of what the app does,
+              3. the explicit statement that Live Studio creates a YouTube live
+                 broadcast — that's the justification Google's SENSITIVE-SCOPE
+                 review asks for next, and it has to be visible on the homepage
+                 before that review, not after it fails.
+            Anchored as #what-is-setnayan so the URL can be handed to a reviewer
+            directly (see the hash-deep-link effect above). */}
+        <section className="hr-about" id="what-is-setnayan">
+          <div className="hr-pnum">What is Setnayan?</div>
+          <h2 className="hr-pname">
+            Setnayan is a Philippines-first platform for planning life’s events.
+          </h2>
+          <p className="hr-adef">
+            Couples plan a wedding on Setnayan for free — guest list, seating chart, budget,
+            verified vendors at 0% commission, and a live event page for their guests. Optional
+            paid upgrades set the day apart: <em>Papic</em> turns the guests’ own phones into a
+            photo-and-video crew, <em>Setnayan AI</em> drafts the timeline and matches vendors,
+            and <em>Live Studio</em> creates the couple’s own YouTube live broadcast and streams
+            the ceremony to it, so family working abroad can watch the moment it happens. Every
+            photo, video, and milestone gathers into one living memory the couple keeps, for life.
+          </p>
         </section>
 
         <ReskinFooter />

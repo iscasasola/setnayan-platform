@@ -1454,6 +1454,40 @@ html.hr-snap {
   color: var(--hr-ink);
   font-weight: 600;
 }
+/* "What is Setnayan?" — the plain-language purpose block that sits between the
+   close and the footer (see HomeReskin.tsx for why it exists). Compact on
+   purpose: it is a statement, not another 100dvh beat. It DOES take a
+   `scroll-snap-align` though — `html.hr-snap` is `y mandatory`, so a section
+   without one is not a snap stop and the scroller would step straight from
+   .hr-close to the footer, skating past this block. It has to be a place the
+   scroll actually stops. */
+.home-reskin .hr-about {
+  min-height: 62vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: max(68px, 7vh) 24px max(48px, 5vh);
+  scroll-snap-align: start;
+  border-top: 1px solid var(--hr-line);
+}
+/* Wider measure than .hr-pdef (540px) — this paragraph is a full description,
+   not a one-line pillar caption, and 540px would run it to eight-plus lines. */
+.home-reskin .hr-about .hr-adef {
+  max-width: 760px;
+  font-size: clamp(0.95rem, 1.7vw, 1.08rem);
+  font-weight: 300;
+  color: var(--hr-grey);
+  line-height: 1.62;
+  margin: 14px 0 0;
+}
+.home-reskin .hr-about .hr-adef em {
+  font-style: normal;
+  font-weight: 500;
+  color: var(--hr-ink);
+}
+
 .home-reskin .hr-btn-dark {
   margin-top: 30px;
   display: inline-flex;

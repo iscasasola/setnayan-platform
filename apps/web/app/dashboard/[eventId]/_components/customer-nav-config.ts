@@ -28,7 +28,7 @@
  *      Store catalog rows + the hub's "Set up & manage" doorway block, NOT the
  *      rail — owner 2026-07-15 "no submenus")
  * GO LIVE items:
- *   5. Launch   → /[slug] (or /website/launch pre-slug) — gated on websiteEnabled.
+ *   5. Launch   → /website/editor (the unified editor) — gated on websiteEnabled.
  *
  * BUDGET removed 2026-07-10 (owner) — the standalone top-level Budget menu (and
  * its Activity + Disputes children) is GONE, matching the mobile SSOT
@@ -107,7 +107,7 @@ export function buildCustomerNavGroups(
     monogramEnabled?: boolean;
     /** The event's public slug. Retained for callers/other consumers; the
      *  "Launch" entry no longer routes on it (owner 2026-07-24 — Launch opens
-     *  the settings-first `/website/launch` surface, which links to the live
+     *  the unified website editor, which links to the live
      *  `/[slug]` via "View my site"). */
     slug?: string | null;
     /** Live guest count → the Guests item's badge (neutral tone). Resolved
@@ -119,7 +119,7 @@ export function buildCustomerNavGroups(
 
   // Launch = the couple's website control surface. It lives in its OWN "Go live"
   // section (design: setnayan-overview-energy.html), not among the Plan items.
-  // OPENS THE SETTINGS-FIRST LAUNCH SURFACE (`/website/launch`) — owner
+  // OPENS THE UNIFIED WEBSITE EDITOR (`/website/editor`) — owner
   // 2026-07-24 "when we open Launch, instead of the website, we start by the
   // settings (free) and the settings when Website Pro is unlocked". (Supersedes
   // the 2026-07-02 "open the live `/[slug]` directly" ruling; the live site is
@@ -129,9 +129,9 @@ export function buildCustomerNavGroups(
     ? {
         key: 'launch',
         label: 'Launch',
-        href: `${base}/website/launch`,
+        href: `${base}/website/editor`,
         icon: Rocket,
-        matchPrefix: `${base}/website/launch`,
+        matchPrefix: `${base}/website`,
       }
     : null;
 

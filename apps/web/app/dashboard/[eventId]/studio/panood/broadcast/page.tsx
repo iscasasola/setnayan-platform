@@ -154,6 +154,15 @@ export default async function PanoodControlRoomPage({ params }: Props) {
     firstLiveAt: controlState?.first_live_at ?? null,
     isLive: controlState?.is_live ?? false,
     now: new Date(),
+    // 🚫 WAVE 7 · the full-screen overlay is RETIRED (owner 2026-07-25 · § 4f ①). One flag here
+    // turns it off on all three surfaces at once, because they all read this one decision: the
+    // program monitor, the source thumbnails, and the OBS pop-out (over the program bridge).
+    //
+    // Flag-conditional on purpose. With the flag ON this room already redirects to the unified
+    // controller (the guard at the top of this component), so this is the STATED decision behind
+    // what routing alone was doing — and it holds if that redirect ever changes. With the flag OFF
+    // this room is live and selling PANOOD_SYSTEM, where the overlay is still the only paywall.
+    retired: liveStudioRoamEnabled(),
   });
 
   return (

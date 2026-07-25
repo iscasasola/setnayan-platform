@@ -3,7 +3,10 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { normalizeYouTubeWatchUrl } from '@/lib/panood-watch';
+import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
+import { stampFirstLiveAt } from '@/lib/live-studio-window-server';
 import {
   getEventYoutubeAccessToken,
   createPanoodBroadcast,
@@ -196,7 +199,30 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
       .eq('event_id', eventId);
   }
 
-  // (g) Refresh the setup page (so the OBS card appears) + the public page embed.
+  // (g) ⭐ WAVE 7 · STAMP THE BROADCAST-WINDOW ANCHOR
+  //     (owner-locked 2026-07-25 · Live_Studio_Unified_Spec § 4f ② · lib/live-studio-window.ts)
+  //
+  // ₱2,999 buys ONE EVENT-DAY of multi-cam broadcasting, anchored on FIRST GO-LIVE rather than a
+  // calendar day — no timezone ambiguity, and buying early costs the couple nothing because the
+  // clock does not start until this line runs. Wave 5 noted that the unified go-live path never
+  // wrote `first_live_at`; this is that gap closed.
+  //
+  // AFTER the broadcast is persisted, deliberately: every failure above returns early, so a
+  // go-live that never reached YouTube cannot burn a day the couple paid for. Write-once by DB
+  // trigger (trg_panood_first_live_at_immutable), so pressing live again can never move, restart
+  // or extend the window. Admin client because `panood_control_state` is couple-RLS and a
+  // coordinator running the controller must still be able to start the show.
+  //
+  // FLAG-GATED. `first_live_at` is ALSO read by the legacy 24-hour watermark model
+  // (lib/panood-watermark.ts), which is untouched while the flag is off — stamping it there would
+  // start that clock for a host pressing go-live on the setup page, which is a live behaviour
+  // change on a selling product. Flag on, the legacy model is retired (§ 4f ①) and this anchor is
+  // the only thing reading the column.
+  if (liveStudioRoamEnabled()) {
+    await stampFirstLiveAt(createAdminClient(), eventId);
+  }
+
+  // (h) Refresh the setup page (so the OBS card appears) + the public page embed.
   // Also refresh the unified Live Studio controller, which mounts this same
   // GoLiveCard (2026-07-25) — so its live monitor reflects the new broadcast.
   revalidatePath(`/dashboard/${eventId}/studio/panood/setup`);

@@ -38,7 +38,12 @@ import {
 import { VENDOR_PHOTO_CHALLENGE_SKU_CODE } from '@/lib/vendor-photo-challenge';
 import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
 import { resolveAddonDeactivationExpiry } from '@/lib/vendor-addon-deactivation';
-import { isTierAtLeast, type VendorTier } from '@/lib/vendor-tier-caps';
+import { type VendorTier } from '@/lib/vendor-tier-caps';
+import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
+import {
+  vendorAddonActivationAllowed,
+  vendorAddonActivationBlockedReason,
+} from '@/lib/vendor-addon-activation-gate';
 import * as Sentry from '@sentry/nextjs';
 import {
   runAndRecordVendorDeepSearch,
@@ -87,11 +92,26 @@ type ActivationHook = (ctx: ActivationContext) => Promise<void>;
  * the dispatcher's outer catch logs + Sentry-reports it and the order stays
  * recoverable (admin can refund). Reads tier_state + verification_state with the
  * admin client (RLS-bypassed).
+ *
+ * ⚠ `allTiersAllowed` — pass TRUE for an add-on whose BUY path is open to every
+ * tier, and the TIER half of this assertion is skipped (verification still
+ * required, always). Under the 2026-07-25 tiered add-on model the Papic Challenge
+ * (#3692/#3697) and 3D Plan Ads (#3699) buy actions sell to Free/Solo at the entry
+ * price; without this, that vendor pays and then activation THROWS here on admin
+ * approval — money taken, entitlement never granted. The tier floor must move in
+ * lock-step with the buy gate, so both read the same
+ * `isVendorAddonTieredPricingEnabled()` switch.
+ *
+ * This is also why tier is the RIGHT half to relax and verification is not: the
+ * price band was fixed when the order was created, so a tier that changes during
+ * the 24-hr approval window must not retroactively void a paid entitlement —
+ * whereas losing verification genuinely should block provisioning.
  */
 async function assertVendorAddonActivationEligible(
   ctx: ActivationContext,
   vendorProfileId: string,
   minTier: VendorTier,
+  allTiersAllowed = false,
 ): Promise<void> {
   const { data: gate } = await ctx.admin
     .from('vendor_profiles')
@@ -101,10 +121,11 @@ async function assertVendorAddonActivationEligible(
   const tier = (gate as { tier_state?: string | null } | null)?.tier_state ?? null;
   const verification =
     (gate as { verification_state?: string | null } | null)?.verification_state ?? null;
-  if (!isTierAtLeast(tier, minTier) || verification !== 'verified') {
+  const verdict = { tier, verification, minTier, allTiersAllowed };
+  if (!vendorAddonActivationAllowed(verdict)) {
     throw new Error(
-      `vendor add-on activation blocked: ${ctx.serviceKey} requires ${minTier}+ and verified ` +
-        `(tier=${tier ?? 'null'}, verification=${verification ?? 'null'})`,
+      `vendor add-on activation blocked: ${ctx.serviceKey} ` +
+        vendorAddonActivationBlockedReason(verdict),
     );
   }
 }
@@ -411,8 +432,16 @@ async function activateVendor3dBoothOrder(ctx: ActivationContext): Promise<void>
   if (!vendorProfileId) return;
 
   // (2b) S2 — re-assert Pro+ & verified on the paying vendor (booth branding is a
-  // Pro perk; defence in depth against a comp/self-comp bypass).
-  await assertVendorAddonActivationEligible(ctx, vendorProfileId, 'pro');
+  // Pro perk; defence in depth against a comp/self-comp bypass). The tier floor
+  // LIFTS in lock-step with the buy gate (#3699 sells 3D Plan Ads to every tier
+  // when the tiered add-on model is on) — otherwise a Free/Solo vendor pays and
+  // this throws on approval. Verified is still required either way.
+  await assertVendorAddonActivationEligible(
+    ctx,
+    vendorProfileId,
+    'pro',
+    isVendorAddonTieredPricingEnabled(),
+  );
 
   // (3) Current window + trial marker → the new (stacked) expiry.
   const { data: vp } = await ctx.admin
@@ -499,7 +528,16 @@ async function activatePhotoChallengeSponsorship(ctx: ActivationContext): Promis
   if (!vendorProfileId) return;
 
   // (2b) S2 — re-assert Pro+ & verified on the paying vendor (defence in depth).
-  await assertVendorAddonActivationEligible(ctx, vendorProfileId, 'pro');
+  // The tier floor LIFTS in lock-step with the buy gate (#3692/#3697 sell Papic
+  // Challenges to every tier when the tiered add-on model is on) — otherwise a
+  // Free/Solo vendor pays ₱500 and this throws on approval, taking their money
+  // without granting the sponsorship. Verified is still required either way.
+  await assertVendorAddonActivationEligible(
+    ctx,
+    vendorProfileId,
+    'pro',
+    isVendorAddonTieredPricingEnabled(),
+  );
 
   // (3) Upsert the entitlement. ignoreDuplicates → INSERT … ON CONFLICT
   //     (event_id, vendor_profile_id) DO NOTHING: a vendor holds at most one

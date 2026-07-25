@@ -468,7 +468,9 @@ export const routes = {
   resetPassword: () => `/reset-password`,
   signup: () => `/signup`,
   siteEditor: {
-    detail: (eventId: string) => `/site-editor/${eventId}`,
+    // Unified Website Editor (2026-07-25) — the legacy /site-editor is retired to
+    // a redirect; point callers straight at the one editor.
+    detail: (eventId: string) => `/dashboard/${eventId}/website/editor`,
   },
   sitemapBlogXml: () => `/sitemap-blog.xml`,
   sitemapHelpXml: () => `/sitemap-help.xml`,

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { hasContent, isWidgetType, type WidgetType } from '@/lib/invitation-widgets';
 import { requireHostMembershipOrThrow } from '@/lib/host-gate';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
+import { resolveReturnTo } from '@/lib/editor-return';
 import {
   SECTION_CONTENT_EVENT_COLUMNS,
   computeSectionContentMap,
@@ -116,7 +117,13 @@ export async function toggleWidgetVisibility(formData: FormData): Promise<void> 
   if (row.is_always_on && !nextVisible) {
     // Blocked — always-on widgets cannot be hidden. Silently no-op
     // rather than throw, matching the editor UI's disabled-checkbox UX.
-    redirect(`/dashboard/${eventId}/website/widgets?error=always_on`);
+    redirect(
+      resolveReturnTo(
+        formData,
+        `/dashboard/${eventId}/website/widgets?error=always_on`,
+        '?error=always_on',
+      ),
+    );
   }
 
   const { error: updateErr } = await supabase
@@ -130,7 +137,9 @@ export async function toggleWidgetVisibility(formData: FormData): Promise<void> 
   }
 
   await revalidateForWidgetChange(eventId);
-  redirect(`/dashboard/${eventId}/website/widgets?saved=1`);
+  redirect(
+    resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'),
+  );
 }
 
 // The three legal open-browse section modes (matches the CHECK constraint on
@@ -208,7 +217,7 @@ export async function setSectionMode(formData: FormData): Promise<void> {
     // Always-on sections are never holdable (council §1.4 "Home and Me are
     // never holdable"). Silent no-op rather than throw — the editor UI never
     // renders this control for always-on rows, but a hand-crafted POST could.
-    redirect(`/dashboard/${eventId}/website/widgets`);
+    redirect(resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets`));
   }
 
   const widgetType = row.widget_type as WidgetType;
@@ -240,7 +249,13 @@ export async function setSectionMode(formData: FormData): Promise<void> {
       }) as SectionContentEvent,
     );
     if (!hasContent(widgetType, contentMap)) {
-      redirect(`/dashboard/${eventId}/website/widgets?error=empty_source`);
+      redirect(
+      resolveReturnTo(
+        formData,
+        `/dashboard/${eventId}/website/widgets?error=empty_source`,
+        '?error=empty_source',
+      ),
+    );
     }
   }
 
@@ -251,11 +266,19 @@ export async function setSectionMode(formData: FormData): Promise<void> {
     .eq('event_id', eventId);
 
   if (updateErr) {
-    redirect(`/dashboard/${eventId}/website/widgets?error=mode_write`);
+    redirect(
+      resolveReturnTo(
+        formData,
+        `/dashboard/${eventId}/website/widgets?error=mode_write`,
+        '?error=mode_write',
+      ),
+    );
   }
 
   await revalidateForWidgetChange(eventId);
-  redirect(`/dashboard/${eventId}/website/widgets?saved=1`);
+  redirect(
+    resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'),
+  );
 }
 
 /**
@@ -324,7 +347,7 @@ async function moveWidget(formData: FormData, direction: 'up' | 'down'): Promise
   if (movingIndex === -1) {
     // Widget either doesn't exist on this event OR is_always_on (we
     // filter to is_always_on=false above). Either way silent no-op.
-    redirect(`/dashboard/${eventId}/website/widgets`);
+    redirect(resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets`));
   }
 
   const movingRow = rows[movingIndex]!;
@@ -334,7 +357,7 @@ async function moveWidget(formData: FormData, direction: 'up' | 'down'): Promise
   // a host mashing the Up arrow on the topmost widget doesn't see an
   // error toast.
   if (neighborIndex < 0 || neighborIndex >= rows.length) {
-    redirect(`/dashboard/${eventId}/website/widgets`);
+    redirect(resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets`));
   }
 
   const neighborRow = rows[neighborIndex]!;
@@ -363,5 +386,7 @@ async function moveWidget(formData: FormData, direction: 'up' | 'down'): Promise
   }
 
   await revalidateForWidgetChange(eventId);
-  redirect(`/dashboard/${eventId}/website/widgets?saved=1`);
+  redirect(
+    resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'),
+  );
 }

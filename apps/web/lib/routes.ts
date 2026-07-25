@@ -294,6 +294,16 @@ export const routes = {
       },
       indoorBlueprint: (eventId: string) => `/dashboard/${eventId}/studio/indoor-blueprint`,
       led: (eventId: string) => `/dashboard/${eventId}/studio/led`,
+      // Live Studio — the UNIFIED controller (owner 2026-07-25). Registry entries
+      // for the live route folders, which were missing. ⚠ Do NOT link straight to
+      // `control` from a doorway: while NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED is off
+      // this surface notFound()s. Doorways call
+      // lib/live-studio-control.ts → liveStudioControllerHref(), which picks
+      // between this and `panood.broadcast` on the flag.
+      liveStudioControl: {
+        index: (eventId: string) => `/dashboard/${eventId}/studio/live-studio-control`,
+        control: (eventId: string) => `/dashboard/${eventId}/studio/live-studio-control/setup`,
+      },
       moodBoard: {
         index: (eventId: string) => `/dashboard/${eventId}/studio/mood-board`,
         conceptPdf: (eventId: string) => `/dashboard/${eventId}/studio/mood-board/concept-pdf`,
@@ -301,6 +311,10 @@ export const routes = {
       pakanta: (eventId: string) => `/dashboard/${eventId}/studio/pakanta`,
       panood: {
         index: (eventId: string) => `/dashboard/${eventId}/studio/panood`,
+        // The LEGACY Cast control room. Still the real route (and still selling)
+        // while the unified Live Studio flag is off; when the flag is on it
+        // redirects to addOns.liveStudioControl.control. Link to a control room
+        // via liveStudioControllerHref(), never this builder.
         broadcast: (eventId: string) => `/dashboard/${eventId}/studio/panood/broadcast`,
         reviews: (eventId: string) => `/dashboard/${eventId}/studio/panood/reviews`,
         setup: (eventId: string) => `/dashboard/${eventId}/studio/panood/setup`,

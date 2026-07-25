@@ -32,6 +32,13 @@
  *   9. CAP        — 12 configured cameras render 12 channels, and the cap closes.
  *  10. READY      — the tile states the channel's REAL join state; no faked preview.
  *
+ * Plus WAVE 6 "one controller" (owner 2026-07-25 · §§ 4b–4d):
+ *
+ *  11. ROUTER     — every doorway resolves its control-room href through ONE
+ *                   flag-aware function, so the legacy Cast room and the unified
+ *                   controller can never be half-switched. Flag off = the legacy
+ *                   room, exactly as today; flag on = the unified controller.
+ *
  * Run: `pnpm test:unit`  (CI: the "unit tests" step).
  */
 import { test } from 'node:test';
@@ -54,6 +61,9 @@ import {
   liveStudioDetailPath,
   liveStudioControlPath,
   liveStudioControlLock,
+  liveStudioControllerHref,
+  liveStudioControllerHrefFor,
+  panoodBroadcastPath,
   rehearseFreeNotice,
   showRehearsalUnlockNotice,
   type ControlZone,
@@ -352,4 +362,74 @@ test('CAP — a full 12-camera grid renders 12 channels and closes the cap', () 
   assert.equal(tiles[MAX_ROAM_ZONES - 1]!.channel, MAX_ROAM_ZONES + 1);
   assert.equal(new Set(tiles.map((t) => t.key)).size, MAX_ROAM_ZONES, 'keys are unique');
   assert.equal(canAddZone(zones.length), false, 'the Add-camera tile must not render');
+});
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   WAVE 6 · ONE CONTROLLER — the flag-aware doorway router
+   (owner 2026-07-25 · Live_Studio_Unified_Spec §§ 4b–4d.)
+
+   Two control rooms exist in the tree while the consolidation is dark: the LEGACY
+   Cast room (/studio/panood/broadcast — live and selling) and the UNIFIED
+   controller (/studio/live-studio-control/setup). Six doorways link to "the
+   control room", and the switchover has to be ATOMIC — a doorway left pointing at
+   a room that now redirects, or a host mid-show landing on the wrong screen, is
+   the failure that matters. These lock the single router every doorway calls.
+   ────────────────────────────────────────────────────────────────────────────── */
+
+test('ROUTER — flag OFF resolves to the LEGACY Cast control room, unchanged', () => {
+  assert.equal(
+    liveStudioControllerHrefFor('S89E-abc', false),
+    '/dashboard/S89E-abc/studio/panood/broadcast',
+  );
+  assert.equal(liveStudioControllerHrefFor('S89E-abc', false), panoodBroadcastPath('S89E-abc'));
+});
+
+test('ROUTER — flag ON resolves to the UNIFIED controller', () => {
+  assert.equal(
+    liveStudioControllerHrefFor('S89E-abc', true),
+    '/dashboard/S89E-abc/studio/live-studio-control/setup',
+  );
+  assert.equal(liveStudioControllerHrefFor('S89E-abc', true), liveStudioControlPath('S89E-abc'));
+});
+
+test('ROUTER — the two rooms are never the same URL (no accidental self-redirect)', () => {
+  // The legacy page redirects to liveStudioControlPath when the flag is on. If
+  // these ever collided, that redirect would be a loop.
+  assert.notEqual(panoodBroadcastPath('E1'), liveStudioControlPath('E1'));
+});
+
+test('ROUTER — the env wrapper reads the launch flag, and only "true" flips it', () => {
+  const prior = process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED;
+  try {
+    delete process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED;
+    assert.equal(
+      liveStudioControllerHref('E1'),
+      panoodBroadcastPath('E1'),
+      'unset = today = the legacy room',
+    );
+
+    process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED = 'false';
+    assert.equal(liveStudioControllerHref('E1'), panoodBroadcastPath('E1'));
+
+    // Anything that isn't exactly 'true' must NOT retire a live, selling surface.
+    process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED = 'TRUE';
+    assert.equal(liveStudioControllerHref('E1'), panoodBroadcastPath('E1'));
+
+    process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED = 'true';
+    assert.equal(liveStudioControllerHref('E1'), liveStudioControlPath('E1'));
+  } finally {
+    if (prior === undefined) delete process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED;
+    else process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED = prior;
+  }
+});
+
+test('ROUTER — the resolved room is always a real route under this event', () => {
+  for (const enabled of [false, true]) {
+    const href = liveStudioControllerHrefFor('S89E-zzz', enabled);
+    assert.ok(href.startsWith('/dashboard/S89E-zzz/studio/'), href);
+    assert.ok(!href.includes('undefined'), href);
+    // Never the DETAIL/buy page — a doorway labelled "control room" must open the
+    // control room, not the sales surface.
+    assert.notEqual(href, liveStudioDetailPath('S89E-zzz'));
+  }
 });

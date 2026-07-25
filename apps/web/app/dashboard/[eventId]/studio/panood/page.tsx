@@ -15,6 +15,7 @@ import {
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { fetchAddOnStats } from '@/lib/add-on-stats';
 import { resolveAddOnState } from '@/lib/add-on-state';
+import { liveStudioControllerHref } from '@/lib/live-studio-control';
 // 2026-05-29 Day 2 inline-checkout sprint (CLAUDE.md Day 2 row · V1 SCOPE
 // EXPANSION). The per-plan "Add to event" CTA in ChoosePlanSheet now opens
 // the InlineCheckoutDrawer · pass BDO + GCash settings from platform_settings
@@ -75,15 +76,21 @@ export default async function PanoodAppStorePage({ params }: Props) {
   if (!event) notFound();
 
   const setupHref = `/dashboard/${eventId}/studio/panood/setup`;
-  const controlRoomHref = `/dashboard/${eventId}/studio/panood/broadcast`;
+  // ONE CONTROLLER (Wave 6): this is the Cast tile's "owned → open it" target and
+  // feeds resolveAddOnState below, so an existing PANOOD_SYSTEM buyer's launch CTA
+  // moves to the unified controller in the same flag flip that retires the legacy
+  // room. Their Cast order still unlocks it — PANOOD_SYSTEM is an ownership alias
+  // for LIVE_STUDIO (SKU_OWNERSHIP_ALIASES in lib/entitlements.ts).
+  const controlRoomHref = liveStudioControllerHref(eventId);
 
   // Parallel-fetch the platform settings alongside stats + state. The
   // settings feed the InlineCheckoutDrawer in ChoosePlanSheet · zero
   // extra round-trips because we're already awaiting two things here.
   //
-  // The PAID multicam controller opens the CONTROL ROOM (./broadcast) once
-  // owned — so the resolved 'launch' href routes there, not to the free
-  // ./setup relay.
+  // The PAID multicam controller opens THE CONTROL ROOM once owned — so the
+  // resolved 'launch' href routes there, not to the free ./setup relay. Which
+  // room that is now depends on the unified flag (controlRoomHref above), never
+  // on a path written here.
   const [stats, stateCtx, settings, panoodSku] = await Promise.all([
     fetchAddOnStats(supabase, 'panood'),
     resolveAddOnState(supabase, eventId, 'panood', 'couple', controlRoomHref),

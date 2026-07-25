@@ -7,6 +7,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { eventPapicSeatsActive } from '@/lib/papic-seats';
 import { eventSkuActive } from '@/lib/entitlements';
 import { resolveAddOnState } from '@/lib/add-on-state';
+import { liveStudioControllerHref } from '@/lib/live-studio-control';
 import { getLifecyclePhase } from '@/lib/invitation-widgets';
 import { PUBLIC_SITE_PAGES } from '@/lib/public-site-pages';
 
@@ -78,7 +79,11 @@ export default async function LaunchHubPage({ params }: Props) {
       blurb: 'Bring everyone who could not make it into the room.',
       owned: panoodState.state === 'launch',
       launchLabel: 'Go live',
-      launchHref: `${base}/studio/panood/broadcast`,
+      // ONE CONTROLLER (Wave 6): the day-of "Go live" button follows the flag —
+      // unified controller when it's on, legacy Cast control room until then.
+      // This is the highest-stakes doorway in the app (it is pressed once, at the
+      // wedding), so it must never be the one left pointing at the retired room.
+      launchHref: liveStudioControllerHref(eventId),
       addHref: `${base}/studio/panood`,
       Icon: Radio,
     },

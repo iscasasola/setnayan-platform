@@ -16,15 +16,19 @@ import {
   fetchOpenAdminMotions,
   fetchVendorTeam,
   isVendorAdminRole,
-  VENDOR_ASSIGNABLE_ROLES,
-  VENDOR_TEAM_ROLE_BLURB,
-  VENDOR_TEAM_ROLE_LABEL,
   type AssignableService,
   type VendorAdminMotion,
   type VendorAdminMotionVote,
   type VendorTeamMemberWithUser,
-  type VendorTeamRole,
 } from '@/lib/vendor-team';
+import {
+  areExtendedRolesAvailable,
+  assignableRolesForTier,
+  VENDOR_TEAM_ROLE_BLURB_EXT,
+  VENDOR_TEAM_ROLE_LABEL_EXT,
+  type VendorTeamRoleExtended,
+} from '@/lib/vendor-team-roles';
+import { isVendorTeamRolesV2Enabled } from '@/lib/vendor-team-roles-flag';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   buyExtraSeat,
@@ -51,12 +55,31 @@ type Props = {
   }>;
 };
 
-const ROLE_TONE: Record<VendorTeamRole, string> = {
+const ROLE_TONE: Record<VendorTeamRoleExtended, string> = {
   owner: 'bg-sky-100 text-sky-800',
   admin: 'bg-sky-100 text-sky-800',
   agent: 'bg-success-100 text-success-800',
   viewer: 'bg-ink/10 text-ink/65',
+  // Pro+ scopes (locked model § 7) — rendered only once a member actually holds
+  // one, which the flag gates. Existing four are untouched above.
+  // Uses the canonical `warn` (champagne gold) family, not raw Tailwind `amber`
+  // — the Wave-3 token swap replaced ~2,600 amber/emerald/rose hits with these
+  // brand-derived ramps (tailwind.config.ts).
+  financial: 'bg-warn-100 text-warn-900',
+  secretary: 'bg-terracotta/10 text-terracotta',
 };
+
+/**
+ * The role options for ONE member row: the picker's roles, plus the role that
+ * member currently holds if the picker doesn't offer it. Keeps a role edit from
+ * silently reassigning someone whose scope is no longer offered.
+ */
+function rolesForRow(
+  offered: ReadonlyArray<VendorTeamRoleExtended>,
+  current: VendorTeamRoleExtended,
+): ReadonlyArray<VendorTeamRoleExtended> {
+  return offered.includes(current) ? offered : [...offered, current];
+}
 
 function nameOf(members: VendorTeamMemberWithUser[], userId: string): string {
   const m = members.find((x) => x.user_id === userId);
@@ -93,6 +116,12 @@ export default async function VendorTeamPage({ searchParams }: Props) {
   ]);
 
   const adminCount = enriched.filter((m) => isVendorAdminRole(m.role)).length;
+
+  // Roles the picker offers. FLAG-DARK (locked model § 7 — the Financial +
+  // Secretary scopes are Pro+): with NEXT_PUBLIC_VENDOR_TEAM_ROLES_V2 off, or on
+  // a tier below Pro, this is byte-identical to VENDOR_ASSIGNABLE_ROLES.
+  const rolesV2 = isVendorTeamRolesV2Enabled();
+  const roleOptions = assignableRolesForTier({ tier: ctx.tierState, enabled: rolesV2 });
 
   // Team-seat math (owner 2026-07-02 ladder). Seats = members beyond the
   // always-free founding admin. Effective cap = the tier's base agentAccounts +
@@ -133,6 +162,14 @@ export default async function VendorTeamPage({ searchParams }: Props) {
           scoped to assigned services; Viewers are read-only. The optional label is what shows in the
           couple-facing chat when this person replies for the business.
         </p>
+        {rolesV2 && areExtendedRolesAvailable(ctx.tierState) ? (
+          <p className="max-w-prose text-sm text-ink/65">
+            Your plan also unlocks two specialist roles. <strong>Financial</strong> handles billing,
+            payments and reports — and <em>cannot</em> open client chats or messages.{' '}
+            <strong>Secretary</strong> schedules and handles messages across the whole team, but
+            never sees billing or store settings.
+          </p>
+        ) : null}
       </header>
 
       {search.error ? (
@@ -258,8 +295,8 @@ export default async function VendorTeamPage({ searchParams }: Props) {
           <label htmlFor="invite-role" className="block space-y-1">
             <span className="block text-xs font-medium text-ink/70">Role</span>
             <select id="invite-role" name="role" defaultValue="viewer" className="input-field cursor-pointer">
-              {VENDOR_ASSIGNABLE_ROLES.map((r) => (
-                <option key={r} value={r}>{VENDOR_TEAM_ROLE_LABEL[r]}</option>
+              {roleOptions.map((r) => (
+                <option key={r} value={r}>{VENDOR_TEAM_ROLE_LABEL_EXT[r]}</option>
               ))}
             </select>
           </label>
@@ -356,13 +393,13 @@ export default async function VendorTeamPage({ searchParams }: Props) {
                       </p>
                       <div className="flex flex-wrap items-center gap-2">
                         <span className={`inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${ROLE_TONE[m.role]}`}>
-                          {VENDOR_TEAM_ROLE_LABEL[m.role]}
+                          {VENDOR_TEAM_ROLE_LABEL_EXT[m.role]}
                         </span>
                         {m.team_label ? (
                           <span className="rounded-full bg-ink/5 px-2 py-0.5 text-[11px] text-ink/70">{m.team_label}</span>
                         ) : null}
                       </div>
-                      <p className="text-xs text-ink/55">{VENDOR_TEAM_ROLE_BLURB[m.role]}</p>
+                      <p className="text-xs text-ink/55">{VENDOR_TEAM_ROLE_BLURB_EXT[m.role]}</p>
                     </div>
 
                     {/* Self admin → Step down. Non-admin other → unilateral remove. */}
@@ -394,8 +431,14 @@ export default async function VendorTeamPage({ searchParams }: Props) {
                       <label className="block space-y-1">
                         <span className="block text-xs font-medium text-ink/70">Role</span>
                         <select name="role" defaultValue={m.role} className="input-field cursor-pointer">
-                          {VENDOR_ASSIGNABLE_ROLES.map((r) => (
-                            <option key={r} value={r}>{VENDOR_TEAM_ROLE_LABEL[r]}</option>
+                          {/* Always include the role this member ALREADY holds, even
+                              when the picker wouldn't otherwise offer it (e.g. the
+                              flag was turned back off while a Financial member
+                              exists). Without this the <select> would silently fall
+                              back to its first option — Admin — and a plain label
+                              edit would promote them. */}
+                          {rolesForRow(roleOptions, m.role).map((r) => (
+                            <option key={r} value={r}>{VENDOR_TEAM_ROLE_LABEL_EXT[r]}</option>
                           ))}
                         </select>
                       </label>

@@ -19,18 +19,41 @@ import {
   fetchSeatFeePhp,
   seatServiceKey,
 } from '@/lib/vendor-seats';
+import {
+  parsableRolesForTier,
+  type VendorTeamRoleExtended,
+} from '@/lib/vendor-team-roles';
+import { isVendorTeamRolesV2Enabled } from '@/lib/vendor-team-roles-flag';
+import { notifyVendorAssignment } from '@/lib/vendor-team-assignment-notify';
 
 const ROLE_SET: ReadonlySet<string> = new Set(VENDOR_TEAM_ROLES);
+
+/**
+ * The role values this store may submit RIGHT NOW (locked model § 7 — the
+ * Financial + Secretary scopes are Pro+). Flag OFF, or a tier below Pro, returns
+ * the module-level ROLE_SET unchanged, so parsing behaves byte-identically to
+ * before this feature existed — including still accepting the retired `owner`
+ * value so its friendly "Owner role is retired" message fires instead of the
+ * generic "Unknown role."
+ */
+function roleSetFor(tierState: string | null | undefined): ReadonlySet<string> {
+  const enabled = isVendorTeamRolesV2Enabled();
+  if (!enabled) return ROLE_SET;
+  return new Set(parsableRolesForTier({ tier: tierState, enabled }));
+}
 
 const TEAM = '/vendor-dashboard/team';
 const err = (msg: string): never =>
   redirect(`${TEAM}?error=${encodeURIComponent(msg)}`);
 
-function parseRole(raw: FormDataEntryValue | null): VendorTeamRole {
-  if (typeof raw !== 'string' || !ROLE_SET.has(raw)) {
+function parseRole(
+  raw: FormDataEntryValue | null,
+  allowed: ReadonlySet<string> = ROLE_SET,
+): VendorTeamRoleExtended {
+  if (typeof raw !== 'string' || !allowed.has(raw)) {
     throw new Error('Unknown role.');
   }
-  return raw as VendorTeamRole;
+  return raw as VendorTeamRoleExtended;
 }
 
 function nullIfBlank(raw: FormDataEntryValue | null, max = 64): string | null {
@@ -74,9 +97,9 @@ export async function inviteVendorTeamMember(formData: FormData) {
 
   const emailRaw = formData.get('email');
   const labelRaw = formData.get('team_label');
-  let role: VendorTeamRole;
+  let role: VendorTeamRoleExtended;
   try {
-    role = parseRole(formData.get('role'));
+    role = parseRole(formData.get('role'), roleSetFor(ctx.tierState));
   } catch (e) {
     return err((e as Error).message);
   }
@@ -160,9 +183,9 @@ export async function updateVendorTeamMember(formData: FormData) {
     return err('Missing member id');
   }
 
-  let role: VendorTeamRole;
+  let role: VendorTeamRoleExtended;
   try {
-    role = parseRole(formData.get('role'));
+    role = parseRole(formData.get('role'), roleSetFor(ctx.tierState));
   } catch (e) {
     return err((e as Error).message);
   }
@@ -424,7 +447,7 @@ export async function stepDownSelf() {
  * also clamps the selection to the vendor's own services defensively.
  */
 export async function setVendorAgentServices(formData: FormData) {
-  const { supabase, ctx } = await ensureAdmin();
+  const { supabase, ctx, currentUserId } = await ensureAdmin();
 
   const memberIdRaw = formData.get('vendor_team_member_id');
   if (typeof memberIdRaw !== 'string' || memberIdRaw.length === 0) {
@@ -463,6 +486,33 @@ export async function setVendorAgentServices(formData: FormData) {
       })),
     );
     if (insErr) return err(insErr.message);
+  }
+
+  // ── Assignment notification (locked model § 7: "assigning ... notifies the
+  // agent"). FLAG-DARK: the whole block — including the extra read of the
+  // member's user_id — only runs when NEXT_PUBLIC_VENDOR_TEAM_ROLES_V2 is on,
+  // so the flag-OFF path issues exactly the queries it issued before. Deferred
+  // via after() and fail-soft: the assignment has already been saved.
+  if (isVendorTeamRolesV2Enabled()) {
+    const assignedCount = selected.length;
+    // Resolve the recipient INSIDE the request (the request-scoped supabase
+    // client is not safe to use from after()); only the delivery is deferred.
+    const { data: assignee } = await supabase
+      .from('vendor_team_members')
+      .select('user_id')
+      .eq('vendor_team_member_id', memberIdRaw)
+      .eq('vendor_profile_id', ctx.vendorProfileId)
+      .maybeSingle();
+    const assigneeUserId = (assignee as { user_id: string } | null)?.user_id;
+    if (assigneeUserId) {
+      after(() =>
+        notifyVendorAssignment({
+          assigneeUserId,
+          actorUserId: currentUserId,
+          subject: { kind: 'services', serviceCount: assignedCount },
+        }).catch(() => {}),
+      );
+    }
   }
 
   revalidatePath(TEAM);

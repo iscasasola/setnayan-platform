@@ -18,6 +18,8 @@ import {
 import { fetchOrInitControlStateAdmin } from '@/lib/panood-control';
 import { requirePanoodControlRoomMember } from '@/lib/panood-control-room-access';
 import { decideWatermark } from '@/lib/panood-watermark';
+import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
+import { liveStudioControlPath } from '@/lib/live-studio-control';
 import { PanoodControlRoom } from './control-room';
 
 export const metadata = { title: 'Live Studio control room · Setnayan' };
@@ -43,6 +45,31 @@ type Props = { params: Promise<{ eventId: string }> };
 
 export default async function PanoodControlRoomPage({ params }: Props) {
   const { eventId } = await params;
+
+  // ═══ WAVE 6 · ONE CONTROLLER (owner 2026-07-25 · Live_Studio_Unified_Spec §§ 4b–4d)
+  //
+  // When the unified Live Studio flag is ON, THIS ROOM IS RETIRED: there is one
+  // controller, and it is /studio/live-studio-control/setup. Every doorway is
+  // repointed in the same flip (lib/live-studio-control.ts → liveStudioControllerHref),
+  // and this redirect catches what a link repoint cannot — bookmarks, browser
+  // history, an old email, a QR printed last month, a hand-typed URL.
+  //
+  // FIRST STATEMENT IN THE COMPONENT, before auth and before any query, for two
+  // reasons: a retired room should cost nothing to leave, and putting it here makes
+  // the flag-off path provably untouched — one guarded `if` and then the original
+  // function body, unchanged line for line.
+  //
+  // FLAG OFF = TODAY, EXACTLY. This room is live and it is what the Cast SKU
+  // (PANOOD_SYSTEM) currently sells; nothing below this line moved. `redirect()` not
+  // `permanentRedirect()` — the flag can be flipped back, and a 308 cached in a
+  // host's browser would survive the rollback.
+  //
+  // An existing Cast buyer is NOT stranded on the far side: PANOOD_SYSTEM (and the
+  // legacy PANOOD_SYSTEM_MOBILE) are ownership aliases for LIVE_STUDIO
+  // (SKU_OWNERSHIP_ALIASES in lib/entitlements.ts), so the room they land in is
+  // fully unlocked — multi-cam broadcast, overlays, highlight moments.
+  if (liveStudioRoamEnabled()) redirect(liveStudioControlPath(eventId));
+
   const supabase = await createClient();
   const {
     data: { user },

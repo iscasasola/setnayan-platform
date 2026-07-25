@@ -24,6 +24,7 @@ import {
   getActivePanoodStreamKey,
 } from '@/lib/panood-broadcast';
 import { eventSkuActive } from '@/lib/entitlements';
+import { liveStudioControllerHref } from '@/lib/live-studio-control';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { savePanoodWatchUrl, clearPanoodWatchUrl } from './actions';
 import { GoLiveCard } from './go-live-card';
@@ -189,7 +190,7 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
   // REAL pricing from the admin catalog (formatV2Sku). PANOOD_SYSTEM is NOT
   // priced here: single-cam Live Studio live is FREE for every host (owner model
   // 2026-06-26) and PANOOD_SYSTEM is the PAID multicam control-room upgrade
-  // (built at /studio/panood/broadcast). The Animated-Monogram add-on
+  // (built at the control room — liveStudioControllerHref). The Animated-Monogram add-on
   // keeps its real catalog price;
   // the Broadcast Style Pack / AI Edited Highlight have NO V2 SKU yet, so those
   // surfaces honest-state "arrives with the streaming rollout" instead of a
@@ -200,7 +201,8 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
   // Single-camera live broadcast is the free core tool (no per-day SKU charge).
   // Today couples stream from their own phone or OBS to their own YouTube, so
   // this surface claims no camera count — the multi-camera control room is the
-  // PAID upgrade (built at /studio/panood/broadcast).
+  // PAID upgrade (opened via liveStudioControllerHref — the legacy Cast room
+  // today, the unified Live Studio controller once the flag flips).
 
   return (
     <section className="space-y-8">
@@ -279,7 +281,7 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
         // "the tool is free; the premium layer is paid"). This page is already
         // host-gated, so anyone who can see it may go live without owning the
         // PANOOD_SYSTEM SKU (that SKU is the PAID multicam control-room + over-
-        // lays upgrade, built at /studio/panood/broadcast). Pass true to unlock
+        // lays upgrade, opened via liveStudioControllerHref). Pass true to unlock
         // the go-live button; the add-on rows below still reflect REAL ownership.
         ownsPanood={true}
         active={
@@ -694,8 +696,10 @@ function BroadcastSetup({ eventId }: { eventId: string }) {
           Lay out the broadcaster admin and rehearse the camera switching so you and your
           camera operators are ready ahead of the day.
         </p>
+        {/* ONE CONTROLLER (Wave 6) — flag on: the unified controller; off: the
+            legacy Cast control room, exactly as today. */}
         <Link
-          href={`/dashboard/${eventId}/studio/panood/broadcast`}
+          href={liveStudioControllerHref(eventId)}
           className="inline-flex items-center gap-2 rounded-md bg-mulberry px-3 py-1.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
         >
           <Tv aria-hidden className="h-4 w-4" strokeWidth={1.75} />

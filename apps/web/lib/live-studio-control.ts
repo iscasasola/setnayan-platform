@@ -22,8 +22,12 @@
  * `live-studio-roam` substrate — the data key / SKU wiring is unchanged; only the
  * URL moved, with a redirect from the old path so nothing 404s). These helpers are
  * PURE (no I/O) so the controller, its server actions, and the unit tests share one
- * source of truth for the route paths and the lock decision.
+ * source of truth for the route paths and the lock decision. The ONE exception is
+ * `liveStudioControllerHref()` — the Wave 6 doorway router, which reads the launch
+ * flag; its decision is factored out as a pure function taking the flag as an
+ * argument, so the testable core stays I/O-free.
  */
+import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 
 /** Unified customer-facing SKU that unlocks the multi-camera controller. */
 export const LIVE_STUDIO_SKU = 'LIVE_STUDIO';
@@ -49,6 +53,58 @@ export function liveStudioDetailPath(eventId: string): string {
 /** The unified controller (the single-screen operating surface). */
 export function liveStudioControlPath(eventId: string): string {
   return `/dashboard/${eventId}/studio/${LIVE_STUDIO_CONTROL_SEGMENT}/setup`;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   WAVE 6 · ONE CONTROLLER — the single flag-aware router
+   (owner 2026-07-25 · Live_Studio_Unified_Spec_2026-07-25 §§ 4b–4d.)
+
+   TWO control rooms exist in the tree:
+
+     • LEGACY — /dashboard/[id]/studio/panood/broadcast. Live today, and what the
+       Cast SKU (PANOOD_SYSTEM) currently sells. Reached from six doorways across
+       the dashboard: the Studio hub tile, its setup relay, the camera-seat page,
+       the Launch checklist, the Galleries hub, and the direct URL.
+     • UNIFIED — /dashboard/[id]/studio/live-studio-control/setup. The owner's
+       chosen main controller, dark behind NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED.
+
+   Consolidation has to be ATOMIC, because a half-switched state is the failure
+   mode that matters: a doorway still pointing at a room that now redirects, or a
+   host mid-show landing on the wrong screen. So EVERY doorway resolves its href
+   through the ONE function below rather than carrying its own ternary — flip the
+   flag and all six move together, in the same request, with no deploy.
+
+   ⚠ DO NOT hardcode either path in a link. Add doorways here, not there. The
+   legacy route ALSO redirects here when the flag is on (its page.tsx), so even a
+   bookmark or a stale email lands on the unified controller.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * The LEGACY Cast control room. Still the real, working room while the flag is
+ * off — it is not dead code and must not be deleted until the cutover is verified.
+ */
+export function panoodBroadcastPath(eventId: string): string {
+  return `/dashboard/${eventId}/studio/panood/broadcast`;
+}
+
+/**
+ * PURE core of the router — which control room is THE control room, given the
+ * unified-Live-Studio flag. Separated from the env read so the decision is
+ * exhaustively unit-testable without touching process.env.
+ */
+export function liveStudioControllerHrefFor(
+  eventId: string,
+  unifiedEnabled: boolean,
+): string {
+  return unifiedEnabled ? liveStudioControlPath(eventId) : panoodBroadcastPath(eventId);
+}
+
+/**
+ * THE control-room href every doorway links to. Flag ON → the unified controller;
+ * flag OFF → the legacy Cast control room, byte-identical to today.
+ */
+export function liveStudioControllerHref(eventId: string): string {
+  return liveStudioControllerHrefFor(eventId, liveStudioRoamEnabled());
 }
 
 /**

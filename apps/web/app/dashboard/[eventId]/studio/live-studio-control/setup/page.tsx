@@ -34,11 +34,16 @@ import {
   LIVE_STUDIO_SKU,
   PROGRAM_CHANNEL_LABEL,
   FIRST_CAMERA_CHANNEL,
+  FREE_CAMERA_NAME,
+  UNLOCK_TO_BROADCAST_LABEL,
   buildChannelTiles,
   channelForZoneIndex,
+  channelReadyCaption,
   formatChannel,
   liveStudioDetailPath,
   liveStudioControlLock,
+  rehearseFreeNotice,
+  showRehearsalUnlockNotice,
   type ChannelTile,
   type ControlZone,
 } from '@/lib/live-studio-control';
@@ -113,25 +118,49 @@ export const metadata = { title: 'Live Studio controller · Setnayan' };
 // red on an off-air controller would be a lie about the one signal an operator has
 // to be able to trust at a glance.
 //
-// FREE vs PAID, in place: a free host opens the SAME controller. They keep CH 1 +
-// ONE usable camera channel (CH 2 = their own phone/encoder — the always-free
-// single-camera livestream, and the free Go-live button) and see the rest of the
-// grid locked with 🔒 "Unlock to use". No tile a free host sees renders a cut
-// control (ChannelTile.cuttable is false for all of them) and the server actions
-// keep their own ownership backstop (setup/actions.ts → requireLiveStudioOwned).
+// ⭐ WAVE 3 — "REHEARSE FREE, PAY TO BROADCAST" (owner-locked 2026-07-25 · § 4d).
+// This SUPERSEDES the Wave 1/2 gating the rest of this file was written under.
 //
-// WAVE 2 — the ₱0 broadcast extras (owner-locked 2026-07-25) are now HERE:
-//   • Ⓜ monogram bug (repositionable, default upper-right)  · PAID
-//   • ▬ lower third (the host's own two lines)              · PAID
+// A host WITHOUT LIVE_STUDIO opens a FULLY WORKING REHEARSAL ROOM: they add cameras,
+// name them, tap-cut between them on CH 1, place the monogram and lower third, set
+// guest-pick — all of it, unlimited, at their actual rehearsal, on their own phones.
+// Nothing they do here is published, so no guest can watch, so there is nothing to
+// gate. The paywall is PUBLICATION (lib/live-studio-publish.ts), enforced where the
+// multi-channel manifest is written and again on every public read.
+//
+// WHAT THAT MEANS FOR THIS SCREEN — three deliberate reversals of Wave 1/2:
+//   1. NO PADLOCKS OVER THE TILES. Every configured camera renders at FULL
+//      brightness with its real state, for every host. Seeing the cameras actually
+//      working IS the conversion mechanism; dimming them recreates the exact defect
+//      Wave 3 fixes — asking ₱2,999 for an experience the couple never felt, for a
+//      day that cannot be redone.
+//   2. THE PAYWALL IS STATED AT THE GO-LIVE MOMENT — "Rehearse free · Unlock <price>
+//      to broadcast all your cameras", right under the monitor where going live
+//      happens, plus a contextual "Unlock to broadcast" chip on a 2nd+ camera the
+//      moment the host puts it on Channel 1. Nudges, never blocks: the cut has
+//      already succeeded by the time the chip appears.
+//   3. COPY LOCK — "Unlock to BROADCAST", never "Unlock to use". They can use it.
+//
+// WAVE 2's ₱0 broadcast extras, with their Wave 3 gating:
+//   • Ⓜ monogram bug (repositionable, default upper-right)  · free to PLACE, paid ON AIR
+//   • ▬ lower third (the host's own two lines)              · free to WRITE, paid ON AIR
 //   • ⬛ event QR ("scan to join")                           · FREE — owner-locked,
 //        because a scan-to-join code pulls guests in and grows Setnayan
-//   • ⚡ highlight moments (timestamps only, no video work)   · PAID
-//   • guest-pick is a REAL toggle (Wave 1 shipped it read-only because nothing
-//     persisted it; the column exists now and the PUBLIC page enforces it by
-//     omission — lib/live-studio-roam.ts applyGuestPick)
-// On the FREE tier the lower third is a PERMANENT "POWERED BY SETNAYAN" bar the
-// host cannot remove — it is derived from the entitlement, never a stored setting
-// (lib/live-studio-overlays.ts resolveOverlays), so there is nothing to switch off.
+//   • ⚡ highlight moments (timestamps only, no video work)   · PAID (an offset into a
+//        real broadcast is not a rehearsal artifact)
+//   • guest-pick — free to set, inert until the unlock publishes >1 channel
+//
+// TWO RESOLUTIONS OF THE OVERLAYS, ON PURPOSE:
+//   • `rehearsalOverlays` — resolved as-if-owned. What the host is PLACING, and what
+//     the toggle chips read from. Dimming or hiding it would defeat the point.
+//   • `airOverlays` — the entitlement-derived truth (resolveOverlays), used to STATE
+//     what a broadcast actually carries right now. On the free tier that is the
+//     permanent "POWERED BY SETNAYAN" bar and no monogram — derived, never stored, so
+//     there is no setting a free host can flip and no request to replay.
+//   • `monitorOverlays` — what the CH 1 monitor draws: the rehearsal, EXCEPT that the
+//     lower-third slot falls back to what will actually air, so a free host who never
+//     touched the bar is not shown a clean frame their broadcast won't match.
+// All three come from the SAME function, so the views cannot drift.
 //
 // NO FAKE DOORS (§ 4b), still: Split/PiP are NOT rendered — they need a mixing
 // point that does not exist (phase 2), and the prototype's P2 chips are design
@@ -220,9 +249,10 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
     .maybeSingle();
   if (!event) notFound();
 
-  // ── Entitlement — the multi-camera LOCK. A free (un-owned) host is NOT bounced:
-  // they open the SAME controller and use the free single-camera livestream, with
-  // the multi-camera extras shown locked in place.
+  // ── Entitlement — WAVE 3: this governs BROADCASTING, not using. A free host is
+  // not bounced and nothing is locked away; `owned` decides whether they may put
+  // more than one camera (and the paid overlays) on air, and therefore whether the
+  // unlock affordances render at all.
   const owned = await eventSkuActive(supabase, eventId, LIVE_STUDIO_SKU);
   const sku = await formatV2Sku(LIVE_STUDIO_SKU).catch(() => null);
   const priceLabel = sku ? formatPhp(sku.price_php) : null;
@@ -278,15 +308,38 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   const isLive = Boolean(activeBroadcast);
   const tiles = buildChannelTiles({ zones, multiCamUnlocked: lock.multiCamUnlocked, isLive });
 
-  // ── WAVE 2 · broadcast extras (owner-locked 2026-07-25 · § 4b).
-  // Settings persist per event; PERMISSION is re-asked here on every render, so a
-  // monogram left enabled by a LAPSED unlock resolves to "draw nothing".
+  // ── WAVE 2 · broadcast extras · WAVE 3 gating (owner-locked 2026-07-25 · §§ 4b/4d).
+  //
+  // TWO resolutions from the SAME function, so they cannot drift:
+  //   • rehearsalOverlays (owned: true) — what the host is PLACING. Drawn on the CH 1
+  //     monitor at full strength for every host, because placing them is free and a
+  //     dimmed rehearsal is not a rehearsal.
+  //   • airOverlays (owned: the real entitlement) — what a broadcast actually carries
+  //     right now. Used to TELL the truth beside the rehearsal, and re-asked every
+  //     render, so a monogram left enabled by a LAPSED unlock states "not on air".
   const overlaySettings = await fetchOverlaySettings(supabase, eventId);
   const monogramText =
     (event.monogram_text as string | null)?.trim() || deriveMonogram(event.display_name);
-  const overlays = resolveOverlays({ owned, settings: overlaySettings, monogramText });
+  const rehearsalOverlays = resolveOverlays({ owned: true, settings: overlaySettings, monogramText });
+  const airOverlays = resolveOverlays({ owned, settings: overlaySettings, monogramText });
+
+  // What the MONITOR draws. Rehearsal for the things the host is placing, but the
+  // lower-third slot falls back to what will actually air — otherwise a free host
+  // who never touched the bar would see a clean frame while their broadcast goes
+  // out carrying "POWERED BY SETNAYAN". A preview may show them something better
+  // than reality only where they explicitly asked for it; it must never show them
+  // an empty space where reality has a bar.
+  const monitorOverlays: ResolvedOverlays = {
+    monogram: rehearsalOverlays.monogram,
+    eventQr: rehearsalOverlays.eventQr,
+    lowerThird: rehearsalOverlays.lowerThird ?? airOverlays.lowerThird,
+  };
   const highlights = await fetchHighlights(supabase, eventId);
   const canMark = canMarkHighlight({ owned, isLive });
+
+  // The go-live-moment paywall: only when there is genuinely something they cannot
+  // broadcast (more than one camera configured, no unlock). Price from the catalog.
+  const showUnlockNotice = showRehearsalUnlockNotice({ owned, configuredChannels: zones.length });
 
   // Guest-pick — the real switch (Wave 2). Guarded read: a pre-migration database
   // must not break the controller, and "unknown" defaults to ON (the owner default).
@@ -317,19 +370,21 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   const eventSlug = (event.slug as string | null) ?? null;
   const qrSrc = eventSlug ? `/api/website/qr/${encodeURIComponent(eventSlug)}` : null;
 
-  // What Channel 1 is carrying, in the host's own words.
-  const programChannelCaption = owned
-    ? mainStageZone
-      ? formatChannel(channelForZoneIndex(mainStageZone.zone_index), mainStageZone.label)
-      : null
-    : formatChannel(FIRST_CAMERA_CHANNEL, 'Your camera');
-  const programCaption = owned
-    ? mainStageZone
-      ? mainStageZone.label
-      : 'Nothing on Channel 1 yet — tap a camera below'
-    : isLive
-      ? 'Your camera'
-      : 'Go live below to start your stream';
+  // What Channel 1 is carrying, in the host's own words. Entitlement-independent:
+  // a free host rehearsing a cut genuinely has that camera on Channel 1, and the
+  // monitor has to say so.
+  const programChannelCaption = mainStageZone
+    ? formatChannel(channelForZoneIndex(mainStageZone.zone_index), mainStageZone.label)
+    : zones.length === 0
+      ? formatChannel(FIRST_CAMERA_CHANNEL, FREE_CAMERA_NAME)
+      : null;
+  const programCaption = mainStageZone
+    ? mainStageZone.label
+    : zones.length === 0
+      ? isLive
+        ? FREE_CAMERA_NAME
+        : 'Go live below to start your stream'
+      : 'Nothing on Channel 1 yet — tap a camera below';
 
   return (
     <section className="space-y-4">
@@ -435,9 +490,9 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               {PROGRAM_CHANNEL_LABEL}
             </span>
 
-            {/* Take Channel 1 off air — a real control (clearMainStage), paid-only
-                because only a paid host can have cut anything onto it. */}
-            {owned && mainStageZone ? (
+            {/* Take Channel 1 off air — a real control (clearMainStage), free:
+                a rehearsing host who cut a camera on must be able to cut it off. */}
+            {mainStageZone ? (
               <form action={clearMainStage} className="absolute right-2 top-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <SubmitButton
@@ -457,14 +512,24 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                 (overlayPositionClass), so "top right" here is "top right" on air.
                 This monitor has no video, so these sit over the placeholder — a
                 placement rehearsal, labelled as one, never a claim that a frame
-                is being composited right now. */}
-            <MonitorOverlays overlays={overlays} qrSrc={qrSrc} lowerThirdFallback={monogramText} />
+                is being composited right now.
+
+                WAVE 3: this uses the REHEARSAL resolution, so a free host sees the
+                monogram and bar they placed, at full strength, undimmed. What a
+                free broadcast actually carries instead is stated in words directly
+                below the overlay row — a preview that predicts is worth more than a
+                blackout that punishes. */}
+            <MonitorOverlays
+              overlays={monitorOverlays}
+              qrSrc={qrSrc}
+              lowerThirdFallback={monogramText}
+            />
 
             {/* Tally + the on-air channel's identity. Lifted clear of the bottom
                 strip whenever a lower third owns it. */}
             <div
               className={`absolute left-2.5 flex flex-wrap items-center gap-1.5 ${
-                overlays.lowerThird ? 'bottom-14' : 'bottom-2.5'
+                monitorOverlays.lowerThird ? 'bottom-14' : 'bottom-2.5'
               }`}
             >
               {isLive ? (
@@ -485,7 +550,9 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             {canMark ? (
               <form
                 action={markHighlight}
-                className={`absolute right-2.5 ${overlays.lowerThird ? 'bottom-14' : 'bottom-2.5'}`}
+                className={`absolute right-2.5 ${
+                  monitorOverlays.lowerThird ? 'bottom-14' : 'bottom-2.5'
+                }`}
               >
                 <input type="hidden" name="event_id" value={eventId} />
                 <SubmitButton
@@ -501,7 +568,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             ) : null}
           </section>
 
-          {/* ── TRANSPORT — go live / end + guest-pick state ────────────────── */}
+          {/* ── TRANSPORT — go live / end + guest-pick ──────────────────────── */}
           <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
             <TransportRow
               eventId={eventId}
@@ -511,69 +578,74 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               connectHref="#connect"
             />
 
-            {/* GUEST-PICK — a REAL switch now (Wave 2, owner-locked "make it
-                optional"). Wave 1 rendered this as read-only state precisely
-                because nothing persisted it; the column exists now, and the
-                public page enforces it by omission (applyGuestPick), so flipping
-                it off genuinely stops guests leaving the host's cut. */}
-            {lock.multiCamUnlocked ? (
-              <form action={setGuestPick}>
-                <input type="hidden" name="event_id" value={eventId} />
-                <input type="hidden" name="enabled" value={guestPickEnabled ? 'false' : 'true'} />
-                <SubmitButton
-                  pendingLabel="Saving…"
-                  overlay={false}
-                  aria-pressed={guestPickEnabled}
-                  title={
-                    guestPickEnabled
-                      ? 'Guest-pick is ON — tap to make everyone watch your cut'
-                      : 'Guest-pick is OFF — tap to let guests choose their view'
-                  }
-                  className="flex min-h-[52px] w-full items-center gap-2 rounded-xl border border-ink/10 bg-cream/70 px-3 py-2 text-left text-xs text-ink/75 transition-colors hover:border-terracotta/40"
-                >
-                  <Users aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-                  <span className="leading-tight">
-                    <span className="block font-semibold">Guest-pick</span>
-                    <span className="block text-[11px]">
-                      {guestPickEnabled ? 'Guests choose their view' : 'Everyone sees your cut'}
-                    </span>
-                  </span>
-                  <span
-                    className={`ml-1 shrink-0 rounded-full px-2 py-0.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.12em] ${
-                      guestPickEnabled
-                        ? 'bg-success-100 text-success-900'
-                        : 'bg-ink/10 text-ink/55'
-                    }`}
-                  >
-                    {guestPickEnabled ? 'On' : 'Off'}
-                  </span>
-                </SubmitButton>
-              </form>
-            ) : (
-              <div className="flex min-h-[52px] items-center gap-2 rounded-xl border border-ink/10 bg-ink/[0.03] px-3 py-2 text-xs text-ink/45">
+            {/* GUEST-PICK — a REAL switch (Wave 2), and free to SET (Wave 3 § 4d).
+                The public page enforces it by omission (applyGuestPick) AFTER the
+                publish gate has already reduced a free event to one channel, so a
+                free host's setting is inert rather than blocked — one enforcement
+                point instead of two that could disagree. */}
+            <form action={setGuestPick}>
+              <input type="hidden" name="event_id" value={eventId} />
+              <input type="hidden" name="enabled" value={guestPickEnabled ? 'false' : 'true'} />
+              <SubmitButton
+                pendingLabel="Saving…"
+                overlay={false}
+                aria-pressed={guestPickEnabled}
+                title={
+                  guestPickEnabled
+                    ? 'Guest-pick is ON — tap to make everyone watch your cut'
+                    : 'Guest-pick is OFF — tap to let guests choose their view'
+                }
+                className="flex min-h-[52px] w-full items-center gap-2 rounded-xl border border-ink/10 bg-cream/70 px-3 py-2 text-left text-xs text-ink/75 transition-colors hover:border-terracotta/40"
+              >
                 <Users aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} />
                 <span className="leading-tight">
                   <span className="block font-semibold">Guest-pick</span>
-                  <span className="block text-[11px]">Everyone sees Channel 1</span>
+                  <span className="block text-[11px]">
+                    {guestPickEnabled ? 'Guests choose their view' : 'Everyone sees your cut'}
+                  </span>
                 </span>
-                <Link
-                  href={detailHref}
-                  className="ml-1 shrink-0 rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.1em] text-terracotta-700 hover:bg-terracotta/20"
+                <span
+                  className={`ml-1 shrink-0 rounded-full px-2 py-0.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.12em] ${
+                    guestPickEnabled ? 'bg-success-100 text-success-900' : 'bg-ink/10 text-ink/55'
+                  }`}
                 >
-                  <Lock aria-hidden className="mr-1 inline h-2.5 w-2.5" strokeWidth={2.5} />
-                  Locked
-                </Link>
-              </div>
-            )}
+                  {guestPickEnabled ? 'On' : 'Off'}
+                </span>
+              </SubmitButton>
+            </form>
           </div>
 
-          {/* ── CH 1 · OVERLAY ROW (Wave 2) ─────────────────────────────────────
+          {/* ── THE PAYWALL, AT THE GO-LIVE MOMENT (Wave 3 · § 4d) ────────────
+              Not a padlock over the tiles — a sentence exactly where broadcasting
+              happens, and only once the host has more than one camera to broadcast.
+              Their single-camera stream above stays free and is not blocked. */}
+          {showUnlockNotice ? (
+            <Link
+              href={detailHref}
+              className="flex flex-wrap items-center gap-2 rounded-xl border border-terracotta/40 bg-terracotta/[0.07] px-3.5 py-2.5 text-xs leading-snug text-ink/75 transition-colors hover:bg-terracotta/[0.12]"
+            >
+              <Radio aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold text-ink">{rehearseFreeNotice(priceLabel)}</span>
+                Going live now broadcasts one camera — free, as always. Your{' '}
+                {zones.length} channels stay here to rehearse with.
+              </span>
+              <span className="shrink-0 rounded-lg bg-mulberry px-3 py-1.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.06em] text-cream">
+                {lock.unlockCtaLabel}
+              </span>
+            </Link>
+          ) : null}
+
+          {/* ── CH 1 · OVERLAY ROW (Wave 2 · Wave 3 gating) ─────────────────────
               The prototype's `.layouts` strip, minus every control that does not
               exist: NO Split/PiP chips (still phase 2 — they need a mixing point).
               Only Ⓜ / ▬ / ⬛ ship, because only those are real.
 
-              Ⓜ + ▬ are unlock-gated (a free host sees them locked, routing to the
-              buy page); ⬛ event-QR is FREE for everyone (owner-locked). */}
+              WAVE 3: all three are REAL toggles for every host — placing them is
+              rehearsal (§ 4d). The `on` state comes from the REHEARSAL resolution,
+              so a free host's chip reads "on" because their overlay genuinely is
+              placed. What reaches AIR is stated in the line underneath rather than
+              implied by a disabled control. */}
           <div
             role="group"
             aria-label="Channel 1 overlays"
@@ -583,49 +655,40 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               CH 1
             </span>
 
-            {lock.multiCamUnlocked ? (
-              <>
-                <OverlayToggle
-                  action={setMonogramOverlay}
-                  eventId={eventId}
-                  on={Boolean(overlays.monogram)}
-                  label="Monogram"
-                  title={
-                    overlays.monogram
-                      ? 'Monogram overlay is ON — tap to hide it'
-                      : 'Show your monogram on the broadcast'
-                  }
-                  Icon={Crown}
-                />
-                <OverlayToggle
-                  action={setLowerThird}
-                  eventId={eventId}
-                  on={Boolean(overlays.lowerThird && !overlays.lowerThird.forced)}
-                  label="Lower third"
-                  title={
-                    overlays.lowerThird && !overlays.lowerThird.forced
-                      ? 'Lower third is ON — tap to hide it'
-                      : 'Show a news-style info bar on the broadcast'
-                  }
-                  Icon={Captions}
-                />
-              </>
-            ) : (
-              <>
-                <LockedOverlayChip href={detailHref} label="Monogram" Icon={Crown} />
-                <LockedOverlayChip href={detailHref} label="Lower third" Icon={Captions} />
-              </>
-            )}
+            <OverlayToggle
+              action={setMonogramOverlay}
+              eventId={eventId}
+              on={Boolean(rehearsalOverlays.monogram)}
+              label="Monogram"
+              title={
+                rehearsalOverlays.monogram
+                  ? 'Monogram overlay is ON — tap to hide it'
+                  : 'Place your monogram on Channel 1'
+              }
+              Icon={Crown}
+            />
+            <OverlayToggle
+              action={setLowerThird}
+              eventId={eventId}
+              on={Boolean(rehearsalOverlays.lowerThird && !rehearsalOverlays.lowerThird.forced)}
+              label="Lower third"
+              title={
+                rehearsalOverlays.lowerThird && !rehearsalOverlays.lowerThird.forced
+                  ? 'Lower third is ON — tap to hide it'
+                  : 'Place a news-style info bar on Channel 1'
+              }
+              Icon={Captions}
+            />
 
-            {/* FREE for every host — the one overlay that is not behind the unlock. */}
+            {/* FREE for every host — the one overlay that airs on the free tier too. */}
             {qrSrc ? (
               <OverlayToggle
                 action={setEventQrOverlay}
                 eventId={eventId}
-                on={Boolean(overlays.eventQr)}
+                on={Boolean(rehearsalOverlays.eventQr)}
                 label="Event QR"
                 title={
-                  overlays.eventQr
+                  rehearsalOverlays.eventQr
                     ? 'Event QR is ON — tap to hide it'
                     : 'Show your scan-to-join QR on the broadcast (free)'
                 }
@@ -634,17 +697,32 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               />
             ) : null}
           </div>
+
+          {/* WHAT ACTUALLY GOES OUT (Wave 3). The monitor above is a placement
+              rehearsal; this is the entitlement-derived truth beside it, so the
+              preview is never mistaken for a promise. Only shown when the two
+              differ — a paid host needs no disclaimer. */}
+          {!owned ? (
+            <p className="px-1 text-[11px] leading-snug text-ink/55">
+              <span className="font-semibold text-ink/70">Rehearsal preview.</span> A free
+              broadcast goes out carrying{' '}
+              <span className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-terracotta">
+                {airOverlays.lowerThird?.title}
+              </span>{' '}
+              — that bar is how people find Setnayan, and it can’t be switched off. Your own
+              monogram and lower third go on air when you unlock Live Studio
+              {qrSrc ? '. Your event QR is free either way' : ''}.
+            </p>
+          ) : null}
         </div>
 
         {/* ── RIGHT · camera-channel grid ──────────────────────────────────── */}
         <div className="space-y-2">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-1">
             <h2 className="font-mono text-[10.5px] font-bold uppercase tracking-[0.16em] text-ink/55">
-              Camera channels · {owned ? zones.length : 1} of {MAX_ROAM_ZONES}
+              Camera channels · {zones.length} of {MAX_ROAM_ZONES}
             </h2>
-            <span className="ml-auto text-[11px] text-ink/45">
-              {lock.multiCamUnlocked ? 'tap = put on Channel 1' : 'one camera is free'}
-            </span>
+            <span className="ml-auto text-[11px] text-ink/45">tap = put on Channel 1</span>
           </div>
 
           <div className="grid grid-cols-2 gap-2.5">
@@ -657,9 +735,9 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               />
             ))}
 
-            {/* Add a camera — paid, and only when there's room. Jumps to the real
-                form below rather than opening a sub-page. */}
-            {lock.multiCamUnlocked && !atCap ? (
+            {/* Add a camera — FREE (Wave 3: rehearsal is unlimited), when there's
+                room. Jumps to the real form below rather than opening a sub-page. */}
+            {!atCap ? (
               <a
                 href="#add-camera"
                 className="flex aspect-video flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-ink/20 text-center text-[11.5px] font-semibold text-ink/55 transition-colors hover:border-terracotta/50 hover:text-terracotta"
@@ -671,14 +749,14 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             ) : null}
           </div>
 
-          {lock.multiCamUnlocked && zones.length === 0 ? (
+          {zones.length === 0 ? (
             <p className="px-1 text-[11px] leading-snug text-ink/50">
               No cameras yet. Add your first below — each one becomes its own channel you can put on
-              Channel 1 with a tap.
+              Channel 1 with a tap. Setting them up and rehearsing with them is free.
             </p>
           ) : null}
 
-          {lock.multiCamUnlocked && atCap ? (
+          {atCap ? (
             <p className="px-1 text-[11px] text-ink/50">
               You’ve reached the {MAX_ROAM_ZONES}-camera limit. Remove one below to add another.
             </p>
@@ -686,7 +764,9 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
         </div>
       </div>
 
-      {/* ═══ UNLOCK BAR — free only, in place, price from the catalog ══════════ */}
+      {/* ═══ UNLOCK BAR — the pitch, price from the catalog ════════════════════
+          Wave 3 wording: what the ₱2,999 buys is BROADCASTING the cameras, because
+          using them is already free. This is the sales surface, not a gate. */}
       {!lock.multiCamUnlocked ? (
         <Link
           href={detailHref}
@@ -694,10 +774,12 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
         >
           <span className="min-w-0 flex-1 text-xs leading-snug text-ink/65">
             <span className="block text-[12.5px] font-semibold text-ink">
-              Unlock multi-cam{priceLabel ? ` — ${priceLabel} · one event` : ' · one event'}
+              Rehearse free — unlock to broadcast all your cameras
+              {priceLabel ? ` · ${priceLabel} · one event` : ' · one event'}
             </span>
-            Every camera becomes its own channel: put any of them on Channel 1 with a tap, and let
-            guests pick their own view.
+            Set up every camera, name them and practise your cuts as often as you like. The unlock
+            is what puts more than one of them on air for your guests — with guest-pick and your own
+            monogram and lower third.
           </span>
           <span className="shrink-0 rounded-lg bg-mulberry px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.04em] text-cream">
             {lock.unlockCtaLabel}
@@ -811,7 +893,8 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
       {/* Manage camera channels — add a channel + per-channel default / remove.
           The grid above is the operating control (tap = put on Channel 1); the
           housekeeping lives here so a mis-tap during a ceremony can't delete a
-          camera. LOCKED for a free host. */}
+          camera. FREE for every host (Wave 3 · § 4d) — setting cameras up is
+          rehearsal, and a rehearsal you can't set up is not one. */}
       <section id="add-camera" aria-labelledby="cameras-heading" className="sn-tile space-y-4 p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="space-y-1">
@@ -825,128 +908,121 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               account. You name every channel; the name is what guests see. Only you (signed in
               here) run the controller.
             </p>
+            {!lock.multiCamUnlocked ? (
+              <p className="max-w-prose text-[12.5px] leading-snug text-ink/55">
+                Add as many as you like and practise with them at your rehearsal — that costs
+                nothing. Broadcasting more than one of them to your guests is what the unlock buys.
+              </p>
+            ) : null}
           </div>
-          {!lock.multiCamUnlocked ? <UnlockChip href={detailHref} label={lock.unlockCtaLabel} /> : null}
         </div>
 
-        {!lock.multiCamUnlocked ? (
-          <p className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-ink/15 bg-ink/[0.03] p-4 text-sm text-ink/45">
-            <Lock aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Extra camera channels are part of Live Studio. Your own camera stays free.
-            <Link href={detailHref} className="font-medium text-terracotta hover:underline">
-              {lock.unlockCtaLabel}
-            </Link>
+        {zones.length > 0 ? (
+          <ul className="space-y-2">
+            {zones.map((z) => (
+              <li
+                key={z.id}
+                className="sn-row flex flex-wrap items-center justify-between gap-2 px-3 py-2"
+              >
+                <span className="flex min-w-0 items-center gap-2 text-sm">
+                  <span className="font-mono text-[11px] font-bold text-ink/45">
+                    CH {channelForZoneIndex(z.zone_index)}
+                  </span>
+                  <span className="truncate font-medium text-ink">{z.label}</span>
+                  {z.venue_label ? (
+                    <span className="truncate text-xs text-ink/45">{z.venue_label}</span>
+                  ) : null}
+                  {z.is_featured ? (
+                    <span className="inline-flex shrink-0 items-center gap-1 font-mono text-[10px] uppercase tracking-[0.1em] text-terracotta">
+                      <Star aria-hidden className="h-3 w-3" strokeWidth={2.25} />
+                      Default
+                    </span>
+                  ) : null}
+                  <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/35">
+                    {z.status}
+                  </span>
+                </span>
+                <span className="flex shrink-0 items-center gap-1.5">
+                  {!z.is_featured ? (
+                    <form action={setFeaturedRoamZone}>
+                      <input type="hidden" name="event_id" value={eventId} />
+                      <input type="hidden" name="zone_id" value={z.id} />
+                      <SubmitButton
+                        pendingLabel="…"
+                        title="Make this the default channel"
+                        className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-white px-2 py-1 text-[11px] font-medium text-ink/60 transition-colors hover:border-terracotta/40 hover:text-terracotta"
+                      >
+                        <Star aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                        <span className="sr-only">Make default</span>
+                      </SubmitButton>
+                    </form>
+                  ) : null}
+                  <form action={deleteRoamZone}>
+                    <input type="hidden" name="event_id" value={eventId} />
+                    <input type="hidden" name="zone_id" value={z.id} />
+                    <SubmitButton
+                      pendingLabel="…"
+                      title="Remove this channel"
+                      className="inline-flex items-center rounded-md border border-ink/15 bg-white px-2 py-1 text-ink/50 transition-colors hover:border-burgundy/40 hover:text-burgundy"
+                    >
+                      <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                      <span className="sr-only">Remove channel</span>
+                    </SubmitButton>
+                  </form>
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        {atCap ? (
+          <p className="rounded-lg border border-ink/15 bg-ink/5 p-4 text-sm text-ink/60">
+            You’ve reached the {MAX_ROAM_ZONES}-camera limit. Remove one to add another.
           </p>
         ) : (
-          <>
-            {zones.length > 0 ? (
-              <ul className="space-y-2">
-                {zones.map((z) => (
-                  <li
-                    key={z.id}
-                    className="sn-row flex flex-wrap items-center justify-between gap-2 px-3 py-2"
-                  >
-                    <span className="flex min-w-0 items-center gap-2 text-sm">
-                      <span className="font-mono text-[11px] font-bold text-ink/45">
-                        CH {channelForZoneIndex(z.zone_index)}
-                      </span>
-                      <span className="truncate font-medium text-ink">{z.label}</span>
-                      {z.venue_label ? (
-                        <span className="truncate text-xs text-ink/45">{z.venue_label}</span>
-                      ) : null}
-                      {z.is_featured ? (
-                        <span className="inline-flex shrink-0 items-center gap-1 font-mono text-[10px] uppercase tracking-[0.1em] text-terracotta">
-                          <Star aria-hidden className="h-3 w-3" strokeWidth={2.25} />
-                          Default
-                        </span>
-                      ) : null}
-                      <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/35">
-                        {z.status}
-                      </span>
-                    </span>
-                    <span className="flex shrink-0 items-center gap-1.5">
-                      {!z.is_featured ? (
-                        <form action={setFeaturedRoamZone}>
-                          <input type="hidden" name="event_id" value={eventId} />
-                          <input type="hidden" name="zone_id" value={z.id} />
-                          <SubmitButton
-                            pendingLabel="…"
-                            title="Make this the default channel"
-                            className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-white px-2 py-1 text-[11px] font-medium text-ink/60 transition-colors hover:border-terracotta/40 hover:text-terracotta"
-                          >
-                            <Star aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                            <span className="sr-only">Make default</span>
-                          </SubmitButton>
-                        </form>
-                      ) : null}
-                      <form action={deleteRoamZone}>
-                        <input type="hidden" name="event_id" value={eventId} />
-                        <input type="hidden" name="zone_id" value={z.id} />
-                        <SubmitButton
-                          pendingLabel="…"
-                          title="Remove this channel"
-                          className="inline-flex items-center rounded-md border border-ink/15 bg-white px-2 py-1 text-ink/50 transition-colors hover:border-burgundy/40 hover:text-burgundy"
-                        >
-                          <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                          <span className="sr-only">Remove channel</span>
-                        </SubmitButton>
-                      </form>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-
-            {atCap ? (
-              <p className="rounded-lg border border-ink/15 bg-ink/5 p-4 text-sm text-ink/60">
-                You’ve reached the {MAX_ROAM_ZONES}-camera limit. Remove one to add another.
-              </p>
-            ) : (
-              <form action={addRoamZone} className="grid gap-3 sm:grid-cols-2">
-                <input type="hidden" name="event_id" value={eventId} />
-                <label className="space-y-1">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">Channel name</span>
-                  <input
-                    type="text"
-                    name="label"
-                    required
-                    maxLength={60}
-                    placeholder="Main Stage, Garden Aisle, Photo Booth…"
-                    className="min-h-[44px] w-full rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
-                  />
-                </label>
-                <label className="space-y-1">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-                    Venue <span className="text-ink/40">(optional)</span>
-                  </span>
-                  <input
-                    type="text"
-                    name="venue_label"
-                    maxLength={60}
-                    placeholder="Church, Grand Ballroom…"
-                    className="min-h-[44px] w-full rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
-                  />
-                </label>
-                <label className="flex items-center gap-2 text-sm text-ink/75 sm:col-span-2">
-                  <input
-                    type="checkbox"
-                    name="is_featured"
-                    className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
-                  />
-                  Make this the default channel guests open on
-                </label>
-                <div className="sm:col-span-2">
-                  <SubmitButton
-                    pendingLabel="Adding…"
-                    className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-mulberry px-4 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
-                  >
-                    <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
-                    Add channel
-                  </SubmitButton>
-                </div>
-              </form>
-            )}
-          </>
+          <form action={addRoamZone} className="grid gap-3 sm:grid-cols-2">
+            <input type="hidden" name="event_id" value={eventId} />
+            <label className="space-y-1">
+              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">Channel name</span>
+              <input
+                type="text"
+                name="label"
+                required
+                maxLength={60}
+                placeholder="Main Stage, Garden Aisle, Photo Booth…"
+                className="min-h-[44px] w-full rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+                Venue <span className="text-ink/40">(optional)</span>
+              </span>
+              <input
+                type="text"
+                name="venue_label"
+                maxLength={60}
+                placeholder="Church, Grand Ballroom…"
+                className="min-h-[44px] w-full rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm text-ink/75 sm:col-span-2">
+              <input
+                type="checkbox"
+                name="is_featured"
+                className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+              />
+              Make this the default channel guests open on
+            </label>
+            <div className="sm:col-span-2">
+              <SubmitButton
+                pendingLabel="Adding…"
+                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-mulberry px-4 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
+              >
+                <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
+                Add channel
+              </SubmitButton>
+            </div>
+          </form>
         )}
       </section>
 
@@ -966,105 +1042,117 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
           </p>
         </div>
 
-        {/* ── Monogram — position (paid). */}
-        {lock.multiCamUnlocked ? (
-          <div className="space-y-2 border-t border-ink/10 pt-4">
-            <p className="flex items-center gap-2 text-sm font-semibold">
-              <Crown aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-              Monogram — {overlays.monogram ? 'showing' : 'hidden'}
-              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink/40">
-                {monogramText}
-              </span>
-            </p>
-            <p className="text-[11.5px] text-ink/55">
-              Pick the corner it sits in. Upper right by default — where a broadcast bug usually
-              lives.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {MONOGRAM_POSITIONS.map((pos) => (
-                <form key={pos} action={setMonogramOverlay}>
-                  <input type="hidden" name="event_id" value={eventId} />
-                  <input type="hidden" name="position" value={pos} />
-                  <SubmitButton
-                    pendingLabel="…"
-                    overlay={false}
-                    aria-pressed={overlaySettings.monogramPosition === pos}
-                    className={`rounded-lg border px-3 py-1.5 text-[11.5px] font-medium transition-colors ${
-                      overlaySettings.monogramPosition === pos
-                        ? 'border-terracotta bg-terracotta/10 text-ink'
-                        : 'border-ink/15 text-ink/60 hover:border-terracotta/40'
-                    }`}
-                  >
-                    {POSITION_LABELS[pos]}
-                  </SubmitButton>
-                </form>
-              ))}
-            </div>
+        {/* ── Monogram — position. FREE to place (Wave 3); paid to put on air. */}
+        <div className="space-y-2 border-t border-ink/10 pt-4">
+          <p className="flex items-center gap-2 text-sm font-semibold">
+            <Crown aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+            Monogram — {rehearsalOverlays.monogram ? 'placed' : 'hidden'}
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink/40">
+              {monogramText}
+            </span>
+          </p>
+          <p className="text-[11.5px] text-ink/55">
+            Pick the corner it sits in. Upper right by default — where a broadcast bug usually
+            lives.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {MONOGRAM_POSITIONS.map((pos) => (
+              <form key={pos} action={setMonogramOverlay}>
+                <input type="hidden" name="event_id" value={eventId} />
+                <input type="hidden" name="position" value={pos} />
+                <SubmitButton
+                  pendingLabel="…"
+                  overlay={false}
+                  aria-pressed={overlaySettings.monogramPosition === pos}
+                  className={`rounded-lg border px-3 py-1.5 text-[11.5px] font-medium transition-colors ${
+                    overlaySettings.monogramPosition === pos
+                      ? 'border-terracotta bg-terracotta/10 text-ink'
+                      : 'border-ink/15 text-ink/60 hover:border-terracotta/40'
+                  }`}
+                >
+                  {POSITION_LABELS[pos]}
+                </SubmitButton>
+              </form>
+            ))}
           </div>
-        ) : null}
+          {!airOverlays.monogram && rehearsalOverlays.monogram ? (
+            <p className="text-[11.5px] leading-snug text-ink/55">
+              Placed and saved. It goes on air when you unlock Live Studio —{' '}
+              <Link href={detailHref} className="font-medium text-terracotta hover:underline">
+                {lock.unlockCtaLabel}
+              </Link>
+            </p>
+          ) : null}
+        </div>
 
-        {/* ── Lower third — text (paid) / the forced Setnayan bar (free). */}
+        {/* ── Lower third — the host's own two lines. FREE to write (Wave 3); on the
+            free tier the SETNAYAN bar is what actually airs, and that is stated
+            rather than implied by a missing form. */}
         <div className="space-y-2 border-t border-ink/10 pt-4">
           <p className="flex items-center gap-2 text-sm font-semibold">
             <Captions aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
             Lower third
           </p>
-          {lock.multiCamUnlocked ? (
-            <form action={setLowerThird} className="space-y-2">
-              <input type="hidden" name="event_id" value={eventId} />
-              <label className="block">
-                <span className="text-[11px] font-medium uppercase tracking-[0.1em] text-ink/45">
-                  Title line
-                </span>
-                <input
-                  name="title"
-                  defaultValue={overlaySettings.lowerThirdTitle ?? ''}
-                  maxLength={LOWER_THIRD_TITLE_MAX}
-                  placeholder="MARIA ✕ JOSEF"
-                  className="sn-input mt-1 w-full"
-                />
-              </label>
-              <label className="block">
-                <span className="text-[11px] font-medium uppercase tracking-[0.1em] text-ink/45">
-                  Second line
-                </span>
-                <input
-                  name="subtitle"
-                  defaultValue={overlaySettings.lowerThirdSubtitle ?? ''}
-                  maxLength={LOWER_THIRD_SUBTITLE_MAX}
-                  placeholder="Dinner is served — Grand Ballroom · 7:00 PM"
-                  className="sn-input mt-1 w-full"
-                />
-              </label>
-              <SubmitButton
-                pendingLabel="Saving…"
-                className="rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
-              >
-                Save lower third
-              </SubmitButton>
-            </form>
-          ) : (
-            /* FREE: the permanent Setnayan bar. Said plainly, with no switch —
-               because there is no switch, and pretending otherwise would be the
-               dishonest version of this. */
+          <form action={setLowerThird} className="space-y-2">
+            <input type="hidden" name="event_id" value={eventId} />
+            <label className="block">
+              <span className="text-[11px] font-medium uppercase tracking-[0.1em] text-ink/45">
+                Title line
+              </span>
+              <input
+                name="title"
+                defaultValue={overlaySettings.lowerThirdTitle ?? ''}
+                maxLength={LOWER_THIRD_TITLE_MAX}
+                placeholder="MARIA ✕ JOSEF"
+                className="sn-input mt-1 w-full"
+              />
+            </label>
+            <label className="block">
+              <span className="text-[11px] font-medium uppercase tracking-[0.1em] text-ink/45">
+                Second line
+              </span>
+              <input
+                name="subtitle"
+                defaultValue={overlaySettings.lowerThirdSubtitle ?? ''}
+                maxLength={LOWER_THIRD_SUBTITLE_MAX}
+                placeholder="Dinner is served — Grand Ballroom · 7:00 PM"
+                className="sn-input mt-1 w-full"
+              />
+            </label>
+            <SubmitButton
+              pendingLabel="Saving…"
+              className="rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
+            >
+              Save lower third
+            </SubmitButton>
+          </form>
+
+          {/* FREE: the permanent Setnayan bar. Said plainly, with no switch — because
+              there is no switch (it is derived from the entitlement, never stored),
+              and pretending otherwise would be the dishonest version of this. */}
+          {airOverlays.lowerThird?.forced ? (
             <div className="space-y-2 rounded-xl border border-ink/15 bg-ink/[0.03] p-3">
-              <p className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-terracotta">
-                {overlays.lowerThird?.title}
+              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/45">
+                On air right now
               </p>
-              <p className="text-[11.5px] text-ink/55">{overlays.lowerThird?.subtitle}</p>
+              <p className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-terracotta">
+                {airOverlays.lowerThird.title}
+              </p>
+              <p className="text-[11.5px] text-ink/55">{airOverlays.lowerThird.subtitle}</p>
               <p className="text-[11.5px] leading-snug text-ink/60">
-                Free streams carry this bar — it’s how people find Setnayan. Unlocking Live Studio
-                replaces it with your own two lines.
+                Free streams carry this bar — it’s how people find Setnayan, and it can’t be
+                switched off. Your own two lines above are saved and previewed on Channel 1;
+                unlocking Live Studio is what puts them on air instead.
               </p>
               <Link
                 href={detailHref}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-terracotta/10 px-3 py-1.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.08em] text-terracotta-700 hover:bg-terracotta/20"
               >
-                <Lock aria-hidden className="h-3 w-3" strokeWidth={2.5} />
-                {lock.unlockCtaLabel}
+                <Radio aria-hidden className="h-3 w-3" strokeWidth={2.5} />
+                {UNLOCK_TO_BROADCAST_LABEL}
               </Link>
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* ── Event QR — FREE for every host (owner-locked). */}
@@ -1072,7 +1160,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
           <div className="space-y-2 border-t border-ink/10 pt-4">
             <p className="flex items-center gap-2 text-sm font-semibold">
               <QrCode aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-              Event QR — {overlays.eventQr ? 'showing' : 'hidden'}
+              Event QR — {rehearsalOverlays.eventQr ? 'showing' : 'hidden'}
               <span className="rounded-full bg-success-100 px-2 py-0.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.12em] text-success-900">
                 Free
               </span>
@@ -1256,11 +1344,11 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               {oauthReady ? <Clock3 className="h-4 w-4" strokeWidth={1.75} /> : <Lock className="h-4 w-4" strokeWidth={1.75} />}
             </span>
             <p className="max-w-prose text-xs text-ink/60">
-              Your own camera goes live free from your phone or OBS. When you unlock Live Studio,
-              each added camera becomes its own channel you can put on Channel 1 with a tap, and the
-              picker on your event page lights up so guests can choose their view. That multi-camera
-              streaming step is being wired now — we’ll email you the moment it’s ready. Nothing
-              here needs redoing.
+              Your own camera goes live free from your phone or OBS — one camera, always free.
+              Rehearsing with every channel here is free too. When you unlock Live Studio, more than
+              one of them can be on air at once and the picker on your event page lights up so guests
+              can choose their view. That multi-camera streaming step is being wired now — we’ll email
+              you the moment it’s ready. Nothing you set up here needs redoing.
             </p>
           </div>
         </div>
@@ -1273,17 +1361,6 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
    Camera-channel tile — the one gesture of the whole controller.
    ──────────────────────────────────────────────────────────────────────────── */
 
-/**
- * Three shapes, one look:
- *   • CUTTABLE (paid zone) — the whole tile is the cut control: one tap puts this
- *     channel on Channel 1. A ✎ disclosure sits beside it (a sibling, never nested
- *     in the tile button) for renaming in place.
- *   • FREE (CH 2 on the free tier) — the host's own camera. A status tile, not a
- *     control: it is already what Channel 1 carries, there is nothing to cut to.
- *   • LOCKED — a Link to the buy surface. Deliberately NOT a form: a free host's
- *     UI contains no cut control at all, so there is nothing to replay. (The
- *     server action's requireLiveStudioOwned is still the hard backstop.)
- */
 /**
  * The overlay layers drawn over the CH 1 monitor — the PLACEMENT PREVIEW.
  *
@@ -1403,29 +1480,21 @@ function OverlayToggle({
   );
 }
 
-/** The locked twin of OverlayToggle — visible, in place, routes to the buy page. */
-function LockedOverlayChip({
-  href,
-  label,
-  Icon,
-}: {
-  href: string;
-  label: string;
-  Icon: typeof Crown;
-}) {
-  return (
-    <Link
-      href={href}
-      title={`${label} — part of Live Studio`}
-      className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-dashed border-ink/20 px-2.5 py-1.5 text-[11.5px] font-semibold text-ink/40 transition-colors hover:border-terracotta/40 hover:text-terracotta"
-    >
-      <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-      {label}
-      <Lock aria-hidden className="h-2.5 w-2.5" strokeWidth={2.5} />
-    </Link>
-  );
-}
-
+/**
+ * ONE camera-channel tile, two shapes, no third:
+ *   • CUTTABLE (any configured channel, free or paid) — the whole tile is the cut
+ *     control: one tap puts this channel on Channel 1. A ✎ disclosure sits beside it
+ *     (a sibling, never nested in the tile button) for renaming in place.
+ *   • STATUS (the host's own camera, or a channel already on CH 1) — nothing to cut
+ *     to, so it is not a button.
+ *
+ * ⚠ WAVE 3 (owner "but they can still see it"): the third shape — a DIMMED tile with
+ * a 🔒 "Unlock to use" badge covering it — is DELETED, and must not come back.
+ * Seeing the cameras actually working IS the conversion mechanism; a blackout over
+ * them recreates the exact defect Wave 3 exists to fix. The only thing an
+ * un-entitled host sees extra is the contextual "Unlock to broadcast" chip, placed
+ * clear of the tally so on-air red still reads instantly.
+ */
 function ChannelTileCard({
   tile,
   eventId,
@@ -1435,24 +1504,6 @@ function ChannelTileCard({
   eventId: string;
   detailHref: string;
 }) {
-  if (tile.locked) {
-    return (
-      <Link
-        href={detailHref}
-        aria-label={`CH ${tile.channel} — ${tile.name} — locked, unlock Live Studio to use`}
-        className="relative block aspect-video overflow-hidden rounded-xl border-2 border-dashed border-ink/20 bg-ink/70 transition-colors hover:border-terracotta/50"
-      >
-        <TileSurface tile={tile} dim />
-        <span className="absolute inset-0 grid place-items-center">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-ink/80 px-2.5 py-1 font-mono text-[9.5px] font-bold uppercase tracking-[0.08em] text-cream">
-            <Lock aria-hidden className="h-3 w-3" strokeWidth={2.5} />
-            Unlock to use
-          </span>
-        </span>
-      </Link>
-    );
-  }
-
   // Frame classes are shared by the control and the status shapes so a tile never
   // changes size when it goes on air — only its edge.
   const frame = `relative block aspect-video w-full overflow-hidden rounded-xl border-2 p-0 text-left transition-colors ${
@@ -1463,8 +1514,8 @@ function ChannelTileCard({
         : 'border-ink/10 hover:border-terracotta/60'
   }`;
 
-  // Every real (paid) channel can be renamed — including the one on air, whose
-  // name is exactly what a host is most likely to want to fix mid-show.
+  // Every real channel can be renamed — including the one on air, whose name is
+  // exactly what a host is most likely to want to fix mid-show.
   const showRename = tile.cuttable && tile.zoneId !== null;
 
   return (
@@ -1494,6 +1545,26 @@ function ChannelTileCard({
           />
         </div>
       )}
+
+      {/* ── "UNLOCK TO BROADCAST" — the contextual nudge (Wave 3, owner-locked).
+          Appears only once an un-entitled host has ENGAGED a 2nd+ camera (put it on
+          Channel 1), so it lands at the moment they feel the value rather than
+          sitting there from page load. It is a LABEL beside a cut that already
+          succeeded — never a block.
+
+          Placement is deliberate: bottom-RIGHT, above the name band, so it can
+          never cover the top-left channel/tally chip. On-air red stays the one
+          signal an operator can trust at a glance. */}
+      {tile.nudgeUnlock ? (
+        <Link
+          href={detailHref}
+          title={`${UNLOCK_TO_BROADCAST_LABEL} — CH ${tile.channel} is yours to rehearse with; broadcasting more than one camera is the unlock`}
+          className="absolute bottom-7 right-1.5 z-20 inline-flex items-center gap-1 rounded-full bg-mulberry px-2 py-1 font-mono text-[8.5px] font-bold uppercase tracking-[0.06em] text-cream shadow-sm transition-colors hover:bg-mulberry-600"
+        >
+          <Radio aria-hidden className="h-2.5 w-2.5" strokeWidth={2.5} />
+          {UNLOCK_TO_BROADCAST_LABEL}
+        </Link>
+      ) : null}
 
       {/* ✎ rename in place — a SIBLING of the tile button (nesting buttons is
           invalid HTML and would swallow the cut). Pure <details>, no client JS.
@@ -1551,19 +1622,30 @@ function ChannelTileCard({
 /**
  * The tile's dark video surface + its overlays. Camera tiles are video surfaces,
  * so they wear the broadcast dark deliberately (the rest of the page stays on the
- * app's cream/terracotta system). No frame is faked — the placeholder is an icon.
+ * app's cream/terracotta system).
+ *
+ * NO FRAME IS FAKED, AND NO TILE IS DIMMED (Wave 3). There is no thumbnail source
+ * yet — nothing writes a per-channel preview and nothing binds a joined phone to a
+ * ROAM channel — so the surface shows an icon plus the channel's REAL state
+ * (channelReadyCaption reads live_studio_roam_zones.status). A fabricated video
+ * thumbnail would be the padlock's mirror image: a picture claiming something the
+ * database cannot. The `dim` prop that used to grey out locked tiles is deleted on
+ * purpose; every host sees every channel at full brightness.
  */
 function TileSurface({
   tile,
-  dim = false,
   subtitle,
 }: {
   tile: ChannelTile;
-  dim?: boolean;
   subtitle?: string;
 }) {
+  // Second line: the host's venue grouping when they set one, and always the honest
+  // answer to "is a camera actually on this channel yet?".
+  const ready = tile.kind === 'zone' ? channelReadyCaption(tile.status) : null;
+  const metaLine = subtitle ?? (tile.venue && ready ? `${tile.venue} · ${ready}` : (tile.venue ?? ready));
+
   return (
-    <span className={`absolute inset-0 block bg-ink/90 ${dim ? 'opacity-70' : ''}`}>
+    <span className="absolute inset-0 block bg-ink/90">
       <span
         aria-hidden
         className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_25%,rgba(255,255,255,0.10),transparent_65%)]"
@@ -1589,15 +1671,15 @@ function TileSurface({
             : `CH ${tile.channel}`}
       </span>
 
-      {/* Host's own name + venue, over the gradient (the design's meta band). */}
+      {/* Host's own name + venue / real join state (the design's meta band). */}
       <span className="absolute inset-x-0 bottom-0 flex items-end gap-1.5 bg-gradient-to-t from-ink/90 to-transparent px-2 pb-1.5 pt-6">
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[11.5px] font-semibold leading-tight text-cream">
             {tile.name}
           </span>
-          {(subtitle ?? tile.venue) ? (
+          {metaLine ? (
             <span className="block truncate text-[10px] leading-tight text-cream/60">
-              {subtitle ?? tile.venue}
+              {metaLine}
             </span>
           ) : null}
         </span>
@@ -1606,19 +1688,6 @@ function TileSurface({
         ) : null}
       </span>
     </span>
-  );
-}
-
-/** Small inline "Unlock · ₱X" pill that routes to the Live Studio buy. */
-function UnlockChip({ href, label }: { href: string; label: string }) {
-  return (
-    <Link
-      href={href}
-      className="inline-flex items-center gap-1.5 rounded-full bg-terracotta/10 px-3 py-1 text-xs font-semibold text-terracotta-700 transition-colors hover:bg-terracotta/20"
-    >
-      <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-      {label}
-    </Link>
   );
 }
 

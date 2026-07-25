@@ -8,23 +8,29 @@
  *                redirect that keeps old links alive.
  *   2. LOCKED  — an un-purchased (free) host gets multiCamUnlocked=false + an
  *                "Unlock · <price>" CTA. The free single-camera livestream is NOT
- *                gated by this — this flag only governs the multi-camera extras.
+ *                gated by this — this flag only governs BROADCASTING multi-cam.
  *   3. UNLOCK  — a host who owns LIVE_STUDIO gets multiCamUnlocked=true.
  *   4. PRICE   — the CTA uses the live catalog price label, and degrades to a bare
  *                "Unlock" on a catalog miss (never a hardcoded number).
  *
- * Plus the WAVE 1 single-screen LAYOUT invariants (owner-approved prototype
- * 2026-07-25 · Live_Studio_Unified_Spec § 4b) — the channel numbering and the
- * free/paid grid gate:
+ * Plus the single-screen LAYOUT invariants (owner-approved prototype 2026-07-25 ·
+ * Live_Studio_Unified_Spec § 4b) as REVISED BY WAVE 3 (§ 4d "rehearse free, pay to
+ * broadcast" + the owner's "but they can still see it"):
  *
- *   5. CHANNELS — Channel 1 is the controlled screen; cameras are CH 2+, numbered
- *                 from their own zone_index so a delete cannot renumber a channel
- *                 under the operator's thumb mid-show.
- *   6. GATE     — a free host's grid contains NO cuttable tile (the UI cannot even
- *                 offer the action the server would reject), yet keeps exactly ONE
- *                 usable free camera channel at CH 2.
- *   7. TALLY    — red is on-air truth: a cut with the broadcast off air is not red.
- *   8. CAP      — 12 configured cameras render 12 channels, and the cap closes.
+ *   5. CHANNELS   — Channel 1 is the controlled screen; cameras are CH 2+, numbered
+ *                   from their own zone_index so a delete cannot renumber a channel
+ *                   under the operator's thumb mid-show.
+ *   6. REHEARSE   — ⚠ REVERSES the old Wave 1 "GATE" tests. An un-entitled host's
+ *                   grid is FULLY usable: every configured camera is cuttable, at
+ *                   full brightness, with no padlock and no hidden tile. The
+ *                   paywall is publication (lib/live-studio-publish.ts), not the
+ *                   mechanic.
+ *   7. NUDGE      — "Unlock to broadcast" appears only for an un-entitled host, only
+ *                   on a 2nd+ camera, and only once they have ENGAGED it (put it on
+ *                   Channel 1). It is a label beside a cut that already succeeded.
+ *   8. TALLY      — red is on-air truth: a cut with the broadcast off air is not red.
+ *   9. CAP        — 12 configured cameras render 12 channels, and the cap closes.
+ *  10. READY      — the tile states the channel's REAL join state; no faked preview.
  *
  * Run: `pnpm test:unit`  (CI: the "unit tests" step).
  */
@@ -40,13 +46,16 @@ import {
   PROGRAM_CHANNEL_LABEL,
   FIRST_CAMERA_CHANNEL,
   FREE_CAMERA_NAME,
-  LOCKED_PLACEHOLDER_NAMES,
+  UNLOCK_TO_BROADCAST_LABEL,
   buildChannelTiles,
   channelForZoneIndex,
+  channelReadyCaption,
   formatChannel,
   liveStudioDetailPath,
   liveStudioControlPath,
   liveStudioControlLock,
+  rehearseFreeNotice,
+  showRehearsalUnlockNotice,
   type ControlZone,
 } from './live-studio-control';
 import { MAX_ROAM_ZONES, canAddZone } from './live-studio-roam-zones';
@@ -58,6 +67,7 @@ function zone(over: Partial<ControlZone> & { id: number; zone_index: number }): 
     venue_label: null,
     is_featured: false,
     is_main_stage: false,
+    status: 'planned',
     ...over,
   };
 }
@@ -135,7 +145,7 @@ test('UNLOCKED — every configured camera is a host-named, cuttable channel', (
     isLive: false,
   });
   assert.equal(tiles.length, 2);
-  assert.ok(tiles.every((t) => t.cuttable && !t.locked && t.zoneId !== null));
+  assert.ok(tiles.every((t) => t.cuttable && t.zoneId !== null));
   // The host's OWN name + venue is what renders — never a generated label.
   assert.equal(tiles[0]!.name, 'Main Stage');
   assert.equal(tiles[0]!.venue, 'Reception Hall');
@@ -143,53 +153,176 @@ test('UNLOCKED — every configured camera is a host-named, cuttable channel', (
   assert.equal(tiles[1]!.featured, false);
 });
 
-test('GATE — a free host gets ONE usable camera channel at CH 2 and nothing cuttable', () => {
+/* ──────────────────────────────────────────────────────────────────────────────
+   WAVE 3 · rehearse free, pay to broadcast (owner-locked 2026-07-25 · § 4d)
+
+   ⚠ These tests deliberately REVERSE the Wave 1 "GATE" assertions they replaced
+   ("a free host must not be offered a cut", "locked tiles start at CH 3", "a lapsed
+   host's tiles are locked and uncuttable"). Under § 4d a free host cutting between
+   their own cameras at their own rehearsal is the PRODUCT, not a hole: nothing they
+   do here is published, and publication is where the money gate now lives
+   (lib/live-studio-publish.ts). If a future change makes any of these pass again,
+   the paywall has silently moved back onto the mechanic.
+   ────────────────────────────────────────────────────────────────────────────── */
+
+test('REHEARSE — an un-entitled host with no cameras still gets their own free channel at CH 2', () => {
   const tiles = buildChannelTiles({ zones: [], multiCamUnlocked: false, isLive: false });
 
-  // Exactly one free, usable channel — the host's own camera, at CH 2.
-  const free = tiles.filter((t) => t.kind === 'free');
-  assert.equal(free.length, 1);
-  assert.equal(free[0]!.channel, FIRST_CAMERA_CHANNEL);
-  assert.equal(free[0]!.name, FREE_CAMERA_NAME);
-  assert.equal(free[0]!.locked, false);
-  assert.equal(free[0]!.onProgram, true, 'the free camera IS what Channel 1 carries');
-
-  // THE gate: no tile a free host sees renders a cut control.
-  assert.ok(
-    tiles.every((t) => t.cuttable === false),
-    'a free host must not be offered a cut the server would reject',
-  );
-  // Everything past the free channel is locked, and locked tiles start at CH 3 so
-  // nothing collides with the free CH 2.
-  const locked = tiles.filter((t) => t.locked);
-  assert.equal(locked.length, LOCKED_PLACEHOLDER_NAMES.length);
-  assert.deepEqual(
-    locked.map((t) => t.channel),
-    [3, 4, 5],
-  );
-  assert.ok(locked.every((t) => t.kind === 'placeholder' && t.zoneId === null));
+  assert.equal(tiles.length, 1, 'no invented placeholder cameras — no fake doors');
+  assert.equal(tiles[0]!.kind, 'free');
+  assert.equal(tiles[0]!.channel, FIRST_CAMERA_CHANNEL);
+  assert.equal(tiles[0]!.name, FREE_CAMERA_NAME);
+  assert.equal(tiles[0]!.onProgram, true, 'their own camera IS what Channel 1 carries');
+  assert.equal(tiles[0]!.cuttable, false, 'already on CH 1 — nothing to cut to');
+  assert.equal(tiles[0]!.nudgeUnlock, false, 'one camera is free — nothing to sell');
 });
 
-test('GATE — a lapsed host keeps seeing their real channel names, locked and uncuttable', () => {
+test('REHEARSE — an un-entitled host CAN cut between every camera they configured', () => {
   const tiles = buildChannelTiles({
     zones: [
-      zone({ id: 7, zone_index: 1, label: 'Church Altar', is_main_stage: true, is_featured: true }),
+      zone({ id: 7, zone_index: 1, label: 'Church Altar', is_featured: true }),
       zone({ id: 8, zone_index: 2, label: 'Sweetheart Table' }),
+      zone({ id: 9, zone_index: 3, label: 'Photo Booth' }),
     ],
     multiCamUnlocked: false,
+    isLive: false,
+  });
+
+  assert.equal(tiles.length, 3, 'their real channels, all of them');
+  assert.ok(
+    tiles.every((t) => t.cuttable && t.zoneId !== null),
+    'rehearsal is free — every configured camera is a real cut control',
+  );
+  // Their own names, their own default, their own channel numbers — identical to a
+  // paid host's grid.
+  assert.deepEqual(tiles.map((t) => t.name), ['Church Altar', 'Sweetheart Table', 'Photo Booth']);
+  assert.deepEqual(tiles.map((t) => t.channel), [2, 3, 4]);
+  assert.equal(tiles[0]!.featured, true);
+});
+
+test('VISIBLE — an un-entitled host has NO hidden, dimmed or padlocked tile', () => {
+  const zones = [
+    zone({ id: 1, zone_index: 1, label: 'Ceremony' }),
+    zone({ id: 2, zone_index: 2, label: 'Reception floor' }),
+  ];
+  const free = buildChannelTiles({ zones, multiCamUnlocked: false, isLive: false });
+  const paid = buildChannelTiles({ zones, multiCamUnlocked: true, isLive: false });
+
+  // Owner: "but they can still see it." The un-entitled grid must be the SAME grid.
+  assert.equal(free.length, paid.length);
+  assert.deepEqual(free.map((t) => t.name), paid.map((t) => t.name));
+  assert.deepEqual(free.map((t) => t.channel), paid.map((t) => t.channel));
+  assert.deepEqual(free.map((t) => t.cuttable), paid.map((t) => t.cuttable));
+
+  // And the field that used to drive the grey-out + 🔒 badge is gone entirely, so
+  // there is nothing for a future edit to key a blackout off.
+  assert.ok(
+    free.every((t) => !('locked' in t)),
+    'ChannelTile.locked must stay deleted — it was the dimming/padlock switch',
+  );
+});
+
+test('NUDGE — "Unlock to broadcast" fires only once an un-entitled host engages a 2nd+ camera', () => {
+  const base = [
+    zone({ id: 1, zone_index: 1, label: 'Ceremony' }),
+    zone({ id: 2, zone_index: 2, label: 'Garden Aisle' }),
+    zone({ id: 3, zone_index: 3, label: 'Photo Booth' }),
+  ];
+
+  // Page load, nothing engaged → no nudge anywhere. It is not a static padlock.
+  const idle = buildChannelTiles({ zones: base, multiCamUnlocked: false, isLive: false });
+  assert.ok(idle.every((t) => !t.nudgeUnlock), 'no nudge before they engage anything');
+
+  // They put the FIRST camera on Channel 1 — that one is free to broadcast, so
+  // still nothing to sell.
+  const first = buildChannelTiles({
+    zones: [{ ...base[0]!, is_main_stage: true }, base[1]!, base[2]!],
+    multiCamUnlocked: false,
+    isLive: false,
+  });
+  assert.ok(first.every((t) => !t.nudgeUnlock), 'the first camera is the free one');
+
+  // They cut to the SECOND camera → the nudge lands, on that tile only.
+  const second = buildChannelTiles({
+    zones: [base[0]!, { ...base[1]!, is_main_stage: true }, base[2]!],
+    multiCamUnlocked: false,
+    isLive: false,
+  });
+  assert.deepEqual(second.map((t) => t.nudgeUnlock), [false, true, false]);
+  // ⚠ NUDGE ≠ BLOCK: the cut it comments on has already happened, and the tile is
+  // still a live control.
+  assert.equal(second[1]!.onProgram, true, 'the cut succeeded');
+  assert.ok(second.every((t) => t.cuttable), 'every tile is still cuttable');
+});
+
+test('NUDGE — a host who owns LIVE_STUDIO never sees it', () => {
+  const tiles = buildChannelTiles({
+    zones: [
+      zone({ id: 1, zone_index: 1 }),
+      zone({ id: 2, zone_index: 2, is_main_stage: true }),
+    ],
+    multiCamUnlocked: true,
     isLive: true,
   });
-  assert.equal(tiles.length, 3, 'free camera + their two real channels');
-  assert.ok(tiles.every((t) => t.cuttable === false));
-  const locked = tiles.filter((t) => t.locked);
-  assert.deepEqual(
-    locked.map((t) => t.name),
-    ['Church Altar', 'Sweetheart Table'],
+  assert.ok(tiles.every((t) => !t.nudgeUnlock));
+});
+
+test('NUDGE — the boundary is ordinal, not channel number (a deleted CH 2 must not nudge)', () => {
+  // The host deleted their first camera. Their ONE remaining camera is CH 4 — and
+  // one camera is free to broadcast, so engaging it must not ask them for money.
+  const tiles = buildChannelTiles({
+    zones: [zone({ id: 9, zone_index: 3, label: 'Garden Aisle', is_main_stage: true })],
+    multiCamUnlocked: false,
+    isLive: false,
+  });
+  assert.equal(tiles[0]!.channel, 4);
+  assert.equal(tiles[0]!.ordinal, 0);
+  assert.equal(tiles[0]!.nudgeUnlock, false);
+});
+
+test('COPY — the boundary is "Unlock to broadcast", never "unlock to use"', () => {
+  // Under rehearse-free the host genuinely CAN use these cameras, so "unlock to
+  // use" would be a lie told while they are using it.
+  assert.equal(UNLOCK_TO_BROADCAST_LABEL, 'Unlock to broadcast');
+  assert.ok(!/to use/i.test(UNLOCK_TO_BROADCAST_LABEL));
+});
+
+test('NOTICE — the go-live line appears only when there is something they cannot broadcast', () => {
+  assert.equal(showRehearsalUnlockNotice({ owned: false, configuredChannels: 0 }), false);
+  assert.equal(
+    showRehearsalUnlockNotice({ owned: false, configuredChannels: 1 }),
+    false,
+    'one camera is free — a paywall over it would be a fake gate',
   );
-  // A stale is_main_stage / is_featured must not light a locked tile up.
-  assert.ok(locked.every((t) => !t.onProgram && !t.tally && !t.featured));
-  // The free camera still carries the tally while the free stream is live.
-  assert.equal(tiles[0]!.tally, true);
+  assert.equal(showRehearsalUnlockNotice({ owned: false, configuredChannels: 2 }), true);
+  assert.equal(showRehearsalUnlockNotice({ owned: true, configuredChannels: 9 }), false);
+});
+
+test('NOTICE — the price comes from the catalog and degrades rather than inventing one', () => {
+  assert.equal(
+    rehearseFreeNotice('₱2,999'),
+    'Rehearse free · Unlock ₱2,999 to broadcast all your cameras',
+  );
+  const noPrice = rehearseFreeNotice(null);
+  assert.ok(noPrice.startsWith('Rehearse free · Unlock to broadcast'));
+  assert.ok(!/\d/.test(noPrice), 'a catalog miss must never surface a hardcoded number');
+});
+
+test('READY — a tile states the channel’s real join state, and never invents one', () => {
+  // Nothing writes anything but the 'planned' insert default today, so the honest
+  // caption for a freshly added camera is "waiting", not "3 cameras are here".
+  assert.equal(channelReadyCaption('planned'), 'Waiting for a camera');
+  assert.equal(channelReadyCaption(null), 'Waiting for a camera');
+  assert.equal(channelReadyCaption('live'), 'Camera connected');
+  assert.equal(channelReadyCaption('offline'), 'Camera dropped out');
+  assert.equal(channelReadyCaption('disabled'), 'Turned off');
+
+  const tiles = buildChannelTiles({
+    zones: [zone({ id: 1, zone_index: 1, status: 'live' })],
+    multiCamUnlocked: false,
+    isLive: false,
+  });
+  assert.equal(tiles[0]!.status, 'live', 'the real column reaches the tile');
 });
 
 test('TALLY — red needs BOTH the cut and a live broadcast', () => {

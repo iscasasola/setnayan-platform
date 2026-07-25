@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isYouTubeVideoId } from '@/lib/panood-watch';
 import type { RoamManifest, RoamZoneStatus } from '@/lib/live-studio-roam';
+import { canPublishMultiCam, limitPublishedManifest } from '@/lib/live-studio-publish';
 
 /**
  * apps/web/lib/live-studio-roam-provision.ts
@@ -109,6 +110,19 @@ export function buildRoamManifest(zones: RoamZoneRow[], streams: RoamStreamRow[]
  * Call after any provisioning / go-live / zone change so the public picker
  * reflects reality. Service-role (admin) — reads the secret-bearing streams table.
  * Returns the number of zones written, or 0 on a pre-migration DB.
+ *
+ * ⭐ THIS IS THE PAYWALL (owner-locked 2026-07-25 · § 4d "rehearse free, pay to
+ * broadcast"). This column is the ONLY thing that makes a MULTI-channel stream
+ * guest-visible, and this function is its ONLY writer — so gating here gates
+ * publication itself, with no action to replay and no second door. Rehearsal
+ * (adding cameras, naming them, cutting between them) writes
+ * live_studio_roam_zones and is free precisely because zones are not published;
+ * this mirror is the moment they would become public, and the moment the
+ * entitlement is asked for.
+ *
+ * FAIL-CLOSED: canPublishMultiCam resolves to false on any error, and false means
+ * "publish the one on-air channel". A free host's mirror therefore still produces a
+ * real working single-camera stream — the free tier is not punished, it is bounded.
  */
 export async function mirrorRoamManifest(admin: SupabaseClient, eventId: string): Promise<number> {
   if (!eventId) return 0;
@@ -123,10 +137,15 @@ export async function mirrorRoamManifest(admin: SupabaseClient, eventId: string)
     if (zErr?.code === UNDEFINED_TABLE || sErr?.code === UNDEFINED_TABLE) return 0;
     if (zErr || sErr) return 0;
 
-    const manifest = buildRoamManifest(
+    const built = buildRoamManifest(
       (zones ?? []) as RoamZoneRow[],
       (streams ?? []) as RoamStreamRow[],
     );
+    // Only ask the entitlement when there is actually something to gate — a
+    // zero-or-one-channel mirror is the free livestream and costs no lookup.
+    const owned = built.length > 1 ? await canPublishMultiCam(admin, eventId) : true;
+    const manifest = limitPublishedManifest(built, owned);
+
     const { error: upErr } = await admin
       .from('events')
       .update({ live_studio_roam_manifest: manifest })
@@ -233,6 +252,15 @@ export async function returnPoolChannel(admin: SupabaseClient, eventId: string):
  *   • the OAuth-path decision (Workspace-Internal vs External) — which determines
  *     where the pool channel's grant is stored (an oauth_grants row keyed by the
  *     pool channel rather than by event_id, unlike CAST's per-couple grant).
+ *
+ * ⚠ WHEN THIS IS WIRED, DO NOT ADD A SECOND PAYWALL HERE. The publish gate lives in
+ * mirrorRoamManifest (§ 4d) — creating YouTube broadcasts is Setnayan's own cost, not
+ * a guest-visible act, and the manifest mirror is what actually makes channels
+ * watchable. Provisioning N broadcasts for a free host and publishing one of them is
+ * the intended shape; a free host who has not paid simply never gets a second entry
+ * into the manifest. (If per-broadcast cost later argues for refusing to CREATE N
+ * broadcasts for a free host, gate on decidePublish() from lib/live-studio-publish.ts
+ * so both places share one decision.)
  *
  * Wiring shape (for the follow-up PR):
  *   const channel = await checkoutPoolChannel(admin, eventId);

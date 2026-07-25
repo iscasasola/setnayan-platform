@@ -59,6 +59,7 @@ import {
   liveStudioRoamEnabled,
   selectFeaturedZone,
 } from '@/lib/live-studio-roam';
+import { canPublishMultiCam, limitPublishedManifest } from '@/lib/live-studio-publish';
 import { fetchEntrance, type EntrancePos } from '@/lib/indoor-blueprint';
 import { fetchTables, type EventTableRow } from '@/lib/seating';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
@@ -501,7 +502,34 @@ export const loadLiveLayer = cache(
           // the browser and the picker's `length > 1` guard hides itself. Hiding the
           // buttons while shipping the ids would only look like enforcement.
           const { manifest, guestPickEnabled } = await fetchRoamViewerState(admin, event.event_id);
-          const roam = applyGuestPick(manifest, guestPickEnabled);
+
+          // ⭐ THE PAYWALL, SECOND INDEPENDENT ENFORCEMENT (owner-locked 2026-07-25
+          // · § 4d "rehearse free, pay to broadcast"). The write gate lives in
+          // mirrorRoamManifest; this is the READ gate, and it exists because
+          // SETTINGS PERSIST WHILE PERMISSION DOES NOT. An entitlement that lapses,
+          // is refunded or is revoked after the mirror ran would otherwise leave a
+          // fully published multi-cam stream up until something happened to rewrite
+          // the column. Re-asking here means a free event is reduced to one channel
+          // on EVERY render — same posture as resolveOverlays re-asking on every
+          // frame of the program surface.
+          //
+          // ⚠ DO NOT DELETE THIS AS "REDUNDANT WITH THE WRITE GATE". `events` UPDATE
+          // RLS is ROW-level (couple_can_update_event), so a host can PATCH
+          // live_studio_roam_manifest straight through PostgREST with the public anon
+          // key, bypassing every server action. This read is what makes that
+          // pointless. See lib/live-studio-publish.ts for the full threat note.
+          //
+          // ADMIN client on purpose: `orders` RLS is purchaser-scoped, so the
+          // anon/session client would read "not owned" for a couple who genuinely
+          // paid and strip their multi-cam mid-wedding. Fail-closed inside
+          // canPublishMultiCam; the lookup is skipped entirely for a
+          // zero-or-one-channel (free single-cam) manifest, so the free path pays
+          // nothing for the gate.
+          const publishable = limitPublishedManifest(
+            manifest,
+            manifest.length > 1 ? await canPublishMultiCam(admin, event.event_id) : true,
+          );
+          const roam = applyGuestPick(publishable, guestPickEnabled);
           const featured = selectFeaturedZone(roam);
           if (featured) {
             try {

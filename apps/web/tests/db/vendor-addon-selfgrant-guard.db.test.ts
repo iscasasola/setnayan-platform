@@ -1,0 +1,266 @@
+/**
+ * vendor_profiles paid-ADD-ON self-grant guard — end-to-end (test:db, migrations
+ * replayed).
+ *
+ * THE HOLE THIS LOCKS: `vendor_profiles_owner` (20260513120000:62-67) is
+ * `FOR ALL TO authenticated USING (user_id = auth.uid())`. Postgres RLS is
+ * ROW-level, never COLUMN-level, and there is no column-scoped GRANT on this
+ * table — so a vendor may PATCH ANY column of their OWN row through PostgREST
+ * unless a trigger says otherwise. `guard_vendor_profiles_entitlement`
+ * (20270920020000) guarded only tier_state / tier_expires_at /
+ * extra_agent_seats; the four PAID ADD-ON columns shipped later were never added
+ * to it, so a vendor could hand themselves a free Vendor AI window, a free
+ * branded 3D booth, and an infinitely re-armable "one-time" free trial.
+ *
+ * Migration 20271002456914 extends the guard. These tests prove, against real
+ * replayed SQL, that (a) each column is now blocked for the vendor, (b) the
+ * service-role activation path still works, and (c) an ordinary profile edit is
+ * untouched.
+ */
+import { test, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import type { PGlite } from '@electric-sql/pglite';
+
+import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
+
+let replay: ReplayResult;
+let db: PGlite;
+
+async function setAuthRole(role: string | null): Promise<void> {
+  await db.query(`SELECT set_config('request.jwt.claim.role', $1, false)`, [role ?? '']);
+}
+
+/** Impersonate the vendor themselves (uid + role claim + SET ROLE). */
+async function asVendor(uid: string): Promise<void> {
+  await setAuthUid(db, uid);
+  await setAuthRole('authenticated');
+  await db.exec(`SET ROLE authenticated`);
+}
+async function asService(): Promise<void> {
+  await db.exec(`RESET ROLE`).catch(() => {});
+  await setAuthUid(db, null);
+  await setAuthRole('service_role');
+  await db.exec(`SET ROLE service_role`);
+}
+async function reset(): Promise<void> {
+  await db.exec(`RESET ROLE`).catch(() => {});
+  await setAuthUid(db, null);
+  await setAuthRole(null);
+}
+
+/** A vendor account + its profile, created privileged (the real registration path). */
+async function newVendor(email: string): Promise<{ uid: string; vendorProfileId: string }> {
+  await reset();
+  const u = await db.query<{ id: string }>(
+    `INSERT INTO auth.users (email, raw_user_meta_data)
+     VALUES ($1, jsonb_build_object('account_type','vendor')) RETURNING id`,
+    [email],
+  );
+  const uid = u.rows[0]!.id;
+  // A vendor-typed signup already provisions its vendor_profiles row via the
+  // on_auth_user_created trigger, so adopt that row rather than inserting a
+  // second one (vendor_profiles_user_id_key is UNIQUE).
+  const existing = await db.query<{ vendor_profile_id: string }>(
+    `SELECT vendor_profile_id FROM public.vendor_profiles WHERE user_id = $1`,
+    [uid],
+  );
+  if (existing.rows.length > 0) {
+    await db.query(
+      `UPDATE public.vendor_profiles
+          SET business_name = 'Guard Test Vendor', location_city = 'Manila'
+        WHERE user_id = $1`,
+      [uid],
+    );
+    return { uid, vendorProfileId: existing.rows[0]!.vendor_profile_id };
+  }
+  const v = await db.query<{ vendor_profile_id: string }>(
+    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services)
+     VALUES ($1, 'Guard Test Vendor', 'Manila', ARRAY['photography']::text[])
+     RETURNING vendor_profile_id`,
+    [uid],
+  );
+  return { uid, vendorProfileId: v.rows[0]!.vendor_profile_id };
+}
+
+before(async () => {
+  replay = await createReplayedDb();
+  db = replay.db;
+});
+
+after(async () => {
+  await reset();
+  await db?.close();
+});
+
+// ── every paid add-on column is blocked for the vendor ──────────────────────
+
+const GUARDED_ADDON_COLUMNS = [
+  'ai_addon_expires_at',
+  'ai_addon_trial_used_at',
+  'booth_addon_expires_at',
+  'booth_addon_trial_used_at',
+] as const;
+
+for (const col of GUARDED_ADDON_COLUMNS) {
+  test(`a vendor CANNOT self-grant ${col}`, async () => {
+    const { uid, vendorProfileId } = await newVendor(`selfgrant-${col}@guard.test`);
+    await asVendor(uid);
+
+    await assert.rejects(
+      () =>
+        db.query(
+          `UPDATE public.vendor_profiles SET ${col} = '2099-01-01T00:00:00Z'
+            WHERE vendor_profile_id = $1`,
+          [vendorProfileId],
+        ),
+      /self-grant blocked/,
+      `${col} must be trigger-guarded`,
+    );
+
+    // And the row is genuinely unchanged.
+    await reset();
+    const after = await db.query<Record<string, string | null>>(
+      `SELECT ${col} AS v FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
+      [vendorProfileId],
+    );
+    assert.equal(after.rows[0]!.v, null, `${col} must still be NULL`);
+  });
+}
+
+test('a vendor CANNOT re-arm a spent one-time trial by nulling the marker', async () => {
+  // This is the subtler half: the atomic `WHERE trial_used_at IS NULL` claims in
+  // ai-addon-actions.ts / booth-addon-actions.ts are only safe if the marker is
+  // write-once. A vendor who can NULL it gets unlimited "first" free cycles.
+  const { uid, vendorProfileId } = await newVendor('rearm@guard.test');
+  await asService();
+  await db.query(
+    `UPDATE public.vendor_profiles SET ai_addon_trial_used_at = NOW()
+      WHERE vendor_profile_id = $1`,
+    [vendorProfileId],
+  );
+
+  await asVendor(uid);
+  await assert.rejects(
+    () =>
+      db.query(
+        `UPDATE public.vendor_profiles SET ai_addon_trial_used_at = NULL
+          WHERE vendor_profile_id = $1`,
+        [vendorProfileId],
+      ),
+    /self-grant blocked/,
+  );
+
+  await reset();
+  const r = await db.query<{ used: string | null }>(
+    `SELECT ai_addon_trial_used_at AS used FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
+    [vendorProfileId],
+  );
+  assert.notEqual(r.rows[0]!.used, null, 'the spent trial marker must survive');
+});
+
+test('a user CANNOT INSERT a fresh vendor profile that already carries an add-on window', async () => {
+  // The INSERT branch closes the create-it-pre-granted vector. (The
+  // DELETE-then-re-INSERT variant is separately unreachable: deleting the profile
+  // trips VENDOR_LAST_ADMIN in vendor_team_guard_trg. This is the reachable one —
+  // an account with no vendor profile yet opening a shop.)
+  await reset();
+  const u = await db.query<{ id: string }>(
+    `INSERT INTO auth.users (email, raw_user_meta_data)
+     VALUES ($1, jsonb_build_object('account_type','customer')) RETURNING id`,
+    ['pregranted@guard.test'],
+  );
+  const uid = u.rows[0]!.id;
+  await asVendor(uid);
+  await assert.rejects(
+    () =>
+      db.query(
+        `INSERT INTO public.vendor_profiles (user_id, business_name, booth_addon_expires_at)
+         VALUES ($1, 'Sneaky', '2099-01-01T00:00:00Z')`,
+        [uid],
+      ),
+    /self-grant blocked/,
+  );
+
+  // …while the same INSERT WITHOUT the pre-granted window is fine.
+  await db.query(
+    `INSERT INTO public.vendor_profiles (user_id, business_name) VALUES ($1, 'Honest Shop')`,
+    [uid],
+  );
+  await reset();
+  const r = await db.query<{ n: string; b: string | null }>(
+    `SELECT business_name AS n, booth_addon_expires_at AS b
+       FROM public.vendor_profiles WHERE user_id = $1`,
+    [uid],
+  );
+  assert.equal(r.rows[0]!.n, 'Honest Shop');
+  assert.equal(r.rows[0]!.b, null);
+});
+
+// ── the legitimate paths still work ─────────────────────────────────────────
+
+test('the SERVICE-ROLE activation path can still grant every add-on column', async () => {
+  const { vendorProfileId } = await newVendor('service-grant@guard.test');
+  await asService();
+  await db.query(
+    `UPDATE public.vendor_profiles
+        SET ai_addon_expires_at       = '2099-01-01T00:00:00Z',
+            ai_addon_trial_used_at    = NOW(),
+            booth_addon_expires_at    = '2099-01-01T00:00:00Z',
+            booth_addon_trial_used_at = NOW()
+      WHERE vendor_profile_id = $1`,
+    [vendorProfileId],
+  );
+  await reset();
+  const r = await db.query<{ ai: string | null; booth: string | null }>(
+    `SELECT ai_addon_expires_at AS ai, booth_addon_expires_at AS booth
+       FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
+    [vendorProfileId],
+  );
+  assert.notEqual(r.rows[0]!.ai, null, 'service_role must still be able to activate');
+  assert.notEqual(r.rows[0]!.booth, null);
+});
+
+test('an ordinary profile edit by the vendor is UNAFFECTED', async () => {
+  // The guard must no-op when no guarded column changes — otherwise every vendor
+  // profile save breaks.
+  const { uid, vendorProfileId } = await newVendor('ordinary-edit@guard.test');
+  await asVendor(uid);
+  await db.query(
+    `UPDATE public.vendor_profiles SET business_name = 'Renamed Studio'
+      WHERE vendor_profile_id = $1`,
+    [vendorProfileId],
+  );
+  await reset();
+  const r = await db.query<{ n: string }>(
+    `SELECT business_name AS n FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
+    [vendorProfileId],
+  );
+  assert.equal(r.rows[0]!.n, 'Renamed Studio');
+});
+
+test('an edit that RE-STATES an add-on column at its current value is allowed', async () => {
+  // IS DISTINCT FROM semantics: a full-row PATCH that echoes the unchanged value
+  // must not trip the guard, or ordinary saves break for any vendor who holds an
+  // add-on.
+  const { uid, vendorProfileId } = await newVendor('restate@guard.test');
+  await asService();
+  await db.query(
+    `UPDATE public.vendor_profiles SET booth_addon_expires_at = '2099-01-01T00:00:00Z'
+      WHERE vendor_profile_id = $1`,
+    [vendorProfileId],
+  );
+  await asVendor(uid);
+  await db.query(
+    `UPDATE public.vendor_profiles
+        SET business_name = 'Echo Studio',
+            booth_addon_expires_at = '2099-01-01T00:00:00Z'
+      WHERE vendor_profile_id = $1`,
+    [vendorProfileId],
+  );
+  await reset();
+  const r = await db.query<{ n: string }>(
+    `SELECT business_name AS n FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
+    [vendorProfileId],
+  );
+  assert.equal(r.rows[0]!.n, 'Echo Studio');
+});

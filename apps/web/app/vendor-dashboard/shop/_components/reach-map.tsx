@@ -53,9 +53,16 @@ type Props = {
   lng: number;
   /** Tier reach in km. 0 = unscoped (no ring drawn). */
   radiusKm: number;
+  /**
+   * OPTIONAL inner "free travel" ring (Ring 1 of the two-ring reach model,
+   * owner-locked 2026-07-25 § 6) in km. Undefined/0 draws nothing, so every
+   * existing caller renders byte-identically to before this prop existed.
+   * Only the flag-dark ReachRingsCard passes it today.
+   */
+  freeRadiusKm?: number;
 };
 
-export function ReachMap({ lat, lng, radiusKm }: Props) {
+export function ReachMap({ lat, lng, radiusKm, freeRadiusKm }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
 
@@ -111,6 +118,13 @@ export function ReachMap({ lat, lng, radiusKm }: Props) {
   }
 
   const ringPx = hasRing ? (radiusKm * 1000) / metresPerPixel(lat, zoom) : 0;
+  // Inner free-travel ring — clamped to the outer ring so a stale prop pair can
+  // never draw a circle outside the coverage it belongs to.
+  const freeKm =
+    Number.isFinite(freeRadiusKm) && (freeRadiusKm ?? 0) > 0
+      ? Math.min(freeRadiusKm as number, hasRing ? radiusKm : (freeRadiusKm as number))
+      : 0;
+  const freeRingPx = freeKm > 0 ? (freeKm * 1000) / metresPerPixel(lat, zoom) : 0;
 
   return (
     <div
@@ -120,7 +134,9 @@ export function ReachMap({ lat, lng, radiusKm }: Props) {
       role="img"
       aria-label={
         hasRing
-          ? `Map showing your service coverage of about ${radiusKm} kilometres around your headquarters`
+          ? freeKm > 0
+            ? `Map showing free travel within about ${freeKm} kilometres and coverage out to about ${radiusKm} kilometres around your headquarters`
+            : `Map showing your service coverage of about ${radiusKm} kilometres around your headquarters`
           : 'Map showing your headquarters location'
       }
     >
@@ -154,6 +170,19 @@ export function ReachMap({ lat, lng, radiusKm }: Props) {
               style={{ fill: 'var(--m-terracotta, #b65d3c)', fillOpacity: 0.14 }}
               stroke="var(--m-terracotta, #b65d3c)"
               strokeWidth={2}
+              strokeOpacity={0.9}
+            />
+          )}
+          {/* Inner "free travel" ring (Ring 1) — only when a caller passes it. */}
+          {freeRingPx > 0 && (
+            <circle
+              cx={W / 2}
+              cy={H / 2}
+              r={freeRingPx}
+              style={{ fill: 'var(--m-terracotta, #b65d3c)', fillOpacity: 0.22 }}
+              stroke="var(--m-terracotta, #b65d3c)"
+              strokeWidth={2}
+              strokeDasharray="5 4"
               strokeOpacity={0.9}
             />
           )}

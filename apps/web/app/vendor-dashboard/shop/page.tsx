@@ -41,6 +41,8 @@ import {
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { tierCaps, asVendorTier, isTierAtLeast } from '@/lib/vendor-tier-caps';
 import { ReachMap } from './_components/reach-map';
+import { ReachRingsCard } from './_components/reach-rings-card';
+import { fetchVendorRingSettings } from '@/lib/vendor-reach-rings.server';
 import { BranchManager, type PayInfo } from '../_components/branch-manager';
 import {
   fetchVendorTeam,
@@ -189,6 +191,12 @@ type ShopData = {
   hqLng: number | null;
   /** Tier reach in km (vendor-tier-caps · serviceRadiusKm). 0 = unscoped. */
   reachKm: number;
+  /**
+   * Two-ring reach settings (owner-locked model 2026-07-25 § 6), already
+   * tier-clamped. NULL while NEXT_PUBLIC_VENDOR_REACH_RINGS_V1 is dark → the
+   * Coverage card doesn't render and the legacy read-only reach block stands.
+   */
+  reachRings: Awaited<ReturnType<typeof fetchVendorRingSettings>>;
   branchViews: VendorBranchView[];
   branchFeePhp: number;
   branchAutoRadius: number;
@@ -565,6 +573,10 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     hqLat: profile.hq_latitude ?? null,
     hqLng: profile.hq_longitude ?? null,
     reachKm: tierCaps(asVendorTier(tier)).serviceRadiusKm,
+    // Two-ring reach (model 2026-07-25 § 6) — NULL, and zero extra queries,
+    // while NEXT_PUBLIC_VENDOR_REACH_RINGS_V1 is dark, so the existing
+    // read-only tier-reach block below is untouched.
+    reachRings: await fetchVendorRingSettings(supabase, vendorId),
     branchViews: branches,
     branchFeePhp,
     branchAutoRadius: branchAutoRadiusKm(),
@@ -821,6 +833,7 @@ async function ShopHome({
             city={data.city}
             branchLocations={data.branchLocations}
             tier={data.tier}
+            reachRings={data.reachRings}
             hqLat={data.hqLat}
             hqLng={data.hqLng}
             reachKm={data.reachKm}
@@ -1203,6 +1216,7 @@ function BranchPanel({
   hqLat,
   hqLng,
   reachKm,
+  reachRings,
   branches,
   branchFeePhp,
   branchAutoRadius,
@@ -1214,6 +1228,7 @@ function BranchPanel({
   hqLat: number | null;
   hqLng: number | null;
   reachKm: number;
+  reachRings: ShopData['reachRings'];
   branches: VendorBranchView[];
   branchFeePhp: number;
   branchAutoRadius: number;
@@ -1251,8 +1266,20 @@ function BranchPanel({
         </div>
       </div>
 
-      {/* ── Coverage reach — the radius couples' Services search gates on. */}
-      {hasCoords ? (
+      {/* ── Coverage — two-ring reach (model 2026-07-25 § 6). Renders ONLY when
+             the flag is armed (reachRings is null while it's dark); it then
+             REPLACES the legacy single read-only reach block below, which is
+             the same information minus the vendor-settable rings. */}
+      {reachRings ? (
+        <ReachRingsCard
+          hqLat={hqLat}
+          hqLng={hqLng}
+          city={city}
+          initialRing1Km={reachRings.ring1Km}
+          initialRing2Km={reachRings.ring2Km}
+          capKm={reachRings.capKm}
+        />
+      ) : hasCoords ? (
         <div className="space-y-2">
           <ReachMap lat={hqLat} lng={hqLng} radiusKm={reachKm} />
           <p className="text-xs text-ink/55">

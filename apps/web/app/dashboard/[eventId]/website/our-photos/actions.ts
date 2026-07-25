@@ -22,6 +22,7 @@ import { createClient } from '@/lib/supabase/server';
 import { requireHostMembership } from '@/lib/host-gate';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
+import { resolveReturnTo } from '@/lib/editor-return';
 
 /** Hard cap on the gallery size — keeps the page light + bounds R2 cost. */
 const MAX_PHOTOS = 24;
@@ -80,5 +81,7 @@ export async function updateOurPhotos(
 
   revalidateWebsiteEditor(eventId, 'our-photos');
   revalidateGuestSite(event?.slug);
-  redirect(`/dashboard/${eventId}/website/our-photos?saved=1`);
+  redirect(
+    resolveReturnTo(formData, `/dashboard/${eventId}/website/our-photos?saved=1`, '?saved=1'),
+  );
 }

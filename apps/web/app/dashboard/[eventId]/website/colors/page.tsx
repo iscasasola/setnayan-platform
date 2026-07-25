@@ -1,12 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import {
-  ArrowLeft,
-  ArrowUpRight,
-  CheckCircle2,
-  Lock,
-  Palette,
-} from 'lucide-react';
+import { ArrowUpRight, CheckCircle2, Lock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
@@ -14,6 +8,7 @@ import { getHostUserId } from '@/lib/host-gate';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { buildSitePaletteVars } from '@/lib/site-palette';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { updateSiteColors } from './actions';
 import { ColorField } from './color-field';
@@ -86,27 +81,12 @@ export default async function SiteColorsEditorPage({
 
   return (
     <section className="space-y-6">
-      <header className="sn-reveal space-y-3">
-        <Link
-          href={`/dashboard/${eventId}/website`}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-terracotta hover:text-terracotta-700"
-        >
-          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Back to website
-        </Link>
-        <div>
-          <p className="sn-eye flex items-center gap-2">
-            <Palette aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Site colours
-          </p>
-          <h1 className="sn-h1 mt-1">Background &amp; button colour</h1>
-          <p className="mt-2 max-w-prose text-sm text-ink/65">
-            Set the background and button colours for your wedding website. Leave
-            either one blank to keep the colour from your Mood Board palette. Your
-            guests see these across every part of your site.
-          </p>
-        </div>
-      </header>
+      <PageMasthead
+        title="Background & button colour"
+        back={`/dashboard/${eventId}/website`}
+        backLabel="Website"
+        lede="Set the background and button colours for your wedding website. Leave either one blank to keep the colour from your Mood Board palette. Your guests see these across every part of your site."
+      />
 
       {proActive ? (
         <SiteColorsForm

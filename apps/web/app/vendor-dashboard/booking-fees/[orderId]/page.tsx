@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, Send } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { FileUpload } from '@/app/_components/file-upload';
 import { CopyButton } from '@/app/_components/copy-button';
@@ -109,17 +110,14 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
         </p>
       ) : null}
 
-      <header className="sn-tile space-y-3 p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 space-y-1">
-            <p className="sn-eye">
-              Booking fee <span className="font-mono normal-case">{order.public_id}</span>
-            </p>
-            <h1 className="sn-sec text-xl">
-              Reference{' '}
-              <span className="font-mono text-terracotta-700">{order.reference_code}</span>
-            </h1>
-          </div>
+      <PageMasthead
+        titleNode={
+          <>
+            Reference{' '}
+            <span className="font-mono text-terracotta-700">{order.reference_code}</span>
+          </>
+        }
+        actions={
           <span
             className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
               ORDER_STATUS_TONE[order.status]
@@ -127,7 +125,13 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
           >
             {ORDER_STATUS_LABEL[order.status]}
           </span>
-        </div>
+        }
+      />
+
+      <section className="sn-tile space-y-3 p-5">
+        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/50">
+          Order <span className="normal-case">{order.public_id}</span>
+        </p>
         <p className="whitespace-pre-wrap text-sm text-ink/75">{order.description}</p>
         <div className="rounded-lg border border-ink/10 bg-ink/[0.02] p-4">
           <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/50">
@@ -152,7 +156,7 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
             {order.admin_notes}
           </p>
         ) : null}
-      </header>
+      </section>
 
       {payable ? (
         <section className="sn-tile space-y-4 p-5">

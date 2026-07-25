@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import {
   ArrowLeft,
-  Video,
   Star,
   Trash2,
   MapPin,
@@ -18,6 +17,7 @@ import { eventSkuActive } from '@/lib/entitlements';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { MAX_ROAM_ZONES, canAddZone } from '@/lib/live-studio-roam-zones';
 import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { addRoamZone, deleteRoamZone, setFeaturedRoamZone } from './actions';
 
@@ -94,18 +94,10 @@ export default async function LiveStudioRoamSetupPage({ params, searchParams }: 
         Back to Live Studio Roam
       </Link>
 
-      <header className="sn-reveal space-y-2">
-        <p className="sn-eye">Roam controller</p>
-        <h1 className="sn-h1 flex items-center gap-3">
-          <Video aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
-          Set up your cameras
-        </h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Name each camera your guests can choose between — one per angle, room, or venue.
-          Mark the one you want the picker to open on as the default view; guests can switch
-          to any other camera with one tap, and jump back to your default any time.
-        </p>
-      </header>
+      <PageMasthead
+        title="Set up your cameras"
+        lede="Name each camera your guests can choose between — one per angle, room, or venue. Mark the one you want the picker to open on as the default view; guests can switch to any other camera with one tap, and jump back to your default any time."
+      />
 
       {zone_added ? (
         <Banner tone="success" Icon={CheckCircle2}>Camera added to your picker.</Banner>

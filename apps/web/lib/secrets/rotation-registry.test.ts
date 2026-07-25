@@ -6,8 +6,8 @@
  * that are cheap to break in a hand-edit and expensive to notice in production:
  * a duplicated id silently collides two secrets onto one rotation row; a
  * vercel-api row with no env var renders a Save button that writes nowhere; a
- * db-paste row with no consoleHref is a dead end for the only secrets whose
- * rotation takes effect without a redeploy.
+ * db-paste row that resolves to no DB column renders a Save button that reports
+ * success and stores nothing.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -15,7 +15,10 @@ import assert from 'node:assert/strict';
 import {
   SECRET_REGISTRY,
   CONSOLE_COLUMN_TO_SECRET_ID,
+  CONSOLE_COLUMN_LABEL,
   GROUP_ORDER,
+  consoleColumnsForSecret,
+  dbPasteFields,
   getSecretDef,
   secretFields,
 } from './rotation-registry';
@@ -54,13 +57,96 @@ test('every vercel-api field targets an env var the row actually declares', () =
   }
 });
 
-test('every db-paste row deep-links to the console card that owns it', () => {
+test('every db-paste row keeps its "Advanced settings" link to the console card', () => {
   for (const def of SECRET_REGISTRY) {
     if (def.editable !== 'db-paste') continue;
     assert.ok(def.consoleHref, `${def.id} has no consoleHref`);
     assert.ok(
       def.consoleHref?.startsWith('/admin/integrations'),
       `${def.id}: consoleHref must point at the integrations console`,
+    );
+  }
+});
+
+// ── db-paste rows: the inline paste box on the board (2026-07-25) ───────────
+//
+// These rows now SAVE from /admin/secrets instead of only linking away, so the
+// registry has a second job: it resolves each row to the DB column(s) the write
+// lands in. A typo'd id silently resolves to zero columns — which renders a Save
+// button that writes nowhere and still reports success. That is the failure
+// these three tests exist to catch.
+
+test('every db-paste row resolves to at least one real console column', () => {
+  for (const def of SECRET_REGISTRY) {
+    if (def.editable !== 'db-paste') continue;
+    const fields = dbPasteFields(def);
+    assert.ok(
+      fields.length >= 1,
+      `${def.id}: no console column — its paste box would save nowhere`,
+    );
+    for (const field of fields) {
+      assert.equal(
+        CONSOLE_COLUMN_TO_SECRET_ID[field.column],
+        def.id,
+        `${def.id}: column ${field.column} maps elsewhere`,
+      );
+      assert.ok(field.label.trim().length > 0, `${def.id}: empty field label`);
+    }
+    assert.deepEqual(
+      fields.map((f) => f.column),
+      consoleColumnsForSecret(def.id),
+      `${def.id}: dbPasteFields drifted from consoleColumnsForSecret`,
+    );
+  }
+});
+
+test('the console-column map is bidirectionally consistent with the registry', () => {
+  // Forward: every mapped column points at a real row that can actually be
+  // pasted here (a column mapped to a vercel-api row would never be reachable).
+  for (const [column, id] of Object.entries(CONSOLE_COLUMN_TO_SECRET_ID)) {
+    const def = getSecretDef(id);
+    assert.ok(def, `column ${column} maps to unknown secret id ${id}`);
+    assert.equal(
+      def?.editable,
+      'db-paste',
+      `column ${column} maps to ${id}, which is not a db-paste row`,
+    );
+  }
+  // Backward: no db-paste row is orphaned out of the map.
+  for (const def of SECRET_REGISTRY) {
+    if (def.editable !== 'db-paste') continue;
+    assert.ok(
+      Object.values(CONSOLE_COLUMN_TO_SECRET_ID).includes(def.id),
+      `${def.id} is db-paste but no column maps to it`,
+    );
+  }
+  // Labels are a paste-box concern: every label names a column that exists.
+  for (const column of Object.keys(CONSOLE_COLUMN_LABEL)) {
+    assert.ok(
+      column in CONSOLE_COLUMN_TO_SECRET_ID,
+      `label declared for unknown column ${column}`,
+    );
+  }
+  for (const column of Object.keys(CONSOLE_COLUMN_TO_SECRET_ID)) {
+    assert.ok(CONSOLE_COLUMN_LABEL[column], `column ${column} has no field label`);
+  }
+});
+
+test('db-paste steps say "paste it below", never "go to the integrations console"', () => {
+  // The whole point of the inline paste box: the runbook must not send the
+  // owner to another page to do the one thing this row can now do itself.
+  for (const def of SECRET_REGISTRY) {
+    if (def.editable !== 'db-paste') continue;
+    for (const step of def.steps) {
+      assert.doesNotMatch(
+        step,
+        /integrations console/i,
+        `${def.id}: step still routes the paste to the console — "${step}"`,
+      );
+    }
+    assert.ok(
+      def.steps.some((s) => /paste[\s\S]*below/i.test(s)),
+      `${def.id}: no step tells the owner to paste it below`,
     );
   }
 });

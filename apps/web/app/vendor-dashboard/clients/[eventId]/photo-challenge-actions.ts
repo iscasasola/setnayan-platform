@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
+import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { eventPapicActive } from '@/lib/papic-seats';
@@ -139,12 +141,17 @@ export async function sponsorPhotoChallenge(
   // Already sponsored? (admin-read for authority.)
   const alreadySponsored = await fetchPhotoChallengeSponsored(admin, eventId, vendorProfileId);
 
+  // 2026-07-25 tiered add-on model: when enabled, Papic Challenge opens to every
+  // tier (Free/Solo pay the entry price) and the tier-based price applies. Mirrors
+  // the SQL gate (papic_create_vendor_challenge reads the DB twin of this flag).
+  const tieredPricing = isVendorAddonTieredPricingEnabled();
   const eligibility = photoChallengeEligibility({
     tier,
     verification,
     booked,
     papicActive,
     alreadySponsored,
+    allTiersAllowed: tieredPricing,
   });
   if (!eligibility.ok) {
     return err(PHOTO_CHALLENGE_DENY_MESSAGE[eligibility.reason]);
@@ -186,7 +193,9 @@ export async function sponsorPhotoChallenge(
     skuRow && (skuRow as { is_active?: boolean | null }).is_active !== false
       ? Number((skuRow as { price_php: number | string }).price_php)
       : null;
-  const pricePhp = resolveVendorPhotoChallengePricePhp(cyclePricePhp);
+  const pricePhp = tieredPricing
+    ? resolveVendorAddonPricePhp('papic_challenge', tier)
+    : resolveVendorPhotoChallengePricePhp(cyclePricePhp);
 
   // ── Apply-then-pay: a submitted order + a pending payment row ───────────────
   const channel = parseChannel(formData.get('channel'));

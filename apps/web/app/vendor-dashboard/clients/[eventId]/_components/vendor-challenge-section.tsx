@@ -14,6 +14,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchVendorChallenges } from '@/lib/papic-games';
 import { vendorChallengeStatus, type VendorChallengeStatus } from '@/lib/papic-missions';
 import { asVendorTier } from '@/lib/vendor-tier-caps';
+import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
+import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 import { eventPapicActive } from '@/lib/papic-seats';
 import {
   fetchPhotoChallengeSponsored,
@@ -62,6 +64,13 @@ export async function VendorChallengeSection({
   const verification =
     (profRow.data as { verification_state?: string | null } | null)?.verification_state ?? null;
 
+  // 2026-07-25 tiered add-on model: when enabled, every tier may sponsor and the
+  // tier-based price applies (Free/Solo ₱500, Pro/Ent ₱400); else today's flat price.
+  const tieredPricing = isVendorAddonTieredPricingEnabled();
+  const effectivePricePhp = tieredPricing
+    ? resolveVendorAddonPricePhp('papic_challenge', tier)
+    : pricePhp;
+
   // The same pure gate the buy action enforces (booked is implied by mount).
   const eligibility = photoChallengeEligibility({
     tier,
@@ -69,6 +78,7 @@ export async function VendorChallengeSection({
     booked: true,
     papicActive,
     alreadySponsored: sponsored,
+    allTiersAllowed: tieredPricing,
   });
 
   return (
@@ -152,9 +162,9 @@ export async function VendorChallengeSection({
         // Eligible to buy → the ₱400 sponsorship CTA.
         <>
           <p className="mt-4 text-sm font-medium text-ink">
-            {`Sponsor Papic Challenges for this event — ₱${pricePhp.toLocaleString('en-PH')}.`}
+            {`Sponsor Papic Challenges for this event — ₱${effectivePricePhp.toLocaleString('en-PH')}.`}
           </p>
-          <PhotoChallengeBuy eventId={eventId} pricePhp={pricePhp} />
+          <PhotoChallengeBuy eventId={eventId} pricePhp={effectivePricePhp} />
         </>
       ) : (
         // Not eligible → the honest reason (below Pro, unverified, or Papic not active).

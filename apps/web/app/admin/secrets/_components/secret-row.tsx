@@ -1,14 +1,16 @@
 import Link from 'next/link';
-import { ExternalLink, KeyRound } from 'lucide-react';
+import { ExternalLink, KeyRound, SlidersHorizontal } from 'lucide-react';
 import {
   STORE_LABEL,
   secretFields,
+  dbPasteFields,
   type SecretDef,
 } from '@/lib/secrets/rotation-registry';
 import { STATUS_LABEL, type SecretStatus } from '@/lib/secrets/status';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ConfirmForm } from '@/app/_components/confirm-form';
 import { SecretValueInput } from './secret-value-input';
-import { updateVercelSecret, markRotated } from '../actions';
+import { updateVercelSecret, updateDbSecret, clearDbSecret, markRotated } from '../actions';
 
 // One row on the Secrets & Rotation board.
 //
@@ -46,6 +48,10 @@ export function SecretRow({
   configured: boolean | null;
 }) {
   const canWriteHere = def.editable === 'vercel-api' && vercelWritable;
+  // DB-stored rows paste RIGHT HERE (2026-07-25) — same encrypted write layer
+  // the Integrations console uses, so the only difference from that card is
+  // which page you happened to be standing on.
+  const dbFields = def.editable === 'db-paste' ? dbPasteFields(def) : [];
 
   return (
     <details
@@ -145,20 +151,67 @@ export function SecretRow({
           </p>
         ) : null}
 
-        {def.editable === 'db-paste' && def.consoleHref ? (
-          <p>
-            <Link
-              href={def.consoleHref}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
-            >
-              Open the Integrations console
-            </Link>
-            <span className="mt-1.5 block text-xs text-ink/55">
-              This secret is stored encrypted in Setnayan&rsquo;s own database —
-              saving it there takes effect immediately, with no redeploy. Saving
-              on that card also resets this rotation clock automatically.
-            </span>
-          </p>
+        {dbFields.length > 0 ? (
+          <>
+            <form action={updateDbSecret} className="space-y-3">
+              <input type="hidden" name="secret_id" value={def.id} />
+              {dbFields.map((field) => (
+                <SecretValueInput
+                  key={field.column}
+                  name={`value__${field.column}`}
+                  label={field.label}
+                />
+              ))}
+              <SubmitButton
+                pendingLabel="Saving…"
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
+              >
+                Save key
+              </SubmitButton>
+              {/* No redeploy nudge here — that is a Vercel-env step. A value
+                  saved into Setnayan's own database is live on the next request. */}
+              <p className="text-xs text-ink/55">
+                Stored encrypted in Setnayan&rsquo;s own database and live on the
+                very next request — no redeploy needed. Saving here also resets
+                this rotation clock.
+                {dbFields.length > 1
+                  ? ' Each key is stored on its own: fill in only the one you’re replacing and the other stays exactly as it is.'
+                  : ''}
+              </p>
+            </form>
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-ink/10 pt-4">
+              {def.consoleHref ? (
+                <Link
+                  href={def.consoleHref}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--m-orange-2)]"
+                >
+                  <SlidersHorizontal aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                  Advanced settings &rarr;
+                </Link>
+              ) : null}
+              {configured ? (
+                <ConfirmForm
+                  action={clearDbSecret}
+                  title="Remove this saved key?"
+                  confirmLabel="Remove it"
+                  message={
+                    dbFields.length > 1
+                      ? 'Both stored keys are deleted. Anything that uses them stops working on the next request unless a matching value is still set in Vercel. You can paste a new pair here anytime.'
+                      : 'The stored key is deleted. Anything that uses it stops working on the next request unless the same key is still set in Vercel. You can paste a new one here anytime.'
+                  }
+                >
+                  <input type="hidden" name="secret_id" value={def.id} />
+                  <SubmitButton
+                    pendingLabel="Removing…"
+                    className="inline-flex items-center justify-center gap-2 text-xs font-medium text-ink/55 underline underline-offset-2 transition-colors hover:text-rose-700"
+                  >
+                    {dbFields.length > 1 ? 'Remove saved keys' : 'Remove saved key'}
+                  </SubmitButton>
+                </ConfirmForm>
+              ) : null}
+            </div>
+          </>
         ) : null}
 
         {/* Always available: record a rotation performed elsewhere. */}

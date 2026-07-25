@@ -29,9 +29,14 @@ import { redeployProduction } from './actions';
 // One place to answer: what secrets does Setnayan hold, where does each live,
 // how old is it, and how do I replace it — without opening Vercel. Vercel-stored
 // secrets are written through the REST API (write-only: the value goes out, and
-// the API can never hand it back); DB-stored secrets link to the Integration
-// console that already owns them; the rest carry a runbook plus a "Mark rotated"
-// stamp.
+// the API can never hand it back); DB-stored secrets are pasted inline and saved
+// through the Integrations console's own write layer (lib/integrations/write.ts
+// — one encrypt+upsert implementation, no second copy); the rest carry a runbook
+// plus a "Mark rotated" stamp.
+//
+// The owner rule this page answers to (2026-07-25): ANY key, ANY secret →
+// /admin/secrets, always. The console keeps the feature setup around a key
+// (redirect URIs, Page/IG ids, Verify buttons) and each row links to it.
 //
 // NOTHING on this page reads a secret VALUE. The Vercel env call returns
 // metadata with values stripped; the DB read is a boolean presence map; the
@@ -48,6 +53,11 @@ export default async function AdminSecretsPage({
 }: {
   searchParams: Promise<{
     saved?: string;
+    /** 'db' when the save went to Setnayan's own secrets table, not Vercel. */
+    store?: string;
+    /** How many boxes a db-paste save wrote — a COUNT, never a value. */
+    keys?: string;
+    cleared?: string;
     marked?: string;
     redeploy?: string;
     deploying?: string;
@@ -56,7 +66,10 @@ export default async function AdminSecretsPage({
   }>;
 }) {
   await requireAdmin();
-  const { saved, marked, redeploy, deploying, error, code } = await searchParams;
+  const { saved, store, keys, cleared, marked, redeploy, deploying, error, code } =
+    await searchParams;
+  const savedToDb = Boolean(saved) && store === 'db';
+  const savedKeyCount = keys === '2' ? 2 : 1;
 
   const now = new Date();
   const vercelWritable = vercelEnvConfigured();
@@ -215,8 +228,22 @@ export default async function AdminSecretsPage({
           role="status"
           className="inline-flex items-center gap-2 rounded-2xl border border-emerald-300/70 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
         >
-          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Saved to
-          Vercel.{redeploy ? ' Now click “Redeploy production” to apply it.' : ''}
+          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          {savedToDb
+            ? savedKeyCount === 2
+              ? 'Saved — both keys are stored. Live on the very next request; no redeploy needed.'
+              : 'Saved — live on the very next request; no redeploy needed. Any box you left blank kept the value it already had.'
+            : `Saved to Vercel.${redeploy ? ' Now click “Redeploy production” to apply it.' : ''}`}
+        </p>
+      ) : null}
+      {cleared ? (
+        <p
+          role="status"
+          className="inline-flex items-center gap-2 rounded-2xl border border-ink/15 bg-white/70 px-4 py-3 text-sm text-ink/70"
+        >
+          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Removed
+          from Setnayan&rsquo;s database. Paste a new value whenever you&rsquo;re
+          ready.
         </p>
       ) : null}
       {marked ? (
@@ -248,7 +275,9 @@ export default async function AdminSecretsPage({
               ? 'Nothing was entered — no change was made.'
               : error === 'redeploy'
                 ? 'Couldn’t trigger a deploy — push any commit, or redeploy from the Vercel dashboard.'
-                : 'Vercel rejected the write. On a two-part key (R2, TURN) the first part may already have been saved — re-enter BOTH values and save again before redeploying.'}
+                : error === 'db'
+                  ? 'Setnayan couldn’t store that value, so nothing changed — the old one is still in place. Try again; if it keeps failing, check that ENCRYPTION_KEY is set in this environment.'
+                  : 'Vercel rejected the write. On a two-part key (R2, TURN) the first part may already have been saved — re-enter BOTH values and save again before redeploying.'}
             {code ? <span className="font-mono text-xs"> ({code})</span> : null}
           </span>
         </p>
@@ -259,9 +288,9 @@ export default async function AdminSecretsPage({
         <h2 className="text-lg font-semibold tracking-tight">Apply pending changes</h2>
         <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
           A secret saved to the Vercel environment only reaches the running app on
-          the next deployment. Secrets stored in Setnayan&rsquo;s own database
-          (the Integrations console ones) take effect immediately and need none
-          of this.
+          the next deployment. Rows marked &ldquo;In-app DB&rdquo; are stored in
+          Setnayan&rsquo;s own database, take effect on the very next request, and
+          need none of this.
         </p>
         <form action={redeployProduction}>
           <SubmitButton

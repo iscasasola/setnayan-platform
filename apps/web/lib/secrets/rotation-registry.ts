@@ -35,9 +35,16 @@ export type SecretStore = 'vercel' | 'db' | 'github' | 'local';
  * How (if at all) the board lets the owner change it in-app.
  *   • 'vercel-api'        — paste here → written to the Vercel project env via
  *                           the REST API → needs a production redeploy to apply.
- *   • 'db-paste'          — the Integration console already owns this secret
- *                           (encrypted, DB-first, no redeploy); the board links
- *                           to that card rather than duplicating the write path.
+ *   • 'db-paste'          — stored encrypted in Setnayan's own database
+ *                           (platform_integration_secrets, DB-first, live on the
+ *                           next request — no redeploy). Pasted RIGHT HERE since
+ *                           2026-07-25: the board's box posts to the SAME write
+ *                           layer the Integration console uses
+ *                           (lib/integrations/write.ts), so there is one
+ *                           encrypt+upsert implementation, not two. The console
+ *                           card stays the home of the non-secret CONFIG around
+ *                           the key (redirect URIs, Page/IG ids, Verify button),
+ *                           reachable from the row's "Advanced settings" link.
  *   • 'instructions-only' — the value lives somewhere we can't write (GitHub
  *                           Actions, a provider dashboard). Read the runbook,
  *                           do it there, then "Mark rotated" here.
@@ -53,7 +60,12 @@ export interface SecretDef {
   /** Env var names involved. Also drives the Vercel `updatedAt` age lookup. */
   envVars: string[];
   editable: SecretEditable;
-  /** For db-paste: deep link into the Integration console card. */
+  /**
+   * For db-paste: deep link into the Integration console card. The key itself is
+   * pasted on this board; the link is for what the card still owns — non-secret
+   * config (redirect URIs, Page/IG ids, the Maya endpoint) and provider test
+   * buttons. Rendered as the row's "Advanced settings" link.
+   */
   consoleHref?: string;
   /** null = "rotate only on compromise" (manual — no age alarm). */
   policyDays: number | null;
@@ -220,10 +232,10 @@ export const SECRET_REGISTRY: readonly SecretDef[] = [
     providerUrl: 'https://resend.com/api-keys',
     steps: [
       'Create a new key in Resend.',
-      'Paste it on the Integrations console (Resend card) — it takes effect immediately, no redeploy.',
-      'Click Verify on the Resend card.',
+      'Paste it in the box below and Save. It takes effect on the very next request — no redeploy.',
+      'Open "Advanced settings" below and click Verify — that sends a real test email, which is the only way to know the key works.',
       'Delete the old key in Resend.',
-      'Optional: also refresh the RESEND_API_KEY Vercel env fallback so the backup stays current.',
+      'Optional: also refresh the RESEND_API_KEY value in Vercel so the backup copy stays current.',
     ],
     impact:
       'Every transactional email. The DB value wins over the env var.',
@@ -242,7 +254,7 @@ export const SECRET_REGISTRY: readonly SecretDef[] = [
     providerUrl: 'https://platform.openai.com/api-keys',
     steps: [
       'Create a new secret key in the OpenAI dashboard.',
-      'Paste it on the Integrations console (OpenAI card) — immediate, no redeploy.',
+      'Paste it in the box below and Save — live on the next request, no redeploy.',
       'Delete the old key in OpenAI.',
     ],
     impact: 'Editorial NSFW screening only; fails open when unset.',
@@ -279,8 +291,9 @@ export const SECRET_REGISTRY: readonly SecretDef[] = [
     providerUrl: 'https://business.facebook.com/settings/system-users',
     steps: [
       'Meta Business → System Users → generate a new token with pages_manage_posts + instagram_content_publish.',
-      'Paste it on the Integrations console (Facebook + Instagram card).',
+      'Paste it in the box below and Save — live on the next request, no redeploy.',
       'Post one test item to confirm publishing still works before you revoke the old token.',
+      'Changing the Facebook Page ID or Instagram account ID instead? Those two are not secrets and live under "Advanced settings" below.',
     ],
     impact: '⚠ LIVE auto-publish path — a wrong token stops posting.',
   },
@@ -313,7 +326,8 @@ export const SECRET_REGISTRY: readonly SecretDef[] = [
     steps: [
       'Google Cloud console → Credentials → open the EXISTING YouTube OAuth client.',
       'Reset the client secret on that same client — do NOT create a new client (a new one changes the client ID too).',
-      'Paste the new secret on the Integrations console (YouTube card).',
+      'Paste the new secret in the box below and Save — live on the next request, no redeploy.',
+      'The client ID and redirect URI are not secrets; change those under "Advanced settings" below.',
     ],
     impact:
       'Live Studio YouTube pairing. Reset the secret on the SAME OAuth client — a new client would also change the client ID.',
@@ -331,7 +345,8 @@ export const SECRET_REGISTRY: readonly SecretDef[] = [
     steps: [
       'Google Cloud console → Credentials → open the EXISTING Drive OAuth client.',
       'Reset the client secret on that same client (the client ID must stay).',
-      'Paste the new secret on the Integrations console (Google Drive card).',
+      'Paste the new secret in the box below and Save — live on the next request, no redeploy.',
+      'The client ID and the two redirect URIs (Papic + Photo Delivery) are not secrets; change those under "Advanced settings" below.',
     ],
     impact: 'Papic Drive handover + Photo Delivery.',
   },
@@ -365,7 +380,8 @@ export const SECRET_REGISTRY: readonly SecretDef[] = [
     providerUrl: 'https://developers.tiktok.com/',
     steps: [
       'TikTok developer portal → your app → regenerate the client secret.',
-      'Paste it on the Integrations console (TikTok card).',
+      'Paste it in the box below and Save — live on the next request, no redeploy.',
+      'The client key and redirect URI are not secrets; change those under "Advanced settings" below.',
     ],
     impact: 'Per-couple Patiktok OAuth connect flow.',
   },
@@ -381,7 +397,7 @@ export const SECRET_REGISTRY: readonly SecretDef[] = [
     providerUrl: 'https://developers.tiktok.com/',
     steps: [
       'Re-authorize the Setnayan TikTok account to mint a fresh user access token.',
-      'Paste it on the Integrations console (TikTok auto-publish card).',
+      'Paste it in the box below and Save — live on the next request, no redeploy.',
     ],
     impact:
       'Setnayan-account auto-publish (dormant until the Content-Posting-API audit clears).',
@@ -400,7 +416,9 @@ export const SECRET_REGISTRY: readonly SecretDef[] = [
     providerUrl: 'https://developers.maya.ph/',
     steps: [
       'Maya developer portal → regenerate the public + secret API key pair.',
-      'Paste BOTH on the Integrations console (Maya card).',
+      'Paste BOTH in the boxes below and Save — live on the next request, no redeploy.',
+      'The two keys are stored separately, so you can come back and replace just one: fill in the box you are changing and leave the other blank.',
+      'The checkout endpoint is not a secret; change it under "Advanced settings" below.',
     ],
     impact: 'Dormant until Maya activation.',
   },
@@ -703,4 +721,37 @@ export function consoleColumnsForSecret(id: string): string[] {
   return Object.entries(CONSOLE_COLUMN_TO_SECRET_ID)
     .filter(([, secretId]) => secretId === id)
     .map(([column]) => column);
+}
+
+/**
+ * Field label for each stored-secret column — what the owner sees above the
+ * paste box on a db-paste row. Public metadata only: a column NAME and a human
+ * label, never a value.
+ */
+export const CONSOLE_COLUMN_LABEL: Readonly<Record<string, string>> = {
+  resend_api_key_enc: 'New Resend API key',
+  openai_api_key_enc: 'New OpenAI secret key',
+  meta_page_access_token_enc: 'New Page access token',
+  youtube_oauth_client_secret_enc: 'New OAuth client secret',
+  google_drive_oauth_client_secret_enc: 'New OAuth client secret',
+  tiktok_client_secret_enc: 'New client secret',
+  tiktok_access_token_enc: 'New account access token',
+  maya_public_api_key_enc: 'New public API key',
+  maya_secret_api_key_enc: 'New secret API key',
+};
+
+/**
+ * The input fields a db-paste row edits — the DB counterpart to secretFields().
+ *
+ * The columns come from the registry map above, never from the form: the row
+ * renders `value__<column>` inputs and updateDbSecret reads back only the
+ * columns this function returns, so a crafted field name can't reach a column
+ * Setnayan doesn't own. Multi-key rows (Maya's public + secret pair) get one box
+ * each, in map order.
+ */
+export function dbPasteFields(def: SecretDef): { column: string; label: string }[] {
+  return consoleColumnsForSecret(def.id).map((column) => ({
+    column,
+    label: CONSOLE_COLUMN_LABEL[column] ?? 'New value',
+  }));
 }

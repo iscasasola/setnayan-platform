@@ -157,6 +157,17 @@ export default async function AdminIntegrationsPage({
           was saved. Check the values and try again.
         </p>
       ) : null}
+      {error === 'secret_write' ? (
+        <p
+          role="alert"
+          className="inline-flex items-center gap-2 rounded-2xl border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+        >
+          <ShieldAlert aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Setnayan
+          couldn&rsquo;t store that key, so it hasn&rsquo;t changed — the previous one is
+          still in place. Try again; if it keeps failing, check that ENCRYPTION_KEY is set
+          in this environment.
+        </p>
+      ) : null}
 
       {/* Resend card */}
       <section className="space-y-4 sn-tile p-5">

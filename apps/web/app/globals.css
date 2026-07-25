@@ -2429,6 +2429,67 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
  * couples' guest-facing pages keep the wedding-editorial register (Cormorant
  * display · Manrope body · DM Mono labels) exactly as before the Atelier
  * chrome flip. Do NOT apply to chrome surfaces. */
+:root {
+  /* Pahina material tokens — fallbacks for palette-less events; palette events
+     get these overridden by buildSitePaletteVars (lib/site-palette.ts §Pahina). */
+  --color-gild: 169 131 75;        /* #A9834B Atelier gold */
+  --color-paper-deep: 241 241 240; /* alabaster darkened ~4% */
+  --color-veil: 243 236 225;       /* #f3ece1 veil ivory */
+}
+
+/* ── Pahina foundation (guest-site design 2026-07-25) — INERT until the wave-A
+   restyle PRs swap classNames. All scoped under .sn-editorial per ground rule 4:
+   never leaks to dashboards/marketing. ─────────────────────────────────────── */
+.sn-editorial .pahina-eyebrow {
+  font-family: var(--font-editorial-mono), ui-monospace, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgb(var(--color-gild));
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.6em;
+}
+.sn-editorial .pahina-eyebrow::after {
+  content: '';
+  flex: 0 0 3.5rem;
+  height: 1px;
+  align-self: center;
+  background: rgb(var(--color-gild) / 0.55);
+}
+.sn-editorial .pahina-plate {
+  background: rgb(var(--color-paper-deep));
+  border: 1px solid rgb(var(--color-ink) / 0.1);
+  padding: 1.25rem;
+  position: relative;
+}
+.sn-editorial .pahina-plate::after {
+  /* printed inner hairline frame */
+  content: '';
+  position: absolute;
+  inset: 0.5rem;
+  border: 1px solid rgb(var(--color-ink) / 0.08);
+  pointer-events: none;
+}
+.sn-editorial .pahina-rule {
+  border: 0;
+  height: 1px;
+  background: rgb(var(--color-ink) / 0.12);
+}
+.sn-editorial .pahina-grain {
+  position: relative;
+}
+.sn-editorial .pahina-grain::before {
+  /* paper grain — tiny inline SVG feTurbulence tile (~500B), multiply blend */
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+}
+
 .sn-editorial {
   --font-display: var(--font-editorial-display);
   --font-sans: var(--font-editorial-sans);

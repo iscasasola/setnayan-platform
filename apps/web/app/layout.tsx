@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import {
   Cormorant_Garamond,
+  Fraunces,
   Manrope,
   DM_Mono,
   Hanken_Grotesk,
@@ -84,6 +85,18 @@ const cormorant = Cormorant_Garamond({
   display: 'swap',
   weight: ['400', '500', '600', '700'],
   variable: '--font-editorial-display',
+});
+
+// Pahina display face (guest-site design 2026-07-25 §3) — loaded under its OWN
+// variable so this PR is inert; the .sn-editorial restyle PRs consume it.
+// Cormorant stays until wave-A PR-5 confirms no other consumer (STD film,
+// monogram lab, print routes).
+const fraunces = Fraunces({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['300', '400', '500', '600'],
+  style: ['normal', 'italic'],
+  variable: '--font-pahina-display',
 });
 
 const manrope = Manrope({
@@ -463,7 +476,7 @@ export default async function RootLayout({
       lang="en-PH"
       data-loader-variant={loaderConfig.variant}
       style={{ '--sd-veil': `${loaderConfig.veilOpacity}%` } as React.CSSProperties}
-      className={`${cormorant.variable} ${manrope.variable} ${dmMono.variable} ${hanken.variable} ${spaceMono.variable} ${cinzel.variable} ${playfairDisplay.variable} ${greatVibes.variable} ${libreCaslon.variable} ${tangerine.variable} ${luxuriousScript.variable} ${vidaloka.variable}`}
+      className={`${cormorant.variable} ${fraunces.variable} ${manrope.variable} ${dmMono.variable} ${hanken.variable} ${spaceMono.variable} ${cinzel.variable} ${playfairDisplay.variable} ${greatVibes.variable} ${libreCaslon.variable} ${tangerine.variable} ${luxuriousScript.variable} ${vidaloka.variable}`}
     >
       <head>
         {/*

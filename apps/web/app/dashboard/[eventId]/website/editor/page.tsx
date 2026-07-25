@@ -20,6 +20,22 @@ import { updateOurPhotos } from '../our-photos/actions';
 import { updateSiteChrome } from '../site-chrome/actions';
 import { updateLandingPageVisibility } from '../privacy/actions';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { SectionsPanel } from './_components/sections-panel';
+import {
+  toggleWidgetVisibility,
+  moveWidgetUp,
+  moveWidgetDown,
+  setSectionMode,
+} from '../widgets/actions';
+import {
+  computeSectionContentMap,
+  SECTION_CONTENT_EVENT_COLUMNS,
+} from '@/lib/website-section-content';
+import {
+  isWidgetType,
+  visibleHideableWidgets,
+  type InvitationWidgetRow,
+} from '@/lib/invitation-widgets';
 import { updateSpecialMessage } from '../special-message/actions';
 import { updateWhatToBring } from '../what-to-bring/actions';
 
@@ -59,7 +75,7 @@ export default async function WebsiteEditorPage({
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, slug, event_type, event_date, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_bg_color, site_button_color, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key',
+      `event_id, display_name, slug, event_type, event_date, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_bg_color, site_button_color, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, ${SECTION_CONTENT_EVENT_COLUMNS}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -128,6 +144,29 @@ export default async function WebsiteEditorPage({
     displayFor(galleryRefs),
     displayFor([musicRef, videoRef]),
   ]);
+
+  // Sections manager data — the same reads the widgets sub-editor does.
+  const { data: widgetsRaw } = await supabase
+    .from('invitation_widgets')
+    .select(
+      'widget_id, event_id, widget_type, display_order, is_visible, is_always_on, tier, config_json, created_at, updated_at, mode, audience',
+    )
+    .eq('event_id', eventId);
+  const allWidgets: InvitationWidgetRow[] = ((widgetsRaw ?? []) as Array<
+    Omit<InvitationWidgetRow, 'widget_type'> & { widget_type: string }
+  >)
+    .filter((r): r is InvitationWidgetRow => isWidgetType(r.widget_type))
+    .map((r) => r as InvitationWidgetRow);
+  // Hideable rows only — always-on sections can't be hidden or moved, so
+  // offering the controls would be a lie. Ordered by display_order.
+  const sectionRows = [...allWidgets]
+    .filter((r) => !r.is_always_on)
+    .sort((a, b) => a.display_order - b.display_order);
+  const sectionContent = await computeSectionContentMap(
+    supabase,
+    eventId,
+    event as Parameters<typeof computeSectionContentMap>[2],
+  );
 
   const colorsLocked = lockedIf(Boolean(event.site_bg_color || event.site_button_color));
   const musicLocked = lockedIf(Boolean(event.site_bg_music_r2_key));
@@ -325,6 +364,18 @@ export default async function WebsiteEditorPage({
           label: 'Show, hide & reorder',
           blurb: 'What appears on your site, and in what order.',
           href: `${w}/widgets`,
+          status: `${sectionRows.filter((r) => r.is_visible).length} showing`,
+          panel: (
+            <SectionsPanel
+              eventId={eventId}
+              rows={sectionRows}
+              contentMap={sectionContent}
+              toggleAction={toggleWidgetVisibility}
+              moveUpAction={moveWidgetUp}
+              moveDownAction={moveWidgetDown}
+              setModeAction={setSectionMode}
+            />
+          ),
         },
       ],
     },

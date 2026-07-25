@@ -192,12 +192,13 @@ export function addOnHref(key: string, eventId: string): string {
       : `/dashboard/${eventId}/seating/lab`;
   }
   // The three website "parts" (RSVP · Event · Editorial) open the full-screen
-  // editor jumped straight to that phase — its own top-level route so it escapes
-  // the dashboard chrome, exactly like the combined editor. Save the Date keeps
-  // its own builder (/studio/save-the-date via the default below). See the
-  // matching `appStoreDetailHref` branches + /site-editor/[eventId]/<phase>.
+  // editor jumped straight to that phase. Unified Website Editor (2026-07-25):
+  // all three now open the ONE editor, whose preview carries the phase tabs —
+  // so "edit the RSVP page" and "edit the After page" land in the same place the
+  // couple edits everything else. Save the Date keeps its own builder
+  // (/studio/save-the-date via the default below).
   if (key === 'rsvp' || key === 'event' || key === 'editorial') {
-    return `/site-editor/${eventId}/${key}`;
+    return `/dashboard/${eventId}/website/editor`;
   }
   return `/dashboard/${eventId}/studio/${key}`;
 }
@@ -220,10 +221,10 @@ export function addOnHref(key: string, eventId: string): string {
  *     destination.
  */
 export function appStoreDetailHref(key: string, eventId: string): string {
-  // landing-page: the "Whole website" card opens the editor OVERVIEW
-  // (/site-editor root), which differs from addOnHref('landing-page') (the
-  // /website hub) — kept explicit pending the website-parts consolidation.
-  if (key === 'landing-page') return `/site-editor/${eventId}`;
+  // landing-page: the "Whole website" card opens the unified editor (the
+  // website-parts consolidation this comment used to await — 2026-07-25), which
+  // differs from addOnHref('landing-page') (the /website hub).
+  if (key === 'landing-page') return `/dashboard/${eventId}/website/editor`;
   // Everything else is data-driven by the `opensDirect` catalog flag — no
   // per-feature hardcoding. opensDirect → open the service's own surface
   // (addOnHref); otherwise → the shared /studio/about/<key> learn-more page.

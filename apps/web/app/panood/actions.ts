@@ -136,6 +136,37 @@ export async function claimPanoodCamera(formData: FormData) {
   }
 }
 
+/**
+ * The joined phone's LIVENESS BEAT (Wave 4 · migration 20271003100000).
+ *
+ * `panood_camera_operators.last_seen_at` was documented from day one as the signal
+ * that "drives the 'live'/'offline' status" and had exactly one writer — the claim
+ * itself. This is the writer it never had, and it is what turns Wave 3's honest
+ * "Waiting for a camera" caption into a truthful "Camera connected".
+ *
+ * Goes through the SECURITY DEFINER `panood_camera_heartbeat` RPC for the same
+ * reason the claim does: `panood_camera_operators` RLS is control-room-only and a
+ * camera operator is neither couple nor coordinator, so they cannot write the row
+ * that proves their own liveness. The RPC requires `claimer_user_id = auth.uid()`
+ * on top of the token, so possession of a token alone cannot beat for somebody
+ * else's camera, and a revoked/reissued token is inert.
+ *
+ * Deliberately SILENT and NON-THROWING. A missed beat on a venue's bad wifi must
+ * not put an error in front of an operator who is holding a camera steady during
+ * vows — the staleness window (3 beats) is what absorbs it, and the read side
+ * resolves the truth either way.
+ */
+export async function heartbeatPanoodCamera(token: string): Promise<void> {
+  const clean = typeof token === 'string' ? token.trim() : '';
+  if (!clean) return;
+  try {
+    const supabase = await createClient();
+    await supabase.rpc('panood_camera_heartbeat', { p_token: clean });
+  } catch {
+    /* best-effort — never interrupt a live camera */
+  }
+}
+
 export type PanoodIceServersResult = { iceServers: RTCIceServer[] };
 
 /**

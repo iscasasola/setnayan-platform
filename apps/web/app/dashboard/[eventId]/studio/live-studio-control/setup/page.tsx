@@ -1,6 +1,9 @@
 import Link from 'next/link';
+import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import {
+  Smartphone,
+  RefreshCw,
   ChevronLeft,
   Star,
   Trash2,
@@ -27,6 +30,15 @@ import {
   QrCode,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { renderUrlQrSvg } from '@/lib/qr';
+import { isLiveStudioSetupHost } from '@/lib/panood-control-room-access';
+import { panoodStreamingEnabled } from '@/lib/panood-camera-seats';
+import {
+  fetchChannelCameras,
+  resolveChannelStatus,
+  type ChannelCameraView,
+} from '@/lib/live-studio-channel-cameras';
 import { formatPhp } from '@/lib/orders';
 import { eventSkuActive } from '@/lib/entitlements';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
@@ -73,6 +85,7 @@ import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { CopyButton } from '@/app/_components/copy-button';
 import { TransportRow } from './transport-row';
+import { CameraFeedsProvider, ChannelVideo } from './_components/camera-feeds';
 import {
   addRoamZone,
   deleteRoamZone,
@@ -80,6 +93,8 @@ import {
   setFeaturedRoamZone,
   cutToMainStage,
   clearMainStage,
+  createChannelJoinLink,
+  reissueChannelJoinLink,
   saveControlWatchUrl,
   clearControlWatchUrl,
   setMonogramOverlay,
@@ -186,7 +201,22 @@ export const metadata = { title: 'Live Studio controller · Setnayan' };
 // The whole surface stays dark behind NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED.
 // ═════════════════════════════════════════════════════════════════════════════
 
-type ZoneRow = ControlZone & { status: string };
+type ZoneRow = ControlZone & { status: string; camera_operator_id: number | null };
+
+/**
+ * A channel plus its Wave 4 camera facts — the shape the render needs.
+ *
+ * `resolvedStatus` is the HONEST status (stored transition + the heartbeat
+ * staleness window), and it is what feeds `channelReadyCaption`. `qrSvg` is only
+ * ever non-null for an UNCLAIMED seat: a claimed seat's QR is a live seat-hijack
+ * credential with no reason to be on screen (the same rule the shipped
+ * /studio/panood/cameras page applies).
+ */
+type ChannelRow = ZoneRow & {
+  camera: ChannelCameraView | null;
+  resolvedStatus: string;
+  qrSvg: string | null;
+};
 
 type YoutubeGrant = {
   grant_id: string;
@@ -210,6 +240,8 @@ type Props = {
     guest_pick?: string;
     highlight?: string;
     highlight_error?: string;
+    camera_link?: string;
+    camera_error?: string;
   }>;
 };
 
@@ -234,6 +266,8 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
     guest_pick,
     highlight,
     highlight_error,
+    camera_link,
+    camera_error,
   } = await searchParams;
 
   const supabase = await createClient();
@@ -249,6 +283,17 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
     .maybeSingle();
   if (!event) notFound();
 
+  // ── WAVE 4 · HOST GATE, and it is now load-bearing.
+  //
+  // Until Wave 4 this page leaned entirely on RLS: it read only the host's own
+  // zones, so a non-host simply saw nothing. Wave 4 reads camera SEAT rows through
+  // the SERVICE-ROLE client — `panood_camera_operators` RLS is control-room-only
+  // and does not cover a moderator, who is a legitimate host here — and those rows
+  // carry `claim_qr_token`, a seat-hijack credential. So this check is the only
+  // thing standing in front of that read, and it is the SAME predicate the server
+  // actions use (isLiveStudioSetupHost) so the two cannot drift.
+  if (!(await isLiveStudioSetupHost(eventId, user.id))) redirect(`/dashboard/${eventId}`);
+
   // ── Entitlement — WAVE 3: this governs BROADCASTING, not using. A free host is
   // not bounced and nothing is locked away; `owned` decides whether they may put
   // more than one camera (and the paid overlays) on air, and therefore whether the
@@ -262,12 +307,67 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   // ── Camera channels (control-plane; RLS scopes to the host's own event).
   const { data: zoneRows } = await supabase
     .from('live_studio_roam_zones')
-    .select('id, zone_index, label, venue_label, is_featured, is_main_stage, status')
+    .select(
+      'id, zone_index, label, venue_label, is_featured, is_main_stage, status, camera_operator_id',
+    )
     .eq('event_id', eventId)
     .order('zone_index', { ascending: true });
-  const zones = (zoneRows ?? []) as ZoneRow[];
+  const zoneBase = (zoneRows ?? []) as ZoneRow[];
+
+  // ── WAVE 4 · THE JOINED CAMERAS ───────────────────────────────────────────
+  //
+  // This is the read that did not exist. `camera_operator_id` had zero writers, so
+  // there was no binding to read and every channel reported 'planned' forever —
+  // Wave 3's "Waiting for a camera" was correct precisely because nothing could
+  // ever change it. Now a channel carries a real seat, a real join QR, and a real
+  // heartbeat.
+  //
+  // Service-role client, gated by the host check above — see its note.
+  const h = await headers();
+  const appUrl = `${h.get('x-forwarded-proto') ?? 'https'}://${h.get('host') ?? 'www.setnayan.com'}`;
+  const admin = createAdminClient();
+  const cameras = await fetchChannelCameras(admin, eventId, zoneBase, appUrl).catch(
+    () => new Map<number, ChannelCameraView>(),
+  );
+
+  const now = new Date();
+  const zones: ChannelRow[] = await Promise.all(
+    zoneBase.map(async (z) => {
+      const camera = cameras.get(z.id) ?? null;
+      // THE HONEST STATUS. Stored transition + the heartbeat window, so a channel
+      // whose operator walked out reads "Camera dropped out" rather than holding a
+      // green "Camera connected" nobody ever came back to clear.
+      const resolvedStatus = resolveChannelStatus({
+        status: z.status,
+        lastSeenAt: camera?.lastSeenAt ?? null,
+        bound: Boolean(camera),
+        claimed: camera?.claimed ?? false,
+        now,
+      });
+      return {
+        ...z,
+        camera,
+        resolvedStatus,
+        // `status` is overwritten with the RESOLVED value on purpose: every
+        // downstream reader (buildChannelTiles → channelReadyCaption, the manage
+        // list) then states the same truth, and none of them can accidentally read
+        // the stale column instead.
+        status: resolvedStatus,
+        qrSvg: camera?.claimUrl ? await renderUrlQrSvg(camera.claimUrl, 132) : null,
+      };
+    }),
+  );
+
   const atCap = !canAddZone(zones.length);
   const mainStageZone = zones.find((z) => z.is_main_stage) ?? null;
+  // The slot the CH 1 monitor should render — the on-air channel's camera, if a
+  // phone has joined it. Null means there is genuinely nothing to show, and the
+  // honest placeholder stays.
+  const programSlot = mainStageZone?.camera?.slot ?? null;
+  // Real media only flows when the owner has flipped streaming on (the
+  // couple's-unrepeatable-day gate). OFF → no peer connection, no picture, and the
+  // placeholder says so rather than a black rectangle pretending to be a feed.
+  const streamingOn = panoodStreamingEnabled();
 
   // ── FREE single-camera livestream state (reuses the live panood reads verbatim).
   const oauthReady = (await getYoutubeOAuthConfig()).ready;
@@ -307,6 +407,10 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   // The one fact the tally depends on: is the broadcast actually up?
   const isLive = Boolean(activeBroadcast);
   const tiles = buildChannelTiles({ zones, multiCamUnlocked: lock.multiCamUnlocked, isLive });
+  // zoneId → WebRTC slot, so a tile can subscribe to its own camera. Kept here
+  // rather than threaded through `ChannelTile` so Wave 3's pure controller helpers
+  // stay free of transport concepts.
+  const slotByZoneId = new Map(zones.filter((z) => z.camera).map((z) => [z.id, z.camera!.slot]));
 
   // ── WAVE 2 · broadcast extras · WAVE 3 gating (owner-locked 2026-07-25 · §§ 4b/4d).
   //
@@ -458,11 +562,32 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
         </Banner>
       ) : null}
       {highlight_error === 'save' ? <Banner tone="error" Icon={AlertCircle}>Couldn’t save that moment — please try again.</Banner> : null}
+      {camera_link === 'ready' ? (
+        <Banner tone="success" Icon={QrCode}>
+          Join QR ready — show it to whoever is holding that phone.
+        </Banner>
+      ) : null}
+      {camera_link === 'reissued' ? (
+        <Banner tone="muted" Icon={RefreshCw}>
+          New join QR made. The old link stopped working — that phone is disconnected.
+        </Banner>
+      ) : null}
+      {camera_error === 'bind' ? (
+        <Banner tone="error" Icon={AlertCircle}>Couldn’t make a join QR for that channel — please try again.</Banner>
+      ) : null}
+      {camera_error === 'reissue' ? (
+        <Banner tone="error" Icon={AlertCircle}>Couldn’t make a new join QR — please try again.</Banner>
+      ) : null}
 
       {/* ═══ THE SINGLE SCREEN ════════════════════════════════════════════════
           Phone: monitor → transport → channel grid, stacked.
           Desktop (lg+): monitor + transport LEFT, channel grid RIGHT — the same
           components, re-flowed (the prototype's Desktop toggle). */}
+      {/* WAVE 4 · ONE shared WebRTC viewer for the whole operating screen. The
+          transport is one-publisher-→-one-viewer per slot, so the CH 1 monitor and
+          every tile must subscribe to the SAME connection — two viewers would
+          fight and one of them would go black. See _components/camera-feeds.tsx. */}
+      <CameraFeedsProvider eventId={eventId} streamingEnabled={streamingOn}>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] lg:items-start">
         {/* ── LEFT · CH 1 monitor + transport ──────────────────────────────── */}
         <div className="space-y-3">
@@ -472,7 +597,11 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               isLive ? 'border-danger-500 ring-2 ring-danger-500/25' : 'border-ink/15'
             }`}
           >
-            {/* Honest placeholder — identity, never a faked frame. */}
+            {/* Honest placeholder — identity, never a faked frame.
+                WAVE 4: it is now a FALLBACK rather than the only state. The live
+                picture below covers it when a joined phone is genuinely
+                delivering one; with no camera, no join, or streaming switched
+                off, this is what stays — which is the truth in all three cases. */}
             <div
               aria-hidden
               className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.12),transparent_70%)]"
@@ -481,9 +610,20 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               <Tv aria-hidden className="h-8 w-8 text-cream/55" strokeWidth={1.5} />
               <p className="mt-2 text-sm font-medium text-cream">{programCaption}</p>
               <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.2em] text-cream/50">
-                preview — live video arrives with the streaming rollout
+                {streamingOn
+                  ? programSlot
+                    ? 'waiting for this camera’s picture'
+                    : 'nothing joined on this channel yet'
+                  : 'preview — live video arrives with the streaming rollout'}
               </p>
             </div>
+
+            {/* ── WAVE 4 · THE REAL PICTURE. Renders only when a joined phone is
+                actually publishing this channel (lib/panood-webrtc.ts, the same
+                transport the legacy control room uses). Sits UNDER the overlay
+                layers below so the monogram / lower third / QR composite over the
+                video exactly as they do on the encode surface. */}
+            <ChannelVideo slot={programSlot} />
 
             {/* CH 1 is the controlled screen — the fixed label from the design. */}
             <span className="absolute left-2.5 top-2.5 rounded-md bg-ink/60 px-2 py-1 font-mono text-[9.5px] font-bold uppercase tracking-[0.1em] text-cream/85">
@@ -732,6 +872,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                 tile={tile}
                 eventId={eventId}
                 detailHref={detailHref}
+                slot={tile.zoneId !== null ? slotByZoneId.get(tile.zoneId) ?? null : null}
               />
             ))}
 
@@ -763,6 +904,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
           ) : null}
         </div>
       </div>
+      </CameraFeedsProvider>
 
       {/* ═══ UNLOCK BAR — the pitch, price from the catalog ════════════════════
           Wave 3 wording: what the ₱2,999 buys is BROADCASTING the cameras, because
@@ -904,8 +1046,9 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               Manage your channels
             </h2>
             <p className="max-w-prose text-sm text-ink/65">
-              Each camera is a phone your paparazzi join by scanning the event QR — no install, no
-              account. You name every channel; the name is what guests see. Only you (signed in
+              Every channel has its own join QR. Show it to whoever is holding that phone — they
+              scan, tap once, and their camera becomes that channel. No app to install, no account
+              to make. You name every channel; the name is what guests see. Only you (signed in
               here) run the controller.
             </p>
             {!lock.multiCamUnlocked ? (
@@ -920,56 +1063,78 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
         {zones.length > 0 ? (
           <ul className="space-y-2">
             {zones.map((z) => (
-              <li
-                key={z.id}
-                className="sn-row flex flex-wrap items-center justify-between gap-2 px-3 py-2"
-              >
-                <span className="flex min-w-0 items-center gap-2 text-sm">
-                  <span className="font-mono text-[11px] font-bold text-ink/45">
-                    CH {channelForZoneIndex(z.zone_index)}
-                  </span>
-                  <span className="truncate font-medium text-ink">{z.label}</span>
-                  {z.venue_label ? (
-                    <span className="truncate text-xs text-ink/45">{z.venue_label}</span>
-                  ) : null}
-                  {z.is_featured ? (
-                    <span className="inline-flex shrink-0 items-center gap-1 font-mono text-[10px] uppercase tracking-[0.1em] text-terracotta">
-                      <Star aria-hidden className="h-3 w-3" strokeWidth={2.25} />
-                      Default
+              <li key={z.id} className="sn-row space-y-2 px-3 py-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="flex min-w-0 items-center gap-2 text-sm">
+                    <span className="font-mono text-[11px] font-bold text-ink/45">
+                      CH {channelForZoneIndex(z.zone_index)}
                     </span>
-                  ) : null}
-                  <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/35">
-                    {z.status}
+                    <span className="truncate font-medium text-ink">{z.label}</span>
+                    {z.venue_label ? (
+                      <span className="truncate text-xs text-ink/45">{z.venue_label}</span>
+                    ) : null}
+                    {z.is_featured ? (
+                      <span className="inline-flex shrink-0 items-center gap-1 font-mono text-[10px] uppercase tracking-[0.1em] text-terracotta">
+                        <Star aria-hidden className="h-3 w-3" strokeWidth={2.25} />
+                        Default
+                      </span>
+                    ) : null}
+                    {/* WAVE 4: the resolved, human answer — not the raw column. */}
+                    <span
+                      className={`shrink-0 font-mono text-[10px] uppercase tracking-[0.1em] ${
+                        z.resolvedStatus === 'live' ? 'text-success-700' : 'text-ink/35'
+                      }`}
+                    >
+                      {channelReadyCaption(z.resolvedStatus)}
+                    </span>
                   </span>
-                </span>
-                <span className="flex shrink-0 items-center gap-1.5">
-                  {!z.is_featured ? (
-                    <form action={setFeaturedRoamZone}>
+                  <span className="flex shrink-0 items-center gap-1.5">
+                    {!z.is_featured ? (
+                      <form action={setFeaturedRoamZone}>
+                        <input type="hidden" name="event_id" value={eventId} />
+                        <input type="hidden" name="zone_id" value={z.id} />
+                        <SubmitButton
+                          pendingLabel="…"
+                          title="Make this the default channel"
+                          className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-white px-2 py-1 text-[11px] font-medium text-ink/60 transition-colors hover:border-terracotta/40 hover:text-terracotta"
+                        >
+                          <Star aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                          <span className="sr-only">Make default</span>
+                        </SubmitButton>
+                      </form>
+                    ) : null}
+                    <form action={deleteRoamZone}>
                       <input type="hidden" name="event_id" value={eventId} />
                       <input type="hidden" name="zone_id" value={z.id} />
                       <SubmitButton
                         pendingLabel="…"
-                        title="Make this the default channel"
-                        className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-white px-2 py-1 text-[11px] font-medium text-ink/60 transition-colors hover:border-terracotta/40 hover:text-terracotta"
+                        title="Remove this channel"
+                        className="inline-flex items-center rounded-md border border-ink/15 bg-white px-2 py-1 text-ink/50 transition-colors hover:border-burgundy/40 hover:text-burgundy"
                       >
-                        <Star aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                        <span className="sr-only">Make default</span>
+                        <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                        <span className="sr-only">Remove channel</span>
                       </SubmitButton>
                     </form>
-                  ) : null}
-                  <form action={deleteRoamZone}>
-                    <input type="hidden" name="event_id" value={eventId} />
-                    <input type="hidden" name="zone_id" value={z.id} />
-                    <SubmitButton
-                      pendingLabel="…"
-                      title="Remove this channel"
-                      className="inline-flex items-center rounded-md border border-ink/15 bg-white px-2 py-1 text-ink/50 transition-colors hover:border-burgundy/40 hover:text-burgundy"
-                    >
-                      <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                      <span className="sr-only">Remove channel</span>
-                    </SubmitButton>
-                  </form>
-                </span>
+                  </span>
+                </div>
+
+                {/* ═══ WAVE 4 · THE JOIN QR ═══════════════════════════════════
+                    THE gap this whole wave exists to close. The grid above has
+                    promised "scan QR · no login" since Wave 1 while nothing on
+                    this page could produce a QR — `camera_operator_id` had no
+                    writers, so no channel had a camera seat and no phone could
+                    ever join one.
+
+                    Three honest shapes, never a fourth:
+                      • no seat yet  → one tap creates the join link
+                      • seat open    → the real QR + the copyable link
+                      • seat claimed → who has it, and how to take it back
+
+                    FREE for every host (§ 4d): joining cameras and rehearsing
+                    with them costs nothing. The unlock is about BROADCASTING more
+                    than one of them, and that gate lives at publication
+                    (lib/live-studio-publish.ts), not here. */}
+                <ChannelJoinRow eventId={eventId} zone={z} />
               </li>
             ))}
           </ul>
@@ -1345,10 +1510,12 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             </span>
             <p className="max-w-prose text-xs text-ink/60">
               Your own camera goes live free from your phone or OBS — one camera, always free.
-              Rehearsing with every channel here is free too. When you unlock Live Studio, more than
-              one of them can be on air at once and the picker on your event page lights up so guests
-              can choose their view. That multi-camera streaming step is being wired now — we’ll email
-              you the moment it’s ready. Nothing you set up here needs redoing.
+              Rehearsing with every channel here is free too: hand out the join QRs, watch the
+              cameras arrive on this screen, and practise your cuts as often as you like. When you
+              unlock Live Studio, more than one of them can be on air at once and the picker on your
+              event page lights up so guests can choose their view. That last step — pushing your
+              cut out to YouTube — is being wired now, and we’ll email you the moment it’s ready.
+              Nothing you set up here needs redoing.
             </p>
           </div>
         </div>
@@ -1430,6 +1597,146 @@ function MonitorOverlays({
 }
 
 /**
+ * ⭐ WAVE 4 — a channel's JOIN surface: the QR a phone scans to become this camera.
+ *
+ * ── HOW A PHONE ACTUALLY JOINS (all of it already shipped) ─────────────────
+ * The QR encodes `/panood/cam/[token]` — the login-free, install-free claim page
+ * that has existed since the Live Studio Cast controller. The operator opens it,
+ * taps once, and `claimPanoodCamera` mints a native ANONYMOUS Supabase session and
+ * binds the seat through the SECURITY DEFINER `panood_claim_camera()` RPC. No
+ * account, no app, no Google. Wave 4 did not invent any of that; it bound the seat
+ * to a Live Studio CHANNEL so the join finally lands somewhere.
+ *
+ * ── WHY THE TOKEN IS EVENT-SCOPED ──────────────────────────────────────────
+ * `claim_qr_token` is UNIQUE and every seat row carries exactly one `event_id`, so
+ * a token resolves to one seat on one event — there is no parameter through which
+ * another event could be named, in the claim RPC or the heartbeat. And a channel
+ * can only ever be bound to a seat on its OWN event: the composite FK
+ * (camera_operator_id, event_id) makes a cross-event binding a database error, so
+ * this row can never render another event's credential.
+ *
+ * ── WHY A CLAIMED SEAT SHOWS NO QR ─────────────────────────────────────────
+ * A claimed seat's link is a live credential that would let a second phone try the
+ * same camera; the shipped /studio/panood/cameras page applies the same rule, and
+ * `fetchChannelCameras` enforces it upstream by not even building the URL. Taking
+ * a camera back is an explicit, stated act (reissue), not a quiet re-scan.
+ *
+ * SERVER COMPONENT. The raw token never crosses to the client — only the finished
+ * URL (for the copy control) and the rendered QR markup, exactly as the shipped
+ * cameras page states in its own header.
+ */
+function ChannelJoinRow({ eventId, zone }: { eventId: string; zone: ChannelRow }) {
+  const channel = channelForZoneIndex(zone.zone_index);
+  const camera = zone.camera;
+
+  // No seat yet — a channel made before Wave 4, or one whose bind-on-add didn't
+  // land. One tap fixes it; nothing is broken in the meantime.
+  if (!camera) {
+    return (
+      <form action={createChannelJoinLink} className="flex flex-wrap items-center gap-2">
+        <input type="hidden" name="event_id" value={eventId} />
+        <input type="hidden" name="zone_id" value={zone.id} />
+        <SubmitButton
+          pendingLabel="Making the QR…"
+          overlay={false}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-[11.5px] font-semibold text-ink/70 transition-colors hover:border-terracotta/50 hover:text-terracotta"
+        >
+          <QrCode aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          Make the join QR
+        </SubmitButton>
+        <span className="text-[11px] text-ink/50">
+          No phone can join CH {channel} until this exists.
+        </span>
+      </form>
+    );
+  }
+
+  // Retired seat — its token is already dead to both RPCs. Say so and offer the
+  // one thing that helps, rather than printing a QR that silently cannot work.
+  if (camera.revoked) {
+    return (
+      <form action={reissueChannelJoinLink} className="flex flex-wrap items-center gap-2">
+        <input type="hidden" name="event_id" value={eventId} />
+        <input type="hidden" name="zone_id" value={zone.id} />
+        <SubmitButton
+          pendingLabel="Making the QR…"
+          overlay={false}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-[11.5px] font-semibold text-ink/70 transition-colors hover:border-terracotta/50 hover:text-terracotta"
+        >
+          <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          Make a new join QR
+        </SubmitButton>
+        <span className="text-[11px] text-ink/50">
+          CH {channel}&rsquo;s old link was retired — nothing can join until you make a new one.
+        </span>
+      </form>
+    );
+  }
+
+  // Claimed — a phone holds this camera. State it, and offer the way back.
+  if (camera.claimed) {
+    return (
+      <div className="flex flex-wrap items-center gap-2 text-[11.5px] text-ink/60">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-2.5 py-1 font-mono text-[9.5px] font-bold uppercase tracking-[0.1em] text-success-900">
+          <Smartphone aria-hidden className="h-3 w-3" strokeWidth={2.25} />
+          Phone joined
+        </span>
+        <span className="min-w-0 flex-1">
+          A phone holds CH {channel}. Reissuing makes a new QR and disconnects
+          them — the old link stops working immediately.
+        </span>
+        <form action={reissueChannelJoinLink}>
+          <input type="hidden" name="event_id" value={eventId} />
+          <input type="hidden" name="zone_id" value={zone.id} />
+          <SubmitButton
+            pendingLabel="…"
+            overlay={false}
+            title={`Disconnect the phone on CH ${channel} and make a new QR`}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-ink/60 transition-colors hover:border-burgundy/40 hover:text-burgundy"
+          >
+            <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            New QR
+          </SubmitButton>
+        </form>
+      </div>
+    );
+  }
+
+  // Open — show the code. Collapsed by default: a wedding has up to twelve of
+  // these and a wall of QR blocks would bury the channel list they belong to.
+  return (
+    <details className="group">
+      <summary className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-[11.5px] font-semibold text-ink/70 marker:content-[''] transition-colors hover:border-terracotta/50 hover:text-terracotta">
+        <QrCode aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+        Join QR for CH {channel}
+      </summary>
+      <div className="mt-2 flex flex-wrap items-center gap-4 rounded-xl border border-ink/10 bg-cream/60 p-3">
+        {zone.qrSvg ? (
+          <div
+            aria-hidden
+            className="w-28 shrink-0 rounded-lg bg-white p-1.5 [&>svg]:h-full [&>svg]:w-full"
+            dangerouslySetInnerHTML={{ __html: zone.qrSvg }}
+          />
+        ) : null}
+        <div className="min-w-[180px] flex-1 space-y-1.5">
+          <p className="text-[11.5px] leading-snug text-ink/65">
+            Hand this phone to whoever is shooting <strong>{zone.label}</strong>. They
+            scan it, tap once, and their camera becomes CH {channel} — no app, no
+            account, no sign-in.
+          </p>
+          {camera.claimUrl ? (
+            <CopyButton value={camera.claimUrl} label="Copy the link" copiedLabel="Copied" />
+          ) : null}
+          <p className="text-[11px] text-ink/45">
+            This code only works for this celebration and only for this channel.
+          </p>
+        </div>
+      </div>
+    </details>
+  );
+}
+
+/**
  * One overlay on/off chip in the CH 1 row. A form, not a client toggle: the state
  * lives in the database, so the button posts the state it wants and re-renders from
  * what actually saved. `on` is the RESOLVED state (post-entitlement), never the raw
@@ -1499,10 +1806,13 @@ function ChannelTileCard({
   tile,
   eventId,
   detailHref,
+  slot,
 }: {
   tile: ChannelTile;
   eventId: string;
   detailHref: string;
+  /** WAVE 4: this channel's WebRTC slot, or null when no phone is bound to it. */
+  slot: string | null;
 }) {
   // Frame classes are shared by the control and the status shapes so a tile never
   // changes size when it goes on air — only its edge.
@@ -1534,13 +1844,14 @@ function ChannelTileCard({
             title={`Put CH ${tile.channel} — ${tile.name} — on Channel 1`}
             className={frame}
           >
-            <TileSurface tile={tile} />
+            <TileSurface tile={tile} slot={slot} />
           </SubmitButton>
         </form>
       ) : (
         <div className={frame}>
           <TileSurface
             tile={tile}
+            slot={slot}
             subtitle={tile.kind === 'free' ? 'Free · always on Channel 1' : undefined}
           />
         </div>
@@ -1624,20 +1935,28 @@ function ChannelTileCard({
  * so they wear the broadcast dark deliberately (the rest of the page stays on the
  * app's cream/terracotta system).
  *
- * NO FRAME IS FAKED, AND NO TILE IS DIMMED (Wave 3). There is no thumbnail source
- * yet — nothing writes a per-channel preview and nothing binds a joined phone to a
- * ROAM channel — so the surface shows an icon plus the channel's REAL state
- * (channelReadyCaption reads live_studio_roam_zones.status). A fabricated video
- * thumbnail would be the padlock's mirror image: a picture claiming something the
- * database cannot. The `dim` prop that used to grey out locked tiles is deleted on
- * purpose; every host sees every channel at full brightness.
+ * NO FRAME IS FAKED, AND NO TILE IS DIMMED (Wave 3). The `dim` prop that used to
+ * grey out locked tiles is deleted on purpose; every host sees every channel at
+ * full brightness.
+ *
+ * ⭐ WAVE 4 UPDATE. Wave 3's note here said "there is no thumbnail source yet —
+ * nothing binds a joined phone to a ROAM channel". THAT IS NOW WIRED: a channel
+ * carries a camera seat, a phone joins it by QR, and `ChannelVideo` renders the
+ * REAL live picture over this surface when one is arriving. The rule the note was
+ * protecting is unchanged and still absolute — nothing is fabricated. No stream
+ * means no <video> element at all, so the icon plus the channel's honest state
+ * (channelReadyCaption over the RESOLVED status, heartbeat window applied) is what
+ * a host sees. A picture appears if and only if a camera is sending one.
  */
 function TileSurface({
   tile,
   subtitle,
+  slot,
 }: {
   tile: ChannelTile;
   subtitle?: string;
+  /** This channel's WebRTC slot, or null when no phone is bound. */
+  slot?: string | null;
 }) {
   // Second line: the host's venue grouping when they set one, and always the honest
   // answer to "is a camera actually on this channel yet?".
@@ -1653,6 +1972,10 @@ function TileSurface({
       <span className="absolute inset-0 grid place-items-center">
         <Video aria-hidden className="h-5 w-5 text-cream/30" strokeWidth={1.5} />
       </span>
+
+      {/* WAVE 4 · the channel's live picture, when one genuinely exists. Renders
+          nothing at all otherwise, so the honest state above stays visible. */}
+      <ChannelVideo slot={slot ?? null} />
 
       {/* Channel chip. Red ONLY when this channel is genuinely on air. */}
       <span

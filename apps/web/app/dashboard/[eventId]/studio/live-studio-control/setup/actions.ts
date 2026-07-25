@@ -3,6 +3,13 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { isLiveStudioSetupHost } from '@/lib/panood-control-room-access';
+import {
+  bindChannelCamera as bindChannelCameraSeat,
+  reissueChannelCamera,
+  revokeChannelCamera,
+} from '@/lib/live-studio-channel-cameras';
 import {
   canAddZone,
   computeNextZoneIndex,
@@ -84,25 +91,13 @@ async function requireHostMembership(eventId: string): Promise<void> {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: moderator } = await supabase
-    .from('event_moderators')
-    .select('moderator_id')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .not('accepted_at', 'is', null)
-    .is('removed_at', null)
-    .maybeSingle();
-  if (moderator) return;
-
-  const { data: legacy } = await supabase
-    .from('event_members')
-    .select('member_type')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (legacy?.member_type === 'couple' || legacy?.member_type === 'coordinator') return;
-
-  redirect('/dashboard');
+  // WAVE 4: this was an inline copy of the moderator-OR-couple-OR-coordinator
+  // check. It now delegates to the ONE definition (isLiveStudioSetupHost) that the
+  // controller PAGE also uses — the page reads camera seat rows through the
+  // service-role client, so a page gate that could drift from this one is exactly
+  // the hazard worth deleting.
+  const ok = await isLiveStudioSetupHost(eventId, user.id);
+  if (!ok) redirect('/dashboard');
 }
 
 /**
@@ -163,17 +158,40 @@ export async function addRoamZone(formData: FormData): Promise<void> {
       .eq('is_featured', true);
   }
 
-  const { error } = await supabase.from('live_studio_roam_zones').insert({
-    event_id: eventId,
-    zone_index: zoneIndex,
-    label: parsed.value.label,
-    venue_label: parsed.value.venueLabel,
-    is_featured: parsed.value.isFeatured,
-    sort_order: zoneIndex,
-    status: 'planned',
-  });
+  const { data: inserted, error } = await supabase
+    .from('live_studio_roam_zones')
+    .insert({
+      event_id: eventId,
+      zone_index: zoneIndex,
+      label: parsed.value.label,
+      venue_label: parsed.value.venueLabel,
+      is_featured: parsed.value.isFeatured,
+      sort_order: zoneIndex,
+      status: 'planned',
+    })
+    .select('id')
+    .maybeSingle();
   if (error) {
     redirect(`${SETUP_PATH(eventId)}?zone_error=save`);
+  }
+
+  // ── WAVE 4: give the new channel its join QR straight away.
+  //
+  // A channel with no camera seat is exactly the gap Wave 4 closes: the grid used
+  // to promise "scan QR · no login" while nothing on the page could produce a QR,
+  // because `camera_operator_id` had no writers at all. Binding here means the
+  // host names a channel and its QR is already sitting in "Manage your channels".
+  //
+  // Best-effort and non-fatal: the channel is what they asked for, and an unbound
+  // one is honest ("Waiting for a camera") plus recoverable with one tap on
+  // createChannelJoinLink. Never let this fail the add.
+  const newZoneId = (inserted as { id: number } | null)?.id ?? null;
+  if (newZoneId !== null) {
+    try {
+      await bindChannelCameraSeat(createAdminClient(), eventId, newZoneId);
+    } catch {
+      /* the channel exists; the QR can be created on demand */
+    }
   }
 
   revalidatePath(SETUP_PATH(eventId));
@@ -192,14 +210,109 @@ export async function deleteRoamZone(formData: FormData): Promise<void> {
 
   await requireHostMembership(eventId);
   const supabase = await createClient();
+
+  // WAVE 4: kill this channel's join link BEFORE the row goes.
+  //
+  // A deleted channel whose QR still works is a live credential in somebody's
+  // pocket — scan it and you mint an anonymous session and claim a seat that now
+  // feeds nothing. Read the binding first (the zone row is about to disappear),
+  // revoke it, then delete.
+  const { data: bound } = await supabase
+    .from('live_studio_roam_zones')
+    .select('camera_operator_id')
+    .eq('event_id', eventId)
+    .eq('id', zoneId)
+    .maybeSingle();
+  const boundCameraId =
+    (bound as { camera_operator_id: number | null } | null)?.camera_operator_id ?? null;
+
   await supabase
     .from('live_studio_roam_zones')
     .delete()
     .eq('event_id', eventId)
     .eq('id', zoneId);
 
+  await revokeChannelCamera(createAdminClient(), eventId, boundCameraId);
+
   revalidatePath(SETUP_PATH(eventId));
   redirect(`${SETUP_PATH(eventId)}?zone_deleted=1`);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   WAVE 4 — THE QR CAMERA-JOIN (Live_Studio_Unified_Spec § 4b/4c · migration
+   20271003100000_live_studio_channel_camera_join.sql)
+
+   These two actions are what make a purchased Live Studio usable at all: without
+   them a host can create and name channels but NO PHONE CAN JOIN ONE
+   (`live_studio_roam_zones.camera_operator_id` had zero writers anywhere).
+
+   BOTH ARE HOST-GATED ONLY — deliberately NO requireLiveStudioOwned. Joining
+   cameras and rehearsing with them is FREE (§ 4d "rehearse free, pay to
+   broadcast"); the paywall is PUBLICATION and lives in lib/live-studio-publish.ts.
+   Gating the join here would recreate the exact defect Wave 3 removed: asking
+   ₱2,999 for an experience the couple has never felt.
+
+   ADMIN CLIENT, AFTER requireHostMembership: `panood_camera_operators` RLS is
+   `event_members.member_type IN ('couple','coordinator')`, which does not cover a
+   MODERATOR — and moderators are legitimate hosts here. Same resolution the
+   shipped /studio/panood/cameras page already uses: verify the caller, then use
+   the service role for the seat rows.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Create a channel's join QR — allocate a camera seat and bind it to the channel.
+ *
+ * Used for a channel that has no seat yet: one created before Wave 4 shipped, or
+ * one whose best-effort bind at add-time did not land. Refuses (rather than
+ * re-mints) when a seat already exists, because minting a second token would
+ * silently kill a QR the host may already have printed and handed to somebody.
+ */
+export async function createChannelJoinLink(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const zoneIdRaw = formData.get('zone_id');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
+  const eventId = eventIdRaw;
+  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  const zoneId = typeof zoneIdRaw === 'string' ? Number(zoneIdRaw) : NaN;
+  if (!Number.isFinite(zoneId)) redirect(SETUP_PATH(eventId));
+
+  await requireHostMembership(eventId);
+
+  const result = await bindChannelCameraSeat(createAdminClient(), eventId, zoneId).catch(
+    () => ({ ok: false as const, reason: 'save_failed' as const }),
+  );
+  if (!result.ok && result.reason !== 'already_bound') {
+    redirect(`${SETUP_PATH(eventId)}?camera_error=bind`);
+  }
+
+  revalidatePath(SETUP_PATH(eventId));
+  redirect(`${SETUP_PATH(eventId)}?camera_link=ready`);
+}
+
+/**
+ * Recycle a channel's camera — new QR, and whoever holds the old one is dropped.
+ *
+ * The host's remedy when the wrong person scanned, a phone died, or an operator
+ * has to be swapped mid-reception. The old link stops working immediately (both
+ * the claim RPC and the heartbeat resolve a token to a row, and the row no longer
+ * carries it), and the channel honestly returns to "Waiting for a camera".
+ */
+export async function reissueChannelJoinLink(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const zoneIdRaw = formData.get('zone_id');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
+  const eventId = eventIdRaw;
+  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  const zoneId = typeof zoneIdRaw === 'string' ? Number(zoneIdRaw) : NaN;
+  if (!Number.isFinite(zoneId)) redirect(SETUP_PATH(eventId));
+
+  await requireHostMembership(eventId);
+
+  const ok = await reissueChannelCamera(createAdminClient(), eventId, zoneId).catch(() => false);
+  if (!ok) redirect(`${SETUP_PATH(eventId)}?camera_error=reissue`);
+
+  revalidatePath(SETUP_PATH(eventId));
+  redirect(`${SETUP_PATH(eventId)}?camera_link=reissued`);
 }
 
 /**

@@ -9,6 +9,9 @@
  *   2. SELECT — selectFeaturedZone() lands on featured → first-live → first → null.
  *   3. GROUP — groupZonesByVenue() buckets by venue, preserving order.
  *   4. FLAG — liveStudioRoamEnabled() is strict-'true' gated (default OFF).
+ *   5. GUEST-PICK — applyGuestPick() is the SERVER-SIDE enforcement boundary for the
+ *      host's optional guest-pick switch (Wave 2): off → only the on-air channel is
+ *      returned, so the other channels' video ids are never sent to the browser.
  *
  * Run: `pnpm test:unit`  (CI: the "unit tests" step).
  */
@@ -16,6 +19,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  applyGuestPick,
   groupZonesByVenue,
   liveStudioRoamEnabled,
   parseRoamManifest,
@@ -188,4 +192,49 @@ test('liveStudioRoamEnabled is strict-true gated (default OFF)', () => {
     if (prev === undefined) delete process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED;
     else process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED = prev;
   }
+});
+
+// ── 5. GUEST-PICK (Wave 2 · owner-locked "make it optional") ───────────────
+//
+// The switch is enforced BY OMISSION, and these tests are the reason that matters:
+// a hidden picker still ships every channel's videoId into the page, so the only
+// real enforcement is not sending them. applyGuestPick is that boundary.
+
+const GP_MANIFEST: RoamManifest = [
+  { zoneIndex: 1, label: 'Ceremony', venueLabel: 'Church', videoId: VID_A, featured: true, mainStage: false, status: 'live' },
+  { zoneIndex: 2, label: 'Reception', venueLabel: 'Hall', videoId: VID_B, featured: false, mainStage: true, status: 'live' },
+  { zoneIndex: 3, label: 'Photo booth', venueLabel: 'Hall', videoId: VID_C, featured: false, mainStage: false, status: 'live' },
+];
+
+test('guest-pick ON leaves the manifest whole — guests may switch channels', () => {
+  const out = applyGuestPick(GP_MANIFEST, true);
+  assert.equal(out.length, 3);
+  assert.deepEqual(out.map((z) => z.videoId), [VID_A, VID_B, VID_C]);
+});
+
+test('guest-pick OFF ships ONLY the on-air channel — the other video ids never leave the server', () => {
+  const out = applyGuestPick(GP_MANIFEST, false);
+  assert.equal(out.length, 1, 'one entry → the picker cannot render (its length > 1 guard)');
+  assert.equal(out[0]?.videoId, VID_B, 'the host cut Reception to Channel 1');
+  const shipped = out.map((z) => z.videoId);
+  assert.ok(!shipped.includes(VID_A), 'Ceremony id withheld');
+  assert.ok(!shipped.includes(VID_C), 'Photo-booth id withheld');
+});
+
+test('guest-pick OFF with nothing cut falls back to the featured channel', () => {
+  const noCut = GP_MANIFEST.map((z) => ({ ...z, mainStage: false }));
+  const out = applyGuestPick(noCut, false);
+  assert.equal(out.length, 1);
+  assert.equal(out[0]?.videoId, VID_A, 'featured is what Channel 1 carries when nothing is cut');
+});
+
+test('guest-pick OFF on an empty manifest is empty — never a crash, never a leak', () => {
+  assert.deepEqual(applyGuestPick([], false), []);
+  assert.deepEqual(applyGuestPick([], true), []);
+});
+
+test('guest-pick OFF on a single-channel event is a no-op', () => {
+  const one = [GP_MANIFEST[1]!];
+  assert.deepEqual(applyGuestPick(one, false), one);
+  assert.deepEqual(applyGuestPick(one, true), one);
 });

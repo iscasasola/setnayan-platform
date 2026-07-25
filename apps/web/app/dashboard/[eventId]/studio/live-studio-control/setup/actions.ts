@@ -12,7 +12,18 @@ import {
 } from '@/lib/live-studio-roam-zones';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { eventSkuActive } from '@/lib/entitlements';
-import { LIVE_STUDIO_SKU } from '@/lib/live-studio-control';
+import { LIVE_STUDIO_SKU, channelForZoneIndex } from '@/lib/live-studio-control';
+import {
+  LOWER_THIRD_SUBTITLE_MAX,
+  LOWER_THIRD_TITLE_MAX,
+  highlightOffsetSeconds,
+  normalizeHighlightLabel,
+  normalizeLowerThirdLine,
+  normalizeMonogramPosition,
+  normalizeQrPosition,
+  saveOverlaySettings,
+} from '@/lib/live-studio-overlays';
+import { getActivePanoodBroadcast } from '@/lib/panood-broadcast';
 import { normalizeYouTubeWatchUrl } from '@/lib/panood-watch';
 
 /**
@@ -296,6 +307,232 @@ export async function setFeaturedRoamZone(formData: FormData): Promise<void> {
 
   revalidatePath(SETUP_PATH(eventId));
   redirect(`${SETUP_PATH(eventId)}?featured_set=1`);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   WAVE 2 — the ₱0 broadcast extras (owner-locked 2026-07-25 · § 4b)
+
+   GATING, per owner lock, enforced here as the server backstop:
+     • Ⓜ monogram · ▬ lower third · ⚡ highlights → requireLiveStudioOwned (PAID)
+     • ⬛ event QR                                → host-gated ONLY (FREE)
+     • guest-pick                                → requireLiveStudioOwned (PAID;
+       it only means anything once there are multiple channels to pick between)
+
+   The free tier's "POWERED BY SETNAYAN" lower third has NO action at all — it is
+   derived from the entitlement in resolveOverlays(), so there is no request a free
+   host could replay to remove it. That is deliberate: a `setLowerThird(enabled=false)`
+   that a free host could reach would be the hole.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/** Ⓜ monogram overlay — on/off + which corner. PAID. */
+export async function setMonogramOverlay(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
+  const eventId = eventIdRaw;
+  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+
+  // `enabled` is the desired NEXT state, posted by the toggle; `position` is
+  // optional so the corner picker can move the bug without touching on/off.
+  const enabledRaw = formData.get('enabled');
+  const positionRaw = formData.get('position');
+
+  await requireHostMembership(eventId);
+  await requireLiveStudioOwned(eventId);
+  const supabase = await createClient();
+
+  const patch: Parameters<typeof saveOverlaySettings>[2] = {};
+  if (typeof enabledRaw === 'string') patch.monogram_enabled = enabledRaw === 'true';
+  if (typeof positionRaw === 'string') patch.monogram_position = normalizeMonogramPosition(positionRaw);
+  if (Object.keys(patch).length === 0) redirect(SETUP_PATH(eventId));
+
+  const ok = await saveOverlaySettings(supabase, eventId, patch);
+  if (!ok) redirect(`${SETUP_PATH(eventId)}?overlay_error=save`);
+
+  revalidatePath(SETUP_PATH(eventId));
+  redirect(`${SETUP_PATH(eventId)}?overlay_saved=monogram`);
+}
+
+/**
+ * ▬ Lower third — on/off + the host's own two lines. PAID.
+ *
+ * Text is normalized + length-capped by the shared pure helpers, so the bar cannot
+ * be made to overflow the frame from the form.
+ */
+export async function setLowerThird(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
+  const eventId = eventIdRaw;
+  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+
+  const enabledRaw = formData.get('enabled');
+  const hasText = formData.has('title') || formData.has('subtitle');
+
+  await requireHostMembership(eventId);
+  await requireLiveStudioOwned(eventId);
+  const supabase = await createClient();
+
+  const patch: Parameters<typeof saveOverlaySettings>[2] = {};
+  if (typeof enabledRaw === 'string') patch.lower_third_enabled = enabledRaw === 'true';
+  if (hasText) {
+    patch.lower_third_title = normalizeLowerThirdLine(formData.get('title'), LOWER_THIRD_TITLE_MAX);
+    patch.lower_third_subtitle = normalizeLowerThirdLine(
+      formData.get('subtitle'),
+      LOWER_THIRD_SUBTITLE_MAX,
+    );
+  }
+  if (Object.keys(patch).length === 0) redirect(SETUP_PATH(eventId));
+
+  const ok = await saveOverlaySettings(supabase, eventId, patch);
+  if (!ok) redirect(`${SETUP_PATH(eventId)}?overlay_error=save`);
+
+  revalidatePath(SETUP_PATH(eventId));
+  redirect(`${SETUP_PATH(eventId)}?overlay_saved=lower_third`);
+}
+
+/**
+ * ⬛ Event-QR overlay — on/off + which corner. **FREE (owner-locked 2026-07-25.)**
+ *
+ * Host-gated only: there is deliberately NO requireLiveStudioOwned here. A
+ * scan-to-join code on the broadcast pulls that wedding's guests into Setnayan, so
+ * gating it would be charging for our own distribution.
+ */
+export async function setEventQrOverlay(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
+  const eventId = eventIdRaw;
+  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+
+  const enabledRaw = formData.get('enabled');
+  const positionRaw = formData.get('position');
+
+  await requireHostMembership(eventId);
+  const supabase = await createClient();
+
+  const patch: Parameters<typeof saveOverlaySettings>[2] = {};
+  if (typeof enabledRaw === 'string') patch.event_qr_enabled = enabledRaw === 'true';
+  if (typeof positionRaw === 'string') patch.event_qr_position = normalizeQrPosition(positionRaw);
+  if (Object.keys(patch).length === 0) redirect(SETUP_PATH(eventId));
+
+  const ok = await saveOverlaySettings(supabase, eventId, patch);
+  if (!ok) redirect(`${SETUP_PATH(eventId)}?overlay_error=save`);
+
+  revalidatePath(SETUP_PATH(eventId));
+  redirect(`${SETUP_PATH(eventId)}?overlay_saved=event_qr`);
+}
+
+/**
+ * GUEST-PICK — the real, optional switch (owner-locked "make it optional"). PAID:
+ * with one channel there is nothing to pick between, so this only means something
+ * for a multi-camera host.
+ *
+ * The public page honors it by OMISSION (lib/live-studio-roam.ts → applyGuestPick),
+ * so flipping this off actually removes the other channels' video ids from what the
+ * viewer is sent — it is not a hidden picker.
+ */
+export async function setGuestPick(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const enabledRaw = formData.get('enabled');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
+  const eventId = eventIdRaw;
+  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  if (typeof enabledRaw !== 'string') redirect(SETUP_PATH(eventId));
+
+  await requireHostMembership(eventId);
+  await requireLiveStudioOwned(eventId);
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from('events')
+    .update({ live_studio_guest_pick_enabled: enabledRaw === 'true' })
+    .eq('event_id', eventId);
+  if (error) redirect(`${SETUP_PATH(eventId)}?overlay_error=save`);
+
+  revalidatePath(SETUP_PATH(eventId));
+  // The public event page reads this column — re-render it so the change is live.
+  revalidatePath('/[slug]', 'page');
+  redirect(`${SETUP_PATH(eventId)}?guest_pick=${enabledRaw === 'true' ? 'on' : 'off'}`);
+}
+
+/**
+ * ⚡ Mark a highlight MOMENT. PAID, and only while a broadcast is actually on air.
+ *
+ * Pure metadata: one row carrying when it happened, how far into the broadcast, and
+ * a SNAPSHOT of which channel was on Channel 1. No video is read, cut, re-encoded or
+ * stored — which is exactly why this is real today and costs ₱0.
+ *
+ * The off-air rejection is not defensive noise: an offset is measured from
+ * `went_live_at`, so a moment marked off air could never become a chapter. Refusing
+ * beats persisting a row that can only ever be a lie.
+ */
+export async function markHighlight(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
+  const eventId = eventIdRaw;
+  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+
+  await requireHostMembership(eventId);
+  await requireLiveStudioOwned(eventId);
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Server-resolved liveness — never trust a posted "isLive".
+  let broadcast: Awaited<ReturnType<typeof getActivePanoodBroadcast>> = null;
+  try {
+    broadcast = await getActivePanoodBroadcast(eventId);
+  } catch {
+    broadcast = null;
+  }
+  if (!broadcast) redirect(`${SETUP_PATH(eventId)}?highlight_error=offair`);
+
+  // Snapshot the on-air channel in the host's own words. Denormalized on purpose:
+  // renaming or deleting the camera later must not rewrite what happened.
+  const { data: onAir } = await supabase
+    .from('live_studio_roam_zones')
+    .select('zone_index, label')
+    .eq('event_id', eventId)
+    .eq('is_main_stage', true)
+    .maybeSingle();
+  const zone = (onAir ?? null) as { zone_index: number; label: string } | null;
+
+  const markedAt = new Date();
+  const { error } = await supabase.from('live_studio_highlights').insert({
+    event_id: eventId,
+    marked_at: markedAt.toISOString(),
+    offset_seconds: highlightOffsetSeconds(markedAt, broadcast.went_live_at ?? null),
+    channel: zone ? channelForZoneIndex(zone.zone_index) : null,
+    channel_label: zone?.label ?? null,
+    label: normalizeHighlightLabel(formData.get('label')),
+    created_by: user?.id ?? null,
+  });
+  if (error) redirect(`${SETUP_PATH(eventId)}?highlight_error=save`);
+
+  revalidatePath(SETUP_PATH(eventId));
+  redirect(`${SETUP_PATH(eventId)}?highlight=marked`);
+}
+
+/** Remove a mis-tapped moment. PAID (same gate as marking one). */
+export async function deleteHighlight(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const idRaw = formData.get('highlight_id');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
+  const eventId = eventIdRaw;
+  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  const highlightId = typeof idRaw === 'string' ? Number(idRaw) : NaN;
+  if (!Number.isFinite(highlightId)) redirect(SETUP_PATH(eventId));
+
+  await requireHostMembership(eventId);
+  await requireLiveStudioOwned(eventId);
+  const supabase = await createClient();
+  await supabase
+    .from('live_studio_highlights')
+    .delete()
+    .eq('event_id', eventId)
+    .eq('id', highlightId);
+
+  revalidatePath(SETUP_PATH(eventId));
+  redirect(`${SETUP_PATH(eventId)}?highlight=removed`);
 }
 
 /* -------------------------------------------------------------------------- */

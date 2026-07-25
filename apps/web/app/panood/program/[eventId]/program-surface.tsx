@@ -2,6 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { SetnayanOverlay } from '@/app/dashboard/[eventId]/studio/panood/broadcast/_components/setnayan-overlay';
+import type {
+  MonogramPosition,
+  QrPosition,
+  ResolvedOverlays,
+} from '@/lib/live-studio-overlays';
 import {
   clampSplitRatio,
   EMPTY_FRAME,
@@ -29,7 +34,27 @@ import {
  * Rendered as a fixed full-viewport layer so it covers the dashboard chrome it
  * is nested inside; OBS then captures the whole window with nothing but program.
  */
-export function PanoodProgramSurface() {
+export function PanoodProgramSurface({
+  overlays,
+  qrSrc,
+  lowerThirdFallback,
+}: {
+  /**
+   * WAVE 2 broadcast extras (Live Studio · owner-locked 2026-07-25), resolved
+   * SERVER-SIDE against the entitlement and handed down already-decided — exactly
+   * like `frame.overlay`, and for the same reason: this surface must never re-derive
+   * a paywall decision, or it becomes the soft door to a clean feed. Null = nothing
+   * to draw (flag off, or every overlay switched off).
+   *
+   * These composite HERE, on the window the couple's encoder captures. That is the
+   * whole ₱0 story: no second feed, no server mixer, no per-minute cost.
+   */
+  overlays: ResolvedOverlays | null;
+  /** The event's real scan-to-join QR (the shipped /api/website/qr/[slug] PNG). */
+  qrSrc: string | null;
+  /** Title fallback when a paid host enabled the bar but typed nothing. */
+  lowerThirdFallback: string;
+}) {
   const [frame, setFrame] = useState<ProgramFrame>(EMPTY_FRAME);
   const [failure, setFailure] = useState<BridgeFailure | null>(null);
 
@@ -100,7 +125,7 @@ export function PanoodProgramSurface() {
     // `h-[100dvh]` (not `fixed`) because this page owns the whole window — and because a
     // view-transition-named ancestor once turned `fixed` into a zero-height containing block
     // and silently rendered nothing at all.
-    <div className="flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-black">
+    <div className="relative flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-black">
       {failure ? (
         <BridgeFailureCard failure={failure} />
       ) : (
@@ -116,6 +141,17 @@ export function PanoodProgramSurface() {
           ) : (
             <NoSignalCard label={frame.label} />
           )}
+          {/* WAVE 2 — the broadcast extras, composited into the captured picture.
+              Drawn UNDER the paywall overlay below: when that is on the whole frame
+              is watermarked anyway, and the ordering makes it impossible for an
+              overlay to be used to obscure the paywall. */}
+          {overlays ? (
+            <BroadcastOverlays
+              overlays={overlays}
+              qrSrc={qrSrc}
+              lowerThirdFallback={lowerThirdFallback}
+            />
+          ) : null}
           {/* The paywall. Server-decided upstream and carried over the bridge — this surface
               never re-derives it. Covers every branch above, so OBS cannot capture a clean
               frame from any state while the overlay is on. */}
@@ -125,6 +161,101 @@ export function PanoodProgramSurface() {
       )}
     </div>
   );
+}
+
+/**
+ * WAVE 2 · the ₱0 broadcast extras, drawn as DOM layers on the captured window —
+ * the monogram bug, the lower third, and the event's scan-to-join QR.
+ *
+ * WHY THIS IS THE REAL COMPOSITING POINT: OBS captures this WINDOW's picture, so a
+ * DOM layer here IS in the couple's broadcast. That is already proven — it is
+ * exactly how the SETNAYAN paywall overlay reaches air. No second feed, no server
+ * mixer, no per-minute cost: ₱0, which is the only reason these ship in V1.
+ *
+ * `pointer-events-none` throughout: this window is output, never a control surface.
+ * Sizes are absolute px, not viewport units, because the capture is a fixed-size
+ * window and a bug that rescales with the operator's monitor is a bug that lands
+ * somewhere different on air than it did in rehearsal.
+ */
+function BroadcastOverlays({
+  overlays,
+  qrSrc,
+  lowerThirdFallback,
+}: {
+  overlays: ResolvedOverlays;
+  qrSrc: string | null;
+  lowerThirdFallback: string;
+}) {
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0 z-20">
+      {overlays.monogram ? (
+        <span
+          className={`absolute ${positionClass(
+            overlays.monogram.position,
+          )} rounded-full border border-white/35 bg-black/35 px-5 py-2 font-serif text-2xl italic text-white`}
+        >
+          {overlays.monogram.text}
+        </span>
+      ) : null}
+
+      {overlays.eventQr && qrSrc ? (
+        <span
+          className={`absolute ${positionClass(
+            overlays.eventQr.position,
+          )} flex flex-col items-center gap-1 rounded-xl bg-white/95 p-2.5`}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- an API-route PNG;
+              the image optimizer would add a hop and a cache for no benefit. */}
+          <img src={qrSrc} alt="" width={112} height={112} className="h-28 w-28" />
+          <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-black">
+            Scan to join
+          </span>
+        </span>
+      ) : null}
+
+      {overlays.lowerThird ? (
+        <div className="absolute inset-x-0 bottom-0 flex items-center gap-4 bg-gradient-to-t from-black/85 via-black/60 to-transparent px-10 pb-8 pt-20">
+          <span className="h-14 w-[5px] shrink-0 rounded-sm bg-[#D96B4A]" />
+          <span className="min-w-0">
+            <span
+              className={`block truncate text-xl font-bold uppercase tracking-[0.1em] ${
+                overlays.lowerThird.forced ? 'text-[#D96B4A]' : 'text-white'
+              }`}
+            >
+              {overlays.lowerThird.title || lowerThirdFallback}
+            </span>
+            {overlays.lowerThird.subtitle ? (
+              <span className="mt-1 block truncate text-base text-white/80">
+                {overlays.lowerThird.subtitle}
+              </span>
+            ) : null}
+          </span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Corner → placement, for the capture surface. Mirrors `overlayPositionClass` in
+ * lib/live-studio-overlays.ts but at broadcast scale (wider insets, and the bottom
+ * corners lifted further to clear the taller lower third here). The CORNER SET is
+ * the shared one; only the spacing differs, so a host's choice cannot land in a
+ * different corner than the controller promised.
+ */
+function positionClass(position: MonogramPosition | QrPosition): string {
+  switch (position) {
+    case 'top-right':
+      return 'right-10 top-10';
+    case 'top-left':
+      return 'left-10 top-10';
+    case 'bottom-right':
+      return 'bottom-40 right-10';
+    case 'bottom-left':
+      return 'bottom-40 left-10';
+    case 'top-center':
+      return 'left-1/2 top-10 -translate-x-1/2';
+  }
 }
 
 /**

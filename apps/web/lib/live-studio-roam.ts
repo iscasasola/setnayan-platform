@@ -135,6 +135,32 @@ export function selectMainStageZone(manifest: RoamManifest): RoamZoneManifestEnt
 }
 
 /**
+ * GUEST-PICK — the host's real, optional switch (owner-locked 2026-07-25 "make it
+ * optional"; Live_Studio_Unified_Spec § 4b Wave 2). ON = guests may leave Channel 1
+ * for any camera channel; OFF = everyone watches the host's cut.
+ *
+ * ENFORCED BY OMISSION, and this is the whole point of doing it here rather than in
+ * the picker component. Hiding the picker buttons while still serialising every
+ * channel's `videoId` into the page would be theatre: the ids ship inside the client
+ * component's props, so anyone who opens the page source could watch the channels
+ * their host chose not to publish. So when guest-pick is OFF the server reduces the
+ * manifest to the ONE entry Channel 1 is carrying — the other ids never leave the
+ * server, and the picker's existing `manifest.length > 1` guard then hides itself
+ * for free.
+ *
+ * (Honest limit: the underlying YouTube broadcasts are still public URLs, so a guest
+ * who finds the channel another way can watch it. Not shipping the ids is the part
+ * we control; making the broadcasts unlisted is a provisioning-side concern.)
+ *
+ * Pure + exported so the loader and the unit tests share one source of truth.
+ */
+export function applyGuestPick(manifest: RoamManifest, guestPickEnabled: boolean): RoamManifest {
+  if (guestPickEnabled) return manifest;
+  const onAir = selectMainStageZone(manifest);
+  return onAir ? [onAir] : [];
+}
+
+/**
  * Group manifest entries by venue for the picker UI. Entries without a venue fall
  * under a single unlabeled group (key ''). Preserves within-group order. Pure.
  */
@@ -153,23 +179,36 @@ export function groupZonesByVenue(manifest: RoamManifest): { venue: string | nul
 }
 
 /**
- * Read + parse the public ROAM manifest for an event from
- * events.live_studio_roam_manifest. Graceful-degrade to [] on a missing/legacy column
- * (42703) or table (42P01) so a pre-migration database shows the CAST single
- * embed rather than crashing — matches the panood-seats.ts / panood-watch posture.
+ * Read the public viewer state for an event: the parsed ROAM manifest
+ * (events.live_studio_roam_manifest) AND the host's guest-pick switch
+ * (events.live_studio_guest_pick_enabled) in ONE row read — they are both columns on
+ * `events` precisely so the wedding page pays for one query, not two, inside the
+ * live window.
+ *
+ * Graceful-degrade on a missing/legacy column (42703) or table (42P01): empty
+ * manifest + guest-pick TRUE (the default), so a pre-migration database shows the
+ * CAST single embed rather than crashing — matches the panood-watch posture.
+ *
+ * NOTE the caller still has to apply `applyGuestPick` — this returns the raw pair so
+ * the reduction happens in one obvious, tested place.
  */
-export async function fetchRoamManifest(
+export async function fetchRoamViewerState(
   supabase: SupabaseClient,
   eventId: string,
-): Promise<RoamManifest> {
+): Promise<{ manifest: RoamManifest; guestPickEnabled: boolean }> {
   const { data, error } = await supabase
     .from('events')
-    .select('live_studio_roam_manifest')
+    .select('live_studio_roam_manifest, live_studio_guest_pick_enabled')
     .eq('event_id', eventId)
     .maybeSingle();
-  if (error) {
-    if (error.code === '42P01' || error.code === '42703') return [];
-    return [];
-  }
-  return parseRoamManifest((data as { live_studio_roam_manifest?: unknown } | null)?.live_studio_roam_manifest);
+  if (error) return { manifest: [], guestPickEnabled: true };
+  const row = data as
+    | { live_studio_roam_manifest?: unknown; live_studio_guest_pick_enabled?: unknown }
+    | null;
+  return {
+    manifest: parseRoamManifest(row?.live_studio_roam_manifest),
+    // Only an explicit `false` turns it off — an absent column (pre-migration) or a
+    // null must not silently strip a paid host's guest-pick.
+    guestPickEnabled: row?.live_studio_guest_pick_enabled !== false,
+  };
 }

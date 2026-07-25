@@ -82,5 +82,14 @@ export async function updateVendorReachRings(
   }
 
   revalidatePath('/vendor-dashboard/shop');
-  return { ok: true, ...parsed, capKm: ring2CapKm(tier) };
+  // Spread the parsed fields EXPLICITLY: `{ ok: true, ...parsed }` puts
+  // `parsed.ok` after the literal and TypeScript rejects the shadowed key
+  // (TS2783). Naming the fields also keeps this return type-stable if
+  // parseRingSettings ever grows a field.
+  return {
+    ok: true,
+    ring1Km: parsed.ring1Km,
+    ring2Km: parsed.ring2Km,
+    capKm: ring2CapKm(tier),
+  };
 }

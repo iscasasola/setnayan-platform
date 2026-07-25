@@ -170,6 +170,76 @@ export function HomeReskin({
     }, 70);
   }, []);
 
+  // ── Deep links into the below-fold content survive the gate ──
+  // The gate scroll-locks <html> on mount, so landing on `/#what-is-setnayan`
+  // (or any in-content anchor) would otherwise strand the visitor on the hero
+  // with the target unreachable — the browser's own hash jump gets undone the
+  // moment `hr-gate-closed` lands. Open the gate and scroll to the target
+  // instead. Scoped to ids INSIDE #hr-content so a `#hr-hero` link (or any
+  // stray hash) still leaves the cinematic gate closed as designed.
+  useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (!id) return;
+    if (!document.getElementById(id)?.closest('#hr-content')) return;
+    openGate(id);
+    // Mount-only: a later in-page hash change is an ordinary anchor jump, and
+    // by then the gate is already open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── A scroll gesture opens the gate, exactly as "Learn more" does ──
+  // The gate sets `overflow:hidden` on <html>, so before this a wheel/swipe on
+  // the hero did NOTHING: anyone who scrolls instead of clicking hit a dead end
+  // and never reached the content — including the purpose copy and the
+  // privacy-policy link in the footer, two things Google's App Homepage
+  // checklist requires a reviewer to be able to find without interacting.
+  // (Owner-approved 2026-07-25.) Nothing about the design changes: the
+  // cinematic screen still loads first, and this routes through the SAME
+  // openGate() the button uses, so the reveal + smooth scroll are identical.
+  useEffect(() => {
+    // Only while the gate is shut, and never while an overlay is up — the
+    // overlays scroll their own bodies (`overflow-y:auto`) and a wheel inside
+    // one must not blow the gate open behind it.
+    if (opened || overlay) return;
+    const open = () => openGate();
+    // Downward intent only; scrolling up at the top is a no-op, as before.
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY > 0) open();
+    };
+    // Touch: finger moving UP = scrolling down. Require vertical dominance so a
+    // horizontal swipe across the pillar dock doesn't trip the gate.
+    let sx = 0;
+    let sy = 0;
+    const onTouchStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (!t) return;
+      sx = t.clientX;
+      sy = t.clientY;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (!t) return;
+      const dy = sy - t.clientY;
+      const dx = Math.abs(t.clientX - sx);
+      if (dy > 12 && dy > dx) open();
+    };
+    // Keyboard scrolling is a scroll too. Space is deliberately excluded — it
+    // activates a focused button, and the hero CTAs are buttons.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'PageDown' || e.key === 'ArrowDown' || e.key === 'End') open();
+    };
+    window.addEventListener('wheel', onWheel, { passive: true });
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('wheel', onWheel);
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [opened, overlay, openGate]);
+
   // Logo = Home: restore hero, scroll to top, re-lock the gate.
   const goHome = useCallback(() => {
     const reduce = reduceMotion();
@@ -734,6 +804,63 @@ export function HomeReskin({
           <Link className="hr-btn-dark" href="/onboarding/wedding">
             Start planning · free
           </Link>
+        </section>
+
+        {/* ── "What is Setnayan?" — the plain-language statement of purpose ──
+            Everything else on this page is editorial: the copy evokes rather
+            than explains, and the concrete description of what the product IS
+            lived only in metadata + the JSON-LD graph. That's fine for a
+            visitor and NOT fine for a reviewer, and it cost us a Google OAuth
+            brand verification (2026-07-25) on two counts: "your home page does
+            not explain the purpose of your app", and the OAuth consent-screen
+            app name "Setnayan" not matching the page — the visible wordmark
+            renders "SETNAYAN" in caps and the title-case string never appeared
+            as prose.
+
+            So this block is deliberately literal, and three things in it are
+            load-bearing — do not "tighten" them away:
+              1. the literal title-case string "Setnayan" as body prose,
+              2. a plain description of what the app does,
+              3. the explicit statement that Live Studio creates a YouTube live
+                 broadcast — that's the justification Google's SENSITIVE-SCOPE
+                 review asks for next, and it has to be visible on the homepage
+                 before that review, not after it fails.
+            Anchored as #what-is-setnayan so the URL can be handed to a reviewer
+            directly (see the hash-deep-link effect above). */}
+        <section className="hr-about" id="what-is-setnayan">
+          <div className="hr-pnum">What is Setnayan?</div>
+          <h2 className="hr-pname">
+            Setnayan is a Philippines-first platform for planning life’s events.
+          </h2>
+          <p className="hr-adef">
+            Couples plan a wedding on Setnayan for free — guest list, seating chart, budget,
+            verified vendors at 0% commission, and a live event page for their guests. Optional
+            paid upgrades set the day apart: <em>Papic</em> turns the guests’ own phones into a
+            photo-and-video crew, <em>Setnayan AI</em> drafts the timeline and matches vendors,
+            and <em>Live Studio</em> creates the couple’s own YouTube live broadcast and streams
+            the ceremony to it, so family working abroad can watch the moment it happens. Every
+            photo, video, and milestone gathers into one living memory the couple keeps, for life.
+          </p>
+          {/* Google's App Homepage checklist requires the homepage to "explain
+              with transparency the purpose for which your app requests user
+              data" — describing the FEATURE is not the same as explaining the
+              DATA REQUEST, and this paragraph is the latter. It also carries a
+              privacy-policy link, so the checklist's "include a link to your
+              privacy policy" is satisfied inside the purpose block itself and
+              not only from the footer. That link must keep matching the URL
+              configured on the OAuth consent screen. Deliberately describes
+              what Setnayan DOES with the access rather than promising what it
+              can't touch — the granted scopes (auth/youtube +
+              auth/youtube.upload) are broad, and a narrower claim here than the
+              scopes support would be untrue. */}
+          <p className="hr-adef hr-anote">
+            <em>Why Setnayan asks for YouTube access:</em> Live Studio is optional and off by
+            default. When a couple turns it on, Setnayan asks them to connect their own YouTube
+            account, and uses that connection to set up and run the live broadcast for their own
+            event — scheduling it, starting and ending it, and streaming their ceremony to it.
+            Nothing is broadcast to their channel unless they turn Live Studio on for their event.
+            Full details are in our <Link href="/privacy">Privacy Policy</Link>.
+          </p>
         </section>
 
         <ReskinFooter />

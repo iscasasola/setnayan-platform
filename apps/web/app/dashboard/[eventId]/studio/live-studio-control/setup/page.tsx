@@ -82,10 +82,12 @@ import {
   getActivePanoodStreamKey,
 } from '@/lib/panood-broadcast';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { decideProgramAir, type ProgramChannel } from '@/lib/live-studio-publish';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { CopyButton } from '@/app/_components/copy-button';
 import { TransportRow } from './transport-row';
 import { CameraFeedsProvider, ChannelVideo } from './_components/camera-feeds';
+import { ProgramBridgeHost } from './_components/program-bridge';
 import {
   addRoamZone,
   deleteRoamZone,
@@ -407,6 +409,34 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   // The one fact the tally depends on: is the broadcast actually up?
   const isLive = Boolean(activeBroadcast);
   const tiles = buildChannelTiles({ zones, multiCamUnlocked: lock.multiCamUnlocked, isLive });
+
+  // ── ⭐ WAVE 5 · THE PATH TO AIR, and its paywall ──────────────────────────
+  //
+  // Until now a cut here reached the host's monitor and stopped. The surface an
+  // encoder can actually capture is `/panood/program/[eventId]`, which reads frames
+  // from its opener's bridge — and only the LEGACY control room installed one.
+  // `ProgramBridgeHost` below installs it from here, so Channel 1 finally has an
+  // output window.
+  //
+  // That output is also a PUBLICATION PATH WE DO NOT OWN (the host's own OBS → the
+  // host's own YouTube), so it carries its own gate: an un-entitled event's program
+  // frame carries ONE camera, pinned to the host's ★ default and INDEPENDENT of their
+  // cut. Rehearsal is untouched — the monitor above still follows every cut, for
+  // every host, at full strength (§ 4d). Decided server-side here and independently
+  // re-decided server-side on the pop-out; see lib/live-studio-publish.ts.
+  const programChannels: ProgramChannel[] = zones.map((z) => ({
+    slot: z.camera?.slot ?? null,
+    featured: z.is_featured,
+    mainStage: z.is_main_stage,
+    status: z.status,
+  }));
+  const air = decideProgramAir({ owned, channels: programChannels });
+  // The host's own name for what is actually going out — used only in the pop-out's
+  // no-signal state, so it must never claim a camera that isn't the one being sent.
+  const airZone = air.airSlot ? zones.find((z) => z.camera?.slot === air.airSlot) ?? null : null;
+  const airLabel = airZone
+    ? formatChannel(channelForZoneIndex(airZone.zone_index), airZone.label)
+    : 'Nothing on Channel 1 yet';
   // zoneId → WebRTC slot, so a tile can subscribe to its own camera. Kept here
   // rather than threaded through `ChannelTile` so Wave 3's pure controller helpers
   // stay free of transport concepts.
@@ -754,6 +784,43 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               </SubmitButton>
             </form>
           </div>
+
+          {/* ── ⭐ WAVE 5 · THE PATH TO AIR ───────────────────────────────────
+              Installs the program bridge (so Channel 1 has an output window at
+              all) and opens the chrome-less pop-out the host's encoder captures.
+              Publishes what the SERVER permits, never the raw cut. */}
+          <ProgramBridgeHost
+            eventId={eventId}
+            air={air}
+            isLive={isLive}
+            airLabel={airLabel}
+            streamingEnabled={streamingOn}
+            mainStageSlot={programSlot}
+          />
+
+          {/* THE CUT THAT DID NOT REACH AIR — stated here, on the controller, in
+              plain words, rather than left for the host to discover from their own
+              stream. A free host's program output is pinned to their ★ default
+              channel: the cut is real rehearsal and the monitor above follows it,
+              but the encoder keeps seeing the one channel they may broadcast.
+              Only ever rendered when there is a genuine difference to report. */}
+          {air.withheld ? (
+            <p className="flex flex-wrap items-baseline gap-x-1.5 rounded-xl border border-terracotta/35 bg-terracotta/[0.06] px-3.5 py-2.5 text-[11.5px] leading-snug text-ink/70">
+              <MonitorPlay
+                aria-hidden
+                className="h-3.5 w-3.5 shrink-0 translate-y-0.5 text-terracotta"
+                strokeWidth={1.9}
+              />
+              <span className="min-w-0">
+                <span className="font-semibold text-ink">
+                  That cut is rehearsal — your broadcast is still on {airLabel}.
+                </span>{' '}
+                Switching cameras on air is what the unlock
+                {priceLabel ? ` (${priceLabel})` : ''} buys. Choose which single camera your free
+                broadcast carries with the ★ default control below.
+              </span>
+            </p>
+          ) : null}
 
           {/* ── THE PAYWALL, AT THE GO-LIVE MOMENT (Wave 3 · § 4d) ────────────
               Not a padlock over the tiles — a sentence exactly where broadcasting

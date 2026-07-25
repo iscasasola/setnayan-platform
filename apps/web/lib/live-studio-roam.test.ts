@@ -23,6 +23,7 @@ import {
   groupZonesByVenue,
   liveStudioRoamEnabled,
   parseRoamManifest,
+  selectDefaultChannel,
   selectFeaturedZone,
   selectMainStageZone,
   type RoamManifest,
@@ -123,6 +124,40 @@ test('selectFeaturedZone falls back to first live, then first, then null', () =>
   assert.equal(selectFeaturedZone(noneLive)?.label, 'A');
 
   assert.equal(selectFeaturedZone([]), null);
+});
+
+test('selectDefaultChannel is the SAME rule over a non-manifest shape (Wave 5)', () => {
+  // The generic the program-output paywall runs over raw channel rows, which have no
+  // videoId and therefore cannot be a manifest. Two spellings of "which channel is the
+  // default" is how a paywall and a viewer end up disagreeing about which camera is
+  // the free one, so selectFeaturedZone delegates to this and both are pinned here.
+  type Row = { slot: string; featured: boolean; status: string };
+  const rows: Row[] = [
+    { slot: 'cam1', featured: false, status: 'offline' },
+    { slot: 'cam2', featured: false, status: 'live' },
+    { slot: 'cam3', featured: true, status: 'planned' },
+  ];
+  assert.equal(selectDefaultChannel(rows)?.slot, 'cam3', 'the ★ default wins');
+  assert.equal(
+    selectDefaultChannel(rows.map((r) => ({ ...r, featured: false })))?.slot,
+    'cam2',
+    'then the first one actually live',
+  );
+  assert.equal(
+    selectDefaultChannel([{ slot: 'cam1', featured: false, status: 'planned' }])?.slot,
+    'cam1',
+    'then simply the first',
+  );
+  assert.equal(selectDefaultChannel([]), null);
+
+  // And it is CUT-BLIND by construction — there is no mainStage field to consult.
+  // That is what stops a free host's cuts from moving their program output.
+  const m: RoamManifest = parseRoamManifest([
+    { zoneIndex: 1, label: 'A', videoId: VID_A, featured: true, status: 'live' },
+    { zoneIndex: 2, label: 'B', videoId: VID_B, mainStage: true, status: 'live' },
+  ]);
+  assert.equal(selectDefaultChannel(m)?.label, 'A');
+  assert.equal(selectMainStageZone(m)?.label, 'B', 'the cut-aware selector still honours the cut');
 });
 
 // ── 2b. Select Main Stage (the directed cut) ───────────────────────────────

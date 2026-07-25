@@ -7,6 +7,7 @@ import type {
   QrPosition,
   ResolvedOverlays,
 } from '@/lib/live-studio-overlays';
+import { programSourceAllowed, type ProgramAirDecision } from '@/lib/live-studio-publish';
 import {
   clampSplitRatio,
   EMPTY_FRAME,
@@ -38,6 +39,7 @@ export function PanoodProgramSurface({
   overlays,
   qrSrc,
   lowerThirdFallback,
+  air,
 }: {
   /**
    * WAVE 2 broadcast extras (Live Studio · owner-locked 2026-07-25), resolved
@@ -54,6 +56,21 @@ export function PanoodProgramSurface({
   qrSrc: string | null;
   /** Title fallback when a paid host enabled the bar but typed nothing. */
   lowerThirdFallback: string;
+  /**
+   * ⭐ WAVE 5 — THE PROGRAM-OUTPUT PAYWALL, resolved SERVER-SIDE on this route's own
+   * render (see page.tsx) and never re-derived here.
+   *
+   * This surface is the one publication path Setnayan does not own: whatever it shows,
+   * the host's encoder can send to the host's own YouTube. So an un-entitled event may
+   * paint exactly ONE camera here — its ★ default channel — and this component refuses
+   * any other source REGARDLESS OF WHAT THE OPENER SENDS. The bridge lives on a plain
+   * `window` property in the host's own browser; treating anything that arrives over it
+   * as authorised would make the paywall a suggestion.
+   *
+   * Null = the flag is off, or this event has no Live Studio channels (a legacy Cast
+   * broadcast) — nothing is restricted and the surface behaves exactly as before.
+   */
+  air: ProgramAirDecision | null;
 }) {
   const [frame, setFrame] = useState<ProgramFrame>(EMPTY_FRAME);
   const [failure, setFailure] = useState<BridgeFailure | null>(null);
@@ -120,6 +137,31 @@ export function PanoodProgramSurface({
     document.title = 'Setnayan Program output';
   }, []);
 
+  // ── WAVE 5 · THE GATE, applied to the frame that actually arrived ──────────────
+  //
+  // `air` was decided on the server from `orders`; this is the only place its verdict
+  // meets a live frame. Anything the opener sends that is not on the permitted list is
+  // dropped — a tampered console, a hand-installed bridge, or simply a stale frame from
+  // before an entitlement lapsed all land in the same branch.
+  //
+  // A refused source shows the WITHHELD CARD, not a black frame and not a substituted
+  // camera: a black rectangle going out live is indistinguishable from a crash, and
+  // quietly airing a different camera than the controller says is on would be the
+  // fake this whole surface exists to avoid.
+  const sourceAllowed = air ? programSourceAllowed(air, frame.source) : true;
+  const refusedSource = Boolean(air?.enforced && !sourceAllowed);
+  const stream = sourceAllowed ? frame.stream : null;
+  const secondaryStream = sourceAllowed ? frame.secondaryStream : null;
+  // The host's cut is real and permitted, but it is NOT the channel going out — the
+  // free tier's program output is pinned. Say which one is, on the picture, because
+  // this window is the only place the difference is observable at broadcast time.
+  const cutWithheld = Boolean(
+    air?.enforced &&
+      sourceAllowed &&
+      frame.requestedSource &&
+      frame.requestedSource !== frame.source,
+  );
+
   return (
     // A real full-viewport route now, not a layer fighting the dashboard shell for cover.
     // `h-[100dvh]` (not `fixed`) because this page owns the whole window — and because a
@@ -130,14 +172,16 @@ export function PanoodProgramSurface({
         <BridgeFailureCard failure={failure} />
       ) : (
         <>
-          {frame.secondaryStream && frame.stream ? (
+          {refusedSource ? (
+            <WithheldCard />
+          ) : secondaryStream && stream ? (
             <SplitComposite
-              primary={frame.stream}
-              secondary={frame.secondaryStream}
+              primary={stream}
+              secondary={secondaryStream}
               ratio={frame.splitRatio}
             />
-          ) : frame.stream ? (
-            <StreamLayer stream={frame.stream} />
+          ) : stream ? (
+            <StreamLayer stream={stream} />
           ) : (
             <NoSignalCard label={frame.label} />
           )}
@@ -152,9 +196,18 @@ export function PanoodProgramSurface({
               lowerThirdFallback={lowerThirdFallback}
             />
           ) : null}
-          {/* The paywall. Server-decided upstream and carried over the bridge — this surface
-              never re-derives it. Covers every branch above, so OBS cannot capture a clean
-              frame from any state while the overlay is on. */}
+          {/* WAVE 5 — the host's cut is not what is going out. Small, bottom-left, and
+              deliberately ON the captured picture: this window is the only place the
+              difference is visible while broadcasting, and a controller that says
+              "CH 4 on air" over a stream carrying CH 2 is exactly the kind of silent
+              mismatch a couple would only discover afterwards. */}
+          {cutWithheld ? (
+            <PinnedChannelNotice label={frame.label} liftedForLowerThird={Boolean(overlays?.lowerThird)} />
+          ) : null}
+          {/* The LEGACY full-screen paywall. Server-decided upstream and carried over the
+              bridge — this surface never re-derives it. Covers every branch above, so OBS
+              cannot capture a clean frame from any state while the overlay is on.
+              (The unified controller does not publish it; see _components/program-bridge.) */}
           {frame.overlay && <SetnayanOverlay size="full" reason={frame.overlayReason} />}
           {frame.overlay && <ObsOrderingNotice />}
         </>
@@ -335,6 +388,76 @@ function NoSignalCard({ label }: { label: string }) {
     <div className="px-8 text-center">
       <p className="text-sm font-medium uppercase tracking-[0.2em] text-white/40">
         {label}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * ⭐ WAVE 5 — a source arrived that this event is not entitled to broadcast.
+ *
+ * Reached when the frame's source is not on the server's permitted list: an
+ * un-entitled event whose console sent a camera other than its pinned free channel.
+ * In normal operation nobody sees this — the unified controller only ever publishes a
+ * permitted slot — so it is the TAMPER / STALE-ENTITLEMENT state, and it is written
+ * to be read by the person who caused it.
+ *
+ * It says the true thing plainly instead of going black. A black frame going out live
+ * is indistinguishable from a crash, and a couple staring at one on their wedding day
+ * has no way to tell which they are looking at.
+ *
+ * It also names the one INNOCENT way to land here: this window resolves its permitted
+ * channel once, when it opens. A host who changes their ★ default afterwards leaves it
+ * pointing at the old one — which fails closed (no picture) rather than open, and is
+ * fixed by reopening the window.
+ */
+function WithheldCard() {
+  return (
+    <div className="max-w-lg px-8 text-center text-white">
+      <p className="font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-white/45">
+        Live Studio
+      </p>
+      <h1 className="mt-3 text-xl font-semibold">Unlock to broadcast all your cameras</h1>
+      <p className="mt-3 text-sm leading-relaxed text-white/65">
+        Your free broadcast carries one camera — the channel marked ★ default in the controller.
+        Switching between cameras on air is what the Live Studio unlock buys.
+      </p>
+      <p className="mt-3 text-sm leading-relaxed text-white/45">
+        Just changed your default channel? Close this window and open it again from the
+        controller.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * ⭐ WAVE 5 — the free tier's pinned channel, named on the picture.
+ *
+ * The host cut to another camera; that cut is real rehearsal and their monitor follows
+ * it, but the encoder keeps seeing the one channel they may broadcast. Saying so HERE
+ * — small, and on the captured frame — is the honest alternative to letting the two
+ * screens disagree in silence.
+ *
+ * Only ever drawn for an un-entitled event, and only while the two genuinely differ.
+ *
+ * Lifted clear of the lower third when one is drawn — and on the free tier one always
+ * is ("POWERED BY SETNAYAN"), so without the lift this would land on top of it.
+ */
+function PinnedChannelNotice({
+  label,
+  liftedForLowerThird,
+}: {
+  label: string;
+  liftedForLowerThird: boolean;
+}) {
+  return (
+    <div
+      className={`pointer-events-none absolute left-0 z-30 max-w-[70%] px-6 ${
+        liftedForLowerThird ? 'bottom-28' : 'bottom-0 pb-5'
+      }`}
+    >
+      <p className="text-[11px] uppercase tracking-[0.14em] text-white/55">
+        On air: {label} · switching cameras needs the Live Studio unlock
       </p>
     </div>
   );

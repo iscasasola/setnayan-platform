@@ -9,6 +9,9 @@ import {
   normalizeZoneInput,
 } from '@/lib/live-studio-roam-zones';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
+import { eventSkuActive } from '@/lib/entitlements';
+import { LIVE_STUDIO_SKU } from '@/lib/live-studio-control';
+import { normalizeYouTubeWatchUrl } from '@/lib/panood-watch';
 
 /**
  * Server actions for the Live Studio ROAM controller — the host-facing surface that
@@ -32,7 +35,12 @@ import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
  */
 
 const SETUP_PATH = (eventId: string) =>
-  `/dashboard/${eventId}/studio/live-studio-roam/setup`;
+  `/dashboard/${eventId}/studio/live-studio-control/setup`;
+
+// The Live Studio detail/buy surface — where a locked (free) host is bounced if
+// they somehow POST a multi-camera action without owning LIVE_STUDIO.
+const DETAIL_PATH = (eventId: string) =>
+  `/dashboard/${eventId}/studio/live-studio-control`;
 
 async function requireHostMembership(eventId: string): Promise<void> {
   const supabase = await createClient();
@@ -62,6 +70,21 @@ async function requireHostMembership(eventId: string): Promise<void> {
   redirect('/dashboard');
 }
 
+/**
+ * The PAID gate for the multi-camera controller (unified Live Studio · 2026-07-25).
+ * These control-plane writes (add/delete/feature a camera, cut/clear the Main Stage)
+ * are the LOCKED half of the shared controller — only a host who owns LIVE_STUDIO may
+ * run them. The UI already greys them out for a free host with an "Unlock" CTA; this
+ * is the server-side backstop so the lock can't be bypassed by replaying a form post.
+ * The FREE single-camera livestream (savePanoodWatchUrl / go-live) is NOT gated here.
+ * A locked host is bounced to the detail/buy page rather than erroring.
+ */
+async function requireLiveStudioOwned(eventId: string): Promise<void> {
+  const supabase = await createClient();
+  const owned = await eventSkuActive(supabase, eventId, LIVE_STUDIO_SKU);
+  if (!owned) redirect(DETAIL_PATH(eventId));
+}
+
 /** Add a new channel/zone. Enforces the per-event cap + label rule (pure helpers). */
 export async function addRoamZone(formData: FormData): Promise<void> {
   const eventIdRaw = formData.get('event_id');
@@ -79,6 +102,7 @@ export async function addRoamZone(formData: FormData): Promise<void> {
   }
 
   await requireHostMembership(eventId);
+  await requireLiveStudioOwned(eventId);
   const supabase = await createClient();
 
   // Read current zones (for cap + next index). RLS scopes this to the host's event.
@@ -131,6 +155,7 @@ export async function deleteRoamZone(formData: FormData): Promise<void> {
   if (!Number.isFinite(zoneId)) redirect(SETUP_PATH(eventId));
 
   await requireHostMembership(eventId);
+  await requireLiveStudioOwned(eventId);
   const supabase = await createClient();
   await supabase
     .from('live_studio_roam_zones')
@@ -160,6 +185,7 @@ export async function cutToMainStage(formData: FormData): Promise<void> {
   if (!Number.isFinite(zoneId)) redirect(SETUP_PATH(eventId));
 
   await requireHostMembership(eventId);
+  await requireLiveStudioOwned(eventId);
   const supabase = await createClient();
   // Clear the current cut, then set the chosen one. Two writes (Supabase JS has no
   // multi-statement txn); a transient partial state degrades to "no cut → featured"
@@ -187,6 +213,7 @@ export async function clearMainStage(formData: FormData): Promise<void> {
   if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
 
   await requireHostMembership(eventId);
+  await requireLiveStudioOwned(eventId);
   const supabase = await createClient();
   await supabase
     .from('live_studio_roam_zones')
@@ -209,6 +236,7 @@ export async function setFeaturedRoamZone(formData: FormData): Promise<void> {
   if (!Number.isFinite(zoneId)) redirect(SETUP_PATH(eventId));
 
   await requireHostMembership(eventId);
+  await requireLiveStudioOwned(eventId);
   const supabase = await createClient();
   // Clear existing featured, then set the chosen one. Two writes (Supabase JS has
   // no multi-statement txn); the picker's selectFeaturedZone tolerates zero-or-one
@@ -226,4 +254,54 @@ export async function setFeaturedRoamZone(formData: FormData): Promise<void> {
 
   revalidatePath(SETUP_PATH(eventId));
   redirect(`${SETUP_PATH(eventId)}?featured_set=1`);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  FREE single-camera livestream — watch link (NOT LIVE_STUDIO-gated)         */
+/* -------------------------------------------------------------------------- */
+//
+// The unified controller hosts the free single-camera livestream too. These two
+// actions mirror the panood/setup watch-url actions (same DB column, same
+// normalizer) but redirect back to THIS controller so the single-screen flow
+// never bounces to the old panood route. They are host-gated only — the free
+// single-cam livestream is available to every host, so there is NO
+// requireLiveStudioOwned() here (that gate is for the multi-camera extras above).
+
+/** Save the couple's YouTube watch link (free single-cam). Host-gated, not paid. */
+export async function saveControlWatchUrl(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const urlRaw = formData.get('watch_url');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
+  const eventId = eventIdRaw;
+  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  if (typeof urlRaw !== 'string') return;
+
+  const normalized = normalizeYouTubeWatchUrl(urlRaw);
+  if (!normalized) {
+    redirect(`${SETUP_PATH(eventId)}?watch_url_error=1`);
+  }
+
+  await requireHostMembership(eventId);
+  const supabase = await createClient();
+  await supabase.from('events').update({ panood_watch_url: normalized }).eq('event_id', eventId);
+
+  revalidatePath(SETUP_PATH(eventId));
+  revalidatePath('/[slug]', 'page');
+  redirect(`${SETUP_PATH(eventId)}?watch_url_saved=1`);
+}
+
+/** Clear the saved watch link (free single-cam). Host-gated, not paid. */
+export async function clearControlWatchUrl(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
+  const eventId = eventIdRaw;
+  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+
+  await requireHostMembership(eventId);
+  const supabase = await createClient();
+  await supabase.from('events').update({ panood_watch_url: null }).eq('event_id', eventId);
+
+  revalidatePath(SETUP_PATH(eventId));
+  revalidatePath('/[slug]', 'page');
+  redirect(SETUP_PATH(eventId));
 }

@@ -179,6 +179,12 @@ export function addOnHref(key: string, eventId: string): string {
   // as the "301 to Pakanta" so any lingering deep link still resolves.
   if (key === 'landing-page') return `/dashboard/${eventId}/website`;
   if (key === 'music-creator') return `/dashboard/${eventId}/studio/pakanta`;
+  // Live Studio — the internal data key stays `live-studio-roam` (reviews/stats/
+  // detail/recommendations key off it, unchanged by the route rename), but the
+  // customer-facing ROUTE moved to /studio/live-studio-control (owner 2026-07-25 —
+  // one unified controller, not Cast-vs-Roam). The old path 301s to the new one in
+  // next.config, so a stale deep link still resolves.
+  if (key === 'live-studio-roam') return `/dashboard/${eventId}/studio/live-studio-control`;
   // Seat plan opens the 3D lab by default; `NEXT_PUBLIC_SEATING_3D='false'`
   // is the kill-switch that falls back to the 2D editor (kept in lockstep with
   // the lab route's own gate). NEXT_PUBLIC_* vars are inlined server-side, and
@@ -834,7 +840,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
  * `live-studio-roam` (like "Live Studio Cast" keeps the internal `panood` name),
  * so its route/detail/state/stats wiring is untouched.
  *
- * opensDirect → routes to the bespoke /studio/live-studio-roam App Store detail
+ * opensDirect → routes to the bespoke /studio/live-studio-control App Store detail
  * page, which mounts the buy drawer and, once owned, opens the switching controller.
  *
  * FLAG-GATED: appended to ADD_ONS only when NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED

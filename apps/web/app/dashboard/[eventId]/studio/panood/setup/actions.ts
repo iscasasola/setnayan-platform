@@ -197,7 +197,10 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
   }
 
   // (g) Refresh the setup page (so the OBS card appears) + the public page embed.
+  // Also refresh the unified Live Studio controller, which mounts this same
+  // GoLiveCard (2026-07-25) — so its live monitor reflects the new broadcast.
   revalidatePath(`/dashboard/${eventId}/studio/panood/setup`);
+  revalidatePath(`/dashboard/${eventId}/studio/live-studio-control/setup`);
   revalidatePath('/[slug]', 'page');
   return { ok: true };
 }
@@ -237,6 +240,7 @@ export async function endPanoodBroadcast(eventId: string): Promise<GoLiveResult>
     .eq('event_id', eventId);
 
   revalidatePath(`/dashboard/${eventId}/studio/panood/setup`);
+  revalidatePath(`/dashboard/${eventId}/studio/live-studio-control/setup`);
   revalidatePath('/[slug]', 'page');
   return { ok: true };
 }

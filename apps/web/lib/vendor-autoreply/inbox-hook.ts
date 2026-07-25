@@ -51,6 +51,7 @@ import { toEventBriefLite, toStoreSnapshot } from './adapter';
 import { maybeAutoAccept } from './auto-accept';
 import { decideReply } from './engine';
 import { evaluateAutoReplyGate, startOfManilaDayIso } from './inbox-decision';
+import { voicedReplyText } from './voice-runtime';
 import { isVendorAiAddonActive } from '../vendor-addon-pricing';
 
 /** chat_messages CHECK caps body at 4000 chars — never let a long templated
@@ -249,6 +250,23 @@ export async function runVendorAutoReply(
         was_llm: false,
       });
     } else {
+      // 9a. ADVANCED voice-match (flag-dark · NEXT_PUBLIC_VENDOR_AI_VOICE_MATCH).
+      //     Wraps the deterministic answer in the vendor's PRECOMPUTED voice
+      //     envelope — the numbers still come from the live rows above, so the
+      //     "cannot misquote" guarantee is untouched. Flag off (or Basic level,
+      //     or mode!=='smart', or no precomputed phrasings) returns
+      //     `decision.replyText` unchanged and issues zero extra queries.
+      //     Still `was_llm: false` — the precompute is deterministic; no model
+      //     call happens on this path, by design.
+      const voiced = await voicedReplyText({
+        admin,
+        vendorProfileId: vendorId,
+        addonActive,
+        intent: decision.intent,
+        neutralText: decision.replyText,
+        rotationKey: `${thread.thread_id}:${repliesToday ?? 0}`,
+      });
+
       const { data: botMessage, error: insertError } = await admin
         .from('chat_messages')
         .insert({
@@ -258,7 +276,7 @@ export async function runVendorAutoReply(
           sender_user_id: null,
           sender_role: 'vendor',
           is_bot: true,
-          body: decision.replyText.slice(0, MAX_BODY),
+          body: voiced.text.slice(0, MAX_BODY),
         })
         .select('message_id')
         .single();

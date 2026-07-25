@@ -115,3 +115,52 @@ export function parseAutoReplyConfigForm(form: FormData): AutoReplyConfigParse {
   }
   return { ok: true, patch };
 }
+
+/* ─── Advanced voice-match switches (flag-dark) ───────────────────────────── */
+
+/** `vendor_bot_config.mode` — the DB CHECK is exactly these two values. */
+export const BOT_MODES = ['free', 'smart'] as const;
+export type BotMode = (typeof BOT_MODES)[number];
+
+export type VoiceSwitchesPatch = {
+  /**
+   * ⚠ A PREFERENCE, NOT AN ENTITLEMENT. `mode` is vendor-writable under policy
+   * `vendor_bot_config_write`, so a vendor can set 'smart' at any time. Serving
+   * gates on the ADVANCED level first (`lib/vendor-autoreply/voice-serve.ts`);
+   * this column can only ever DECLINE voice-match, never grant it.
+   */
+  mode?: BotMode;
+  /** § 7B "Don't learn from my messages" — the voice-derivation opt-out. */
+  learn_from_past_messages?: boolean;
+};
+
+export type VoiceSwitchesParse =
+  | { ok: true; patch: VoiceSwitchesPatch }
+  | { ok: false; error: string };
+
+/** Parse the voice card's two switches. PURE. Absent fields are not patched. */
+export function parseVoiceSwitchesForm(form: {
+  get(key: string): FormDataEntryValue | null;
+}): VoiceSwitchesParse {
+  const patch: VoiceSwitchesPatch = {};
+
+  const modeRaw = form.get('mode');
+  if (modeRaw !== null) {
+    const v = String(modeRaw).trim();
+    if (!(BOT_MODES as readonly string[]).includes(v)) {
+      return { ok: false, error: 'Could not read the voice-match switch — try again.' };
+    }
+    patch.mode = v as BotMode;
+  }
+
+  const learnRaw = form.get('learn_from_past_messages');
+  if (learnRaw !== null) {
+    const v = String(learnRaw).trim().toLowerCase();
+    if (v !== 'true' && v !== 'false') {
+      return { ok: false, error: 'Could not read the “learn from my replies” switch — try again.' };
+    }
+    patch.learn_from_past_messages = v === 'true';
+  }
+
+  return { ok: true, patch };
+}

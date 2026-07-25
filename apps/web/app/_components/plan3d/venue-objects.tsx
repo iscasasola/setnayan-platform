@@ -35,13 +35,13 @@ import {
   rotateLocalRad,
   venueObjectDims,
   BOOTH_FOOTPRINT_M,
-  boothIsBranded,
   type Lab3DPalette,
   type Lab3DSceneObject,
   type Lab3DBooth,
   type Lab3DSign,
   type Lab3DCocktail,
 } from '@/lib/seating-3d';
+import { boothRendersBranded } from '@/lib/booth-branding-tier-gate';
 import { BoothTemplate } from '@/app/_components/plan3d/kit/booth-template';
 import {
   BOOTH_POSTER_FRAME,
@@ -381,11 +381,11 @@ function boothSilhouette(kind: string, w: number, d: number, palette: Lab3DPalet
   }
 }
 
-/** A PRO / ENTERPRISE vendor's branded backdrop behind their booth: an accent-
- *  framed board carrying the vendor's logo (loaded from the resolved,
- *  cross-origin presigned R2 display URL — hence setCrossOrigin below).
- *  Free / verified / solo booths never render this
- *  (gated by boothIsBranded at the call site). Manual TextureLoader (no Suspense
+/** The branded backdrop behind a booth whose vendor holds a live 3D Plan Ads
+ *  add-on: an accent-framed board carrying the vendor's logo (loaded from the
+ *  resolved, cross-origin presigned R2 display URL — hence setCrossOrigin below).
+ *  Booths without the entitlement never render this
+ *  (gated by boothRendersBranded at the call site). Manual TextureLoader (no Suspense
  *  boundary in these scenes); the plane keeps the logo's real aspect ratio so a
  *  wordmark isn't stretched, and drops silently if the image fails. */
 export function BoothSign({ url, w, palette }: { url: string; w: number; palette: Lab3DPalette }) {
@@ -565,11 +565,11 @@ export function BoothMesh({
   // the SAME yaw (rotateLocalRad) and the sign is spun to face the room.
   const facingY = useMemo(() => boothFacingY({ xPct: booth.xPct, yPct: booth.yPct }, room), [booth.xPct, booth.yPct, room]);
   const { w, d } = BOOTH_FOOTPRINT_M;
-  const branded = boothIsBranded(booth.vendor) && !!booth.vendor?.logoUrl;
+  const branded = boothRendersBranded(booth.vendor) && !!booth.vendor?.logoUrl;
   // The per-event poster rides the SAME branding gate as the logo, but is
   // independent of it: a vendor may upload artwork without an account logo, or
   // vice versa, and each renders on its own.
-  const posterUrl = boothIsBranded(booth.vendor) ? booth.vendor?.posterUrl ?? null : null;
+  const posterUrl = boothRendersBranded(booth.vendor) ? booth.vendor?.posterUrl ?? null : null;
   // Booth Studio (behind NEXT_PUBLIC_BOOTH_STUDIO_ENABLED): the STRUCTURED,
   // palette-harmonized poster. Same branding gate as the raw poster. When
   // present it REPLACES the raw poster (never both — no double banner). With the
@@ -578,7 +578,7 @@ export function BoothMesh({
   // null and simply falls back to the raw poster (or nothing).
   const rawPosterContent = booth.vendor?.posterContent;
   const studioBase =
-    boothStudioEnabled() && boothIsBranded(booth.vendor)
+    boothStudioEnabled() && boothRendersBranded(booth.vendor)
       ? sanitizeBoothStudioContent(rawPosterContent)
       : null;
   const studioResolved: BoothStudioContentResolved | null = studioBase
@@ -667,7 +667,7 @@ export function BoothMesh({
  *
  *  Same texture path as BoothSign (manual TextureLoader, crossOrigin for the
  *  cross-origin R2 display URL, silent drop on failure) and the same
- *  boothIsBranded gate at the call site.
+ *  boothRendersBranded gate at the call site.
  *
  *  Upload enforces 2:3 (lib/booth-poster), but the plane still fits to the
  *  texture's REAL aspect inside a fixed box — a legacy or hand-inserted ref can

@@ -17,6 +17,12 @@ import {
  * booth renders BRANDED (logo + poster) inside their couples' published 3D
  * Plans; without it a Pro/Enterprise vendor keeps the generic booth.
  *
+ * Under the 2026-07-25 tiered add-on model (flag-dark) the page opens `eligible`
+ * to EVERY verified tier and passes the banded `pricePhp` (₱2,000 Free/Solo ·
+ * ₱1,500 Pro/Ent). This card needs no branch for that: every price it prints
+ * comes from the `pricePhp` prop, and with the tier gate lifted the only way to
+ * be ineligible is "not verified yet" — which already has its own copy below.
+ *
  * Honest states (mirror the Vendor AI add-on card):
  *   • 3D Plan switched off (NEXT_PUBLIC_SEATING_3D='false') → "Coming soon", NO
  *     buy CTA — the booth has nowhere to render, so we never take money for it.

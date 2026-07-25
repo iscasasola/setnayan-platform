@@ -26,6 +26,8 @@ import {
   fetchVendor3dBoothPricePhp,
   isVendor3dBoothActive,
 } from '@/lib/vendor-3d-booth-pricing';
+import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
+import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { seating3dEnabled } from '@/lib/seating-3d-flag';
 import { SubscriptionCycleToggle } from './_components/cycle-toggle';
@@ -181,11 +183,20 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
   // Pro/Enterprise perk, so the add-on that turns it on is Pro+ too. Soft reads
   // (try/catch inside) degrade to "not activated, trial available" on a
   // pre-migration DB instead of blanking the page.
-  const isProTierForBooth = isTierAtLeast(currentTier, 'pro');
-  const [boothAddonState, boothAddonPricePhp] = await Promise.all([
+  //
+  // 2026-07-25 tiered add-on model (flag-dark): when on, 3D Plan Ads opens to
+  // EVERY tier at its band's price (₱2,000 Free/Solo · ₱1,500 Pro/Ent) — the
+  // verified-only rule stays. Mirrors the buy action's gate exactly, so the card
+  // never offers what the server would reject (or vice versa).
+  const tieredAddonPricing = isVendorAddonTieredPricingEnabled();
+  const isProTierForBooth = tieredAddonPricing || isTierAtLeast(currentTier, 'pro');
+  const [boothAddonState, boothAddonCatalogPricePhp] = await Promise.all([
     fetchVendor3dBoothState(supabase, profile.vendor_profile_id),
     fetchVendor3dBoothPricePhp(supabase),
   ]);
+  const boothAddonPricePhp = tieredAddonPricing
+    ? resolveVendorAddonPricePhp('ads_3d_plan', currentTier)
+    : boothAddonCatalogPricePhp;
   const boothAddonActive = isVendor3dBoothActive(boothAddonState.expiresAt);
 
   // DB prices for the chosen cycle, keyed by sku_code.
@@ -458,7 +469,9 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
 
       {/* 3D Booth add-on — free first 28-day cycle, then ₱1,500/28d, on
           Pro/Enterprise/Custom + verified shops (owner 2026-07-22). Turns on the
-          vendor's branded booth inside their couples' published 3D Plans. */}
+          vendor's branded booth inside their couples' published 3D Plans.
+          With the 2026-07-25 tiered model on: every verified tier, at ₱2,000
+          (Free/Solo) or ₱1,500 (Pro/Ent). */}
       <BoothAddonCard
         available={seating3dEnabled()}
         eligible={isProTierForBooth && isVerifiedVendor}

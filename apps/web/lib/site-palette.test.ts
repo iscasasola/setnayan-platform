@@ -45,6 +45,42 @@ test('emits channel-format values for the 8 site tokens', () => {
   }
 });
 
+// ── Pahina material tokens (design 2026-07-25 §4) ────────────────────────────
+
+test('Pahina: emits gild / paper-deep / veil in channel format', () => {
+  const vars = buildSitePaletteVars({ reception: ['#C97B4B', '#824A2A', '#FAF7F2'] });
+  assert.ok(vars);
+  for (const key of ['--color-gild', '--color-paper-deep', '--color-veil']) {
+    assert.match(vars![key]!, /^\d{1,3} \d{1,3} \d{1,3}$/, `${key} is "R G B"`);
+  }
+});
+
+test('Pahina: gild falls back to Atelier gold on a cool palette', () => {
+  // Blues only — no warm mid-luminance swatch → fallback #A9834B = 169 131 75.
+  const vars = buildSitePaletteVars({ reception: ['#22406B', '#7FA6D9', '#F5F8FC'] });
+  assert.ok(vars);
+  assert.equal(vars!['--color-gild'], '169 131 75');
+});
+
+test('Pahina: gild warms toward metallic on a warm palette (not the raw swatch)', () => {
+  const vars = buildSitePaletteVars({ reception: ['#C97B4B', '#FAF7F2'] });
+  assert.ok(vars);
+  const { r, g, b } = chanToRgb(vars!['--color-gild']!);
+  // 35% blend of #C97B4B toward #B08D57 — must differ from the raw swatch and
+  // sit between the two on the red channel.
+  assert.notEqual(`${r} ${g} ${b}`, '201 123 75', 'not the raw swatch');
+  assert.ok(r <= 201 && r >= 176, 'red channel between swatch and gold target');
+});
+
+test('Pahina: paper-deep is a hair darker than paper', () => {
+  const vars = buildSitePaletteVars({ reception: ['#C97B4B', '#824A2A', '#FAF7F2'] });
+  assert.ok(vars);
+  const paper = chanToRgb(vars!['--color-cream']!);
+  const deep = chanToRgb(vars!['--color-paper-deep']!);
+  assert.ok(lum(deep) < lum(paper), 'paper-deep darker than paper');
+  assert.ok(lum(paper) - lum(deep) < 0.12, 'but only slightly');
+});
+
 test('accent reads as text on paper, and light text reads on the CTA (AA 4.5)', () => {
   // A deliberately tricky pastel palette (light, low-contrast decor colors).
   const vars = buildSitePaletteVars({

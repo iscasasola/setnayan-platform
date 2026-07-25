@@ -21,6 +21,10 @@ import {
   Unlink2,
   Server,
   KeyRound,
+  Zap,
+  Crown,
+  Captions,
+  QrCode,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { formatPhp } from '@/lib/orders';
@@ -39,6 +43,22 @@ import {
   type ControlZone,
 } from '@/lib/live-studio-control';
 import { MAX_ROAM_ZONES, canAddZone } from '@/lib/live-studio-roam-zones';
+import {
+  MONOGRAM_POSITIONS,
+  QR_POSITIONS,
+  POSITION_LABELS,
+  LOWER_THIRD_TITLE_MAX,
+  LOWER_THIRD_SUBTITLE_MAX,
+  HIGHLIGHT_LABEL_MAX,
+  canMarkHighlight,
+  fetchHighlights,
+  fetchOverlaySettings,
+  formatHighlightOffset,
+  overlayPositionClass,
+  resolveOverlays,
+  type ResolvedOverlays,
+} from '@/lib/live-studio-overlays';
+import { deriveMonogram } from '@/lib/monogram';
 import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
 import {
   getActivePanoodBroadcast,
@@ -57,6 +77,12 @@ import {
   clearMainStage,
   saveControlWatchUrl,
   clearControlWatchUrl,
+  setMonogramOverlay,
+  setLowerThird,
+  setEventQrOverlay,
+  setGuestPick,
+  markHighlight,
+  deleteHighlight,
 } from './actions';
 
 export const metadata = { title: 'Live Studio controller · Setnayan' };
@@ -94,18 +120,39 @@ export const metadata = { title: 'Live Studio controller · Setnayan' };
 // control (ChannelTile.cuttable is false for all of them) and the server actions
 // keep their own ownership backstop (setup/actions.ts → requireLiveStudioOwned).
 //
-// NO FAKE DOORS (§ 4b): Wave 1 renders the monitor + cut + transport + grid +
-// unlock and NOTHING else. Split/PiP, the Ⓜ monogram, lower-thirds, the event-QR
-// overlay and the ⚡ highlight button are Wave 2 / P2 — the prototype shows them
-// for design intent; the shipped controller must not tease controls that do not
-// exist. Likewise there is no viewer counter and no on-air timer: no live viewer
-// data exists yet, and a fabricated number is a fake door with a number on it.
+// WAVE 2 — the ₱0 broadcast extras (owner-locked 2026-07-25) are now HERE:
+//   • Ⓜ monogram bug (repositionable, default upper-right)  · PAID
+//   • ▬ lower third (the host's own two lines)              · PAID
+//   • ⬛ event QR ("scan to join")                           · FREE — owner-locked,
+//        because a scan-to-join code pulls guests in and grows Setnayan
+//   • ⚡ highlight moments (timestamps only, no video work)   · PAID
+//   • guest-pick is a REAL toggle (Wave 1 shipped it read-only because nothing
+//     persisted it; the column exists now and the PUBLIC page enforces it by
+//     omission — lib/live-studio-roam.ts applyGuestPick)
+// On the FREE tier the lower third is a PERMANENT "POWERED BY SETNAYAN" bar the
+// host cannot remove — it is derived from the entitlement, never a stored setting
+// (lib/live-studio-overlays.ts resolveOverlays), so there is nothing to switch off.
 //
-// LIVE MONITOR HONESTY: there is no video pipeline on this route yet (YouTube
+// NO FAKE DOORS (§ 4b), still: Split/PiP are NOT rendered — they need a mixing
+// point that does not exist (phase 2), and the prototype's P2 chips are design
+// intent only. There is likewise no viewer counter and no on-air timer: no live
+// viewer data exists yet, and a fabricated number is a fake door with a number on
+// it. The event-QR toggle is also withheld for a slug-less event, which has no
+// code to show.
+//
+// LIVE MONITOR HONESTY: there is no video pipeline on THIS route yet (YouTube
 // orchestration is owner-gated), so the monitor shows the on-air channel's
 // IDENTITY — name, channel number, tally — over the same "preview — live video
 // arrives with the streaming rollout" placeholder the shipped panood control room
-// uses. It never fakes a frame.
+// uses. It never fakes a frame. The overlay layers drawn over it are therefore a
+// PLACEMENT REHEARSAL (same corner map as the real surface), not a composite.
+//
+// WHERE THE OVERLAYS ACTUALLY REACH AIR: the settings resolved here are re-resolved
+// server-side on /panood/program/[eventId] — the chrome-less pop-out the couple's
+// encoder window-captures — and drawn as DOM layers there. That is a real
+// compositing point (it is how the SETNAYAN paywall overlay already reaches air),
+// costs ₱0, and needs no server mixer. It is the LEGACY control room's output
+// surface; this controller has no video of its own to composite onto yet.
 //
 // The whole surface stays dark behind NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED.
 // ═════════════════════════════════════════════════════════════════════════════
@@ -129,6 +176,11 @@ type Props = {
     zone_error?: string;
     watch_url_saved?: string;
     watch_url_error?: string;
+    overlay_saved?: string;
+    overlay_error?: string;
+    guest_pick?: string;
+    highlight?: string;
+    highlight_error?: string;
   }>;
 };
 
@@ -148,6 +200,11 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
     zone_error,
     watch_url_saved,
     watch_url_error,
+    overlay_saved,
+    overlay_error,
+    guest_pick,
+    highlight,
+    highlight_error,
   } = await searchParams;
 
   const supabase = await createClient();
@@ -158,7 +215,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
 
   const { data: event } = await supabase
     .from('events')
-    .select('event_id, display_name')
+    .select('event_id, display_name, slug, monogram_text')
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) notFound();
@@ -220,6 +277,45 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   // The one fact the tally depends on: is the broadcast actually up?
   const isLive = Boolean(activeBroadcast);
   const tiles = buildChannelTiles({ zones, multiCamUnlocked: lock.multiCamUnlocked, isLive });
+
+  // ── WAVE 2 · broadcast extras (owner-locked 2026-07-25 · § 4b).
+  // Settings persist per event; PERMISSION is re-asked here on every render, so a
+  // monogram left enabled by a LAPSED unlock resolves to "draw nothing".
+  const overlaySettings = await fetchOverlaySettings(supabase, eventId);
+  const monogramText =
+    (event.monogram_text as string | null)?.trim() || deriveMonogram(event.display_name);
+  const overlays = resolveOverlays({ owned, settings: overlaySettings, monogramText });
+  const highlights = await fetchHighlights(supabase, eventId);
+  const canMark = canMarkHighlight({ owned, isLive });
+
+  // Guest-pick — the real switch (Wave 2). Guarded read: a pre-migration database
+  // must not break the controller, and "unknown" defaults to ON (the owner default).
+  let guestPickEnabled = true;
+  try {
+    const { data: gpRow, error: gpErr } = await supabase
+      .from('events')
+      .select('live_studio_guest_pick_enabled')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (!gpErr) {
+      guestPickEnabled =
+        (gpRow as { live_studio_guest_pick_enabled?: unknown } | null)
+          ?.live_studio_guest_pick_enabled !== false;
+    }
+  } catch {
+    // pre-migration env — keep the default ON
+  }
+
+  // The (FREE) event-QR overlay's actual image. REUSES the already-shipped public
+  // master-QR route — a real, scannable code encoding this event's canonical join
+  // URL (owner-slug resolution and monogram centre included), so nothing about QR
+  // rendering is re-implemented here.
+  //
+  // NO FAKE DOOR: a slug-less event has no code to show, so `qrSrc` is null and the
+  // ⬛ toggle is not rendered at all — rather than offering a switch that would put
+  // an empty box on the broadcast.
+  const eventSlug = (event.slug as string | null) ?? null;
+  const qrSrc = eventSlug ? `/api/website/qr/${encodeURIComponent(eventSlug)}` : null;
 
   // What Channel 1 is carrying, in the host's own words.
   const programChannelCaption = owned
@@ -291,6 +387,22 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
         <Banner tone="error" Icon={AlertCircle}>You’ve reached the limit of {MAX_ROAM_ZONES} cameras for one event.</Banner>
       ) : null}
       {zone_error === 'save' ? <Banner tone="error" Icon={AlertCircle}>Couldn’t save that channel — please try again.</Banner> : null}
+      {overlay_saved ? <Banner tone="success" Icon={CheckCircle2}>Overlay updated.</Banner> : null}
+      {overlay_error ? <Banner tone="error" Icon={AlertCircle}>Couldn’t save that overlay — please try again.</Banner> : null}
+      {guest_pick === 'on' ? (
+        <Banner tone="success" Icon={Users}>Guest-pick is on — guests can choose any camera channel.</Banner>
+      ) : null}
+      {guest_pick === 'off' ? (
+        <Banner tone="muted" Icon={Users}>Guest-pick is off — everyone watches your cut.</Banner>
+      ) : null}
+      {highlight === 'marked' ? <Banner tone="success" Icon={Zap}>Moment saved.</Banner> : null}
+      {highlight === 'removed' ? <Banner tone="muted" Icon={Trash2}>Moment removed.</Banner> : null}
+      {highlight_error === 'offair' ? (
+        <Banner tone="error" Icon={AlertCircle}>
+          Moments are timestamps into a broadcast — go live first, then mark them.
+        </Banner>
+      ) : null}
+      {highlight_error === 'save' ? <Banner tone="error" Icon={AlertCircle}>Couldn’t save that moment — please try again.</Banner> : null}
 
       {/* ═══ THE SINGLE SCREEN ════════════════════════════════════════════════
           Phone: monitor → transport → channel grid, stacked.
@@ -340,8 +452,21 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               </form>
             ) : null}
 
-            {/* Tally + the on-air channel's identity. */}
-            <div className="absolute bottom-2.5 left-2.5 flex flex-wrap items-center gap-1.5">
+            {/* ── WAVE 2 · overlay PLACEMENT PREVIEW ─────────────────────────
+                Drawn with the SAME position map the capture surface uses
+                (overlayPositionClass), so "top right" here is "top right" on air.
+                This monitor has no video, so these sit over the placeholder — a
+                placement rehearsal, labelled as one, never a claim that a frame
+                is being composited right now. */}
+            <MonitorOverlays overlays={overlays} qrSrc={qrSrc} lowerThirdFallback={monogramText} />
+
+            {/* Tally + the on-air channel's identity. Lifted clear of the bottom
+                strip whenever a lower third owns it. */}
+            <div
+              className={`absolute left-2.5 flex flex-wrap items-center gap-1.5 ${
+                overlays.lowerThird ? 'bottom-14' : 'bottom-2.5'
+              }`}
+            >
               {isLive ? (
                 <span className="rounded-md bg-danger-600 px-2 py-1 font-mono text-[9.5px] font-bold uppercase tracking-[0.12em] text-cream">
                   On air
@@ -353,6 +478,27 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                 </span>
               ) : null}
             </div>
+
+            {/* ⚡ HIGHLIGHT MOMENT — a real control, and only when it can do
+                something real: paid AND on air (canMarkHighlight). One tap saves a
+                timestamped row; no video is touched. */}
+            {canMark ? (
+              <form
+                action={markHighlight}
+                className={`absolute right-2.5 ${overlays.lowerThird ? 'bottom-14' : 'bottom-2.5'}`}
+              >
+                <input type="hidden" name="event_id" value={eventId} />
+                <SubmitButton
+                  pendingLabel="…"
+                  overlay={false}
+                  title="Mark a highlight moment — saves the timestamp"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-cream/40 bg-ink/55 px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-cream transition-colors hover:bg-ink/75"
+                >
+                  <Zap aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
+                  Moment
+                </SubmitButton>
+              </form>
+            ) : null}
           </section>
 
           {/* ── TRANSPORT — go live / end + guest-pick state ────────────────── */}
@@ -365,30 +511,51 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               connectHref="#connect"
             />
 
-            {/* GUEST-PICK — rendered as STATE, not as a switch. Guests can pick
-                their own view whenever a paid host has channels live; there is no
-                persisted off-switch yet, so a toggle here would be a control that
-                silently does nothing (the § 4b no-fake-door rule). It flips to a
-                real switch in the wave that persists it. */}
-            <div
-              className={`flex min-h-[52px] items-center gap-2 rounded-xl border px-3 py-2 text-xs ${
-                lock.multiCamUnlocked
-                  ? 'border-ink/10 bg-cream/70 text-ink/75'
-                  : 'border-ink/10 bg-ink/[0.03] text-ink/45'
-              }`}
-            >
-              <Users aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-              <span className="leading-tight">
-                <span className="block font-semibold">Guest-pick</span>
-                <span className="block text-[11px]">
-                  {lock.multiCamUnlocked ? 'Guests choose their view' : 'Everyone sees Channel 1'}
+            {/* GUEST-PICK — a REAL switch now (Wave 2, owner-locked "make it
+                optional"). Wave 1 rendered this as read-only state precisely
+                because nothing persisted it; the column exists now, and the
+                public page enforces it by omission (applyGuestPick), so flipping
+                it off genuinely stops guests leaving the host's cut. */}
+            {lock.multiCamUnlocked ? (
+              <form action={setGuestPick}>
+                <input type="hidden" name="event_id" value={eventId} />
+                <input type="hidden" name="enabled" value={guestPickEnabled ? 'false' : 'true'} />
+                <SubmitButton
+                  pendingLabel="Saving…"
+                  overlay={false}
+                  aria-pressed={guestPickEnabled}
+                  title={
+                    guestPickEnabled
+                      ? 'Guest-pick is ON — tap to make everyone watch your cut'
+                      : 'Guest-pick is OFF — tap to let guests choose their view'
+                  }
+                  className="flex min-h-[52px] w-full items-center gap-2 rounded-xl border border-ink/10 bg-cream/70 px-3 py-2 text-left text-xs text-ink/75 transition-colors hover:border-terracotta/40"
+                >
+                  <Users aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+                  <span className="leading-tight">
+                    <span className="block font-semibold">Guest-pick</span>
+                    <span className="block text-[11px]">
+                      {guestPickEnabled ? 'Guests choose their view' : 'Everyone sees your cut'}
+                    </span>
+                  </span>
+                  <span
+                    className={`ml-1 shrink-0 rounded-full px-2 py-0.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.12em] ${
+                      guestPickEnabled
+                        ? 'bg-success-100 text-success-900'
+                        : 'bg-ink/10 text-ink/55'
+                    }`}
+                  >
+                    {guestPickEnabled ? 'On' : 'Off'}
+                  </span>
+                </SubmitButton>
+              </form>
+            ) : (
+              <div className="flex min-h-[52px] items-center gap-2 rounded-xl border border-ink/10 bg-ink/[0.03] px-3 py-2 text-xs text-ink/45">
+                <Users aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+                <span className="leading-tight">
+                  <span className="block font-semibold">Guest-pick</span>
+                  <span className="block text-[11px]">Everyone sees Channel 1</span>
                 </span>
-              </span>
-              {lock.multiCamUnlocked ? (
-                <span className="ml-1 shrink-0 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.12em] text-success-900">
-                  On
-                </span>
-              ) : (
                 <Link
                   href={detailHref}
                   className="ml-1 shrink-0 rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.1em] text-terracotta-700 hover:bg-terracotta/20"
@@ -396,8 +563,76 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                   <Lock aria-hidden className="mr-1 inline h-2.5 w-2.5" strokeWidth={2.5} />
                   Locked
                 </Link>
-              )}
-            </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── CH 1 · OVERLAY ROW (Wave 2) ─────────────────────────────────────
+              The prototype's `.layouts` strip, minus every control that does not
+              exist: NO Split/PiP chips (still phase 2 — they need a mixing point).
+              Only Ⓜ / ▬ / ⬛ ship, because only those are real.
+
+              Ⓜ + ▬ are unlock-gated (a free host sees them locked, routing to the
+              buy page); ⬛ event-QR is FREE for everyone (owner-locked). */}
+          <div
+            role="group"
+            aria-label="Channel 1 overlays"
+            className="flex items-center gap-1.5 overflow-x-auto px-1"
+          >
+            <span className="shrink-0 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-ink/40">
+              CH 1
+            </span>
+
+            {lock.multiCamUnlocked ? (
+              <>
+                <OverlayToggle
+                  action={setMonogramOverlay}
+                  eventId={eventId}
+                  on={Boolean(overlays.monogram)}
+                  label="Monogram"
+                  title={
+                    overlays.monogram
+                      ? 'Monogram overlay is ON — tap to hide it'
+                      : 'Show your monogram on the broadcast'
+                  }
+                  Icon={Crown}
+                />
+                <OverlayToggle
+                  action={setLowerThird}
+                  eventId={eventId}
+                  on={Boolean(overlays.lowerThird && !overlays.lowerThird.forced)}
+                  label="Lower third"
+                  title={
+                    overlays.lowerThird && !overlays.lowerThird.forced
+                      ? 'Lower third is ON — tap to hide it'
+                      : 'Show a news-style info bar on the broadcast'
+                  }
+                  Icon={Captions}
+                />
+              </>
+            ) : (
+              <>
+                <LockedOverlayChip href={detailHref} label="Monogram" Icon={Crown} />
+                <LockedOverlayChip href={detailHref} label="Lower third" Icon={Captions} />
+              </>
+            )}
+
+            {/* FREE for every host — the one overlay that is not behind the unlock. */}
+            {qrSrc ? (
+              <OverlayToggle
+                action={setEventQrOverlay}
+                eventId={eventId}
+                on={Boolean(overlays.eventQr)}
+                label="Event QR"
+                title={
+                  overlays.eventQr
+                    ? 'Event QR is ON — tap to hide it'
+                    : 'Show your scan-to-join QR on the broadcast (free)'
+                }
+                Icon={QrCode}
+                freeChip
+              />
+            ) : null}
           </div>
         </div>
 
@@ -715,6 +950,252 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
         )}
       </section>
 
+      {/* ═══ BROADCAST OVERLAYS — the detail behind the CH 1 icon row ══════════
+          The row above is the operating loop (on/off in one tap, mid-show). The
+          text and corner choices live down here, because typing is setup. */}
+      <section aria-labelledby="overlays-heading" className="sn-tile space-y-4 p-5 sm:p-6">
+        <div className="space-y-1">
+          <p className="sn-eye">Overlays</p>
+          <h2 id="overlays-heading" className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+            <Captions aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
+            What sits on the broadcast
+          </h2>
+          <p className="text-sm leading-relaxed text-ink/60">
+            These are drawn on the picture your encoder captures — nothing is re-encoded on our
+            side, so they cost nothing and add no delay.
+          </p>
+        </div>
+
+        {/* ── Monogram — position (paid). */}
+        {lock.multiCamUnlocked ? (
+          <div className="space-y-2 border-t border-ink/10 pt-4">
+            <p className="flex items-center gap-2 text-sm font-semibold">
+              <Crown aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+              Monogram — {overlays.monogram ? 'showing' : 'hidden'}
+              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink/40">
+                {monogramText}
+              </span>
+            </p>
+            <p className="text-[11.5px] text-ink/55">
+              Pick the corner it sits in. Upper right by default — where a broadcast bug usually
+              lives.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {MONOGRAM_POSITIONS.map((pos) => (
+                <form key={pos} action={setMonogramOverlay}>
+                  <input type="hidden" name="event_id" value={eventId} />
+                  <input type="hidden" name="position" value={pos} />
+                  <SubmitButton
+                    pendingLabel="…"
+                    overlay={false}
+                    aria-pressed={overlaySettings.monogramPosition === pos}
+                    className={`rounded-lg border px-3 py-1.5 text-[11.5px] font-medium transition-colors ${
+                      overlaySettings.monogramPosition === pos
+                        ? 'border-terracotta bg-terracotta/10 text-ink'
+                        : 'border-ink/15 text-ink/60 hover:border-terracotta/40'
+                    }`}
+                  >
+                    {POSITION_LABELS[pos]}
+                  </SubmitButton>
+                </form>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {/* ── Lower third — text (paid) / the forced Setnayan bar (free). */}
+        <div className="space-y-2 border-t border-ink/10 pt-4">
+          <p className="flex items-center gap-2 text-sm font-semibold">
+            <Captions aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+            Lower third
+          </p>
+          {lock.multiCamUnlocked ? (
+            <form action={setLowerThird} className="space-y-2">
+              <input type="hidden" name="event_id" value={eventId} />
+              <label className="block">
+                <span className="text-[11px] font-medium uppercase tracking-[0.1em] text-ink/45">
+                  Title line
+                </span>
+                <input
+                  name="title"
+                  defaultValue={overlaySettings.lowerThirdTitle ?? ''}
+                  maxLength={LOWER_THIRD_TITLE_MAX}
+                  placeholder="MARIA ✕ JOSEF"
+                  className="sn-input mt-1 w-full"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[11px] font-medium uppercase tracking-[0.1em] text-ink/45">
+                  Second line
+                </span>
+                <input
+                  name="subtitle"
+                  defaultValue={overlaySettings.lowerThirdSubtitle ?? ''}
+                  maxLength={LOWER_THIRD_SUBTITLE_MAX}
+                  placeholder="Dinner is served — Grand Ballroom · 7:00 PM"
+                  className="sn-input mt-1 w-full"
+                />
+              </label>
+              <SubmitButton
+                pendingLabel="Saving…"
+                className="rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
+              >
+                Save lower third
+              </SubmitButton>
+            </form>
+          ) : (
+            /* FREE: the permanent Setnayan bar. Said plainly, with no switch —
+               because there is no switch, and pretending otherwise would be the
+               dishonest version of this. */
+            <div className="space-y-2 rounded-xl border border-ink/15 bg-ink/[0.03] p-3">
+              <p className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-terracotta">
+                {overlays.lowerThird?.title}
+              </p>
+              <p className="text-[11.5px] text-ink/55">{overlays.lowerThird?.subtitle}</p>
+              <p className="text-[11.5px] leading-snug text-ink/60">
+                Free streams carry this bar — it’s how people find Setnayan. Unlocking Live Studio
+                replaces it with your own two lines.
+              </p>
+              <Link
+                href={detailHref}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-terracotta/10 px-3 py-1.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.08em] text-terracotta-700 hover:bg-terracotta/20"
+              >
+                <Lock aria-hidden className="h-3 w-3" strokeWidth={2.5} />
+                {lock.unlockCtaLabel}
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {/* ── Event QR — FREE for every host (owner-locked). */}
+        {qrSrc ? (
+          <div className="space-y-2 border-t border-ink/10 pt-4">
+            <p className="flex items-center gap-2 text-sm font-semibold">
+              <QrCode aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+              Event QR — {overlays.eventQr ? 'showing' : 'hidden'}
+              <span className="rounded-full bg-success-100 px-2 py-0.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.12em] text-success-900">
+                Free
+              </span>
+            </p>
+            <p className="text-[11.5px] text-ink/55">
+              Anyone watching can scan it to open your event page. Free on every plan.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {QR_POSITIONS.map((pos) => (
+                <form key={pos} action={setEventQrOverlay}>
+                  <input type="hidden" name="event_id" value={eventId} />
+                  <input type="hidden" name="position" value={pos} />
+                  <SubmitButton
+                    pendingLabel="…"
+                    overlay={false}
+                    aria-pressed={overlaySettings.eventQrPosition === pos}
+                    className={`rounded-lg border px-3 py-1.5 text-[11.5px] font-medium transition-colors ${
+                      overlaySettings.eventQrPosition === pos
+                        ? 'border-terracotta bg-terracotta/10 text-ink'
+                        : 'border-ink/15 text-ink/60 hover:border-terracotta/40'
+                    }`}
+                  >
+                    {POSITION_LABELS[pos]}
+                  </SubmitButton>
+                </form>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </section>
+
+      {/* ═══ MOMENTS — the ⚡ list ══════════════════════════════════════════════ */}
+      {lock.multiCamUnlocked ? (
+        <section aria-labelledby="moments-heading" className="sn-tile space-y-3 p-5 sm:p-6">
+          <div className="space-y-1">
+            <p className="sn-eye">Moments</p>
+            <h2 id="moments-heading" className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+              <Zap aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
+              Highlight moments
+            </h2>
+            <p className="text-sm leading-relaxed text-ink/60">
+              While you’re live, tap <strong>Moment</strong> on the monitor and we save the
+              timestamp — nothing more. Afterwards this is your shortlist of what to cut, and the
+              chapter marks for the replay.
+            </p>
+          </div>
+
+          {highlights.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-ink/20 px-3 py-3 text-[12.5px] text-ink/55">
+              No moments yet.{' '}
+              {isLive
+                ? 'Tap Moment on the monitor when something happens.'
+                : 'The button appears on the monitor once you’re on air.'}
+            </p>
+          ) : (
+            <ul className="divide-y divide-ink/10 overflow-hidden rounded-xl border border-ink/10">
+              {highlights.map((h) => (
+                <li key={h.id} className="flex items-center gap-3 px-3 py-2.5">
+                  <span className="shrink-0 rounded-md bg-ink/[0.06] px-2 py-1 font-mono text-[11px] font-bold tabular-nums text-ink/70">
+                    {formatHighlightOffset(h.offset_seconds)}
+                  </span>
+                  <span className="min-w-0 flex-1 text-[12.5px] leading-snug">
+                    <span className="block truncate font-medium text-ink/85">
+                      {h.label ?? 'Moment'}
+                    </span>
+                    <span className="block truncate text-[11px] text-ink/50">
+                      {h.channel && h.channel_label
+                        ? formatChannel(h.channel, h.channel_label)
+                        : 'Channel 1'}
+                      {' · '}
+                      {new Date(h.marked_at).toLocaleTimeString('en-PH', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  </span>
+                  <form action={deleteHighlight} className="shrink-0">
+                    <input type="hidden" name="event_id" value={eventId} />
+                    <input type="hidden" name="highlight_id" value={h.id} />
+                    <SubmitButton
+                      pendingLabel="…"
+                      overlay={false}
+                      title="Remove this moment"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink/40 transition-colors hover:bg-danger-50 hover:text-danger-700"
+                    >
+                      <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                      <span className="sr-only">Remove moment</span>
+                    </SubmitButton>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {/* Optional label for the NEXT tap — typed ahead, because nobody types
+              mid-ceremony. Only offered when the button it feeds actually exists. */}
+          {canMark ? (
+            <form action={markHighlight} className="flex flex-wrap items-end gap-2">
+              <input type="hidden" name="event_id" value={eventId} />
+              <label className="min-w-[180px] flex-1">
+                <span className="text-[11px] font-medium uppercase tracking-[0.1em] text-ink/45">
+                  Name this moment (optional)
+                </span>
+                <input
+                  name="label"
+                  maxLength={HIGHLIGHT_LABEL_MAX}
+                  placeholder="The kiss"
+                  className="sn-input mt-1 w-full"
+                />
+              </label>
+              <SubmitButton
+                pendingLabel="Saving…"
+                overlay={false}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
+              >
+                <Zap aria-hidden className="h-4 w-4" strokeWidth={2.25} />
+                Mark it
+              </SubmitButton>
+            </form>
+          ) : null}
+        </section>
+      ) : null}
+
       {/* Watch link — free single-cam delivery (reuses the panood watch-url actions). */}
       <section aria-labelledby="watch-heading" className="sn-tile space-y-3 p-5 sm:p-6">
         <div className="space-y-1">
@@ -803,6 +1284,148 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
  *     UI contains no cut control at all, so there is nothing to replay. (The
  *     server action's requireLiveStudioOwned is still the hard backstop.)
  */
+/**
+ * The overlay layers drawn over the CH 1 monitor — the PLACEMENT PREVIEW.
+ *
+ * Uses `overlayPositionClass` (the same map the real capture surface uses) so the
+ * corner a host picks here is the corner it lands in on air. This monitor has no
+ * video, so this is a rehearsal of placement, not a claim that we are compositing a
+ * frame right now — the placeholder underneath says so.
+ */
+function MonitorOverlays({
+  overlays,
+  qrSrc,
+  lowerThirdFallback,
+}: {
+  overlays: ResolvedOverlays;
+  qrSrc: string | null;
+  /** Shown when a paid host enabled the bar but hasn't typed a title yet. */
+  lowerThirdFallback: string;
+}) {
+  return (
+    <>
+      {overlays.monogram ? (
+        <span
+          className={`absolute ${overlayPositionClass(
+            overlays.monogram.position,
+          )} rounded-full border border-cream/35 bg-ink/40 px-3 py-1 font-serif text-[13px] italic text-cream backdrop-blur-sm`}
+        >
+          {overlays.monogram.text}
+        </span>
+      ) : null}
+
+      {overlays.eventQr && qrSrc ? (
+        <span
+          className={`absolute ${overlayPositionClass(
+            overlays.eventQr.position,
+          )} flex flex-col items-center gap-0.5 rounded-lg bg-cream/95 p-1.5`}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- served by an API
+              route as a PNG; next/image adds an optimizer hop for no benefit here. */}
+          <img src={qrSrc} alt="" width={44} height={44} className="h-11 w-11" />
+          <span className="font-mono text-[6.5px] font-bold uppercase tracking-[0.08em] text-ink">
+            Scan to join
+          </span>
+        </span>
+      ) : null}
+
+      {overlays.lowerThird ? (
+        <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-ink/90 via-ink/70 to-transparent px-3 pb-2.5 pt-6">
+          <span aria-hidden className="h-7 w-[3px] shrink-0 rounded-sm bg-terracotta" />
+          <span className="min-w-0">
+            <span
+              className={`block truncate font-mono text-[10.5px] font-bold uppercase tracking-[0.1em] ${
+                overlays.lowerThird.forced ? 'text-terracotta' : 'text-cream'
+              }`}
+            >
+              {overlays.lowerThird.title || lowerThirdFallback}
+            </span>
+            {overlays.lowerThird.subtitle ? (
+              <span className="block truncate text-[11px] text-cream/75">
+                {overlays.lowerThird.subtitle}
+              </span>
+            ) : null}
+          </span>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * One overlay on/off chip in the CH 1 row. A form, not a client toggle: the state
+ * lives in the database, so the button posts the state it wants and re-renders from
+ * what actually saved. `on` is the RESOLVED state (post-entitlement), never the raw
+ * column, so a chip can never read "on" while nothing is drawn.
+ */
+function OverlayToggle({
+  action,
+  eventId,
+  on,
+  label,
+  title,
+  Icon,
+  freeChip = false,
+}: {
+  action: (formData: FormData) => Promise<void>;
+  eventId: string;
+  on: boolean;
+  label: string;
+  title: string;
+  Icon: typeof Crown;
+  /** Mark the chip as free-tier-inclusive (the event QR). */
+  freeChip?: boolean;
+}) {
+  return (
+    <form action={action} className="shrink-0">
+      <input type="hidden" name="event_id" value={eventId} />
+      <input type="hidden" name="enabled" value={on ? 'false' : 'true'} />
+      <SubmitButton
+        pendingLabel="…"
+        overlay={false}
+        aria-pressed={on}
+        title={title}
+        className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11.5px] font-semibold transition-colors ${
+          on
+            ? 'border-terracotta bg-terracotta/10 text-ink'
+            : 'border-ink/15 text-ink/55 hover:border-terracotta/40 hover:text-ink'
+        }`}
+      >
+        <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+        {label}
+        {freeChip ? (
+          <span className="font-mono text-[8.5px] font-bold uppercase tracking-[0.1em] text-success-700">
+            Free
+          </span>
+        ) : null}
+      </SubmitButton>
+    </form>
+  );
+}
+
+/** The locked twin of OverlayToggle — visible, in place, routes to the buy page. */
+function LockedOverlayChip({
+  href,
+  label,
+  Icon,
+}: {
+  href: string;
+  label: string;
+  Icon: typeof Crown;
+}) {
+  return (
+    <Link
+      href={href}
+      title={`${label} — part of Live Studio`}
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-dashed border-ink/20 px-2.5 py-1.5 text-[11.5px] font-semibold text-ink/40 transition-colors hover:border-terracotta/40 hover:text-terracotta"
+    >
+      <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+      {label}
+      <Lock aria-hidden className="h-2.5 w-2.5" strokeWidth={2.5} />
+    </Link>
+  );
+}
+
 function ChannelTileCard({
   tile,
   eventId,

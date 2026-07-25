@@ -1,6 +1,15 @@
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { requirePanoodControlRoomMember } from '@/lib/panood-control-room-access';
+import { eventSkuActive } from '@/lib/entitlements';
+import { LIVE_STUDIO_SKU } from '@/lib/live-studio-control';
+import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
+import {
+  fetchOverlaySettings,
+  resolveOverlays,
+  type ResolvedOverlays,
+} from '@/lib/live-studio-overlays';
+import { deriveMonogram } from '@/lib/monogram';
 import { PanoodProgramSurface } from './program-surface';
 
 export const metadata = {
@@ -43,7 +52,7 @@ export default async function PanoodProgramOutputPage({ params }: Props) {
 
   const { data: event } = await supabase
     .from('events')
-    .select('event_id')
+    .select('event_id, display_name, slug, monogram_text')
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) notFound();
@@ -51,5 +60,33 @@ export default async function PanoodProgramOutputPage({ params }: Props) {
   const isMember = await requirePanoodControlRoomMember(eventId, user.id);
   if (!isMember) redirect(`/dashboard/${eventId}`);
 
-  return <PanoodProgramSurface />;
+  // ── WAVE 2 · broadcast overlays (Live Studio · owner-locked 2026-07-25).
+  //
+  // THIS is the real compositing point: OBS captures this window, so a DOM layer
+  // here is genuinely in the couple's broadcast — the same route the SETNAYAN
+  // paywall overlay already takes. Resolved HERE, server-side, and handed down
+  // already-decided so the client surface can never re-derive a paid decision.
+  //
+  // Flag-dark: nothing is drawn until NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED is on,
+  // so today's Cast broadcasts are byte-for-byte unchanged.
+  let overlays: ResolvedOverlays | null = null;
+  let qrSrc: string | null = null;
+  const monogramText = event.monogram_text?.trim() || deriveMonogram(event.display_name);
+  if (liveStudioRoamEnabled()) {
+    // `owned` decides free-vs-paid: a free stream gets the permanent
+    // "POWERED BY SETNAYAN" lower third, a paid one gets the couple's own. Any
+    // lookup failure resolves to the free branch — branded, never a paid leak.
+    const owned = await eventSkuActive(supabase, eventId, LIVE_STUDIO_SKU).catch(() => false);
+    const settings = await fetchOverlaySettings(supabase, eventId);
+    overlays = resolveOverlays({ owned, settings, monogramText });
+    qrSrc = event.slug ? `/api/website/qr/${encodeURIComponent(event.slug)}` : null;
+  }
+
+  return (
+    <PanoodProgramSurface
+      overlays={overlays}
+      qrSrc={qrSrc}
+      lowerThirdFallback={monogramText}
+    />
+  );
 }

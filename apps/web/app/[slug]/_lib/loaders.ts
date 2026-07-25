@@ -54,7 +54,8 @@ import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
 import { fetchEventVendorCredits } from '@/lib/event-vendor-credits';
 import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
 import {
-  fetchRoamManifest,
+  applyGuestPick,
+  fetchRoamViewerState,
   liveStudioRoamEnabled,
   selectFeaturedZone,
 } from '@/lib/live-studio-roam';
@@ -494,7 +495,13 @@ export const loadLiveLayer = cache(
         // flag is off (prod default), this whole block is skipped and CAST behavior
         // is byte-for-byte unchanged. Graceful-degrades to [] pre-migration.
         if (liveStudioRoamEnabled()) {
-          const roam = await fetchRoamManifest(admin, event.event_id);
+          // GUEST-PICK (Wave 2, owner-locked): the host's switch is honored HERE, by
+          // omission. Off → applyGuestPick reduces the manifest to the single channel
+          // Channel 1 is carrying, so the other channels' video ids are never sent to
+          // the browser and the picker's `length > 1` guard hides itself. Hiding the
+          // buttons while shipping the ids would only look like enforcement.
+          const { manifest, guestPickEnabled } = await fetchRoamViewerState(admin, event.event_id);
+          const roam = applyGuestPick(manifest, guestPickEnabled);
           const featured = selectFeaturedZone(roam);
           if (featured) {
             try {

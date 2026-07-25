@@ -733,15 +733,24 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    // MONEY (key 'settings-group' kept for localStorage continuity · label
-    // "System Settings" → "Money" 2026-07-04) — the money-config lane FIRST
-    // (act-now money QUEUES stay in Overview; the Work Money-lane filter
-    // reunites them per the 2026-06-08 sign-off condition), then the small
-    // settings tail at the bottom. The Data Structure lane carved out to the
-    // Ugat Console. The visit-least bucket, one collapsible; ordered money
-    // config → settings tail.
+    // MONEY & SETTINGS (key 'settings-group' kept for localStorage continuity ·
+    // label "System Settings" → "Money" 2026-07-04 → "Money & Settings"
+    // 2026-07-25) — the money-config lane FIRST (act-now money QUEUES stay in
+    // Overview; the Work Money-lane filter reunites them per the 2026-06-08
+    // sign-off condition), then the settings tail at the bottom. The Data
+    // Structure lane carved out to the Ugat Console. The visit-least bucket,
+    // one collapsible; ordered money config → settings tail.
+    //
+    // The label carries "& Settings" again because the tail is now 6 items long
+    // (Compliance · Notifications · Demo mode · Integrations · Secrets &
+    // Rotation · Account security) and NONE of them are money. The owner went
+    // looking for Secrets & Rotation and could not find it — a group labelled
+    // "Money" is not somewhere anyone hunts for a credential. Renaming beats
+    // moving: these are genuinely the visit-least settings, and splitting the
+    // tail into a seventh top-level group would trade one wayfinding problem
+    // for a longer sidebar.
     key: 'settings-group',
-    label: 'Money',
+    label: 'Money & Settings',
     defaultOpen: false,
     items: [
       {

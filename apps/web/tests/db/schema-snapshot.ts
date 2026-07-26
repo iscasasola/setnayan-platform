@@ -87,13 +87,47 @@ export function isKnownGap(key: string, gaps: ReadonlyMap<string, string> = KNOW
 /**
  * Compare the migration-derived schema against production.
  *
- * Both inputs are sets of `table.column`. Order-independent, and the result is
- * sorted so a failure message is stable across runs.
+ * THREE inputs, not two, and the third is what keeps this guard from crying
+ * wolf on every schema pull request:
+ *
+ *   `declaredLedger` — replay of ONLY the migrations prod's ledger says it
+ *                      applied. This is what prod SHOULD look like.
+ *   `declaredAll`    — replay of EVERY migration in the repo, including ones
+ *                      not yet applied (i.e. added by the open pull request).
+ *   `prod`           — the committed snapshot of what prod ACTUALLY has.
+ *
+ * From those:
+ *
+ *   DECLARED_NOT_IN_PROD = (declaredLedger ∩ declaredAll) − prod
+ *     "an applied migration created this, prod does not have it, AND no pending
+ *      migration removes it." The intersection is the subtle half: if a pending
+ *      migration DROPS the column, the fix is already in flight and re-reporting
+ *      it would block the very pull request that repairs it.
+ *
+ *   PROD_NOT_DECLARED = prod − declaredAll
+ *     "prod has this and nothing in the repo creates it — not even a pending
+ *      migration." Using `declaredAll` here means a pull request that back-fills
+ *      an out-of-band column clears the finding immediately, which is the
+ *      behaviour that makes fixing these feel worth doing.
+ *
+ * A brand-new column added by a pending migration is in `declaredAll` but not
+ * in `declaredLedger`, so it falls out of BOTH sets. That is the no-noise case,
+ * and it is the reason this takes three inputs instead of two.
+ *
+ * Order-independent; the result is sorted so failures are stable across runs.
  */
-export function diffSchema(declared: ReadonlySet<string>, prod: ReadonlySet<string>): Divergence[] {
+export function diffSchema(
+  declaredLedger: ReadonlySet<string>,
+  declaredAll: ReadonlySet<string>,
+  prod: ReadonlySet<string>,
+): Divergence[] {
   const out: Divergence[] = [];
-  for (const key of declared) if (!prod.has(key)) out.push({ kind: 'DECLARED_NOT_IN_PROD', key });
-  for (const key of prod) if (!declared.has(key)) out.push({ kind: 'PROD_NOT_DECLARED', key });
+  for (const key of declaredLedger) {
+    if (declaredAll.has(key) && !prod.has(key)) out.push({ kind: 'DECLARED_NOT_IN_PROD', key });
+  }
+  for (const key of prod) {
+    if (!declaredAll.has(key)) out.push({ kind: 'PROD_NOT_DECLARED', key });
+  }
   out.sort((a, b) => a.kind.localeCompare(b.kind) || a.key.localeCompare(b.key));
   return out;
 }

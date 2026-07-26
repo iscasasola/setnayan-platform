@@ -102,8 +102,36 @@ export function PahinaMasthead({
           printed plate with a mono caption. Only when media exists. */}
       {mediaSlot ? (
         <figure className="relative -mx-4 mt-8 sm:-mx-0">
-          <div className="relative overflow-hidden rounded-2xl border border-ink/10">
-            {mediaSlot}
+          {/* ⚠ The `aspect-*` pair is LOAD-BEARING, not decoration. `mediaSlot`
+              is always `HeroBackgroundMedia`, whose <img>/<video> is
+              `absolute inset-0` — it was written for the OLD hero, a banner
+              that held the names + date in flow and therefore had a height of
+              its own. PR-2 demoted the media into this standalone box, which
+              has no in-flow child at all, so it computed to zero content
+              height: the couple's hero photo has not been visible on the plate
+              since. A ratio restores the plate AND is what gives the parallax
+              below a box to translate inside. Portrait on a phone (it reads as
+              a cover), 3:2 from `sm` up so a 720px column doesn't become a
+              900px-tall photo. */}
+          <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-ink/10 sm:aspect-[3/2]">
+            {/* Parallax layer (design §6 — "±6%, rAF-throttled transform on the
+                media wrapper"). This div carries the transform; the media keeps
+                filling it via its own `absolute inset-0` (an absolutely
+                positioned box is a containing block for its abspos children).
+
+                SAFETY IS THE FEATURE. The transform lives entirely in CSS,
+                behind the SAME `.pahina-js` root flag as the scroll reveal, and
+                the script writes only a custom property — never `transform`
+                itself. So every path that drops the flag (no
+                IntersectionObserver, reduced motion, the 2s self-heal, a script
+                that throws) also drops the scale and the offset in the same
+                frame, and this becomes an ordinary static `object-cover` photo.
+                There is no state in which JS has moved the image and CSS cannot
+                take it back. See pahina-motion.tsx + globals.css §6 for the
+                scale/translate geometry that keeps the box always covered. */}
+            <div data-pahina-parallax className="absolute inset-0">
+              {mediaSlot}
+            </div>
           </div>
           {mediaCaption ? (
             <figcaption className="mt-2 font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/55">

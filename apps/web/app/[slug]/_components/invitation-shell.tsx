@@ -1,7 +1,11 @@
 import { Logo } from '@/app/_components/logo';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { buildSitePaletteVars } from '@/lib/site-palette';
-import { PahinaMotionObserver, PahinaMotionRootFlag } from './pahina-motion';
+import {
+  PahinaCoverParallax,
+  PahinaMotionObserver,
+  PahinaMotionRootFlag,
+} from './pahina-motion';
 
 /**
  * Page chrome shared by every landing state. When `backdrop` is provided (the
@@ -121,6 +125,13 @@ export function InvitationShell({
         {children}
       </div>
       <PahinaMotionObserver />
+      {/* Hero cover parallax (design §6). Below the content because it measures
+          the masthead's cover plate; a no-op (returns immediately) on every page
+          that has no plate — /find-my-table, the text-only hero, the private
+          landing — so the one mount safely serves the whole shell. NOT on the
+          fullBleed path above, same as the reveal: the STD film owns its own
+          motion. */}
+      <PahinaCoverParallax />
       {/* Quiet footer signature — structural addition from v2.1 guest-microsite
           template's "See you on the 12th." closing line. Italic serif treatment
           gives the page an editorial sign-off without competing with the

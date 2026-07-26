@@ -63,6 +63,7 @@ import {
 } from '@/lib/invitation-widgets';
 import { resolveSiteBodyPlan } from '@/lib/site-body-plan';
 import { buildOwnerRibbon } from '@/lib/owner-ribbon';
+import { buildAfterEventMemento } from '@/lib/pahina-memento';
 import { OwnerRibbon } from './owner-ribbon';
 import type {
   AnonymousSiteIdentity,
@@ -408,8 +409,27 @@ export function SiteBody({
    * `normalBody` is a thunk so the identity-specific normal branch is only
    * built when the lifecycle actually renders it (the old ternaries were
    * equally lazy).
+   *
+   * AFTER-EVENT MEMENTO (design §11 · Pahina tail). The second parameter is
+   * the one guest-only node this shared helper accepts. It exists because the
+   * memento belongs INSIDE the editorial takeover — that is the whole point of
+   * it, the archive's object — and the takeover has exactly one computation
+   * site, here, serving both identity tiers.
+   *
+   * The anonymous tier is protected in TWO independent ways, not one:
+   *   1. `anonymousTree` calls this with one argument, so `memento` defaults to
+   *      `null` and the branch below falls to the SAME single `EditorialContent`
+   *      element it has always returned — the same expression, not a fragment
+   *      that happens to render the same. The anonymous editorial DOM is
+   *      byte-identical by construction, not by inspection.
+   *   2. The node the guest tree passes is itself gated by
+   *      `buildAfterEventMemento` (lib/pahina-memento.ts), which denies any
+   *      tier that is not `guest` before it looks at anything else.
    */
-  const phasedBody = (normalBody: () => React.ReactNode): React.ReactNode =>
+  const phasedBody = (
+    normalBody: () => React.ReactNode,
+    memento: React.ReactNode = null,
+  ): React.ReactNode =>
     plan.body === 'editorial' ? (
       plan.openBrowse ? (
         // Open-browse PR8 (council §5.1/§5.2 — "editorial leads an ARCHIVE"):
@@ -422,11 +442,22 @@ export function SiteBody({
         // takeover alone, exactly as today.
         <>
           <EditorialContent eventId={event.event_id} />
+          {memento}
           <div
             aria-hidden
             className="mx-auto my-12 h-px w-24 max-w-full bg-ink/15"
           />
           {normalBody()}
+        </>
+      ) : memento ? (
+        // Guest, After-Event, present at the wedding: the cover essay, then
+        // their own ticket back. Both are direct children of the fragment, so
+        // both land as direct children of `<article data-pahina-chapters>` and
+        // the §6 observer reveals the memento as its own chapter — it is
+        // content, not chrome.
+        <>
+          <EditorialContent eventId={event.event_id} />
+          {memento}
         </>
       ) : (
         <EditorialContent eventId={event.event_id} />
@@ -775,6 +806,18 @@ export function SiteBody({
       gallery: isLive && Boolean(liveWall),
     };
 
+    // AFTER-EVENT MEMENTO (design §11). The RSVPed keepsake returns as proof of
+    // presence — "YOU WERE THERE" — once the wedding is behind them. Null for
+    // every other body, and structurally unreachable for anonymous visitors
+    // (this is inside `guestTree`, and the helper denies a non-guest tier
+    // anyway). See lib/pahina-memento.ts for the two proof signals.
+    const memento = buildAfterEventMemento({
+      identityKind: identity.kind,
+      body: plan.body,
+      rsvpStatus: guest.rsvp_status,
+      arrived: guestHubData.arrived,
+    });
+
     return (
       <>
         {/* data-pahina-chapters: the ONE opt-in target for the §6 scroll
@@ -898,7 +941,9 @@ export function SiteBody({
 
           {/* Increment C (flag-dark): after the wedding, the body below the
               hero is replaced by the editorial stand-in. The hero (above) +
-              footer sign-out (below) stay. Bypassed when the flag is off. */}
+              footer sign-out (below) stay. Bypassed when the flag is off.
+              The second argument is the After-Event memento — `null` on every
+              body but the editorial one, and never passed by `anonymousTree`. */}
           {phasedBody(() => (
             <>
               {/* Greeting — always-on per the editor contract; gated here so V1.1
@@ -1385,7 +1430,21 @@ export function SiteBody({
                   Guest-session tree only (cookie holders); flag off → renders null. */}
               <GuestColumnCard eventId={event.event_id} guestId={guest.guest_id} eventDate={event.event_date} />
             </>
-          ))}
+          ), memento ? (
+            /* Design §11, After Event column: the reply-card ticket returns as
+               the memento — the stamp reads "You were there", and its copy
+               points the guest at the gallery on this same page. Same component,
+               same stock, same Nº as the ticket they screenshotted while the
+               wedding was still ahead of them; only `variant` differs. */
+            <PahinaKeepsake
+              variant={memento.variant}
+              displayName={guestHubData.displayName}
+              guestId={guest.guest_id}
+              tableLabel={guestHubData.tableLabel}
+              venueName={event.venue_name}
+              eventDate={event.event_date}
+            />
+          ) : null)}
 
           {/* Menu-shell "Me" anchor (PR6) — the guest's account/sign-out area at
               the foot of the page. The guest's personal-QR affordance stays on

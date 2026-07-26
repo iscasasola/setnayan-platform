@@ -49,6 +49,10 @@ import {
   type AnonymousReason,
   type OwnerCapability,
 } from './_lib/site-identity';
+import {
+  buildSimulatedGuestIdentity,
+  shouldSimulateRepliedGuest,
+} from '@/lib/simulated-guest-preview';
 import { PrivateLanding } from './_components/private-landing';
 // The ONE body tree (OPEN-BROWSE PR3) — renders every identity tier; the
 // retained PublicLanding/InvitationSite pair (the duplicated 3-way body)
@@ -80,6 +84,11 @@ type Props = {
     film?: string;
     // Invite/Join v2 — guest "save a vendor" result flash (ok/needs_account/error).
     save?: string;
+    // Editor RSVP'd tab (2026-07-26) — `?as=replied` previews the `rsvp` phase
+    // as a guest who already answered "attending". Honoured ONLY for a viewer
+    // holding a server-verified OwnerCapability; inert for everyone else, so a
+    // guest's bytes are unchanged. See lib/simulated-guest-preview.ts.
+    as?: string;
   }>;
 };
 
@@ -529,6 +538,37 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
       })}
     />
   );
+
+  // ── EDITOR "RSVP'd" PREVIEW TAB (2026-07-26) ─────────────────────────────
+  // The RSVPed fork (keepsake ticket instead of the ask) is keyed on a GUEST's
+  // own rsvp_status, so a host previewing `?phase=rsvp` can never see it — they
+  // have no guest row. `?as=replied` substitutes a FABRICATED guest so they can.
+  //
+  // Gated on `ownerCapability` and nothing else — the same server-verified host
+  // membership that gates `?phase=` and `?editor=1`. For a guest or an anonymous
+  // visitor the param is ignored outright and the branches below run unchanged.
+  //
+  // The substituted identity is built from constants in
+  // lib/simulated-guest-preview.ts — no `guests` read happens here or there, so
+  // no real guest's name, meal preference or dietary notes can surface in a
+  // host's preview. Placed above the session branches so it also wins for a host
+  // who happens to hold a guest cookie for their own event: they asked for the
+  // simulated view explicitly. Preview only — nothing is written or persisted.
+  if (
+    shouldSimulateRepliedGuest({
+      ownerCapability,
+      asParam: search.as,
+      lifecyclePhase,
+      eventId: event.event_id,
+    })
+  ) {
+    return (
+      <SiteBody
+        {...siteProps}
+        identity={buildSimulatedGuestIdentity({ slug: event.slug ?? slug })}
+      />
+    );
+  }
 
   if (!session) {
     return renderAnonymous(inviteError === 'invalid_token' ? 'invalid_invite' : null);

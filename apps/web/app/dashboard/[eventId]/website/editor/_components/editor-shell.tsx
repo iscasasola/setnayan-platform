@@ -23,8 +23,9 @@ import {
  * chip + deep-link to its existing editor; PR-3/PR-4 convert them to inline
  * panels calling the same server actions.
  * RIGHT: the couple's REAL public page in a same-origin iframe, with the four
- * lifecycle phase tabs (host-only `?phase=` override) — so they always see what
- * they are editing.
+ * lifecycle phase tabs (host-only `?phase=` override) plus the "RSVP'd" tab
+ * (host-only `?as=replied`, a fabricated sample guest) — so they always see what
+ * they are editing, including the one state their own site can't show them.
  *
  * Two-way sync with the site's EditorBridge (app/[slug]/_components/
  * editor-bridge.tsx), both directions origin-checked:
@@ -60,6 +61,30 @@ export type RailGroup = {
 type PhaseKey = 'save_the_date' | 'rsvp' | 'event' | 'editorial';
 
 /**
+ * Preview tabs = the four lifecycle phases PLUS one simulated-viewer tab.
+ *
+ * "RSVP'd" is not a fifth phase — the public route's `?phase=` allow-list is
+ * closed at four, and the RSVPed keepsake is a per-GUEST fork INSIDE `rsvp`. So
+ * that tab renders the same `rsvp` phase with `?as=replied`, which substitutes a
+ * fabricated sample guest (host-gated server-side; see
+ * lib/simulated-guest-preview.ts). It is the one state a host could otherwise
+ * never see on their own site, because they have no guest row of their own.
+ */
+type PreviewTabKey = PhaseKey | 'rsvp_replied';
+
+type PreviewTab = {
+  key: PreviewTabKey;
+  label: string;
+  /** The lifecycle phase this tab actually renders. */
+  phase: PhaseKey;
+  /** `?as=` value — set only by simulated-viewer tabs. */
+  as?: 'replied';
+  /** Shown under the strip so a simulated preview is never mistaken for the
+   *  couple's real page. */
+  caption?: string;
+};
+
+/**
  * Preview device (2026-07-25 owner ask). The preview is a real iframe, so
  * changing its WIDTH makes the guest site's own responsive breakpoints respond —
  * this shows the actual mobile and desktop layouts, not a mock-up of them.
@@ -71,11 +96,21 @@ const DEVICES: Array<{ key: DeviceKey; label: string; Icon: typeof Smartphone }>
   { key: 'mobile', label: 'Phone', Icon: Smartphone },
   { key: 'desktop', label: 'Desktop', Icon: Monitor },
 ];
-const PHASES: Array<{ key: PhaseKey; label: string }> = [
-  { key: 'save_the_date', label: 'Save-the-Date' },
-  { key: 'rsvp', label: 'Invitation' },
-  { key: 'event', label: 'Wedding day' },
-  { key: 'editorial', label: 'After' },
+/** Also the fall-back when an unknown tab key somehow lands in state. */
+const INVITATION_TAB: PreviewTab = { key: 'rsvp', label: 'Invitation', phase: 'rsvp' };
+
+const PREVIEW_TABS: PreviewTab[] = [
+  { key: 'save_the_date', label: 'Save-the-Date', phase: 'save_the_date' },
+  INVITATION_TAB,
+  {
+    key: 'rsvp_replied',
+    label: "RSVP'd",
+    phase: 'rsvp',
+    as: 'replied',
+    caption: 'what a confirmed guest sees — sample guest, not one of yours',
+  },
+  { key: 'event', label: 'Wedding day', phase: 'event' },
+  { key: 'editorial', label: 'After', phase: 'editorial' },
 ];
 
 export function EditorShell({
@@ -101,7 +136,7 @@ export function EditorShell({
   /** The go-live / schedule control (server component passed as a child). */
   goLiveSlot?: React.ReactNode;
 }) {
-  const [phase, setPhase] = useState<PhaseKey>(initialPhase);
+  const [tabKey, setTabKey] = useState<PreviewTabKey>(initialPhase);
   const [activeRow, setActiveRow] = useState<string | null>(initialOpenRow);
   const [openPanel, setOpenPanel] = useState<string | null>(initialOpenRow);
   const [mobilePane, setMobilePane] = useState<'edit' | 'preview'>('edit');
@@ -109,8 +144,15 @@ export function EditorShell({
   const [device, setDevice] = useState<DeviceKey>('mobile');
   const frameRef = useRef<HTMLIFrameElement | null>(null);
 
+  // The selected tab, with a defensive fall-back to the Invitation tab so an
+  // unknown key can never blank the preview.
+  const tab = PREVIEW_TABS.find((t) => t.key === tabKey) ?? INVITATION_TAB;
+  /** `?as=replied` when the tab simulates a viewer; empty for the four plain
+   *  phase tabs, so their URLs are byte-identical to before. */
+  const asQuery = tab.as ? `&as=${tab.as}` : '';
+
   const previewSrc = publicLandingUrl
-    ? `${publicLandingUrl}?phase=${phase}&editor=1`
+    ? `${publicLandingUrl}?phase=${tab.phase}&editor=1${asQuery}`
     : null;
 
   /** Rail → preview. */
@@ -355,13 +397,14 @@ export function EditorShell({
           }`}
         >
           <div className="flex flex-wrap items-center gap-1.5 px-4 py-2.5">
-            {PHASES.map((p) => (
+            {PREVIEW_TABS.map((p) => (
               <button
                 key={p.key}
                 type="button"
-                onClick={() => setPhase(p.key)}
+                onClick={() => setTabKey(p.key)}
+                title={p.caption}
                 className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                  phase === p.key
+                  tabKey === p.key
                     ? 'border-ink bg-ink text-cream'
                     : 'border-ink/15 bg-white text-ink/60 hover:border-ink/30'
                 }`}
@@ -372,9 +415,11 @@ export function EditorShell({
             {publicLandingUrl ? (
               /* Pre-experience (owner 2026-07-25): open the CURRENT phase full-
                  screen in a new tab — the veil reveal, the film, the day-of page,
-                 the After — exactly as a guest meets it, uncramped by the pane. */
+                 the After — exactly as a guest meets it, uncramped by the pane.
+                 Carries `?as=` too, so "Experience" on the RSVP'd tab opens the
+                 same simulated view rather than silently dropping back to the ask. */
               <Link
-                href={`${publicLandingUrl}?phase=${phase}`}
+                href={`${publicLandingUrl}?phase=${tab.phase}${asQuery}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 text-xs font-medium text-cream transition-colors hover:bg-ink/90"
@@ -413,11 +458,20 @@ export function EditorShell({
               })}
             </div>
           </div>
+          {/* Simulated-viewer caption. Only the RSVP'd tab has one, so the four
+              plain phase tabs render exactly the chrome they always did. The
+              owner ribbon on the page itself already says the host is previewing
+              — this names WHICH preview, and never competes with it. */}
+          {tab.caption ? (
+            <p className="px-4 pb-1.5 font-mono text-[0.6rem] uppercase tracking-[0.16em] text-terracotta">
+              Preview · {tab.caption}
+            </p>
+          ) : null}
           <div className="flex min-h-0 flex-1 justify-center px-4 pb-4">
             {previewSrc ? (
               <iframe
                 ref={frameRef}
-                key={`${phase}`}
+                key={tabKey}
                 src={previewSrc}
                 title="Your website preview"
                 className={`h-full w-full rounded-t-2xl border border-ink/10 bg-white shadow-lg transition-[max-width] duration-300 ${

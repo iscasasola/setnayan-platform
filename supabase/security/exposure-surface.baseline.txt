@@ -189,8 +189,8 @@ tpriv	public.event_moderators|anon	SIUD
 tpriv	public.event_moderators|authenticated	SIUD
 tpriv	public.event_moodboard_saves|anon	SIUD
 tpriv	public.event_moodboard_saves|authenticated	SIUD
-tpriv	public.event_paperwork|anon	SIUD
-tpriv	public.event_paperwork|authenticated	SIUD
+tpriv	public.event_paperwork|anon	D
+tpriv	public.event_paperwork|authenticated	D
 tpriv	public.event_playlist_picks|anon	SIUD
 tpriv	public.event_playlist_picks|authenticated	SIUD
 tpriv	public.event_preparation_items|anon	SIUD
@@ -345,8 +345,8 @@ tpriv	public.notifications|anon	SIUD
 tpriv	public.notifications|authenticated	SIUD
 tpriv	public.npc_filing_tasks|anon	SIUD
 tpriv	public.npc_filing_tasks|authenticated	SIUD
-tpriv	public.oauth_grants|anon	SIUD
-tpriv	public.oauth_grants|authenticated	SIUD
+tpriv	public.oauth_grants|anon	D
+tpriv	public.oauth_grants|authenticated	D
 tpriv	public.oauth_state|anon	SIUD
 tpriv	public.oauth_state|authenticated	SIUD
 tpriv	public.onboarding_refinement_options|anon	SIUD
@@ -2720,7 +2720,7 @@ col	public.npc_filing_tasks.task_key	anon=SIU authenticated=SIU
 col	public.npc_filing_tasks.tier	anon=SIU authenticated=SIU
 col	public.npc_filing_tasks.title	anon=SIU authenticated=SIU
 col	public.npc_filing_tasks.updated_at	anon=SIU authenticated=SIU
-col	public.oauth_grants.access_token	anon=SIU authenticated=SIU
+col	public.oauth_grants.access_token	anon=IU authenticated=IU
 col	public.oauth_grants.access_token_expires_at	anon=SIU authenticated=SIU
 col	public.oauth_grants.connection_health	anon=SIU authenticated=SIU
 col	public.oauth_grants.event_id	anon=SIU authenticated=SIU
@@ -2731,7 +2731,7 @@ col	public.oauth_grants.granted_at	anon=SIU authenticated=SIU
 col	public.oauth_grants.last_refreshed_at	anon=SIU authenticated=SIU
 col	public.oauth_grants.metadata	anon=SIU authenticated=SIU
 col	public.oauth_grants.provider	anon=SIU authenticated=SIU
-col	public.oauth_grants.refresh_token	anon=SIU authenticated=SIU
+col	public.oauth_grants.refresh_token	anon=IU authenticated=IU
 col	public.oauth_grants.revoked_at	anon=SIU authenticated=SIU
 col	public.oauth_grants.scopes	anon=SIU authenticated=SIU
 col	public.oauth_state.created_at	anon=SIU authenticated=SIU

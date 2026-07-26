@@ -29,6 +29,7 @@
  */
 
 import 'server-only';
+import type { YoutubeVideoArchive } from '@/lib/panood-youtube-types';
 import { resolveOAuthClientConfig } from '@/lib/integration-config';
 import { OAUTH_SPECS } from '@/lib/integrations/registry';
 import { buildGoogleAuthorizeUrl } from '@/lib/google-oauth-authorize';
@@ -278,6 +279,7 @@ const YOUTUBE_LIVE_BROADCASTS_URL =
   'https://www.googleapis.com/youtube/v3/liveBroadcasts';
 const YOUTUBE_LIVE_STREAMS_URL =
   'https://www.googleapis.com/youtube/v3/liveStreams';
+const YOUTUBE_VIDEOS_URL = 'https://www.googleapis.com/youtube/v3/videos';
 
 export type YoutubeBroadcast = { broadcastId: string; lifeCycleStatus: string };
 export type YoutubeStream = {
@@ -440,6 +442,86 @@ export async function getYoutubeStreamStatus(
     streamStatus: st?.streamStatus ?? 'inactive',
     healthStatus: st?.healthStatus?.status ?? null,
   };
+}
+
+/**
+ * The archive shape lives in `panood-youtube-types.ts` (type-only, no
+ * `server-only`) so pure modules can be typed against it without pulling this
+ * one into their graph — see that file's header. Re-exported here so callers
+ * that are already server-side import it from the module they're using.
+ */
+export type { YoutubeVideoArchive } from '@/lib/panood-youtube-types';
+
+/**
+ * videos.list — RESOLVE the archives for broadcasts that have ended.
+ *
+ * This is the Data-API half of the recording handoff specified in
+ * `02_Specifications/09_Panood_Feature_Specification.md` § 6 ("Recording Archive
+ * — YouTube auto-archive only in V1"): *"Couples download from their Setnayan
+ * dashboard via a link that resolves the YouTube watch URL through the Data
+ * API."* We resolve rather than download on purpose — § 6 removed the parallel
+ * Cloudflare R2 archive from V1 "to avoid paying for storage of content that's
+ * already free on YouTube", and the Data API exposes no download endpoint.
+ *
+ * WHY RESOLVING BEATS DERIVING. The watch URL is `watch?v=<broadcastId>` and
+ * needs no call at all — but a broadcast that never carried video, or one whose
+ * stream ran past YouTube's 12-hour archive ceiling (§ 4f ③ of the unified
+ * spec), leaves a video id with NO replay behind it. Asking YouTube is what
+ * separates "your recording is here" from a link to nothing.
+ *
+ * CHEAP AND BATCHED: videos.list costs **1 quota unit** per call regardless of
+ * how many ids it carries (up to 50), so a whole event's cameras resolve in one
+ * unit — three orders of magnitude below the 50 units a liveBroadcasts write
+ * costs. Ids YouTube does not return (deleted, never archived, not ours) are
+ * simply absent from the result; callers must treat "missing" as "no archive"
+ * and never as an error.
+ */
+export async function fetchYoutubeVideoArchives(
+  accessToken: string,
+  videoIds: readonly string[],
+): Promise<YoutubeVideoArchive[]> {
+  const ids = [...new Set(videoIds.filter((v) => v.length > 0))].slice(0, 50);
+  if (ids.length === 0) return [];
+
+  const json = (await youtubeApi(
+    `${YOUTUBE_VIDEOS_URL}?part=snippet,status,contentDetails&id=${ids.map(encodeURIComponent).join(',')}`,
+    accessToken,
+  )) as {
+    items?: Array<{
+      id?: string;
+      snippet?: { title?: string };
+      status?: { privacyStatus?: string; uploadStatus?: string };
+      contentDetails?: { duration?: string };
+    }>;
+  };
+
+  const out: YoutubeVideoArchive[] = [];
+  for (const item of json.items ?? []) {
+    if (!item.id) continue;
+    out.push({
+      videoId: item.id,
+      title: item.snippet?.title ?? '',
+      durationSeconds: parseIso8601DurationSeconds(item.contentDetails?.duration),
+      privacyStatus: item.status?.privacyStatus ?? null,
+      processed: item.status?.uploadStatus === 'processed',
+    });
+  }
+  return out;
+}
+
+/**
+ * ISO-8601 duration → seconds, for the `PT#H#M#S` subset videos.list returns.
+ * Null for absent/unparseable input and for `PT0S` (YouTube reports zero while
+ * an archive is still processing, which is "unknown", not "a zero-length film").
+ */
+export function parseIso8601DurationSeconds(raw: string | undefined): number | null {
+  if (!raw) return null;
+  const m = /^P(?:(\d+)D)?T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(raw);
+  if (!m) return null;
+  const [, d, h, min, s] = m;
+  const total =
+    Number(d ?? 0) * 86400 + Number(h ?? 0) * 3600 + Number(min ?? 0) * 60 + Number(s ?? 0);
+  return total > 0 ? total : null;
 }
 
 /**

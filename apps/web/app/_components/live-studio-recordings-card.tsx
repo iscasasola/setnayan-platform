@@ -1,5 +1,8 @@
 import { ExternalLink, Video } from 'lucide-react';
-import type { RoamRecording } from '@/lib/live-studio-recordings';
+import {
+  formatRecordingDuration,
+  type RoamRecording,
+} from '@/lib/live-studio-recordings';
 
 /**
  * "Your recordings" — THE RECORDING HANDOFF, on every couple-facing Live Studio
@@ -37,13 +40,6 @@ import type { RoamRecording } from '@/lib/live-studio-recordings';
 
 /** Exported so a test can assert both surfaces render the same promise. */
 export const RECORDINGS_HEADING = 'Your recordings';
-
-function formatRecordingDuration(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.round((seconds % 3600) / 60);
-  if (h > 0) return m > 0 ? `${h} hr ${m} min` : `${h} hr`;
-  return `${Math.max(m, 1)} min`;
-}
 
 export function LiveStudioRecordingsCard({
   recordings,

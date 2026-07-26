@@ -29,6 +29,7 @@ import {
   PROGRAM_RECORDING_LABEL,
   buildRecordingList,
   completeRoamBroadcasts,
+  formatRecordingDuration,
   type RecordingStreamRow,
   type RecordingZoneRow,
 } from './live-studio-recordings';
@@ -319,6 +320,107 @@ test('the card renders NOTHING for an event with no recordings', () => {
   // A couple mid-planning must not see a section about a video that does not exist.
   const card = repoFile('app/_components/live-studio-recordings-card.tsx');
   assert.match(card, /if \(recordings\.length === 0\) return null;/);
+});
+
+/* ── 4d · Review fixes (adversarial review of #3770/#3774, 2026-07-26) ────── */
+
+test('⭐ duration never renders an impossible "1 hr 60 min"', () => {
+  // The first cut floored the hours and rounded the leftover seconds INDEPENDENTLY,
+  // so the two could disagree in the last ~30s of every hour: 7199s → "1 hr 60 min",
+  // 3599s → "60 min". Multi-hour recordings are exactly what this formats.
+  assert.equal(formatRecordingDuration(7199), '2 hr', '1h59m59s must carry into 2 hr');
+  assert.equal(formatRecordingDuration(3599), '1 hr', '59m59s must carry into 1 hr');
+  assert.equal(formatRecordingDuration(10799), '3 hr');
+  // Unchanged behaviour for everything that was already correct.
+  assert.equal(formatRecordingDuration(5400), '1 hr 30 min');
+  assert.equal(formatRecordingDuration(3600), '1 hr');
+  assert.equal(formatRecordingDuration(90), '2 min');
+  assert.equal(formatRecordingDuration(45), '1 min', 'a sub-minute archive is not "0 min"');
+
+  // The property, not just the examples: no output may contain "60 min".
+  for (let s = 1; s <= 4 * 3600; s += 7) {
+    assert.ok(
+      !formatRecordingDuration(s).includes('60 min'),
+      `formatRecordingDuration(${s}) produced a 60-minute remainder`,
+    );
+  }
+});
+
+test('⭐ archive resolution asks about EVERY id — no silent 50-id truncation', async () => {
+  // The first cut did `.slice(0, 50)`, and buildRecordingList turns "absent from the
+  // answer" into the hard `archived: false` → the card's most definitive sentence
+  // ("No recording on YouTube") for recordings that DO exist. That inverts the
+  // tri-state this module is built around, so the ceiling is chunked, not truncated.
+  let mod: typeof import('./panood-youtube');
+  try {
+    mod = await import('./panood-youtube');
+  } catch {
+    return; // server-only unresolvable under the runner — covered by typecheck
+  }
+
+  const ids = Array.from({ length: 120 }, (_, i) => `vid${String(i).padStart(8, '0')}`);
+  const askedIds: string[] = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async (url: string | URL | Request) => {
+    const u = String(url);
+    const idParam = new URL(u).searchParams.get('id') ?? '';
+    const chunk = idParam.split(',').filter(Boolean);
+    askedIds.push(...chunk);
+    return {
+      ok: true,
+      json: async () => ({
+        items: chunk.map((id) => ({
+          id,
+          snippet: { title: id },
+          status: { privacyStatus: 'unlisted', uploadStatus: 'processed' },
+          contentDetails: { duration: 'PT1H' },
+        })),
+      }),
+    } as unknown as Response;
+  }) as typeof globalThis.fetch;
+
+  try {
+    const out = await mod.fetchYoutubeVideoArchives('tok', ids);
+    assert.equal(askedIds.length, 120, 'every id must be asked about, across chunks');
+    assert.deepEqual([...new Set(askedIds)].sort(), [...ids].sort());
+    assert.equal(out.length, 120, 'every asked id must come back in the result');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('a failed chunk throws, so the caller degrades to "unknown" not to a false denial', async () => {
+  // A PARTIAL answer is worse than no answer here: the missing ids would render as
+  // confident "No recording on YouTube". Throwing lets resolveArchives' catch turn
+  // the whole lookup into `null` → "we couldn't confirm", which is honest.
+  let mod: typeof import('./panood-youtube');
+  try {
+    mod = await import('./panood-youtube');
+  } catch {
+    return;
+  }
+  const ids = Array.from({ length: 60 }, (_, i) => `vid${String(i).padStart(8, '0')}`);
+  let call = 0;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async (url: string | URL | Request) => {
+    call += 1;
+    if (call === 2) return { ok: false, status: 403, text: async () => 'quotaExceeded' } as unknown as Response;
+    const chunk = (new URL(String(url)).searchParams.get('id') ?? '').split(',').filter(Boolean);
+    return {
+      ok: true,
+      json: async () => ({ items: chunk.map((id) => ({ id })) }),
+    } as unknown as Response;
+  }) as typeof globalThis.fetch;
+
+  try {
+    await assert.rejects(
+      () => mod.fetchYoutubeVideoArchives('tok', ids),
+      /403/,
+      'a failed chunk must throw rather than return a partial answer',
+    );
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });
 
 /* ── 5 · No deletes, anywhere ─────────────────────────────────────────────── */

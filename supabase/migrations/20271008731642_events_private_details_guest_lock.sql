@@ -371,6 +371,16 @@ END $$;
 -- SELECT would hand hosts a write path straight past couple_can_update_event.
 REVOKE ALL ON public.events_host FROM PUBLIC;
 REVOKE ALL ON public.events_host FROM anon;
+-- ⚠ `authenticated` MUST be revoked explicitly, not merely granted SELECT.
+-- Supabase's platform ALTER DEFAULT PRIVILEGES grants ALL on every newly
+-- created table/view in `public` to anon, authenticated and service_role, so
+-- this view is born WRITABLE by authenticated. `GRANT SELECT` below is
+-- ADDITIVE — it does not replace the pre-existing ALL — and revoking from
+-- PUBLIC does not touch a role-specific grant. Without this line the view
+-- keeps UPDATE/INSERT/DELETE for authenticated, which is precisely the
+-- definer-rights write path past couple_can_update_event that the comment
+-- above warns about. The post-condition `events_host-is-writable` catches it.
+REVOKE ALL ON public.events_host FROM authenticated;
 GRANT SELECT ON public.events_host TO authenticated, service_role;
 
 COMMENT ON VIEW public.events_host IS

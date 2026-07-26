@@ -32,6 +32,7 @@ import {
   updateSocialPostBody,
 } from '@/app/admin/social-queue/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
 
 /**
  * SocialQueueSurface — the Social Sharing & Featuring Program mission control,
@@ -866,8 +867,12 @@ export async function SocialQueueSurface({
               creditMode: c.credit_mode,
               coupleName,
             });
+            // SEC-3: gated on read. Already rendered as an inert data-URI <img>
+            // below, but this is an ADMIN session reading arbitrary couples'
+            // host-writable marks — gate the value too, and keep a poisoned mark
+            // out of anything published from this queue.
             const monogramSvg =
-              c.artifact_type === 'monogram' ? (ev?.monogram_custom_svg ?? null) : null;
+              c.artifact_type === 'monogram' ? safeMonogramSvg(ev?.monogram_custom_svg) : null;
             return (
               <li key={c.consent_id}>
                 <article className="space-y-3 sn-tile p-4">

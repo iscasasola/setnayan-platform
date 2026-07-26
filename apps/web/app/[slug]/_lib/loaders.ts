@@ -81,6 +81,7 @@ import type {
   LiveWallData,
   WatchLiveData,
 } from './types';
+import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 
 /** The service-role Supabase client the orchestrator creates once per request
  *  and threads into every loader — a stable per-request reference, so it is a
@@ -244,13 +245,8 @@ export const loadMedia = cache(
     // strokes, so the bespoke mark uses the container-level entrance instead).
     // The couple's own UPLOAD outranks the AI/Cipher mark (owner rule 2026-06-15),
     // which outranks the lettered lockup — one effective mark feeds the hero.
-    const bespokeSvg =
-      (typeof event.monogram_uploaded_svg === 'string' && event.monogram_uploaded_svg.trim()
-        ? event.monogram_uploaded_svg
-        : null) ??
-      (typeof event.monogram_custom_svg === 'string' && event.monogram_custom_svg
-        ? event.monogram_custom_svg
-        : null);
+    // SEC-3: gated on read — events.monogram_* are host-writable via PostgREST.
+    const bespokeSvg = resolveEventMonogramSvg(event);
 
     // The reveal the couple designed in the Vector Studio "Animate the reveal" panel
     // (monogram_studio_config.anim) — the SOURCE for how the bespoke mark animates on

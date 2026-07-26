@@ -89,8 +89,14 @@ const cormorant = Cormorant_Garamond({
 
 // Pahina display face (guest-site design 2026-07-25 §3) — loaded under its OWN
 // variable so this PR is inert; the .sn-editorial restyle PRs consume it.
-// Cormorant stays until wave-A PR-5 confirms no other consumer (STD film,
-// monogram lab, print routes).
+// Wave-A PR-5 CHECKED THIS AND CORMORANT STAYS — it has real consumers, so do
+// not "clean it up" on a future bundle pass without redoing the check:
+//   · `.sn-editorial` (globals.css) maps --font-display → --font-editorial-display,
+//     so every font-display / font-serif in the guest tree still resolves here.
+//     Only the Pahina-specific `font-pahina` classes use Fraunces.
+//   · app/global-error.tsx names 'Cormorant Garamond' directly.
+// Retiring it means first repointing --font-editorial-display at Fraunces, which
+// restyles the whole guest tree — a visual change, not a bundle cleanup.
 const fraunces = Fraunces({
   subsets: ['latin'],
   display: 'swap',

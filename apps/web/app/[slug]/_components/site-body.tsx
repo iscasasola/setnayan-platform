@@ -753,7 +753,13 @@ export function SiteBody({
 
     return (
       <>
-        <article className="space-y-12">
+        {/* data-pahina-chapters: the ONE opt-in target for the §6 scroll
+            reveal. Deliberately an explicit marker rather than a bare
+            `article > *` selector — `article` is used liberally in this tree
+            (guest columns, the editorial takeover, the hub), and a broad
+            selector would hide THEIR children too, with no observer scoped to
+            reveal them. */}
+        <article data-pahina-chapters className="space-y-12">
           {/* Menu-shell anchor target (PR6) — top-of-page "Home" landing. Gated
               on menuOn so the flag-off DOM is untouched. */}
           {menuOn ? (

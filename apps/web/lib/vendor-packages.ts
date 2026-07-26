@@ -145,6 +145,14 @@ export type VendorPackageRow = {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  /**
+   * Package CREDIT model (migration 20271006413374). The vendor's per-package
+   * decision about leftover credit: 'expiring' (use it or lose it — today's
+   * behaviour, and the column default) or 'refundable' (unspent credit comes
+   * off the price). OPTIONAL here because no shipped SELECT requests it yet.
+   * Honoured only by ./package-credit, behind ./package-credit-flag.
+   */
+  unspent_credit_policy?: 'expiring' | 'refundable';
 };
 
 export type VendorPackageItemRow = {
@@ -156,6 +164,18 @@ export type VendorPackageItemRow = {
   replacement_value_centavos: number;
   display_order: number;
   created_at: string;
+  /**
+   * Package CREDIT model (migration 20271006413374). TRUE = the line cannot
+   * be removed AND its replacement value never enters the available-credit
+   * pool. OPTIONAL here because no shipped SELECT requests the column yet —
+   * `computeCustomization` below deliberately ignores it, so today's flag-OFF
+   * behaviour is unchanged. The credit engine that honours it lives in
+   * ./package-credit and is gated by ./package-credit-flag.
+   *
+   * ⚠ NOT the same thing as `is_default_included`, which only means "ticked
+   * by default" and never stopped anyone unticking the line.
+   */
+  is_required?: boolean;
 };
 
 export type VendorPackageWithItems = VendorPackageRow & {

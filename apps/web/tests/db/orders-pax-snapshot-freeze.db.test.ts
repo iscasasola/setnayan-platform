@@ -209,18 +209,49 @@ test('DIFFERENTIAL CONTROL: the same statement SUCCEEDS as service_role', async 
 
 /* ── 3. WHAT MUST KEEP WORKING ──────────────────────────────────────────────*/
 
-test('checkout is untouched: `authenticated` can still INSERT an order carrying pax_snapshot', async () => {
-  // submitOrderAction inserts through the session-bound (authenticated) client,
-  // so an INSERT refusal here would reject every pax-priced order at the till.
+// ⚠ REWRITTEN 2026-07-26. This test used to assert the OPPOSITE — that
+// `authenticated` could still INSERT — on the premise that "submitOrderAction
+// inserts through the session-bound (authenticated) client, so an INSERT
+// refusal here would reject every pax-priced order at the till."
+//
+// That premise died with SEC-4b (#3738, migration 20271008178212), which
+// REVOKED INSERT on public.orders from anon + authenticated and moved checkout
+// to the service_role client. Both PRs were green alone and red together: this
+// file asserted the very privilege the other file removed.
+//
+// Keeping the old assertion would have meant asserting that a closed hole is
+// still open, so it is inverted rather than deleted — and the "checkout still
+// works" intent it was protecting is preserved below, now measured against the
+// role checkout ACTUALLY mints with.
+test('SEC-4b: `authenticated` can no longer INSERT an order at all', async () => {
   await asUser(PAYER);
   const err = await errOf(
     `INSERT INTO public.orders
        (user_id, status, description, requested_total_php, reference_code, public_id, pax_snapshot)
-     VALUES ($1, 'submitted', 'checkout still works', 280000, 'PAXFRZ02', 'S89O00PAXFRZ2', 250)`,
+     VALUES ($1, 'submitted', 'session-role mint must be refused', 280000, 'PAXFRZ02', 'S89O00PAXFRZ2', 250)`,
     [PAYER],
   );
   await reset();
-  assert.equal(err, null, `the guard is BEFORE UPDATE only — INSERT must remain open. Got: ${err}`);
+  assert.notEqual(
+    err,
+    null,
+    'SEC-4b revoked INSERT on public.orders from authenticated — a session role minting an order means the revoke regressed',
+  );
+});
+
+test('checkout still works: `service_role` CAN INSERT an order carrying pax_snapshot', async () => {
+  // The positive control the old test was really providing. Checkout mints
+  // through createAdminClient() post-SEC-4b, so THIS is the path that must stay
+  // open, and the BEFORE UPDATE guard must not have become an INSERT barrier.
+  await asService();
+  const err = await errOf(
+    `INSERT INTO public.orders
+       (user_id, status, description, requested_total_php, reference_code, public_id, pax_snapshot)
+     VALUES ($1, 'submitted', 'checkout still works', 280000, 'PAXFRZ03', 'S89O00PAXFRZ3', 250)`,
+    [PAYER],
+  );
+  await reset();
+  assert.equal(err, null, `the guard is BEFORE UPDATE only — the service_role mint must remain open. Got: ${err}`);
 });
 
 /* ── 4. RLS still carries its own weight ────────────────────────────────────*/

@@ -119,6 +119,15 @@ before(async () => {
   // Reproduce the prod ordering (see the header). The column is dropped so the
   // privilege migration's allow-list is computed WITHOUT it, exactly as it was
   // on the day it ran.
+  // SEC-2b (20271008731642) added public.events_host, a view that projects
+  // EVERY column of public.events — so from that migration onward any
+  // `ALTER TABLE public.events DROP COLUMN` fails 2BP01 until the view is out
+  // of the way. Dropping it here is faithful to what this test simulates
+  // rather than a workaround: the whole point is to rewind to the day the
+  // privilege migration ran, and events_host did not exist then either.
+  // Nothing below this line reads events_host, and the test's final grant
+  // state is set by the two migrations it re-executes, not by SEC-2b.
+  await db.exec(`DROP VIEW IF EXISTS public.events_host;`);
   await db.exec(`ALTER TABLE public.events DROP COLUMN IF EXISTS panood_watch_url_facebook;`);
   await db.exec(readFileSync(join(MIGRATIONS_DIR, PRIVILEGE_MIGRATION), 'utf8'));
 

@@ -107,7 +107,7 @@
 -- forced each of those call sites to split into two queries and re-assemble the
 -- row, which is where the real regression risk lives.
 --
--- The view projects EVERY column authenticated can read PLUS the eleven private
+-- The view projects EVERY column authenticated can read PLUS the twelve private
 -- ones — i.e. "events minus the credentials" — computed, never hand-listed. It
 -- deliberately does NOT re-expose master_qr_token or the Drive OAuth token:
 -- 20271007100000 moved the one host reader of those to the service-role client
@@ -162,7 +162,7 @@
 BEGIN;
 
 -- ----------------------------------------------------------------------------
--- 1. Take the eleven private columns off the authenticated + anon read surface.
+-- 1. Take the twelve private columns off the authenticated + anon read surface.
 -- ----------------------------------------------------------------------------
 DO $$
 DECLARE
@@ -215,7 +215,30 @@ DECLARE
     --   points at.
     'photo_delivery_folder_id',
     'photo_delivery_folder_name',
-    'photo_delivery_account_email'
+    'photo_delivery_account_email',
+
+    -- ▸ setnayan_ai_tier_at_purchase (added 20271007917549, SEC-5). The price
+    --   TIER (A–E) the couple's Setnayan AI entitlement was BOUGHT at. That is
+    --   commercial information about the host: what they were charged. A guest
+    --   attends the event; there is no product surface on which they need to
+    --   know what the couple paid, and there is no read path — as of this
+    --   migration NOTHING in apps/web reads this column from an authenticated
+    --   client at all (only tests/db/setnayan-ai-tier-lock.db.test.ts, which
+    --   reads it as service_role). Host-only is therefore the classification
+    --   that costs nothing and the default the deny-set exists to enforce.
+    --   Note it also carries a small oracle the live event_type does not: the
+    --   column is NULL until the entitlement is first activated, and after an
+    --   admin re-type it preserves the ORIGINAL tier — so it discloses both
+    --   THAT the couple bought AI and what they bought it as, even once
+    --   event_type has moved on.
+    --   It arrives here already SELECT-denied: 20271007100000 revoked
+    --   table-level SELECT, and a column added afterwards inherits no
+    --   privilege (Postgres enumerates column privileges at GRANT time). This
+    --   entry is what makes that state DELIBERATE rather than accidental —
+    --   post-condition (h) fails the migration for any events column that is
+    --   denied but in neither deny-set, which is exactly how this column was
+    --   surfaced.
+    'setnayan_ai_tier_at_purchase'
   ];
   role_name TEXT;
   allowed   TEXT;
@@ -281,7 +304,7 @@ END $$;
 -- 2. Give hosts the columns back — and ONLY hosts.
 --
 --    The column list is computed as "everything authenticated can now read"
---    ∪ "the eleven private columns" = every column of events EXCEPT the
+--    ∪ "the twelve private columns" = every column of events EXCEPT the
 --    credentials 20271007100000 revoked. Computed rather than enumerated, so a
 --    future credential revoke on events is inherited here automatically and
 --    this view can never become the door that re-opens one.
@@ -301,7 +324,8 @@ DECLARE
     'estimated_budget_centavos','budget_band',
     'wizard_state',
     'photo_delivery_folder_id','photo_delivery_folder_name',
-    'photo_delivery_account_email'
+    'photo_delivery_account_email',
+    'setnayan_ai_tier_at_purchase'
   ];
   projected TEXT;
 BEGIN
@@ -355,7 +379,7 @@ COMMENT ON VIEW public.events_host IS
   'restricted to rows where the caller is member_type=''couple'' or an accepted, '
   'non-removed event_moderator — the same predicate app/dashboard/[eventId]/'
   'layout.tsx enforces. security_invoker=false on purpose: it is what lets a host '
-  'read the eleven private columns that are SELECT-denied to `authenticated` on '
+  'read the twelve private columns that are SELECT-denied to `authenticated` on '
   'the base table by 20271008731642. SELECT-only (see the REVOKE above). Plain '
   'guests, member_type=''coordinator'' and Samahan co-members see NO rows here. '
   'Read `public.events` for the guest-safe surface; use the service-role client '
@@ -379,7 +403,8 @@ BEGIN
     'estimated_budget_centavos','budget_band',
     'wizard_state',
     'photo_delivery_folder_id','photo_delivery_folder_name',
-    'photo_delivery_account_email'
+    'photo_delivery_account_email',
+    'setnayan_ai_tier_at_purchase'
   ] LOOP
     IF has_column_privilege('authenticated', 'public.events', c, 'SELECT')
        OR has_column_privilege('anon', 'public.events', c, 'SELECT') THEN
@@ -519,7 +544,8 @@ BEGIN
       'master_qr_token','photo_delivery_oauth_token_encrypted','photo_delivery_oauth_expires_at',
       'partner_a_birth_date','partner_a_birth_time','partner_b_birth_date','partner_b_birth_time',
       'bazi_birthdata_consent_at','estimated_budget_centavos','budget_band','wizard_state',
-      'photo_delivery_folder_id','photo_delivery_folder_name','photo_delivery_account_email'
+      'photo_delivery_folder_id','photo_delivery_folder_name','photo_delivery_account_email',
+      'setnayan_ai_tier_at_purchase'
     );
   IF n_ungranted > 0 THEN
     bad := array_append(bad, n_ungranted || ' events column(s) are SELECT-denied but in neither deny-set');
@@ -558,6 +584,21 @@ COMMENT ON COLUMN public.events.photo_delivery_account_email IS
   'through public.events_host. The OAuth token on this row was closed earlier by '
   '20271007100000.';
 
+-- ⚠ This RESTATES 20271007917549's comment verbatim and appends the read
+-- classification. COMMENT ON COLUMN replaces rather than appends, so the SEC-5
+-- text is repeated in full deliberately — dropping it would erase the only
+-- in-database record of what stamps this column and why.
+COMMENT ON COLUMN public.events.setnayan_ai_tier_at_purchase IS
+  'SEC-5: the Setnayan AI price tier (A-E) this event''s entitlement was BOUGHT '
+  'at, stamped by trg_stamp_events_ai_tier_at_purchase when setnayan_ai_active '
+  'first turns true. The entitlement boolean alone records THAT AI was bought, '
+  'never at which tier - without this the delivered tier is whatever the live '
+  'event_type happens to say. Not writable by authenticated/anon. '
+  'SEC-2b (20271008731642): also NOT READABLE by authenticated/anon — it is '
+  'commercial information about the host (what the couple was charged), and a '
+  'guest has no product reason to see it. Hosts read it through '
+  'public.events_host; service_role reads it directly.';
+
 COMMIT;
 
 -- ============================================================================
@@ -586,4 +627,27 @@ COMMIT;
 --   • every events column is either granted to authenticated or in a deny-set;
 --   • every column authenticated can read on events also exists on events_host.
 -- A new column that skips either step fails CI with that instruction.
+--
+-- ── AND THE OTHER DIRECTION: DROP COLUMN NOW NEEDS THE VIEW OUT OF THE WAY ──
+-- public.events_host projects EVERY column of public.events, so it is a
+-- dependent object of all of them. From this migration onward,
+--
+--   ALTER TABLE public.events DROP COLUMN whatever;
+--
+-- fails with 2BP01 "other objects depend on it". Do NOT reach for CASCADE — it
+-- would drop events_host and leave every host reader 42P01ing with a green
+-- migration. The sequence is: DROP VIEW public.events_host → DROP COLUMN →
+-- rebuild the view (section 2 of this file). Two DB tests that simulate a
+-- historical schema state by dropping an events column were updated for this
+-- when SEC-2b landed: tests/db/facebook-watch-url-grant.db.test.ts and
+-- tests/db/open-browse-schema.db.test.ts.
+--
+-- ── WORKED EXAMPLE: events.setnayan_ai_tier_at_purchase ─────────────────────
+-- Migration 20271007917549 (SEC-5) added that column between this file being
+-- written and it being merged. It arrived SELECT-denied (a column added after
+-- 20271007100000's table-level REVOKE inherits no privilege), and
+-- post-condition (h) refused to apply this migration until somebody DECIDED
+-- which side it was on. It was classified PRIVATE — see the WHY block on the
+-- section-1 deny-set. That is the mechanism working exactly as intended: the
+-- default for a new column is not "guest-readable", it is "the build stops".
 -- ============================================================================

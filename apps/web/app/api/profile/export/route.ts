@@ -184,11 +184,30 @@ export async function GET() {
         .select('event_id')
         .eq('user_id', user.id)
         .eq('member_type', 'couple');
-      const ids = (owned.data ?? [])
+      // ERROR FIRST, before a single row is touched. The rejected shape here
+      // was `const ids = (owned.data ?? []) …` with the error checked two
+      // lines later: harmless as written, but it is the exact silhouette this
+      // route was hardened against, and it puts the unwrap of a possibly-null
+      // `data` UPSTREAM of the only thing that distinguishes "the read failed"
+      // from "you own no events". One reordered edit and a 42501 on
+      // event_members becomes a subject-access file that silently asserts the
+      // couple has no birth data on record. Checking the error first is also
+      // what removes the need for `?? []` at all — supabase-js settles to a
+      // discriminated union, so past this guard `owned.data` is an array.
+      //
+      // The error is handed straight through: listOutcome() names
+      // `owned_event_birth_data` in `not_included` and flips export_complete.
+      if (owned.error) {
+        return { data: [] as unknown[], error: owned.error };
+      }
+      const ids = owned.data
         .map((r) => (r as { event_id?: string }).event_id)
         .filter((id): id is string => typeof id === 'string');
-      if (owned.error || ids.length === 0) {
-        return { data: [] as unknown[], error: owned.error ?? null };
+      // A genuine empty: the subject holds no member_type='couple' row, so
+      // there is no host-scoped birth data to fetch. Not a failure — the only
+      // branch on this route entitled to return an empty with error null.
+      if (ids.length === 0) {
+        return { data: [] as unknown[], error: null };
       }
       return supabase
         .from('events_host')

@@ -60,6 +60,13 @@ export const PRIVATE_SELECT_COLUMNS: readonly string[] = [
   'photo_delivery_folder_id',
   'photo_delivery_folder_name',
   'photo_delivery_account_email',
+  // Added when 20271007917549 (SEC-5) landed this column on public.events
+  // between the branch cut and the merge. Post-condition (h) refused to let it
+  // stay unclassified — see the WHY block at the section-1 array. Host-only:
+  // it is the price tier the couple BOUGHT Setnayan AI at (commercial data
+  // about the host), and nothing in apps/web reads it from an authenticated
+  // client, so nothing is lost by keeping it behind events_host.
+  'setnayan_ai_tier_at_purchase',
 ];
 
 /**
@@ -83,6 +90,10 @@ export const CRITICAL_PRIVATE: ReadonlyArray<{ column: string; harm: string }> =
   {
     column: 'photo_delivery_account_email',
     harm: "the couple's personal Google account address — a login identifier, on the same row as the Drive OAuth token SEC-2 closed",
+  },
+  {
+    column: 'setnayan_ai_tier_at_purchase',
+    harm: 'the price tier the couple BOUGHT Setnayan AI at — commercial information about the host, and an oracle the live event_type is not: NULL until the entitlement first activates, and it preserves the ORIGINAL tier across an admin re-type, so it discloses both that the couple paid and what they paid as',
   },
 ];
 

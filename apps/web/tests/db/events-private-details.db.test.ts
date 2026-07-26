@@ -9,7 +9,7 @@
  * `FOR SELECT TO authenticated USING (event_id IN current_event_ids())`, and RLS
  * is ROW-level, so a plain wedding GUEST (member_type='guest', seeded by
  * app/join/[eventId]) read the ENTIRE events row. 20271007100000 took the
- * credentials off it and deliberately deferred these eleven personal columns,
+ * credentials off it and deliberately deferred these twelve personal columns,
  * because the COUPLE reads them with the SAME `authenticated` role. This is
  * that follow-up.
  *
@@ -69,7 +69,7 @@
  *      the row (they read display_name off it), so "no rows" can never be
  *      mistaken for "column denied".
  *   5. A HOST CONTROL: the couple and an accepted moderator read every one of
- *      the eleven columns through public.events_host in the same run. A fix
+ *      the twelve columns through public.events_host in the same run. A fix
  *      that closed the guest by breaking the couple would fail here.
  *
  * Run: pnpm --filter @setnayan/web test:db

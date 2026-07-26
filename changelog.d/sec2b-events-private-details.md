@@ -97,6 +97,43 @@ view — so the apply-time snapshot cannot rot when a column is added.
 - `apps/web/tests/db/events-guest-read-scope.db.test.ts` — scope note on the
   host-read assertion (that suite builds the schema at the SEC-2 point in time)
 
-SPEC IMPACT: `DECISION_LOG.md` — 2026-07-26 row recording that the eleven
+**Rebase onto `main` — the twelfth column, and the tripwire that found it.**
+`20271007917549` (SEC-5) added `events.setnayan_ai_tier_at_purchase` after this
+branch was cut. It arrived already SELECT-denied — a column added after SEC-2's
+table-level `REVOKE` inherits no privilege, because Postgres enumerates column
+privileges at `GRANT` time — and post-condition **(h)** refused to apply this
+migration until somebody decided which side it belonged on. Classified
+**PRIVATE** (host-only): it records the price *tier* the couple **bought**
+Setnayan AI at, which is commercial information about the host, and nothing in
+`apps/web` reads it from an authenticated client at all (the only reader is
+`tests/db/setnayan-ai-tier-lock.db.test.ts`, as `service_role`), so putting it
+behind `events_host` costs nothing. It also carries an oracle the live
+`event_type` does not: it is NULL until the entitlement first activates and it
+preserves the ORIGINAL tier across an admin re-type. The deny-set is now
+**twelve** columns.
+
+**`DROP COLUMN` on `public.events` now needs the view out of the way.**
+`events_host` projects every column, so it is a dependent object of all of them
+and any `ALTER TABLE public.events DROP COLUMN` fails `2BP01` from here on
+(`CASCADE` is the wrong reflex — it drops the view and leaves host readers
+`42P01`ing behind a green migration). Two DB suites that simulate a historical
+schema state by dropping an `events` column were updated to drop the view first:
+`tests/db/facebook-watch-url-grant.db.test.ts` and
+`tests/db/open-browse-schema.db.test.ts`. The sequence is recorded in the
+migration's maintenance note.
+
+**Export route — error-first, so `?? []` is gone rather than excused.** The
+split of the `event_members → events(…birth data)` embed introduced
+`const ids = (owned.data ?? []) …` with the error checked two lines below it.
+Harmless as written, but `T9` in `lib/export-coverage-guardrail.test.ts` is a
+SHAPE guard and it was right to reject it: unwrapping a possibly-null `data`
+*upstream* of the only check that distinguishes "the read failed" from "you own
+no events" is one reordered edit away from a subject-access file that silently
+asserts the couple has no birth data on record. Fixed in the route, not in the
+guard — the error is now checked first and handed straight to `listOutcome()`,
+which names the section in `not_included` and flips `export_complete`. The
+allow-list in T9 was **not** widened.
+
+SPEC IMPACT: `DECISION_LOG.md` — 2026-07-26 row recording that the twelve
 private `events` columns are off the guest surface and that `public.events_host`
 is the host read path.

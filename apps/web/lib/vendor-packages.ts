@@ -149,11 +149,39 @@ export type VendorPackageRow = {
    * Package CREDIT model (migration 20271006413374). The vendor's per-package
    * decision about leftover credit: 'expiring' (use it or lose it — today's
    * behaviour, and the column default) or 'refundable' (unspent credit comes
-   * off the price). OPTIONAL here because no shipped SELECT requests it yet.
+   * off the price). OPTIONAL because older SELECTs predate the column.
    * Honoured only by ./package-credit, behind ./package-credit-flag.
+   *
+   * ⚠ NOTHING WRITES THIS. There is no authoring control for it, so every
+   * package in existence is the DB default 'expiring'. Keep it that way until
+   * the owner confirms what 'refundable' means — read literally it refunds the
+   * whole unspent pool INCLUDING `consumable_budget_centavos`, i.e. money the
+   * sticker price already charged for. See the warning header in
+   * ./package-credit.
    */
   unspent_credit_policy?: 'expiring' | 'refundable';
 };
+
+/**
+ * The PostgREST select list for a package. Use this, never a literal.
+ *
+ * Centralised for the same reason as {@link PACKAGE_ITEM_OPTION_SELECT}: this
+ * list was copy-pasted across four call sites, and the one time a name in a
+ * list like this was wrong (`label` for `option_label`) every copy was wrong
+ * together and every test stayed green.
+ */
+export const VENDOR_PACKAGE_SELECT =
+  'package_id, vendor_profile_id, package_name, description, total_price_centavos, consumable_budget_centavos, is_consumable_flexible, unspent_credit_policy, primary_canonical_service, is_active, created_at, updated_at';
+
+/**
+ * The PostgREST select list for a package line.
+ *
+ * `is_required` is load-bearing twice over: `isRemovableItem` refuses to price
+ * a removal without it, and the credit engine's whole invariant is that a
+ * required line's value never enters the pool. Omitting it reads as FALSE.
+ */
+export const VENDOR_PACKAGE_ITEM_SELECT =
+  'item_id, package_id, canonical_service, service_description, is_default_included, is_required, replacement_value_centavos, display_order, created_at';
 
 export type VendorPackageItemRow = {
   item_id: string;

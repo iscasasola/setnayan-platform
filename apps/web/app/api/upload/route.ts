@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { eventOwnsPapicSeats } from '@/lib/papic-seats';
 import { rateLimit } from '@/lib/rate-limit';
 import { R2_BUCKETS, isR2Configured, type R2BucketKey } from '@/lib/r2';
+import { pathPrefixIsAcceptable } from '@/lib/r2-client-ref';
 import {
   encodeR2Ref,
   presignDisplayUrl,
@@ -491,6 +492,31 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
     pathPrefix = sanitized;
+  }
+  // SEC-6 — two structural refusals on the final prefix, for EVERY branch.
+  //
+  //  • A RESERVED segment (`std-screened`) holds the sealed copies the public
+  //    guest page serves. Those objects carry an `approved` NSFW verdict and are
+  //    supposed to be un-writable; a client that could presign a PUT there would
+  //    overwrite screened bytes at an already-approved key, which is the whole
+  //    bypass wearing a different hat. This route is the only client-driven
+  //    presigner for the media bucket, so refusing here is what makes
+  //    "immutable" true rather than aspirational (lib/std-video-gate.ts).
+  //
+  //  • A `:` in any segment makes the KEY URL-SHAPED. `sanitizePathPrefix` drops
+  //    `.`/`..` and collapses slashes but happily keeps a scheme segment, so
+  //    `pathPrefix: "http://evil.example/v"` minted a real R2 object at
+  //    `http:/evil.example/v/<uuid>-clip.mp4` — a string the verify side read as
+  //    an object key and the browser resolved to a foreign origin. The read path
+  //    no longer accepts such a ref; this stops the decoy being mintable at all.
+  //
+  // Deliberately non-specific message (lib/r2-client-ref.ts house style): the
+  // caller learns their prefix was refused, not which rule caught them.
+  if (!pathPrefixIsAcceptable(pathPrefix)) {
+    return NextResponse.json(
+      { error: 'That upload location isn’t allowed.' },
+      { status: 400 },
+    );
   }
   const bucketName = R2_BUCKETS[bucketKey];
 

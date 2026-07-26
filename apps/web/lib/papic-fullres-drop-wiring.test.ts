@@ -106,6 +106,9 @@ function goodHead(over: Partial<R2HeadResult> = {}): R2HeadResult {
     size: 512_000, // == clip_web_bytes on guestClipRow
     contentType: 'video/mp4',
     lastModified: new Date(NOW - (CLIP_WEB_DROP_GRACE_DAYS + 30) * 86_400_000),
+    // Content identity (SEC-6 added it to R2HeadResult); the custody check
+    // does not read it, so a fixed stub keeps these cases unchanged.
+    etag: 'stub-etag',
     ...over,
   };
 }

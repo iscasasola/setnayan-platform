@@ -45,6 +45,17 @@
  * monogram_custom_svg, site_bg_music_r2_key, …) are deliberately absent — a
  * grant cannot close those without breaking the product, and they need their own
  * fixes. See the PR body.
+ *
+ * ⚠ `std_media_nsfw` (SEC-6, migration 20271010090000) is ALSO absent, and that
+ * is deliberate rather than an oversight: this list is the deny-set the
+ * 20271005100000 baseline subtracts, and that baseline recomputes its allow-list
+ * from the LIVE catalog. Adding the verdict column here without re-ordering that
+ * migration to land AFTER the SEC-6 one would break every fresh replay (its typo
+ * guard RAISEs on a name that does not yet exist at that point in the tree). The
+ * verdict is instead locked by its own explicit REVOKE plus
+ * `guard_events_std_media_nsfw_trg`, a trigger no GRANT can undo — see
+ * tests/db/std-media-nsfw-verdict.db.test.ts, which restores the grant on
+ * purpose and proves the write still fails.
  */
 export const LOCKED_COLUMNS: readonly string[] = [
   // paid entitlement / paywall

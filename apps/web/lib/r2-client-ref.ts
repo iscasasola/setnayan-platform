@@ -237,6 +237,85 @@ export function stdMediaPolicy(eventId: string): ClientRefPolicy {
   };
 }
 
+// ---------------------------------------------------------------------------
+// SEC-6 · the Save-the-Date video's THREE roles, each pinned to its OWN prefix.
+//
+// `stdMediaPolicy` above is the union used by the WRITE action. It is too wide
+// for the read/serve path: under it a `videoKey` could name a poster object (or
+// a background), which is exactly the "screen object A, serve object B" shape
+// this whole fix exists to remove. So the gate uses one policy per role.
+//
+// The trailing slash is doing real work here: `events/1/std-video/` can never
+// match `events/1/std-video-poster/x` (the character after `std-video` is `-`,
+// not `/`), so the two roles are disjoint by construction.
+// ---------------------------------------------------------------------------
+
+/** The couple's uploaded Save-the-Date video — the SOURCE object they PUT. */
+export function stdVideoSourcePolicy(eventId: string): ClientRefPolicy {
+  return { prefixes: [`events/${eventId}/std-video/`] };
+}
+
+/** The client-extracted poster frame — the object the NSFW screen classifies. */
+export function stdVideoPosterPolicy(eventId: string): ClientRefPolicy {
+  return { prefixes: [`events/${eventId}/std-video-poster/`] };
+}
+
+/**
+ * The key segment that marks a SEALED, screened object.
+ *
+ * Everything under `events/{id}/std-screened/` is written by the service-role
+ * screen ONLY, as a server-side copy of bytes that were just classified. It is
+ * what the public guest page is served, and it is the reason a post-approval
+ * byte swap of the couple's upload cannot reach a guest: the swap lands on the
+ * SOURCE object, which nothing public reads any more.
+ *
+ * That guarantee is only as good as the promise that no client can write here,
+ * which is why the segment is RESERVED — `/api/upload` refuses any key
+ * containing it, for every bucket and every branch (see
+ * `pathPrefixIsAcceptable`). If you add another presigning route, it must call
+ * that helper too.
+ */
+export const R2_SEALED_SEGMENT = 'std-screened';
+
+/** Sealed, screened Save-the-Date objects. Service-role written; never client. */
+export function stdSealedPolicy(eventId: string): ClientRefPolicy {
+  return { prefixes: [`events/${eventId}/${R2_SEALED_SEGMENT}/`] };
+}
+
+/** Every key segment no client-driven upload may ever produce. */
+export const R2_RESERVED_KEY_SEGMENTS: ReadonlySet<string> = new Set([R2_SEALED_SEGMENT]);
+
+/**
+ * Is this server-sanitised object-key path safe to presign a client PUT for?
+ *
+ * Two refusals, both structural:
+ *
+ *  1. **A reserved segment** — `std-screened` holds the sealed copies the guest
+ *     page serves. A client that could PUT there would overwrite screened bytes
+ *     at a key that already carries an `approved` verdict, which is the entire
+ *     bypass in a different costume.
+ *
+ *  2. **A `:` anywhere in the path** — an object key is not a URL, and no
+ *     legitimate producer in this system emits one (every key is
+ *     `randomUUID()` + a sanitised filename under a sanitised prefix). A colon
+ *     is how a key becomes URL-SHAPED, and a URL-shaped key is what let an
+ *     attacker create a real R2 object at `http:/evil.example/v/x.mp4`, get a
+ *     genuine fingerprint for it, and have the browser resolve the same string
+ *     to a foreign origin. The read path no longer accepts such a ref at all —
+ *     this removes the ability to mint the decoy in the first place.
+ *
+ * Takes the ALREADY-SANITISED path (post `sanitizePathPrefix`), because that is
+ * what actually becomes the key.
+ */
+export function pathPrefixIsAcceptable(sanitisedPath: string): boolean {
+  if (typeof sanitisedPath !== 'string' || sanitisedPath.length === 0) return false;
+  for (const segment of sanitisedPath.split('/')) {
+    if (R2_RESERVED_KEY_SEGMENTS.has(segment)) return false;
+    if (segment.includes(':')) return false;
+  }
+  return true;
+}
+
 /** Anything the couple uploads under their own event folder in media. */
 export function eventMediaPolicy(eventId: string): ClientRefPolicy {
   return { prefixes: [`events/${eventId}/`] };

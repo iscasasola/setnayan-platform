@@ -15,6 +15,7 @@
 // ============================================================================
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveStillRef, resolvePlayRef, stableMediaPath } from '@/lib/papic-display-ref';
 import {
@@ -1228,8 +1229,13 @@ export async function loadEditorialData(eventId: string): Promise<EditorialData 
   // Living Hero Studio already bakes the couple's pick into a forward+reverse
   // ping-pong MP4; reuse it as the editorial's GIF-like moving hero, posterized
   // by heroPhotoUrl. Additive: null → the editorial hero stays the still photo.
+  // SEC-6 (D16): the boomerang is a couple-uploaded clip that nothing screens,
+  // so it does not reach a guest until it goes through the screen-and-seal
+  // spine. The still photo (already its poster) shows instead.
   const heroVideoUrl = await displayUrlForStoredAsset(
-    asString((event as Record<string, unknown>).landing_page_hero_video_r2_key),
+    heroVideoRefForGuests(
+      asString((event as Record<string, unknown>).landing_page_hero_video_r2_key),
+    ),
   );
 
   // 6b. Shared photo gallery (events.our_photos → display URLs). Each ref goes

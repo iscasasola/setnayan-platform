@@ -252,7 +252,8 @@ type SiteBodyProps = {
   stdFilm: boolean;
   stdBackground?: StdBackground;
   stdBackgroundUrl?: string | null;
-  /** Presigned URL of the couple's NSFW-approved closing video (stdVideoIsLive),
+  /** Presigned URL of the couple's NSFW-approved closing video (stdVideoServeUrls
+   *  — the verdict must still bind this media, SEC-6),
    *  or null → the gallery beat shows. Resolved once at the top-level page. */
   stdVideoUrl?: string | null;
   /** Poster still of that video — fills the full-screen letterbox bars with a

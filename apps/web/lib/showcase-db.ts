@@ -23,6 +23,7 @@
 // /[slug] (0002 Phase 4) — never a duplicate copy under /realstories.
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { tierCaps, isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { resolveVendorDisplayName } from '@/lib/vendors';
@@ -392,9 +393,11 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
           : null,
         // The couple's baked "living hero" boomerang (Living Hero Studio), if set
         // — plays forward→reverse on the realstories card with the still as poster.
-        heroVideoUrl: e.landing_page_hero_video_r2_key
-          ? await displayUrlForStoredAsset(e.landing_page_hero_video_r2_key)
-          : null,
+        // SEC-6 (D16): unscreened couple-uploaded clip — gated off public
+        // surfaces until it is screened + sealed (lib/guest-hero-video.ts).
+        heroVideoUrl: await displayUrlForStoredAsset(
+          heroVideoRefForGuests(e.landing_page_hero_video_r2_key),
+        ),
         isSample: e.is_sample === true,
         serviceCategories: Array.from(categoriesByEvent.get(e.event_id) ?? []),
       })),

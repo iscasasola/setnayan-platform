@@ -1,31 +1,63 @@
 'use client';
 
 /**
- * Admin moderation panel for Save-the-Date videos (iteration 0024).
+ * Admin review panel for Save-the-Date videos (iteration 0024 · SEC-6).
  *
- * The automatic poster-frame NSFW screen (lib/nsfw-screen · screenStdVideo)
- * covers the normal path: 'clean' → approved (plays live), 'nsfw_blocked' →
- * rejected. This panel is the human override for the edges the auto-screen
- * leaves — a video stuck at 'pending' (poster extraction / model hiccup left it
- * never-screened, so it silently never goes live) or a false-positive
- * 'rejected'. Only an 'approved' video plays on the public couple page.
+ * ── THIS IS NO LONGER AN "OVERRIDE" PANEL. IT IS THE GATE. ──────────────────
+ * The automatic screen classifies the POSTER frame — a JPEG the browser grabbed
+ * at upload and uploaded as an independent object. It has never looked at a
+ * single frame of the video (nsfwjs is image-only; Vercel has no ffmpeg), so a
+ * clean poster over a dirty video used to publish the dirty video. It now parks
+ * the row at `in_review` and CANNOT approve one. A person watching the sealed
+ * clip is the only examiner competent to authorise it.
  *
- * Rendered inside /admin/reveal-studio; rows are passed in from the server page.
+ * Three states arrive here:
+ *   • `in_review` — sealed and poster-screened. Watch it and decide. This is the
+ *     normal path and it is now on the critical path of every couple video.
+ *   • `pending` / `rejected` — nothing frozen to watch. "Prepare for review"
+ *     seals the current bytes first; approval is never against a mutable object.
+ *   • `grandfathered` — serving on the pre-SEC-6 poster-only screen, carried
+ *     across at the cutover so a live couple page did not go dark. Nothing is
+ *     broken; it just has never been examined. Approving replaces the carry-over
+ *     with a real examination and clears the badge.
+ *
+ * Rendered inside /admin/studio → Reveal Studio; rows come from the server page.
  * Empty list → the whole panel is hidden (no clutter when nothing's waiting).
  */
 
 import { useState, useTransition } from 'react';
-import { Check, X, Film } from 'lucide-react';
-import { setStdVideoModeration } from './actions';
+import { Check, X, Film, Lock, ShieldAlert } from 'lucide-react';
+import { sealStdVideoForReview, setStdVideoModeration } from './actions';
 import { useSaveLoader } from '@/components/sd-loader';
 
 export type PendingStdVideo = {
   eventId: string;
   publicId: string;
   name: string;
-  status: 'pending' | 'rejected';
+  status: 'pending' | 'in_review' | 'approved' | 'rejected';
+  /** Serving on the SEC-6 cutover carry-over rather than a real examination. */
+  grandfathered: boolean;
+  /** Presigned URL of the SEALED video — the exact bytes a guest receives. */
   videoUrl: string | null;
   posterUrl: string | null;
+  /** `<etag>:<bytes>` of the sealed objects presigned into the player below.
+   *  SEC-6: Approve is PINNED to these, so a decision can only ever cover the
+   *  bytes the reviewer was shown. A mismatch comes back as `stale-media`. */
+  videoFingerprint: string | null;
+  posterFingerprint: string | null;
+  /** False when nothing is sealed yet — the row must be prepared before it can
+   *  be approved. An admin may only ever put their name to frozen bytes. */
+  approvable: boolean;
+  /** The verdict names a sealed pair R2 no longer serves (an out-of-band act). */
+  sealBroken: boolean;
+};
+
+const ERRORS: Record<string, string> = {
+  'stale-media':
+    'This video changed since the page loaded — reload and watch it again before approving.',
+  'not-sealed':
+    'Nothing is frozen for this row yet. Use “Prepare for review” first, then watch and approve.',
+  'media-unreadable': 'The video could not be read from storage — try again in a moment.',
 };
 
 export function StdVideoModeration({ initial }: { initial: PendingStdVideo[] }) {
@@ -41,14 +73,39 @@ export function StdVideoModeration({ initial }: { initial: PendingStdVideo[] }) 
     setError(null);
     setBusyId(eventId);
     startTransition(async () => {
-      const r = await save.run(() => setStdVideoModeration(eventId, decision), {
-        steps: ['Recording your decision'],
-        hint: 'Saving',
+      const row = rows.find((x) => x.eventId === eventId);
+      const r = await save.run(
+        () =>
+          setStdVideoModeration(eventId, decision, {
+            videoFingerprint: row?.videoFingerprint ?? null,
+            posterFingerprint: row?.posterFingerprint ?? null,
+          }),
+        { steps: ['Recording your decision'], hint: 'Saving' },
+      );
+      if (r.ok) {
+        setRows((prev) => prev.filter((x) => x.eventId !== eventId));
+      } else {
+        setError(ERRORS[r.error] ?? r.error ?? 'Could not save — try again.');
+      }
+      setBusyId(null);
+    });
+  };
+
+  const prepare = (eventId: string) => {
+    setError(null);
+    setBusyId(eventId);
+    startTransition(async () => {
+      const r = await save.run(() => sealStdVideoForReview(eventId), {
+        steps: ['Freezing this video for review'],
+        hint: 'Preparing',
       });
       if (r.ok) {
-        setRows((prev) => prev.filter((row) => row.eventId !== eventId));
+        // The seal exists but this page's presigned player does not point at it
+        // yet. A reload is the honest next step — the reviewer must watch the
+        // frozen bytes, not the ones that were on screen a moment ago.
+        setError('Prepared. Reload this page to watch the frozen video and decide.');
       } else {
-        setError(r.error || 'Could not save — try again.');
+        setError(ERRORS[r.error] ?? r.error ?? 'Could not prepare — try again.');
       }
       setBusyId(null);
     });
@@ -65,9 +122,9 @@ export function StdVideoModeration({ initial }: { initial: PendingStdVideo[] }) 
           Save-the-Date videos ({rows.length})
         </h2>
         <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-[var(--m-slate,#4f535b)]">
-          These couple videos are awaiting (or failed) the automatic screen, so they don&rsquo;t
-          play on the public page yet. Watch each and approve to make it live, or reject to keep
-          the couple&rsquo;s photo gallery instead.
+          The automatic screen only ever looks at a video&rsquo;s still frame, so it can block a
+          video but never publish one. Watch each clip below and approve it to make it live, or
+          reject to keep the couple&rsquo;s photo gallery instead.
         </p>
       </div>
 
@@ -89,12 +146,40 @@ export function StdVideoModeration({ initial }: { initial: PendingStdVideo[] }) 
                 className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
                   row.status === 'rejected'
                     ? 'bg-danger-100 text-danger-700'
-                    : 'bg-warn-100 text-warn-700'
+                    : row.status === 'in_review'
+                      ? 'bg-info-100 text-info-700'
+                      : 'bg-warn-100 text-warn-700'
                 }`}
               >
-                {row.status === 'rejected' ? 'Rejected' : 'Pending'}
+                {row.status === 'rejected'
+                  ? 'Rejected'
+                  : row.status === 'in_review'
+                    ? 'Needs a watch'
+                    : row.grandfathered
+                      ? 'Carried over'
+                      : 'Pending'}
               </span>
             </div>
+
+            {row.grandfathered ? (
+              <p className="flex items-start gap-1.5 rounded-md bg-warn-50 px-2 py-1.5 text-[11px] leading-relaxed text-warn-800">
+                <ShieldAlert aria-hidden className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+                <span>
+                  Live, but never actually watched — carried over from the old still-frame-only
+                  screen. Approving records a real review.
+                </span>
+              </p>
+            ) : null}
+
+            {row.sealBroken ? (
+              <p className="flex items-start gap-1.5 rounded-md bg-danger-50 px-2 py-1.5 text-[11px] leading-relaxed text-danger-700">
+                <ShieldAlert aria-hidden className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+                <span>
+                  The frozen copy of this video is missing or has changed in storage. Prepare it
+                  again before approving.
+                </span>
+              </p>
+            ) : null}
 
             {row.videoUrl ? (
               // eslint-disable-next-line jsx-a11y/media-has-caption -- moderator review clip, no caption track
@@ -107,21 +192,34 @@ export function StdVideoModeration({ initial }: { initial: PendingStdVideo[] }) 
                 className="aspect-video w-full rounded-lg bg-black object-contain"
               />
             ) : (
-              <div className="flex aspect-video w-full items-center justify-center rounded-lg bg-ink/5 text-xs text-[var(--m-slate,#6a6e76)]">
-                Video unavailable
+              <div className="flex aspect-video w-full flex-col items-center justify-center gap-1 rounded-lg bg-ink/5 px-3 text-center text-xs text-[var(--m-slate,#6a6e76)]">
+                <Lock aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                Nothing frozen to watch yet
               </div>
             )}
 
             <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={pending && busyId === row.eventId}
-                onClick={() => decide(row.eventId, 'approved')}
-                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-success-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-success-700 disabled:opacity-50"
-              >
-                <Check aria-hidden className="h-4 w-4" strokeWidth={2.5} />
-                Approve
-              </button>
+              {row.approvable ? (
+                <button
+                  type="button"
+                  disabled={pending && busyId === row.eventId}
+                  onClick={() => decide(row.eventId, 'approved')}
+                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-success-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-success-700 disabled:opacity-50"
+                >
+                  <Check aria-hidden className="h-4 w-4" strokeWidth={2.5} />
+                  Approve
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={pending && busyId === row.eventId}
+                  onClick={() => prepare(row.eventId)}
+                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[var(--m-line,#e7e3da)] bg-white px-3 py-2 text-sm font-semibold text-[var(--m-ink,#1b1a17)] transition hover:bg-[var(--m-wash,#faf8f4)] disabled:opacity-50"
+                >
+                  <Lock aria-hidden className="h-4 w-4" strokeWidth={2} />
+                  Prepare for review
+                </button>
+              )}
               <button
                 type="button"
                 disabled={pending && busyId === row.eventId}

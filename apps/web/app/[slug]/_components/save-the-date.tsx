@@ -62,7 +62,8 @@ type Props = {
   /** Presigned soundtrack URL (the couple's site music) — film only (P2). */
   musicUrl?: string | null;
   /** Presigned URL of the couple's NSFW-approved closing video — film only (PR-B).
-   *  Set only when stdVideoIsLive; plays as the locked video island beat. */
+   *  Set only when stdVideoServeUrls (SEC-6 — an `approved` NSFW verdict still
+   *  bound to this exact media); plays as the locked video island beat. */
   videoUrl?: string | null;
   /** Poster still of that video — the film uses it for the iOS-safe blurred
    *  letterbox fill behind the contained clip (a 2nd <video> won't play on iOS). */

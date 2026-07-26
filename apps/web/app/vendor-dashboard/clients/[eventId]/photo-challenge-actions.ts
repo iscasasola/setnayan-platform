@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { orderRowFor, compOrderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
 import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -239,17 +240,20 @@ export async function sponsorPhotoChallenge(
     const referenceCode = generateReferenceCode();
     const { data: freeOrder, error: foErr } = await admin
       .from('orders')
-      .insert({
-        event_id: eventId,
-        user_id: user.id,
-        vendor_profile_id: vendorProfileId,
-        service_key: VENDOR_PHOTO_CHALLENGE_SKU_CODE,
-        description: 'Papic Challenges (per event · free · first 5 bookings)',
-        requested_total_php: 0,
-        confirmed_total_php: 0,
-        status: 'paid',
-        reference_code: referenceCode,
-      })
+      .insert(
+        // SEC-4b · F1 — comp mint. `compOrderRowFor` stamps status='paid' +
+        // requested/confirmed_total_php=0 and forbids all three, so this path
+        // cannot become a non-zero charge. `orderRowFor` deliberately rejects
+        // 'paid' (it is the status that skips /admin/payments reconciliation).
+        compOrderRowFor(
+          { userId: user.id, eventId: eventId, vendorProfileId },
+          {
+            service_key: VENDOR_PHOTO_CHALLENGE_SKU_CODE,
+            description: 'Papic Challenges (per event · free · first 5 bookings)',
+            reference_code: referenceCode,
+          },
+        ),
+      )
       .select('order_id')
       .maybeSingle();
     if (foErr || !freeOrder) {
@@ -298,18 +302,38 @@ export async function sponsorPhotoChallenge(
   const channel = parseChannel(formData.get('channel'));
   const referenceCode = generateReferenceCode();
 
-  const { data: orderRow, error: oErr } = await supabase
+  // ── SEC-4b · service-role mint ─────────────────────────────────────────────
+  // `orders` + `payments` INSERT are revoked from `authenticated` (migration
+  // 20271008178212). service_role bypasses `orders_owner_write`'s
+  // `WITH CHECK (user_id = auth.uid())`, which was RLS's only contribution — it
+  // checked neither event_id nor vendor_profile_id.
+  //
+  // AUTHORIZATION IS UNCHANGED and already adequate — and this is the one
+  // converted vendor site whose event_id ORIGINATES IN THE FORM, so the binding
+  // check matters most here. It is the admin-client `event_vendors` read above,
+  // filtered `.eq('event_id', eventId).eq('marketplace_vendor_id',
+  // vendorProfileId).in('status', COMMITTED_BOOKING_STATUSES)`: the caller's own
+  // vendor must hold a committed booking on exactly this event, so a forged
+  // eventId matches nothing and `photoChallengeEligibility` denies. Around it:
+  // authenticated → `fetchOwnVendorProfile` → `resolveVendorRoleForProfile` +
+  // canManageVendor (PROFILE-scoped) → `papicGamesEnabled()` → eventPapicActive
+  // → the sponsored dedupe → the pending-order double-charge guard → the SKU
+  // is_active reject. Every gate stays BEFORE pricing, as the file header
+  // requires. Reuses the `admin` client created above.
+  const { data: orderRow, error: oErr } = await admin
     .from('orders')
-    .insert({
-      event_id: eventId,
-      user_id: user.id,
-      vendor_profile_id: vendorProfileId,
-      service_key: VENDOR_PHOTO_CHALLENGE_SKU_CODE,
-      description: 'Papic Challenges (per event)',
-      requested_total_php: pricePhp,
-      status: 'submitted',
-      reference_code: referenceCode,
-    })
+    .insert(
+      orderRowFor(
+        { userId: user.id, eventId, vendorProfileId },
+        {
+          service_key: VENDOR_PHOTO_CHALLENGE_SKU_CODE,
+          description: 'Papic Challenges (per event)',
+          requested_total_php: pricePhp,
+          status: 'submitted',
+          reference_code: referenceCode,
+        },
+      ),
+    )
     .select('order_id')
     .maybeSingle();
   if (oErr || !orderRow) {
@@ -317,17 +341,22 @@ export async function sponsorPhotoChallenge(
   }
   const orderId = (orderRow as { order_id: string }).order_id;
 
-  const { error: pErr } = await supabase.from('payments').insert({
-    order_id: orderId,
-    user_id: user.id,
-    amount_php: pricePhp,
-    channel,
-    reference_number: null,
-    screenshot_url: null,
-    paid_at: new Date().toISOString().slice(0, 10),
-  });
+  const { error: pErr } = await admin.from('payments').insert(
+    paymentRowFor(
+      { userId: user.id, verifiedOrderId: orderId },
+      {
+        amount_php: pricePhp,
+        channel,
+        reference_number: null,
+        screenshot_url: null,
+        paid_at: new Date().toISOString().slice(0, 10),
+      },
+    ),
+  );
   if (pErr) {
-    await supabase.from('orders').delete().eq('order_id', orderId);
+    // Same client that minted it — a mixed-client compensation is how a
+    // rollback silently stops rolling back.
+    await admin.from('orders').delete().eq('order_id', orderId);
     return err('Could not start the Papic Challenges payment. Please try again.');
   }
 

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { orderRowFor, compOrderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
@@ -196,21 +197,24 @@ export async function activateVendorAiAddon(
     const referenceCode = generateReferenceCode();
     const { data: orderRow } = await admin
       .from('orders')
-      .insert({
-        event_id: null,
-        user_id: user.id,
-        vendor_profile_id: vendorProfileId,
-        service_key: VENDOR_AI_ADDON_SKU_CODE,
-        description: 'Vendor AI — AI Chatbot (first cycle · free)',
-        requested_total_php: 0,
-        confirmed_total_php: 0,
-        status: 'paid',
-        reference_code: referenceCode,
-        // Stamp the order's window so the renewal-reminder job nudges the vendor
-        // before the free cycle lapses (subscriptions_due_for_renewal_reminder
-        // reads orders.expires_at).
-        expires_at: newExpiry,
-      })
+      .insert(
+        // SEC-4b · F1 — comp mint. `compOrderRowFor` stamps status='paid' +
+        // requested/confirmed_total_php=0 and forbids all three, so this path
+        // cannot become a non-zero charge. `orderRowFor` deliberately rejects
+        // 'paid' (it is the status that skips /admin/payments reconciliation).
+        compOrderRowFor(
+          { userId: user.id, eventId: null, vendorProfileId },
+          {
+            service_key: VENDOR_AI_ADDON_SKU_CODE,
+            description: 'Vendor AI — AI Chatbot (first cycle · free)',
+            reference_code: referenceCode,
+            // Stamp the order's window so the renewal-reminder job nudges the vendor
+            // before the free cycle lapses (subscriptions_due_for_renewal_reminder
+            // reads orders.expires_at).
+            expires_at: newExpiry,
+          },
+        ),
+      )
       .select('order_id')
       .maybeSingle();
     if (orderRow) {
@@ -242,18 +246,33 @@ export async function activateVendorAiAddon(
   const channel = parseChannel(formData.get('channel'));
   const referenceCode = generateReferenceCode();
 
-  const { data: orderRow, error: oErr } = await supabase
+  // ── SEC-4b · service-role mint ─────────────────────────────────────────────
+  // `orders` + `payments` INSERT are revoked from `authenticated` (migration
+  // 20271008178212). service_role bypasses `orders_owner_write`'s
+  // `WITH CHECK (user_id = auth.uid())` — RLS's only check on this row.
+  //
+  // AUTHORIZATION IS UNCHANGED and already adequate: authenticated →
+  // `fetchOwnVendorProfile` (server-resolved id) → `resolveVendorRoleForProfile`
+  // + canManageVendor (PROFILE-scoped) → `vendorAutoReplyEnabled()` feature
+  // backstop → `isTierAtLeast(tier,'solo')` → `verification_state === 'verified'`
+  // → the SKU is_active reject. The free-first-cycle branch above keeps its own
+  // admin client and its atomic is-null-guarded trial claim, untouched.
+  const moneyWriter = createAdminClient();
+
+  const { data: orderRow, error: oErr } = await moneyWriter
     .from('orders')
-    .insert({
-      event_id: null,
-      user_id: user.id,
-      vendor_profile_id: vendorProfileId,
-      service_key: VENDOR_AI_ADDON_SKU_CODE,
-      description: 'Vendor AI — AI Chatbot (28-day)',
-      requested_total_php: pricePhp,
-      status: 'submitted',
-      reference_code: referenceCode,
-    })
+    .insert(
+      orderRowFor(
+        { userId: user.id, eventId: null, vendorProfileId },
+        {
+          service_key: VENDOR_AI_ADDON_SKU_CODE,
+          description: 'Vendor AI — AI Chatbot (28-day)',
+          requested_total_php: pricePhp,
+          status: 'submitted',
+          reference_code: referenceCode,
+        },
+      ),
+    )
     .select('order_id')
     .maybeSingle();
   if (oErr || !orderRow) {
@@ -261,17 +280,22 @@ export async function activateVendorAiAddon(
   }
   const orderId = (orderRow as { order_id: string }).order_id;
 
-  const { error: pErr } = await supabase.from('payments').insert({
-    order_id: orderId,
-    user_id: user.id,
-    amount_php: pricePhp,
-    channel,
-    reference_number: null,
-    screenshot_url: null,
-    paid_at: new Date().toISOString().slice(0, 10),
-  });
+  const { error: pErr } = await moneyWriter.from('payments').insert(
+    paymentRowFor(
+      { userId: user.id, verifiedOrderId: orderId },
+      {
+        amount_php: pricePhp,
+        channel,
+        reference_number: null,
+        screenshot_url: null,
+        paid_at: new Date().toISOString().slice(0, 10),
+      },
+    ),
+  );
   if (pErr) {
-    await supabase.from('orders').delete().eq('order_id', orderId);
+    // Same client that minted it — a mixed-client compensation is how a
+    // rollback silently stops rolling back.
+    await moneyWriter.from('orders').delete().eq('order_id', orderId);
     return err('Could not start the Vendor AI payment. Please try again.');
   }
 

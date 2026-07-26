@@ -202,6 +202,48 @@ export async function lockPackage(
     }
   }
 
+  // ── Credit spent on the vendor's OTHER services ──────────────────────────
+  //
+  // Owner-locked 2026-07-26: "credits can be consumables to other services, but
+  // not deductables… can be used on other services of the vendors as well."
+  //
+  // Two hard rules, both enforced here rather than trusted:
+  //   1. SAME VENDOR ONLY. The catalogue query is scoped to this package's
+  //      vendor_profile_id, so credit can never be spent against a different
+  //      vendor's service — that would be Setnayan moving money between two
+  //      businesses, which this model explicitly does not do (0% commission,
+  //      vendors settle off-platform).
+  //   2. THE PRICE COMES FROM THE DB. The client sends service ids and
+  //      quantities only. `credit_price_centavos` is the vendor's COMMITTED
+  //      price; NULL means not purchasable with credit, and the engine then
+  //      refuses the addition (`unknown_addition`) rather than pricing it at 0.
+  const requestedAdditions = (customizations.credit_additions ?? []).filter(
+    (a) => typeof a?.service_id === 'string' && Number.isFinite(a?.quantity),
+  );
+  let creditAdditions: Array<{ addition_id: string; quantity: number }> = [];
+  let creditCatalogue: Array<{ addition_id: string; unit_price_centavos: number }> = [];
+  if (requestedAdditions.length > 0) {
+    const { data: sellable, error: catErr } = await supabase
+      .from('vendor_services')
+      .select('vendor_service_id, credit_price_centavos')
+      .eq('vendor_profile_id', pkg.vendor_profile_id) // rule 1
+      .in('vendor_service_id', requestedAdditions.map((a) => a.service_id))
+      .not('credit_price_centavos', 'is', null);
+    if (catErr) return { status: 'error', message: catErr.message };
+
+    creditCatalogue = (sellable ?? []).map((r) => ({
+      addition_id: r.vendor_service_id as string,
+      unit_price_centavos: Number(r.credit_price_centavos),
+    }));
+    const priced = new Set(creditCatalogue.map((c) => c.addition_id));
+    // Keep only what we actually resolved a committed price for. An unpriced
+    // id is dropped here AND would be refused by the engine — belt and braces,
+    // because the failure mode is spending credit at a price nobody set.
+    creditAdditions = requestedAdditions
+      .filter((a) => priced.has(a.service_id))
+      .map((a) => ({ addition_id: a.service_id, quantity: Math.trunc(a.quantity) }));
+  }
+
   // Head count for per-head option upgrades ("+₱150/head"). SERVER-resolved —
   // it multiplies money, so it must never come from the client. Null (no
   // headcount yet) reads as 0 and each option's own `min_pax` floors it, so a
@@ -216,6 +258,8 @@ export async function lockPackage(
     chosenOptionIds,
     packageCreditEnabled(),
     livePax,
+    creditAdditions,
+    creditCatalogue,
   );
   if (!creditTotals) {
     return {

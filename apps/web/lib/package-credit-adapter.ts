@@ -22,6 +22,7 @@ import {
   type VendorPackageWithItems,
 } from './vendor-packages';
 import { computePackageCredit } from './package-credit';
+import type { CreditAddition, CreditCatalogueEntry } from './package-credit';
 import type { CreditItem, CreditPackage, UnspentCreditPolicy } from './package-credit';
 
 /**
@@ -109,6 +110,12 @@ export function priceCustomizedPackage(
   creditEnabled: boolean,
   /** Server-resolved head count, for per-head option upgrades. */
   paxCount = 0,
+  /**
+   * Catalogue buys funded by credit, and the SERVER-READ prices for them.
+   * Both empty = the package-only path, exactly as before.
+   */
+  additions: ReadonlyArray<CreditAddition> = [],
+  catalogue: ReadonlyArray<CreditCatalogueEntry> = [],
 ): {
   bookingTotalCentavos: number;
   remainingConsumableCentavos: number;
@@ -118,6 +125,10 @@ export function priceCustomizedPackage(
   const legacy = computeCustomization(pkg, removedItemIds);
 
   if (!creditEnabled) {
+    // Credit is OFF, so there is no pool to consume and no catalogue buy can be
+    // funded. Refuse rather than silently dropping the additions — a caller
+    // that asked to spend credit must not be told the booking simply cost less.
+    if (additions.length > 0) return null;
     // Flag OFF: the shipped math, plus any option surcharge. On a package with
     // no choices this is byte-identical to what shipped before choices existed,
     // and a choice line sits on its standard option, whose delta the DB pins
@@ -137,6 +148,8 @@ export function priceCustomizedPackage(
     removedItemIds: allowedRemovals(pkg, removedItemIds),
     chosenOptionIds,
     paxCount,
+    additions,
+    catalogue,
   });
   if (!credit.ok) return null;
 

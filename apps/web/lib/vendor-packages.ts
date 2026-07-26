@@ -322,6 +322,16 @@ export type PackageCustomizations = {
    * the server re-reads every `price_delta_centavos` from the DB.
    */
   chosen_option_ids?: string[];
+  /**
+   * Other services from the vendor's catalogue, bought with package CREDIT.
+   * Owner-locked 2026-07-26: "credits can be consumables to other services,
+   * but not deductables."
+   *
+   * IDS AND QUANTITIES ONLY — deliberately no money. The server reads each
+   * service's committed `credit_price_centavos`; a price that arrived from the
+   * browser must never be what credit is debited at.
+   */
+  credit_additions?: Array<{ service_id: string; quantity: number }>;
 };
 
 /* ──────────────────────────────────────────────────────────────────────── */

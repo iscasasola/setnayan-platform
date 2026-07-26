@@ -27,7 +27,7 @@ import {
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
 import { isTrueNameTier, tierCaps } from '@/lib/vendor-tier-caps';
-import { vendorSeoPlan } from '@/lib/vendor-seo-tier';
+import { vendorSeoPlanForVendor } from '@/lib/vendor-seo-tier';
 import { isVendorSeoTierGateEnabled } from '@/lib/vendor-seo-tier-flag';
 import { experienceTier, vendorExperienceEnabled, yearsInBusiness } from '@/lib/vendor-experience';
 import {
@@ -225,6 +225,13 @@ type PublicVendorRow = {
   // `?? null` everywhere so a missing column degrades to free (safe:
   // name stays hidden, reviews stay gated).
   tier_state?: string | null;
+  // Subscription expiry for the tier above. Read on this PUBLIC page because
+  // tier lapse is LOGIN-DRIVEN (`sweep_vendor_tier_expiry` fires from the
+  // vendor dashboard layout) and nobody is logged in here — so a vendor whose
+  // subscription ended months ago still carries a paid `tier_state` in this
+  // row. Anything gating a paid entitlement off `tier_state` on a public
+  // surface MUST pair it with this column. NULL = never expires (admin comp).
+  tier_expires_at?: string | null;
   // PR-B public-visibility verification gate. `verification_state` is a
   // public.vendor_verification_state enum on vendor_profiles with FIVE values
   // (unverified | pending_review | verified | demoted | rejected, NOT NULL
@@ -326,7 +333,7 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
   // screen_name silently null (resolver falls back to computed
   // placeholder).
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,verification_state,user_id';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,user_id';
   const legacySelect =
     'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings';
 
@@ -337,7 +344,7 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
     .maybeSingle();
   if (
     error &&
-    /(gallery_video_links|is_demo|name_revealed_at|screen_name|tier_state|verification_state|user_id)/i.test(
+    /(gallery_video_links|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|user_id)/i.test(
       error.message,
     )
   ) {
@@ -1310,10 +1317,17 @@ export async function renderVendorBySlug({
   // indexability", free for every tier and never gated. Only the two paid
   // enrichments read the plan: `entityGraph` (knowsAbout · Solo+) and
   // `offerGraph` (hasOfferCatalog · makesOffer · priceRange · Pro+). With
-  // NEXT_PUBLIC_VENDOR_SEO_TIER_GATE unset, vendorSeoPlan() returns the legacy
-  // all-true plan → this page's JSON-LD is byte-identical to today.
-  const seoPlan = vendorSeoPlan(
-    vendor.tier_state ?? null,
+  // NEXT_PUBLIC_VENDOR_SEO_TIER_GATE unset, the plan is the legacy all-true one
+  // → this page's JSON-LD is byte-identical to today.
+  //
+  // The whole ROW goes in, not just `tier_state`: this is a PUBLIC render, so
+  // nobody is logged in and the login-driven `sweep_vendor_tier_expiry` has not
+  // run. `vendorSeoPlanForVendor` checks `tier_expires_at` itself and collapses
+  // a lapsed paid tier to free. It also treats an ABSENT `tier_state` (the
+  // legacy-select fallback below) as UNKNOWN rather than free, so a schema skew
+  // cannot silently de-enrich a currently paying vendor.
+  const seoPlan = vendorSeoPlanForVendor(
+    { tier_state: vendor.tier_state, tier_expires_at: vendor.tier_expires_at },
     isVendorSeoTierGateEnabled(),
   );
 

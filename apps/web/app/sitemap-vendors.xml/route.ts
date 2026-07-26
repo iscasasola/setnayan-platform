@@ -31,7 +31,12 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { vendorSeoPlan } from '@/lib/vendor-seo-tier';
+import {
+  firstVendorSitemapQuery,
+  nextVendorSitemapQuery,
+  vendorSeoPlanForVendor,
+  type VendorSitemapQuery,
+} from '@/lib/vendor-seo-tier';
 import { isVendorSeoTierGateEnabled } from '@/lib/vendor-seo-tier-flag';
 
 export const revalidate = 3600;
@@ -40,6 +45,7 @@ type VendorSitemapRow = {
   business_slug: string | null;
   updated_at: string;
   tier_state?: string | null;
+  tier_expires_at?: string | null;
 };
 
 export async function GET(): Promise<Response> {
@@ -47,66 +53,60 @@ export async function GET(): Promise<Response> {
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com';
 
   // Priority-sitemap tiering (Vendor_Monetization_Model_LOCKED_2026-07-25 § 8)
-  // — FLAG-DARK. While dark we neither READ nor USE `tier_state`: the select
-  // string is the original two columns and every row keeps the flat 0.8
+  // — FLAG-DARK. While dark we neither READ nor USE the tier columns: the
+  // select string is the original two columns and every row keeps the flat 0.8
   // priority, so the emitted XML is byte-identical to today. (Gating the READ
   // too, not just the use, is deliberate — PostgREST answers a select naming an
-  // unknown column with 42703 and nulls the WHOLE row, so a schema/deploy skew
-  // must not be able to empty the sitemap while the feature is off.)
+  // unknown column with 42703 and fails the WHOLE query, so a schema/deploy
+  // skew must not be able to empty the sitemap while the feature is off.)
+  //
+  // The fallback ladder lives in lib/vendor-seo-tier.ts as a pure planner
+  // (`firstVendorSitemapQuery` / `nextVendorSitemapQuery`) so it is unit-
+  // testable without a database. Its load-bearing invariant: a missing TIER
+  // column costs us only the tier columns — it must NEVER cost us the
+  // `verification_state` / `is_demo` filters, because dropping those
+  // republishes demo fixtures and unverified vendors to crawlers.
   const seoGateOn = isVendorSeoTierGateEnabled();
-  const selectCols = seoGateOn
-    ? 'business_slug, updated_at, tier_state'
-    : 'business_slug, updated_at';
 
   let urls = '';
 
   try {
     const admin = createAdminClient();
 
-    // Primary query: filter by public_visibility='verified' AND is_demo IS NOT TRUE.
-    // If is_demo column doesn't yet exist (migrations behind), fall back
-    // to the unfiltered visibility check (same defensive pattern the
-    // prior sitemap.ts used for venue_directory).
-    let rows: VendorSitemapRow[] | null = null;
-
-    const primary = await admin
-      .from('vendor_profiles')
-      .select(selectCols)
-      .eq('public_visibility', 'verified')
-      // PR-B — exclude UNVERIFIED vendors from the sitemap. An unverified
-      // vendor has no public website (mirrored in /v/[slug] + Explore), so
-      // it must not be advertised to crawlers. The reconcile migration
-      // 20270331400000 marked the founder + every paid vendor 'verified'.
-      .eq('verification_state', 'verified')
-      .or('is_demo.is.null,is_demo.eq.false')
-      .order('updated_at', { ascending: false })
-      .limit(50_000);
-
-    // `tier_state` joins the skew-tolerant column list: if the gate is ON in an
-    // environment whose schema lacks it, we degrade to the base fallback select
-    // (flat priority) instead of logging and emitting an EMPTY sitemap.
-    if (
-      primary.error &&
-      /(is_demo|verification_state|tier_state)/i.test(primary.error.message)
-    ) {
-      // Schema fallback — is_demo, verification_state or tier_state missing in
-      // this environment (migrations behind). Fall back to the
-      // public_visibility check alone.
-      const fallback = await admin
+    const runQuery = (query: VendorSitemapQuery) => {
+      const base = admin
         .from('vendor_profiles')
-        .select('business_slug, updated_at')
-        .eq('public_visibility', 'verified')
-        .order('updated_at', { ascending: false })
-        .limit(50_000);
-      rows = fallback.data;
-      if (fallback.error) {
-        console.error('[sitemap-vendors] fallback error', fallback.error.message);
-      }
-    } else if (primary.error) {
-      console.error('[sitemap-vendors] primary error', primary.error.message);
-    } else {
-      rows = primary.data as unknown as VendorSitemapRow[] | null;
+        .select(query.cols)
+        .eq('public_visibility', 'verified');
+      // PR-B — exclude UNVERIFIED and DEMO vendors from the sitemap. An
+      // unverified vendor has no public website (mirrored in /v/[slug] +
+      // Explore), so it must not be advertised to crawlers. The reconcile
+      // migration 20270331400000 marked the founder + every paid vendor
+      // 'verified'.
+      const filtered = query.visibilityFilters
+        ? base.eq('verification_state', 'verified').or('is_demo.is.null,is_demo.eq.false')
+        : base;
+      return filtered.order('updated_at', { ascending: false }).limit(50_000);
+    };
+
+    let query = firstVendorSitemapQuery(seoGateOn);
+    let result = await runQuery(query);
+    // Bounded at three attempts — the planner strictly narrows and returns null
+    // once there is nothing left to drop.
+    for (;;) {
+      const next = result.error
+        ? nextVendorSitemapQuery(query, result.error.message)
+        : null;
+      if (!next) break;
+      query = next;
+      result = await runQuery(query);
     }
+
+    if (result.error) {
+      console.error('[sitemap-vendors] query error', result.error.message);
+    }
+
+    const rows = result.data as unknown as VendorSitemapRow[] | null;
 
     if (rows && rows.length > 0) {
       urls = rows
@@ -115,11 +115,11 @@ export async function GET(): Promise<Response> {
             typeof row.business_slug === 'string' && row.business_slug.length > 0,
         )
         .map((row) => {
-          // Dark ⇒ legacy plan ⇒ 0.8 for every row (today's constant).
-          const priority = vendorSeoPlan(
-            seoGateOn ? row.tier_state ?? null : null,
-            seoGateOn,
-          ).sitemapPriority;
+          // Dark (or tier columns unread) ⇒ legacy plan ⇒ 0.8 for every row,
+          // today's constant. A LAPSED paid tier collapses to free inside
+          // vendorSeoPlanForVendor — nobody is logged in on a crawler hit, so
+          // the login-driven expiry sweep has not run.
+          const priority = vendorSeoPlanForVendor(row, seoGateOn).sitemapPriority;
           return `  <url>\n    <loc>${baseUrl}/${encodeURIComponent(row.business_slug)}</loc>\n    <lastmod>${new Date(row.updated_at).toISOString()}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>${priority}</priority>\n  </url>`;
         })
         .join('\n');

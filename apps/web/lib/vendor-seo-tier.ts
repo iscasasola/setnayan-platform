@@ -20,7 +20,8 @@
  * `gateOn === false` is byte-identical to current production regardless of what
  * the tier ladder says. Asserted in vendor-seo-tier.test.ts.
  */
-import { vendorSeoLevel, type VendorSeoLevel } from './vendor-tier-caps';
+import { isTierAtLeast, vendorSeoLevel, type VendorSeoLevel } from './vendor-tier-caps';
+import { vendorHoldsActivePaidSub } from './vendor-favorite-gate';
 
 export interface VendorSeoPlan {
   /** The tier's bundled level (echoed for logging/telemetry + upsell copy). */
@@ -102,4 +103,152 @@ export function vendorSeoPlan(
     offerGraph: level === 'aeo' || level === 'priority', // Pro+
     sitemapPriority: rank,
   };
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Lapse-awareness — the row-level entry point every render site MUST use.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * The subscription-bearing slice of `vendor_profiles` this module needs.
+ *
+ * `tier_state` is deliberately OPTIONAL, and the difference between `undefined`
+ * and `null` is LOAD-BEARING:
+ *   • `undefined` — the column was NOT IN THE SELECT (schema skew, or a legacy
+ *     fallback select). The tier is UNKNOWN, which is NOT the same as free.
+ *   • `null` / a string — the column WAS read; that is the vendor's real tier.
+ */
+export type VendorSeoSubRow = {
+  tier_state?: string | null;
+  tier_expires_at?: string | null;
+};
+
+/**
+ * Collapse a LAPSED paid tier to `'free'`.
+ *
+ * WHY THIS EXISTS: tier lapse in this codebase is LOGIN-DRIVEN —
+ * `sweep_vendor_tier_expiry` only fires from the vendor dashboard layout. A
+ * public `/v/[slug]` render and a crawler hitting `/sitemap-vendors.xml` are
+ * exactly the two paths where nobody is logged in, so a vendor whose
+ * subscription ended three months ago still carries `tier_state='pro'` in the
+ * row we read. Reading `tier_state` alone would hand them the paid SEO
+ * entitlement forever. `tier_expires_at` is therefore checked EXPLICITLY, the
+ * same way `vendor-favorite-gate.ts` and `enterprise-vendor-gate.ts` do.
+ *
+ * Free tiers (`free` / `verified`) pass through untouched — they cannot lapse.
+ * A NULL expiry means "never expires" (admin-granted / off-platform comp tier).
+ *
+ * `now` is injected so this stays clock-free under test.
+ */
+export function effectiveSeoTier(
+  row: VendorSeoSubRow,
+  now: number = Date.now(),
+): string | null {
+  const tier = row.tier_state ?? null;
+  if (!isTierAtLeast(tier, 'solo')) return tier; // free tiers can't lapse
+  return vendorHoldsActivePaidSub(
+    { tier_state: tier, tier_expires_at: row.tier_expires_at ?? null },
+    now,
+  )
+    ? tier
+    : 'free';
+}
+
+/**
+ * Resolve the SEO plan for a vendor ROW — the function render sites call.
+ *
+ * Two things it does that `vendorSeoPlan(tier, gateOn)` cannot:
+ *   1. It collapses a LAPSED paid tier to free (see {@link effectiveSeoTier}).
+ *   2. It distinguishes an UNREAD tier column from a free tier. When
+ *      `tier_state` is `undefined` the caller could not read the column at all
+ *      (schema skew / legacy fallback select), so we return the LEGACY plan —
+ *      every enrichment, flat 0.8 priority. That is the only safe direction:
+ *      every other fallback in this codebase degrades toward HIDING something,
+ *      but here degrading toward "free" would silently strip a *currently
+ *      paying* vendor of an entitlement they bought. Withholding a purchased
+ *      entitlement because of OUR deploy skew is the worse failure, and it is
+ *      not a security boundary — the enrichments are public marketing data.
+ */
+export function vendorSeoPlanForVendor(
+  row: VendorSeoSubRow,
+  gateOn: boolean,
+  now: number = Date.now(),
+): VendorSeoPlan {
+  if (row.tier_state === undefined) return legacySeoPlan(vendorSeoLevel(null));
+  // Gate dark ⇒ EXACT passthrough of `vendorSeoPlan(tier, false)`, lapse logic
+  // included: even the echoed `level` must not move while the flag is off.
+  if (!gateOn) return legacySeoPlan(vendorSeoLevel(row.tier_state));
+  return vendorSeoPlan(effectiveSeoTier(row, now), true);
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * /sitemap-vendors.xml query planner — pure, so the fallback ladder is testable
+ * without a database.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** Columns the sitemap always needs. */
+export const SITEMAP_BASE_COLS = 'business_slug, updated_at';
+/** …plus the subscription columns, read ONLY while the gate is on. */
+export const SITEMAP_TIER_COLS = 'business_slug, updated_at, tier_state, tier_expires_at';
+
+export interface VendorSitemapQuery {
+  /** PostgREST select list. */
+  cols: string;
+  /**
+   * Whether `verification_state='verified'` AND `is_demo IS NOT TRUE` are
+   * applied. These are PRIVACY/CORRECTNESS filters, not enrichment: dropping
+   * them republishes demo fixtures and unverified vendors to crawlers.
+   */
+  visibilityFilters: boolean;
+  /** Whether the result rows carry `tier_state` / `tier_expires_at`. */
+  tierColumns: boolean;
+}
+
+export function firstVendorSitemapQuery(gateOn: boolean): VendorSitemapQuery {
+  return {
+    cols: gateOn ? SITEMAP_TIER_COLS : SITEMAP_BASE_COLS,
+    visibilityFilters: true,
+    tierColumns: gateOn,
+  };
+}
+
+/**
+ * Given the query that just failed and its PostgREST error message, decide what
+ * to retry — or `null` to give up.
+ *
+ * THE INVARIANT THIS ENCODES: a missing TIER column may only cost us the tier
+ * columns. It must NEVER cost us the visibility filters. PostgREST answers a
+ * select naming an unknown column with 42703 and fails the whole query, so
+ * before this planner a `tier_state` skew fell into the pre-existing
+ * `is_demo | verification_state` fallback and republished every demo and
+ * unverified vendor to Google. The two skews are now classified separately and
+ * each drops only its own thing.
+ *
+ * Strictly narrowing (`tierColumns` true→false, then `visibilityFilters`
+ * true→false), so the retry loop is bounded at three attempts.
+ */
+export function nextVendorSitemapQuery(
+  current: VendorSitemapQuery,
+  errorMessage: string | null | undefined,
+): VendorSitemapQuery | null {
+  if (!errorMessage) return null;
+
+  // Visibility skew is checked FIRST: if BOTH are missing, only the visibility
+  // fallback can succeed, and it drops the tier columns anyway.
+  if (/(is_demo|verification_state)/i.test(errorMessage)) {
+    if (!current.visibilityFilters) return null;
+    return { cols: SITEMAP_BASE_COLS, visibilityFilters: false, tierColumns: false };
+  }
+
+  if (/(tier_state|tier_expires_at)/i.test(errorMessage)) {
+    if (!current.tierColumns) return null;
+    // Drop ONLY the tier columns — every visibility filter is preserved.
+    return {
+      cols: SITEMAP_BASE_COLS,
+      visibilityFilters: current.visibilityFilters,
+      tierColumns: false,
+    };
+  }
+
+  return null; // not a schema skew — a real error, don't paper over it
 }

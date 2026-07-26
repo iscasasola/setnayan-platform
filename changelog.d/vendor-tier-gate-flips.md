@@ -36,17 +36,50 @@ gating to the tier matrix") plus step 8 ("SEO/GEO/AEO tiering").
 - Wired at exactly two sites: `app/v/[slug]/page.tsx` (`knowsAbout` → Solo+;
   `hasOfferCatalog` + `makesOffer` + `priceRange` → Pro+; the identity graph and
   BreadcrumbList stay free) and `app/sitemap-vendors.xml/route.ts` (per-tier
-  `<priority>`). The sitemap only *reads* `tier_state` when the flag is on, and
-  `tier_state` joined the skew-tolerant column regex so a schema/deploy skew
-  degrades to the flat-priority fallback instead of emitting an empty sitemap.
+  `<priority>`). The sitemap only *reads* the tier columns when the flag is on.
 - `TierCaps.editorialFeatures` (Pro+) added for the matrix's "Editorial features"
   cell. Deliberately **unwired** — see the owner question below.
 
-**Tests** — `lib/vendor-seo-tier.test.ts` (14 tests: flag-OFF byte-identity across
-every tier incl. unknown/null, flag-parsing, the full flag-ON matrix, ladder
-monotonicity, and source-scan guards on both render sites) and four new
-locked-matrix reconciliation tests in `lib/vendor-tier-caps.test.ts`. Both
-source-scan guards were verified to FAIL with the wiring removed.
+**Review round 2 — three defects found by adversarial review, all fixed here:**
+
+1. **Lapsed paid vendors kept the paid SEO forever (HIGH).** Tier lapse is
+   login-driven — `sweep_vendor_tier_expiry` fires only from the vendor
+   dashboard layout, and a public page render and a crawler hit are exactly the
+   two paths where nobody is logged in. Both render sites now go through
+   `vendorSeoPlanForVendor(row, gateOn, now)`, which collapses a paid tier whose
+   `tier_expires_at` has elapsed to `'free'` via the repo's canonical
+   `vendorHoldsActivePaidSub()` predicate (same defence as
+   `vendor-favorite-gate.ts` / `enterprise-vendor-gate.ts`). `tier_expires_at`
+   was added to the `/v/[slug]` select + its skew regex, and to the sitemap's
+   gated select. NULL expiry = never expires (admin/comp tier) — unchanged.
+2. **A tier-column schema skew republished demo + unverified vendors to
+   crawlers (MEDIUM).** The single `(is_demo|verification_state|tier_state)`
+   regex routed a `tier_state` 42703 into the pre-existing visibility fallback,
+   which drops the `verification_state='verified'` and `is_demo IS NOT TRUE`
+   filters. The fallback ladder is now a pure, unit-tested planner
+   (`firstVendorSitemapQuery` / `nextVendorSitemapQuery`): a TIER skew drops
+   only the tier columns and **keeps every visibility filter**; only an
+   `is_demo` / `verification_state` skew takes the filter-dropping fallback
+   (pre-existing behaviour, unchanged). Non-skew errors are no longer papered
+   over. Ladder is strictly narrowing, bounded at 3 queries.
+3. **The legacy-select fallback de-enriched a *currently paying* vendor
+   (MEDIUM).** `tier_state: undefined` (column not in the select) is now
+   distinguished from `tier_state: null` (column read, vendor is free):
+   *unknown* returns the LEGACY plan, so our own deploy skew can never withhold
+   an entitlement a vendor bought. An explicit free/null tier is still free —
+   "unknown" is not a bypass, and that is asserted.
+
+Flag-OFF remains byte-identical, now more strictly than before:
+`vendorSeoPlanForVendor(row, false)` is asserted field-for-field equal to
+`vendorSeoPlan(tier, false)` — including the echoed `level` — across every tier
+× every expiry state.
+
+**Tests** — `lib/vendor-seo-tier.test.ts` is now 28 tests, and four
+locked-matrix reconciliation tests in `lib/vendor-tier-caps.test.ts`. Each of
+the three fixes above was **falsified**: reverting the lapse collapse fails 2
+tests, reverting the unknown-tier branch fails 1, reverting the skew split fails
+1, and reverting both render sites to their pre-fix wiring fails both
+source-scan guards. Full unit suite 3447/3447, `tsc --noEmit` clean.
 
 **⚠ OWNER DECISION — "Editorial features → Pro+" collides with a standing lock.**
 The locked matrix puts editorial features at Pro+, but Simplicity Canon rule 2

@@ -2576,6 +2576,39 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   }
 } /* @layer components — Pahina foundation */
 
+/* ── Candlelight art direction (wave A PR-5b, design spec §4) ────────────────
+   The deliberate variation axis: ONE switch, two genuinely different-feeling
+   sites. Daylight is the default and is byte-identical to today — this block
+   only matches when the couple has opted in and the shell stamps
+   `data-art="candlelight"`, so every existing event is untouched.
+
+   These are the SAME `--color-*` vars `buildSitePaletteVars` emits, overridden
+   at the shell. That matters: everything downstream (plates, gild, veil, the
+   couple's own accent, Pro custom colours layered last) keeps working through
+   the one pipe rather than needing a second set of dark-only rules.
+
+   Set as a var block, NOT as component overrides, and placed BEFORE the motion
+   rules so specificity games are unnecessary. */
+[data-art='candlelight'] {
+  --color-paper: 24 22 20; /* warm near-black stock */
+  --color-paper-deep: 33 30 27; /* recessed plates lift, not sink, in the dark */
+  --color-ink: 240 234 224; /* warm cream type */
+  --color-cream: 24 22 20; /* legacy slot follows paper */
+  --color-veil: 44 39 34; /* the wash reads as candle-glow, not fog */
+  --color-gild: 201 163 106; /* brightened so the metallic still reads on black */
+}
+[data-art='candlelight'] .pahina-grain::before {
+  /* grain has to work HARDER on dark stock and must not multiply to mud */
+  opacity: 0.09;
+  mix-blend-mode: screen;
+}
+[data-art='candlelight'] .pahina-letterpress {
+  /* letterpress inverts in the dark: the lip goes above, the shadow below */
+  text-shadow:
+    0 -1px 0 rgb(var(--color-paper) / 0.9),
+    0 1px 1px rgb(0 0 0 / 0.5);
+}
+
 /* ── Pahina scroll choreography (wave A PR-5, design §6) ─────────────────────
    FAIL-VISIBLE BY CONSTRUCTION: the hidden state is scoped to `.pahina-js`,
    which only `PahinaMotionRootFlag` sets and which three separate failure paths

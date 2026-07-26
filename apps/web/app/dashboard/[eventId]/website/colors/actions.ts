@@ -67,10 +67,24 @@ export async function updateSiteColors(
     );
   }
 
+  // Pahina art direction (PR-5b). Read as PRESENT-OR-ABSENT, never as a value
+  // with a default: this action is posted by two different forms, and if a form
+  // that doesn't carry the field were treated as posting 'daylight' it would
+  // silently reset a couple's Candlelight choice on every colour save. That is
+  // the same data-wipe trap the editor's shared-fields rule exists to prevent —
+  // absent field ⇒ column untouched.
+  const artRaw = formData.get('site_art_direction');
+  const art =
+    artRaw === 'candlelight' || artRaw === 'daylight' ? (artRaw as string) : null;
+
   const supabase = await createClient();
   const { data: event, error } = await supabase
     .from('events')
-    .update({ site_bg_color: bg, site_button_color: button })
+    .update({
+      site_bg_color: bg,
+      site_button_color: button,
+      ...(art ? { site_art_direction: art } : {}),
+    })
     .eq('event_id', eventId)
     .select('slug')
     .maybeSingle();

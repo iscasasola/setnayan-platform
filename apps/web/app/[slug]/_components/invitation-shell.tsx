@@ -15,6 +15,7 @@ import { PahinaMotionObserver, PahinaMotionRootFlag } from './pahina-motion';
  * The footer goes transparent over the backdrop's bottom vignette.
  */
 export function InvitationShell({
+  artDirection,
   children,
   backdrop,
   rolePalette,
@@ -23,6 +24,10 @@ export function InvitationShell({
   hideWatermark = false,
   customColorVars,
 }: {
+  /** Pahina art direction (PR-5b). Only 'candlelight' stamps an attribute —
+   *  daylight renders exactly today's DOM, so every existing event is
+   *  byte-stable. The dark recipe is a var block in globals.css. */
+  artDirection?: 'daylight' | 'candlelight' | null;
   children: React.ReactNode;
   /** Pahina (wave A PR-2): couple's monogram text for the header right slot —
    *  gild Fraunces italic. Falls back to the mono "Invitation" label. */
@@ -62,6 +67,7 @@ export function InvitationShell({
     return (
       <main
         className="min-h-dvh bg-cream text-ink"
+        data-art={artDirection === 'candlelight' ? 'candlelight' : undefined}
         style={themeVars ? (themeVars as React.CSSProperties) : undefined}
       >
         {children}
@@ -71,6 +77,7 @@ export function InvitationShell({
   return (
     <main
       className={`min-h-dvh text-ink ${backdrop ? 'relative' : 'bg-cream'}`}
+      data-art={artDirection === 'candlelight' ? 'candlelight' : undefined}
       style={themeVars ? (themeVars as React.CSSProperties) : undefined}
     >
       {/* Scroll choreography (design §6). Deliberately NOT on the fullBleed

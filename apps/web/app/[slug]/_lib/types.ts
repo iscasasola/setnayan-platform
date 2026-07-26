@@ -65,6 +65,9 @@ export type EventRow = {
   // Mood-Board-derived --color-cream / --color-mulberry tokens on the guest
   // site, applied ONLY when set AND the event owns active Website Pro
   // (loadMedia gates + resolves them into `siteColorVars`). NULL = inert.
+  /** Pahina art direction (migration 20271003190000). 'candlelight' flips the
+   *  guest site to the dark direction; absent/'daylight' = today's look. */
+  site_art_direction?: 'daylight' | 'candlelight' | null;
   site_bg_color?: string | null;
   site_button_color?: string | null;
   // Couple's love story (events.love_story JSONB, written at onboarding; also

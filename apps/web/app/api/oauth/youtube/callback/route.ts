@@ -1,10 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   exchangeYoutubeCodeForToken,
   fetchYoutubeChannel,
   getYoutubeOAuthConfig,
 } from '@/lib/panood-youtube';
+import { upsertPoolChannelGrant } from '@/lib/live-studio-channel-grants';
 
 // Iteration 0011 Panood — YouTube OAuth callback.
 //
@@ -37,6 +39,133 @@ function redirectWithError(
   return NextResponse.redirect(target);
 }
 
+/* ══════════════════════════════════════════════════════════════════════════════
+   WAVE 9 — the PLATFORM (Setnayan-owned pool channel) half of this callback.
+   Live_Studio_Unified_Spec_2026-07-25.md § 4h.
+
+   Everything above this line is the per-couple BYO flow and is untouched. This
+   function is reached ONLY when the incoming state matches no `oauth_state` row —
+   i.e. exactly where the route previously returned `state_not_found` — so it
+   cannot change the behaviour of a single existing connection. It returns null
+   when the state is not a pool state either, and the caller falls through to the
+   same error it always returned.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+function poolRedirect(origin: URL, params: Record<string, string>): NextResponse {
+  const target = new URL('/admin/live-studio-channels', origin);
+  for (const [k, v] of Object.entries(params)) target.searchParams.set(k, v);
+  return NextResponse.redirect(target);
+}
+
+async function completePoolChannelConnect(input: {
+  admin: SupabaseClient;
+  code: string;
+  state: string;
+  url: URL;
+}): Promise<NextResponse | null> {
+  const { admin, code, state, url } = input;
+
+  const { data: row } = await admin
+    .from('live_studio_channel_oauth_state')
+    .select('state_token, channel_pool_id, created_at')
+    .eq('state_token', state)
+    .maybeSingle();
+  if (!row) return null; // not a pool state → caller reports state_not_found
+
+  const stateRow = row as { channel_pool_id: number | null; created_at: string };
+  // Single-use, deleted regardless of outcome — a replayed code must not be able
+  // to re-mint a platform credential.
+  await admin.from('live_studio_channel_oauth_state').delete().eq('state_token', state);
+
+  const ageMin = (Date.now() - new Date(stateRow.created_at).getTime()) / 60_000;
+  if (ageMin > STATE_TTL_MIN) return poolRedirect(url, { error: 'state_expired' });
+
+  const config = await getYoutubeOAuthConfig();
+  if (!config.ready) return poolRedirect(url, { error: 'not_configured' });
+
+  let token;
+  try {
+    token = await exchangeYoutubeCodeForToken({
+      code,
+      clientId: config.clientId,
+      clientSecret: config.clientSecret,
+      redirectUri: config.redirectUri,
+    });
+  } catch {
+    // The exchange error body can echo request parameters — never forward it into
+    // a URL for a credential flow.
+    return poolRedirect(url, { error: 'exchange_failed' });
+  }
+  if (!token.refresh_token) return poolRedirect(url, { error: 'no_refresh_token' });
+
+  // ⚠ The channel read is BEST-EFFORT for a BYO grant but MANDATORY here: the
+  // pool is keyed by channel, so without knowing which channel just authorised we
+  // have nothing to key the grant to, and guessing would mean writing Setnayan's
+  // credentials against the wrong pool row.
+  const channel = await fetchYoutubeChannel(token.access_token);
+  if (!channel) return poolRedirect(url, { error: 'channel_lookup_failed' });
+
+  let channelPoolId = stateRow.channel_pool_id;
+
+  if (channelPoolId != null) {
+    // RE-CONNECT. Refuse if Google handed back a different channel than this pool
+    // row is for — an account-picker slip must not silently repoint a pool channel
+    // (and with it every event scheduled on it) at another YouTube account.
+    const { data: existing } = await admin
+      .from('live_studio_roam_channel_pool')
+      .select('id, youtube_channel_id')
+      .eq('id', channelPoolId)
+      .maybeSingle();
+    if (!existing) return poolRedirect(url, { error: 'channel_row_missing' });
+    if ((existing as { youtube_channel_id: string }).youtube_channel_id !== channel.id) {
+      return poolRedirect(url, { error: 'channel_mismatch' });
+    }
+  } else {
+    // NEW CHANNEL. `youtube_channel_id` is UNIQUE, so re-authorising an
+    // already-pooled channel lands on its existing row instead of a duplicate.
+    const { data: found } = await admin
+      .from('live_studio_roam_channel_pool')
+      .select('id')
+      .eq('youtube_channel_id', channel.id)
+      .maybeSingle();
+    if (found) {
+      channelPoolId = (found as { id: number }).id;
+    } else {
+      const { data: inserted, error: insErr } = await admin
+        .from('live_studio_roam_channel_pool')
+        .insert({
+          youtube_channel_id: channel.id,
+          label: channel.title,
+          status: 'available',
+          // ⚠ verified stays FALSE. Setnayan cannot see whether YouTube has
+          // enabled live streaming on this channel or whether its 24-hour
+          // first-stream wait has elapsed (owner action G1). An admin ticks
+          // "verified" after checking — the provisioner only claims verified
+          // channels, so a not-yet-live channel can never be handed to a wedding.
+          verified: false,
+        })
+        .select('id')
+        .maybeSingle();
+      if (insErr || !inserted) return poolRedirect(url, { error: 'pool_row_failed' });
+      channelPoolId = (inserted as { id: number }).id;
+    }
+  }
+
+  const saved = await upsertPoolChannelGrant(admin, {
+    channelPoolId: channelPoolId as number,
+    youtubeChannelId: channel.id,
+    refreshToken: token.refresh_token,
+    accessToken: token.access_token,
+    expiresInSeconds: token.expires_in,
+    scopes: token.scope ? token.scope.split(' ') : [],
+    displayName: channel.title,
+    thumbnailUrl: channel.thumbnailUrl,
+  });
+  if (!saved.ok) return poolRedirect(url, { error: 'persist_failed' });
+
+  return poolRedirect(url, { connected: '1' });
+}
+
 export async function GET(req: NextRequest) {
   const url = req.nextUrl;
   const code = url.searchParams.get('code');
@@ -62,6 +191,17 @@ export async function GET(req: NextRequest) {
     .eq('provider', 'youtube')
     .maybeSingle();
   if (!stateRow) {
+    // ── WAVE 9 · the PLATFORM (pool channel) branch ─────────────────────────
+    // Setnayan's own channel has no event_id, so its CSRF nonce cannot live in
+    // `oauth_state` (event_id is NOT NULL REFERENCES events). It lives in
+    // `live_studio_channel_oauth_state` instead, and this is where that flow
+    // rejoins. Placed AFTER the per-event lookup and reached only where the
+    // route already returned an error, so the couple-BYO path is byte-for-byte
+    // unchanged: a per-event state always matches above and never gets here.
+    // A pool state row exists only if the admin-gated, flag-gated
+    // /api/oauth/youtube/pool/start created one.
+    const pool = await completePoolChannelConnect({ admin, code, state, url });
+    if (pool) return pool;
     return redirectWithError(url, null, 'state_not_found');
   }
   const eventId = stateRow.event_id as string;

@@ -213,7 +213,11 @@ export async function EventDashboard({
       const leanSelect =
         'event_id, display_name, event_date, event_date_precision, venue_name, region, estimated_budget_centavos, palette_finalized_at, event_type, ceremony_type, planning_mode, setnayan_ai_active';
       const leanRes = await supabase
-        .from('events')
+        // SEC-2b: public.events_host, not public.events — this select names a column
+        // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
+        // on the base table by 20271008731642. The view is the couple/moderator-scoped
+        // read path; same columns, same row shape, guests get zero rows.
+        .from('events_host')
         .select(leanSelect)
         .eq('event_id', eventId)
         .maybeSingle();

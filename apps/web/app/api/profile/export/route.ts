@@ -166,19 +166,39 @@ export async function GET() {
     // carry sensitive per-partner birth date/time + consent for the BaZi
     // date-check. The membership join above under-exports events (public_id /
     // display_name / event_date / slug only), so the opt-in birth fields would
-    // be invisible without this owner-scoped select. RLS-enforced reads via the
-    // user-session client (couple_can read their own event), so a user only ever
-    // exports their OWN event birth data. Kept to the couple grain: a
+    // be invisible without this owner-scoped select. Kept to the couple grain: a
     // coordinator on someone else's event must NOT export the couple's birth data.
-    supabase
-      .from('event_members')
-      .select(
-        'event_id, events(public_id, display_name, event_date, ceremony_type, secondary_ceremony_type, ' +
-          'partner_a_birth_date, partner_a_birth_time, partner_b_birth_date, ' +
-          'partner_b_birth_time, bazi_birthdata_consent_at)',
-      )
-      .eq('user_id', user.id)
-      .eq('member_type', 'couple'),
+    //
+    // SEC-2b (20271008731642): the birth columns are SELECT-denied to
+    // `authenticated` on public.events, so the old
+    // `event_members → events(…birth…)` EMBED now 42501s for EVERYONE — it was
+    // also the one embed in the codebase through which a plain GUEST could pull
+    // the couple's birth data. Split in two: the membership query resolves the
+    // caller's OWN couple event ids, then public.events_host (host-scoped
+    // definer view) returns the private columns for exactly those. The
+    // member_type='couple' filter is what keeps this at the couple grain —
+    // events_host by itself would also admit an accepted moderator.
+    (async () => {
+      const owned = await supabase
+        .from('event_members')
+        .select('event_id')
+        .eq('user_id', user.id)
+        .eq('member_type', 'couple');
+      const ids = (owned.data ?? [])
+        .map((r) => (r as { event_id?: string }).event_id)
+        .filter((id): id is string => typeof id === 'string');
+      if (owned.error || ids.length === 0) {
+        return { data: [] as unknown[], error: owned.error ?? null };
+      }
+      return supabase
+        .from('events_host')
+        .select(
+          'event_id, public_id, display_name, event_date, ceremony_type, secondary_ceremony_type, ' +
+            'partner_a_birth_date, partner_a_birth_time, partner_b_birth_date, ' +
+            'partner_b_birth_time, bazi_birthdata_consent_at',
+        )
+        .in('event_id', ids);
+    })(),
     supabase
       .from('vendor_profiles')
       .select('*')
@@ -441,14 +461,16 @@ export async function GET() {
     profile: profile.row,
     event_memberships: events.rows,
     // RA 10173 (PR-G) — the sensitive birth fields the user opted in to (BaZi
-    // date-check), for events they own. The `events` join shape is the owner's
-    // own row; flatten to the birth-relevant fields so the export is explicit
-    // about what sensitive data Setnayan holds.
+    // date-check), for events they own. Flattened to the birth-relevant fields
+    // so the export is explicit about what sensitive data Setnayan holds.
+    // SEC-2b: rows now come FLAT off public.events_host (the host-scoped view)
+    // rather than as an `events` embed under an event_members row — see the
+    // query above. Kept tolerant of either shape so the mapping is not the
+    // thing that breaks if the query is ever restructured again.
     owned_event_birth_data: ownedEvents.rows.map((row) => {
-      // Supabase types a to-one embed as an object, but can surface it as a
-      // single-element array depending on the relationship hint — normalize both.
       const rawEv = (row as { events?: unknown }).events;
-      const ev = (Array.isArray(rawEv) ? rawEv[0] : rawEv) as Record<string, unknown> | null;
+      const embedded = (Array.isArray(rawEv) ? rawEv[0] : rawEv) as Record<string, unknown> | null;
+      const ev = embedded ?? (row as Record<string, unknown>);
       return {
         event_id: (row as { event_id?: string }).event_id ?? null,
         public_id: (ev?.public_id as string | null) ?? null,

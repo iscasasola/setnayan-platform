@@ -308,7 +308,11 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
   // Pull event + meaningful dates in one round trip.
   const [eventRes, meaningfulRes] = await Promise.all([
     supabase
-      .from('events')
+      // SEC-2b: public.events_host, not public.events — this select names a column
+      // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
+      // on the base table by 20271008731642. The view is the couple/moderator-scoped
+      // read path; same columns, same row shape, guests get zero rows.
+      .from('events_host')
       .select(
         'event_id, display_name, event_date, ceremony_type, secondary_ceremony_type, date_status, event_date_precision, date_candidates, estimated_budget_centavos',
       )

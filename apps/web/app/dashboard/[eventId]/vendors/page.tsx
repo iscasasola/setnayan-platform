@@ -174,7 +174,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const [vendors, eventCtx, photoMaps] = await Promise.all([
     fetchEventVendors(supabase, eventId),
     supabase
-      .from('events')
+      // SEC-2b: public.events_host, not public.events — this select names a column
+      // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
+      // on the base table by 20271008731642. The view is the couple/moderator-scoped
+      // read path; same columns, same row shape, guests get zero rows.
+      .from('events_host')
       .select(
         'event_date, event_date_precision, estimated_budget_centavos, mood_board_updated_at, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode, setnayan_ai_active, style_preferences',
       )

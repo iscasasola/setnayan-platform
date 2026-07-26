@@ -53,7 +53,11 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
   if (!user) redirect('/login');
 
   const { data: event } = await supabase
-    .from('events')
+    // SEC-2b: public.events_host, not public.events — this select names a column
+    // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
+    // on the base table by 20271008731642. The view is the couple/moderator-scoped
+    // read path; same columns, same row shape, guests get zero rows.
+    .from('events_host')
     .select(
       'display_name, event_date, photo_delivery_sync_mode, photo_delivery_status, photo_delivery_folder_id, photo_delivery_folder_name, photo_delivery_account_email, photo_delivery_progress_pct, photo_delivery_failed_count, photo_delivery_completed_at',
     )

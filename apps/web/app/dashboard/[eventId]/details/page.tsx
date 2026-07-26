@@ -54,7 +54,11 @@ export default async function PersonalizationPage({
   if (!user) redirect('/login');
 
   const { data: event, error: eventError } = await supabase
-    .from('events')
+    // SEC-2b: public.events_host, not public.events — this select names a column
+    // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
+    // on the base table by 20271008731642. The view is the couple/moderator-scoped
+    // read path; same columns, same row shape, guests get zero rows.
+    .from('events_host')
     .select(
       'event_id, display_name, event_type, bride_name, groom_name, region, mood_feel_key, ' +
         'estimated_budget_centavos, budget_band, ceremony_type, secondary_ceremony_type, ' +
